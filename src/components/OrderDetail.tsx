@@ -24,24 +24,29 @@ import {
 } from 'lucide-react'
 
 function StatusTimeline({ order }: { order: Order }) {
-  const effectiveStatus = order.status === 'refund_requested' && order.statusBeforeRefund
-    ? order.statusBeforeRefund
+  const preRefundStatus = order.status === 'refund_requested'
+    ? (order.statusBeforeRefund ?? 'pending')
     : order.status
 
   const steps = [
     { label: '下单成功', done: true, time: order.orderDate },
     {
-      label: order.status === 'cancelled' ? '已取消' : '已出餐',
-      done: ['served', 'verified', 'refund_requested'].includes(order.status) ||
-            (order.status === 'refund_requested' && ['served', 'verified'].includes(order.statusBeforeRefund ?? '')),
-      time: effectiveStatus === 'pending' ? '' : order.orderDate,
+      label: '已出餐',
+      done: ['served', 'verified'].includes(preRefundStatus),
+      time: ['served', 'verified'].includes(preRefundStatus) ? order.orderDate : '',
     },
     {
       label: '已核销',
-      done: effectiveStatus === 'verified',
+      done: preRefundStatus === 'verified',
       time: order.verifiedAt ?? '',
     },
   ]
+
+  const refundLabel = order.statusBeforeRefund === 'verified'
+    ? '已核销退餐'
+    : order.statusBeforeRefund === 'served'
+    ? '已出餐退餐'
+    : '待出餐退餐'
 
   return (
     <div className="space-y-3">
@@ -80,7 +85,7 @@ function StatusTimeline({ order }: { order: Order }) {
             <RotateCcw size={14} className="text-red-500" />
           </div>
           <div className="pt-0.5">
-            <p className="text-xs font-medium text-red-600">退餐申请</p>
+            <p className="text-xs font-medium text-red-600">{refundLabel}</p>
             {order.refundReason && (
               <p className="text-[11px] text-red-400 mt-0.5">
                 原因：{REFUND_REASON_LABELS[order.refundReason]}
@@ -89,7 +94,7 @@ function StatusTimeline({ order }: { order: Order }) {
             {order.isServedRefund && (
               <p className="text-[11px] text-amber-600 mt-0.5 flex items-center gap-1">
                 <AlertTriangle size={10} />
-                已出餐退餐，需确认处理
+                {order.statusBeforeRefund === 'verified' ? '已核销后退餐，需确认退费方式' : '已出餐后退餐，需确认退费方式'}
               </p>
             )}
           </div>
@@ -112,7 +117,7 @@ export default function OrderDetail() {
     )
   }
 
-  const hasAbnormal = order.subsidyExpired || order.duplicateOrder || order.isServedRefund
+  const hasAbnormal = order.subsidyExpired || order.duplicateOrder || order.status === 'refund_requested'
 
   return (
     <div className="w-96 border-l border-stone-200 bg-white flex flex-col h-full">
@@ -135,7 +140,15 @@ export default function OrderDetail() {
           <ul className="text-xs text-red-600 space-y-0.5">
             {order.subsidyExpired && <li>· 补贴资格已过期，请核实续期情况</li>}
             {order.duplicateOrder && <li>· 存在重复订餐，请确认是否为误操作</li>}
-            {order.isServedRefund && <li>· 已出餐后退餐，需确认退费方式</li>}
+            {order.status === 'refund_requested' && order.statusBeforeRefund === 'verified' && (
+              <li>· 已核销后退餐，需确认退费方式</li>
+            )}
+            {order.status === 'refund_requested' && order.statusBeforeRefund === 'served' && (
+              <li>· 已出餐后退餐，需确认退费方式</li>
+            )}
+            {order.status === 'refund_requested' && (order.statusBeforeRefund === 'pending' || !order.statusBeforeRefund) && (
+              <li>· 退餐申请待处理</li>
+            )}
           </ul>
         </div>
       )}

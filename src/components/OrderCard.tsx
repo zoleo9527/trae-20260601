@@ -18,11 +18,14 @@ function getAbnormalTags(order: Order) {
   if (order.duplicateOrder) {
     tags.push({ label: '重复订餐', color: 'bg-amber-100 text-amber-700' })
   }
-  if (order.isServedRefund) {
-    tags.push({ label: '已出餐退餐', color: 'bg-rose-100 text-rose-700' })
-  }
   if (order.status === 'refund_requested') {
-    tags.push({ label: '退餐申请', color: 'bg-red-100 text-red-700' })
+    const refundLabel = order.statusBeforeRefund === 'verified'
+      ? '已核销退餐'
+      : order.statusBeforeRefund === 'served'
+      ? '已出餐退餐'
+      : '退餐申请'
+    const refundColor = order.isServedRefund ? 'bg-rose-100 text-rose-700' : 'bg-red-100 text-red-700'
+    tags.push({ label: refundLabel, color: refundColor })
   }
   return tags
 }

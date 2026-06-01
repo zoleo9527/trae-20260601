@@ -139,14 +139,18 @@ export const useOrderStore = create<OrderStore>((set, get) => ({
             }
           : o
       )
-      return { orders: updated, showRefundModal: false, refundTargetId: null }
+      const nextSelected = new Set(state.selectedOrderIds)
+      nextSelected.delete(orderId)
+      return { orders: updated, selectedOrderIds: nextSelected, showRefundModal: false, refundTargetId: null }
     }),
 
   cancelRefund: (orderId) =>
     set((state) => {
+      let restoredStatus: string | null = null
       const updated = state.orders.map((o) => {
         if (o.id !== orderId || o.status !== 'refund_requested') return o
         const originalStatus = o.statusBeforeRefund ?? 'pending'
+        restoredStatus = originalStatus
         return {
           ...o,
           status: originalStatus as OrderStatus,
@@ -155,7 +159,11 @@ export const useOrderStore = create<OrderStore>((set, get) => ({
           statusBeforeRefund: null,
         }
       })
-      return { orders: updated }
+      const nextSelected = new Set(state.selectedOrderIds)
+      if (restoredStatus !== 'served') {
+        nextSelected.delete(orderId)
+      }
+      return { orders: updated, selectedOrderIds: nextSelected }
     }),
 
   setShowAddMealModal: (show) => set({ showAddMealModal: show }),
