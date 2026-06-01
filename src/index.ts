@@ -1,7 +1,9 @@
 import cors from 'cors';
 import express, { NextFunction, Request, Response } from 'express';
 import { AppDataSource } from './data-source';
+import { Class } from './entities/Class';
 import { setupRoutes } from './routes';
+import { seedDatabase } from './seeds';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -22,8 +24,16 @@ app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
 });
 
 AppDataSource.initialize()
-  .then(() => {
+  .then(async () => {
     console.log('Database connected');
+    
+    const classRepo = AppDataSource.getRepository(Class);
+    const count = await classRepo.count();
+    if (count === 0) {
+      console.log('Empty database detected, seeding initial data...');
+      await seedDatabase(AppDataSource);
+    }
+    
     app.listen(PORT, () => {
       console.log(`Server running on http://localhost:${PORT}`);
     });

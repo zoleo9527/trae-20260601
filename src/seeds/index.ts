@@ -1,5 +1,5 @@
 import 'reflect-metadata';
-import { AppDataSource } from '../data-source';
+import { DataSource } from 'typeorm';
 import { Attendance } from '../entities/Attendance';
 import { Certificate } from '../entities/Certificate';
 import { Class } from '../entities/Class';
@@ -9,18 +9,15 @@ import { Session } from '../entities/Session';
 import { Shipment } from '../entities/Shipment';
 import { Student } from '../entities/Student';
 
-async function seed() {
-  await AppDataSource.initialize();
-  console.log('Database connected');
-
-  const classRepository = AppDataSource.getRepository(Class);
-  const studentRepository = AppDataSource.getRepository(Student);
-  const sessionRepository = AppDataSource.getRepository(Session);
-  const attendanceRepository = AppDataSource.getRepository(Attendance);
-  const makeupRepository = AppDataSource.getRepository(MakeupRequest);
-  const certificateRepository = AppDataSource.getRepository(Certificate);
-  const shipmentRepository = AppDataSource.getRepository(Shipment);
-  const noteRepository = AppDataSource.getRepository(Note);
+export async function seedDatabase(dataSource: DataSource) {
+  const classRepository = dataSource.getRepository(Class);
+  const studentRepository = dataSource.getRepository(Student);
+  const sessionRepository = dataSource.getRepository(Session);
+  const attendanceRepository = dataSource.getRepository(Attendance);
+  const makeupRepository = dataSource.getRepository(MakeupRequest);
+  const certificateRepository = dataSource.getRepository(Certificate);
+  const shipmentRepository = dataSource.getRepository(Shipment);
+  const noteRepository = dataSource.getRepository(Note);
 
   console.log('Creating classes...');
   const class1 = classRepository.create({
@@ -129,7 +126,7 @@ async function seed() {
         sessionId: session.id,
         status,
         makeupApplied: student.name === '李四' && idx === 3,
-        makeupCompleted: student.name === '李四' && idx === 3 ? true : false,
+        makeupCompleted: false,
       });
       attendances.push(attendance);
     });
@@ -163,17 +160,14 @@ async function seed() {
 
   console.log('Creating makeup requests...');
   const lisi = savedStudents.find(s => s.name === '李四');
-  const lisiAbsentAttendance = savedAttendances.find(a => 
-    a.studentId === lisi?.id && a.status === 'absent' && a.makeupCompleted === false
-  );
-  const lisiAbsentAttendance2 = savedAttendances.find(a => 
-    a.studentId === lisi?.id && a.status === 'absent' && a.makeupCompleted === false && a.id !== lisiAbsentAttendance?.id
+  const lisiAbsentAttendances = savedAttendances.filter(a => 
+    a.studentId === lisi?.id && a.status === 'absent'
   );
   
   const makeupRequests = [
     makeupRepository.create({
       studentId: lisi!.id,
-      originalAttendanceId: lisiAbsentAttendance!.id,
+      originalAttendanceId: lisiAbsentAttendances[0].id,
       status: 'pending',
       reason: '生病请假，申请补课',
       preferredDate: new Date(2026, 5, 15, 14, 0, 0),
@@ -211,7 +205,7 @@ async function seed() {
       studentId: graduatedStudents[2].id,
       certificateNo: 'CERT20260003',
       certificateType: 'Python全栈工程师认证',
-      status: 'shipped',
+      status: 'printed',
       addressConfirmed: true,
       shippingAddress: graduatedStudents[2].address,
       shippingName: graduatedStudents[2].name,
@@ -301,7 +295,17 @@ async function seed() {
   console.log('2. 证书信息待确认: 赵六 证书地址未确认');
   console.log('3. 快递退回: 吴九 证书因地址错误被退回');
   
+  return { savedStudents, savedSessions, savedAttendances, savedCertificates, shipments };
+}
+
+async function seed() {
+  const { AppDataSource } = await import('../data-source');
+  await AppDataSource.initialize();
+  console.log('Database connected');
+  await seedDatabase(AppDataSource);
   await AppDataSource.destroy();
 }
 
-seed().catch(console.error);
+if (require.main === module) {
+  seed().catch(console.error);
+}
