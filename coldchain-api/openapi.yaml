@@ -244,8 +244,11 @@ paths:
       summary: 自动检测温度越界区间
       description: |
         扫描运单的温控采样数据，检测温度越界区间。
-        - 连续越界采样点（间隔≤10分钟）归为同一异常区间
-        - 支持按时间范围限定检测范围
+
+        **异常区间合并规则：**
+        - 相邻越界采样点的时间间隔 ≤ 60 分钟 → 归为同一异常区间
+        - 每段区间记录起止时间、温度极值、持续时长、越界采样点数
+        - 支持按 `from` / `to` 参数限定检测时间范围
         - 每次检测会创建新的异常区间记录
       operationId: detectAnomalies
       parameters:
@@ -351,7 +354,17 @@ paths:
       summary: 上传签收材料
       description: |
         司机上传签收照片和签收信息，同时自动将运单状态变更为 delivered。
-        支持通过 multipart/form-data 上传照片文件，也可通过 photo_urls 字段提供已有 URL。
+
+        **支持两种请求格式：**
+
+        1. **multipart/form-data**：适合需要上传本地照片文件时使用
+           - `photos` 字段：二进制文件数组（最多10张）
+           - `photo_urls` 字段：已有照片URL的JSON字符串（例如 `["https://...", "https://..."]`）
+
+        2. **application/json**：只有远程URL时使用，无需上传文件
+           - `photo_urls` 字段：字符串数组（直接传 JSON 数组，无需再 JSON 化）
+
+        两种格式的其他字段完全一致。
       operationId: uploadDeliveryReceipt
       parameters:
         - $ref: "#/components/parameters/ShipmentId"
@@ -368,10 +381,33 @@ paths:
                   items:
                     type: string
                     format: binary
-                  description: 签收照片（最多10张）
+                  description: 本地照片文件（最多10张，multipart 专用）
                 photo_urls:
                   type: string
-                  description: 已有照片URL的JSON数组
+                  description: 已有照片URL的JSON字符串，例如 '[\"url1\",\"url2\"]'
+                receiver_name:
+                  type: string
+                receiver_phone:
+                  type: string
+                received_at:
+                  type: string
+                  format: date-time
+                temperature_at_delivery:
+                  type: number
+                notes:
+                  type: string
+                uploaded_by:
+                  type: string
+          application/json:
+            schema:
+              type: object
+              required: [receiver_name, received_at]
+              properties:
+                photo_urls:
+                  type: array
+                  items:
+                    type: string
+                  description: 签收照片URL数组
                 receiver_name:
                   type: string
                 receiver_phone:

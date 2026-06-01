@@ -308,7 +308,14 @@ app.patch('/api/anomaly-intervals/:id/confirm', (req, res) => {
   res.json(rowToObj(updated))
 })
 
-app.post('/api/shipments/:id/delivery-receipt', upload.array('photos', 10), (req, res) => {
+app.post('/api/shipments/:id/delivery-receipt', (req, res, next) => {
+  const contentType = req.headers['content-type'] || ''
+  if (contentType.includes('multipart/form-data')) {
+    upload.array('photos', 10)(req, res, next)
+  } else {
+    next()
+  }
+}, (req, res) => {
   const shipment = db.prepare('SELECT * FROM shipments WHERE id = ?').get(req.params.id)
   if (!shipment) return res.status(404).json({ error: '运单不存在' })
 
@@ -316,9 +323,18 @@ app.post('/api/shipments/:id/delivery-receipt', upload.array('photos', 10), (req
   if (existing) return res.status(409).json({ error: '该运单已有签收记录' })
 
   const b = req.body
-  const photoUrls = (req.files || []).map(f => `/uploads/${f.filename}`)
+  const photoUrls = []
+
+  if (req.files && Array.isArray(req.files)) {
+    photoUrls.push(...req.files.map(f => `/uploads/${f.filename}`))
+  }
+
   if (b.photo_urls) {
-    try { photoUrls.push(...JSON.parse(b.photo_urls)) } catch {}
+    if (Array.isArray(b.photo_urls)) {
+      photoUrls.push(...b.photo_urls)
+    } else if (typeof b.photo_urls === 'string') {
+      try { photoUrls.push(...JSON.parse(b.photo_urls)) } catch {}
+    }
   }
 
   const id = uuidv7()
@@ -337,7 +353,7 @@ app.post('/api/shipments/:id/delivery-receipt', upload.array('photos', 10), (req
   auditLog(db, {
     entity_type: 'shipment', entity_id: req.params.id, action: 'delivery_receipt_uploaded',
     old_value: shipment.status, new_value: 'delivered', changed_by: b.uploaded_by || shipment.driver_name,
-    details: { receiver: b.receiver_name, photo_count: photoUrls.length }
+    details: { receiver: b.receiver_name, photo_count: photoUrls.length, uploaded_files: (req.files || []).length }
   })
 
   const result = db.prepare('SELECT * FROM delivery_receipts WHERE id = ?').get(id)

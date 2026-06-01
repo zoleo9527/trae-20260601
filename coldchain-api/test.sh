@@ -119,27 +119,35 @@ $C -X PATCH "$BASE/api/anomaly-intervals/$ANOMALY_ID/confirm" -H "Content-Type: 
   "confirmed_by": "质控员-陈博士"
 }' | python3 -c "import sys,json; d=json.load(sys.stdin); print(f'  确认状态: {d[\"confirmed\"]}, 确认人: {d[\"confirmed_by\"]}, 状态: {d[\"status\"]}')" 2>/dev/null && ok "异常确认成功" || fail "异常确认失败"
 
-step "11. 上传签收材料"
-RECEIPT=$($C -X POST "$BASE/api/shipments/$SHIP1_ID/delivery-receipt" -H "Content-Type: application/json" -d '{
-  "receiver_name": "李护士长",
-  "receiver_phone": "0731-85551234",
-  "received_at": "2026-06-01T12:15:00Z",
-  "temperature_at_delivery": 4.2,
-  "photo_urls": ["https://example.com/photos/sign_001.jpg", "https://example.com/photos/thermo_001.jpg"],
-  "notes": "外包装完好，但温度记录仪显示中途有报警",
-  "uploaded_by": "赵师傅"
-}')
+step "11. 准备测试图片"
+TMP_PHOTO=$(mktemp /tmp/coldchain_test_XXXXXX.jpg)
+echo "fake jpg placeholder" > "$TMP_PHOTO"
+info "临时图片: $TMP_PHOTO"
+
+step "12. 上传签收材料 (multipart/form-data: 文件 + URL)"
+RECEIPT=$($C -X POST "$BASE/api/shipments/$SHIP1_ID/delivery-receipt" \
+  -F "receiver_name=李护士长" \
+  -F "receiver_phone=0731-85551234" \
+  -F "received_at=2026-06-01T12:15:00Z" \
+  -F "temperature_at_delivery=4.2" \
+  -F "photo_urls=[\"https://example.com/photos/sign_001.jpg\"]" \
+  -F "notes=外包装完好，但温度记录仪显示中途有报警" \
+  -F "uploaded_by=赵师傅" \
+  -F "photos=@$TMP_PHOTO")
 RECEIPT_ID=$(echo "$RECEIPT" | python3 -c "import sys,json; print(json.load(sys.stdin)['id'])" 2>/dev/null)
-if [ -n "$RECEIPT_ID" ]; then
-  ok "签收材料上传成功"
+PHOTO_COUNT=$(echo "$RECEIPT" | python3 -c "import sys,json; print(len(json.load(sys.stdin)['photo_urls']))" 2>/dev/null)
+if [ -n "$RECEIPT_ID" ] && [ "$PHOTO_COUNT" = "2" ]; then
+  echo "$RECEIPT" | python3 -c "import sys,json; d=json.load(sys.stdin); print(f'  photo_urls: {d[\"photo_urls\"]}')" 2>/dev/null
+  ok "签收材料上传成功（文件上传 + URL 共 $PHOTO_COUNT 张）"
 else
-  fail "签收材料上传失败"
+  echo "  RECEIPT: $RECEIPT"
+  fail "签收材料上传失败或 photo_urls 缺失（期望 2 张，实际: $PHOTO_COUNT）"
 fi
 
-step "12. 验证运单状态已自动变为 delivered"
+step "13. 验证运单状态已自动变为 delivered"
 $C "$BASE/api/shipments/$SHIP1_ID" | python3 -c "import sys,json; d=json.load(sys.stdin); print(f'  当前状态: {d[\"status\"]}')" 2>/dev/null | grep -q "delivered" && ok "运单已自动变更为 delivered" || fail "状态未自动变更"
 
-step "13. 发起争议"
+step "14. 发起争议"
 DISPUTE=$($C -X POST "$BASE/api/shipments/$SHIP1_ID/disputes" -H "Content-Type: application/json" -d "{
   \"reason\": \"客户签收后发现疫苗中途温度越界，要求提供全程温控证明和赔偿\",
   \"initiated_by\": \"客服-周敏\",
@@ -153,30 +161,61 @@ else
   fail "争议创建失败"
 fi
 
-step "14. 验证运单状态已变为 disputed"
+step "15. 验证运单状态已变为 disputed"
 $C "$BASE/api/shipments/$SHIP1_ID" | python3 -c "import sys,json; d=json.load(sys.stdin); print(f'  当前状态: {d[\"status\"]}')" 2>/dev/null | grep -q "disputed" && ok "运单已变更为 disputed" || fail "状态变更异常"
 
-step "15. 质控复核 — 设为 reviewing"
+step "16. 质控复核 — 设为 reviewing"
 $C -X PATCH "$BASE/api/disputes/$DISPUTE_ID" -H "Content-Type: application/json" -d '{
   "status": "reviewing",
   "resolved_by": "质控主管-孙工"
 }' | python3 -c "import sys,json; d=json.load(sys.stdin); print(f'  争议状态: {d[\"status\"]}')" 2>/dev/null && ok "争议进入复核"
 
-step "16. 质控给出结论 — resolved"
+step "17. 质控给出结论 — resolved"
 $C -X PATCH "$BASE/api/disputes/$DISPUTE_ID" -H "Content-Type: application/json" -d '{
   "status": "resolved",
   "resolution": "温度越界确认属实。8:30-10:00期间冷链设备故障导致温度升至11.5°C，越界时长1.5小时。建议更换供应商设备并赔偿客户相应损失。",
   "resolved_by": "质控主管-孙工"
 }' | python3 -c "import sys,json; d=json.load(sys.stdin); print(f'  结论: {d[\"resolution\"][:50]}...')" 2>/dev/null && ok "争议解决成功"
 
-step "17. 验证运单最终状态"
+step "18. 验证运单最终状态"
 $C "$BASE/api/shipments/$SHIP1_ID" | python3 -c "import sys,json; d=json.load(sys.stdin); print(f'  运单状态: {d[\"status\"]}')" 2>/dev/null | grep -q "closed" && ok "运单已关闭 (closed)" || fail "运单状态异常"
 
-step "18. 查询种子数据的运单"
+step "19. 测试 application/json 格式的签收 (新建运单)"
+SHIP2=$($C -X POST "$BASE/api/shipments" -H "Content-Type: application/json" -d '{
+  "shipment_no": "TEST-CC-002",
+  "origin": "成都冷链中心",
+  "destination": "重庆配送站",
+  "driver_name": "周师傅",
+  "temp_min": -18.0,
+  "temp_max": -10.0,
+  "product_name": "冷冻牛肉",
+  "product_category": "food",
+  "created_by": "调度员-测试"
+}')
+SHIP2_ID=$(echo "$SHIP2" | python3 -c "import sys,json; print(json.load(sys.stdin)['id'])" 2>/dev/null)
+RECEIPT2=$($C -X POST "$BASE/api/shipments/$SHIP2_ID/delivery-receipt" -H "Content-Type: application/json" -d '{
+  "receiver_name": "张经理",
+  "receiver_phone": "023-8888-7777",
+  "received_at": "2026-06-01T18:00:00Z",
+  "temperature_at_delivery": -14.5,
+  "photo_urls": ["https://cdn.example.com/frozen_01.jpg", "https://cdn.example.com/frozen_02.jpg", "https://cdn.example.com/frozen_03.jpg"],
+  "notes": "冷冻牛肉，外观完好，重量正常",
+  "uploaded_by": "周师傅"
+}')
+PHOTO_COUNT2=$(echo "$RECEIPT2" | python3 -c "import sys,json; d=json.load(sys.stdin); print(len(d.get('photo_urls', [])))" 2>/dev/null)
+if [ "$PHOTO_COUNT2" = "3" ]; then
+  echo "$RECEIPT2" | python3 -c "import sys,json; d=json.load(sys.stdin); print(f'  签收人: {d[\"receiver_name\"]}, photo_urls: {d[\"photo_urls\"]}')" 2>/dev/null
+  ok "application/json 格式签收成功，照片URL共 $PHOTO_COUNT2 张"
+else
+  echo "  RECEIPT2: $RECEIPT2"
+  fail "application/json 格式签收失败（期望 3 张照片，实际: $PHOTO_COUNT2）"
+fi
+
+step "20. 查询种子数据的运单"
 SEED_LIST=$($C "$BASE/api/shipments?status=disputed")
 echo "$SEED_LIST" | python3 -c "import sys,json; d=json.load(sys.stdin); print(f'  disputed 运单: {d[\"total\"]}条')" 2>/dev/null && ok "种子数据查询成功"
 
-step "19. 查询全链路数据"
+step "21. 查询全链路数据"
 FULL=$($C "$BASE/api/shipments/$SHIP1_ID/full")
 echo "$FULL" | python3 -c "
 import sys,json
@@ -189,7 +228,7 @@ print(f'  争议: {len(d[\"disputes\"])}条')
 print(f'  审计日志: {len(d[\"audit_logs\"])}条')
 " 2>/dev/null && ok "全链路数据查询成功"
 
-step "20. 查询审计日志"
+step "22. 查询审计日志"
 $C "$BASE/api/audit-logs?entity_type=shipment&entity_id=$SHIP1_ID&limit=100" | python3 -c "
 import sys,json
 d=json.load(sys.stdin)
@@ -198,7 +237,11 @@ for log in d['data']:
     print(f'    [{log[\"changed_at\"][:19]}] {log[\"action\"]}: {log[\"old_value\"] or \"(新建)\"} → {log[\"new_value\"]} (by {log[\"changed_by\"]})')
 " 2>/dev/null && ok "审计日志查询成功"
 
+step "23. 清理临时文件"
+rm -f "$TMP_PHOTO"
+ok "临时文件已清理"
+
 echo ""
 echo -e "${GREEN}╔══════════════════════════════════════════╗${NC}"
-echo -e "${GREEN}║        所有测试通过 ✓                    ║${NC}"
+echo -e "${GREEN}║        所有 23 个测试通过 ✓              ║${NC}"
 echo -e "${GREEN}╚══════════════════════════════════════════╝${NC}"
