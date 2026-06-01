@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useAuthStore } from '@/store/authStore'
 import { useRouter } from 'next/navigation'
-import { Role } from '@prisma/client'
+import { Role } from '@/lib/constants'
 import { User, Shield, ShoppingCart, ClipboardCheck, Factory } from 'lucide-react'
 
 const roleOptions = [
@@ -21,6 +21,7 @@ export default function LoginPage() {
 
   const handleLogin = async (email: string) => {
     setLoading(true)
+    setSelectedRole(email)
     try {
       const response = await fetch('/api/auth/login', {
         method: 'POST',

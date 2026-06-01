@@ -1,11 +1,11 @@
 import { create } from 'zustand'
-import { Role } from '@prisma/client'
+import { RoleType } from '@/lib/constants'
 
 interface User {
   id: string
   email: string
   name: string
-  role: Role
+  role: RoleType
   supplierId?: string
 }
 

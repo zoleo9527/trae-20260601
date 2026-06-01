@@ -1,7 +1,7 @@
 'use client'
 
 import { useAuthStore } from '@/store/authStore'
-import { Role } from '@prisma/client'
+import { Role, roleLabels } from '@/lib/constants'
 import {
   FileText,
   ShoppingCart,
@@ -13,13 +13,7 @@ import {
 } from 'lucide-react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-
-const roleLabels: Record<Role, string> = {
-  [Role.PURCHASER]: '采购',
-  [Role.PROCESS_ENGINEER]: '工艺工程师',
-  [Role.QUALITY_INSPECTOR]: '质检',
-  [Role.SUPPLIER]: '供应商',
-}
+import { useEffect } from 'react'
 
 const navItems = [
   { href: '/dashboard', label: '工作台', icon: LayoutDashboard },
@@ -34,8 +28,13 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const router = useRouter()
 
+  useEffect(() => {
+    if (!isAuthenticated || !user) {
+      router.push('/login')
+    }
+  }, [isAuthenticated, user, router])
+
   if (!isAuthenticated || !user) {
-    router.push('/login')
     return null
   }
 
@@ -87,7 +86,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             </div>
             <div>
               <p className="font-medium text-gray-900">{user.name}</p>
-              <p className="text-xs text-gray-500">{roleLabels[user.role]}</p>
+              <p className="text-xs text-gray-500">{roleLabels[user.role] || user.role}</p>
             </div>
           </div>
           <button

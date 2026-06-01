@@ -14,7 +14,11 @@ import {
   CheckCircle,
   Send,
   Wrench,
+  ArrowLeft,
+  ShoppingCart,
+  ClipboardCheck,
 } from 'lucide-react'
+import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 
@@ -155,6 +159,12 @@ export default function ExceptionDetailPage() {
   return (
     <Layout>
       <div className="space-y-6 max-w-5xl">
+        <div>
+          <Link href="/exceptions" className="text-primary-600 text-sm flex items-center gap-1 mb-4">
+            <ArrowLeft size={16} /> 返回异常列表
+          </Link>
+        </div>
+
         <div className="card p-6">
           <div className="flex items-start justify-between mb-6">
             <div className="flex items-start gap-4">
@@ -180,7 +190,9 @@ export default function ExceptionDetailPage() {
             </div>
             <div>
               <p className="text-sm text-gray-500 mb-1">关联订单</p>
-              <p className="font-medium text-gray-900">{exception.purchaseOrder.orderNumber}</p>
+              <Link href={`/orders/${exception.purchaseOrder.id}`} className="font-medium text-primary-600 hover:underline">
+                {exception.purchaseOrder.orderNumber}
+              </Link>
             </div>
             <div>
               <p className="text-sm text-gray-500 mb-1">供应商</p>
@@ -208,11 +220,16 @@ export default function ExceptionDetailPage() {
 
         {exception.inspection && (
           <div className="card p-6">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                <FileText size={20} className="text-blue-600" />
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                  <ClipboardCheck size={20} className="text-blue-600" />
+                </div>
+                <h2 className="text-lg font-semibold text-gray-900">检验数据</h2>
               </div>
-              <h2 className="text-lg font-semibold text-gray-900">检验数据</h2>
+              <Link href={`/inspections/${exception.inspection.id}`} className="text-primary-600 text-sm hover:underline">
+                查看检验详情
+              </Link>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full">

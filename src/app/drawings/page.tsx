@@ -21,6 +21,7 @@ interface Drawing {
   createdAt: string
   canUseOldVersion: boolean
   isObsolete: boolean
+  changeLog: string
 }
 
 export default function DrawingsPage() {
