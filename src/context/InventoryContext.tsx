@@ -12,7 +12,7 @@ interface InventoryContextType {
   submitReinspection: (roomId: string) => void;
   initiateDeduction: (roomId: string, amount: number, remark: string) => void;
   cancelDeduction: (roomId: string, reason: string) => void;
-  recordNegotiation: (roomId: string, disputeId: string, result: string, resolution?: string) => void;
+  recordNegotiation: (roomId: string, disputeId: string, result: string, adjustedAmount?: number, resolution?: string) => void;
   getFilteredRooms: () => Room[];
   getStatusCounts: () => Record<RoomStatus, number>;
 }
@@ -80,6 +80,9 @@ export const InventoryProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           return {
             ...room,
             status: 'DEPOSIT_PENDING' as RoomStatus,
+            deductionAmount: amount,
+            deductionStatus: 'PENDING' as Room['deductionStatus'],
+            deductionRemark: remark,
             operationLogs: [...room.operationLogs, newLog],
           };
         }
@@ -92,10 +95,14 @@ export const InventoryProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     setRooms((prev) =>
       prev.map((room) => {
         if (room.id === roomId) {
-          const newLog = addOperationLog(room, '撤回扣款', `撤回原因：${reason}`);
+          const prevAmount = room.deductionAmount;
+          const newLog = addOperationLog(room, '撤回扣款', `撤回扣款¥${prevAmount}，原因：${reason}`);
           return {
             ...room,
             status: 'COMPLETED' as RoomStatus,
+            deductionAmount: 0,
+            deductionStatus: 'CANCELLED' as Room['deductionStatus'],
+            deductionRemark: `已撤回：${reason}`,
             operationLogs: [...room.operationLogs, newLog],
           };
         }
@@ -105,11 +112,15 @@ export const InventoryProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   }, [addOperationLog]);
 
   const recordNegotiation = useCallback(
-    (roomId: string, disputeId: string, result: string, resolution?: string) => {
+    (roomId: string, disputeId: string, result: string, adjustedAmount?: number, resolution?: string) => {
       setRooms((prev) =>
         prev.map((room) => {
           if (room.id === roomId) {
-            const newLog = addOperationLog(room, '记录协商结果', result);
+            const logRemark = adjustedAmount !== undefined && adjustedAmount !== room.deductionAmount
+              ? `${result}（扣款金额调整为¥${adjustedAmount}）`
+              : result;
+            const newLog = addOperationLog(room, '记录协商结果', logRemark);
+
             const updatedDisputes = room.disputes.map((dispute) => {
               if (dispute.id === disputeId) {
                 return {
@@ -130,9 +141,11 @@ export const InventoryProvider: React.FC<{ children: React.ReactNode }> = ({ chi
               }
               return dispute;
             });
+
             return {
               ...room,
               disputes: updatedDisputes,
+              deductionAmount: adjustedAmount !== undefined ? adjustedAmount : room.deductionAmount,
               operationLogs: [...room.operationLogs, newLog],
             };
           }

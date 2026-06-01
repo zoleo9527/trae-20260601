@@ -79,6 +79,9 @@ export const InventoryList: React.FC<InventoryListProps> = ({ onViewDetail }) =>
                   押金
                 </th>
                 <th className="px-3 py-2 text-left font-medium text-gray-600 text-[11px] uppercase tracking-wider">
+                  扣款
+                </th>
+                <th className="px-3 py-2 text-left font-medium text-gray-600 text-[11px] uppercase tracking-wider">
                   问题
                 </th>
                 <th className="px-3 py-2 text-left font-medium text-gray-600 text-[11px] uppercase tracking-wider">
@@ -108,6 +111,30 @@ export const InventoryList: React.FC<InventoryListProps> = ({ onViewDetail }) =>
                   <td className="px-3 py-2 text-gray-600">{room.checkOutDate}</td>
                   <td className="px-3 py-2">
                     <span className="font-medium text-gray-800">¥{room.depositAmount}</span>
+                  </td>
+                  <td className="px-3 py-2">
+                    {room.deductionAmount > 0 ? (
+                      <div>
+                        <span className="font-medium text-red-600">¥{room.deductionAmount}</span>
+                        <span
+                          className={`ml-1 text-[10px] font-medium px-1 py-0.5 rounded-sm ${
+                            room.deductionStatus === 'PENDING'
+                              ? 'bg-amber-100 text-amber-700'
+                              : room.deductionStatus === 'CANCELLED'
+                              ? 'bg-gray-100 text-gray-600'
+                              : 'bg-green-100 text-green-700'
+                          }`}
+                        >
+                          {room.deductionStatus === 'PENDING'
+                            ? '待确认'
+                            : room.deductionStatus === 'CANCELLED'
+                            ? '已撤回'
+                            : '已确认'}
+                        </span>
+                      </div>
+                    ) : (
+                      <span className="text-gray-400 text-[11px]">-</span>
+                    )}
                   </td>
                   <td className="px-3 py-2">
                     {room.issues.length > 0 ? (

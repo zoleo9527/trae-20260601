@@ -46,6 +46,8 @@ export interface OperationLog {
   remark: string;
 }
 
+export type DeductionStatus = 'NONE' | 'PENDING' | 'CANCELLED' | 'CONFIRMED';
+
 export interface Room {
   id: string;
   roomNumber: string;
@@ -56,6 +58,9 @@ export interface Room {
   checkOutDate: string;
   status: RoomStatus;
   depositAmount: number;
+  deductionAmount: number;
+  deductionStatus: DeductionStatus;
+  deductionRemark: string;
   photos: Photo[];
   issues: Issue[];
   disputes: Dispute[];

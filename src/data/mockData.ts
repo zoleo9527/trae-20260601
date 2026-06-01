@@ -11,6 +11,9 @@ export const mockRooms: Room[] = [
     checkOutDate: '2026-06-01',
     status: 'PENDING_REINSPECTION',
     depositAmount: 1000,
+    deductionAmount: 0,
+    deductionStatus: 'NONE',
+    deductionRemark: '',
     photos: [
       {
         id: 'p1',
@@ -92,6 +95,9 @@ export const mockRooms: Room[] = [
     checkOutDate: '2026-06-01',
     status: 'DEPOSIT_PENDING',
     depositAmount: 1500,
+    deductionAmount: 950,
+    deductionStatus: 'PENDING',
+    deductionRemark: '包含床垫清洗费和床品赔偿',
     photos: [
       {
         id: 'p4',
@@ -195,6 +201,9 @@ export const mockRooms: Room[] = [
     checkOutDate: '2026-06-01',
     status: 'DEPOSIT_PENDING',
     depositAmount: 800,
+    deductionAmount: 159,
+    deductionStatus: 'PENDING',
+    deductionRemark: '包含遥控器和毛巾赔偿',
     photos: [
       {
         id: 'p7',
@@ -298,6 +307,9 @@ export const mockRooms: Room[] = [
     checkOutDate: '2026-06-01',
     status: 'DEPOSIT_PENDING',
     depositAmount: 1200,
+    deductionAmount: 200,
+    deductionStatus: 'PENDING',
+    deductionRemark: '地毯清洗费',
     photos: [
       {
         id: 'p9',
@@ -377,6 +389,9 @@ export const mockRooms: Room[] = [
     checkOutDate: '2026-06-01',
     status: 'PENDING_CLEANING',
     depositAmount: 1000,
+    deductionAmount: 0,
+    deductionStatus: 'NONE',
+    deductionRemark: '',
     photos: [],
     issues: [],
     disputes: [],
@@ -400,6 +415,9 @@ export const mockRooms: Room[] = [
     checkOutDate: '2026-06-01',
     status: 'CHECKED_OUT_TODAY',
     depositAmount: 1500,
+    deductionAmount: 0,
+    deductionStatus: 'NONE',
+    deductionRemark: '',
     photos: [],
     issues: [],
     disputes: [],
@@ -423,6 +441,9 @@ export const mockRooms: Room[] = [
     checkOutDate: '2026-05-31',
     status: 'COMPLETED',
     depositAmount: 800,
+    deductionAmount: 0,
+    deductionStatus: 'NONE',
+    deductionRemark: '',
     photos: [],
     issues: [],
     disputes: [],

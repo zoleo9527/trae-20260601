@@ -42,14 +42,21 @@ export const InventoryDetail: React.FC<InventoryDetailProps> = ({ room, onBack }
 
   const [cleanerName, setCleanerName] = useState('');
   const [deductionAmount, setDeductionAmount] = useState(
-    room.issues.reduce((sum, issue) => sum + issue.estimatedCost, 0)
+    room.deductionAmount > 0
+      ? room.deductionAmount
+      : room.issues.reduce((sum, issue) => sum + issue.estimatedCost, 0)
   );
   const [deductionRemark, setDeductionRemark] = useState('');
   const [cancelReason, setCancelReason] = useState('');
   const [negotiationResult, setNegotiationResult] = useState('');
+  const [negotiationAdjustedAmount, setNegotiationAdjustedAmount] = useState<number>(
+    room.deductionAmount
+  );
   const [negotiationResolution, setNegotiationResolution] = useState('');
 
   const totalEstimatedCost = room.issues.reduce((sum, issue) => sum + issue.estimatedCost, 0);
+  const effectiveDeduction = room.deductionAmount;
+  const refundAmount = room.depositAmount - effectiveDeduction;
 
   const handleAssignCleaning = () => {
     if (cleanerName) {
@@ -81,6 +88,7 @@ export const InventoryDetail: React.FC<InventoryDetailProps> = ({ room, onBack }
         room.id,
         selectedDisputeId,
         negotiationResult,
+        negotiationAdjustedAmount !== room.deductionAmount ? negotiationAdjustedAmount : undefined,
         negotiationResolution || undefined
       );
       setShowNegotiationModal(false);
@@ -92,6 +100,7 @@ export const InventoryDetail: React.FC<InventoryDetailProps> = ({ room, onBack }
 
   const openNegotiationModal = (disputeId: string) => {
     setSelectedDisputeId(disputeId);
+    setNegotiationAdjustedAmount(room.deductionAmount);
     setShowNegotiationModal(true);
   };
 
@@ -289,11 +298,11 @@ export const InventoryDetail: React.FC<InventoryDetailProps> = ({ room, onBack }
         <div className="space-y-3">
           <div className="bg-white rounded-sm border border-gray-200 shadow-sm">
             <div className="px-3 py-2 border-b border-gray-100">
-              <h3 className="text-[13px] font-medium text-gray-800">基本信息</h3>
+              <h3 className="text-[13px] font-medium text-gray-800">押金与扣款</h3>
             </div>
             <div className="p-3 space-y-2">
               <div className="flex justify-between text-[13px]">
-                <span className="text-gray-500">押金</span>
+                <span className="text-gray-500">押金金额</span>
                 <span className="font-medium text-gray-800">¥{room.depositAmount}</span>
               </div>
               <div className="flex justify-between text-[13px]">
@@ -305,19 +314,48 @@ export const InventoryDetail: React.FC<InventoryDetailProps> = ({ room, onBack }
                 <span className="text-gray-800">{room.checkOutDate}</span>
               </div>
               <div className="flex justify-between text-[13px]">
-                <span className="text-gray-500">预估扣款</span>
-                <span
-                  className={`font-medium ${
-                    totalEstimatedCost > 0 ? 'text-orange-600' : 'text-green-600'
-                  }`}
-                >
+                <span className="text-gray-500">问题预估</span>
+                <span className={totalEstimatedCost > 0 ? 'text-orange-600' : 'text-green-600'}>
                   ¥{totalEstimatedCost}
                 </span>
               </div>
               <div className="flex justify-between text-[13px] pt-1 border-t border-gray-100">
+                <span className="text-gray-500">扣款金额</span>
+                <span className={`font-medium ${effectiveDeduction > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                  {effectiveDeduction > 0 ? `¥${effectiveDeduction}` : '未扣款'}
+                </span>
+              </div>
+              <div className="flex justify-between text-[13px]">
+                <span className="text-gray-500">扣款状态</span>
+                <span
+                  className={`font-medium px-1.5 py-0.5 rounded-sm text-[11px] ${
+                    room.deductionStatus === 'PENDING'
+                      ? 'bg-amber-100 text-amber-700'
+                      : room.deductionStatus === 'CANCELLED'
+                      ? 'bg-gray-100 text-gray-600'
+                      : room.deductionStatus === 'CONFIRMED'
+                      ? 'bg-green-100 text-green-700'
+                      : 'text-gray-500'
+                  }`}
+                >
+                  {room.deductionStatus === 'PENDING'
+                    ? '待确认'
+                    : room.deductionStatus === 'CANCELLED'
+                    ? '已撤回'
+                    : room.deductionStatus === 'CONFIRMED'
+                    ? '已确认'
+                    : '未发起'}
+                </span>
+              </div>
+              {room.deductionRemark && (
+                <div className="text-[11px] text-gray-500 bg-gray-50 px-2 py-1 rounded-sm">
+                  {room.deductionRemark}
+                </div>
+              )}
+              <div className="flex justify-between text-[13px] pt-1 border-t border-gray-100">
                 <span className="text-gray-500">应退押金</span>
-                <span className="font-semibold text-green-600">
-                  ¥{room.depositAmount - totalEstimatedCost}
+                <span className={`font-semibold ${refundAmount >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                  ¥{refundAmount}
                 </span>
               </div>
             </div>
@@ -383,7 +421,7 @@ export const InventoryDetail: React.FC<InventoryDetailProps> = ({ room, onBack }
               />
             </div>
             <p className="text-xs text-gray-500 mt-1">
-              押金总额: ¥{room.depositAmount} | 预估问题费用: ¥{totalEstimatedCost}
+              押金: ¥{room.depositAmount} | 问题预估: ¥{totalEstimatedCost}
             </p>
           </div>
           <div>
@@ -395,6 +433,11 @@ export const InventoryDetail: React.FC<InventoryDetailProps> = ({ room, onBack }
               placeholder="请输入扣款说明..."
               className="w-full px-3 py-2 text-sm border border-gray-300 rounded-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 resize-none"
             />
+          </div>
+          <div className="p-3 bg-amber-50 rounded-sm border border-amber-200">
+            <p className="text-sm text-amber-700">
+              发起后扣款金额将写入房间记录，应退押金 = 押金 - 扣款金额。客人可对扣款发起申诉。
+            </p>
           </div>
           <div className="flex justify-end gap-2 pt-2">
             <button
@@ -418,7 +461,7 @@ export const InventoryDetail: React.FC<InventoryDetailProps> = ({ room, onBack }
         <div className="space-y-4">
           <div className="p-3 bg-amber-50 rounded-sm border border-amber-200">
             <p className="text-sm text-amber-700">
-              ⚠️ 撤回扣款后，押金将全额退还客人，此操作不可撤销。
+              撤回扣款后，当前扣款 ¥{room.deductionAmount} 将清零，押金 ¥{room.depositAmount} 全额退还客人，此操作不可撤销。
             </p>
           </div>
           <div>
@@ -467,6 +510,21 @@ export const InventoryDetail: React.FC<InventoryDetailProps> = ({ room, onBack }
               placeholder="请记录与客人的协商内容..."
               className="w-full px-3 py-2 text-sm border border-gray-300 rounded-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 resize-none"
             />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">调整扣款金额</label>
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">¥</span>
+              <input
+                type="number"
+                value={negotiationAdjustedAmount}
+                onChange={(e) => setNegotiationAdjustedAmount(Number(e.target.value))}
+                className="w-full pl-7 pr-3 py-2 text-sm border border-gray-300 rounded-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+              />
+            </div>
+            <p className="text-xs text-gray-500 mt-1">
+              当前扣款: ¥{room.deductionAmount} | 押金: ¥{room.depositAmount} | 修改后应退: ¥{room.depositAmount - negotiationAdjustedAmount}
+            </p>
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
