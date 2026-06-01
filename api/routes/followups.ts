@@ -34,11 +34,11 @@ router.post('/', (req: Request, res: Response) => {
 
 router.put('/:id', (req: Request, res: Response) => {
   const db = getDb()
-  const { status, scheduledDate, notes } = req.body
+  const { status, scheduled_date, notes, scheduledDate } = req.body
   const updates: string[] = []
   const values: any[] = []
   if (status !== undefined) { updates.push('status = ?'); values.push(status) }
-  if (scheduledDate !== undefined) { updates.push('scheduled_date = ?'); values.push(scheduledDate) }
+  if (scheduled_date !== undefined || scheduledDate !== undefined) { updates.push('scheduled_date = ?'); values.push(scheduled_date ?? scheduledDate) }
   if (notes !== undefined) { updates.push('notes = ?'); values.push(notes) }
   if (updates.length === 0) {
     res.status(400).json({ success: false, error: '无可更新字段' })

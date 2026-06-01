@@ -42,14 +42,14 @@ router.post('/patient/:patientId', (req: Request, res: Response) => {
 
 router.put('/:id', (req: Request, res: Response) => {
   const db = getDb()
-  const { status, executedAt, executedBy, isAbnormal, abnormalNote } = req.body
+  const { status, executed_at, executed_by, is_abnormal, abnormal_note, executedAt, executedBy, isAbnormal, abnormalNote } = req.body
   const updates: string[] = []
   const values: any[] = []
   if (status !== undefined) { updates.push('status = ?'); values.push(status) }
-  if (executedAt !== undefined) { updates.push('executed_at = ?'); values.push(executedAt) }
-  if (executedBy !== undefined) { updates.push('executed_by = ?'); values.push(executedBy) }
-  if (isAbnormal !== undefined) { updates.push('is_abnormal = ?'); values.push(isAbnormal ? 1 : 0) }
-  if (abnormalNote !== undefined) { updates.push('abnormal_note = ?'); values.push(abnormalNote) }
+  if (executed_at !== undefined || executedAt !== undefined) { updates.push('executed_at = ?'); values.push(executed_at ?? executedAt) }
+  if (executed_by !== undefined || executedBy !== undefined) { updates.push('executed_by = ?'); values.push(executed_by ?? executedBy) }
+  if (is_abnormal !== undefined || isAbnormal !== undefined) { updates.push('is_abnormal = ?'); values.push((is_abnormal ?? isAbnormal) ? 1 : 0) }
+  if (abnormal_note !== undefined || abnormalNote !== undefined) { updates.push('abnormal_note = ?'); values.push(abnormal_note ?? abnormalNote) }
   if (updates.length === 0) {
     res.status(400).json({ success: false, error: '无可更新字段' })
     return
