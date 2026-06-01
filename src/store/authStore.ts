@@ -16,9 +16,32 @@ interface AuthState {
   logout: () => void
 }
 
-export const useAuthStore = create<AuthState>((set) => ({
-  user: null,
-  isAuthenticated: false,
-  login: (user) => set({ user, isAuthenticated: true }),
-  logout: () => set({ user: null, isAuthenticated: false }),
-}))
+const STORAGE_KEY = 'outsourcing-auth'
+
+const getStoredAuth = (): Partial<AuthState> => {
+  if (typeof window === 'undefined') return {}
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY)
+    return stored ? JSON.parse(stored) : {}
+  } catch {
+    return {}
+  }
+}
+
+export const useAuthStore = create<AuthState>((set) => {
+  const stored = getStoredAuth()
+  
+  return {
+    user: stored.user || null,
+    isAuthenticated: stored.isAuthenticated || false,
+    login: (user) => {
+      const state = { user, isAuthenticated: true }
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state))
+      set(state)
+    },
+    logout: () => {
+      localStorage.removeItem(STORAGE_KEY)
+      set({ user: null, isAuthenticated: false })
+    },
+  }
+})

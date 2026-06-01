@@ -13,7 +13,14 @@ export async function GET(
         createdBy: {
           select: { id: true, name: true, email: true },
         },
-        purchaseOrders: true,
+        purchaseOrders: {
+          include: {
+            supplier: { select: { id: true, name: true } },
+            exceptions: {
+              select: { id: true, exceptionNumber: true, title: true, status: true, type: true },
+            },
+          },
+        },
       },
     })
 
