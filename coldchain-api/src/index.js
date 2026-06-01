@@ -455,18 +455,95 @@ app.patch('/api/disputes/:id', (req, res) => {
   res.json(rowToObj(result))
 })
 
+app.get('/api/disputes/:id/detail', (req, res) => {
+  const dispute = db.prepare('SELECT * FROM disputes WHERE id = ?').get(req.params.id)
+  if (!dispute) return res.status(404).json({ error: '争议不存在' })
+
+  const shipment = db.prepare('SELECT * FROM shipments WHERE id = ?').get(dispute.shipment_id)
+
+  const anomalyIds = safeParseArray(dispute.anomaly_interval_ids)
+  const anomalyIntervals = anomalyIds.length
+    ? db.prepare(`SELECT * FROM anomaly_intervals WHERE id IN (${anomalyIds.map(() => '?').join(',')})`).all(...anomalyIds)
+    : []
+
+  const receipt = db.prepare('SELECT * FROM delivery_receipts WHERE shipment_id = ?').get(dispute.shipment_id)
+
+  const keyActions = ['dispute_opened', 'dispute_resolved', 'dispute_rejected', 'confirm', 'update']
+  const keyActionPlaceholders = keyActions.map(() => '?').join(',')
+  const auditLogs = db.prepare(
+    `SELECT * FROM audit_logs WHERE entity_id = ? OR (entity_type = 'shipment' AND entity_id = ?) ORDER BY changed_at DESC`
+  ).all(dispute.id, dispute.shipment_id)
+  const keyLogs = auditLogs.filter(l => keyActions.includes(l.action) || l.action === 'delivery_receipt_uploaded' || l.action === 'anomalies_detected')
+
+  const confirmedCount = anomalyIntervals.filter(a => a.confirmed).length
+  const unconfirmedCount = anomalyIntervals.filter(a => !a.confirmed).length
+
+  res.json({
+    dispute: rowToObj(dispute),
+    shipment: shipment ? {
+      id: shipment.id,
+      shipment_no: shipment.shipment_no,
+      origin: shipment.origin,
+      destination: shipment.destination,
+      driver_name: shipment.driver_name,
+      temp_min: shipment.temp_min,
+      temp_max: shipment.temp_max,
+      product_name: shipment.product_name,
+      product_category: shipment.product_category,
+      status: shipment.status,
+      created_at: shipment.created_at,
+      updated_at: shipment.updated_at
+    } : null,
+    anomaly_intervals: anomalyIntervals.map(rowToObj),
+    anomaly_summary: {
+      total: anomalyIntervals.length,
+      confirmed: confirmedCount,
+      unconfirmed: unconfirmedCount,
+      all_confirmed: anomalyIntervals.length > 0 && confirmedCount === anomalyIntervals.length,
+      total_breach_duration_seconds: anomalyIntervals.reduce((sum, a) => sum + a.duration_seconds, 0),
+      max_breach_temp: anomalyIntervals.length ? Math.max(...anomalyIntervals.map(a => a.max_temp)) : null,
+      min_breach_temp: anomalyIntervals.length ? Math.min(...anomalyIntervals.map(a => a.min_temp)) : null
+    },
+    delivery_receipt: receipt ? {
+      id: receipt.id,
+      receiver_name: receipt.receiver_name,
+      receiver_phone: receipt.receiver_phone,
+      received_at: receipt.received_at,
+      temperature_at_delivery: receipt.temperature_at_delivery,
+      photo_count: safeParseArray(receipt.photo_urls).length,
+      notes: receipt.notes,
+      uploaded_by: receipt.uploaded_by,
+      created_at: receipt.created_at
+    } : null,
+    key_audit_logs: keyLogs.map(l => ({ ...l, details: parseJSON(l.details) }))
+  })
+})
+
 app.get('/api/disputes', (req, res) => {
-  const { status, page = 1, limit = 20 } = req.query
+  const { status, anomaly_confirmed, page = 1, limit = 20 } = req.query
   let sql = 'SELECT * FROM disputes'
   const params = []
   const conditions = []
   if (status) { conditions.push('status = ?'); params.push(status) }
   if (conditions.length) sql += ' WHERE ' + conditions.join(' AND ')
-  sql += ' ORDER BY created_at DESC LIMIT ? OFFSET ?'
-  params.push(Number(limit), (Number(page) - 1) * Number(limit))
+  sql += ' ORDER BY created_at DESC'
+  const allRows = db.prepare(sql).all(...params)
 
-  const rows = db.prepare(sql).all(...params)
-  res.json({ data: rows.map(rowToObj), page: Number(page), limit: Number(limit) })
+  let filtered = allRows
+  if (anomaly_confirmed === 'true' || anomaly_confirmed === 'false') {
+    const wantConfirmed = anomaly_confirmed === 'true'
+    filtered = filtered.filter(d => {
+      const ids = safeParseArray(d.anomaly_interval_ids)
+      if (!ids.length) return false
+      const intervals = db.prepare(`SELECT confirmed FROM anomaly_intervals WHERE id IN (${ids.map(() => '?').join(',')})`).all(...ids)
+      if (wantConfirmed) return intervals.every(a => a.confirmed)
+      return intervals.some(a => !a.confirmed)
+    })
+  }
+
+  const total = filtered.length
+  const paged = filtered.slice((Number(page) - 1) * Number(limit), Number(page) * Number(limit))
+  res.json({ data: paged.map(rowToObj), total, page: Number(page), limit: Number(limit) })
 })
 
 app.get('/api/audit-logs', (req, res) => {

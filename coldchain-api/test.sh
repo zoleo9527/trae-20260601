@@ -170,17 +170,56 @@ $C -X PATCH "$BASE/api/disputes/$DISPUTE_ID" -H "Content-Type: application/json"
   "resolved_by": "质控主管-孙工"
 }' | python3 -c "import sys,json; d=json.load(sys.stdin); print(f'  争议状态: {d[\"status\"]}')" 2>/dev/null && ok "争议进入复核"
 
-step "17. 质控给出结论 — resolved"
+step "17. 查询争议详情聚合接口"
+DETAIL=$($C "$BASE/api/disputes/$DISPUTE_ID/detail")
+echo "$DETAIL" | python3 -c "
+import sys,json
+d=json.load(sys.stdin)
+s=d['shipment']
+print(f'  运单: {s[\"shipment_no\"]} {s[\"origin\"]}→{s[\"destination\"]}, 温控: {s[\"temp_min\"]}°C~{s[\"temp_max\"]}°C')
+a=d['anomaly_summary']
+print(f'  异常摘要: 共{a[\"total\"]}段, 已确认{a[\"confirmed\"]}, 未确认{a[\"unconfirmed\"]}, all_confirmed={a[\"all_confirmed\"]}')
+if a['total'] > 0:
+    print(f'    总越界时长: {a[\"total_breach_duration_seconds\"]}秒, 极端温度: {a[\"min_breach_temp\"]}°C~{a[\"max_breach_temp\"]}°C')
+for iv in d['anomaly_intervals']:
+    print(f'    异常区间: {iv[\"started_at\"][:16]}~{iv[\"ended_at\"][:16]}, confirmed={iv[\"confirmed\"]}, status={iv[\"status\"]}')
+r=d['delivery_receipt']
+if r:
+    print(f'  签收摘要: 签收人={r[\"receiver_name\"]}, 温度={r[\"temperature_at_delivery\"]}°C, 照片={r[\"photo_count\"]}张, 备注={r[\"notes\"][:30]}')
+print(f'  关键审计节点: {len(d[\"key_audit_logs\"])}条')
+for log in d['key_audit_logs']:
+    print(f'    [{log[\"changed_at\"][:16]}] {log[\"action\"]}: {log[\"old_value\"] or \"(新建)\"} → {log[\"new_value\"]}')
+" 2>/dev/null && ok "争议详情聚合查询成功" || fail "争议详情聚合查询失败"
+
+step "18. 按越界确认状态筛选争议 — anomaly_confirmed=false"
+UNCONFIRMED=$($C "$BASE/api/disputes?anomaly_confirmed=false")
+echo "$UNCONFIRMED" | python3 -c "
+import sys,json
+d=json.load(sys.stdin)
+print(f'  存在未确认越界的争议: {d[\"total\"]}条')
+for dd in d['data']:
+    print(f'    争议 {dd[\"id\"][:8]}... 关联异常: {dd[\"anomaly_interval_ids\"]}')
+" 2>/dev/null && ok "anomaly_confirmed=false 筛选成功"
+
+step "19. 按越界确认状态筛选争议 — anomaly_confirmed=true"
+CONFIRMED=$($C "$BASE/api/disputes?anomaly_confirmed=true")
+echo "$CONFIRMED" | python3 -c "
+import sys,json
+d=json.load(sys.stdin)
+print(f'  所有越界已确认的争议: {d[\"total\"]}条')
+" 2>/dev/null && ok "anomaly_confirmed=true 筛选成功"
+
+step "20. 质控给出结论 — resolved"
 $C -X PATCH "$BASE/api/disputes/$DISPUTE_ID" -H "Content-Type: application/json" -d '{
   "status": "resolved",
   "resolution": "温度越界确认属实。8:30-10:00期间冷链设备故障导致温度升至11.5°C，越界时长1.5小时。建议更换供应商设备并赔偿客户相应损失。",
   "resolved_by": "质控主管-孙工"
 }' | python3 -c "import sys,json; d=json.load(sys.stdin); print(f'  结论: {d[\"resolution\"][:50]}...')" 2>/dev/null && ok "争议解决成功"
 
-step "18. 验证运单最终状态"
+step "21. 验证运单最终状态"
 $C "$BASE/api/shipments/$SHIP1_ID" | python3 -c "import sys,json; d=json.load(sys.stdin); print(f'  运单状态: {d[\"status\"]}')" 2>/dev/null | grep -q "closed" && ok "运单已关闭 (closed)" || fail "运单状态异常"
 
-step "19. 测试 application/json 格式的签收 (新建运单)"
+step "22. 测试 application/json 格式的签收 (新建运单)"
 SHIP2=$($C -X POST "$BASE/api/shipments" -H "Content-Type: application/json" -d '{
   "shipment_no": "TEST-CC-002",
   "origin": "成都冷链中心",
@@ -211,11 +250,11 @@ else
   fail "application/json 格式签收失败（期望 3 张照片，实际: $PHOTO_COUNT2）"
 fi
 
-step "20. 查询种子数据的运单"
+step "23. 查询种子数据的运单"
 SEED_LIST=$($C "$BASE/api/shipments?status=disputed")
 echo "$SEED_LIST" | python3 -c "import sys,json; d=json.load(sys.stdin); print(f'  disputed 运单: {d[\"total\"]}条')" 2>/dev/null && ok "种子数据查询成功"
 
-step "21. 查询全链路数据"
+step "24. 查询全链路数据"
 FULL=$($C "$BASE/api/shipments/$SHIP1_ID/full")
 echo "$FULL" | python3 -c "
 import sys,json
@@ -228,7 +267,7 @@ print(f'  争议: {len(d[\"disputes\"])}条')
 print(f'  审计日志: {len(d[\"audit_logs\"])}条')
 " 2>/dev/null && ok "全链路数据查询成功"
 
-step "22. 查询审计日志"
+step "25. 查询审计日志"
 $C "$BASE/api/audit-logs?entity_type=shipment&entity_id=$SHIP1_ID&limit=100" | python3 -c "
 import sys,json
 d=json.load(sys.stdin)
@@ -237,11 +276,11 @@ for log in d['data']:
     print(f'    [{log[\"changed_at\"][:19]}] {log[\"action\"]}: {log[\"old_value\"] or \"(新建)\"} → {log[\"new_value\"]} (by {log[\"changed_by\"]})')
 " 2>/dev/null && ok "审计日志查询成功"
 
-step "23. 清理临时文件"
+step "26. 清理临时文件"
 rm -f "$TMP_PHOTO"
 ok "临时文件已清理"
 
 echo ""
 echo -e "${GREEN}╔══════════════════════════════════════════╗${NC}"
-echo -e "${GREEN}║        所有 23 个测试通过 ✓              ║${NC}"
+echo -e "${GREEN}║        所有 26 个测试通过 ✓              ║${NC}"
 echo -e "${GREEN}╚══════════════════════════════════════════╝${NC}"

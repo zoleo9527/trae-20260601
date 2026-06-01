@@ -485,13 +485,29 @@ paths:
     get:
       tags: [争议处理]
       summary: 查询所有争议
+      description: |
+        支持按争议状态和越界确认状态筛选：
+        - `status`：按争议自身状态筛选
+        - `anomaly_confirmed`：按关联异常区间是否全部确认筛选
+          - `true`：只返回所有越界区间均已确认的争议
+          - `false`：只返回存在未确认越界区间的争议
       operationId: listDisputes
       parameters:
         - name: status
           in: query
+          description: 争议状态
           schema:
             type: string
             enum: [open, reviewing, resolved, rejected]
+        - name: anomaly_confirmed
+          in: query
+          description: |
+            关联异常区间的确认状态筛选：
+            - `true`：所有关联异常区间均已确认
+            - `false`：存在未确认的关联异常区间
+          schema:
+            type: string
+            enum: ["true", "false"]
         - name: page
           in: query
           schema:
@@ -505,8 +521,32 @@ paths:
       responses:
         "200":
           description: 争议列表
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DisputeList"
 
   /api/disputes/{id}:
+    get:
+      tags: [争议处理]
+      summary: 查询单个争议
+      operationId: getDispute
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: 争议详情
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Dispute"
+        "404":
+          description: 争议不存在
+
     patch:
       tags: [争议处理]
       summary: 更新争议状态
@@ -541,6 +581,35 @@ paths:
       responses:
         "200":
           description: 争议更新成功
+        "404":
+          description: 争议不存在
+
+  /api/disputes/{id}/detail:
+    get:
+      tags: [争议处理]
+      summary: 争议详情聚合
+      description: |
+        一次返回争议复核所需的全部信息，无需多次请求：
+        - 运单基础信息（发货地、目的地、司机、温控范围等）
+        - 关联异常区间及其 confirmed 状态
+        - 异常摘要统计（越界总数、已确认/未确认、总越界时长、极端温度）
+        - 签收材料摘要（签收人、签收温度、照片数量、备注）
+        - 关键审计节点（争议发起、确认、解决等关键动作）
+      operationId: getDisputeDetail
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: 争议ID
+      responses:
+        "200":
+          description: 争议详情聚合数据
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DisputeDetail"
         "404":
           description: 争议不存在
 
@@ -947,3 +1016,142 @@ components:
           format: date-time
         details:
           type: object
+
+    DisputeList:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Dispute"
+        total:
+          type: integer
+          description: 符合筛选条件的争议总数
+        page:
+          type: integer
+        limit:
+          type: integer
+
+    DisputeDetail:
+      type: object
+      description: 争议详情聚合，一次返回复核所需的全部信息
+      properties:
+        dispute:
+          $ref: "#/components/schemas/Dispute"
+        shipment:
+          $ref: "#/components/schemas/DisputeShipmentSummary"
+        anomaly_intervals:
+          type: array
+          description: 关联的异常区间列表，含 confirmed 状态
+          items:
+            $ref: "#/components/schemas/AnomalyInterval"
+        anomaly_summary:
+          $ref: "#/components/schemas/AnomalySummary"
+        delivery_receipt:
+          $ref: "#/components/schemas/DisputeReceiptSummary"
+        key_audit_logs:
+          type: array
+          description: 关键审计节点（争议发起、确认、解决、签收上传、异常检测等）
+          items:
+            $ref: "#/components/schemas/AuditLog"
+
+    DisputeShipmentSummary:
+      type: object
+      description: 争议聚合中的运单基础信息
+      properties:
+        id:
+          type: string
+        shipment_no:
+          type: string
+          description: 运单号
+        origin:
+          type: string
+          description: 始发地
+        destination:
+          type: string
+          description: 目的地
+        driver_name:
+          type: string
+          description: 司机姓名
+        temp_min:
+          type: number
+          description: 温控下限 (°C)
+        temp_max:
+          type: number
+          description: 温控上限 (°C)
+        product_name:
+          type: string
+          description: 产品名称
+        product_category:
+          type: string
+          description: 产品分类
+        status:
+          type: string
+          description: 运单当前状态
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    AnomalySummary:
+      type: object
+      description: 异常区间汇总统计
+      properties:
+        total:
+          type: integer
+          description: 关联异常区间总数
+        confirmed:
+          type: integer
+          description: 已确认的异常区间数
+        unconfirmed:
+          type: integer
+          description: 未确认的异常区间数
+        all_confirmed:
+          type: boolean
+          description: 是否所有异常区间均已确认
+        total_breach_duration_seconds:
+          type: integer
+          description: 总越界持续时长（秒）
+        max_breach_temp:
+          type: number
+          description: 所有异常区间中的最高温度 (°C)
+          nullable: true
+        min_breach_temp:
+          type: number
+          description: 所有异常区间中的最低温度 (°C)
+          nullable: true
+
+    DisputeReceiptSummary:
+      type: object
+      description: 争议聚合中的签收材料摘要
+      properties:
+        id:
+          type: string
+        receiver_name:
+          type: string
+          description: 签收人
+        receiver_phone:
+          type: string
+          description: 签收人电话
+        received_at:
+          type: string
+          format: date-time
+          description: 签收时间
+        temperature_at_delivery:
+          type: number
+          description: 签收时温度 (°C)
+          nullable: true
+        photo_count:
+          type: integer
+          description: 签收照片数量
+        notes:
+          type: string
+          description: 签收备注
+        uploaded_by:
+          type: string
+          description: 上传人
+        created_at:
+          type: string
+          format: date-time
