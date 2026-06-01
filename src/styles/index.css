@@ -1,0 +1,102 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+  
+  html, body, #root {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+  }
+  
+  body {
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    background-color: #1a1a2e;
+    color: #e2e8f0;
+    -webkit-font-smoothing: antialiased;
+  }
+  
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  
+  ::-webkit-scrollbar-track {
+    background: #16213e;
+  }
+  
+  ::-webkit-scrollbar-thumb {
+    background: #0f3460;
+    border-radius: 4px;
+  }
+  
+  ::-webkit-scrollbar-thumb:hover {
+    background: #1e4a7a;
+  }
+  
+  input, select, textarea {
+    font-family: inherit;
+  }
+  
+  input:focus, select:focus, textarea:focus, button:focus {
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(233, 69, 96, 0.4);
+  }
+}
+
+@layer components {
+  .factory-panel {
+    @apply bg-factory-panel border border-factory-border rounded-lg;
+  }
+  
+  .factory-btn {
+    @apply px-3 py-1.5 text-sm font-medium rounded-md transition-all duration-150
+           bg-factory-border hover:bg-factory-accent text-factory-text hover:text-white
+           border border-factory-border hover:border-factory-accent;
+  }
+  
+  .factory-btn-primary {
+    @apply px-3 py-1.5 text-sm font-medium rounded-md transition-all duration-150
+           bg-factory-accent hover:bg-factory-accent/80 text-white
+           border border-factory-accent hover:border-factory-accent/80;
+  }
+  
+  .factory-btn-danger {
+    @apply px-3 py-1.5 text-sm font-medium rounded-md transition-all duration-150
+           bg-red-600 hover:bg-red-700 text-white
+           border border-red-600 hover:border-red-700;
+  }
+  
+  .factory-btn-success {
+    @apply px-3 py-1.5 text-sm font-medium rounded-md transition-all duration-150
+           bg-green-600 hover:bg-green-700 text-white
+           border border-green-600 hover:border-green-700;
+  }
+  
+  .factory-input {
+    @apply w-full px-3 py-1.5 text-sm bg-factory-bg border border-factory-border
+           rounded-md text-factory-text placeholder-factory-muted
+           focus:border-factory-accent focus:bg-factory-panel;
+  }
+  
+  .factory-label {
+    @apply block text-xs font-medium text-factory-muted mb-1;
+  }
+  
+  .factory-card {
+    @apply bg-factory-panel border border-factory-border rounded-lg p-3;
+  }
+  
+  .status-badge {
+    @apply inline-flex items-center px-2 py-0.5 text-xs font-medium rounded border;
+  }
+  
+  .urgency-badge {
+    @apply inline-flex items-center px-2 py-0.5 text-xs font-semibold rounded;
+  }
+}

@@ -1,0 +1,36 @@
+{
+  "name": "print-factory-manager",
+  "version": "1.0.0",
+  "description": "印刷厂生产管理系统 - 报价、打样确认、机台排产",
+  "main": "dist-electron/main.js",
+  "author": "Print Factory",
+  "license": "MIT",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build && electron-builder",
+    "build:unpack": "tsc && vite build && electron-builder --dir",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.3.0",
+    "dayjs": "^1.11.13",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "zustand": "^4.5.5"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.11",
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "@vitejs/plugin-react": "^4.3.1",
+    "autoprefixer": "^10.4.20",
+    "electron": "^31.3.1",
+    "electron-builder": "^24.13.3",
+    "postcss": "^8.4.41",
+    "tailwindcss": "^3.4.10",
+    "typescript": "^5.5.3",
+    "vite": "^5.4.1",
+    "vite-plugin-electron": "^0.28.7",
+    "vite-plugin-electron-renderer": "^0.14.5"
+  }
+}
