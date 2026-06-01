@@ -1,0 +1,17 @@
+{
+    "name": "coldchain-api",
+    "version": "1.0.0",
+    "description": "冷链运输温控追溯 API",
+    "main": "src/index.js",
+    "scripts": {
+        "start": "node src/index.js",
+        "seed": "node seed.js",
+        "test": "bash test.sh"
+    },
+    "dependencies": {
+        "better-sqlite3": "^11.7.0",
+        "express": "^4.21.0",
+        "multer": "^1.4.5-lts.1",
+        "uuid": "^10.0.0"
+    }
+}

@@ -1,0 +1,913 @@
+openapi: 3.0.3
+info:
+  title: 冷链运输温控追溯 API
+  description: |
+    冷链运输全链路温控追溯系统。核心围绕运单、温控采样、异常区间、签收材料、争议处理。
+
+    业务流程：
+    1. 调度创建运单 → 运单状态 `created`
+    2. 运单发车 → 状态变更为 `in_transit`
+    3. 设备持续上报温控采样 → 可按时间区间查询
+    4. 系统自动检测异常区间（温度越界），质控人员确认
+    5. 司机上传签收材料 → 状态变更为 `delivered`
+    6. 客服发起争议复核 → 状态变更为 `disputed`
+    7. 质控人员给出结论 → 状态变更为 `closed`（认可）或回退为 `delivered`（驳回）
+    8. 所有状态变化均有审计日志可追溯
+  version: 1.0.0
+  contact:
+    name: 冷链运输技术团队
+
+servers:
+  - url: http://localhost:3000
+    description: 本地开发环境
+
+tags:
+  - name: 运单管理
+    description: 运单的创建、查询、状态流转
+  - name: 温控采样
+    description: 温度采样数据的批量上传和按时间区间查询
+  - name: 异常区间
+    description: 温度越界的自动检测、确认和查询
+  - name: 签收材料
+    description: 签收照片和签收信息的上传
+  - name: 争议处理
+    description: 争议发起、质控复核、结论
+  - name: 审计日志
+    description: 全链路状态变更追溯
+
+paths:
+  /api/shipments:
+    post:
+      tags: [运单管理]
+      summary: 创建运单
+      operationId: createShipment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateShipmentRequest"
+      responses:
+        "201":
+          description: 运单创建成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Shipment"
+        "400":
+          description: 缺少必填字段
+        "409":
+          description: 运单号已存在
+
+    get:
+      tags: [运单管理]
+      summary: 查询运单列表
+      operationId: listShipments
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [created, in_transit, delivered, disputed, closed]
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        "200":
+          description: 运单列表
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ShipmentList"
+
+  /api/shipments/{id}:
+    get:
+      tags: [运单管理]
+      summary: 查询运单详情
+      operationId: getShipment
+      parameters:
+        - $ref: "#/components/parameters/ShipmentId"
+      responses:
+        "200":
+          description: 运单详情
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Shipment"
+        "404":
+          description: 运单不存在
+
+  /api/shipments/{id}/status:
+    patch:
+      tags: [运单管理]
+      summary: 变更运单状态
+      description: |
+        运单状态流转：created → in_transit → delivered → disputed → closed
+        - 变更为 in_transit 时自动记录实际出发时间
+        - 变更为 delivered 时自动记录实际到达时间
+      operationId: updateShipmentStatus
+      parameters:
+        - $ref: "#/components/parameters/ShipmentId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status:
+                  type: string
+                  enum: [created, in_transit, delivered, disputed, closed]
+                changed_by:
+                  type: string
+                  description: 操作人
+      responses:
+        "200":
+          description: 状态变更成功
+        "400":
+          description: 无效状态
+        "404":
+          description: 运单不存在
+
+  /api/shipments/{id}/full:
+    get:
+      tags: [运单管理]
+      summary: 获取运单全链路数据
+      description: 一次性返回运单关联的所有数据，包括温控采样、异常区间、签收材料、争议和审计日志
+      operationId: getShipmentFull
+      parameters:
+        - $ref: "#/components/parameters/ShipmentId"
+      responses:
+        "200":
+          description: 运单全链路数据
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ShipmentFull"
+
+  /api/shipments/{id}/temperature-samples:
+    post:
+      tags: [温控采样]
+      summary: 批量上传温控采样
+      description: |
+        支持一次提交一段温控记录（多个采样点），而非单点上传。
+        系统会记录每个采样点的时间、温度和位置信息。
+      operationId: uploadTemperatureSamples
+      parameters:
+        - $ref: "#/components/parameters/ShipmentId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UploadSamplesRequest"
+      responses:
+        "201":
+          description: 采样数据上传成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  count:
+                    type: integer
+                  sample_ids:
+                    type: array
+                    items:
+                      type: string
+
+    get:
+      tags: [温控采样]
+      summary: 按时间区间查询温控采样
+      operationId: getTemperatureSamples
+      parameters:
+        - $ref: "#/components/parameters/ShipmentId"
+        - name: from
+          in: query
+          description: 起始时间 (ISO 8601)
+          schema:
+            type: string
+            format: date-time
+        - name: to
+          in: query
+          description: 结束时间 (ISO 8601)
+          schema:
+            type: string
+            format: date-time
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 200
+      responses:
+        "200":
+          description: 温控采样数据
+
+  /api/shipments/{id}/temperature-stats:
+    get:
+      tags: [温控采样]
+      summary: 温控统计信息
+      description: 按时间区间统计温度的最小值、最大值、均值和越界率
+      operationId: getTemperatureStats
+      parameters:
+        - $ref: "#/components/parameters/ShipmentId"
+        - name: from
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: to
+          in: query
+          schema:
+            type: string
+            format: date-time
+      responses:
+        "200":
+          description: 温控统计
+
+  /api/shipments/{id}/detect-anomalies:
+    post:
+      tags: [异常区间]
+      summary: 自动检测温度越界区间
+      description: |
+        扫描运单的温控采样数据，检测温度越界区间。
+        - 连续越界采样点（间隔≤10分钟）归为同一异常区间
+        - 支持按时间范围限定检测范围
+        - 每次检测会创建新的异常区间记录
+      operationId: detectAnomalies
+      parameters:
+        - $ref: "#/components/parameters/ShipmentId"
+        - name: from
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: to
+          in: query
+          schema:
+            type: string
+            format: date-time
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                detected_by:
+                  type: string
+      responses:
+        "201":
+          description: 检测完成，返回发现的异常区间
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  anomaly_count:
+                    type: integer
+                  anomalies:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/AnomalyInterval"
+
+  /api/shipments/{id}/anomaly-intervals:
+    get:
+      tags: [异常区间]
+      summary: 查询异常区间
+      description: 按时间区间、状态、确认状态查询异常区间
+      operationId: getAnomalyIntervals
+      parameters:
+        - $ref: "#/components/parameters/ShipmentId"
+        - name: from
+          in: query
+          description: 起始时间
+          schema:
+            type: string
+            format: date-time
+        - name: to
+          in: query
+          description: 结束时间
+          schema:
+            type: string
+            format: date-time
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [detected, confirmed, disputed, resolved]
+        - name: confirmed
+          in: query
+          description: 是否已确认 (true/false)
+          schema:
+            type: string
+            enum: ["true", "false"]
+      responses:
+        "200":
+          description: 异常区间列表
+
+  /api/anomaly-intervals/{id}/confirm:
+    patch:
+      tags: [异常区间]
+      summary: 确认异常区间
+      description: 质控人员确认温度越界区间为真实异常
+      operationId: confirmAnomaly
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                confirmed_by:
+                  type: string
+                  description: 确认人
+      responses:
+        "200":
+          description: 确认成功
+        "404":
+          description: 异常区间不存在
+
+  /api/shipments/{id}/delivery-receipt:
+    post:
+      tags: [签收材料]
+      summary: 上传签收材料
+      description: |
+        司机上传签收照片和签收信息，同时自动将运单状态变更为 delivered。
+        支持通过 multipart/form-data 上传照片文件，也可通过 photo_urls 字段提供已有 URL。
+      operationId: uploadDeliveryReceipt
+      parameters:
+        - $ref: "#/components/parameters/ShipmentId"
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [receiver_name, received_at]
+              properties:
+                photos:
+                  type: array
+                  items:
+                    type: string
+                    format: binary
+                  description: 签收照片（最多10张）
+                photo_urls:
+                  type: string
+                  description: 已有照片URL的JSON数组
+                receiver_name:
+                  type: string
+                receiver_phone:
+                  type: string
+                received_at:
+                  type: string
+                  format: date-time
+                temperature_at_delivery:
+                  type: number
+                notes:
+                  type: string
+                uploaded_by:
+                  type: string
+      responses:
+        "201":
+          description: 签收材料上传成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeliveryReceipt"
+        "409":
+          description: 该运单已有签收记录
+
+    get:
+      tags: [签收材料]
+      summary: 查询签收材料
+      operationId: getDeliveryReceipt
+      parameters:
+        - $ref: "#/components/parameters/ShipmentId"
+      responses:
+        "200":
+          description: 签收材料
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeliveryReceipt"
+        "404":
+          description: 签收记录不存在
+
+  /api/shipments/{id}/disputes:
+    post:
+      tags: [争议处理]
+      summary: 发起争议
+      description: |
+        客服发起争议复核，运单状态变更为 disputed。
+        可关联多个异常区间ID，这些区间状态也会变为 disputed。
+      operationId: createDispute
+      parameters:
+        - $ref: "#/components/parameters/ShipmentId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateDisputeRequest"
+      responses:
+        "201":
+          description: 争议创建成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Dispute"
+
+    get:
+      tags: [争议处理]
+      summary: 查询运单关联争议
+      operationId: getDisputes
+      parameters:
+        - $ref: "#/components/parameters/ShipmentId"
+      responses:
+        "200":
+          description: 争议列表
+
+  /api/disputes:
+    get:
+      tags: [争议处理]
+      summary: 查询所有争议
+      operationId: listDisputes
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [open, reviewing, resolved, rejected]
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        "200":
+          description: 争议列表
+
+  /api/disputes/{id}:
+    patch:
+      tags: [争议处理]
+      summary: 更新争议状态
+      description: |
+        质控人员复核争议：
+        - 设为 reviewing：正在复核
+        - 设为 resolved：认可争议，运单关闭，关联异常区间标记为 resolved
+        - 设为 rejected：驳回争议，运单回退为 delivered，关联异常区间回退为 detected
+      operationId: updateDispute
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                status:
+                  type: string
+                  enum: [open, reviewing, resolved, rejected]
+                resolution:
+                  type: string
+                  description: 质控结论
+                resolved_by:
+                  type: string
+                  description: 处理人
+      responses:
+        "200":
+          description: 争议更新成功
+        "404":
+          description: 争议不存在
+
+  /api/audit-logs:
+    get:
+      tags: [审计日志]
+      summary: 查询审计日志
+      description: 查询所有状态变更记录，支持按实体类型、实体ID、动作类型和时间范围筛选
+      operationId: getAuditLogs
+      parameters:
+        - name: entity_type
+          in: query
+          schema:
+            type: string
+            enum: [shipment, anomaly_interval, dispute]
+        - name: entity_id
+          in: query
+          schema:
+            type: string
+        - name: action
+          in: query
+          schema:
+            type: string
+        - name: from
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: to
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+      responses:
+        "200":
+          description: 审计日志列表
+
+components:
+  parameters:
+    ShipmentId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+      description: 运单ID
+
+  schemas:
+    CreateShipmentRequest:
+      type: object
+      required:
+        [shipment_no, origin, destination, driver_name, temp_min, temp_max]
+      properties:
+        shipment_no:
+          type: string
+          description: 运单号（唯一）
+          example: CC-2026-0601-001
+        origin:
+          type: string
+          description: 始发地
+          example: 北京冷库A
+        destination:
+          type: string
+          description: 目的地
+          example: 上海医院B
+        shipper_name:
+          type: string
+          description: 发货方
+        consignee_name:
+          type: string
+          description: 收货方
+        driver_name:
+          type: string
+          description: 司机姓名
+        driver_phone:
+          type: string
+          description: 司机电话
+        vehicle_no:
+          type: string
+          description: 车牌号
+        temp_min:
+          type: number
+          description: 温度下限 (°C)
+          example: 2.0
+        temp_max:
+          type: number
+          description: 温度上限 (°C)
+          example: 8.0
+        product_name:
+          type: string
+          description: 产品名称
+        product_category:
+          type: string
+          enum: [vaccine, food, drug, other]
+          default: drug
+        planned_departure:
+          type: string
+          format: date-time
+        planned_arrival:
+          type: string
+          format: date-time
+        created_by:
+          type: string
+
+    Shipment:
+      type: object
+      properties:
+        id:
+          type: string
+        shipment_no:
+          type: string
+        origin:
+          type: string
+        destination:
+          type: string
+        shipper_name:
+          type: string
+        consignee_name:
+          type: string
+        driver_name:
+          type: string
+        driver_phone:
+          type: string
+        vehicle_no:
+          type: string
+        temp_min:
+          type: number
+        temp_max:
+          type: number
+        product_name:
+          type: string
+        product_category:
+          type: string
+        status:
+          type: string
+          enum: [created, in_transit, delivered, disputed, closed]
+        planned_departure:
+          type: string
+          format: date-time
+        planned_arrival:
+          type: string
+          format: date-time
+        actual_departure:
+          type: string
+          format: date-time
+        actual_arrival:
+          type: string
+          format: date-time
+        created_by:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    ShipmentList:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Shipment"
+        total:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
+
+    ShipmentFull:
+      type: object
+      properties:
+        shipment:
+          $ref: "#/components/schemas/Shipment"
+        temperature_samples:
+          type: array
+          items:
+            $ref: "#/components/schemas/TemperatureSample"
+        anomaly_intervals:
+          type: array
+          items:
+            $ref: "#/components/schemas/AnomalyInterval"
+        delivery_receipt:
+          $ref: "#/components/schemas/DeliveryReceipt"
+        disputes:
+          type: array
+          items:
+            $ref: "#/components/schemas/Dispute"
+        audit_logs:
+          type: array
+          items:
+            $ref: "#/components/schemas/AuditLog"
+
+    UploadSamplesRequest:
+      type: object
+      required: [samples]
+      properties:
+        samples:
+          type: array
+          minItems: 1
+          items:
+            type: object
+            required: [recorded_at, temperature]
+            properties:
+              device_id:
+                type: string
+                default: DEV-001
+              recorded_at:
+                type: string
+                format: date-time
+              temperature:
+                type: number
+              latitude:
+                type: number
+              longitude:
+                type: number
+        uploaded_by:
+          type: string
+
+    TemperatureSample:
+      type: object
+      properties:
+        id:
+          type: string
+        shipment_id:
+          type: string
+        device_id:
+          type: string
+        recorded_at:
+          type: string
+          format: date-time
+        temperature:
+          type: number
+        latitude:
+          type: number
+        longitude:
+          type: number
+        created_at:
+          type: string
+          format: date-time
+
+    AnomalyInterval:
+      type: object
+      properties:
+        id:
+          type: string
+        shipment_id:
+          type: string
+        started_at:
+          type: string
+          format: date-time
+        ended_at:
+          type: string
+          format: date-time
+        min_temp:
+          type: number
+          description: 区间内最低温度
+        max_temp:
+          type: number
+          description: 区间内最高温度
+        temp_lower_bound:
+          type: number
+          description: 合规温度下限
+        temp_upper_bound:
+          type: number
+          description: 合规温度上限
+        duration_seconds:
+          type: integer
+          description: 越界持续秒数
+        sample_count:
+          type: integer
+          description: 越界采样点数
+        confirmed:
+          type: boolean
+          description: 是否已确认
+        confirmed_by:
+          type: string
+        confirmed_at:
+          type: string
+          format: date-time
+        status:
+          type: string
+          enum: [detected, confirmed, disputed, resolved]
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    DeliveryReceipt:
+      type: object
+      properties:
+        id:
+          type: string
+        shipment_id:
+          type: string
+        receiver_name:
+          type: string
+        receiver_phone:
+          type: string
+        received_at:
+          type: string
+          format: date-time
+        temperature_at_delivery:
+          type: number
+        photo_urls:
+          type: array
+          items:
+            type: string
+        notes:
+          type: string
+        uploaded_by:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+
+    CreateDisputeRequest:
+      type: object
+      required: [reason]
+      properties:
+        reason:
+          type: string
+          description: 争议原因
+        initiated_by:
+          type: string
+          description: 发起人
+        anomaly_interval_ids:
+          type: array
+          items:
+            type: string
+          description: 关联的异常区间ID列表
+        evidence_summary:
+          type: string
+          description: 证据摘要
+
+    Dispute:
+      type: object
+      properties:
+        id:
+          type: string
+        shipment_id:
+          type: string
+        initiated_by:
+          type: string
+        reason:
+          type: string
+        status:
+          type: string
+          enum: [open, reviewing, resolved, rejected]
+        resolution:
+          type: string
+        resolved_by:
+          type: string
+        resolved_at:
+          type: string
+          format: date-time
+        anomaly_interval_ids:
+          type: array
+          items:
+            type: string
+        evidence_summary:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    AuditLog:
+      type: object
+      properties:
+        id:
+          type: string
+        entity_type:
+          type: string
+          enum: [shipment, anomaly_interval, dispute]
+        entity_id:
+          type: string
+        action:
+          type: string
+        old_value:
+          type: string
+        new_value:
+          type: string
+        changed_by:
+          type: string
+        changed_at:
+          type: string
+          format: date-time
+        details:
+          type: object
