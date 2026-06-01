@@ -78,11 +78,14 @@ export default function Alerts() {
     },
     {
       title: '关联患者',
-      dataIndex: 'patient_id',
-      key: 'patient_id',
+      key: 'patient',
       width: 100,
-      render: (patientId) => (
-        patientId ? <a onClick={() => navigate(`/patient/${patientId}`)}>患者ID: {patientId}</a> : '-'
+      render: (_, record) => (
+        record.patient_id ? (
+          <a onClick={() => navigate(`/patient/${record.patient_id}`)}>
+            {record.patient_name || `患者ID: ${record.patient_id}`}
+          </a>
+        ) : '-'
       ),
     },
     {

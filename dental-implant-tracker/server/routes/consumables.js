@@ -66,6 +66,8 @@ router.put('/:id', verifyToken, roleCheck('warehouse'), (req, res) => {
   }
 
   const { name, model, batch_no, category, stock_qty, unit, status, location } = req.body;
+  const modelChanged = model !== undefined && model !== existing.model;
+
   db.prepare(`
     UPDATE consumables SET
       name = ?, model = ?, batch_no = ?, category = ?,
@@ -82,6 +84,19 @@ router.put('/:id', verifyToken, roleCheck('warehouse'), (req, res) => {
     location !== undefined ? location : existing.location,
     req.params.id
   );
+
+  if (modelChanged && existing.patient_id) {
+    const patient = db.prepare('SELECT name FROM patients WHERE id = ?').get(existing.patient_id);
+    if (patient) {
+      db.prepare(`
+        INSERT INTO alerts (patient_id, type, message)
+        VALUES (?, 'consumable_change', ?)
+      `).run(
+        existing.patient_id,
+        `${patient.name}的${existing.name}型号从${existing.model}变更为${model}`
+      );
+    }
+  }
 
   const updated = db.prepare('SELECT * FROM consumables WHERE id = ?').get(req.params.id);
   logOperation(req.user, '更新耗材', `更新耗材: ${updated.name}`, null);

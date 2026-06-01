@@ -24,7 +24,15 @@ export default function Logs() {
       const params = {};
       if (patientFilter) params.patient_id = patientFilter;
       const { data } = await api.get('/logs', { params });
-      setLogs(Array.isArray(data) ? data : data.items || []);
+      if (Array.isArray(data)) {
+        setLogs(data);
+      } else if (data.logs && Array.isArray(data.logs)) {
+        setLogs(data.logs);
+      } else if (data.items && Array.isArray(data.items)) {
+        setLogs(data.items);
+      } else {
+        setLogs([]);
+      }
     } catch {
       setLogs([]);
     } finally {

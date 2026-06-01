@@ -42,9 +42,28 @@ const ROLE_MENU_MAP = {
   warehouse: ['/', '/consumables', '/logs'],
 };
 
+const ROUTE_ROLE_MAP = {
+  '/patients': ['frontdesk', 'doctor'],
+  '/patient': ['frontdesk', 'doctor'],
+  '/schedule': ['frontdesk', 'doctor'],
+  '/consumables': ['frontdesk', 'doctor', 'warehouse'],
+  '/alerts': ['frontdesk', 'doctor'],
+  '/logs': ['frontdesk', 'doctor', 'warehouse'],
+};
+
 function ProtectedRoute({ children }) {
   const token = localStorage.getItem('token');
   if (!token) return <Navigate to="/login" replace />;
+  const userStr = localStorage.getItem('user');
+  const user = userStr ? JSON.parse(userStr) : null;
+  if (user) {
+    const role = user.role || '';
+    const pathname = window.location.pathname;
+    const matchedKey = Object.keys(ROUTE_ROLE_MAP).find((key) => pathname.startsWith(key));
+    if (matchedKey && !ROUTE_ROLE_MAP[matchedKey].includes(role)) {
+      return <Navigate to="/" replace />;
+    }
+  }
   return children;
 }
 

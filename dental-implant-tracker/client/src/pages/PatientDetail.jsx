@@ -63,11 +63,15 @@ export default function PatientDetail() {
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [rescheduleModalOpen, setRescheduleModalOpen] = useState(false);
   const [completeModalOpen, setCompleteModalOpen] = useState(false);
+  const [addNodeModalOpen, setAddNodeModalOpen] = useState(false);
   const [editForm] = Form.useForm();
   const [rescheduleForm] = Form.useForm();
   const [completeForm] = Form.useForm();
+  const [addNodeForm] = Form.useForm();
   const [selectedNode, setSelectedNode] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+  const [doctors, setDoctors] = useState([]);
+  const [availableConsumables, setAvailableConsumables] = useState([]);
 
   useEffect(() => {
     fetchPatient();
@@ -205,6 +209,47 @@ export default function PatientDetail() {
     });
   };
 
+  const openAddNodeModal = async () => {
+    addNodeForm.resetFields();
+    try {
+      const [doctorsRes, consumablesRes] = await Promise.all([
+        api.get('/auth/me').catch(() => null),
+        api.get('/consumables', { params: { status: 'available' } }).catch(() => ({ data: [] })),
+      ]);
+      const allUsers = (await api.get('/patients')).data;
+      const doctorsData = [
+        { id: user.id, name: user.name, role: user.role },
+      ];
+      setAvailableConsumables(
+        Array.isArray(consumablesRes.data) ? consumablesRes.data : []
+      );
+      setDoctors(doctorsData);
+    } catch {}
+    addNodeForm.setFieldsValue({ patient_id: id, doctor_id: user.role === 'doctor' ? user.id : undefined });
+    setAddNodeModalOpen(true);
+  };
+
+  const handleAddNode = async (values) => {
+    setSubmitting(true);
+    try {
+      await api.post('/schedules', {
+        patient_id: parseInt(id),
+        node_type: values.node_type,
+        planned_date: values.planned_date?.format('YYYY-MM-DD'),
+        doctor_id: values.doctor_id || null,
+        consumable_id: values.consumable_id || null,
+        notes: values.notes || null,
+      });
+      message.success('治疗节点已添加');
+      setAddNodeModalOpen(false);
+      fetchPatient();
+    } catch (err) {
+      message.error(err.response?.data?.error || '添加失败');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   const sortedNodes = [...nodes].sort(
     (a, b) => NODE_TYPE_ORDER.indexOf(a.node_type) - NODE_TYPE_ORDER.indexOf(b.node_type)
   );
@@ -253,6 +298,13 @@ export default function PatientDetail() {
                 <CalendarOutlined style={{ marginRight: 8 }} />
                 治疗时间线
               </span>
+            }
+            extra={
+              (role === 'frontdesk' || role === 'doctor') && (
+                <Button type="primary" icon={<PlusOutlined />} size="small" onClick={openAddNodeModal}>
+                  新增节点
+                </Button>
+              )
             }
             style={{ marginTop: 16 }}
           >
@@ -491,6 +543,44 @@ export default function PatientDetail() {
         <Form form={completeForm} layout="vertical" onFinish={handleComplete}>
           <Form.Item name="notes" label="手术/治疗记录">
             <Input.TextArea rows={4} placeholder="请输入治疗记录" />
+          </Form.Item>
+        </Form>
+      </Modal>
+
+      <Modal
+        title="新增治疗节点"
+        open={addNodeModalOpen}
+        onCancel={() => setAddNodeModalOpen(false)}
+        onOk={() => addNodeForm.submit()}
+        confirmLoading={submitting}
+        okText="添加"
+        cancelText="取消"
+      >
+        <Form form={addNodeForm} layout="vertical" onFinish={handleAddNode}>
+          <Form.Item name="node_type" label="节点类型" rules={[{ required: true, message: '请选择节点类型' }]}>
+            <Select placeholder="请选择节点类型">
+              {NODE_TYPE_ORDER.map((t) => (
+                <Select.Option key={t} value={t}>{NODE_TYPE_LABELS[t]}</Select.Option>
+              ))}
+            </Select>
+          </Form.Item>
+          <Form.Item name="planned_date" label="计划日期" rules={[{ required: true, message: '请选择日期' }]}>
+            <DatePicker style={{ width: '100%' }} />
+          </Form.Item>
+          <Form.Item name="doctor_id" label="负责医生">
+            <Select placeholder="请选择医生" allowClear>
+              <Select.Option value={user.id}>{user.name}（当前用户）</Select.Option>
+            </Select>
+          </Form.Item>
+          <Form.Item name="consumable_id" label="关联耗材">
+            <Select placeholder="请选择耗材" allowClear>
+              {availableConsumables.map((c) => (
+                <Select.Option key={c.id} value={c.id}>{c.name} ({c.model})</Select.Option>
+              ))}
+            </Select>
+          </Form.Item>
+          <Form.Item name="notes" label="备注">
+            <Input.TextArea rows={3} placeholder="备注信息" />
           </Form.Item>
         </Form>
       </Modal>

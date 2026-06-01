@@ -4,7 +4,7 @@ import db, { logOperation } from '../db.js';
 
 const router = express.Router();
 
-router.get('/patient/:patientId', verifyToken, (req, res) => {
+router.get('/patient/:patientId', verifyToken, roleCheck('frontdesk', 'doctor'), (req, res) => {
   const nodes = db.prepare(`
     SELECT tn.*, u.name as doctor_name, c.name as consumable_name
     FROM treatment_nodes tn
@@ -16,7 +16,7 @@ router.get('/patient/:patientId', verifyToken, (req, res) => {
   res.json(nodes);
 });
 
-router.get('/daily', verifyToken, (req, res) => {
+router.get('/daily', verifyToken, roleCheck('frontdesk', 'doctor'), (req, res) => {
   const { date } = req.query;
   if (!date) {
     return res.status(400).json({ error: '请提供日期参数' });
@@ -55,7 +55,7 @@ router.post('/', verifyToken, roleCheck('frontdesk', 'doctor'), (req, res) => {
   res.status(201).json(node);
 });
 
-router.put('/:id', verifyToken, (req, res) => {
+router.put('/:id', verifyToken, roleCheck('frontdesk', 'doctor'), (req, res) => {
   const existing = db.prepare('SELECT * FROM treatment_nodes WHERE id = ?').get(req.params.id);
   if (!existing) {
     return res.status(404).json({ error: '治疗节点不存在' });

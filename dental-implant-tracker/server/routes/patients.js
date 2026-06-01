@@ -4,7 +4,7 @@ import db, { logOperation } from '../db.js';
 
 const router = express.Router();
 
-router.get('/', verifyToken, (req, res) => {
+router.get('/', verifyToken, roleCheck('frontdesk', 'doctor'), (req, res) => {
   const { search } = req.query;
   let patients;
   if (search) {
@@ -16,10 +16,23 @@ router.get('/', verifyToken, (req, res) => {
   } else {
     patients = db.prepare('SELECT * FROM patients ORDER BY created_at DESC').all();
   }
-  res.json(patients);
+
+  const nodesStmt = db.prepare(`
+    SELECT tn.*, u.name as doctor_name, c.name as consumable_name
+    FROM treatment_nodes tn
+    LEFT JOIN users u ON tn.doctor_id = u.id
+    LEFT JOIN consumables c ON tn.consumable_id = c.id
+    WHERE tn.patient_id = ?
+    ORDER BY tn.planned_date
+  `);
+  const result = patients.map((p) => ({
+    ...p,
+    treatment_nodes: nodesStmt.all(p.id),
+  }));
+  res.json(result);
 });
 
-router.get('/:id', verifyToken, (req, res) => {
+router.get('/:id', verifyToken, roleCheck('frontdesk', 'doctor'), (req, res) => {
   const patient = db.prepare('SELECT * FROM patients WHERE id = ?').get(req.params.id);
   if (!patient) {
     return res.status(404).json({ error: '患者不存在' });

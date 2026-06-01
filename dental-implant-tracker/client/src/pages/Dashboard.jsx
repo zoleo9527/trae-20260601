@@ -62,16 +62,31 @@ export default function Dashboard() {
   const fetchDashboard = async () => {
     setLoading(true);
     try {
+      const user = JSON.parse(localStorage.getItem('user') || '{}');
       const today = dayjs().format('YYYY-MM-DD');
-      const [patientsRes, dailyRes, alertsRes, consumablesRes] = await Promise.all([
-        api.get('/patients').catch(() => ({ data: [] })),
-        api.get('/schedules/daily', { params: { date: today } }).catch(() => ({ data: [] })),
-        api.get('/alerts', { params: { is_read: 0 } }).catch(() => ({ data: [] })),
-        api.get('/consumables', { params: { status: 'available' } }).catch(() => ({ data: [] })),
+
+      if (user.role === 'frontdesk' || user.role === 'doctor') {
+        await api.post('/alerts/check-overdue').catch(() => {});
+      }
+
+      const fetches = [];
+      const patientsReq = api.get('/patients').catch(() => ({ data: [] }));
+      const alertsReq = api.get('/alerts', { params: { is_read: 0 } }).catch(() => ({ data: [] }));
+      const consumablesReq = api.get('/consumables', { params: { status: 'available' } }).catch(() => ({ data: [] }));
+
+      const [patientsRes, alertsRes, consumablesRes] = await Promise.all([
+        user.role === 'frontdesk' || user.role === 'doctor' ? patientsReq : { data: [] },
+        alertsReq,
+        consumablesReq,
       ]);
 
+      let dailyNodes = [];
+      if (user.role === 'frontdesk' || user.role === 'doctor') {
+        const dailyRes = await api.get('/schedules/daily', { params: { date: today } }).catch(() => ({ data: [] }));
+        dailyNodes = Array.isArray(dailyRes.data) ? dailyRes.data : [];
+      }
+
       const patientList = Array.isArray(patientsRes.data) ? patientsRes.data : [];
-      const dailyNodes = Array.isArray(dailyRes.data) ? dailyRes.data : [];
       const alertList = Array.isArray(alertsRes.data) ? alertsRes.data : [];
       const availableConsumables = Array.isArray(consumablesRes.data) ? consumablesRes.data : [];
 
@@ -167,7 +182,7 @@ export default function Dashboard() {
                       title={
                         <span>
                           <Tag color={ALERT_TYPE_COLORS[alert.type]}>{ALERT_TYPE_LABELS[alert.type] || alert.type}</Tag>
-                          {alert.patient_id ? `患者ID: ${alert.patient_id}` : ''}
+                          {alert.patient_name || (alert.patient_id ? `患者ID: ${alert.patient_id}` : '')}
                         </span>
                       }
                       description={alert.message}
