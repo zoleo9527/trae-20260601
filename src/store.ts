@@ -1,6 +1,16 @@
 import type { CareRecord, Communication, Followup, Order, Patient, Role } from '@/types'
 import { create } from 'zustand'
 
+const STORAGE_KEY = 'vetclinic-role'
+
+function loadRole(): Role {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY)
+    if (saved === 'doctor' || saved === 'nurse' || saved === 'receptionist') return saved
+  } catch {}
+  return 'doctor'
+}
+
 interface AppState {
   role: Role
   setRole: (role: Role) => void
@@ -22,8 +32,11 @@ interface AppState {
 }
 
 export const useStore = create<AppState>((set, get) => ({
-  role: 'doctor',
-  setRole: (role) => set({ role }),
+  role: loadRole(),
+  setRole: (role) => {
+    try { localStorage.setItem(STORAGE_KEY, role) } catch {}
+    set({ role })
+  },
 
   patients: [],
   fetchPatients: async () => {
