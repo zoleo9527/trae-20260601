@@ -72,3 +72,20 @@ export const STATUS_COLORS: Record<OrderStatus, string> = {
   cancelled: 'bg-gray-100 text-gray-500',
   refund_requested: 'bg-red-100 text-red-800',
 }
+
+export function getRefundStatusLabel(statusBeforeRefund: OrderStatus | null): string {
+  switch (statusBeforeRefund) {
+    case 'verified':
+      return '已核销退餐'
+    case 'served':
+      return '已出餐退餐'
+    case 'pending':
+    default:
+      return '退餐申请'
+  }
+}
+
+export function getRefundStatusColor(statusBeforeRefund: OrderStatus | null): string {
+  const requiresFeeConfirm = statusBeforeRefund === 'served' || statusBeforeRefund === 'verified'
+  return requiresFeeConfirm ? 'bg-rose-100 text-rose-700' : 'bg-red-100 text-red-700'
+}

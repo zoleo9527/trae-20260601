@@ -7,18 +7,18 @@ import {
     STATUS_COLORS,
     SUBSIDY_COLORS,
     SUBSIDY_TYPE_LABELS,
+    getRefundStatusColor,
+    getRefundStatusLabel,
 } from '@/types'
 import { AlertTriangle, Check, Clock, Flame, RotateCcw, X } from 'lucide-react'
 
 function getStatusDisplay(order: Order) {
   if (order.status === 'refund_requested') {
-    const refundLabel = order.statusBeforeRefund === 'verified'
-      ? '已核销退餐'
-      : order.statusBeforeRefund === 'served'
-      ? '已出餐退餐'
-      : '退餐申请'
-    const refundColor = order.isServedRefund ? 'bg-rose-100 text-rose-700' : 'bg-red-100 text-red-700'
-    return { label: refundLabel, color: refundColor, icon: 'refund' as const }
+    return {
+      label: getRefundStatusLabel(order.statusBeforeRefund),
+      color: getRefundStatusColor(order.statusBeforeRefund),
+      icon: 'refund' as const,
+    }
   }
   return {
     label: ORDER_STATUS_LABELS[order.status],

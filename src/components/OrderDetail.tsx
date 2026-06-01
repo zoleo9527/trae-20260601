@@ -8,6 +8,8 @@ import {
     STATUS_COLORS,
     SUBSIDY_COLORS,
     SUBSIDY_TYPE_LABELS,
+    getRefundStatusColor,
+    getRefundStatusLabel,
 } from '@/types'
 import {
     AlertTriangle,
@@ -25,13 +27,10 @@ import {
 
 function getStatusDisplay(order: Order) {
   if (order.status === 'refund_requested') {
-    const refundLabel = order.statusBeforeRefund === 'verified'
-      ? '已核销退餐'
-      : order.statusBeforeRefund === 'served'
-      ? '已出餐退餐'
-      : '退餐申请'
-    const refundColor = order.isServedRefund ? 'bg-rose-100 text-rose-700' : 'bg-red-100 text-red-700'
-    return { label: refundLabel, color: refundColor }
+    return {
+      label: getRefundStatusLabel(order.statusBeforeRefund),
+      color: getRefundStatusColor(order.statusBeforeRefund),
+    }
   }
   return {
     label: ORDER_STATUS_LABELS[order.status],
@@ -58,11 +57,7 @@ function StatusTimeline({ order }: { order: Order }) {
     },
   ]
 
-  const refundLabel = order.statusBeforeRefund === 'verified'
-    ? '已核销退餐'
-    : order.statusBeforeRefund === 'served'
-    ? '已出餐退餐'
-    : '待出餐退餐'
+  const refundLabel = getRefundStatusLabel(order.statusBeforeRefund)
 
   return (
     <div className="space-y-3">
@@ -110,7 +105,7 @@ function StatusTimeline({ order }: { order: Order }) {
             {order.isServedRefund && (
               <p className="text-[11px] text-amber-600 mt-0.5 flex items-center gap-1">
                 <AlertTriangle size={10} />
-                {order.statusBeforeRefund === 'verified' ? '已核销后退餐，需确认退费方式' : '已出餐后退餐，需确认退费方式'}
+                需确认退费方式
               </p>
             )}
           </div>
@@ -157,14 +152,11 @@ export default function OrderDetail() {
           <ul className="text-xs text-red-600 space-y-0.5">
             {order.subsidyExpired && <li>· 补贴资格已过期，请核实续期情况</li>}
             {order.duplicateOrder && <li>· 存在重复订餐，请确认是否为误操作</li>}
-            {order.status === 'refund_requested' && order.statusBeforeRefund === 'verified' && (
-              <li>· 已核销后退餐，需确认退费方式</li>
-            )}
-            {order.status === 'refund_requested' && order.statusBeforeRefund === 'served' && (
-              <li>· 已出餐后退餐，需确认退费方式</li>
+            {order.status === 'refund_requested' && (order.statusBeforeRefund === 'served' || order.statusBeforeRefund === 'verified') && (
+              <li>· {getRefundStatusLabel(order.statusBeforeRefund)}，需确认退费方式</li>
             )}
             {order.status === 'refund_requested' && (order.statusBeforeRefund === 'pending' || !order.statusBeforeRefund) && (
-              <li>· 退餐申请待处理</li>
+              <li>· {getRefundStatusLabel(order.statusBeforeRefund)}</li>
             )}
           </ul>
         </div>
