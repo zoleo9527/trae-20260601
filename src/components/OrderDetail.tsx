@@ -24,16 +24,21 @@ import {
 } from 'lucide-react'
 
 function StatusTimeline({ order }: { order: Order }) {
+  const effectiveStatus = order.status === 'refund_requested' && order.statusBeforeRefund
+    ? order.statusBeforeRefund
+    : order.status
+
   const steps = [
     { label: '下单成功', done: true, time: order.orderDate },
     {
       label: order.status === 'cancelled' ? '已取消' : '已出餐',
-      done: ['served', 'verified', 'refund_requested'].includes(order.status),
-      time: order.status === 'pending' ? '' : order.orderDate,
+      done: ['served', 'verified', 'refund_requested'].includes(order.status) ||
+            (order.status === 'refund_requested' && ['served', 'verified'].includes(order.statusBeforeRefund ?? '')),
+      time: effectiveStatus === 'pending' ? '' : order.orderDate,
     },
     {
       label: '已核销',
-      done: order.status === 'verified',
+      done: effectiveStatus === 'verified',
       time: order.verifiedAt ?? '',
     },
   ]
@@ -212,7 +217,7 @@ export default function OrderDetail() {
           </button>
         </div>
       ) : (
-        (order.status === 'served' || order.status === 'pending') && (
+        (order.status === 'served' || order.status === 'pending' || order.status === 'verified') && (
           <div className="px-5 py-3 border-t border-stone-100">
             <button
               onClick={() => setShowRefundModal(true, order.id)}

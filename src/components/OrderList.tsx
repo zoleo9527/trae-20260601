@@ -24,7 +24,7 @@ export default function OrderList() {
     useOrderStore()
   const orders = getFilteredOrders()
   const grouped = groupByMealType(orders)
-  const allSelectable = orders.filter((o) => o.status === 'served' || o.status === 'pending')
+  const allSelectable = orders.filter((o) => o.status === 'served')
   const allSelected = allSelectable.length > 0 && allSelectable.every((o) => selectedOrderIds.has(o.id))
 
   return (
@@ -46,7 +46,7 @@ export default function OrderList() {
           )}
         >
           {allSelected ? <CheckSquare size={14} /> : <Square size={14} />}
-          {allSelected ? '取消全选' : '全选可核销'}
+          {allSelected ? '取消全选' : '全选已出餐'}
         </button>
       </div>
 

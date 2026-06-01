@@ -1,5 +1,5 @@
 import { mockOrders } from '@/data/mockOrders'
-import type { MealType, Order, RefundReason, SubsidyType, ViewMode } from '@/types'
+import type { MealType, Order, OrderStatus, RefundReason, SubsidyType, ViewMode } from '@/types'
 import { create } from 'zustand'
 
 interface OrderStore {
@@ -58,6 +58,8 @@ export const useOrderStore = create<OrderStore>((set, get) => ({
 
   toggleSelectOrder: (id) =>
     set((state) => {
+      const order = state.orders.find((o) => o.id === id)
+      if (!order || order.status !== 'served') return state
       const next = new Set(state.selectedOrderIds)
       if (next.has(id)) {
         next.delete(id)
@@ -71,7 +73,7 @@ export const useOrderStore = create<OrderStore>((set, get) => ({
     set(() => {
       const filtered = get().getFilteredOrders()
       const selectable = filtered
-        .filter((o) => o.status === 'served' || o.status === 'pending')
+        .filter((o) => o.status === 'served')
         .map((o) => o.id)
       return { selectedOrderIds: new Set(selectable) }
     }),
@@ -90,7 +92,7 @@ export const useOrderStore = create<OrderStore>((set, get) => ({
         minute: '2-digit',
       })
       const updated = state.orders.map((o) =>
-        state.selectedOrderIds.has(o.id) && (o.status === 'served' || o.status === 'pending')
+        state.selectedOrderIds.has(o.id) && o.status === 'served'
           ? { ...o, status: 'verified' as const, verifiedAt: now }
           : o
       )
@@ -115,6 +117,7 @@ export const useOrderStore = create<OrderStore>((set, get) => ({
         verifiedAt: null,
         refundReason: null,
         isServedRefund: false,
+        statusBeforeRefund: null,
         phone: data.phone,
       }
       return { orders: [newOrder, ...state.orders], showAddMealModal: false }
@@ -132,6 +135,7 @@ export const useOrderStore = create<OrderStore>((set, get) => ({
               status: 'refund_requested' as const,
               refundReason: reason,
               isServedRefund,
+              statusBeforeRefund: o.status,
             }
           : o
       )
@@ -140,11 +144,17 @@ export const useOrderStore = create<OrderStore>((set, get) => ({
 
   cancelRefund: (orderId) =>
     set((state) => {
-      const updated = state.orders.map((o) =>
-        o.id === orderId && o.status === 'refund_requested'
-          ? { ...o, status: 'pending' as const, refundReason: null, isServedRefund: false }
-          : o
-      )
+      const updated = state.orders.map((o) => {
+        if (o.id !== orderId || o.status !== 'refund_requested') return o
+        const originalStatus = o.statusBeforeRefund ?? 'pending'
+        return {
+          ...o,
+          status: originalStatus as OrderStatus,
+          refundReason: null,
+          isServedRefund: false,
+          statusBeforeRefund: null,
+        }
+      })
       return { orders: updated }
     }),
 

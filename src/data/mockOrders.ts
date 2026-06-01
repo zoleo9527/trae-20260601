@@ -26,6 +26,7 @@ export const mockOrders: Order[] = [
     verifiedAt: null,
     refundReason: null,
     isServedRefund: false,
+    statusBeforeRefund: null,
     phone: '138****1234',
   },
   {
@@ -44,6 +45,7 @@ export const mockOrders: Order[] = [
     verifiedAt: null,
     refundReason: null,
     isServedRefund: false,
+    statusBeforeRefund: null,
     phone: '139****5678',
   },
   {
@@ -62,6 +64,7 @@ export const mockOrders: Order[] = [
     verifiedAt: null,
     refundReason: null,
     isServedRefund: false,
+    statusBeforeRefund: null,
     phone: '139****5678',
   },
   {
@@ -80,6 +83,7 @@ export const mockOrders: Order[] = [
     verifiedAt: null,
     refundReason: null,
     isServedRefund: false,
+    statusBeforeRefund: null,
     phone: '137****9012',
   },
   {
@@ -98,6 +102,7 @@ export const mockOrders: Order[] = [
     verifiedAt: null,
     refundReason: 'family_cancel',
     isServedRefund: true,
+    statusBeforeRefund: 'served',
     phone: '136****3456',
   },
   {
@@ -116,6 +121,7 @@ export const mockOrders: Order[] = [
     verifiedAt: null,
     refundReason: null,
     isServedRefund: false,
+    statusBeforeRefund: null,
     phone: '135****7890',
   },
   {
@@ -134,6 +140,7 @@ export const mockOrders: Order[] = [
     verifiedAt: '2026-06-01 11:23',
     refundReason: null,
     isServedRefund: false,
+    statusBeforeRefund: null,
     phone: '134****2345',
   },
   {
@@ -152,6 +159,7 @@ export const mockOrders: Order[] = [
     verifiedAt: null,
     refundReason: null,
     isServedRefund: false,
+    statusBeforeRefund: null,
     phone: '133****6789',
   },
   {
@@ -170,6 +178,7 @@ export const mockOrders: Order[] = [
     verifiedAt: null,
     refundReason: null,
     isServedRefund: false,
+    statusBeforeRefund: null,
     phone: '132****0123',
   },
   {
@@ -188,6 +197,7 @@ export const mockOrders: Order[] = [
     verifiedAt: null,
     refundReason: null,
     isServedRefund: false,
+    statusBeforeRefund: null,
     phone: '131****4567',
   },
   {
@@ -206,7 +216,27 @@ export const mockOrders: Order[] = [
     verifiedAt: null,
     refundReason: 'hospital',
     isServedRefund: false,
+    statusBeforeRefund: 'pending',
     phone: '130****8901',
+  },
+  {
+    id: 'ORD-016',
+    elderName: '钱宝贵',
+    mealType: 'lunch',
+    dishName: '红烧肉+青菜+米饭',
+    subsidyType: 'veteran',
+    subsidyExpired: false,
+    deliveryAddress: '团结路25号3单元402',
+    status: 'refund_requested',
+    orderDate: today,
+    isTemporary: false,
+    note: '已核销后家属来电退餐，需特殊处理',
+    duplicateOrder: false,
+    verifiedAt: '2026-06-01 11:30',
+    refundReason: 'family_cancel',
+    isServedRefund: true,
+    statusBeforeRefund: 'verified',
+    phone: '156****7890',
   },
   {
     id: 'ORD-012',
@@ -224,6 +254,7 @@ export const mockOrders: Order[] = [
     verifiedAt: null,
     refundReason: null,
     isServedRefund: false,
+    statusBeforeRefund: null,
     phone: '158****2345',
   },
   {
@@ -242,6 +273,7 @@ export const mockOrders: Order[] = [
     verifiedAt: null,
     refundReason: null,
     isServedRefund: false,
+    statusBeforeRefund: null,
     phone: '138****1234',
   },
   {
@@ -260,6 +292,7 @@ export const mockOrders: Order[] = [
     verifiedAt: '2026-06-01 07:15',
     refundReason: null,
     isServedRefund: false,
+    statusBeforeRefund: null,
     phone: '159****6789',
   },
   {
@@ -278,6 +311,7 @@ export const mockOrders: Order[] = [
     verifiedAt: null,
     refundReason: null,
     isServedRefund: false,
+    statusBeforeRefund: null,
     phone: '157****0123',
   },
   {
@@ -296,6 +330,7 @@ export const mockOrders: Order[] = [
     verifiedAt: null,
     refundReason: null,
     isServedRefund: false,
+    statusBeforeRefund: null,
     phone: '138****1234',
   },
   {
@@ -314,6 +349,7 @@ export const mockOrders: Order[] = [
     verifiedAt: null,
     refundReason: null,
     isServedRefund: false,
+    statusBeforeRefund: null,
     phone: '139****5678',
   },
   {
@@ -332,6 +368,7 @@ export const mockOrders: Order[] = [
     verifiedAt: null,
     refundReason: null,
     isServedRefund: false,
+    statusBeforeRefund: null,
     phone: '137****9012',
   },
   {
@@ -350,6 +387,7 @@ export const mockOrders: Order[] = [
     verifiedAt: null,
     refundReason: null,
     isServedRefund: false,
+    statusBeforeRefund: null,
     phone: '134****2345',
   },
   {
@@ -368,6 +406,7 @@ export const mockOrders: Order[] = [
     verifiedAt: null,
     refundReason: null,
     isServedRefund: false,
+    statusBeforeRefund: null,
     phone: '133****6789',
   },
   {
@@ -386,6 +425,7 @@ export const mockOrders: Order[] = [
     verifiedAt: null,
     refundReason: null,
     isServedRefund: false,
+    statusBeforeRefund: null,
     phone: '131****4567',
   },
   {
@@ -404,6 +444,7 @@ export const mockOrders: Order[] = [
     verifiedAt: null,
     refundReason: null,
     isServedRefund: false,
+    statusBeforeRefund: null,
     phone: '158****2345',
   },
   {
@@ -422,6 +463,7 @@ export const mockOrders: Order[] = [
     verifiedAt: null,
     refundReason: null,
     isServedRefund: false,
+    statusBeforeRefund: null,
     phone: '136****3456',
   },
   {
@@ -440,6 +482,7 @@ export const mockOrders: Order[] = [
     verifiedAt: null,
     refundReason: null,
     isServedRefund: false,
+    statusBeforeRefund: null,
     phone: '130****8901',
   },
   {
@@ -458,6 +501,7 @@ export const mockOrders: Order[] = [
     verifiedAt: null,
     refundReason: null,
     isServedRefund: false,
+    statusBeforeRefund: null,
     phone: '157****0123',
   },
   {
@@ -476,6 +520,7 @@ export const mockOrders: Order[] = [
     verifiedAt: null,
     refundReason: null,
     isServedRefund: false,
+    statusBeforeRefund: null,
     phone: '159****6789',
   },
   {
@@ -494,6 +539,7 @@ export const mockOrders: Order[] = [
     verifiedAt: null,
     refundReason: null,
     isServedRefund: false,
+    statusBeforeRefund: null,
     phone: '132****0123',
   },
 ]

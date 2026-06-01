@@ -24,6 +24,7 @@ export interface Order {
   verifiedAt: string | null
   refundReason: RefundReason | null
   isServedRefund: boolean
+  statusBeforeRefund: OrderStatus | null
   phone: string
 }
 

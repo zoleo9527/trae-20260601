@@ -49,7 +49,7 @@ export default function OrderCard({ order }: { order: Order }) {
   const isSelected = selectedOrderIds.has(order.id)
   const isActive = activeOrderId === order.id
   const abnormalTags = getAbnormalTags(order)
-  const isSelectable = order.status === 'served' || order.status === 'pending'
+  const isSelectable = order.status === 'served'
 
   return (
     <div
