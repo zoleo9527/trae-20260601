@@ -149,7 +149,7 @@ export const InventoryProvider: React.FC<{ children: React.ReactNode }> = ({ chi
             );
 
             const newDeductionRemark = isResolved
-              ? `协商确认扣款¥${newDeductionAmount}：${result}`
+              ? `已确认扣款¥${newDeductionAmount}：${resolution}`
               : room.deductionRemark;
 
             return {
