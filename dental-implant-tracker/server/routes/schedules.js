@@ -10,7 +10,7 @@ router.get('/patient/:patientId', verifyToken, roleCheck('frontdesk', 'doctor'),
   const nodes = db.prepare(`
     SELECT tn.*, u.name as doctor_name, c.name as consumable_name
     FROM treatment_nodes tn
-    LEFT JOIN users u ON tn.doctor_id = u.id
+    LEFT JOIN users u ON tn.doctor_id = u.id AND u.role = 'doctor'
     LEFT JOIN consumables c ON tn.consumable_id = c.id
     WHERE tn.patient_id = ?
     ORDER BY tn.planned_date
@@ -29,7 +29,7 @@ router.get('/daily', verifyToken, roleCheck('frontdesk', 'doctor'), (req, res) =
     SELECT tn.*, p.name as patient_name, u.name as doctor_name
     FROM treatment_nodes tn
     JOIN patients p ON tn.patient_id = p.id
-    LEFT JOIN users u ON tn.doctor_id = u.id
+    LEFT JOIN users u ON tn.doctor_id = u.id AND u.role = 'doctor'
     WHERE tn.planned_date = ?
     ORDER BY tn.node_type
   `).all(date);
@@ -42,6 +42,16 @@ router.post('/', verifyToken, roleCheck('frontdesk', 'doctor'), (req, res) => {
     return res.status(400).json({ error: '患者ID、节点类型和计划日期为必填项' });
   }
 
+  if (doctor_id !== undefined && doctor_id !== null) {
+    const doctor = db.prepare("SELECT id, role FROM users WHERE id = ?").get(doctor_id);
+    if (!doctor) {
+      return res.status(400).json({ error: '指定的医生不存在' });
+    }
+    if (doctor.role !== 'doctor') {
+      return res.status(400).json({ error: '只能选择医生角色作为负责医生' });
+    }
+  }
+
   const result = db.prepare(`
     INSERT INTO treatment_nodes (patient_id, node_type, planned_date, doctor_id, consumable_id, notes)
     VALUES (?, ?, ?, ?, ?, ?)
@@ -50,7 +60,7 @@ router.post('/', verifyToken, roleCheck('frontdesk', 'doctor'), (req, res) => {
   const node = db.prepare(`
     SELECT tn.*, u.name as doctor_name
     FROM treatment_nodes tn
-    LEFT JOIN users u ON tn.doctor_id = u.id
+    LEFT JOIN users u ON tn.doctor_id = u.id AND u.role = 'doctor'
     WHERE tn.id = ?
   `).get(result.lastInsertRowid);
 
@@ -65,6 +75,17 @@ router.put('/:id', verifyToken, roleCheck('frontdesk', 'doctor'), (req, res) => 
   }
 
   const { planned_date, actual_date, status, notes, doctor_id, consumable_id, node_type } = req.body;
+
+  if (doctor_id !== undefined && doctor_id !== null) {
+    const doctor = db.prepare("SELECT id, role FROM users WHERE id = ?").get(doctor_id);
+    if (!doctor) {
+      return res.status(400).json({ error: '指定的医生不存在' });
+    }
+    if (doctor.role !== 'doctor') {
+      return res.status(400).json({ error: '只能选择医生角色作为负责医生' });
+    }
+  }
+
   db.prepare(`
     UPDATE treatment_nodes SET
       planned_date = ?, actual_date = ?, status = ?, notes = ?,
@@ -84,7 +105,7 @@ router.put('/:id', verifyToken, roleCheck('frontdesk', 'doctor'), (req, res) => 
   const updated = db.prepare(`
     SELECT tn.*, u.name as doctor_name
     FROM treatment_nodes tn
-    LEFT JOIN users u ON tn.doctor_id = u.id
+    LEFT JOIN users u ON tn.doctor_id = u.id AND u.role = 'doctor'
     WHERE tn.id = ?
   `).get(req.params.id);
 
@@ -120,7 +141,7 @@ router.post('/:id/complete', verifyToken, roleCheck('doctor'), (req, res) => {
   const updated = db.prepare(`
     SELECT tn.*, u.name as doctor_name
     FROM treatment_nodes tn
-    LEFT JOIN users u ON tn.doctor_id = u.id
+    LEFT JOIN users u ON tn.doctor_id = u.id AND u.role = 'doctor'
     WHERE tn.id = ?
   `).get(req.params.id);
 
@@ -170,7 +191,7 @@ router.post('/:id/reschedule', verifyToken, roleCheck('frontdesk', 'doctor'), (r
   const newNode = db.prepare(`
     SELECT tn.*, u.name as doctor_name
     FROM treatment_nodes tn
-    LEFT JOIN users u ON tn.doctor_id = u.id
+    LEFT JOIN users u ON tn.doctor_id = u.id AND u.role = 'doctor'
     WHERE tn.id = ?
   `).get(result.lastInsertRowid);
 

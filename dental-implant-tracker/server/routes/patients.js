@@ -22,7 +22,7 @@ router.get('/', verifyToken, roleCheck('frontdesk', 'doctor'), (req, res) => {
   const nodesStmt = db.prepare(`
     SELECT tn.*, u.name as doctor_name, c.name as consumable_name
     FROM treatment_nodes tn
-    LEFT JOIN users u ON tn.doctor_id = u.id
+    LEFT JOIN users u ON tn.doctor_id = u.id AND u.role = 'doctor'
     LEFT JOIN consumables c ON tn.consumable_id = c.id
     WHERE tn.patient_id = ?
     ORDER BY tn.planned_date
@@ -44,7 +44,7 @@ router.get('/:id', verifyToken, roleCheck('frontdesk', 'doctor'), (req, res) => 
   const nodes = db.prepare(`
     SELECT tn.*, u.name as doctor_name
     FROM treatment_nodes tn
-    LEFT JOIN users u ON tn.doctor_id = u.id
+    LEFT JOIN users u ON tn.doctor_id = u.id AND u.role = 'doctor'
     WHERE tn.patient_id = ?
     ORDER BY tn.planned_date
   `).all(req.params.id);

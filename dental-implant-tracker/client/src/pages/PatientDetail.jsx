@@ -213,17 +213,25 @@ export default function PatientDetail() {
 
   const openAddNodeModal = async () => {
     addNodeForm.resetFields();
+    let defaultDoctorId = undefined;
     try {
       const [doctorsRes, consumablesRes] = await Promise.all([
         api.get('/auth/doctors').catch(() => ({ data: [] })),
         api.get('/consumables', { params: { status: 'available' } }).catch(() => ({ data: [] })),
       ]);
-      setDoctors(Array.isArray(doctorsRes.data) ? doctorsRes.data : []);
+      const doctorList = Array.isArray(doctorsRes.data) ? doctorsRes.data : [];
+      setDoctors(doctorList);
       setAvailableConsumables(
         Array.isArray(consumablesRes.data) ? consumablesRes.data : []
       );
+      if (user.role === 'doctor') {
+        const currentUserIsValidDoctor = doctorList.some((d) => d.id === user.id);
+        if (currentUserIsValidDoctor) {
+          defaultDoctorId = user.id;
+        }
+      }
     } catch {}
-    addNodeForm.setFieldsValue({ patient_id: id, doctor_id: user.role === 'doctor' ? user.id : undefined });
+    addNodeForm.setFieldsValue({ patient_id: id, doctor_id: defaultDoctorId });
     setAddNodeModalOpen(true);
   };
 

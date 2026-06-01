@@ -86,6 +86,36 @@ db.exec(`
   );
 `);
 
+const invalidDoctors = db.prepare(`
+  SELECT tn.id, tn.doctor_id, u.name as user_name, u.role
+  FROM treatment_nodes tn
+  JOIN users u ON tn.doctor_id = u.id
+  WHERE u.role != 'doctor'
+`).all();
+
+if (invalidDoctors.length > 0) {
+  const fixStmt = db.prepare('UPDATE treatment_nodes SET doctor_id = NULL WHERE id = ?');
+  const logStmt = db.prepare(`
+    INSERT INTO operation_logs (user_id, user_name, user_role, action, detail, patient_id)
+    VALUES (?, ?, ?, ?, ?, ?)
+  `);
+  const systemUser = db.prepare("SELECT id FROM users WHERE role = 'doctor' ORDER BY id LIMIT 1").get();
+  const systemUserId = systemUser ? systemUser.id : null;
+  for (const node of invalidDoctors) {
+    fixStmt.run(node.id);
+    const patient = db.prepare('SELECT id, name FROM patients WHERE id = (SELECT patient_id FROM treatment_nodes WHERE id = ?)').get(node.id);
+    logStmt.run(
+      systemUserId,
+      'system',
+      'system',
+      '数据修复',
+      `清理无效负责医生：节点ID ${node.id} 的 doctor_id=${node.doctor_id}（${node.user_name}，角色：${node.role}）不是医生角色，已置空`,
+      patient ? patient.id : null
+    );
+  }
+  console.log(`数据修复完成：已清理 ${invalidDoctors.length} 条非医生角色的 doctor_id 记录`);
+}
+
 export function logOperation(user, action, detail, patientId) {
   const stmt = db.prepare(`
     INSERT INTO operation_logs (user_id, user_name, user_role, action, detail, patient_id)
