@@ -2,6 +2,7 @@ import { Request, Response, Router } from 'express';
 import { AppDataSource } from '../data-source';
 import { Attendance } from '../entities/Attendance';
 import { MakeupRequest } from '../entities/MakeupRequest';
+import { recalcStudentHours } from '../utils/hours';
 import { errorResponse, paginatedResponse, parseListQuery, successResponse } from '../utils/response';
 
 const router = Router();
@@ -93,20 +94,24 @@ router.put('/:id/reject', async (req: Request, res: Response) => {
 
 router.put('/:id/complete', async (req: Request, res: Response) => {
   try {
-    const request = await makeupRepository().findOneBy({ id: Number(req.params.id) });
+    const request = await makeupRepository().findOne({
+      where: { id: Number(req.params.id) },
+      relations: ['originalAttendance'],
+    });
     if (!request) return errorResponse(res, '补课申请不存在', 404);
-    
+
     request.status = 'completed';
     request.completedAt = new Date();
     await makeupRepository().save(request);
-    
+
     const attendance = await attendanceRepository().findOneBy({ id: request.originalAttendanceId });
     if (attendance) {
       attendance.status = 'makeup';
       attendance.makeupCompleted = true;
       await attendanceRepository().save(attendance);
+      await recalcStudentHours(attendance.studentId);
     }
-    
+
     successResponse(res, request, '补课完成');
   } catch (err) {
     errorResponse(res, (err as Error).message);

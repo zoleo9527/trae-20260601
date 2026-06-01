@@ -2,6 +2,7 @@ import { Request, Response, Router } from 'express';
 import { AppDataSource } from '../data-source';
 import { Certificate } from '../entities/Certificate';
 import { Student } from '../entities/Student';
+import { calcHoursFromAttendances } from '../utils/hours';
 import { errorResponse, paginatedResponse, parseListQuery, successResponse } from '../utils/response';
 
 const router = Router();
@@ -16,6 +17,50 @@ router.get('/', async (req: Request, res: Response) => {
       relations: ['student', 'shipment'],
     });
     paginatedResponse(res, certificates, total, Number(req.query.page || 1), Number(req.query.pageSize || 20));
+  } catch (err) {
+    errorResponse(res, (err as Error).message);
+  }
+});
+
+router.get('/student/:studentId/check-eligibility', async (req: Request, res: Response) => {
+  try {
+    const studentId = Number(req.params.studentId);
+    const student = await studentRepository().findOne({
+      where: { id: studentId },
+      relations: ['class', 'attendances', 'attendances.session'],
+    });
+
+    if (!student) return errorResponse(res, '学员不存在', 404);
+
+    const totalSessions = student.attendances.length;
+    const attendedSessions = student.attendances.filter(
+      a => a.status === 'present' || a.status === 'makeup'
+    ).length;
+    const attendanceRate = totalSessions > 0 ? (attendedSessions / totalSessions * 100) : 0;
+    const requiredHours = student.class ? student.class.totalHours : 0;
+    const attendedHours = calcHoursFromAttendances(student.attendances);
+
+    const eligibility = {
+      studentId,
+      studentName: student.name,
+      attendedHours,
+      requiredHours,
+      attendanceRate: Math.round(attendanceRate),
+      totalSessions,
+      attendedSessions,
+      isEligible: attendedHours >= requiredHours && attendanceRate >= 80,
+      reasons: [] as string[],
+    };
+
+    if (attendedHours < requiredHours) {
+      eligibility.reasons.push(`课时不足: 当前${attendedHours}小时，需要${requiredHours}小时`);
+    }
+
+    if (attendanceRate < 80) {
+      eligibility.reasons.push(`出勤率不足: 当前${Math.round(attendanceRate)}%，需要80%`);
+    }
+
+    successResponse(res, eligibility);
   } catch (err) {
     errorResponse(res, (err as Error).message);
   }
@@ -51,49 +96,6 @@ router.put('/:id', async (req: Request, res: Response) => {
     certificateRepository().merge(certificate, req.body);
     await certificateRepository().save(certificate);
     successResponse(res, certificate, '更新成功');
-  } catch (err) {
-    errorResponse(res, (err as Error).message);
-  }
-});
-
-router.get('/student/:studentId/check-eligibility', async (req: Request, res: Response) => {
-  try {
-    const studentId = Number(req.params.studentId);
-    const student = await studentRepository().findOne({
-      where: { id: studentId },
-      relations: ['class', 'attendances', 'attendances.session'],
-    });
-    
-    if (!student) return errorResponse(res, '学员不存在', 404);
-    
-    const totalSessions = student.attendances.length;
-    const attendedSessions = student.attendances.filter(
-      a => a.status === 'present' || a.status === 'makeup'
-    ).length;
-    const attendanceRate = totalSessions > 0 ? (attendedSessions / totalSessions * 100) : 0;
-    const requiredHours = student.class ? student.class.totalHours : 0;
-    
-    const eligibility = {
-      studentId,
-      studentName: student.name,
-      attendedHours: student.attendedHours,
-      requiredHours,
-      attendanceRate: Math.round(attendanceRate),
-      totalSessions,
-      attendedSessions,
-      isEligible: student.attendedHours >= requiredHours && attendanceRate >= 80,
-      reasons: [] as string[],
-    };
-    
-    if (student.attendedHours < requiredHours) {
-      eligibility.reasons.push(`课时不足: 当前${student.attendedHours}小时，需要${requiredHours}小时`);
-    }
-    
-    if (attendanceRate < 80) {
-      eligibility.reasons.push(`出勤率不足: 当前${Math.round(attendanceRate)}%，需要80%`);
-    }
-    
-    successResponse(res, eligibility);
   } catch (err) {
     errorResponse(res, (err as Error).message);
   }

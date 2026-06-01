@@ -1,16 +1,23 @@
 import { Request, Response } from 'express';
-import { FindManyOptions, Like } from 'typeorm';
+import { Like } from 'typeorm';
 
-export function parseListQuery(req: Request): FindManyOptions {
+export interface ListQueryOptions {
+  skip?: number;
+  take?: number;
+  order?: Record<string, 'ASC' | 'DESC'>;
+  where?: Record<string, any>;
+}
+
+export function parseListQuery(req: Request): ListQueryOptions {
   const { page = 1, pageSize = 20, sortBy = 'id', sortOrder = 'DESC', ...filters } = req.query;
-  
-  const options: FindManyOptions = {
+
+  const options: ListQueryOptions = {
     skip: (Number(page) - 1) * Number(pageSize),
     take: Number(pageSize),
     order: { [sortBy as string]: sortOrder as 'ASC' | 'DESC' },
   };
 
-  const where: any = {};
+  const where: Record<string, any> = {};
   Object.entries(filters).forEach(([key, value]) => {
     if (value !== undefined && value !== '') {
       if (String(value).includes('%')) {

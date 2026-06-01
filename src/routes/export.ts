@@ -252,7 +252,7 @@ router.post('/shipments', async (req: Request, res: Response) => {
   }
 });
 
-router.get('/download/:filename', (req: Response, res: any) => {
+router.get('/download/:filename', (req: Request, res: Response) => {
   const filepath = join(exportDir, req.params.filename);
   if (!existsSync(filepath)) {
     return errorResponse(res, '文件不存在', 404);

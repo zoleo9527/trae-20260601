@@ -59,14 +59,14 @@ async function seed() {
   console.log('Creating students...');
   const studentEntities: Student[] = [];
   const studentDataList = [
-    { name: '张三', studentNo: 'STU2026001', phone: '13800138001', email: 'zhangsan@example.com', address: '北京市朝阳区xxx路123号', idCard: '110101199501011234', status: 'studying' as const, classId: class1.id, attendedHours: 95 },
-    { name: '李四', studentNo: 'STU2026002', phone: '13800138002', email: 'lisi@example.com', address: '北京市海淀区xxx路456号', idCard: '110102199602022345', status: 'studying' as const, classId: class1.id, attendedHours: 72 },
-    { name: '王五', studentNo: 'STU2026003', phone: '13800138003', email: 'wangwu@example.com', address: '上海市浦东新区xxx路789号', idCard: '310101199703033456', status: 'graduated' as const, classId: class2.id, attendedHours: 150 },
-    { name: '赵六', studentNo: 'STU2026004', phone: '13800138004', email: 'zhaoliu@example.com', address: '广州市天河区xxx路321号', idCard: '440101199804044567', status: 'graduated' as const, classId: class2.id, attendedHours: 145 },
-    { name: '孙七', studentNo: 'STU2026005', phone: '13800138005', email: 'sunqi@example.com', address: '深圳市南山区xxx路654号', idCard: '440301199905055678', status: 'studying' as const, classId: class1.id, attendedHours: 110 },
-    { name: '周八', studentNo: 'STU2026006', phone: '13800138006', email: 'zhouba@example.com', address: '杭州市西湖区xxx路987号', idCard: '330101200006066789', status: 'suspended' as const, classId: class1.id, attendedHours: 30 },
-    { name: '吴九', studentNo: 'STU2026007', phone: '13800138007', email: 'wujiu@example.com', address: '成都市武侯区xxx路147号', idCard: '510101200107077890', status: 'graduated' as const, classId: class2.id, attendedHours: 155 },
-    { name: '郑十', studentNo: 'STU2026008', phone: '13800138008', email: 'zhengshi@example.com', address: '武汉市江汉区xxx路258号', idCard: '420101200208088901', status: 'studying' as const, classId: class1.id, attendedHours: 88 },
+    { name: '张三', studentNo: 'STU2026001', phone: '13800138001', email: 'zhangsan@example.com', address: '北京市朝阳区xxx路123号', idCard: '110101199501011234', status: 'studying' as const, classId: class1.id },
+    { name: '李四', studentNo: 'STU2026002', phone: '13800138002', email: 'lisi@example.com', address: '北京市海淀区xxx路456号', idCard: '110102199602022345', status: 'studying' as const, classId: class1.id },
+    { name: '王五', studentNo: 'STU2026003', phone: '13800138003', email: 'wangwu@example.com', address: '上海市浦东新区xxx路789号', idCard: '310101199703033456', status: 'graduated' as const, classId: class2.id },
+    { name: '赵六', studentNo: 'STU2026004', phone: '13800138004', email: 'zhaoliu@example.com', address: '广州市天河区xxx路321号', idCard: '440101199804044567', status: 'graduated' as const, classId: class2.id },
+    { name: '孙七', studentNo: 'STU2026005', phone: '13800138005', email: 'sunqi@example.com', address: '深圳市南山区xxx路654号', idCard: '440301199905055678', status: 'studying' as const, classId: class1.id },
+    { name: '周八', studentNo: 'STU2026006', phone: '13800138006', email: 'zhouba@example.com', address: '杭州市西湖区xxx路987号', idCard: '330101200006066789', status: 'suspended' as const, classId: class1.id },
+    { name: '吴九', studentNo: 'STU2026007', phone: '13800138007', email: 'wujiu@example.com', address: '成都市武侯区xxx路147号', idCard: '510101200107077890', status: 'graduated' as const, classId: class2.id },
+    { name: '郑十', studentNo: 'STU2026008', phone: '13800138008', email: 'zhengshi@example.com', address: '武汉市江汉区xxx路258号', idCard: '420101200208088901', status: 'studying' as const, classId: class1.id },
   ];
   
   for (const data of studentDataList) {
@@ -153,6 +153,13 @@ async function seed() {
   
   const savedAttendances = await attendanceRepository.save(attendances);
   console.log('Attendance records created');
+
+  console.log('Recalculating student hours from attendance...');
+  const { recalcStudentHours } = await import('../utils/hours');
+  for (const student of savedStudents) {
+    await recalcStudentHours(student.id);
+  }
+  console.log('Student hours recalculated');
 
   console.log('Creating makeup requests...');
   const lisi = savedStudents.find(s => s.name === '李四');
