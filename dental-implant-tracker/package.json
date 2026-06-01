@@ -1,0 +1,16 @@
+{
+  "name": "dental-implant-tracker",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "install:all": "cd server && npm install && cd ../client && npm install",
+    "dev:server": "cd server && node seed.js && node index.js",
+    "dev:client": "cd client && npx vite --port 5173",
+    "dev": "npx concurrently \"npm run dev:server\" \"npm run dev:client\"",
+    "build:client": "cd client && npx vite build",
+    "start": "cd server && node seed.js && node index.js"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}

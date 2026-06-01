@@ -1,0 +1,22 @@
+{
+    "name": "dental-implant-tracker-server",
+    "version": "1.0.0",
+    "private": true,
+    "type": "module",
+    "scripts": {
+        "start": "node index.js",
+        "seed": "node seed.js"
+    },
+    "dependencies": {
+        "better-sqlite3": "^11.10.0",
+        "cors": "^2.8.6",
+        "dayjs": "^1.11.21",
+        "express": "^4.22.2",
+        "jsonwebtoken": "^9.0.3"
+    },
+    "description": "",
+    "main": "index.js",
+    "keywords": [],
+    "author": "",
+    "license": "ISC"
+}
