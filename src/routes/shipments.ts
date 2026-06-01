@@ -39,12 +39,6 @@ router.post('/', async (req: Request, res: Response) => {
     const shipment = shipmentRepository().create(req.body);
     await shipmentRepository().save(shipment);
     
-    const certificate = await certificateRepository().findOneBy({ id: req.body.certificateId });
-    if (certificate) {
-      certificate.status = 'shipped';
-      await certificateRepository().save(certificate);
-    }
-    
     successResponse(res, shipment, '创建成功');
   } catch (err) {
     errorResponse(res, (err as Error).message);
@@ -72,6 +66,12 @@ router.put('/:id/ship', async (req: Request, res: Response) => {
     shipment.trackingNo = req.body.trackingNo;
     shipment.shippedAt = new Date();
     await shipmentRepository().save(shipment);
+    
+    const certificate = await certificateRepository().findOneBy({ id: shipment.certificateId });
+    if (certificate) {
+      certificate.status = 'shipped';
+      await certificateRepository().save(certificate);
+    }
     
     successResponse(res, shipment, '已发货');
   } catch (err) {
@@ -124,6 +124,12 @@ router.put('/:id/return', async (req: Request, res: Response) => {
     shipment.returnedAt = new Date();
     shipment.returnReason = req.body.returnReason;
     await shipmentRepository().save(shipment);
+    
+    const certificate = await certificateRepository().findOneBy({ id: shipment.certificateId });
+    if (certificate) {
+      certificate.status = 'printed';
+      await certificateRepository().save(certificate);
+    }
     
     successResponse(res, shipment, '已退回');
   } catch (err) {

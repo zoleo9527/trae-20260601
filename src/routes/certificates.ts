@@ -9,6 +9,39 @@ const router = Router();
 const certificateRepository = () => AppDataSource.getRepository(Certificate);
 const studentRepository = () => AppDataSource.getRepository(Student);
 
+async function validateCertificateEligibility(studentId: number, addressConfirmed: boolean) {
+  const student = await studentRepository().findOne({
+    where: { id: studentId },
+    relations: ['class', 'attendances', 'attendances.session'],
+  });
+
+  if (!student) return { valid: false, reasons: ['学员不存在'] };
+
+  const totalSessions = student.attendances.length;
+  const attendedSessions = student.attendances.filter(
+    a => a.status === 'present' || a.status === 'makeup'
+  ).length;
+  const attendanceRate = totalSessions > 0 ? (attendedSessions / totalSessions * 100) : 0;
+  const requiredHours = student.class ? student.class.totalHours : 0;
+  const attendedHours = calcHoursFromAttendances(student.attendances);
+
+  const reasons: string[] = [];
+
+  if (attendedHours < requiredHours) {
+    reasons.push(`课时不足: 当前${attendedHours}小时，需要${requiredHours}小时`);
+  }
+
+  if (attendanceRate < 80) {
+    reasons.push(`出勤率不足: 当前${Math.round(attendanceRate)}%，需要80%`);
+  }
+
+  if (!addressConfirmed) {
+    reasons.push('邮寄地址未确认');
+  }
+
+  return { valid: reasons.length === 0, reasons, attendedHours, requiredHours, attendanceRate };
+}
+
 router.get('/', async (req: Request, res: Response) => {
   try {
     const options = parseListQuery(req);
@@ -106,6 +139,11 @@ router.put('/:id/submit-review', async (req: Request, res: Response) => {
     const certificate = await certificateRepository().findOneBy({ id: Number(req.params.id) });
     if (!certificate) return errorResponse(res, '证书不存在', 404);
     
+    const validation = await validateCertificateEligibility(certificate.studentId, certificate.addressConfirmed);
+    if (!validation.valid) {
+      return errorResponse(res, `提交审核失败: ${validation.reasons.join('; ')}`, 400);
+    }
+    
     certificate.status = 'reviewing';
     await certificateRepository().save(certificate);
     
@@ -119,6 +157,11 @@ router.put('/:id/approve', async (req: Request, res: Response) => {
   try {
     const certificate = await certificateRepository().findOneBy({ id: Number(req.params.id) });
     if (!certificate) return errorResponse(res, '证书不存在', 404);
+    
+    const validation = await validateCertificateEligibility(certificate.studentId, certificate.addressConfirmed);
+    if (!validation.valid) {
+      return errorResponse(res, `审核通过失败: ${validation.reasons.join('; ')}`, 400);
+    }
     
     certificate.status = 'approved';
     certificate.reviewedBy = req.body.reviewedBy || 'admin';
