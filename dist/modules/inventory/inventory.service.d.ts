@@ -29,5 +29,5 @@ export declare class InventoryService {
     resolveAlert(id: string, dto: ResolveAlertDto, operatorId?: string): Promise<NearExpiryAlert>;
     findByMedicineAndBatch(medicineId: string, batchNo: string, storeId: string): Promise<MedicineInventory | null>;
     decreaseQuantity(medicineId: string, batchNo: string, storeId: string, quantity: number): Promise<void>;
-    increaseQuantity(medicineId: string, batchNo: string, storeId: string, quantity: number, medicineName?: string, expiryDate?: string, sellingPrice?: number): Promise<void>;
+    increaseQuantity(medicineId: string, batchNo: string, storeId: string, quantity: number, medicineName?: string, expiryDate?: string, sellingPrice?: number, unit?: string, storeName?: string, specification?: string, manufacturer?: string, location?: string, purchasePrice?: number): Promise<void>;
 }

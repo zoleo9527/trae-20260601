@@ -218,8 +218,9 @@ let TransferService = class TransferService {
     }
     async validateAndUpdateInventory(order) {
         for (const item of order.items) {
+            const sourceInventory = await this.inventoryService.findByMedicineAndBatch(item.medicineCode, item.batchNo, order.fromStoreId);
             await this.inventoryService.decreaseQuantity(item.medicineCode, item.batchNo, order.fromStoreId, item.quantity);
-            await this.inventoryService.increaseQuantity(item.medicineCode, item.batchNo, order.toStoreId, item.quantity, item.medicineName, item.expiryDate, item.sellingPrice);
+            await this.inventoryService.increaseQuantity(item.medicineCode, item.batchNo, order.toStoreId, item.quantity, item.medicineName, item.expiryDate, item.sellingPrice, item.unit, order.toStoreName, sourceInventory?.specification, sourceInventory?.manufacturer, sourceInventory?.location, sourceInventory?.purchasePrice);
         }
     }
     generateOrderNo() {

@@ -329,6 +329,12 @@ export class InventoryService {
     medicineName?: string,
     expiryDate?: string,
     sellingPrice?: number,
+    unit?: string,
+    storeName?: string,
+    specification?: string,
+    manufacturer?: string,
+    location?: string,
+    purchasePrice?: number,
   ): Promise<void> {
     let inventory = await this.findByMedicineAndBatch(medicineId, batchNo, storeId);
 
@@ -341,17 +347,17 @@ export class InventoryService {
       inventory = this.inventoryRepository.create({
         medicineCode: medicineId,
         medicineName,
-        specification: '-',
-        manufacturer: '-',
+        specification: specification || '-',
+        manufacturer: manufacturer || '-',
         batchNo,
         expiryDate: new Date(expiryDate),
         quantity,
-        unit: '盒',
-        purchasePrice: sellingPrice,
+        unit: unit || '盒',
+        purchasePrice: purchasePrice ?? sellingPrice,
         sellingPrice,
         storeId,
-        storeName: '-',
-        location: '-',
+        storeName: storeName || '-',
+        location: location || '-',
       });
     }
 

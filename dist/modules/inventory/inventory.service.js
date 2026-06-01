@@ -277,7 +277,7 @@ let InventoryService = class InventoryService {
         inventory.quantity = Number(inventory.quantity) - quantity;
         await this.inventoryRepository.save(inventory);
     }
-    async increaseQuantity(medicineId, batchNo, storeId, quantity, medicineName, expiryDate, sellingPrice) {
+    async increaseQuantity(medicineId, batchNo, storeId, quantity, medicineName, expiryDate, sellingPrice, unit, storeName, specification, manufacturer, location, purchasePrice) {
         let inventory = await this.findByMedicineAndBatch(medicineId, batchNo, storeId);
         if (inventory) {
             inventory.quantity = Number(inventory.quantity) + quantity;
@@ -289,17 +289,17 @@ let InventoryService = class InventoryService {
             inventory = this.inventoryRepository.create({
                 medicineCode: medicineId,
                 medicineName,
-                specification: '-',
-                manufacturer: '-',
+                specification: specification || '-',
+                manufacturer: manufacturer || '-',
                 batchNo,
                 expiryDate: new Date(expiryDate),
                 quantity,
-                unit: '盒',
-                purchasePrice: sellingPrice,
+                unit: unit || '盒',
+                purchasePrice: purchasePrice ?? sellingPrice,
                 sellingPrice,
                 storeId,
-                storeName: '-',
-                location: '-',
+                storeName: storeName || '-',
+                location: location || '-',
             });
         }
         await this.inventoryRepository.save(inventory);

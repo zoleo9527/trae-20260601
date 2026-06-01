@@ -105,11 +105,19 @@ let AuditLogInterceptor = class AuditLogInterceptor {
             return 'ACKNOWLEDGE';
         if (path.includes('/resolve'))
             return 'RESOLVE';
+        if (path.includes('/complete'))
+            return 'COMPLETE';
+        if (path.includes('/cancel'))
+            return 'CANCEL';
+        if (path.includes('/void'))
+            return 'VOID';
         if (path.includes('/batch'))
             return 'BATCH_OPERATION';
         if (method === 'POST')
             return 'CREATE';
         if (method === 'PUT')
+            return 'UPDATE';
+        if (method === 'PATCH')
             return 'UPDATE';
         if (method === 'DELETE')
             return 'DELETE';
