@@ -321,9 +321,19 @@ export const InventoryDetail: React.FC<InventoryDetailProps> = ({ room, onBack }
               </div>
               <div className="flex justify-between text-[13px] pt-1 border-t border-gray-100">
                 <span className="text-gray-500">扣款金额</span>
-                <span className={`font-medium ${effectiveDeduction > 0 ? 'text-red-600' : 'text-green-600'}`}>
-                  {effectiveDeduction > 0 ? `¥${effectiveDeduction}` : '未扣款'}
-                </span>
+                {room.deductionStatus === 'CANCELLED' ? (
+                  <span className="font-medium text-gray-500">
+                    ¥0 <span className="text-[10px] bg-gray-100 text-gray-600 px-1 py-0.5 rounded-sm ml-1">已撤回</span>
+                  </span>
+                ) : room.deductionStatus === 'CONFIRMED' ? (
+                  <span className="font-medium text-red-600">
+                    ¥{effectiveDeduction} <span className="text-[10px] bg-green-100 text-green-700 px-1 py-0.5 rounded-sm ml-1">已确认</span>
+                  </span>
+                ) : effectiveDeduction > 0 ? (
+                  <span className="font-medium text-red-600">¥{effectiveDeduction}</span>
+                ) : (
+                  <span className="text-gray-500">未扣款</span>
+                )}
               </div>
               <div className="flex justify-between text-[13px]">
                 <span className="text-gray-500">扣款状态</span>

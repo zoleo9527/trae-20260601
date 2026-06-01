@@ -113,9 +113,11 @@ export const InventoryList: React.FC<InventoryListProps> = ({ onViewDetail }) =>
                     <span className="font-medium text-gray-800">¥{room.depositAmount}</span>
                   </td>
                   <td className="px-3 py-2">
-                    {room.deductionAmount > 0 ? (
+                    {room.deductionStatus !== 'NONE' ? (
                       <div>
-                        <span className="font-medium text-red-600">¥{room.deductionAmount}</span>
+                        <span className={`font-medium ${room.deductionAmount > 0 ? 'text-red-600' : 'text-gray-500'}`}>
+                          {room.deductionAmount > 0 ? `¥${room.deductionAmount}` : '¥0'}
+                        </span>
                         <span
                           className={`ml-1 text-[10px] font-medium px-1 py-0.5 rounded-sm ${
                             room.deductionStatus === 'PENDING'

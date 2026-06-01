@@ -116,19 +116,21 @@ export const InventoryProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       setRooms((prev) =>
         prev.map((room) => {
           if (room.id === roomId) {
+            const isResolved = !!resolution;
+            const newDeductionAmount = adjustedAmount !== undefined ? adjustedAmount : room.deductionAmount;
             const logRemark = adjustedAmount !== undefined && adjustedAmount !== room.deductionAmount
               ? `${result}（扣款金额调整为¥${adjustedAmount}）`
               : result;
-            const newLog = addOperationLog(room, '记录协商结果', logRemark);
+            const newLog = addOperationLog(room, isResolved ? '协商完成，扣款确认' : '记录协商结果', logRemark);
 
             const updatedDisputes = room.disputes.map((dispute) => {
               if (dispute.id === disputeId) {
                 return {
                   ...dispute,
-                  status: (resolution ? 'RESOLVED' : 'IN_PROGRESS') as Dispute['status'],
+                  status: (isResolved ? 'RESOLVED' : 'IN_PROGRESS') as Dispute['status'],
                   resolution: resolution || dispute.resolution,
                   resolver: '管家-当前用户',
-                  resolveTime: resolution
+                  resolveTime: isResolved
                     ? new Date().toLocaleString('zh-CN', {
                         year: 'numeric',
                         month: '2-digit',
@@ -142,10 +144,21 @@ export const InventoryProvider: React.FC<{ children: React.ReactNode }> = ({ chi
               return dispute;
             });
 
+            const allDisputesResolved = updatedDisputes.every(
+              (d) => d.status === 'RESOLVED' || d.status === 'REJECTED'
+            );
+
+            const newDeductionRemark = isResolved
+              ? `协商确认扣款¥${newDeductionAmount}：${result}`
+              : room.deductionRemark;
+
             return {
               ...room,
               disputes: updatedDisputes,
-              deductionAmount: adjustedAmount !== undefined ? adjustedAmount : room.deductionAmount,
+              deductionAmount: newDeductionAmount,
+              deductionStatus: isResolved ? 'CONFIRMED' as Room['deductionStatus'] : room.deductionStatus,
+              deductionRemark: newDeductionRemark,
+              status: isResolved ? 'COMPLETED' as RoomStatus : room.status,
               operationLogs: [...room.operationLogs, newLog],
             };
           }
