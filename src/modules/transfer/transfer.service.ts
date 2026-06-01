@@ -295,6 +295,25 @@ export class TransferService {
         order.fromStoreId,
       );
 
+      if (!sourceInventory) {
+        throw new BusinessException(
+          ErrorCode.INVENTORY_NOT_FOUND,
+          `调出库存不存在: 药品=${item.medicineName}, 批号=${item.batchNo}, 门店=${order.fromStoreId}`,
+        );
+      }
+
+      if (item.unit !== sourceInventory.unit) {
+        throw new BusinessException(
+          ErrorCode.INVALID_PARAMETER,
+          `调拨单位与库存单位不一致: 药品=${item.medicineName}, 调拨单位=${item.unit}, 库存单位=${sourceInventory.unit}`,
+          {
+            medicineCode: item.medicineCode,
+            transferUnit: item.unit,
+            inventoryUnit: sourceInventory.unit,
+          },
+        );
+      }
+
       await this.inventoryService.decreaseQuantity(
         item.medicineCode,
         item.batchNo,
@@ -310,12 +329,12 @@ export class TransferService {
         item.medicineName,
         item.expiryDate,
         item.sellingPrice,
-        item.unit,
+        sourceInventory.unit,
         order.toStoreName,
-        sourceInventory?.specification,
-        sourceInventory?.manufacturer,
-        sourceInventory?.location,
-        sourceInventory?.purchasePrice,
+        sourceInventory.specification,
+        sourceInventory.manufacturer,
+        sourceInventory.location,
+        sourceInventory.purchasePrice,
       );
     }
   }

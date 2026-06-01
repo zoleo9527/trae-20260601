@@ -458,7 +458,7 @@ async function runSeed() {
         batchNo: 'B20260110',
         expiryDate: formatDate(daysFromNow(45)),
         quantity: 200,
-        unit: '瓶',
+        unit: '盒',
         sellingPrice: 12.0,
         subtotal: 2400.0,
         inventoryId: inventoryIdMap.get(`${MEDICINES_MASTER[2].code}-B20260110`)!,

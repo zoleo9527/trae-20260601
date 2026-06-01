@@ -219,8 +219,18 @@ let TransferService = class TransferService {
     async validateAndUpdateInventory(order) {
         for (const item of order.items) {
             const sourceInventory = await this.inventoryService.findByMedicineAndBatch(item.medicineCode, item.batchNo, order.fromStoreId);
+            if (!sourceInventory) {
+                throw new business_exception_1.BusinessException(error_codes_1.ErrorCode.INVENTORY_NOT_FOUND, `调出库存不存在: 药品=${item.medicineName}, 批号=${item.batchNo}, 门店=${order.fromStoreId}`);
+            }
+            if (item.unit !== sourceInventory.unit) {
+                throw new business_exception_1.BusinessException(error_codes_1.ErrorCode.INVALID_PARAMETER, `调拨单位与库存单位不一致: 药品=${item.medicineName}, 调拨单位=${item.unit}, 库存单位=${sourceInventory.unit}`, {
+                    medicineCode: item.medicineCode,
+                    transferUnit: item.unit,
+                    inventoryUnit: sourceInventory.unit,
+                });
+            }
             await this.inventoryService.decreaseQuantity(item.medicineCode, item.batchNo, order.fromStoreId, item.quantity);
-            await this.inventoryService.increaseQuantity(item.medicineCode, item.batchNo, order.toStoreId, item.quantity, item.medicineName, item.expiryDate, item.sellingPrice, item.unit, order.toStoreName, sourceInventory?.specification, sourceInventory?.manufacturer, sourceInventory?.location, sourceInventory?.purchasePrice);
+            await this.inventoryService.increaseQuantity(item.medicineCode, item.batchNo, order.toStoreId, item.quantity, item.medicineName, item.expiryDate, item.sellingPrice, sourceInventory.unit, order.toStoreName, sourceInventory.specification, sourceInventory.manufacturer, sourceInventory.location, sourceInventory.purchasePrice);
         }
     }
     generateOrderNo() {
