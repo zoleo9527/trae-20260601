@@ -1,6 +1,6 @@
 import { useStore } from '@/store';
 import type { CareRecord } from '@/types';
-import { AlertTriangle, Bandage, Check, CircleDot, Clock, Droplets, Eye, Pill, Thermometer, UtensilsCrossed } from 'lucide-react';
+import { AlertTriangle, Bandage, Check, CheckCircle2, CircleDot, Clock, Droplets, Eye, Pill, Thermometer, User, UtensilsCrossed } from 'lucide-react';
 
 const typeConfig: Record<string, { icon: React.ReactNode; color: string; bg: string; label: string }> = {
   medication: { icon: <Pill size={14} />, color: 'text-blue-600', bg: 'bg-blue-50', label: '用药' },
@@ -10,6 +10,22 @@ const typeConfig: Record<string, { icon: React.ReactNode; color: string; bg: str
   observation: { icon: <Eye size={14} />, color: 'text-purple-600', bg: 'bg-purple-50', label: '观察' },
   vitals: { icon: <Thermometer size={14} />, color: 'text-rose-600', bg: 'bg-rose-50', label: '体征' },
   other: { icon: <CircleDot size={14} />, color: 'text-slate-600', bg: 'bg-slate-50', label: '其他' },
+}
+
+function ExecutionInfo({ task }: { task: CareRecord }) {
+  return (
+    <div className="flex items-center gap-2 mt-1 text-xs text-slate-500">
+      {task.executed_by && (
+        <span className="inline-flex items-center gap-0.5">
+          <User size={10} />
+          {task.executed_by}
+        </span>
+      )}
+      {task.executed_at && (
+        <span className="font-mono">{task.executed_at}</span>
+      )}
+    </div>
+  )
 }
 
 export default function TaskList({ tasks, onToggle }: { tasks: CareRecord[]; onToggle: (task: CareRecord) => void }) {
@@ -27,9 +43,10 @@ export default function TaskList({ tasks, onToggle }: { tasks: CareRecord[]; onT
     )
   }
 
-  const pending = tasks.filter((t) => t.status === 'pending')
-  const completed = tasks.filter((t) => t.status === 'completed')
   const abnormal = tasks.filter((t) => t.status === 'missed' || t.status === 'delayed' || t.is_abnormal)
+  const abnormalIds = new Set(abnormal.map((t) => t.id))
+  const pending = tasks.filter((t) => t.status === 'pending' && !abnormalIds.has(t.id))
+  const completed = tasks.filter((t) => t.status === 'completed' && !abnormalIds.has(t.id))
 
   return (
     <div className="space-y-6">
@@ -42,13 +59,22 @@ export default function TaskList({ tasks, onToggle }: { tasks: CareRecord[]; onT
           <div className="space-y-2">
             {abnormal.map((task) => {
               const tc = typeConfig[task.type] || typeConfig.other
+              const isHandled = task.status === 'completed' || task.status === 'delayed'
               return (
-                <div key={task.id} className="flex items-center gap-3 bg-red-50 border border-red-200 rounded-lg p-3">
+                <div key={task.id} className={`flex items-center gap-3 rounded-lg p-3 ${isHandled ? 'bg-amber-50 border border-amber-200' : 'bg-red-50 border border-red-200'}`}>
                   <div className={`w-8 h-8 rounded-lg ${tc.bg} ${tc.color} flex items-center justify-center shrink-0`}>
                     {tc.icon}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-slate-800 truncate">{task.content}</p>
+                    <div className="flex items-center gap-1.5">
+                      <p className="text-sm font-medium text-slate-800 truncate">{task.content}</p>
+                      {isHandled && (
+                        <span className="inline-flex items-center gap-0.5 shrink-0 text-[10px] font-medium px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 border border-emerald-200">
+                          <CheckCircle2 size={10} />
+                          已处理
+                        </span>
+                      )}
+                    </div>
                     <div className="flex items-center gap-2 mt-0.5 text-xs text-slate-500">
                       <span className="font-mono">{task.scheduled_at}</span>
                       <span>·</span>
@@ -56,8 +82,9 @@ export default function TaskList({ tasks, onToggle }: { tasks: CareRecord[]; onT
                       <span className="font-mono bg-slate-100 px-1 rounded">{task.cage_number}</span>
                     </div>
                     {task.abnormal_note && (
-                      <p className="text-xs text-red-600 mt-1">{task.abnormal_note}</p>
+                      <p className="text-xs text-red-600 mt-1">⚠ {task.abnormal_note}</p>
                     )}
+                    {isHandled && <ExecutionInfo task={task} />}
                   </div>
                   {task.status === 'missed' && role === 'nurse' && (
                     <button
@@ -122,18 +149,19 @@ export default function TaskList({ tasks, onToggle }: { tasks: CareRecord[]; onT
             {completed.map((task) => {
               const tc = typeConfig[task.type] || typeConfig.other
               return (
-                <div key={task.id} className="flex items-center gap-3 bg-white border border-slate-100 rounded-lg p-3 opacity-60">
+                <div key={task.id} className="flex items-center gap-3 bg-white border border-slate-100 rounded-lg p-3">
                   <div className={`w-8 h-8 rounded-lg bg-slate-50 text-slate-400 flex items-center justify-center shrink-0`}>
                     <Check size={14} />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm text-slate-500 line-through truncate">{task.content}</p>
+                    <p className="text-sm text-slate-600 truncate">{task.content}</p>
                     <div className="flex items-center gap-2 mt-0.5 text-xs text-slate-400">
                       <span className="font-mono">{task.scheduled_at}</span>
                       <span>·</span>
                       <span>{task.patient_name}</span>
                       <span className="font-mono bg-slate-50 px-1 rounded">{task.cage_number}</span>
                     </div>
+                    <ExecutionInfo task={task} />
                   </div>
                 </div>
               )

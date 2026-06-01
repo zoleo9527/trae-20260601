@@ -4,7 +4,7 @@ import OrderList from '@/components/OrderList'
 import RoleSwitcher from '@/components/RoleSwitcher'
 import { useStore } from '@/store'
 import type { CareRecord, Patient } from '@/types'
-import { AlertTriangle, ArrowLeft, ClipboardList, FileText, MessageSquare, Minus, Phone, TrendingDown, TrendingUp } from 'lucide-react'
+import { AlertTriangle, ArrowLeft, Check, CheckCircle2, ClipboardList, Clock, FileText, MessageSquare, Minus, Phone, TrendingDown, TrendingUp, User } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 
@@ -144,26 +144,107 @@ export default function PatientDetail() {
 
       {role === 'nurse' && (
         <div className="bg-vet-sky-light border border-vet-sky/20 rounded-xl p-4 mb-6">
-          <h3 className="text-sm font-semibold text-vet-sky-dark mb-2">待执行护理任务</h3>
-          <div className="space-y-2">
-            {careRecords.filter((r) => r.status === 'pending').map((r) => (
-              <div key={r.id} className="flex items-center justify-between bg-white rounded-lg px-3 py-2">
-                <div>
-                  <span className="text-sm text-slate-700">{r.content}</span>
-                  <span className="text-xs text-slate-400 ml-2 font-mono">{r.scheduled_at}</span>
-                </div>
-                <button
-                  onClick={() => handleCompleteTask(r)}
-                  className="px-3 py-1 text-xs font-medium bg-vet-sky text-white rounded-lg hover:bg-vet-sky-dark transition-colors"
-                >
-                  完成
-                </button>
+          <h3 className="text-sm font-semibold text-vet-sky-dark mb-3">护理任务交接</h3>
+          {(() => {
+            const abnormal = careRecords.filter((r) => r.status === 'missed' || r.status === 'delayed' || r.is_abnormal)
+            const abnormalIds = new Set(abnormal.map((r) => r.id))
+            const pending = careRecords.filter((r) => r.status === 'pending' && !abnormalIds.has(r.id))
+            const completed = careRecords.filter((r) => r.status === 'completed' && !abnormalIds.has(r.id))
+
+            return (
+              <div className="space-y-3">
+                {abnormal.length > 0 && (
+                  <div>
+                    <p className="text-xs font-semibold text-red-600 mb-1.5 flex items-center gap-1"><AlertTriangle size={12} />异常/待处理</p>
+                    <div className="space-y-1.5">
+                      {abnormal.map((r) => {
+                        const isHandled = r.status === 'completed' || r.status === 'delayed'
+                        return (
+                          <div key={r.id} className={`flex items-start gap-2 rounded-lg p-2.5 ${isHandled ? 'bg-amber-50 border border-amber-200' : 'bg-red-50 border border-red-200'}`}>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-sm text-slate-800">{r.content}</span>
+                                {isHandled && (
+                                  <span className="inline-flex items-center gap-0.5 shrink-0 text-[10px] font-medium px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 border border-emerald-200">
+                                    <CheckCircle2 size={10} />已处理
+                                  </span>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-2 mt-0.5 text-xs text-slate-500">
+                                <span className="font-mono">{r.scheduled_at}</span>
+                              </div>
+                              {r.abnormal_note && (
+                                <p className="text-xs text-red-600 mt-0.5">⚠ {r.abnormal_note}</p>
+                              )}
+                              {isHandled && r.executed_by && (
+                                <div className="flex items-center gap-2 mt-0.5 text-xs text-slate-500">
+                                  <span className="inline-flex items-center gap-0.5"><User size={10} />{r.executed_by}</span>
+                                  {r.executed_at && <span className="font-mono">{r.executed_at}</span>}
+                                </div>
+                              )}
+                            </div>
+                            {r.status === 'missed' && (
+                              <button
+                                onClick={() => handleCompleteTask(r)}
+                                className="px-2.5 py-1 text-xs font-medium bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors shrink-0"
+                              >
+                                补执行
+                              </button>
+                            )}
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
+                {pending.length > 0 && (
+                  <div>
+                    <p className="text-xs font-semibold text-vet-sky-dark mb-1.5 flex items-center gap-1"><Clock size={12} />待执行</p>
+                    <div className="space-y-1.5">
+                      {pending.map((r) => (
+                        <div key={r.id} className="flex items-center justify-between bg-white rounded-lg px-3 py-2">
+                          <div>
+                            <span className="text-sm text-slate-700">{r.content}</span>
+                            <span className="text-xs text-slate-400 ml-2 font-mono">{r.scheduled_at}</span>
+                          </div>
+                          <button
+                            onClick={() => handleCompleteTask(r)}
+                            className="px-2.5 py-1 text-xs font-medium bg-vet-sky text-white rounded-lg hover:bg-vet-sky-dark transition-colors"
+                          >
+                            完成
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {completed.length > 0 && (
+                  <div>
+                    <p className="text-xs font-semibold text-slate-400 mb-1.5 flex items-center gap-1"><Check size={12} />已完成</p>
+                    <div className="space-y-1">
+                      {completed.map((r) => (
+                        <div key={r.id} className="flex items-start gap-2 bg-white/60 rounded-lg px-3 py-2">
+                          <div className="flex-1 min-w-0">
+                            <span className="text-sm text-slate-500">{r.content}</span>
+                            <div className="flex items-center gap-2 mt-0.5 text-xs text-slate-400">
+                              <span className="font-mono">{r.scheduled_at}</span>
+                              {r.executed_by && (
+                                <span className="inline-flex items-center gap-0.5"><User size={10} />{r.executed_by}</span>
+                              )}
+                              {r.executed_at && <span className="font-mono">{r.executed_at}</span>}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {abnormal.length === 0 && pending.length === 0 && completed.length === 0 && (
+                  <p className="text-sm text-slate-500">暂无护理记录</p>
+                )}
               </div>
-            ))}
-            {careRecords.filter((r) => r.status === 'pending').length === 0 && (
-              <p className="text-sm text-slate-500">暂无待执行任务</p>
-            )}
-          </div>
+            )
+          })()}
         </div>
       )}
 
