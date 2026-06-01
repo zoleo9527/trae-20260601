@@ -12,12 +12,12 @@ export default function RefundModal() {
   const [confirmedServedRefund, setConfirmedServedRefund] = useState(false)
 
   const order = orders.find((o) => o.id === refundTargetId)
-  const isServedRefund = order?.status === 'served' || order?.status === 'verified'
+  const requiresConfirm = order?.status === 'served' || order?.status === 'verified'
 
   if (!showRefundModal || !order) return null
 
   const handleSubmit = () => {
-    if (isServedRefund && !confirmedServedRefund) return
+    if (requiresConfirm && !confirmedServedRefund) return
     requestRefund(order.id, selectedReason)
     setConfirmedServedRefund(false)
     setSelectedReason('not_eating')
@@ -30,6 +30,11 @@ export default function RefundModal() {
   }
 
   const reasons: RefundReason[] = ['not_eating', 'hospital', 'family_cancel', 'other']
+
+  const confirmTitle = order.status === 'verified' ? '注意：该订单已核销' : '注意：该订单已出餐'
+  const confirmDesc = order.status === 'verified'
+    ? '订单已完成核销，退餐可能涉及费用结算及补贴返还问题，请确认已与老人或家属沟通。'
+    : '餐品已制作/送出，退餐可能涉及费用结算问题，请确认已与老人或家属沟通。'
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
@@ -57,14 +62,14 @@ export default function RefundModal() {
             </p>
           </div>
 
-          {isServedRefund && (
+          {requiresConfirm && (
             <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
               <div className="flex items-center gap-1.5 text-amber-700 text-xs font-semibold mb-1">
                 <AlertTriangle size={14} />
-                注意：该订单已出餐
+                {confirmTitle}
               </div>
               <p className="text-xs text-amber-600">
-                餐品已制作/送出，退餐可能涉及费用结算问题，请确认已与老人或家属沟通。
+                {confirmDesc}
               </p>
               <label className="flex items-center gap-2 mt-2 cursor-pointer">
                 <input
@@ -115,7 +120,7 @@ export default function RefundModal() {
           </button>
           <button
             onClick={handleSubmit}
-            disabled={isServedRefund && !confirmedServedRefund}
+            disabled={requiresConfirm && !confirmedServedRefund}
             className="px-5 py-2 text-sm font-bold text-white bg-red-600 rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             确认退餐

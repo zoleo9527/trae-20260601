@@ -10,14 +10,7 @@ import {
 } from '@/types'
 import { AlertTriangle, Check, Clock, Flame, RotateCcw, X } from 'lucide-react'
 
-function getAbnormalTags(order: Order) {
-  const tags: { label: string; color: string }[] = []
-  if (order.subsidyExpired) {
-    tags.push({ label: '补贴过期', color: 'bg-red-100 text-red-700' })
-  }
-  if (order.duplicateOrder) {
-    tags.push({ label: '重复订餐', color: 'bg-amber-100 text-amber-700' })
-  }
+function getStatusDisplay(order: Order) {
   if (order.status === 'refund_requested') {
     const refundLabel = order.statusBeforeRefund === 'verified'
       ? '已核销退餐'
@@ -25,7 +18,22 @@ function getAbnormalTags(order: Order) {
       ? '已出餐退餐'
       : '退餐申请'
     const refundColor = order.isServedRefund ? 'bg-rose-100 text-rose-700' : 'bg-red-100 text-red-700'
-    tags.push({ label: refundLabel, color: refundColor })
+    return { label: refundLabel, color: refundColor, icon: 'refund' as const }
+  }
+  return {
+    label: ORDER_STATUS_LABELS[order.status],
+    color: STATUS_COLORS[order.status],
+    icon: order.status as Order['status'],
+  }
+}
+
+function getAbnormalTags(order: Order) {
+  const tags: { label: string; color: string }[] = []
+  if (order.subsidyExpired) {
+    tags.push({ label: '补贴过期', color: 'bg-red-100 text-red-700' })
+  }
+  if (order.duplicateOrder) {
+    tags.push({ label: '重复订餐', color: 'bg-amber-100 text-amber-700' })
   }
   return tags
 }
@@ -52,6 +60,7 @@ export default function OrderCard({ order }: { order: Order }) {
   const isSelected = selectedOrderIds.has(order.id)
   const isActive = activeOrderId === order.id
   const abnormalTags = getAbnormalTags(order)
+  const statusDisplay = getStatusDisplay(order)
   const isSelectable = order.status === 'served'
 
   return (
@@ -111,11 +120,11 @@ export default function OrderCard({ order }: { order: Order }) {
             <span
               className={cn(
                 'inline-flex items-center gap-1 text-[11px] font-medium px-1.5 py-0.5 rounded',
-                STATUS_COLORS[order.status]
+                statusDisplay.color
               )}
             >
-              <StatusIcon status={order.status} />
-              {ORDER_STATUS_LABELS[order.status]}
+              <StatusIcon status={statusDisplay.icon === 'refund' ? 'refund_requested' : statusDisplay.icon} />
+              {statusDisplay.label}
             </span>
 
             {abnormalTags.map((tag) => (

@@ -23,6 +23,22 @@ import {
     XCircle
 } from 'lucide-react'
 
+function getStatusDisplay(order: Order) {
+  if (order.status === 'refund_requested') {
+    const refundLabel = order.statusBeforeRefund === 'verified'
+      ? '已核销退餐'
+      : order.statusBeforeRefund === 'served'
+      ? '已出餐退餐'
+      : '退餐申请'
+    const refundColor = order.isServedRefund ? 'bg-rose-100 text-rose-700' : 'bg-red-100 text-red-700'
+    return { label: refundLabel, color: refundColor }
+  }
+  return {
+    label: ORDER_STATUS_LABELS[order.status],
+    color: STATUS_COLORS[order.status],
+  }
+}
+
 function StatusTimeline({ order }: { order: Order }) {
   const preRefundStatus = order.status === 'refund_requested'
     ? (order.statusBeforeRefund ?? 'pending')
@@ -117,6 +133,7 @@ export default function OrderDetail() {
     )
   }
 
+  const statusDisplay = getStatusDisplay(order)
   const hasAbnormal = order.subsidyExpired || order.duplicateOrder || order.status === 'refund_requested'
 
   return (
@@ -191,10 +208,10 @@ export default function OrderDetail() {
             <span
               className={cn(
                 'text-xs font-medium px-2 py-0.5 rounded',
-                STATUS_COLORS[order.status]
+                statusDisplay.color
               )}
             >
-              {ORDER_STATUS_LABELS[order.status]}
+              {statusDisplay.label}
             </span>
           </div>
         </div>
