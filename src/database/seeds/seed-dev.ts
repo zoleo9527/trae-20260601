@@ -81,22 +81,24 @@ async function runSeed() {
     const inventoryIdMap = new Map<string, string>();
 
     const inventoryData = [
-      { medIndex: 0, batch: 'B20251201', days: 15, qty: 500, price: 25.8, location: 'A-01-01' },
-      { medIndex: 1, batch: 'B20251215', days: 28, qty: 1200, price: 32.5, location: 'A-01-02' },
-      { medIndex: 2, batch: 'B20260110', days: 45, qty: 800, price: 12.0, location: 'A-02-01' },
-      { medIndex: 3, batch: 'B20260220', days: 75, qty: 600, price: 28.9, location: 'A-02-02' },
-      { medIndex: 4, batch: 'B20260301', days: 85, qty: 400, price: 65.0, location: 'B-01-01' },
-      { medIndex: 5, batch: 'B20260601', days: 180, qty: 300, price: 45.0, location: 'B-01-02' },
-      { medIndex: 6, batch: 'B20260801', days: 240, qty: 200, price: 38.0, location: 'B-02-01' },
-      { medIndex: 7, batch: 'B20261201', days: 365, qty: 1000, price: 18.8, location: 'C-01-01' },
-      { medIndex: 8, batch: 'B20270101', days: 400, qty: 1500, price: 8.5, location: 'C-01-02' },
-      { medIndex: 9, batch: 'B20270301', days: 450, qty: 350, price: 22.0, location: 'C-02-01' },
+      { medIndex: 0, batch: 'B20251201', days: 15, qty: 500, price: 25.8, location: 'A-01-01', storeIndex: 0 },
+      { medIndex: 1, batch: 'B20251215', days: 28, qty: 1200, price: 32.5, location: 'A-01-02', storeIndex: 0 },
+      { medIndex: 2, batch: 'B20260110', days: 45, qty: 800, price: 12.0, location: 'A-02-01', storeIndex: 0 },
+      { medIndex: 3, batch: 'B20260220', days: 75, qty: 600, price: 28.9, location: 'A-02-02', storeIndex: 0 },
+      { medIndex: 4, batch: 'B20260301', days: 85, qty: 400, price: 65.0, location: 'B-01-01', storeIndex: 0 },
+      { medIndex: 5, batch: 'B20260601', days: 180, qty: 300, price: 45.0, location: 'B-01-02', storeIndex: 0 },
+      { medIndex: 6, batch: 'B20260801', days: 240, qty: 200, price: 38.0, location: 'B-02-01', storeIndex: 0 },
+      { medIndex: 7, batch: 'B20261201', days: 365, qty: 1000, price: 18.8, location: 'C-01-01', storeIndex: 0 },
+      { medIndex: 8, batch: 'B20270101', days: 400, qty: 1500, price: 8.5, location: 'C-01-02', storeIndex: 0 },
+      { medIndex: 9, batch: 'B20270301', days: 450, qty: 350, price: 22.0, location: 'C-02-01', storeIndex: 0 },
+      { medIndex: 7, batch: 'B20260501', days: 150, qty: 200, price: 18.8, location: 'D-01-01', storeIndex: 1 },
     ];
 
     for (const item of inventoryData) {
       const med = MEDICINES_MASTER[item.medIndex];
+      const store = STORES[item.storeIndex ?? 0];
       const id = uuidv4();
-      inventoryIdMap.set(`${med.code}-${item.batch}`, id);
+      inventoryIdMap.set(`${med.code}-${item.batch}-${store.id}`, id);
       inventoryItems.push({
         id,
         medicineCode: med.code,
@@ -109,8 +111,8 @@ async function runSeed() {
         unit: '盒',
         purchasePrice: +(item.price * 0.6).toFixed(2),
         sellingPrice: item.price,
-        storeId: STORES[0].id,
-        storeName: STORES[0].name,
+        storeId: store.id,
+        storeName: store.name,
         location: item.location,
         lastCountTime: now,
         createdAt: now,
@@ -125,7 +127,8 @@ async function runSeed() {
     const alerts: NearExpiryAlert[] = [];
     for (const item of inventoryData.filter(i => i.days <= 90)) {
       const med = MEDICINES_MASTER[item.medIndex];
-      const inventoryId = inventoryIdMap.get(`${med.code}-${item.batch}`)!;
+      const store = STORES[item.storeIndex ?? 0];
+      const inventoryId = inventoryIdMap.get(`${med.code}-${item.batch}-${store.id}`)!;
       let level: AlertLevel;
       if (item.days <= 30) level = AlertLevel.HIGH;
       else if (item.days <= 60) level = AlertLevel.MEDIUM;
@@ -142,8 +145,8 @@ async function runSeed() {
         daysToExpiry: item.days,
         alertLevel: level,
         status: AlertStatus.ACTIVE,
-        storeId: STORES[0].id,
-        storeName: STORES[0].name,
+        storeId: store.id,
+        storeName: store.name,
         createdAt: now,
         updatedAt: now,
       } as NearExpiryAlert);
@@ -376,7 +379,7 @@ async function runSeed() {
     console.log('📦 插入下架单数据...');
     const offShelfItems: OffShelfItem[] = [
       {
-        inventoryId: inventoryIdMap.get(`${MEDICINES_MASTER[0].code}-B20251201`)!,
+        inventoryId: inventoryIdMap.get(`${MEDICINES_MASTER[0].code}-B20251201-${STORES[0].id}`)!,
         medicineName: '阿莫西林胶囊',
         batchNo: 'B20251201',
         expiryDate: formatDate(daysFromNow(15)),
@@ -384,7 +387,7 @@ async function runSeed() {
         unit: '盒',
       },
       {
-        inventoryId: inventoryIdMap.get(`${MEDICINES_MASTER[1].code}-B20251215`)!,
+        inventoryId: inventoryIdMap.get(`${MEDICINES_MASTER[1].code}-B20251215-${STORES[0].id}`)!,
         medicineName: '布洛芬缓释胶囊',
         batchNo: 'B20251215',
         expiryDate: formatDate(daysFromNow(28)),
@@ -447,7 +450,7 @@ async function runSeed() {
         unit: '盒',
         sellingPrice: 25.8,
         subtotal: 2580.0,
-        inventoryId: inventoryIdMap.get(`${MEDICINES_MASTER[0].code}-B20251201`)!,
+        inventoryId: inventoryIdMap.get(`${MEDICINES_MASTER[0].code}-B20251201-${STORES[0].id}`)!,
       },
     ];
 
@@ -461,7 +464,7 @@ async function runSeed() {
         unit: '盒',
         sellingPrice: 12.0,
         subtotal: 2400.0,
-        inventoryId: inventoryIdMap.get(`${MEDICINES_MASTER[2].code}-B20260110`)!,
+        inventoryId: inventoryIdMap.get(`${MEDICINES_MASTER[2].code}-B20260110-${STORES[0].id}`)!,
       },
       {
         medicineCode: MEDICINES_MASTER[3].code,
@@ -472,7 +475,7 @@ async function runSeed() {
         unit: '盒',
         sellingPrice: 28.9,
         subtotal: 4335.0,
-        inventoryId: inventoryIdMap.get(`${MEDICINES_MASTER[3].code}-B20260220`)!,
+        inventoryId: inventoryIdMap.get(`${MEDICINES_MASTER[3].code}-B20260220-${STORES[0].id}`)!,
       },
     ];
 
@@ -562,6 +565,7 @@ async function runSeed() {
           unit: '盒',
           sellingPrice: 18.8,
           subtotal: 940.0,
+          inventoryId: inventoryIdMap.get(`${MEDICINES_MASTER[7].code}-B20260501-${STORES[1].id}`)!,
         }],
         totalQuantity: 50,
         totalAmount: 940.0,

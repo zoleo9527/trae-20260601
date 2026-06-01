@@ -340,6 +340,38 @@ export class InventoryService {
 
     if (inventory) {
       inventory.quantity = Number(inventory.quantity) + quantity;
+
+      if (medicineName && inventory.medicineName !== medicineName) {
+        inventory.medicineName = medicineName;
+      }
+      if (expiryDate) {
+        const newExpiryTime = new Date(expiryDate).getTime();
+        const currentExpiryTime = new Date(inventory.expiryDate).getTime();
+        if (currentExpiryTime !== newExpiryTime) {
+          inventory.expiryDate = new Date(expiryDate);
+        }
+      }
+      if (sellingPrice !== undefined && inventory.sellingPrice !== sellingPrice) {
+        inventory.sellingPrice = sellingPrice;
+      }
+      if (unit && inventory.unit !== unit) {
+        inventory.unit = unit;
+      }
+      if (storeName && inventory.storeName !== storeName) {
+        inventory.storeName = storeName;
+      }
+      if (specification && specification !== '-' && inventory.specification !== specification) {
+        inventory.specification = specification;
+      }
+      if (manufacturer && manufacturer !== '-' && inventory.manufacturer !== manufacturer) {
+        inventory.manufacturer = manufacturer;
+      }
+      if (location && location !== '-' && inventory.location !== location) {
+        inventory.location = location;
+      }
+      if (purchasePrice !== undefined && inventory.purchasePrice !== purchasePrice) {
+        inventory.purchasePrice = purchasePrice;
+      }
     } else {
       if (!medicineName || !expiryDate || !sellingPrice) {
         throw new BusinessException(ErrorCode.INVENTORY_NOT_FOUND, `新增库存需要药品名称、有效期和售价信息`);
