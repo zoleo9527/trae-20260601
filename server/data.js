@@ -26,8 +26,8 @@ const mothers = [
   { id: 'm2', roomId: '102', name: '陈妈妈', age: 28, admissionDate: '2026-05-28', risks: [], hasAupair: true, aupairName: '李阿姨' },
   { id: 'm3', roomId: '103', name: '周妈妈', age: 35, admissionDate: '2026-05-25', risks: ['hypertension'], hasAupair: false },
   { id: 'm4', roomId: '201', name: '吴妈妈', age: 29, admissionDate: '2026-06-02', risks: [], hasAupair: true, aupairName: '张阿姨' },
-  { id: 'm5', roomId: '202', name: '郑妈妈', age: 31, admissionDate: '2026-05-30', risks: ['diabetes'], hasAupair: true, aupairName: '刘阿姨' },
-  { id: 'm6', roomId: '301', name: '孙妈妈', age: 33, admissionDate: '2026-05-20', risks: [], hasAupair: true, aupairName: '陈阿姨' },
+  { id: 'm5', roomId: '202', name: '郑妈妈', age: 31, admissionDate: '2026-05-30', risks: ['diabetes'], hasAupair: true, aupairName: '陈阿姨' },
+  { id: 'm6', roomId: '301', name: '孙妈妈', age: 33, admissionDate: '2026-05-20', risks: [], hasAupair: true, aupairName: '刘阿姨' },
   { id: 'm7', roomId: '302', name: '黄妈妈', age: 27, admissionDate: '2026-06-01', risks: ['postpartumDepression'], hasAupair: false }
 ];
 
@@ -130,7 +130,7 @@ const generateRecords = () => {
     type: 'aupairChange',
     roomId: '202',
     title: '阿姨换房',
-    description: '刘阿姨从202调至301，陈阿姨调至202',
+    description: '刘阿姨从202调至301（孙妈妈），陈阿姨从301调至202（郑妈妈）',
     time: new Date(today.getFullYear(), today.getMonth(), today.getDate(), 8, 30).toISOString(),
     operator: '张护士长',
     shift: 'morning'
