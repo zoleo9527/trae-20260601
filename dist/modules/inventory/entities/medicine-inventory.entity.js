@@ -89,7 +89,7 @@ __decorate([
 ], MedicineInventory.prototype, "alerts", void 0);
 exports.MedicineInventory = MedicineInventory = __decorate([
     (0, typeorm_1.Entity)('medicine_inventory'),
-    (0, typeorm_1.Index)(['medicineCode', 'batchNo'], { unique: true }),
+    (0, typeorm_1.Index)(['medicineCode', 'batchNo', 'storeId'], { unique: true }),
     (0, typeorm_1.Index)(['expiryDate']),
     (0, typeorm_1.Index)(['storeId'])
 ], MedicineInventory);

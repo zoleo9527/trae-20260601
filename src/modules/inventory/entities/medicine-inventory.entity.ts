@@ -2,7 +2,7 @@ import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateCol
 import { NearExpiryAlert } from './near-expiry-alert.entity';
 
 @Entity('medicine_inventory')
-@Index(['medicineCode', 'batchNo'], { unique: true })
+@Index(['medicineCode', 'batchNo', 'storeId'], { unique: true })
 @Index(['expiryDate'])
 @Index(['storeId'])
 export class MedicineInventory {

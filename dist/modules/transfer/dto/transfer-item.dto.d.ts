@@ -1,5 +1,5 @@
 export declare class TransferItemDto {
-    medicineId: string;
+    medicineCode: string;
     medicineName: string;
     batchNo: string;
     expiryDate: string;
@@ -7,4 +7,5 @@ export declare class TransferItemDto {
     unit: string;
     sellingPrice: number;
     subtotal: number;
+    inventoryId?: string;
 }

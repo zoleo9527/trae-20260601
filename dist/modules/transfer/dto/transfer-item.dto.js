@@ -16,11 +16,11 @@ class TransferItemDto {
 }
 exports.TransferItemDto = TransferItemDto;
 __decorate([
-    (0, swagger_1.ApiProperty)({ description: '药品ID' }),
+    (0, swagger_1.ApiProperty)({ description: '药品编码' }),
     (0, class_validator_1.IsString)(),
     (0, class_validator_1.IsNotEmpty)(),
     __metadata("design:type", String)
-], TransferItemDto.prototype, "medicineId", void 0);
+], TransferItemDto.prototype, "medicineCode", void 0);
 __decorate([
     (0, swagger_1.ApiProperty)({ description: '药品名称' }),
     (0, class_validator_1.IsString)(),
@@ -63,4 +63,10 @@ __decorate([
     (0, class_validator_1.IsPositive)(),
     __metadata("design:type", Number)
 ], TransferItemDto.prototype, "subtotal", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({ description: '库存记录ID', required: false }),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.IsOptional)(),
+    __metadata("design:type", String)
+], TransferItemDto.prototype, "inventoryId", void 0);
 //# sourceMappingURL=transfer-item.dto.js.map

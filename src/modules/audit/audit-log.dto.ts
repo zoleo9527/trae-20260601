@@ -1,4 +1,4 @@
-import { IsOptional, IsString, IsUUID } from 'class-validator';
+import { IsOptional, IsString } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import { PaginationQueryDto } from '@/common/dto/pagination.dto';
 
@@ -14,12 +14,12 @@ export class QueryAuditLogDto extends PaginationQueryDto {
   action?: string;
 
   @IsOptional()
-  @IsUUID()
+  @IsString()
   @ApiProperty({ description: '操作人ID', required: false })
   operatorId?: string;
 
   @IsOptional()
-  @IsUUID()
+  @IsString()
   @ApiProperty({ description: '门店ID', required: false })
   storeId?: string;
 

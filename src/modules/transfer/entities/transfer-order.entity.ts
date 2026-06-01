@@ -9,7 +9,7 @@ import {
 import { TransferStatus, TransferType, TransferPriority, TransferAction } from '../enums';
 
 export interface TransferItem {
-  medicineId: string;
+  medicineCode: string;
   medicineName: string;
   batchNo: string;
   expiryDate: string;
@@ -17,6 +17,7 @@ export interface TransferItem {
   unit: string;
   sellingPrice: number;
   subtotal: number;
+  inventoryId?: string;
 }
 
 export interface AuditLogEntry {

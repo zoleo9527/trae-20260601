@@ -30,13 +30,13 @@ __decorate([
 ], QueryAuditLogDto.prototype, "action", void 0);
 __decorate([
     (0, class_validator_1.IsOptional)(),
-    (0, class_validator_1.IsUUID)(),
+    (0, class_validator_1.IsString)(),
     (0, swagger_1.ApiProperty)({ description: '操作人ID', required: false }),
     __metadata("design:type", String)
 ], QueryAuditLogDto.prototype, "operatorId", void 0);
 __decorate([
     (0, class_validator_1.IsOptional)(),
-    (0, class_validator_1.IsUUID)(),
+    (0, class_validator_1.IsString)(),
     (0, swagger_1.ApiProperty)({ description: '门店ID', required: false }),
     __metadata("design:type", String)
 ], QueryAuditLogDto.prototype, "storeId", void 0);

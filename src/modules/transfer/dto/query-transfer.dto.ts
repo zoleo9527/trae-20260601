@@ -1,4 +1,4 @@
-import { IsOptional, IsEnum, IsString, IsUUID } from 'class-validator';
+import { IsOptional, IsEnum, IsString } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import { PaginationQueryDto } from '../../../common/dto/pagination.dto';
 import { TransferStatus, TransferType, TransferPriority } from '../enums';
@@ -21,12 +21,12 @@ export class QueryTransferDto extends PaginationQueryDto {
 
   @ApiProperty({ description: '调出门店ID', required: false })
   @IsOptional()
-  @IsUUID()
+  @IsString()
   fromStoreId?: string;
 
   @ApiProperty({ description: '调入门店ID', required: false })
   @IsOptional()
-  @IsUUID()
+  @IsString()
   toStoreId?: string;
 
   @ApiProperty({ description: '开始时间', required: false })

@@ -25,7 +25,7 @@ __decorate([
 ], CreateTransferDto.prototype, "transferType", void 0);
 __decorate([
     (0, swagger_1.ApiProperty)({ description: '调出门店ID' }),
-    (0, class_validator_1.IsUUID)(),
+    (0, class_validator_1.IsString)(),
     (0, class_validator_1.IsNotEmpty)(),
     __metadata("design:type", String)
 ], CreateTransferDto.prototype, "fromStoreId", void 0);
@@ -37,7 +37,7 @@ __decorate([
 ], CreateTransferDto.prototype, "fromStoreName", void 0);
 __decorate([
     (0, swagger_1.ApiProperty)({ description: '调入门店ID' }),
-    (0, class_validator_1.IsUUID)(),
+    (0, class_validator_1.IsString)(),
     (0, class_validator_1.IsNotEmpty)(),
     __metadata("design:type", String)
 ], CreateTransferDto.prototype, "toStoreId", void 0);
@@ -74,7 +74,7 @@ __decorate([
 ], CreateTransferDto.prototype, "remark", void 0);
 __decorate([
     (0, swagger_1.ApiProperty)({ description: '门店ID' }),
-    (0, class_validator_1.IsUUID)(),
+    (0, class_validator_1.IsString)(),
     (0, class_validator_1.IsNotEmpty)(),
     __metadata("design:type", String)
 ], CreateTransferDto.prototype, "storeId", void 0);

@@ -1,11 +1,11 @@
-import { IsString, IsNumber, IsPositive, IsNotEmpty } from 'class-validator';
+import { IsString, IsNumber, IsPositive, IsNotEmpty, IsOptional } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class TransferItemDto {
-  @ApiProperty({ description: '药品ID' })
+  @ApiProperty({ description: '药品编码' })
   @IsString()
   @IsNotEmpty()
-  medicineId: string;
+  medicineCode: string;
 
   @ApiProperty({ description: '药品名称' })
   @IsString()
@@ -41,4 +41,9 @@ export class TransferItemDto {
   @IsNumber()
   @IsPositive()
   subtotal: number;
+
+  @ApiProperty({ description: '库存记录ID', required: false })
+  @IsString()
+  @IsOptional()
+  inventoryId?: string;
 }

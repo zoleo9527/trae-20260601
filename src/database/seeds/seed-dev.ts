@@ -439,7 +439,7 @@ async function runSeed() {
     console.log('🚚 插入调拨单数据...');
     const transferItems1: TransferItem[] = [
       {
-        medicineId: inventoryIdMap.get(`${MEDICINES_MASTER[0].code}-B20251201`)!,
+        medicineCode: MEDICINES_MASTER[0].code,
         medicineName: '阿莫西林胶囊',
         batchNo: 'B20251201',
         expiryDate: formatDate(daysFromNow(15)),
@@ -447,12 +447,13 @@ async function runSeed() {
         unit: '盒',
         sellingPrice: 25.8,
         subtotal: 2580.0,
+        inventoryId: inventoryIdMap.get(`${MEDICINES_MASTER[0].code}-B20251201`)!,
       },
     ];
 
     const transferItems2: TransferItem[] = [
       {
-        medicineId: inventoryIdMap.get(`${MEDICINES_MASTER[2].code}-B20260110`)!,
+        medicineCode: MEDICINES_MASTER[2].code,
         medicineName: '复方甘草片',
         batchNo: 'B20260110',
         expiryDate: formatDate(daysFromNow(45)),
@@ -460,9 +461,10 @@ async function runSeed() {
         unit: '瓶',
         sellingPrice: 12.0,
         subtotal: 2400.0,
+        inventoryId: inventoryIdMap.get(`${MEDICINES_MASTER[2].code}-B20260110`)!,
       },
       {
-        medicineId: inventoryIdMap.get(`${MEDICINES_MASTER[3].code}-B20260220`)!,
+        medicineCode: MEDICINES_MASTER[3].code,
         medicineName: '氯雷他定片',
         batchNo: 'B20260220',
         expiryDate: formatDate(daysFromNow(75)),
@@ -470,6 +472,7 @@ async function runSeed() {
         unit: '盒',
         sellingPrice: 28.9,
         subtotal: 4335.0,
+        inventoryId: inventoryIdMap.get(`${MEDICINES_MASTER[3].code}-B20260220`)!,
       },
     ];
 
@@ -551,7 +554,7 @@ async function runSeed() {
         toStoreId: STORES[0].id,
         toStoreName: STORES[0].name,
         items: [{
-          medicineId: uuidv4(),
+          medicineCode: MEDICINES_MASTER[7].code,
           medicineName: '连花清瘟胶囊',
           batchNo: 'B20260501',
           expiryDate: formatDate(daysFromNow(150)),
@@ -575,6 +578,9 @@ async function runSeed() {
         approveRemark: '情况属实，同意调拨',
         storeId: STORES[1].id,
         storeName: STORES[1].name,
+        rejectReason: null as any,
+        completedBy: null as any,
+        completedAt: null as any,
         auditLogs: [
           {
             action: TransferAction.SUBMIT,
@@ -596,7 +602,7 @@ async function runSeed() {
         ],
         createdAt: new Date(now.getTime() - 3600000 * 13),
         updatedAt: new Date(now.getTime() - 3600000 * 8),
-      } as TransferOrder,
+      } as any,
     ];
     await queryRunner.manager.save(TransferOrder, transferOrders);
     console.log(`✅ 插入 ${transferOrders.length} 条调拨单记录`);

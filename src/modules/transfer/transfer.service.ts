@@ -290,14 +290,14 @@ export class TransferService {
   private async validateAndUpdateInventory(order: TransferOrder): Promise<void> {
     for (const item of order.items) {
       await this.inventoryService.decreaseQuantity(
-        item.medicineId,
+        item.medicineCode,
         item.batchNo,
         order.fromStoreId,
         item.quantity,
       );
 
       await this.inventoryService.increaseQuantity(
-        item.medicineId,
+        item.medicineCode,
         item.batchNo,
         order.toStoreId,
         item.quantity,

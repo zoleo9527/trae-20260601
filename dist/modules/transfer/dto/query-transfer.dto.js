@@ -38,13 +38,13 @@ __decorate([
 __decorate([
     (0, swagger_1.ApiProperty)({ description: '调出门店ID', required: false }),
     (0, class_validator_1.IsOptional)(),
-    (0, class_validator_1.IsUUID)(),
+    (0, class_validator_1.IsString)(),
     __metadata("design:type", String)
 ], QueryTransferDto.prototype, "fromStoreId", void 0);
 __decorate([
     (0, swagger_1.ApiProperty)({ description: '调入门店ID', required: false }),
     (0, class_validator_1.IsOptional)(),
-    (0, class_validator_1.IsUUID)(),
+    (0, class_validator_1.IsString)(),
     __metadata("design:type", String)
 ], QueryTransferDto.prototype, "toStoreId", void 0);
 __decorate([

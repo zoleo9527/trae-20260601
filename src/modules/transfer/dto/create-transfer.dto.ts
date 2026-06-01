@@ -5,7 +5,6 @@ import {
   ValidateNested,
   IsOptional,
   IsNotEmpty,
-  IsUUID,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiProperty } from '@nestjs/swagger';
@@ -18,7 +17,7 @@ export class CreateTransferDto {
   transferType: TransferType;
 
   @ApiProperty({ description: '调出门店ID' })
-  @IsUUID()
+  @IsString()
   @IsNotEmpty()
   fromStoreId: string;
 
@@ -28,7 +27,7 @@ export class CreateTransferDto {
   fromStoreName: string;
 
   @ApiProperty({ description: '调入门店ID' })
-  @IsUUID()
+  @IsString()
   @IsNotEmpty()
   toStoreId: string;
 
@@ -59,7 +58,7 @@ export class CreateTransferDto {
   remark?: string;
 
   @ApiProperty({ description: '门店ID' })
-  @IsUUID()
+  @IsString()
   @IsNotEmpty()
   storeId: string;
 
