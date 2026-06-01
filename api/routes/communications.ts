@@ -13,11 +13,18 @@ router.get('/patient/:patientId', (req: Request, res: Response) => {
 
 router.post('/patient/:patientId', (req: Request, res: Response) => {
   const db = getDb()
-  const { contactAt, method, content, contactedBy, result } = req.body
+  const { contact_at, method, content, contacted_by, result, contactAt, contactedBy } = req.body
   const r = db.prepare(`
     INSERT INTO communications (patient_id, contact_at, method, content, contacted_by, result)
     VALUES (?, ?, ?, ?, ?, ?)
-  `).run(req.params.patientId, contactAt, method, content, contactedBy, result)
+  `).run(
+    req.params.patientId,
+    contact_at ?? contactAt,
+    method,
+    content,
+    contacted_by ?? contactedBy,
+    result
+  )
   res.json({ success: true, data: { id: r.lastInsertRowid } })
 })
 

@@ -19,7 +19,7 @@ const trendConfig = {
 export default function PatientDetail() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
-  const { role, careRecords, fetchCareRecords, orders, fetchOrders, communications, fetchCommunications, updateCareRecord } = useStore()
+  const { role, careRecords, fetchCareRecords, orders, fetchOrders, communications, fetchCommunications, updateCareRecord, addCommunication } = useStore()
   const [patient, setPatient] = useState<Patient | null>(null)
   const [activeTab, setActiveTab] = useState<Tab>('timeline')
   const [careFilter, setCareFilter] = useState<string>('all')
@@ -292,7 +292,17 @@ export default function PatientDetail() {
       )}
 
       {activeTab === 'orders' && <OrderList orders={orders} />}
-      {activeTab === 'communications' && <CommunicationLog communications={communications} />}
+      {activeTab === 'communications' && (
+        <CommunicationLog
+          communications={communications}
+          patientId={Number(id)}
+          role={role}
+          onAdd={async (data) => {
+            await addCommunication(Number(id), data)
+            await fetchCommunications(Number(id))
+          }}
+        />
+      )}
     </div>
   )
 }
