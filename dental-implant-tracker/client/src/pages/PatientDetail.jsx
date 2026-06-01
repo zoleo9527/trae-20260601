@@ -6,6 +6,7 @@ import {
     EditOutlined,
     ExclamationCircleOutlined,
     LinkOutlined,
+    PlusOutlined,
     UnorderedListOutlined
 } from '@ant-design/icons';
 import {
@@ -20,6 +21,7 @@ import {
     message,
     Modal,
     Row,
+    Select,
     Space,
     Spin,
     Table, Tag,
@@ -213,17 +215,13 @@ export default function PatientDetail() {
     addNodeForm.resetFields();
     try {
       const [doctorsRes, consumablesRes] = await Promise.all([
-        api.get('/auth/me').catch(() => null),
+        api.get('/auth/doctors').catch(() => ({ data: [] })),
         api.get('/consumables', { params: { status: 'available' } }).catch(() => ({ data: [] })),
       ]);
-      const allUsers = (await api.get('/patients')).data;
-      const doctorsData = [
-        { id: user.id, name: user.name, role: user.role },
-      ];
+      setDoctors(Array.isArray(doctorsRes.data) ? doctorsRes.data : []);
       setAvailableConsumables(
         Array.isArray(consumablesRes.data) ? consumablesRes.data : []
       );
-      setDoctors(doctorsData);
     } catch {}
     addNodeForm.setFieldsValue({ patient_id: id, doctor_id: user.role === 'doctor' ? user.id : undefined });
     setAddNodeModalOpen(true);
@@ -569,7 +567,9 @@ export default function PatientDetail() {
           </Form.Item>
           <Form.Item name="doctor_id" label="负责医生">
             <Select placeholder="请选择医生" allowClear>
-              <Select.Option value={user.id}>{user.name}（当前用户）</Select.Option>
+              {doctors.map((d) => (
+                <Select.Option key={d.id} value={d.id}>{d.name}</Select.Option>
+              ))}
             </Select>
           </Form.Item>
           <Form.Item name="consumable_id" label="关联耗材">

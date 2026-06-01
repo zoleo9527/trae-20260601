@@ -9,7 +9,7 @@ router.get('/', verifyToken, (req, res) => {
   const offset = (parseInt(page) - 1) * parseInt(limit);
 
   let sql = 'SELECT * FROM operation_logs WHERE 1=1';
-  const countSql = 'SELECT COUNT(*) as total FROM operation_logs WHERE 1=1';
+  let countSql = 'SELECT COUNT(*) as total FROM operation_logs WHERE 1=1';
   const params = [];
   const countParams = [];
 

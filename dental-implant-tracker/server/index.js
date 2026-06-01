@@ -3,6 +3,7 @@ import express from 'express';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 import './db.js';
+import { checkOverdue } from './overdueCheck.js';
 import alertRoutes from './routes/alerts.js';
 import authRoutes from './routes/auth.js';
 import consumableRoutes from './routes/consumables.js';
@@ -36,4 +37,8 @@ app.get('*', (req, res) => {
 
 app.listen(PORT, () => {
   console.log(`种植牙追踪系统后端运行在 http://localhost:${PORT}`);
+  checkOverdue();
+  setInterval(checkOverdue, 60 * 60 * 1000);
 });
+
+export { checkOverdue };

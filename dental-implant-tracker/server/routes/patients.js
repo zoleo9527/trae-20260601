@@ -1,10 +1,12 @@
 import express from 'express';
 import { roleCheck, verifyToken } from '../auth.js';
 import db, { logOperation } from '../db.js';
+import { checkOverdue } from '../overdueCheck.js';
 
 const router = express.Router();
 
 router.get('/', verifyToken, roleCheck('frontdesk', 'doctor'), (req, res) => {
+  checkOverdue();
   const { search } = req.query;
   let patients;
   if (search) {
@@ -33,6 +35,7 @@ router.get('/', verifyToken, roleCheck('frontdesk', 'doctor'), (req, res) => {
 });
 
 router.get('/:id', verifyToken, roleCheck('frontdesk', 'doctor'), (req, res) => {
+  checkOverdue();
   const patient = db.prepare('SELECT * FROM patients WHERE id = ?').get(req.params.id);
   if (!patient) {
     return res.status(404).json({ error: '患者不存在' });

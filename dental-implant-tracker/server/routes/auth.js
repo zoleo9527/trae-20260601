@@ -36,4 +36,11 @@ router.get('/me', verifyToken, (req, res) => {
   res.json(user);
 });
 
+router.get('/doctors', verifyToken, (req, res) => {
+  const doctors = db.prepare(
+    "SELECT id, name FROM users WHERE role = 'doctor' ORDER BY name"
+  ).all();
+  res.json(doctors);
+});
+
 export default router;

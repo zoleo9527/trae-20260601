@@ -1,10 +1,12 @@
 import express from 'express';
 import { roleCheck, verifyToken } from '../auth.js';
 import db, { logOperation } from '../db.js';
+import { checkOverdue } from '../overdueCheck.js';
 
 const router = express.Router();
 
 router.get('/patient/:patientId', verifyToken, roleCheck('frontdesk', 'doctor'), (req, res) => {
+  checkOverdue();
   const nodes = db.prepare(`
     SELECT tn.*, u.name as doctor_name, c.name as consumable_name
     FROM treatment_nodes tn
@@ -17,6 +19,7 @@ router.get('/patient/:patientId', verifyToken, roleCheck('frontdesk', 'doctor'),
 });
 
 router.get('/daily', verifyToken, roleCheck('frontdesk', 'doctor'), (req, res) => {
+  checkOverdue();
   const { date } = req.query;
   if (!date) {
     return res.status(400).json({ error: '请提供日期参数' });

@@ -65,11 +65,6 @@ export default function Dashboard() {
       const user = JSON.parse(localStorage.getItem('user') || '{}');
       const today = dayjs().format('YYYY-MM-DD');
 
-      if (user.role === 'frontdesk' || user.role === 'doctor') {
-        await api.post('/alerts/check-overdue').catch(() => {});
-      }
-
-      const fetches = [];
       const patientsReq = api.get('/patients').catch(() => ({ data: [] }));
       const alertsReq = api.get('/alerts', { params: { is_read: 0 } }).catch(() => ({ data: [] }));
       const consumablesReq = api.get('/consumables', { params: { status: 'available' } }).catch(() => ({ data: [] }));
