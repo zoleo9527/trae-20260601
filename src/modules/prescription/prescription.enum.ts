@@ -1,0 +1,24 @@
+export enum PrescriptionStatus {
+  DRAFT = 'DRAFT',
+  SUBMITTED = 'SUBMITTED',
+  REVIEWING = 'REVIEWING',
+  APPROVED = 'APPROVED',
+  REJECTED = 'REJECTED',
+  SUPPLEMENTED = 'SUPPLEMENTED',
+  VOIDED = 'VOIDED',
+}
+
+export enum PrescriptionAction {
+  SUBMIT = 'SUBMIT',
+  REVIEW = 'REVIEW',
+  APPROVE = 'APPROVE',
+  REJECT = 'REJECT',
+  SUPPLEMENT = 'SUPPLEMENT',
+  VOID = 'VOID',
+}
+
+export enum UserRole {
+  STAFF = 'STAFF',
+  PHARMACIST = 'PHARMACIST',
+  MANAGER = 'MANAGER',
+}

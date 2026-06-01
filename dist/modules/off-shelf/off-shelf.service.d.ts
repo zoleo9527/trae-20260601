@@ -1,0 +1,30 @@
+import { Repository, DataSource } from 'typeorm';
+import { OffShelfOrder } from './entities/off-shelf-order.entity';
+import { OffShelfAction } from './enums/off-shelf-action.enum';
+import { OffShelfStateMachine } from './state-machine/off-shelf.state-machine';
+import { CreateOffShelfOrderDto } from './dto/create-off-shelf-order.dto';
+import { SubmitOffShelfDto } from './dto/submit-off-shelf.dto';
+import { ConfirmOffShelfDto } from './dto/confirm-off-shelf.dto';
+import { RejectOffShelfDto } from './dto/reject-off-shelf.dto';
+import { CancelOffShelfDto } from './dto/cancel-off-shelf.dto';
+import { QueryOffShelfDto } from './dto/query-off-shelf.dto';
+import { RequestContext } from '../../common/decorators/request-context.decorator';
+import { PaginatedResult } from '../../common/dto/pagination.dto';
+export declare class OffShelfService {
+    private readonly offShelfRepository;
+    private readonly stateMachine;
+    private readonly dataSource;
+    constructor(offShelfRepository: Repository<OffShelfOrder>, stateMachine: OffShelfStateMachine, dataSource: DataSource);
+    create(dto: CreateOffShelfOrderDto, ctx: RequestContext): Promise<OffShelfOrder>;
+    findAll(query: QueryOffShelfDto): Promise<PaginatedResult<OffShelfOrder>>;
+    findOne(id: string): Promise<OffShelfOrder>;
+    update(id: string, dto: CreateOffShelfOrderDto, ctx: RequestContext): Promise<OffShelfOrder>;
+    remove(id: string): Promise<void>;
+    submit(id: string, dto: SubmitOffShelfDto, ctx: RequestContext): Promise<OffShelfOrder>;
+    confirm(id: string, dto: ConfirmOffShelfDto, ctx: RequestContext): Promise<OffShelfOrder>;
+    reject(id: string, dto: RejectOffShelfDto, ctx: RequestContext): Promise<OffShelfOrder>;
+    cancel(id: string, dto: CancelOffShelfDto, ctx: RequestContext): Promise<OffShelfOrder>;
+    getAllowedActions(id: string, ctx: RequestContext): Promise<OffShelfAction[]>;
+    private deductInventory;
+    private resolveNearExpiryAlerts;
+}

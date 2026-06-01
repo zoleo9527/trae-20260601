@@ -1,0 +1,8 @@
+export declare enum TransferStatus {
+    DRAFT = "DRAFT",
+    SUBMITTED = "SUBMITTED",
+    APPROVED = "APPROVED",
+    REJECTED = "REJECTED",
+    COMPLETED = "COMPLETED",
+    CANCELLED = "CANCELLED"
+}
