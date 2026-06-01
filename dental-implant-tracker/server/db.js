@@ -116,6 +116,38 @@ if (invalidDoctors.length > 0) {
   console.log(`数据修复完成：已清理 ${invalidDoctors.length} 条非医生角色的 doctor_id 记录`);
 }
 
+const orphanedUsed = db.prepare(`
+  SELECT c.id, c.name, c.status
+  FROM consumables c
+  WHERE c.patient_id IS NULL AND c.status IN ('used', 'locked')
+`).all();
+
+if (orphanedUsed.length > 0) {
+  let restored = 0;
+  const systemUser = db.prepare("SELECT id FROM users WHERE role = 'doctor' ORDER BY id LIMIT 1").get();
+  const systemUserId = systemUser ? systemUser.id : null;
+  for (const item of orphanedUsed) {
+    const lockLog = db.prepare(`
+      SELECT patient_id FROM operation_logs
+      WHERE action = '锁定耗材' AND detail LIKE ? AND patient_id IS NOT NULL
+      ORDER BY created_at DESC LIMIT 1
+    `).get(`%${item.name}%`);
+    if (lockLog && lockLog.patient_id) {
+      db.prepare('UPDATE consumables SET patient_id = ? WHERE id = ?').run(lockLog.patient_id, item.id);
+      db.prepare(`
+        INSERT INTO operation_logs (user_id, user_name, user_role, action, detail, patient_id)
+        VALUES (?, ?, ?, ?, ?, ?)
+      `).run(
+        systemUserId, 'system', 'system', '数据修复',
+        `恢复耗材患者归属：耗材ID ${item.id}（${item.name}，状态：${item.status}）的 patient_id 从操作日志恢复为 ${lockLog.patient_id}`,
+        lockLog.patient_id
+      );
+      restored++;
+    }
+  }
+  console.log(`耗材归属修复完成：已恢复 ${restored}/${orphanedUsed.length} 条已使用/已锁定耗材的 patient_id`);
+}
+
 export function logOperation(user, action, detail, patientId) {
   const stmt = db.prepare(`
     INSERT INTO operation_logs (user_id, user_name, user_role, action, detail, patient_id)

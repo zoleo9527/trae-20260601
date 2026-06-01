@@ -6,23 +6,23 @@ const router = express.Router();
 
 router.get('/', verifyToken, (req, res) => {
   const { category, status, search } = req.query;
-  let sql = 'SELECT * FROM consumables WHERE 1=1';
+  let sql = 'SELECT c.*, p.name as patient_name FROM consumables c LEFT JOIN patients p ON c.patient_id = p.id WHERE 1=1';
   const params = [];
 
   if (category) {
-    sql += ' AND category = ?';
+    sql += ' AND c.category = ?';
     params.push(category);
   }
   if (status) {
-    sql += ' AND status = ?';
+    sql += ' AND c.status = ?';
     params.push(status);
   }
   if (search) {
-    sql += ' AND (name LIKE ? OR model LIKE ? OR batch_no LIKE ?)';
+    sql += ' AND (c.name LIKE ? OR c.model LIKE ? OR c.batch_no LIKE ?)';
     params.push(`%${search}%`, `%${search}%`, `%${search}%`);
   }
 
-  sql += ' ORDER BY created_at DESC';
+  sql += ' ORDER BY c.created_at DESC';
   const consumables = db.prepare(sql).all(...params);
   res.json(consumables);
 });
@@ -98,8 +98,13 @@ router.put('/:id', verifyToken, roleCheck('warehouse'), (req, res) => {
     }
   }
 
-  const updated = db.prepare('SELECT * FROM consumables WHERE id = ?').get(req.params.id);
-  logOperation(req.user, '更新耗材', `更新耗材: ${updated.name}`, null);
+  const updated = db.prepare(`
+    SELECT c.*, p.name as patient_name
+    FROM consumables c
+    LEFT JOIN patients p ON c.patient_id = p.id
+    WHERE c.id = ?
+  `).get(req.params.id);
+  logOperation(req.user, '更新耗材', `更新耗材: ${updated.name}`, existing.patient_id);
   res.json(updated);
 });
 
@@ -126,7 +131,12 @@ router.post('/:id/lock', verifyToken, roleCheck('frontdesk', 'doctor'), (req, re
     WHERE id = ?
   `).run(patient_id, req.params.id);
 
-  const updated = db.prepare('SELECT * FROM consumables WHERE id = ?').get(req.params.id);
+  const updated = db.prepare(`
+    SELECT c.*, p.name as patient_name
+    FROM consumables c
+    LEFT JOIN patients p ON c.patient_id = p.id
+    WHERE c.id = ?
+  `).get(req.params.id);
   logOperation(req.user, '锁定耗材', `锁定耗材: ${consumable.name}给患者ID:${patient_id}`, patient_id);
   res.json(updated);
 });
@@ -153,7 +163,12 @@ router.post('/:id/unlock', verifyToken, roleCheck('frontdesk', 'doctor'), (req, 
     WHERE id = ?
   `).run(newLockedQty, newPatientId, newStatus, req.params.id);
 
-  const updated = db.prepare('SELECT * FROM consumables WHERE id = ?').get(req.params.id);
+  const updated = db.prepare(`
+    SELECT c.*, p.name as patient_name
+    FROM consumables c
+    LEFT JOIN patients p ON c.patient_id = p.id
+    WHERE c.id = ?
+  `).get(req.params.id);
   logOperation(req.user, '解锁耗材', `解锁耗材: ${consumable.name}`, consumable.patient_id);
   res.json(updated);
 });
@@ -169,6 +184,7 @@ router.post('/:id/use', verifyToken, roleCheck('doctor'), (req, res) => {
   }
 
   const { patient_id } = req.body;
+  const effectivePatientId = patient_id || consumable.patient_id;
 
   db.prepare(`
     UPDATE consumables SET
@@ -178,13 +194,14 @@ router.post('/:id/use', verifyToken, roleCheck('doctor'), (req, res) => {
     WHERE id = ?
   `).run(req.params.id);
 
-  const newLockedQty = consumable.locked_qty - 1;
-  if (newLockedQty === 0) {
-    db.prepare('UPDATE consumables SET patient_id = NULL WHERE id = ?').run(req.params.id);
-  }
+  const updated = db.prepare(`
+    SELECT c.*, p.name as patient_name
+    FROM consumables c
+    LEFT JOIN patients p ON c.patient_id = p.id
+    WHERE c.id = ?
+  `).get(req.params.id);
 
-  const updated = db.prepare('SELECT * FROM consumables WHERE id = ?').get(req.params.id);
-  logOperation(req.user, '使用耗材', `使用耗材: ${consumable.name}`, patient_id || consumable.patient_id);
+  logOperation(req.user, '使用耗材', `使用耗材: ${consumable.name}`, effectivePatientId);
   res.json(updated);
 });
 

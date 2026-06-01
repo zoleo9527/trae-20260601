@@ -186,7 +186,7 @@ export default function Consumables() {
       key: 'patient',
       width: 100,
       render: (_, r) => r.patient_id ? (
-        <a onClick={() => navigate(`/patient/${r.patient_id}`)}>患者ID: {r.patient_id}</a>
+        <a onClick={() => navigate(`/patient/${r.patient_id}`)}>{r.patient_name || `患者ID: ${r.patient_id}`}</a>
       ) : '-',
     },
     { title: '位置', dataIndex: 'location', key: 'location', width: 80 },
