@@ -87,7 +87,7 @@ export default function ManagerDashboard() {
   };
 
   const handleViewMember = (memberId: string) => {
-    navigate('/members');
+    navigate(`/members?memberId=${memberId}`);
   };
 
   return (

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   Camera,
   Plus,
@@ -26,7 +27,9 @@ import { Button } from '../components/Button';
 import { bodyMeasurements, members, weightTrendData } from '../data/mockData';
 
 export default function BodyMeasurements() {
-  const [selectedMember, setSelectedMember] = useState('m2');
+  const [searchParams] = useSearchParams();
+  const urlMemberId = searchParams.get('memberId');
+  const [selectedMember, setSelectedMember] = useState(urlMemberId || 'm2');
   const [compareMode, setCompareMode] = useState(false);
   const [selectedCompareIndex, setSelectedCompareIndex] = useState(0);
 

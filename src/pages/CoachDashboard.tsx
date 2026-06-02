@@ -96,9 +96,8 @@ export default function CoachDashboard() {
     showToast(`正在打开与 ${memberName} 的微信聊天...`);
   };
 
-  const handleViewMemberDetail = (memberName: string) => {
-    showToast(`正在查看 ${memberName} 的详情...`);
-    navigate('/members');
+  const handleViewMemberDetail = (memberId: string) => {
+    navigate(`/members?memberId=${memberId}`);
   };
 
   const completedCount = courses.filter((c) => c.status === 'completed').length;
@@ -317,7 +316,7 @@ export default function CoachDashboard() {
                           className="flex-1"
                           onClick={(e) => {
                             e.stopPropagation();
-                            handleViewMemberDetail(member.name);
+                            handleViewMemberDetail(member.id);
                           }}
                         >
                           <User className="w-3.5 h-3.5 mr-1" />
