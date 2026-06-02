@@ -32,6 +32,32 @@ function isRecordToday(timeStr: string): boolean {
   return getLocalDateStr(recordDate) === getLocalDateStr(today);
 }
 
+function getTimeMs(timeStr: string): number {
+  return new Date(timeStr).getTime();
+}
+
+function sortByTimeDesc<T extends { time?: string; timestamp?: string }>(
+  items: T[],
+  timeKey: 'time' | 'timestamp' = 'time'
+): T[] {
+  return [...items].sort((a, b) => {
+    const timeA = getTimeMs((a[timeKey] as string) || '');
+    const timeB = getTimeMs((b[timeKey] as string) || '');
+    return timeB - timeA;
+  });
+}
+
+function sortByTimeAsc<T extends { time?: string; timestamp?: string }>(
+  items: T[],
+  timeKey: 'time' | 'timestamp' = 'time'
+): T[] {
+  return [...items].sort((a, b) => {
+    const timeA = getTimeMs((a[timeKey] as string) || '');
+    const timeB = getTimeMs((b[timeKey] as string) || '');
+    return timeA - timeB;
+  });
+}
+
 interface AppState {
   currentUser: User | null;
   users: User[];
@@ -103,21 +129,23 @@ export const useAppStore = create<AppState>()(
       },
 
       getRecordsByChild: (childId) => {
-        return get()
-          .records.filter((r) => r.childId === childId)
-          .sort((a, b) => b.time.localeCompare(a.time));
+        return sortByTimeDesc(
+          get().records.filter((r) => r.childId === childId)
+        );
       },
 
       getMessagesByChild: (childId) => {
-        return get()
-          .messages.filter((m) => m.childId === childId)
-          .sort((a, b) => a.timestamp.localeCompare(b.timestamp));
+        return sortByTimeAsc(
+          get().messages.filter((m) => m.childId === childId),
+          'timestamp'
+        );
       },
 
       getPhotosByChild: (childId) => {
-        return get()
-          .photos.filter((p) => p.childId === childId)
-          .sort((a, b) => b.timestamp.localeCompare(a.timestamp));
+        return sortByTimeDesc(
+          get().photos.filter((p) => p.childId === childId),
+          'timestamp'
+        );
       },
 
       getHealthAlertsByChild: (childId) => {
@@ -207,29 +235,38 @@ export const useAppStore = create<AppState>()(
       },
 
       getWarningRecordsCount: () => {
-        return get().records.filter(
-          (r) =>
-            (r.severity === 'warning' || r.severity === 'danger') &&
-            isRecordToday(r.time)
-        ).length;
+        const warningChildIds = new Set(
+          get()
+            .records.filter(
+              (r) =>
+                (r.severity === 'warning' || r.severity === 'danger') &&
+                isRecordToday(r.time)
+            )
+            .map((r) => r.childId)
+        );
+        return warningChildIds.size;
       },
 
       getChildrenWithWarnings: () => {
-        const records = get().records;
         const warningChildIds = new Set(
-          records
-            .filter((r) => r.severity === 'warning' || r.severity === 'danger')
+          get()
+            .records.filter(
+              (r) =>
+                (r.severity === 'warning' || r.severity === 'danger') &&
+                isRecordToday(r.time)
+            )
             .map((r) => r.childId)
         );
         return get().children.filter((c) => warningChildIds.has(c.id));
       },
 
       getHighPriorityMessages: () => {
-        return get()
-          .messages.filter(
+        return sortByTimeDesc(
+          get().messages.filter(
             (m) => m.sender === 'parent' && !m.isRead && m.priority === 'high'
-          )
-          .sort((a, b) => b.timestamp.localeCompare(a.timestamp));
+          ),
+          'timestamp'
+        );
       },
     }),
     {
