@@ -53,6 +53,7 @@ export interface Fault {
   description: string;
   detectedAt: string;
   resolvedAt?: string;
+  workOrderId?: string;
 }
 
 export type TimelineType = 'detected' | 'assigned' | 'arrived' | 'repaired' | 'verified' | 'closed';

@@ -64,10 +64,19 @@ export function WorkOrderDetail() {
   }, [id]);
 
   const updateStatus = async (status: string) => {
-    if (!id) return;
+    if (!id || !user) return;
     try {
-      const updated = await api.workOrders.updateStatus(id, status);
+      const updated = await api.workOrders.updateStatus(id, status, user.name);
       setWorkOrder(updated);
+      
+      if (updated.faultId) {
+        const [faultData, timelineData] = await Promise.all([
+          api.faults.get(updated.faultId),
+          api.faults.timeline(updated.faultId),
+        ]);
+        setFault(faultData);
+        setTimeline(timelineData);
+      }
     } catch (error) {
       console.error('Failed to update work order status:', error);
     }

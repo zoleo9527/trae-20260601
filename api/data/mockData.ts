@@ -201,6 +201,7 @@ export const faults: Fault[] = [
     status: 'processing',
     description: '设备离线超过24小时，无法远程唤醒',
     detectedAt: '2024-06-01T08:15:00Z',
+    workOrderId: 'wo1',
   },
   {
     id: 'f2',
@@ -213,6 +214,7 @@ export const faults: Fault[] = [
     status: 'processing',
     description: '充电模块故障，需要更换零件',
     detectedAt: '2024-06-01T14:30:00Z',
+    workOrderId: 'wo2',
   },
   {
     id: 'f3',
@@ -237,6 +239,7 @@ export const faults: Fault[] = [
     status: 'processing',
     description: '站点网络故障，多台设备同时离线',
     detectedAt: '2024-05-28T10:00:00Z',
+    workOrderId: 'wo4',
   },
   {
     id: 'f5',
@@ -250,6 +253,7 @@ export const faults: Fault[] = [
     description: '充电过程中突然中断，用户投诉',
     detectedAt: '2024-05-30T16:20:00Z',
     resolvedAt: '2024-05-30T19:45:00Z',
+    workOrderId: 'wo5',
   },
   {
     id: 'f6',

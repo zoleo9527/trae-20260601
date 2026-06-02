@@ -56,15 +56,10 @@ export function OrderDetail() {
   }, [id]);
 
   const handleRefund = async () => {
-    if (!order) return;
+    if (!order || !user) return;
     try {
-      await api.orders.refund(order.id, refundReason);
-      setOrder({
-        ...order,
-        status: 'refunded',
-        refundAmount: order.amount,
-        refundReason,
-      });
+      const updatedOrder = await api.orders.refund(order.id, refundReason, order.amount, user.name);
+      setOrder(updatedOrder);
       setRefundModalOpen(false);
       setRefundReason('');
     } catch (error) {

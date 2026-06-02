@@ -77,6 +77,7 @@ export const api = {
     get: (id: string) => request<Fault>(`/faults/${id}`),
     timeline: (faultId: string) => request<FaultTimeline[]>(`/faults/${faultId}/timeline`),
     orders: (faultId: string) => request<Order[]>(`/faults/${faultId}/orders`),
+    workOrder: (faultId: string) => request<WorkOrder>(`/faults/${faultId}/workorder`),
   },
 
   workOrders: {
@@ -85,10 +86,22 @@ export const api = {
       return request<WorkOrder[]>(`/workorders${query ? `?${query}` : ''}`);
     },
     get: (id: string) => request<WorkOrder>(`/workorders/${id}`),
-    updateStatus: (id: string, status: string) =>
+    create: (data: {
+      faultId: string;
+      maintenanceId: string;
+      maintenanceName: string;
+      priority: 'normal' | 'urgent';
+      expectedDuration: number;
+      operator?: string;
+    }) =>
+      request<WorkOrder>('/workorders', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
+    updateStatus: (id: string, status: string, operator?: string) =>
       request<WorkOrder>(`/workorders/${id}/status`, {
         method: 'PUT',
-        body: JSON.stringify({ status }),
+        body: JSON.stringify({ status, operator }),
       }),
   },
 
@@ -98,10 +111,10 @@ export const api = {
       return request<Order[]>(`/orders${query ? `?${query}` : ''}`);
     },
     get: (id: string) => request<Order>(`/orders/${id}`),
-    refund: (id: string, reason: string, amount?: number) =>
+    refund: (id: string, reason: string, amount?: number, operator?: string) =>
       request<Order>(`/orders/${id}/refund`, {
         method: 'POST',
-        body: JSON.stringify({ reason, amount }),
+        body: JSON.stringify({ reason, amount, operator }),
       }),
   },
 

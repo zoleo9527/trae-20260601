@@ -4,8 +4,10 @@ import { Search, DollarSign, Clock, User, Zap } from 'lucide-react';
 import { api } from '../lib/api';
 import { StatusBadge } from '../components/StatusBadge';
 import type { Order } from '../../shared/types';
+import { useAuthStore } from '../store/authStore';
 
 export function Orders() {
+  const { user } = useAuthStore();
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -37,11 +39,11 @@ export function Orders() {
   );
 
   const handleRefund = async () => {
-    if (selectedOrder) {
+    if (selectedOrder && user) {
       try {
-        await api.orders.refund(selectedOrder.id, refundReason);
+        const updatedOrder = await api.orders.refund(selectedOrder.id, refundReason, selectedOrder.amount, user.name);
         setOrders((prev) =>
-          prev.map((o) => o.id === selectedOrder.id ? { ...o, status: 'refunded', refundAmount: o.amount, refundReason } : o)
+          prev.map((o) => o.id === selectedOrder.id ? updatedOrder : o)
         );
         setRefundModalOpen(false);
         setSelectedOrder(null);

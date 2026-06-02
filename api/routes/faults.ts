@@ -1,7 +1,7 @@
 
 import { Router, type Request, type Response } from 'express';
-import { faults, faultTimelines, orders } from '../data/store.js';
-import type { Fault, FaultTimeline, Order } from '../../shared/types.js';
+import { faults, faultTimelines, orders, workOrders } from '../data/store.js';
+import type { Fault, FaultTimeline, Order, WorkOrder } from '../../shared/types.js';
 
 const router = Router();
 
@@ -61,6 +61,24 @@ router.get('/:id/orders', async (req: Request, res: Response): Promise<void> => 
   res.json({
     success: true,
     data: affectedOrders as Order[],
+  });
+});
+
+router.get('/:id/workorder', async (req: Request, res: Response): Promise<void> => {
+  const { id } = req.params;
+  const workOrder = workOrders.find((w) => w.faultId === id);
+
+  if (!workOrder) {
+    res.status(404).json({
+      success: false,
+      message: '工单不存在',
+    });
+    return;
+  }
+
+  res.json({
+    success: true,
+    data: workOrder as WorkOrder,
   });
 });
 

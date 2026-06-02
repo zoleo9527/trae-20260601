@@ -15,7 +15,14 @@ import { api } from '../lib/api';
 import { StationMap } from '../components/StationMap';
 import type { DashboardStats } from '../../shared/types';
 
-const statCards = [
+const statCards: {
+  key: keyof DashboardStats;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+  color: string;
+  suffix?: string;
+  prefix?: string;
+}[] = [
   { key: 'totalStations', label: '站点总数', icon: MapPin, color: 'bg-blue-500', suffix: '个' },
   { key: 'activeFaults', label: '活跃故障', icon: AlertTriangle, color: 'bg-red-500', suffix: '个' },
   { key: 'pendingWorkOrders', label: '待处理工单', icon: ClipboardList, color: 'bg-orange-500', suffix: '个' },
@@ -66,8 +73,8 @@ export function Dashboard() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
         {statCards.map((card) => {
           const Icon = card.icon;
-          const value = stats ? (stats as Record<string, number>)[card.key] : 0;
-          const displayValue = typeof value === 'number' ? value.toFixed(2) : value;
+          const value = stats ? stats[card.key] : 0;
+          const displayValue = card.key === 'todayRevenue' ? value.toFixed(2) : value.toString();
           return (
             <div key={card.key} className="bg-white rounded-xl shadow-sm p-5">
               <div className="flex items-center justify-between">

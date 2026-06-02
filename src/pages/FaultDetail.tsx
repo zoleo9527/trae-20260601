@@ -1,6 +1,6 @@
 
 import { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
   ArrowLeft,
   Clock,
@@ -10,10 +10,13 @@ import {
   Wrench,
   MapPin,
   FileText,
+  Plus,
+  ChevronRight,
 } from 'lucide-react';
 import { api } from '../lib/api';
 import { StatusBadge } from '../components/StatusBadge';
-import type { Fault, FaultTimeline, Order } from '../../shared/types';
+import type { Fault, FaultTimeline, Order, WorkOrder } from '../../shared/types';
+import { useAuthStore } from '../store/authStore';
 
 const timelineIcons: Record<string, typeof AlertCircle> = {
   detected: AlertCircle,
@@ -27,10 +30,15 @@ const timelineIcons: Record<string, typeof AlertCircle> = {
 export function FaultDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { user } = useAuthStore();
   const [fault, setFault] = useState<Fault | null>(null);
   const [timeline, setTimeline] = useState<FaultTimeline[]>([]);
   const [affectedOrders, setAffectedOrders] = useState<Order[]>([]);
+  const [workOrder, setWorkOrder] = useState<WorkOrder | null>(null);
   const [loading, setLoading] = useState(true);
+  const [dispatchModalOpen, setDispatchModalOpen] = useState(false);
+  const [priority, setPriority] = useState<'normal' | 'urgent'>('normal');
+  const [expectedDuration, setExpectedDuration] = useState(120);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -44,6 +52,15 @@ export function FaultDetail() {
         setFault(faultData);
         setTimeline(timelineData);
         setAffectedOrders(ordersData);
+
+        if (faultData.workOrderId) {
+          try {
+            const workOrderData = await api.faults.workOrder(id);
+            setWorkOrder(workOrderData);
+          } catch {
+            setWorkOrder(null);
+          }
+        }
       } catch (error) {
         console.error('Failed to fetch fault data:', error);
       } finally {
@@ -53,6 +70,32 @@ export function FaultDetail() {
 
     fetchData();
   }, [id]);
+
+  const handleDispatch = async () => {
+    if (!fault || !user) return;
+    try {
+      const newWorkOrder = await api.workOrders.create({
+        faultId: fault.id,
+        maintenanceId: 'u3',
+        maintenanceName: '王维修',
+        priority,
+        expectedDuration,
+        operator: user.name,
+      });
+      setWorkOrder(newWorkOrder);
+      setFault({ ...fault, workOrderId: newWorkOrder.id, status: 'processing' });
+
+      const [newTimeline, newFault] = await Promise.all([
+        api.faults.timeline(id),
+        api.faults.get(id),
+      ]);
+      setTimeline(newTimeline);
+      setFault(newFault);
+      setDispatchModalOpen(false);
+    } catch (error) {
+      console.error('Failed to dispatch work order:', error);
+    }
+  };
 
   if (loading) {
     return (
@@ -65,6 +108,9 @@ export function FaultDetail() {
   if (!fault) {
     return <div>故障不存在</div>;
   }
+
+  const canDispatch = (user?.role === 'admin' || user?.role === 'service') && 
+    !fault.workOrderId && fault.status !== 'resolved' && fault.status !== 'closed';
 
   return (
     <div className="space-y-6">
@@ -180,6 +226,7 @@ export function FaultDetail() {
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">电量</th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">金额</th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">状态</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">操作</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
@@ -191,6 +238,14 @@ export function FaultDetail() {
                         <td className="px-4 py-3 text-gray-900 font-medium">¥{order.amount.toFixed(2)}</td>
                         <td className="px-4 py-3">
                           <StatusBadge type="order" status={order.status} />
+                        </td>
+                        <td className="px-4 py-3">
+                          <button
+                            onClick={() => navigate(`/orders/${order.id}`)}
+                            className="text-blue-600 hover:text-blue-800 text-sm font-medium flex items-center"
+                          >
+                            查看详情 <ChevronRight className="w-4 h-4" />
+                          </button>
                         </td>
                       </tr>
                     ))}
@@ -206,13 +261,59 @@ export function FaultDetail() {
         {/* 右侧：快捷信息 */}
         <div className="space-y-6">
           <div className="bg-white rounded-xl shadow-sm p-5">
-            <h3 className="font-semibold text-gray-900 mb-4">相关工单</h3>
-            <div className="bg-gray-50 rounded-lg p-4">
-              <p className="text-sm text-gray-500 mb-2">工单状态</p>
-              <StatusBadge type="workOrder" status="processing" />
-              <p className="text-sm text-gray-500 mt-3 mb-2">维修人员</p>
-              <p className="font-medium text-gray-900">王维修</p>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-semibold text-gray-900">相关工单</h3>
+              {canDispatch && (
+                <button
+                  onClick={() => setDispatchModalOpen(true)}
+                  className="bg-blue-600 text-white px-3 py-1.5 rounded-lg text-sm font-medium hover:bg-blue-700 flex items-center"
+                >
+                  <Plus className="w-4 h-4 mr-1" />
+                  派单
+                </button>
+              )}
             </div>
+            {workOrder ? (
+              <Link
+                to={`/workorders/${workOrder.id}`}
+                className="block bg-gray-50 rounded-lg p-4 hover:bg-gray-100 transition-colors"
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <span className="font-mono text-sm text-gray-900">{workOrder.id}</span>
+                  <StatusBadge type="workOrder" status={workOrder.status} />
+                </div>
+                <div className="flex items-center justify-between text-sm mb-2">
+                  <span className="text-gray-500">维修人员</span>
+                  <span className="font-medium text-gray-900">{workOrder.maintenanceName}</span>
+                </div>
+                <div className="flex items-center justify-between text-sm mb-2">
+                  <span className="text-gray-500">优先级</span>
+                  <span className={`font-medium ${workOrder.priority === 'urgent' ? 'text-red-600' : 'text-gray-900'}`}>
+                    {workOrder.priority === 'urgent' ? '紧急' : '普通'}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-gray-500">
+                    {new Date(workOrder.assignedAt).toLocaleDateString('zh-CN')}
+                  </span>
+                  <span className="text-blue-600 flex items-center">
+                    查看详情 <ChevronRight className="w-4 h-4" />
+                  </span>
+                </div>
+              </Link>
+            ) : (
+              <div className="bg-gray-50 rounded-lg p-4 text-center">
+                <p className="text-gray-500 text-sm">暂无关联工单</p>
+                {canDispatch && (
+                  <button
+                    onClick={() => setDispatchModalOpen(true)}
+                    className="mt-3 bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 w-full"
+                  >
+                    立即派单
+                  </button>
+                )}
+              </div>
+            )}
           </div>
 
           <div className="bg-white rounded-xl shadow-sm p-5">
@@ -236,6 +337,63 @@ export function FaultDetail() {
           </div>
         </div>
       </div>
+
+      {/* 派单弹窗 */}
+      {dispatchModalOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl p-6 w-full max-w-md">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">派发抢修工单</h3>
+            <div className="space-y-4">
+              <div>
+                <p className="text-sm text-gray-600 mb-2">故障信息：</p>
+                <p className="text-gray-900 font-medium">{fault.deviceName} - {fault.description}</p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">优先级</label>
+                <select
+                  value={priority}
+                  onChange={(e) => setPriority(e.target.value as 'normal' | 'urgent')}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                >
+                  <option value="normal">普通</option>
+                  <option value="urgent">紧急</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">预计完成时间（分钟）</label>
+                <input
+                  type="number"
+                  value={expectedDuration}
+                  onChange={(e) => setExpectedDuration(Number(e.target.value))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                  min="30"
+                  step="30"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">指派维修人员</label>
+                <div className="bg-gray-50 px-3 py-2 rounded-lg">
+                  <p className="text-gray-900 font-medium">王维修 (ID: u3)</p>
+                </div>
+              </div>
+            </div>
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={() => setDispatchModalOpen(false)}
+                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+              >
+                取消
+              </button>
+              <button
+                onClick={handleDispatch}
+                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              >
+                确认派单
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

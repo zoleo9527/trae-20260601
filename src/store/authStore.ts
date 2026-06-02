@@ -1,6 +1,6 @@
 
 import { create } from 'zustand';
-import type { User } from '../shared/types';
+import type { User } from '../../shared/types';
 
 interface AuthState {
   token: string | null;
