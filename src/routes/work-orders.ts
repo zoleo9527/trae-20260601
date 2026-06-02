@@ -98,7 +98,6 @@ router.put('/:id/reassign', auth(['cs', 'engineer']), (req, res) => {
 
   if (req.currentUser!.role === 'engineer') {
     if (wo.engineer_id !== req.currentUser!.id) return res.status(403).json({ error: '工程师只能转派自己名下的工单' })
-    if (wo.status === 'assigned') return res.status(400).json({ error: 'assigned 状态的工单请先接单或联系客服转派' })
   }
 
   const eng = db.prepare('SELECT id, role FROM users WHERE id=?').get(engineer_id) as any
