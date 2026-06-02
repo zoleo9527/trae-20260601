@@ -105,12 +105,14 @@ module.exports = function (db) {
         throw new Error('该摊主还有未结清的账单，无法删除')
       }
       
+      const unrectifiedCount = db.prepare('SELECT COUNT(*) as count FROM deductions WHERE tenant_id = ? AND is_rectified = 0').get(id).count
+      if (unrectifiedCount > 0) {
+        throw new Error('该摊主还有未整改的扣分记录，无法删除')
+      }
+      
       const tx = db.transaction(() => {
-        db.prepare('UPDATE deductions SET tenant_id = NULL WHERE tenant_id = ?').run(id)
-        db.prepare('UPDATE hygiene_checks SET tenant_id = NULL WHERE tenant_id = ?').run(id)
-        db.prepare('UPDATE utility_records SET tenant_id = NULL WHERE tenant_id = ?').run(id)
-        db.prepare('UPDATE rent_bills SET tenant_id = NULL WHERE tenant_id = ?').run(id)
-        db.prepare('DELETE FROM tenants WHERE id = ?').run(id)
+        db.prepare('UPDATE tenants SET status = ?, end_date = date(\'now\'), updated_at = CURRENT_TIMESTAMP WHERE id = ?').run('inactive', id)
+        db.prepare('UPDATE tenants SET stall_id = NULL WHERE original_tenant_id = ?').run(id)
       })
       tx()
       return true

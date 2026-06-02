@@ -93,11 +93,11 @@ module.exports = function (db) {
       `
       const params = []
       if (year) {
-        sql += ' AND strftime("%Y", d.deduction_date) = ?'
+        sql += " AND strftime('%Y', d.deduction_date) = ?"
         params.push(String(year))
       }
       if (month) {
-        sql += ' AND strftime("%m", d.deduction_date) = ?'
+        sql += " AND strftime('%m', d.deduction_date) = ?"
         params.push(String(month).padStart(2, '0'))
       }
       sql += ' ORDER BY d.deduction_date DESC'
@@ -112,8 +112,8 @@ module.exports = function (db) {
           COALESCE(SUM(amount), 0) as total_amount
         FROM deductions d
         WHERE 1=1
-      ` + (year ? ' AND strftime("%Y", d.deduction_date) = ?' : '')
-        + (month ? ' AND strftime("%m", d.deduction_date) = ?' : '')
+      ` + (year ? " AND strftime('%Y', d.deduction_date) = ?" : '')
+        + (month ? " AND strftime('%m', d.deduction_date) = ?" : '')
       ).get(...params)
       
       return { list, summary }
@@ -328,8 +328,8 @@ module.exports = function (db) {
           LEFT JOIN tenants t ON d.tenant_id = t.id
           LEFT JOIN stalls s ON d.stall_id = s.id
           WHERE 1=1
-          ${params.year ? ' AND strftime("%Y", d.deduction_date) = "' + params.year + '"' : ''}
-          ${params.month ? ' AND strftime("%m", d.deduction_date) = "' + String(params.month).padStart(2, '0') + '"' : ''}
+          ${params.year ? " AND strftime('%Y', d.deduction_date) = '" + params.year + "'" : ''}
+          ${params.month ? " AND strftime('%m', d.deduction_date) = '" + String(params.month).padStart(2, '0') + "'" : ''}
           ORDER BY d.deduction_date DESC
         `).all().map(item => ({
           ...item,

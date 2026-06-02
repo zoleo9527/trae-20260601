@@ -19,6 +19,8 @@ function createWindow() {
     minWidth: 1024,
     minHeight: 680,
     title: '市场摊位管理系统',
+    backgroundColor: '#f5f7fa',
+    show: false,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -26,12 +28,31 @@ function createWindow() {
     }
   })
 
-  if (process.env.NODE_ENV === 'development') {
-    mainWindow.loadURL('http://localhost:5173')
-    mainWindow.webContents.openDevTools()
-  } else {
-    mainWindow.loadFile(path.join(__dirname, '../dist/index.html'))
+  mainWindow.once('ready-to-show', () => {
+    mainWindow.show()
+  })
+
+  mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDesc) => {
+    console.error('页面加载失败:', errorCode, errorDesc)
+    if (process.env.NODE_ENV === 'development') {
+      mainWindow.loadURL('http://localhost:5173')
+    }
+  })
+
+  const loadPage = () => {
+    if (process.env.NODE_ENV === 'development') {
+      mainWindow.loadURL('http://localhost:5173')
+        .catch(() => {
+          console.log('等待开发服务器启动，3秒后重试...')
+          setTimeout(loadPage, 3000)
+        })
+      mainWindow.webContents.openDevTools()
+    } else {
+      mainWindow.loadFile(path.join(__dirname, '../dist/index.html'))
+    }
   }
+
+  loadPage()
 
   mainWindow.on('closed', () => {
     mainWindow = null

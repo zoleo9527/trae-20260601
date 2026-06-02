@@ -374,25 +374,12 @@ function openRectifyDialog(row) {
 async function confirmRectify() {
   try {
     await callApi(
-      window.api.deductions.markRectified,
-      null,
+      window.api.hygiene.markRectified,
+      currentRecord.value.id,
       rectifyForm.rectify_date,
       rectifyForm.rectify_remark
     )
-    const deduction = await callApi(window.api.deductions.list, {
-      tenant_id: currentRecord.value.tenant_id,
-      start_date: currentRecord.value.check_date,
-      end_date: currentRecord.value.check_date
-    })
-    if (deduction.list && deduction.list.length > 0) {
-      await callApi(
-        window.api.deductions.markRectified,
-        deduction.list[0].id,
-        rectifyForm.rectify_date,
-        rectifyForm.rectify_remark
-      )
-    }
-    ElMessage.success('整改已登记')
+    ElMessage.success('整改已登记，检查记录和关联扣分已同步更新')
     rectifyDialogVisible.value = false
     loadList()
   } catch (e) {

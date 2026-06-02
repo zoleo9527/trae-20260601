@@ -318,7 +318,7 @@ async function loadTenants() {
 
 async function loadSummary() {
   summary.value = await callApi(
-    window.api.deductions.getSummary,
+    window.api.deductions.getStats,
     filterForm.year || null,
     filterForm.month || null
   )

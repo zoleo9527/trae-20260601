@@ -136,6 +136,28 @@ module.exports = function (db) {
         WHERE hc.is_rectified = 0 AND hc.score < 80
         ORDER BY hc.check_date ASC
       `).all()
+    },
+    
+    'hygiene:markRectified': function (id, rectifyDate, remark) {
+      const tx = db.transaction(() => {
+        const check = db.prepare('SELECT * FROM hygiene_checks WHERE id = ?').get(id)
+        if (!check) throw new Error('检查记录不存在')
+        
+        db.prepare(`
+          UPDATE hygiene_checks SET 
+            is_rectified = 1, rectify_date = ?, rectify_remark = ?
+          WHERE id = ?
+        `).run(rectifyDate || null, remark || '', id)
+        
+        db.prepare(`
+          UPDATE deductions SET 
+            is_rectified = 1, rectify_date = ?, rectify_remark = ?
+          WHERE tenant_id = ? AND stall_id = ? AND deduction_date = ? AND is_rectified = 0
+        `).run(rectifyDate || null, remark || '', check.tenant_id, check.stall_id, check.check_date)
+      })
+      
+      tx()
+      return true
     }
   }
 }

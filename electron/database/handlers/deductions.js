@@ -27,11 +27,11 @@ module.exports = function (db) {
         sqlParams.push(params.end_date)
       }
       if (params.year) {
-        sql += ' AND strftime("%Y", d.deduction_date) = ?'
+        sql += " AND strftime('%Y', d.deduction_date) = ?"
         sqlParams.push(String(params.year))
       }
       if (params.month) {
-        sql += ' AND strftime("%m", d.deduction_date) = ?'
+        sql += " AND strftime('%m', d.deduction_date) = ?"
         sqlParams.push(String(params.month).padStart(2, '0'))
       }
       if (params.keyword) {
@@ -65,11 +65,11 @@ module.exports = function (db) {
       if (params.start_date) { countSql += ' AND d.deduction_date >= ?'; countParams.push(params.start_date) }
       if (params.end_date) { countSql += ' AND d.deduction_date <= ?'; countParams.push(params.end_date) }
       if (params.year) {
-        countSql += ' AND strftime("%Y", d.deduction_date) = ?'
+        countSql += " AND strftime('%Y', d.deduction_date) = ?"
         countParams.push(String(params.year))
       }
       if (params.month) {
-        countSql += ' AND strftime("%m", d.deduction_date) = ?'
+        countSql += " AND strftime('%m', d.deduction_date) = ?"
         countParams.push(String(params.month).padStart(2, '0'))
       }
       if (params.keyword) {
@@ -144,16 +144,39 @@ module.exports = function (db) {
       `
       const params = []
       if (year) {
-        sql += ' AND strftime("%Y", d.deduction_date) = ?'
+        sql += " AND strftime('%Y', d.deduction_date) = ?"
         params.push(String(year))
       }
       if (month) {
-        sql += ' AND strftime("%m", d.deduction_date) = ?'
+        sql += " AND strftime('%m', d.deduction_date) = ?"
         params.push(String(month).padStart(2, '0'))
       }
       sql += ' GROUP BY t.id, t.name, s.stall_code ORDER BY total_points DESC'
       
       return db.prepare(sql).all(...params)
+    },
+    
+    'deductions:getStats': function (year, month) {
+      let sql = `
+        SELECT 
+          COUNT(*) as total_count,
+          COALESCE(SUM(d.points), 0) as total_points,
+          COALESCE(SUM(d.amount), 0) as total_amount,
+          COALESCE(SUM(CASE WHEN d.is_rectified = 0 THEN 1 ELSE 0 END), 0) as unrectified_count
+        FROM deductions d
+        WHERE 1=1
+      `
+      const params = []
+      if (year) {
+        sql += " AND strftime('%Y', d.deduction_date) = ?"
+        params.push(String(year))
+      }
+      if (month) {
+        sql += " AND strftime('%m', d.deduction_date) = ?"
+        params.push(String(month).padStart(2, '0'))
+      }
+      
+      return db.prepare(sql).get(...params)
     },
     
     'deductions:markRectified': function (id, rectifyDate, remark) {

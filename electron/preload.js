@@ -47,7 +47,8 @@ contextBridge.exposeInMainWorld('api', {
     create: (data) => ipcRenderer.invoke('hygiene:create', data),
     update: (id, data) => ipcRenderer.invoke('hygiene:update', id, data),
     delete: (id) => ipcRenderer.invoke('hygiene:delete', id),
-    getUnrectified: () => ipcRenderer.invoke('hygiene:getUnrectified')
+    getUnrectified: () => ipcRenderer.invoke('hygiene:getUnrectified'),
+    markRectified: (id, rectifyDate, remark) => ipcRenderer.invoke('hygiene:markRectified', id, rectifyDate, remark)
   },
   
   deductions: {
@@ -57,6 +58,7 @@ contextBridge.exposeInMainWorld('api', {
     update: (id, data) => ipcRenderer.invoke('deductions:update', id, data),
     delete: (id) => ipcRenderer.invoke('deductions:delete', id),
     getSummary: (year, month) => ipcRenderer.invoke('deductions:getSummary', year, month),
+    getStats: (year, month) => ipcRenderer.invoke('deductions:getStats', year, month),
     markRectified: (id, rectifyDate, remark) => ipcRenderer.invoke('deductions:markRectified', id, rectifyDate, remark)
   },
   
