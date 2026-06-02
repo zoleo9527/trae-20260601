@@ -109,10 +109,10 @@ export interface ReviewPackageRequest {
   reviewerId: string;
   items: Array<{
     productId: string;
-    expectedProductId?: string;
     expectedQty: number;
     actualQty: number;
   }>;
+  statusOverride?: 'PASSED' | 'REJECTED';
   notes?: string;
 }
 

@@ -16,8 +16,8 @@ export const createPackage = async (req: Request, res: Response) => {
 export const reviewPackage = async (req: Request, res: Response) => {
   try {
     const { packageId } = req.params;
-    const { reviewerId, items, notes } = req.body;
-    const review = await packageService.reviewPackage(packageId, reviewerId, items, notes);
+    const { reviewerId, items, statusOverride, notes } = req.body;
+    const review = await packageService.reviewPackage(packageId, reviewerId, items, statusOverride, notes);
     res.json({ success: true, data: review });
   } catch (error: any) {
     res.status(400).json({ success: false, error: error.message });

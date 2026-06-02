@@ -69,11 +69,10 @@ async function testScenario1_MissingItem() {
   console.log('6. 赵复核进行复核（但没发现少货，直接通过）...');
   const reviewItems = order1Items.map((item) => ({
     productId: item.productId,
-    expectedProductId: item.productId,
     expectedQty: item.quantity,
     actualQty: item.quantity,
   }));
-  await packageService.reviewPackage(pkgId, reviewer.id, reviewItems, '复核通过');
+  await packageService.reviewPackage(pkgId, reviewer.id, reviewItems, undefined, '复核通过');
   console.log('   ✓ 复核通过（未发现少货）');
 
   await packageService.shipPackage(pkgId);
@@ -182,17 +181,19 @@ async function testScenario2_WrongSKU() {
 
   const products = await prisma.product.findMany();
   const expectedProduct = orderItems[0].product;
-  const wrongProduct = products.find((p) => p.id !== expectedProduct.id)!;
+  const wrongProduct = products.find((p) => !orderItems.some((oi) => oi.productId === p.id))!;
 
   console.log('5. 创建包裹（故意装错SKU，应发「' + expectedProduct.sku + '」实装「' + wrongProduct.sku + '」）...');
   const pkgId = await packageService.createPackage(
     order.id,
-    [{ productId: wrongProduct.id, expectedProductId: expectedProduct.id, quantity: orderItems[0].quantity }],
+    [{ productId: wrongProduct.id, quantity: orderItems[0].quantity }],
     0.3
   );
-  console.log(`   ✓ 包裹创建，expectedProductId=${expectedProduct.id}, productId=${wrongProduct.id}`);
+  const pkgAfterCreate = await packageService.getPackageById(pkgId);
+  const pkgItem = pkgAfterCreate?.packageItems[0];
+  console.log(`   ✓ 包裹创建，自动回填 expectedProductId=${pkgItem?.expectedProductId}（${expectedProduct.sku}）, 实装 productId=${wrongProduct.id}（${wrongProduct.sku}）`);
 
-  console.log('6. 复核时未发现错误，直接通过（复核员未核对SKU，只验数量）...');
+  console.log('6. 复核时未发现错误，复核员主观通过（statusOverride=PASSED）...');
   const reviewItems = [
     {
       productId: wrongProduct.id,
@@ -200,9 +201,14 @@ async function testScenario2_WrongSKU() {
       actualQty: orderItems[0].quantity,
     },
   ];
-  const reviewId = await packageService.reviewPackage(pkgId, reviewer!.id, reviewItems, '复核通过');
+  const reviewId = await packageService.reviewPackage(pkgId, reviewer!.id, reviewItems, 'PASSED', '复核通过（未发现SKU错误）');
   const reviewRecord = await packageService.getReviewRecordById(reviewId);
-  console.log(`   ✓ 复核结果: ${reviewRecord?.status}，isMatch: ${reviewRecord?.reviewItems.map((ri: any) => ri.isMatch).join(', ')}`);
+  const reviewItem = reviewRecord?.reviewItems[0];
+  console.log(`   ✓ 复核结果: ${reviewRecord?.status}，ReviewItem.isMatch: ${reviewItem?.isMatch}`);
+  console.log(`     ReviewItem.expectedProductId: ${reviewItem?.expectedProductId}, ReviewItem.productId: ${reviewItem?.productId}`);
+  if (!reviewItem?.isMatch && reviewRecord?.status === 'PASSED') {
+    console.log('     ✓ 复核记录保留了SKU差异，即使复核通过也没丢失应发商品信息！');
+  }
 
   await packageService.shipPackage(pkgId);
   console.log('7. 包裹出库');
@@ -235,16 +241,27 @@ async function testScenario2_WrongSKU() {
     if (cause.pickTask) {
       console.log(`        关联拣货任务: ${cause.pickTask.taskNo}，拣货员: ${cause.pickTask.pickedBy?.name || '未分配'}`);
     }
+    if (cause.reviewItem) {
+      console.log(`        来源: 复核记录`);
+    }
+    if (cause.reviewerId) {
+      console.log(`        关联复核员: ${reviewer?.name}`);
+    }
   });
 
-  const skuCause = traceResult.possibleCauses.find((c: any) => c.type === 'SKU_MISMATCH_IN_PACKAGE');
-  if (skuCause) {
+  const skuInPkg = traceResult.possibleCauses.find((c: any) => c.type === 'SKU_MISMATCH_IN_PACKAGE');
+  const skuInReview = traceResult.possibleCauses.find((c: any) => c.type === 'SKU_MISMATCH_IN_REVIEW');
+  if (skuInPkg || skuInReview) {
     console.log('\n   ✓ 成功追溯到错SKU根因！');
+    if (skuInReview) {
+      console.log('   ✓ 直接基于复核记录追溯到了差异！');
+    }
+    const cause = skuInReview || skuInPkg;
     await afterSalesService.resolveFeedback(
       feedbackId,
       cs!.id,
-      skuCause.waveId,
-      skuCause.pickTask?.id,
+      cause.waveId,
+      cause.pickTask?.id,
       `确认为装错SKU，应发${expectedProduct.sku}实发${wrongProduct.sku}，已安排换货`
     );
     console.log('   ✓ 问题已解决');
@@ -300,7 +317,6 @@ async function testScenario3_ReviewReject() {
   console.log('4. 复核时发现数量不对，退回...');
   const reviewItems = orderItems.map((item, index) => ({
     productId: item.productId,
-    expectedProductId: item.productId,
     expectedQty: item.quantity,
     actualQty: index === 0 ? item.quantity - 1 : item.quantity,
   }));
@@ -309,6 +325,7 @@ async function testScenario3_ReviewReject() {
     pkgId,
     reviewer!.id,
     reviewItems,
+    undefined,
     '发现第一个商品少1个，退回重拣'
   );
   const review = await packageService.getReviewRecordById(reviewId);
@@ -457,11 +474,10 @@ async function testScenario5_MultiSKUActualQuantity() {
   console.log('3. 复核通过...');
   const reviewItems = orderItems.map((item) => ({
     productId: item.productId,
-    expectedProductId: item.productId,
     expectedQty: item.quantity,
     actualQty: item.quantity,
   }));
-  await packageService.reviewPackage(pkgId, reviewer!.id, reviewItems, '复核通过');
+  await packageService.reviewPackage(pkgId, reviewer!.id, reviewItems, undefined, '复核通过');
 
   console.log('4. 验证每个PackageItem的actualQuantity是否正确（修复前会被写成首项数量）...');
   const pkgData = await packageService.getPackageById(pkgId);

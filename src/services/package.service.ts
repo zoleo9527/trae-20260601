@@ -28,8 +28,6 @@ export class PackageService {
         throw new Error('订单状态不正确，无法创建包裹');
       }
 
-      const orderItemProductIds = new Set(order.orderItems.map((oi) => oi.productId));
-
       const packageNo = `P${Date.now()}${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`;
 
       const pkg = await tx.package.create({
@@ -41,13 +39,37 @@ export class PackageService {
         },
       });
 
+      const usedOrderItemIndices = new Set<number>();
       const packageItemsData = items.map((item) => {
-        const expectedId = item.expectedProductId
-          ?? (orderItemProductIds.has(item.productId) ? item.productId : undefined);
+        let expectedProductId = item.expectedProductId;
+
+        if (!expectedProductId) {
+          let matched = false;
+          for (let i = 0; i < order.orderItems.length; i++) {
+            if (usedOrderItemIndices.has(i)) continue;
+            const oi = order.orderItems[i];
+            if (oi.productId === item.productId) {
+              expectedProductId = oi.productId;
+              usedOrderItemIndices.add(i);
+              matched = true;
+              break;
+            }
+          }
+          if (!matched) {
+            for (let i = 0; i < order.orderItems.length; i++) {
+              if (!usedOrderItemIndices.has(i)) {
+                expectedProductId = order.orderItems[i].productId;
+                usedOrderItemIndices.add(i);
+                break;
+              }
+            }
+          }
+        }
+
         return {
           packageId: pkg.id,
           productId: item.productId,
-          expectedProductId: expectedId,
+          expectedProductId: expectedProductId ?? item.productId,
           quantity: item.quantity,
         };
       });
@@ -75,7 +97,8 @@ export class PackageService {
   async reviewPackage(
     packageId: string,
     reviewerId: string,
-    items: Array<{ productId: string; expectedProductId?: string; expectedQty: number; actualQty: number }>,
+    items: Array<{ productId: string; expectedQty: number; actualQty: number }>,
+    statusOverride?: 'PASSED' | 'REJECTED',
     notes?: string
   ) {
     return this.prisma.$transaction(async (tx) => {
@@ -104,11 +127,23 @@ export class PackageService {
         throw new Error('包裹状态不正确，无法复核');
       }
 
+      const packageItemsByProductId = new Map(
+        pkg.packageItems.map((pi) => [pi.productId, pi])
+      );
+
       const allMatch = items.every((item) => {
-        const skuMatches = !item.expectedProductId || item.expectedProductId === item.productId;
+        const pkgItem = packageItemsByProductId.get(item.productId);
+        const expectedProductId = pkgItem?.expectedProductId ?? item.productId;
+        const skuMatches = expectedProductId === item.productId;
         return skuMatches && item.expectedQty === item.actualQty;
       });
-      const status = allMatch ? ReviewStatus.PASSED : ReviewStatus.REJECTED;
+
+      let status: string;
+      if (statusOverride) {
+        status = statusOverride;
+      } else {
+        status = allMatch ? ReviewStatus.PASSED : ReviewStatus.REJECTED;
+      }
 
       const recordNo = `R${Date.now()}${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`;
 
@@ -123,12 +158,14 @@ export class PackageService {
       });
 
       const reviewItemsData = items.map((item) => {
-        const skuMatches = !item.expectedProductId || item.expectedProductId === item.productId;
+        const pkgItem = packageItemsByProductId.get(item.productId);
+        const expectedProductId = pkgItem?.expectedProductId ?? item.productId;
+        const skuMatches = expectedProductId === item.productId;
         const qtyMatches = item.expectedQty === item.actualQty;
         return {
           reviewRecordId: reviewRecord.id,
           productId: item.productId,
-          expectedProductId: item.expectedProductId ?? item.productId,
+          expectedProductId,
           expectedQty: item.expectedQty,
           actualQty: item.actualQty,
           isMatch: skuMatches && qtyMatches,
