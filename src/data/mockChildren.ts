@@ -1,0 +1,108 @@
+import type { Child } from '../types';
+
+export const mockChildren: Child[] = [
+  {
+    id: 'child-1',
+    name: '小宝',
+    age: 2,
+    avatar: 'https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=可爱的小男孩头像&image_size=square',
+    classId: 'class-1',
+    parentName: '小宝妈妈',
+    parentPhone: '13800138001',
+    allergies: [],
+    medications: [],
+    admissionDate: '2026-05-31',
+  },
+  {
+    id: 'child-2',
+    name: '妞妞',
+    age: 3,
+    avatar: 'https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=可爱的扎小辫子小女孩头像&image_size=square',
+    classId: 'class-1',
+    parentName: '妞妞妈妈',
+    parentPhone: '13800138002',
+    allergies: [],
+    medications: [],
+    admissionDate: '2026-03-01',
+  },
+  {
+    id: 'child-3',
+    name: '浩浩',
+    age: 4,
+    avatar: 'https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=活泼的小男孩头像&image_size=square',
+    classId: 'class-1',
+    parentName: '浩浩爸爸',
+    parentPhone: '13800138003',
+    allergies: ['鸡蛋'],
+    medications: [],
+    admissionDate: '2025-09-01',
+  },
+  {
+    id: 'child-4',
+    name: '壮壮',
+    age: 3.5,
+    avatar: 'https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=健康强壮的小男孩头像&image_size=square',
+    classId: 'class-1',
+    parentName: '壮壮妈妈',
+    parentPhone: '13800138004',
+    allergies: [],
+    medications: [],
+    admissionDate: '2025-11-15',
+  },
+  {
+    id: 'child-5',
+    name: '朵朵',
+    age: 2.5,
+    avatar: 'https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=可爱的穿花裙子小女孩头像&image_size=square',
+    classId: 'class-1',
+    parentName: '朵朵妈妈',
+    parentPhone: '13800138005',
+    allergies: ['花生'],
+    medications: [],
+    admissionDate: '2026-02-10',
+  },
+  {
+    id: 'child-6',
+    name: '阳阳',
+    age: 3,
+    avatar: 'https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=阳光开朗的小男孩头像&image_size=square',
+    classId: 'class-1',
+    parentName: '阳阳爸爸',
+    parentPhone: '13800138006',
+    allergies: [],
+    medications: [],
+    admissionDate: '2025-10-20',
+  },
+  {
+    id: 'child-7',
+    name: '萌萌',
+    age: 4,
+    avatar: 'https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=萌萌的小女孩头像&image_size=square',
+    classId: 'class-1',
+    parentName: '萌萌妈妈',
+    parentPhone: '13800138007',
+    allergies: [],
+    medications: [],
+    admissionDate: '2025-09-10',
+  },
+  {
+    id: 'child-8',
+    name: '天天',
+    age: 3.5,
+    avatar: 'https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=帅气的小男孩头像&image_size=square',
+    classId: 'class-1',
+    parentName: '天天妈妈',
+    parentPhone: '13800138008',
+    allergies: [],
+    medications: ['感冒药（每日2次）'],
+    admissionDate: '2025-12-01',
+  },
+];
+
+export const getChildById = (id: string): Child | undefined => {
+  return mockChildren.find(child => child.id === id);
+};
+
+export const getChildrenByClassId = (classId: string): Child[] => {
+  return mockChildren.filter(child => child.classId === classId);
+};
