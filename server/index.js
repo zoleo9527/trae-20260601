@@ -44,6 +44,23 @@ app.get('/api/rooms/:id', (req, res) => {
   const roomRecords = data.records.filter(r => r.roomId === room.id);
   const roomTasks = data.tasks.filter(t => t.roomId === room.id);
 
+  const SHIFT_BASE_HOURS = { morning: 8, evening: 16, night: 0 };
+
+  const getSortTime = (item) => {
+    if (item.source === 'record') {
+      return new Date(item.time).getTime();
+    }
+    const today = new Date();
+    const baseHour = SHIFT_BASE_HOURS[item.shift];
+    const [hour, minute] = item.time.split(':').map(Number);
+    const date = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    if (item.shift === 'night') {
+      date.setDate(date.getDate() + 1);
+    }
+    date.setHours(baseHour + hour, minute, 0, 0);
+    return date.getTime();
+  };
+
   const timeline = [
     ...roomRecords.map(r => ({
       id: r.id,
@@ -69,11 +86,7 @@ app.get('/api/rooms/:id', (req, res) => {
       source: 'task',
       taskStatus: t.status
     }))
-  ].sort((a, b) => {
-    const timeA = a.source === 'record' ? new Date(a.time).getTime() : 0;
-    const timeB = b.source === 'record' ? new Date(b.time).getTime() : 0;
-    return timeB - timeA;
-  });
+  ].sort((a, b) => getSortTime(b) - getSortTime(a));
 
   let jaundiceFollowUpInfo = null;
   if (baby && baby.jaundice) {

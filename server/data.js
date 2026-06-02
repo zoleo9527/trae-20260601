@@ -148,6 +148,50 @@ const generateRecords = () => {
   });
 
   records.push({
+    id: 'r11',
+    type: 'handover',
+    roomId: '101',
+    title: '早班交接',
+    description: '刘妈妈今日10:15主诉乳房胀痛，已预约通乳师下午3点；宝宝小宝黄疸持续观察，每日晒太阳两次每次15分钟；阿姨王阿姨在岗',
+    time: new Date(today.getFullYear(), today.getMonth(), today.getDate(), 11, 30).toISOString(),
+    operator: '李护士',
+    shift: 'morning'
+  });
+
+  records.push({
+    id: 'r12',
+    type: 'handover',
+    roomId: '103',
+    title: '早班交接',
+    description: '周妈妈血压偏高，每4小时监测一次；宝宝乐乐黄疸复查今日14:00儿科医生，如遇雨天顺延；无陪护阿姨需重点巡视',
+    time: new Date(today.getFullYear(), today.getMonth(), today.getDate(), 11, 45).toISOString(),
+    operator: '李护士',
+    shift: 'morning'
+  });
+
+  records.push({
+    id: 'r13',
+    type: 'handover',
+    roomId: '201',
+    title: '早班交接',
+    description: '吴妈妈今日新入住9:30，首次哺乳指导已完成；宝宝一一出生3天黄疸观察；阿姨张阿姨在岗熟悉中',
+    time: new Date(today.getFullYear(), today.getMonth(), today.getDate(), 12, 0).toISOString(),
+    operator: '张护士长',
+    shift: 'morning'
+  });
+
+  records.push({
+    id: 'r14',
+    type: 'handover',
+    roomId: '102',
+    title: '早班交接',
+    description: '陈妈妈13:20家属投诉午餐汤太咸，陈客服已跟进，补偿水果拼盘一份；晚餐已通知厨房调整口味；宝宝安安无异常',
+    time: new Date(today.getFullYear(), today.getMonth(), today.getDate(), 14, 0).toISOString(),
+    operator: '李护士',
+    shift: 'morning'
+  });
+
+  records.push({
     id: 'r10',
     type: 'nursing',
     roomId: '302',
