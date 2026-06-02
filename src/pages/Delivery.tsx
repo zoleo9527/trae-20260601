@@ -1,6 +1,6 @@
 import { useStore } from '@/store/useStore'
-import { STATUS_COLOR, STATUS_DOT, STATUS_LABEL } from '@/utils/constants'
-import { AlertTriangle, ExternalLink, FileWarning, FolderOpen, Truck, X } from 'lucide-react'
+import { STATUS_COLOR, STATUS_DOT, STATUS_LABEL, timeAgo } from '@/utils/constants'
+import { AlertTriangle, Clock, ExternalLink, FileWarning, FolderOpen, Truck, X } from 'lucide-react'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 
@@ -104,9 +104,22 @@ export default function Delivery() {
                           : 'bg-red-500/5 border border-red-500/20'
                       }`}>
                         {hasFinalFile ? (
-                          <div className="flex items-start gap-1.5">
-                            <FolderOpen className="w-3.5 h-3.5 text-emerald-400 shrink-0 mt-0.5" />
-                            <span className="text-emerald-300/80 break-all font-mono leading-relaxed">{finalVersion.filePath}</span>
+                          <div className="space-y-1">
+                            <div className="flex items-start gap-1.5">
+                              <FolderOpen className="w-3.5 h-3.5 text-emerald-400 shrink-0 mt-0.5" />
+                              <span className="text-emerald-300/80 break-all font-mono leading-relaxed">{finalVersion.filePath}</span>
+                            </div>
+                            <div className="flex items-center gap-2 text-emerald-400/50 pl-5">
+                              {(finalVersion.updatedAt || finalVersion.submittedAt) && (
+                                <span className="flex items-center gap-0.5">
+                                  <Clock className="w-3 h-3" />
+                                  {timeAgo(finalVersion.updatedAt || finalVersion.submittedAt)}
+                                </span>
+                              )}
+                              {finalVersion.note && (
+                                <span className="truncate max-w-[160px]">{finalVersion.note}</span>
+                              )}
+                            </div>
                           </div>
                         ) : (
                           <div className="flex items-center gap-1.5">

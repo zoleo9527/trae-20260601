@@ -1,7 +1,7 @@
 import { useStore, type FileVersion } from '@/store/useStore'
-import { formatDate } from '@/utils/constants'
+import { formatDate, timeAgo } from '@/utils/constants'
 import { AlertTriangle, Check, ChevronRight, FolderOpen, Pencil, Plus } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 
 const TYPE_BADGE: Record<FileVersion['type'], { label: string; color: string }> = {
@@ -24,10 +24,15 @@ export default function Versions() {
   const [formType, setFormType] = useState<FileVersion['type']>('translation')
   const [formPath, setFormPath] = useState('')
   const [formNote, setFormNote] = useState('')
+  const [formTargetVersion, setFormTargetVersion] = useState<string | null>(null)
+  const [formTargetLabel, setFormTargetLabel] = useState('')
 
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editPath, setEditPath] = useState('')
   const [editNote, setEditNote] = useState('')
+
+  const [highlightId, setHighlightId] = useState<string | null>(null)
+  const highlightRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (project) openProject(project.id)
@@ -40,6 +45,14 @@ export default function Versions() {
       setFormType('final')
     }
   }, [searchParams])
+
+  useEffect(() => {
+    if (highlightId && highlightRef.current) {
+      highlightRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+      const timer = setTimeout(() => setHighlightId(null), 3000)
+      return () => clearTimeout(timer)
+    }
+  }, [highlightId])
 
   if (!project) {
     return (
@@ -58,21 +71,53 @@ export default function Versions() {
 
   const assigneeMap = new Map(assignees.map(a => [a.id, a.name]))
 
+  const pendingFinal = versions.find(v => v.type === 'final' && v.filePath === null)
+
+  const showFormWithPrefill = (type: FileVersion['type'], target: FileVersion | null) => {
+    setShowForm(true)
+    setFormType(type)
+    if (target) {
+      setFormTargetVersion(target.id)
+      setFormTargetLabel(`补录到 v${target.version}`)
+      setFormNote(target.note || '')
+      setFormPath('')
+    } else {
+      setFormTargetVersion(null)
+      setFormTargetLabel('')
+      setFormNote('')
+      setFormPath('')
+    }
+  }
+
   const handleSubmit = () => {
     if (!selectedEp) return
-    if (formType === 'final' && versions.some(v => v.type === 'final' && v.filePath === null)) {
-      const pendingFinal = versions.find(v => v.type === 'final' && v.filePath === null)
-      if (pendingFinal && formPath.trim()) {
-        updateFileVersion(pendingFinal.id, {
-          filePath: formPath.trim() || null,
-          note: formNote.trim() || undefined,
-        })
-        setFormPath('')
-        setFormNote('')
-        setFormType('translation')
-        setShowForm(false)
-        return
-      }
+    if (formType === 'final' && pendingFinal && formPath.trim()) {
+      updateFileVersion(pendingFinal.id, {
+        filePath: formPath.trim() || null,
+        note: formNote.trim() || undefined,
+      })
+      setHighlightId(pendingFinal.id)
+      setFormPath('')
+      setFormNote('')
+      setFormType('translation')
+      setFormTargetVersion(null)
+      setFormTargetLabel('')
+      setShowForm(false)
+      return
+    }
+    if (formTargetVersion && formPath.trim()) {
+      updateFileVersion(formTargetVersion, {
+        filePath: formPath.trim() || null,
+        note: formNote.trim() || undefined,
+      })
+      setHighlightId(formTargetVersion)
+      setFormPath('')
+      setFormNote('')
+      setFormType('translation')
+      setFormTargetVersion(null)
+      setFormTargetLabel('')
+      setShowForm(false)
+      return
     }
     addFileVersion({
       episodeId: selectedEp.id,
@@ -86,6 +131,8 @@ export default function Versions() {
     setFormPath('')
     setFormNote('')
     setFormType('translation')
+    setFormTargetVersion(null)
+    setFormTargetLabel('')
     setShowForm(false)
   }
 
@@ -107,6 +154,7 @@ export default function Versions() {
       filePath: editPath.trim() || null,
       note: editNote.trim() || undefined,
     })
+    setHighlightId(editingId)
     handleCancelEdit()
   }
 
@@ -114,7 +162,11 @@ export default function Versions() {
     setSearchParams({ ep: eid })
     setShowForm(false)
     handleCancelEdit()
+    setFormTargetVersion(null)
+    setFormTargetLabel('')
   }
+
+  const isPrefillMode = formTargetVersion !== null || (formType === 'final' && pendingFinal != null)
 
   return (
     <div className="min-h-screen bg-[#0f0f23] p-6 space-y-6">
@@ -143,7 +195,7 @@ export default function Versions() {
           ))}
         </div>
         <button
-          onClick={() => setShowForm(f => !f)}
+          onClick={() => showFormWithPrefill('translation', null)}
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-400/20 text-amber-400 border border-amber-500/30 text-sm font-medium hover:bg-amber-400/30 transition-colors"
         >
           <Plus className="w-4 h-4" />
@@ -155,8 +207,8 @@ export default function Versions() {
         <div className="bg-[#1e1e3a] border border-zinc-800 rounded-lg p-4 space-y-3">
           <div className="flex items-center justify-between">
             <p className="text-xs text-zinc-400">
-              {formType === 'final' && versions.some(v => v.type === 'final' && v.filePath === null)
-                ? '检测到终版版本路径缺失，提交时将补录到最新终版记录，避免重复新增'
+              {isPrefillMode
+                ? `补录终版文件路径${formTargetLabel ? `（${formTargetLabel}）` : ''}，提交后更新已有记录`
                 : '新增版本记录'}
             </p>
           </div>
@@ -164,7 +216,17 @@ export default function Versions() {
             {(Object.keys(TYPE_BADGE) as FileVersion['type'][]).map(t => (
               <button
                 key={t}
-                onClick={() => setFormType(t)}
+                onClick={() => {
+                  setFormType(t)
+                  if (t === 'final' && pendingFinal) {
+                    setFormTargetVersion(pendingFinal.id)
+                    setFormTargetLabel(`补录到 v${pendingFinal.version}`)
+                    setFormNote(pendingFinal.note || '')
+                  } else {
+                    setFormTargetVersion(null)
+                    setFormTargetLabel('')
+                  }
+                }}
                 className={`px-3 py-1 rounded text-xs font-medium ${formType === t ? TYPE_BADGE[t].color : 'bg-zinc-800 text-zinc-500'}`}
               >
                 {TYPE_BADGE[t].label}
@@ -185,10 +247,18 @@ export default function Versions() {
             className="w-full bg-[#0f0f23] border border-zinc-800 rounded px-3 py-2 text-sm text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:border-amber-500/50 resize-none"
           />
           <div className="flex items-center justify-between">
-            <span className="text-xs text-zinc-500 font-mono">v{nextVersion}</span>
+            <span className="text-xs text-zinc-500 font-mono">
+              {formTargetVersion && formTargetLabel
+                ? formTargetLabel
+                : `v${nextVersion}`}
+            </span>
             <div className="flex gap-2">
               <button
-                onClick={() => setShowForm(false)}
+                onClick={() => {
+                  setShowForm(false)
+                  setFormTargetVersion(null)
+                  setFormTargetLabel('')
+                }}
                 className="px-3 py-1.5 rounded-lg bg-zinc-800 text-zinc-400 text-sm font-medium hover:bg-zinc-700 transition-colors"
               >
                 取消
@@ -214,6 +284,7 @@ export default function Versions() {
           const isLast = i === versions.length - 1
           const isEditing = editingId === v.id
           const isPathMissing = v.filePath === null
+          const isHighlighted = highlightId === v.id
 
           return (
             <div key={v.id} className="flex gap-4">
@@ -224,9 +295,16 @@ export default function Versions() {
                 {!isLast && <div className="w-0.5 flex-1 bg-amber-500/30" />}
               </div>
               <div className="pb-6 flex-1">
-                <div className={`bg-[#1e1e3a] border rounded-lg p-4 space-y-2 ${
-                  isPathMissing ? 'border-red-500/30' : 'border-zinc-800'
-                }`}>
+                <div
+                  ref={isHighlighted ? highlightRef : undefined}
+                  className={`bg-[#1e1e3a] border rounded-lg p-4 space-y-2 transition-all duration-700 ${
+                    isHighlighted
+                      ? 'border-amber-400/60 shadow-[0_0_12px_rgba(251,191,36,0.15)]'
+                      : isPathMissing
+                        ? 'border-red-500/30'
+                        : 'border-zinc-800'
+                  }`}
+                >
                   <div className="flex items-center gap-2">
                     <span className="font-mono text-amber-400 text-sm font-semibold">v{v.version}</span>
                     <span className={`px-2 py-0.5 rounded text-xs font-medium ${TYPE_BADGE[v.type].color}`}>
@@ -238,10 +316,19 @@ export default function Versions() {
                         路径缺失
                       </span>
                     )}
+                    {isHighlighted && (
+                      <span className="ml-auto text-xs text-amber-400/80 flex items-center gap-1">
+                        <Check className="w-3.5 h-3.5" />
+                        刚更新
+                      </span>
+                    )}
                   </div>
                   <div className="flex items-center gap-3 text-xs text-zinc-400">
                     <span>{assigneeMap.get(v.submittedBy) || v.submittedBy}</span>
                     <span>{formatDate(v.submittedAt)}</span>
+                    {v.updatedAt && (
+                      <span className="text-emerald-400/60">更新于 {timeAgo(v.updatedAt)}</span>
+                    )}
                   </div>
 
                   {isEditing ? (
@@ -297,7 +384,7 @@ export default function Versions() {
                       ) : (
                         <div className="flex items-center gap-2 pt-1">
                           <button
-                            onClick={() => handleStartEdit(v)}
+                            onClick={() => showFormWithPrefill(v.type, v)}
                             className="flex-1 flex items-center justify-center gap-1 py-1.5 rounded text-xs text-amber-400 bg-amber-500/10 border border-amber-500/20 hover:bg-amber-500/20 transition-colors"
                           >
                             <Pencil className="w-3 h-3" />

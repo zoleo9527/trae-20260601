@@ -36,6 +36,7 @@ export interface FileVersion {
   filePath: string | null
   submittedBy: string
   submittedAt: string
+  updatedAt?: string
   note: string
   type: 'translation' | 'timing' | 'final'
 }
@@ -264,7 +265,7 @@ function buildDemoData(): { projects: Project[]; fileVersions: FileVersion[]; re
     { id: 'v11', episodeId: 'e3-2', version: 2, filePath: null, submittedBy: 'a2', submittedAt: daysAgo(2), note: '修正稿，路径仍未录入', type: 'translation' },
     { id: 'v12', episodeId: 'e4-1', version: 1, filePath: '/Volumes/subs/风之声/EP01_v1.ass', submittedBy: 'a1', submittedAt: daysAgo(10), note: '翻译初稿', type: 'translation' },
     { id: 'v13', episodeId: 'e4-1', version: 2, filePath: '/Volumes/subs/风之声/EP01_v2.ass', submittedBy: 'a1', submittedAt: daysAgo(8), note: '校对后修改', type: 'translation' },
-    { id: 'v14', episodeId: 'e4-1', version: 3, filePath: '/Volumes/subs/风之声/EP01_final.ass', submittedBy: 'a8', submittedAt: daysAgo(3), note: '压制输出', type: 'final' },
+    { id: 'v14', episodeId: 'e4-1', version: 3, filePath: '/Volumes/subs/风之声/EP01_final.ass', submittedBy: 'a8', submittedAt: daysAgo(3), updatedAt: daysAgo(2), note: '压制输出', type: 'final' },
     { id: 'v15', episodeId: 'e4-2', version: 1, filePath: '/Volumes/subs/风之声/EP02_v1.ass', submittedBy: 'a2', submittedAt: daysAgo(5), note: '翻译初稿', type: 'translation' },
     { id: 'v16', episodeId: 'e2-2', version: 1, filePath: '/Volumes/subs/星际迷途/EP02_v1.ass', submittedBy: 'a1', submittedAt: daysAgo(8), note: '翻译初稿', type: 'translation' },
     { id: 'v17', episodeId: 'e1-4', version: 1, filePath: '/Volumes/subs/暗夜行者/EP04_v1.ass', submittedBy: 'a3', submittedAt: daysAgo(2), note: '时间轴初调', type: 'timing' },
@@ -355,7 +356,7 @@ export const useStore = create<AppState>()(
       updateFileVersion: (versionId, updates) => {
         set(s => ({
           fileVersions: s.fileVersions.map(v =>
-            v.id === versionId ? { ...v, ...updates } : v
+            v.id === versionId ? { ...v, ...updates, updatedAt: new Date().toISOString() } : v
           ),
         }))
       },
