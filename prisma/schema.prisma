@@ -127,6 +127,21 @@ model AfterSaleOrder {
   handledAt      DateTime? // 处理时间
   settlementId   String?
   settlement     CommissionSettlement? @relation(fields: [settlementId], references: [id])
+
+  // ===== 计算依据字段（用于明细展示和核对）=====
+  // 坏果赔付专用
+  badQuantity    Int?     // 坏果数量
+  totalQuantity  Int?     // 总数量
+  badRate        Float?   // 坏果率（百分比）
+
+  // 缺货退款专用
+  productId      String?  // 缺货商品ID
+  quantity       Int?     // 缺货数量
+  unitPrice      Int?     // 商品单价（分）
+
+  // 通用计算说明
+  calculationDetail String? // 计算过程描述
+
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 

@@ -276,6 +276,7 @@ async function main() {
 
   // 售后1: 订单2 - 车厘子缺货退款
   const outOfStockRefund = calculateOutOfStockRefund(cherryItem2.unitPrice, 1);
+  const outOfStockDetail = `缺货商品单价${cherryItem2.unitPrice}分 × 数量1 = 退款${outOfStockRefund}分`;
   const afterSale1 = await prisma.afterSaleOrder.create({
     data: {
       afterSaleNo: 'AS202606010001',
@@ -286,13 +287,20 @@ async function main() {
       status: 'APPROVED',
       handledBy: '客服-小李',
       handledAt: new Date(),
+      // 计算依据字段
+      productId: cherryItem2.productId,
+      quantity: 1,
+      unitPrice: cherryItem2.unitPrice,
+      calculationDetail: outOfStockDetail,
     },
   });
   console.log(`   ✅ 售后1: ${afterSale1.afterSaleNo} - 缺货退款 ${outOfStockRefund / 100}元`);
+  console.log(`           计算依据: ${outOfStockDetail}`);
 
   // 售后2: 订单3 - 坏果赔付（10斤中有4斤坏果，坏果率40% > 5%，按120%赔付）
   const badCompResult = calculateBadProductCompensation(order3Total, 10, 4);
-  // 验证：5% = 万分之500
+  const badProductAmount = Math.floor((order3Total * 4) / 10);
+  const badCompDetail = `订单总额${order3Total}分 × 坏果占比4/10 = 坏果金额${badProductAmount}分 × 120% = 赔付${badCompResult.compensation}分（坏果率${badCompResult.badRate}%）`;
   const afterSale2 = await prisma.afterSaleOrder.create({
     data: {
       afterSaleNo: 'AS202606010002',
@@ -303,6 +311,11 @@ async function main() {
       status: 'APPROVED',
       handledBy: '客服-小王',
       handledAt: new Date(),
+      // 计算依据字段
+      badQuantity: 4,
+      totalQuantity: 10,
+      badRate: badCompResult.badRate,
+      calculationDetail: badCompDetail,
     },
   });
   console.log(`   ✅ 售后2: ${afterSale2.afterSaleNo} - 坏果率${badCompResult.badRate}%，赔付 ${badCompResult.compensation / 100}元`);

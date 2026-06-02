@@ -254,15 +254,32 @@ export class SettlementService {
         const orderActualAmount = order.actualAmount ?? order.totalAmount;
         commissionBase += orderActualAmount;
 
-        // 称重补差
-        for (const item of order.items) {
-          if (item.weightDiff) {
-            weightAdjustment += item.weightDiff;
+        // 收集已有售后单的商品ID，避免重复计算
+        const afterSaleProductIds = new Set<string>();
+        const hasWeightDiffAfterSale = order.afterSales.some((as: any) => as.type === 'WEIGHT_DIFF');
+
+        for (const as of order.afterSales) {
+          if (as.type === 'OUT_OF_STOCK' && as.productId) {
+            afterSaleProductIds.add(as.productId);
           }
         }
 
-        // 退款和赔付
+        // 称重补差 - 关键修复：跳过已有售后单的订单项
+        for (const item of order.items) {
+          if (item.weightDiff && item.weightDiff !== 0) {
+            // 如果订单项商品已有缺货售后单，跳过，避免重复扣除
+            const hasOutOfStockAfterSale = afterSaleProductIds.has(item.productId);
+            // 如果订单已有称重补差售后单，跳过订单项级别的称重差
+            if (!hasOutOfStockAfterSale && !hasWeightDiffAfterSale) {
+              weightAdjustment += item.weightDiff;
+            }
+          }
+        }
+
+        // 退款和赔付 - 从售后单汇总
         for (const as of order.afterSales) {
+          if (as.status !== 'APPROVED' && as.status !== 'COMPLETED') continue;
+
           if (as.type === 'OUT_OF_STOCK' || as.type === 'WEIGHT_DIFF') {
             refundAmount += as.amount;
           } else if (as.type === 'BAD_PRODUCT') {
@@ -270,9 +287,10 @@ export class SettlementService {
           }
         }
 
-        // 佣金调整
+        // 佣金调整 - 从补差记录汇总（排除售后关联的，只取独立的佣金调整）
         for (const adj of order.adjustments) {
-          if (adj.type === 'COMMISSION_ADJUST') {
+          if (adj.status !== 'CONFIRMED') continue;
+          if (adj.type === 'COMMISSION_ADJUST' && !adj.afterSaleId) {
             commissionAdjust += adj.amount;
           }
         }
@@ -314,7 +332,12 @@ export class SettlementService {
     },
     commissionRate: number,
   ): SettlementDetailLine[] {
-    const lines: SettlementDetailLine[] = [];
+    // 按类型分组收集明细，便于前端按类别展示
+    const commissionLines: SettlementDetailLine[] = [];
+    const weightLines: SettlementDetailLine[] = [];
+    const refundLines: SettlementDetailLine[] = [];
+    const compensationLines: SettlementDetailLine[] = [];
+    const adjustmentLines: SettlementDetailLine[] = [];
     let orderCount = 0;
 
     for (const batch of batches) {
@@ -324,7 +347,8 @@ export class SettlementService {
         const orderActualAmount = order.actualAmount ?? order.totalAmount;
         const orderCommission = calculateCommission(orderActualAmount, commissionRate);
 
-        lines.push(
+        // ===== 1. 订单佣金明细 =====
+        commissionLines.push(
           generateOrderCommissionLine({
             orderNo: order.orderNo,
             orderAmount: order.totalAmount,
@@ -334,29 +358,46 @@ export class SettlementService {
           }),
         );
 
-        // 称重补差明细
-        for (const item of order.items) {
-          if (item.weightDiff && item.weightDiff !== 0) {
-            const diffRate = item.subtotal > 0
-              ? Math.abs((item.weightDiff / item.subtotal) * 1000)
-              : 0;
+        // 收集已有售后单的商品ID，避免重复展示
+        const afterSaleProductIds = new Set<string>();
+        const hasWeightDiffAfterSale = order.afterSales.some((as: any) => as.type === 'WEIGHT_DIFF');
 
-            lines.push(
-              generateWeightAdjustmentLine({
-                orderNo: order.orderNo,
-                estimatedAmount: item.subtotal,
-                actualAmount: item.actualSubtotal ?? item.subtotal,
-                diff: item.weightDiff,
-                diffRate: Math.round(diffRate * 100) / 100,
-              }),
-            );
+        for (const as of order.afterSales) {
+          if (as.type === 'OUT_OF_STOCK' && as.productId) {
+            afterSaleProductIds.add(as.productId);
           }
         }
 
-        // 售后明细
+        // ===== 2. 称重补差明细 =====
+        // 关键修复：跳过已有售后单的订单项，避免重复展示
+        for (const item of order.items) {
+          if (item.weightDiff && item.weightDiff !== 0) {
+            const hasOutOfStockAfterSale = afterSaleProductIds.has(item.productId);
+            if (!hasOutOfStockAfterSale && !hasWeightDiffAfterSale) {
+              const diffRate = item.subtotal > 0
+                ? Math.abs((item.weightDiff / item.subtotal) * 1000)
+                : 0;
+
+              weightLines.push(
+                generateWeightAdjustmentLine({
+                  orderNo: order.orderNo,
+                  estimatedAmount: item.subtotal,
+                  actualAmount: item.actualSubtotal ?? item.subtotal,
+                  diff: item.weightDiff,
+                  diffRate: Math.round(diffRate * 100) / 100,
+                }),
+              );
+            }
+          }
+        }
+
+        // ===== 3. 售后退款 & 赔付明细 =====
         for (const as of order.afterSales) {
+          if (as.status !== 'APPROVED' && as.status !== 'COMPLETED') continue;
+
           if (as.type === 'OUT_OF_STOCK' || as.type === 'WEIGHT_DIFF') {
-            lines.push(
+            const detail = as.calculationDetail || `售后单 ${as.afterSaleNo}：${as.reason}，退款 ${as.amount}分`;
+            refundLines.push(
               generateRefundLine({
                 orderNo: order.orderNo,
                 afterSaleNo: as.afterSaleNo,
@@ -364,9 +405,15 @@ export class SettlementService {
                 amount: as.amount,
               }),
             );
+            // 用计算依据覆盖默认的计算详情
+            refundLines[refundLines.length - 1].calculationDetail = detail;
           } else if (as.type === 'BAD_PRODUCT') {
-            const badRate = 0; // 可以从售后单扩展字段获取
-            lines.push(
+            // 使用售后单存储的坏果率，不再硬编码为0
+            const badRate = as.badRate ?? 0;
+            const detail = as.calculationDetail ||
+              `售后单 ${as.afterSaleNo}：坏果率${badRate}%，订单金额${order.totalAmount}分，赔付${as.amount}分`;
+
+            compensationLines.push(
               generateCompensationLine({
                 orderNo: order.orderNo,
                 afterSaleNo: as.afterSaleNo,
@@ -375,13 +422,17 @@ export class SettlementService {
                 compensation: as.amount,
               }),
             );
+            // 用计算依据覆盖默认的计算详情
+            compensationLines[compensationLines.length - 1].calculationDetail = detail;
           }
         }
 
-        // 佣金调整明细
+        // ===== 4. 佣金调整明细 =====
+        // 只取独立的佣金调整（排除售后关联的）
         for (const adj of order.adjustments) {
-          if (adj.type === 'COMMISSION_ADJUST') {
-            lines.push(
+          if (adj.status !== 'CONFIRMED') continue;
+          if (adj.type === 'COMMISSION_ADJUST' && !adj.afterSaleId) {
+            adjustmentLines.push(
               generateCommissionAdjustmentLine({
                 adjustmentNo: adj.adjustmentNo,
                 reason: adj.reason,
@@ -394,7 +445,70 @@ export class SettlementService {
       }
     }
 
-    // 汇总行
+    // ===== 按类别顺序组装明细 =====
+    const lines: SettlementDetailLine[] = [];
+
+    // 1. 佣金明细
+    if (commissionLines.length > 0) {
+      lines.push({
+        lineType: 'summary',
+        description: '===== 一、订单佣金 =====',
+        amount: amounts.commissionAmount,
+        calculationFormula: '小计',
+        calculationDetail: `共 ${commissionLines.length} 笔订单佣金，合计 ${amounts.commissionAmount} 分`,
+      });
+      lines.push(...commissionLines);
+    }
+
+    // 2. 称重补差明细
+    if (weightLines.length > 0) {
+      lines.push({
+        lineType: 'summary',
+        description: '===== 二、称重补差 =====',
+        amount: amounts.weightAdjustment,
+        calculationFormula: '小计',
+        calculationDetail: `共 ${weightLines.length} 笔称重差异，合计 ${amounts.weightAdjustment} 分`,
+      });
+      lines.push(...weightLines);
+    }
+
+    // 3. 退款明细
+    if (refundLines.length > 0) {
+      lines.push({
+        lineType: 'summary',
+        description: '===== 三、退款扣除 =====',
+        amount: -amounts.refundAmount,
+        calculationFormula: '小计',
+        calculationDetail: `共 ${refundLines.length} 笔退款，合计扣除 ${amounts.refundAmount} 分`,
+      });
+      lines.push(...refundLines);
+    }
+
+    // 4. 赔付明细
+    if (compensationLines.length > 0) {
+      lines.push({
+        lineType: 'summary',
+        description: '===== 四、赔付扣除 =====',
+        amount: -amounts.compensationAmount,
+        calculationFormula: '小计',
+        calculationDetail: `共 ${compensationLines.length} 笔赔付，合计扣除 ${amounts.compensationAmount} 分`,
+      });
+      lines.push(...compensationLines);
+    }
+
+    // 5. 佣金调整明细
+    if (adjustmentLines.length > 0) {
+      lines.push({
+        lineType: 'summary',
+        description: '===== 五、佣金调整 =====',
+        amount: amounts.commissionAdjust,
+        calculationFormula: '小计',
+        calculationDetail: `共 ${adjustmentLines.length} 笔调整，合计 ${amounts.commissionAdjust} 分`,
+      });
+      lines.push(...adjustmentLines);
+    }
+
+    // 6. 最终汇总行
     lines.push(
       generateSummaryLine({
         orderCount,

@@ -33,6 +33,13 @@ export class AfterSaleService {
     });
 
     let amount = dto.amount || 0;
+    let badQuantity: number | undefined;
+    let totalQuantity: number | undefined;
+    let badRate: number | undefined;
+    let productId: string | undefined;
+    let quantity: number | undefined;
+    let unitPrice: number | undefined;
+    let calculationDetail: string | undefined;
 
     // 根据类型自动计算金额
     switch (dto.type) {
@@ -40,6 +47,10 @@ export class AfterSaleService {
         const item = order.items.find((i) => i.productId === dto.productId);
         if (item && dto.quantity) {
           amount = calculateOutOfStockRefund(item.unitPrice, dto.quantity);
+          productId = dto.productId;
+          quantity = dto.quantity;
+          unitPrice = item.unitPrice;
+          calculationDetail = `缺货商品单价${item.unitPrice}分 × 数量${dto.quantity} = 退款${amount}分`;
         }
         break;
       }
@@ -51,6 +62,17 @@ export class AfterSaleService {
             dto.badQuantity,
           );
           amount = result.compensation;
+          badQuantity = dto.badQuantity;
+          totalQuantity = dto.totalQuantity;
+          badRate = result.badRate;
+          const badProductAmount = Math.floor((order.totalAmount * badQuantity) / totalQuantity);
+          calculationDetail = `订单总额${order.totalAmount}分 × 坏果占比${badQuantity}/${totalQuantity} = 坏果金额${badProductAmount}分 × 120% = 赔付${amount}分（坏果率${result.badRate}%）`;
+        }
+        break;
+      }
+      case 'WEIGHT_DIFF': {
+        if (dto.amount) {
+          calculationDetail = `称重差异${dto.amount}分`;
         }
         break;
       }
@@ -64,6 +86,13 @@ export class AfterSaleService {
         reason: dto.reason,
         amount,
         status: 'PENDING',
+        badQuantity,
+        totalQuantity,
+        badRate,
+        productId,
+        quantity,
+        unitPrice,
+        calculationDetail,
       },
     });
 
