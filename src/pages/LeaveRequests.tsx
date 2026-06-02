@@ -43,7 +43,7 @@ export default function LeaveRequests() {
   const approvedCount = requests.filter((r) => r.status === 'approved').length;
 
   return (
-    <Layout role="coach">
+    <Layout>
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>

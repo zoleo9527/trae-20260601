@@ -48,7 +48,7 @@ export default function BodyMeasurements() {
   };
 
   return (
-    <Layout role="coach">
+    <Layout>
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>

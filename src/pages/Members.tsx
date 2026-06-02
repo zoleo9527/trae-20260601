@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Search, Filter, Plus, Phone, MessageSquare, MoreHorizontal, ChevronDown } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Search, Filter, Plus, Phone, MessageSquare, MoreHorizontal, ChevronDown, Dumbbell, Activity } from 'lucide-react';
 import Layout from '../components/Layout';
 import { Card } from '../components/Card';
 import { Badge } from '../components/Badge';
@@ -7,9 +8,24 @@ import { Button } from '../components/Button';
 import { members } from '../data/mockData';
 
 export default function Members() {
+  const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [selectedMember, setSelectedMember] = useState<string | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
+
+  const showToast = (message: string) => {
+    setToast(message);
+    setTimeout(() => setToast(null), 2000);
+  };
+
+  const handlePhoneContact = (memberName: string) => {
+    showToast(`正在拨打 ${memberName} 的电话...`);
+  };
+
+  const handleWechatContact = (memberName: string) => {
+    showToast(`正在打开与 ${memberName} 的微信聊天...`);
+  };
 
   const filteredMembers = members.filter((member) => {
     const matchesSearch = member.name.toLowerCase().includes(searchTerm.toLowerCase());
@@ -26,8 +42,13 @@ export default function Members() {
   };
 
   return (
-    <Layout role="coach">
+    <Layout>
       <div className="space-y-6">
+        {toast && (
+          <div className="fixed top-4 right-4 bg-teal-500 text-white px-4 py-2 rounded-lg shadow-lg z-50 animate-pulse">
+            {toast}
+          </div>
+        )}
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">会员管理</h1>
@@ -153,11 +174,27 @@ export default function Members() {
                 </div>
 
                 <div className="flex gap-2">
-                  <Button variant="secondary" size="sm" className="flex-1">
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    className="flex-1"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handlePhoneContact(member.name);
+                    }}
+                  >
                     <Phone className="w-3.5 h-3.5 mr-1" />
                     电话
                   </Button>
-                  <Button variant="secondary" size="sm" className="flex-1">
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    className="flex-1"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleWechatContact(member.name);
+                    }}
+                  >
                     <MessageSquare className="w-3.5 h-3.5 mr-1" />
                     微信
                   </Button>
@@ -188,11 +225,21 @@ export default function Members() {
                       ))}
                     </div>
                     <div className="grid grid-cols-2 gap-3">
-                      <Button variant="secondary" size="sm">
-                        查看训练计划
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => navigate('/training')}
+                      >
+                        <Dumbbell className="w-3.5 h-3.5 mr-1" />
+                        训练计划
                       </Button>
-                      <Button variant="secondary" size="sm">
-                        查看体测记录
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => navigate('/body-measurements')}
+                      >
+                        <Activity className="w-3.5 h-3.5 mr-1" />
+                        体测记录
                       </Button>
                     </div>
                   </div>

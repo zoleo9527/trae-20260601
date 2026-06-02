@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Calendar,
   Users,
@@ -13,11 +13,11 @@ import {
   X,
   ChevronDown
 } from 'lucide-react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { useRoleStore } from '../store/useRoleStore';
 
 interface LayoutProps {
   children: React.ReactNode;
-  role: 'coach' | 'manager';
 }
 
 const coachNavItems = [
@@ -39,13 +39,21 @@ const managerNavItems = [
   { path: '/risks', label: '风险提醒', icon: AlertTriangle },
 ];
 
-export default function Layout({ children, role }: LayoutProps) {
+export default function Layout({ children }: LayoutProps) {
   const location = useLocation();
+  const navigate = useNavigate();
+  const { role, setRole } = useRoleStore();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [roleDropdownOpen, setRoleDropdownOpen] = useState(false);
 
   const navItems = role === 'coach' ? coachNavItems : managerNavItems;
   const roleName = role === 'coach' ? '李教练' : '张店长';
+
+  const handleRoleSwitch = (newRole: 'coach' | 'manager') => {
+    setRole(newRole);
+    setRoleDropdownOpen(false);
+    navigate(newRole === 'coach' ? '/coach' : '/manager');
+  };
 
   return (
     <div className="min-h-screen bg-gray-50 flex">
@@ -109,16 +117,15 @@ export default function Layout({ children, role }: LayoutProps) {
 
             {roleDropdownOpen && sidebarOpen && (
               <div className="absolute bottom-full left-0 w-full mb-2 bg-navy-800 rounded-lg shadow-xl overflow-hidden">
-                <Link
-                  to={role === 'coach' ? '/manager' : '/coach'}
-                  onClick={() => setRoleDropdownOpen(false)}
-                  className="flex items-center gap-3 px-4 py-3 hover:bg-navy-700 transition-colors"
+                <button
+                  onClick={() => handleRoleSwitch(role === 'coach' ? 'manager' : 'coach')}
+                  className="flex items-center gap-3 px-4 py-3 hover:bg-navy-700 transition-colors w-full text-left"
                 >
                   <User size={18} />
                   <span className="text-sm">
                     切换为{role === 'coach' ? '店长' : '教练'}视角
                   </span>
-                </Link>
+                </button>
                 <Link
                   to="/"
                   onClick={() => setRoleDropdownOpen(false)}

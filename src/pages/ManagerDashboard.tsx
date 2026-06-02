@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   TrendingUp,
   TrendingDown,
@@ -13,6 +13,7 @@ import {
   Clock,
   RefreshCw
 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import {
   BarChart,
   Bar,
@@ -29,14 +30,33 @@ import { Card } from '../components/Card';
 import { Badge } from '../components/Badge';
 import { Button } from '../components/Button';
 import { members, stats, weeklyActivityData } from '../data/mockData';
+import { useRoleStore } from '../store/useRoleStore';
 
 const highRiskMembers = members.filter((m) => m.riskLevel === 'high');
 const mediumRiskMembers = members.filter((m) => m.riskLevel === 'medium');
 const noMeasurementMembers = members.filter((m) => m.daysSinceLastMeasurement > 30);
 
 export default function ManagerDashboard() {
+  const navigate = useNavigate();
+  const { setRole } = useRoleStore();
   const [riskTab, setRiskTab] = useState<'high' | 'medium' | 'all'>('high');
   const [contactedMembers, setContactedMembers] = useState<Set<string>>(new Set());
+  const [scheduledMeasurements, setScheduledMeasurements] = useState<Set<string>>(new Set());
+  const [toast, setToast] = useState<string | null>(null);
+
+  useEffect(() => {
+    setRole('manager');
+  }, [setRole]);
+
+  const showToast = (message: string) => {
+    setToast(message);
+    setTimeout(() => setToast(null), 2000);
+  };
+
+  const handleScheduleMeasurement = (memberId: string, memberName: string) => {
+    setScheduledMeasurements((prev) => new Set(prev).add(memberId));
+    showToast(`已为 ${memberName} 预约体测`);
+  };
 
   const displayMembers =
     riskTab === 'high'
@@ -45,21 +65,39 @@ export default function ManagerDashboard() {
       ? mediumRiskMembers
       : [...highRiskMembers, ...mediumRiskMembers];
 
-  const handleMarkContacted = (memberId: string) => {
+  const handleMarkContacted = (memberId: string, memberName: string) => {
     setContactedMembers((prev) => {
       const next = new Set(prev);
       if (next.has(memberId)) {
         next.delete(memberId);
       } else {
         next.add(memberId);
+        showToast(`已标记 ${memberName} 为已跟进`);
       }
       return next;
     });
   };
 
+  const handlePhoneContact = (memberName: string) => {
+    showToast(`正在拨打 ${memberName} 的电话...`);
+  };
+
+  const handleWechatContact = (memberName: string) => {
+    showToast(`正在打开与 ${memberName} 的微信聊天...`);
+  };
+
+  const handleViewMember = (memberId: string) => {
+    navigate('/members');
+  };
+
   return (
-    <Layout role="manager">
+    <Layout>
       <div className="space-y-6">
+        {toast && (
+          <div className="fixed top-4 right-4 bg-teal-500 text-white px-4 py-2 rounded-lg shadow-lg z-50 animate-pulse">
+            {toast}
+          </div>
+        )}
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">数据大盘</h1>
@@ -208,6 +246,7 @@ export default function ManagerDashboard() {
                             variant="ghost"
                             className="p-2"
                             title="电话联系"
+                            onClick={() => handlePhoneContact(member.name)}
                           >
                             <Phone className="w-4 h-4" />
                           </Button>
@@ -216,13 +255,14 @@ export default function ManagerDashboard() {
                             variant="ghost"
                             className="p-2"
                             title="微信联系"
+                            onClick={() => handleWechatContact(member.name)}
                           >
                             <MessageSquare className="w-4 h-4" />
                           </Button>
                           <Button
                             size="sm"
                             variant="secondary"
-                            onClick={() => handleMarkContacted(member.id)}
+                            onClick={() => handleMarkContacted(member.id, member.name)}
                           >
                             已联系
                           </Button>
@@ -282,11 +322,27 @@ export default function ManagerDashboard() {
                       <td className="py-3 text-gray-600">{member.packageRemaining} 节</td>
                       <td className="py-3">
                         <div className="flex gap-2">
-                          <Button size="sm" variant="secondary">
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            onClick={() => handleViewMember(member.id)}
+                          >
                             <Eye className="w-3.5 h-3.5 mr-1" />
                             查看
                           </Button>
-                          <Button size="sm">预约体测</Button>
+                          {scheduledMeasurements.has(member.id) ? (
+                            <Badge variant="success">
+                              <CheckCircle className="w-3 h-3 mr-1" />
+                              已预约
+                            </Badge>
+                          ) : (
+                            <Button
+                              size="sm"
+                              onClick={() => handleScheduleMeasurement(member.id, member.name)}
+                            >
+                              预约体测
+                            </Button>
+                          )}
                         </div>
                       </td>
                     </tr>

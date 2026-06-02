@@ -1,26 +1,136 @@
 import { useState } from 'react';
-import { Calendar, Search, Filter, Package, Clock, CheckCircle, XCircle } from 'lucide-react';
+import { Calendar, Search, Filter, Package, Clock, CheckCircle, XCircle, CreditCard } from 'lucide-react';
 import Layout from '../components/Layout';
 import { Card } from '../components/Card';
 import { Badge } from '../components/Badge';
 import { Button } from '../components/Button';
-import { attendanceRecords, members } from '../data/mockData';
+import { attendanceRecords as initialRecords, members as initialMembers } from '../data/mockData';
+import type { AttendanceRecord, Member } from '../types';
 
 export default function Attendance() {
   const [selectedMember, setSelectedMember] = useState<string>('all');
   const [dateRange, setDateRange] = useState('week');
+  const [records, setRecords] = useState<AttendanceRecord[]>(initialRecords);
+  const [members, setMembers] = useState<Member[]>(initialMembers);
+  const [showRenewModal, setShowRenewModal] = useState<string | null>(null);
+  const [renewPackageCount, setRenewPackageCount] = useState(24);
+  const [toast, setToast] = useState<string | null>(null);
 
-  const filteredRecords = attendanceRecords.filter((record) => {
+  const showToast = (message: string) => {
+    setToast(message);
+    setTimeout(() => setToast(null), 2000);
+  };
+
+  const getDateRangeFilter = () => {
+    const now = new Date('2026-06-02');
+    switch (dateRange) {
+      case 'week':
+        const weekAgo = new Date(now);
+        weekAgo.setDate(now.getDate() - 7);
+        return weekAgo;
+      case 'month':
+        const monthAgo = new Date(now);
+        monthAgo.setMonth(now.getMonth() - 1);
+        return monthAgo;
+      default:
+        return null;
+    }
+  };
+
+  const filteredRecords = records.filter((record) => {
     const matchesMember = selectedMember === 'all' || record.memberId === selectedMember;
-    return matchesMember;
+    const dateFilter = getDateRangeFilter();
+    const matchesDate = !dateFilter || new Date(record.date) >= dateFilter;
+    return matchesMember && matchesDate;
   });
+
+  const filteredMembers = selectedMember === 'all'
+    ? members
+    : members.filter((m) => m.id === selectedMember);
 
   const completedCount = filteredRecords.filter((r) => r.status === 'completed').length;
   const cancelledCount = filteredRecords.filter((r) => r.status === 'cancelled').length;
 
+  const handleRenew = (memberId: string, memberName: string) => {
+    setMembers((prev) =>
+      prev.map((m) =>
+        m.id === memberId
+          ? { ...m, packageRemaining: m.packageRemaining + renewPackageCount, packageTotal: m.packageTotal + renewPackageCount }
+          : m
+      )
+    );
+    showToast(`${memberName} 成功续费 ${renewPackageCount} 节课！`);
+    setShowRenewModal(null);
+    setRenewPackageCount(24);
+  };
+
   return (
-    <Layout role="coach">
+    <Layout>
       <div className="space-y-6">
+        {toast && (
+          <div className="fixed top-4 right-4 bg-teal-500 text-white px-4 py-2 rounded-lg shadow-lg z-50 animate-pulse">
+            {toast}
+          </div>
+        )}
+
+        {showRenewModal && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+            <Card className="w-full max-w-md mx-4">
+              <Card.Body>
+                <h3 className="text-xl font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                  <CreditCard className="w-6 h-6 text-orange-500" />
+                  会员续费
+                </h3>
+                <p className="text-gray-600 mb-4">
+                  为 <span className="font-medium text-gray-900">{members.find((m) => m.id === showRenewModal)?.name}</span> 续费
+                </p>
+                <div className="mb-4">
+                  <label className="block text-sm text-gray-500 mb-2">续费课包数量</label>
+                  <div className="grid grid-cols-4 gap-2">
+                    {[12, 24, 36, 48].map((count) => (
+                      <button
+                        key={count}
+                        onClick={() => setRenewPackageCount(count)}
+                        className={`py-2 px-3 rounded-lg border-2 transition-colors ${
+                          renewPackageCount === count
+                            ? 'border-orange-500 bg-orange-50 text-orange-600'
+                            : 'border-gray-200 hover:border-gray-300'
+                        }`}
+                      >
+                        {count}节
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="bg-gray-50 rounded-lg p-4 mb-4">
+                  <div className="flex justify-between text-sm mb-2">
+                    <span className="text-gray-500">续费数量</span>
+                    <span className="font-medium">{renewPackageCount} 节课</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-500">续费金额</span>
+                    <span className="font-bold text-lg text-orange-600">¥{(renewPackageCount * 200).toLocaleString()}</span>
+                  </div>
+                </div>
+                <div className="flex gap-3">
+                  <Button variant="secondary" className="flex-1" onClick={() => setShowRenewModal(null)}>
+                    取消
+                  </Button>
+                  <Button
+                    className="flex-1"
+                    onClick={() => {
+                      const member = members.find((m) => m.id === showRenewModal);
+                      if (member) handleRenew(showRenewModal, member.name);
+                    }}
+                  >
+                    确认续费
+                  </Button>
+                </div>
+              </Card.Body>
+            </Card>
+          </div>
+        )}
+
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">上课消耗</h1>
@@ -69,7 +179,9 @@ export default function Attendance() {
               </div>
               <div>
                 <p className="text-2xl font-bold text-gray-900">
-                  {((completedCount / filteredRecords.length) * 100).toFixed(1)}%
+                  {filteredRecords.length > 0
+                    ? ((completedCount / filteredRecords.length) * 100).toFixed(1)
+                    : 0}%
                 </p>
                 <p className="text-sm text-gray-500">出勤率</p>
               </div>
@@ -119,7 +231,12 @@ export default function Attendance() {
 
         <Card>
           <Card.Header>
-            <h2 className="text-lg font-semibold text-gray-900">课包使用情况</h2>
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-gray-900">课包使用情况</h2>
+              <Badge variant="info">
+                {dateRange === 'week' ? '本周' : dateRange === 'month' ? '本月' : '全部'}数据
+              </Badge>
+            </div>
           </Card.Header>
           <Card.Body>
             <div className="overflow-x-auto">
@@ -134,7 +251,7 @@ export default function Attendance() {
                   </tr>
                 </thead>
                 <tbody>
-                  {members.slice(0, 8).map((member) => {
+                  {filteredMembers.slice(0, 8).map((member) => {
                     const percentage = Math.round(
                       (member.packageRemaining / member.packageTotal) * 100
                     );
@@ -164,7 +281,7 @@ export default function Attendance() {
                             </div>
                             <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
                               <div
-                                className={`h-full rounded-full ${
+                                className={`h-full rounded-full transition-all ${
                                   member.packageRemaining <= 5
                                     ? 'bg-coral-500'
                                     : member.packageRemaining <= 10
@@ -191,7 +308,11 @@ export default function Attendance() {
                           )}
                         </td>
                         <td className="py-4">
-                          <Button size="sm" variant="secondary">
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            onClick={() => setShowRenewModal(member.id)}
+                          >
                             <Package className="w-3.5 h-3.5 mr-1" />
                             续费
                           </Button>
@@ -207,54 +328,65 @@ export default function Attendance() {
 
         <Card>
           <Card.Header>
-            <h2 className="text-lg font-semibold text-gray-900">消课记录</h2>
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-gray-900">消课记录</h2>
+              <Badge variant="info">{filteredRecords.length} 条记录</Badge>
+            </div>
           </Card.Header>
           <Card.Body>
-            <div className="space-y-3">
-              {filteredRecords.map((record) => (
-                <div
-                  key={record.id}
-                  className="flex items-center gap-4 p-4 bg-gray-50 rounded-xl"
-                >
+            {filteredRecords.length > 0 ? (
+              <div className="space-y-3">
+                {filteredRecords.map((record) => (
                   <div
-                    className={`w-10 h-10 rounded-xl flex items-center justify-center ${
-                      record.status === 'completed'
-                        ? 'bg-teal-100'
-                        : 'bg-coral-100'
-                    }`}
+                    key={record.id}
+                    className="flex items-center gap-4 p-4 bg-gray-50 rounded-xl"
                   >
-                    {record.status === 'completed' ? (
-                      <CheckCircle
-                        className="w-5 h-5 text-teal-600"
-                      />
-                    ) : (
-                      <XCircle className="w-5 h-5 text-coral-600" />
-                    )}
-                  </div>
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <p className="font-medium text-gray-900">
-                        {record.memberName}
-                      </p>
-                      <Badge
-                        variant={
-                          record.status === 'completed' ? 'success' : 'danger'
-                        }
-                      >
-                        {record.status === 'completed' ? '已完成' : '已取消'}
-                      </Badge>
+                    <div
+                      className={`w-10 h-10 rounded-xl flex items-center justify-center ${
+                        record.status === 'completed'
+                          ? 'bg-teal-100'
+                          : 'bg-coral-100'
+                      }`}
+                    >
+                      {record.status === 'completed' ? (
+                        <CheckCircle
+                          className="w-5 h-5 text-teal-600"
+                        />
+                      ) : (
+                        <XCircle className="w-5 h-5 text-coral-600" />
+                      )}
                     </div>
-                    <p className="text-sm text-gray-500">
-                      {record.courseType} · {record.coachName}
-                    </p>
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <p className="font-medium text-gray-900">
+                          {record.memberName}
+                        </p>
+                        <Badge
+                          variant={
+                            record.status === 'completed' ? 'success' : 'danger'
+                          }
+                        >
+                          {record.status === 'completed' ? '已完成' : '已取消'}
+                        </Badge>
+                      </div>
+                      <p className="text-sm text-gray-500">
+                        {record.courseType} · {record.coachName}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-medium text-gray-900">{record.date}</p>
+                      <p className="text-sm text-gray-500">消耗 1 课时</p>
+                    </div>
                   </div>
-                  <div className="text-right">
-                    <p className="font-medium text-gray-900">{record.date}</p>
-                    <p className="text-sm text-gray-500">消耗 1 课时</p>
-                  </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-12 text-gray-500">
+                <Calendar className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+                <p>暂无消课记录</p>
+                <p className="text-sm">请尝试调整筛选条件</p>
+              </div>
+            )}
           </Card.Body>
         </Card>
       </div>

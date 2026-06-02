@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Clock,
   User,
@@ -12,11 +12,13 @@ import {
   ChevronRight,
   Plus
 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import Layout from '../components/Layout';
 import { Card } from '../components/Card';
 import { Badge } from '../components/Badge';
 import { Button } from '../components/Button';
 import { todayCourses, members } from '../data/mockData';
+import { useRoleStore } from '../store/useRoleStore';
 import type { Course, Member } from '../types';
 
 const getStatusColor = (status: Course['status']) => {
@@ -58,8 +60,14 @@ const getRiskIcon = (reason: string) => {
 const followUpMembers = members.filter((m) => m.riskLevel && m.riskLevel !== 'low');
 
 export default function CoachDashboard() {
+  const navigate = useNavigate();
+  const { setRole } = useRoleStore();
   const [courses, setCourses] = useState(todayCourses);
   const [selectedMember, setSelectedMember] = useState<string | null>(null);
+
+  useEffect(() => {
+    setRole('coach');
+  }, [setRole]);
 
   const handleCheckIn = (courseId: string) => {
     setCourses((prev) =>
@@ -69,16 +77,41 @@ export default function CoachDashboard() {
     );
   };
 
+  const [toast, setToast] = useState<string | null>(null);
+
+  const showToast = (message: string) => {
+    setToast(message);
+    setTimeout(() => setToast(null), 2000);
+  };
+
   const handleFollowUp = (memberId: string) => {
     setSelectedMember(memberId === selectedMember ? null : memberId);
+  };
+
+  const handlePhoneContact = (memberName: string) => {
+    showToast(`正在拨打 ${memberName} 的电话...`);
+  };
+
+  const handleWechatContact = (memberName: string) => {
+    showToast(`正在打开与 ${memberName} 的微信聊天...`);
+  };
+
+  const handleViewMemberDetail = (memberName: string) => {
+    showToast(`正在查看 ${memberName} 的详情...`);
+    navigate('/members');
   };
 
   const completedCount = courses.filter((c) => c.status === 'completed').length;
   const scheduledCount = courses.filter((c) => c.status === 'scheduled').length;
 
   return (
-    <Layout role="coach">
+    <Layout>
       <div className="space-y-6">
+        {toast && (
+          <div className="fixed top-4 right-4 bg-teal-500 text-white px-4 py-2 rounded-lg shadow-lg z-50 animate-pulse">
+            {toast}
+          </div>
+        )}
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">教练工作台</h1>
@@ -255,15 +288,38 @@ export default function CoachDashboard() {
 
                     {selectedMember === member.id && (
                       <div className="mt-4 pt-4 border-t border-orange-200 flex gap-2">
-                        <Button size="sm" variant="secondary" className="flex-1">
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          className="flex-1"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handlePhoneContact(member.name);
+                          }}
+                        >
                           <Phone className="w-3.5 h-3.5 mr-1" />
                           电话
                         </Button>
-                        <Button size="sm" variant="secondary" className="flex-1">
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          className="flex-1"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleWechatContact(member.name);
+                          }}
+                        >
                           <MessageSquare className="w-3.5 h-3.5 mr-1" />
                           微信
                         </Button>
-                        <Button size="sm" className="flex-1">
+                        <Button
+                          size="sm"
+                          className="flex-1"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleViewMemberDetail(member.name);
+                          }}
+                        >
                           <User className="w-3.5 h-3.5 mr-1" />
                           详情
                         </Button>

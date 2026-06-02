@@ -1,8 +1,10 @@
 import { useNavigate } from 'react-router-dom';
 import { Dumbbell, BarChart3 } from 'lucide-react';
+import { useRoleStore } from '../store/useRoleStore';
 
 export default function Home() {
   const navigate = useNavigate();
+  const { setRole } = useRoleStore();
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-navy-900 via-navy-800 to-navy-900 flex items-center justify-center p-8">
@@ -17,7 +19,10 @@ export default function Home() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <button
-            onClick={() => navigate('/coach')}
+            onClick={() => {
+              setRole('coach');
+              navigate('/coach');
+            }}
             className="group bg-white/10 backdrop-blur-sm border border-white/20 rounded-2xl p-8 text-left hover:bg-white/20 transition-all hover:-translate-y-1 hover:shadow-xl"
           >
             <div className="w-14 h-14 bg-teal-500 rounded-xl flex items-center justify-center mb-5 group-hover:scale-110 transition-transform">
@@ -30,7 +35,10 @@ export default function Home() {
           </button>
 
           <button
-            onClick={() => navigate('/manager')}
+            onClick={() => {
+              setRole('manager');
+              navigate('/manager');
+            }}
             className="group bg-white/10 backdrop-blur-sm border border-white/20 rounded-2xl p-8 text-left hover:bg-white/20 transition-all hover:-translate-y-1 hover:shadow-xl"
           >
             <div className="w-14 h-14 bg-orange-500 rounded-xl flex items-center justify-center mb-5 group-hover:scale-110 transition-transform">
