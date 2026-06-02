@@ -67,7 +67,8 @@ contextBridge.exposeInMainWorld('api', {
     getDeductionDetails: (year, month) => ipcRenderer.invoke('reports:getDeductionDetails', year, month),
     getDashboard: () => ipcRenderer.invoke('reports:getDashboard'),
     generateNotice: (tenantId, type, data) => ipcRenderer.invoke('reports:generateNotice', tenantId, type, data),
-    exportToExcel: (type, params) => ipcRenderer.invoke('reports:exportToExcel', type, params)
+    exportToExcel: (type, params) => ipcRenderer.invoke('reports:exportToExcel', type, params),
+    getUnrectifiedByTenant: (tenantId, year, month) => ipcRenderer.invoke('reports:getUnrectifiedByTenant', tenantId, year, month)
   },
   
   print: {

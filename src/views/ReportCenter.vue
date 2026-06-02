@@ -190,7 +190,19 @@
         </div>
 
         <div class="table-container">
-          <el-table :data="summaryList" stripe style="width: 100%;">
+          <div style="margin-bottom: 12px;">
+            <el-button type="success" @click="exportSummary">
+              <el-icon><Download /></el-icon>
+              导出Excel
+            </el-button>
+          </div>
+          <el-table 
+            :data="summaryList" 
+            stripe 
+            style="width: 100%;" 
+            @row-click="handleSummaryRowClick"
+            :row-style="{ cursor: 'pointer' }"
+          >
             <el-table-column prop="stall_code" label="摊位" width="90" />
             <el-table-column prop="tenant_name" label="摊主" width="100" />
             <el-table-column label="扣分次数" width="100">
@@ -216,12 +228,20 @@
                 <span v-else style="color: #67c23a;">0</span>
               </template>
             </el-table-column>
-            <el-table-column label="操作" width="150" fixed="right">
+            <el-table-column label="操作" width="200" fixed="right">
               <template #default="{ row }">
                 <el-button 
                   size="small" 
+                  type="primary" 
+                  @click.stop="viewUnrectified(row)"
+                  v-if="row.unrectified_count > 0"
+                >
+                  查看明细
+                </el-button>
+                <el-button 
+                  size="small" 
                   type="warning" 
-                  @click="sendDeductionNotice({ tenant_id: row.tenant_id, ...row })"
+                  @click.stop="sendDeductionNotice({ tenant_id: row.tenant_id, ...row })"
                   v-if="row.unrectified_count > 0"
                 >
                   发整改单
@@ -241,6 +261,60 @@
         <el-button type="success" @click="exportCurrent">导出Excel</el-button>
       </template>
     </el-dialog>
+
+    <el-drawer 
+      v-model="unrectifiedDrawerVisible" 
+      title="未整改明细" 
+      direction="rtl" 
+      size="800px"
+    >
+      <template #header>
+        <div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
+          <div>
+            <span style="font-size: 18px; font-weight: bold;">未整改明细</span>
+            <span style="margin-left: 12px; color: #909399;">
+              {{ currentUnrectifiedTenant?.stall_code }} - {{ currentUnrectifiedTenant?.tenant_name }}
+            </span>
+          </div>
+          <el-button 
+            type="warning" 
+            size="small" 
+            @click="sendDeductionNotice({ tenant_id: currentUnrectifiedTenant?.tenant_id, ...currentUnrectifiedTenant })"
+          >
+            发整改单
+          </el-button>
+        </div>
+      </template>
+
+      <div style="padding: 16px 0;">
+        <el-alert
+          v-if="unrectifiedList.length === 0"
+          title="该摊主暂无未整改记录"
+          type="success"
+          :closable="false"
+          show-icon
+        />
+        <el-table :data="unrectifiedList" stripe style="width: 100%;" v-else>
+          <el-table-column prop="deduction_date" label="日期" width="120" />
+          <el-table-column prop="stall_code" label="摊位" width="90" />
+          <el-table-column prop="reason" label="违规原因" min-width="200" />
+          <el-table-column label="扣分" width="80">
+            <template #default="{ row }">
+              <span style="color: #f56c6c; font-weight: bold;">-{{ row.points }}</span>
+            </template>
+          </el-table-column>
+          <el-table-column label="罚金" width="100">
+            <template #default="{ row }">¥{{ formatMoney(row.amount) }}</template>
+          </el-table-column>
+          <el-table-column prop="recorder" label="记录人" width="90" />
+          <el-table-column label="整改期限" width="120">
+            <template #default="{ row }">
+              {{ getDeadline(row.deduction_date) }}
+            </template>
+          </el-table-column>
+        </el-table>
+      </div>
+    </el-drawer>
   </div>
 </template>
 
@@ -277,6 +351,10 @@ const previewDialogVisible = ref(false)
 const noticeHtml = ref('')
 const currentNoticeType = ref('')
 const currentNoticeParams = ref({})
+
+const unrectifiedDrawerVisible = ref(false)
+const unrectifiedList = ref([])
+const currentUnrectifiedTenant = ref(null)
 
 async function loadArrears() {
   try {
@@ -401,6 +479,48 @@ async function exportCurrent() {
   } else {
     await exportDeductions()
   }
+}
+
+async function exportSummary() {
+  try {
+    const result = await callApi(
+      window.api.reports.exportToExcel,
+      'deduction_summary',
+      { year: summaryForm.year, month: summaryForm.month }
+    )
+    ElMessage.success(`已导出到桌面：${result.fileName}（共${result.rowCount}条记录）`)
+  } catch (e) {
+    ElMessage.error(e.message || '导出失败')
+  }
+}
+
+async function viewUnrectified(row) {
+  currentUnrectifiedTenant.value = row
+  unrectifiedDrawerVisible.value = true
+  try {
+    unrectifiedList.value = await callApi(
+      window.api.reports.getUnrectifiedByTenant,
+      row.tenant_id,
+      summaryForm.year || null,
+      summaryForm.month || null
+    )
+  } catch (e) {
+    ElMessage.error(e.message || '加载失败')
+    unrectifiedList.value = []
+  }
+}
+
+function handleSummaryRowClick(row) {
+  if (row.unrectified_count > 0) {
+    viewUnrectified(row)
+  }
+}
+
+function getDeadline(dateStr) {
+  if (!dateStr) return '-'
+  const date = new Date(dateStr)
+  date.setDate(date.getDate() + 7)
+  return date.toISOString().slice(0, 10)
 }
 
 onMounted(() => {

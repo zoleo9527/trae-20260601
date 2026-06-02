@@ -358,6 +358,25 @@ module.exports = function (db) {
         data = result
         fileName = `租金账单_${new Date().toISOString().slice(0, 10)}.xlsx`
         sheetName = '租金账单'
+      } else if (type === 'deduction_summary') {
+        const result = db.prepare(`
+          SELECT s.stall_code as 摊位编号, t.name as 摊主姓名,
+                 COUNT(*) as 扣分次数,
+                 COALESCE(SUM(d.points), 0) as 累计扣分,
+                 COALESCE(SUM(d.amount), 0) as 累计罚金,
+                 COALESCE(SUM(CASE WHEN d.is_rectified = 0 THEN 1 ELSE 0 END), 0) as 未整改项
+          FROM deductions d
+          LEFT JOIN tenants t ON d.tenant_id = t.id
+          LEFT JOIN stalls s ON d.stall_id = s.id
+          WHERE 1=1
+          ${params.year ? " AND strftime('%Y', d.deduction_date) = '" + params.year + "'" : ''}
+          ${params.month ? " AND strftime('%m', d.deduction_date) = '" + String(params.month).padStart(2, '0') + "'" : ''}
+          GROUP BY t.id, t.name, s.stall_code
+          ORDER BY 累计扣分 DESC
+        `).all()
+        data = result
+        fileName = `摊主扣分汇总_${new Date().toISOString().slice(0, 10)}.xlsx`
+        sheetName = '扣分汇总'
       }
       
       const worksheet = XLSX.utils.json_to_sheet(data)
@@ -368,6 +387,28 @@ module.exports = function (db) {
       XLSX.writeFile(workbook, exportPath)
       
       return { filePath: exportPath, fileName, rowCount: data.length }
+    },
+    
+    'reports:getUnrectifiedByTenant': function (tenantId, year, month) {
+      let sql = `
+        SELECT d.*, t.name as tenant_name, t.phone, s.stall_code, s.location
+        FROM deductions d
+        LEFT JOIN tenants t ON d.tenant_id = t.id
+        LEFT JOIN stalls s ON d.stall_id = s.id
+        WHERE d.tenant_id = ? AND d.is_rectified = 0
+      `
+      const params = [tenantId]
+      if (year) {
+        sql += " AND strftime('%Y', d.deduction_date) = ?"
+        params.push(String(year))
+      }
+      if (month) {
+        sql += " AND strftime('%m', d.deduction_date) = ?"
+        params.push(String(month).padStart(2, '0'))
+      }
+      sql += ' ORDER BY d.deduction_date DESC'
+      
+      return db.prepare(sql).all(...params)
     }
   }
 }
