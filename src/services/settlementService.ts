@@ -55,7 +55,6 @@ export class SettlementService {
       where: { id: dto.leaderId },
     });
 
-    // 计算各项金额
     const calculationResult = this.calculateSettlementAmounts(batches, leader.commissionRate);
     const detailLines = this.generateDetailLines(batches, calculationResult, leader.commissionRate);
 
@@ -94,14 +93,10 @@ export class SettlementService {
       for (const batch of batches) {
         for (const order of batch.orders) {
           for (const as of order.afterSales) {
-            if (as.status === 'APPROVED' || as.status === 'COMPLETED') {
-              allAfterSaleIds.push(as.id);
-            }
+            allAfterSaleIds.push(as.id);
           }
           for (const adj of order.adjustments) {
-            if (adj.status === 'CONFIRMED') {
-              allAdjustmentIds.push(adj.id);
-            }
+            allAdjustmentIds.push(adj.id);
           }
         }
       }
@@ -139,8 +134,6 @@ export class SettlementService {
             orders: {
               include: {
                 items: true,
-                afterSales: true,
-                adjustments: true,
               },
             },
           },
@@ -152,8 +145,14 @@ export class SettlementService {
 
     if (!settlement) return null;
 
-    const detailLines = this.generateDetailLines(
+    const scopedBatches = this.attachSettlementRecordsToOrders(
       settlement.batches,
+      settlement.afterSales,
+      settlement.adjustments,
+    );
+
+    const detailLines = this.generateDetailLines(
+      scopedBatches,
       {
         orderTotalAmount: settlement.orderTotalAmount,
         commissionBase: settlement.commissionBase,
@@ -236,6 +235,35 @@ export class SettlementService {
     return settlement;
   }
 
+  private attachSettlementRecordsToOrders(
+    batches: any[],
+    afterSales: any[],
+    adjustments: any[],
+  ): any[] {
+    const afterSalesByOrderId = new Map<string, any[]>();
+    for (const as of afterSales) {
+      const list = afterSalesByOrderId.get(as.orderId) || [];
+      list.push(as);
+      afterSalesByOrderId.set(as.orderId, list);
+    }
+
+    const adjustmentsByOrderId = new Map<string, any[]>();
+    for (const adj of adjustments) {
+      const list = adjustmentsByOrderId.get(adj.orderId) || [];
+      list.push(adj);
+      adjustmentsByOrderId.set(adj.orderId, list);
+    }
+
+    for (const batch of batches) {
+      for (const order of batch.orders) {
+        order.afterSales = afterSalesByOrderId.get(order.id) || [];
+        order.adjustments = adjustmentsByOrderId.get(order.id) || [];
+      }
+    }
+
+    return batches;
+  }
+
   private calculateSettlementAmounts(
     batches: any[],
     defaultCommissionRate: number,
@@ -254,7 +282,6 @@ export class SettlementService {
         const orderActualAmount = order.actualAmount ?? order.totalAmount;
         commissionBase += orderActualAmount;
 
-        // 收集已有售后单的商品ID，避免重复计算
         const afterSaleProductIds = new Set<string>();
         const hasWeightDiffAfterSale = order.afterSales.some((as: any) => as.type === 'WEIGHT_DIFF');
 
@@ -264,22 +291,16 @@ export class SettlementService {
           }
         }
 
-        // 称重补差 - 关键修复：跳过已有售后单的订单项
         for (const item of order.items) {
           if (item.weightDiff && item.weightDiff !== 0) {
-            // 如果订单项商品已有缺货售后单，跳过，避免重复扣除
             const hasOutOfStockAfterSale = afterSaleProductIds.has(item.productId);
-            // 如果订单已有称重补差售后单，跳过订单项级别的称重差
             if (!hasOutOfStockAfterSale && !hasWeightDiffAfterSale) {
               weightAdjustment += item.weightDiff;
             }
           }
         }
 
-        // 退款和赔付 - 从售后单汇总
         for (const as of order.afterSales) {
-          if (as.status !== 'APPROVED' && as.status !== 'COMPLETED') continue;
-
           if (as.type === 'OUT_OF_STOCK' || as.type === 'WEIGHT_DIFF') {
             refundAmount += as.amount;
           } else if (as.type === 'BAD_PRODUCT') {
@@ -287,9 +308,7 @@ export class SettlementService {
           }
         }
 
-        // 佣金调整 - 从补差记录汇总（排除售后关联的，只取独立的佣金调整）
         for (const adj of order.adjustments) {
-          if (adj.status !== 'CONFIRMED') continue;
           if (adj.type === 'COMMISSION_ADJUST' && !adj.afterSaleId) {
             commissionAdjust += adj.amount;
           }
@@ -332,7 +351,6 @@ export class SettlementService {
     },
     commissionRate: number,
   ): SettlementDetailLine[] {
-    // 按类型分组收集明细，便于前端按类别展示
     const commissionLines: SettlementDetailLine[] = [];
     const weightLines: SettlementDetailLine[] = [];
     const refundLines: SettlementDetailLine[] = [];
@@ -347,7 +365,6 @@ export class SettlementService {
         const orderActualAmount = order.actualAmount ?? order.totalAmount;
         const orderCommission = calculateCommission(orderActualAmount, commissionRate);
 
-        // ===== 1. 订单佣金明细 =====
         commissionLines.push(
           generateOrderCommissionLine({
             orderNo: order.orderNo,
@@ -358,7 +375,6 @@ export class SettlementService {
           }),
         );
 
-        // 收集已有售后单的商品ID，避免重复展示
         const afterSaleProductIds = new Set<string>();
         const hasWeightDiffAfterSale = order.afterSales.some((as: any) => as.type === 'WEIGHT_DIFF');
 
@@ -368,8 +384,6 @@ export class SettlementService {
           }
         }
 
-        // ===== 2. 称重补差明细 =====
-        // 关键修复：跳过已有售后单的订单项，避免重复展示
         for (const item of order.items) {
           if (item.weightDiff && item.weightDiff !== 0) {
             const hasOutOfStockAfterSale = afterSaleProductIds.has(item.productId);
@@ -391,10 +405,7 @@ export class SettlementService {
           }
         }
 
-        // ===== 3. 售后退款 & 赔付明细 =====
         for (const as of order.afterSales) {
-          if (as.status !== 'APPROVED' && as.status !== 'COMPLETED') continue;
-
           if (as.type === 'OUT_OF_STOCK' || as.type === 'WEIGHT_DIFF') {
             const detail = as.calculationDetail || `售后单 ${as.afterSaleNo}：${as.reason}，退款 ${as.amount}分`;
             refundLines.push(
@@ -405,10 +416,8 @@ export class SettlementService {
                 amount: as.amount,
               }),
             );
-            // 用计算依据覆盖默认的计算详情
             refundLines[refundLines.length - 1].calculationDetail = detail;
           } else if (as.type === 'BAD_PRODUCT') {
-            // 使用售后单存储的坏果率，不再硬编码为0
             const badRate = as.badRate ?? 0;
             const detail = as.calculationDetail ||
               `售后单 ${as.afterSaleNo}：坏果率${badRate}%，订单金额${order.totalAmount}分，赔付${as.amount}分`;
@@ -422,15 +431,11 @@ export class SettlementService {
                 compensation: as.amount,
               }),
             );
-            // 用计算依据覆盖默认的计算详情
             compensationLines[compensationLines.length - 1].calculationDetail = detail;
           }
         }
 
-        // ===== 4. 佣金调整明细 =====
-        // 只取独立的佣金调整（排除售后关联的）
         for (const adj of order.adjustments) {
-          if (adj.status !== 'CONFIRMED') continue;
           if (adj.type === 'COMMISSION_ADJUST' && !adj.afterSaleId) {
             adjustmentLines.push(
               generateCommissionAdjustmentLine({
@@ -445,10 +450,8 @@ export class SettlementService {
       }
     }
 
-    // ===== 按类别顺序组装明细 =====
     const lines: SettlementDetailLine[] = [];
 
-    // 1. 佣金明细
     if (commissionLines.length > 0) {
       lines.push({
         lineType: 'summary',
@@ -460,7 +463,6 @@ export class SettlementService {
       lines.push(...commissionLines);
     }
 
-    // 2. 称重补差明细
     if (weightLines.length > 0) {
       lines.push({
         lineType: 'summary',
@@ -472,7 +474,6 @@ export class SettlementService {
       lines.push(...weightLines);
     }
 
-    // 3. 退款明细
     if (refundLines.length > 0) {
       lines.push({
         lineType: 'summary',
@@ -484,7 +485,6 @@ export class SettlementService {
       lines.push(...refundLines);
     }
 
-    // 4. 赔付明细
     if (compensationLines.length > 0) {
       lines.push({
         lineType: 'summary',
@@ -496,7 +496,6 @@ export class SettlementService {
       lines.push(...compensationLines);
     }
 
-    // 5. 佣金调整明细
     if (adjustmentLines.length > 0) {
       lines.push({
         lineType: 'summary',
@@ -508,7 +507,6 @@ export class SettlementService {
       lines.push(...adjustmentLines);
     }
 
-    // 6. 最终汇总行
     lines.push(
       generateSummaryLine({
         orderCount,
