@@ -96,7 +96,7 @@ export const createSchedule = (req: Request, res: Response) => {
     `).get(scheduleId) as any;
 
     const rideRecords = db.prepare(`
-      SELECT rr.*, s.name as student_name, s.student_id, st.name as stop_name
+      SELECT rr.*, s.name as student_name, s.student_id as school_id, st.name as stop_name
       FROM ride_records rr
       JOIN students s ON rr.student_id = s.id
       JOIN stops st ON rr.stop_id = st.id
@@ -113,7 +113,7 @@ export const createSchedule = (req: Request, res: Response) => {
         students: rideRecords.map(r => ({
           id: r.student_id,
           name: r.student_name,
-          student_id: r.student_id,
+          student_id: r.school_id,
           stop_name: r.stop_name,
           status: r.status
         }))

@@ -118,3 +118,63 @@ export function getCheckInStatus(delayMinutes: number): 'on_time' | 'late' | 'ea
   if (delayMinutes < -5) return 'early';
   return 'on_time';
 }
+
+export interface StopReferenceCheckResult {
+  can_delete: boolean;
+  references: {
+    students: { id: number; name: string; student_id: string }[];
+    ride_records: { id: number; student_name: string; schedule_date: string }[];
+    check_ins: { id: number; actual_arrival_time: string; schedule_date: string }[];
+    late_events: { id: number; delay_minutes: number; reason: string | null }[];
+  };
+  message: string;
+}
+
+export function checkStopReferences(stopId: number): StopReferenceCheckResult {
+  const students = db.prepare(`
+    SELECT id, name, student_id FROM students WHERE default_stop_id = ?
+  `).all(stopId) as any[];
+
+  const rideRecords = db.prepare(`
+    SELECT rr.id, s.name as student_name, sch.schedule_date
+    FROM ride_records rr
+    JOIN students s ON rr.student_id = s.id
+    JOIN schedules sch ON rr.schedule_id = sch.id
+    WHERE rr.stop_id = ?
+  `).all(stopId) as any[];
+
+  const checkIns = db.prepare(`
+    SELECT ci.id, ci.actual_arrival_time, sch.schedule_date
+    FROM check_ins ci
+    JOIN schedules sch ON ci.schedule_id = sch.id
+    WHERE ci.stop_id = ?
+  `).all(stopId) as any[];
+
+  const lateEvents = db.prepare(`
+    SELECT id, delay_minutes, reason FROM late_events WHERE stop_id = ?
+  `).all(stopId) as any[];
+
+  const totalRefs = students.length + rideRecords.length + checkIns.length + lateEvents.length;
+  const canDelete = totalRefs === 0;
+
+  const parts: string[] = [];
+  if (students.length > 0) parts.push(`${students.length} 名学生默认站点`);
+  if (rideRecords.length > 0) parts.push(`${rideRecords.length} 条乘车记录`);
+  if (checkIns.length > 0) parts.push(`${checkIns.length} 条签到记录`);
+  if (lateEvents.length > 0) parts.push(`${lateEvents.length} 条迟到事件`);
+
+  const message = canDelete
+    ? '该站点可以安全删除'
+    : `无法删除：该站点仍被 ${parts.join('、')} 引用，请先处理相关数据`;
+
+  return {
+    can_delete: canDelete,
+    references: {
+      students: students.map(s => ({ id: s.id, name: s.name, student_id: s.student_id })),
+      ride_records: rideRecords.map(r => ({ id: r.id, student_name: r.student_name, schedule_date: r.schedule_date })),
+      check_ins: checkIns.map(c => ({ id: c.id, actual_arrival_time: c.actual_arrival_time, schedule_date: c.schedule_date })),
+      late_events: lateEvents.map(l => ({ id: l.id, delay_minutes: l.delay_minutes, reason: l.reason }))
+    },
+    message
+  };
+}

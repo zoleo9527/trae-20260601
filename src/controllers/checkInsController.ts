@@ -5,6 +5,9 @@ import {
   getStopSummary,
   getDriverSummary,
   getScheduleSummary,
+  getRouteSummary,
+  getVehicleSummary,
+  getStudentSummary,
   calculateDelayMinutes,
   getCheckInStatus
 } from '../utils';
@@ -72,7 +75,11 @@ export const createCheckIn = (req: Request, res: Response) => {
     }
 
     const schedule = db.prepare(`
-      SELECT schedule_date FROM schedules WHERE id = ?
+      SELECT s.*, r.id as route_id, v.id as vehicle_id
+      FROM schedules s
+      JOIN routes r ON s.route_id = r.id
+      JOIN vehicles v ON s.vehicle_id = v.id
+      WHERE s.id = ?
     `).get(schedule_id) as any;
 
     if (!schedule) {
@@ -115,13 +122,13 @@ export const createCheckIn = (req: Request, res: Response) => {
     `).get(checkInId) as any;
 
     const pendingStudents = db.prepare(`
-      SELECT rr.*, s.name as student_name, s.student_id, s.parent_name, s.parent_phone, st.name as stop_name
+      SELECT rr.student_id
       FROM ride_records rr
-      JOIN students s ON rr.student_id = s.id
-      JOIN stops st ON rr.stop_id = st.id
       WHERE rr.schedule_id = ? AND rr.stop_id = ? AND rr.status = 'pending'
-      ORDER BY s.name
+      ORDER BY rr.student_id
     `).all(schedule_id, stop_id) as any[];
+
+    const studentSummaries = pendingStudents.map(ps => getStudentSummary(ps.student_id)).filter(Boolean);
 
     const response = {
       id: checkInId,
@@ -132,7 +139,9 @@ export const createCheckIn = (req: Request, res: Response) => {
         ...checkIn,
         stop: getStopSummary(stop_id),
         driver: getDriverSummary(driver_id),
-        schedule: getScheduleSummary(schedule_id)
+        schedule: getScheduleSummary(schedule_id),
+        route: getRouteSummary(schedule.route_id),
+        vehicle: getVehicleSummary(schedule.vehicle_id)
       },
       late_event: lateEvent ? {
         id: lateEvent.id,
@@ -141,15 +150,8 @@ export const createCheckIn = (req: Request, res: Response) => {
         status: lateEvent.status
       } : null,
       pending_students: {
-        count: pendingStudents.length,
-        students: pendingStudents.map(s => ({
-          id: s.student_id,
-          name: s.student_name,
-          student_id: s.student_id,
-          parent_name: s.parent_name,
-          parent_phone: s.parent_phone,
-          stop_name: s.stop_name
-        }))
+        count: studentSummaries.length,
+        students: studentSummaries
       }
     };
 
@@ -199,10 +201,18 @@ export const deleteCheckIn = (req: Request, res: Response) => {
 };
 
 function enrichCheckIn(row: any) {
+  const schedule = db.prepare(`
+    SELECT s.route_id, s.vehicle_id
+    FROM schedules s
+    WHERE s.id = ?
+  `).get(row.schedule_id) as any;
+
   return {
     ...row,
     stop: getStopSummary(row.stop_id),
     driver: getDriverSummary(row.driver_id),
-    schedule: getScheduleSummary(row.schedule_id)
+    schedule: getScheduleSummary(row.schedule_id),
+    route: schedule ? getRouteSummary(schedule.route_id) : undefined,
+    vehicle: schedule ? getVehicleSummary(schedule.vehicle_id) : undefined
   };
 }

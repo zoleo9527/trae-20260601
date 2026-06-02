@@ -2,7 +2,11 @@
 > trae-20260601-5@1.0.0 dev
 > ts-node-dev src/server.ts
 
-[INFO] 19:20:59 ts-node-dev ver. 2.0.0 (using ts-node ver. 10.9.2, typescript ver. 6.0.3)
+[INFO] 19:32:20 ts-node-dev ver. 2.0.0 (using ts-node ver. 10.9.2, typescript ver. 6.0.3)
+Database initialized successfully
+Server is running on port 3002
+API Base URL: http://localhost:3002/api
+[INFO] 19:36:20 Restarting: /Users/zhangliu/Documents/private/model-test/trae-20260601-5/src/controllers/checkInsController.ts has been modified
 Database initialized successfully
 Server is running on port 3002
 API Base URL: http://localhost:3002/api

@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import db from '../database';
-import { getRouteSummary } from '../utils';
+import { getRouteSummary, checkStopReferences } from '../utils';
 
 export const getAllStops = (req: Request, res: Response) => {
   try {
@@ -133,14 +133,28 @@ export const updateStop = (req: Request, res: Response) => {
 export const deleteStop = (req: Request, res: Response) => {
   try {
     const { id } = req.params;
+    const stopId = Number(id);
 
-    const result = db.prepare(`
-      DELETE FROM stops WHERE id = ?
-    `).run(id);
+    const existingStop = db.prepare(`
+      SELECT * FROM stops WHERE id = ?
+    `).get(stopId);
 
-    if (result.changes === 0) {
+    if (!existingStop) {
       return res.status(404).json({ error: 'Stop not found' });
     }
+
+    const refCheck = checkStopReferences(stopId);
+    if (!refCheck.can_delete) {
+      return res.status(409).json({
+        error: refCheck.message,
+        code: 'STOP_HAS_REFERENCES',
+        references: refCheck.references
+      });
+    }
+
+    db.prepare(`
+      DELETE FROM stops WHERE id = ?
+    `).run(stopId);
 
     res.json({ message: 'Stop deleted successfully' });
   } catch (error) {
@@ -164,10 +178,20 @@ export const bulkUpdateStops = (req: Request, res: Response) => {
       return res.status(404).json({ error: 'Route not found' });
     }
 
+    const deletedStopErrors: any[] = [];
     const transaction = db.transaction(() => {
       for (const stop of stops) {
         if (stop.id) {
           if (stop._deleted) {
+            const refCheck = checkStopReferences(stop.id);
+            if (!refCheck.can_delete) {
+              deletedStopErrors.push({
+                stop_id: stop.id,
+                error: refCheck.message,
+                references: refCheck.references
+              });
+              return;
+            }
             db.prepare(`
               DELETE FROM stops WHERE id = ? AND route_id = ?
             `).run(stop.id, route_id);
@@ -205,6 +229,14 @@ export const bulkUpdateStops = (req: Request, res: Response) => {
     });
 
     transaction();
+
+    if (deletedStopErrors.length > 0) {
+      return res.status(409).json({
+        error: '部分站点无法删除，因为仍被其他数据引用',
+        code: 'STOP_HAS_REFERENCES',
+        failed_stops: deletedStopErrors
+      });
+    }
 
     const updatedStops = db.prepare(`
       SELECT * FROM stops WHERE route_id = ? ORDER BY sequence
