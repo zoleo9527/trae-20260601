@@ -1,0 +1,271 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model Employee {
+  id        String   @id @default(uuid())
+  code      String   @unique
+  name      String
+  role      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  waveCreatedBy     Wave[]           @relation("WaveCreator")
+  pickTasksAssigned PickTask[]       @relation("PickTaskAssignee")
+  pickTasksPicked   PickTask[]       @relation("PickTaskPicker")
+  reviewRecords     ReviewRecord[]   @relation("Reviewer")
+  feedbackHandledBy AfterSalesFeedback[] @relation("FeedbackHandler")
+  traceabilityLogs  TraceabilityLog[] @relation("TraceOperator")
+}
+
+model Location {
+  id        String   @id @default(uuid())
+  code      String   @unique
+  aisle     String
+  shelf     String
+  level     String
+  position  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  inventory Inventory[]
+  pickTasks PickTask[]
+}
+
+model Product {
+  id        String   @id @default(uuid())
+  sku       String   @unique
+  name      String
+  category  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  inventory   Inventory[]
+  orderItems  OrderItem[]
+  packageItems PackageItem[]
+  pickTasks   PickTask[]
+  reviewItems ReviewItem[]
+}
+
+model Inventory {
+  id         String   @id @default(uuid())
+  productId  String
+  locationId String
+  quantity   Int
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  product  Product  @relation(fields: [productId], references: [id])
+  location Location @relation(fields: [locationId], references: [id])
+
+  @@unique([productId, locationId])
+}
+
+model Order {
+  id            String     @id @default(uuid())
+  orderNo       String     @unique
+  customerName  String
+  customerPhone String
+  address       String
+  status        String     @default("PENDING")
+  waveId        String?
+  waveLockedAt  DateTime?
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  wave       Wave?         @relation(fields: [waveId], references: [id])
+  orderItems OrderItem[]
+  packages   Package[]
+  feedbacks  AfterSalesFeedback[]
+
+  @@index([status])
+  @@index([waveId])
+}
+
+model OrderItem {
+  id        String   @id @default(uuid())
+  orderId   String
+  productId String
+  quantity  Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  order   Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id])
+
+  pickTasks PickTask[]
+
+  @@unique([orderId, productId])
+}
+
+model Wave {
+  id          String    @id @default(uuid())
+  waveNo      String    @unique
+  name        String?
+  status      String    @default("CREATED")
+  createdById String
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  createdBy Employee   @relation("WaveCreator", fields: [createdById], references: [id])
+  orders    Order[]
+  pickTasks PickTask[]
+  rootCauseFeedbacks AfterSalesFeedback[] @relation("RootCauseWave")
+  traceabilityLogs   TraceabilityLog[]   @relation("TraceWave")
+
+  @@index([status])
+  @@index([createdAt])
+}
+
+model PickTask {
+  id            String         @id @default(uuid())
+  taskNo        String         @unique
+  waveId        String
+  orderItemId   String
+  productId     String
+  locationId    String
+  quantity      Int
+  pickedQuantity Int           @default(0)
+  status        String         @default("PENDING")
+  assignedToId  String?
+  pickedById    String?
+  pickedAt      DateTime?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  wave        Wave      @relation(fields: [waveId], references: [id])
+  orderItem   OrderItem @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
+  product     Product   @relation(fields: [productId], references: [id])
+  location    Location  @relation(fields: [locationId], references: [id])
+  assignedTo  Employee? @relation("PickTaskAssignee", fields: [assignedToId], references: [id])
+  pickedBy    Employee? @relation("PickTaskPicker", fields: [pickedById], references: [id])
+  rootCauseFeedbacks AfterSalesFeedback[] @relation("RootCausePickTask")
+  traceabilityLogs    TraceabilityLog[]    @relation("TracePickTask")
+
+  @@index([status])
+  @@index([assignedToId])
+  @@index([waveId])
+}
+
+model Package {
+  id            String         @id @default(uuid())
+  packageNo     String         @unique
+  orderId       String
+  weight        Float?
+  status        String         @default("CREATED")
+  shippedAt     DateTime?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  order        Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  packageItems PackageItem[]
+  reviewRecord ReviewRecord?
+  feedback     AfterSalesFeedback?
+  traceabilityLogs TraceabilityLog[] @relation("TracePackage")
+
+  @@index([status])
+  @@index([orderId])
+}
+
+model PackageItem {
+  id         String   @id @default(uuid())
+  packageId  String
+  productId  String
+  quantity   Int
+  actualQuantity Int?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  package Package @relation(fields: [packageId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id])
+
+  @@unique([packageId, productId])
+}
+
+model ReviewRecord {
+  id           String         @id @default(uuid())
+  recordNo     String         @unique
+  packageId    String         @unique
+  reviewerId   String
+  status       String
+  notes        String?
+  reviewedAt   DateTime       @default(now())
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  package   Package  @relation(fields: [packageId], references: [id], onDelete: Cascade)
+  reviewer  Employee @relation("Reviewer", fields: [reviewerId], references: [id])
+
+  reviewItems ReviewItem[]
+
+  @@index([status])
+  @@index([reviewerId])
+}
+
+model ReviewItem {
+  id             String   @id @default(uuid())
+  reviewRecordId String
+  productId      String
+  expectedQty    Int
+  actualQty      Int
+  isMatch        Boolean
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  reviewRecord ReviewRecord @relation(fields: [reviewRecordId], references: [id], onDelete: Cascade)
+  product      Product      @relation(fields: [productId], references: [id])
+}
+
+model AfterSalesFeedback {
+  id                  String                  @id @default(uuid())
+  feedbackNo          String                  @unique
+  packageId           String                  @unique
+  orderId             String
+  type                String
+  status              String
+  description         String
+  reportedByCustomer  String
+  customerPhone       String
+  handledById         String?
+  handledAt           DateTime?
+  resolution          String?
+  rootCauseWaveId     String?
+  rootCausePickTaskId String?
+  createdAt           DateTime                @default(now())
+  updatedAt           DateTime                @updatedAt
+
+  package   Package   @relation(fields: [packageId], references: [id], onDelete: Cascade)
+  order     Order     @relation(fields: [orderId], references: [id])
+  handledBy Employee? @relation("FeedbackHandler", fields: [handledById], references: [id])
+  rootCauseWave     Wave?     @relation("RootCauseWave", fields: [rootCauseWaveId], references: [id])
+  rootCausePickTask PickTask? @relation("RootCausePickTask", fields: [rootCausePickTaskId], references: [id])
+
+  traceabilityLogs TraceabilityLog[]
+
+  @@index([status])
+  @@index([type])
+  @@index([packageId])
+}
+
+model TraceabilityLog {
+  id                 String   @id @default(uuid())
+  feedbackId         String
+  action             String
+  operatorId         String?
+  relatedWaveId      String?
+  relatedPickTaskId  String?
+  relatedPackageId   String?
+  notes              String?
+  createdAt          DateTime @default(now())
+
+  feedback AfterSalesFeedback @relation(fields: [feedbackId], references: [id], onDelete: Cascade)
+  operator Employee?          @relation("TraceOperator", fields: [operatorId], references: [id])
+  relatedWave     Wave?     @relation("TraceWave", fields: [relatedWaveId], references: [id])
+  relatedPickTask PickTask? @relation("TracePickTask", fields: [relatedPickTaskId], references: [id])
+  relatedPackage  Package?  @relation("TracePackage", fields: [relatedPackageId], references: [id])
+}
