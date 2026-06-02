@@ -38,9 +38,9 @@ router.post('/', auth(['cs']), (req, res) => {
   if (repair.status === 'completed' || repair.status === 'closed') {
     return res.status(400).json({ error: '报修单已完工或关闭' })
   }
-  const existing = db.prepare('SELECT id FROM work_orders WHERE repair_order_id=? AND status NOT IN (?,?,?)')
-    .get(repair_order_id, 'completed', 'reassigned', 'assigned') as any
-  if (existing) return res.status(400).json({ error: '该报修单已有进行中的派工单' })
+  const existing = db.prepare('SELECT id FROM work_orders WHERE repair_order_id=? AND status IN (?,?,?)')
+    .get(repair_order_id, 'assigned', 'accepted', 'in_progress') as any
+  if (existing) return res.status(400).json({ error: '该报修单已有进行中的派工单（assigned/accepted/in_progress），不可重复派工' })
 
   const r = db.prepare('INSERT INTO work_orders (repair_order_id, engineer_id, status, note) VALUES (?,?,?,?)')
     .run(repair_order_id, engineer_id, 'assigned', note || null)
@@ -88,25 +88,40 @@ router.put('/:id/complete', auth(['engineer']), (req, res) => {
   res.json({ message: '完工成功' })
 })
 
-router.put('/:id/reassign', auth(['cs']), (req, res) => {
+router.put('/:id/reassign', auth(['cs', 'engineer']), (req, res) => {
   const { engineer_id, note } = req.body
   if (!engineer_id) return res.status(400).json({ error: '缺少 engineer_id' })
   const db = getDb()
   const wo = db.prepare('SELECT * FROM work_orders WHERE id=?').get(req.params.id) as any
   if (!wo) return res.status(404).json({ error: '派工单不存在' })
-  if (wo.status === 'completed') return res.status(400).json({ error: '已完工的工单不能转派' })
+  if (wo.status === 'completed' || wo.status === 'reassigned') return res.status(400).json({ error: '已完工或已转派的工单不能再次转派' })
+
+  if (req.currentUser!.role === 'engineer') {
+    if (wo.engineer_id !== req.currentUser!.id) return res.status(403).json({ error: '工程师只能转派自己名下的工单' })
+    if (wo.status === 'assigned') return res.status(400).json({ error: 'assigned 状态的工单请先接单或联系客服转派' })
+  }
+
   const eng = db.prepare('SELECT id, role FROM users WHERE id=?').get(engineer_id) as any
   if (!eng || eng.role !== 'engineer') return res.status(400).json({ error: '目标不是工程师角色' })
+  if (wo.engineer_id === Number(engineer_id)) return res.status(400).json({ error: '不能转派给自己' })
 
-  db.prepare("UPDATE work_orders SET status='reassigned' WHERE id=?").run(req.params.id)
-
-  const r = db.prepare('INSERT INTO work_orders (repair_order_id, engineer_id, status, note) VALUES (?,?,?,?)')
+  const updateOld = db.prepare("UPDATE work_orders SET status='reassigned' WHERE id=?").run(req.params.id)
+  const insertNew = db.prepare('INSERT INTO work_orders (repair_order_id, engineer_id, status, note) VALUES (?,?,?,?)')
     .run(wo.repair_order_id, engineer_id, 'assigned', note || `转派自工单#${req.params.id}`)
+  const updateRepair = db.prepare("UPDATE repair_orders SET status='assigned' WHERE id=?").run(wo.repair_order_id)
+
   res.status(201).json({
     message: '转派成功',
     old_work_order_id: Number(req.params.id),
     old_status: 'reassigned',
-    new_work_order_id: r.lastInsertRowid
+    new_work_order_id: insertNew.lastInsertRowid,
+    repair_order_id: wo.repair_order_id,
+    repair_status: 'assigned',
+    updated_rows: {
+      old_work_order: updateOld.changes,
+      new_work_order: insertNew.changes,
+      repair_order: updateRepair.changes
+    }
   })
 })
 
