@@ -88,7 +88,7 @@ export const InventoryDetail: React.FC<InventoryDetailProps> = ({ room, onBack }
         room.id,
         selectedDisputeId,
         negotiationResult,
-        negotiationAdjustedAmount !== room.deductionAmount ? negotiationAdjustedAmount : undefined,
+        negotiationAdjustedAmount,
         negotiationResolution || undefined
       );
       setShowNegotiationModal(false);
@@ -547,6 +547,16 @@ export const InventoryDetail: React.FC<InventoryDetailProps> = ({ room, onBack }
               placeholder="如有最终处理结果，请填写..."
               className="w-full px-3 py-2 text-sm border border-gray-300 rounded-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 resize-none"
             />
+            {negotiationResolution && (
+              <div className="mt-2 p-2 bg-amber-50 rounded-sm border border-amber-200">
+                <p className="text-xs text-amber-700">
+                  ⚠️ 填写最终处理结果后将确认扣款并完成该房间流程，请确认上方「调整扣款金额」与处理结果描述一致。
+                </p>
+                <p className="text-xs text-amber-600 mt-0.5">
+                  当前确认扣款: ¥{negotiationAdjustedAmount}
+                </p>
+              </div>
+            )}
           </div>
           <div className="flex justify-end gap-2 pt-2">
             <button
