@@ -76,11 +76,18 @@ router.post('/:id/refund', async (req: Request, res: Response): Promise<void> =>
   const station = stations.find((s) => s.id === order.stationId);
   if (station) {
     const orderDate = new Date(order.startTime);
-    const settlementMonth = `${orderDate.getFullYear()}-${String(orderDate.getMonth() + 1).padStart(2, '0')}`;
+    const settlementDate = `${orderDate.getFullYear()}-${String(orderDate.getMonth() + 1).padStart(2, '0')}-${String(orderDate.getDate()).padStart(2, '0')}`;
+    const settlementMonth = settlementDate.slice(0, 7);
 
     let settlement = settlements.find(
-      (s) => s.stationId === order.stationId && s.date.startsWith(settlementMonth)
+      (s) => s.stationId === order.stationId && s.date === settlementDate
     );
+
+    if (!settlement) {
+      settlement = settlements.find(
+        (s) => s.stationId === order.stationId && s.date === settlementMonth
+      );
+    }
 
     if (!settlement) {
       const stationOrders = orders.filter(

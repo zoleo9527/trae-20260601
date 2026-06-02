@@ -53,13 +53,11 @@ export function FaultDetail() {
         setTimeline(timelineData);
         setAffectedOrders(ordersData);
 
-        if (faultData.workOrderId || faultData.status === 'processing') {
-          try {
-            const workOrderData = await api.faults.workOrder(id);
-            setWorkOrder(workOrderData);
-          } catch {
-            setWorkOrder(null);
-          }
+        try {
+          const workOrderData = await api.faults.workOrder(id);
+          setWorkOrder(workOrderData);
+        } catch {
+          setWorkOrder(null);
         }
       } catch (error) {
         console.error('Failed to fetch fault data:', error);
