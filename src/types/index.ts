@@ -98,6 +98,7 @@ export interface CreatePackageRequest {
   orderId: string;
   items: Array<{
     productId: string;
+    expectedProductId?: string;
     quantity: number;
   }>;
   weight?: number;
@@ -108,6 +109,7 @@ export interface ReviewPackageRequest {
   reviewerId: string;
   items: Array<{
     productId: string;
+    expectedProductId?: string;
     expectedQty: number;
     actualQty: number;
   }>;

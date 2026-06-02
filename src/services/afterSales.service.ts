@@ -117,11 +117,20 @@ export class AfterSalesService {
                 },
               },
             },
+            packageItems: {
+              include: {
+                product: true,
+                expectedProduct: true,
+              },
+            },
             reviewRecord: {
               include: {
                 reviewer: true,
                 reviewItems: {
-                  include: { product: true },
+                  include: {
+                    product: true,
+                    expectedProduct: true,
+                  },
                 },
               },
             },
@@ -143,14 +152,18 @@ export class AfterSalesService {
       possibleCauses: [],
     };
 
+    const orderItems = feedback.package.order.orderItems;
+    const pkgItems = feedback.package.packageItems;
+
     if (feedback.type === FeedbackType.MISSING_ITEM) {
-      for (const item of feedback.package.order.orderItems) {
+      for (const item of orderItems) {
         const pickTask = item.pickTasks[0];
         if (pickTask && pickTask.pickedQuantity < item.quantity) {
           traceResult.possibleCauses.push({
             type: 'INSUFFICIENT_PICK',
-            description: `商品 ${item.product.sku} 拣货数量不足`,
+            description: `商品 ${item.product.sku} 拣货数量不足（应拣 ${item.quantity}，实拣 ${pickTask.pickedQuantity}）`,
             pickTask,
+            waveId: feedback.package.order.wave?.id,
             expected: item.quantity,
             actual: pickTask.pickedQuantity,
           });
@@ -162,8 +175,9 @@ export class AfterSalesService {
           if (!reviewItem.isMatch) {
             traceResult.possibleCauses.push({
               type: 'REVIEW_MISMATCH',
-              description: `复核时发现商品 ${reviewItem.product.sku} 数量不匹配`,
+              description: `复核时发现商品 ${reviewItem.product.sku} 数量不匹配（预期 ${reviewItem.expectedQty}，实际 ${reviewItem.actualQty}）`,
               reviewItem,
+              reviewerId: feedback.package.reviewRecord.reviewerId,
             });
           }
         }
@@ -171,15 +185,78 @@ export class AfterSalesService {
     }
 
     if (feedback.type === FeedbackType.WRONG_SKU) {
+      for (const pkgItem of pkgItems) {
+        const expectedProd = pkgItem.expectedProduct;
+        const actualProd = pkgItem.product;
+        if (expectedProd && expectedProd.id !== actualProd.id) {
+          const matchingPickTask = await this.findPickTaskForProduct(
+            feedback.package.order.wave?.id,
+            expectedProd.id,
+            actualProd.id
+          );
+          traceResult.possibleCauses.push({
+            type: 'SKU_MISMATCH_IN_PACKAGE',
+            description: `包裹中商品不一致：应发「${expectedProd.sku} ${expectedProd.name}」，实发「${actualProd.sku} ${actualProd.name}」`,
+            packageItem: pkgItem,
+            expectedProduct: expectedProd,
+            actualProduct: actualProd,
+            waveId: feedback.package.order.wave?.id,
+            pickTask: matchingPickTask,
+          });
+        }
+      }
+
       if (feedback.package.reviewRecord) {
         for (const reviewItem of feedback.package.reviewRecord.reviewItems) {
-          if (!reviewItem.isMatch) {
+          const expectedProd = reviewItem.expectedProduct;
+          const actualProd = reviewItem.product;
+          if (expectedProd && expectedProd.id !== actualProd.id) {
             traceResult.possibleCauses.push({
-              type: 'WRONG_ITEM_PICKED',
-              description: `拣货或复核时商品错误`,
+              type: 'SKU_MISMATCH_IN_REVIEW',
+              description: `复核记录显示商品不一致：应发「${expectedProd.sku} ${expectedProd.name}」，实发「${actualProd.sku} ${actualProd.name}」，但复核员未纠正`,
               reviewItem,
+              expectedProduct: expectedProd,
+              actualProduct: actualProd,
+              reviewerId: feedback.package.reviewRecord.reviewerId,
+              waveId: feedback.package.order.wave?.id,
+            });
+          } else if (!reviewItem.isMatch && reviewItem.expectedQty !== reviewItem.actualQty) {
+            traceResult.possibleCauses.push({
+              type: 'QTY_MISMATCH_IN_REVIEW',
+              description: `复核记录显示数量不匹配：预期 ${reviewItem.expectedQty}，实际 ${reviewItem.actualQty}，但复核员未纠正`,
+              reviewItem,
+              reviewerId: feedback.package.reviewRecord.reviewerId,
             });
           }
+        }
+      }
+
+      const expectedProductIds = new Set(orderItems.map((oi) => oi.productId));
+      const actualProductIds = new Set(pkgItems.map((pi) => pi.productId));
+      for (const oi of orderItems) {
+        if (!actualProductIds.has(oi.productId)) {
+          const matchingPickTask = await this.findPickTaskForProduct(
+            feedback.package.order.wave?.id,
+            oi.productId,
+            undefined
+          );
+          traceResult.possibleCauses.push({
+            type: 'EXPECTED_PRODUCT_MISSING',
+            description: `订单应发商品「${oi.product.sku} ${oi.product.name}」在包裹中缺失`,
+            orderItem: oi,
+            waveId: feedback.package.order.wave?.id,
+            pickTask: matchingPickTask,
+          });
+        }
+      }
+      for (const pi of pkgItems) {
+        if (!expectedProductIds.has(pi.productId) && pi.expectedProductId && pi.expectedProductId !== pi.productId) {
+          traceResult.possibleCauses.push({
+            type: 'UNEXPECTED_PRODUCT_IN_PACKAGE',
+            description: `包裹中出现订单未包含的商品「${pi.product.sku} ${pi.product.name}」`,
+            packageItem: pi,
+            waveId: feedback.package.order.wave?.id,
+          });
         }
       }
     }
@@ -198,6 +275,29 @@ export class AfterSalesService {
     }
 
     return traceResult;
+  }
+
+  private async findPickTaskForProduct(
+    waveId: string | undefined,
+    expectedProductId: string,
+    actualProductId: string | undefined
+  ) {
+    if (!waveId) return null;
+
+    const pickTask = await this.prisma.pickTask.findFirst({
+      where: {
+        waveId,
+        productId: actualProductId || expectedProductId,
+      },
+      include: {
+        product: true,
+        pickedBy: true,
+        assignedTo: true,
+        location: true,
+      },
+    });
+
+    return pickTask;
   }
 
   async resolveFeedback(

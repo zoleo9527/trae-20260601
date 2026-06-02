@@ -28,22 +28,27 @@ export class WaveService {
         where: {
           id: { in: orderIds },
         },
-        include: {
-          orderItems: true,
-        },
       });
 
       if (orders.length !== orderIds.length) {
         throw new Error('部分订单不存在');
       }
 
-      const lockedOrders = orders.filter(
-        (o) => o.waveId !== null || o.status !== OrderStatus.PENDING
-      );
+      const lockedNow = new Date();
+      const lockResult = await tx.order.updateMany({
+        where: {
+          id: { in: orderIds },
+          status: OrderStatus.PENDING,
+          waveId: null,
+        },
+        data: {
+          status: OrderStatus.WAVE_ASSIGNED,
+          waveLockedAt: lockedNow,
+        },
+      });
 
-      if (lockedOrders.length > 0) {
-        const lockedOrderNos = lockedOrders.map((o) => o.orderNo).join(', ');
-        throw new Error(`以下订单已被锁定或状态不正确: ${lockedOrderNos}`);
+      if (lockResult.count !== orderIds.length) {
+        throw new Error(`部分订单已被其他波次锁定或状态不正确，无法全部分配（成功锁定 ${lockResult.count}/${orderIds.length}）`);
       }
 
       const waveNo = `W${Date.now()}${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`;
@@ -60,17 +65,19 @@ export class WaveService {
       await tx.order.updateMany({
         where: {
           id: { in: orderIds },
-          status: OrderStatus.PENDING,
           waveId: null,
         },
         data: {
           waveId: wave.id,
-          status: OrderStatus.WAVE_ASSIGNED,
-          waveLockedAt: new Date(),
         },
       });
 
-      const allOrderItems = orders.flatMap((o) => o.orderItems);
+      const ordersWithItems = await tx.order.findMany({
+        where: { id: { in: orderIds } },
+        include: { orderItems: true },
+      });
+
+      const allOrderItems = ordersWithItems.flatMap((o) => o.orderItems);
 
       const pickTasksData = [];
       for (const item of allOrderItems) {

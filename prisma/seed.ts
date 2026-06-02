@@ -155,11 +155,11 @@ async function main() {
           locationId: locations[0].id,
         },
       },
-      update: { quantity: 100 },
+      update: { quantity: 500 },
       create: {
         productId: products[0].id,
         locationId: locations[0].id,
-        quantity: 100,
+        quantity: 500,
       },
     }),
     prisma.inventory.upsert({
@@ -169,11 +169,11 @@ async function main() {
           locationId: locations[1].id,
         },
       },
-      update: { quantity: 200 },
+      update: { quantity: 1000 },
       create: {
         productId: products[1].id,
         locationId: locations[1].id,
-        quantity: 200,
+        quantity: 1000,
       },
     }),
     prisma.inventory.upsert({
@@ -183,11 +183,11 @@ async function main() {
           locationId: locations[2].id,
         },
       },
-      update: { quantity: 500 },
+      update: { quantity: 2000 },
       create: {
         productId: products[2].id,
         locationId: locations[2].id,
-        quantity: 500,
+        quantity: 2000,
       },
     }),
     prisma.inventory.upsert({
@@ -197,11 +197,11 @@ async function main() {
           locationId: locations[3].id,
         },
       },
-      update: { quantity: 300 },
+      update: { quantity: 1500 },
       create: {
         productId: products[3].id,
         locationId: locations[3].id,
-        quantity: 300,
+        quantity: 1500,
       },
     }),
   ]);
@@ -271,6 +271,71 @@ async function main() {
             { productId: products[1].id, quantity: 3 },
             { productId: products[2].id, quantity: 2 },
           ],
+        },
+      },
+    }),
+    prisma.order.upsert({
+      where: { orderNo: 'ORD20240601005' },
+      update: {},
+      create: {
+        orderNo: 'ORD20240601005',
+        customerName: '孙七',
+        customerPhone: '13800138005',
+        address: '杭州市西湖区xxx路101号',
+        status: OrderStatus.PENDING,
+        orderItems: {
+          create: [
+            { productId: products[0].id, quantity: 1 },
+            { productId: products[1].id, quantity: 1 },
+          ],
+        },
+      },
+    }),
+    prisma.order.upsert({
+      where: { orderNo: 'ORD20240601006' },
+      update: {},
+      create: {
+        orderNo: 'ORD20240601006',
+        customerName: '周八',
+        customerPhone: '13800138006',
+        address: '成都市武侯区xxx街202号',
+        status: OrderStatus.PENDING,
+        orderItems: {
+          create: [
+            { productId: products[2].id, quantity: 3 },
+            { productId: products[3].id, quantity: 2 },
+          ],
+        },
+      },
+    }),
+    prisma.order.upsert({
+      where: { orderNo: 'ORD20240601007' },
+      update: {},
+      create: {
+        orderNo: 'ORD20240601007',
+        customerName: '吴九',
+        customerPhone: '13800138007',
+        address: '武汉市洪山区xxx大道303号',
+        status: OrderStatus.PENDING,
+        orderItems: {
+          create: [
+            { productId: products[0].id, quantity: 2 },
+            { productId: products[3].id, quantity: 1 },
+          ],
+        },
+      },
+    }),
+    prisma.order.upsert({
+      where: { orderNo: 'ORD20240601008' },
+      update: {},
+      create: {
+        orderNo: 'ORD20240601008',
+        customerName: '郑十',
+        customerPhone: '13800138008',
+        address: '南京市鼓楼区xxx路404号',
+        status: OrderStatus.PENDING,
+        orderItems: {
+          create: [{ productId: products[1].id, quantity: 2 }],
         },
       },
     }),

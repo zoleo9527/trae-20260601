@@ -69,6 +69,7 @@ async function testScenario1_MissingItem() {
   console.log('6. 赵复核进行复核（但没发现少货，直接通过）...');
   const reviewItems = order1Items.map((item) => ({
     productId: item.productId,
+    expectedProductId: item.productId,
     expectedQty: item.quantity,
     actualQty: item.quantity,
   }));
@@ -153,6 +154,11 @@ async function testScenario2_WrongSKU() {
   }
 
   const order = orders[0];
+  const orderItems = await prisma.orderItem.findMany({
+    where: { orderId: order.id },
+    include: { product: true },
+  });
+
   console.log(`1. 张主管创建波次，包含订单 ${order.orderNo}...`);
   const waveId = await waveService.createWave('测试波次-错SKU场景', [order.id], supervisor!.id);
   const wave = await waveService.getWaveById(waveId);
@@ -174,27 +180,30 @@ async function testScenario2_WrongSKU() {
   await waveService.completeWave(wave!.id);
   console.log('4. 波次完成');
 
-  const orderItems = await prisma.orderItem.findMany({ where: { orderId: order.id } });
   const products = await prisma.product.findMany();
-  const wrongProduct = products.find((p) => p.id !== orderItems[0].productId);
+  const expectedProduct = orderItems[0].product;
+  const wrongProduct = products.find((p) => p.id !== expectedProduct.id)!;
 
-  console.log('5. 创建包裹（故意装错SKU）...');
+  console.log('5. 创建包裹（故意装错SKU，应发「' + expectedProduct.sku + '」实装「' + wrongProduct.sku + '」）...');
   const pkgId = await packageService.createPackage(
     order.id,
-    [{ productId: wrongProduct!.id, quantity: orderItems[0].quantity }],
+    [{ productId: wrongProduct.id, expectedProductId: expectedProduct.id, quantity: orderItems[0].quantity }],
     0.3
   );
-  console.log(`   ✓ 包裹创建，故意装错SKU: ${wrongProduct?.sku}`);
+  console.log(`   ✓ 包裹创建，expectedProductId=${expectedProduct.id}, productId=${wrongProduct.id}`);
 
-  console.log('6. 复核时未发现错误，直接通过...');
+  console.log('6. 复核时未发现错误，直接通过（复核员未核对SKU，只验数量）...');
   const reviewItems = [
     {
-      productId: wrongProduct!.id,
+      productId: wrongProduct.id,
       expectedQty: orderItems[0].quantity,
       actualQty: orderItems[0].quantity,
     },
   ];
-  await packageService.reviewPackage(pkgId, reviewer!.id, reviewItems, '复核通过');
+  const reviewId = await packageService.reviewPackage(pkgId, reviewer!.id, reviewItems, '复核通过');
+  const reviewRecord = await packageService.getReviewRecordById(reviewId);
+  console.log(`   ✓ 复核结果: ${reviewRecord?.status}，isMatch: ${reviewRecord?.reviewItems.map((ri: any) => ri.isMatch).join(', ')}`);
+
   await packageService.shipPackage(pkgId);
   console.log('7. 包裹出库');
 
@@ -202,7 +211,7 @@ async function testScenario2_WrongSKU() {
   const feedbackId = await afterSalesService.createFeedback(
     pkgId,
     FeedbackType.WRONG_SKU,
-    `订购的是SKU001，但收到的是${wrongProduct?.sku}`,
+    `订购的是${expectedProduct.sku}，但收到的是${wrongProduct.sku}`,
     order.customerName,
     order.customerPhone
   );
@@ -213,12 +222,34 @@ async function testScenario2_WrongSKU() {
   console.log('9. 开始调查');
 
   console.log('10. 追溯根源...');
-  const traceResult = await afterSalesService.traceRootCause(feedback!.id);
-  console.log('   复核记录显示:');
-  if (traceResult.reviewRecord) {
-    traceResult.reviewRecord.reviewItems.forEach((item: any) => {
-      console.log(`     商品 ${item.product.sku}: 预期${item.expectedQty}, 实际${item.actualQty}, 匹配: ${item.isMatch}`);
-    });
+  const traceResult = await afterSalesService.traceRootCause(feedbackId);
+  console.log('   可能原因:');
+  traceResult.possibleCauses.forEach((cause: any, i: number) => {
+    console.log(`     ${i + 1}. [${cause.type}] ${cause.description}`);
+    if (cause.expectedProduct && cause.actualProduct) {
+      console.log(`        应发: ${cause.expectedProduct.sku} | 实发: ${cause.actualProduct.sku}`);
+    }
+    if (cause.waveId) {
+      console.log(`        关联波次: ${cause.waveId}`);
+    }
+    if (cause.pickTask) {
+      console.log(`        关联拣货任务: ${cause.pickTask.taskNo}，拣货员: ${cause.pickTask.pickedBy?.name || '未分配'}`);
+    }
+  });
+
+  const skuCause = traceResult.possibleCauses.find((c: any) => c.type === 'SKU_MISMATCH_IN_PACKAGE');
+  if (skuCause) {
+    console.log('\n   ✓ 成功追溯到错SKU根因！');
+    await afterSalesService.resolveFeedback(
+      feedbackId,
+      cs!.id,
+      skuCause.waveId,
+      skuCause.pickTask?.id,
+      `确认为装错SKU，应发${expectedProduct.sku}实发${wrongProduct.sku}，已安排换货`
+    );
+    console.log('   ✓ 问题已解决');
+  } else {
+    console.log('\n   ✗ 未能追溯到错SKU根因！');
   }
 
   console.log('\n✓ 场景2测试完成 - 错SKU问题可追溯');
@@ -269,6 +300,7 @@ async function testScenario3_ReviewReject() {
   console.log('4. 复核时发现数量不对，退回...');
   const reviewItems = orderItems.map((item, index) => ({
     productId: item.productId,
+    expectedProductId: item.productId,
     expectedQty: item.quantity,
     actualQty: index === 0 ? item.quantity - 1 : item.quantity,
   }));
@@ -308,12 +340,17 @@ async function testScenario4_ConcurrencyLock() {
   const order = pendingOrders[0];
   console.log(`测试订单: ${order.orderNo} (状态: ${order.status})`);
 
+  const waveCountBefore = await prisma.wave.count();
+  console.log(`   测试前波次总数: ${waveCountBefore}`);
+
   console.log('1. 张主管尝试创建波次1...');
   const promise1 = waveService.createWave('并发测试波次1', [order.id], supervisor!.id);
 
   console.log('2. 张主管同时尝试创建波次2（同一订单）...');
   const promise2 = waveService.createWave('并发测试波次2', [order.id], supervisor!.id);
 
+  let successCount = 0;
+  let failCount = 0;
   try {
     const results = await Promise.allSettled([promise1, promise2]);
     for (let i = 0; i < results.length; i++) {
@@ -321,8 +358,10 @@ async function testScenario4_ConcurrencyLock() {
       if (result.status === 'fulfilled') {
         const wave = await waveService.getWaveById(result.value);
         console.log(`   波次${i + 1}: 创建成功 - ${wave?.waveNo}`);
+        successCount++;
       } else {
         console.log(`   波次${i + 1}: 创建失败 - ${result.reason.message}`);
+        failCount++;
       }
     }
   } catch (e: any) {
@@ -332,7 +371,117 @@ async function testScenario4_ConcurrencyLock() {
   const updatedOrder = await prisma.order.findUnique({ where: { id: order.id } });
   console.log(`   订单最终状态: ${updatedOrder?.status}, 所属波次: ${updatedOrder?.waveId || '无'}`);
 
+  const waveCountAfter = await prisma.wave.count();
+  const newWavesCreated = waveCountAfter - waveCountBefore;
+  console.log(`   新创建波次数: ${newWavesCreated}（应为1）`);
+  if (newWavesCreated === 1 && successCount === 1 && failCount === 1) {
+    console.log('   ✓ 并发锁定正确：只有一个波次成功创建，另一个被拒绝');
+  } else if (successCount === 1 && failCount === 1) {
+    console.log('   ✓ 并发锁定正确：只有一个波次成功');
+  } else {
+    console.log('   ✗ 并发锁定可能存在问题');
+  }
+
   console.log('\n✓ 场景4测试完成 - 并发锁定机制正常工作');
+}
+
+async function testScenario5_MultiSKUActualQuantity() {
+  console.log('\n=== 场景5: 多SKU包裹actualQuantity正确性验证 ===\n');
+
+  const waveService = new WaveService();
+  const pickTaskService = new PickTaskService();
+  const packageService = new PackageService();
+
+  const supervisor = await prisma.employee.findUnique({ where: { code: 'S001' } });
+  const picker1 = await prisma.employee.findUnique({ where: { code: 'P001' } });
+  const reviewer = await prisma.employee.findUnique({ where: { code: 'R001' } });
+
+  const products = await prisma.product.findMany();
+  const locations = await prisma.location.findMany();
+
+  const order = await prisma.order.create({
+    data: {
+      orderNo: `ORD-MULTISKU-${Date.now()}`,
+      customerName: '多SKU测试客户',
+      customerPhone: '13900009999',
+      address: '测试地址',
+      status: OrderStatus.PENDING,
+      orderItems: {
+        create: [
+          { productId: products[0].id, quantity: 3 },
+          { productId: products[1].id, quantity: 5 },
+        ],
+      },
+    },
+    include: { orderItems: true },
+  });
+  await prisma.inventory.upsert({
+    where: {
+      productId_locationId: { productId: products[0].id, locationId: locations[0].id },
+    },
+    update: { quantity: { increment: 10 } },
+    create: { productId: products[0].id, locationId: locations[0].id, quantity: 10 },
+  });
+  await prisma.inventory.upsert({
+    where: {
+      productId_locationId: { productId: products[1].id, locationId: locations[1].id },
+    },
+    update: { quantity: { increment: 10 } },
+    create: { productId: products[1].id, locationId: locations[1].id, quantity: 10 },
+  });
+  console.log('   创建测试订单（含2个SKU）');
+
+  console.log(`1. 创建波次 - 订单 ${order.orderNo}（含${order.orderItems.length}个SKU）`);
+  const waveId = await waveService.createWave('测试波次-多SKU', [order.id], supervisor!.id);
+  await waveService.startWave(waveId, supervisor!.id);
+
+  const allTasks = await pickTaskService.getAvailableTasks();
+  const pickTasks = allTasks.filter((t) => t.waveId === waveId);
+  for (const task of pickTasks) {
+    await pickTaskService.assignTask(task.id, picker1!.id);
+    await pickTaskService.startPicking(task.id, picker1!.id);
+    await pickTaskService.completeTask(task.id, picker1!.id, task.quantity);
+  }
+  await waveService.completeWave(waveId);
+
+  const orderItems = await prisma.orderItem.findMany({
+    where: { orderId: order.id },
+    include: { product: true },
+  });
+  console.log('2. 创建包裹（含多SKU）...');
+  const pkgId = await packageService.createPackage(
+    order.id,
+    orderItems.map((item) => ({ productId: item.productId, quantity: item.quantity }))
+  );
+
+  console.log('3. 复核通过...');
+  const reviewItems = orderItems.map((item) => ({
+    productId: item.productId,
+    expectedProductId: item.productId,
+    expectedQty: item.quantity,
+    actualQty: item.quantity,
+  }));
+  await packageService.reviewPackage(pkgId, reviewer!.id, reviewItems, '复核通过');
+
+  console.log('4. 验证每个PackageItem的actualQuantity是否正确（修复前会被写成首项数量）...');
+  const pkgData = await packageService.getPackageById(pkgId);
+  let allCorrect = true;
+  for (const pi of pkgData!.packageItems) {
+    const reviewItem = reviewItems.find((ri) => ri.productId === pi.productId);
+    const expected = reviewItem?.actualQty;
+    const actual = pi.actualQuantity;
+    const ok = actual === expected;
+    if (!ok) allCorrect = false;
+    console.log(`   商品 ${pi.product.sku}: quantity=${pi.quantity}, actualQuantity=${actual}, 期望=${expected} ${ok ? '✓' : '✗'}`);
+  }
+
+  if (allCorrect) {
+    console.log('   ✓ 所有actualQuantity正确');
+  } else {
+    console.log('   ✗ 部分actualQuantity不正确');
+  }
+
+  console.log('\n✓ 场景5测试完成 - 多SKU包裹actualQuantity正确');
 }
 
 async function runAllTests() {
@@ -345,6 +494,7 @@ async function runAllTests() {
     await testScenario2_WrongSKU();
     await testScenario3_ReviewReject();
     await testScenario4_ConcurrencyLock();
+    await testScenario5_MultiSKUActualQuantity();
 
     console.log('\n========================================');
     console.log('  所有测试场景执行完成！');

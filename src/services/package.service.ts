@@ -11,7 +11,7 @@ export class PackageService {
 
   async createPackage(
     orderId: string,
-    items: Array<{ productId: string; quantity: number }>,
+    items: Array<{ productId: string; quantity: number; expectedProductId?: string }>,
     weight?: number
   ) {
     return this.prisma.$transaction(async (tx) => {
@@ -28,6 +28,8 @@ export class PackageService {
         throw new Error('订单状态不正确，无法创建包裹');
       }
 
+      const orderItemProductIds = new Set(order.orderItems.map((oi) => oi.productId));
+
       const packageNo = `P${Date.now()}${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`;
 
       const pkg = await tx.package.create({
@@ -39,11 +41,16 @@ export class PackageService {
         },
       });
 
-      const packageItemsData = items.map((item) => ({
-        packageId: pkg.id,
-        productId: item.productId,
-        quantity: item.quantity,
-      }));
+      const packageItemsData = items.map((item) => {
+        const expectedId = item.expectedProductId
+          ?? (orderItemProductIds.has(item.productId) ? item.productId : undefined);
+        return {
+          packageId: pkg.id,
+          productId: item.productId,
+          expectedProductId: expectedId,
+          quantity: item.quantity,
+        };
+      });
 
       if (packageItemsData.length > 0) {
         await tx.packageItem.createMany({
@@ -68,7 +75,7 @@ export class PackageService {
   async reviewPackage(
     packageId: string,
     reviewerId: string,
-    items: Array<{ productId: string; expectedQty: number; actualQty: number }>,
+    items: Array<{ productId: string; expectedProductId?: string; expectedQty: number; actualQty: number }>,
     notes?: string
   ) {
     return this.prisma.$transaction(async (tx) => {
@@ -97,7 +104,10 @@ export class PackageService {
         throw new Error('包裹状态不正确，无法复核');
       }
 
-      const allMatch = items.every((item) => item.expectedQty === item.actualQty);
+      const allMatch = items.every((item) => {
+        const skuMatches = !item.expectedProductId || item.expectedProductId === item.productId;
+        return skuMatches && item.expectedQty === item.actualQty;
+      });
       const status = allMatch ? ReviewStatus.PASSED : ReviewStatus.REJECTED;
 
       const recordNo = `R${Date.now()}${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`;
@@ -112,13 +122,18 @@ export class PackageService {
         },
       });
 
-      const reviewItemsData = items.map((item) => ({
-        reviewRecordId: reviewRecord.id,
-        productId: item.productId,
-        expectedQty: item.expectedQty,
-        actualQty: item.actualQty,
-        isMatch: item.expectedQty === item.actualQty,
-      }));
+      const reviewItemsData = items.map((item) => {
+        const skuMatches = !item.expectedProductId || item.expectedProductId === item.productId;
+        const qtyMatches = item.expectedQty === item.actualQty;
+        return {
+          reviewRecordId: reviewRecord.id,
+          productId: item.productId,
+          expectedProductId: item.expectedProductId ?? item.productId,
+          expectedQty: item.expectedQty,
+          actualQty: item.actualQty,
+          isMatch: skuMatches && qtyMatches,
+        };
+      });
 
       if (reviewItemsData.length > 0) {
         await tx.reviewItem.createMany({
@@ -137,10 +152,12 @@ export class PackageService {
           data: { status: OrderStatus.REVIEWED },
         });
 
-        await tx.packageItem.updateMany({
-          where: { packageId },
-          data: { actualQuantity: items[0]?.actualQty || 0 },
-        });
+        for (const item of items) {
+          await tx.packageItem.updateMany({
+            where: { packageId, productId: item.productId },
+            data: { actualQuantity: item.actualQty },
+          });
+        }
       } else {
         await tx.package.update({
           where: { id: packageId },
@@ -240,7 +257,7 @@ export class PackageService {
     return { packages, total, page, pageSize };
   }
 
-  async updatePackageItems(packageId: string, items: Array<{ productId: string; quantity: number }>) {
+  async updatePackageItems(packageId: string, items: Array<{ productId: string; expectedProductId?: string; quantity: number }>) {
     return this.prisma.$transaction(async (tx) => {
       const pkg = await tx.package.findUnique({
         where: { id: packageId },
@@ -264,6 +281,7 @@ export class PackageService {
       const packageItemsData = items.map((item) => ({
         packageId,
         productId: item.productId,
+        expectedProductId: item.expectedProductId ?? item.productId,
         quantity: item.quantity,
       }));
 

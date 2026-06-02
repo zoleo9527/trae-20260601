@@ -45,11 +45,13 @@ model Product {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  inventory   Inventory[]
-  orderItems  OrderItem[]
-  packageItems PackageItem[]
-  pickTasks   PickTask[]
-  reviewItems ReviewItem[]
+  inventory              Inventory[]
+  orderItems             OrderItem[]
+  packageItems           PackageItem[]
+  expectedPackageItems   PackageItem[]          @relation("PackageItemExpectedProduct")
+  pickTasks              PickTask[]
+  reviewItems            ReviewItem[]
+  expectedReviewItems    ReviewItem[]           @relation("ReviewItemExpectedProduct")
 }
 
 model Inventory {
@@ -173,18 +175,18 @@ model Package {
 }
 
 model PackageItem {
-  id         String   @id @default(uuid())
-  packageId  String
-  productId  String
-  quantity   Int
-  actualQuantity Int?
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  id                String   @id @default(uuid())
+  packageId         String
+  productId         String
+  expectedProductId String?
+  quantity          Int
+  actualQuantity    Int?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 
-  package Package @relation(fields: [packageId], references: [id], onDelete: Cascade)
-  product Product @relation(fields: [productId], references: [id])
-
-  @@unique([packageId, productId])
+  package         Package  @relation(fields: [packageId], references: [id], onDelete: Cascade)
+  product         Product  @relation(fields: [productId], references: [id])
+  expectedProduct Product? @relation("PackageItemExpectedProduct", fields: [expectedProductId], references: [id])
 }
 
 model ReviewRecord {
@@ -208,17 +210,19 @@ model ReviewRecord {
 }
 
 model ReviewItem {
-  id             String   @id @default(uuid())
-  reviewRecordId String
-  productId      String
-  expectedQty    Int
-  actualQty      Int
-  isMatch        Boolean
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  id                String   @id @default(uuid())
+  reviewRecordId   String
+  productId         String
+  expectedProductId String?
+  expectedQty       Int
+  actualQty         Int
+  isMatch           Boolean
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 
-  reviewRecord ReviewRecord @relation(fields: [reviewRecordId], references: [id], onDelete: Cascade)
-  product      Product      @relation(fields: [productId], references: [id])
+  reviewRecord    ReviewRecord @relation(fields: [reviewRecordId], references: [id], onDelete: Cascade)
+  product         Product      @relation(fields: [productId], references: [id])
+  expectedProduct Product?     @relation("ReviewItemExpectedProduct", fields: [expectedProductId], references: [id])
 }
 
 model AfterSalesFeedback {
