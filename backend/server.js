@@ -65,19 +65,35 @@ app.get('/api/departments', authenticateToken, (req, res) => {
 
 app.get('/api/packages', authenticateToken, (req, res) => {
   const { status, type } = req.query;
-  let sql = 'SELECT * FROM instrument_packages WHERE 1=1';
+  let sql = `
+    SELECT p.*,
+           (SELECT bp.batch_id 
+            FROM batch_packages bp 
+            JOIN sterilization_batches b ON bp.batch_id = b.id 
+            WHERE bp.package_id = p.id 
+            ORDER BY bp.created_at DESC 
+            LIMIT 1) as current_batch_id,
+           (SELECT b.batch_no 
+            FROM batch_packages bp 
+            JOIN sterilization_batches b ON bp.batch_id = b.id 
+            WHERE bp.package_id = p.id 
+            ORDER BY bp.created_at DESC 
+            LIMIT 1) as current_batch_no
+    FROM instrument_packages p
+    WHERE 1=1
+  `;
   const params = [];
   
   if (status) {
-    sql += ' AND status = ?';
+    sql += ' AND p.status = ?';
     params.push(status);
   }
   if (type) {
-    sql += ' AND type = ?';
+    sql += ' AND p.type = ?';
     params.push(type);
   }
   
-  sql += ' ORDER BY updated_at DESC';
+  sql += ' ORDER BY p.updated_at DESC';
   const packages = db.prepare(sql).all(...params);
   res.json(packages);
 });
@@ -85,6 +101,18 @@ app.get('/api/packages', authenticateToken, (req, res) => {
 app.get('/api/packages/:packageNo', authenticateToken, (req, res) => {
   const pkg = db.prepare(`
     SELECT p.*,
+           (SELECT bp.batch_id 
+            FROM batch_packages bp 
+            JOIN sterilization_batches b ON bp.batch_id = b.id 
+            WHERE bp.package_id = p.id 
+            ORDER BY bp.created_at DESC 
+            LIMIT 1) as current_batch_id,
+           (SELECT b.batch_no 
+            FROM batch_packages bp 
+            JOIN sterilization_batches b ON bp.batch_id = b.id 
+            WHERE bp.package_id = p.id 
+            ORDER BY bp.created_at DESC 
+            LIMIT 1) as current_batch_no,
            (SELECT GROUP_CONCAT(b.batch_no, ', ') 
             FROM batch_packages bp 
             JOIN sterilization_batches b ON bp.batch_id = b.id 
@@ -394,6 +422,7 @@ app.post('/api/recalls', authenticateToken, (req, res) => {
       (SELECT tr.department_id 
        FROM tracking_records tr 
        WHERE tr.package_id = bp.package_id 
+         AND tr.batch_id = ?
          AND tr.department_id IS NOT NULL
        ORDER BY tr.created_at DESC 
        LIMIT 1) as department_id,
@@ -401,7 +430,7 @@ app.post('/api/recalls', authenticateToken, (req, res) => {
     FROM batch_packages bp
     JOIN instrument_packages p ON bp.package_id = p.id
     WHERE bp.batch_id = ?
-  `).all(batch.id);
+  `).all(batch.id, batch.id);
   
   const stmt = db.prepare(`
     INSERT INTO recall_items (recall_id, package_id, department_id, status)
@@ -409,8 +438,9 @@ app.post('/api/recalls', authenticateToken, (req, res) => {
   `);
   
   packages.forEach(p => {
-    const isRecovered = ['cleaned', 'packaged', 'sterilized', 'qualified', 'recycled'].includes(p.status);
-    stmt.run(result.lastInsertRowid, p.package_id, p.department_id, isRecovered ? 'recovered' : 'pending');
+    const isBackAtSupply = ['cleaned', 'packaged', 'sterilized', 'qualified', 'recycled', 'available'].includes(p.status);
+    const recallStatus = isBackAtSupply ? 'recovered' : 'pending';
+    stmt.run(result.lastInsertRowid, p.package_id, p.department_id, recallStatus);
   });
   
   res.json({ id: result.lastInsertRowid, recall_no: recallNo });

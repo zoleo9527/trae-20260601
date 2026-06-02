@@ -22,12 +22,19 @@
         <el-table-column prop="updated_at" label="回收时间" width="180">
           <template #default="{ row }">{{ formatTime(row.updated_at) }}</template>
         </el-table-column>
+        <el-table-column label="状态" width="100">
+          <template #default="{ row }">
+            <el-tag :type="row.status === 'counted' ? 'success' : row.status === 'cleaning' ? 'primary' : 'warning'" size="small">
+              {{ { recycled: '待清洗', cleaning: '清洗中', counted: '已清点' }[row.status] }}
+            </el-tag>
+          </template>
+        </el-table-column>
         <el-table-column label="操作" width="280">
           <template #default="{ row }">
             <el-button 
               type="primary" 
               size="small" 
-              :disabled="row.status !== 'recycled'"
+              :disabled="!['recycled', 'counted'].includes(row.status)"
               @click="startClean(row)"
             >
               开始清洗
@@ -44,6 +51,7 @@
             <el-button 
               type="warning" 
               size="small" 
+              :disabled="row.status === 'cleaning' || row.status === 'cleaned'"
               @click="showCount(row)"
               style="margin-left: 8px;"
             >

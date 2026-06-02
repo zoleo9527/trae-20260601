@@ -75,7 +75,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
-import { packageAPI, departmentAPI, batchAPI } from '../../api'
+import { packageAPI, departmentAPI } from '../../api'
 
 const tableRef = ref(null)
 const toDeliver = ref([])
@@ -115,21 +115,12 @@ const startDelivery = async () => {
   const dept = departments.value.find(d => d.id === targetDept.value)
   
   for (const pkg of selectedItems.value) {
-    const pkgDetail = await packageAPI.getDetail(pkg.package_no)
-    const batchNos = pkgDetail.data.package.batch_nos?.split(',')[0]?.trim()
-    let batchId = null
-    if (batchNos) {
-      const batches = await batchAPI.getList()
-      const batch = batches.data.find(b => b.batch_no === batchNos)
-      batchId = batch?.id
-    }
-    
     await packageAPI.track(pkg.package_no, {
       action: '配送',
       status: 'delivering',
       location: '运输中 - ' + dept.name,
       department_id: targetDept.value,
-      batch_id: batchId
+      batch_id: pkg.current_batch_id || null
     })
   }
   
@@ -140,20 +131,11 @@ const startDelivery = async () => {
 
 const confirmReceive = async (pkg) => {
   try {
-    const pkgDetail = await packageAPI.getDetail(pkg.package_no)
-    const batchNos = pkgDetail.data.package.batch_nos?.split(',')[0]?.trim()
-    let batchId = null
-    if (batchNos) {
-      const batches = await batchAPI.getList()
-      const batch = batches.data.find(b => b.batch_no === batchNos)
-      batchId = batch?.id
-    }
-    
     await packageAPI.track(pkg.package_no, {
       action: '签收',
       status: 'received',
       location: pkg.current_location?.replace('运输中 - ', '') || '科室',
-      batch_id: batchId
+      batch_id: pkg.current_batch_id || null
     })
     ElMessage.success('已签收')
     loadPackages()
