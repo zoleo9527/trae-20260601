@@ -11,6 +11,9 @@ const TABS: { label: string; value: SampleStatus | null }[] = [
   { label: '检测中', value: 'testing' },
   { label: '完成', value: 'done' },
   { label: '异常', value: 'abnormal' },
+  { label: '顺延待处理', value: 'pending_postpone' },
+  { label: '已顺延', value: 'postponed' },
+  { label: '已取消', value: 'cancelled' },
 ]
 
 const STATUS_OPTIONS: { label: string; value: SampleStatus }[] = [
@@ -18,10 +21,16 @@ const STATUS_OPTIONS: { label: string; value: SampleStatus }[] = [
   { label: '检测中', value: 'testing' },
   { label: '完成', value: 'done' },
   { label: '异常', value: 'abnormal' },
+  { label: '顺延待处理', value: 'pending_postpone' },
+  { label: '已顺延', value: 'postponed' },
+  { label: '已取消', value: 'cancelled' },
 ]
 
+const isDispositionStatus = (status: SampleStatus) =>
+  status === 'pending_postpone' || status === 'postponed' || status === 'cancelled'
+
 export default function SamplesPage() {
-  const { samples, instruments, reservations, addSample, updateSampleStatus, currentRole, currentUserId } = useStore()
+  const { samples, instruments, reservations, addSample, updateSampleStatus, updateSampleDisposition, currentRole, currentUserId } = useStore()
   const [statusFilter, setStatusFilter] = useState<SampleStatus | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [expandedId, setExpandedId] = useState<string | null>(null)
@@ -43,16 +52,17 @@ export default function SamplesPage() {
     instruments.find((i) => i.id === instrumentId)?.name ?? instrumentId
 
   const handleExport = () => {
-    const headers = ['样本名称', '关联仪器', '提交人', '课题组', '状态', '存放位置', '备注', '创建时间']
+    const headers = ['样本名称', '关联仪器', '提交人', '课题组', '状态', '存放位置', '备注', '处置说明', '创建时间']
     const rows = filtered.map((s) =>
       [
         s.name,
         getInstrumentName(s.instrumentId),
         s.submitter,
         s.group,
-        s.status,
+        STATUS_OPTIONS.find((o) => o.value === s.status)?.label || s.status,
         s.storageLocation,
         `"${s.notes.replace(/"/g, '""')}"`,
+        `"${(s.dispositionNote || '').replace(/"/g, '""')}"`,
         fmtDateTime(s.createdAt),
       ].join(',')
     )
@@ -68,8 +78,8 @@ export default function SamplesPage() {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="flex items-center gap-3 mb-4">
-        <div className="flex gap-1 bg-[#12122a] rounded-lg p-1">
+      <div className="flex items-center gap-3 mb-4 flex-wrap">
+        <div className="flex gap-1 bg-[#12122a] rounded-lg p-1 flex-wrap">
           {TABS.map((tab) => (
             <button
               key={tab.label}
@@ -122,18 +132,19 @@ export default function SamplesPage() {
               <th className="text-left px-3 py-2.5 font-medium">课题组</th>
               <th className="text-left px-3 py-2.5 font-medium">状态</th>
               <th className="text-left px-3 py-2.5 font-medium">存放位置</th>
-              <th className="text-left px-3 py-2.5 font-medium">备注</th>
+              <th className="text-left px-3 py-2.5 font-medium">处置说明</th>
               <th className="text-left px-3 py-2.5 font-medium">操作</th>
             </tr>
           </thead>
           <tbody>
             {filtered.map((sample, idx) => {
               const isExpanded = expandedId === sample.id
+              const hasDisposition = isDispositionStatus(sample.status)
               return (
                 <React.Fragment key={sample.id}>
                   <tr
                     className={`cursor-pointer transition-colors ${
-                      idx % 2 === 0 ? 'bg-[#0e0e20]' : 'bg-[#111128]'
+                      hasDisposition ? 'bg-yellow-950/10' : idx % 2 === 0 ? 'bg-[#0e0e20]' : 'bg-[#111128]'
                     } hover:bg-[#1a1a3a]`}
                     onClick={() => setExpandedId(isExpanded ? null : sample.id)}
                   >
@@ -150,7 +161,9 @@ export default function SamplesPage() {
                     <td className="px-3 py-2.5">
                       <span className="font-mono text-zinc-300 text-[11px]">{sample.storageLocation}</span>
                     </td>
-                    <td className="px-3 py-2.5 text-zinc-400 max-w-[160px] truncate">{sample.notes}</td>
+                    <td className="px-3 py-2.5 text-zinc-400 max-w-[180px] truncate">
+                      {sample.dispositionNote || '-'}
+                    </td>
                     <td className="px-3 py-2.5" onClick={(e) => e.stopPropagation()}>
                       {currentRole !== 'student' && (
                         <select
@@ -166,21 +179,29 @@ export default function SamplesPage() {
                     </td>
                   </tr>
                   {isExpanded && (
-                    <tr className={idx % 2 === 0 ? 'bg-[#0e0e20]' : 'bg-[#111128]'}>
+                    <tr className={hasDisposition ? 'bg-yellow-950/10' : idx % 2 === 0 ? 'bg-[#0e0e20]' : 'bg-[#111128]'}>
                       <td colSpan={9} className="px-6 py-3 border-t border-[#1e1e3a]">
-                        <div className="flex gap-6 text-xs">
-                          <div>
-                            <span className="text-zinc-500">完整备注：</span>
-                            <span className="text-zinc-300 ml-1">{sample.notes || '无'}</span>
+                        <div className="space-y-2 text-xs">
+                          <div className="flex gap-6">
+                            <div>
+                              <span className="text-zinc-500">备注：</span>
+                              <span className="text-zinc-300 ml-1">{sample.notes || '无'}</span>
+                            </div>
+                            <div>
+                              <span className="text-zinc-500">登记时间：</span>
+                              <span className="text-zinc-300 ml-1">{fmtDateTime(sample.createdAt)}</span>
+                            </div>
+                            <div>
+                              <span className="text-zinc-500">存放位置：</span>
+                              <span className="font-mono text-zinc-300 ml-1">{sample.storageLocation}</span>
+                            </div>
                           </div>
-                          <div>
-                            <span className="text-zinc-500">登记时间：</span>
-                            <span className="text-zinc-300 ml-1">{fmtDateTime(sample.createdAt)}</span>
-                          </div>
-                          <div>
-                            <span className="text-zinc-500">存放位置：</span>
-                            <span className="font-mono text-zinc-300 ml-1">{sample.storageLocation}</span>
-                          </div>
+                          {hasDisposition && sample.dispositionNote && (
+                            <div className="flex items-start gap-2 pt-2 border-t border-[#1e1e3a]/50">
+                              <span className="text-yellow-400/70 shrink-0">处置：</span>
+                              <span className="text-yellow-300/80 leading-relaxed">{sample.dispositionNote}</span>
+                            </div>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -258,6 +279,7 @@ function SampleFormModal({
       storageLocation,
       notes,
       status: 'waiting',
+      dispositionNote: '',
     })
   }
 

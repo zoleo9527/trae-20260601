@@ -27,7 +27,7 @@ export interface Reservation {
   createdAt: string
 }
 
-export type SampleStatus = 'waiting' | 'testing' | 'done' | 'abnormal'
+export type SampleStatus = 'waiting' | 'testing' | 'done' | 'abnormal' | 'pending_postpone' | 'postponed' | 'cancelled'
 
 export interface Sample {
   id: string
@@ -39,6 +39,7 @@ export interface Sample {
   status: SampleStatus
   storageLocation: string
   notes: string
+  dispositionNote: string
   createdAt: string
 }
 

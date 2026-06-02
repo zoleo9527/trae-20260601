@@ -230,9 +230,10 @@ export const DEMO_SAMPLES: Sample[] = [
     name: '纳米颗粒TEM样',
     submitter: '王同学',
     group: '材料课题组',
-    status: 'waiting',
+    status: 'pending_postpone',
     storageLocation: 'B栋304样品柜A-03',
     notes: '铜网承载，避光保存',
+    dispositionNote: '关联预约因故障停机被标记顺延，等待管理员处理',
     createdAt: d(-2, 14),
   },
   {
@@ -242,9 +243,10 @@ export const DEMO_SAMPLES: Sample[] = [
     name: '催化剂粉末样',
     submitter: '赵同学',
     group: '化学课题组',
-    status: 'waiting',
+    status: 'pending_postpone',
     storageLocation: 'B栋304样品柜B-12',
     notes: '48h内必须测试',
+    dispositionNote: '关联预约因故障停机被标记顺延，等待管理员处理',
     createdAt: d(-1, 10),
   },
   {
@@ -254,9 +256,10 @@ export const DEMO_SAMPLES: Sample[] = [
     name: '薄膜截面样',
     submitter: '陈同学',
     group: '物理课题组',
-    status: 'waiting',
+    status: 'pending_postpone',
     storageLocation: '待送达',
     notes: 'FIB制备，需提前半小时装样',
+    dispositionNote: '关联预约因故障停机被标记顺延，等待管理员处理',
     createdAt: d(-1, 16),
   },
   {
@@ -269,6 +272,7 @@ export const DEMO_SAMPLES: Sample[] = [
     status: 'testing',
     storageLocation: 'B栋201样品台',
     notes: '变温样品，需程序控温',
+    dispositionNote: '',
     createdAt: d(-3, 9),
   },
   {
@@ -281,6 +285,7 @@ export const DEMO_SAMPLES: Sample[] = [
     status: 'waiting',
     storageLocation: 'B栋201样品柜C-05',
     notes: '掠入射模式',
+    dispositionNote: '',
     createdAt: d(-2, 11),
   },
   {
@@ -293,6 +298,7 @@ export const DEMO_SAMPLES: Sample[] = [
     status: 'waiting',
     storageLocation: 'C栋冷柜D-01',
     notes: '液氮保存，注意安全',
+    dispositionNote: '',
     createdAt: d(-1, 15),
   },
   {
@@ -305,6 +311,7 @@ export const DEMO_SAMPLES: Sample[] = [
     status: 'testing',
     storageLocation: 'C栋102核磁管架#3',
     notes: '氘代氯仿溶解',
+    dispositionNote: '',
     createdAt: d(-3, 10),
   },
   {
@@ -317,6 +324,7 @@ export const DEMO_SAMPLES: Sample[] = [
     status: 'done',
     storageLocation: 'C栋102核磁管架#7',
     notes: '氘代DMSO溶解',
+    dispositionNote: '',
     createdAt: d(-2, 9),
   },
 ]

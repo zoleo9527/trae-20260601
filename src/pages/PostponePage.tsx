@@ -1,4 +1,4 @@
-import { ReservationBadge } from '@/components/StatusBadge'
+import { ReservationBadge, SampleBadge } from '@/components/StatusBadge'
 import { useStore } from '@/store/useStore'
 import type { Reservation } from '@/types'
 import { fmtDateTime, fmtTime } from '@/utils/time'
@@ -10,7 +10,7 @@ import {
   FlaskConical,
   X,
 } from 'lucide-react'
-import { addDays, format, parseISO, setHours, setMinutes } from 'date-fns'
+import { format, parseISO, setHours, setMinutes } from 'date-fns'
 import { useMemo, useState } from 'react'
 
 export default function PostponePage() {
@@ -135,7 +135,7 @@ export default function PostponePage() {
         <div>
           <h2 className="text-lg font-semibold text-zinc-100">顺延处理</h2>
           <p className="text-xs text-zinc-500 mt-1">
-            因故障停机或调度变更受影响的预约，需逐条确认顺延时段或取消
+            因故障停机或调度变更受影响的预约，需逐条确认顺延时段或取消。关联样本将同步更新处置状态
           </p>
         </div>
         {isAdmin && postponedReservations.length > 0 && (
@@ -236,7 +236,7 @@ export default function PostponePage() {
                         </button>
                         <button
                           onClick={() => {
-                            if (confirm('确认取消该预约？将通知申请人。')) {
+                            if (confirm('确认取消该预约？关联样本将同步标记为已取消，将通知申请人。')) {
                               cancelPostponed(res.id)
                             }
                           }}
@@ -251,19 +251,33 @@ export default function PostponePage() {
                 </div>
 
                 {affectedSamples.length > 0 && (
-                  <div className="border-t border-amber-900/20 px-4 py-2 bg-amber-950/5">
-                    <div className="text-[11px] text-zinc-500 mb-1.5 flex items-center gap-1">
+                  <div className="border-t border-amber-900/20 px-4 py-3 bg-amber-950/5">
+                    <div className="text-[11px] text-zinc-500 mb-2 flex items-center gap-1">
                       <FlaskConical size={12} />
-                      关联样本
+                      关联样本处置
                     </div>
-                    <div className="space-y-1">
+                    <div className="space-y-1.5">
                       {affectedSamples.map((s) => (
                         <div
                           key={s.id}
-                          className="flex items-center justify-between text-[11px] bg-[#0f0f1a] rounded px-2 py-1.5"
+                          className="flex items-start justify-between gap-3 text-[11px] bg-[#0f0f1a] rounded px-3 py-2"
                         >
-                          <span className="text-zinc-300">{s.name}</span>
-                          <span className="text-zinc-500 mono">{s.storageLocation}</span>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-0.5">
+                              <span className="text-zinc-200 font-medium">{s.name}</span>
+                              <SampleBadge status={s.status} />
+                            </div>
+                            <div className="flex items-center gap-3 text-zinc-500">
+                              <span className="mono">{s.storageLocation}</span>
+                              <span>·</span>
+                              <span>{s.submitter}</span>
+                            </div>
+                            {s.dispositionNote && (
+                              <div className="mt-1 text-yellow-400/70 leading-relaxed">
+                                {s.dispositionNote}
+                              </div>
+                            )}
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -273,7 +287,7 @@ export default function PostponePage() {
                 {isExpanded && isAdmin && (
                   <div className="border-t border-amber-900/20 p-4 bg-[#0f0f1a]">
                     <div className="text-xs text-zinc-400 mb-3">
-                      选择新的时段，或使用"自动查找"按钮获取最早可用时段
+                      选择新的时段，或使用"自动查找"按钮获取最早可用时段。确认后关联样本将自动更新为"已顺延"
                     </div>
                     <div className="grid grid-cols-2 gap-3 mb-3">
                       <div>
@@ -295,6 +309,20 @@ export default function PostponePage() {
                         />
                       </div>
                     </div>
+                    {affectedSamples.length > 0 && (
+                      <div className="mb-3 px-3 py-2 rounded bg-indigo-950/20 border border-indigo-900/30">
+                        <div className="text-[11px] text-indigo-400/80">
+                          确认顺延后，以下样本将自动更新：
+                        </div>
+                        <div className="mt-1 flex flex-wrap gap-1.5">
+                          {affectedSamples.map((s) => (
+                            <span key={s.id} className="text-[10px] bg-[#12122a] px-2 py-0.5 rounded text-zinc-400">
+                              {s.name} → <span className="text-indigo-300">已顺延</span>
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                     <div className="flex justify-end gap-2">
                       <button
                         onClick={() => handleAutoSchedule(res)}

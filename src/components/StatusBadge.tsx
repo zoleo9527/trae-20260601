@@ -13,6 +13,9 @@ const sampleStatusMap: Record<SampleStatus, { label: string; color: string; bg: 
   testing: { label: '检测中', color: 'text-blue-400', bg: 'bg-blue-500/15' },
   done: { label: '完成', color: 'text-emerald-400', bg: 'bg-emerald-500/15' },
   abnormal: { label: '异常', color: 'text-red-400', bg: 'bg-red-500/15' },
+  pending_postpone: { label: '顺延待处理', color: 'text-yellow-300', bg: 'bg-yellow-500/15' },
+  postponed: { label: '已顺延', color: 'text-indigo-400', bg: 'bg-indigo-500/15' },
+  cancelled: { label: '已取消', color: 'text-zinc-500', bg: 'bg-zinc-500/15' },
 }
 
 const instrumentStatusMap: Record<InstrumentStatus, { label: string; color: string; bg: string; dot: string }> = {

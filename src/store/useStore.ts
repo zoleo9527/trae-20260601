@@ -40,6 +40,7 @@ interface AppState {
 
   addSample: (data: Omit<Sample, 'id' | 'createdAt'>) => string
   updateSampleStatus: (id: string, status: SampleStatus) => void
+  updateSampleDisposition: (id: string, status: SampleStatus, dispositionNote: string) => void
 
   addDowntime: (data: Omit<Downtime, 'id' | 'createdAt' | 'status' | 'affectedReservations'>) => string
   resolveDowntime: (id: string) => void
@@ -186,6 +187,14 @@ export const useStore = create<AppState>()(
         }))
       },
 
+      updateSampleDisposition: (id, status, dispositionNote) => {
+        set((s) => ({
+          samples: s.samples.map((sam) =>
+            sam.id === id ? { ...sam, status, dispositionNote } : sam
+          ),
+        }))
+      },
+
       addDowntime: (data) => {
         const id = `dt-${nanoid(8)}`
         const affectedReservations = get().reservations.filter((r) => {
@@ -214,6 +223,16 @@ export const useStore = create<AppState>()(
             : r
         )
 
+        const affectedSampleIds = get().samples
+          .filter((sam) => affectedIds.includes(sam.reservationId))
+          .map((sam) => sam.id)
+
+        const updatedSamples = get().samples.map((sam) =>
+          affectedSampleIds.includes(sam.id)
+            ? { ...sam, status: 'pending_postpone' as SampleStatus, dispositionNote: '关联预约因故障停机被标记顺延，等待管理员处理' }
+            : sam
+        )
+
         const newNotifications: Notification[] = affectedReservations.map((r) => ({
           id: `noti-${nanoid(8)}`,
           type: 'downtime' as const,
@@ -229,6 +248,7 @@ export const useStore = create<AppState>()(
         set((s) => ({
           downtimes: [...s.downtimes, downtime],
           reservations: updatedReservations,
+          samples: updatedSamples,
           notifications: [...s.notifications, ...newNotifications],
           instruments: s.instruments.map((i) =>
             i.id === data.instrumentId ? { ...i, status: 'fault' as const } : i
@@ -274,49 +294,71 @@ export const useStore = create<AppState>()(
       },
 
       confirmPostpone: (id, newStartTime, newEndTime) => {
-        set((s) => ({
-          reservations: s.reservations.map((r) =>
-            r.id === id
-              ? { ...r, status: 'approved' as ReservationStatus, startTime: newStartTime, endTime: newEndTime }
-              : r
-          ),
-          notifications: [
-            ...s.notifications,
-            {
-              id: `noti-${nanoid(8)}`,
-              type: 'postpone' as const,
-              recipientId: s.reservations.find((r) => r.id === id)?.userId || '',
-              recipientName: s.reservations.find((r) => r.id === id)?.userName || '',
-              instrumentId: s.reservations.find((r) => r.id === id)?.instrumentId || '',
-              reservationId: id,
-              message: `您的顺延预约已调整至新时段`,
-              createdAt: new Date().toISOString(),
-              read: false,
-            },
-          ],
-        }))
+        const instName = get().instruments.find((i) => i.id === get().reservations.find((r) => r.id === id)?.instrumentId)?.name || '仪器'
+
+        set((s) => {
+          const updatedSamples = s.samples.map((sam) =>
+            sam.reservationId === id
+              ? { ...sam, status: 'postponed' as SampleStatus, dispositionNote: `已顺延至 ${new Date(newStartTime).toLocaleString('zh-CN')} ~ ${new Date(newEndTime).toLocaleString('zh-CN')}，请按时送样` }
+              : sam
+          )
+
+          return {
+            reservations: s.reservations.map((r) =>
+              r.id === id
+                ? { ...r, status: 'approved' as ReservationStatus, startTime: newStartTime, endTime: newEndTime }
+                : r
+            ),
+            samples: updatedSamples,
+            notifications: [
+              ...s.notifications,
+              {
+                id: `noti-${nanoid(8)}`,
+                type: 'postpone' as const,
+                recipientId: s.reservations.find((r) => r.id === id)?.userId || '',
+                recipientName: s.reservations.find((r) => r.id === id)?.userName || '',
+                instrumentId: s.reservations.find((r) => r.id === id)?.instrumentId || '',
+                reservationId: id,
+                message: `您在${instName}的预约已顺延至 ${new Date(newStartTime).toLocaleString('zh-CN')}，关联样本已同步更新`,
+                createdAt: new Date().toISOString(),
+                read: false,
+              },
+            ],
+          }
+        })
       },
 
       cancelPostponed: (id) => {
-        set((s) => ({
-          reservations: s.reservations.map((r) =>
-            r.id === id ? { ...r, status: 'cancelled' as ReservationStatus } : r
-          ),
-          notifications: [
-            ...s.notifications,
-            {
-              id: `noti-${nanoid(8)}`,
-              type: 'cancel' as const,
-              recipientId: s.reservations.find((r) => r.id === id)?.userId || '',
-              recipientName: s.reservations.find((r) => r.id === id)?.userName || '',
-              instrumentId: s.reservations.find((r) => r.id === id)?.instrumentId || '',
-              reservationId: id,
-              message: `您的预约因调整已取消`,
-              createdAt: new Date().toISOString(),
-              read: false,
-            },
-          ],
-        }))
+        const instName = get().instruments.find((i) => i.id === get().reservations.find((r) => r.id === id)?.instrumentId)?.name || '仪器'
+
+        set((s) => {
+          const updatedSamples = s.samples.map((sam) =>
+            sam.reservationId === id
+              ? { ...sam, status: 'cancelled' as SampleStatus, dispositionNote: `关联预约已取消，样本不再安排测试。请及时取回样本` }
+              : sam
+          )
+
+          return {
+            reservations: s.reservations.map((r) =>
+              r.id === id ? { ...r, status: 'cancelled' as ReservationStatus } : r
+            ),
+            samples: updatedSamples,
+            notifications: [
+              ...s.notifications,
+              {
+                id: `noti-${nanoid(8)}`,
+                type: 'cancel' as const,
+                recipientId: s.reservations.find((r) => r.id === id)?.userId || '',
+                recipientName: s.reservations.find((r) => r.id === id)?.userName || '',
+                instrumentId: s.reservations.find((r) => r.id === id)?.instrumentId || '',
+                reservationId: id,
+                message: `您在${instName}的预约已取消，关联样本已同步标记，请及时取回`,
+                createdAt: new Date().toISOString(),
+                read: false,
+              },
+            ],
+          }
+        })
       },
 
       markNotificationRead: (id) => {
