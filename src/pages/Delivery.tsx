@@ -70,7 +70,8 @@ export default function Delivery() {
             <div className="flex-1 overflow-y-auto p-3 space-y-3 max-h-[calc(100vh-180px)]">
               {col.episodes.map(ep => {
                 const versions = getEpisodeVersions(ep.id)
-                const finalVersion = versions.find(v => v.type === 'final')
+                const finalVersions = versions.filter(v => v.type === 'final').sort((a, b) => b.version - a.version)
+                const finalVersion = finalVersions[0]
                 const hasFinalFile = finalVersion?.filePath != null
                 const encoders = ep.assigneeIds
                   .map(id => encoderMap.get(id))
@@ -135,7 +136,7 @@ export default function Delivery() {
 
                     {showFilePath && !hasFinalFile && (
                       <Link
-                        to={`/projects/${ep.projectId}/versions?ep=${ep.id}`}
+                        to={`/projects/${ep.projectId}/versions?ep=${ep.id}&source=delivery`}
                         className="flex items-center justify-center gap-1 text-xs text-amber-400/80 hover:text-amber-300 bg-amber-500/5 border border-amber-500/20 rounded px-2 py-1 hover:bg-amber-500/10 transition-colors"
                       >
                         <ExternalLink className="w-3 h-3" />

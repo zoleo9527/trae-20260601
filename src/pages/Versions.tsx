@@ -1,6 +1,6 @@
 import { useStore, type FileVersion } from '@/store/useStore'
 import { formatDate } from '@/utils/constants'
-import { AlertTriangle, ChevronRight, FolderOpen, Plus } from 'lucide-react'
+import { AlertTriangle, Check, ChevronRight, FolderOpen, Pencil, Plus } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 
@@ -18,11 +18,28 @@ export default function Versions() {
   const openProject = useStore(s => s.openProject)
   const getEpisodeVersions = useStore(s => s.getEpisodeVersions)
   const addFileVersion = useStore(s => s.addFileVersion)
+  const updateFileVersion = useStore(s => s.updateFileVersion)
 
   const [showForm, setShowForm] = useState(false)
   const [formType, setFormType] = useState<FileVersion['type']>('translation')
   const [formPath, setFormPath] = useState('')
   const [formNote, setFormNote] = useState('')
+
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editPath, setEditPath] = useState('')
+  const [editNote, setEditNote] = useState('')
+
+  useEffect(() => {
+    if (project) openProject(project.id)
+  }, [project?.id])
+
+  useEffect(() => {
+    const source = searchParams.get('source')
+    if (source === 'delivery') {
+      setShowForm(true)
+      setFormType('final')
+    }
+  }, [searchParams])
 
   if (!project) {
     return (
@@ -31,10 +48,6 @@ export default function Versions() {
       </div>
     )
   }
-
-  useEffect(() => {
-    if (project) openProject(project.id)
-  }, [project?.id])
 
   const episodes = project.episodes
   const epId = searchParams.get('ep') || episodes[0]?.id || ''
@@ -47,6 +60,20 @@ export default function Versions() {
 
   const handleSubmit = () => {
     if (!selectedEp) return
+    if (formType === 'final' && versions.some(v => v.type === 'final' && v.filePath === null)) {
+      const pendingFinal = versions.find(v => v.type === 'final' && v.filePath === null)
+      if (pendingFinal && formPath.trim()) {
+        updateFileVersion(pendingFinal.id, {
+          filePath: formPath.trim() || null,
+          note: formNote.trim() || undefined,
+        })
+        setFormPath('')
+        setFormNote('')
+        setFormType('translation')
+        setShowForm(false)
+        return
+      }
+    }
     addFileVersion({
       episodeId: selectedEp.id,
       version: nextVersion,
@@ -62,15 +89,37 @@ export default function Versions() {
     setShowForm(false)
   }
 
+  const handleStartEdit = (v: FileVersion) => {
+    setEditingId(v.id)
+    setEditPath(v.filePath ?? '')
+    setEditNote(v.note ?? '')
+  }
+
+  const handleCancelEdit = () => {
+    setEditingId(null)
+    setEditPath('')
+    setEditNote('')
+  }
+
+  const handleSaveEdit = () => {
+    if (!editingId) return
+    updateFileVersion(editingId, {
+      filePath: editPath.trim() || null,
+      note: editNote.trim() || undefined,
+    })
+    handleCancelEdit()
+  }
+
   const switchEp = (eid: string) => {
     setSearchParams({ ep: eid })
     setShowForm(false)
+    handleCancelEdit()
   }
 
   return (
     <div className="min-h-screen bg-[#0f0f23] p-6 space-y-6">
       <nav className="flex items-center gap-1 text-sm text-zinc-500">
-        <Link to="/" className="hover:text-zinc-300 transition-colors">项目管理</Link>
+        <Link to="/projects" className="hover:text-zinc-300 transition-colors">项目管理</Link>
         <ChevronRight className="w-3 h-3" />
         <Link to={`/projects/${project.id}`} className="hover:text-zinc-300 transition-colors">{project.name}</Link>
         <ChevronRight className="w-3 h-3" />
@@ -104,6 +153,13 @@ export default function Versions() {
 
       {showForm && selectedEp && (
         <div className="bg-[#1e1e3a] border border-zinc-800 rounded-lg p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <p className="text-xs text-zinc-400">
+              {formType === 'final' && versions.some(v => v.type === 'final' && v.filePath === null)
+                ? '检测到终版版本路径缺失，提交时将补录到最新终版记录，避免重复新增'
+                : '新增版本记录'}
+            </p>
+          </div>
           <div className="flex gap-2">
             {(Object.keys(TYPE_BADGE) as FileVersion['type'][]).map(t => (
               <button
@@ -130,12 +186,21 @@ export default function Versions() {
           />
           <div className="flex items-center justify-between">
             <span className="text-xs text-zinc-500 font-mono">v{nextVersion}</span>
-            <button
-              onClick={handleSubmit}
-              className="px-4 py-1.5 rounded-lg bg-amber-400/20 text-amber-400 border border-amber-500/30 text-sm font-medium hover:bg-amber-400/30 transition-colors"
-            >
-              提交
-            </button>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowForm(false)}
+                className="px-3 py-1.5 rounded-lg bg-zinc-800 text-zinc-400 text-sm font-medium hover:bg-zinc-700 transition-colors"
+              >
+                取消
+              </button>
+              <button
+                onClick={handleSubmit}
+                disabled={!formPath.trim()}
+                className="px-4 py-1.5 rounded-lg bg-amber-400/20 text-amber-400 border border-amber-500/30 text-sm font-medium hover:bg-amber-400/30 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                提交
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -147,40 +212,100 @@ export default function Versions() {
       <div className="space-y-0">
         {versions.map((v, i) => {
           const isLast = i === versions.length - 1
+          const isEditing = editingId === v.id
+          const isPathMissing = v.filePath === null
+
           return (
             <div key={v.id} className="flex gap-4">
               <div className="flex flex-col items-center w-6 shrink-0">
-                <div className="w-3 h-3 rounded-full bg-amber-400 border-2 border-[#0f0f23] z-10" />
+                <div className={`w-3 h-3 rounded-full border-2 border-[#0f0f23] z-10 ${
+                  v.type === 'final' ? 'bg-green-400' : isPathMissing ? 'bg-red-400' : 'bg-amber-400'
+                }`} />
                 {!isLast && <div className="w-0.5 flex-1 bg-amber-500/30" />}
               </div>
-              <div className={`pb-6 flex-1 ${isLast ? '' : ''}`}>
-                <div className="bg-[#1e1e3a] border border-zinc-800 rounded-lg p-4 space-y-2">
+              <div className="pb-6 flex-1">
+                <div className={`bg-[#1e1e3a] border rounded-lg p-4 space-y-2 ${
+                  isPathMissing ? 'border-red-500/30' : 'border-zinc-800'
+                }`}>
                   <div className="flex items-center gap-2">
                     <span className="font-mono text-amber-400 text-sm font-semibold">v{v.version}</span>
                     <span className={`px-2 py-0.5 rounded text-xs font-medium ${TYPE_BADGE[v.type].color}`}>
                       {TYPE_BADGE[v.type].label}
                     </span>
+                    {isPathMissing && !isEditing && (
+                      <span className="ml-auto text-xs text-red-400 flex items-center gap-1">
+                        <AlertTriangle className="w-3.5 h-3.5" />
+                        路径缺失
+                      </span>
+                    )}
                   </div>
                   <div className="flex items-center gap-3 text-xs text-zinc-400">
                     <span>{assigneeMap.get(v.submittedBy) || v.submittedBy}</span>
                     <span>{formatDate(v.submittedAt)}</span>
                   </div>
-                  {v.note && <div className="text-sm text-zinc-300">{v.note}</div>}
-                  {v.filePath !== null ? (
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-1.5 text-xs text-zinc-400 min-w-0">
-                        <FolderOpen className="w-3.5 h-3.5 shrink-0" />
-                        <span className="truncate">{v.filePath}</span>
+
+                  {isEditing ? (
+                    <div className="space-y-2 pt-2">
+                      <input
+                        value={editPath}
+                        onChange={e => setEditPath(e.target.value)}
+                        placeholder="输入文件路径..."
+                        className="w-full bg-[#0f0f23] border border-amber-500/30 rounded px-3 py-2 text-sm text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:border-amber-500/50"
+                        autoFocus
+                      />
+                      <textarea
+                        value={editNote}
+                        onChange={e => setEditNote(e.target.value)}
+                        placeholder="备注（可选）"
+                        rows={2}
+                        className="w-full bg-[#0f0f23] border border-zinc-700 rounded px-3 py-2 text-sm text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:border-amber-500/50 resize-none"
+                      />
+                      <div className="flex justify-end gap-2">
+                        <button
+                          onClick={handleCancelEdit}
+                          className="px-3 py-1 rounded text-xs bg-zinc-800 text-zinc-400 hover:bg-zinc-700 transition-colors"
+                        >
+                          取消
+                        </button>
+                        <button
+                          onClick={handleSaveEdit}
+                          disabled={!editPath.trim()}
+                          className="px-3 py-1 rounded text-xs bg-amber-500/20 text-amber-400 border border-amber-500/30 hover:bg-amber-500/30 transition-colors disabled:opacity-40 flex items-center gap-1"
+                        >
+                          <Check className="w-3 h-3" />
+                          保存
+                        </button>
                       </div>
-                      <button className="px-2 py-0.5 rounded text-xs text-zinc-400 bg-zinc-800 hover:bg-zinc-700 transition-colors shrink-0 ml-2">
-                        打开
-                      </button>
                     </div>
                   ) : (
-                    <div className="flex items-center gap-1.5 text-xs text-red-400">
-                      <AlertTriangle className="w-3.5 h-3.5" />
-                      <span>路径丢失</span>
-                    </div>
+                    <>
+                      {v.note && <div className="text-sm text-zinc-300">{v.note}</div>}
+                      {v.filePath !== null ? (
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-1.5 text-xs text-zinc-400 min-w-0">
+                            <FolderOpen className="w-3.5 h-3.5 shrink-0 text-emerald-400" />
+                            <span className="truncate font-mono">{v.filePath}</span>
+                          </div>
+                          <button
+                            onClick={() => handleStartEdit(v)}
+                            className="px-2 py-0.5 rounded text-xs text-zinc-400 bg-zinc-800 hover:bg-zinc-700 transition-colors shrink-0 ml-2 flex items-center gap-1"
+                          >
+                            <Pencil className="w-3 h-3" />
+                            编辑
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2 pt-1">
+                          <button
+                            onClick={() => handleStartEdit(v)}
+                            className="flex-1 flex items-center justify-center gap-1 py-1.5 rounded text-xs text-amber-400 bg-amber-500/10 border border-amber-500/20 hover:bg-amber-500/20 transition-colors"
+                          >
+                            <Pencil className="w-3 h-3" />
+                            补录文件路径
+                          </button>
+                        </div>
+                      )}
+                    </>
                   )}
                 </div>
               </div>

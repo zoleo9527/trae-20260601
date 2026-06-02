@@ -85,6 +85,7 @@ export interface AppState {
   updateEpisode: (projectId: string, episodeId: string, updates: Partial<Episode>) => void
   addSegment: (projectId: string, episodeId: string, name: string, startLine: number, endLine: number, assigneeId: string) => void
   addFileVersion: (version: Omit<FileVersion, 'id'>) => void
+  updateFileVersion: (versionId: string, updates: Partial<Pick<FileVersion, 'filePath' | 'note'>>) => void
   addReviewComment: (comment: Omit<ReviewComment, 'id'>) => void
   resolveComment: (commentId: string) => void
   markEpisodeRework: (projectId: string, episodeId: string, reason: string) => void
@@ -349,6 +350,14 @@ export const useStore = create<AppState>()(
       addFileVersion: (version) => {
         const v: FileVersion = { ...version, id: 'v' + uid() }
         set(s => ({ fileVersions: [...s.fileVersions, v] }))
+      },
+
+      updateFileVersion: (versionId, updates) => {
+        set(s => ({
+          fileVersions: s.fileVersions.map(v =>
+            v.id === versionId ? { ...v, ...updates } : v
+          ),
+        }))
       },
 
       addReviewComment: (comment) => {

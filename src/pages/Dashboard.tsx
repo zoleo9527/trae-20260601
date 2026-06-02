@@ -120,12 +120,13 @@ export default function Dashboard() {
     }
 
     if (ep.status === 'delivering') {
-      const finalVersions = epVersions.filter(v => v.type === 'final' && v.filePath)
+      const finalVersions = epVersions.filter(v => v.type === 'final').sort((a, b) => b.version - a.version)
+      const finalVersion = finalVersions[0]
       alerts.push({
         episodeTitle: ep.title,
         projectName: project.name,
         projectId: project.id,
-        description: `已压制完成，待确认交付${finalVersions.length > 0 ? '（文件就绪）' : '（终版文件未录入）'}`,
+        description: `已压制完成，待确认交付${finalVersion?.filePath ? '（文件就绪）' : '（终版文件未录入）'}`,
         badge: '待交付',
         badgeColor: 'bg-emerald-500/20 text-emerald-400',
         icon: <Truck className="w-4 h-4 text-emerald-400" />,
