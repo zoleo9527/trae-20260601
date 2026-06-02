@@ -11,9 +11,7 @@ const deductionHandlers = require('./database/handlers/deductions')
 const reportHandlers = require('./database/handlers/reports')
 
 function isDevMode() {
-  if (process.env.NODE_ENV === 'development') return true
   if (process.argv.includes('--dev') || process.argv.includes('--development')) return true
-  if (!app.isPackaged) return true
   const distPath = path.join(__dirname, '../dist/index.html')
   return !fs.existsSync(distPath)
 }

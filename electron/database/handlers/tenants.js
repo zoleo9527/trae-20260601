@@ -116,8 +116,8 @@ module.exports = function (db) {
       const tx = db.transaction(() => {
         db.prepare('UPDATE tenants SET status = ?, end_date = date(\'now\'), updated_at = CURRENT_TIMESTAMP WHERE id = ?').run('inactive', id)
         
-        const subleaseCount = db.prepare('SELECT COUNT(*) as count FROM tenants WHERE original_tenant_id = ?').get(id).count
-        if (subleaseCount === 0) {
+        const activeTenantCount = db.prepare('SELECT COUNT(*) as count FROM tenants WHERE stall_id = ? AND status = ?').get(tenant.stall_id, 'active').count
+        if (activeTenantCount === 0) {
           db.prepare('UPDATE stalls SET status = ? WHERE id = ?').run('inactive', tenant.stall_id)
         }
       })
