@@ -32,7 +32,7 @@ export function Dashboard() {
   const { currentUser } = useUserStore();
   const { appointments, getTodayAppointments, getRescheduleRequests } = useAppointmentStore();
   const { getPendingTriage } = useTriageStore();
-  const { getHighRiskCount } = useRiskStore();
+  const { getHighRiskCount, getPendingReview } = useRiskStore();
   const { getPendingScales, getRetestNeeded } = useScaleStore();
 
   const rescheduleRequests = getRescheduleRequests();
@@ -40,6 +40,7 @@ export function Dashboard() {
   const pendingScales = getPendingScales();
   const retestNeeded = getRetestNeeded();
   const highRiskCount = getHighRiskCount();
+  const pendingRiskCases = getPendingReview();
 
   let todayAppointments = getTodayAppointments();
   if (currentUser.role === 'counselor' && currentUser.counselorId) {
@@ -78,7 +79,7 @@ export function Dashboard() {
       return ['reschedule', 'triage', 'scale'].includes(todo.type);
     }
     if (currentUser.role === 'counselor') {
-      return ['scale', 'risk'].includes(todo.type);
+      return ['scale'].includes(todo.type);
     }
     if (currentUser.role === 'supervisor') {
       return todo.type === 'risk';
@@ -259,29 +260,38 @@ export function Dashboard() {
                 </button>
               </div>
               <div>
-                {highRiskCount === 0 ? (
+                {pendingRiskCases.length === 0 ? (
                   <p className="text-text-tertiary text-center py-10 text-sm">暂无待审核个案</p>
                 ) : (
                   <div className="divide-y divide-gray-50">
-                    {appointments
-                      .filter((apt) => apt.status !== 'cancelled')
-                      .slice(0, 5)
-                      .map((apt) => (
-                        <div
-                          key={apt.id}
-                          className="flex items-center justify-between px-5 py-3.5 hover:bg-surface-hover transition-colors cursor-pointer"
-                          onClick={() => navigate('/risk')}
-                        >
-                          <div className="flex items-center gap-4">
-                            <div>
-                              <p className="text-sm font-medium text-text-primary">{anonymize(apt.clientName)}</p>
-                              <p className="text-2xs text-text-tertiary mt-0.5">{apt.date}</p>
-                            </div>
+                    {pendingRiskCases.map((c) => (
+                      <div
+                        key={c.id}
+                        className="flex items-center justify-between px-5 py-3.5 hover:bg-surface-hover transition-colors cursor-pointer"
+                        onClick={() => navigate('/risk')}
+                      >
+                        <div className="flex items-center gap-4">
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                            c.riskLevel === 'critical' ? 'bg-red-50' : 'bg-amber-50'
+                          }`}>
+                            <AlertTriangle size={14} className={
+                              c.riskLevel === 'critical' ? 'text-red-500' : 'text-amber-500'
+                            } />
                           </div>
-                          <StatusBadge type="appointment" status={apt.status} />
+                          <div>
+                            <p className="text-sm font-medium text-text-primary">{anonymize(c.clientName)}</p>
+                            <p className="text-2xs text-text-tertiary mt-0.5">
+                              {c.counselorName} 上报 · {c.reportedAt}
+                            </p>
+                          </div>
                         </div>
-                      ))
-                    }
+                        <div className="flex items-center gap-2">
+                          <span className={`badge ${c.riskLevel === 'critical' ? 'bg-red-50 text-red-700' : 'bg-amber-50 text-amber-700'}`}>
+                            {c.riskLevel === 'critical' ? '极高' : '高'}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 )}
               </div>

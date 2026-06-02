@@ -74,12 +74,21 @@ const timeSlots = ['09:00', '10:00', '11:00', '14:00', '15:00', '16:00'];
 export const mockSchedules: CounselorSchedule[] = [
   { counselorId: 'c1', date: '2026-06-02', availableSlots: ['11:00', '15:00'], bookedSlots: ['09:00', '14:00'] },
   { counselorId: 'c1', date: '2026-06-03', availableSlots: ['09:00', '10:00', '11:00', '15:00', '16:00'], bookedSlots: ['14:00'] },
+  { counselorId: 'c1', date: '2026-06-04', availableSlots: ['09:00', '10:00', '11:00', '14:00', '15:00'], bookedSlots: ['16:00'] },
+  { counselorId: 'c1', date: '2026-06-05', availableSlots: ['11:00', '14:00', '15:00', '16:00'], bookedSlots: ['09:00', '10:00'] },
+  { counselorId: 'c1', date: '2026-06-06', availableSlots: ['09:00', '10:00', '11:00', '14:00', '15:00', '16:00'], bookedSlots: [] },
   { counselorId: 'c2', date: '2026-06-02', availableSlots: ['09:00', '11:00', '14:00', '15:00', '16:00'], bookedSlots: ['10:00'] },
   { counselorId: 'c2', date: '2026-06-03', availableSlots: ['10:00', '11:00', '14:00', '15:00', '16:00'], bookedSlots: ['09:00'] },
+  { counselorId: 'c2', date: '2026-06-04', availableSlots: ['09:00', '10:00', '11:00', '14:00', '15:00', '16:00'], bookedSlots: [] },
+  { counselorId: 'c2', date: '2026-06-05', availableSlots: ['09:00', '10:00', '14:00', '15:00', '16:00'], bookedSlots: ['11:00'] },
   { counselorId: 'c3', date: '2026-06-02', availableSlots: ['09:00', '10:00', '11:00', '14:00'], bookedSlots: ['15:00', '16:00'] },
   { counselorId: 'c3', date: '2026-06-03', availableSlots: ['09:00', '11:00', '14:00', '16:00'], bookedSlots: ['10:00', '15:00'] },
+  { counselorId: 'c3', date: '2026-06-04', availableSlots: ['09:00', '10:00', '11:00', '14:00', '15:00'], bookedSlots: ['16:00'] },
+  { counselorId: 'c3', date: '2026-06-06', availableSlots: ['09:00', '10:00', '11:00', '14:00', '15:00', '16:00'], bookedSlots: [] },
   { counselorId: 'c4', date: '2026-06-02', availableSlots: timeSlots, bookedSlots: [] },
   { counselorId: 'c4', date: '2026-06-03', availableSlots: ['09:00', '10:00', '14:00', '15:00', '16:00'], bookedSlots: ['11:00'] },
+  { counselorId: 'c4', date: '2026-06-04', availableSlots: ['09:00', '10:00', '11:00', '14:00', '15:00', '16:00'], bookedSlots: [] },
+  { counselorId: 'c4', date: '2026-06-06', availableSlots: ['09:00', '10:00', '11:00', '14:00', '15:00', '16:00'], bookedSlots: [] },
 ];
 
 export const currentUser = mockUsers[0];

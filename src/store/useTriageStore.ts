@@ -36,6 +36,8 @@ export const useTriageStore = create<TriageState>((set, get) => ({
 
     if (item.appointmentId) {
       const appointmentStore = useAppointmentStore.getState();
+      const appointment = appointmentStore.appointments.find((a) => a.id === item.appointmentId);
+
       appointmentStore.setAppointments(
         appointmentStore.appointments.map((a) =>
           a.id === item.appointmentId
@@ -43,6 +45,20 @@ export const useTriageStore = create<TriageState>((set, get) => ({
             : a
         )
       );
+
+      if (appointment) {
+        const counselorStore = useCounselorStore.getState();
+        const newSchedules = counselorStore.schedules.map((s) => {
+          if (s.counselorId !== counselorId || s.date !== appointment.date) return s;
+          if (!s.availableSlots.includes(appointment.time)) return s;
+          return {
+            ...s,
+            availableSlots: s.availableSlots.filter((t) => t !== appointment.time),
+            bookedSlots: [...s.bookedSlots, appointment.time].sort(),
+          };
+        });
+        counselorStore.setSchedules(newSchedules);
+      }
     }
   },
 

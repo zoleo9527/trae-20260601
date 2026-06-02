@@ -9,7 +9,7 @@ const navItems = [
   { path: '/triage', label: '分诊', icon: UserCheck, roles: ['reception'] as UserRole[] },
   { path: '/schedule', label: '排班', icon: Clock, roles: ['reception', 'counselor'] as UserRole[] },
   { path: '/scales', label: '量表', icon: FileText, roles: ['reception', 'counselor'] as UserRole[] },
-  { path: '/risk', label: '风险预警', icon: AlertTriangle, roles: ['supervisor', 'counselor'] as UserRole[] },
+  { path: '/risk', label: '风险预警', icon: AlertTriangle, roles: ['supervisor'] as UserRole[] },
 ];
 
 const roleConfig: Record<UserRole, { label: string; icon: typeof Users; color: string }> = {

@@ -12,7 +12,7 @@ import type { ReactNode } from 'react';
 
 const roleRoutes: Record<string, string[]> = {
   reception: ['/dashboard', '/appointments', '/triage', '/schedule', '/scales'],
-  counselor: ['/dashboard', '/appointments', '/schedule', '/scales', '/risk'],
+  counselor: ['/dashboard', '/appointments', '/schedule', '/scales'],
   supervisor: ['/dashboard', '/risk'],
 };
 
