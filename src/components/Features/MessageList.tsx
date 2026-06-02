@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { Send, Check, CheckCheck, Eye } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { formatTimeHHMM } from '@/lib/utils';
 import { useAppStore } from '@/store';
 import type { Message, Child } from '@/types';
 
@@ -18,8 +19,7 @@ const quickReplies = [
 ];
 
 function formatTime(timestamp: string) {
-  const date = new Date(timestamp);
-  return `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
+  return formatTimeHHMM(timestamp);
 }
 
 export default function MessageList({

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -17,7 +17,7 @@ import StatsCard from '@/components/Features/StatsCard';
 import { Badge } from '@/components/UI/Badge';
 import { Button } from '@/components/UI/Button';
 import type { Severity, MessagePriority } from '@/types';
-import { cn } from '@/lib/utils';
+import { cn, isToday, sortByTimeDesc, sortByTimeAsc, formatTimeHHMM, getTimeMs } from '@/lib/utils';
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -58,34 +58,54 @@ export default function PrincipalDashboard() {
   const logout = useAppStore((state) => state.logout);
 
   const totalChildren = children.length;
-  const todayAnomalies = records.filter(
-    (r) => r.severity === 'warning' || r.severity === 'danger'
-  ).length;
+
+  const todayAnomalies = useMemo(() => {
+    const anomalyChildIds = new Set(
+      records
+        .filter((r) => (r.severity === 'warning' || r.severity === 'danger') && isToday(r.time))
+        .map((r) => r.childId)
+    );
+    return anomalyChildIds.size;
+  }, [records]);
+
   const pendingReplies = messages.filter(
     (m) => m.sender === 'parent' && !m.isRead
   ).length;
 
-  const anomalyRecords = records
-    .filter((r) => r.severity === 'warning' || r.severity === 'danger')
-    .filter((r) => (anomalyFilter === 'all' ? true : r.severity === anomalyFilter))
-    .sort((a, b) => b.time.localeCompare(a.time))
-    .slice(0, 10);
+  const anomalyRecords = useMemo(() => {
+    const filtered = records.filter(
+      (r) => (r.severity === 'warning' || r.severity === 'danger') && isToday(r.time)
+    ).filter((r) => (anomalyFilter === 'all' ? true : r.severity === anomalyFilter));
 
-  const pendingMessages = messages
-    .filter((m) => m.sender === 'parent' && !m.isRead)
-    .sort((a, b) => {
-      const priorityOrder = { high: 0, medium: 1, low: 2 };
-      return priorityOrder[a.priority] - priorityOrder[b.priority] || b.timestamp.localeCompare(a.timestamp);
-    })
-    .slice(0, 8);
+    const childToLatestRecord = new Map<string, typeof filtered[0]>();
+    filtered.forEach((record) => {
+      const existing = childToLatestRecord.get(record.childId);
+      if (!existing || getTimeMs(record.time) > getTimeMs(existing.time)) {
+        childToLatestRecord.set(record.childId, record);
+      }
+    });
+
+    return sortByTimeDesc(Array.from(childToLatestRecord.values())).slice(0, 10);
+  }, [records, anomalyFilter]);
+
+  const pendingMessages = useMemo(
+    () =>
+      sortByTimeDesc(
+        messages.filter((m) => m.sender === 'parent' && !m.isRead),
+        'timestamp'
+      ).sort((a, b) => {
+        const priorityOrder = { high: 0, medium: 1, low: 2 };
+        return priorityOrder[a.priority] - priorityOrder[b.priority];
+      }).slice(0, 8),
+    [messages]
+  );
 
   const getChildName = (childId: string) => {
     return children.find((c) => c.id === childId)?.name || '';
   };
 
   const formatTime = (timeStr: string) => {
-    const date = new Date(timeStr);
-    return `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
+    return formatTimeHHMM(timeStr);
   };
 
   const formatDate = () => {

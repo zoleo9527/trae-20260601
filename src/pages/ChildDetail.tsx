@@ -24,7 +24,7 @@ import MealNapChart from '@/components/Features/MealNapChart';
 import MessageList from '@/components/Features/MessageList';
 import type { RecordType, UserRole } from '@/types';
 import { RECORD_TYPE_LABELS, RECORD_TYPE_ICONS } from '@/types';
-import { cn } from '@/lib/utils';
+import { cn, sortByTimeDesc, sortByTimeAsc, formatTimeHHMM } from '@/lib/utils';
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -68,15 +68,15 @@ export default function ChildDetail() {
 
   const child = useMemo(() => children.find((c) => c.id === id), [children, id]);
   const records = useMemo(
-    () => allRecords.filter((r) => r.childId === id).sort((a, b) => b.time.localeCompare(a.time)),
+    () => sortByTimeDesc(allRecords.filter((r) => r.childId === id)),
     [allRecords, id]
   );
   const photos = useMemo(
-    () => allPhotos.filter((p) => p.childId === id).sort((a, b) => b.timestamp.localeCompare(a.timestamp)),
+    () => sortByTimeDesc(allPhotos.filter((p) => p.childId === id), 'timestamp'),
     [allPhotos, id]
   );
   const messages = useMemo(
-    () => allMessages.filter((m) => m.childId === id).sort((a, b) => a.timestamp.localeCompare(b.timestamp)),
+    () => sortByTimeAsc(allMessages.filter((m) => m.childId === id), 'timestamp'),
     [allMessages, id]
   );
   const healthAlerts = useMemo(
@@ -175,9 +175,9 @@ export default function ChildDetail() {
                 详细记录
               </h3>
               <div className="space-y-3">
-                {records
-                  .filter((r) => r.type === 'meal' || r.type === 'nap')
-                  .sort((a, b) => b.time.localeCompare(a.time))
+                {sortByTimeDesc(
+                  records.filter((r) => r.type === 'meal' || r.type === 'nap')
+                )
                   .slice(0, 10)
                   .map((record) => (
                     <div
@@ -193,10 +193,7 @@ export default function ChildDetail() {
                             {RECORD_TYPE_LABELS[record.type]}
                           </span>
                           <span className="text-xs text-gray-400">
-                            {new Date(record.time).toLocaleTimeString('zh-CN', {
-                              hour: '2-digit',
-                              minute: '2-digit',
-                            })}
+                            {formatTimeHHMM(record.time)}
                           </span>
                         </div>
                         <p className="text-sm text-gray-600">{record.content}</p>

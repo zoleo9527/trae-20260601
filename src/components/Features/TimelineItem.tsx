@@ -9,6 +9,7 @@ import {
 import type { DailyRecord, Photo } from '@/types';
 import { useAppStore } from '@/store';
 import { useMemo } from 'react';
+import { formatTimeHHMM } from '@/lib/utils';
 
 interface TimelineItemProps {
   record: DailyRecord;
@@ -23,8 +24,7 @@ export default function TimelineItem({ record, isLast }: TimelineItemProps) {
   );
 
   const formatTime = (timeStr: string): string => {
-    const date = new Date(timeStr);
-    return `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
+    return formatTimeHHMM(timeStr);
   };
 
   return (

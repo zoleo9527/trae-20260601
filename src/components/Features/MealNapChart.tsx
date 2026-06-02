@@ -10,7 +10,7 @@ import {
   Tooltip,
   Legend,
 } from 'recharts';
-import { cn } from '@/lib/utils';
+import { cn, isToday, sortByTimeAsc } from '@/lib/utils';
 import type { DailyRecord } from '@/types';
 import Empty from '../Empty';
 
@@ -40,8 +40,7 @@ const MEAL_NAMES: globalThis.Record<string, string> = {
 };
 
 export default function MealNapChart({ records, className }: MealNapChartProps) {
-  const today = new Date().toISOString().split('T')[0];
-  const todayRecords = records.filter((r) => r.time.startsWith(today));
+  const todayRecords = records.filter((r) => isToday(r.time));
 
   const parseMealAmount = (content: string): number => {
     if (content.includes('全部吃完') || content.includes('食量100%')) return 100;
@@ -77,8 +76,8 @@ export default function MealNapChart({ records, className }: MealNapChartProps) 
     return 0;
   };
 
-  const mealRecords = todayRecords.filter((r) => r.type === 'meal');
-  const napRecords = todayRecords.filter((r) => r.type === 'nap');
+  const mealRecords = sortByTimeAsc(todayRecords.filter((r) => r.type === 'meal'));
+  const napRecords = sortByTimeAsc(todayRecords.filter((r) => r.type === 'nap'));
 
   const mealData: MealData[] = mealRecords.map((record, index) => {
     const type = parseMealType(record.content);

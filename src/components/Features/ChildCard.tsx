@@ -3,6 +3,7 @@ import { cn } from '@/lib/utils';
 import type { Child, Severity } from '@/types';
 import { useAppStore } from '@/store';
 import { useMemo } from 'react';
+import { isToday } from '@/lib/utils';
 
 interface ChildCardProps {
   child: Child;
@@ -20,8 +21,7 @@ export default function ChildCard({ child, onClick, selected }: ChildCardProps) 
   );
 
   const todayRecords = useMemo(() => {
-    const todayStr = new Date().toISOString().split('T')[0];
-    return records.filter((r) => r.childId === child.id && r.time.startsWith(todayStr));
+    return records.filter((r) => r.childId === child.id && isToday(r.time));
   }, [records, child.id]);
 
   const getTodayStatus = (): { label: string; severity: Severity } => {

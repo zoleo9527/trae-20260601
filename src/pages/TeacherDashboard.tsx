@@ -7,7 +7,7 @@ import { Button } from '@/components/UI/Button';
 import ChildCard from '@/components/Features/ChildCard';
 import QuickRecordModal from '@/components/Features/QuickRecordModal';
 import { useAppStore } from '@/store';
-import { cn } from '@/lib/utils';
+import { cn, sortByTimeDesc, sortByTimeAsc, formatTimeHHMM, isToday, getTimeMs } from '@/lib/utils';
 
 type ViewMode = 'grid' | 'pending' | 'warnings';
 
@@ -41,12 +41,12 @@ export default function TeacherDashboard() {
   );
 
   const warningCount = useMemo(() => {
-    const todayStr = new Date().toISOString().split('T')[0];
-    return records.filter(
-      (r) =>
-        (r.severity === 'warning' || r.severity === 'danger') &&
-        r.time.startsWith(todayStr)
-    ).length;
+    const warningChildIds = new Set(
+      records
+        .filter((r) => (r.severity === 'warning' || r.severity === 'danger') && isToday(r.time))
+        .map((r) => r.childId)
+    );
+    return warningChildIds.size;
   }, [records]);
 
   const today = new Date();
@@ -73,22 +73,31 @@ export default function TeacherDashboard() {
     setIsModalOpen(true);
   };
 
-  const pendingMessages = messages
-    .filter((m) => m.sender === 'parent' && !m.isRead)
-    .sort((a, b) => {
-      const priorityOrder = { high: 0, medium: 1, low: 2 };
-      return priorityOrder[a.priority] - priorityOrder[b.priority] || b.timestamp.localeCompare(a.timestamp);
+  const pendingMessages = useMemo(
+    () =>
+      sortByTimeDesc(
+        messages.filter((m) => m.sender === 'parent' && !m.isRead),
+        'timestamp'
+      ).sort((a, b) => {
+        const priorityOrder = { high: 0, medium: 1, low: 2 };
+        return priorityOrder[a.priority] - priorityOrder[b.priority];
+      }),
+    [messages]
+  );
+
+  const warningRecordsForList = useMemo(() => {
+    const todayWarningRecords = records.filter(
+      (r) => (r.severity === 'warning' || r.severity === 'danger') && isToday(r.time)
+    );
+    const childToLatestRecord = new Map<string, typeof todayWarningRecords[0]>();
+    todayWarningRecords.forEach((record) => {
+      const existing = childToLatestRecord.get(record.childId);
+      if (!existing || getTimeMs(record.time) > getTimeMs(existing.time)) {
+        childToLatestRecord.set(record.childId, record);
+      }
     });
-
-  const warningRecordsForList = records
-    .filter((r) => r.severity === 'warning' || r.severity === 'danger')
-    .sort((a, b) => b.time.localeCompare(a.time))
-    .slice(0, 10);
-
-  const formatTime = (timeStr: string) => {
-    const date = new Date(timeStr);
-    return `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
-  };
+    return sortByTimeDesc(Array.from(childToLatestRecord.values())).slice(0, 10);
+  }, [records]);
 
   const containerVariants = {
     hidden: { opacity: 0 },
@@ -268,7 +277,7 @@ export default function TeacherDashboard() {
                         <p className="text-sm text-gray-600 truncate">{msg.content}</p>
                       </div>
                       <div className="flex items-center gap-2 flex-shrink-0">
-                        <span className="text-xs text-gray-400">{formatTime(msg.timestamp)}</span>
+                        <span className="text-xs text-gray-400">{formatTimeHHMM(msg.timestamp)}</span>
                         <ChevronRight className="w-4 h-4 text-gray-300" />
                       </div>
                     </motion.div>
@@ -321,7 +330,7 @@ export default function TeacherDashboard() {
                         <p className="text-sm text-gray-600 truncate">{record.content}</p>
                       </div>
                       <div className="flex items-center gap-2 flex-shrink-0">
-                        <span className="text-xs text-gray-400">{formatTime(record.time)}</span>
+                        <span className="text-xs text-gray-400">{formatTimeHHMM(record.time)}</span>
                         <ChevronRight className="w-4 h-4 text-gray-300" />
                       </div>
                     </motion.div>
