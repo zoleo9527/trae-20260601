@@ -131,6 +131,18 @@ export default function Dashboard() {
         icon: <Truck className="w-4 h-4 text-emerald-400" />,
       })
     }
+
+    if ((ep.status === 'encoded' || ep.status === 'delivering') && !epVersions.some(v => v.type === 'final' && v.filePath)) {
+      alerts.push({
+        episodeTitle: ep.title,
+        projectName: project.name,
+        projectId: project.id,
+        description: '终版文件路径未登记，交付前需补录压制输出文件',
+        badge: '终版缺失',
+        badgeColor: 'bg-red-500/20 text-red-400',
+        icon: <FileWarning className="w-4 h-4 text-red-400" />,
+      })
+    }
   }
 
   return (
