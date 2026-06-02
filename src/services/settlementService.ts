@@ -37,6 +37,7 @@ export interface SettlementSummary {
   compensationAmount: number;
   commissionAdjust: number;
   isDisputed: boolean;
+  batchCount: number;
   orderCount: number;
   afterSaleCount: number;
   adjustmentCount: number;
@@ -256,8 +257,11 @@ export class SettlementService {
     const settlements = await prisma.commissionSettlement.findMany({
       where,
       include: {
+        batches: {
+          select: { id: true, totalOrderCount: true },
+        },
         _count: {
-          select: { batches: true, afterSales: true, adjustments: true },
+          select: { afterSales: true, adjustments: true },
         },
       },
       orderBy: { createdAt: 'desc' },
@@ -274,7 +278,8 @@ export class SettlementService {
       compensationAmount: s.compensationAmount,
       commissionAdjust: s.commissionAdjust,
       isDisputed: s.status === 'DISPUTED',
-      orderCount: s._count.batches,
+      batchCount: s.batches.length,
+      orderCount: s.batches.reduce((sum: number, b: any) => sum + b.totalOrderCount, 0),
       afterSaleCount: s._count.afterSales,
       adjustmentCount: s._count.adjustments,
       createdAt: s.createdAt,

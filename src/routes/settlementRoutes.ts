@@ -15,6 +15,7 @@ const createSettlementSchema = z.object({
 });
 
 const settlementListQuerySchema = z.object({
+  leaderId: z.string().optional(),
   status: z.enum(VALID_STATUSES as [string, ...string[]]).optional(),
 });
 
@@ -34,8 +35,8 @@ router.get('/settlements', async (req, res) => {
   try {
     const { leaderId, status } = settlementListQuerySchema.parse(req.query);
     const result = await settlementService.listSettlements(
-      req.query.leaderId as string | undefined,
-      status as SettlementStatus,
+      leaderId,
+      status as SettlementStatus | undefined,
     );
     res.json({ success: true, data: result });
   } catch (error) {
