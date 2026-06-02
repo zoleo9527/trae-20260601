@@ -151,15 +151,31 @@ const addToBatch = async () => {
     ElMessage.warning('请先创建批次')
     return
   }
+  if (selectedPackages.value.length === 0) {
+    ElMessage.warning('请选择要添加的器械包')
+    return
+  }
   
   try {
-    await batchAPI.addPackages(currentBatch.value.batch_no, selectedPackages.value)
-    ElMessage.success('已添加到批次')
+    const res = await batchAPI.addPackages(currentBatch.value.batch_no, selectedPackages.value)
+    const accepted = res.data.accepted || []
+    const rejected = res.data.rejected || []
+    
+    if (accepted.length > 0) {
+      const acceptedNos = accepted.map(p => p.package_no).join('、')
+      ElMessage.success(`成功添加 ${accepted.length} 个：${acceptedNos}`)
+    }
+    
+    if (rejected.length > 0) {
+      const rejectedStr = rejected.map(r => `${r.package_no || r.id}: ${r.reason}`).join('\n')
+      ElMessage.error(`失败 ${rejected.length} 个：\n${rejectedStr}`)
+    }
+    
     selectedPackages.value = []
     loadAvailable()
     loadActiveBatch()
   } catch (err) {
-    ElMessage.error('添加失败')
+    ElMessage.error(err.response?.data?.error || '添加失败')
   }
 }
 

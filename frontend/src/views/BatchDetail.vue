@@ -119,21 +119,28 @@
       </el-col>
     </el-row>
 
-    <el-dialog v-model="showAddPackage" title="添加器械包到批次" width="600px">
-      <el-select
-        v-model="selectedPackages"
-        multiple
-        filterable
-        placeholder="选择要添加的器械包"
-        style="width: 100%;"
+    <el-dialog v-model="showAddPackage" title="添加器械包到批次" width="700px">
+      <el-table
+        ref="tableRef"
+        :data="availablePackages"
+        height="300"
+        border
+        @selection-change="(sel) => selectedPackages = sel.map(p => p.id)"
       >
-        <el-option
-          v-for="pkg in availablePackages"
-          :key="pkg.id"
-          :label="`${pkg.package_no} - ${pkg.name}`"
-          :value="pkg.id"
-        />
-      </el-select>
+        <el-table-column type="selection" width="55" />
+        <el-table-column prop="package_no" label="包号" width="160" />
+        <el-table-column prop="name" label="名称" />
+        <el-table-column prop="status" label="当前状态" width="100">
+          <template #default="{ row }">
+            <el-tag size="small" :type="statusTagType[row.status]">
+              {{ statusMap[row.status] }}
+            </el-tag>
+          </template>
+        </el-table-column>
+      </el-table>
+      <p style="color: #909399; font-size: 12px; margin: 8px 0 0 0;">
+        提示：只允许已清洗(cleaned)或已打包(packaged)的器械包入批
+      </p>
       <template #footer>
         <el-button @click="showAddPackage = false">取消</el-button>
         <el-button type="primary" @click="addPackages">添加</el-button>
@@ -191,17 +198,29 @@ const recallReason = ref('')
 const statusMap = {
   available: '可用',
   recycled: '已回收',
+  counted: '已清点',
+  cleaning: '清洗中',
   cleaned: '已清洗',
+  packaged: '已打包',
   sterilized: '已灭菌',
-  delivering: '配送中'
+  qualified: '质检合格',
+  delivering: '配送中',
+  received: '已签收',
+  in_use: '使用中'
 }
 
 const statusTagType = {
   available: 'info',
   recycled: 'info',
+  counted: 'success',
+  cleaning: '',
   cleaned: 'success',
+  packaged: 'info',
   sterilized: 'success',
-  delivering: 'primary'
+  qualified: 'success',
+  delivering: 'primary',
+  received: 'success',
+  in_use: 'warning'
 }
 
 const typeMap = {
@@ -229,11 +248,16 @@ const loadDetail = async () => {
 
 const loadAvailablePackages = async () => {
   try {
-    const res = await packageAPI.getList({ status: 'cleaned' })
+    const [cleanedRes, packagedRes] = await Promise.all([
+      packageAPI.getList({ status: 'cleaned' }),
+      packageAPI.getList({ status: 'packaged' })
+    ])
+    const allPackages = [...cleanedRes.data, ...packagedRes.data]
     const currentIds = packages.value.map(p => p.id)
-    availablePackages.value = res.data.filter(p => !currentIds.includes(p.id))
+    availablePackages.value = allPackages.filter(p => !currentIds.includes(p.id))
   } catch (err) {
     console.error(err)
+    ElMessage.error('加载可用器械包失败')
   }
 }
 
@@ -244,13 +268,25 @@ const addPackages = async () => {
   }
   
   try {
-    await batchAPI.addPackages(route.params.batchNo, selectedPackages.value)
-    ElMessage.success('添加成功')
+    const res = await batchAPI.addPackages(route.params.batchNo, selectedPackages.value)
+    const accepted = res.data.accepted || []
+    const rejected = res.data.rejected || []
+    
+    if (accepted.length > 0) {
+      const acceptedNos = accepted.map(p => p.package_no).join('、')
+      ElMessage.success(`成功添加 ${accepted.length} 个：${acceptedNos}`)
+    }
+    
+    if (rejected.length > 0) {
+      const rejectedStr = rejected.map(r => `${r.package_no || r.id}: ${r.reason}`).join('\n')
+      ElMessage.error(`失败 ${rejected.length} 个：\n${rejectedStr}`)
+    }
+    
     showAddPackage.value = false
     selectedPackages.value = []
     loadDetail()
   } catch (err) {
-    ElMessage.error('添加失败')
+    ElMessage.error(err.response?.data?.error || '添加失败')
   }
 }
 
