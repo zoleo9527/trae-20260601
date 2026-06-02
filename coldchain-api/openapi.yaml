@@ -961,76 +961,110 @@ components:
 
     Dispute:
       type: object
+      description: 争议记录
       properties:
         id:
           type: string
+          description: 争议ID
         shipment_id:
           type: string
+          description: 关联运单ID
         initiated_by:
           type: string
+          description: 发起人（客服/质控等）
         reason:
           type: string
+          description: 争议原因
         status:
           type: string
           enum: [open, reviewing, resolved, rejected]
+          description: |
+            争议状态:
+            - `open`：待复核
+            - `reviewing`：质控复核中
+            - `resolved`：已认可
+            - `rejected`：已驳回
         resolution:
           type: string
+          description: 质控结论
         resolved_by:
           type: string
+          description: 处理人（质控人员）
         resolved_at:
           type: string
           format: date-time
+          description: 处理时间
         anomaly_interval_ids:
           type: array
           items:
             type: string
+          description: 关联的异常区间ID列表
         evidence_summary:
           type: string
+          description: 证据摘要（温控、照片、聊天记录等说明）
         created_at:
           type: string
           format: date-time
+          description: 创建时间
         updated_at:
           type: string
           format: date-time
+          description: 更新时间
 
     AuditLog:
       type: object
+      description: 审计日志记录，所有状态变更均可追溯
       properties:
         id:
           type: string
+          description: 审计记录ID
         entity_type:
           type: string
           enum: [shipment, anomaly_interval, dispute]
+          description: 关联实体类型：运单/异常区间/争议
         entity_id:
           type: string
+          description: 关联实体ID
         action:
           type: string
+          description: 动作类型（如 create、status_change、confirm、dispute_opened 等）
         old_value:
           type: string
+          description: 变更前的值（状态或内容）
+          nullable: true
         new_value:
           type: string
+          description: 变更后的值
+          nullable: true
         changed_by:
           type: string
+          description: 操作人
         changed_at:
           type: string
           format: date-time
+          description: 变更时间
         details:
           type: object
+          description: 变更详情（JSON 对象，随 action 不同而不同）
 
     DisputeList:
       type: object
+      description: 争议列表（支持按状态和越界确认状态筛选）
       properties:
         data:
           type: array
+          description: 争议记录数组
           items:
             $ref: "#/components/schemas/Dispute"
         total:
           type: integer
-          description: 符合筛选条件的争议总数
+          description: 符合当前筛选条件的争议总数
         page:
           type: integer
+          description: 当前页码（从1开始）
         limit:
           type: integer
+          description: 每页条数
 
     DisputeDetail:
       type: object
@@ -1042,7 +1076,7 @@ components:
           $ref: "#/components/schemas/DisputeShipmentSummary"
         anomaly_intervals:
           type: array
-          description: 关联的异常区间列表，含 confirmed 状态
+          description: 关联的异常区间列表，每条含 confirmed 状态和当前 status
           items:
             $ref: "#/components/schemas/AnomalyInterval"
         anomaly_summary:
@@ -1051,7 +1085,11 @@ components:
           $ref: "#/components/schemas/DisputeReceiptSummary"
         key_audit_logs:
           type: array
-          description: 关键审计节点（争议发起、确认、解决、签收上传、异常检测等）
+          description: |
+            关键审计节点，覆盖三个实体类型：
+            - **dispute**：dispute_opened、dispute_resolved、dispute_rejected、update
+            - **shipment**：delivery_receipt_uploaded、dispute_opened、dispute_resolved、dispute_rejected
+            - **anomaly_interval**：confirm（越界确认）、dispute_resolved、dispute_rejected
           items:
             $ref: "#/components/schemas/AuditLog"
 
@@ -1061,6 +1099,7 @@ components:
       properties:
         id:
           type: string
+          description: 运单ID
         shipment_no:
           type: string
           description: 运单号
@@ -1091,9 +1130,11 @@ components:
         created_at:
           type: string
           format: date-time
+          description: 运单创建时间
         updated_at:
           type: string
           format: date-time
+          description: 运单最后更新时间
 
     AnomalySummary:
       type: object
@@ -1129,6 +1170,7 @@ components:
       properties:
         id:
           type: string
+          description: 签收记录ID
         receiver_name:
           type: string
           description: 签收人
@@ -1155,3 +1197,4 @@ components:
         created_at:
           type: string
           format: date-time
+          description: 上传时间

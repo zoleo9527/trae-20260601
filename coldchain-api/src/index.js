@@ -455,6 +455,12 @@ app.patch('/api/disputes/:id', (req, res) => {
   res.json(rowToObj(result))
 })
 
+app.get('/api/disputes/:id', (req, res) => {
+  const dispute = db.prepare('SELECT * FROM disputes WHERE id = ?').get(req.params.id)
+  if (!dispute) return res.status(404).json({ error: '争议不存在' })
+  res.json(rowToObj(dispute))
+})
+
 app.get('/api/disputes/:id/detail', (req, res) => {
   const dispute = db.prepare('SELECT * FROM disputes WHERE id = ?').get(req.params.id)
   if (!dispute) return res.status(404).json({ error: '争议不存在' })
@@ -469,10 +475,13 @@ app.get('/api/disputes/:id/detail', (req, res) => {
   const receipt = db.prepare('SELECT * FROM delivery_receipts WHERE shipment_id = ?').get(dispute.shipment_id)
 
   const keyActions = ['dispute_opened', 'dispute_resolved', 'dispute_rejected', 'confirm', 'update']
-  const keyActionPlaceholders = keyActions.map(() => '?').join(',')
-  const auditLogs = db.prepare(
-    `SELECT * FROM audit_logs WHERE entity_id = ? OR (entity_type = 'shipment' AND entity_id = ?) ORDER BY changed_at DESC`
-  ).all(dispute.id, dispute.shipment_id)
+  const auditSql = `SELECT * FROM audit_logs WHERE 
+    (entity_type = 'dispute' AND entity_id = ?) 
+    OR (entity_type = 'shipment' AND entity_id = ?)
+    OR (entity_type = 'anomaly_interval' AND entity_id IN (${anomalyIds.map(() => '?').join(',')}))
+    ORDER BY changed_at DESC`
+  const auditParams = [dispute.id, dispute.shipment_id, ...anomalyIds]
+  const auditLogs = db.prepare(auditSql).all(...auditParams)
   const keyLogs = auditLogs.filter(l => keyActions.includes(l.action) || l.action === 'delivery_receipt_uploaded' || l.action === 'anomalies_detected')
 
   const confirmedCount = anomalyIntervals.filter(a => a.confirmed).length
