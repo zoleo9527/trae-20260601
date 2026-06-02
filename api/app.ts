@@ -9,6 +9,7 @@ import path from 'path'
 import { fileURLToPath } from 'url'
 import './db.js'
 import customerRoutes from './routes/customers.js'
+import employeeRoutes from './routes/employees.js'
 import inspectionRoutes from './routes/inspections.js'
 import orderRoutes from './routes/orders.js'
 import packageRoutes from './routes/packages.js'
@@ -27,6 +28,7 @@ app.use(express.json({ limit: '10mb' }))
 app.use(express.urlencoded({ extended: true, limit: '10mb' }))
 
 app.use('/api/customers', customerRoutes)
+app.use('/api/employees', employeeRoutes)
 app.use('/api/vehicles', vehicleRoutes)
 app.use('/api/packages', packageRoutes)
 app.use('/api/orders', orderRoutes)

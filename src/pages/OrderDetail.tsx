@@ -12,14 +12,15 @@ import {
   ClipboardCheck,
   RefreshCw,
   X,
+  Gift,
 } from 'lucide-react';
-import { ordersApi, employeesApi, inspectionsApi } from '@/lib/api';
-import type { Order, Employee } from '@/types';
+import { ordersApi, employeesApi, inspectionsApi, packagesApi } from '@/lib/api';
+import type { Order, Employee, CustomerPackage } from '@/types';
 
 const statusLabels: Record<string, { label: string; color: string; bgColor: string }> = {
   pending: { label: '待分配', color: 'text-yellow-600', bgColor: 'bg-yellow-100' },
   in_progress: { label: '施工中', color: 'text-blue-600', bgColor: 'bg-blue-100' },
-  completed: { label: '已完工', color: 'text-green-600', bgColor: 'bg-green-100' },
+  completed: { label: '施工完成', color: 'text-purple-600', bgColor: 'bg-purple-100' },
   rework: { label: '需返工', color: 'text-red-600', bgColor: 'bg-red-100' },
 };
 
@@ -28,11 +29,19 @@ export default function OrderDetail() {
   const navigate = useNavigate();
   const [order, setOrder] = useState<Order | null>(null);
   const [employees, setEmployees] = useState<Employee[]>([]);
+  const [inspectors, setInspectors] = useState<Employee[]>([]);
+  const [customerPackages, setCustomerPackages] = useState<CustomerPackage[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [showInspectionModal, setShowInspectionModal] = useState(false);
+  const [showCompensateModal, setShowCompensateModal] = useState(false);
+  const [selectedInspector, setSelectedInspector] = useState<Employee | null>(null);
   const [inspectionResult, setInspectionResult] = useState<'pass' | 'rework'>('pass');
   const [inspectionReason, setInspectionReason] = useState('');
+  const [compensatePackageId, setCompensatePackageId] = useState<number | null>(null);
+  const [compensateCount, setCompensateCount] = useState(1);
+  const [compensateReason, setCompensateReason] = useState('');
+  const [compensateServiceType, setCompensateServiceType] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
@@ -50,8 +59,15 @@ export default function OrderDetail() {
 
   useEffect(() => {
     loadOrder();
-    employeesApi.list().then(setEmployees);
+    employeesApi.technicians().then(setEmployees);
+    employeesApi.inspectors().then(setInspectors);
   }, [id]);
+
+  useEffect(() => {
+    if (order) {
+      packagesApi.customerPackages(order.customer_id).then(setCustomerPackages);
+    }
+  }, [order?.customer_id]);
 
   const handleAssign = async (employeeId: number) => {
     if (!order) return;
@@ -85,30 +101,56 @@ export default function OrderDetail() {
   };
 
   const handleInspection = async () => {
-    if (!order) return;
+    if (!order || !selectedInspector) return;
     setSubmitting(true);
     setError('');
 
     try {
-      const inspector = employees.find((e) => e.role === 'inspector');
-      if (!inspector) {
-        throw new Error('未找到质检员');
-      }
-
       await inspectionsApi.create({
         order_id: order.id,
-        inspector_id: inspector.id,
+        inspector_id: selectedInspector.id,
         result: inspectionResult,
         reason: inspectionResult === 'rework' ? inspectionReason : undefined,
       });
 
       setShowInspectionModal(false);
+      setSelectedInspector(null);
+      setInspectionReason('');
       loadOrder();
     } catch (err: any) {
       setError(err.message || '质检提交失败');
     }
     setSubmitting(false);
   };
+
+  const handleCompensate = async () => {
+    if (!compensatePackageId || !compensateReason) {
+      setError('请选择套餐并填写原因');
+      return;
+    }
+    setSubmitting(true);
+    setError('');
+
+    try {
+      await inspectionsApi.compensate({
+        customer_package_id: compensatePackageId,
+        count: compensateCount,
+        reason: compensateReason,
+        service_type: compensateServiceType || undefined,
+      });
+      setShowCompensateModal(false);
+      setCompensatePackageId(null);
+      setCompensateCount(1);
+      setCompensateReason('');
+      setCompensateServiceType('');
+      loadOrder();
+    } catch (err: any) {
+      setError(err.message || '补偿失败');
+    }
+    setSubmitting(false);
+  };
+
+  const hasPassedInspection = order?.inspections?.some((i) => i.result === 'pass');
 
   if (loading) {
     return (
@@ -130,7 +172,6 @@ export default function OrderDetail() {
   }
 
   const statusConfig = statusLabels[order.status] || statusLabels.pending;
-  const technicians = employees.filter((e) => e.role === 'technician');
 
   return (
     <div>
@@ -145,6 +186,11 @@ export default function OrderDetail() {
         <span className={`ml-auto px-3 py-1 rounded-full text-sm font-medium ${statusConfig.bgColor} ${statusConfig.color}`}>
           {statusConfig.label}
         </span>
+        {hasPassedInspection && (
+          <span className="px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-700">
+            已交车
+          </span>
+        )}
         <button onClick={loadOrder} className="text-gray-400 hover:text-gray-600">
           <RefreshCw size={20} />
         </button>
@@ -181,7 +227,7 @@ export default function OrderDetail() {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <div className="text-sm text-gray-444">车牌号</div>
-                <div className="font-bold text-lg">{order.plate}</div>
+                <div className="font-bold text-xl text-blue-600">{order.plate}</div>
               </div>
               <div>
                 <div className="text-sm text-gray-444">车型</div>
@@ -262,7 +308,7 @@ export default function OrderDetail() {
                           <AlertTriangle className="text-red-500" size={18} />
                         )}
                         <span className="font-medium">
-                          {ins.result === 'pass' ? '质检通过' : '需返工'}
+                          {ins.result === 'pass' ? '质检通过 - 已交车' : '需返工'}
                         </span>
                       </div>
                       <span className="text-sm text-gray-444">{ins.created_at?.slice(0, 16)}</span>
@@ -299,7 +345,7 @@ export default function OrderDetail() {
               </div>
               {order.completed_at && (
                 <div>
-                  <div className="text-sm text-gray-444">完成时间</div>
+                  <div className="text-sm text-gray-444">施工完成时间</div>
                   <div>{order.completed_at?.slice(0, 16)}</div>
                 </div>
               )}
@@ -332,27 +378,76 @@ export default function OrderDetail() {
               {order.status === 'in_progress' && (
                 <button
                   onClick={handleComplete}
-                  className="w-full py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center justify-center gap-2"
+                  className="w-full py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 flex items-center justify-center gap-2"
                 >
                   <CheckCircle size={18} />
                   施工完成
                 </button>
               )}
-              {(order.status === 'completed' || order.status === 'rework') && (
+              {(order.status === 'completed' || order.status === 'rework') && !hasPassedInspection && (
                 <button
                   onClick={() => {
                     setInspectionResult('pass');
                     setInspectionReason('');
                     setShowInspectionModal(true);
                   }}
-                  className="w-full py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 flex items-center justify-center gap-2"
+                  className="w-full py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 flex items-center justify-center gap-2"
                 >
                   <ClipboardCheck size={18} />
                   提交质检
                 </button>
               )}
+              {hasPassedInspection && (
+                <button
+                  onClick={() => setShowCompensateModal(true)}
+                  className="w-full py-3 bg-amber-500 text-white rounded-lg hover:bg-amber-600 flex items-center justify-center gap-2"
+                >
+                  <Gift size={18} />
+                  补偿套餐次数
+                </button>
+              )}
             </div>
           </div>
+
+          {customerPackages.length > 0 && (
+            <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-444">
+              <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                <Package size={20} className="text-purple-500" />
+                客户可用套餐
+              </h2>
+              <div className="space-y-3">
+                {customerPackages.map((pkg) => (
+                  <div
+                    key={pkg.id}
+                    className={`p-3 rounded-lg border ${
+                      pkg.isLow ? 'border-amber-300 bg-amber-50' : 'border-gray-444'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="font-medium text-sm">{pkg.package_name}</span>
+                      <span className="text-xs text-gray-444">
+                        {pkg.remaining_count}/{pkg.total_count}次
+                      </span>
+                    </div>
+                    <div className="w-full bg-gray-200 rounded-full h-2">
+                      <div
+                        className={`h-2 rounded-full ${pkg.isLow ? 'bg-amber-500' : 'bg-purple-500'}`}
+                        style={{
+                          width: `${(pkg.remaining_count / pkg.total_count) * 100}%`,
+                        }}
+                      />
+                    </div>
+                    {pkg.isLow && (
+                      <div className="text-xs text-amber-600 mt-2 flex items-center gap-1">
+                        <AlertTriangle size={12} />
+                        剩余次数不足
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -366,7 +461,7 @@ export default function OrderDetail() {
               </button>
             </div>
             <div className="p-4 space-y-3">
-              {technicians.map((tech) => (
+              {employees.map((tech) => (
                 <button
                   key={tech.id}
                   onClick={() => handleAssign(tech.id)}
@@ -393,6 +488,30 @@ export default function OrderDetail() {
               </button>
             </div>
             <div className="p-4 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  选择质检员
+                </label>
+                <div className="space-y-2">
+                  {inspectors.map((ins) => (
+                    <button
+                      key={ins.id}
+                      onClick={() => setSelectedInspector(ins)}
+                      className={`w-full p-3 rounded-lg border-2 text-left transition-colors flex items-center gap-3 ${
+                        selectedInspector?.id === ins.id
+                          ? 'border-indigo-500 bg-indigo-50'
+                          : 'border-gray-444 hover:border-gray-300'
+                      }`}
+                    >
+                      <div className="w-8 h-8 bg-indigo-100 rounded-full flex items-center justify-center">
+                        <span className="text-indigo-600 font-medium text-sm">{ins.name[0]}</span>
+                      </div>
+                      <div className="font-medium">{ins.name}</div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               <div className="flex gap-3">
                 <button
                   onClick={() => setInspectionResult('pass')}
@@ -403,7 +522,7 @@ export default function OrderDetail() {
                   }`}
                 >
                   <CheckCircle size={24} />
-                  <span className="font-medium">通过</span>
+                  <span className="font-medium">通过交车</span>
                 </button>
                 <button
                   onClick={() => setInspectionResult('rework')}
@@ -442,7 +561,7 @@ export default function OrderDetail() {
                 </button>
                 <button
                   onClick={handleInspection}
-                  disabled={submitting || (inspectionResult === 'rework' && !inspectionReason)}
+                  disabled={submitting || !selectedInspector || (inspectionResult === 'rework' && !inspectionReason)}
                   className={`flex-1 py-2.5 rounded-lg text-white disabled:bg-gray-300 disabled:cursor-not-allowed ${
                     inspectionResult === 'pass'
                       ? 'bg-green-600 hover:bg-green-700'
@@ -450,6 +569,93 @@ export default function OrderDetail() {
                   }`}
                 >
                   {submitting ? '提交中...' : '确认提交'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showCompensateModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-md mx-4">
+            <div className="flex items-center justify-between p-4 border-b">
+              <h2 className="text-lg font-semibold">补偿套餐次数</h2>
+              <button onClick={() => setShowCompensateModal(false)} className="text-gray-400 hover:text-gray-500">
+                <X size={20} />
+              </button>
+            </div>
+            <div className="p-4 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  选择套餐
+                </label>
+                <select
+                  value={compensatePackageId || ''}
+                  onChange={(e) => setCompensatePackageId(parseInt(e.target.value))}
+                  className="w-full px-3 py-2 border border-gray-444 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                >
+                  <option value="">请选择套餐</option>
+                  {customerPackages.map((pkg) => (
+                    <option key={pkg.id} value={pkg.id}>
+                      {pkg.package_name} (剩余{pkg.remaining_count}次)
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  补偿次数
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  value={compensateCount}
+                  onChange={(e) => setCompensateCount(parseInt(e.target.value) || 1)}
+                  className="w-full px-3 py-2 border border-gray-444 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  服务类型（可选）
+                </label>
+                <input
+                  type="text"
+                  value={compensateServiceType}
+                  onChange={(e) => setCompensateServiceType(e.target.value)}
+                  placeholder="如：精洗、镀膜等"
+                  className="w-full px-3 py-2 border border-gray-444 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  补偿原因
+                </label>
+                <textarea
+                  value={compensateReason}
+                  onChange={(e) => setCompensateReason(e.target.value)}
+                  placeholder="请填写补偿原因..."
+                  className="w-full px-3 py-2 border border-gray-444 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                  rows={3}
+                />
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  onClick={() => setShowCompensateModal(false)}
+                  className="flex-1 py-2.5 border border-gray-444 rounded-lg text-gray-444 hover:bg-gray-50"
+                >
+                  取消
+                </button>
+                <button
+                  onClick={handleCompensate}
+                  disabled={submitting || !compensatePackageId || !compensateReason}
+                  className="flex-1 py-2.5 bg-amber-500 text-white rounded-lg hover:bg-amber-600 disabled:bg-gray-300 disabled:cursor-not-allowed"
+                >
+                  {submitting ? '提交中...' : '确认补偿'}
                 </button>
               </div>
             </div>

@@ -106,6 +106,16 @@ export const inspectionsApi = {
       method: 'POST',
       body: JSON.stringify({ reason }),
     }),
+  compensate: (data: {
+    customer_package_id: number;
+    count: number;
+    reason: string;
+    service_type?: string;
+  }) =>
+    request<CustomerPackage>('/inspections/compensate', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
 };
 
 export const statsApi = {
@@ -117,14 +127,13 @@ export const statsApi = {
 };
 
 export const employeesApi = {
-  list: async () => {
-    const res = await fetch(`${API_BASE}/auth/employees`);
-    const data = await res.json();
-    if (!data.success) {
-      return [] as Employee[];
-    }
-    return data.data as Employee[];
+  list: (role?: string) => {
+    const url = role ? `/employees?role=${role}` : '/employees';
+    return request<Employee[]>(url);
   },
+  technicians: () => request<Employee[]>('/employees/technicians'),
+  inspectors: () => request<Employee[]>('/employees/inspectors'),
+  get: (id: number) => request<Employee>(`/employees/${id}`),
 };
 
 export const servicePrices: Record<string, number> = {

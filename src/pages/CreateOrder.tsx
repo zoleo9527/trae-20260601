@@ -26,7 +26,7 @@ export default function CreateOrder() {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    employeesApi.list().then(setEmployees);
+    employeesApi.technicians().then(setEmployees);
   }, []);
 
   useEffect(() => {
