@@ -9,12 +9,9 @@
     "electron/**/*",
     "package.json"
   ],
-  "extraResources": [
-    {
-      "from": "dist",
-      "to": "dist"
-    }
-  ],
+  "extraMetadata": {
+    "main": "electron/main.cjs"
+  },
   "mac": {
     "target": [
       {
@@ -27,8 +24,8 @@
       }
     ],
     "category": "public.app-category.productivity",
-    "icon": "build/icon.icns",
-    "hardenedRuntime": false
+    "hardenedRuntime": false,
+    "gatekeeperAssess": false
   },
   "win": {
     "target": [
@@ -40,8 +37,7 @@
         "target": "portable",
         "arch": ["x64"]
       }
-    ],
-    "icon": "build/icon.ico"
+    ]
   },
   "linux": {
     "target": [
@@ -54,8 +50,7 @@
         "arch": ["x64"]
       }
     ],
-    "category": "Utility",
-    "icon": "build/icon.png"
+    "category": "Utility"
   },
   "nsis": {
     "oneClick": false,

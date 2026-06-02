@@ -11,7 +11,7 @@ import {
     Shield,
     Users,
 } from 'lucide-react'
-import { NavLink, Outlet } from 'react-router-dom'
+import { NavLink, Outlet, useLocation } from 'react-router-dom'
 
 const navItems = [
   { to: '/', label: '仪器日历', icon: Calendar },
@@ -31,6 +31,7 @@ const roleLabels: Record<string, { label: string; icon: React.ElementType; color
 
 export default function Layout() {
   const { currentRole, notifications } = useStore()
+  const loc = useLocation()
   const unreadCount = notifications.filter((n) => !n.read).length
   const roleInfo = roleLabels[currentRole]
 
@@ -77,7 +78,7 @@ export default function Layout() {
       <main className="flex-1 flex flex-col min-w-0">
         <header className="h-12 bg-[#12122a] border-b border-[#1e1e3a] flex items-center px-6 shrink-0">
           <h1 className="text-sm font-semibold text-zinc-200">
-            {navItems.find((n) => n.to === location.pathname)?.label || '仪器预约管理台'}
+            {navItems.find((n) => n.to === loc.pathname)?.label || '仪器预约管理台'}
           </h1>
         </header>
         <div className="flex-1 overflow-auto p-6">

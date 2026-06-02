@@ -8,6 +8,7 @@ app.commandLine.appendSwitch('--disable-setuid-sandbox');
 
 const isDev = process.env.NODE_ENV === 'development';
 const isMac = process.platform === 'darwin';
+const isDesktop = true;
 
 let mainWindow = null;
 
@@ -36,10 +37,12 @@ function createWindow() {
   });
 
   if (isDev) {
-    mainWindow.loadURL('http://localhost:5178');
+    mainWindow.loadURL('http://localhost:5178/#/');
     mainWindow.webContents.openDevTools({ mode: 'detach' });
   } else {
-    mainWindow.loadFile(path.join(__dirname, '../dist/index.html'));
+    mainWindow.loadFile(path.join(__dirname, '../dist/index.html'), {
+      hash: '/',
+    });
   }
 
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {

@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
+import { HashRouter as Router, Routes, Route } from 'react-router-dom'
 import Layout from '@/components/Layout'
 import CalendarPage from '@/pages/CalendarPage'
 import QueuePage from '@/pages/QueuePage'
