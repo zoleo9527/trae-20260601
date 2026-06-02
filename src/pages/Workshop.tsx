@@ -26,8 +26,7 @@ export default function Workshop() {
     setLoading(true);
     try {
       const allOrders = await ordersApi.list('today');
-      let filtered = allOrders.filter((o) => o.status !== 'completed' || 
-        (o.status === 'completed' && !o.inspections?.some((i) => i.result === 'pass')));
+      let filtered = allOrders.filter((o) => !o.has_passed_inspection);
       
       if (selectedTechnician) {
         filtered = filtered.filter((o) => o.employee_id === selectedTechnician.id);

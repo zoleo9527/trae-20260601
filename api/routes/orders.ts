@@ -7,7 +7,11 @@ router.get('/', (req: Request, res: Response) => {
   const { date, status } = req.query
   let sql = `
     SELECT o.*, c.name as customer_name, c.phone as customer_phone, c.level as customer_level,
-           v.plate, v.brand, v.model, v.color, e.name as employee_name
+           v.plate, v.brand, v.model, v.color, e.name as employee_name,
+           EXISTS (
+             SELECT 1 FROM inspections i
+             WHERE i.order_id = o.id AND i.result = 'pass'
+           ) as has_passed_inspection
     FROM orders o
     JOIN customers c ON c.id = o.customer_id
     JOIN vehicles v ON v.id = o.vehicle_id
@@ -30,7 +34,50 @@ router.get('/', (req: Request, res: Response) => {
 
   sql += ` ORDER BY o.created_at DESC`
 
-  const orders = db.prepare(sql).all(...params)
+  const orders = db.prepare(sql).all(...params) as any[]
+
+  const orderIds = orders.map(o => o.id)
+  const itemsMap = new Map()
+  const inspectionsMap = new Map()
+
+  if (orderIds.length > 0) {
+    const placeholders = orderIds.map(() => '?').join(',')
+
+    const items = db.prepare(`
+      SELECT oi.*, pt.name as package_name
+      FROM order_items oi
+      LEFT JOIN package_templates pt ON pt.id = oi.package_template_id
+      WHERE oi.order_id IN (${placeholders})
+    `).all(...orderIds) as any[]
+
+    for (const item of items) {
+      if (!itemsMap.has(item.order_id)) {
+        itemsMap.set(item.order_id, [])
+      }
+      itemsMap.get(item.order_id).push(item)
+    }
+
+    const inspections = db.prepare(`
+      SELECT i.*, e.name as inspector_name
+      FROM inspections i
+      JOIN employees e ON e.id = i.inspector_id
+      WHERE i.order_id IN (${placeholders})
+      ORDER BY i.created_at
+    `).all(...orderIds) as any[]
+
+    for (const ins of inspections) {
+      if (!inspectionsMap.has(ins.order_id)) {
+        inspectionsMap.set(ins.order_id, [])
+      }
+      inspectionsMap.get(ins.order_id).push(ins)
+    }
+  }
+
+  for (const order of orders) {
+    order.items = itemsMap.get(order.id) || []
+    order.inspections = inspectionsMap.get(order.id) || []
+  }
+
   res.json({ success: true, data: orders })
 })
 

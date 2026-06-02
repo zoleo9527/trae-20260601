@@ -51,6 +51,10 @@ export default function OrderDetail() {
     try {
       const data = await ordersApi.get(parseInt(id));
       setOrder(data);
+      if (data) {
+        const packages = await packagesApi.customerPackages(data.customer_id);
+        setCustomerPackages(packages);
+      }
     } catch {
       setError('加载工单失败');
     }

@@ -7,8 +7,8 @@ import type { Order, TodayStats } from '@/types';
 const statusConfig: Record<string, { label: string; color: string; bgColor: string }> = {
   pending: { label: '待分配', color: 'text-yellow-600', bgColor: 'bg-yellow-100' },
   in_progress: { label: '施工中', color: 'text-blue-600', bgColor: 'bg-blue-100' },
-  completed: { label: '已完工', color: 'text-green-600', bgColor: 'bg-green-100' },
-  rework: { label: '需返工', color: 'text-red-600', bgColor: 'bg-red-100' },
+  completed: { label: '待质检', color: 'text-purple-600', bgColor: 'bg-purple-100' },
+  rework: { label: '返工中', color: 'text-red-600', bgColor: 'bg-red-100' },
 };
 
 function OrderCard({ order }: { order: Order }) {
@@ -103,11 +103,12 @@ export default function Home() {
     loadData();
   }, []);
 
+  const activeOrders = orders.filter((o) => !o.has_passed_inspection);
   const ordersByStatus = {
-    pending: orders.filter((o) => o.status === 'pending'),
-    in_progress: orders.filter((o) => o.status === 'in_progress'),
-    rework: orders.filter((o) => o.status === 'rework'),
-    completed: orders.filter((o) => o.status === 'completed'),
+    pending: activeOrders.filter((o) => o.status === 'pending'),
+    in_progress: activeOrders.filter((o) => o.status === 'in_progress'),
+    rework: activeOrders.filter((o) => o.status === 'rework'),
+    completed: activeOrders.filter((o) => o.status === 'completed'),
   };
 
   if (loading) {

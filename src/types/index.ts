@@ -104,6 +104,7 @@ export interface Order {
   completed_at: string | null;
   is_rework: number;
   original_order_id: number | null;
+  has_passed_inspection?: number | boolean;
   customer_name?: string;
   customer_phone?: string;
   customer_level?: string;

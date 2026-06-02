@@ -40,20 +40,30 @@ router.get('/customer/:customerId', (req: Request, res: Response) => {
     ).all(pkg.package_template_id)
 
     const deductions = db.prepare(
-      "SELECT service_type, SUM(count) as used_count FROM deduction_records WHERE customer_package_id = ? AND type = 'usage' GROUP BY service_type"
+      "SELECT service_type, type, SUM(count) as count FROM deduction_records WHERE customer_package_id = ? GROUP BY service_type, type"
     ).all(pkg.id) as any[]
 
     const usageMap: Record<string, number> = {}
     for (const d of deductions) {
-      usageMap[d.service_type] = d.used_count
+      if (!usageMap[d.service_type]) {
+        usageMap[d.service_type] = 0
+      }
+      if (d.type === 'usage') {
+        usageMap[d.service_type] += d.count
+      } else if (d.type === 'rework_refund' || d.type === 'compensation') {
+        usageMap[d.service_type] -= d.count
+      }
     }
 
-    const itemDetails = items.map((item: any) => ({
-      service_type: item.service_type,
-      total: item.count,
-      used: usageMap[item.service_type] || 0,
-      remaining: item.count - (usageMap[item.service_type] || 0),
-    }))
+    const itemDetails = items.map((item: any) => {
+      const used = Math.max(0, usageMap[item.service_type] || 0)
+      return {
+        service_type: item.service_type,
+        total: item.count,
+        used,
+        remaining: item.count - used,
+      }
+    })
 
     const isLow = pkg.remaining_count <= 2
     const isExpiring = new Date(pkg.expires_at) < new Date(Date.now() + 30 * 86400000)
