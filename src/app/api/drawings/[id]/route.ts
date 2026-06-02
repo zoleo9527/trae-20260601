@@ -13,14 +13,6 @@ export async function GET(
         createdBy: {
           select: { id: true, name: true, email: true },
         },
-        purchaseOrders: {
-          include: {
-            supplier: { select: { id: true, name: true } },
-            exceptions: {
-              select: { id: true, exceptionNumber: true, title: true, status: true, type: true },
-            },
-          },
-        },
       },
     })
 
@@ -38,7 +30,21 @@ export async function GET(
       orderBy: { createdAt: 'asc' },
     })
 
-    return NextResponse.json({ ...drawing, versionHistory })
+    const purchaseOrders = await prisma.purchaseOrder.findMany({
+      where: { partId: drawing.partId },
+      include: {
+        drawing: {
+          select: { id: true, version: true, revision: true, title: true },
+        },
+        supplier: { select: { id: true, name: true } },
+        exceptions: {
+          select: { id: true, exceptionNumber: true, title: true, status: true, type: true },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    })
+
+    return NextResponse.json({ ...drawing, versionHistory, purchaseOrders })
   } catch (error) {
     return NextResponse.json({ error: 'Failed to fetch drawing' }, { status: 500 })
   }

@@ -41,6 +41,7 @@ interface OrderRef {
   status: string
   quantity: number
   supplier: { name: string }
+  drawing: { id: string; version: string; revision: string; title: string } | null
   drawingConfirmed: boolean
   exceptions: Array<{ id: string; exceptionNumber: string; title: string; status: string; type: string }>
 }
@@ -241,43 +242,57 @@ export default function DrawingDetailPage() {
           </div>
           {drawing.purchaseOrders.length > 0 ? (
             <div className="space-y-3">
-              {drawing.purchaseOrders.map((order) => (
-                <div key={order.id} className="p-4 bg-gray-50 rounded-lg">
-                  <div className="flex items-center justify-between mb-2">
-                    <Link href={`/orders/${order.id}`} className="font-medium text-primary-600 hover:underline">
-                      {order.orderNumber}
-                    </Link>
-                    <div className="flex items-center gap-2">
-                      <StatusBadge type="order" status={order.status} />
-                      {!order.drawingConfirmed && (
-                        <span className="flex items-center gap-1 text-xs text-red-600 bg-red-50 px-2 py-0.5 rounded-full">
-                          <AlertTriangle size={12} />
-                          图纸版本未确认
-                        </span>
-                      )}
+              {drawing.purchaseOrders.map((order) => {
+                const isCurrentVersion = order.drawing?.id === drawing.id
+                const orderVersion = order.drawing 
+                  ? `v${order.drawing.version}.${order.drawing.revision}`
+                  : '未指定版本'
+                return (
+                  <div key={order.id} className={`p-4 rounded-lg border-2 ${
+                    isCurrentVersion ? 'bg-gray-50 border-transparent' : 'bg-amber-50 border-amber-200'
+                  }`}>
+                    <div className="flex items-center justify-between mb-2">
+                      <Link href={`/orders/${order.id}`} className="font-medium text-primary-600 hover:underline">
+                        {order.orderNumber}
+                      </Link>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {!isCurrentVersion && (
+                          <span className="flex items-center gap-1 text-xs text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full">
+                            <AlertTriangle size={12} />
+                            使用 {orderVersion}
+                          </span>
+                        )}
+                        <StatusBadge type="order" status={order.status} />
+                        {!order.drawingConfirmed && (
+                          <span className="flex items-center gap-1 text-xs text-red-600 bg-red-50 px-2 py-0.5 rounded-full">
+                            <AlertTriangle size={12} />
+                            图纸版本未确认
+                          </span>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                  <div className="flex items-center gap-4 text-sm text-gray-500">
-                    <span>供应商：{order.supplier.name}</span>
-                    <span>数量：{order.quantity}</span>
-                  </div>
-                  {order.exceptions.length > 0 && (
-                    <div className="mt-2 space-y-1">
-                      {order.exceptions.map((exc) => (
-                        <Link
-                          key={exc.id}
-                          href={`/exceptions/${exc.id}`}
-                          className="flex items-center gap-2 text-sm text-red-600 hover:underline"
-                        >
-                          <AlertTriangle size={14} />
-                          <span>{exc.exceptionNumber} - {exc.title}</span>
-                          <StatusBadge type="exception" status={exc.status} />
-                        </Link>
-                      ))}
+                    <div className="flex items-center gap-4 text-sm text-gray-500 flex-wrap">
+                      <span>供应商：{order.supplier.name}</span>
+                      <span>数量：{order.quantity}</span>
                     </div>
-                  )}
-                </div>
-              ))}
+                    {order.exceptions.length > 0 && (
+                      <div className="mt-2 space-y-1">
+                        {order.exceptions.map((exc) => (
+                          <Link
+                            key={exc.id}
+                            href={`/exceptions/${exc.id}`}
+                            className="flex items-center gap-2 text-sm text-red-600 hover:underline"
+                          >
+                            <AlertTriangle size={14} />
+                            <span>{exc.exceptionNumber} - {exc.title}</span>
+                            <StatusBadge type="exception" status={exc.status} />
+                          </Link>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
             </div>
           ) : (
             <p className="text-gray-500 text-center py-4">暂无关联订单</p>
