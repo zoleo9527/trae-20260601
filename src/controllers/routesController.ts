@@ -110,6 +110,29 @@ export const updateRoute = (req: Request, res: Response) => {
     }
 
     const deletedStopErrors: any[] = [];
+    if (stops && Array.isArray(stops)) {
+      for (const stop of stops) {
+        if (stop.id && stop._deleted) {
+          const refCheck = checkStopReferences(stop.id);
+          if (!refCheck.can_delete) {
+            deletedStopErrors.push({
+              stop_id: stop.id,
+              error: refCheck.message,
+              references: refCheck.references
+            });
+          }
+        }
+      }
+    }
+
+    if (deletedStopErrors.length > 0) {
+      return res.status(409).json({
+        error: '部分站点无法删除，因为仍被其他数据引用',
+        code: 'STOP_HAS_REFERENCES',
+        failed_stops: deletedStopErrors
+      });
+    }
+
     const transaction = db.transaction(() => {
       db.prepare(`
         UPDATE routes
@@ -121,15 +144,6 @@ export const updateRoute = (req: Request, res: Response) => {
         for (const stop of stops) {
           if (stop.id) {
             if (stop._deleted) {
-              const refCheck = checkStopReferences(stop.id);
-              if (!refCheck.can_delete) {
-                deletedStopErrors.push({
-                  stop_id: stop.id,
-                  error: refCheck.message,
-                  references: refCheck.references
-                });
-                return;
-              }
               db.prepare(`
                 DELETE FROM stops WHERE id = ? AND route_id = ?
               `).run(stop.id, routeId);
@@ -168,15 +182,6 @@ export const updateRoute = (req: Request, res: Response) => {
     });
 
     transaction();
-
-    if (deletedStopErrors.length > 0) {
-      return res.status(409).json({
-        error: '部分站点无法删除，因为仍被其他数据引用',
-        code: 'STOP_HAS_REFERENCES',
-        failed_stops: deletedStopErrors,
-        route_updated: true
-      });
-    }
 
     const route = db.prepare(`
       SELECT * FROM routes WHERE id = ?
