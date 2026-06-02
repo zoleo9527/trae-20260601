@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import * as routesController from '../controllers/routesController';
+import * as stopsController from '../controllers/stopsController';
 import * as vehiclesController from '../controllers/vehiclesController';
 import * as driversController from '../controllers/driversController';
 import * as studentsController from '../controllers/studentsController';
@@ -17,6 +18,13 @@ router.get('/routes/:id', routesController.getRouteById);
 router.post('/routes', routesController.createRoute);
 router.put('/routes/:id', routesController.updateRoute);
 router.delete('/routes/:id', routesController.deleteRoute);
+
+router.get('/stops', stopsController.getAllStops);
+router.get('/stops/:id', stopsController.getStopById);
+router.post('/stops', stopsController.createStop);
+router.put('/stops/:id', stopsController.updateStop);
+router.delete('/stops/:id', stopsController.deleteStop);
+router.post('/stops/bulk', stopsController.bulkUpdateStops);
 
 router.get('/vehicles', vehiclesController.getAllVehicles);
 router.get('/vehicles/:id', vehiclesController.getVehicleById);

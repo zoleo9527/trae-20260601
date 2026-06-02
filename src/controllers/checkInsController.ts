@@ -106,7 +106,54 @@ export const createCheckIn = (req: Request, res: Response) => {
       `).run(schedule_id, stop_id, checkInId, delayMinutes, notes || '自动检测到站晚点');
     }
 
-    res.status(201).json({ id: checkInId, message: 'Check-in created successfully', status, delay_minutes: delayMinutes });
+    const checkIn = db.prepare(`
+      SELECT * FROM check_ins WHERE id = ?
+    `).get(checkInId) as any;
+
+    const lateEvent = db.prepare(`
+      SELECT * FROM late_events WHERE check_in_id = ?
+    `).get(checkInId) as any;
+
+    const pendingStudents = db.prepare(`
+      SELECT rr.*, s.name as student_name, s.student_id, s.parent_name, s.parent_phone, st.name as stop_name
+      FROM ride_records rr
+      JOIN students s ON rr.student_id = s.id
+      JOIN stops st ON rr.stop_id = st.id
+      WHERE rr.schedule_id = ? AND rr.stop_id = ? AND rr.status = 'pending'
+      ORDER BY s.name
+    `).all(schedule_id, stop_id) as any[];
+
+    const response = {
+      id: checkInId,
+      message: 'Check-in created successfully',
+      status,
+      delay_minutes: delayMinutes,
+      data: {
+        ...checkIn,
+        stop: getStopSummary(stop_id),
+        driver: getDriverSummary(driver_id),
+        schedule: getScheduleSummary(schedule_id)
+      },
+      late_event: lateEvent ? {
+        id: lateEvent.id,
+        delay_minutes: lateEvent.delay_minutes,
+        reason: lateEvent.reason,
+        status: lateEvent.status
+      } : null,
+      pending_students: {
+        count: pendingStudents.length,
+        students: pendingStudents.map(s => ({
+          id: s.student_id,
+          name: s.student_name,
+          student_id: s.student_id,
+          parent_name: s.parent_name,
+          parent_phone: s.parent_phone,
+          stop_name: s.stop_name
+        }))
+      }
+    };
+
+    res.status(201).json(response);
   } catch (error) {
     res.status(500).json({ error: 'Failed to create check-in' });
   }

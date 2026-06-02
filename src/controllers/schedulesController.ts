@@ -91,7 +91,36 @@ export const createSchedule = (req: Request, res: Response) => {
       transaction(students);
     }
 
-    res.status(201).json({ id: scheduleId, message: 'Schedule created successfully' });
+    const schedule = db.prepare(`
+      SELECT * FROM schedules WHERE id = ?
+    `).get(scheduleId) as any;
+
+    const rideRecords = db.prepare(`
+      SELECT rr.*, s.name as student_name, s.student_id, st.name as stop_name
+      FROM ride_records rr
+      JOIN students s ON rr.student_id = s.id
+      JOIN stops st ON rr.stop_id = st.id
+      WHERE rr.schedule_id = ?
+      ORDER BY st.sequence, s.name
+    `).all(scheduleId) as any[];
+
+    const response = {
+      id: scheduleId,
+      message: 'Schedule created successfully',
+      data: enrichSchedule(schedule, true),
+      ride_records_summary: {
+        total: rideRecords.length,
+        students: rideRecords.map(r => ({
+          id: r.student_id,
+          name: r.student_name,
+          student_id: r.student_id,
+          stop_name: r.stop_name,
+          status: r.status
+        }))
+      }
+    };
+
+    res.status(201).json(response);
   } catch (error) {
     res.status(500).json({ error: 'Failed to create schedule' });
   }

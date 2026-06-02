@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import db from '../database';
 import { Route } from '../types';
-import { getStopSummary } from '../utils';
+import { getStopSummary, getRouteSummary } from '../utils';
 
 export const getAllRoutes = (req: Request, res: Response) => {
   try {
@@ -76,7 +76,20 @@ export const createRoute = (req: Request, res: Response) => {
       transaction(stops);
     }
 
-    res.status(201).json({ id: routeId, message: 'Route created successfully' });
+    const route = db.prepare(`
+      SELECT * FROM routes WHERE id = ?
+    `).get(routeId) as any;
+
+    const response = {
+      id: routeId,
+      message: 'Route created successfully',
+      data: {
+        ...route,
+        stops: getStopsByRouteId(routeId)
+      }
+    };
+
+    res.status(201).json(response);
   } catch (error) {
     res.status(500).json({ error: 'Failed to create route' });
   }
@@ -85,19 +98,80 @@ export const createRoute = (req: Request, res: Response) => {
 export const updateRoute = (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const { name, description, direction, estimated_duration } = req.body;
+    const routeId = Number(id);
+    const { name, description, direction, estimated_duration, stops } = req.body;
 
-    const result = db.prepare(`
-      UPDATE routes
-      SET name = ?, description = ?, direction = ?, estimated_duration = ?
-      WHERE id = ?
-    `).run(name, description, direction, estimated_duration, id);
+    const existingRoute = db.prepare(`
+      SELECT id FROM routes WHERE id = ?
+    `).get(routeId);
 
-    if (result.changes === 0) {
+    if (!existingRoute) {
       return res.status(404).json({ error: 'Route not found' });
     }
 
-    res.json({ message: 'Route updated successfully' });
+    const transaction = db.transaction(() => {
+      db.prepare(`
+        UPDATE routes
+        SET name = ?, description = ?, direction = ?, estimated_duration = ?
+        WHERE id = ?
+      `).run(name, description, direction, estimated_duration, routeId);
+
+      if (stops && Array.isArray(stops)) {
+        for (const stop of stops) {
+          if (stop.id) {
+            if (stop._deleted) {
+              db.prepare(`
+                DELETE FROM stops WHERE id = ? AND route_id = ?
+              `).run(stop.id, routeId);
+            } else {
+              db.prepare(`
+                UPDATE stops
+                SET name = ?, address = ?, sequence = ?, estimated_arrival_time = ?, latitude = ?, longitude = ?
+                WHERE id = ? AND route_id = ?
+              `).run(
+                stop.name,
+                stop.address,
+                stop.sequence,
+                stop.estimated_arrival_time,
+                stop.latitude,
+                stop.longitude,
+                stop.id,
+                routeId
+              );
+            }
+          } else {
+            db.prepare(`
+              INSERT INTO stops (route_id, name, address, sequence, estimated_arrival_time, latitude, longitude)
+              VALUES (?, ?, ?, ?, ?, ?, ?)
+            `).run(
+              routeId,
+              stop.name,
+              stop.address,
+              stop.sequence,
+              stop.estimated_arrival_time,
+              stop.latitude,
+              stop.longitude
+            );
+          }
+        }
+      }
+    });
+
+    transaction();
+
+    const route = db.prepare(`
+      SELECT * FROM routes WHERE id = ?
+    `).get(routeId) as any;
+
+    const response = {
+      message: 'Route updated successfully',
+      data: {
+        ...route,
+        stops: getStopsByRouteId(routeId)
+      }
+    };
+
+    res.json(response);
   } catch (error) {
     res.status(500).json({ error: 'Failed to update route' });
   }
