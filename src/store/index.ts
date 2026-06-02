@@ -120,7 +120,7 @@ export const useAppStore = create<AppState>()(
         if (!currentUser) return;
 
         const now = new Date();
-        const timeStr = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+        const timeStr = now.toISOString();
 
         const newRecord: DailyRecord = {
           id: generateId(),
@@ -199,7 +199,7 @@ export const useAppStore = create<AppState>()(
         return get().records.filter(
           (r) =>
             (r.severity === 'warning' || r.severity === 'danger') &&
-            r.time.startsWith(dateStr.slice(5))
+            r.time.startsWith(dateStr)
         ).length;
       },
 

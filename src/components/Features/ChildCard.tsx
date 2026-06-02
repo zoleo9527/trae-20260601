@@ -1,7 +1,8 @@
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
-import type { Child, DailyRecord, Severity } from '@/types';
+import type { Child, Severity } from '@/types';
 import { useAppStore } from '@/store';
+import { useMemo } from 'react';
 
 interface ChildCardProps {
   child: Child;
@@ -10,13 +11,18 @@ interface ChildCardProps {
 }
 
 export default function ChildCard({ child, onClick, selected }: ChildCardProps) {
-  const getUnreadMessageCount = useAppStore((state) => state.getUnreadMessageCount);
-  const getRecordsByChild = useAppStore((state) => state.getRecordsByChild);
+  const messages = useAppStore((state) => state.messages);
+  const records = useAppStore((state) => state.records);
 
-  const unreadCount = getUnreadMessageCount(child.id);
-  const todayRecords = getRecordsByChild(child.id).filter((r) =>
-    r.time.startsWith(new Date().toISOString().split('T')[0])
+  const unreadCount = useMemo(
+    () => messages.filter((m) => m.childId === child.id && m.sender === 'parent' && !m.isRead).length,
+    [messages, child.id]
   );
+
+  const todayRecords = useMemo(() => {
+    const todayStr = new Date().toISOString().split('T')[0];
+    return records.filter((r) => r.childId === child.id && r.time.startsWith(todayStr));
+  }, [records, child.id]);
 
   const getTodayStatus = (): { label: string; severity: Severity } => {
     if (todayRecords.length === 0) {

@@ -60,17 +60,29 @@ export default function ChildDetail() {
   const [activeTab, setActiveTab] = useState('timeline');
   const [timelineFilter, setTimelineFilter] = useState<RecordType | 'all'>('all');
 
-  const getChildById = useAppStore((state) => state.getChildById);
-  const getRecordsByChild = useAppStore((state) => state.getRecordsByChild);
-  const getPhotosByChild = useAppStore((state) => state.getPhotosByChild);
-  const getMessagesByChild = useAppStore((state) => state.getMessagesByChild);
-  const getHealthAlertsByChild = useAppStore((state) => state.getHealthAlertsByChild);
+  const children = useAppStore((state) => state.children);
+  const allRecords = useAppStore((state) => state.records);
+  const allMessages = useAppStore((state) => state.messages);
+  const allPhotos = useAppStore((state) => state.photos);
+  const allHealthAlerts = useAppStore((state) => state.healthAlerts);
 
-  const child = useMemo(() => (id ? getChildById(id) : undefined), [id, getChildById]);
-  const records = useMemo(() => (id ? getRecordsByChild(id) : []), [id, getRecordsByChild]);
-  const photos = useMemo(() => (id ? getPhotosByChild(id) : []), [id, getPhotosByChild]);
-  const messages = useMemo(() => (id ? getMessagesByChild(id) : []), [id, getMessagesByChild]);
-  const healthAlerts = useMemo(() => (id ? getHealthAlertsByChild(id) : []), [id, getHealthAlertsByChild]);
+  const child = useMemo(() => children.find((c) => c.id === id), [children, id]);
+  const records = useMemo(
+    () => allRecords.filter((r) => r.childId === id).sort((a, b) => b.time.localeCompare(a.time)),
+    [allRecords, id]
+  );
+  const photos = useMemo(
+    () => allPhotos.filter((p) => p.childId === id).sort((a, b) => b.timestamp.localeCompare(a.timestamp)),
+    [allPhotos, id]
+  );
+  const messages = useMemo(
+    () => allMessages.filter((m) => m.childId === id).sort((a, b) => a.timestamp.localeCompare(b.timestamp)),
+    [allMessages, id]
+  );
+  const healthAlerts = useMemo(
+    () => allHealthAlerts.filter((a) => a.childId === id && a.isActive),
+    [allHealthAlerts, id]
+  );
 
   const isTeacher = userRole === 'teacher';
 

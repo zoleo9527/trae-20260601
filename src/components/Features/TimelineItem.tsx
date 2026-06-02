@@ -8,6 +8,7 @@ import {
 } from '@/types';
 import type { DailyRecord, Photo } from '@/types';
 import { useAppStore } from '@/store';
+import { useMemo } from 'react';
 
 interface TimelineItemProps {
   record: DailyRecord;
@@ -15,9 +16,11 @@ interface TimelineItemProps {
 }
 
 export default function TimelineItem({ record, isLast }: TimelineItemProps) {
-  const getPhotosByChild = useAppStore((state) => state.getPhotosByChild);
-  const photos = getPhotosByChild(record.childId);
-  const recordPhotos = photos.filter((p) => record.photoIds.includes(p.id));
+  const allPhotos = useAppStore((state) => state.photos);
+  const recordPhotos = useMemo(
+    () => allPhotos.filter((p) => record.photoIds.includes(p.id)),
+    [allPhotos, record.photoIds]
+  );
 
   const formatTime = (timeStr: string): string => {
     const date = new Date(timeStr);

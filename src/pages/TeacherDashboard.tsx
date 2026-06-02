@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { LogOut, Plus, Calendar, Users, MessageCircle, AlertTriangle, ChevronRight } from 'lucide-react';
@@ -7,7 +7,6 @@ import { Button } from '@/components/UI/Button';
 import ChildCard from '@/components/Features/ChildCard';
 import QuickRecordModal from '@/components/Features/QuickRecordModal';
 import { useAppStore } from '@/store';
-import type { Child, Class } from '@/types';
 import { cn } from '@/lib/utils';
 
 type ViewMode = 'grid' | 'pending' | 'warnings';
@@ -18,20 +17,37 @@ export default function TeacherDashboard() {
   const currentUser = useAppStore((state) => state.currentUser);
   const logout = useAppStore((state) => state.logout);
   const classes = useAppStore((state) => state.classes);
-  const getChildrenByClass = useAppStore((state) => state.getChildrenByClass);
-  const getPendingReplyCount = useAppStore((state) => state.getPendingReplyCount);
-  const getWarningRecordsCount = useAppStore((state) => state.getWarningRecordsCount);
-  const messages = useAppStore((state) => state.messages);
   const children = useAppStore((state) => state.children);
   const records = useAppStore((state) => state.records);
+  const messages = useAppStore((state) => state.messages);
   const markMessageAsRead = useAppStore((state) => state.markMessageAsRead);
 
-  const [currentClass, setCurrentClass] = useState<Class | null>(null);
-  const [classChildren, setClassChildren] = useState<Child[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [pendingCount, setPendingCount] = useState(0);
-  const [warningCount, setWarningCount] = useState(0);
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
+
+  const currentClass = useMemo(
+    () => classes.find((c) => currentUser && c.teacherId === currentUser.id) ?? null,
+    [classes, currentUser]
+  );
+
+  const classChildren = useMemo(
+    () => (currentClass ? children.filter((c) => c.classId === currentClass.id) : []),
+    [currentClass, children]
+  );
+
+  const pendingCount = useMemo(
+    () => messages.filter((m) => m.sender === 'parent' && !m.isRead).length,
+    [messages]
+  );
+
+  const warningCount = useMemo(() => {
+    const todayStr = new Date().toISOString().split('T')[0];
+    return records.filter(
+      (r) =>
+        (r.severity === 'warning' || r.severity === 'danger') &&
+        r.time.startsWith(todayStr)
+    ).length;
+  }, [records]);
 
   const today = new Date();
   const dateStr = `${today.getMonth() + 1}月${today.getDate()}日`;
@@ -41,18 +57,8 @@ export default function TeacherDashboard() {
   useEffect(() => {
     if (!currentUser) {
       navigate('/login');
-      return;
     }
-
-    const teacherClass = classes.find((c) => c.teacherId === currentUser.id);
-    if (teacherClass) {
-      setCurrentClass(teacherClass);
-      const classChildren = getChildrenByClass(teacherClass.id);
-      setClassChildren(classChildren);
-      setPendingCount(getPendingReplyCount());
-      setWarningCount(getWarningRecordsCount());
-    }
-  }, [currentUser, classes, getChildrenByClass, getPendingReplyCount, getWarningRecordsCount, navigate]);
+  }, [currentUser, navigate]);
 
   const handleLogout = () => {
     logout();
@@ -229,7 +235,6 @@ export default function TeacherDashboard() {
                         markMessageAsRead(m.id);
                       }
                     });
-                    setPendingCount(0);
                   }}
                   className="text-xs text-primary-500 hover:text-primary-600"
                 >

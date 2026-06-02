@@ -43,12 +43,13 @@ export default function MessageList({
   }, [messages]);
 
   useEffect(() => {
+    if (readOnly) return;
     messages.forEach((msg) => {
       if (msg.sender === 'parent' && !msg.isRead) {
         markMessageAsRead(msg.id);
       }
     });
-  }, [messages, markMessageAsRead]);
+  }, [messages, markMessageAsRead, readOnly]);
 
   const handleSend = (content: string = inputValue) => {
     const trimmedContent = content.trim();
