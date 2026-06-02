@@ -170,7 +170,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { batchAPI, packageAPI, recallAPI } from '../api'
@@ -284,6 +284,12 @@ const createRecall = async () => {
     ElMessage.error('发起失败')
   }
 }
+
+watch(showAddPackage, (newVal) => {
+  if (newVal) {
+    loadAvailablePackages()
+  }
+})
 
 onMounted(() => {
   loadDetail()

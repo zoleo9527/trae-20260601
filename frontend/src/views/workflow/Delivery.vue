@@ -10,7 +10,14 @@
           <template #header>
             <span style="font-weight: bold;">待配送器械包</span>
           </template>
-          <el-table :data="toDeliver" border stripe size="small">
+          <el-table 
+            :data="toDeliver" 
+            border 
+            stripe 
+            size="small"
+            ref="tableRef"
+            @selection-change="handleSelectionChange"
+          >
             <el-table-column type="selection" width="55" />
             <el-table-column prop="package_no" label="包号" width="160">
               <template #default="{ row }">
@@ -68,13 +75,18 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
-import { packageAPI, departmentAPI } from '../../api'
+import { packageAPI, departmentAPI, batchAPI } from '../../api'
 
+const tableRef = ref(null)
 const toDeliver = ref([])
 const delivering = ref([])
 const departments = ref([])
 const selectedItems = ref([])
 const targetDept = ref(null)
+
+const handleSelectionChange = (selection) => {
+  selectedItems.value = selection
+}
 
 const formatTime = (time) => {
   return new Date(time).toLocaleString('zh-CN')
@@ -103,11 +115,21 @@ const startDelivery = async () => {
   const dept = departments.value.find(d => d.id === targetDept.value)
   
   for (const pkg of selectedItems.value) {
+    const pkgDetail = await packageAPI.getDetail(pkg.package_no)
+    const batchNos = pkgDetail.data.package.batch_nos?.split(',')[0]?.trim()
+    let batchId = null
+    if (batchNos) {
+      const batches = await batchAPI.getList()
+      const batch = batches.data.find(b => b.batch_no === batchNos)
+      batchId = batch?.id
+    }
+    
     await packageAPI.track(pkg.package_no, {
       action: '配送',
       status: 'delivering',
       location: '运输中 - ' + dept.name,
-      department_id: targetDept.value
+      department_id: targetDept.value,
+      batch_id: batchId
     })
   }
   
@@ -118,10 +140,20 @@ const startDelivery = async () => {
 
 const confirmReceive = async (pkg) => {
   try {
+    const pkgDetail = await packageAPI.getDetail(pkg.package_no)
+    const batchNos = pkgDetail.data.package.batch_nos?.split(',')[0]?.trim()
+    let batchId = null
+    if (batchNos) {
+      const batches = await batchAPI.getList()
+      const batch = batches.data.find(b => b.batch_no === batchNos)
+      batchId = batch?.id
+    }
+    
     await packageAPI.track(pkg.package_no, {
       action: '签收',
       status: 'received',
-      location: pkg.current_location?.replace('运输中 - ', '') || '科室'
+      location: pkg.current_location?.replace('运输中 - ', '') || '科室',
+      batch_id: batchId
     })
     ElMessage.success('已签收')
     loadPackages()

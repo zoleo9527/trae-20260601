@@ -13,7 +13,14 @@
           <template #header>
             <span style="font-weight: bold;">待灭菌器械包</span>
           </template>
-          <el-table :data="availablePackages" border size="small" height="400">
+          <el-table 
+            :data="availablePackages" 
+            border 
+            size="small" 
+            height="400"
+            ref="tableRef"
+            @selection-change="handleSelectionChange"
+          >
             <el-table-column type="selection" width="55" />
             <el-table-column prop="package_no" label="包号" width="160" />
             <el-table-column prop="name" label="名称" show-overflow-tooltip />
@@ -88,16 +95,21 @@ import { ref, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { packageAPI, batchAPI } from '../../api'
 
+const tableRef = ref(null)
 const availablePackages = ref([])
 const selectedPackages = ref([])
 const currentBatch = ref(null)
 const batchPackages = ref([])
 
+const handleSelectionChange = (selection) => {
+  selectedPackages.value = selection.map(item => item.id)
+}
+
 const loadAvailable = async () => {
   try {
     const res = await packageAPI.getList()
     availablePackages.value = res.data.filter(p => 
-      ['cleaned', 'counted', 'packaged'].includes(p.status)
+      ['cleaned', 'packaged'].includes(p.status)
     )
   } catch (err) {
     console.error(err)

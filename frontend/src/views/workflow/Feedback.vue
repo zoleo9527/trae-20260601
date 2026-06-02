@@ -101,7 +101,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
-import { packageAPI, exceptionAPI } from '../../api'
+import { packageAPI, exceptionAPI, batchAPI } from '../../api'
 
 const packages = ref([])
 const selectedPkg = ref(null)
@@ -131,13 +131,26 @@ const selectPackage = (pkg) => {
   feedbackDesc.value = ''
 }
 
+const getCurrentBatchId = async (packageNo) => {
+  const pkgDetail = await packageAPI.getDetail(packageNo)
+  const batchNos = pkgDetail.data.package.batch_nos?.split(',')[0]?.trim()
+  if (batchNos) {
+    const batches = await batchAPI.getList()
+    const batch = batches.data.find(b => b.batch_no === batchNos)
+    return batch?.id
+  }
+  return null
+}
+
 const startUse = async () => {
   try {
+    const batchId = await getCurrentBatchId(selectedPkg.value.package_no)
     await packageAPI.track(selectedPkg.value.package_no, {
       action: '使用',
       status: 'in_use',
       location: useLocation.value || selectedPkg.value.current_location,
-      notes: useNotes.value
+      notes: useNotes.value,
+      batch_id: batchId
     })
     ElMessage.success('已开始使用')
     loadPackages()
@@ -149,11 +162,13 @@ const startUse = async () => {
 
 const submitFeedback = async () => {
   try {
+    const batchId = await getCurrentBatchId(selectedPkg.value.package_no)
     await packageAPI.track(selectedPkg.value.package_no, {
       action: '使用完成',
       status: 'recycling',
       location: '待回收',
-      notes: feedbackDesc.value
+      notes: feedbackDesc.value,
+      batch_id: batchId
     })
     
     if (useResult.value !== 'normal') {

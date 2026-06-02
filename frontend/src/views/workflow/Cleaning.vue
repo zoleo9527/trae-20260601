@@ -110,7 +110,7 @@ const formatTime = (time) => {
 const loadPackages = async () => {
   try {
     const res = await packageAPI.getList()
-    packages.value = res.data.filter(p => ['recycled', 'cleaning'].includes(p.status))
+    packages.value = res.data.filter(p => ['recycled', 'cleaning', 'counted'].includes(p.status))
   } catch (err) {
     ElMessage.error('加载失败')
   }

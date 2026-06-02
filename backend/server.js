@@ -224,11 +224,37 @@ app.post('/api/batches/:batchNo/complete', authenticateToken, (req, res) => {
   
   const batch = db.prepare('SELECT * FROM sterilization_batches WHERE batch_no = ?').get(req.params.batchNo);
   
-  const packages = db.prepare('SELECT package_id FROM batch_packages WHERE batch_id = ?').all(batch.id);
-  const stmt = db.prepare(`
+  const packages = db.prepare(`
+    SELECT bp.package_id, p.package_no
+    FROM batch_packages bp
+    JOIN instrument_packages p ON bp.package_id = p.id
+    WHERE batch_id = ?
+  `).all(batch.id);
+  
+  const updatePkgStmt = db.prepare(`
     UPDATE instrument_packages SET status = 'sterilized', updated_at = CURRENT_TIMESTAMP WHERE id = ?
   `);
-  packages.forEach(p => stmt.run(p.package_id));
+  
+  const insertTrackStmt = db.prepare(`
+    INSERT INTO tracking_records (package_id, batch_id, action, status, operator_id, location, notes)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+  `);
+  
+  packages.forEach(p => {
+    updatePkgStmt.run(p.package_id);
+    insertTrackStmt.run(p.package_id, batch.id, '灭菌', 'sterilized', req.user.id, '灭菌室', `批次${batch.batch_no}`);
+  });
+  
+  if (bio_indicator_result === 'pass') {
+    packages.forEach(p => {
+      insertTrackStmt.run(p.package_id, batch.id, '质检', 'qualified', req.user.id, '质检区', '生物指示检测合格');
+    });
+    db.prepare(`
+      UPDATE instrument_packages SET status = 'qualified', updated_at = CURRENT_TIMESTAMP WHERE id IN (
+        SELECT package_id FROM batch_packages WHERE batch_id = ?
+      )
+    `).run(batch.id);
+  }
   
   res.json({ success: true });
 });
@@ -239,8 +265,22 @@ app.post('/api/batches/:batchNo/packages', authenticateToken, (req, res) => {
   
   if (!batch) return res.status(404).json({ error: '批次不存在' });
   
-  const stmt = db.prepare('INSERT OR IGNORE INTO batch_packages (batch_id, package_id) VALUES (?, ?)');
-  package_ids.forEach(id => stmt.run(batch.id, id));
+  const insertBatchPkg = db.prepare('INSERT OR IGNORE INTO batch_packages (batch_id, package_id) VALUES (?, ?)');
+  const insertTrack = db.prepare(`
+    INSERT INTO tracking_records (package_id, batch_id, action, status, operator_id, location, notes)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+  `);
+  const updatePkg = db.prepare(`
+    UPDATE instrument_packages SET status = 'packaged', updated_at = CURRENT_TIMESTAMP WHERE id = ?
+  `);
+  
+  package_ids.forEach(id => {
+    const result = insertBatchPkg.run(batch.id, id);
+    if (result.changes > 0) {
+      insertTrack.run(id, batch.id, '打包', 'packaged', req.user.id, '打包区', `加入批次${batch.batch_no}`);
+      updatePkg.run(id);
+    }
+  });
   
   res.json({ success: true });
 });
@@ -347,18 +387,31 @@ app.post('/api/recalls', authenticateToken, (req, res) => {
   `).run(recallNo, batch.id, reason, req.user.id);
   
   const packages = db.prepare(`
-    SELECT bp.package_id, tr.department_id
+    SELECT 
+      bp.package_id,
+      p.package_no,
+      p.current_location,
+      (SELECT tr.department_id 
+       FROM tracking_records tr 
+       WHERE tr.package_id = bp.package_id 
+         AND tr.department_id IS NOT NULL
+       ORDER BY tr.created_at DESC 
+       LIMIT 1) as department_id,
+      p.status
     FROM batch_packages bp
-    JOIN tracking_records tr ON bp.package_id = tr.package_id
-    WHERE bp.batch_id = ? AND tr.status IN ('delivering', 'in_use', 'received')
-    GROUP BY bp.package_id
+    JOIN instrument_packages p ON bp.package_id = p.id
+    WHERE bp.batch_id = ?
   `).all(batch.id);
   
   const stmt = db.prepare(`
-    INSERT INTO recall_items (recall_id, package_id, department_id)
-    VALUES (?, ?, ?)
+    INSERT INTO recall_items (recall_id, package_id, department_id, status)
+    VALUES (?, ?, ?, ?)
   `);
-  packages.forEach(p => stmt.run(result.lastInsertRowid, p.package_id, p.department_id));
+  
+  packages.forEach(p => {
+    const isRecovered = ['cleaned', 'packaged', 'sterilized', 'qualified', 'recycled'].includes(p.status);
+    stmt.run(result.lastInsertRowid, p.package_id, p.department_id, isRecovered ? 'recovered' : 'pending');
+  });
   
   res.json({ id: result.lastInsertRowid, recall_no: recallNo });
 });
