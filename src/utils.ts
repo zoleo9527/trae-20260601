@@ -8,6 +8,42 @@ import {
   ScheduleSummary
 } from './types';
 
+export interface LateEventSummary {
+  id: number;
+  delay_minutes: number;
+  reason?: string;
+  status: string;
+  stop_name?: string;
+  detected_time: string;
+}
+
+export function getLateEventSummary(lateEventId: number): LateEventSummary | undefined {
+  const row = db.prepare(`
+    SELECT le.id, le.delay_minutes, le.reason, le.status, le.detected_time, st.name as stop_name
+    FROM late_events le
+    LEFT JOIN stops st ON le.stop_id = st.id
+    WHERE le.id = ?
+  `).get(lateEventId) as any;
+
+  if (!row) return undefined;
+  return {
+    id: row.id,
+    delay_minutes: row.delay_minutes,
+    reason: row.reason || undefined,
+    status: row.status,
+    stop_name: row.stop_name || undefined,
+    detected_time: row.detected_time
+  };
+}
+
+export function getReviewerSummary(reviewerId: number): DriverSummary | undefined {
+  return getDriverSummary(reviewerId);
+}
+
+export function getHandlerSummary(handlerId: number): DriverSummary | undefined {
+  return getDriverSummary(handlerId);
+}
+
 export function getRouteSummary(routeId: number): RouteSummary | undefined {
   const row = db.prepare(`
     SELECT id, name, direction

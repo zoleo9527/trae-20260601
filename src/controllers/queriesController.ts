@@ -6,7 +6,10 @@ import {
   getDriverSummary,
   getStopSummary,
   getStudentSummary,
-  getScheduleSummary
+  getScheduleSummary,
+  getReviewerSummary,
+  getHandlerSummary,
+  getLateEventSummary
 } from '../utils';
 
 export const getRouteByDate = (req: Request, res: Response) => {
@@ -57,6 +60,45 @@ export const getRouteByDate = (req: Request, res: Response) => {
         WHERE c.schedule_id = ?
       `).all(s.id);
 
+      const enrichedComplaints = complaints.map((c: any) => {
+        const reviewedBy = c.reviewed_by ? getReviewerSummary(c.reviewed_by) : undefined;
+        const handler = c.handler_id ? getHandlerSummary(c.handler_id) : undefined;
+
+        const studentInfo = db.prepare(`
+          SELECT default_stop_id FROM students WHERE id = ?
+        `).get(c.student_id) as any;
+        const defaultStopId = studentInfo ? studentInfo.default_stop_id : null;
+
+        const relatedLateEvents = db.prepare(`
+          SELECT le.id
+          FROM late_events le
+          WHERE le.schedule_id = ?
+            AND (le.stop_id = ? OR le.stop_id IS NULL OR ? IS NULL)
+        `).all(c.schedule_id, defaultStopId, defaultStopId)
+          .map((le: any) => getLateEventSummary(le.id))
+          .filter(Boolean);
+
+        const result: any = {
+          ...c,
+          student_name: c.student_name,
+          student: getStudentSummary(c.student_id),
+          reviewed_by_info: reviewedBy,
+          handled_by_info: handler,
+          related_late_events: relatedLateEvents
+        };
+
+        if (c.status === 'resolved' || c.status === 'rejected') {
+          result.review_summary = {
+            status: c.status,
+            result: c.review_result,
+            reviewed_at: c.reviewed_at,
+            late_events_updated: relatedLateEvents.length
+          };
+        }
+
+        return result;
+      });
+
       return {
         ...s,
         route: getRouteSummary(s.route_id),
@@ -65,7 +107,7 @@ export const getRouteByDate = (req: Request, res: Response) => {
         check_ins: checkIns,
         ride_records: rideRecords,
         late_events: lateEvents,
-        complaints: complaints,
+        complaints: enrichedComplaints,
         summary: {
           total_students: rideRecords.length,
           boarded: rideRecords.filter((r: any) => r.status === 'boarded').length,
@@ -127,12 +169,45 @@ export const getStudentRideStatus = (req: Request, res: Response) => {
         ORDER BY complaint_time DESC
       `).all(student_id, record.schedule_id);
 
+      const enrichedComplaints = complaints.map((c: any) => {
+        const reviewedBy = c.reviewed_by ? getReviewerSummary(c.reviewed_by) : undefined;
+        const handler = c.handler_id ? getHandlerSummary(c.handler_id) : undefined;
+
+        const relatedLateEvents = db.prepare(`
+          SELECT le.id
+          FROM late_events le
+          WHERE le.schedule_id = ?
+            AND (le.stop_id = ? OR le.stop_id IS NULL OR ? IS NULL)
+        `).all(c.schedule_id, student.default_stop_id, student.default_stop_id)
+          .map((le: any) => getLateEventSummary(le.id))
+          .filter(Boolean);
+
+        const result: any = {
+          ...c,
+          student: getStudentSummary(c.student_id),
+          reviewed_by_info: reviewedBy,
+          handled_by_info: handler,
+          related_late_events: relatedLateEvents
+        };
+
+        if (c.status === 'resolved' || c.status === 'rejected') {
+          result.review_summary = {
+            status: c.status,
+            result: c.review_result,
+            reviewed_at: c.reviewed_at,
+            late_events_updated: relatedLateEvents.length
+          };
+        }
+
+        return result;
+      });
+
       return {
         ...record,
         stop: getStopSummary(record.stop_id),
         check_in: checkIn,
         schedule: schedule,
-        complaints: complaints,
+        complaints: enrichedComplaints,
         status_text: getStatusText(record.status, checkIn)
       };
     });

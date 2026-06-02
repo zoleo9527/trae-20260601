@@ -1,10 +1,7 @@
 import { Request, Response } from 'express';
 import db from '../database';
 import { CreateComplaintRequest, ReviewComplaintRequest } from '../types';
-import {
-  getStudentSummary,
-  getScheduleSummary
-} from '../utils';
+import { getStudentSummary, getScheduleSummary, getReviewerSummary, getHandlerSummary, getLateEventSummary } from '../utils';
 
 export const getAllComplaints = (req: Request, res: Response) => {
   try {
@@ -233,6 +230,17 @@ export const reviewComplaint = (req: Request, res: Response) => {
   try {
     const { complaint_id, status, review_result, reviewed_by } = req.body as ReviewComplaintRequest;
 
+    const complaintInfo = db.prepare(`
+      SELECT c.*, s.default_stop_id
+      FROM complaints c
+      JOIN students s ON c.student_id = s.id
+      WHERE c.id = ?
+    `).get(complaint_id) as any;
+
+    if (!complaintInfo) {
+      return res.status(404).json({ error: 'Complaint not found' });
+    }
+
     const result = db.prepare(`
       UPDATE complaints
       SET status = ?, review_result = ?, reviewed_by = ?, reviewed_at = ?
@@ -243,20 +251,38 @@ export const reviewComplaint = (req: Request, res: Response) => {
       return res.status(404).json({ error: 'Complaint not found' });
     }
 
-    if (status === 'rejected') {
-      const complaint = db.prepare(`
-        SELECT schedule_id FROM complaints WHERE id = ?
-      `).get(complaint_id) as any;
+    if (complaintInfo.schedule_id) {
+      let lateEventStatus: string | null = null;
+      if (status === 'resolved') {
+        lateEventStatus = 'confirmed';
+      } else if (status === 'rejected') {
+        lateEventStatus = 'false_alarm';
+      }
 
-      if (complaint && complaint.schedule_id) {
-        const lateEvents = db.prepare(`
-          SELECT id FROM late_events WHERE schedule_id = ? AND status = 'pending'
-        `).all(complaint.schedule_id) as any[];
+      if (lateEventStatus) {
+        const relatedLateEvents = db.prepare(`
+          SELECT id FROM late_events
+          WHERE schedule_id = ?
+            AND status = 'pending'
+            AND (stop_id = ? OR stop_id IS NULL OR ? IS NULL)
+        `).all(
+          complaintInfo.schedule_id,
+          complaintInfo.default_stop_id,
+          complaintInfo.default_stop_id
+        ) as any[];
 
-        for (const event of lateEvents) {
+        if (relatedLateEvents.length === 0) {
+          const allPending = db.prepare(`
+            SELECT id FROM late_events
+            WHERE schedule_id = ? AND status = 'pending'
+          `).all(complaintInfo.schedule_id) as any[];
+          relatedLateEvents.push(...allPending);
+        }
+
+        for (const event of relatedLateEvents) {
           db.prepare(`
-            UPDATE late_events SET status = 'false_alarm' WHERE id = ?
-          `).run(event.id);
+            UPDATE late_events SET status = ? WHERE id = ?
+          `).run(lateEventStatus, event.id);
         }
       }
     }
@@ -293,12 +319,37 @@ export const reviewComplaint = (req: Request, res: Response) => {
       }
     }
 
+    const reviewedBy = complaint.reviewed_by ? getReviewerSummary(complaint.reviewed_by) : undefined;
+    const handler = complaint.handler_id ? getHandlerSummary(complaint.handler_id) : undefined;
+
+    const relatedLateEvents = db.prepare(`
+      SELECT le.*, st.name as stop_name
+      FROM late_events le
+      LEFT JOIN stops st ON le.stop_id = st.id
+      WHERE le.schedule_id = ?
+        AND (le.stop_id = ? OR le.stop_id IS NULL OR ? IS NULL)
+    `).all(
+      complaint.schedule_id,
+      complaintInfo.default_stop_id,
+      complaintInfo.default_stop_id
+    ).map((le: any) => getLateEventSummary(le.id))
+      .filter(Boolean);
+
     const response = {
       message: 'Complaint reviewed successfully',
       data: {
         ...complaint,
         student,
-        schedule: scheduleInfo
+        schedule: scheduleInfo,
+        reviewed_by_info: reviewedBy,
+        handled_by_info: handler,
+        related_late_events: relatedLateEvents,
+        review_summary: {
+          status: complaint.status,
+          result: complaint.review_result,
+          reviewed_at: complaint.reviewed_at,
+          late_events_updated: relatedLateEvents.length
+        }
       }
     };
 
@@ -309,11 +360,45 @@ export const reviewComplaint = (req: Request, res: Response) => {
 };
 
 function enrichComplaint(row: any, includeEvidence = false) {
+  const studentInfo = db.prepare(`
+    SELECT default_stop_id FROM students WHERE id = ?
+  `).get(row.student_id) as any;
+
+  const defaultStopId = studentInfo ? studentInfo.default_stop_id : null;
+
+  const relatedLateEvents = db.prepare(`
+    SELECT le.*, st.name as stop_name
+    FROM late_events le
+    LEFT JOIN stops st ON le.stop_id = st.id
+    WHERE le.schedule_id = ?
+      AND (le.stop_id = ? OR le.stop_id IS NULL OR ? IS NULL)
+  `).all(
+    row.schedule_id,
+    defaultStopId,
+    defaultStopId
+  ).map((le: any) => getLateEventSummary(le.id))
+    .filter(Boolean);
+
+  const reviewedBy = row.reviewed_by ? getReviewerSummary(row.reviewed_by) : undefined;
+  const handler = row.handler_id ? getHandlerSummary(row.handler_id) : undefined;
+
   const complaint: any = {
     ...row,
     student: getStudentSummary(row.student_id),
-    schedule: row.schedule_id ? getScheduleSummary(row.schedule_id) : undefined
+    schedule: row.schedule_id ? getScheduleSummary(row.schedule_id) : undefined,
+    reviewed_by_info: reviewedBy,
+    handled_by_info: handler,
+    related_late_events: relatedLateEvents
   };
+
+  if (row.status === 'resolved' || row.status === 'rejected') {
+    complaint.review_summary = {
+      status: row.status,
+      result: row.review_result,
+      reviewed_at: row.reviewed_at,
+      late_events_updated: relatedLateEvents.length
+    };
+  }
 
   if (includeEvidence) {
     complaint.evidence = getComplaintEvidence(row);
