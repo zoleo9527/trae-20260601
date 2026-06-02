@@ -116,7 +116,11 @@ const auditEntries = [
   [uuidv7(), 'shipment', SID1, 'anomalies_detected', null, '2 intervals', 'system', hoursAgo(38), JSON.stringify({ interval_count: 2 })],
   [uuidv7(), 'anomaly_interval', AID2, 'confirm', 'detected', 'confirmed', '质控-赵磊', hoursAgo(14), JSON.stringify({ shipment_id: SID1 })],
   [uuidv7(), 'shipment', SID1, 'delivery_receipt_uploaded', 'in_transit', 'delivered', '张明', hoursAgo(13), JSON.stringify({ receiver: '刘护士', photo_count: 2 })],
-  [uuidv7(), 'shipment', SID1, 'dispute_opened', 'delivered', 'disputed', '客服-孙丽', hoursAgo(11), JSON.stringify({ dispute_id: DID1, reason: '客户投诉签收时疫苗温度记录异常' })],
+  [uuidv7(), 'dispute', DID1, 'create', null, 'open', '客服-孙丽', hoursAgo(11), JSON.stringify({ shipment_id: SID1, reason: '客户投诉签收时疫苗温度记录异常' })],
+  [uuidv7(), 'anomaly_interval', AID1, 'status_change', 'detected', 'disputed', '客服-孙丽', hoursAgo(11), JSON.stringify({ dispute_id: DID1 })],
+  [uuidv7(), 'anomaly_interval', AID2, 'status_change', 'confirmed', 'disputed', '客服-孙丽', hoursAgo(11), JSON.stringify({ dispute_id: DID1 })],
+  [uuidv7(), 'shipment', SID1, 'status_change', 'delivered', 'disputed', '客服-孙丽', hoursAgo(11), JSON.stringify({ dispute_id: DID1, reason: '客户投诉签收时疫苗温度记录异常', anomaly_intervals: [AID1, AID2] })],
+  [uuidv7(), 'dispute', DID1, 'update', 'open', 'reviewing', '质控主管-钱工', hoursAgo(11), JSON.stringify({ resolution: '复核中...' })],
 ]
 const insertAllLogs = db.transaction((entries) => {
   for (const e of entries) insertLog.run(...e)
@@ -129,7 +133,7 @@ console.log(`    - 34条温控采样 (含2段越界)`)
 console.log(`    - 2个异常区间 (1个已确认, 1个待确认)`)
 console.log(`    - 1条签收记录`)
 console.log(`    - 1条争议 (reviewing)`)
-console.log(`    - 7条审计日志`)
+console.log(`    - 11条审计日志`)
 console.log(`  运单2: ${SID2} (CC-2026-0601-002, 广州→深圳, 状态: in_transit)`)
 console.log(`    - 12条温控采样 (无越界)`)
 console.log()

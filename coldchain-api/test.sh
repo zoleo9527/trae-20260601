@@ -196,21 +196,34 @@ for iv in d['anomaly_intervals']:
 r=d['delivery_receipt']
 if r:
     print(f'  签收摘要: 签收人={r[\"receiver_name\"]}, 温度={r[\"temperature_at_delivery\"]}°C, 照片={r[\"photo_count\"]}张, 备注={r[\"notes\"][:30]}')
-print(f'  关键审计节点: {len(d[\"key_audit_logs\"])}条')
+print(f'  关键审计节点: {len(d["key_audit_logs"])}条')
 types = {}
-has_anomaly_confirm = False
+actions = {}
+has_dispute_create = False
+has_anomaly_status_change = False
 for log in d['key_audit_logs']:
     t = log['entity_type']
+    a = log['action']
     types[t] = types.get(t, 0) + 1
-    if t == 'anomaly_interval' and log['action'] == 'confirm':
-        has_anomaly_confirm = True
-    print(f'    [{log[\"changed_at\"][:16]}] ({t}) {log[\"action\"]}: {log[\"old_value\"] or \"(新建)\"} → {log[\"new_value\"]}')
-print(f'  审计节点分布: {types}')
-print(f'  包含 anomaly_interval 的 confirm 记录: {has_anomaly_confirm}')
-if not has_anomaly_confirm:
-    print('ERROR: 关键审计节点缺少 anomaly_interval 的 confirm 记录！', file=sys.stderr)
+    actions[a] = actions.get(a, 0) + 1
+    if t == 'dispute' and a == 'create':
+        has_dispute_create = True
+    if t == 'anomaly_interval' and a == 'status_change':
+        has_anomaly_status_change = True
+    old_val = log['old_value'] or '(新建)'
+    new_val = log['new_value']
+    ts = log['changed_at'][:16]
+    print(f'    [{ts}] ({t}) {a}: {old_val} -> {new_val}')
+print(f'  审计节点分布: entity_types={types}, actions={actions}')
+print(f'  包含 dispute 的 create 记录: {has_dispute_create}')
+print(f'  包含 anomaly_interval 的 status_change 记录: {has_anomaly_status_change}')
+if not has_dispute_create:
+    print('ERROR: 关键审计节点缺少 dispute 的 create 记录！', file=sys.stderr)
     sys.exit(1)
-" 2>/dev/null && ok "争议详情聚合查询成功（含 anomaly_interval 的 confirm 记录）" || fail "争议详情聚合查询失败"
+if not has_anomaly_status_change:
+    print('ERROR: 关键审计节点缺少 anomaly_interval 的 status_change 记录！', file=sys.stderr)
+    sys.exit(1)
+" 2>/dev/null && ok "争议详情聚合查询成功（审计链完整）" || fail "争议详情聚合查询失败"
 
 step "19. 按越界确认状态筛选争议 — anomaly_confirmed=false"
 UNCONFIRMED=$($C "$BASE/api/disputes?anomaly_confirmed=false")

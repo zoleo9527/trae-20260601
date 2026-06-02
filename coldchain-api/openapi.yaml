@@ -1087,9 +1087,25 @@ components:
           type: array
           description: |
             关键审计节点，覆盖三个实体类型：
-            - **dispute**：dispute_opened、dispute_resolved、dispute_rejected、update
-            - **shipment**：delivery_receipt_uploaded、dispute_opened、dispute_resolved、dispute_rejected
-            - **anomaly_interval**：confirm（越界确认）、dispute_resolved、dispute_rejected
+
+            **dispute 实体：**
+            - `create`：争议创建
+            - `update`：争议状态/内容更新
+
+            **shipment 实体：**
+            - `create`：运单创建
+            - `status_change`：运单状态变更（含发起争议时的状态变更）
+            - `temperature_samples_added`：温控采样新增
+            - `anomalies_detected`：异常区间检测
+            - `delivery_receipt_uploaded`：签收材料上传
+            - `dispute_resolved`：争议解决
+            - `dispute_rejected`：争议驳回
+
+            **anomaly_interval 实体：**
+            - `status_change`：异常区间状态变更（含发起争议时从 detected/confirmed 变为 disputed）
+            - `confirm`：越界确认
+            - `dispute_resolved`：关联争议解决
+            - `dispute_rejected`：关联争议驳回
           items:
             $ref: "#/components/schemas/AuditLog"
 

@@ -378,6 +378,13 @@ app.post('/api/shipments/:id/disputes', (req, res) => {
   const id = uuidv7()
   const now = new Date().toISOString()
   const anomalyIds = b.anomaly_interval_ids || []
+
+  const oldAnomalyStatuses = {}
+  for (const aid of anomalyIds) {
+    const a = db.prepare('SELECT status FROM anomaly_intervals WHERE id = ?').get(aid)
+    if (a) oldAnomalyStatuses[aid] = a.status
+  }
+
   db.prepare(`
     INSERT INTO disputes (id, shipment_id, initiated_by, reason, status, anomaly_interval_ids, evidence_summary, created_at, updated_at)
     VALUES (?, ?, ?, ?, 'open', ?, ?, ?, ?)
@@ -391,7 +398,21 @@ app.post('/api/shipments/:id/disputes', (req, res) => {
   }
 
   auditLog(db, {
-    entity_type: 'shipment', entity_id: req.params.id, action: 'dispute_opened',
+    entity_type: 'dispute', entity_id: id, action: 'create',
+    old_value: null, new_value: 'open', changed_by: b.initiated_by || 'customer_service',
+    details: { shipment_id: req.params.id, reason: b.reason }
+  })
+
+  for (const aid of anomalyIds) {
+    auditLog(db, {
+      entity_type: 'anomaly_interval', entity_id: aid, action: 'status_change',
+      old_value: oldAnomalyStatuses[aid] || 'detected', new_value: 'disputed',
+      changed_by: b.initiated_by || 'customer_service', details: { dispute_id: id }
+    })
+  }
+
+  auditLog(db, {
+    entity_type: 'shipment', entity_id: req.params.id, action: 'status_change',
     old_value: shipment.status, new_value: 'disputed', changed_by: b.initiated_by || 'customer_service',
     details: { dispute_id: id, reason: b.reason, anomaly_intervals: anomalyIds }
   })
@@ -474,7 +495,7 @@ app.get('/api/disputes/:id/detail', (req, res) => {
 
   const receipt = db.prepare('SELECT * FROM delivery_receipts WHERE shipment_id = ?').get(dispute.shipment_id)
 
-  const keyActions = ['dispute_opened', 'dispute_resolved', 'dispute_rejected', 'confirm', 'update']
+  const keyActions = ['create', 'update', 'confirm', 'status_change', 'dispute_resolved', 'dispute_rejected', 'delivery_receipt_uploaded', 'anomalies_detected', 'temperature_samples_added']
   const auditSql = `SELECT * FROM audit_logs WHERE 
     (entity_type = 'dispute' AND entity_id = ?) 
     OR (entity_type = 'shipment' AND entity_id = ?)
