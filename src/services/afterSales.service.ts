@@ -185,18 +185,21 @@ export class AfterSalesService {
     }
 
     if (feedback.type === FeedbackType.WRONG_SKU) {
+      const orderItemsByProductId = new Map(
+        orderItems.map((oi) => [oi.productId, oi])
+      );
+
       for (const pkgItem of pkgItems) {
         const expectedProd = pkgItem.expectedProduct;
         const actualProd = pkgItem.product;
         if (expectedProd && expectedProd.id !== actualProd.id) {
-          const matchingPickTask = await this.findPickTaskForProduct(
-            feedback.package.order.wave?.id,
-            expectedProd.id
-          );
+          const orderItem = orderItemsByProductId.get(expectedProd.id);
+          const matchingPickTask = orderItem?.pickTasks[0] || null;
           traceResult.possibleCauses.push({
             type: 'SKU_MISMATCH_IN_PACKAGE',
             description: `包裹中商品不一致：应发「${expectedProd.sku} ${expectedProd.name}」，实发「${actualProd.sku} ${actualProd.name}」`,
             packageItem: pkgItem,
+            orderItem,
             expectedProduct: expectedProd,
             actualProduct: actualProd,
             waveId: feedback.package.order.wave?.id,
@@ -210,14 +213,13 @@ export class AfterSalesService {
           const expectedProd = reviewItem.expectedProduct;
           const actualProd = reviewItem.product;
           if (expectedProd && expectedProd.id !== actualProd.id) {
-            const matchingPickTask = await this.findPickTaskForProduct(
-              feedback.package.order.wave?.id,
-              expectedProd.id
-            );
+            const orderItem = orderItemsByProductId.get(expectedProd.id);
+            const matchingPickTask = orderItem?.pickTasks[0] || null;
             traceResult.possibleCauses.push({
               type: 'SKU_MISMATCH_IN_REVIEW',
               description: `复核记录显示商品不一致：应发「${expectedProd.sku} ${expectedProd.name}」，实发「${actualProd.sku} ${actualProd.name}」，但复核员未纠正`,
               reviewItem,
+              orderItem,
               expectedProduct: expectedProd,
               actualProduct: actualProd,
               reviewerId: feedback.package.reviewRecord.reviewerId,
@@ -239,16 +241,12 @@ export class AfterSalesService {
       const actualProductIds = new Set(pkgItems.map((pi) => pi.productId));
       for (const oi of orderItems) {
         if (!actualProductIds.has(oi.productId)) {
-          const matchingPickTask = await this.findPickTaskForProduct(
-            feedback.package.order.wave?.id,
-            oi.productId
-          );
           traceResult.possibleCauses.push({
             type: 'EXPECTED_PRODUCT_MISSING',
             description: `订单应发商品「${oi.product.sku} ${oi.product.name}」在包裹中缺失`,
             orderItem: oi,
             waveId: feedback.package.order.wave?.id,
-            pickTask: matchingPickTask,
+            pickTask: oi.pickTasks[0] || null,
           });
         }
       }
@@ -278,28 +276,6 @@ export class AfterSalesService {
     }
 
     return traceResult;
-  }
-
-  private async findPickTaskForProduct(
-    waveId: string | undefined,
-    expectedProductId: string
-  ) {
-    if (!waveId) return null;
-
-    const pickTask = await this.prisma.pickTask.findFirst({
-      where: {
-        waveId,
-        productId: expectedProductId,
-      },
-      include: {
-        product: true,
-        pickedBy: true,
-        assignedTo: true,
-        location: true,
-      },
-    });
-
-    return pickTask;
   }
 
   async resolveFeedback(
