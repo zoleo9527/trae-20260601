@@ -22,6 +22,7 @@ export default function Delivery() {
   const assignees = useStore(s => s.assignees)
   const getEpisodeVersions = useStore(s => s.getEpisodeVersions)
   const markEncoded = useStore(s => s.markEncoded)
+  const markDelivering = useStore(s => s.markDelivering)
   const markDelivered = useStore(s => s.markDelivered)
 
   const [modal, setModal] = useState<{ projectId: string; episodeId: string } | null>(null)
@@ -112,10 +113,10 @@ export default function Delivery() {
                       )}
                       {ep.status === 'encoded' && (
                         <button
-                          onClick={() => markDelivered(ep.projectId, ep.id)}
+                          onClick={() => markDelivering(ep.projectId, ep.id)}
                           className="flex-1 text-xs bg-amber-500/20 text-amber-400 border border-amber-500/30 rounded px-2 py-1 hover:bg-amber-500/30 transition-colors"
                         >
-                          标记交付
+                          准备交付
                         </button>
                       )}
                       {ep.status === 'delivering' && (

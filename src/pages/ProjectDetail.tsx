@@ -308,6 +308,15 @@ export default function ProjectDetail() {
                   )}
                 </div>
 
+                {selected.status === 'rework' && selected.reworkReason && (
+                  <div>
+                    <h3 className="mb-2 text-xs font-medium uppercase tracking-wider text-zinc-500">返工原因</h3>
+                    <div className="rounded-lg bg-red-500/5 border border-red-500/20 p-3">
+                      <p className="text-sm text-zinc-300 leading-relaxed">{selected.reworkReason}</p>
+                    </div>
+                  </div>
+                )}
+
                 {selected.segments.length > 0 && (
                   <div>
                     <h3 className="mb-2 text-xs font-medium uppercase tracking-wider text-zinc-500">段落</h3>

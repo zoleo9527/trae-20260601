@@ -94,12 +94,11 @@ export default function Dashboard() {
     }
 
     if (ep.status === 'rework') {
-      const openComments = reviewComments.filter(c => c.episodeId === ep.id && c.status === 'open')
       alerts.push({
         episodeTitle: ep.title,
         projectName: project.name,
         projectId: project.id,
-        description: `校对打回需返工，${openComments.length} 条待处理意见`,
+        description: ep.reworkReason || `校对打回需返工，${reviewComments.filter(c => c.episodeId === ep.id && c.status === 'open').length} 条待处理意见`,
         badge: '打回',
         badgeColor: 'bg-orange-500/20 text-orange-400',
         icon: <RotateCcw className="w-4 h-4 text-orange-400" />,

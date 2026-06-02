@@ -60,6 +60,7 @@ export interface Episode {
   segments: Segment[]
   assigneeIds: string[]
   deadline: string
+  reworkReason?: string
 }
 
 export interface Project {
@@ -89,6 +90,7 @@ export interface AppState {
   markEpisodeRework: (projectId: string, episodeId: string, reason: string) => void
   approveEpisode: (projectId: string, episodeId: string) => void
   markEncoded: (projectId: string, episodeId: string, outputPath: string) => void
+  markDelivering: (projectId: string, episodeId: string) => void
   markDelivered: (projectId: string, episodeId: string) => void
   assignEpisode: (projectId: string, episodeId: string, assigneeIds: string[]) => void
   getProject: (id: string) => Project | undefined
@@ -186,6 +188,7 @@ function buildDemoData(): { projects: Project[]; fileVersions: FileVersion[]; re
             { id: 's2-5-2', episodeId: 'e2-5', name: '后半段', startLine: 251, endLine: 520, assigneeId: 'a2', status: 'rework' },
           ], assigneeIds: ['a1', 'a2', 'a7'],
           deadline: daysAgo(1),
+          reworkReason: '专业术语翻译不统一（如 "compromise" 译为"妥协了"应为"妥协"），后半段时间轴偏移约0.5秒，语气词使用需精简',
         },
       ],
     },
@@ -359,11 +362,11 @@ export const useStore = create<AppState>()(
         }))
       },
 
-      markEpisodeRework: (projectId, episodeId, _reason) => {
+      markEpisodeRework: (projectId, episodeId, reason) => {
         set(s => ({
           projects: s.projects.map(p =>
             p.id === projectId
-              ? { ...p, updatedAt: new Date().toISOString(), episodes: p.episodes.map(e => e.id === episodeId ? { ...e, status: 'rework' as EpisodeStatus } : e) }
+              ? { ...p, updatedAt: new Date().toISOString(), episodes: p.episodes.map(e => e.id === episodeId ? { ...e, status: 'rework' as EpisodeStatus, reworkReason: reason } : e) }
               : p
           ),
         }))
@@ -395,6 +398,16 @@ export const useStore = create<AppState>()(
           projects: s.projects.map(p =>
             p.id === projectId
               ? { ...p, updatedAt: new Date().toISOString(), episodes: p.episodes.map(e => e.id === episodeId ? { ...e, status: 'encoded' as EpisodeStatus } : e) }
+              : p
+          ),
+        }))
+      },
+
+      markDelivering: (projectId, episodeId) => {
+        set(s => ({
+          projects: s.projects.map(p =>
+            p.id === projectId
+              ? { ...p, updatedAt: new Date().toISOString(), episodes: p.episodes.map(e => e.id === episodeId ? { ...e, status: 'delivering' as EpisodeStatus } : e) }
               : p
           ),
         }))

@@ -37,7 +37,8 @@ export default function Review() {
   const [showForm, setShowForm] = useState(false)
   const [formType, setFormType] = useState<ReviewComment['type']>('typo')
   const [formContent, setFormContent] = useState('')
-  const [reworkReason, setReworkReason] = useState('')
+  const [showReworkModal, setShowReworkModal] = useState(false)
+  const [reworkReasonInput, setReworkReasonInput] = useState('')
 
   if (!project) {
     return (
@@ -78,8 +79,10 @@ export default function Review() {
 
   const handleRework = () => {
     if (!episode) return
-    markEpisodeRework(project.id, episode.id, reworkReason || '校对未通过')
-    setReworkReason('')
+    const reason = reworkReasonInput.trim() || '校对未通过，需根据校对意见修改'
+    markEpisodeRework(project.id, episode.id, reason)
+    setReworkReasonInput('')
+    setShowReworkModal(false)
   }
 
   return (
@@ -232,7 +235,7 @@ export default function Review() {
                     <Check className="w-4 h-4" /> 通过
                   </button>
                   <button
-                    onClick={handleRework}
+                    onClick={() => setShowReworkModal(true)}
                     className="flex-1 flex items-center justify-center gap-1.5 rounded-lg bg-red-500/10 border border-red-500/30 py-2 text-sm font-medium text-red-400 hover:bg-red-500/20 transition"
                   >
                     <X className="w-4 h-4" /> 打回返工
@@ -240,9 +243,16 @@ export default function Review() {
                 </div>
               )}
 
-              {episode.status === 'rework' && openComments.length > 0 && (
+              {episode.status === 'rework' && episode.reworkReason && (
                 <div className="rounded-lg bg-red-500/5 border border-red-500/20 p-3 space-y-2">
                   <p className="text-xs font-medium text-red-400">返工原因</p>
+                  <p className="text-sm text-zinc-300 leading-relaxed">{episode.reworkReason}</p>
+                </div>
+              )}
+
+              {episode.status === 'rework' && !episode.reworkReason && openComments.length > 0 && (
+                <div className="rounded-lg bg-red-500/5 border border-red-500/20 p-3 space-y-2">
+                  <p className="text-xs font-medium text-red-400">待处理意见</p>
                   {openComments.slice(0, 3).map(c => (
                     <p key={c.id} className="text-sm text-zinc-400">· {c.content}</p>
                   ))}
@@ -273,6 +283,48 @@ export default function Review() {
                   </div>
                 ))}
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showReworkModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={() => setShowReworkModal(false)}>
+          <div className="w-full max-w-md rounded-xl border border-zinc-700 bg-[#1e1e3a] p-6" onClick={e => e.stopPropagation()}>
+            <div className="mb-5 flex items-center justify-between">
+              <h3 className="text-lg font-bold text-zinc-100">打回返工</h3>
+              <button onClick={() => setShowReworkModal(false)} className="text-zinc-500 hover:text-zinc-300">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="mb-1.5 block text-sm text-zinc-400">返工原因</label>
+                <textarea
+                  value={reworkReasonInput}
+                  onChange={e => setReworkReasonInput(e.target.value)}
+                  placeholder="请输入返工原因，帮助译员了解需要修改的内容..."
+                  rows={4}
+                  className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-zinc-200 placeholder-zinc-600 outline-none focus:border-amber-500/50 focus:ring-1 focus:ring-amber-500/30 resize-none"
+                  autoFocus
+                />
+              </div>
+            </div>
+
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                onClick={() => setShowReworkModal(false)}
+                className="rounded-lg border border-zinc-700 px-4 py-2 text-sm text-zinc-300 transition hover:bg-zinc-800"
+              >
+                取消
+              </button>
+              <button
+                onClick={handleRework}
+                className="rounded-lg bg-red-500/80 px-4 py-2 text-sm font-medium text-white transition hover:bg-red-500"
+              >
+                确认打回
+              </button>
             </div>
           </div>
         </div>
