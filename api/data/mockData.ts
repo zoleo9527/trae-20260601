@@ -224,9 +224,10 @@ export const faults: Fault[] = [
     stationName: '中关村科技园站',
     type: 'network',
     severity: 'high',
-    status: 'pending',
+    status: 'processing',
     description: '网络连接异常，数据传输中断',
     detectedAt: '2024-06-01T22:45:00Z',
+    workOrderId: 'wo3',
   },
   {
     id: 'f4',
@@ -280,8 +281,11 @@ export const faultTimelines: FaultTimeline[] = [
   { id: 'ft6', faultId: 'f2', type: 'arrived', title: '到达现场', description: '维修人员已到达现场', createdAt: '2024-06-01T16:00:00Z', operator: '王维修' },
   { id: 'ft7', faultId: 'f2', type: 'repaired', title: '零件申请', description: '发现需要更换充电模块，已申请零件', createdAt: '2024-06-01T16:45:00Z', operator: '王维修' },
   
-  { id: 'ft8', faultId: 'f4', type: 'detected', title: '故障检测', description: '亦庄开发区站多设备离线告警', createdAt: '2024-05-28T10:00:00Z' },
-  { id: 'ft9', faultId: 'f4', type: 'assigned', title: '工单派发', description: '紧急派单给维修商', createdAt: '2024-05-28T10:05:00Z', operator: '张运营' },
+  { id: 'ft8', faultId: 'f3', type: 'detected', title: '故障检测', description: '设备E03桩网络连接异常', createdAt: '2024-06-01T22:45:00Z' },
+  { id: 'ft8a', faultId: 'f3', type: 'assigned', title: '工单派发', description: '自动派单给维修商王维修', createdAt: '2024-06-01T22:50:00Z', operator: '系统' },
+
+  { id: 'ft9', faultId: 'f4', type: 'detected', title: '故障检测', description: '亦庄开发区站多设备离线告警', createdAt: '2024-05-28T10:00:00Z' },
+  { id: 'ft9a', faultId: 'f4', type: 'assigned', title: '工单派发', description: '紧急派单给维修商', createdAt: '2024-05-28T10:05:00Z', operator: '张运营' },
   
   { id: 'ft10', faultId: 'f5', type: 'detected', title: '故障检测', description: '用户报告充电中断', createdAt: '2024-05-30T16:20:00Z' },
   { id: 'ft11', faultId: 'f5', type: 'assigned', title: '工单派发', description: '派单给维修商', createdAt: '2024-05-30T16:25:00Z', operator: '李客服' },

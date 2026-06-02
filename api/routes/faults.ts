@@ -66,7 +66,25 @@ router.get('/:id/orders', async (req: Request, res: Response): Promise<void> => 
 
 router.get('/:id/workorder', async (req: Request, res: Response): Promise<void> => {
   const { id } = req.params;
-  const workOrder = workOrders.find((w) => w.faultId === id);
+  const fault = faults.find((f) => f.id === id);
+
+  if (!fault) {
+    res.status(404).json({
+      success: false,
+      message: '故障不存在',
+    });
+    return;
+  }
+
+  let workOrder: WorkOrder | undefined;
+
+  if (fault.workOrderId) {
+    workOrder = workOrders.find((w) => w.id === fault.workOrderId);
+  }
+
+  if (!workOrder) {
+    workOrder = workOrders.find((w) => w.faultId === id);
+  }
 
   if (!workOrder) {
     res.status(404).json({
@@ -74,6 +92,10 @@ router.get('/:id/workorder', async (req: Request, res: Response): Promise<void> 
       message: '工单不存在',
     });
     return;
+  }
+
+  if (!fault.workOrderId) {
+    fault.workOrderId = workOrder.id;
   }
 
   res.json({

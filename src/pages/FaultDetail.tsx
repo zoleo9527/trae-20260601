@@ -53,7 +53,7 @@ export function FaultDetail() {
         setTimeline(timelineData);
         setAffectedOrders(ordersData);
 
-        if (faultData.workOrderId) {
+        if (faultData.workOrderId || faultData.status === 'processing') {
           try {
             const workOrderData = await api.faults.workOrder(id);
             setWorkOrder(workOrderData);

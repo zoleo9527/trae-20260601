@@ -27,28 +27,32 @@ import {
   disputes as initialDisputes,
 } from './mockData.js';
 
-export let users: User[] = [...initialUsers];
-export let stations: Station[] = [...initialStations];
-export let devices: Device[] = [...initialDevices];
-export let faults: Fault[] = [...initialFaults];
-export let faultTimelines: FaultTimeline[] = [...initialFaultTimelines];
-export let workOrders: WorkOrder[] = [...initialWorkOrders];
-export let orders: Order[] = [...initialOrders];
-export let complaints: Complaint[] = [...initialComplaints];
-export let settlements: Settlement[] = [...initialSettlements];
-export let settlementAdjustments: SettlementAdjustment[] = [...initialSettlementAdjustments];
-export let disputes: Dispute[] = [...initialDisputes];
+function deepCopy<T>(data: T[]): T[] {
+  return JSON.parse(JSON.stringify(data));
+}
+
+export let users: User[] = deepCopy(initialUsers);
+export let stations: Station[] = deepCopy(initialStations);
+export let devices: Device[] = deepCopy(initialDevices);
+export let faults: Fault[] = deepCopy(initialFaults);
+export let faultTimelines: FaultTimeline[] = deepCopy(initialFaultTimelines);
+export let workOrders: WorkOrder[] = deepCopy(initialWorkOrders);
+export let orders: Order[] = deepCopy(initialOrders);
+export let complaints: Complaint[] = deepCopy(initialComplaints);
+export let settlements: Settlement[] = deepCopy(initialSettlements);
+export let settlementAdjustments: SettlementAdjustment[] = deepCopy(initialSettlementAdjustments);
+export let disputes: Dispute[] = deepCopy(initialDisputes);
 
 export function resetData() {
-  users = [...initialUsers];
-  stations = [...initialStations];
-  devices = [...initialDevices];
-  faults = [...initialFaults];
-  faultTimelines = [...initialFaultTimelines];
-  workOrders = [...initialWorkOrders];
-  orders = [...initialOrders];
-  complaints = [...initialComplaints];
-  settlements = [...initialSettlements];
-  settlementAdjustments = [...initialSettlementAdjustments];
-  disputes = [...initialDisputes];
+  users = deepCopy(initialUsers);
+  stations = deepCopy(initialStations);
+  devices = deepCopy(initialDevices);
+  faults = deepCopy(initialFaults);
+  faultTimelines = deepCopy(initialFaultTimelines);
+  workOrders = deepCopy(initialWorkOrders);
+  orders = deepCopy(initialOrders);
+  complaints = deepCopy(initialComplaints);
+  settlements = deepCopy(initialSettlements);
+  settlementAdjustments = deepCopy(initialSettlementAdjustments);
+  disputes = deepCopy(initialDisputes);
 }

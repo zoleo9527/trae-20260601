@@ -77,7 +77,25 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
     return;
   }
 
+  if (fault.status === 'resolved' || fault.status === 'closed') {
+    res.status(400).json({
+      success: false,
+      message: '故障已解决，无需派单',
+    });
+    return;
+  }
+
   if (fault.workOrderId) {
+    res.status(400).json({
+      success: false,
+      message: '该故障已有派单工单',
+    });
+    return;
+  }
+
+  const existingWorkOrder = workOrders.find((w) => w.faultId === faultId);
+  if (existingWorkOrder) {
+    fault.workOrderId = existingWorkOrder.id;
     res.status(400).json({
       success: false,
       message: '该故障已有派单工单',

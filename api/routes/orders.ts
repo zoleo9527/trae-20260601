@@ -79,38 +79,41 @@ router.post('/:id/refund', async (req: Request, res: Response): Promise<void> =>
     const settlementMonth = `${orderDate.getFullYear()}-${String(orderDate.getMonth() + 1).padStart(2, '0')}`;
 
     let settlement = settlements.find(
-      (s) => s.stationId === order.stationId && s.date === settlementMonth
+      (s) => s.stationId === order.stationId && s.date.startsWith(settlementMonth)
     );
 
     if (!settlement) {
+      const stationOrders = orders.filter(
+        (o) => o.stationId === order.stationId
+      );
+      const stationTotal = stationOrders.reduce((sum, o) => sum + o.amount, 0);
+      const existingRefunds = stationOrders.filter(o => o.status === 'refunded' && o.id !== order.id);
+      const existingRefundTotal = existingRefunds.reduce((sum, o) => sum + (o.refundAmount || 0), 0);
+      const splitRatio = station.splitRatio || 0.7;
+
       const newSettlementId = `set${settlements.length + 1}`;
       settlement = {
         id: newSettlementId,
         date: settlementMonth,
         stationId: station.id,
         stationName: station.name,
-        totalAmount: 0,
-        platformShare: 0,
-        partnerShare: 0,
-        refundDeduction: 0,
-        finalPartnerShare: 0,
+        totalAmount: stationTotal - existingRefundTotal,
+        platformShare: (stationTotal - existingRefundTotal) * (1 - splitRatio),
+        partnerShare: (stationTotal - existingRefundTotal) * splitRatio,
+        refundDeduction: existingRefundTotal,
+        finalPartnerShare: (stationTotal - existingRefundTotal) * splitRatio - existingRefundTotal,
         status: 'pending',
       };
       settlements.push(settlement);
     }
 
     const splitRatio = station.splitRatio || 0.7;
-    const partnerShareAmount = refundAmount * splitRatio;
 
-    settlement.refundDeduction += refundAmount;
     settlement.totalAmount = Math.max(0, settlement.totalAmount - refundAmount);
-    settlement.partnerShare = Math.max(0, settlement.partnerShare - partnerShareAmount);
-    settlement.platformShare = Math.max(0, settlement.platformShare - (refundAmount - partnerShareAmount));
+    settlement.refundDeduction += refundAmount;
+    settlement.platformShare = settlement.totalAmount * (1 - splitRatio);
+    settlement.partnerShare = settlement.totalAmount * splitRatio;
     settlement.finalPartnerShare = Math.max(0, settlement.partnerShare - settlement.refundDeduction);
-
-    if (settlement.totalAmount === 0) {
-      settlement.finalPartnerShare = 0;
-    }
 
     const adjustmentId = `adj${settlementAdjustments.length + 1}`;
     const adjustment: SettlementAdjustment = {
