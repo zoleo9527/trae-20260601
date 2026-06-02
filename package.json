@@ -1,0 +1,20 @@
+{
+    "name": "ad-schedule-system",
+    "version": "1.0.0",
+    "private": true,
+    "scripts": {
+        "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\"",
+        "dev:server": "node server/index.js",
+        "dev:client": "cd client && npx vite --host",
+        "build": "cd client && npx vite build",
+        "seed": "node server/seed.js"
+    },
+    "dependencies": {
+        "better-sqlite3": "^11.7.0",
+        "cors": "^2.8.5",
+        "express": "^4.21.0"
+    },
+    "devDependencies": {
+        "concurrently": "^9.1.0"
+    }
+}
