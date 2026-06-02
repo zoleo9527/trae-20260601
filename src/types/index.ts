@@ -16,6 +16,7 @@ export interface User {
   id: string;
   name: string;
   role: UserRole;
+  counselorId?: string;
   avatar?: string;
 }
 

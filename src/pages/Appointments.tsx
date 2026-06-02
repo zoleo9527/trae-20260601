@@ -11,11 +11,18 @@ export function Appointments() {
   const [searchTerm, setSearchTerm] = useState('');
   const [rescheduleExpanded, setRescheduleExpanded] = useState<string | null>(null);
 
-  const filteredAppointments = getFilteredAppointments().filter((apt) =>
-    apt.clientName.includes(searchTerm)
-  );
+  const filteredAppointments = getFilteredAppointments()
+    .filter((apt) => apt.clientName.includes(searchTerm))
+    .filter((apt) => {
+      if (currentUser.role === 'counselor' && currentUser.counselorId) {
+        return apt.counselorId === currentUser.counselorId;
+      }
+      return true;
+    });
 
-  const rescheduleRequests = appointments.filter((a) => a.rescheduleRequest);
+  const rescheduleRequests = currentUser.role === 'reception'
+    ? appointments.filter((a) => a.rescheduleRequest)
+    : [];
 
   const statusOptions: { value: AppointmentStatus | 'all'; label: string }[] = [
     { value: 'all', label: '全部状态' },

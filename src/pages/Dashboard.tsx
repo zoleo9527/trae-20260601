@@ -21,20 +21,32 @@ const todoTypeLabels: Record<string, string> = {
   risk: '风险',
 };
 
+const roleNavLinks: Record<string, Record<string, string>> = {
+  reception: { '今日预约': '/appointments', '待分诊': '/triage', '量表待处理': '/scales' },
+  counselor: { '今日来访': '/appointments', '量表待处理': '/scales' },
+  supervisor: { '风险预警': '/risk' },
+};
+
 export function Dashboard() {
   const navigate = useNavigate();
   const { currentUser } = useUserStore();
-  const { getTodayAppointments, getRescheduleRequests } = useAppointmentStore();
+  const { appointments, getTodayAppointments, getRescheduleRequests } = useAppointmentStore();
   const { getPendingTriage } = useTriageStore();
   const { getHighRiskCount } = useRiskStore();
   const { getPendingScales, getRetestNeeded } = useScaleStore();
 
-  const todayAppointments = getTodayAppointments();
   const rescheduleRequests = getRescheduleRequests();
   const pendingTriage = getPendingTriage();
   const pendingScales = getPendingScales();
   const retestNeeded = getRetestNeeded();
   const highRiskCount = getHighRiskCount();
+
+  let todayAppointments = getTodayAppointments();
+  if (currentUser.role === 'counselor' && currentUser.counselorId) {
+    todayAppointments = todayAppointments.filter(
+      (a) => a.counselorId === currentUser.counselorId
+    );
+  }
 
   const roleGreeting: Record<string, string> = {
     reception: '接待工作台',
@@ -42,17 +54,24 @@ export function Dashboard() {
     supervisor: '督导工作台',
   };
 
-  const stats = [
-    { label: '今日预约', value: todayAppointments.length, icon: Calendar, color: 'text-primary-600', bg: 'bg-primary-50', link: '/appointments' },
-    { label: '待分诊', value: pendingTriage.length, icon: UserCheck, color: 'text-amber-600', bg: 'bg-amber-50', link: '/triage' },
-    { label: '风险预警', value: highRiskCount, icon: AlertTriangle, color: 'text-status-warning', bg: 'bg-red-50', link: '/risk' },
-    { label: '量表待处理', value: pendingScales.length + retestNeeded.length, icon: FileText, color: 'text-status-normal', bg: 'bg-emerald-50', link: '/scales' },
-  ];
+  const anonymize = (name: string) => name.replace(/\d+$/, '***');
 
-  const filteredStats = stats.filter((stat) => {
-    if (currentUser.role === 'counselor') return stat.label !== '待分诊';
-    return true;
-  });
+  const statsByRole = {
+    reception: [
+      { label: '今日预约', value: getTodayAppointments().length, icon: Calendar, color: 'text-primary-600', bg: 'bg-primary-50', link: '/appointments' },
+      { label: '待分诊', value: pendingTriage.length, icon: UserCheck, color: 'text-amber-600', bg: 'bg-amber-50', link: '/triage' },
+      { label: '量表待处理', value: pendingScales.length + retestNeeded.length, icon: FileText, color: 'text-status-normal', bg: 'bg-emerald-50', link: '/scales' },
+    ],
+    counselor: [
+      { label: '今日来访', value: todayAppointments.length, icon: Calendar, color: 'text-primary-600', bg: 'bg-primary-50', link: '/appointments' },
+      { label: '量表待处理', value: pendingScales.length + retestNeeded.length, icon: FileText, color: 'text-status-normal', bg: 'bg-emerald-50', link: '/scales' },
+    ],
+    supervisor: [
+      { label: '风险预警', value: highRiskCount, icon: AlertTriangle, color: 'text-status-warning', bg: 'bg-red-50', link: '/risk' },
+    ],
+  };
+
+  const stats = statsByRole[currentUser.role] || [];
 
   const filteredTodos = mockTodoItems.filter((todo) => {
     if (currentUser.role === 'reception') {
@@ -72,6 +91,8 @@ export function Dashboard() {
     return `${h}:${m}`;
   };
 
+  const isSupervisor = currentUser.role === 'supervisor';
+
   return (
     <div className="space-y-8">
       <div>
@@ -79,8 +100,8 @@ export function Dashboard() {
         <p className="muted-text mt-0.5">2026年6月2日 星期二</p>
       </div>
 
-      <div className={`grid gap-5 ${filteredStats.length === 4 ? 'grid-cols-4' : 'grid-cols-3'}`}>
-        {filteredStats.map((stat) => {
+      <div className={`grid gap-5 grid-cols-${stats.length}`}>
+        {stats.map((stat) => {
           const Icon = stat.icon;
           return (
             <div
@@ -102,117 +123,203 @@ export function Dashboard() {
         })}
       </div>
 
-      <div className="grid grid-cols-5 gap-6">
-        <div className="col-span-3 space-y-6">
-          <div className="card p-0">
-            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-50">
-              <h2 className="subsection-title">今日安排</h2>
-              <button
-                onClick={() => navigate('/appointments')}
-                className="flex items-center gap-1 text-sm text-text-tertiary hover:text-primary-600 transition-colors"
-              >
-                查看全部 <ChevronRight size={14} />
-              </button>
+      {!isSupervisor && (
+        <div className="grid grid-cols-5 gap-6">
+          <div className="col-span-3 space-y-6">
+            <div className="card p-0">
+              <div className="flex items-center justify-between px-5 py-4 border-b border-gray-50">
+                <h2 className="subsection-title">
+                  {currentUser.role === 'counselor' ? '今日来访' : '今日安排'}
+                </h2>
+                {currentUser.role !== 'supervisor' && (
+                  <button
+                    onClick={() => navigate('/appointments')}
+                    className="flex items-center gap-1 text-sm text-text-tertiary hover:text-primary-600 transition-colors"
+                  >
+                    查看全部 <ChevronRight size={14} />
+                  </button>
+                )}
+              </div>
+              <div>
+                {todayAppointments.length === 0 ? (
+                  <p className="text-text-tertiary text-center py-10 text-sm">今日暂无预约</p>
+                ) : (
+                  <div className="divide-y divide-gray-50">
+                    {todayAppointments.map((apt) => (
+                      <div
+                        key={apt.id}
+                        className="flex items-center justify-between px-5 py-3.5 hover:bg-surface-hover transition-colors cursor-pointer"
+                        onClick={() => navigate('/appointments')}
+                      >
+                        <div className="flex items-center gap-4">
+                          <div className="w-16 text-center">
+                            <p className="text-sm font-medium text-text-primary">{formatTime(apt.time)}</p>
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium text-text-primary">
+                              {currentUser.role === 'counselor' ? apt.clientName : apt.clientName}
+                            </p>
+                            <p className="text-2xs text-text-tertiary mt-0.5">
+                              {currentUser.role === 'reception'
+                                ? (apt.counselorName || '待分配')
+                                : apt.type === 'initial' ? '初访' : '复访'}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <TypeBadge type={apt.type} />
+                          <StatusBadge type="appointment" status={apt.status} />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
-            <div>
-              {todayAppointments.length === 0 ? (
-                <p className="text-text-tertiary text-center py-10 text-sm">今日暂无预约</p>
-              ) : (
+
+            {rescheduleRequests.length > 0 && currentUser.role === 'reception' && (
+              <div className="card p-0">
+                <div className="flex items-center justify-between px-5 py-4 border-b border-gray-50">
+                  <h2 className="subsection-title">改期申请</h2>
+                  <span className="badge badge-pending">{rescheduleRequests.length}</span>
+                </div>
                 <div className="divide-y divide-gray-50">
-                  {todayAppointments.map((apt) => (
+                  {rescheduleRequests.map((apt) => (
                     <div
                       key={apt.id}
                       className="flex items-center justify-between px-5 py-3.5 hover:bg-surface-hover transition-colors cursor-pointer"
                       onClick={() => navigate('/appointments')}
                     >
-                      <div className="flex items-center gap-4">
-                        <div className="w-16 text-center">
-                          <p className="text-sm font-medium text-text-primary">{formatTime(apt.time)}</p>
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium text-text-primary">{apt.clientName}</p>
-                          <p className="text-2xs text-text-tertiary mt-0.5">
-                            {apt.counselorName || '待分配'}
-                          </p>
-                        </div>
+                      <div>
+                        <p className="text-sm font-medium text-text-primary">{apt.clientName}</p>
+                        <p className="text-2xs text-text-tertiary mt-0.5">
+                          {apt.date} {apt.time} → {apt.rescheduleRequest?.requestedDate} {apt.rescheduleRequest?.requestedTime}
+                        </p>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <TypeBadge type={apt.type} />
-                        <StatusBadge type="appointment" status={apt.status} />
+                      <div className="flex items-center gap-3">
+                        <p className="text-2xs text-text-tertiary">{apt.rescheduleRequest?.reason}</p>
+                        <ArrowRight size={14} className="text-text-tertiary" />
                       </div>
                     </div>
                   ))}
                 </div>
-              )}
-            </div>
+              </div>
+            )}
           </div>
 
-          {rescheduleRequests.length > 0 && currentUser.role === 'reception' && (
+          <div className="col-span-2">
+            <div className="card p-0">
+              <div className="px-5 py-4 border-b border-gray-50">
+                <h2 className="subsection-title">待办</h2>
+              </div>
+              <div>
+                {filteredTodos.length === 0 ? (
+                  <p className="text-text-tertiary text-center py-10 text-sm">暂无待办</p>
+                ) : (
+                  <div className="divide-y divide-gray-50">
+                    {filteredTodos.map((todo) => (
+                      <div
+                        key={todo.id}
+                        className={`px-5 py-3 border-l-[3px] ${priorityStyles[todo.priority]} cursor-pointer hover:brightness-95 transition-all`}
+                        onClick={() => {
+                          if (todo.type === 'reschedule') navigate('/appointments');
+                          if (todo.type === 'triage') navigate('/triage');
+                          if (todo.type === 'scale') navigate('/scales');
+                          if (todo.type === 'risk') navigate('/risk');
+                        }}
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="badge badge-completed text-text-tertiary">{todoTypeLabels[todo.type]}</span>
+                          <p className="text-sm text-text-primary">{todo.title}</p>
+                        </div>
+                        {todo.description && (
+                          <p className="text-2xs text-text-tertiary mt-1 ml-14">{todo.description}</p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isSupervisor && (
+        <div className="grid grid-cols-5 gap-6">
+          <div className="col-span-3">
             <div className="card p-0">
               <div className="flex items-center justify-between px-5 py-4 border-b border-gray-50">
-                <h2 className="subsection-title">改期申请</h2>
-                <span className="badge badge-pending">{rescheduleRequests.length}</span>
+                <h2 className="subsection-title">待审核个案</h2>
+                <button
+                  onClick={() => navigate('/risk')}
+                  className="flex items-center gap-1 text-sm text-text-tertiary hover:text-primary-600 transition-colors"
+                >
+                  查看全部 <ChevronRight size={14} />
+                </button>
               </div>
-              <div className="divide-y divide-gray-50">
-                {rescheduleRequests.map((apt) => (
-                  <div
-                    key={apt.id}
-                    className="flex items-center justify-between px-5 py-3.5 hover:bg-surface-hover transition-colors cursor-pointer"
-                    onClick={() => navigate('/appointments')}
-                  >
-                    <div>
-                      <p className="text-sm font-medium text-text-primary">{apt.clientName}</p>
-                      <p className="text-2xs text-text-tertiary mt-0.5">
-                        {apt.date} {apt.time} → {apt.rescheduleRequest?.requestedDate} {apt.rescheduleRequest?.requestedTime}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <p className="text-2xs text-text-tertiary">{apt.rescheduleRequest?.reason}</p>
-                      <ArrowRight size={14} className="text-text-tertiary" />
-                    </div>
+              <div>
+                {highRiskCount === 0 ? (
+                  <p className="text-text-tertiary text-center py-10 text-sm">暂无待审核个案</p>
+                ) : (
+                  <div className="divide-y divide-gray-50">
+                    {appointments
+                      .filter((apt) => apt.status !== 'cancelled')
+                      .slice(0, 5)
+                      .map((apt) => (
+                        <div
+                          key={apt.id}
+                          className="flex items-center justify-between px-5 py-3.5 hover:bg-surface-hover transition-colors cursor-pointer"
+                          onClick={() => navigate('/risk')}
+                        >
+                          <div className="flex items-center gap-4">
+                            <div>
+                              <p className="text-sm font-medium text-text-primary">{anonymize(apt.clientName)}</p>
+                              <p className="text-2xs text-text-tertiary mt-0.5">{apt.date}</p>
+                            </div>
+                          </div>
+                          <StatusBadge type="appointment" status={apt.status} />
+                        </div>
+                      ))
+                    }
                   </div>
-                ))}
+                )}
               </div>
             </div>
-          )}
-        </div>
+          </div>
 
-        <div className="col-span-2">
-          <div className="card p-0">
-            <div className="px-5 py-4 border-b border-gray-50">
-              <h2 className="subsection-title">待办</h2>
-            </div>
-            <div>
-              {filteredTodos.length === 0 ? (
-                <p className="text-text-tertiary text-center py-10 text-sm">暂无待办</p>
-              ) : (
-                <div className="divide-y divide-gray-50">
-                  {filteredTodos.map((todo) => (
-                    <div
-                      key={todo.id}
-                      className={`px-5 py-3 border-l-[3px] ${priorityStyles[todo.priority]} cursor-pointer hover:brightness-95 transition-all`}
-                      onClick={() => {
-                        if (todo.type === 'reschedule') navigate('/appointments');
-                        if (todo.type === 'triage') navigate('/triage');
-                        if (todo.type === 'scale') navigate('/scales');
-                        if (todo.type === 'risk') navigate('/risk');
-                      }}
-                    >
-                      <div className="flex items-center gap-2">
-                        <span className="badge badge-completed text-text-tertiary">{todoTypeLabels[todo.type]}</span>
-                        <p className="text-sm text-text-primary">{todo.title}</p>
+          <div className="col-span-2">
+            <div className="card p-0">
+              <div className="px-5 py-4 border-b border-gray-50">
+                <h2 className="subsection-title">待办</h2>
+              </div>
+              <div>
+                {filteredTodos.length === 0 ? (
+                  <p className="text-text-tertiary text-center py-10 text-sm">暂无待办</p>
+                ) : (
+                  <div className="divide-y divide-gray-50">
+                    {filteredTodos.map((todo) => (
+                      <div
+                        key={todo.id}
+                        className={`px-5 py-3 border-l-[3px] ${priorityStyles[todo.priority]} cursor-pointer hover:brightness-95 transition-all`}
+                        onClick={() => navigate('/risk')}
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="badge badge-completed text-text-tertiary">{todoTypeLabels[todo.type]}</span>
+                          <p className="text-sm text-text-primary">{todo.title}</p>
+                        </div>
+                        {todo.description && (
+                          <p className="text-2xs text-text-tertiary mt-1 ml-14">{todo.description}</p>
+                        )}
                       </div>
-                      {todo.description && (
-                        <p className="text-2xs text-text-tertiary mt-1 ml-14">{todo.description}</p>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

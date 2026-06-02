@@ -2,7 +2,7 @@ import type { Appointment, Counselor, TriageItem, RiskCase, ScaleRecord, TodoIte
 
 export const mockUsers: User[] = [
   { id: 'u1', name: '张接待', role: 'reception' },
-  { id: 'u2', name: '李咨询师', role: 'counselor' },
+  { id: 'u2', name: '陈咨询师', role: 'counselor', counselorId: 'c1' },
   { id: 'u3', name: '王督导', role: 'supervisor' },
 ];
 

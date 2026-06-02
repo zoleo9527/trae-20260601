@@ -17,9 +17,15 @@ export function Schedule() {
   const currentDateIndex = dates.indexOf(selectedDate);
   const scheduleForDate = getScheduleForDate(selectedDate);
 
-  const displayCounselors = selectedCounselor
-    ? counselors.filter((c) => c.id === selectedCounselor)
-    : counselors;
+  const displayCounselors = (() => {
+    if (currentUser.role === 'counselor' && currentUser.counselorId) {
+      return counselors.filter((c) => c.id === currentUser.counselorId);
+    }
+    if (selectedCounselor) {
+      return counselors.filter((c) => c.id === selectedCounselor);
+    }
+    return counselors;
+  })();
 
   const getAppointmentForSlot = (counselorId: string, date: string, time: string) => {
     return appointments.find(
