@@ -2,7 +2,7 @@ import { SampleBadge } from '@/components/StatusBadge';
 import { useStore } from '@/store/useStore';
 import type { Sample, SampleStatus } from '@/types';
 import { fmtDateTime } from '@/utils/time';
-import { ChevronDown, ChevronRight, Download, Plus, Search } from 'lucide-react';
+import { ChevronDown, ChevronRight, Download, Edit3, Plus, Search } from 'lucide-react';
 import React, { useState } from 'react';
 
 const TABS: { label: string; value: SampleStatus | null }[] = [
@@ -16,25 +16,44 @@ const TABS: { label: string; value: SampleStatus | null }[] = [
   { label: '已取消', value: 'cancelled' },
 ]
 
-const STATUS_OPTIONS: { label: string; value: SampleStatus }[] = [
-  { label: '待测', value: 'waiting' },
-  { label: '检测中', value: 'testing' },
-  { label: '完成', value: 'done' },
-  { label: '异常', value: 'abnormal' },
-  { label: '顺延待处理', value: 'pending_postpone' },
-  { label: '已顺延', value: 'postponed' },
-  { label: '已取消', value: 'cancelled' },
+const STATUS_OPTIONS: { label: string; value: SampleStatus; needNote: boolean }[] = [
+  { label: '待测', value: 'waiting', needNote: false },
+  { label: '检测中', value: 'testing', needNote: false },
+  { label: '完成', value: 'done', needNote: false },
+  { label: '异常', value: 'abnormal', needNote: true },
+  { label: '顺延待处理', value: 'pending_postpone', needNote: true },
+  { label: '已顺延', value: 'postponed', needNote: true },
+  { label: '已取消', value: 'cancelled', needNote: true },
 ]
 
 const isDispositionStatus = (status: SampleStatus) =>
   status === 'pending_postpone' || status === 'postponed' || status === 'cancelled'
 
+const getDefaultDispositionNote = (status: SampleStatus) => {
+  switch (status) {
+    case 'pending_postpone':
+      return '关联预约被标记顺延，等待管理员安排新时段';
+    case 'postponed':
+      return '样本已顺延至新时段，请按时安排测试';
+    case 'cancelled':
+      return '样本取消测试，请及时取回';
+    case 'abnormal':
+      return '检测异常，需进一步处理';
+    default:
+      return '';
+  }
+};
+
 export default function SamplesPage() {
-  const { samples, instruments, reservations, addSample, updateSampleStatus, updateSampleDisposition, currentRole, currentUserId } = useStore()
+  const { samples, instruments, reservations, addSample, updateSampleDisposition, currentRole, currentUserId } = useStore()
   const [statusFilter, setStatusFilter] = useState<SampleStatus | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [showForm, setShowForm] = useState(false)
+  const [showStatusModal, setShowStatusModal] = useState(false)
+  const [statusTargetSample, setStatusTargetSample] = useState<Sample | null>(null)
+  const [newStatus, setNewStatus] = useState<SampleStatus>('waiting')
+  const [dispositionNote, setDispositionNote] = useState('')
 
   const currentUserName = reservations.find((r) => r.userId === currentUserId)?.userName ?? ''
 
@@ -50,6 +69,32 @@ export default function SamplesPage() {
 
   const getInstrumentName = (instrumentId: string) =>
     instruments.find((i) => i.id === instrumentId)?.name ?? instrumentId
+
+  const handleStatusClick = (sample: Sample) => {
+    setStatusTargetSample(sample)
+    setNewStatus(sample.status)
+    const statusOpt = STATUS_OPTIONS.find((o) => o.value === sample.status)
+    setDispositionNote(statusOpt?.needNote ? (sample.dispositionNote || getDefaultDispositionNote(sample.status)) : '')
+    setShowStatusModal(true)
+  }
+
+  const handleStatusOptionChange = (status: SampleStatus) => {
+    setNewStatus(status)
+    const statusOpt = STATUS_OPTIONS.find((o) => o.value === status)
+    if (statusOpt?.needNote && !dispositionNote) {
+      setDispositionNote(getDefaultDispositionNote(status))
+    }
+  }
+
+  const handleConfirmStatus = () => {
+    if (!statusTargetSample) return
+    const statusOpt = STATUS_OPTIONS.find((o) => o.value === newStatus)
+    const note = statusOpt?.needNote ? dispositionNote : ''
+    updateSampleDisposition(statusTargetSample.id, newStatus, note)
+    setShowStatusModal(false)
+    setStatusTargetSample(null)
+    setDispositionNote('')
+  }
 
   const handleExport = () => {
     const headers = ['样本名称', '关联仪器', '提交人', '课题组', '状态', '存放位置', '备注', '处置说明', '创建时间']
@@ -75,6 +120,8 @@ export default function SamplesPage() {
     a.click()
     URL.revokeObjectURL(url)
   }
+
+  const showNoteField = STATUS_OPTIONS.find((o) => o.value === newStatus)?.needNote ?? false
 
   return (
     <div className="flex flex-col h-full">
@@ -166,15 +213,13 @@ export default function SamplesPage() {
                     </td>
                     <td className="px-3 py-2.5" onClick={(e) => e.stopPropagation()}>
                       {currentRole !== 'student' && (
-                        <select
-                          value={sample.status}
-                          onChange={(e) => updateSampleStatus(sample.id, e.target.value as SampleStatus)}
-                          className="bg-[#12122a] border border-[#1e1e3a] rounded px-1.5 py-0.5 text-[11px] text-zinc-300 focus:outline-none focus:border-blue-500/50 cursor-pointer"
+                        <button
+                          onClick={() => handleStatusClick(sample)}
+                          className="flex items-center gap-1 px-2 py-1 rounded bg-[#12122a] border border-[#1e1e3a] text-[11px] text-zinc-300 hover:text-zinc-100 hover:border-blue-500/50 transition-colors"
                         >
-                          {STATUS_OPTIONS.map((opt) => (
-                            <option key={opt.value} value={opt.value}>{opt.label}</option>
-                          ))}
-                        </select>
+                          <Edit3 size={10} />
+                          修改
+                        </button>
                       )}
                     </td>
                   </tr>
@@ -219,6 +264,73 @@ export default function SamplesPage() {
           </tbody>
         </table>
       </div>
+
+      {showStatusModal && statusTargetSample && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
+          onClick={() => setShowStatusModal(false)}
+        >
+          <div
+            className="bg-[#16162e] border border-[#1e1e3a] rounded-xl w-full max-w-md p-5 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="text-sm font-semibold text-zinc-100 mb-1">修改样本状态</h3>
+            <p className="text-xs text-zinc-500 mb-4">
+              样本：<span className="text-zinc-300 font-medium">{statusTargetSample.name}</span>
+            </p>
+            <div className="mb-4">
+              <label className="block text-[11px] text-zinc-500 mb-1">新状态</label>
+              <select
+                value={newStatus}
+                onChange={(e) => handleStatusOptionChange(e.target.value as SampleStatus)}
+                className="w-full px-3 py-2 rounded bg-[#0e0e20] border border-[#1e1e3a] text-xs text-zinc-200 focus:outline-none focus:border-blue-500/50"
+              >
+                {STATUS_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                    {opt.needNote && ' *'}
+                  </option>
+                ))}
+              </select>
+            </div>
+            {showNoteField && (
+              <div className="mb-4">
+                <label className="block text-[11px] text-zinc-500 mb-1">处置说明</label>
+                <textarea
+                  value={dispositionNote}
+                  onChange={(e) => setDispositionNote(e.target.value)}
+                  rows={3}
+                  placeholder="请描述处置说明和样本去向"
+                  className="w-full px-3 py-2 rounded bg-[#0e0e20] border border-[#1e1e3a] text-xs text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-blue-500/50 resize-none"
+                />
+                <p className="text-[10px] text-zinc-600 mt-1">
+                  {newStatus === 'cancelled'
+                    ? '建议说明取消原因和样本去向（如"请于3日内到B栋304取回"）'
+                    : newStatus === 'postponed'
+                      ? '建议说明新时段安排和注意事项'
+                      : newStatus === 'pending_postpone'
+                        ? '建议说明顺延原因和预计处理时间'
+                        : '建议说明异常情况和后续处理方式'}
+                </p>
+              </div>
+            )}
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => setShowStatusModal(false)}
+                className="px-4 py-1.5 text-xs text-zinc-400 hover:text-zinc-200 transition-colors"
+              >
+                取消
+              </button>
+              <button
+                onClick={handleConfirmStatus}
+                className="px-4 py-1.5 text-xs bg-blue-600 hover:bg-blue-500 text-white rounded font-medium transition-colors"
+              >
+                确认
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showForm && (
         <SampleFormModal

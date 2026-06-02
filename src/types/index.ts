@@ -13,6 +13,20 @@ export interface Instrument {
 
 export type ReservationStatus = 'pending' | 'approved' | 'rejected' | 'postponed' | 'cancelled'
 
+export type PostponeOutcome = 'pending' | 'postponed' | 'cancelled'
+
+export interface PostponeRecord {
+  id: string
+  originalStartTime: string
+  originalEndTime: string
+  newStartTime?: string
+  newEndTime?: string
+  outcome: PostponeOutcome
+  reason: string
+  dispositionNote: string
+  handledAt?: string
+}
+
 export interface Reservation {
   id: string
   instrumentId: string
@@ -25,6 +39,7 @@ export interface Reservation {
   reason: string
   sampleIds: string[]
   createdAt: string
+  postponeRecord?: PostponeRecord
 }
 
 export type SampleStatus = 'waiting' | 'testing' | 'done' | 'abnormal' | 'pending_postpone' | 'postponed' | 'cancelled'

@@ -47,7 +47,7 @@ interface AppState {
 
   postponeReservation: (id: string) => void
   confirmPostpone: (id: string, newStartTime: string, newEndTime: string) => void
-  cancelPostponed: (id: string) => void
+  cancelPostponed: (id: string, dispositionNote?: string) => void
 
   markNotificationRead: (id: string) => void
   markAllNotificationsRead: () => void
@@ -219,7 +219,18 @@ export const useStore = create<AppState>()(
 
         const updatedReservations = get().reservations.map((r) =>
           affectedIds.includes(r.id)
-            ? { ...r, status: 'postponed' as ReservationStatus }
+            ? {
+                ...r,
+                status: 'postponed' as ReservationStatus,
+                postponeRecord: {
+                  id: `pp-${nanoid(6)}`,
+                  originalStartTime: r.startTime,
+                  originalEndTime: r.endTime,
+                  outcome: 'pending' as const,
+                  reason: data.reason,
+                  dispositionNote: '因故障停机待处理，管理员将安排顺延或取消',
+                },
+              }
             : r
         )
 
@@ -295,18 +306,34 @@ export const useStore = create<AppState>()(
 
       confirmPostpone: (id, newStartTime, newEndTime) => {
         const instName = get().instruments.find((i) => i.id === get().reservations.find((r) => r.id === id)?.instrumentId)?.name || '仪器'
+        const dispositionNote = `已顺延至 ${new Date(newStartTime).toLocaleString('zh-CN')} ~ ${new Date(newEndTime).toLocaleString('zh-CN')}，请按时送样`
 
         set((s) => {
           const updatedSamples = s.samples.map((sam) =>
             sam.reservationId === id
-              ? { ...sam, status: 'postponed' as SampleStatus, dispositionNote: `已顺延至 ${new Date(newStartTime).toLocaleString('zh-CN')} ~ ${new Date(newEndTime).toLocaleString('zh-CN')}，请按时送样` }
+              ? { ...sam, status: 'postponed' as SampleStatus, dispositionNote }
               : sam
           )
 
           return {
             reservations: s.reservations.map((r) =>
               r.id === id
-                ? { ...r, status: 'approved' as ReservationStatus, startTime: newStartTime, endTime: newEndTime }
+                ? {
+                    ...r,
+                    status: 'approved' as ReservationStatus,
+                    startTime: newStartTime,
+                    endTime: newEndTime,
+                    postponeRecord: r.postponeRecord
+                      ? {
+                          ...r.postponeRecord,
+                          newStartTime,
+                          newEndTime,
+                          outcome: 'postponed' as const,
+                          dispositionNote,
+                          handledAt: new Date().toISOString(),
+                        }
+                      : undefined,
+                  }
                 : r
             ),
             samples: updatedSamples,
@@ -328,19 +355,33 @@ export const useStore = create<AppState>()(
         })
       },
 
-      cancelPostponed: (id) => {
+      cancelPostponed: (id, dispositionNote) => {
         const instName = get().instruments.find((i) => i.id === get().reservations.find((r) => r.id === id)?.instrumentId)?.name || '仪器'
+        const note = dispositionNote || `关联预约已取消，样本不再安排测试。请及时取回样本`
 
         set((s) => {
           const updatedSamples = s.samples.map((sam) =>
             sam.reservationId === id
-              ? { ...sam, status: 'cancelled' as SampleStatus, dispositionNote: `关联预约已取消，样本不再安排测试。请及时取回样本` }
+              ? { ...sam, status: 'cancelled' as SampleStatus, dispositionNote: note }
               : sam
           )
 
           return {
             reservations: s.reservations.map((r) =>
-              r.id === id ? { ...r, status: 'cancelled' as ReservationStatus } : r
+              r.id === id
+                ? {
+                    ...r,
+                    status: 'cancelled' as ReservationStatus,
+                    postponeRecord: r.postponeRecord
+                      ? {
+                          ...r.postponeRecord,
+                          outcome: 'cancelled' as const,
+                          dispositionNote: note,
+                          handledAt: new Date().toISOString(),
+                        }
+                      : undefined,
+                  }
+                : r
             ),
             samples: updatedSamples,
             notifications: [

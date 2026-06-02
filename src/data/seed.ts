@@ -63,6 +63,14 @@ export const DEMO_RESERVATIONS: Reservation[] = [
     reason: '毕业论文急需，已跑完前处理，样品不能久放',
     sampleIds: ['sam-1'],
     createdAt: d(-2, 14),
+    postponeRecord: {
+      id: 'pp-demo-1',
+      originalStartTime: d(0, 9),
+      originalEndTime: d(0, 11),
+      outcome: 'pending',
+      reason: 'TEM 电子枪故障，需更换灯丝并重新校准',
+      dispositionNote: '因故障停机待处理，管理员将安排顺延或取消',
+    },
   },
   {
     id: 'res-2',
@@ -76,6 +84,14 @@ export const DEMO_RESERVATIONS: Reservation[] = [
     reason: '催化剂时效性样品，超过48h数据失效',
     sampleIds: ['sam-2'],
     createdAt: d(-1, 10),
+    postponeRecord: {
+      id: 'pp-demo-2',
+      originalStartTime: d(0, 13),
+      originalEndTime: d(0, 15),
+      outcome: 'pending',
+      reason: 'TEM 电子枪故障，需更换灯丝并重新校准',
+      dispositionNote: '因故障停机待处理，管理员将安排顺延或取消',
+    },
   },
   {
     id: 'res-3',
@@ -89,6 +105,14 @@ export const DEMO_RESERVATIONS: Reservation[] = [
     reason: '导师安排的组会汇报数据，下周必须出结果',
     sampleIds: ['sam-3'],
     createdAt: d(-1, 16),
+    postponeRecord: {
+      id: 'pp-demo-3',
+      originalStartTime: d(1, 9),
+      originalEndTime: d(1, 12),
+      outcome: 'pending',
+      reason: 'TEM 电子枪故障，需更换灯丝并重新校准',
+      dispositionNote: '因故障停机待处理，管理员将安排顺延或取消',
+    },
   },
   {
     id: 'res-4',
