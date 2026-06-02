@@ -26,6 +26,25 @@ export interface SettlementWithDetails extends CommissionSettlement {
   detailLines: SettlementDetailLine[];
 }
 
+export interface SettlementSummary {
+  id: string;
+  settlementNo: string;
+  periodStart: Date;
+  periodEnd: Date;
+  status: SettlementStatus;
+  netSettlement: number;
+  refundAmount: number;
+  compensationAmount: number;
+  commissionAdjust: number;
+  isDisputed: boolean;
+  orderCount: number;
+  afterSaleCount: number;
+  adjustmentCount: number;
+  createdAt: Date;
+  lockedAt?: Date | null;
+  paidAt?: Date | null;
+}
+
 export class SettlementService {
   async createSettlement(dto: CreateSettlementDto): Promise<SettlementWithDetails> {
     const settlementNo = await this.generateSettlementNo();
@@ -225,6 +244,43 @@ export class SettlementService {
       where: { id: settlementId },
       data: { status: 'DISPUTED' },
     });
+  }
+
+  async listLeaderSettlements(
+    leaderId: string,
+    status?: SettlementStatus,
+  ): Promise<SettlementSummary[]> {
+    const where: any = { leaderId };
+    if (status) where.status = status;
+
+    const settlements = await prisma.commissionSettlement.findMany({
+      where,
+      include: {
+        _count: {
+          select: { batches: true, afterSales: true, adjustments: true },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    return settlements.map((s: any) => ({
+      id: s.id,
+      settlementNo: s.settlementNo,
+      periodStart: s.periodStart,
+      periodEnd: s.periodEnd,
+      status: s.status as SettlementStatus,
+      netSettlement: s.netSettlement,
+      refundAmount: s.refundAmount,
+      compensationAmount: s.compensationAmount,
+      commissionAdjust: s.commissionAdjust,
+      isDisputed: s.status === 'DISPUTED',
+      orderCount: s._count.batches,
+      afterSaleCount: s._count.afterSales,
+      adjustmentCount: s._count.adjustments,
+      createdAt: s.createdAt,
+      lockedAt: s.lockedAt,
+      paidAt: s.paidAt,
+    }));
   }
 
   async getLeaderSettlementDetails(leaderId: string, settlementId: string): Promise<SettlementWithDetails | null> {

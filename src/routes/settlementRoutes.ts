@@ -1,8 +1,10 @@
 import { Router } from 'express';
-import { settlementService } from '../services/settlementService.js';
+import { settlementService, type SettlementStatus } from '../services/settlementService.js';
 import { z } from 'zod';
 
 const router = Router();
+
+const VALID_STATUSES: SettlementStatus[] = ['DRAFT', 'REVIEWING', 'LOCKED', 'PAID', 'DISPUTED'];
 
 const createSettlementSchema = z.object({
   leaderId: z.string(),
@@ -10,6 +12,10 @@ const createSettlementSchema = z.object({
   periodEnd: z.coerce.date(),
   batchIds: z.array(z.string()).min(1),
   createdBy: z.string().min(1),
+});
+
+const settlementListQuerySchema = z.object({
+  status: z.enum(VALID_STATUSES as [string, ...string[]]).optional(),
 });
 
 // 创建结算单 - 运营发起批次结算
@@ -23,14 +29,32 @@ router.post('/settlements', async (req, res) => {
   }
 });
 
-// 获取结算单列表
+// 获取结算单列表 - 运营/财务
 router.get('/settlements', async (req, res) => {
-  const { leaderId, status } = req.query;
-  const result = await settlementService.listSettlements(
-    leaderId as string | undefined,
-    status as any,
-  );
-  res.json({ success: true, data: result });
+  try {
+    const { leaderId, status } = settlementListQuerySchema.parse(req.query);
+    const result = await settlementService.listSettlements(
+      req.query.leaderId as string | undefined,
+      status as SettlementStatus,
+    );
+    res.json({ success: true, data: result });
+  } catch (error) {
+    res.status(400).json({ success: false, error: (error as Error).message });
+  }
+});
+
+// 团长结算列表 - 团长查看自己的结算摘要
+router.get('/leaders/:leaderId/settlements', async (req, res) => {
+  try {
+    const { status } = settlementListQuerySchema.parse(req.query);
+    const result = await settlementService.listLeaderSettlements(
+      req.params.leaderId,
+      status as SettlementStatus,
+    );
+    res.json({ success: true, data: result });
+  } catch (error) {
+    res.status(400).json({ success: false, error: (error as Error).message });
+  }
 });
 
 // 获取单个结算单详情（含明细行）
