@@ -44,20 +44,17 @@ app.get('/api/rooms/:id', (req, res) => {
   const roomRecords = data.records.filter(r => r.roomId === room.id);
   const roomTasks = data.tasks.filter(t => t.roomId === room.id);
 
-  const SHIFT_BASE_HOURS = { morning: 8, evening: 16, night: 0 };
-
   const getSortTime = (item) => {
     if (item.source === 'record') {
       return new Date(item.time).getTime();
     }
     const today = new Date();
-    const baseHour = SHIFT_BASE_HOURS[item.shift];
     const [hour, minute] = item.time.split(':').map(Number);
     const date = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-    if (item.shift === 'night') {
+    if (item.shift === 'night' && hour < 12) {
       date.setDate(date.getDate() + 1);
     }
-    date.setHours(baseHour + hour, minute, 0, 0);
+    date.setHours(hour, minute, 0, 0);
     return date.getTime();
   };
 
