@@ -56,6 +56,19 @@ export default function TrainingPlan() {
     setNewExercises([{ ...defaultExercise }]);
   };
 
+  const handleOpenAddPlan = (prefillDay?: string) => {
+    setEditingPlanId(null);
+    setEditingDay('');
+    setEditingExercises([]);
+    setInlineEditPlanId(null);
+    setInlineEditIndex(null);
+    setInlineEditExercise(null);
+    const firstAvailable = prefillDay || availableDays[0] || '周一';
+    setNewPlanDay(firstAvailable);
+    setNewExercises([{ ...defaultExercise }]);
+    setShowAddPlan(true);
+  };
+
   const handlePrevWeek = () => {
     if (currentWeek > 1) {
       resetAllEditState();
@@ -250,7 +263,7 @@ export default function TrainingPlan() {
             <h1 className="text-2xl font-bold text-gray-900">训练计划</h1>
             <p className="text-gray-500 mt-1">管理会员训练安排</p>
           </div>
-          <Button onClick={() => { setNewPlanDay(availableDays[0] || '周一'); setShowAddPlan(true); }} disabled={availableDays.length === 0}>
+          <Button onClick={() => handleOpenAddPlan()} disabled={availableDays.length === 0}>
             <Plus className="w-4 h-4 mr-1" />
             新建计划
           </Button>
@@ -294,7 +307,11 @@ export default function TrainingPlan() {
                   <Plus className="w-5 h-5 text-orange-500" />
                   新建训练计划
                 </h3>
-                <Button variant="ghost" size="sm" onClick={() => setShowAddPlan(false)}>
+                <Button variant="ghost" size="sm" onClick={() => {
+                  setShowAddPlan(false);
+                  setNewPlanDay('周一');
+                  setNewExercises([{ ...defaultExercise }]);
+                }}>
                   <X className="w-4 h-4" />
                 </Button>
               </div>
@@ -372,7 +389,11 @@ export default function TrainingPlan() {
               </div>
 
               <div className="flex gap-3 justify-end">
-                <Button variant="secondary" onClick={() => setShowAddPlan(false)}>取消</Button>
+                <Button variant="secondary" onClick={() => {
+                  setShowAddPlan(false);
+                  setNewPlanDay('周一');
+                  setNewExercises([{ ...defaultExercise }]);
+                }}>取消</Button>
                 <Button onClick={handleAddPlan}>
                   <Check className="w-4 h-4 mr-1" />
                   创建计划
@@ -645,7 +666,7 @@ export default function TrainingPlan() {
                     <Card.Body className="flex flex-col items-center justify-center py-12">
                       <Dumbbell className="w-12 h-12 text-gray-300 mb-3" />
                       <p className="text-gray-500 mb-4">{day}暂无训练安排</p>
-                      <Button variant="secondary" size="sm" onClick={() => { setNewPlanDay(day); setShowAddPlan(true); }}>
+                      <Button variant="secondary" size="sm" onClick={() => handleOpenAddPlan(day)}>
                         <Plus className="w-4 h-4 mr-1" />
                         添加计划
                       </Button>
