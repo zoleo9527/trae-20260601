@@ -44,14 +44,28 @@ export default function TrainingPlan() {
     setTimeout(() => setToast(null), 2000);
   };
 
+  const resetAllEditState = () => {
+    setEditingPlanId(null);
+    setEditingDay('');
+    setEditingExercises([]);
+    setInlineEditPlanId(null);
+    setInlineEditIndex(null);
+    setInlineEditExercise(null);
+    setShowAddPlan(false);
+    setNewPlanDay('周一');
+    setNewExercises([{ ...defaultExercise }]);
+  };
+
   const handlePrevWeek = () => {
     if (currentWeek > 1) {
+      resetAllEditState();
       setCurrentWeek(currentWeek - 1);
       showToast(`已切换到第 ${currentWeek - 1} 周`);
     }
   };
 
   const handleNextWeek = () => {
+    resetAllEditState();
     setCurrentWeek(currentWeek + 1);
     showToast(`已切换到第 ${currentWeek + 1} 周`);
   };
@@ -82,11 +96,21 @@ export default function TrainingPlan() {
     setPlans((prev) => prev.filter((p) => p.id !== planId));
     if (editingPlanId === planId) {
       setEditingPlanId(null);
+      setEditingDay('');
+      setEditingExercises([]);
+    }
+    if (inlineEditPlanId === planId) {
+      setInlineEditPlanId(null);
+      setInlineEditIndex(null);
+      setInlineEditExercise(null);
     }
     showToast(`${day}训练计划已删除`);
   };
 
   const handleStartPlanEdit = (plan: TrainingPlan) => {
+    setInlineEditPlanId(null);
+    setInlineEditIndex(null);
+    setInlineEditExercise(null);
     setEditingPlanId(plan.id);
     setEditingDay(plan.day);
     setEditingExercises(plan.exercises.map(e => ({ ...e })));
@@ -134,6 +158,9 @@ export default function TrainingPlan() {
   };
 
   const handleStartInlineEdit = (planId: string, exerciseIndex: number, exercise: Exercise) => {
+    setEditingPlanId(null);
+    setEditingDay('');
+    setEditingExercises([]);
     setInlineEditPlanId(planId);
     setInlineEditIndex(exerciseIndex);
     setInlineEditExercise({ ...exercise });
@@ -234,7 +261,7 @@ export default function TrainingPlan() {
             <label className="block text-sm text-gray-500 mb-1">选择会员</label>
             <select
               value={selectedMember}
-              onChange={(e) => { setSelectedMember(e.target.value); setEditingPlanId(null); }}
+              onChange={(e) => { setSelectedMember(e.target.value); resetAllEditState(); }}
               className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 bg-white"
             >
               {members.map((m) => (
