@@ -35,6 +35,7 @@ export function FaultDetail() {
   const [timeline, setTimeline] = useState<FaultTimeline[]>([]);
   const [affectedOrders, setAffectedOrders] = useState<Order[]>([]);
   const [workOrder, setWorkOrder] = useState<WorkOrder | null>(null);
+  const [workOrderError, setWorkOrderError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [dispatchModalOpen, setDispatchModalOpen] = useState(false);
   const [priority, setPriority] = useState<'normal' | 'urgent'>('normal');
@@ -56,8 +57,17 @@ export function FaultDetail() {
         try {
           const workOrderData = await api.faults.workOrder(id);
           setWorkOrder(workOrderData);
-        } catch {
+          setWorkOrderError(null);
+          if (!faultData.workOrderId) {
+            setFault({ ...faultData, workOrderId: workOrderData.id });
+          }
+        } catch (err) {
           setWorkOrder(null);
+          if (err instanceof Error && err.message === '工单不存在') {
+            setWorkOrderError(null);
+          } else {
+            setWorkOrderError(err instanceof Error ? err.message : '工单查询失败');
+          }
         }
       } catch (error) {
         console.error('Failed to fetch fault data:', error);
@@ -107,8 +117,10 @@ export function FaultDetail() {
     return <div>故障不存在</div>;
   }
 
-  const canDispatch = (user?.role === 'admin' || user?.role === 'service') && 
-    !fault.workOrderId && fault.status !== 'resolved' && fault.status !== 'closed';
+  const canDispatch = !workOrder &&
+    !workOrderError &&
+    (user?.role === 'admin' || user?.role === 'service') &&
+    fault.status !== 'resolved' && fault.status !== 'closed';
 
   return (
     <div className="space-y-6">
@@ -299,6 +311,11 @@ export function FaultDetail() {
                   </span>
                 </div>
               </Link>
+            ) : workOrderError ? (
+              <div className="bg-red-50 rounded-lg p-4 text-center">
+                <AlertCircle className="w-6 h-6 text-red-500 mx-auto mb-2" />
+                <p className="text-red-600 text-sm">工单查询异常：{workOrderError}</p>
+              </div>
             ) : (
               <div className="bg-gray-50 rounded-lg p-4 text-center">
                 <p className="text-gray-500 text-sm">暂无关联工单</p>
