@@ -48,16 +48,30 @@ export const useTriageStore = create<TriageState>((set, get) => ({
 
       if (appointment) {
         const counselorStore = useCounselorStore.getState();
-        const newSchedules = counselorStore.schedules.map((s) => {
-          if (s.counselorId !== counselorId || s.date !== appointment.date) return s;
-          if (!s.availableSlots.includes(appointment.time)) return s;
-          return {
-            ...s,
-            availableSlots: s.availableSlots.filter((t) => t !== appointment.time),
-            bookedSlots: [...s.bookedSlots, appointment.time].sort(),
+        const existingSchedule = counselorStore.schedules.find(
+          (s) => s.counselorId === counselorId && s.date === appointment.date
+        );
+        const timeSlots = ['09:00', '10:00', '11:00', '14:00', '15:00', '16:00'];
+
+        if (existingSchedule && existingSchedule.availableSlots.includes(appointment.time)) {
+          const newSchedules = counselorStore.schedules.map((s) => {
+            if (s.counselorId !== counselorId || s.date !== appointment.date) return s;
+            return {
+              ...s,
+              availableSlots: s.availableSlots.filter((t) => t !== appointment.time),
+              bookedSlots: [...s.bookedSlots, appointment.time].sort(),
+            };
+          });
+          counselorStore.setSchedules(newSchedules);
+        } else if (!existingSchedule) {
+          const newSchedule = {
+            counselorId,
+            date: appointment.date,
+            availableSlots: timeSlots.filter((t) => t !== appointment.time),
+            bookedSlots: [appointment.time],
           };
-        });
-        counselorStore.setSchedules(newSchedules);
+          counselorStore.setSchedules([...counselorStore.schedules, newSchedule]);
+        }
       }
     }
   },

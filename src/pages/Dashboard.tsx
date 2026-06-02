@@ -81,11 +81,16 @@ export function Dashboard() {
     if (currentUser.role === 'counselor') {
       return ['scale'].includes(todo.type);
     }
-    if (currentUser.role === 'supervisor') {
-      return todo.type === 'risk';
-    }
     return false;
   }).slice(0, 5);
+
+  const supervisorTodos = pendingRiskCases.map((c) => ({
+    id: `st-${c.id}`,
+    title: `审核 ${anonymize(c.clientName)} 高风险个案`,
+    description: `等级：${c.riskLevel === 'critical' ? '极高' : '高'} · 上报：${c.reportedAt}`,
+    priority: c.riskLevel === 'critical' ? 'high' : 'medium',
+    type: 'risk',
+  }));
 
   const formatTime = (time: string) => {
     const [h, m] = time.split(':');
@@ -304,11 +309,11 @@ export function Dashboard() {
                 <h2 className="subsection-title">待办</h2>
               </div>
               <div>
-                {filteredTodos.length === 0 ? (
+                {supervisorTodos.length === 0 ? (
                   <p className="text-text-tertiary text-center py-10 text-sm">暂无待办</p>
                 ) : (
                   <div className="divide-y divide-gray-50">
-                    {filteredTodos.map((todo) => (
+                    {supervisorTodos.map((todo) => (
                       <div
                         key={todo.id}
                         className={`px-5 py-3 border-l-[3px] ${priorityStyles[todo.priority]} cursor-pointer hover:brightness-95 transition-all`}
