@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { Product, ProductStatus, StatusLog, User } from '@/types';
+import type { Product, ProductStatus, StatusLog, User, PhotoData } from '@/types';
 import { mockProducts } from '@/data/products';
 import { generateId } from '@/utils/format';
 
@@ -21,11 +21,21 @@ interface ProductState {
     reason: string,
     operator: string
   ) => void;
+  requestPriceChange: (
+    productId: string,
+    requestedPrice: number,
+    reason: string,
+    operator: string
+  ) => void;
+  approvePriceChange: (productId: string, operator: string) => void;
   confirmSettlement: (productId: string, operator: string) => void;
   markDocsComplete: (productId: string) => void;
   handleWithdraw: (productId: string, reason: string) => void;
   listProduct: (productId: string, operator: string) => void;
   resolveDispute: (productId: string, conclusion: 'genuine' | 'counterfeit', operator: string) => void;
+  updatePhotos: (productId: string, photoData: PhotoData, operator: string) => void;
+  markPhotographing: (productId: string, operator: string) => void;
+  sellProduct: (productId: string, salePrice: number, operator: string) => void;
   getStats: () => { pending: number; exception: number; completed: number };
 }
 
@@ -232,7 +242,7 @@ export const useProductStore = create<ProductState>((set, get) => ({
         p.id === productId && p.appraisal
           ? {
               ...p,
-              status: conclusion === 'genuine' ? 'APPRAISAL_PASSED' : 'APPRAISAL_FAILED',
+              status: conclusion === 'genuine' ? 'PENDING_PHOTO' : 'APPRAISAL_FAILED',
               isDisputed: false,
               appraisal: {
                 ...p.appraisal,
@@ -242,8 +252,8 @@ export const useProductStore = create<ProductState>((set, get) => ({
                 ...p.statusLogs,
                 {
                   id: generateId(),
-                  status: conclusion === 'genuine' ? 'APPRAISAL_PASSED' : 'APPRAISAL_FAILED',
-                  description: `资深鉴定师复核结论：${conclusion === 'genuine' ? '正品' : '仿品'}`,
+                  status: conclusion === 'genuine' ? 'PENDING_PHOTO' : 'APPRAISAL_FAILED',
+                  description: `资深鉴定师复核结论：${conclusion === 'genuine' ? '正品，转入拍照环节' : '仿品'}`,
                   operator,
                   timestamp: new Date().toISOString(),
                   visibleToCustomer: true,
@@ -254,11 +264,177 @@ export const useProductStore = create<ProductState>((set, get) => ({
       ),
     })),
 
+  requestPriceChange: (productId, requestedPrice, reason, operator) =>
+    set((state) => ({
+      products: state.products.map((p) =>
+        p.id === productId
+          ? {
+              ...p,
+              status: 'PRICE_CHANGING',
+              priceRequest: {
+                requestedPrice,
+                reason,
+                operator,
+                timestamp: new Date().toISOString(),
+              },
+              statusLogs: [
+                ...p.statusLogs,
+                {
+                  id: generateId(),
+                  status: 'PRICE_CHANGING',
+                  description: `申请改价至 ¥${requestedPrice.toLocaleString()}，原因：${reason}`,
+                  operator,
+                  timestamp: new Date().toISOString(),
+                  visibleToCustomer: false,
+                },
+              ],
+            }
+          : p
+      ),
+    })),
+
+  approvePriceChange: (productId, operator) =>
+    set((state) => ({
+      products: state.products.map((p) => {
+        if (p.id === productId && p.priceRequest) {
+          const newPrice = p.priceRequest.requestedPrice;
+          const reason = p.priceRequest.reason;
+          return {
+            ...p,
+            status: 'LISTED',
+            currentPrice: newPrice,
+            priceRequest: undefined,
+            priceHistory: [
+              ...p.priceHistory,
+              {
+                id: generateId(),
+                oldPrice: p.currentPrice,
+                newPrice,
+                reason,
+                operator,
+                timestamp: new Date().toISOString(),
+              },
+            ],
+            statusLogs: [
+              ...p.statusLogs,
+              {
+                id: generateId(),
+                status: 'LISTED',
+                description: `改价审批通过，新售价 ¥${newPrice.toLocaleString()}`,
+                operator,
+                timestamp: new Date().toISOString(),
+                visibleToCustomer: true,
+              },
+            ],
+          };
+        }
+        return p;
+      }),
+    })),
+
+  markPhotographing: (productId, operator) =>
+    set((state) => ({
+      products: state.products.map((p) =>
+        p.id === productId
+          ? {
+              ...p,
+              status: 'PHOTOGRAPHING',
+              statusLogs: [
+                ...p.statusLogs,
+                {
+                  id: generateId(),
+                  status: 'PHOTOGRAPHING',
+                  description: '摄影师开始商品拍照',
+                  operator,
+                  timestamp: new Date().toISOString(),
+                  visibleToCustomer: false,
+                },
+              ],
+            }
+          : p
+      ),
+    })),
+
+  updatePhotos: (productId, photoData, operator) =>
+    set((state) => ({
+      products: state.products.map((p) =>
+        p.id === productId
+          ? {
+              ...p,
+              status: 'PENDING_LISTING',
+              images: photoData.photos,
+              photoData: {
+                ...photoData,
+                photographedAt: new Date().toISOString(),
+                photographer: operator,
+              },
+              statusLogs: [
+                ...p.statusLogs,
+                {
+                  id: generateId(),
+                  status: 'PENDING_LISTING',
+                  description: `拍照完成，共 ${photoData.photos.length} 张图片，转入待上架`,
+                  operator,
+                  timestamp: new Date().toISOString(),
+                  visibleToCustomer: true,
+                },
+              ],
+            }
+          : p
+      ),
+    })),
+
+  sellProduct: (productId, salePrice, operator) =>
+    set((state) => ({
+      products: state.products.map((p) => {
+        if (p.id === productId) {
+          const commissionRate = 0.12;
+          const commission = Math.round(salePrice * commissionRate);
+          const settlementAmount = salePrice - commission;
+          return {
+            ...p,
+            status: 'PENDING_SETTLEMENT',
+            soldAt: new Date().toISOString(),
+            currentPrice: salePrice,
+            settlement: {
+              id: generateId(),
+              salePrice,
+              commissionRate,
+              commission,
+              settlementAmount,
+              status: 'pending',
+              operator,
+            },
+            statusLogs: [
+              ...p.statusLogs,
+              {
+                id: generateId(),
+                status: 'SOLD',
+                description: `商品已成交，成交价 ¥${salePrice.toLocaleString()}`,
+                operator,
+                timestamp: new Date().toISOString(),
+                visibleToCustomer: true,
+              },
+              {
+                id: generateId(),
+                status: 'PENDING_SETTLEMENT',
+                description: `进入结算流程，待结算金额 ¥${settlementAmount.toLocaleString()}`,
+                operator,
+                timestamp: new Date().toISOString(),
+                visibleToCustomer: true,
+              },
+            ],
+          };
+        }
+        return p;
+      }),
+    })),
+
   getStats: () => {
     const { products } = get();
     return {
       pending: products.filter((p) =>
-        ['PENDING_APPRAISAL', 'PENDING_LISTING', 'LISTED', 'SOLD', 'PENDING_SETTLEMENT'].includes(p.status)
+        ['PENDING_APPRAISAL', 'PENDING_PHOTO', 'PHOTOGRAPHING', 'PENDING_LISTING', 'LISTED', 'SOLD', 'PENDING_SETTLEMENT'].includes(p.status)
       ).length,
       exception: products.filter((p) =>
         ['MISSING_DOCS', 'APPRAISAL_DISPUTE', 'CUSTOMER_WITHDRAW', 'PRICE_CHANGING'].includes(p.status)

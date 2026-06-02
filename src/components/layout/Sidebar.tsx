@@ -1,10 +1,11 @@
 import { NavLink, useLocation } from 'react-router-dom';
-import { Package, Search, ShoppingBag, DollarSign, Gem, LayoutDashboard } from 'lucide-react';
+import { Package, Search, Camera, ShoppingBag, DollarSign, Gem, LayoutDashboard } from 'lucide-react';
 
 const navItems = [
   { path: '/', label: '总览', icon: LayoutDashboard },
   { path: '/receiving', label: '收货台', icon: Package },
   { path: '/appraisal', label: '鉴定区', icon: Search },
+  { path: '/photo', label: '拍照区', icon: Camera },
   { path: '/operations', label: '运营区', icon: ShoppingBag },
   { path: '/finance', label: '财务区', icon: DollarSign },
 ];

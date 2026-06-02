@@ -100,9 +100,15 @@ export default function Appraisal() {
     } else if (conclusion === 'genuine') {
       updateProductStatus(selectedProduct, 'APPRAISAL_PASSED' as ProductStatus, {
         status: 'APPRAISAL_PASSED',
-        description: '鉴定通过，正品',
+        description: '鉴定通过，正品，已登记瑕疵',
         operator: '李鉴定',
         visibleToCustomer: true,
+      });
+      updateProductStatus(selectedProduct, 'PENDING_PHOTO' as ProductStatus, {
+        status: 'PENDING_PHOTO',
+        description: '转入拍照环节，待拍摄商品展示图',
+        operator: '李鉴定',
+        visibleToCustomer: false,
       });
     } else {
       updateProductStatus(selectedProduct, 'APPRAISAL_FAILED' as ProductStatus, {

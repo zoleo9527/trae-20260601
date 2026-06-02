@@ -7,7 +7,8 @@ import { useLocation, useNavigate } from 'react-router-dom';
 const workstationStatuses: Record<string, string[]> = {
   '/receiving': ['MISSING_DOCS', 'PENDING_APPRAISAL', 'RECEIVED'],
   '/appraisal': ['PENDING_APPRAISAL', 'APPRAISING', 'APPRAISAL_DISPUTE'],
-  '/operations': ['APPRAISAL_PASSED', 'PENDING_LISTING', 'LISTED', 'PRICE_CHANGING', 'CUSTOMER_WITHDRAW', 'SOLD'],
+  '/photo': ['APPRAISAL_PASSED', 'PENDING_PHOTO', 'PHOTOGRAPHING'],
+  '/operations': ['PENDING_LISTING', 'LISTED', 'PRICE_CHANGING', 'CUSTOMER_WITHDRAW', 'SOLD'],
   '/finance': ['PENDING_SETTLEMENT', 'SETTLED'],
 };
 

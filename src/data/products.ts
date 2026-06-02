@@ -182,7 +182,7 @@ export const mockProducts: Product[] = [
     serialNumber: 'LV-2023-7745',
     expectedPrice: 15000,
     currentPrice: 13800,
-    status: 'APPRAISAL_PASSED',
+    status: 'PENDING_PHOTO',
     priority: 'medium',
     customer: {
       id: 'C004',
@@ -251,6 +251,14 @@ export const mockProducts: Product[] = [
         operator: '李鉴定',
         timestamp: '2026-05-29T11:15:00',
         visibleToCustomer: true,
+      },
+      {
+        id: 'SL013',
+        status: 'PENDING_PHOTO',
+        description: '转入拍照环节，待拍摄商品展示图',
+        operator: '李鉴定',
+        timestamp: '2026-05-29T11:20:00',
+        visibleToCustomer: false,
       },
     ],
     images: [

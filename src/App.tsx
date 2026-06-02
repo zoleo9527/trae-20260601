@@ -2,6 +2,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-d
 import Home from "@/pages/Home";
 import Receiving from "@/pages/Receiving";
 import Appraisal from "@/pages/Appraisal";
+import Photo from "@/pages/Photo";
 import Operations from "@/pages/Operations";
 import Finance from "@/pages/Finance";
 import ProductDetail from "@/pages/ProductDetail";
@@ -13,6 +14,7 @@ export default function App() {
         <Route path="/" element={<Home />} />
         <Route path="/receiving" element={<Receiving />} />
         <Route path="/appraisal" element={<Appraisal />} />
+        <Route path="/photo" element={<Photo />} />
         <Route path="/operations" element={<Operations />} />
         <Route path="/finance" element={<Finance />} />
         <Route path="/product/:id" element={<ProductDetail />} />

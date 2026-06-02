@@ -4,7 +4,7 @@ import StatCard from '@/components/StatCard';
 import ProductCard from '@/components/ProductCard';
 import PriceChart from '@/components/PriceChart';
 import { useProductStore } from '@/store/useProductStore';
-import { ShoppingBag, Tag, AlertTriangle, Clock, CheckCircle2, ArrowRightLeft } from 'lucide-react';
+import { ShoppingBag, Tag, AlertTriangle, Clock, CheckCircle2, ArrowRightLeft, Banknote, X } from 'lucide-react';
 import { formatCurrency } from '@/utils/format';
 import type { ProductStatus } from '@/types';
 
@@ -13,19 +13,24 @@ export default function Operations() {
   const [priceChangeProduct, setPriceChangeProduct] = useState<string | null>(null);
   const [newPrice, setNewPrice] = useState('');
   const [priceReason, setPriceReason] = useState('');
+  const [sellProductId, setSellProductId] = useState<string | null>(null);
+  const [sellPrice, setSellPrice] = useState('');
 
   const products = useProductStore((state) => state.products);
   const listProduct = useProductStore((state) => state.listProduct);
   const updatePrice = useProductStore((state) => state.updatePrice);
   const updateProductStatus = useProductStore((state) => state.updateProductStatus);
   const handleWithdraw = useProductStore((state) => state.handleWithdraw);
+  const requestPriceChange = useProductStore((state) => state.requestPriceChange);
+  const approvePriceChange = useProductStore((state) => state.approvePriceChange);
+  const sellProduct = useProductStore((state) => state.sellProduct);
   const getStats = useProductStore((state) => state.getStats);
 
   const stats = getStats();
 
   const pendingListing = useMemo(() =>
     products.filter((p) =>
-      ['APPRAISAL_PASSED', 'PENDING_LISTING'].includes(p.status)
+      ['APPRAISAL_PASSED', 'PENDING_PHOTO', 'PENDING_LISTING'].includes(p.status)
     ),
     [products]
   );
@@ -50,6 +55,11 @@ export default function Operations() {
     [products, priceChangeProduct]
   );
 
+  const sellProductData = useMemo(() =>
+    products.find((p) => p.id === sellProductId),
+    [products, sellProductId]
+  );
+
   const handleAction = (productId: string, action: string) => {
     if (action === 'list') {
       listProduct(productId, '陈运营');
@@ -57,8 +67,8 @@ export default function Operations() {
       const product = products.find((p) => p.id === productId);
       if (product) {
         setPriceChangeProduct(productId);
-        setNewPrice(product.currentPrice.toString());
-        setPriceReason(product.priceHistory[product.priceHistory.length - 1]?.reason || '');
+        setNewPrice(product.priceRequest?.requestedPrice.toString() || product.currentPrice.toString());
+        setPriceReason(product.priceRequest?.reason || '');
       }
     } else if (action === 'process_return') {
       const reason = prompt('请输入退回原因：');
@@ -71,21 +81,18 @@ export default function Operations() {
           visibleToCustomer: true,
         });
       }
+    } else if (action === 'sell') {
+      const product = products.find((p) => p.id === productId);
+      if (product) {
+        setSellProductId(productId);
+        setSellPrice(product.currentPrice.toString());
+      }
     }
   };
 
   const handleApprovePrice = () => {
     if (!priceChangeProduct || !newPrice) return;
-
-    const price = parseInt(newPrice);
-    updatePrice(priceChangeProduct, price, priceReason || '改价审批通过', '陈运营');
-    updateProductStatus(priceChangeProduct, 'LISTED' as ProductStatus, {
-      status: 'LISTED',
-      description: `改价审批通过，新售价 ¥${price.toLocaleString()}`,
-      operator: '陈运营',
-      visibleToCustomer: true,
-    });
-
+    approvePriceChange(priceChangeProduct, '陈运营');
     setPriceChangeProduct(null);
     setNewPrice('');
     setPriceReason('');
@@ -98,15 +105,17 @@ export default function Operations() {
       if (price) {
         const reason = prompt('请输入改价原因：');
         if (reason) {
-          updateProductStatus(productId, 'PRICE_CHANGING' as ProductStatus, {
-            status: 'PRICE_CHANGING',
-            description: `申请改价至 ¥${parseInt(price).toLocaleString()}，原因：${reason}`,
-            operator: '陈运营',
-            visibleToCustomer: false,
-          });
+          requestPriceChange(productId, parseInt(price), reason, '陈运营');
         }
       }
     }
+  };
+
+  const handleConfirmSell = () => {
+    if (!sellProductId || !sellPrice) return;
+    sellProduct(sellProductId, parseInt(sellPrice), '陈运营');
+    setSellProductId(null);
+    setSellPrice('');
   };
 
   return (
@@ -174,7 +183,104 @@ export default function Operations() {
           </div>
         )}
 
-        {priceChangeProduct && priceChangeProductData ? (
+        {sellProductId && sellProductData ? (
+          <div className="card p-6">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="font-display text-lg font-semibold text-luxury-800">标记成交</h3>
+              <button
+                onClick={() => {
+                  setSellProductId(null);
+                  setSellPrice('');
+                }}
+                className="text-sm text-charcoal-500 hover:text-luxury-800"
+              >
+                返回列表
+              </button>
+            </div>
+
+            <div className="grid grid-cols-2 gap-8">
+              <div>
+                <div className="flex gap-4 mb-6">
+                  <div className="w-24 h-24 rounded-luxury overflow-hidden bg-ivory-100 flex-shrink-0">
+                    {sellProductData.images[0] && (
+                      <img
+                        src={sellProductData.images[0]}
+                        alt={sellProductData.name}
+                        className="w-full h-full object-cover"
+                      />
+                    )}
+                  </div>
+                  <div>
+                    <h4 className="font-display font-semibold text-luxury-800">{sellProductData.name}</h4>
+                    <p className="text-charcoal-600 text-sm">{sellProductData.brand} · {sellProductData.model}</p>
+                    <div className="mt-3 space-y-1 text-sm">
+                      <p>
+                        <span className="text-charcoal-500">当前售价：</span>
+                        <span className="text-jade-600 font-semibold">{formatCurrency(sellProductData.currentPrice)}</span>
+                      </p>
+                      <p>
+                        <span className="text-charcoal-500">上架天数：</span>
+                        <span>{Math.floor((Date.now() - new Date(sellProductData.listedAt || '').getTime()) / (1000 * 60 * 60 * 24)) || 0} 天</span>
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="p-4 bg-jade-50 border border-jade-200 rounded-luxury">
+                  <p className="text-sm text-jade-700 font-medium mb-2">💰 成交结算预览</p>
+                  <div className="space-y-1 text-sm">
+                    <p>
+                      <span className="text-charcoal-500">成交金额：</span>
+                      <span className="text-luxury-800 font-semibold">{formatCurrency(parseInt(sellPrice) || sellProductData.currentPrice)}</span>
+                    </p>
+                    <p>
+                      <span className="text-charcoal-500">平台佣金（12%）：</span>
+                      <span className="text-champagne-700">{formatCurrency(Math.round((parseInt(sellPrice) || sellProductData.currentPrice) * 0.12))}</span>
+                    </p>
+                    <p className="pt-1 border-t border-jade-200">
+                      <span className="text-charcoal-500">客户结算：</span>
+                      <span className="text-jade-600 font-bold">{formatCurrency(Math.round((parseInt(sellPrice) || sellProductData.currentPrice) * 0.88))}</span>
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-5">
+                <div>
+                  <label className="block text-sm font-medium text-charcoal-700 mb-2">实际成交价格</label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-charcoal-500">¥</span>
+                    <input
+                      type="number"
+                      value={sellPrice}
+                      onChange={(e) => setSellPrice(e.target.value)}
+                      className="input-field pl-8 text-lg font-semibold"
+                      placeholder="输入实际成交价格"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex justify-end gap-3 pt-4 border-t border-ivory-200">
+                  <button
+                    onClick={() => {
+                      setSellProductId(null);
+                      setSellPrice('');
+                    }}
+                    className="btn-outline"
+                  >
+                    取消
+                  </button>
+                  <button
+                    onClick={handleConfirmSell}
+                    className="btn-primary"
+                  >
+                    确认成交，转入结算
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : priceChangeProduct && priceChangeProductData ? (
           <div className="card p-6">
             <div className="flex items-center justify-between mb-6">
               <h3 className="font-display text-lg font-semibold text-luxury-800">改价审批</h3>
@@ -354,12 +460,21 @@ export default function Operations() {
                                 showActions={false}
                               />
                             </div>
-                            <button
-                              onClick={() => handleInitiatePriceChange(product.id)}
-                              className="btn-outline text-sm ml-4 flex-shrink-0"
-                            >
-                              发起改价
-                            </button>
+                            <div className="flex items-center gap-2 ml-4 flex-shrink-0">
+                              <button
+                                onClick={() => handleInitiatePriceChange(product.id)}
+                                className="btn-outline text-sm"
+                              >
+                                发起改价
+                              </button>
+                              <button
+                                onClick={() => handleAction(product.id, 'sell')}
+                                className="btn-primary text-sm flex items-center gap-1.5"
+                              >
+                                <Banknote className="w-4 h-4" />
+                                标记成交
+                              </button>
+                            </div>
                           </div>
                         </div>
                       </div>

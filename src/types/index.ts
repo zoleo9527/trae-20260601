@@ -7,6 +7,8 @@ export type ProductStatus =
   | 'APPRAISAL_DISPUTE'
   | 'APPRAISAL_FAILED'
   | 'APPRAISAL_PASSED'
+  | 'PENDING_PHOTO'
+  | 'PHOTOGRAPHING'
   | 'CUSTOMER_WITHDRAW'
   | 'PENDING_LISTING'
   | 'LISTED'
@@ -25,6 +27,8 @@ export const STATUS_LABELS: Record<ProductStatus, string> = {
   APPRAISAL_DISPUTE: '鉴定争议',
   APPRAISAL_FAILED: '鉴定未通过',
   APPRAISAL_PASSED: '鉴定通过',
+  PENDING_PHOTO: '待拍照',
+  PHOTOGRAPHING: '拍照中',
   CUSTOMER_WITHDRAW: '客户撤回',
   PENDING_LISTING: '待上架',
   LISTED: '已上架',
@@ -44,6 +48,8 @@ export const STATUS_COLORS: Record<ProductStatus, string> = {
   APPRAISAL_DISPUTE: 'bg-coral-600 text-white',
   APPRAISAL_FAILED: 'bg-charcoal-700 text-white',
   APPRAISAL_PASSED: 'bg-jade-500 text-white',
+  PENDING_PHOTO: 'bg-champagne-500 text-luxury-800',
+  PHOTOGRAPHING: 'bg-champagne-400 text-luxury-800',
   CUSTOMER_WITHDRAW: 'bg-coral-500 text-white',
   PENDING_LISTING: 'bg-champagne-500 text-luxury-800',
   LISTED: 'bg-jade-600 text-white',
@@ -110,6 +116,20 @@ export interface StatusLog {
   visibleToCustomer: boolean;
 }
 
+export interface PriceRequest {
+  requestedPrice: number;
+  reason: string;
+  operator: string;
+  timestamp: string;
+}
+
+export interface PhotoData {
+  photos: string[];
+  photographer?: string;
+  photographedAt?: string;
+  remark?: string;
+}
+
 export interface Product {
   id: string;
   name: string;
@@ -143,6 +163,8 @@ export interface Product {
   customerWithdraw: boolean;
   withdrawReason?: string;
   priceHistory: PriceHistoryItem[];
+  priceRequest?: PriceRequest;
+  photoData?: PhotoData;
   settlement?: Settlement;
   statusLogs: StatusLog[];
   images: string[];

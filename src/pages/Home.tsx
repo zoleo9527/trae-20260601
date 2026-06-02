@@ -5,6 +5,7 @@ import { formatCurrency, formatDateTime, formatRelativeTime } from '@/utils/form
 import {
   AlertTriangle,
   ArrowRight,
+  Camera,
   CheckCircle2,
   ChevronRight,
   Clock,
@@ -51,8 +52,17 @@ const pipeline: PipelineStep[] = [
     path: '/appraisal',
   },
   {
+    label: '拍照',
+    statuses: ['APPRAISAL_PASSED', 'PENDING_PHOTO', 'PHOTOGRAPHING'],
+    icon: Camera,
+    color: 'text-champagne-600',
+    bgColor: 'bg-champagne-50',
+    borderColor: 'border-champagne-300',
+    path: '/photo',
+  },
+  {
     label: '上架',
-    statuses: ['APPRAISAL_PASSED', 'PENDING_LISTING', 'PRICE_CHANGING'],
+    statuses: ['PENDING_LISTING', 'PRICE_CHANGING'],
     icon: ShoppingBag,
     color: 'text-jade-600',
     bgColor: 'bg-jade-50',
@@ -481,13 +491,12 @@ export default function Home() {
                         </p>
                       )}
                       <div className="flex items-center gap-2 mt-1.5">
-                        {['RECEIVED', 'PENDING_APPRAISAL', 'APPRAISING', 'APPRAISAL_PASSED', 'PENDING_LISTING', 'LISTED', 'SOLD', 'PENDING_SETTLEMENT'].map((step) => {
+                        {['RECEIVED', 'PENDING_APPRAISAL', 'PENDING_PHOTO', 'PENDING_LISTING', 'LISTED', 'SOLD', 'PENDING_SETTLEMENT'].map((step) => {
                           const reached = product.statusLogs.some((l) => {
                             const stepToStatuses: Record<string, ProductStatus[]> = {
-                              RECEIVED: ['RECEIVED'],
-                              PENDING_APPRAISAL: ['PENDING_APPRAISAL', 'APPRAISING', 'APPRAISAL_DISPUTE', 'APPRAISAL_PASSED', 'APPRAISAL_FAILED'],
-                              APPRAISING: ['APPRAISING', 'APPRAISAL_DISPUTE', 'APPRAISAL_PASSED', 'APPRAISAL_FAILED'],
-                              APPRAISAL_PASSED: ['APPRAISAL_PASSED', 'PENDING_LISTING', 'LISTED', 'PRICE_CHANGING', 'SOLD', 'PENDING_SETTLEMENT', 'SETTLED'],
+                              RECEIVED: ['RECEIVED', 'MISSING_DOCS', 'PENDING_APPRAISAL', 'APPRAISING', 'APPRAISAL_DISPUTE', 'APPRAISAL_PASSED', 'PENDING_PHOTO', 'PHOTOGRAPHING', 'PENDING_LISTING', 'LISTED', 'PRICE_CHANGING', 'SOLD', 'PENDING_SETTLEMENT', 'SETTLED'],
+                              PENDING_APPRAISAL: ['PENDING_APPRAISAL', 'APPRAISING', 'APPRAISAL_DISPUTE', 'APPRAISAL_PASSED', 'PENDING_PHOTO', 'PHOTOGRAPHING', 'PENDING_LISTING', 'LISTED', 'PRICE_CHANGING', 'SOLD', 'PENDING_SETTLEMENT', 'SETTLED'],
+                              PENDING_PHOTO: ['PENDING_PHOTO', 'PHOTOGRAPHING', 'PENDING_LISTING', 'LISTED', 'PRICE_CHANGING', 'SOLD', 'PENDING_SETTLEMENT', 'SETTLED'],
                               PENDING_LISTING: ['PENDING_LISTING', 'LISTED', 'PRICE_CHANGING', 'SOLD', 'PENDING_SETTLEMENT', 'SETTLED'],
                               LISTED: ['LISTED', 'PRICE_CHANGING', 'SOLD', 'PENDING_SETTLEMENT', 'SETTLED'],
                               SOLD: ['SOLD', 'PENDING_SETTLEMENT', 'SETTLED'],
