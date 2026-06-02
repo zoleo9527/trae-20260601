@@ -71,13 +71,13 @@ app.get('/api/packages', authenticateToken, (req, res) => {
             FROM batch_packages bp 
             JOIN sterilization_batches b ON bp.batch_id = b.id 
             WHERE bp.package_id = p.id 
-            ORDER BY bp.created_at DESC 
+            ORDER BY bp.id DESC 
             LIMIT 1) as current_batch_id,
            (SELECT b.batch_no 
             FROM batch_packages bp 
             JOIN sterilization_batches b ON bp.batch_id = b.id 
             WHERE bp.package_id = p.id 
-            ORDER BY bp.created_at DESC 
+            ORDER BY bp.id DESC 
             LIMIT 1) as current_batch_no
     FROM instrument_packages p
     WHERE 1=1
@@ -105,13 +105,13 @@ app.get('/api/packages/:packageNo', authenticateToken, (req, res) => {
             FROM batch_packages bp 
             JOIN sterilization_batches b ON bp.batch_id = b.id 
             WHERE bp.package_id = p.id 
-            ORDER BY bp.created_at DESC 
+            ORDER BY bp.id DESC 
             LIMIT 1) as current_batch_id,
            (SELECT b.batch_no 
             FROM batch_packages bp 
             JOIN sterilization_batches b ON bp.batch_id = b.id 
             WHERE bp.package_id = p.id 
-            ORDER BY bp.created_at DESC 
+            ORDER BY bp.id DESC 
             LIMIT 1) as current_batch_no,
            (SELECT GROUP_CONCAT(b.batch_no, ', ') 
             FROM batch_packages bp 
@@ -129,7 +129,7 @@ app.get('/api/packages/:packageNo', authenticateToken, (req, res) => {
     LEFT JOIN users u ON tr.operator_id = u.id
     LEFT JOIN departments d ON tr.department_id = d.id
     WHERE tr.package_id = ?
-    ORDER BY tr.created_at DESC
+    ORDER BY tr.id DESC
   `).all(pkg.id);
   
   const exceptions = db.prepare(`
@@ -292,25 +292,39 @@ app.post('/api/batches/:batchNo/packages', authenticateToken, (req, res) => {
   const batch = db.prepare('SELECT * FROM sterilization_batches WHERE batch_no = ?').get(req.params.batchNo);
   
   if (!batch) return res.status(404).json({ error: '批次不存在' });
+  if (batch.status === 'completed') return res.status(400).json({ error: '批次已完成灭菌，不可添加器械包' });
   
+  const allowedStatuses = ['cleaned', 'packaged'];
+  const rejected = [];
+  const accepted = [];
+  
+  const pkgCheck = db.prepare('SELECT id, package_no, status FROM instrument_packages WHERE id = ?');
   const insertBatchPkg = db.prepare('INSERT OR IGNORE INTO batch_packages (batch_id, package_id) VALUES (?, ?)');
   const insertTrack = db.prepare(`
     INSERT INTO tracking_records (package_id, batch_id, action, status, operator_id, location, notes)
     VALUES (?, ?, ?, ?, ?, ?, ?)
   `);
   const updatePkg = db.prepare(`
-    UPDATE instrument_packages SET status = 'packaged', updated_at = CURRENT_TIMESTAMP WHERE id = ?
+    UPDATE instrument_packages SET status = 'packaged', current_location = '打包区', updated_at = CURRENT_TIMESTAMP WHERE id = ?
   `);
   
-  package_ids.forEach(id => {
-    const result = insertBatchPkg.run(batch.id, id);
-    if (result.changes > 0) {
-      insertTrack.run(id, batch.id, '打包', 'packaged', req.user.id, '打包区', `加入批次${batch.batch_no}`);
-      updatePkg.run(id);
+  for (const id of package_ids) {
+    const pkg = pkgCheck.get(id);
+    if (!pkg) {
+      rejected.push({ id, reason: '器械包不存在' });
+    } else if (!allowedStatuses.includes(pkg.status)) {
+      rejected.push({ id, package_no: pkg.package_no, reason: `当前状态为${pkg.status}，只允许cleaned或packaged入批` });
+    } else {
+      const result = insertBatchPkg.run(batch.id, id);
+      if (result.changes > 0) {
+        insertTrack.run(id, batch.id, '打包', 'packaged', req.user.id, '打包区', `加入批次${batch.batch_no}`);
+        updatePkg.run(id);
+      }
+      accepted.push({ id, package_no: pkg.package_no });
     }
-  });
+  }
   
-  res.json({ success: true });
+  res.json({ success: true, accepted, rejected });
 });
 
 app.get('/api/exceptions', authenticateToken, (req, res) => {
@@ -418,28 +432,33 @@ app.post('/api/recalls', authenticateToken, (req, res) => {
     SELECT 
       bp.package_id,
       p.package_no,
-      p.current_location,
       (SELECT tr.department_id 
        FROM tracking_records tr 
        WHERE tr.package_id = bp.package_id 
          AND tr.batch_id = ?
          AND tr.department_id IS NOT NULL
-       ORDER BY tr.created_at DESC 
+       ORDER BY tr.id DESC 
        LIMIT 1) as department_id,
-      p.status
+      (SELECT tr.status 
+       FROM tracking_records tr 
+       WHERE tr.package_id = bp.package_id 
+         AND tr.batch_id = ?
+       ORDER BY tr.id DESC 
+       LIMIT 1) as latest_batch_status
     FROM batch_packages bp
     JOIN instrument_packages p ON bp.package_id = p.id
     WHERE bp.batch_id = ?
-  `).all(batch.id, batch.id);
+  `).all(batch.id, batch.id, batch.id);
   
   const stmt = db.prepare(`
     INSERT INTO recall_items (recall_id, package_id, department_id, status)
     VALUES (?, ?, ?, ?)
   `);
   
+  const supplyStatuses = ['recycled', 'counted', 'cleaned', 'packaged', 'sterilized', 'qualified', 'available'];
+  
   packages.forEach(p => {
-    const isBackAtSupply = ['cleaned', 'packaged', 'sterilized', 'qualified', 'recycled', 'available'].includes(p.status);
-    const recallStatus = isBackAtSupply ? 'recovered' : 'pending';
+    const recallStatus = supplyStatuses.includes(p.latest_batch_status) ? 'recovered' : 'pending';
     stmt.run(result.lastInsertRowid, p.package_id, p.department_id, recallStatus);
   });
   

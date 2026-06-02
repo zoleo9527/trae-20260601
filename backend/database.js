@@ -160,19 +160,19 @@ function seedData() {
   insertDept.run('供应室', 'SSD001');
 
   const insertPackage = db.prepare(`
-    INSERT INTO instrument_packages (package_no, name, type, instruments, instrument_count, status)
-    VALUES (?, ?, ?, ?, ?, ?)
+    INSERT INTO instrument_packages (package_no, name, type, instruments, instrument_count, status, current_location)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
   `);
 
   const packages = [
-    ['PKG20240601001', '基础外科手术包', 'surgery', '手术刀,止血钳,镊子,剪刀,持针器,组织钳,布巾钳,弯盘', 8, 'sterilized'],
-    ['PKG20240601002', '妇产科检查包', 'obstetrics', '窥阴器,镊子,剪刀,弯盘,棉签,刮板', 6, 'in_use'],
-    ['PKG20240601003', '手术室器械包A', 'surgery', '手术刀×2,止血钳×4,镊子×2,剪刀×2,持针器×2', 12, 'cleaning'],
-    ['PKG20240601004', '清创缝合包', 'emergency', '手术刀,止血钳×2,镊子×2,剪刀,持针器,缝针,缝线', 9, 'sterilized'],
-    ['PKG20240601005', '牙科检查包', 'dental', '口镜,探针,镊子,弯盘,吸唾管', 5, 'delivering'],
-    ['PKG20240601006', '眼科手术包', 'surgery', '显微剪刀,显微镊子,持针器,眼科剪,虹膜恢复器', 6, 'in_use'],
-    ['PKG20240601007', '剖腹产手术包', 'obstetrics', '手术刀×2,止血钳×6,镊子×3,剪刀×2,持针器×3', 16, 'sterilized'],
-    ['PKG20240601008', '换药包', 'general', '镊子×2,剪刀,弯盘,药杯,纱布', 6, 'recycling']
+    ['PKG20240601001', '基础外科手术包', 'surgery', '手术刀,止血钳,镊子,剪刀,持针器,组织钳,布巾钳,弯盘', 8, 'received', '手术室'],
+    ['PKG20240601002', '妇产科检查包', 'obstetrics', '窥阴器,镊子,剪刀,弯盘,棉签,刮板', 6, 'in_use', '妇产科'],
+    ['PKG20240601003', '手术室器械包A', 'surgery', '手术刀×2,止血钳×4,镊子×2,剪刀×2,持针器×2', 12, 'cleaning', '清洗中心'],
+    ['PKG20240601004', '清创缝合包', 'emergency', '手术刀,止血钳×2,镊子×2,剪刀,持针器,缝针,缝线', 9, 'delivering', '运输中'],
+    ['PKG20240601005', '牙科检查包', 'dental', '口镜,探针,镊子,弯盘,吸唾管', 5, 'available', '供应室'],
+    ['PKG20240601006', '眼科手术包', 'surgery', '显微剪刀,显微镊子,持针器,眼科剪,虹膜恢复器', 6, 'in_use', '妇产科'],
+    ['PKG20240601007', '剖腹产手术包', 'obstetrics', '手术刀×2,止血钳×6,镊子×3,剪刀×2,持针器×3', 16, 'packaged', '打包区'],
+    ['PKG20240601008', '换药包', 'general', '镊子×2,剪刀,弯盘,药杯,纱布', 6, 'recycling', '外科病房']
   ];
 
   packages.forEach(p => insertPackage.run(...p));
@@ -200,36 +200,62 @@ function seedData() {
   insertBatchPackage.run(1, 7);
 
   const insertTracking = db.prepare(`
-    INSERT INTO tracking_records (package_id, batch_id, action, status, operator_id, department_id, location, notes)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO tracking_records (package_id, batch_id, action, status, operator_id, department_id, location, notes, created_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
 
+  const baseTime = Date.now() - 86400000 * 3;
+  let seq = 0;
+  const t = () => new Date(baseTime + (seq++) * 60000).toISOString();
+
   const records = [
-    [1, 1, '回收', 'recycled', 2, 1, '手术室', '术后回收'],
-    [1, 1, '清点', 'counted', 4, null, '清洗中心', '器械齐全'],
-    [1, 1, '清洗', 'cleaned', 4, null, '清洗中心', '已完成超声波清洗'],
-    [1, 1, '打包', 'packaged', 4, null, '打包区', '包装完好'],
-    [1, 1, '灭菌', 'sterilized', 5, null, '灭菌室', '灭菌完成'],
-    [1, 1, '质检', 'qualified', 7, null, '质检区', '检测合格'],
-    [1, 1, '配送', 'delivering', 6, 1, '运输中', '发往手术室'],
-    [1, 1, '签收', 'received', 2, 1, '手术室', '已签收'],
+    [1, 1, '回收', 'recycled', 2, 1, '手术室', '术后回收', t()],
+    [1, 1, '清点', 'counted', 4, null, '清洗中心', '器械齐全', t()],
+    [1, 1, '清洗', 'cleaned', 4, null, '清洗中心', '已完成超声波清洗', t()],
+    [1, 1, '打包', 'packaged', 4, null, '打包区', '包装完好', t()],
+    [1, 1, '灭菌', 'sterilized', 5, null, '灭菌室', '灭菌完成', t()],
+    [1, 1, '质检', 'qualified', 7, null, '质检区', '检测合格', t()],
+    [1, 1, '配送', 'delivering', 6, 1, '运输中', '发往手术室', t()],
+    [1, 1, '签收', 'received', 2, 1, '手术室', '已签收', t()],
     
-    [2, 2, '回收', 'recycled', 2, 4, '妇产科', '使用后回收'],
-    [2, 2, '清点', 'counted', 4, null, '清洗中心', '器械齐全'],
-    [2, 2, '清洗', 'cleaned', 4, null, '清洗中心', '清洗完成'],
-    [2, 2, '灭菌', 'sterilized', 5, null, '灭菌室', '批次BATCH20240601002'],
-    [2, 2, '配送', 'delivering', 6, 4, '运输中', '发往妇产科'],
-    [2, null, '使用', 'in_use', 2, 4, '妇产科', '正在使用'],
+    [2, 2, '回收', 'recycled', 2, 4, '妇产科', '使用后回收', t()],
+    [2, 2, '清点', 'counted', 4, null, '清洗中心', '器械齐全', t()],
+    [2, 2, '清洗', 'cleaned', 4, null, '清洗中心', '清洗完成', t()],
+    [2, 2, '打包', 'packaged', 4, null, '打包区', '包装完好', t()],
+    [2, 2, '灭菌', 'sterilized', 5, null, '灭菌室', '批次BATCH20240601002', t()],
+    [2, 2, '质检', 'qualified', 7, null, '质检区', '检测合格', t()],
+    [2, 2, '配送', 'delivering', 6, 4, '运输中', '发往妇产科', t()],
+    [2, 2, '签收', 'received', 2, 4, '妇产科', '已签收', t()],
+    [2, 2, '使用', 'in_use', 2, 4, '妇产科', '正在使用', t()],
 
-    [3, 3, '回收', 'recycled', 2, 1, '手术室', '复杂手术'],
-    [3, 3, '清洗', 'cleaning', 4, null, '清洗中心', '清洗中'],
+    [3, 3, '回收', 'recycled', 2, 1, '手术室', '复杂手术', t()],
+    [3, 3, '清点', 'counted', 4, null, '清洗中心', '缺件但继续清洗', t()],
+    [3, 3, '清洗', 'cleaning', 4, null, '清洗中心', '清洗中', t()],
 
-    [4, 1, '回收', 'recycled', 2, 2, '外科病房', null],
-    [4, 1, '灭菌', 'sterilized', 5, null, '灭菌室', null],
-    [4, 1, '质检', 'qualified', 7, null, '质检区', null],
-    [4, 1, '配送', 'delivering', 6, 2, '运输中', null],
+    [4, 1, '回收', 'recycled', 2, 2, '外科病房', null, t()],
+    [4, 1, '清点', 'counted', 4, null, '清洗中心', null, t()],
+    [4, 1, '清洗', 'cleaned', 4, null, '清洗中心', null, t()],
+    [4, 1, '打包', 'packaged', 4, null, '打包区', null, t()],
+    [4, 1, '灭菌', 'sterilized', 5, null, '灭菌室', null, t()],
+    [4, 1, '质检', 'qualified', 7, null, '质检区', null, t()],
+    [4, 1, '配送', 'delivering', 6, 2, '运输中', null, t()],
 
-    [8, null, '回收', 'recycling', 2, 2, '外科病房', '待回收']
+    [6, 2, '回收', 'recycled', 2, 4, '妇产科', null, t()],
+    [6, 2, '清点', 'counted', 4, null, '清洗中心', null, t()],
+    [6, 2, '清洗', 'cleaned', 4, null, '清洗中心', null, t()],
+    [6, 2, '打包', 'packaged', 4, null, '打包区', null, t()],
+    [6, 2, '灭菌', 'sterilized', 5, null, '灭菌室', null, t()],
+    [6, 2, '质检', 'qualified', 7, null, '质检区', null, t()],
+    [6, 2, '配送', 'delivering', 6, 4, '运输中', null, t()],
+    [6, 2, '签收', 'received', 2, 4, '妇产科', null, t()],
+    [6, 2, '使用', 'in_use', 2, 4, '妇产科', null, t()],
+
+    [7, 1, '回收', 'recycled', 2, 4, '妇产科', null, t()],
+    [7, 1, '清点', 'counted', 4, null, '清洗中心', null, t()],
+    [7, 1, '清洗', 'cleaned', 4, null, '清洗中心', null, t()],
+    [7, 1, '打包', 'packaged', 4, null, '打包区', '加入批次BATCH20240601001', t()],
+
+    [8, null, '回收', 'recycling', 2, 2, '外科病房', '待回收', t()]
   ];
 
   records.forEach(r => insertTracking.run(...r));
