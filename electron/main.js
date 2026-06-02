@@ -1,5 +1,6 @@
 const { app, BrowserWindow, ipcMain, shell } = require('electron')
 const path = require('path')
+const fs = require('fs')
 const { initDatabase, seedDemoData } = require('./database/db')
 const stallHandlers = require('./database/handlers/stalls')
 const tenantHandlers = require('./database/handlers/tenants')
@@ -8,6 +9,17 @@ const utilityHandlers = require('./database/handlers/utilities')
 const hygieneHandlers = require('./database/handlers/hygiene')
 const deductionHandlers = require('./database/handlers/deductions')
 const reportHandlers = require('./database/handlers/reports')
+
+function isDevMode() {
+  if (process.env.NODE_ENV === 'development') return true
+  if (process.argv.includes('--dev') || process.argv.includes('--development')) return true
+  if (!app.isPackaged) return true
+  const distPath = path.join(__dirname, '../dist/index.html')
+  return !fs.existsSync(distPath)
+}
+
+const isDev = isDevMode()
+console.log(`运行模式: ${isDev ? '开发模式' : '生产模式'}`)
 
 let mainWindow
 let db
@@ -34,13 +46,13 @@ function createWindow() {
 
   mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDesc) => {
     console.error('页面加载失败:', errorCode, errorDesc)
-    if (process.env.NODE_ENV === 'development') {
+    if (isDev) {
       mainWindow.loadURL('http://localhost:5173')
     }
   })
 
   const loadPage = () => {
-    if (process.env.NODE_ENV === 'development') {
+    if (isDev) {
       mainWindow.loadURL('http://localhost:5173')
         .catch(() => {
           console.log('等待开发服务器启动，3秒后重试...')

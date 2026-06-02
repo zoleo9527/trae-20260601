@@ -110,9 +110,16 @@ module.exports = function (db) {
         throw new Error('该摊主还有未整改的扣分记录，无法删除')
       }
       
+      const tenant = db.prepare('SELECT stall_id FROM tenants WHERE id = ?').get(id)
+      if (!tenant) throw new Error('摊主不存在')
+      
       const tx = db.transaction(() => {
         db.prepare('UPDATE tenants SET status = ?, end_date = date(\'now\'), updated_at = CURRENT_TIMESTAMP WHERE id = ?').run('inactive', id)
-        db.prepare('UPDATE tenants SET stall_id = NULL WHERE original_tenant_id = ?').run(id)
+        
+        const subleaseCount = db.prepare('SELECT COUNT(*) as count FROM tenants WHERE original_tenant_id = ?').get(id).count
+        if (subleaseCount === 0) {
+          db.prepare('UPDATE stalls SET status = ? WHERE id = ?').run('inactive', tenant.stall_id)
+        }
       })
       tx()
       return true
