@@ -7,9 +7,13 @@ import {
   PointerSensor,
   useSensor,
   useSensors,
+  useDraggable,
+  useDroppable,
 } from '@dnd-kit/core'
+import { CSS } from '@dnd-kit/utilities'
 import { InstrumentStatusDot, ReservationBadge } from '@/components/StatusBadge'
 import { useStore } from '@/store/useStore'
+import { DEMO_USERS } from '@/data/seed'
 import type { Reservation } from '@/types'
 import {
   fmtDate,
@@ -29,13 +33,118 @@ import {
   Info,
   Moon,
   X,
+  Users,
 } from 'lucide-react'
-import { addDays, addHours, format, parseISO, setHours, setMinutes } from 'date-fns'
+import { format, parseISO, setHours, setMinutes } from 'date-fns'
 import React, { useMemo, useState } from 'react'
 import { cn } from '@/lib/utils'
 
 const HOURS = Array.from({ length: 24 }, (_, i) => i)
 const SLOT_HEIGHT = 48
+
+function DraggableReservation({
+  reservation,
+  top,
+  height,
+  dayIdx,
+  totalDays,
+  statusColor,
+  isActive,
+  hasConflict,
+  onClick,
+}: {
+  reservation: Reservation
+  top: number
+  height: number
+  dayIdx: number
+  totalDays: number
+  statusColor: string
+  isActive: boolean
+  hasConflict: boolean
+  onClick: () => void
+}) {
+  const { attributes, listeners, setNodeRef, transform } = useDraggable({
+    id: reservation.id,
+    data: { reservation },
+  })
+
+  const style = {
+    top: `${top}px`,
+    height: `${Math.max(height, SLOT_HEIGHT * 0.8)}px`,
+    left: `calc(${dayIdx * (100 / totalDays)}% + 4px)`,
+    width: `calc(${100 / totalDays}% - 8px)`,
+    transform: CSS.Translate.toString(transform),
+    zIndex: isActive ? 50 : 10,
+  } as React.CSSProperties
+
+  const isNight = getHourFromIso(reservation.startTime) >= 18 || getHourFromIso(reservation.endTime) < 6
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      {...listeners}
+      {...attributes}
+      className={cn(
+        'absolute rounded border overflow-hidden cursor-pointer transition-all',
+        statusColor,
+        'cursor-grab active:cursor-grabbing',
+        isActive && 'opacity-50',
+        hasConflict && reservation.status !== 'postponed' && 'ring-2 ring-red-500/70'
+      )}
+      onClick={(e) => {
+        e.stopPropagation()
+        onClick()
+      }}
+    >
+      <div className="p-1 h-full flex flex-col min-h-0">
+        <div className="text-[11px] font-medium text-white/95 flex items-center gap-1">
+          <span className="mono">{fmtTime(reservation.startTime)}</span>
+          <span className="text-white/50">-</span>
+          <span className="mono">{fmtTime(reservation.endTime)}</span>
+          {hasConflict && reservation.status !== 'postponed' && (
+            <AlertTriangle size={10} className="text-red-300" />
+          )}
+        </div>
+        <div className="text-[11px] text-white/90 truncate">
+          {reservation.userName}
+        </div>
+        {height > SLOT_HEIGHT && (
+          <div className="text-[10px] text-white/70 truncate">
+            {reservation.userGroup}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function DroppableSlot({
+  id,
+  children,
+  className,
+}: {
+  id: string
+  children?: React.ReactNode
+  className?: string
+}) {
+  const { isOver, setNodeRef } = useDroppable({
+    id,
+  })
+
+  return (
+    <div
+      ref={setNodeRef}
+      className={cn(
+        'flex-1 border-r border-[#1e1e3a]/40 last:border-r-0 relative transition-colors',
+        isOver && 'bg-indigo-500/20 ring-1 ring-indigo-500/40',
+        className
+      )}
+    >
+      {children}
+    </div>
+  )
+}
 
 export default function CalendarPage() {
   const {
@@ -43,6 +152,7 @@ export default function CalendarPage() {
     reservations,
     downtimes,
     currentRole,
+    currentUserId,
     updateReservationTime,
   } = useStore()
 
@@ -51,6 +161,7 @@ export default function CalendarPage() {
   const [selectedInstrument, setSelectedInstrument] = useState<string | null>(null)
   const [activeId, setActiveId] = useState<string | null>(null)
   const [selectedReservation, setSelectedReservation] = useState<Reservation | null>(null)
+  const [dragError, setDragError] = useState<string | null>(null)
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
@@ -65,6 +176,10 @@ export default function CalendarPage() {
   const weekDays = useMemo(() => getWeekDays(baseDate), [baseDate])
   const displayDays = viewMode === 'week' ? weekDays : [weekDays[0]]
 
+  const currentUser = DEMO_USERS.find((u) => u.id === currentUserId)
+  const isLeader = currentRole === 'leader'
+  const leaderGroup = isLeader ? currentUser?.group : null
+
   const visibleInstruments = useMemo(() => {
     if (selectedInstrument) {
       return instruments.filter((i) => i.id === selectedInstrument)
@@ -73,8 +188,14 @@ export default function CalendarPage() {
   }, [instruments, selectedInstrument])
 
   const activeReservations = useMemo(() => {
-    return reservations.filter((r) => r.status !== 'cancelled' && r.status !== 'rejected')
-  }, [reservations])
+    let list = reservations.filter((r) => r.status !== 'cancelled' && r.status !== 'rejected')
+
+    if (isLeader && leaderGroup) {
+      list = list.filter((r) => r.userGroup === leaderGroup)
+    }
+
+    return list
+  }, [reservations, isLeader, leaderGroup])
 
   const activeDowntimes = useMemo(() => {
     return downtimes.filter((d) => d.status === 'active')
@@ -105,6 +226,7 @@ export default function CalendarPage() {
   const handleDragStart = (event: DragStartEvent) => {
     if (currentRole !== 'admin') return
     setActiveId(event.active.id as string)
+    setDragError(null)
   }
 
   const handleDragEnd = (event: DragEndEvent) => {
@@ -116,8 +238,14 @@ export default function CalendarPage() {
     if (!res) return
 
     const overId = event.over.id as string
+    if (!overId.includes('|')) return
+
     const [instrumentId, dayStr, hourStr] = overId.split('|')
-    if (instrumentId !== res.instrumentId) return
+    if (instrumentId !== res.instrumentId) {
+      setDragError('只能在同一仪器的时段内拖动')
+      setTimeout(() => setDragError(null), 3000)
+      return
+    }
 
     const targetDay = parseISO(dayStr)
     const targetHour = parseInt(hourStr, 10)
@@ -142,6 +270,7 @@ export default function CalendarPage() {
     }
 
     updateReservationTime(res.id, newStart.toISOString(), newEnd.toISOString())
+    setDragError(null)
   }
 
   const getInstrumentName = (id: string) =>
@@ -159,6 +288,25 @@ export default function CalendarPage() {
         return 'bg-zinc-700/80 border-zinc-600'
     }
   }
+
+  const groupUsageStats = useMemo(() => {
+    if (!isLeader || !leaderGroup) return null
+    const stats: Record<string, { approved: number; pending: number; totalHours: number }> = {}
+    for (const inst of instruments) {
+      stats[inst.id] = { approved: 0, pending: 0, totalHours: 0 }
+    }
+    for (const r of activeReservations) {
+      if (r.userGroup !== leaderGroup) continue
+      const s = stats[r.instrumentId]
+      if (!s) continue
+      if (r.status === 'approved') s.approved++
+      if (r.status === 'pending') s.pending++
+      const hours =
+        (new Date(r.endTime).getTime() - new Date(r.startTime).getTime()) / (1000 * 60 * 60)
+      s.totalHours += hours
+    }
+    return stats
+  }, [isLeader, leaderGroup, instruments, activeReservations])
 
   return (
     <div className="h-full flex flex-col">
@@ -209,6 +357,14 @@ export default function CalendarPage() {
               日视图
             </button>
           </div>
+          {isLeader && leaderGroup && (
+            <div className="flex items-center gap-1.5 px-3 py-1 bg-blue-950/30 border border-blue-800/30 rounded">
+              <Users size={12} className="text-blue-400" />
+              <span className="text-xs text-blue-300">
+                {leaderGroup} 占用视图
+              </span>
+            </div>
+          )}
         </div>
         <div className="flex items-center gap-3 text-xs text-zinc-500">
           <div className="flex items-center gap-1">
@@ -234,6 +390,49 @@ export default function CalendarPage() {
         </div>
       </div>
 
+      {isLeader && groupUsageStats && (
+        <div className="mb-4 grid grid-cols-3 gap-3">
+          {instruments.map((inst) => {
+            const stat = groupUsageStats[inst.id]
+            return (
+              <div
+                key={inst.id}
+                className="rounded-lg border border-[#1e1e3a] bg-[#12122a] p-3"
+              >
+                <div className="text-xs text-zinc-400 mb-1">{inst.name}</div>
+                <div className="flex items-end gap-4">
+                  <div>
+                    <div className="text-lg font-semibold text-emerald-400 mono">
+                      {stat.approved}
+                    </div>
+                    <div className="text-[10px] text-zinc-500">已通过</div>
+                  </div>
+                  <div>
+                    <div className="text-lg font-semibold text-amber-400 mono">
+                      {stat.pending}
+                    </div>
+                    <div className="text-[10px] text-zinc-500">待审批</div>
+                  </div>
+                  <div>
+                    <div className="text-lg font-semibold text-blue-400 mono">
+                      {stat.totalHours.toFixed(1)}h
+                    </div>
+                    <div className="text-[10px] text-zinc-500">总时长</div>
+                  </div>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
+
+      {dragError && (
+        <div className="mb-3 px-3 py-2 rounded bg-red-950/50 border border-red-900/50 text-xs text-red-400 flex items-center gap-2">
+          <AlertTriangle size={12} />
+          {dragError}
+        </div>
+      )}
+
       <div className="flex gap-4 flex-1 min-h-0">
         <div className="w-[200px] shrink-0 overflow-auto rounded border border-[#1e1e3a] bg-[#0f0f1a]">
           <div className="p-3 border-b border-[#1e1e3a]">
@@ -250,31 +449,39 @@ export default function CalendarPage() {
             </button>
           </div>
           <div className="p-2 space-y-1">
-            {instruments.map((inst) => (
-              <button
-                key={inst.id}
-                onClick={() => setSelectedInstrument(inst.id)}
-                className={`w-full text-left px-2 py-2 rounded text-xs transition-colors ${
-                  selectedInstrument === inst.id
-                    ? 'bg-indigo-600/20 text-indigo-300'
-                    : 'text-zinc-400 hover:bg-white/5 hover:text-zinc-200'
-                }`}
-              >
-                <div className="flex items-center gap-2">
-                  <InstrumentStatusDot status={inst.status} />
-                  <span className="font-medium text-zinc-200">{inst.name}</span>
-                </div>
-                <div className="flex items-center gap-2 mt-1 ml-4">
-                  <span className="text-[10px] text-zinc-600 mono">{inst.code}</span>
-                  {inst.nightMode && (
-                    <span className="text-[10px] text-indigo-400 flex items-center gap-0.5">
-                      <Moon size={10} />
-                      夜间开放
-                    </span>
+            {instruments.map((inst) => {
+              const stat = groupUsageStats?.[inst.id]
+              return (
+                <button
+                  key={inst.id}
+                  onClick={() => setSelectedInstrument(inst.id)}
+                  className={`w-full text-left px-2 py-2 rounded text-xs transition-colors ${
+                    selectedInstrument === inst.id
+                      ? 'bg-indigo-600/20 text-indigo-300'
+                      : 'text-zinc-400 hover:bg-white/5 hover:text-zinc-200'
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <InstrumentStatusDot status={inst.status} />
+                    <span className="font-medium text-zinc-200">{inst.name}</span>
+                  </div>
+                  <div className="flex items-center gap-2 mt-1 ml-4">
+                    <span className="text-[10px] text-zinc-600 mono">{inst.code}</span>
+                    {inst.nightMode && (
+                      <span className="text-[10px] text-indigo-400 flex items-center gap-0.5">
+                        <Moon size={10} />
+                        夜间开放
+                      </span>
+                    )}
+                  </div>
+                  {isLeader && stat && (
+                    <div className="mt-1 ml-4 text-[10px] text-zinc-500">
+                      本组：{stat.approved + stat.pending} 条 · {stat.totalHours.toFixed(1)}h
+                    </div>
                   )}
-                </div>
-              </button>
-            ))}
+                </button>
+              )
+            })}
           </div>
         </div>
 
@@ -357,15 +564,12 @@ export default function CalendarPage() {
                             slotEnd.setHours(hour + 1, 0, 0, 0)
                             return slotStart.getTime() < de && slotEnd.getTime() > ds
                           })
+                          const slotId = `${inst.id}|${format(day, 'yyyy-MM-dd')}|${hour}`
                           return (
-                            <div
-                              key={`${inst.id}|${day.toISOString()}|${hour}`}
-                              data-instrument={inst.id}
-                              data-day={day.toISOString()}
-                              data-hour={hour}
-                              id={`${inst.id}|${format(day, 'yyyy-MM-dd')}|${hour}`}
+                            <DroppableSlot
+                              key={slotId}
+                              id={slotId}
                               className={cn(
-                                'flex-1 border-r border-[#1e1e3a]/40 last:border-r-0 relative',
                                 isNight && inst.nightMode && 'bg-indigo-950/15',
                                 hasActiveDowntime && 'bg-red-950/30',
                                 isToday && 'bg-indigo-950/10'
@@ -376,72 +580,106 @@ export default function CalendarPage() {
                       </div>
                     ))}
 
-                    {activeReservations
-                      .filter((r) => r.instrumentId === inst.id)
-                      .filter((r) =>
-                        displayDays.some((d) => isSameDay(r.startTime, d))
-                      )
-                      .map((r) => {
-                        const dayIdx = displayDays.findIndex((d) => isSameDay(r.startTime, d))
-                        if (dayIdx < 0) return null
+                    {currentRole === 'admin'
+                      ? activeReservations
+                          .filter((r) => r.instrumentId === inst.id)
+                          .filter((r) =>
+                            displayDays.some((d) => isSameDay(r.startTime, d))
+                          )
+                          .map((r) => {
+                            const dayIdx = displayDays.findIndex((d) => isSameDay(r.startTime, d))
+                            if (dayIdx < 0) return null
 
-                        const startHour = getHourFromIso(r.startTime)
-                        const startMin = parseISO(r.startTime).getMinutes()
-                        const endHour = getHourFromIso(r.endTime)
-                        const endMin = parseISO(r.endTime).getMinutes()
+                            const startHour = getHourFromIso(r.startTime)
+                            const startMin = parseISO(r.startTime).getMinutes()
+                            const endHour = getHourFromIso(r.endTime)
+                            const endMin = parseISO(r.endTime).getMinutes()
 
-                        const top = startHour * SLOT_HEIGHT + (startMin / 60) * SLOT_HEIGHT
-                        const height =
-                          (endHour - startHour) * SLOT_HEIGHT +
-                          ((endMin - startMin) / 60) * SLOT_HEIGHT
+                            const top = startHour * SLOT_HEIGHT + (startMin / 60) * SLOT_HEIGHT
+                            const height =
+                              (endHour - startHour) * SLOT_HEIGHT +
+                              ((endMin - startMin) / 60) * SLOT_HEIGHT
 
-                        const isNight = startHour >= 18 || endHour < 6
-                        const hasConflict = checkConflict(r, parseISO(r.startTime), parseISO(r.endTime)).length > 0
+                            const isNight = startHour >= 18 || endHour < 6
+                            const hasConflict = checkConflict(r, parseISO(r.startTime), parseISO(r.endTime)).length > 0
 
-                        return (
-                          <div
-                            key={r.id}
-                            id={r.id}
-                            data-draggable={currentRole === 'admin' ? 'true' : 'false'}
-                            className={cn(
-                              'absolute left-0 right-0 mx-1 rounded border overflow-hidden cursor-pointer transition-all',
-                              getStatusColor(r.status, isNight),
-                              currentRole === 'admin' && 'cursor-grab active:cursor-grabbing',
-                              activeId === r.id && 'opacity-50',
-                              hasConflict && r.status !== 'postponed' && 'ring-2 ring-red-500/70'
-                            )}
-                            style={{
-                              top: `${top}px`,
-                              height: `${Math.max(height, SLOT_HEIGHT * 0.8)}px`,
-                              left: `calc(${dayIdx * (100 / displayDays.length)}% + 4px)`,
-                              width: `calc(${100 / displayDays.length}% - 8px)`,
-                            }}
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              setSelectedReservation(r)
-                            }}
-                          >
-                            <div className="p-1 h-full flex flex-col min-h-0">
-                              <div className="text-[11px] font-medium text-white/95 flex items-center gap-1">
-                                <span className="mono">{fmtTime(r.startTime)}</span>
-                                <span className="text-white/50">-</span>
-                                <span className="mono">{fmtTime(r.endTime)}</span>
-                                {hasConflict && r.status !== 'postponed' && (
-                                  <AlertTriangle size={10} className="text-red-300" />
+                            return (
+                              <DraggableReservation
+                                key={r.id}
+                                reservation={r}
+                                top={top}
+                                height={height}
+                                dayIdx={dayIdx}
+                                totalDays={displayDays.length}
+                                statusColor={getStatusColor(r.status, isNight)}
+                                isActive={activeId === r.id}
+                                hasConflict={hasConflict}
+                                onClick={() => setSelectedReservation(r)}
+                              />
+                            )
+                          })
+                      : activeReservations
+                          .filter((r) => r.instrumentId === inst.id)
+                          .filter((r) =>
+                            displayDays.some((d) => isSameDay(r.startTime, d))
+                          )
+                          .map((r) => {
+                            const dayIdx = displayDays.findIndex((d) => isSameDay(r.startTime, d))
+                            if (dayIdx < 0) return null
+
+                            const startHour = getHourFromIso(r.startTime)
+                            const startMin = parseISO(r.startTime).getMinutes()
+                            const endHour = getHourFromIso(r.endTime)
+                            const endMin = parseISO(r.endTime).getMinutes()
+
+                            const top = startHour * SLOT_HEIGHT + (startMin / 60) * SLOT_HEIGHT
+                            const height =
+                              (endHour - startHour) * SLOT_HEIGHT +
+                              ((endMin - startMin) / 60) * SLOT_HEIGHT
+
+                            const isNight = startHour >= 18 || endHour < 6
+                            const hasConflict = checkConflict(r, parseISO(r.startTime), parseISO(r.endTime)).length > 0
+
+                            return (
+                              <div
+                                key={r.id}
+                                className={cn(
+                                  'absolute rounded border overflow-hidden cursor-pointer transition-all',
+                                  getStatusColor(r.status, isNight),
+                                  hasConflict && r.status !== 'postponed' && 'ring-2 ring-red-500/70'
                                 )}
-                              </div>
-                              <div className="text-[11px] text-white/90 truncate">
-                                {r.userName}
-                              </div>
-                              {height > SLOT_HEIGHT && (
-                                <div className="text-[10px] text-white/70 truncate">
-                                  {r.userGroup}
+                                style={{
+                                  top: `${top}px`,
+                                  height: `${Math.max(height, SLOT_HEIGHT * 0.8)}px`,
+                                  left: `calc(${dayIdx * (100 / displayDays.length)}% + 4px)`,
+                                  width: `calc(${100 / displayDays.length}% - 8px)`,
+                                }}
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  setSelectedReservation(r)
+                                }}
+                              >
+                                <div className="p-1 h-full flex flex-col min-h-0">
+                                  <div className="text-[11px] font-medium text-white/95 flex items-center gap-1">
+                                    <span className="mono">{fmtTime(r.startTime)}</span>
+                                    <span className="text-white/50">-</span>
+                                    <span className="mono">{fmtTime(r.endTime)}</span>
+                                    {hasConflict && r.status !== 'postponed' && (
+                                      <AlertTriangle size={10} className="text-red-300" />
+                                    )}
+                                  </div>
+                                  <div className="text-[11px] text-white/90 truncate">
+                                    {r.userName}
+                                  </div>
+                                  {height > SLOT_HEIGHT && (
+                                    <div className="text-[10px] text-white/70 truncate">
+                                      {r.userGroup}
+                                    </div>
+                                  )}
                                 </div>
-                              )}
-                            </div>
-                          </div>
-                        )
-                      })}
+                              </div>
+                            )
+                          })}
                   </div>
                 </div>
               ))}

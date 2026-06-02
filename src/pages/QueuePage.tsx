@@ -1,9 +1,10 @@
 import { ReservationBadge } from '@/components/StatusBadge';
+import { DEMO_USERS } from '@/data/seed';
 import { useStore } from '@/store/useStore';
 import type { ReservationStatus } from '@/types';
 import { fmtDateTime, getHourRange } from '@/utils/time';
-import { Ban, Check, ChevronDown, ChevronRight, Search, X } from 'lucide-react';
-import React, { useState } from 'react';
+import { Ban, Check, ChevronDown, ChevronRight, Search, Users, X } from 'lucide-react';
+import React, { useMemo, useState } from 'react';
 
 const TABS: { label: string; value: ReservationStatus | null }[] = [
   { label: '全部', value: null },
@@ -38,11 +39,35 @@ export default function QueuePage() {
 
   const isAdmin = currentRole === 'admin';
   const isStudent = currentRole === 'student';
+  const isLeader = currentRole === 'leader';
+
+  const currentUser = DEMO_USERS.find((u) => u.id === currentUserId);
+  const leaderGroup = isLeader ? currentUser?.group : null;
 
   const instMap = new Map(instruments.map((i) => [i.id, i.name]));
 
+  const groupStats = useMemo(() => {
+    if (!isLeader || !leaderGroup) return null;
+    const stats: Record<string, { approved: number; pending: number; totalHours: number }> = {};
+    for (const inst of instruments) {
+      stats[inst.id] = { approved: 0, pending: 0, totalHours: 0 };
+    }
+    for (const r of reservations) {
+      if (r.userGroup !== leaderGroup || r.status === 'cancelled' || r.status === 'rejected') continue;
+      const s = stats[r.instrumentId];
+      if (!s) continue;
+      if (r.status === 'approved') s.approved++;
+      if (r.status === 'pending') s.pending++;
+      const hours =
+        (new Date(r.endTime).getTime() - new Date(r.startTime).getTime()) / (1000 * 60 * 60);
+      s.totalHours += hours;
+    }
+    return stats;
+  }, [isLeader, leaderGroup, instruments, reservations]);
+
   const filtered = reservations
     .filter((r) => {
+      if (isLeader && leaderGroup && r.userGroup !== leaderGroup) return false;
       if (statusFilter && r.status !== statusFilter) return false;
       if (searchQuery) {
         const q = searchQuery.toLowerCase();
@@ -63,13 +88,14 @@ export default function QueuePage() {
 
   const handleNewSubmit = () => {
     if (!newInstrumentId || !newStartTime || !newEndTime || !newReason.trim()) return;
+    const user = DEMO_USERS.find((u) => u.id === currentUserId);
     addReservation({
       instrumentId: newInstrumentId,
       userId: currentUserId,
-      userName: '当前用户',
-      userGroup: '默认课题组',
-      startTime: newStartTime,
-      endTime: newEndTime,
+      userName: user?.name || '当前用户',
+      userGroup: user?.group || '默认课题组',
+      startTime: new Date(newStartTime).toISOString(),
+      endTime: new Date(newEndTime).toISOString(),
       reason: newReason.trim(),
     });
     setShowNewModal(false);
@@ -84,20 +110,30 @@ export default function QueuePage() {
   return (
     <div className="h-full flex flex-col">
       <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-1">
-          {TABS.map((tab) => (
-            <button
-              key={tab.label}
-              onClick={() => setStatusFilter(tab.value)}
-              className={`px-3 py-1.5 rounded text-xs font-medium transition-colors ${
-                statusFilter === tab.value
-                  ? 'bg-indigo-600 text-white'
-                  : 'text-zinc-400 hover:text-zinc-200 hover:bg-white/5'
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
+        <div className="flex items-center gap-3">
+          {isLeader && leaderGroup && (
+            <div className="flex items-center gap-1.5 px-3 py-1 bg-blue-950/30 border border-blue-800/30 rounded">
+              <Users size={12} className="text-blue-400" />
+              <span className="text-xs text-blue-300">
+                {leaderGroup} 预约队列
+              </span>
+            </div>
+          )}
+          <div className="flex items-center gap-1">
+            {TABS.map((tab) => (
+              <button
+                key={tab.label}
+                onClick={() => setStatusFilter(tab.value)}
+                className={`px-3 py-1.5 rounded text-xs font-medium transition-colors ${
+                  statusFilter === tab.value
+                    ? 'bg-indigo-600 text-white'
+                    : 'text-zinc-400 hover:text-zinc-200 hover:bg-white/5'
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
         </div>
 
         <div className="flex items-center gap-3">
@@ -111,7 +147,7 @@ export default function QueuePage() {
             />
           </div>
 
-          {isStudent && (
+          {(isStudent || isLeader) && (
             <button
               onClick={() => setShowNewModal(true)}
               className="px-3 py-1.5 rounded bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium transition-colors"

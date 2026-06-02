@@ -12,8 +12,9 @@ import {
   FileJson,
   FileSpreadsheet,
   AlertTriangle,
+  Monitor,
 } from 'lucide-react'
-import { useRef, useState } from 'react'
+import { useRef, useState, useEffect } from 'react'
 
 const roleOptions: { value: UserRole; label: string; icon: React.ElementType; desc: string }[] = [
   { value: 'admin', label: '管理员', icon: Shield, desc: '拥有全部操作权限' },
@@ -40,34 +41,95 @@ export default function SettingsPage() {
 
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [importError, setImportError] = useState('')
+  const [isDesktop, setIsDesktop] = useState(false)
+  const [desktopVersion, setDesktopVersion] = useState('')
 
-  const handleExportJSON = () => {
+  useEffect(() => {
+    if (window.electronAPI) {
+      setIsDesktop(true)
+      window.electronAPI.getVersion().then((v) => setDesktopVersion(v))
+    }
+  }, [])
+
+  const showDesktopAlert = async (message: string, title = '提示') => {
+    if (window.electronAPI) {
+      await window.electronAPI.showMessage({
+        type: 'info',
+        title,
+        message,
+        buttons: ['确定'],
+      })
+    } else {
+      alert(message)
+    }
+  }
+
+  const showDesktopConfirm = async (message: string, title = '确认操作'): Promise<boolean> => {
+    if (window.electronAPI) {
+      const result = await window.electronAPI.showMessage({
+        type: 'question',
+        title,
+        message,
+        buttons: ['取消', '确定'],
+      })
+      return result.response === 1
+    }
+    return window.confirm(message)
+  }
+
+  const handleExportJSON = async () => {
     const json = exportJSON()
-    const blob = new Blob([json], { type: 'application/json' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    const now = new Date()
-    const stamp = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}`
-    a.download = `instrument-reservation-backup-${stamp}.json`
-    a.click()
-    URL.revokeObjectURL(url)
+    if (window.electronAPI) {
+      const result = await window.electronAPI.exportJSON(json)
+      if (result.success && result.filePath) {
+        showDesktopAlert(`数据已导出至：\n${result.filePath}`, '导出成功')
+      }
+    } else {
+      const blob = new Blob([json], { type: 'application/json' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      const now = new Date()
+      const stamp = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}`
+      a.download = `instrument-reservation-backup-${stamp}.json`
+      a.click()
+      URL.revokeObjectURL(url)
+    }
   }
 
-  const handleExportCSV = () => {
+  const handleExportCSV = async () => {
     const csv = exportCSV()
-    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = 'reservations.csv'
-    a.click()
-    URL.revokeObjectURL(url)
+    if (window.electronAPI) {
+      const result = await window.electronAPI.exportCSV(csv)
+      if (result.success && result.filePath) {
+        showDesktopAlert(`预约记录已导出至：\n${result.filePath}`, '导出成功')
+      }
+    } else {
+      const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = 'reservations.csv'
+      a.click()
+      URL.revokeObjectURL(url)
+    }
   }
 
-  const handleImportClick = () => {
+  const handleImportClick = async () => {
     setImportError('')
-    fileInputRef.current?.click()
+    if (window.electronAPI) {
+      const result = await window.electronAPI.importJSON()
+      if (result.success && result.content) {
+        const ok = importJSON(result.content)
+        if (ok) {
+          showDesktopAlert('数据导入成功！', '导入完成')
+        } else {
+          setImportError('数据格式不正确，请检查文件')
+        }
+      }
+    } else {
+      fileInputRef.current?.click()
+    }
   }
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -82,7 +144,6 @@ export default function SettingsPage() {
         if (!ok) {
           setImportError('数据格式不正确，请检查文件')
         } else {
-          setImportError('')
           alert('数据导入成功！')
         }
       } catch {
@@ -93,11 +154,21 @@ export default function SettingsPage() {
     e.target.value = ''
   }
 
-  const handleReset = () => {
-    if (!confirm('确认重置所有数据？此操作不可恢复，建议先备份。')) return
-    if (!confirm('再次确认：将清空所有预约、样本、停机记录，恢复到初始演示数据。')) return
+  const handleReset = async () => {
+    const ok1 = await showDesktopConfirm(
+      '确认重置所有数据？此操作不可恢复，建议先备份。',
+      '重置数据'
+    )
+    if (!ok1) return
+
+    const ok2 = await showDesktopConfirm(
+      '再次确认：将清空所有预约、样本、停机记录，恢复到初始演示数据。',
+      '请再次确认'
+    )
+    if (!ok2) return
+
     resetData()
-    alert('数据已重置')
+    showDesktopAlert('数据已重置', '完成')
   }
 
   const availableUsers = DEMO_USERS.filter((u) => u.role === currentRole)
@@ -117,6 +188,18 @@ export default function SettingsPage() {
         <h2 className="text-lg font-semibold text-zinc-100">设置</h2>
         <p className="text-xs text-zinc-500 mt-1">角色切换、数据备份与导出</p>
       </div>
+
+      {isDesktop && (
+        <div className="rounded-lg border border-indigo-900/40 bg-indigo-950/20 p-4 flex items-center gap-3">
+          <Monitor size={18} className="text-indigo-400 shrink-0" />
+          <div>
+            <div className="text-sm text-indigo-300 font-medium">桌面应用模式</div>
+            <div className="text-xs text-indigo-400/70">
+              版本 v{desktopVersion} · 数据保存在本地用户目录 · 支持原生文件对话框
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="rounded-lg border border-[#1e1e3a] bg-[#12122a] p-5">
         <h3 className="text-sm font-medium text-zinc-200 mb-4">当前角色</h3>
@@ -285,10 +368,14 @@ export default function SettingsPage() {
         <h3 className="text-sm font-medium text-zinc-200 mb-3">关于</h3>
         <p className="text-xs text-zinc-500 leading-relaxed">
           学院公共仪器预约管理台 v1.0 — 专为仪器值班室设计的桌面工具。
-          所有数据存储于浏览器本地（localStorage），定期导出 JSON 备份可防止数据丢失。
+          {isDesktop ? (
+            <>数据存储于用户应用数据目录（Electron localStorage），可通过上方"导出备份"功能定期保存。</>
+          ) : (
+            <>所有数据存储于浏览器本地（localStorage），定期导出 JSON 备份可防止数据丢失。</>
+          )}
         </p>
         <p className="text-xs text-zinc-600 mt-2">
-          数据存储位置：浏览器 localStorage · 存储键名：instrument-reservation-store
+          数据存储位置：{isDesktop ? 'Electron 用户数据目录' : '浏览器 localStorage'} · 存储键名：instrument-reservation-store
         </p>
       </div>
     </div>
