@@ -255,15 +255,28 @@ async function testScenario2_WrongSKU() {
     console.log('\n   ✓ 成功追溯到错SKU根因！');
     if (skuInReview) {
       console.log('   ✓ 直接基于复核记录追溯到了差异！');
+      if (skuInReview.pickTask) {
+        console.log(`   ✓ 复核记录关联到拣货任务: ${skuInReview.pickTask.taskNo}，拣货员: ${skuInReview.pickTask.pickedBy?.name || skuInReview.pickTask.assignedTo?.name || '未分配'}`);
+      }
     }
     const cause = skuInReview || skuInPkg;
+    const rootCausePickTaskId = cause.pickTask?.id;
+    if (!rootCausePickTaskId) {
+      console.log('   ✗ rootCausePickTaskId 为空！基于 expectedProductId 的拣货任务查找失败');
+    }
     await afterSalesService.resolveFeedback(
       feedbackId,
       cs!.id,
       cause.waveId,
-      cause.pickTask?.id,
+      rootCausePickTaskId,
       `确认为装错SKU，应发${expectedProduct.sku}实发${wrongProduct.sku}，已安排换货`
     );
+    const resolvedFeedback = await afterSalesService.getFeedbackById(feedbackId);
+    if (resolvedFeedback?.rootCausePickTaskId) {
+      console.log(`   ✓ 售后结案 rootCausePickTaskId=${resolvedFeedback.rootCausePickTaskId}`);
+    } else {
+      console.log('   ✗ 售后结案 rootCausePickTaskId 为空！');
+    }
     console.log('   ✓ 问题已解决');
   } else {
     console.log('\n   ✗ 未能追溯到错SKU根因！');

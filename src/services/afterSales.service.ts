@@ -191,8 +191,7 @@ export class AfterSalesService {
         if (expectedProd && expectedProd.id !== actualProd.id) {
           const matchingPickTask = await this.findPickTaskForProduct(
             feedback.package.order.wave?.id,
-            expectedProd.id,
-            actualProd.id
+            expectedProd.id
           );
           traceResult.possibleCauses.push({
             type: 'SKU_MISMATCH_IN_PACKAGE',
@@ -211,6 +210,10 @@ export class AfterSalesService {
           const expectedProd = reviewItem.expectedProduct;
           const actualProd = reviewItem.product;
           if (expectedProd && expectedProd.id !== actualProd.id) {
+            const matchingPickTask = await this.findPickTaskForProduct(
+              feedback.package.order.wave?.id,
+              expectedProd.id
+            );
             traceResult.possibleCauses.push({
               type: 'SKU_MISMATCH_IN_REVIEW',
               description: `复核记录显示商品不一致：应发「${expectedProd.sku} ${expectedProd.name}」，实发「${actualProd.sku} ${actualProd.name}」，但复核员未纠正`,
@@ -219,6 +222,7 @@ export class AfterSalesService {
               actualProduct: actualProd,
               reviewerId: feedback.package.reviewRecord.reviewerId,
               waveId: feedback.package.order.wave?.id,
+              pickTask: matchingPickTask,
             });
           } else if (!reviewItem.isMatch && reviewItem.expectedQty !== reviewItem.actualQty) {
             traceResult.possibleCauses.push({
@@ -237,8 +241,7 @@ export class AfterSalesService {
         if (!actualProductIds.has(oi.productId)) {
           const matchingPickTask = await this.findPickTaskForProduct(
             feedback.package.order.wave?.id,
-            oi.productId,
-            undefined
+            oi.productId
           );
           traceResult.possibleCauses.push({
             type: 'EXPECTED_PRODUCT_MISSING',
@@ -279,15 +282,14 @@ export class AfterSalesService {
 
   private async findPickTaskForProduct(
     waveId: string | undefined,
-    expectedProductId: string,
-    actualProductId: string | undefined
+    expectedProductId: string
   ) {
     if (!waveId) return null;
 
     const pickTask = await this.prisma.pickTask.findFirst({
       where: {
         waveId,
-        productId: actualProductId || expectedProductId,
+        productId: expectedProductId,
       },
       include: {
         product: true,
