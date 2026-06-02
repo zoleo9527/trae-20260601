@@ -1,0 +1,121 @@
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  font-family: "Noto Sans SC", -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  line-height: 1.6;
+  font-weight: 400;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background-color: #f5f6f7;
+  color: #2c3640;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+::selection {
+  background-color: #dce6ea;
+  color: #2d5566;
+}
+
+@layer components {
+  .card {
+    @apply bg-white rounded-lg border border-gray-100/80;
+  }
+
+  .card-hover {
+    @apply transition-colors duration-150 hover:border-gray-200;
+  }
+
+  .btn-primary {
+    @apply px-4 py-2 bg-primary-700 text-white rounded-md text-sm font-medium transition-colors duration-150 hover:bg-primary-600 active:bg-primary-800 disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .btn-secondary {
+    @apply px-4 py-2 bg-surface-muted text-text-secondary rounded-md text-sm transition-colors duration-150 hover:bg-gray-200 active:bg-gray-300;
+  }
+
+  .btn-ghost {
+    @apply px-3 py-1.5 text-text-secondary rounded-md text-sm transition-colors duration-150 hover:bg-surface-muted;
+  }
+
+  .badge {
+    @apply inline-flex items-center px-2 py-0.5 rounded text-2xs font-medium tracking-wide;
+  }
+
+  .badge-normal {
+    @apply bg-emerald-50 text-emerald-700;
+  }
+
+  .badge-pending {
+    @apply bg-amber-50 text-amber-700;
+  }
+
+  .badge-warning {
+    @apply bg-red-50 text-red-700;
+  }
+
+  .badge-completed {
+    @apply bg-surface-muted text-text-tertiary;
+  }
+
+  .badge-info {
+    @apply bg-primary-50 text-primary-700;
+  }
+
+  .nav-item {
+    @apply flex items-center gap-3 px-4 py-2.5 rounded-lg text-text-secondary text-sm transition-colors duration-150 hover:bg-surface-hover hover:text-text-primary;
+  }
+
+  .nav-item-active {
+    @apply bg-primary-50 text-primary-700 font-medium;
+  }
+
+  .table-row {
+    @apply border-b border-gray-50 transition-colors duration-100 hover:bg-surface-hover;
+  }
+
+  .stat-card {
+    @apply p-5 rounded-lg bg-white border border-gray-100/80 transition-colors duration-150 hover:border-gray-200;
+  }
+
+  .section-title {
+    @apply text-base font-medium text-text-primary;
+  }
+
+  .subsection-title {
+    @apply text-sm font-medium text-text-primary;
+  }
+
+  .muted-text {
+    @apply text-sm text-text-tertiary;
+  }
+
+  .filter-select {
+    @apply px-3 py-1.5 border border-gray-200 rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-primary-400 focus:border-primary-400 bg-white text-text-secondary;
+  }
+
+  .search-input {
+    @apply pl-10 pr-4 py-1.5 border border-gray-200 rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-primary-400 focus:border-primary-400;
+  }
+
+  .detail-text {
+    @apply text-sm text-text-secondary leading-relaxed;
+  }
+
+  .divider {
+    @apply border-t border-gray-100;
+  }
+}

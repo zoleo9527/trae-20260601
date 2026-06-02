@@ -1,0 +1,218 @@
+import { Calendar, UserCheck, AlertTriangle, FileText, Clock, ChevronRight, ArrowRight } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { useAppointmentStore } from '../store/useAppointmentStore';
+import { useTriageStore } from '../store/useTriageStore';
+import { useRiskStore } from '../store/useRiskStore';
+import { useScaleStore } from '../store/useScaleStore';
+import { useUserStore } from '../store/useUserStore';
+import { StatusBadge, TypeBadge } from '../components/StatusBadge';
+import { mockTodoItems } from '../data/mockData';
+
+const priorityStyles = {
+  high: 'border-l-status-warning bg-red-50/50',
+  medium: 'border-l-status-pending bg-amber-50/50',
+  low: 'border-l-gray-300 bg-gray-50/50',
+};
+
+const todoTypeLabels: Record<string, string> = {
+  reschedule: '改期',
+  triage: '分诊',
+  scale: '量表',
+  risk: '风险',
+};
+
+export function Dashboard() {
+  const navigate = useNavigate();
+  const { currentUser } = useUserStore();
+  const { getTodayAppointments, getRescheduleRequests } = useAppointmentStore();
+  const { getPendingTriage } = useTriageStore();
+  const { getHighRiskCount } = useRiskStore();
+  const { getPendingScales, getRetestNeeded } = useScaleStore();
+
+  const todayAppointments = getTodayAppointments();
+  const rescheduleRequests = getRescheduleRequests();
+  const pendingTriage = getPendingTriage();
+  const pendingScales = getPendingScales();
+  const retestNeeded = getRetestNeeded();
+  const highRiskCount = getHighRiskCount();
+
+  const roleGreeting: Record<string, string> = {
+    reception: '接待工作台',
+    counselor: '咨询工作台',
+    supervisor: '督导工作台',
+  };
+
+  const stats = [
+    { label: '今日预约', value: todayAppointments.length, icon: Calendar, color: 'text-primary-600', bg: 'bg-primary-50', link: '/appointments' },
+    { label: '待分诊', value: pendingTriage.length, icon: UserCheck, color: 'text-amber-600', bg: 'bg-amber-50', link: '/triage' },
+    { label: '风险预警', value: highRiskCount, icon: AlertTriangle, color: 'text-status-warning', bg: 'bg-red-50', link: '/risk' },
+    { label: '量表待处理', value: pendingScales.length + retestNeeded.length, icon: FileText, color: 'text-status-normal', bg: 'bg-emerald-50', link: '/scales' },
+  ];
+
+  const filteredStats = stats.filter((stat) => {
+    if (currentUser.role === 'counselor') return stat.label !== '待分诊';
+    return true;
+  });
+
+  const filteredTodos = mockTodoItems.filter((todo) => {
+    if (currentUser.role === 'reception') {
+      return ['reschedule', 'triage', 'scale'].includes(todo.type);
+    }
+    if (currentUser.role === 'counselor') {
+      return ['scale', 'risk'].includes(todo.type);
+    }
+    if (currentUser.role === 'supervisor') {
+      return todo.type === 'risk';
+    }
+    return false;
+  }).slice(0, 5);
+
+  const formatTime = (time: string) => {
+    const [h, m] = time.split(':');
+    return `${h}:${m}`;
+  };
+
+  return (
+    <div className="space-y-8">
+      <div>
+        <h1 className="text-lg font-semibold text-text-primary">{roleGreeting[currentUser.role]}</h1>
+        <p className="muted-text mt-0.5">2026年6月2日 星期二</p>
+      </div>
+
+      <div className={`grid gap-5 ${filteredStats.length === 4 ? 'grid-cols-4' : 'grid-cols-3'}`}>
+        {filteredStats.map((stat) => {
+          const Icon = stat.icon;
+          return (
+            <div
+              key={stat.label}
+              className="stat-card cursor-pointer group"
+              onClick={() => navigate(stat.link)}
+            >
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-text-tertiary">{stat.label}</p>
+                  <p className="text-2xl font-semibold text-text-primary mt-1">{stat.value}</p>
+                </div>
+                <div className={`w-10 h-10 ${stat.bg} rounded-lg flex items-center justify-center`}>
+                  <Icon size={20} className={stat.color} />
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="grid grid-cols-5 gap-6">
+        <div className="col-span-3 space-y-6">
+          <div className="card p-0">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-50">
+              <h2 className="subsection-title">今日安排</h2>
+              <button
+                onClick={() => navigate('/appointments')}
+                className="flex items-center gap-1 text-sm text-text-tertiary hover:text-primary-600 transition-colors"
+              >
+                查看全部 <ChevronRight size={14} />
+              </button>
+            </div>
+            <div>
+              {todayAppointments.length === 0 ? (
+                <p className="text-text-tertiary text-center py-10 text-sm">今日暂无预约</p>
+              ) : (
+                <div className="divide-y divide-gray-50">
+                  {todayAppointments.map((apt) => (
+                    <div
+                      key={apt.id}
+                      className="flex items-center justify-between px-5 py-3.5 hover:bg-surface-hover transition-colors cursor-pointer"
+                      onClick={() => navigate('/appointments')}
+                    >
+                      <div className="flex items-center gap-4">
+                        <div className="w-16 text-center">
+                          <p className="text-sm font-medium text-text-primary">{formatTime(apt.time)}</p>
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-text-primary">{apt.clientName}</p>
+                          <p className="text-2xs text-text-tertiary mt-0.5">
+                            {apt.counselorName || '待分配'}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <TypeBadge type={apt.type} />
+                        <StatusBadge type="appointment" status={apt.status} />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {rescheduleRequests.length > 0 && currentUser.role === 'reception' && (
+            <div className="card p-0">
+              <div className="flex items-center justify-between px-5 py-4 border-b border-gray-50">
+                <h2 className="subsection-title">改期申请</h2>
+                <span className="badge badge-pending">{rescheduleRequests.length}</span>
+              </div>
+              <div className="divide-y divide-gray-50">
+                {rescheduleRequests.map((apt) => (
+                  <div
+                    key={apt.id}
+                    className="flex items-center justify-between px-5 py-3.5 hover:bg-surface-hover transition-colors cursor-pointer"
+                    onClick={() => navigate('/appointments')}
+                  >
+                    <div>
+                      <p className="text-sm font-medium text-text-primary">{apt.clientName}</p>
+                      <p className="text-2xs text-text-tertiary mt-0.5">
+                        {apt.date} {apt.time} → {apt.rescheduleRequest?.requestedDate} {apt.rescheduleRequest?.requestedTime}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <p className="text-2xs text-text-tertiary">{apt.rescheduleRequest?.reason}</p>
+                      <ArrowRight size={14} className="text-text-tertiary" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="col-span-2">
+          <div className="card p-0">
+            <div className="px-5 py-4 border-b border-gray-50">
+              <h2 className="subsection-title">待办</h2>
+            </div>
+            <div>
+              {filteredTodos.length === 0 ? (
+                <p className="text-text-tertiary text-center py-10 text-sm">暂无待办</p>
+              ) : (
+                <div className="divide-y divide-gray-50">
+                  {filteredTodos.map((todo) => (
+                    <div
+                      key={todo.id}
+                      className={`px-5 py-3 border-l-[3px] ${priorityStyles[todo.priority]} cursor-pointer hover:brightness-95 transition-all`}
+                      onClick={() => {
+                        if (todo.type === 'reschedule') navigate('/appointments');
+                        if (todo.type === 'triage') navigate('/triage');
+                        if (todo.type === 'scale') navigate('/scales');
+                        if (todo.type === 'risk') navigate('/risk');
+                      }}
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="badge badge-completed text-text-tertiary">{todoTypeLabels[todo.type]}</span>
+                        <p className="text-sm text-text-primary">{todo.title}</p>
+                      </div>
+                      {todo.description && (
+                        <p className="text-2xs text-text-tertiary mt-1 ml-14">{todo.description}</p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
