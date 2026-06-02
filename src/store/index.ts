@@ -19,6 +19,19 @@ import { mockMessages } from '../data/mockMessages';
 import { mockPhotos } from '../data/mockPhotos';
 import { mockHealthAlerts } from '../data/mockHealthAlerts';
 
+function getLocalDateStr(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function isRecordToday(timeStr: string): boolean {
+  const recordDate = new Date(timeStr);
+  const today = new Date();
+  return getLocalDateStr(recordDate) === getLocalDateStr(today);
+}
+
 interface AppState {
   currentUser: User | null;
   users: User[];
@@ -194,12 +207,10 @@ export const useAppStore = create<AppState>()(
       },
 
       getWarningRecordsCount: () => {
-        const today = new Date();
-        const dateStr = today.toISOString().split('T')[0];
         return get().records.filter(
           (r) =>
             (r.severity === 'warning' || r.severity === 'danger') &&
-            r.time.startsWith(dateStr)
+            isRecordToday(r.time)
         ).length;
       },
 
