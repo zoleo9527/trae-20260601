@@ -475,6 +475,12 @@ export const mockProducts: Product[] = [
         },
       ],
     },
+    priceRequest: {
+      requestedPrice: 18500,
+      reason: '上架两周未售出，客户要求降价以促进成交',
+      operator: '陈运营',
+      timestamp: '2026-06-01T10:00:00',
+    },
     isDisputed: false,
     customerWithdraw: false,
     priceHistory: [

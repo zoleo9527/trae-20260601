@@ -382,10 +382,11 @@ export default function Home() {
                         {product.withdrawReason}
                       </p>
                     )}
-                    {product.status === 'PRICE_CHANGING' && product.priceHistory.length > 0 && (
-                      <p className="text-xs text-champagne-600 mt-2 bg-champagne-100 p-1.5 rounded">
-                        申请改价：{formatCurrency(product.priceHistory[product.priceHistory.length - 1].newPrice)}
-                      </p>
+                    {product.status === 'PRICE_CHANGING' && product.priceRequest && (
+                      <div className="text-xs text-champagne-600 mt-2 bg-champagne-100 p-1.5 rounded space-y-0.5">
+                        <p>申请改价：{formatCurrency(product.priceRequest.requestedPrice)}</p>
+                        <p className="text-charcoal-500">原因：{product.priceRequest.reason}</p>
+                      </div>
                     )}
 
                     <div className="flex items-center justify-between mt-3 pt-2 border-t border-coral-200">

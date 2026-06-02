@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { STATUS_LABELS, type Product } from '@/types';
+import { STATUS_LABELS, STATUS_COLORS, type Product } from '@/types';
 import { formatCurrency, formatDate, maskPhone } from '@/utils/format';
 import { Copy, Check, Share2, Eye } from 'lucide-react';
 
@@ -103,7 +103,7 @@ export default function CustomerSummary({ product }: CustomerSummaryProps) {
               <p className="text-xs text-charcoal-500 mb-1">商品编号</p>
               <p className="font-mono text-luxury-800">{product.id}</p>
             </div>
-            <span className={`status-badge ${product.status === 'SETTLED' ? 'bg-luxury-800 text-white' : 'bg-jade-100 text-jade-600'}`}>
+            <span className={`status-badge ${STATUS_COLORS[product.status]}`}>
               {STATUS_LABELS[product.status]}
             </span>
           </div>

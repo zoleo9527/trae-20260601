@@ -17,6 +17,8 @@ const getTimelineDotColor = (status: ProductStatus, isCurrent: boolean) => {
     APPRAISAL_DISPUTE: 'bg-coral-600',
     APPRAISAL_FAILED: 'bg-charcoal-700',
     APPRAISAL_PASSED: 'bg-jade-500',
+    PENDING_PHOTO: 'bg-champagne-500',
+    PHOTOGRAPHING: 'bg-champagne-400',
     CUSTOMER_WITHDRAW: 'bg-coral-500',
     PENDING_LISTING: 'bg-champagne-500',
     LISTED: 'bg-jade-600',
