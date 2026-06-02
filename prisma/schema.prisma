@@ -1,0 +1,193 @@
+// 社区团购结算系统数据模型
+// 所有金额单位为：分（避免浮点数精度问题）
+// 注意：SQLite 不支持原生 enum，状态字段使用 String 存储，在应用层通过 Zod 验证
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+// 团点
+model GroupPoint {
+  id        String   @id @default(uuid())
+  name      String   // 团点名称
+  address   String   // 地址
+  leaderId  String   @unique
+  leader    Leader   @relation(fields: [leaderId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  orders   Order[]
+  batches  FulfillmentBatch[]
+}
+
+// 团长
+model Leader {
+  id            String   @id @default(uuid())
+  name          String   // 团长姓名
+  phone         String   // 手机号
+  idCard        String?  // 身份证号
+  commissionRate Int     @default(1000) // 佣金比例，单位：万分之几（1000 = 10%）
+  status        String   @default("ACTIVE") // ACTIVE | SUSPENDED | INACTIVE
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  groupPoint    GroupPoint?
+  settlements   CommissionSettlement[]
+}
+
+// 商品
+model Product {
+  id          String  @id @default(uuid())
+  name        String  // 商品名称
+  sku         String  @unique
+  price       Int     // 销售单价（分）
+  costPrice   Int     // 成本价（分）
+  unit        String  // 单位：个/斤/份等
+  isWeighted  Boolean @default(false) // 是否称重商品
+  commissionRate Int? // 单独佣金比例，空则使用团长默认
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  orderItems OrderItem[]
+}
+
+// 订单
+model Order {
+  id            String  @id @default(uuid())
+  orderNo       String  @unique
+  groupPointId  String
+  groupPoint    GroupPoint @relation(fields: [groupPointId], references: [id])
+  customerName  String  // 顾客姓名
+  customerPhone String  // 顾客电话
+  totalAmount   Int     // 订单总额（分）
+  actualAmount  Int?    // 实际金额（分）- 履约后更新
+  status        String  @default("PENDING") // PENDING | FULFILLED | COMPLETED | CANCELLED
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  items         OrderItem[]
+  batchId       String?
+  batch         FulfillmentBatch? @relation(fields: [batchId], references: [id])
+  afterSales    AfterSaleOrder[]
+  adjustments   AdjustmentRecord[]
+}
+
+// 订单项
+model OrderItem {
+  id            String  @id @default(uuid())
+  orderId       String
+  order         Order   @relation(fields: [orderId], references: [id])
+  productId     String
+  product       Product @relation(fields: [productId], references: [id])
+  quantity      Int     // 下单数量
+  unitPrice     Int     // 下单单价（分）
+  subtotal      Int     // 小计 = quantity * unitPrice
+  actualQuantity Int?   // 实际发货数量（称重商品可能不同）
+  actualSubtotal Int?   // 实际小计
+  weightDiff    Int?    // 重量差异金额（分）：正=少退，负=多补
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+// 履约批次
+model FulfillmentBatch {
+  id             String   @id @default(uuid())
+  batchNo        String   @unique
+  groupPointId   String
+  groupPoint     GroupPoint @relation(fields: [groupPointId], references: [id])
+  deliveryDate   DateTime // 配送日期
+  status         String   @default("CREATED") // CREATED | DELIVERED | SETTLED
+  totalOrderCount Int     @default(0)
+  totalAmount    Int      @default(0) // 批次总金额（分）
+  settledAt      DateTime? // 结算时间
+  settlementId   String?
+  settlement     CommissionSettlement? @relation(fields: [settlementId], references: [id])
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  orders         Order[]
+}
+
+// 售后单
+model AfterSaleOrder {
+  id             String   @id @default(uuid())
+  afterSaleNo    String   @unique
+  orderId        String
+  order          Order    @relation(fields: [orderId], references: [id])
+  type           String   // OUT_OF_STOCK | BAD_PRODUCT | WEIGHT_DIFF | OTHER
+  reason         String   // 售后原因
+  amount         Int      // 退款/赔付金额（分）
+  status         String   @default("PENDING") // PENDING | APPROVED | REJECTED | COMPLETED
+  handledBy      String?  // 处理人（客服）
+  handledAt      DateTime? // 处理时间
+  settlementId   String?
+  settlement     CommissionSettlement? @relation(fields: [settlementId], references: [id])
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  adjustments    AdjustmentRecord[]
+}
+
+// 补差记录
+model AdjustmentRecord {
+  id             String   @id @default(uuid())
+  adjustmentNo   String   @unique
+  orderId        String
+  order          Order    @relation(fields: [orderId], references: [id])
+  afterSaleId    String?
+  afterSale      AfterSaleOrder? @relation(fields: [afterSaleId], references: [id])
+  type           String   // WEIGHT_REFUND | WEIGHT_SUPPLEMENT | OUT_OF_STOCK_REFUND | BAD_PRODUCT_COMP | COMMISSION_ADJUST | OTHER
+  amount         Int      // 金额（分）：正=补给团长，负=从团长扣
+  reason         String   // 原因
+  status         String   @default("PENDING") // PENDING | CONFIRMED | REJECTED
+  operator       String?  // 操作人
+  settlementId   String?
+  settlement     CommissionSettlement? @relation(fields: [settlementId], references: [id])
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+// 佣金结算单
+model CommissionSettlement {
+  id                String   @id @default(uuid())
+  settlementNo      String   @unique
+  leaderId          String
+  leader            Leader   @relation(fields: [leaderId], references: [id])
+  periodStart       DateTime // 结算周期开始
+  periodEnd         DateTime // 结算周期结束
+  status            String   @default("DRAFT") // DRAFT | REVIEWING | LOCKED | PAID | DISPUTED
+
+  // 金额明细
+  orderTotalAmount  Int      @default(0) // 订单总额（分）
+  commissionBase    Int      @default(0) // 佣金计算基数（分）
+  commissionAmount  Int      @default(0) // 应得佣金（分）
+
+  // 调整项
+  weightAdjustment  Int      @default(0) // 称重补差合计（分）
+  refundAmount      Int      @default(0) // 退款金额合计（分）
+  compensationAmount Int     @default(0) // 赔付金额合计（分）
+  commissionAdjust  Int      @default(0) // 佣金调整合计（分）
+
+  // 最终结算
+  netSettlement     Int      @default(0) // 实际结算金额（分）
+
+  // 审核流程
+  createdBy         String?  // 创建人（运营）
+  reviewedBy        String?  // 审核人（财务）
+  lockedBy          String?  // 锁定人（财务）
+  lockedAt          DateTime? // 锁定时间
+  paidAt            DateTime? // 支付时间
+
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  // 关联
+  batches           FulfillmentBatch[]
+  afterSales        AfterSaleOrder[]
+  adjustments       AdjustmentRecord[]
+}
