@@ -2,14 +2,20 @@ import { useState } from 'react';
 import { Search, Check, X, CalendarClock } from 'lucide-react';
 import { useAppointmentStore } from '../store/useAppointmentStore';
 import { useUserStore } from '../store/useUserStore';
+import { useScaleStore } from '../store/useScaleStore';
+import { useRiskStore } from '../store/useRiskStore';
 import { StatusBadge, TypeBadge } from '../components/StatusBadge';
-import type { AppointmentStatus, AppointmentType } from '../types';
+import { AppointmentDetailDrawer } from '../components/AppointmentDetailDrawer';
+import type { Appointment, AppointmentStatus, AppointmentType } from '../types';
 
 export function Appointments() {
   const { currentUser } = useUserStore();
   const { appointments, filterStatus, filterType, setFilterStatus, setFilterType, getFilteredAppointments, approveReschedule, rejectReschedule } = useAppointmentStore();
+  const { scaleRecords } = useScaleStore();
+  const { riskCases } = useRiskStore();
   const [searchTerm, setSearchTerm] = useState('');
   const [rescheduleExpanded, setRescheduleExpanded] = useState<string | null>(null);
+  const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
 
   const filteredAppointments = getFilteredAppointments()
     .filter((apt) => apt.clientName.includes(searchTerm))
@@ -23,6 +29,14 @@ export function Appointments() {
   const rescheduleRequests = currentUser.role === 'reception'
     ? appointments.filter((a) => a.rescheduleRequest)
     : [];
+
+  const relatedScaleRecord = selectedAppointment
+    ? scaleRecords.find((s) => s.appointmentId === selectedAppointment.id)
+    : undefined;
+
+  const relatedRiskCase = selectedAppointment
+    ? riskCases.find((r) => r.appointmentId === selectedAppointment.id && r.status === 'pending_review')
+    : undefined;
 
   const statusOptions: { value: AppointmentStatus | 'all'; label: string }[] = [
     { value: 'all', label: '全部状态' },
@@ -151,7 +165,11 @@ export function Appointments() {
           </thead>
           <tbody>
             {filteredAppointments.map((apt) => (
-              <tr key={apt.id} className="table-row">
+              <tr
+                key={apt.id}
+                className="table-row cursor-pointer"
+                onClick={() => setSelectedAppointment(apt)}
+              >
                 <td className="py-3 px-5">
                   <span className="text-sm text-text-primary">{apt.clientName}</span>
                 </td>
@@ -172,6 +190,16 @@ export function Appointments() {
           </tbody>
         </table>
       </div>
+
+      {selectedAppointment && (
+        <AppointmentDetailDrawer
+          appointment={selectedAppointment}
+          scaleRecord={relatedScaleRecord}
+          riskCase={relatedRiskCase}
+          userRole={currentUser.role}
+          onClose={() => setSelectedAppointment(null)}
+        />
+      )}
     </div>
   );
 }
