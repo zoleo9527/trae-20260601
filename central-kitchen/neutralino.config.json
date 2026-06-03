@@ -1,0 +1,48 @@
+{
+  "$schema": "https://raw.githubusercontent.com/neutralinojs/neutralinojs/main/schemas/neutralino.config.schema.json",
+  "applicationId": "com.centralkitchen.app",
+  "version": "1.0.0",
+  "defaultMode": "window",
+  "port": 0,
+  "documentRoot": "/dist",
+  "url": "/",
+  "enableServer": true,
+  "enableNativeAPI": true,
+  "tokenSecurity": "one-time",
+  "logging": {
+    "enabled": true,
+    "writeToLogFile": true
+  },
+  "nativeAllowList": [
+    "app.*",
+    "os.*",
+    "storage.*",
+    "window.*"
+  ],
+  "window": {
+    "title": "中央厨房 - 门店配餐与缺货补发系统",
+    "width": 1440,
+    "height": 900,
+    "minWidth": 1200,
+    "minHeight": 720,
+    "resizable": true,
+    "center": true,
+    "fullScreen": false,
+    "alwaysOnTop": false,
+    "icon": "/public/icon.png",
+    "enableInspector": true,
+    "borderless": false,
+    "maximize": false,
+    "hidden": false,
+    "exitProcessOnClose": false
+  },
+  "cli": {
+    "binaryName": "central-kitchen",
+    "resourcesPath": "/dist/",
+    "extensionsPath": "/extensions/",
+    "clientLibrary": "/node_modules/@neutralinojs/lib/dist/neutralino.js",
+    "binaryVersion": "5.1.0",
+    "clientVersion": "5.1.0",
+    "mode": "browser"
+  }
+}
