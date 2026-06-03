@@ -138,25 +138,49 @@ const getPermissionTagClass = (groupName: string) => {
   return 'tag-primary'
 }
 
+const formatElevators = (elevators: number[] | undefined) => {
+  if (!elevators || elevators.length === 0) return '无'
+  if (elevators.length >= 20) return `全部楼层（${elevators.length}层）`
+  const sorted = [...elevators].sort((a, b) => a - b)
+  const ranges: string[] = []
+  let start = sorted[0]
+  let prev = sorted[0]
+  for (let i = 1; i < sorted.length; i++) {
+    if (sorted[i] === prev + 1) {
+      prev = sorted[i]
+    } else {
+      ranges.push(start === prev ? `${start}` : `${start}-${prev}`)
+      start = sorted[i]
+      prev = sorted[i]
+    }
+  }
+  ranges.push(start === prev ? `${start}` : `${start}-${prev}`)
+  return ranges.join('、') + '层'
+}
+
 const getPermissionDiff = (app: any) => {
   if (!app.currentPermissionGroup) return null
   const current = app.currentPermissionGroup
   const targetDoors = app.permissionGroupDoors || []
   const currentDoors = current.doors || []
-  const targetGarage = app.permissionGroupGarageAreas || []
-  const currentGarage = current.garageAreas || []
+  const targetElevators = app.permissionGroupElevators || []
+  const currentElevators = current.elevators || []
+  const targetGarageZones = app.permissionGroupGarageZones || []
+  const currentGarageZones = current.garageZones || []
   
   const addedDoors = targetDoors.filter((d: string) => !currentDoors.includes(d))
   const removedDoors = currentDoors.filter((d: string) => !targetDoors.includes(d))
-  const addedGarage = targetGarage.filter((g: string) => !currentGarage.includes(g))
-  const removedGarage = currentGarage.filter((g: string) => !targetGarage.includes(g))
-  const elevatorChanged = current.hasElevator !== app.permissionGroupHasElevator
+  const addedElevators = targetElevators.filter((e: number) => !currentElevators.includes(e))
+  const removedElevators = currentElevators.filter((e: number) => !targetElevators.includes(e))
+  const addedGarageZones = targetGarageZones.filter((g: string) => !currentGarageZones.includes(g))
+  const removedGarageZones = currentGarageZones.filter((g: string) => !targetGarageZones.includes(g))
+  const garageAdded = !current.hasGarage && app.permissionGroupHasGarage
+  const garageRemoved = current.hasGarage && !app.permissionGroupHasGarage
   
   return {
-    hasChange: addedDoors.length > 0 || removedDoors.length > 0 || addedGarage.length > 0 || removedGarage.length > 0 || elevatorChanged,
-    addedDoors, removedDoors, addedGarage, removedGarage,
-    elevatorAdded: !current.hasElevator && app.permissionGroupHasElevator,
-    elevatorRemoved: current.hasElevator && !app.permissionGroupHasElevator
+    hasChange: addedDoors.length > 0 || removedDoors.length > 0 || addedElevators.length > 0 || removedElevators.length > 0 || addedGarageZones.length > 0 || removedGarageZones.length > 0 || garageAdded || garageRemoved,
+    addedDoors, removedDoors, addedElevators, removedElevators,
+    addedGarageZones, removedGarageZones, garageAdded, garageRemoved
   }
 }
 </script>
@@ -220,10 +244,10 @@ const getPermissionDiff = (app: any) => {
                   <span class="tag" :class="getPermissionTagClass(app.permissionGroupName)">
                     {{ app.permissionGroupName }}
                   </span>
-                  <span v-if="getPermissionDiff(app)?.addedGarage?.length > 0" class="tag tag-warning ml-1" style="font-size: 10px;" title="新增车库区域">
+                  <span v-if="getPermissionDiff(app)?.addedGarageZones?.length > 0" class="tag tag-warning ml-1" style="font-size: 10px;" title="新增车库区域">
                     +车库
                   </span>
-                  <span v-if="getPermissionDiff(app)?.elevatorAdded" class="tag tag-primary ml-1" style="font-size: 10px;" title="新增电梯权限">
+                  <span v-if="getPermissionDiff(app)?.addedElevators?.length > 0" class="tag tag-primary ml-1" style="font-size: 10px;" title="新增电梯楼层">
                     +电梯
                   </span>
                 </td>
@@ -345,8 +369,8 @@ const getPermissionDiff = (app: any) => {
                 <div v-if="reviewingItem.currentPermissionGroup">
                   <div class="font-bold mb-2">{{ reviewingItem.currentPermissionGroup.name }}</div>
                   <div class="text-sm text-gray mb-1">门禁点：{{ reviewingItem.currentPermissionGroup.doors?.join('、') || '无' }}</div>
-                  <div class="text-sm text-gray mb-1">电梯楼层：{{ reviewingItem.currentPermissionGroup.hasElevator ? '全部楼层' : '无' }}</div>
-                  <div class="text-sm text-gray">车库区域：{{ reviewingItem.currentPermissionGroup.garageAreas?.length > 0 ? reviewingItem.currentPermissionGroup.garageAreas.join('、') : '无' }}</div>
+                  <div class="text-sm text-gray mb-1">电梯楼层：{{ formatElevators(reviewingItem.currentPermissionGroup.elevators) }}</div>
+                  <div class="text-sm text-gray">车库：{{ reviewingItem.currentPermissionGroup.hasGarage ? reviewingItem.currentPermissionGroup.garageZones?.join('、') : '无' }}</div>
                 </div>
                 <div v-else class="text-gray">新办卡，无当前权限</div>
               </div>
@@ -357,13 +381,13 @@ const getPermissionDiff = (app: any) => {
                     <span class="tag" :class="getPermissionTagClass(reviewingItem.permissionGroupName)">{{ reviewingItem.permissionGroupName }}</span>
                   </div>
                   <div class="text-sm text-gray mb-1">门禁点：{{ reviewingItem.permissionGroupDoors?.join('、') || '无' }}</div>
-                  <div class="text-sm text-gray mb-1">电梯楼层：{{ reviewingItem.permissionGroupHasElevator ? '全部楼层' : '无' }}</div>
-                  <div class="text-sm text-gray">车库区域：{{ reviewingItem.permissionGroupGarageAreas?.length > 0 ? reviewingItem.permissionGroupGarageAreas.join('、') : '无' }}</div>
+                  <div class="text-sm text-gray mb-1">电梯楼层：{{ formatElevators(reviewingItem.permissionGroupElevators) }}</div>
+                  <div class="text-sm text-gray">车库：{{ reviewingItem.permissionGroupHasGarage ? reviewingItem.permissionGroupGarageZones?.join('、') : '无' }}</div>
                 </div>
               </div>
             </div>
 
-            <div v-if="getPermissionDiff(reviewingItem)?.hasChange" class="mt-3 alert" :class="getPermissionDiff(reviewingItem)?.addedGarage?.length > 0 || getPermissionDiff(reviewingItem)?.elevatorAdded ? 'alert-warning' : 'alert-info'">
+            <div v-if="getPermissionDiff(reviewingItem)?.hasChange" class="mt-3 alert" :class="getPermissionDiff(reviewingItem)?.addedGarageZones?.length > 0 || getPermissionDiff(reviewingItem)?.addedElevators?.length > 0 ? 'alert-warning' : 'alert-info'">
               <strong>📋 变更说明</strong>
               <ul class="text-sm mt-2" style="padding-left: 20px;">
                 <li v-if="getPermissionDiff(reviewingItem)?.addedDoors?.length > 0" class="text-success">
@@ -372,17 +396,23 @@ const getPermissionDiff = (app: any) => {
                 <li v-if="getPermissionDiff(reviewingItem)?.removedDoors?.length > 0" class="text-danger">
                   ❌ 移除门禁：{{ getPermissionDiff(reviewingItem).removedDoors.join('、') }}
                 </li>
-                <li v-if="getPermissionDiff(reviewingItem)?.elevatorAdded" class="text-warning">
-                  ⚠️ <strong>新增电梯权限（全部楼层）</strong>
+                <li v-if="getPermissionDiff(reviewingItem)?.addedElevators?.length > 0" class="text-warning">
+                  ⚠️ <strong>新增电梯楼层：{{ getPermissionDiff(reviewingItem).addedElevators.join('、') }}层</strong>
                 </li>
-                <li v-if="getPermissionDiff(reviewingItem)?.elevatorRemoved" class="text-danger">
-                  ❌ 移除电梯权限
+                <li v-if="getPermissionDiff(reviewingItem)?.removedElevators?.length > 0" class="text-danger">
+                  ❌ 移除电梯楼层：{{ getPermissionDiff(reviewingItem).removedElevators.join('、') }}层
                 </li>
-                <li v-if="getPermissionDiff(reviewingItem)?.addedGarage?.length > 0" class="text-warning">
-                  ⚠️ <strong>新增车库区域：{{ getPermissionDiff(reviewingItem).addedGarage.join('、') }}</strong>
+                <li v-if="getPermissionDiff(reviewingItem)?.garageAdded" class="text-warning">
+                  ⚠️ <strong>新增车库权限{{ getPermissionDiff(reviewingItem).addedGarageZones?.length > 0 ? '：' + getPermissionDiff(reviewingItem).addedGarageZones.join('、') : '' }}</strong>
                 </li>
-                <li v-if="getPermissionDiff(reviewingItem)?.removedGarage?.length > 0" class="text-danger">
-                  ❌ 移除车库区域：{{ getPermissionDiff(reviewingItem).removedGarage.join('、') }}
+                <li v-if="getPermissionDiff(reviewingItem)?.garageRemoved" class="text-danger">
+                  ❌ 移除车库权限
+                </li>
+                <li v-if="getPermissionDiff(reviewingItem)?.addedGarageZones?.length > 0 && !getPermissionDiff(reviewingItem)?.garageAdded" class="text-warning">
+                  ⚠️ <strong>新增车库区域：{{ getPermissionDiff(reviewingItem).addedGarageZones.join('、') }}</strong>
+                </li>
+                <li v-if="getPermissionDiff(reviewingItem)?.removedGarageZones?.length > 0" class="text-danger">
+                  ❌ 移除车库区域：{{ getPermissionDiff(reviewingItem).removedGarageZones.join('、') }}
                 </li>
               </ul>
             </div>

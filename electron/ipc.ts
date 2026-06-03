@@ -405,7 +405,7 @@ export function registerHandlers() {
   ipcMain.handle('cardApplication:list', (_, status?: string) => {
     let sql = `
       SELECT a.*, r.name as residentName, r.phone, 
-             pg.name as permissionGroupName, pg.doors as permissionGroupDoors, pg.hasElevator as permissionGroupHasElevator, pg.garageAreas as permissionGroupGarageAreas
+             pg.name as permissionGroupName, pg.doors as permissionGroupDoors, pg.elevators as permissionGroupElevators, pg.hasGarage as permissionGroupHasGarage, pg.garageZones as permissionGroupGarageZones
       FROM card_applications a
       JOIN residents r ON a.residentId = r.id
       JOIN permission_groups pg ON a.permissionGroupId = pg.id
@@ -420,11 +420,12 @@ export function registerHandlers() {
     
     for (const app of apps) {
       app.permissionGroupDoors = JSON.parse(app.permissionGroupDoors || '[]')
-      app.permissionGroupGarageAreas = JSON.parse(app.permissionGroupGarageAreas || '[]')
+      app.permissionGroupElevators = JSON.parse(app.permissionGroupElevators || '[]')
+      app.permissionGroupGarageZones = JSON.parse(app.permissionGroupGarageZones || '[]')
       
       if (app.type === 'permission' || app.type === 'reissue') {
         const currentCard = db.prepare(`
-          SELECT c.*, pg.name as groupName, pg.doors, pg.hasElevator, pg.garageAreas
+          SELECT c.*, pg.name as groupName, pg.doors, pg.elevators, pg.hasGarage, pg.garageZones
           FROM access_cards c
           JOIN permission_groups pg ON c.permissionGroupId = pg.id
           WHERE c.residentId = ? AND c.status = 'active'
@@ -436,8 +437,9 @@ export function registerHandlers() {
             id: currentCard.permissionGroupId,
             name: currentCard.groupName,
             doors: JSON.parse(currentCard.doors || '[]'),
-            hasElevator: currentCard.hasElevator,
-            garageAreas: JSON.parse(currentCard.garageAreas || '[]')
+            elevators: JSON.parse(currentCard.elevators || '[]'),
+            hasGarage: currentCard.hasGarage,
+            garageZones: JSON.parse(currentCard.garageZones || '[]')
           }
         }
       }
@@ -449,7 +451,7 @@ export function registerHandlers() {
   ipcMain.handle('cardApplication:getById', (_, id: number) => {
     const app = db.prepare(`
       SELECT a.*, r.name as residentName, r.phone, 
-             pg.name as permissionGroupName, pg.doors as permissionGroupDoors, pg.hasElevator as permissionGroupHasElevator, pg.garageAreas as permissionGroupGarageAreas
+             pg.name as permissionGroupName, pg.doors as permissionGroupDoors, pg.elevators as permissionGroupElevators, pg.hasGarage as permissionGroupHasGarage, pg.garageZones as permissionGroupGarageZones
       FROM card_applications a
       JOIN residents r ON a.residentId = r.id
       JOIN permission_groups pg ON a.permissionGroupId = pg.id
@@ -458,11 +460,12 @@ export function registerHandlers() {
     
     if (app) {
       app.permissionGroupDoors = JSON.parse(app.permissionGroupDoors || '[]')
-      app.permissionGroupGarageAreas = JSON.parse(app.permissionGroupGarageAreas || '[]')
+      app.permissionGroupElevators = JSON.parse(app.permissionGroupElevators || '[]')
+      app.permissionGroupGarageZones = JSON.parse(app.permissionGroupGarageZones || '[]')
       
       if (app.type === 'permission' || app.type === 'reissue') {
         const currentCard = db.prepare(`
-          SELECT c.*, pg.name as groupName, pg.doors, pg.hasElevator, pg.garageAreas
+          SELECT c.*, pg.name as groupName, pg.doors, pg.elevators, pg.hasGarage, pg.garageZones
           FROM access_cards c
           JOIN permission_groups pg ON c.permissionGroupId = pg.id
           WHERE c.residentId = ? AND c.status = 'active'
@@ -474,8 +477,9 @@ export function registerHandlers() {
             id: currentCard.permissionGroupId,
             name: currentCard.groupName,
             doors: JSON.parse(currentCard.doors || '[]'),
-            hasElevator: currentCard.hasElevator,
-            garageAreas: JSON.parse(currentCard.garageAreas || '[]')
+            elevators: JSON.parse(currentCard.elevators || '[]'),
+            hasGarage: currentCard.hasGarage,
+            garageZones: JSON.parse(currentCard.garageZones || '[]')
           }
         }
       }
