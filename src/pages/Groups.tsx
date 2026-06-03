@@ -2,16 +2,16 @@ import { AnomalyStatusBadge, GroupBadge, StatusBadge } from '@/components/Status
 import { useEventStore } from '@/store/useEventStore'
 import type { GroupName } from '@/types'
 import { AlertTriangle, ArrowRightLeft, Check, CheckCircle2, Layers, UserPlus, Users, XCircle } from 'lucide-react'
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 const GROUP_KEYS: GroupName[] = ['亲子组', '公开组', '企业团体']
 
 export default function Groups() {
   const participants = useEventStore(s => s.participants)
+  const anomalies = useEventStore(s => s.anomalies)
   const changeGroup = useEventStore(s => s.changeGroup)
   const activateWaitlisted = useEventStore(s => s.activateWaitlisted)
-  const getGroupConflicts = useEventStore(s => s.getGroupConflicts)
   const resolveGroupConflict = useEventStore(s => s.resolveGroupConflict)
   const dismissGroupConflict = useEventStore(s => s.dismissGroupConflict)
   const navigate = useNavigate()
@@ -21,7 +21,34 @@ export default function Groups() {
     participants.filter(p => p.group === name && !p.isWaitlisted)
 
   const waitlisted = participants.filter(p => p.isWaitlisted)
-  const conflicts = getGroupConflicts()
+
+  const conflicts = useMemo(() => {
+    const nameCount: Record<string, { id: string; bibNumber: string; group: string; team?: string; status: string }[]> = {}
+    participants.filter(p => !p.isWaitlisted).forEach(p => {
+      const key = p.idNumber
+      if (!nameCount[key]) nameCount[key] = []
+      nameCount[key].push({ id: p.id, bibNumber: p.bibNumber, group: p.group, team: p.team, status: p.status })
+    })
+    return Object.entries(nameCount)
+      .filter(([, entries]) => {
+        const groups = new Set(entries.map(e => e.group))
+        return groups.size > 1
+      })
+      .map(([idNumber, entries]) => {
+        const name = participants.find(p => p.idNumber === idNumber)?.name || ''
+        const relatedAnomaly = anomalies.find(a =>
+          entries.some(e => e.id === a.participantId) && (a.type === 'duplicate_entry' || a.type === 'group_conflict')
+        )
+        return {
+          participantId: entries[0].id,
+          name,
+          idNumber,
+          entries,
+          groups: entries.map(e => e.group),
+          anomalyStatus: relatedAnomaly ? relatedAnomaly.status : 'none' as const,
+        }
+      })
+  }, [participants, anomalies])
 
   const totalParticipants = participants.filter(p => !p.isWaitlisted).length
 

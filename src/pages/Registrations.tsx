@@ -30,12 +30,9 @@ export default function Registrations() {
   const highlightId = searchParams.get('highlight')
   const rowRefs = useRef<Record<string, HTMLTableRowElement | null>>({})
 
-  if (highlightId && expandedId !== highlightId) {
-    setExpandedId(highlightId)
-  }
-
   useEffect(() => {
     if (highlightId) {
+      setExpandedId(highlightId)
       const timer = setTimeout(() => {
         const el = rowRefs.current[highlightId]
         if (el) {
