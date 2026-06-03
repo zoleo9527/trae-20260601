@@ -109,6 +109,7 @@ async function createSqljsWrapper() {
   const initSqlJs = require('sql.js');
   const SQL = await initSqlJs();
   const memoryDb = new SQL.Database();
+  const nativeExec = memoryDb.exec.bind(memoryDb);
   
   function convertNamedParams(sql, params) {
     let convertedSql = sql;
@@ -161,14 +162,25 @@ async function createSqljsWrapper() {
         try {
           const { sql: convertedSql, params: convertedParams } = convertNamedParams(sql, params);
           const stmt = memoryDb.prepare(convertedSql);
-          const result = convertedParams.length > 0 ? stmt.run(convertedParams) : stmt.run();
-          const lastID = result.lastInsertRowid;
-          const changes = memoryDb.getRowsModified();
-          if (callback) {
-            const resultObj = { lastID, changes };
-            callback.call(resultObj, null);
+          convertedParams.length > 0 ? stmt.run(convertedParams) : stmt.run();
+          const isInsert = /^\s*INSERT/i.test(sql);
+          let lastID = null;
+          if (isInsert) {
+            const lastIdResult = nativeExec('SELECT last_insert_rowid() AS id');
+            lastID = lastIdResult.length > 0 && lastIdResult[0].values.length > 0 
+              ? lastIdResult[0].values[0][0] 
+              : null;
+            if (lastID !== null && typeof lastID === 'bigint') {
+              lastID = Number(lastID);
+            }
           }
-          return Object.assign(stmt, { lastID, changes });
+          const changes = memoryDb.getRowsModified();
+          stmt.lastID = lastID;
+          stmt.changes = changes;
+          if (callback) {
+            callback.call(stmt, null);
+          }
+          return stmt;
         } catch (err) {
           if (callback) callback(err);
           return memoryDb;
