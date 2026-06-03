@@ -100,10 +100,35 @@ export default function Schedule() {
     }
   };
 
-  const handleSaveSchedule = async (scheduleId) => {
+  const handleSaveSchedule = async (scheduleId, schedule) => {
+    const isConflictSchedule = schedule.status === 'conflict';
+    const fieldChanged = editForm.channel !== schedule.channel
+      || editForm.time_slot !== schedule.time_slot
+      || editForm.schedule_date !== schedule.schedule_date
+      || editForm.position !== schedule.position;
+    const hasNote = editForm.conflict_note && editForm.conflict_note.trim().length > 0;
+
+    if (isConflictSchedule) {
+      if (fieldChanged) {
+        if (!conflictCheck) {
+          alert('请先点击「检测冲突」验证目标时段是否可用。');
+          return;
+        } else if (conflictCheck.hasConflict) {
+          alert('目标时段仍存在冲突，请调整时段或频道后再保存。');
+          return;
+        }
+      } else if (!hasNote) {
+        alert('请填写解决备注，或调整排期时段。');
+        return;
+      }
+    }
+
     setSaving(true);
     try {
-      await schedulesApi.update(scheduleId, editForm);
+      const res = await schedulesApi.update(scheduleId, editForm);
+      if (isConflictSchedule && res.stillConflicting) {
+        alert('目标时段仍存在冲突，冲突状态未解除。请调整时段或频道。');
+      }
       setEditingSchedule(null);
       setEditForm({});
       setConflictCheck(null);
@@ -220,7 +245,7 @@ export default function Schedule() {
           </div>
           <div className="flex gap-1">
             <button
-              onClick={() => handleSaveSchedule(item.id)}
+              onClick={() => handleSaveSchedule(item.id, item)}
               disabled={saving || (conflictCheck && conflictCheck.hasConflict)}
               className="flex-1 p-1.5 bg-emerald-600 text-white rounded text-xs hover:bg-emerald-700 disabled:opacity-50 flex items-center justify-center gap-1"
             >
@@ -472,7 +497,7 @@ export default function Schedule() {
                             <button onClick={handleCheckConflict} disabled={checkingConflict} className="btn-warning text-xs px-3 py-1.5">
                               {checkingConflict ? '检测中...' : '检测冲突'}
                             </button>
-                            <button onClick={() => handleSaveSchedule(item.id)} disabled={saving || (conflictCheck && conflictCheck.hasConflict)} className="btn-success text-xs px-3 py-1.5">
+                            <button onClick={() => handleSaveSchedule(item.id, item)} disabled={saving || (conflictCheck && conflictCheck.hasConflict)} className="btn-success text-xs px-3 py-1.5">
                               <Save size={12} /> {saving ? '保存中...' : '保存'}
                             </button>
                             <button onClick={cancelEditing} className="btn-secondary text-xs px-3 py-1.5">取消</button>
@@ -525,9 +550,49 @@ function ConflictItem({ schedule, onEdit, onResolve, saving }) {
     position: schedule.position,
     conflict_note: '',
   });
+  const [localConflictCheck, setLocalConflictCheck] = useState(null);
+  const [checkingConflict, setCheckingConflict] = useState(false);
+
+  const handleCheckConflict = async () => {
+    setCheckingConflict(true);
+    try {
+      const result = await schedulesApi.checkConflict({
+        channel: form.channel,
+        time_slot: form.time_slot,
+        schedule_date: form.schedule_date,
+        exclude_id: schedule.id,
+      });
+      setLocalConflictCheck(result);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setCheckingConflict(false);
+    }
+  };
 
   const handleQuickResolve = async (strategy) => {
-    const updates = [{ id: schedule.id, conflict_note: `冲突已协调：${strategy}` }];
+    const fieldChanged = form.channel !== schedule.channel
+      || form.time_slot !== schedule.time_slot
+      || form.schedule_date !== schedule.schedule_date
+      || form.position !== schedule.position;
+    const hasNote = form.conflict_note && form.conflict_note.trim().length > 0;
+
+    if (strategy === 'move') {
+      if (!localConflictCheck) {
+        alert('请先点击「检测冲突」验证目标时段是否可用。');
+        return;
+      } else if (localConflictCheck.hasConflict) {
+        alert('目标时段仍存在冲突，请调整时段或频道后再保存。');
+        return;
+      }
+    } else if (strategy === '保留原位') {
+      if (!hasNote) {
+        alert('请填写协调说明后再确认保存。');
+        return;
+      }
+    }
+
+    const updates = [{ id: schedule.id, conflict_note: hasNote ? form.conflict_note.trim() : `冲突已协调：${strategy}` }];
     if (strategy === 'move') {
       updates[0] = { ...updates[0], ...form };
     }
@@ -543,36 +608,82 @@ function ConflictItem({ schedule, onEdit, onResolve, saving }) {
         <div className="grid grid-cols-4 gap-2 mb-2">
           <div>
             <label className="text-xs text-gray-600 block mb-0.5">频道</label>
-            <select value={form.channel} onChange={e => setForm({ ...form, channel: e.target.value })} className="w-full p-1.5 border border-gray-300 rounded text-xs">
+            <select value={form.channel} onChange={e => { setForm({ ...form, channel: e.target.value }); setLocalConflictCheck(null); }} className="w-full p-1.5 border border-gray-300 rounded text-xs">
               {CHANNELS.map(ch => <option key={ch} value={ch}>{ch}</option>)}
             </select>
           </div>
           <div>
             <label className="text-xs text-gray-600 block mb-0.5">时段</label>
-            <select value={form.time_slot} onChange={e => setForm({ ...form, time_slot: e.target.value })} className="w-full p-1.5 border border-gray-300 rounded text-xs">
+            <select value={form.time_slot} onChange={e => { setForm({ ...form, time_slot: e.target.value }); setLocalConflictCheck(null); }} className="w-full p-1.5 border border-gray-300 rounded text-xs">
               {TIME_SLOTS.map(ts => <option key={ts} value={ts}>{ts}</option>)}
             </select>
           </div>
           <div>
             <label className="text-xs text-gray-600 block mb-0.5">日期</label>
-            <input type="date" value={form.schedule_date} onChange={e => setForm({ ...form, schedule_date: e.target.value })} className="w-full p-1.5 border border-gray-300 rounded text-xs" />
+            <input type="date" value={form.schedule_date} onChange={e => { setForm({ ...form, schedule_date: e.target.value }); setLocalConflictCheck(null); }} className="w-full p-1.5 border border-gray-300 rounded text-xs" />
           </div>
           <div>
             <label className="text-xs text-gray-600 block mb-0.5">版位</label>
-            <select value={form.position} onChange={e => setForm({ ...form, position: e.target.value })} className="w-full p-1.5 border border-gray-300 rounded text-xs">
+            <select value={form.position} onChange={e => { setForm({ ...form, position: e.target.value }); setLocalConflictCheck(null); }} className="w-full p-1.5 border border-gray-300 rounded text-xs">
               {POSITIONS.map(p => <option key={p} value={p}>{p}</option>)}
             </select>
           </div>
         </div>
         <div className="mb-2">
-          <label className="text-xs text-gray-600 block mb-0.5">备注</label>
-          <input type="text" value={form.conflict_note} onChange={e => setForm({ ...form, conflict_note: e.target.value })} className="w-full p-1.5 border border-gray-300 rounded text-xs" placeholder="填写调整说明..." />
+          <label className="text-xs text-gray-600 block mb-0.5">调整说明 *</label>
+          <input type="text" value={form.conflict_note} onChange={e => setForm({ ...form, conflict_note: e.target.value })} className="w-full p-1.5 border border-gray-300 rounded text-xs" placeholder="请填写调整说明..." />
         </div>
+
+        {localConflictCheck && localConflictCheck.hasConflict && (
+          <div className="mb-2 p-2 bg-red-50 border border-red-200 rounded text-xs text-red-700">
+            <p className="font-medium">⚠️ 新时段存在冲突</p>
+            {localConflictCheck.conflicts.map(c => (
+              <p key={c.id}>{c.order_no} · {c.client_name}</p>
+            ))}
+          </div>
+        )}
+        {localConflictCheck && !localConflictCheck.hasConflict && (
+          <div className="mb-2 p-2 bg-emerald-50 border border-emerald-200 rounded text-xs text-emerald-700">
+            ✅ 新时段无冲突
+          </div>
+        )}
+
         <div className="flex gap-2">
-          <button onClick={() => handleQuickResolve('move')} disabled={saving} className="btn-success text-xs px-3 py-1.5">
+          <button onClick={handleCheckConflict} disabled={checkingConflict} className="btn-warning text-xs px-3 py-1.5">
+            {checkingConflict ? '检测中...' : '检测冲突'}
+          </button>
+          <button onClick={() => handleQuickResolve('move')} disabled={saving || (localConflictCheck && localConflictCheck.hasConflict)} className="btn-success text-xs px-3 py-1.5">
             <Save size={12} /> {saving ? '保存中...' : '保存调整'}
           </button>
-          <button onClick={() => setMode(null)} className="btn-secondary text-xs px-3 py-1.5">取消</button>
+          <button onClick={() => { setMode(null); setLocalConflictCheck(null); setForm({ ...form, conflict_note: '' }); }} className="btn-secondary text-xs px-3 py-1.5">取消</button>
+        </div>
+      </div>
+    );
+  }
+
+  if (mode === 'keep') {
+    return (
+      <div className="p-3 bg-white border-2 border-amber-300 rounded-lg">
+        <p className="text-sm font-medium text-gray-900 mb-2">
+          保留原位确认 — {schedule.client_name} ({schedule.order_no})
+        </p>
+        <div className="mb-3">
+          <label className="text-xs text-gray-600 block mb-0.5">协调说明 *</label>
+          <input
+            type="text"
+            value={form.conflict_note}
+            onChange={e => setForm({ ...form, conflict_note: e.target.value })}
+            className="w-full p-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+            placeholder="请填写协调说明（如：已与客户协商确认保留）"
+            autoFocus
+          />
+          <p className="text-xs text-gray-400 mt-1">备注后系统将解除冲突标记，保持当前排期不变。</p>
+        </div>
+        <div className="flex gap-2">
+          <button onClick={() => handleQuickResolve('保留原位')} disabled={saving || !form.conflict_note.trim()} className="btn-success text-xs px-3 py-1.5">
+            <Check size={12} /> 确认保留
+          </button>
+          <button onClick={() => { setMode(null); setForm({ ...form, conflict_note: '' }); }} className="btn-secondary text-xs px-3 py-1.5">取消</button>
         </div>
       </div>
     );
@@ -591,7 +702,7 @@ function ConflictItem({ schedule, onEdit, onResolve, saving }) {
         <button onClick={() => setMode('move')} className="btn-primary text-xs px-3 py-1.5">
           <Edit3 size={12} /> 调整时段
         </button>
-        <button onClick={() => handleQuickResolve('保留原位')} disabled={saving} className="btn-success text-xs px-3 py-1.5">
+        <button onClick={() => setMode('keep')} className="btn-success text-xs px-3 py-1.5">
           <Check size={12} /> 保留原位
         </button>
       </div>

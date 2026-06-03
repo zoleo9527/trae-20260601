@@ -82,16 +82,41 @@ router.put('/:id', (req, res) => {
   const resolvedTimeSlot = time_slot ?? schedule.time_slot;
   const resolvedDate = schedule_date ?? schedule.schedule_date;
   const resolvedPosition = position ?? schedule.position;
+  const hasNote = conflict_note && conflict_note.trim().length > 0;
+  const fieldChanged = resolvedChannel !== schedule.channel
+    || resolvedTimeSlot !== schedule.time_slot
+    || resolvedDate !== schedule.schedule_date
+    || resolvedPosition !== schedule.position;
 
   let newStatus = status ?? schedule.status;
-  if (schedule.status === 'conflict' && newStatus === 'conflict') {
-    const fieldChanged = resolvedChannel !== schedule.channel
-      || resolvedTimeSlot !== schedule.time_slot
-      || resolvedDate !== schedule.schedule_date
-      || resolvedPosition !== schedule.position;
-    const hasNote = conflict_note && conflict_note.trim().length > 0;
-    if (fieldChanged || hasNote) {
+  let auditNotes = `排期更新：${resolvedChannel} ${resolvedDate} ${resolvedTimeSlot} ${resolvedPosition}`;
+
+  if (schedule.status === 'conflict') {
+    let stillConflicting = false;
+    if (fieldChanged) {
+      const conflicts = db.prepare(`
+        SELECT s.*, o.order_no, o.client_name FROM schedules s
+        JOIN orders o ON s.order_id = o.id
+        WHERE s.channel=? AND s.time_slot=? AND s.schedule_date=?
+          AND s.status != 'cancelled' AND s.id != ?
+      `).all(resolvedChannel, resolvedTimeSlot, resolvedDate, schedule.id);
+      stillConflicting = conflicts.length > 0;
+    }
+
+    const keptInPlace = !fieldChanged && hasNote;
+    const movedToClearSlot = fieldChanged && !stillConflicting;
+
+    if (keptInPlace || movedToClearSlot) {
       newStatus = 'scheduled';
+      auditNotes = `排期冲突已解决：${keptInPlace ? '人工确认保留原位' : `调整至 ${resolvedChannel} ${resolvedDate} ${resolvedTimeSlot} ${resolvedPosition}`}`;
+      if (hasNote) auditNotes += `（${conflict_note.trim()}）`;
+    } else {
+      newStatus = 'conflict';
+      if (stillConflicting) {
+        auditNotes = `排期冲突未解除：目标时段 ${resolvedChannel} ${resolvedDate} ${resolvedTimeSlot} 仍存在冲突`;
+      } else {
+        auditNotes = `排期字段未变更，未提供解决备注，保持冲突状态`;
+      }
     }
   }
 
@@ -103,14 +128,9 @@ router.put('/:id', (req, res) => {
   db.prepare(`
     INSERT INTO audit_logs (order_id, action, from_status, to_status, operator, notes)
     VALUES (?, 'schedule_update', ?, ?, '排期-刘排', ?)
-  `).run(
-    schedule.order_id,
-    schedule.status,
-    newStatus,
-    `排期更新：${resolvedChannel} ${resolvedDate} ${resolvedTimeSlot} ${resolvedPosition}${schedule.status === 'conflict' && newStatus === 'scheduled' ? '（冲突已解决）' : ''}`
-  );
+  `).run(schedule.order_id, schedule.status, newStatus, auditNotes);
 
-  res.json({ success: true });
+  res.json({ success: true, newStatus, stillConflicting: schedule.status === 'conflict' && newStatus === 'conflict' });
 });
 
 router.post('/batch-resolve', (req, res) => {
@@ -132,18 +152,41 @@ router.post('/batch-resolve', (req, res) => {
       const resolvedTimeSlot = time_slot || schedule.time_slot;
       const resolvedDate = schedule_date || schedule.schedule_date;
       const resolvedPosition = position || schedule.position;
+      const hasNote = conflict_note && conflict_note.trim().length > 0;
+      const fieldChanged = resolvedChannel !== schedule.channel
+        || resolvedTimeSlot !== schedule.time_slot
+        || resolvedDate !== schedule.schedule_date
+        || resolvedPosition !== schedule.position;
 
       let newStatus = status || schedule.status;
+      let auditNotes = `排期更新：${resolvedChannel} ${resolvedDate} ${resolvedTimeSlot} ${resolvedPosition}`;
+
       if (schedule.status === 'conflict') {
-        const fieldChanged = resolvedChannel !== schedule.channel
-          || resolvedTimeSlot !== schedule.time_slot
-          || resolvedDate !== schedule.schedule_date
-          || resolvedPosition !== schedule.position;
-        const hasNote = conflict_note && conflict_note.trim().length > 0;
-        if (fieldChanged || hasNote) {
+        let stillConflicting = false;
+        if (fieldChanged) {
+          const conflicts = db.prepare(`
+            SELECT s.*, o.order_no, o.client_name FROM schedules s
+            JOIN orders o ON s.order_id = o.id
+            WHERE s.channel=? AND s.time_slot=? AND s.schedule_date=?
+              AND s.status != 'cancelled' AND s.id != ?
+          `).all(resolvedChannel, resolvedTimeSlot, resolvedDate, schedule.id);
+          stillConflicting = conflicts.length > 0;
+        }
+
+        const keptInPlace = !fieldChanged && hasNote;
+        const movedToClearSlot = fieldChanged && !stillConflicting;
+
+        if (keptInPlace || movedToClearSlot) {
           newStatus = 'scheduled';
+          auditNotes = `排期冲突已解决：${keptInPlace ? '人工确认保留原位' : `调整至 ${resolvedChannel} ${resolvedDate} ${resolvedTimeSlot} ${resolvedPosition}`}`;
+          if (hasNote) auditNotes += `（${conflict_note.trim()}）`;
         } else {
           newStatus = 'conflict';
+          if (stillConflicting) {
+            auditNotes = `排期冲突未解除：目标时段 ${resolvedChannel} ${resolvedDate} ${resolvedTimeSlot} 仍存在冲突`;
+          } else {
+            auditNotes = `排期字段未变更，未提供解决备注，保持冲突状态`;
+          }
         }
       }
 
@@ -163,12 +206,7 @@ router.post('/batch-resolve', (req, res) => {
       db.prepare(`
         INSERT INTO audit_logs (order_id, action, from_status, to_status, operator, notes)
         VALUES (?, 'schedule_update', ?, ?, '排期-刘排', ?)
-      `).run(
-        schedule.order_id,
-        schedule.status,
-        newStatus,
-        `排期${schedule.status === 'conflict' && newStatus === 'scheduled' ? '冲突解决' : '更新'}：${resolvedChannel} ${resolvedDate} ${resolvedTimeSlot} ${resolvedPosition}`
-      );
+      `).run(schedule.order_id, schedule.status, newStatus, auditNotes);
 
       results.push({ id, oldStatus: schedule.status, newStatus });
     }
