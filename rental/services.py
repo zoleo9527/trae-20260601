@@ -99,7 +99,9 @@ class ExtensionService:
         order.current_end_date = extension.requested_end_date
         order.save(update_fields=['current_end_date', 'updated_at'])
 
-        SettlementService.recalculate_on_extension_change(order, extension)
+        SettlementService.recalculate_on_extension_change(
+            order, extension, operator=reviewed_by, operator_role=operator_role,
+        )
 
         AuditService.log(
             entity_type='extension',
@@ -250,7 +252,7 @@ class SettlementService:
 
     @staticmethod
     @transaction.atomic
-    def recalculate_settlement(settlement_id, operator=None, operator_role='finance'):
+    def recalculate_settlement(settlement_id, operator=None, operator_role='finance', reason=''):
         settlement = FeeSettlement.objects.select_for_update().get(pk=settlement_id)
         order = RentalOrder.objects.select_for_update().get(pk=settlement.rental_order_id)
 
@@ -271,13 +273,30 @@ class SettlementService:
 
         new_values = {k: str(v) for k, v in fees.items()}
 
+        delta_parts = []
+        if old_values['base_fee'] != new_values.get('base_fee'):
+            delta_parts.append(f'base({old_values["base_fee"]}→{new_values.get("base_fee")})')
+        if old_values['extension_fee'] != new_values.get('extension_fee'):
+            delta_parts.append(f'ext({old_values["extension_fee"]}→{new_values.get("extension_fee")})')
+        if old_values['damage_fee'] != new_values.get('damage_fee'):
+            delta_parts.append(f'dmg({old_values["damage_fee"]}→{new_values.get("damage_fee")})')
+        if old_values['total_fee'] != new_values.get('total_fee'):
+            delta_parts.append(f'total({old_values["total_fee"]}→{new_values.get("total_fee")})')
+
+        detail_parts = [f'租赁单{order.order_no}费用结算已重算']
+        if reason:
+            detail_parts.append(f'[{reason}]')
+        if delta_parts:
+            detail_parts.append(' '.join(delta_parts))
+        detail = ' '.join(detail_parts)
+
         AuditService.log(
             entity_type='settlement',
             entity_id=settlement.id,
             action='settlement_recalculated',
             operator=operator,
             operator_role=operator_role,
-            detail=f'租赁单{order.order_no}费用结算已重算，应付{fees["total_fee"]}',
+            detail=detail,
             old_value=old_values,
             new_value=new_values,
             related_entity_type='rental_order',
@@ -288,10 +307,15 @@ class SettlementService:
 
     @staticmethod
     @transaction.atomic
-    def recalculate_on_extension_change(order, extension):
+    def recalculate_on_extension_change(order, extension, operator=None, operator_role='finance'):
         if hasattr(order, 'fee_settlement'):
             settlement = order.fee_settlement
-            SettlementService.recalculate_settlement(settlement.id)
+            SettlementService.recalculate_settlement(
+                settlement.id,
+                operator=operator,
+                operator_role=operator_role,
+                reason=f'租期延长审批通过，费用增量{extension.fee_delta}',
+            )
 
     @staticmethod
     @transaction.atomic
@@ -371,7 +395,12 @@ class DamageService:
         )
 
         if hasattr(order, 'fee_settlement'):
-            SettlementService.recalculate_settlement(order.fee_settlement.id)
+            SettlementService.recalculate_settlement(
+                order.fee_settlement.id,
+                operator=reported_by,
+                operator_role=operator_role,
+                reason=f'损坏上报，预估费用{estimated_cost}',
+            )
 
         AuditService.log(
             entity_type='damage',
@@ -401,7 +430,12 @@ class DamageService:
         damage.save(update_fields=['status', 'actual_cost', 'updated_at'])
 
         if hasattr(damage.rental_order, 'fee_settlement'):
-            SettlementService.recalculate_settlement(damage.rental_order.fee_settlement.id)
+            SettlementService.recalculate_settlement(
+                damage.rental_order.fee_settlement.id,
+                operator=operator,
+                operator_role=operator_role,
+                reason=f'损坏定损完成，实际费用{actual_cost}',
+            )
 
         AuditService.log(
             entity_type='damage',
