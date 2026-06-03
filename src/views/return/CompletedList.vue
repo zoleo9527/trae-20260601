@@ -19,7 +19,7 @@
           <span class="monospace">{{ row.orderNo }}</span>
         </template>
       </el-table-column>
-      <el-table-column label="器材信息" min-width="220">
+      <el-table-column label="器材信息" min-width="200">
         <template #default="{ row }">
           <div class="equipment-cell">
             <div class="equipment-name">{{ row.equipment.name }}</div>
@@ -29,38 +29,32 @@
           </div>
         </template>
       </el-table-column>
-      <el-table-column prop="customer.name" label="客户" width="100" />
-      <el-table-column label="复核员" width="100">
+      <el-table-column prop="customer.name" label="客户" width="90" />
+      <el-table-column label="复核员" width="90">
         <template #default="{ row }">
           {{ row.returnInspection?.inspector || '-' }}
         </template>
       </el-table-column>
-      <el-table-column label="复核时间" width="160">
-        <template #default="{ row }">
-          {{ formatTime(row.returnInspection?.inspectedAt) }}
-        </template>
-      </el-table-column>
-      <el-table-column label="复核结果" width="100">
+      <el-table-column label="复核结果" width="90">
         <template #default="{ row }">
           <el-tag :type="row.returnInspection?.overallResult === 'abnormal' ? 'danger' : 'success'">
             {{ row.returnInspection?.overallResult === 'abnormal' ? '异常' : '正常' }}
           </el-tag>
         </template>
       </el-table-column>
-      <el-table-column label="异常情况" min-width="180">
+      <el-table-column label="押金状态" width="100">
         <template #default="{ row }">
-          <div v-if="row.returnInspection?.anomalyReport" class="anomaly-info">
-            <el-tag size="small" type="danger">
-              预估费用 ¥{{ row.returnInspection.anomalyReport.estimatedCost }}
-            </el-tag>
-            <p class="anomaly-desc">
-              {{ row.returnInspection.anomalyReport.pendingAction }}
-            </p>
-          </div>
-          <span v-else style="color: #9ca3af;">无异常</span>
+          <el-tag
+            v-if="getDepositInfo(row.id)"
+            :type="getDepositInfo(row.id).refunded ? 'success' : 'warning'"
+            size="small"
+          >
+            {{ getDepositInfo(row.id).refunded ? '已退还' : '未退还' }}
+          </el-tag>
+          <span v-else style="color: #9ca3af; font-size: 12px;">无记录</span>
         </template>
       </el-table-column>
-      <el-table-column prop="status" label="当前状态" width="130">
+      <el-table-column label="当前状态" width="110">
         <template #default="{ row }">
           <el-tag :type="getStatusType(row.status)">
             {{ getStatusLabel(row.status) }}
@@ -95,13 +89,10 @@ const loading = ref(false)
 const completedList = computed(() => equipmentStore.completedReturn)
 const canExport = computed(() => authStore.hasPermission('history:export'))
 
+const getDepositInfo = (rentalId) => equipmentStore.getDepositByRentalId(rentalId)
+
 const getStatusLabel = (status) => STATUS_LABELS[status]?.label || status
 const getStatusType = (status) => STATUS_LABELS[status]?.type || 'info'
-
-const formatTime = (timestamp) => {
-  if (!timestamp) return '-'
-  return new Date(timestamp).toLocaleString('zh-CN')
-}
 
 const viewDetail = (id) => {
   router.push(`/history/detail/${id}`)
@@ -136,15 +127,5 @@ const exportData = () => {
   font-size: 11px;
   color: #9ca3af;
   font-family: monospace;
-}
-
-.anomaly-info {
-  line-height: 1.5;
-}
-
-.anomaly-desc {
-  font-size: 11px;
-  color: #6b7280;
-  margin: 4px 0 0 0;
 }
 </style>

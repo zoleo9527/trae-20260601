@@ -274,13 +274,39 @@
                 {{ depositInfo.refunded ? '已退还' : '未退还' }}
               </el-tag>
             </div>
-            <div v-if="depositInfo.refunded" class="deposit-row">
-              <span class="deposit-label">退还时间</span>
-              <span>{{ formatTime(depositInfo.refundedAt) }}</span>
-            </div>
+            <template v-if="depositInfo.refunded">
+              <div class="deposit-row">
+                <span class="deposit-label">退还时间</span>
+                <span>{{ formatTime(depositInfo.refundedAt) }}</span>
+              </div>
+              <div class="deposit-row">
+                <span class="deposit-label">退还方式</span>
+                <el-tag size="small" type="success">{{ depositInfo.refundMethodLabel || depositInfo.refundMethod }}</el-tag>
+              </div>
+              <div class="deposit-row">
+                <span class="deposit-label">退还操作人</span>
+                <span>{{ depositInfo.refundOperator || '-' }}</span>
+              </div>
+              <div v-if="depositInfo.refundReceiptUrl" class="deposit-row">
+                <span class="deposit-label">退款凭证</span>
+                <el-link type="primary" :underline="false">
+                  <el-icon><Document /></el-icon>
+                  {{ depositInfo.refundReceiptName || '查看凭证' }}
+                </el-link>
+              </div>
+              <div v-if="depositInfo.refundRemark" class="deposit-row deposit-remark-row">
+                <span class="deposit-label">退款备注</span>
+                <span class="deposit-remark">{{ depositInfo.refundRemark }}</span>
+              </div>
+            </template>
             <div v-if="depositInfo.holdReason" class="deposit-row">
               <span class="deposit-label">冻结原因</span>
               <span class="hold-reason">{{ depositInfo.holdReason }}</span>
+            </div>
+          </div>
+          <div v-else class="deposit-info">
+            <div class="deposit-row">
+              <span class="deposit-label" style="color: #9ca3af;">暂无押金记录</span>
             </div>
           </div>
           <div class="deposit-actions" v-if="canRefund">
@@ -288,14 +314,10 @@
               type="primary"
               size="small"
               :disabled="depositInfo?.refunded || !canHandleDeposit"
-              @click="handleRefund"
+              @click="showRefundDialog"
             >
               退还押金
             </el-button>
-          </div>
-          <div class="integration-point" style="margin-top: 10px;">
-            <el-icon><InfoFilled /></el-icon>
-            押金截图和退款凭证待集成支付系统。
           </div>
         </el-card>
       </el-col>
@@ -349,6 +371,107 @@
         <el-button type="primary" @click="submitAction">确认处理</el-button>
       </template>
     </el-dialog>
+
+    <el-dialog
+      v-model="refundDialogVisible"
+      title="退还押金"
+      width="520px"
+    >
+      <div class="refund-deposit-summary">
+        <span>退还金额：<strong>¥{{ depositInfo?.amount?.toLocaleString() }}</strong></span>
+        <span style="margin-left: 20px;">支付方式：{{ depositInfo?.paymentMethod === 'wechat' ? '微信支付' : '支付宝' }}</span>
+      </div>
+      <el-form :model="refundForm" label-width="100px" style="margin-top: 16px;">
+        <el-form-item label="退还方式" required>
+          <el-select v-model="refundForm.refundMethod" placeholder="选择退还方式" style="width: 100%;">
+            <el-option label="原路退回" value="original" />
+            <el-option label="银行卡转账" value="bank_transfer" />
+            <el-option label="现金退还" value="cash" />
+            <el-option label="其他方式" value="other" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="退款凭证">
+          <div class="refund-receipt-upload">
+            <el-button size="small" @click="simulateUploadReceipt">
+              <el-icon><Upload /></el-icon>
+              上传凭证截图
+            </el-button>
+            <span v-if="refundForm.receiptName" class="receipt-file-name">
+              <el-icon><Document /></el-icon>
+              {{ refundForm.receiptName }}
+            </span>
+          </div>
+        </el-form-item>
+        <el-form-item label="退款备注">
+          <el-input
+            v-model="refundForm.remark"
+            type="textarea"
+            :rows="2"
+            placeholder="请输入退款备注（如：全额退还、扣除维修费后退余款等）"
+            maxlength="200"
+            show-word-limit
+          />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="refundDialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="submitRefund">确认退还</el-button>
+      </template>
+    </el-dialog>
+
+    <el-dialog
+      v-model="closeDialogVisible"
+      title="结案确认"
+      width="520px"
+    >
+      <div class="close-deposit-check">
+        <div class="close-check-title">
+          <el-icon :color="closeDepositStatus === 'ok' ? '#10b981' : '#f59e0b'"><InfoFilled /></el-icon>
+          押金状态检查
+        </div>
+        <div v-if="!depositInfo" class="close-check-item">
+          <el-tag size="small" type="info">无押金记录</el-tag>
+          <span class="close-check-text">该订单无关联押金</span>
+        </div>
+        <div v-else-if="depositInfo.refunded" class="close-check-item">
+          <el-tag size="small" type="success">已退还</el-tag>
+          <span class="close-check-text">
+            ¥{{ depositInfo.amount.toLocaleString() }} 已于 {{ formatTime(depositInfo.refundedAt) }} 退还（{{ depositInfo.refundMethodLabel }}）
+          </span>
+        </div>
+        <div v-else class="close-check-item close-check-warning">
+          <el-tag size="small" type="warning">未退还</el-tag>
+          <span class="close-check-text">
+            押金 ¥{{ depositInfo.amount.toLocaleString() }} 尚未退还
+            <template v-if="depositInfo.holdReason">（{{ depositInfo.holdReason }}）</template>
+          </span>
+        </div>
+      </div>
+      <div v-if="closeDepositStatus === 'unrefunded'" class="close-warning-box">
+        <el-alert
+          title="押金尚未退还"
+          type="warning"
+          :closable="false"
+          description="结案前建议先完成押金退还。如确认需要直接结案，请在备注中说明原因。"
+        />
+      </div>
+      <el-form :model="closeForm" label-width="100px" style="margin-top: 16px;">
+        <el-form-item label="结案备注">
+          <el-input
+            v-model="closeForm.remark"
+            type="textarea"
+            :rows="3"
+            :placeholder="closeDepositStatus === 'unrefunded' ? '请说明押金未退还即结案的原因' : '结案说明（可选）'"
+            maxlength="500"
+            show-word-limit
+          />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="closeDialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="submitClose">确认结案</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -358,7 +481,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useEquipmentStore } from '@/stores/equipment'
 import { useAuthStore } from '@/stores/auth'
-import { STATUS_FLOW, STATUS_LABELS, INSPECTION_ITEMS, mockDeposits, ABNORMAL_TYPES } from '@/data/mockData'
+import { STATUS_FLOW, STATUS_LABELS, INSPECTION_ITEMS, ABNORMAL_TYPES } from '@/data/mockData'
 import StatusTimeline from '@/components/StatusTimeline.vue'
 
 const route = useRoute()
@@ -372,7 +495,7 @@ const rental = computed(() => equipmentStore.getById(rentalId.value))
 const inspectionItems = ref(INSPECTION_ITEMS)
 
 const depositInfo = computed(() =>
-  mockDeposits.find(d => d.rentalId === rentalId.value))
+  equipmentStore.getDepositByRentalId(rentalId.value))
 
 const differences = computed(() =>
   equipmentStore.compareInspections(rentalId.value))
@@ -398,12 +521,31 @@ const actionButtonText = computed(() => {
   return '处理'
 })
 
-const canRefund = computed(() =>
-  rental.value?.status === STATUS_FLOW.RETURN_COMPLETED &&
-  depositInfo.value && !depositInfo.value.refunded)
+const canRefund = computed(() => {
+  const status = rental.value?.status
+  const deposit = depositInfo.value
+  if (!deposit || deposit.refunded) return false
+  if (status === STATUS_FLOW.RETURN_COMPLETED || status === STATUS_FLOW.ABNORMAL || status === STATUS_FLOW.IN_REPAIR) {
+    return true
+  }
+  return false
+})
 
 const canHandleDeposit = computed(() =>
   authStore.hasPermission('deposit:refund'))
+
+const closeDepositStatus = computed(() => {
+  if (!depositInfo.value) return 'none'
+  if (depositInfo.value.refunded) return 'ok'
+  return 'unrefunded'
+})
+
+const REFUND_METHOD_LABELS = {
+  original: '原路退回',
+  bank_transfer: '银行卡转账',
+  cash: '现金退还',
+  other: '其他方式'
+}
 
 const getStatusLabel = (status) => STATUS_LABELS[status]?.label || status
 const getStatusType = (status) => STATUS_LABELS[status]?.type || 'info'
@@ -462,12 +604,7 @@ const handleAction = () => {
       ElMessage.success('维修已完成')
     }).catch(() => {})
   } else if (rental.value?.status === STATUS_FLOW.RETURN_COMPLETED) {
-    ElMessageBox.confirm('确认结案？押金将退还客户。', '结案确认', {
-      type: 'warning'
-    }).then(() => {
-      equipmentStore.closeRental(rentalId.value, '经理确认结案')
-      ElMessage.success('已结案')
-    }).catch(() => {})
+    closeDialogVisible.value = true
   }
 }
 
@@ -493,17 +630,67 @@ const submitAction = () => {
   actionDialogVisible.value = false
 }
 
-const handleRefund = () => {
-  ElMessageBox.confirm(
-    `确认退还押金 ¥${depositInfo.value.amount.toLocaleString()} 给客户？`,
-    '退还押金确认',
-    { type: 'warning' }
-  ).then(() => {
-    depositInfo.value.refunded = true
-    depositInfo.value.refundedAt = Date.now()
-    depositInfo.value.refundMethod = 'original'
-    ElMessage.success('押金已退还（模拟）')
-  }).catch(() => {})
+const refundDialogVisible = ref(false)
+const refundForm = reactive({
+  refundMethod: 'original',
+  receiptUrl: null,
+  receiptName: '',
+  remark: ''
+})
+
+const closeDialogVisible = ref(false)
+const closeForm = reactive({
+  remark: ''
+})
+
+const showRefundDialog = () => {
+  refundForm.refundMethod = depositInfo.value?.paymentMethod === 'wechat' ? 'original' : 'original'
+  refundForm.receiptUrl = null
+  refundForm.receiptName = ''
+  refundForm.remark = ''
+  refundDialogVisible.value = true
+}
+
+const simulateUploadReceipt = () => {
+  refundForm.receiptUrl = `#receipt-${Date.now()}`
+  refundForm.receiptName = `退款凭证_${new Date().toLocaleDateString('zh-CN')}.png`
+  ElMessage.success('凭证上传成功（模拟）')
+}
+
+const submitRefund = () => {
+  if (!refundForm.refundMethod) {
+    ElMessage.warning('请选择退还方式')
+    return
+  }
+
+  const refundMethodLabel = REFUND_METHOD_LABELS[refundForm.refundMethod] || refundForm.refundMethod
+
+  const success = equipmentStore.refundDeposit(rentalId.value, {
+    refundMethod: refundForm.refundMethod,
+    refundMethodLabel,
+    refundReceiptUrl: refundForm.receiptUrl,
+    refundReceiptName: refundForm.receiptName,
+    refundRemark: refundForm.remark
+  })
+
+  if (success) {
+    ElMessage.success(`押金 ¥${depositInfo.value.amount.toLocaleString()} 已退还（${refundMethodLabel}）`)
+    refundDialogVisible.value = false
+  } else {
+    ElMessage.error('退还失败，请检查押金状态')
+  }
+}
+
+const submitClose = () => {
+  if (closeDepositStatus.value === 'unrefunded' && !closeForm.remark.trim()) {
+    ElMessage.warning('押金尚未退还，请填写结案原因')
+    return
+  }
+
+  const remark = closeForm.remark.trim() || '订单结案'
+  equipmentStore.closeRental(rentalId.value, remark)
+  ElMessage.success('已结案')
+  closeDialogVisible.value = false
 }
 
 onMounted(() => {
@@ -737,8 +924,78 @@ onMounted(() => {
   font-size: 12px;
 }
 
+.deposit-remark {
+  font-size: 12px;
+  color: #374151;
+  text-align: right;
+  max-width: 200px;
+}
+
 .deposit-actions {
   padding-top: 12px;
   border-top: 1px solid #f3f4f6;
+}
+
+.refund-deposit-summary {
+  padding: 12px 16px;
+  background: #f0fdf4;
+  border-radius: 6px;
+  border: 1px solid #bbf7d0;
+  font-size: 14px;
+  color: #166534;
+}
+
+.refund-receipt-upload {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.receipt-file-name {
+  font-size: 13px;
+  color: #2563eb;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.close-deposit-check {
+  padding: 12px 16px;
+  background: #f9fafb;
+  border-radius: 6px;
+  border: 1px solid #e5e7eb;
+}
+
+.close-check-title {
+  font-weight: 600;
+  font-size: 14px;
+  color: #374151;
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.close-check-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 0;
+}
+
+.close-check-warning {
+  background: #fffbeb;
+  margin: 0 -16px;
+  padding: 8px 16px;
+  border-radius: 4px;
+}
+
+.close-check-text {
+  font-size: 13px;
+  color: #4b5563;
+}
+
+.close-warning-box {
+  margin-top: 12px;
 }
 </style>

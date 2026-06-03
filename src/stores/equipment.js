@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { mockRentals, STATUS_FLOW, STATUS_LABELS, INTEGRATION_POINTS } from '@/data/mockData'
+import { mockRentals, mockDeposits, STATUS_FLOW, STATUS_LABELS, INTEGRATION_POINTS } from '@/data/mockData'
 import { useAuthStore } from '@/stores/auth'
 
 const OPERATOR_NAMES = {
@@ -11,6 +11,7 @@ const OPERATOR_NAMES = {
 export const useEquipmentStore = defineStore('equipment', {
   state: () => ({
     rentals: [...mockRentals],
+    deposits: [...mockDeposits],
     integrationPoints: [...INTEGRATION_POINTS]
   }),
 
@@ -62,7 +63,9 @@ export const useEquipmentStore = defineStore('equipment', {
       return Object.entries(items)
         .filter(([_, item]) => item.keyPoint)
         .map(([key, item]) => ({ key, ...item }))
-    }
+    },
+
+    getDepositByRentalId: (state) => (rentalId) => state.deposits.find(d => d.rentalId === rentalId)
   },
 
   actions: {
@@ -213,6 +216,39 @@ export const useEquipmentStore = defineStore('equipment', {
         STATUS_FLOW.RETURN_COMPLETED,
         `维修完成，实际费用：${actualCost}元`
       )
+    },
+
+    refundDeposit(rentalId, refundData) {
+      const deposit = this.deposits.find(d => d.rentalId === rentalId)
+      if (!deposit) return false
+      if (deposit.refunded) return false
+
+      const { operator } = this.getCurrentOperator()
+
+      deposit.refunded = true
+      deposit.refundedAt = Date.now()
+      deposit.refundMethod = refundData.refundMethod
+      deposit.refundMethodLabel = refundData.refundMethodLabel
+      deposit.refundOperator = operator
+      deposit.refundReceiptUrl = refundData.refundReceiptUrl || null
+      deposit.refundReceiptName = refundData.refundReceiptName || null
+      deposit.refundRemark = refundData.refundRemark || ''
+
+      const rental = this.rentals.find(r => r.id === rentalId)
+      if (rental) {
+        rental.statusHistory.push({
+          status: rental.status,
+          operator,
+          operatorRole: this.getCurrentOperator().operatorRole,
+          timestamp: Date.now(),
+          remark: `押金退还 ¥${deposit.amount.toLocaleString()}（${deposit.refundMethodLabel}）${deposit.refundRemark ? '，' + deposit.refundRemark : ''}`,
+          attachments: deposit.refundReceiptUrl
+            ? [{ type: 'receipt', name: deposit.refundReceiptName || '退款凭证', url: deposit.refundReceiptUrl, uploadedAt: Date.now() }]
+            : []
+        })
+      }
+
+      return true
     },
 
     closeRental(rentalId, remark) {

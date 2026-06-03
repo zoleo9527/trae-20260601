@@ -760,7 +760,21 @@ export const mockDeposits = [
     refunded: true,
     refundedAt: now - 6 * day + 30 * 60 * 1000,
     refundMethod: 'original',
-    refundReceiptUrl: '#receipt1'
+    refundMethodLabel: '原路退回',
+    refundOperator: '张经理',
+    refundReceiptUrl: '#receipt1',
+    refundReceiptName: '微信退款凭证截图.png',
+    refundRemark: '归还复核无异常，全额退还'
+  },
+  {
+    id: 'DP004',
+    rentalId: 'RT20260603006',
+    amount: 8000,
+    paymentMethod: 'alipay',
+    screenshotUrl: '#deposit4',
+    paidAt: now - 4 * day,
+    refunded: false,
+    holdReason: '维修中，待维修费用确认后结算'
   }
 ]
 

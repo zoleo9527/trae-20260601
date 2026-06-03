@@ -270,7 +270,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useEquipmentStore } from '@/stores/equipment'
 import { useAuthStore } from '@/stores/auth'
-import { INSPECTION_ITEMS, ABNORMAL_TYPES, mockDeposits } from '@/data/mockData'
+import { INSPECTION_ITEMS, ABNORMAL_TYPES } from '@/data/mockData'
 import StatusTimeline from '@/components/StatusTimeline.vue'
 
 const route = useRoute()
@@ -312,7 +312,7 @@ const initForm = () => {
 const form = reactive(initForm())
 
 const depositInfo = computed(() =>
-  mockDeposits.find(d => d.rentalId === rentalId.value))
+  equipmentStore.getDepositByRentalId(rentalId.value))
 
 const currentKeyPoints = computed(() => {
   return Object.entries(form.items)
