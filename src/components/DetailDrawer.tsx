@@ -15,7 +15,17 @@ import {
   AlertOctagon,
   HelpCircle,
   Send,
+  XCircle,
 } from 'lucide-react'
+
+type ExceptionType = 'rush' | 'allergen' | 'receiving' | 'other'
+
+const exceptionTypeOptions: { value: ExceptionType; label: string; color: string }[] = [
+  { value: 'rush', label: '临时加单', color: 'text-amber-400' },
+  { value: 'allergen', label: '过敏原漏标', color: 'text-red-400' },
+  { value: 'receiving', label: '收货不清', color: 'text-orange-400' },
+  { value: 'other', label: '其他异常', color: 'text-slate-400' },
+]
 
 function filterNotes(notes: SampleNote[], recordId: string) {
   return notes.filter((n) => n.recordId === recordId).sort((a, b) => a.createdAt.localeCompare(b.createdAt))
@@ -46,36 +56,82 @@ const statusConfig: Record<RecordStatus, { label: string; bg: string; text: stri
   abnormal: { label: '异常', bg: 'bg-amber-500/20', text: 'text-amber-300' },
 }
 
+const CURRENT_OPERATOR = '张伟'
+const CURRENT_ROLE = '品控员'
+
 export default function DetailDrawer() {
-  const { detailRecordId, records, notes, traces, closeDetail, updateRecordStatus, addNote } = useSampleStore(
+  const { detailRecordId, records, notes, traces, closeDetail, confirmSampling, completeSampling, markAsAbnormal, reprocessRecord, addNote } = useSampleStore(
     useShallow((s) => ({
       detailRecordId: s.detailRecordId,
       records: s.records,
       notes: s.notes,
       traces: s.traces,
       closeDetail: s.closeDetail,
-      updateRecordStatus: s.updateRecordStatus,
+      confirmSampling: s.confirmSampling,
+      completeSampling: s.completeSampling,
+      markAsAbnormal: s.markAsAbnormal,
+      reprocessRecord: s.reprocessRecord,
       addNote: s.addNote,
     }))
   )
 
   const [activeTab, setActiveTab] = useState<'trace' | 'notes'>('trace')
   const [noteInput, setNoteInput] = useState('')
+  const [showAbnormalDialog, setShowAbnormalDialog] = useState(false)
+  const [abnormalReason, setAbnormalReason] = useState('')
+  const [abnormalType, setAbnormalType] = useState<ExceptionType>('other')
 
   const record = records.find((r) => r.id === detailRecordId)
+
+  const filteredTraces = useMemo(
+    () => (record ? filterTraces(traces, record.id) : []),
+    [traces, record]
+  )
+  const filteredNotes = useMemo(
+    () => (record ? filterNotes(notes, record.id) : []),
+    [notes, record]
+  )
+
   if (!record) return null
 
-  const filteredTraces = useMemo(() => filterTraces(traces, record.id), [traces, record.id])
-  const filteredNotes = useMemo(() => filterNotes(notes, record.id), [notes, record.id])
   const sc = statusConfig[record.status]
+  const hasException = record.isRushOrder || record.allergenMissing || record.receivingUnclear
 
-  const handleStatusChange = (newStatus: RecordStatus) => {
-    updateRecordStatus(record.id, newStatus)
+  const handleConfirmSampling = () => {
+    confirmSampling(record.id, CURRENT_OPERATOR)
+  }
+
+  const handleCompleteSampling = () => {
+    completeSampling(record.id, CURRENT_OPERATOR)
+  }
+
+  const handleOpenAbnormalDialog = () => {
+    const suggestedType: ExceptionType = record.allergenMissing
+      ? 'allergen'
+      : record.receivingUnclear
+        ? 'receiving'
+        : record.isRushOrder
+          ? 'rush'
+          : 'other'
+    setAbnormalType(suggestedType)
+    setAbnormalReason('')
+    setShowAbnormalDialog(true)
+  }
+
+  const handleConfirmAbnormal = () => {
+    if (!abnormalReason.trim()) return
+    markAsAbnormal(record.id, abnormalReason.trim(), abnormalType, CURRENT_OPERATOR, CURRENT_ROLE)
+    setShowAbnormalDialog(false)
+    setAbnormalReason('')
+  }
+
+  const handleReprocess = () => {
+    reprocessRecord(record.id, CURRENT_OPERATOR, CURRENT_ROLE)
   }
 
   const handleAddNote = () => {
     if (!noteInput.trim()) return
-    addNote(record.id, '张伟', '品控员', noteInput.trim(), 'manual')
+    addNote(record.id, CURRENT_OPERATOR, CURRENT_ROLE, noteInput.trim(), 'manual')
     setNoteInput('')
   }
 
@@ -87,6 +143,80 @@ export default function DetailDrawer() {
           onClick={closeDetail}
         />
       )}
+
+      {showAbnormalDialog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            onClick={() => setShowAbnormalDialog(false)}
+          />
+          <div className="relative z-10 w-[420px] rounded-xl border border-slate-600 bg-slate-800 p-6 shadow-2xl animate-fade-in-up">
+            <div className="mb-4 flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-slate-100">标注异常</h3>
+              <button
+                onClick={() => setShowAbnormalDialog(false)}
+                className="rounded-lg p-1 text-slate-400 transition-colors hover:bg-slate-700 hover:text-slate-200"
+              >
+                <XCircle className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="mb-4">
+              <label className="mb-2 block text-sm font-medium text-slate-300">
+                异常类型
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                {exceptionTypeOptions.map((opt) => (
+                  <button
+                    key={opt.value}
+                    onClick={() => setAbnormalType(opt.value)}
+                    className={`rounded-lg border px-3 py-2 text-sm font-medium transition-all ${
+                      abnormalType === opt.value
+                        ? 'border-amber-500 bg-amber-500/10 text-amber-400'
+                        : 'border-slate-600 bg-slate-700/50 text-slate-400 hover:border-slate-500'
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="mb-4">
+              <label className="mb-2 block text-sm font-medium text-slate-300">
+                异常原因 <span className="text-red-400">*</span>
+              </label>
+              <textarea
+                value={abnormalReason}
+                onChange={(e) => setAbnormalReason(e.target.value)}
+                placeholder="请详细描述异常原因..."
+                rows={4}
+                className="w-full resize-none rounded-lg border border-slate-600 bg-slate-700/50 px-3 py-2 text-sm text-slate-200 placeholder-slate-500 outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/30"
+              />
+              <p className="mt-1 text-[11px] text-slate-500">
+                异常原因将同步写入批次追溯链和历史备注
+              </p>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowAbnormalDialog(false)}
+                className="flex-1 rounded-lg border border-slate-600 bg-slate-700/50 px-4 py-2 text-sm font-medium text-slate-300 transition-colors hover:bg-slate-700"
+              >
+                取消
+              </button>
+              <button
+                onClick={handleConfirmAbnormal}
+                disabled={!abnormalReason.trim()}
+                className="flex-1 rounded-lg bg-amber-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-amber-500 disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                确认标注
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div
         className={`fixed right-0 top-0 z-50 flex h-full w-[560px] flex-col border-l border-slate-700/50 bg-slate-900 shadow-2xl transition-transform duration-300 ${
           detailRecordId ? 'translate-x-0' : 'translate-x-full'
@@ -139,7 +269,7 @@ export default function DetailDrawer() {
             </div>
           </div>
 
-          {(record.isRushOrder || record.allergenMissing || record.receivingUnclear) && (
+          {hasException && (
             <div className="mt-3 flex flex-wrap items-center gap-2">
               {record.isRushOrder && (
                 <span className="inline-flex items-center gap-1 rounded bg-amber-500/20 px-2 py-1 text-xs font-semibold text-amber-400">
@@ -246,7 +376,7 @@ export default function DetailDrawer() {
             <div className="mb-3 flex gap-2">
               {record.status === 'pending' && (
                 <button
-                  onClick={() => handleStatusChange('sampling')}
+                  onClick={handleConfirmSampling}
                   className="flex-1 rounded-lg bg-sky-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-sky-500"
                 >
                   确认留样
@@ -254,7 +384,7 @@ export default function DetailDrawer() {
               )}
               {record.status === 'sampling' && (
                 <button
-                  onClick={() => handleStatusChange('completed')}
+                  onClick={handleCompleteSampling}
                   className="flex-1 rounded-lg bg-emerald-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-500"
                 >
                   完成留样
@@ -262,7 +392,7 @@ export default function DetailDrawer() {
               )}
               {record.status !== 'abnormal' && (
                 <button
-                  onClick={() => handleStatusChange('abnormal')}
+                  onClick={handleOpenAbnormalDialog}
                   className="rounded-lg bg-amber-600/20 px-3 py-2 text-sm font-medium text-amber-400 transition-colors hover:bg-amber-600/30"
                 >
                   标注异常
@@ -270,8 +400,8 @@ export default function DetailDrawer() {
               )}
               {record.status === 'abnormal' && (
                 <button
-                  onClick={() => handleStatusChange('pending')}
-                  className="rounded-lg bg-slate-600/20 px-3 py-2 text-sm font-medium text-slate-300 transition-colors hover:bg-slate-600/30"
+                  onClick={handleReprocess}
+                  className="flex-1 rounded-lg bg-slate-600/20 px-3 py-2 text-sm font-medium text-slate-300 transition-colors hover:bg-slate-600/30"
                 >
                   重新处理
                 </button>

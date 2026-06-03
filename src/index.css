@@ -62,3 +62,7 @@
     transform: translateY(0);
   }
 }
+
+.animate-fade-in-up {
+  animation: fade-in-up 0.25s ease-out;
+}
