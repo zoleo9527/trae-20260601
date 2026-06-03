@@ -234,7 +234,8 @@ class SettlementService:
             status='pending',
         )
 
-        fees_for_log = {k: str(v) for k, v in fees.items()}
+        fmt = SettlementService._format_fee
+        fees_for_log = {k: fmt(v) for k, v in fees.items()}
 
         AuditService.log(
             entity_type='settlement',
@@ -251,18 +252,26 @@ class SettlementService:
         return settlement
 
     @staticmethod
+    def _format_fee(value):
+        if isinstance(value, Decimal):
+            return f'{value:.2f}'
+        return f'{Decimal(str(value)):.2f}' if value is not None else '0.00'
+
+    @staticmethod
     @transaction.atomic
     def recalculate_settlement(settlement_id, operator=None, operator_role='finance', reason=''):
         settlement = FeeSettlement.objects.select_for_update().get(pk=settlement_id)
         order = RentalOrder.objects.select_for_update().get(pk=settlement.rental_order_id)
 
+        fmt = SettlementService._format_fee
         old_values = {
-            'base_fee': str(settlement.base_fee),
-            'extension_fee': str(settlement.extension_fee),
-            'damage_fee': str(settlement.damage_fee),
-            'overdue_penalty': str(settlement.overdue_penalty),
-            'total_fee': str(settlement.total_fee),
-            'refund_amount': str(settlement.refund_amount),
+            'base_fee': fmt(settlement.base_fee),
+            'extension_fee': fmt(settlement.extension_fee),
+            'damage_fee': fmt(settlement.damage_fee),
+            'overdue_penalty': fmt(settlement.overdue_penalty),
+            'total_fee': fmt(settlement.total_fee),
+            'deposit_deducted': fmt(settlement.deposit_deducted),
+            'refund_amount': fmt(settlement.refund_amount),
         }
 
         fees = SettlementService.calculate_fees(order)
@@ -271,17 +280,23 @@ class SettlementService:
             setattr(settlement, field, value)
         settlement.save()
 
-        new_values = {k: str(v) for k, v in fees.items()}
+        new_values = {k: fmt(v) for k, v in fees.items()}
 
+        field_labels = [
+            ('base_fee', 'base'),
+            ('extension_fee', 'ext'),
+            ('damage_fee', 'dmg'),
+            ('overdue_penalty', 'overdue'),
+            ('total_fee', 'total'),
+            ('deposit_deducted', 'deposit'),
+            ('refund_amount', 'refund'),
+        ]
         delta_parts = []
-        if old_values['base_fee'] != new_values.get('base_fee'):
-            delta_parts.append(f'base({old_values["base_fee"]}→{new_values.get("base_fee")})')
-        if old_values['extension_fee'] != new_values.get('extension_fee'):
-            delta_parts.append(f'ext({old_values["extension_fee"]}→{new_values.get("extension_fee")})')
-        if old_values['damage_fee'] != new_values.get('damage_fee'):
-            delta_parts.append(f'dmg({old_values["damage_fee"]}→{new_values.get("damage_fee")})')
-        if old_values['total_fee'] != new_values.get('total_fee'):
-            delta_parts.append(f'total({old_values["total_fee"]}→{new_values.get("total_fee")})')
+        for field, label in field_labels:
+            old = old_values.get(field)
+            new = new_values.get(field)
+            if old != new:
+                delta_parts.append(f'{label}({old}→{new})')
 
         detail_parts = [f'租赁单{order.order_no}费用结算已重算']
         if reason:

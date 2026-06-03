@@ -46,9 +46,13 @@ class ExtensionSettlementAuditTests(TestCase):
         self.assertEqual(float(settlement.extension_fee), 0)
 
     def test_extension_approval_triggers_recalc_with_correct_operator(self):
+        self.order.deposit_amount = Decimal('5000')
+        self.order.save()
         settlement = SettlementService.create_settlement(self.order.id, operator=self.finance)
         initial_ext_fee = settlement.extension_fee
         initial_total = settlement.total_fee
+        initial_deposit_ded = settlement.deposit_deducted
+        initial_refund = settlement.refund_amount
 
         ext = ExtensionService.request_extension(
             rental_order_id=self.order.id,
@@ -69,6 +73,8 @@ class ExtensionSettlementAuditTests(TestCase):
 
         self.assertGreater(float(settlement.extension_fee), float(initial_ext_fee))
         self.assertGreater(float(settlement.total_fee), float(initial_total))
+        self.assertGreater(float(settlement.deposit_deducted), float(initial_deposit_ded))
+        self.assertLess(float(settlement.refund_amount), float(initial_refund))
 
         recalc_log = AuditLog.objects.filter(
             entity_type='settlement',
@@ -81,6 +87,13 @@ class ExtensionSettlementAuditTests(TestCase):
         self.assertIn('租期延长审批通过', recalc_log.detail)
         self.assertIn('total(', recalc_log.detail)
         self.assertIn('ext(', recalc_log.detail)
+        self.assertIn('deposit(', recalc_log.detail)
+        self.assertIn('refund(', recalc_log.detail)
+        self.assertIn('deposit_deducted', recalc_log.old_value)
+        for field in ['base_fee', 'extension_fee', 'damage_fee', 'overdue_penalty',
+                      'total_fee', 'deposit_deducted', 'refund_amount']:
+            self.assertIn(field, recalc_log.new_value, f'{field} missing from new_value')
+            self.assertIn(field, recalc_log.old_value, f'{field} missing from old_value')
 
     def test_extension_fee_only_contains_approved_extensions(self):
         SettlementService.create_settlement(self.order.id, operator=self.finance)
@@ -129,6 +142,83 @@ class ExtensionSettlementAuditTests(TestCase):
         settlement.refresh_from_db()
         self.assertEqual(float(settlement.base_fee), float(base_before))
 
+    def test_audit_log_contains_all_fee_fields_in_old_and_new_values(self):
+        settlement = SettlementService.create_settlement(self.order.id, operator=self.finance)
+        settlement.deposit_deducted = Decimal('500.00')
+        settlement.refund_amount = Decimal('500.00')
+        settlement.save()
+
+        ext = ExtensionService.request_extension(
+            rental_order_id=self.order.id,
+            requested_end_date=self.today + timedelta(days=4),
+            reason='Full fields test',
+            requested_by=self.clerk,
+            operator_role='clerk',
+        )
+        ExtensionService.approve_extension(
+            ext.id, reviewed_by=self.manager, operator_role='manager',
+        )
+
+        recalc_log = AuditLog.objects.filter(
+            entity_type='settlement',
+            entity_id=settlement.id,
+            action='settlement_recalculated',
+        ).latest('created_at')
+
+        all_fields = [
+            'base_fee', 'extension_fee', 'damage_fee',
+            'overdue_penalty', 'total_fee',
+            'deposit_deducted', 'refund_amount',
+        ]
+        for field in all_fields:
+            self.assertIn(field, recalc_log.old_value, f'{field} not in old_value')
+            self.assertIn(field, recalc_log.new_value, f'{field} not in new_value')
+            self.assertIsInstance(recalc_log.old_value[field], str)
+            self.assertIsInstance(recalc_log.new_value[field], str)
+
+        for label in ['base', 'ext', 'dmg', 'overdue', 'total', 'deposit', 'refund']:
+            if label in ['ext', 'total', 'deposit', 'refund']:
+                self.assertIn(f'{label}(', recalc_log.detail, f'{label} delta missing')
+
+    def test_overdue_penalty_change_appears_in_audit_log(self):
+        overdue_order = RentalOrder.objects.create(
+            order_no='OVERDUE-001',
+            customer_name='Overdue User',
+            customer_phone='13600000000',
+            equipment=self.equipment,
+            store_clerk=self.clerk,
+            start_date=self.today - timedelta(days=10),
+            original_end_date=self.today - timedelta(days=3),
+            current_end_date=self.today - timedelta(days=3),
+            deposit_amount=Decimal('800'),
+            status='active',
+        )
+        settlement = SettlementService.create_settlement(overdue_order.id, operator=self.finance)
+        self.assertGreater(float(settlement.overdue_penalty), 0)
+
+        ext = ExtensionService.request_extension(
+            rental_order_id=overdue_order.id,
+            requested_end_date=self.today + timedelta(days=2),
+            reason='Extend to avoid more penalty',
+            requested_by=self.clerk,
+            operator_role='clerk',
+        )
+        ExtensionService.approve_extension(
+            ext.id, reviewed_by=self.manager, operator_role='manager',
+        )
+
+        recalc_log = AuditLog.objects.filter(
+            entity_type='settlement',
+            entity_id=settlement.id,
+            action='settlement_recalculated',
+        ).latest('created_at')
+
+        self.assertIn('overdue(', recalc_log.detail)
+        self.assertNotEqual(
+            recalc_log.old_value['overdue_penalty'],
+            recalc_log.new_value['overdue_penalty'],
+        )
+
 
 class DamageSettlementAuditTests(TestCase):
     def setUp(self):
@@ -155,7 +245,7 @@ class DamageSettlementAuditTests(TestCase):
             start_date=self.today - timedelta(days=3),
             original_end_date=self.today + timedelta(days=1),
             current_end_date=self.today + timedelta(days=1),
-            deposit_amount=Decimal('500'),
+            deposit_amount=Decimal('2000'),
             status='active',
         )
         SettlementService.create_settlement(self.order.id, operator=self.finance)
@@ -178,6 +268,10 @@ class DamageSettlementAuditTests(TestCase):
         self.assertEqual(recalc_log.operator_id, self.clerk.id)
         self.assertEqual(recalc_log.operator_role, 'clerk')
         self.assertIn('损坏上报', recalc_log.detail)
+        self.assertIn('dmg(', recalc_log.detail)
+        self.assertIn('total(', recalc_log.detail)
+        self.assertIn('deposit(', recalc_log.detail)
+        self.assertIn('deposit_deducted', recalc_log.old_value)
 
         settlement = self.order.fee_settlement
         self.assertEqual(float(settlement.damage_fee), 500)
