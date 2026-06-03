@@ -28,9 +28,23 @@ export default function handler(
         }
         
         const placeholders = ids.map(() => '?').join(',');
-        const existingDeliveries = db.prepare(`SELECT * FROM deliveries WHERE id IN (${placeholders})`).all(...ids);
+        const existingDeliveries = db.prepare(`SELECT * FROM deliveries WHERE id IN (${placeholders})`).all(...ids) as any[];
         
-        let sql = 'UPDATE deliveries SET status = ?, updated_at = CURRENT_TIMESTAMP';
+        if (status === 'dispatched') {
+          const nonPending = existingDeliveries.filter(d => d.status !== 'pending');
+          if (nonPending.length > 0) {
+            return res.status(400).json({ success: false, error: '只能发货待发货状态的配送单' });
+          }
+        }
+
+        if (status === 'received') {
+          const nonDispatched = existingDeliveries.filter(d => d.status !== 'dispatched');
+          if (nonDispatched.length > 0) {
+            return res.status(400).json({ success: false, error: '只能确认收货配送中状态的配送单' });
+          }
+        }
+        
+        let sql = 'UPDATE deliveries SET status = ?';
         const params: any[] = [status];
         
         if (status === 'dispatched') {
@@ -54,16 +68,26 @@ export default function handler(
           'batch_update',
           'delivery',
           0,
-          JSON.stringify(existingDeliveries),
-          JSON.stringify(updatedDeliveries),
+          JSON.stringify(existingDeliveries.map(d => ({ id: d.id, status: d.status }))),
+          JSON.stringify(updatedDeliveries.map((d: any) => ({ id: d.id, status: d.status }))),
           operator || 'system',
-          `批量更新状态为: ${status}，共 ${ids.length} 条`
+          `批量${status === 'dispatched' ? '发货' : status === 'received' ? '确认收货' : '更新状态'}，共 ${ids.length} 条`
         );
         
         if (status === 'dispatched') {
-          for (const delivery of existingDeliveries as any[]) {
+          for (const delivery of existingDeliveries) {
             db.prepare(`UPDATE daily_orders SET status = 'dispatched', updated_at = CURRENT_TIMESTAMP WHERE id = ?`)
               .run(delivery.order_id);
+            
+            logOperation(
+              'update',
+              'daily_order',
+              delivery.order_id,
+              JSON.stringify({ status: 'confirmed' }),
+              JSON.stringify({ status: 'dispatched' }),
+              operator || 'system',
+              '批量发货，订单状态更新为已发货'
+            );
           }
         }
         

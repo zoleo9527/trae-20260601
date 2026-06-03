@@ -95,6 +95,8 @@ db.exec(`
     received_by TEXT,
     receiver_signature TEXT,
     notes TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (store_id) REFERENCES stores(id),
     FOREIGN KEY (order_id) REFERENCES daily_orders(id),
     FOREIGN KEY (dish_id) REFERENCES dishes(id)

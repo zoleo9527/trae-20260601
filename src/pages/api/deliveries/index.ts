@@ -53,7 +53,7 @@ export default function handler(
           params.push(status);
         }
         
-        sql += ' ORDER BY d.delivery_date DESC, d.created_at DESC';
+        sql += ' ORDER BY d.status ASC, d.created_at DESC';
         const deliveries = db.prepare(sql).all(...params) as (Delivery & { store_name?: string; order_date?: string; dish_name?: string; specification?: string })[];
         res.status(200).json({ success: true, data: deliveries });
         break;
@@ -62,15 +62,15 @@ export default function handler(
       case 'POST': {
         const { operator } = req.body;
         
-        const pendingOrders = db.prepare(`
+        const completedOrders = db.prepare(`
           SELECT o.id, o.store_id, o.dish_id, o.quantity, o.order_date
           FROM daily_orders o
-          WHERE o.status = 'completed'
-          AND o.id NOT IN (SELECT order_id FROM deliveries WHERE status != 'cancelled')
+          WHERE o.status = 'in_production'
+          AND o.id NOT IN (SELECT order_id FROM deliveries)
         `).all() as DailyOrder[];
         
-        if (pendingOrders.length === 0) {
-          return res.status(400).json({ success: false, error: '没有待配送的订单' });
+        if (completedOrders.length === 0) {
+          return res.status(400).json({ success: false, error: '没有可配送的已完成订单（订单需先进入生产中状态）' });
         }
         
         const insertDelivery = db.prepare(`
@@ -79,18 +79,19 @@ export default function handler(
           VALUES (?, ?, ?, ?, ?, 'pending', ?)
         `);
         
-        const today = new Date().toISOString().split('T')[0];
         const createdDeliveries: any[] = [];
         
-        for (const order of pendingOrders) {
+        for (const order of completedOrders) {
           const result = insertDelivery.run(
             order.order_date,
             order.store_id,
             order.id,
             order.dish_id,
             order.quantity,
-            `配送单生成，对应订单ID: ${order.id}`
+            `待发货，对应订单ID: ${order.id}`
           );
+          
+          const deliveryId = result.lastInsertRowid as number;
           
           const delivery = db.prepare(`
             SELECT d.*, s.name as store_name, o.order_date, di.name as dish_name
@@ -99,25 +100,35 @@ export default function handler(
             LEFT JOIN daily_orders o ON d.order_id = o.id
             LEFT JOIN dishes di ON d.dish_id = di.id
             WHERE d.id = ?
-          `).get(result.lastInsertRowid);
+          `).get(deliveryId);
           
           createdDeliveries.push(delivery);
           
-          db.prepare(`UPDATE daily_orders SET status = 'dispatched', updated_at = CURRENT_TIMESTAMP WHERE id = ?`)
+          db.prepare(`UPDATE daily_orders SET status = 'confirmed', updated_at = CURRENT_TIMESTAMP WHERE id = ?`)
             .run(order.id);
           
           logOperation(
             'create',
             'delivery',
-            result.lastInsertRowid as number,
+            deliveryId,
             null,
             JSON.stringify(delivery),
             operator || 'system',
-            `配送单生成，门店: ${delivery.store_name}`
+            `配送单生成（待发货），门店: ${(delivery as any).store_name}`
+          );
+
+          logOperation(
+            'update',
+            'daily_order',
+            order.id,
+            JSON.stringify({ status: 'in_production' }),
+            JSON.stringify({ status: 'confirmed' }),
+            operator || 'system',
+            '配送单生成，订单状态变为已确认'
           );
         }
         
-        res.status(201).json({ success: true, data: createdDeliveries as any, message: `成功生成 ${createdDeliveries.length} 条配送单` });
+        res.status(201).json({ success: true, data: createdDeliveries as any, message: `成功生成 ${createdDeliveries.length} 条待发货配送单` });
         break;
       }
       
