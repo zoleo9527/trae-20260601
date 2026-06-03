@@ -124,7 +124,7 @@ def _create_booking_draft(customer, phone, btype, bdate, venue, guests, tables, 
     return booking
 
 
-def _build_menu_data(menu_items, table_count, special_reqs=''):
+def _build_menu_data(menu_items, table_count, special_reqs='', remarks=''):
     selected = menu_items[:6]
     return {
         'items': [
@@ -141,15 +141,45 @@ def _build_menu_data(menu_items, table_count, special_reqs=''):
         'table_layout': f'{table_count}桌圆桌，每桌10人，主桌在舞台前',
         'customer_signed': True,
         'customer_signature': '客户已签字确认',
+        'remarks': remarks,
     }
 
 
-def _adjust_log_timestamp(booking, hours_ago):
-    target_time = timezone.now() - timedelta(hours=hours_ago)
-    logs = AuditLog.objects.filter(booking=booking).order_by('timestamp')
-    for i, log in enumerate(logs):
-        log.timestamp = target_time + timedelta(minutes=i * 5)
-        log.save()
+def _backfill_timeline(booking, timeline):
+    """
+    统一回填一条预订的时间线，保证同一动作的 booking 字段、
+    menu_confirmation 字段、audit_log.timestamp 三者使用完全相同的时间。
+
+    timeline 格式:
+        [
+            {'action': '提交宴会预订',   'hours_ago': 48},
+            {'action': '确认菜单',       'hours_ago': 36},
+            {'action': '后厨接收任务',   'hours_ago': 24},
+            {'action': '开始宴会服务',   'hours_ago': 2},
+            {'action': '完成宴会',       'hours_ago': 0},
+        ]
+    """
+    now = timezone.now()
+    action_times = {}
+    for entry in timeline:
+        t = now - timedelta(hours=entry['hours_ago'])
+        action_times[entry['action']] = t
+
+    for entry in timeline:
+        action = entry['action']
+        t = action_times[action]
+
+        AuditLog.objects.filter(booking=booking, action=action).update(timestamp=t)
+
+    if '提交宴会预订' in action_times:
+        submit_time = action_times['提交宴会预订']
+        BanquetBooking.objects.filter(id=booking.id).update(submitted_at=submit_time)
+
+    if '确认菜单' in action_times:
+        confirm_time = action_times['确认菜单']
+        MenuConfirmation.objects.filter(booking_id=booking.id).update(confirmed_at=confirm_time)
+
+    booking.refresh_from_db()
 
 
 def _create_normal_bookings_with_history(employees, menu_items):
@@ -166,9 +196,18 @@ def _create_normal_bookings_with_history(employees, menu_items):
         200, 20, 2888, sales[0], 1
     )
     submit_booking(booking1.id, sales[0].id, '新人父母已到店考察，对场地满意，确认预订')
-    menu_data = _build_menu_data(menu_items, 20, '新人对海鲜过敏，所有菜品避免海鲜；婆婆不吃香菜')
+    menu_data = _build_menu_data(
+        menu_items, 20,
+        special_reqs='新人对海鲜过敏，所有菜品避免海鲜；婆婆不吃香菜',
+        remarks='与新人反复沟通3次，最终确定菜单，海鲜菜品全部替换为禽类和牛羊肉'
+    )
     confirm_menu(booking1.id, floor_supervisors[0].id, menu_data, '与新人反复沟通3次，最终确定菜单')
-    receive_by_kitchen(booking1.id, kitchen_coords[0].id, '已安排厨师长对接，海鲜提前备货')
+    receive_by_kitchen(booking1.id, kitchen_coords[0].id, '已安排厨师长对接，非海鲜菜品提前备货')
+    _backfill_timeline(booking1, [
+        {'action': '提交宴会预订', 'hours_ago': 72},
+        {'action': '确认菜单',     'hours_ago': 48},
+        {'action': '后厨接收任务', 'hours_ago': 36},
+    ])
     bookings.append(booking1)
 
     booking2 = _create_booking_draft(
@@ -177,8 +216,16 @@ def _create_normal_bookings_with_history(employees, menu_items):
         60, 6, 1888, sales[0], 2
     )
     submit_booking(booking2.id, sales[0].id, '客户为孩子办10岁生日宴，要求有儿童游乐区')
-    menu_data = _build_menu_data(menu_items, 6, '要有儿童套餐，少辣')
+    menu_data = _build_menu_data(
+        menu_items, 6,
+        special_reqs='要有儿童套餐，少辣',
+        remarks='增加了儿童甜品台和玩具区，家长很满意，确认2道菜品减辣处理'
+    )
     confirm_menu(booking2.id, floor_supervisors[1].id, menu_data, '增加了儿童甜品台，家长很满意')
+    _backfill_timeline(booking2, [
+        {'action': '提交宴会预订', 'hours_ago': 48},
+        {'action': '确认菜单',     'hours_ago': 24},
+    ])
     bookings.append(booking2)
 
     booking3 = _create_booking_draft(
@@ -187,6 +234,9 @@ def _create_normal_bookings_with_history(employees, menu_items):
         30, 3, 3888, sales[1], 3
     )
     submit_booking(booking3.id, sales[1].id, '公司重要客户接待，要求高私密性')
+    _backfill_timeline(booking3, [
+        {'action': '提交宴会预订', 'hours_ago': 6},
+    ])
     bookings.append(booking3)
 
     booking4 = _create_booking_draft(
@@ -213,12 +263,12 @@ def _create_stuck_bookings_with_history(employees, menu_items):
         today + timedelta(days=2), '宴会厅A',
         150, 15, 2688, sales[0], 9001
     )
-    booking1 = submit_booking(booking1.id, sales[0].id, '原定上周一确认菜单，厅面主管请假忘记处理')
-
-    booking1.submitted_at = timezone.now() - timedelta(hours=30)
+    submit_booking(booking1.id, sales[0].id, '原定上周一确认菜单，厅面主管请假忘记处理')
+    _backfill_timeline(booking1, [
+        {'action': '提交宴会预订', 'hours_ago': 30},
+    ])
     booking1.remarks = '⚠️ 已超过24小时未确认菜单！厅面主管王主管昨日请假，今日上班请优先处理。婚宴日期临近，客户非常着急，已来电催促3次。'
     booking1.save()
-    _adjust_log_timestamp(booking1, 30)
     stuck_bookings.append(booking1)
 
     booking2 = _create_booking_draft(
@@ -226,12 +276,12 @@ def _create_stuck_bookings_with_history(employees, menu_items):
         today + timedelta(days=1), '宴会厅B',
         80, 8, 1988, sales[1], 9002
     )
-    booking2 = submit_booking(booking2.id, sales[1].id, '明天的寿宴，客户要求中午开席，请尽快确认菜单')
-
-    booking2.submitted_at = timezone.now() - timedelta(hours=22)
+    submit_booking(booking2.id, sales[1].id, '明天的寿宴，客户要求中午开席，请尽快确认菜单')
+    _backfill_timeline(booking2, [
+        {'action': '提交宴会预订', 'hours_ago': 22},
+    ])
     booking2.remarks = '⚠️ 即将超时预警！明天中午的寿宴，菜单还没确认。赵主管正在来的路上，请第一时间处理。'
     booking2.save()
-    _adjust_log_timestamp(booking2, 22)
     stuck_bookings.append(booking2)
 
     booking3 = _create_booking_draft(
@@ -239,20 +289,19 @@ def _create_stuck_bookings_with_history(employees, menu_items):
         today + timedelta(days=3), 'VIP厅',
         20, 2, 4888, sales[0], 9003
     )
-    booking3 = submit_booking(booking3.id, sales[0].id, 'VIP客户，公司年会，预算充足，要求最高标准')
-
-    menu_data = _build_menu_data(menu_items, 2, 'VIP客户，全部分量加大，酒水用最好的')
-    booking3, mc = confirm_menu(booking3.id, floor_supervisors[0].id, menu_data, '菜单已与客户秘书确认，客户签字回传')
-
-    booking3.submitted_at = timezone.now() - timedelta(hours=48)
+    submit_booking(booking3.id, sales[0].id, 'VIP客户，公司年会，预算充足，要求最高标准')
+    menu_data = _build_menu_data(
+        menu_items, 2,
+        special_reqs='VIP客户，全部分量加大，酒水用最好的',
+        remarks='菜单已与客户秘书确认，客户签字回传。酒水客户自备飞天茅台和拉菲，酒店提供醒酒和冰镇服务'
+    )
+    confirm_menu(booking3.id, floor_supervisors[0].id, menu_data, '菜单已与客户秘书确认，客户签字回传')
+    _backfill_timeline(booking3, [
+        {'action': '提交宴会预订', 'hours_ago': 48},
+        {'action': '确认菜单',     'hours_ago': 15},
+    ])
     booking3.remarks = '⚠️ 菜单确认已超过12小时后厨未接收！陈统筹昨日休息，今日请立即安排后厨备货。客户是酒店VIP，绝对不能出问题。'
     booking3.save()
-
-    mc.confirmed_at = timezone.now() - timedelta(hours=15)
-    mc.save()
-
-    _adjust_log_timestamp(booking3, 40)
-
     stuck_bookings.append(booking3)
 
     return stuck_bookings
