@@ -7,7 +7,10 @@ console.log('=== 智能洗衣柜后端服务验证 ===\n');
 console.log('1. 数据库初始化测试\n');
 
 try {
-  const { default: sequelize, getDatabaseDriver } = await import('./src/config/database.js');
+  const { initDatabase, getDatabaseDriver, isDatabaseInitialized } = await import('./src/config/database.js');
+  console.log(`ℹ  数据库当前状态: ${isDatabaseInitialized() ? '已初始化' : '未初始化（惰性模式）'}`);
+  
+  const sequelize = await initDatabase();
   console.log(`✓ 数据库初始化成功，当前驱动: ${getDatabaseDriver()}`);
   
   try {
@@ -602,31 +605,29 @@ console.log('  ✓ 异常自动追踪（错误取件码、柜门异常）');
 console.log('  ✓ 超时自动检测（定时扫描 + 手动触发）\n');
 
 console.log('🔧 本次修复内容:');
-console.log('  1. 数据库初始化断点修复:');
-console.log('     - 三级降级机制: better-sqlite3 → sqlite3 → sql.js');
-console.log('     - 移除对原生模块的强依赖，确保 server/seed/test 均可加载');
-console.log('     - 新增 getDatabaseDriver() 函数查询当前驱动');
+console.log('  1. 数据库启动断点修复:');
+console.log('     - 惰性初始化：驱动检测延迟到 initDatabase() 调用时执行');
+console.log('     - 真实建连检测：尝试创建连接并执行查询验证 binding');
+console.log('     - 可靠回退机制：better-sqlite3(binding缺失) → sqlite3 → sql.js');
+console.log('     - 新增 initDatabase()、isDatabaseInitialized() 函数');
+console.log('     - Proxy 包装默认导出，未初始化时给出清晰错误提示');
 console.log('  ');
-console.log('  2. 远程开柜状态机修复:');
-console.log('     - 新增 canCellBeRemoteOpened() 综合校验函数');
-console.log('     - 移除 CELL_ASSIGNED 状态的开柜权限，仅 DELIVERED/TIMEOUT 可开');
-console.log('     - 校验格口状态必须为 DELIVERED');
-console.log('     - 校验必须有关联的有效订单');
+console.log('  2. 测试初始化顺序修复:');
+console.log('     - 创建 tests/preload.cjs，测试运行前设置 NODE_ENV=test');
+console.log('     - tests/setup.js 先调用 initDatabase() 再访问 sequelize');
+console.log('     - 测试使用 { force: true } 同步，避免数据污染');
+console.log('     - package.json test 命令增加 --require ./tests/preload.cjs');
 console.log('  ');
-console.log('  3. 客服快捷开柜修复:');
-console.log('     - 增加格口状态 + 订单状态双重校验');
-console.log('     - 仅查询 DELIVERED/TIMEOUT 状态的订单');
-console.log('     - 增加订单与格口匹配校验');
+console.log('  3. 服务器自动启动修复:');
+console.log('     - server.js 使用 import.meta.url 检测主模块，ES Modules 兼容');
+console.log('     - startServer() 增加 autoListen 选项，测试时不监听端口');
+console.log('     - startServer() 内部调用 initDatabase()');
 console.log('  ');
-console.log('  4. 占格链路修复:');
-console.log('     - assignCell 增加完整数据库事务');
-console.log('     - 订单和格口查询均加行级锁');
-console.log('     - 格口查询增加 skipLocked 避免死锁');
-console.log('     - Cell 模型增加 version 乐观锁');
-console.log('     - Cell 模型增加 currentOrderId 唯一索引（非空时）');
-console.log('     - 新增重复分配检查：订单已分配、订单已占用其他格口');
-console.log('     - 新增格口状态多重校验：AVAILABLE、currentOrderId 为空、isCellOccupied');
-console.log('     - updateCellStatus 和 findAvailableCell 均支持事务参数\n');
+console.log('  4. 历史修复内容:');
+console.log('     - 数据库初始化断点修复：三级降级机制');
+console.log('     - 远程开柜状态机修复：禁止未投放/已取件/无有效订单开柜');
+console.log('     - 客服快捷开柜修复：格口+订单状态双重校验');
+console.log('     - 占格链路修复：事务+行级锁+乐观锁+唯一索引\n');
 
 console.log('📄 API文档:');
 console.log('  详细的接口说明已写入 API.md，包含：');

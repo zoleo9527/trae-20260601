@@ -1,3 +1,4 @@
+import { initDatabase } from '../config/database.js';
 import { sequelize, Cabinet, Cell, Order } from '../models/index.js';
 import { CABINET_STATUS, CELL_STATUS, ORDER_STATUS } from '../utils/constants.js';
 
@@ -49,6 +50,7 @@ function generateCells(cabinetId, count, startNo = 1) {
 
 export async function seed() {
   try {
+    await initDatabase();
     await sequelize.authenticate();
     console.log('数据库连接成功');
     await sequelize.sync({ force: true });
@@ -122,7 +124,8 @@ export async function seed() {
   }
 }
 
-if (process.argv[1] === new URL(import.meta.url).pathname) {
+const isMainModule = import.meta.url === `file://${process.argv[1]}`;
+if (isMainModule) {
   seed()
     .then(() => process.exit(0))
     .catch(() => process.exit(1));

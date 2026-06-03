@@ -1,9 +1,13 @@
+process.env.NODE_ENV = 'test';
+
+import { initDatabase } from '../src/config/database.js';
 import { sequelize } from '../src/models/index.js';
 import { seed } from '../src/seeders/index.js';
 
 export async function setupTestDatabase() {
-  process.env.NODE_ENV = 'test';
+  await initDatabase();
   await sequelize.authenticate();
+  await sequelize.sync({ force: true });
   await seed();
 }
 

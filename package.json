@@ -8,8 +8,8 @@
     "dev": "node --watch src/server.js",
     "start": "node src/server.js",
     "seed": "node src/seeders/index.js",
-    "test": "node --test tests/*.test.js",
-    "test:watch": "node --watch --test tests/"
+    "test": "node --require ./tests/preload.cjs --test tests/*.test.js",
+    "test:watch": "node --require ./tests/preload.cjs --watch --test tests/*.test.js"
   },
   "dependencies": {
     "better-sqlite3": "^12.10.0",
