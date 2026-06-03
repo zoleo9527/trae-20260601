@@ -166,7 +166,7 @@ export default function ProductionSchedule() {
                 <div className="flex space-x-2">
                   <button
                     className="btn btn-sm btn-primary"
-                    onClick={() => batchUpdateStatus('in_progress')}
+                    onClick={() => batchUpdateStatus('in_production')}
                   >
                     开始生产
                   </button>
@@ -232,12 +232,12 @@ export default function ProductionSchedule() {
                             {schedule.status === 'scheduled' && (
                               <button
                                 className="btn btn-sm btn-primary"
-                                onClick={() => updateScheduleStatus(schedule.id, 'in_progress')}
+                                onClick={() => updateScheduleStatus(schedule.id, 'in_production')}
                               >
                                 开始
                               </button>
                             )}
-                            {schedule.status === 'in_progress' && (
+                            {schedule.status === 'in_production' && (
                               <button
                                 className="btn btn-sm btn-success"
                                 onClick={() => updateScheduleStatus(schedule.id, 'completed')}

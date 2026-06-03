@@ -34,7 +34,7 @@ export default function SupervisorDelivery() {
   };
 
   const generateDeliveries = async () => {
-    if (!confirm('确定要为生产中的订单生成配送单吗？')) return;
+    if (!confirm('确定要为生产完成的订单生成配送单吗？只有完成生产的订单才能生成配送单。')) return;
     setLoading(true);
     const res = await fetch('/api/deliveries', {
       method: 'POST',

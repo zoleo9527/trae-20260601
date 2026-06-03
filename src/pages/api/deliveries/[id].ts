@@ -1,6 +1,6 @@
-import type { NextApiRequest, NextApiResponse } from 'next';
 import db, { initDb } from '@/lib/db';
-import type { Delivery, ApiResponse } from '@/types';
+import type { ApiResponse, Delivery } from '@/types';
+import type { NextApiRequest, NextApiResponse } from 'next';
 
 initDb();
 
@@ -114,7 +114,7 @@ export default function handler(
         logOperation(
           'update',
           'delivery',
-          id as number,
+          Number(id),
           JSON.stringify({ status: oldStatus }),
           JSON.stringify({ status }),
           operator || 'system',
@@ -129,7 +129,7 @@ export default function handler(
             'update',
             'daily_order',
             existingDelivery.order_id,
-            JSON.stringify({ status: 'confirmed' }),
+            JSON.stringify({ status: 'ready_for_dispatch' }),
             JSON.stringify({ status: 'dispatched' }),
             operator || 'system',
             '配送单已发货，订单状态更新为已发货'

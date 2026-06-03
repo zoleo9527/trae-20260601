@@ -83,7 +83,7 @@ export default function handler(
               'update',
               'daily_order',
               delivery.order_id,
-              JSON.stringify({ status: 'confirmed' }),
+              JSON.stringify({ status: 'ready_for_dispatch' }),
               JSON.stringify({ status: 'dispatched' }),
               operator || 'system',
               '批量发货，订单状态更新为已发货'

@@ -3,6 +3,8 @@ export function StatusBadge({ status }: { status: string }) {
     pending: '待确认',
     confirmed: '已确认',
     in_production: '生产中',
+    production_completed: '生产完成',
+    ready_for_dispatch: '待发货',
     completed: '已完成',
     cancelled: '已取消',
     scheduled: '待生产',

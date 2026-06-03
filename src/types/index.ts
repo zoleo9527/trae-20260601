@@ -29,7 +29,7 @@ export interface DailyOrder {
   is_urgent: boolean;
   allergens_confirmation: string;
   special_instructions: string;
-  status: 'pending' | 'confirmed' | 'in_production' | 'completed' | 'cancelled';
+  status: 'pending' | 'confirmed' | 'in_production' | 'production_completed' | 'ready_for_dispatch' | 'dispatched' | 'completed' | 'cancelled';
   created_by: string;
   created_at: string;
   updated_at: string;
@@ -45,7 +45,7 @@ export interface ProductionSchedule {
   total_quantity: number;
   start_time: string | null;
   end_time: string | null;
-  status: 'scheduled' | 'in_progress' | 'completed' | 'cancelled';
+  status: 'scheduled' | 'in_production' | 'completed' | 'cancelled';
   assigned_to: string | null;
   notes: string;
   created_at: string;

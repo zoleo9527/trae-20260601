@@ -4,7 +4,7 @@ import type { DailyOrder, ApiResponse } from '@/types';
 
 initDb();
 
-function logOperation(operationType: string, entityType: string, entityId: number, oldValue: string | null, newValue: string, operator: string, notes?: string) {
+function logOperation(operationType: string, entityType: string, entityId: number, oldValue: string | null, newValue: string | null, operator: string, notes?: string) {
   db.prepare(
     'INSERT INTO operation_logs (operation_type, entity_type, entity_id, old_value, new_value, operator, notes) VALUES (?, ?, ?, ?, ?, ?, ?)'
   ).run(operationType, entityType, entityId, oldValue, newValue, operator, notes || null);
@@ -78,7 +78,7 @@ export default function handler(
           WHERE o.id = ?
         `).get(id) as DailyOrder;
         
-        logOperation('update', 'daily_order', id as number, JSON.stringify(existingOrder), JSON.stringify(updatedOrder), operator || 'system');
+        logOperation('update', 'daily_order', Number(id), JSON.stringify(existingOrder), JSON.stringify(updatedOrder), operator || 'system');
         
         res.status(200).json({ success: true, data: updatedOrder });
         break;
@@ -93,7 +93,7 @@ export default function handler(
         }
         
         db.prepare('DELETE FROM daily_orders WHERE id = ?').run(id);
-        logOperation('delete', 'daily_order', id as number, JSON.stringify(existingOrder), null, operator || 'system');
+        logOperation('delete', 'daily_order', Number(id), JSON.stringify(existingOrder), null, operator || 'system');
         
         res.status(200).json({ success: true, message: '删除成功' });
         break;

@@ -48,6 +48,66 @@ export default function handler(
         if (status !== undefined) {
           updates.push('status = ?');
           params.push(status);
+          
+          const oldStatus = (existingSchedule as any).status;
+          
+          if (status === 'in_production' && oldStatus === 'scheduled') {
+            db.prepare(`
+              UPDATE daily_orders 
+              SET status = 'in_production', updated_at = CURRENT_TIMESTAMP 
+              WHERE dish_id = ? 
+              AND order_date = ? 
+              AND status = 'confirmed'
+            `).run((existingSchedule as any).dish_id, (existingSchedule as any).schedule_date);
+            
+            const updatedOrders = db.prepare(`
+              SELECT id FROM daily_orders 
+              WHERE dish_id = ? 
+              AND order_date = ? 
+              AND status = 'in_production'
+            `).all((existingSchedule as any).dish_id, (existingSchedule as any).schedule_date) as any[];
+            
+            for (const order of updatedOrders) {
+              logOperation(
+                'update',
+                'daily_order',
+                order.id,
+                JSON.stringify({ status: 'confirmed' }),
+                JSON.stringify({ status: 'in_production' }),
+                operator || 'system',
+                `排程开始生产（菜品ID: ${(existingSchedule as any).dish_id}），订单进入生产中`
+              );
+            }
+          }
+          
+          if (status === 'completed' && oldStatus === 'in_production') {
+            db.prepare(`
+              UPDATE daily_orders 
+              SET status = 'production_completed', updated_at = CURRENT_TIMESTAMP 
+              WHERE dish_id = ? 
+              AND order_date = ? 
+              AND status = 'in_production'
+            `).run((existingSchedule as any).dish_id, (existingSchedule as any).schedule_date);
+            
+            const updatedOrders = db.prepare(`
+              SELECT id FROM daily_orders 
+              WHERE dish_id = ? 
+              AND order_date = ? 
+              AND status = 'production_completed'
+            `).all((existingSchedule as any).dish_id, (existingSchedule as any).schedule_date) as any[];
+            
+            for (const order of updatedOrders) {
+              logOperation(
+                'update',
+                'daily_order',
+                order.id,
+                JSON.stringify({ status: 'in_production' }),
+                JSON.stringify({ status: 'production_completed' }),
+                operator || 'system',
+                `排程生产完成（菜品ID: ${(existingSchedule as any).dish_id}），订单生产完成，待配送`
+              );
+            }
+          }
         }
         
         if (start_time !== undefined) {
@@ -86,7 +146,7 @@ export default function handler(
           WHERE ps.id = ?
         `).get(id) as ProductionSchedule;
         
-        logOperation('update', 'production_schedule', id as number, JSON.stringify(existingSchedule), JSON.stringify(updatedSchedule), operator || 'system');
+        logOperation('update', 'production_schedule', Number(id), JSON.stringify(existingSchedule), JSON.stringify(updatedSchedule), operator || 'system');
         
         res.status(200).json({ success: true, data: updatedSchedule });
         break;

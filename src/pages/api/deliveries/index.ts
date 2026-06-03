@@ -65,12 +65,12 @@ export default function handler(
         const completedOrders = db.prepare(`
           SELECT o.id, o.store_id, o.dish_id, o.quantity, o.order_date
           FROM daily_orders o
-          WHERE o.status = 'in_production'
+          WHERE o.status = 'production_completed'
           AND o.id NOT IN (SELECT order_id FROM deliveries)
         `).all() as DailyOrder[];
         
         if (completedOrders.length === 0) {
-          return res.status(400).json({ success: false, error: '没有可配送的已完成订单（订单需先进入生产中状态）' });
+          return res.status(400).json({ success: false, error: '没有可配送的生产完成订单（订单需先完成生产）' });
         }
         
         const insertDelivery = db.prepare(`
@@ -104,7 +104,7 @@ export default function handler(
           
           createdDeliveries.push(delivery);
           
-          db.prepare(`UPDATE daily_orders SET status = 'confirmed', updated_at = CURRENT_TIMESTAMP WHERE id = ?`)
+          db.prepare(`UPDATE daily_orders SET status = 'ready_for_dispatch', updated_at = CURRENT_TIMESTAMP WHERE id = ?`)
             .run(order.id);
           
           logOperation(
@@ -121,10 +121,10 @@ export default function handler(
             'update',
             'daily_order',
             order.id,
-            JSON.stringify({ status: 'in_production' }),
-            JSON.stringify({ status: 'confirmed' }),
+            JSON.stringify({ status: 'production_completed' }),
+            JSON.stringify({ status: 'ready_for_dispatch' }),
             operator || 'system',
-            '配送单生成，订单状态变为已确认'
+            '配送单已生成，订单状态变更为待发货'
           );
         }
         

@@ -30,7 +30,7 @@ export default function ProcurementSummary() {
     if (order.is_urgent) {
       acc[order.dish_name!].urgentQuantity += order.quantity;
     }
-    acc[order.dish_name!].stores.add(order.store_name);
+    if (order.store_name) acc[order.dish_name!].stores.add(order.store_name);
     return acc;
   }, {} as Record<string, { quantity: number; urgentQuantity: number; stores: Set<string>; allergens?: string }>);
 
