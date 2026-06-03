@@ -10,16 +10,19 @@ router.get('/', (req: Request, res: Response) => {
     const orders = db.prepare(`
       SELECT o.*, c.name as customer_name, c.phone as customer_phone, c.level as customer_level,
              v.plate, v.brand, v.model, v.color,
-             e.name as employee_name
+             e.name as employee_name,
+             last_inspection.result as last_inspection_result
       FROM orders o
       JOIN customers c ON c.id = o.customer_id
       JOIN vehicles v ON v.id = o.vehicle_id
       LEFT JOIN employees e ON e.id = o.employee_id
+      LEFT JOIN (
+        SELECT order_id, result, created_at,
+               ROW_NUMBER() OVER (PARTITION BY order_id ORDER BY created_at DESC) as rn
+        FROM inspections
+      ) last_inspection ON last_inspection.order_id = o.id AND last_inspection.rn = 1
       WHERE o.status = 'completed'
-        AND NOT EXISTS (
-          SELECT 1 FROM inspections i
-          WHERE i.order_id = o.id AND i.result = 'pass'
-        )
+        AND (last_inspection.result IS NULL OR last_inspection.result != 'pass')
       ORDER BY o.created_at DESC
     `).all() as any[]
 
@@ -49,20 +52,31 @@ router.get('/', (req: Request, res: Response) => {
     res.json({ success: true, data: orders })
   } else if (status === 'completed') {
     const orders = db.prepare(`
-      SELECT DISTINCT o.*, c.name as customer_name, c.phone as customer_phone, c.level as customer_level,
+      SELECT o.*, c.name as customer_name, c.phone as customer_phone, c.level as customer_level,
              v.plate, v.brand, v.model, v.color,
              e.name as employee_name,
-             i.created_at as inspected_at,
-             insp.name as inspector_name
+             last_pass.created_at as inspected_at,
+             insp.name as inspector_name,
+             last_inspection.result as last_inspection_result
       FROM orders o
       JOIN customers c ON c.id = o.customer_id
       JOIN vehicles v ON v.id = o.vehicle_id
       LEFT JOIN employees e ON e.id = o.employee_id
-      JOIN inspections i ON i.order_id = o.id
-      JOIN employees insp ON insp.id = i.inspector_id
-      WHERE i.result = 'pass'
+      JOIN (
+        SELECT order_id, inspector_id, created_at,
+               ROW_NUMBER() OVER (PARTITION BY order_id ORDER BY created_at DESC) as rn
+        FROM inspections
+        WHERE result = 'pass'
+      ) last_pass ON last_pass.order_id = o.id AND last_pass.rn = 1
+      JOIN employees insp ON insp.id = last_pass.inspector_id
+      LEFT JOIN (
+        SELECT order_id, result, created_at,
+               ROW_NUMBER() OVER (PARTITION BY order_id ORDER BY created_at DESC) as rn
+        FROM inspections
+      ) last_inspection ON last_inspection.order_id = o.id AND last_inspection.rn = 1
+      WHERE last_inspection.result = 'pass'
         AND o.status = 'completed'
-      ORDER BY i.created_at DESC
+      ORDER BY last_pass.created_at DESC
     `).all() as any[]
 
     const orderIds = orders.map(o => o.id)
@@ -228,13 +242,21 @@ router.post('/:id/rework', (req: Request, res: Response) => {
 router.post('/compensate', (req: Request, res: Response) => {
   const { customer_package_id, count, reason, service_type } = req.body
 
-  if (!customer_package_id || !count || !reason) {
-    return res.status(400).json({ success: false, error: '套餐ID、次数和原因不能为空' })
+  if (!customer_package_id || !count || !reason || !service_type) {
+    return res.status(400).json({ success: false, error: '套餐ID、次数、原因和服务类型不能为空' })
   }
 
   const pkg = db.prepare('SELECT * FROM customer_packages WHERE id = ?').get(customer_package_id) as any
   if (!pkg) {
     return res.status(404).json({ success: false, error: '客户套餐不存在' })
+  }
+
+  const packageItem = db.prepare(
+    'SELECT * FROM package_items WHERE package_template_id = ? AND service_type = ?'
+  ).get(pkg.package_template_id, service_type)
+
+  if (!packageItem) {
+    return res.status(400).json({ success: false, error: `套餐不包含该服务类型: ${service_type}` })
   }
 
   const tx = db.transaction(() => {
@@ -244,7 +266,7 @@ router.post('/compensate', (req: Request, res: Response) => {
 
     db.prepare(
       "INSERT INTO deduction_records (customer_package_id, type, count, service_type, reason) VALUES (?, 'compensation', ?, ?, ?)"
-    ).run(customer_package_id, count, service_type || null, reason)
+    ).run(customer_package_id, count, service_type, reason)
   })
 
   try {

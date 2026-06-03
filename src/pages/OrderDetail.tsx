@@ -154,7 +154,8 @@ export default function OrderDetail() {
     setSubmitting(false);
   };
 
-  const hasPassedInspection = order?.inspections?.some((i) => i.result === 'pass');
+  const hasPassedInspection = order?.last_inspection_result === 'pass';
+  const lastInspectionIsRework = order?.last_inspection_result === 'rework';
 
   if (loading) {
     return (
