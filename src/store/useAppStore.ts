@@ -9,6 +9,7 @@ import type {
   AuditLog,
   OrderStatus,
   Role,
+  AssignmentStatus,
   PaginationParams,
   FilterParams,
   PaginatedResponse,
@@ -50,6 +51,12 @@ interface AppState {
   getAssignments: (params?: PaginationParams & { technicianId?: string }) => PaginatedResponse<Assignment>;
   getAssignmentById: (id: string) => Assignment | undefined;
   getAssignmentsByOrderId: (orderId: string) => Assignment[];
+  getLatestAssignmentByOrderId: (orderId: string) => Assignment | undefined;
+  updateAssignmentStatus: (
+    assignmentId: string,
+    newStatus: AssignmentStatus,
+    operator: string
+  ) => void;
   createAssignment: (data: {
     scanFileId: string;
     orderId: string;
@@ -97,7 +104,7 @@ const generateOrderNo = () => {
 
 const generateId = () => Math.random().toString(36).substring(2, 15);
 
-const DATA_VERSION = 2;
+const DATA_VERSION = 3;
 
 export const useAppStore = create<AppState>()(
   persist(
@@ -284,6 +291,43 @@ export const useAppStore = create<AppState>()(
       getAssignmentsByOrderId: (orderId) =>
         get().assignments.filter((a) => a.orderId === orderId),
 
+      getLatestAssignmentByOrderId: (orderId) => {
+        const orderAssignments = get().assignments.filter((a) => a.orderId === orderId);
+        if (orderAssignments.length === 0) return undefined;
+        return orderAssignments.sort(
+          (a, b) => new Date(b.assignedAt).getTime() - new Date(a.assignedAt).getTime()
+        )[0];
+      },
+
+      updateAssignmentStatus: (assignmentId, newStatus, operator) => {
+        const assignment = get().getAssignmentById(assignmentId);
+        if (!assignment) return;
+
+        set((state) => ({
+          assignments: state.assignments.map((a) =>
+            a.id === assignmentId
+              ? {
+                  ...a,
+                  status: newStatus,
+                  completedAt:
+                    newStatus === 'COMPLETED' ? new Date().toISOString() : a.completedAt,
+                }
+              : a
+          ),
+        }));
+
+        const order = get().getOrderById(assignment.orderId);
+        get().addAuditLog(
+          assignment.orderId,
+          '派单状态变更',
+          undefined,
+          order?.status,
+          operator,
+          'ADMIN',
+          `派单状态更新为: ${newStatus === 'COMPLETED' ? '已完成' : newStatus === 'ACCEPTED' ? '已接单' : '待接单'}`
+        );
+      },
+
       createAssignment: (data) => {
         const combinedRemark =
           (data.customerServiceRemark ? `【客服】${data.customerServiceRemark}\n` : '') +
@@ -426,6 +470,22 @@ export const useAppStore = create<AppState>()(
         }));
 
         get().addAuditLog(orderId, '状态变更', oldStatus, newStatus, operator, role, detail);
+
+        const latestAssignment = get().getLatestAssignmentByOrderId(orderId);
+        if (latestAssignment) {
+          let assignmentStatus: AssignmentStatus | null = null;
+          if (newStatus === 'IN_PRODUCTION') {
+            assignmentStatus = 'ACCEPTED';
+          } else if (newStatus === 'PENDING_INSPECTION') {
+            assignmentStatus = 'ACCEPTED';
+          } else if (newStatus === 'COMPLETED') {
+            assignmentStatus = 'COMPLETED';
+          }
+
+          if (assignmentStatus && assignmentStatus !== latestAssignment.status) {
+            get().updateAssignmentStatus(latestAssignment.id, assignmentStatus, operator);
+          }
+        }
 
         if (newStatus === 'REWORK') {
           setTimeout(() => {
