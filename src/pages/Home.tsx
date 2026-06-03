@@ -138,7 +138,7 @@ const Home = () => {
             <span className="text-sm text-gray-500">{customerServiceOrders.length} 条异常记录</span>
           </div>
           <div className="divide-y divide-gray-100">
-            {customerServiceOrders.slice(0, 5).map(order => (
+            {(showAll ? customerServiceOrders : customerServiceOrders.slice(0, 5)).map(order => (
               <div key={order.id} className="px-6 py-4 flex items-center justify-between hover:bg-gray-50 transition-colors">
                 <div className="flex items-center gap-4">
                   <div>
@@ -184,7 +184,7 @@ const Home = () => {
                 onClick={() => setShowAll(!showAll)}
                 className="text-sm text-sky-600 hover:text-sky-700"
               >
-                {showAll ? '收起' : `查看全部 ${customerServiceOrders.length} 条`}
+                {showAll ? `收起（显示5条）` : `查看全部 ${customerServiceOrders.length} 条`}
               </button>
             </div>
           )}

@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { Order, OrderHistory, ReworkRecord, ColorConfirm, OrderStatus } from '@/types';
-import { MOCK_ORDERS, MOCK_HISTORY, MOCK_REWORKS, MOCK_COLOR_CONFIRMS } from '@/utils/mock';
+import { MOCK_ORDERS, MOCK_HISTORY, MOCK_REWORKS, MOCK_COLOR_CONFIRMS, DEMO_USERS } from '@/utils/mock';
 import { useAuthStore } from './useAuthStore';
 
 interface OrderState {
@@ -63,7 +63,13 @@ export const useOrderStore = create<OrderState>((set, get) => ({
       colorConfirms: [...state.colorConfirms, newColorConfirm],
       orders: state.orders.map(o => 
         o.id === orderId 
-          ? { ...o, shade, status: 'color_confirmed' as OrderStatus, updatedAt: now }
+          ? { 
+              ...o, 
+              shade, 
+              status: 'color_confirmed' as OrderStatus, 
+              currentHandler: currentUser.name,
+              updatedAt: now 
+            }
           : o
       ),
       history: [...state.history, {
@@ -72,7 +78,7 @@ export const useOrderStore = create<OrderState>((set, get) => ({
         action: '色号确认',
         operator: currentUser.name,
         operatorRole: currentUser.role,
-        remark: remark || `确认色号 ${shade}`,
+        remark: remark || `确认色号 ${shade}，责任人：${currentUser.name}`,
         createdAt: now
       }]
     }));
@@ -130,6 +136,9 @@ export const useOrderStore = create<OrderState>((set, get) => ({
     const rework = get().reworks.find(r => r.id === reworkId);
     if (!rework) return;
     
+    const inspector = DEMO_USERS.find((u: { role: string }) => u.role === 'inspector');
+    const inspectorName = inspector?.name || '王质检';
+    
     set(state => ({
       reworks: state.reworks.map(r => 
         r.id === reworkId 
@@ -138,7 +147,12 @@ export const useOrderStore = create<OrderState>((set, get) => ({
       ),
       orders: state.orders.map(o => 
         o.id === rework.orderId 
-          ? { ...o, status: 'quality_check' as OrderStatus, updatedAt: now }
+          ? { 
+              ...o, 
+              status: 'quality_check' as OrderStatus, 
+              currentHandler: inspectorName,
+              updatedAt: now 
+            }
           : o
       ),
       history: [...state.history, {
@@ -147,7 +161,7 @@ export const useOrderStore = create<OrderState>((set, get) => ({
         action: '返工完成',
         operator: currentUser.name,
         operatorRole: currentUser.role,
-        remark,
+        remark: remark || `返工处理完成，提交质检，责任人：${inspectorName}`,
         createdAt: now
       }]
     }));
@@ -168,20 +182,41 @@ export const useOrderStore = create<OrderState>((set, get) => ({
       completed: '更新状态为已完成'
     };
     
-    set(state => ({
-      orders: state.orders.map(o => 
-        o.id === orderId ? { ...o, status, updatedAt: now } : o
-      ),
-      history: [...state.history, {
-        id: generateId(),
-        orderId,
-        action: actionMap[status] || '状态更新',
-        operator: currentUser.name,
-        operatorRole: currentUser.role,
-        remark: remark || `状态变更为 ${status}`,
-        createdAt: now
-      }]
-    }));
+    const getNextHandler = (newStatus: OrderStatus, currentHandler: string) => {
+      switch (newStatus) {
+        case 'in_production':
+        case 'color_confirmed':
+        case 'model_received':
+          return currentUser.name;
+        case 'quality_check':
+          const inspector = DEMO_USERS.find((u: { role: string }) => u.role === 'inspector');
+          return inspector?.name || '王质检';
+        case 'completed':
+          const cs = DEMO_USERS.find((u: { role: string }) => u.role === 'customer_service');
+          return cs?.name || '张小姐';
+        default:
+          return currentHandler;
+      }
+    };
+    
+    set(state => {
+      const order = state.orders.find(o => o.id === orderId);
+      const nextHandler = getNextHandler(status, order?.currentHandler || '');
+      return {
+        orders: state.orders.map(o => 
+          o.id === orderId ? { ...o, status, currentHandler: nextHandler, updatedAt: now } : o
+        ),
+        history: [...state.history, {
+          id: generateId(),
+          orderId,
+          action: actionMap[status] || '状态更新',
+          operator: currentUser.name,
+          operatorRole: currentUser.role,
+          remark: remark || `状态变更为 ${status}，责任人：${nextHandler}`,
+          createdAt: now
+        }]
+      };
+    });
   },
   
   receiveModel: (orderId, remark) => {
@@ -193,7 +228,13 @@ export const useOrderStore = create<OrderState>((set, get) => ({
     set(state => ({
       orders: state.orders.map(o => 
         o.id === orderId 
-          ? { ...o, modelReceived: true, status: 'model_received' as OrderStatus, updatedAt: now }
+          ? { 
+              ...o, 
+              modelReceived: true, 
+              status: 'model_received' as OrderStatus, 
+              currentHandler: currentUser.name,
+              updatedAt: now 
+            }
           : o
       ),
       history: [...state.history, {
@@ -202,7 +243,7 @@ export const useOrderStore = create<OrderState>((set, get) => ({
         action: '模型已接收',
         operator: currentUser.name,
         operatorRole: currentUser.role,
-        remark: remark || '口扫文件已确认接收',
+        remark: remark || `口扫文件已确认接收，责任人：${currentUser.name}`,
         createdAt: now
       }]
     }));
@@ -215,8 +256,19 @@ export const useOrderStore = create<OrderState>((set, get) => ({
     const now = new Date().toISOString();
     const newStatus = passed ? 'completed' : 'rework';
     
+    const getNextHandler = (isPassed: boolean) => {
+      if (isPassed) {
+        const cs = DEMO_USERS.find((u: { role: string }) => u.role === 'customer_service');
+        return cs?.name || '张小姐';
+      } else {
+        const designer = DEMO_USERS.find((u: { role: string }) => u.role === 'designer');
+        return designer?.name || '李工';
+      }
+    };
+    
     set(state => {
       const order = state.orders.find(o => o.id === orderId);
+      const nextHandler = getNextHandler(passed);
       return {
         orders: state.orders.map(o => 
           o.id === orderId 
@@ -224,6 +276,7 @@ export const useOrderStore = create<OrderState>((set, get) => ({
                 ...o, 
                 status: newStatus as OrderStatus, 
                 reworkCount: !passed ? (order?.reworkCount || 0) + 1 : o.reworkCount,
+                currentHandler: nextHandler,
                 updatedAt: now 
               }
             : o
@@ -234,7 +287,7 @@ export const useOrderStore = create<OrderState>((set, get) => ({
           action: passed ? '质检通过' : '质检驳回',
           operator: currentUser.name,
           operatorRole: currentUser.role,
-          remark: remark || (passed ? '质量检查通过，可以交付' : '质量检查未通过，需要返工'),
+          remark: remark || (passed ? `质量检查通过，可以交付，责任人：${nextHandler}` : `质量检查未通过，需要返工，责任人：${nextHandler}`),
           createdAt: now
         }]
       };
