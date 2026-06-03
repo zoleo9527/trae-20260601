@@ -8,14 +8,19 @@
 		ROLE_LABELS,
 		SEVERITY_LABELS,
 		DAMAGE_STATUS_LABELS,
-		REPAIR_STATUS_LABELS
+		REPAIR_STATUS_LABELS,
+		STATUS_RESPONSIBILITY,
+		ROLE_COLORS,
+		ROLE_ICONS
 	} from '$lib/types';
 	import type {
 		DeliveryDetail,
 		TimelineEvent,
 		DamageReport,
 		RepairFollowup,
-		User
+		User,
+		DeliveryStatus,
+		UserRole
 	} from '$lib/types';
 
 	let loading = true;
@@ -133,6 +138,35 @@
 	function isOverdue(): boolean {
 		if (!delivery) return false;
 		return delivery.display_status === 'OVERDUE';
+	}
+
+	function getResponsibility() {
+		if (!delivery) return null;
+		return STATUS_RESPONSIBILITY[delivery.status as DeliveryStatus];
+	}
+
+	function getResponsibilityRole(): UserRole {
+		const resp = getResponsibility();
+		return resp ? resp.role : 'store_clerk';
+	}
+
+	function getResponsibilityLabel(): string {
+		const resp = getResponsibility();
+		return resp ? resp.roleLabel : '';
+	}
+
+	function getResponsibilityNextAction(): string {
+		const resp = getResponsibility();
+		return resp ? resp.nextAction : '';
+	}
+
+	function getOverdueReason(): string | undefined {
+		const resp = getResponsibility();
+		if (resp?.overdueReason) return resp.overdueReason;
+		if (isOverdue() && delivery && delivery.status !== 'OVERDUE') {
+			return `已逾期，当前处于${STATUS_LABELS[delivery.status as DeliveryStatus]}状态，需${resp?.roleLabel || '相关角色'}继续处理`;
+		}
+		return undefined;
 	}
 
 	const canCreateDamage = () => {
@@ -439,6 +473,35 @@
 						</div>
 					</div>
 				</div>
+
+				{#if delivery.status !== 'CLOSED' && getResponsibility()}
+					<div class="bg-white rounded-lg shadow p-6">
+						<h3 class="text-lg font-semibold text-gray-900 mb-4">🤝 责任交接</h3>
+						<div class="space-y-3">
+							<div class="flex items-center space-x-3">
+								<span class="inline-flex items-center px-3 py-1 rounded-md text-sm font-semibold border {ROLE_COLORS[getResponsibilityRole()]}">
+									{ROLE_ICONS[getResponsibilityRole()]} {getResponsibilityLabel()}
+								</span>
+								<span class="text-sm text-gray-500">负责处理</span>
+							</div>
+							<div class="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+								<p class="text-sm font-medium text-blue-800">📋 下一步待办</p>
+								<p class="text-sm text-blue-700 mt-1">{getResponsibilityNextAction()}</p>
+							</div>
+							{#if getOverdueReason()}
+								<div class="p-3 bg-red-50 border border-red-200 rounded-lg">
+									<p class="text-sm font-medium text-red-800">⚠️ 逾期原因</p>
+									<p class="text-sm text-red-700 mt-1">{getOverdueReason()}</p>
+								</div>
+							{/if}
+							{#if $currentUser && $currentUser.role === getResponsibilityRole()}
+								<div class="p-2 bg-green-50 border border-green-200 rounded-lg">
+									<p class="text-xs text-green-700 font-medium">✅ 当前由你负责，请尽快处理</p>
+								</div>
+							{/if}
+						</div>
+					</div>
+				{/if}
 
 				<div class="bg-white rounded-lg shadow p-6">
 					<h3 class="text-lg font-semibold text-gray-900 mb-4">⚡ 快捷操作</h3>

@@ -514,6 +514,37 @@ function updateDeliveryStatus(
 	).run(deliveryId, oldStatus, newStatus, changedBy, reason);
 }
 
+const HANDOFF_TITLES: Record<string, string> = {
+	'null->PENDING_RETURN': '创建租赁单',
+	'PENDING_RETURN->RETURNED': '客户归还器材 → 门店店员接收',
+	'PENDING_RETURN->DAMAGE_IDENTIFIED': '发现损坏 → 门店店员提交鉴定',
+	'PENDING_RETURN->MATERIALS_MISSING': '发现缺材料 → 门店店员登记',
+	'RETURNED->DAMAGE_IDENTIFIED': '发现损坏 → 门店店员提交鉴定',
+	'RETURNED->MATERIALS_MISSING': '发现缺材料 → 门店店员登记',
+	'RETURNED->CLOSED': '器材完好 → 门店店员直接结案',
+	'DAMAGE_IDENTIFIED->MATERIALS_MISSING': '补充缺材料登记 → 交器材管理员复核',
+	'DAMAGE_IDENTIFIED->REVIEW_REJECTED': '复核不通过 → 退回门店店员重新鉴定',
+	'DAMAGE_IDENTIFIED->REPAIR_PENDING': '复核通过 → 交器材管理员安排维修',
+	'MATERIALS_MISSING->DAMAGE_IDENTIFIED': '补充鉴定信息 → 交器材管理员复核',
+	'MATERIALS_MISSING->REVIEW_REJECTED': '复核不通过 → 退回门店店员重新鉴定',
+	'MATERIALS_MISSING->REPAIR_PENDING': '复核通过 → 交器材管理员安排维修',
+	'PENDING_REVIEW->REPAIR_PENDING': '复核通过 → 交器材管理员安排维修',
+	'PENDING_REVIEW->REVIEW_REJECTED': '复核不通过 → 退回门店店员重新鉴定',
+	'REVIEW_REJECTED->DAMAGE_IDENTIFIED': '重新提交鉴定 → 交器材管理员复核',
+	'REVIEW_REJECTED->MATERIALS_MISSING': '重新提交鉴定（含缺材料）→ 交器材管理员复核',
+	'REPAIR_PENDING->REPAIR_IN_PROGRESS': '维修开始 → 器材管理员跟进',
+	'REPAIR_PENDING->REPAIR_PENDING': '安排维修 → 器材管理员跟进',
+	'REPAIR_IN_PROGRESS->REPAIR_COMPLETED': '维修完成 → 交财务结算',
+	'REPAIR_COMPLETED->FINANCIAL_CONFIRMED': '财务确认 → 交门店店员结案',
+	'OVERDUE->FINANCIAL_CONFIRMED': '财务确认 → 交门店店员结案',
+	'FINANCIAL_CONFIRMED->CLOSED': '结案 → 流程结束'
+};
+
+function getHandoffTitle(oldStatus: DeliveryStatus | null, newStatus: DeliveryStatus): string {
+	const key = `${oldStatus}->${newStatus}`;
+	return HANDOFF_TITLES[key] || `状态变更：${oldStatus || '初始'} → ${newStatus}`;
+}
+
 export function getTimelineEvents(deliveryId: number): TimelineEvent[] {
 	const detail = getDeliveryDetail(deliveryId);
 	if (!detail) return [];
@@ -521,10 +552,11 @@ export function getTimelineEvents(deliveryId: number): TimelineEvent[] {
 	const events: TimelineEvent[] = [];
 
 	detail.status_logs.forEach((log) => {
+		const handoffTitle = getHandoffTitle(log.old_status, log.new_status);
 		events.push({
 			id: `status-${log.id}`,
 			type: 'status',
-			title: `状态变更`,
+			title: handoffTitle,
 			description: log.change_reason || '',
 			operator: log.changer?.name || '未知',
 			operator_role: log.changer?.role || '',
@@ -540,7 +572,7 @@ export function getTimelineEvents(deliveryId: number): TimelineEvent[] {
 		events.push({
 			id: `damage-${dr.id}`,
 			type: 'damage',
-			title: `损坏鉴定提交: ${dr.damage_type}`,
+			title: `门店店员提交损坏鉴定 → 交器材管理员复核`,
 			description: dr.description,
 			operator: dr.reporter?.name || '未知',
 			operator_role: dr.reporter?.role || '',
@@ -557,7 +589,9 @@ export function getTimelineEvents(deliveryId: number): TimelineEvent[] {
 			events.push({
 				id: `damage-review-${dr.id}`,
 				type: 'damage',
-				title: `损坏${dr.status === 'APPROVED' ? '鉴定通过' : '复核不通过'}`,
+				title: dr.status === 'APPROVED'
+					? `器材管理员复核通过 → 交器材管理员安排维修`
+					: `器材管理员复核不通过 → 退回门店店员重新鉴定`,
 				description: dr.review_comment || '',
 				operator: dr.reviewer?.name || '未知',
 				operator_role: dr.reviewer?.role || '',
@@ -572,7 +606,7 @@ export function getTimelineEvents(deliveryId: number): TimelineEvent[] {
 			events.push({
 				id: `repair-${rf.id}`,
 				type: 'repair',
-				title: `维修安排: ${rf.repair_type || '维修'}`,
+				title: `器材管理员安排维修 → 交维修负责人执行`,
 				description: rf.repair_description || '',
 				operator: rf.creator?.name || '未知',
 				operator_role: rf.creator?.role || '',
@@ -588,7 +622,7 @@ export function getTimelineEvents(deliveryId: number): TimelineEvent[] {
 				events.push({
 					id: `repair-start-${rf.id}`,
 					type: 'repair',
-					title: `维修开始`,
+					title: `维修开始 → 器材管理员跟进进度`,
 					description: rf.repair_description || '',
 					operator: rf.assignee?.name || '未知',
 					operator_role: rf.assignee?.role || '',
@@ -603,7 +637,7 @@ export function getTimelineEvents(deliveryId: number): TimelineEvent[] {
 				events.push({
 					id: `repair-complete-${rf.id}`,
 					type: 'repair',
-					title: `维修完成`,
+					title: `维修完成 → 交财务结算`,
 					description: rf.repair_notes || rf.repair_description || '',
 					operator: rf.assignee?.name || '未知',
 					operator_role: rf.assignee?.role || '',
@@ -620,7 +654,7 @@ export function getTimelineEvents(deliveryId: number): TimelineEvent[] {
 		events.push({
 			id: `payment-${p.id}`,
 			type: 'payment',
-			title: `财务确认: ${p.payment_type}`,
+			title: `财务确认结算 → 交门店店员结案`,
 			description: p.notes || `金额 ¥${p.amount}`,
 			operator: p.confirmer?.name || '未知',
 			operator_role: p.confirmer?.role || '',

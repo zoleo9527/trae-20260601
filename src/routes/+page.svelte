@@ -3,7 +3,10 @@
 	import {
 		STATUS_LABELS,
 		STATUS_COLORS,
-		ROLE_LABELS
+		ROLE_LABELS,
+		STATUS_RESPONSIBILITY,
+		ROLE_COLORS,
+		ROLE_ICONS
 	} from '$lib/types';
 	import type { Delivery, DeliveryStatus } from '$lib/types';
 	import { currentUser } from '$lib/stores';
@@ -51,6 +54,19 @@
 
 	function isOverdue(delivery: Delivery): boolean {
 		return delivery.display_status === 'OVERDUE';
+	}
+
+	function getResponsibility(delivery: Delivery) {
+		return STATUS_RESPONSIBILITY[delivery.status as DeliveryStatus];
+	}
+
+	function getOverdueReason(delivery: Delivery): string | undefined {
+		const resp = getResponsibility(delivery);
+		if (resp?.overdueReason) return resp.overdueReason;
+		if (isOverdue(delivery) && delivery.status !== 'OVERDUE') {
+			return `已逾期，当前处于${STATUS_LABELS[delivery.status as DeliveryStatus]}状态，需${resp?.roleLabel || '相关角色'}继续处理`;
+		}
+		return undefined;
 	}
 
 	const canCreateDamage = (delivery: Delivery) => {
@@ -134,10 +150,10 @@
 								日期
 							</th>
 							<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-								押金/租金
+								状态
 							</th>
 							<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-								状态
+								责任交接
 							</th>
 							<th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
 								操作
@@ -146,6 +162,8 @@
 					</thead>
 					<tbody class="bg-white divide-y divide-gray-200">
 						{#each deliveries as delivery}
+							{@const resp = getResponsibility(delivery)}
+							{@const overdueReason = getOverdueReason(delivery)}
 							<tr
 								class="hover:bg-gray-50 transition-colors"
 								class:bg-red-50={isOverdue(delivery)}
@@ -182,16 +200,25 @@
 										<div class="text-gray-600">实还: {formatDate(delivery.actual_return_date)}</div>
 									{/if}
 								</td>
-								<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-									<div>押金: <span class="font-medium">¥{delivery.deposit_amount.toFixed(0)}</span></div>
-									<div>租金: ¥{delivery.rental_fee.toFixed(0)}</div>
-								</td>
 								<td class="px-6 py-4 whitespace-nowrap">
 									<span
 										class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full {STATUS_COLORS[delivery.display_status]}"
 									>
 										{STATUS_LABELS[delivery.display_status]}
 									</span>
+								</td>
+								<td class="px-6 py-4">
+									{#if resp}
+										<div class="flex items-center space-x-2 mb-1">
+											<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium border {ROLE_COLORS[resp.role]}">
+												{ROLE_ICONS[resp.role]} {resp.roleLabel}
+											</span>
+										</div>
+										<p class="text-xs text-gray-600 max-w-[200px]">{resp.nextAction}</p>
+										{#if overdueReason}
+											<p class="text-xs text-red-600 mt-1 max-w-[200px]">⚠️ {overdueReason}</p>
+										{/if}
+									{/if}
 								</td>
 								<td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
 									<a

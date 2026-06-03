@@ -124,6 +124,90 @@ export interface TimelineEvent {
 	metadata?: Record<string, unknown>;
 }
 
+export interface ResponsibilityInfo {
+	role: UserRole;
+	roleLabel: string;
+	nextAction: string;
+	overdueReason?: string;
+}
+
+export const STATUS_RESPONSIBILITY: Record<DeliveryStatus, ResponsibilityInfo> = {
+	PENDING_RETURN: {
+		role: 'store_clerk',
+		roleLabel: '门店店员',
+		nextAction: '等待客户归还器材'
+	},
+	RETURNED: {
+		role: 'store_clerk',
+		roleLabel: '门店店员',
+		nextAction: '检查归还器材，如有损坏提交鉴定'
+	},
+	DAMAGE_IDENTIFIED: {
+		role: 'equipment_manager',
+		roleLabel: '器材管理员',
+		nextAction: '复核损坏鉴定报告'
+	},
+	MATERIALS_MISSING: {
+		role: 'equipment_manager',
+		roleLabel: '器材管理员',
+		nextAction: '复核损坏鉴定（含缺材料登记）'
+	},
+	PENDING_REVIEW: {
+		role: 'equipment_manager',
+		roleLabel: '器材管理员',
+		nextAction: '复核损坏鉴定报告'
+	},
+	REVIEW_REJECTED: {
+		role: 'store_clerk',
+		roleLabel: '门店店员',
+		nextAction: '重新提交损坏鉴定',
+		overdueReason: '复核不通过，需门店店员补充鉴定信息后重新提交'
+	},
+	REPAIR_PENDING: {
+		role: 'equipment_manager',
+		roleLabel: '器材管理员',
+		nextAction: '安排维修并指定负责人'
+	},
+	REPAIR_IN_PROGRESS: {
+		role: 'equipment_manager',
+		roleLabel: '器材管理员',
+		nextAction: '跟进维修进度，完成后更新状态'
+	},
+	REPAIR_COMPLETED: {
+		role: 'finance',
+		roleLabel: '财务',
+		nextAction: '确认维修费用并完成财务结算'
+	},
+	FINANCIAL_CONFIRMED: {
+		role: 'store_clerk',
+		roleLabel: '门店店员',
+		nextAction: '确认所有事项完成后结案'
+	},
+	OVERDUE: {
+		role: 'finance',
+		roleLabel: '财务',
+		nextAction: '确认费用并完成结算',
+		overdueReason: '器材逾期未还，需财务介入结算逾期费用'
+	},
+	CLOSED: {
+		role: 'store_clerk',
+		roleLabel: '门店店员',
+		nextAction: '已结案，无需操作'
+	}
+};
+
+export const ROLE_COLORS: Record<UserRole, string> = {
+	store_clerk: 'bg-blue-100 text-blue-800 border-blue-200',
+	equipment_manager: 'bg-purple-100 text-purple-800 border-purple-200',
+	finance: 'bg-green-100 text-green-800 border-green-200'
+};
+
+export const ROLE_ICONS: Record<UserRole, string> = {
+	store_clerk: '👤',
+	equipment_manager: '🔧',
+	finance: '💰'
+};
+
 export const STATUS_LABELS: Record<DeliveryStatus, string> = {
 	PENDING_RETURN: '待归还',
 	RETURNED: '已归还',
