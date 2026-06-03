@@ -57,10 +57,7 @@ export function getUserById(id: number): User | undefined {
 }
 
 function computeDisplayStatus(delivery: Delivery): DeliveryStatus {
-	if (['MATERIALS_MISSING', 'REVIEW_REJECTED', 'REPAIR_PENDING', 'REPAIR_IN_PROGRESS'].includes(delivery.status)) {
-		return delivery.status as DeliveryStatus;
-	}
-	if (['FINANCIAL_CONFIRMED', 'CLOSED', 'PENDING_RETURN', 'OVERDUE'].includes(delivery.status)) {
+	if (['REPAIR_PENDING', 'REPAIR_IN_PROGRESS', 'FINANCIAL_CONFIRMED', 'CLOSED', 'PENDING_RETURN', 'OVERDUE'].includes(delivery.status)) {
 		return delivery.status as DeliveryStatus;
 	}
 	const today = new Date().toISOString().split('T')[0];
@@ -74,7 +71,7 @@ export function getDeliveries(status?: DeliveryStatus): Delivery[] {
 
 	if (status) {
 		if (status === 'OVERDUE') {
-			sql += ` WHERE d.status IN ('RETURNED', 'DAMAGE_IDENTIFIED', 'PENDING_REVIEW', 'REPAIR_COMPLETED') AND d.expected_return_date < DATE('now')`;
+			sql += ` WHERE d.status IN ('RETURNED', 'DAMAGE_IDENTIFIED', 'MATERIALS_MISSING', 'PENDING_REVIEW', 'REVIEW_REJECTED', 'REPAIR_COMPLETED') AND d.expected_return_date < DATE('now')`;
 		} else {
 			sql += ' WHERE d.status = ?';
 			params.push(status);
@@ -87,7 +84,8 @@ export function getDeliveries(status?: DeliveryStatus): Delivery[] {
 
 	return rows.map((row) => ({
 		...row,
-		status: computeDisplayStatus(row)
+		status: row.status as DeliveryStatus,
+		display_status: computeDisplayStatus(row)
 	}));
 }
 
@@ -186,7 +184,8 @@ export function getDeliveryDetail(id: number): DeliveryDetail | undefined {
 
 	return {
 		...delivery,
-		status: displayStatus,
+		status: delivery.status as DeliveryStatus,
+		display_status: displayStatus,
 		damage_reports: damageReportsWithRepairs,
 		status_logs: statusLogs.map((sl) => ({
 			...sl,

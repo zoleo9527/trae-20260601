@@ -130,6 +130,11 @@
 		}
 	}
 
+	function isOverdue(): boolean {
+		if (!delivery) return false;
+		return delivery.display_status === 'OVERDUE';
+	}
+
 	const canCreateDamage = () => {
 		if (!$currentUser || !delivery) return false;
 		if ($currentUser.role !== 'store_clerk') return false;
@@ -372,9 +377,9 @@
 				<span class="font-mono text-lg text-gray-600">{delivery.delivery_no}</span>
 			</div>
 			<span
-				class="px-4 py-1.5 inline-flex text-sm font-semibold rounded-full {STATUS_COLORS[delivery.status]}"
+				class="px-4 py-1.5 inline-flex text-sm font-semibold rounded-full {STATUS_COLORS[delivery.display_status]}"
 			>
-				{STATUS_LABELS[delivery.status]}
+				{STATUS_LABELS[delivery.display_status]}
 			</span>
 		</div>
 
@@ -406,12 +411,19 @@
 							</div>
 							<div class="flex justify-between mt-1">
 								<span class="text-gray-500">应还日期</span>
-								<span>{formatDate(delivery.expected_return_date)}</span>
+								<span class:font-medium={isOverdue()} class:text-red-600={isOverdue()}>{formatDate(delivery.expected_return_date)}</span>
 							</div>
 							{#if delivery.actual_return_date}
 								<div class="flex justify-between mt-1">
 									<span class="text-gray-500">实还日期</span>
 									<span>{formatDate(delivery.actual_return_date)}</span>
+								</div>
+							{/if}
+							{#if isOverdue() && delivery.status !== 'OVERDUE'}
+								<div class="mt-3 p-2 bg-red-50 border border-red-200 rounded">
+									<p class="text-xs text-red-700">
+										⚠️ 已超时，当前处理状态：<span class="font-medium">{getStatusLabel(delivery.status)}</span>
+									</p>
 								</div>
 							{/if}
 						</div>

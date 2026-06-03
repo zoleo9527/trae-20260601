@@ -42,7 +42,7 @@
 	}
 
 	function getStatusCount(status: string): number {
-		return deliveries.filter((d) => d.status === status).length;
+		return deliveries.filter((d) => d.display_status === status).length;
 	}
 
 	function formatDate(dateStr: string): string {
@@ -50,7 +50,7 @@
 	}
 
 	function isOverdue(delivery: Delivery): boolean {
-		return delivery.status === 'OVERDUE';
+		return delivery.display_status === 'OVERDUE';
 	}
 
 	const canCreateDamage = (delivery: Delivery) => {
@@ -66,7 +66,7 @@
 			<h2 class="text-2xl font-bold text-gray-900">租赁单管理</h2>
 			<p class="mt-1 text-sm text-gray-600">
 				异常单：<span class="font-medium text-red-600">
-					{deliveries.filter((d) => ['MATERIALS_MISSING', 'OVERDUE', 'REVIEW_REJECTED'].includes(d.status)).length}
+					{deliveries.filter((d) => ['MATERIALS_MISSING', 'OVERDUE', 'REVIEW_REJECTED'].includes(d.display_status)).length}
 				</span> 单
 			</p>
 		</div>
@@ -149,18 +149,18 @@
 							<tr
 								class="hover:bg-gray-50 transition-colors"
 								class:bg-red-50={isOverdue(delivery)}
-								class:bg-yellow-50={delivery.status === 'MATERIALS_MISSING'}
-								class:bg-orange-50={delivery.status === 'REVIEW_REJECTED'}
+								class:bg-yellow-50={delivery.display_status === 'MATERIALS_MISSING'}
+								class:bg-orange-50={delivery.display_status === 'REVIEW_REJECTED'}
 							>
 								<td class="px-6 py-4 whitespace-nowrap">
 									<span class="font-mono text-sm font-medium text-gray-900">{delivery.delivery_no}</span>
 									{#if isOverdue(delivery)}
 										<span class="ml-2 text-xs text-red-600 font-medium">⚠️ 超时</span>
 									{/if}
-									{#if delivery.status === 'MATERIALS_MISSING'}
+									{#if delivery.display_status === 'MATERIALS_MISSING'}
 										<span class="ml-2 text-xs text-red-600 font-medium">📦 缺材料</span>
 									{/if}
-									{#if delivery.status === 'REVIEW_REJECTED'}
+									{#if delivery.display_status === 'REVIEW_REJECTED'}
 										<span class="ml-2 text-xs text-orange-600 font-medium">❌ 复核不通过</span>
 									{/if}
 								</td>
@@ -188,9 +188,9 @@
 								</td>
 								<td class="px-6 py-4 whitespace-nowrap">
 									<span
-										class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full {STATUS_COLORS[delivery.status]}"
+										class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full {STATUS_COLORS[delivery.display_status]}"
 									>
-										{STATUS_LABELS[delivery.status]}
+										{STATUS_LABELS[delivery.display_status]}
 									</span>
 								</td>
 								<td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">

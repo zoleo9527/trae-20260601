@@ -36,6 +36,7 @@ export interface Delivery {
 	deposit_amount: number;
 	rental_fee: number;
 	status: DeliveryStatus;
+	display_status: DeliveryStatus;
 	created_at: string;
 	updated_at: string;
 }
