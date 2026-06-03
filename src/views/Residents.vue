@@ -124,6 +124,21 @@ const isExpired = (leaseEnd: string) => {
   if (!leaseEnd) return false
   return dayjs(leaseEnd).isBefore(dayjs(), 'day')
 }
+
+const getStatusLabel = (status: string) => {
+  const map: Record<string, string> = {
+    active: '正常', inactive: '停用', lost: '已挂失', expired: '已过期', pending: '待激活'
+  }
+  return map[status] || status
+}
+
+const getStatusBadge = (status: string) => {
+  const map: Record<string, string> = {
+    active: 'badge-active', inactive: 'badge-inactive',
+    lost: 'badge-lost', expired: 'badge-expired', pending: 'badge-pending'
+  }
+  return map[status] || ''
+}
 </script>
 
 <template>
@@ -298,14 +313,17 @@ const isExpired = (leaseEnd: string) => {
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="card in detailData.cards" :key="card.id">
+                <tr v-for="card in detailData.cards" :key="card.id" :class="{ 'row-highlight': card.remark && card.remark.includes('补办') }">
                   <td class="font-mono">{{ card.cardNo }}</td>
                   <td>{{ card.permissionGroupName }}</td>
-                  <td><span class="badge" :class="'badge-' + card.status">{{ getStatusLabel(card.status) }}</span></td>
+                  <td><span class="badge" :class="getStatusBadge(card.status)">{{ getStatusLabel(card.status) }}</span></td>
                   <td>{{ card.issueDate }}</td>
                   <td>{{ card.expireDate || '长期' }}</td>
                   <td class="text-sm text-gray">{{ card.lastUsed || '-' }}</td>
-                  <td class="text-sm text-gray">{{ card.remark || '-' }}</td>
+                  <td class="text-sm">
+                    <span v-if="card.remark" class="text-blue" :title="card.remark">{{ card.remark }}</span>
+                    <span v-else class="text-gray">-</span>
+                  </td>
                 </tr>
               </tbody>
             </table>

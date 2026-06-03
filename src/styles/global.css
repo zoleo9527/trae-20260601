@@ -644,6 +644,18 @@ tbody tr:last-child td {
   background: var(--gray-100);
 }
 
+.text-blue {
+  color: var(--primary);
+}
+
+.row-highlight {
+  background: #f0f9ff !important;
+}
+
+.row-highlight:hover {
+  background: #e0f2fe !important;
+}
+
 ::-webkit-scrollbar-thumb {
   background: var(--gray-300);
   border-radius: 4px;

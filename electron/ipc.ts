@@ -470,16 +470,41 @@ export function registerHandlers() {
         INSERT INTO access_cards (cardNo, residentId, permissionGroupId, status, issueDate, remark, createdAt, updatedAt)
         VALUES (?, ?, ?, 'pending', ?, '新办卡', ?, ?)
       `).run(cardNo, app.residentId, app.permissionGroupId, dayjs().format('YYYY-MM-DD'), now, now)
-    } else if (app.type === 'reissue' && app.cardId) {
-      db.prepare('UPDATE access_cards SET status = ?, updatedAt = ? WHERE id = ?')
-        .run('inactive', now, app.cardId)
-      const oldCard = db.prepare('SELECT * FROM access_cards WHERE id = ?').get(app.cardId) as any
+    } else if (app.type === 'reissue') {
+      let oldCards: any[] = []
+      let oldCardNos: string[] = []
+      
+      if (app.cardId) {
+        const oldCard = db.prepare('SELECT * FROM access_cards WHERE id = ?').get(app.cardId) as any
+        if (oldCard) {
+          oldCards = [oldCard]
+          oldCardNos = [oldCard.cardNo]
+        }
+      } else {
+        oldCards = db.prepare(`
+          SELECT * FROM access_cards 
+          WHERE residentId = ? AND status IN ('active', 'inactive', 'pending')
+          ORDER BY createdAt DESC
+        `).all(app.residentId) as any[]
+        oldCardNos = oldCards.map(c => c.cardNo)
+      }
+      
+      if (oldCards.length > 0) {
+        const cardIds = oldCards.map(c => c.id)
+        const placeholders = cardIds.map(() => '?').join(', ')
+        db.prepare(`UPDATE access_cards SET status = 'inactive', updatedAt = ? WHERE id IN (${placeholders})`)
+          .run(now, ...cardIds)
+      }
+      
       const cardNo = 'CARD' + String(Date.now()).slice(-6)
+      const remark = oldCardNos.length > 0 
+        ? `补办，替代旧卡 ${oldCardNos.join('、')}` 
+        : '补办（无旧卡记录）'
+      
       db.prepare(`
         INSERT INTO access_cards (cardNo, residentId, permissionGroupId, status, issueDate, remark, createdAt, updatedAt)
-        VALUES (?, ?, ?, 'pending', ?, '补办，替代旧卡 ' || ?, ?, ?)
-      `).run(cardNo, app.residentId, app.permissionGroupId, dayjs().format('YYYY-MM-DD'),
-        oldCard?.cardNo || '', now, now)
+        VALUES (?, ?, ?, 'pending', ?, ?, ?, ?)
+      `).run(cardNo, app.residentId, app.permissionGroupId, dayjs().format('YYYY-MM-DD'), remark, now, now)
     } else if (app.type === 'permission') {
       db.prepare(`
         UPDATE access_cards SET permissionGroupId = ?, updatedAt = ?
@@ -496,59 +521,63 @@ export function registerHandlers() {
 
   // ==================== Operation Logs ====================
   ipcMain.handle('operationLog:list', (_, page: number, pageSize: number, filters?: any) => {
-    let sql = 'SELECT * FROM operation_logs WHERE 1=1'
-    const countSql = 'SELECT COUNT(*) as cnt FROM operation_logs WHERE 1=1'
+    const whereClauses: string[] = []
     const params: any[] = []
 
     if (filters) {
       if (filters.operator) {
-        sql += ' AND operator LIKE ?'
+        whereClauses.push('operator LIKE ?')
         params.push(`%${filters.operator}%`)
       }
       if (filters.action) {
-        sql += ' AND action LIKE ?'
+        whereClauses.push('action LIKE ?')
         params.push(`%${filters.action}%`)
       }
       if (filters.startDate) {
-        sql += ' AND createdAt >= ?'
+        whereClauses.push('createdAt >= ?')
         params.push(filters.startDate)
       }
       if (filters.endDate) {
-        sql += ' AND createdAt <= ?'
+        whereClauses.push('createdAt <= ?')
         params.push(filters.endDate + ' 23:59:59')
       }
     }
 
-    const count = db.prepare(countSql + sql.slice(33)).get(...params) as { cnt: number }
-    sql += ' ORDER BY createdAt DESC LIMIT ? OFFSET ?'
-    const data = db.prepare(sql).all(...params, pageSize, (page - 1) * pageSize)
+    const whereSql = whereClauses.length > 0 ? ' WHERE ' + whereClauses.join(' AND ') : ''
+    const countSql = `SELECT COUNT(*) as cnt FROM operation_logs${whereSql}`
+    const dataSql = `SELECT * FROM operation_logs${whereSql} ORDER BY createdAt DESC LIMIT ? OFFSET ?`
+
+    const count = db.prepare(countSql).get(...params) as { cnt: number }
+    const data = db.prepare(dataSql).all(...params, pageSize, (page - 1) * pageSize)
 
     return { data, total: count.cnt, page, pageSize }
   })
 
   ipcMain.handle('operationLog:exportCsv', (_, filePath: string, filters?: any) => {
-    let sql = 'SELECT * FROM operation_logs WHERE 1=1'
+    const whereClauses: string[] = []
     const params: any[] = []
 
     if (filters) {
       if (filters.operator) {
-        sql += ' AND operator LIKE ?'
+        whereClauses.push('operator LIKE ?')
         params.push(`%${filters.operator}%`)
       }
       if (filters.action) {
-        sql += ' AND action LIKE ?'
+        whereClauses.push('action LIKE ?')
         params.push(`%${filters.action}%`)
       }
       if (filters.startDate) {
-        sql += ' AND createdAt >= ?'
+        whereClauses.push('createdAt >= ?')
         params.push(filters.startDate)
       }
       if (filters.endDate) {
-        sql += ' AND createdAt <= ?'
+        whereClauses.push('createdAt <= ?')
         params.push(filters.endDate + ' 23:59:59')
       }
     }
-    sql += ' ORDER BY createdAt DESC'
+
+    const whereSql = whereClauses.length > 0 ? ' WHERE ' + whereClauses.join(' AND ') : ''
+    const sql = `SELECT * FROM operation_logs${whereSql} ORDER BY createdAt DESC`
 
     const data = db.prepare(sql).all(...params) as any[]
     const csvData = data.map(row => ({

@@ -146,11 +146,12 @@ const doorOptions = ['小区大门', '单元门', '车库入口', '天台门', '
                 <th>发卡日期</th>
                 <th>有效期</th>
                 <th>最后使用</th>
+                <th>备注</th>
                 <th>操作</th>
               </tr>
             </thead>
             <tbody>
-              <tr v-for="card in cards" :key="card.id">
+              <tr v-for="card in cards" :key="card.id" :class="{ 'row-highlight': card.remark && card.remark.includes('补办') }">
                 <td class="font-mono"><strong>{{ card.cardNo }}</strong></td>
                 <td>{{ card.residentName }}</td>
                 <td>{{ card.phone }}</td>
@@ -162,6 +163,10 @@ const doorOptions = ['小区大门', '单元门', '车库入口', '天台门', '
                   <span v-else class="text-gray">长期</span>
                 </td>
                 <td class="text-sm text-gray">{{ card.lastUsed || '-' }}</td>
+                <td class="text-sm" style="max-width: 200px;">
+                  <span v-if="card.remark" class="text-blue" :title="card.remark">{{ card.remark }}</span>
+                  <span v-else class="text-gray">-</span>
+                </td>
                 <td>
                   <div class="flex gap-2 flex-wrap">
                     <button v-if="card.status === 'pending'" class="btn btn-sm btn-success" @click="handleSimulateWrite(card.id)">
