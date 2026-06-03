@@ -109,16 +109,25 @@ export default function Schedule() {
     const hasNote = editForm.conflict_note && editForm.conflict_note.trim().length > 0;
 
     if (isConflictSchedule) {
-      if (fieldChanged) {
-        if (!conflictCheck) {
-          alert('请先点击「检测冲突」验证目标时段是否可用。');
-          return;
-        } else if (conflictCheck.hasConflict) {
-          alert('目标时段仍存在冲突，请调整时段或频道后再保存。');
+      if (!conflictCheck) {
+        try {
+          const result = await schedulesApi.checkConflict({
+            channel: editForm.channel,
+            time_slot: editForm.time_slot,
+            schedule_date: editForm.schedule_date,
+            exclude_id: scheduleId,
+          });
+          setConflictCheck(result);
+          if (result.hasConflict && !hasNote) {
+            alert('目标时段仍存在冲突，请调整时段或填写协调说明。');
+            return;
+          }
+        } catch (e) {
+          alert('冲突检测失败，请重试。');
           return;
         }
-      } else if (!hasNote) {
-        alert('请填写解决备注，或调整排期时段。');
+      } else if (conflictCheck.hasConflict && !hasNote) {
+        alert('目标时段仍存在冲突，请调整时段或填写协调说明。');
         return;
       }
     }
@@ -126,8 +135,12 @@ export default function Schedule() {
     setSaving(true);
     try {
       const res = await schedulesApi.update(scheduleId, editForm);
-      if (isConflictSchedule && res.stillConflicting) {
-        alert('目标时段仍存在冲突，冲突状态未解除。请调整时段或频道。');
+      if (isConflictSchedule) {
+        if (res.newStatus === 'scheduled' && !fieldChanged) {
+          alert('原位已无冲突，状态已自动恢复为已排期。');
+        } else if (res.stillConflicting) {
+          alert('目标时段仍存在冲突，冲突状态未解除。请调整时段或填写协调说明。');
+        }
       }
       setEditingSchedule(null);
       setEditForm({});
@@ -571,10 +584,6 @@ function ConflictItem({ schedule, onEdit, onResolve, saving }) {
   };
 
   const handleQuickResolve = async (strategy) => {
-    const fieldChanged = form.channel !== schedule.channel
-      || form.time_slot !== schedule.time_slot
-      || form.schedule_date !== schedule.schedule_date
-      || form.position !== schedule.position;
     const hasNote = form.conflict_note && form.conflict_note.trim().length > 0;
 
     if (strategy === 'move') {
@@ -586,17 +595,32 @@ function ConflictItem({ schedule, onEdit, onResolve, saving }) {
         return;
       }
     } else if (strategy === '保留原位') {
-      if (!hasNote) {
-        alert('请填写协调说明后再确认保存。');
+      if (localConflictCheck && localConflictCheck.hasConflict && !hasNote) {
+        alert('原位仍存在冲突，请填写协调说明后再确认保存。');
         return;
       }
     }
 
-    const updates = [{ id: schedule.id, conflict_note: hasNote ? form.conflict_note.trim() : `冲突已协调：${strategy}` }];
+    const updates = [{ id: schedule.id, conflict_note: hasNote ? form.conflict_note.trim() : '' }];
     if (strategy === 'move') {
       updates[0] = { ...updates[0], ...form };
     }
     await onResolve({ updates });
+  };
+
+  const handleEnterKeepMode = async () => {
+    setMode('keep');
+    try {
+      const result = await schedulesApi.checkConflict({
+        channel: form.channel,
+        time_slot: form.time_slot,
+        schedule_date: form.schedule_date,
+        exclude_id: schedule.id,
+      });
+      setLocalConflictCheck(result);
+    } catch (e) {
+      console.error(e);
+    }
   };
 
   if (mode === 'move') {
@@ -662,28 +686,51 @@ function ConflictItem({ schedule, onEdit, onResolve, saving }) {
   }
 
   if (mode === 'keep') {
+    const slotAlreadyClear = localConflictCheck && !localConflictCheck.hasConflict;
+    const noteRequired = !slotAlreadyClear;
+
     return (
       <div className="p-3 bg-white border-2 border-amber-300 rounded-lg">
         <p className="text-sm font-medium text-gray-900 mb-2">
           保留原位确认 — {schedule.client_name} ({schedule.order_no})
         </p>
+
+        {localConflictCheck && slotAlreadyClear && (
+          <div className="mb-3 p-2 bg-emerald-50 border border-emerald-200 rounded text-xs text-emerald-700">
+            ✅ 原位已无冲突，可直接确认恢复为已排期，无需填写说明。
+          </div>
+        )}
+        {localConflictCheck && !slotAlreadyClear && (
+          <div className="mb-3 p-2 bg-red-50 border border-red-200 rounded text-xs text-red-700">
+            ⚠️ 原位仍存在冲突，请填写协调说明后确认保留，或改用「调整时段」。
+          </div>
+        )}
+        {!localConflictCheck && (
+          <div className="mb-3 text-xs text-gray-400">正在检测原位冲突状态...</div>
+        )}
+
         <div className="mb-3">
-          <label className="text-xs text-gray-600 block mb-0.5">协调说明 *</label>
+          <label className="text-xs text-gray-600 block mb-0.5">
+            协调说明{noteRequired ? ' *' : '（选填）'}
+          </label>
           <input
             type="text"
             value={form.conflict_note}
             onChange={e => setForm({ ...form, conflict_note: e.target.value })}
             className="w-full p-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
-            placeholder="请填写协调说明（如：已与客户协商确认保留）"
+            placeholder={noteRequired ? '请填写协调说明（如：已与客户协商确认保留）' : '可补充说明（非必填）'}
             autoFocus
           />
-          <p className="text-xs text-gray-400 mt-1">备注后系统将解除冲突标记，保持当前排期不变。</p>
         </div>
         <div className="flex gap-2">
-          <button onClick={() => handleQuickResolve('保留原位')} disabled={saving || !form.conflict_note.trim()} className="btn-success text-xs px-3 py-1.5">
-            <Check size={12} /> 确认保留
+          <button
+            onClick={() => handleQuickResolve('保留原位')}
+            disabled={saving || (noteRequired && !form.conflict_note.trim())}
+            className="btn-success text-xs px-3 py-1.5"
+          >
+            <Check size={12} /> {slotAlreadyClear ? '确认恢复' : '确认保留'}
           </button>
-          <button onClick={() => { setMode(null); setForm({ ...form, conflict_note: '' }); }} className="btn-secondary text-xs px-3 py-1.5">取消</button>
+          <button onClick={() => { setMode(null); setForm({ ...form, conflict_note: '' }); setLocalConflictCheck(null); }} className="btn-secondary text-xs px-3 py-1.5">取消</button>
         </div>
       </div>
     );
@@ -702,7 +749,7 @@ function ConflictItem({ schedule, onEdit, onResolve, saving }) {
         <button onClick={() => setMode('move')} className="btn-primary text-xs px-3 py-1.5">
           <Edit3 size={12} /> 调整时段
         </button>
-        <button onClick={() => setMode('keep')} className="btn-success text-xs px-3 py-1.5">
+        <button onClick={handleEnterKeepMode} className="btn-success text-xs px-3 py-1.5">
           <Check size={12} /> 保留原位
         </button>
       </div>

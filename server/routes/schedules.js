@@ -92,31 +92,26 @@ router.put('/:id', (req, res) => {
   let auditNotes = `排期更新：${resolvedChannel} ${resolvedDate} ${resolvedTimeSlot} ${resolvedPosition}`;
 
   if (schedule.status === 'conflict') {
-    let stillConflicting = false;
-    if (fieldChanged) {
-      const conflicts = db.prepare(`
-        SELECT s.*, o.order_no, o.client_name FROM schedules s
-        JOIN orders o ON s.order_id = o.id
-        WHERE s.channel=? AND s.time_slot=? AND s.schedule_date=?
-          AND s.status != 'cancelled' AND s.id != ?
-      `).all(resolvedChannel, resolvedTimeSlot, resolvedDate, schedule.id);
-      stillConflicting = conflicts.length > 0;
-    }
+    const conflicts = db.prepare(`
+      SELECT s.*, o.order_no, o.client_name FROM schedules s
+      JOIN orders o ON s.order_id = o.id
+      WHERE s.channel=? AND s.time_slot=? AND s.schedule_date=?
+        AND s.status != 'cancelled' AND s.id != ?
+    `).all(resolvedChannel, resolvedTimeSlot, resolvedDate, schedule.id);
+    const stillConflicting = conflicts.length > 0;
 
-    const keptInPlace = !fieldChanged && hasNote;
-    const movedToClearSlot = fieldChanged && !stillConflicting;
-
-    if (keptInPlace || movedToClearSlot) {
+    if (!stillConflicting) {
       newStatus = 'scheduled';
-      auditNotes = `排期冲突已解决：${keptInPlace ? '人工确认保留原位' : `调整至 ${resolvedChannel} ${resolvedDate} ${resolvedTimeSlot} ${resolvedPosition}`}`;
+      auditNotes = fieldChanged
+        ? `排期冲突已解决：调整至 ${resolvedChannel} ${resolvedDate} ${resolvedTimeSlot} ${resolvedPosition}`
+        : `排期冲突已解决：原位 ${resolvedChannel} ${resolvedDate} ${resolvedTimeSlot} 已无冲突`;
       if (hasNote) auditNotes += `（${conflict_note.trim()}）`;
+    } else if (hasNote) {
+      newStatus = 'scheduled';
+      auditNotes = `排期冲突已解决：人工确认保留原位（${conflict_note.trim()}）`;
     } else {
       newStatus = 'conflict';
-      if (stillConflicting) {
-        auditNotes = `排期冲突未解除：目标时段 ${resolvedChannel} ${resolvedDate} ${resolvedTimeSlot} 仍存在冲突`;
-      } else {
-        auditNotes = `排期字段未变更，未提供解决备注，保持冲突状态`;
-      }
+      auditNotes = `排期冲突未解除：目标时段 ${resolvedChannel} ${resolvedDate} ${resolvedTimeSlot} 仍存在冲突，需调整时段或填写协调说明`;
     }
   }
 
@@ -162,31 +157,26 @@ router.post('/batch-resolve', (req, res) => {
       let auditNotes = `排期更新：${resolvedChannel} ${resolvedDate} ${resolvedTimeSlot} ${resolvedPosition}`;
 
       if (schedule.status === 'conflict') {
-        let stillConflicting = false;
-        if (fieldChanged) {
-          const conflicts = db.prepare(`
-            SELECT s.*, o.order_no, o.client_name FROM schedules s
-            JOIN orders o ON s.order_id = o.id
-            WHERE s.channel=? AND s.time_slot=? AND s.schedule_date=?
-              AND s.status != 'cancelled' AND s.id != ?
-          `).all(resolvedChannel, resolvedTimeSlot, resolvedDate, schedule.id);
-          stillConflicting = conflicts.length > 0;
-        }
+        const conflicts = db.prepare(`
+          SELECT s.*, o.order_no, o.client_name FROM schedules s
+          JOIN orders o ON s.order_id = o.id
+          WHERE s.channel=? AND s.time_slot=? AND s.schedule_date=?
+            AND s.status != 'cancelled' AND s.id != ?
+        `).all(resolvedChannel, resolvedTimeSlot, resolvedDate, schedule.id);
+        const stillConflicting = conflicts.length > 0;
 
-        const keptInPlace = !fieldChanged && hasNote;
-        const movedToClearSlot = fieldChanged && !stillConflicting;
-
-        if (keptInPlace || movedToClearSlot) {
+        if (!stillConflicting) {
           newStatus = 'scheduled';
-          auditNotes = `排期冲突已解决：${keptInPlace ? '人工确认保留原位' : `调整至 ${resolvedChannel} ${resolvedDate} ${resolvedTimeSlot} ${resolvedPosition}`}`;
+          auditNotes = fieldChanged
+            ? `排期冲突已解决：调整至 ${resolvedChannel} ${resolvedDate} ${resolvedTimeSlot} ${resolvedPosition}`
+            : `排期冲突已解决：原位 ${resolvedChannel} ${resolvedDate} ${resolvedTimeSlot} 已无冲突`;
           if (hasNote) auditNotes += `（${conflict_note.trim()}）`;
+        } else if (hasNote) {
+          newStatus = 'scheduled';
+          auditNotes = `排期冲突已解决：人工确认保留原位（${conflict_note.trim()}）`;
         } else {
           newStatus = 'conflict';
-          if (stillConflicting) {
-            auditNotes = `排期冲突未解除：目标时段 ${resolvedChannel} ${resolvedDate} ${resolvedTimeSlot} 仍存在冲突`;
-          } else {
-            auditNotes = `排期字段未变更，未提供解决备注，保持冲突状态`;
-          }
+          auditNotes = `排期冲突未解除：目标时段 ${resolvedChannel} ${resolvedDate} ${resolvedTimeSlot} 仍存在冲突，需调整时段或填写协调说明`;
         }
       }
 
