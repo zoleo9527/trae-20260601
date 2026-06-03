@@ -73,18 +73,42 @@ router.get('/calendar', (req, res) => {
 
 router.put('/:id', (req, res) => {
   const db = getDb();
-  const { channel, time_slot, schedule_date, status, conflict_note } = req.body;
+  const { channel, time_slot, schedule_date, position, status, conflict_note } = req.body;
+
+  const schedule = db.prepare('SELECT * FROM schedules WHERE id = ?').get(req.params.id);
+  if (!schedule) return res.status(404).json({ error: '排期不存在' });
+
+  const resolvedChannel = channel ?? schedule.channel;
+  const resolvedTimeSlot = time_slot ?? schedule.time_slot;
+  const resolvedDate = schedule_date ?? schedule.schedule_date;
+  const resolvedPosition = position ?? schedule.position;
+
+  let newStatus = status ?? schedule.status;
+  if (schedule.status === 'conflict' && newStatus === 'conflict') {
+    const fieldChanged = resolvedChannel !== schedule.channel
+      || resolvedTimeSlot !== schedule.time_slot
+      || resolvedDate !== schedule.schedule_date
+      || resolvedPosition !== schedule.position;
+    const hasNote = conflict_note && conflict_note.trim().length > 0;
+    if (fieldChanged || hasNote) {
+      newStatus = 'scheduled';
+    }
+  }
 
   db.prepare(`
-    UPDATE schedules SET channel=?, time_slot=?, schedule_date=?, status=?, conflict_note=?
+    UPDATE schedules SET channel=?, time_slot=?, schedule_date=?, position=?, status=?, conflict_note=?
     WHERE id=?
-  `).run(channel, time_slot, schedule_date, status, conflict_note || null, req.params.id);
+  `).run(resolvedChannel, resolvedTimeSlot, resolvedDate, resolvedPosition, newStatus, conflict_note || null, req.params.id);
 
   db.prepare(`
     INSERT INTO audit_logs (order_id, action, from_status, to_status, operator, notes)
-    SELECT order_id, 'schedule_update', ?, ?, '排期-刘排', ?
-    FROM schedules WHERE id=?
-  `).run(status, status, `排期更新：${channel} ${schedule_date} ${time_slot}`, req.params.id);
+    VALUES (?, 'schedule_update', ?, ?, '排期-刘排', ?)
+  `).run(
+    schedule.order_id,
+    schedule.status,
+    newStatus,
+    `排期更新：${resolvedChannel} ${resolvedDate} ${resolvedTimeSlot} ${resolvedPosition}${schedule.status === 'conflict' && newStatus === 'scheduled' ? '（冲突已解决）' : ''}`
+  );
 
   res.json({ success: true });
 });
@@ -104,17 +128,33 @@ router.post('/batch-resolve', (req, res) => {
       const schedule = db.prepare('SELECT * FROM schedules WHERE id = ?').get(id);
       if (!schedule) continue;
 
-      const oldStatus = schedule.status;
-      const newStatus = status || (oldStatus === 'conflict' ? 'scheduled' : oldStatus);
+      const resolvedChannel = channel || schedule.channel;
+      const resolvedTimeSlot = time_slot || schedule.time_slot;
+      const resolvedDate = schedule_date || schedule.schedule_date;
+      const resolvedPosition = position || schedule.position;
+
+      let newStatus = status || schedule.status;
+      if (schedule.status === 'conflict') {
+        const fieldChanged = resolvedChannel !== schedule.channel
+          || resolvedTimeSlot !== schedule.time_slot
+          || resolvedDate !== schedule.schedule_date
+          || resolvedPosition !== schedule.position;
+        const hasNote = conflict_note && conflict_note.trim().length > 0;
+        if (fieldChanged || hasNote) {
+          newStatus = 'scheduled';
+        } else {
+          newStatus = 'conflict';
+        }
+      }
 
       db.prepare(`
         UPDATE schedules SET channel=?, time_slot=?, schedule_date=?, position=?, status=?, conflict_note=?
         WHERE id=?
       `).run(
-        channel || schedule.channel,
-        time_slot || schedule.time_slot,
-        schedule_date || schedule.schedule_date,
-        position || schedule.position,
+        resolvedChannel,
+        resolvedTimeSlot,
+        resolvedDate,
+        resolvedPosition,
         newStatus,
         conflict_note || null,
         id
@@ -125,12 +165,12 @@ router.post('/batch-resolve', (req, res) => {
         VALUES (?, 'schedule_update', ?, ?, '排期-刘排', ?)
       `).run(
         schedule.order_id,
-        oldStatus,
+        schedule.status,
         newStatus,
-        `排期${oldStatus === 'conflict' ? '冲突解决' : '更新'}：${channel || schedule.channel} ${schedule_date || schedule.schedule_date} ${time_slot || schedule.time_slot}`
+        `排期${schedule.status === 'conflict' && newStatus === 'scheduled' ? '冲突解决' : '更新'}：${resolvedChannel} ${resolvedDate} ${resolvedTimeSlot} ${resolvedPosition}`
       );
 
-      results.push({ id, oldStatus, newStatus });
+      results.push({ id, oldStatus: schedule.status, newStatus });
     }
     return results;
   });

@@ -71,7 +71,7 @@ export default function Schedule() {
       time_slot: schedule.time_slot,
       schedule_date: schedule.schedule_date,
       position: schedule.position,
-      status: schedule.status === 'conflict' ? 'scheduled' : schedule.status,
+      status: schedule.status,
       conflict_note: '',
     });
     setConflictCheck(null);
@@ -527,7 +527,7 @@ function ConflictItem({ schedule, onEdit, onResolve, saving }) {
   });
 
   const handleQuickResolve = async (strategy) => {
-    const updates = [{ id: schedule.id, status: 'scheduled', conflict_note: `冲突已协调：${strategy}` }];
+    const updates = [{ id: schedule.id, conflict_note: `冲突已协调：${strategy}` }];
     if (strategy === 'move') {
       updates[0] = { ...updates[0], ...form };
     }

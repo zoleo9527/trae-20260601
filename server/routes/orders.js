@@ -134,8 +134,17 @@ router.post('/', (req, res) => {
     return res.status(400).json({ error: '客户名称、品牌、销售为必填项' });
   }
 
-  const count = db.prepare('SELECT COUNT(*) as cnt FROM orders WHERE date(created_at) = date("now","localtime")').get().cnt;
-  const order_no = `ADS-${new Date().getFullYear()}-${String(count + 1).padStart(3, '0')}`;
+  const year = new Date().getFullYear();
+  const prefix = `ADS-${year}-`;
+  const maxRow = db.prepare(
+    "SELECT order_no FROM orders WHERE order_no LIKE ? ORDER BY order_no DESC LIMIT 1"
+  ).get(`${prefix}%`);
+  let seq = 1;
+  if (maxRow) {
+    const parsed = parseInt(maxRow.order_no.slice(prefix.length), 10);
+    if (!isNaN(parsed)) seq = parsed + 1;
+  }
+  const order_no = `${prefix}${String(seq).padStart(3, '0')}`;
 
   const result = db.prepare(`
     INSERT INTO orders (order_no, client_name, brand, product, sales_person, total_amount, status, notes)
