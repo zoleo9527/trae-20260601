@@ -27,12 +27,30 @@ const exceptionTypeOptions: { value: ExceptionType; label: string; color: string
   { value: 'other', label: '其他异常', color: 'text-slate-400' },
 ]
 
+const stageOrder: Record<string, number> = {
+  procurement: 1,
+  production: 2,
+  sampling: 3,
+  dispatch: 4,
+  store_receiving: 5,
+}
+
 function filterNotes(notes: SampleNote[], recordId: string) {
   return notes.filter((n) => n.recordId === recordId).sort((a, b) => a.createdAt.localeCompare(b.createdAt))
 }
 
 function filterTraces(traces: BatchTrace[], recordId: string) {
-  return traces.filter((t) => t.recordId === recordId).sort((a, b) => a.timestamp.localeCompare(b.timestamp))
+  return traces
+    .filter((t) => t.recordId === recordId)
+    .sort((a, b) => {
+      const orderA = stageOrder[a.stage] || 99
+      const orderB = stageOrder[b.stage] || 99
+      if (orderA !== orderB) return orderA - orderB
+      if (a.timestamp && b.timestamp) return a.timestamp.localeCompare(b.timestamp)
+      if (a.timestamp) return -1
+      if (b.timestamp) return 1
+      return 0
+    })
 }
 
 const stageConfig: Record<TraceStage, { label: string; icon: typeof ShoppingCart; color: string }> = {

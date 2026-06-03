@@ -657,7 +657,7 @@ export const mockTraces: BatchTrace[] = [
     stage: 'dispatch',
     operator: '',
     timestamp: '',
-    status: 'normal',
+    status: 'warning',
     detail: '待出餐配送',
   },
   {
@@ -666,7 +666,7 @@ export const mockTraces: BatchTrace[] = [
     stage: 'store_receiving',
     operator: '',
     timestamp: '',
-    status: 'normal',
+    status: 'warning',
     detail: '待门店收货',
   },
 ]
