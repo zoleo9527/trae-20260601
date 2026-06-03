@@ -104,7 +104,7 @@ const generateOrderNo = () => {
 
 const generateId = () => Math.random().toString(36).substring(2, 15);
 
-const DATA_VERSION = 4;
+const DATA_VERSION = 5;
 
 export const useAppStore = create<AppState>()(
   persist(
@@ -271,7 +271,9 @@ export const useAppStore = create<AppState>()(
       },
 
       getAssignments: (params) => {
-        let filtered = [...get().assignments];
+        let filtered = [...get().assignments].sort(
+          (a, b) => new Date(b.assignedAt).getTime() - new Date(a.assignedAt).getTime()
+        );
         if (params?.technicianId) {
           filtered = filtered.filter((a) => a.technicianId === params.technicianId);
         }
@@ -339,12 +341,16 @@ export const useAppStore = create<AppState>()(
           (data.customerServiceRemark ? `【客服】${data.customerServiceRemark}\n` : '') +
           `【设计师】${data.designerRemark}`;
 
+        const existingAssignments = get().getAssignmentsByOrderId(data.orderId);
+        const version = existingAssignments.length + 1;
+
         const newAssignment: Assignment = {
           id: generateId(),
           combinedRemark,
           assignedAt: new Date().toISOString(),
           assignedBy: get().currentUser || '系统',
           status: 'PENDING',
+          version,
           ...data,
         };
 

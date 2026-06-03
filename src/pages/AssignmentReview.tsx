@@ -155,6 +155,9 @@ export default function AssignmentReview() {
                     技师
                   </th>
                   <th className="px-6 py-4 text-left text-xs font-semibold text-neutral-500 uppercase tracking-wider">
+                    派单次数
+                  </th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-neutral-500 uppercase tracking-wider">
                     派单时间
                   </th>
                   <th className="px-6 py-4 text-left text-xs font-semibold text-neutral-500 uppercase tracking-wider">
@@ -174,7 +177,7 @@ export default function AssignmentReview() {
               <tbody className="divide-y divide-neutral-200">
                 {result.data.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="px-6 py-16 text-center text-neutral-500">
+                    <td colSpan={8} className="px-6 py-16 text-center text-neutral-500">
                       <div className="flex flex-col items-center gap-2">
                         <FileText size={48} className="text-neutral-300" />
                         <p>暂无派单记录</p>
@@ -184,15 +187,27 @@ export default function AssignmentReview() {
                 ) : (
                   result.data.map((assignment) => {
                     const order = useAppStore.getState().getOrderById(assignment.orderId);
+                    const orderAssignments = useAppStore.getState().getAssignmentsByOrderId(assignment.orderId);
+                    const sortedOrderAssignments = [...orderAssignments].sort(
+                      (a, b) => new Date(b.assignedAt).getTime() - new Date(a.assignedAt).getTime()
+                    );
+                    const isLatest = sortedOrderAssignments[0]?.id === assignment.id;
                     return (
                       <tr
                         key={assignment.id}
-                        className="hover:bg-primary-50/30 transition-colors"
+                        className={`hover:bg-primary-50/30 transition-colors ${isLatest ? 'bg-primary-50/50' : ''}`}
                       >
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <span className="font-medium text-primary-600">
-                            {order?.orderNo || '-'}
-                          </span>
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium text-primary-600">
+                              {order?.orderNo || '-'}
+                            </span>
+                            {isLatest && (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-primary-100 text-primary-700">
+                                最新
+                              </span>
+                            )}
+                          </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="flex items-center gap-2">
@@ -211,6 +226,11 @@ export default function AssignmentReview() {
                               </p>
                             </div>
                           </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-neutral-100 text-neutral-700 border border-neutral-200">
+                            第 {assignment.version} 次派单
+                          </span>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="flex items-center gap-1.5 text-neutral-700">

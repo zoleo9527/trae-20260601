@@ -67,11 +67,13 @@ export const mockScanFiles: ScanFile[] = mockOrders
 export const mockAssignments: Assignment[] = mockScanFiles
   .filter(s => s.status === 'PROCESSED')
   .slice(0, 15)
-  .map((scan, i) => {
+  .flatMap((scan, i) => {
     const order = mockOrders.find(o => o.id === scan.orderId)!;
     const technician = mockTechnicians[i % mockTechnicians.length];
-    return {
-      id: `assign-${i + 1}`,
+    
+    const assignments: Assignment[] = [];
+    
+    const baseAssignment = {
       scanFileId: scan.id,
       orderId: order.id,
       technicianId: technician.id,
@@ -79,14 +81,40 @@ export const mockAssignments: Assignment[] = mockScanFiles
       customerServiceRemark: scan.customerServiceRemark,
       designerRemark: i % 2 === 0 ? '已完成数字模型设计，边缘封闭良好，就位道已确认。' : '模型厚度已调整，咬合面形态参照对颌牙设计。',
       combinedRemark: `${scan.customerServiceRemark ? `【客服】${scan.customerServiceRemark}\n` : ''}【设计师】${i % 2 === 0 ? '已完成数字模型设计，边缘封闭良好，就位道已确认。' : '模型厚度已调整，咬合面形态参照对颌牙设计。'}`,
-      assignedAt: hoursAgo(i * 24 + 8),
       assignedBy: '设计师老李',
-      status: order.status === 'COMPLETED' ? 'COMPLETED' :
-              order.status === 'REWORK' ? 'REWORK' :
-              order.status === 'IN_PRODUCTION' || order.status === 'PENDING_INSPECTION' ? 'ACCEPTED' : 'PENDING',
-      completedAt: (order.status === 'COMPLETED' || order.status === 'REWORK') ? hoursAgo(i * 24 + 20) : undefined,
       estimatedDays: 3 + (i % 4),
     };
+
+    if (order.status === 'REWORK') {
+      assignments.push({
+        ...baseAssignment,
+        id: `assign-${i * 2 + 1}`,
+        assignedAt: hoursAgo(i * 24 + 8 + 48),
+        status: 'REWORK',
+        completedAt: hoursAgo(i * 24 + 20 + 48),
+        version: 1,
+      });
+      
+      assignments.push({
+        ...baseAssignment,
+        id: `assign-${i * 2 + 2}`,
+        assignedAt: hoursAgo(i * 24 + 8),
+        status: 'PENDING',
+        version: 2,
+      });
+    } else {
+      assignments.push({
+        ...baseAssignment,
+        id: `assign-${i + 1}`,
+        assignedAt: hoursAgo(i * 24 + 8),
+        status: order.status === 'COMPLETED' ? 'COMPLETED' :
+                order.status === 'IN_PRODUCTION' || order.status === 'PENDING_INSPECTION' ? 'ACCEPTED' : 'PENDING',
+        completedAt: order.status === 'COMPLETED' ? hoursAgo(i * 24 + 20) : undefined,
+        version: 1,
+      });
+    }
+    
+    return assignments;
   });
 
 export const mockRemarks: Remark[] = mockOrders.slice(0, 15).flatMap((order, i) => {
@@ -231,15 +259,48 @@ export const mockAuditLogs: AuditLog[] = mockOrders.slice(0, 15).flatMap((order,
 
   if (order.status === 'REWORK') {
     logs.push({
-      id: `log-${i * 5 + 7}`,
+      id: `log-${i * 10 + 7}`,
       orderId: order.id,
       action: '质检不合格，发起返工',
       oldStatus: 'PENDING_INSPECTION',
       newStatus: 'REWORK',
       operator: '质检小张',
       role: 'QUALITY',
-      createdAt: hoursAgo(i * 24 + 20),
+      createdAt: hoursAgo(i * 24 + 20 + 48),
       detail: '色号偏差，需要返工调整，已自动回退至设计师环节',
+    });
+    logs.push({
+      id: `log-${i * 10 + 8}`,
+      orderId: order.id,
+      action: '返工回退，重新设计',
+      oldStatus: 'REWORK',
+      newStatus: 'PROCESSING',
+      operator: '系统',
+      role: 'ADMIN',
+      createdAt: hoursAgo(i * 24 + 20.5 + 48),
+      detail: '返工流程已启动，自动回退至设计师环节',
+    });
+    logs.push({
+      id: `log-${i * 10 + 9}`,
+      orderId: order.id,
+      action: '第2次派单给技师',
+      oldStatus: 'PROCESSING',
+      newStatus: 'ASSIGNED',
+      operator: '设计师老李',
+      role: 'DESIGNER',
+      createdAt: hoursAgo(i * 24 + 8),
+      detail: `第2次派单给技师：${mockTechnicians[i % mockTechnicians.length].name}`,
+    });
+    logs.push({
+      id: `log-${i * 10 + 10}`,
+      orderId: order.id,
+      action: '派单状态变更',
+      oldStatus: undefined,
+      newStatus: 'ASSIGNED',
+      operator: '设计师老李',
+      role: 'ADMIN',
+      createdAt: hoursAgo(i * 24 + 8),
+      detail: '派单状态更新为: 待接单',
     });
   }
 

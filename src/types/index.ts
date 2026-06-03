@@ -54,6 +54,7 @@ export interface Assignment {
   status: AssignmentStatus;
   completedAt?: string;
   estimatedDays: number;
+  version: number;
 }
 
 export interface Technician {
