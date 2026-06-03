@@ -1,4 +1,4 @@
-import { CheckCircle, FileVideo, RotateCcw, XCircle } from 'lucide-react';
+import { CheckCircle, FileVideo, RotateCcw, Upload, XCircle } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { materialsApi } from '../api';
@@ -10,6 +10,7 @@ export default function Materials() {
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState('');
   const [reviewModal, setReviewModal] = useState(null);
+  const [uploadModal, setUploadModal] = useState(null);
 
   useEffect(() => {
     loadMaterials();
@@ -43,9 +44,28 @@ export default function Materials() {
     }
   };
 
+  const handleUploadMaterial = async (formData) => {
+    try {
+      await materialsApi.create(formData);
+      setUploadModal(null);
+      loadMaterials();
+    } catch (e) {
+      alert('素材录入失败：' + e.message);
+    }
+  };
+
   const pendingCount = materials.filter(m => m.status === 'pending_review').length;
   const approvedCount = materials.filter(m => m.status === 'approved').length;
   const rejectedCount = materials.filter(m => m.status === 'rejected').length;
+  const revisionCount = materials.filter(m => m.status === 'revision_needed').length;
+
+  const groupedByOrder = {};
+  for (const m of materials) {
+    if (!groupedByOrder[m.order_id]) {
+      groupedByOrder[m.order_id] = { order_no: m.order_no, client_name: m.client_name, materials: [] };
+    }
+    groupedByOrder[m.order_id].materials.push(m);
+  }
 
   return (
     <div className="space-y-6">
@@ -54,15 +74,12 @@ export default function Materials() {
           <h2 className="text-2xl font-bold text-gray-900">素材审核</h2>
           <p className="text-gray-500 mt-1">审核客户提交的广告素材，确保合规播出</p>
         </div>
-        {pendingCount > 0 && (
-          <div className="flex items-center gap-2 px-4 py-2 bg-amber-50 border border-amber-200 rounded-lg">
-            <span className="text-amber-600 font-bold text-lg">{pendingCount}</span>
-            <span className="text-amber-600 text-sm">待审核</span>
-          </div>
-        )}
+        <button onClick={() => setUploadModal({})} className="btn-primary">
+          <Upload size={16} /> 录入素材
+        </button>
       </div>
 
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-4 gap-4">
         <div className="card p-4 text-center cursor-pointer hover:shadow-md transition-shadow" onClick={() => setStatusFilter('pending_review')}>
           <p className="text-2xl font-bold text-amber-600">{pendingCount}</p>
           <p className="text-sm text-gray-500 mt-1">待审核</p>
@@ -74,6 +91,10 @@ export default function Materials() {
         <div className="card p-4 text-center cursor-pointer hover:shadow-md transition-shadow" onClick={() => setStatusFilter('rejected')}>
           <p className="text-2xl font-bold text-red-600">{rejectedCount}</p>
           <p className="text-sm text-gray-500 mt-1">已驳回</p>
+        </div>
+        <div className="card p-4 text-center cursor-pointer hover:shadow-md transition-shadow" onClick={() => setStatusFilter('revision_needed')}>
+          <p className="text-2xl font-bold text-orange-600">{revisionCount}</p>
+          <p className="text-sm text-gray-500 mt-1">需修改</p>
         </div>
       </div>
 
@@ -195,6 +216,99 @@ export default function Materials() {
           </div>
         </div>
       )}
+
+      {uploadModal && (
+        <UploadMaterialModal
+          onClose={() => setUploadModal(null)}
+          onSubmit={handleUploadMaterial}
+        />
+      )}
+    </div>
+  );
+}
+
+function UploadMaterialModal({ onClose, onSubmit }) {
+  const [form, setForm] = useState({
+    order_id: '',
+    file_name: '',
+    file_type: 'video',
+    duration: 15,
+  });
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!form.order_id || !form.file_name) {
+      alert('请填写订单ID和素材文件名');
+      return;
+    }
+    setSubmitting(true);
+    await onSubmit({
+      ...form,
+      order_id: Number(form.order_id),
+      duration: Number(form.duration) || 15,
+    });
+    setSubmitting(false);
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50" onClick={onClose}>
+      <div className="bg-white rounded-xl p-6 w-full max-w-md shadow-xl" onClick={e => e.stopPropagation()}>
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">录入素材</h3>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">订单 ID *</label>
+            <input
+              type="number"
+              value={form.order_id}
+              onChange={e => setForm({ ...form, order_id: e.target.value })}
+              className="w-full p-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+              placeholder="输入订单ID"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">素材文件名 *</label>
+            <input
+              type="text"
+              value={form.file_name}
+              onChange={e => setForm({ ...form, file_name: e.target.value })}
+              className="w-full p-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+              placeholder="例如：品牌_广告名_15s_v1.mp4"
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">素材类型</label>
+              <select
+                value={form.file_type}
+                onChange={e => setForm({ ...form, file_type: e.target.value })}
+                className="w-full p-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+              >
+                <option value="video">视频</option>
+                <option value="image">图片</option>
+                <option value="audio">音频</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">时长(秒)</label>
+              <input
+                type="number"
+                value={form.duration}
+                onChange={e => setForm({ ...form, duration: e.target.value })}
+                className="w-full p-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                min="5"
+                max="60"
+              />
+            </div>
+          </div>
+          <div className="flex justify-end gap-3 pt-2">
+            <button type="button" onClick={onClose} className="btn-secondary">取消</button>
+            <button type="submit" disabled={submitting} className="btn-primary">
+              {submitting ? '提交中...' : '提交素材'}
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
   );
 }

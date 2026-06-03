@@ -89,6 +89,60 @@ router.put('/:id', (req, res) => {
   res.json({ success: true });
 });
 
+router.post('/batch-resolve', (req, res) => {
+  const db = getDb();
+  const { updates } = req.body;
+
+  if (!updates || !Array.isArray(updates) || updates.length === 0) {
+    return res.status(400).json({ error: '请提供排期更新数据' });
+  }
+
+  const transaction = db.transaction(() => {
+    const results = [];
+    for (const u of updates) {
+      const { id, channel, time_slot, schedule_date, position, status, conflict_note } = u;
+      const schedule = db.prepare('SELECT * FROM schedules WHERE id = ?').get(id);
+      if (!schedule) continue;
+
+      const oldStatus = schedule.status;
+      const newStatus = status || (oldStatus === 'conflict' ? 'scheduled' : oldStatus);
+
+      db.prepare(`
+        UPDATE schedules SET channel=?, time_slot=?, schedule_date=?, position=?, status=?, conflict_note=?
+        WHERE id=?
+      `).run(
+        channel || schedule.channel,
+        time_slot || schedule.time_slot,
+        schedule_date || schedule.schedule_date,
+        position || schedule.position,
+        newStatus,
+        conflict_note || null,
+        id
+      );
+
+      db.prepare(`
+        INSERT INTO audit_logs (order_id, action, from_status, to_status, operator, notes)
+        VALUES (?, 'schedule_update', ?, ?, '排期-刘排', ?)
+      `).run(
+        schedule.order_id,
+        oldStatus,
+        newStatus,
+        `排期${oldStatus === 'conflict' ? '冲突解决' : '更新'}：${channel || schedule.channel} ${schedule_date || schedule.schedule_date} ${time_slot || schedule.time_slot}`
+      );
+
+      results.push({ id, oldStatus, newStatus });
+    }
+    return results;
+  });
+
+  try {
+    const results = transaction();
+    res.json({ success: true, results });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 router.post('/check-conflict', (req, res) => {
   const db = getDb();
   const { channel, time_slot, schedule_date, exclude_id } = req.body;

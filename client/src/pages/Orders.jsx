@@ -1,4 +1,4 @@
-import { Filter, Search } from 'lucide-react';
+import { Filter, Plus, Search } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ordersApi } from '../api';
@@ -10,6 +10,7 @@ export default function Orders() {
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState('all');
   const [search, setSearch] = useState('');
+  const [showCreateModal, setShowCreateModal] = useState(false);
 
   useEffect(() => {
     loadOrders();
@@ -30,6 +31,16 @@ export default function Orders() {
     }
   };
 
+  const handleCreateOrder = async (formData) => {
+    try {
+      const order = await ordersApi.create(formData);
+      setShowCreateModal(false);
+      navigate(`/orders/${order.id}`);
+    } catch (e) {
+      alert('创建失败：' + e.message);
+    }
+  };
+
   const statusFilters = [
     { value: 'all', label: '全部' },
     ...Object.entries(STATUS_MAP).map(([value, { label }]) => ({ value, label })),
@@ -37,9 +48,14 @@ export default function Orders() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold text-gray-900">订单管理</h2>
-        <p className="text-gray-500 mt-1">管理广告订单的全生命周期</p>
+      <div className="flex items-start justify-between">
+        <div>
+          <h2 className="text-2xl font-bold text-gray-900">订单管理</h2>
+          <p className="text-gray-500 mt-1">管理广告订单的全生命周期</p>
+        </div>
+        <button onClick={() => setShowCreateModal(true)} className="btn-primary">
+          <Plus size={16} /> 新建订单
+        </button>
       </div>
 
       <div className="card p-4">
@@ -120,6 +136,121 @@ export default function Orders() {
           </table>
         </div>
       )}
+
+      {showCreateModal && (
+        <CreateOrderModal
+          onClose={() => setShowCreateModal(false)}
+          onSubmit={handleCreateOrder}
+        />
+      )}
+    </div>
+  );
+}
+
+function CreateOrderModal({ onClose, onSubmit }) {
+  const [form, setForm] = useState({
+    client_name: '',
+    brand: '',
+    product: '',
+    sales_person: '张明',
+    total_amount: '',
+    notes: '',
+  });
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!form.client_name || !form.brand || !form.sales_person) {
+      alert('请填写必填项：客户名称、品牌、销售');
+      return;
+    }
+    setSubmitting(true);
+    await onSubmit({
+      ...form,
+      total_amount: Number(form.total_amount) || 0,
+    });
+    setSubmitting(false);
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50" onClick={onClose}>
+      <div className="bg-white rounded-xl p-6 w-full max-w-lg shadow-xl" onClick={e => e.stopPropagation()}>
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">新建订单</h3>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">客户名称 *</label>
+              <input
+                type="text"
+                value={form.client_name}
+                onChange={e => setForm({ ...form, client_name: e.target.value })}
+                className="w-full p-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                placeholder="请输入客户名称"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">品牌 *</label>
+              <input
+                type="text"
+                value={form.brand}
+                onChange={e => setForm({ ...form, brand: e.target.value })}
+                className="w-full p-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                placeholder="请输入品牌"
+              />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">产品</label>
+              <input
+                type="text"
+                value={form.product}
+                onChange={e => setForm({ ...form, product: e.target.value })}
+                className="w-full p-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                placeholder="选填"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">销售 *</label>
+              <select
+                value={form.sales_person}
+                onChange={e => setForm({ ...form, sales_person: e.target.value })}
+                className="w-full p-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+              >
+                <option value="张明">张明</option>
+                <option value="王丽">王丽</option>
+                <option value="陈晓">陈晓</option>
+              </select>
+            </div>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">金额 (元)</label>
+            <input
+              type="number"
+              value={form.total_amount}
+              onChange={e => setForm({ ...form, total_amount: e.target.value })}
+              className="w-full p-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+              placeholder="0"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">备注</label>
+            <textarea
+              value={form.notes}
+              onChange={e => setForm({ ...form, notes: e.target.value })}
+              className="w-full p-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+              rows={3}
+              placeholder="选填"
+            />
+          </div>
+          <div className="flex justify-end gap-3 pt-2">
+            <button type="button" onClick={onClose} className="btn-secondary">取消</button>
+            <button type="submit" disabled={submitting} className="btn-primary">
+              {submitting ? '创建中...' : '创建订单'}
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
   );
 }

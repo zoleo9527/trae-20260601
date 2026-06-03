@@ -1,4 +1,4 @@
-import { ArrowLeft, Calendar, CheckCircle, Clock, FileVideo, RotateCcw, Tv, XCircle } from 'lucide-react';
+import { ArrowLeft, Calendar, CheckCircle, Clock, FileVideo, Plus, RotateCcw, Tv, Upload, XCircle } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { broadcastsApi, materialsApi, ordersApi } from '../api';
@@ -10,6 +10,7 @@ export default function OrderDetail() {
   const [order, setOrder] = useState(null);
   const [loading, setLoading] = useState(true);
   const [reviewModal, setReviewModal] = useState(null);
+  const [showUploadForm, setShowUploadForm] = useState(false);
 
   useEffect(() => {
     loadOrder();
@@ -53,9 +54,23 @@ export default function OrderDetail() {
     }
   };
 
+  const handleUploadMaterial = async (formData) => {
+    try {
+      await materialsApi.create({
+        order_id: Number(id),
+        ...formData,
+      });
+      setShowUploadForm(false);
+      loadOrder();
+    } catch (e) {
+      alert('素材录入失败：' + e.message);
+    }
+  };
+
   if (loading) return <div className="text-center py-20 text-gray-400">加载中...</div>;
   if (!order) return <div className="text-center py-20 text-gray-400">订单不存在</div>;
 
+  const canUploadMaterial = ['draft', 'submitted', 'in_review', 'revision_needed', 'material_rejected'].includes(order.status);
   const timeline = (order.audits || []).sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
   return (
@@ -76,9 +91,27 @@ export default function OrderDetail() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
           <div className="card p-6">
-            <h3 className="text-base font-semibold text-gray-900 mb-4 flex items-center gap-2">
-              <FileVideo size={18} /> 素材列表
-            </h3>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-base font-semibold text-gray-900 flex items-center gap-2">
+                <FileVideo size={18} /> 素材列表
+              </h3>
+              {canUploadMaterial && (
+                <button onClick={() => setShowUploadForm(true)} className="btn-primary text-xs px-3 py-1.5">
+                  <Upload size={14} /> 录入素材
+                </button>
+              )}
+            </div>
+
+            {showUploadForm && (
+              <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                <h4 className="text-sm font-semibold text-blue-800 mb-3">录入新素材</h4>
+                <UploadMaterialForm
+                  onSubmit={handleUploadMaterial}
+                  onCancel={() => setShowUploadForm(false)}
+                />
+              </div>
+            )}
+
             <div className="space-y-4">
               {(order.materials || []).map(m => (
                 <div key={m.id} className="border border-gray-200 rounded-lg p-4">
@@ -133,8 +166,15 @@ export default function OrderDetail() {
                   </div>
                 </div>
               ))}
-              {(order.materials || []).length === 0 && (
-                <p className="text-center text-gray-400 py-8">暂无素材</p>
+              {(order.materials || []).length === 0 && !showUploadForm && (
+                <div className="text-center py-8">
+                  <p className="text-gray-400 mb-3">暂无素材</p>
+                  {canUploadMaterial && (
+                    <button onClick={() => setShowUploadForm(true)} className="btn-primary text-sm">
+                      <Plus size={16} /> 录入第一条素材
+                    </button>
+                  )}
+                </div>
               )}
             </div>
           </div>
@@ -280,6 +320,77 @@ export default function OrderDetail() {
         />
       )}
     </div>
+  );
+}
+
+function UploadMaterialForm({ onSubmit, onCancel }) {
+  const [form, setForm] = useState({
+    file_name: '',
+    file_type: 'video',
+    duration: 15,
+  });
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!form.file_name) {
+      alert('请输入素材文件名');
+      return;
+    }
+    setSubmitting(true);
+    await onSubmit(form);
+    setSubmitting(false);
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-3">
+      <div className="grid grid-cols-3 gap-3">
+        <div className="col-span-2">
+          <label className="block text-xs font-medium text-gray-700 mb-1">素材文件名 *</label>
+          <input
+            type="text"
+            value={form.file_name}
+            onChange={e => setForm({ ...form, file_name: e.target.value })}
+            className="w-full p-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+            placeholder="例如：品牌_广告名_15s_v1.mp4"
+          />
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-gray-700 mb-1">时长(秒)</label>
+          <input
+            type="number"
+            value={form.duration}
+            onChange={e => setForm({ ...form, duration: Number(e.target.value) || 15 })}
+            className="w-full p-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+            min="5"
+            max="60"
+          />
+        </div>
+      </div>
+      <div>
+        <label className="block text-xs font-medium text-gray-700 mb-1">素材类型</label>
+        <div className="flex gap-3">
+          {['video', 'image', 'audio'].map(t => (
+            <label key={t} className="flex items-center gap-1.5 text-sm text-gray-700">
+              <input
+                type="radio"
+                name="file_type"
+                value={t}
+                checked={form.file_type === t}
+                onChange={e => setForm({ ...form, file_type: e.target.value })}
+              />
+              {{ video: '视频', image: '图片', audio: '音频' }[t]}
+            </label>
+          ))}
+        </div>
+      </div>
+      <div className="flex justify-end gap-2">
+        <button type="button" onClick={onCancel} className="btn-secondary text-xs px-3 py-1.5">取消</button>
+        <button type="submit" disabled={submitting} className="btn-primary text-xs px-3 py-1.5">
+          {submitting ? '提交中...' : '提交素材'}
+        </button>
+      </div>
+    </form>
   );
 }
 

@@ -126,6 +126,31 @@ router.put('/:id/status', (req, res) => {
   res.json({ success: true });
 });
 
+router.post('/', (req, res) => {
+  const db = getDb();
+  const { client_name, brand, product, sales_person, total_amount, notes } = req.body;
+
+  if (!client_name || !brand || !sales_person) {
+    return res.status(400).json({ error: '客户名称、品牌、销售为必填项' });
+  }
+
+  const count = db.prepare('SELECT COUNT(*) as cnt FROM orders WHERE date(created_at) = date("now","localtime")').get().cnt;
+  const order_no = `ADS-${new Date().getFullYear()}-${String(count + 1).padStart(3, '0')}`;
+
+  const result = db.prepare(`
+    INSERT INTO orders (order_no, client_name, brand, product, sales_person, total_amount, status, notes)
+    VALUES (?, ?, ?, ?, ?, ?, 'draft', ?)
+  `).run(order_no, client_name, brand, product || null, sales_person, total_amount || 0, notes || null);
+
+  db.prepare(`
+    INSERT INTO audit_logs (order_id, action, from_status, to_status, operator, notes)
+    VALUES (?, 'order_status_change', null, 'draft', ?, ?)
+  `).run(result.lastInsertRowid, sales_person, '创建订单');
+
+  const order = db.prepare('SELECT * FROM orders WHERE id = ?').get(result.lastInsertRowid);
+  res.status(201).json(order);
+});
+
 router.put('/:id', (req, res) => {
   const db = getDb();
   const { client_name, brand, product, sales_person, total_amount, notes } = req.body;
