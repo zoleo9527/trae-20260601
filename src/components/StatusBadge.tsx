@@ -7,13 +7,25 @@ export function StatusBadge({ status }: { status: string }) {
     cancelled: '已取消',
     scheduled: '待生产',
     in_progress: '生产中',
-    dispatched: '已发货',
+    dispatched: '配送中',
     received: '已收货',
   };
 
   return (
     <span className={`status-badge status-${status}`}>
       {statusLabels[status] || status}
+    </span>
+  );
+}
+
+export function AnomalyStatusBadge({ status }: { status: string }) {
+  return <StatusBadge status={status} />;
+}
+
+export function GroupBadge({ name }: { name: string }) {
+  return (
+    <span className="px-2 py-1 bg-gray-100 text-gray-700 rounded-full text-xs font-medium">
+      {name}
     </span>
   );
 }

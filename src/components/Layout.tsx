@@ -12,6 +12,7 @@ const navItems: Record<string, { label: string; href: string; icon: string }[]> 
   supervisor: [
     { label: '报量录入', href: '/supervisor/orders', icon: '📝' },
     { label: '临时加单', href: '/supervisor/urgent', icon: '⚡' },
+    { label: '收货确认', href: '/supervisor/delivery', icon: '🚚' },
     { label: '历史记录', href: '/supervisor/history', icon: '📋' },
   ],
   production: [
@@ -30,6 +31,11 @@ export default function Layout({ children, currentRole: initialRole }: { childre
   const router = useRouter();
   const [currentRole, setCurrentRole] = useState(initialRole || 'supervisor');
 
+  const handleRoleChange = (roleId: string) => {
+    setCurrentRole(roleId);
+    router.push(navItems[roleId][0].href);
+  };
+
   return (
     <div className="min-h-screen bg-gray-100">
       <header className="bg-white shadow-sm">
@@ -41,10 +47,7 @@ export default function Layout({ children, currentRole: initialRole }: { childre
             {roles.map((role) => (
               <button
                 key={role.id}
-                onClick={() => {
-                  setCurrentRole(role.id);
-                  router.push(navItems[role.id][0].href);
-                }}
+                onClick={() => handleRoleChange(role.id)}
                 className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
                   currentRole === role.id
                     ? 'bg-blue-600 text-white'

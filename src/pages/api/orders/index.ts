@@ -17,7 +17,7 @@ export default function handler(
   try {
     switch (req.method) {
       case 'GET': {
-        const { order_date, store_id, status, is_urgent } = req.query;
+        const { order_date, start_date, end_date, store_id, status, is_urgent } = req.query;
         let sql = `
           SELECT o.*, s.name as store_name, d.name as dish_name, d.allergens as dish_allergens
           FROM daily_orders o
@@ -30,6 +30,16 @@ export default function handler(
         if (order_date) {
           sql += ' AND o.order_date = ?';
           params.push(order_date);
+        }
+        
+        if (start_date) {
+          sql += ' AND o.order_date >= ?';
+          params.push(start_date);
+        }
+        
+        if (end_date) {
+          sql += ' AND o.order_date <= ?';
+          params.push(end_date);
         }
         
         if (store_id) {
