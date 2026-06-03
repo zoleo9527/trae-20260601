@@ -1,4 +1,5 @@
-import { AlertTriangle, Clock, Package } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { AlertTriangle, Clock, Package, ExternalLink } from 'lucide-react'
 import useAppStore from '@/store/useAppStore'
 import type { Order, Stage } from '@/types'
 import { cn } from '@/lib/utils'
@@ -56,6 +57,7 @@ const productTypeColors: Record<string, string> = {
 }
 
 export default function OrderCard({ order }: { order: Order }) {
+  const navigate = useNavigate()
   const selectedOrderId = useAppStore((s) => s.selectedOrderId)
   const selectOrder = useAppStore((s) => s.selectOrder)
   const isSelected = selectedOrderId === order.id
@@ -63,10 +65,9 @@ export default function OrderCard({ order }: { order: Order }) {
   const hasTimeout = order.anomalies.some((a) => a.type === 'timeout' && !a.resolvedAt)
 
   return (
-    <button
-      onClick={() => selectOrder(isSelected ? null : order.id)}
+    <div
       className={cn(
-        'w-full text-left bg-factory-surface border rounded-lg p-4 transition hover:border-factory-amber',
+        'w-full text-left bg-factory-surface border rounded-lg p-4 transition hover:border-factory-amber group relative',
         isSelected ? 'border-factory-amber' : 'border-factory-border',
         hasAnomaly && 'anomaly-border'
       )}
@@ -77,39 +78,53 @@ export default function OrderCard({ order }: { order: Order }) {
 
       <div className="flex items-start justify-between mb-2">
         <span className="font-mono text-sm text-gray-300">{order.orderNo}</span>
-        {order.priority === 'urgent' && (
-          <span className="px-1.5 py-0.5 text-xs bg-factory-red/20 text-factory-red rounded">加急</span>
+        <div className="flex items-center gap-1.5">
+          {order.priority === 'urgent' && (
+            <span className="px-1.5 py-0.5 text-xs bg-factory-red/20 text-factory-red rounded">加急</span>
+          )}
+          <button
+            onClick={(e) => { e.stopPropagation(); navigate(`/order/${order.id}`) }}
+            className="opacity-0 group-hover:opacity-100 p-1 text-factory-muted hover:text-factory-amber transition"
+            title="查看详情"
+          >
+            <ExternalLink className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      </div>
+
+      <button
+        onClick={() => selectOrder(isSelected ? null : order.id)}
+        className="w-full text-left"
+      >
+        <div className="flex items-center justify-between mb-3">
+          <span className="text-sm text-gray-200">{order.customerName}</span>
+          <span className={cn('px-2 py-0.5 text-xs rounded-full', productTypeColors[order.productType] ?? 'bg-gray-500/20 text-gray-400')}>
+            {order.productType}
+          </span>
+        </div>
+
+        <div className="mb-2">
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-xs text-factory-muted">{stageLabels[order.currentStage]}</span>
+            <span className="text-xs text-factory-muted">{formatTimeInStage(order.timeInStage)}</span>
+          </div>
+          <StageProgress currentStage={order.currentStage} />
+        </div>
+
+        {order.anomalies.filter((a) => !a.resolvedAt).length > 0 && (
+          <div className="flex items-center gap-2 mt-2">
+            {order.anomalies.some((a) => a.type === 'missing_material' && !a.resolvedAt) && (
+              <Package className="w-3.5 h-3.5 text-factory-red" />
+            )}
+            {order.anomalies.some((a) => a.type === 'timeout' && !a.resolvedAt) && (
+              <Clock className="w-3.5 h-3.5 text-factory-red" />
+            )}
+            {order.anomalies.some((a) => a.type === 'qc_failed' && !a.resolvedAt) && (
+              <AlertTriangle className="w-3.5 h-3.5 text-factory-red" />
+            )}
+          </div>
         )}
-      </div>
-
-      <div className="flex items-center justify-between mb-3">
-        <span className="text-sm text-gray-200">{order.customerName}</span>
-        <span className={cn('px-2 py-0.5 text-xs rounded-full', productTypeColors[order.productType] ?? 'bg-gray-500/20 text-gray-400')}>
-          {order.productType}
-        </span>
-      </div>
-
-      <div className="mb-2">
-        <div className="flex items-center justify-between mb-1">
-          <span className="text-xs text-factory-muted">{stageLabels[order.currentStage]}</span>
-          <span className="text-xs text-factory-muted">{formatTimeInStage(order.timeInStage)}</span>
-        </div>
-        <StageProgress currentStage={order.currentStage} />
-      </div>
-
-      {order.anomalies.filter((a) => !a.resolvedAt).length > 0 && (
-        <div className="flex items-center gap-2 mt-2">
-          {order.anomalies.some((a) => a.type === 'missing_material' && !a.resolvedAt) && (
-            <Package className="w-3.5 h-3.5 text-factory-red" />
-          )}
-          {order.anomalies.some((a) => a.type === 'timeout' && !a.resolvedAt) && (
-            <Clock className="w-3.5 h-3.5 text-factory-red" />
-          )}
-          {order.anomalies.some((a) => a.type === 'qc_failed' && !a.resolvedAt) && (
-            <AlertTriangle className="w-3.5 h-3.5 text-factory-red" />
-          )}
-        </div>
-      )}
-    </button>
+      </button>
+    </div>
   )
 }

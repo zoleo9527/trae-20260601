@@ -42,7 +42,7 @@ const handlerToRole: Record<string, HandlerRole> = {
 
 const useAppStore = create<AppState>((set, get) => ({
   currentRole: 'receptionist',
-  filters: {},
+  filters: { handlerRole: 'receptionist' },
   selectedOrderId: null,
   showHandoffPanel: false,
   showProductionBoard: false,
@@ -52,9 +52,12 @@ const useAppStore = create<AppState>((set, get) => ({
   error: null,
 
   setRole: (role) => {
-    set({ currentRole: role })
+    set({ currentRole: role, filters: { ...get().filters, handlerRole: role } })
     const params = new URLSearchParams(window.location.search)
     params.set('role', role)
+    Object.entries(get().filters).forEach(([k, v]) => {
+      if (v) params.set(k, v)
+    })
     window.history.replaceState(null, '', `?${params.toString()}`)
   },
 
@@ -73,9 +76,10 @@ const useAppStore = create<AppState>((set, get) => ({
   },
 
   resetFilters: () => {
-    set({ filters: {} })
+    const role = get().currentRole
+    set({ filters: { handlerRole: role } })
     const params = new URLSearchParams(window.location.search)
-    params.set('role', get().currentRole)
+    params.set('role', role)
     window.history.replaceState(null, '', `?${params.toString()}`)
   },
 

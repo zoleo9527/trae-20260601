@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { X, Send, CornerDownLeft, Package } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { X, Send, CornerDownLeft, Package, ExternalLink } from 'lucide-react'
 import useAppStore from '@/store/useAppStore'
 import type { HandlerRole, Stage } from '@/types'
 
@@ -38,6 +39,7 @@ const statusLabels: Record<string, string> = {
 }
 
 export default function HandoffPanel() {
+  const navigate = useNavigate()
   const selectedOrderId = useAppStore((s) => s.selectedOrderId)
   const orders = useAppStore((s) => s.orders)
   const currentRole = useAppStore((s) => s.currentRole)
@@ -76,12 +78,21 @@ export default function HandoffPanel() {
     <div className="w-[360px] h-full bg-factory-surface border-l border-factory-border animate-slide-in flex flex-col">
       <div className="flex items-center justify-between p-4 border-b border-factory-border">
         <h3 className="text-sm font-semibold text-gray-200">交接操作</h3>
-        <button
-          onClick={toggleHandoffPanel}
-          className="p-1 text-factory-muted hover:text-gray-200 transition"
-        >
-          <X className="w-4 h-4" />
-        </button>
+        <div className="flex items-center gap-1">
+          <button
+            onClick={() => { if (order) navigate(`/order/${order.id}`) }}
+            className="p-1 text-factory-muted hover:text-factory-amber transition"
+            title="查看完整交接记录"
+          >
+            <ExternalLink className="w-4 h-4" />
+          </button>
+          <button
+            onClick={toggleHandoffPanel}
+            className="p-1 text-factory-muted hover:text-gray-200 transition"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
       </div>
 
       <div className="p-4 border-b border-factory-border">

@@ -105,6 +105,15 @@ router.post('/', (req: Request, res: Response) => {
 
     if (action === 'release_material') {
       db.prepare(`
+        UPDATE material_items SET status = 'available' WHERE order_id = ? AND status = 'missing'
+      `).run(id)
+
+      db.prepare(`
+        UPDATE anomalies SET resolved_at = datetime('now'), resolved_by = ?
+        WHERE order_id = ? AND type = 'missing_material' AND resolved_at IS NULL
+      `).run(fromRole, id)
+
+      db.prepare(`
         UPDATE orders SET
           material_status = 'complete',
           status = 'pending',
