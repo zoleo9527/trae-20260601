@@ -51,6 +51,7 @@ const mockShipping: ShippingRecord[] = [
     trackingNo: '',
     carrier: '顺丰速运',
     assignedCs: 'staff-1',
+    reason: '质检已放行，待安排回寄',
   },
 ]
 
@@ -73,7 +74,7 @@ export const useShippingStore = defineStore('shipping', () => {
   const pendingShipments = computed(() => {
     const orderStore = useOrderStore()
     return orderStore.orders
-      .filter((o) => o.status === 'pending_shipping')
+      .filter((o) => o.status === 'passed' || o.status === 'pending_shipping')
       .map((o) => findOrStubRecord(o.id, o.assignedCs))
   })
 
@@ -91,15 +92,19 @@ export const useShippingStore = defineStore('shipping', () => {
       .map((o) => findOrStubRecord(o.id, o.assignedCs))
   })
 
-  function ensurePersisted(orderId: string, assignedCs: string): ShippingRecord {
+  function ensurePersisted(orderId: string, assignedCs: string, reason?: string): ShippingRecord {
     const existing = records.value.find((r) => r.orderId === orderId)
-    if (existing) return existing
+    if (existing) {
+      if (reason !== undefined) existing.reason = reason
+      return existing
+    }
     const rec: ShippingRecord = {
       id: `SH-${String(nextId++).padStart(3, '0')}`,
       orderId,
       trackingNo: '',
       carrier: '顺丰速运',
       assignedCs,
+      reason,
     }
     records.value.unshift(rec)
     return rec
@@ -125,8 +130,8 @@ export const useShippingStore = defineStore('shipping', () => {
     }
   }
 
-  function ensurePendingRecord(orderId: string, assignedCs: string) {
-    const rec = ensurePersisted(orderId, assignedCs)
+  function ensurePendingRecord(orderId: string, assignedCs: string, reason?: string) {
+    const rec = ensurePersisted(orderId, assignedCs, reason)
     rec.trackingNo = ''
     rec.shippedAt = undefined
     rec.deliveredAt = undefined

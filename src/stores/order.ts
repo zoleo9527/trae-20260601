@@ -63,7 +63,7 @@ const mockOrders: Order[] = [
     id: 'WO-20260601-005',
     patientName: '刘芳华',
     designType: '全瓷冠',
-    status: 'pending_shipping',
+    status: 'passed',
     assignedCs: 'staff-2',
     assignedDesigner: 'staff-4',
     assignedQc: 'staff-6',
@@ -144,7 +144,7 @@ const mockOrders: Order[] = [
     id: 'WO-20260601-012',
     patientName: '林大鹏',
     designType: '嵌体',
-    status: 'pending_shipping',
+    status: 'passed',
     assignedCs: 'staff-1',
     assignedDesigner: 'staff-3',
     assignedQc: 'staff-5',
@@ -161,7 +161,7 @@ export const useOrderStore = defineStore('order', () => {
   )
 
   const todayPendingShipping = computed(() =>
-    orders.value.filter((o) => o.status === 'pending_shipping')
+    orders.value.filter((o) => o.status === 'passed' || o.status === 'pending_shipping')
   )
 
   const todayDesigning = computed(() =>
@@ -179,7 +179,7 @@ export const useOrderStore = defineStore('order', () => {
   function passOrder(orderId: string) {
     const order = orders.value.find((o) => o.id === orderId)
     if (order) {
-      order.status = 'pending_shipping' as OrderStatus
+      order.status = 'passed' as OrderStatus
       order.updatedAt = fmt(new Date())
       order.stuckAt = undefined
       order.stuckDuration = undefined

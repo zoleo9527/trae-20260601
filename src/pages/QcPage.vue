@@ -84,7 +84,7 @@ function handlePass(orderId: string) {
   const order = orderStore.orders.find((o) => o.id === orderId)
   if (!order) return
   orderStore.passOrder(orderId)
-  shippingStore.ensurePendingRecord(orderId, order.assignedCs)
+  shippingStore.ensurePendingRecord(orderId, order.assignedCs, '质检已放行，待安排回寄')
   toastStore.addToast({ type: 'success', title: '已放行', message: '已放行，进入待回寄' })
 }
 

@@ -81,9 +81,12 @@ const statusOrder: string[] = [
 ]
 
 function getChainStepState(orderStatus: string, stepKey: string) {
-  const orderIdx = statusOrder.indexOf(orderStatus)
-  const stepIdx = statusOrder.indexOf(stepKey)
+  let orderIdx = statusOrder.indexOf(orderStatus)
   if (orderIdx < 0) return 'future'
+  if (orderStatus === 'passed') {
+    orderIdx = statusOrder.indexOf('pending_shipping')
+  }
+  const stepIdx = statusOrder.indexOf(stepKey)
   if (stepIdx < 0) return 'future'
   if (stepIdx < orderIdx) return 'completed'
   if (stepIdx === orderIdx) return 'current'

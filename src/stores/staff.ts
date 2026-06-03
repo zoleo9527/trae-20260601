@@ -68,6 +68,7 @@ export const useStaffStore = defineStore('staff', () => {
     'designing',
     'pending_qc',
     'qc_in_progress',
+    'passed',
     'pending_shipping',
   ])
 
