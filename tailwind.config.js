@@ -1,0 +1,100 @@
+/** @type {import('tailwindcss').Config} */
+
+export default {
+  darkMode: "class",
+  content: ["./index.html", "./src/**/*.{js,ts,jsx,tsx}"],
+  theme: {
+    container: {
+      center: true,
+    },
+    extend: {
+      colors: {
+        primary: {
+          50: "#E8EEF5",
+          100: "#C6D4E6",
+          200: "#94AECF",
+          300: "#6288B8",
+          400: "#3062A1",
+          500: "#0F3460",
+          600: "#0C2B50",
+          700: "#092240",
+          800: "#061A30",
+          900: "#031120",
+        },
+        success: {
+          50: "#E7F9F3",
+          100: "#B7EEDC",
+          200: "#87E3C6",
+          300: "#57D8B0",
+          400: "#27CD9A",
+          500: "#16C79A",
+          600: "#129F7B",
+          700: "#0D775C",
+          800: "#094F3D",
+          900: "#04271E",
+        },
+        warning: {
+          50: "#FFF0E5",
+          100: "#FFD4B8",
+          200: "#FFB88A",
+          300: "#FF9C5D",
+          400: "#FF802F",
+          500: "#FF6B0A",
+          600: "#E8B923",
+          700: "#B89218",
+          800: "#886A0E",
+          900: "#584304",
+        },
+        danger: {
+          50: "#FFEBEB",
+          100: "#FFC2C2",
+          200: "#FF9999",
+          300: "#FF7070",
+          400: "#FF4747",
+          500: "#FF6B6B",
+          600: "#CC3D3D",
+          700: "#992E2E",
+          800: "#661F1F",
+          900: "#331010",
+        },
+        neutral: {
+          50: "#F5F7FA",
+          100: "#E4E7EB",
+          200: "#CBD2D9",
+          300: "#9AA5B1",
+          400: "#7B8794",
+          500: "#616E7C",
+          600: "#52606D",
+          700: "#3E4C59",
+          800: "#323F4B",
+          900: "#1F2933",
+        },
+      },
+      fontFamily: {
+        serif: ['"Noto Serif SC"', 'serif'],
+        sans: ['Inter', 'system-ui', 'sans-serif'],
+      },
+      animation: {
+        'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+        'slide-in': 'slideIn 0.3s ease-out',
+        'fade-in': 'fadeIn 0.4s ease-out',
+        'float': 'float 3s ease-in-out infinite',
+      },
+      keyframes: {
+        slideIn: {
+          '0%': { opacity: '0', transform: 'translateY(10px)' },
+          '100%': { opacity: '1', transform: 'translateY(0)' },
+        },
+        fadeIn: {
+          '0%': { opacity: '0' },
+          '100%': { opacity: '1' },
+        },
+        float: {
+          '0%, 100%': { transform: 'translateY(0)' },
+          '50%': { transform: 'translateY(-5px)' },
+        },
+      },
+    },
+  },
+  plugins: [],
+};
