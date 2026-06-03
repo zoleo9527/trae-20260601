@@ -60,6 +60,29 @@ export default function handler(
           return res.status(400).json({ success: false, error: '该日期暂无报单数据' });
         }
         
+        const pendingOrders = db.prepare(`
+          SELECT id FROM daily_orders 
+          WHERE order_date = ? AND status = 'pending'
+        `).all(schedule_date) as any[];
+        
+        db.prepare(`
+          UPDATE daily_orders 
+          SET status = 'confirmed', updated_at = CURRENT_TIMESTAMP 
+          WHERE order_date = ? AND status = 'pending'
+        `).run(schedule_date);
+        
+        for (const order of pendingOrders) {
+          logOperation(
+            'update',
+            'daily_order',
+            order.id,
+            JSON.stringify({ status: 'pending' }),
+            JSON.stringify({ status: 'confirmed' }),
+            operator || 'system',
+            '排程生成，订单自动确认'
+          );
+        }
+        
         const insertSchedule = db.prepare(
           `INSERT INTO production_schedules (schedule_date, dish_id, total_quantity, status, notes)
            VALUES (?, ?, ?, 'scheduled', ?)

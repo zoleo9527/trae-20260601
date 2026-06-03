@@ -61,7 +61,7 @@ export default function ProductionBoard() {
             <div className="card-body">
               <div className="text-sm text-gray-500">生产中</div>
               <div className="text-3xl font-bold text-purple-600">
-                {getSchedulesByStatus('in_progress').length}
+                {getSchedulesByStatus('in_production').length}
               </div>
             </div>
           </div>
@@ -149,11 +149,11 @@ export default function ProductionBoard() {
           <div className="card">
             <div className="card-header bg-purple-50">
               <h3 className="font-semibold text-purple-700">
-                生产中 ({getSchedulesByStatus('in_progress').length})
+                生产中 ({getSchedulesByStatus('in_production').length})
               </h3>
             </div>
             <div className="card-body space-y-3 max-h-96 overflow-y-auto">
-              {getSchedulesByStatus('in_progress').map(schedule => (
+              {getSchedulesByStatus('in_production').map(schedule => (
                 <div key={schedule.id} className="bg-purple-50 p-3 rounded-lg border border-purple-200">
                   <div className="font-medium">{schedule.dish_name}</div>
                   <div className="text-sm text-gray-600">
@@ -164,7 +164,7 @@ export default function ProductionBoard() {
                   </div>
                 </div>
               ))}
-              {getSchedulesByStatus('in_progress').length === 0 && (
+              {getSchedulesByStatus('in_production').length === 0 && (
                 <div className="text-center py-4 text-gray-500 text-sm">无</div>
               )}
             </div>
