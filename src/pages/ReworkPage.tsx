@@ -32,7 +32,11 @@ const ReworkPage = () => {
   const [selectedReason, setSelectedReason] = useState('');
   const [description, setDescription] = useState('');
   const [handler, setHandler] = useState('');
+  const [reworkRemark, setReworkRemark] = useState('');
   const [resolvingReworkId, setResolvingReworkId] = useState<string | null>(null);
+  const [resolveRemark, setResolveRemark] = useState('');
+  const [qualityPassRemark, setQualityPassRemark] = useState('');
+  const [showQualityPassInput, setShowQualityPassInput] = useState(false);
   
   const order = id ? getOrderById(id) : undefined;
   const reworkHistory = id ? getReworksByOrderId(id) : [];
@@ -47,20 +51,24 @@ const ReworkPage = () => {
   
   const handleSubmitRework = () => {
     if (!selectedReason || !description || !handler || !id) return;
-    createRework(id, selectedReason, description, handler);
+    createRework(id, selectedReason, description, handler, reworkRemark || undefined);
     setSelectedReason('');
     setDescription('');
     setHandler('');
+    setReworkRemark('');
   };
   
   const handleQualityPass = () => {
     if (!id) return;
-    completeQualityCheck(id, true);
+    completeQualityCheck(id, true, qualityPassRemark || undefined);
+    setQualityPassRemark('');
+    setShowQualityPassInput(false);
     navigate(`/order/${id}`);
   };
   
   const handleResolveRework = (reworkId: string) => {
-    resolveRework(reworkId);
+    resolveRework(reworkId, resolveRemark || undefined);
+    setResolveRemark('');
     setResolvingReworkId(null);
   };
   
@@ -116,26 +124,64 @@ const ReworkPage = () => {
           
           {isInspector && order.status === 'quality_check' && (
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-              <h2 className="text-lg font-semibold text-gray-800 mb-4">质检处理</h2>
+              <h2 className="text-lg font-semibold text-gray-800 mb-4">质检复核</h2>
               
               <div className="mb-6 p-4 bg-gray-50 rounded-lg">
                 <h3 className="font-medium text-gray-700 mb-3">快速操作</h3>
-                <div className="flex gap-4">
-                  <button
-                    onClick={handleQualityPass}
-                    className="flex items-center gap-2 px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-                  >
-                    <CheckCircle2 className="w-5 h-5" />
-                    质检通过
-                  </button>
-                  <button
-                    onClick={() => document.getElementById('rework-form')?.scrollIntoView({ behavior: 'smooth' })}
-                    className="flex items-center gap-2 px-6 py-3 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors"
-                  >
-                    <XCircle className="w-5 h-5" />
-                    申请返工
-                  </button>
-                </div>
+                {!showQualityPassInput ? (
+                  <div className="flex gap-4">
+                    <button
+                      onClick={() => setShowQualityPassInput(true)}
+                      className="flex items-center gap-2 px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                    >
+                      <CheckCircle2 className="w-5 h-5" />
+                      质检通过
+                    </button>
+                    <button
+                      onClick={() => document.getElementById('rework-form')?.scrollIntoView({ behavior: 'smooth' })}
+                      className="flex items-center gap-2 px-6 py-3 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors"
+                    >
+                      <XCircle className="w-5 h-5" />
+                      申请返工
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        质检备注
+                      </label>
+                      <textarea
+                        value={qualityPassRemark}
+                        onChange={(e) => setQualityPassRemark(e.target.value)}
+                        placeholder="请填写质检通过说明（可选）..."
+                        className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 resize-none"
+                        rows={3}
+                      />
+                      <p className="text-xs text-gray-500 mt-2">
+                        系统将自动记录：状态变化、责任人、更新时间
+                      </p>
+                    </div>
+                    <div className="flex gap-3">
+                      <button
+                        onClick={handleQualityPass}
+                        className="flex items-center gap-2 px-6 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                      >
+                        <CheckCircle2 className="w-5 h-5" />
+                        确认通过
+                      </button>
+                      <button
+                        onClick={() => {
+                          setShowQualityPassInput(false);
+                          setQualityPassRemark('');
+                        }}
+                        className="px-6 py-2.5 border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                      >
+                        取消
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
               
               <div id="rework-form" className="border-t border-gray-200 pt-6">
@@ -197,6 +243,22 @@ const ReworkPage = () => {
                     </select>
                   </div>
                   
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      补充备注（可选）
+                    </label>
+                    <textarea
+                      value={reworkRemark}
+                      onChange={(e) => setReworkRemark(e.target.value)}
+                      placeholder="其他说明或特殊要求..."
+                      className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 resize-none"
+                      rows={2}
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      系统将自动记录：状态变化、责任人、更新时间
+                    </p>
+                  </div>
+                  
                   <div className="flex items-center justify-between pt-4">
                     <div className="text-sm text-gray-500">
                       申请人: <span className="font-medium text-gray-700">{currentUser?.name}</span>
@@ -248,20 +310,40 @@ const ReworkPage = () => {
                   
                   {resolvingReworkId === rework.id && (
                     <div className="mt-4 p-4 bg-white rounded-lg border">
-                      <p className="text-sm text-gray-600 mb-3">确认返工已完成？将提交质检审核。</p>
-                      <div className="flex gap-3">
-                        <button
-                          onClick={() => handleResolveRework(rework.id)}
-                          className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm"
-                        >
-                          确认完成
-                        </button>
-                        <button
-                          onClick={() => setResolvingReworkId(null)}
-                          className="px-4 py-2 border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 text-sm"
-                        >
-                          取消
-                        </button>
+                      <div className="space-y-3">
+                        <p className="text-sm text-gray-600">确认返工已完成？将提交质检审核。</p>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            返工完成备注
+                          </label>
+                          <textarea
+                            value={resolveRemark}
+                            onChange={(e) => setResolveRemark(e.target.value)}
+                            placeholder="请填写返工完成说明（可选）..."
+                            className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 resize-none text-sm"
+                            rows={2}
+                          />
+                          <p className="text-xs text-gray-500 mt-1">
+                            系统将自动记录：状态变化、责任人、更新时间
+                          </p>
+                        </div>
+                        <div className="flex gap-3">
+                          <button
+                            onClick={() => handleResolveRework(rework.id)}
+                            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm"
+                          >
+                            确认完成
+                          </button>
+                          <button
+                            onClick={() => {
+                              setResolvingReworkId(null);
+                              setResolveRemark('');
+                            }}
+                            className="px-4 py-2 border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 text-sm"
+                          >
+                            取消
+                          </button>
+                        </div>
                       </div>
                     </div>
                   )}
