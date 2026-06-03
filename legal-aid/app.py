@@ -307,6 +307,15 @@ def get_case(case_id):
     return jsonify(case_data)
 
 
+MANAGER_ONLY_TRANSITIONS = {
+    '已分派律师', '律师已接案', '办理中', '已结案', '已撤回'
+}
+
+STAFF_ALLOWED_TRANSITIONS = {
+    '待初审', '材料补正中'
+}
+
+
 @app.route('/api/cases/<int:case_id>/status', methods=['PUT'])
 @login_required
 def update_case_status(case_id):
@@ -316,10 +325,25 @@ def update_case_status(case_id):
     if new_status not in CASE_STATUSES:
         return jsonify({'error': '无效的案件状态'}), 400
 
+    if new_status in MANAGER_ONLY_TRANSITIONS and session.get('role') != 'manager':
+        return jsonify({'error': '权限不足，该状态变更需要负责人权限'}), 403
+
     db = get_db()
     case = db.execute("SELECT * FROM cases WHERE id = ?", (case_id,)).fetchone()
     if not case:
         return jsonify({'error': '案件不存在'}), 404
+
+    VALID_TRANSITIONS = {
+        '待初审': {'材料补正中', '已初审'},
+        '材料补正中': {'已初审', '材料补正中'},
+        '已初审': {'已分派律师'},
+        '已分派律师': {'律师已接案', '已初审'},
+        '律师已接案': {'办理中'},
+        '办理中': {'已结案', '已撤回'},
+    }
+    allowed = VALID_TRANSITIONS.get(case['status'], set())
+    if new_status not in allowed and new_status != case['status']:
+        return jsonify({'error': f'案件当前状态为"{case["status"]}"，不可变更为"{new_status}"'}), 400
 
     old_status = case['status']
     now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
@@ -446,7 +470,7 @@ def resolve_correction_item(correction_id):
 # ── Lawyers ──
 
 @app.route('/api/lawyers', methods=['GET'])
-@login_required
+@manager_required
 def list_lawyers():
     db = get_db()
     rows = db.execute("SELECT * FROM lawyers ORDER BY name").fetchall()
@@ -560,22 +584,25 @@ def dashboard():
     closed = db.execute("SELECT COUNT(*) as cnt FROM cases WHERE status = '已结案'").fetchone()['cnt']
     today_registered = db.execute("SELECT COUNT(*) as cnt FROM cases WHERE DATE(created_at) = ?", (today,)).fetchone()['cnt']
 
-    overdue_corrections = db.execute(
-        "SELECT c.*, cs.case_number, cs.applicant_name, cs.phone FROM corrections c JOIN cases cs ON c.case_id = cs.id WHERE c.status != 'resolved' AND c.deadline < ? ORDER BY c.deadline",
-        (today,)
-    ).fetchall()
+    overdue_corrections = []
+    if session.get('role') == 'manager':
+        overdue_corrections = db.execute(
+            "SELECT c.*, cs.case_number, cs.applicant_name, cs.phone FROM corrections c JOIN cases cs ON c.case_id = cs.id WHERE c.status != 'resolved' AND c.deadline < ? ORDER BY c.deadline",
+            (today,)
+        ).fetchall()
 
     status_distribution = []
-    for s in CASE_STATUSES:
-        cnt = db.execute("SELECT COUNT(*) as cnt FROM cases WHERE status = ?", (s,)).fetchone()['cnt']
-        if cnt > 0:
-            status_distribution.append({'status': s, 'count': cnt})
+    if session.get('role') == 'manager':
+        for s in CASE_STATUSES:
+            cnt = db.execute("SELECT COUNT(*) as cnt FROM cases WHERE status = ?", (s,)).fetchone()['cnt']
+            if cnt > 0:
+                status_distribution.append({'status': s, 'count': cnt})
 
     recent_cases = [dict(r) for r in db.execute(
         "SELECT id, case_number, applicant_name, case_type, status, created_at FROM cases ORDER BY updated_at DESC LIMIT 10"
     ).fetchall()]
 
-    return jsonify({
+    result = {
         'total_cases': total_cases,
         'pending_review': pending_review,
         'in_correction': in_correction,
@@ -584,8 +611,27 @@ def dashboard():
         'today_registered': today_registered,
         'overdue_corrections': [dict(r) for r in overdue_corrections],
         'status_distribution': status_distribution,
-        'recent_cases': recent_cases
-    })
+        'recent_cases': recent_cases,
+        'role': session.get('role', 'window_staff')
+    }
+    if session.get('role') != 'manager':
+        result.pop('accepted', None)
+        result.pop('closed', None)
+        result.pop('overdue_corrections', None)
+        result.pop('status_distribution', None)
+    return jsonify(result)
+
+
+@app.route('/api/overdue', methods=['GET'])
+@manager_required
+def list_overdue():
+    db = get_db()
+    today = date.today().isoformat()
+    rows = db.execute(
+        "SELECT c.*, cs.case_number, cs.applicant_name, cs.phone FROM corrections c JOIN cases cs ON c.case_id = cs.id WHERE c.status != 'resolved' AND c.deadline < ? ORDER BY c.deadline",
+        (today,)
+    ).fetchall()
+    return jsonify({'overdue_corrections': [dict(r) for r in rows]})
 
 
 # ── Export ──

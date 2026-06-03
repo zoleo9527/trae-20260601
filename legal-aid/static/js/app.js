@@ -3,6 +3,7 @@ let currentUser = null;
 
 function toast(msg, type = 'info') {
     const container = document.getElementById('toast-container');
+    if (!container) return;
     const el = document.createElement('div');
     el.className = `toast ${type}`;
     el.textContent = msg;
@@ -18,6 +19,11 @@ async function api(path, options = {}) {
         body: options.body ? JSON.stringify(options.body) : undefined
     });
     if (res.status === 401) { showLogin(); return null; }
+    if (res.status === 403) {
+        const data = await res.json().catch(() => null);
+        toast(data?.error || '权限不足', 'error');
+        return null;
+    }
     const data = await res.json().catch(() => null);
     if (!res.ok) { toast(data?.error || '请求失败', 'error'); return null; }
     return data;
@@ -25,7 +31,11 @@ async function api(path, options = {}) {
 
 async function apiDownload(path) {
     const res = await fetch(`${API}${path}`, { credentials: 'same-origin' });
-    if (!res.ok) { toast('导出失败', 'error'); return; }
+    if (!res.ok) {
+        if (res.status === 403) toast('权限不足，无法导出', 'error');
+        else toast('导出失败', 'error');
+        return;
+    }
     const blob = await res.blob();
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -50,6 +60,10 @@ function escapeHtml(s) {
     const div = document.createElement('div');
     div.textContent = s;
     return div.innerHTML;
+}
+
+function isManager() {
+    return currentUser && currentUser.role === 'manager';
 }
 
 function showLogin() {
@@ -109,7 +123,7 @@ async function doLogout() {
 }
 
 function renderApp() {
-    const isManager = currentUser.role === 'manager';
+    const mgr = isManager();
     document.getElementById('app').innerHTML = `
     <div class="app-layout">
         <aside class="sidebar">
@@ -118,15 +132,15 @@ function renderApp() {
                 <small>案件管理系统</small>
             </div>
             <nav class="sidebar-nav">
-                <button class="nav-item active" data-page="dashboard">📊 工作台</button>
+                <button class="nav-item active" data-page="dashboard">${mgr ? '📊' : '📋'} 工作台</button>
                 <button class="nav-item" data-page="cases">📋 案件管理</button>
                 <button class="nav-item" data-page="new-case">➕ 新增登记</button>
-                ${isManager ? '<button class="nav-item" data-page="lawyers">👨‍⚖️ 律师管理</button>' : ''}
-                ${isManager ? '<button class="nav-item" data-page="overdue">⚠️ 超期提醒</button>' : ''}
+                ${mgr ? '<button class="nav-item" data-page="lawyers">👨‍⚖️ 律师管理</button>' : ''}
+                ${mgr ? '<button class="nav-item" data-page="overdue">⚠️ 超期提醒</button>' : ''}
             </nav>
             <div class="sidebar-footer">
                 ${escapeHtml(currentUser.display_name)}<br>
-                <span class="role-badge ${currentUser.role}">${isManager ? '负责人' : '窗口人员'}</span>
+                <span class="role-badge ${currentUser.role}">${mgr ? '负责人' : '窗口人员'}</span>
                 <button class="btn btn-sm btn-outline" style="margin-top:8px;width:100%;" onclick="doLogout()">退出登录</button>
             </div>
         </aside>
@@ -157,6 +171,9 @@ function updateClock() {
 }
 
 function navigateTo(page, params) {
+    if (page === 'lawyers' && !isManager()) { toast('权限不足', 'error'); return; }
+    if (page === 'overdue' && !isManager()) { toast('权限不足', 'error'); return; }
+
     document.querySelectorAll('.nav-item').forEach(btn => btn.classList.toggle('active', btn.dataset.page === page));
     const titles = { dashboard: '工作台', cases: '案件管理', 'new-case': '新增登记', lawyers: '律师管理', overdue: '超期提醒', 'case-detail': '案件详情' };
     document.getElementById('page-title').textContent = titles[page] || page;
@@ -175,9 +192,10 @@ async function loadDashboard() {
     const data = await api('/dashboard');
     if (!data) return;
     const container = document.getElementById('page-content');
+    const mgr = isManager();
 
     let overdueHtml = '';
-    if (data.overdue_corrections.length > 0) {
+    if (mgr && data.overdue_corrections && data.overdue_corrections.length > 0) {
         overdueHtml = `
         <div class="overdue-alert">
             <h4>⚠️ 超期未补材料（${data.overdue_corrections.length}件）</h4>
@@ -197,7 +215,7 @@ async function loadDashboard() {
     };
 
     let chartHtml = '';
-    if (data.status_distribution.length > 0) {
+    if (mgr && data.status_distribution && data.status_distribution.length > 0) {
         const maxCount = Math.max(...data.status_distribution.map(s => s.count));
         chartHtml = `<div class="bar-chart">
             ${data.status_distribution.map(s => `
@@ -210,40 +228,58 @@ async function loadDashboard() {
         </div>`;
     }
 
-    container.innerHTML = `
-        ${overdueHtml}
-        <div class="stats-grid">
-            <div class="stat-card"><div class="stat-value">${data.total_cases}</div><div class="stat-label">案件总数</div></div>
-            <div class="stat-card warning"><div class="stat-value">${data.pending_review}</div><div class="stat-label">待初审</div></div>
-            <div class="stat-card accent"><div class="stat-value">${data.in_correction}</div><div class="stat-label">补正中</div></div>
-            <div class="stat-card success"><div class="stat-value">${data.accepted}</div><div class="stat-label">办理中</div></div>
-            <div class="stat-card"><div class="stat-value">${data.closed}</div><div class="stat-label">已结案</div></div>
-            <div class="stat-card"><div class="stat-value">${data.today_registered}</div><div class="stat-label">今日登记</div></div>
-        </div>
-        <div class="card">
-            <div class="card-header"><h3>案件状态分布</h3></div>
-            ${chartHtml || '<div class="empty-state"><p>暂无数据</p></div>'}
-        </div>
-        <div class="card">
-            <div class="card-header"><h3>最近案件</h3></div>
-            <div class="table-wrapper">
-                <table>
-                    <thead><tr><th>案件编号</th><th>申请人</th><th>类型</th><th>状态</th><th>登记时间</th><th>操作</th></tr></thead>
-                    <tbody>
-                    ${data.recent_cases.length ? data.recent_cases.map(c => `
-                        <tr>
-                            <td>${c.case_number}</td>
-                            <td>${escapeHtml(c.applicant_name)}</td>
-                            <td>${c.case_type}</td>
-                            <td><span class="status-badge status-${c.status}">${c.status}</span></td>
-                            <td>${formatDateTime(c.created_at)}</td>
-                            <td><button class="btn btn-sm btn-outline" onclick="navigateTo('case-detail', ${c.id})">详情</button></td>
-                        </tr>
-                    `).join('') : '<tr><td colspan="6" class="empty-state">暂无案件</td></tr>'}
-                    </tbody>
-                </table>
+    if (mgr) {
+        container.innerHTML = `
+            ${overdueHtml}
+            <div class="stats-grid">
+                <div class="stat-card"><div class="stat-value">${data.total_cases}</div><div class="stat-label">案件总数</div></div>
+                <div class="stat-card warning"><div class="stat-value">${data.pending_review}</div><div class="stat-label">待初审</div></div>
+                <div class="stat-card accent"><div class="stat-value">${data.in_correction}</div><div class="stat-label">补正中</div></div>
+                <div class="stat-card success"><div class="stat-value">${data.accepted}</div><div class="stat-label">办理中</div></div>
+                <div class="stat-card"><div class="stat-value">${data.closed}</div><div class="stat-label">已结案</div></div>
+                <div class="stat-card"><div class="stat-value">${data.today_registered}</div><div class="stat-label">今日登记</div></div>
             </div>
-        </div>`;
+            <div class="card">
+                <div class="card-header"><h3>案件状态分布</h3></div>
+                ${chartHtml || '<div class="empty-state"><p>暂无数据</p></div>'}
+            </div>
+            <div class="card">
+                <div class="card-header"><h3>最近案件</h3></div>
+                ${renderRecentCasesTable(data.recent_cases)}
+            </div>`;
+    } else {
+        container.innerHTML = `
+            <div class="stats-grid">
+                <div class="stat-card warning"><div class="stat-value">${data.pending_review}</div><div class="stat-label">待初审</div></div>
+                <div class="stat-card accent"><div class="stat-value">${data.in_correction}</div><div class="stat-label">补正中</div></div>
+                <div class="stat-card"><div class="stat-value">${data.total_cases}</div><div class="stat-label">案件总数</div></div>
+                <div class="stat-card"><div class="stat-value">${data.today_registered}</div><div class="stat-label">今日登记</div></div>
+            </div>
+            <div class="card">
+                <div class="card-header"><h3>待办案件</h3></div>
+                ${renderRecentCasesTable(data.recent_cases)}
+            </div>`;
+    }
+}
+
+function renderRecentCasesTable(cases) {
+    return `<div class="table-wrapper">
+        <table>
+            <thead><tr><th>案件编号</th><th>申请人</th><th>类型</th><th>状态</th><th>登记时间</th><th>操作</th></tr></thead>
+            <tbody>
+            ${cases.length ? cases.map(c => `
+                <tr>
+                    <td>${c.case_number}</td>
+                    <td>${escapeHtml(c.applicant_name)}</td>
+                    <td>${c.case_type}</td>
+                    <td><span class="status-badge status-${c.status}">${c.status}</span></td>
+                    <td>${formatDateTime(c.created_at)}</td>
+                    <td><button class="btn btn-sm btn-outline" onclick="navigateTo('case-detail', ${c.id})">详情</button></td>
+                </tr>
+            `).join('') : '<tr><td colspan="6" class="empty-state">暂无案件</td></tr>'}
+            </tbody>
+        </table>
+    </div>`;
 }
 
 async function loadCases() {
@@ -253,7 +289,9 @@ async function loadCases() {
             <input type="search" id="case-keyword" placeholder="搜索编号/姓名/身份证" style="width:240px;" onkeyup="searchCases()">
             <select id="case-status-filter" onchange="searchCases()">
                 <option value="">全部状态</option>
-                ${['待初审','材料补正中','已初审','已分派律师','律师已接案','办理中','已结案','已撤回'].map(s => `<option value="${s}">${s}</option>`).join('')}
+                ${isManager()
+                    ? ['待初审','材料补正中','已初审','已分派律师','律师已接案','办理中','已结案','已撤回'].map(s => `<option value="${s}">${s}</option>`).join('')
+                    : ['待初审','材料补正中'].map(s => `<option value="${s}">${s}</option>`).join('')}
             </select>
             <button class="btn btn-primary" onclick="navigateTo('new-case')">➕ 新增登记</button>
         </div>
@@ -277,9 +315,16 @@ async function searchCases() {
     const tableEl = document.getElementById('cases-table');
     if (!tableEl) return;
 
+    const mgr = isManager();
+    const showLawyerCol = mgr;
+
     tableEl.innerHTML = `
         <table>
-            <thead><tr><th>案件编号</th><th>申请人</th><th>类型</th><th>状态</th><th>材料进度</th><th>律师</th><th>更新时间</th><th>操作</th></tr></thead>
+            <thead><tr>
+                <th>案件编号</th><th>申请人</th><th>类型</th><th>状态</th><th>材料进度</th>
+                ${showLawyerCol ? '<th>律师</th>' : ''}
+                <th>更新时间</th><th>操作</th>
+            </tr></thead>
             <tbody>
             ${data.cases.length ? data.cases.map(c => `
                 <tr class="clickable-row" onclick="navigateTo('case-detail', ${c.id})">
@@ -288,11 +333,11 @@ async function searchCases() {
                     <td>${c.case_type}</td>
                     <td><span class="status-badge status-${c.status}">${c.status}</span></td>
                     <td>${c.material_progress}</td>
-                    <td>${c.lawyer_name || '-'}</td>
+                    ${showLawyerCol ? `<td>${c.lawyer_name || '-'}</td>` : ''}
                     <td>${formatDateTime(c.updated_at)}</td>
                     <td><button class="btn btn-sm btn-outline" onclick="event.stopPropagation();navigateTo('case-detail', ${c.id})">详情</button></td>
                 </tr>
-            `).join('') : '<tr><td colspan="8" style="text-align:center;padding:40px;color:var(--text-light);">暂无案件</td></tr>'}
+            `).join('') : `<tr><td colspan="${showLawyerCol ? 8 : 7}" style="text-align:center;padding:40px;color:var(--text-light);">暂无案件</td></tr>`}
             </tbody>
         </table>
         ${data.total > data.per_page ? `<div class="pagination"><span class="page-info">共 ${data.total} 条 · 第 ${data.page} 页</span></div>` : ''}`;
@@ -392,7 +437,7 @@ async function loadCaseDetail(caseId) {
     if (!data) return;
 
     const container = document.getElementById('page-content');
-    const isManager = currentUser.role === 'manager';
+    const mgr = isManager();
 
     const materialsHtml = data.materials.map(m => {
         const statusClass = m.status;
@@ -423,7 +468,7 @@ async function loadCaseDetail(caseId) {
                     <span class="material-status ${c.status === 'resolved' ? 'received' : c.status === 'partially_resolved' ? 'pending' : 'pending'}">
                         ${{ resolved: '已解决', partially_resolved: '部分解决', pending: '待补正' }[c.status] || c.status}
                     </span>
-                    ${isOverdue ? '<span style="color:var(--danger);font-weight:600;">⚠️ 已超期</span>' : ''}
+                    ${mgr && isOverdue ? '<span style="color:var(--danger);font-weight:600;">⚠️ 已超期</span>' : ''}
                 </div>
                 <div>
                     <span style="font-size:12px;color:var(--text-light);">通知日：${formatDate(c.notice_date)} · 截止日：${formatDate(c.deadline)}</span>
@@ -444,30 +489,38 @@ async function loadCaseDetail(caseId) {
         </div>`;
     }).join('');
 
-    const assignmentsHtml = data.assignments.map(a => `
-        <div class="assignment-card">
-            <div>
-                <strong>${escapeHtml(a.lawyer_name)}</strong>
-                ${a.lawyer_specialty ? `（${escapeHtml(a.lawyer_specialty)}）` : ''}
-                <span class="assign-status ${a.status}">${{ pending: '待接受', accepted: '已接受', rejected: '已拒绝', withdrawn: '已撤回' }[a.status] || a.status}</span>
-                <div style="font-size:12px;color:var(--text-light);">分派时间：${formatDateTime(a.assigned_at)}${a.accepted_at ? ' · 接受时间：' + formatDateTime(a.accepted_at) : ''}</div>
+    let assignmentsHtml = '';
+    if (mgr) {
+        assignmentsHtml = data.assignments.map(a => `
+            <div class="assignment-card">
+                <div>
+                    <strong>${escapeHtml(a.lawyer_name)}</strong>
+                    ${a.lawyer_specialty ? `（${escapeHtml(a.lawyer_specialty)}）` : ''}
+                    <span class="assign-status ${a.status}">${{ pending: '待接受', accepted: '已接受', rejected: '已拒绝', withdrawn: '已撤回' }[a.status] || a.status}</span>
+                    <div style="font-size:12px;color:var(--text-light);">分派时间：${formatDateTime(a.assigned_at)}${a.accepted_at ? ' · 接受时间：' + formatDateTime(a.accepted_at) : ''}</div>
+                </div>
+                <div>
+                    ${a.status === 'pending' ? `<button class="btn btn-sm btn-success" onclick="acceptAssignment(${a.id}, ${caseId})">确认接案</button><button class="btn btn-sm btn-danger" onclick="rejectAssignment(${a.id}, ${caseId})">拒绝</button>` : ''}
+                </div>
             </div>
-            <div>
-                ${a.status === 'pending' && isManager ? `<button class="btn btn-sm btn-success" onclick="acceptAssignment(${a.id}, ${caseId})">确认接案</button><button class="btn btn-sm btn-danger" onclick="rejectAssignment(${a.id}, ${caseId})">拒绝</button>` : ''}
-            </div>
-        </div>
-    `).join('');
+        `).join('');
+    } else if (data.assignments.length > 0) {
+        const accepted = data.assignments.find(a => a.status === 'accepted');
+        if (accepted) {
+            assignmentsHtml = `<div class="info-item"><div class="label">承办律师</div><div class="value">${escapeHtml(accepted.lawyer_name)}${accepted.lawyer_specialty ? '（' + escapeHtml(accepted.lawyer_specialty) + '）' : ''}</div></div>`;
+        }
+    }
 
     const progressHtml = data.progress.map(p => `
         <div class="timeline-item">
             <div class="time">${formatDateTime(p.created_at)}</div>
             <div class="event">${p.to_status}${p.from_status ? `（由"${p.from_status}"变更）` : ''}</div>
             ${p.note ? `<div class="detail">${escapeHtml(p.note)}</div>` : ''}
-            ${p.operator_name ? `<div class="detail">操作人：${escapeHtml(p.operator_name)}</div>` : ''}
+            ${mgr && p.operator_name ? `<div class="detail">操作人：${escapeHtml(p.operator_name)}</div>` : ''}
         </div>
     `).join('');
 
-    const nextStatuses = getNextStatuses(data.status, isManager);
+    const nextStatuses = getNextStatuses(data.status, mgr);
 
     container.innerHTML = `
         <div style="display:flex;gap:8px;margin-bottom:16px;">
@@ -516,13 +569,15 @@ async function loadCaseDetail(caseId) {
                     ${correctionsHtml || '<div class="empty-state"><p>暂无补正通知</p></div>'}
                 </div>
 
+                ${mgr ? `
                 <div class="card">
                     <div class="card-header">
                         <h3>律师分派</h3>
-                        ${isManager && data.status !== '律师已接案' && data.status !== '办理中' && data.status !== '已结案' ? `<button class="btn btn-sm btn-primary" onclick="assignLawyerModal(${caseId})">分派律师</button>` : ''}
+                        ${data.status !== '律师已接案' && data.status !== '办理中' && data.status !== '已结案' ? `<button class="btn btn-sm btn-primary" onclick="assignLawyerModal(${caseId})">分派律师</button>` : ''}
                     </div>
                     ${assignmentsHtml || '<div class="empty-state"><p>暂无律师分派</p></div>'}
                 </div>
+                ` : (assignmentsHtml ? `<div class="card"><div class="card-header"><h3>承办律师</h3></div><div style="padding:4px 0;">${assignmentsHtml}</div></div>` : '')}
             </div>
         </div>
 
@@ -534,14 +589,21 @@ async function loadCaseDetail(caseId) {
         </div>`;
 }
 
-function getNextStatuses(currentStatus, isManager) {
+function getNextStatuses(currentStatus, isMgr) {
+    if (!isMgr) {
+        const staffFlow = {
+            '待初审': ['材料补正中', '已初审'],
+            '材料补正中': ['已初审'],
+        };
+        return staffFlow[currentStatus] || [];
+    }
     const flow = {
         '待初审': ['材料补正中', '已初审'],
         '材料补正中': ['已初审'],
-        '已初审': isManager ? ['已分派律师'] : [],
-        '已分派律师': isManager ? ['律师已接案'] : [],
-        '律师已接案': isManager ? ['办理中'] : [],
-        '办理中': isManager ? ['已结案', '已撤回'] : [],
+        '已初审': ['已分派律师'],
+        '已分派律师': ['律师已接案'],
+        '律师已接案': ['办理中'],
+        '办理中': ['已结案', '已撤回'],
     };
     return flow[currentStatus] || [];
 }
@@ -700,6 +762,7 @@ function addCustomCorrItem() {
 }
 
 async function assignLawyerModal(caseId) {
+    if (!isManager()) { toast('权限不足', 'error'); return; }
     const lawyers = await api('/lawyers');
     if (!lawyers) return;
 
@@ -725,6 +788,7 @@ async function assignLawyerModal(caseId) {
 }
 
 async function loadLawyers() {
+    if (!isManager()) { toast('权限不足', 'error'); navigateTo('dashboard'); return; }
     const data = await api('/lawyers');
     if (!data) return;
     const container = document.getElementById('page-content');
@@ -800,7 +864,8 @@ function editLawyerModal(id, name, phone, specialty, status) {
 }
 
 async function loadOverdue() {
-    const data = await api('/dashboard');
+    if (!isManager()) { toast('权限不足', 'error'); navigateTo('dashboard'); return; }
+    const data = await api('/overdue');
     if (!data) return;
     const container = document.getElementById('page-content');
 
@@ -843,7 +908,6 @@ function exportCorrection(caseId, correctionId) {
 let currentDetailCaseId = null;
 
 function reloadCurrentDetail() {
-    const match = window.location.hash.match(/case-(\d+)/);
     if (currentDetailCaseId) {
         navigateTo('case-detail', currentDetailCaseId);
     }
