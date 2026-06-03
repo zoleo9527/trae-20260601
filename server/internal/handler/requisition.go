@@ -8,6 +8,7 @@ import (
 	"central-kitchen/internal/service"
 	"central-kitchen/internal/utils/response"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
@@ -191,8 +192,12 @@ func PickRequisitionItems(c *fiber.Ctx) error {
 		return response.Error(c, errcode.ErrInvalidParams)
 	}
 
+	if len(req.Items) == 0 {
+		return response.Error(c, errcode.ErrInvalidParams, "items is required")
+	}
+
 	var requisition models.Requisition
-	if err := database.DB.Where("id = ?", reqID).First(&requisition).Error; err != nil {
+	if err := database.DB.Preload("Items").Where("id = ?", reqID).First(&requisition).Error; err != nil {
 		return response.Error(c, errcode.ErrRequisitionNotFound)
 	}
 
@@ -201,29 +206,68 @@ func PickRequisitionItems(c *fiber.Ctx) error {
 			fmt.Sprintf("cannot pick items when status is %s", requisition.Status))
 	}
 
+	if len(req.Items) != len(requisition.Items) {
+		return response.Error(c, errcode.ErrInvalidParams,
+			fmt.Sprintf("items count mismatch: expected %d, got %d", len(requisition.Items), len(req.Items)))
+	}
+
+	itemMap := make(map[uuid.UUID]PickItemRequest)
+	for _, pickItem := range req.Items {
+		if _, exists := itemMap[pickItem.RequisitionItemID]; exists {
+			return response.Error(c, errcode.ErrInvalidParams,
+				fmt.Sprintf("duplicate pick data for requisition item: %s", pickItem.RequisitionItemID))
+		}
+		itemMap[pickItem.RequisitionItemID] = pickItem
+	}
+
 	tx := database.DB.Begin()
 
-	for _, pickItem := range req.Items {
-		var item models.RequisitionItem
-		if err := tx.Where("id = ? AND requisition_id = ?", pickItem.RequisitionItemID, reqID).First(&item).Error; err != nil {
+	for i := range requisition.Items {
+		pickItem, ok := itemMap[requisition.Items[i].ID]
+		if !ok {
 			tx.Rollback()
 			return response.Error(c, errcode.ErrInvalidParams,
-				fmt.Sprintf("requisition item %s not found", pickItem.RequisitionItemID))
+				fmt.Sprintf("missing pick data for requisition item: %s (%s)",
+					requisition.Items[i].ID, requisition.Items[i].MaterialName))
 		}
 
-		if pickItem.PickedQty > item.RequestedQty {
+		if pickItem.PickedQty <= 0 {
+			tx.Rollback()
+			return response.Error(c, errcode.ErrInvalidParams,
+				fmt.Sprintf("picked_qty must be > 0 for %s, got %.2f",
+					requisition.Items[i].MaterialName, pickItem.PickedQty))
+		}
+
+		if pickItem.PickedQty > requisition.Items[i].RequestedQty {
 			tx.Rollback()
 			return response.Error(c, errcode.ErrInsufficientStock,
 				fmt.Sprintf("picked quantity %.2f exceeds requested %.2f for %s",
-					pickItem.PickedQty, item.RequestedQty, item.MaterialName))
+					pickItem.PickedQty, requisition.Items[i].RequestedQty, requisition.Items[i].MaterialName))
 		}
 
-		item.PickedQty = pickItem.PickedQty
-		item.BatchNo = pickItem.BatchNo
-		if err := tx.Save(&item).Error; err != nil {
+		if strings.TrimSpace(pickItem.BatchNo) == "" {
+			tx.Rollback()
+			return response.Error(c, errcode.ErrInvalidParams,
+				fmt.Sprintf("batch_no is required for %s", requisition.Items[i].MaterialName))
+		}
+
+		requisition.Items[i].PickedQty = pickItem.PickedQty
+		requisition.Items[i].BatchNo = strings.TrimSpace(pickItem.BatchNo)
+		if err := tx.Save(&requisition.Items[i]).Error; err != nil {
 			tx.Rollback()
 			return response.Error(c, errcode.ErrInternalError)
 		}
+		delete(itemMap, requisition.Items[i].ID)
+	}
+
+	if len(itemMap) > 0 {
+		tx.Rollback()
+		var extraIDs []string
+		for id := range itemMap {
+			extraIDs = append(extraIDs, id.String())
+		}
+		return response.Error(c, errcode.ErrInvalidParams,
+			fmt.Sprintf("extra items not in requisition: %s", strings.Join(extraIDs, ", ")))
 	}
 
 	now := time.Now()
@@ -302,6 +346,12 @@ func InitiateAllergenReview(c *fiber.Ctx) error {
 			})
 		}
 	}
+
+	if len(checkItems) == 0 {
+		tx.Rollback()
+		return response.Error(c, errcode.ErrInvalidParams, "no picked items available for allergen review")
+	}
+
 	review.CheckItems = checkItems
 
 	if err := tx.Create(&review).Error; err != nil {
@@ -457,11 +507,20 @@ func handleStatusToPicked(tx *gorm.DB, requisition *models.Requisition, userID u
 		return newStatusError(errcode.ErrInvalidParams, "pick_items is required when changing status to 'picked'")
 	}
 
+	if len(pickItems) != len(requisition.Items) {
+		return newStatusError(errcode.ErrInvalidParams,
+			fmt.Sprintf("pick_items count mismatch: expected %d, got %d", len(requisition.Items), len(pickItems)))
+	}
+
 	now := time.Now()
 	oldStatus := requisition.Status
 
 	itemMap := make(map[uuid.UUID]PickItemRequest)
 	for _, item := range pickItems {
+		if _, exists := itemMap[item.RequisitionItemID]; exists {
+			return newStatusError(errcode.ErrInvalidParams,
+				fmt.Sprintf("duplicate pick data for requisition item: %s", item.RequisitionItemID))
+		}
 		itemMap[item.RequisitionItemID] = item
 	}
 
@@ -469,7 +528,14 @@ func handleStatusToPicked(tx *gorm.DB, requisition *models.Requisition, userID u
 		pickItem, ok := itemMap[requisition.Items[i].ID]
 		if !ok {
 			return newStatusError(errcode.ErrInvalidParams,
-				fmt.Sprintf("missing pick data for requisition item: %s", requisition.Items[i].ID))
+				fmt.Sprintf("missing pick data for requisition item: %s (%s)",
+					requisition.Items[i].ID, requisition.Items[i].MaterialName))
+		}
+
+		if pickItem.PickedQty <= 0 {
+			return newStatusError(errcode.ErrInvalidParams,
+				fmt.Sprintf("picked_qty must be > 0 for %s, got %.2f",
+					requisition.Items[i].MaterialName, pickItem.PickedQty))
 		}
 
 		if pickItem.PickedQty > requisition.Items[i].RequestedQty {
@@ -478,8 +544,13 @@ func handleStatusToPicked(tx *gorm.DB, requisition *models.Requisition, userID u
 					pickItem.PickedQty, requisition.Items[i].RequestedQty, requisition.Items[i].MaterialName))
 		}
 
+		if strings.TrimSpace(pickItem.BatchNo) == "" {
+			return newStatusError(errcode.ErrInvalidParams,
+				fmt.Sprintf("batch_no is required for %s", requisition.Items[i].MaterialName))
+		}
+
 		requisition.Items[i].PickedQty = pickItem.PickedQty
-		requisition.Items[i].BatchNo = pickItem.BatchNo
+		requisition.Items[i].BatchNo = strings.TrimSpace(pickItem.BatchNo)
 
 		if err := tx.Save(&requisition.Items[i]).Error; err != nil {
 			return newStatusError(errcode.ErrInternalError, err.Error())
@@ -545,6 +616,11 @@ func handleStatusToAllergenPending(tx *gorm.DB, requisition *models.Requisition,
 			})
 		}
 	}
+
+	if len(checkItems) == 0 {
+		return newStatusError(errcode.ErrInvalidParams, "no picked items available for allergen review")
+	}
+
 	review.CheckItems = checkItems
 
 	if err := tx.Create(&review).Error; err != nil {
@@ -594,14 +670,25 @@ func handleStatusToAllergenResult(tx *gorm.DB, requisition *models.Requisition, 
 	if len(checkItems) == 0 {
 		return newStatusError(errcode.ErrInvalidParams, "review_check_items is required when changing status to 'allergen_passed' or 'allergen_failed'")
 	}
-	if overallResult == "" {
+	if strings.TrimSpace(overallResult) == "" {
 		return newStatusError(errcode.ErrInvalidParams, "overall_result is required when changing status to 'allergen_passed' or 'allergen_failed'")
+	}
+	if strings.TrimSpace(findings) == "" {
+		return newStatusError(errcode.ErrInvalidParams, "findings is required when changing status to 'allergen_passed' or 'allergen_failed'")
+	}
+	if strings.TrimSpace(correctiveActions) == "" {
+		return newStatusError(errcode.ErrInvalidParams, "corrective_actions is required when changing status to 'allergen_passed' or 'allergen_failed'")
 	}
 
 	var review models.AllergenReview
 	if err := tx.Preload("CheckItems").Where("requisition_id = ?", requisition.ID).First(&review).Error; err != nil {
 		return newStatusError(errcode.ErrAllergenReviewNotFound,
 			"allergen review not found, please initiate review first")
+	}
+
+	if len(checkItems) != len(review.CheckItems) {
+		return newStatusError(errcode.ErrInvalidParams,
+			fmt.Sprintf("review_check_items count mismatch: expected %d, got %d", len(review.CheckItems), len(checkItems)))
 	}
 
 	if review.Status != models.AllergenStatusPending && review.Status != models.AllergenStatusReviewing {
@@ -628,6 +715,10 @@ func handleStatusToAllergenResult(tx *gorm.DB, requisition *models.Requisition, 
 
 	itemMap := make(map[uuid.UUID]AllergenCheckItemUpdate)
 	for _, item := range checkItems {
+		if _, exists := itemMap[item.ID]; exists {
+			return newStatusError(errcode.ErrInvalidParams,
+				fmt.Sprintf("duplicate check item data for: %s", item.ID))
+		}
 		itemMap[item.ID] = item
 	}
 
@@ -635,8 +726,10 @@ func handleStatusToAllergenResult(tx *gorm.DB, requisition *models.Requisition, 
 		itemUpdate, ok := itemMap[review.CheckItems[i].ID]
 		if !ok {
 			return newStatusError(errcode.ErrInvalidParams,
-				fmt.Sprintf("missing check item data for: %s", review.CheckItems[i].ID))
+				fmt.Sprintf("missing check item data for: %s (%s)",
+					review.CheckItems[i].ID, review.CheckItems[i].MaterialName))
 		}
+		delete(itemMap, review.CheckItems[i].ID)
 
 		review.CheckItems[i].IsContained = itemUpdate.IsContained
 		review.CheckItems[i].LabelVerified = itemUpdate.LabelVerified
@@ -649,10 +742,19 @@ func handleStatusToAllergenResult(tx *gorm.DB, requisition *models.Requisition, 
 		}
 	}
 
+	if len(itemMap) > 0 {
+		var extraIDs []string
+		for id := range itemMap {
+			extraIDs = append(extraIDs, id.String())
+		}
+		return newStatusError(errcode.ErrInvalidParams,
+			fmt.Sprintf("extra check items not in review: %s", strings.Join(extraIDs, ", ")))
+	}
+
 	review.Status = allergenStatus
-	review.OverallResult = overallResult
-	review.Findings = findings
-	review.CorrectiveActions = correctiveActions
+	review.OverallResult = strings.TrimSpace(overallResult)
+	review.Findings = strings.TrimSpace(findings)
+	review.CorrectiveActions = strings.TrimSpace(correctiveActions)
 
 	if err := tx.Save(&review).Error; err != nil {
 		return newStatusError(errcode.ErrInternalError, err.Error())

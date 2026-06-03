@@ -8,6 +8,7 @@ import (
 	"central-kitchen/internal/service"
 	"central-kitchen/internal/utils/response"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
@@ -116,8 +117,21 @@ func SubmitAllergenReview(c *fiber.Ctx) error {
 		return response.Error(c, errcode.ErrInvalidParams)
 	}
 
+	if len(req.CheckItems) == 0 {
+		return response.Error(c, errcode.ErrInvalidParams, "check_items is required")
+	}
+	if strings.TrimSpace(req.OverallResult) == "" {
+		return response.Error(c, errcode.ErrInvalidParams, "overall_result is required")
+	}
+	if strings.TrimSpace(req.Findings) == "" {
+		return response.Error(c, errcode.ErrInvalidParams, "findings is required")
+	}
+	if strings.TrimSpace(req.CorrectiveActions) == "" {
+		return response.Error(c, errcode.ErrInvalidParams, "corrective_actions is required")
+	}
+
 	var review models.AllergenReview
-	if err := database.DB.Preload("Requisition").Where("id = ?", reviewID).First(&review).Error; err != nil {
+	if err := database.DB.Preload("CheckItems").Preload("Requisition").Where("id = ?", reviewID).First(&review).Error; err != nil {
 		return response.Error(c, errcode.ErrAllergenReviewNotFound)
 	}
 
@@ -134,33 +148,59 @@ func SubmitAllergenReview(c *fiber.Ctx) error {
 		return response.Error(c, errcode.ErrInvalidParams, "status must be 'passed' or 'failed'")
 	}
 
+	if len(req.CheckItems) != len(review.CheckItems) {
+		return response.Error(c, errcode.ErrInvalidParams,
+			fmt.Sprintf("check_items count mismatch: expected %d, got %d", len(review.CheckItems), len(req.CheckItems)))
+	}
+
+	itemMap := make(map[uuid.UUID]AllergenCheckItemUpdate)
+	for _, itemUpdate := range req.CheckItems {
+		if _, exists := itemMap[itemUpdate.ID]; exists {
+			return response.Error(c, errcode.ErrInvalidParams,
+				fmt.Sprintf("duplicate check item data for: %s", itemUpdate.ID))
+		}
+		itemMap[itemUpdate.ID] = itemUpdate
+	}
+
 	tx := database.DB.Begin()
 
-	for _, itemUpdate := range req.CheckItems {
-		var item models.AllergenCheckItem
-		if err := tx.Where("id = ? AND allergen_review_id = ?", itemUpdate.ID, reviewID).First(&item).Error; err != nil {
+	for i := range review.CheckItems {
+		itemUpdate, ok := itemMap[review.CheckItems[i].ID]
+		if !ok {
 			tx.Rollback()
 			return response.Error(c, errcode.ErrInvalidParams,
-				fmt.Sprintf("check item %s not found", itemUpdate.ID))
+				fmt.Sprintf("missing check item data for: %s (%s)",
+					review.CheckItems[i].ID, review.CheckItems[i].MaterialName))
 		}
+		delete(itemMap, review.CheckItems[i].ID)
 
-		item.IsContained = itemUpdate.IsContained
-		item.LabelVerified = itemUpdate.LabelVerified
-		item.BatchVerified = itemUpdate.BatchVerified
-		item.CrossContaminationRisk = itemUpdate.CrossContaminationRisk
-		item.Remarks = itemUpdate.Remarks
+		review.CheckItems[i].IsContained = itemUpdate.IsContained
+		review.CheckItems[i].LabelVerified = itemUpdate.LabelVerified
+		review.CheckItems[i].BatchVerified = itemUpdate.BatchVerified
+		review.CheckItems[i].CrossContaminationRisk = itemUpdate.CrossContaminationRisk
+		review.CheckItems[i].Remarks = itemUpdate.Remarks
 
-		if err := tx.Save(&item).Error; err != nil {
+		if err := tx.Save(&review.CheckItems[i]).Error; err != nil {
 			tx.Rollback()
 			return response.Error(c, errcode.ErrInternalError)
 		}
 	}
 
+	if len(itemMap) > 0 {
+		tx.Rollback()
+		var extraIDs []string
+		for id := range itemMap {
+			extraIDs = append(extraIDs, id.String())
+		}
+		return response.Error(c, errcode.ErrInvalidParams,
+			fmt.Sprintf("extra check items not in review: %s", strings.Join(extraIDs, ", ")))
+	}
+
 	oldStatus := review.Status
 	review.Status = req.Status
-	review.OverallResult = req.OverallResult
-	review.Findings = req.Findings
-	review.CorrectiveActions = req.CorrectiveActions
+	review.OverallResult = strings.TrimSpace(req.OverallResult)
+	review.Findings = strings.TrimSpace(req.Findings)
+	review.CorrectiveActions = strings.TrimSpace(req.CorrectiveActions)
 
 	if err := tx.Save(&review).Error; err != nil {
 		tx.Rollback()
