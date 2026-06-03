@@ -541,6 +541,9 @@ def assign_lawyer(case_id):
     if not case:
         return jsonify({'error': '案件不存在'}), 404
 
+    if case['status'] != '已初审':
+        return jsonify({'error': f'案件当前状态为"{case["status"]}"，仅"已初审"状态可分派律师'}), 400
+
     existing = db.execute(
         "SELECT * FROM assignments WHERE case_id = ? AND status IN ('pending', 'accepted')", (case_id,)
     ).fetchone()
@@ -568,6 +571,9 @@ def accept_assignment(assignment_id):
     if not assignment:
         return jsonify({'error': '分派记录不存在'}), 404
 
+    if assignment['status'] != 'pending':
+        return jsonify({'error': f'分派记录状态为"{assignment["status"]}"，仅"待接受"记录可确认接案'}), 400
+
     db.execute("UPDATE assignments SET status = 'accepted', accepted_at = ? WHERE id = ?", (now, assignment_id))
     db.execute("UPDATE cases SET status = '律师已接案', updated_at = ? WHERE id = ?", (now, assignment['case_id']))
     log_progress(db, assignment['case_id'], '已分派律师', '律师已接案', session['user_id'], '律师已接案')
@@ -584,6 +590,9 @@ def reject_assignment(assignment_id):
     assignment = db.execute("SELECT * FROM assignments WHERE id = ?", (assignment_id,)).fetchone()
     if not assignment:
         return jsonify({'error': '分派记录不存在'}), 404
+
+    if assignment['status'] != 'pending':
+        return jsonify({'error': f'分派记录状态为"{assignment["status"]}"，仅"待接受"记录可拒绝'}), 400
 
     db.execute("UPDATE assignments SET status = 'rejected' WHERE id = ?", (assignment_id,))
     db.execute("UPDATE cases SET status = '已初审', updated_at = ? WHERE id = ?", (now, assignment['case_id']))
