@@ -7,7 +7,8 @@ import {
   AlertTriangle,
   User,
   CheckCircle,
-  XCircle
+  XCircle,
+  ShieldCheck
 } from 'lucide-react';
 import { formatDistanceToNow, isBefore, parseISO } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
@@ -165,14 +166,31 @@ const ReworkList = () => {
                             <Eye className="w-4 h-4" />
                             详情
                           </Link>
-                          {(order.status === 'rework' || order.status === 'quality_check') && 
-                           (currentUser?.role === 'designer' || currentUser?.role === 'inspector') && (
+                          {order.status === 'rework' && currentUser?.role === 'designer' && (
                             <Link
                               to={`/order/${order.id}/rework`}
                               className="inline-flex items-center gap-1 px-3 py-1.5 bg-orange-600 text-white rounded-lg hover:bg-orange-700 text-sm transition-colors"
                             >
                               <RefreshCw className="w-4 h-4" />
-                              处理
+                              处理返工
+                            </Link>
+                          )}
+                          {order.status === 'rework' && currentUser?.role === 'inspector' && (
+                            <Link
+                              to={`/order/${order.id}/rework`}
+                              className="inline-flex items-center gap-1 px-3 py-1.5 bg-orange-100 text-orange-700 rounded-lg hover:bg-orange-200 text-sm transition-colors"
+                            >
+                              <RefreshCw className="w-4 h-4" />
+                              查看返工
+                            </Link>
+                          )}
+                          {order.status === 'quality_check' && currentUser?.role === 'inspector' && (
+                            <Link
+                              to={`/order/${order.id}/rework`}
+                              className="inline-flex items-center gap-1 px-3 py-1.5 bg-purple-600 text-white rounded-lg hover:bg-purple-700 text-sm transition-colors"
+                            >
+                              <ShieldCheck className="w-4 h-4" />
+                              质检复核
                             </Link>
                           )}
                         </div>

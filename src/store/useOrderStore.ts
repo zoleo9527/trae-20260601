@@ -2,6 +2,8 @@ import { create } from 'zustand';
 import { Order, OrderHistory, ReworkRecord, ColorConfirm, OrderStatus } from '@/types';
 import { MOCK_ORDERS, MOCK_HISTORY, MOCK_REWORKS, MOCK_COLOR_CONFIRMS, DEMO_USERS } from '@/utils/mock';
 import { useAuthStore } from './useAuthStore';
+import { format } from 'date-fns';
+import { zhCN } from 'date-fns/locale';
 
 interface OrderState {
   orders: Order[];
@@ -23,6 +25,19 @@ interface OrderState {
 }
 
 const generateId = () => `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+const buildRemark = (userRemark: string | undefined, systemParts: string[]) => {
+  const parts: string[] = [];
+  if (userRemark?.trim()) {
+    parts.push(userRemark.trim());
+  }
+  parts.push(...systemParts);
+  return parts.join(' | ');
+};
+
+const formatTs = (iso: string) => {
+  return format(new Date(iso), 'yyyy-MM-dd HH:mm', { locale: zhCN });
+};
 
 export const useOrderStore = create<OrderState>((set, get) => ({
   orders: MOCK_ORDERS,
@@ -59,29 +74,37 @@ export const useOrderStore = create<OrderState>((set, get) => ({
       createdAt: now
     };
     
-    set(state => ({
-      colorConfirms: [...state.colorConfirms, newColorConfirm],
-      orders: state.orders.map(o => 
-        o.id === orderId 
-          ? { 
-              ...o, 
-              shade, 
-              status: 'color_confirmed' as OrderStatus, 
-              currentHandler: currentUser.name,
-              updatedAt: now 
-            }
-          : o
-      ),
-      history: [...state.history, {
-        id: generateId(),
-        orderId,
-        action: '色号确认',
-        operator: currentUser.name,
-        operatorRole: currentUser.role,
-        remark: remark || `确认色号 ${shade}，责任人：${currentUser.name}`,
-        createdAt: now
-      }]
-    }));
+    set(state => {
+      const prevOrder = state.orders.find(o => o.id === orderId);
+      return {
+        colorConfirms: [...state.colorConfirms, newColorConfirm],
+        orders: state.orders.map(o => 
+          o.id === orderId 
+            ? { 
+                ...o, 
+                shade, 
+                status: 'color_confirmed' as OrderStatus, 
+                currentHandler: currentUser.name,
+                updatedAt: now 
+              }
+            : o
+        ),
+        history: [...state.history, {
+          id: generateId(),
+          orderId,
+          action: '色号确认',
+          operator: currentUser.name,
+          operatorRole: currentUser.role,
+          remark: buildRemark(remark, [
+            `确认色号 ${shade}`,
+            `状态: ${prevOrder?.status || 'unknown'} → color_confirmed`,
+            `责任人: ${currentUser.name}`,
+            `更新时间: ${formatTs(now)}`
+          ]),
+          createdAt: now
+        }]
+      };
+    });
   },
   
   createRework: (orderId, reason, description, handler, remark) => {
@@ -121,7 +144,12 @@ export const useOrderStore = create<OrderState>((set, get) => ({
           action: '提交返工',
           operator: currentUser.name,
           operatorRole: currentUser.role,
-          remark: remark || `${reason}：${description}`,
+          remark: buildRemark(remark, [
+            `${reason}：${description}`,
+            `状态: ${order?.status || 'unknown'} → rework`,
+            `责任人: ${handler}`,
+            `更新时间: ${formatTs(now)}`
+          ]),
           createdAt: now
         }]
       };
@@ -139,32 +167,40 @@ export const useOrderStore = create<OrderState>((set, get) => ({
     const inspector = DEMO_USERS.find((u: { role: string }) => u.role === 'inspector');
     const inspectorName = inspector?.name || '王质检';
     
-    set(state => ({
-      reworks: state.reworks.map(r => 
-        r.id === reworkId 
-          ? { ...r, status: 'resolved' as const, resolvedAt: now }
-          : r
-      ),
-      orders: state.orders.map(o => 
-        o.id === rework.orderId 
-          ? { 
-              ...o, 
-              status: 'quality_check' as OrderStatus, 
-              currentHandler: inspectorName,
-              updatedAt: now 
-            }
-          : o
-      ),
-      history: [...state.history, {
-        id: generateId(),
-        orderId: rework.orderId,
-        action: '返工完成',
-        operator: currentUser.name,
-        operatorRole: currentUser.role,
-        remark: remark || `返工处理完成，提交质检，责任人：${inspectorName}`,
-        createdAt: now
-      }]
-    }));
+    set(state => {
+      const prevOrder = state.orders.find(o => o.id === rework.orderId);
+      return {
+        reworks: state.reworks.map(r => 
+          r.id === reworkId 
+            ? { ...r, status: 'resolved' as const, resolvedAt: now }
+            : r
+        ),
+        orders: state.orders.map(o => 
+          o.id === rework.orderId 
+            ? { 
+                ...o, 
+                status: 'quality_check' as OrderStatus, 
+                currentHandler: inspectorName,
+                updatedAt: now 
+              }
+            : o
+        ),
+        history: [...state.history, {
+          id: generateId(),
+          orderId: rework.orderId,
+          action: '返工完成',
+          operator: currentUser.name,
+          operatorRole: currentUser.role,
+          remark: buildRemark(remark, [
+            '返工处理完成，提交质检',
+            `状态: ${prevOrder?.status || 'unknown'} → quality_check`,
+            `责任人: ${inspectorName}`,
+            `更新时间: ${formatTs(now)}`
+          ]),
+          createdAt: now
+        }]
+      };
+    });
   },
   
   updateOrderStatus: (orderId, status, remark) => {
@@ -176,8 +212,8 @@ export const useOrderStore = create<OrderState>((set, get) => ({
       pending: '更新状态为待处理',
       model_received: '更新状态为模型已接收',
       color_confirmed: '更新状态为色号已确认',
-      in_production: '更新状态为生产中',
-      quality_check: '更新状态为质检中',
+      in_production: '开始生产',
+      quality_check: '提交质检',
       rework: '更新状态为返工中',
       completed: '更新状态为已完成'
     };
@@ -212,7 +248,11 @@ export const useOrderStore = create<OrderState>((set, get) => ({
           action: actionMap[status] || '状态更新',
           operator: currentUser.name,
           operatorRole: currentUser.role,
-          remark: remark || `状态变更为 ${status}，责任人：${nextHandler}`,
+          remark: buildRemark(remark, [
+            `状态: ${order?.status || 'unknown'} → ${status}`,
+            `责任人: ${nextHandler}`,
+            `更新时间: ${formatTs(now)}`
+          ]),
           createdAt: now
         }]
       };
@@ -225,28 +265,36 @@ export const useOrderStore = create<OrderState>((set, get) => ({
     
     const now = new Date().toISOString();
     
-    set(state => ({
-      orders: state.orders.map(o => 
-        o.id === orderId 
-          ? { 
-              ...o, 
-              modelReceived: true, 
-              status: 'model_received' as OrderStatus, 
-              currentHandler: currentUser.name,
-              updatedAt: now 
-            }
-          : o
-      ),
-      history: [...state.history, {
-        id: generateId(),
-        orderId,
-        action: '模型已接收',
-        operator: currentUser.name,
-        operatorRole: currentUser.role,
-        remark: remark || `口扫文件已确认接收，责任人：${currentUser.name}`,
-        createdAt: now
-      }]
-    }));
+    set(state => {
+      const prevOrder = state.orders.find(o => o.id === orderId);
+      return {
+        orders: state.orders.map(o => 
+          o.id === orderId 
+            ? { 
+                ...o, 
+                modelReceived: true, 
+                status: 'model_received' as OrderStatus, 
+                currentHandler: currentUser.name,
+                updatedAt: now 
+              }
+            : o
+        ),
+        history: [...state.history, {
+          id: generateId(),
+          orderId,
+          action: '模型已接收',
+          operator: currentUser.name,
+          operatorRole: currentUser.role,
+          remark: buildRemark(remark, [
+            '口扫文件已确认接收',
+            `状态: ${prevOrder?.status || 'unknown'} → model_received`,
+            `责任人: ${currentUser.name}`,
+            `更新时间: ${formatTs(now)}`
+          ]),
+          createdAt: now
+        }]
+      };
+    });
   },
   
   completeQualityCheck: (orderId, passed, remark) => {
@@ -287,7 +335,12 @@ export const useOrderStore = create<OrderState>((set, get) => ({
           action: passed ? '质检通过' : '质检驳回',
           operator: currentUser.name,
           operatorRole: currentUser.role,
-          remark: remark || (passed ? `质量检查通过，可以交付，责任人：${nextHandler}` : `质量检查未通过，需要返工，责任人：${nextHandler}`),
+          remark: buildRemark(remark, [
+            passed ? '质量检查通过，可以交付' : '质量检查未通过，需要返工',
+            `状态: ${order?.status || 'unknown'} → ${newStatus}`,
+            `责任人: ${nextHandler}`,
+            `更新时间: ${formatTs(now)}`
+          ]),
           createdAt: now
         }]
       };
