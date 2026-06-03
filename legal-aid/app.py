@@ -289,15 +289,31 @@ def get_case(case_id):
         items = [dict(r) for r in db.execute("SELECT ci.*, m.name as material_name FROM correction_items ci LEFT JOIN materials m ON ci.material_id = m.id WHERE ci.correction_id = ?", (corr['id'],)).fetchall()]
         corrections.append({**dict(corr), 'items': items})
 
-    assignments = [dict(r) for r in db.execute(
-        "SELECT a.*, l.name as lawyer_name, l.phone as lawyer_phone, l.specialty as lawyer_specialty FROM assignments a JOIN lawyers l ON a.lawyer_id = l.id WHERE a.case_id = ? ORDER BY a.assigned_at DESC",
-        (case_id,)
-    ).fetchall()]
+    assignments = []
+    if session.get('role') == 'manager':
+        assignments = [dict(r) for r in db.execute(
+            "SELECT a.*, l.name as lawyer_name, l.phone as lawyer_phone, l.specialty as lawyer_specialty FROM assignments a JOIN lawyers l ON a.lawyer_id = l.id WHERE a.case_id = ? ORDER BY a.assigned_at DESC",
+            (case_id,)
+        ).fetchall()]
+    else:
+        accepted = db.execute(
+            "SELECT a.id, l.name as lawyer_name FROM assignments a JOIN lawyers l ON a.lawyer_id = l.id WHERE a.case_id = ? AND a.status = 'accepted' LIMIT 1",
+            (case_id,)
+        ).fetchone()
+        if accepted:
+            assignments = [{'id': accepted['id'], 'lawyer_name': accepted['lawyer_name'], 'status': 'accepted'}]
 
-    progress = [dict(r) for r in db.execute(
-        "SELECT p.*, u.display_name as operator_name FROM progress_log p LEFT JOIN users u ON p.operator_id = u.id WHERE p.case_id = ? ORDER BY p.created_at",
-        (case_id,)
-    ).fetchall()]
+    progress = []
+    if session.get('role') == 'manager':
+        progress = [dict(r) for r in db.execute(
+            "SELECT p.*, u.display_name as operator_name FROM progress_log p LEFT JOIN users u ON p.operator_id = u.id WHERE p.case_id = ? ORDER BY p.created_at",
+            (case_id,)
+        ).fetchall()]
+    else:
+        progress = [dict(r) for r in db.execute(
+            "SELECT p.id, p.case_id, p.from_status, p.to_status, p.note, p.created_at FROM progress_log p WHERE p.case_id = ? ORDER BY p.created_at",
+            (case_id,)
+        ).fetchall()]
 
     case_data = dict(case_row)
     case_data['materials'] = materials
@@ -307,12 +323,16 @@ def get_case(case_id):
     return jsonify(case_data)
 
 
+ASSIGNMENT_LOCKED_STATUSES = {
+    '已分派律师', '律师已接案'
+}
+
 MANAGER_ONLY_TRANSITIONS = {
-    '已分派律师', '律师已接案', '办理中', '已结案', '已撤回'
+    '办理中', '已结案', '已撤回'
 }
 
 STAFF_ALLOWED_TRANSITIONS = {
-    '待初审', '材料补正中'
+    '待初审', '材料补正中', '已初审'
 }
 
 
@@ -325,6 +345,9 @@ def update_case_status(case_id):
     if new_status not in CASE_STATUSES:
         return jsonify({'error': '无效的案件状态'}), 400
 
+    if new_status in ASSIGNMENT_LOCKED_STATUSES:
+        return jsonify({'error': '该状态需通过律师分派流程变更，不能直接修改'}), 400
+
     if new_status in MANAGER_ONLY_TRANSITIONS and session.get('role') != 'manager':
         return jsonify({'error': '权限不足，该状态变更需要负责人权限'}), 403
 
@@ -333,11 +356,12 @@ def update_case_status(case_id):
     if not case:
         return jsonify({'error': '案件不存在'}), 404
 
+    if case['status'] in ASSIGNMENT_LOCKED_STATUSES and new_status == '已初审':
+        return jsonify({'error': '已分派的案件需退回分派流程，不能直接回退到已初审'}), 400
+
     VALID_TRANSITIONS = {
         '待初审': {'材料补正中', '已初审'},
         '材料补正中': {'已初审', '材料补正中'},
-        '已初审': {'已分派律师'},
-        '已分派律师': {'律师已接案', '已初审'},
         '律师已接案': {'办理中'},
         '办理中': {'已结案', '已撤回'},
     }

@@ -573,7 +573,7 @@ async function loadCaseDetail(caseId) {
                 <div class="card">
                     <div class="card-header">
                         <h3>律师分派</h3>
-                        ${data.status !== '律师已接案' && data.status !== '办理中' && data.status !== '已结案' ? `<button class="btn btn-sm btn-primary" onclick="assignLawyerModal(${caseId})">分派律师</button>` : ''}
+                        ${data.status === '已初审' ? `<button class="btn btn-sm btn-primary" onclick="assignLawyerModal(${caseId})">分派律师</button>` : ''}
                     </div>
                     ${assignmentsHtml || '<div class="empty-state"><p>暂无律师分派</p></div>'}
                 </div>
@@ -600,8 +600,6 @@ function getNextStatuses(currentStatus, isMgr) {
     const flow = {
         '待初审': ['材料补正中', '已初审'],
         '材料补正中': ['已初审'],
-        '已初审': ['已分派律师'],
-        '已分派律师': ['律师已接案'],
         '律师已接案': ['办理中'],
         '办理中': ['已结案', '已撤回'],
     };
