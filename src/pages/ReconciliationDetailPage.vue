@@ -111,15 +111,15 @@ async function loadData() {
   loading.value = true
   try {
     const id = route.params.id as string
-    const [recRes, tlRes] = await Promise.all([
-      getReconciliation(id),
-      getTimeline(id),
-    ])
+    const recRes = await getReconciliation(id)
     if (recRes.success) {
       reconciliation.value = recRes.data
-    }
-    if (tlRes.success) {
-      timelineEntries.value = tlRes.data
+      if (reconciliation.value?.event_id) {
+        const tlRes = await getTimeline(reconciliation.value.event_id)
+        if (tlRes.success) {
+          timelineEntries.value = tlRes.data
+        }
+      }
     }
   } finally {
     loading.value = false
@@ -217,6 +217,7 @@ onMounted(() => {
                   :class="{
                     'border-emerald-200 bg-emerald-50': item.status === 'confirmed',
                     'border-red-200 bg-red-50': item.status === 'difference',
+                    'border-amber-200 bg-amber-50': item.status === 'difference_confirmed',
                   }"
                 >
                   <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -234,6 +235,12 @@ onMounted(() => {
                           class="px-2 py-0.5 bg-red-100 text-red-700 rounded text-xs font-medium"
                         >
                           有差异
+                        </span>
+                        <span
+                          v-else-if="item.status === 'difference_confirmed'"
+                          class="px-2 py-0.5 bg-amber-100 text-amber-700 rounded text-xs font-medium"
+                        >
+                          差异已确认
                         </span>
                       </div>
                       <div class="flex items-center gap-6 text-sm">

@@ -39,7 +39,13 @@ router.get('/', (req: Request, res: Response): void => {
       `).all()
     }
   }
-  res.json({ success: true, data: rows })
+
+  const result = (rows as any[]).map((f: any) => {
+    const sections = db.prepare('SELECT * FROM feedback_sections WHERE feedback_id = ?').all(f.id)
+    return { ...f, sections }
+  })
+
+  res.json({ success: true, data: result })
 })
 
 router.get('/:id', (req: Request, res: Response): void => {

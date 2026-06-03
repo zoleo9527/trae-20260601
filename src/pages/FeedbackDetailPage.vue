@@ -129,10 +129,7 @@ async function loadData() {
   loading.value = true
   try {
     const id = route.params.id as string
-    const [fbRes, tlRes] = await Promise.all([
-      getFeedback(id),
-      getTimeline(id),
-    ])
+    const fbRes = await getFeedback(id)
     if (fbRes.success) {
       feedback.value = fbRes.data
       if (userStore.user) {
@@ -145,9 +142,12 @@ async function loadData() {
         localContent.value = section.content || ''
         localRating.value = section.rating || 0
       }
-    }
-    if (tlRes.success) {
-      timelineEntries.value = tlRes.data
+      if (feedback.value?.event_id) {
+        const tlRes = await getTimeline(feedback.value.event_id)
+        if (tlRes.success) {
+          timelineEntries.value = tlRes.data
+        }
+      }
     }
     updateCountdown()
   } finally {

@@ -71,6 +71,7 @@ function getStatusLabel(reconciliation: Reconciliation) {
 
 function getItemStatusInfo(item: ReconciliationItem) {
   if (item.status === 'confirmed') return { text: '已确认', class: 'text-emerald-600' }
+  if (item.status === 'difference_confirmed') return { text: '差异已确认', class: 'text-amber-600' }
   if (item.status === 'difference') return { text: '有差异', class: 'text-red-600' }
   if (isItemConfirmedByCurrentRole(item)) return { text: '我已确认', class: 'text-blue-600' }
   return { text: '待确认', class: 'text-slate-500' }

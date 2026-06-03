@@ -37,7 +37,7 @@ export interface ReconciliationItem {
   actual_amount: number | null
   difference: number | null
   difference_note: string
-  status: 'pending' | 'confirmed' | 'difference'
+  status: 'pending' | 'confirmed' | 'difference' | 'difference_confirmed'
   confirmations?: ReconciliationConfirmation[]
 }
 

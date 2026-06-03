@@ -36,7 +36,17 @@ router.get('/', (req: Request, res: Response): void => {
       ORDER BY r.created_at DESC
     `).all()
   }
-  res.json({ success: true, data: rows })
+
+  const result = (rows as any[]).map((r: any) => {
+    const items = db.prepare('SELECT * FROM reconciliation_items WHERE reconciliation_id = ?').all(r.id) as any[]
+    const itemsWithConfirmations = items.map((item: any) => {
+      const confirmations = db.prepare('SELECT * FROM reconciliation_confirmations WHERE item_id = ?').all(item.id)
+      return { ...item, confirmations }
+    })
+    return { ...r, items: itemsWithConfirmations }
+  })
+
+  res.json({ success: true, data: result })
 })
 
 router.post('/', (req: Request, res: Response): void => {
@@ -117,7 +127,7 @@ router.get('/:id', (req: Request, res: Response): void => {
 
 function checkAndActivateFeedback(reconciliationId: string, eventId: string) {
   const items = db.prepare('SELECT id, status FROM reconciliation_items WHERE reconciliation_id = ?').all(reconciliationId) as any[]
-  const allConfirmed = items.every(item => item.status === 'confirmed')
+  const allConfirmed = items.every(item => item.status === 'confirmed' || item.status === 'difference_confirmed')
   if (!allConfirmed) return
 
   db.prepare('UPDATE reconciliations SET all_confirmed = 1, feedback_activated = 1, feedback_activated_at = datetime(\'now\') WHERE id = ?').run(reconciliationId)
@@ -164,7 +174,11 @@ router.put('/:id/items/:itemId/confirm', (req: Request, res: Response): void => 
   const confirmations = db.prepare('SELECT * FROM reconciliation_confirmations WHERE item_id = ?').all(itemId) as any[]
   const allRoleConfirmed = confirmations.every(c => c.confirmed === 1)
   if (allRoleConfirmed) {
-    db.prepare("UPDATE reconciliation_items SET status = 'confirmed', actual_amount = expected_amount, difference = 0 WHERE id = ?").run(itemId)
+    if (item.status === 'difference') {
+      db.prepare("UPDATE reconciliation_items SET status = 'difference_confirmed' WHERE id = ?").run(itemId)
+    } else {
+      db.prepare("UPDATE reconciliation_items SET status = 'confirmed', actual_amount = expected_amount, difference = 0 WHERE id = ?").run(itemId)
+    }
   }
 
   const reconciliation = db.prepare('SELECT * FROM reconciliations WHERE id = ?').get(id) as any
@@ -194,10 +208,15 @@ router.post('/batch-confirm', (req: Request, res: Response): void => {
        WHERE item_id = ? AND role = ?`
     ).run(name, itemId, role)
 
+    const item = db.prepare('SELECT * FROM reconciliation_items WHERE id = ?').get(itemId) as any
     const confirmations = db.prepare('SELECT * FROM reconciliation_confirmations WHERE item_id = ?').all(itemId) as any[]
     const allRoleConfirmed = confirmations.every(c => c.confirmed === 1)
     if (allRoleConfirmed) {
-      db.prepare("UPDATE reconciliation_items SET status = 'confirmed', actual_amount = expected_amount, difference = 0 WHERE id = ?").run(itemId)
+      if (item.status === 'difference') {
+        db.prepare("UPDATE reconciliation_items SET status = 'difference_confirmed' WHERE id = ?").run(itemId)
+      } else {
+        db.prepare("UPDATE reconciliation_items SET status = 'confirmed', actual_amount = expected_amount, difference = 0 WHERE id = ?").run(itemId)
+      }
     }
   }
 

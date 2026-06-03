@@ -50,7 +50,7 @@ function handleLogout() {
           :key="item.path"
           :to="item.path"
           class="flex items-center gap-3 px-6 py-3 text-slate-300 hover:bg-slate-800 hover:text-white transition-all mx-3 rounded-lg mb-1"
-          :class="{ 'bg-slate-800 text-white border-l-4 border-amber-500': route.path === item.path }"
+          :class="{ 'bg-slate-800 text-white border-l-4 border-amber-500': route.path.startsWith(item.path) }"
         >
           <component :is="item.icon" class="w-5 h-5" />
           <span class="text-sm font-medium">{{ item.label }}</span>
@@ -81,7 +81,7 @@ function handleLogout() {
 
     <main class="flex-1 ml-60">
       <div class="p-8">
-        <slot />
+        <router-view />
       </div>
     </main>
   </div>
