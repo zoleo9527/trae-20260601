@@ -13,19 +13,24 @@ interface MaterialListProps {
 
 export default function MaterialList({ materials, banquetId, version, showKitchen = true }: MaterialListProps) {
   const { currentRole, confirmBanquet } = useAppStore();
-  const [activeTab, setActiveTab] = useState<'all' | 'hall' | 'kitchen'>('all');
+  const isKitchenRole = currentRole === 'kitchen_manager';
+  const [activeTab, setActiveTab] = useState<'all' | 'hall' | 'kitchen'>(isKitchenRole ? 'kitchen' : 'all');
   const [localChecked, setLocalChecked] = useState<Record<string, boolean>>({});
 
-  const filteredMaterials = materials.filter(m => {
+  const visibleMaterials = isKitchenRole
+    ? materials.filter(m => m.category === 'kitchen' || m.category === 'both')
+    : materials;
+
+  const filteredMaterials = visibleMaterials.filter(m => {
     if (activeTab === 'all') return true;
     if (activeTab === 'hall') return m.category === 'hall' || m.category === 'both';
     if (activeTab === 'kitchen') return m.category === 'kitchen' || m.category === 'both';
     return true;
   });
 
-  const hallMaterials = materials.filter(m => m.category === 'hall' || m.category === 'both');
-  const kitchenMaterials = materials.filter(m => m.category === 'kitchen' || m.category === 'both');
-  const shortageItems = materials.filter(m => m.status === 'shortage');
+  const hallMaterials = visibleMaterials.filter(m => m.category === 'hall' || m.category === 'both');
+  const kitchenMaterials = visibleMaterials.filter(m => m.category === 'kitchen' || m.category === 'both');
+  const shortageItems = visibleMaterials.filter(m => m.status === 'shortage');
 
   const handleConfirm = async () => {
     const role = currentRole === 'hall_manager' ? 'hall_manager' : currentRole === 'kitchen_manager' ? 'kitchen_manager' : 'sales';
@@ -33,15 +38,16 @@ export default function MaterialList({ materials, banquetId, version, showKitche
       version,
       role,
       confirmer: role === 'hall_manager' ? '厅面主管' : role === 'kitchen_manager' ? '后厨主管' : '销售经理',
-      remark: '物资清单已确认',
+      remark: isKitchenRole ? '备餐物资已确认' : '物资清单已确认',
+      confirmItem: 'materials',
     });
   };
 
   type TabKey = 'all' | 'hall' | 'kitchen';
   const tabs: Array<{ key: TabKey; label: string; icon: typeof Package; count: number }> = [
-    { key: 'all', label: '全部', icon: Package, count: materials.length },
-    { key: 'hall', label: '厅面物资', icon: Utensils, count: hallMaterials.length },
-    ...(showKitchen ? [{ key: 'kitchen' as TabKey, label: '后厨物资', icon: ChefHat, count: kitchenMaterials.length }] : []),
+    { key: 'all', label: '全部', icon: Package, count: visibleMaterials.length },
+    ...(isKitchenRole ? [] : [{ key: 'hall' as TabKey, label: '厅面物资', icon: Utensils, count: hallMaterials.length }]),
+    { key: 'kitchen' as TabKey, label: isKitchenRole ? '备餐物资' : '后厨物资', icon: ChefHat, count: kitchenMaterials.length },
   ];
 
   return (
@@ -52,7 +58,7 @@ export default function MaterialList({ materials, banquetId, version, showKitche
             <Package className="text-wine-700" size={22} />
             <div>
               <h3 className="font-display text-lg font-semibold text-gray-800">物资清单</h3>
-              <p className="text-xs text-gray-500">共 {materials.length} 项物资</p>
+              <p className="text-xs text-gray-500">共 {visibleMaterials.length} 项物资{isKitchenRole ? '（仅显示备餐相关）' : ''}</p>
             </div>
           </div>
           {shortageItems.length > 0 && (
@@ -139,7 +145,7 @@ export default function MaterialList({ materials, banquetId, version, showKitche
       <div className="px-5 py-4 bg-gray-50 border-t border-gray-100">
         <div className="flex items-center justify-between">
           <div className="text-sm text-gray-500">
-            已确认 {materials.filter(m => m.status === 'confirmed' || m.status === 'prepared').length}/{materials.length} 项
+            已确认 {visibleMaterials.filter(m => m.status === 'confirmed' || m.status === 'prepared').length}/{visibleMaterials.length} 项
           </div>
           {(currentRole === 'hall_manager' || currentRole === 'kitchen_manager' || currentRole === 'sales') && (
             <button

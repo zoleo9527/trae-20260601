@@ -75,6 +75,8 @@ export interface PlanVersion {
   createdBy: string;
 }
 
+export type ConfirmItem = 'plan' | 'table_cards' | 'sound_system' | 'motion_lines' | 'materials';
+
 export interface ConfirmRecord {
   id: string;
   banquetId: string;
@@ -84,6 +86,19 @@ export interface ConfirmRecord {
   confirmTime: string;
   signature: string;
   remark: string;
+  confirmItem: ConfirmItem;
+}
+
+export interface CreateVersionRequest {
+  hall: string;
+  tableLayout: Table[];
+  materials: MaterialItem[];
+  tableCards: TableCard[];
+  soundSystem: SoundSystem[];
+  motionLines: MotionLine[];
+  remark: string;
+  changeDescription: string;
+  createdBy: string;
 }
 
 export interface Alert {

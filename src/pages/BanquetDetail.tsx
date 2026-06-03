@@ -1,11 +1,12 @@
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
-import { ArrowLeft, Calendar, MapPin, Users, Clock, User, Phone, FileText, GitCompare, Check, AlertCircle, History, Bell } from 'lucide-react';
+import { ArrowLeft, Calendar, MapPin, Users, Clock, FileText, GitCompare, Check, AlertCircle, History, Bell, Plus, CreditCard, Volume2, Route, Package } from 'lucide-react';
 import { useAppStore } from '@/store/useAppStore';
-import { StatusBadge, ChangeTypeBadge, ImpactScopeBadge, PriorityBadge, MaterialStatusBadge } from '@/components/Badges';
+import { StatusBadge, ChangeTypeBadge, ImpactScopeBadge, PriorityBadge } from '@/components/Badges';
 import TableLayout from '@/components/TableLayout';
 import MaterialList from '@/components/MaterialList';
-import type { PlanVersion } from '@shared/types';
+import PlanForm from '@/components/PlanForm';
+import type { PlanVersion, ConfirmItem } from '@shared/types';
 
 const typeLabels: Record<string, { label: string; icon: string }> = {
   wedding: { label: '婚宴', icon: '💒' },
@@ -14,13 +15,22 @@ const typeLabels: Record<string, { label: string; icon: string }> = {
   other: { label: '其他', icon: '🎉' },
 };
 
+const confirmItemLabels: Record<ConfirmItem, { label: string; icon: typeof Check; color: string }> = {
+  plan: { label: '方案整体', icon: FileText, color: 'bg-blue-100 text-blue-700' },
+  table_cards: { label: '台卡安排', icon: CreditCard, color: 'bg-purple-100 text-purple-700' },
+  sound_system: { label: '音响设备', icon: Volume2, color: 'bg-orange-100 text-orange-700' },
+  motion_lines: { label: '动线规划', icon: Route, color: 'bg-cyan-100 text-cyan-700' },
+  materials: { label: '物资清单', icon: Package, color: 'bg-amber-100 text-amber-700' },
+};
+
 export default function BanquetDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { currentBanquet, fetchBanquet, clearCurrentBanquet, loading, currentRole, acknowledgeAlert } = useAppStore();
+  const { currentBanquet, fetchBanquet, clearCurrentBanquet, loading, currentRole, acknowledgeAlert, confirmBanquet } = useAppStore();
   const [selectedVersion, setSelectedVersion] = useState<number | null>(null);
   const [compareVersion, setCompareVersion] = useState<number | null>(null);
   const [activeTab, setActiveTab] = useState<'layout' | 'materials' | 'versions' | 'confirmations'>('layout');
+  const [showPlanForm, setShowPlanForm] = useState(false);
 
   useEffect(() => {
     if (id) {
@@ -48,11 +58,11 @@ export default function BanquetDetail() {
   }
 
   const typeConfig = typeLabels[currentBanquet.type] || typeLabels.other;
-  const currentPlan: PlanVersion | undefined = selectedVersion 
+  const currentPlan: PlanVersion | undefined = selectedVersion
     ? currentBanquet.versions.find(v => v.version === selectedVersion)
     : currentBanquet.versions[currentBanquet.versions.length - 1];
 
-  const unreadAlerts = currentBanquet.alerts.filter(a => !a.acknowledged);
+  const unreadAlerts = currentBanquet.alerts.filter(a => !a.acknowledged && (currentRole === 'kitchen_manager' ? (a.scope === 'kitchen' || a.scope === 'both') : true));
 
   const formatDateTime = (dateStr: string) => {
     const date = new Date(dateStr);
@@ -76,6 +86,45 @@ export default function BanquetDetail() {
     await acknowledgeAlert(alertId, confirmer);
   };
 
+  const handleConfirmItem = async (item: ConfirmItem) => {
+    if (!currentPlan) return;
+    const role = currentRole;
+    const confirmer = role === 'hall_manager' ? '厅面主管' : role === 'kitchen_manager' ? '后厨主管' : '销售经理';
+    await confirmBanquet(currentBanquet.id, {
+      version: currentPlan.version,
+      role,
+      confirmer,
+      remark: `确认${confirmItemLabels[item].label}`,
+      confirmItem: item,
+    });
+  };
+
+  const isItemConfirmed = (item: ConfirmItem, role: string) => {
+    if (!currentPlan) return false;
+    return currentBanquet.confirmRecords.some(
+      r => r.version === currentPlan.version && r.confirmItem === item && r.role === role
+    );
+  };
+
+  const getConfirmableItems = () => {
+    if (!currentPlan) return [];
+    const items: Array<{ item: ConfirmItem; label: string; icon: typeof Check; allowed: boolean; color: string }> = [];
+
+    if (currentRole === 'sales') {
+      items.push({ item: 'plan', label: '方案整体', icon: FileText, allowed: true, color: 'bg-blue-100 text-blue-700' });
+    }
+    if (currentRole === 'hall_manager') {
+      items.push({ item: 'table_cards', label: '台卡安排', icon: CreditCard, allowed: true, color: 'bg-purple-100 text-purple-700' });
+      items.push({ item: 'sound_system', label: '音响设备', icon: Volume2, allowed: true, color: 'bg-orange-100 text-orange-700' });
+      items.push({ item: 'motion_lines', label: '动线规划', icon: Route, allowed: true, color: 'bg-cyan-100 text-cyan-700' });
+      items.push({ item: 'materials', label: '物资清单', icon: Package, allowed: true, color: 'bg-amber-100 text-amber-700' });
+    }
+    if (currentRole === 'kitchen_manager') {
+      items.push({ item: 'materials', label: '备餐物资', icon: Package, allowed: true, color: 'bg-forest-100 text-forest-700' });
+    }
+    return items;
+  };
+
   const tabs = [
     { key: 'layout', label: '会场方案', icon: MapPin },
     { key: 'materials', label: '物资清单', icon: FileText },
@@ -83,9 +132,11 @@ export default function BanquetDetail() {
     { key: 'confirmations', label: '确认记录', icon: Check },
   ] as const;
 
+  const confirmableItems = getConfirmableItems();
+
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-4">
+      <div className="flex items-center justify-between">
         <button
           onClick={() => navigate('/')}
           className="flex items-center gap-2 text-gray-600 hover:text-wine-700 transition-colors"
@@ -93,7 +144,22 @@ export default function BanquetDetail() {
           <ArrowLeft size={18} />
           <span>返回列表</span>
         </button>
+        <button
+          onClick={() => setShowPlanForm(true)}
+          className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-wine-700 to-wine-800 text-white rounded-lg hover:from-wine-800 hover:to-wine-900 transition-all shadow-md hover:shadow-lg text-sm font-medium"
+        >
+          <Plus size={16} />
+          提交新方案
+        </button>
       </div>
+
+      {showPlanForm && (
+        <PlanForm
+          banquetId={currentBanquet.id}
+          existingHall={currentBanquet.hall}
+          onClose={() => setShowPlanForm(false)}
+        />
+      )}
 
       {unreadAlerts.length > 0 && (
         <div className="bg-gradient-to-r from-red-50 to-orange-50 border border-red-200 rounded-xl p-4">
@@ -126,7 +192,7 @@ export default function BanquetDetail() {
 
       <div className="bg-gradient-to-br from-wine-800 via-wine-700 to-wine-900 rounded-2xl p-6 text-white shadow-xl relative overflow-hidden">
         <div className="absolute top-0 right-0 w-96 h-96 bg-champagne-500/10 rounded-full -translate-y-48 translate-x-48"></div>
-        
+
         <div className="relative z-10">
           <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
             <div className="flex items-start gap-4">
@@ -143,7 +209,7 @@ export default function BanquetDetail() {
                 <p className="text-champagne-200/90">客户：{currentBanquet.customer} · {currentBanquet.customerContact}</p>
               </div>
             </div>
-            
+
             <div className="flex items-center gap-3">
               {currentBanquet.versions.length > 1 && (
                 <div className="flex items-center gap-2 bg-white/10 rounded-lg p-2">
@@ -231,6 +297,45 @@ export default function BanquetDetail() {
         </div>
       )}
 
+      {confirmableItems.length > 0 && (
+        <div className="bg-white rounded-xl shadow-md border border-champagne-100 p-5">
+          <div className="flex items-center gap-2 mb-4">
+            <Check size={18} className="text-wine-700" />
+            <h3 className="font-display text-lg font-semibold text-gray-800">确认项（方案 v{currentBanquet.currentVersion}）</h3>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            {confirmableItems.map(({ item, label, icon: ItemIcon, color }) => {
+              const confirmed = isItemConfirmed(item, currentRole);
+              const Icon = confirmed ? Check : ItemIcon;
+              return (
+                <button
+                  key={item}
+                  onClick={() => !confirmed && handleConfirmItem(item)}
+                  disabled={confirmed}
+                  className={`flex items-center gap-3 p-4 rounded-xl border-2 transition-all ${
+                    confirmed
+                      ? 'border-forest-300 bg-forest-50'
+                      : 'border-champagne-200 bg-white hover:border-wine-300 hover:bg-wine-50 cursor-pointer'
+                  }`}
+                >
+                  <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+                    confirmed ? 'bg-forest-200 text-forest-700' : color
+                  }`}>
+                    <Icon size={18} />
+                  </div>
+                  <div className="text-left">
+                    <p className={`font-medium ${confirmed ? 'text-forest-700' : 'text-gray-800'}`}>{label}</p>
+                    <p className="text-xs text-gray-400">
+                      {confirmed ? '已确认' : '点击确认'}
+                    </p>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {currentBanquet.versions.length > 1 && (
         <div className="flex items-center gap-3 bg-white rounded-xl p-3 border border-champagne-100 shadow-sm">
           <span className="text-sm text-gray-600 font-medium">查看版本：</span>
@@ -282,7 +387,30 @@ export default function BanquetDetail() {
                 motionLines={currentPlan.motionLines}
                 hallName={currentPlan.hall}
               />
-              
+
+              {currentPlan.tableCards.length > 0 && (
+                <div className="bg-purple-50 rounded-xl p-4 border border-purple-200">
+                  <h4 className="font-semibold text-purple-800 mb-3 flex items-center gap-2">
+                    <CreditCard size={16} />
+                    台卡安排
+                  </h4>
+                  <div className="flex flex-wrap gap-2">
+                    {currentPlan.tableCards.map(card => (
+                      <span
+                        key={card.id}
+                        className={`px-3 py-1.5 rounded-lg text-sm font-medium ${
+                          card.type === 'vip' ? 'bg-amber-100 text-amber-800 border border-amber-300' :
+                          card.type === 'family' ? 'bg-pink-100 text-pink-800 border border-pink-300' :
+                          'bg-blue-100 text-blue-800 border border-blue-300'
+                        }`}
+                      >
+                        {card.type === 'vip' ? '⭐' : card.type === 'family' ? '👨‍👩‍👧‍👦' : '👤'} {card.content}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {currentPlan.remark && (
                 <div className="bg-champagne-50 rounded-xl p-4 border border-champagne-100">
                   <h4 className="font-semibold text-wine-800 mb-2">方案备注</h4>
@@ -316,7 +444,7 @@ export default function BanquetDetail() {
               materials={currentPlan.materials}
               banquetId={currentBanquet.id}
               version={currentPlan.version}
-              showKitchen={currentRole !== 'kitchen_manager' ? true : true}
+              showKitchen={true}
             />
           )}
 
@@ -361,6 +489,7 @@ export default function BanquetDetail() {
                           <span>物资 {version.materials.length} 项</span>
                           <span>设备 {version.soundSystem.length} 项</span>
                           <span>台卡 {version.tableCards.length} 项</span>
+                          <span>动线 {version.motionLines.length} 条</span>
                         </div>
                       </div>
                     </div>
@@ -386,19 +515,28 @@ export default function BanquetDetail() {
                       kitchen_manager: { label: '后厨主管', color: 'bg-forest-100 text-forest-700' },
                     };
                     const roleConfig = roleLabels[record.role] || roleLabels.sales;
-                    
+                    const itemConfig = confirmItemLabels[record.confirmItem] || confirmItemLabels.plan;
+
                     return (
                       <div key={record.id} className="flex items-start gap-4 p-5 bg-champagne-50/50 rounded-xl border border-champagne-100">
                         <div className="w-12 h-12 bg-gradient-to-br from-wine-500 to-wine-700 rounded-full flex items-center justify-center text-white font-bold text-lg shadow-md">
                           {record.confirmer.charAt(0)}
                         </div>
                         <div className="flex-1">
-                          <div className="flex items-center gap-3 mb-2">
+                          <div className="flex flex-wrap items-center gap-2 mb-2">
                             <span className="font-semibold text-gray-800">{record.confirmer}</span>
                             <span className={`text-xs px-2 py-0.5 rounded-full ${roleConfig.color}`}>
                               {roleConfig.label}
                             </span>
-                            <span className="text-xs text-gray-500">确认 v{record.version} 方案</span>
+                            <span className="text-xs text-gray-500">确认 v{record.version}</span>
+                            <span className={`text-xs px-2 py-0.5 rounded-full flex items-center gap-1 ${itemConfig.color}`}>
+                              {record.confirmItem === 'plan' ? '📋' :
+                               record.confirmItem === 'table_cards' ? '🪧' :
+                               record.confirmItem === 'sound_system' ? '🔊' :
+                               record.confirmItem === 'motion_lines' ? '🚶' :
+                               record.confirmItem === 'materials' ? '📦' : '📝'}
+                              {itemConfig.label}
+                            </span>
                           </div>
                           <p className="text-sm text-gray-600 mb-2">{record.remark}</p>
                           <div className="flex items-center gap-2 text-xs text-gray-400">

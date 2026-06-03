@@ -1,4 +1,4 @@
-import type { Banquet, BanquetSummary, Alert, CompareResult, ConfirmRecord } from '@shared/types';
+import type { Banquet, BanquetSummary, Alert, CompareResult, ConfirmRecord, CreateVersionRequest, PlanVersion } from '@shared/types';
 
 const BASE_URL = '/api';
 
@@ -35,8 +35,15 @@ export const api = {
     return request<CompareResult>(`/banquets/${banquetId}/compare?v1=${v1}&v2=${v2}`);
   },
 
-  confirmBanquet: (banquetId: string, data: { version: number; role: string; confirmer: string; remark?: string; signature?: string }) => {
+  confirmBanquet: (banquetId: string, data: { version: number; role: string; confirmer: string; remark?: string; signature?: string; confirmItem?: string }) => {
     return request<{ success: boolean; confirm: ConfirmRecord; banquet: Banquet }>(`/banquets/${banquetId}/confirm`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  createVersion: (banquetId: string, data: CreateVersionRequest) => {
+    return request<{ success: boolean; version: PlanVersion; alerts: Alert[]; banquet: Banquet }>(`/banquets/${banquetId}/versions`, {
       method: 'POST',
       body: JSON.stringify(data),
     });

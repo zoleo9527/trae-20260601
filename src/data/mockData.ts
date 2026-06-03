@@ -142,6 +142,7 @@ const wedding: Banquet = {
       confirmTime: '2026-06-01T10:30:00',
       signature: 'zhangjingli',
       remark: '已与客户确认方案',
+      confirmItem: 'plan' as const,
     },
     {
       id: generateId(),
@@ -152,6 +153,7 @@ const wedding: Banquet = {
       confirmTime: '2026-06-01T14:00:00',
       signature: 'lijie',
       remark: '厅面物资已确认，可以执行',
+      confirmItem: 'materials' as const,
     },
   ],
   alerts: [
@@ -268,6 +270,7 @@ const annual: Banquet = {
       confirmTime: '2026-06-02T16:00:00',
       signature: 'wangjingli',
       remark: '客户已确认方案和菜单',
+      confirmItem: 'plan' as const,
     },
   ],
   alerts: [
@@ -439,6 +442,7 @@ const birthday: Banquet = {
       confirmTime: '2026-05-28T11:00:00',
       signature: 'liuxiaojie',
       remark: '客户确认方案',
+      confirmItem: 'plan' as const,
     },
     {
       id: generateId(),
@@ -449,6 +453,7 @@ const birthday: Banquet = {
       confirmTime: '2026-06-02T17:00:00',
       signature: 'liuxiaojie',
       remark: '已跟客户沟通换厅事宜，客户同意',
+      confirmItem: 'plan' as const,
     },
   ],
   alerts: [

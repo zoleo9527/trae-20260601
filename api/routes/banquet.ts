@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { mockBanquets, mockAlerts } from '../../src/data/mockData';
 import { compareVersions } from '../../src/utils/compareUtils';
-import type { Banquet, BanquetSummary, Alert, CompareResult, ConfirmRecord, UserRole } from '@shared/types';
+import type { Banquet, BanquetSummary, Alert, CompareResult, ConfirmRecord, UserRole, CreateVersionRequest } from '@shared/types';
 
 const router = Router();
 
@@ -97,15 +97,92 @@ router.get('/banquets/:id/compare', (req: Request, res: Response) => {
   res.json(result);
 });
 
-router.post('/banquets/:id/confirm', (req: Request, res: Response) => {
+router.post('/banquets/:id/versions', (req: Request, res: Response) => {
   const { id } = req.params;
-  const { version, role, confirmer, remark, signature } = req.body;
-  
+  const body = req.body as CreateVersionRequest;
+
   const banquet = mockBanquets.find(b => b.id === id);
   if (!banquet) {
     return res.status(404).json({ error: 'Banquet not found' });
   }
-  
+
+  const newVersion: number = banquet.versions.length > 0
+    ? Math.max(...banquet.versions.map(v => v.version)) + 1
+    : 1;
+
+  const version = {
+    id: `v${newVersion}-${Date.now()}`,
+    banquetId: id,
+    version: newVersion,
+    hall: body.hall || banquet.hall,
+    tableLayout: body.tableLayout || [],
+    materials: body.materials || [],
+    tableCards: body.tableCards || [],
+    soundSystem: body.soundSystem || [],
+    motionLines: body.motionLines || [],
+    remark: body.remark || '',
+    changeDescription: body.changeDescription || `方案 v${newVersion} 创建`,
+    createdAt: new Date().toISOString(),
+    createdBy: body.createdBy || '系统',
+  };
+
+  banquet.versions.push(version);
+  banquet.currentVersion = newVersion;
+  banquet.status = 'modified';
+  banquet.tableCount = version.tableLayout.length;
+  banquet.guestCount = version.tableLayout.reduce((sum, t) => sum + t.seats, 0);
+
+  if (version.hall !== banquet.hall) {
+    banquet.hall = version.hall;
+  }
+
+  const changedFields: string[] = [];
+  if (banquet.versions.length >= 2) {
+    const prev = banquet.versions[banquet.versions.length - 2];
+    if (prev.hall !== version.hall) changedFields.push('hall');
+    if (prev.tableLayout.length !== version.tableLayout.length) changedFields.push('table_count');
+    const prevChildrenChair = prev.materials.find(m => m.name === '儿童椅');
+    const currChildrenChair = version.materials.find(m => m.name === '儿童椅');
+    if (prevChildrenChair && currChildrenChair && prevChildrenChair.quantity !== currChildrenChair.quantity) {
+      changedFields.push('children_chair');
+    }
+    const missingEquipment = version.soundSystem.filter(s => s.status === 'missing');
+    if (missingEquipment.length > 0) {
+      changedFields.push('equipment');
+    }
+  }
+
+  const newAlerts: Alert[] = [];
+  changedFields.forEach((field, idx) => {
+    const alert: Alert = {
+      id: `alert-auto-${Date.now()}-${idx}`,
+      banquetId: id,
+      banquetName: banquet.name,
+      type: field as Alert['type'],
+      description: body.changeDescription || `方案 v${newVersion} 变更`,
+      scope: field === 'hall' ? 'both' : field === 'equipment' ? 'hall' : 'both',
+      priority: field === 'hall' ? 'urgent' : field === 'table_count' ? 'high' : 'medium',
+      acknowledged: false,
+      fromVersion: newVersion - 1,
+      toVersion: newVersion,
+      createdAt: new Date().toISOString(),
+    };
+    newAlerts.push(alert);
+    banquet.alerts.push(alert);
+  });
+
+  res.json({ success: true, version, alerts: newAlerts, banquet });
+});
+
+router.post('/banquets/:id/confirm', (req: Request, res: Response) => {
+  const { id } = req.params;
+  const { version, role, confirmer, remark, signature, confirmItem } = req.body;
+
+  const banquet = mockBanquets.find(b => b.id === id);
+  if (!banquet) {
+    return res.status(404).json({ error: 'Banquet not found' });
+  }
+
   const newConfirm: ConfirmRecord = {
     id: `confirm-${Date.now()}`,
     banquetId: id,
@@ -115,20 +192,28 @@ router.post('/banquets/:id/confirm', (req: Request, res: Response) => {
     confirmTime: new Date().toISOString(),
     signature: signature || confirmer,
     remark: remark || '',
+    confirmItem: confirmItem || 'plan',
   };
-  
+
   banquet.confirmRecords.push(newConfirm);
-  
-  const allRoles: UserRole[] = ['sales', 'hall_manager', 'kitchen_manager'];
-  const confirmedRoles = banquet.confirmRecords
-    .filter(c => c.version === banquet.currentVersion)
-    .map(c => c.role);
-  const hasAllConfirmed = allRoles.every(r => confirmedRoles.includes(r));
-  
-  if (hasAllConfirmed) {
+
+  const allConfirmItems: Array<{ role: UserRole; item: string }> = [
+    { role: 'hall_manager', item: 'table_cards' },
+    { role: 'hall_manager', item: 'sound_system' },
+    { role: 'hall_manager', item: 'motion_lines' },
+    { role: 'hall_manager', item: 'materials' },
+    { role: 'kitchen_manager', item: 'materials' },
+    { role: 'sales', item: 'plan' },
+  ];
+
+  const currentVersionRecords = banquet.confirmRecords.filter(c => c.version === banquet.currentVersion);
+  const confirmedKeys = new Set(currentVersionRecords.map(c => `${c.role}:${c.confirmItem}`));
+  const allConfirmed = allConfirmItems.every(item => confirmedKeys.has(`${item.role}:${item.item}`));
+
+  if (allConfirmed) {
     banquet.status = 'confirmed';
   }
-  
+
   res.json({ success: true, confirm: newConfirm, banquet });
 });
 

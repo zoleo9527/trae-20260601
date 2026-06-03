@@ -8,13 +8,18 @@ import type { Alert, ImpactScope, Priority } from '@shared/types';
 
 export default function AlertsCenter() {
   const { alerts, fetchAlerts, acknowledgeAlert, loading, currentRole } = useAppStore();
-  const [scopeFilter, setScopeFilter] = useState<string>('all');
+  const isKitchenRole = currentRole === 'kitchen_manager';
+  const [scopeFilter, setScopeFilter] = useState<string>(isKitchenRole ? 'kitchen' : 'all');
   const [priorityFilter, setPriorityFilter] = useState<string>('all');
   const [acknowledgedFilter, setAcknowledgedFilter] = useState<string>('all');
 
   useEffect(() => {
     fetchAlerts();
   }, [fetchAlerts]);
+
+  const roleFilteredAlerts = isKitchenRole
+    ? alerts.filter(a => a.scope === 'kitchen' || a.scope === 'both')
+    : alerts;
 
   const handleFilterChange = () => {
     fetchAlerts({
@@ -33,8 +38,8 @@ export default function AlertsCenter() {
     await acknowledgeAlert(alertId, confirmer);
   };
 
-  const unreadCount = alerts.filter(a => !a.acknowledged).length;
-  const urgentCount = alerts.filter(a => (a.priority === 'urgent' || a.priority === 'high') && !a.acknowledged).length;
+  const unreadCount = roleFilteredAlerts.filter(a => !a.acknowledged).length;
+  const urgentCount = roleFilteredAlerts.filter(a => (a.priority === 'urgent' || a.priority === 'high') && !a.acknowledged).length;
 
   const formatTime = (dateStr: string) => {
     const date = new Date(dateStr);
@@ -91,8 +96,8 @@ export default function AlertsCenter() {
           </div>
           <div className="flex items-center gap-4">
             <div className="bg-white/10 backdrop-blur-sm rounded-xl px-5 py-3 border border-white/20 text-center">
-              <div className="text-2xl font-bold">{alerts.length}</div>
-              <div className="text-xs text-champagne-200">总提醒数</div>
+              <div className="text-2xl font-bold">{roleFilteredAlerts.length}</div>
+              <div className="text-xs text-champagne-200">{isKitchenRole ? '备餐相关' : '总'}提醒数</div>
             </div>
             <div className="bg-amber-500/20 backdrop-blur-sm rounded-xl px-5 py-3 border border-amber-400/30 text-center">
               <div className="text-2xl font-bold text-amber-300">{unreadCount}</div>
@@ -156,15 +161,15 @@ export default function AlertsCenter() {
         </div>
       </div>
 
-      {alerts.length === 0 ? (
+      {roleFilteredAlerts.length === 0 ? (
         <div className="text-center py-16 bg-white rounded-xl border border-champagne-100">
           <div className="text-6xl mb-4">🔔</div>
-          <h3 className="font-display text-xl font-semibold text-gray-700 mb-2">暂无变更提醒</h3>
+          <h3 className="font-display text-xl font-semibold text-gray-700 mb-2">{isKitchenRole ? '暂无备餐相关提醒' : '暂无变更提醒'}</h3>
           <p className="text-gray-500">当前筛选条件下没有提醒记录</p>
         </div>
       ) : (
         <div className="space-y-3">
-          {alerts.map((alert, index) => (
+          {roleFilteredAlerts.map((alert, index) => (
             <AlertItem
               key={alert.id}
               alert={alert}

@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { BanquetSummary, Banquet, Alert, UserRole, PlanVersion, CompareResult } from '@shared/types';
+import type { BanquetSummary, Banquet, Alert, UserRole, PlanVersion, CompareResult, CreateVersionRequest, ConfirmItem } from '@shared/types';
 import { api } from '@/services/api';
 
 interface AppState {
@@ -16,7 +16,8 @@ interface AppState {
   fetchBanquet: (id: string) => Promise<void>;
   fetchAlerts: (params?: { scope?: string; priority?: string; acknowledged?: string }) => Promise<void>;
   compareVersions: (banquetId: string, v1: number, v2: number) => Promise<void>;
-  confirmBanquet: (banquetId: string, data: { version: number; role: UserRole; confirmer: string; remark?: string }) => Promise<void>;
+  confirmBanquet: (banquetId: string, data: { version: number; role: UserRole; confirmer: string; remark?: string; confirmItem?: ConfirmItem }) => Promise<void>;
+  createVersion: (banquetId: string, data: CreateVersionRequest) => Promise<void>;
   acknowledgeAlert: (alertId: string, acknowledgedBy: string) => Promise<void>;
   clearCurrentBanquet: () => void;
   clearCompareResult: () => void;
@@ -76,9 +77,27 @@ export const useAppStore = create<AppState>((set, get) => ({
   confirmBanquet: async (banquetId, data) => {
     set({ loading: true, error: null });
     try {
-      await api.confirmBanquet(banquetId, data);
+      await api.confirmBanquet(banquetId, {
+        version: data.version,
+        role: data.role,
+        confirmer: data.confirmer,
+        remark: data.remark,
+        confirmItem: data.confirmItem,
+      });
       await get().fetchBanquet(banquetId);
       await get().fetchBanquets();
+    } catch (error) {
+      set({ error: (error as Error).message, loading: false });
+    }
+  },
+
+  createVersion: async (banquetId, data) => {
+    set({ loading: true, error: null });
+    try {
+      await api.createVersion(banquetId, data);
+      await get().fetchBanquet(banquetId);
+      await get().fetchBanquets();
+      await get().fetchAlerts();
     } catch (error) {
       set({ error: (error as Error).message, loading: false });
     }
