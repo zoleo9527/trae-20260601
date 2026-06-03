@@ -4,7 +4,7 @@ import { useStore } from '../store/useStore';
 import { formatCurrency } from '../data/mockData';
 
 export default function Advances() {
-  const { currentRole, currentLandlordId, advances, properties, repairs, addAdvance } = useStore();
+  const { currentRole, currentLandlordId, advances, properties, repairs, bills, addAdvance } = useStore();
   const [showModal, setShowModal] = useState(false);
   const [newAdvance, setNewAdvance] = useState({
     propertyId: '',
@@ -21,6 +21,12 @@ export default function Advances() {
 
   const propertyIds = filteredProperties.map((p) => p.id);
   const filteredAdvances = advances.filter((a) => propertyIds.includes(a.propertyId));
+
+  const unsettledAmount = filteredAdvances.reduce((sum, a) => {
+    const relatedBills = bills.filter((b) => b.propertyId === a.propertyId);
+    const isSettled = relatedBills.some((b) => b.status === 'settled');
+    return sum + (isSettled ? 0 : a.amount);
+  }, 0);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -83,13 +89,7 @@ export default function Advances() {
         <div className="bg-white rounded-xl p-6 shadow-sm border border-slate-100">
           <p className="text-slate-500 text-sm">待结算</p>
           <p className="text-2xl font-bold text-rose-600 mt-2">
-            {formatCurrency(
-              filteredAdvances.reduce((sum, a) => sum + a.amount, 0) -
-              advances.reduce((sum, a) => {
-                const bill = useStore.getState().bills.find((b) => b.propertyId === a.propertyId);
-                return sum + (bill?.status === 'settled' ? a.amount : 0);
-              }, 0)
-            )}
+            {formatCurrency(unsettledAmount)}
           </p>
         </div>
       </div>

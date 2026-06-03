@@ -33,12 +33,12 @@ export default function LandlordSummary() {
     return <div className="p-8">未找到房东信息</div>;
   }
 
-  const { landlord, properties, totalIncome, totalExpenses, netIncome, pendingDisputes } = summary;
+  const { landlord, properties, totalIncome, totalExpenses, netIncome, monthlyTrend, pendingDisputes } = summary;
 
-  const monthlyData = [
-    { month: '7月', income: 45500, expenses: 2710 },
-    { month: '8月', income: 56100, expenses: 1570 },
-    { month: '9月', income: 4000, expenses: 150 },
+  const monthlyData = monthlyTrend || [
+    { month: '7月', income: 0, expenses: 0 },
+    { month: '8月', income: 0, expenses: 0 },
+    { month: '9月', income: 0, expenses: 0 },
   ];
 
   const propertyDistribution = properties.map((p: any) => ({

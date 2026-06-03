@@ -110,7 +110,7 @@ export default function BillDetail() {
           </div>
         </div>
 
-        <div className="grid grid-cols-5 gap-4">
+        <div className="grid grid-cols-6 gap-4">
           <div className="p-4 bg-emerald-50 rounded-xl text-center">
             <p className="text-emerald-600 text-xs mb-1">订单总收入</p>
             <p className="text-xl font-bold text-emerald-700">{formatCurrency(bill.totalIncome)}</p>
@@ -123,9 +123,13 @@ export default function BillDetail() {
             <p className="text-rose-600 text-xs mb-1">费用支出</p>
             <p className="text-xl font-bold text-rose-700">-{formatCurrency(bill.totalExpenses)}</p>
           </div>
+          <div className="p-4 bg-orange-50 rounded-xl text-center">
+            <p className="text-orange-600 text-xs mb-1">维修费用</p>
+            <p className="text-xl font-bold text-orange-700">-{formatCurrency(bill.totalRepairs)}</p>
+          </div>
           <div className="p-4 bg-purple-50 rounded-xl text-center">
-            <p className="text-purple-600 text-xs mb-1">维修垫付</p>
-            <p className="text-xl font-bold text-purple-700">-{formatCurrency(bill.totalRepairs)}</p>
+            <p className="text-purple-600 text-xs mb-1">垫付金额</p>
+            <p className="text-xl font-bold text-purple-700">-{formatCurrency(bill.totalAdvances)}</p>
           </div>
           <div className="p-4 bg-teal-100 rounded-xl text-center">
             <p className="text-teal-700 text-xs mb-1">净收入</p>

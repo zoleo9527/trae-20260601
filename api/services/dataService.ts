@@ -159,7 +159,7 @@ export const generateBill = (propertyId: string, year: number, month: number): B
   const platformFees = monthOrders.reduce((sum, o) => sum + o.platformFee, 0);
   const refundAmount = monthOrders.reduce((sum, o) => sum + o.refundAmount, 0);
 
-  const netAmount = totalIncome - totalExpenses - totalRepairs - platformFees - refundAmount;
+  const netAmount = totalIncome - totalExpenses - totalRepairs - totalAdvances - platformFees - refundAmount;
 
   const newBill: Bill = {
     id: `b${Date.now()}`,
@@ -185,6 +185,9 @@ export const generateBill = (propertyId: string, year: number, month: number): B
 export const getLandlordSummary = (landlordId: string) => {
   const properties = getPropertiesByLandlordId(landlordId);
   const bills = getBillsByLandlordId(landlordId);
+  const allOrders = db.orders;
+  const allExpenses = db.expenses;
+  const allRepairs = db.repairs;
 
   const propertySummaries = properties.map(p => {
     const propertyOrders = getOrdersByPropertyId(p.id);
@@ -202,12 +205,55 @@ export const getLandlordSummary = (landlordId: string) => {
     };
   });
 
+  const propertyIds = properties.map(p => p.id);
+  const landlordOrders = allOrders.filter(o => propertyIds.includes(o.propertyId));
+  const landlordExpenses = allExpenses.filter(e => propertyIds.includes(e.propertyId));
+  const landlordRepairs = allRepairs.filter(r => propertyIds.includes(r.propertyId));
+
+  const monthlyData: { [key: string]: { month: string; income: number; expenses: number } } = {};
+  const months = ['7月', '8月', '9月'];
+  months.forEach(m => {
+    monthlyData[m] = { month: m, income: 0, expenses: 0 };
+  });
+
+  landlordOrders.forEach(o => {
+    const date = new Date(o.checkIn);
+    const month = `${date.getMonth() + 1}月`;
+    if (monthlyData[month]) {
+      monthlyData[month].income += o.totalAmount;
+    }
+  });
+
+  landlordExpenses.forEach(e => {
+    const date = new Date(e.date);
+    const month = `${date.getMonth() + 1}月`;
+    if (monthlyData[month]) {
+      monthlyData[month].expenses += e.amount;
+    }
+  });
+
+  landlordRepairs.forEach(r => {
+    const date = new Date(r.date);
+    const month = `${date.getMonth() + 1}月`;
+    if (monthlyData[month]) {
+      monthlyData[month].expenses += r.cost;
+    }
+  });
+
+  const monthlyTrend = months.map(m => monthlyData[m]);
+
+  const totalExpensesIncludingRepairs = propertySummaries.reduce(
+    (sum, p) => sum + p.totalExpenses + p.totalRepairs,
+    0
+  );
+
   return {
     landlord: getLandlordById(landlordId),
     properties: propertySummaries,
     totalIncome: propertySummaries.reduce((sum, p) => sum + p.totalIncome, 0),
-    totalExpenses: propertySummaries.reduce((sum, p) => sum + p.totalExpenses, 0),
+    totalExpenses: totalExpensesIncludingRepairs,
     netIncome: propertySummaries.reduce((sum, p) => sum + (p.totalIncome - p.totalExpenses - p.totalRepairs), 0),
+    monthlyTrend,
     pendingDisputes: db.disputes.filter(d => d.landlordId === landlordId && (d.status === 'pending' || d.status === 'reviewing')).length,
   };
 };
