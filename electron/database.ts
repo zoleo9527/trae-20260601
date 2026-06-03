@@ -241,11 +241,13 @@ function initSeedData() {
 
     insertCard.run('CARD000001', owner1Id, groups['withGarage'], 'active',
       dayjs('2023-01-15').format('YYYY-MM-DD'), null, '主卡', now, now)
-    insertCard.run('CARD000002', owner1Id, groups['withGarage'], 'active',
-      dayjs('2023-06-20').format('YYYY-MM-DD'), null, '家人副卡', now, now)
+    insertCard.run('CARD000002', owner1Id, groups['withGarage'], 'inactive',
+      dayjs('2023-06-20').format('YYYY-MM-DD'), null, '家人副卡；被补办，新卡 CARD000007', now, now)
     insertCard.run('CARD000003', owner1Id, groups['garageOnly'], 'lost',
       dayjs('2022-03-10').format('YYYY-MM-DD'), dayjs('2025-12-31').format('YYYY-MM-DD'),
       '已挂失的车库卡', now, now)
+    insertCard.run('CARD000007', owner1Id, groups['withGarage'], 'active',
+      dayjs('2026-04-10').format('YYYY-MM-DD'), null, '补办，替代旧卡 CARD000002', now, now)
 
     const tenant1Id = insertResident.run(
       '李小明', '13900139002', '110101199505055678', 'tenant',
@@ -313,6 +315,12 @@ function initSeedData() {
       '为张伟制作门禁卡 CARD000001，含车库权限', now)
     insertLog.run('前台小李', '挂失', 'access_card', 3,
       'CARD000003 挂失，原因：卡片丢失', now)
+    insertLog.run('前台小李', '停用', 'access_card', 2,
+      'CARD000002 被补办停用，新卡 CARD000007', dayjs('2026-04-10 10:15:30').format('YYYY-MM-DD HH:mm:ss'))
+    insertLog.run('前台小李', '制卡', 'access_card', 7,
+      '为张伟补办门禁卡 CARD000007，替代旧卡 CARD000002', dayjs('2026-04-10 10:15:30').format('YYYY-MM-DD HH:mm:ss'))
+    insertLog.run('前台小李', '写卡激活', 'access_card', 7,
+      'CARD000007 写卡激活成功', dayjs('2026-04-10 10:16:00').format('YYYY-MM-DD HH:mm:ss'))
   })
 
   tx()

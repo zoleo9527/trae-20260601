@@ -489,14 +489,21 @@ export function registerHandlers() {
         oldCardNos = oldCards.map(c => c.cardNo)
       }
       
+      const newCardNo = 'CARD' + String(Date.now()).slice(-6)
+      
       if (oldCards.length > 0) {
-        const cardIds = oldCards.map(c => c.id)
-        const placeholders = cardIds.map(() => '?').join(', ')
-        db.prepare(`UPDATE access_cards SET status = 'inactive', updatedAt = ? WHERE id IN (${placeholders})`)
-          .run(now, ...cardIds)
+        const updateStmt = db.prepare(`
+          UPDATE access_cards 
+          SET status = 'inactive', 
+              remark = COALESCE(remark || '；', '') || '被补办，新卡 ' || ?,
+              updatedAt = ? 
+          WHERE id = ?
+        `)
+        oldCards.forEach(oldCard => {
+          updateStmt.run(newCardNo, now, oldCard.id)
+        })
       }
       
-      const cardNo = 'CARD' + String(Date.now()).slice(-6)
       const remark = oldCardNos.length > 0 
         ? `补办，替代旧卡 ${oldCardNos.join('、')}` 
         : '补办（无旧卡记录）'
@@ -504,7 +511,7 @@ export function registerHandlers() {
       db.prepare(`
         INSERT INTO access_cards (cardNo, residentId, permissionGroupId, status, issueDate, remark, createdAt, updatedAt)
         VALUES (?, ?, ?, 'pending', ?, ?, ?, ?)
-      `).run(cardNo, app.residentId, app.permissionGroupId, dayjs().format('YYYY-MM-DD'), remark, now, now)
+      `).run(newCardNo, app.residentId, app.permissionGroupId, dayjs().format('YYYY-MM-DD'), remark, now, now)
     } else if (app.type === 'permission') {
       db.prepare(`
         UPDATE access_cards SET permissionGroupId = ?, updatedAt = ?

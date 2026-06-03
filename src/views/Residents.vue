@@ -313,7 +313,7 @@ const getStatusBadge = (status: string) => {
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="card in detailData.cards" :key="card.id" :class="{ 'row-highlight': card.remark && card.remark.includes('补办') }">
+                <tr v-for="card in detailData.cards" :key="card.id" :class="{ 'row-highlight': card.remark && (card.remark.includes('补办') || card.remark.includes('被补办')) }">
                   <td class="font-mono">{{ card.cardNo }}</td>
                   <td>{{ card.permissionGroupName }}</td>
                   <td><span class="badge" :class="getStatusBadge(card.status)">{{ getStatusLabel(card.status) }}</span></td>

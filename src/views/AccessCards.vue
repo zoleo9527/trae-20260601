@@ -151,7 +151,7 @@ const doorOptions = ['小区大门', '单元门', '车库入口', '天台门', '
               </tr>
             </thead>
             <tbody>
-              <tr v-for="card in cards" :key="card.id" :class="{ 'row-highlight': card.remark && card.remark.includes('补办') }">
+              <tr v-for="card in cards" :key="card.id" :class="{ 'row-highlight': card.remark && (card.remark.includes('补办') || card.remark.includes('被补办')) }">
                 <td class="font-mono"><strong>{{ card.cardNo }}</strong></td>
                 <td>{{ card.residentName }}</td>
                 <td>{{ card.phone }}</td>
