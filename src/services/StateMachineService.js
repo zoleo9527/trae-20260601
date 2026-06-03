@@ -49,7 +49,26 @@ export function canTransitionRemoteOpen(currentStatus, targetStatus) {
 }
 
 export function canRequestRemoteOpen(orderStatus) {
-  return [ORDER_STATUS.CELL_ASSIGNED, ORDER_STATUS.DELIVERED, ORDER_STATUS.TIMEOUT].includes(orderStatus);
+  return [ORDER_STATUS.DELIVERED, ORDER_STATUS.TIMEOUT].includes(orderStatus);
+}
+
+export function canCellBeRemoteOpened(cellStatus, orderStatus) {
+  if (cellStatus !== CELL_STATUS.DELIVERED) {
+    return { allowed: false, reason: `格口状态 ${cellStatus} 不允许远程开柜，仅已投放(${CELL_STATUS.DELIVERED})的格口可开柜` };
+  }
+  if (!orderStatus) {
+    return { allowed: false, reason: '该格口无关联有效订单' };
+  }
+  if (orderStatus === ORDER_STATUS.PICKED_UP) {
+    return { allowed: false, reason: `订单状态 ${orderStatus} 已取件，不允许远程开柜` };
+  }
+  if (orderStatus === ORDER_STATUS.CANCELLED) {
+    return { allowed: false, reason: `订单状态 ${orderStatus} 已取消，不允许远程开柜` };
+  }
+  if (!canRequestRemoteOpen(orderStatus)) {
+    return { allowed: false, reason: `订单状态 ${orderStatus} 未投放，不允许远程开柜` };
+  }
+  return { allowed: true, reason: '' };
 }
 
 export function isCellOccupied(cellStatus) {

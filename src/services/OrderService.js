@@ -16,6 +16,7 @@ import {
   TIMEOUT_REMINDER_STATUS,
   PICKUP_TIMEOUT_HOURS,
 } from '../utils/constants.js';
+import sequelize from '../config/database.js';
 import {
   canTransitionOrder,
   canTransitionCell,
@@ -37,30 +38,80 @@ export async function createOrder(data) {
 }
 
 export async function assignCell(orderId, cabinetId, preferredSize = 'medium') {
-  const order = await Order.findByPk(orderId);
-  if (!order) {
-    throw new Error('订单不存在');
+  const t = await sequelize.transaction();
+  
+  try {
+    const order = await Order.findByPk(orderId, { 
+      transaction: t, 
+      lock: t.LOCK.UPDATE 
+    });
+    if (!order) {
+      throw new Error('订单不存在');
+    }
+    if (order.cellId) {
+      throw new Error('订单已分配格口，请勿重复分配');
+    }
+    if (!canTransitionOrder(order.status, ORDER_STATUS.CELL_ASSIGNED)) {
+      throw new Error(`订单状态 ${order.status} 无法分配格口`);
+    }
+    
+    const { findAvailableCell, updateCellStatus } = await import('./CabinetService.js');
+    
+    const cell = await findAvailableCell(cabinetId, preferredSize, t);
+    if (!cell) {
+      throw new Error('该柜机暂无可用格口');
+    }
+    
+    if (cell.currentOrderId !== null) {
+      throw new Error('格口已被其他订单占用');
+    }
+    
+    if (isCellOccupied(cell.status)) {
+      throw new Error(`格口状态 ${cell.status} 已被占用，无法分配`);
+    }
+    
+    if (cell.status !== CELL_STATUS.AVAILABLE) {
+      throw new Error(`格口状态 ${cell.status} 不是可用状态`);
+    }
+    
+    const existingCellForOrder = await Cell.findOne({
+      where: { currentOrderId: orderId },
+      transaction: t,
+      lock: t.LOCK.UPDATE,
+    });
+    if (existingCellForOrder) {
+      throw new Error('该订单已占用其他格口');
+    }
+    
+    await updateCellStatus(
+      cell.id, 
+      CELL_STATUS.OCCUPIED, 
+      `订单 ${order.orderNo} 占用`, 
+      t
+    );
+    
+    await cell.update(
+      { currentOrderId: orderId },
+      { transaction: t }
+    );
+    
+    await order.update({
+      cabinetId,
+      cellId: cell.id,
+      status: ORDER_STATUS.CELL_ASSIGNED,
+      assignedAt: new Date(),
+    }, { transaction: t });
+    
+    await t.commit();
+    
+    const updatedOrder = await Order.findByPk(orderId);
+    const updatedCell = await Cell.findByPk(cell.id);
+    
+    return { order: updatedOrder, cell: updatedCell };
+  } catch (error) {
+    await t.rollback();
+    throw error;
   }
-  if (!canTransitionOrder(order.status, ORDER_STATUS.CELL_ASSIGNED)) {
-    throw new Error(`订单状态 ${order.status} 无法分配格口`);
-  }
-  const { findAvailableCell, updateCellStatus } = await import('./CabinetService.js');
-  const cell = await findAvailableCell(cabinetId, preferredSize);
-  if (!cell) {
-    throw new Error('该柜机暂无可用格口');
-  }
-  if (isCellOccupied(cell.status)) {
-    throw new Error('格口已被占用');
-  }
-  await updateCellStatus(cell.id, CELL_STATUS.OCCUPIED, `订单 ${order.orderNo} 占用`);
-  await cell.update({ currentOrderId: orderId });
-  await order.update({
-    cabinetId,
-    cellId: cell.id,
-    status: ORDER_STATUS.CELL_ASSIGNED,
-    assignedAt: new Date(),
-  });
-  return { order, cell };
 }
 
 export async function deliverOrder(orderId, deliveryData) {

@@ -1,4 +1,4 @@
-import { DataTypes } from 'sequelize';
+import { DataTypes, Op } from 'sequelize';
 import sequelize from '../config/database.js';
 import { CELL_STATUS } from '../utils/constants.js';
 
@@ -53,10 +53,18 @@ const Cell = sequelize.define('Cell', {
 }, {
   tableName: 'cells',
   timestamps: true,
+  version: true,
   indexes: [
     {
       unique: true,
       fields: ['cabinetId', 'cellNo'],
+    },
+    {
+      unique: true,
+      fields: ['currentOrderId'],
+      where: {
+        currentOrderId: { [Op.ne]: null },
+      },
     },
   ],
 });

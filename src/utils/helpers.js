@@ -13,7 +13,7 @@ export function generatePickupCode() {
 export function generateOrderNo() {
   const timestamp = Date.now().toString(36);
   const random = crypto.randomBytes(4).toString('hex').substring(0, 6);
-  return `LD${timestamp}${random}`.toUpperCase();
+  return `ORD${timestamp}${random}`.toUpperCase();
 }
 
 export function handleResponse(res, data, message = 'success', code = 200) {

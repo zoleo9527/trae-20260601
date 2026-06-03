@@ -85,23 +85,28 @@ export async function addCells(cabinetId, cells) {
   return createdCells;
 }
 
-export async function updateCellStatus(cellId, status, remark = '') {
-  const cell = await Cell.findByPk(cellId);
+export async function updateCellStatus(cellId, status, remark = '', transaction = null) {
+  const options = transaction ? { transaction, lock: transaction.LOCK.UPDATE } : {};
+  const cell = await Cell.findByPk(cellId, options);
   if (!cell) {
     throw new Error('格口不存在');
   }
   if (!canTransitionCell(cell.status, status)) {
     throw new Error(`无法从 ${cell.status} 转换到 ${status}`);
   }
-  await cell.update({ status, lastStatusChange: new Date(), remark });
-  const cabinet = await Cabinet.findByPk(cell.cabinetId);
+  await cell.update(
+    { status, lastStatusChange: new Date(), remark },
+    { transaction }
+  );
+  const cabinet = await Cabinet.findByPk(cell.cabinetId, { transaction });
   if (cabinet) {
     const availableCells = await Cell.count({
       where: { cabinetId: cell.cabinetId, status: CELL_STATUS.AVAILABLE },
+      transaction,
     });
-    await cabinet.update({ availableCells });
+    await cabinet.update({ availableCells }, { transaction });
   }
-  return cell;
+  return cell.reload({ transaction });
 }
 
 export async function updateCellHardwareStatus(cellId, lockStatus, doorStatus) {
@@ -136,14 +141,21 @@ export async function getCellDetail(id) {
   return cell;
 }
 
-export async function findAvailableCell(cabinetId, size = 'medium') {
-  const cell = await Cell.findOne({
+export async function findAvailableCell(cabinetId, size = 'medium', transaction = null) {
+  const options = {
     where: {
       cabinetId,
       status: CELL_STATUS.AVAILABLE,
       size,
+      currentOrderId: null,
     },
     order: [['cellNo', 'ASC']],
-  });
+  };
+  if (transaction) {
+    options.transaction = transaction;
+    options.lock = transaction.LOCK.UPDATE;
+    options.skipLocked = true;
+  }
+  const cell = await Cell.findOne(options);
   return cell;
 }
