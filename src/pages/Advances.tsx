@@ -23,8 +23,13 @@ export default function Advances() {
   const filteredAdvances = advances.filter((a) => propertyIds.includes(a.propertyId));
 
   const unsettledAmount = filteredAdvances.reduce((sum, a) => {
-    const relatedBills = bills.filter((b) => b.propertyId === a.propertyId);
-    const isSettled = relatedBills.some((b) => b.status === 'settled');
+    const advanceDate = new Date(a.date);
+    const advanceYear = advanceDate.getFullYear();
+    const advanceMonth = advanceDate.getMonth() + 1;
+    const matchingBill = bills.find(
+      (b) => b.propertyId === a.propertyId && b.year === advanceYear && b.month === advanceMonth
+    );
+    const isSettled = matchingBill?.status === 'settled';
     return sum + (isSettled ? 0 : a.amount);
   }, 0);
 
