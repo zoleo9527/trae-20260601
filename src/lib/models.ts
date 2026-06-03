@@ -25,11 +25,12 @@ const ALLOWED_TRANSITIONS: Record<DeliveryStatus, DeliveryStatus[]> = {
 	REPAIR_IN_PROGRESS: ['REPAIR_COMPLETED'],
 	REPAIR_COMPLETED: ['FINANCIAL_CONFIRMED'],
 	FINANCIAL_CONFIRMED: ['CLOSED'],
-	OVERDUE: ['FINANCIAL_CONFIRMED', 'CLOSED'],
+	OVERDUE: ['FINANCIAL_CONFIRMED'],
 	CLOSED: []
 };
 
 function isTransitionAllowed(from: DeliveryStatus, to: DeliveryStatus): boolean {
+	if (from === to) return true;
 	return ALLOWED_TRANSITIONS[from]?.includes(to) ?? false;
 }
 
@@ -56,8 +57,12 @@ export function getUserById(id: number): User | undefined {
 }
 
 function computeDisplayStatus(delivery: Delivery): DeliveryStatus {
-	if (['MATERIALS_MISSING', 'REVIEW_REJECTED'].includes(delivery.status)) return delivery.status as DeliveryStatus;
-	if (['REPAIR_IN_PROGRESS', 'FINANCIAL_CONFIRMED', 'CLOSED', 'PENDING_RETURN', 'OVERDUE'].includes(delivery.status)) return delivery.status as DeliveryStatus;
+	if (['MATERIALS_MISSING', 'REVIEW_REJECTED', 'REPAIR_PENDING', 'REPAIR_IN_PROGRESS'].includes(delivery.status)) {
+		return delivery.status as DeliveryStatus;
+	}
+	if (['FINANCIAL_CONFIRMED', 'CLOSED', 'PENDING_RETURN', 'OVERDUE'].includes(delivery.status)) {
+		return delivery.status as DeliveryStatus;
+	}
 	const today = new Date().toISOString().split('T')[0];
 	if (delivery.expected_return_date < today && delivery.status !== 'PENDING_RETURN') return 'OVERDUE';
 	return delivery.status as DeliveryStatus;
@@ -69,7 +74,7 @@ export function getDeliveries(status?: DeliveryStatus): Delivery[] {
 
 	if (status) {
 		if (status === 'OVERDUE') {
-			sql += ` WHERE d.status IN ('RETURNED', 'DAMAGE_IDENTIFIED', 'PENDING_REVIEW', 'REPAIR_PENDING', 'REPAIR_COMPLETED')`;
+			sql += ` WHERE d.status IN ('RETURNED', 'DAMAGE_IDENTIFIED', 'PENDING_REVIEW', 'REPAIR_COMPLETED') AND d.expected_return_date < DATE('now')`;
 		} else {
 			sql += ' WHERE d.status = ?';
 			params.push(status);
@@ -335,16 +340,12 @@ export function createRepairFollowup(data: {
 				data.created_by
 			).lastInsertRowid as number;
 
-		if (!isTransitionAllowed(delivery.status as DeliveryStatus, 'REPAIR_PENDING')) {
-			throw new Error(`状态流转不允许：${delivery.status} → REPAIR_PENDING`);
-		}
-
-		updateDeliveryStatus(
-			damage.delivery_id,
-			'REPAIR_PENDING',
-			data.created_by,
-			`安排维修: ${data.repair_type}`
-		);
+		db.prepare(
+			`
+			INSERT INTO status_logs (delivery_id, old_status, new_status, changed_by, change_reason)
+			VALUES (?, ?, ?, ?, ?)
+		`
+		).run(delivery.id, delivery.status, delivery.status, data.created_by, `安排维修: ${data.repair_type}`);
 
 		return repairId;
 	});
@@ -432,11 +433,14 @@ export function confirmPayment(data: {
 	notes?: string;
 }): number {
 	enforceRole(data.confirmed_by, ['finance']);
-	enforceDeliveryStatus(data.delivery_id, ['REPAIR_COMPLETED', 'OVERDUE']);
+
+	const delivery = getDeliveryById(data.delivery_id)!;
+	const dbStatus = delivery.status as DeliveryStatus;
+	if (!['REPAIR_COMPLETED', 'OVERDUE'].includes(dbStatus)) {
+		throw new Error(`当前状态「${delivery.status}」不允许财务确认，需为 REPAIR_COMPLETED 或 OVERDUE`);
+	}
 
 	const tx = db.transaction(() => {
-		const delivery = getDeliveryById(data.delivery_id)!;
-
 		const paymentId = db
 			.prepare(
 				`
@@ -452,9 +456,8 @@ export function confirmPayment(data: {
 				data.notes ?? null
 			).lastInsertRowid as number;
 
-		const newStatus: DeliveryStatus = 'FINANCIAL_CONFIRMED';
-		if (!isTransitionAllowed(delivery.status as DeliveryStatus, newStatus)) {
-			throw new Error(`状态流转不允许：${delivery.status} → ${newStatus}`);
+		if (!isTransitionAllowed(dbStatus, 'FINANCIAL_CONFIRMED')) {
+			throw new Error(`状态流转不允许：${dbStatus} → FINANCIAL_CONFIRMED`);
 		}
 
 		updateDeliveryStatus(
@@ -472,9 +475,12 @@ export function confirmPayment(data: {
 
 export function closeDelivery(deliveryId: number, userId: number, reason: string): void {
 	enforceRole(userId, ['store_clerk', 'equipment_manager', 'finance']);
-	enforceDeliveryStatus(deliveryId, ['FINANCIAL_CONFIRMED', 'OVERDUE']);
 
 	const delivery = getDeliveryById(deliveryId)!;
+	if (delivery.status !== 'FINANCIAL_CONFIRMED') {
+		throw new Error(`当前状态「${delivery.status}」不允许结案，需为 FINANCIAL_CONFIRMED`);
+	}
+
 	if (!isTransitionAllowed(delivery.status as DeliveryStatus, 'CLOSED')) {
 		throw new Error(`状态流转不允许：${delivery.status} → CLOSED`);
 	}

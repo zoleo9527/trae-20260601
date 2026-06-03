@@ -140,7 +140,7 @@
 		if (!$currentUser || !delivery) return false;
 		if ($currentUser.role !== 'equipment_manager') return false;
 		if (damage.status !== 'PENDING_REVIEW') return false;
-		return ['DAMAGE_IDENTIFIED', 'MATERIALS_MISSING', 'PENDING_REVIEW'].includes(delivery.status);
+		return ['DAMAGE_IDENTIFIED', 'MATERIALS_MISSING'].includes(delivery.status);
 	};
 
 	const canCreateRepair = (damage: DamageReport) => {
@@ -167,7 +167,7 @@
 
 	const canClose = () => {
 		if (!$currentUser || !delivery) return false;
-		return ['FINANCIAL_CONFIRMED', 'OVERDUE'].includes(delivery.status);
+		return delivery.status === 'FINANCIAL_CONFIRMED';
 	};
 
 	async function submitDamage() {
