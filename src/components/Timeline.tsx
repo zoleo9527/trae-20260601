@@ -1,18 +1,20 @@
 import { useState } from 'react'
 import { ChevronDown, ChevronUp, AlertTriangle } from 'lucide-react'
-import type { HandoffRecord, Anomaly, HandlerRole } from '@/types'
+import type { HandoffRecord, Anomaly } from '@/types'
 import { cn } from '@/lib/utils'
 
-const roleColors: Record<HandlerRole, string> = {
+const roleColors: Record<string, string> = {
   receptionist: 'bg-factory-amber',
   designer: 'bg-factory-blue',
   inspector: 'bg-factory-green',
+  production: 'bg-purple-500',
 }
 
-const roleLabels: Record<HandlerRole, string> = {
+const roleLabels: Record<string, string> = {
   receptionist: '接单客服',
   designer: '数字设计师',
   inspector: '质检员',
+  production: '排产阶段',
 }
 
 const actionLabels: Record<string, string> = {

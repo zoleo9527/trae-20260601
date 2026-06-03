@@ -6,7 +6,6 @@ const statusOptions: { value: OrderStatus; label: string }[] = [
   { value: 'pending', label: '待处理' },
   { value: 'in_progress', label: '进行中' },
   { value: 'blocked', label: '已阻塞' },
-  { value: 'completed', label: '已完成' },
 ]
 
 const stageOptions: { value: Stage; label: string }[] = [
