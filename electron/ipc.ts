@@ -404,7 +404,8 @@ export function registerHandlers() {
   // ==================== Card Applications ====================
   ipcMain.handle('cardApplication:list', (_, status?: string) => {
     let sql = `
-      SELECT a.*, r.name as residentName, r.phone, pg.name as permissionGroupName
+      SELECT a.*, r.name as residentName, r.phone, 
+             pg.name as permissionGroupName, pg.doors as permissionGroupDoors, pg.hasElevator as permissionGroupHasElevator, pg.garageAreas as permissionGroupGarageAreas
       FROM card_applications a
       JOIN residents r ON a.residentId = r.id
       JOIN permission_groups pg ON a.permissionGroupId = pg.id
@@ -415,17 +416,72 @@ export function registerHandlers() {
       params.push(status)
     }
     sql += ' ORDER BY a.createdAt DESC'
-    return db.prepare(sql).all(...params)
+    const apps = db.prepare(sql).all(...params) as any[]
+    
+    for (const app of apps) {
+      app.permissionGroupDoors = JSON.parse(app.permissionGroupDoors || '[]')
+      app.permissionGroupGarageAreas = JSON.parse(app.permissionGroupGarageAreas || '[]')
+      
+      if (app.type === 'permission' || app.type === 'reissue') {
+        const currentCard = db.prepare(`
+          SELECT c.*, pg.name as groupName, pg.doors, pg.hasElevator, pg.garageAreas
+          FROM access_cards c
+          JOIN permission_groups pg ON c.permissionGroupId = pg.id
+          WHERE c.residentId = ? AND c.status = 'active'
+          LIMIT 1
+        `).get(app.residentId) as any
+        
+        if (currentCard) {
+          app.currentPermissionGroup = {
+            id: currentCard.permissionGroupId,
+            name: currentCard.groupName,
+            doors: JSON.parse(currentCard.doors || '[]'),
+            hasElevator: currentCard.hasElevator,
+            garageAreas: JSON.parse(currentCard.garageAreas || '[]')
+          }
+        }
+      }
+    }
+    
+    return apps
   })
 
   ipcMain.handle('cardApplication:getById', (_, id: number) => {
-    return db.prepare(`
-      SELECT a.*, r.name as residentName, r.phone, pg.name as permissionGroupName
+    const app = db.prepare(`
+      SELECT a.*, r.name as residentName, r.phone, 
+             pg.name as permissionGroupName, pg.doors as permissionGroupDoors, pg.hasElevator as permissionGroupHasElevator, pg.garageAreas as permissionGroupGarageAreas
       FROM card_applications a
       JOIN residents r ON a.residentId = r.id
       JOIN permission_groups pg ON a.permissionGroupId = pg.id
       WHERE a.id = ?
-    `).get(id)
+    `).get(id) as any
+    
+    if (app) {
+      app.permissionGroupDoors = JSON.parse(app.permissionGroupDoors || '[]')
+      app.permissionGroupGarageAreas = JSON.parse(app.permissionGroupGarageAreas || '[]')
+      
+      if (app.type === 'permission' || app.type === 'reissue') {
+        const currentCard = db.prepare(`
+          SELECT c.*, pg.name as groupName, pg.doors, pg.hasElevator, pg.garageAreas
+          FROM access_cards c
+          JOIN permission_groups pg ON c.permissionGroupId = pg.id
+          WHERE c.residentId = ? AND c.status = 'active'
+          LIMIT 1
+        `).get(app.residentId) as any
+        
+        if (currentCard) {
+          app.currentPermissionGroup = {
+            id: currentCard.permissionGroupId,
+            name: currentCard.groupName,
+            doors: JSON.parse(currentCard.doors || '[]'),
+            hasElevator: currentCard.hasElevator,
+            garageAreas: JSON.parse(currentCard.garageAreas || '[]')
+          }
+        }
+      }
+    }
+    
+    return app
   })
 
   ipcMain.handle('cardApplication:create', (_, data: any) => {

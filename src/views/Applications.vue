@@ -86,8 +86,8 @@ const handleSubmit = async () => {
   }
 }
 
-const openReview = (item: any) => {
-  reviewingItem.value = item
+const openReview = async (item: any) => {
+  reviewingItem.value = await window.api.cardApplication.getById(item.id)
   reviewComment.value = ''
   showReviewModal.value = true
 }
@@ -131,6 +131,34 @@ const getStatusLabel = (status: string) => {
   }
   return map[status] || status
 }
+
+const getPermissionTagClass = (groupName: string) => {
+  if (groupName.includes('VIP')) return 'tag-danger'
+  if (groupName.includes('车库')) return 'tag-warning'
+  return 'tag-primary'
+}
+
+const getPermissionDiff = (app: any) => {
+  if (!app.currentPermissionGroup) return null
+  const current = app.currentPermissionGroup
+  const targetDoors = app.permissionGroupDoors || []
+  const currentDoors = current.doors || []
+  const targetGarage = app.permissionGroupGarageAreas || []
+  const currentGarage = current.garageAreas || []
+  
+  const addedDoors = targetDoors.filter((d: string) => !currentDoors.includes(d))
+  const removedDoors = currentDoors.filter((d: string) => !targetDoors.includes(d))
+  const addedGarage = targetGarage.filter((g: string) => !currentGarage.includes(g))
+  const removedGarage = currentGarage.filter((g: string) => !targetGarage.includes(g))
+  const elevatorChanged = current.hasElevator !== app.permissionGroupHasElevator
+  
+  return {
+    hasChange: addedDoors.length > 0 || removedDoors.length > 0 || addedGarage.length > 0 || removedGarage.length > 0 || elevatorChanged,
+    addedDoors, removedDoors, addedGarage, removedGarage,
+    elevatorAdded: !current.hasElevator && app.permissionGroupHasElevator,
+    elevatorRemoved: current.hasElevator && !app.permissionGroupHasElevator
+  }
+}
 </script>
 
 <template>
@@ -160,28 +188,48 @@ const getStatusLabel = (status: string) => {
                 <th>申请类型</th>
                 <th>申请人</th>
                 <th>住户</th>
-                <th>目标权限组</th>
+                <th>当前权限</th>
+                <th>→</th>
+                <th>目标权限</th>
                 <th>申请原因</th>
                 <th>状态</th>
                 <th>审核人</th>
-                <th>审核意见</th>
                 <th>申请时间</th>
                 <th>操作</th>
               </tr>
             </thead>
             <tbody>
-              <tr v-for="app in applications" :key="app.id">
+              <tr v-for="app in applications" :key="app.id" :class="{ 'row-highlight': app.type === 'permission' || app.permissionGroupName.includes('VIP') || app.permissionGroupName.includes('车库') }">
                 <td><span class="tag tag-primary">{{ getTypeLabel(app.type) }}</span></td>
                 <td>{{ app.applicant }}</td>
                 <td>
                   <strong>{{ app.residentName }}</strong>
                   <div class="text-sm text-gray">{{ app.phone }}</div>
                 </td>
-                <td><span class="tag">{{ app.permissionGroupName }}</span></td>
-                <td class="text-sm" style="max-width: 200px;">{{ app.reason }}</td>
+                <td>
+                  <span v-if="app.currentPermissionGroup" class="tag">{{ app.currentPermissionGroup.name }}</span>
+                  <span v-else class="text-gray text-sm">
+                    <span v-if="app.type === 'new'">新办卡</span>
+                    <span v-else>-</span>
+                  </span>
+                </td>
+                <td class="text-gray">
+                  <span v-if="app.type === 'permission' || app.type === 'reissue'" class="text-danger font-bold">→</span>
+                </td>
+                <td>
+                  <span class="tag" :class="getPermissionTagClass(app.permissionGroupName)">
+                    {{ app.permissionGroupName }}
+                  </span>
+                  <span v-if="getPermissionDiff(app)?.addedGarage?.length > 0" class="tag tag-warning ml-1" style="font-size: 10px;" title="新增车库区域">
+                    +车库
+                  </span>
+                  <span v-if="getPermissionDiff(app)?.elevatorAdded" class="tag tag-primary ml-1" style="font-size: 10px;" title="新增电梯权限">
+                    +电梯
+                  </span>
+                </td>
+                <td class="text-sm" style="max-width: 160px;">{{ app.reason }}</td>
                 <td><span class="badge" :class="getStatusBadge(app.status)">{{ getStatusLabel(app.status) }}</span></td>
                 <td>{{ app.reviewer || '-' }}</td>
-                <td class="text-sm text-gray" style="max-width: 180px;">{{ app.reviewComment || '-' }}</td>
                 <td class="text-sm text-gray">{{ app.createdAt }}</td>
                 <td>
                   <div class="flex gap-2">
@@ -269,9 +317,12 @@ const getStatusLabel = (status: string) => {
     </div>
 
     <div v-if="showReviewModal && reviewingItem" class="modal-overlay" @click.self="showReviewModal = false">
-      <div class="modal" style="width: 550px;">
+      <div class="modal" style="width: 650px;">
         <div class="modal-header">
-          <h3 class="modal-title">审核申请 #{{ reviewingItem.id }}</h3>
+          <h3 class="modal-title">
+            审核申请 #{{ reviewingItem.id }}
+            <span v-if="reviewingItem.type === 'permission' || reviewingItem.permissionGroupName.includes('VIP')" class="tag tag-danger ml-2">需重点审核</span>
+          </h3>
           <button class="modal-close" @click="showReviewModal = false">×</button>
         </div>
         <div class="modal-body">
@@ -280,12 +331,63 @@ const getStatusLabel = (status: string) => {
               <strong>申请信息</strong>
               <p class="text-sm mt-2">
                 <strong>{{ reviewingItem.applicant }}</strong> 申请
-                <span class="tag tag-primary">{{ getTypeLabel(reviewingItem.type) }}</span>，
-                目标权限：<span class="tag">{{ reviewingItem.permissionGroupName }}</span>
+                <span class="tag tag-primary">{{ getTypeLabel(reviewingItem.type) }}</span>
               </p>
-              <p class="text-sm mt-2"><strong>原因：</strong>{{ reviewingItem.reason }}</p>
+              <p class="text-sm"><strong>原因：</strong>{{ reviewingItem.reason }}</p>
             </div>
           </div>
+
+          <div v-if="reviewingItem.currentPermissionGroup || reviewingItem.type === 'permission' || reviewingItem.type === 'reissue'" class="mb-4">
+            <h4 class="mb-3">🔍 权限变更对比</h4>
+            <div class="grid grid-cols-2 gap-4">
+              <div class="form-group" style="background: var(--gray-50); padding: 12px; border-radius: 6px; margin-bottom: 0;">
+                <label class="form-label" style="color: var(--gray-600); font-size: 12px;">当前权限</label>
+                <div v-if="reviewingItem.currentPermissionGroup">
+                  <div class="font-bold mb-2">{{ reviewingItem.currentPermissionGroup.name }}</div>
+                  <div class="text-sm text-gray mb-1">门禁点：{{ reviewingItem.currentPermissionGroup.doors?.join('、') || '无' }}</div>
+                  <div class="text-sm text-gray mb-1">电梯楼层：{{ reviewingItem.currentPermissionGroup.hasElevator ? '全部楼层' : '无' }}</div>
+                  <div class="text-sm text-gray">车库区域：{{ reviewingItem.currentPermissionGroup.garageAreas?.length > 0 ? reviewingItem.currentPermissionGroup.garageAreas.join('、') : '无' }}</div>
+                </div>
+                <div v-else class="text-gray">新办卡，无当前权限</div>
+              </div>
+              <div class="form-group" style="background: #f0fdf4; padding: 12px; border-radius: 6px; margin-bottom: 0; border: 1px solid #86efac;">
+                <label class="form-label" style="color: #15803d; font-size: 12px;">目标权限</label>
+                <div>
+                  <div class="font-bold mb-2">
+                    <span class="tag" :class="getPermissionTagClass(reviewingItem.permissionGroupName)">{{ reviewingItem.permissionGroupName }}</span>
+                  </div>
+                  <div class="text-sm text-gray mb-1">门禁点：{{ reviewingItem.permissionGroupDoors?.join('、') || '无' }}</div>
+                  <div class="text-sm text-gray mb-1">电梯楼层：{{ reviewingItem.permissionGroupHasElevator ? '全部楼层' : '无' }}</div>
+                  <div class="text-sm text-gray">车库区域：{{ reviewingItem.permissionGroupGarageAreas?.length > 0 ? reviewingItem.permissionGroupGarageAreas.join('、') : '无' }}</div>
+                </div>
+              </div>
+            </div>
+
+            <div v-if="getPermissionDiff(reviewingItem)?.hasChange" class="mt-3 alert" :class="getPermissionDiff(reviewingItem)?.addedGarage?.length > 0 || getPermissionDiff(reviewingItem)?.elevatorAdded ? 'alert-warning' : 'alert-info'">
+              <strong>📋 变更说明</strong>
+              <ul class="text-sm mt-2" style="padding-left: 20px;">
+                <li v-if="getPermissionDiff(reviewingItem)?.addedDoors?.length > 0" class="text-success">
+                  ✅ 新增门禁：{{ getPermissionDiff(reviewingItem).addedDoors.join('、') }}
+                </li>
+                <li v-if="getPermissionDiff(reviewingItem)?.removedDoors?.length > 0" class="text-danger">
+                  ❌ 移除门禁：{{ getPermissionDiff(reviewingItem).removedDoors.join('、') }}
+                </li>
+                <li v-if="getPermissionDiff(reviewingItem)?.elevatorAdded" class="text-warning">
+                  ⚠️ <strong>新增电梯权限（全部楼层）</strong>
+                </li>
+                <li v-if="getPermissionDiff(reviewingItem)?.elevatorRemoved" class="text-danger">
+                  ❌ 移除电梯权限
+                </li>
+                <li v-if="getPermissionDiff(reviewingItem)?.addedGarage?.length > 0" class="text-warning">
+                  ⚠️ <strong>新增车库区域：{{ getPermissionDiff(reviewingItem).addedGarage.join('、') }}</strong>
+                </li>
+                <li v-if="getPermissionDiff(reviewingItem)?.removedGarage?.length > 0" class="text-danger">
+                  ❌ 移除车库区域：{{ getPermissionDiff(reviewingItem).removedGarage.join('、') }}
+                </li>
+              </ul>
+            </div>
+          </div>
+
           <div class="form-group">
             <label class="form-label required">审核意见</label>
             <textarea

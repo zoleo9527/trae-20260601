@@ -572,6 +572,22 @@ tbody tr:last-child td {
   color: var(--gray-500);
 }
 
+.ml-1 {
+  margin-left: 4px;
+}
+
+.ml-2 {
+  margin-left: 8px;
+}
+
+.mt-2 {
+  margin-top: 8px;
+}
+
+.font-bold {
+  font-weight: 700;
+}
+
 .mb-0 {
   margin-bottom: 0;
 }
