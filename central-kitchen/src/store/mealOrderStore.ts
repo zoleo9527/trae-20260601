@@ -144,12 +144,14 @@ export const useMealOrderStore = create<MealOrderState>((set, get) => ({
         statusLogs: [...order.statusLogs, newLog],
       }
 
-      if (transition.remarkLabel === '生产备注' || transition.remarkLabel === '驳回原因') {
+      if (transition.remarkLabel === '生产备注') {
         updates.productionRemark = remark
+      } else if (transition.remarkLabel === '驳回原因') {
+        updates.productionRejectionReason = remark
       } else if (transition.remarkLabel === '配送备注') {
         updates.deliveryRemark = remark
       } else if (transition.remarkLabel === '修改说明') {
-        updates.productionRemark = remark
+        updates.resubmitRemark = remark
       }
 
       return {
@@ -218,14 +220,18 @@ export const useMealOrderStore = create<MealOrderState>((set, get) => ({
         updatedAt: new Date().toISOString(),
       }
 
-      if (transition.remarkLabel === '采购备注' || transition.remarkLabel === '驳回原因（需补充材料）') {
+      if (transition.remarkLabel === '采购备注') {
         updatedShortage.supplyRemark = remark
-      } else if (transition.remarkLabel === '补发详情' || transition.remarkLabel === '补发安排') {
+      } else if (transition.remarkLabel === '驳回原因（需补充材料）') {
+        updatedShortage.supplyRejectionReason = remark
+      } else if (transition.remarkLabel === '补发安排' || transition.remarkLabel === '补发详情') {
         updatedShortage.replenishRemark = remark
-      } else if (transition.remarkLabel === '复核意见' || transition.remarkLabel === '不通过原因') {
+      } else if (transition.remarkLabel === '复核意见') {
+        updatedShortage.supervisorRemark = remark
+      } else if (transition.remarkLabel === '不通过原因') {
         updatedShortage.supervisorRemark = remark
       } else if (transition.remarkLabel === '补充说明') {
-        updatedShortage.remarks = remark
+        updatedShortage.resubmitRemark = remark
       }
 
       return {

@@ -198,20 +198,38 @@ export function ShortageDetail() {
             <div className="card-header flex items-center justify-between">
               <h3 className="font-semibold text-neutral-900 flex items-center gap-2">
                 <MessageSquare className="w-5 h-5 text-neutral-500" />
-                备注说明
+                备注说明（各阶段独立保存）
               </h3>
             </div>
             <div className="card-body space-y-4">
               <div>
-                <label className="label text-neutral-500">缺货说明</label>
-                <div className="input bg-neutral-50 min-h-[80px] whitespace-pre-wrap">
+                <label className="label text-neutral-500">原始缺货说明</label>
+                <div className="input bg-neutral-50 min-h-[60px] whitespace-pre-wrap">
                   {shortage.remarks}
                 </div>
               </div>
 
+              {shortage.supplyRejectionReason && (
+                <div>
+                  <label className="label text-red-600">采购驳回原因</label>
+                  <div className="input bg-red-50 border-red-200 min-h-[60px] whitespace-pre-wrap text-red-800">
+                    {shortage.supplyRejectionReason}
+                  </div>
+                </div>
+              )}
+
+              {shortage.resubmitRemark && (
+                <div>
+                  <label className="label text-amber-600">补充材料后重提说明</label>
+                  <div className="input bg-amber-50 border-amber-200 min-h-[60px] whitespace-pre-wrap text-amber-800">
+                    {shortage.resubmitRemark}
+                  </div>
+                </div>
+              )}
+
               {shortage.supplyRemark && (
                 <div>
-                  <label className="label text-blue-600">采购备注</label>
+                  <label className="label text-blue-600">采购审核意见</label>
                   <div className="input bg-blue-50 border-blue-200 min-h-[60px] whitespace-pre-wrap text-blue-800">
                     {shortage.supplyRemark}
                   </div>
@@ -220,7 +238,7 @@ export function ShortageDetail() {
 
               {shortage.replenishRemark && (
                 <div>
-                  <label className="label text-purple-600">补发详情</label>
+                  <label className="label text-purple-600">补发执行详情</label>
                   <div className="input bg-purple-50 border-purple-200 min-h-[60px] whitespace-pre-wrap text-purple-800">
                     {shortage.replenishRemark}
                   </div>
@@ -229,7 +247,7 @@ export function ShortageDetail() {
 
               {shortage.supervisorRemark && (
                 <div>
-                  <label className="label text-green-600">复核意见</label>
+                  <label className="label text-green-600">督导复核意见</label>
                   <div className="input bg-green-50 border-green-200 min-h-[60px] whitespace-pre-wrap text-green-800">
                     {shortage.supervisorRemark}
                   </div>
@@ -352,7 +370,7 @@ export function ShortageDetail() {
             </div>
           </div>
 
-          {shortage.status === 'supply_rejected' && (
+          {shortage.supplyRejectionReason && (
             <div className="card border-danger-200 bg-danger-50">
               <div className="card-header border-danger-200">
                 <h3 className="font-semibold text-danger-800 flex items-center gap-2">
@@ -362,7 +380,7 @@ export function ShortageDetail() {
               </div>
               <div className="card-body">
                 <p className="text-sm text-danger-700">
-                  {shortage.supplyRemark || '暂无详细说明'}
+                  {shortage.supplyRejectionReason}
                 </p>
                 <p className="text-xs text-danger-600 mt-3">
                   请补充相关材料后重新提交审核

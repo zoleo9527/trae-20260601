@@ -33,6 +33,8 @@ export function MealOrderDetail() {
   const [previousConclusion, setPreviousConclusion] = useState('')
   const [isEditing, setIsEditing] = useState(false)
   const [editingItems, setEditingItems] = useState<MealItem[]>([])
+  const [showResubmitModal, setShowResubmitModal] = useState(false)
+  const [resubmitRemark, setResubmitRemark] = useState('')
 
   const order = getOrder(id!)
 
@@ -164,7 +166,15 @@ export function MealOrderDetail() {
       alert('请至少填写一个菜品的数量')
       return
     }
+    setShowResubmitModal(true)
+  }
 
+  const confirmEditAndResubmit = () => {
+    if (!resubmitRemark.trim()) {
+      return
+    }
+
+    const items = editingItems.filter((i) => i.quantity > 0)
     const totalQuantity = items.reduce((sum, item) => sum + item.quantity, 0)
 
     batchUpdateItems(id!, items)
@@ -175,8 +185,10 @@ export function MealOrderDetail() {
 
     setIsEditing(false)
     setEditingItems([])
+    setShowResubmitModal(false)
+    setResubmitRemark('')
 
-    transitionStatus(id!, 'submitted', '修改后重新提交')
+    transitionStatus(id!, 'submitted', resubmitRemark)
   }
 
   const canEdit = order.status === 'production_rejected' && hasPermission('edit_order')
@@ -433,6 +445,28 @@ export function MealOrderDetail() {
             </div>
           )}
 
+          {order.productionRejectionReason && (
+            <div className="card border-danger-200 bg-danger-50">
+              <div className="card-header border-danger-200">
+                <h3 className="font-semibold text-danger-800">生产驳回原因</h3>
+              </div>
+              <div className="card-body">
+                <p className="text-sm text-danger-700">{order.productionRejectionReason}</p>
+              </div>
+            </div>
+          )}
+
+          {order.resubmitRemark && (
+            <div className="card border-success-200 bg-success-50">
+              <div className="card-header border-success-200">
+                <h3 className="font-semibold text-success-800">修改说明（重提）</h3>
+              </div>
+              <div className="card-body">
+                <p className="text-sm text-success-700">{order.resubmitRemark}</p>
+              </div>
+            </div>
+          )}
+
           {order.deliveryRemark && (
             <div className="card">
               <div className="card-header">
@@ -574,6 +608,52 @@ export function MealOrderDetail() {
               <AlertTriangle className="w-4 h-4 inline mr-1" />
               缺货上报后将自动进入缺货补发流程，请确保信息准确无误。
             </p>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal
+        open={showResubmitModal}
+        onClose={() => {
+          setShowResubmitModal(false)
+          setResubmitRemark('')
+        }}
+        title="修改后重新提交"
+        footer={
+          <>
+            <Button
+              variant="secondary"
+              onClick={() => {
+                setShowResubmitModal(false)
+                setResubmitRemark('')
+              }}
+            >
+              取消
+            </Button>
+            <Button
+              variant="success"
+              onClick={confirmEditAndResubmit}
+              disabled={!resubmitRemark.trim()}
+            >
+              确认提交
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-neutral-600">
+            请详细说明本次修改的内容，以便生产审核人员了解调整情况。
+          </p>
+          <div>
+            <label className="label">
+              修改说明 <span className="text-danger-500">*</span>
+            </label>
+            <textarea
+              className="input min-h-[120px]"
+              value={resubmitRemark}
+              onChange={(e) => setResubmitRemark(e.target.value)}
+              placeholder="请详细说明修改的菜品、数量调整原因等..."
+            />
           </div>
         </div>
       </Modal>

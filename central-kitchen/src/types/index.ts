@@ -76,6 +76,8 @@ export interface ShortageReplenish {
   supplyRemark?: string
   replenishRemark?: string
   supervisorRemark?: string
+  supplyRejectionReason?: string
+  resubmitRemark?: string
   statusLogs: StatusLog[]
   createdAt: string
   updatedAt: string
@@ -92,6 +94,8 @@ export interface MealOrder {
   totalQuantity: number
   statusLogs: StatusLog[]
   productionRemark?: string
+  productionRejectionReason?: string
+  resubmitRemark?: string
   deliveryRemark?: string
   shortageReplenish?: ShortageReplenish
   createdAt: string
