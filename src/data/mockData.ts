@@ -82,8 +82,9 @@ export const mockAssignments: Assignment[] = mockScanFiles
       assignedAt: hoursAgo(i * 24 + 8),
       assignedBy: '设计师老李',
       status: order.status === 'COMPLETED' ? 'COMPLETED' :
+              order.status === 'REWORK' ? 'REWORK' :
               order.status === 'IN_PRODUCTION' || order.status === 'PENDING_INSPECTION' ? 'ACCEPTED' : 'PENDING',
-      completedAt: order.status === 'COMPLETED' ? hoursAgo(i * 24 + 20) : undefined,
+      completedAt: (order.status === 'COMPLETED' || order.status === 'REWORK') ? hoursAgo(i * 24 + 20) : undefined,
       estimatedDays: 3 + (i % 4),
     };
   });

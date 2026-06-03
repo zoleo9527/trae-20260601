@@ -10,7 +10,7 @@ export type OrderStatus =
 
 export type Role = 'CUSTOMER_SERVICE' | 'DESIGNER' | 'QUALITY' | 'ADMIN';
 
-export type AssignmentStatus = 'PENDING' | 'ACCEPTED' | 'COMPLETED';
+export type AssignmentStatus = 'PENDING' | 'ACCEPTED' | 'COMPLETED' | 'REWORK';
 
 export type ScanFileStatus = 'UPLOADED' | 'PROCESSED';
 

@@ -74,6 +74,12 @@ export default function AssignmentReview() {
       color: 'text-success-600',
       bg: 'bg-success-50',
     },
+    {
+      label: '返工',
+      value: useAppStore.getState().assignments.filter((a) => a.status === 'REWORK').length,
+      color: 'text-danger-600',
+      bg: 'bg-danger-50',
+    },
   ];
 
   return (
@@ -114,7 +120,7 @@ export default function AssignmentReview() {
       </header>
 
       <main className="container px-4 py-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
           {stats.map((stat, index) => (
             <div
               key={index}
@@ -152,6 +158,9 @@ export default function AssignmentReview() {
                     派单时间
                   </th>
                   <th className="px-6 py-4 text-left text-xs font-semibold text-neutral-500 uppercase tracking-wider">
+                    完成时间
+                  </th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-neutral-500 uppercase tracking-wider">
                     预计工期
                   </th>
                   <th className="px-6 py-4 text-left text-xs font-semibold text-neutral-500 uppercase tracking-wider">
@@ -165,7 +174,7 @@ export default function AssignmentReview() {
               <tbody className="divide-y divide-neutral-200">
                 {result.data.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="px-6 py-16 text-center text-neutral-500">
+                    <td colSpan={7} className="px-6 py-16 text-center text-neutral-500">
                       <div className="flex flex-col items-center gap-2">
                         <FileText size={48} className="text-neutral-300" />
                         <p>暂无派单记录</p>
@@ -210,6 +219,16 @@ export default function AssignmentReview() {
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
+                          {assignment.completedAt ? (
+                            <div className="flex items-center gap-1.5 text-neutral-700">
+                              <Clock size={14} className="text-neutral-400" />
+                              {formatDateTime(assignment.completedAt)}
+                            </div>
+                          ) : (
+                            <span className="text-neutral-400">-</span>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
                           <div className="flex items-center gap-1.5 text-neutral-700">
                             <Calendar size={14} className="text-neutral-400" />
                             {assignment.estimatedDays} 天
@@ -221,6 +240,8 @@ export default function AssignmentReview() {
                               'inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium',
                               assignment.status === 'COMPLETED'
                                 ? 'bg-success-100 text-success-700'
+                                : assignment.status === 'REWORK'
+                                ? 'bg-danger-100 text-danger-700'
                                 : assignment.status === 'ACCEPTED'
                                 ? 'bg-primary-100 text-primary-700'
                                 : 'bg-warning-100 text-warning-700'
@@ -228,6 +249,8 @@ export default function AssignmentReview() {
                           >
                             {assignment.status === 'COMPLETED'
                               ? '已完成'
+                              : assignment.status === 'REWORK'
+                              ? '返工'
                               : assignment.status === 'ACCEPTED'
                               ? '已接单'
                               : '待接单'}

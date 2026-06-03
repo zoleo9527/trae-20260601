@@ -104,7 +104,7 @@ const generateOrderNo = () => {
 
 const generateId = () => Math.random().toString(36).substring(2, 15);
 
-const DATA_VERSION = 3;
+const DATA_VERSION = 4;
 
 export const useAppStore = create<AppState>()(
   persist(
@@ -310,13 +310,19 @@ export const useAppStore = create<AppState>()(
                   ...a,
                   status: newStatus,
                   completedAt:
-                    newStatus === 'COMPLETED' ? new Date().toISOString() : a.completedAt,
+                    newStatus === 'COMPLETED' || newStatus === 'REWORK'
+                      ? new Date().toISOString()
+                      : a.completedAt,
                 }
               : a
           ),
         }));
 
         const order = get().getOrderById(assignment.orderId);
+        const statusLabel =
+          newStatus === 'COMPLETED' ? '已完成' :
+          newStatus === 'ACCEPTED' ? '已接单' :
+          newStatus === 'REWORK' ? '返工' : '待接单';
         get().addAuditLog(
           assignment.orderId,
           '派单状态变更',
@@ -324,7 +330,7 @@ export const useAppStore = create<AppState>()(
           order?.status,
           operator,
           'ADMIN',
-          `派单状态更新为: ${newStatus === 'COMPLETED' ? '已完成' : newStatus === 'ACCEPTED' ? '已接单' : '待接单'}`
+          `派单状态更新为: ${statusLabel}`
         );
       },
 
@@ -480,6 +486,8 @@ export const useAppStore = create<AppState>()(
             assignmentStatus = 'ACCEPTED';
           } else if (newStatus === 'COMPLETED') {
             assignmentStatus = 'COMPLETED';
+          } else if (newStatus === 'REWORK') {
+            assignmentStatus = 'REWORK';
           }
 
           if (assignmentStatus && assignmentStatus !== latestAssignment.status) {
