@@ -103,12 +103,12 @@ export default function Home() {
     loadData();
   }, []);
 
-  const activeOrders = orders.filter((o) => !o.has_passed_inspection);
+  const activeOrders = orders.filter((o) => o.last_inspection_result !== 'pass');
   const ordersByStatus = {
     pending: activeOrders.filter((o) => o.status === 'pending'),
     in_progress: activeOrders.filter((o) => o.status === 'in_progress'),
-    rework: activeOrders.filter((o) => o.status === 'rework'),
-    completed: activeOrders.filter((o) => o.status === 'completed'),
+    rework: activeOrders.filter((o) => o.status === 'rework' || o.last_inspection_result === 'rework'),
+    completed: activeOrders.filter((o) => o.status === 'completed' && o.last_inspection_result !== 'rework'),
   };
 
   if (loading) {

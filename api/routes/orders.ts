@@ -8,14 +8,16 @@ router.get('/', (req: Request, res: Response) => {
   let sql = `
     SELECT o.*, c.name as customer_name, c.phone as customer_phone, c.level as customer_level,
            v.plate, v.brand, v.model, v.color, e.name as employee_name,
-           EXISTS (
-             SELECT 1 FROM inspections i
-             WHERE i.order_id = o.id AND i.result = 'pass'
-           ) as has_passed_inspection
+           last_inspection.result as last_inspection_result
     FROM orders o
     JOIN customers c ON c.id = o.customer_id
     JOIN vehicles v ON v.id = o.vehicle_id
     LEFT JOIN employees e ON e.id = o.employee_id
+    LEFT JOIN (
+      SELECT order_id, result, created_at,
+             ROW_NUMBER() OVER (PARTITION BY order_id ORDER BY created_at DESC) as rn
+      FROM inspections
+    ) last_inspection ON last_inspection.order_id = o.id AND last_inspection.rn = 1
     WHERE 1=1
   `
   const params: any[] = []

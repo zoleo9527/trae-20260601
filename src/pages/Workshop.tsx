@@ -26,7 +26,7 @@ export default function Workshop() {
     setLoading(true);
     try {
       const allOrders = await ordersApi.list('today');
-      let filtered = allOrders.filter((o) => !o.has_passed_inspection);
+      let filtered = allOrders.filter((o) => o.last_inspection_result !== 'pass');
       
       if (selectedTechnician) {
         filtered = filtered.filter((o) => o.employee_id === selectedTechnician.id);
@@ -62,8 +62,8 @@ export default function Workshop() {
 
   const pendingOrders = orders.filter((o) => o.status === 'pending');
   const inProgressOrders = orders.filter((o) => o.status === 'in_progress');
-  const reworkOrders = orders.filter((o) => o.status === 'rework');
-  const completedOrders = orders.filter((o) => o.status === 'completed');
+  const reworkOrders = orders.filter((o) => o.status === 'rework' || o.last_inspection_result === 'rework');
+  const completedOrders = orders.filter((o) => o.status === 'completed' && o.last_inspection_result !== 'rework');
 
   return (
     <div>

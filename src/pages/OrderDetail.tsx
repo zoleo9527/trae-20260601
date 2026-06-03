@@ -592,11 +592,14 @@ export default function OrderDetail() {
             <div className="p-4 space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  选择套餐
+                  选择套餐 <span className="text-red-500">*</span>
                 </label>
                 <select
                   value={compensatePackageId || ''}
-                  onChange={(e) => setCompensatePackageId(parseInt(e.target.value))}
+                  onChange={(e) => {
+                    setCompensatePackageId(e.target.value ? parseInt(e.target.value) : null);
+                    setCompensateServiceType('');
+                  }}
                   className="w-full px-3 py-2 border border-gray-444 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent"
                 >
                   <option value="">请选择套餐</option>
@@ -610,7 +613,29 @@ export default function OrderDetail() {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  补偿次数
+                  服务类型 <span className="text-red-500">*</span>
+                </label>
+                <select
+                  value={compensateServiceType}
+                  onChange={(e) => setCompensateServiceType(e.target.value)}
+                  disabled={!compensatePackageId}
+                  className="w-full px-3 py-2 border border-gray-444 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
+                >
+                  <option value="">请选择服务类型</option>
+                  {compensatePackageId &&
+                    customerPackages
+                      .find((p) => p.id === compensatePackageId)
+                      ?.items?.map((item) => (
+                        <option key={item.service_type} value={item.service_type}>
+                          {item.service_type} (剩余{item.remaining}次)
+                        </option>
+                      ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  补偿次数 <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="number"
@@ -623,20 +648,7 @@ export default function OrderDetail() {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  服务类型（可选）
-                </label>
-                <input
-                  type="text"
-                  value={compensateServiceType}
-                  onChange={(e) => setCompensateServiceType(e.target.value)}
-                  placeholder="如：精洗、镀膜等"
-                  className="w-full px-3 py-2 border border-gray-444 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  补偿原因
+                  补偿原因 <span className="text-red-500">*</span>
                 </label>
                 <textarea
                   value={compensateReason}
@@ -656,7 +668,7 @@ export default function OrderDetail() {
                 </button>
                 <button
                   onClick={handleCompensate}
-                  disabled={submitting || !compensatePackageId || !compensateReason}
+                  disabled={submitting || !compensatePackageId || !compensateServiceType || !compensateReason}
                   className="flex-1 py-2.5 bg-amber-500 text-white rounded-lg hover:bg-amber-600 disabled:bg-gray-300 disabled:cursor-not-allowed"
                 >
                   {submitting ? '提交中...' : '确认补偿'}

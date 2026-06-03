@@ -43,29 +43,40 @@ router.get('/customer/:customerId', (req: Request, res: Response) => {
       "SELECT service_type, type, SUM(count) as count FROM deduction_records WHERE customer_package_id = ? GROUP BY service_type, type"
     ).all(pkg.id) as any[]
 
-    const usageMap: Record<string, number> = {}
+    const usageByType: Record<string, number> = {}
+    const refundByType: Record<string, number> = {}
+    const compensationByType: Record<string, number> = {}
+
     for (const d of deductions) {
-      if (!usageMap[d.service_type]) {
-        usageMap[d.service_type] = 0
-      }
       if (d.type === 'usage') {
-        usageMap[d.service_type] += d.count
-      } else if (d.type === 'rework_refund' || d.type === 'compensation') {
-        usageMap[d.service_type] -= d.count
+        usageByType[d.service_type] = (usageByType[d.service_type] || 0) + d.count
+      } else if (d.type === 'rework_refund') {
+        refundByType[d.service_type] = (refundByType[d.service_type] || 0) + d.count
+      } else if (d.type === 'compensation') {
+        compensationByType[d.service_type] = (compensationByType[d.service_type] || 0) + d.count
       }
     }
 
+    let totalRemainingCount = 0
     const itemDetails = items.map((item: any) => {
-      const used = Math.max(0, usageMap[item.service_type] || 0)
+      const used = usageByType[item.service_type] || 0
+      const refund = refundByType[item.service_type] || 0
+      const compensation = compensationByType[item.service_type] || 0
+      const netUsed = Math.max(0, used - refund)
+      const remaining = item.count - netUsed + compensation
+      totalRemainingCount += remaining
       return {
         service_type: item.service_type,
         total: item.count,
-        used,
-        remaining: item.count - used,
+        used: netUsed,
+        refund,
+        compensation,
+        remaining,
       }
     })
 
-    const isLow = pkg.remaining_count <= 2
+    pkg.remaining_count = totalRemainingCount
+    const isLow = totalRemainingCount <= 2
     const isExpiring = new Date(pkg.expires_at) < new Date(Date.now() + 30 * 86400000)
 
     return {
