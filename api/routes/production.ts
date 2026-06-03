@@ -73,6 +73,7 @@ router.patch('/schedule', (req: Request, res: Response) => {
     order_no: string
     current_stage: string
     status: string
+    delivery_date: string
   } | undefined
 
   if (!order) {
@@ -89,6 +90,7 @@ router.patch('/schedule', (req: Request, res: Response) => {
     return
   }
 
+  const oldDeliveryDate = order.delivery_date
   const updates: string[] = []
   const params: unknown[] = []
 
@@ -97,51 +99,59 @@ router.patch('/schedule', (req: Request, res: Response) => {
     params.push(deliveryDate)
   }
 
-  if (updates.length === 0) {
+  if (updates.length === 0 && !productionLine) {
     res.status(400).json({ success: false, error: '没有可更新的字段' })
     return
   }
 
-  updates.push("updated_at = datetime('now')")
-  params.push(orderId)
+  if (updates.length > 0) {
+    updates.push("updated_at = datetime('now')")
+    params.push(orderId)
+    db.prepare(`UPDATE orders SET ${updates.join(', ')} WHERE id = ?`).run(...params)
+  }
 
-  db.prepare(`UPDATE orders SET ${updates.join(', ')} WHERE id = ?`).run(...params)
+  const scheduleReason = productionLine
+    ? `排产更新：产线${productionLine}，交付日期${deliveryDate || oldDeliveryDate}`
+    : deliveryDate
+      ? `排产调整：交付日期从 ${oldDeliveryDate} 改为 ${deliveryDate}`
+      : '排产更新'
 
-  if (productionLine) {
-    const existingSchedule = db.prepare(
-      "SELECT * FROM handoff_records WHERE order_id = ? AND action = 'schedule' ORDER BY created_at DESC LIMIT 1"
-    ).get(orderId) as { id: string; details: string } | undefined
+  const existingSchedule = db.prepare(
+    "SELECT * FROM handoff_records WHERE order_id = ? AND action = 'schedule' ORDER BY created_at DESC LIMIT 1"
+  ).get(orderId) as { id: string; details: string } | undefined
 
-    if (existingSchedule) {
-      const existingDetails = JSON.parse(existingSchedule.details || '{}')
-      existingDetails.production = {
-        ...existingDetails.production,
-        productionLine,
-        estimatedCompletion: deliveryDate
-          ? `${deliveryDate} 18:00:00`
-          : existingDetails.production?.estimatedCompletion,
-      }
-      db.prepare('UPDATE handoff_records SET details = ? WHERE id = ?').run(
-        JSON.stringify(existingDetails),
-        existingSchedule.id,
-      )
-    } else {
-      db.prepare(`
-        INSERT INTO handoff_records (id, order_id, from_role, to_role, action, reason, details, created_at)
-        VALUES (?, ?, 'inspector', 'production', 'schedule', ?, ?, datetime('now'))
-      `).run(
-        randomUUID(),
-        orderId,
-        `排产更新：产线${productionLine}`,
-        JSON.stringify({
-          production: {
-            productionLine,
-            estimatedCompletion: deliveryDate ? `${deliveryDate} 18:00:00` : null,
-            splitFrom: null,
-          },
-        }),
-      )
+  if (existingSchedule) {
+    const existingDetails = JSON.parse(existingSchedule.details || '{}')
+    existingDetails.production = {
+      ...existingDetails.production,
+      previousDeliveryDate: oldDeliveryDate,
+      deliveryDate: deliveryDate || oldDeliveryDate,
+      productionLine: productionLine || existingDetails.production?.productionLine,
+      estimatedCompletion: deliveryDate ? `${deliveryDate} 18:00:00` : existingDetails.production?.estimatedCompletion,
     }
+    db.prepare('UPDATE handoff_records SET details = ?, reason = ? WHERE id = ?').run(
+      JSON.stringify(existingDetails),
+      scheduleReason,
+      existingSchedule.id,
+    )
+  } else {
+    db.prepare(`
+      INSERT INTO handoff_records (id, order_id, from_role, to_role, action, reason, details, created_at)
+      VALUES (?, ?, 'inspector', 'production', 'schedule', ?, ?, datetime('now'))
+    `).run(
+      randomUUID(),
+      orderId,
+      scheduleReason,
+      JSON.stringify({
+        production: {
+          productionLine: productionLine || '待分配',
+          previousDeliveryDate: oldDeliveryDate,
+          deliveryDate: deliveryDate || oldDeliveryDate,
+          estimatedCompletion: deliveryDate ? `${deliveryDate} 18:00:00` : null,
+          splitFrom: null,
+        },
+      }),
+    )
   }
 
   const updated = db.prepare('SELECT * FROM orders WHERE id = ?').get(orderId) as Record<string, unknown>

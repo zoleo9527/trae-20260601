@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom'
-import { AlertTriangle, Clock, Package, ExternalLink } from 'lucide-react'
+import { AlertTriangle, Clock, Package, ExternalLink, Calendar } from 'lucide-react'
 import useAppStore from '@/store/useAppStore'
 import type { Order, Stage } from '@/types'
 import { cn } from '@/lib/utils'
@@ -78,10 +78,20 @@ export default function OrderCard({ order }: { order: Order }) {
 
       <div className="flex items-start justify-between mb-2">
         <span className="font-mono text-sm text-gray-300">{order.orderNo}</span>
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1">
           {order.priority === 'urgent' && (
             <span className="px-1.5 py-0.5 text-xs bg-factory-red/20 text-factory-red rounded">加急</span>
           )}
+          <button
+            onClick={(e) => {
+              e.stopPropagation()
+              useAppStore.getState().setProductionBoardFocusDate(order.deliveryDate)
+            }}
+            className="opacity-0 group-hover:opacity-100 p-1 text-factory-muted hover:text-factory-amber transition"
+            title="查看排产位置"
+          >
+            <Calendar className="w-3.5 h-3.5" />
+          </button>
           <button
             onClick={(e) => { e.stopPropagation(); navigate(`/order/${order.id}`) }}
             className="opacity-0 group-hover:opacity-100 p-1 text-factory-muted hover:text-factory-amber transition"

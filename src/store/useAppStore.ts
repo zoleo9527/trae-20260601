@@ -8,6 +8,7 @@ interface AppState {
   selectedOrderId: string | null
   showHandoffPanel: boolean
   showProductionBoard: boolean
+  productionBoardFocusDate: string | null
   orders: Order[]
   currentOrder: Order | null
   loading: boolean
@@ -19,6 +20,7 @@ interface AppState {
   selectOrder: (id: string | null) => void
   toggleHandoffPanel: () => void
   toggleProductionBoard: () => void
+  setProductionBoardFocusDate: (date: string | null) => void
   fetchOrdersList: (filters?: OrderFilter) => Promise<void>
   fetchOrderDetailAction: (id: string) => Promise<void>
   submitHandoffAction: (
@@ -46,6 +48,7 @@ const useAppStore = create<AppState>((set, get) => ({
   selectedOrderId: null,
   showHandoffPanel: false,
   showProductionBoard: false,
+  productionBoardFocusDate: null,
   orders: [],
   currentOrder: null,
   loading: false,
@@ -94,7 +97,15 @@ const useAppStore = create<AppState>((set, get) => ({
   },
 
   toggleProductionBoard: () => {
-    set((s) => ({ showProductionBoard: !s.showProductionBoard }))
+    const newState = !get().showProductionBoard
+    set({
+      showProductionBoard: newState,
+      productionBoardFocusDate: newState ? get().productionBoardFocusDate : null
+    })
+  },
+
+  setProductionBoardFocusDate: (date) => {
+    set({ productionBoardFocusDate: date, showProductionBoard: true })
   },
 
   fetchOrdersList: async (filters?: OrderFilter) => {

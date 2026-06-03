@@ -1,21 +1,30 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { DndContext, PointerSensor, useSensor, useSensors, DragOverlay, useDraggable, useDroppable } from '@dnd-kit/core'
 import type { DragStartEvent, DragEndEvent } from '@dnd-kit/core'
 import { Lock, GripVertical, ExternalLink } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
+import useAppStore from '@/store/useAppStore'
 import { fetchProductionBoard, updateSchedule } from '@/utils/api'
 import type { Order } from '@/types'
 import { cn } from '@/lib/utils'
 
-function DroppableColumn({ date, count, children }: { date: string; count: number; children: React.ReactNode }) {
+function DroppableColumn({ date, count, isFocused, children }: { date: string; count: number; isFocused: boolean; children: React.ReactNode }) {
   const { setNodeRef, isOver } = useDroppable({ id: `date-${date}` })
+  const colRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (isFocused && colRef.current) {
+      colRef.current.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' })
+    }
+  }, [isFocused])
 
   return (
     <div
-      ref={setNodeRef}
+      ref={(el) => { setNodeRef(el); (colRef as React.MutableRefObject<HTMLDivElement | null>).current = el; }}
       className={cn(
         'min-w-[260px] flex-shrink-0 bg-factory-bg rounded-lg border transition flex flex-col',
-        isOver ? 'border-factory-amber' : 'border-factory-border'
+        isOver ? 'border-factory-amber' : 'border-factory-border',
+        isFocused && 'ring-2 ring-factory-amber ring-offset-2 ring-offset-factory-bg'
       )}
     >
       <div className="p-3 border-b border-factory-border flex items-center justify-between">
@@ -23,6 +32,9 @@ function DroppableColumn({ date, count, children }: { date: string; count: numbe
           <p className="text-sm font-medium text-gray-200">{date}</p>
           <p className="text-xs text-factory-muted">{count} 个工单</p>
         </div>
+        {isFocused && (
+          <div className="w-2 h-2 rounded-full bg-factory-amber animate-pulse" />
+        )}
       </div>
       <div className="p-2 space-y-2 min-h-[120px] flex-1">{children}</div>
     </div>
@@ -88,6 +100,9 @@ export default function ProductionBoard() {
   const [groups, setGroups] = useState<{ date: string; count: number; orders: Order[] }[]>([])
   const [loading, setLoading] = useState(true)
   const [activeOrder, setActiveOrder] = useState<Order | null>(null)
+  const productionBoardFocusDate = useAppStore((s) => s.productionBoardFocusDate)
+  const setProductionBoardFocusDate = useAppStore((s) => s.setProductionBoardFocusDate)
+  const prevFocusDate = useRef<string | null>(null)
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
@@ -96,6 +111,16 @@ export default function ProductionBoard() {
   useEffect(() => {
     loadBoard()
   }, [])
+
+  useEffect(() => {
+    if (productionBoardFocusDate && productionBoardFocusDate !== prevFocusDate.current) {
+      prevFocusDate.current = productionBoardFocusDate
+      const timeout = setTimeout(() => {
+        setProductionBoardFocusDate(null)
+      }, 2000)
+      return () => clearTimeout(timeout)
+    }
+  }, [productionBoardFocusDate, setProductionBoardFocusDate])
 
   const loadBoard = async () => {
     try {
@@ -172,7 +197,7 @@ export default function ProductionBoard() {
     >
       <div className="flex gap-4 p-4 overflow-x-auto h-full">
         {groups.map((group) => (
-          <DroppableColumn key={group.date} date={group.date} count={group.count}>
+          <DroppableColumn key={group.date} date={group.date} count={group.count} isFocused={productionBoardFocusDate === group.date}>
             {group.orders.map((order) => (
               <DraggableCard key={order.id} order={order} />
             ))}

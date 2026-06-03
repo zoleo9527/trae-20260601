@@ -93,6 +93,8 @@ router.get('/', (req: Request, res: Response) => {
   if (status) {
     conditions.push('o.status = ?')
     params.push(status)
+  } else if (handlerRole) {
+    conditions.push("o.status != 'completed'")
   }
   if (stage) {
     conditions.push('o.current_stage = ?')
