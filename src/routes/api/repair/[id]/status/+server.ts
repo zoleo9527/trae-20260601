@@ -24,6 +24,10 @@ export async function POST({ params, request }) {
 		);
 		return json({ success: true });
 	} catch (e) {
-		throw error(500, (e as Error).message);
+		const msg = (e as Error).message;
+		if (msg.includes('无权') || msg.includes('不允许') || msg.includes('流转')) {
+			throw error(403, msg);
+		}
+		throw error(500, msg);
 	}
 }

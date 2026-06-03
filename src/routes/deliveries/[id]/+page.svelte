@@ -133,36 +133,41 @@
 	const canCreateDamage = () => {
 		if (!$currentUser || !delivery) return false;
 		if ($currentUser.role !== 'store_clerk') return false;
-		return ['PENDING_RETURN', 'RETURNED', 'REVIEW_REJECTED'].includes(delivery.status);
+		return ['PENDING_RETURN', 'RETURNED', 'DAMAGE_IDENTIFIED', 'MATERIALS_MISSING', 'REVIEW_REJECTED'].includes(delivery.status);
 	};
 
 	const canReviewDamage = (damage: DamageReport) => {
 		if (!$currentUser || !delivery) return false;
 		if ($currentUser.role !== 'equipment_manager') return false;
-		return damage.status === 'PENDING_REVIEW';
+		if (damage.status !== 'PENDING_REVIEW') return false;
+		return ['DAMAGE_IDENTIFIED', 'MATERIALS_MISSING', 'PENDING_REVIEW'].includes(delivery.status);
 	};
 
 	const canCreateRepair = (damage: DamageReport) => {
 		if (!$currentUser || !delivery) return false;
 		if ($currentUser.role !== 'equipment_manager') return false;
-		return damage.status === 'APPROVED' && (!damage.repair_followups || damage.repair_followups.length === 0);
+		if (damage.status !== 'APPROVED') return false;
+		if (damage.repair_followups && damage.repair_followups.length > 0) return false;
+		return delivery.status === 'REPAIR_PENDING';
 	};
 
 	const canUpdateRepair = (repair: RepairFollowup) => {
 		if (!$currentUser || !delivery) return false;
 		if ($currentUser.role !== 'equipment_manager') return false;
-		return repair.repair_status === 'PENDING' || repair.repair_status === 'IN_PROGRESS';
+		if (repair.repair_status === 'PENDING' && delivery.status === 'REPAIR_PENDING') return true;
+		if (repair.repair_status === 'IN_PROGRESS' && delivery.status === 'REPAIR_IN_PROGRESS') return true;
+		return false;
 	};
 
 	const canConfirmPayment = () => {
 		if (!$currentUser || !delivery) return false;
 		if ($currentUser.role !== 'finance') return false;
-		return delivery.status === 'REPAIR_COMPLETED';
+		return ['REPAIR_COMPLETED', 'OVERDUE'].includes(delivery.status);
 	};
 
 	const canClose = () => {
 		if (!$currentUser || !delivery) return false;
-		return delivery.status === 'FINANCIAL_CONFIRMED';
+		return ['FINANCIAL_CONFIRMED', 'OVERDUE'].includes(delivery.status);
 	};
 
 	async function submitDamage() {

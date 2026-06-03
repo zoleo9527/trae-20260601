@@ -8,10 +8,44 @@ import type {
 	User,
 	Payment,
 	TimelineEvent,
-	DeliveryStatus
+	DeliveryStatus,
+	UserRole
 } from './types';
 
 initDb();
+
+const ALLOWED_TRANSITIONS: Record<DeliveryStatus, DeliveryStatus[]> = {
+	PENDING_RETURN: ['RETURNED', 'DAMAGE_IDENTIFIED', 'MATERIALS_MISSING'],
+	RETURNED: ['DAMAGE_IDENTIFIED', 'MATERIALS_MISSING', 'CLOSED'],
+	DAMAGE_IDENTIFIED: ['MATERIALS_MISSING', 'REVIEW_REJECTED', 'REPAIR_PENDING'],
+	MATERIALS_MISSING: ['DAMAGE_IDENTIFIED', 'REVIEW_REJECTED', 'REPAIR_PENDING'],
+	PENDING_REVIEW: ['REPAIR_PENDING', 'REVIEW_REJECTED'],
+	REVIEW_REJECTED: ['DAMAGE_IDENTIFIED', 'MATERIALS_MISSING'],
+	REPAIR_PENDING: ['REPAIR_IN_PROGRESS'],
+	REPAIR_IN_PROGRESS: ['REPAIR_COMPLETED'],
+	REPAIR_COMPLETED: ['FINANCIAL_CONFIRMED'],
+	FINANCIAL_CONFIRMED: ['CLOSED'],
+	OVERDUE: ['FINANCIAL_CONFIRMED', 'CLOSED'],
+	CLOSED: []
+};
+
+function isTransitionAllowed(from: DeliveryStatus, to: DeliveryStatus): boolean {
+	return ALLOWED_TRANSITIONS[from]?.includes(to) ?? false;
+}
+
+function enforceRole(userId: number, allowedRoles: UserRole[]): User {
+	const user = db.prepare('SELECT * FROM users WHERE id = ?').get(userId) as User | undefined;
+	if (!user) throw new Error('用户不存在');
+	if (!allowedRoles.includes(user.role)) throw new Error(`${user.name}（${user.role}）无权执行此操作，需要：${allowedRoles.join('/')}`);
+	return user;
+}
+
+function enforceDeliveryStatus(deliveryId: number, allowedStatuses: DeliveryStatus[]): Delivery {
+	const delivery = db.prepare('SELECT * FROM deliveries WHERE id = ?').get(deliveryId) as Delivery | undefined;
+	if (!delivery) throw new Error('租赁单不存在');
+	if (!allowedStatuses.includes(delivery.status as DeliveryStatus)) throw new Error(`当前状态「${delivery.status}」不允许此操作，需要：${allowedStatuses.join('/')}`);
+	return delivery;
+}
 
 export function getUsers(): User[] {
 	return db.prepare('SELECT * FROM users ORDER BY id').all() as User[];
@@ -21,26 +55,21 @@ export function getUserById(id: number): User | undefined {
 	return db.prepare('SELECT * FROM users WHERE id = ?').get(id) as User | undefined;
 }
 
+function computeDisplayStatus(delivery: Delivery): DeliveryStatus {
+	if (['MATERIALS_MISSING', 'REVIEW_REJECTED'].includes(delivery.status)) return delivery.status as DeliveryStatus;
+	if (['REPAIR_IN_PROGRESS', 'FINANCIAL_CONFIRMED', 'CLOSED', 'PENDING_RETURN', 'OVERDUE'].includes(delivery.status)) return delivery.status as DeliveryStatus;
+	const today = new Date().toISOString().split('T')[0];
+	if (delivery.expected_return_date < today && delivery.status !== 'PENDING_RETURN') return 'OVERDUE';
+	return delivery.status as DeliveryStatus;
+}
+
 export function getDeliveries(status?: DeliveryStatus): Delivery[] {
-	let sql = `
-		SELECT d.*,
-			CASE
-				WHEN d.status IN ('MATERIALS_MISSING', 'REVIEW_REJECTED') THEN d.status
-				WHEN d.status != 'PENDING_RETURN' AND d.status != 'CLOSED'
-					AND d.expected_return_date < DATE('now')
-					AND d.status NOT IN ('REPAIR_IN_PROGRESS', 'REPAIR_COMPLETED', 'FINANCIAL_CONFIRMED')
-					THEN 'OVERDUE'
-				ELSE d.status
-			END as display_status
-		FROM deliveries d
-	`;
+	let sql = `SELECT d.* FROM deliveries d`;
 	const params: unknown[] = [];
 
 	if (status) {
 		if (status === 'OVERDUE') {
-			sql += ` WHERE d.status IN ('RETURNED', 'DAMAGE_IDENTIFIED', 'PENDING_REVIEW', 'REPAIR_PENDING')
-				AND d.expected_return_date < DATE('now')
-				AND d.status NOT IN ('MATERIALS_MISSING', 'REVIEW_REJECTED', 'REPAIR_IN_PROGRESS', 'REPAIR_COMPLETED', 'FINANCIAL_CONFIRMED')`;
+			sql += ` WHERE d.status IN ('RETURNED', 'DAMAGE_IDENTIFIED', 'PENDING_REVIEW', 'REPAIR_PENDING', 'REPAIR_COMPLETED')`;
 		} else {
 			sql += ' WHERE d.status = ?';
 			params.push(status);
@@ -49,11 +78,11 @@ export function getDeliveries(status?: DeliveryStatus): Delivery[] {
 
 	sql += ' ORDER BY d.created_at DESC';
 
-	const rows = db.prepare(sql).all(...params) as Array<Delivery & { display_status: string }>;
+	const rows = db.prepare(sql).all(...params) as Delivery[];
 
 	return rows.map((row) => ({
 		...row,
-		status: row.display_status as DeliveryStatus
+		status: computeDisplayStatus(row)
 	}));
 }
 
@@ -65,12 +94,7 @@ export function getDeliveryDetail(id: number): DeliveryDetail | undefined {
 	const delivery = getDeliveryById(id);
 	if (!delivery) return undefined;
 
-	const today = new Date().toISOString().split('T')[0];
-	const isOverdue =
-		delivery.status !== 'PENDING_RETURN' &&
-		delivery.status !== 'CLOSED' &&
-		delivery.expected_return_date < today &&
-		!['MATERIALS_MISSING', 'REVIEW_REJECTED', 'REPAIR_IN_PROGRESS', 'REPAIR_COMPLETED', 'FINANCIAL_CONFIRMED', 'OVERDUE'].includes(delivery.status);
+	const displayStatus = computeDisplayStatus(delivery);
 
 	const damageReports = db
 		.prepare(
@@ -157,7 +181,7 @@ export function getDeliveryDetail(id: number): DeliveryDetail | undefined {
 
 	return {
 		...delivery,
-		status: isOverdue ? 'OVERDUE' : delivery.status,
+		status: displayStatus,
 		damage_reports: damageReportsWithRepairs,
 		status_logs: statusLogs.map((sl) => ({
 			...sl,
@@ -180,6 +204,9 @@ export function createDamageReport(data: {
 	materials_provided?: string;
 	materials_missing?: string;
 }): number {
+	enforceRole(data.reported_by, ['store_clerk']);
+	enforceDeliveryStatus(data.delivery_id, ['PENDING_RETURN', 'RETURNED', 'DAMAGE_IDENTIFIED', 'MATERIALS_MISSING', 'REVIEW_REJECTED']);
+
 	const tx = db.transaction(() => {
 		const reportId = db
 			.prepare(
@@ -204,6 +231,10 @@ export function createDamageReport(data: {
 		const delivery = getDeliveryById(data.delivery_id)!;
 		const newStatus: DeliveryStatus = data.materials_missing ? 'MATERIALS_MISSING' : 'DAMAGE_IDENTIFIED';
 
+		if (!isTransitionAllowed(delivery.status as DeliveryStatus, newStatus)) {
+			throw new Error(`状态流转不允许：${delivery.status} → ${newStatus}`);
+		}
+
 		updateDeliveryStatus(data.delivery_id, newStatus, data.reported_by, `提交损坏鉴定: ${data.damage_type}`);
 
 		return reportId;
@@ -218,11 +249,19 @@ export function reviewDamageReport(
 	approved: boolean,
 	reviewComment: string
 ): void {
+	enforceRole(reviewerId, ['equipment_manager']);
+
 	const tx = db.transaction(() => {
 		const damage = db
 			.prepare('SELECT * FROM damage_reports WHERE id = ?')
 			.get(damageId) as DamageReport;
 		if (!damage) throw new Error('损坏报告不存在');
+		if (damage.status !== 'PENDING_REVIEW') throw new Error(`损坏报告当前状态「${damage.status}」不允许复核，需为 PENDING_REVIEW`);
+
+		const delivery = getDeliveryById(damage.delivery_id)!;
+		if (!['DAMAGE_IDENTIFIED', 'MATERIALS_MISSING', 'PENDING_REVIEW'].includes(delivery.status)) {
+			throw new Error(`租赁单当前状态「${delivery.status}」不允许复核`);
+		}
 
 		db.prepare(
 			`
@@ -231,6 +270,12 @@ export function reviewDamageReport(
 			WHERE id = ?
 		`
 		).run(approved ? 'APPROVED' : 'REVIEW_REJECTED', reviewerId, reviewComment, damageId);
+
+		const newStatus: DeliveryStatus = approved ? 'REPAIR_PENDING' : 'REVIEW_REJECTED';
+
+		if (!isTransitionAllowed(delivery.status as DeliveryStatus, newStatus)) {
+			throw new Error(`状态流转不允许：${delivery.status} → ${newStatus}`);
+		}
 
 		if (approved) {
 			updateDeliveryStatus(
@@ -259,7 +304,20 @@ export function createRepairFollowup(data: {
 	repair_description: string;
 	created_by: number;
 }): number {
+	enforceRole(data.created_by, ['equipment_manager']);
+
 	const tx = db.transaction(() => {
+		const damage = db
+			.prepare('SELECT * FROM damage_reports WHERE id = ?')
+			.get(data.damage_report_id) as DamageReport;
+		if (!damage) throw new Error('损坏报告不存在');
+		if (damage.status !== 'APPROVED') throw new Error(`损坏报告状态「${damage.status}」不允许安排维修，需为 APPROVED`);
+
+		const delivery = getDeliveryById(damage.delivery_id)!;
+		if (delivery.status !== 'REPAIR_PENDING') {
+			throw new Error(`租赁单当前状态「${delivery.status}」不允许安排维修，需为 REPAIR_PENDING`);
+		}
+
 		const repairId = db
 			.prepare(
 				`
@@ -277,13 +335,13 @@ export function createRepairFollowup(data: {
 				data.created_by
 			).lastInsertRowid as number;
 
-		const damage = db
-			.prepare('SELECT * FROM damage_reports WHERE id = ?')
-			.get(data.damage_report_id) as DamageReport;
+		if (!isTransitionAllowed(delivery.status as DeliveryStatus, 'REPAIR_PENDING')) {
+			throw new Error(`状态流转不允许：${delivery.status} → REPAIR_PENDING`);
+		}
 
 		updateDeliveryStatus(
 			damage.delivery_id,
-			'REPAIR_IN_PROGRESS',
+			'REPAIR_PENDING',
 			data.created_by,
 			`安排维修: ${data.repair_type}`
 		);
@@ -301,11 +359,28 @@ export function updateRepairStatus(
 	notes?: string,
 	actualCost?: number
 ): void {
+	enforceRole(userId, ['equipment_manager']);
+
 	const tx = db.transaction(() => {
 		const repair = db
 			.prepare('SELECT * FROM repair_followups WHERE id = ?')
 			.get(repairId) as RepairFollowup;
 		if (!repair) throw new Error('维修记录不存在');
+
+		const validTransitions: Record<string, string[]> = {
+			PENDING: ['IN_PROGRESS', 'CANCELLED'],
+			IN_PROGRESS: ['REPAIR_COMPLETED'],
+			REPAIR_COMPLETED: [],
+			CANCELLED: []
+		};
+		if (!validTransitions[repair.repair_status]?.includes(status)) {
+			throw new Error(`维修状态流转不允许：${repair.repair_status} → ${status}`);
+		}
+
+		const damage = db
+			.prepare('SELECT * FROM damage_reports WHERE id = ?')
+			.get(repair.damage_report_id) as DamageReport;
+		const delivery = getDeliveryById(damage.delivery_id)!;
 
 		const updateData: Record<string, unknown> = {
 			repair_status: status
@@ -314,10 +389,18 @@ export function updateRepairStatus(
 		if (notes) updateData.repair_notes = notes;
 		if (actualCost !== undefined) updateData.actual_cost = actualCost;
 
+		let deliveryNewStatus: DeliveryStatus | null = null;
+
 		if (status === 'IN_PROGRESS') {
 			updateData.repair_start_date = new Date().toISOString().split('T')[0];
+			if (delivery.status === 'REPAIR_PENDING') {
+				deliveryNewStatus = 'REPAIR_IN_PROGRESS';
+			}
 		} else if (status === 'REPAIR_COMPLETED') {
 			updateData.repair_complete_date = new Date().toISOString().split('T')[0];
+			if (delivery.status === 'REPAIR_IN_PROGRESS') {
+				deliveryNewStatus = 'REPAIR_COMPLETED';
+			}
 		}
 
 		const fields = Object.keys(updateData).map((k) => `${k} = ?`).join(', ');
@@ -327,24 +410,14 @@ export function updateRepairStatus(
 			...values
 		);
 
-		const damage = db
-			.prepare('SELECT * FROM damage_reports WHERE id = ?')
-			.get(repair.damage_report_id) as DamageReport;
-
-		if (status === 'REPAIR_COMPLETED') {
-			updateDeliveryStatus(
-				damage.delivery_id,
-				'REPAIR_COMPLETED',
-				userId,
-				`维修完成: ${notes || repair.repair_type}`
-			);
-		} else if (status === 'IN_PROGRESS') {
-			updateDeliveryStatus(
-				damage.delivery_id,
-				'REPAIR_IN_PROGRESS',
-				userId,
-				`维修开始: ${notes || repair.repair_type}`
-			);
+		if (deliveryNewStatus) {
+			if (!isTransitionAllowed(delivery.status as DeliveryStatus, deliveryNewStatus)) {
+				throw new Error(`状态流转不允许：${delivery.status} → ${deliveryNewStatus}`);
+			}
+			const reason = status === 'IN_PROGRESS'
+				? `维修开始: ${notes || repair.repair_type}`
+				: `维修完成: ${notes || repair.repair_type}`;
+			updateDeliveryStatus(damage.delivery_id, deliveryNewStatus, userId, reason);
 		}
 	});
 
@@ -358,7 +431,12 @@ export function confirmPayment(data: {
 	confirmed_by: number;
 	notes?: string;
 }): number {
+	enforceRole(data.confirmed_by, ['finance']);
+	enforceDeliveryStatus(data.delivery_id, ['REPAIR_COMPLETED', 'OVERDUE']);
+
 	const tx = db.transaction(() => {
+		const delivery = getDeliveryById(data.delivery_id)!;
+
 		const paymentId = db
 			.prepare(
 				`
@@ -374,6 +452,11 @@ export function confirmPayment(data: {
 				data.notes ?? null
 			).lastInsertRowid as number;
 
+		const newStatus: DeliveryStatus = 'FINANCIAL_CONFIRMED';
+		if (!isTransitionAllowed(delivery.status as DeliveryStatus, newStatus)) {
+			throw new Error(`状态流转不允许：${delivery.status} → ${newStatus}`);
+		}
+
 		updateDeliveryStatus(
 			data.delivery_id,
 			'FINANCIAL_CONFIRMED',
@@ -388,6 +471,14 @@ export function confirmPayment(data: {
 }
 
 export function closeDelivery(deliveryId: number, userId: number, reason: string): void {
+	enforceRole(userId, ['store_clerk', 'equipment_manager', 'finance']);
+	enforceDeliveryStatus(deliveryId, ['FINANCIAL_CONFIRMED', 'OVERDUE']);
+
+	const delivery = getDeliveryById(deliveryId)!;
+	if (!isTransitionAllowed(delivery.status as DeliveryStatus, 'CLOSED')) {
+		throw new Error(`状态流转不允许：${delivery.status} → CLOSED`);
+	}
+
 	updateDeliveryStatus(deliveryId, 'CLOSED', userId, reason);
 }
 
@@ -488,6 +579,21 @@ export function getTimelineEvents(deliveryId: number): TimelineEvent[] {
 				}
 			});
 
+			if (rf.repair_start_date && rf.repair_status !== 'PENDING') {
+				events.push({
+					id: `repair-start-${rf.id}`,
+					type: 'repair',
+					title: `维修开始`,
+					description: rf.repair_description || '',
+					operator: rf.assignee?.name || '未知',
+					operator_role: rf.assignee?.role || '',
+					timestamp: rf.repair_start_date + 'T09:00:00',
+					metadata: {
+						repair_status: 'IN_PROGRESS'
+					}
+				});
+			}
+
 			if (rf.repair_complete_date) {
 				events.push({
 					id: `repair-complete-${rf.id}`,
@@ -496,7 +602,7 @@ export function getTimelineEvents(deliveryId: number): TimelineEvent[] {
 					description: rf.repair_notes || rf.repair_description || '',
 					operator: rf.assignee?.name || '未知',
 					operator_role: rf.assignee?.role || '',
-					timestamp: rf.repair_complete_date + 'T23:59:59',
+					timestamp: rf.repair_complete_date + 'T17:00:00',
 					metadata: {
 						actual_cost: rf.actual_cost
 					}

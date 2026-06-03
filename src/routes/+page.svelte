@@ -56,7 +56,7 @@
 	const canCreateDamage = (delivery: Delivery) => {
 		if (!$currentUser) return false;
 		if ($currentUser.role !== 'store_clerk') return false;
-		return ['PENDING_RETURN', 'RETURNED'].includes(delivery.status);
+		return ['PENDING_RETURN', 'RETURNED', 'DAMAGE_IDENTIFIED', 'MATERIALS_MISSING', 'REVIEW_REJECTED'].includes(delivery.status);
 	};
 </script>
 
