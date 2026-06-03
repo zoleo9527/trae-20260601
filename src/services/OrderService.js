@@ -1,31 +1,30 @@
+import dayjs from 'dayjs';
 import { Op } from 'sequelize';
-import {
-  Order,
-  Cell,
-  Cabinet,
-  DeliveryRecord,
-  PickupCode,
-  TimeoutReminder,
-  ExceptionLog,
-} from '../models/index.js';
-import {
-  ORDER_STATUS,
-  CELL_STATUS,
-  EXCEPTION_TYPE,
-  PICKUP_CODE_STATUS,
-  TIMEOUT_REMINDER_STATUS,
-  PICKUP_TIMEOUT_HOURS,
-} from '../utils/constants.js';
 import sequelize from '../config/database.js';
 import {
-  canTransitionOrder,
-  canTransitionCell,
-  isCellOccupied,
-  calculateTimeout,
-  isOrderTimeout,
-} from './StateMachineService.js';
+  Cabinet,
+  Cell,
+  DeliveryRecord,
+  ExceptionLog,
+  Order,
+  PickupCode,
+  TimeoutReminder,
+} from '../models/index.js';
+import {
+  CELL_STATUS,
+  EXCEPTION_TYPE,
+  ORDER_STATUS,
+  PICKUP_CODE_STATUS,
+  PICKUP_TIMEOUT_HOURS,
+  TIMEOUT_REMINDER_STATUS,
+} from '../utils/constants.js';
 import { generateOrderNo, generatePickupCode } from '../utils/helpers.js';
-import dayjs from 'dayjs';
+import {
+  calculateTimeout,
+  canTransitionCell,
+  canTransitionOrder,
+  isCellOccupied
+} from './StateMachineService.js';
 
 export async function createOrder(data) {
   const orderNo = generateOrderNo();
@@ -155,6 +154,7 @@ export async function deliverOrder(orderId, deliveryData) {
   await PickupCode.create({
     orderId,
     cellId: order.cellId,
+    cabinetId: order.cabinetId,
     code: pickupCode,
     status: PICKUP_CODE_STATUS.ACTIVE,
     expiredAt: timeoutAt,

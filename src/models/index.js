@@ -20,11 +20,20 @@ Order.belongsTo(Cell, { foreignKey: 'cellId', as: 'cell' });
 Order.hasOne(DeliveryRecord, { foreignKey: 'orderId', as: 'deliveryRecord' });
 DeliveryRecord.belongsTo(Order, { foreignKey: 'orderId', as: 'order' });
 
+Cell.hasMany(DeliveryRecord, { foreignKey: 'cellId', as: 'deliveryRecords' });
+DeliveryRecord.belongsTo(Cell, { foreignKey: 'cellId', as: 'cell' });
+
+Cabinet.hasMany(DeliveryRecord, { foreignKey: 'cabinetId', as: 'deliveryRecords' });
+DeliveryRecord.belongsTo(Cabinet, { foreignKey: 'cabinetId', as: 'cabinet' });
+
 Order.hasMany(PickupCode, { foreignKey: 'orderId', as: 'pickupCodes' });
 PickupCode.belongsTo(Order, { foreignKey: 'orderId', as: 'order' });
 
 Cell.hasMany(PickupCode, { foreignKey: 'cellId', as: 'pickupCodes' });
 PickupCode.belongsTo(Cell, { foreignKey: 'cellId', as: 'cell' });
+
+Cabinet.hasMany(PickupCode, { foreignKey: 'cabinetId', as: 'pickupCodes' });
+PickupCode.belongsTo(Cabinet, { foreignKey: 'cabinetId', as: 'cabinet' });
 
 Order.hasMany(TimeoutReminder, { foreignKey: 'orderId', as: 'timeoutReminders' });
 TimeoutReminder.belongsTo(Order, { foreignKey: 'orderId', as: 'order' });

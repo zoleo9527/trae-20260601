@@ -18,6 +18,10 @@ const PickupCode = sequelize.define('PickupCode', {
     allowNull: false,
     comment: '格口ID',
   },
+  cabinetId: {
+    type: DataTypes.INTEGER,
+    comment: '柜机ID',
+  },
   code: {
     type: DataTypes.STRING(20),
     allowNull: false,
