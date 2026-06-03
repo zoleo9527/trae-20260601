@@ -37,7 +37,7 @@ export default function Workbench() {
     const anomalyType = searchParams.get('anomalyType')
     const customerName = searchParams.get('customerName')
     const urlFilters: Record<string, string | undefined> = {}
-    if (status) urlFilters.status = status
+    if (status && status !== 'completed') urlFilters.status = status
     if (stage) urlFilters.stage = stage
     if (anomalyType) urlFilters.anomalyType = anomalyType
     if (customerName) urlFilters.customerName = customerName

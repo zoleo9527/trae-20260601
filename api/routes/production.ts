@@ -116,43 +116,33 @@ router.patch('/schedule', (req: Request, res: Response) => {
       ? `排产调整：交付日期从 ${oldDeliveryDate} 改为 ${deliveryDate}`
       : '排产更新'
 
-  const existingSchedule = db.prepare(
+  const lastSchedule = db.prepare(
     "SELECT * FROM handoff_records WHERE order_id = ? AND action = 'schedule' ORDER BY created_at DESC LIMIT 1"
   ).get(orderId) as { id: string; details: string } | undefined
 
-  if (existingSchedule) {
-    const existingDetails = JSON.parse(existingSchedule.details || '{}')
-    existingDetails.production = {
-      ...existingDetails.production,
-      previousDeliveryDate: oldDeliveryDate,
-      deliveryDate: deliveryDate || oldDeliveryDate,
-      productionLine: productionLine || existingDetails.production?.productionLine,
-      estimatedCompletion: deliveryDate ? `${deliveryDate} 18:00:00` : existingDetails.production?.estimatedCompletion,
-    }
-    db.prepare('UPDATE handoff_records SET details = ?, reason = ? WHERE id = ?').run(
-      JSON.stringify(existingDetails),
-      scheduleReason,
-      existingSchedule.id,
-    )
-  } else {
-    db.prepare(`
-      INSERT INTO handoff_records (id, order_id, from_role, to_role, action, reason, details, created_at)
-      VALUES (?, ?, 'inspector', 'production', 'schedule', ?, ?, datetime('now'))
-    `).run(
-      randomUUID(),
-      orderId,
-      scheduleReason,
-      JSON.stringify({
-        production: {
-          productionLine: productionLine || '待分配',
-          previousDeliveryDate: oldDeliveryDate,
-          deliveryDate: deliveryDate || oldDeliveryDate,
-          estimatedCompletion: deliveryDate ? `${deliveryDate} 18:00:00` : null,
-          splitFrom: null,
-        },
-      }),
-    )
+  let lastProductionLine = '待分配'
+  if (lastSchedule) {
+    const lastDetails = JSON.parse(lastSchedule.details || '{}')
+    lastProductionLine = lastDetails.production?.productionLine || '待分配'
   }
+
+  db.prepare(`
+    INSERT INTO handoff_records (id, order_id, from_role, to_role, action, reason, details, created_at)
+    VALUES (?, ?, 'inspector', 'production', 'schedule', ?, ?, datetime('now'))
+  `).run(
+    randomUUID(),
+    orderId,
+    scheduleReason,
+    JSON.stringify({
+      production: {
+        productionLine: productionLine || lastProductionLine,
+        previousDeliveryDate: oldDeliveryDate,
+        deliveryDate: deliveryDate || oldDeliveryDate,
+        estimatedCompletion: deliveryDate ? `${deliveryDate} 18:00:00` : null,
+        splitFrom: null,
+      },
+    }),
+  )
 
   const updated = db.prepare('SELECT * FROM orders WHERE id = ?').get(orderId) as Record<string, unknown>
 

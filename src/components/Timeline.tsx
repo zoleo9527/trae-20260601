@@ -23,7 +23,8 @@ const actionLabels: Record<string, string> = {
 }
 
 function TimelineNode({ record }: { record: HandoffRecord }) {
-  const [expanded, setExpanded] = useState(false)
+  const isSchedule = record.action === 'schedule'
+  const [expanded, setExpanded] = useState(isSchedule)
   const hasDetails =
     record.details.reception || record.details.design || record.details.qc || record.details.production
 
@@ -122,11 +123,24 @@ function TimelineNode({ record }: { record: HandoffRecord }) {
               </div>
             )}
             {record.details.production && (
-              <div>
-                <p className="text-purple-400 font-medium mb-1">排产信息</p>
-                <p>生产线：{record.details.production.productionLine}</p>
-                <p>预计完成：{record.details.production.estimatedCompletion}</p>
-                {record.details.production.splitFrom && <p>拆分自：{record.details.production.splitFrom}</p>}
+              <div className="mt-2 p-3 bg-factory-bg rounded-md space-y-3 text-xs">
+                <div>
+                  <p className="text-purple-400 font-medium mb-1">排产信息</p>
+                  {record.details.production.previousDeliveryDate && record.details.production.deliveryDate && record.details.production.previousDeliveryDate !== record.details.production.deliveryDate && (
+                    <p className="mb-2">
+                      交付日期：<span className="text-factory-muted line-through">{record.details.production.previousDeliveryDate}</span>
+                      <span className="mx-1">→</span>
+                      <span className="text-factory-amber font-medium">{record.details.production.deliveryDate}</span>
+                    </p>
+                  )}
+                  {record.details.production.previousDeliveryDate === record.details.production.deliveryDate && record.details.production.deliveryDate && (
+                    <p className="mb-2">交付日期：<span className="text-gray-300">{record.details.production.deliveryDate}</span>
+                    </p>
+                  )}
+                  <p>生产线：{record.details.production.productionLine}</p>
+                  <p>预计完成：{record.details.production.estimatedCompletion}</p>
+                  {record.details.production.splitFrom && <p>拆分自：{record.details.production.splitFrom}</p>}
+                </div>
               </div>
             )}
           </div>

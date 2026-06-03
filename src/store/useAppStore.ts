@@ -66,6 +66,9 @@ const useAppStore = create<AppState>((set, get) => ({
 
   setFilter: (newFilters) => {
     const merged = { ...get().filters, ...newFilters }
+    if (merged.status === 'completed') {
+      delete merged.status
+    }
     const cleaned = Object.fromEntries(
       Object.entries(merged).filter(([, v]) => v !== undefined && v !== '')
     ) as OrderFilter

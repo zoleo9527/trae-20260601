@@ -35,7 +35,7 @@ export interface HandoffDetails {
   reception?: { scanFileType: string; modelType: 'digital' | 'physical'; scanFileCount: number; notes: string }
   design?: { softwareVersion: string; modifications: string[]; colorChangeReason: string | null; specialProcess: string | null }
   qc?: { checkItems: QCCheckItem[]; result: 'pass' | 'fail'; failReason: string | null; reworkTarget: string | null }
-  production?: { productionLine: string; estimatedCompletion: string; splitFrom: string | null }
+  production?: { productionLine: string; previousDeliveryDate?: string; deliveryDate?: string; estimatedCompletion: string | null; splitFrom: string | null }
 }
 
 export interface HandoffRecord {
