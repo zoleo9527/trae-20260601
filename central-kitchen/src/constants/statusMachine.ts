@@ -91,10 +91,11 @@ export const MEAL_ORDER_TRANSITIONS: StatusTransition[] = [
   },
   {
     from: 'production_rejected',
-    to: 'draft',
-    action: '修改后重提',
+    to: 'submitted',
+    action: '修改后重新提交',
     allowedRoles: ['store_supervisor', 'production_leader'],
-    requiresRemark: false,
+    requiresRemark: true,
+    remarkLabel: '修改说明',
   },
   {
     from: 'production_approved',

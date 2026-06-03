@@ -16,6 +16,7 @@ import { DenseTable } from '@/components/DenseTable'
 import { Button } from '@/components/Button'
 import { Modal } from '@/components/Modal'
 import { useState } from 'react'
+import { Edit2, X, Check, Save } from 'lucide-react'
 import {
   getAvailableTransitions,
 } from '@/constants/statusMachine'
@@ -24,12 +25,14 @@ import type { MealItem, ShortageMaterial } from '@/types'
 export function MealOrderDetail() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
-  const { getOrder, transitionStatus, createShortageReplenish } = useMealOrderStore()
+  const { getOrder, transitionStatus, createShortageReplenish, batchUpdateItems, updateOrder } = useMealOrderStore()
   const { currentUser, hasPermission } = useAuthStore()
   const [showShortageModal, setShowShortageModal] = useState(false)
   const [shortageItems, setShortageItems] = useState<MealItem[]>([])
   const [shortageRemark, setShortageRemark] = useState('')
   const [previousConclusion, setPreviousConclusion] = useState('')
+  const [isEditing, setIsEditing] = useState(false)
+  const [editingItems, setEditingItems] = useState<MealItem[]>([])
 
   const order = getOrder(id!)
 
@@ -55,12 +58,18 @@ export function MealOrderDetail() {
   }
 
   const handleReportShortage = () => {
-    const itemsWithShortage = order.items
+    const itemsWithShortage = shortageItems
       .filter((item) => (item.shortageQuantity || 0) > 0)
       .map((item) => ({
         ...item,
-        actualQuantity: item.quantity - (item.shortageQuantity || 0),
+        actualQuantity: item.actualQuantity ?? item.quantity - (item.shortageQuantity || 0),
       }))
+
+    const updatedOrderItems = shortageItems.map((item) => ({
+      ...item,
+      actualQuantity: item.actualQuantity ?? item.quantity - (item.shortageQuantity || 0),
+      shortageQuantity: item.shortageQuantity || 0,
+    }))
 
     const materials: ShortageMaterial[] = [
       {
@@ -72,6 +81,8 @@ export function MealOrderDetail() {
         uploadedBy: currentUser!.name,
       },
     ]
+
+    batchUpdateItems(id!, updatedOrderItems)
 
     createShortageReplenish(id!, {
       items: itemsWithShortage,
@@ -109,6 +120,70 @@ export function MealOrderDetail() {
       )
     )
   }
+
+  const handleStartEdit = () => {
+    setEditingItems(order.items.map((item) => ({ ...item })))
+    setIsEditing(true)
+  }
+
+  const handleCancelEdit = () => {
+    setIsEditing(false)
+    setEditingItems([])
+  }
+
+  const handleSaveEdit = () => {
+    const items = editingItems.filter((i) => i.quantity > 0)
+    if (items.length === 0) {
+      alert('请至少填写一个菜品的数量')
+      return
+    }
+
+    const totalQuantity = items.reduce((sum, item) => sum + item.quantity, 0)
+
+    batchUpdateItems(id!, items)
+
+    updateOrder(id!, {
+      totalQuantity,
+    })
+
+    setIsEditing(false)
+    setEditingItems([])
+  }
+
+  const updateEditingQuantity = (itemId: string, quantity: number) => {
+    setEditingItems((prev) =>
+      prev.map((item) =>
+        item.id === itemId ? { ...item, quantity } : item
+      )
+    )
+  }
+
+  const handleEditAndResubmit = () => {
+    const items = editingItems.filter((i) => i.quantity > 0)
+    if (items.length === 0) {
+      alert('请至少填写一个菜品的数量')
+      return
+    }
+
+    const totalQuantity = items.reduce((sum, item) => sum + item.quantity, 0)
+
+    batchUpdateItems(id!, items)
+
+    updateOrder(id!, {
+      totalQuantity,
+    })
+
+    setIsEditing(false)
+    setEditingItems([])
+
+    transitionStatus(id!, 'submitted', '修改后重新提交')
+  }
+
+  const canEdit = order.status === 'production_rejected' && hasPermission('edit_order')
+  const displayItems = isEditing ? editingItems : order.items
+  const editingTotalQuantity = isEditing
+    ? editingItems.reduce((sum, item) => sum + item.quantity, 0)
+    : order.totalQuantity
 
   return (
     <div className="space-y-6">
@@ -148,11 +223,23 @@ export function MealOrderDetail() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
           <div className="card">
-            <div className="card-header">
+            <div className="card-header flex items-center justify-between">
               <h3 className="font-semibold text-neutral-900 flex items-center gap-2">
                 <Package className="w-5 h-5 text-neutral-500" />
                 配餐明细
+                {isEditing && (
+                  <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded">
+                    编辑中
+                  </span>
+                )}
               </h3>
+              <div className="text-sm text-neutral-500">
+                总计：
+                <span className="font-bold text-primary-600 ml-1">
+                  {isEditing ? editingTotalQuantity : order.totalQuantity}
+                </span>{' '}
+                份
+              </div>
             </div>
             <div className="card-body p-0">
               <DenseTable
@@ -162,68 +249,137 @@ export function MealOrderDetail() {
                   {
                     key: 'quantity',
                     title: '订购量',
-                    width: '100px',
-                    align: 'right',
-                  },
-                  {
-                    key: 'actualQuantity',
-                    title: '实发量',
-                    width: '100px',
+                    width: '150px',
                     align: 'right',
                     render: (row: any) =>
-                      row.actualQuantity !== undefined ? (
-                        row.actualQuantity
+                      isEditing ? (
+                        <div className="flex items-center justify-end gap-2">
+                          <button
+                            onClick={() =>
+                              updateEditingQuantity(
+                                row.id,
+                                Math.max(0, row.quantity - 1)
+                              )
+                            }
+                            className="w-6 h-6 rounded bg-neutral-100 hover:bg-neutral-200 flex items-center justify-center text-neutral-600 text-sm"
+                          >
+                            -
+                          </button>
+                          <input
+                            type="number"
+                            className="input input-sm w-16 text-center"
+                            value={row.quantity}
+                            min={0}
+                            onChange={(e) =>
+                              updateEditingQuantity(
+                                row.id,
+                                parseInt(e.target.value) || 0
+                              )
+                            }
+                          />
+                          <button
+                            onClick={() =>
+                              updateEditingQuantity(row.id, row.quantity + 1)
+                            }
+                            className="w-6 h-6 rounded bg-neutral-100 hover:bg-neutral-200 flex items-center justify-center text-neutral-600 text-sm"
+                          >
+                            +
+                          </button>
+                        </div>
                       ) : (
-                        <span className="text-neutral-400">-</span>
+                        row.quantity
                       ),
                   },
-                  {
-                    key: 'shortageQuantity',
-                    title: '缺货量',
-                    width: '100px',
-                    align: 'right',
-                    render: (row: any) =>
-                      row.shortageQuantity ? (
-                        <span className="text-danger-600 font-medium">
-                          {row.shortageQuantity}
-                        </span>
-                      ) : (
-                        <span className="text-neutral-400">-</span>
-                      ),
-                  },
-                  {
-                    key: 'remark',
-                    title: '备注',
-                    render: (row: any) =>
-                      row.remark || <span className="text-neutral-400">-</span>,
-                  },
+                  ...(isEditing
+                    ? []
+                    : [
+                        {
+                          key: 'actualQuantity',
+                          title: '实发量',
+                          width: '100px',
+                          align: 'right',
+                          render: (row: any) =>
+                            row.actualQuantity !== undefined ? (
+                              row.actualQuantity
+                            ) : (
+                              <span className="text-neutral-400">-</span>
+                            ),
+                        } as const,
+                        {
+                          key: 'shortageQuantity',
+                          title: '缺货量',
+                          width: '100px',
+                          align: 'right',
+                          render: (row: any) =>
+                            row.shortageQuantity ? (
+                              <span className="text-danger-600 font-medium">
+                                {row.shortageQuantity}
+                              </span>
+                            ) : (
+                              <span className="text-neutral-400">-</span>
+                            ),
+                        } as const,
+                        {
+                          key: 'remark',
+                          title: '备注',
+                          render: (row: any) =>
+                            row.remark || (
+                              <span className="text-neutral-400">-</span>
+                            ),
+                        } as const,
+                      ]),
                 ]}
-                data={order.items}
+                data={displayItems}
                 rowKey="id"
               />
             </div>
           </div>
 
           <div className="flex flex-wrap gap-3">
-            <ActionButton
-              transitions={transitions}
-              onAction={handleStatusTransition}
-            />
-            {hasPermission('report_shortage') &&
-              order.status === 'distributed' && (
-                <Button variant="danger" onClick={openShortageModal}>
-                  <AlertTriangle className="w-4 h-4 mr-2" />
-                  上报缺货
+            {isEditing ? (
+              <>
+                <Button variant="success" onClick={handleEditAndResubmit}>
+                  <Check className="w-4 h-4 mr-2" />
+                  保存并重新提交
                 </Button>
-              )}
-            {order.shortageReplenish && (
-              <Button
-                variant="warning"
-                onClick={() => navigate(`/shortage-review/${order.id}`)}
-              >
-                <AlertTriangle className="w-4 h-4 mr-2" />
-                查看缺货补发
-              </Button>
+                <Button variant="secondary" onClick={handleSaveEdit}>
+                  <Save className="w-4 h-4 mr-2" />
+                  仅保存
+                </Button>
+                <Button variant="ghost" onClick={handleCancelEdit}>
+                  <X className="w-4 h-4 mr-2" />
+                  取消编辑
+                </Button>
+              </>
+            ) : (
+              <>
+                <ActionButton
+                  transitions={transitions}
+                  onAction={handleStatusTransition}
+                />
+                {canEdit && (
+                  <Button variant="warning" onClick={handleStartEdit}>
+                    <Edit2 className="w-4 h-4 mr-2" />
+                    编辑单据
+                  </Button>
+                )}
+                {hasPermission('report_shortage') &&
+                  order.status === 'distributed' && (
+                    <Button variant="danger" onClick={openShortageModal}>
+                      <AlertTriangle className="w-4 h-4 mr-2" />
+                      上报缺货
+                    </Button>
+                  )}
+                {order.shortageReplenish && (
+                  <Button
+                    variant="warning"
+                    onClick={() => navigate(`/shortage-review/${order.id}`)}
+                  >
+                    <AlertTriangle className="w-4 h-4 mr-2" />
+                    查看缺货补发
+                  </Button>
+                )}
+              </>
             )}
           </div>
         </div>
