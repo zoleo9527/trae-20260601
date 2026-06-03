@@ -12,6 +12,7 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
+	"gorm.io/gorm"
 )
 
 type CreateRequisitionRequest struct {
@@ -360,12 +361,16 @@ func UpdateRequisitionStatus(c *fiber.Ctx) error {
 	}
 
 	var requisition models.Requisition
-	if err := database.DB.Where("id = ?", reqID).First(&requisition).Error; err != nil {
+	if err := database.DB.Preload("Items").Where("id = ?", reqID).First(&requisition).Error; err != nil {
 		return response.Error(c, errcode.ErrRequisitionNotFound)
 	}
 
 	oldStatus := requisition.Status
 	newStatus := req.Status
+
+	if oldStatus == newStatus {
+		return response.Success(c, requisition)
+	}
 
 	if !IsValidRequisitionStatusTransition(oldStatus, newStatus) {
 		return response.Error(c, errcode.ErrRequisitionStatus,
@@ -377,56 +382,362 @@ func UpdateRequisitionStatus(c *fiber.Ctx) error {
 			fmt.Sprintf("role %s cannot perform status transition: %s → %s", userRole, oldStatus, newStatus))
 	}
 
-	requisition.Status = newStatus
-	now := time.Now()
-
-	if newStatus == models.RequisitionStatusCompleted {
-		requisition.StoreVerifiedBy = &userID
-		requisition.StoreVerifiedAt = &now
-	}
-
 	tx := database.DB.Begin()
-	if err := tx.Save(&requisition).Error; err != nil {
-		tx.Rollback()
-		return response.Error(c, errcode.ErrInternalError)
-	}
-
-	actionName := "状态变更"
-	description := fmt.Sprintf("状态变更：%s → %s，备注：%s", oldStatus, newStatus, req.Remarks)
 
 	switch newStatus {
 	case models.RequisitionStatusPicked:
-		actionName = "原料领用"
-		description = fmt.Sprintf("完成原料领用：%s → %s，备注：%s", oldStatus, newStatus, req.Remarks)
+		if err := handleStatusToPicked(tx, &requisition, userID, req.Remarks); err != nil {
+			tx.Rollback()
+			return handleStatusError(c, err)
+		}
 	case models.RequisitionStatusAllergenPending:
-		actionName = "发起过敏原复核"
-		description = fmt.Sprintf("发起过敏原复核：%s → %s，备注：%s", oldStatus, newStatus, req.Remarks)
-	case models.RequisitionStatusAllergenPassed:
-		actionName = "过敏原复核通过"
-		description = fmt.Sprintf("过敏原复核通过：%s → %s，备注：%s", oldStatus, newStatus, req.Remarks)
-	case models.RequisitionStatusAllergenFailed:
-		actionName = "过敏原复核不通过"
-		description = fmt.Sprintf("过敏原复核不通过：%s → %s，备注：%s", oldStatus, newStatus, req.Remarks)
+		if err := handleStatusToAllergenPending(tx, &requisition, userID, req.Remarks); err != nil {
+			tx.Rollback()
+			return handleStatusError(c, err)
+		}
+	case models.RequisitionStatusAllergenPassed, models.RequisitionStatusAllergenFailed:
+		if err := handleStatusToAllergenResult(tx, &requisition, userID, newStatus, req.Remarks); err != nil {
+			tx.Rollback()
+			return handleStatusError(c, err)
+		}
 	case models.RequisitionStatusCompleted:
-		actionName = "门店督导确认"
-		description = fmt.Sprintf("门店督导确认，流程闭环：%s → %s，备注：%s", oldStatus, newStatus, req.Remarks)
+		if err := handleStatusToCompleted(tx, &requisition, userID, newStatus, req.Remarks); err != nil {
+			tx.Rollback()
+			return handleStatusError(c, err)
+		}
+	case models.RequisitionStatusCancelled:
+		if err := handleStatusToCancelled(tx, &requisition, userID, oldStatus, newStatus, req.Remarks); err != nil {
+			tx.Rollback()
+			return handleStatusError(c, err)
+		}
+	}
+
+	tx.Commit()
+
+	var updatedRequisition models.Requisition
+	if err := database.DB.Preload("PickedByUser").
+		Preload("AllergenChecker").
+		Preload("StoreVerifier").
+		Preload("AllergenReview").
+		Preload("AllergenReview.CheckItems").
+		Where("id = ?", reqID).First(&updatedRequisition).Error; err != nil {
+		return response.Error(c, errcode.ErrInternalError)
+	}
+
+	return response.Success(c, updatedRequisition)
+}
+
+type statusHandlerError struct {
+	code    errcode.ErrorCode
+	message string
+}
+
+func (e *statusHandlerError) Error() string {
+	return e.message
+}
+
+func newStatusError(code errcode.ErrorCode, message string) error {
+	return &statusHandlerError{code: code, message: message}
+}
+
+func handleStatusError(c *fiber.Ctx, err error) error {
+	if se, ok := err.(*statusHandlerError); ok {
+		return response.Error(c, se.code, se.message)
+	}
+	return response.Error(c, errcode.ErrInternalError, err.Error())
+}
+
+func handleStatusToPicked(tx *gorm.DB, requisition *models.Requisition, userID uuid.UUID, remarks string) error {
+	now := time.Now()
+	oldStatus := requisition.Status
+
+	for i := range requisition.Items {
+		if requisition.Items[i].PickedQty == 0 {
+			requisition.Items[i].PickedQty = requisition.Items[i].RequestedQty
+		}
+		if err := tx.Save(&requisition.Items[i]).Error; err != nil {
+			return newStatusError(errcode.ErrInternalError, err.Error())
+		}
+	}
+
+	requisition.Status = models.RequisitionStatusPicked
+	requisition.PickedBy = &userID
+	requisition.PickedAt = &now
+
+	if err := tx.Save(requisition).Error; err != nil {
+		return newStatusError(errcode.ErrInternalError, err.Error())
+	}
+
+	actionDesc := fmt.Sprintf("完成原料领用，共 %d 项物料", len(requisition.Items))
+	if remarks != "" {
+		actionDesc += fmt.Sprintf("，备注：%s", remarks)
 	}
 
 	if err := service.LogAction(
 		tx,
 		requisition.ID, "requisition",
-		models.ActionTypeStatusChange, actionName,
-		description,
-		string(oldStatus), string(newStatus),
-		userID, req,
+		models.ActionTypePick, "原料领用",
+		actionDesc,
+		string(oldStatus), string(requisition.Status),
+		userID, nil,
 	); err != nil {
-		tx.Rollback()
-		return response.Error(c, errcode.ErrInternalError)
+		return newStatusError(errcode.ErrInternalError, err.Error())
 	}
 
-	tx.Commit()
+	return nil
+}
 
-	return response.Success(c, requisition)
+func handleStatusToAllergenPending(tx *gorm.DB, requisition *models.Requisition, userID uuid.UUID, remarks string) error {
+	if requisition.PickedBy == nil || *requisition.PickedBy != userID {
+		return newStatusError(errcode.ErrNotRequisitionOwner, "only the picker can initiate allergen review")
+	}
+
+	var existingReview models.AllergenReview
+	if err := tx.Where("requisition_id = ?", requisition.ID).First(&existingReview).Error; err == nil {
+		return newStatusError(errcode.ErrAllergenReviewExists, "allergen review already exists for this requisition")
+	}
+
+	oldStatus := requisition.Status
+	now := time.Now()
+
+	review := models.AllergenReview{
+		RequisitionID: requisition.ID,
+		Status:        models.AllergenStatusPending,
+		CheckedBy:     userID,
+	}
+
+	checkItems := make([]models.AllergenCheckItem, 0)
+	for _, item := range requisition.Items {
+		if item.PickedQty > 0 {
+			checkItems = append(checkItems, models.AllergenCheckItem{
+				RequisitionItemID: item.ID,
+				MaterialName:      item.MaterialName,
+				AllergenType:      item.AllergenInfo,
+				IsContained:       item.AllergenInfo != "" && item.AllergenInfo != "无常见过敏原",
+				LabelVerified:     false,
+				BatchVerified:     false,
+			})
+		}
+	}
+	review.CheckItems = checkItems
+
+	if err := tx.Create(&review).Error; err != nil {
+		return newStatusError(errcode.ErrInternalError, "failed to create allergen review: "+err.Error())
+	}
+
+	requisition.Status = models.RequisitionStatusAllergenPending
+	requisition.AllergenCheckedBy = &userID
+	checkedAt := now
+	requisition.AllergenCheckedAt = &checkedAt
+
+	if err := tx.Save(requisition).Error; err != nil {
+		return newStatusError(errcode.ErrInternalError, err.Error())
+	}
+
+	actionDesc := "生产班长发起过敏原复核，等待门店督导确认"
+	if remarks != "" {
+		actionDesc += fmt.Sprintf("，备注：%s", remarks)
+	}
+
+	if err := service.LogAction(
+		tx,
+		requisition.ID, "requisition",
+		models.ActionTypeSubmit, "发起过敏原复核",
+		actionDesc,
+		string(oldStatus), string(requisition.Status),
+		userID, nil,
+	); err != nil {
+		return newStatusError(errcode.ErrInternalError, err.Error())
+	}
+
+	if err := service.LogAction(
+		tx,
+		review.ID, "allergen_review",
+		models.ActionTypeCreate, "创建过敏原复核",
+		fmt.Sprintf("关联领用单：%s", requisition.RequisitionNo),
+		"", string(review.Status),
+		userID, nil,
+	); err != nil {
+		return newStatusError(errcode.ErrInternalError, err.Error())
+	}
+
+	return nil
+}
+
+func handleStatusToAllergenResult(tx *gorm.DB, requisition *models.Requisition, userID uuid.UUID, newStatus models.RequisitionStatus, remarks string) error {
+	var review models.AllergenReview
+	if err := tx.Where("requisition_id = ?", requisition.ID).First(&review).Error; err != nil {
+		return newStatusError(errcode.ErrAllergenReviewNotFound,
+			"allergen review not found, please initiate review first")
+	}
+
+	if review.Status != models.AllergenStatusPending && review.Status != models.AllergenStatusReviewing {
+		return newStatusError(errcode.ErrAllergenReviewStatus,
+			fmt.Sprintf("cannot submit review when status is %s", review.Status))
+	}
+
+	if review.CheckedBy != userID {
+		return newStatusError(errcode.ErrForbidden, "only the creator can submit the review")
+	}
+
+	oldReqStatus := requisition.Status
+	oldReviewStatus := review.Status
+
+	var allergenStatus models.AllergenReviewStatus
+	var statusText string
+	if newStatus == models.RequisitionStatusAllergenPassed {
+		allergenStatus = models.AllergenStatusPassed
+		statusText = "通过"
+	} else {
+		allergenStatus = models.AllergenStatusFailed
+		statusText = "不通过"
+	}
+
+	review.Status = allergenStatus
+	review.OverallResult = fmt.Sprintf("状态变更接口提交：%s", statusText)
+	if remarks != "" {
+		review.Findings = remarks
+	}
+
+	if err := tx.Save(&review).Error; err != nil {
+		return newStatusError(errcode.ErrInternalError, err.Error())
+	}
+
+	requisition.Status = newStatus
+
+	if err := tx.Save(requisition).Error; err != nil {
+		return newStatusError(errcode.ErrInternalError, err.Error())
+	}
+
+	actionDesc := fmt.Sprintf("复核结果：%s", statusText)
+	if remarks != "" {
+		actionDesc += fmt.Sprintf("，备注：%s", remarks)
+	}
+	actionDesc += "，等待门店督导确认"
+
+	if err := service.LogAction(
+		tx,
+		review.ID, "allergen_review",
+		models.ActionTypeSubmit, fmt.Sprintf("提交过敏原复核（%s）", statusText),
+		actionDesc,
+		string(oldReviewStatus), string(allergenStatus),
+		userID, nil,
+	); err != nil {
+		return newStatusError(errcode.ErrInternalError, err.Error())
+	}
+
+	if err := service.LogAction(
+		tx,
+		requisition.ID, "requisition",
+		models.ActionTypeStatusChange, "过敏原复核完成",
+		actionDesc,
+		string(oldReqStatus), string(newStatus),
+		userID, nil,
+	); err != nil {
+		return newStatusError(errcode.ErrInternalError, err.Error())
+	}
+
+	return nil
+}
+
+func handleStatusToCompleted(tx *gorm.DB, requisition *models.Requisition, userID uuid.UUID, newStatus models.RequisitionStatus, remarks string) error {
+	var review models.AllergenReview
+	if err := tx.Where("requisition_id = ?", requisition.ID).First(&review).Error; err != nil {
+		return newStatusError(errcode.ErrAllergenReviewNotFound,
+			"allergen review not found")
+	}
+
+	if review.Status != models.AllergenStatusPassed && review.Status != models.AllergenStatusFailed {
+		return newStatusError(errcode.ErrAllergenReviewStatus,
+			fmt.Sprintf("cannot verify review when status is %s", review.Status))
+	}
+
+	if review.VerifiedBy != nil {
+		return newStatusError(errcode.ErrAllergenReviewStatus,
+			"allergen review already verified")
+	}
+
+	oldReqStatus := requisition.Status
+	oldReviewStatus := review.Status
+	now := time.Now()
+
+	verifyAction := "确认通过"
+	if review.Status == models.AllergenStatusFailed {
+		verifyAction = "确认不通过"
+	}
+
+	review.VerifiedBy = &userID
+	review.VerifiedAt = &now
+	if remarks != "" {
+		review.Findings = review.Findings + "\n门店督导复核意见：" + remarks
+	}
+
+	if err := tx.Save(&review).Error; err != nil {
+		return newStatusError(errcode.ErrInternalError, err.Error())
+	}
+
+	requisition.Status = models.RequisitionStatusCompleted
+	requisition.StoreVerifiedBy = &userID
+	requisition.StoreVerifiedAt = &now
+
+	if err := tx.Save(requisition).Error; err != nil {
+		return newStatusError(errcode.ErrInternalError, err.Error())
+	}
+
+	actionDesc := fmt.Sprintf("过敏原复核%s，流程闭环", verifyAction)
+	if remarks != "" {
+		actionDesc += fmt.Sprintf("，备注：%s", remarks)
+	}
+
+	if err := service.LogAction(
+		tx,
+		review.ID, "allergen_review",
+		models.ActionTypeVerify, fmt.Sprintf("门店督导%s", verifyAction),
+		actionDesc,
+		string(oldReviewStatus), string(review.Status),
+		userID, nil,
+	); err != nil {
+		return newStatusError(errcode.ErrInternalError, err.Error())
+	}
+
+	if err := service.LogAction(
+		tx,
+		requisition.ID, "requisition",
+		models.ActionTypeVerify, "门店督导确认",
+		actionDesc,
+		string(oldReqStatus), string(requisition.Status),
+		userID, nil,
+	); err != nil {
+		return newStatusError(errcode.ErrInternalError, err.Error())
+	}
+
+	return nil
+}
+
+func handleStatusToCancelled(tx *gorm.DB, requisition *models.Requisition, userID uuid.UUID, oldStatus, newStatus models.RequisitionStatus, remarks string) error {
+	requisition.Status = models.RequisitionStatusCancelled
+
+	if err := tx.Save(requisition).Error; err != nil {
+		return newStatusError(errcode.ErrInternalError, err.Error())
+	}
+
+	actionDesc := "领用单已取消"
+	if remarks != "" {
+		actionDesc += fmt.Sprintf("，备注：%s", remarks)
+	}
+
+	if err := service.LogAction(
+		tx,
+		requisition.ID, "requisition",
+		models.ActionTypeStatusChange, "取消领用单",
+		actionDesc,
+		string(oldStatus), string(newStatus),
+		userID, nil,
+	); err != nil {
+		return newStatusError(errcode.ErrInternalError, err.Error())
+	}
+
+	return nil
 }
 
 func IsValidRequisitionStatusTransition(oldStatus, newStatus models.RequisitionStatus) bool {
