@@ -17,6 +17,12 @@ export default function AlertsCenter() {
     fetchAlerts();
   }, [fetchAlerts]);
 
+  useEffect(() => {
+    if (currentRole === 'kitchen_manager' && scopeFilter === 'hall') {
+      setScopeFilter('all');
+    }
+  }, [currentRole, scopeFilter]);
+
   const handleFilterChange = () => {
     fetchAlerts({
       scope: scopeFilter,

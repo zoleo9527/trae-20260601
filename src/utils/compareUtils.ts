@@ -89,6 +89,7 @@ export function getChangeTypeLabel(type: ChangeType): string {
     equipment: '设备问题',
     material: '物资变更',
     children_chair: '儿童椅变更',
+    menu: '菜单调整',
     other: '其他变更',
   };
   return labels[type];

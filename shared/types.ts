@@ -2,7 +2,7 @@ export type BanquetType = 'wedding' | 'annual' | 'birthday' | 'other';
 
 export type BanquetStatus = 'draft' | 'pending' | 'confirmed' | 'modified' | 'finalized';
 
-export type ChangeType = 'hall' | 'table_count' | 'table_layout' | 'equipment' | 'material' | 'children_chair' | 'other';
+export type ChangeType = 'hall' | 'table_count' | 'table_layout' | 'equipment' | 'material' | 'children_chair' | 'menu' | 'other';
 
 export type ImpactScope = 'hall' | 'kitchen' | 'both';
 

@@ -238,12 +238,14 @@ router.get('/alerts', (req: Request, res: Response) => {
 
   if (role === 'kitchen_manager') {
     alerts = alerts.filter(a => a.scope === 'kitchen' || a.scope === 'both');
-  } else if (role === 'hall_manager' || role === 'sales') {
-    alerts = alerts.filter(a => a.scope === 'hall' || a.scope === 'both');
   }
   
   if (scope && scope !== 'all') {
-    alerts = alerts.filter(a => a.scope === scope || a.scope === 'both');
+    if (scope === 'kitchen') {
+      alerts = alerts.filter(a => a.scope === 'kitchen');
+    } else if (scope === 'hall') {
+      alerts = alerts.filter(a => a.scope === 'hall');
+    }
   }
   
   if (priority && priority !== 'all') {
