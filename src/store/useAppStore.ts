@@ -32,12 +32,20 @@ export const useAppStore = create<AppState>((set, get) => ({
   loading: false,
   error: null,
 
-  setRole: (role) => set({ currentRole: role }),
+  setRole: async (role) => {
+    set({ currentRole: role });
+    await get().fetchBanquets();
+    await get().fetchAlerts();
+  },
 
   fetchBanquets: async (params) => {
     set({ loading: true, error: null });
     try {
-      const banquets = await api.getBanquets(params);
+      const state = get();
+      const banquets = await api.getBanquets({
+        ...params,
+        role: state.currentRole,
+      });
       set({ banquets, loading: false });
     } catch (error) {
       set({ error: (error as Error).message, loading: false });
@@ -57,7 +65,11 @@ export const useAppStore = create<AppState>((set, get) => ({
   fetchAlerts: async (params) => {
     set({ loading: true, error: null });
     try {
-      const alerts = await api.getAlerts(params);
+      const state = get();
+      const alerts = await api.getAlerts({
+        ...params,
+        role: state.currentRole,
+      });
       set({ alerts, loading: false });
     } catch (error) {
       set({ error: (error as Error).message, loading: false });

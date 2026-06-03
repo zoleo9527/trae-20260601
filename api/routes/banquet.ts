@@ -6,7 +6,7 @@ import type { Banquet, BanquetSummary, Alert, CompareResult, ConfirmRecord, User
 const router = Router();
 
 router.get('/banquets', (req: Request, res: Response) => {
-  const { type, status, search } = req.query;
+  const { type, status, search, role } = req.query;
   
   let banquets = [...mockBanquets];
   
@@ -26,22 +26,29 @@ router.get('/banquets', (req: Request, res: Response) => {
       b.hall.toLowerCase().includes(keyword)
     );
   }
+
+  const isKitchenRole = role === 'kitchen_manager';
   
-  const summaries: BanquetSummary[] = banquets.map(b => ({
-    id: b.id,
-    name: b.name,
-    type: b.type,
-    startTime: b.startTime,
-    endTime: b.endTime,
-    hall: b.hall,
-    guestCount: b.guestCount,
-    tableCount: b.tableCount,
-    status: b.status,
-    currentVersion: b.currentVersion,
-    hasUnacknowledgedAlerts: b.alerts.some(a => !a.acknowledged),
-    alertCount: b.alerts.length,
-    highPriorityAlerts: b.alerts.filter(a => a.priority === 'high' || a.priority === 'urgent' && !a.acknowledged).length,
-  }));
+  const summaries: BanquetSummary[] = banquets.map(b => {
+    const visibleAlerts = isKitchenRole
+      ? b.alerts.filter(a => a.scope === 'kitchen' || a.scope === 'both')
+      : b.alerts;
+    return {
+      id: b.id,
+      name: b.name,
+      type: b.type,
+      startTime: b.startTime,
+      endTime: b.endTime,
+      hall: b.hall,
+      guestCount: b.guestCount,
+      tableCount: b.tableCount,
+      status: b.status,
+      currentVersion: b.currentVersion,
+      hasUnacknowledgedAlerts: visibleAlerts.some(a => !a.acknowledged),
+      alertCount: visibleAlerts.length,
+      highPriorityAlerts: visibleAlerts.filter(a => (a.priority === 'high' || a.priority === 'urgent') && !a.acknowledged).length,
+    };
+  });
   
   res.json(summaries);
 });
@@ -154,13 +161,17 @@ router.post('/banquets/:id/versions', (req: Request, res: Response) => {
 
   const newAlerts: Alert[] = [];
   changedFields.forEach((field, idx) => {
+    const scope = field === 'hall' ? 'both' : 
+                  field === 'equipment' ? 'hall' : 
+                  field === 'table_count' ? 'both' :
+                  field === 'children_chair' ? 'both' : 'both';
     const alert: Alert = {
       id: `alert-auto-${Date.now()}-${idx}`,
       banquetId: id,
       banquetName: banquet.name,
       type: field as Alert['type'],
       description: body.changeDescription || `方案 v${newVersion} 变更`,
-      scope: field === 'hall' ? 'both' : field === 'equipment' ? 'hall' : 'both',
+      scope,
       priority: field === 'hall' ? 'urgent' : field === 'table_count' ? 'high' : 'medium',
       acknowledged: false,
       fromVersion: newVersion - 1,
@@ -169,6 +180,7 @@ router.post('/banquets/:id/versions', (req: Request, res: Response) => {
     };
     newAlerts.push(alert);
     banquet.alerts.push(alert);
+    mockAlerts.push(alert);
   });
 
   res.json({ success: true, version, alerts: newAlerts, banquet });
@@ -218,9 +230,15 @@ router.post('/banquets/:id/confirm', (req: Request, res: Response) => {
 });
 
 router.get('/alerts', (req: Request, res: Response) => {
-  const { scope, priority, acknowledged } = req.query;
+  const { scope, priority, acknowledged, role } = req.query;
   
   let alerts = [...mockAlerts];
+
+  if (role === 'kitchen_manager') {
+    alerts = alerts.filter(a => a.scope === 'kitchen' || a.scope === 'both');
+  } else if (role === 'hall_manager' || role === 'sales') {
+    alerts = alerts.filter(a => a.scope === 'hall' || a.scope === 'both');
+  }
   
   if (scope && scope !== 'all') {
     alerts = alerts.filter(a => a.scope === scope || a.scope === 'both');

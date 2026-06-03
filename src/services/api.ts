@@ -18,7 +18,7 @@ async function request<T>(url: string, options?: RequestInit): Promise<T> {
 }
 
 export const api = {
-  getBanquets: (params?: { type?: string; status?: string; search?: string }) => {
+  getBanquets: (params?: { type?: string; status?: string; search?: string; role?: string }) => {
     const query = params ? new URLSearchParams(Object.entries(params).filter(([_, v]) => v !== undefined && v !== 'all')).toString() : '';
     return request<BanquetSummary[]>(`/banquets${query ? `?${query}` : ''}`);
   },
@@ -49,7 +49,7 @@ export const api = {
     });
   },
 
-  getAlerts: (params?: { scope?: string; priority?: string; acknowledged?: string }) => {
+  getAlerts: (params?: { scope?: string; priority?: string; acknowledged?: string; role?: string }) => {
     const query = params ? new URLSearchParams(Object.entries(params).filter(([_, v]) => v !== undefined && v !== 'all')).toString() : '';
     return request<Alert[]>(`/alerts${query ? `?${query}` : ''}`);
   },
