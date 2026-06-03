@@ -453,16 +453,48 @@ const depositInfo = computed(() =>
   mockDeposits.find(d => d.rentalId === rentalId.value)
 )
 
+const compareWithCurrentForm = () => {
+  if (!rental.value?.outboundInspection) return null
+
+  const outbound = rental.value.outboundInspection.items
+  const current = form.items
+  const differences = []
+
+  Object.keys(outbound).forEach(key => {
+    const outItem = outbound[key]
+    const curItem = current[key]
+
+    if (outItem.result === 'not_applicable' || curItem.result === 'not_applicable') {
+      return
+    }
+
+    if (outItem.result !== curItem.result) {
+      differences.push({
+        item: key,
+        outbound: outItem,
+        return: curItem,
+        isAbnormal: curItem.result === 'abnormal'
+      })
+    }
+  })
+
+  return differences
+}
+
 const differences = computed(() => {
-  const hasChanges = Object.values(form.items).some(item => item.description || item.photos.length > 0)
-  if (!hasChanges) return null
-  return equipmentStore.compareInspections(rentalId.value)
+  return compareWithCurrentForm()
 })
 
 const hasAnyAbnormal = computed(() =>
   Object.values(form.items).some(item => item.result === 'abnormal') ||
   form.overallResult === 'abnormal'
 )
+
+const hasDifference = (key) => {
+  const diffs = differences.value
+  if (!diffs) return false
+  return diffs.some(d => d.item === key)
+}
 
 const canEdit = computed(() => authStore.hasPermission('return:review'))
 
@@ -484,11 +516,6 @@ watch(hasAnyAbnormal, (val) => {
 
 const isKeyPoint = (key) => {
   return rental.value?.outboundInspection?.items?.[key]?.keyPoint || false
-}
-
-const hasDifference = (key) => {
-  if (!differences.value) return false
-  return differences.value.some(d => d.item === key)
 }
 
 const getOutboundResultType = (key) => {

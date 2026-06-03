@@ -266,7 +266,7 @@
             </div>
             <div class="deposit-row">
               <span class="deposit-label">支付时间</span>
-              <span>{{ formatTime(depositInfo.paidAt) }}
+              <span>{{ formatTime(depositInfo.paidAt) }}</span>
             </div>
             <div class="deposit-row">
               <span class="deposit-label">退还状态</span>
@@ -276,7 +276,7 @@
             </div>
             <div v-if="depositInfo.refunded" class="deposit-row">
               <span class="deposit-label">退还时间</span>
-              <span>{{ formatTime(depositInfo.refundedAt) }}
+              <span>{{ formatTime(depositInfo.refundedAt) }}</span>
             </div>
             <div v-if="depositInfo.holdReason" class="deposit-row">
               <span class="deposit-label">冻结原因</span>
@@ -378,8 +378,17 @@ const differences = computed(() =>
   equipmentStore.compareInspections(rentalId.value))
 
 const showActionButton = computed(() => {
-  if (!authStore.hasPermission('anomaly:handle')) return false
-  return rental.value?.status === STATUS_FLOW.ABNORMAL
+  const status = rental.value?.status
+  if (status === STATUS_FLOW.ABNORMAL) {
+    return authStore.hasPermission('anomaly:handle')
+  }
+  if (status === STATUS_FLOW.IN_REPAIR) {
+    return authStore.hasPermission('repair:manage')
+  }
+  if (status === STATUS_FLOW.RETURN_COMPLETED) {
+    return authStore.hasPermission('deposit:refund') || authStore.hasPermission('anomaly:handle')
+  }
+  return false
 })
 
 const actionButtonText = computed(() => {

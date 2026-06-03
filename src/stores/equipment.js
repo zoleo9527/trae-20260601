@@ -1,5 +1,12 @@
 import { defineStore } from 'pinia'
 import { mockRentals, STATUS_FLOW, STATUS_LABELS, INTEGRATION_POINTS } from '@/data/mockData'
+import { useAuthStore } from '@/stores/auth'
+
+const OPERATOR_NAMES = {
+  frontline: '一线操作员',
+  manager: '门店经理',
+  admin: '系统管理员'
+}
 
 export const useEquipmentStore = defineStore('equipment', {
   state: () => ({
@@ -59,14 +66,25 @@ export const useEquipmentStore = defineStore('equipment', {
   },
 
   actions: {
+    getCurrentOperator() {
+      const authStore = useAuthStore()
+      const roleKey = authStore.currentRoleKey
+      return {
+        operator: OPERATOR_NAMES[roleKey] || '操作用户',
+        operatorRole: roleKey
+      }
+    },
+
     changeStatus(rentalId, newStatus, remark, attachments = []) {
       const rental = this.rentals.find(r => r.id === rentalId)
       if (!rental) return
 
+      const { operator, operatorRole } = this.getCurrentOperator()
+
       rental.statusHistory.push({
         status: newStatus,
-        operator: '当前用户',
-        operatorRole: 'frontline',
+        operator,
+        operatorRole,
         timestamp: Date.now(),
         remark,
         attachments
@@ -87,8 +105,10 @@ export const useEquipmentStore = defineStore('equipment', {
       const rental = this.rentals.find(r => r.id === rentalId)
       if (!rental) return
 
+      const { operator } = this.getCurrentOperator()
+
       rental.outboundInspection = {
-        inspector: '当前用户',
+        inspector: operator,
         inspectedAt: Date.now(),
         items: inspectionData.items,
         overallResult: inspectionData.overallResult,
@@ -122,8 +142,10 @@ export const useEquipmentStore = defineStore('equipment', {
       const rental = this.rentals.find(r => r.id === rentalId)
       if (!rental) return
 
+      const { operator } = this.getCurrentOperator()
+
       rental.returnInspection = {
-        inspector: '当前用户',
+        inspector: operator,
         inspectedAt: Date.now(),
         items: inspectionData.items,
         overallResult: inspectionData.overallResult,

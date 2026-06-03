@@ -94,9 +94,9 @@
 
           <div v-else>
             <div class="preview-header">
-            <h3>{{ getActionInfo().name }}</h3>
-            <p>{{ getActionInfo().description }}</p>
-          </div>
+              <h3>{{ getActionInfo().name }}</h3>
+              <p>{{ getActionInfo().description }}</p>
+            </div>
 
             <el-alert
               v-if="selectedAction === 'batch_start_outbound'"
@@ -119,7 +119,7 @@
             </el-alert>
 
             <div class="preview-section">
-              <div class="preview-title">已选择的订单 ({{ selectedIds.length }} 笔)
+              <div class="preview-title">已选择的订单 ({{ selectedIds.length }} 笔)</div>
               <div class="preview-list">
                 <el-table :data="selectedItems" size="small">
                   <el-table-column prop="orderNo" label="订单号" width="160">
@@ -168,7 +168,6 @@
               <el-icon><InfoFilled /></el-icon>
               此操作需要经理权限，请切换到门店经理角色。
             </div>
-          </div>
           </div>
         </el-card>
 
