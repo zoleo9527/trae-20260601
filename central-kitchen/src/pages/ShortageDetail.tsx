@@ -94,6 +94,14 @@ export function ShortageDetail() {
     hasPermission('resubmit_shortage') &&
     shortage.status === 'supply_rejected'
 
+  const supplyRejectionReason = shortage.supplyRejectionReason || (
+    shortage.status === 'supply_rejected' ? shortage.supplyRemark : undefined
+  )
+
+  const supplyRemark = shortage.status === 'supply_rejected'
+    ? undefined
+    : shortage.supplyRemark
+
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-4">
@@ -209,11 +217,11 @@ export function ShortageDetail() {
                 </div>
               </div>
 
-              {shortage.supplyRejectionReason && (
+              {supplyRejectionReason && (
                 <div>
                   <label className="label text-red-600">采购驳回原因</label>
                   <div className="input bg-red-50 border-red-200 min-h-[60px] whitespace-pre-wrap text-red-800">
-                    {shortage.supplyRejectionReason}
+                    {supplyRejectionReason}
                   </div>
                 </div>
               )}
@@ -227,11 +235,11 @@ export function ShortageDetail() {
                 </div>
               )}
 
-              {shortage.supplyRemark && (
+              {supplyRemark && (
                 <div>
                   <label className="label text-blue-600">采购审核意见</label>
                   <div className="input bg-blue-50 border-blue-200 min-h-[60px] whitespace-pre-wrap text-blue-800">
-                    {shortage.supplyRemark}
+                    {supplyRemark}
                   </div>
                 </div>
               )}
@@ -370,7 +378,7 @@ export function ShortageDetail() {
             </div>
           </div>
 
-          {shortage.supplyRejectionReason && (
+          {supplyRejectionReason && (
             <div className="card border-danger-200 bg-danger-50">
               <div className="card-header border-danger-200">
                 <h3 className="font-semibold text-danger-800 flex items-center gap-2">
@@ -380,7 +388,7 @@ export function ShortageDetail() {
               </div>
               <div className="card-body">
                 <p className="text-sm text-danger-700">
-                  {shortage.supplyRejectionReason}
+                  {supplyRejectionReason}
                 </p>
                 <p className="text-xs text-danger-600 mt-3">
                   请补充相关材料后重新提交审核

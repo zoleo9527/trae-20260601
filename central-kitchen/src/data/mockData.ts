@@ -137,7 +137,7 @@ export const MOCK_MEAL_ORDERS: MealOrder[] = [
       createStatusLog('production_review', '李班长', 'production_leader', '进入生产审核'),
       createStatusLog('production_rejected', '李班长', 'production_leader', '部分菜品原材料不足，请调整数量'),
     ],
-    productionRemark: '红烧肉原材料不足，建议减少20份',
+    productionRejectionReason: '红烧肉原材料不足，建议减少20份',
     createdAt: new Date(Date.now() - 14400000).toISOString(),
     updatedAt: new Date(Date.now() - 7200000).toISOString(),
     createdBy: '王督导',
@@ -287,7 +287,7 @@ export const MOCK_MEAL_ORDERS: MealOrder[] = [
         },
       ],
       remarks: '请尽快补发。',
-      supplyRemark: '请补充现场照片和签收单作为凭证。',
+      supplyRejectionReason: '请补充现场照片和签收单作为凭证。',
       statusLogs: [
         createStatusLog('pending_review', '王督导', 'store_supervisor', '创建缺货补发单'),
         createStatusLog('supply_review', '张采购', 'purchase_manager', '进入采购审核'),

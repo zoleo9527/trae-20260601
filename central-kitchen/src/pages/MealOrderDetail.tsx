@@ -197,6 +197,14 @@ export function MealOrderDetail() {
     ? editingItems.reduce((sum, item) => sum + item.quantity, 0)
     : order.totalQuantity
 
+  const productionRejectionReason = order.productionRejectionReason || (
+    order.status === 'production_rejected' ? order.productionRemark : undefined
+  )
+
+  const productionRemark = order.status === 'production_rejected'
+    ? undefined
+    : order.productionRemark
+
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-4">
@@ -434,24 +442,24 @@ export function MealOrderDetail() {
             </div>
           </div>
 
-          {order.productionRemark && (
+          {productionRemark && (
             <div className="card">
               <div className="card-header">
                 <h3 className="font-semibold text-neutral-900">生产备注</h3>
               </div>
               <div className="card-body">
-                <p className="text-sm text-neutral-700">{order.productionRemark}</p>
+                <p className="text-sm text-neutral-700">{productionRemark}</p>
               </div>
             </div>
           )}
 
-          {order.productionRejectionReason && (
+          {productionRejectionReason && (
             <div className="card border-danger-200 bg-danger-50">
               <div className="card-header border-danger-200">
                 <h3 className="font-semibold text-danger-800">生产驳回原因</h3>
               </div>
               <div className="card-body">
-                <p className="text-sm text-danger-700">{order.productionRejectionReason}</p>
+                <p className="text-sm text-danger-700">{productionRejectionReason}</p>
               </div>
             </div>
           )}
