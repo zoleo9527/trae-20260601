@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, computed, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ArrowLeft, Check, AlertCircle, Users, UtensilsCrossed, ChefHat, Clock, Loader2, X } from 'lucide-vue-next'
 import { useUserStore } from '@/stores/user'
@@ -107,6 +107,8 @@ async function handleMarkDifference() {
   }
 }
 
+const focusedItemId = ref<string | null>(null)
+
 async function loadData() {
   loading.value = true
   try {
@@ -123,6 +125,16 @@ async function loadData() {
     }
   } finally {
     loading.value = false
+  }
+
+  const qItemId = route.query.itemId as string | undefined
+  if (qItemId) {
+    focusedItemId.value = qItemId
+    await nextTick()
+    const el = document.getElementById(`item-${qItemId}`)
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }
   }
 }
 
@@ -213,11 +225,14 @@ onMounted(() => {
                 <div
                   v-for="item in items"
                   :key="item.id"
-                  class="border border-slate-200 rounded-xl p-4"
+                  :id="`item-${item.id}`"
+                  class="border rounded-xl p-4 transition-all duration-300"
                   :class="{
-                    'border-emerald-200 bg-emerald-50': item.status === 'confirmed',
-                    'border-red-200 bg-red-50': item.status === 'difference',
-                    'border-amber-200 bg-amber-50': item.status === 'difference_confirmed',
+                    'border-emerald-200 bg-emerald-50': item.status === 'confirmed' && focusedItemId !== item.id,
+                    'border-red-200 bg-red-50': item.status === 'difference' && focusedItemId !== item.id,
+                    'border-amber-200 bg-amber-50': item.status === 'difference_confirmed' && focusedItemId !== item.id,
+                    'border-slate-200': item.status === 'pending' && focusedItemId !== item.id,
+                    'ring-2 ring-amber-400 border-amber-400 shadow-lg shadow-amber-100': focusedItemId === item.id,
                   }"
                 >
                   <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">

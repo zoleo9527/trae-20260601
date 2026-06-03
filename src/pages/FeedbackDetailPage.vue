@@ -132,11 +132,16 @@ async function loadData() {
     const fbRes = await getFeedback(id)
     if (fbRes.success) {
       feedback.value = fbRes.data
-      if (userStore.user) {
+
+      const qRole = route.query.role as string | undefined
+      if (qRole && feedback.value.sections?.some(s => s.role === qRole)) {
+        activeRole.value = qRole
+      } else if (userStore.user) {
         activeRole.value = userStore.user.role
       } else {
         activeRole.value = feedback.value.sections?.[0]?.role || 'sales'
       }
+
       const section = getSection(activeRole.value)
       if (section) {
         localContent.value = section.content || ''

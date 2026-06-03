@@ -93,9 +93,9 @@ function getStatusColor(hours: number | null) {
 
 function handleItemClick(item: HandoverItem) {
   if (item.type === 'feedback' && item.feedbackId) {
-    router.push(`/feedbacks/${item.feedbackId}`)
+    router.push({ path: `/feedbacks/${item.feedbackId}`, query: { role: item.role } })
   } else if (item.reconciliationId) {
-    router.push(`/reconciliations/${item.reconciliationId}`)
+    router.push({ path: `/reconciliations/${item.reconciliationId}`, query: { itemId: item.itemId } })
   }
 }
 
