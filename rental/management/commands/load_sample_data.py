@@ -4,7 +4,7 @@ from django.core.management.base import BaseCommand
 from django.utils import timezone
 from django.contrib.auth import get_user_model
 from rental.models import Equipment, RentalOrder, RentalExtension, DamageReport, FeeSettlement
-from rental.services import ExtensionService, SettlementService, DamageService, AuditService
+from rental.services import ExtensionService, SettlementService, DamageService
 
 User = get_user_model()
 
@@ -126,9 +126,9 @@ class Command(BaseCommand):
                 'equipment': equipments['SN-GV1-008'], 'store_clerk': clerk,
                 'start_date': today - timedelta(days=15),
                 'original_end_date': today - timedelta(days=8),
-                'current_end_date': today - timedelta(days=5),
+                'current_end_date': today - timedelta(days=8),
                 'deposit_amount': Decimal('500'),
-                'status': 'returned',
+                'status': 'active',
             },
         )
         orders['RN-2026-0005'] = o5
@@ -171,6 +171,22 @@ class Command(BaseCommand):
             review_note='该器材后续有预约，无法延期',
         )
 
+        ext_o5 = ExtensionService.request_extension(
+            rental_order_id=o5.id,
+            requested_end_date=today - timedelta(days=5),
+            reason='影棚续租，需要多使用3天',
+            requested_by=clerk,
+            operator_role='clerk',
+        )
+        ExtensionService.approve_extension(
+            extension_id=ext_o5.id,
+            reviewed_by=manager,
+            operator_role='manager',
+            review_note='同意续租',
+        )
+        o5.status = 'returned'
+        o5.save(update_fields=['status'])
+
         self.stdout.write('创建损坏记录...')
 
         DamageService.report_damage(
@@ -182,37 +198,22 @@ class Command(BaseCommand):
             operator_role='clerk',
         )
 
-        dmg_assessed = DamageReport.objects.create(
-            rental_order=o5,
-            equipment=equipments['SN-GV1-008'],
+        DamageService.report_damage(
+            rental_order_id=o5.id,
+            equipment_id=equipments['SN-GV1-008'].id,
             description='闪光灯热靴卡扣松动',
             estimated_cost=Decimal('200'),
-            actual_cost=Decimal('150'),
-            status='assessed',
             reported_by=clerk,
-        )
-        AuditService.log(
-            entity_type='damage',
-            entity_id=dmg_assessed.id,
-            action='damage_reported',
-            operator=clerk,
             operator_role='clerk',
-            detail=f'租赁单{o5.order_no}器材闪光灯损坏上报',
-            new_value={'estimated_cost': '200'},
-            related_entity_type='rental_order',
-            related_entity_id=o5.id,
         )
-        AuditService.log(
-            entity_type='damage',
-            entity_id=dmg_assessed.id,
-            action='damage_assessed',
+        dmg_o5 = DamageReport.objects.filter(
+            rental_order=o5, equipment=equipments['SN-GV1-008'],
+        ).first()
+        DamageService.assess_damage(
+            damage_id=dmg_o5.id,
+            actual_cost=Decimal('150'),
             operator=manager,
             operator_role='manager',
-            detail=f'闪光灯定损完成，实际费用150',
-            old_value={'status': 'reported'},
-            new_value={'status': 'assessed', 'actual_cost': '150'},
-            related_entity_type='rental_order',
-            related_entity_id=o5.id,
         )
 
         self.stdout.write('创建费用结算...')
@@ -247,4 +248,5 @@ class Command(BaseCommand):
             f'  - RN-2026-0001(陈摄影): 待审核延期申请(延至{today + timedelta(days=5)})\n'
             f'  - RN-2026-0002(刘工作室): 已逾期{abs((today - o2.current_end_date).days)}天\n'
             f'  - RN-2026-0004(孙婚礼): 已通过延期，有待结算费用；有损坏待定损\n'
+            f'  - RN-2026-0005(周影棚): 已归还，延期3天+损坏已定损，已收款\n'
         ))

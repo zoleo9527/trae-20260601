@@ -180,8 +180,8 @@ class ExtensionService:
 class SettlementService:
     @staticmethod
     def calculate_fees(order):
-        days = (order.current_end_date - order.start_date).days
-        base_fee = Decimal(str(days)) * order.equipment.daily_rate
+        base_days = (order.original_end_date - order.start_date).days
+        base_fee = Decimal(str(base_days)) * order.equipment.daily_rate
 
         extension_fee = Decimal('0')
         for ext in order.extensions.filter(status='approved'):
@@ -291,10 +291,7 @@ class SettlementService:
     def recalculate_on_extension_change(order, extension):
         if hasattr(order, 'fee_settlement'):
             settlement = order.fee_settlement
-            SettlementService.recalculate_settlement(
-                settlement.id,
-                detail_prefix='租期延长变更触发',
-            )
+            SettlementService.recalculate_settlement(settlement.id)
 
     @staticmethod
     @transaction.atomic
