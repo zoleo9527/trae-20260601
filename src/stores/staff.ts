@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import type { Staff, RoleType } from '@/types'
+import { useOrderStore } from '@/stores/order'
 
 const mockStaff: Staff[] = [
   {
@@ -62,8 +63,28 @@ export const useStaffStore = defineStore('staff', () => {
     return staffList.value.find((s) => s.id === id)
   }
 
+  const activeStatuses = new Set([
+    'pending_design',
+    'designing',
+    'pending_qc',
+    'qc_in_progress',
+    'pending_shipping',
+  ])
+
   function getStaffByRole(role: RoleType): Staff[] {
-    return staffList.value.filter((s) => s.role === role)
+    const orderStore = useOrderStore()
+    return staffList.value
+      .filter((s) => s.role === role)
+      .map((s) => {
+        const count = orderStore.orders.filter((o) => {
+          if (!activeStatuses.has(o.status)) return false
+          if (role === 'cs') return o.assignedCs === s.id
+          if (role === 'designer') return o.assignedDesigner === s.id
+          if (role === 'qc') return o.assignedQc === s.id
+          return false
+        }).length
+        return { ...s, processingCount: count }
+      })
   }
 
   function getOnlineStaffByRole(role: RoleType): Staff[] {

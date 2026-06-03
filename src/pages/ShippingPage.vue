@@ -16,11 +16,11 @@ const toastStore = useToastStore()
 type TabKey = 'pending' | 'shipped' | 'delivered'
 const activeTab = ref<TabKey>('pending')
 
-const tabs: { key: TabKey; label: string; count: number }[] = [
+const tabs = computed<{ key: TabKey; label: string; count: number }[]>(() => [
   { key: 'pending', label: '待回寄', count: shippingStore.pendingShipments.length },
   { key: 'shipped', label: '已寄出', count: shippingStore.shippedRecords.length },
   { key: 'delivered', label: '已签收', count: shippingStore.deliveredRecords.length },
-]
+])
 
 const currentList = computed(() => {
   if (activeTab.value === 'pending') return shippingStore.pendingShipments
@@ -69,18 +69,30 @@ const statusChain = [
   { key: 'delivered', label: '签收' },
 ] as const
 
+const statusOrder: string[] = [
+  'pending_design',
+  'designing',
+  'pending_qc',
+  'qc_in_progress',
+  'passed',
+  'pending_shipping',
+  'shipped',
+  'delivered',
+]
+
 function getChainStepState(orderStatus: string, stepKey: string) {
-  const orderIdx = statusChain.findIndex((s) => s.key === orderStatus)
-  const stepIdx = statusChain.findIndex((s) => s.key === stepKey)
+  const orderIdx = statusOrder.indexOf(orderStatus)
+  const stepIdx = statusOrder.indexOf(stepKey)
+  if (orderIdx < 0) return 'future'
+  if (stepIdx < 0) return 'future'
   if (stepIdx < orderIdx) return 'completed'
   if (stepIdx === orderIdx) return 'current'
-  if (orderStatus === 'shipped' && stepKey === 'pending_shipping') return 'completed'
   if (orderStatus === 'shipped' && stepKey === 'delivered') return 'current'
   return 'future'
 }
 
 function getStaffForStep(order: any, stepKey: string) {
-  if (stepKey === 'pending_design' || stepKey === 'designing') return order.assignedCs
+  if (stepKey === 'pending_design' || stepKey === 'designing') return order.assignedDesigner
   if (stepKey === 'pending_qc' || stepKey === 'qc_in_progress') return order.assignedQc
   if (stepKey === 'passed' || stepKey === 'pending_shipping') return order.assignedCs
   if (stepKey === 'delivered') return order.assignedCs

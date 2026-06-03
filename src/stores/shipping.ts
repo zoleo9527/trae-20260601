@@ -112,6 +112,29 @@ export const useShippingStore = defineStore('shipping', () => {
     }
   }
 
+  function ensurePendingRecord(orderId: string, assignedCs: string) {
+    const existing = records.value.find((r) => r.orderId === orderId)
+    if (existing) {
+      if (existing.status === 'delivered') return existing
+      existing.status = 'pending' as ShippingStatus
+      existing.assignedCs = assignedCs
+      existing.trackingNo = ''
+      existing.shippedAt = undefined
+      existing.deliveredAt = undefined
+      return existing
+    }
+    const rec: ShippingRecord = {
+      id: `SH-${String(records.value.length + 1).padStart(3, '0')}`,
+      orderId,
+      trackingNo: '',
+      carrier: '顺丰速运',
+      status: 'pending' as ShippingStatus,
+      assignedCs,
+    }
+    records.value.unshift(rec)
+    return rec
+  }
+
   function getRecordByOrderId(orderId: string): ShippingRecord | undefined {
     return records.value.find((r) => r.orderId === orderId)
   }
@@ -123,6 +146,7 @@ export const useShippingStore = defineStore('shipping', () => {
     deliveredRecords,
     initShipping,
     markDelivered,
+    ensurePendingRecord,
     getRecordByOrderId,
   }
 })

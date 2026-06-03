@@ -4,6 +4,7 @@ import { ShieldCheck, Play, CheckCircle, XCircle, AlertTriangle } from 'lucide-v
 import { useOrderStore } from '@/stores/order'
 import { useStaffStore } from '@/stores/staff'
 import { useExceptionStore } from '@/stores/exception'
+import { useShippingStore } from '@/stores/shipping'
 import { useToastStore } from '@/stores/toast'
 import StatusBadge from '@/components/shared/StatusBadge.vue'
 import ModalDialog from '@/components/shared/ModalDialog.vue'
@@ -12,6 +13,7 @@ import type { ExceptionType, ExceptionSeverity } from '@/types'
 const orderStore = useOrderStore()
 const staffStore = useStaffStore()
 const exceptionStore = useExceptionStore()
+const shippingStore = useShippingStore()
 const toastStore = useToastStore()
 
 type TabKey = 'all' | 'pending_qc' | 'qc_in_progress' | 'passed' | 'rejected'
@@ -79,7 +81,10 @@ function handleStartQc(orderId: string) {
 }
 
 function handlePass(orderId: string) {
+  const order = orderStore.orders.find((o) => o.id === orderId)
+  if (!order) return
   orderStore.passOrder(orderId)
+  shippingStore.ensurePendingRecord(orderId, order.assignedCs)
   toastStore.addToast({ type: 'success', title: '已放行', message: '已放行，进入待回寄' })
 }
 
