@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import type { ShippingRecord, ShippingStatus } from '@/types'
+import type { ShippingRecord } from '@/types'
 import { useOrderStore } from '@/stores/order'
 
 const now = new Date()
@@ -16,7 +16,6 @@ const mockShipping: ShippingRecord[] = [
     orderId: 'WO-20260601-005',
     trackingNo: '',
     carrier: '顺丰速运',
-    status: 'pending',
     assignedCs: 'staff-2',
     reason: '等待包装完成',
   },
@@ -25,7 +24,6 @@ const mockShipping: ShippingRecord[] = [
     orderId: 'WO-20260601-006',
     trackingNo: 'SF1234567890',
     carrier: '顺丰速运',
-    status: 'shipped',
     shippedAt: hoursAgo(24),
     assignedCs: 'staff-1',
     reason: '客户催单，需优先处理',
@@ -35,7 +33,6 @@ const mockShipping: ShippingRecord[] = [
     orderId: 'WO-20260601-007',
     trackingNo: 'SF9876543210',
     carrier: '顺丰速运',
-    status: 'shipped',
     shippedAt: hoursAgo(48),
     assignedCs: 'staff-2',
   },
@@ -44,7 +41,6 @@ const mockShipping: ShippingRecord[] = [
     orderId: 'WO-20260601-008',
     trackingNo: 'SF5555666677',
     carrier: '中通快递',
-    status: 'delivered',
     shippedAt: hoursAgo(72),
     deliveredAt: hoursAgo(48),
     assignedCs: 'staff-1',
@@ -54,56 +50,68 @@ const mockShipping: ShippingRecord[] = [
     orderId: 'WO-20260601-012',
     trackingNo: '',
     carrier: '顺丰速运',
-    status: 'pending',
     assignedCs: 'staff-1',
-    reason: '等待质检放行完成',
-  },
-  {
-    id: 'SH-006',
-    orderId: 'WO-20260601-002',
-    trackingNo: '',
-    carrier: '圆通速递',
-    status: 'pending',
-    assignedCs: 'staff-2',
   },
 ]
 
 export const useShippingStore = defineStore('shipping', () => {
   const records = ref<ShippingRecord[]>([...mockShipping])
+  let nextId = records.value.length + 1
 
-  const pendingShipments = computed(() =>
-    records.value.filter((r) => r.status === 'pending')
-  )
-
-  const shippedRecords = computed(() =>
-    records.value.filter((r) => r.status === 'shipped')
-  )
-
-  const deliveredRecords = computed(() =>
-    records.value.filter((r) => r.status === 'delivered')
-  )
-
-  function initShipping(orderId: string, carrier: string, assignedCs: string) {
-    const orderStore = useOrderStore()
+  function findOrStubRecord(orderId: string, assignedCs: string): ShippingRecord {
     const existing = records.value.find((r) => r.orderId === orderId)
-    if (existing) {
-      existing.status = 'shipped' as ShippingStatus
-      existing.carrier = carrier
-      existing.trackingNo = `SF${Date.now().toString().slice(-10)}`
-      existing.shippedAt = fmt(new Date())
-      orderStore.shipOrder(orderId)
-      return existing
-    }
-    const rec: ShippingRecord = {
-      id: `SH-${String(records.value.length + 1).padStart(3, '0')}`,
+    if (existing) return existing
+    return {
+      id: `SH-VIRTUAL-${orderId}`,
       orderId,
-      trackingNo: `SF${Date.now().toString().slice(-10)}`,
-      carrier,
-      status: 'shipped' as ShippingStatus,
-      shippedAt: fmt(new Date()),
+      trackingNo: '',
+      carrier: '顺丰速运',
+      assignedCs,
+    }
+  }
+
+  const pendingShipments = computed(() => {
+    const orderStore = useOrderStore()
+    return orderStore.orders
+      .filter((o) => o.status === 'pending_shipping')
+      .map((o) => findOrStubRecord(o.id, o.assignedCs))
+  })
+
+  const shippedRecords = computed(() => {
+    const orderStore = useOrderStore()
+    return orderStore.orders
+      .filter((o) => o.status === 'shipped')
+      .map((o) => findOrStubRecord(o.id, o.assignedCs))
+  })
+
+  const deliveredRecords = computed(() => {
+    const orderStore = useOrderStore()
+    return orderStore.orders
+      .filter((o) => o.status === 'delivered')
+      .map((o) => findOrStubRecord(o.id, o.assignedCs))
+  })
+
+  function ensurePersisted(orderId: string, assignedCs: string): ShippingRecord {
+    const existing = records.value.find((r) => r.orderId === orderId)
+    if (existing) return existing
+    const rec: ShippingRecord = {
+      id: `SH-${String(nextId++).padStart(3, '0')}`,
+      orderId,
+      trackingNo: '',
+      carrier: '顺丰速运',
       assignedCs,
     }
     records.value.unshift(rec)
+    return rec
+  }
+
+  function initShipping(orderId: string, carrier: string, assignedCs: string) {
+    const orderStore = useOrderStore()
+    const rec = ensurePersisted(orderId, assignedCs)
+    rec.trackingNo = `SF${Date.now().toString().slice(-10)}`
+    rec.carrier = carrier
+    rec.shippedAt = fmt(new Date())
+    rec.deliveredAt = undefined
     orderStore.shipOrder(orderId)
     return rec
   }
@@ -112,32 +120,16 @@ export const useShippingStore = defineStore('shipping', () => {
     const orderStore = useOrderStore()
     const rec = records.value.find((r) => r.id === recordId)
     if (rec) {
-      rec.status = 'delivered' as ShippingStatus
       rec.deliveredAt = fmt(new Date())
       orderStore.deliverOrder(rec.orderId)
     }
   }
 
   function ensurePendingRecord(orderId: string, assignedCs: string) {
-    const existing = records.value.find((r) => r.orderId === orderId)
-    if (existing) {
-      if (existing.status === 'delivered') return existing
-      existing.status = 'pending' as ShippingStatus
-      existing.assignedCs = assignedCs
-      existing.trackingNo = ''
-      existing.shippedAt = undefined
-      existing.deliveredAt = undefined
-      return existing
-    }
-    const rec: ShippingRecord = {
-      id: `SH-${String(records.value.length + 1).padStart(3, '0')}`,
-      orderId,
-      trackingNo: '',
-      carrier: '顺丰速运',
-      status: 'pending' as ShippingStatus,
-      assignedCs,
-    }
-    records.value.unshift(rec)
+    const rec = ensurePersisted(orderId, assignedCs)
+    rec.trackingNo = ''
+    rec.shippedAt = undefined
+    rec.deliveredAt = undefined
     return rec
   }
 

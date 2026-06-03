@@ -15,8 +15,6 @@ export type ExceptionType = 'color_mismatch' | 'shape_issue' | 'bite_issue' | 'm
 
 export type RoleType = 'cs' | 'designer' | 'qc'
 
-export type ShippingStatus = 'pending' | 'shipped' | 'delivered'
-
 export interface Order {
   id: string
   patientName: string
@@ -49,7 +47,6 @@ export interface ShippingRecord {
   orderId: string
   trackingNo: string
   carrier: string
-  status: ShippingStatus
   shippedAt?: string
   deliveredAt?: string
   assignedCs: string
