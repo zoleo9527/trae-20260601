@@ -41,6 +41,9 @@ export const participants: Participant[] = [
   { id: 'P035', name: '曹云', bibNumber: '', group: '亲子组', idNumber: '310402199606062626', phone: '13800138030', status: 'registered', gender: '女', age: 30, emergencyContact: '曹父', emergencyPhone: '13900139030', isWaitlisted: true, registeredAt: '2026-05-18 09:00' },
   { id: 'P036', name: '袁博', bibNumber: '', group: '公开组', idNumber: '310403199808082727', phone: '13800138031', status: 'registered', gender: '男', age: 28, emergencyContact: '袁母', emergencyPhone: '13900139031', isWaitlisted: true, registeredAt: '2026-05-18 10:00' },
   { id: 'P037', name: '邓瑶', bibNumber: '', group: '企业团体', idNumber: '310404199410102828', phone: '13800138032', status: 'registered', gender: '女', age: 32, emergencyContact: '邓父', emergencyPhone: '13900139032', isWaitlisted: true, registeredAt: '2026-05-18 11:00' },
+
+  { id: 'P038', name: '吴刚', bibNumber: 'C013', group: '企业团体', team: '蓝海集团', idNumber: '310203198807073333', phone: '13800138007', status: 'registered', gender: '男', age: 38, emergencyContact: '吴妻', emergencyPhone: '13900139007', isWaitlisted: false, registeredAt: '2026-05-14 10:30' },
+  { id: 'P039', name: '韩磊', bibNumber: 'A010', group: '亲子组', idNumber: '310212198805051212', phone: '13800138016', status: 'registered', gender: '男', age: 38, emergencyContact: '韩妻', emergencyPhone: '13900139016', isWaitlisted: false, registeredAt: '2026-05-15 12:30' },
 ]
 
 export const bibRecords: BibRecord[] = [
@@ -77,6 +80,8 @@ export const bibRecords: BibRecord[] = [
   { participantId: 'P031', issued: true, issuedAt: '2026-06-02 08:20', issuedBy: '物料组-小李' },
   { participantId: 'P032', issued: true, issuedAt: '2026-06-02 08:25', issuedBy: '物料组-小王' },
   { participantId: 'P033', issued: false },
+  { participantId: 'P038', issued: false },
+  { participantId: 'P039', issued: true, issuedAt: '2026-06-02 08:30', issuedBy: '物料组-小李' },
 ]
 
 export const checkInRecords: CheckInRecord[] = [
@@ -102,8 +107,8 @@ export const withdrawals: WithdrawalRecord[] = [
 
 export const anomalies: AnomalyRecord[] = [
   { id: 'EX001', participantId: 'P007', type: 'id_mismatch', description: '现场出示身份证号码与报名信息不一致，报名证件尾号4421，现场证件尾号442X', status: 'pending', reportedAt: '2026-06-02 08:50', reportedBy: '检录台-1号' },
-  { id: 'EX002', participantId: 'P012', type: 'duplicate_entry', description: '该选手同时在公开组和企业团体（蓝海集团）报名，存在重复报名', status: 'pending', reportedAt: '2026-06-02 07:30', reportedBy: '运营-张经理' },
-  { id: 'EX003', participantId: 'P021', type: 'duplicate_entry', description: '该选手在公开组报名后发现已在亲子组有报名记录', status: 'pending', reportedAt: '2026-06-02 07:45', reportedBy: '运营-张经理' },
+  { id: 'EX002', participantId: 'P012', type: 'duplicate_entry', description: '吴刚（证件尾号3333）同时在公开组（B003）和企业团体蓝海集团（C013）报名，存在重复报名', status: 'pending', reportedAt: '2026-06-02 07:30', reportedBy: '运营-张经理' },
+  { id: 'EX003', participantId: 'P021', type: 'duplicate_entry', description: '韩磊（证件尾号1212）同时在公开组（B012）和亲子组（A010）报名，存在重复报名', status: 'pending', reportedAt: '2026-06-02 07:45', reportedBy: '运营-张经理' },
   { id: 'EX004', participantId: 'P026', type: 'group_conflict', description: '企业团体蓝海集团实际到队5人，但报名仅4人，缺少1人需补登记', status: 'pending', reportedAt: '2026-06-02 08:00', reportedBy: '裁判长-刘裁判' },
   { id: 'EX005', participantId: 'P003', type: 'other', description: '选手称报名时填错手机号，请求更改为13800138999', status: 'dismissed', reportedAt: '2026-06-02 07:20', reportedBy: '检录台-1号' },
 ]

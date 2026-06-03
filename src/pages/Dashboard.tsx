@@ -80,6 +80,55 @@ export default function Dashboard() {
 
       <div className="bg-[#1a1a2e] rounded-lg p-4">
         <div className="flex items-center gap-2 mb-3">
+          <Clock className="w-3.5 h-3.5 text-amber-500" />
+          <h2 className="text-xs font-semibold text-zinc-200">未检录名单</h2>
+          <span className="text-[10px] text-zinc-500">{notCheckedIn.length} 人</span>
+        </div>
+        {notCheckedIn.length === 0 ? (
+          <div className="text-xs text-zinc-500 py-4 text-center">全部选手已检录</div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="text-zinc-500 border-b border-zinc-800">
+                  <th className="text-left py-2 pr-3 font-medium">号码</th>
+                  <th className="text-left py-2 pr-3 font-medium">姓名</th>
+                  <th className="text-left py-2 pr-3 font-medium">组别</th>
+                  <th className="text-left py-2 pr-3 font-medium">队伍</th>
+                  <th className="text-left py-2 font-medium">号码布</th>
+                </tr>
+              </thead>
+              <tbody>
+                {notCheckedIn.map(p => {
+                  const bib = bibRecords.find(b => b.participantId === p.id)
+                  return (
+                    <tr key={p.id} className="border-b border-zinc-800/50 hover:bg-zinc-800/30">
+                      <td className="py-2 pr-3 font-mono text-amber-400">{p.bibNumber || '--'}</td>
+                      <td className="py-2 pr-3 text-zinc-200">{p.name}</td>
+                      <td className="py-2 pr-3"><GroupBadge group={p.group} /></td>
+                      <td className="py-2 pr-3 text-zinc-400">{p.team || '--'}</td>
+                      <td className="py-2">
+                        {bib ? (
+                          bib.issued ? (
+                            <span className="text-emerald-400">已发放</span>
+                          ) : (
+                            <span className="text-red-400">未发放</span>
+                          )
+                        ) : (
+                          <span className="text-zinc-600">无记录</span>
+                        )}
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      <div className="bg-[#1a1a2e] rounded-lg p-4">
+        <div className="flex items-center gap-2 mb-3">
           <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />
           <h2 className="text-xs font-semibold text-zinc-200">待处理异常</h2>
           <span className="text-[10px] text-zinc-500">{pendingAnomalies.length} 条</span>

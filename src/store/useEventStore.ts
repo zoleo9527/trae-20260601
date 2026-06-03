@@ -31,7 +31,14 @@ interface EventStore {
   changeGroup: (participantId: string, newGroup: GroupName) => void
   activateWaitlisted: (participantId: string, bibNumber: string) => void
 
-  getGroupConflicts: () => { participantId: string; name: string; groups: string[] }[]
+  getGroupConflicts: () => {
+    participantId: string
+    name: string
+    idNumber: string
+    entries: { id: string; bibNumber: string; group: string; team?: string; status: string }[]
+    groups: string[]
+    anomalyStatus: 'pending' | 'resolved' | 'dismissed' | 'none'
+  }[]
 }
 
 export const useEventStore = create<EventStore>((set, get) => ({
@@ -191,22 +198,31 @@ export const useEventStore = create<EventStore>((set, get) => ({
   },
 
   getGroupConflicts: () => {
-    const { participants } = get()
-    const nameCount: Record<string, { id: string; group: string }[]> = {}
+    const { participants, anomalies } = get()
+    const nameCount: Record<string, { id: string; bibNumber: string; group: string; team?: string; status: string }[]> = {}
     participants.filter(p => !p.isWaitlisted).forEach(p => {
       const key = p.idNumber
       if (!nameCount[key]) nameCount[key] = []
-      nameCount[key].push({ id: p.id, group: p.group })
+      nameCount[key].push({ id: p.id, bibNumber: p.bibNumber, group: p.group, team: p.team, status: p.status })
     })
     return Object.entries(nameCount)
       .filter(([, entries]) => {
         const groups = new Set(entries.map(e => e.group))
         return groups.size > 1
       })
-      .map(([idNumber, entries]) => ({
-        participantId: entries[0].id,
-        name: participants.find(p => p.idNumber === idNumber)?.name || '',
-        groups: entries.map(e => e.group)
-      }))
+      .map(([idNumber, entries]) => {
+        const name = participants.find(p => p.idNumber === idNumber)?.name || ''
+        const relatedAnomaly = anomalies.find(a =>
+          entries.some(e => e.id === a.participantId) && (a.type === 'duplicate_entry' || a.type === 'group_conflict')
+        )
+        return {
+          participantId: entries[0].id,
+          name,
+          idNumber,
+          entries,
+          groups: entries.map(e => e.group),
+          anomalyStatus: relatedAnomaly ? relatedAnomaly.status : 'none' as const,
+        }
+      })
   }
 }))

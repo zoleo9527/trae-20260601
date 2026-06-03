@@ -1,4 +1,4 @@
-import { GroupBadge, StatusBadge } from '@/components/StatusBadge'
+import { AnomalyStatusBadge, GroupBadge, StatusBadge } from '@/components/StatusBadge'
 import { useEventStore } from '@/store/useEventStore'
 import type { GroupName } from '@/types'
 import { AlertTriangle, ArrowRightLeft, Check, Layers, UserPlus, Users } from 'lucide-react'
@@ -123,17 +123,58 @@ export default function Groups() {
       </div>
 
       {conflicts.length > 0 && (
-        <div className="bg-[#1a1a2e] rounded-lg p-3 border-l-4 border-red-500 space-y-1.5">
-          <div className="flex items-center gap-2 mb-2">
+        <div className="bg-[#1a1a2e] rounded-lg p-3 border-l-4 border-red-500">
+          <div className="flex items-center gap-2 mb-3">
             <AlertTriangle className="w-4 h-4 text-red-400" />
-            <h2 className="text-sm font-semibold text-red-400">冲突检测</h2>
+            <h2 className="text-sm font-semibold text-red-400">组别冲突</h2>
+            <span className="text-zinc-500">{conflicts.length} 人</span>
           </div>
-          {conflicts.map((c, i) => (
-            <div key={i} className="flex items-center justify-between text-xs bg-red-900/20 rounded px-2 py-1.5">
-              <span className="font-medium text-red-300">{c.name}</span>
-              <span className="text-red-400/80">出现在: {c.groups.join(', ')}</span>
-            </div>
-          ))}
+          <div className="space-y-3">
+            {conflicts.map((c, i) => (
+              <div key={i} className="bg-red-900/15 rounded-lg p-3 space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold text-red-300">{c.name}</span>
+                    <span className="text-zinc-500 font-mono text-[10px]">证件尾号 {c.idNumber.slice(-4)}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] text-zinc-500">异常状态</span>
+                    {c.anomalyStatus === 'pending' && <AnomalyStatusBadge status="pending" />}
+                    {c.anomalyStatus === 'resolved' && <AnomalyStatusBadge status="resolved" />}
+                    {c.anomalyStatus === 'dismissed' && <AnomalyStatusBadge status="dismissed" />}
+                    {c.anomalyStatus === 'none' && <span className="text-[10px] text-zinc-600 bg-zinc-800 px-1.5 py-0.5 rounded">未登记</span>}
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {c.groups.map((g, gi) => (
+                    <GroupBadge key={gi} group={g} />
+                  ))}
+                </div>
+                <div className="space-y-1">
+                  {c.entries.map(e => (
+                    <div key={e.id} className="flex items-center justify-between text-xs bg-[#1a1a2e] rounded px-2 py-1.5">
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono text-orange-400">{e.bibNumber || '--'}</span>
+                        <GroupBadge group={e.group} />
+                        {e.team && <span className="text-yellow-400/70">{e.team}</span>}
+                      </div>
+                      <StatusBadge status={e.status as 'registered' | 'checked_in' | 'withdrawn' | 'disqualified'} />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {conflicts.length === 0 && (
+        <div className="bg-[#1a1a2e] rounded-lg p-3 border-l-4 border-emerald-500">
+          <div className="flex items-center gap-2">
+            <Check className="w-4 h-4 text-emerald-400" />
+            <h2 className="text-sm font-semibold text-emerald-400">无组别冲突</h2>
+          </div>
+          <p className="text-xs text-zinc-500 mt-1">所有选手的组别归属唯一，未发现重复报名或跨组冲突</p>
         </div>
       )}
 
