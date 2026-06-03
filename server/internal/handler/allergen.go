@@ -240,6 +240,11 @@ func VerifyAllergenReview(c *fiber.Ctx) error {
 		return response.Error(c, errcode.ErrAllergenReviewNotFound)
 	}
 
+	if review.VerifiedBy != nil {
+		return response.Error(c, errcode.ErrAllergenReviewStatus,
+			"allergen review already verified")
+	}
+
 	if review.Status != models.AllergenStatusPassed && review.Status != models.AllergenStatusFailed {
 		return response.Error(c, errcode.ErrAllergenReviewStatus,
 			fmt.Sprintf("cannot verify review when status is %s", review.Status))
@@ -247,6 +252,11 @@ func VerifyAllergenReview(c *fiber.Ctx) error {
 
 	if req.Status != models.AllergenStatusPassed && req.Status != models.AllergenStatusFailed {
 		return response.Error(c, errcode.ErrInvalidParams, "verification status must be 'passed' or 'failed'")
+	}
+
+	if req.Status != review.Status {
+		return response.Error(c, errcode.ErrAllergenReviewStatus,
+			fmt.Sprintf("verification status %s does not match review status %s", req.Status, review.Status))
 	}
 
 	tx := database.DB.Begin()

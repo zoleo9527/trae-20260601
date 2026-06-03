@@ -347,7 +347,7 @@ func InitiateAllergenReview(c *fiber.Ctx) error {
 }
 
 func UpdateRequisitionStatus(c *fiber.Ctx) error {
-	userID, _ := middleware.GetCurrentUser(c)
+	userID, userRole := middleware.GetCurrentUser(c)
 	id := c.Params("id")
 	reqID, err := uuid.Parse(id)
 	if err != nil {
@@ -365,10 +365,22 @@ func UpdateRequisitionStatus(c *fiber.Ctx) error {
 	}
 
 	oldStatus := requisition.Status
-	requisition.Status = req.Status
+	newStatus := req.Status
+
+	if !IsValidRequisitionStatusTransition(oldStatus, newStatus) {
+		return response.Error(c, errcode.ErrRequisitionStatus,
+			fmt.Sprintf("invalid status transition: %s → %s", oldStatus, newStatus))
+	}
+
+	if !CanChangeRequisitionStatus(userRole, oldStatus, newStatus) {
+		return response.Error(c, errcode.ErrRolePermission,
+			fmt.Sprintf("role %s cannot perform status transition: %s → %s", userRole, oldStatus, newStatus))
+	}
+
+	requisition.Status = newStatus
 	now := time.Now()
 
-	if req.Status == models.RequisitionStatusCompleted {
+	if newStatus == models.RequisitionStatusCompleted {
 		requisition.StoreVerifiedBy = &userID
 		requisition.StoreVerifiedAt = &now
 	}
@@ -379,12 +391,33 @@ func UpdateRequisitionStatus(c *fiber.Ctx) error {
 		return response.Error(c, errcode.ErrInternalError)
 	}
 
+	actionName := "状态变更"
+	description := fmt.Sprintf("状态变更：%s → %s，备注：%s", oldStatus, newStatus, req.Remarks)
+
+	switch newStatus {
+	case models.RequisitionStatusPicked:
+		actionName = "原料领用"
+		description = fmt.Sprintf("完成原料领用：%s → %s，备注：%s", oldStatus, newStatus, req.Remarks)
+	case models.RequisitionStatusAllergenPending:
+		actionName = "发起过敏原复核"
+		description = fmt.Sprintf("发起过敏原复核：%s → %s，备注：%s", oldStatus, newStatus, req.Remarks)
+	case models.RequisitionStatusAllergenPassed:
+		actionName = "过敏原复核通过"
+		description = fmt.Sprintf("过敏原复核通过：%s → %s，备注：%s", oldStatus, newStatus, req.Remarks)
+	case models.RequisitionStatusAllergenFailed:
+		actionName = "过敏原复核不通过"
+		description = fmt.Sprintf("过敏原复核不通过：%s → %s，备注：%s", oldStatus, newStatus, req.Remarks)
+	case models.RequisitionStatusCompleted:
+		actionName = "门店督导确认"
+		description = fmt.Sprintf("门店督导确认，流程闭环：%s → %s，备注：%s", oldStatus, newStatus, req.Remarks)
+	}
+
 	if err := service.LogAction(
 		tx,
 		requisition.ID, "requisition",
-		models.ActionTypeStatusChange, "状态变更",
-		fmt.Sprintf("状态变更：%s → %s，备注：%s", oldStatus, req.Status, req.Remarks),
-		string(oldStatus), string(req.Status),
+		models.ActionTypeStatusChange, actionName,
+		description,
+		string(oldStatus), string(newStatus),
 		userID, req,
 	); err != nil {
 		tx.Rollback()
@@ -394,6 +427,71 @@ func UpdateRequisitionStatus(c *fiber.Ctx) error {
 	tx.Commit()
 
 	return response.Success(c, requisition)
+}
+
+func IsValidRequisitionStatusTransition(oldStatus, newStatus models.RequisitionStatus) bool {
+	validTransitions := map[models.RequisitionStatus][]models.RequisitionStatus{
+		models.RequisitionStatusPending:         {models.RequisitionStatusPicked, models.RequisitionStatusCancelled},
+		models.RequisitionStatusPicked:          {models.RequisitionStatusAllergenPending, models.RequisitionStatusCancelled},
+		models.RequisitionStatusAllergenPending: {models.RequisitionStatusAllergenPassed, models.RequisitionStatusAllergenFailed, models.RequisitionStatusCancelled},
+		models.RequisitionStatusAllergenPassed:  {models.RequisitionStatusCompleted},
+		models.RequisitionStatusAllergenFailed:  {models.RequisitionStatusCompleted},
+		models.RequisitionStatusCompleted:       {},
+		models.RequisitionStatusCancelled:       {},
+	}
+
+	validNextStatuses, ok := validTransitions[oldStatus]
+	if !ok {
+		return false
+	}
+
+	for _, valid := range validNextStatuses {
+		if valid == newStatus {
+			return true
+		}
+	}
+	return false
+}
+
+func CanChangeRequisitionStatus(role models.Role, oldStatus, newStatus models.RequisitionStatus) bool {
+	if role == models.RoleProcurementManager {
+		return false
+	}
+
+	if role == models.RoleProductionForeman {
+		productionAllowed := map[models.RequisitionStatus][]models.RequisitionStatus{
+			models.RequisitionStatusPending:         {models.RequisitionStatusPicked, models.RequisitionStatusCancelled},
+			models.RequisitionStatusPicked:          {models.RequisitionStatusAllergenPending, models.RequisitionStatusCancelled},
+			models.RequisitionStatusAllergenPending: {models.RequisitionStatusAllergenPassed, models.RequisitionStatusAllergenFailed, models.RequisitionStatusCancelled},
+		}
+
+		if allowed, ok := productionAllowed[oldStatus]; ok {
+			for _, valid := range allowed {
+				if valid == newStatus {
+					return true
+				}
+			}
+		}
+		return false
+	}
+
+	if role == models.RoleStoreSupervisor {
+		storeAllowed := map[models.RequisitionStatus][]models.RequisitionStatus{
+			models.RequisitionStatusAllergenPassed: {models.RequisitionStatusCompleted},
+			models.RequisitionStatusAllergenFailed: {models.RequisitionStatusCompleted},
+		}
+
+		if allowed, ok := storeAllowed[oldStatus]; ok {
+			for _, valid := range allowed {
+				if valid == newStatus {
+					return true
+				}
+			}
+		}
+		return false
+	}
+
+	return false
 }
 
 func GetRequisitionLogs(c *fiber.Ctx) error {
