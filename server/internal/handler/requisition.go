@@ -41,8 +41,13 @@ type PickItemRequest struct {
 }
 
 type UpdateRequisitionStatusRequest struct {
-	Status  models.RequisitionStatus `json:"status"`
-	Remarks string                   `json:"remarks"`
+	Status            models.RequisitionStatus  `json:"status"`
+	Remarks           string                    `json:"remarks"`
+	PickItems         []PickItemRequest         `json:"pick_items,omitempty"`
+	OverallResult     string                    `json:"overall_result,omitempty"`
+	Findings          string                    `json:"findings,omitempty"`
+	CorrectiveActions string                    `json:"corrective_actions,omitempty"`
+	ReviewCheckItems  []AllergenCheckItemUpdate `json:"review_check_items,omitempty"`
 }
 
 func generateRequisitionNo() string {
@@ -386,7 +391,7 @@ func UpdateRequisitionStatus(c *fiber.Ctx) error {
 
 	switch newStatus {
 	case models.RequisitionStatusPicked:
-		if err := handleStatusToPicked(tx, &requisition, userID, req.Remarks); err != nil {
+		if err := handleStatusToPicked(tx, &requisition, userID, req.PickItems, req.Remarks); err != nil {
 			tx.Rollback()
 			return handleStatusError(c, err)
 		}
@@ -396,7 +401,7 @@ func UpdateRequisitionStatus(c *fiber.Ctx) error {
 			return handleStatusError(c, err)
 		}
 	case models.RequisitionStatusAllergenPassed, models.RequisitionStatusAllergenFailed:
-		if err := handleStatusToAllergenResult(tx, &requisition, userID, newStatus, req.Remarks); err != nil {
+		if err := handleStatusToAllergenResult(tx, &requisition, userID, newStatus, req.ReviewCheckItems, req.OverallResult, req.Findings, req.CorrectiveActions, req.Remarks); err != nil {
 			tx.Rollback()
 			return handleStatusError(c, err)
 		}
@@ -447,14 +452,35 @@ func handleStatusError(c *fiber.Ctx, err error) error {
 	return response.Error(c, errcode.ErrInternalError, err.Error())
 }
 
-func handleStatusToPicked(tx *gorm.DB, requisition *models.Requisition, userID uuid.UUID, remarks string) error {
+func handleStatusToPicked(tx *gorm.DB, requisition *models.Requisition, userID uuid.UUID, pickItems []PickItemRequest, remarks string) error {
+	if len(pickItems) == 0 {
+		return newStatusError(errcode.ErrInvalidParams, "pick_items is required when changing status to 'picked'")
+	}
+
 	now := time.Now()
 	oldStatus := requisition.Status
 
+	itemMap := make(map[uuid.UUID]PickItemRequest)
+	for _, item := range pickItems {
+		itemMap[item.RequisitionItemID] = item
+	}
+
 	for i := range requisition.Items {
-		if requisition.Items[i].PickedQty == 0 {
-			requisition.Items[i].PickedQty = requisition.Items[i].RequestedQty
+		pickItem, ok := itemMap[requisition.Items[i].ID]
+		if !ok {
+			return newStatusError(errcode.ErrInvalidParams,
+				fmt.Sprintf("missing pick data for requisition item: %s", requisition.Items[i].ID))
 		}
+
+		if pickItem.PickedQty > requisition.Items[i].RequestedQty {
+			return newStatusError(errcode.ErrInsufficientStock,
+				fmt.Sprintf("picked quantity %.2f exceeds requested %.2f for %s",
+					pickItem.PickedQty, requisition.Items[i].RequestedQty, requisition.Items[i].MaterialName))
+		}
+
+		requisition.Items[i].PickedQty = pickItem.PickedQty
+		requisition.Items[i].BatchNo = pickItem.BatchNo
+
 		if err := tx.Save(&requisition.Items[i]).Error; err != nil {
 			return newStatusError(errcode.ErrInternalError, err.Error())
 		}
@@ -468,7 +494,7 @@ func handleStatusToPicked(tx *gorm.DB, requisition *models.Requisition, userID u
 		return newStatusError(errcode.ErrInternalError, err.Error())
 	}
 
-	actionDesc := fmt.Sprintf("完成原料领用，共 %d 项物料", len(requisition.Items))
+	actionDesc := fmt.Sprintf("完成原料领用，共 %d 项物料", len(pickItems))
 	if remarks != "" {
 		actionDesc += fmt.Sprintf("，备注：%s", remarks)
 	}
@@ -479,7 +505,7 @@ func handleStatusToPicked(tx *gorm.DB, requisition *models.Requisition, userID u
 		models.ActionTypePick, "原料领用",
 		actionDesc,
 		string(oldStatus), string(requisition.Status),
-		userID, nil,
+		userID, pickItems,
 	); err != nil {
 		return newStatusError(errcode.ErrInternalError, err.Error())
 	}
@@ -564,9 +590,16 @@ func handleStatusToAllergenPending(tx *gorm.DB, requisition *models.Requisition,
 	return nil
 }
 
-func handleStatusToAllergenResult(tx *gorm.DB, requisition *models.Requisition, userID uuid.UUID, newStatus models.RequisitionStatus, remarks string) error {
+func handleStatusToAllergenResult(tx *gorm.DB, requisition *models.Requisition, userID uuid.UUID, newStatus models.RequisitionStatus, checkItems []AllergenCheckItemUpdate, overallResult, findings, correctiveActions, remarks string) error {
+	if len(checkItems) == 0 {
+		return newStatusError(errcode.ErrInvalidParams, "review_check_items is required when changing status to 'allergen_passed' or 'allergen_failed'")
+	}
+	if overallResult == "" {
+		return newStatusError(errcode.ErrInvalidParams, "overall_result is required when changing status to 'allergen_passed' or 'allergen_failed'")
+	}
+
 	var review models.AllergenReview
-	if err := tx.Where("requisition_id = ?", requisition.ID).First(&review).Error; err != nil {
+	if err := tx.Preload("CheckItems").Where("requisition_id = ?", requisition.ID).First(&review).Error; err != nil {
 		return newStatusError(errcode.ErrAllergenReviewNotFound,
 			"allergen review not found, please initiate review first")
 	}
@@ -593,11 +626,33 @@ func handleStatusToAllergenResult(tx *gorm.DB, requisition *models.Requisition, 
 		statusText = "不通过"
 	}
 
-	review.Status = allergenStatus
-	review.OverallResult = fmt.Sprintf("状态变更接口提交：%s", statusText)
-	if remarks != "" {
-		review.Findings = remarks
+	itemMap := make(map[uuid.UUID]AllergenCheckItemUpdate)
+	for _, item := range checkItems {
+		itemMap[item.ID] = item
 	}
+
+	for i := range review.CheckItems {
+		itemUpdate, ok := itemMap[review.CheckItems[i].ID]
+		if !ok {
+			return newStatusError(errcode.ErrInvalidParams,
+				fmt.Sprintf("missing check item data for: %s", review.CheckItems[i].ID))
+		}
+
+		review.CheckItems[i].IsContained = itemUpdate.IsContained
+		review.CheckItems[i].LabelVerified = itemUpdate.LabelVerified
+		review.CheckItems[i].BatchVerified = itemUpdate.BatchVerified
+		review.CheckItems[i].CrossContaminationRisk = itemUpdate.CrossContaminationRisk
+		review.CheckItems[i].Remarks = itemUpdate.Remarks
+
+		if err := tx.Save(&review.CheckItems[i]).Error; err != nil {
+			return newStatusError(errcode.ErrInternalError, err.Error())
+		}
+	}
+
+	review.Status = allergenStatus
+	review.OverallResult = overallResult
+	review.Findings = findings
+	review.CorrectiveActions = correctiveActions
 
 	if err := tx.Save(&review).Error; err != nil {
 		return newStatusError(errcode.ErrInternalError, err.Error())
@@ -610,10 +665,17 @@ func handleStatusToAllergenResult(tx *gorm.DB, requisition *models.Requisition, 
 	}
 
 	actionDesc := fmt.Sprintf("复核结果：%s", statusText)
-	if remarks != "" {
-		actionDesc += fmt.Sprintf("，备注：%s", remarks)
+	if findings != "" {
+		actionDesc += fmt.Sprintf("，发现问题：%s", findings)
 	}
 	actionDesc += "，等待门店督导确认"
+
+	reviewData := map[string]interface{}{
+		"check_items":        checkItems,
+		"overall_result":     overallResult,
+		"findings":           findings,
+		"corrective_actions": correctiveActions,
+	}
 
 	if err := service.LogAction(
 		tx,
@@ -621,7 +683,7 @@ func handleStatusToAllergenResult(tx *gorm.DB, requisition *models.Requisition, 
 		models.ActionTypeSubmit, fmt.Sprintf("提交过敏原复核（%s）", statusText),
 		actionDesc,
 		string(oldReviewStatus), string(allergenStatus),
-		userID, nil,
+		userID, reviewData,
 	); err != nil {
 		return newStatusError(errcode.ErrInternalError, err.Error())
 	}
