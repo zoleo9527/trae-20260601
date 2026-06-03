@@ -31,6 +31,9 @@ interface EventStore {
   changeGroup: (participantId: string, newGroup: GroupName) => void
   activateWaitlisted: (participantId: string, bibNumber: string) => void
 
+  resolveGroupConflict: (entryIds: string[]) => void
+  dismissGroupConflict: (entryIds: string[]) => void
+
   getGroupConflicts: () => {
     participantId: string
     name: string
@@ -194,6 +197,26 @@ export const useEventStore = create<EventStore>((set, get) => ({
         p.id === participantId ? { ...p, isWaitlisted: false, bibNumber, status: 'registered' as const } : p
       ),
       bibRecords: [...state.bibRecords, { participantId, issued: false }]
+    }))
+  },
+
+  resolveGroupConflict: (entryIds) => {
+    set(state => ({
+      anomalies: state.anomalies.map(a =>
+        entryIds.includes(a.participantId) && (a.type === 'duplicate_entry' || a.type === 'group_conflict') && a.status === 'pending'
+          ? { ...a, status: 'resolved' as const }
+          : a
+      )
+    }))
+  },
+
+  dismissGroupConflict: (entryIds) => {
+    set(state => ({
+      anomalies: state.anomalies.map(a =>
+        entryIds.includes(a.participantId) && (a.type === 'duplicate_entry' || a.type === 'group_conflict') && a.status === 'pending'
+          ? { ...a, status: 'dismissed' as const }
+          : a
+      )
     }))
   },
 

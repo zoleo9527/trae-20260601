@@ -2,7 +2,8 @@ import { GroupBadge, StatusBadge } from '@/components/StatusBadge'
 import { useEventStore } from '@/store/useEventStore'
 import type { GroupName, ParticipantStatus } from '@/types'
 import { ChevronDown, ChevronUp, Filter, Search, User, X } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 
 const groupOptions: { value: GroupName | 'all'; label: string }[] = [
   { value: 'all', label: '全部' },
@@ -25,6 +26,25 @@ export default function Registrations() {
   const [statusFilter, setStatusFilter] = useState<ParticipantStatus | 'all'>('all')
   const [showWaitlisted, setShowWaitlisted] = useState(true)
   const [expandedId, setExpandedId] = useState<string | null>(null)
+  const [searchParams, setSearchParams] = useSearchParams()
+  const highlightId = searchParams.get('highlight')
+  const rowRefs = useRef<Record<string, HTMLTableRowElement | null>>({})
+
+  if (highlightId && expandedId !== highlightId) {
+    setExpandedId(highlightId)
+  }
+
+  useEffect(() => {
+    if (highlightId) {
+      const timer = setTimeout(() => {
+        const el = rowRefs.current[highlightId]
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        }
+      }, 100)
+      return () => clearTimeout(timer)
+    }
+  }, [highlightId])
 
   const filtered = useMemo(() => {
     let list = [...participants]
@@ -55,7 +75,12 @@ export default function Registrations() {
   }, [participants, searchQuery, groupFilter, statusFilter, showWaitlisted])
 
   const toggleExpand = (id: string) => {
-    setExpandedId(prev => (prev === id ? null : id))
+    setExpandedId(prev => {
+      if (prev === id && highlightId) {
+        setSearchParams({}, { replace: true })
+      }
+      return prev === id ? null : id
+    })
   }
 
   const handleWithdraw = (participantId: string) => {
@@ -162,11 +187,11 @@ export default function Registrations() {
               const checkRec = checkInRecords.find(c => c.participantId === p.id)
 
               return (
-                <tr key={p.id} className="border-b border-zinc-800/50">
+                <tr key={p.id} ref={el => { rowRefs.current[p.id] = el }} className={`border-b border-zinc-800/50 ${highlightId === p.id ? 'ring-1 ring-orange-500/50' : ''}`}>
                   <td colSpan={9} className="p-0">
                     <div
                       onClick={() => toggleExpand(p.id)}
-                      className={`flex items-center cursor-pointer hover:bg-zinc-700/30 ${isExpanded ? 'bg-zinc-800/50' : 'bg-[#1a1a2e]'}`}
+                      className={`flex items-center cursor-pointer hover:bg-zinc-700/30 ${isExpanded ? 'bg-zinc-800/50' : 'bg-[#1a1a2e]'} ${highlightId === p.id ? 'bg-orange-500/10' : ''}`}
                     >
                       <div className="flex-1 grid grid-cols-[5rem_5rem_5rem_6rem_2.5rem_2.5rem_5rem_7rem] items-center min-w-0">
                         <span className="px-3 py-2 font-mono truncate flex items-center gap-1">

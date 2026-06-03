@@ -1,8 +1,9 @@
 import { AnomalyStatusBadge, GroupBadge, StatusBadge } from '@/components/StatusBadge'
 import { useEventStore } from '@/store/useEventStore'
 import type { GroupName } from '@/types'
-import { AlertTriangle, ArrowRightLeft, Check, Layers, UserPlus, Users } from 'lucide-react'
+import { AlertTriangle, ArrowRightLeft, Check, CheckCircle2, Layers, UserPlus, Users, XCircle } from 'lucide-react'
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 
 const GROUP_KEYS: GroupName[] = ['亲子组', '公开组', '企业团体']
 
@@ -11,6 +12,9 @@ export default function Groups() {
   const changeGroup = useEventStore(s => s.changeGroup)
   const activateWaitlisted = useEventStore(s => s.activateWaitlisted)
   const getGroupConflicts = useEventStore(s => s.getGroupConflicts)
+  const resolveGroupConflict = useEventStore(s => s.resolveGroupConflict)
+  const dismissGroupConflict = useEventStore(s => s.dismissGroupConflict)
+  const navigate = useNavigate()
   const [selectedGroup, setSelectedGroup] = useState<GroupName | null>(null)
 
   const getGroupParticipants = (name: GroupName) =>
@@ -152,7 +156,11 @@ export default function Groups() {
                 </div>
                 <div className="space-y-1">
                   {c.entries.map(e => (
-                    <div key={e.id} className="flex items-center justify-between text-xs bg-[#1a1a2e] rounded px-2 py-1.5">
+                    <div
+                      key={e.id}
+                      onClick={() => navigate(`/registrations?highlight=${e.id}`)}
+                      className="flex items-center justify-between text-xs bg-[#1a1a2e] rounded px-2 py-1.5 cursor-pointer hover:bg-[#22223a] transition-colors"
+                    >
                       <div className="flex items-center gap-2">
                         <span className="font-mono text-orange-400">{e.bibNumber || '--'}</span>
                         <GroupBadge group={e.group} />
@@ -162,6 +170,25 @@ export default function Groups() {
                     </div>
                   ))}
                 </div>
+                {c.anomalyStatus === 'pending' && (
+                  <div className="flex items-center gap-2 pt-1 border-t border-red-500/20">
+                    <button
+                      onClick={() => resolveGroupConflict(c.entries.map(e => e.id))}
+                      className="inline-flex items-center gap-1 px-2.5 py-1 text-[10px] font-medium bg-emerald-600/20 text-emerald-400 border border-emerald-500/30 rounded hover:bg-emerald-600/30 transition-colors"
+                    >
+                      <CheckCircle2 className="w-3 h-3" />
+                      已解决
+                    </button>
+                    <button
+                      onClick={() => dismissGroupConflict(c.entries.map(e => e.id))}
+                      className="inline-flex items-center gap-1 px-2.5 py-1 text-[10px] font-medium bg-zinc-600/20 text-zinc-400 border border-zinc-500/30 rounded hover:bg-zinc-600/30 transition-colors"
+                    >
+                      <XCircle className="w-3 h-3" />
+                      忽略
+                    </button>
+                    <span className="text-[10px] text-zinc-600 ml-1">处理后异常状态将同步更新</span>
+                  </div>
+                )}
               </div>
             ))}
           </div>
