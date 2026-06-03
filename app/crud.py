@@ -300,5 +300,10 @@ def complete_todo(db: Session, todo_id: int):
 
 def get_deposit_review_list(db: Session):
     return db.query(models.RentalRecord).filter(
-        models.RentalRecord.status.in_([RentalStatus.RETURNED, RentalStatus.DEPOSIT_FROZEN])
+        models.RentalRecord.status.in_([
+            RentalStatus.DEPOSIT_FROZEN,
+            RentalStatus.RETURNED,
+            RentalStatus.DEPOSIT_REFUNDED,
+            RentalStatus.DEPOSIT_DEDUCTED
+        ])
     ).order_by(models.RentalRecord.updated_at.desc()).all()
