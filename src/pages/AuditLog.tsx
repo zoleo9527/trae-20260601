@@ -56,13 +56,17 @@ export default function AuditLog() {
 
     if (keyword) {
       const kw = keyword.toLowerCase();
-      result = result.filter(
-        (log) =>
-          log.orderId.toLowerCase().includes(kw) ||
+      const orders = useAppStore.getState().orders;
+      result = result.filter((log) => {
+        const matchedOrder = orders.find((o) => o.id === log.orderId);
+        const orderNo = matchedOrder?.orderNo.toLowerCase() || '';
+        return (
+          orderNo.includes(kw) ||
           log.operator.toLowerCase().includes(kw) ||
           log.action.toLowerCase().includes(kw) ||
           log.detail.toLowerCase().includes(kw)
-      );
+        );
+      });
     }
 
     if (roleFilter) {

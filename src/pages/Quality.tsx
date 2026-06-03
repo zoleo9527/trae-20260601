@@ -268,7 +268,10 @@ export default function Quality() {
                           </button>
                         )}
                         {order.status !== 'PENDING_INSPECTION' && (
-                          <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-neutral-50 text-neutral-600 text-sm font-medium hover:bg-neutral-100 transition-colors">
+                          <button
+                            onClick={() => handleCheck(order.id)}
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-neutral-50 text-neutral-600 text-sm font-medium hover:bg-neutral-100 transition-colors"
+                          >
                             <XCircle size={14} />
                             查看详情
                           </button>

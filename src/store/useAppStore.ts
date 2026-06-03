@@ -97,6 +97,8 @@ const generateOrderNo = () => {
 
 const generateId = () => Math.random().toString(36).substring(2, 15);
 
+const DATA_VERSION = 2;
+
 export const useAppStore = create<AppState>()(
   persist(
     (set, get) => ({
@@ -112,7 +114,10 @@ export const useAppStore = create<AppState>()(
       initialized: false,
 
       initMockData: () => {
-        if (get().initialized) return;
+        const state = get();
+        const storedVersion = (localStorage.getItem('denture-lab-version') || '1');
+        if (state.initialized && Number(storedVersion) >= DATA_VERSION) return;
+        localStorage.setItem('denture-lab-version', String(DATA_VERSION));
         set({
           orders: mockOrders,
           scanFiles: mockScanFiles,
@@ -310,6 +315,28 @@ export const useAppStore = create<AppState>()(
             get().currentRole || 'DESIGNER',
             get().currentUser || '系统'
           );
+        }
+
+        if (success) {
+          setTimeout(() => {
+            get().updateOrderStatus(
+              data.orderId,
+              'IN_PRODUCTION',
+              data.technicianName,
+              'ADMIN',
+              '技师已确认接单，开始生产'
+            );
+
+            setTimeout(() => {
+              get().updateOrderStatus(
+                data.orderId,
+                'PENDING_INSPECTION',
+                '系统',
+                'ADMIN',
+                '生产已完成，提交质检'
+              );
+            }, 600);
+          }, 300);
         }
 
         return newAssignment;

@@ -39,13 +39,16 @@ export default function RoleEntry() {
   const navigate = useNavigate();
   const setCurrentRole = useAppStore((state) => state.setCurrentRole);
 
+  const ROLE_ROUTES: Record<Role, string> = {
+    CUSTOMER_SERVICE: '/customer-service',
+    DESIGNER: '/designer',
+    QUALITY: '/quality',
+    ADMIN: '/audit',
+  };
+
   const handleRoleSelect = (role: Role) => {
     setCurrentRole(role);
-    if (role === 'CUSTOMER_SERVICE') {
-      navigate('/customer-service');
-    } else {
-      navigate('/other');
-    }
+    navigate(ROLE_ROUTES[role]);
   };
 
   const roles: { role: Role; icon: React.ReactNode; description: string; color: string }[] = [

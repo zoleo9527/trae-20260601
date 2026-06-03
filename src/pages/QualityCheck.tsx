@@ -20,7 +20,7 @@ import { cn } from '@/lib/utils';
 
 export default function QualityCheck() {
   const navigate = useNavigate();
-  const { orderId } = useParams<{ orderId: string }>();
+  const { id } = useParams<{ id: string }>();
   const {
     initMockData,
     getOrderById,
@@ -38,7 +38,7 @@ export default function QualityCheck() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
 
-  const order = orderId ? getOrderById(orderId) : undefined;
+  const order = id ? getOrderById(id) : undefined;
   const remarks = order ? getRemarksByOrderId(order.id) : [];
   const auditLogs = order
     ? getAuditLogs({ page: 1, pageSize: 100, orderId: order.id }).data
