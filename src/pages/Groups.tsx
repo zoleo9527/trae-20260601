@@ -16,6 +16,7 @@ export default function Groups() {
   const dismissGroupConflict = useEventStore(s => s.dismissGroupConflict)
   const navigate = useNavigate()
   const [selectedGroup, setSelectedGroup] = useState<GroupName | null>(null)
+  const [conflictTab, setConflictTab] = useState<'pending' | 'handled'>('pending')
 
   const getGroupParticipants = (name: GroupName) =>
     participants.filter(p => p.group === name && !p.isWaitlisted)
@@ -49,6 +50,9 @@ export default function Groups() {
         }
       })
   }, [participants, anomalies])
+
+  const pendingConflicts = conflicts.filter(c => c.anomalyStatus === 'pending' || c.anomalyStatus === 'none')
+  const handledConflicts = conflicts.filter(c => c.anomalyStatus === 'resolved' || c.anomalyStatus === 'dismissed')
 
   const totalParticipants = participants.filter(p => !p.isWaitlisted).length
 
@@ -154,26 +158,60 @@ export default function Groups() {
       </div>
 
       {conflicts.length > 0 && (
-        <div className="bg-[#1a1a2e] rounded-lg p-3 border-l-4 border-red-500">
-          <div className="flex items-center gap-2 mb-3">
-            <AlertTriangle className="w-4 h-4 text-red-400" />
-            <h2 className="text-sm font-semibold text-red-400">组别冲突</h2>
-            <span className="text-zinc-500">{conflicts.length} 人</span>
+        <div className="bg-[#1a1a2e] rounded-lg overflow-hidden">
+          <div className="flex items-center border-b border-zinc-800">
+            <button
+              onClick={() => setConflictTab('pending')}
+              className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 text-xs font-medium transition-colors ${
+                conflictTab === 'pending'
+                  ? 'bg-red-500/10 text-red-400 border-b-2 border-red-500'
+                  : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50'
+              }`}
+            >
+              <AlertTriangle className="w-3.5 h-3.5" />
+              待处理
+              <span className={`px-1.5 py-0.5 rounded text-[10px] ${
+                conflictTab === 'pending' ? 'bg-red-500/20 text-red-400' : 'bg-zinc-700 text-zinc-400'
+              }`}>
+                {pendingConflicts.length}
+              </span>
+            </button>
+            <div className="w-px h-6 bg-zinc-700" />
+            <button
+              onClick={() => setConflictTab('handled')}
+              className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 text-xs font-medium transition-colors ${
+                conflictTab === 'handled'
+                  ? 'bg-zinc-500/10 text-zinc-300 border-b-2 border-zinc-500'
+                  : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50'
+              }`}
+            >
+              <CheckCircle2 className="w-3.5 h-3.5" />
+              已处理
+              <span className={`px-1.5 py-0.5 rounded text-[10px] ${
+                conflictTab === 'handled' ? 'bg-zinc-600 text-zinc-300' : 'bg-zinc-700 text-zinc-400'
+              }`}>
+                {handledConflicts.length}
+              </span>
+            </button>
           </div>
-          <div className="space-y-3">
-            {conflicts.map((c, i) => (
-              <div key={i} className="bg-red-900/15 rounded-lg p-3 space-y-2">
+
+          <div className="p-3 space-y-3 max-h-[50vh] overflow-y-auto scrollbar-thin">
+            {conflictTab === 'pending' && pendingConflicts.length === 0 && (
+              <div className="text-center py-8 text-zinc-500 text-xs">
+                待处理冲突已全部处理完毕
+              </div>
+            )}
+
+            {conflictTab === 'pending' && pendingConflicts.map((c, i) => (
+              <div key={i} className="bg-red-900/15 rounded-lg p-3 space-y-2 border border-red-500/20">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <span className="font-semibold text-red-300">{c.name}</span>
                     <span className="text-zinc-500 font-mono text-[10px]">证件尾号 {c.idNumber.slice(-4)}</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="text-[10px] text-zinc-500">异常状态</span>
                     {c.anomalyStatus === 'pending' && <AnomalyStatusBadge status="pending" />}
-                    {c.anomalyStatus === 'resolved' && <AnomalyStatusBadge status="resolved" />}
-                    {c.anomalyStatus === 'dismissed' && <AnomalyStatusBadge status="dismissed" />}
-                    {c.anomalyStatus === 'none' && <span className="text-[10px] text-zinc-600 bg-zinc-800 px-1.5 py-0.5 rounded">未登记</span>}
+                    {c.anomalyStatus === 'none' && <span className="text-[10px] text-yellow-500 bg-yellow-500/10 px-1.5 py-0.5 rounded">未登记</span>}
                   </div>
                 </div>
                 <div className="flex flex-wrap gap-2">
@@ -197,25 +235,64 @@ export default function Groups() {
                     </div>
                   ))}
                 </div>
-                {c.anomalyStatus === 'pending' && (
-                  <div className="flex items-center gap-2 pt-1 border-t border-red-500/20">
-                    <button
-                      onClick={() => resolveGroupConflict(c.entries.map(e => e.id))}
-                      className="inline-flex items-center gap-1 px-2.5 py-1 text-[10px] font-medium bg-emerald-600/20 text-emerald-400 border border-emerald-500/30 rounded hover:bg-emerald-600/30 transition-colors"
-                    >
-                      <CheckCircle2 className="w-3 h-3" />
-                      已解决
-                    </button>
-                    <button
-                      onClick={() => dismissGroupConflict(c.entries.map(e => e.id))}
-                      className="inline-flex items-center gap-1 px-2.5 py-1 text-[10px] font-medium bg-zinc-600/20 text-zinc-400 border border-zinc-500/30 rounded hover:bg-zinc-600/30 transition-colors"
-                    >
-                      <XCircle className="w-3 h-3" />
-                      忽略
-                    </button>
-                    <span className="text-[10px] text-zinc-600 ml-1">处理后异常状态将同步更新</span>
+                <div className="flex items-center gap-2 pt-1 border-t border-red-500/20">
+                  <button
+                    onClick={() => resolveGroupConflict(c.entries.map(e => e.id))}
+                    className="inline-flex items-center gap-1 px-2.5 py-1 text-[10px] font-medium bg-emerald-600/20 text-emerald-400 border border-emerald-500/30 rounded hover:bg-emerald-600/30 transition-colors"
+                  >
+                    <CheckCircle2 className="w-3 h-3" />
+                    已解决
+                  </button>
+                  <button
+                    onClick={() => dismissGroupConflict(c.entries.map(e => e.id))}
+                    className="inline-flex items-center gap-1 px-2.5 py-1 text-[10px] font-medium bg-zinc-600/20 text-zinc-400 border border-zinc-500/30 rounded hover:bg-zinc-600/30 transition-colors"
+                  >
+                    <XCircle className="w-3 h-3" />
+                    忽略
+                  </button>
+                </div>
+              </div>
+            ))}
+
+            {conflictTab === 'handled' && handledConflicts.length === 0 && (
+              <div className="text-center py-8 text-zinc-500 text-xs">
+                暂无已处理的冲突记录
+              </div>
+            )}
+
+            {conflictTab === 'handled' && handledConflicts.map((c, i) => (
+              <div key={i} className="bg-zinc-800/40 rounded-lg p-3 space-y-2 border border-zinc-700/50 opacity-80">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold text-zinc-300">{c.name}</span>
+                    <span className="text-zinc-500 font-mono text-[10px]">证件尾号 {c.idNumber.slice(-4)}</span>
                   </div>
-                )}
+                  <div className="flex items-center gap-2">
+                    {c.anomalyStatus === 'resolved' && <AnomalyStatusBadge status="resolved" />}
+                    {c.anomalyStatus === 'dismissed' && <AnomalyStatusBadge status="dismissed" />}
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {c.groups.map((g, gi) => (
+                    <GroupBadge key={gi} group={g} />
+                  ))}
+                </div>
+                <div className="space-y-1">
+                  {c.entries.map(e => (
+                    <div
+                      key={e.id}
+                      onClick={() => navigate(`/registrations?highlight=${e.id}`)}
+                      className="flex items-center justify-between text-xs bg-[#1a1a2e] rounded px-2 py-1.5 cursor-pointer hover:bg-[#22223a] transition-colors"
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono text-zinc-400">{e.bibNumber || '--'}</span>
+                        <GroupBadge group={e.group} />
+                        {e.team && <span className="text-yellow-400/50">{e.team}</span>}
+                      </div>
+                      <StatusBadge status={e.status as 'registered' | 'checked_in' | 'withdrawn' | 'disqualified'} />
+                    </div>
+                  ))}
+                </div>
               </div>
             ))}
           </div>
