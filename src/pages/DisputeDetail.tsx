@@ -1,12 +1,12 @@
 import { useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { ArrowLeft, Send, User, UserCircle, Check, X } from 'lucide-react';
+import { ArrowLeft, Send, User, UserCircle, Check, X, FileText, DollarSign, Calendar } from 'lucide-react';
 import { useStore } from '../store/useStore';
-import { disputeStatusNames } from '../data/mockData';
+import { disputeStatusNames, formatCurrency } from '../data/mockData';
 
 export default function DisputeDetail() {
   const { id } = useParams<{ id: string }>();
-  const { disputes, properties, bills, landlords, addDisputeMessage, resolveDispute, currentRole } = useStore();
+  const { disputes, properties, bills, landlords, orders, expenses, repairs, addDisputeMessage, resolveDispute, currentRole } = useStore();
   const [message, setMessage] = useState('');
   const [showResolve, setShowResolve] = useState(false);
   const [resolution, setResolution] = useState('');
@@ -18,6 +18,52 @@ export default function DisputeDetail() {
   const bill = bills.find((b) => b.id === dispute.billId);
   const property = properties.find((p) => p.id === bill?.propertyId);
   const landlord = landlords.find((l) => l.id === dispute.landlordId);
+
+  const getDisputedItem = () => {
+    if (!dispute.itemId) return null;
+    switch (dispute.type) {
+      case 'income':
+        return orders.find((o) => o.id === dispute.itemId);
+      case 'expense':
+        return expenses.find((e) => e.id === dispute.itemId);
+      case 'repair':
+        return repairs.find((r) => r.id === dispute.itemId);
+      default:
+        return null;
+    }
+  };
+
+  const getItemName = (item: any) => {
+    if (!item) return '';
+    switch (dispute.type) {
+      case 'income':
+        return `${item.guestName} - ${item.checkIn}`;
+      case 'expense':
+        return item.description;
+      case 'repair':
+        return item.title;
+      default:
+        return '';
+    }
+  };
+
+  const getItemAmount = (item: any) => {
+    if (!item) return 0;
+    switch (dispute.type) {
+      case 'income':
+        return item.totalAmount;
+      case 'expense':
+        return item.amount;
+      case 'repair':
+        return item.cost;
+      default:
+        return 0;
+    }
+  };
+
+  const disputedItem = getDisputedItem();
+  const itemName = getItemName(disputedItem);
+  const itemAmount = getItemAmount(disputedItem);
 
   const [sending, setSending] = useState(false);
   const [resolving, setResolving] = useState(false);
@@ -71,6 +117,28 @@ export default function DisputeDetail() {
             </div>
           </div>
 
+          {disputedItem && (
+            <div className="p-4 border-b border-slate-100 bg-slate-50">
+              <h3 className="text-sm font-medium text-slate-700 mb-2">被质疑条目</h3>
+              <div className="bg-white rounded-lg p-3 space-y-2">
+                <div className="flex items-center gap-2 text-sm">
+                  <FileText size={14} className="text-slate-400" />
+                  <span className="text-slate-600">条目名称：</span>
+                  <span className="font-medium text-slate-900">{itemName}</span>
+                </div>
+                <div className="flex items-center gap-2 text-sm">
+                  <DollarSign size={14} className="text-slate-400" />
+                  <span className="text-slate-600">涉及金额：</span>
+                  <span className="font-medium text-rose-600">-{formatCurrency(itemAmount)}</span>
+                </div>
+                <div className="flex items-center gap-2 text-sm">
+                  <Calendar size={14} className="text-slate-400" />
+                  <span className="text-slate-600">所属账单：</span>
+                  <span className="font-medium text-slate-900">{bill?.year}年{bill?.month}月</span>
+                </div>
+              </div>
+            </div>
+          )}
           <div className="flex-1 overflow-y-auto p-4 space-y-4">
             {dispute.messages.map((msg) => {
               const isMine = (isCurrentUserLandlord && msg.sender === 'landlord') || (!isCurrentUserLandlord && msg.sender === 'operator');

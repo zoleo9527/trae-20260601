@@ -51,6 +51,34 @@ export default function BillDetail() {
       advanceDate.getFullYear() === bill.year;
   });
 
+  const getDisputeItems = (type: DisputeType) => {
+    switch (type) {
+      case 'income':
+        return billOrders.map((o) => ({
+          id: o.id,
+          name: `${o.guestName} - ${o.checkIn}`,
+          amount: o.totalAmount,
+        }));
+      case 'expense':
+        return billExpenses.map((e) => ({
+          id: e.id,
+          name: e.description,
+          amount: e.amount,
+        }));
+      case 'repair':
+        return billRepairs.map((r) => ({
+          id: r.id,
+          name: r.title,
+          amount: r.cost,
+        }));
+      default:
+        return [];
+    }
+  };
+
+  const disputeItems = getDisputeItems(newDispute.type);
+  const selectedItem = disputeItems.find((i) => i.id === newDispute.itemId);
+
   const handleSubmitDispute = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
@@ -230,7 +258,7 @@ export default function BillDetail() {
                 <label className="block text-sm font-medium text-slate-700 mb-1">异议类型</label>
                 <select
                   value={newDispute.type}
-                  onChange={(e) => setNewDispute({ ...newDispute, type: e.target.value as DisputeType })}
+                  onChange={(e) => setNewDispute({ ...newDispute, type: e.target.value as DisputeType, itemId: '' })}
                   className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
                 >
                   <option value="income">收入疑问</option>
@@ -239,6 +267,34 @@ export default function BillDetail() {
                   <option value="other">其他</option>
                 </select>
               </div>
+              {newDispute.type !== 'other' && (
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">选择条目</label>
+                  <select
+                    value={newDispute.itemId}
+                    onChange={(e) => setNewDispute({ ...newDispute, itemId: e.target.value })}
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  >
+                    <option value="">请选择有疑问的条目</option>
+                    {disputeItems.map((item) => (
+                      <option key={item.id} value={item.id}>
+                        {item.name} - {formatCurrency(item.amount)}
+                      </option>
+                    ))}
+                  </select>
+                  {selectedItem && (
+                    <div className="mt-2 p-3 bg-slate-50 rounded-lg">
+                      <p className="text-sm text-slate-600">
+                        已选择：<span className="font-medium">{selectedItem.name}</span>
+                        <span className="text-rose-600 ml-2">-{formatCurrency(selectedItem.amount)}</span>
+                      </p>
+                      <p className="text-xs text-slate-500 mt-1">
+                        所属账单：{bill.year}年{bill.month}月
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">标题</label>
                 <input

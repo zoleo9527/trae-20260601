@@ -1,14 +1,56 @@
 import { Link } from 'react-router-dom';
-import { Building2, MessageSquare, ChevronRight, User, UserCircle } from 'lucide-react';
+import { Building2, MessageSquare, ChevronRight, User, FileText, DollarSign } from 'lucide-react';
 import { useStore } from '../store/useStore';
-import { disputeStatusNames } from '../data/mockData';
+import { disputeStatusNames, formatCurrency } from '../data/mockData';
 
 export default function Disputes() {
-  const { currentRole, currentLandlordId, disputes, properties, landlords, bills } = useStore();
+  const { currentRole, currentLandlordId, disputes, properties, landlords, bills, orders, expenses, repairs } = useStore();
 
   const filteredDisputes = currentRole === 'landlord'
     ? disputes.filter((d) => d.landlordId === currentLandlordId)
     : disputes;
+
+  const getDisputedItem = (dispute: typeof disputes[0]) => {
+    if (!dispute.itemId) return null;
+    switch (dispute.type) {
+      case 'income':
+        return orders.find((o) => o.id === dispute.itemId);
+      case 'expense':
+        return expenses.find((e) => e.id === dispute.itemId);
+      case 'repair':
+        return repairs.find((r) => r.id === dispute.itemId);
+      default:
+        return null;
+    }
+  };
+
+  const getItemName = (item: any, type: string) => {
+    if (!item) return '';
+    switch (type) {
+      case 'income':
+        return `${item.guestName} - ${item.checkIn}`;
+      case 'expense':
+        return item.description;
+      case 'repair':
+        return item.title;
+      default:
+        return '';
+    }
+  };
+
+  const getItemAmount = (item: any, type: string) => {
+    if (!item) return 0;
+    switch (type) {
+      case 'income':
+        return item.totalAmount;
+      case 'expense':
+        return item.amount;
+      case 'repair':
+        return item.cost;
+      default:
+        return 0;
+    }
+  };
 
   return (
     <div className="p-8">
@@ -22,6 +64,9 @@ export default function Disputes() {
           const bill = bills.find((b) => b.id === dispute.billId);
           const landlord = landlords.find((l) => l.id === dispute.landlordId);
           const relatedProperty = properties.find((p) => p.id === bill?.propertyId);
+          const disputedItem = getDisputedItem(dispute);
+          const itemName = getItemName(disputedItem, dispute.type);
+          const itemAmount = getItemAmount(disputedItem, dispute.type);
 
           return (
             <Link
@@ -43,6 +88,23 @@ export default function Disputes() {
                     </span>
                   </div>
                   <p className="text-slate-600 text-sm mt-1">{dispute.description}</p>
+                  {disputedItem && (
+                    <div className="mt-3 p-3 bg-slate-50 rounded-lg">
+                      <div className="flex items-center gap-4 text-sm">
+                        <div className="flex items-center gap-1 text-slate-600">
+                          <FileText size={14} />
+                          <span className="font-medium">{itemName}</span>
+                        </div>
+                        <div className="flex items-center gap-1 text-rose-600">
+                          <DollarSign size={14} />
+                          <span className="font-medium">-{formatCurrency(itemAmount)}</span>
+                        </div>
+                        <div className="flex items-center gap-1 text-slate-500">
+                          <span>账单月份：{bill?.year}年{bill?.month}月</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                   <div className="flex items-center gap-4 mt-3 text-sm text-slate-500">
                     <div className="flex items-center gap-1">
                       <Building2 size={14} />
