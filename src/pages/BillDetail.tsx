@@ -81,6 +81,9 @@ export default function BillDetail() {
 
   const handleSubmitDispute = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (newDispute.type !== 'other' && !newDispute.itemId) {
+      return;
+    }
     setSubmitting(true);
     try {
       await addDispute({
@@ -269,11 +272,14 @@ export default function BillDetail() {
               </div>
               {newDispute.type !== 'other' && (
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">选择条目</label>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">选择条目 <span className="text-rose-500">*</span></label>
                   <select
                     value={newDispute.itemId}
                     onChange={(e) => setNewDispute({ ...newDispute, itemId: e.target.value })}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+                    className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 ${
+                      !newDispute.itemId ? 'border-rose-300 bg-rose-50/30' : 'border-slate-200'
+                    }`}
+                    required
                   >
                     <option value="">请选择有疑问的条目</option>
                     {disputeItems.map((item) => (
@@ -282,11 +288,16 @@ export default function BillDetail() {
                       </option>
                     ))}
                   </select>
+                  {!newDispute.itemId && (
+                    <p className="mt-1 text-xs text-rose-500">请选择具体的条目后再提交异议</p>
+                  )}
                   {selectedItem && (
                     <div className="mt-2 p-3 bg-slate-50 rounded-lg">
                       <p className="text-sm text-slate-600">
                         已选择：<span className="font-medium">{selectedItem.name}</span>
-                        <span className="text-rose-600 ml-2">-{formatCurrency(selectedItem.amount)}</span>
+                        <span className={newDispute.type === 'income' ? 'text-emerald-600 ml-2' : 'text-rose-600 ml-2'}>
+                          {newDispute.type === 'income' ? '+' : '-'}{formatCurrency(selectedItem.amount)}
+                        </span>
                       </p>
                       <p className="text-xs text-slate-500 mt-1">
                         所属账单：{bill.year}年{bill.month}月

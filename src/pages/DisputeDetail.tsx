@@ -129,7 +129,9 @@ export default function DisputeDetail() {
                 <div className="flex items-center gap-2 text-sm">
                   <DollarSign size={14} className="text-slate-400" />
                   <span className="text-slate-600">涉及金额：</span>
-                  <span className="font-medium text-rose-600">-{formatCurrency(itemAmount)}</span>
+                  <span className={`font-medium ${dispute.type === 'income' ? 'text-emerald-600' : 'text-rose-600'}`}>
+                    {dispute.type === 'income' ? '+' : '-'}{formatCurrency(itemAmount)}
+                  </span>
                 </div>
                 <div className="flex items-center gap-2 text-sm">
                   <Calendar size={14} className="text-slate-400" />

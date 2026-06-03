@@ -95,9 +95,9 @@ export default function Disputes() {
                           <FileText size={14} />
                           <span className="font-medium">{itemName}</span>
                         </div>
-                        <div className="flex items-center gap-1 text-rose-600">
+                        <div className={`flex items-center gap-1 ${dispute.type === 'income' ? 'text-emerald-600' : 'text-rose-600'}`}>
                           <DollarSign size={14} />
-                          <span className="font-medium">-{formatCurrency(itemAmount)}</span>
+                          <span className="font-medium">{dispute.type === 'income' ? '+' : '-'}{formatCurrency(itemAmount)}</span>
                         </div>
                         <div className="flex items-center gap-1 text-slate-500">
                           <span>账单月份：{bill?.year}年{bill?.month}月</span>

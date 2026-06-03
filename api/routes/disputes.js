@@ -17,6 +17,10 @@ router.get('/:id', (req, res) => {
 });
 
 router.post('/', (req, res) => {
+  const { type, itemId } = req.body;
+  if (type && type !== 'other' && !itemId) {
+    return res.status(400).json({ error: `${type} 类型异议必须指定具体条目 (itemId)` });
+  }
   const newDispute = dataService.addDispute(req.body);
   res.status(201).json(newDispute);
 });
