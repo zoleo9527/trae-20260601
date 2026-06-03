@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import type { ShippingRecord, ShippingStatus } from '@/types'
+import { useOrderStore } from '@/stores/order'
 
 const now = new Date()
 const fmt = (d: Date) => d.toISOString()
@@ -83,12 +84,14 @@ export const useShippingStore = defineStore('shipping', () => {
   )
 
   function initShipping(orderId: string, carrier: string, assignedCs: string) {
+    const orderStore = useOrderStore()
     const existing = records.value.find((r) => r.orderId === orderId)
     if (existing) {
       existing.status = 'shipped' as ShippingStatus
       existing.carrier = carrier
       existing.trackingNo = `SF${Date.now().toString().slice(-10)}`
       existing.shippedAt = fmt(new Date())
+      orderStore.shipOrder(orderId)
       return existing
     }
     const rec: ShippingRecord = {
@@ -101,14 +104,17 @@ export const useShippingStore = defineStore('shipping', () => {
       assignedCs,
     }
     records.value.unshift(rec)
+    orderStore.shipOrder(orderId)
     return rec
   }
 
   function markDelivered(recordId: string) {
+    const orderStore = useOrderStore()
     const rec = records.value.find((r) => r.id === recordId)
     if (rec) {
       rec.status = 'delivered' as ShippingStatus
       rec.deliveredAt = fmt(new Date())
+      orderStore.deliverOrder(rec.orderId)
     }
   }
 

@@ -214,6 +214,24 @@ export const useOrderStore = defineStore('order', () => {
     }
   }
 
+  function shipOrder(orderId: string) {
+    const order = orders.value.find((o) => o.id === orderId)
+    if (order && (order.status === 'pending_shipping' || order.status === 'passed')) {
+      order.status = 'shipped' as OrderStatus
+      order.updatedAt = fmt(new Date())
+      order.stuckAt = undefined
+      order.stuckDuration = undefined
+    }
+  }
+
+  function deliverOrder(orderId: string) {
+    const order = orders.value.find((o) => o.id === orderId)
+    if (order && order.status === 'shipped') {
+      order.status = 'delivered' as OrderStatus
+      order.updatedAt = fmt(new Date())
+    }
+  }
+
   return {
     orders,
     todayPendingQc,
@@ -225,5 +243,7 @@ export const useOrderStore = defineStore('order', () => {
     rejectOrder,
     startQc,
     reassignToDesigner,
+    shipOrder,
+    deliverOrder,
   }
 })
