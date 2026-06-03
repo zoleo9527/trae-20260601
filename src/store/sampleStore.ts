@@ -211,12 +211,27 @@ export const useSampleStore = create<SampleStore>((set, get) => ({
 
       const timestamp = now()
       const newStatus: RecordStatus = 'completed'
+      let newTraces = [...s.traces]
 
-      const newTraces = updateOrCreateTraceNode(s.traces, id, 'sampling', {
+      newTraces = updateOrCreateTraceNode(newTraces, id, 'sampling', {
         operator: `品控员-${operator}`,
         timestamp,
         status: 'normal',
         detail: `留样完成，${record.sampleWeight}g，留样期结束可处置`,
+      })
+
+      newTraces = updateOrCreateTraceNode(newTraces, id, 'dispatch', {
+        operator: `配送组`,
+        timestamp,
+        status: 'normal',
+        detail: `出餐配送至${record.store}，留样完成后出餐`,
+      })
+
+      newTraces = updateOrCreateTraceNode(newTraces, id, 'store_receiving', {
+        operator: `${record.store}-收货`,
+        timestamp,
+        status: 'normal',
+        detail: `门店已确认收货`,
       })
 
       const newNotes = [
@@ -391,6 +406,18 @@ export const useSampleStore = create<SampleStore>((set, get) => ({
           timestamp,
           status: 'normal',
           detail: `批量留样完成，${record.sampleWeight}g，准予处置`,
+        })
+        newTraces = updateOrCreateTraceNode(newTraces, id, 'dispatch', {
+          operator: `配送组`,
+          timestamp,
+          status: 'normal',
+          detail: `出餐配送至${record.store}，留样完成后出餐`,
+        })
+        newTraces = updateOrCreateTraceNode(newTraces, id, 'store_receiving', {
+          operator: `${record.store}-收货`,
+          timestamp,
+          status: 'normal',
+          detail: `门店已确认收货`,
         })
         newNotes.push(
           createSystemNote(id, `批量操作：状态变更为 ${statusLabel('completed')}`),
