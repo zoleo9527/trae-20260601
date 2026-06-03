@@ -275,8 +275,34 @@ export const useSampleStore = create<SampleStore>((set, get) => ({
 
       const timestamp = now()
       const newStatus: RecordStatus = 'pending'
+      let newTraces = [...s.traces]
 
-      const newTraces = updateOrCreateTraceNode(s.traces, id, 'sampling', {
+      if (record.allergenMissing) {
+        newTraces = updateOrCreateTraceNode(newTraces, id, 'production', {
+          operator: `${operatorRole}-${operator}`,
+          timestamp,
+          status: 'warning',
+          detail: '过敏原标识已补全，异常已处理，重新进入留样流程',
+        })
+      }
+      if (record.receivingUnclear) {
+        newTraces = updateOrCreateTraceNode(newTraces, id, 'store_receiving', {
+          operator: `${operatorRole}-${operator}`,
+          timestamp,
+          status: 'warning',
+          detail: '收货问题已核实澄清，异常已处理，重新进入留样流程',
+        })
+      }
+      if (record.isRushOrder && !record.allergenMissing && !record.receivingUnclear) {
+        newTraces = updateOrCreateTraceNode(newTraces, id, 'production', {
+          operator: `${operatorRole}-${operator}`,
+          timestamp,
+          status: 'warning',
+          detail: '临时加单已核实，异常已处理，重新进入留样流程',
+        })
+      }
+
+      newTraces = updateOrCreateTraceNode(newTraces, id, 'sampling', {
         operator: `${operatorRole}-${operator}`,
         timestamp,
         status: 'warning',
