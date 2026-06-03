@@ -299,7 +299,7 @@
                 <span class="deposit-remark">{{ depositInfo.refundRemark }}</span>
               </div>
             </template>
-            <div v-if="depositInfo.holdReason" class="deposit-row">
+            <div v-if="depositInfo.holdReason && !depositInfo.refunded" class="deposit-row">
               <span class="deposit-label">冻结原因</span>
               <span class="hold-reason">{{ depositInfo.holdReason }}</span>
             </div>

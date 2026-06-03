@@ -14,12 +14,12 @@
     </div>
 
     <el-table :data="completedList" v-loading="loading" style="width: 100%">
-      <el-table-column prop="orderNo" label="订单号" width="160" fixed="left">
+      <el-table-column prop="orderNo" label="订单号" width="150" fixed="left">
         <template #default="{ row }">
           <span class="monospace">{{ row.orderNo }}</span>
         </template>
       </el-table-column>
-      <el-table-column label="器材信息" min-width="200">
+      <el-table-column label="器材信息" min-width="180">
         <template #default="{ row }">
           <div class="equipment-cell">
             <div class="equipment-name">{{ row.equipment.name }}</div>
@@ -29,42 +29,47 @@
           </div>
         </template>
       </el-table-column>
-      <el-table-column prop="customer.name" label="客户" width="90" />
-      <el-table-column label="复核员" width="90">
+      <el-table-column prop="customer.name" label="客户" width="80" />
+      <el-table-column label="复核员" width="80">
         <template #default="{ row }">
           {{ row.returnInspection?.inspector || '-' }}
         </template>
       </el-table-column>
-      <el-table-column label="复核结果" width="90">
+      <el-table-column label="复核结果" width="80">
         <template #default="{ row }">
-          <el-tag :type="row.returnInspection?.overallResult === 'abnormal' ? 'danger' : 'success'">
+          <el-tag :type="row.returnInspection?.overallResult === 'abnormal' ? 'danger' : 'success'" size="small">
             {{ row.returnInspection?.overallResult === 'abnormal' ? '异常' : '正常' }}
           </el-tag>
         </template>
       </el-table-column>
-      <el-table-column label="押金状态" width="100">
+      <el-table-column label="押金状态" width="90">
         <template #default="{ row }">
           <el-tag
             v-if="getDepositInfo(row.id)"
             :type="getDepositInfo(row.id).refunded ? 'success' : 'warning'"
             size="small"
           >
-            {{ getDepositInfo(row.id).refunded ? '已退还' : '未退还' }}
+            {{ getDepositInfo(row.id).refunded ? '已退款' : '未退款' }}
           </el-tag>
-          <span v-else style="color: #9ca3af; font-size: 12px;">无记录</span>
+          <span v-else style="color: #9ca3af; font-size: 12px;">无</span>
         </template>
       </el-table-column>
-      <el-table-column label="当前状态" width="110">
+      <el-table-column label="订单状态" width="90">
         <template #default="{ row }">
-          <el-tag :type="getStatusType(row.status)">
+          <el-tag :type="getStatusType(row.status)" size="small">
             {{ getStatusLabel(row.status) }}
           </el-tag>
         </template>
       </el-table-column>
-      <el-table-column label="操作" width="120" fixed="right">
+      <el-table-column label="结案备注" min-width="180">
+        <template #default="{ row }">
+          <span class="close-remark">{{ getCloseRemark(row) }}</span>
+        </template>
+      </el-table-column>
+      <el-table-column label="操作" width="100" fixed="right">
         <template #default="{ row }">
           <el-button type="primary" size="small" text @click="viewDetail(row.id)">
-            查看详情
+            详情
           </el-button>
         </template>
       </el-table-column>
@@ -90,6 +95,15 @@ const completedList = computed(() => equipmentStore.completedReturn)
 const canExport = computed(() => authStore.hasPermission('history:export'))
 
 const getDepositInfo = (rentalId) => equipmentStore.getDepositByRentalId(rentalId)
+
+const getCloseRemark = (rental) => {
+  if (!rental.statusHistory || rental.statusHistory.length === 0) return '-'
+  const last = rental.statusHistory[rental.statusHistory.length - 1]
+  if (last.status === 'closed') {
+    return last.remark || '已结案'
+  }
+  return '-'
+}
 
 const getStatusLabel = (status) => STATUS_LABELS[status]?.label || status
 const getStatusType = (status) => STATUS_LABELS[status]?.type || 'info'
@@ -127,5 +141,10 @@ const exportData = () => {
   font-size: 11px;
   color: #9ca3af;
   font-family: monospace;
+}
+
+.close-remark {
+  font-size: 12px;
+  color: #6b7280;
 }
 </style>

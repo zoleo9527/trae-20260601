@@ -233,6 +233,7 @@ export const useEquipmentStore = defineStore('equipment', {
       deposit.refundReceiptUrl = refundData.refundReceiptUrl || null
       deposit.refundReceiptName = refundData.refundReceiptName || null
       deposit.refundRemark = refundData.refundRemark || ''
+      deposit.holdReason = ''
 
       const rental = this.rentals.find(r => r.id === rentalId)
       if (rental) {
