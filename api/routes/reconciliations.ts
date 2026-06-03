@@ -112,7 +112,11 @@ router.post('/', (req: Request, res: Response): void => {
 })
 
 router.get('/:id', (req: Request, res: Response): void => {
-  const reconciliation = db.prepare('SELECT * FROM reconciliations WHERE id = ?').get(req.params.id) as Record<string, any> | undefined
+  const reconciliation = db.prepare(`
+    SELECT r.*, e.name as event_name, e.client_name, e.event_date, e.venue
+    FROM reconciliations r JOIN events e ON r.event_id = e.id
+    WHERE r.id = ?
+  `).get(req.params.id) as Record<string, any> | undefined
   if (!reconciliation) {
     res.status(404).json({ success: false, error: 'Reconciliation not found' })
     return

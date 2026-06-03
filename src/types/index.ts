@@ -94,6 +94,9 @@ export interface HandoverItem {
   type: 'reconciliation' | 'reconciliation_difference' | 'feedback'
   itemId?: string
   sectionId?: string
+  eventId: string
+  reconciliationId?: string
+  feedbackId?: string
   eventName: string
   category?: string
   description?: string

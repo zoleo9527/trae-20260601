@@ -92,10 +92,10 @@ function getStatusColor(hours: number | null) {
 }
 
 function handleItemClick(item: HandoverItem) {
-  if (item.type === 'feedback') {
-    router.push('/feedbacks')
-  } else {
-    router.push('/reconciliations')
+  if (item.type === 'feedback' && item.feedbackId) {
+    router.push(`/feedbacks/${item.feedbackId}`)
+  } else if (item.reconciliationId) {
+    router.push(`/reconciliations/${item.reconciliationId}`)
   }
 }
 

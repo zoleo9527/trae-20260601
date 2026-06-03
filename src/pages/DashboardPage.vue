@@ -74,6 +74,14 @@ function getTypeBgColor(type: string) {
   return colors[type] || 'bg-slate-100 text-slate-700'
 }
 
+function handleItemClick(item: HandoverItem) {
+  if (item.type === 'feedback' && item.feedbackId) {
+    router.push(`/feedbacks/${item.feedbackId}`)
+  } else if (item.reconciliationId) {
+    router.push(`/reconciliations/${item.reconciliationId}`)
+  }
+}
+
 async function loadData() {
   loading.value = true
   try {
@@ -167,7 +175,7 @@ onMounted(() => {
               v-for="item in myPendingItems"
               :key="item.itemId || item.sectionId"
               class="flex items-center justify-between p-4 bg-slate-50 rounded-xl hover:bg-slate-100 transition-colors cursor-pointer"
-              @click="item.type === 'feedback' ? router.push('/feedbacks') : router.push('/reconciliations')"
+              @click="handleItemClick(item)"
             >
               <div class="flex items-center gap-4">
                 <span :class="['px-3 py-1 rounded-full text-xs font-medium', getTypeBgColor(item.type)]">

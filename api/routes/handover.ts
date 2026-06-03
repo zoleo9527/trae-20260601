@@ -7,7 +7,7 @@ router.get('/', (req: Request, res: Response): void => {
   const items: any[] = []
 
   const pendingItems = db.prepare(`
-    SELECT ri.*, r.event_id, e.name as event_name, e.client_name, e.event_date
+    SELECT ri.*, r.id as reconciliation_id, r.event_id, e.name as event_name, e.client_name, e.event_date
     FROM reconciliation_items ri
     JOIN reconciliations r ON ri.reconciliation_id = r.id
     JOIN events e ON r.event_id = e.id
@@ -21,6 +21,8 @@ router.get('/', (req: Request, res: Response): void => {
         items.push({
           type: 'reconciliation',
           itemId: item.id,
+          eventId: item.event_id,
+          reconciliationId: item.reconciliation_id,
           eventName: item.event_name,
           category: item.category,
           description: item.description,
@@ -34,7 +36,7 @@ router.get('/', (req: Request, res: Response): void => {
   }
 
   const differenceItems = db.prepare(`
-    SELECT ri.*, r.event_id, e.name as event_name, e.client_name, e.event_date
+    SELECT ri.*, r.id as reconciliation_id, r.event_id, e.name as event_name, e.client_name, e.event_date
     FROM reconciliation_items ri
     JOIN reconciliations r ON ri.reconciliation_id = r.id
     JOIN events e ON r.event_id = e.id
@@ -48,6 +50,8 @@ router.get('/', (req: Request, res: Response): void => {
         items.push({
           type: 'reconciliation_difference',
           itemId: item.id,
+          eventId: item.event_id,
+          reconciliationId: item.reconciliation_id,
           eventName: item.event_name,
           category: item.category,
           description: item.description,
@@ -61,7 +65,7 @@ router.get('/', (req: Request, res: Response): void => {
   }
 
   const unfilledSections = db.prepare(`
-    SELECT fs.*, f.event_id, e.name as event_name, e.client_name, e.event_date
+    SELECT fs.*, f.id as feedback_id, f.event_id, e.name as event_name, e.client_name, e.event_date
     FROM feedback_sections fs
     JOIN feedbacks f ON fs.feedback_id = f.id
     JOIN events e ON f.event_id = e.id
@@ -77,6 +81,8 @@ router.get('/', (req: Request, res: Response): void => {
     items.push({
       type: 'feedback',
       sectionId: section.id,
+      eventId: section.event_id,
+      feedbackId: section.feedback_id,
       eventName: section.event_name,
       role: section.role,
       name: section.filled_by,
