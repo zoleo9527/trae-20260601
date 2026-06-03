@@ -8,6 +8,7 @@ import ReconciliationDetailPage from '@/pages/ReconciliationDetailPage.vue'
 import FeedbackListPage from '@/pages/FeedbackListPage.vue'
 import FeedbackDetailPage from '@/pages/FeedbackDetailPage.vue'
 import HandoverPage from '@/pages/HandoverPage.vue'
+import SystemInfoPage from '@/pages/SystemInfoPage.vue'
 
 import type { RouteRecordRaw } from 'vue-router'
 
@@ -55,6 +56,11 @@ const routes: RouteRecordRaw[] = [
         path: 'handover',
         name: 'handover',
         component: HandoverPage,
+      },
+      {
+        path: 'system-info',
+        name: 'system-info',
+        component: SystemInfoPage,
       },
     ],
   },

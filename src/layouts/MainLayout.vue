@@ -6,6 +6,7 @@ import {
   FileCheck,
   MessageSquare,
   Handshake,
+  Info,
   LogOut,
   Users,
   UtensilsCrossed,
@@ -22,6 +23,7 @@ const navItems = computed(() => [
   { path: '/reconciliations', label: '尾款核对', icon: FileCheck },
   { path: '/feedbacks', label: '客户反馈', icon: MessageSquare },
   { path: '/handover', label: '交班视图', icon: Handshake },
+  { path: '/system-info', label: '系统说明', icon: Info },
 ])
 
 const roleIcon = computed(() => {
