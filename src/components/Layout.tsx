@@ -16,11 +16,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [roleDropdownOpen, setRoleDropdownOpen] = useState(false);
 
-  const isKitchenRole = currentRole === 'kitchen_manager';
-  const visibleAlerts = isKitchenRole
-    ? alerts.filter(a => a.scope === 'kitchen' || a.scope === 'both')
-    : alerts;
-  const unreadAlerts = visibleAlerts.filter(a => !a.acknowledged).length;
+  const unreadAlerts = alerts.filter(a => !a.acknowledged).length;
 
   const navItems = [
     { path: '/', label: '宴会概览', icon: Calendar },

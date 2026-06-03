@@ -24,11 +24,7 @@ export default function Home() {
     fetchBanquets({ type: typeFilter, status: statusFilter, search: searchTerm });
   };
 
-  const isKitchenRole = currentRole === 'kitchen_manager';
-  const roleFilteredAlerts = isKitchenRole
-    ? alerts.filter(a => a.scope === 'kitchen' || a.scope === 'both')
-    : alerts;
-  const unreadAlerts = roleFilteredAlerts.filter(a => !a.acknowledged);
+  const unreadAlerts = alerts.filter(a => !a.acknowledged);
   const urgentAlerts = unreadAlerts.filter(a => a.priority === 'urgent' || a.priority === 'high');
 
   const typeOptions = [

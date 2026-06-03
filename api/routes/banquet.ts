@@ -33,6 +33,8 @@ router.get('/banquets', (req: Request, res: Response) => {
     const visibleAlerts = isKitchenRole
       ? b.alerts.filter(a => a.scope === 'kitchen' || a.scope === 'both')
       : b.alerts;
+    const unhandledAlerts = visibleAlerts.filter(a => !a.acknowledged);
+    const highPriorityUnhandled = unhandledAlerts.filter(a => a.priority === 'high' || a.priority === 'urgent');
     return {
       id: b.id,
       name: b.name,
@@ -44,9 +46,9 @@ router.get('/banquets', (req: Request, res: Response) => {
       tableCount: b.tableCount,
       status: b.status,
       currentVersion: b.currentVersion,
-      hasUnacknowledgedAlerts: visibleAlerts.some(a => !a.acknowledged),
-      alertCount: visibleAlerts.length,
-      highPriorityAlerts: visibleAlerts.filter(a => (a.priority === 'high' || a.priority === 'urgent') && !a.acknowledged).length,
+      hasUnacknowledgedAlerts: unhandledAlerts.length > 0,
+      unhandledAlertCount: unhandledAlerts.length,
+      highPriorityUnhandledCount: highPriorityUnhandled.length,
     };
   });
   

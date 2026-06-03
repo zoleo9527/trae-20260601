@@ -75,7 +75,12 @@ export default function BanquetCard({ banquet, index }: { banquet: BanquetSummar
             {banquet.hasUnacknowledgedAlerts && (
               <div className="flex items-center gap-1.5 bg-red-50 text-red-600 px-2.5 py-1 rounded-full animate-pulse-border">
                 <AlertTriangle size={12} />
-                <span className="text-xs font-medium">{banquet.highPriorityAlerts > 0 ? banquet.highPriorityAlerts : banquet.alertCount} 项变更</span>
+                <span className="text-xs font-medium">
+                  {banquet.highPriorityUnhandledCount > 0
+                    ? banquet.highPriorityUnhandledCount
+                    : banquet.unhandledAlertCount}{' '}
+                  项未处理
+                </span>
               </div>
             )}
 

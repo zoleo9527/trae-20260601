@@ -150,8 +150,8 @@ export interface BanquetSummary {
   status: BanquetStatus;
   currentVersion: number;
   hasUnacknowledgedAlerts: boolean;
-  alertCount: number;
-  highPriorityAlerts: number;
+  unhandledAlertCount: number;
+  highPriorityUnhandledCount: number;
 }
 
 export interface VersionDiff {

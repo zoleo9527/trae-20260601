@@ -9,17 +9,13 @@ import type { Alert, ImpactScope, Priority } from '@shared/types';
 export default function AlertsCenter() {
   const { alerts, fetchAlerts, acknowledgeAlert, loading, currentRole } = useAppStore();
   const isKitchenRole = currentRole === 'kitchen_manager';
-  const [scopeFilter, setScopeFilter] = useState<string>(isKitchenRole ? 'kitchen' : 'all');
+  const [scopeFilter, setScopeFilter] = useState<string>(isKitchenRole ? 'all' : 'all');
   const [priorityFilter, setPriorityFilter] = useState<string>('all');
   const [acknowledgedFilter, setAcknowledgedFilter] = useState<string>('all');
 
   useEffect(() => {
     fetchAlerts();
   }, [fetchAlerts]);
-
-  const roleFilteredAlerts = isKitchenRole
-    ? alerts.filter(a => a.scope === 'kitchen' || a.scope === 'both')
-    : alerts;
 
   const handleFilterChange = () => {
     fetchAlerts({
@@ -38,8 +34,8 @@ export default function AlertsCenter() {
     await acknowledgeAlert(alertId, confirmer);
   };
 
-  const unreadCount = roleFilteredAlerts.filter(a => !a.acknowledged).length;
-  const urgentCount = roleFilteredAlerts.filter(a => (a.priority === 'urgent' || a.priority === 'high') && !a.acknowledged).length;
+  const unreadCount = alerts.filter(a => !a.acknowledged).length;
+  const urgentCount = alerts.filter(a => (a.priority === 'urgent' || a.priority === 'high') && !a.acknowledged).length;
 
   const formatTime = (dateStr: string) => {
     const date = new Date(dateStr);
@@ -61,11 +57,16 @@ export default function AlertsCenter() {
     );
   }
 
-  const scopeOptions = [
-    { value: 'all', label: '全部范围', icon: Building },
-    { value: 'hall', label: '仅厅面', icon: Utensils },
-    { value: 'kitchen', label: '仅后厨', icon: ChefHat },
-  ];
+  const scopeOptions = isKitchenRole
+    ? [
+        { value: 'all', label: '全部备餐相关', icon: Building },
+        { value: 'kitchen', label: '仅后厨', icon: ChefHat },
+      ]
+    : [
+        { value: 'all', label: '全部范围', icon: Building },
+        { value: 'hall', label: '仅厅面', icon: Utensils },
+        { value: 'kitchen', label: '仅后厨', icon: ChefHat },
+      ];
 
   const priorityOptions = [
     { value: 'all', label: '全部优先级' },
@@ -96,7 +97,7 @@ export default function AlertsCenter() {
           </div>
           <div className="flex items-center gap-4">
             <div className="bg-white/10 backdrop-blur-sm rounded-xl px-5 py-3 border border-white/20 text-center">
-              <div className="text-2xl font-bold">{roleFilteredAlerts.length}</div>
+              <div className="text-2xl font-bold">{alerts.length}</div>
               <div className="text-xs text-champagne-200">{isKitchenRole ? '备餐相关' : '总'}提醒数</div>
             </div>
             <div className="bg-amber-500/20 backdrop-blur-sm rounded-xl px-5 py-3 border border-amber-400/30 text-center">
@@ -161,7 +162,7 @@ export default function AlertsCenter() {
         </div>
       </div>
 
-      {roleFilteredAlerts.length === 0 ? (
+      {alerts.length === 0 ? (
         <div className="text-center py-16 bg-white rounded-xl border border-champagne-100">
           <div className="text-6xl mb-4">🔔</div>
           <h3 className="font-display text-xl font-semibold text-gray-700 mb-2">{isKitchenRole ? '暂无备餐相关提醒' : '暂无变更提醒'}</h3>
@@ -169,7 +170,7 @@ export default function AlertsCenter() {
         </div>
       ) : (
         <div className="space-y-3">
-          {roleFilteredAlerts.map((alert, index) => (
+          {alerts.map((alert, index) => (
             <AlertItem
               key={alert.id}
               alert={alert}
