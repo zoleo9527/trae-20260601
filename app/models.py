@@ -85,6 +85,10 @@ class RentalRecord(Base):
     equipment = relationship("Equipment")
     creator = relationship("User", foreign_keys=[created_by])
     confirmer = relationship("User", foreign_keys=[confirmed_by])
+    deposit_freezer = relationship("User", foreign_keys=[deposit_frozen_by])
+    deposit_refunder = relationship("User", foreign_keys=[deposit_refunded_by])
+    picker = relationship("User", foreign_keys=[picked_up_by])
+    returner = relationship("User", foreign_keys=[returned_by])
 
 class StatusHistory(Base):
     __tablename__ = "status_history"

@@ -1,8 +1,48 @@
 from sqlalchemy.orm import Session
 from sqlalchemy import and_, or_
 from datetime import datetime, timedelta
+from typing import Optional, Tuple
 from app import models, schemas
 from app.models import RentalStatus, EquipmentStatus, UserRole
+
+VALID_TRANSITIONS: dict[RentalStatus, dict[RentalStatus, list[UserRole]]] = {
+    RentalStatus.PENDING: {
+        RentalStatus.CONFIRMED: [UserRole.EQUIPMENT_ADMIN],
+        RentalStatus.CANCELLED: [UserRole.STORE_CLERK, UserRole.EQUIPMENT_ADMIN],
+    },
+    RentalStatus.CONFIRMED: {
+        RentalStatus.DEPOSIT_FROZEN: [UserRole.FINANCE],
+        RentalStatus.CANCELLED: [UserRole.EQUIPMENT_ADMIN, UserRole.STORE_CLERK],
+    },
+    RentalStatus.DEPOSIT_FROZEN: {
+        RentalStatus.PICKED_UP: [UserRole.STORE_CLERK],
+        RentalStatus.CANCELLED: [UserRole.EQUIPMENT_ADMIN],
+    },
+    RentalStatus.PICKED_UP: {
+        RentalStatus.RETURNED: [UserRole.STORE_CLERK],
+    },
+    RentalStatus.RETURNED: {
+        RentalStatus.DEPOSIT_REFUNDED: [UserRole.FINANCE],
+        RentalStatus.DEPOSIT_DEDUCTED: [UserRole.FINANCE],
+    },
+    RentalStatus.DEPOSIT_REFUNDED: {},
+    RentalStatus.DEPOSIT_DEDUCTED: {},
+    RentalStatus.CANCELLED: {},
+}
+
+def validate_transition(current_status: RentalStatus, new_status: RentalStatus, user_role: UserRole) -> Tuple[bool, Optional[str]]:
+    if current_status == new_status:
+        return False, f"状态未变更，当前已是 {current_status.value}"
+    allowed_map = VALID_TRANSITIONS.get(current_status)
+    if allowed_map is None:
+        return False, f"当前状态 {current_status.value} 不允许任何变更"
+    allowed_roles = allowed_map.get(new_status)
+    if allowed_roles is None:
+        return False, f"不允许从 {current_status.value} 变更为 {new_status.value}"
+    if user_role not in allowed_roles:
+        role_names = "、".join(r.value for r in allowed_roles)
+        return False, f"角色 {user_role.value} 无权将状态从 {current_status.value} 变更为 {new_status.value}，需要角色: {role_names}"
+    return True, None
 
 def create_user(db: Session, user: schemas.UserCreate):
     db_user = models.User(**user.model_dump())
@@ -110,7 +150,15 @@ def change_rental_status(db: Session, rental_id: int, new_status: RentalStatus,
                          user_id: int, remark: str = None, deposit_refund_reason: str = None):
     rental = get_rental_record(db, rental_id)
     if not rental:
-        return None
+        return None, "租赁记录不存在"
+    
+    user = get_user(db, user_id)
+    if not user:
+        return None, "操作用户不存在"
+    
+    is_valid, err_msg = validate_transition(rental.status, new_status, user.role)
+    if not is_valid:
+        return None, err_msg
     
     old_status = rental.status
     rental.status = new_status
@@ -165,7 +213,7 @@ def change_rental_status(db: Session, rental_id: int, new_status: RentalStatus,
     
     db.commit()
     db.refresh(rental)
-    return rental
+    return rental, None
 
 def update_rental_record(db: Session, rental_id: int, update_data: schemas.RentalRecordUpdate):
     rental = get_rental_record(db, rental_id)

@@ -7,6 +7,16 @@ from app.models import RentalStatus
 
 router = APIRouter(prefix="/rental", tags=["租赁管理"])
 
+def _enrich_history(history_list):
+    result = []
+    for h in history_list:
+        item = schemas.StatusHistory.model_validate(h)
+        if h.changer:
+            item.changer_name = h.changer.name
+            item.changer_role = h.changer.role
+        result.append(item)
+    return result
+
 @router.post("/", response_model=schemas.RentalRecord, summary="创建器材预约")
 def create_rental(
     rental: schemas.RentalRecordCreate, 
@@ -36,7 +46,7 @@ def read_rental(rental_id: int, db: Session = Depends(get_db)):
     
     history = crud.get_status_history(db, rental_id=rental_id)
     result = schemas.RentalRecordDetail.model_validate(db_rental)
-    result.status_history = history
+    result.status_history = _enrich_history(history)
     return result
 
 @router.patch("/{rental_id}/status", response_model=schemas.RentalRecord, summary="状态变更")
@@ -46,7 +56,7 @@ def change_rental_status(
     x_user_id: int = Header(..., description="操作用户ID"),
     db: Session = Depends(get_db)
 ):
-    db_rental = crud.change_rental_status(
+    db_rental, error = crud.change_rental_status(
         db, 
         rental_id=rental_id, 
         new_status=status_request.new_status,
@@ -54,8 +64,8 @@ def change_rental_status(
         remark=status_request.remark,
         deposit_refund_reason=status_request.deposit_refund_reason
     )
-    if db_rental is None:
-        raise HTTPException(status_code=404, detail="租赁记录不存在")
+    if error:
+        raise HTTPException(status_code=403, detail=error)
     return db_rental
 
 @router.put("/{rental_id}", response_model=schemas.RentalRecord, summary="更新租赁记录")
@@ -72,4 +82,4 @@ def update_rental(
 @router.get("/{rental_id}/history", response_model=List[schemas.StatusHistory], summary="获取状态历史")
 def read_rental_history(rental_id: int, db: Session = Depends(get_db)):
     history = crud.get_status_history(db, rental_id=rental_id)
-    return history
+    return _enrich_history(history)

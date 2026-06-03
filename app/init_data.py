@@ -91,9 +91,9 @@ def init_mock_data():
         
         for rental_data in rental_data_list:
             equipment = created_equipments[rental_data["equipment_idx"]]
-            rental = crud.get_rental_records_by_customer(db, rental_data["customer_name"])
+            existing = crud.get_rental_records_by_customer(db, rental_data["customer_name"])
             
-            if not rental:
+            if not existing:
                 rental_create = schemas.RentalRecordCreate(
                     customer_name=rental_data["customer_name"],
                     customer_phone=rental_data["customer_phone"],
@@ -108,26 +108,34 @@ def init_mock_data():
                 )
                 
                 if rental_data["status"] != RentalStatus.PENDING:
-                    crud.change_rental_status(
+                    result, err = crud.change_rental_status(
                         db, created_rental.id, RentalStatus.CONFIRMED,
                         created_users["equip_admin_1"].id, "模拟数据-确认预约"
                     )
+                    if err:
+                        print(f"  确认预约失败: {err}")
                     
                     if rental_data["status"] in [RentalStatus.DEPOSIT_FROZEN, RentalStatus.RETURNED]:
-                        crud.change_rental_status(
+                        result, err = crud.change_rental_status(
                             db, created_rental.id, RentalStatus.DEPOSIT_FROZEN,
                             created_users["finance_1"].id, "模拟数据-冻结押金"
                         )
+                        if err:
+                            print(f"  冻结押金失败: {err}")
                     
                     if rental_data["status"] == RentalStatus.RETURNED:
-                        crud.change_rental_status(
+                        result, err = crud.change_rental_status(
                             db, created_rental.id, RentalStatus.PICKED_UP,
                             created_users["store_clerk_1"].id, "模拟数据-客户取件"
                         )
-                        crud.change_rental_status(
+                        if err:
+                            print(f"  客户取件失败: {err}")
+                        result, err = crud.change_rental_status(
                             db, created_rental.id, RentalStatus.RETURNED,
                             created_users["store_clerk_1"].id, "模拟数据-客户归还"
                         )
+                        if err:
+                            print(f"  客户归还失败: {err}")
         
         db.commit()
         print("模拟数据初始化完成!")

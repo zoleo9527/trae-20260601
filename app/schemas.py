@@ -3,6 +3,15 @@ from datetime import datetime
 from typing import Optional, List
 from app.models import UserRole, RentalStatus, EquipmentStatus
 
+class UserBrief(BaseModel):
+    id: int
+    username: str
+    name: str
+    role: UserRole
+    
+    class Config:
+        from_attributes = True
+
 class UserBase(BaseModel):
     username: str
     name: str
@@ -48,6 +57,7 @@ class StatusHistory(StatusHistoryBase):
     rental_record_id: int
     changed_by: int
     changer_name: Optional[str] = None
+    changer_role: Optional[UserRole] = None
     created_at: datetime
     
     class Config:
@@ -82,16 +92,27 @@ class RentalRecord(RentalRecordBase):
     status: RentalStatus
     deposit_amount: float
     deposit_frozen_at: Optional[datetime] = None
+    deposit_frozen_by: Optional[int] = None
+    deposit_freezer: Optional[UserBrief] = None
     deposit_refunded_at: Optional[datetime] = None
+    deposit_refunded_by: Optional[int] = None
+    deposit_refunder: Optional[UserBrief] = None
     deposit_refund_reason: Optional[str] = None
     total_amount: float
     actual_return_date: Optional[datetime] = None
     created_by: int
+    creator: Optional[UserBrief] = None
+    confirmed_by: Optional[int] = None
+    confirmer: Optional[UserBrief] = None
+    picked_up_by: Optional[int] = None
+    picker: Optional[UserBrief] = None
+    returned_by: Optional[int] = None
+    returner: Optional[UserBrief] = None
+    return_remark: Optional[str] = None
     created_at: datetime
     updated_at: Optional[datetime] = None
     
     equipment: Equipment
-    creator: Optional[User] = None
     
     class Config:
         from_attributes = True
@@ -139,7 +160,19 @@ class RoleTodoCount(BaseModel):
 class DepositReviewItem(BaseModel):
     rental_record_id: int
     customer_name: str
+    customer_phone: str
     equipment_name: str
     deposit_amount: float
+    deposit_frozen_at: Optional[datetime] = None
+    deposit_freezer: Optional[UserBrief] = None
+    deposit_refunded_at: Optional[datetime] = None
+    deposit_refunder: Optional[UserBrief] = None
+    deposit_refund_reason: Optional[str] = None
+    confirmed_by: Optional[int] = None
+    confirmer: Optional[UserBrief] = None
+    returned_by: Optional[int] = None
+    returner: Optional[UserBrief] = None
+    return_remark: Optional[str] = None
+    supplement_note: Optional[str] = None
     created_at: datetime
     status: RentalStatus
