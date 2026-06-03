@@ -334,14 +334,20 @@ const BanquetList: React.FC = () => {
                   >
                     <Descriptions size="small" column={2}>
                       <Descriptions.Item label="变更原因">{request.reason}</Descriptions.Item>
-                      <Descriptions.Item label="桌数变化">
-                        {request.originalTables} → {request.newTables} 桌
-                        {request.tableCountChange !== 0 && (
-                          <span style={{ color: request.tableCountChange > 0 ? '#f5222d' : '#52c41a', marginLeft: 8 }}>
-                            ({request.tableCountChange > 0 ? '+' : ''}{request.tableCountChange} 桌)
-                          </span>
-                        )}
-                      </Descriptions.Item>
+                      {request.changeType === 'change_table_type' && request.originalTableType && request.newTableType ? (
+                        <Descriptions.Item label="桌型变化">
+                          {tableTypeNames[request.originalTableType]} → {tableTypeNames[request.newTableType]}
+                        </Descriptions.Item>
+                      ) : (
+                        <Descriptions.Item label="桌数变化">
+                          {request.originalTables} → {request.newTables} 桌
+                          {request.tableCountChange !== 0 && (
+                            <span style={{ color: request.tableCountChange > 0 ? '#f5222d' : '#52c41a', marginLeft: 8 }}>
+                              ({request.tableCountChange > 0 ? '+' : ''}{request.tableCountChange} 桌)
+                            </span>
+                          )}
+                        </Descriptions.Item>
+                      )}
                       <Descriptions.Item label="申请人">
                         {request.applicant.name}（{roleNames[request.applicant.role]}）
                       </Descriptions.Item>

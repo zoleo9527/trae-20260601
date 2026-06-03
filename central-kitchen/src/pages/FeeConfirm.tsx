@@ -14,6 +14,7 @@ import type { TableChangeRequest } from '../types'
 import {
   roleNames,
   tableTypeNames,
+  tableConfigs,
   notificationStatusNames,
   staffList,
 } from '../data/mockData'
@@ -88,11 +89,16 @@ const FeeConfirm: React.FC = () => {
         updates.status = 'approved'
         updates.statusLabel = '已通过'
 
-        updateBanquet(selectedRequest.banquetId, {
+        const banquetUpdates: Record<string, unknown> = {
           currentTables: selectedRequest.newTables,
           totalAmount: selectedRequest.impact.totalAmount,
           waitersAssigned: selectedRequest.impact.waitersRequired,
-        })
+        }
+        if (selectedRequest.changeType === 'change_table_type' && selectedRequest.newTableType) {
+          banquetUpdates.tableType = selectedRequest.newTableType
+          banquetUpdates.tableConfig = tableConfigs[selectedRequest.newTableType]
+        }
+        updateBanquet(selectedRequest.banquetId, banquetUpdates)
 
         message.success('费用已确认，申请完成！请通知客户补款')
       } else {
@@ -135,7 +141,7 @@ const FeeConfirm: React.FC = () => {
         <Space direction="vertical" size={0}>
           <Tag color="blue">{record.changeTypeLabel}</Tag>
           <span style={{ fontSize: 12 }}>
-            {record.originalTableType && record.newTableType ? (
+            {record.changeType === 'change_table_type' && record.originalTableType && record.newTableType ? (
               `${tableTypeNames[record.originalTableType]} → ${tableTypeNames[record.newTableType]}`
             ) : (
               `${record.originalTables} 桌 → ${record.newTables} 桌`
@@ -351,10 +357,21 @@ const FeeConfirm: React.FC = () => {
               <Descriptions.Item label="变更类型">
                 <Tag color="blue">{selectedRequest.changeTypeLabel}</Tag>
               </Descriptions.Item>
-              <Descriptions.Item label="桌数变化">
-                {selectedRequest.originalTables} → {selectedRequest.newTables} 桌
-              </Descriptions.Item>
-              {selectedRequest.originalTableType && selectedRequest.newTableType && (
+              {selectedRequest.changeType === 'change_table_type' && selectedRequest.originalTableType && selectedRequest.newTableType ? (
+                <Descriptions.Item label="桌型变化">
+                  {tableTypeNames[selectedRequest.originalTableType]} → {tableTypeNames[selectedRequest.newTableType]}
+                </Descriptions.Item>
+              ) : (
+                <Descriptions.Item label="桌数变化">
+                  {selectedRequest.originalTables} → {selectedRequest.newTables} 桌
+                  {selectedRequest.tableCountChange !== 0 && (
+                    <Tag color={selectedRequest.tableCountChange > 0 ? 'red' : 'green'} style={{ marginLeft: 4 }}>
+                      {selectedRequest.tableCountChange > 0 ? '+' : ''}{selectedRequest.tableCountChange}
+                    </Tag>
+                  )}
+                </Descriptions.Item>
+              )}
+              {selectedRequest.changeType === 'change_table_type' && selectedRequest.originalTableType && selectedRequest.newTableType && (
                 <>
                   <Descriptions.Item label="原桌型">
                     {tableTypeNames[selectedRequest.originalTableType]}

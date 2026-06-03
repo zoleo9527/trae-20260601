@@ -39,11 +39,6 @@ const AddTableModal: React.FC<AddTableModalProps> = ({ open, banquet, onCancel, 
 
   useEffect(() => {
     if (banquet) {
-      const originalTables = changeType === 'add_tables' ? banquet.currentTables : 1
-      const tables = changeType === 'add_tables' ? newTables : 1
-      const originalType = changeType === 'change_table_type' ? banquet.tableType : banquet.tableType
-      const type = changeType === 'change_table_type' ? newTableType : banquet.tableType
-
       if (changeType === 'add_tables' && newTables > banquet.currentTables) {
         const result = calculateLinkageImpact(
           banquet.currentTables,
@@ -56,8 +51,8 @@ const AddTableModal: React.FC<AddTableModalProps> = ({ open, banquet, onCancel, 
         setImpact({ ...result, kitchenNotified: 'not_notified' })
       } else if (changeType === 'change_table_type' && newTableType !== banquet.tableType) {
         const result = calculateLinkageImpact(
-          1,
-          1,
+          banquet.currentTables,
+          banquet.currentTables,
           banquet.tableType,
           newTableType,
           banquet.totalAmount,
@@ -86,8 +81,8 @@ const AddTableModal: React.FC<AddTableModalProps> = ({ open, banquet, onCancel, 
         changeTypeLabel: changeType === 'add_tables'
           ? `加${newTables - banquet.currentTables}桌`
           : `${tableTypeNames[banquet.tableType]}改${tableTypeNames[newTableType]}`,
-        originalTables: changeType === 'add_tables' ? banquet.currentTables : 1,
-        newTables: changeType === 'add_tables' ? newTables : 1,
+        originalTables: banquet.currentTables,
+        newTables: changeType === 'add_tables' ? newTables : banquet.currentTables,
         tableCountChange: changeType === 'add_tables' ? newTables - banquet.currentTables : 0,
         originalTableType: changeType === 'change_table_type' ? banquet.tableType : undefined,
         newTableType: changeType === 'change_table_type' ? newTableType : undefined,

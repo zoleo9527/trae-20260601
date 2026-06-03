@@ -89,12 +89,6 @@ const KitchenConfirm: React.FC = () => {
         }
         updates.kitchenNotified = 'acknowledged'
 
-        updateBanquet(selectedRequest.banquetId, {
-          currentTables: selectedRequest.newTables,
-          totalAmount: selectedRequest.impact.totalAmount,
-          waitersAssigned: selectedRequest.impact.waitersRequired,
-        })
-
         message.success('厨房已确认通过，已转至费用确认')
       } else {
         updates.status = 'rejected_by_kitchen'
@@ -136,7 +130,7 @@ const KitchenConfirm: React.FC = () => {
         <Space direction="vertical" size={0}>
           <Tag color="blue">{record.changeTypeLabel}</Tag>
           <span style={{ fontSize: 12 }}>
-            {record.originalTableType && record.newTableType ? (
+            {record.changeType === 'change_table_type' && record.originalTableType && record.newTableType ? (
               `${tableTypeNames[record.originalTableType]} → ${tableTypeNames[record.newTableType]}`
             ) : (
               `${record.originalTables} 桌 → ${record.newTables} 桌`
@@ -308,10 +302,21 @@ const KitchenConfirm: React.FC = () => {
               <Descriptions.Item label="变更类型">
                 <Tag color="blue">{selectedRequest.changeTypeLabel}</Tag>
               </Descriptions.Item>
-              <Descriptions.Item label="桌数变化">
-                {selectedRequest.originalTables} → {selectedRequest.newTables} 桌
-              </Descriptions.Item>
-              {selectedRequest.originalTableType && selectedRequest.newTableType && (
+              {selectedRequest.changeType === 'change_table_type' && selectedRequest.originalTableType && selectedRequest.newTableType ? (
+                <Descriptions.Item label="桌型变化">
+                  {tableTypeNames[selectedRequest.originalTableType]} → {tableTypeNames[selectedRequest.newTableType]}
+                </Descriptions.Item>
+              ) : (
+                <Descriptions.Item label="桌数变化">
+                  {selectedRequest.originalTables} → {selectedRequest.newTables} 桌
+                  {selectedRequest.tableCountChange !== 0 && (
+                    <Tag color={selectedRequest.tableCountChange > 0 ? 'red' : 'green'} style={{ marginLeft: 4 }}>
+                      {selectedRequest.tableCountChange > 0 ? '+' : ''}{selectedRequest.tableCountChange}
+                    </Tag>
+                  )}
+                </Descriptions.Item>
+              )}
+              {selectedRequest.changeType === 'change_table_type' && selectedRequest.originalTableType && selectedRequest.newTableType && (
                 <>
                   <Descriptions.Item label="原桌型">
                     {tableTypeNames[selectedRequest.originalTableType]}

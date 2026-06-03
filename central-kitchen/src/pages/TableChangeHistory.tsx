@@ -105,17 +105,19 @@ const TableChangeHistory: React.FC = () => {
       width: 180,
       render: (_, record) => (
         <Space direction="vertical" size={0}>
-          <span>
-            桌数: {record.originalTables} → {record.newTables}
-            {record.tableCountChange !== 0 && (
-              <Tag color={record.tableCountChange > 0 ? 'red' : 'green'} style={{ marginLeft: 4 }}>
-                {record.tableCountChange > 0 ? '+' : ''}{record.tableCountChange}
-              </Tag>
-            )}
-          </span>
-          {record.originalTableType && record.newTableType && (
-            <span style={{ fontSize: 12, color: '#888' }}>
+          {record.changeType === 'change_table_type' && record.originalTableType && record.newTableType ? (
+            <span>
               {tableTypeNames[record.originalTableType]} → {tableTypeNames[record.newTableType]}
+              <Tag color="blue" style={{ marginLeft: 4 }}>桌型变更</Tag>
+            </span>
+          ) : (
+            <span>
+              桌数: {record.originalTables} → {record.newTables}
+              {record.tableCountChange !== 0 && (
+                <Tag color={record.tableCountChange > 0 ? 'red' : 'green'} style={{ marginLeft: 4 }}>
+                  {record.tableCountChange > 0 ? '+' : ''}{record.tableCountChange}
+                </Tag>
+              )}
             </span>
           )}
         </Space>
@@ -396,17 +398,18 @@ const TableChangeHistory: React.FC = () => {
                   <Descriptions.Item label="变更类型">
                     <Tag color="blue">{selectedRecord.changeTypeLabel}</Tag>
                   </Descriptions.Item>
-                  <Descriptions.Item label="桌数变化">
-                    {selectedRecord.originalTables} → {selectedRecord.newTables} 桌
-                    {selectedRecord.tableCountChange !== 0 && (
-                      <Tag color={selectedRecord.tableCountChange > 0 ? 'red' : 'green'} style={{ marginLeft: 4 }}>
-                        {selectedRecord.tableCountChange > 0 ? '+' : ''}{selectedRecord.tableCountChange}
-                      </Tag>
-                    )}
-                  </Descriptions.Item>
-                  {selectedRecord.originalTableType && selectedRecord.newTableType && (
+                  {selectedRecord.changeType === 'change_table_type' && selectedRecord.originalTableType && selectedRecord.newTableType ? (
                     <Descriptions.Item label="桌型变化">
                       {tableTypeNames[selectedRecord.originalTableType]} → {tableTypeNames[selectedRecord.newTableType]}
+                    </Descriptions.Item>
+                  ) : (
+                    <Descriptions.Item label="桌数变化">
+                      {selectedRecord.originalTables} → {selectedRecord.newTables} 桌
+                      {selectedRecord.tableCountChange !== 0 && (
+                        <Tag color={selectedRecord.tableCountChange > 0 ? 'red' : 'green'} style={{ marginLeft: 4 }}>
+                          {selectedRecord.tableCountChange > 0 ? '+' : ''}{selectedRecord.tableCountChange}
+                        </Tag>
+                      )}
                     </Descriptions.Item>
                   )}
                   <Descriptions.Item label="变更原因">{selectedRecord.reason}</Descriptions.Item>
