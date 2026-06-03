@@ -25,6 +25,8 @@
               v-for="(att, attIndex) in item.attachments"
               :key="attIndex"
               class="attachment-item"
+              @click="handleAttachmentClick(att)"
+              :class="{ clickable: att.url }"
             >
               <el-icon v-if="att.type === 'image'"><Picture /></el-icon>
               <el-icon v-else-if="att.type === 'signature'"><Edit /></el-icon>
@@ -32,16 +34,42 @@
               <el-icon v-else-if="att.type === 'repair'"><Tools /></el-icon>
               <el-icon v-else><Paperclip /></el-icon>
               <span>{{ att.name }}</span>
+              <el-icon v-if="att.url" class="preview-icon"><View /></el-icon>
             </div>
           </div>
         </div>
       </el-timeline-item>
     </el-timeline>
+
+    <el-dialog
+      v-model="attachmentDialogVisible"
+      :title="currentAttachment?.name || '附件预览'"
+      width="560px"
+    >
+      <div class="attachment-preview-container">
+        <img
+          v-if="isImageType(currentAttachment)"
+          :src="getAttachmentUrl(currentAttachment)"
+          :alt="currentAttachment?.name"
+          class="attachment-preview-img"
+        />
+        <div v-else class="attachment-placeholder">
+          <el-icon :size="80"><Document /></el-icon>
+          <p>该附件类型暂不支持预览</p>
+          <el-button type="primary" size="small" @click="downloadAttachment">
+            下载附件
+          </el-button>
+        </div>
+      </div>
+      <template #footer>
+        <el-button @click="attachmentDialogVisible = false">关闭</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { ref, computed } from 'vue'
 import { STATUS_LABELS, STATUS_FLOW } from '@/data/mockData'
 
 const props = defineProps({
@@ -54,6 +82,34 @@ const props = defineProps({
 const sortedHistory = computed(() => {
   return [...props.history].sort((a, b) => a.timestamp - b.timestamp)
 })
+
+const attachmentDialogVisible = ref(false)
+const currentAttachment = ref(null)
+
+const handleAttachmentClick = (att) => {
+  if (att.url) {
+    currentAttachment.value = att
+    attachmentDialogVisible.value = true
+  }
+}
+
+const isImageType = (att) => {
+  if (!att) return false
+  return ['image', 'signature', 'receipt', 'repair'].includes(att.type)
+}
+
+const getAttachmentUrl = (att) => {
+  if (!att?.url) return ''
+  if (att.url.startsWith('#') || att.url.startsWith('mock-')) {
+    return `https://picsum.photos/400/300?random=${att.url}`
+  }
+  return att.url
+}
+
+const downloadAttachment = () => {
+  // 模拟下载
+  console.log('Download:', currentAttachment.value)
+}
 
 const getStatusLabel = (status) => {
   return STATUS_LABELS[status]?.label || status
@@ -163,10 +219,56 @@ const formatTime = (timestamp) => {
   border-radius: 4px;
   font-size: 12px;
   color: #6b7280;
+  transition: all 0.2s;
+}
+
+.attachment-item.clickable {
+  cursor: pointer;
+}
+
+.attachment-item.clickable:hover {
+  background: #e0e7ff;
+  color: #4f46e5;
 }
 
 .attachment-item .el-icon {
   font-size: 12px;
   color: #60a5fa;
+}
+
+.preview-icon {
+  margin-left: 4px;
+  font-size: 11px !important;
+  opacity: 0.7;
+}
+
+.attachment-preview-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 300px;
+  background: #f9fafb;
+  border-radius: 8px;
+}
+
+.attachment-preview-img {
+  max-width: 100%;
+  max-height: 400px;
+  border-radius: 4px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.attachment-placeholder {
+  text-align: center;
+  color: #9ca3af;
+}
+
+.attachment-placeholder .el-icon {
+  margin-bottom: 12px;
+  color: #d1d5db;
+}
+
+.attachment-placeholder p {
+  margin: 0 0 16px 0;
 }
 </style>

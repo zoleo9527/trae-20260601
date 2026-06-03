@@ -269,27 +269,27 @@
               <span>{{ formatTime(depositInfo.paidAt) }}</span>
             </div>
             <div class="deposit-row">
-              <span class="deposit-label">退还状态</span>
+              <span class="deposit-label">押金状态</span>
               <el-tag :type="depositInfo.refunded ? 'success' : 'warning'">
-                {{ depositInfo.refunded ? '已退还' : '未退还' }}
+                {{ depositInfo.refunded ? '已退款' : '未退款' }}
               </el-tag>
             </div>
             <template v-if="depositInfo.refunded">
               <div class="deposit-row">
-                <span class="deposit-label">退还时间</span>
+                <span class="deposit-label">退款时间</span>
                 <span>{{ formatTime(depositInfo.refundedAt) }}</span>
               </div>
               <div class="deposit-row">
-                <span class="deposit-label">退还方式</span>
+                <span class="deposit-label">退款方式</span>
                 <el-tag size="small" type="success">{{ depositInfo.refundMethodLabel || depositInfo.refundMethod }}</el-tag>
               </div>
               <div class="deposit-row">
-                <span class="deposit-label">退还操作人</span>
+                <span class="deposit-label">退款操作人</span>
                 <span>{{ depositInfo.refundOperator || '-' }}</span>
               </div>
               <div v-if="depositInfo.refundReceiptUrl" class="deposit-row">
                 <span class="deposit-label">退款凭证</span>
-                <el-link type="primary" :underline="false">
+                <el-link type="primary" :underline="false" @click="previewReceipt(depositInfo)" style="cursor: pointer;">
                   <el-icon><Document /></el-icon>
                   {{ depositInfo.refundReceiptName || '查看凭证' }}
                 </el-link>
@@ -420,6 +420,23 @@
     </el-dialog>
 
     <el-dialog
+      v-model="receiptPreviewVisible"
+      :title="receiptPreviewName"
+      width="560px"
+    >
+      <div class="receipt-preview-container">
+        <img
+          :src="receiptPreviewUrl"
+          :alt="receiptPreviewName"
+          class="receipt-preview-img"
+        />
+      </div>
+      <template #footer>
+        <el-button @click="receiptPreviewVisible = false">关闭</el-button>
+      </template>
+    </el-dialog>
+
+    <el-dialog
       v-model="closeDialogVisible"
       title="结案确认"
       width="520px"
@@ -434,25 +451,25 @@
           <span class="close-check-text">该订单无关联押金</span>
         </div>
         <div v-else-if="depositInfo.refunded" class="close-check-item">
-          <el-tag size="small" type="success">已退还</el-tag>
+          <el-tag size="small" type="success">已退款</el-tag>
           <span class="close-check-text">
-            ¥{{ depositInfo.amount.toLocaleString() }} 已于 {{ formatTime(depositInfo.refundedAt) }} 退还（{{ depositInfo.refundMethodLabel }}）
+            ¥{{ depositInfo.amount.toLocaleString() }} 已于 {{ formatTime(depositInfo.refundedAt) }} 退款（{{ depositInfo.refundMethodLabel }}）
           </span>
         </div>
         <div v-else class="close-check-item close-check-warning">
-          <el-tag size="small" type="warning">未退还</el-tag>
+          <el-tag size="small" type="warning">未退款</el-tag>
           <span class="close-check-text">
-            押金 ¥{{ depositInfo.amount.toLocaleString() }} 尚未退还
+            押金 ¥{{ depositInfo.amount.toLocaleString() }} 尚未退款
             <template v-if="depositInfo.holdReason">（{{ depositInfo.holdReason }}）</template>
           </span>
         </div>
       </div>
       <div v-if="closeDepositStatus === 'unrefunded'" class="close-warning-box">
         <el-alert
-          title="押金尚未退还"
+          title="押金尚未退款"
           type="warning"
           :closable="false"
-          description="结案前建议先完成押金退还。如确认需要直接结案，请在备注中说明原因。"
+          description="结案前建议先完成押金退款。如确认需要直接结案，请在备注中说明原因。"
         />
       </div>
       <el-form :model="closeForm" label-width="100px" style="margin-top: 16px;">
@@ -642,6 +659,20 @@ const closeDialogVisible = ref(false)
 const closeForm = reactive({
   remark: ''
 })
+
+const receiptPreviewVisible = ref(false)
+const receiptPreviewUrl = ref('')
+const receiptPreviewName = ref('')
+
+const previewReceipt = (deposit) => {
+  if (deposit?.refundReceiptUrl) {
+    receiptPreviewUrl.value = deposit.refundReceiptUrl.startsWith('#')
+      ? `https://picsum.photos/400/300?random=${deposit.refundReceiptUrl}`
+      : deposit.refundReceiptUrl
+    receiptPreviewName.value = deposit.refundReceiptName || '退款凭证'
+    receiptPreviewVisible.value = true
+  }
+}
 
 const showRefundDialog = () => {
   refundForm.refundMethod = depositInfo.value?.paymentMethod === 'wechat' ? 'original' : 'original'
@@ -997,5 +1028,21 @@ onMounted(() => {
 
 .close-warning-box {
   margin-top: 12px;
+}
+
+.receipt-preview-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 300px;
+  background: #f9fafb;
+  border-radius: 8px;
+}
+
+.receipt-preview-img {
+  max-width: 100%;
+  max-height: 400px;
+  border-radius: 4px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 </style>
