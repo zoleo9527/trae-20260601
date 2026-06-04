@@ -21,6 +21,9 @@ public class WorkflowDTO {
     public static class StartCheckRequest {
         @NotNull(message = "处理人ID不能为空")
         private Long handlerId;
+
+        @NotNull(message = "检查负责人ID不能为空")
+        private Long checkerId;
     }
 
     @Data

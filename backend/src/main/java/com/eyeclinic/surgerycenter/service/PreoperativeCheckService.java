@@ -11,6 +11,7 @@ import com.eyeclinic.surgerycenter.enums.RoleType;
 import com.eyeclinic.surgerycenter.exception.BusinessException;
 import com.eyeclinic.surgerycenter.repository.PreoperativeCheckRepository;
 import com.eyeclinic.surgerycenter.repository.UserRepository;
+import com.eyeclinic.surgerycenter.repository.WorkflowInstanceRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -26,6 +27,7 @@ public class PreoperativeCheckService {
 
     private final PreoperativeCheckRepository checkRepository;
     private final UserRepository userRepository;
+    private final WorkflowInstanceRepository workflowRepository;
 
     @Transactional
     public List<PreoperativeCheck> initializeCheckItems(WorkflowInstance workflow) {
@@ -62,6 +64,13 @@ public class PreoperativeCheckService {
         if (request.getStatus() == CheckItemStatus.COMPLETED || request.getStatus() == CheckItemStatus.ABNORMAL) {
             check.setCheckedBy(operator);
             check.setCheckedAt(LocalDateTime.now());
+        }
+
+        WorkflowInstance workflow = check.getWorkflow();
+        if (workflow.getCurrentHandler() == null || !workflow.getCurrentHandler().getId().equals(operator.getId())) {
+            workflow.setCurrentHandler(operator);
+            workflow.setStatusUpdatedAt(LocalDateTime.now());
+            workflowRepository.save(workflow);
         }
 
         return checkRepository.save(check);

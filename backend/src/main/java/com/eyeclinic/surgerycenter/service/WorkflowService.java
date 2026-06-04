@@ -71,20 +71,24 @@ public class WorkflowService {
         User handler = userRepository.findById(request.getHandlerId())
                 .orElseThrow(() -> new BusinessException(ErrorCode.DATA_NOT_FOUND, "处理人不存在"));
 
-        stateMachine.validateTransition(workflow.getStatus(), WorkflowStatus.PREOP_IN_PROGRESS, handler.getRole());
+        User checker = userRepository.findById(request.getCheckerId())
+                .orElseThrow(() -> new BusinessException(ErrorCode.DATA_NOT_FOUND, "检查负责人不存在"));
 
-        List<User> specialists = userRepository.findByRole(RoleType.SPECIALIST);
-        User specialist = specialists.isEmpty() ? null : specialists.get(0);
+        if (checker.getRole() != RoleType.SPECIALIST) {
+            throw new BusinessException(ErrorCode.PERMISSION_DENIED, "检查负责人必须是专业人员");
+        }
+
+        stateMachine.validateTransition(workflow.getStatus(), WorkflowStatus.PREOP_IN_PROGRESS, handler.getRole());
 
         WorkflowStatus prevStatus = workflow.getStatus();
         workflow.setStatus(WorkflowStatus.PREOP_IN_PROGRESS);
-        workflow.setCurrentHandler(specialist);
+        workflow.setCurrentHandler(checker);
         workflow.setCurrentNodeName(WorkflowStatus.PREOP_IN_PROGRESS.getDescription());
         workflow.setBlockReason(stateMachine.getBlockReason(WorkflowStatus.PREOP_IN_PROGRESS));
         workflow.setStatusUpdatedAt(LocalDateTime.now());
 
         logService.createStatusTransitionLog(workflow, prevStatus, WorkflowStatus.PREOP_IN_PROGRESS, handler,
-                "启动术前检查，检查负责人：" + (specialist != null ? specialist.getRealName() : "待分配"));
+                "启动术前检查，检查负责人：" + checker.getRealName());
 
         return workflowRepository.save(workflow);
     }

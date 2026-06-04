@@ -28,8 +28,8 @@ export const workflowApi = {
   create: (data: { patientId: number; surgeryType: string; remarks?: string }): Promise<WorkflowDetailVO> =>
     api.post('/workflow', data),
 
-  startCheck: (id: number, handlerId: number): Promise<WorkflowDetailVO> =>
-    api.post(`/workflow/${id}/start-check`, { handlerId }),
+  startCheck: (id: number, handlerId: number, checkerId: number): Promise<WorkflowDetailVO> =>
+    api.post(`/workflow/${id}/start-check`, { handlerId, checkerId }),
 
   updateCheckItem: (data: {
     checkId: number

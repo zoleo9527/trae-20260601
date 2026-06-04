@@ -44,9 +44,11 @@ export default function WorkflowDetail() {
   const [checkModal, setCheckModal] = useState(false)
   const [scheduleModal, setScheduleModal] = useState(false)
   const [reviewModal, setReviewModal] = useState(false)
+  const [startCheckModal, setStartCheckModal] = useState(false)
   const [selectedCheck, setSelectedCheck] = useState<any>(null)
   const [reviewType, setReviewType] = useState<'check' | 'schedule'>('check')
   const [form] = Form.useForm()
+  const [startCheckForm] = Form.useForm()
 
   const loadDetail = async () => {
     if (!id) return
@@ -99,13 +101,19 @@ export default function WorkflowDetail() {
     return workflow.status === WorkflowStatus.SCHEDULE_REVIEW
   }
 
-  const handleStartCheck = async () => {
+  const handleStartCheck = () => {
+    setStartCheckModal(true)
+  }
+
+  const handleConfirmStartCheck = async (values: any) => {
     if (!workflow) return
     const receptionist = users.find(u => u.role === RoleType.RECEPTIONIST)
     if (!receptionist) return
     try {
-      await workflowApi.startCheck(workflow.id, receptionist.id)
+      await workflowApi.startCheck(workflow.id, receptionist.id, values.checkerId)
       message.success('已启动术前检查')
+      setStartCheckModal(false)
+      startCheckForm.resetFields()
       loadDetail()
     } catch (error: any) {
       message.error(error.message || '操作失败')
@@ -398,6 +406,23 @@ export default function WorkflowDetail() {
           </Card>
         </Col>
       </Row>
+
+      <Modal title="启动术前检查" open={startCheckModal} onCancel={() => setStartCheckModal(false)} footer={null}>
+        <Form form={startCheckForm} layout="vertical" onFinish={handleConfirmStartCheck}>
+          <Form.Item label="检查负责人" name="checkerId" rules={[{ required: true, message: '请选择检查负责人' }]}>
+            <Select
+              placeholder="请选择负责本次术前检查的专业人员"
+              options={users.filter(u => u.role === RoleType.SPECIALIST).map(u => ({
+                label: `${u.realName} (${u.department})`,
+                value: u.id
+              }))}
+            />
+          </Form.Item>
+          <Form.Item>
+            <Button type="primary" htmlType="submit" block>确认启动</Button>
+          </Form.Item>
+        </Form>
+      </Modal>
 
       <Modal title="编辑检查项" open={checkModal} onCancel={() => setCheckModal(false)} footer={null}>
         <Form form={form} layout="vertical" onFinish={handleUpdateCheckItem}>
