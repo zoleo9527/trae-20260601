@@ -600,9 +600,9 @@
                             </select>
                         </div>
                         <div class="quick-filters">
-                            <span class="quick-filter active" onclick="setFollowupQuickFilter('all')">全部</span>
-                            <span class="quick-filter" onclick="setFollowupQuickFilter('today')">今日待回访</span>
-                            <span class="quick-filter" onclick="setFollowupQuickFilter('discomfort')">有不适症状</span>
+                            <span class="quick-filter active" onclick="setFollowupQuickFilter('all', this)">全部</span>
+                            <span class="quick-filter" onclick="setFollowupQuickFilter('today', this)">今日待回访</span>
+                            <span class="quick-filter" onclick="setFollowupQuickFilter('discomfort', this)">有不适症状</span>
                         </div>
                     </div>
                     <div class="table-container">
@@ -648,9 +648,9 @@
                             </select>
                         </div>
                         <div class="quick-filters">
-                            <span class="quick-filter active" onclick="setDiscomfortQuickFilter('all')">全部</span>
-                            <span class="quick-filter" onclick="setDiscomfortQuickFilter('pending')">待处理</span>
-                            <span class="quick-filter" onclick="setDiscomfortQuickFilter('high')">高风险</span>
+                            <span class="quick-filter active" onclick="setDiscomfortQuickFilter('all', this)">全部</span>
+                            <span class="quick-filter" onclick="setDiscomfortQuickFilter('pending', this)">待处理</span>
+                            <span class="quick-filter" onclick="setDiscomfortQuickFilter('high', this)">高风险</span>
                         </div>
                     </div>
                     <div class="table-container">
@@ -851,14 +851,20 @@
         async function loadFollowUps() {
             const stage = document.getElementById('followupStage').value;
             const status = document.getElementById('followupStatus').value;
-            let hasDiscomfort = null;
-            if (followupQuickFilter === 'discomfort') hasDiscomfort = 'true';
             
-            let data = await fetch(`${API_BASE}/follow-ups?stage=${stage}&status=${status}&limit=100&has_discomfort=${hasDiscomfort || ''}`).then(r => r.json());
+            let url = `${API_BASE}/follow-ups?stage=${stage}&status=${status}&limit=100`;
+            if (followupQuickFilter === 'discomfort') {
+                url += '&has_discomfort=true';
+            }
+            
+            let data = await fetch(url).then(r => r.json());
             
             if (followupQuickFilter === 'today') {
                 const today = new Date().toDateString();
-                data = data.filter(f => new Date(f.follow_up_date).toDateString() === today);
+                data = data.filter(f => 
+                    new Date(f.follow_up_date).toDateString() === today && 
+                    f.status === 'pending'
+                );
             }
 
             let html = '';
@@ -1311,21 +1317,21 @@
         let followupQuickFilter = 'all';
         let discomfortQuickFilter = 'all';
 
-        function setFollowupQuickFilter(filter) {
+        function setFollowupQuickFilter(filter, element) {
             followupQuickFilter = filter;
             document.querySelectorAll('#page-followups .quick-filter').forEach(el => {
                 el.classList.remove('active');
             });
-            event.target.classList.add('active');
+            element.classList.add('active');
             loadFollowUps();
         }
 
-        function setDiscomfortQuickFilter(filter) {
+        function setDiscomfortQuickFilter(filter, element) {
             discomfortQuickFilter = filter;
             document.querySelectorAll('#page-discomforts .quick-filter').forEach(el => {
                 el.classList.remove('active');
             });
-            event.target.classList.add('active');
+            element.classList.add('active');
             loadDiscomforts();
         }
 
