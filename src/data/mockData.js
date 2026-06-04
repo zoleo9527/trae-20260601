@@ -178,7 +178,8 @@ export const mockOrders = [
         operatorRole: 'CUSTOMER_SERVICE',
         timestamp: '2026-05-18 16:00:00',
         content: '材料不全，要求客户补充：① 正面/侧面45°/侧面90°近期照片各一张；② 说明"效果不明显"的具体部位。补录时限3天。',
-        responsible: { role: 'CUSTOMER_SERVICE', name: '李客服' }
+        responsible: { role: 'CONSULTANT', name: '张咨询师' },
+        transferNote: '请张咨询师联系客户补充材料，材料齐全后再进入审核。'
       },
       {
         action: ACTION_TYPES.SUBMIT_SUPPLEMENT,
@@ -186,7 +187,8 @@ export const mockOrders = [
         operatorRole: 'CUSTOMER',
         timestamp: '2026-05-20 10:00:00',
         content: '客户补充照片3张，但角度不标准，且未提供具体不满意部位说明。',
-        responsible: { role: 'CUSTOMER_SERVICE', name: '李客服' }
+        responsible: { role: 'CUSTOMER_SERVICE', name: '李客服' },
+        transferNote: '材料已补录，移交客服重新审核'
       },
       {
         action: ACTION_TYPES.NEGOTIATE_REFUND,

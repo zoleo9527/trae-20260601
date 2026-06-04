@@ -340,7 +340,7 @@
 <script setup>
 import { ref, computed, watch } from 'vue'
 import { ElMessage } from 'element-plus'
-import { store, actions } from '../data/store.js'
+import { store, actions, getRefundRelatedRecords, getWriteoffRecords } from '../data/store.js'
 import { ORDER_STATUS, ROLES, ACTION_TYPES } from '../data/constants.js'
 
 const props = defineProps({
@@ -416,23 +416,9 @@ const treatmentSteps = computed(() => {
   return steps
 })
 
-const writeoffRecords = computed(() => {
-  return props.order.history.filter(h =>
-    h.action === ACTION_TYPES.WRITE_OFF_TREATMENT
-  ).reverse()
-})
+const writeoffRecords = computed(() => getWriteoffRecords(props.order))
 
-const refundRelatedRecords = computed(() => {
-  return props.order.history.filter(h =>
-    h.action === ACTION_TYPES.SUBMIT_REFUND ||
-    h.action === ACTION_TYPES.NEGOTIATE_REFUND ||
-    h.action === ACTION_TYPES.REQUEST_SUPPLEMENT ||
-    h.action === ACTION_TYPES.SUBMIT_SUPPLEMENT ||
-    h.action === ACTION_TYPES.APPROVE_REFUND ||
-    h.action === ACTION_TYPES.REJECT_REFUND ||
-    h.action === ACTION_TYPES.COMPLETE_REFUND
-  ).reverse()
-})
+const refundRelatedRecords = computed(() => getRefundRelatedRecords(props.order))
 
 const handleAddNote = () => {
   if (!noteContent.value.trim()) return

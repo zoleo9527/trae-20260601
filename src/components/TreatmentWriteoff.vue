@@ -164,7 +164,7 @@
 <script setup>
 import { ref, computed, watch } from 'vue'
 import { ElMessage } from 'element-plus'
-import { actions } from '../data/store.js'
+import { actions, getRefundRelatedRecords, getWriteoffRecords } from '../data/store.js'
 import { ROLES, ACTION_TYPES } from '../data/constants.js'
 
 const props = defineProps({
@@ -205,25 +205,9 @@ const treatmentSteps = computed(() => {
   return steps
 })
 
-const writeoffRecords = computed(() => {
-  if (!props.order) return []
-  return props.order.history.filter(h =>
-    h.action === ACTION_TYPES.WRITE_OFF_TREATMENT
-  ).reverse()
-})
+const writeoffRecords = computed(() => getWriteoffRecords(props.order))
 
-const refundHistory = computed(() => {
-  if (!props.order) return []
-  return props.order.history.filter(h =>
-    h.action === ACTION_TYPES.SUBMIT_REFUND ||
-    h.action === ACTION_TYPES.NEGOTIATE_REFUND ||
-    h.action === ACTION_TYPES.REQUEST_SUPPLEMENT ||
-    h.action === ACTION_TYPES.SUBMIT_SUPPLEMENT ||
-    h.action === ACTION_TYPES.APPROVE_REFUND ||
-    h.action === ACTION_TYPES.REJECT_REFUND ||
-    h.action === ACTION_TYPES.COMPLETE_REFUND
-  ).reverse()
-})
+const refundHistory = computed(() => getRefundRelatedRecords(props.order))
 
 const hasRefundHistory = computed(() => refundHistory.value.length > 0)
 

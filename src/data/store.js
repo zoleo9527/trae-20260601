@@ -77,6 +77,30 @@ function makeResponsible(order, role) {
   return { role, name }
 }
 
+const REFUND_RELATED_ACTIONS = [
+  ACTION_TYPES.SUBMIT_REFUND,
+  ACTION_TYPES.NEGOTIATE_REFUND,
+  ACTION_TYPES.REQUEST_SUPPLEMENT,
+  ACTION_TYPES.SUBMIT_SUPPLEMENT,
+  ACTION_TYPES.APPROVE_REFUND,
+  ACTION_TYPES.REJECT_REFUND,
+  ACTION_TYPES.COMPLETE_REFUND
+]
+
+export function getRefundRelatedRecords(order) {
+  if (!order || !order.history) return []
+  return order.history
+    .filter(h => REFUND_RELATED_ACTIONS.includes(h.action))
+    .reverse()
+}
+
+export function getWriteoffRecords(order) {
+  if (!order || !order.history) return []
+  return order.history
+    .filter(h => h.action === ACTION_TYPES.WRITE_OFF_TREATMENT)
+    .reverse()
+}
+
 export const actions = {
   setRole(role) {
     store.currentRole = role
