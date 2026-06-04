@@ -190,6 +190,11 @@ export default function Surgeries() {
                           {getCurrentHandler(surgery)}
                         </span>
                       </span>
+                      {getBlockedReason(surgery) && (
+                        <span className="text-amber-600 text-xs truncate max-w-xs">
+                          {getBlockedReason(surgery)}
+                        </span>
+                      )}
                     </div>
                     <div className="flex items-center gap-2">
                       {surgery.lensReservation && (
@@ -256,6 +261,9 @@ export default function Surgeries() {
 }
 
 function getCurrentHandler(surgery: any): string {
+  if (surgery.status === 'in_progress' && surgery.materialConsumption?.status === 'rejected') {
+    return surgery.nurseName + ' (' + roleLabels.nurse + ')';
+  }
   switch (surgery.status) {
     case 'scheduled':
       return surgery.nurseName + ' (' + roleLabels.nurse + ')';
@@ -269,11 +277,43 @@ function getCurrentHandler(surgery: any): string {
       return surgery.doctorName + ' (' + roleLabels.doctor + ')';
     case 'verifying':
       return (surgery.followupName || '待分配') + ' (' + roleLabels.followup + ')';
-    case 'exception':
+    case 'exception': {
+      const processing = surgery.exceptions?.find((e: any) => e.status === 'processing');
+      if (processing?.handlerName) {
+        return processing.handlerName + ' (处理中)';
+      }
+      if (surgery.lensReservation?.status === 'rejected') {
+        return surgery.nurseName + ' (' + roleLabels.nurse + ')';
+      }
+      if (surgery.materialConsumption?.status === 'rejected') {
+        return surgery.nurseName + ' (' + roleLabels.nurse + ')';
+      }
       return '管理员 (' + roleLabels.admin + ')';
+    }
     case 'completed':
       return '已完成';
     default:
       return '未知';
   }
+}
+
+function getBlockedReason(surgery: any): string | null {
+  if (surgery.status === 'in_progress' && surgery.materialConsumption?.status === 'rejected') {
+    return '核销被退回：' + (surgery.materialConsumption.rejectedReason || '请修正后重新提交');
+  }
+  if (surgery.status === 'exception') {
+    const processing = surgery.exceptions?.find((e: any) => e.status === 'processing');
+    if (processing?.handlerName) {
+      return processing.handlerName + '正在处理此异常';
+    }
+    if (surgery.lensReservation?.status === 'rejected') {
+      return '晶体预留被退回：' + (surgery.lensReservation.rejectedReason || '请重新核对后提交');
+    }
+    if (surgery.materialConsumption?.status === 'rejected') {
+      return '核销被退回：' + (surgery.materialConsumption.rejectedReason || '请修正后重新提交');
+    }
+    const active = surgery.exceptions?.find((e: any) => e.status !== 'resolved');
+    return active?.description || '存在异常待处理';
+  }
+  return null;
 }

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useSurgeryStore } from '@/store/useSurgeryStore';
 import {
   exceptionLevelLabels,
@@ -25,7 +25,7 @@ import {
   XCircle,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 
 const quickActions = [
   { label: '标记处理中', action: 'processing', icon: RotateCcw, color: 'amber' },
@@ -49,6 +49,19 @@ export default function Exceptions() {
   const [resolveModal, setResolveModal] = useState<string | null>(null);
   const [resolution, setResolution] = useState('');
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+
+  useEffect(() => {
+    const highlightId = searchParams.get('id');
+    if (highlightId) {
+      setExpandedId(highlightId);
+      const timer = setTimeout(() => {
+        const el = document.querySelector(`[data-exception-id="${highlightId}"]`);
+        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [searchParams]);
 
   const filteredExceptions = exceptions.filter((e) => {
     const surgery = surgeries.find((s) => s.id === e.surgeryId);
@@ -183,6 +196,7 @@ export default function Exceptions() {
             return (
               <div
                 key={exception.id}
+                data-exception-id={exception.id}
                 className={cn(
                   'transition-colors',
                   exception.status === 'pending' ? 'bg-red-50/30' : 'hover:bg-gray-50'

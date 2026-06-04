@@ -229,7 +229,7 @@ export default function Dashboard() {
                     <div
                       key={exception.id}
                       className="p-4 hover:bg-red-50 cursor-pointer transition-colors bg-red-50/50"
-                      onClick={() => navigate('/exceptions')}
+                      onClick={() => navigate(`/exceptions?id=${exception.id}`)}
                     >
                       <div className="flex items-start gap-3">
                         <div
