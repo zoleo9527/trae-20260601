@@ -114,6 +114,51 @@ const styles = {
     fontWeight: 500,
   },
   note: { fontSize: 12, color: '#909399' },
+  searchInput: {
+    padding: '6px 10px',
+    border: '1px solid #dcdfe6',
+    borderRadius: 4,
+    fontSize: 13,
+    width: 200,
+  },
+  searchBtn: {
+    padding: '6px 14px',
+    border: 'none',
+    borderRadius: 4,
+    fontSize: 13,
+    cursor: 'pointer',
+    background: '#409eff',
+    color: '#fff',
+    fontWeight: 500,
+  },
+  clearBtn: {
+    padding: '6px 14px',
+    border: '1px solid #dcdfe6',
+    borderRadius: 4,
+    fontSize: 13,
+    cursor: 'pointer',
+    background: '#fff',
+    color: '#606266',
+  },
+  emptyState: {
+    padding: '60px 20px',
+    textAlign: 'center',
+    color: '#909399',
+  },
+  emptyIcon: {
+    fontSize: 48,
+    marginBottom: 12,
+  },
+  emptyTitle: {
+    fontSize: 15,
+    fontWeight: 500,
+    color: '#606266',
+    marginBottom: 6,
+  },
+  emptyDesc: {
+    fontSize: 13,
+    color: '#909399',
+  },
 }
 
 export default function WorkerDashboard() {
@@ -121,14 +166,32 @@ export default function WorkerDashboard() {
   const [stats, setStats] = useState({ pending: 0, processing: 0, completed: 0, total: 0 })
   const [batches, setBatches] = useState([])
   const [filter, setFilter] = useState('')
+  const [keyword, setKeyword] = useState('')
+  const [searchInput, setSearchInput] = useState('')
   const [selected, setSelected] = useState(new Set())
   const [approvedRx, setApprovedRx] = useState([])
   const [createRxId, setCreateRxId] = useState('')
+  const [loading, setLoading] = useState(false)
 
   const loadStats = () => api.batches.stats().then(data => setStats(data.stats)).catch(() => {})
   const loadBatches = () => {
-    const params = filter ? { status: filter, pageSize: 50 } : { pageSize: 50 }
-    api.batches.list(params).then(data => setBatches(data.batches)).catch(() => {})
+    setLoading(true)
+    const params = { pageSize: 50 }
+    if (filter) params.status = filter
+    if (keyword.trim()) params.keyword = keyword.trim()
+    api.batches.list(params)
+      .then(data => setBatches(data.batches))
+      .catch(() => setBatches([]))
+      .finally(() => setLoading(false))
+  }
+
+  const handleSearch = () => {
+    setKeyword(searchInput)
+  }
+
+  const handleClear = () => {
+    setSearchInput('')
+    setKeyword('')
   }
 
   const loadApprovedRx = () => {
@@ -148,7 +211,7 @@ export default function WorkerDashboard() {
   }
 
   useEffect(() => { loadStats(); loadApprovedRx() }, [])
-  useEffect(() => { loadBatches() }, [filter])
+  useEffect(() => { loadBatches() }, [filter, keyword])
 
   const handleCreateBatch = async () => {
     if (!createRxId) return alert('请选择处方')
@@ -256,6 +319,19 @@ export default function WorkerDashboard() {
               </button>
             ))}
           </div>
+          <div style={styles.filterRow}>
+            <input
+              style={styles.searchInput}
+              placeholder="搜索批次号、处方号、患者名"
+              value={searchInput}
+              onChange={e => setSearchInput(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && handleSearch()}
+            />
+            <button style={styles.searchBtn} onClick={handleSearch}>搜索</button>
+            {(filter || keyword) && (
+              <button style={styles.clearBtn} onClick={handleClear}>重置</button>
+            )}
+          </div>
         </div>
 
         <div style={styles.batchBar}>
@@ -276,53 +352,68 @@ export default function WorkerDashboard() {
           </button>
         </div>
 
-        <table style={styles.table}>
-          <thead>
-            <tr>
-              <th style={styles.th}>选择</th>
-              <th style={styles.th}>批次号</th>
-              <th style={styles.th}>处方</th>
-              <th style={styles.th}>患者</th>
-              <th style={styles.th}>煎药方法</th>
-              <th style={styles.th}>状态</th>
-              <th style={styles.th}>煎药员</th>
-              <th style={styles.th}>创建时间</th>
-              <th style={styles.th}>操作</th>
-            </tr>
-          </thead>
-          <tbody>
-            {batches.length === 0 ? (
-              <tr><td colSpan={9} style={{ ...styles.td, textAlign: 'center', color: '#909399' }}>暂无数据</td></tr>
-            ) : batches.map(b => (
-              <tr key={b.id}>
-                <td style={styles.td}>
-                  <input
-                    type="checkbox"
-                    style={styles.checkbox}
-                    checked={selected.has(b.id)}
-                    onChange={() => toggleSelect(b.id)}
-                  />
-                </td>
-                <td style={styles.td}>{b.batch_code}</td>
-                <td style={styles.td}>{b.prescription_code}</td>
-                <td style={styles.td}>{b.patient_name}</td>
-                <td style={styles.td}>{b.decoction_method}</td>
-                <td style={styles.td}><StatusBadge status={b.status} /></td>
-                <td style={styles.td}>{b.worker_name || '-'}</td>
-                <td style={styles.td}>{b.created_at}</td>
-                <td style={styles.td}>
-                  {b.status === 'pending' && (
-                    <button style={styles.btn('start')} onClick={() => handleBatchStatus(b.id, 'processing')}>开始</button>
-                  )}
-                  {b.status === 'processing' && (
-                    <button style={styles.btn('complete')} onClick={() => handleBatchStatus(b.id, 'completed')}>完成</button>
-                  )}
-                  <button style={styles.btn()} onClick={() => navigate(`/worker/batches/${b.id}`)}>详情</button>
-                </td>
+        {loading ? (
+          <div style={styles.emptyState}>
+            <div style={styles.emptyIcon}>⏳</div>
+            <div style={styles.emptyTitle}>加载中...</div>
+          </div>
+        ) : batches.length === 0 ? (
+          <div style={styles.emptyState}>
+            <div style={styles.emptyIcon}>🔍</div>
+            <div style={styles.emptyTitle}>未找到匹配的批次</div>
+            <div style={styles.emptyDesc}>
+              {filter || keyword
+                ? '请尝试调整搜索条件或状态过滤，或者点击"重置"清除筛选'
+                : '暂无煎药批次，请先从上方选择已审方处方创建批次'}
+            </div>
+          </div>
+        ) : (
+          <table style={styles.table}>
+            <thead>
+              <tr>
+                <th style={styles.th}>选择</th>
+                <th style={styles.th}>批次号</th>
+                <th style={styles.th}>处方</th>
+                <th style={styles.th}>患者</th>
+                <th style={styles.th}>煎药方法</th>
+                <th style={styles.th}>状态</th>
+                <th style={styles.th}>煎药员</th>
+                <th style={styles.th}>创建时间</th>
+                <th style={styles.th}>操作</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {batches.map(b => (
+                <tr key={b.id}>
+                  <td style={styles.td}>
+                    <input
+                      type="checkbox"
+                      style={styles.checkbox}
+                      checked={selected.has(b.id)}
+                      onChange={() => toggleSelect(b.id)}
+                    />
+                  </td>
+                  <td style={styles.td}>{b.batch_code}</td>
+                  <td style={styles.td}>{b.prescription_code}</td>
+                  <td style={styles.td}>{b.patient_name}</td>
+                  <td style={styles.td}>{b.decoction_method}</td>
+                  <td style={styles.td}><StatusBadge status={b.status} /></td>
+                  <td style={styles.td}>{b.worker_name || '-'}</td>
+                  <td style={styles.td}>{b.created_at}</td>
+                  <td style={styles.td}>
+                    {b.status === 'pending' && (
+                      <button style={styles.btn('start')} onClick={() => handleBatchStatus(b.id, 'processing')}>开始</button>
+                    )}
+                    {b.status === 'processing' && (
+                      <button style={styles.btn('complete')} onClick={() => handleBatchStatus(b.id, 'completed')}>完成</button>
+                    )}
+                    <button style={styles.btn()} onClick={() => navigate(`/worker/batches/${b.id}`)}>详情</button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </div>
     </div>
   )

@@ -20,18 +20,25 @@ router.use(authMiddleware)
 
 router.get('/', (req, res) => {
   const db = getDb()
-  const { status, page = 1, pageSize = 20 } = req.query
+  const { status, keyword, page = 1, pageSize = 20 } = req.query
   const offset = (page - 1) * pageSize
 
-  let whereClause = ''
+  const conditions = []
   const params = []
 
   if (status) {
-    whereClause = 'WHERE b.status = ?'
+    conditions.push('b.status = ?')
     params.push(status)
   }
+  if (keyword) {
+    conditions.push('(b.batch_code LIKE ? OR p.code LIKE ? OR p.patient_name LIKE ?)')
+    const kw = `%${keyword}%`
+    params.push(kw, kw, kw)
+  }
 
-  const total = db.prepare(`SELECT COUNT(*) as count FROM decoction_batches b ${whereClause}`).get(...params).count
+  const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : ''
+
+  const total = db.prepare(`SELECT COUNT(*) as count FROM decoction_batches b LEFT JOIN prescriptions p ON b.prescription_id = p.id ${whereClause}`).get(...params).count
 
   const batches = db.prepare(`
     SELECT b.*, u.name as worker_name, p.code as prescription_code, p.patient_name, p.herbs, p.dosage

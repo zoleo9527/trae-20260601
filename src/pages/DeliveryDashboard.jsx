@@ -105,6 +105,51 @@ const styles = {
     fontSize: 13,
     width: 140,
   },
+  searchInput: {
+    padding: '6px 10px',
+    border: '1px solid #dcdfe6',
+    borderRadius: 4,
+    fontSize: 13,
+    width: 200,
+  },
+  searchBtn: {
+    padding: '6px 14px',
+    border: 'none',
+    borderRadius: 4,
+    fontSize: 13,
+    cursor: 'pointer',
+    background: '#409eff',
+    color: '#fff',
+    fontWeight: 500,
+  },
+  clearBtn: {
+    padding: '6px 14px',
+    border: '1px solid #dcdfe6',
+    borderRadius: 4,
+    fontSize: 13,
+    cursor: 'pointer',
+    background: '#fff',
+    color: '#606266',
+  },
+  emptyState: {
+    padding: '60px 20px',
+    textAlign: 'center',
+    color: '#909399',
+  },
+  emptyIcon: {
+    fontSize: 48,
+    marginBottom: 12,
+  },
+  emptyTitle: {
+    fontSize: 15,
+    fontWeight: 500,
+    color: '#606266',
+    marginBottom: 6,
+  },
+  emptyDesc: {
+    fontSize: 13,
+    color: '#909399',
+  },
 }
 
 export default function DeliveryDashboard() {
@@ -112,19 +157,37 @@ export default function DeliveryDashboard() {
   const [stats, setStats] = useState({ pending: 0, labeled: 0, ready_ship: 0, shipping: 0, delivered: 0, returned: 0, total: 0 })
   const [labels, setLabels] = useState([])
   const [filter, setFilter] = useState('')
+  const [keyword, setKeyword] = useState('')
+  const [searchInput, setSearchInput] = useState('')
   const [selected, setSelected] = useState(new Set())
   const [batchShipMode, setBatchShipMode] = useState(false)
   const [trackingNo, setTrackingNo] = useState('')
   const [courier, setCourier] = useState('顺丰速运')
+  const [loading, setLoading] = useState(false)
 
   const loadStats = () => api.labels.stats().then(data => setStats(data.stats)).catch(() => {})
   const loadLabels = () => {
-    const params = filter ? { status: filter, pageSize: 50 } : { pageSize: 50 }
-    api.labels.list(params).then(data => setLabels(data.labels)).catch(() => {})
+    setLoading(true)
+    const params = { pageSize: 50 }
+    if (filter) params.status = filter
+    if (keyword.trim()) params.keyword = keyword.trim()
+    api.labels.list(params)
+      .then(data => setLabels(data.labels))
+      .catch(() => setLabels([]))
+      .finally(() => setLoading(false))
+  }
+
+  const handleSearch = () => {
+    setKeyword(searchInput)
+  }
+
+  const handleClear = () => {
+    setSearchInput('')
+    setKeyword('')
   }
 
   useEffect(() => { loadStats() }, [])
-  useEffect(() => { loadLabels() }, [filter])
+  useEffect(() => { loadLabels() }, [filter, keyword])
 
   const handleLabelStatus = async (id, status, extra = {}) => {
     try {
@@ -209,6 +272,19 @@ export default function DeliveryDashboard() {
               </button>
             ))}
           </div>
+          <div style={styles.filterRow}>
+            <input
+              style={styles.searchInput}
+              placeholder="搜索贴标号、批次号、处方号、患者名"
+              value={searchInput}
+              onChange={e => setSearchInput(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && handleSearch()}
+            />
+            <button style={styles.searchBtn} onClick={handleSearch}>搜索</button>
+            {(filter || keyword) && (
+              <button style={styles.clearBtn} onClick={handleClear}>重置</button>
+            )}
+          </div>
         </div>
 
         <div style={styles.batchBar}>
@@ -278,68 +354,83 @@ export default function DeliveryDashboard() {
           </div>
         )}
 
-        <table style={styles.table}>
-          <thead>
-            <tr>
-              <th style={styles.th}>选择</th>
-              <th style={styles.th}>贴标编号</th>
-              <th style={styles.th}>批次号</th>
-              <th style={styles.th}>处方</th>
-              <th style={styles.th}>患者</th>
-              <th style={styles.th}>包装数</th>
-              <th style={styles.th}>状态</th>
-              <th style={styles.th}>快递</th>
-              <th style={styles.th}>操作</th>
-            </tr>
-          </thead>
-          <tbody>
-            {labels.length === 0 ? (
-              <tr><td colSpan={9} style={{ ...styles.td, textAlign: 'center', color: '#909399' }}>暂无数据</td></tr>
-            ) : labels.map(l => (
-              <tr key={l.id}>
-                <td style={styles.td}>
-                  <input
-                    type="checkbox"
-                    style={styles.checkbox}
-                    checked={selected.has(l.id)}
-                    onChange={() => toggleSelect(l.id)}
-                  />
-                </td>
-                <td style={styles.td}>{l.label_code}</td>
-                <td style={styles.td}>{l.batch_code}</td>
-                <td style={styles.td}>{l.prescription_code}</td>
-                <td style={styles.td}>{l.patient_name}</td>
-                <td style={styles.td}>{l.package_count}</td>
-                <td style={styles.td}><StatusBadge status={l.status} /></td>
-                <td style={styles.td}>{l.tracking_no || '-'}</td>
-                <td style={styles.td}>
-                  {l.status === 'pending' && (
-                    <button style={styles.btn('label')} onClick={() => handleLabelStatus(l.id, 'labeled')}>贴标</button>
-                  )}
-                  {l.status === 'labeled' && (
-                    <button style={styles.btn('ready')} onClick={() => handleLabelStatus(l.id, 'ready_ship')}>备货</button>
-                  )}
-                  {l.status === 'ready_ship' && (
-                    <button style={styles.btn('ship')} onClick={() => {
-                      const tn = prompt('快递单号：')
-                      if (tn) handleLabelStatus(l.id, 'shipping', { tracking_no: tn, courier: '顺丰速运' })
-                    }}>发货</button>
-                  )}
-                  {l.status === 'shipping' && (
-                    <>
-                      <button style={styles.btn('deliver')} onClick={() => handleLabelStatus(l.id, 'delivered')}>签收</button>
-                      <button style={styles.btn('return')} onClick={() => {
-                        const note = prompt('退回原因：')
-                        if (note) handleLabelStatus(l.id, 'returned', { note })
-                      }}>退回</button>
-                    </>
-                  )}
-                  <button style={styles.btn()} onClick={() => navigate(`/delivery/labels/${l.id}`)}>回看</button>
-                </td>
+        {loading ? (
+          <div style={styles.emptyState}>
+            <div style={styles.emptyIcon}>⏳</div>
+            <div style={styles.emptyTitle}>加载中...</div>
+          </div>
+        ) : labels.length === 0 ? (
+          <div style={styles.emptyState}>
+            <div style={styles.emptyIcon}>🔍</div>
+            <div style={styles.emptyTitle}>未找到匹配的贴标</div>
+            <div style={styles.emptyDesc}>
+              {filter || keyword
+                ? '请尝试调整搜索条件或状态过滤，或者点击"重置"清除筛选'
+                : '暂无包装贴标，煎药完成后会自动创建贴标'}
+            </div>
+          </div>
+        ) : (
+          <table style={styles.table}>
+            <thead>
+              <tr>
+                <th style={styles.th}>选择</th>
+                <th style={styles.th}>贴标编号</th>
+                <th style={styles.th}>批次号</th>
+                <th style={styles.th}>处方</th>
+                <th style={styles.th}>患者</th>
+                <th style={styles.th}>包装数</th>
+                <th style={styles.th}>状态</th>
+                <th style={styles.th}>快递</th>
+                <th style={styles.th}>操作</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {labels.map(l => (
+                <tr key={l.id}>
+                  <td style={styles.td}>
+                    <input
+                      type="checkbox"
+                      style={styles.checkbox}
+                      checked={selected.has(l.id)}
+                      onChange={() => toggleSelect(l.id)}
+                    />
+                  </td>
+                  <td style={styles.td}>{l.label_code}</td>
+                  <td style={styles.td}>{l.batch_code}</td>
+                  <td style={styles.td}>{l.prescription_code}</td>
+                  <td style={styles.td}>{l.patient_name}</td>
+                  <td style={styles.td}>{l.package_count}</td>
+                  <td style={styles.td}><StatusBadge status={l.status} /></td>
+                  <td style={styles.td}>{l.tracking_no || '-'}</td>
+                  <td style={styles.td}>
+                    {l.status === 'pending' && (
+                      <button style={styles.btn('label')} onClick={() => handleLabelStatus(l.id, 'labeled')}>贴标</button>
+                    )}
+                    {l.status === 'labeled' && (
+                      <button style={styles.btn('ready')} onClick={() => handleLabelStatus(l.id, 'ready_ship')}>备货</button>
+                    )}
+                    {l.status === 'ready_ship' && (
+                      <button style={styles.btn('ship')} onClick={() => {
+                        const tn = prompt('快递单号：')
+                        if (tn) handleLabelStatus(l.id, 'shipping', { tracking_no: tn, courier: '顺丰速运' })
+                      }}>发货</button>
+                    )}
+                    {l.status === 'shipping' && (
+                      <>
+                        <button style={styles.btn('deliver')} onClick={() => handleLabelStatus(l.id, 'delivered')}>签收</button>
+                        <button style={styles.btn('return')} onClick={() => {
+                          const note = prompt('退回原因：')
+                          if (note) handleLabelStatus(l.id, 'returned', { note })
+                        }}>退回</button>
+                      </>
+                    )}
+                    <button style={styles.btn()} onClick={() => navigate(`/delivery/labels/${l.id}`)}>回看</button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </div>
     </div>
   )
