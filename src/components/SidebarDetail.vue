@@ -246,6 +246,14 @@
                 </div>
                 <div style="font-size: 12px; color: #606266;">{{ record.content }}</div>
                 <div style="font-size: 11px; color: #909399; margin-top: 4px;">操作人：{{ record.operator }}</div>
+                <div v-if="record.responsible" style="margin-top: 4px; font-size: 11px; color: #67c23a;">
+                  <el-icon style="margin-right: 2px;"><User /></el-icon>
+                  转交至：{{ record.responsible.name }}（{{ getRoleLabel(record.responsible.role) }}）
+                </div>
+                <div v-if="record.transferNote" style="margin-top: 3px; font-size: 11px; color: #e6a23c;">
+                  <el-icon style="margin-right: 2px;"><SwitchButton /></el-icon>
+                  移交说明：{{ record.transferNote }}
+                </div>
               </div>
             </div>
           </div>

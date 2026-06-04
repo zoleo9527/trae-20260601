@@ -55,10 +55,20 @@
           退款协商完整历史（责任人移交时同步）
         </div>
         <div v-for="(record, idx) in refundHistory" :key="record.id" style="margin-bottom: 10px; padding-left: 12px; border-left: 2px solid #e6a23c;">
-          <div style="font-size: 12px; color: #909399; margin-bottom: 2px;">
-            {{ record.timestamp }} · {{ record.operator }}
+          <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 2px;">
+            <span style="font-size: 12px; font-weight: 600; color: #e6a23c;">{{ record.action }}</span>
+            <span style="font-size: 11px; color: #909399;">{{ record.timestamp }}</span>
           </div>
+          <div style="font-size: 12px; color: #909399; margin-bottom: 2px;">{{ record.operator }}</div>
           <div style="font-size: 12px; color: #606266;">{{ record.content }}</div>
+          <div v-if="record.responsible" style="margin-top: 3px; font-size: 11px; color: #67c23a;">
+            <el-icon style="margin-right: 2px;"><User /></el-icon>
+            转交至：{{ record.responsible.name }}（{{ getRoleLabel(record.responsible.role) }}）
+          </div>
+          <div v-if="record.transferNote" style="margin-top: 2px; font-size: 11px; color: #e6a23c;">
+            <el-icon style="margin-right: 2px;"><SwitchButton /></el-icon>
+            移交说明：{{ record.transferNote }}
+          </div>
         </div>
       </div>
 
@@ -205,8 +215,14 @@ const writeoffRecords = computed(() => {
 const refundHistory = computed(() => {
   if (!props.order) return []
   return props.order.history.filter(h =>
-    h.action.includes('退款') || h.action.includes('补录') || h.action.includes('协商') || h.action.includes('驳回')
-  )
+    h.action === ACTION_TYPES.SUBMIT_REFUND ||
+    h.action === ACTION_TYPES.NEGOTIATE_REFUND ||
+    h.action === ACTION_TYPES.REQUEST_SUPPLEMENT ||
+    h.action === ACTION_TYPES.SUBMIT_SUPPLEMENT ||
+    h.action === ACTION_TYPES.APPROVE_REFUND ||
+    h.action === ACTION_TYPES.REJECT_REFUND ||
+    h.action === ACTION_TYPES.COMPLETE_REFUND
+  ).reverse()
 })
 
 const hasRefundHistory = computed(() => refundHistory.value.length > 0)

@@ -220,7 +220,8 @@ export const actions = {
       operator: '客户（代录）',
       operatorRole: 'CUSTOMER',
       content: content,
-      responsible: order.currentResponsible
+      responsible: makeResponsible(order, 'CUSTOMER_SERVICE'),
+      transferNote: '材料已补录，移交客服重新审核'
     })
     this.updateStatus(
       orderId,
