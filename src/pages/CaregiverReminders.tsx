@@ -1,8 +1,9 @@
+import { ReminderDetailDrawer } from '@/components/ReminderDetailDrawer'
 import { ReportDetailDrawer } from '@/components/ReportDetailDrawer'
 import { Sidebar } from '@/components/Sidebar'
 import { StatusTag } from '@/components/StatusTag'
 import { useAppStore } from '@/store'
-import { ANOMALY_TYPE_LABELS, type AnomalyType } from '@/types'
+import { ANOMALY_TYPE_LABELS, type AnomalyType, type ReminderStatus } from '@/types'
 import { Check, Clock, Coffee, Moon, Sun, X } from 'lucide-react'
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -80,7 +81,11 @@ export default function CaregiverReminders() {
   const navigate = useNavigate()
 
   const [drawerReportId, setDrawerReportId] = useState<string | null>(null)
+  const [drawerReminderId, setDrawerReminderId] = useState<string | null>(null)
   const [anomalyModalReminderId, setAnomalyModalReminderId] = useState<string | null>(null)
+
+  const REMINDER_STATUSES: ReminderStatus[] = ['pending', 'confirmed']
+  const REPORT_STATUSES: ReminderStatus[] = ['abnormal', 'timeout']
 
   const getHour = (iso: string) => new Date(iso).getHours()
 
@@ -99,17 +104,31 @@ export default function CaregiverReminders() {
     navigate(`/caregiver/report?draft=${reportId}`)
   }
 
-  const handleStatusTagClick = (reportId: string | undefined) => {
-    if (reportId) {
-      setDrawerReportId(reportId)
+  const handleStatusTagClick = (reminderId: string, status: ReminderStatus) => {
+    if (REMINDER_STATUSES.includes(status)) {
+      setDrawerReminderId(reminderId)
+    } else if (REPORT_STATUSES.includes(status)) {
+      const report = getReportForReminder(reminderId)
+      if (report) {
+        setDrawerReportId(report.id)
+      }
     }
   }
 
-  const handleReminderClick = (reminderId: string) => {
-    const report = getReportForReminder(reminderId)
-    if (report) {
-      setDrawerReportId(report.id)
+  const handleCardClick = (reminderId: string, status: ReminderStatus) => {
+    if (REMINDER_STATUSES.includes(status)) {
+      setDrawerReminderId(reminderId)
+    } else if (REPORT_STATUSES.includes(status)) {
+      const report = getReportForReminder(reminderId)
+      if (report) {
+        setDrawerReportId(report.id)
+      }
     }
+  }
+
+  const handleViewReportFromReminder = (reportId: string) => {
+    setDrawerReminderId(null)
+    setTimeout(() => setDrawerReportId(reportId), 50)
   }
 
   return (
@@ -134,7 +153,10 @@ export default function CaregiverReminders() {
                   {group.reminders.map((reminder) => (
                     <div key={reminder.id} className="relative">
                       <div className="absolute -left-[29px] top-3 w-3 h-3 rounded-full bg-gray-300 border-2 border-white" />
-                      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+                      <div
+                        className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 cursor-pointer hover:border-gray-300 hover:shadow-md transition-all"
+                        onClick={() => handleCardClick(reminder.id, reminder.status)}
+                      >
                         <div className="flex items-start justify-between gap-4">
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-3 mb-2">
@@ -153,13 +175,19 @@ export default function CaregiverReminders() {
                           </div>
                           <StatusTag
                             status={reminder.status}
-                            onClick={() => handleReminderClick(reminder.id)}
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleStatusTagClick(reminder.id, reminder.status)
+                            }}
                             pulse={reminder.status === 'timeout'}
                           />
                         </div>
 
                         {reminder.status === 'pending' && (
-                          <div className="flex items-center gap-3 mt-3 pt-3 border-t border-gray-100">
+                          <div
+                            className="flex items-center gap-3 mt-3 pt-3 border-t border-gray-100"
+                            onClick={(e) => e.stopPropagation()}
+                          >
                             <button
                               onClick={() => confirmReminder(reminder.id)}
                               className="px-4 py-1.5 text-sm font-medium text-white bg-primary-600 rounded-lg hover:bg-primary-700 transition-colors"
@@ -195,6 +223,13 @@ export default function CaregiverReminders() {
         reportId={drawerReportId || ''}
         isOpen={!!drawerReportId}
         onClose={() => setDrawerReportId(null)}
+      />
+
+      <ReminderDetailDrawer
+        reminderId={drawerReminderId || ''}
+        isOpen={!!drawerReminderId}
+        onClose={() => setDrawerReminderId(null)}
+        onViewReport={handleViewReportFromReminder}
       />
 
       <AnomalyTypeModal
