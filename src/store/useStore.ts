@@ -3,6 +3,7 @@ import type { User, Elder, Bed, FamilyMember, VisitAppointment, CommunicationRec
 import { mockUsers, mockElders, mockBeds, mockFamilyMembers, mockVisitAppointments, mockCommunications } from '../data/mockData';
 import { generateIdempotencyKey, checkIdempotency, storeIdempotencyResult } from '../utils/idempotent';
 import { hasPermission } from '../utils/permissions';
+import { validateVisitTransition, validateCommunicationTransition } from '../utils/statusConstraints';
 
 interface AppState {
   currentUser: User | null;
@@ -50,9 +51,21 @@ export const useStore = create<AppState>((set, get) => ({
 
   switchRole: (role: UserRole) => {
     const users = get().users;
-    const user = users.find(u => u.role === role);
-    if (user) {
-      set({ currentUser: user });
+    const currentUser = get().currentUser;
+    const matchingUsers = users.filter(u => u.role === role);
+    if (matchingUsers.length === 0) return;
+
+    if (matchingUsers.length === 1) {
+      set({ currentUser: matchingUsers[0] });
+      return;
+    }
+
+    if (currentUser && matchingUsers.some(u => u.id === currentUser.id)) {
+      const currentIndex = matchingUsers.findIndex(u => u.id === currentUser.id);
+      const nextIndex = (currentIndex + 1) % matchingUsers.length;
+      set({ currentUser: matchingUsers[nextIndex] });
+    } else {
+      set({ currentUser: matchingUsers[0] });
     }
   },
 
@@ -99,6 +112,11 @@ export const useStore = create<AppState>((set, get) => ({
 
     const visit = visitAppointments.find(v => v.id === visitId);
     if (!visit) return { success: false, error: '预约不存在' };
+
+    const validation = validateVisitTransition(visit.status, newStatus, currentUser.role);
+    if (!validation.valid) {
+      return { success: false, error: validation.reason || '状态变更不允许' };
+    }
 
     const canUpdate = 
       currentUser.role === 'nurse_manager' ||
@@ -234,10 +252,18 @@ export const useStore = create<AppState>((set, get) => ({
     const comm = communications.find(c => c.id === commId);
     if (!comm) return { success: false, error: '沟通记录不存在' };
 
+    const isAssignee = comm.assignedTo === currentUser.id;
+    const isCreator = comm.createdBy === currentUser.id;
+
+    const validation = validateCommunicationTransition(comm.status, newStatus, currentUser.role, isAssignee, isCreator);
+    if (!validation.valid) {
+      return { success: false, error: validation.reason || '状态变更不允许' };
+    }
+
     const canUpdate = 
       currentUser.role === 'nurse_manager' ||
-      comm.assignedTo === currentUser.id ||
-      comm.createdBy === currentUser.id;
+      isAssignee ||
+      isCreator;
 
     if (!canUpdate) {
       return { success: false, error: '您没有权限修改此沟通记录' };
@@ -318,7 +344,7 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   getVisitsByCurrentUser: () => {
-    const { currentUser, visitAppointments, elders } = get();
+    const { currentUser, visitAppointments, elders, familyMembers } = get();
     if (!currentUser) return [];
     
     if (currentUser.role === 'nurse_manager' || hasPermission(currentUser.role, 'canViewAllVisits')) {
@@ -330,11 +356,23 @@ export const useStore = create<AppState>((set, get) => ({
       return visitAppointments.filter(v => myElders.includes(v.elderId));
     }
 
+    if (currentUser.role === 'social_worker') {
+      return visitAppointments;
+    }
+
+    if (currentUser.role === 'family') {
+      const relatedFamilyIds = familyMembers.filter(f => f.phone === currentUser.phone).map(f => f.id);
+      return visitAppointments.filter(v => 
+        v.createdBy === currentUser.id || 
+        relatedFamilyIds.includes(v.familyMemberId)
+      );
+    }
+
     return visitAppointments.filter(v => v.createdBy === currentUser.id);
   },
 
   getCommunicationsByCurrentUser: () => {
-    const { currentUser, communications, elders } = get();
+    const { currentUser, communications, elders, familyMembers } = get();
     if (!currentUser) return [];
     
     if (currentUser.role === 'nurse_manager' || hasPermission(currentUser.role, 'canViewAllCommunications')) {
@@ -347,6 +385,14 @@ export const useStore = create<AppState>((set, get) => ({
         myElders.includes(c.elderId) || 
         c.assignedTo === currentUser.id ||
         c.createdBy === currentUser.id
+      );
+    }
+
+    if (currentUser.role === 'family') {
+      const relatedFamilyIds = familyMembers.filter(f => f.phone === currentUser.phone).map(f => f.id);
+      return communications.filter(c => 
+        c.createdBy === currentUser.id || 
+        relatedFamilyIds.includes(c.familyMemberId)
       );
     }
 

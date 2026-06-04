@@ -1,4 +1,4 @@
-import { Users, UserCog, Shield, HeartHandshake } from 'lucide-react';
+import { Users, UserCog, Shield, HeartHandshake, User } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import type { UserRole } from '../types';
 import { cn } from '../utils/cn';
@@ -7,6 +7,7 @@ const roleConfig: { role: UserRole; label: string; icon: typeof Users }[] = [
   { role: 'nurse_manager', label: '护理主管', icon: Shield },
   { role: 'primary_nurse', label: '责任护工', icon: UserCog },
   { role: 'social_worker', label: '社工', icon: HeartHandshake },
+  { role: 'family', label: '家属', icon: User },
 ];
 
 export function RoleSwitcher() {
