@@ -271,7 +271,7 @@ export default function BatchDetailPage() {
         <div className="space-y-4">
           <div className="card">
             <div className="px-4 py-3 border-b border-brew-border font-medium">
-              � 完整追溯时间线 ({allEvents.length})
+              完整追溯时间线 ({allEvents.length})
             </div>
             <div className="p-4 max-h-[600px] overflow-y-auto">
               {allEvents.length > 0 ? (

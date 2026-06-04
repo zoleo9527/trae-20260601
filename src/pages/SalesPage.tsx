@@ -440,25 +440,27 @@ export default function SalesPage() {
                           <div className="text-xs text-amber-400 mb-1">
                             变更记录 ({selectedFeedingLogs.length})
                           </div>
-                          <div className="space-y-1">
-                            {selectedFeedingLogs.slice(0, 3).map((log) => (
-                              <div key={log.id} className="text-xs">
-                                <span className="text-amber-300">
-                                  {log.fieldName === 'ingredients' ? '原料明细' : log.fieldName}
-                                </span>
-                                <span className="text-gray-500 ml-1">
-                                  {new Date(log.changeTime).toLocaleDateString('zh-CN')}
-                                </span>
+                          <div className="space-y-2">
+                            {selectedFeedingLogs.map((log) => (
+                              <div key={log.id} className="bg-brew-dark p-2 rounded text-xs">
+                                <div className="flex justify-between text-gray-500 mb-1">
+                                  <span className="text-amber-300 font-medium">
+                                    {log.fieldName === 'ingredients' ? '原料明细' : log.fieldName}
+                                  </span>
+                                  <span>
+                                    {log.operator}（{USER_ROLE_LABELS[log.operatorRole]}）
+                                  </span>
+                                </div>
+                                <div className="text-red-400">旧: {log.oldValue}</div>
+                                <div className="text-green-400">新: {log.newValue}</div>
                                 {log.reason && (
-                                  <div className="text-gray-400">原因：{log.reason}</div>
+                                  <div className="text-amber-400 mt-1">原因: {log.reason}</div>
                                 )}
+                                <div className="text-gray-500 mt-1">
+                                  {new Date(log.changeTime).toLocaleString('zh-CN')}
+                                </div>
                               </div>
                             ))}
-                            {selectedFeedingLogs.length > 3 && (
-                              <div className="text-xs text-gray-500">
-                                还有 {selectedFeedingLogs.length - 3} 条...
-                              </div>
-                            )}
                           </div>
                         </div>
                       )}
@@ -487,6 +489,51 @@ export default function SalesPage() {
                           目标容量: {selectedRecipe.targetVolume}L · 发酵周期: {selectedRecipe.fermentationDays}天
                         </div>
                       </div>
+                    </div>
+                  </>
+                )}
+
+                {selectedPackaging.length > 0 && (
+                  <>
+                    <h4 className="text-sm font-medium text-gray-400 mb-2 mt-3">
+                      📦 包装记录 ({selectedPackaging.length})
+                    </h4>
+                    <div className="space-y-2">
+                      {selectedPackaging.map((pkg) => (
+                        <div
+                          key={pkg.id}
+                          className={`p-2 rounded text-xs border ${
+                            pkg.qualityStatus === 'fail'
+                              ? 'bg-red-900/20 border-red-800'
+                              : pkg.qualityStatus === 'pass'
+                              ? 'bg-green-900/10 border-green-900'
+                              : 'bg-brew-lighter border-brew-border'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="font-medium">
+                              {pkg.packagingType} x {pkg.quantity}
+                            </span>
+                            <span
+                              className={`px-1.5 py-0.5 rounded ${
+                                pkg.qualityStatus === 'pass'
+                                  ? 'bg-green-700 text-white'
+                                  : pkg.qualityStatus === 'fail'
+                                  ? 'bg-red-700 text-white'
+                                  : 'bg-gray-600 text-white'
+                              }`}
+                            >
+                              {pkg.qualityStatus === 'pass' ? '质检通过' : pkg.qualityStatus === 'fail' ? '不合格' : '待检'}
+                            </span>
+                          </div>
+                          <div className="text-gray-500">
+                            操作人: {pkg.operator} · {new Date(pkg.packagingTime).toLocaleString('zh-CN')}
+                          </div>
+                          {pkg.notes && (
+                            <div className="text-gray-400 mt-1">备注: {pkg.notes}</div>
+                          )}
+                        </div>
+                      ))}
                     </div>
                   </>
                 )}
