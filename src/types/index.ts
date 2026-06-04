@@ -51,6 +51,17 @@ export interface MedicationTask {
 
 export type FollowupStatus = 'pending' | 'notified' | 'confirmed' | 'completed' | 'rescheduled' | 'missed'
 
+export type FollowupAction = 'notify_patient' | 'confirm_attendance' | 'complete_followup' | 'reschedule' | 'mark_missed'
+
+export interface ProcessFollowupRequest {
+  action: FollowupAction
+  status: FollowupStatus
+  remark: string
+  specialist_name?: string
+  scheduled_date?: string
+  scheduled_time?: string
+}
+
 export interface FollowupTask {
   id: string
   patientId: string

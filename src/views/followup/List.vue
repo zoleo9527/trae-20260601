@@ -280,7 +280,7 @@ import dayjs from 'dayjs'
 import { Refresh, Search, WarningFilled, Calendar, Clock, View, User, Right } from '@element-plus/icons-vue'
 import { useAppStore } from '@/store/useAppStore'
 import { useAuthStore } from '@/store/useAuthStore'
-import type { FollowupTask, OperationLog } from '@/types'
+import type { FollowupTask, OperationLog, ProcessFollowupRequest, FollowupAction, FollowupStatus } from '@/types'
 
 const router = useRouter()
 const appStore = useAppStore()
@@ -302,7 +302,14 @@ const filters = reactive({
   patient_name: ''
 })
 
-const processForm = reactive({
+const processForm = reactive<{
+  action: FollowupAction | ''
+  status: FollowupStatus | ''
+  remark: string
+  specialist_name: string
+  scheduled_date: string
+  scheduled_time: string
+}>({
   action: '',
   status: '',
   remark: '',
@@ -423,7 +430,7 @@ function handleProcess(row: FollowupTask) {
   processForm.scheduled_date = ''
   processForm.scheduled_time = ''
 
-  const actionMap: Record<string, { action: string; status: string }> = {
+  const actionMap: Record<string, { action: FollowupAction; status: FollowupStatus }> = {
     pending: { action: 'notify_patient', status: 'notified' },
     notified: { action: 'confirm_attendance', status: 'confirmed' },
     confirmed: { action: 'complete_followup', status: 'completed' },
@@ -454,11 +461,11 @@ async function confirmProcess() {
 
   processing.value = true
   try {
-    const data: any = {
-      action: processForm.action,
-      status: processForm.status,
+    const data: ProcessFollowupRequest = {
+      action: processForm.action as FollowupAction,
+      status: processForm.status as FollowupStatus,
       remark: processForm.remark.trim(),
-      specialist_name: processForm.specialist_name
+      specialist_name: processForm.specialist_name || undefined
     }
     if (processForm.scheduled_date) data.scheduled_date = processForm.scheduled_date
     if (processForm.scheduled_time) data.scheduled_time = processForm.scheduled_time

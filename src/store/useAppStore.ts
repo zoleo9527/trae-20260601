@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import api from '@/api'
-import type { MedicationTask, FollowupTask, DashboardStats, OperationLog } from '@/types'
+import type { MedicationTask, FollowupTask, DashboardStats, OperationLog, ProcessFollowupRequest } from '@/types'
 
 export const useAppStore = defineStore('app', () => {
   const medicationTasks = ref<MedicationTask[]>([])
@@ -54,7 +54,7 @@ export const useAppStore = defineStore('app', () => {
     return res.data
   }
 
-  async function processFollowup(id: string, data: any) {
+  async function processFollowup(id: string, data: ProcessFollowupRequest) {
     const res = await api.processFollowup(id, data)
     return res.data
   }

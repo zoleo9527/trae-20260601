@@ -98,9 +98,6 @@ def process_followup(
     body: schemas.ProcessFollowupRequest,
     db: Session = Depends(get_db)
 ):
-    if not body.remark or not body.remark.strip():
-        raise HTTPException(status_code=400, detail="请输入处理备注，说明为什么要这样处理")
-
     operator_name = request.headers.get("x-user-name", "")
     operator_name = operator_name.encode('latin1').decode('utf-8') if operator_name else "未知用户"
     operator_role = request.headers.get("x-user-role", "")
@@ -146,7 +143,7 @@ def process_followup(
         description=description,
         old_status=old_status,
         new_status=body.status,
-        remark=body.remark.strip()
+        remark=body.remark
     )
     db.add(log)
     db.commit()

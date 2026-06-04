@@ -1,5 +1,6 @@
 import axios from 'axios'
 import { ElMessage } from 'element-plus'
+import type { ProcessFollowupRequest } from '@/types'
 
 const request = axios.create({
   baseURL: '/api',
@@ -50,7 +51,7 @@ export default {
     return request.get(`/followup/${id}`)
   },
 
-  processFollowup(id: string, data: any) {
+  processFollowup(id: string, data: ProcessFollowupRequest) {
     return request.post(`/followup/${id}/process`, data)
   },
 

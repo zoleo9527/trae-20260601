@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from typing import List, Optional
 from datetime import datetime
 
@@ -137,10 +137,18 @@ class ProcessMedicationRequest(BaseModel):
 class ProcessFollowupRequest(BaseModel):
     action: str
     status: str
-    remark: Optional[str] = None
+    remark: str
     specialist_name: Optional[str] = None
     scheduled_date: Optional[str] = None
     scheduled_time: Optional[str] = None
+
+    @field_validator('remark')
+    @classmethod
+    def remark_must_be_non_blank(cls, v: str) -> str:
+        stripped = v.strip()
+        if not stripped:
+            raise ValueError('请输入处理备注，说明为什么要这样处理')
+        return stripped
 
 
 class TodoItem(BaseModel):

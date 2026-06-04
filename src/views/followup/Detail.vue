@@ -357,7 +357,7 @@ import {
 } from '@element-plus/icons-vue'
 import { useAppStore } from '@/store/useAppStore'
 import { useAuthStore } from '@/store/useAuthStore'
-import type { OperationLog } from '@/types'
+import type { OperationLog, ProcessFollowupRequest, FollowupAction, FollowupStatus } from '@/types'
 
 const route = useRoute()
 const router = useRouter()
@@ -377,7 +377,14 @@ const statusSteps = [
   { status: 'completed', text: '复诊完成' }
 ]
 
-const processForm = reactive({
+const processForm = reactive<{
+  action: FollowupAction | ''
+  status: FollowupStatus | ''
+  remark: string
+  specialist_name: string
+  scheduled_date: string
+  scheduled_time: string
+}>({
   action: '',
   status: '',
   remark: '',
@@ -501,7 +508,7 @@ function handleProcess() {
   processForm.scheduled_date = ''
   processForm.scheduled_time = ''
 
-  const actionMap: Record<string, { action: string; status: string }> = {
+  const actionMap: Record<string, { action: FollowupAction; status: FollowupStatus }> = {
     pending: { action: 'notify_patient', status: 'notified' },
     notified: { action: 'confirm_attendance', status: 'confirmed' },
     confirmed: { action: 'complete_followup', status: 'completed' },
@@ -534,12 +541,13 @@ async function handleMarkMissed() {
 
     processing.value = true
     try {
-      await appStore.processFollowup(detail.value.id, {
+      const data: ProcessFollowupRequest = {
         action: 'mark_missed',
         status: 'missed',
         remark: reason.trim(),
-        specialist_name: authStore.user?.name
-      })
+        specialist_name: authStore.user?.name || undefined
+      }
+      await appStore.processFollowup(detail.value.id, data)
       ElMessage.success('标记成功')
       loadData()
     } finally {
@@ -578,11 +586,11 @@ async function confirmProcess() {
 
   processing.value = true
   try {
-    const data: any = {
-      action: processForm.action,
-      status: processForm.status,
+    const data: ProcessFollowupRequest = {
+      action: processForm.action as FollowupAction,
+      status: processForm.status as FollowupStatus,
       remark: processForm.remark.trim(),
-      specialist_name: processForm.specialist_name
+      specialist_name: processForm.specialist_name || undefined
     }
     if (processForm.scheduled_date) data.scheduled_date = processForm.scheduled_date
     if (processForm.scheduled_time) data.scheduled_time = processForm.scheduled_time
