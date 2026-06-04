@@ -3,15 +3,18 @@ import { useAppStore } from '@/store/useAppStore';
 import { ANOMALY_TYPE_LABELS, NURSING_LEVEL_COLORS, NURSING_LEVEL_LABELS, NURSING_LEVEL_STATUS_LABELS, ROLE_LABELS, type AnomalyType, type NursingLevel, type NursingLevelStatus } from '@/types';
 import { AlertTriangle, Check, ChevronDown, ChevronRight, Keyboard, RotateCcw, Search, X } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 
 export default function NursingLevelsPage() {
   const { nursingLevels, residents, beds, currentRole, confirmNursingLevel, markAnomaly, returnNursingLevel, triggerAlert, addNoteToNursingLevel, selectNursingLevel, selectedNursingLevelId } = useAppStore();
+  const [urlParams, setUrlParams] = useSearchParams();
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<NursingLevelStatus | null>(null);
   const [returnModal, setReturnModal] = useState<{ id: string; residentName: string } | null>(null);
   const [anomalyModal, setAnomalyModal] = useState<{ id: string; residentName: string } | null>(null);
   const [detailId, setDetailId] = useState<string | null>(null);
   const [focusedRowIndex, setFocusedRowIndex] = useState<number>(0);
+  const [urlParamsApplied, setUrlParamsApplied] = useState(false);
 
   const filteredLevels = useMemo(() => {
     return nursingLevels.filter((nl) => {
@@ -70,6 +73,34 @@ export default function NursingLevelsPage() {
       setFocusedRowIndex(Math.max(0, filteredLevels.length - 1));
     }
   }, [filteredLevels.length, focusedRowIndex]);
+
+  useEffect(() => {
+    if (urlParamsApplied || nursingLevels.length === 0) return;
+    const focusId = urlParams.get('focus');
+    const statusParam = urlParams.get('status') as NursingLevelStatus | null;
+    
+    if (statusParam && ['pending', 'confirmed', 'anomaly', 'returned'].includes(statusParam)) {
+      setStatusFilter(statusParam);
+    }
+    
+    if (focusId) {
+      const targetNl = nursingLevels.find((nl) => nl.id === focusId);
+      if (targetNl) {
+        setDetailId(focusId);
+        setTimeout(() => {
+          const row = document.querySelector(`[data-nursing-level-id="${focusId}"]`);
+          if (row) {
+            row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }
+        }, 100);
+      }
+    }
+    
+    setUrlParamsApplied(true);
+    urlParams.delete('focus');
+    urlParams.delete('status');
+    setUrlParams(urlParams, { replace: true });
+  }, [urlParamsApplied, nursingLevels, urlParams, setUrlParams]);
 
   const sourceLabels: Record<string, string> = {
     bed_arrangement: '床位安排',
@@ -167,6 +198,7 @@ export default function NursingLevelsPage() {
                 return (
                   <tr
                     key={nl.id}
+                    data-nursing-level-id={nl.id}
                     className={cn(
                       'border-b border-slate-50 hover:bg-slate-50/50 cursor-pointer transition-colors',
                       isAnomaly && 'border-l-2 border-l-red-400 bg-red-50/20',
@@ -377,14 +409,15 @@ function DetailPanel({ nursingLevel, residentName, bedLabel, onClose, timelineSo
       events.push({
         id: 'anomaly-' + nursingLevel.id,
         type: 'anomaly',
-        title: `异常标记：${ANOMALY_TYPE_LABELS[nursingLevel.anomalyDetail.type]}`,
+        title: nursingLevel.anomalyDetail.action === 'return'
+          ? `退回：${ANOMALY_TYPE_LABELS[nursingLevel.anomalyDetail.type]}`
+          : `异常标记：${ANOMALY_TYPE_LABELS[nursingLevel.anomalyDetail.type]}`,
         description: nursingLevel.anomalyDetail.description + 
           (nursingLevel.anomalyDetail.returnReason ? `\n退回原因：${nursingLevel.anomalyDetail.returnReason}` : ''),
-        time: nursingLevel.status === 'anomaly' ? new Date().toISOString() : 
-              nursingLevel.status === 'returned' ? new Date().toISOString() : nursingLevel.createdAt,
+        time: nursingLevel.anomalyDetail.occurredAt,
         source: 'anomaly_report',
         createdBy: 'care_worker',
-        color: 'bg-red-500',
+        color: nursingLevel.anomalyDetail.action === 'return' ? 'bg-amber-500' : 'bg-red-500',
       });
     }
 
@@ -491,6 +524,7 @@ function DetailPanel({ nursingLevel, residentName, bedLabel, onClose, timelineSo
                   'bg-amber-100 text-amber-700'
                 )}>
                   {event.type === 'level_change' ? '等级变更' :
+                   event.type === 'anomaly' && event.title.startsWith('退回') ? '退回' :
                    event.type === 'anomaly' ? '异常' :
                    event.type === 'note' ? '备注' : '状态'}
                 </span>

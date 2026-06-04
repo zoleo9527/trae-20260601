@@ -28,13 +28,7 @@
   "bundle": {
     "active": true,
     "targets": "all",
-    "icon": [
-      "icons/32x32.png",
-      "icons/128x128.png",
-      "icons/128x128@2x.png",
-      "icons/icon.icns",
-      "icons/icon.ico"
-    ],
+    "icon": [],
     "category": "Productivity",
     "shortDescription": "养老护理院床位安排与护理等级管理系统",
     "longDescription": "用于养老护理院的床位安排、护理等级评估、异常处理和流程管理的桌面应用系统。",
