@@ -85,20 +85,31 @@ public class ExportController {
     }
 
     @GetMapping("/tasks/{taskId}/download")
-    public ResponseEntity<byte[]> downloadTaskResult(@PathVariable Long taskId) {
+    public ResponseEntity<?> downloadTaskResult(@PathVariable Long taskId) {
         ExportTaskVO task = exportService.getTaskDetail(taskId);
         if (task == null) {
-            return ResponseEntity.notFound().build();
+            return ResponseEntity.status(404).body(Map.of("error", "导出任务不存在", "taskId", taskId));
         }
         if (task.getStatus() != ExportTaskStatus.COMPLETED) {
-            return ResponseEntity.badRequest().body(null);
+            return ResponseEntity.status(400).body(Map.of(
+                    "error", "导出任务尚未完成或已失败",
+                    "status", task.getStatus().getDisplayName(),
+                    "taskId", taskId
+            ));
         }
-        byte[] content = exportService.getTaskFileContent(taskId);
-        String fileName = URLEncoder.encode(task.getFileName(), StandardCharsets.UTF_8);
-        return ResponseEntity.ok()
-                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename*=UTF-8''" + fileName)
-                .contentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
-                .body(content);
+        try {
+            byte[] content = exportService.getTaskFileContent(taskId);
+            String fileName = URLEncoder.encode(task.getFileName(), StandardCharsets.UTF_8);
+            return ResponseEntity.ok()
+                    .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename*=UTF-8''" + fileName)
+                    .contentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+                    .body(content);
+        } catch (IllegalStateException e) {
+            return ResponseEntity.status(400).body(Map.of(
+                    "error", e.getMessage(),
+                    "taskId", taskId
+            ));
+        }
     }
 
     @PostMapping("/tasks/{taskId}/retry")

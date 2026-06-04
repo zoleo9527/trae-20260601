@@ -18,6 +18,8 @@ import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -200,7 +202,14 @@ public class ExportService {
     @Transactional
     public ExportTaskVO submitTask(ExportRequestDTO dto, String exportTypeStr) {
         ExportTask task = createTask(dto, exportTypeStr);
-        asyncExportService.executeTaskAsync(task.getId());
+        Long taskId = task.getId();
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                log.info("事务已提交，启动异步导出任务: {}", taskId);
+                asyncExportService.executeTaskAsync(taskId);
+            }
+        });
         return ExportTaskVO.fromEntity(task);
     }
 
@@ -260,6 +269,9 @@ public class ExportService {
         if (task.getStatus() != ExportTaskStatus.COMPLETED) {
             throw new IllegalStateException("导出任务尚未完成或已失败，状态: " + task.getStatus().getDisplayName());
         }
+        if (task.getFileContent() == null || task.getFileContent().length == 0) {
+            throw new IllegalStateException("导出文件内容为空，任务ID: " + taskId + "，可能文件生成异常，请重试");
+        }
         return task.getFileContent();
     }
 
@@ -279,7 +291,13 @@ public class ExportService {
         task.setFileSize(null);
         task.setRecordCount(null);
         exportTaskRepository.save(task);
-        asyncExportService.executeTaskAsync(taskId);
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                log.info("事务已提交，启动重试导出任务: {}", taskId);
+                asyncExportService.executeTaskAsync(taskId);
+            }
+        });
     }
 
     private CellStyle createHeaderStyle(Workbook workbook) {
