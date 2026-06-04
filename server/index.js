@@ -98,6 +98,50 @@ app.put('/api/notifications/:id/read', async (req, res) => {
   res.json(notification);
 });
 
+app.get('/api/filling-schedules/available', async (req, res) => {
+  const schedules = await prisma.fillingSchedule.findMany({
+    where: {
+      status: { in: [FillingStatus.APPROVED, FillingStatus.IN_PRODUCTION] }
+    },
+    include: {
+      createdBy: true,
+      packagingRequisitions: { include: { history: true } },
+      history: { include: { createdBy: true }, orderBy: { createdAt: 'desc' } }
+    },
+    orderBy: { createdAt: 'desc' }
+  });
+
+  const result = schedules.map(s => {
+    const lastAdjustment = s.history.find(h => h.action === '排产调整' || h.action === '补录后重提');
+    const hasChangeNotification = s.packagingRequisitions.some(r =>
+      r.history.some(h => h.scheduleChangeNotified)
+    );
+
+    return {
+      id: s.id,
+      batchNo: s.batchNo,
+      productName: s.productName,
+      beerType: s.beerType,
+      volume: s.volume,
+      fillingDate: s.fillingDate,
+      targetBottles: s.targetBottles,
+      status: s.status,
+      currentHandler: s.currentHandler,
+      createdBy: s.createdBy,
+      lastAdjustment: lastAdjustment ? {
+        action: lastAdjustment.action,
+        remark: lastAdjustment.remark,
+        changes: lastAdjustment.changes ? JSON.parse(lastAdjustment.changes) : null,
+        createdAt: lastAdjustment.createdAt,
+        createdBy: lastAdjustment.createdBy
+      } : null,
+      hasChangeNotification
+    };
+  });
+
+  res.json(result);
+});
+
 app.get('/api/filling-schedules', async (req, res) => {
   const schedules = await prisma.fillingSchedule.findMany({
     include: { createdBy: true, history: { include: { createdBy: true }, orderBy: { createdAt: 'desc' } } },
@@ -381,6 +425,23 @@ app.get('/api/packaging-requisitions/:id', async (req, res) => {
 
 app.post('/api/packaging-requisitions', async (req, res) => {
   const { scheduleId, bottleType, bottleCount, labelType, cartonType, requiredDate, createdById } = req.body;
+
+  const schedule = await prisma.fillingSchedule.findUnique({ where: { id: parseInt(scheduleId) } });
+  if (!schedule) {
+    return res.status(400).json({ error: '关联的灌装排产不存在' });
+  }
+
+  const statusLabel = {
+    DRAFT: '草稿', SUBMITTED: '待复核', REJECTED: '已驳回',
+    APPROVED: '已通过', IN_PRODUCTION: '生产中', COMPLETED: '已完成'
+  };
+
+  if (schedule.status !== FillingStatus.APPROVED && schedule.status !== FillingStatus.IN_PRODUCTION) {
+    return res.status(400).json({
+      error: `灌装排产 ${schedule.batchNo} 当前状态为「${statusLabel[schedule.status]}」，仅允许从已通过或生产中的排产发起领用`
+    });
+  }
+
   const requisitionNo = `PACK-${new Date().getFullYear()}${String(new Date().getMonth() + 1).padStart(2, '0')}${String(Date.now()).slice(-4)}`;
 
   const requisition = await prisma.packagingRequisition.create({
