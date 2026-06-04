@@ -1,0 +1,119 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model User {
+  id        String   @id @default(cuid())
+  username  String   @unique
+  name      String
+  password  String
+  role      String
+  avatar    String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  createdBookings   GroupBooking[] @relation("creator")
+  handledBookings   GroupBooking[] @relation("handler")
+  createdImports    PersonnelImport[] @relation("importCreator")
+  createdTimelines  Timeline[]
+}
+
+model GroupBooking {
+  id              String   @id @default(cuid())
+  bookingNo       String   @unique
+  companyName     String
+  contactPerson   String
+  contactPhone    String
+  scheduledDate   DateTime
+  expectedCount   Int
+  actualCount     Int      @default(0)
+  status          String   @default("DRAFT")
+  packageType     String?
+  pricePerPerson  Float?
+  totalAmount     Float?
+  remark          String?
+  createdById     String
+  handledById     String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @default(now())
+
+  createdBy       User           @relation("creator", fields: [createdById], references: [id])
+  handledBy       User?          @relation("handler", fields: [handledById], references: [id])
+  personnel       Personnel[]
+  imports         PersonnelImport[]
+  timelines       Timeline[]
+  exceptions      ExceptionRecord[]
+}
+
+model PersonnelImport {
+  id              String   @id @default(cuid())
+  importNo        String   @unique
+  bookingId       String
+  status          String   @default("PENDING")
+  fileName        String
+  totalCount      Int      @default(0)
+  successCount    Int      @default(0)
+  failCount       Int      @default(0)
+  errorMessage    String?
+  createdById     String
+  createdAt       DateTime @default(now())
+
+  booking         GroupBooking   @relation(fields: [bookingId], references: [id])
+  createdBy       User           @relation("importCreator", fields: [createdById], references: [id])
+  personnel       Personnel[]
+}
+
+model Personnel {
+  id              String   @id @default(cuid())
+  bookingId       String
+  importId        String?
+  name            String
+  gender          String?
+  age             Int?
+  idCard          String?
+  phone           String?
+  department      String?
+  position        String?
+  isCompleted     Boolean  @default(false)
+  completedAt     DateTime?
+  remark          String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  booking         GroupBooking   @relation(fields: [bookingId], references: [id])
+  import          PersonnelImport? @relation(fields: [importId], references: [id])
+}
+
+model ExceptionRecord {
+  id              String   @id @default(cuid())
+  bookingId       String
+  type            String
+  description     String
+  handledById     String?
+  isHandled       Boolean  @default(false)
+  createdAt       DateTime @default(now())
+  handledAt       DateTime?
+
+  booking         GroupBooking   @relation(fields: [bookingId], references: [id])
+}
+
+model Timeline {
+  id              String   @id @default(cuid())
+  bookingId       String?
+  importId        String?
+  personnelId     String?
+  action          String
+  description     String
+  oldValue        String?
+  newValue        String?
+  createdById     String
+  createdAt       DateTime @default(now())
+
+  booking         GroupBooking?  @relation(fields: [bookingId], references: [id])
+  createdBy       User           @relation(fields: [createdById], references: [id])
+}
