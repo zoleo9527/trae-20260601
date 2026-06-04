@@ -8,28 +8,55 @@ import { AlertBanner } from '../components/AlertBanner';
 
 export function VisitNew() {
   const navigate = useNavigate();
-  const { currentUser, elders, familyMembers, createVisitAppointment } = useStore();
+  const { currentUser, elders, familyMembers, createVisitAppointment, getMyElders, getMyFamilyMembers } = useStore();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [idempotencyKey] = useState(generateIdempotencyKey());
 
-  const [formData, setFormData] = useState({
-    elderId: '',
-    familyMemberId: '',
-    visitorName: '',
-    visitorPhone: '',
-    visitorIdCard: '',
-    numberOfVisitors: 1,
-    requestedDate: '',
-    requestedTimeSlot: '',
-    visitType: 'regular' as 'regular' | 'special' | 'emergency',
-    purpose: '',
+  const isFamily = currentUser?.role === 'family';
+  const myElders = isFamily ? getMyElders() : elders;
+  const myFamilyMembers = isFamily ? getMyFamilyMembers() : familyMembers;
+
+  const [formData, setFormData] = useState(() => {
+    if (isFamily) {
+      const myMembers = getMyFamilyMembers();
+      if (myMembers.length > 0) {
+        const firstMember = myMembers[0];
+        const firstElder = getMyElders().find(e => e.id === firstMember.elderId);
+        return {
+          elderId: firstElder?.id || '',
+          familyMemberId: firstMember.id,
+          visitorName: currentUser!.name,
+          visitorPhone: currentUser!.phone,
+          visitorIdCard: '',
+          numberOfVisitors: 1,
+          requestedDate: '',
+          requestedTimeSlot: '',
+          visitType: 'regular' as 'regular' | 'special' | 'emergency',
+          purpose: '',
+        };
+      }
+    }
+    return {
+      elderId: '',
+      familyMemberId: '',
+      visitorName: '',
+      visitorPhone: '',
+      visitorIdCard: '',
+      numberOfVisitors: 1,
+      requestedDate: '',
+      requestedTimeSlot: '',
+      visitType: 'regular' as 'regular' | 'special' | 'emergency',
+      purpose: '',
+    };
   });
 
   const canCreate = currentUser && hasPermission(currentUser.role, 'canCreateVisit');
 
   const selectedElder = elders.find(e => e.id === formData.elderId);
-  const relatedFamilies = familyMembers.filter(f => f.elderId === formData.elderId);
+  const relatedFamilies = isFamily 
+    ? myFamilyMembers.filter(f => f.elderId === formData.elderId)
+    : familyMembers.filter(f => f.elderId === formData.elderId);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -70,6 +97,7 @@ export function VisitNew() {
   };
 
   const handleElderChange = (elderId: string) => {
+    if (isFamily) return;
     setFormData(prev => ({
       ...prev,
       elderId,
@@ -80,6 +108,7 @@ export function VisitNew() {
   };
 
   const handleFamilyChange = (familyId: string) => {
+    if (isFamily) return;
     const family = familyMembers.find(f => f.id === familyId);
     if (family) {
       setFormData(prev => ({
@@ -142,14 +171,18 @@ export function VisitNew() {
                   onChange={e => handleElderChange(e.target.value)}
                   className="input"
                   required
+                  disabled={isFamily}
                 >
                   <option value="">请选择</option>
-                  {elders.map(elder => (
+                  {myElders.map(elder => (
                     <option key={elder.id} value={elder.id}>
                       {elder.name} ({elder.age}岁)
                     </option>
                   ))}
                 </select>
+                {isFamily && formData.elderId && (
+                  <p className="text-xs text-gray-500 mt-1">仅可预约您关联的老人</p>
+                )}
               </div>
 
               <div>
@@ -182,6 +215,7 @@ export function VisitNew() {
                       onChange={e => handleFamilyChange(e.target.value)}
                       className="input"
                       required
+                      disabled={isFamily}
                     >
                       <option value="">请选择家属</option>
                       {relatedFamilies.map(family => (
@@ -190,6 +224,9 @@ export function VisitNew() {
                         </option>
                       ))}
                     </select>
+                    {isFamily && formData.familyMemberId && (
+                      <p className="text-xs text-gray-500 mt-1">已自动绑定为您本人</p>
+                    )}
                   </div>
                   <div>
                     <label className="label">探视人数</label>
@@ -214,11 +251,13 @@ export function VisitNew() {
                 <input
                   type="text"
                   value={formData.visitorName}
-                  onChange={e => setFormData(prev => ({ ...prev, visitorName: e.target.value }))}
+                  onChange={e => isFamily ? null : setFormData(prev => ({ ...prev, visitorName: e.target.value }))}
                   placeholder="请输入访客姓名"
                   className="input"
                   required
+                  readOnly={isFamily}
                 />
+                {isFamily && <p className="text-xs text-gray-500 mt-1">已自动填充为您本人姓名</p>}
               </div>
               <div>
                 <label className="label">
@@ -227,11 +266,13 @@ export function VisitNew() {
                 <input
                   type="tel"
                   value={formData.visitorPhone}
-                  onChange={e => setFormData(prev => ({ ...prev, visitorPhone: e.target.value }))}
+                  onChange={e => isFamily ? null : setFormData(prev => ({ ...prev, visitorPhone: e.target.value }))}
                   placeholder="请输入联系电话"
                   className="input"
                   required
+                  readOnly={isFamily}
                 />
+                {isFamily && <p className="text-xs text-gray-500 mt-1">已自动填充为您的联系电话</p>}
               </div>
             </div>
 

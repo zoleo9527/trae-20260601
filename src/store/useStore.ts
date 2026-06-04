@@ -32,6 +32,8 @@ interface AppState {
 
   getVisitsByElderId: (elderId: string) => VisitAppointment[];
   getCommunicationsByElderId: (elderId: string) => CommunicationRecord[];
+  getMyFamilyMembers: () => FamilyMember[];
+  getMyElders: () => Elder[];
   canViewVisit: (visitId: string) => boolean;
   canViewCommunication: (commId: string) => boolean;
   getVisitsByCurrentUser: () => VisitAppointment[];
@@ -72,10 +74,23 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   createVisitAppointment: async (data, idempotencyKey) => {
-    const { currentUser } = get();
+    const { currentUser, familyMembers } = get();
     if (!currentUser) return { success: false, error: '请先登录' };
     if (!hasPermission(currentUser.role, 'canCreateVisit')) {
       return { success: false, error: '您没有创建预约的权限' };
+    }
+
+    if (currentUser.role === 'family') {
+      const myFamilyIds = familyMembers.filter(f => f.phone === currentUser.phone).map(f => f.id);
+      if (!myFamilyIds.includes(data.familyMemberId)) {
+        return { success: false, error: '您只能以本人身份提交预约申请' };
+      }
+      const myElderIds = familyMembers
+        .filter(f => myFamilyIds.includes(f.id))
+        .map(f => f.elderId);
+      if (!myElderIds.includes(data.elderId)) {
+        return { success: false, error: '您只能预约您关联的老人' };
+      }
     }
 
     const key = idempotencyKey || generateIdempotencyKey();
@@ -84,8 +99,14 @@ export const useStore = create<AppState>((set, get) => ({
       return { success: true, data: cached.result as VisitAppointment };
     }
 
+    const safeData = { ...data };
+    if (currentUser.role === 'family') {
+      safeData.visitorName = currentUser.name;
+      safeData.visitorPhone = currentUser.phone;
+    }
+
     const newVisit: VisitAppointment = {
-      ...data,
+      ...safeData,
       id: `visit_${Date.now()}`,
       requestId: `REQ_VISIT_${new Date().toISOString().split('T')[0].replace(/-/g, '')}_${String(get().visitAppointments.length + 1).padStart(3, '0')}`,
       status: 'pending_approval',
@@ -94,9 +115,10 @@ export const useStore = create<AppState>((set, get) => ({
         timestamp: new Date().toISOString(),
         operatorId: currentUser.id,
         operatorName: currentUser.name,
-        remark: '提交预约申请',
+        remark: currentUser.role === 'family' ? '家属提交预约申请' : '提交预约申请',
       }],
       createdAt: new Date().toISOString(),
+      createdBy: currentUser.id,
       isIdempotent: true,
     };
 
@@ -212,10 +234,23 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   createCommunication: async (data, idempotencyKey) => {
-    const { currentUser } = get();
+    const { currentUser, familyMembers } = get();
     if (!currentUser) return { success: false, error: '请先登录' };
     if (!hasPermission(currentUser.role, 'canCreateCommunication')) {
       return { success: false, error: '您没有创建沟通记录的权限' };
+    }
+
+    if (currentUser.role === 'family') {
+      const myFamilyIds = familyMembers.filter(f => f.phone === currentUser.phone).map(f => f.id);
+      if (!myFamilyIds.includes(data.familyMemberId)) {
+        return { success: false, error: '您只能以本人身份提交沟通记录' };
+      }
+      const myElderIds = familyMembers
+        .filter(f => myFamilyIds.includes(f.id))
+        .map(f => f.elderId);
+      if (!myElderIds.includes(data.elderId)) {
+        return { success: false, error: '您只能联系您关联的老人' };
+      }
     }
 
     const key = idempotencyKey || generateIdempotencyKey();
@@ -224,8 +259,13 @@ export const useStore = create<AppState>((set, get) => ({
       return { success: true, data: cached.result as CommunicationRecord };
     }
 
+    const safeData = { ...data };
+    if (currentUser.role === 'family') {
+      safeData.assignedTo = undefined;
+    }
+
     const newComm: CommunicationRecord = {
-      ...data,
+      ...safeData,
       id: `comm_${Date.now()}`,
       requestId: `REQ_COMM_${new Date().toISOString().split('T')[0].replace(/-/g, '')}_${String(get().communications.length + 1).padStart(3, '0')}`,
       status: 'pending',
@@ -234,9 +274,10 @@ export const useStore = create<AppState>((set, get) => ({
         timestamp: new Date().toISOString(),
         operatorId: currentUser.id,
         operatorName: currentUser.name,
-        remark: '发起沟通',
+        remark: currentUser.role === 'family' ? '家属发起沟通' : '发起沟通',
       }],
       createdAt: new Date().toISOString(),
+      createdBy: currentUser.id,
       isIdempotent: true,
     };
 
@@ -364,6 +405,22 @@ export const useStore = create<AppState>((set, get) => ({
 
   getCommunicationsByElderId: (elderId) => {
     return get().communications.filter(c => c.elderId === elderId);
+  },
+
+  getMyFamilyMembers: () => {
+    const { currentUser, familyMembers } = get();
+    if (!currentUser || currentUser.role !== 'family') return [];
+    return familyMembers.filter(f => f.phone === currentUser.phone);
+  },
+
+  getMyElders: () => {
+    const { currentUser, elders, familyMembers } = get();
+    if (!currentUser || currentUser.role !== 'family') return [];
+    const myFamilyIds = familyMembers.filter(f => f.phone === currentUser.phone).map(f => f.id);
+    const myElderIds = familyMembers
+      .filter(f => myFamilyIds.includes(f.id))
+      .map(f => f.elderId);
+    return elders.filter(e => myElderIds.includes(e.id));
   },
 
   canViewVisit: (visitId: string): boolean => {

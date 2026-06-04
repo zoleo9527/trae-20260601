@@ -26,29 +26,56 @@ const tagOptions = ['饮食', '日常关怀', '医疗', '费用', '活动安排'
 
 export function CommunicationNew() {
   const navigate = useNavigate();
-  const { currentUser, elders, familyMembers, createCommunication, users } = useStore();
+  const { currentUser, elders, familyMembers, createCommunication, users, getMyElders, getMyFamilyMembers } = useStore();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [idempotencyKey] = useState(generateIdempotencyKey());
 
-  const [formData, setFormData] = useState({
-    elderId: '',
-    familyMemberId: '',
-    type: 'wechat' as CommunicationType,
-    title: '',
-    content: '',
-    priority: 'medium' as 'low' | 'medium' | 'high' | 'urgent',
-    assignedTo: '',
-    followUpNeeded: false,
-    followUpDate: '',
-    tags: [] as string[],
+  const isFamily = currentUser?.role === 'family';
+  const myElders = isFamily ? getMyElders() : elders;
+  const myFamilyMembers = isFamily ? getMyFamilyMembers() : familyMembers;
+
+  const [formData, setFormData] = useState(() => {
+    if (isFamily) {
+      const myMembers = getMyFamilyMembers();
+      if (myMembers.length > 0) {
+        const firstMember = myMembers[0];
+        const firstElder = getMyElders().find(e => e.id === firstMember.elderId);
+        return {
+          elderId: firstElder?.id || '',
+          familyMemberId: firstMember.id,
+          type: 'wechat' as CommunicationType,
+          title: '',
+          content: '',
+          priority: 'medium' as 'low' | 'medium' | 'high' | 'urgent',
+          assignedTo: '',
+          followUpNeeded: false,
+          followUpDate: '',
+          tags: [] as string[],
+        };
+      }
+    }
+    return {
+      elderId: '',
+      familyMemberId: '',
+      type: 'wechat' as CommunicationType,
+      title: '',
+      content: '',
+      priority: 'medium' as 'low' | 'medium' | 'high' | 'urgent',
+      assignedTo: '',
+      followUpNeeded: false,
+      followUpDate: '',
+      tags: [] as string[],
+    };
   });
 
   const canCreate = currentUser && hasPermission(currentUser.role, 'canCreateCommunication');
-  const canAssign = currentUser && hasPermission(currentUser.role, 'canAssignCommunication');
+  const canAssign = currentUser && hasPermission(currentUser.role, 'canAssignCommunication') && currentUser.role !== 'family';
 
   const selectedElder = elders.find(e => e.id === formData.elderId);
-  const relatedFamilies = familyMembers.filter(f => f.elderId === formData.elderId);
+  const relatedFamilies = isFamily 
+    ? myFamilyMembers.filter(f => f.elderId === formData.elderId)
+    : familyMembers.filter(f => f.elderId === formData.elderId);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -94,6 +121,7 @@ export function CommunicationNew() {
   };
 
   const handleElderChange = (elderId: string) => {
+    if (isFamily) return;
     setFormData(prev => ({
       ...prev,
       elderId,
@@ -161,14 +189,18 @@ export function CommunicationNew() {
                   onChange={e => handleElderChange(e.target.value)}
                   className="input"
                   required
+                  disabled={isFamily}
                 >
                   <option value="">请选择</option>
-                  {elders.map(elder => (
+                  {myElders.map(elder => (
                     <option key={elder.id} value={elder.id}>
                       {elder.name} ({elder.age}岁)
                     </option>
                   ))}
                 </select>
+                {isFamily && formData.elderId && (
+                  <p className="text-xs text-gray-500 mt-1">仅可联系您关联的老人</p>
+                )}
               </div>
 
               <div>
@@ -197,9 +229,10 @@ export function CommunicationNew() {
                 </label>
                 <select
                   value={formData.familyMemberId}
-                  onChange={e => setFormData(prev => ({ ...prev, familyMemberId: e.target.value }))}
+                  onChange={e => isFamily ? null : setFormData(prev => ({ ...prev, familyMemberId: e.target.value }))}
                   className="input"
                   required
+                  disabled={isFamily}
                 >
                   <option value="">请选择家属</option>
                   {relatedFamilies.map(family => (
@@ -208,6 +241,9 @@ export function CommunicationNew() {
                     </option>
                   ))}
                 </select>
+                {isFamily && formData.familyMemberId && (
+                  <p className="text-xs text-gray-500 mt-1">已自动绑定为您本人</p>
+                )}
               </div>
             )}
 
