@@ -8,6 +8,15 @@ import type {
 } from '@/types';
 import { mockSurgeries, mockExceptions, mockTodoItems, mockUsers } from '@/data/mockData';
 
+const getRestorationStatus = (surgery: Surgery): SurgeryStatus => {
+  if (surgery.materialConsumption?.status === 'rejected') return 'in_progress';
+  if (surgery.materialConsumption?.status === 'submitted') return 'verifying';
+  if (surgery.lensReservation?.status === 'rejected') return 'lens_pending';
+  if (surgery.lensReservation?.status === 'confirmed') return 'lens_confirmed';
+  if (surgery.lensReservation?.status === 'pending') return 'lens_pending';
+  return 'applying';
+};
+
 interface SurgeryStore {
   surgeries: Surgery[];
   exceptions: ExceptionRecord[];
@@ -24,7 +33,7 @@ interface SurgeryStore {
     completedToday: number;
     statusBreakdown: Record<SurgeryStatus, number>;
   };
-  getTodos: () => typeof mockTodoItems;
+  getTodos: () => { id: string; title: string; count: number; role: UserRole; color: string }[];
 
   selectSurgery: (id: string | null) => void;
   setCurrentRole: (role: UserRole) => void;
@@ -32,10 +41,13 @@ interface SurgeryStore {
 
   confirmLens: (surgeryId: string) => void;
   rejectLens: (surgeryId: string, reason: string) => void;
+  resubmitLens: (surgeryId: string) => void;
   submitConsumption: (surgeryId: string) => void;
   verifyConsumption: (surgeryId: string) => void;
   rejectConsumption: (surgeryId: string, reason: string) => void;
+  resubmitConsumption: (surgeryId: string) => void;
   triggerException: (surgeryId: string, type: string, title: string, description: string) => void;
+  markExceptionProcessing: (exceptionId: string) => void;
   resolveException: (exceptionId: string, resolution: string) => void;
 }
 
@@ -100,7 +112,15 @@ export const useSurgeryStore = create<SurgeryStore>((set, get) => ({
     };
   },
 
-  getTodos: () => mockTodoItems,
+  getTodos: () => {
+    const { surgeries, exceptions } = get();
+    return [
+      { id: 't1', title: '待确认晶体预留', count: surgeries.filter((s) => s.status === 'lens_pending').length, role: 'doctor' as UserRole, color: 'blue' },
+      { id: 't2', title: '待核销复核', count: surgeries.filter((s) => s.status === 'verifying').length, role: 'followup' as UserRole, color: 'orange' },
+      { id: 't3', title: '待处理异常', count: exceptions.filter((e) => e.status !== 'resolved').length, role: 'admin' as UserRole, color: 'red' },
+      { id: 't4', title: '待申领耗材', count: surgeries.filter((s) => s.status === 'scheduled').length, role: 'nurse' as UserRole, color: 'green' },
+    ];
+  },
 
   selectSurgery: (id) => set({ selectedSurgeryId: id }),
 
@@ -251,6 +271,7 @@ export const useSurgeryStore = create<SurgeryStore>((set, get) => ({
         if (s.id === surgeryId) {
           return {
             ...s,
+            status: 'in_progress' as SurgeryStatus,
             materialConsumption: s.materialConsumption
               ? {
                   ...s.materialConsumption,
@@ -260,7 +281,7 @@ export const useSurgeryStore = create<SurgeryStore>((set, get) => ({
               : undefined,
             statusHistory: [
               ...s.statusHistory,
-              addStatusHistory(s, s.status, state.currentRole, `核销被退回：${reason}`),
+              addStatusHistory(s, 'in_progress', state.currentRole, `核销被退回：${reason}`),
             ],
           };
         }
@@ -330,22 +351,26 @@ export const useSurgeryStore = create<SurgeryStore>((set, get) => ({
       if (exception) {
         surgeries = state.surgeries.map((s) => {
           if (s.id === exception.surgeryId) {
-            const hasUnresolved = s.exceptions.some(
-              (e) => e.id !== exceptionId && e.status !== 'resolved'
+            const updatedExceptions = s.exceptions.map((e) =>
+              e.id === exceptionId
+                ? { ...e, status: 'resolved' as const, resolution }
+                : e
             );
+            const hasUnresolved = updatedExceptions.some(
+              (e) => e.status !== 'resolved'
+            );
+            const newStatus: SurgeryStatus = hasUnresolved
+              ? 'exception'
+              : getRestorationStatus({ ...s, exceptions: updatedExceptions });
             return {
               ...s,
-              status: hasUnresolved ? 'exception' : 'applying',
-              exceptions: s.exceptions.map((e) =>
-                e.id === exceptionId
-                  ? { ...e, status: 'resolved' as const, resolution }
-                  : e
-              ),
+              status: newStatus,
+              exceptions: updatedExceptions,
               statusHistory: [
                 ...s.statusHistory,
                 addStatusHistory(
                   s,
-                  hasUnresolved ? 'exception' : 'applying',
+                  newStatus,
                   state.currentRole,
                   `异常已解决：${resolution}`
                 ),
@@ -360,6 +385,179 @@ export const useSurgeryStore = create<SurgeryStore>((set, get) => ({
         surgeries,
         exceptions,
         notification: { message: '异常已解决', type: 'success' },
+      };
+    }),
+
+  markExceptionProcessing: (exceptionId) =>
+    set((state) => {
+      const user = getCurrentUser(state.currentRole);
+      const exceptions = state.exceptions.map((e) => {
+        if (e.id === exceptionId) {
+          return {
+            ...e,
+            status: 'processing' as const,
+            handlerId: user.id,
+            handlerName: user.name,
+          };
+        }
+        return e;
+      });
+
+      const exception = state.exceptions.find((e) => e.id === exceptionId);
+      let surgeries = state.surgeries;
+
+      if (exception) {
+        surgeries = state.surgeries.map((s) => {
+          if (s.id === exception.surgeryId) {
+            return {
+              ...s,
+              exceptions: s.exceptions.map((e) =>
+                e.id === exceptionId
+                  ? { ...e, status: 'processing' as const, handlerId: user.id, handlerName: user.name }
+                  : e
+              ),
+            };
+          }
+          return s;
+        });
+      }
+
+      return {
+        surgeries,
+        exceptions,
+        notification: { message: '异常已标记为处理中', type: 'warning' },
+      };
+    }),
+
+  resubmitLens: (surgeryId) =>
+    set((state) => {
+      const user = getCurrentUser(state.currentRole);
+      const surgeries = state.surgeries.map((s) => {
+        if (s.id === surgeryId) {
+          const updatedExceptions = s.exceptions.map((e) =>
+            e.status !== 'resolved' && e.type === 'lens_mismatch'
+              ? {
+                  ...e,
+                  status: 'resolved' as const,
+                  resolution: '护士已重新提交晶体预留申请',
+                  resolvedAt: new Date().toISOString(),
+                  handlerId: user.id,
+                  handlerName: user.name,
+                }
+              : e
+          );
+          const hasOtherUnresolved = updatedExceptions.some(
+            (e) => e.status !== 'resolved'
+          );
+          const newStatus: SurgeryStatus = hasOtherUnresolved
+            ? 'exception'
+            : 'lens_pending';
+          return {
+            ...s,
+            status: newStatus,
+            lensReservation: s.lensReservation
+              ? {
+                  ...s.lensReservation,
+                  status: 'pending' as const,
+                  rejectedReason: undefined,
+                }
+              : undefined,
+            exceptions: updatedExceptions,
+            statusHistory: [
+              ...s.statusHistory,
+              addStatusHistory(s, newStatus, state.currentRole, '护士已重新提交晶体预留申请'),
+            ],
+          };
+        }
+        return s;
+      });
+
+      const exceptions = state.exceptions.map((e) => {
+        if (
+          e.surgeryId === surgeryId &&
+          e.status !== 'resolved' &&
+          e.type === 'lens_mismatch'
+        ) {
+          return {
+            ...e,
+            status: 'resolved' as const,
+            resolution: '护士已重新提交晶体预留申请',
+            resolvedAt: new Date().toISOString(),
+            handlerId: user.id,
+            handlerName: user.name,
+          };
+        }
+        return e;
+      });
+
+      return {
+        surgeries,
+        exceptions,
+        notification: { message: '晶体预留已重新提交，等待医生确认', type: 'success' },
+      };
+    }),
+
+  resubmitConsumption: (surgeryId) =>
+    set((state) => {
+      const surgeries = state.surgeries.map((s) => {
+        if (s.id === surgeryId) {
+          const updatedExceptions = s.exceptions.map((e) =>
+            e.status !== 'resolved' && e.type === 'verification_rejected'
+              ? {
+                  ...e,
+                  status: 'resolved' as const,
+                  resolution: '护士已重新提交核销数据',
+                  resolvedAt: new Date().toISOString(),
+                }
+              : e
+          );
+          const hasOtherUnresolved = updatedExceptions.some(
+            (e) => e.status !== 'resolved'
+          );
+          const newStatus: SurgeryStatus = hasOtherUnresolved
+            ? 'exception'
+            : 'verifying';
+          return {
+            ...s,
+            status: newStatus,
+            materialConsumption: s.materialConsumption
+              ? {
+                  ...s.materialConsumption,
+                  status: 'submitted' as const,
+                  rejectedReason: undefined,
+                  submittedAt: new Date().toISOString(),
+                }
+              : undefined,
+            exceptions: updatedExceptions,
+            statusHistory: [
+              ...s.statusHistory,
+              addStatusHistory(s, newStatus, state.currentRole, '耗材核销已重新提交'),
+            ],
+          };
+        }
+        return s;
+      });
+
+      const exceptions = state.exceptions.map((e) => {
+        if (
+          e.surgeryId === surgeryId &&
+          e.status !== 'resolved' &&
+          e.type === 'verification_rejected'
+        ) {
+          return {
+            ...e,
+            status: 'resolved' as const,
+            resolution: '护士已重新提交核销数据',
+            resolvedAt: new Date().toISOString(),
+          };
+        }
+        return e;
+      });
+
+      return {
+        surgeries,
+        exceptions,
+        notification: { message: '耗材核销已重新提交，等待随访专员复核', type: 'success' },
       };
     }),
 }));

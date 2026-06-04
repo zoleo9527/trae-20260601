@@ -53,6 +53,8 @@ export default function SurgeryDetail({ surgeryId, onClose }: Props) {
     verifyConsumption,
     rejectConsumption,
     triggerException,
+    resubmitLens,
+    resubmitConsumption,
   } = useSurgeryStore();
   const [activeTab, setActiveTab] = useState<'lens' | 'material' | 'history'>('lens');
   const [showRejectModal, setShowRejectModal] = useState(false);
@@ -99,6 +101,9 @@ export default function SurgeryDetail({ surgeryId, onClose }: Props) {
   };
 
   const getCurrentHandler = (s: Surgery): string => {
+    if (s.status === 'in_progress' && s.materialConsumption?.status === 'rejected') {
+      return s.nurseName + ' (' + roleLabels.nurse + ')';
+    }
     switch (s.status) {
       case 'scheduled':
         return s.nurseName + ' (' + roleLabels.nurse + ')';
@@ -122,6 +127,9 @@ export default function SurgeryDetail({ surgeryId, onClose }: Props) {
   };
 
   const getBlockedReason = (s: Surgery): string => {
+    if (s.status === 'in_progress' && s.materialConsumption?.status === 'rejected') {
+      return '核销被退回：' + (s.materialConsumption.rejectedReason || '请修正后重新提交');
+    }
     if (s.status === 'lens_pending') {
       return '等待主刀医生确认晶体预留信息';
     }
@@ -359,12 +367,7 @@ export default function SurgeryDetail({ surgeryId, onClose }: Props) {
 
                   {surgery.lensReservation.status === 'rejected' && currentRole === 'nurse' && (
                     <button
-                      onClick={() => triggerException(
-                        surgeryId,
-                        'lens_mismatch',
-                        '重新提交晶体申请',
-                        '已重新核对患者数据，再次提交晶体预留申请'
-                      )}
+                      onClick={() => resubmitLens(surgeryId)}
                       className="w-full flex items-center justify-center gap-2 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
                     >
                       <RotateCcw className="w-4 h-4" />
@@ -483,12 +486,7 @@ export default function SurgeryDetail({ surgeryId, onClose }: Props) {
 
                   {surgery.materialConsumption.status === 'rejected' && currentRole === 'nurse' && (
                     <button
-                      onClick={() => triggerException(
-                        surgeryId,
-                        'verification_rejected',
-                        '重新提交核销',
-                        '已修正核销数据，重新提交复核申请'
-                      )}
+                      onClick={() => resubmitConsumption(surgeryId)}
                       className="w-full flex items-center justify-center gap-2 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
                     >
                       <Send className="w-4 h-4" />

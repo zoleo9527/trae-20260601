@@ -38,9 +38,9 @@ export default function Exceptions() {
     exceptions,
     surgeries,
     resolveException,
+    markExceptionProcessing,
     currentRole,
     selectSurgery,
-    triggerException,
   } = useSurgeryStore();
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -73,17 +73,9 @@ export default function Exceptions() {
     if (action === 'resolved') {
       setResolveModal(exceptionId);
     } else if (action === 'processing') {
-      resolveException(exceptionId, '已接收，正在处理中');
+      markExceptionProcessing(exceptionId);
     } else if (action === 'return') {
-      const exception = exceptions.find((e) => e.id === exceptionId);
-      if (exception) {
-        triggerException(
-          exception.surgeryId,
-          exception.type,
-          '异常已退回',
-          '请相关人员重新核对后提交'
-        );
-      }
+      resolveException(exceptionId, '已退回，请相关人员重新核对后提交');
     }
   };
 
