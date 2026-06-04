@@ -59,6 +59,10 @@ router.get('/stats', authenticateToken, async (req, res) => {
       where: { ...baseQuery, status: 'DISPENSED' }
     });
 
+    const pendingLabelConfirm = await prisma.prescription.count({
+      where: { ...baseQuery, status: 'DISPENSED', labelConfirmed: false }
+    });
+
     const shipped = await prisma.prescription.count({
       where: { ...baseQuery, status: 'SHIPPED' }
     });
@@ -87,6 +91,7 @@ router.get('/stats', authenticateToken, async (req, res) => {
       pendingDispensing,
       dispensing,
       dispensed,
+      pendingLabelConfirm,
       shipped,
       highRisk,
       recentChanges
@@ -140,11 +145,18 @@ router.get('/my-tasks', authenticateToken, async (req, res) => {
       case 'DISPENSER':
         tasks = await prisma.prescription.findMany({
           where: {
-            status: 'REVIEW_PASSED'
+            OR: [
+              { status: 'REVIEW_PASSED' },
+              { status: 'DISPENSING' },
+              {
+                status: 'DISPENSED',
+                labelConfirmed: false
+              }
+            ]
           },
           include: { patient: true },
           orderBy: { createdAt: 'asc' },
-          take: 5
+          take: 10
         });
         break;
 

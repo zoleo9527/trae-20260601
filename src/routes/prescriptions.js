@@ -1,9 +1,39 @@
 const express = require('express');
 const { PrismaClient } = require('@prisma/client');
 const { authenticateToken, requireRoles } = require('../middleware/auth');
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
 
 const prisma = new PrismaClient();
 const router = express.Router();
+
+const uploadDir = path.join(__dirname, '../../public/uploads');
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, { recursive: true });
+}
+
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, uploadDir);
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, 'prescription-' + uniqueSuffix + path.extname(file.originalname));
+  }
+});
+
+const upload = multer({
+  storage,
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype.startsWith('image/')) {
+      cb(null, true);
+    } else {
+      cb(new Error('只允许上传图片文件'));
+    }
+  }
+});
 
 function parsePrescription(prescription) {
   if (prescription.medicines && typeof prescription.medicines === 'string') {
@@ -110,6 +140,7 @@ router.get('/:id', authenticateToken, async (req, res) => {
       include: {
         patient: true,
         receiver: { select: { id: true, name: true } },
+        labelConfirmer: { select: { id: true, name: true } },
         reviews: {
           include: { reviewer: { select: { id: true, name: true } } },
           orderBy: { reviewedAt: 'desc' }
@@ -458,6 +489,101 @@ router.post('/:id/confirm-delivery', authenticateToken, requireRoles('COURIER', 
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: '确认送达失败' });
+  }
+});
+
+router.post('/:id/upload-photo', authenticateToken, requireRoles('RECEPTIONIST', 'DISPENSER', 'ADMIN'), upload.single('photo'), async (req, res) => {
+  try {
+    const prescription = await prisma.prescription.findUnique({
+      where: { id: req.params.id }
+    });
+
+    if (!prescription) {
+      if (req.file) {
+        fs.unlinkSync(req.file.path);
+      }
+      return res.status(404).json({ error: '处方不存在' });
+    }
+
+    if (prescription.prescriptionPhoto) {
+      const oldPhotoPath = path.join(__dirname, '../../public', prescription.prescriptionPhoto);
+      if (fs.existsSync(oldPhotoPath)) {
+        fs.unlinkSync(oldPhotoPath);
+      }
+    }
+
+    const photoUrl = `/uploads/${req.file.filename}`;
+
+    const updatedPrescription = await prisma.prescription.update({
+      where: { id: req.params.id },
+      data: {
+        prescriptionPhoto: photoUrl
+      }
+    });
+
+    await prisma.statusHistory.create({
+      data: {
+        prescriptionId: prescription.id,
+        fromStatus: prescription.status,
+        toStatus: prescription.status,
+        operatorId: req.user.id,
+        remarks: '处方照片已上传'
+      }
+    });
+
+    res.json({
+      photoUrl,
+      prescription: updatedPrescription
+    });
+  } catch (error) {
+    if (req.file) {
+      fs.unlinkSync(req.file.path);
+    }
+    console.error(error);
+    res.status(500).json({ error: '上传照片失败' });
+  }
+});
+
+router.delete('/:id/photo', authenticateToken, requireRoles('RECEPTIONIST', 'DISPENSER', 'ADMIN'), async (req, res) => {
+  try {
+    const prescription = await prisma.prescription.findUnique({
+      where: { id: req.params.id }
+    });
+
+    if (!prescription) {
+      return res.status(404).json({ error: '处方不存在' });
+    }
+
+    if (!prescription.prescriptionPhoto) {
+      return res.status(400).json({ error: '没有照片可删除' });
+    }
+
+    const oldPhotoPath = path.join(__dirname, '../../public', prescription.prescriptionPhoto);
+    if (fs.existsSync(oldPhotoPath)) {
+      fs.unlinkSync(oldPhotoPath);
+    }
+
+    await prisma.prescription.update({
+      where: { id: req.params.id },
+      data: {
+        prescriptionPhoto: null
+      }
+    });
+
+    await prisma.statusHistory.create({
+      data: {
+        prescriptionId: prescription.id,
+        fromStatus: prescription.status,
+        toStatus: prescription.status,
+        operatorId: req.user.id,
+        remarks: '处方照片已删除'
+      }
+    });
+
+    res.json({ message: '照片已删除' });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: '删除照片失败' });
   }
 });
 

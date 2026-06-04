@@ -827,12 +827,12 @@
         };
 
         async function request(url, options = {}) {
-            const headers = {
-                'Content-Type': 'application/json',
-                ...options.headers
-            };
+            const headers = { ...options.headers };
             if (token) {
                 headers['Authorization'] = `Bearer ${token}`;
+            }
+            if (!options.isFormData) {
+                headers['Content-Type'] = 'application/json';
             }
             try {
                 const res = await fetch(API_BASE + url, { ...options, headers });
@@ -968,6 +968,10 @@
                         <div class="stat-card info">
                             <div class="label">煎药中</div>
                             <div class="value">${stats.dispensing}</div>
+                        </div>
+                        <div class="stat-card warning">
+                            <div class="label">待确认标签</div>
+                            <div class="value">${stats.pendingLabelConfirm || 0}</div>
                         </div>
                         <div class="stat-card">
                             <div class="label">待配送</div>
@@ -1211,6 +1215,48 @@
             closeModal();
         }
 
+        async function uploadPhoto(id) {
+            const fileInput = document.getElementById('photoUpload');
+            const file = fileInput.files[0];
+            if (!file) return;
+
+            if (file.size > 5 * 1024 * 1024) {
+                alert('照片大小不能超过 5MB');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('photo', file);
+
+            const result = await request(`/prescriptions/${id}/upload-photo`, {
+                method: 'POST',
+                body: formData,
+                isFormData: true
+            });
+
+            if (result) {
+                alert('照片上传成功');
+                showDetail(id);
+                loadDashboard();
+            } else {
+                alert('照片上传失败');
+            }
+        }
+
+        async function deletePhoto(id) {
+            if (!confirm('确认删除处方照片？')) return;
+
+            const result = await request(`/prescriptions/${id}/photo`, {
+                method: 'DELETE'
+            });
+
+            if (result) {
+                alert('照片已删除');
+                showDetail(id);
+                loadDashboard();
+            }
+        }
+
         async function showDetail(id) {
             const prescription = await request(`/prescriptions/${id}`);
             if (!prescription) return;
@@ -1239,12 +1285,26 @@
                 <div class="detail-section">
                     <h4>📷 处方照片</h4>
                     ${prescription.prescriptionPhoto ? `
-                        <img src="${prescription.prescriptionPhoto}" style="max-width:100%;border-radius:8px;border:1px solid #ddd;">
+                        <div style="position:relative;">
+                            <img src="${prescription.prescriptionPhoto}" style="max-width:100%;border-radius:8px;border:1px solid #ddd;">
+                            ${['ADMIN', 'RECEPTIONIST', 'DISPENSER'].includes(currentUser.role) ? `
+                                <button class="btn btn-danger btn-sm" style="position:absolute;top:10px;right:10px;" onclick="deletePhoto('${prescription.id}')">删除照片</button>
+                            ` : ''}
+                        </div>
                     ` : `
                         <div style="padding:20px;background:#f8f9fa;border-radius:8px;text-align:center;color:#999;">
                             暂无处方照片
                         </div>
                     `}
+                    ${['ADMIN', 'RECEPTIONIST', 'DISPENSER'].includes(currentUser.role) ? `
+                        <div style="margin-top:12px;">
+                            <input type="file" id="photoUpload" accept="image/*" style="display:none;" onchange="uploadPhoto('${prescription.id}')">
+                            <button class="btn btn-info btn-sm" onclick="document.getElementById('photoUpload').click()">
+                                ${prescription.prescriptionPhoto ? '更换照片' : '上传照片'}
+                            </button>
+                            <span style="font-size:12px;color:#999;margin-left:10px;">支持 JPG、PNG 格式，最大 5MB</span>
+                        </div>
+                    ` : ''}
                 </div>
 
                 <div class="detail-section">
