@@ -15,7 +15,12 @@ const emit = defineEmits<{
 }>()
 
 const exceptions = ref<ExceptionRecord[]>([])
-const activeTab = ref('exceptions')
+
+function refreshExceptions() {
+  if (props.plan) {
+    exceptions.value = getExceptionsByPlanId(props.plan.id)
+  }
+}
 
 watch(() => props.plan, (newPlan) => {
   if (newPlan) {
@@ -23,16 +28,22 @@ watch(() => props.plan, (newPlan) => {
   }
 }, { immediate: true })
 
+watch(() => props.visible, (val) => {
+  if (val) refreshExceptions()
+})
+
 function closeDrawer() {
   emit('update:visible', false)
 }
 
-const activeExceptions = computed(() => {
-  return exceptions.value.filter(e => e.status !== 'resolved')
-})
-
-const resolvedExceptions = computed(() => {
-  return exceptions.value.filter(e => e.status === 'resolved')
+const sortedExceptions = computed(() => {
+  const items = [...exceptions.value]
+  items.sort((a, b) => {
+    if (a.status === 'resolved' && b.status !== 'resolved') return 1
+    if (a.status !== 'resolved' && b.status === 'resolved') return -1
+    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+  })
+  return items
 })
 </script>
 
@@ -60,31 +71,21 @@ const resolvedExceptions = computed(() => {
             </div>
           </div>
 
-          <div class="tabs">
-            <button
-              class="tab-btn"
-              :class="{ active: activeTab === 'exceptions' }"
-              @click="activeTab = 'exceptions'"
-            >
-              待处理异常
-              <span v-if="activeExceptions.length > 0" class="tab-badge">
-                {{ activeExceptions.length }}
-              </span>
-            </button>
-            <button
-              class="tab-btn"
-              :class="{ active: activeTab === 'resolved' }"
-              @click="activeTab = 'resolved'"
-            >
-              已解决
-            </button>
+          <div class="drawer-counts">
+            <span class="count-pending" v-if="sortedExceptions.filter(e => e.status !== 'resolved').length > 0">
+              {{ sortedExceptions.filter(e => e.status !== 'resolved').length }} 条待处理
+            </span>
+            <span class="count-resolved" v-if="sortedExceptions.filter(e => e.status === 'resolved').length > 0">
+              {{ sortedExceptions.filter(e => e.status === 'resolved').length }} 条已解决
+            </span>
           </div>
 
-          <div v-if="activeTab === 'exceptions'" class="exception-list">
+          <div class="exception-list">
             <div
-              v-for="exception in activeExceptions"
+              v-for="exception in sortedExceptions"
               :key="exception.id"
               class="exception-item"
+              :class="{ resolved: exception.status === 'resolved' }"
             >
               <div class="exception-header">
                 <div class="exception-type" :style="{ color: exceptionTypeMap[exception.type].color }">
@@ -101,11 +102,11 @@ const resolvedExceptions = computed(() => {
                 </div>
               </div>
               <h4 class="exception-title">{{ exception.title }}</h4>
-              <p class="exception-desc">{{ exception.reason }}</p>
+              <p class="exception-desc" v-if="exception.status !== 'resolved'">{{ exception.reason }}</p>
               <div class="exception-meta">
                 <div class="meta-item">
-                  <span class="meta-label">发生时间</span>
-                  <span class="meta-value">{{ formatDateTime(exception.createdAt) }}</span>
+                  <span class="meta-label">{{ exception.status === 'resolved' ? '解决时间' : '发生时间' }}</span>
+                  <span class="meta-value">{{ formatDateTime(exception.status === 'resolved' ? (exception.resolvedAt || exception.createdAt) : exception.createdAt) }}</span>
                 </div>
                 <div class="meta-item" v-if="exception.handlerName">
                   <span class="meta-label">处理人</span>
@@ -119,50 +120,15 @@ const resolvedExceptions = computed(() => {
                   {{ plan.phases.find(p => p.id === exception.phaseId)?.title }}
                 </span>
               </div>
-            </div>
-
-            <div v-if="activeExceptions.length === 0" class="empty-state">
-              <div class="empty-icon">✅</div>
-              <p>暂无待处理异常</p>
-            </div>
-          </div>
-
-          <div v-if="activeTab === 'resolved'" class="exception-list">
-            <div
-              v-for="exception in resolvedExceptions"
-              :key="exception.id"
-              class="exception-item resolved"
-            >
-              <div class="exception-header">
-                <div class="exception-type" :style="{ color: exceptionTypeMap[exception.type].color }">
-                  {{ exceptionTypeMap[exception.type].label }}
-                </div>
-                <div
-                  class="status-badge"
-                  :style="{
-                    backgroundColor: exceptionStatusMap[exception.status].bgColor,
-                    color: exceptionStatusMap[exception.status].color
-                  }"
-                >
-                  {{ exceptionStatusMap[exception.status].label }}
-                </div>
-              </div>
-              <h4 class="exception-title">{{ exception.title }}</h4>
-              <div class="resolution">
+              <div class="resolution" v-if="exception.status === 'resolved' && exception.resolution">
                 <div class="resolution-label">处理结果</div>
                 <div class="resolution-content">{{ exception.resolution }}</div>
               </div>
-              <div class="exception-meta">
-                <div class="meta-item">
-                  <span class="meta-label">解决时间</span>
-                  <span class="meta-value">{{ formatDateTime(exception.resolvedAt || '') }}</span>
-                </div>
-              </div>
             </div>
 
-            <div v-if="resolvedExceptions.length === 0" class="empty-state">
-              <div class="empty-icon">📋</div>
-              <p>暂无已解决记录</p>
+            <div v-if="sortedExceptions.length === 0" class="empty-state">
+              <div class="empty-icon">✅</div>
+              <p>暂无异常记录</p>
             </div>
           </div>
         </div>
@@ -182,7 +148,7 @@ const resolvedExceptions = computed(() => {
   padding: 16px;
   background: #f9fafb;
   border-radius: 8px;
-  margin-bottom: 16px;
+  margin-bottom: 12px;
 }
 
 .elder-brief {
@@ -195,44 +161,30 @@ const resolvedExceptions = computed(() => {
   font-weight: 500;
 }
 
-.tabs {
+.drawer-counts {
   display: flex;
-  gap: 8px;
+  gap: 12px;
   margin-bottom: 16px;
-  padding-bottom: 12px;
+  padding-bottom: 16px;
   border-bottom: 1px solid #e5e7eb;
 }
 
-.tab-btn {
-  padding: 8px 16px;
-  border: none;
-  background: transparent;
-  border-radius: 8px;
-  font-size: 14px;
-  color: #6b7280;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  transition: all 0.2s;
-}
-
-.tab-btn:hover {
-  background: #f3f4f6;
-}
-
-.tab-btn.active {
-  background: #dbeafe;
-  color: #3b82f6;
+.count-pending {
+  font-size: 13px;
   font-weight: 500;
+  color: #ef4444;
+  background: #fee2e2;
+  padding: 4px 10px;
+  border-radius: 6px;
 }
 
-.tab-badge {
-  background: #3b82f6;
-  color: white;
-  font-size: 11px;
-  padding: 2px 6px;
-  border-radius: 10px;
+.count-resolved {
+  font-size: 13px;
+  font-weight: 500;
+  color: #10b981;
+  background: #d1fae5;
+  padding: 4px 10px;
+  border-radius: 6px;
 }
 
 .exception-list {

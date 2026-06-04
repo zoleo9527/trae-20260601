@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
-import type { RehabPlan } from '@/types'
-import { getPlans, getAllExceptions } from '@/store'
+import type { RehabPlan, Staff } from '@/types'
+import { getPlans, getAllExceptions, getExceptionsByPlanId } from '@/store'
 import { planStatusMap, staffRoleMap, phaseStatusMap, exceptionStatusMap } from '@/utils/statusMap'
 import { formatDate, calculateProgress } from '@/utils/format'
 import ExceptionDrawer from '@/components/ExceptionDrawer.vue'
@@ -60,6 +60,35 @@ function getPhaseStatusInfo(plan: RehabPlan) {
     status: phaseStatusMap[phase.status]
   }
 }
+
+function getCurrentHandler(plan: RehabPlan): { name: string; role: string; color: string } | null {
+  const phase = getCurrentPhase(plan)
+  if (!phase) return null
+  if (phase.status === 'pending_review' || phase.status === 'rejected') {
+    if (plan.nursingDirector) {
+      return { name: plan.nursingDirector.name, role: staffRoleMap.nursing_director.label, color: staffRoleMap.nursing_director.color }
+    }
+  }
+  if (phase.status === 'in_progress') {
+    if (plan.primaryNurse) {
+      return { name: plan.primaryNurse.name, role: staffRoleMap.primary_nurse.label, color: staffRoleMap.primary_nurse.color }
+    }
+  }
+  if (plan.primaryNurse) {
+    return { name: plan.primaryNurse.name, role: staffRoleMap.primary_nurse.label, color: staffRoleMap.primary_nurse.color }
+  }
+  return null
+}
+
+function getBlockReason(plan: RehabPlan): string | null {
+  if (plan.status === 'completed') return null
+  const phase = getCurrentPhase(plan)
+  if (!phase) return null
+  if (phase.status === 'rejected') return phase.rejectReason || '评估被驳回'
+  if (phase.status === 'pending_review') return '等待护理主管复核确认'
+  if (phase.isDelayed) return '评估已超期'
+  return null
+}
 </script>
 
 <template>
@@ -115,7 +144,7 @@ function getPhaseStatusInfo(plan: RehabPlan) {
             <tr>
               <th>老人信息</th>
               <th>康复计划</th>
-              <th>负责人员</th>
+              <th>责任归属与卡点</th>
               <th>当前阶段</th>
               <th>进度</th>
               <th>状态</th>
@@ -144,18 +173,27 @@ function getPhaseStatusInfo(plan: RehabPlan) {
                 </div>
               </td>
               <td>
-                <div class="staff-list">
-                  <div class="staff-item" v-if="plan.nursingDirector">
-                    <span class="staff-role" :style="{ color: staffRoleMap.nursing_director.color }">
-                      {{ staffRoleMap.nursing_director.label }}
+                <div class="attribution-cell">
+                  <div class="handler-info" v-if="getCurrentHandler(plan)">
+                    <span class="handler-role" :style="{ color: getCurrentHandler(plan)!.color }">
+                      {{ getCurrentHandler(plan)!.role }}
                     </span>
-                    <span class="staff-name">{{ plan.nursingDirector.name }}</span>
+                    <span class="handler-name">{{ getCurrentHandler(plan)!.name }}</span>
                   </div>
-                  <div class="staff-item" v-if="plan.primaryNurse">
-                    <span class="staff-role" :style="{ color: staffRoleMap.primary_nurse.color }">
-                      {{ staffRoleMap.primary_nurse.label }}
+                  <div class="block-reason" v-if="getBlockReason(plan)">
+                    <span class="block-icon">⏸</span>
+                    <span class="block-text">{{ getBlockReason(plan) }}</span>
+                  </div>
+                  <div class="block-tags" v-if="getPhaseStatusInfo(plan) && (getPhaseStatusInfo(plan)!.phase.status === 'pending_review' || getPhaseStatusInfo(plan)!.phase.status === 'rejected')">
+                    <span
+                      class="status-tag"
+                      :style="{
+                        backgroundColor: getPhaseStatusInfo(plan)!.status.bgColor,
+                        color: getPhaseStatusInfo(plan)!.status.color
+                      }"
+                    >
+                      {{ getPhaseStatusInfo(plan)!.status.label }}
                     </span>
-                    <span class="staff-name">{{ plan.primaryNurse.name }}</span>
                   </div>
                 </div>
               </td>
@@ -163,15 +201,6 @@ function getPhaseStatusInfo(plan: RehabPlan) {
                 <div v-if="getPhaseStatusInfo(plan)" class="phase-info">
                   <div class="phase-number">第 {{ getPhaseStatusInfo(plan)!.phase.phaseNumber }} 阶段</div>
                   <div class="phase-name">{{ getPhaseStatusInfo(plan)!.phase.title }}</div>
-                  <div
-                    class="status-badge"
-                    :style="{
-                      backgroundColor: getPhaseStatusInfo(plan)!.status.bgColor,
-                      color: getPhaseStatusInfo(plan)!.status.color
-                    }"
-                  >
-                    {{ getPhaseStatusInfo(plan)!.status.label }}
-                  </div>
                 </div>
                 <div v-else class="text-muted text-sm">-</div>
               </td>
@@ -351,6 +380,62 @@ function getPhaseStatusInfo(plan: RehabPlan) {
 
 .staff-name {
   color: #374151;
+}
+
+.attribution-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 160px;
+}
+
+.handler-info {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.handler-role {
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.handler-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: #1f2937;
+}
+
+.block-reason {
+  display: flex;
+  align-items: flex-start;
+  gap: 4px;
+  font-size: 12px;
+  color: #b45309;
+  line-height: 1.4;
+}
+
+.block-icon {
+  flex-shrink: 0;
+  font-size: 11px;
+  margin-top: 1px;
+}
+
+.block-text {
+  word-break: break-all;
+}
+
+.block-tags {
+  display: flex;
+  gap: 4px;
+}
+
+.status-tag {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 500;
 }
 
 .phase-info {

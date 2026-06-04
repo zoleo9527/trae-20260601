@@ -32,6 +32,40 @@ const currentPhase = computed(() => {
     || plan.value.phases.find(p => p.status === 'rejected')
 })
 
+const currentHandler = computed(() => {
+  if (!plan.value || !currentPhase.value) return null
+  const phase = currentPhase.value
+  if (phase.status === 'pending_review' || phase.status === 'rejected') {
+    if (plan.value.nursingDirector) {
+      return { name: plan.value.nursingDirector.name, role: staffRoleMap.nursing_director.label, color: staffRoleMap.nursing_director.color }
+    }
+  }
+  if (plan.value.primaryNurse) {
+    return { name: plan.value.primaryNurse.name, role: staffRoleMap.primary_nurse.label, color: staffRoleMap.primary_nurse.color }
+  }
+  return null
+})
+
+const blockSummary = computed(() => {
+  if (!plan.value || plan.value.status === 'completed') return null
+  const phase = currentPhase.value
+  if (!phase) return null
+  if (phase.status === 'rejected') return phase.rejectReason || '评估被驳回，需重新提交'
+  if (phase.status === 'pending_review') return '等待护理主管复核确认'
+  if (phase.isDelayed) return '评估已超期，需尽快完成'
+  return null
+})
+
+const sortedExceptions = computed(() => {
+  const items = [...exceptions.value]
+  items.sort((a, b) => {
+    if (a.status === 'resolved' && b.status !== 'resolved') return 1
+    if (a.status !== 'resolved' && b.status === 'resolved') return -1
+    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+  })
+  return items
+})
+
 function viewPhaseDetail(phase: Phase) {
   selectedPhase.value = phase
   showPhaseDetail.value = true
@@ -118,6 +152,29 @@ function goBack() {
                 <div class="stat-value">
                   {{ plan.phases.filter(p => p.status === 'approved' || p.status === 'supplemented').length }} / {{ plan.phases.length }}
                 </div>
+              </div>
+            </div>
+
+            <div v-if="currentHandler || blockSummary" class="accountability-bar">
+              <div class="bar-section" v-if="currentHandler">
+                <span class="bar-label">当前责任人</span>
+                <span class="bar-role" :style="{ color: currentHandler.color }">{{ currentHandler.role }}</span>
+                <span class="bar-name">{{ currentHandler.name }}</span>
+              </div>
+              <div class="bar-divider" v-if="currentHandler && blockSummary"></div>
+              <div class="bar-section bar-block" v-if="blockSummary">
+                <span class="bar-label">未完成原因</span>
+                <span class="bar-reason">{{ blockSummary }}</span>
+                <span
+                  v-if="currentPhase"
+                  class="status-tag"
+                  :style="{
+                    backgroundColor: phaseStatusMap[currentPhase.status].bgColor,
+                    color: phaseStatusMap[currentPhase.status].color
+                  }"
+                >
+                  {{ phaseStatusMap[currentPhase.status].label }}
+                </span>
               </div>
             </div>
           </div>
@@ -218,7 +275,7 @@ function goBack() {
           <div class="card-body">
             <div v-if="exceptions.length > 0" class="exception-list">
               <div
-                v-for="exception in exceptions"
+                v-for="exception in sortedExceptions"
                 :key="exception.id"
                 class="exception-item"
                 :class="{ resolved: exception.status === 'resolved' }"
@@ -670,5 +727,63 @@ function goBack() {
   background: #fef2f2;
   border-radius: 8px;
   color: #dc2626 !important;
+}
+
+.accountability-bar {
+  margin-top: 20px;
+  padding: 16px 20px;
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.bar-section {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.bar-label {
+  font-size: 12px;
+  color: #92400e;
+  font-weight: 500;
+}
+
+.bar-role {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.bar-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.bar-divider {
+  width: 1px;
+  height: 24px;
+  background: #fde68a;
+}
+
+.bar-block {
+  flex: 1;
+}
+
+.bar-reason {
+  font-size: 13px;
+  color: #92400e;
+  line-height: 1.4;
+}
+
+.status-tag {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 500;
 }
 </style>
