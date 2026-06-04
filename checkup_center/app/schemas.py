@@ -145,7 +145,15 @@ class NotificationBase(BaseModel):
 
 
 class NotificationCreate(NotificationBase):
-    pass
+    sent_by: Optional[int] = None
+
+
+class GuideNotifyMissedCreate(BaseModel):
+    record_id: int
+    patient_id: int
+    channel: str
+    content: str
+    sent_by: int
 
 
 class NotificationOut(NotificationBase):
@@ -157,6 +165,10 @@ class NotificationOut(NotificationBase):
 
     class Config:
         from_attributes = True
+
+
+class NotificationWithSenderOut(NotificationOut):
+    sender_name: Optional[str] = None
 
 
 class ReportBase(BaseModel):

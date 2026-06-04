@@ -76,6 +76,8 @@ curl http://localhost:8000/api/guide/pending-checkups
 
 ### 1.2 通知漏检人员
 
+> 说明：`type` 字段由系统自动设为 `"missed_item"`，无需传入。`sent_by` 为通知人员ID，返回结果自动带出 `sender_name`。
+
 ```bash
 curl -X POST http://localhost:8000/api/guide/notify-missed \
   -H "Content-Type: application/json" \
@@ -83,8 +85,26 @@ curl -X POST http://localhost:8000/api/guide/notify-missed \
     "record_id": 1,
     "patient_id": 1,
     "channel": "sms",
-    "content": "张三您好，您的B超项目尚未完成，请尽快补做。"
+    "content": "张三您好，您的B超项目尚未完成，请尽快补做。",
+    "sent_by": 1
   }'
+```
+
+返回示例：
+```json
+{
+  "record_id": 1,
+  "patient_id": 1,
+  "type": "missed_item",
+  "channel": "sms",
+  "content": "张三您好，您的B超项目尚未完成，请尽快补做。",
+  "id": 5,
+  "status": "sent",
+  "sent_by": 1,
+  "sent_at": "2026-06-04T09:46:47.218045",
+  "confirmed_at": null,
+  "sender_name": "王导检"
+}
 ```
 
 ### 1.3 安排补检

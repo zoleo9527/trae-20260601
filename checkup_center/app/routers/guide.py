@@ -7,7 +7,8 @@ from app.models import (
     CheckupRecord, CheckupItem, Patient, Notification, User
 )
 from app.schemas import (
-    GuidePendingCheckupOut, NotificationCreate, NotificationOut
+    GuidePendingCheckupOut, GuideNotifyMissedCreate,
+    NotificationWithSenderOut, NotificationOut
 )
 
 router = APIRouter(prefix="/api/guide", tags=["导检人员"])
@@ -49,8 +50,8 @@ def get_pending_checkups(db: Session = Depends(get_db)):
     return results
 
 
-@router.post("/notify-missed", response_model=NotificationOut, summary="通知漏检人员补做")
-def notify_missed(data: NotificationCreate, db: Session = Depends(get_db)):
+@router.post("/notify-missed", response_model=NotificationWithSenderOut, summary="通知漏检人员补做")
+def notify_missed(data: GuideNotifyMissedCreate, db: Session = Depends(get_db)):
     record = db.get(CheckupRecord, data.record_id)
     if not record:
         raise HTTPException(status_code=404, detail="体检记录不存在")
@@ -59,6 +60,10 @@ def notify_missed(data: NotificationCreate, db: Session = Depends(get_db)):
     if not patient:
         raise HTTPException(status_code=404, detail="患者不存在")
 
+    sender = db.get(User, data.sent_by)
+    if not sender:
+        raise HTTPException(status_code=404, detail="通知人不存在")
+
     notification = Notification(
         record_id=data.record_id,
         patient_id=data.patient_id,
@@ -66,13 +71,16 @@ def notify_missed(data: NotificationCreate, db: Session = Depends(get_db)):
         channel=data.channel,
         status="sent",
         content=data.content,
-        sent_by=None,
+        sent_by=data.sent_by,
         sent_at=datetime.now()
     )
     db.add(notification)
     db.commit()
     db.refresh(notification)
-    return notification
+
+    result = NotificationWithSenderOut.model_validate(notification)
+    result.sender_name = sender.name
+    return result
 
 
 @router.post("/arrange-recheck/{item_id}", response_model=dict, summary="安排补检（更新项目状态为进行中）")
@@ -89,7 +97,7 @@ def arrange_recheck(item_id: int, operator_id: int, db: Session = Depends(get_db
     return {"message": f"已安排补检: {item.item_name}", "item_id": item.id, "new_status": item.status}
 
 
-@router.get("/notification-status", response_model=List[NotificationOut], summary="查看通知发送状态")
+@router.get("/notification-status", response_model=List[NotificationWithSenderOut], summary="查看通知发送状态")
 def get_notification_status(
     record_id: Optional[int] = Query(None),
     status: Optional[str] = Query(None),
@@ -100,10 +108,20 @@ def get_notification_status(
         query = query.filter(Notification.record_id == record_id)
     if status:
         query = query.filter(Notification.status == status)
-    return query.order_by(Notification.id.desc()).all()
+    notifications = query.order_by(Notification.id.desc()).all()
+
+    results = []
+    for n in notifications:
+        out = NotificationWithSenderOut.model_validate(n)
+        if n.sent_by:
+            sender = db.get(User, n.sent_by)
+            if sender:
+                out.sender_name = sender.name
+        results.append(out)
+    return results
 
 
-@router.put("/confirm-notification/{notification_id}", response_model=NotificationOut, summary="确认通知已送达")
+@router.put("/confirm-notification/{notification_id}", response_model=NotificationWithSenderOut, summary="确认通知已送达")
 def confirm_notification(notification_id: int, db: Session = Depends(get_db)):
     notification = db.get(Notification, notification_id)
     if not notification:
@@ -112,4 +130,10 @@ def confirm_notification(notification_id: int, db: Session = Depends(get_db)):
     notification.confirmed_at = datetime.now()
     db.commit()
     db.refresh(notification)
-    return notification
+
+    out = NotificationWithSenderOut.model_validate(notification)
+    if notification.sent_by:
+        sender = db.get(User, notification.sent_by)
+        if sender:
+            out.sender_name = sender.name
+    return out

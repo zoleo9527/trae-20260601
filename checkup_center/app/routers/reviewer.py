@@ -16,6 +16,39 @@ from app.schemas import (
 router = APIRouter(prefix="/api/reviewer", tags=["报告审核员"])
 
 
+def validate_report_ready(db: Session, record_id: int):
+    record = db.get(CheckupRecord, record_id)
+
+    items = db.query(CheckupItem).filter(CheckupItem.record_id == record_id).all()
+    incomplete_items = [item for item in items if item.status != "completed"]
+    if incomplete_items:
+        item_names = [f"{item.item_name}({item.status})" for item in incomplete_items]
+        raise HTTPException(
+            status_code=400,
+            detail=f"存在未完成的体检项目: {', '.join(item_names)}。请先完成所有项目后再审核。"
+        )
+
+    indicators = db.query(AbnormalIndicator).filter(
+        AbnormalIndicator.record_id == record_id
+    ).all()
+
+    indicators_without_recommendation = []
+    for ind in indicators:
+        rec_count = db.query(FollowUpRecommendation).filter(
+            FollowUpRecommendation.indicator_id == ind.id
+        ).count()
+        if rec_count == 0:
+            indicators_without_recommendation.append(f"{ind.indicator_name}({ind.severity})")
+
+    if indicators_without_recommendation:
+        raise HTTPException(
+            status_code=400,
+            detail=f"存在异常指标缺少复查建议: {', '.join(indicators_without_recommendation)}。请联系医生补充建议后再审核。"
+        )
+
+    return True
+
+
 @router.get("/pending-reports", response_model=List[ReportOut], summary="获取待审核报告列表")
 def get_pending_reports(db: Session = Depends(get_db)):
     return db.query(Report).filter(Report.status.in_(["draft", "pending_review"])).all()
@@ -50,6 +83,7 @@ def review_report(report_id: int, data: ReportReviewAction, db: Session = Depend
         raise HTTPException(status_code=404, detail="报告不存在")
 
     if data.action == "approve":
+        validate_report_ready(db, report.record_id)
         report.status = "approved"
     elif data.action == "reject":
         report.status = "rejected"
@@ -72,6 +106,8 @@ def release_report(report_id: int, data: ReportReleaseAction, db: Session = Depe
 
     if report.status != "approved":
         raise HTTPException(status_code=400, detail=f"报告当前状态为'{report.status}'，只有'approved'状态才能发放")
+
+    validate_report_ready(db, report.record_id)
 
     report.status = "released"
     report.released_by = data.releaser_id
