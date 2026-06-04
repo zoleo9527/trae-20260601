@@ -600,9 +600,9 @@
                             </select>
                         </div>
                         <div class="quick-filters">
-                            <span class="quick-filter active">全部</span>
-                            <span class="quick-filter">今日待回访</span>
-                            <span class="quick-filter">有不适症状</span>
+                            <span class="quick-filter active" onclick="setFollowupQuickFilter('all')">全部</span>
+                            <span class="quick-filter" onclick="setFollowupQuickFilter('today')">今日待回访</span>
+                            <span class="quick-filter" onclick="setFollowupQuickFilter('discomfort')">有不适症状</span>
                         </div>
                     </div>
                     <div class="table-container">
@@ -626,6 +626,9 @@
                                 <option value="swelling">肿胀</option>
                                 <option value="scar">疤痕</option>
                                 <option value="effect">效果不满意</option>
+                                <option value="infection_risk">感染风险</option>
+                                <option value="asymmetry">不对称</option>
+                                <option value="price_dispute">价格争议</option>
                             </select>
                         </div>
                         <div class="filter-group"><label>严重程度:</label>
@@ -645,9 +648,9 @@
                             </select>
                         </div>
                         <div class="quick-filters">
-                            <span class="quick-filter active">全部</span>
-                            <span class="quick-filter">待处理</span>
-                            <span class="quick-filter">高风险</span>
+                            <span class="quick-filter active" onclick="setDiscomfortQuickFilter('all')">全部</span>
+                            <span class="quick-filter" onclick="setDiscomfortQuickFilter('pending')">待处理</span>
+                            <span class="quick-filter" onclick="setDiscomfortQuickFilter('high')">高风险</span>
                         </div>
                     </div>
                     <div class="table-container">
@@ -848,7 +851,15 @@
         async function loadFollowUps() {
             const stage = document.getElementById('followupStage').value;
             const status = document.getElementById('followupStatus').value;
-            const data = await fetch(`${API_BASE}/follow-ups?stage=${stage}&status=${status}&limit=100`).then(r => r.json());
+            let hasDiscomfort = null;
+            if (followupQuickFilter === 'discomfort') hasDiscomfort = 'true';
+            
+            let data = await fetch(`${API_BASE}/follow-ups?stage=${stage}&status=${status}&limit=100&has_discomfort=${hasDiscomfort || ''}`).then(r => r.json());
+            
+            if (followupQuickFilter === 'today') {
+                const today = new Date().toDateString();
+                data = data.filter(f => new Date(f.follow_up_date).toDateString() === today);
+            }
 
             let html = '';
             data.forEach(f => {
@@ -866,6 +877,7 @@
                         <div class="action-links">
                             <span class="action-link" onclick="viewFollowUp(${f.id})">详情</span>
                             <span class="trace-link" onclick="viewFollowUpVersions(${f.id})">追溯</span>
+                            <span class="action-link" onclick="handleFollowUp(${f.id})">处理</span>
                         </div>
                     </td>
                 </tr>`;
@@ -874,10 +886,14 @@
         }
 
         async function loadDiscomforts() {
-            const severity = document.getElementById('discomfortSeverity').value;
-            const status = document.getElementById('discomfortStatus').value;
+            let severity = document.getElementById('discomfortSeverity').value;
+            let status = document.getElementById('discomfortStatus').value;
             const type = document.getElementById('discomfortType').value;
-            const data = await fetch(`${API_BASE}/discomfort-reports?severity=${severity}&status=${status}&discomfort_type=${type}&limit=100`).then(r => r.json());
+            
+            if (discomfortQuickFilter === 'pending') status = 'pending';
+            if (discomfortQuickFilter === 'high') severity = 'high';
+            
+            let data = await fetch(`${API_BASE}/discomfort-reports?severity=${severity}&status=${status}&discomfort_type=${type}&limit=100`).then(r => r.json());
 
             let html = '';
             data.forEach(d => {
@@ -903,7 +919,8 @@
 
         async function loadAudit() {
             const entityType = document.getElementById('auditEntityType').value;
-            const data = await fetch(`${API_BASE}/audit-logs?entity_type=${entityType}&limit=200`).then(r => r.json());
+            const action = document.getElementById('auditAction').value;
+            const data = await fetch(`${API_BASE}/audit-logs?entity_type=${entityType}&action=${action}&limit=200`).then(r => r.json());
 
             const typeMap = {
                 'consultation_record': '咨询记录',
@@ -1098,6 +1115,7 @@
                         <span class="timeline-meta">${new Date(h.created_at).toLocaleString()} · ${h.handler_name}</span>
                     </div>
                     <div class="timeline-content">${h.handling_notes}</div>
+                    ${h.attachment_count > 0 ? `<div style="margin-top:6px;font-size:11px;color:#4ecdc4;">📎 相关材料：${h.attachment_count}份</div>` : ''}
                     ${h.next_step ? `<div style="margin-top:6px;font-size:11px;color:#8892b0;">📌 下一步：${h.next_step}</div>` : ''}
                     <div style="margin-top:8px;"><span class="change-old">${h.previous_status || '-'}</span><span class="change-new">→ ${h.new_status}</span></div>
                     ${h.notify_customer ? `<div style="margin-top:6px;font-size:11px;color:#4ecdc4;">✓ 已通过「${h.notify_method}」通知客户</div>` : ''}
@@ -1161,6 +1179,20 @@
                     <textarea id="handleNextStep" placeholder="请说明下一步行动计划..."></textarea>
                 </div>
                 <div class="form-group">
+                    <label>📎 相关材料上传（占位）</label>
+                    <div style="border: 2px dashed #0f3460; padding: 20px; text-align: center; border-radius: 6px; background: #1a1a2e;">
+                        <div style="font-size: 24px; margin-bottom: 8px;">📁</div>
+                        <div style="font-size: 12px; color: #8892b0;">点击或拖拽文件到此处上传</div>
+                        <div style="font-size: 11px; color: #8892b0; margin-top: 4px;">支持：图片、PDF、Word（占位功能）</div>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 12px; margin-top: 10px;">
+                        <span style="font-size: 12px; color: #8892b0;">已上传附件：</span>
+                        <button class="btn btn-secondary" style="padding: 4px 10px; font-size: 11px;" onclick="this.nextElementSibling.value++">+ 添加</button>
+                        <input type="number" id="handleAttachments" value="0" min="0" style="width: 60px; background: #1a1a2e; border: 1px solid #0f3460; color: #e0e0e0; padding: 4px 8px; border-radius: 4px; text-align: center;">
+                        <span style="font-size: 11px; color: #8892b0;">份</span>
+                    </div>
+                </div>
+                <div class="form-group">
                     <label>是否通知客户</label>
                     <select id="handleNotify">
                         <option value="0">否</option>
@@ -1184,7 +1216,7 @@
                 next_step: document.getElementById('handleNextStep').value,
                 notify_customer: document.getElementById('handleNotify').value !== '0',
                 notify_method: document.getElementById('handleNotify').value !== '0' ? document.getElementById('handleNotify').value : null,
-                attachment_count: 0,
+                attachment_count: parseInt(document.getElementById('handleAttachments')?.value || 0),
                 new_status: document.getElementById('handleNewStatus').value
             };
 
@@ -1195,6 +1227,106 @@
             });
             closeModal();
             refreshCurrentPage();
+        }
+
+        async function handleFollowUp(id) {
+            const followup = await fetch(`${API_BASE}/follow-ups/${id}`).then(r => r.json());
+            openModal('处理术后回访', `
+                <div class="form-group">
+                    <label>当前状态：<span class="status-badge status-${followup.status}">${followup.status}</span></label>
+                </div>
+                <div class="form-group">
+                    <label>恢复状态</label>
+                    <select id="fuRecoveryStatus">
+                        <option value="excellent" ${followup.recovery_status === 'excellent' ? 'selected' : ''}>恢复极佳</option>
+                        <option value="good" ${followup.recovery_status === 'good' ? 'selected' : ''}>恢复良好</option>
+                        <option value="normal" ${followup.recovery_status === 'normal' ? 'selected' : ''}>正常恢复</option>
+                        <option value="slow" ${followup.recovery_status === 'slow' ? 'selected' : ''}>恢复较慢</option>
+                        <option value="need_review" ${followup.recovery_status === 'need_review' ? 'selected' : ''}>需跟进</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>客户反馈更新</label>
+                    <textarea id="fuFeedback" placeholder="客户最新反馈情况...">${followup.customer_feedback || ''}</textarea>
+                </div>
+                <div class="form-group">
+                    <label>异常症状说明</label>
+                    <textarea id="fuAbnormal" placeholder="如有异常，请详细描述...">${followup.abnormal_symptoms || ''}</textarea>
+                </div>
+                <div class="form-group">
+                    <label>处理建议</label>
+                    <textarea id="fuAdvice" placeholder="针对当前情况的处理建议...">${followup.handling_advice || ''}</textarea>
+                </div>
+                <div class="form-group">
+                    <label>标记为有不适症状</label>
+                    <select id="fuHasDiscomfort">
+                        <option value="false" ${!followup.has_discomfort ? 'selected' : ''}>否</option>
+                        <option value="true" ${followup.has_discomfort ? 'selected' : ''}>是</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>回访状态</label>
+                    <select id="fuStatus">
+                        <option value="pending" ${followup.status === 'pending' ? 'selected' : ''}>待回访</option>
+                        <option value="completed" ${followup.status === 'completed' ? 'selected' : ''}>已完成</option>
+                        <option value="need_review" ${followup.status === 'need_review' ? 'selected' : ''}>需跟进</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label style="color: #e94560;">* 变更原因（必填）</label>
+                    <textarea id="fuChangeReason" placeholder="请说明本次修改的原因，用于追溯记录..." required></textarea>
+                </div>
+            `, `
+                <button class="btn btn-secondary" onclick="closeModal()">取消</button>
+                <button class="btn btn-primary" onclick="submitFollowUpUpdate(${id})">提交更新</button>
+            `);
+        }
+
+        async function submitFollowUpUpdate(id) {
+            const changeReason = document.getElementById('fuChangeReason').value;
+            if (!changeReason || changeReason.trim() === '') {
+                alert('变更原因为必填项，请填写后再提交');
+                return;
+            }
+
+            const payload = {
+                recovery_status: document.getElementById('fuRecoveryStatus').value,
+                customer_feedback: document.getElementById('fuFeedback').value,
+                abnormal_symptoms: document.getElementById('fuAbnormal').value || null,
+                handling_advice: document.getElementById('fuAdvice').value || null,
+                has_discomfort: document.getElementById('fuHasDiscomfort').value === 'true',
+                status: document.getElementById('fuStatus').value,
+                change_reason: changeReason
+            };
+
+            await fetch(`${API_BASE}/follow-ups/${id}?operator_id=4&operator_name=刘护士长`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            closeModal();
+            refreshCurrentPage();
+        }
+
+        let followupQuickFilter = 'all';
+        let discomfortQuickFilter = 'all';
+
+        function setFollowupQuickFilter(filter) {
+            followupQuickFilter = filter;
+            document.querySelectorAll('#page-followups .quick-filter').forEach(el => {
+                el.classList.remove('active');
+            });
+            event.target.classList.add('active');
+            loadFollowUps();
+        }
+
+        function setDiscomfortQuickFilter(filter) {
+            discomfortQuickFilter = filter;
+            document.querySelectorAll('#page-discomforts .quick-filter').forEach(el => {
+                el.classList.remove('active');
+            });
+            event.target.classList.add('active');
+            loadDiscomforts();
         }
 
         window.onload = () => refreshCurrentPage();

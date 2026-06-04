@@ -581,6 +581,7 @@ def get_audit_logs(
     limit: int = 100,
     entity_type: Optional[str] = None,
     entity_id: Optional[int] = None,
+    action: Optional[str] = None,
     operator_id: Optional[int] = None,
 ):
     query = db.query(models.AuditLog)
@@ -588,6 +589,8 @@ def get_audit_logs(
         query = query.filter(models.AuditLog.entity_type == entity_type)
     if entity_id:
         query = query.filter(models.AuditLog.entity_id == entity_id)
+    if action:
+        query = query.filter(models.AuditLog.action == action)
     if operator_id:
         query = query.filter(models.AuditLog.operator_id == operator_id)
     return query.order_by(desc(models.AuditLog.created_at)).offset(skip).limit(limit).all()

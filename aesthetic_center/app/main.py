@@ -248,11 +248,12 @@ def read_audit_logs(
     limit: int = 100,
     entity_type: Optional[str] = None,
     entity_id: Optional[int] = None,
+    action: Optional[str] = None,
     operator_id: Optional[int] = None,
     db: Session = Depends(get_db),
 ):
     return crud.get_audit_logs(
-        db, skip=skip, limit=limit, entity_type=entity_type, entity_id=entity_id, operator_id=operator_id
+        db, skip=skip, limit=limit, entity_type=entity_type, entity_id=entity_id, action=action, operator_id=operator_id
     )
 
 
