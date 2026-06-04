@@ -260,12 +260,16 @@ export default function WorkflowDetail() {
         return (
           <Button type="link" onClick={() => {
             setSelectedCheck(record)
+            const currentHandlerUser = users.find(u => u.realName === workflow?.currentHandler)
+            const defaultOperatorId = record.checkedByName
+              ? users.find(u => u.realName === record.checkedByName)?.id
+              : currentHandlerUser?.id
             form.setFieldsValue({
               status: record.status,
               checkResult: record.checkResult,
               measurementValue: record.measurementValue,
               referenceRange: record.referenceRange,
-              operatorId: users.find(u => u.role === RoleType.SPECIALIST)?.id
+              operatorId: defaultOperatorId
             })
             setCheckModal(true)
           }}>
@@ -443,7 +447,7 @@ export default function WorkflowDetail() {
           <Form.Item label="参考范围" name="referenceRange">
             <Input />
           </Form.Item>
-          <Form.Item label="处理人" name="operatorId" rules={[{ required: true }]} initialValue={users.find(u => u.role === RoleType.SPECIALIST)?.id}>
+          <Form.Item label="处理人" name="operatorId" rules={[{ required: true, message: '请选择处理人' }]}>
             <Select options={users.filter(u => u.role === RoleType.SPECIALIST).map(u => ({
               label: u.realName,
               value: u.id

@@ -27,6 +27,12 @@ public class WorkflowDTO {
     }
 
     @Data
+    public static class StartSchedulingRequest {
+        @NotNull(message = "处理人ID不能为空")
+        private Long handlerId;
+    }
+
+    @Data
     public static class SubmitForReviewRequest {
         @NotNull(message = "提交人ID不能为空")
         private Long operatorId;

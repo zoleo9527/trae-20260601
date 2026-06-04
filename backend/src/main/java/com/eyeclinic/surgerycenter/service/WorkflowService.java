@@ -152,7 +152,7 @@ public class WorkflowService {
     }
 
     @Transactional
-    public WorkflowInstance startScheduling(Long workflowId, WorkflowDTO.StartCheckRequest request) {
+    public WorkflowInstance startScheduling(Long workflowId, WorkflowDTO.StartSchedulingRequest request) {
         WorkflowInstance workflow = getWorkflow(workflowId);
         User handler = userRepository.findById(request.getHandlerId())
                 .orElseThrow(() -> new BusinessException(ErrorCode.DATA_NOT_FOUND, "处理人不存在"));

@@ -85,7 +85,7 @@ public class WorkflowController {
     @PostMapping("/{id}/start-scheduling")
     public Result<WorkflowVO> startScheduling(
             @PathVariable Long id,
-            @Valid @RequestBody WorkflowDTO.StartCheckRequest request) {
+            @Valid @RequestBody WorkflowDTO.StartSchedulingRequest request) {
         WorkflowInstance workflow = workflowService.startScheduling(id, request);
         return Result.success(workflowService.convertToDetailVO(workflow));
     }
