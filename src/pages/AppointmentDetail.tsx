@@ -319,9 +319,10 @@ export default function AppointmentDetail() {
                         <>
                           <div className="text-xs text-[#6B7280] mb-3">
                             确认后将自动推进至下一步，并同步更新预约状态为「{STATUS_LABELS[{
-                              1: 'plan_submitted',
-                              2: 'plan_confirmed',
-                              3: 'completed',
+                              1: 'in_consultation',
+                              2: 'plan_submitted',
+                              3: 'plan_confirmed',
+                              4: 'completed',
                             }[currentStep.step] as keyof typeof STATUS_LABELS]}」
                           </div>
                           <div className="flex gap-2">

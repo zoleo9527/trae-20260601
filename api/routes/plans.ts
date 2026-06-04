@@ -7,9 +7,10 @@ const router = Router()
 router.use(authMiddleware)
 
 const STEP_TO_APPOINTMENT_STATUS: Record<number, string> = {
-  1: 'plan_submitted',
-  2: 'plan_confirmed',
-  3: 'completed',
+  1: 'in_consultation',
+  2: 'plan_submitted',
+  3: 'plan_confirmed',
+  4: 'completed',
 }
 
 router.get('/appointment/:appointmentId', async (req: Request, res: Response): Promise<void> => {
@@ -77,11 +78,11 @@ router.post('/confirmation-step/:stepId', async (req: Request, res: Response): P
     )
   }
 
-  if (step.step === 1) {
+  if (step.step === 2) {
     db.prepare("UPDATE plans SET status = 'submitted', submitted_by = ? WHERE appointment_id = ? AND status = 'draft'").run(
       user.userId, step.appointment_id
     )
-  } else if (step.step === 2) {
+  } else if (step.step === 3) {
     db.prepare("UPDATE plans SET status = 'confirmed', confirmed_by = ?, confirmed_at = ? WHERE appointment_id = ? AND status = 'submitted'").run(
       user.userId, now, step.appointment_id
     )

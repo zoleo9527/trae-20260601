@@ -277,25 +277,38 @@ function seedData(db: Database.Database) {
 
   const insertStep = db.prepare('INSERT INTO plan_confirmation_steps (id, appointment_id, step, label, role, status, completed_by, completed_at, note) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)')
 
-  insertStep.run('s1_1', 'apt1', 1, '咨询师提交方案', 'consultant', 'completed', 'u1', `${today}T09:00:00`, '方案已提交')
-  insertStep.run('s1_2', 'apt1', 2, '医生助理确认', 'assistant', 'current', null, null, null)
-  insertStep.run('s1_3', 'apt1', 3, '客服归档', 'service', 'pending', null, null, null)
+  function addSteps(appointmentId: string, status: string) {
+    const steps: any[] = [
+      { id: `${appointmentId}_1`, appointmentId, step: 1, label: '咨询师接待', role: 'consultant', status: 'pending' },
+      { id: `${appointmentId}_2`, appointmentId, step: 2, label: '提交方案', role: 'consultant', status: 'pending' },
+      { id: `${appointmentId}_3`, appointmentId, step: 3, label: '医生助理确认', role: 'assistant', status: 'pending' },
+      { id: `${appointmentId}_4`, appointmentId, step: 4, label: '客服归档', role: 'service', status: 'pending' },
+    ]
 
-  insertStep.run('s2_1', 'apt2', 1, '咨询师提交方案', 'consultant', 'current', null, null, null)
-  insertStep.run('s2_2', 'apt2', 2, '医生助理确认', 'assistant', 'pending', null, null, null)
-  insertStep.run('s2_3', 'apt2', 3, '客服归档', 'service', 'pending', null, null, null)
+    let currentStep = 1
+    if (status === 'pending') currentStep = 1
+    else if (status === 'in_consultation') currentStep = 2
+    else if (status === 'plan_submitted') currentStep = 3
+    else if (status === 'plan_confirmed') currentStep = 4
+    else if (status === 'in_service') currentStep = 4
+    else currentStep = 5
 
-  insertStep.run('s3_1', 'apt3', 1, '咨询师提交方案', 'consultant', 'completed', 'u1', `${today}T09:10:00`, null)
-  insertStep.run('s3_2', 'apt3', 2, '医生助理确认', 'assistant', 'completed', 'u2', `${today}T10:30:00`, null)
-  insertStep.run('s3_3', 'apt3', 3, '客服归档', 'service', 'current', null, null, null)
+    steps.forEach((s, idx) => {
+      if (idx + 1 < currentStep) s.status = 'completed'
+      else if (idx + 1 === currentStep) s.status = 'current'
+      else s.status = 'pending'
+    })
 
-  insertStep.run('s4_1', 'apt4', 1, '咨询师提交方案', 'consultant', 'pending', null, null, null)
-  insertStep.run('s4_2', 'apt4', 2, '医生助理确认', 'assistant', 'pending', null, null, null)
-  insertStep.run('s4_3', 'apt4', 3, '客服归档', 'service', 'pending', null, null, null)
+    steps.forEach((s) => {
+      insertStep.run(s.id, s.appointmentId, s.step, s.label, s.role, s.status, null, null, null)
+    })
+  }
 
-  insertStep.run('s5_1', 'apt5', 1, '咨询师提交方案', 'consultant', 'pending', null, null, null)
-  insertStep.run('s5_2', 'apt5', 2, '医生助理确认', 'assistant', 'pending', null, null, null)
-  insertStep.run('s5_3', 'apt5', 3, '客服归档', 'service', 'pending', null, null, null)
+  addSteps('apt1', 'plan_submitted')
+  addSteps('apt2', 'in_consultation')
+  addSteps('apt3', 'in_service')
+  addSteps('apt4', 'pending')
+  addSteps('apt5', 'in_consultation')
 
   const insertInstallmentPlan = db.prepare('INSERT INTO installment_plans (id, appointment_id, total_periods, status) VALUES (?, ?, ?, ?)')
   const insertInstallmentItem = db.prepare('INSERT INTO installment_items (id, plan_id, period, planned_amount, planned_date, status, actual_amount, actual_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
