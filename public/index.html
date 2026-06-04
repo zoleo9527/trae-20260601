@@ -973,18 +973,27 @@
                             <div class="label">待确认标签</div>
                             <div class="value">${stats.pendingLabelConfirm || 0}</div>
                         </div>
-                        <div class="stat-card">
-                            <div class="label">待配送</div>
-                            <div class="value">${stats.dispensed}</div>
-                        </div>
                     `;
                 }
 
                 if (role === 'ADMIN' || role === 'COURIER') {
                     statsHtml += `
+                        <div class="stat-card">
+                            <div class="label">待配送</div>
+                            <div class="value">${stats.readyForShipping || 0}</div>
+                        </div>
                         <div class="stat-card info">
                             <div class="label">配送中</div>
                             <div class="value">${stats.shipped}</div>
+                        </div>
+                    `;
+                }
+
+                if (role === 'ADMIN') {
+                    statsHtml += `
+                        <div class="stat-card">
+                            <div class="label">已送达</div>
+                            <div class="value">${stats.delivered || 0}</div>
                         </div>
                     `;
                 }

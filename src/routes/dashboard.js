@@ -19,13 +19,24 @@ router.get('/stats', authenticateToken, async (req, res) => {
       };
     } else if (userRole === 'DISPENSER') {
       baseQuery = {
-        status: 'REVIEW_PASSED'
+        OR: [
+          { status: 'REVIEW_PASSED' },
+          { status: 'DISPENSING' },
+          {
+            status: 'DISPENSED',
+            labelConfirmed: false
+          }
+        ]
       };
     } else if (userRole === 'COURIER') {
       baseQuery = {
-        status: {
-          in: ['DISPENSED', 'SHIPPED']
-        }
+        OR: [
+          {
+            status: 'DISPENSED',
+            labelConfirmed: true
+          },
+          { status: 'SHIPPED' }
+        ]
       };
     }
 
@@ -63,8 +74,16 @@ router.get('/stats', authenticateToken, async (req, res) => {
       where: { ...baseQuery, status: 'DISPENSED', labelConfirmed: false }
     });
 
+    const readyForShipping = await prisma.prescription.count({
+      where: { status: 'DISPENSED', labelConfirmed: true }
+    });
+
     const shipped = await prisma.prescription.count({
       where: { ...baseQuery, status: 'SHIPPED' }
+    });
+
+    const delivered = await prisma.prescription.count({
+      where: { status: 'DELIVERED' }
     });
 
     const highRisk = await prisma.prescription.count({
@@ -92,7 +111,9 @@ router.get('/stats', authenticateToken, async (req, res) => {
       dispensing,
       dispensed,
       pendingLabelConfirm,
+      readyForShipping,
       shipped,
+      delivered,
       highRisk,
       recentChanges
     });
@@ -163,13 +184,17 @@ router.get('/my-tasks', authenticateToken, async (req, res) => {
       case 'COURIER':
         tasks = await prisma.prescription.findMany({
           where: {
-            status: {
-              in: ['DISPENSED', 'SHIPPED']
-            }
+            OR: [
+              {
+                status: 'DISPENSED',
+                labelConfirmed: true
+              },
+              { status: 'SHIPPED' }
+            ]
           },
           include: { patient: true },
           orderBy: { createdAt: 'asc' },
-          take: 5
+          take: 10
         });
         break;
     }
