@@ -47,6 +47,22 @@ router.get('/stats', authenticateToken, async (req, res) => {
       where: { ...baseQuery, status: 'REVIEW_REJECTED' }
     });
 
+    const pendingDispensing = await prisma.prescription.count({
+      where: { ...baseQuery, status: 'REVIEW_PASSED' }
+    });
+
+    const dispensing = await prisma.prescription.count({
+      where: { ...baseQuery, status: 'DISPENSING' }
+    });
+
+    const dispensed = await prisma.prescription.count({
+      where: { ...baseQuery, status: 'DISPENSED' }
+    });
+
+    const shipped = await prisma.prescription.count({
+      where: { ...baseQuery, status: 'SHIPPED' }
+    });
+
     const highRisk = await prisma.prescription.count({
       where: { ...baseQuery, riskLevel: 'HIGH_RISK' }
     });
@@ -68,6 +84,10 @@ router.get('/stats', authenticateToken, async (req, res) => {
       pendingReview,
       supplementRequired,
       reviewRejected,
+      pendingDispensing,
+      dispensing,
+      dispensed,
+      shipped,
       highRisk,
       recentChanges
     });

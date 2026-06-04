@@ -399,9 +399,24 @@
             color: #383d41;
         }
 
+        .status-DISPENSING {
+            background: #e3f2fd;
+            color: #0d47a1;
+        }
+
         .status-DISPENSED {
             background: #f3e5f5;
             color: #4a148c;
+        }
+
+        .status-SHIPPED {
+            background: #e1f5fe;
+            color: #01579b;
+        }
+
+        .status-DELIVERED {
+            background: #e8f5e9;
+            color: #1b5e20;
         }
 
         .pagination {
@@ -909,32 +924,75 @@
 
             if (stats) {
                 const statsGrid = document.getElementById('statsGrid');
-                statsGrid.innerHTML = `
+                let statsHtml = `
                     <div class="stat-card">
                         <div class="label">待处理总数</div>
                         <div class="value">${stats.totalCount}</div>
                     </div>
-                    <div class="stat-card info">
-                        <div class="label">待接收</div>
-                        <div class="value">${stats.pendingReception}</div>
-                    </div>
-                    <div class="stat-card warning">
-                        <div class="label">待审方</div>
-                        <div class="value">${stats.pendingReview}</div>
-                    </div>
-                    <div class="stat-card info">
-                        <div class="label">待补录</div>
-                        <div class="value">${stats.supplementRequired}</div>
-                    </div>
-                    <div class="stat-card danger">
-                        <div class="label">已驳回</div>
-                        <div class="value">${stats.reviewRejected}</div>
-                    </div>
+                `;
+
+                const role = currentUser.role;
+
+                if (role === 'ADMIN' || role === 'RECEPTIONIST') {
+                    statsHtml += `
+                        <div class="stat-card info">
+                            <div class="label">待接收</div>
+                            <div class="value">${stats.pendingReception}</div>
+                        </div>
+                        <div class="stat-card info">
+                            <div class="label">待补录</div>
+                            <div class="value">${stats.supplementRequired}</div>
+                        </div>
+                    `;
+                }
+
+                if (role === 'ADMIN' || role === 'PHARMACIST') {
+                    statsHtml += `
+                        <div class="stat-card warning">
+                            <div class="label">待审方</div>
+                            <div class="value">${stats.pendingReview}</div>
+                        </div>
+                        <div class="stat-card danger">
+                            <div class="label">已驳回</div>
+                            <div class="value">${stats.reviewRejected}</div>
+                        </div>
+                    `;
+                }
+
+                if (role === 'ADMIN' || role === 'DISPENSER') {
+                    statsHtml += `
+                        <div class="stat-card warning">
+                            <div class="label">待煎药</div>
+                            <div class="value">${stats.pendingDispensing}</div>
+                        </div>
+                        <div class="stat-card info">
+                            <div class="label">煎药中</div>
+                            <div class="value">${stats.dispensing}</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="label">待配送</div>
+                            <div class="value">${stats.dispensed}</div>
+                        </div>
+                    `;
+                }
+
+                if (role === 'ADMIN' || role === 'COURIER') {
+                    statsHtml += `
+                        <div class="stat-card info">
+                            <div class="label">配送中</div>
+                            <div class="value">${stats.shipped}</div>
+                        </div>
+                    `;
+                }
+
+                statsHtml += `
                     <div class="stat-card danger">
                         <div class="label">高风险</div>
                         <div class="value">${stats.highRisk}</div>
                     </div>
                 `;
+
+                statsGrid.innerHTML = statsHtml;
 
                 const activityList = document.getElementById('activityList');
                 activityList.innerHTML = stats.recentChanges.map(a => `
@@ -1034,6 +1092,26 @@
                 buttons += `<button class="btn btn-success btn-sm" onclick="showReviewModal('${prescription.id}')">审方</button>`;
             }
 
+            if ((role === 'DISPENSER' || role === 'ADMIN') && prescription.status === 'REVIEW_PASSED') {
+                buttons += `<button class="btn btn-success btn-sm" onclick="startDispensing('${prescription.id}')">开始煎药</button>`;
+            }
+
+            if ((role === 'DISPENSER' || role === 'ADMIN') && prescription.status === 'DISPENSING') {
+                buttons += `<button class="btn btn-success btn-sm" onclick="completeDispensing('${prescription.id}')">煎药完成</button>`;
+            }
+
+            if ((role === 'DISPENSER' || role === 'ADMIN') && prescription.status === 'DISPENSED' && !prescription.labelConfirmed) {
+                buttons += `<button class="btn btn-warning btn-sm" onclick="confirmLabel('${prescription.id}')">确认标签</button>`;
+            }
+
+            if ((role === 'COURIER' || role === 'ADMIN') && prescription.status === 'DISPENSED' && prescription.labelConfirmed) {
+                buttons += `<button class="btn btn-info btn-sm" onclick="showShipModal('${prescription.id}')">发货</button>`;
+            }
+
+            if ((role === 'COURIER' || role === 'ADMIN') && prescription.status === 'SHIPPED') {
+                buttons += `<button class="btn btn-success btn-sm" onclick="confirmDelivery('${prescription.id}')">确认送达</button>`;
+            }
+
             return buttons;
         }
 
@@ -1042,6 +1120,95 @@
             await request(`/prescriptions/${id}/receive`, { method: 'POST', body: '{}' });
             loadPrescriptions();
             loadDashboard();
+        }
+
+        async function startDispensing(id) {
+            if (!confirm('确认开始煎药？')) return;
+            await request(`/prescriptions/${id}/start-dispensing`, { method: 'POST', body: '{}' });
+            loadPrescriptions();
+            loadDashboard();
+            closeModal();
+        }
+
+        async function completeDispensing(id) {
+            if (!confirm('确认煎药完成？')) return;
+            await request(`/prescriptions/${id}/complete-dispensing`, { method: 'POST', body: '{}' });
+            loadPrescriptions();
+            loadDashboard();
+            closeModal();
+        }
+
+        async function confirmLabel(id) {
+            if (!confirm('确认煎药标签无误？')) return;
+            await request(`/prescriptions/${id}/confirm-label`, { method: 'POST', body: '{}' });
+            loadPrescriptions();
+            loadDashboard();
+            closeModal();
+        }
+
+        function showShipModal(id) {
+            const modal = document.getElementById('detailModal');
+            const body = document.getElementById('modalBody');
+
+            body.innerHTML = `
+                <div class="detail-section">
+                    <h4>录入快递信息并发货</h4>
+                    <div class="form-group">
+                        <label>承运公司</label>
+                        <select id="expressCompany">
+                            <option value="顺丰速运">顺丰速运</option>
+                            <option value="京东物流">京东物流</option>
+                            <option value="中通快递">中通快递</option>
+                            <option value="圆通速递">圆通速递</option>
+                            <option value="申通快递">申通快递</option>
+                            <option value="韵达快递">韵达快递</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>快递单号</label>
+                        <input type="text" id="expressNo" placeholder="请输入快递单号">
+                    </div>
+                    <div class="form-group">
+                        <label>备注</label>
+                        <textarea id="shipRemarks" rows="2" placeholder="可选"></textarea>
+                    </div>
+                </div>
+                <div class="modal-actions">
+                    <button class="btn btn-primary" onclick="submitShip('${id}')">确认发货</button>
+                    <button class="btn btn-secondary" onclick="closeModal()">取消</button>
+                </div>
+            `;
+
+            modal.classList.add('active');
+        }
+
+        async function submitShip(id) {
+            const expressCompany = document.getElementById('expressCompany').value;
+            const expressNo = document.getElementById('expressNo').value;
+            const remarks = document.getElementById('shipRemarks').value;
+
+            if (!expressNo) {
+                alert('请输入快递单号');
+                return;
+            }
+
+            await request(`/prescriptions/${id}/ship`, {
+                method: 'POST',
+                body: JSON.stringify({ expressCompany, expressNo, remarks })
+            });
+
+            closeModal();
+            loadPrescriptions();
+            loadDashboard();
+            alert('发货成功');
+        }
+
+        async function confirmDelivery(id) {
+            if (!confirm('确认已送达？')) return;
+            await request(`/prescriptions/${id}/confirm-delivery`, { method: 'POST', body: '{}' });
+            loadPrescriptions();
+            loadDashboard();
+            closeModal();
         }
 
         async function showDetail(id) {
@@ -1067,6 +1234,49 @@
                         <div class="detail-item"><label>接收人：</label>${prescription.receiver?.name || '-'}</div>
                     </div>
                     ${prescription.riskNotes ? `<div class="detail-item" style="margin-top:10px;color:#dc3545;"><label>风险提示：</label>${prescription.riskNotes}</div>` : ''}
+                </div>
+
+                <div class="detail-section">
+                    <h4>📷 处方照片</h4>
+                    ${prescription.prescriptionPhoto ? `
+                        <img src="${prescription.prescriptionPhoto}" style="max-width:100%;border-radius:8px;border:1px solid #ddd;">
+                    ` : `
+                        <div style="padding:20px;background:#f8f9fa;border-radius:8px;text-align:center;color:#999;">
+                            暂无处方照片
+                        </div>
+                    `}
+                </div>
+
+                <div class="detail-section">
+                    <h4>🏷️ 煎药标签与配送信息</h4>
+                    <div class="detail-grid">
+                        <div class="detail-item">
+                            <label>标签确认：</label>
+                            ${prescription.labelConfirmed ? 
+                                `<span style="color:#28a745;font-weight:500;">✓ 已确认</span>
+                                <div style="font-size:12px;color:#666;margin-top:4px;">${prescription.labelConfirmer?.name || '-'} - ${formatTime(prescription.labelConfirmedAt)}</div>` 
+                                : '<span style="color:#ffc107;">待确认</span>'
+                            }
+                        </div>
+                        <div class="detail-item">
+                            <label>煎药开始：</label>${prescription.dispensingStartedAt ? formatTime(prescription.dispensingStartedAt) : '-'}
+                        </div>
+                        <div class="detail-item">
+                            <label>煎药完成：</label>${prescription.dispensingCompletedAt ? formatTime(prescription.dispensingCompletedAt) : '-'}
+                        </div>
+                        <div class="detail-item">
+                            <label>发货时间：</label>${prescription.shippedAt ? formatTime(prescription.shippedAt) : '-'}
+                        </div>
+                        <div class="detail-item">
+                            <label>承运公司：</label>${prescription.expressCompany || '-'}
+                        </div>
+                        <div class="detail-item">
+                            <label>快递单号：</label>${prescription.expressNo || '-'}
+                        </div>
+                        <div class="detail-item">
+                            <label>送达时间：</label>${prescription.deliveredAt ? formatTime(prescription.deliveredAt) : '-'}
+                        </div>
+                    </div>
                 </div>
 
                 <div class="detail-section">

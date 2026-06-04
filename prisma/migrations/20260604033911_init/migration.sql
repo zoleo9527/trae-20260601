@@ -40,10 +40,19 @@ CREATE TABLE "Prescription" (
     "receivedAt" DATETIME,
     "expressNo" TEXT,
     "expressCompany" TEXT,
+    "prescriptionPhoto" TEXT,
+    "labelConfirmed" BOOLEAN NOT NULL DEFAULT false,
+    "labelConfirmedAt" DATETIME,
+    "labelConfirmedBy" TEXT,
+    "dispensingStartedAt" DATETIME,
+    "dispensingCompletedAt" DATETIME,
+    "shippedAt" DATETIME,
+    "deliveredAt" DATETIME,
     "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" DATETIME NOT NULL,
     CONSTRAINT "Prescription_patientId_fkey" FOREIGN KEY ("patientId") REFERENCES "Patient" ("id") ON DELETE RESTRICT ON UPDATE CASCADE,
-    CONSTRAINT "Prescription_receiverId_fkey" FOREIGN KEY ("receiverId") REFERENCES "User" ("id") ON DELETE SET NULL ON UPDATE CASCADE
+    CONSTRAINT "Prescription_receiverId_fkey" FOREIGN KEY ("receiverId") REFERENCES "User" ("id") ON DELETE SET NULL ON UPDATE CASCADE,
+    CONSTRAINT "Prescription_labelConfirmedBy_fkey" FOREIGN KEY ("labelConfirmedBy") REFERENCES "User" ("id") ON DELETE SET NULL ON UPDATE CASCADE
 );
 
 -- CreateTable

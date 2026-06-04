@@ -277,7 +277,90 @@ async function main() {
         riskNotes: '心血管疾病患者，注意观察',
         status: 'DISPENSED',
         receiverId: receptionist.id,
-        receivedAt: new Date(Date.now() - 345600000)
+        receivedAt: new Date(Date.now() - 345600000),
+        dispensingStartedAt: new Date(Date.now() - 302400000),
+        dispensingCompletedAt: new Date(Date.now() - 259200000),
+        labelConfirmed: true,
+        labelConfirmedAt: new Date(Date.now() - 255600000),
+        labelConfirmedBy: dispenser.id
+      }
+    }),
+    prisma.prescription.create({
+      data: {
+        prescriptionNo: 'RX20240009',
+        patientId: patients[3].id,
+        department: '呼吸科',
+        doctor: '郑医生',
+        diagnosis: '咳嗽',
+        medicines: JSON.stringify([
+          { name: '杏仁', dosage: '10g', note: '' },
+          { name: '桔梗', dosage: '10g', note: '' },
+          { name: '甘草', dosage: '6g', note: '' }
+        ]),
+        dosage: '水煎服，每日1剂',
+        quantity: 5,
+        riskLevel: 'NORMAL',
+        status: 'DISPENSING',
+        receiverId: receptionist.id,
+        receivedAt: new Date(Date.now() - 172800000),
+        dispensingStartedAt: new Date(Date.now() - 86400000)
+      }
+    }),
+    prisma.prescription.create({
+      data: {
+        prescriptionNo: 'RX20240010',
+        patientId: patients[4].id,
+        department: '内科',
+        doctor: '王医生',
+        diagnosis: '高血压调理',
+        medicines: JSON.stringify([
+          { name: '菊花', dosage: '10g', note: '' },
+          { name: '决明子', dosage: '15g', note: '' },
+          { name: '枸杞', dosage: '12g', note: '' }
+        ]),
+        dosage: '代茶饮，每日1剂',
+        quantity: 14,
+        riskLevel: 'CAUTION',
+        status: 'SHIPPED',
+        receiverId: receptionist.id,
+        receivedAt: new Date(Date.now() - 604800000),
+        dispensingStartedAt: new Date(Date.now() - 518400000),
+        dispensingCompletedAt: new Date(Date.now() - 432000000),
+        labelConfirmed: true,
+        labelConfirmedAt: new Date(Date.now() - 428400000),
+        labelConfirmedBy: dispenser.id,
+        expressNo: 'SF1234567890',
+        expressCompany: '顺丰速运',
+        shippedAt: new Date(Date.now() - 345600000)
+      }
+    }),
+    prisma.prescription.create({
+      data: {
+        prescriptionNo: 'RX20240011',
+        patientId: patients[0].id,
+        department: '内科',
+        doctor: '李医生',
+        diagnosis: '失眠',
+        medicines: JSON.stringify([
+          { name: '酸枣仁', dosage: '15g', note: '' },
+          { name: '柏子仁', dosage: '12g', note: '' },
+          { name: '茯神', dosage: '12g', note: '' }
+        ]),
+        dosage: '水煎服，睡前服',
+        quantity: 7,
+        riskLevel: 'NORMAL',
+        status: 'DELIVERED',
+        receiverId: receptionist.id,
+        receivedAt: new Date(Date.now() - 1209600000),
+        dispensingStartedAt: new Date(Date.now() - 1123200000),
+        dispensingCompletedAt: new Date(Date.now() - 1036800000),
+        labelConfirmed: true,
+        labelConfirmedAt: new Date(Date.now() - 1033200000),
+        labelConfirmedBy: dispenser.id,
+        expressNo: 'YT9876543210',
+        expressCompany: '圆通速递',
+        shippedAt: new Date(Date.now() - 950400000),
+        deliveredAt: new Date(Date.now() - 864000000)
       }
     })
   ]);

@@ -21,6 +21,7 @@ model User {
   statusHistory StatusHistory[] @relation("operator")
   requestedSupplements Supplement[] @relation("requester")
   supplementedSupplements Supplement[] @relation("supplementor")
+  labelConfirmedPrescriptions Prescription[] @relation("labelConfirmer")
 }
 
 model Patient {
@@ -56,6 +57,15 @@ model Prescription {
   receivedAt   DateTime?
   expressNo    String?
   expressCompany String?
+  prescriptionPhoto String?
+  labelConfirmed Boolean   @default(false)
+  labelConfirmedAt DateTime?
+  labelConfirmedBy String?
+  labelConfirmer User?     @relation("labelConfirmer", fields: [labelConfirmedBy], references: [id])
+  dispensingStartedAt DateTime?
+  dispensingCompletedAt DateTime?
+  shippedAt    DateTime?
+  deliveredAt  DateTime?
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
   

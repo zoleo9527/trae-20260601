@@ -246,6 +246,221 @@ router.post('/:id/receive', authenticateToken, requireRoles('RECEPTIONIST', 'ADM
   }
 });
 
+router.post('/:id/start-dispensing', authenticateToken, requireRoles('DISPENSER', 'ADMIN'), async (req, res) => {
+  try {
+    const { remarks } = req.body;
+    const prescription = await prisma.prescription.findUnique({
+      where: { id: req.params.id }
+    });
+
+    if (!prescription) {
+      return res.status(404).json({ error: '处方不存在' });
+    }
+
+    if (prescription.status !== 'REVIEW_PASSED') {
+      return res.status(400).json({ error: '当前状态不允许开始煎药' });
+    }
+
+    const updatedPrescription = await prisma.prescription.update({
+      where: { id: req.params.id },
+      data: {
+        status: 'DISPENSING',
+        dispensingStartedAt: new Date()
+      },
+      include: { patient: true }
+    });
+
+    await prisma.statusHistory.create({
+      data: {
+        prescriptionId: prescription.id,
+        fromStatus: 'REVIEW_PASSED',
+        toStatus: 'DISPENSING',
+        operatorId: req.user.id,
+        remarks: remarks || '开始煎药'
+      }
+    });
+
+    res.json(updatedPrescription);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: '开始煎药失败' });
+  }
+});
+
+router.post('/:id/complete-dispensing', authenticateToken, requireRoles('DISPENSER', 'ADMIN'), async (req, res) => {
+  try {
+    const { remarks } = req.body;
+    const prescription = await prisma.prescription.findUnique({
+      where: { id: req.params.id }
+    });
+
+    if (!prescription) {
+      return res.status(404).json({ error: '处方不存在' });
+    }
+
+    if (prescription.status !== 'DISPENSING') {
+      return res.status(400).json({ error: '当前状态不允许完成煎药' });
+    }
+
+    const updatedPrescription = await prisma.prescription.update({
+      where: { id: req.params.id },
+      data: {
+        status: 'DISPENSED',
+        dispensingCompletedAt: new Date()
+      },
+      include: { patient: true }
+    });
+
+    await prisma.statusHistory.create({
+      data: {
+        prescriptionId: prescription.id,
+        fromStatus: 'DISPENSING',
+        toStatus: 'DISPENSED',
+        operatorId: req.user.id,
+        remarks: remarks || '煎药完成'
+      }
+    });
+
+    res.json(updatedPrescription);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: '完成煎药失败' });
+  }
+});
+
+router.post('/:id/confirm-label', authenticateToken, requireRoles('DISPENSER', 'ADMIN'), async (req, res) => {
+  try {
+    const prescription = await prisma.prescription.findUnique({
+      where: { id: req.params.id }
+    });
+
+    if (!prescription) {
+      return res.status(404).json({ error: '处方不存在' });
+    }
+
+    if (prescription.status !== 'DISPENSED') {
+      return res.status(400).json({ error: '请先完成煎药再确认标签' });
+    }
+
+    if (prescription.labelConfirmed) {
+      return res.status(400).json({ error: '标签已确认' });
+    }
+
+    const updatedPrescription = await prisma.prescription.update({
+      where: { id: req.params.id },
+      data: {
+        labelConfirmed: true,
+        labelConfirmedAt: new Date(),
+        labelConfirmedBy: req.user.id
+      },
+      include: { patient: true, labelConfirmer: { select: { id: true, name: true } } }
+    });
+
+    await prisma.statusHistory.create({
+      data: {
+        prescriptionId: prescription.id,
+        fromStatus: 'DISPENSED',
+        toStatus: 'DISPENSED',
+        operatorId: req.user.id,
+        remarks: '煎药标签已确认'
+      }
+    });
+
+    res.json(updatedPrescription);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: '确认标签失败' });
+  }
+});
+
+router.post('/:id/ship', authenticateToken, requireRoles('COURIER', 'ADMIN'), async (req, res) => {
+  try {
+    const { expressNo, expressCompany, remarks } = req.body;
+    const prescription = await prisma.prescription.findUnique({
+      where: { id: req.params.id }
+    });
+
+    if (!prescription) {
+      return res.status(404).json({ error: '处方不存在' });
+    }
+
+    if (prescription.status !== 'DISPENSED') {
+      return res.status(400).json({ error: '当前状态不允许发货' });
+    }
+
+    if (!prescription.labelConfirmed) {
+      return res.status(400).json({ error: '请先确认煎药标签' });
+    }
+
+    const updatedPrescription = await prisma.prescription.update({
+      where: { id: req.params.id },
+      data: {
+        status: 'SHIPPED',
+        expressNo,
+        expressCompany,
+        shippedAt: new Date()
+      },
+      include: { patient: true }
+    });
+
+    await prisma.statusHistory.create({
+      data: {
+        prescriptionId: prescription.id,
+        fromStatus: 'DISPENSED',
+        toStatus: 'SHIPPED',
+        operatorId: req.user.id,
+        remarks: remarks || `已发货 - ${expressCompany}: ${expressNo}`
+      }
+    });
+
+    res.json(updatedPrescription);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: '发货失败' });
+  }
+});
+
+router.post('/:id/confirm-delivery', authenticateToken, requireRoles('COURIER', 'ADMIN'), async (req, res) => {
+  try {
+    const { remarks } = req.body;
+    const prescription = await prisma.prescription.findUnique({
+      where: { id: req.params.id }
+    });
+
+    if (!prescription) {
+      return res.status(404).json({ error: '处方不存在' });
+    }
+
+    if (prescription.status !== 'SHIPPED') {
+      return res.status(400).json({ error: '当前状态不允许确认送达' });
+    }
+
+    const updatedPrescription = await prisma.prescription.update({
+      where: { id: req.params.id },
+      data: {
+        status: 'DELIVERED',
+        deliveredAt: new Date()
+      },
+      include: { patient: true }
+    });
+
+    await prisma.statusHistory.create({
+      data: {
+        prescriptionId: prescription.id,
+        fromStatus: 'SHIPPED',
+        toStatus: 'DELIVERED',
+        operatorId: req.user.id,
+        remarks: remarks || '已送达'
+      }
+    });
+
+    res.json(updatedPrescription);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: '确认送达失败' });
+  }
+});
+
 router.post('/:id/supplement', authenticateToken, requireRoles('RECEPTIONIST', 'ADMIN'), async (req, res) => {
   try {
     const { supplementId, supplementContent } = req.body;
