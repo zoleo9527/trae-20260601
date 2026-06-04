@@ -1,7 +1,7 @@
 import { cn } from '@/lib/utils';
 import { useAppStore } from '@/store/useAppStore';
 import { BED_STATUS_COLORS, BED_STATUS_LABELS, NURSING_LEVEL_COLORS, NURSING_LEVEL_LABELS, ROLE_LABELS, type Bed, type BedStatus, type NursingLevelType } from '@/types';
-import { ArrowRight, FileText, Keyboard, Search, X } from 'lucide-react';
+import { AlertTriangle, ArrowRight, FileText, Keyboard, RotateCcw, Search, X } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 export default function BedsPage() {
@@ -37,6 +37,12 @@ export default function BedsPage() {
   function getNursingLevelForBed(bed: Bed) {
     if (!bed.residentId) return null;
     return nursingLevels.find((nl) => nl.residentId === bed.residentId);
+  }
+
+  function handleReturnProcess(bedId: string, nursingLevelId: string) {
+    const params = new URLSearchParams();
+    params.set('focus', nursingLevelId);
+    window.location.href = `/nursing-levels?${params.toString()}`;
   }
 
   const selectedBed = beds.find((b) => b.id === selectedBedId);
@@ -96,6 +102,55 @@ export default function BedsPage() {
               <span className="text-amber-600">{beds.filter((b) => b.status === 'pending_adjustment').length} 待调整</span>
             </div>
           </div>
+          {(() => {
+            const returnedCount = nursingLevels.filter((nl) => nl.status === 'returned').length;
+            const anomalyCount = nursingLevels.filter((nl) => nl.status === 'anomaly').length;
+            if (returnedCount === 0 && anomalyCount === 0) return null;
+            return (
+              <div className={cn(
+                'p-3 rounded-md border flex items-center justify-between',
+                returnedCount > 0 ? 'bg-amber-50 border-amber-200' : 'bg-red-50 border-red-200'
+              )}>
+                <div className="flex items-center gap-2">
+                  {returnedCount > 0 && (
+                    <div className="flex items-center gap-1.5">
+                      <RotateCcw size={14} className="text-amber-500" />
+                      <span className="text-xs font-medium text-amber-700">
+                        {returnedCount} 张床位护理等级已退回，需重新安排
+                      </span>
+                    </div>
+                  )}
+                  {returnedCount > 0 && anomalyCount > 0 && <span className="text-amber-300">|</span>}
+                  {anomalyCount > 0 && (
+                    <div className="flex items-center gap-1.5">
+                      <AlertTriangle size={14} className="text-red-500" />
+                      <span className="text-xs font-medium text-red-700">
+                        {anomalyCount} 个异常待处理
+                      </span>
+                    </div>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  {returnedCount > 0 && (
+                    <button
+                      onClick={() => setStatusFilter('pending_adjustment' as BedStatus)}
+                      className="px-2.5 py-1 text-[10px] bg-amber-500 text-white rounded hover:bg-amber-600 transition-colors"
+                    >
+                      筛选待调整
+                    </button>
+                  )}
+                  {anomalyCount > 0 && (
+                    <button
+                      onClick={() => window.location.href = '/nursing-levels?status=anomaly'}
+                      className="px-2.5 py-1 text-[10px] bg-red-500 text-white rounded hover:bg-red-600 transition-colors"
+                    >
+                      查看异常
+                    </button>
+                  )}
+                </div>
+              </div>
+            );
+          })()}
 
           <div className="flex items-center gap-2">
             <div className="relative flex-1 max-w-xs">
@@ -149,9 +204,10 @@ export default function BedsPage() {
                   <th className="text-left px-3 py-2 font-semibold text-slate-600 w-12">状态</th>
                   <th className="text-left px-3 py-2 font-semibold text-slate-600">姓名</th>
                   <th className="text-left px-3 py-2 font-semibold text-slate-600 w-16">护理等级</th>
+                  <th className="text-left px-3 py-2 font-semibold text-slate-600 w-20">退回状态</th>
                   <th className="text-left px-3 py-2 font-semibold text-slate-600">备注预览</th>
                   <th className="text-left px-3 py-2 font-semibold text-slate-600 w-16">备注流转</th>
-                  <th className="text-right px-3 py-2 font-semibold text-slate-600 w-28">操作</th>
+                  <th className="text-right px-3 py-2 font-semibold text-slate-600 w-36">操作</th>
                 </tr>
               </thead>
               <tbody>
@@ -193,7 +249,26 @@ export default function BedsPage() {
                           </span>
                         ) : '—'}
                       </td>
-                      <td className="px-3 py-2 text-slate-500 truncate max-w-[200px]">
+                      <td className="px-3 py-2">
+                        {nl?.status === 'returned' ? (
+                          <div className="flex items-center gap-1">
+                            <RotateCcw size={10} className="text-amber-500" />
+                            <span className="text-[10px] text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded font-medium">
+                              已退回
+                            </span>
+                          </div>
+                        ) : nl?.status === 'anomaly' ? (
+                          <div className="flex items-center gap-1">
+                            <AlertTriangle size={10} className="text-red-500" />
+                            <span className="text-[10px] text-red-700 bg-red-50 px-1.5 py-0.5 rounded font-medium">
+                              异常
+                            </span>
+                          </div>
+                        ) : (
+                          <span className="text-slate-300">—</span>
+                        )}
+                      </td>
+                      <td className="px-3 py-2 text-slate-500 truncate max-w-[180px]">
                         {latestNote ? (
                           <span className="truncate">{latestNote.content}</span>
                         ) : (
@@ -213,6 +288,24 @@ export default function BedsPage() {
                       </td>
                       <td className="px-3 py-2 text-right">
                         <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
+                          {nl?.status === 'returned' && (
+                            <button
+                              onClick={() => handleReturnProcess(bed.id, nl.id)}
+                              className="px-2 py-1 text-[10px] bg-amber-500 text-white rounded hover:bg-amber-600 transition-colors flex items-center gap-0.5"
+                            >
+                              <RotateCcw size={10} />
+                              处理退回
+                            </button>
+                          )}
+                          {nl?.status === 'anomaly' && (
+                            <button
+                              onClick={() => handleReturnProcess(bed.id, nl.id)}
+                              className="px-2 py-1 text-[10px] bg-red-500 text-white rounded hover:bg-red-600 transition-colors flex items-center gap-0.5"
+                            >
+                              <AlertTriangle size={10} />
+                              处理异常
+                            </button>
+                          )}
                           {currentRole === 'nursing_supervisor' && bed.status === 'available' && (
                             <button
                               onClick={() => setAdmitModalBedId(bed.id)}

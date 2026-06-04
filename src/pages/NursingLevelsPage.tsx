@@ -686,7 +686,7 @@ function AnomalyModal({ residentName, onClose, onMark }: { residentName: string;
           <button
             onClick={() => {
               if (desc.trim()) {
-                onMark({ type, description: desc.trim(), action });
+                onMark({ type, description: desc.trim(), action, occurredAt: new Date().toISOString() });
                 onClose();
               }
             }}

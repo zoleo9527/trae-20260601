@@ -29,6 +29,7 @@ export interface AnomalyDetail {
   type: AnomalyType;
   description: string;
   action: AnomalyAction;
+  occurredAt: string;
   returnedFrom?: string;
   returnReason?: string;
 }

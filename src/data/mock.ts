@@ -33,8 +33,9 @@ const beds: Bed[] = [
   ]},
   { id: 'b203', roomNumber: '201', bedNumber: '3', floor: 2, status: 'occupied', residentId: 'r6', notes: [] },
   { id: 'b301', roomNumber: '301', bedNumber: '1', floor: 3, status: 'occupied', residentId: 'r7', notes: [] },
-  { id: 'b302', roomNumber: '301', bedNumber: '2', floor: 3, status: 'occupied', residentId: 'r8', notes: [
+  { id: 'b302', roomNumber: '301', bedNumber: '2', floor: 3, status: 'pending_adjustment', residentId: 'r8', notes: [
     { id: 'n5', content: '近期食欲下降，需关注营养摄入', source: 'bed_arrangement', transferredToNursingLevel: true, createdAt: '2025-02-28T16:00:00', createdBy: 'care_worker' },
+    { id: 'n14', content: '退回 - 健康状况变化：需要重新评估护理等级，建议升级至五级护理（发生时间：2025/5/28 14:30:00）', source: 'anomaly_return', transferredToNursingLevel: true, createdAt: '2025-06-04T07:00:00', createdBy: 'nursing_supervisor' },
   ]},
   { id: 'b303', roomNumber: '301', bedNumber: '3', floor: 3, status: 'occupied', residentId: 'r9', notes: [] },
   { id: 'b304', roomNumber: '302', bedNumber: '1', floor: 3, status: 'occupied', residentId: 'r10', notes: [] },
@@ -75,7 +76,7 @@ const nursingLevels: NursingLevel[] = [
   {
     id: 'nl3', residentId: 'r5', level: 4, source: 'bed_arrangement', status: 'anomaly',
     createdAt: '2024-08-22T11:30:00', confirmedAt: null,
-    anomalyDetail: { type: 'behavior_change', description: '近期频繁拒绝进食，情绪波动大，家属反映有攻击性行为', action: 'alert' },
+    anomalyDetail: { type: 'behavior_change', description: '近期频繁拒绝进食，情绪波动大，家属反映有攻击性行为', action: 'alert', occurredAt: '2025-06-03T10:00:00' },
     notes: [
       { id: 'n4', content: '老人情绪不稳定，需关注心理状态', source: 'bed_arrangement', transferredToNursingLevel: false, createdAt: '2024-08-22T11:00:00', createdBy: 'social_worker' },
     ],
@@ -84,7 +85,7 @@ const nursingLevels: NursingLevel[] = [
   {
     id: 'nl4', residentId: 'r8', level: 4, source: 'periodic_assessment', status: 'returned',
     createdAt: '2025-05-25T14:00:00', confirmedAt: null,
-    anomalyDetail: { type: 'health_change', description: '血压持续偏高，当前护理等级可能不足', action: 'return', returnedFrom: 'nursing_level', returnReason: '需要重新评估护理等级，建议升级至五级护理' },
+    anomalyDetail: { type: 'health_change', description: '血压持续偏高，当前护理等级可能不足', action: 'return', occurredAt: '2025-05-28T14:30:00', returnedFrom: 'nursing_level', returnReason: '需要重新评估护理等级，建议升级至五级护理' },
     notes: [
       { id: 'n5', content: '近期食欲下降，需关注营养摄入', source: 'bed_arrangement', transferredToNursingLevel: true, createdAt: '2025-02-28T16:00:00', createdBy: 'care_worker' },
     ],
@@ -114,7 +115,7 @@ const nursingLevels: NursingLevel[] = [
   {
     id: 'nl8', residentId: 'r15', level: 4, source: 'anomaly_report', status: 'anomaly',
     createdAt: '2025-06-02T15:00:00', confirmedAt: null,
-    anomalyDetail: { type: 'family_complaint', description: '家属反映护理不到位，要求更换护理方案', action: 'alert' },
+    anomalyDetail: { type: 'family_complaint', description: '家属反映护理不到位，要求更换护理方案', action: 'alert', occurredAt: '2025-06-02T14:00:00' },
     notes: [],
     history: [{ id: 'h9', fromLevel: 3, toLevel: 4, source: 'anomaly_report', changedAt: '2025-06-02T15:00:00', changedBy: 'social_worker', note: '家属投诉触发升级' }],
   },

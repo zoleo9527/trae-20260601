@@ -24,7 +24,7 @@ interface AppState {
 
   confirmNursingLevel: (id: string) => void;
   markAnomaly: (id: string, detail: AnomalyDetail) => void;
-  returnNursingLevel: (id: string, reason: string) => void;
+  returnNursingLevel: (id: string, detail: AnomalyDetail | string) => void;
   triggerAlert: (id: string) => void;
 
   admitResident: (bedId: string, resident: Omit<Resident, 'id' | 'notes'>, note?: string) => void;
@@ -74,7 +74,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       let nursingLevels = s.nursingLevels;
       if (bed?.residentId) {
         nursingLevels = s.nursingLevels.map((nl) =>
-          nl.residentId === bed.residentId && (nl.status === 'pending' || nl.status === 'confirmed' || nl.status === 'anomaly')
+          nl.residentId === bed.residentId && (nl.status === 'pending' || nl.status === 'confirmed' || nl.status === 'anomaly' || nl.status === 'returned')
             ? { ...nl, notes: [...nl.notes, note] }
             : nl
         );
@@ -90,7 +90,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       const bed = s.beds.find((b) => b.id === bedId);
       if (!bed || !bed.residentId) return s;
 
-      const nursingLevel = s.nursingLevels.find((nl) => nl.residentId === bed.residentId && (nl.status === 'pending' || nl.status === 'confirmed'));
+      const nursingLevel = s.nursingLevels.find((nl) => nl.residentId === bed.residentId && (nl.status === 'pending' || nl.status === 'confirmed' || nl.status === 'anomaly' || nl.status === 'returned'));
       if (!nursingLevel) return s;
 
       const note = bed.notes.find((n) => n.id === noteId);
@@ -143,14 +143,22 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   markAnomaly: (id, detail) => {
     if (detail.action === 'return') {
-      get().returnNursingLevel(id, detail.description);
+      const fullDetail: AnomalyDetail = {
+        ...detail,
+        occurredAt: detail.occurredAt || new Date().toISOString(),
+      };
+      get().returnNursingLevel(id, fullDetail);
       return;
     }
     set((s) => {
       const nl = s.nursingLevels.find((n) => n.id === id);
       const resident = nl ? s.residents.find((r) => r.id === nl.residentId) : null;
+      const fullDetail: AnomalyDetail = {
+        ...detail,
+        occurredAt: detail.occurredAt || new Date().toISOString(),
+      };
       const nursingLevels = s.nursingLevels.map((n) =>
-        n.id === id ? { ...n, status: 'anomaly' as const, anomalyDetail: detail } : n
+        n.id === id ? { ...n, status: 'anomaly' as const, anomalyDetail: fullDetail } : n
       );
       const alertNote: Note = {
         id: genId('n'),
@@ -183,35 +191,52 @@ export const useAppStore = create<AppState>((set, get) => ({
     });
   },
 
-  returnNursingLevel: (id, reason) => {
+  returnNursingLevel: (id, detailOrReason) => {
     set((s) => {
-      const nursingLevels: NursingLevel[] = s.nursingLevels.map((nl) => {
-        if (nl.id !== id) return nl;
-        const newAnomalyDetail: AnomalyDetail = nl.anomalyDetail
-          ? { ...nl.anomalyDetail, action: 'return', returnReason: reason }
-          : { type: 'other', description: reason, action: 'return', returnReason: reason };
-        return { ...nl, status: 'returned' as const, anomalyDetail: newAnomalyDetail };
-      });
+      const currentNl = s.nursingLevels.find((n) => n.id === id);
+      let anomalyDetail: AnomalyDetail;
+      let returnReason: string;
+      
+      if (typeof detailOrReason === 'string') {
+        returnReason = detailOrReason;
+        anomalyDetail = currentNl?.anomalyDetail
+          ? { ...currentNl.anomalyDetail, action: 'return' as const, returnReason, occurredAt: currentNl.anomalyDetail.occurredAt || new Date().toISOString() }
+          : { type: 'other', description: returnReason, action: 'return' as const, returnReason, occurredAt: new Date().toISOString() };
+      } else {
+        anomalyDetail = {
+          ...detailOrReason,
+          action: 'return' as const,
+          returnReason: detailOrReason.returnReason || detailOrReason.description,
+          occurredAt: detailOrReason.occurredAt || new Date().toISOString(),
+        };
+        returnReason = anomalyDetail.returnReason;
+      }
+
+      const nursingLevels: NursingLevel[] = s.nursingLevels.map((nl) =>
+        nl.id === id ? { ...nl, status: 'returned' as const, anomalyDetail } : nl
+      );
+      
       const returnNote: Note = {
         id: genId('n'),
-        content: `退回原因：${reason}`,
+        content: `退回 - ${ANOMALY_TYPE_LABELS[anomalyDetail.type]}：${returnReason}（发生时间：${new Date(anomalyDetail.occurredAt).toLocaleString('zh-CN')}）`,
         source: 'anomaly_return',
         transferredToNursingLevel: true,
         createdAt: new Date().toISOString(),
         createdBy: get().currentRole,
       };
+      
       const targetNl = nursingLevels.find((n) => n.id === id);
       if (targetNl) {
         const resident = s.residents.find((r) => r.id === targetNl.residentId);
         if (resident) {
           const bed = s.beds.find((b) => b.residentId === resident.id);
           if (bed) {
-            const beds = s.beds.map((b) => b.id === bed.id ? { ...b, notes: [...b.notes, returnNote] } : b);
+            const beds = s.beds.map((b) => b.id === bed.id ? { ...b, notes: [...b.notes, returnNote], status: 'pending_adjustment' as const } : b);
             const notification: Notification = {
               id: genId('nt'),
               type: 'return',
               title: '退回通知',
-              description: `${resident.name}护理等级评估已退回：${reason}`,
+              description: `${resident.name}护理等级评估已退回：${ANOMALY_TYPE_LABELS[anomalyDetail.type]} - ${returnReason}`,
               read: false,
               createdAt: new Date().toISOString(),
               relatedId: id,
