@@ -1,0 +1,105 @@
+// Prisma schema for Craft Brewery Production System
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model User {
+  id       Int    @id @default(autoincrement())
+  name     String
+  role     String
+  avatar   String?
+
+  fillingCreated          FillingSchedule[]           @relation("FillingCreator")
+  fillingHistoryCreated   FillingScheduleHistory[]    @relation("FillingHistoryCreator")
+  packagingCreated        PackagingRequisition[]      @relation("PackagingCreator")
+  packagingHistoryCreated PackagingRequisitionHistory[] @relation("PackagingHistoryCreator")
+  notifications           Notification[]
+}
+
+model FillingSchedule {
+  id              Int       @id @default(autoincrement())
+  batchNo         String    @unique
+  productName     String
+  beerType        String
+  volume          Float
+  fillingDate     DateTime
+  targetBottles   Int
+  status          String    @default("DRAFT")
+  currentHandler  String
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  createdById     Int
+  createdBy       User      @relation("FillingCreator", fields: [createdById], references: [id])
+  history         FillingScheduleHistory[]
+  packagingRequisitions PackagingRequisition[]
+}
+
+model FillingScheduleHistory {
+  id              Int       @id @default(autoincrement())
+  scheduleId      Int
+  schedule        FillingSchedule @relation(fields: [scheduleId], references: [id])
+  action          String
+  oldStatus       String?
+  newStatus       String?
+  remark          String
+  changes         String?
+  createdById     Int
+  createdBy       User      @relation("FillingHistoryCreator", fields: [createdById], references: [id])
+  createdAt       DateTime  @default(now())
+}
+
+model PackagingRequisition {
+  id              Int       @id @default(autoincrement())
+  requisitionNo   String    @unique
+  scheduleId      Int
+  schedule        FillingSchedule @relation(fields: [scheduleId], references: [id])
+  bottleType      String
+  bottleCount     Int
+  labelType       String
+  cartonType      String
+  requiredDate    DateTime
+  status          String    @default("PENDING")
+  currentHandler  String
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  scheduleVersion Int       @default(1)
+
+  createdById     Int
+  createdBy       User      @relation("PackagingCreator", fields: [createdById], references: [id])
+  history         PackagingRequisitionHistory[]
+}
+
+model PackagingRequisitionHistory {
+  id              Int       @id @default(autoincrement())
+  requisitionId   Int
+  requisition     PackagingRequisition @relation(fields: [requisitionId], references: [id])
+  action          String
+  oldStatus       String?
+  newStatus       String?
+  remark          String
+  changes         String?
+  scheduleChangeNotified Boolean @default(false)
+  createdById     Int
+  createdBy       User      @relation("PackagingHistoryCreator", fields: [createdById], references: [id])
+  createdAt       DateTime  @default(now())
+}
+
+model Notification {
+  id              Int       @id @default(autoincrement())
+  userId          Int
+  user            User      @relation(fields: [userId], references: [id])
+  type            String
+  title           String
+  message         String
+  relatedType     String
+  relatedId       Int
+  read            Boolean   @default(false)
+  createdAt       DateTime  @default(now())
+}
