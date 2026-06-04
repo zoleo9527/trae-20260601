@@ -31,9 +31,11 @@ interface DashboardData {
   missedStats: {
     pending: number
     reminded: number
+    confirmed: number
     completed: number
     closed: number
     total: number
+    toFollow: number
   }
   anomalyBreakdown: {
     missing_material: number
@@ -93,7 +95,7 @@ export default function Dashboard() {
               <span className="text-sm opacity-90">今日日期：{data.todayDate}</span>
             </div>
             <h1 className="text-2xl font-bold mb-2">今日待办总览</h1>
-            <p className="text-sm opacity-80">共 {totalAnomalies} 条异常待处理，{data.missedStats.pending + data.missedStats.reminded} 条漏项待跟进</p>
+            <p className="text-sm opacity-80">共 {totalAnomalies} 条异常待处理，{data.missedStats.toFollow} 条漏项待跟进（含{data.missedStats.confirmed}项待补检）</p>
           </div>
           <div className="text-right">
             <div className="text-4xl font-bold">{data.urgentDiversions.length}</div>
@@ -239,9 +241,10 @@ export default function Dashboard() {
             查看全部 <ChevronRight className="w-4 h-4" />
           </button>
         </div>
-        <div className="grid grid-cols-4 gap-4 mb-4">
+        <div className="grid grid-cols-5 gap-4 mb-4">
           <StatCard label="待处理" value={data.missedStats.pending} color="amber" />
           <StatCard label="已提醒" value={data.missedStats.reminded} color="blue" />
+          <StatCard label="待补检" value={data.missedStats.confirmed} color="purple" />
           <StatCard label="已补检" value={data.missedStats.completed} color="green" />
           <StatCard label="总计" value={data.missedStats.total} color="gray" />
         </div>
@@ -281,6 +284,7 @@ function StatCard({ label, value, color }: { label: string; value: number; color
   const colorMap: Record<string, string> = {
     amber: 'border-l-accent text-accent',
     blue: 'border-l-blue-500 text-blue-600',
+    purple: 'border-l-purple-500 text-purple-600',
     green: 'border-l-emerald-500 text-emerald-600',
     gray: 'border-l-gray-400 text-gray-600',
   }

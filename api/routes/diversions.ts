@@ -3,8 +3,10 @@ import {
   findDiversion,
   findDiversionLogs,
   findAttachments,
+  findFirstPlaceholderAttachment,
   addDiversionLog,
   addAttachment,
+  updateAttachment,
   updateDiversion,
   getDiversions,
 } from '../db.js'
@@ -236,17 +238,32 @@ router.post('/:id/attachments', (req: Request, res: Response): void => {
 
   const now = new Date().toISOString()
   const uploader = operatorName || '前台导检员'
-  const attachment = addAttachment(
-    {
-      diversionId: diversion.id,
+  const fileUrl = `/uploads/${Date.now()}_${fileName}`
+
+  let attachment
+  const placeholder = findFirstPlaceholderAttachment(diversion.id)
+
+  if (placeholder) {
+    attachment = updateAttachment(placeholder.id, {
       fileName,
       fileType,
-      fileUrl: `/uploads/${Date.now()}_${fileName}`,
+      fileUrl,
       uploadedAt: now,
       uploadedBy: uploader,
-    },
-    uploader
-  )
+    })
+  } else {
+    attachment = addAttachment(
+      {
+        diversionId: diversion.id,
+        fileName,
+        fileType,
+        fileUrl,
+        uploadedAt: now,
+        uploadedBy: uploader,
+      },
+      uploader
+    )
+  }
 
   addDiversionLog({
     diversionId: diversion.id,

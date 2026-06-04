@@ -86,13 +86,13 @@
       "patientName": "周婷",
       "patientAge": 28,
       "patientGender": "女",
-      "status": "approved",
+      "status": "completed",
       "assignedDept": "妇科",
       "assignedDoctor": "陈医生",
       "urgency": "normal",
       "anomalyType": [],
       "createdAt": "2026-06-03T10:00:00.000Z",
-      "updatedAt": "2026-06-04T02:53:54.833Z"
+      "updatedAt": "2026-06-03T11:30:00.000Z"
     },
     {
       "id": "dv1007",
@@ -431,33 +431,24 @@
       "createdAt": "2026-06-04T11:20:00.000Z"
     },
     {
-      "diversionId": "dv1006",
-      "operatorRole": "reviewer",
-      "operatorName": "测试审核员",
-      "action": "approve",
-      "detail": "报告审核通过，流程完成",
-      "id": "dvl5001",
-      "createdAt": "2026-06-04T02:53:54.833Z"
-    },
-    {
       "diversionId": "dv1001",
       "operatorRole": "front_desk",
       "operatorName": "测试前台",
       "action": "upload_attachment",
-      "detail": "上传附件：测试附件.pdf（补检凭证）",
-      "id": "dvl5004",
-      "createdAt": "2026-06-04T02:54:08.688Z"
+      "detail": "上传附件：体检申请表_已上传.pdf（补检凭证）",
+      "id": "dvl5009",
+      "createdAt": "2026-06-04T03:09:15.476Z"
     }
   ],
   "attachments": [
     {
       "id": "att3001",
       "diversionId": "dv1001",
-      "fileName": "体检申请表.pdf",
+      "fileName": "体检申请表_已上传.pdf",
       "fileType": "补检凭证",
-      "fileUrl": null,
-      "uploadedAt": null,
-      "uploadedBy": null
+      "fileUrl": "/uploads/1780542555475_体检申请表_已上传.pdf",
+      "uploadedAt": "2026-06-04T03:09:15.475Z",
+      "uploadedBy": "测试前台"
     },
     {
       "id": "att3006",
@@ -557,15 +548,6 @@
       "fileUrl": "/uploads/recheck_record.docx",
       "uploadedAt": "2026-06-04T08:18:00.000Z",
       "uploadedBy": "王医生"
-    },
-    {
-      "diversionId": "dv1001",
-      "fileName": "测试附件.pdf",
-      "fileType": "补检凭证",
-      "fileUrl": "/uploads/1780541648687_测试附件.pdf",
-      "uploadedAt": "2026-06-04T02:54:08.687Z",
-      "uploadedBy": "测试前台",
-      "id": "att5003"
     }
   ],
   "missedItems": [
@@ -575,8 +557,8 @@
       "patientName": "张伟",
       "itemName": "腹部B超",
       "requiredDept": "超声科",
-      "status": "pending",
-      "remindedAt": null,
+      "status": "reminded",
+      "remindedAt": "2026-06-04T03:10:37.900Z",
       "confirmedAt": null,
       "completedAt": null,
       "createdAt": "2026-06-04T08:35:00.000Z"
@@ -589,7 +571,7 @@
       "requiredDept": "检验科",
       "status": "confirmed",
       "remindedAt": "2026-06-04T09:20:00.000Z",
-      "confirmedAt": "2026-06-04T02:54:08.653Z",
+      "confirmedAt": "2026-06-04T03:10:11.084Z",
       "completedAt": null,
       "createdAt": "2026-06-04T08:50:00.000Z"
     },
@@ -817,8 +799,17 @@
       "operatorName": "测试医生",
       "action": "confirm",
       "detail": "科室医生确认甲状腺功能漏项，已安排补检",
-      "id": "mil5002",
-      "createdAt": "2026-06-04T02:54:08.654Z"
+      "id": "mil5010",
+      "createdAt": "2026-06-04T03:10:11.085Z"
+    },
+    {
+      "missedItemId": "mi4001",
+      "operatorRole": "front_desk",
+      "operatorName": "测试前台",
+      "action": "remind",
+      "detail": "发送漏项提醒，通知患者补做腹部B超",
+      "id": "mil5011",
+      "createdAt": "2026-06-04T03:10:37.901Z"
     }
   ]
 }

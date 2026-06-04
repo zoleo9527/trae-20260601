@@ -37,9 +37,11 @@ router.get('/', (req: Request, res: Response): void => {
   const missedStats = {
     pending: todayMissed.filter((m) => m.status === 'pending').length,
     reminded: todayMissed.filter((m) => m.status === 'reminded').length,
+    confirmed: todayMissed.filter((m) => m.status === 'confirmed').length,
     completed: todayMissed.filter((m) => m.status === 'completed').length,
     closed: todayMissed.filter((m) => m.status === 'closed').length,
     total: todayMissed.length,
+    toFollow: todayMissed.filter((m) => m.status === 'pending' || m.status === 'reminded' || m.status === 'confirmed').length,
   }
 
   const anomalyBreakdown = {
@@ -49,7 +51,11 @@ router.get('/', (req: Request, res: Response): void => {
   }
 
   const recentMissed = todayMissed
-    .filter((m) => m.status === 'pending' || m.status === 'reminded')
+    .filter((m) => m.status === 'pending' || m.status === 'reminded' || m.status === 'confirmed')
+    .sort((a, b) => {
+      const priority = { pending: 0, reminded: 1, confirmed: 2, completed: 3, closed: 4 }
+      return (priority[a.status as keyof typeof priority] || 0) - (priority[b.status as keyof typeof priority] || 0)
+    })
     .slice(0, 5)
 
   res.json({

@@ -155,6 +155,30 @@ const initialData: DataStore = {
 
 initDataIfEmpty(initialData)
 
+function initIdCounter() {
+  const data = loadData()
+  const allIds: string[] = [
+    ...data.diversions.map((d: any) => d.id),
+    ...data.diversionLogs.map((l: any) => l.id),
+    ...data.attachments.map((a: any) => a.id),
+    ...data.missedItems.map((m: any) => m.id),
+    ...data.missedItemLogs.map((l: any) => l.id),
+  ]
+
+  let maxNum = 0
+  allIds.forEach((id) => {
+    const match = id.match(/^([a-z]+)(\d+)$/i)
+    if (match) {
+      const num = parseInt(match[2], 10)
+      if (num > maxNum) maxNum = num
+    }
+  })
+
+  idCounter = Math.max(maxNum, idCounter)
+}
+
+initIdCounter()
+
 export function getDiversions(): Diversion[] {
   return loadData().diversions as Diversion[]
 }
@@ -205,6 +229,10 @@ export function findDiversionLogs(diversionId: string): DiversionLog[] {
 
 export function findAttachments(diversionId: string): Attachment[] {
   return getAttachments().filter((a) => a.diversionId === diversionId)
+}
+
+export function findFirstPlaceholderAttachment(diversionId: string): Attachment | undefined {
+  return getAttachments().find((a) => a.diversionId === diversionId && a.fileUrl === null)
 }
 
 export function addDiversionLog(log: Omit<DiversionLog, 'id' | 'createdAt'>): DiversionLog {
