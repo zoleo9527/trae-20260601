@@ -87,20 +87,10 @@ router.get('/:id', async (req: Request, res: Response): Promise<void> => {
 })
 
 router.patch('/:id/status', async (req: Request, res: Response): Promise<void> => {
-  const db = getDb()
-  const { id } = req.params
-  const { status } = req.body
-
-  const validStatuses = ['pending', 'in_consultation', 'plan_submitted', 'plan_confirmed', 'in_service', 'completed']
-  if (!validStatuses.includes(status)) {
-    res.status(400).json({ success: false, error: '无效的状态' })
-    return
-  }
-
-  db.prepare('UPDATE appointments SET status = ?, updated_at = datetime("now") WHERE id = ?').run(status, id)
-
-  const appointment = db.prepare('SELECT * FROM appointments WHERE id = ?').get(id)
-  res.json({ success: true, data: appointment })
+  res.status(400).json({
+    success: false,
+    error: '此接口已废弃，请通过方案确认步骤统一推进状态',
+  })
 })
 
 export default router

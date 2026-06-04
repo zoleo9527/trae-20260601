@@ -97,7 +97,7 @@ export const api = {
     confirm: (id: string) =>
       request<Plan>(`/plans/${id}/confirm`, { method: 'PATCH' }),
     confirmStep: (stepId: string, note?: string) =>
-      request<{ steps: PlanConfirmationStep[]; allCompleted: boolean }>(`/plans/confirmation-step/${stepId}`, {
+      request<{ steps: PlanConfirmationStep[]; allCompleted: boolean; appointment: Appointment }>(`/plans/confirmation-step/${stepId}`, {
         method: 'POST',
         body: JSON.stringify({ note }),
       }),
