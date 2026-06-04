@@ -1,0 +1,1203 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>医美机构 - 术后回访与不适上报系统</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #1a1a2e;
+            color: #e0e0e0;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        .app-titlebar {
+            height: 32px;
+            background: #16213e;
+            display: flex;
+            align-items: center;
+            padding: 0 12px;
+            border-bottom: 1px solid #0f3460;
+        }
+        .app-titlebar .title {
+            font-size: 12px;
+            color: #8892b0;
+            flex: 1;
+            text-align: center;
+        }
+        .window-controls {
+            display: flex;
+            gap: 8px;
+        }
+        .window-btn {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+        }
+        .btn-close { background: #ff5f57; }
+        .btn-min { background: #ffbd2e; }
+        .btn-max { background: #28ca42; }
+        .app-container {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+        .sidebar {
+            width: 200px;
+            background: #16213e;
+            border-right: 1px solid #0f3460;
+            display: flex;
+            flex-direction: column;
+        }
+        .sidebar-header {
+            padding: 16px;
+            border-bottom: 1px solid #0f3460;
+        }
+        .sidebar-header h2 {
+            font-size: 14px;
+            color: #e94560;
+            font-weight: 600;
+        }
+        .sidebar-header p {
+            font-size: 11px;
+            color: #8892b0;
+            margin-top: 4px;
+        }
+        .nav-menu {
+            flex: 1;
+            padding: 8px;
+            overflow-y: auto;
+        }
+        .nav-item {
+            padding: 10px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 13px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: #8892b0;
+            margin-bottom: 2px;
+            transition: all 0.2s;
+        }
+        .nav-item:hover { background: #1a1a2e; color: #e0e0e0; }
+        .nav-item.active { background: #e94560; color: #fff; }
+        .nav-item .icon { width: 16px; text-align: center; }
+        .nav-badge {
+            background: #e94560;
+            color: #fff;
+            font-size: 10px;
+            padding: 2px 6px;
+            border-radius: 10px;
+            margin-left: auto;
+        }
+        .nav-item.active .nav-badge { background: #fff; color: #e94560; }
+        .sidebar-footer {
+            padding: 12px;
+            border-top: 1px solid #0f3460;
+        }
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .user-avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: #0f3460;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: 600;
+            color: #e94560;
+        }
+        .user-details h4 { font-size: 12px; font-weight: 500; }
+        .user-details p { font-size: 10px; color: #8892b0; }
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        .content-header {
+            padding: 16px 20px;
+            background: #16213e;
+            border-bottom: 1px solid #0f3460;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .content-header h1 {
+            font-size: 18px;
+            font-weight: 600;
+        }
+        .content-header .subtitle {
+            font-size: 12px;
+            color: #8892b0;
+            margin-top: 4px;
+        }
+        .quick-actions {
+            display: flex;
+            gap: 8px;
+        }
+        .btn {
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-size: 12px;
+            cursor: pointer;
+            border: none;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            transition: all 0.2s;
+        }
+        .btn-primary { background: #e94560; color: #fff; }
+        .btn-primary:hover { background: #ff6b6b; }
+        .btn-secondary { background: #0f3460; color: #e0e0e0; border: 1px solid #1a1a2e; }
+        .btn-secondary:hover { background: #1a1a2e; }
+        .content-body {
+            flex: 1;
+            overflow: auto;
+            padding: 16px;
+        }
+        .filter-bar {
+            background: #16213e;
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-bottom: 16px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            align-items: center;
+        }
+        .filter-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .filter-group label {
+            font-size: 12px;
+            color: #8892b0;
+        }
+        .filter-group select,
+        .filter-group input {
+            background: #1a1a2e;
+            border: 1px solid #0f3460;
+            color: #e0e0e0;
+            padding: 6px 10px;
+            border-radius: 4px;
+            font-size: 12px;
+            outline: none;
+        }
+        .quick-filters {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+        .quick-filter {
+            padding: 4px 10px;
+            background: #1a1a2e;
+            border: 1px solid #0f3460;
+            border-radius: 12px;
+            font-size: 11px;
+            color: #8892b0;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .quick-filter:hover,
+        .quick-filter.active {
+            background: #e94560;
+            border-color: #e94560;
+            color: #fff;
+        }
+        .table-container {
+            background: #16213e;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px;
+        }
+        .data-table th {
+            background: #0f3460;
+            padding: 10px 12px;
+            text-align: left;
+            font-weight: 500;
+            color: #8892b0;
+            border-bottom: 1px solid #1a1a2e;
+            white-space: nowrap;
+        }
+        .data-table td {
+            padding: 10px 12px;
+            border-bottom: 1px solid #1a1a2e;
+            color: #e0e0e0;
+        }
+        .data-table tr:hover { background: #1a1a2e; }
+        .status-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 10px;
+            font-weight: 500;
+        }
+        .status-pending { background: #ffbd2e; color: #1a1a2e; }
+        .status-processing { background: #4ecdc4; color: #1a1a2e; }
+        .status-completed { background: #28ca42; color: #1a1a2e; }
+        .status-critical { background: #ff5f57; color: #fff; }
+        .status-info { background: #5c6bc0; color: #fff; }
+        .severity-high { background: #ff5f57; color: #fff; }
+        .severity-medium { background: #ffa726; color: #1a1a2e; }
+        .severity-low { background: #66bb6a; color: #1a1a2e; }
+        .action-links {
+            display: flex;
+            gap: 8px;
+        }
+        .action-link { color: #e94560; cursor: pointer; text-decoration: underline; }
+        .trace-link { color: #4ecdc4; cursor: pointer; text-decoration: underline; }
+        .modal-overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0, 0, 0, 0.7);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+        .modal-overlay.active { display: flex; }
+        .modal {
+            background: #16213e;
+            border-radius: 12px;
+            width: 90%;
+            max-width: 900px;
+            max-height: 80vh;
+            display: flex;
+            flex-direction: column;
+        }
+        .modal-header {
+            padding: 16px 20px;
+            border-bottom: 1px solid #0f3460;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .modal-header h3 { font-size: 16px; font-weight: 600; }
+        .modal-close {
+            background: none;
+            border: none;
+            color: #8892b0;
+            font-size: 20px;
+            cursor: pointer;
+        }
+        .modal-body {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+        }
+        .modal-footer {
+            padding: 16px 20px;
+            border-top: 1px solid #0f3460;
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+        }
+        .detail-section { margin-bottom: 20px; }
+        .detail-section h4 {
+            font-size: 14px;
+            margin-bottom: 12px;
+            color: #e94560;
+            padding-bottom: 8px;
+            border-bottom: 1px solid #0f3460;
+        }
+        .detail-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+        }
+        .detail-item { display: flex; flex-direction: column; gap: 4px; }
+        .detail-item label { font-size: 11px; color: #8892b0; }
+        .detail-item .value { font-size: 13px; color: #e0e0e0; }
+        .detail-item.full { grid-column: 1 / -1; }
+        .timeline {
+            position: relative;
+            padding-left: 20px;
+        }
+        .timeline::before {
+            content: '';
+            position: absolute;
+            left: 6px;
+            top: 0;
+            bottom: 0;
+            width: 2px;
+            background: #0f3460;
+        }
+        .timeline-item {
+            position: relative;
+            padding-bottom: 20px;
+        }
+        .timeline-item::before {
+            content: '';
+            position: absolute;
+            left: -17px;
+            top: 4px;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #e94560;
+            border: 2px solid #16213e;
+        }
+        .timeline-item.create::before { background: #28ca42; }
+        .timeline-item.update::before { background: #4ecdc4; }
+        .timeline-item.handle::before { background: #ffa726; }
+        .timeline-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 6px;
+        }
+        .timeline-title { font-size: 13px; font-weight: 500; }
+        .timeline-meta { font-size: 11px; color: #8892b0; }
+        .timeline-content { font-size: 12px; color: #b0b0b0; }
+        .timeline-reason {
+            margin-top: 6px;
+            padding: 8px 12px;
+            background: #1a1a2e;
+            border-radius: 4px;
+            font-size: 11px;
+            border-left: 3px solid #e94560;
+        }
+        .change-compare {
+            display: flex;
+            gap: 12px;
+            margin-top: 8px;
+            font-size: 11px;
+        }
+        .change-old {
+            background: rgba(255, 95, 87, 0.2);
+            padding: 4px 8px;
+            border-radius: 4px;
+            text-decoration: line-through;
+            color: #ff8a80;
+        }
+        .change-new {
+            background: rgba(40, 202, 66, 0.2);
+            padding: 4px 8px;
+            border-radius: 4px;
+            color: #81c784;
+        }
+        .version-badge {
+            background: #0f3460;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 10px;
+            color: #4ecdc4;
+        }
+        .page { display: none; }
+        .page.active { display: block; }
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            margin-bottom: 12px;
+        }
+        .form-group label {
+            font-size: 12px;
+            color: #8892b0;
+        }
+        .form-group select,
+        .form-group textarea {
+            background: #1a1a2e;
+            border: 1px solid #0f3460;
+            color: #e0e0e0;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 13px;
+            outline: none;
+        }
+        .form-group textarea { min-height: 80px; resize: vertical; }
+    </style>
+</head>
+<body>
+    <div class="app-titlebar">
+        <div class="window-controls">
+            <div class="window-btn btn-close"></div>
+            <div class="window-btn btn-min"></div>
+            <div class="window-btn btn-max"></div>
+        </div>
+        <div class="title">医美机构 · 术后回访与不适上报系统</div>
+        <div style="width: 60px;"></div>
+    </div>
+
+    <div class="app-container">
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <h2>运营追溯系统</h2>
+                <p>过程留痕 · 异常可查</p>
+            </div>
+            <nav class="nav-menu">
+                <div class="nav-item active" data-page="dashboard">
+                    <span class="icon">📊</span>
+                    <span>数据概览</span>
+                </div>
+                <div class="nav-item" data-page="consultations">
+                    <span class="icon">📋</span>
+                    <span>咨询记录</span>
+                </div>
+                <div class="nav-item" data-page="quotations">
+                    <span class="icon">💰</span>
+                    <span>方案报价</span>
+                </div>
+                <div class="nav-item" data-page="followups">
+                    <span class="icon">📞</span>
+                    <span>术后回访</span>
+                    <span class="nav-badge" id="followupBadge">0</span>
+                </div>
+                <div class="nav-item" data-page="discomforts">
+                    <span class="icon">⚠️</span>
+                    <span>不适/投诉</span>
+                    <span class="nav-badge" id="discomfortBadge">0</span>
+                </div>
+                <div class="nav-item" data-page="audit">
+                    <span class="icon">🔍</span>
+                    <span>审计追溯</span>
+                </div>
+            </nav>
+            <div class="sidebar-footer">
+                <div class="user-info">
+                    <div class="user-avatar">李</div>
+                    <div class="user-details">
+                        <h4>李咨询师</h4>
+                        <p>咨询部 · 高级顾问</p>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <main class="main-content">
+            <div class="content-header">
+                <div>
+                    <h1 id="pageTitle">数据概览</h1>
+                    <p class="subtitle" id="pageSubtitle">查看系统整体运行情况</p>
+                </div>
+                <div class="quick-actions">
+                    <button class="btn btn-primary" onclick="refreshData()">🔄 刷新数据</button>
+                </div>
+            </div>
+
+            <div class="content-body">
+                <div id="page-dashboard" class="page active">
+                    <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 20px;">
+                        <div style="background: #16213e; padding: 16px; border-radius: 8px;">
+                            <div style="font-size: 11px; color: #8892b0; margin-bottom: 8px;">今日回访</div>
+                            <div style="font-size: 28px; font-weight: 600;" id="statTodayFollowups">0</div>
+                        </div>
+                        <div style="background: #16213e; padding: 16px; border-radius: 8px;">
+                            <div style="font-size: 11px; color: #8892b0; margin-bottom: 8px;">待处理投诉</div>
+                            <div style="font-size: 28px; font-weight: 600; color: #e94560;" id="statPendingIssues">0</div>
+                        </div>
+                        <div style="background: #16213e; padding: 16px; border-radius: 8px;">
+                            <div style="font-size: 11px; color: #8892b0; margin-bottom: 8px;">本周咨询</div>
+                            <div style="font-size: 28px; font-weight: 600;" id="statWeekConsultations">--</div>
+                        </div>
+                        <div style="background: #16213e; padding: 16px; border-radius: 8px;">
+                            <div style="font-size: 11px; color: #8892b0; margin-bottom: 8px;">客户总数</div>
+                            <div style="font-size: 28px; font-weight: 600;" id="statTotalCustomers">--</div>
+                        </div>
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                        <div class="table-container">
+                            <table class="data-table">
+                                <thead><tr><th>客户</th><th>项目</th><th>回访时间</th><th>状态</th><th>操作</th></tr></thead>
+                                <tbody id="recentFollowups"></tbody>
+                            </table>
+                        </div>
+                        <div class="table-container">
+                            <table class="data-table">
+                                <thead><tr><th>客户</th><th>类型</th><th>严重程度</th><th>状态</th><th>操作</th></tr></thead>
+                                <tbody id="recentDiscomforts"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="page-consultations" class="page">
+                    <div class="filter-bar">
+                        <div class="filter-group"><label>状态:</label>
+                            <select id="consultationStatus" onchange="loadConsultations()">
+                                <option value="">全部</option>
+                                <option value="draft">草稿</option>
+                                <option value="confirmed">已确认</option>
+                            </select>
+                        </div>
+                        <div class="quick-filters">
+                            <span class="quick-filter active" onclick="filterConsultations('all')">全部</span>
+                            <span class="quick-filter" onclick="filterConsultations('today')">今日</span>
+                            <span class="quick-filter" onclick="filterConsultations('has_promise')">有承诺口径</span>
+                        </div>
+                    </div>
+                    <div class="table-container">
+                        <table class="data-table">
+                            <thead><tr>
+                                <th>ID</th><th>客户</th><th>咨询日期</th><th>咨询师</th>
+                                <th>主诉</th><th>推荐项目</th><th>版本</th><th>状态</th><th>操作</th>
+                            </tr></thead>
+                            <tbody id="consultationTable"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div id="page-quotations" class="page">
+                    <div class="filter-bar">
+                        <div class="filter-group"><label>状态:</label>
+                            <select id="quotationStatus" onchange="loadQuotations()">
+                                <option value="">全部</option>
+                                <option value="draft">草稿</option>
+                                <option value="negotiating">洽谈中</option>
+                                <option value="confirmed">已确认</option>
+                            </select>
+                        </div>
+                        <div class="quick-filters">
+                            <span class="quick-filter active">全部</span>
+                            <span class="quick-filter">分期方案</span>
+                            <span class="quick-filter">有版本变更</span>
+                        </div>
+                    </div>
+                    <div class="table-container">
+                        <table class="data-table">
+                            <thead><tr>
+                                <th>ID</th><th>方案名称</th><th>客户</th><th>原价</th><th>优惠后</th>
+                                <th>支付方式</th><th>项目数</th><th>版本</th><th>状态</th><th>操作</th>
+                            </tr></thead>
+                            <tbody id="quotationTable"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div id="page-followups" class="page">
+                    <div class="filter-bar">
+                        <div class="filter-group"><label>回访阶段:</label>
+                            <select id="followupStage" onchange="loadFollowUps()">
+                                <option value="">全部</option>
+                                <option value="day1">术后24小时</option>
+                                <option value="day3">术后3天</option>
+                                <option value="week1">术后1周</option>
+                                <option value="month1">术后1月</option>
+                            </select>
+                        </div>
+                        <div class="filter-group"><label>状态:</label>
+                            <select id="followupStatus" onchange="loadFollowUps()">
+                                <option value="">全部</option>
+                                <option value="pending">待回访</option>
+                                <option value="completed">已完成</option>
+                                <option value="need_review">需跟进</option>
+                            </select>
+                        </div>
+                        <div class="quick-filters">
+                            <span class="quick-filter active">全部</span>
+                            <span class="quick-filter">今日待回访</span>
+                            <span class="quick-filter">有不适症状</span>
+                        </div>
+                    </div>
+                    <div class="table-container">
+                        <table class="data-table">
+                            <thead><tr>
+                                <th>ID</th><th>客户</th><th>手术项目</th><th>手术日期</th>
+                                <th>回访阶段</th><th>恢复状态</th><th>疼痛</th><th>版本</th>
+                                <th>状态</th><th>操作</th>
+                            </tr></thead>
+                            <tbody id="followupTable"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div id="page-discomforts" class="page">
+                    <div class="filter-bar">
+                        <div class="filter-group"><label>类型:</label>
+                            <select id="discomfortType" onchange="loadDiscomforts()">
+                                <option value="">全部</option>
+                                <option value="pain">疼痛</option>
+                                <option value="swelling">肿胀</option>
+                                <option value="scar">疤痕</option>
+                                <option value="effect">效果不满意</option>
+                            </select>
+                        </div>
+                        <div class="filter-group"><label>严重程度:</label>
+                            <select id="discomfortSeverity" onchange="loadDiscomforts()">
+                                <option value="">全部</option>
+                                <option value="high">严重</option>
+                                <option value="medium">中等</option>
+                                <option value="low">轻微</option>
+                            </select>
+                        </div>
+                        <div class="filter-group"><label>状态:</label>
+                            <select id="discomfortStatus" onchange="loadDiscomforts()">
+                                <option value="">全部</option>
+                                <option value="pending">待处理</option>
+                                <option value="processing">处理中</option>
+                                <option value="closed">已关闭</option>
+                            </select>
+                        </div>
+                        <div class="quick-filters">
+                            <span class="quick-filter active">全部</span>
+                            <span class="quick-filter">待处理</span>
+                            <span class="quick-filter">高风险</span>
+                        </div>
+                    </div>
+                    <div class="table-container">
+                        <table class="data-table">
+                            <thead><tr>
+                                <th>ID</th><th>客户</th><th>上报时间</th><th>不适类型</th>
+                                <th>症状</th><th>严重程度</th><th>首接人</th><th>状态</th><th>操作</th>
+                            </tr></thead>
+                            <tbody id="discomfortTable"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div id="page-audit" class="page">
+                    <div class="filter-bar">
+                        <div class="filter-group"><label>实体类型:</label>
+                            <select id="auditEntityType" onchange="loadAudit()">
+                                <option value="">全部</option>
+                                <option value="consultation_record">咨询记录</option>
+                                <option value="quotation_scheme">方案报价</option>
+                                <option value="follow_up">术后回访</option>
+                                <option value="discomfort_report">不适上报</option>
+                            </select>
+                        </div>
+                        <div class="filter-group"><label>操作类型:</label>
+                            <select id="auditAction" onchange="loadAudit()">
+                                <option value="">全部</option>
+                                <option value="create">创建</option>
+                                <option value="update">更新</option>
+                                <option value="handle">处理</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="table-container">
+                        <table class="data-table">
+                            <thead><tr>
+                                <th>时间</th><th>实体类型</th><th>实体ID</th><th>操作</th>
+                                <th>字段</th><th>变更原因</th><th>操作员</th>
+                            </tr></thead>
+                            <tbody id="auditTable"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <div class="modal-overlay" id="modal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 id="modalTitle">详情</h3>
+                <button class="modal-close" onclick="closeModal()">×</button>
+            </div>
+            <div class="modal-body" id="modalBody"></div>
+            <div class="modal-footer" id="modalFooter">
+                <button class="btn btn-secondary" onclick="closeModal()">关闭</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = '/api';
+        let currentPage = 'dashboard';
+
+        document.querySelectorAll('.nav-item').forEach(item => {
+            item.addEventListener('click', () => {
+                document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
+                item.classList.add('active');
+                navigateTo(item.dataset.page);
+            });
+        });
+
+        function navigateTo(page) {
+            currentPage = page;
+            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+            document.getElementById(`page-${page}`).classList.add('active');
+            
+            const titles = {
+                dashboard: ['数据概览', '查看系统整体运行情况'],
+                consultations: ['咨询记录管理', '所有客户咨询记录，支持版本追溯'],
+                quotations: ['方案报价管理', '方案报价单及变更历史，分期款项清晰可查'],
+                followups: ['术后回访管理', '术后回访记录及恢复情况跟踪'],
+                discomforts: ['不适/投诉上报', '客户不适与投诉处理，全程留痕'],
+                audit: ['审计追溯', '系统所有操作的完整日志']
+            };
+            document.getElementById('pageTitle').textContent = titles[page][0];
+            document.getElementById('pageSubtitle').textContent = titles[page][1];
+            refreshCurrentPage();
+        }
+
+        function refreshCurrentPage() {
+            switch(currentPage) {
+                case 'dashboard': loadDashboard(); break;
+                case 'consultations': loadConsultations(); break;
+                case 'quotations': loadQuotations(); break;
+                case 'followups': loadFollowUps(); break;
+                case 'discomforts': loadDiscomforts(); break;
+                case 'audit': loadAudit(); break;
+            }
+        }
+
+        function refreshData() { refreshCurrentPage(); }
+        function filterConsultations(type) { loadConsultations(); }
+
+        async function loadDashboard() {
+            const [followups, discomforts] = await Promise.all([
+                fetch(`${API_BASE}/follow-ups?limit=10`).then(r => r.json()),
+                fetch(`${API_BASE}/discomfort-reports?limit=10`).then(r => r.json())
+            ]);
+
+            const today = new Date().toDateString();
+            document.getElementById('statTodayFollowups').textContent = 
+                followups.filter(f => new Date(f.follow_up_date).toDateString() === today).length;
+            document.getElementById('statPendingIssues').textContent = 
+                discomforts.filter(d => d.status === 'pending' || d.status === 'processing').length;
+
+            document.getElementById('followupBadge').textContent = followups.filter(f => f.status === 'pending').length;
+            document.getElementById('discomfortBadge').textContent = discomforts.filter(d => d.status === 'pending').length;
+
+            let followupHtml = '';
+            followups.slice(0, 5).forEach(f => {
+                followupHtml += `<tr>
+                    <td>客户${f.customer_id}</td>
+                    <td>${(f.surgery_projects || []).join(', ')}</td>
+                    <td>${new Date(f.follow_up_date).toLocaleDateString()}</td>
+                    <td><span class="status-badge status-${f.status}">${f.status}</span></td>
+                    <td><span class="action-link" onclick="viewFollowUp(${f.id})">查看</span></td>
+                </tr>`;
+            });
+            document.getElementById('recentFollowups').innerHTML = followupHtml || '<tr><td colspan="5" style="text-align:center;padding:20px;color:#8892b0;">暂无数据</td></tr>';
+
+            let discomfortHtml = '';
+            discomforts.slice(0, 5).forEach(d => {
+                discomfortHtml += `<tr>
+                    <td>客户${d.customer_id}</td>
+                    <td>${d.discomfort_type}</td>
+                    <td><span class="status-badge severity-${d.severity}">${d.severity}</span></td>
+                    <td><span class="status-badge status-${d.status === 'closed' ? 'completed' : d.status === 'pending' ? 'warning' : 'processing'}">${d.status}</span></td>
+                    <td><span class="action-link" onclick="viewDiscomfort(${d.id})">查看</span></td>
+                </tr>`;
+            });
+            document.getElementById('recentDiscomforts').innerHTML = discomfortHtml || '<tr><td colspan="5" style="text-align:center;padding:20px;color:#8892b0;">暂无数据</td></tr>';
+        }
+
+        async function loadConsultations() {
+            const status = document.getElementById('consultationStatus').value;
+            const data = await fetch(`${API_BASE}/consultation-records?status=${status}&limit=100`).then(r => r.json());
+
+            let html = '';
+            data.forEach(c => {
+                html += `<tr>
+                    <td>${c.id}</td>
+                    <td>客户${c.customer_id}</td>
+                    <td>${new Date(c.consultation_date).toLocaleDateString()}</td>
+                    <td>${c.consultant_name}</td>
+                    <td>${c.chief_complaint.substring(0, 15)}...</td>
+                    <td>${(c.recommended_projects || []).join(', ')}</td>
+                    <td><span class="version-badge">v${c.current_version}</span></td>
+                    <td><span class="status-badge status-${c.status}">${c.status}</span></td>
+                    <td>
+                        <div class="action-links">
+                            <span class="action-link" onclick="viewConsultation(${c.id})">详情</span>
+                            <span class="trace-link" onclick="viewConsultationVersions(${c.id})">追溯</span>
+                        </div>
+                    </td>
+                </tr>`;
+            });
+            document.getElementById('consultationTable').innerHTML = html;
+        }
+
+        async function loadQuotations() {
+            const status = document.getElementById('quotationStatus').value;
+            const data = await fetch(`${API_BASE}/quotation-schemes?status=${status}&limit=100`).then(r => r.json());
+
+            let html = '';
+            data.forEach(q => {
+                html += `<tr>
+                    <td>${q.id}</td>
+                    <td>${q.scheme_name}</td>
+                    <td>客户${q.customer_id}</td>
+                    <td>¥${q.total_amount.toLocaleString()}</td>
+                    <td style="color:#28ca42;font-weight:500;">¥${q.actual_amount.toLocaleString()}</td>
+                    <td>${q.payment_method || '-'}</td>
+                    <td>${(q.project_items || []).length}</td>
+                    <td><span class="version-badge">v${q.current_version}</span></td>
+                    <td><span class="status-badge status-${q.status}">${q.status}</span></td>
+                    <td>
+                        <div class="action-links">
+                            <span class="action-link" onclick="viewQuotation(${q.id})">详情</span>
+                            <span class="trace-link" onclick="viewQuotationVersions(${q.id})">追溯</span>
+                        </div>
+                    </td>
+                </tr>`;
+            });
+            document.getElementById('quotationTable').innerHTML = html;
+        }
+
+        async function loadFollowUps() {
+            const stage = document.getElementById('followupStage').value;
+            const status = document.getElementById('followupStatus').value;
+            const data = await fetch(`${API_BASE}/follow-ups?stage=${stage}&status=${status}&limit=100`).then(r => r.json());
+
+            let html = '';
+            data.forEach(f => {
+                html += `<tr>
+                    <td>${f.id}</td>
+                    <td>客户${f.customer_id}</td>
+                    <td>${(f.surgery_projects || []).join(', ')}</td>
+                    <td>${new Date(f.surgery_date).toLocaleDateString()}</td>
+                    <td>${f.follow_up_stage}</td>
+                    <td>${f.recovery_status}</td>
+                    <td>${f.pain_level || '-'}</td>
+                    <td><span class="version-badge">v${f.current_version}</span></td>
+                    <td><span class="status-badge status-${f.status === 'completed' ? 'completed' : f.has_discomfort ? 'critical' : 'pending'}">${f.status}${f.has_discomfort ? ' ⚠️' : ''}</span></td>
+                    <td>
+                        <div class="action-links">
+                            <span class="action-link" onclick="viewFollowUp(${f.id})">详情</span>
+                            <span class="trace-link" onclick="viewFollowUpVersions(${f.id})">追溯</span>
+                        </div>
+                    </td>
+                </tr>`;
+            });
+            document.getElementById('followupTable').innerHTML = html;
+        }
+
+        async function loadDiscomforts() {
+            const severity = document.getElementById('discomfortSeverity').value;
+            const status = document.getElementById('discomfortStatus').value;
+            const type = document.getElementById('discomfortType').value;
+            const data = await fetch(`${API_BASE}/discomfort-reports?severity=${severity}&status=${status}&discomfort_type=${type}&limit=100`).then(r => r.json());
+
+            let html = '';
+            data.forEach(d => {
+                html += `<tr>
+                    <td>${d.id}</td>
+                    <td>客户${d.customer_id}</td>
+                    <td>${new Date(d.report_date).toLocaleDateString()}</td>
+                    <td>${d.discomfort_type}</td>
+                    <td>${d.discomfort_symptoms.substring(0, 20)}...</td>
+                    <td><span class="status-badge severity-${d.severity}">${d.severity}</span></td>
+                    <td>${d.first_handler_name || '-'}</td>
+                    <td><span class="status-badge status-${d.status === 'closed' ? 'completed' : d.status === 'pending' ? 'warning' : 'processing'}">${d.status}</span></td>
+                    <td>
+                        <div class="action-links">
+                            <span class="trace-link" onclick="viewDiscomfort(${d.id})">回看</span>
+                            <span class="action-link" onclick="handleDiscomfort(${d.id})">处理</span>
+                        </div>
+                    </td>
+                </tr>`;
+            });
+            document.getElementById('discomfortTable').innerHTML = html;
+        }
+
+        async function loadAudit() {
+            const entityType = document.getElementById('auditEntityType').value;
+            const data = await fetch(`${API_BASE}/audit-logs?entity_type=${entityType}&limit=200`).then(r => r.json());
+
+            const typeMap = {
+                'consultation_record': '咨询记录',
+                'quotation_scheme': '方案报价',
+                'follow_up': '术后回访',
+                'discomfort_report': '不适上报'
+            };
+
+            let html = '';
+            data.forEach(log => {
+                html += `<tr>
+                    <td>${new Date(log.created_at).toLocaleString()}</td>
+                    <td>${typeMap[log.entity_type] || log.entity_type}</td>
+                    <td>${log.entity_id}</td>
+                    <td>${log.action}</td>
+                    <td>${log.field_name || '-'}</td>
+                    <td>${log.change_reason || '-'}</td>
+                    <td>${log.operator_name}</td>
+                </tr>`;
+            });
+            document.getElementById('auditTable').innerHTML = html;
+        }
+
+        function openModal(title, content, footer = null) {
+            document.getElementById('modalTitle').textContent = title;
+            document.getElementById('modalBody').innerHTML = content;
+            document.getElementById('modalFooter').innerHTML = footer || '<button class="btn btn-secondary" onclick="closeModal()">关闭</button>';
+            document.getElementById('modal').classList.add('active');
+        }
+
+        function closeModal() { document.getElementById('modal').classList.remove('active'); }
+
+        async function viewConsultation(id) {
+            const data = await fetch(`${API_BASE}/consultation-records/${id}`).then(r => r.json());
+            openModal('咨询记录详情', `
+                <div class="detail-section">
+                    <h4>基本信息</h4>
+                    <div class="detail-grid">
+                        <div class="detail-item"><label>记录ID</label><div class="value">${data.id}</div></div>
+                        <div class="detail-item"><label>客户ID</label><div class="value">${data.customer_id}</div></div>
+                        <div class="detail-item"><label>咨询日期</label><div class="value">${new Date(data.consultation_date).toLocaleString()}</div></div>
+                        <div class="detail-item"><label>咨询师</label><div class="value">${data.consultant_name}</div></div>
+                        <div class="detail-item"><label>状态</label><div class="value"><span class="status-badge status-${data.status}">${data.status}</span></div></div>
+                        <div class="detail-item"><label>当前版本</label><div class="value"><span class="version-badge">v${data.current_version}</span></div></div>
+                    </div>
+                </div>
+                <div class="detail-section">
+                    <h4>咨询详情</h4>
+                    <div class="detail-grid">
+                        <div class="detail-item full"><label>主诉</label><div class="value">${data.chief_complaint}</div></div>
+                        <div class="detail-item full"><label>医美期望</label><div class="value">${data.aesthetic_expectation}</div></div>
+                        <div class="detail-item full"><label>推荐项目</label><div class="value">${(data.recommended_projects || []).join('、')}</div></div>
+                        <div class="detail-item full"><label>承诺口径</label><div class="value">${data.promised_caliber || '-'}</div></div>
+                    </div>
+                </div>
+            `);
+        }
+
+        async function viewConsultationVersions(id) {
+            const versions = await fetch(`${API_BASE}/consultation-records/${id}/versions`).then(r => r.json());
+            let timelineHtml = versions.map(v => `
+                <div class="timeline-item ${v.version === 1 ? 'create' : 'update'}">
+                    <div class="timeline-header">
+                        <span class="timeline-title">版本 v${v.version}</span>
+                        <span class="timeline-meta">${new Date(v.created_at).toLocaleString()} · ${v.created_by_name}</span>
+                    </div>
+                    <div class="timeline-content">
+                        <strong>主诉：</strong>${v.chief_complaint.substring(0, 30)}...<br>
+                        <strong>推荐项目：</strong>${(v.recommended_projects || []).join('、')}
+                    </div>
+                    <div class="timeline-reason">📝 ${v.change_reason || '未填写变更原因'}</div>
+                </div>
+            `).join('');
+
+            openModal('变更追溯 - 咨询记录', `
+                <div class="detail-section">
+                    <h4>版本历史 · 咨询记录 #${id}</h4>
+                    <div class="timeline">${timelineHtml}</div>
+                </div>
+            `);
+        }
+
+        async function viewQuotation(id) {
+            const data = await fetch(`${API_BASE}/quotation-schemes/${id}`).then(r => r.json());
+            openModal('方案报价详情', `
+                <div class="detail-section">
+                    <h4>方案信息</h4>
+                    <div class="detail-grid">
+                        <div class="detail-item"><label>方案名称</label><div class="value">${data.scheme_name}</div></div>
+                        <div class="detail-item"><label>客户ID</label><div class="value">${data.customer_id}</div></div>
+                        <div class="detail-item"><label>创建人</label><div class="value">${data.created_by_name}</div></div>
+                        <div class="detail-item"><label>版本</label><div class="value"><span class="version-badge">v${data.current_version}</span></div></div>
+                        <div class="detail-item"><label>原价总额</label><div class="value">¥${data.total_amount.toLocaleString()}</div></div>
+                        <div class="detail-item"><label>实际成交</label><div class="value" style="color:#28ca42;">¥${data.actual_amount.toLocaleString()}</div></div>
+                        ${data.installment_months ? `
+                        <div class="detail-item full"><label>分期信息</label><div class="value">${data.installment_months}期 × ¥${data.installment_amount?.toLocaleString() || 0}</div></div>
+                        ` : ''}
+                    </div>
+                </div>
+                <div class="detail-section">
+                    <h4>承诺服务</h4>
+                    <div class="value">${(data.promised_services || []).join('、') || '暂无'}</div>
+                </div>
+            `);
+        }
+
+        async function viewQuotationVersions(id) {
+            const versions = await fetch(`${API_BASE}/quotation-schemes/${id}/versions`).then(r => r.json());
+            let timelineHtml = versions.map((v, idx) => `
+                <div class="timeline-item ${v.version === 1 ? 'create' : 'update'}">
+                    <div class="timeline-header">
+                        <span class="timeline-title">版本 v${v.version}</span>
+                        <span class="timeline-meta">${new Date(v.created_at).toLocaleString()} · ${v.created_by_name}</span>
+                    </div>
+                    <div class="timeline-content">
+                        <strong>总额：</strong>¥${v.total_amount.toLocaleString()} → <strong>实际：</strong>¥${v.actual_amount.toLocaleString()}
+                    </div>
+                    ${idx < versions.length - 1 ? `
+                    <div class="change-compare">
+                        <span class="change-old">¥${versions[idx+1].actual_amount.toLocaleString()}</span>
+                        <span class="change-new">¥${v.actual_amount.toLocaleString()}</span>
+                    </div>
+                    ` : ''}
+                    <div class="timeline-reason">📝 ${v.change_reason || '未填写变更原因'}</div>
+                </div>
+            `).join('');
+
+            openModal('变更追溯 - 方案报价', `
+                <div class="detail-section">
+                    <h4>版本历史 · 方案报价 #${id}</h4>
+                    <div class="timeline">${timelineHtml}</div>
+                </div>
+            `);
+        }
+
+        async function viewFollowUp(id) {
+            const data = await fetch(`${API_BASE}/follow-ups/${id}`).then(r => r.json());
+            openModal('术后回访详情', `
+                <div class="detail-section">
+                    <h4>回访信息</h4>
+                    <div class="detail-grid">
+                        <div class="detail-item"><label>回访ID</label><div class="value">${data.id}</div></div>
+                        <div class="detail-item"><label>客户ID</label><div class="value">${data.customer_id}</div></div>
+                        <div class="detail-item"><label>手术日期</label><div class="value">${new Date(data.surgery_date).toLocaleDateString()}</div></div>
+                        <div class="detail-item"><label>回访阶段</label><div class="value">${data.follow_up_stage}</div></div>
+                        <div class="detail-item"><label>恢复状态</label><div class="value">${data.recovery_status}</div></div>
+                        <div class="detail-item"><label>疼痛等级</label><div class="value">${data.pain_level || '-'}/10</div></div>
+                        <div class="detail-item full"><label>客户反馈</label><div class="value">${data.customer_feedback}</div></div>
+                        ${data.abnormal_symptoms ? `
+                        <div class="detail-item full"><label>异常症状</label><div class="value" style="color:#e94560;">${data.abnormal_symptoms}</div></div>
+                        ` : ''}
+                        <div class="detail-item full"><label>处理建议</label><div class="value">${data.handling_advice || '-'}</div></div>
+                    </div>
+                </div>
+            `);
+        }
+
+        async function viewFollowUpVersions(id) {
+            const versions = await fetch(`${API_BASE}/follow-ups/${id}/versions`).then(r => r.json());
+            let timelineHtml = versions.map(v => `
+                <div class="timeline-item ${v.version === 1 ? 'create' : 'update'}">
+                    <div class="timeline-header">
+                        <span class="timeline-title">版本 v${v.version}</span>
+                        <span class="timeline-meta">${new Date(v.created_at).toLocaleString()} · ${v.created_by_name}</span>
+                    </div>
+                    <div class="timeline-content">
+                        <strong>恢复状态：</strong>${v.recovery_status}<br>
+                        <strong>客户反馈：</strong>${v.customer_feedback.substring(0, 40)}...
+                    </div>
+                    <div class="timeline-reason">📝 ${v.change_reason || '未填写变更原因'}</div>
+                </div>
+            `).join('');
+
+            openModal('变更追溯 - 术后回访', `
+                <div class="detail-section">
+                    <h4>版本历史 · 术后回访 #${id}</h4>
+                    <div class="timeline">${timelineHtml}</div>
+                </div>
+            `);
+        }
+
+        async function viewDiscomfort(id) {
+            const [report, handling] = await Promise.all([
+                fetch(`${API_BASE}/discomfort-reports/${id}`).then(r => r.json()),
+                fetch(`${API_BASE}/discomfort-reports/${id}/handling-records`).then(r => r.json())
+            ]);
+
+            let handlingHtml = handling.length ? handling.map(h => `
+                <div class="timeline-item handle">
+                    <div class="timeline-header">
+                        <span class="timeline-title">${h.handling_action}</span>
+                        <span class="timeline-meta">${new Date(h.created_at).toLocaleString()} · ${h.handler_name}</span>
+                    </div>
+                    <div class="timeline-content">${h.handling_notes}</div>
+                    ${h.next_step ? `<div style="margin-top:6px;font-size:11px;color:#8892b0;">📌 下一步：${h.next_step}</div>` : ''}
+                    <div style="margin-top:8px;"><span class="change-old">${h.previous_status || '-'}</span><span class="change-new">→ ${h.new_status}</span></div>
+                    ${h.notify_customer ? `<div style="margin-top:6px;font-size:11px;color:#4ecdc4;">✓ 已通过「${h.notify_method}」通知客户</div>` : ''}
+                </div>
+            `).join('') : '<div style="color:#8892b0;padding:20px;text-align:center;">暂无处理记录</div>';
+
+            openModal('不适上报回看', `
+                <div class="detail-section">
+                    <h4>上报信息</h4>
+                    <div class="detail-grid">
+                        <div class="detail-item"><label>上报ID</label><div class="value">${report.id}</div></div>
+                        <div class="detail-item"><label>客户ID</label><div class="value">${report.customer_id}</div></div>
+                        <div class="detail-item"><label>上报人</label><div class="value">${report.reporter}</div></div>
+                        <div class="detail-item"><label>上报时间</label><div class="value">${new Date(report.report_date).toLocaleString()}</div></div>
+                        <div class="detail-item"><label>不适类型</label><div class="value">${report.discomfort_type}</div></div>
+                        <div class="detail-item"><label>严重程度</label><div class="value"><span class="status-badge severity-${report.severity}">${report.severity}</span></div></div>
+                        <div class="detail-item full"><label>症状描述</label><div class="value">${report.discomfort_symptoms}</div></div>
+                        <div class="detail-item full"><label>异常说明</label><div class="value">${report.abnormal_description || '-'}</div></div>
+                    </div>
+                </div>
+                <div class="detail-section">
+                    <h4>处理流程追溯</h4>
+                    <div class="timeline">${handlingHtml}</div>
+                </div>
+            `);
+        }
+
+        async function handleDiscomfort(id) {
+            const report = await fetch(`${API_BASE}/discomfort-reports/${id}`).then(r => r.json());
+            openModal('处理不适上报', `
+                <div class="form-group">
+                    <label>当前状态：<span class="status-badge status-${report.status}">${report.status}</span></label>
+                </div>
+                <div class="form-group">
+                    <label>处理动作</label>
+                    <select id="handleAction">
+                        <option value="初步核实">初步核实</option>
+                        <option value="电话回访">电话回访</option>
+                        <option value="安排复诊">安排复诊</option>
+                        <option value="医生会诊">医生会诊</option>
+                        <option value="方案调整">方案调整</option>
+                        <option value="协商解决">协商解决</option>
+                        <option value="升级处理">升级处理</option>
+                        <option value="结案">结案</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>新状态</label>
+                    <select id="handleNewStatus">
+                        <option value="processing">处理中</option>
+                        <option value="escalated">已升级</option>
+                        <option value="closed">已关闭</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>处理说明</label>
+                    <textarea id="handleNotes" placeholder="请详细说明处理过程..."></textarea>
+                </div>
+                <div class="form-group">
+                    <label>下一步计划</label>
+                    <textarea id="handleNextStep" placeholder="请说明下一步行动计划..."></textarea>
+                </div>
+                <div class="form-group">
+                    <label>是否通知客户</label>
+                    <select id="handleNotify">
+                        <option value="0">否</option>
+                        <option value="phone">电话通知</option>
+                        <option value="wechat">微信通知</option>
+                        <option value="sms">短信通知</option>
+                    </select>
+                </div>
+            `, `
+                <button class="btn btn-secondary" onclick="closeModal()">取消</button>
+                <button class="btn btn-primary" onclick="submitHandling(${id})">提交处理</button>
+            `);
+        }
+
+        async function submitHandling(id) {
+            const payload = {
+                handler_id: 1,
+                handler_name: '李咨询师',
+                handling_action: document.getElementById('handleAction').value,
+                handling_notes: document.getElementById('handleNotes').value,
+                next_step: document.getElementById('handleNextStep').value,
+                notify_customer: document.getElementById('handleNotify').value !== '0',
+                notify_method: document.getElementById('handleNotify').value !== '0' ? document.getElementById('handleNotify').value : null,
+                attachment_count: 0,
+                new_status: document.getElementById('handleNewStatus').value
+            };
+
+            await fetch(`${API_BASE}/discomfort-reports/${id}/handle`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            closeModal();
+            refreshCurrentPage();
+        }
+
+        window.onload = () => refreshCurrentPage();
+    </script>
+</body>
+</html>
