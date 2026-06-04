@@ -642,7 +642,10 @@ onMounted(() => {
               </button>
             </div>
 
-            <div v-else class="followup-pending">
+            <div
+              v-else-if="followUp.status === 'pending'"
+              class="followup-pending"
+            >
               <p>等待回访...</p>
               <button
                 class="btn btn-primary btn-sm"
@@ -650,6 +653,21 @@ onMounted(() => {
               >
                 ✅ 完成回访
               </button>
+            </div>
+
+            <div v-else class="followup-readonly">
+              <p
+                v-if="followUp.status === 'missed'"
+                class="readonly-text missed-text"
+              >
+                已错过计划回访时间
+              </p>
+              <p
+                v-if="followUp.status === 'cancelled'"
+                class="readonly-text cancelled-text"
+              >
+                已取消{{ followUp.notes ? "：" + followUp.notes : "" }}
+              </p>
             </div>
           </div>
         </div>
@@ -1322,6 +1340,25 @@ onMounted(() => {
 
 .followup-returned .btn {
   align-self: flex-end;
+}
+
+.followup-readonly {
+  padding: 16px;
+  background: #f3f4f6;
+  border-radius: 8px;
+}
+
+.readonly-text {
+  font-size: 13px;
+  margin: 0;
+}
+
+.missed-text {
+  color: #b45309;
+}
+
+.cancelled-text {
+  color: #6b7280;
 }
 
 .return-alert {
