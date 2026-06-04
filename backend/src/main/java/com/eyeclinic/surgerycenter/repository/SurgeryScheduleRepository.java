@@ -20,7 +20,7 @@ public interface SurgeryScheduleRepository extends JpaRepository<SurgerySchedule
 
     @Query("SELECT s FROM SurgerySchedule s WHERE s.surgeryDate = :date " +
            "AND s.operatingRoom = :room " +
-           "AND s.confirmed = true " +
+           "AND s.rejectionReason IS NULL " +
            "AND ((s.startTime <= :startTime AND s.endTime > :startTime) " +
            "OR (s.startTime < :endTime AND s.endTime >= :endTime) " +
            "OR (s.startTime >= :startTime AND s.endTime <= :endTime))")

@@ -105,8 +105,13 @@ public class SurgeryScheduleService {
             conflicts = conflicts.stream().filter(s -> !s.getId().equals(excludeId)).toList();
         }
         if (!conflicts.isEmpty()) {
+            SurgerySchedule conflict = conflicts.get(0);
+            String conflictType = conflict.getConfirmed() ? "已确认" : "待审";
+            String patientName = conflict.getWorkflow() != null && conflict.getWorkflow().getPatient() != null
+                    ? conflict.getWorkflow().getPatient().getName() : "未知";
             throw new BusinessException(ErrorCode.SCHEDULE_TIME_CONFLICT,
-                    String.format("手术室%s在%s %s-%s已有安排", room, date, start, end));
+                    String.format("手术室%s在%s %s-%s已有%s安排（患者：%s）",
+                            room, date, start, end, conflictType, patientName));
         }
     }
 

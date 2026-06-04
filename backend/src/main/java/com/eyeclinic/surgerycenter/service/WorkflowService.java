@@ -73,14 +73,18 @@ public class WorkflowService {
 
         stateMachine.validateTransition(workflow.getStatus(), WorkflowStatus.PREOP_IN_PROGRESS, handler.getRole());
 
+        List<User> specialists = userRepository.findByRole(RoleType.SPECIALIST);
+        User specialist = specialists.isEmpty() ? null : specialists.get(0);
+
         WorkflowStatus prevStatus = workflow.getStatus();
         workflow.setStatus(WorkflowStatus.PREOP_IN_PROGRESS);
-        workflow.setCurrentHandler(handler);
+        workflow.setCurrentHandler(specialist);
         workflow.setCurrentNodeName(WorkflowStatus.PREOP_IN_PROGRESS.getDescription());
         workflow.setBlockReason(stateMachine.getBlockReason(WorkflowStatus.PREOP_IN_PROGRESS));
         workflow.setStatusUpdatedAt(LocalDateTime.now());
 
-        logService.createStatusTransitionLog(workflow, prevStatus, WorkflowStatus.PREOP_IN_PROGRESS, handler, "开始术前检查");
+        logService.createStatusTransitionLog(workflow, prevStatus, WorkflowStatus.PREOP_IN_PROGRESS, handler,
+                "启动术前检查，检查负责人：" + (specialist != null ? specialist.getRealName() : "待分配"));
 
         return workflowRepository.save(workflow);
     }
