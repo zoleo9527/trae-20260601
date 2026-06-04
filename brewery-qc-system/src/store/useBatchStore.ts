@@ -22,6 +22,7 @@ interface BatchStore {
   getTestTemplateByFormula: (formula: string) => typeof mockTestTemplates[number] | undefined;
   getAbnormalBatches: () => Batch[];
   getPendingReleaseBatches: () => Batch[];
+  getTestingBatches: () => Batch[];
 
   updateBatchStatus: (batchId: string, status: BatchStatus, operatedBy: string, role: UserRole, remark: string) => void;
   addNote: (batchId: string, content: string, createdBy: string, role: UserRole, source?: Note['source']) => void;
@@ -34,6 +35,7 @@ interface BatchStore {
     items: Omit<import('@/types').TestItem, 'id' | 'testRecordId'>[],
     testingNote: string,
   ) => void;
+  batchCompleteTesting: (batchIds: string[], testedBy: string) => void;
   batchRelease: (batchIds: string[], operatedBy: string, remark: string) => void;
   batchReject: (batchIds: string[], operatedBy: string, remark: string) => void;
 
@@ -62,7 +64,9 @@ export const useBatchStore = create<BatchStore>((set, get) => ({
 
   getBatchById: (id) => get().batches.find((b) => b.id === id),
   getTestRecordsByBatchId: (batchId) =>
-    get().testRecords.filter((r) => r.batchId === batchId),
+    get().testRecords.filter((r) => r.batchId === batchId).sort((a, b) =>
+      new Date(b.testedAt).getTime() - new Date(a.testedAt).getTime()
+    ),
   getNotesByBatchId: (batchId) =>
     get().notes.filter((n) => n.batchId === batchId).sort((a, b) =>
       new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
@@ -77,6 +81,8 @@ export const useBatchStore = create<BatchStore>((set, get) => ({
     get().batches.filter((b) => b.currentStatus === 'TEST_ABNORMAL' || b.currentStatus === 'REJECTED'),
   getPendingReleaseBatches: () =>
     get().batches.filter((b) => b.currentStatus === 'TEST_PASSED' || b.currentStatus === 'TEST_ABNORMAL'),
+  getTestingBatches: () =>
+    get().batches.filter((b) => b.currentStatus === 'TESTING'),
 
   updateBatchStatus: (batchId, status, operatedBy, role, remark) => {
     const batch = get().getBatchById(batchId);
@@ -178,6 +184,71 @@ export const useBatchStore = create<BatchStore>((set, get) => ({
       statusLogs: [...state.statusLogs, newLog],
       notes: [...state.notes, newNote],
       testingBatchId: null,
+    }));
+  },
+
+  batchCompleteTesting: (batchIds, testedBy) => {
+    const newTestRecords: TestRecord[] = [];
+    const newLogs: StatusLog[] = [];
+    const newNotes: Note[] = [];
+    const now = Date.now();
+
+    batchIds.forEach((batchId, idx) => {
+      const batch = get().getBatchById(batchId);
+      if (!batch) return;
+      if (batch.currentStatus !== 'TESTING') return;
+
+      const template = mockTestTemplates.find((t) => t.formula === batch.formulaNo);
+      const items = template?.items.map((item, i) => ({
+        id: `item-${now}-${idx}-${i}`,
+        testRecordId: `test-${now}-${idx}`,
+        itemName: item.itemName,
+        standard: item.standard,
+        value: item.standard,
+        isPass: true,
+      })) || [];
+
+      newTestRecords.push({
+        id: `test-${now}-${idx}`,
+        batchId,
+        testedBy,
+        testedAt: new Date().toISOString(),
+        isAbnormal: false,
+        conclusion: '批量检测通过，各项指标正常',
+        items,
+      });
+
+      newLogs.push({
+        id: `log-${now}-${idx}`,
+        batchId,
+        fromStatus: batch.currentStatus,
+        toStatus: 'TEST_PASSED',
+        operatedBy: testedBy,
+        role: 'packaging',
+        operatedAt: new Date().toISOString(),
+        remark: '批量检测通过，待放行',
+      });
+
+      newNotes.push({
+        id: `note-${now}-${idx}`,
+        batchId,
+        content: '批量检测通过，各项指标正常，放行判断请参考检测模板标准值',
+        createdBy: testedBy,
+        role: 'packaging',
+        createdAt: new Date().toISOString(),
+        source: 'testing',
+      });
+    });
+
+    set((state) => ({
+      batches: state.batches.map((b) =>
+        batchIds.includes(b.id) && b.currentStatus === 'TESTING'
+          ? { ...b, currentStatus: 'TEST_PASSED' as BatchStatus }
+          : b
+      ),
+      testRecords: [...state.testRecords, ...newTestRecords],
+      statusLogs: [...state.statusLogs, ...newLogs],
+      notes: [...state.notes, ...newNotes],
     }));
   },
 

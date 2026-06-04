@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { FlaskConical, Clock, AlertTriangle, CheckCircle2, Search, Filter, Eye, Play, Check, MessageSquare, Download, CheckSquare, FlaskRound } from 'lucide-react';
+import { FlaskConical, Clock, AlertTriangle, CheckCircle2, Search, Filter, Eye, Play, Check, MessageSquare, Download, CheckSquare } from 'lucide-react';
 import { Header } from '@/components/layout/Header';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { StatCard } from '@/components/ui/StatCard';
@@ -15,7 +15,7 @@ import type { Batch, BatchStatus } from '@/types';
 
 export function PackagingDashboard() {
   const { currentUser } = useAuthStore();
-  const { batches, setSelectedBatchId, setIsDrawerOpen, updateBatchStatus, getNotesByBatchId, getStatusLogsByBatchId } = useBatchStore();
+  const { batches, setSelectedBatchId, setIsDrawerOpen, updateBatchStatus, getNotesByBatchId, getStatusLogsByBatchId, batchCompleteTesting } = useBatchStore();
   const [selectedBatches, setSelectedBatches] = useState<Set<string>>(new Set());
   const [filterStatus, setFilterStatus] = useState<BatchStatus | 'all'>('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -58,15 +58,23 @@ export function PackagingDashboard() {
   };
 
   const handleBatchSelectAll = () => {
-    if (selectedBatches.size === filteredBatches.length) {
+    const selectableIds = filteredBatches.filter((b) => b.currentStatus === 'TESTING').map((b) => b.id);
+    const allSelected = selectableIds.every((id) => selectedBatches.has(id));
+    if (allSelected) {
       setSelectedBatches(new Set());
     } else {
-      setSelectedBatches(new Set(filteredBatches.map((b) => b.id)));
+      setSelectedBatches(new Set(selectableIds));
     }
   };
 
-  const handleBatchPass = (batchId: string) => {
-    updateBatchStatus(batchId, 'TEST_PASSED', currentUser?.name || '王主管', 'packaging', '批量检测通过');
+  const handleBatchPass = () => {
+    const testingBatchIds = Array.from(selectedBatches).filter((id) => {
+      const batch = batches.find((b) => b.id === id);
+      return batch?.currentStatus === 'TESTING';
+    });
+    if (testingBatchIds.length === 0) return;
+    batchCompleteTesting(testingBatchIds, currentUser?.name || '王主管');
+    setSelectedBatches(new Set());
   };
 
   const handleExportSelected = () => {
@@ -159,7 +167,15 @@ export function PackagingDashboard() {
             {selectedBatches.size > 0 && (
               <div className="flex items-center gap-3">
                 <span className="text-sm text-neutral-600">已选 {selectedBatches.size} 项</span>
-                <Button variant="success" size="sm" onClick={() => Array.from(selectedBatches).forEach(handleBatchPass)}>
+                <Button
+                  variant="success"
+                  size="sm"
+                  onClick={handleBatchPass}
+                  disabled={!Array.from(selectedBatches).some((id) => {
+                    const batch = batches.find((b) => b.id === id);
+                    return batch?.currentStatus === 'TESTING';
+                  })}
+                >
                   <Check className="w-4 h-4 mr-1" />
                   批量通过
                 </Button>
@@ -230,6 +246,7 @@ function BatchRow({ batch, index, isSelected, onSelect, onViewDetail, onStartTes
   const canTest = batch.currentStatus === 'PENDING_TEST';
   const isTestingNow = batch.currentStatus === 'TESTING';
   const isAbnormal = batch.currentStatus === 'TEST_ABNORMAL';
+  const canSelect = isTestingNow;
 
   return (
     <motion.tr
@@ -239,7 +256,11 @@ function BatchRow({ batch, index, isSelected, onSelect, onViewDetail, onStartTes
       className={`hover:bg-neutral-50 transition-colors ${isAbnormal ? 'bg-warning-50/50' : ''} ${isTestingNow ? 'bg-blue-50/30' : ''}`}
     >
       <td className="px-4 py-3">
-        <button onClick={onSelect} className="p-1 hover:bg-neutral-200 rounded">
+        <button
+          onClick={onSelect}
+          disabled={!canSelect}
+          className={`p-1 rounded transition-colors ${canSelect ? 'hover:bg-neutral-200' : 'opacity-40 cursor-not-allowed'}`}
+        >
           <CheckSquare className={`w-4 h-4 ${isSelected ? 'text-amber-900' : 'text-neutral-400'}`} />
         </button>
       </td>
