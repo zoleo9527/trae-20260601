@@ -12,6 +12,7 @@ import com.medical.aesthetic.enums.RoleType;
 import com.medical.aesthetic.exception.BusinessException;
 import com.medical.aesthetic.repository.ComplaintRepository;
 import com.medical.aesthetic.repository.CustomerProjectRepository;
+import com.medical.aesthetic.repository.EmployeeRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -27,6 +28,7 @@ public class ComplaintService {
 
     private final ComplaintRepository complaintRepository;
     private final CustomerProjectRepository customerProjectRepository;
+    private final EmployeeRepository employeeRepository;
     private final HistoryNoteService historyNoteService;
 
     @Transactional(readOnly = true)
@@ -94,8 +96,8 @@ public class ComplaintService {
                     "当前状态不允许指派处理人: " + complaint.getStatus().getDisplayName());
         }
 
-        Employee handler = new Employee();
-        handler.setId(handlerId);
+        Employee handler = employeeRepository.findById(handlerId)
+                .orElseThrow(() -> new IllegalArgumentException("处理人不存在: " + handlerId));
         complaint.setHandledBy(handler);
         complaint.setStatus(ComplaintStatus.PROCESSING);
 
@@ -125,7 +127,11 @@ public class ComplaintService {
         complaint.setCustomerFeedback(dto.getCustomerFeedback());
         complaint.setSatisfactionScore(dto.getSatisfactionScore());
         complaint.setHandledAt(LocalDateTime.now());
-        complaint.setHandledBy(UserContext.getCurrentEmployee());
+        Employee currentUser = UserContext.getCurrentEmployee();
+        if (currentUser != null && currentUser.getId() != null) {
+            complaint.setHandledBy(
+                    employeeRepository.findById(currentUser.getId()).orElse(currentUser));
+        }
 
         if (dto.getNewStatus() != null) {
             complaint.setStatus(ComplaintStatus.valueOf(dto.getNewStatus()));

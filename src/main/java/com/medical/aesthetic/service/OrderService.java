@@ -140,11 +140,17 @@ public class OrderService {
     public void updateOrderPaymentStatus(Order order) {
         List<InstallmentPlan> plans = installmentPlanRepository.findByOrderIdOrdered(order.getId());
 
+        BigDecimal deposit = order.getDepositAmount() != null ? order.getDepositAmount() : BigDecimal.ZERO;
+
         if (plans.isEmpty()) {
-            if (order.getPaidAmount() != null && order.getPaidAmount().compareTo(order.getTotalAmount()) >= 0) {
-                order.setPaymentStatus(PaymentStatus.FULL_PAID);
-            } else if (order.getPaidAmount() != null && order.getPaidAmount().compareTo(BigDecimal.ZERO) > 0) {
-                order.setPaymentStatus(PaymentStatus.DEPOSIT_PAID);
+            if (deposit.compareTo(BigDecimal.ZERO) > 0) {
+                order.setPaidAmount(deposit);
+                order.setRemainingAmount(order.getTotalAmount().subtract(deposit));
+                if (deposit.compareTo(order.getTotalAmount()) >= 0) {
+                    order.setPaymentStatus(PaymentStatus.FULL_PAID);
+                } else {
+                    order.setPaymentStatus(PaymentStatus.DEPOSIT_PAID);
+                }
             }
             orderRepository.save(order);
             return;
@@ -153,21 +159,23 @@ public class OrderService {
         boolean allPaid = plans.stream().allMatch(p -> p.getStatus() == PaymentStatus.FULL_PAID);
         boolean anyOverdue = plans.stream().anyMatch(p ->
                 p.getStatus() != PaymentStatus.FULL_PAID && p.getDueDate().isBefore(LocalDate.now()));
-        boolean anyPaid = plans.stream().anyMatch(p -> p.getPaidAmount() != null && p.getPaidAmount().compareTo(BigDecimal.ZERO) > 0);
+        boolean anyInstallmentPaid = plans.stream().anyMatch(p -> p.getPaidAmount() != null && p.getPaidAmount().compareTo(BigDecimal.ZERO) > 0);
 
-        BigDecimal totalPaid = plans.stream()
+        BigDecimal installmentPaid = plans.stream()
                 .map(p -> p.getPaidAmount() != null ? p.getPaidAmount() : BigDecimal.ZERO)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        BigDecimal totalPaid = deposit.add(installmentPaid);
         order.setPaidAmount(totalPaid);
         order.setRemainingAmount(order.getTotalAmount().subtract(totalPaid));
 
-        if (allPaid) {
+        if (allPaid && totalPaid.compareTo(order.getTotalAmount()) >= 0) {
             order.setPaymentStatus(PaymentStatus.FULL_PAID);
         } else if (anyOverdue) {
             order.setPaymentStatus(PaymentStatus.OVERDUE);
-        } else if (anyPaid) {
+        } else if (anyInstallmentPaid) {
             order.setPaymentStatus(PaymentStatus.INSTALLMENT_PAID);
-        } else if (order.getDepositAmount() != null && order.getDepositAmount().compareTo(BigDecimal.ZERO) > 0) {
+        } else if (deposit.compareTo(BigDecimal.ZERO) > 0) {
             order.setPaymentStatus(PaymentStatus.DEPOSIT_PAID);
         } else {
             order.setPaymentStatus(PaymentStatus.UNPAID);
@@ -181,14 +189,19 @@ public class OrderService {
         if (order.getOrderNo() == null || order.getOrderNo().isEmpty()) {
             order.setOrderNo("ORD" + System.currentTimeMillis());
         }
+        BigDecimal deposit = order.getDepositAmount() != null ? order.getDepositAmount() : BigDecimal.ZERO;
         if (order.getPaidAmount() == null) {
-            order.setPaidAmount(BigDecimal.ZERO);
+            order.setPaidAmount(deposit);
         }
         if (order.getRemainingAmount() == null) {
-            order.setRemainingAmount(order.getTotalAmount());
+            order.setRemainingAmount(order.getTotalAmount().subtract(order.getPaidAmount()));
         }
         if (order.getPaymentStatus() == null) {
-            order.setPaymentStatus(PaymentStatus.UNPAID);
+            if (deposit.compareTo(BigDecimal.ZERO) > 0) {
+                order.setPaymentStatus(PaymentStatus.DEPOSIT_PAID);
+            } else {
+                order.setPaymentStatus(PaymentStatus.UNPAID);
+            }
         }
         Order saved = orderRepository.save(order);
 

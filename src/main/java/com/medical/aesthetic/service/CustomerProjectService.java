@@ -18,6 +18,8 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.List;
 
+import static java.util.Arrays.asList;
+
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -54,7 +56,7 @@ public class CustomerProjectService {
 
     @Transactional(readOnly = true)
     public List<CustomerProject> listPendingScheduling() {
-        return customerProjectRepository.findScheduledWithoutMaterialReservation();
+        return customerProjectRepository.findScheduledWithoutMaterialReservation(ProjectStatus.SCHEDULED);
     }
 
     @Transactional(readOnly = true)
@@ -219,7 +221,8 @@ public class CustomerProjectService {
 
     @Transactional(readOnly = true)
     public List<CustomerProject> getProjectsWithoutAssistant() {
-        return customerProjectRepository.findProjectsWithoutAssistant();
+        return customerProjectRepository.findProjectsWithoutAssistant(
+                asList(ProjectStatus.SCHEDULED, ProjectStatus.MATERIAL_RESERVED));
     }
 
     @Transactional(readOnly = true)

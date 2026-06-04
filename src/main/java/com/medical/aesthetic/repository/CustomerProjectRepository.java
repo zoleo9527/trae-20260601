@@ -26,11 +26,11 @@ public interface CustomerProjectRepository extends JpaRepository<CustomerProject
                                                 @Param("start") LocalDateTime start,
                                                 @Param("end") LocalDateTime end);
 
-    @Query("SELECT cp FROM CustomerProject cp WHERE cp.status IN ('SCHEDULED', 'MATERIAL_RESERVED') " +
-           "AND cp.doctorAssistantId IS NULL")
-    List<CustomerProject> findProjectsWithoutAssistant();
+    @Query("SELECT cp FROM CustomerProject cp WHERE cp.status IN :statuses " +
+           "AND cp.doctorAssistant IS NULL")
+    List<CustomerProject> findProjectsWithoutAssistant(@Param("statuses") List<ProjectStatus> statuses);
 
-    @Query("SELECT cp FROM CustomerProject cp WHERE cp.status = 'SCHEDULED' " +
+    @Query("SELECT cp FROM CustomerProject cp WHERE cp.status = :status " +
            "AND NOT EXISTS (SELECT mr FROM MaterialReservation mr WHERE mr.customerProject.id = cp.id)")
-    List<CustomerProject> findScheduledWithoutMaterialReservation();
+    List<CustomerProject> findScheduledWithoutMaterialReservation(@Param("status") ProjectStatus status);
 }
