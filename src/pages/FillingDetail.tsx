@@ -64,6 +64,11 @@ export default function FillingDetail() {
       comment: 'add-comment'
     };
 
+    if (action === 'reject' && !actionRemark.trim()) {
+      alert('驳回原因不能为空');
+      return;
+    }
+
     let body: any = { userId: currentUser!.id, remark: actionRemark };
     if (action === 'resubmit') {
       body = { ...body, ...editForm };
@@ -72,11 +77,17 @@ export default function FillingDetail() {
       body.remark = comment;
     }
 
-    await fetch(`/api/filling-schedules/${schedule.id}/${endpoints[action]}`, {
+    const res = await fetch(`/api/filling-schedules/${schedule.id}/${endpoints[action]}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body)
     });
+
+    if (!res.ok) {
+      const data = await res.json();
+      alert(data.error || '操作失败');
+      return;
+    }
 
     setShowActionModal(null);
     setActionRemark('');

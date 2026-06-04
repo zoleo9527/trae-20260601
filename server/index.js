@@ -216,6 +216,10 @@ app.put('/api/filling-schedules/:id/reject', async (req, res) => {
   const { userId, remark } = req.body;
   const id = parseInt(req.params.id);
 
+  if (!remark || !remark.trim()) {
+    return res.status(400).json({ error: '驳回原因不能为空' });
+  }
+
   const schedule = await prisma.fillingSchedule.update({
     where: { id },
     data: { status: FillingStatus.REJECTED, currentHandler: Role.BREW_MASTER }
@@ -225,13 +229,13 @@ app.put('/api/filling-schedules/:id/reject', async (req, res) => {
     data: {
       scheduleId: id, action: '驳回',
       oldStatus: FillingStatus.SUBMITTED, newStatus: FillingStatus.REJECTED,
-      remark: remark || '请修改后重新提交', createdById: userId
+      remark: remark.trim(), createdById: userId
     }
   });
 
   await notifyRole(Role.BREW_MASTER, NotificationType.REJECTED,
     `灌装排产 ${schedule.batchNo} 被驳回`,
-    `灌装排产 ${schedule.productName} 被驳回：${remark || '请修改后重新提交'}`,
+    `灌装排产 ${schedule.productName} 被驳回：${remark.trim()}`,
     'FillingSchedule', id, userId);
 
   res.json(schedule);
@@ -437,6 +441,10 @@ app.put('/api/packaging-requisitions/:id/reject', async (req, res) => {
   const { userId, remark } = req.body;
   const id = parseInt(req.params.id);
 
+  if (!remark || !remark.trim()) {
+    return res.status(400).json({ error: '退回原因不能为空' });
+  }
+
   const requisition = await prisma.packagingRequisition.update({
     where: { id },
     data: { status: PackagingStatus.REJECTED, currentHandler: Role.PACKAGING_SUPERVISOR }
@@ -446,13 +454,13 @@ app.put('/api/packaging-requisitions/:id/reject', async (req, res) => {
     data: {
       requisitionId: id, action: '退回',
       oldStatus: PackagingStatus.PENDING, newStatus: PackagingStatus.REJECTED,
-      remark: remark || '请修改后重新提交', createdById: userId
+      remark: remark.trim(), createdById: userId
     }
   });
 
   await notifyRole(Role.PACKAGING_SUPERVISOR, NotificationType.REJECTED,
     `包装领用 ${requisition.requisitionNo} 被退回`,
-    `包装领用被退回：${remark || '请修改后重新提交'}`,
+    `包装领用被退回：${remark.trim()}`,
     'PackagingRequisition', id, userId);
 
   res.json(requisition);
