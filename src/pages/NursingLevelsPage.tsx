@@ -14,7 +14,9 @@ export default function NursingLevelsPage() {
   const [anomalyModal, setAnomalyModal] = useState<{ id: string; residentName: string } | null>(null);
   const [detailId, setDetailId] = useState<string | null>(null);
   const [focusedRowIndex, setFocusedRowIndex] = useState<number>(0);
-  const [urlParamsApplied, setUrlParamsApplied] = useState(false);
+  const [pendingFocusId, setPendingFocusId] = useState<string | null>(null);
+  const [pendingStatusFilter, setPendingStatusFilter] = useState<NursingLevelStatus | null>(null);
+  const [autoExpandDone, setAutoExpandDone] = useState(false);
 
   const filteredLevels = useMemo(() => {
     return nursingLevels.filter((nl) => {
@@ -75,32 +77,47 @@ export default function NursingLevelsPage() {
   }, [filteredLevels.length, focusedRowIndex]);
 
   useEffect(() => {
-    if (urlParamsApplied || nursingLevels.length === 0) return;
+    if (autoExpandDone || nursingLevels.length === 0) return;
     const focusId = urlParams.get('focus');
     const statusParam = urlParams.get('status') as NursingLevelStatus | null;
     
     if (statusParam && ['pending', 'confirmed', 'anomaly', 'returned'].includes(statusParam)) {
+      setPendingStatusFilter(statusParam);
       setStatusFilter(statusParam);
     }
     
     if (focusId) {
-      const targetNl = nursingLevels.find((nl) => nl.id === focusId);
-      if (targetNl) {
-        setDetailId(focusId);
-        setTimeout(() => {
-          const row = document.querySelector(`[data-nursing-level-id="${focusId}"]`);
-          if (row) {
-            row.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          }
-        }, 100);
+      setPendingFocusId(focusId);
+    } else if (statusParam === 'anomaly') {
+      const firstAnomaly = nursingLevels.find((nl) => nl.status === 'anomaly');
+      if (firstAnomaly) {
+        setPendingFocusId(firstAnomaly.id);
       }
     }
     
-    setUrlParamsApplied(true);
+    setAutoExpandDone(true);
     urlParams.delete('focus');
     urlParams.delete('status');
     setUrlParams(urlParams, { replace: true });
-  }, [urlParamsApplied, nursingLevels, urlParams, setUrlParams]);
+  }, [autoExpandDone, nursingLevels, urlParams, setUrlParams]);
+
+  useEffect(() => {
+    if (!pendingFocusId || filteredLevels.length === 0) return;
+    
+    const targetInFiltered = filteredLevels.find((nl) => nl.id === pendingFocusId);
+    if (targetInFiltered) {
+      setDetailId(pendingFocusId);
+      const idx = filteredLevels.findIndex((nl) => nl.id === pendingFocusId);
+      if (idx >= 0) setFocusedRowIndex(idx);
+      setTimeout(() => {
+        const row = document.querySelector(`[data-nursing-level-id="${pendingFocusId}"]`);
+        if (row) {
+          row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 50);
+      setPendingFocusId(null);
+    }
+  }, [pendingFocusId, filteredLevels]);
 
   const sourceLabels: Record<string, string> = {
     bed_arrangement: '床位安排',

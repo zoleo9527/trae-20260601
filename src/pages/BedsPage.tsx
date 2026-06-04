@@ -39,9 +39,10 @@ export default function BedsPage() {
     return nursingLevels.find((nl) => nl.residentId === bed.residentId);
   }
 
-  function handleReturnProcess(bedId: string, nursingLevelId: string) {
+  function handleReturnProcess(bedId: string, nursingLevelId: string, status: string) {
     const params = new URLSearchParams();
     params.set('focus', nursingLevelId);
+    params.set('status', status);
     window.location.href = `/nursing-levels?${params.toString()}`;
   }
 
@@ -141,7 +142,13 @@ export default function BedsPage() {
                   )}
                   {anomalyCount > 0 && (
                     <button
-                      onClick={() => window.location.href = '/nursing-levels?status=anomaly'}
+                      onClick={() => {
+                        const firstAnomaly = nursingLevels.find((nl) => nl.status === 'anomaly');
+                        const params = new URLSearchParams();
+                        params.set('status', 'anomaly');
+                        if (firstAnomaly) params.set('focus', firstAnomaly.id);
+                        window.location.href = `/nursing-levels?${params.toString()}`;
+                      }}
                       className="px-2.5 py-1 text-[10px] bg-red-500 text-white rounded hover:bg-red-600 transition-colors"
                     >
                       查看异常
@@ -290,7 +297,7 @@ export default function BedsPage() {
                         <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
                           {nl?.status === 'returned' && (
                             <button
-                              onClick={() => handleReturnProcess(bed.id, nl.id)}
+                              onClick={() => handleReturnProcess(bed.id, nl.id, 'returned')}
                               className="px-2 py-1 text-[10px] bg-amber-500 text-white rounded hover:bg-amber-600 transition-colors flex items-center gap-0.5"
                             >
                               <RotateCcw size={10} />
@@ -299,7 +306,7 @@ export default function BedsPage() {
                           )}
                           {nl?.status === 'anomaly' && (
                             <button
-                              onClick={() => handleReturnProcess(bed.id, nl.id)}
+                              onClick={() => handleReturnProcess(bed.id, nl.id, 'anomaly')}
                               className="px-2 py-1 text-[10px] bg-red-500 text-white rounded hover:bg-red-600 transition-colors flex items-center gap-0.5"
                             >
                               <AlertTriangle size={10} />
