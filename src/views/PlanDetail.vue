@@ -32,14 +32,34 @@ const currentPhase = computed(() => {
     || plan.value.phases.find(p => p.status === 'rejected')
 })
 
-const currentHandler = computed(() => {
-  if (!plan.value || !currentPhase.value) return null
+const activeException = computed(() => {
+  if (!plan.value || plan.value.status === 'completed') return null
   const phase = currentPhase.value
-  if (phase.status === 'pending_review' || phase.status === 'rejected') {
-    if (plan.value.nursingDirector) {
-      return { name: plan.value.nursingDirector.name, role: staffRoleMap.nursing_director.label, color: staffRoleMap.nursing_director.color }
+  if (!phase) return null
+  return exceptions.value.find(e => e.phaseId === phase.id && e.status !== 'resolved') || null
+})
+
+function resolveHandlerRole(handlerId?: string): { label: string; color: string } {
+  if (handlerId && plan.value) {
+    if (plan.value.nursingDirector && plan.value.nursingDirector.id === handlerId) {
+      return staffRoleMap.nursing_director
+    }
+    if (plan.value.primaryNurse && plan.value.primaryNurse.id === handlerId) {
+      return staffRoleMap.primary_nurse
     }
   }
+  return staffRoleMap.primary_nurse
+}
+
+const currentHandler = computed(() => {
+  if (!plan.value) return null
+  const ex = activeException.value
+  if (ex && ex.handlerName) {
+    const roleInfo = resolveHandlerRole(ex.handlerId)
+    return { name: ex.handlerName, role: roleInfo.label, color: roleInfo.color }
+  }
+  if (plan.value.status === 'completed') return null
+  if (!currentPhase.value) return null
   if (plan.value.primaryNurse) {
     return { name: plan.value.primaryNurse.name, role: staffRoleMap.primary_nurse.label, color: staffRoleMap.primary_nurse.color }
   }
@@ -47,12 +67,8 @@ const currentHandler = computed(() => {
 })
 
 const blockSummary = computed(() => {
-  if (!plan.value || plan.value.status === 'completed') return null
-  const phase = currentPhase.value
-  if (!phase) return null
-  if (phase.status === 'rejected') return phase.rejectReason || '评估被驳回，需重新提交'
-  if (phase.status === 'pending_review') return '等待护理主管复核确认'
-  if (phase.isDelayed) return '评估已超期，需尽快完成'
+  const ex = activeException.value
+  if (ex) return ex.reason
   return null
 })
 

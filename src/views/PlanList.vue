@@ -3,7 +3,7 @@ import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import type { RehabPlan, Staff } from '@/types'
 import { getPlans, getAllExceptions, getExceptionsByPlanId } from '@/store'
-import { planStatusMap, staffRoleMap, phaseStatusMap, exceptionStatusMap } from '@/utils/statusMap'
+import { planStatusMap, staffRoleMap, phaseStatusMap, exceptionStatusMap, exceptionTypeMap } from '@/utils/statusMap'
 import { formatDate, calculateProgress } from '@/utils/format'
 import ExceptionDrawer from '@/components/ExceptionDrawer.vue'
 
@@ -61,19 +61,38 @@ function getPhaseStatusInfo(plan: RehabPlan) {
   }
 }
 
-function getCurrentHandler(plan: RehabPlan): { name: string; role: string; color: string } | null {
+function getActiveException(plan: RehabPlan) {
+  if (plan.status === 'completed') return null
   const phase = getCurrentPhase(plan)
   if (!phase) return null
-  if (phase.status === 'pending_review' || phase.status === 'rejected') {
-    if (plan.nursingDirector) {
-      return { name: plan.nursingDirector.name, role: staffRoleMap.nursing_director.label, color: staffRoleMap.nursing_director.color }
+  const exs = getExceptionsByPlanId(plan.id).filter(
+    e => e.phaseId === phase.id && e.status !== 'resolved'
+  )
+  if (exs.length > 0) return exs[0]
+  return null
+}
+
+function resolveHandlerRole(plan: RehabPlan, handlerId?: string): { label: string; color: string } {
+  if (handlerId) {
+    if (plan.nursingDirector && plan.nursingDirector.id === handlerId) {
+      return staffRoleMap.nursing_director
+    }
+    if (plan.primaryNurse && plan.primaryNurse.id === handlerId) {
+      return staffRoleMap.primary_nurse
     }
   }
-  if (phase.status === 'in_progress') {
-    if (plan.primaryNurse) {
-      return { name: plan.primaryNurse.name, role: staffRoleMap.primary_nurse.label, color: staffRoleMap.primary_nurse.color }
-    }
+  return staffRoleMap.primary_nurse
+}
+
+function getCurrentHandler(plan: RehabPlan): { name: string; role: string; color: string } | null {
+  const ex = getActiveException(plan)
+  if (ex && ex.handlerName) {
+    const roleInfo = resolveHandlerRole(plan, ex.handlerId)
+    return { name: ex.handlerName, role: roleInfo.label, color: roleInfo.color }
   }
+  if (plan.status === 'completed') return null
+  const phase = getCurrentPhase(plan)
+  if (!phase) return null
   if (plan.primaryNurse) {
     return { name: plan.primaryNurse.name, role: staffRoleMap.primary_nurse.label, color: staffRoleMap.primary_nurse.color }
   }
@@ -81,12 +100,8 @@ function getCurrentHandler(plan: RehabPlan): { name: string; role: string; color
 }
 
 function getBlockReason(plan: RehabPlan): string | null {
-  if (plan.status === 'completed') return null
-  const phase = getCurrentPhase(plan)
-  if (!phase) return null
-  if (phase.status === 'rejected') return phase.rejectReason || '评估被驳回'
-  if (phase.status === 'pending_review') return '等待护理主管复核确认'
-  if (phase.isDelayed) return '评估已超期'
+  const ex = getActiveException(plan)
+  if (ex) return ex.reason
   return null
 }
 </script>
