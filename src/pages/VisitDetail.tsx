@@ -25,6 +25,7 @@ export function VisitDetail() {
     checkInVisit,
     checkOutVisit,
     updateVisitStatus,
+    canViewVisit,
   } = useStore();
 
   const visit = visitAppointments.find(v => v.id === id);
@@ -36,6 +37,17 @@ export function VisitDetail() {
     return (
       <div className="text-center py-12">
         <h2 className="text-xl font-semibold text-gray-700">预约记录不存在</h2>
+        <Link to="/visits" className="mt-4 inline-block text-primary-600 hover:text-primary-700">
+          返回列表
+        </Link>
+      </div>
+    );
+  }
+
+  if (currentUser && !canViewVisit(visit.id)) {
+    return (
+      <div className="text-center py-12">
+        <AlertBanner type="danger" title="无权查看" message="您没有权限查看此预约记录" />
         <Link to="/visits" className="mt-4 inline-block text-primary-600 hover:text-primary-700">
           返回列表
         </Link>

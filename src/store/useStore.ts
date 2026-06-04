@@ -32,6 +32,8 @@ interface AppState {
 
   getVisitsByElderId: (elderId: string) => VisitAppointment[];
   getCommunicationsByElderId: (elderId: string) => CommunicationRecord[];
+  canViewVisit: (visitId: string) => boolean;
+  canViewCommunication: (commId: string) => boolean;
   getVisitsByCurrentUser: () => VisitAppointment[];
   getCommunicationsByCurrentUser: () => CommunicationRecord[];
 }
@@ -120,7 +122,8 @@ export const useStore = create<AppState>((set, get) => ({
 
     const canUpdate = 
       currentUser.role === 'nurse_manager' ||
-      (currentUser.role === 'primary_nurse' && visit.status === 'checked_in') ||
+      (currentUser.role === 'primary_nurse' && ['approved', 'checked_in'].includes(visit.status)) ||
+      (currentUser.role === 'social_worker' && visit.status === 'approved') ||
       (currentUser.role === 'family' && visit.createdBy === currentUser.id && ['pending_approval', 'approved'].includes(visit.status));
 
     if (!canUpdate) {
@@ -305,11 +308,31 @@ export const useStore = create<AppState>((set, get) => ({
     const comm = communications.find(c => c.id === commId);
     if (!comm) return { success: false, error: '沟通记录不存在' };
 
+    if (comm.status === 'completed') {
+      return { success: false, error: '已完成的记录不能再分配' };
+    }
+
     const assignee = users.find(u => u.id === assigneeId);
     if (!assignee) return { success: false, error: '被分配人不存在' };
 
+    if (assignee.role === 'family') {
+      return { success: false, error: '不能将沟通记录分配给家属账号' };
+    }
+
+    const targetStatus: CommunicationStatus = 'in_progress';
+    const validation = validateCommunicationTransition(
+      comm.status, 
+      targetStatus, 
+      currentUser.role, 
+      comm.assignedTo === currentUser.id, 
+      comm.createdBy === currentUser.id
+    );
+    if (!validation.valid) {
+      return { success: false, error: validation.reason || '当前状态不允许分配操作' };
+    }
+
     const historyItem: StatusHistoryItem = {
-      status: 'in_progress',
+      status: targetStatus,
       timestamp: new Date().toISOString(),
       operatorId: currentUser.id,
       operatorName: currentUser.name,
@@ -318,7 +341,7 @@ export const useStore = create<AppState>((set, get) => ({
 
     const updatedComm: CommunicationRecord = {
       ...comm,
-      status: 'in_progress',
+      status: targetStatus,
       assignedTo: assigneeId,
       assignedAt: new Date().toISOString(),
       statusHistory: [...comm.statusHistory, historyItem],
@@ -341,6 +364,56 @@ export const useStore = create<AppState>((set, get) => ({
 
   getCommunicationsByElderId: (elderId) => {
     return get().communications.filter(c => c.elderId === elderId);
+  },
+
+  canViewVisit: (visitId: string): boolean => {
+    const { currentUser, visitAppointments, elders, familyMembers } = get();
+    if (!currentUser) return false;
+    const visit = visitAppointments.find(v => v.id === visitId);
+    if (!visit) return false;
+
+    if (currentUser.role === 'nurse_manager' || hasPermission(currentUser.role, 'canViewAllVisits')) {
+      return true;
+    }
+
+    if (currentUser.role === 'primary_nurse') {
+      const myElders = elders.filter(e => e.primaryNurseId === currentUser.id).map(e => e.id);
+      return myElders.includes(visit.elderId);
+    }
+
+    if (currentUser.role === 'social_worker') {
+      return true;
+    }
+
+    if (currentUser.role === 'family') {
+      const relatedFamilyIds = familyMembers.filter(f => f.phone === currentUser.phone).map(f => f.id);
+      return visit.createdBy === currentUser.id || relatedFamilyIds.includes(visit.familyMemberId);
+    }
+
+    return visit.createdBy === currentUser.id;
+  },
+
+  canViewCommunication: (commId: string): boolean => {
+    const { currentUser, communications, elders, familyMembers } = get();
+    if (!currentUser) return false;
+    const comm = communications.find(c => c.id === commId);
+    if (!comm) return false;
+
+    if (currentUser.role === 'nurse_manager' || hasPermission(currentUser.role, 'canViewAllCommunications')) {
+      return true;
+    }
+
+    if (currentUser.role === 'primary_nurse' || currentUser.role === 'social_worker') {
+      const myElders = elders.filter(e => e.primaryNurseId === currentUser.id).map(e => e.id);
+      return myElders.includes(comm.elderId) || comm.assignedTo === currentUser.id || comm.createdBy === currentUser.id;
+    }
+
+    if (currentUser.role === 'family') {
+      const relatedFamilyIds = familyMembers.filter(f => f.phone === currentUser.phone).map(f => f.id);
+      return comm.createdBy === currentUser.id || relatedFamilyIds.includes(comm.familyMemberId);
+    }
+
+    return comm.createdBy === currentUser.id;
   },
 
   getVisitsByCurrentUser: () => {

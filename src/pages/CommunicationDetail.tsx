@@ -32,6 +32,7 @@ export function CommunicationDetail() {
     users,
     updateCommunicationStatus,
     assignCommunication,
+    canViewCommunication,
   } = useStore();
 
   const comm = communications.find(c => c.id === id);
@@ -44,6 +45,17 @@ export function CommunicationDetail() {
     return (
       <div className="text-center py-12">
         <h2 className="text-xl font-semibold text-gray-700">沟通记录不存在</h2>
+        <Link to="/communications" className="mt-4 inline-block text-primary-600 hover:text-primary-700">
+          返回列表
+        </Link>
+      </div>
+    );
+  }
+
+  if (currentUser && !canViewCommunication(comm.id)) {
+    return (
+      <div className="text-center py-12">
+        <AlertBanner type="danger" title="无权查看" message="您没有权限查看此沟通记录" />
         <Link to="/communications" className="mt-4 inline-block text-primary-600 hover:text-primary-700">
           返回列表
         </Link>
@@ -312,7 +324,7 @@ export function CommunicationDetail() {
                   className="input"
                 >
                   <option value="">选择处理人</option>
-                  {users.map(user => (
+                  {users.filter(u => u.role !== 'family').map(user => (
                     <option key={user.id} value={user.id}>
                       {user.name}
                     </option>

@@ -5,8 +5,11 @@ export const mockUsers: User[] = [
   { id: 'user_002', name: '李护士', role: 'primary_nurse', phone: '13800138002' },
   { id: 'user_003', name: '王社工', role: 'social_worker', phone: '13800138003' },
   { id: 'user_004', name: '赵护工', role: 'primary_nurse', phone: '13800138004' },
-  { id: 'user_005', name: '陈小明', role: 'family', phone: '13900139001', avatar: undefined },
-  { id: 'user_006', name: '张伟', role: 'family', phone: '13900139005', avatar: undefined },
+  { id: 'user_005', name: '陈小明', role: 'family', phone: '13900139001' },
+  { id: 'user_006', name: '张伟', role: 'family', phone: '13900139005' },
+  { id: 'user_007', name: '陈丽华', role: 'family', phone: '13900139002' },
+  { id: 'user_008', name: '王芳', role: 'family', phone: '13900139003' },
+  { id: 'user_009', name: '李强', role: 'family', phone: '13900139004' },
 ];
 
 export const mockBeds: Bed[] = [
@@ -192,10 +195,10 @@ export const mockVisitAppointments: VisitAppointment[] = [
     visitType: 'regular',
     status: 'rejected',
     statusHistory: [
-      { status: 'pending_approval', timestamp: '2024-06-02T11:00:00Z', operatorId: 'user_005', operatorName: '陈小明', remark: '代家属预约探视' },
+      { status: 'pending_approval', timestamp: '2024-06-02T11:00:00Z', operatorId: 'user_007', operatorName: '陈丽华', remark: '预约探视' },
       { status: 'rejected', timestamp: '2024-06-02T15:00:00Z', operatorId: 'user_001', operatorName: '张护士长', remark: '当日已有预约，请选择其他日期' },
     ],
-    createdBy: 'user_005',
+    createdBy: 'user_007',
     createdAt: '2024-06-02T11:00:00Z',
     approvedBy: 'user_001',
     approvedAt: '2024-06-02T15:00:00Z',
@@ -218,16 +221,16 @@ export const mockVisitAppointments: VisitAppointment[] = [
     purpose: '母亲节探望',
     status: 'cancelled',
     statusHistory: [
-      { status: 'pending_approval', timestamp: '2024-05-25T10:00:00Z', operatorId: 'user_001', operatorName: '张护士长', remark: '代家属预约探视' },
+      { status: 'pending_approval', timestamp: '2024-05-25T10:00:00Z', operatorId: 'user_009', operatorName: '李强', remark: '预约探视' },
       { status: 'approved', timestamp: '2024-05-25T14:00:00Z', operatorId: 'user_001', operatorName: '张护士长', remark: '审核通过' },
-      { status: 'cancelled', timestamp: '2024-05-26T08:00:00Z', operatorId: 'user_001', operatorName: '张护士长', remark: '家属临时有事，取消预约' },
+      { status: 'cancelled', timestamp: '2024-05-26T08:00:00Z', operatorId: 'user_009', operatorName: '李强', remark: '临时有事，取消预约' },
     ],
-    createdBy: 'user_001',
+    createdBy: 'user_009',
     createdAt: '2024-05-25T10:00:00Z',
     approvedBy: 'user_001',
     approvedAt: '2024-05-25T14:00:00Z',
     isIdempotent: true,
-    lastUpdatedBy: 'family_004',
+    lastUpdatedBy: 'user_009',
     lastUpdatedAt: '2024-05-26T08:00:00Z',
   },
 ];
