@@ -1,7 +1,7 @@
 package com.medical.aesthetic.controller;
 
 import com.medical.aesthetic.dto.ExportRequestDTO;
-import com.medical.aesthetic.entity.ExportTask;
+import com.medical.aesthetic.dto.ExportTaskVO;
 import com.medical.aesthetic.enums.ExportTaskStatus;
 import com.medical.aesthetic.service.ExportService;
 import lombok.RequiredArgsConstructor;
@@ -55,29 +55,29 @@ public class ExportController {
     }
 
     @PostMapping("/async/{type}")
-    public ResponseEntity<ExportTask> asyncExport(@PathVariable String type, @RequestBody ExportRequestDTO dto) {
-        ExportTask task = exportService.submitTask(dto, type);
+    public ResponseEntity<ExportTaskVO> asyncExport(@PathVariable String type, @RequestBody ExportRequestDTO dto) {
+        ExportTaskVO task = exportService.submitTask(dto, type);
         return ResponseEntity.ok(task);
     }
 
     @GetMapping("/tasks")
-    public ResponseEntity<List<ExportTask>> getTaskList() {
+    public ResponseEntity<List<ExportTaskVO>> getTaskList() {
         return ResponseEntity.ok(exportService.getTaskList());
     }
 
     @GetMapping("/tasks/recent")
-    public ResponseEntity<List<ExportTask>> getRecentTasks() {
+    public ResponseEntity<List<ExportTaskVO>> getRecentTasks() {
         return ResponseEntity.ok(exportService.getRecentTasks());
     }
 
     @GetMapping("/tasks/status/{status}")
-    public ResponseEntity<List<ExportTask>> getTasksByStatus(@PathVariable String status) {
+    public ResponseEntity<List<ExportTaskVO>> getTasksByStatus(@PathVariable String status) {
         return ResponseEntity.ok(exportService.getTasksByStatus(ExportTaskStatus.valueOf(status.toUpperCase())));
     }
 
     @GetMapping("/tasks/{taskId}")
-    public ResponseEntity<ExportTask> getTaskDetail(@PathVariable Long taskId) {
-        ExportTask task = exportService.getTaskDetail(taskId);
+    public ResponseEntity<ExportTaskVO> getTaskDetail(@PathVariable Long taskId) {
+        ExportTaskVO task = exportService.getTaskDetail(taskId);
         if (task == null) {
             return ResponseEntity.notFound().build();
         }
@@ -86,7 +86,7 @@ public class ExportController {
 
     @GetMapping("/tasks/{taskId}/download")
     public ResponseEntity<byte[]> downloadTaskResult(@PathVariable Long taskId) {
-        ExportTask task = exportService.getTaskDetail(taskId);
+        ExportTaskVO task = exportService.getTaskDetail(taskId);
         if (task == null) {
             return ResponseEntity.notFound().build();
         }

@@ -3,11 +3,12 @@ package com.medical.aesthetic.service;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.medical.aesthetic.dto.ExportRequestDTO;
-import com.medical.aesthetic.dto.ExportTaskVO;
-import com.medical.aesthetic.entity.*;
+import com.medical.aesthetic.entity.ExportTask;
+import com.medical.aesthetic.entity.MaterialReservation;
+import com.medical.aesthetic.entity.Order;
+import com.medical.aesthetic.entity.CustomerProject;
 import com.medical.aesthetic.enums.ExportTaskStatus;
 import com.medical.aesthetic.enums.ExportType;
-import com.medical.aesthetic.enums.ProjectStatus;
 import com.medical.aesthetic.repository.CustomerProjectRepository;
 import com.medical.aesthetic.repository.ExportTaskRepository;
 import com.medical.aesthetic.repository.MaterialReservationRepository;
@@ -16,41 +17,121 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class ExportService {
+public class AsyncExportService {
 
+    private final ExportTaskRepository exportTaskRepository;
     private final CustomerProjectRepository customerProjectRepository;
     private final MaterialReservationRepository materialReservationRepository;
     private final OrderRepository orderRepository;
-    private final ExportTaskRepository exportTaskRepository;
-    private final AsyncExportService asyncExportService;
     private final ObjectMapper objectMapper;
 
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
-    @Transactional(readOnly = true)
+    @Async
+    @Transactional
+    public void executeTaskAsync(Long taskId) {
+        log.info("开始异步执行导出任务: {}", taskId);
+        executeTask(taskId);
+    }
+
+    @Transactional
+    public void executeTask(Long taskId) {
+        ExportTask task = exportTaskRepository.findById(taskId)
+                .orElseThrow(() -> new IllegalArgumentException("导出任务不存在: " + taskId));
+
+        if (task.getStatus() != ExportTaskStatus.PENDING) {
+            log.warn("任务状态不是待处理，跳过执行: {}", taskId);
+            return;
+        }
+
+        task.setStatus(ExportTaskStatus.PROCESSING);
+        task.setStartedAt(LocalDateTime.now());
+        exportTaskRepository.save(task);
+
+        try {
+            ExportRequestDTO dto = parseFilterCriteria(task.getFilterCriteria());
+            byte[] content = doExport(task.getExportType(), dto);
+
+            task.setStatus(ExportTaskStatus.COMPLETED);
+            task.setFileContent(content);
+            task.setFileSize((long) content.length);
+            task.setCompletedAt(LocalDateTime.now());
+            task.setRecordCount(extractRecordCount(task.getExportType()));
+
+            log.info("导出任务完成 - 任务ID: {}, 类型: {}, 记录数: {}, 文件大小: {} bytes",
+                    taskId, task.getExportType(), task.getRecordCount(), task.getFileSize());
+
+        } catch (Exception e) {
+            log.error("导出任务失败 - 任务ID: {}", taskId, e);
+            task.setStatus(ExportTaskStatus.FAILED);
+            task.setCompletedAt(LocalDateTime.now());
+            task.setErrorMessage(e.getMessage());
+            task.setErrorStackTrace(getStackTrace(e));
+        }
+
+        exportTaskRepository.save(task);
+    }
+
+    private byte[] doExport(ExportType exportType, ExportRequestDTO dto) throws IOException {
+        return switch (exportType) {
+            case PROJECTS -> exportProjects(dto);
+            case MATERIALS -> exportMaterialReservations(dto);
+            case ORDERS -> exportOrders(dto);
+        };
+    }
+
+    private int extractRecordCount(ExportType exportType) {
+        return switch (exportType) {
+            case PROJECTS -> customerProjectRepository.findAll().size();
+            case MATERIALS -> materialReservationRepository.findAll().size();
+            case ORDERS -> orderRepository.findInstallmentOrders().size();
+        };
+    }
+
+    private ExportRequestDTO parseFilterCriteria(String filterJson) {
+        if (filterJson == null || filterJson.isEmpty()) {
+            return new ExportRequestDTO();
+        }
+        try {
+            return objectMapper.readValue(filterJson, ExportRequestDTO.class);
+        } catch (Exception e) {
+            log.warn("反序列化筛选条件失败，使用默认值", e);
+            return new ExportRequestDTO();
+        }
+    }
+
+    private String getStackTrace(Exception e) {
+        StringWriter sw = new StringWriter();
+        PrintWriter pw = new PrintWriter(sw);
+        e.printStackTrace(pw);
+        return sw.toString();
+    }
+
     public byte[] exportProjects(ExportRequestDTO dto) throws IOException {
         LocalDateTime start = dto.getStartDate() != null ? dto.getStartDate().atStartOfDay() : LocalDateTime.now().minusMonths(1);
         LocalDateTime end = dto.getEndDate() != null ? dto.getEndDate().atTime(23, 59, 59) : LocalDateTime.now();
 
         List<CustomerProject> projects;
         if (dto.getStatus() != null && !dto.getStatus().isEmpty()) {
-            projects = customerProjectRepository.findByStatus(ProjectStatus.valueOf(dto.getStatus()));
+            projects = customerProjectRepository.findByStatus(com.medical.aesthetic.enums.ProjectStatus.valueOf(dto.getStatus()));
         } else {
-            projects = customerProjectRepository.findScheduledProjects(ProjectStatus.SCHEDULED, start, end);
+            projects = customerProjectRepository.findScheduledProjects(com.medical.aesthetic.enums.ProjectStatus.SCHEDULED, start, end);
         }
 
         try (Workbook workbook = new XSSFWorkbook()) {
@@ -98,7 +179,6 @@ public class ExportService {
         }
     }
 
-    @Transactional(readOnly = true)
     public byte[] exportMaterialReservations(ExportRequestDTO dto) throws IOException {
         LocalDateTime start = dto.getStartDate() != null ? dto.getStartDate().atStartOfDay() : LocalDateTime.now().minusMonths(1);
         LocalDateTime end = dto.getEndDate() != null ? dto.getEndDate().atTime(23, 59, 59) : LocalDateTime.now();
@@ -149,7 +229,6 @@ public class ExportService {
         }
     }
 
-    @Transactional(readOnly = true)
     public byte[] exportOrders(ExportRequestDTO dto) throws IOException {
         List<Order> orders = orderRepository.findInstallmentOrders();
 
@@ -195,91 +274,6 @@ public class ExportService {
             log.info("分期款项明细导出成功，共 {} 条记录", orders.size());
             return outputStream.toByteArray();
         }
-    }
-
-    @Transactional
-    public ExportTaskVO submitTask(ExportRequestDTO dto, String exportTypeStr) {
-        ExportTask task = createTask(dto, exportTypeStr);
-        asyncExportService.executeTaskAsync(task.getId());
-        return ExportTaskVO.fromEntity(task);
-    }
-
-    private ExportTask createTask(ExportRequestDTO dto, String exportTypeStr) {
-        ExportType exportType = ExportType.valueOf(exportTypeStr.toUpperCase());
-
-        String filterJson = null;
-        try {
-            filterJson = objectMapper.writeValueAsString(dto);
-        } catch (JsonProcessingException e) {
-            log.warn("序列化筛选条件失败", e);
-        }
-
-        ExportTask task = ExportTask.builder()
-                .exportType(exportType)
-                .status(ExportTaskStatus.PENDING)
-                .filterCriteria(filterJson)
-                .fileName(exportType.getDefaultFileName())
-                .remark(dto.getIncludeFields())
-                .build();
-
-        return exportTaskRepository.save(task);
-    }
-
-    @Transactional(readOnly = true)
-    public List<ExportTaskVO> getTaskList() {
-        return exportTaskRepository.findAllByOrderByCreatedAtDesc().stream()
-                .map(ExportTaskVO::fromEntity)
-                .collect(Collectors.toList());
-    }
-
-    @Transactional(readOnly = true)
-    public List<ExportTaskVO> getRecentTasks() {
-        return exportTaskRepository.findTop10ByOrderByCreatedAtDesc().stream()
-                .map(ExportTaskVO::fromEntity)
-                .collect(Collectors.toList());
-    }
-
-    @Transactional(readOnly = true)
-    public List<ExportTaskVO> getTasksByStatus(ExportTaskStatus status) {
-        return exportTaskRepository.findByStatusOrderByCreatedAtDesc(status).stream()
-                .map(ExportTaskVO::fromEntity)
-                .collect(Collectors.toList());
-    }
-
-    @Transactional(readOnly = true)
-    public ExportTaskVO getTaskDetail(Long taskId) {
-        return exportTaskRepository.findById(taskId)
-                .map(ExportTaskVO::fromEntity)
-                .orElse(null);
-    }
-
-    @Transactional(readOnly = true)
-    public byte[] getTaskFileContent(Long taskId) {
-        ExportTask task = exportTaskRepository.findById(taskId)
-                .orElseThrow(() -> new IllegalArgumentException("导出任务不存在: " + taskId));
-        if (task.getStatus() != ExportTaskStatus.COMPLETED) {
-            throw new IllegalStateException("导出任务尚未完成或已失败，状态: " + task.getStatus().getDisplayName());
-        }
-        return task.getFileContent();
-    }
-
-    @Transactional
-    public void retryTask(Long taskId) {
-        ExportTask task = exportTaskRepository.findById(taskId)
-                .orElseThrow(() -> new IllegalArgumentException("导出任务不存在: " + taskId));
-        if (task.getStatus() != ExportTaskStatus.FAILED) {
-            throw new IllegalStateException("只有失败的任务可以重试");
-        }
-        task.setStatus(ExportTaskStatus.PENDING);
-        task.setStartedAt(null);
-        task.setCompletedAt(null);
-        task.setErrorMessage(null);
-        task.setErrorStackTrace(null);
-        task.setFileContent(null);
-        task.setFileSize(null);
-        task.setRecordCount(null);
-        exportTaskRepository.save(task);
-        asyncExportService.executeTaskAsync(taskId);
     }
 
     private CellStyle createHeaderStyle(Workbook workbook) {

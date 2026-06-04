@@ -1,9 +1,11 @@
 package com.medical.aesthetic.config;
 
 import com.medical.aesthetic.context.UserContext;
+import com.medical.aesthetic.dto.ExportRequestDTO;
 import com.medical.aesthetic.entity.*;
 import com.medical.aesthetic.enums.*;
 import com.medical.aesthetic.repository.*;
+import com.medical.aesthetic.service.AsyncExportService;
 import com.medical.aesthetic.service.HistoryNoteService;
 import com.medical.aesthetic.service.OrderService;
 import lombok.RequiredArgsConstructor;
@@ -35,6 +37,7 @@ public class DataInitializer implements CommandLineRunner {
     private final HistoryNoteService historyNoteService;
     private final OrderService orderService;
     private final ExportTaskRepository exportTaskRepository;
+    private final AsyncExportService asyncExportService;
 
     @Override
     @Transactional
@@ -786,64 +789,81 @@ public class DataInitializer implements CommandLineRunner {
     public void createExportTaskSamples() {
         log.info("创建导出任务样例数据...");
 
-        ExportTask task1 = ExportTask.builder()
-                .exportType(ExportType.PROJECTS)
-                .status(ExportTaskStatus.COMPLETED)
-                .filterCriteria("{\"startDate\":\"2026-06-01\",\"endDate\":\"2026-06-30\",\"status\":\"SCHEDULED\"}")
-                .fileName("项目排期表_20260601.xlsx")
-                .fileSize(24576L)
-                .startedAt(LocalDateTime.now().minusHours(2))
-                .completedAt(LocalDateTime.now().minusHours(2).plusMinutes(3))
-                .recordCount(15)
-                .remark("客服王导出6月份排期表")
-                .build();
-        exportTaskRepository.save(task1);
+        try {
+            ExportRequestDTO dto1 = new ExportRequestDTO();
+            dto1.setStartDate(LocalDate.of(2026, 6, 1));
+            dto1.setEndDate(LocalDate.of(2026, 6, 30));
+            dto1.setStatus("SCHEDULED");
+            byte[] content1 = asyncExportService.exportProjects(dto1);
 
-        ExportTask task2 = ExportTask.builder()
-                .exportType(ExportType.ORDERS)
-                .status(ExportTaskStatus.COMPLETED)
-                .filterCriteria("{\"exportType\":\"orders\",\"startDate\":\"2026-05-01\",\"endDate\":\"2026-05-31\"}")
-                .fileName("分期款项明细_202605.xlsx")
-                .fileSize(32768L)
-                .startedAt(LocalDateTime.now().minusDays(5))
-                .completedAt(LocalDateTime.now().minusDays(5).plusMinutes(2))
-                .recordCount(42)
-                .remark("财务对账使用")
-                .build();
-        exportTaskRepository.save(task2);
+            ExportTask task1 = ExportTask.builder()
+                    .exportType(ExportType.PROJECTS)
+                    .status(ExportTaskStatus.COMPLETED)
+                    .filterCriteria("{\"startDate\":\"2026-06-01\",\"endDate\":\"2026-06-30\",\"status\":\"SCHEDULED\"}")
+                    .fileName("项目排期表_20260601.xlsx")
+                    .fileContent(content1)
+                    .fileSize((long) content1.length)
+                    .startedAt(LocalDateTime.now().minusHours(2))
+                    .completedAt(LocalDateTime.now().minusHours(2).plusMinutes(3))
+                    .recordCount(customerProjectRepository.findAll().size())
+                    .remark("客服王导出6月份排期表")
+                    .build();
+            exportTaskRepository.save(task1);
 
-        ExportTask task3 = ExportTask.builder()
-                .exportType(ExportType.MATERIALS)
-                .status(ExportTaskStatus.PROCESSING)
-                .filterCriteria("{\"startDate\":\"2026-06-01\"}")
-                .fileName("耗材预留记录_近一月.xlsx")
-                .startedAt(LocalDateTime.now().minusMinutes(1))
-                .remark("正在生成本月耗材使用统计")
-                .build();
-        exportTaskRepository.save(task3);
+            ExportRequestDTO dto2 = new ExportRequestDTO();
+            dto2.setStartDate(LocalDate.of(2026, 5, 1));
+            dto2.setEndDate(LocalDate.of(2026, 5, 31));
+            byte[] content2 = asyncExportService.exportOrders(dto2);
 
-        ExportTask task4 = ExportTask.builder()
-                .exportType(ExportType.ORDERS)
-                .status(ExportTaskStatus.FAILED)
-                .filterCriteria("{\"exportType\":\"orders\",\"includeFields\":\"all\"}")
-                .fileName("分期款项明细_失败.xlsx")
-                .startedAt(LocalDateTime.now().minusHours(5))
-                .completedAt(LocalDateTime.now().minusHours(5).plusSeconds(30))
-                .errorMessage("java.lang.OutOfMemoryError: GC overhead limit exceeded")
-                .errorStackTrace("java.lang.OutOfMemoryError: GC overhead limit exceeded\n\tat org.apache.poi.xssf.usermodel.XSSFWorkbook.<init>(XSSFWorkbook.java:231)\n\t...")
-                .remark("大文件导出超时失败，建议分批次导出")
-                .build();
-        exportTaskRepository.save(task4);
+            ExportTask task2 = ExportTask.builder()
+                    .exportType(ExportType.ORDERS)
+                    .status(ExportTaskStatus.COMPLETED)
+                    .filterCriteria("{\"exportType\":\"orders\",\"startDate\":\"2026-05-01\",\"endDate\":\"2026-05-31\"}")
+                    .fileName("分期款项明细_202605.xlsx")
+                    .fileContent(content2)
+                    .fileSize((long) content2.length)
+                    .startedAt(LocalDateTime.now().minusDays(5))
+                    .completedAt(LocalDateTime.now().minusDays(5).plusMinutes(2))
+                    .recordCount(orderRepository.findInstallmentOrders().size())
+                    .remark("财务对账使用")
+                    .build();
+            exportTaskRepository.save(task2);
 
-        ExportTask task5 = ExportTask.builder()
-                .exportType(ExportType.PROJECTS)
-                .status(ExportTaskStatus.PENDING)
-                .filterCriteria("{\"status\":\"COMPLETED\",\"startDate\":\"2026-01-01\",\"endDate\":\"2026-06-30\"}")
-                .fileName("上半年已完成项目统计.xlsx")
-                .remark("排队中，预计执行时间30秒")
-                .build();
-        exportTaskRepository.save(task5);
+            ExportTask task3 = ExportTask.builder()
+                    .exportType(ExportType.MATERIALS)
+                    .status(ExportTaskStatus.PROCESSING)
+                    .filterCriteria("{\"startDate\":\"2026-06-01\"}")
+                    .fileName("耗材预留记录_近一月.xlsx")
+                    .startedAt(LocalDateTime.now().minusMinutes(1))
+                    .remark("正在生成本月耗材使用统计")
+                    .build();
+            exportTaskRepository.save(task3);
 
-        log.info("导出任务样例创建完成 - 共5条任务：2条已完成、1条处理中、1条失败、1条待处理");
+            ExportTask task4 = ExportTask.builder()
+                    .exportType(ExportType.ORDERS)
+                    .status(ExportTaskStatus.FAILED)
+                    .filterCriteria("{\"exportType\":\"orders\",\"includeFields\":\"all\"}")
+                    .fileName("分期款项明细_失败.xlsx")
+                    .startedAt(LocalDateTime.now().minusHours(5))
+                    .completedAt(LocalDateTime.now().minusHours(5).plusSeconds(30))
+                    .errorMessage("java.lang.OutOfMemoryError: GC overhead limit exceeded")
+                    .errorStackTrace("java.lang.OutOfMemoryError: GC overhead limit exceeded\n\tat org.apache.poi.xssf.usermodel.XSSFWorkbook.<init>(XSSFWorkbook.java:231)\n\t...")
+                    .remark("大文件导出超时失败，建议分批次导出")
+                    .build();
+            exportTaskRepository.save(task4);
+
+            ExportTask task5 = ExportTask.builder()
+                    .exportType(ExportType.PROJECTS)
+                    .status(ExportTaskStatus.PENDING)
+                    .filterCriteria("{\"status\":\"COMPLETED\",\"startDate\":\"2026-01-01\",\"endDate\":\"2026-06-30\"}")
+                    .fileName("上半年已完成项目统计.xlsx")
+                    .remark("排队中，预计执行时间30秒")
+                    .build();
+            exportTaskRepository.save(task5);
+
+            log.info("导出任务样例创建完成 - 共5条任务：2条已完成（含真实文件内容）、1条处理中、1条失败、1条待处理");
+        } catch (Exception e) {
+            log.error("创建导出任务样例失败", e);
+        }
     }
 }
