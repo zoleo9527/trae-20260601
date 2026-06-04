@@ -246,22 +246,84 @@ export const useBreweryStore = create<BreweryState>()(
 
         if (changeLogs.length > 0) {
           const batch = get().batches.find((b) => b.id === feeding.batchId)
-          if (batch && batch.status !== 'ABNORMAL') {
+          const newIngredients = (updates.ingredients as FeedingIngredient[]) || feeding.ingredients
+
+          const newTotalWeight = newIngredients.reduce((sum, ing) => {
+            const factor = ing.unit === 'g' || ing.unit === 'ml' ? 0.001 : 1
+            return sum + ing.amount * factor
+          }, 0)
+
+          const totalGravity = newIngredients.reduce((sum, ing) => {
+            if (ing.name.includes('麦芽')) {
+              return sum + ing.amount * (ing.unit === 'g' || ing.unit === 'ml' ? 0.001 : 1) * 0.03
+            }
+            return sum
+          }, 0)
+          const newOriginalGravity = newTotalWeight > 0
+            ? parseFloat((1 + (totalGravity / newTotalWeight) * 0.8).toFixed(3))
+            : batch?.originalGravity || 0
+
+          const changedFields = changeLogs.map((c) =>
+            c.fieldName === 'ingredients' ? '原料明细' : c.fieldName
+          ).join('、')
+
+          const batchStateLog: BatchStateLog = {
+            id: generateId(),
+            batchId: feeding.batchId,
+            fromStatus: batch?.status || 'FERMENTING',
+            toStatus: batch?.status || 'FERMENTING',
+            operator: get().currentUser,
+            operatorRole: get().currentRole,
+            reason: `投料记录修改：${changedFields}${reason ? ` — ${reason}` : ''}`,
+            changeTime: now,
+          }
+
+          if (batch) {
             const alert: Omit<Alert, 'id' | 'createdAt' | 'status'> = {
               batchId: feeding.batchId,
               feedingId: id,
               type: 'feeding_changed',
               level: 'warning',
-              message: `投料记录已修改：${changeLogs.map((c) => c.fieldName).join(', ')}`,
+              message: `投料记录已修改：${changedFields}`,
             }
             get().createAlert(alert)
+
+            const { deviations, hasCritical } = getFeedingDeviations(
+              newIngredients,
+              feeding.recipeId,
+              get().recipes
+            )
+            if (deviations.length > 0 && hasCritical) {
+              get().createAlert({
+                batchId: feeding.batchId,
+                feedingId: id,
+                type: 'feeding_deviation',
+                level: 'critical',
+                message: `修改后投料偏差：${deviations.join('；')}`,
+              })
+            }
           }
 
           set((state) => ({
             feedings: state.feedings.map((f) =>
-              f.id === id ? { ...f, ...updates, status: 'modified' } : f
+              f.id === id
+                ? { ...f, ...updates, totalWeight: newTotalWeight, status: 'modified' }
+                : f
             ),
             feedingChangeLogs: [...state.feedingChangeLogs, ...changeLogs],
+            batchStateLogs: [...state.batchStateLogs, batchStateLog],
+            batches: batch
+              ? state.batches.map((b) =>
+                  b.id === feeding.batchId
+                    ? {
+                        ...b,
+                        originalGravity: newOriginalGravity,
+                        gravity: newOriginalGravity,
+                        lastStatusUpdate: now,
+                      }
+                    : b
+                )
+              : state.batches,
           }))
         } else {
           set((state) => ({
@@ -291,6 +353,7 @@ export const useBreweryStore = create<BreweryState>()(
         const batch = get().batches.find((b) => b.id === batchId)
         if (!batch) return
 
+        const now = new Date().toISOString()
         const newStateLog: BatchStateLog = {
           id: generateId(),
           batchId,
@@ -299,12 +362,24 @@ export const useBreweryStore = create<BreweryState>()(
           operator: get().currentUser,
           operatorRole: get().currentRole,
           reason,
-          changeTime: new Date().toISOString(),
+          changeTime: now,
         }
 
         set((state) => ({
           batches: state.batches.map((b) =>
-            b.id === batchId ? { ...b, status, lastStatusUpdate: new Date().toISOString() } : b
+            b.id === batchId
+              ? {
+                  ...b,
+                  status,
+                  lastStatusUpdate: now,
+                  notes: status === 'ABNORMAL'
+                    ? reason
+                    : b.notes,
+                  endTime: status === 'PACKAGED'
+                    ? now
+                    : b.endTime,
+                }
+              : b
           ),
           batchStateLogs: [...state.batchStateLogs, newStateLog],
         }))
@@ -339,8 +414,14 @@ export const useBreweryStore = create<BreweryState>()(
         const batch = get().batches.find((b) => b.id === batchId)
         if (!batch) return
 
-        const previousStatus: BatchStatus = batch.status === 'PACKAGED' ? 'READY' : 'CONDITIONING'
-        get().updateBatchStatus(batchId, previousStatus, `包装质检退回：${reason}`)
+        const logsForBatch = get().batchStateLogs
+          .filter((l) => l.batchId === batchId)
+          .sort((a, b) => new Date(b.changeTime).getTime() - new Date(a.changeTime).getTime())
+
+        const abnormalEntry = logsForBatch.find((l) => l.toStatus === 'ABNORMAL')
+        const previousStatus: BatchStatus = abnormalEntry?.fromStatus || 'READY'
+
+        get().updateBatchStatus(batchId, previousStatus, `包装质检退回至${BATCH_STATUS_LABELS[previousStatus]}：${reason}`)
 
         const alert: Omit<Alert, 'id' | 'createdAt' | 'status'> = {
           batchId,

@@ -23,6 +23,7 @@ export default function SystemPage() {
     packagingRecords,
     createAlert,
     updateBatch,
+    updateBatchStatus,
   } = useBreweryStore()
 
   const [activeTab, setActiveTab] = useState<TabType>('alerts')
@@ -531,10 +532,7 @@ export default function SystemPage() {
                   const ready = batches.filter(b => b.status === 'READY' || b.status === 'CONDITIONING')
                   if (ready.length > 0) {
                     const batch = ready[0]
-                    updateBatch(batch.id, {
-                      status: 'ABNORMAL',
-                      notes: '包装质检不合格：酒体浑浊，需重新过滤',
-                    })
+                    updateBatchStatus(batch.id, 'ABNORMAL', '包装质检不合格：酒体浑浊，需重新过滤')
                     createAlert({
                       batchId: batch.id,
                       type: 'quality_issue',

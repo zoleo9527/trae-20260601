@@ -20,6 +20,7 @@ export default function DashboardPage() {
     batchStateLogs,
     createAlert,
     updateBatch,
+    updateBatchStatus,
   } = useBreweryStore()
 
   const pendingBatches = batches.filter((b) => b.status === 'PENDING')
@@ -95,13 +96,13 @@ export default function DashboardPage() {
   const triggerPackagingFail = () => {
     const ready = readyBatches[0]
     if (ready) {
+      updateBatchStatus(ready.id, 'ABNORMAL', '包装质检不合格：酒体浑浊，需重新过滤')
       createAlert({
         batchId: ready.id,
         type: 'quality_issue',
         level: 'critical',
         message: '包装质检不合格模拟：酒体浑浊，需重新过滤',
       })
-      updateBatch(ready.id, { status: 'ABNORMAL', notes: '包装质检不合格：酒体浑浊，需重新过滤' })
       alert('已触发包装质检不合格样例')
     } else {
       alert('没有待包装批次可用于测试')
