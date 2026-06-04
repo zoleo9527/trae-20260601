@@ -5,12 +5,13 @@ import { cn } from '@/lib/utils'
 import { useAppStore, type Role } from '@/stores/appStore'
 import StatusBadge from '@/components/StatusBadge'
 
-type MissedStatus = 'pending' | 'reminded' | 'completed' | 'closed'
+type MissedStatus = 'pending' | 'reminded' | 'confirmed' | 'completed' | 'closed'
 
 const statusTabs: { value: MissedStatus | 'all'; label: string }[] = [
   { value: 'all', label: '全部' },
   { value: 'pending', label: '待处理' },
   { value: 'reminded', label: '已提醒' },
+  { value: 'confirmed', label: '待补检' },
   { value: 'completed', label: '已补检' },
   { value: 'closed', label: '已关闭' },
 ]
@@ -27,6 +28,7 @@ interface MissedItem {
 interface MissedStats {
   pending: number
   reminded: number
+  confirmed: number
   completed: number
   closed: number
 }
@@ -123,7 +125,7 @@ export default function MissedList() {
     if (currentRole === 'doctor' && item.status === 'reminded') {
       buttons.push({ label: '确认', action: 'confirm', variant: 'primary' })
     }
-    if (currentRole === 'doctor' && item.status === 'reminded') {
+    if (currentRole === 'doctor' && item.status === 'confirmed') {
       buttons.push({ label: '完成', action: 'complete', variant: 'primary' })
     }
     if (currentRole === 'reviewer' && item.status === 'completed') {
@@ -300,6 +302,7 @@ export default function MissedList() {
             <div className="space-y-3">
               <StatRow label="待处理" value={stats.pending} color="bg-accent" />
               <StatRow label="已提醒" value={stats.reminded} color="bg-blue-500" />
+              <StatRow label="待补检" value={stats.confirmed} color="bg-purple-500" />
               <StatRow label="已补检" value={stats.completed} color="bg-emerald-500" />
               <StatRow label="已关闭" value={stats.closed} color="bg-gray-400" />
             </div>

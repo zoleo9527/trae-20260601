@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Bell, CheckCircle } from 'lucide-react'
+import { ArrowLeft, Bell, CheckCircle, User, FileCheck, AlertCircle } from 'lucide-react'
+import { cn } from '@/lib/utils'
 import { useAppStore, type Role } from '@/stores/appStore'
 import StatusBadge from '@/components/StatusBadge'
 import Timeline from '@/components/Timeline'
 
-type MissedStatus = 'pending' | 'reminded' | 'completed' | 'closed'
+type MissedStatus = 'pending' | 'reminded' | 'confirmed' | 'completed' | 'closed'
 
 interface MissedItem {
   id: string
@@ -14,6 +15,9 @@ interface MissedItem {
   itemName: string
   requiredDept: string
   status: MissedStatus
+  remindedAt: string | null
+  confirmedAt: string | null
+  completedAt: string | null
   createdAt: string
 }
 
@@ -86,8 +90,25 @@ export default function MissedDetail() {
 
   const showRemindBtn = currentRole === 'front_desk' && item.status === 'pending'
   const showConfirmBtn = currentRole === 'doctor' && item.status === 'reminded'
-  const showCompleteBtn = currentRole === 'doctor' && item.status === 'reminded'
+  const showCompleteBtn = currentRole === 'doctor' && item.status === 'confirmed'
   const showCloseBtn = currentRole === 'reviewer' && item.status === 'completed'
+
+  const flowSteps = [
+    { key: 'pending', label: '待处理', icon: <AlertCircle className="w-4 h-4" />, role: '系统检测' },
+    { key: 'reminded', label: '已提醒', icon: <Bell className="w-4 h-4" />, role: '前台导检' },
+    { key: 'confirmed', label: '待补检', icon: <User className="w-4 h-4" />, role: '科室医生' },
+    { key: 'completed', label: '已补检', icon: <CheckCircle className="w-4 h-4" />, role: '科室医生' },
+    { key: 'closed', label: '已关闭', icon: <FileCheck className="w-4 h-4" />, role: '报告审核员' },
+  ]
+
+  const getStepStatus = (stepKey: string) => {
+    const statusOrder = ['pending', 'reminded', 'confirmed', 'completed', 'closed']
+    const currentIdx = statusOrder.indexOf(item.status)
+    const stepIdx = statusOrder.indexOf(stepKey)
+    if (stepIdx < currentIdx) return 'done'
+    if (stepIdx === currentIdx) return 'active'
+    return 'pending'
+  }
 
   return (
     <div className="space-y-6">
@@ -96,6 +117,48 @@ export default function MissedDetail() {
           <ArrowLeft className="w-5 h-5 text-gray-500" />
         </button>
         <h1 className="text-lg font-bold text-gray-800">漏项详情</h1>
+      </div>
+
+      <div className="bg-white rounded-lg border border-warm-300 p-6">
+        <h3 className="text-sm font-semibold text-gray-700 mb-4">漏项流程</h3>
+        <div className="flex items-center justify-between">
+          {flowSteps.map((step, idx) => {
+            const status = getStepStatus(step.key)
+            return (
+              <div key={step.key} className="flex-1 relative">
+                <div className="flex flex-col items-center">
+                  <div
+                    className={cn(
+                      'w-10 h-10 rounded-full flex items-center justify-center mb-2 transition-colors',
+                      status === 'done' && 'bg-emerald-100 text-emerald-600',
+                      status === 'active' && 'bg-primary text-white',
+                      status === 'pending' && 'bg-gray-100 text-gray-400'
+                    )}
+                  >
+                    {step.icon}
+                  </div>
+                  <span className={cn(
+                    'text-xs font-medium text-center',
+                    status === 'done' && 'text-emerald-600',
+                    status === 'active' && 'text-primary',
+                    status === 'pending' && 'text-gray-400'
+                  )}>
+                    {step.label}
+                  </span>
+                  <span className="text-[10px] text-gray-400 mt-0.5">{step.role}</span>
+                </div>
+                {idx < flowSteps.length - 1 && (
+                  <div
+                    className={cn(
+                      'absolute top-5 left-1/2 w-full h-0.5 -translate-y-1/2',
+                      getStepStatus(flowSteps[idx + 1].key) === 'done' ? 'bg-emerald-300' : 'bg-gray-200'
+                    )}
+                  />
+                )}
+              </div>
+            )
+          })}
+        </div>
       </div>
 
       <div className="bg-white rounded-lg border border-warm-300 p-6">
@@ -110,6 +173,9 @@ export default function MissedDetail() {
               <span>漏检项目：{item.itemName}</span>
               <span>应检科室：{item.requiredDept}</span>
               <span>创建时间：{new Date(item.createdAt).toLocaleString('zh-CN')}</span>
+              {item.remindedAt && <span>提醒时间：{new Date(item.remindedAt).toLocaleString('zh-CN')}</span>}
+              {item.confirmedAt && <span>确认时间：{new Date(item.confirmedAt).toLocaleString('zh-CN')}</span>}
+              {item.completedAt && <span>完成时间：{new Date(item.completedAt).toLocaleString('zh-CN')}</span>}
             </div>
           </div>
         </div>

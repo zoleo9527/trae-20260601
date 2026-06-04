@@ -1,11 +1,12 @@
 import { Router, type Request, type Response } from 'express'
 import {
-  diversions,
   findDiversion,
   findDiversionLogs,
   findAttachments,
   addDiversionLog,
   addAttachment,
+  updateDiversion,
+  getDiversions,
 } from '../db.js'
 
 const router = Router()
@@ -13,7 +14,7 @@ const router = Router()
 router.get('/', (req: Request, res: Response): void => {
   const { status, urgency, keyword } = req.query
 
-  let result = [...diversions]
+  let result = [...getDiversions()]
 
   if (status && typeof status === 'string') {
     result = result.filter((d) => d.status === status)
@@ -80,10 +81,11 @@ router.post('/:id/divert', (req: Request, res: Response): void => {
     return
   }
 
-  diversion.status = 'diverted'
-  diversion.assignedDept = assignedDept
-  diversion.assignedDoctor = assignedDoctor || null
-  diversion.updatedAt = new Date().toISOString()
+  const updated = updateDiversion(diversion.id, {
+    status: 'diverted',
+    assignedDept,
+    assignedDoctor: assignedDoctor || null,
+  })
 
   const doctorText = assignedDoctor ? `，指定${assignedDoctor}` : ''
   addDiversionLog({
@@ -94,7 +96,7 @@ router.post('/:id/divert', (req: Request, res: Response): void => {
     detail: `提交导检分流至${assignedDept}${doctorText}`,
   })
 
-  res.json(diversion)
+  res.json(updated)
 })
 
 router.post('/:id/confirm', (req: Request, res: Response): void => {
@@ -111,8 +113,9 @@ router.post('/:id/confirm', (req: Request, res: Response): void => {
 
   const { operatorName } = req.body
 
-  diversion.status = 'confirmed'
-  diversion.updatedAt = new Date().toISOString()
+  const updated = updateDiversion(diversion.id, {
+    status: 'confirmed',
+  })
 
   addDiversionLog({
     diversionId: diversion.id,
@@ -122,7 +125,7 @@ router.post('/:id/confirm', (req: Request, res: Response): void => {
     detail: '科室医生确认接收分流患者',
   })
 
-  res.json(diversion)
+  res.json(updated)
 })
 
 router.post('/:id/complete', (req: Request, res: Response): void => {
@@ -139,8 +142,9 @@ router.post('/:id/complete', (req: Request, res: Response): void => {
 
   const { operatorName } = req.body
 
-  diversion.status = 'completed'
-  diversion.updatedAt = new Date().toISOString()
+  const updated = updateDiversion(diversion.id, {
+    status: 'completed',
+  })
 
   addDiversionLog({
     diversionId: diversion.id,
@@ -150,7 +154,7 @@ router.post('/:id/complete', (req: Request, res: Response): void => {
     detail: '科室医生标记检查完成，待审核',
   })
 
-  res.json(diversion)
+  res.json(updated)
 })
 
 router.post('/:id/reject', (req: Request, res: Response): void => {
@@ -171,8 +175,11 @@ router.post('/:id/reject', (req: Request, res: Response): void => {
     return
   }
 
-  diversion.status = 'rejected'
-  diversion.updatedAt = new Date().toISOString()
+  const updated = updateDiversion(diversion.id, {
+    status: 'rejected',
+    assignedDept: null,
+    assignedDoctor: null,
+  })
 
   addDiversionLog({
     diversionId: diversion.id,
@@ -182,7 +189,7 @@ router.post('/:id/reject', (req: Request, res: Response): void => {
     detail: `复核不通过：${reason}`,
   })
 
-  res.json(diversion)
+  res.json(updated)
 })
 
 router.post('/:id/approve', (req: Request, res: Response): void => {
@@ -199,8 +206,9 @@ router.post('/:id/approve', (req: Request, res: Response): void => {
 
   const { operatorName } = req.body
 
-  diversion.status = 'completed'
-  diversion.updatedAt = new Date().toISOString()
+  const updated = updateDiversion(diversion.id, {
+    status: 'approved',
+  })
 
   addDiversionLog({
     diversionId: diversion.id,
@@ -210,7 +218,7 @@ router.post('/:id/approve', (req: Request, res: Response): void => {
     detail: '报告审核通过，流程完成',
   })
 
-  res.json(diversion)
+  res.json(updated)
 })
 
 router.post('/:id/attachments', (req: Request, res: Response): void => {
@@ -226,17 +234,24 @@ router.post('/:id/attachments', (req: Request, res: Response): void => {
     return
   }
 
-  const attachment = addAttachment({
-    diversionId: diversion.id,
-    fileName,
-    fileType,
-    fileUrl: `/uploads/${Date.now()}_${fileName}`,
-  })
+  const now = new Date().toISOString()
+  const uploader = operatorName || '前台导检员'
+  const attachment = addAttachment(
+    {
+      diversionId: diversion.id,
+      fileName,
+      fileType,
+      fileUrl: `/uploads/${Date.now()}_${fileName}`,
+      uploadedAt: now,
+      uploadedBy: uploader,
+    },
+    uploader
+  )
 
   addDiversionLog({
     diversionId: diversion.id,
     operatorRole: 'front_desk',
-    operatorName: operatorName || '前台导检员',
+    operatorName: uploader,
     action: 'upload_attachment',
     detail: `上传附件：${fileName}（${fileType}）`,
   })

@@ -185,7 +185,8 @@ export default function DiversionDetail() {
 
   const getStepStatus = (stepKey: string) => {
     const statusOrder = ['pending', 'diverted', 'confirmed', 'completed', 'approved']
-    const currentIdx = statusOrder.indexOf(diversion.status === 'rejected' ? 'pending' : diversion.status)
+    const displayStatus = diversion.status === 'rejected' ? 'pending' : diversion.status
+    const currentIdx = statusOrder.indexOf(displayStatus)
     const stepIdx = statusOrder.indexOf(stepKey)
     if (stepIdx < currentIdx) return 'done'
     if (stepIdx === currentIdx) return 'active'

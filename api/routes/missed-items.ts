@@ -1,26 +1,29 @@
 import { Router, type Request, type Response } from 'express'
 import {
-  missedItems,
   findMissedItem,
   findMissedItemLogs,
   addMissedItemLog,
+  getMissedItems,
+  updateMissedItem,
 } from '../db.js'
 
 const router = Router()
 
 router.get('/stats', (req: Request, res: Response): void => {
+  const items = getMissedItems()
   res.json({
-    pending: missedItems.filter((m) => m.status === 'pending').length,
-    reminded: missedItems.filter((m) => m.status === 'reminded').length,
-    completed: missedItems.filter((m) => m.status === 'completed').length,
-    closed: missedItems.filter((m) => m.status === 'closed').length,
+    pending: items.filter((m) => m.status === 'pending').length,
+    reminded: items.filter((m) => m.status === 'reminded').length,
+    confirmed: items.filter((m) => m.status === 'confirmed').length,
+    completed: items.filter((m) => m.status === 'completed').length,
+    closed: items.filter((m) => m.status === 'closed').length,
   })
 })
 
 router.get('/', (req: Request, res: Response): void => {
   const { status, dept, dateFrom, dateTo } = req.query
 
-  let result = [...missedItems]
+  let result = [...getMissedItems()]
 
   if (status && typeof status === 'string') {
     result = result.filter((m) => m.status === status)
@@ -72,9 +75,12 @@ router.post('/:id/remind', (req: Request, res: Response): void => {
   }
 
   const { operatorName } = req.body
+  const now = new Date().toISOString()
 
-  item.status = 'reminded'
-  item.remindedAt = new Date().toISOString()
+  const updated = updateMissedItem(item.id, {
+    status: 'reminded',
+    remindedAt: now,
+  })
 
   addMissedItemLog({
     missedItemId: item.id,
@@ -84,7 +90,7 @@ router.post('/:id/remind', (req: Request, res: Response): void => {
     detail: `发送漏项提醒，通知患者补做${item.itemName}`,
   })
 
-  res.json(item)
+  res.json(updated)
 })
 
 router.post('/:id/confirm', (req: Request, res: Response): void => {
@@ -100,6 +106,12 @@ router.post('/:id/confirm', (req: Request, res: Response): void => {
   }
 
   const { operatorName } = req.body
+  const now = new Date().toISOString()
+
+  const updated = updateMissedItem(item.id, {
+    status: 'confirmed',
+    confirmedAt: now,
+  })
 
   addMissedItemLog({
     missedItemId: item.id,
@@ -109,7 +121,7 @@ router.post('/:id/confirm', (req: Request, res: Response): void => {
     detail: `科室医生确认${item.itemName}漏项，已安排补检`,
   })
 
-  res.json(item)
+  res.json(updated)
 })
 
 router.post('/:id/complete', (req: Request, res: Response): void => {
@@ -119,15 +131,18 @@ router.post('/:id/complete', (req: Request, res: Response): void => {
     return
   }
 
-  if (item.status !== 'reminded') {
-    res.status(400).json({ error: 'Only reminded missed items can be completed' })
+  if (item.status !== 'confirmed') {
+    res.status(400).json({ error: 'Only confirmed missed items can be completed' })
     return
   }
 
   const { operatorName } = req.body
+  const now = new Date().toISOString()
 
-  item.status = 'completed'
-  item.completedAt = new Date().toISOString()
+  const updated = updateMissedItem(item.id, {
+    status: 'completed',
+    completedAt: now,
+  })
 
   addMissedItemLog({
     missedItemId: item.id,
@@ -137,7 +152,7 @@ router.post('/:id/complete', (req: Request, res: Response): void => {
     detail: `${item.itemName}补检完成`,
   })
 
-  res.json(item)
+  res.json(updated)
 })
 
 router.post('/:id/close', (req: Request, res: Response): void => {
@@ -154,7 +169,9 @@ router.post('/:id/close', (req: Request, res: Response): void => {
 
   const { operatorName, reason } = req.body
 
-  item.status = 'closed'
+  const updated = updateMissedItem(item.id, {
+    status: 'closed',
+  })
 
   const reasonText = reason ? `，原因：${reason}` : ''
   addMissedItemLog({
@@ -165,7 +182,7 @@ router.post('/:id/close', (req: Request, res: Response): void => {
     detail: `报告审核员确认并关闭${item.itemName}漏项${reasonText}`,
   })
 
-  res.json(item)
+  res.json(updated)
 })
 
 export default router
