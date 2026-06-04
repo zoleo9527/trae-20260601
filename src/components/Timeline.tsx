@@ -28,6 +28,7 @@ const actionLabels: Record<string, string> = {
   PERSONNEL_UPDATED: '更新人员',
   PERSONNEL_DELETED: '删除人员',
   EXCEPTION_ADDED: '添加异常',
+  EXCEPTION_HANDLED: '处理异常',
   DATA_RESET: '重置数据',
 };
 
@@ -45,6 +46,7 @@ const actionColors: Record<string, string> = {
   PERSONNEL_UPDATED: 'bg-gray-500',
   PERSONNEL_DELETED: 'bg-red-400',
   EXCEPTION_ADDED: 'bg-red-500',
+  EXCEPTION_HANDLED: 'bg-emerald-500',
   DATA_RESET: 'bg-gray-700',
 };
 

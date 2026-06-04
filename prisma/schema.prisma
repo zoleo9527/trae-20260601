@@ -20,6 +20,7 @@ model User {
   createdBookings   GroupBooking[] @relation("creator")
   handledBookings   GroupBooking[] @relation("handler")
   createdImports    PersonnelImport[] @relation("importCreator")
+  handledExceptions ExceptionRecord[] @relation("exceptionHandler")
   createdTimelines  Timeline[]
 }
 
@@ -100,6 +101,7 @@ model ExceptionRecord {
   handledAt       DateTime?
 
   booking         GroupBooking   @relation(fields: [bookingId], references: [id])
+  handledBy       User?          @relation("exceptionHandler", fields: [handledById], references: [id])
 }
 
 model Timeline {

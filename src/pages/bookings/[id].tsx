@@ -200,7 +200,7 @@ export default function BookingDetailPage({ user, booking, personnelCount }: Boo
                 </button>
               </>
             )}
-            {(booking.status === 'CONFIRMED' || booking.status === 'PENDING' || booking.status === 'SUPPLEMENTED') && (
+            {(booking.status === 'CONFIRMED' || booking.status === 'PENDING' || booking.status === 'SUPPLEMENTED' || booking.status === 'RESCHEDULED') && (
               <button
                 onClick={() => setShowRescheduleModal(true)}
                 disabled={loading}

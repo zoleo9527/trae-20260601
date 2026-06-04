@@ -28,7 +28,7 @@ export default async function handler(
         return res.status(404).json({ error: '预约不存在' });
       }
 
-      if (!['PENDING', 'CONFIRMED'].includes(booking.status)) {
+      if (!['PENDING', 'CONFIRMED', 'SUPPLEMENTED', 'RESCHEDULED'].includes(booking.status)) {
         return res.status(400).json({ error: '当前状态不支持改期' });
       }
 
