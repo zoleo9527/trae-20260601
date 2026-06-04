@@ -1,0 +1,19 @@
+[package]
+name = "nursing-home-app"
+version = "0.1.0"
+description = "养老护理院床位安排与护理等级管理系统"
+authors = ["you"]
+edition = "2021"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-shell = "2"
+
+[features]
+# 默认启用自定义协议
+default = ["custom-protocol"]
+# 自定义协议用于在生产环境中提供前端资源
+custom-protocol = ["tauri/custom-protocol"]
