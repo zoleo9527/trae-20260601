@@ -1,6 +1,8 @@
 package com.medical.aesthetic.controller;
 
 import com.medical.aesthetic.dto.ExportRequestDTO;
+import com.medical.aesthetic.entity.ExportTask;
+import com.medical.aesthetic.enums.ExportTaskStatus;
 import com.medical.aesthetic.service.ExportService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
@@ -11,6 +13,8 @@ import org.springframework.web.bind.annotation.*;
 import java.io.IOException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/export")
@@ -51,8 +55,65 @@ public class ExportController {
     }
 
     @PostMapping("/async/{type}")
-    public ResponseEntity<String> asyncExport(@PathVariable String type, @RequestBody ExportRequestDTO dto) {
-        exportService.asyncExport(dto, type);
-        return ResponseEntity.ok("异步导出任务已提交，将在后台处理");
+    public ResponseEntity<ExportTask> asyncExport(@PathVariable String type, @RequestBody ExportRequestDTO dto) {
+        ExportTask task = exportService.submitTask(dto, type);
+        return ResponseEntity.ok(task);
+    }
+
+    @GetMapping("/tasks")
+    public ResponseEntity<List<ExportTask>> getTaskList() {
+        return ResponseEntity.ok(exportService.getTaskList());
+    }
+
+    @GetMapping("/tasks/recent")
+    public ResponseEntity<List<ExportTask>> getRecentTasks() {
+        return ResponseEntity.ok(exportService.getRecentTasks());
+    }
+
+    @GetMapping("/tasks/status/{status}")
+    public ResponseEntity<List<ExportTask>> getTasksByStatus(@PathVariable String status) {
+        return ResponseEntity.ok(exportService.getTasksByStatus(ExportTaskStatus.valueOf(status.toUpperCase())));
+    }
+
+    @GetMapping("/tasks/{taskId}")
+    public ResponseEntity<ExportTask> getTaskDetail(@PathVariable Long taskId) {
+        ExportTask task = exportService.getTaskDetail(taskId);
+        if (task == null) {
+            return ResponseEntity.notFound().build();
+        }
+        return ResponseEntity.ok(task);
+    }
+
+    @GetMapping("/tasks/{taskId}/download")
+    public ResponseEntity<byte[]> downloadTaskResult(@PathVariable Long taskId) {
+        ExportTask task = exportService.getTaskDetail(taskId);
+        if (task == null) {
+            return ResponseEntity.notFound().build();
+        }
+        if (task.getStatus() != ExportTaskStatus.COMPLETED) {
+            return ResponseEntity.badRequest().body(null);
+        }
+        byte[] content = exportService.getTaskFileContent(taskId);
+        String fileName = URLEncoder.encode(task.getFileName(), StandardCharsets.UTF_8);
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename*=UTF-8''" + fileName)
+                .contentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+                .body(content);
+    }
+
+    @PostMapping("/tasks/{taskId}/retry")
+    public ResponseEntity<Map<String, Object>> retryTask(@PathVariable Long taskId) {
+        try {
+            exportService.retryTask(taskId);
+            return ResponseEntity.ok(Map.of(
+                    "success", true,
+                    "message", "任务已重新提交，将在后台执行"
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "success", false,
+                    "message", e.getMessage()
+            ));
+        }
     }
 }

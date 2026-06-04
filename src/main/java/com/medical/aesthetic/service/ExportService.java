@@ -1,9 +1,14 @@
 package com.medical.aesthetic.service;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.medical.aesthetic.dto.ExportRequestDTO;
 import com.medical.aesthetic.entity.*;
+import com.medical.aesthetic.enums.ExportTaskStatus;
+import com.medical.aesthetic.enums.ExportType;
 import com.medical.aesthetic.enums.ProjectStatus;
 import com.medical.aesthetic.repository.CustomerProjectRepository;
+import com.medical.aesthetic.repository.ExportTaskRepository;
 import com.medical.aesthetic.repository.MaterialReservationRepository;
 import com.medical.aesthetic.repository.OrderRepository;
 import lombok.RequiredArgsConstructor;
@@ -16,6 +21,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
@@ -29,6 +36,8 @@ public class ExportService {
     private final CustomerProjectRepository customerProjectRepository;
     private final MaterialReservationRepository materialReservationRepository;
     private final OrderRepository orderRepository;
+    private final ExportTaskRepository exportTaskRepository;
+    private final ObjectMapper objectMapper;
 
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
@@ -189,15 +198,163 @@ public class ExportService {
     }
 
     @Async
-    @Transactional(readOnly = true)
+    @Transactional
     public void asyncExport(ExportRequestDTO dto, String exportType) {
+        ExportTask task = createTask(dto, exportType);
+        executeTask(task.getId());
+    }
+
+    @Transactional
+    public ExportTask submitTask(ExportRequestDTO dto, String exportTypeStr) {
+        ExportTask task = createTask(dto, exportTypeStr);
+        executeTaskAsync(task.getId());
+        return task;
+    }
+
+    private ExportTask createTask(ExportRequestDTO dto, String exportTypeStr) {
+        ExportType exportType = ExportType.valueOf(exportTypeStr.toUpperCase());
+
+        String filterJson = null;
         try {
-            log.info("开始异步导出: {}", exportType);
-            Thread.sleep(1000);
-            log.info("异步导出完成: {}", exportType);
-        } catch (Exception e) {
-            log.error("异步导出失败: {}", exportType, e);
+            filterJson = objectMapper.writeValueAsString(dto);
+        } catch (JsonProcessingException e) {
+            log.warn("序列化筛选条件失败", e);
         }
+
+        ExportTask task = ExportTask.builder()
+                .exportType(exportType)
+                .status(ExportTaskStatus.PENDING)
+                .filterCriteria(filterJson)
+                .fileName(exportType.getDefaultFileName())
+                .remark(dto.getIncludeFields())
+                .build();
+
+        return exportTaskRepository.save(task);
+    }
+
+    @Async
+    @Transactional
+    public void executeTaskAsync(Long taskId) {
+        executeTask(taskId);
+    }
+
+    @Transactional
+    public void executeTask(Long taskId) {
+        ExportTask task = exportTaskRepository.findById(taskId)
+                .orElseThrow(() -> new IllegalArgumentException("导出任务不存在: " + taskId));
+
+        if (task.getStatus() != ExportTaskStatus.PENDING) {
+            log.warn("任务状态不是待处理，跳过执行: {}", taskId);
+            return;
+        }
+
+        task.setStatus(ExportTaskStatus.PROCESSING);
+        task.setStartedAt(LocalDateTime.now());
+        exportTaskRepository.save(task);
+
+        try {
+            ExportRequestDTO dto = parseFilterCriteria(task.getFilterCriteria());
+            byte[] content = doExport(task.getExportType(), dto);
+
+            task.setStatus(ExportTaskStatus.COMPLETED);
+            task.setFileContent(content);
+            task.setFileSize((long) content.length);
+            task.setCompletedAt(LocalDateTime.now());
+            task.setRecordCount(extractRecordCount(task.getExportType()));
+
+            log.info("导出任务完成 - 任务ID: {}, 类型: {}, 记录数: {}, 文件大小: {} bytes",
+                    taskId, task.getExportType(), task.getRecordCount(), task.getFileSize());
+
+        } catch (Exception e) {
+            log.error("导出任务失败 - 任务ID: {}", taskId, e);
+            task.setStatus(ExportTaskStatus.FAILED);
+            task.setCompletedAt(LocalDateTime.now());
+            task.setErrorMessage(e.getMessage());
+            task.setErrorStackTrace(getStackTrace(e));
+        }
+
+        exportTaskRepository.save(task);
+    }
+
+    private byte[] doExport(ExportType exportType, ExportRequestDTO dto) throws IOException {
+        return switch (exportType) {
+            case PROJECTS -> exportProjects(dto);
+            case MATERIALS -> exportMaterialReservations(dto);
+            case ORDERS -> exportOrders(dto);
+        };
+    }
+
+    private int extractRecordCount(ExportType exportType) {
+        return switch (exportType) {
+            case PROJECTS -> customerProjectRepository.findAll().size();
+            case MATERIALS -> materialReservationRepository.findAll().size();
+            case ORDERS -> orderRepository.findInstallmentOrders().size();
+        };
+    }
+
+    private ExportRequestDTO parseFilterCriteria(String filterJson) {
+        if (filterJson == null || filterJson.isEmpty()) {
+            return new ExportRequestDTO();
+        }
+        try {
+            return objectMapper.readValue(filterJson, ExportRequestDTO.class);
+        } catch (Exception e) {
+            log.warn("反序列化筛选条件失败，使用默认值", e);
+            return new ExportRequestDTO();
+        }
+    }
+
+    private String getStackTrace(Exception e) {
+        StringWriter sw = new StringWriter();
+        PrintWriter pw = new PrintWriter(sw);
+        e.printStackTrace(pw);
+        return sw.toString();
+    }
+
+    @Transactional(readOnly = true)
+    public List<ExportTask> getTaskList() {
+        return exportTaskRepository.findAllByOrderByCreatedAtDesc();
+    }
+
+    @Transactional(readOnly = true)
+    public List<ExportTask> getRecentTasks() {
+        return exportTaskRepository.findTop10ByOrderByCreatedAtDesc();
+    }
+
+    @Transactional(readOnly = true)
+    public List<ExportTask> getTasksByStatus(ExportTaskStatus status) {
+        return exportTaskRepository.findByStatusOrderByCreatedAtDesc(status);
+    }
+
+    @Transactional(readOnly = true)
+    public ExportTask getTaskDetail(Long taskId) {
+        return exportTaskRepository.findById(taskId).orElse(null);
+    }
+
+    @Transactional(readOnly = true)
+    public byte[] getTaskFileContent(Long taskId) {
+        ExportTask task = exportTaskRepository.findById(taskId)
+                .orElseThrow(() -> new IllegalArgumentException("导出任务不存在: " + taskId));
+        if (task.getStatus() != ExportTaskStatus.COMPLETED) {
+            throw new IllegalStateException("导出任务尚未完成或已失败，状态: " + task.getStatus().getDisplayName());
+        }
+        return task.getFileContent();
+    }
+
+    @Transactional
+    public void retryTask(Long taskId) {
+        ExportTask task = exportTaskRepository.findById(taskId)
+                .orElseThrow(() -> new IllegalArgumentException("导出任务不存在: " + taskId));
+        if (task.getStatus() != ExportTaskStatus.FAILED) {
+            throw new IllegalStateException("只有失败的任务可以重试");
+        }
+        task.setStatus(ExportTaskStatus.PENDING);
+        task.setStartedAt(null);
+        task.setCompletedAt(null);
+        task.setErrorMessage(null);
+        task.setErrorStackTrace(null);
+        exportTaskRepository.save(task);
+        executeTaskAsync(taskId);
     }
 
     private CellStyle createHeaderStyle(Workbook workbook) {

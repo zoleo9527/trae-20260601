@@ -34,6 +34,7 @@ public class DataInitializer implements CommandLineRunner {
     private final FollowUpRecordRepository followUpRecordRepository;
     private final HistoryNoteService historyNoteService;
     private final OrderService orderService;
+    private final ExportTaskRepository exportTaskRepository;
 
     @Override
     @Transactional
@@ -85,6 +86,8 @@ public class DataInitializer implements CommandLineRunner {
         createScenario3_InstallmentIssue(customer3, project2, consultant, customerService, material2, material3);
         createScenario4_Completed(customer4, project4, consultant, doctorAssistant, customerService, material4);
         createScenario5_PendingMaterial(customer1, project5, consultant, doctorAssistant);
+
+        createExportTaskSamples();
 
         log.info("种子数据初始化完成！");
     }
@@ -777,5 +780,70 @@ public class DataInitializer implements CommandLineRunner {
         historyNoteService.addPaymentNote(cp.getId(), "定金20000元已到账，术前需付清尾款。");
 
         log.info("场景5创建完成 - 项目ID: {}, 状态：已排期未预留耗材（空档预警）", cp.getId());
+    }
+
+    @Transactional
+    public void createExportTaskSamples() {
+        log.info("创建导出任务样例数据...");
+
+        ExportTask task1 = ExportTask.builder()
+                .exportType(ExportType.PROJECTS)
+                .status(ExportTaskStatus.COMPLETED)
+                .filterCriteria("{\"startDate\":\"2026-06-01\",\"endDate\":\"2026-06-30\",\"status\":\"SCHEDULED\"}")
+                .fileName("项目排期表_20260601.xlsx")
+                .fileSize(24576L)
+                .startedAt(LocalDateTime.now().minusHours(2))
+                .completedAt(LocalDateTime.now().minusHours(2).plusMinutes(3))
+                .recordCount(15)
+                .remark("客服王导出6月份排期表")
+                .build();
+        exportTaskRepository.save(task1);
+
+        ExportTask task2 = ExportTask.builder()
+                .exportType(ExportType.ORDERS)
+                .status(ExportTaskStatus.COMPLETED)
+                .filterCriteria("{\"exportType\":\"orders\",\"startDate\":\"2026-05-01\",\"endDate\":\"2026-05-31\"}")
+                .fileName("分期款项明细_202605.xlsx")
+                .fileSize(32768L)
+                .startedAt(LocalDateTime.now().minusDays(5))
+                .completedAt(LocalDateTime.now().minusDays(5).plusMinutes(2))
+                .recordCount(42)
+                .remark("财务对账使用")
+                .build();
+        exportTaskRepository.save(task2);
+
+        ExportTask task3 = ExportTask.builder()
+                .exportType(ExportType.MATERIALS)
+                .status(ExportTaskStatus.PROCESSING)
+                .filterCriteria("{\"startDate\":\"2026-06-01\"}")
+                .fileName("耗材预留记录_近一月.xlsx")
+                .startedAt(LocalDateTime.now().minusMinutes(1))
+                .remark("正在生成本月耗材使用统计")
+                .build();
+        exportTaskRepository.save(task3);
+
+        ExportTask task4 = ExportTask.builder()
+                .exportType(ExportType.ORDERS)
+                .status(ExportTaskStatus.FAILED)
+                .filterCriteria("{\"exportType\":\"orders\",\"includeFields\":\"all\"}")
+                .fileName("分期款项明细_失败.xlsx")
+                .startedAt(LocalDateTime.now().minusHours(5))
+                .completedAt(LocalDateTime.now().minusHours(5).plusSeconds(30))
+                .errorMessage("java.lang.OutOfMemoryError: GC overhead limit exceeded")
+                .errorStackTrace("java.lang.OutOfMemoryError: GC overhead limit exceeded\n\tat org.apache.poi.xssf.usermodel.XSSFWorkbook.<init>(XSSFWorkbook.java:231)\n\t...")
+                .remark("大文件导出超时失败，建议分批次导出")
+                .build();
+        exportTaskRepository.save(task4);
+
+        ExportTask task5 = ExportTask.builder()
+                .exportType(ExportType.PROJECTS)
+                .status(ExportTaskStatus.PENDING)
+                .filterCriteria("{\"status\":\"COMPLETED\",\"startDate\":\"2026-01-01\",\"endDate\":\"2026-06-30\"}")
+                .fileName("上半年已完成项目统计.xlsx")
+                .remark("排队中，预计执行时间30秒")
+                .build();
+        exportTaskRepository.save(task5);
+
+        log.info("导出任务样例创建完成 - 共5条任务：2条已完成、1条处理中、1条失败、1条待处理");
     }
 }
