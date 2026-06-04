@@ -168,13 +168,12 @@
       content: deliveryContent.trim()
     })
 
-    if (deliveryType === 'sms_notification' || deliveryType === 'phone_call') {
-      updateDeliverySubStatus(report.id, 'pending_contact', '赵发放员')
-    } else if (deliveryType === 'scheduled' || deliveryType === 'phone_confirm') {
-      if (report.currentStatus === 'pending_delivery') {
-        updateReportStatus(report.id, 'delivery_scheduled', '赵发放员', '赵发放员', '患者已确认领取，进入已预约发放')
-      }
+    if (deliveryType === 'scheduled' || deliveryType === 'phone_confirm') {
       updateDeliverySubStatus(report.id, 'pending_pickup', '赵发放员')
+    } else if (deliveryType === 'sms_notification' || deliveryType === 'phone_call') {
+      if (!report.deliverySubStatus || report.deliverySubStatus === 'abnormal_review') {
+        updateDeliverySubStatus(report.id, 'pending_contact', '赵发放员')
+      }
     }
 
     deliveryContent = ''
@@ -423,9 +422,12 @@
               <label class="form-label">发放阶段：</label>
               <div class="quick-actions">
                 {#each Object.values(deliverySubStatus) as subStatus (subStatus.id)}
+                  {@const isRegress = subStatus.id === 'pending_contact' && ['pending_schedule', 'pending_pickup'].includes(report.deliverySubStatus)}
+                  {@const isRegress2 = subStatus.id === 'pending_schedule' && report.deliverySubStatus === 'pending_pickup'}
                   <button 
                     class="quick-btn" 
-                    style="{report.deliverySubStatus === subStatus.id ? 'border-color: #1890ff; background: #e6f7ff; color: #1890ff;' : ''}"
+                    style="{report.deliverySubStatus === subStatus.id ? 'border-color: #1890ff; background: #e6f7ff; color: #1890ff;' : ''} {isRegress || isRegress2 ? 'opacity: 0.4; cursor: not-allowed;' : ''}"
+                    disabled={isRegress || isRegress2}
                     on:click={() => updateDeliverySubStatus(report.id, subStatus.id, '赵发放员')}
                   >
                     {subStatus.icon} {subStatus.name}

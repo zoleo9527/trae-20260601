@@ -434,11 +434,13 @@ export function updateReportStatus(reportId, statusId, handler, operator, action
   reports.update(list => list.map(r => {
     if (r.id === reportId) {
       const newStatus = auditStatus[statusId.toUpperCase()] || auditStatus[statusId]
+      const isDeliveryPhase = ['pending_delivery', 'delivery_scheduled'].includes(statusId)
       return {
         ...r,
         currentStatus: statusId,
         currentHandler: newStatus?.handler || null,
         assignee: handler,
+        deliverySubStatus: isDeliveryPhase ? r.deliverySubStatus : null,
         operationLogs: [...r.operationLogs, {
           time: new Date().toLocaleString('zh-CN', { 
             year: 'numeric', month: '2-digit', day: '2-digit',
@@ -541,9 +543,19 @@ export function unstickReport(reportId, operator, action) {
 
 export function updateDeliverySubStatus(reportId, subStatusId, operator) {
   const subStatus = deliverySubStatus[subStatusId.toUpperCase()]
+  const mainStatusMap = {
+    pending_contact: 'pending_delivery',
+    pending_schedule: 'pending_delivery',
+    pending_pickup: 'delivery_scheduled',
+    abnormal_review: 'pending_delivery'
+  }
+
   reports.update(list => list.map(r => {
     if (r.id === reportId) {
-      return {
+      const targetMainStatus = mainStatusMap[subStatusId] || r.currentStatus
+      const mainStatusChanged = targetMainStatus !== r.currentStatus
+      const newMainStatus = auditStatus[targetMainStatus.toUpperCase()]
+      let updated = {
         ...r,
         deliverySubStatus: subStatusId,
         operationLogs: [...r.operationLogs, {
@@ -552,7 +564,7 @@ export function updateDeliverySubStatus(reportId, subStatusId, operator) {
             hour: '2-digit', minute: '2-digit'
           }).replace(/\//g, '-'),
           operator,
-          action: `发放状态变更：${subStatus?.name || subStatusId}`,
+          action: `发放状态变更：${subStatus?.name || subStatusId}${mainStatusChanged ? `，主状态同步为${newMainStatus?.name || targetMainStatus}` : ''}`,
           role: 'deliver'
         }],
         lastModified: new Date().toLocaleString('zh-CN', { 
@@ -561,6 +573,16 @@ export function updateDeliverySubStatus(reportId, subStatusId, operator) {
         }).replace(/\//g, '-'),
         lastModifier: operator
       }
+
+      if (mainStatusChanged) {
+        updated.currentStatus = targetMainStatus
+        updated.currentHandler = newMainStatus?.handler || r.currentHandler
+        updated.assignee = newMainStatus?.handler === 'deliver' ? r.assignee : r.assignee
+        updated.isStuck = false
+        updated.stuckReason = null
+      }
+
+      return updated
     }
     return r
   }))
