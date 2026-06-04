@@ -5,6 +5,7 @@ import type { FollowUpRecord, FollowUpStatus } from "@/types";
 import {
   getAllFollowUps,
   completeFollowUp,
+  cancelFollowUp,
   returnFollowUp,
   getTodayPendingFollowUps,
   getOverdueFollowUps,
@@ -37,6 +38,8 @@ const completeForm = ref({
   notes: "",
 });
 const returnReason = ref("");
+const showCancelModal = ref(false);
+const cancelReason = ref("");
 
 async function loadData() {
   loading.value = true;
@@ -108,6 +111,27 @@ async function handleReturn() {
   if (res.code === 0) {
     alert(res.message);
     showReturnModal.value = false;
+    loadData();
+  } else {
+    alert(`操作失败：${res.message}`);
+  }
+}
+
+function openCancelModal(followUp: FollowUpRecord) {
+  selectedFollowUp.value = followUp;
+  cancelReason.value = "";
+  showCancelModal.value = true;
+}
+
+async function handleCancel() {
+  if (!selectedFollowUp.value || !cancelReason.value) return;
+  const res = await cancelFollowUp({
+    id: selectedFollowUp.value.id,
+    reason: cancelReason.value,
+  });
+  if (res.code === 0) {
+    alert(res.message);
+    showCancelModal.value = false;
     loadData();
   } else {
     alert(`操作失败：${res.message}`);
@@ -402,9 +426,17 @@ onMounted(() => {
                 </span>
                 <div
                   v-if="followUp.status === 'returned' && followUp.returnReason"
-                  class="return-reason-text"
+                  class="reason-text"
                 >
                   {{ followUp.returnReason }}
+                </div>
+                <div
+                  v-if="
+                    followUp.status === 'cancelled' && followUp.cancelReason
+                  "
+                  class="reason-text"
+                >
+                  {{ followUp.cancelReason }}
                 </div>
               </td>
               <td>
@@ -431,6 +463,16 @@ onMounted(() => {
                     @click="openReturnModal(followUp)"
                   >
                     退回
+                  </button>
+                  <button
+                    v-if="
+                      followUp.status === 'pending' ||
+                      followUp.status === 'returned'
+                    "
+                    class="btn btn-ghost btn-sm"
+                    @click="openCancelModal(followUp)"
+                  >
+                    取消
                   </button>
                 </div>
               </td>
@@ -604,6 +646,58 @@ onMounted(() => {
             :disabled="!returnReason"
           >
             确认退回
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div
+      class="modal-overlay"
+      v-if="showCancelModal"
+      @click.self="showCancelModal = false"
+    >
+      <div class="modal">
+        <div class="modal-header">
+          <h3>取消回访计划</h3>
+          <button class="close-btn" @click="showCancelModal = false">×</button>
+        </div>
+        <div class="modal-body" v-if="selectedFollowUp">
+          <div class="patient-summary">
+            <div class="avatar">
+              {{ selectedFollowUp.report.patient.name.charAt(0) }}
+            </div>
+            <div>
+              <div class="font-medium">
+                {{ selectedFollowUp.report.patient.name }}
+              </div>
+              <div class="text-sm text-muted">
+                {{ selectedFollowUp.report.complicationType }} ·
+                {{ followUpTypeMap[selectedFollowUp.followUpType].label }} ·
+                {{ formatDateTime(selectedFollowUp.plannedTime) }}
+              </div>
+            </div>
+          </div>
+
+          <div class="form-section">
+            <label class="form-label required">取消原因</label>
+            <textarea
+              v-model="cancelReason"
+              class="form-textarea"
+              rows="4"
+              placeholder="请输入取消回访的原因..."
+            ></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-outline" @click="showCancelModal = false">
+            返回
+          </button>
+          <button
+            class="btn btn-danger"
+            @click="handleCancel"
+            :disabled="!cancelReason"
+          >
+            确认取消
           </button>
         </div>
       </div>
@@ -920,7 +1014,7 @@ onMounted(() => {
   font-weight: 500;
 }
 
-.return-reason-text {
+.reason-text {
   font-size: 11px;
   color: #dc2626;
   margin-top: 4px;
@@ -981,6 +1075,17 @@ onMounted(() => {
 
 .btn-outline:hover {
   background: #f9fafb;
+}
+
+.btn-ghost {
+  background: none;
+  color: #6b7280;
+  border: 1px solid #d1d5db;
+}
+
+.btn-ghost:hover {
+  background: #f9fafb;
+  color: #374151;
 }
 
 .loading-state,

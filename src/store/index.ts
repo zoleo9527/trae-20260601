@@ -674,7 +674,10 @@ export function cancelFollowUp(params: CancelFollowUpParams): ApiResponse<Follow
   const oldStatus = followUp.status
 
   followUp.status = 'cancelled'
-  followUp.notes = (followUp.notes || '') + ` [取消原因：${params.reason}]`
+  followUp.cancelReason = params.reason
+  followUp.cancelledTime = now()
+  followUp.cancelledById = state.currentUser.id
+  followUp.cancelledBy = state.currentUser
   followUp.updatedAt = now()
 
   addAuditLog({

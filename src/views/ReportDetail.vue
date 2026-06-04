@@ -15,6 +15,7 @@ import {
   updateReport,
   createFollowUp,
   completeFollowUp,
+  cancelFollowUp,
   statusMap,
   severityMap,
   staffRoleMap,
@@ -37,11 +38,13 @@ const activeTab = ref<"info" | "followup" | "audit">("info");
 const showStatusModal = ref(false);
 const showFollowUpModal = ref(false);
 const showCompleteFollowUpModal = ref(false);
+const showCancelFollowUpModal = ref(false);
 const selectedFollowUp = ref<FollowUpRecord | null>(null);
 
 const newStatus = ref<ComplicationStatus>("processing");
 const rejectReason = ref("");
 const resolution = ref("");
+const cancelReason = ref("");
 
 const newFollowUp = ref({
   followUpType: "inpatient" as const,
@@ -172,6 +175,29 @@ async function handleCompleteFollowUp() {
   if (res.code === 0) {
     alert(res.message);
     showCompleteFollowUpModal.value = false;
+    loadData();
+  } else {
+    alert(`操作失败：${res.message}`);
+  }
+}
+
+function openCancelModal(followUp: FollowUpRecord) {
+  selectedFollowUp.value = followUp;
+  cancelReason.value = "";
+  showCancelFollowUpModal.value = true;
+}
+
+async function handleCancelFollowUp() {
+  if (!selectedFollowUp.value || !cancelReason.value) return;
+
+  const res = await cancelFollowUp({
+    id: selectedFollowUp.value.id,
+    reason: cancelReason.value,
+  });
+
+  if (res.code === 0) {
+    alert(res.message);
+    showCancelFollowUpModal.value = false;
     loadData();
   } else {
     alert(`操作失败：${res.message}`);
@@ -634,12 +660,20 @@ onMounted(() => {
                 <span class="reason-label">⚠️ 退回原因：</span>
                 {{ followUp.returnReason }}
               </div>
-              <button
-                class="btn btn-primary btn-sm"
-                @click="openCompleteModal(followUp)"
-              >
-                🔄 重新完成回访
-              </button>
+              <div class="followup-actions">
+                <button
+                  class="btn btn-primary btn-sm"
+                  @click="openCompleteModal(followUp)"
+                >
+                  🔄 重新完成回访
+                </button>
+                <button
+                  class="btn btn-ghost btn-sm"
+                  @click="openCancelModal(followUp)"
+                >
+                  取消回访
+                </button>
+              </div>
             </div>
 
             <div
@@ -647,12 +681,20 @@ onMounted(() => {
               class="followup-pending"
             >
               <p>等待回访...</p>
-              <button
-                class="btn btn-primary btn-sm"
-                @click="openCompleteModal(followUp)"
-              >
-                ✅ 完成回访
-              </button>
+              <div class="followup-actions">
+                <button
+                  class="btn btn-primary btn-sm"
+                  @click="openCompleteModal(followUp)"
+                >
+                  ✅ 完成回访
+                </button>
+                <button
+                  class="btn btn-ghost btn-sm"
+                  @click="openCancelModal(followUp)"
+                >
+                  取消回访
+                </button>
+              </div>
             </div>
 
             <div v-else class="followup-readonly">
@@ -666,7 +708,9 @@ onMounted(() => {
                 v-if="followUp.status === 'cancelled'"
                 class="readonly-text cancelled-text"
               >
-                已取消{{ followUp.notes ? "：" + followUp.notes : "" }}
+                已取消{{
+                  followUp.cancelReason ? "：" + followUp.cancelReason : ""
+                }}
               </p>
             </div>
           </div>
@@ -947,6 +991,47 @@ onMounted(() => {
           </button>
           <button class="btn btn-primary" @click="handleCompleteFollowUp">
             保存
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div
+      class="modal-overlay"
+      v-if="showCancelFollowUpModal"
+      @click.self="showCancelFollowUpModal = false"
+    >
+      <div class="modal">
+        <div class="modal-header">
+          <h3>取消回访计划</h3>
+          <button class="close-btn" @click="showCancelFollowUpModal = false">
+            ×
+          </button>
+        </div>
+        <div class="modal-body">
+          <div class="form-section">
+            <label class="form-label required">取消原因</label>
+            <textarea
+              v-model="cancelReason"
+              class="form-textarea"
+              rows="4"
+              placeholder="请输入取消回访的原因..."
+            ></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button
+            class="btn btn-outline"
+            @click="showCancelFollowUpModal = false"
+          >
+            返回
+          </button>
+          <button
+            class="btn btn-danger"
+            @click="handleCancelFollowUp"
+            :disabled="!cancelReason"
+          >
+            确认取消
           </button>
         </div>
       </div>
@@ -1342,6 +1427,12 @@ onMounted(() => {
   align-self: flex-end;
 }
 
+.followup-actions {
+  display: flex;
+  gap: 8px;
+  align-self: flex-end;
+}
+
 .followup-readonly {
   padding: 16px;
   background: #f3f4f6;
@@ -1508,6 +1599,31 @@ onMounted(() => {
 
 .btn-outline:hover {
   background: #f9fafb;
+}
+
+.btn-ghost {
+  background: none;
+  color: #6b7280;
+  border: 1px solid #d1d5db;
+}
+
+.btn-ghost:hover {
+  background: #f9fafb;
+  color: #374151;
+}
+
+.btn-danger {
+  background: #ef4444;
+  color: white;
+}
+
+.btn-danger:hover {
+  background: #dc2626;
+}
+
+.btn-danger:disabled {
+  background: #fca5a5;
+  cursor: not-allowed;
 }
 
 .loading-state,

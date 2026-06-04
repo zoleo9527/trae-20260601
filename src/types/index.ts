@@ -113,6 +113,10 @@ export interface FollowUpRecord {
   returnedTime?: string
   returnedById?: string
   returnedBy?: Staff
+  cancelReason?: string
+  cancelledTime?: string
+  cancelledById?: string
+  cancelledBy?: Staff
   createdAt: string
   updatedAt: string
 }
