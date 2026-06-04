@@ -521,14 +521,14 @@ async function handleMarkMissed() {
   if (!detail.value) return
 
   try {
-    await ElMessageBox.prompt(
+    const { value: reason } = await ElMessageBox.prompt(
       '请说明未到诊原因',
       '标记未到诊',
       {
         confirmButtonText: '确认标记',
         cancelButtonText: '取消',
         inputPlaceholder: '请输入未到诊原因',
-        inputValidator: (value) => !!value || '请输入原因说明'
+        inputValidator: (value) => !!value?.trim() || '请输入原因说明'
       }
     )
 
@@ -537,7 +537,7 @@ async function handleMarkMissed() {
       await appStore.processFollowup(detail.value.id, {
         action: 'mark_missed',
         status: 'missed',
-        remark: '患者未到诊',
+        remark: reason.trim(),
         specialist_name: authStore.user?.name
       })
       ElMessage.success('标记成功')
