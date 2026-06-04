@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, watch, computed } from 'vue'
 import type { RehabPlan, ExceptionRecord } from '@/types'
-import { getExceptionsByPlanId } from '@/mock/data'
+import { getExceptionsByPlanId } from '@/store'
 import { exceptionTypeMap, exceptionStatusMap, staffRoleMap } from '@/utils/statusMap'
 import { formatDateTime, formatDate } from '@/utils/format'
 

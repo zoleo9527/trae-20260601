@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
+import { ref, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import type { RehabPlan, Phase, TimelineEvent, ExceptionRecord } from '@/types'
-import { getPlanById, getTimelinesByPlanId, getExceptionsByPlanId } from '@/mock/data'
+import { getPlanById, getTimelinesByPlanId, getExceptionsByPlanId } from '@/store'
 import { planStatusMap, staffRoleMap, phaseStatusMap } from '@/utils/statusMap'
 import { formatDate, formatDateTime } from '@/utils/format'
 import Timeline from '@/components/Timeline.vue'
@@ -12,26 +12,24 @@ import ExceptionDrawer from '@/components/ExceptionDrawer.vue'
 const route = useRoute()
 const router = useRouter()
 
-const plan = ref<RehabPlan | null>(null)
-const timelines = ref<TimelineEvent[]>([])
-const exceptions = ref<ExceptionRecord[]>([])
 const activeTab = ref('phases')
 const showExceptionDrawer = ref(false)
 const showPhaseDetail = ref(false)
 const selectedPhase = ref<Phase | null>(null)
 
-onMounted(() => {
-  const planId = route.params.id as string
-  plan.value = getPlanById(planId) || null
-  if (plan.value) {
-    timelines.value = getTimelinesByPlanId(planId)
-    exceptions.value = getExceptionsByPlanId(planId)
-  }
-})
+const planId = computed(() => route.params.id as string)
+
+const plan = computed(() => getPlanById(planId.value) || null)
+
+const timelines = computed(() => getTimelinesByPlanId(planId.value))
+
+const exceptions = computed(() => getExceptionsByPlanId(planId.value))
 
 const currentPhase = computed(() => {
   if (!plan.value) return null
-  return plan.value.phases.find(p => p.status === 'in_progress') || plan.value.phases.find(p => p.status === 'pending_review')
+  return plan.value.phases.find(p => p.status === 'in_progress')
+    || plan.value.phases.find(p => p.status === 'pending_review')
+    || plan.value.phases.find(p => p.status === 'rejected')
 })
 
 function viewPhaseDetail(phase: Phase) {

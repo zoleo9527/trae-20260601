@@ -1,22 +1,19 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import type { RehabPlan } from '@/types'
-import { getPlans, getAllExceptions } from '@/mock/data'
+import { getPlans, getAllExceptions } from '@/store'
 import { planStatusMap, staffRoleMap, phaseStatusMap, exceptionStatusMap } from '@/utils/statusMap'
 import { formatDate, calculateProgress } from '@/utils/format'
 import ExceptionDrawer from '@/components/ExceptionDrawer.vue'
 
 const router = useRouter()
-const plans = ref<RehabPlan[]>([])
 const searchKeyword = ref('')
 const statusFilter = ref('all')
 const showExceptionDrawer = ref(false)
 const selectedPlan = ref<RehabPlan | null>(null)
 
-onMounted(() => {
-  plans.value = getPlans()
-})
+const plans = computed(() => getPlans())
 
 const filteredPlans = computed(() => {
   return plans.value.filter(plan => {
@@ -50,7 +47,9 @@ function openExceptionDrawer(plan: RehabPlan) {
 }
 
 function getCurrentPhase(plan: RehabPlan) {
-  return plan.phases.find(p => p.status === 'in_progress') || plan.phases.find(p => p.status === 'pending_review')
+  return plan.phases.find(p => p.status === 'in_progress')
+    || plan.phases.find(p => p.status === 'pending_review')
+    || plan.phases.find(p => p.status === 'rejected')
 }
 
 function getPhaseStatusInfo(plan: RehabPlan) {

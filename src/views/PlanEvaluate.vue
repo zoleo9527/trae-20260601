@@ -2,7 +2,7 @@
 import { ref, onMounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import type { RehabPlan, Phase } from '@/types'
-import { getPlanById } from '@/mock/data'
+import { getPlanById, approvePhase, rejectPhase, pendingReviewPhase } from '@/store'
 import { phaseStatusMap, staffRoleMap } from '@/utils/statusMap'
 import { formatDate } from '@/utils/format'
 
@@ -16,12 +16,12 @@ const evaluationScore = ref(80)
 const rejectReason = ref('')
 const actionType = ref<'approve' | 'reject' | 'pending'>('approve')
 const isSubmitting = ref(false)
-const showSuccess = ref(false)
+const submitResult = ref<{ show: boolean; title: string; desc: string } | null>(null)
 
 onMounted(() => {
   const planId = route.params.id as string
   plan.value = getPlanById(planId) || null
-  
+
   const phaseQuery = route.query.phase as string
   if (phaseQuery && plan.value) {
     selectedPhaseId.value = phaseQuery
@@ -40,7 +40,7 @@ const selectedPhase = computed(() => {
 
 const evaluablePhases = computed(() => {
   if (!plan.value) return []
-  return plan.value.phases.filter(p => 
+  return plan.value.phases.filter(p =>
     p.status === 'in_progress' || p.status === 'pending_review' || p.status === 'rejected'
   )
 })
@@ -49,18 +49,76 @@ function goBack() {
   router.push(`/plans/${plan.value?.id}`)
 }
 
+function getOperatorInfo(plan: RehabPlan) {
+  const director = plan.nursingDirector
+  if (director) {
+    return { id: director.id, name: director.name, role: director.role as 'nursing_director' }
+  }
+  const nurse = plan.primaryNurse
+  if (nurse) {
+    return { id: nurse.id, name: nurse.name, role: nurse.role as 'primary_nurse' }
+  }
+  return { id: 's1', name: '系统', role: 'nursing_director' as const }
+}
+
 function handleSubmit() {
+  if (!plan.value || !selectedPhase.value) return
+
   isSubmitting.value = true
-  
-  setTimeout(() => {
-    isSubmitting.value = false
-    showSuccess.value = true
-    
+  const planId = plan.value.id
+  const phaseId = selectedPhase.value.id
+  const operator = getOperatorInfo(plan.value)
+
+  try {
+    if (actionType.value === 'approve') {
+      approvePhase(planId, phaseId, {
+        evaluationResult: evaluationResult.value,
+        evaluationScore: evaluationScore.value,
+        evaluatorId: operator.id,
+        evaluatorName: operator.name,
+        evaluatorRole: operator.role
+      })
+      submitResult.value = {
+        show: true,
+        title: '评估已通过',
+        desc: `第${selectedPhase.value.phaseNumber}阶段评估通过，评分${evaluationScore.value}分`
+      }
+    } else if (actionType.value === 'pending') {
+      pendingReviewPhase(planId, phaseId, {
+        evaluationResult: evaluationResult.value,
+        evaluationScore: evaluationScore.value,
+        evaluatorId: operator.id,
+        evaluatorName: operator.name,
+        evaluatorRole: operator.role
+      })
+      submitResult.value = {
+        show: true,
+        title: '已提交复核',
+        desc: `第${selectedPhase.value.phaseNumber}阶段已提交复核，等待护理主管确认`
+      }
+    } else {
+      rejectPhase(planId, phaseId, {
+        rejectReason: rejectReason.value,
+        evaluatorId: operator.id,
+        evaluatorName: operator.name,
+        evaluatorRole: operator.role
+      })
+      submitResult.value = {
+        show: true,
+        title: '评估已驳回',
+        desc: `第${selectedPhase.value.phaseNumber}阶段评估已驳回`
+      }
+    }
+
+    plan.value = getPlanById(planId) || null
+
     setTimeout(() => {
-      showSuccess.value = false
-      router.push(`/plans/${plan.value?.id}`)
+      submitResult.value = null
+      router.push(`/plans/${planId}`)
     }, 1500)
-  }, 1000)
+  } finally {
+    isSubmitting.value = false
+  }
 }
 
 function isFormValid() {
@@ -298,11 +356,15 @@ function isFormValid() {
       </div>
     </div>
 
-    <div v-if="showSuccess" class="success-overlay">
-      <div class="success-modal">
-        <div class="success-icon">✓</div>
-        <h3>评估提交成功</h3>
-        <p>正在返回详情页...</p>
+    <div v-if="submitResult" class="success-overlay">
+      <div class="success-modal" :class="{ rejected: actionType === 'reject', pending: actionType === 'pending' }">
+        <div class="success-icon" :class="{ rejected: actionType === 'reject', pending: actionType === 'pending' }">
+          <template v-if="actionType === 'reject'">✕</template>
+          <template v-else-if="actionType === 'pending'">⏳</template>
+          <template v-else>✓</template>
+        </div>
+        <h3>{{ submitResult.title }}</h3>
+        <p>{{ submitResult.desc }}</p>
       </div>
     </div>
   </div>
@@ -696,6 +758,24 @@ function isFormValid() {
   font-weight: 600;
   color: #1f2937;
   margin: 0 0 8px 0;
+}
+
+.success-icon.rejected {
+  background: #fee2e2;
+  color: #ef4444;
+}
+
+.success-icon.pending {
+  background: #fef3c7;
+  color: #f59e0b;
+}
+
+.success-modal.rejected h3 {
+  color: #dc2626;
+}
+
+.success-modal.pending h3 {
+  color: #d97706;
 }
 
 .success-modal p {
