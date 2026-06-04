@@ -409,6 +409,16 @@
             color: #4a148c;
         }
 
+        .status-DISPENSED_UNCONFIRMED {
+            background: #fff3e0;
+            color: #e65100;
+        }
+
+        .status-DISPENSED_CONFIRMED {
+            background: #f3e5f5;
+            color: #4a148c;
+        }
+
         .status-SHIPPED {
             background: #e1f5fe;
             color: #01579b;
@@ -741,7 +751,10 @@
             <div id="prescriptionsTab" class="hidden">
                 <div class="table-container">
                     <div class="table-header">
-                        <h3>处方列表</h3>
+                        <div>
+                            <h3>处方列表</h3>
+                            <div id="filterHint" class="hidden"></div>
+                        </div>
                         <div class="filters">
                             <select id="filterStatus" onchange="loadPrescriptions()">
                                 <option value="">全部状态</option>
@@ -750,6 +763,11 @@
                                 <option value="SUPPLEMENT_REQUIRED">待补录</option>
                                 <option value="REVIEW_REJECTED">已驳回</option>
                                 <option value="REVIEW_PASSED">审方通过</option>
+                                <option value="DISPENSING">煎药中</option>
+                                <option value="DISPENSED_UNCONFIRMED">待确认标签</option>
+                                <option value="DISPENSED_CONFIRMED">待配送(已确认)</option>
+                                <option value="SHIPPED">配送中</option>
+                                <option value="DELIVERED">已送达</option>
                             </select>
                             <select id="filterRisk" onchange="loadPrescriptions()">
                                 <option value="">全部风险</option>
@@ -758,6 +776,7 @@
                                 <option value="HIGH_RISK">高风险</option>
                             </select>
                             <input type="text" id="searchInput" placeholder="搜索处方号/患者/医生..." onchange="loadPrescriptions()">
+                            <button id="resetFilterBtn" class="btn btn-sm hidden" onclick="resetRoleFilter()">重置视图</button>
                         </div>
                     </div>
                     <table>
@@ -807,6 +826,8 @@
             SUPPLEMENT_REQUIRED: '待补录',
             DISPENSING: '煎药中',
             DISPENSED: '待配送',
+            DISPENSED_UNCONFIRMED: '待确认标签',
+            DISPENSED_CONFIRMED: '待配送(已确认)',
             SHIPPED: '配送中',
             DELIVERED: '已送达',
             CANCELLED: '已取消'
@@ -897,7 +918,50 @@
             document.getElementById('userRole').textContent = roleLabels[currentUser.role];
             document.getElementById('userRole').className = 'status-badge';
             
+            setRoleDefaultFilter();
             loadDashboard();
+        }
+
+        function setRoleDefaultFilter() {
+            const role = currentUser.role;
+            const statusSelect = document.getElementById('filterStatus');
+            const filterHint = document.getElementById('filterHint');
+            const resetBtn = document.getElementById('resetFilterBtn');
+
+            let defaultStatuses = [];
+            let hintText = '';
+
+            if (role === 'RECEPTIONIST') {
+                defaultStatuses = ['PENDING_RECEPTION', 'SUPPLEMENT_REQUIRED'];
+                hintText = '接待员视图：仅显示待接收和待补录处方';
+            } else if (role === 'PHARMACIST') {
+                defaultStatuses = ['PENDING_REVIEW', 'SUPPLEMENT_REQUIRED', 'REVIEW_REJECTED'];
+                hintText = '药师视图：仅显示审方相关处方';
+            } else if (role === 'DISPENSER') {
+                defaultStatuses = ['REVIEW_PASSED', 'DISPENSING', 'DISPENSED_UNCONFIRMED'];
+                hintText = '煎药员视图：仅显示待煎药、煎药中、待确认标签处方';
+            } else if (role === 'COURIER') {
+                defaultStatuses = ['DISPENSED_CONFIRMED', 'SHIPPED'];
+                hintText = '配送客服视图：仅显示待配送和配送中处方';
+            }
+
+            if (defaultStatuses.length > 0) {
+                statusSelect.value = defaultStatuses.join(',');
+                filterHint.innerHTML = `<span style="color:#667eea;font-size:13px;">${hintText}</span>`;
+                filterHint.classList.remove('hidden');
+                resetBtn.classList.remove('hidden');
+            } else {
+                statusSelect.value = '';
+                filterHint.classList.add('hidden');
+                resetBtn.classList.add('hidden');
+            }
+        }
+
+        function resetRoleFilter() {
+            document.getElementById('filterStatus').value = '';
+            document.getElementById('filterHint').classList.add('hidden');
+            document.getElementById('resetFilterBtn').classList.add('hidden');
+            loadPrescriptions();
         }
 
         function switchTab(tab) {

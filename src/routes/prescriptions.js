@@ -68,7 +68,29 @@ router.get('/', authenticateToken, async (req, res) => {
     const where = {};
 
     if (status) {
-      where.status = status;
+      const statusList = status.split(',');
+      
+      const orConditions = [];
+      
+      for (const s of statusList) {
+        if (s === 'DISPENSED_UNCONFIRMED') {
+          orConditions.push({
+            status: 'DISPENSED',
+            labelConfirmed: false
+          });
+        } else if (s === 'DISPENSED_CONFIRMED') {
+          orConditions.push({
+            status: 'DISPENSED',
+            labelConfirmed: true
+          });
+        } else {
+          orConditions.push({ status: s });
+        }
+      }
+      
+      if (orConditions.length > 0) {
+        where.OR = orConditions;
+      }
     }
 
     if (riskLevel) {
@@ -76,11 +98,23 @@ router.get('/', authenticateToken, async (req, res) => {
     }
 
     if (search) {
-      where.OR = [
-        { prescriptionNo: { contains: search } },
-        { patient: { name: { contains: search } } },
-        { doctor: { contains: search } }
-      ];
+      const searchConditions = {
+        OR: [
+          { prescriptionNo: { contains: search } },
+          { patient: { name: { contains: search } } },
+          { doctor: { contains: search } }
+        ]
+      };
+      
+      if (where.OR) {
+        where.AND = [
+          { OR: where.OR },
+          searchConditions
+        ];
+        delete where.OR;
+      } else {
+        where.OR = searchConditions.OR;
+      }
     }
 
     let prescriptions = await prisma.prescription.findMany({
