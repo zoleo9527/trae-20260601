@@ -67,7 +67,7 @@
             </h3>
           </div>
 
-          <el-table :data="stats?.todoItems || []" size="small" class="todo-table">
+          <el-table :data="stats?.todoItems || []" size="small" class="todo-table" @row-click="handleGotoTodo">
             <el-table-column prop="priority" label="优先级" width="80">
               <template #default="{ row }">
                 <el-tag v-if="row.priority === 'high'" type="danger" size="small">高</el-tag>
@@ -91,9 +91,9 @@
                   type="primary"
                   size="small"
                   link
-                  @click="handleGotoTodo(row)"
+                  @click.stop="handleGotoTodo(row)"
                 >
-                  处理
+                  查看详情
                 </el-button>
               </template>
             </el-table-column>
@@ -115,7 +115,7 @@
               :timestamp="item.time"
               placement="top"
             >
-              <el-card shadow="never" class="timeline-card">
+              <el-card shadow="never" class="timeline-card" @click="handleGotoRecent(item)">
                 <div class="timeline-content">
                   <el-tag
                     :type="item.type === 'medication' ? 'primary' : 'success'"
@@ -123,8 +123,8 @@
                   >
                     {{ item.type === 'medication' ? '用药' : '复诊' }}
                   </el-tag>
-                  <span class="patient-name">{{ item.patientName }}</span>
-                  <span class="action-text">{{ item.action }}</span>
+                  <span class="patient-name clickable">{{ item.patientName }}</span>
+                  <span class="action-text clickable">{{ item.action }}</span>
                 </div>
                 <div class="timeline-footer">
                   <el-icon><User /></el-icon>
@@ -206,7 +206,7 @@ import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { Refresh, List, Warning, Box, Calendar, AlarmClock, Clock, User, DataLine } from '@element-plus/icons-vue'
 import { useAppStore } from '@/store/useAppStore'
-import type { TodoItem, RiskItem, DashboardStats } from '@/types'
+import type { TodoItem, RiskItem, DashboardStats, RecentChange } from '@/types'
 
 const router = useRouter()
 const appStore = useAppStore()
@@ -224,20 +224,24 @@ async function loadData() {
   }
 }
 
-function handleGotoTodo(row: TodoItem) {
-  if (row.type === 'medication') {
-    router.push('/medication')
+function gotoTaskDetail(item: { id: string; type: 'medication' | 'followup' }) {
+  if (item.type === 'medication') {
+    router.push(`/medication/${item.id}`)
   } else {
-    router.push('/followup')
+    router.push(`/followup/${item.id}`)
   }
 }
 
+function handleGotoTodo(row: TodoItem) {
+  gotoTaskDetail(row)
+}
+
 function handleGotoRisk(item: RiskItem) {
-  if (item.type === 'medication') {
-    router.push('/medication')
-  } else {
-    router.push('/followup')
-  }
+  gotoTaskDetail(item)
+}
+
+function handleGotoRecent(item: RecentChange) {
+  gotoTaskDetail(item)
 }
 
 onMounted(() => {
@@ -299,10 +303,26 @@ onMounted(() => {
   margin-top: 10px;
 }
 
+:deep(.todo-table .el-table__row) {
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+:deep(.todo-table .el-table__row:hover) {
+  background-color: #ecf5ff;
+}
+
 .timeline-card {
   border: 1px solid #ebeef5;
   padding: 12px 16px;
   margin-bottom: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.timeline-card:hover {
+  border-color: #409EFF;
+  box-shadow: 0 2px 12px rgba(64, 158, 255, 0.15);
 }
 
 .timeline-content {
@@ -319,6 +339,16 @@ onMounted(() => {
 
 .action-text {
   color: #606266;
+}
+
+.clickable {
+  cursor: pointer;
+  transition: color 0.2s;
+}
+
+.clickable:hover {
+  color: #409EFF;
+  text-decoration: underline;
 }
 
 .timeline-footer {

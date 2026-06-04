@@ -170,6 +170,7 @@ class RiskItem(BaseModel):
 
 class RecentChange(BaseModel):
     id: str
+    taskId: str
     type: str
     patientName: str
     action: str

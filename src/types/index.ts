@@ -110,6 +110,7 @@ export interface DashboardStats {
 
 export interface RecentChange {
   id: string
+  taskId: string
   type: 'medication' | 'followup'
   patientName: string
   action: string

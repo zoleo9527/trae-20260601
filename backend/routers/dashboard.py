@@ -98,13 +98,17 @@ def get_dashboard_stats(request: Request, db: Session = Depends(get_db)):
     recent_changes_data = []
     for log in logs:
         patient_name = ""
+        task_id = ""
         if log.medication_task:
             patient_name = log.medication_task.patient.name
+            task_id = log.medication_task_id
         elif log.followup_task:
             patient_name = log.followup_task.patient.name
+            task_id = log.followup_task_id
 
         recent_changes_data.append({
             "id": log.id,
+            "taskId": task_id,
             "type": log.task_type,
             "patientName": patient_name,
             "action": log.action,
