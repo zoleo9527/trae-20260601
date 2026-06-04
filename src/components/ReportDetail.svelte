@@ -1,5 +1,5 @@
 <script>
-  import { auditStatus, roles, addAuditNote, updateReportStatus, addDeliveryRecord, markAsStuck } from '../stores/reportStore'
+  import { auditStatus, roles, deliverySubStatus, addAuditNote, updateReportStatus, addDeliveryRecord, markAsStuck, unstickReport, updateDeliverySubStatus } from '../stores/reportStore'
   
   export let report
 
@@ -119,17 +119,20 @@
         if (report.currentStatus === 'primary_audit') {
           nextStatus = 'department_review'
           action = '初审驳回，退回科室重审'
-          handler = report.assignee || '陈医生'
+          handler = report.departmentAssignee || '陈医生'
         } else if (report.currentStatus === 'secondary_audit') {
           nextStatus = 'primary_audit'
           action = '复审驳回，退回重审'
           handler = '李审核员'
         } else if (report.currentStatus === 'final_audit') {
-          nextStatus = 'secondary_audit'
-          action = '终审驳回，退回复审'
+          nextStatus = '终审驳回，退回复审'
           handler = '周主任'
         }
         break
+      case 'unstick':
+        unstickReport(report.id, '李审核员', actionComment || '问题已解决')
+        showActionModal = false
+        return
       case 'escalate':
         nextStatus = report.currentStatus
         action = '升级处理：' + actionComment
@@ -164,11 +167,17 @@
       content: deliveryContent.trim()
     })
 
-    if (deliveryType === 'sms_notification' && report.currentStatus === 'pending_delivery') {
-      updateReportStatus(report.id, 'delivery_scheduled', '赵发放员', '赵发放员', '已发送领取通知')
+    if (deliveryType === 'sms_notification' || deliveryType === 'phone_call') {
+      if (report.currentStatus === 'pending_delivery') {
+        updateReportStatus(report.id, 'delivery_scheduled', '赵发放员', '赵发放员', '已发送领取通知')
+      }
+      updateDeliverySubStatus(report.id, 'pending_schedule', '赵发放员')
+    } else if (deliveryType === 'scheduled' || deliveryType === 'phone_confirm') {
+      updateDeliverySubStatus(report.id, 'pending_pickup', '赵发放员')
     }
 
     deliveryContent = ''
+    showDeliveryModal = false
   }
 
   function completeDelivery() {
@@ -200,6 +209,7 @@
       { key: 'secondary_audit', title: '报告复审', desc: '资深审核员复核' },
       { key: 'final_audit', title: '报告终审', desc: '主任最终审核' },
       { key: 'pending_delivery', title: '待发放', desc: '进入发放登记流程' },
+      { key: 'delivery_scheduled', title: '已预约发放', desc: '已通知患者，预约领取时间' },
       { key: 'delivered', title: '已发放', desc: '报告已交付' }
     ]
 
@@ -287,7 +297,7 @@
             <p>{report.stuckReason}</p>
           </div>
         </div>
-        <button class="btn btn-primary" on:click={() => openActionModal('pass')}>解除卡住</button>
+        <button class="btn btn-primary" on:click={() => openActionModal('unstick')}>解除卡住</button>
       </div>
     {/if}
 
@@ -357,6 +367,21 @@
               <span class="info-label">修改人</span>
               <span class="info-value">{report.lastModifier}</span>
             </div>
+            {#if ['pending_delivery', 'delivery_scheduled'].includes(report.currentStatus)}
+              <div class="info-item">
+                <span class="info-label">未发放原因</span>
+                <span class="info-value">
+                  {#if report.deliverySubStatus}
+                    <span style="display: inline-flex; align-items: center; gap: 4px;">
+                      {deliverySubStatus[report.deliverySubStatus.toUpperCase()]?.icon}
+                      {deliverySubStatus[report.deliverySubStatus.toUpperCase()]?.name}
+                    </span>
+                  {:else}
+                    <span style="color: #8c8c8c;">待细分</span>
+                  {/if}
+                </span>
+              </div>
+            {/if}
           </div>
         </div>
 
@@ -392,6 +417,20 @@
             <div class="audit-action-header">
               <span class="icon">📦</span>
               发放登记操作
+            </div>
+            <div class="form-group" style="margin-bottom: 12px;">
+              <label class="form-label">发放阶段：</label>
+              <div class="quick-actions">
+                {#each Object.values(deliverySubStatus) as subStatus (subStatus.id)}
+                  <button 
+                    class="quick-btn" 
+                    style="{report.deliverySubStatus === subStatus.id ? 'border-color: #1890ff; background: #e6f7ff; color: #1890ff;' : ''}"
+                    on:click={() => updateDeliverySubStatus(report.id, subStatus.id, '赵发放员')}
+                  >
+                    {subStatus.icon} {subStatus.name}
+                  </button>
+                {/each}
+              </div>
             </div>
             <div class="quick-actions">
               <span style="font-size: 12px; color: #8c8c8c; margin-right: 8px;">快捷操作：</span>

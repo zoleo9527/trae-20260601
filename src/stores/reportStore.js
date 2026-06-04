@@ -21,6 +21,13 @@ export const auditStatus = {
   EXCEPTION: { id: 'exception', name: '异常', color: '#f5222d', handler: 'auditor' }
 }
 
+export const deliverySubStatus = {
+  PENDING_CONTACT: { id: 'pending_contact', name: '待联系患者', icon: '📞' },
+  PENDING_SCHEDULE: { id: 'pending_schedule', name: '待预约领取', icon: '📅' },
+  PENDING_PICKUP: { id: 'pending_pickup', name: '待领取', icon: '🏠' },
+  ABNORMAL_REVIEW: { id: 'abnormal_review', name: '异常复核', icon: '⚠️' }
+}
+
 const initialReports = [
   {
     id: 'RPT20260601001',
@@ -32,9 +39,11 @@ const initialReports = [
     currentStatus: 'primary_audit',
     currentHandler: 'auditor',
     assignee: '李审核员',
+    departmentAssignee: '王医生',
     priority: 'high',
     stuckReason: null,
     isStuck: false,
+    deliverySubStatus: null,
     auditNotes: [
       {
         id: 'n1',
@@ -78,9 +87,11 @@ const initialReports = [
     currentStatus: 'department_review',
     currentHandler: 'doctor',
     assignee: '陈医生',
+    departmentAssignee: '陈医生',
     priority: 'urgent',
     stuckReason: '检验科结果异常，需医生确认',
     isStuck: true,
+    deliverySubStatus: null,
     auditNotes: [
       {
         id: 'n1',
@@ -123,9 +134,11 @@ const initialReports = [
     currentStatus: 'pending_delivery',
     currentHandler: 'deliver',
     assignee: '赵发放员',
+    departmentAssignee: '孙医生',
     priority: 'normal',
     stuckReason: null,
     isStuck: false,
+    deliverySubStatus: 'pending_schedule',
     auditNotes: [
       {
         id: 'n1',
@@ -187,9 +200,11 @@ const initialReports = [
     currentStatus: 'pending_delivery',
     currentHandler: 'deliver',
     assignee: '赵发放员',
+    departmentAssignee: '吴医生',
     priority: 'high',
     stuckReason: '患者电话无人接听，已短信留言，待回电确认',
     isStuck: true,
+    deliverySubStatus: 'pending_contact',
     auditNotes: [
       {
         id: 'n1',
@@ -255,9 +270,11 @@ const initialReports = [
     currentStatus: 'secondary_audit',
     currentHandler: 'auditor',
     assignee: '周主任',
+    departmentAssignee: '郑医生',
     priority: 'urgent',
     stuckReason: '发现异常指标，需主任复核后给出明确诊断建议',
     isStuck: true,
+    deliverySubStatus: null,
     auditNotes: [
       {
         id: 'n1',
@@ -310,9 +327,11 @@ const initialReports = [
     currentStatus: 'delivered',
     currentHandler: null,
     assignee: null,
+    departmentAssignee: '吴医生',
     priority: 'normal',
     stuckReason: null,
     isStuck: false,
+    deliverySubStatus: null,
     auditNotes: [
       {
         id: 'n1',
@@ -481,6 +500,60 @@ export function markAsStuck(reportId, reason, operator) {
           operator,
           action: `标记卡住：${reason}`,
           role: r.currentHandler
+        }],
+        lastModified: new Date().toLocaleString('zh-CN', { 
+          year: 'numeric', month: '2-digit', day: '2-digit',
+          hour: '2-digit', minute: '2-digit'
+        }).replace(/\//g, '-'),
+        lastModifier: operator
+      }
+    }
+    return r
+  }))
+}
+
+export function unstickReport(reportId, operator, action) {
+  reports.update(list => list.map(r => {
+    if (r.id === reportId) {
+      return {
+        ...r,
+        isStuck: false,
+        stuckReason: null,
+        operationLogs: [...r.operationLogs, {
+          time: new Date().toLocaleString('zh-CN', { 
+            year: 'numeric', month: '2-digit', day: '2-digit',
+            hour: '2-digit', minute: '2-digit'
+          }).replace(/\//g, '-'),
+          operator,
+          action: `解除卡住：${action}`,
+          role: r.currentHandler
+        }],
+        lastModified: new Date().toLocaleString('zh-CN', { 
+          year: 'numeric', month: '2-digit', day: '2-digit',
+          hour: '2-digit', minute: '2-digit'
+        }).replace(/\//g, '-'),
+        lastModifier: operator
+      }
+    }
+    return r
+  }))
+}
+
+export function updateDeliverySubStatus(reportId, subStatusId, operator) {
+  const subStatus = deliverySubStatus[subStatusId.toUpperCase()]
+  reports.update(list => list.map(r => {
+    if (r.id === reportId) {
+      return {
+        ...r,
+        deliverySubStatus: subStatusId,
+        operationLogs: [...r.operationLogs, {
+          time: new Date().toLocaleString('zh-CN', { 
+            year: 'numeric', month: '2-digit', day: '2-digit',
+            hour: '2-digit', minute: '2-digit'
+          }).replace(/\//g, '-'),
+          operator,
+          action: `发放状态变更：${subStatus?.name || subStatusId}`,
+          role: 'deliver'
         }],
         lastModified: new Date().toLocaleString('zh-CN', { 
           year: 'numeric', month: '2-digit', day: '2-digit',
