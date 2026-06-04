@@ -100,6 +100,11 @@ router.post('/', (req, res) => {
     return res.status(400).json({ error: '处方未审核通过，无法创建煎药批次' })
   }
 
+  const existingBatch = db.prepare('SELECT id FROM decoction_batches WHERE prescription_id = ?').get(prescription_id)
+  if (existingBatch) {
+    return res.status(400).json({ error: `该处方已创建煎药批次 (批次ID: ${existingBatch.id})，不允许重复建批` })
+  }
+
   const count = db.prepare('SELECT COUNT(*) as c FROM decoction_batches').get().c
   const batchCode = `BATCH${new Date().toISOString().slice(0, 10).replace(/-/g, '')}${String(count + 1).padStart(4, '0')}`
 
@@ -225,6 +230,25 @@ router.post('/batch-action', (req, res) => {
       INSERT INTO status_logs (entity_type, entity_id, entity_code, from_status, to_status, operator_id, operator_name, operator_role, note, created_at)
       VALUES ('batch', ?, ?, ?, ?, ?, ?, ?, ?, datetime('now', 'localtime'))
     `).run(batch.id, batch.batch_code, batch.status, transition.to, req.user.id, req.user.name, req.user.role, note || `批量${action === 'start' ? '开始煎药' : '完成煎药'}`)
+
+    if (transition.to === 'completed') {
+      const existingLabels = db.prepare('SELECT COUNT(*) as c FROM packaging_labels WHERE batch_id = ?').get(batch.id).c
+      if (existingLabels === 0) {
+        const prescription = db.prepare('SELECT dosage FROM prescriptions WHERE id = ?').get(batch.prescription_id)
+        const labelCount = db.prepare('SELECT COUNT(*) as c FROM packaging_labels').get().c
+        const labelCode = `${batch.batch_code}-L1`
+
+        const labelResult = db.prepare(`
+          INSERT INTO packaging_labels (label_code, batch_id, prescription_id, status, package_count, created_at, updated_at)
+          VALUES (?, ?, ?, 'pending', ?, datetime('now', 'localtime'), datetime('now', 'localtime'))
+        `).run(labelCode, batch.id, batch.prescription_id, prescription.dosage || 1)
+
+        db.prepare(`
+          INSERT INTO status_logs (entity_type, entity_id, entity_code, from_status, to_status, operator_id, operator_name, operator_role, note, created_at)
+          VALUES ('label', ?, ?, '', 'pending', ?, ?, ?, '煎药完成自动创建贴标', datetime('now', 'localtime'))
+        `).run(labelResult.lastInsertRowid, labelCode, req.user.id, req.user.name, req.user.role)
+      }
+    }
 
     results.success.push(id)
   }

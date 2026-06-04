@@ -132,10 +132,17 @@ export default function WorkerDashboard() {
   }
 
   const loadApprovedRx = () => {
-    api.prescriptions.list({ status: 'approved', pageSize: 50 }).then(data => {
-      setApprovedRx(data.prescriptions)
-      if (data.prescriptions.length > 0 && !createRxId) {
-        setCreateRxId(String(data.prescriptions[0].id))
+    Promise.all([
+      api.prescriptions.list({ status: 'approved', pageSize: 50 }),
+      api.batches.list({ pageSize: 100 }),
+    ]).then(([rxData, batchData]) => {
+      const batchedRxIds = new Set(batchData.batches.map(b => b.prescription_id))
+      const available = rxData.prescriptions.filter(rx => !batchedRxIds.has(rx.id))
+      setApprovedRx(available)
+      if (available.length > 0 && !createRxId) {
+        setCreateRxId(String(available[0].id))
+      } else if (available.length === 0) {
+        setCreateRxId('')
       }
     }).catch(() => {})
   }
