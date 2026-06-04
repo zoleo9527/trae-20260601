@@ -621,6 +621,8 @@ export function completeFollowUp(params: CompleteFollowUpParams): ApiResponse<Fo
     return error(EC.PARAM_ERROR, '患者情况和指导意见不能为空')
   }
 
+  const oldStatus = followUp.status
+
   followUp.status = 'completed'
   followUp.actualTime = now()
   followUp.patientCondition = params.patientCondition
@@ -631,8 +633,6 @@ export function completeFollowUp(params: CompleteFollowUpParams): ApiResponse<Fo
   followUp.nextFollowUpTime = params.nextFollowUpTime
   followUp.notes = params.notes
   followUp.updatedAt = now()
-
-  const oldStatus = followUp.status
   addAuditLog({
     reportId: followUp.reportId,
     followUpId: followUp.id,
@@ -671,6 +671,8 @@ export function cancelFollowUp(params: CancelFollowUpParams): ApiResponse<Follow
     return error(EC.PARAM_ERROR, '取消原因不能为空')
   }
 
+  const oldStatus = followUp.status
+
   followUp.status = 'cancelled'
   followUp.notes = (followUp.notes || '') + ` [取消原因：${params.reason}]`
   followUp.updatedAt = now()
@@ -680,7 +682,7 @@ export function cancelFollowUp(params: CancelFollowUpParams): ApiResponse<Follow
     followUpId: followUp.id,
     action: 'followup_cancel',
     description: `${state.currentUser.name}取消了回访计划，原因：${params.reason}`,
-    oldValue: followUp.status,
+    oldValue: oldStatus,
     newValue: 'cancelled'
   })
 

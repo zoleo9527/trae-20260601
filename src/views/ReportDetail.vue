@@ -626,10 +626,25 @@ onMounted(() => {
               </div>
             </div>
 
+            <div
+              v-else-if="followUp.status === 'returned'"
+              class="followup-returned"
+            >
+              <div class="return-reason">
+                <span class="reason-label">⚠️ 退回原因：</span>
+                {{ followUp.returnReason }}
+              </div>
+              <button
+                class="btn btn-primary btn-sm"
+                @click="openCompleteModal(followUp)"
+              >
+                🔄 重新完成回访
+              </button>
+            </div>
+
             <div v-else class="followup-pending">
               <p>等待回访...</p>
               <button
-                v-if="followUp.status === 'pending'"
                 class="btn btn-primary btn-sm"
                 @click="openCompleteModal(followUp)"
               >
@@ -817,10 +832,25 @@ onMounted(() => {
     >
       <div class="modal modal-lg">
         <div class="modal-header">
-          <h3>完成回访记录</h3>
+          <h3>
+            {{
+              selectedFollowUp?.status === "returned"
+                ? "重新完成回访记录"
+                : "完成回访记录"
+            }}
+          </h3>
           <button class="close-btn" @click="showCompleteFollowUpModal = false">
             ×
           </button>
+        </div>
+        <div
+          v-if="selectedFollowUp?.status === 'returned'"
+          class="return-alert"
+        >
+          <span class="alert-icon">⚠️</span>
+          <span class="alert-text">
+            退回原因：{{ selectedFollowUp.returnReason }}
+          </span>
         </div>
         <div class="modal-body">
           <div class="form-section">
@@ -1269,6 +1299,51 @@ onMounted(() => {
 .followup-pending p {
   color: #92400e;
   margin: 0;
+}
+
+.followup-returned {
+  padding: 16px;
+  background: #fef2f2;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.return-reason {
+  font-size: 13px;
+  color: #991b1b;
+  line-height: 1.5;
+}
+
+.reason-label {
+  font-weight: 600;
+}
+
+.followup-returned .btn {
+  align-self: flex-end;
+}
+
+.return-alert {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  padding: 12px 16px;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 0 20px;
+  font-size: 13px;
+  color: #991b1b;
+}
+
+.return-alert .alert-icon {
+  font-size: 16px;
+}
+
+.return-alert .alert-text {
+  flex: 1;
+  line-height: 1.5;
 }
 
 .timeline {

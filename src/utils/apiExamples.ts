@@ -456,12 +456,10 @@ async function testCompleteWorkflow() {
     console.log('\n【Step 2】医生受理上报...')
     await testAcceptReport(reportId)
     
-    console.log('\n【Step 3】创建回访计划...')
+    console.log('\n【Step 3】创建回访计划（自动切到待回访）...')
     const followUpRes = await testCreateFollowUp(reportId)
     if (followUpRes.code !== 0 || !followUpRes.data) throw new Error('创建回访失败')
     const followUpId = followUpRes.data.id
-    
-    await testMarkPendingFollowUp(reportId)
     
     console.log('\n【Step 4】护士完成回访记录...')
     await testCompleteFollowUp(followUpId)
