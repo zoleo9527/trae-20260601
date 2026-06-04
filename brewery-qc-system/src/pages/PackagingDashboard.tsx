@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { FlaskConical, Clock, AlertTriangle, CheckCircle2, Search, Filter, Eye, Play, Check, MessageSquare, Download, CheckSquare } from 'lucide-react';
+import { FlaskConical, Clock, AlertTriangle, CheckCircle2, Search, Filter, Eye, Play, Check, MessageSquare, Download, CheckSquare, X, RotateCcw, Info } from 'lucide-react';
 import { Header } from '@/components/layout/Header';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { StatCard } from '@/components/ui/StatCard';
@@ -201,8 +201,105 @@ export function PackagingDashboard() {
             )}
           </div>
 
+          <motion.div
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-4 p-3 bg-white border border-neutral-200 rounded-xl flex items-center justify-between"
+          >
+            <div className="flex items-center gap-6">
+              <div className="flex items-center gap-2">
+                <Info className="w-4 h-4 text-neutral-400" />
+                <span className="text-sm text-neutral-600">
+                  当前筛选命中 <span className="font-semibold text-neutral-800">{filteredBatches.length}</span> 个批次
+                </span>
+              </div>
+              <div className="h-4 w-px bg-neutral-200" />
+              <div className="flex items-center gap-2">
+                <FlaskConical className="w-4 h-4 text-blue-500" />
+                <span className="text-sm text-neutral-600">
+                  可批量通过 <span className="font-semibold text-blue-600">{selectableIds.size}</span> 个
+                </span>
+              </div>
+              <div className="h-4 w-px bg-neutral-200" />
+              <div className="flex items-center gap-2">
+                <CheckSquare className="w-4 h-4 text-amber-600" />
+                <span className="text-sm text-neutral-600">
+                  已选择 <span className="font-semibold text-amber-700">{validSelectedIds.size}</span> 个
+                </span>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              {(filterStatus !== 'all' || searchQuery) && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setFilterStatus('all');
+                    setSearchQuery('');
+                  }}
+                >
+                  <RotateCcw className="w-3.5 h-3.5 mr-1" />
+                  清空筛选
+                </Button>
+              )}
+              {validSelectedIds.size > 0 && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setSelectedBatches(new Set())}
+                >
+                  <X className="w-3.5 h-3.5 mr-1" />
+                  清空选择
+                </Button>
+              )}
+            </div>
+          </motion.div>
+
           <Card>
             <div className="overflow-x-auto">
+              {selectableIds.size === 0 && filteredBatches.length > 0 ? (
+                <div className="py-16 text-center">
+                  <div className="w-16 h-16 rounded-full bg-neutral-100 flex items-center justify-center mx-auto mb-4">
+                    <Filter className="w-8 h-8 text-neutral-400" />
+                  </div>
+                  <h3 className="text-lg font-semibold text-neutral-800 mb-2">当前筛选下无可批量通过的批次</h3>
+                  <p className="text-sm text-neutral-500 mb-4">
+                    {filterStatus !== 'all' && filterStatus !== 'TESTING'
+                      ? '当前筛选状态下没有处于「检测中」的批次，请切换到「检测中」或「全部状态」查看。'
+                      : '搜索结果中没有处于「检测中」的批次，请调整搜索关键词或清空筛选。'}
+                  </p>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => {
+                      setFilterStatus('TESTING');
+                      setSearchQuery('');
+                    }}
+                  >
+                    <FlaskConical className="w-4 h-4 mr-1" />
+                    只看检测中
+                  </Button>
+                </div>
+              ) : filteredBatches.length === 0 ? (
+                <div className="py-16 text-center">
+                  <div className="w-16 h-16 rounded-full bg-neutral-100 flex items-center justify-center mx-auto mb-4">
+                    <Search className="w-8 h-8 text-neutral-400" />
+                  </div>
+                  <h3 className="text-lg font-semibold text-neutral-800 mb-2">没有匹配的批次</h3>
+                  <p className="text-sm text-neutral-500 mb-4">当前筛选条件下没有找到任何批次，请尝试调整筛选条件。</p>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => {
+                      setFilterStatus('all');
+                      setSearchQuery('');
+                    }}
+                  >
+                    <RotateCcw className="w-4 h-4 mr-1" />
+                    清空筛选
+                  </Button>
+                </div>
+              ) : (
               <table className="w-full">
                 <thead className="bg-neutral-50 border-b border-neutral-200">
                   <tr>
@@ -241,6 +338,7 @@ export function PackagingDashboard() {
                   ))}
                 </tbody>
               </table>
+              )}
             </div>
           </Card>
         </main>
