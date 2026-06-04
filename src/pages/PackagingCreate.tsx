@@ -109,7 +109,7 @@ export default function PackagingCreate() {
               ))}
             </select>
             {schedules.length === 0 && (
-              <p className="mt-1 text-sm text-gray-500">暂无可用的灌装排产（需已通过或生产中状态）</p>
+              <p className="mt-1 text-sm text-gray-500">暂无可用的灌装排产（需已通过状态）</p>
             )}
           </div>
 

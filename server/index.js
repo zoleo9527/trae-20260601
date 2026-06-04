@@ -101,7 +101,7 @@ app.put('/api/notifications/:id/read', async (req, res) => {
 app.get('/api/filling-schedules/available', async (req, res) => {
   const schedules = await prisma.fillingSchedule.findMany({
     where: {
-      status: { in: [FillingStatus.APPROVED, FillingStatus.IN_PRODUCTION] }
+      status: FillingStatus.APPROVED
     },
     include: {
       createdBy: true,
@@ -436,9 +436,9 @@ app.post('/api/packaging-requisitions', async (req, res) => {
     APPROVED: '已通过', IN_PRODUCTION: '生产中', COMPLETED: '已完成'
   };
 
-  if (schedule.status !== FillingStatus.APPROVED && schedule.status !== FillingStatus.IN_PRODUCTION) {
+  if (schedule.status !== FillingStatus.APPROVED) {
     return res.status(400).json({
-      error: `灌装排产 ${schedule.batchNo} 当前状态为「${statusLabel[schedule.status]}」，仅允许从已通过或生产中的排产发起领用`
+      error: `灌装排产 ${schedule.batchNo} 当前状态为「${statusLabel[schedule.status]}」，仅允许从已通过的排产发起领用`
     });
   }
 
