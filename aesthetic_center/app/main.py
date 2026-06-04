@@ -528,6 +528,21 @@ def transition_status(
         return appl
 
     if action == "approve" or action == "submit_to_next":
+        if from_status == "rejected":
+            appl.status = "pending_pharmacist"
+            appl.current_handler_role = "pharmacist"
+            appl.is_overdue = False
+            appl.due_date = datetime.now() + timedelta(days=1)
+            appl.updated_at = datetime.now()
+            add_operation_log(
+                db, app_id=app_id, user=current_user,
+                action="approve", from_status="rejected", to_status="pending_pharmacist",
+                remark=req.remark or "修改后重新提交，进入审方环节"
+            )
+            db.commit()
+            db.refresh(appl)
+            return appl
+
         if from_status not in STATUS_FLOW:
             raise HTTPException(status_code=400, detail="当前状态无法流转")
 
@@ -549,17 +564,22 @@ def transition_status(
         appl.status = next_status
         appl.updated_at = datetime.now()
 
-        if appl.status == "pending_fee" and not appl.fee_confirmation:
-            fee = models.FeeConfirmation(
-                application_id=appl.id,
-                decoction_fee=0,
-                express_fee=0,
-                material_fee=0,
-                total_fee=0,
-                is_patient_pay=False,
-                payment_status="pending",
-            )
-            db.add(fee)
+        if appl.status == "pending_fee":
+            fee = appl.fee_confirmation
+            if not fee:
+                fee = models.FeeConfirmation(
+                    application_id=appl.id,
+                    decoction_fee=0,
+                    express_fee=0,
+                    material_fee=0,
+                    total_fee=0,
+                    is_patient_pay=False,
+                    payment_status="pending",
+                )
+                db.add(fee)
+            if appl.is_modified:
+                fee.has_modification_notice = True
+                fee.last_modified_at = appl.updated_at
 
         action_name = "approve" if action == "approve" else "submit_to_next"
         add_operation_log(
@@ -575,7 +595,7 @@ def transition_status(
     raise HTTPException(status_code=400, detail="未知操作")
 
 
-@app.put("/api/applications/{app_id}/fee", response_model=schemas.FeeConfirmation)
+@app.put("/api/applications/{app_id}/fee", response_model=schemas.SupplementaryApplication)
 def update_fee_confirmation(
     app_id: int,
     req: schemas.FeeConfirmationUpdate,
@@ -605,10 +625,12 @@ def update_fee_confirmation(
         fee.has_modification_notice = False
 
         appl.status = "completed"
+        appl.current_handler_role = "admin"
         appl.updated_at = datetime.now()
+        from_status = "pending_fee" if appl.status == "completed" else appl.status
         add_operation_log(
             db, app_id=app_id, user=current_user,
-            action="confirm_fee", from_status="pending_fee", to_status="completed",
+            action="confirm_fee", from_status=from_status, to_status="completed",
             remark=req.remark or f"费用已{ '确认' if req.payment_status == 'confirmed' else '减免'}"
         )
     else:
@@ -622,8 +644,8 @@ def update_fee_confirmation(
         )
 
     db.commit()
-    db.refresh(fee)
-    return fee
+    db.refresh(appl)
+    return appl
 
 
 @app.get("/api/applications/{app_id}/timeline", response_model=list[schemas.OperationLog])

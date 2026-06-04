@@ -1297,9 +1297,9 @@
                             body: JSON.stringify(updateData),
                         });
                         if (res.ok) {
-                            const newFee = await res.json();
-                            selectedApplication.value.fee_confirmation = newFee;
-                            Object.assign(feeForm, newFee);
+                            const updatedApp = await res.json();
+                            selectedApplication.value = updatedApp;
+                            Object.assign(feeForm, updatedApp.fee_confirmation);
                             showFeeConfirmType.value = null;
                             loadTimeline(selectedApplication.value.id);
                             loadApplications();
