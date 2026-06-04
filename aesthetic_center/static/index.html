@@ -1,0 +1,1442 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>中药煎药房-补煎申请与费用确认系统</title>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background: #f5f7fa; color: #333; }
+        .btn { padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; transition: all 0.2s; }
+        .btn-primary { background: #1890ff; color: white; }
+        .btn-primary:hover { background: #40a9ff; }
+        .btn-success { background: #52c41a; color: white; }
+        .btn-success:hover { background: #73d13d; }
+        .btn-warning { background: #faad14; color: white; }
+        .btn-warning:hover { background: #ffc53d; }
+        .btn-danger { background: #f5222d; color: white; }
+        .btn-danger:hover { background: #ff4d4f; }
+        .btn-default { background: #fff; color: #595959; border: 1px solid #d9d9d9; }
+        .btn-default:hover { color: #1890ff; border-color: #1890ff; }
+        .btn:disabled { background: #d9d9d9; cursor: not-allowed; }
+
+        /* Login Page */
+        .login-container { display: flex; justify-content: center; align-items: center; min-height: 100vh; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+        .login-box { background: white; padding: 40px; border-radius: 8px; box-shadow: 0 10px 40px rgba(0,0,0,0.2); width: 400px; }
+        .login-title { text-align: center; font-size: 24px; margin-bottom: 8px; color: #1890ff; }
+        .login-subtitle { text-align: center; color: #8c8c8c; margin-bottom: 30px; font-size: 14px; }
+        .login-form .form-group { margin-bottom: 20px; }
+        .login-form label { display: block; margin-bottom: 8px; font-weight: 500; }
+        .login-form select, .login-form input { width: 100%; padding: 12px; border: 1px solid #d9d9d9; border-radius: 4px; font-size: 14px; }
+        .login-form button { width: 100%; padding: 12px; font-size: 16px; }
+        .login-tips { margin-top: 20px; padding: 12px; background: #e6f7ff; border-radius: 4px; font-size: 12px; color: #1890ff; }
+
+        /* Main Layout */
+        .main-layout { min-height: 100vh; }
+        .header { background: #001529; color: white; padding: 0 24px; display: flex; justify-content: space-between; align-items: center; height: 64px; }
+        .header-title { font-size: 18px; font-weight: 500; }
+        .header-user { display: flex; align-items: center; gap: 16px; }
+        .user-info { font-size: 14px; }
+        .user-role { background: #1890ff; padding: 2px 8px; border-radius: 4px; font-size: 12px; margin-left: 8px; }
+
+        .sidebar { position: fixed; left: 0; top: 64px; bottom: 0; width: 200px; background: #001529; padding-top: 16px; }
+        .menu-item { padding: 12px 24px; color: rgba(255,255,255,0.65); cursor: pointer; display: flex; align-items: center; gap: 10px; transition: all 0.2s; }
+        .menu-item:hover { color: white; background: #1890ff; }
+        .menu-item.active { color: white; background: #1890ff; }
+        .menu-icon { font-size: 16px; }
+
+        .content { margin-left: 200px; padding: 24px; margin-top: 0; }
+        .page-title { font-size: 20px; margin-bottom: 16px; color: #262626; }
+
+        /* Dashboard */
+        .dashboard-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
+        .stat-card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+        .stat-value { font-size: 32px; font-weight: bold; color: #1890ff; }
+        .stat-label { color: #8c8c8c; font-size: 14px; margin-top: 4px; }
+
+        .task-columns { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+        .task-column { background: white; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); overflow: hidden; }
+        .column-header { padding: 16px; font-weight: 500; border-bottom: 1px solid #f0f0f0; display: flex; justify-content: space-between; align-items: center; }
+        .column-header.today { background: #e6f7ff; color: #1890ff; }
+        .column-header.overdue { background: #fff2f0; color: #f5222d; }
+        .column-header.returned { background: #fffbe6; color: #faad14; }
+        .column-count { background: white; padding: 2px 8px; border-radius: 12px; font-size: 12px; }
+
+        .task-list { padding: 8px; min-height: 400px; }
+        .task-card { background: #fafafa; border: 1px solid #e8e8e8; border-radius: 6px; padding: 12px; margin-bottom: 8px; cursor: pointer; transition: all 0.2s; }
+        .task-card:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.12); border-color: #1890ff; }
+        .task-no { font-weight: 500; color: #1890ff; font-size: 13px; }
+        .task-patient { font-size: 15px; margin: 4px 0; }
+        .task-reason { font-size: 12px; color: #8c8c8c; margin: 4px 0; }
+        .task-time { font-size: 11px; color: #bfbfbf; }
+        .task-status { display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 11px; margin-top: 4px; }
+        .status-pending_pharmacist { background: #e6f7ff; color: #1890ff; }
+        .status-pending_decoctor { background: #f6ffed; color: #52c41a; }
+        .status-pending_courier { background: #fff7e6; color: #fa8c16; }
+        .status-pending_fee { background: #f9f0ff; color: #722ed1; }
+        .status-completed { background: #f6ffed; color: #52c41a; }
+        .status-rejected { background: #fff1f0; color: #f5222d; }
+
+        .modify-badge { background: #f5222d; color: white; padding: 1px 6px; border-radius: 4px; font-size: 10px; margin-left: 4px; }
+        .overdue-badge { background: #f5222d; color: white; padding: 1px 6px; border-radius: 4px; font-size: 10px; }
+
+        /* Modal */
+        .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: flex; justify-content: center; align-items: center; z-index: 1000; }
+        .modal { background: white; border-radius: 8px; max-width: 1000px; width: 90%; max-height: 90vh; overflow-y: auto; }
+        .modal-header { padding: 16px 24px; border-bottom: 1px solid #f0f0f0; display: flex; justify-content: space-between; align-items: center; }
+        .modal-title { font-size: 18px; font-weight: 500; }
+        .modal-close { background: none; border: none; font-size: 24px; cursor: pointer; color: #8c8c8c; }
+        .modal-body { padding: 24px; }
+        .modal-footer { padding: 16px 24px; border-top: 1px solid #f0f0f0; display: flex; justify-content: flex-end; gap: 8px; }
+
+        /* Form */
+        .form-row { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin-bottom: 16px; }
+        .form-group { margin-bottom: 16px; }
+        .form-group label { display: block; margin-bottom: 6px; font-weight: 500; font-size: 14px; color: #595959; }
+        .form-group label .required { color: #f5222d; }
+        .form-group input, .form-group select, .form-group textarea { width: 100%; padding: 8px 12px; border: 1px solid #d9d9d9; border-radius: 4px; font-size: 14px; }
+        .form-group textarea { resize: vertical; min-height: 80px; }
+        .form-group input:focus, .form-group select:focus, .form-group textarea:focus { outline: none; border-color: #1890ff; }
+        .form-row-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+
+        /* Detail Page */
+        .detail-container { display: grid; grid-template-columns: 1fr 400px; gap: 24px; }
+        .detail-section { background: white; border-radius: 8px; padding: 20px; margin-bottom: 24px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+        .section-title { font-size: 16px; font-weight: 500; margin-bottom: 16px; padding-bottom: 8px; border-bottom: 1px solid #f0f0f0; }
+        .info-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+        .info-item { display: flex; font-size: 14px; }
+        .info-label { color: #8c8c8c; width: 100px; flex-shrink: 0; }
+        .info-value { color: #262626; }
+
+        .photo-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+        .photo-item { aspect-ratio: 1; background: #f5f5f5; border-radius: 6px; display: flex; align-items: center; justify-content: center; color: #bfbfbf; font-size: 12px; }
+        .photo-item.has-photo { background: #e6f7ff; color: #1890ff; }
+
+        /* Timeline */
+        .timeline { position: relative; padding-left: 24px; }
+        .timeline::before { content: ''; position: absolute; left: 8px; top: 0; bottom: 0; width: 2px; background: #e8e8e8; }
+        .timeline-item { position: relative; margin-bottom: 16px; padding-bottom: 16px; border-bottom: 1px dashed #f0f0f0; }
+        .timeline-item:last-child { border-bottom: none; }
+        .timeline-dot { position: absolute; left: -20px; top: 4px; width: 12px; height: 12px; border-radius: 50%; background: #1890ff; border: 2px solid white; box-shadow: 0 0 0 2px #1890ff; }
+        .timeline-dot.create { background: #52c41a; box-shadow: 0 0 0 2px #52c41a; }
+        .timeline-dot.approve { background: #52c41a; box-shadow: 0 0 0 2px #52c41a; }
+        .timeline-dot.reject { background: #f5222d; box-shadow: 0 0 0 2px #f5222d; }
+        .timeline-dot.modify { background: #faad14; box-shadow: 0 0 0 2px #faad14; }
+        .timeline-dot.confirm_fee { background: #722ed1; box-shadow: 0 0 0 2px #722ed1; }
+        .timeline-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+        .timeline-action { font-weight: 500; font-size: 14px; }
+        .timeline-time { font-size: 12px; color: #8c8c8c; }
+        .timeline-operator { font-size: 12px; color: #1890ff; margin-bottom: 4px; }
+        .timeline-remark { font-size: 13px; color: #595959; }
+        .timeline-changes { margin-top: 8px; padding: 8px; background: #fffbe6; border-radius: 4px; font-size: 12px; color: #ad6800; }
+        .change-item { margin: 2px 0; }
+
+        /* Fee Section */
+        .fee-section { background: #fafafa; padding: 16px; border-radius: 6px; }
+        .fee-row { display: flex; justify-content: space-between; padding: 6px 0; font-size: 14px; }
+        .fee-total { font-size: 16px; font-weight: bold; color: #f5222d; padding-top: 8px; margin-top: 8px; border-top: 1px dashed #d9d9d9; }
+        .fee-notice { background: #fff1f0; color: #f5222d; padding: 8px 12px; border-radius: 4px; margin-bottom: 12px; font-size: 13px; }
+
+        /* Action Panel */
+        .action-panel { background: white; border-radius: 8px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+        .action-panel .section-title { margin-top: 0; }
+        .action-buttons { display: flex; flex-direction: column; gap: 8px; }
+        .action-buttons .btn { width: 100%; }
+
+        /* Fee Review Page */
+        .table-container { background: white; border-radius: 8px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #f0f0f0; font-size: 14px; }
+        th { background: #fafafa; font-weight: 500; color: #595959; }
+        tr:hover { background: #fafafa; }
+        .notice-dot { display: inline-block; width: 8px; height: 8px; background: #f5222d; border-radius: 50%; margin-right: 6px; }
+
+        /* Toolbar */
+        .toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+        .toolbar-left { display: flex; gap: 8px; }
+        .toolbar-right { display: flex; gap: 8px; }
+
+        .filter-select { padding: 8px 12px; border: 1px solid #d9d9d9; border-radius: 4px; font-size: 14px; }
+
+        /* Loading */
+        .loading { display: flex; justify-content: center; align-items: center; padding: 40px; color: #8c8c8c; }
+
+        /* Empty */
+        .empty { text-align: center; padding: 40px; color: #bfbfbf; }
+
+        /* Edit Mode */
+        .edit-banner { background: #fffbe6; color: #ad6800; padding: 8px 16px; border-radius: 4px; margin-bottom: 16px; font-size: 13px; }
+
+        /* Toast */
+        .toast { position: fixed; top: 24px; left: 50%; transform: translateX(-50%); padding: 12px 24px; border-radius: 4px; color: white; z-index: 2000; animation: slideDown 0.3s ease; }
+        .toast.success { background: #52c41a; }
+        .toast.error { background: #f5222d; }
+        .toast.warning { background: #faad14; }
+        @keyframes slideDown { from { opacity: 0; transform: translateX(-50%) translateY(-20px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }
+
+        /* Confirm Dialog */
+        .confirm-dialog { max-width: 400px; }
+        .confirm-message { padding: 20px 0; font-size: 14px; }
+        .confirm-warning { color: #faad14; font-size: 12px; margin-top: 8px; }
+
+        .role-tag { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 12px; }
+        .role-pharmacist { background: #e6f7ff; color: #1890ff; }
+        .role-decoctor { background: #f6ffed; color: #52c41a; }
+        .role-courier { background: #fff7e6; color: #fa8c16; }
+        .role-admin { background: #f9f0ff; color: #722ed1; }
+
+        .reason-tag { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 12px; background: #f0f0f0; }
+
+        .readonly { background: #fafafa; color: #8c8c8c; }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <div v-if="toast.show" :class="['toast', toast.type]">{{ toast.message }}</div>
+
+        <div v-if="!currentUser" class="login-container">
+            <div class="login-box">
+                <h1 class="login-title">中药煎药房</h1>
+                <p class="login-subtitle">补煎申请与费用确认系统</p>
+                <div class="login-form">
+                    <div class="form-group">
+                        <label>选择角色登录</label>
+                        <select v-model="selectedUsername">
+                            <option value="">请选择登录用户</option>
+                            <option v-for="user in availableUsers" :key="user.username" :value="user.username">
+                                {{ user.name }} - {{ getRoleName(user.role) }}
+                            </option>
+                        </select>
+                    </div>
+                    <button class="btn btn-primary" @click="login" :disabled="!selectedUsername">登录</button>
+                </div>
+                <div class="login-tips">
+                    <strong>系统说明：</strong><br>
+                    本系统实现补煎申请的全流程留痕管理，涵盖审方药师、煎药员、配送客服的处理节奏。申请被改动后，费用确认端将自动收到感知通知。
+                </div>
+            </div>
+        </div>
+
+        <div v-else class="main-layout">
+            <div class="header">
+                <div class="header-title">中药煎药房-补煎申请与费用确认系统</div>
+                <div class="header-user">
+                    <span class="user-info">
+                        {{ currentUser.name }}
+                        <span class="user-role">{{ getRoleName(currentUser.role) }}</span>
+                    </span>
+                    <button class="btn btn-default" @click="logout">退出</button>
+                </div>
+            </div>
+
+            <div class="sidebar">
+                <div v-for="menu in menus" :key="menu.key"
+                     :class="['menu-item', { active: currentPage === menu.key }]"
+                     @click="currentPage = menu.key">
+                    <span class="menu-icon">{{ menu.icon }}</span>
+                    <span>{{ menu.label }}</span>
+                </div>
+            </div>
+
+            <div class="content">
+                <div v-if="currentPage === 'dashboard'">
+                    <h2 class="page-title">工作台</h2>
+
+                    <div class="dashboard-stats">
+                        <div class="stat-card">
+                            <div class="stat-value">{{ stats.today }}</div>
+                            <div class="stat-label">今日待办</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value" style="color: #f5222d;">{{ stats.overdue }}</div>
+                            <div class="stat-label">已拖延</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value" style="color: #faad14;">{{ stats.returned }}</div>
+                            <div class="stat-label">被退回</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value" style="color: #52c41a;">{{ stats.completed }}</div>
+                            <div class="stat-label">已完成</div>
+                        </div>
+                    </div>
+
+                    <div class="toolbar">
+                        <div class="toolbar-left">
+                            <select class="filter-select" v-model="filterRole" @change="loadApplications">
+                                <option value="all">全部角色</option>
+                                <option value="pharmacist">审方药师</option>
+                                <option value="decoctor">煎药员</option>
+                                <option value="courier">配送客服</option>
+                                <option value="admin">管理员</option>
+                            </select>
+                        </div>
+                        <div class="toolbar-right">
+                            <button class="btn btn-primary" @click="showCreateModal = true">+ 新建申请</button>
+                            <button class="btn btn-danger" @click="showResetConfirm = true">重置数据</button>
+                        </div>
+                    </div>
+
+                    <div class="task-columns">
+                        <div class="task-column">
+                            <div class="column-header today">
+                                <span>📅 今日要办</span>
+                                <span class="column-count">{{ todayTasks.length }}</span>
+                            </div>
+                            <div class="task-list">
+                                <div v-if="todayTasks.length === 0" class="empty">暂无今日待办</div>
+                                <div v-for="task in todayTasks" :key="task.id" class="task-card" @click="viewDetail(task)">
+                                    <div class="task-no">{{ task.application_no }}
+                                        <span v-if="task.is_modified" class="modify-badge">已改</span>
+                                    </div>
+                                    <div class="task-patient">{{ task.patient_name }}</div>
+                                    <div class="task-reason">{{ getReasonName(task.reason_type) }}</div>
+                                    <div class="task-time">创建于 {{ formatTime(task.created_at) }}</div>
+                                    <span :class="['task-status', 'status-' + task.status]">{{ getStatusName(task.status) }}</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="task-column">
+                            <div class="column-header overdue">
+                                <span>⏰ 已经拖延</span>
+                                <span class="column-count">{{ overdueTasks.length }}</span>
+                            </div>
+                            <div class="task-list">
+                                <div v-if="overdueTasks.length === 0" class="empty">暂无拖延任务</div>
+                                <div v-for="task in overdueTasks" :key="task.id" class="task-card" @click="viewDetail(task)">
+                                    <div class="task-no">{{ task.application_no }}
+                                        <span class="overdue-badge">逾期</span>
+                                    </div>
+                                    <div class="task-patient">{{ task.patient_name }}</div>
+                                    <div class="task-reason">{{ getReasonName(task.reason_type) }}</div>
+                                    <div class="task-time">截止 {{ formatDate(task.due_date) }}</div>
+                                    <span :class="['task-status', 'status-' + task.status]">{{ getStatusName(task.status) }}</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="task-column">
+                            <div class="column-header returned">
+                                <span>📎 刚刚被退回</span>
+                                <span class="column-count">{{ returnedTasks.length }}</span>
+                            </div>
+                            <div class="task-list">
+                                <div v-if="returnedTasks.length === 0" class="empty">暂无退回申请</div>
+                                <div v-for="task in returnedTasks" :key="task.id" class="task-card" @click="viewDetail(task)">
+                                    <div class="task-no">{{ task.application_no }}</div>
+                                    <div class="task-patient">{{ task.patient_name }}</div>
+                                    <div class="task-reason">{{ getReasonName(task.reason_type) }}</div>
+                                    <div class="task-time">退回于 {{ formatTime(task.updated_at) }}</div>
+                                    <span class="task-status status-rejected">已退回</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div v-else-if="currentPage === 'list'">
+                    <h2 class="page-title">全部申请</h2>
+                    <div class="toolbar">
+                        <div class="toolbar-left">
+                            <select class="filter-select" v-model="filterStatus" @change="loadApplications">
+                                <option value="">全部状态</option>
+                                <option v-for="(name, key) in statusMap" :key="key" :value="key">{{ name }}</option>
+                            </select>
+                        </div>
+                        <div class="toolbar-right">
+                            <button class="btn btn-primary" @click="showCreateModal = true">+ 新建申请</button>
+                        </div>
+                    </div>
+                    <div class="table-container">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>申请编号</th>
+                                    <th>患者姓名</th>
+                                    <th>错误类型</th>
+                                    <th>当前状态</th>
+                                    <th>当前处理人</th>
+                                    <th>创建时间</th>
+                                    <th>状态</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr v-for="app in allTasks" :key="app.id">
+                                    <td>
+                                        {{ app.application_no }}
+                                        <span v-if="app.is_modified" class="modify-badge">已改</span>
+                                    </td>
+                                    <td>{{ app.patient_name }}</td>
+                                    <td><span class="reason-tag">{{ getReasonName(app.reason_type) }}</span></td>
+                                    <td><span :class="['task-status', 'status-' + app.status]">{{ getStatusName(app.status) }}</span></td>
+                                    <td><span :class="['role-tag', 'role-' + app.current_handler_role]">{{ getRoleName(app.current_handler_role) }}</span></td>
+                                    <td>{{ formatTime(app.created_at) }}</td>
+                                    <td>
+                                        <span v-if="app.is_overdue" class="overdue-badge">逾期</span>
+                                    </td>
+                                    <td>
+                                        <button class="btn btn-primary" style="padding: 4px 12px; font-size: 12px;" @click="viewDetail(app)">查看</button>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div v-else-if="currentPage === 'feeReview'">
+                    <h2 class="page-title">费用确认回看</h2>
+                    <div class="table-container">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>申请编号</th>
+                                    <th>患者姓名</th>
+                                    <th>煎药费</th>
+                                    <th>快递费</th>
+                                    <th>药材费</th>
+                                    <th>合计</th>
+                                    <th>承担方</th>
+                                    <th>状态</th>
+                                    <th>变动通知</th>
+                                    <th>确认时间</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr v-for="fee in feeReviewList" :key="fee.id">
+                                    <td>
+                                        {{ fee.application_no }}
+                                        <span v-if="fee.has_modification_notice" class="notice-dot" title="申请已被改动"></span>
+                                    </td>
+                                    <td>{{ fee.patient_name }}</td>
+                                    <td>¥{{ fee.decoction_fee }}</td>
+                                    <td>¥{{ fee.express_fee }}</td>
+                                    <td>¥{{ fee.material_fee }}</td>
+                                    <td style="font-weight: bold; color: #f5222d;">¥{{ fee.total_fee }}</td>
+                                    <td>{{ fee.is_patient_pay ? '患者' : '医院' }}</td>
+                                    <td>
+                                        <span v-if="fee.payment_status === 'confirmed'" class="task-status status-completed">已确认</span>
+                                        <span v-else-if="fee.payment_status === 'waived'" class="task-status status-pending_fee">已减免</span>
+                                        <span v-else class="task-status status-pending_fee">待确认</span>
+                                    </td>
+                                    <td>
+                                        <span v-if="fee.has_modification_notice" style="color: #f5222d;">
+                                            🔔 有改动 ({{ formatTime(fee.last_modified_at) }})
+                                        </span>
+                                        <span v-else style="color: #8c8c8c;">-</span>
+                                    </td>
+                                    <td>{{ fee.confirmed_at ? formatTime(fee.confirmed_at) : '-' }}</td>
+                                    <td>
+                                        <button class="btn btn-primary" style="padding: 4px 12px; font-size: 12px;" @click="viewFeeDetail(fee)">查看</button>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div v-if="showCreateModal" class="modal-overlay" @click.self="showCreateModal = false">
+            <div class="modal" style="max-width: 700px;">
+                <div class="modal-header">
+                    <h3 class="modal-title">新建补煎申请</h3>
+                    <button class="modal-close" @click="showCreateModal = false">×</button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>处方编号 <span class="required">*</span></label>
+                            <input v-model="newApplication.prescription_no" placeholder="请输入处方编号">
+                        </div>
+                        <div class="form-group">
+                            <label>原煎药批次 <span class="required">*</span></label>
+                            <input v-model="newApplication.original_decoction_batch" placeholder="请输入原煎药批次号">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>患者姓名 <span class="required">*</span></label>
+                            <input v-model="newApplication.patient_name" placeholder="请输入患者姓名">
+                        </div>
+                        <div class="form-group">
+                            <label>联系电话 <span class="required">*</span></label>
+                            <input v-model="newApplication.patient_phone" placeholder="请输入联系电话">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>配送地址 <span class="required">*</span></label>
+                        <input v-model="newApplication.address" placeholder="请输入详细配送地址">
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>错误类型 <span class="required">*</span></label>
+                            <select v-model="newApplication.reason_type">
+                                <option value="">请选择错误类型</option>
+                                <option value="prescription_error">处方看错</option>
+                                <option value="batch_confusion">代煎批次混淆</option>
+                                <option value="address_error">地址改动漏同步</option>
+                                <option value="other">其他原因</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>详细原因说明 <span class="required">*</span></label>
+                        <textarea v-model="newApplication.reason_detail" placeholder="请详细描述错误原因..."></textarea>
+                    </div>
+                    <div class="form-row-3">
+                        <div class="form-group">
+                            <label>处方照片</label>
+                            <input v-model="newApplication.prescription_photo" placeholder="输入照片URL">
+                        </div>
+                        <div class="form-group">
+                            <label>煎药标签照片</label>
+                            <input v-model="newApplication.decoction_label_photo" placeholder="输入照片URL">
+                        </div>
+                        <div class="form-group">
+                            <label>快递单照片</label>
+                            <input v-model="newApplication.express_photo" placeholder="输入照片URL">
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-default" @click="showCreateModal = false">取消</button>
+                    <button class="btn btn-primary" @click="createApplication">提交申请</button>
+                </div>
+            </div>
+        </div>
+
+        <div v-if="selectedApplication" class="modal-overlay" @click.self="closeDetail">
+            <div class="modal">
+                <div class="modal-header">
+                    <h3 class="modal-title">
+                        补煎申请详情 - {{ selectedApplication.application_no }}
+                        <span v-if="isEditMode" class="modify-badge">编辑模式</span>
+                    </h3>
+                    <button class="modal-close" @click="closeDetail">×</button>
+                </div>
+
+                <div v-if="isEditMode" class="edit-banner" style="margin: 0 24px; margin-top: 16px;">
+                    ⚠️ 您正在修改申请内容，保存后费用确认端将收到改动通知
+                </div>
+
+                <div class="modal-body">
+                    <div class="detail-container">
+                        <div style="min-width: 0;">
+                            <div class="detail-section">
+                                <h4 class="section-title">📋 基本信息</h4>
+                                <div class="info-grid">
+                                    <div class="info-item">
+                                        <span class="info-label">申请编号：</span>
+                                        <span class="info-value">{{ selectedApplication.application_no }}</span>
+                                    </div>
+                                    <div class="info-item">
+                                        <span class="info-label">当前状态：</span>
+                                        <span class="info-value">
+                                            <span :class="['task-status', 'status-' + selectedApplication.status]">
+                                                {{ getStatusName(selectedApplication.status) }}
+                                            </span>
+                                        </span>
+                                    </div>
+                                    <div class="info-item">
+                                        <span class="info-label">处方编号：</span>
+                                        <span class="info-value">
+                                            <input v-if="isEditMode" v-model="editForm.prescription_no" style="width: 100%; padding: 4px; border: 1px solid #d9d9d9; border-radius: 4px;">
+                                            <span v-else>{{ selectedApplication.prescription_no }}</span>
+                                        </span>
+                                    </div>
+                                    <div class="info-item">
+                                        <span class="info-label">原煎药批次：</span>
+                                        <span class="info-value">
+                                            <input v-if="isEditMode" v-model="editForm.original_decoction_batch" style="width: 100%; padding: 4px; border: 1px solid #d9d9d9; border-radius: 4px;">
+                                            <span v-else>{{ selectedApplication.original_decoction_batch }}</span>
+                                        </span>
+                                    </div>
+                                    <div class="info-item">
+                                        <span class="info-label">患者姓名：</span>
+                                        <span class="info-value">
+                                            <input v-if="isEditMode" v-model="editForm.patient_name" style="width: 100%; padding: 4px; border: 1px solid #d9d9d9; border-radius: 4px;">
+                                            <span v-else>{{ selectedApplication.patient_name }}</span>
+                                        </span>
+                                    </div>
+                                    <div class="info-item">
+                                        <span class="info-label">联系电话：</span>
+                                        <span class="info-value">
+                                            <input v-if="isEditMode" v-model="editForm.patient_phone" style="width: 100%; padding: 4px; border: 1px solid #d9d9d9; border-radius: 4px;">
+                                            <span v-else>{{ selectedApplication.patient_phone }}</span>
+                                        </span>
+                                    </div>
+                                    <div class="info-item" style="grid-column: span 2;">
+                                        <span class="info-label">配送地址：</span>
+                                        <span class="info-value" style="flex: 1;">
+                                            <input v-if="isEditMode" v-model="editForm.address" style="width: 100%; padding: 4px; border: 1px solid #d9d9d9; border-radius: 4px;">
+                                            <span v-else>{{ selectedApplication.address }}</span>
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="detail-section">
+                                <h4 class="section-title">❌ 错误原因</h4>
+                                <div class="form-group">
+                                    <label>错误类型</label>
+                                    <select v-if="isEditMode" v-model="editForm.reason_type">
+                                        <option value="prescription_error">处方看错</option>
+                                        <option value="batch_confusion">代煎批次混淆</option>
+                                        <option value="address_error">地址改动漏同步</option>
+                                        <option value="other">其他原因</option>
+                                    </select>
+                                    <span v-else class="reason-tag">{{ getReasonName(selectedApplication.reason_type) }}</span>
+                                </div>
+                                <div class="form-group">
+                                    <label>详细说明</label>
+                                    <textarea v-if="isEditMode" v-model="editForm.reason_detail"></textarea>
+                                    <p v-else style="color: #595959; line-height: 1.6;">{{ selectedApplication.reason_detail }}</p>
+                                </div>
+                            </div>
+
+                            <div class="detail-section">
+                                <h4 class="section-title">📷 证据留痕</h4>
+                                <div class="photo-grid">
+                                    <div class="photo-item" :class="{ 'has-photo': editForm.prescription_photo || selectedApplication.prescription_photo }">
+                                        <div style="text-align: center;">
+                                            <div style="font-size: 24px; margin-bottom: 4px;">📄</div>
+                                            <div v-if="isEditMode">
+                                                <input v-model="editForm.prescription_photo" placeholder="处方照" style="width: 90%; padding: 2px; font-size: 10px; border: 1px solid #d9d9d9; border-radius: 2px;">
+                                            </div>
+                                            <div v-else-if="selectedApplication.prescription_photo">处方照片</div>
+                                            <div v-else>待上传</div>
+                                        </div>
+                                    </div>
+                                    <div class="photo-item" :class="{ 'has-photo': editForm.decoction_label_photo || selectedApplication.decoction_label_photo }">
+                                        <div style="text-align: center;">
+                                            <div style="font-size: 24px; margin-bottom: 4px;">🏷️</div>
+                                            <div v-if="isEditMode">
+                                                <input v-model="editForm.decoction_label_photo" placeholder="标签照" style="width: 90%; padding: 2px; font-size: 10px; border: 1px solid #d9d9d9; border-radius: 2px;">
+                                            </div>
+                                            <div v-else-if="selectedApplication.decoction_label_photo">标签照片</div>
+                                            <div v-else>待上传</div>
+                                        </div>
+                                    </div>
+                                    <div class="photo-item" :class="{ 'has-photo': editForm.express_photo || selectedApplication.express_photo }">
+                                        <div style="text-align: center;">
+                                            <div style="font-size: 24px; margin-bottom: 4px;">📦</div>
+                                            <div v-if="isEditMode">
+                                                <input v-model="editForm.express_photo" placeholder="快递照" style="width: 90%; padding: 2px; font-size: 10px; border: 1px solid #d9d9d9; border-radius: 2px;">
+                                            </div>
+                                            <div v-else-if="selectedApplication.express_photo">快递照片</div>
+                                            <div v-else>待上传</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div v-if="selectedApplication.fee_confirmation || selectedApplication.status === 'pending_fee' || selectedApplication.status === 'completed'" class="detail-section">
+                                <h4 class="section-title">💰 费用确认</h4>
+                                <div v-if="selectedApplication.fee_confirmation && selectedApplication.fee_confirmation.has_modification_notice" class="fee-notice">
+                                    🔔 注意：该申请已于 {{ formatTime(selectedApplication.fee_confirmation.last_modified_at) }} 被改动，请确认费用是否需要调整
+                                </div>
+                                <div class="fee-section">
+                                    <div class="form-row-3">
+                                        <div class="form-group">
+                                            <label>煎药费 (元)</label>
+                                            <input type="number" v-model.number="feeForm.decoction_fee" :disabled="!canEditFee">
+                                        </div>
+                                        <div class="form-group">
+                                            <label>快递费 (元)</label>
+                                            <input type="number" v-model.number="feeForm.express_fee" :disabled="!canEditFee">
+                                        </div>
+                                        <div class="form-group">
+                                            <label>药材费 (元)</label>
+                                            <input type="number" v-model.number="feeForm.material_fee" :disabled="!canEditFee">
+                                        </div>
+                                    </div>
+                                    <div class="form-row">
+                                        <div class="form-group">
+                                            <label>费用承担方</label>
+                                            <select v-model="feeForm.is_patient_pay" :disabled="!canEditFee">
+                                                <option :value="false">医院承担</option>
+                                                <option :value="true">患者承担</option>
+                                            </select>
+                                        </div>
+                                        <div class="form-group">
+                                            <label>合计金额 (元)</label>
+                                            <input type="text" :value="totalFee" disabled class="readonly">
+                                        </div>
+                                    </div>
+                                    <div class="form-group">
+                                        <label>备注</label>
+                                        <textarea v-model="feeForm.remark" :disabled="!canEditFee" placeholder="费用说明或备注..."></textarea>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="detail-section">
+                                <h4 class="section-title">⏱️ 操作时间线</h4>
+                                <div class="timeline">
+                                    <div v-for="log in timelineLogs" :key="log.id" class="timeline-item">
+                                        <div :class="['timeline-dot', log.action]"></div>
+                                        <div class="timeline-header">
+                                            <span class="timeline-action">{{ getActionName(log.action) }}</span>
+                                            <span class="timeline-time">{{ formatTime(log.created_at) }}</span>
+                                        </div>
+                                        <div class="timeline-operator">
+                                            {{ log.operator_name }}
+                                            <span :class="['role-tag', 'role-' + log.operator_role]">{{ getRoleName(log.operator_role) }}</span>
+                                        </div>
+                                        <div v-if="log.remark" class="timeline-remark">{{ log.remark }}</div>
+                                        <div v-if="log.field_changes" class="timeline-changes">
+                                            <div><strong>字段变更：</strong></div>
+                                            <div v-for="(change, field) in parseFieldChanges(log.field_changes)" :key="field" class="change-item">
+                                                • {{ getFieldName(field) }}: {{ JSON.stringify(change.old) }} → {{ JSON.stringify(change.new) }}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div>
+                            <div class="action-panel">
+                                <h4 class="section-title">⚡ 处理操作</h4>
+                                <div class="action-buttons">
+                                    <div v-if="isEditMode">
+                                        <button class="btn btn-success" @click="saveEdit">保存修改</button>
+                                        <button class="btn btn-default" style="margin-top: 8px;" @click="cancelEdit">取消编辑</button>
+                                    </div>
+                                    <template v-else>
+                                        <button v-if="canEdit" class="btn btn-warning" @click="startEdit">✏️ 修改申请</button>
+                                        <button v-if="canApprove" class="btn btn-success" @click="showApproveModal = true">✅ 审核通过</button>
+                                        <button v-if="canReject" class="btn btn-danger" @click="showRejectModal = true">❌ 退回申请</button>
+                                        <button v-if="canEditFee" class="btn btn-primary" @click="showFeeConfirmModal('confirmed')">💰 确认费用</button>
+                                        <button v-if="canEditFee" class="btn btn-warning" @click="showFeeConfirmModal('waived')">🎁 费用减免</button>
+                                        <button v-if="selectedApplication.status === 'rejected'" class="btn btn-success" @click="resubmitApplication">🔄 重新提交</button>
+                                    </template>
+                                </div>
+
+                                <div v-if="currentHandlerRole" style="margin-top: 16px; padding-top: 16px; border-top: 1px solid #f0f0f0;">
+                                    <div style="font-size: 12px; color: #8c8c8c; margin-bottom: 8px;">当前处理角色</div>
+                                    <span :class="['role-tag', 'role-' + currentHandlerRole]" style="font-size: 14px; padding: 4px 12px;">
+                                        {{ getRoleName(currentHandlerRole) }}
+                                    </span>
+                                </div>
+
+                                <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid #f0f0f0; font-size: 12px; color: #8c8c8c;">
+                                    <div style="margin-bottom: 4px;">创建时间：{{ formatTime(selectedApplication.created_at) }}</div>
+                                    <div style="margin-bottom: 4px;">更新时间：{{ formatTime(selectedApplication.updated_at) }}</div>
+                                    <div>截止时间：{{ formatDate(selectedApplication.due_date) }}</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div v-if="showApproveModal" class="modal-overlay" @click.self="showApproveModal = false">
+            <div class="modal confirm-dialog">
+                <div class="modal-header">
+                    <h3 class="modal-title">审核通过</h3>
+                    <button class="modal-close" @click="showApproveModal = false">×</button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label>处理意见</label>
+                        <textarea v-model="transitionRemark" placeholder="请输入处理意见（可选）"></textarea>
+                    </div>
+                    <div class="confirm-warning">
+                        通过后将流转至下一环节：{{ getNextStepName() }}
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-default" @click="showApproveModal = false">取消</button>
+                    <button class="btn btn-success" @click="approveApplication">确认通过</button>
+                </div>
+            </div>
+        </div>
+
+        <div v-if="showRejectModal" class="modal-overlay" @click.self="showRejectModal = false">
+            <div class="modal confirm-dialog">
+                <div class="modal-header">
+                    <h3 class="modal-title">退回申请</h3>
+                    <button class="modal-close" @click="showRejectModal = false">×</button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label>退回原因 <span class="required">*</span></label>
+                        <textarea v-model="transitionRemark" placeholder="请详细说明退回原因..."></textarea>
+                    </div>
+                    <div class="confirm-warning">
+                        退回后申请人需要修改后重新提交
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-default" @click="showRejectModal = false">取消</button>
+                    <button class="btn btn-danger" @click="rejectApplication" :disabled="!transitionRemark.trim()">确认退回</button>
+                </div>
+            </div>
+        </div>
+
+        <div v-if="showFeeConfirmType" class="modal-overlay" @click.self="showFeeConfirmType = null">
+            <div class="modal confirm-dialog">
+                <div class="modal-header">
+                    <h3 class="modal-title">{{ showFeeConfirmType === 'confirmed' ? '费用确认' : '费用减免' }}</h3>
+                    <button class="modal-close" @click="showFeeConfirmType = null">×</button>
+                </div>
+                <div class="modal-body">
+                    <div class="confirm-message">
+                        确认{{ showFeeConfirmType === 'confirmed' ? '收取' : '减免' }}该补煎申请的费用：
+                        <div style="text-align: center; margin: 16px 0;">
+                            <span style="font-size: 32px; font-weight: bold; color: #f5222d;">¥{{ totalFee }}</span>
+                        </div>
+                        <div style="color: #8c8c8c;">
+                            承担方：{{ feeForm.is_patient_pay ? '患者' : '医院' }}
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>备注</label>
+                        <textarea v-model="feeForm.remark" placeholder="请输入备注（可选）"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-default" @click="showFeeConfirmType = null">取消</button>
+                    <button :class="['btn', showFeeConfirmType === 'confirmed' ? 'btn-primary' : 'btn-warning']" @click="confirmFee">
+                        确认{{ showFeeConfirmType === 'confirmed' ? '收费' : '减免' }}
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div v-if="showResetConfirm" class="modal-overlay" @click.self="showResetConfirm = false">
+            <div class="modal confirm-dialog">
+                <div class="modal-header">
+                    <h3 class="modal-title">⚠️ 数据重置</h3>
+                    <button class="modal-close" @click="showResetConfirm = false">×</button>
+                </div>
+                <div class="modal-body">
+                    <div class="confirm-message">
+                        确定要重置所有数据吗？此操作将：
+                        <ul style="margin: 12px 0; padding-left: 20px;">
+                            <li>删除所有补煎申请</li>
+                            <li>删除所有操作日志</li>
+                            <li>删除所有费用确认记录</li>
+                            <li>重新生成演示数据</li>
+                        </ul>
+                    </div>
+                    <div class="confirm-warning">此操作不可逆，请谨慎操作！</div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-default" @click="showResetConfirm = false">取消</button>
+                    <button class="btn btn-danger" @click="resetData">确认重置</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const { createApp, ref, reactive, computed, onMounted, watch } = Vue;
+
+        const API_BASE = '/api';
+
+        createApp({
+            setup() {
+                const availableUsers = ref([
+                    { username: 'admin', name: '系统管理员', role: 'admin' },
+                    { username: 'ys1', name: '张药师', role: 'pharmacist' },
+                    { username: 'jy1', name: '李煎药', role: 'decoctor' },
+                    { username: 'ps1', name: '王客服', role: 'courier' },
+                ]);
+                const selectedUsername = ref('');
+                const currentUser = ref(null);
+                const currentPage = ref('dashboard');
+                const menus = [
+                    { key: 'dashboard', label: '工作台', icon: '🏠' },
+                    { key: 'list', label: '全部申请', icon: '📋' },
+                    { key: 'feeReview', label: '费用确认回看', icon: '💰' },
+                ];
+
+                const filterRole = ref('all');
+                const filterStatus = ref('');
+                const todayTasks = ref([]);
+                const overdueTasks = ref([]);
+                const returnedTasks = ref([]);
+                const allTasks = ref([]);
+                const feeReviewList = ref([]);
+
+                const selectedApplication = ref(null);
+                const timelineLogs = ref([]);
+                const isEditMode = ref(false);
+                const editForm = reactive({});
+                const feeForm = reactive({
+                    decoction_fee: 0,
+                    express_fee: 0,
+                    material_fee: 0,
+                    total_fee: 0,
+                    is_patient_pay: false,
+                    payment_status: 'pending',
+                    remark: '',
+                });
+
+                const showCreateModal = ref(false);
+                const newApplication = reactive({
+                    prescription_no: '',
+                    patient_name: '',
+                    patient_phone: '',
+                    address: '',
+                    original_decoction_batch: '',
+                    reason_type: '',
+                    reason_detail: '',
+                    prescription_photo: '',
+                    decoction_label_photo: '',
+                    express_photo: '',
+                });
+
+                const showApproveModal = ref(false);
+                const showRejectModal = ref(false);
+                const showFeeConfirmType = ref(null);
+                const showResetConfirm = ref(false);
+                const transitionRemark = ref('');
+
+                const toast = reactive({ show: false, message: '', type: 'success' });
+
+                const roleMap = ref({});
+                const statusMap = ref({});
+                const reasonMap = ref({});
+
+                const headers = computed(() => {
+                    if (!currentUser.value) return {};
+                    return { 'X-User-Id': currentUser.value.id, 'Content-Type': 'application/json' };
+                });
+
+                const stats = computed(() => ({
+                    today: todayTasks.value.length,
+                    overdue: overdueTasks.value.length,
+                    returned: returnedTasks.value.length,
+                    completed: allTasks.value.filter(a => a.status === 'completed').length,
+                }));
+
+                const totalFee = computed(() => {
+                    return (feeForm.decoction_fee || 0) + (feeForm.express_fee || 0) + (feeForm.material_fee || 0);
+                });
+
+                const currentHandlerRole = computed(() => {
+                    if (!selectedApplication.value) return null;
+                    return selectedApplication.value.current_handler_role;
+                });
+
+                const canEdit = computed(() => {
+                    if (!selectedApplication.value || !currentUser.value) return false;
+                    if (selectedApplication.value.status === 'completed') return false;
+                    return currentUser.value.role === 'admin' ||
+                           selectedApplication.value.status === 'rejected' ||
+                           selectedApplication.value.current_handler_role === currentUser.value.role;
+                });
+
+                const canApprove = computed(() => {
+                    if (!selectedApplication.value || !currentUser.value) return false;
+                    const status = selectedApplication.value.status;
+                    if (status === 'completed' || status === 'rejected') return false;
+                    if (status === 'pending_fee') return false;
+                    return currentUser.value.role === 'admin' ||
+                           selectedApplication.value.current_handler_role === currentUser.value.role;
+                });
+
+                const canReject = computed(() => {
+                    if (!selectedApplication.value || !currentUser.value) return false;
+                    const status = selectedApplication.value.status;
+                    if (status === 'completed' || status === 'rejected' || status === 'pending_fee') return false;
+                    return currentUser.value.role === 'admin' ||
+                           selectedApplication.value.current_handler_role === currentUser.value.role;
+                });
+
+                const canEditFee = computed(() => {
+                    if (!selectedApplication.value || !currentUser.value) return false;
+                    const status = selectedApplication.value.status;
+                    if (currentUser.value.role !== 'admin') return false;
+                    return status === 'pending_fee' || status === 'completed';
+                });
+
+                const loadDictionaries = async () => {
+                    try {
+                        const res = await fetch(`${API_BASE}/dict`);
+                        const data = await res.json();
+                        roleMap.value = data.roles;
+                        statusMap.value = data.statuses;
+                        reasonMap.value = data.reasons;
+                    } catch (e) {
+                        console.error('加载字典失败', e);
+                    }
+                };
+
+                const login = async () => {
+                    try {
+                        const res = await fetch(`${API_BASE}/login`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ username: selectedUsername.value }),
+                        });
+                        const data = await res.json();
+                        if (data.success) {
+                            currentUser.value = data.user;
+                            showToast('登录成功', 'success');
+                            loadApplications();
+                            loadFeeReview();
+                        } else {
+                            showToast(data.message || '登录失败', 'error');
+                        }
+                    } catch (e) {
+                        showToast('网络错误', 'error');
+                    }
+                };
+
+                const logout = () => {
+                    currentUser.value = null;
+                    selectedUsername.value = '';
+                    currentPage.value = 'dashboard';
+                };
+
+                const loadApplications = async () => {
+                    if (!currentUser.value) return;
+                    try {
+                        let url = `${API_BASE}/applications?role=${filterRole.value}`;
+                        if (filterStatus.value) url += `&status=${filterStatus.value}`;
+                        const res = await fetch(url, { headers: headers.value });
+                        const data = await res.json();
+                        todayTasks.value = data.today_tasks;
+                        overdueTasks.value = data.overdue_tasks;
+                        returnedTasks.value = data.returned_tasks;
+                        allTasks.value = data.all_tasks;
+                    } catch (e) {
+                        console.error('加载申请列表失败', e);
+                    }
+                };
+
+                const loadFeeReview = async () => {
+                    if (!currentUser.value) return;
+                    try {
+                        const res = await fetch(`${API_BASE}/fee-review`, { headers: headers.value });
+                        feeReviewList.value = await res.json();
+                    } catch (e) {
+                        console.error('加载费用回看失败', e);
+                    }
+                };
+
+                const loadTimeline = async (appId) => {
+                    try {
+                        const res = await fetch(`${API_BASE}/applications/${appId}/timeline`, { headers: headers.value });
+                        timelineLogs.value = await res.json();
+                    } catch (e) {
+                        console.error('加载时间线失败', e);
+                    }
+                };
+
+                const getRoleName = (role) => roleMap.value[role] || role;
+                const getStatusName = (status) => statusMap.value[status] || status;
+                const getReasonName = (reason) => reasonMap.value[reason] || reason;
+
+                const getActionName = (action) => {
+                    const map = {
+                        create: '创建申请',
+                        approve: '审核通过',
+                        reject: '退回申请',
+                        modify: '修改内容',
+                        submit_to_next: '提交下一环节',
+                        confirm_fee: '费用确认',
+                        modify_fee: '修改费用',
+                    };
+                    return map[action] || action;
+                };
+
+                const getFieldName = (field) => {
+                    const map = {
+                        prescription_no: '处方编号',
+                        patient_name: '患者姓名',
+                        patient_phone: '联系电话',
+                        address: '配送地址',
+                        original_decoction_batch: '原煎药批次',
+                        reason_type: '错误类型',
+                        reason_detail: '详细原因',
+                        prescription_photo: '处方照片',
+                        decoction_label_photo: '煎药标签照片',
+                        express_photo: '快递单照片',
+                        decoction_fee: '煎药费',
+                        express_fee: '快递费',
+                        material_fee: '药材费',
+                        total_fee: '总费用',
+                        is_patient_pay: '费用承担方',
+                    };
+                    return map[field] || field;
+                };
+
+                const formatTime = (time) => {
+                    if (!time) return '-';
+                    const d = new Date(time);
+                    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+                };
+
+                const formatDate = (date) => {
+                    if (!date) return '-';
+                    const d = new Date(date);
+                    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+                };
+
+                const parseFieldChanges = (changes) => {
+                    try {
+                        return typeof changes === 'string' ? JSON.parse(changes) : changes;
+                    } catch (e) {
+                        return {};
+                    }
+                };
+
+                const showToast = (message, type = 'success') => {
+                    toast.message = message;
+                    toast.type = type;
+                    toast.show = true;
+                    setTimeout(() => { toast.show = false; }, 3000);
+                };
+
+                const viewDetail = async (app) => {
+                    try {
+                        const res = await fetch(`${API_BASE}/applications/${app.id}`, { headers: headers.value });
+                        selectedApplication.value = await res.json();
+                        isEditMode.value = false;
+                        Object.assign(editForm, selectedApplication.value);
+                        if (selectedApplication.value.fee_confirmation) {
+                            Object.assign(feeForm, selectedApplication.value.fee_confirmation);
+                        } else {
+                            Object.assign(feeForm, {
+                                decoction_fee: 0,
+                                express_fee: 0,
+                                material_fee: 0,
+                                total_fee: 0,
+                                is_patient_pay: false,
+                                payment_status: 'pending',
+                                remark: '',
+                            });
+                        }
+                        loadTimeline(app.id);
+                    } catch (e) {
+                        showToast('加载详情失败', 'error');
+                    }
+                };
+
+                const viewFeeDetail = (fee) => {
+                    const app = { id: fee.application_id };
+                    viewDetail(app);
+                };
+
+                const closeDetail = () => {
+                    selectedApplication.value = null;
+                    timelineLogs.value = [];
+                    isEditMode.value = false;
+                };
+
+                const startEdit = () => {
+                    isEditMode.value = true;
+                    Object.assign(editForm, selectedApplication.value);
+                };
+
+                const cancelEdit = () => {
+                    isEditMode.value = false;
+                    Object.assign(editForm, selectedApplication.value);
+                };
+
+                const saveEdit = async () => {
+                    try {
+                        const res = await fetch(`${API_BASE}/applications/${selectedApplication.value.id}`, {
+                            method: 'PUT',
+                            headers: headers.value,
+                            body: JSON.stringify(editForm),
+                        });
+                        if (res.ok) {
+                            selectedApplication.value = await res.json();
+                            isEditMode.value = false;
+                            loadTimeline(selectedApplication.value.id);
+                            loadApplications();
+                            loadFeeReview();
+                            showToast('修改已保存，费用确认端已收到改动通知', 'success');
+                        } else {
+                            const err = await res.json();
+                            showToast(err.detail || '保存失败', 'error');
+                        }
+                    } catch (e) {
+                        showToast('网络错误', 'error');
+                    }
+                };
+
+                const createApplication = async () => {
+                    if (!newApplication.prescription_no || !newApplication.patient_name ||
+                        !newApplication.patient_phone || !newApplication.address ||
+                        !newApplication.original_decoction_batch || !newApplication.reason_type ||
+                        !newApplication.reason_detail) {
+                        showToast('请填写所有必填项', 'error');
+                        return;
+                    }
+                    try {
+                        const res = await fetch(`${API_BASE}/applications`, {
+                            method: 'POST',
+                            headers: headers.value,
+                            body: JSON.stringify(newApplication),
+                        });
+                        if (res.ok) {
+                            showCreateModal.value = false;
+                            Object.assign(newApplication, {
+                                prescription_no: '',
+                                patient_name: '',
+                                patient_phone: '',
+                                address: '',
+                                original_decoction_batch: '',
+                                reason_type: '',
+                                reason_detail: '',
+                                prescription_photo: '',
+                                decoction_label_photo: '',
+                                express_photo: '',
+                            });
+                            loadApplications();
+                            loadFeeReview();
+                            showToast('申请创建成功', 'success');
+                        } else {
+                            const err = await res.json();
+                            showToast(err.detail || '创建失败', 'error');
+                        }
+                    } catch (e) {
+                        showToast('网络错误', 'error');
+                    }
+                };
+
+                const getNextStepName = () => {
+                    if (!selectedApplication.value) return '';
+                    const flow = {
+                        pending_pharmacist: '待煎药员处理',
+                        pending_decoctor: '待配送客服处理',
+                        pending_courier: '待费用确认',
+                    };
+                    return flow[selectedApplication.value.status] || '下一环节';
+                };
+
+                const approveApplication = async () => {
+                    try {
+                        const res = await fetch(`${API_BASE}/applications/${selectedApplication.value.id}/transition`, {
+                            method: 'POST',
+                            headers: headers.value,
+                            body: JSON.stringify({
+                                action: 'approve',
+                                remark: transitionRemark.value,
+                            }),
+                        });
+                        if (res.ok) {
+                            selectedApplication.value = await res.json();
+                            showApproveModal.value = false;
+                            transitionRemark.value = '';
+                            loadTimeline(selectedApplication.value.id);
+                            loadApplications();
+                            loadFeeReview();
+                            showToast('审核通过', 'success');
+                        } else {
+                            const err = await res.json();
+                            showToast(err.detail || '操作失败', 'error');
+                        }
+                    } catch (e) {
+                        showToast('网络错误', 'error');
+                    }
+                };
+
+                const rejectApplication = async () => {
+                    if (!transitionRemark.value.trim()) {
+                        showToast('请填写退回原因', 'error');
+                        return;
+                    }
+                    try {
+                        const res = await fetch(`${API_BASE}/applications/${selectedApplication.value.id}/transition`, {
+                            method: 'POST',
+                            headers: headers.value,
+                            body: JSON.stringify({
+                                action: 'reject',
+                                remark: transitionRemark.value,
+                            }),
+                        });
+                        if (res.ok) {
+                            selectedApplication.value = await res.json();
+                            showRejectModal.value = false;
+                            transitionRemark.value = '';
+                            loadTimeline(selectedApplication.value.id);
+                            loadApplications();
+                            loadFeeReview();
+                            showToast('申请已退回', 'success');
+                        } else {
+                            const err = await res.json();
+                            showToast(err.detail || '操作失败', 'error');
+                        }
+                    } catch (e) {
+                        showToast('网络错误', 'error');
+                    }
+                };
+
+                const showFeeConfirmModal = (type) => {
+                    feeForm.total_fee = totalFee.value;
+                    showFeeConfirmType.value = type;
+                };
+
+                const confirmFee = async () => {
+                    try {
+                        const updateData = {
+                            decoction_fee: feeForm.decoction_fee,
+                            express_fee: feeForm.express_fee,
+                            material_fee: feeForm.material_fee,
+                            total_fee: totalFee.value,
+                            is_patient_pay: feeForm.is_patient_pay,
+                            payment_status: showFeeConfirmType.value,
+                            remark: feeForm.remark,
+                        };
+                        const res = await fetch(`${API_BASE}/applications/${selectedApplication.value.id}/fee`, {
+                            method: 'PUT',
+                            headers: headers.value,
+                            body: JSON.stringify(updateData),
+                        });
+                        if (res.ok) {
+                            const newFee = await res.json();
+                            selectedApplication.value.fee_confirmation = newFee;
+                            Object.assign(feeForm, newFee);
+                            showFeeConfirmType.value = null;
+                            loadTimeline(selectedApplication.value.id);
+                            loadApplications();
+                            loadFeeReview();
+                            showToast(`费用已${showFeeConfirmType.value === 'confirmed' ? '确认' : '减免'}`, 'success');
+                        } else {
+                            const err = await res.json();
+                            showToast(err.detail || '操作失败', 'error');
+                        }
+                    } catch (e) {
+                        showToast('网络错误', 'error');
+                    }
+                };
+
+                const resubmitApplication = async () => {
+                    try {
+                        const res = await fetch(`${API_BASE}/applications/${selectedApplication.value.id}/transition`, {
+                            method: 'POST',
+                            headers: headers.value,
+                            body: JSON.stringify({
+                                action: 'approve',
+                                remark: '修改后重新提交',
+                            }),
+                        });
+                        if (res.ok) {
+                            selectedApplication.value = await res.json();
+                            loadTimeline(selectedApplication.value.id);
+                            loadApplications();
+                            loadFeeReview();
+                            showToast('重新提交成功', 'success');
+                        } else {
+                            const err = await res.json();
+                            showToast(err.detail || '操作失败', 'error');
+                        }
+                    } catch (e) {
+                        showToast('网络错误', 'error');
+                    }
+                };
+
+                const resetData = async () => {
+                    try {
+                        const res = await fetch(`${API_BASE}/reset`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ confirm: true }),
+                        });
+                        if (res.ok) {
+                            showResetConfirm.value = false;
+                            loadApplications();
+                            loadFeeReview();
+                            showToast('数据已重置', 'success');
+                        } else {
+                            const err = await res.json();
+                            showToast(err.detail || '重置失败', 'error');
+                        }
+                    } catch (e) {
+                        showToast('网络错误', 'error');
+                    }
+                };
+
+                onMounted(() => {
+                    loadDictionaries();
+                });
+
+                watch(currentPage, (newPage) => {
+                    if (newPage === 'feeReview') {
+                        loadFeeReview();
+                    } else {
+                        loadApplications();
+                    }
+                });
+
+                return {
+                    availableUsers,
+                    selectedUsername,
+                    currentUser,
+                    currentPage,
+                    menus,
+                    filterRole,
+                    filterStatus,
+                    todayTasks,
+                    overdueTasks,
+                    returnedTasks,
+                    allTasks,
+                    feeReviewList,
+                    selectedApplication,
+                    timelineLogs,
+                    isEditMode,
+                    editForm,
+                    feeForm,
+                    showCreateModal,
+                    newApplication,
+                    showApproveModal,
+                    showRejectModal,
+                    showFeeConfirmType,
+                    showResetConfirm,
+                    transitionRemark,
+                    toast,
+                    roleMap,
+                    statusMap,
+                    reasonMap,
+                    stats,
+                    totalFee,
+                    currentHandlerRole,
+                    canEdit,
+                    canApprove,
+                    canReject,
+                    canEditFee,
+                    login,
+                    logout,
+                    loadApplications,
+                    loadFeeReview,
+                    getRoleName,
+                    getStatusName,
+                    getReasonName,
+                    getActionName,
+                    getFieldName,
+                    formatTime,
+                    formatDate,
+                    parseFieldChanges,
+                    viewDetail,
+                    viewFeeDetail,
+                    closeDetail,
+                    startEdit,
+                    cancelEdit,
+                    saveEdit,
+                    createApplication,
+                    getNextStepName,
+                    approveApplication,
+                    rejectApplication,
+                    showFeeConfirmModal,
+                    confirmFee,
+                    resubmitApplication,
+                    resetData,
+                };
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>
