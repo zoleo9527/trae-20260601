@@ -198,7 +198,7 @@ export const useBatchStore = create<BatchStore>((set, get) => ({
       if (!batch) return;
       if (batch.currentStatus !== 'TESTING') return;
 
-      const template = mockTestTemplates.find((t) => t.formula === batch.formulaNo);
+      const template = mockTestTemplates.find((t) => t.formula === batch.formula);
       const items = template?.items.map((item, i) => ({
         id: `item-${now}-${idx}-${i}`,
         testRecordId: `test-${now}-${idx}`,

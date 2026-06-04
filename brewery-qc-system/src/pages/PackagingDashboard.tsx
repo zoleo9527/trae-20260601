@@ -36,6 +36,8 @@ export function PackagingDashboard() {
     return matchesStatus && matchesSearch;
   });
 
+  const selectableBatches = filteredBatches.filter((b) => b.currentStatus === 'TESTING');
+
   const handleViewDetail = (batchId: string) => {
     setSelectedBatchId(batchId);
     setIsDrawerOpen(true);
@@ -58,7 +60,7 @@ export function PackagingDashboard() {
   };
 
   const handleBatchSelectAll = () => {
-    const selectableIds = filteredBatches.filter((b) => b.currentStatus === 'TESTING').map((b) => b.id);
+    const selectableIds = selectableBatches.map((b) => b.id);
     const allSelected = selectableIds.every((id) => selectedBatches.has(id));
     if (allSelected) {
       setSelectedBatches(new Set());
@@ -68,10 +70,9 @@ export function PackagingDashboard() {
   };
 
   const handleBatchPass = () => {
-    const testingBatchIds = Array.from(selectedBatches).filter((id) => {
-      const batch = batches.find((b) => b.id === id);
-      return batch?.currentStatus === 'TESTING';
-    });
+    const testingBatchIds = Array.from(selectedBatches).filter((id) =>
+      selectableBatches.some((b) => b.id === id)
+    );
     if (testingBatchIds.length === 0) return;
     batchCompleteTesting(testingBatchIds, currentUser?.name || '王主管');
     setSelectedBatches(new Set());
@@ -171,10 +172,7 @@ export function PackagingDashboard() {
                   variant="success"
                   size="sm"
                   onClick={handleBatchPass}
-                  disabled={!Array.from(selectedBatches).some((id) => {
-                    const batch = batches.find((b) => b.id === id);
-                    return batch?.currentStatus === 'TESTING';
-                  })}
+                  disabled={!Array.from(selectedBatches).some((id) => selectableBatches.some((b) => b.id === id))}
                 >
                   <Check className="w-4 h-4 mr-1" />
                   批量通过
@@ -193,8 +191,12 @@ export function PackagingDashboard() {
                 <thead className="bg-neutral-50 border-b border-neutral-200">
                   <tr>
                     <th className="px-4 py-3 text-left">
-                      <button onClick={handleBatchSelectAll} className="p-1 hover:bg-neutral-200 rounded">
-                        <CheckSquare className={`w-4 h-4 ${selectedBatches.size === filteredBatches.length && filteredBatches.length > 0 ? 'text-amber-900' : 'text-neutral-400'}`} />
+                      <button
+                        onClick={handleBatchSelectAll}
+                        disabled={selectableBatches.length === 0}
+                        className={`p-1 rounded transition-colors ${selectableBatches.length > 0 ? 'hover:bg-neutral-200' : 'opacity-40 cursor-not-allowed'}`}
+                      >
+                        <CheckSquare className={`w-4 h-4 ${selectedBatches.size === selectableBatches.length && selectableBatches.length > 0 ? 'text-amber-900' : 'text-neutral-400'}`} />
                       </button>
                     </th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">批次号</th>
