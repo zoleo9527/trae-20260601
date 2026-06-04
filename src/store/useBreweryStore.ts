@@ -246,22 +246,28 @@ export const useBreweryStore = create<BreweryState>()(
 
         if (changeLogs.length > 0) {
           const batch = get().batches.find((b) => b.id === feeding.batchId)
+          const hasIngredientChange = changeLogs.some((c) => c.fieldName === 'ingredients')
           const newIngredients = (updates.ingredients as FeedingIngredient[]) || feeding.ingredients
 
-          const newTotalWeight = newIngredients.reduce((sum, ing) => {
-            const factor = ing.unit === 'g' || ing.unit === 'ml' ? 0.001 : 1
-            return sum + ing.amount * factor
-          }, 0)
+          let newTotalWeight = feeding.totalWeight
+          let newOriginalGravity = batch?.originalGravity || 0
 
-          const totalGravity = newIngredients.reduce((sum, ing) => {
-            if (ing.name.includes('麦芽')) {
-              return sum + ing.amount * (ing.unit === 'g' || ing.unit === 'ml' ? 0.001 : 1) * 0.03
-            }
-            return sum
-          }, 0)
-          const newOriginalGravity = newTotalWeight > 0
-            ? parseFloat((1 + (totalGravity / newTotalWeight) * 0.8).toFixed(3))
-            : batch?.originalGravity || 0
+          if (hasIngredientChange) {
+            newTotalWeight = newIngredients.reduce((sum, ing) => {
+              const factor = ing.unit === 'g' || ing.unit === 'ml' ? 0.001 : 1
+              return sum + ing.amount * factor
+            }, 0)
+
+            const totalGravity = newIngredients.reduce((sum, ing) => {
+              if (ing.name.includes('麦芽')) {
+                return sum + ing.amount * (ing.unit === 'g' || ing.unit === 'ml' ? 0.001 : 1) * 0.03
+              }
+              return sum
+            }, 0)
+            newOriginalGravity = newTotalWeight > 0
+              ? parseFloat((1 + (totalGravity / newTotalWeight) * 0.8).toFixed(3))
+              : batch?.originalGravity || 0
+          }
 
           const changedFields = changeLogs.map((c) =>
             c.fieldName === 'ingredients' ? '原料明细' : c.fieldName
@@ -288,19 +294,21 @@ export const useBreweryStore = create<BreweryState>()(
             }
             get().createAlert(alert)
 
-            const { deviations, hasCritical } = getFeedingDeviations(
-              newIngredients,
-              feeding.recipeId,
-              get().recipes
-            )
-            if (deviations.length > 0 && hasCritical) {
-              get().createAlert({
-                batchId: feeding.batchId,
-                feedingId: id,
-                type: 'feeding_deviation',
-                level: 'critical',
-                message: `修改后投料偏差：${deviations.join('；')}`,
-              })
+            if (hasIngredientChange) {
+              const { deviations, hasCritical } = getFeedingDeviations(
+                newIngredients,
+                feeding.recipeId,
+                get().recipes
+              )
+              if (deviations.length > 0 && hasCritical) {
+                get().createAlert({
+                  batchId: feeding.batchId,
+                  feedingId: id,
+                  type: 'feeding_deviation',
+                  level: 'critical',
+                  message: `修改后投料偏差：${deviations.join('；')}`,
+                })
+              }
             }
           }
 
@@ -315,12 +323,14 @@ export const useBreweryStore = create<BreweryState>()(
             batches: batch
               ? state.batches.map((b) =>
                   b.id === feeding.batchId
-                    ? {
-                        ...b,
-                        originalGravity: newOriginalGravity,
-                        gravity: newOriginalGravity,
-                        lastStatusUpdate: now,
-                      }
+                    ? hasIngredientChange
+                      ? {
+                          ...b,
+                          originalGravity: newOriginalGravity,
+                          gravity: newOriginalGravity,
+                          lastStatusUpdate: now,
+                        }
+                      : { ...b, lastStatusUpdate: now }
                     : b
                 )
               : state.batches,
