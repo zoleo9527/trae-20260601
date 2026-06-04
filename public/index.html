@@ -1,0 +1,1287 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>中药煎药房管理系统</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: #f0f2f5;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #2c5f2d 0%, #4a7c59 100%);
+            color: white;
+            padding: 20px 30px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 12px rgba(44, 95, 45, 0.2);
+        }
+
+        .header h1 {
+            font-size: 28px;
+            margin-bottom: 10px;
+        }
+
+        .header .user-info {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .login-section {
+            max-width: 400px;
+            margin: 100px auto;
+            background: white;
+            padding: 40px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+        }
+
+        .login-section h2 {
+            text-align: center;
+            color: #2c5f2d;
+            margin-bottom: 30px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            color: #555;
+        }
+
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 12px 16px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: #4a7c59;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #2c5f2d 0%, #4a7c59 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(44, 95, 45, 0.3);
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+
+        .btn-danger {
+            background: #dc3545;
+            color: white;
+        }
+
+        .btn-warning {
+            background: #ffc107;
+            color: #333;
+        }
+
+        .btn-success {
+            background: #28a745;
+            color: white;
+        }
+
+        .btn-info {
+            background: #17a2b8;
+            color: white;
+        }
+
+        .btn-sm {
+            padding: 6px 12px;
+            font-size: 12px;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+            transition: transform 0.3s;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-4px);
+        }
+
+        .stat-card .label {
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 8px;
+        }
+
+        .stat-card .value {
+            font-size: 32px;
+            font-weight: 700;
+            color: #2c5f2d;
+        }
+
+        .stat-card.warning .value {
+            color: #ffc107;
+        }
+
+        .stat-card.danger .value {
+            color: #dc3545;
+        }
+
+        .stat-card.info .value {
+            color: #17a2b8;
+        }
+
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        @media (max-width: 900px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .panel {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        }
+
+        .panel h3 {
+            font-size: 18px;
+            color: #2c5f2d;
+            margin-bottom: 16px;
+            padding-bottom: 12px;
+            border-bottom: 2px solid #f0f2f5;
+        }
+
+        .task-list, .activity-list {
+            list-style: none;
+        }
+
+        .task-item {
+            padding: 16px;
+            border-radius: 8px;
+            margin-bottom: 12px;
+            background: #f8f9fa;
+            border-left: 4px solid #4a7c59;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .task-item:hover {
+            background: #e9ecef;
+        }
+
+        .task-item.risk-high {
+            border-left-color: #dc3545;
+            background: #fff5f5;
+        }
+
+        .task-item.risk-caution {
+            border-left-color: #ffc107;
+            background: #fffbf0;
+        }
+
+        .task-item.supplement {
+            border-left-color: #17a2b8;
+            background: #e8f8fa;
+        }
+
+        .task-item.rejected {
+            border-left-color: #6c757d;
+            background: #f1f3f5;
+        }
+
+        .task-title {
+            font-weight: 600;
+            margin-bottom: 6px;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .task-meta {
+            font-size: 12px;
+            color: #666;
+        }
+
+        .risk-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 500;
+        }
+
+        .risk-normal {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .risk-caution {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .risk-high {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .activity-item {
+            padding: 12px 0;
+            border-bottom: 1px solid #f0f2f5;
+        }
+
+        .activity-item:last-child {
+            border-bottom: none;
+        }
+
+        .activity-time {
+            font-size: 11px;
+            color: #999;
+            margin-bottom: 4px;
+        }
+
+        .activity-text {
+            font-size: 13px;
+            color: #555;
+        }
+
+        .activity-text strong {
+            color: #2c5f2d;
+        }
+
+        .table-container {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+            margin-bottom: 20px;
+        }
+
+        .table-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+
+        .table-header h3 {
+            font-size: 18px;
+            color: #2c5f2d;
+        }
+
+        .filters {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .filters select,
+        .filters input {
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 13px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #f0f2f5;
+        }
+
+        th {
+            background: #f8f9fa;
+            font-weight: 600;
+            color: #555;
+            font-size: 13px;
+        }
+
+        tr:hover {
+            background: #f8f9fa;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 500;
+        }
+
+        .status-PENDING_RECEPTION {
+            background: #cce5ff;
+            color: #004085;
+        }
+
+        .status-PENDING_REVIEW {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .status-SUPPLEMENT_REQUIRED {
+            background: #d1ecf1;
+            color: #0c5460;
+        }
+
+        .status-REVIEW_REJECTED {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .status-REVIEW_PASSED {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .status-DISPENSING {
+            background: #e2e3e5;
+            color: #383d41;
+        }
+
+        .status-DISPENSED {
+            background: #f3e5f5;
+            color: #4a148c;
+        }
+
+        .pagination {
+            display: flex;
+            justify-content: center;
+            gap: 8px;
+            margin-top: 20px;
+        }
+
+        .pagination button {
+            padding: 8px 14px;
+            border: 1px solid #ddd;
+            background: white;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .pagination button:hover {
+            background: #f0f2f5;
+        }
+
+        .pagination button.active {
+            background: #4a7c59;
+            color: white;
+            border-color: #4a7c59;
+        }
+
+        .pagination button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            max-width: 700px;
+            width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #f0f2f5;
+        }
+
+        .modal-header h3 {
+            color: #2c5f2d;
+            font-size: 20px;
+        }
+
+        .close-btn {
+            font-size: 28px;
+            color: #999;
+            cursor: pointer;
+            border: none;
+            background: none;
+        }
+
+        .modal-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+            justify-content: flex-end;
+        }
+
+        .detail-section {
+            margin-bottom: 20px;
+        }
+
+        .detail-section h4 {
+            font-size: 16px;
+            color: #333;
+            margin-bottom: 12px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid #eee;
+        }
+
+        .detail-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+
+        .detail-item {
+            font-size: 14px;
+        }
+
+        .detail-item label {
+            color: #666;
+            font-weight: 500;
+        }
+
+        .medicine-list {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 12px;
+        }
+
+        .medicine-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid #e9ecef;
+        }
+
+        .medicine-item:last-child {
+            border-bottom: none;
+        }
+
+        .timeline {
+            position: relative;
+            padding-left: 30px;
+        }
+
+        .timeline::before {
+            content: '';
+            position: absolute;
+            left: 8px;
+            top: 0;
+            bottom: 0;
+            width: 2px;
+            background: #ddd;
+        }
+
+        .timeline-item {
+            position: relative;
+            margin-bottom: 16px;
+        }
+
+        .timeline-item::before {
+            content: '';
+            position: absolute;
+            left: -26px;
+            top: 4px;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #4a7c59;
+            border: 2px solid white;
+            box-shadow: 0 0 0 2px #4a7c59;
+        }
+
+        .timeline-time {
+            font-size: 12px;
+            color: #999;
+        }
+
+        .timeline-content {
+            font-size: 14px;
+            color: #555;
+        }
+
+        .timeline-content strong {
+            color: #333;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .user-select {
+            margin-top: 10px;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+
+        .user-select p {
+            font-size: 13px;
+            color: #666;
+            margin-bottom: 8px;
+        }
+
+        .user-buttons {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+
+        .user-buttons button {
+            padding: 6px 12px;
+            font-size: 12px;
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .user-buttons button:hover {
+            background: #4a7c59;
+            color: white;
+            border-color: #4a7c59;
+        }
+
+        .nav-tabs {
+            display: flex;
+            gap: 4px;
+            margin-bottom: 20px;
+            background: white;
+            padding: 4px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        }
+
+        .nav-tab {
+            padding: 10px 20px;
+            border: none;
+            background: transparent;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            color: #666;
+            transition: all 0.2s;
+        }
+
+        .nav-tab:hover {
+            background: #f0f2f5;
+        }
+
+        .nav-tab.active {
+            background: #4a7c59;
+            color: white;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #999;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div id="loginView" class="login-section">
+            <h2>🍃 中药煎药房管理系统</h2>
+            <form id="loginForm">
+                <div class="form-group">
+                    <label>用户名</label>
+                    <input type="text" id="username" value="admin" required>
+                </div>
+                <div class="form-group">
+                    <label>密码</label>
+                    <input type="password" id="password" value="123456" required>
+                </div>
+                <button type="submit" class="btn btn-primary" style="width: 100%;">登录</button>
+            </form>
+            <div class="user-select">
+                <p>快速选择用户（密码均为 123456）：</p>
+                <div class="user-buttons">
+                    <button onclick="selectUser('admin')">管理员</button>
+                    <button onclick="selectUser('receptionist')">接待员</button>
+                    <button onclick="selectUser('pharmacist')">审方药师</button>
+                    <button onclick="selectUser('dispenser')">煎药员</button>
+                    <button onclick="selectUser('courier')">配送客服</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="mainView" class="hidden">
+            <div class="header">
+                <h1>🍃 中药煎药房管理系统</h1>
+                <div class="user-info">
+                    <div>
+                        <span id="userName"></span>
+                        <span class="status-badge" id="userRole"></span>
+                    </div>
+                    <button class="btn btn-secondary btn-sm" onclick="logout()">退出登录</button>
+                </div>
+            </div>
+
+            <div class="nav-tabs">
+                <button class="nav-tab active" onclick="switchTab('dashboard')">工作台</button>
+                <button class="nav-tab" onclick="switchTab('prescriptions')">处方管理</button>
+            </div>
+
+            <div id="dashboardTab">
+                <div class="stats-grid" id="statsGrid"></div>
+
+                <div class="main-content">
+                    <div class="panel">
+                        <h3>📋 我的待办</h3>
+                        <ul class="task-list" id="taskList"></ul>
+                    </div>
+                    <div class="panel">
+                        <h3>📝 最近变更</h3>
+                        <ul class="activity-list" id="activityList"></ul>
+                    </div>
+                </div>
+            </div>
+
+            <div id="prescriptionsTab" class="hidden">
+                <div class="table-container">
+                    <div class="table-header">
+                        <h3>处方列表</h3>
+                        <div class="filters">
+                            <select id="filterStatus" onchange="loadPrescriptions()">
+                                <option value="">全部状态</option>
+                                <option value="PENDING_RECEPTION">待接收</option>
+                                <option value="PENDING_REVIEW">待审方</option>
+                                <option value="SUPPLEMENT_REQUIRED">待补录</option>
+                                <option value="REVIEW_REJECTED">已驳回</option>
+                                <option value="REVIEW_PASSED">审方通过</option>
+                            </select>
+                            <select id="filterRisk" onchange="loadPrescriptions()">
+                                <option value="">全部风险</option>
+                                <option value="NORMAL">正常</option>
+                                <option value="CAUTION">注意</option>
+                                <option value="HIGH_RISK">高风险</option>
+                            </select>
+                            <input type="text" id="searchInput" placeholder="搜索处方号/患者/医生..." onchange="loadPrescriptions()">
+                        </div>
+                    </div>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>处方号</th>
+                                <th>患者</th>
+                                <th>诊断</th>
+                                <th>科室/医生</th>
+                                <th>风险</th>
+                                <th>状态</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="prescriptionTable"></tbody>
+                    </table>
+                    <div class="pagination" id="pagination"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal" id="detailModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>处方详情</h3>
+                <button class="close-btn" onclick="closeModal()">&times;</button>
+            </div>
+            <div id="modalBody"></div>
+        </div>
+    </div>
+
+    <script>
+        let token = localStorage.getItem('token');
+        let currentUser = null;
+        let currentPage = 1;
+        let currentTab = 'dashboard';
+
+        const API_BASE = '/api';
+
+        const statusLabels = {
+            PENDING_RECEPTION: '待接收',
+            RECEIVED: '已接收',
+            PENDING_REVIEW: '待审方',
+            REVIEW_PASSED: '审方通过',
+            REVIEW_REJECTED: '已驳回',
+            SUPPLEMENT_REQUIRED: '待补录',
+            DISPENSING: '煎药中',
+            DISPENSED: '待配送',
+            SHIPPED: '配送中',
+            DELIVERED: '已送达',
+            CANCELLED: '已取消'
+        };
+
+        const riskLabels = {
+            NORMAL: '正常',
+            CAUTION: '注意',
+            HIGH_RISK: '高风险'
+        };
+
+        const roleLabels = {
+            ADMIN: '管理员',
+            RECEPTIONIST: '接待员',
+            PHARMACIST: '审方药师',
+            DISPENSER: '煎药员',
+            COURIER: '配送客服'
+        };
+
+        async function request(url, options = {}) {
+            const headers = {
+                'Content-Type': 'application/json',
+                ...options.headers
+            };
+            if (token) {
+                headers['Authorization'] = `Bearer ${token}`;
+            }
+            try {
+                const res = await fetch(API_BASE + url, { ...options, headers });
+                if (res.status === 401) {
+                    logout();
+                    return null;
+                }
+                return await res.json();
+            } catch (e) {
+                console.error(e);
+                return null;
+            }
+        }
+
+        function selectUser(username) {
+            document.getElementById('username').value = username;
+            document.getElementById('password').value = '123456';
+        }
+
+        async function login(e) {
+            e.preventDefault();
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            
+            const res = await request('/auth/login', {
+                method: 'POST',
+                body: JSON.stringify({ username, password })
+            });
+
+            if (res && res.token) {
+                token = res.token;
+                currentUser = res.user;
+                localStorage.setItem('token', token);
+                showMainView();
+            } else {
+                alert('登录失败，请检查用户名和密码');
+            }
+        }
+
+        function logout() {
+            token = null;
+            currentUser = null;
+            localStorage.removeItem('token');
+            document.getElementById('loginView').classList.remove('hidden');
+            document.getElementById('mainView').classList.add('hidden');
+        }
+
+        async function checkAuth() {
+            if (!token) return false;
+            const res = await request('/auth/me');
+            if (res) {
+                currentUser = res;
+                return true;
+            }
+            return false;
+        }
+
+        async function showMainView() {
+            document.getElementById('loginView').classList.add('hidden');
+            document.getElementById('mainView').classList.remove('hidden');
+            document.getElementById('userName').textContent = currentUser.name;
+            document.getElementById('userRole').textContent = roleLabels[currentUser.role];
+            document.getElementById('userRole').className = 'status-badge';
+            
+            loadDashboard();
+        }
+
+        function switchTab(tab) {
+            currentTab = tab;
+            document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+            event.target.classList.add('active');
+            
+            if (tab === 'dashboard') {
+                document.getElementById('dashboardTab').classList.remove('hidden');
+                document.getElementById('prescriptionsTab').classList.add('hidden');
+                loadDashboard();
+            } else {
+                document.getElementById('dashboardTab').classList.add('hidden');
+                document.getElementById('prescriptionsTab').classList.remove('hidden');
+                loadPrescriptions();
+            }
+        }
+
+        async function loadDashboard() {
+            const [stats, tasks] = await Promise.all([
+                request('/dashboard/stats'),
+                request('/dashboard/my-tasks')
+            ]);
+
+            if (stats) {
+                const statsGrid = document.getElementById('statsGrid');
+                statsGrid.innerHTML = `
+                    <div class="stat-card">
+                        <div class="label">待处理总数</div>
+                        <div class="value">${stats.totalCount}</div>
+                    </div>
+                    <div class="stat-card info">
+                        <div class="label">待接收</div>
+                        <div class="value">${stats.pendingReception}</div>
+                    </div>
+                    <div class="stat-card warning">
+                        <div class="label">待审方</div>
+                        <div class="value">${stats.pendingReview}</div>
+                    </div>
+                    <div class="stat-card info">
+                        <div class="label">待补录</div>
+                        <div class="value">${stats.supplementRequired}</div>
+                    </div>
+                    <div class="stat-card danger">
+                        <div class="label">已驳回</div>
+                        <div class="value">${stats.reviewRejected}</div>
+                    </div>
+                    <div class="stat-card danger">
+                        <div class="label">高风险</div>
+                        <div class="value">${stats.highRisk}</div>
+                    </div>
+                `;
+
+                const activityList = document.getElementById('activityList');
+                activityList.innerHTML = stats.recentChanges.map(a => `
+                    <li class="activity-item">
+                        <div class="activity-time">${formatTime(a.createdAt)}</div>
+                        <div class="activity-text">
+                            <strong>${a.prescription.prescriptionNo}</strong> - ${a.prescription.patient.name}
+                            <br>${a.remarks} - ${a.operator?.name || '系统'}
+                        </div>
+                    </li>
+                `).join('');
+            }
+
+            if (tasks && tasks.length > 0) {
+                const taskList = document.getElementById('taskList');
+                taskList.innerHTML = tasks.map(t => {
+                    let riskClass = '';
+                    if (t.riskLevel === 'HIGH_RISK') riskClass = 'risk-high';
+                    else if (t.riskLevel === 'CAUTION') riskClass = 'risk-caution';
+                    if (t.status === 'SUPPLEMENT_REQUIRED') riskClass = 'supplement';
+                    if (t.status === 'REVIEW_REJECTED') riskClass = 'rejected';
+
+                    return `
+                        <li class="task-item ${riskClass}" onclick="showDetail('${t.id}')">
+                            <div class="task-title">
+                                <span>${t.prescriptionNo} - ${t.patient.name}</span>
+                                <span class="risk-badge risk-${t.riskLevel.toLowerCase()}">${riskLabels[t.riskLevel]}</span>
+                            </div>
+                            <div class="task-meta">
+                                ${t.diagnosis} | ${t.doctor} | 
+                                <span class="status-badge status-${t.status}">${statusLabels[t.status]}</span>
+                            </div>
+                        </li>
+                    `;
+                }).join('');
+            } else {
+                document.getElementById('taskList').innerHTML = '<li class="loading">暂无待办任务</li>';
+            }
+        }
+
+        async function loadPrescriptions() {
+            const status = document.getElementById('filterStatus').value;
+            const riskLevel = document.getElementById('filterRisk').value;
+            const search = document.getElementById('searchInput').value;
+
+            const params = new URLSearchParams({
+                page: currentPage,
+                limit: 10
+            });
+            if (status) params.append('status', status);
+            if (riskLevel) params.append('riskLevel', riskLevel);
+            if (search) params.append('search', search);
+
+            const res = await request(`/prescriptions?${params.toString()}`);
+            
+            if (res) {
+                const tbody = document.getElementById('prescriptionTable');
+                tbody.innerHTML = res.data.map(p => `
+                    <tr>
+                        <td><strong>${p.prescriptionNo}</strong></td>
+                        <td>${p.patient.name}</td>
+                        <td>${p.diagnosis}</td>
+                        <td>${p.department} / ${p.doctor}</td>
+                        <td><span class="risk-badge risk-${p.riskLevel.toLowerCase()}">${riskLabels[p.riskLevel]}</span></td>
+                        <td><span class="status-badge status-${p.status}">${statusLabels[p.status]}</span></td>
+                        <td>
+                            <button class="btn btn-info btn-sm" onclick="showDetail('${p.id}')">查看</button>
+                            ${getActionButtons(p)}
+                        </td>
+                    </tr>
+                `).join('');
+
+                const pagination = document.getElementById('pagination');
+                const totalPages = res.pagination.totalPages;
+                let html = `<button onclick="changePage(${currentPage - 1})" ${currentPage === 1 ? 'disabled' : ''}>上一页</button>`;
+                for (let i = 1; i <= totalPages; i++) {
+                    html += `<button onclick="changePage(${i})" class="${i === currentPage ? 'active' : ''}">${i}</button>`;
+                }
+                html += `<button onclick="changePage(${currentPage + 1})" ${currentPage === totalPages ? 'disabled' : ''}>下一页</button>`;
+                pagination.innerHTML = html;
+            }
+        }
+
+        function getActionButtons(prescription) {
+            const role = currentUser.role;
+            let buttons = '';
+
+            if ((role === 'RECEPTIONIST' || role === 'ADMIN') && prescription.status === 'PENDING_RECEPTION') {
+                buttons += `<button class="btn btn-success btn-sm" onclick="receivePrescription('${prescription.id}')">接收</button>`;
+            }
+
+            if ((role === 'RECEPTIONIST' || role === 'ADMIN') && prescription.status === 'SUPPLEMENT_REQUIRED') {
+                buttons += `<button class="btn btn-info btn-sm" onclick="showSupplementModal('${prescription.id}')">补录</button>`;
+            }
+
+            if ((role === 'PHARMACIST' || role === 'ADMIN') && prescription.status === 'PENDING_REVIEW') {
+                buttons += `<button class="btn btn-success btn-sm" onclick="showReviewModal('${prescription.id}')">审方</button>`;
+            }
+
+            return buttons;
+        }
+
+        async function receivePrescription(id) {
+            if (!confirm('确认接收该处方？')) return;
+            await request(`/prescriptions/${id}/receive`, { method: 'POST', body: '{}' });
+            loadPrescriptions();
+            loadDashboard();
+        }
+
+        async function showDetail(id) {
+            const prescription = await request(`/prescriptions/${id}`);
+            if (!prescription) return;
+
+            const modal = document.getElementById('detailModal');
+            const body = document.getElementById('modalBody');
+
+            body.innerHTML = `
+                <div class="detail-section">
+                    <h4>基本信息</h4>
+                    <div class="detail-grid">
+                        <div class="detail-item"><label>处方号：</label>${prescription.prescriptionNo}</div>
+                        <div class="detail-item"><label>状态：</label><span class="status-badge status-${prescription.status}">${statusLabels[prescription.status]}</span></div>
+                        <div class="detail-item"><label>患者：</label>${prescription.patient.name}</div>
+                        <div class="detail-item"><label>性别/年龄：</label>${prescription.patient.gender || '-'} / ${prescription.patient.age || '-'}岁</div>
+                        <div class="detail-item"><label>科室：</label>${prescription.department}</div>
+                        <div class="detail-item"><label>医生：</label>${prescription.doctor}</div>
+                        <div class="detail-item"><label>诊断：</label>${prescription.diagnosis}</div>
+                        <div class="detail-item"><label>风险等级：</label><span class="risk-badge risk-${prescription.riskLevel.toLowerCase()}">${riskLabels[prescription.riskLevel]}</span></div>
+                        <div class="detail-item"><label>剂数：</label>${prescription.quantity}剂</div>
+                        <div class="detail-item"><label>接收人：</label>${prescription.receiver?.name || '-'}</div>
+                    </div>
+                    ${prescription.riskNotes ? `<div class="detail-item" style="margin-top:10px;color:#dc3545;"><label>风险提示：</label>${prescription.riskNotes}</div>` : ''}
+                </div>
+
+                <div class="detail-section">
+                    <h4>药品明细</h4>
+                    <div class="medicine-list">
+                        ${prescription.medicines.map(m => `
+                            <div class="medicine-item">
+                                <span>${m.name}</span>
+                                <span>${m.dosage} ${m.note ? `(${m.note})` : ''}</span>
+                            </div>
+                        `).join('')}
+                    </div>
+                    <div style="margin-top:12px;font-size:14px;"><strong>用法：</strong>${prescription.dosage}</div>
+                </div>
+
+                ${prescription.supplements && prescription.supplements.length > 0 ? `
+                <div class="detail-section">
+                    <h4>补录信息</h4>
+                    ${prescription.supplements.map(s => `
+                        <div style="padding:12px;background:#f8f9fa;border-radius:8px;margin-bottom:10px;">
+                            <div style="font-weight:500;margin-bottom:8px;">
+                                补录要求 (${s.requester.name} - ${formatTime(s.createdAt)})
+                            </div>
+                            <div style="color:#666;font-size:13px;">${s.requirements.notes || '需要补充相关信息'}</div>
+                            ${s.isCompleted ? `
+                                <div style="margin-top:10px;padding-top:10px;border-top:1px solid #ddd;">
+                                    <div style="font-weight:500;margin-bottom:4px;">补录内容 (${s.supplementor?.name || '-'})</div>
+                                    <div style="color:#333;">${JSON.stringify(s.supplementContent)}</div>
+                                </div>
+                            ` : ''}
+                        </div>
+                    `).join('')}
+                </div>
+                ` : ''}
+
+                ${prescription.reviews && prescription.reviews.length > 0 ? `
+                <div class="detail-section">
+                    <h4>审方记录</h4>
+                    ${prescription.reviews.map(r => `
+                        <div style="padding:12px;background:#f8f9fa;border-radius:8px;margin-bottom:10px;">
+                            <div style="display:flex;justify-content:space-between;margin-bottom:8px;">
+                                <span style="font-weight:500;">${r.reviewer.name}</span>
+                                <span class="status-badge status-${r.action === 'APPROVE' ? 'REVIEW_PASSED' : r.action === 'REJECT' ? 'REVIEW_REJECTED' : 'SUPPLEMENT_REQUIRED'}">
+                                    ${r.action === 'APPROVE' ? '通过' : r.action === 'REJECT' ? '驳回' : '要求补录'}
+                                </span>
+                            </div>
+                            <div style="color:#666;font-size:13px;">${r.reviewNotes || '无'}</div>
+                            <div style="font-size:11px;color:#999;margin-top:6px;">${formatTime(r.reviewedAt)}</div>
+                        </div>
+                    `).join('')}
+                </div>
+                ` : ''}
+
+                <div class="detail-section">
+                    <h4>状态流转</h4>
+                    <div class="timeline">
+                        ${prescription.statusHistory.map(h => `
+                            <div class="timeline-item">
+                                <div class="timeline-time">${formatTime(h.createdAt)}</div>
+                                <div class="timeline-content">
+                                    <strong>${statusLabels[h.toStatus]}</strong>
+                                    ${h.fromStatus ? `← ${statusLabels[h.fromStatus]}` : ''}
+                                    <br>
+                                    <span style="color:#999;">${h.remarks} - ${h.operator?.name || '系统'}</span>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+
+                <div class="modal-actions">
+                    ${getActionButtons(prescription)}
+                    <button class="btn btn-secondary" onclick="closeModal()">关闭</button>
+                </div>
+            `;
+
+            modal.classList.add('active');
+        }
+
+        function showReviewModal(id) {
+            const modal = document.getElementById('detailModal');
+            const body = document.getElementById('modalBody');
+
+            body.innerHTML = `
+                <div class="detail-section">
+                    <h4>审方复核</h4>
+                    <div class="form-group">
+                        <label>审方结果</label>
+                        <select id="reviewAction">
+                            <option value="APPROVE">通过</option>
+                            <option value="REQUEST_SUPPLEMENT">要求补录</option>
+                            <option value="REJECT">驳回</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>审方意见</label>
+                        <textarea id="reviewNotes" rows="4" placeholder="请输入审方意见..."></textarea>
+                    </div>
+                    <div id="supplementSection" class="hidden">
+                        <div class="form-group">
+                            <label>补录要求</label>
+                            <textarea id="supplementRequirements" rows="3" placeholder="请说明需要补录的内容..."></textarea>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-actions">
+                    <button class="btn btn-primary" onclick="submitReview('${id}')">提交</button>
+                    <button class="btn btn-secondary" onclick="closeModal()">取消</button>
+                </div>
+            `;
+
+            document.getElementById('reviewAction').onchange = function() {
+                const supplementSection = document.getElementById('supplementSection');
+                if (this.value === 'REQUEST_SUPPLEMENT') {
+                    supplementSection.classList.remove('hidden');
+                } else {
+                    supplementSection.classList.add('hidden');
+                }
+            };
+
+            modal.classList.add('active');
+        }
+
+        async function submitReview(id) {
+            const action = document.getElementById('reviewAction').value;
+            const reviewNotes = document.getElementById('reviewNotes').value;
+            const supplementRequirements = document.getElementById('supplementRequirements')?.value;
+
+            await request(`/reviews/${id}`, {
+                method: 'POST',
+                body: JSON.stringify({
+                    action,
+                    reviewNotes,
+                    supplementRequirements: supplementRequirements ? { notes: supplementRequirements } : undefined
+                })
+            });
+
+            closeModal();
+            loadPrescriptions();
+            loadDashboard();
+            alert('审方完成');
+        }
+
+        function showSupplementModal(id) {
+            const modal = document.getElementById('detailModal');
+            const body = document.getElementById('modalBody');
+
+            body.innerHTML = `
+                <div class="detail-section">
+                    <h4>补录信息</h4>
+                    <div class="form-group">
+                        <label>补录内容</label>
+                        <textarea id="supplementContent" rows="6" placeholder="请输入补录内容..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-actions">
+                    <button class="btn btn-primary" onclick="submitSupplement('${id}')">提交</button>
+                    <button class="btn btn-secondary" onclick="closeModal()">取消</button>
+                </div>
+            `;
+
+            modal.classList.add('active');
+        }
+
+        async function submitSupplement(id) {
+            const supplementContent = document.getElementById('supplementContent').value;
+            
+            const prescription = await request(`/prescriptions/${id}`);
+            const supplementId = prescription.supplements?.find(s => !s.isCompleted)?.id;
+
+            if (!supplementId) {
+                alert('未找到待补录记录');
+                return;
+            }
+
+            await request(`/prescriptions/${id}/supplement`, {
+                method: 'POST',
+                body: JSON.stringify({
+                    supplementId,
+                    supplementContent: { content: supplementContent }
+                })
+            });
+
+            closeModal();
+            loadPrescriptions();
+            loadDashboard();
+            alert('补录完成，已重新提交审方');
+        }
+
+        function closeModal() {
+            document.getElementById('detailModal').classList.remove('active');
+        }
+
+        function changePage(page) {
+            currentPage = page;
+            loadPrescriptions();
+        }
+
+        function formatTime(dateStr) {
+            const date = new Date(dateStr);
+            return date.toLocaleString('zh-CN', {
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        }
+
+        document.getElementById('loginForm').addEventListener('submit', login);
+
+        checkAuth().then(authed => {
+            if (authed) {
+                showMainView();
+            }
+        });
+    </script>
+</body>
+</html>

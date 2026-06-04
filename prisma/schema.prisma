@@ -1,0 +1,104 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model User {
+  id           String    @id @default(cuid())
+  username     String    @unique
+  password     String
+  name         String
+  role         String
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  
+  receivedPrescriptions Prescription[] @relation("receiver")
+  reviews      Review[]  @relation("reviewer")
+  statusHistory StatusHistory[] @relation("operator")
+  requestedSupplements Supplement[] @relation("requester")
+  supplementedSupplements Supplement[] @relation("supplementor")
+}
+
+model Patient {
+  id           String    @id @default(cuid())
+  name         String
+  phone        String?
+  idCard       String?
+  address      String?
+  age          Int?
+  gender       String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  
+  prescriptions Prescription[]
+}
+
+model Prescription {
+  id           String    @id @default(cuid())
+  prescriptionNo String  @unique
+  patientId    String
+  patient      Patient   @relation(fields: [patientId], references: [id])
+  department   String
+  doctor       String
+  diagnosis    String
+  medicines    String
+  dosage       String
+  quantity     Int
+  riskLevel    String    @default("NORMAL")
+  riskNotes    String?
+  status       String    @default("PENDING_RECEPTION")
+  receiverId   String?
+  receiver     User?     @relation("receiver", fields: [receiverId], references: [id])
+  receivedAt   DateTime?
+  expressNo    String?
+  expressCompany String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  
+  reviews      Review[]
+  statusHistory StatusHistory[]
+  supplements  Supplement[]
+}
+
+model Review {
+  id           String    @id @default(cuid())
+  prescriptionId String
+  prescription Prescription @relation(fields: [prescriptionId], references: [id])
+  reviewerId   String
+  reviewer     User      @relation("reviewer", fields: [reviewerId], references: [id])
+  action       String
+  reviewNotes  String?
+  reviewedAt   DateTime  @default(now())
+  supplementRequirements String?
+}
+
+model StatusHistory {
+  id           String    @id @default(cuid())
+  prescriptionId String
+  prescription Prescription @relation(fields: [prescriptionId], references: [id])
+  fromStatus   String?
+  toStatus     String
+  operatorId   String?
+  operator     User?     @relation("operator", fields: [operatorId], references: [id])
+  remarks      String?
+  createdAt    DateTime  @default(now())
+}
+
+model Supplement {
+  id           String    @id @default(cuid())
+  prescriptionId String
+  prescription Prescription @relation(fields: [prescriptionId], references: [id])
+  requesterId  String
+  requester    User      @relation("requester", fields: [requesterId], references: [id])
+  requirements String
+  supplementContent String?
+  supplementorId String?
+  supplementor User?     @relation("supplementor", fields: [supplementorId], references: [id])
+  isCompleted  Boolean   @default(false)
+  createdAt    DateTime  @default(now())
+  completedAt  DateTime?
+}
