@@ -583,7 +583,7 @@
                 <div id="page-followups" class="page">
                     <div class="filter-bar">
                         <div class="filter-group"><label>回访阶段:</label>
-                            <select id="followupStage" onchange="loadFollowUps()">
+                            <select id="followupStage" onchange="onFollowupDropdownChange()">
                                 <option value="">全部</option>
                                 <option value="day1">术后24小时</option>
                                 <option value="day3">术后3天</option>
@@ -592,7 +592,7 @@
                             </select>
                         </div>
                         <div class="filter-group"><label>状态:</label>
-                            <select id="followupStatus" onchange="loadFollowUps()">
+                            <select id="followupStatus" onchange="onFollowupDropdownChange()">
                                 <option value="">全部</option>
                                 <option value="pending">待回访</option>
                                 <option value="completed">已完成</option>
@@ -850,7 +850,14 @@
 
         async function loadFollowUps() {
             const stage = document.getElementById('followupStage').value;
-            const status = document.getElementById('followupStatus').value;
+            let status = document.getElementById('followupStatus').value;
+            
+            if (followupQuickFilter === 'today') {
+                status = 'pending';
+            }
+            if (followupQuickFilter === 'discomfort') {
+                status = '';
+            }
             
             let url = `${API_BASE}/follow-ups?stage=${stage}&status=${status}&limit=100`;
             if (followupQuickFilter === 'discomfort') {
@@ -861,10 +868,7 @@
             
             if (followupQuickFilter === 'today') {
                 const today = new Date().toDateString();
-                data = data.filter(f => 
-                    new Date(f.follow_up_date).toDateString() === today && 
-                    f.status === 'pending'
-                );
+                data = data.filter(f => new Date(f.follow_up_date).toDateString() === today);
             }
 
             let html = '';
@@ -1323,6 +1327,23 @@
                 el.classList.remove('active');
             });
             element.classList.add('active');
+            
+            const statusSelect = document.getElementById('followupStatus');
+            if (filter === 'today') {
+                statusSelect.value = 'pending';
+            } else if (filter === 'discomfort') {
+                statusSelect.value = '';
+            }
+            
+            loadFollowUps();
+        }
+
+        function onFollowupDropdownChange() {
+            followupQuickFilter = 'all';
+            document.querySelectorAll('#page-followups .quick-filter').forEach(el => {
+                el.classList.remove('active');
+            });
+            document.querySelector('#page-followups .quick-filter').classList.add('active');
             loadFollowUps();
         }
 
