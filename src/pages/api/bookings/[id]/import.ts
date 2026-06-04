@@ -28,11 +28,18 @@ export default async function handler(
     try {
       const booking = await prisma.groupBooking.findUnique({
         where: { id: id as string },
+        include: {
+          _count: {
+            select: { personnel: true },
+          },
+        },
       });
 
       if (!booking) {
         return res.status(404).json({ error: '预约不存在' });
       }
+
+      const isSupplement = ['CONFIRMED', 'RESCHEDULED', 'SUPPLEMENTED'].includes(booking.status);
 
       const importRecord = await prisma.personnelImport.create({
         data: {
@@ -84,30 +91,42 @@ export default async function handler(
         },
       });
 
+      const totalPersonnelCount = booking._count.personnel + successCount;
+
       await prisma.groupBooking.update({
         where: { id: id as string },
         data: {
-          actualCount: {
-            increment: successCount,
-          },
+          actualCount: totalPersonnelCount,
+          ...(isSupplement
+            ? {
+                status: 'SUPPLEMENTED',
+                handledById: user.id,
+              }
+            : {}),
         },
       });
+
+      const timelineAction = isSupplement ? 'BOOKING_SUPPLEMENTED' : 'PERSONNEL_IMPORTED';
+      const timelineDesc = isSupplement
+        ? `补录 ${successCount} 名体检人员（失败 ${failCount} 人），累计 ${totalPersonnelCount} 人`
+        : `导入 ${successCount} 名体检人员，失败 ${failCount} 人`;
 
       await prisma.timeline.create({
         data: {
           bookingId: id as string,
           importId: importRecord.id,
-          action: 'PERSONNEL_IMPORTED',
-          description: `导入 ${successCount} 名体检人员，失败 ${failCount} 人`,
+          action: timelineAction,
+          description: timelineDesc,
           createdById: user.id,
         },
       });
 
-      res.status(200).json({ 
-        success: true, 
+      res.status(200).json({
+        success: true,
         importId: importRecord.id,
         successCount,
         failCount,
+        isSupplement,
       });
     } catch (error) {
       console.error(error);

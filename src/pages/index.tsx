@@ -17,11 +17,15 @@ interface HomeProps {
     createdBy: {
       name: string;
     };
+    handledBy?: {
+      name: string;
+    } | null;
   }>;
   stats: {
     total: number;
     pending: number;
     confirmed: number;
+    supplemented: number;
     completed: number;
   };
 }
@@ -50,7 +54,7 @@ export default function HomePage({ user, bookings, stats }: HomeProps) {
           </Link>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
           <div className="bg-white rounded-xl shadow-sm p-5 border border-gray-100">
             <div className="flex items-center">
               <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
@@ -97,6 +101,20 @@ export default function HomePage({ user, bookings, stats }: HomeProps) {
             <div className="flex items-center">
               <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
                 <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                </svg>
+              </div>
+              <div className="ml-4">
+                <p className="text-sm text-gray-500">已补录</p>
+                <p className="text-2xl font-bold text-gray-900">{stats.supplemented}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-xl shadow-sm p-5 border border-gray-100">
+            <div className="flex items-center">
+              <div className="w-12 h-12 bg-teal-100 rounded-lg flex items-center justify-center">
+                <svg className="w-6 h-6 text-teal-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
                 </svg>
               </div>
@@ -110,8 +128,8 @@ export default function HomePage({ user, bookings, stats }: HomeProps) {
 
         <div className="bg-white rounded-xl shadow-sm border border-gray-100">
           <div className="px-6 py-4 border-b border-gray-100">
-            <div className="flex items-center space-x-2">
-              {['ALL', 'PENDING', 'CONFIRMED', 'RESCHEDULED', 'REJECTED'].map((status) => (
+            <div className="flex items-center space-x-2 flex-wrap">
+              {['ALL', 'PENDING', 'CONFIRMED', 'SUPPLEMENTED', 'RESCHEDULED', 'REJECTED'].map((status) => (
                 <button
                   key={status}
                   onClick={() => setFilter(status)}
@@ -121,7 +139,7 @@ export default function HomePage({ user, bookings, stats }: HomeProps) {
                       : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                   }`}
                 >
-                  {status === 'ALL' ? '全部' : status === 'PENDING' ? '待审核' : status === 'CONFIRMED' ? '已确认' : status === 'RESCHEDULED' ? '已改期' : '已驳回'}
+                  {status === 'ALL' ? '全部' : status === 'PENDING' ? '待审核' : status === 'CONFIRMED' ? '已确认' : status === 'SUPPLEMENTED' ? '已补录' : status === 'RESCHEDULED' ? '已改期' : '已驳回'}
                 </button>
               ))}
             </div>
@@ -137,6 +155,7 @@ export default function HomePage({ user, bookings, stats }: HomeProps) {
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">人数</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">状态</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">创建人</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">处理人</th>
                   <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
                 </tr>
               </thead>
@@ -172,6 +191,9 @@ export default function HomePage({ user, bookings, stats }: HomeProps) {
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {booking.createdBy.name}
                     </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {booking.handledBy?.name || '-'}
+                    </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <Link
                         href={`/bookings/${booking.id}`}
@@ -184,7 +206,7 @@ export default function HomePage({ user, bookings, stats }: HomeProps) {
                 ))}
                 {filteredBookings.length === 0 && (
                   <tr>
-                    <td colSpan={7} className="px-6 py-12 text-center text-gray-500">
+                    <td colSpan={8} className="px-6 py-12 text-center text-gray-500">
                       暂无数据
                     </td>
                   </tr>
@@ -212,6 +234,9 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
       createdBy: {
         select: { name: true },
       },
+      handledBy: {
+        select: { name: true },
+      },
     },
     orderBy: { createdAt: 'desc' },
   });
@@ -220,6 +245,7 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
     total: bookings.length,
     pending: bookings.filter((b) => b.status === 'PENDING').length,
     confirmed: bookings.filter((b) => b.status === 'CONFIRMED').length,
+    supplemented: bookings.filter((b) => b.status === 'SUPPLEMENTED').length,
     completed: bookings.filter((b) => b.status === 'COMPLETED').length,
   };
 
