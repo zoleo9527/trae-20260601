@@ -138,7 +138,7 @@ export default function DiversionDetail() {
     setRejectReason('')
   }
 
-  const handleUpload = () => {
+  const handleUpload = (attachmentId?: string) => {
     const input = document.createElement('input')
     input.type = 'file'
     input.onchange = async (e) => {
@@ -149,7 +149,7 @@ export default function DiversionDetail() {
         const res = await fetch(`/api/diversions/${id}/attachments`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ fileType: '其他', fileName: file.name, operatorName }),
+          body: JSON.stringify({ fileName: file.name, operatorName, attachmentId }),
         })
         if (res.ok) {
           const updated = await fetch(`/api/diversions/${id}/attachments`).then((r) => r.json())
@@ -345,10 +345,10 @@ export default function DiversionDetail() {
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-sm font-semibold text-gray-700">附件</h3>
             <button
-              onClick={handleUpload}
+              onClick={() => handleUpload()}
               className="inline-flex items-center gap-1.5 text-xs text-primary hover:text-primary-light font-medium"
             >
-              <Upload className="w-3.5 h-3.5" /> 上传
+              <Upload className="w-3.5 h-3.5" /> 新增附件
             </button>
           </div>
           {attachments.length === 0 ? (
@@ -361,13 +361,27 @@ export default function DiversionDetail() {
                 <div key={att.id} className="flex items-center gap-2 p-2.5 rounded border border-warm-200 hover:bg-warm-50">
                   <FileText className="w-4 h-4 text-gray-400 shrink-0" />
                   <div className="flex-1 min-w-0">
-                    <span className="text-sm text-gray-700 truncate block">{att.fileName}</span>
-                    {att.uploadedAt && (
-                      <span className="text-[10px] text-gray-400">上传于 {new Date(att.uploadedAt).toLocaleString('zh-CN')}</span>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-sm text-gray-700 truncate">{att.fileName}</span>
+                      <span className="text-[10px] text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">{att.fileType}</span>
+                    </div>
+                    {att.uploadedAt ? (
+                      <span className="text-[10px] text-gray-400">
+                        {att.uploadedBy} 上传于 {new Date(att.uploadedAt).toLocaleString('zh-CN')}
+                      </span>
+                    ) : (
+                      <span className="text-[10px] text-gray-400">待上传</span>
                     )}
                   </div>
-                  {!att.fileUrl && (
-                    <span className="text-[10px] text-amber-500 bg-amber-50 px-1.5 py-0.5 rounded">待上传</span>
+                  {!att.fileUrl ? (
+                    <button
+                      onClick={() => handleUpload(att.id)}
+                      className="inline-flex items-center gap-1 text-[11px] text-primary hover:text-primary-light font-medium px-2 py-1 rounded border border-primary/30 hover:bg-primary/5"
+                    >
+                      <Upload className="w-3 h-3" /> 上传
+                    </button>
+                  ) : (
+                    <span className="text-[10px] text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded">已上传</span>
                   )}
                 </div>
               ))}

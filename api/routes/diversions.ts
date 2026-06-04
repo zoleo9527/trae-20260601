@@ -4,6 +4,7 @@ import {
   findDiversionLogs,
   findAttachments,
   findFirstPlaceholderAttachment,
+  findAttachmentById,
   addDiversionLog,
   addAttachment,
   updateAttachment,
@@ -230,9 +231,9 @@ router.post('/:id/attachments', (req: Request, res: Response): void => {
     return
   }
 
-  const { fileType, fileName, operatorName } = req.body
-  if (!fileType || !fileName) {
-    res.status(400).json({ error: 'fileType and fileName are required' })
+  const { fileType, fileName, operatorName, attachmentId } = req.body
+  if (!fileName) {
+    res.status(400).json({ error: 'fileName is required' })
     return
   }
 
@@ -241,28 +242,44 @@ router.post('/:id/attachments', (req: Request, res: Response): void => {
   const fileUrl = `/uploads/${Date.now()}_${fileName}`
 
   let attachment
-  const placeholder = findFirstPlaceholderAttachment(diversion.id)
+  let logDetail = ''
 
-  if (placeholder) {
-    attachment = updateAttachment(placeholder.id, {
-      fileName,
-      fileType,
+  if (attachmentId) {
+    const target = findAttachmentById(attachmentId)
+    if (!target || target.diversionId !== diversion.id) {
+      res.status(404).json({ error: 'Target attachment not found' })
+      return
+    }
+    attachment = updateAttachment(attachmentId, {
       fileUrl,
       uploadedAt: now,
       uploadedBy: uploader,
     })
+    logDetail = `上传附件：${target.fileName}（${target.fileType}）`
   } else {
-    attachment = addAttachment(
-      {
-        diversionId: diversion.id,
-        fileName,
-        fileType,
+    const placeholder = findFirstPlaceholderAttachment(diversion.id)
+    if (placeholder) {
+      attachment = updateAttachment(placeholder.id, {
         fileUrl,
         uploadedAt: now,
         uploadedBy: uploader,
-      },
-      uploader
-    )
+      })
+      logDetail = `上传附件：${placeholder.fileName}（${placeholder.fileType}）`
+    } else {
+      const finalFileType = fileType || '其他'
+      attachment = addAttachment(
+        {
+          diversionId: diversion.id,
+          fileName,
+          fileType: finalFileType,
+          fileUrl,
+          uploadedAt: now,
+          uploadedBy: uploader,
+        },
+        uploader
+      )
+      logDetail = `上传附件：${fileName}（${finalFileType}）`
+    }
   }
 
   addDiversionLog({
@@ -270,7 +287,7 @@ router.post('/:id/attachments', (req: Request, res: Response): void => {
     operatorRole: 'front_desk',
     operatorName: uploader,
     action: 'upload_attachment',
-    detail: `上传附件：${fileName}（${fileType}）`,
+    detail: logDetail,
   })
 
   res.status(201).json(attachment)

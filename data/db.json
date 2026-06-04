@@ -435,29 +435,29 @@
       "operatorRole": "front_desk",
       "operatorName": "测试前台",
       "action": "upload_attachment",
-      "detail": "上传附件：体检申请表_已上传.pdf（补检凭证）",
+      "detail": "上传附件：身份证复印件.jpg（身份材料）",
       "id": "dvl5009",
-      "createdAt": "2026-06-04T03:09:15.476Z"
+      "createdAt": "2026-06-04T03:35:08.522Z"
     }
   ],
   "attachments": [
     {
       "id": "att3001",
       "diversionId": "dv1001",
-      "fileName": "体检申请表_已上传.pdf",
+      "fileName": "体检申请表.pdf",
       "fileType": "补检凭证",
-      "fileUrl": "/uploads/1780542555475_体检申请表_已上传.pdf",
-      "uploadedAt": "2026-06-04T03:09:15.475Z",
-      "uploadedBy": "测试前台"
+      "fileUrl": null,
+      "uploadedAt": null,
+      "uploadedBy": null
     },
     {
       "id": "att3006",
       "diversionId": "dv1001",
       "fileName": "身份证复印件.jpg",
       "fileType": "身份材料",
-      "fileUrl": null,
-      "uploadedAt": null,
-      "uploadedBy": null
+      "fileUrl": "/uploads/1780544108521_身份证_扫描件.jpg",
+      "uploadedAt": "2026-06-04T03:35:08.521Z",
+      "uploadedBy": "测试前台"
     },
     {
       "id": "att3002",
@@ -557,8 +557,8 @@
       "patientName": "张伟",
       "itemName": "腹部B超",
       "requiredDept": "超声科",
-      "status": "reminded",
-      "remindedAt": "2026-06-04T03:10:37.900Z",
+      "status": "pending",
+      "remindedAt": null,
       "confirmedAt": null,
       "completedAt": null,
       "createdAt": "2026-06-04T08:35:00.000Z"
@@ -569,9 +569,9 @@
       "patientName": "李娜",
       "itemName": "甲状腺功能",
       "requiredDept": "检验科",
-      "status": "confirmed",
+      "status": "reminded",
       "remindedAt": "2026-06-04T09:20:00.000Z",
-      "confirmedAt": "2026-06-04T03:10:11.084Z",
+      "confirmedAt": null,
       "completedAt": null,
       "createdAt": "2026-06-04T08:50:00.000Z"
     },
@@ -792,24 +792,6 @@
       "action": "confirm",
       "detail": "科室医生确认动态心电图漏项，已安排补检",
       "createdAt": "2026-06-04T11:00:00.000Z"
-    },
-    {
-      "missedItemId": "mi4002",
-      "operatorRole": "doctor",
-      "operatorName": "测试医生",
-      "action": "confirm",
-      "detail": "科室医生确认甲状腺功能漏项，已安排补检",
-      "id": "mil5010",
-      "createdAt": "2026-06-04T03:10:11.085Z"
-    },
-    {
-      "missedItemId": "mi4001",
-      "operatorRole": "front_desk",
-      "operatorName": "测试前台",
-      "action": "remind",
-      "detail": "发送漏项提醒，通知患者补做腹部B超",
-      "id": "mil5011",
-      "createdAt": "2026-06-04T03:10:37.901Z"
     }
   ]
 }

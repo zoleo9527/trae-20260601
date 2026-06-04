@@ -235,6 +235,10 @@ export function findFirstPlaceholderAttachment(diversionId: string): Attachment 
   return getAttachments().find((a) => a.diversionId === diversionId && a.fileUrl === null)
 }
 
+export function findAttachmentById(id: string): Attachment | undefined {
+  return getAttachments().find((a) => a.id === id)
+}
+
 export function addDiversionLog(log: Omit<DiversionLog, 'id' | 'createdAt'>): DiversionLog {
   const logs = getDiversionLogs()
   const newLog: DiversionLog = {
