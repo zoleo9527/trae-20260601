@@ -11,7 +11,7 @@ import { mockSurgeries, mockExceptions, mockTodoItems, mockUsers } from '@/data/
 const getRestorationStatus = (surgery: Surgery): SurgeryStatus => {
   if (surgery.materialConsumption?.status === 'rejected') return 'in_progress';
   if (surgery.materialConsumption?.status === 'submitted') return 'verifying';
-  if (surgery.lensReservation?.status === 'rejected') return 'lens_pending';
+  if (surgery.lensReservation?.status === 'rejected') return 'exception';
   if (surgery.lensReservation?.status === 'confirmed') return 'lens_confirmed';
   if (surgery.lensReservation?.status === 'pending') return 'lens_pending';
   return 'applying';

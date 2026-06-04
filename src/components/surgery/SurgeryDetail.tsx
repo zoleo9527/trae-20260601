@@ -117,8 +117,19 @@ export default function SurgeryDetail({ surgeryId, onClose }: Props) {
         return s.doctorName + ' (' + roleLabels.doctor + ')';
       case 'verifying':
         return (s.followupName || '待分配') + ' (' + roleLabels.followup + ')';
-      case 'exception':
+      case 'exception': {
+        const processing = s.exceptions.find((e) => e.status === 'processing');
+        if (processing?.handlerName) {
+          return processing.handlerName + ' (处理中)';
+        }
+        if (s.lensReservation?.status === 'rejected') {
+          return s.nurseName + ' (' + roleLabels.nurse + ')';
+        }
+        if (s.materialConsumption?.status === 'rejected') {
+          return s.nurseName + ' (' + roleLabels.nurse + ')';
+        }
         return '管理员 (' + roleLabels.admin + ')';
+      }
       case 'completed':
         return '已完成';
       default:
@@ -137,6 +148,16 @@ export default function SurgeryDetail({ surgeryId, onClose }: Props) {
       return '等待随访专员复核耗材核销数据';
     }
     if (s.status === 'exception') {
+      const processing = s.exceptions.find((e) => e.status === 'processing');
+      if (processing?.handlerName) {
+        return processing.handlerName + '正在处理此异常';
+      }
+      if (s.lensReservation?.status === 'rejected') {
+        return '晶体预留被退回：' + (s.lensReservation.rejectedReason || '请重新核对后提交');
+      }
+      if (s.materialConsumption?.status === 'rejected') {
+        return '核销被退回：' + (s.materialConsumption.rejectedReason || '请修正后重新提交');
+      }
       const activeException = s.exceptions.find((e) => e.status !== 'resolved');
       return activeException?.description || '存在异常待处理';
     }
@@ -242,21 +263,36 @@ export default function SurgeryDetail({ surgeryId, onClose }: Props) {
           </div>
         </div>
 
-        {surgery.exceptions.filter((e) => e.status !== 'resolved').length > 0 && (
-          <div className="p-4 border-b border-gray-100 bg-red-50 animate-pulse-fast">
-            <div className="flex items-center gap-2 text-red-700 mb-2">
-              <AlertTriangle className="w-4 h-4" />
-              <span className="font-medium">存在未处理异常</span>
-            </div>
-            {surgery.exceptions
-              .filter((e) => e.status !== 'resolved')
-              .map((e) => (
+        {(() => {
+          const unresolvedExceptions = surgery.exceptions.filter((e) => e.status !== 'resolved');
+          const lensRejected = surgery.lensReservation?.status === 'rejected' && !surgery.exceptions.some((e) => e.type === 'lens_mismatch' && e.status !== 'resolved');
+          const consumptionRejected = surgery.materialConsumption?.status === 'rejected' && !surgery.exceptions.some((e) => e.type === 'verification_rejected' && e.status !== 'resolved');
+          return (unresolvedExceptions.length > 0 || lensRejected || consumptionRejected) && (
+            <div className="p-4 border-b border-gray-100 bg-red-50 animate-pulse-fast">
+              <div className="flex items-center gap-2 text-red-700 mb-2">
+                <AlertTriangle className="w-4 h-4" />
+                <span className="font-medium">存在未处理异常</span>
+              </div>
+              {unresolvedExceptions.map((e) => (
                 <div key={e.id} className="text-sm text-red-600 bg-red-100/50 p-2 rounded">
-                  • {e.title}
+                  {e.status === 'processing' && e.handlerName
+                    ? `[${e.handlerName}处理中] ${e.title}`
+                    : e.title}
                 </div>
               ))}
-          </div>
-        )}
+              {lensRejected && (
+                <div className="text-sm text-red-600 bg-red-100/50 p-2 rounded">
+                  • 晶体预留被退回（待重新提交）
+                </div>
+              )}
+              {consumptionRejected && (
+                <div className="text-sm text-red-600 bg-red-100/50 p-2 rounded">
+                  • 耗材核销被退回（待重新提交）
+                </div>
+              )}
+            </div>
+          );
+        })()}
 
         <div className="border-b border-gray-200">
           <div className="flex">
