@@ -704,14 +704,30 @@ onMounted(() => {
               >
                 已错过计划回访时间
               </p>
-              <p
+              <div
                 v-if="followUp.status === 'cancelled'"
-                class="readonly-text cancelled-text"
+                class="cancelled-detail"
               >
-                已取消{{
-                  followUp.cancelReason ? "：" + followUp.cancelReason : ""
-                }}
-              </p>
+                <p class="cancelled-text">
+                  已取消{{
+                    followUp.cancelReason ? "：" + followUp.cancelReason : ""
+                  }}
+                </p>
+                <p class="cancelled-meta" v-if="followUp.cancelledBy">
+                  取消人：<span
+                    class="role-tag"
+                    :style="{
+                      color: staffRoleMap[followUp.cancelledBy.role].color,
+                    }"
+                  >
+                    {{ staffRoleMap[followUp.cancelledBy.role].label }}
+                  </span>
+                  {{ followUp.cancelledBy.name }}
+                  <template v-if="followUp.cancelledTime">
+                    · {{ formatDateTime(followUp.cancelledTime) }}
+                  </template>
+                </p>
+              </div>
             </div>
           </div>
         </div>
@@ -764,9 +780,10 @@ onMounted(() => {
                 {{ log.operatorName }}
               </div>
               <div v-if="log.oldValue && log.newValue" class="timeline-diff">
-                <span class="old-value">旧值：{{ log.oldValue }}</span>
+                <span class="diff-label">状态变更</span>
+                <span class="old-value">{{ log.oldValue }}</span>
                 <span class="arrow">→</span>
-                <span class="new-value">新值：{{ log.newValue }}</span>
+                <span class="new-value">{{ log.newValue }}</span>
               </div>
             </div>
           </div>
@@ -1452,6 +1469,18 @@ onMounted(() => {
   color: #6b7280;
 }
 
+.cancelled-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.cancelled-meta {
+  font-size: 12px;
+  color: #9ca3af;
+  margin: 0;
+}
+
 .return-alert {
   background: #fef2f2;
   border: 1px solid #fecaca;
@@ -1552,6 +1581,12 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+.diff-label {
+  color: #6b7280;
+  font-weight: 500;
+  margin-right: 4px;
 }
 
 .old-value {

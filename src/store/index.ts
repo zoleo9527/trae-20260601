@@ -638,8 +638,8 @@ export function completeFollowUp(params: CompleteFollowUpParams): ApiResponse<Fo
     followUpId: followUp.id,
     action: 'followup_complete',
     description: `${state.currentUser.name}完成了${followUpTypeMap[followUp.followUpType].label}回访记录`,
-    oldValue: oldStatus,
-    newValue: 'completed'
+    oldValue: followUpStatusMap[oldStatus].label,
+    newValue: followUpStatusMap['completed'].label
   })
 
   if (params.nextFollowUpTime) {
@@ -685,8 +685,8 @@ export function cancelFollowUp(params: CancelFollowUpParams): ApiResponse<Follow
     followUpId: followUp.id,
     action: 'followup_cancel',
     description: `${state.currentUser.name}取消了回访计划，原因：${params.reason}`,
-    oldValue: oldStatus,
-    newValue: 'cancelled'
+    oldValue: followUpStatusMap[oldStatus].label,
+    newValue: followUpStatusMap['cancelled'].label
   })
 
   return success(followUp, '回访已取消')
@@ -722,8 +722,8 @@ export function returnFollowUp(params: ReturnFollowUpParams): ApiResponse<Follow
     followUpId: followUp.id,
     action: 'followup_return',
     description: `${state.currentUser.name}退回了${followUpTypeMap[followUp.followUpType].label}回访记录，原因：${params.reason}`,
-    oldValue: oldStatus,
-    newValue: 'returned'
+    oldValue: followUpStatusMap[oldStatus].label,
+    newValue: followUpStatusMap['returned'].label
   })
 
   return success(followUp, '回访已退回，需重新处理')
