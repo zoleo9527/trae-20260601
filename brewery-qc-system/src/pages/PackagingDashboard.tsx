@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { FlaskConical, Clock, AlertTriangle, CheckCircle2, Search, Filter, Eye, Play, Check, MessageSquare, Download, CheckSquare } from 'lucide-react';
 import { Header } from '@/components/layout/Header';
@@ -36,7 +36,27 @@ export function PackagingDashboard() {
     return matchesStatus && matchesSearch;
   });
 
-  const selectableBatches = filteredBatches.filter((b) => b.currentStatus === 'TESTING');
+  const selectableIds = useMemo(() => {
+    const idSet = new Set<string>();
+    for (const b of filteredBatches) {
+      if (b.currentStatus === 'TESTING') idSet.add(b.id);
+    }
+    return idSet;
+  }, [filteredBatches]);
+
+  const validSelectedIds = useMemo(() => {
+    const valid = new Set<string>();
+    for (const id of selectedBatches) {
+      if (selectableIds.has(id)) valid.add(id);
+    }
+    return valid;
+  }, [selectedBatches, selectableIds]);
+
+  useEffect(() => {
+    if (validSelectedIds.size !== selectedBatches.size) {
+      setSelectedBatches(new Set(validSelectedIds));
+    }
+  }, [validSelectedIds, selectedBatches]);
 
   const handleViewDetail = (batchId: string) => {
     setSelectedBatchId(batchId);
@@ -50,7 +70,8 @@ export function PackagingDashboard() {
   };
 
   const handleBatchSelect = (batchId: string) => {
-    const newSelected = new Set(selectedBatches);
+    if (!selectableIds.has(batchId)) return;
+    const newSelected = new Set(validSelectedIds);
     if (newSelected.has(batchId)) {
       newSelected.delete(batchId);
     } else {
@@ -60,9 +81,7 @@ export function PackagingDashboard() {
   };
 
   const handleBatchSelectAll = () => {
-    const selectableIds = selectableBatches.map((b) => b.id);
-    const allSelected = selectableIds.every((id) => selectedBatches.has(id));
-    if (allSelected) {
+    if (validSelectedIds.size === selectableIds.size && selectableIds.size > 0) {
       setSelectedBatches(new Set());
     } else {
       setSelectedBatches(new Set(selectableIds));
@@ -70,16 +89,14 @@ export function PackagingDashboard() {
   };
 
   const handleBatchPass = () => {
-    const testingBatchIds = Array.from(selectedBatches).filter((id) =>
-      selectableBatches.some((b) => b.id === id)
-    );
+    const testingBatchIds = Array.from(validSelectedIds);
     if (testingBatchIds.length === 0) return;
     batchCompleteTesting(testingBatchIds, currentUser?.name || '王主管');
     setSelectedBatches(new Set());
   };
 
   const handleExportSelected = () => {
-    alert(`已导出 ${selectedBatches.size} 个批次的检测记录`);
+    alert(`已导出 ${validSelectedIds.size} 个批次的检测记录`);
   };
 
   if (!currentUser) return null;
@@ -165,14 +182,13 @@ export function PackagingDashboard() {
               </div>
             </div>
 
-            {selectedBatches.size > 0 && (
+            {validSelectedIds.size > 0 && (
               <div className="flex items-center gap-3">
-                <span className="text-sm text-neutral-600">已选 {selectedBatches.size} 项</span>
+                <span className="text-sm text-neutral-600">已选 {validSelectedIds.size} 项</span>
                 <Button
                   variant="success"
                   size="sm"
                   onClick={handleBatchPass}
-                  disabled={!Array.from(selectedBatches).some((id) => selectableBatches.some((b) => b.id === id))}
                 >
                   <Check className="w-4 h-4 mr-1" />
                   批量通过
@@ -193,10 +209,10 @@ export function PackagingDashboard() {
                     <th className="px-4 py-3 text-left">
                       <button
                         onClick={handleBatchSelectAll}
-                        disabled={selectableBatches.length === 0}
-                        className={`p-1 rounded transition-colors ${selectableBatches.length > 0 ? 'hover:bg-neutral-200' : 'opacity-40 cursor-not-allowed'}`}
+                        disabled={selectableIds.size === 0}
+                        className={`p-1 rounded transition-colors ${selectableIds.size > 0 ? 'hover:bg-neutral-200' : 'opacity-40 cursor-not-allowed'}`}
                       >
-                        <CheckSquare className={`w-4 h-4 ${selectedBatches.size === selectableBatches.length && selectableBatches.length > 0 ? 'text-amber-900' : 'text-neutral-400'}`} />
+                        <CheckSquare className={`w-4 h-4 ${validSelectedIds.size === selectableIds.size && selectableIds.size > 0 ? 'text-amber-900' : 'text-neutral-400'}`} />
                       </button>
                     </th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">批次号</th>
@@ -215,7 +231,8 @@ export function PackagingDashboard() {
                       key={batch.id}
                       batch={batch}
                       index={index}
-                      isSelected={selectedBatches.has(batch.id)}
+                      isSelected={validSelectedIds.has(batch.id)}
+                      canSelect={selectableIds.has(batch.id)}
                       onSelect={() => handleBatchSelect(batch.id)}
                       onViewDetail={() => handleViewDetail(batch.id)}
                       onStartTesting={() => handleStartTesting(batch.id)}
@@ -238,17 +255,17 @@ interface BatchRowProps {
   batch: Batch;
   index: number;
   isSelected: boolean;
+  canSelect: boolean;
   onSelect: () => void;
   onViewDetail: () => void;
   onStartTesting: () => void;
   notesCount: number;
 }
 
-function BatchRow({ batch, index, isSelected, onSelect, onViewDetail, onStartTesting, notesCount }: BatchRowProps) {
+function BatchRow({ batch, index, isSelected, canSelect, onSelect, onViewDetail, onStartTesting, notesCount }: BatchRowProps) {
   const canTest = batch.currentStatus === 'PENDING_TEST';
   const isTestingNow = batch.currentStatus === 'TESTING';
   const isAbnormal = batch.currentStatus === 'TEST_ABNORMAL';
-  const canSelect = isTestingNow;
 
   return (
     <motion.tr
@@ -263,7 +280,7 @@ function BatchRow({ batch, index, isSelected, onSelect, onViewDetail, onStartTes
           disabled={!canSelect}
           className={`p-1 rounded transition-colors ${canSelect ? 'hover:bg-neutral-200' : 'opacity-40 cursor-not-allowed'}`}
         >
-          <CheckSquare className={`w-4 h-4 ${isSelected ? 'text-amber-900' : 'text-neutral-400'}`} />
+          <CheckSquare className={`w-4 h-4 ${isSelected && canSelect ? 'text-amber-900' : 'text-neutral-400'}`} />
         </button>
       </td>
       <td className="px-4 py-3">
