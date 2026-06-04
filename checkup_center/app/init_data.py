@@ -202,9 +202,9 @@ def init_db():
             print(f"  [记录{r.id}] {p.name} - {r.checkup_date} - 状态:{r.status}")
         print()
         print("样例说明:")
-        print("  1. 张三(记录1): B超漏检→导检已通知但尚未补做→血常规有轻微异常→医生已给建议→报告草稿")
-        print("  2. 李四(记录2): 血糖偏高+脂肪肝→医生已给建议→通知已发但未复查→报告草稿")
-        print("  3. 王五(记录3): 甲状腺结节→医生已给建议→通知已确认→报告已审核待发放")
+        print("  1. 张三(记录1): B超漏检(状态missed)→导检已通知(phone, status=sent)但尚未补做→血常规血红蛋白轻微异常→医生已给3个月复查建议→报告草稿(draft)")
+        print("  2. 李四(记录2): 空腹血糖+脂肪肝+白细胞偏高共3项异常→前2项有复查建议、白细胞缺建议→通知已发(sms, status=sent)但未复查→报告草稿(draft)→审核会被拦截")
+        print("  3. 王五(记录3): 甲状腺结节→医生已给6个月复查+内分泌科随诊建议→通知已确认(wechat, status=confirmed)→报告已审核(approved)待发放")
 
     except Exception as e:
         print(f"初始化失败: {e}")

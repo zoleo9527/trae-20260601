@@ -255,8 +255,22 @@ curl http://localhost:8000/api/reviewer/approved-reports
 
 ### 3.3 审核报告（通过或驳回）
 
+> **断点校验**：`action = "approve"` 时系统自动执行以下强制校验，**不满足则直接拦截**（`action = "reject"` 不受此限制）：
+>
+> | 校验项 | 要求 | 失败时的错误返回（HTTP 400） |
+> |--------|------|------------------------------|
+> | 体检项目完整性 | 所有项目状态必须为 `completed` | `{"detail": "存在未完成的体检项目: B超(missed)。请先完成所有项目后再审核。"}` |
+> | 复查建议完整性 | 每个异常指标必须有至少一条复查建议 | `{"detail": "存在异常指标缺少复查建议: 白细胞(mild)。请联系医生补充建议后再审核。"}` |
+>
+> **样例数据的审核结果：**
+> - 张三（报告1，ID=1）：❌ B超为 `missed` 状态，审核被拦截
+> - 李四（报告2，ID=2）：❌ 白细胞异常缺少建议，审核被拦截
+> - 王五（报告3，ID=3）：✅ 全部满足条件，可以通过
+>
+> **建议审核流程**：先调用 `/report-detail/{id}` 查看 `all_items_completed` 和 `all_indicators_have_recommendations` 两个校验字段，再决定是否 approve。
+
 ```bash
-# 通过
+# 通过（所有项目完成、所有异常有建议才能通过）
 curl -X PUT http://localhost:8000/api/reviewer/review-report/2 \
   -H "Content-Type: application/json" \
   -d '{
@@ -276,6 +290,12 @@ curl -X PUT http://localhost:8000/api/reviewer/review-report/2 \
 ```
 
 ### 3.4 发放报告
+
+> **断点校验**：发放前自动校验以下条件，不满足则返回明确错误：
+> - 所有体检项目必须为 `completed` 状态
+> - 所有异常指标必须有复查建议
+>
+> 错误消息与审核通过时一致。
 
 ```bash
 curl -X PUT http://localhost:8000/api/reviewer/release-report/3 \
