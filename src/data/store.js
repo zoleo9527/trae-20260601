@@ -144,6 +144,14 @@ export const actions = {
       order.refundNegotiation.finalAgreement = agreement
     }
     if (result === 'APPROVE') {
+      this.addHistory(orderId, {
+        action: ACTION_TYPES.APPROVE_REFUND,
+        operator: getOperatorName(order, store.currentRole),
+        operatorRole: store.currentRole,
+        content: `${agreement || note || '退款申请已通过'}`,
+        responsible: makeResponsible(order, 'CUSTOMER_SERVICE'),
+        transferNote: '协商完成，移交客服跟进财务退款流程'
+      })
       this.updateStatus(
         orderId,
         ORDER_STATUS.REFUND_APPROVED.value,
@@ -151,10 +159,19 @@ export const actions = {
         makeResponsible(order, 'CUSTOMER_SERVICE')
       )
     } else if (result === 'REJECT') {
+      const fullNote = `${note || '退款申请已驳回'}，客户同意继续治疗，转回疗程核销`
+      this.addHistory(orderId, {
+        action: ACTION_TYPES.REJECT_REFUND,
+        operator: getOperatorName(order, store.currentRole),
+        operatorRole: store.currentRole,
+        content: fullNote,
+        responsible: makeResponsible(order, 'DOCTOR_ASSISTANT'),
+        transferNote: '退款驳回，转回医疗端跟进剩余疗程核销'
+      })
       this.updateStatus(
         orderId,
         ORDER_STATUS.TREATMENT_WRITEOFF.value,
-        `${note || '退款申请已驳回'}，客户同意继续治疗，转回疗程核销`,
+        fullNote,
         makeResponsible(order, 'DOCTOR_ASSISTANT')
       )
     }
@@ -180,6 +197,14 @@ export const actions = {
   requestSupplement(orderId, requirement) {
     const order = store.orders.find(o => o.id === orderId)
     if (!order) return
+    this.addHistory(orderId, {
+      action: ACTION_TYPES.REQUEST_SUPPLEMENT,
+      operator: getOperatorName(order, store.currentRole),
+      operatorRole: store.currentRole,
+      content: requirement,
+      responsible: makeResponsible(order, 'CONSULTANT'),
+      transferNote: '请联系客户补充材料，材料齐全后再进入审核'
+    })
     this.updateStatus(
       orderId,
       ORDER_STATUS.REFUND_SUPPLEMENT.value,

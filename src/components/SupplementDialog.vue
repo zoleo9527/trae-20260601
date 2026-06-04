@@ -71,10 +71,10 @@
         <el-icon color="#409eff"><InfoFilled /></el-icon>
         <div style="font-size: 12px; color: #606266;">
           <template v-if="form.isComplete">
-            <strong>提交后：</strong>材料齐全，状态变更为「退款协商中」，责任人移交 <strong>李客服</strong> 重新审核。
+            <strong>提交后：</strong>材料齐全，状态变更为「退款协商中」，责任人移交 <strong>{{ order.customerService || '客服' }}</strong> 重新审核。
           </template>
           <template v-else>
-            <strong>提交后：</strong>记录本次补录内容，状态保持「待补录材料」，责任人继续由 <strong>王咨询师</strong> 跟进。
+            <strong>提交后：</strong>记录本次补录内容，状态保持「待补录材料」，责任人继续由 <strong>{{ order.consultant }}</strong> 跟进。
           </template>
         </div>
       </div>

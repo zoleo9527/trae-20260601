@@ -156,6 +156,7 @@
       <div class="right-panel" style="flex: 1; display: flex; flex-direction: column; overflow: hidden;">
         <SidebarDetail
           v-if="selectedOrder"
+          :order="selectedOrder"
           @openRefund="refundDialogVisible = true"
           @openWriteoff="writeoffDialogVisible = true"
           @openSupplement="supplementDialogVisible = true"
