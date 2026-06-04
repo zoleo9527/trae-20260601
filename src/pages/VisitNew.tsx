@@ -1,10 +1,39 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Save, AlertCircle } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { hasPermission } from '../utils/permissions';
 import { generateIdempotencyKey } from '../utils/idempotent';
 import { AlertBanner } from '../components/AlertBanner';
+
+const EMPTY_FORM = {
+  elderId: '',
+  familyMemberId: '',
+  visitorName: '',
+  visitorPhone: '',
+  visitorIdCard: '',
+  numberOfVisitors: 1,
+  requestedDate: '',
+  requestedTimeSlot: '',
+  visitType: 'regular' as 'regular' | 'special' | 'emergency',
+  purpose: '',
+};
+
+function buildFamilyDefaults(currentUser: { id: string; name: string; phone: string }, getMyFamilyMembers: () => any[], getMyElders: () => any[]) {
+  const myMembers = getMyFamilyMembers();
+  if (myMembers.length > 0) {
+    const firstMember = myMembers[0];
+    const firstElder = getMyElders().find((e: any) => e.id === firstMember.elderId);
+    return {
+      ...EMPTY_FORM,
+      elderId: firstElder?.id || '',
+      familyMemberId: firstMember.id,
+      visitorName: currentUser.name,
+      visitorPhone: currentUser.phone,
+    };
+  }
+  return { ...EMPTY_FORM, visitorName: currentUser.name, visitorPhone: currentUser.phone };
+}
 
 export function VisitNew() {
   const navigate = useNavigate();
@@ -18,38 +47,27 @@ export function VisitNew() {
   const myFamilyMembers = isFamily ? getMyFamilyMembers() : familyMembers;
 
   const [formData, setFormData] = useState(() => {
-    if (isFamily) {
-      const myMembers = getMyFamilyMembers();
-      if (myMembers.length > 0) {
-        const firstMember = myMembers[0];
-        const firstElder = getMyElders().find(e => e.id === firstMember.elderId);
-        return {
-          elderId: firstElder?.id || '',
-          familyMemberId: firstMember.id,
-          visitorName: currentUser!.name,
-          visitorPhone: currentUser!.phone,
-          visitorIdCard: '',
-          numberOfVisitors: 1,
-          requestedDate: '',
-          requestedTimeSlot: '',
-          visitType: 'regular' as 'regular' | 'special' | 'emergency',
-          purpose: '',
-        };
-      }
+    if (isFamily && currentUser) {
+      return buildFamilyDefaults(currentUser, getMyFamilyMembers, getMyElders);
     }
-    return {
-      elderId: '',
-      familyMemberId: '',
-      visitorName: '',
-      visitorPhone: '',
-      visitorIdCard: '',
-      numberOfVisitors: 1,
-      requestedDate: '',
-      requestedTimeSlot: '',
-      visitType: 'regular' as 'regular' | 'special' | 'emergency',
-      purpose: '',
-    };
+    return { ...EMPTY_FORM };
   });
+
+  useEffect(() => {
+    if (!currentUser) return;
+    if (currentUser.role === 'family') {
+      setFormData(buildFamilyDefaults(currentUser, getMyFamilyMembers, getMyElders));
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        elderId: '',
+        familyMemberId: '',
+        visitorName: '',
+        visitorPhone: '',
+      }));
+    }
+    setError(null);
+  }, [currentUser?.id]);
 
   const canCreate = currentUser && hasPermission(currentUser.role, 'canCreateVisit');
 

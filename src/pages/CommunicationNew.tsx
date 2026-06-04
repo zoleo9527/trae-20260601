@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Save, AlertCircle } from 'lucide-react';
 import { useStore } from '../store/useStore';
@@ -24,6 +24,33 @@ const priorityOptions = [
 
 const tagOptions = ['饮食', '日常关怀', '医疗', '费用', '活动安排', '服务投诉', '护工管理', '需要跟进', '需要调查'];
 
+const EMPTY_FORM = {
+  elderId: '',
+  familyMemberId: '',
+  type: 'wechat' as CommunicationType,
+  title: '',
+  content: '',
+  priority: 'medium' as 'low' | 'medium' | 'high' | 'urgent',
+  assignedTo: '',
+  followUpNeeded: false,
+  followUpDate: '',
+  tags: [] as string[],
+};
+
+function buildFamilyDefaults(getMyFamilyMembers: () => any[], getMyElders: () => any[]) {
+  const myMembers = getMyFamilyMembers();
+  if (myMembers.length > 0) {
+    const firstMember = myMembers[0];
+    const firstElder = getMyElders().find((e: any) => e.id === firstMember.elderId);
+    return {
+      ...EMPTY_FORM,
+      elderId: firstElder?.id || '',
+      familyMemberId: firstMember.id,
+    };
+  }
+  return { ...EMPTY_FORM };
+}
+
 export function CommunicationNew() {
   const navigate = useNavigate();
   const { currentUser, elders, familyMembers, createCommunication, users, getMyElders, getMyFamilyMembers } = useStore();
@@ -37,37 +64,25 @@ export function CommunicationNew() {
 
   const [formData, setFormData] = useState(() => {
     if (isFamily) {
-      const myMembers = getMyFamilyMembers();
-      if (myMembers.length > 0) {
-        const firstMember = myMembers[0];
-        const firstElder = getMyElders().find(e => e.id === firstMember.elderId);
-        return {
-          elderId: firstElder?.id || '',
-          familyMemberId: firstMember.id,
-          type: 'wechat' as CommunicationType,
-          title: '',
-          content: '',
-          priority: 'medium' as 'low' | 'medium' | 'high' | 'urgent',
-          assignedTo: '',
-          followUpNeeded: false,
-          followUpDate: '',
-          tags: [] as string[],
-        };
-      }
+      return buildFamilyDefaults(getMyFamilyMembers, getMyElders);
     }
-    return {
-      elderId: '',
-      familyMemberId: '',
-      type: 'wechat' as CommunicationType,
-      title: '',
-      content: '',
-      priority: 'medium' as 'low' | 'medium' | 'high' | 'urgent',
-      assignedTo: '',
-      followUpNeeded: false,
-      followUpDate: '',
-      tags: [] as string[],
-    };
+    return { ...EMPTY_FORM };
   });
+
+  useEffect(() => {
+    if (!currentUser) return;
+    if (currentUser.role === 'family') {
+      setFormData(buildFamilyDefaults(getMyFamilyMembers, getMyElders));
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        elderId: '',
+        familyMemberId: '',
+        assignedTo: '',
+      }));
+    }
+    setError(null);
+  }, [currentUser?.id]);
 
   const canCreate = currentUser && hasPermission(currentUser.role, 'canCreateCommunication');
   const canAssign = currentUser && hasPermission(currentUser.role, 'canAssignCommunication') && currentUser.role !== 'family';
