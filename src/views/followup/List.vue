@@ -252,12 +252,12 @@
           />
         </el-form-item>
 
-        <el-form-item label="处理备注">
+        <el-form-item label="处理备注" required>
           <el-input
             v-model="processForm.remark"
             type="textarea"
             :rows="3"
-            placeholder="请输入处理备注（可选）"
+            placeholder="请输入处理备注（说明为什么要这样处理）"
           />
         </el-form-item>
       </el-form>
@@ -442,12 +442,22 @@ function handleProcess(row: FollowupTask) {
 async function confirmProcess() {
   if (!currentTask.value) return
 
+  if (showScheduleFields.value && (!processForm.scheduled_date || !processForm.scheduled_time)) {
+    ElMessage.warning('请选择新的复诊日期和时间')
+    return
+  }
+
+  if (!processForm.remark?.trim()) {
+    ElMessage.warning('请输入处理备注，说明为什么要这样处理')
+    return
+  }
+
   processing.value = true
   try {
     const data: any = {
       action: processForm.action,
       status: processForm.status,
-      remark: processForm.remark,
+      remark: processForm.remark.trim(),
       specialist_name: processForm.specialist_name
     }
     if (processForm.scheduled_date) data.scheduled_date = processForm.scheduled_date

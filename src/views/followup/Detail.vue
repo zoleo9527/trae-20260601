@@ -571,7 +571,7 @@ async function confirmProcess() {
     return
   }
 
-  if (!processForm.remark) {
+  if (!processForm.remark?.trim()) {
     ElMessage.warning('请输入处理备注，说明为什么要这样处理')
     return
   }
@@ -581,7 +581,7 @@ async function confirmProcess() {
     const data: any = {
       action: processForm.action,
       status: processForm.status,
-      remark: processForm.remark,
+      remark: processForm.remark.trim(),
       specialist_name: processForm.specialist_name
     }
     if (processForm.scheduled_date) data.scheduled_date = processForm.scheduled_date
