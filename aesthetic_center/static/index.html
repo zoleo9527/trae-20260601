@@ -1281,6 +1281,7 @@
                 };
 
                 const confirmFee = async () => {
+                    const actionType = showFeeConfirmType.value;
                     try {
                         const updateData = {
                             decoction_fee: feeForm.decoction_fee,
@@ -1288,7 +1289,7 @@
                             material_fee: feeForm.material_fee,
                             total_fee: totalFee.value,
                             is_patient_pay: feeForm.is_patient_pay,
-                            payment_status: showFeeConfirmType.value,
+                            payment_status: actionType,
                             remark: feeForm.remark,
                         };
                         const res = await fetch(`${API_BASE}/applications/${selectedApplication.value.id}/fee`, {
@@ -1304,7 +1305,8 @@
                             loadTimeline(selectedApplication.value.id);
                             loadApplications();
                             loadFeeReview();
-                            showToast(`费用已${showFeeConfirmType.value === 'confirmed' ? '确认' : '减免'}`, 'success');
+                            const successMsg = actionType === 'confirmed' ? '费用已确认' : '费用已减免';
+                            showToast(successMsg, 'success');
                         } else {
                             const err = await res.json();
                             showToast(err.detail || '操作失败', 'error');
