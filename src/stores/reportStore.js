@@ -138,7 +138,7 @@ const initialReports = [
     priority: 'normal',
     stuckReason: null,
     isStuck: false,
-    deliverySubStatus: 'pending_schedule',
+    deliverySubStatus: 'pending_contact',
     auditNotes: [
       {
         id: 'n1',

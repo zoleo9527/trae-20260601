@@ -125,7 +125,8 @@
           action = '复审驳回，退回重审'
           handler = '李审核员'
         } else if (report.currentStatus === 'final_audit') {
-          nextStatus = '终审驳回，退回复审'
+          nextStatus = 'secondary_audit'
+          action = '终审驳回，退回复审'
           handler = '周主任'
         }
         break
@@ -168,11 +169,11 @@
     })
 
     if (deliveryType === 'sms_notification' || deliveryType === 'phone_call') {
-      if (report.currentStatus === 'pending_delivery') {
-        updateReportStatus(report.id, 'delivery_scheduled', '赵发放员', '赵发放员', '已发送领取通知')
-      }
-      updateDeliverySubStatus(report.id, 'pending_schedule', '赵发放员')
+      updateDeliverySubStatus(report.id, 'pending_contact', '赵发放员')
     } else if (deliveryType === 'scheduled' || deliveryType === 'phone_confirm') {
+      if (report.currentStatus === 'pending_delivery') {
+        updateReportStatus(report.id, 'delivery_scheduled', '赵发放员', '赵发放员', '患者已确认领取，进入已预约发放')
+      }
       updateDeliverySubStatus(report.id, 'pending_pickup', '赵发放员')
     }
 
