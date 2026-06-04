@@ -850,14 +850,7 @@
 
         async function loadFollowUps() {
             const stage = document.getElementById('followupStage').value;
-            let status = document.getElementById('followupStatus').value;
-            
-            if (followupQuickFilter === 'today') {
-                status = 'pending';
-            }
-            if (followupQuickFilter === 'discomfort') {
-                status = '';
-            }
+            const status = document.getElementById('followupStatus').value;
             
             let url = `${API_BASE}/follow-ups?stage=${stage}&status=${status}&limit=100`;
             if (followupQuickFilter === 'discomfort') {
@@ -1329,7 +1322,9 @@
             element.classList.add('active');
             
             const statusSelect = document.getElementById('followupStatus');
-            if (filter === 'today') {
+            if (filter === 'all') {
+                statusSelect.value = '';
+            } else if (filter === 'today') {
                 statusSelect.value = 'pending';
             } else if (filter === 'discomfort') {
                 statusSelect.value = '';
