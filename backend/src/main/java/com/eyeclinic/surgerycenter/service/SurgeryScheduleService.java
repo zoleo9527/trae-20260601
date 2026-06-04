@@ -121,6 +121,13 @@ public class SurgeryScheduleService {
         }
 
         if (approved) {
+            validateScheduleConflict(
+                    schedule.getSurgeryDate(),
+                    schedule.getOperatingRoom(),
+                    schedule.getStartTime(),
+                    schedule.getEndTime(),
+                    schedule.getId()
+            );
             schedule.setConfirmed(true);
             schedule.setConfirmedAt(LocalDateTime.now());
             schedule.setConfirmedBy(reviewer);

@@ -17,7 +17,7 @@ import {
 import { PlusOutlined, EyeOutlined } from '@ant-design/icons'
 import { useNavigate } from 'react-router-dom'
 import { workflowApi, commonApi } from '../services/api'
-import { WorkflowSimpleVO, WorkflowStatus, SurgeryType, UserVO } from '../types'
+import { WorkflowSimpleVO, WorkflowStatus, SurgeryType, SurgeryTypeLabel, UserVO, PatientVO } from '../types'
 
 const statusColors: Record<string, string> = {
   [WorkflowStatus.PENDING_REGISTRATION]: 'default',
@@ -37,6 +37,7 @@ export default function Workspace() {
   const navigate = useNavigate()
   const [workflows, setWorkflows] = useState<WorkflowSimpleVO[]>([])
   const [users, setUsers] = useState<UserVO[]>([])
+  const [patients, setPatients] = useState<PatientVO[]>([])
   const [loading, setLoading] = useState(false)
   const [selectedUser, setSelectedUser] = useState<number | undefined>()
   const [isModalOpen, setIsModalOpen] = useState(false)
@@ -45,12 +46,14 @@ export default function Workspace() {
   const loadData = async () => {
     setLoading(true)
     try {
-      const [workflowData, userData] = await Promise.all([
+      const [workflowData, userData, patientData] = await Promise.all([
         workflowApi.getList(selectedUser),
-        commonApi.getUsers()
+        commonApi.getUsers(),
+        commonApi.getPatients()
       ])
       setWorkflows(workflowData)
       setUsers(userData)
+      setPatients(patientData)
     } catch (error) {
       message.error('加载数据失败')
     } finally {
@@ -120,7 +123,14 @@ export default function Workspace() {
       dataIndex: 'currentHandler',
       key: 'currentHandler',
       width: 100,
-      render: (handler: string | null) => handler || '-'
+      render: (handler: string | null, record: WorkflowSimpleVO) => (
+        <div>
+          <div>{handler || '-'}</div>
+          {record.currentHandlerRole && (
+            <div style={{ fontSize: 12, color: '#999' }}>{record.currentHandlerRole}</div>
+          )}
+        </div>
+      )
     },
     {
       title: '阻塞原因',
@@ -210,9 +220,9 @@ export default function Workspace() {
           >
             <Select
               placeholder="选择患者"
-              options={Array.from({ length: 8 }, (_, i) => ({
-                label: `P${2026001 + i} - 患者${i + 1}`,
-                value: i + 1
+              options={patients.map(p => ({
+                label: `${p.patientNo} - ${p.name} (${p.gender}，${p.age}岁)`,
+                value: p.id
               }))}
             />
           </Form.Item>
@@ -222,8 +232,8 @@ export default function Workspace() {
             rules={[{ required: true, message: '请选择手术类型' }]}
           >
             <Select
-              options={Object.entries(SurgeryType).map(([key, value]) => ({
-                label: value,
+              options={Object.entries(SurgeryType).map(([key]) => ({
+                label: SurgeryTypeLabel[key as SurgeryType],
                 value: key
               }))}
             />

@@ -2,9 +2,11 @@ package com.eyeclinic.surgerycenter.controller;
 
 import com.eyeclinic.surgerycenter.common.Result;
 import com.eyeclinic.surgerycenter.dto.WorkflowVO;
+import com.eyeclinic.surgerycenter.entity.Patient;
 import com.eyeclinic.surgerycenter.entity.SurgerySchedule;
 import com.eyeclinic.surgerycenter.entity.User;
 import com.eyeclinic.surgerycenter.enums.RoleType;
+import com.eyeclinic.surgerycenter.repository.PatientRepository;
 import com.eyeclinic.surgerycenter.repository.UserRepository;
 import com.eyeclinic.surgerycenter.service.SurgeryScheduleService;
 import lombok.RequiredArgsConstructor;
@@ -24,6 +26,7 @@ import java.util.stream.Collectors;
 public class CommonController {
 
     private final UserRepository userRepository;
+    private final PatientRepository patientRepository;
     private final SurgeryScheduleService scheduleService;
 
     @GetMapping("/users")
@@ -87,5 +90,21 @@ public class CommonController {
     @GetMapping("/export/schedules")
     public Result<String> exportSchedules() {
         return Result.success("导出功能已模拟实现，实际项目中可生成Excel/PDF文件");
+    }
+
+    @GetMapping("/patients")
+    public Result<List<Map<String, Object>>> getPatients() {
+        List<Patient> patients = patientRepository.findAll();
+        List<Map<String, Object>> result = patients.stream().map(p -> {
+            Map<String, Object> map = new HashMap<>();
+            map.put("id", p.getId());
+            map.put("patientNo", p.getPatientNo());
+            map.put("name", p.getName());
+            map.put("gender", p.getGender());
+            map.put("age", p.getAge());
+            map.put("phone", p.getPhone());
+            return map;
+        }).collect(Collectors.toList());
+        return Result.success(result);
     }
 }

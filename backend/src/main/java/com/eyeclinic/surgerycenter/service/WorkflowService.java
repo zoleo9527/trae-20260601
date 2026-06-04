@@ -42,11 +42,15 @@ public class WorkflowService {
             throw new BusinessException(ErrorCode.ALREADY_IN_PROGRESS, "该患者已有正在处理中的流程");
         }
 
+        List<User> receptionists = userRepository.findByRole(RoleType.RECEPTIONIST);
+        User defaultHandler = receptionists.isEmpty() ? null : receptionists.get(0);
+
         WorkflowInstance workflow = new WorkflowInstance();
         workflow.setWorkflowNo("WF" + System.currentTimeMillis());
         workflow.setPatient(patient);
         workflow.setSurgeryType(request.getSurgeryType());
         workflow.setStatus(WorkflowStatus.PENDING_REGISTRATION);
+        workflow.setCurrentHandler(defaultHandler);
         workflow.setCurrentNodeName(WorkflowStatus.PENDING_REGISTRATION.getDescription());
         workflow.setBlockReason(stateMachine.getBlockReason(WorkflowStatus.PENDING_REGISTRATION));
         workflow.setRemarks(request.getRemarks());
@@ -127,7 +131,8 @@ public class WorkflowService {
             List<User> specialists = userRepository.findByRole(RoleType.SPECIALIST);
             workflow.setCurrentHandler(specialists.isEmpty() ? null : specialists.get(0));
         } else {
-            workflow.setCurrentHandler(null);
+            List<User> receptionists = userRepository.findByRole(RoleType.RECEPTIONIST);
+            workflow.setCurrentHandler(receptionists.isEmpty() ? null : receptionists.get(0));
         }
 
         String remarks = Boolean.TRUE.equals(request.getApproved())
@@ -269,10 +274,10 @@ public class WorkflowService {
         vo.setSurgeryType(workflow.getSurgeryType());
         vo.setSurgeryTypeName(workflow.getSurgeryType().getDescription());
         vo.setStatus(workflow.getStatus());
-        vo.setStatusName(workflow.getStatus().name());
+        vo.setStatusName(workflow.getStatus().getDescription());
         vo.setStatusDescription(workflow.getStatus().getDescription());
         vo.setCurrentHandler(workflow.getCurrentHandler() != null ? workflow.getCurrentHandler().getRealName() : null);
-        vo.setCurrentHandlerRole(workflow.getCurrentHandler() != null ? workflow.getCurrentHandler().getRole().getDescription() : null);
+        vo.setCurrentHandlerRole(workflow.getCurrentHandler() != null ? workflow.getCurrentHandler().getRole().getDescription() : workflow.getStatus().getResponsibleRole());
         vo.setBlockReason(workflow.getBlockReason());
         vo.setRemarks(workflow.getRemarks());
         vo.setCreatedAt(workflow.getCreatedAt() != null ? workflow.getCreatedAt().format(formatter) : null);
@@ -313,6 +318,7 @@ public class WorkflowService {
             vo.setStatus(w.getStatus());
             vo.setStatusName(w.getStatus().getDescription());
             vo.setCurrentHandler(w.getCurrentHandler() != null ? w.getCurrentHandler().getRealName() : null);
+            vo.setCurrentHandlerRole(w.getCurrentHandler() != null ? w.getCurrentHandler().getRole().getDescription() : w.getStatus().getResponsibleRole());
             vo.setBlockReason(w.getBlockReason());
             vo.setCreatedAt(w.getCreatedAt() != null ? w.getCreatedAt().format(formatter) : null);
             return vo;

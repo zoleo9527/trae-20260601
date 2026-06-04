@@ -166,9 +166,9 @@ npm run dev
 
 系统目前导出接口已在后端实现框架，实际项目中可集成：
 
-- **Excel 导出：使用 Apache POI 或 EasyExcel
-- **PDF 导出：使用 iText 或 Apache PDFBox
-- **附件上传**：使用 MinIO 或阿里云 OSS
+- **Excel 导出**: 使用 Apache POI 或 EasyExcel
+- **PDF 导出**: 使用 iText 或 Apache PDFBox
+- **附件上传**: 使用 MinIO 或阿里云 OSS
 
 ### 附件能力（已模拟）
 

@@ -1,5 +1,5 @@
 import axios from 'axios'
-import { WorkflowSimpleVO, WorkflowDetailVO, UserVO, ScheduleVO } from '../types'
+import { WorkflowSimpleVO, WorkflowDetailVO, UserVO, ScheduleVO, PatientVO } from '../types'
 
 const api = axios.create({
   baseURL: '/api',
@@ -82,6 +82,9 @@ export const workflowApi = {
 export const commonApi = {
   getUsers: (role?: string): Promise<UserVO[]> =>
     api.get('/users', { params: { role } }),
+
+  getPatients: (): Promise<PatientVO[]> =>
+    api.get('/patients'),
 
   getSchedules: (startDate: string, endDate: string): Promise<ScheduleVO[]> =>
     api.get('/schedules', { params: { startDate, endDate } }),

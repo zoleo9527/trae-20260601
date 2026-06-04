@@ -27,6 +27,15 @@ export enum SurgeryType {
   PTERYGIUM = 'PTERYGIUM'
 }
 
+export const SurgeryTypeLabel: Record<SurgeryType, string> = {
+  [SurgeryType.CATARACT]: '白内障手术',
+  [SurgeryType.LASIK]: '准分子激光手术',
+  [SurgeryType.ICL]: 'ICL晶体植入',
+  [SurgeryType.GLAUCOMA]: '青光眼手术',
+  [SurgeryType.RETINA]: '视网膜手术',
+  [SurgeryType.PTERYGIUM]: '翼状胬肉手术'
+}
+
 export enum CheckItemStatus {
   PENDING = 'PENDING',
   IN_PROGRESS = 'IN_PROGRESS',
@@ -43,8 +52,18 @@ export interface WorkflowSimpleVO {
   status: WorkflowStatus
   statusName: string
   currentHandler: string | null
+  currentHandlerRole: string | null
   blockReason: string
   createdAt: string
+}
+
+export interface PatientVO {
+  id: number
+  patientNo: string
+  name: string
+  gender: string
+  age: number
+  phone: string
 }
 
 export interface CheckItemVO {

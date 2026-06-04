@@ -66,6 +66,7 @@ public class WorkflowVO {
         private WorkflowStatus status;
         private String statusName;
         private String currentHandler;
+        private String currentHandlerRole;
         private String blockReason;
         private String createdAt;
     }
