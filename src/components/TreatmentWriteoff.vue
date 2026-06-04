@@ -198,7 +198,7 @@ const treatmentSteps = computed(() => {
 const writeoffRecords = computed(() => {
   if (!props.order) return []
   return props.order.history.filter(h =>
-    h.action === ACTION_TYPES.WRITE_OFF_TREATMENT || h.action.includes('核销')
+    h.action === ACTION_TYPES.WRITE_OFF_TREATMENT
   ).reverse()
 })
 

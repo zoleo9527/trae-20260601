@@ -57,6 +57,7 @@ export const ACTION_TYPES = {
   SUBMIT_SUPPLEMENT: '提交补充材料',
   APPROVE_REFUND: '同意退款',
   REJECT_REFUND: '驳回退款',
+  COMPLETE_REFUND: '退款收尾',
   TRANSFER_TO_TREATMENT: '转回疗程核销',
   WRITE_OFF_TREATMENT: '核销疗程',
   ARCHIVE: '归档',

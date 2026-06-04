@@ -27,7 +27,7 @@
               <div style="display: flex; align-items: center; gap: 6px;">
                 <el-icon :size="18"><UserFilled /></el-icon>
                 <div>
-                  <div style="font-weight: 600;">咨询师 · 王咨询师</div>
+                  <div style="font-weight: 600;">咨询师 · {{ roleDisplayName('CONSULTANT') }}</div>
                   <div style="font-size: 12px; color: #909399; margin-top: 2px;">负责前端客户沟通、材料补录跟进</div>
                 </div>
               </div>
@@ -36,7 +36,7 @@
               <div style="display: flex; align-items: center; gap: 6px;">
                 <el-icon :size="18"><Stethoscope /></el-icon>
                 <div>
-                  <div style="font-weight: 600;">医生助理 · 赵助理</div>
+                  <div style="font-weight: 600;">医生助理 · {{ roleDisplayName('DOCTOR_ASSISTANT') }}</div>
                   <div style="font-size: 12px; color: #909399; margin-top: 2px;">负责疗程执行、核销、术后回访</div>
                 </div>
               </div>
@@ -45,7 +45,7 @@
               <div style="display: flex; align-items: center; gap: 6px;">
                 <el-icon :size="18"><Headset /></el-icon>
                 <div>
-                  <div style="font-weight: 600;">客服 · 李客服</div>
+                  <div style="font-weight: 600;">客服 · {{ roleDisplayName('CUSTOMER_SERVICE') }}</div>
                   <div style="font-size: 12px; color: #909399; margin-top: 2px;">负责客诉处理、退款审核、财务跟进</div>
                 </div>
               </div>
@@ -117,6 +117,20 @@ watch(visible, (val) => {
 const getOrderInfo = (id) => {
   const order = store.orders.find(o => o.id === id)
   return order ? `${order.customerName} · ${order.projectName}` : ''
+}
+
+const roleDisplayName = (role) => {
+  const orders = props.selectedIds
+    .map(id => store.orders.find(o => o.id === id))
+    .filter(Boolean)
+  if (orders.length === 0) return ''
+  const names = [...new Set(orders.map(o => {
+    if (role === 'CONSULTANT') return o.consultant
+    if (role === 'DOCTOR_ASSISTANT') return o.doctorAssistant
+    if (role === 'CUSTOMER_SERVICE') return o.customerService || '客服'
+    return ''
+  }))]
+  return names.join(' / ')
 }
 
 const canSubmit = computed(() => {

@@ -21,8 +21,8 @@ export const store = reactive({
     if (this.flowFilter !== 'ALL') {
       result = result.filter(o => o.flowType === this.flowFilter)
     }
-    return result.sort((a, b) => 
-      dayjs(b.history[b.history.length - 1].timestampRaw).valueOf() - 
+    return result.sort((a, b) =>
+      dayjs(b.history[b.history.length - 1].timestampRaw).valueOf() -
       dayjs(a.history[a.history.length - 1].timestampRaw).valueOf()
     )
   },
@@ -36,7 +36,8 @@ export const store = reactive({
         canNegotiate: true,
         canTransfer: true,
         canWriteoff: false,
-        canSupplement: true
+        canSupplement: true,
+        canCompleteRefund: false
       },
       DOCTOR_ASSISTANT: {
         canSeeConsultation: false,
@@ -46,7 +47,8 @@ export const store = reactive({
         canNegotiate: false,
         canTransfer: true,
         canWriteoff: true,
-        canSupplement: false
+        canSupplement: false,
+        canCompleteRefund: false
       },
       CUSTOMER_SERVICE: {
         canSeeConsultation: true,
@@ -56,11 +58,24 @@ export const store = reactive({
         canNegotiate: true,
         canTransfer: true,
         canWriteoff: false,
-        canSupplement: true
+        canSupplement: true,
+        canCompleteRefund: true
       }
     }[this.currentRole]
   }
 })
+
+function getOperatorName(order, role) {
+  if (role === 'CONSULTANT') return order.consultant
+  if (role === 'DOCTOR_ASSISTANT') return order.doctorAssistant
+  if (role === 'CUSTOMER_SERVICE') return order.customerService || '客服'
+  return '系统'
+}
+
+function makeResponsible(order, role) {
+  const name = getOperatorName(order, role)
+  return { role, name }
+}
 
 export const actions = {
   setRole(role) {
@@ -111,10 +126,12 @@ export const actions = {
           reason: transferNote || '流程推进'
         } : null
       }
+    } else if (newStatus === ORDER_STATUS.COMPLETED.value) {
+      order.currentResponsible = null
     }
     this.addHistory(orderId, {
       action: `状态变更：${ORDER_STATUS[oldStatus]?.label || oldStatus} → ${ORDER_STATUS[newStatus]?.label || newStatus}`,
-      operator: { CONSULTANT: '王咨询师', DOCTOR_ASSISTANT: '赵助理', CUSTOMER_SERVICE: '李客服' }[store.currentRole],
+      operator: getOperatorName(order, store.currentRole),
       operatorRole: store.currentRole,
       content: transferNote || '状态更新',
       responsible: newResponsible || order.currentResponsible
@@ -128,19 +145,37 @@ export const actions = {
     }
     if (result === 'APPROVE') {
       this.updateStatus(
-        orderId, 
+        orderId,
         ORDER_STATUS.REFUND_APPROVED.value,
         note || '退款申请已通过',
-        { role: 'CUSTOMER_SERVICE', name: '李客服' }
+        makeResponsible(order, 'CUSTOMER_SERVICE')
       )
     } else if (result === 'REJECT') {
       this.updateStatus(
         orderId,
         ORDER_STATUS.TREATMENT_WRITEOFF.value,
         `${note || '退款申请已驳回'}，客户同意继续治疗，转回疗程核销`,
-        { role: 'DOCTOR_ASSISTANT', name: '赵助理' }
+        makeResponsible(order, 'DOCTOR_ASSISTANT')
       )
     }
+  },
+  completeRefund(orderId, note) {
+    const order = store.orders.find(o => o.id === orderId)
+    if (!order) return
+    this.addHistory(orderId, {
+      action: ACTION_TYPES.COMPLETE_REFUND,
+      operator: getOperatorName(order, store.currentRole),
+      operatorRole: store.currentRole,
+      content: `退款已到账。${note || ''}`,
+      responsible: order.currentResponsible
+    })
+    this.updateStatus(
+      orderId,
+      ORDER_STATUS.COMPLETED.value,
+      '退款已到账确认，订单归档',
+      null
+    )
+    order.currentResponsible = null
   },
   requestSupplement(orderId, requirement) {
     const order = store.orders.find(o => o.id === orderId)
@@ -149,7 +184,7 @@ export const actions = {
       orderId,
       ORDER_STATUS.REFUND_SUPPLEMENT.value,
       requirement,
-      { role: 'CONSULTANT', name: '王咨询师' }
+      makeResponsible(order, 'CONSULTANT')
     )
   },
   submitSupplement(orderId, content) {
@@ -166,7 +201,7 @@ export const actions = {
       orderId,
       ORDER_STATUS.REFUND_NEGOTIATING.value,
       '材料已补录，重新进入退款审核',
-      { role: 'CUSTOMER_SERVICE', name: '李客服' }
+      makeResponsible(order, 'CUSTOMER_SERVICE')
     )
   },
   writeoffTreatment(orderId, note) {
@@ -175,7 +210,7 @@ export const actions = {
     order.treatedCount = Math.min(order.treatedCount + 1, order.treatmentCount)
     this.addHistory(orderId, {
       action: ACTION_TYPES.WRITE_OFF_TREATMENT,
-      operator: { DOCTOR_ASSISTANT: '赵助理', CONSULTANT: '王咨询师', CUSTOMER_SERVICE: '李客服' }[store.currentRole],
+      operator: getOperatorName(order, store.currentRole),
       operatorRole: store.currentRole,
       content: `核销第 ${order.treatedCount}/${order.treatmentCount} 次疗程。${note || ''}`,
       responsible: order.currentResponsible
@@ -195,7 +230,7 @@ export const actions = {
     if (!order) return
     this.addHistory(orderId, {
       action: ACTION_TYPES.ADD_NOTE,
-      operator: { CONSULTANT: '王咨询师', DOCTOR_ASSISTANT: '赵助理', CUSTOMER_SERVICE: '李客服' }[store.currentRole],
+      operator: getOperatorName(order, store.currentRole),
       operatorRole: store.currentRole,
       content: note,
       responsible: order.currentResponsible
@@ -210,12 +245,10 @@ export const actions = {
     })
   },
   batchTransfer(orderIds, targetRole, note) {
-    const roleName = { CONSULTANT: '王咨询师', DOCTOR_ASSISTANT: '赵助理', CUSTOMER_SERVICE: '李客服' }
     orderIds.forEach(id => {
-      this.updateStatus(id, store.orders.find(o => o.id === id).currentStatus, note, {
-        role: targetRole,
-        name: roleName[targetRole]
-      })
+      const order = store.orders.find(o => o.id === id)
+      if (!order) return
+      this.updateStatus(id, order.currentStatus, note, makeResponsible(order, targetRole))
     })
   }
 }

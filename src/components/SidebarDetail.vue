@@ -18,6 +18,9 @@
           <el-button v-if="canProcessRefund" size="small" type="danger" @click="$emit('openRefund')">
             <el-icon><EditPen /></el-icon>退款协商
           </el-button>
+          <el-button v-if="canCompleteRefund" size="small" type="warning" @click="showCompleteRefund = true">
+            <el-icon><Wallet /></el-icon>退款收尾
+          </el-button>
           <el-button v-if="canWriteoff" size="small" type="success" @click="$emit('openWriteoff')">
             <el-icon><Select /></el-icon>核销疗程
           </el-button>
@@ -231,6 +234,20 @@
               <el-icon :size="32"><Clock /></el-icon>
               <p style="margin-top: 8px;">暂无核销记录</p>
             </div>
+
+            <el-divider v-if="refundRelatedRecords.length > 0" content-position="left">退款协商与补录历史</el-divider>
+            <div v-if="refundRelatedRecords.length > 0">
+              <div v-for="(record, idx) in refundRelatedRecords" :key="'r-'+idx" style="padding: 10px 14px; background: #fdf6ec; border-radius: 6px; margin-bottom: 8px; border-left: 3px solid #e6a23c;">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                  <span style="font-size: 13px; font-weight: 600; color: #e6a23c;">
+                    {{ record.action }}
+                  </span>
+                  <span style="font-size: 11px; color: #909399;">{{ record.timestamp }}</span>
+                </div>
+                <div style="font-size: 12px; color: #606266;">{{ record.content }}</div>
+                <div style="font-size: 11px; color: #909399; margin-top: 4px;">操作人：{{ record.operator }}</div>
+              </div>
+            </div>
           </div>
         </el-tab-pane>
       </el-tabs>
@@ -252,6 +269,63 @@
         <el-button type="primary" @click="handleAddNote" :disabled="!noteContent.trim()">提交</el-button>
       </template>
     </el-dialog>
+
+    <el-dialog v-model="showCompleteRefund" title="退款收尾" width="520px" :close-on-click-modal="false">
+      <div v-if="order" style="display: flex; flex-direction: column; gap: 16px;">
+        <el-alert type="success" :closable="false" show-icon>
+          <template #title>退款同意 · 等待收尾</template>
+          退款协商已通过，当前等待确认退款到账后归档。
+        </el-alert>
+
+        <div style="padding: 12px 16px; background: #f5f7fa; border-radius: 8px; display: flex; gap: 24px; flex-wrap: wrap;">
+          <div>
+            <div style="font-size: 12px; color: #909399;">客户</div>
+            <div style="font-size: 14px; font-weight: 600;">{{ order.customerName }}</div>
+          </div>
+          <div>
+            <div style="font-size: 12px; color: #909399;">退款金额</div>
+            <div style="font-size: 14px; font-weight: 600; color: #f56c6c;">¥{{ order.refundAmount.toLocaleString() }}</div>
+          </div>
+          <div>
+            <div style="font-size: 12px; color: #909399;">当前责任人</div>
+            <div>
+              <span class="responsible-badge">{{ order.currentResponsible?.name }}（{{ getRoleLabel(order.currentResponsible?.role) }}）</span>
+            </div>
+          </div>
+        </div>
+
+        <div v-if="order.refundNegotiation?.finalAgreement" style="padding: 10px 14px; background: #f0f9eb; border-radius: 6px; border-left: 3px solid #67c23a;">
+          <div style="font-size: 12px; color: #67c23a; font-weight: 600; margin-bottom: 4px;">
+            <el-icon style="margin-right: 4px;"><CircleCheck /></el-icon>最终协议
+          </div>
+          <div style="font-size: 13px; color: #606266;">{{ order.refundNegotiation.finalAgreement }}</div>
+        </div>
+
+        <el-form label-position="top">
+          <el-form-item label="退款到账说明（选填）">
+            <el-input
+              v-model="completeRefundNote"
+              type="textarea"
+              :rows="2"
+              placeholder="如退款到账时间、退款方式、退款流水号等..."
+            />
+          </el-form-item>
+        </el-form>
+
+        <div style="padding: 12px; background: #ecf5ff; border-radius: 6px; display: flex; align-items: center; gap: 10px;">
+          <el-icon color="#409eff"><InfoFilled /></el-icon>
+          <div style="font-size: 12px; color: #606266;">
+            <strong>确认后：</strong>状态变更为「已归档」，责任人清空，所有协商记录与退款信息永久保存。
+          </div>
+        </div>
+      </div>
+      <template #footer>
+        <el-button @click="showCompleteRefund = false">取消</el-button>
+        <el-button type="warning" @click="handleCompleteRefund">
+          <el-icon style="margin-right: 4px;"><Wallet /></el-icon>确认退款到账并归档
+        </el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -270,6 +344,8 @@ const emit = defineEmits(['openRefund', 'openWriteoff', 'openSupplement'])
 const activeTab = ref('basic')
 const showAddNote = ref(false)
 const noteContent = ref('')
+const showCompleteRefund = ref(false)
+const completeRefundNote = ref('')
 
 watch(() => props.order?.id, () => {
   activeTab.value = 'basic'
@@ -290,6 +366,11 @@ const canWriteoff = computed(() => {
 const canSupplement = computed(() => {
   if (!permissions.value.canSupplement) return false
   return props.order.currentStatus === ORDER_STATUS.REFUND_SUPPLEMENT.value
+})
+
+const canCompleteRefund = computed(() => {
+  if (!permissions.value.canCompleteRefund) return false
+  return props.order.currentStatus === ORDER_STATUS.REFUND_APPROVED.value
 })
 
 const getStatusLabel = (status) => ORDER_STATUS[status]?.label || status
@@ -329,7 +410,19 @@ const treatmentSteps = computed(() => {
 
 const writeoffRecords = computed(() => {
   return props.order.history.filter(h =>
-    h.action === ACTION_TYPES.WRITE_OFF_TREATMENT || h.action.includes('核销')
+    h.action === ACTION_TYPES.WRITE_OFF_TREATMENT
+  ).reverse()
+})
+
+const refundRelatedRecords = computed(() => {
+  return props.order.history.filter(h =>
+    h.action === ACTION_TYPES.SUBMIT_REFUND ||
+    h.action === ACTION_TYPES.NEGOTIATE_REFUND ||
+    h.action === ACTION_TYPES.REQUEST_SUPPLEMENT ||
+    h.action === ACTION_TYPES.SUBMIT_SUPPLEMENT ||
+    h.action === ACTION_TYPES.APPROVE_REFUND ||
+    h.action === ACTION_TYPES.REJECT_REFUND ||
+    h.action === ACTION_TYPES.COMPLETE_REFUND
   ).reverse()
 })
 
@@ -339,5 +432,12 @@ const handleAddNote = () => {
   ElMessage.success('补充说明已添加')
   showAddNote.value = false
   noteContent.value = ''
+}
+
+const handleCompleteRefund = () => {
+  actions.completeRefund(props.order.id, completeRefundNote.value.trim())
+  ElMessage.success('退款已到账确认，订单已归档')
+  showCompleteRefund.value = false
+  completeRefundNote.value = ''
 }
 </script>

@@ -148,13 +148,13 @@
         <el-icon color="#409eff"><InfoFilled /></el-icon>
         <div style="font-size: 12px; color: #606266;">
           <template v-if="actionType === 'APPROVE'">
-            <strong>处理后流程：</strong>状态变更为「退款同意」→ 责任人移交 <strong>李客服</strong> 跟进财务退款 → 退款完成后自动归档
+            <strong>处理后流程：</strong>状态变更为「退款同意」→ 责任人移交 <strong>{{ order.customerService || '客服' }}</strong> 跟进财务退款 → 退款到账确认后归档
           </template>
           <template v-else-if="actionType === 'REJECT'">
-            <strong>处理后流程：</strong>状态变更为「疗程核销中」→ 责任人移交 <strong>赵助理</strong> → 医助可看到完整退款协商历史 → 继续执行疗程
+            <strong>处理后流程：</strong>状态变更为「疗程核销中」→ 责任人移交 <strong>{{ order.doctorAssistant }}</strong> → 医助可看到完整退款协商历史 → 继续执行疗程
           </template>
           <template v-else-if="actionType === 'SUPPLEMENT'">
-            <strong>处理后流程：</strong>状态变更为「待补录材料」→ 责任人移交 <strong>王咨询师</strong> 联系客户补录 → 材料齐全后重新进入审核
+            <strong>处理后流程：</strong>状态变更为「待补录材料」→ 责任人移交 <strong>{{ order.consultant }}</strong> 联系客户补录 → 材料齐全后重新进入审核
           </template>
         </div>
       </div>

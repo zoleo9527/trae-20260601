@@ -37,6 +37,7 @@ export const mockOrders = [
     consultant: '王咨询师',
     doctor: '陈医生',
     doctorAssistant: '刘助理',
+    customerService: '李客服',
     createdAt: '2026-05-20 14:30:00',
     consultationRecord: {
       content: '客户主诉皮肤松弛，希望改善下颌缘轮廓。推荐热玛吉四代面部900发，告知术后可能出现轻微红肿，一般3-7天消退。客户确认理解并签字。',
@@ -117,6 +118,7 @@ export const mockOrders = [
     consultant: '张咨询师',
     doctor: '王医生',
     doctorAssistant: '赵助理',
+    customerService: '李客服',
     createdAt: '2026-05-10 10:00:00',
     consultationRecord: {
       content: '客户主诉太阳穴凹陷、下颌线不清晰。推荐乔雅登雅致2支丰太阳穴+下颌缘提升注射。告知可能出现局部淤青、肿胀，属正常反应。',
@@ -223,6 +225,7 @@ export const mockOrders = [
     consultant: '吴咨询师',
     doctor: '郑医生',
     doctorAssistant: '孙助理',
+    customerService: '李客服',
     createdAt: '2026-03-15 11:00:00',
     consultationRecord: {
       content: '客户面颊部黄褐斑，建议皮秒3次疗程，间隔1个月。告知色素沉着风险，术后需严格防晒。',
@@ -307,6 +310,7 @@ export const mockOrders = [
     consultant: '王咨询师',
     doctor: '李医生',
     doctorAssistant: '刘助理',
+    customerService: '李客服',
     createdAt: '2026-05-25 16:00:00',
     consultationRecord: {
       content: '客户中下面部松弛，推荐大V线+小线组合提升。告知线材为可吸收PPDO，维持时间约1年。',
