@@ -40,6 +40,16 @@ export const getHistoryByRole = async (req: Request, res: Response) => {
   }
 };
 
+export const getHistoryWithDeliverySummaryByRole = async (req: Request, res: Response) => {
+  try {
+    const role = req.params.role as Role;
+    const prescriptions = await prescriptionService.getHistoryWithDeliverySummaryByRole(role);
+    res.json(prescriptions);
+  } catch (error) {
+    res.status(500).json({ error: '获取历史记录失败' });
+  }
+};
+
 export const getTodoCount = async (req: Request, res: Response) => {
   try {
     const role = req.params.role as Role;

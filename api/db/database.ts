@@ -6,6 +6,7 @@ import type {
   OperationLog,
   PrescriptionStatus,
   Role,
+  PrescriptionWithDeliverySummary,
 } from '../../shared/types';
 import { ROLE_TODO_STATUSES, ROLE_HISTORY_STATUSES } from '../../shared/types';
 
@@ -260,6 +261,28 @@ class Database {
 
   getHistoryByRole(role: Role): Prescription[] {
     return this.getPrescriptionsByStatus(ROLE_HISTORY_STATUSES[role]);
+  }
+
+  getHistoryWithDeliverySummaryByRole(role: Role): PrescriptionWithDeliverySummary[] {
+    const prescriptions = this.getHistoryByRole(role);
+    return prescriptions.map((rx) => {
+      const deliveryInfo = this.getDeliveryInfoByPrescriptionId(rx.id);
+      return {
+        ...rx,
+        deliverySummary: deliveryInfo
+          ? {
+              courierCompany: deliveryInfo.courierCompany,
+              trackingNo: deliveryInfo.trackingNo,
+              deliveryRemark: deliveryInfo.deliveryRemark,
+              signResult: deliveryInfo.signResult,
+              signedAt: deliveryInfo.signedAt,
+              returnType: deliveryInfo.returnType,
+              returnReason: deliveryInfo.returnReason,
+              supplementaryRemark: deliveryInfo.supplementaryRemark,
+            }
+          : undefined,
+      };
+    });
   }
 
   getPrescriptionById(id: string): Prescription | undefined {

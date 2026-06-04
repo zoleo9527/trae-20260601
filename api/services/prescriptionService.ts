@@ -10,6 +10,7 @@ import type {
   DeliveryRequest,
   SignRequest,
   RoleTodoCount,
+  PrescriptionWithDeliverySummary,
 } from '../../shared/types';
 import { ROLE_TODO_STATUSES } from '../../shared/types';
 
@@ -27,6 +28,10 @@ class PrescriptionService {
 
   async getHistoryByRole(role: Role): Promise<Prescription[]> {
     return db.getHistoryByRole(role);
+  }
+
+  async getHistoryWithDeliverySummaryByRole(role: Role): Promise<PrescriptionWithDeliverySummary[]> {
+    return db.getHistoryWithDeliverySummaryByRole(role);
   }
 
   async getTodoCountByRole(role: Role): Promise<RoleTodoCount> {

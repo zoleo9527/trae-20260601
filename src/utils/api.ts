@@ -8,6 +8,7 @@ import type {
   DecoctRequest,
   DeliveryRequest,
   SignRequest,
+  PrescriptionWithDeliverySummary,
 } from '../../shared/types';
 
 const API_BASE = '/api';
@@ -37,6 +38,9 @@ export const api = {
 
   getHistoryByRole: (role: Role) =>
     request<Prescription[]>(`/prescriptions/history/${role}`),
+
+  getHistoryWithSummaryByRole: (role: Role) =>
+    request<PrescriptionWithDeliverySummary[]>(`/prescriptions/history-with-summary/${role}`),
 
   getTodoCount: (role: Role) =>
     request<RoleTodoCount>(`/prescriptions/todo-count/${role}`),

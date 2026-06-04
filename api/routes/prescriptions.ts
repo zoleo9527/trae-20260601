@@ -3,6 +3,7 @@ import {
   getAllPrescriptions,
   getPrescriptionsByRole,
   getHistoryByRole,
+  getHistoryWithDeliverySummaryByRole,
   getTodoCount,
   getPrescriptionDetail,
   createPrescription,
@@ -17,6 +18,7 @@ const router = Router();
 router.get('/', getAllPrescriptions);
 router.get('/by-role/:role', getPrescriptionsByRole);
 router.get('/history/:role', getHistoryByRole);
+router.get('/history-with-summary/:role', getHistoryWithDeliverySummaryByRole);
 router.get('/todo-count/:role', getTodoCount);
 router.get('/:id', getPrescriptionDetail);
 router.post('/', createPrescription);

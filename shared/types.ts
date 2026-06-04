@@ -63,6 +63,21 @@ export interface OperationLog {
   createdAt: string;
 }
 
+export interface PrescriptionDeliverySummary {
+  courierCompany: string;
+  trackingNo: string;
+  deliveryRemark?: string;
+  signResult?: SignResult;
+  signedAt?: string;
+  returnType?: string;
+  returnReason?: string;
+  supplementaryRemark?: string;
+}
+
+export interface PrescriptionWithDeliverySummary extends Prescription {
+  deliverySummary?: PrescriptionDeliverySummary;
+}
+
 export interface PrescriptionDetail extends Prescription {
   deliveryInfo?: DeliveryInfo;
   statusLogs: StatusLog[];
