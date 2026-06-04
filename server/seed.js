@@ -233,11 +233,59 @@ async function main() {
         action: '关联排产变更提醒',
         remark: `⚠️ 关联灌装排产FILL-2026060001有变更：${changeDesc}，${scheduleChange.remark}`,
         scheduleChangeNotified: true,
+        changeHandled: false,
         createdBy: { connect: { id: scheduleChange.createdById } },
         createdAt: scheduleChange.createdAt
       }
     });
   }
+
+  const p4 = await prisma.packagingRequisition.create({
+    data: {
+      requisitionNo: 'PACK-2026060004',
+      scheduleId: s1.id,
+      bottleType: '330ml透明瓶',
+      bottleCount: 4200,
+      labelType: '春日小麦专用A',
+      cartonType: '12瓶装彩色纸箱',
+      requiredDate: new Date('2026-06-07'),
+      status: PackagingStatus.APPROVED,
+      currentHandler: Role.BREW_MASTER,
+      scheduleVersion: 1,
+      createdById: packagingSupervisor.id
+    }
+  });
+
+  await prisma.packagingRequisitionHistory.createMany({
+    data: [
+      { requisitionId: p4.id, action: '创建包装领用', remark: '补货订单，半批4200瓶', newStatus: PackagingStatus.PENDING, createdById: packagingSupervisor.id, createdAt: new Date('2026-06-03T09:00:00') },
+      { requisitionId: p4.id, action: '审核通过', remark: '库存充足，安排发放', oldStatus: PackagingStatus.PENDING, newStatus: PackagingStatus.APPROVED, createdById: salesBackoffice.id, createdAt: new Date('2026-06-03T11:00:00') }
+    ]
+  });
+
+  const handledChange = await prisma.packagingRequisitionHistory.create({
+    data: {
+      requisition: { connect: { id: p4.id } },
+      action: '关联排产变更提醒',
+      remark: `⚠️ 关联灌装排产FILL-2026060001有变更：灌装日期延后1天至6月6日`,
+      scheduleChangeNotified: true,
+      changeHandled: true,
+      changeAffected: false,
+      createdBy: { connect: { id: brewMaster.id } },
+      createdAt: new Date('2026-06-04T08:10:00')
+    }
+  });
+
+  await prisma.packagingRequisitionHistory.create({
+    data: {
+      requisition: { connect: { id: p4.id } },
+      action: '变更处置',
+      remark: '需求日期为6月7日，排产延后至6月6日不影响领用计划，确认不受影响。',
+      changes: JSON.stringify({ affected: false }),
+      createdBy: { connect: { id: packagingSupervisor.id } },
+      createdAt: new Date('2026-06-04T09:00:00')
+    }
+  });
 
   console.log('Seed data created successfully!');
   console.log(`\n=== 验收样例数据 ===`);
@@ -245,9 +293,10 @@ async function main() {
   console.log(`2. 灌装排产 FILL-2026060002 [已驳回] - 可从详情页修改后"补录后重提"，含3条历史备注（含驳回原因）`);
   console.log(`3. 灌装排产 FILL-2026060003 [待复核] - 已修改过重提，含5条历史备注（含驳回节点+变更记录）`);
   console.log(`4. 灌装排产 FILL-2026050001 [已完成] - 完整流程样例，含6条历史备注`);
-  console.log(`5. 包装领用 PACK-2026060001 [已通过] - 关联FILL-0001，含排产变更提醒，可"物料发放"→"完成"`);
-  console.log(`6. 包装领用 PACK-2026050001 [已完成] - 完整流程样例，含4条历史备注`);
-  console.log(`7. 包装领用 PACK-2026060003 [已退回] - 可修改后"补录后重提"，含退回原因`);
+  console.log(`5. 包装领用 PACK-2026060001 [已通过] - ⚠️ 变更待处置：关联排产变更未处理，可点击"处置变更"测试`);
+  console.log(`6. 包装领用 PACK-2026060004 [已通过] - ✓ 变更已处置：排产变更已确认不受影响`);
+  console.log(`7. 包装领用 PACK-2026050001 [已完成] - 完整流程样例，含4条历史备注`);
+  console.log(`8. 包装领用 PACK-2026060003 [已退回] - 可修改后"补录后重提"，含退回原因`);
   console.log(`\n用户账号：`);
   console.log(`- 酿酒师: ${brewMaster.name} (ID: ${brewMaster.id})`);
   console.log(`- 包装主管: ${packagingSupervisor.name} (ID: ${packagingSupervisor.id})`);

@@ -110,10 +110,15 @@ export default function PackagingList() {
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    {req.history?.some(h => h.scheduleChangeNotified) ? (
-                      <span className="text-xs text-orange-600 bg-orange-50 px-2 py-1 rounded flex items-center space-x-1">
+                    {req.hasPendingChange ? (
+                      <span className="text-xs text-orange-600 bg-orange-50 px-2 py-1 rounded flex items-center space-x-1 animate-pulse border border-orange-200">
                         <span>⚠️</span>
-                        <span>排产已变更</span>
+                        <span>变更待处置({req.pendingChangeCount})</span>
+                      </span>
+                    ) : req.hasConfirmedChange ? (
+                      <span className="text-xs text-green-600 bg-green-50 px-2 py-1 rounded flex items-center space-x-1 border border-green-200">
+                        <span>✓</span>
+                        <span>变更已处置</span>
                       </span>
                     ) : (
                       <span className="text-xs text-gray-400">-</span>

@@ -16,9 +16,13 @@ export default function PackagingDetail() {
   const [requisition, setRequisition] = useState<PackagingRequisition | null>(null);
   const [loading, setLoading] = useState(true);
   const [showActionModal, setShowActionModal] = useState<string | null>(null);
+  const [showChangeConfirm, setShowChangeConfirm] = useState(false);
   const [actionRemark, setActionRemark] = useState('');
   const [editForm, setEditForm] = useState<any>({});
   const [comment, setComment] = useState('');
+  const [changeAffected, setChangeAffected] = useState<boolean | null>(null);
+  const [changeRemark, setChangeRemark] = useState('');
+  const [confirmingChange, setConfirmingChange] = useState(false);
 
   useEffect(() => {
     fetch(`/api/packaging-requisitions/${id}`)
@@ -95,6 +99,39 @@ export default function PackagingDetail() {
     triggerRefresh();
   };
 
+  const handleConfirmChange = async () => {
+    if (changeAffected === null) {
+      alert('请选择是否受排产变更影响');
+      return;
+    }
+
+    setConfirmingChange(true);
+    try {
+      const res = await fetch(`/api/packaging-requisitions/${requisition.id}/confirm-change`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: currentUser!.id,
+          affected: changeAffected,
+          remark: changeRemark
+        })
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        alert(data.error || '操作失败');
+        return;
+      }
+
+      setShowChangeConfirm(false);
+      setChangeAffected(null);
+      setChangeRemark('');
+      triggerRefresh();
+    } finally {
+      setConfirmingChange(false);
+    }
+  };
+
   const getPrimaryAction = () => {
     if (!canHandle) return null;
 
@@ -129,10 +166,16 @@ export default function PackagingDetail() {
               ⚠️ 已被退回，请修改后重提
             </span>
           )}
-          {hasScheduleChangeWarning && (
-            <span className="text-xs text-orange-600 bg-orange-50 px-2 py-1 rounded flex items-center space-x-1">
+          {requisition.hasPendingChange && (
+            <span className="text-xs text-orange-600 bg-orange-50 px-2 py-1 rounded flex items-center space-x-1 animate-pulse">
               <span>⚠️</span>
-              <span>关联排产已变更，请确认</span>
+              <span>排产变更待确认（{requisition.pendingChangeCount}）</span>
+            </span>
+          )}
+          {!requisition.hasPendingChange && requisition.hasConfirmedChange && (
+            <span className="text-xs text-green-600 bg-green-50 px-2 py-1 rounded flex items-center space-x-1">
+              <span>✓</span>
+              <span>变更已处置</span>
             </span>
           )}
         </div>
@@ -148,23 +191,31 @@ export default function PackagingDetail() {
         </div>
       </div>
 
-      {hasScheduleChangeWarning && (
+      {requisition.hasPendingChange && (
         <div className="p-4 bg-orange-50 border border-orange-200 rounded-lg">
-          <div className="flex items-start space-x-3">
-            <span className="text-xl">⚠️</span>
-            <div>
-              <div className="font-medium text-orange-800">关联灌装排产已变更</div>
-              <div className="text-sm text-orange-700 mt-1">
-                该包装领用关联的灌装排产
-                <button
-                  onClick={() => navigate(`/filling/${requisition.scheduleId}`)}
-                  className="mx-1 underline font-medium hover:text-orange-900"
-                >
-                  {requisition.schedule.batchNo}
-                </button>
-                有内容变更，请确认是否影响您的包装需求。
+          <div className="flex items-start justify-between">
+            <div className="flex items-start space-x-3">
+              <span className="text-xl">⚠️</span>
+              <div>
+                <div className="font-medium text-orange-800">关联灌装排产已变更，待处置确认</div>
+                <div className="text-sm text-orange-700 mt-1">
+                  该包装领用关联的灌装排产
+                  <button
+                    onClick={() => navigate(`/filling/${requisition.scheduleId}`)}
+                    className="mx-1 underline font-medium hover:text-orange-900"
+                  >
+                    {requisition.schedule.batchNo}
+                  </button>
+                  有 {requisition.pendingChangeCount} 项变更待处置，请确认是否影响您的包装需求。
+                </div>
               </div>
             </div>
+            <button
+              onClick={() => setShowChangeConfirm(true)}
+              className="px-4 py-2 bg-orange-600 text-white rounded-lg text-sm font-medium hover:bg-orange-700 whitespace-nowrap"
+            >
+              处置变更
+            </button>
           </div>
         </div>
       )}
@@ -391,9 +442,14 @@ export default function PackagingDetail() {
                   <li>• 系统会自动记录变更内容</li>
                 </>
               )}
-              {hasScheduleChangeWarning && (
+              {requisition.hasPendingChange && (
                 <li className="text-orange-700 font-medium">
-                  ⚠️ 关联排产已变更，请确认需求是否需要调整
+                  ⚠️ 关联排产有 {requisition.pendingChangeCount} 项变更待处置，请点击横幅中的"处置变更"
+                </li>
+              )}
+              {!requisition.hasPendingChange && requisition.hasConfirmedChange && (
+                <li className="text-green-700">
+                  ✓ 所有排产变更均已处置完成
                 </li>
               )}
             </ul>
@@ -469,6 +525,71 @@ export default function PackagingDetail() {
                 className={showActionModal === 'reject' ? 'btn-danger' : 'btn-primary'}
               >
                 确认
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showChangeConfirm && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl shadow-xl max-w-lg w-full mx-4 p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">排产变更处置</h3>
+            <p className="text-sm text-gray-600 mb-4">
+              请根据排产变更内容，确认是否影响您的包装领用需求。处置结论将记录入历史。
+            </p>
+            <div className="space-y-4 mb-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">是否受排产变更影响？*</label>
+                <div className="grid grid-cols-2 gap-4">
+                  <button
+                    onClick={() => setChangeAffected(true)}
+                    className={`p-4 border-2 rounded-lg text-center transition-all ${
+                      changeAffected === true
+                        ? 'border-red-500 bg-red-50 text-red-700'
+                        : 'border-gray-200 hover:border-gray-300'
+                    }`}
+                  >
+                    <div className="text-2xl mb-1">⚠️</div>
+                    <div className="font-medium">受影响，需调整</div>
+                  </button>
+                  <button
+                    onClick={() => setChangeAffected(false)}
+                    className={`p-4 border-2 rounded-lg text-center transition-all ${
+                      changeAffected === false
+                        ? 'border-green-500 bg-green-50 text-green-700'
+                        : 'border-gray-200 hover:border-gray-300'
+                    }`}
+                  >
+                    <div className="text-2xl mb-1">✓</div>
+                    <div className="font-medium">不受影响，继续</div>
+                  </button>
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">处置备注</label>
+                <textarea
+                  value={changeRemark}
+                  onChange={e => setChangeRemark(e.target.value)}
+                  rows={3}
+                  placeholder="请简要说明处置原因或后续安排（如调整领用数量、修改需求日期等）"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-beer-500 focus:border-beer-500"
+                />
+              </div>
+            </div>
+            <div className="flex justify-end space-x-3">
+              <button
+                onClick={() => { setShowChangeConfirm(false); setChangeAffected(null); setChangeRemark(''); }}
+                className="btn-secondary"
+              >
+                取消
+              </button>
+              <button
+                onClick={handleConfirmChange}
+                disabled={changeAffected === null || confirmingChange}
+                className="btn-primary disabled:opacity-50"
+              >
+                {confirmingChange ? '提交中...' : '确认处置'}
               </button>
             </div>
           </div>

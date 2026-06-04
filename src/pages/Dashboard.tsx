@@ -57,7 +57,7 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
         <div className="card border-l-4 border-l-yellow-500">
           <div className="text-sm text-gray-500">灌装待复核</div>
           <div className="text-3xl font-bold text-yellow-600 mt-1">{getFillingCount('SUBMITTED')}</div>
@@ -73,6 +73,12 @@ export default function Dashboard() {
         <div className="card border-l-4 border-l-blue-500">
           <div className="text-sm text-gray-500">包装待发放</div>
           <div className="text-3xl font-bold text-blue-600 mt-1">{getPackagingCount('APPROVED')}</div>
+        </div>
+        <div className="card border-l-4 border-l-orange-500">
+          <div className="text-sm text-gray-500">变更待处置</div>
+          <div className="text-3xl font-bold text-orange-600 mt-1">
+            {packagingRequisitions.filter(r => r.hasPendingChange).length}
+          </div>
         </div>
       </div>
 
@@ -149,11 +155,15 @@ export default function Dashboard() {
                       <span className={`status-badge ${PACKAGING_STATUS_COLORS[req.status]}`}>
                         {PACKAGING_STATUS_LABELS[req.status]}
                       </span>
-                      {req.history?.some(h => h.scheduleChangeNotified) && (
-                        <span className="text-xs text-orange-600 bg-orange-50 px-2 py-0.5 rounded">
-                          ⚠️ 排产已变更
+                      {req.hasPendingChange ? (
+                        <span className="text-xs text-orange-600 bg-orange-50 px-2 py-0.5 rounded border border-orange-200 animate-pulse">
+                          ⚠️ 变更待处置({req.pendingChangeCount})
                         </span>
-                      )}
+                      ) : req.hasConfirmedChange ? (
+                        <span className="text-xs text-green-600 bg-green-50 px-2 py-0.5 rounded border border-green-200">
+                          ✓ 变更已处置
+                        </span>
+                      ) : null}
                     </div>
                   </div>
                 </button>
@@ -162,6 +172,43 @@ export default function Dashboard() {
           )}
         </div>
       </div>
+
+      {packagingRequisitions.filter(r => r.hasPendingChange).length > 0 && (
+        <div className="card border-l-4 border-l-orange-500">
+          <div className="flex justify-between items-center mb-4">
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900">⚠️ 排产变更待处置</h2>
+              <p className="text-sm text-gray-500 mt-1">以下包装领有关联的灌装排产已变更，请及时确认是否受影响</p>
+            </div>
+            <button onClick={() => navigate('/packaging')} className="text-sm text-beer-600 hover:text-beer-700">
+              查看全部 →
+            </button>
+          </div>
+          <div className="space-y-3">
+            {packagingRequisitions.filter(r => r.hasPendingChange).map(req => (
+              <button
+                key={req.id}
+                onClick={() => navigate(`/packaging/${req.id}`)}
+                className="w-full p-3 border border-orange-200 bg-orange-50 rounded-lg hover:border-orange-400 hover:bg-orange-100 transition-all text-left group"
+              >
+                <div className="flex justify-between items-start">
+                  <div>
+                    <div className="font-medium text-gray-900 group-hover:text-orange-700">
+                      {req.requisitionNo} - {req.schedule?.productName}
+                    </div>
+                    <div className="text-sm text-gray-500 mt-0.5">
+                      {req.bottleType} · {req.bottleCount}个 · 有 {req.pendingChangeCount} 项变更待处置
+                    </div>
+                  </div>
+                  <span className="text-xs text-orange-600 bg-orange-100 px-2 py-1 rounded animate-pulse">
+                    待处置
+                  </span>
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="card">
         <h2 className="text-lg font-semibold text-gray-900 mb-4">角色处理节奏说明</h2>

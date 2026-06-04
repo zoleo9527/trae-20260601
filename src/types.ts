@@ -49,6 +49,8 @@ export interface PackagingRequisitionHistory {
   remark: string;
   changes?: Record<string, any>;
   scheduleChangeNotified: boolean;
+  changeHandled: boolean;
+  changeAffected?: boolean;
   createdById: number;
   createdBy: User;
   createdAt: string;
@@ -72,6 +74,11 @@ export interface PackagingRequisition {
   createdById: number;
   createdBy: User;
   history: PackagingRequisitionHistory[];
+  pendingChangeCount: number;
+  hasPendingChange: boolean;
+  hasConfirmedChange: boolean;
+  pendingChanges?: PackagingRequisitionHistory[];
+  confirmedChanges?: PackagingRequisitionHistory[];
 }
 
 export interface Notification {

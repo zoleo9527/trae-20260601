@@ -396,10 +396,18 @@ app.get('/api/packaging-requisitions', async (req, res) => {
     },
     orderBy: { createdAt: 'desc' }
   });
-  const parsed = requisitions.map(r => ({
-    ...r,
-    history: r.history.map(h => parseChanges(h))
-  }));
+  const parsed = requisitions.map(r => {
+    const changeNotifications = r.history.filter(h => h.scheduleChangeNotified);
+    const pendingChanges = changeNotifications.filter(h => !h.changeHandled);
+    const confirmedChanges = changeNotifications.filter(h => h.changeHandled);
+    return {
+      ...r,
+      history: r.history.map(h => parseChanges(h)),
+      pendingChangeCount: pendingChanges.length,
+      hasPendingChange: pendingChanges.length > 0,
+      hasConfirmedChange: confirmedChanges.length > 0
+    };
+  });
   res.json(parsed);
 });
 
@@ -412,13 +420,21 @@ app.get('/api/packaging-requisitions/:id', async (req, res) => {
       history: { include: { createdBy: true }, orderBy: { createdAt: 'desc' } }
     }
   });
+  const changeNotifications = requisition.history.filter(h => h.scheduleChangeNotified);
+  const pendingChanges = changeNotifications.filter(h => !h.changeHandled);
+  const confirmedChanges = changeNotifications.filter(h => h.changeHandled);
   const parsed = {
     ...requisition,
     history: requisition.history.map(h => parseChanges(h)),
     schedule: {
       ...requisition.schedule,
       history: requisition.schedule.history.map(h => parseChanges(h))
-    }
+    },
+    pendingChangeCount: pendingChanges.length,
+    hasPendingChange: pendingChanges.length > 0,
+    hasConfirmedChange: confirmedChanges.length > 0,
+    pendingChanges: pendingChanges,
+    confirmedChanges: confirmedChanges
   };
   res.json(parsed);
 });
@@ -614,6 +630,50 @@ app.put('/api/packaging-requisitions/:id/complete', async (req, res) => {
     'PackagingRequisition', id);
 
   res.json(requisition);
+});
+
+app.put('/api/packaging-requisitions/:id/confirm-change', async (req, res) => {
+  const { userId, affected, remark, historyId } = req.body;
+  const id = parseInt(req.params.id);
+
+  if (affected === undefined || affected === null) {
+    return res.status(400).json({ error: '请选择是否受排产变更影响' });
+  }
+
+  const targetHistoryId = historyId ? parseInt(historyId) : null;
+
+  let changeNotification;
+  if (targetHistoryId) {
+    changeNotification = await prisma.packagingRequisitionHistory.findFirst({
+      where: { id: targetHistoryId, requisitionId: id, scheduleChangeNotified: true }
+    });
+  } else {
+    changeNotification = await prisma.packagingRequisitionHistory.findFirst({
+      where: { requisitionId: id, scheduleChangeNotified: true, changeHandled: false },
+      orderBy: { createdAt: 'desc' }
+    });
+  }
+
+  if (!changeNotification) {
+    return res.status(400).json({ error: '未找到待处理的排产变更通知' });
+  }
+
+  await prisma.packagingRequisitionHistory.update({
+    where: { id: changeNotification.id },
+    data: { changeHandled: true, changeAffected: affected }
+  });
+
+  await prisma.packagingRequisitionHistory.create({
+    data: {
+      requisitionId: id,
+      action: '变更处置',
+      remark: remark || (affected ? '已确认受排产变更影响，将调整领用计划' : '已确认不受排产变更影响'),
+      changes: JSON.stringify({ affected }),
+      createdById: parseInt(userId)
+    }
+  });
+
+  res.json({ success: true });
 });
 
 app.put('/api/packaging-requisitions/:id/add-comment', async (req, res) => {

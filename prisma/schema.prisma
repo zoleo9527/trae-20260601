@@ -86,6 +86,8 @@ model PackagingRequisitionHistory {
   remark          String
   changes         String?
   scheduleChangeNotified Boolean @default(false)
+  changeHandled   Boolean   @default(false)
+  changeAffected  Boolean?
   createdById     Int
   createdBy       User      @relation("PackagingHistoryCreator", fields: [createdById], references: [id])
   createdAt       DateTime  @default(now())
