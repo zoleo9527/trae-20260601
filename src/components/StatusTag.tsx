@@ -1,11 +1,12 @@
 import type { ReminderStatus, ReportStatus } from '@/types'
 import { REMINDER_STATUS_LABELS, REPORT_STATUS_LABELS } from '@/types'
+import type { MouseEvent } from 'react'
 
 type TagStatus = ReminderStatus | ReportStatus
 
 interface StatusTagProps {
   status: TagStatus
-  onClick?: () => void
+  onClick?: (e: MouseEvent) => void
   pulse?: boolean
 }
 

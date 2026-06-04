@@ -4,7 +4,8 @@ import { Sidebar } from '@/components/Sidebar'
 import { StatusTag } from '@/components/StatusTag'
 import { useAppStore } from '@/store'
 import { ANOMALY_TYPE_LABELS } from '@/types'
-import { ClipboardCheck } from 'lucide-react'
+import { exportReportsToCSV } from '@/utils/export'
+import { ClipboardCheck, Download } from 'lucide-react'
 import { useState } from 'react'
 
 function formatTime(iso: string | undefined) {

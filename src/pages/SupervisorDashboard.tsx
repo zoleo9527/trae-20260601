@@ -3,7 +3,8 @@ import { Sidebar } from '@/components/Sidebar'
 import { StatusTag } from '@/components/StatusTag'
 import { useAppStore } from '@/store'
 import { ANOMALY_TYPE_LABELS } from '@/types'
-import { AlertTriangle, CheckCircle, Clock, FileWarning } from 'lucide-react'
+import { exportLogsToCSV, exportReportsToCSV } from '@/utils/export'
+import { AlertTriangle, CheckCircle, Clock, Download, FileWarning } from 'lucide-react'
 import { useState } from 'react'
 
 function formatTime(iso: string | undefined) {

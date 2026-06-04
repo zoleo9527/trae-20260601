@@ -94,7 +94,7 @@ export default function CaregiverReminders() {
 
   const handleMarkAbnormal = (reminderId: string, anomalyType: AnomalyType) => {
     const note = ANOMALY_TYPE_LABELS[anomalyType]
-    const reportId = markReminderAbnormal(reminderId, note)
+    const reportId = markReminderAbnormal(reminderId, note, anomalyType)
     setAnomalyModalReminderId(null)
     navigate(`/caregiver/report?draft=${reportId}`)
   }

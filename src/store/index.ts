@@ -2,6 +2,7 @@ import { MOCK_LOGS, MOCK_REMINDERS, MOCK_REPORTS } from '@/mock/data'
 import type {
     AnomalyReport,
     AnomalyType,
+    Attachment,
     MedicationReminder,
     OperationLog,
     ReminderStatus,
@@ -22,7 +23,7 @@ interface AppState {
   clearRole: () => void
 
   confirmReminder: (reminderId: string) => void
-  markReminderAbnormal: (reminderId: string, note: string) => string
+  markReminderAbnormal: (reminderId: string, note: string, anomalyType: AnomalyType) => string
   markReminderTimeout: (reminderId: string) => string
   checkAndMarkTimeouts: () => string[]
 
@@ -159,7 +160,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     })
   },
 
-  markReminderAbnormal: (reminderId, note) => {
+  markReminderAbnormal: (reminderId, note, anomalyType) => {
     let newReportId = ''
     set((state) => {
       const reminder = state.reminders.find((r) => r.id === reminderId)
@@ -177,14 +178,15 @@ export const useAppStore = create<AppState>((set, get) => ({
         bedNo: reminder.bedNo,
         reporterId: reminder.caregiverId,
         reporterName: reminder.caregiverName,
-        anomalyType: 'other',
+        anomalyType,
         description: note,
-        severity: 'medium',
+        severity: anomalyType === 'adverse_reaction' || anomalyType === 'timeout' ? 'high' : 'medium',
         status: 'draft',
         supplementHistory: [],
-        involvesFamily: false,
+        involvesFamily: anomalyType === 'timeout' || anomalyType === 'adverse_reaction',
         familyNotified: false,
         familyConfirmed: false,
+        attachments: [],
       }
 
       const updatedReminders = state.reminders.map((r) =>
@@ -248,6 +250,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         involvesFamily: true,
         familyNotified: false,
         familyConfirmed: false,
+        attachments: [],
       }
 
       const updatedReminders = state.reminders.map((r) =>
@@ -301,6 +304,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         involvesFamily: false,
         familyNotified: false,
         familyConfirmed: false,
+        attachments: [],
       }
 
       const updatedReminders = state.reminders.map((r) =>

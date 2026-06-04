@@ -4,7 +4,7 @@ function formatCSVValue(value: string | number | boolean | undefined): string {
   if (value === undefined || value === null) return ''
   const str = String(value)
   if (str.includes(',') || str.includes('"') || str.includes('\n')) {
-    return `"${str.replace(/"/g, '""')}"
+    return '"' + str.replace(/"/g, '""') + '"'
   }
   return str
 }
