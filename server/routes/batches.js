@@ -31,28 +31,50 @@ router.get('/', (req, res) => {
     params.push(status)
   }
   if (keyword) {
-    conditions.push('(b.batch_code LIKE ? OR p.code LIKE ? OR p.patient_name LIKE ?)')
+    conditions.push('(b.batch_code LIKE ? OR p.code LIKE ? OR p.patient_name LIKE ? OR pl.label_code LIKE ?)')
     const kw = `%${keyword}%`
-    params.push(kw, kw, kw)
+    params.push(kw, kw, kw, kw)
   }
 
   const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : ''
 
-  const total = db.prepare(`SELECT COUNT(*) as count FROM decoction_batches b LEFT JOIN prescriptions p ON b.prescription_id = p.id ${whereClause}`).get(...params).count
-
-  const batches = db.prepare(`
-    SELECT b.*, u.name as worker_name, p.code as prescription_code, p.patient_name, p.herbs, p.dosage
+  const total = db.prepare(`
+    SELECT COUNT(DISTINCT b.id) as count
     FROM decoction_batches b
-    LEFT JOIN users u ON b.worker_id = u.id
     LEFT JOIN prescriptions p ON b.prescription_id = p.id
+    LEFT JOIN packaging_labels pl ON b.id = pl.batch_id
+    ${whereClause}
+  `).get(...params).count
+
+  const batchIds = db.prepare(`
+    SELECT DISTINCT b.id
+    FROM decoction_batches b
+    LEFT JOIN prescriptions p ON b.prescription_id = p.id
+    LEFT JOIN packaging_labels pl ON b.id = pl.batch_id
     ${whereClause}
     ORDER BY b.created_at DESC
     LIMIT ? OFFSET ?
-  `).all(...params, pageSize, offset)
+  `).all(...params, pageSize, offset).map(r => r.id)
 
-  batches.forEach(b => {
-    b.herbs = JSON.parse(b.herbs)
-  })
+  let batches = []
+  if (batchIds.length > 0) {
+    const placeholders = batchIds.map(() => '?').join(',')
+    const allParams = [...batchIds, ...batchIds]
+    batches = db.prepare(`
+      SELECT b.*, u.name as worker_name, p.code as prescription_code, p.patient_name, p.herbs, p.dosage,
+             (SELECT GROUP_CONCAT(pl_inner.label_code) FROM packaging_labels pl_inner WHERE pl_inner.batch_id = b.id) as label_codes
+      FROM decoction_batches b
+      LEFT JOIN users u ON b.worker_id = u.id
+      LEFT JOIN prescriptions p ON b.prescription_id = p.id
+      WHERE b.id IN (${placeholders})
+      ORDER BY CASE b.id ${batchIds.map((_, i) => `WHEN ? THEN ${i}`).join(' ')} END
+    `).all(...allParams)
+
+    batches.forEach(b => {
+      b.herbs = JSON.parse(b.herbs)
+      b.label_codes = b.label_codes ? b.label_codes.split(',') : []
+    })
+  }
 
   res.json({ batches, total, page: Number(page), pageSize: Number(pageSize) })
 })

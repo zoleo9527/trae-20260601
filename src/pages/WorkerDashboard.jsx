@@ -322,7 +322,7 @@ export default function WorkerDashboard() {
           <div style={styles.filterRow}>
             <input
               style={styles.searchInput}
-              placeholder="搜索批次号、处方号、患者名"
+              placeholder="搜索批次号、贴标号、处方号、患者名"
               value={searchInput}
               onChange={e => setSearchInput(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && handleSearch()}
@@ -373,6 +373,7 @@ export default function WorkerDashboard() {
               <tr>
                 <th style={styles.th}>选择</th>
                 <th style={styles.th}>批次号</th>
+                <th style={styles.th}>贴标号</th>
                 <th style={styles.th}>处方</th>
                 <th style={styles.th}>患者</th>
                 <th style={styles.th}>煎药方法</th>
@@ -394,6 +395,14 @@ export default function WorkerDashboard() {
                     />
                   </td>
                   <td style={styles.td}>{b.batch_code}</td>
+                  <td style={styles.td}>
+                    {b.label_codes && b.label_codes.length > 0
+                      ? b.label_codes.map((lc, i) => (
+                          <div key={i} style={{ fontSize: 12, color: '#606266' }}>{lc}</div>
+                        ))
+                      : <span style={{ color: '#c0c4cc' }}>-</span>
+                    }
+                  </td>
                   <td style={styles.td}>{b.prescription_code}</td>
                   <td style={styles.td}>{b.patient_name}</td>
                   <td style={styles.td}>{b.decoction_method}</td>
