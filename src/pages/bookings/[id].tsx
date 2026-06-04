@@ -23,6 +23,7 @@ interface BookingDetailProps {
       createdBy: { name: string; role: string };
     })[];
     exceptions: (ExceptionRecord & {
+      createdBy: { name: string; role: string };
       handledBy?: { name: string; role: string } | null;
     })[];
   };
@@ -124,18 +125,20 @@ export default function BookingDetailPage({ user, booking, personnelCount }: Boo
     }
     setLoading(true);
     try {
-      await fetch(`/api/bookings/${booking.id}/exception`, {
+      const res = await fetch(`/api/bookings/${booking.id}/exception`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ type: exceptionType, description: exceptionDesc }),
       });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || '添加异常失败');
+      }
       router.reload();
     } catch (error) {
-      alert('操作失败');
+      alert(error instanceof Error ? error.message : '操作失败');
     } finally {
       setLoading(false);
-      setShowExceptionModal(false);
-      setExceptionDesc('');
     }
   };
 
@@ -143,14 +146,18 @@ export default function BookingDetailPage({ user, booking, personnelCount }: Boo
     if (!confirm('确定要标记此异常为已处理吗？')) return;
     setLoading(true);
     try {
-      await fetch(`/api/bookings/${booking.id}/exception`, {
+      const res = await fetch(`/api/bookings/${booking.id}/exception`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ exceptionId }),
       });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || '标记处理失败');
+      }
       router.reload();
     } catch (error) {
-      alert('操作失败');
+      alert(error instanceof Error ? error.message : '操作失败');
     } finally {
       setLoading(false);
     }
@@ -337,14 +344,19 @@ export default function BookingDetailPage({ user, booking, personnelCount }: Boo
                       {unhandledExceptions.map((ex) => (
                         <div key={ex.id} className="bg-red-50 border border-red-200 rounded-lg p-3 flex items-center justify-between">
                           <div>
-                            <span className="text-xs font-medium text-red-600 bg-red-100 px-2 py-0.5 rounded-full mr-2">
-                              {exceptionTypes.find((t) => t.value === ex.type)?.label || ex.type}
-                            </span>
+                            <div className="flex items-center space-x-2 mb-1">
+                              <span className="text-xs font-medium text-red-600 bg-red-100 px-2 py-0.5 rounded-full">
+                                {exceptionTypes.find((t) => t.value === ex.type)?.label || ex.type}
+                              </span>
+                              <span className="text-xs text-gray-500">
+                                记录人：{ex.createdBy.name} · {format(new Date(ex.createdAt), 'yyyy-MM-dd HH:mm', { locale: zhCN })}
+                              </span>
+                            </div>
                             <span className="text-sm text-gray-800">{ex.description}</span>
                           </div>
                           <button
                             onClick={() => handleMarkExceptionHandled(ex.id)}
-                            className="text-xs text-green-600 hover:text-green-700 font-medium"
+                            className="text-xs text-green-600 hover:text-green-700 font-medium ml-4"
                           >
                             标记已处理
                           </button>
@@ -483,8 +495,8 @@ export default function BookingDetailPage({ user, booking, personnelCount }: Boo
                               </span>
                             </div>
                             <p className="text-sm text-gray-800 mt-1">{ex.description}</p>
-                            <p className="text-xs text-gray-400 mt-2">
-                              记录时间：{format(new Date(ex.createdAt), 'yyyy-MM-dd HH:mm', { locale: zhCN })}
+                            <p className="text-xs text-gray-500 mt-2">
+                              记录人：{ex.createdBy.name} · 记录时间：{format(new Date(ex.createdAt), 'yyyy-MM-dd HH:mm', { locale: zhCN })}
                             </p>
                             {ex.isHandled && ex.handledBy && ex.handledAt && (
                               <p className="text-xs text-green-600 mt-1">
@@ -661,7 +673,10 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
         orderBy: { createdAt: 'desc' },
       },
       exceptions: {
-        include: { handledBy: { select: { name: true, role: true } } },
+        include: {
+          createdBy: { select: { name: true, role: true } },
+          handledBy: { select: { name: true, role: true } },
+        },
         orderBy: { createdAt: 'desc' },
       },
     },
