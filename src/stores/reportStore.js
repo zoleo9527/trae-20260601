@@ -28,6 +28,27 @@ export const deliverySubStatus = {
   ABNORMAL_REVIEW: { id: 'abnormal_review', name: '异常复核', icon: '⚠️' }
 }
 
+export const deliveryRecordTypeToSubStatus = {
+  sms_notification: 'pending_contact',
+  phone_call: 'pending_contact',
+  scheduled: 'pending_pickup',
+  phone_confirm: 'pending_pickup'
+}
+
+export const subStatusToMainStatus = {
+  pending_contact: 'pending_delivery',
+  pending_schedule: 'pending_delivery',
+  pending_pickup: 'delivery_scheduled',
+  abnormal_review: 'pending_delivery'
+}
+
+export const subStatusTransitions = {
+  pending_contact: ['pending_schedule', 'pending_pickup', 'abnormal_review'],
+  pending_schedule: ['pending_contact', 'pending_pickup', 'abnormal_review'],
+  pending_pickup: ['abnormal_review'],
+  abnormal_review: ['pending_contact', 'pending_schedule', 'pending_pickup']
+}
+
 const initialReports = [
   {
     id: 'RPT20260601001',
@@ -543,16 +564,16 @@ export function unstickReport(reportId, operator, action) {
 
 export function updateDeliverySubStatus(reportId, subStatusId, operator) {
   const subStatus = deliverySubStatus[subStatusId.toUpperCase()]
-  const mainStatusMap = {
-    pending_contact: 'pending_delivery',
-    pending_schedule: 'pending_delivery',
-    pending_pickup: 'delivery_scheduled',
-    abnormal_review: 'pending_delivery'
-  }
 
   reports.update(list => list.map(r => {
     if (r.id === reportId) {
-      const targetMainStatus = mainStatusMap[subStatusId] || r.currentStatus
+      const currentSub = r.deliverySubStatus
+      const allowedTransitions = subStatusTransitions[currentSub] || Object.keys(subStatusToMainStatus)
+      if (currentSub && currentSub !== subStatusId && !allowedTransitions.includes(subStatusId)) {
+        return r
+      }
+
+      const targetMainStatus = subStatusToMainStatus[subStatusId] || r.currentStatus
       const mainStatusChanged = targetMainStatus !== r.currentStatus
       const newMainStatus = auditStatus[targetMainStatus.toUpperCase()]
       let updated = {
@@ -580,6 +601,59 @@ export function updateDeliverySubStatus(reportId, subStatusId, operator) {
         updated.assignee = newMainStatus?.handler === 'deliver' ? r.assignee : r.assignee
         updated.isStuck = false
         updated.stuckReason = null
+      }
+
+      return updated
+    }
+    return r
+  }))
+}
+
+export function submitDeliveryRecord(reportId, record) {
+  const timestamp = new Date().toLocaleString('zh-CN', { 
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit'
+  }).replace(/\//g, '-')
+
+  reports.update(list => list.map(r => {
+    if (r.id === reportId) {
+      let updated = {
+        ...r,
+        deliveryRecords: [...r.deliveryRecords, {
+          id: 'd' + Date.now(),
+          ...record,
+          timestamp
+        }],
+        lastModified: timestamp,
+        lastModifier: record.operator
+      }
+
+      const targetSubStatus = deliveryRecordTypeToSubStatus[record.type]
+      if (targetSubStatus) {
+        const currentSub = r.deliverySubStatus
+        const allowedTransitions = subStatusTransitions[currentSub] || Object.keys(subStatusToMainStatus)
+        if (!currentSub || currentSub === targetSubStatus || allowedTransitions.includes(targetSubStatus)) {
+          const subStatus = deliverySubStatus[targetSubStatus.toUpperCase()]
+          const targetMainStatus = subStatusToMainStatus[targetSubStatus] || r.currentStatus
+          const mainStatusChanged = targetMainStatus !== r.currentStatus
+          const newMainStatus = auditStatus[targetMainStatus.toUpperCase()]
+
+          updated.deliverySubStatus = targetSubStatus
+          updated.operationLogs = [...updated.operationLogs, {
+            time: timestamp,
+            operator: record.operator,
+            action: `发放状态变更：${subStatus?.name || targetSubStatus}${mainStatusChanged ? `，主状态同步为${newMainStatus?.name || targetMainStatus}` : ''}`,
+            role: 'deliver'
+          }]
+
+          if (mainStatusChanged) {
+            updated.currentStatus = targetMainStatus
+            updated.currentHandler = newMainStatus?.handler || r.currentHandler
+            updated.assignee = newMainStatus?.handler === 'deliver' ? r.assignee : r.assignee
+            updated.isStuck = false
+            updated.stuckReason = null
+          }
+        }
       }
 
       return updated

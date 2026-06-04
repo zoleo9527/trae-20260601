@@ -1,5 +1,5 @@
 <script>
-  import { auditStatus, roles, deliverySubStatus, addAuditNote, updateReportStatus, addDeliveryRecord, markAsStuck, unstickReport, updateDeliverySubStatus } from '../stores/reportStore'
+  import { auditStatus, roles, deliverySubStatus, subStatusTransitions, addAuditNote, updateReportStatus, addDeliveryRecord, markAsStuck, unstickReport, updateDeliverySubStatus, submitDeliveryRecord } from '../stores/reportStore'
   
   export let report
 
@@ -162,19 +162,11 @@
   function submitDeliveryRecord() {
     if (!deliveryContent.trim()) return
     
-    addDeliveryRecord(report.id, {
+    submitDeliveryRecord(report.id, {
       type: deliveryType,
       operator: '赵发放员',
       content: deliveryContent.trim()
     })
-
-    if (deliveryType === 'scheduled' || deliveryType === 'phone_confirm') {
-      updateDeliverySubStatus(report.id, 'pending_pickup', '赵发放员')
-    } else if (deliveryType === 'sms_notification' || deliveryType === 'phone_call') {
-      if (!report.deliverySubStatus || report.deliverySubStatus === 'abnormal_review') {
-        updateDeliverySubStatus(report.id, 'pending_contact', '赵发放员')
-      }
-    }
 
     deliveryContent = ''
     showDeliveryModal = false
@@ -422,12 +414,11 @@
               <label class="form-label">发放阶段：</label>
               <div class="quick-actions">
                 {#each Object.values(deliverySubStatus) as subStatus (subStatus.id)}
-                  {@const isRegress = subStatus.id === 'pending_contact' && ['pending_schedule', 'pending_pickup'].includes(report.deliverySubStatus)}
-                  {@const isRegress2 = subStatus.id === 'pending_schedule' && report.deliverySubStatus === 'pending_pickup'}
+                  {@const allowed = report.deliverySubStatus === subStatus.id || !report.deliverySubStatus || (subStatusTransitions[report.deliverySubStatus] && subStatusTransitions[report.deliverySubStatus].includes(subStatus.id))}
                   <button 
                     class="quick-btn" 
-                    style="{report.deliverySubStatus === subStatus.id ? 'border-color: #1890ff; background: #e6f7ff; color: #1890ff;' : ''} {isRegress || isRegress2 ? 'opacity: 0.4; cursor: not-allowed;' : ''}"
-                    disabled={isRegress || isRegress2}
+                    style="{report.deliverySubStatus === subStatus.id ? 'border-color: #1890ff; background: #e6f7ff; color: #1890ff;' : ''} {!allowed ? 'opacity: 0.4; cursor: not-allowed;' : ''}"
+                    disabled={!allowed}
                     on:click={() => updateDeliverySubStatus(report.id, subStatus.id, '赵发放员')}
                   >
                     {subStatus.icon} {subStatus.name}
