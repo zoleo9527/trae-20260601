@@ -3,14 +3,18 @@ import { useAppStore } from '@/store/useAppStore';
 import { BED_STATUS_COLORS, BED_STATUS_LABELS, NURSING_LEVEL_COLORS, NURSING_LEVEL_LABELS, ROLE_LABELS, type Bed, type BedStatus, type NursingLevelType } from '@/types';
 import { AlertTriangle, ArrowRight, FileText, Keyboard, RotateCcw, Search, X } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 
 export default function BedsPage() {
   const { beds, residents, nursingLevels, currentRole, selectBed, selectedBedId, notePanelOpen, setNotePanelOpen, addNoteToBed, transferNoteToNursingLevel, admitResident, dischargeResident } = useAppStore();
+  const [urlParams, setUrlParams] = useSearchParams();
   const [searchQuery, setSearchQuery] = useState('');
   const [floorFilter, setFloorFilter] = useState<number | null>(null);
   const [statusFilter, setStatusFilter] = useState<BedStatus | null>(null);
   const [admitModalBedId, setAdmitModalBedId] = useState<string | null>(null);
   const [focusedRowIndex, setFocusedRowIndex] = useState<number>(0);
+  const [pendingFocusBedId, setPendingFocusBedId] = useState<string | null>(null);
+  const [autoExpandDone, setAutoExpandDone] = useState(false);
 
   const filteredBeds = useMemo(() => {
     return beds.filter((b) => {
@@ -82,6 +86,43 @@ export default function BedsPage() {
       setFocusedRowIndex(Math.max(0, filteredBeds.length - 1));
     }
   }, [filteredBeds.length, focusedRowIndex]);
+
+  useEffect(() => {
+    if (autoExpandDone || beds.length === 0) return;
+    const focusBedId = urlParams.get('focus');
+    const statusParam = urlParams.get('status') as BedStatus | null;
+
+    if (statusParam && ['available', 'occupied', 'pending_adjustment', 'maintenance'].includes(statusParam)) {
+      setStatusFilter(statusParam);
+    }
+
+    if (focusBedId) {
+      setPendingFocusBedId(focusBedId);
+    }
+
+    setAutoExpandDone(true);
+    urlParams.delete('focus');
+    urlParams.delete('status');
+    setUrlParams(urlParams, { replace: true });
+  }, [autoExpandDone, beds.length, urlParams, setUrlParams]);
+
+  useEffect(() => {
+    if (!pendingFocusBedId || filteredBeds.length === 0) return;
+
+    const targetBed = filteredBeds.find((b) => b.id === pendingFocusBedId);
+    if (targetBed) {
+      selectBed(pendingFocusBedId);
+      const idx = filteredBeds.findIndex((b) => b.id === pendingFocusBedId);
+      if (idx >= 0) setFocusedRowIndex(idx);
+      setTimeout(() => {
+        const row = document.querySelector(`[data-bed-id="${pendingFocusBedId}"]`);
+        if (row) {
+          row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 50);
+      setPendingFocusBedId(null);
+    }
+  }, [pendingFocusBedId, filteredBeds, selectBed]);
 
   return (
     <div className="flex h-full">
@@ -228,6 +269,7 @@ export default function BedsPage() {
                   return (
                     <tr
                       key={bed.id}
+                      data-bed-id={bed.id}
                       className={cn(
                         'border-b border-slate-50 hover:bg-slate-50/50 cursor-pointer transition-colors',
                         selectedBedId === bed.id && 'bg-sky-50/50',

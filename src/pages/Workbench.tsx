@@ -7,25 +7,19 @@ import { useNavigate } from 'react-router-dom';
 const roleEntries: Record<UserRole, { icon: typeof BedDouble; label: string; desc: string; path: string; color: string; primary?: boolean }[]> = {
   nursing_supervisor: [
     { icon: BedDouble, label: '床位总览', desc: '查看全部床位状态与安排', path: '/beds', color: 'text-indigo-600 bg-indigo-50', primary: true },
-    { icon: HeartPulse, label: '护理等级审批', desc: '审批待确认的护理等级', path: '/nursing-levels', color: 'text-rose-600 bg-rose-50', primary: true },
-    { icon: AlertTriangle, label: '异常退回处理', desc: '处理异常标记与退回', path: '/nursing-levels', color: 'text-amber-600 bg-amber-50', primary: true },
+    { icon: HeartPulse, label: '护理等级审批', desc: '审批待确认的护理等级', path: '/nursing-levels?status=pending', color: 'text-rose-600 bg-rose-50', primary: true },
+    { icon: AlertTriangle, label: '异常退回处理', desc: '处理异常标记与退回', path: '/nursing-levels?status=anomaly', color: 'text-amber-600 bg-amber-50', primary: true },
   ],
   care_worker: [
-    { icon: ClipboardList, label: '负责床位任务', desc: '查看分配的床位与任务', path: '/beds', color: 'text-emerald-600 bg-emerald-50', primary: true },
-    { icon: FileCheck, label: '护理记录录入', desc: '录入护理评估记录', path: '/nursing-levels', color: 'text-sky-600 bg-sky-50', primary: true },
-    { icon: AlertTriangle, label: '异常上报', desc: '上报异常情况', path: '/nursing-levels', color: 'text-amber-600 bg-amber-50', primary: true },
+    { icon: ClipboardList, label: '负责床位任务', desc: '查看分配的床位与任务', path: '/beds?status=occupied', color: 'text-emerald-600 bg-emerald-50', primary: true },
+    { icon: FileCheck, label: '护理记录录入', desc: '录入护理评估记录', path: '/nursing-levels?status=pending', color: 'text-sky-600 bg-sky-50', primary: true },
+    { icon: AlertTriangle, label: '异常上报', desc: '上报异常情况', path: '/nursing-levels?status=anomaly', color: 'text-amber-600 bg-amber-50', primary: true },
   ],
   social_worker: [
-    { icon: MessageSquare, label: '家属沟通记录', desc: '记录与家属的沟通', path: '/beds', color: 'text-violet-600 bg-violet-50', primary: true },
-    { icon: Users, label: '社会评估', desc: '进行社会评估', path: '/nursing-levels', color: 'text-teal-600 bg-teal-50', primary: true },
-    { icon: ArrowRight, label: '转介跟进', desc: '跟进出院与转介', path: '/beds', color: 'text-orange-600 bg-orange-50', primary: true },
+    { icon: MessageSquare, label: '家属沟通记录', desc: '记录与家属的沟通', path: '/beds?status=occupied', color: 'text-violet-600 bg-violet-50', primary: true },
+    { icon: Users, label: '社会评估', desc: '进行社会评估', path: '/nursing-levels?status=pending', color: 'text-teal-600 bg-teal-50', primary: true },
+    { icon: ArrowRight, label: '转介跟进', desc: '跟进出院与转介', path: '/beds?status=pending_adjustment', color: 'text-orange-600 bg-orange-50', primary: true },
   ],
-};
-
-const roleQuickActions: Record<UserRole, { label: string; action: () => void; icon: typeof BedDouble; color: string }[]> = {
-  nursing_supervisor: [],
-  care_worker: [],
-  social_worker: [],
 };
 
 const roleColors: Record<UserRole, { bg: string; text: string; border: string; dot: string }> = {
@@ -35,7 +29,7 @@ const roleColors: Record<UserRole, { bg: string; text: string; border: string; d
 };
 
 export default function Workbench() {
-  const { currentRole, nursingLevels, beds, notifications, confirmNursingLevel } = useAppStore();
+  const { currentRole, nursingLevels, beds, residents, notifications, confirmNursingLevel } = useAppStore();
   const navigate = useNavigate();
   const entries = roleEntries[currentRole];
   const colors = roleColors[currentRole];
@@ -46,25 +40,71 @@ export default function Workbench() {
   const pendingAdjBeds = beds.filter((b) => b.status === 'pending_adjustment');
   const unread = notifications.filter((n) => !n.read);
 
-  const taskItems = [
-    ...anomalyLevels.map((nl) => ({ id: nl.id, type: 'anomaly' as const, label: `${getResidentName(nl.residentId)} 护理等级异常`, priority: 'high' as const })),
-    ...returnedLevels.map((nl) => ({ id: nl.id, type: 'return' as const, label: `${getResidentName(nl.residentId)} 等级评估已退回`, priority: 'high' as const })),
-    ...pendingAdjBeds.map((b) => ({ id: b.id, type: 'task' as const, label: `${b.roomNumber}房${b.bedNumber}床 待调整`, priority: 'medium' as const })),
-    ...pendingLevels.map((nl) => ({ id: nl.id, type: 'task' as const, label: `${getResidentName(nl.residentId)} 护理等级待评估`, priority: 'low' as const })),
+  function getResidentName(residentId: string) {
+    return residents.find((r) => r.id === residentId)?.name || '未知';
+  }
+
+  type TaskItem = {
+    id: string;
+    type: 'anomaly' | 'return' | 'pending_level' | 'pending_bed';
+    label: string;
+    priority: 'high' | 'medium' | 'low';
+    targetPath: string;
+  };
+
+  const taskItems: TaskItem[] = [
+    ...anomalyLevels.map((nl) => ({
+      id: nl.id,
+      type: 'anomaly' as const,
+      label: `${getResidentName(nl.residentId)} 护理等级异常`,
+      priority: 'high' as const,
+      targetPath: `/nursing-levels?focus=${nl.id}&status=anomaly`,
+    })),
+    ...returnedLevels.map((nl) => ({
+      id: nl.id,
+      type: 'return' as const,
+      label: `${getResidentName(nl.residentId)} 等级评估已退回`,
+      priority: 'high' as const,
+      targetPath: `/nursing-levels?focus=${nl.id}&status=returned`,
+    })),
+    ...pendingAdjBeds.map((b) => ({
+      id: b.id,
+      type: 'pending_bed' as const,
+      label: `${b.roomNumber}房${b.bedNumber}床 待调整`,
+      priority: 'medium' as const,
+      targetPath: `/beds?focus=${b.id}&status=pending_adjustment`,
+    })),
+    ...pendingLevels.map((nl) => ({
+      id: nl.id,
+      type: 'pending_level' as const,
+      label: `${getResidentName(nl.residentId)} 护理等级待评估`,
+      priority: 'low' as const,
+      targetPath: `/nursing-levels?focus=${nl.id}&status=pending`,
+    })),
   ];
 
   const quickActions = currentRole === 'nursing_supervisor' ? [
     pendingLevels.length > 0 && { label: `批量确认 (${pendingLevels.length})`, onClick: () => pendingLevels.slice(0, 3).forEach((nl) => confirmNursingLevel(nl.id)), icon: Check, color: 'bg-emerald-500' },
   ].filter(Boolean) : [];
 
-  function getResidentName(residentId: string) {
-    return useAppStore.getState().residents.find((r) => r.id === residentId)?.name || '未知';
-  }
-
   const priorityColors: Record<string, string> = {
     high: 'bg-red-500',
     medium: 'bg-amber-500',
     low: 'bg-slate-300',
+  };
+
+  const taskTypeLabels: Record<string, string> = {
+    anomaly: '异常',
+    return: '退回',
+    pending_level: '待评估',
+    pending_bed: '待调整',
+  };
+
+  const taskTypeBadgeColors: Record<string, string> = {
+    anomaly: 'bg-red-100 text-red-700',
+    return: 'bg-amber-100 text-amber-700',
+    pending_level: 'bg-sky-100 text-sky-700',
+    pending_bed: 'bg-slate-100 text-slate-600',
   };
 
   return (
@@ -122,10 +162,27 @@ export default function Workbench() {
       </div>
 
       <div className="grid grid-cols-4 gap-3">
-        <StatCard label="待评估" value={pendingLevels.length} color="text-sky-600" bg="bg-sky-50" />
-        <StatCard label="异常标记" value={anomalyLevels.length} color="text-red-600" bg="bg-red-50" />
-        <StatCard label="已退回" value={returnedLevels.length} color="text-amber-600" bg="bg-amber-50" />
-        <StatCard label="待调整床位" value={pendingAdjBeds.length} color="text-slate-600" bg="bg-slate-100" />
+        <button onClick={() => navigate('/nursing-levels?status=pending')} className="text-left">
+          <StatCard label="待评估" value={pendingLevels.length} color="text-sky-600" bg="bg-sky-50" />
+        </button>
+        <button onClick={() => {
+          const first = anomalyLevels[0];
+          navigate(first ? `/nursing-levels?focus=${first.id}&status=anomaly` : '/nursing-levels?status=anomaly');
+        }} className="text-left">
+          <StatCard label="异常标记" value={anomalyLevels.length} color="text-red-600" bg="bg-red-50" />
+        </button>
+        <button onClick={() => {
+          const first = returnedLevels[0];
+          navigate(first ? `/nursing-levels?focus=${first.id}&status=returned` : '/nursing-levels?status=returned');
+        }} className="text-left">
+          <StatCard label="已退回" value={returnedLevels.length} color="text-amber-600" bg="bg-amber-50" />
+        </button>
+        <button onClick={() => {
+          const first = pendingAdjBeds[0];
+          navigate(first ? `/beds?focus=${first.id}&status=pending_adjustment` : '/beds?status=pending_adjustment');
+        }} className="text-left">
+          <StatCard label="待调整床位" value={pendingAdjBeds.length} color="text-slate-600" bg="bg-slate-100" />
+        </button>
       </div>
 
       <div className="bg-white rounded-lg border border-slate-200">
@@ -140,7 +197,7 @@ export default function Workbench() {
             {taskItems.map((item) => (
               <button
                 key={item.id}
-                onClick={() => navigate(item.type === 'task' && item.label.includes('床') ? '/beds' : '/nursing-levels')}
+                onClick={() => navigate(item.targetPath)}
                 className={cn(
                   'w-full flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 transition-colors text-left',
                   item.priority === 'high' && 'bg-red-50/30'
@@ -152,11 +209,9 @@ export default function Workbench() {
                 </span>
                 <span className={cn(
                   'ml-auto text-[10px] px-1.5 py-0.5 rounded',
-                  item.type === 'anomaly' ? 'bg-red-100 text-red-700' :
-                  item.type === 'return' ? 'bg-amber-100 text-amber-700' :
-                  'bg-slate-100 text-slate-600'
+                  taskTypeBadgeColors[item.type]
                 )}>
-                  {item.type === 'anomaly' ? '异常' : item.type === 'return' ? '退回' : '待处理'}
+                  {taskTypeLabels[item.type]}
                 </span>
               </button>
             ))}
