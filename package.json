@@ -12,10 +12,11 @@
     "server:dev": "nodemon",
     "dev": "concurrently \"npm run client:dev\" \"npm run server:dev\"",
     "db:migrate": "prisma migrate dev",
+    "db:migrate:deploy": "prisma migrate deploy",
     "db:seed": "prisma db seed",
     "db:reset": "prisma migrate reset --force",
     "db:push": "prisma db push",
-    "db:setup": "prisma db push && prisma db seed"
+    "db:setup": "prisma migrate dev && prisma db seed"
   },
   "dependencies": {
     "@prisma/client": "^6.8.2",
