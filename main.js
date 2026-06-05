@@ -4,9 +4,9 @@ const {
   getHandlers,
   createOrder, updateOrder, getOrders, getOrderById,
   createDispatch, updateDispatch, getDispatchesByOrder, getDispatches,
-  createSignature, updateSignature, getSignaturesByDispatch, getSignatures,
+  createSignature, updateSignature, getSignaturesByDispatch, getSignatureById, getSignatures,
   createException, updateException, getExceptionById, getExceptions,
-  createHandoverLog, getHandoverLogs,
+  createHandoverLog, updateHandoverLog, getHandoverLogs,
   getDashboardStats, getOrderFullDetail,
 } = require('./src/database');
 
@@ -55,6 +55,7 @@ ipcMain.handle('get-dispatches', (_, filter) => getDispatches(filter || {}));
 ipcMain.handle('create-signature', (_, s) => createSignature(s));
 ipcMain.handle('update-signature', (_, id, fields) => updateSignature(id, fields));
 ipcMain.handle('get-signatures-by-dispatch', (_, dispatchId) => getSignaturesByDispatch(dispatchId));
+ipcMain.handle('get-signature-by-id', (_, id) => getSignatureById(id));
 ipcMain.handle('get-signatures', (_, filter) => getSignatures(filter || {}));
 
 ipcMain.handle('create-exception', (_, e) => createException(e));
@@ -63,6 +64,7 @@ ipcMain.handle('get-exception-by-id', (_, id) => getExceptionById(id));
 ipcMain.handle('get-exceptions', (_, filter) => getExceptions(filter || {}));
 
 ipcMain.handle('create-handover-log', (_, l) => createHandoverLog(l));
+ipcMain.handle('update-handover-log', (_, id, fields) => updateHandoverLog(id, fields));
 ipcMain.handle('get-handover-logs', (_, orderId) => getHandoverLogs(orderId));
 
 ipcMain.handle('get-dashboard-stats', () => getDashboardStats());

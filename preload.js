@@ -16,6 +16,7 @@ contextBridge.exposeInMainWorld('api', {
   createSignature: (s) => ipcRenderer.invoke('create-signature', s),
   updateSignature: (id, fields) => ipcRenderer.invoke('update-signature', id, fields),
   getSignaturesByDispatch: (dispatchId) => ipcRenderer.invoke('get-signatures-by-dispatch', dispatchId),
+  getSignatureById: (id) => ipcRenderer.invoke('get-signature-by-id', id),
   getSignatures: (filter) => ipcRenderer.invoke('get-signatures', filter),
 
   createException: (e) => ipcRenderer.invoke('create-exception', e),
@@ -24,6 +25,7 @@ contextBridge.exposeInMainWorld('api', {
   getExceptions: (filter) => ipcRenderer.invoke('get-exceptions', filter),
 
   createHandoverLog: (l) => ipcRenderer.invoke('create-handover-log', l),
+  updateHandoverLog: (id, fields) => ipcRenderer.invoke('update-handover-log', id, fields),
   getHandoverLogs: (orderId) => ipcRenderer.invoke('get-handover-logs', orderId),
 
   getDashboardStats: () => ipcRenderer.invoke('get-dashboard-stats'),

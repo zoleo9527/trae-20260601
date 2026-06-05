@@ -67,10 +67,14 @@ CREATE TABLE IF NOT EXISTS signatures (
   status TEXT NOT NULL DEFAULT '待签收' CHECK(status IN ('待签收','已签收','退回','补材料')),
   return_reason TEXT DEFAULT '',
   supplement_desc TEXT DEFAULT '',
+  exception_id INTEGER,
+  handover_log_id INTEGER,
   remarks TEXT DEFAULT '',
   created_at TEXT DEFAULT (datetime('now','localtime')),
   updated_at TEXT DEFAULT (datetime('now','localtime')),
-  FOREIGN KEY (dispatch_id) REFERENCES dispatches(id)
+  FOREIGN KEY (dispatch_id) REFERENCES dispatches(id),
+  FOREIGN KEY (exception_id) REFERENCES exceptions(id),
+  FOREIGN KEY (handover_log_id) REFERENCES handover_logs(id)
 );
 
 CREATE TABLE IF NOT EXISTS exceptions (
@@ -113,6 +117,18 @@ CREATE INDEX IF NOT EXISTS idx_handover_order ON handover_logs(order_id);
 `;
 
 db.exec(INIT_SQL);
+
+function migrateDatabase() {
+  const cols = db.prepare("PRAGMA table_info(signatures)").all().map(c => c.name);
+  if (!cols.includes('exception_id')) {
+    db.exec('ALTER TABLE signatures ADD COLUMN exception_id INTEGER REFERENCES exceptions(id)');
+  }
+  if (!cols.includes('handover_log_id')) {
+    db.exec('ALTER TABLE signatures ADD COLUMN handover_log_id INTEGER REFERENCES handover_logs(id)');
+  }
+}
+
+migrateDatabase();
 
 function seedHandlers() {
   const count = db.prepare('SELECT COUNT(*) AS cnt FROM handlers').get().cnt;
@@ -211,8 +227,8 @@ function getDispatches(filter) {
 }
 
 function createSignature(s) {
-  const sql = `INSERT INTO signatures (dispatch_id, signed_by, signed_at, signature_data, status, return_reason, supplement_desc, remarks)
-    VALUES (@dispatch_id, @signed_by, @signed_at, @signature_data, @status, @return_reason, @supplement_desc, @remarks)`;
+  const sql = `INSERT INTO signatures (dispatch_id, signed_by, signed_at, signature_data, status, return_reason, supplement_desc, exception_id, handover_log_id, remarks)
+    VALUES (@dispatch_id, @signed_by, @signed_at, @signature_data, @status, @return_reason, @supplement_desc, @exception_id, @handover_log_id, @remarks)`;
   return db.prepare(sql).run(s);
 }
 
@@ -230,6 +246,10 @@ function updateSignature(id, fields) {
 
 function getSignaturesByDispatch(dispatchId) {
   return db.prepare('SELECT * FROM signatures WHERE dispatch_id = ? ORDER BY created_at DESC').all(dispatchId);
+}
+
+function getSignatureById(id) {
+  return db.prepare('SELECT * FROM signatures WHERE id = ?').get(id);
 }
 
 function getSignatures(filter) {
@@ -286,6 +306,17 @@ function createHandoverLog(l) {
   return db.prepare(sql).run(l);
 }
 
+function updateHandoverLog(id, fields) {
+  const sets = [];
+  const vals = {};
+  for (const [k, v] of Object.entries(fields)) {
+    sets.push(`${k} = @${k}`);
+    vals[k] = v;
+  }
+  vals.id = id;
+  return db.prepare(`UPDATE handover_logs SET ${sets.join(', ')} WHERE id = @id`).run(vals);
+}
+
 function getHandoverLogs(orderId) {
   return db.prepare(`SELECT hl.*, fh.name AS from_handler_name, th.name AS to_handler_name
     FROM handover_logs hl
@@ -325,8 +356,8 @@ module.exports = {
   getHandlers,
   createOrder, updateOrder, getOrders, getOrderById,
   createDispatch, updateDispatch, getDispatchesByOrder, getDispatches,
-  createSignature, updateSignature, getSignaturesByDispatch, getSignatures,
+  createSignature, updateSignature, getSignaturesByDispatch, getSignatureById, getSignatures,
   createException, updateException, getExceptionById, getExceptions,
-  createHandoverLog, getHandoverLogs,
+  createHandoverLog, updateHandoverLog, getHandoverLogs,
   getDashboardStats, getOrderFullDetail,
 };

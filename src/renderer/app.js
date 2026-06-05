@@ -660,67 +660,84 @@ async function submitSignature() {
   }
 
   try {
-    if (signatureId) {
-      const { dispatch_id, signature_id, order_no_display, ...fields } = s;
-      await window.api.updateSignature(signatureId, fields);
-    } else {
-      delete s.signature_id;
-      await window.api.createSignature(s);
-    }
-
     const dispatch = (await window.api.getDispatches({})).find(d2 => d2.id === dispatchId);
     const orderId = dispatch ? dispatch.order_id : null;
     const isEdit = !!signatureId;
+    const csHandlers = allHandlers.filter(h => h.role === '售后客服');
+    const csHandler = csHandlers.length > 0 ? csHandlers[0] : null;
+    const dispatcher = allHandlers.find(h => h.id === (dispatch ? dispatch.dispatcher_id : null));
+
+    let linkedExceptionId = null;
+    let linkedHandoverLogId = null;
+
+    if (isEdit) {
+      const existingSig = await window.api.getSignatureById(signatureId);
+      if (existingSig) {
+        linkedExceptionId = existingSig.exception_id || null;
+        linkedHandoverLogId = existingSig.handover_log_id || null;
+      }
+    }
 
     if (s.status === '已签收' && orderId) {
       await window.api.updateOrder(orderId, { status: '已签收' });
-      const csHandlers = allHandlers.filter(h => h.role === '售后客服');
-      const dispatcher = allHandlers.find(h => h.id === dispatch.dispatcher_id);
-      if (dispatcher && csHandlers.length > 0) {
-        await window.api.createHandoverLog({
-          order_id: orderId,
-          from_handler_id: dispatcher.id,
-          to_handler_id: csHandlers[0].id,
-          from_stage: '配送',
-          to_stage: '已签收',
-          notes: `签收人: ${s.signed_by || '—'}`,
-        });
+      if (isEdit) {
+        const { dispatch_id, signature_id, order_no_display, ...fields } = s;
+        await window.api.updateSignature(signatureId, fields);
+      } else {
+        if (dispatcher && csHandler) {
+          const hLog = await window.api.createHandoverLog({
+            order_id: orderId,
+            from_handler_id: dispatcher.id,
+            to_handler_id: csHandler.id,
+            from_stage: '配送',
+            to_stage: '已签收',
+            notes: `签收人: ${s.signed_by || '—'}`,
+          });
+          linkedHandoverLogId = hLog.lastInsertRowid;
+        }
+        s.exception_id = null;
+        s.handover_log_id = linkedHandoverLogId;
+        delete s.signature_id;
+        await window.api.createSignature(s);
       }
+
     } else if (s.status === '退回' && orderId) {
       await window.api.updateOrder(orderId, { status: '退回' });
       await window.api.updateDispatch(dispatchId, { status: '退回' });
-      const csHandlers = allHandlers.filter(h => h.role === '售后客服');
-      const csHandler = csHandlers.length > 0 ? csHandlers[0] : null;
 
-      if (isEdit) {
-        const existingExcs = await window.api.getExceptions({ order_id: orderId, type: '退回' });
-        const openExc = existingExcs.find(ex => ex.status !== '已解决');
-        if (openExc) {
-          await window.api.updateException(openExc.id, {
-            description: `签收退回: ${s.return_reason}`,
-            status: '未处理',
-            handler_id: csHandler ? csHandler.id : openExc.handler_id,
-          });
-        } else {
-          await window.api.createException({
-            order_id: orderId,
-            handler_id: csHandler ? csHandler.id : null,
-            type: '退回',
-            description: `签收退回: ${s.return_reason}`,
-            status: '未处理',
-          });
-        }
+      if (linkedExceptionId) {
+        await window.api.updateException(linkedExceptionId, {
+          description: `签收退回: ${s.return_reason}`,
+          status: '未处理',
+          resolved_at: '',
+          handler_id: csHandler ? csHandler.id : undefined,
+        });
       } else {
-        await window.api.createException({
+        const excResult = await window.api.createException({
           order_id: orderId,
           handler_id: csHandler ? csHandler.id : null,
           type: '退回',
           description: `签收退回: ${s.return_reason}`,
           status: '未处理',
         });
-        const dispatcher = allHandlers.find(h => h.id === dispatch.dispatcher_id);
+        linkedExceptionId = excResult.lastInsertRowid;
+      }
+
+      if (isEdit) {
+        if (linkedHandoverLogId) {
+          await window.api.updateHandoverLog(linkedHandoverLogId, {
+            notes: `退回原因: ${s.return_reason}`,
+            to_handler_id: csHandler ? csHandler.id : undefined,
+            to_stage: '退回处理',
+          });
+        }
+        const { dispatch_id, signature_id, order_no_display, ...fields } = s;
+        fields.exception_id = linkedExceptionId;
+        await window.api.updateSignature(signatureId, fields);
+      } else {
+        let hLogId = null;
         if (dispatcher && csHandler) {
-          await window.api.createHandoverLog({
+          const hLog = await window.api.createHandoverLog({
             order_id: orderId,
             from_handler_id: dispatcher.id,
             to_handler_id: csHandler.id,
@@ -728,43 +745,51 @@ async function submitSignature() {
             to_stage: '退回处理',
             notes: `退回原因: ${s.return_reason}`,
           });
+          hLogId = hLog.lastInsertRowid;
         }
+        s.exception_id = linkedExceptionId;
+        s.handover_log_id = hLogId;
+        delete s.signature_id;
+        await window.api.createSignature(s);
       }
+
     } else if (s.status === '补材料' && orderId) {
       await window.api.updateOrder(orderId, { status: '补材料' });
       await window.api.updateDispatch(dispatchId, { status: '异常' });
-      const csHandlers = allHandlers.filter(h => h.role === '售后客服');
-      const csHandler = csHandlers.length > 0 ? csHandlers[0] : null;
 
-      if (isEdit) {
-        const existingExcs = await window.api.getExceptions({ order_id: orderId, type: '补材料' });
-        const openExc = existingExcs.find(ex => ex.status !== '已解决');
-        if (openExc) {
-          await window.api.updateException(openExc.id, {
-            description: `签收补材料: ${s.supplement_desc}`,
-            status: '未处理',
-            handler_id: csHandler ? csHandler.id : openExc.handler_id,
-          });
-        } else {
-          await window.api.createException({
-            order_id: orderId,
-            handler_id: csHandler ? csHandler.id : null,
-            type: '补材料',
-            description: `签收补材料: ${s.supplement_desc}`,
-            status: '未处理',
-          });
-        }
+      if (linkedExceptionId) {
+        await window.api.updateException(linkedExceptionId, {
+          description: `签收补材料: ${s.supplement_desc}`,
+          status: '未处理',
+          resolved_at: '',
+          handler_id: csHandler ? csHandler.id : undefined,
+        });
       } else {
-        await window.api.createException({
+        const excResult = await window.api.createException({
           order_id: orderId,
           handler_id: csHandler ? csHandler.id : null,
           type: '补材料',
           description: `签收补材料: ${s.supplement_desc}`,
           status: '未处理',
         });
-        const dispatcher = allHandlers.find(h => h.id === dispatch.dispatcher_id);
+        linkedExceptionId = excResult.lastInsertRowid;
+      }
+
+      if (isEdit) {
+        if (linkedHandoverLogId) {
+          await window.api.updateHandoverLog(linkedHandoverLogId, {
+            notes: `补材料说明: ${s.supplement_desc}`,
+            to_handler_id: csHandler ? csHandler.id : undefined,
+            to_stage: '补材料处理',
+          });
+        }
+        const { dispatch_id, signature_id, order_no_display, ...fields } = s;
+        fields.exception_id = linkedExceptionId;
+        await window.api.updateSignature(signatureId, fields);
+      } else {
+        let hLogId = null;
         if (dispatcher && csHandler) {
-          await window.api.createHandoverLog({
+          const hLog = await window.api.createHandoverLog({
             order_id: orderId,
             from_handler_id: dispatcher.id,
             to_handler_id: csHandler.id,
@@ -772,7 +797,12 @@ async function submitSignature() {
             to_stage: '补材料处理',
             notes: `补材料说明: ${s.supplement_desc}`,
           });
+          hLogId = hLog.lastInsertRowid;
         }
+        s.exception_id = linkedExceptionId;
+        s.handover_log_id = hLogId;
+        delete s.signature_id;
+        await window.api.createSignature(s);
       }
     }
 
