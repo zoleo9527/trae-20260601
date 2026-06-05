@@ -1,15 +1,5 @@
-import { useStore } from '@/store';
-import type { ScheduleRecord, UserRole } from '@/types';
-
-function calculateTodoCount(records: ScheduleRecord[], currentRole: UserRole): number {
-  return records.filter((r) => {
-    if (r.status === 'completed') return false;
-    if (currentRole === 'coach') return r.status === 'pending_coach_confirm';
-    if (currentRole === 'reception') return r.status === 'pending_reception_handle';
-    if (currentRole === 'manager') return r.status === 'pending_manager_audit' || r.status === 'disputed';
-    return false;
-  }).length;
-}
+import { useStore, isRecordVisible } from '@/store';
+import type { ScheduleRecord } from '@/types';
 
 function calculateAlerts(records: ScheduleRecord[]): ScheduleRecord[] {
   return records.filter((r) => r.isOverdue || r.hasResponsibilityRisk || r.status === 'pending_manager_audit');
@@ -19,7 +9,7 @@ export function usePressureIndicator() {
   const records = useStore((state) => state.records);
   const currentRole = useStore((state) => state.currentRole);
   
-  const todoCount = calculateTodoCount(records, currentRole);
+  const todoCount = records.filter((r) => isRecordVisible(r, currentRole, 'all')).length;
   const alerts = calculateAlerts(records);
   
   let pressureLevel: 'low' | 'medium' | 'high' | 'critical' = 'low';

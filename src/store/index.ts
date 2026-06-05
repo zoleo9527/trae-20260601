@@ -93,7 +93,13 @@ const isRecordVisible = (record: ScheduleRecord, role: UserRole, filterStatus: R
 
 export const useStore = create<AppState>((set, get) => ({
   currentRole: 'reception',
-  setCurrentRole: (role) => set({ currentRole: role }),
+  setCurrentRole: (role) => set({ 
+    currentRole: role, 
+    filterStatus: 'all',
+    selectedRecordIds: [],
+    activeRecordId: null,
+    showDetailPanel: false
+  }),
   
   records: mockRecords,
   coaches: mockCoaches,
