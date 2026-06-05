@@ -4,7 +4,7 @@ import { useStore } from '../store/useStore';
 import StatusBadge from '../components/StatusBadge';
 import PriorityBadge from '../components/PriorityBadge';
 import { TYPE_LABELS, STATUS_LABELS, SOURCE_LABELS } from '../../shared/types';
-import { getHandlerName } from '../../shared/utils';
+import { getHandlerDisplay } from '../../shared/utils';
 import { Search, Filter, Plus } from 'lucide-react';
 
 export default function ComplaintList() {
@@ -145,7 +145,7 @@ export default function ComplaintList() {
                     <StatusBadge status={complaint.status} />
                   </td>
                   <td className="px-6 py-4 text-sm text-gray-600">
-                    {getHandlerName(complaint)}
+                    {getHandlerDisplay(complaint)}
                   </td>
                   <td className="px-6 py-4 text-sm text-gray-500">
                     {formatTime(complaint.createdAt)}

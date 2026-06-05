@@ -15,7 +15,7 @@ import {
     TYPE_LABELS,
     type CompensationType
 } from '../../shared/types';
-import { ROLE_LABELS } from '../../shared/utils';
+import { getHandlerDisplay, ROLE_LABELS } from '../../shared/utils';
 import PriorityBadge from '../components/PriorityBadge';
 import StatusBadge from '../components/StatusBadge';
 import Timeline from '../components/Timeline';
