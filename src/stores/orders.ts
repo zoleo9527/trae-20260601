@@ -138,7 +138,8 @@ export const useOrdersStore = create<OrdersState>((set, get) => ({
       })
 
       if (!response.ok) {
-        throw new Error('Failed to transition order status')
+        const data = await response.json().catch(() => null)
+        throw new Error(data?.error || '操作失败，请重试')
       }
 
       const updatedOrder = await response.json()

@@ -136,19 +136,6 @@ export default function OrderDetail() {
     setReturnModalOpen(false)
   }
 
-  const handleShipAction = async () => {
-    if (!id) return
-    setError(null)
-    try {
-      await transitionStatus(id, 'SHIP')
-      await fetchOrder(id)
-      setShipModalOpen(true)
-    } catch (err) {
-      const message = err instanceof Error ? err.message : '操作失败，请重试'
-      setError(message)
-    }
-  }
-
   const handleShipConfirm = async (logisticsCompany: string, trackingNo: string) => {
     const shipment = currentOrder?.shipments?.[0]
     if (!shipment) return
@@ -169,7 +156,6 @@ export default function OrderDetail() {
     setError(null)
     try {
       await receiveShipment(shipment.id, receiveRemark)
-      await transitionStatus(id!, 'RECEIVE', receiveRemark)
       await fetchOrder(id!)
       setReceiveModalOpen(false)
     } catch (err) {
@@ -254,24 +240,27 @@ export default function OrderDetail() {
     }
 
     if (role === 'PACKER' && status === 'READY_TO_SHIP') {
-      return (
-        <div className="space-y-2">
-          <button
-            onClick={handleShipAction}
-            disabled={isLoading}
-            className="w-full px-4 py-2 bg-teal-600 text-white rounded-md hover:bg-teal-700 font-medium transition-colors disabled:opacity-50"
-          >
-            确认发货
-          </button>
-          <button
-            onClick={() => setReturnModalOpen(true)}
-            disabled={isLoading}
-            className="w-full px-4 py-2 bg-stone-100 text-stone-700 rounded-md hover:bg-stone-200 font-medium transition-colors disabled:opacity-50"
-          >
-            退回
-          </button>
-        </div>
-      )
+      const shipment = currentOrder.shipments?.[0]
+      if (shipment) {
+        return (
+          <div className="space-y-2">
+            <button
+              onClick={() => setShipModalOpen(true)}
+              disabled={isLoading}
+              className="w-full px-4 py-2 bg-teal-600 text-white rounded-md hover:bg-teal-700 font-medium transition-colors disabled:opacity-50"
+            >
+              填写物流并发货
+            </button>
+            <button
+              onClick={() => setReturnModalOpen(true)}
+              disabled={isLoading}
+              className="w-full px-4 py-2 bg-stone-100 text-stone-700 rounded-md hover:bg-stone-200 font-medium transition-colors disabled:opacity-50"
+            >
+              退回
+            </button>
+          </div>
+        )
+      }
     }
 
     if (role === 'PACKER' && status === 'SHIPPED') {
@@ -284,7 +273,7 @@ export default function OrderDetail() {
               disabled={isLoading}
               className="w-full px-4 py-2 bg-amber-600 text-white rounded-md hover:bg-amber-700 font-medium transition-colors disabled:opacity-50"
             >
-              填写物流信息
+              补填物流信息
             </button>
           </div>
         )

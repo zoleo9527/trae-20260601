@@ -83,7 +83,8 @@ export const useShipmentsStore = create<ShipmentsState>((set, get) => ({
       })
 
       if (!response.ok) {
-        throw new Error('Failed to confirm shipment')
+        const data = await response.json().catch(() => null)
+        throw new Error(data?.error || '确认发货失败，请重试')
       }
 
       const updatedShipment = await response.json()
@@ -111,7 +112,8 @@ export const useShipmentsStore = create<ShipmentsState>((set, get) => ({
       })
 
       if (!response.ok) {
-        throw new Error('Failed to receive shipment')
+        const data = await response.json().catch(() => null)
+        throw new Error(data?.error || '确认签收失败，请重试')
       }
 
       const updatedShipment = await response.json()

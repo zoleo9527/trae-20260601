@@ -28,7 +28,6 @@ router.get('/', authenticate, async (req: Request, res: Response): Promise<void>
       where.order = {
         orderNo: {
           contains: orderNo as string,
-          mode: 'insensitive',
         },
       }
     }
