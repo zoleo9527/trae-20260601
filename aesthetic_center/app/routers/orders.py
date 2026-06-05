@@ -97,6 +97,15 @@ def _compute_order_summary(order: Order) -> dict:
     }
 
 
+VALID_VIEWS = {"pending_inspection", "pending_delivery", "has_open_anomalies"}
+
+
+def _enrich_order_response(order: Order) -> dict:
+    order_dict = OrderRead.model_validate(order).model_dump()
+    order_dict.update(_compute_order_summary(order))
+    return order_dict
+
+
 @router.post("", response_model=OrderRead, status_code=201)
 def create_order(body: OrderCreate, db: Session = Depends(get_db), current_user=Depends(florist_or_admin)):
     order_no = _generate_order_no(db)
@@ -134,16 +143,25 @@ def create_order(body: OrderCreate, db: Session = Depends(get_db), current_user=
     _check_substitution_anomalies(order, db)
     db.commit()
     db.refresh(order)
-    return order
+    order = db.query(Order).options(
+        joinedload(Order.items), joinedload(Order.inspections), joinedload(Order.anomalies),
+    ).filter(Order.id == order.id).first()
+    return _enrich_order_response(order)
 
 
 @router.get("", response_model=list[OrderRead])
 def list_orders(
     status: Optional[OrderStatus] = Query(None),
-    view: Optional[str] = Query(None, enum=["pending_inspection", "pending_delivery", "has_open_anomalies"]),
+    view: Optional[str] = Query(None),
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
+    if view is not None and view not in VALID_VIEWS:
+        raise HTTPException(
+            status_code=400,
+            detail={"code": ErrorCode.INVALID_VIEW, "message": f"{ERROR_MESSAGES[ErrorCode.INVALID_VIEW]}: {view}，可选值: {', '.join(sorted(VALID_VIEWS))}"},
+        )
+
     q = db.query(Order).options(
         joinedload(Order.items),
         joinedload(Order.inspections),
@@ -167,12 +185,7 @@ def list_orders(
         q = q.filter(Order.id.in_(open_anomaly_order_ids))
 
     orders = q.order_by(Order.id.desc()).all()
-    results = []
-    for order in orders:
-        order_dict = OrderRead.model_validate(order).model_dump()
-        order_dict.update(_compute_order_summary(order))
-        results.append(order_dict)
-    return results
+    return [_enrich_order_response(o) for o in orders]
 
 
 @router.get("/{order_id}", response_model=OrderReadDetail)
@@ -261,8 +274,10 @@ def update_order_status(order_id: int, body: OrderStatusUpdate, db: Session = De
         _check_substitution_anomalies(order, db)
 
     db.commit()
-    db.refresh(order)
-    return order
+    order = db.query(Order).options(
+        joinedload(Order.items), joinedload(Order.inspections), joinedload(Order.anomalies),
+    ).filter(Order.id == order_id).first()
+    return _enrich_order_response(order)
 
 
 @router.put("/{order_id}/items/{item_id}/substitution", response_model=OrderRead)
@@ -306,8 +321,10 @@ def update_item_substitution(
         ).update({"status": AnomalyStatus.RESOLVED, "resolved_by": current_user.id, "resolved_at": datetime.utcnow(), "resolution_note": "已补填替换原因"})
 
     db.commit()
-    db.refresh(order)
-    return order
+    order = db.query(Order).options(
+        joinedload(Order.items), joinedload(Order.inspections), joinedload(Order.anomalies),
+    ).filter(Order.id == order_id).first()
+    return _enrich_order_response(order)
 
 
 @router.put("/{order_id}/card-verify", response_model=OrderRead)
@@ -318,8 +335,10 @@ def verify_greeting_card(order_id: int, db: Session = Depends(get_db), current_u
     order.greeting_card_verified = True
     order.updated_at = datetime.utcnow()
     db.commit()
-    db.refresh(order)
-    return order
+    order = db.query(Order).options(
+        joinedload(Order.items), joinedload(Order.inspections), joinedload(Order.anomalies),
+    ).filter(Order.id == order_id).first()
+    return _enrich_order_response(order)
 
 
 @router.get("/{order_id}/anomalies", response_model=list)

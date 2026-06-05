@@ -6,6 +6,7 @@ class ErrorCode(IntEnum):
     INVALID_PARAMETER = 1001
     NOT_FOUND = 1002
     DUPLICATE = 1003
+    INVALID_VIEW = 1004
     STATE_TRANSITION_INVALID = 2001
     PERMISSION_DENIED = 2002
     STATUS_ROLE_DENIED = 2003
@@ -22,6 +23,7 @@ ERROR_MESSAGES = {
     ErrorCode.INVALID_PARAMETER: "参数无效",
     ErrorCode.NOT_FOUND: "资源不存在",
     ErrorCode.DUPLICATE: "资源已存在",
+    ErrorCode.INVALID_VIEW: "视图参数无效",
     ErrorCode.STATE_TRANSITION_INVALID: "订单状态流转不合法",
     ErrorCode.PERMISSION_DENIED: "无操作权限",
     ErrorCode.STATUS_ROLE_DENIED: "当前角色无权变更此订单状态",
