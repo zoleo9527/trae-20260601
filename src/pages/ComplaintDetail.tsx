@@ -20,6 +20,7 @@ import {
   AlertCircle,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { resolvePersonName } from "@/utils/resolvePersonName"
 import TimelineEntry from "@/components/TimelineEntry"
 import CompensationPanel from "@/components/CompensationPanel"
 import AddNote from "@/components/AddNote"
@@ -33,7 +34,6 @@ export default function ComplaintDetail() {
   const navigate = useNavigate()
   const { getComplaintById, closeComplaint } = useComplaintStore()
   const currentRole = useCurrentRole((s) => s.currentRole)
-  const currentPersonName = useCurrentRole((s) => s.currentPersonName)
   const [showCloseConfirm, setShowCloseConfirm] = useState(false)
   const [closeReason, setCloseReason] = useState("")
   const [closeBlockReason, setCloseBlockReason] = useState<CloseBlockReason>(null)
@@ -63,7 +63,8 @@ export default function ComplaintDetail() {
   }
 
   const handleClose = () => {
-    closeComplaint(complaint.id, closeReason, currentPersonName, currentRole)
+    const personName = resolvePersonName(complaint, currentRole)
+    closeComplaint(complaint.id, closeReason, personName, currentRole)
     setShowCloseConfirm(false)
     setCloseReason("")
   }

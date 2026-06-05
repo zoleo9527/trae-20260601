@@ -2,6 +2,7 @@ import { useState } from "react"
 import type { CompensationType, Complaint } from "@/types"
 import { COMPENSATION_LABELS } from "@/types"
 import { useComplaintStore, useCurrentRole } from "@/store/complaintStore"
+import { resolvePersonName } from "@/utils/resolvePersonName"
 import { Check, Gift, Banknote, Ticket } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -25,7 +26,6 @@ interface CompensationPanelProps {
 export default function CompensationPanel({ complaint }: CompensationPanelProps) {
   const { setCompensation, confirmCompensation } = useComplaintStore()
   const currentRole = useCurrentRole((s) => s.currentRole)
-  const currentPersonName = useCurrentRole((s) => s.currentPersonName)
   const [selectedType, setSelectedType] = useState<CompensationType>(complaint.compensation?.type || "coupon")
   const [amount, setAmount] = useState(complaint.compensation?.amount || 0)
   const [reason, setReason] = useState(complaint.compensation?.reason || "")
@@ -43,7 +43,8 @@ export default function CompensationPanel({ complaint }: CompensationPanelProps)
   }
 
   const handleConfirm = () => {
-    confirmCompensation(complaint.id, currentPersonName, currentRole)
+    const personName = resolvePersonName(complaint, currentRole)
+    confirmCompensation(complaint.id, personName, currentRole)
   }
 
   const isConfirmed = !!complaint.compensation?.confirmedAt

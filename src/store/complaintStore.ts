@@ -1,11 +1,10 @@
 import { create } from "zustand"
 import type { Complaint, ComplaintStatus, TimelineEntry, Compensation, ReviewConclusion, Role } from "@/types"
-import { COMPENSATION_LABELS, ROLE_DEFAULT_NAMES } from "@/types"
+import { COMPENSATION_LABELS } from "@/types"
 import { mockComplaints } from "@/data/mock"
 
 interface CurrentRoleState {
   currentRole: Role
-  currentPersonName: string
   setCurrentRole: (role: Role) => void
 }
 
@@ -24,9 +23,7 @@ interface ComplaintStore {
 
 export const useCurrentRole = create<CurrentRoleState>((set) => ({
   currentRole: "cs",
-  currentPersonName: ROLE_DEFAULT_NAMES.cs,
-  setCurrentRole: (role) =>
-    set({ currentRole: role, currentPersonName: ROLE_DEFAULT_NAMES[role] }),
+  setCurrentRole: (role) => set({ currentRole: role }),
 }))
 
 function makeTimelineEntry(role: Role, author: string, content: string): TimelineEntry {
