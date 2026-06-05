@@ -273,8 +273,15 @@ export function StoreProvider({ children }) {
       return []
     },
 
-    getRecentGlobalAuditLogs(limit = 8) {
-      return [...auditLogs]
+    getRecentGlobalAuditLogs(limit = 10) {
+      const all = []
+      routeOpenings.forEach(o => {
+        all.push(...buildRouteOpeningTrail(o))
+      })
+      maintenanceRecords.forEach(m => {
+        all.push(...buildMaintenanceTrail(m))
+      })
+      return all
         .sort((a, b) => dayjs(b.timestamp).valueOf() - dayjs(a.timestamp).valueOf())
         .slice(0, limit)
     },
