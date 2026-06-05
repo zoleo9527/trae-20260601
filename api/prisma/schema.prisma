@@ -1,0 +1,108 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+enum Role {
+  SALES
+  BREWER
+  PACKER
+  ADMIN
+}
+
+enum OrderStatus {
+  DRAFT
+  PENDING_CONFIRM
+  IN_PRODUCTION
+  READY_TO_SHIP
+  SHIPPED
+  COMPLETED
+  RETURNED
+  EXCEPTION
+}
+
+model User {
+  id           String   @id @default(cuid())
+  username     String   @unique
+  password     String
+  role         Role
+  displayName  String
+  orders       Order[]
+  shipments    Shipment[]
+  auditLogs    AuditLog[]
+
+  @@map("users")
+}
+
+model Order {
+  id              String       @id @default(cuid())
+  orderNo         String       @unique
+  distributorName String
+  status          OrderStatus
+  deliveryDate    DateTime
+  remark          String?
+  createdById     String
+  createdBy       User         @relation(fields: [createdById], references: [id])
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  items           OrderItem[]
+  shipments       Shipment[]
+  auditLogs       AuditLog[]
+
+  @@index([status])
+  @@index([createdById])
+  @@index([createdAt])
+  @@map("orders")
+}
+
+model OrderItem {
+  id            String  @id @default(cuid())
+  orderId       String
+  order         Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productName   String
+  specification String
+  quantity      Int
+  unit          String
+
+  @@index([orderId])
+  @@map("order_items")
+}
+
+model Shipment {
+  id             String   @id @default(cuid())
+  orderId        String
+  order          Order    @relation(fields: [orderId], references: [id])
+  logisticsCompany String?
+  trackingNo     String?
+  shippedAt      DateTime?
+  receivedAt     DateTime?
+  receivedById   String?
+  receiveRemark  String?
+  createdById    String
+  createdBy      User     @relation(fields: [createdById], references: [id])
+  createdAt      DateTime @default(now())
+
+  @@index([orderId])
+  @@map("shipments")
+}
+
+model AuditLog {
+  id         String      @id @default(cuid())
+  orderId    String
+  order      Order       @relation(fields: [orderId], references: [id])
+  userId     String
+  user       User        @relation(fields: [userId], references: [id])
+  action     String
+  fromStatus OrderStatus?
+  toStatus   OrderStatus?
+  remark     String?
+  createdAt  DateTime    @default(now())
+
+  @@index([orderId])
+  @@index([userId])
+  @@map("audit_logs")
+}
