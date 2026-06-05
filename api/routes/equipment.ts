@@ -127,11 +127,17 @@ router.post('/return', (req: Request, res: Response): void => {
 
 router.get('/rentals', (req: Request, res: Response): void => {
   const data = readData()
-  const { status } = req.query
+  const { status, courseId, studentId } = req.query
   let result = data.rentalRecords
 
   if (status && typeof status === 'string') {
     result = result.filter((r) => r.status === status)
+  }
+  if (courseId && typeof courseId === 'string') {
+    result = result.filter((r) => r.courseId === courseId)
+  }
+  if (studentId && typeof studentId === 'string') {
+    result = result.filter((r) => r.studentId === studentId)
   }
 
   const joined = result.map((r) => {

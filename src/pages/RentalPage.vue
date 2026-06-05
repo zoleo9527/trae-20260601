@@ -30,6 +30,7 @@ interface Rental {
   id: string
   equipmentId: string
   studentId: string
+  courseId?: string
   studentName?: string
   equipmentCode?: string
   equipmentName?: string
@@ -57,6 +58,8 @@ const students = ref<Student[]>([])
 const courses = ref<Course[]>([])
 const filterStatus = ref<string>('all')
 const filterRentalStatus = ref<string>('all')
+const filterRentalCourseId = ref<string>('all')
+const filterRentalStudentId = ref<string>('all')
 const showRentModal = ref(false)
 const showReturnModal = ref(false)
 const selectedEquipment = ref<Equipment | null>(null)
@@ -82,8 +85,31 @@ const filteredEquipment = computed(() => {
 })
 
 const filteredRentals = computed(() => {
-  if (filterRentalStatus.value === 'all') return rentalList.value
-  return rentalList.value.filter(r => r.status === filterRentalStatus.value)
+  let result = rentalList.value
+  if (filterRentalStatus.value !== 'all') result = result.filter(r => r.status === filterRentalStatus.value)
+  if (filterRentalCourseId.value !== 'all') result = result.filter(r => r.courseId === filterRentalCourseId.value)
+  if (filterRentalStudentId.value !== 'all') result = result.filter(r => r.studentId === filterRentalStudentId.value)
+  return result
+})
+
+const rentalCourses = computed(() => {
+  const seen = new Map<string, { id: string; name: string }>()
+  for (const r of rentalList.value) {
+    if (r.courseId && r.courseName && !seen.has(r.courseId)) {
+      seen.set(r.courseId, { id: r.courseId, name: r.courseName })
+    }
+  }
+  return [...seen.values()]
+})
+
+const rentalStudents = computed(() => {
+  const seen = new Map<string, string>()
+  for (const r of rentalList.value) {
+    if (r.studentId && r.studentName && !seen.has(r.studentId)) {
+      seen.set(r.studentId, r.studentName)
+    }
+  }
+  return [...seen.entries()].map(([id, name]) => ({ id, name }))
 })
 
 const rentalStatusColor = (status: string) => {
@@ -281,16 +307,25 @@ onMounted(fetchEquipment)
     </div>
 
     <div v-if="activeTab === 'rentals'" class="space-y-4">
-      <div class="flex items-center justify-between">
+      <div class="flex flex-wrap items-center gap-2">
         <div class="flex items-center gap-2">
           <Filter class="w-4 h-4 text-slate-400" />
-          <select v-model="filterRentalStatus" class="input-field w-36">
-            <option value="all">全部</option>
+          <select v-model="filterRentalStatus" class="input-field w-28">
+            <option value="all">全部状态</option>
             <option value="active">在租</option>
             <option value="returned">已归还</option>
+            <option value="abnormal">异常</option>
           </select>
         </div>
-        <span class="text-sm text-slate-400">共 {{ filteredRentals.length }} 条</span>
+        <select v-model="filterRentalCourseId" class="input-field w-44">
+          <option value="all">全部课程</option>
+          <option v-for="c in rentalCourses" :key="c.id" :value="c.id">{{ c.name }}</option>
+        </select>
+        <select v-model="filterRentalStudentId" class="input-field w-32">
+          <option value="all">全部学员</option>
+          <option v-for="s in rentalStudents" :key="s.id" :value="s.id">{{ s.name }}</option>
+        </select>
+        <span class="text-sm text-slate-400 ml-auto">共 {{ filteredRentals.length }} 条</span>
       </div>
 
       <div class="space-y-3">

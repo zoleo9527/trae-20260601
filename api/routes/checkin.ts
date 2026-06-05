@@ -22,6 +22,13 @@ router.get('/students', (req: Request, res: Response): void => {
 
   const result = checkins.map((r) => {
     const student = data.students.find((s) => s.id === r.studentId)
+    const courseRental = data.rentalRecords.find(
+      (rr) => rr.studentId === r.studentId && rr.courseId === courseId && rr.status === 'active'
+    )
+    const rentalEquipment = courseRental ? data.equipment.find((e) => e.id === courseRental.equipmentId) : undefined
+    const anyRental = courseRental ? undefined : data.rentalRecords.find(
+      (rr) => rr.studentId === r.studentId && rr.status === 'active'
+    )
     return {
       id: r.id,
       studentId: r.studentId,
@@ -30,6 +37,10 @@ router.get('/students', (req: Request, res: Response): void => {
       courseName: `${coach?.name || ''} ${course.date} ${course.startTime}-${course.endTime}`,
       status: r.status,
       checkinAt: r.checkedInAt,
+      rentalStatus: courseRental ? 'rented' : (anyRental ? 'other_course' : 'none') as 'rented' | 'other_course' | 'none',
+      equipmentCode: rentalEquipment?.code,
+      equipmentName: rentalEquipment?.name,
+      rentalAbnormal: courseRental?.abnormal,
     }
   })
 

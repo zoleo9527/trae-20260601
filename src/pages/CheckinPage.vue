@@ -3,7 +3,7 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { useRoleStore } from '@/stores/role'
 import { useApi } from '@/composables/useApi'
 import StatusBadge from '@/components/StatusBadge.vue'
-import { CheckCircle, Bell, Search, Clock, AlertTriangle, CalendarCheck, Activity } from 'lucide-vue-next'
+import { CheckCircle, Bell, Search, Clock, AlertTriangle, CalendarCheck, Activity, Package, Filter } from 'lucide-vue-next'
 
 const roleStore = useRoleStore()
 const { get, post } = useApi()
@@ -27,6 +27,7 @@ interface StudentCheckin {
   courseName?: string
   checkinAt?: string
   status: 'pending' | 'checked_in' | 'no_show'
+  rentalStatus: 'rented' | 'other_course' | 'none'
   equipmentCode?: string
   equipmentName?: string
   rentalAbnormal?: { type: string; note?: string; actualReturner?: string }
@@ -52,10 +53,21 @@ const loading = ref(false)
 const historyDate = ref(new Date().toISOString().slice(0, 10))
 const historyCourseId = ref('')
 const historyStudentId = ref('')
+const rentalFilter = ref<'all' | 'not_rented' | 'abnormal'>('all')
 
 const availableCourses = computed(() =>
   courses.value.filter(c => c.status === 'in_progress')
 )
+
+const filteredStudentCheckins = computed(() => {
+  if (rentalFilter.value === 'all') return studentCheckins.value
+  if (rentalFilter.value === 'not_rented') return studentCheckins.value.filter(s => s.rentalStatus !== 'rented')
+  if (rentalFilter.value === 'abnormal') return studentCheckins.value.filter(s => s.rentalAbnormal)
+  return studentCheckins.value
+})
+
+const notRentedCount = computed(() => studentCheckins.value.filter(s => s.rentalStatus !== 'rented').length)
+const abnormalRentalCount = computed(() => studentCheckins.value.filter(s => s.rentalAbnormal).length)
 
 function showToast(msg: string) {
   toast.value = msg
@@ -205,37 +217,81 @@ onMounted(async () => {
       </div>
 
       <div v-if="selectedCourseId" class="card overflow-hidden">
-        <div class="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
-          <span class="text-sm text-slate-500">
-            待签到学员（{{ studentCheckins.filter(s => s.status === 'pending').length }}）
-          </span>
+        <div class="px-4 py-3 border-b border-slate-100 flex items-center justify-between flex-wrap gap-2">
+          <div class="flex items-center gap-3">
+            <span class="text-sm text-slate-500">
+              待签到学员（{{ studentCheckins.filter(s => s.status === 'pending').length }}）
+            </span>
+            <div class="flex items-center gap-1">
+              <Filter class="w-3.5 h-3.5 text-slate-400" />
+              <select v-model="rentalFilter" class="input-field text-xs py-1 px-2">
+                <option value="all">全部租赁</option>
+                <option value="not_rented">未租赁（{{ notRentedCount }}）</option>
+                <option value="abnormal">租赁异常（{{ abnormalRentalCount }}）</option>
+              </select>
+            </div>
+          </div>
           <button
             v-if="isCoachSupervisor"
             @click="toggleAll"
             class="text-xs text-sky-600 hover:text-sky-700"
           >
-            {{ selectedStudentIds.length === studentCheckins.filter(s => s.status === 'pending').length ? '取消全选' : '全选' }}
+            {{ selectedStudentIds.length === filteredStudentCheckins.filter(s => s.status === 'pending').length ? '取消全选' : '全选' }}
           </button>
         </div>
-        <div class="divide-y divide-slate-100">
-          <div v-for="s in studentCheckins" :key="s.id" class="flex items-center gap-3 px-4 py-3">
-            <input
-              v-if="s.status === 'pending' && isCoachSupervisor"
-              type="checkbox"
-              :checked="selectedStudentIds.includes(s.studentId)"
-              @change="toggleStudent(s.studentId)"
-              class="rounded border-slate-300"
-            />
-            <CheckCircle v-else-if="s.status !== 'pending'" class="w-4 h-4 text-green-500" />
-            <div v-else class="w-4 h-4 border-2 border-slate-300 rounded-sm opacity-50"></div>
-            <span class="flex-1 text-sm">{{ s.studentName }}</span>
-            <StatusBadge :status="s.status" type="checkin" />
-            <span v-if="s.checkinAt" class="text-xs text-slate-400">{{ new Date(s.checkinAt).toLocaleString('zh-CN') }}</span>
-          </div>
-          <div v-if="studentCheckins.length === 0" class="px-4 py-8 text-center text-slate-400 text-sm">
-            暂无学员，请先在教练排班页面为课程报名学员
-          </div>
-        </div>
+        <table class="w-full text-sm">
+          <thead class="bg-slate-50 border-b border-slate-200">
+            <tr>
+              <th class="text-left px-4 py-2 font-medium text-slate-600 w-8"></th>
+              <th class="text-left px-4 py-2 font-medium text-slate-600">学员</th>
+              <th class="text-left px-4 py-2 font-medium text-slate-600">签到状态</th>
+              <th class="text-left px-4 py-2 font-medium text-slate-600">租赁/雪具</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="s in filteredStudentCheckins" :key="s.id" class="border-b border-slate-100 hover:bg-slate-50">
+              <td class="px-4 py-2">
+                <input
+                  v-if="s.status === 'pending' && isCoachSupervisor"
+                  type="checkbox"
+                  :checked="selectedStudentIds.includes(s.studentId)"
+                  @change="toggleStudent(s.studentId)"
+                  class="rounded border-slate-300"
+                />
+                <CheckCircle v-else-if="s.status !== 'pending'" class="w-4 h-4 text-green-500" />
+                <div v-else class="w-4 h-4 border-2 border-slate-300 rounded-sm opacity-50"></div>
+              </td>
+              <td class="px-4 py-2">
+                <span class="font-medium">{{ s.studentName }}</span>
+              </td>
+              <td class="px-4 py-2">
+                <StatusBadge :status="s.status" type="checkin" />
+                <span v-if="s.checkinAt" class="ml-1 text-xs text-slate-400">{{ new Date(s.checkinAt).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }) }}</span>
+              </td>
+              <td class="px-4 py-2">
+                <template v-if="s.rentalStatus === 'rented'">
+                  <span class="inline-flex items-center gap-1 text-xs text-green-700 bg-green-50 px-1.5 py-0.5 rounded">
+                    <Package class="w-3 h-3" />{{ s.equipmentCode }} {{ s.equipmentName }}
+                  </span>
+                  <span v-if="s.rentalAbnormal" class="ml-1 inline-flex items-center gap-0.5 text-xs text-orange-600 bg-orange-50 px-1.5 py-0.5 rounded">
+                    <AlertTriangle class="w-3 h-3" />{{ s.rentalAbnormal.type === 'wrong_person' ? '错拿' : '损坏' }}
+                  </span>
+                </template>
+                <span v-else-if="s.rentalStatus === 'other_course'" class="inline-flex items-center gap-1 text-xs text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded">
+                  <AlertTriangle class="w-3 h-3" />租赁未关联本课程
+                </span>
+                <span v-else class="inline-flex items-center gap-1 text-xs text-red-600 bg-red-50 px-1.5 py-0.5 rounded">
+                  <AlertTriangle class="w-3 h-3" />未租赁
+                </span>
+              </td>
+            </tr>
+            <tr v-if="filteredStudentCheckins.length === 0">
+              <td colspan="4" class="px-4 py-8 text-center text-slate-400">
+                {{ studentCheckins.length === 0 ? '暂无学员，请先在教练排班页面为课程报名学员' : '当前筛选条件下无匹配学员' }}
+              </td>
+            </tr>
+          </tbody>
+        </table>
         <div v-if="selectedStudentIds.length > 0 && isCoachSupervisor" class="px-4 py-3 border-t border-slate-100">
           <button @click="batchCheckin" class="btn-primary">
             <CheckCircle class="w-4 h-4 inline mr-1" />批量签到（{{ selectedStudentIds.length }}人）
