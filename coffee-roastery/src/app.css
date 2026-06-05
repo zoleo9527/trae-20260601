@@ -1,0 +1,8 @@
+@import "tailwindcss";
+
+:root {
+	--color-bean: #8B6914;
+	--color-roast: #6F4E37;
+	--color-cup: #C4A77D;
+	--color-exception: #DC2626;
+}
