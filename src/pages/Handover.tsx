@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react'
-import { Calendar, Package, AlertTriangle, Plus, X, ChevronDown, ChevronRight } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { Calendar, Package, AlertTriangle, Plus, X, ChevronDown, ChevronRight, ExternalLink } from 'lucide-react'
 import { useStore } from '@/store/useStore'
 import StatusBadge from '@/components/StatusBadge'
 
 export default function Handover() {
+  const navigate = useNavigate()
   const {
     bookings, equipmentIssuances, anomalies, shiftTodos, handoverSnapshots, snapshotDetails,
     loadingHandover, loadingSnapshotDetails, fetchBookings, fetchEquipmentIssuances, fetchAnomalies,
@@ -221,6 +223,7 @@ export default function Handover() {
                               <table className="min-w-full divide-y divide-gray-200 text-xs">
                                 <thead className="bg-gray-100">
                                   <tr>
+                                    <th className="px-3 py-2 text-left font-medium text-gray-500">编号</th>
                                     <th className="px-3 py-2 text-left font-medium text-gray-500">会员</th>
                                     <th className="px-3 py-2 text-left font-medium text-gray-500">课程</th>
                                     <th className="px-3 py-2 text-left font-medium text-gray-500">日期</th>
@@ -231,6 +234,15 @@ export default function Handover() {
                                 <tbody className="divide-y divide-gray-100">
                                   {snapshotDetails.bookings.map((b) => (
                                     <tr key={b.id} className="hover:bg-white">
+                                      <td className="px-3 py-2">
+                                        <button
+                                          onClick={() => navigate(`/bookings?id=${b.booking_id}`)}
+                                          className="inline-flex items-center gap-0.5 text-xs font-mono text-climbing-orange hover:underline"
+                                        >
+                                          <ExternalLink className="w-3 h-3" />
+                                          #{b.booking_id}
+                                        </button>
+                                      </td>
                                       <td className="px-3 py-2">{b.member_name}</td>
                                       <td className="px-3 py-2">{b.course_name}</td>
                                       <td className="px-3 py-2">{b.booking_date}</td>
@@ -277,7 +289,13 @@ export default function Handover() {
                                             <div className="text-gray-700">{e.booking_course_name}</div>
                                             <div className="text-gray-400">{e.booking_date} {e.booking_time_slot}</div>
                                             <div className="flex items-center gap-1 mt-0.5">
-                                              <span className="text-[10px] font-mono bg-gray-100 text-gray-500 px-1 rounded">预约#{e.booking_id}</span>
+                                              <button
+                                                onClick={() => navigate(`/bookings?id=${e.booking_id}`)}
+                                                className="inline-flex items-center gap-0.5 text-[10px] font-mono bg-gray-100 text-climbing-orange px-1 rounded hover:underline"
+                                              >
+                                                <ExternalLink className="w-2.5 h-2.5" />
+                                                预约#{e.booking_id}
+                                              </button>
                                               {e.booking_status && <StatusBadge type="booking" status={e.booking_status} />}
                                             </div>
                                           </div>
@@ -296,7 +314,13 @@ export default function Handover() {
                                                 <span className={`text-[10px] px-1 rounded shrink-0 ${a.source === 'booking' ? 'bg-purple-50 text-purple-600' : 'bg-orange-50 text-orange-600'}`}>
                                                   {a.source === 'booking' ? '预' : '装'}
                                                 </span>
-                                                <span className="text-[10px] font-mono text-gray-500 shrink-0">#{a.anomaly_id}</span>
+                                                <button
+                                                  onClick={() => navigate(`/anomalies?id=${a.anomaly_id}`)}
+                                                  className="inline-flex items-center gap-0.5 text-[10px] font-mono text-climbing-orange hover:underline"
+                                                >
+                                                  <ExternalLink className="w-2.5 h-2.5" />
+                                                  #{a.anomaly_id}
+                                                </button>
                                                 <span className="text-xs text-gray-600 truncate max-w-[100px]">{a.description}</span>
                                               </div>
                                             ))}
@@ -325,6 +349,7 @@ export default function Handover() {
                               <table className="min-w-full divide-y divide-gray-200 text-xs">
                                 <thead className="bg-gray-100">
                                   <tr>
+                                    <th className="px-3 py-2 text-left font-medium text-gray-500">编号</th>
                                     <th className="px-3 py-2 text-left font-medium text-gray-500">描述</th>
                                     <th className="px-3 py-2 text-left font-medium text-gray-500">严重度</th>
                                     <th className="px-3 py-2 text-left font-medium text-gray-500">报告人</th>
@@ -334,6 +359,15 @@ export default function Handover() {
                                 <tbody className="divide-y divide-gray-100">
                                   {snapshotDetails.anomalies.map((a) => (
                                     <tr key={a.id} className="hover:bg-white">
+                                      <td className="px-3 py-2">
+                                        <button
+                                          onClick={() => navigate(`/anomalies?id=${a.anomaly_id}`)}
+                                          className="inline-flex items-center gap-0.5 text-xs font-mono text-climbing-orange hover:underline"
+                                        >
+                                          <ExternalLink className="w-3 h-3" />
+                                          #{a.anomaly_id}
+                                        </button>
+                                      </td>
                                       <td className="px-3 py-2">{a.description}</td>
                                       <td className="px-3 py-2"><StatusBadge type="severity" status={a.severity} /></td>
                                       <td className="px-3 py-2">{a.reported_by}</td>

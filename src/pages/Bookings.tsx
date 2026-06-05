@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { Plus, X } from 'lucide-react'
 import { useStore } from '@/store/useStore'
 import StatusBadge from '@/components/StatusBadge'
@@ -23,8 +24,10 @@ const statusTransitions: Record<string, { label: string; next: string; btnClass:
 
 export default function Bookings() {
   const { bookings, loadingBookings, courses, belayers, fetchBookings, createBooking, updateBookingStatus, fetchCourses, fetchBelayers } = useStore()
+  const [searchParams, setSearchParams] = useSearchParams()
   const [filterDate, setFilterDate] = useState('')
   const [filterStatus, setFilterStatus] = useState('')
+  const [filterId, setFilterId] = useState(() => searchParams.get('id') || '')
   const [showModal, setShowModal] = useState(false)
   const [form, setForm] = useState({
     member_name: '',
@@ -47,6 +50,17 @@ export default function Bookings() {
     fetchBookings(params)
   }, [filterDate, filterStatus, fetchBookings])
 
+  useEffect(() => {
+    const idFromUrl = searchParams.get('id')
+    if (idFromUrl && !filterId) {
+      setFilterId(idFromUrl)
+    }
+  }, [searchParams])
+
+  const filteredBookings = filterId
+    ? bookings.filter((b) => String(b.id).includes(filterId))
+    : bookings
+
   const handleCreate = async () => {
     if (!form.member_name || !form.member_phone || !form.course_id || !form.booking_date || !form.time_slot) return
     await createBooking({
@@ -66,10 +80,27 @@ export default function Bookings() {
     await updateBookingStatus(booking.id, nextStatus, '值班员')
   }
 
+  const handleFilterIdChange = (value: string) => {
+    setFilterId(value)
+    const params = new URLSearchParams(searchParams)
+    if (value) {
+      params.set('id', value)
+    } else {
+      params.delete('id')
+    }
+    setSearchParams(params, { replace: true })
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
+          <input
+            value={filterId}
+            onChange={(e) => handleFilterIdChange(e.target.value)}
+            placeholder="预约编号"
+            className="border border-gray-300 rounded-lg px-3 py-2 text-sm w-28 focus:outline-none focus:ring-2 focus:ring-climbing-orange"
+          />
           <input
             type="date"
             value={filterDate}
@@ -102,6 +133,7 @@ export default function Bookings() {
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">编号</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">会员姓名</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">课程</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">保护员</th>
@@ -112,8 +144,9 @@ export default function Bookings() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {bookings.map((b) => (
+              {filteredBookings.map((b) => (
                 <tr key={b.id} className="hover:bg-gray-50">
+                  <td className="px-4 py-3 text-sm font-mono text-gray-500">#{b.id}</td>
                   <td className="px-4 py-3 text-sm">
                     <div>{b.member_name}</div>
                     <div className="text-xs text-gray-400">{b.member_phone}</div>
@@ -146,9 +179,9 @@ export default function Bookings() {
                   </td>
                 </tr>
               ))}
-              {bookings.length === 0 && (
+              {filteredBookings.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="px-4 py-10 text-center text-gray-400 text-sm">暂无预约记录</td>
+                  <td colSpan={8} className="px-4 py-10 text-center text-gray-400 text-sm">暂无预约记录</td>
                 </tr>
               )}
             </tbody>

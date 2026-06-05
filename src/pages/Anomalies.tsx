@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { Plus, X, ExternalLink } from 'lucide-react'
 import { useStore } from '@/store/useStore'
 import StatusBadge from '@/components/StatusBadge'
@@ -24,8 +25,10 @@ const severityBorderColors: Record<string, string> = {
 
 export default function Anomalies() {
   const { anomalies, loadingAnomalies, bookings, equipmentIssuances, fetchAnomalies, createAnomaly, resolveAnomaly, fetchBookings, fetchEquipmentIssuances } = useStore()
+  const [searchParams, setSearchParams] = useSearchParams()
   const [filterStatus, setFilterStatus] = useState('')
   const [filterSeverity, setFilterSeverity] = useState('')
+  const [filterId, setFilterId] = useState(() => searchParams.get('id') || '')
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [resolveTarget, setResolveTarget] = useState<number | null>(null)
   const [createForm, setCreateForm] = useState({
@@ -52,6 +55,17 @@ export default function Anomalies() {
     fetchAnomalies(params)
   }, [filterStatus, filterSeverity, fetchAnomalies])
 
+  useEffect(() => {
+    const idFromUrl = searchParams.get('id')
+    if (idFromUrl && !filterId) {
+      setFilterId(idFromUrl)
+    }
+  }, [searchParams])
+
+  const filteredAnomalies = filterId
+    ? anomalies.filter((a) => String(a.id).includes(filterId))
+    : anomalies
+
   const handleCreate = async () => {
     if (!createForm.description || !createForm.reported_by) return
     await createAnomaly({
@@ -77,6 +91,17 @@ export default function Anomalies() {
     fetchAnomalies()
   }
 
+  const handleFilterIdChange = (value: string) => {
+    setFilterId(value)
+    const params = new URLSearchParams(searchParams)
+    if (value) {
+      params.set('id', value)
+    } else {
+      params.delete('id')
+    }
+    setSearchParams(params, { replace: true })
+  }
+
   const getBookingLabel = (bookingId: number | null) => {
     if (!bookingId) return null
     const b = bookings.find((x) => x.id === bookingId)
@@ -93,6 +118,12 @@ export default function Anomalies() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
+          <input
+            value={filterId}
+            onChange={(e) => handleFilterIdChange(e.target.value)}
+            placeholder="异常编号"
+            className="border border-gray-300 rounded-lg px-3 py-2 text-sm w-28 focus:outline-none focus:ring-2 focus:ring-climbing-orange"
+          />
           <select
             value={filterStatus}
             onChange={(e) => setFilterStatus(e.target.value)}
@@ -123,15 +154,16 @@ export default function Anomalies() {
 
       {loadingAnomalies ? (
         <div className="text-center py-10 text-gray-500">加载中...</div>
-      ) : anomalies.length === 0 ? (
+      ) : filteredAnomalies.length === 0 ? (
         <div className="text-center py-10 text-gray-400 text-sm">暂无异常记录</div>
       ) : (
         <div className="grid gap-4">
-          {anomalies.map((a) => (
+          {filteredAnomalies.map((a) => (
             <div key={a.id} className={`bg-white rounded-lg shadow p-5 ${severityBorderColors[a.severity]}`}>
               <div className="flex items-start justify-between">
                 <div className="flex-1">
                   <div className="flex items-center gap-3 mb-2">
+                    <span className="text-xs font-mono text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">#{a.id}</span>
                     <StatusBadge type="severity" status={a.severity} />
                     <StatusBadge type="anomaly" status={a.status} />
                   </div>
