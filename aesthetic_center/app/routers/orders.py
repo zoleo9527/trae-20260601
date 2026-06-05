@@ -8,7 +8,7 @@ from app.database import get_db
 from app.models import (
     Order, OrderItem, OrderStatus, FlowerMaterial, UserRole,
     AnomalyRecord, AnomalyType, AnomalySeverity, AnomalyStatus,
-    VALID_TRANSITIONS,
+    QualityInspection, InspectionResult, VALID_TRANSITIONS,
 )
 from app.schemas import (
     OrderCreate, OrderRead, OrderReadDetail, OrderStatusUpdate,
@@ -75,6 +75,28 @@ def _check_substitution_anomalies(order: Order, db: Session):
                 db.add(anomaly)
 
 
+SEVERITY_RANK = {AnomalySeverity.LOW: 1, AnomalySeverity.MEDIUM: 2, AnomalySeverity.HIGH: 3}
+
+
+def _compute_order_summary(order: Order) -> dict:
+    latest_result = None
+    if order.inspections:
+        sorted_inspections = sorted(order.inspections, key=lambda i: i.inspected_at, reverse=True)
+        latest_result = sorted_inspections[0].overall_result
+
+    open_anomalies = [a for a in order.anomalies if a.status in (AnomalyStatus.OPEN, AnomalyStatus.ACKNOWLEDGED)]
+    open_anomaly_count = len(open_anomalies)
+    highest_severity = None
+    if open_anomalies:
+        highest_severity = max(open_anomalies, key=lambda a: SEVERITY_RANK.get(a.severity, 0)).severity
+
+    return {
+        "latest_inspection_result": latest_result,
+        "open_anomaly_count": open_anomaly_count,
+        "highest_anomaly_severity": highest_severity,
+    }
+
+
 @router.post("", response_model=OrderRead, status_code=201)
 def create_order(body: OrderCreate, db: Session = Depends(get_db), current_user=Depends(florist_or_admin)):
     order_no = _generate_order_no(db)
@@ -118,13 +140,39 @@ def create_order(body: OrderCreate, db: Session = Depends(get_db), current_user=
 @router.get("", response_model=list[OrderRead])
 def list_orders(
     status: Optional[OrderStatus] = Query(None),
+    view: Optional[str] = Query(None, enum=["pending_inspection", "pending_delivery", "has_open_anomalies"]),
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
-    q = db.query(Order).options(joinedload(Order.items))
+    q = db.query(Order).options(
+        joinedload(Order.items),
+        joinedload(Order.inspections),
+        joinedload(Order.anomalies),
+    )
+
     if status:
         q = q.filter(Order.status == status)
-    return q.order_by(Order.id.desc()).all()
+
+    if view == "pending_inspection":
+        q = q.filter(Order.status == OrderStatus.INSPECTING)
+    elif view == "pending_delivery":
+        q = q.filter(Order.status == OrderStatus.PASSED)
+    elif view == "has_open_anomalies":
+        open_anomaly_order_ids = (
+            db.query(AnomalyRecord.order_id)
+            .filter(AnomalyRecord.status.in_([AnomalyStatus.OPEN, AnomalyStatus.ACKNOWLEDGED]))
+            .distinct()
+            .subquery()
+        )
+        q = q.filter(Order.id.in_(open_anomaly_order_ids))
+
+    orders = q.order_by(Order.id.desc()).all()
+    results = []
+    for order in orders:
+        order_dict = OrderRead.model_validate(order).model_dump()
+        order_dict.update(_compute_order_summary(order))
+        results.append(order_dict)
+    return results
 
 
 @router.get("/{order_id}", response_model=OrderReadDetail)
@@ -148,6 +196,10 @@ def get_order(order_id: int, db: Session = Depends(get_db), current_user=Depends
         item_dict["material_name"] = item.material.name if item.material else None
         enriched_items.append(item_dict)
     result.items = enriched_items
+    summary = _compute_order_summary(order)
+    result.latest_inspection_result = summary["latest_inspection_result"]
+    result.open_anomaly_count = summary["open_anomaly_count"]
+    result.highest_anomaly_severity = summary["highest_anomaly_severity"]
     return result
 
 

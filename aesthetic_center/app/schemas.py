@@ -83,7 +83,13 @@ class OrderStatusUpdate(BaseModel):
     status: OrderStatus
 
 
-class OrderRead(BaseModel):
+class OrderSummary(BaseModel):
+    latest_inspection_result: Optional[InspectionResult] = None
+    open_anomaly_count: int = 0
+    highest_anomaly_severity: Optional[AnomalySeverity] = None
+
+
+class OrderRead(OrderSummary):
     id: int
     order_no: str
     customer_name: str
