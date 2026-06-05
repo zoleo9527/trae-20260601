@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { 
   X, Check, Clock, User, MapPin, Calendar, 
   MessageSquare, History, AlertTriangle, ArrowRight,
-  ChevronDown, ChevronUp
+  ChevronDown, ChevronUp, Settings
 } from 'lucide-react';
 import { useStore } from '@/store';
 import { StatusBadge } from './StatusBadge';
@@ -17,7 +17,7 @@ export function RecordDetailPanel() {
     activeRecordId, records, showDetailPanel, setShowDetailPanel,
     currentRole, confirmRecord, rejectRecord, addReceptionRemark,
     escalateToManager, resolveDispute, resubmitRecord, setActiveRecord,
-    getFilteredRecords
+    getFilteredRecords, adjustSchedule, coaches, venues
   } = useStore();
   
   const [rejectReason, setRejectReason] = useState<RejectReason>('other');
@@ -26,6 +26,12 @@ export function RecordDetailPanel() {
   const [responsibility, setResponsibility] = useState<ResponsibilityFlag>('none');
   const [showHistory, setShowHistory] = useState(false);
   const [showRejectForm, setShowRejectForm] = useState(false);
+  const [showScheduleEdit, setShowScheduleEdit] = useState(false);
+  const [editCoachId, setEditCoachId] = useState('');
+  const [editVenueId, setEditVenueId] = useState('');
+  const [editDate, setEditDate] = useState('');
+  const [editStartTime, setEditStartTime] = useState('');
+  const [editEndTime, setEditEndTime] = useState('');
   
   const record = records.find((r) => r.id === activeRecordId);
   const filteredRecords = getFilteredRecords();
@@ -79,10 +85,43 @@ export function RecordDetailPanel() {
     }
   };
   
+  const handleAdjustSchedule = () => {
+    if (!record) return;
+    const updates: any = {};
+    if (editCoachId) {
+      const coach = coaches.find(c => c.id === editCoachId);
+      updates.coachId = editCoachId;
+      updates.coachName = coach?.name || record.coachName;
+    }
+    if (editVenueId) {
+      const venue = venues.find(v => v.id === editVenueId);
+      updates.venueId = editVenueId;
+      updates.venueName = venue?.name || record.venueName;
+    }
+    if (editDate) updates.scheduledDate = editDate;
+    if (editStartTime) updates.startTime = editStartTime;
+    if (editEndTime) updates.endTime = editEndTime;
+    
+    adjustSchedule(record.id, updates);
+    setShowScheduleEdit(false);
+    handleNext();
+  };
+  
+  const handleOpenScheduleEdit = () => {
+    if (!record) return;
+    setEditCoachId(record.coachId);
+    setEditVenueId(record.venueId);
+    setEditDate(record.scheduledDate);
+    setEditStartTime(record.startTime);
+    setEditEndTime(record.endTime);
+    setShowScheduleEdit(true);
+  };
+  
   const handleClose = () => {
     setShowDetailPanel(false);
     setActiveRecord(null);
     setShowRejectForm(false);
+    setShowScheduleEdit(false);
     setRemark('');
     setRejectRemark('');
   };
@@ -155,6 +194,92 @@ export function RecordDetailPanel() {
               </div>
             </div>
           </div>
+          
+          {!showScheduleEdit && (currentRole === 'reception' || currentRole === 'manager') && record.status !== 'completed' && (
+            <button
+              onClick={handleOpenScheduleEdit}
+              className="w-full px-3 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 text-sm rounded transition-colors flex items-center justify-center gap-2"
+            >
+              <Settings className="w-4 h-4" />
+              调整排班（教练/时间/场地）
+            </button>
+          )}
+          
+          {showScheduleEdit && (
+            <div className="p-3 rounded-lg bg-slate-800 border border-slate-700 space-y-3">
+              <div className="text-sm font-medium text-slate-200 flex items-center gap-2">
+                <Settings className="w-4 h-4" />
+                调整排班
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs text-slate-500 block mb-1">教练</label>
+                  <select
+                    value={editCoachId}
+                    onChange={(e) => setEditCoachId(e.target.value)}
+                    className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1.5 text-sm text-slate-200 focus:outline-none focus:border-blue-500"
+                  >
+                    {coaches.map((c) => (
+                      <option key={c.id} value={c.id}>{c.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs text-slate-500 block mb-1">场地</label>
+                  <select
+                    value={editVenueId}
+                    onChange={(e) => setEditVenueId(e.target.value)}
+                    className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1.5 text-sm text-slate-200 focus:outline-none focus:border-blue-500"
+                  >
+                    {venues.map((v) => (
+                      <option key={v.id} value={v.id}>{v.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs text-slate-500 block mb-1">日期</label>
+                  <input
+                    type="date"
+                    value={editDate}
+                    onChange={(e) => setEditDate(e.target.value)}
+                    className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1.5 text-sm text-slate-200 focus:outline-none focus:border-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-slate-500 block mb-1">开始时间</label>
+                  <input
+                    type="time"
+                    value={editStartTime}
+                    onChange={(e) => setEditStartTime(e.target.value)}
+                    className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1.5 text-sm text-slate-200 focus:outline-none focus:border-blue-500"
+                  />
+                </div>
+                <div className="col-span-2">
+                  <label className="text-xs text-slate-500 block mb-1">结束时间</label>
+                  <input
+                    type="time"
+                    value={editEndTime}
+                    onChange={(e) => setEditEndTime(e.target.value)}
+                    className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1.5 text-sm text-slate-200 focus:outline-none focus:border-blue-500"
+                  />
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={handleAdjustSchedule}
+                  className="flex-1 px-3 py-2 bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium rounded transition-colors"
+                >
+                  确认调整并重提
+                </button>
+                <button
+                  onClick={() => setShowScheduleEdit(false)}
+                  className="px-3 py-2 bg-slate-700 hover:bg-slate-600 text-slate-200 text-sm rounded transition-colors"
+                >
+                  取消
+                </button>
+              </div>
+            </div>
+          )}
           
           {record.rejectReason && (
             <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 space-y-2">

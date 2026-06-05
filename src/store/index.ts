@@ -38,6 +38,15 @@ interface AppState {
   escalateToManager: (recordId: string, remark: string) => void;
   resolveDispute: (recordId: string, responsibility: ResponsibilityFlag, remark: string) => void;
   resubmitRecord: (recordId: string) => void;
+  adjustSchedule: (recordId: string, updates: {
+    coachId?: string;
+    coachName?: string;
+    venueId?: string;
+    venueName?: string;
+    scheduledDate?: string;
+    startTime?: string;
+    endTime?: string;
+  }) => void;
   batchConfirm: (recordIds: string[]) => void;
   batchMarkResponsibility: (recordIds: string[], flag: ResponsibilityFlag) => void;
   
@@ -184,16 +193,19 @@ export const useStore = create<AppState>((set, get) => ({
   
   resolveDispute: (recordId, responsibility, remark) => {
     const { currentRole, addHistory } = get();
-    addHistory(recordId, currentRole, getOperatorName(currentRole), '仲裁完成', remark);
+    addHistory(recordId, currentRole, getOperatorName(currentRole), '仲裁完成并归档', remark);
     set((state) => ({
       records: state.records.map((r) => {
         if (r.id === recordId) {
           return {
             ...r,
-            status: 'disputed' as RecordStatus,
+            status: 'completed' as RecordStatus,
             responsibility,
             responsibilityRemark: remark,
-            hasResponsibilityRisk: false
+            hasResponsibilityRisk: false,
+            confirmedAt: Date.now(),
+            confirmedBy: currentRole,
+            isOverdue: false
           };
         }
         return r;
@@ -212,6 +224,41 @@ export const useStore = create<AppState>((set, get) => ({
             status: 'pending_coach_confirm' as RecordStatus,
             rejectReason: undefined,
             rejectRemark: undefined
+          };
+        }
+        return r;
+      })
+    }));
+  },
+  
+  adjustSchedule: (recordId, updates) => {
+    const { currentRole, addHistory, coaches, venues } = get();
+    
+    let changeDesc: string[] = [];
+    if (updates.coachId || updates.coachName) {
+      const coachName = updates.coachName || coaches.find(c => c.id === updates.coachId)?.name || '';
+      changeDesc.push(`教练调整为${coachName}`);
+    }
+    if (updates.venueId || updates.venueName) {
+      const venueName = updates.venueName || venues.find(v => v.id === updates.venueId)?.name || '';
+      changeDesc.push(`场地调整为${venueName}`);
+    }
+    if (updates.scheduledDate || updates.startTime || updates.endTime) {
+      changeDesc.push('时间已调整');
+    }
+    
+    addHistory(recordId, currentRole, getOperatorName(currentRole), `排班调整：${changeDesc.join('，')}`);
+    set((state) => ({
+      records: state.records.map((r) => {
+        if (r.id === recordId) {
+          return {
+            ...r,
+            ...updates,
+            status: 'pending_coach_confirm' as RecordStatus,
+            rejectReason: undefined,
+            rejectRemark: undefined,
+            isOverdue: false,
+            updatedAt: Date.now()
           };
         }
         return r;
@@ -322,8 +369,15 @@ export const useStore = create<AppState>((set, get) => ({
     const { records, filterStatus, currentRole } = get();
     return records.filter((r) => {
       if (filterStatus !== 'all' && r.status !== filterStatus) return false;
+      
       if (currentRole === 'coach') {
         return r.status === 'pending_coach_confirm' || r.status === 'completed';
+      }
+      if (currentRole === 'reception') {
+        return r.status === 'pending_reception_handle' || r.status === 'completed' || r.status === 'pending_coach_confirm';
+      }
+      if (currentRole === 'manager') {
+        return r.status === 'pending_manager_audit' || r.status === 'disputed' || r.status === 'completed';
       }
       return true;
     }).sort((a, b) => {
