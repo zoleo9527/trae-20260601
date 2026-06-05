@@ -1,0 +1,9 @@
+{
+  "pid": 92893,
+  "startedAt": 1780656515572,
+  "command": "dev",
+  "cwd": "/Users/liu/Documents/private/model-test/trae-20260601-2/ski-patrol",
+  "port": 3001,
+  "hostname": "::1",
+  "url": "http://[::1]:3001"
+}

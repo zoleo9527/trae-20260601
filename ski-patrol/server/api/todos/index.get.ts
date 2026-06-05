@@ -11,17 +11,19 @@ export default defineEventHandler(async (event) => {
 
   if (userRole === 'rental') {
     const pendingPatrols = db.prepare(`
-      SELECT p.id, p.type, p.status, p.created_at, t.name as trail_name
+      SELECT p.id, p.type, p.status, p.created_at, t.name as trail_name, t.difficulty as trail_difficulty
       FROM patrols p
       LEFT JOIN trails t ON p.trail_id = t.id
       WHERE p.status IN ('pending', 'in_progress')
       ORDER BY p.created_at DESC
     `).all() as any[]
     pendingPatrols.forEach((p) => {
+      const diffLabel = { beginner: '初级', intermediate: '中级', advanced: '高级', expert: '专家' }[p.trail_difficulty] || ''
       todos.push({
         id: `patrol-${p.id}`,
         type: 'patrol',
         title: `${p.trail_name} - ${p.type === 'daily' ? '日常巡查' : '专项巡查'}`,
+        summary: `${diffLabel}雪道 · ${p.type === 'daily' ? '日常' : '专项'}巡查`,
         status: p.status,
         createdAt: p.created_at,
         entityId: p.id,
@@ -40,34 +42,40 @@ export default defineEventHandler(async (event) => {
       ORDER BY r.created_at DESC
     `).all() as any[]
     pendingRisks.forEach((r) => {
+      let summary = r.description || ''
+      if (r.status === 'resubmitted' && r.supplement_note) {
+        summary = `补充：${r.supplement_note}`
+      }
       todos.push({
         id: `risk-${r.id}`,
         type: 'risk',
         title: `${r.trail_name} - 风险审批`,
+        summary,
         status: r.status,
         level: r.level,
         urgency: r.urgency,
         createdAt: r.created_at,
         entityId: r.id,
         trailName: r.trail_name,
-        description: r.description,
         rejectReason: r.reject_reason,
         supplementNote: r.supplement_note,
       })
     })
   } else if (userRole === 'patrol') {
     const pendingPatrols = db.prepare(`
-      SELECT p.id, p.type, p.status, p.created_at, t.name as trail_name
+      SELECT p.id, p.type, p.status, p.created_at, t.name as trail_name, t.difficulty as trail_difficulty
       FROM patrols p
       LEFT JOIN trails t ON p.trail_id = t.id
       WHERE p.status IN ('pending', 'in_progress')
       ORDER BY p.created_at DESC
     `).all() as any[]
     pendingPatrols.forEach((p) => {
+      const diffLabel = { beginner: '初级', intermediate: '中级', advanced: '高级', expert: '专家' }[p.trail_difficulty] || ''
       todos.push({
         id: `patrol-${p.id}`,
         type: 'patrol',
         title: `${p.trail_name} - ${p.type === 'daily' ? '日常巡查' : '专项巡查'}`,
+        summary: `${diffLabel}雪道 · ${p.type === 'daily' ? '日常' : '专项'}巡查`,
         status: p.status,
         createdAt: p.created_at,
         entityId: p.id,
@@ -89,6 +97,7 @@ export default defineEventHandler(async (event) => {
         id: `risk-rejected-${r.id}`,
         type: 'risk_resubmit',
         title: `${r.trail_name} - 风险补充（被退回）`,
+        summary: `退回原因：${r.reject_reason || '未填写'}`,
         status: r.status,
         level: r.level,
         createdAt: r.created_at,

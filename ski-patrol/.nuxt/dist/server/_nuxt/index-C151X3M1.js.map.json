@@ -1,1 +1,0 @@
-{"file":"index-C151X3M1.js","mappings":";;;;;;;;;;;;;;;;;AAKA,eAAW,QAAQ;;;;;;;;;;;;","names":[],"sources":["../../../../pages/index.vue"],"sourcesContent":["<template>\n  <div></div>\n</template>\n\n<script setup lang=\"ts\">\nnavigateTo('/login')\n</script>\n"],"version":3}
