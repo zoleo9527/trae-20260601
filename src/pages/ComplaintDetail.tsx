@@ -7,7 +7,6 @@ import {
   STATUS_COLORS,
   URGENCY_LABELS,
   COMPENSATION_LABELS,
-  ROLE_LABELS,
 } from "@/types"
 import {
   ArrowLeft,
@@ -34,6 +33,7 @@ export default function ComplaintDetail() {
   const navigate = useNavigate()
   const { getComplaintById, closeComplaint } = useComplaintStore()
   const currentRole = useCurrentRole((s) => s.currentRole)
+  const currentPersonName = useCurrentRole((s) => s.currentPersonName)
   const [showCloseConfirm, setShowCloseConfirm] = useState(false)
   const [closeReason, setCloseReason] = useState("")
   const [closeBlockReason, setCloseBlockReason] = useState<CloseBlockReason>(null)
@@ -63,7 +63,7 @@ export default function ComplaintDetail() {
   }
 
   const handleClose = () => {
-    closeComplaint(complaint.id, closeReason, ROLE_LABELS[currentRole])
+    closeComplaint(complaint.id, closeReason, currentPersonName, currentRole)
     setShowCloseConfirm(false)
     setCloseReason("")
   }

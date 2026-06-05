@@ -1,7 +1,7 @@
 import { NavLink, Outlet } from "react-router-dom"
 import { Flower2, ClipboardList, BarChart3 } from "lucide-react"
 import { useCurrentRole, useComplaintStore } from "@/store/complaintStore"
-import { ROLE_LABELS, ROLE_COLORS } from "@/types"
+import { ROLE_LABELS, ROLE_COLORS, ROLE_DEFAULT_NAMES } from "@/types"
 import type { Role } from "@/types"
 
 const roles: Role[] = ["cs", "florist", "dispatcher"]
@@ -67,7 +67,8 @@ export default function Layout() {
                 }`}
               >
                 <span className={`w-2 h-2 rounded-full ${ROLE_COLORS[role]}`} />
-                {ROLE_LABELS[role]}
+                <span>{ROLE_LABELS[role]}</span>
+                <span className="text-moss-400 text-xs">{ROLE_DEFAULT_NAMES[role]}</span>
               </button>
             ))}
           </div>

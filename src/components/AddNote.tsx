@@ -1,7 +1,6 @@
 import { useState } from "react"
 import type { Complaint } from "@/types"
 import { useComplaintStore, useCurrentRole } from "@/store/complaintStore"
-import { ROLE_LABELS } from "@/types"
 import { MessageSquarePlus, Lock } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -12,6 +11,7 @@ interface AddNoteProps {
 export default function AddNote({ complaint }: AddNoteProps) {
   const addTimelineEntry = useComplaintStore((s) => s.addTimelineEntry)
   const currentRole = useCurrentRole((s) => s.currentRole)
+  const currentPersonName = useCurrentRole((s) => s.currentPersonName)
   const [content, setContent] = useState("")
   const [isInternal, setIsInternal] = useState(false)
   const [isExpanded, setIsExpanded] = useState(false)
@@ -21,7 +21,7 @@ export default function AddNote({ complaint }: AddNoteProps) {
     addTimelineEntry(complaint.id, {
       id: `tl-${Date.now()}`,
       role: currentRole,
-      author: ROLE_LABELS[currentRole],
+      author: currentPersonName,
       content: content.trim(),
       timestamp: new Date().toLocaleString("zh-CN"),
       isInternal,

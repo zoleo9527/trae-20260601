@@ -2,7 +2,6 @@ import { useState } from "react"
 import type { Complaint, RootCause } from "@/types"
 import { ROOT_CAUSE_LABELS } from "@/types"
 import { useComplaintStore, useCurrentRole } from "@/store/complaintStore"
-import { ROLE_LABELS } from "@/types"
 import { Flower2, Truck, FileText, HelpCircle, CheckCircle2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -20,6 +19,7 @@ interface ReviewFormProps {
 export default function ReviewForm({ complaint }: ReviewFormProps) {
   const setReviewConclusion = useComplaintStore((s) => s.setReviewConclusion)
   const currentRole = useCurrentRole((s) => s.currentRole)
+  const currentPersonName = useCurrentRole((s) => s.currentPersonName)
   const [rootCause, setRootCause] = useState<RootCause>(complaint.reviewConclusion?.rootCause || "production")
   const [improvement, setImprovement] = useState(complaint.reviewConclusion?.improvement || "")
 
@@ -28,7 +28,7 @@ export default function ReviewForm({ complaint }: ReviewFormProps) {
     setReviewConclusion(complaint.id, {
       rootCause,
       improvement: improvement.trim(),
-      reviewedBy: ROLE_LABELS[currentRole],
+      reviewedBy: currentPersonName,
       reviewedAt: new Date().toLocaleString("zh-CN"),
     })
   }

@@ -110,3 +110,9 @@ export const ROLE_COLORS: Record<Role, string> = {
   florist: "bg-moss-500",
   dispatcher: "bg-honey-500",
 }
+
+export const ROLE_DEFAULT_NAMES: Record<Role, string> = {
+  cs: "王小花",
+  florist: "张兰",
+  dispatcher: "李明辉",
+}
