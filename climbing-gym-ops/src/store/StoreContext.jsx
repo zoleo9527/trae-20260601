@@ -6,9 +6,108 @@ import {
   auditLogs as initialAuditLogs,
   ROUTE_OPEN_STATUS,
   MAINTENANCE_STATUS,
+  getRouteById,
+  getUserById,
 } from '../mock/data'
 
 const StoreContext = createContext(null)
+
+function buildRouteOpeningTrail(opening, extraLogs = []) {
+  const trail = []
+  const route = getRouteById(opening.routeId)
+
+  trail.push({
+    id: `${opening.id}-submit`,
+    type: 'route_open',
+    refId: opening.id,
+    action: '提交线路开放申请',
+    operatorId: opening.submittedBy,
+    timestamp: opening.submittedAt,
+    detail: `线路：${route?.name} (${route?.grade} · ${route?.zone})`,
+  })
+
+  if (opening.belayerId && opening.belayerConfirmedAt) {
+    trail.push({
+      id: `${opening.id}-belayer`,
+      type: 'route_open',
+      refId: opening.id,
+      action: '保护员确认',
+      operatorId: opening.belayerId,
+      timestamp: opening.belayerConfirmedAt,
+      detail: '已确认安全检查通过',
+    })
+  }
+
+  if (opening.adminId && opening.adminApprovedAt) {
+    const isApproved = opening.status === ROUTE_OPEN_STATUS.APPROVED
+    trail.push({
+      id: `${opening.id}-admin`,
+      type: 'route_open',
+      refId: opening.id,
+      action: isApproved ? '线路管理员审核通过' : '线路管理员驳回',
+      operatorId: opening.adminId,
+      timestamp: opening.adminApprovedAt,
+      detail: isApproved ? '线路正式开放' : (opening.remark || '驳回，未说明原因'),
+    })
+  }
+
+  const existingIds = new Set(trail.map(t => t.id))
+  extraLogs.forEach(log => {
+    if (!existingIds.has(log.id)) {
+      trail.push(log)
+    }
+  })
+
+  return trail.sort((a, b) => dayjs(a.timestamp).valueOf() - dayjs(b.timestamp).valueOf())
+}
+
+function buildMaintenanceTrail(record, extraLogs = []) {
+  const trail = []
+  const route = getRouteById(record.routeId)
+
+  trail.push({
+    id: `${record.id}-submit`,
+    type: 'maintenance',
+    refId: record.id,
+    action: '提交维护记录',
+    operatorId: record.submittedBy,
+    timestamp: record.submittedAt,
+    detail: `${record.type} - ${route?.name} (${route?.grade})：${record.description}`,
+  })
+
+  if (record.confirmedBy && record.confirmedAt) {
+    trail.push({
+      id: `${record.id}-confirm`,
+      type: 'maintenance',
+      refId: record.id,
+      action: '保护员确认维护',
+      operatorId: record.confirmedBy,
+      timestamp: record.confirmedAt,
+      detail: `已确认${record.type}完成，安全检查通过`,
+    })
+  }
+
+  if (record.closedAt) {
+    trail.push({
+      id: `${record.id}-close`,
+      type: 'maintenance',
+      refId: record.id,
+      action: '关闭维护记录',
+      operatorId: record.submittedBy,
+      timestamp: record.closedAt,
+      detail: '维护完成，线路恢复正常使用',
+    })
+  }
+
+  const existingIds = new Set(trail.map(t => t.id))
+  extraLogs.forEach(log => {
+    if (!existingIds.has(log.id)) {
+      trail.push(log)
+    }
+  })
+
+  return trail.sort((a, b) => dayjs(a.timestamp).valueOf() - dayjs(b.timestamp).valueOf())
+}
 
 export function StoreProvider({ children }) {
   const [routeOpenings, setRouteOpenings] = useState(initialOpenings)
@@ -17,7 +116,7 @@ export function StoreProvider({ children }) {
 
   function addAuditLog(log) {
     setAuditLogs(prev => [{
-      id: `a${Date.now()}`,
+      id: `a${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
       timestamp: dayjs().format('YYYY-MM-DD HH:mm'),
       ...log,
     }, ...prev])
@@ -96,7 +195,7 @@ export function StoreProvider({ children }) {
         refId: id,
         action: '线路管理员驳回',
         operatorId: adminId,
-        detail: remark || '驳回',
+        detail: remark || '驳回，未说明原因',
       })
     },
 
@@ -164,11 +263,13 @@ export function StoreProvider({ children }) {
     },
 
     buildRouteOpeningAuditLogs(opening) {
-      return actions.getAuditLogsByRef(opening.id)
+      const extraLogs = auditLogs.filter(l => l.refId === opening.id)
+      return buildRouteOpeningTrail(opening, extraLogs)
     },
 
     buildMaintenanceAuditLogs(record) {
-      return actions.getAuditLogsByRef(record.id)
+      const extraLogs = auditLogs.filter(l => l.refId === record.id)
+      return buildMaintenanceTrail(record, extraLogs)
     },
   }), [auditLogs])
 
