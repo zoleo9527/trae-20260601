@@ -49,8 +49,13 @@ export interface InsuranceMaterial {
   reviewer: string
   notes: string
   anomaly_explanation: string
+  referenced_note_ids: string
   created_at: string
   updated_at: string
+}
+
+export interface InsuranceMaterialWithNotes extends InsuranceMaterial {
+  referenced_notes: IncidentNote[]
 }
 
 export interface OperationLog {

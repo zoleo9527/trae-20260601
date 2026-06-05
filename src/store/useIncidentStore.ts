@@ -4,6 +4,7 @@ import type {
   IncidentNote,
   TimelineItem,
   InsuranceMaterial,
+  InsuranceMaterialWithNotes,
   OperationLog,
   IncidentFilters,
   IncidentStatus,
@@ -16,7 +17,7 @@ interface IncidentState {
   currentIncident: RescueIncident | null
   timeline: TimelineItem[]
   notes: IncidentNote[]
-  insuranceMaterials: InsuranceMaterial[]
+  insuranceMaterials: InsuranceMaterialWithNotes[]
   rescueMedicalNotes: IncidentNote[]
   operationLogs: OperationLog[]
   loading: boolean
@@ -32,8 +33,8 @@ interface IncidentActions {
   addNote: (incidentId: string, data: { author: string; category: NoteCategory; content: string; referenced_note_id?: string }) => Promise<void>
   transitionStatus: (incidentId: string, toStatus: IncidentStatus, operator: string, remark: string) => Promise<void>
   fetchInsuranceMaterials: (incidentId: string) => Promise<void>
-  addInsuranceMaterial: (incidentId: string, data: { material_type: string; notes?: string; reviewer?: string }) => Promise<void>
-  updateInsuranceMaterial: (materialId: string, incidentId: string, data: { status?: MaterialStatus; reviewer?: string; notes?: string; anomaly_explanation?: string }) => Promise<void>
+  addInsuranceMaterial: (incidentId: string, data: { material_type: string; notes?: string; reviewer?: string; referenced_note_ids?: string[] }) => Promise<void>
+  updateInsuranceMaterial: (materialId: string, incidentId: string, data: { status?: MaterialStatus; reviewer?: string; notes?: string; anomaly_explanation?: string; referenced_note_ids?: string[] }) => Promise<void>
   addAnomalyExplanation: (materialId: string, incidentId: string, anomaly_explanation: string, operator: string) => Promise<void>
   setFilters: (filters: Partial<IncidentFilters>) => void
 }
@@ -87,7 +88,7 @@ export const useIncidentStore = create<IncidentState & IncidentActions>((set, ge
   fetchIncidentDetail: async (id) => {
     set({ loading: true })
     try {
-      const data = await api<RescueIncident & { notes: IncidentNote[]; operation_logs: OperationLog[]; insurance_materials: InsuranceMaterial[] }>(`/api/incidents/${id}`)
+      const data = await api<RescueIncident & { notes: IncidentNote[]; operation_logs: OperationLog[]; insurance_materials: InsuranceMaterialWithNotes[] }>(`/api/incidents/${id}`)
       set({
         currentIncident: data,
         notes: data.notes || [],
@@ -165,7 +166,7 @@ export const useIncidentStore = create<IncidentState & IncidentActions>((set, ge
 
   fetchInsuranceMaterials: async (incidentId) => {
     try {
-      const data = await api<InsuranceMaterial[]>(`/api/incidents/${incidentId}/insurance-materials`)
+      const data = await api<InsuranceMaterialWithNotes[]>(`/api/incidents/${incidentId}/insurance-materials`)
       set({ insuranceMaterials: data })
     } catch (e) {
       console.error('fetchInsuranceMaterials error:', e)

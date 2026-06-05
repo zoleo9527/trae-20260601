@@ -4,6 +4,8 @@ import crypto from 'crypto'
 
 const router = Router()
 
+const STATUS_FLOW = ['pending', 'processing', 'review', 'completed', 'archived']
+
 function mapIncidentRow(row: Record<string, unknown>): Record<string, unknown> {
   return {
     id: row.id,
@@ -161,6 +163,12 @@ router.post('/:id/status', (req: Request, res: Response): void => {
     return
   }
 
+  const toStatusIndex = STATUS_FLOW.indexOf(to_status)
+  if (toStatusIndex === -1) {
+    res.status(400).json({ success: false, error: `无效的状态: ${to_status}，必须是以下之一: ${STATUS_FLOW.join(', ')}` })
+    return
+  }
+
   const incident = db.prepare('SELECT * FROM rescue_incidents WHERE id = ?').get(id) as Record<string, unknown> | undefined
   if (!incident) {
     res.status(404).json({ success: false, error: 'Incident not found' })
@@ -170,6 +178,17 @@ router.post('/:id/status', (req: Request, res: Response): void => {
   const fromStatus = incident.status as string
   if (fromStatus === to_status) {
     res.status(400).json({ success: false, error: 'Status unchanged' })
+    return
+  }
+
+  const fromStatusIndex = STATUS_FLOW.indexOf(fromStatus)
+  if (fromStatusIndex === -1) {
+    res.status(400).json({ success: false, error: `当前状态无效: ${fromStatus}` })
+    return
+  }
+
+  if (toStatusIndex !== fromStatusIndex + 1) {
+    res.status(400).json({ success: false, error: `无法从当前状态 ${fromStatus} 跳转到状态 ${to_status}，必须按顺序推进` })
     return
   }
 

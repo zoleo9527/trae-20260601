@@ -32,7 +32,10 @@ export default function IncidentProcess() {
   const displayLogs = operationLogs
 
   const currentStatusIndex = incident ? STATUS_FLOW.indexOf(incident.status) : -1
-  const availableNextStatuses = STATUS_FLOW.slice(currentStatusIndex + 1, currentStatusIndex + 3)
+  const nextStatus = currentStatusIndex >= 0 && currentStatusIndex < STATUS_FLOW.length - 1 
+    ? STATUS_FLOW[currentStatusIndex + 1] 
+    : null
+  const availableNextStatuses = nextStatus ? [nextStatus] : []
 
   const handleAddNote = () => {
     if (!noteContent.trim() || !noteAuthor.trim()) return
@@ -152,7 +155,16 @@ export default function IncidentProcess() {
                 <h2 className="text-base font-semibold text-slate-800 mb-4">状态流转</h2>
                 {availableNextStatuses.length > 0 ? (
                   <div className="space-y-3">
-                    <p className="text-xs text-slate-500">可选下一状态:</p>
+                    <div className="p-3 bg-slate-50 rounded-lg border border-slate-200">
+                      <p className="text-xs text-slate-600">
+                        <span className="font-medium">当前状态：</span>
+                        <span className="text-slate-800">{STATUS_LABELS[incident.status]}</span>
+                      </p>
+                      <p className="text-xs text-slate-600 mt-1">
+                        <span className="font-medium">下一步：</span>
+                        <span className="text-ice-600 font-medium">{STATUS_LABELS[nextStatus!]}</span>
+                      </p>
+                    </div>
                     {availableNextStatuses.map((status) => (
                       <button
                         key={status}
@@ -167,7 +179,19 @@ export default function IncidentProcess() {
                     ))}
                   </div>
                 ) : (
-                  <p className="text-sm text-slate-500 text-center py-4">已到达最终状态</p>
+                  <div className="text-center py-4">
+                    <div className="p-3 bg-slate-50 rounded-lg border border-slate-200 mb-3">
+                      <p className="text-xs text-slate-600">
+                        <span className="font-medium">当前状态：</span>
+                        <span className="text-slate-800">{STATUS_LABELS[incident.status]}</span>
+                      </p>
+                      <p className="text-xs text-slate-600 mt-1">
+                        <span className="font-medium">下一步：</span>
+                        <span className="text-slate-400">无（已到达最终状态）</span>
+                      </p>
+                    </div>
+                    <p className="text-sm text-slate-500">已到达最终状态</p>
+                  </div>
                 )}
 
                 {showStatusConfirm && (

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import {
   ArrowLeft,
@@ -13,12 +13,16 @@ import {
   Snowflake,
   Wrench as WrenchIcon,
   HelpCircle,
+  ChevronDown,
+  ChevronUp,
+  Link2,
+  Clock,
 } from 'lucide-react'
 import StatusBadge from '@/components/StatusBadge'
 import Timeline from '@/components/Timeline'
 import { useIncidentStore } from '@/store/useIncidentStore'
-import type { IncidentType } from '@/shared/types'
-import { STATUS_FLOW, STATUS_LABELS } from '@/shared/types'
+import type { IncidentType, MaterialStatus, InsuranceMaterialWithNotes } from '@/shared/types'
+import { STATUS_FLOW, STATUS_LABELS, NOTE_CATEGORY_LABELS } from '@/shared/types'
 
 const typeIcons: Record<IncidentType, typeof Heart> = {
   rescue: Heart,
@@ -36,11 +40,44 @@ const typeLabels: Record<IncidentType, string> = {
   other: '其他事件',
 }
 
+const materialStatusLabels: Record<MaterialStatus, string> = {
+  pending: '待提交',
+  submitted: '已提交',
+  reviewed: '已审核',
+  rejected: '已驳回',
+}
+
+const materialStatusColors: Record<MaterialStatus, string> = {
+  pending: 'bg-slate-100 text-slate-600',
+  submitted: 'bg-blue-100 text-blue-700',
+  reviewed: 'bg-green-100 text-green-700',
+  rejected: 'bg-red-100 text-red-700',
+}
+
+const noteCategoryColors: Record<string, string> = {
+  rescue: 'bg-blue-100 text-blue-700',
+  medical: 'bg-red-100 text-red-700',
+  insurance: 'bg-green-100 text-green-700',
+  anomaly: 'bg-amber-100 text-amber-700',
+}
+
+function formatDateTime(isoString: string) {
+  const date = new Date(isoString)
+  return date.toLocaleString('zh-CN', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}
+
 export default function IncidentDetail() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
-  const { currentIncident, timeline, loading, fetchIncidentDetail, fetchTimeline } = useIncidentStore()
+  const { currentIncident, timeline, insuranceMaterials, loading, fetchIncidentDetail, fetchTimeline } = useIncidentStore()
   const [dataReady, setDataReady] = useState(false)
+  const [expandedMaterialId, setExpandedMaterialId] = useState<string | null>(null)
 
   useEffect(() => {
     if (id) {
@@ -53,8 +90,25 @@ export default function IncidentDetail() {
 
   const incident = currentIncident
   const displayTimeline = timeline
+  const materials = insuranceMaterials
   const currentStatusIndex = incident ? STATUS_FLOW.indexOf(incident.status) : -1
   const TypeIcon = incident ? (typeIcons[incident.type] || HelpCircle) : HelpCircle
+
+  const noteReferenceCount = useMemo(() => {
+    const countMap = new Map<string, number>()
+    materials.forEach((m) => {
+      if (m.referenced_notes && m.referenced_notes.length > 0) {
+        m.referenced_notes.forEach((note) => {
+          countMap.set(note.id, (countMap.get(note.id) || 0) + 1)
+        })
+      }
+    })
+    return countMap
+  }, [materials])
+
+  const toggleMaterialExpand = (materialId: string) => {
+    setExpandedMaterialId(expandedMaterialId === materialId ? null : materialId)
+  }
 
   return (
     <div className="p-6">
@@ -143,13 +197,112 @@ export default function IncidentDetail() {
           </div>
 
           <div className="grid grid-cols-3 gap-6">
-            <div className="col-span-2">
+            <div className="col-span-2 space-y-6">
               <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
                 <h2 className="text-base font-semibold text-slate-800 mb-4">事件时间线</h2>
                 {displayTimeline.length > 0 ? (
-                  <Timeline items={displayTimeline} />
+                  <Timeline items={displayTimeline} noteReferenceCount={noteReferenceCount} />
                 ) : (
                   <div className="text-center py-8 text-slate-500">暂无时间线记录</div>
+                )}
+              </div>
+
+              <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-base font-semibold text-slate-800">保险材料</h2>
+                  <span className="text-xs text-slate-500">共 {materials.length} 份材料</span>
+                </div>
+                {materials.length > 0 ? (
+                  <div className="space-y-3">
+                    {materials.map((material) => (
+                      <div
+                        key={material.id}
+                        className="border border-slate-200 rounded-lg overflow-hidden"
+                      >
+                        <div
+                          className="flex items-center justify-between p-4 cursor-pointer hover:bg-slate-50 transition-colors"
+                          onClick={() => toggleMaterialExpand(material.id)}
+                        >
+                          <div className="flex items-center gap-4 flex-1">
+                            <div className="p-2 bg-ice-50 rounded-lg">
+                              <FileText className="w-5 h-5 text-ice-600" />
+                            </div>
+                            <div className="flex-1">
+                              <div className="flex items-center gap-3 mb-1">
+                                <span className="text-sm font-medium text-slate-800">{material.material_type}</span>
+                                <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${materialStatusColors[material.status]}`}>
+                                  {materialStatusLabels[material.status]}
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-4 text-xs text-slate-500">
+                                <span className="flex items-center gap-1">
+                                  <User className="w-3 h-3" />
+                                  审核人: {material.reviewer || '未分配'}
+                                </span>
+                                <span className="flex items-center gap-1">
+                                  <Clock className="w-3 h-3" />
+                                  {formatDateTime(material.created_at)}
+                                </span>
+                                {material.referenced_notes && material.referenced_notes.length > 0 && (
+                                  <span className="flex items-center gap-1 text-ice-600">
+                                    <Link2 className="w-3 h-3" />
+                                    引用 {material.referenced_notes.length} 条备注
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                            <button className="p-1 text-slate-400 hover:text-slate-600 transition-colors">
+                              {expandedMaterialId === material.id ? (
+                                <ChevronUp className="w-5 h-5" />
+                              ) : (
+                                <ChevronDown className="w-5 h-5" />
+                              )}
+                            </button>
+                          </div>
+                        </div>
+                        {expandedMaterialId === material.id && material.referenced_notes && material.referenced_notes.length > 0 && (
+                          <div className="border-t border-slate-200 bg-slate-50 p-4">
+                            <div className="pl-4 border-l-2 border-ice-300">
+                              <div className="flex items-center gap-2 mb-3">
+                                <Link2 className="w-4 h-4 text-ice-600" />
+                                <span className="text-xs font-medium text-ice-700">引用来源备注</span>
+                              </div>
+                              <div className="space-y-3">
+                                {material.referenced_notes.map((note, noteIndex) => (
+                                  <div key={note.id} className="relative">
+                                    {noteIndex > 0 && (
+                                      <div className="absolute -top-3 left-4 w-0.5 h-3 bg-slate-300" />
+                                    )}
+                                    <div className="bg-white border border-slate-200 rounded-lg p-3 shadow-sm">
+                                      <div className="flex items-center justify-between mb-2">
+                                        <div className="flex items-center gap-2">
+                                          <User className="w-3.5 h-3.5 text-slate-400" />
+                                          <span className="text-xs font-medium text-slate-700">{note.author}</span>
+                                          <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${noteCategoryColors[note.category]}`}>
+                                            {NOTE_CATEGORY_LABELS[note.category]}
+                                          </span>
+                                        </div>
+                                        <div className="flex items-center gap-1 text-xs text-slate-400">
+                                          <Clock className="w-3 h-3" />
+                                          {formatDateTime(note.created_at)}
+                                        </div>
+                                      </div>
+                                      <p className="text-sm text-slate-600">{note.content}</p>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-8 text-slate-500">
+                    <FileText className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+                    <p>暂无保险材料记录</p>
+                  </div>
                 )}
               </div>
             </div>

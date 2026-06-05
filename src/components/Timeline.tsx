@@ -1,4 +1,4 @@
-import { MessageSquare, ArrowRightCircle, Activity } from 'lucide-react'
+import { MessageSquare, ArrowRightCircle, Activity, Link2 } from 'lucide-react'
 import type { TimelineItem as TimelineItemType, IncidentNote, StatusTransition, OperationLog } from '@/shared/types'
 import { NOTE_CATEGORY_LABELS } from '@/shared/types'
 
@@ -17,13 +17,14 @@ const categoryStyles = {
 
 interface TimelineProps {
   items: TimelineItemType[]
+  noteReferenceCount?: Map<string, number>
 }
 
 function formatTime(iso: string) {
   return new Date(iso).toLocaleString('zh-CN')
 }
 
-export default function Timeline({ items }: TimelineProps) {
+export default function Timeline({ items, noteReferenceCount }: TimelineProps) {
   if (items.length === 0) {
     return (
       <div className="flex items-center justify-center py-12 text-slate-400 text-sm">
@@ -55,7 +56,7 @@ export default function Timeline({ items }: TimelineProps) {
               </div>
 
               {item.type === 'note' && (
-                <NoteContent data={item.data as IncidentNote} />
+                <NoteContent data={item.data as IncidentNote} referenceCount={noteReferenceCount?.get((item.data as IncidentNote).id) || 0} />
               )}
               {item.type === 'status' && (
                 <StatusContent data={item.data as StatusTransition} />
@@ -71,7 +72,7 @@ export default function Timeline({ items }: TimelineProps) {
   )
 }
 
-function NoteContent({ data }: { data: IncidentNote }) {
+function NoteContent({ data, referenceCount }: { data: IncidentNote; referenceCount: number }) {
   return (
     <div className="bg-slate-50 rounded-lg p-3 border border-slate-200">
       <div className="flex items-center gap-2 mb-2">
@@ -79,6 +80,12 @@ function NoteContent({ data }: { data: IncidentNote }) {
         <span className={`text-xs px-2 py-0.5 rounded-full ${categoryStyles[data.category]}`}>
           {NOTE_CATEGORY_LABELS[data.category]}
         </span>
+        {referenceCount > 0 && (
+          <span className="text-xs px-2 py-0.5 rounded-full bg-ice-100 text-ice-700 flex items-center gap-1">
+            <Link2 className="w-3 h-3" />
+            已被 {referenceCount} 份保险材料引用
+          </span>
+        )}
       </div>
       <p className="text-sm text-slate-600 whitespace-pre-wrap">{data.content}</p>
       {data.referenced_note_id && (

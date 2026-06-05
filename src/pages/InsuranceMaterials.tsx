@@ -11,10 +11,15 @@ import {
   Link2,
   User,
   Check,
+  X,
+  ChevronDown,
+  ChevronUp,
+  Clock,
+  Tag,
 } from 'lucide-react'
 import NoteCard from '@/components/NoteCard'
 import { useIncidentStore } from '@/store/useIncidentStore'
-import type { MaterialStatus, IncidentNote } from '@/shared/types'
+import type { MaterialStatus, IncidentNote, InsuranceMaterialWithNotes } from '@/shared/types'
 import { NOTE_CATEGORY_LABELS } from '@/shared/types'
 
 const materialStatusLabels: Record<MaterialStatus, string> = {
@@ -29,6 +34,29 @@ const materialStatusColors: Record<MaterialStatus, string> = {
   submitted: 'bg-blue-100 text-blue-700',
   reviewed: 'bg-green-100 text-green-700',
   rejected: 'bg-red-100 text-red-700',
+}
+
+const noteCategoryColors: Record<string, string> = {
+  rescue: 'bg-blue-100 text-blue-700',
+  medical: 'bg-red-100 text-red-700',
+  insurance: 'bg-green-100 text-green-700',
+  anomaly: 'bg-amber-100 text-amber-700',
+}
+
+function formatDateTime(isoString: string) {
+  const date = new Date(isoString)
+  return date.toLocaleString('zh-CN', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}
+
+function truncateText(text: string, maxLength: number = 50) {
+  if (text.length <= maxLength) return text
+  return text.slice(0, maxLength) + '...'
 }
 
 export default function InsuranceMaterials() {
@@ -56,6 +84,8 @@ export default function InsuranceMaterials() {
   const [anomalyOperator, setAnomalyOperator] = useState<Record<string, string>>({})
   const [referencePreview, setReferencePreview] = useState<IncidentNote | null>(null)
   const [selectedNoteForReference, setSelectedNoteForReference] = useState<string | null>(null)
+  const [selectedReferencedNoteIds, setSelectedReferencedNoteIds] = useState<string[]>([])
+  const [expandedMaterialNoteId, setExpandedMaterialNoteId] = useState<string | null>(null)
 
   useEffect(() => {
     if (id) {
@@ -74,11 +104,13 @@ export default function InsuranceMaterials() {
       material_type: newMaterialType.trim(),
       notes: newMaterialNotes.trim() || undefined,
       reviewer: newMaterialReviewer.trim() || undefined,
+      referenced_note_ids: selectedReferencedNoteIds.length > 0 ? selectedReferencedNoteIds : undefined,
     })
     setShowAddForm(false)
     setNewMaterialType('')
     setNewMaterialNotes('')
     setNewMaterialReviewer('')
+    setSelectedReferencedNoteIds([])
   }
 
   const handleAddAnomaly = (materialId: string) => {
@@ -92,42 +124,53 @@ export default function InsuranceMaterials() {
   }
 
   const handleReferenceNote = (note: IncidentNote) => {
+    if (selectedReferencedNoteIds.includes(note.id)) {
+      setSelectedReferencedNoteIds((prev) => prev.filter((id) => id !== note.id))
+    } else {
+      setSelectedReferencedNoteIds((prev) => [...prev, note.id])
+    }
     setSelectedNoteForReference(note.id)
-    setNewMaterialNotes((prev) => {
-      const refText = `[引用备注 #${note.id.slice(0, 8)}] ${note.content}`
-      return prev ? `${prev}\n\n${refText}` : refText
-    })
     setTimeout(() => setSelectedNoteForReference(null), 500)
+  }
+
+  const handleRemoveReferencedNote = (noteId: string) => {
+    setSelectedReferencedNoteIds((prev) => prev.filter((id) => id !== noteId))
   }
 
   const handleUpdateStatus = async (materialId: string, status: MaterialStatus) => {
     await updateInsuranceMaterial(materialId, id!, { status })
   }
 
-  const buildReferenceChain = () => {
+  const getSelectedReferencedNotes = () => {
+    return rescueMedicalNotesList.filter((note) => selectedReferencedNoteIds.includes(note.id))
+  }
+
+  const buildReferenceChain = (material: InsuranceMaterialWithNotes) => {
     const noteMap = new Map<string, IncidentNote>()
-    rescueMedicalNotesList.forEach(n => noteMap.set(n.id, n))
-    
+    material.referenced_notes.forEach((n) => noteMap.set(n.id, n))
+
     const chains: Array<{ note: IncidentNote; children: string[] }> = []
-    rescueMedicalNotesList.forEach(note => {
-      if (!note.referenced_note_id) {
+    material.referenced_notes.forEach((note) => {
+      if (!note.referenced_note_id || !noteMap.has(note.referenced_note_id)) {
         chains.push({ note, children: [] })
       }
     })
-    
-    rescueMedicalNotesList.forEach(note => {
-      if (note.referenced_note_id) {
-        const parent = chains.find(c => c.note.id === note.referenced_note_id)
+
+    material.referenced_notes.forEach((note) => {
+      if (note.referenced_note_id && noteMap.has(note.referenced_note_id)) {
+        const parent = chains.find((c) => c.note.id === note.referenced_note_id)
         if (parent) {
           parent.children.push(note.id)
         }
       }
     })
-    
+
     return chains
   }
 
-  const referenceChains = buildReferenceChain()
+  const toggleMaterialNoteExpand = (materialId: string) => {
+    setExpandedMaterialNoteId(expandedMaterialNoteId === materialId ? null : materialId)
+  }
 
   return (
     <div className="p-6">
@@ -189,14 +232,42 @@ export default function InsuranceMaterials() {
                     </div>
                   </div>
                   <div>
-                    <label className="block text-xs text-slate-500 mb-1">备注（可引用救援备注）</label>
+                    <label className="block text-xs text-slate-500 mb-1">备注</label>
                     <textarea
                       value={newMaterialNotes}
                       onChange={(e) => setNewMaterialNotes(e.target.value)}
-                      placeholder="材料相关说明，可从右侧引用救援备注..."
+                      placeholder="材料相关说明..."
                       rows={3}
                       className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-ice-500 focus:border-transparent"
                     />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-slate-500 mb-2">已引用的备注 ({selectedReferencedNoteIds.length})</label>
+                    {getSelectedReferencedNotes().length > 0 ? (
+                      <div className="space-y-2">
+                        {getSelectedReferencedNotes().map((note) => (
+                          <div
+                            key={note.id}
+                            className="flex items-center justify-between p-2 bg-white border border-slate-200 rounded-lg"
+                          >
+                            <div className="flex items-center gap-2 flex-1 min-w-0">
+                              <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${noteCategoryColors[note.category]}`}>
+                                {NOTE_CATEGORY_LABELS[note.category]}
+                              </span>
+                              <span className="text-xs text-slate-600 truncate">{truncateText(note.content, 30)}</span>
+                            </div>
+                            <button
+                              onClick={() => handleRemoveReferencedNote(note.id)}
+                              className="p-1 text-slate-400 hover:text-red-500 transition-colors"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-slate-400">暂无引用备注，请从右侧救援备注列表中选择引用</p>
+                    )}
                   </div>
                   <div className="flex gap-2">
                     <button
@@ -212,6 +283,7 @@ export default function InsuranceMaterials() {
                         setNewMaterialType('')
                         setNewMaterialNotes('')
                         setNewMaterialReviewer('')
+                        setSelectedReferencedNoteIds([])
                       }}
                       className="px-4 py-2 bg-white text-slate-700 text-sm font-medium rounded-lg border border-slate-200 hover:bg-slate-50 transition-colors"
                     >
@@ -224,7 +296,7 @@ export default function InsuranceMaterials() {
           </div>
 
           <div className="grid grid-cols-3 gap-6">
-            <div className="col-span-2">
+            <div className="col-span-2 space-y-4">
               <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
                 <div className="px-5 py-4 border-b border-slate-200">
                   <h2 className="text-base font-semibold text-slate-800">保险材料清单</h2>
@@ -243,61 +315,113 @@ export default function InsuranceMaterials() {
                     <tbody>
                       {materials.length > 0 ? (
                         materials.map((m) => (
-                          <tr key={m.id} className="border-b border-slate-100 hover:bg-slate-50">
-                            <td className="px-5 py-4 font-medium text-slate-700">{m.material_type}</td>
-                            <td className="px-5 py-4">
-                              <span className={`text-xs px-2 py-1 rounded-full font-medium ${materialStatusColors[m.status]}`}>
-                                {materialStatusLabels[m.status]}
-                              </span>
-                            </td>
-                            <td className="px-5 py-4 text-slate-600">{m.reviewer || '-'}</td>
-                            <td className="px-5 py-4 text-slate-600 max-w-xs truncate">{m.notes || '-'}</td>
-                            <td className="px-5 py-4">
-                              <div className="flex items-center gap-2">
-                                <button
-                                  onClick={() => handleUpdateStatus(m.id, 'reviewed')}
-                                  disabled={m.status === 'reviewed'}
-                                  className="p-1.5 text-slate-400 hover:text-green-600 transition-colors disabled:opacity-30"
-                                  title="标记为已审核"
-                                >
-                                  <Check className="w-4 h-4" />
-                                </button>
-                                <button
-                                  onClick={() => handleUpdateStatus(m.id, 'submitted')}
-                                  disabled={m.status === 'submitted'}
-                                  className="p-1.5 text-slate-400 hover:text-blue-600 transition-colors disabled:opacity-30"
-                                  title="标记为已提交"
-                                >
-                                  <Eye className="w-4 h-4" />
-                                </button>
-                                {(m.status === 'rejected' || m.anomaly_explanation) && (
+                          <>
+                            <tr key={m.id} className="border-b border-slate-100 hover:bg-slate-50">
+                              <td className="px-5 py-4 font-medium text-slate-700">{m.material_type}</td>
+                              <td className="px-5 py-4">
+                                <span className={`text-xs px-2 py-1 rounded-full font-medium ${materialStatusColors[m.status]}`}>
+                                  {materialStatusLabels[m.status]}
+                                </span>
+                              </td>
+                              <td className="px-5 py-4 text-slate-600">{m.reviewer || '-'}</td>
+                              <td className="px-5 py-4 text-slate-600 max-w-xs truncate">{m.notes || '-'}</td>
+                              <td className="px-5 py-4">
+                                <div className="flex items-center gap-2">
                                   <button
-                                    onClick={() => setExpandedNoteId(expandedNoteId === m.id ? null : m.id)}
-                                    className={`p-1.5 transition-colors ${
-                                      expandedNoteId === m.id ? 'text-amber-600' : 'text-amber-400 hover:text-amber-600'
-                                    }`}
-                                    title="查看/添加异常说明"
+                                    onClick={() => handleUpdateStatus(m.id, 'reviewed')}
+                                    disabled={m.status === 'reviewed'}
+                                    className="p-1.5 text-slate-400 hover:text-green-600 transition-colors disabled:opacity-30"
+                                    title="标记为已审核"
                                   >
-                                    <AlertCircle className="w-4 h-4" />
+                                    <Check className="w-4 h-4" />
                                   </button>
-                                )}
-                                {m.status !== 'rejected' && (
                                   <button
-                                    onClick={() => {
-                                      setExpandedNoteId(m.id)
-                                      if (!anomalyOperator[m.id] && currentIncident?.responsible_person) {
-                                        setAnomalyOperator(prev => ({ ...prev, [m.id]: currentIncident.responsible_person || '' }))
-                                      }
-                                    }}
-                                    className="p-1.5 text-slate-400 hover:text-red-600 transition-colors"
-                                    title="标记为异常/驳回"
+                                    onClick={() => handleUpdateStatus(m.id, 'submitted')}
+                                    disabled={m.status === 'submitted'}
+                                    className="p-1.5 text-slate-400 hover:text-blue-600 transition-colors disabled:opacity-30"
+                                    title="标记为已提交"
                                   >
-                                    <AlertCircle className="w-4 h-4" />
+                                    <Eye className="w-4 h-4" />
                                   </button>
-                                )}
-                              </div>
-                            </td>
-                          </tr>
+                                  {(m.status === 'rejected' || m.anomaly_explanation) && (
+                                    <button
+                                      onClick={() => setExpandedNoteId(expandedNoteId === m.id ? null : m.id)}
+                                      className={`p-1.5 transition-colors ${
+                                        expandedNoteId === m.id ? 'text-amber-600' : 'text-amber-400 hover:text-amber-600'
+                                      }`}
+                                      title="查看/添加异常说明"
+                                    >
+                                      <AlertCircle className="w-4 h-4" />
+                                    </button>
+                                  )}
+                                  {m.status !== 'rejected' && (
+                                    <button
+                                      onClick={() => {
+                                        setExpandedNoteId(m.id)
+                                        if (!anomalyOperator[m.id] && currentIncident?.responsible_person) {
+                                          setAnomalyOperator(prev => ({ ...prev, [m.id]: currentIncident.responsible_person || '' }))
+                                        }
+                                      }}
+                                      className="p-1.5 text-slate-400 hover:text-red-600 transition-colors"
+                                      title="标记为异常/驳回"
+                                    >
+                                      <AlertCircle className="w-4 h-4" />
+                                    </button>
+                                  )}
+                                  {m.referenced_notes && m.referenced_notes.length > 0 && (
+                                    <button
+                                      onClick={() => toggleMaterialNoteExpand(m.id)}
+                                      className={`p-1.5 transition-colors ${
+                                        expandedMaterialNoteId === m.id ? 'text-ice-600' : 'text-slate-400 hover:text-ice-600'
+                                      }`}
+                                      title="查看引用来源"
+                                    >
+                                      {expandedMaterialNoteId === m.id ? (
+                                        <ChevronUp className="w-4 h-4" />
+                                      ) : (
+                                        <ChevronDown className="w-4 h-4" />
+                                      )}
+                                    </button>
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
+                            {expandedMaterialNoteId === m.id && m.referenced_notes && m.referenced_notes.length > 0 && (
+                              <tr key={`${m.id}-notes`} className="bg-slate-50">
+                                <td colSpan={5} className="px-5 py-4">
+                                  <div className="pl-4 border-l-2 border-ice-300">
+                                    <div className="flex items-center gap-2 mb-3">
+                                      <Link2 className="w-4 h-4 text-ice-600" />
+                                      <span className="text-xs font-medium text-ice-700">引用来源</span>
+                                    </div>
+                                    <div className="space-y-3">
+                                      {m.referenced_notes.map((note) => (
+                                        <div
+                                          key={note.id}
+                                          className="bg-white border border-slate-200 rounded-lg p-3"
+                                        >
+                                          <div className="flex items-center justify-between mb-2">
+                                            <div className="flex items-center gap-2">
+                                              <User className="w-3.5 h-3.5 text-slate-400" />
+                                              <span className="text-xs font-medium text-slate-700">{note.author}</span>
+                                              <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${noteCategoryColors[note.category]}`}>
+                                                {NOTE_CATEGORY_LABELS[note.category]}
+                                              </span>
+                                            </div>
+                                            <div className="flex items-center gap-1 text-xs text-slate-400">
+                                              <Clock className="w-3 h-3" />
+                                              {formatDateTime(note.created_at)}
+                                            </div>
+                                          </div>
+                                          <p className="text-sm text-slate-600">{note.content}</p>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                </td>
+                              </tr>
+                            )}
+                          </>
                         ))
                       ) : (
                         <tr>
@@ -312,7 +436,7 @@ export default function InsuranceMaterials() {
               </div>
 
               {expandedNoteId && (
-                <div className="bg-white rounded-xl border border-amber-200 shadow-sm mt-4 p-5">
+                <div className="bg-white rounded-xl border border-amber-200 shadow-sm p-5">
                   <div className="flex items-center gap-2 mb-4">
                     <AlertCircle className="w-5 h-5 text-amber-500" />
                     <h3 className="text-base font-semibold text-slate-800">异常说明</h3>
@@ -376,37 +500,46 @@ export default function InsuranceMaterials() {
                 </p>
                 <div className="space-y-3 max-h-80 overflow-y-auto pr-1 custom-scrollbar">
                   {rescueMedicalNotesList.length > 0 ? (
-                    rescueMedicalNotesList.map((note) => (
-                      <div
-                        key={note.id}
-                        className={`border rounded-lg p-3 transition-all ${
-                          selectedNoteForReference === note.id
-                            ? 'border-ice-400 bg-ice-50'
-                            : 'border-slate-200'
-                        }`}
-                      >
-                        <NoteCard
-                          note={note}
-                          onReferenceClick={(noteId) => {
-                            const refNote = rescueMedicalNotesList.find((n) => n.id === noteId)
-                            if (refNote) {
-                              setReferencePreview(refNote)
-                            }
-                          }}
-                        />
-                        {showAddForm && (
-                          <div className="mt-2 pt-2 border-t border-slate-100 flex items-center gap-2">
-                            <Link2 className="w-3.5 h-3.5 text-slate-400" />
-                            <button
-                              onClick={() => handleReferenceNote(note)}
-                              className="text-xs text-ice-600 hover:text-ice-700 hover:underline"
-                            >
-                              引用此备注
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    ))
+                    rescueMedicalNotesList.map((note) => {
+                      const isSelected = selectedReferencedNoteIds.includes(note.id)
+                      return (
+                        <div
+                          key={note.id}
+                          className={`border rounded-lg p-3 transition-all ${
+                            selectedNoteForReference === note.id
+                              ? 'border-ice-400 bg-ice-50'
+                              : isSelected
+                              ? 'border-ice-300 bg-ice-50/50'
+                              : 'border-slate-200'
+                          }`}
+                        >
+                          <NoteCard
+                            note={note}
+                            onReferenceClick={(noteId) => {
+                              const refNote = rescueMedicalNotesList.find((n) => n.id === noteId)
+                              if (refNote) {
+                                setReferencePreview(refNote)
+                              }
+                            }}
+                          />
+                          {showAddForm && (
+                            <div className="mt-2 pt-2 border-t border-slate-100 flex items-center gap-2">
+                              <Link2 className="w-3.5 h-3.5 text-slate-400" />
+                              <button
+                                onClick={() => handleReferenceNote(note)}
+                                className={`text-xs hover:underline ${
+                                  isSelected
+                                    ? 'text-green-600 font-medium'
+                                    : 'text-ice-600 hover:text-ice-700'
+                                }`}
+                              >
+                                {isSelected ? '✓ 已引用' : '引用此备注'}
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })
                   ) : (
                     <div className="text-center py-8 text-slate-500 text-sm">暂无救援/医疗备注</div>
                   )}
@@ -416,57 +549,74 @@ export default function InsuranceMaterials() {
               <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
                 <div className="flex items-center gap-2 mb-4">
                   <FileText className="w-5 h-5 text-ice-600" />
-                  <h2 className="text-base font-semibold text-slate-800">备注引用链</h2>
+                  <h2 className="text-base font-semibold text-slate-800">材料备注引用链</h2>
                 </div>
                 <p className="text-xs text-slate-500 mb-4">
-                  展示备注之间的引用关系，帮助追溯信息来源
+                  展示各材料关联备注之间的引用关系，帮助追溯信息来源
                 </p>
-                <div className="space-y-3">
-                  {referenceChains.length > 0 ? (
-                    referenceChains.map((chain) => (
-                      <div key={chain.note.id} className="space-y-2">
-                        <div className="text-xs text-slate-600 flex items-center gap-2">
-                          <span
-                            className={`w-1.5 h-1.5 rounded-full ${
-                              chain.note.category === 'rescue'
-                                ? 'bg-blue-500'
-                                : chain.note.category === 'medical'
-                                ? 'bg-red-500'
-                                : 'bg-green-500'
-                            }`}
-                          />
-                          {NOTE_CATEGORY_LABELS[chain.note.category]}备注 #{chain.note.id.slice(0, 8)}
-                        </div>
-                        {chain.children.length > 0 && (
-                          <div className="ml-4 border-l-2 border-slate-200 pl-3 space-y-2">
-                            {chain.children.map((childId) => {
-                              const childNote = rescueMedicalNotesList.find((n) => n.id === childId)
-                              if (!childNote) return null
-                              return (
-                                <div
-                                  key={childId}
-                                  className="text-xs text-slate-500 flex items-center gap-2"
-                                >
-                                  <span
-                                    className={`w-1.5 h-1.5 rounded-full ${
-                                      childNote.category === 'rescue'
-                                        ? 'bg-blue-500'
-                                        : childNote.category === 'medical'
-                                        ? 'bg-red-500'
-                                        : 'bg-green-500'
-                                    }`}
-                                  />
-                                  ↳ {NOTE_CATEGORY_LABELS[childNote.category]}备注 #
-                                  {childNote.id.slice(0, 8)}
+                <div className="space-y-4 max-h-96 overflow-y-auto pr-1">
+                  {materials.filter((m) => m.referenced_notes && m.referenced_notes.length > 0).length > 0 ? (
+                    materials
+                      .filter((m) => m.referenced_notes && m.referenced_notes.length > 0)
+                      .map((material) => {
+                        const chains = buildReferenceChain(material)
+                        return (
+                          <div key={material.id} className="space-y-2">
+                            <div className="text-xs font-medium text-slate-700 flex items-center gap-2">
+                              <FileText className="w-3.5 h-3.5 text-ice-500" />
+                              {material.material_type}
+                            </div>
+                            {chains.length > 0 ? (
+                              chains.map((chain) => (
+                                <div key={chain.note.id} className="space-y-1 ml-2">
+                                  <div className="text-xs text-slate-600 flex items-center gap-2">
+                                    <span
+                                      className={`w-1.5 h-1.5 rounded-full ${
+                                        chain.note.category === 'rescue'
+                                          ? 'bg-blue-500'
+                                          : chain.note.category === 'medical'
+                                          ? 'bg-red-500'
+                                          : 'bg-green-500'
+                                      }`}
+                                    />
+                                    {NOTE_CATEGORY_LABELS[chain.note.category]}备注 #{chain.note.id.slice(0, 8)}
+                                  </div>
+                                  {chain.children.length > 0 && (
+                                    <div className="ml-4 border-l-2 border-slate-200 pl-3 space-y-1">
+                                      {chain.children.map((childId) => {
+                                        const childNote = material.referenced_notes.find((n) => n.id === childId)
+                                        if (!childNote) return null
+                                        return (
+                                          <div
+                                            key={childId}
+                                            className="text-xs text-slate-500 flex items-center gap-2"
+                                          >
+                                            <span
+                                              className={`w-1.5 h-1.5 rounded-full ${
+                                                childNote.category === 'rescue'
+                                                  ? 'bg-blue-500'
+                                                  : childNote.category === 'medical'
+                                                  ? 'bg-red-500'
+                                                  : 'bg-green-500'
+                                              }`}
+                                            />
+                                            ↳ {NOTE_CATEGORY_LABELS[childNote.category]}备注 #
+                                            {childNote.id.slice(0, 8)}
+                                          </div>
+                                        )
+                                      })}
+                                    </div>
+                                  )}
                                 </div>
-                              )
-                            })}
+                              ))
+                            ) : (
+                              <div className="ml-2 text-xs text-slate-400">暂无引用链</div>
+                            )}
                           </div>
-                        )}
-                      </div>
-                    ))
+                        )
+                      })
                   ) : (
-                    <div className="text-center py-4 text-slate-500 text-xs">暂无引用关系</div>
+                    <div className="text-center py-4 text-slate-500 text-xs">暂无材料引用备注</div>
                   )}
                 </div>
               </div>
