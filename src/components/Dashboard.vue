@@ -1,41 +1,15 @@
 <script setup lang="ts">
-import { ref, onMounted, watch } from 'vue';
-import type { RoleType, TodoList } from '../types';
-import { api } from '../api';
-
-const props = defineProps<{
-  role: RoleType;
-}>();
+import { computed } from 'vue';
+import { useStore } from '../store';
 
 const emit = defineEmits<{
   (e: 'todo-click', id: number): void;
 }>();
 
-const todos = ref<TodoList | null>(null);
-const loading = ref(false);
+const store = useStore();
 
-const loadTodos = async () => {
-  loading.value = true;
-  try {
-    todos.value = await api.getTodos(props.role);
-  } finally {
-    loading.value = false;
-  }
-};
-
-const refresh = () => {
-  loadTodos();
-};
-
-defineExpose({ refresh });
-
-watch(() => props.role, () => {
-  loadTodos();
-});
-
-onMounted(() => {
-  loadTodos();
-});
+const todos = computed(() => store.todos.value);
+const loading = computed(() => store.todosLoading.value);
 </script>
 
 <template>

@@ -1,22 +1,22 @@
 <script setup lang="ts">
-import { ref, onMounted, reactive } from 'vue';
-import type { RoleType, BookingRecord, Court, Coach, MemberCard, BookingFilter, CreateBooking } from '../types';
+import { ref, onMounted, reactive, computed, watch } from 'vue';
+import type { BookingFilter, CreateBooking } from '../types';
 import { api } from '../api';
-
-const props = defineProps<{
-  role: RoleType;
-  courts: Court[];
-  coaches: Coach[];
-  members: MemberCard[];
-}>();
+import { useStore } from '../store';
 
 const emit = defineEmits<{
   (e: 'row-click', id: number): void;
-  (e: 'refresh'): void;
 }>();
 
-const bookings = ref<BookingRecord[]>([]);
-const loading = ref(false);
+const store = useStore();
+
+const bookings = computed(() => store.bookings.value);
+const loading = computed(() => store.bookingsLoading.value);
+const courts = computed(() => store.state.courts);
+const coaches = computed(() => store.state.coaches);
+const members = computed(() => store.state.members);
+const role = computed(() => store.state.currentRole);
+
 const showCreateModal = ref(false);
 
 const filter = reactive<BookingFilter>({
@@ -49,24 +49,13 @@ const quickFilters = [
   { label: '已核销', status: 'verified' },
 ];
 
-const loadBookings = async () => {
-  loading.value = true;
-  try {
-    const f: BookingFilter = {};
-    if (filter.status) f.status = filter.status;
-    if (filter.date_from) f.date_from = filter.date_from;
-    if (filter.date_to) f.date_to = filter.date_to;
-    if (filter.court_id) f.court_id = filter.court_id;
-    if (filter.keyword) f.keyword = filter.keyword;
-    bookings.value = await api.getBookings(f);
-  } finally {
-    loading.value = false;
-  }
-};
-
 const applyQuickFilter = (status: string) => {
   filter.status = status;
-  loadBookings();
+  store.loadBookings({ ...filter });
+};
+
+const applyFilter = () => {
+  store.loadBookings({ ...filter });
 };
 
 const handleCreate = async () => {
@@ -77,8 +66,6 @@ const handleCreate = async () => {
   try {
     await api.createBooking(newBooking);
     showCreateModal.value = false;
-    loadBookings();
-    emit('refresh');
     Object.assign(newBooking, {
       court_id: 0,
       coach_id: undefined,
@@ -90,19 +77,22 @@ const handleCreate = async () => {
       end_time: '10:00',
       remark: '',
     });
+    store.refreshAll();
   } catch (e) {
     alert('创建失败：' + e);
   }
 };
 
-const refresh = () => {
-  loadBookings();
-};
-
-defineExpose({ refresh });
+watch(
+  () => [filter.date_from, filter.date_to, filter.court_id, filter.keyword],
+  () => {
+    applyFilter();
+  },
+  { deep: true }
+);
 
 onMounted(() => {
-  loadBookings();
+  store.loadBookings({ ...filter });
 });
 </script>
 
@@ -131,22 +121,22 @@ onMounted(() => {
         <div class="filter-bar">
           <div class="filter-group">
             <label>场地</label>
-            <select v-model.number="filter.court_id" @change="loadBookings">
+            <select v-model.number="filter.court_id" @change="applyFilter">
               <option :value="undefined">全部场地</option>
               <option v-for="c in courts" :key="c.id" :value="c.id">{{ c.name }}</option>
             </select>
           </div>
           <div class="filter-group">
             <label>日期从</label>
-            <input type="date" v-model="filter.date_from" @change="loadBookings" />
+            <input type="date" v-model="filter.date_from" @change="applyFilter" />
           </div>
           <div class="filter-group">
             <label>到</label>
-            <input type="date" v-model="filter.date_to" @change="loadBookings" />
+            <input type="date" v-model="filter.date_to" @change="applyFilter" />
           </div>
           <div class="filter-group">
             <label>搜索</label>
-            <input type="text" v-model="filter.keyword" placeholder="姓名/电话/预订号" @input="loadBookings" />
+            <input type="text" v-model="filter.keyword" placeholder="姓名/电话/预订号" @input="applyFilter" />
           </div>
         </div>
 

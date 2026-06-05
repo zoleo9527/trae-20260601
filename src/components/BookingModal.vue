@@ -1,21 +1,20 @@
 <script setup lang="ts">
 import { ref, onMounted, reactive, computed } from 'vue';
-import type { RoleType, BookingRecord, Court, Coach, MemberCard, BookingSupplement, MemberVerify } from '../types';
+import type { RoleType, BookingRecord, BookingSupplement, MemberVerify } from '../types';
 import { api } from '../api';
+import { useStore } from '../store';
 import { formatLocalDateTime } from '../utils/date';
 
 const props = defineProps<{
   bookingId: number;
-  role: RoleType;
-  courts: Court[];
-  coaches: Coach[];
-  members: MemberCard[];
 }>();
 
 const emit = defineEmits<{
   (e: 'close'): void;
   (e: 'refresh'): void;
 }>();
+
+const store = useStore();
 
 const booking = ref<BookingRecord | null>(null);
 const loading = ref(false);
@@ -47,29 +46,34 @@ const verifyForm = reactive<MemberVerify>({
   balance_after: 0,
 });
 
+const courts = computed(() => store.state.courts);
+const coaches = computed(() => store.state.coaches);
+const members = computed(() => store.state.members);
+const role = computed(() => store.state.currentRole);
+
 const operatorName = computed(() => {
   const map: Record<RoleType, string> = {
     reception: '前台用户',
     coach: '教练',
     manager: '值班店长',
   };
-  return map[props.role];
+  return map[role.value];
 });
 
 const canReturn = computed(() => {
-  return props.role === 'manager' && ['pending', 'supplemented'].includes(booking.value?.status || '');
+  return role.value === 'manager' && ['pending', 'supplemented'].includes(booking.value?.status || '');
 });
 
 const canSupplement = computed(() => {
-  return props.role === 'reception' && booking.value?.status === 'returned';
+  return role.value === 'reception' && booking.value?.status === 'returned';
 });
 
 const canReview = computed(() => {
-  return props.role === 'manager' && booking.value?.status === 'supplemented';
+  return role.value === 'manager' && booking.value?.status === 'supplemented';
 });
 
 const canVerify = computed(() => {
-  return props.role === 'reception' && booking.value?.status === 'approved';
+  return role.value === 'reception' && booking.value?.status === 'approved';
 });
 
 const loadBooking = async () => {
@@ -91,7 +95,7 @@ const handleReturn = async () => {
     showReturnModal.value = false;
     returnForm.reason = '';
     loadBooking();
-    emit('refresh');
+    store.refreshAll();
   } catch (e) {
     alert('操作失败：' + e);
   }
@@ -109,7 +113,7 @@ const handleSupplement = async () => {
     supplementForm.member_id = undefined;
     supplementForm.coach_id = undefined;
     loadBooking();
-    emit('refresh');
+    store.refreshAll();
   } catch (e) {
     alert('操作失败：' + e);
   }
@@ -121,7 +125,7 @@ const handleReview = async (approved: boolean) => {
     showReviewModal.value = false;
     reviewForm.review_note = '';
     loadBooking();
-    emit('refresh');
+    store.refreshAll();
   } catch (e) {
     alert('操作失败：' + e);
   }
@@ -142,14 +146,14 @@ const handleVerify = async () => {
       balance_after: 0,
     });
     loadBooking();
-    emit('refresh');
+    store.refreshAll();
   } catch (e) {
     alert('操作失败：' + e);
   }
 };
 
 const selectMemberForVerify = (memberId: number) => {
-  const member = props.members.find(m => m.id === memberId);
+  const member = members.value.find(m => m.id === memberId);
   if (member) {
     verifyForm.card_no = member.card_no;
     verifyForm.balance_before = member.balance;

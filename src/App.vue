@@ -1,23 +1,17 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue';
-import type { RoleType, Court, Coach, MemberCard } from './types';
-import { api } from './api';
+import type { RoleType } from './types';
+import { useStore } from './store';
 import Dashboard from './components/Dashboard.vue';
 import BookingList from './components/BookingList.vue';
 import VerificationHistory from './components/VerificationHistory.vue';
 import BookingModal from './components/BookingModal.vue';
 
-const currentRole = ref<RoleType>('reception');
+const store = useStore();
+
 const currentPage = ref('dashboard');
-const courts = ref<Court[]>([]);
-const coaches = ref<Coach[]>([]);
-const members = ref<MemberCard[]>([]);
 const selectedBookingId = ref<number | null>(null);
 const showBookingModal = ref(false);
-
-const dashboardRef = ref<InstanceType<typeof Dashboard> | null>(null);
-const bookingListRef = ref<InstanceType<typeof BookingList> | null>(null);
-const verifyHistoryRef = ref<InstanceType<typeof VerificationHistory> | null>(null);
 
 const roleName = computed(() => {
   const map: Record<RoleType, string> = {
@@ -25,20 +19,11 @@ const roleName = computed(() => {
     coach: '教练',
     manager: '值班店长',
   };
-  return map[currentRole.value];
+  return map[store.state.currentRole];
 });
 
-const loadBaseData = async () => {
-  courts.value = await api.getCourts();
-  coaches.value = await api.getCoaches();
-  members.value = await api.getMembers();
-};
-
-const refreshAll = async () => {
-  await loadBaseData();
-  dashboardRef.value?.refresh();
-  bookingListRef.value?.refresh();
-  verifyHistoryRef.value?.refresh();
+const handleRoleChange = (role: RoleType) => {
+  store.setRole(role);
 };
 
 const handleTodoClick = (id: number) => {
@@ -51,12 +36,13 @@ const handleBookingClick = (id: number) => {
   showBookingModal.value = true;
 };
 
-const refreshData = () => {
-  refreshAll();
+const handleRefresh = () => {
+  store.refreshAll();
 };
 
 onMounted(() => {
-  loadBaseData();
+  store.loadBaseData();
+  store.loadTodos();
 });
 </script>
 
@@ -70,7 +56,7 @@ onMounted(() => {
 
       <div class="role-selector">
         <label>当前角色</label>
-        <select v-model="currentRole" @change="refreshData">
+        <select :value="store.state.currentRole" @change="handleRoleChange(($event.target as HTMLSelectElement).value as RoleType)">
           <option value="reception">场馆前台</option>
           <option value="coach">教练</option>
           <option value="manager">值班店长</option>
@@ -115,25 +101,16 @@ onMounted(() => {
 
       <div class="content-area">
         <Dashboard
-          ref="dashboardRef"
           v-if="currentPage === 'dashboard'"
-          :role="currentRole"
           @todo-click="handleTodoClick"
         />
 
         <BookingList
-          ref="bookingListRef"
           v-if="currentPage === 'bookings'"
-          :role="currentRole"
-          :courts="courts"
-          :coaches="coaches"
-          :members="members"
           @row-click="handleBookingClick"
-          @refresh="refreshAll"
         />
 
         <VerificationHistory
-          ref="verifyHistoryRef"
           v-if="currentPage === 'verify'"
           @row-click="handleBookingClick"
         />
@@ -143,12 +120,8 @@ onMounted(() => {
     <BookingModal
       v-if="showBookingModal && selectedBookingId"
       :booking-id="selectedBookingId"
-      :role="currentRole"
-      :courts="courts"
-      :coaches="coaches"
-      :members="members"
       @close="showBookingModal = false"
-      @refresh="refreshAll"
+      @refresh="handleRefresh"
     />
   </div>
 </template>

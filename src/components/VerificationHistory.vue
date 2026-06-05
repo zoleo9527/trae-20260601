@@ -1,33 +1,19 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
-import type { BookingRecord } from '../types';
-import { api } from '../api';
+import { computed, onMounted } from 'vue';
+import { useStore } from '../store';
 import { formatLocalDateTime } from '../utils/date';
 
 const emit = defineEmits<{
   (e: 'row-click', id: number): void;
 }>();
 
-const history = ref<BookingRecord[]>([]);
-const loading = ref(false);
+const store = useStore();
 
-const loadHistory = async () => {
-  loading.value = true;
-  try {
-    history.value = await api.getVerificationHistory();
-  } finally {
-    loading.value = false;
-  }
-};
-
-const refresh = () => {
-  loadHistory();
-};
-
-defineExpose({ refresh });
+const history = computed(() => store.verificationHistory.value);
+const loading = computed(() => store.historyLoading.value);
 
 onMounted(() => {
-  loadHistory();
+  store.loadVerificationHistory();
 });
 </script>
 
@@ -36,7 +22,7 @@ onMounted(() => {
     <div class="card">
       <div class="card-header">
         <h3>会员核销回看</h3>
-        <button class="btn btn-secondary" @click="loadHistory">🔄 刷新</button>
+        <button class="btn btn-secondary" @click="store.loadVerificationHistory()">🔄 刷新</button>
       </div>
       <div class="card-body">
         <div class="table-container" style="overflow-x: auto;">
