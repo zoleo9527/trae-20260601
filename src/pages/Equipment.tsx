@@ -130,9 +130,12 @@ export default function Equipment() {
                       {e.related_anomalies.length > 0 ? (
                         <div className="space-y-1">
                           {e.related_anomalies.map((a) => (
-                            <div key={a.anomaly_id} className="flex items-center gap-1" title={a.description}>
+                            <div key={a.anomaly_id} className="flex items-center gap-1" title={`${a.source === 'booking' ? '预约级' : '装备级'}: ${a.description}`}>
                               <AlertTriangle className={`w-3 h-3 ${a.severity === 'high' ? 'text-warning-red' : a.severity === 'medium' ? 'text-climbing-orange' : 'text-info-blue'}`} />
-                              <span className="text-xs text-gray-600 truncate max-w-[120px]">#{a.anomaly_id}</span>
+                              <span className={`text-xs px-1 rounded ${a.source === 'booking' ? 'bg-purple-50 text-purple-600' : 'bg-orange-50 text-orange-600'}`}>
+                                {a.source === 'booking' ? '预' : '装'}
+                              </span>
+                              <span className="text-xs text-gray-600 truncate max-w-[100px]">#{a.anomaly_id}</span>
                             </div>
                           ))}
                         </div>
@@ -210,10 +213,17 @@ export default function Equipment() {
                       <td className="px-4 py-2 text-xs">{e.condition_in ?? '-'}</td>
                       <td className="px-4 py-2 text-xs">
                         {e.related_anomalies.length > 0 ? (
-                          <span className="inline-flex items-center gap-1 text-warning-red">
-                            <AlertTriangle className="w-3 h-3" />
-                            {e.related_anomalies.length}
-                          </span>
+                          <div className="space-y-0.5">
+                            {e.related_anomalies.map((a) => (
+                              <div key={a.anomaly_id} className="flex items-center gap-1">
+                                <AlertTriangle className={`w-3 h-3 ${a.severity === 'high' ? 'text-warning-red' : a.severity === 'medium' ? 'text-climbing-orange' : 'text-info-blue'}`} />
+                                <span className={`text-[10px] px-0.5 rounded ${a.source === 'booking' ? 'bg-purple-50 text-purple-600' : 'bg-orange-50 text-orange-600'}`}>
+                                  {a.source === 'booking' ? '预' : '装'}
+                                </span>
+                                <span className="text-gray-500">#{a.anomaly_id}</span>
+                              </div>
+                            ))}
+                          </div>
                         ) : '-'}
                       </td>
                       <td className="px-4 py-2 text-xs">{e.issued_by}</td>

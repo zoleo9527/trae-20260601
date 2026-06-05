@@ -21,6 +21,24 @@ router.get('/summary', (_req: Request, res: Response) => {
   })
 })
 
+function buildAnomalyJson(issuanceId: number, bookingId: number | null): string {
+  const rows = db.prepare(
+    `SELECT id as anomaly_id, description, severity,
+       CASE WHEN issuance_id = ? THEN 'issuance' ELSE 'booking' END as source
+     FROM anomalies
+     WHERE status = 'open' AND (issuance_id = ? OR (booking_id = ? AND booking_id IS NOT NULL))
+     ORDER BY CASE severity WHEN 'high' THEN 1 WHEN 'medium' THEN 2 WHEN 'low' THEN 3 END`
+  ).all(issuanceId, issuanceId, bookingId) as { anomaly_id: number; description: string; severity: string; source: string }[]
+
+  const seen = new Set<number>()
+  const deduped = rows.filter(r => {
+    if (seen.has(r.anomaly_id)) return false
+    seen.add(r.anomaly_id)
+    return true
+  })
+  return JSON.stringify(deduped)
+}
+
 router.post('/snapshot', (req: Request, res: Response) => {
   const { operator_out, operator_in, notes } = req.body
   if (!operator_out || !operator_in) {
@@ -29,12 +47,14 @@ router.post('/snapshot', (req: Request, res: Response) => {
   }
 
   const pendingBookingsRows = db.prepare(`SELECT b.id, b.member_name, c.name as course_name, b.booking_date, b.time_slot, b.status FROM bookings b LEFT JOIN courses c ON b.course_id = c.id WHERE b.status IN ('pending', 'confirmed', 'in_progress')`).all() as any[]
-  const unreturnedEquipmentRows = db.prepare('SELECT id, member_name, equipment_type, equipment_id, condition_out, issued_by, issued_at FROM equipment_issuances WHERE returned_at IS NULL').all() as any[]
+  const unreturnedEquipmentRows = db.prepare(
+    `SELECT ei.id, ei.member_name, ei.equipment_type, ei.equipment_id, ei.condition_out, ei.issued_by, ei.issued_at, ei.booking_id, c.name as booking_course_name, b.booking_date as booking_date, b.time_slot as booking_time_slot, b.status as booking_status FROM equipment_issuances ei LEFT JOIN bookings b ON ei.booking_id = b.id LEFT JOIN courses c ON b.course_id = c.id WHERE ei.returned_at IS NULL`
+  ).all() as any[]
   const openAnomaliesRows = db.prepare("SELECT id, description, severity, reported_by, created_at FROM anomalies WHERE status = 'open'").all() as any[]
 
   const insertSnapshot = db.prepare('INSERT INTO handover_snapshots (pending_bookings, unreturned_equipment, open_anomalies, operator_out, operator_in, notes) VALUES (?, ?, ?, ?, ?, ?)')
   const insertBooking = db.prepare('INSERT INTO snapshot_bookings (snapshot_id, booking_id, member_name, course_name, booking_date, time_slot, status) VALUES (?, ?, ?, ?, ?, ?, ?)')
-  const insertEquipment = db.prepare('INSERT INTO snapshot_equipment (snapshot_id, issuance_id, member_name, equipment_type, equipment_id, condition_out, issued_by, issued_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
+  const insertEquipment = db.prepare('INSERT INTO snapshot_equipment (snapshot_id, issuance_id, member_name, equipment_type, equipment_id, condition_out, issued_by, issued_at, booking_id, booking_course_name, booking_date, booking_time_slot, booking_status, related_anomalies_json) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
   const insertAnomaly = db.prepare('INSERT INTO snapshot_anomalies (snapshot_id, anomaly_id, description, severity, reported_by, created_at) VALUES (?, ?, ?, ?, ?, ?)')
 
   const tx = db.transaction(() => {
@@ -45,7 +65,8 @@ router.post('/snapshot', (req: Request, res: Response) => {
       insertBooking.run(snapshotId, b.id, b.member_name, b.course_name, b.booking_date, b.time_slot, b.status)
     }
     for (const e of unreturnedEquipmentRows) {
-      insertEquipment.run(snapshotId, e.id, e.member_name, e.equipment_type, e.equipment_id, e.condition_out, e.issued_by, e.issued_at)
+      const anomalyJson = buildAnomalyJson(e.id, e.booking_id)
+      insertEquipment.run(snapshotId, e.id, e.member_name, e.equipment_type, e.equipment_id, e.condition_out, e.issued_by, e.issued_at, e.booking_id ?? null, e.booking_course_name ?? null, e.booking_date ?? null, e.booking_time_slot ?? null, e.booking_status ?? null, anomalyJson)
     }
     for (const a of openAnomaliesRows) {
       insertAnomaly.run(snapshotId, a.id, a.description, a.severity, a.reported_by, a.created_at)
@@ -106,6 +127,14 @@ router.patch('/todos/:id/complete', (req: Request, res: Response) => {
   res.json({ success: true, data: updated })
 })
 
+function parseEquipmentRow(row: any) {
+  return {
+    ...row,
+    related_anomalies: typeof row.related_anomalies_json === 'string' ? JSON.parse(row.related_anomalies_json) : [],
+    related_anomalies_json: undefined,
+  }
+}
+
 router.get('/snapshots/:id/details', (req: Request, res: Response) => {
   const snapshot = db.prepare('SELECT * FROM handover_snapshots WHERE id = ?').get(req.params.id) as any
   if (!snapshot) {
@@ -114,7 +143,8 @@ router.get('/snapshots/:id/details', (req: Request, res: Response) => {
   }
 
   const bookings = db.prepare('SELECT * FROM snapshot_bookings WHERE snapshot_id = ?').all(req.params.id)
-  const equipment = db.prepare('SELECT * FROM snapshot_equipment WHERE snapshot_id = ?').all(req.params.id)
+  const rawEquipment = db.prepare('SELECT * FROM snapshot_equipment WHERE snapshot_id = ?').all(req.params.id) as any[]
+  const equipment = rawEquipment.map(parseEquipmentRow)
   const anomalies = db.prepare('SELECT * FROM snapshot_anomalies WHERE snapshot_id = ?').all(req.params.id)
 
   res.json({

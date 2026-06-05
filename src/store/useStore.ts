@@ -27,6 +27,7 @@ export interface RelatedAnomaly {
   anomaly_id: number
   description: string
   severity: string
+  source: 'issuance' | 'booking'
 }
 
 export interface EquipmentIssuance {
@@ -92,6 +93,12 @@ export interface SnapshotEquipment {
   condition_out: string
   issued_by: string
   issued_at: string
+  booking_id: number | null
+  booking_course_name: string | null
+  booking_date: string | null
+  booking_time_slot: string | null
+  booking_status: string | null
+  related_anomalies: RelatedAnomaly[]
 }
 
 export interface SnapshotAnomaly {

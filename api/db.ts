@@ -102,7 +102,13 @@ CREATE TABLE IF NOT EXISTS snapshot_equipment (
     equipment_id TEXT NOT NULL,
     condition_out TEXT NOT NULL,
     issued_by TEXT NOT NULL,
-    issued_at TEXT NOT NULL
+    issued_at TEXT NOT NULL,
+    booking_id INTEGER,
+    booking_course_name TEXT,
+    booking_date TEXT,
+    booking_time_slot TEXT,
+    booking_status TEXT,
+    related_anomalies_json TEXT DEFAULT '[]'
 );
 
 CREATE TABLE IF NOT EXISTS snapshot_anomalies (
@@ -177,8 +183,8 @@ if (countCourses.cnt === 0) {
   insertSnapshotBooking.run(1, 2, '孙丽', '进阶攀岩技术', '2026-06-05', '13:00-15:00', 'confirmed')
   insertSnapshotBooking.run(1, 3, '周伟', '顶绳保护训练', '2026-06-05', '14:00-15:00', 'in_progress')
 
-  const insertSnapshotEquipment = db.prepare(`INSERT INTO snapshot_equipment (snapshot_id, issuance_id, member_name, equipment_type, equipment_id, condition_out, issued_by, issued_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`)
-  insertSnapshotEquipment.run(1, 3, '周伟', '安全带', 'HB-003', '良好', '值班员A', '2026-06-05 14:00:00')
+  const insertSnapshotEquipment = db.prepare(`INSERT INTO snapshot_equipment (snapshot_id, issuance_id, member_name, equipment_type, equipment_id, condition_out, issued_by, issued_at, booking_id, booking_course_name, booking_date, booking_time_slot, booking_status, related_anomalies_json) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+  insertSnapshotEquipment.run(1, 3, '周伟', '安全带', 'HB-003', '良好', '值班员A', '2026-06-05 14:00:00', 3, '顶绳保护训练', '2026-06-05', '14:00-15:00', 'in_progress', '[{"anomaly_id":1,"description":"保护点螺丝松动需检修","severity":"high","source":"booking"}]')
 
   const insertSnapshotAnomaly = db.prepare(`INSERT INTO snapshot_anomalies (snapshot_id, anomaly_id, description, severity, reported_by, created_at) VALUES (?, ?, ?, ?, ?, ?)`)
   insertSnapshotAnomaly.run(1, 1, '保护点螺丝松动需检修', 'high', '张磊', '2026-06-05 16:24:14')

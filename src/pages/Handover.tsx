@@ -259,9 +259,10 @@ export default function Handover() {
                                     <th className="px-3 py-2 text-left font-medium text-gray-500">会员</th>
                                     <th className="px-3 py-2 text-left font-medium text-gray-500">装备类型</th>
                                     <th className="px-3 py-2 text-left font-medium text-gray-500">编号</th>
+                                    <th className="px-3 py-2 text-left font-medium text-gray-500">关联预约</th>
                                     <th className="px-3 py-2 text-left font-medium text-gray-500">出场状态</th>
                                     <th className="px-3 py-2 text-left font-medium text-gray-500">发放人</th>
-                                    <th className="px-3 py-2 text-left font-medium text-gray-500">发放时间</th>
+                                    <th className="px-3 py-2 text-left font-medium text-gray-500">异常</th>
                                   </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-100">
@@ -270,9 +271,36 @@ export default function Handover() {
                                       <td className="px-3 py-2">{e.member_name}</td>
                                       <td className="px-3 py-2">{e.equipment_type}</td>
                                       <td className="px-3 py-2 font-mono">{e.equipment_id}</td>
+                                      <td className="px-3 py-2">
+                                        {e.booking_id && e.booking_course_name ? (
+                                          <div>
+                                            <div className="text-gray-700">{e.booking_course_name}</div>
+                                            <div className="text-gray-400">{e.booking_date} {e.booking_time_slot}</div>
+                                            {e.booking_status && <StatusBadge type="booking" status={e.booking_status} />}
+                                          </div>
+                                        ) : (
+                                          <span className="text-gray-300">-</span>
+                                        )}
+                                      </td>
                                       <td className="px-3 py-2">{e.condition_out}</td>
                                       <td className="px-3 py-2">{e.issued_by}</td>
-                                      <td className="px-3 py-2 text-gray-400">{e.issued_at}</td>
+                                      <td className="px-3 py-2">
+                                        {e.related_anomalies && e.related_anomalies.length > 0 ? (
+                                          <div className="space-y-1">
+                                            {e.related_anomalies.map((a) => (
+                                              <div key={a.anomaly_id} className="flex items-center gap-1" title={`${a.source === 'booking' ? '预约级' : '装备级'}: ${a.description}`}>
+                                                <AlertTriangle className={`w-3 h-3 ${a.severity === 'high' ? 'text-warning-red' : a.severity === 'medium' ? 'text-climbing-orange' : 'text-info-blue'}`} />
+                                                <span className={`text-xs px-1 rounded ${a.source === 'booking' ? 'bg-purple-50 text-purple-600' : 'bg-orange-50 text-orange-600'}`}>
+                                                  {a.source === 'booking' ? '预' : '装'}
+                                                </span>
+                                                <span className="text-xs text-gray-600 truncate max-w-[100px]">{a.description}</span>
+                                              </div>
+                                            ))}
+                                          </div>
+                                        ) : (
+                                          <span className="text-gray-300">-</span>
+                                        )}
+                                      </td>
                                     </tr>
                                   ))}
                                 </tbody>
