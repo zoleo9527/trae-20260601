@@ -16,6 +16,7 @@
 	let showStartBatch = $state(false);
 	let showCompleteBatch = $state(false);
 	let completingBatch = $state<any>(null);
+	let errorMessage = $state<string | null>(null);
 	let exForm = $state({ severity: 'medium', title: '', description: '' });
 	let batchForm = $state({
 		actual_roast_level: data.plan.target_roast_level,
@@ -30,11 +31,17 @@
 	});
 
 	async function changePlanStatus(newStatus: string) {
-		await fetch(`/api/roasting-plans/${data.plan.id}/status`, {
+		const res = await fetch(`/api/roasting-plans/${data.plan.id}/status`, {
 			method: 'PUT',
 			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify({ status: newStatus })
 		});
+		if (!res.ok) {
+			const data = await res.json().catch(() => ({ error: '操作失败' }));
+			errorMessage = data.error || '操作失败';
+			setTimeout(() => errorMessage = null, 3000);
+			return;
+		}
 		window.location.reload();
 	}
 
@@ -104,10 +111,15 @@
 
 	const canApprove = data.plan.status === 'planned' && data.user.role !== 'cs';
 	const canStart = data.plan.status === 'approved' && data.user.role === 'roaster';
-	const canComplete = data.plan.status === 'in_progress' && data.user.role === 'roaster';
 </script>
 
 <div>
+	{#if errorMessage}
+		<div class="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded text-sm flex items-center justify-between">
+			<span>{errorMessage}</span>
+			<button onclick={() => errorMessage = null} class="text-red-500 hover:text-red-700 ml-2">×</button>
+		</div>
+	{/if}
 	<div class="flex items-center justify-between mb-6">
 		<div>
 			<div class="flex items-center gap-3">
@@ -122,9 +134,6 @@
 			{/if}
 			{#if canStart}
 				<button onclick={() => showStartBatch = true} class="bg-indigo-600 text-white px-3 py-1.5 rounded text-xs hover:bg-indigo-700">开始烘焙</button>
-			{/if}
-			{#if canComplete}
-				<button onclick={() => changePlanStatus('completed')} class="bg-green-600 text-white px-3 py-1.5 rounded text-xs hover:bg-green-700">标记完成</button>
 			{/if}
 			<button onclick={() => showExceptionDrawer = true} class="border border-red-300 text-red-600 px-3 py-1.5 rounded text-xs hover:bg-red-50">报告异常</button>
 		</div>
