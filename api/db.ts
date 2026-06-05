@@ -65,6 +65,7 @@ db.exec(`
     reviewer TEXT,
     anomaly_explanation TEXT,
     referenced_note_ids TEXT,
+    anomaly_referenced_note_ids TEXT,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL,
     FOREIGN KEY (incident_id) REFERENCES rescue_incidents(id)
@@ -98,8 +99,8 @@ if (count.c === 0) {
       VALUES (@id, @incident_id, @from_status, @to_status, @operator, @remark, @created_at)
     `)
     const insertInsurance = db.prepare(`
-      INSERT INTO insurance_materials (id, incident_id, material_type, status, notes, reviewer, anomaly_explanation, referenced_note_ids, created_at, updated_at)
-      VALUES (@id, @incident_id, @material_type, @status, @notes, @reviewer, @anomaly_explanation, @referenced_note_ids, @created_at, @updated_at)
+      INSERT INTO insurance_materials (id, incident_id, material_type, status, notes, reviewer, anomaly_explanation, referenced_note_ids, anomaly_referenced_note_ids, created_at, updated_at)
+      VALUES (@id, @incident_id, @material_type, @status, @notes, @reviewer, @anomaly_explanation, @referenced_note_ids, @anomaly_referenced_note_ids, @created_at, @updated_at)
     `)
     const insertLog = db.prepare(`
       INSERT INTO operation_logs (id, incident_id, action, operator, detail, created_at)
@@ -186,6 +187,7 @@ if (count.c === 0) {
       reviewer: '李保险',
       anomaly_explanation: null,
       referenced_note_ids: JSON.stringify([note1_1, note1_3]),
+      anomaly_referenced_note_ids: null,
       created_at: '2026-06-03T10:35:00.000Z',
       updated_at: '2026-06-03T10:35:00.000Z',
     })
@@ -198,6 +200,7 @@ if (count.c === 0) {
       reviewer: null,
       anomaly_explanation: null,
       referenced_note_ids: JSON.stringify([note1_1]),
+      anomaly_referenced_note_ids: null,
       created_at: '2026-06-03T10:40:00.000Z',
       updated_at: '2026-06-03T10:40:00.000Z',
     })
@@ -310,6 +313,7 @@ if (count.c === 0) {
       reviewer: '李保险',
       anomaly_explanation: null,
       referenced_note_ids: JSON.stringify([note2_2]),
+      anomaly_referenced_note_ids: null,
       created_at: '2026-06-02T17:00:00.000Z',
       updated_at: '2026-06-02T17:00:00.000Z',
     })
@@ -322,6 +326,7 @@ if (count.c === 0) {
       reviewer: '李保险',
       anomaly_explanation: null,
       referenced_note_ids: JSON.stringify([note2_1, note2_4]),
+      anomaly_referenced_note_ids: null,
       created_at: '2026-06-02T16:45:00.000Z',
       updated_at: '2026-06-02T17:15:00.000Z',
     })
@@ -334,6 +339,7 @@ if (count.c === 0) {
       reviewer: '李保险',
       anomaly_explanation: '当天雪场前台打印机出现故障，身份证复印件是用备用便携打印机打印的，清晰度不佳。已联系伤者家属重新提供高清扫描件，预计明日上午收到。滑雪票存根因前台交接班时遗失，正在查找。',
       referenced_note_ids: JSON.stringify([]),
+      anomaly_referenced_note_ids: JSON.stringify([note2_5]),
       created_at: '2026-06-02T17:10:00.000Z',
       updated_at: '2026-06-02T17:45:00.000Z',
     })
@@ -466,6 +472,7 @@ if (count.c === 0) {
       reviewer: '刘经理',
       anomaly_explanation: null,
       referenced_note_ids: JSON.stringify([note3_1, note3_2, note3_4]),
+      anomaly_referenced_note_ids: null,
       created_at: '2026-05-28T16:10:00.000Z',
       updated_at: '2026-05-29T14:00:00.000Z',
     })
@@ -478,6 +485,7 @@ if (count.c === 0) {
       reviewer: '刘经理',
       anomaly_explanation: null,
       referenced_note_ids: JSON.stringify([note3_3]),
+      anomaly_referenced_note_ids: null,
       created_at: '2026-05-28T16:15:00.000Z',
       updated_at: '2026-05-29T14:30:00.000Z',
     })
@@ -490,6 +498,7 @@ if (count.c === 0) {
       reviewer: '刘经理',
       anomaly_explanation: null,
       referenced_note_ids: JSON.stringify([]),
+      anomaly_referenced_note_ids: null,
       created_at: '2026-05-29T14:50:00.000Z',
       updated_at: '2026-05-29T15:30:00.000Z',
     })

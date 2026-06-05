@@ -6,6 +6,67 @@ const router = Router()
 
 const STATUS_FLOW = ['pending', 'processing', 'review', 'completed', 'archived']
 
+interface IncidentNote {
+  id: string
+  incident_id: string
+  author: string
+  category: string
+  content: string
+  referenced_note_id: string | null
+  created_at: string
+}
+
+interface InsuranceMaterialWithNotes extends Record<string, unknown> {
+  referenced_notes: IncidentNote[]
+  anomaly_referenced_notes: IncidentNote[]
+}
+
+function getMaterialWithNotes(material: Record<string, unknown>): InsuranceMaterialWithNotes {
+  const noteIdsStr = material.referenced_note_ids as string | null
+  let noteIds: string[] = []
+  
+  if (noteIdsStr) {
+    try {
+      noteIds = JSON.parse(noteIdsStr)
+    } catch {
+      noteIds = []
+    }
+  }
+  
+  let referencedNotes: IncidentNote[] = []
+  if (noteIds.length > 0) {
+    const placeholders = noteIds.map(() => '?').join(',')
+    referencedNotes = db.prepare(
+      `SELECT * FROM incident_notes WHERE id IN (${placeholders})`
+    ).all(...noteIds) as IncidentNote[]
+  }
+
+  const anomalyNoteIdsStr = material.anomaly_referenced_note_ids as string | null
+  let anomalyNoteIds: string[] = []
+  
+  if (anomalyNoteIdsStr) {
+    try {
+      anomalyNoteIds = JSON.parse(anomalyNoteIdsStr)
+    } catch {
+      anomalyNoteIds = []
+    }
+  }
+  
+  let anomalyReferencedNotes: IncidentNote[] = []
+  if (anomalyNoteIds.length > 0) {
+    const placeholders = anomalyNoteIds.map(() => '?').join(',')
+    anomalyReferencedNotes = db.prepare(
+      `SELECT * FROM incident_notes WHERE id IN (${placeholders})`
+    ).all(...anomalyNoteIds) as IncidentNote[]
+  }
+  
+  return {
+    ...material,
+    referenced_notes: referencedNotes,
+    anomaly_referenced_notes: anomalyReferencedNotes
+  }
+}
+
 function mapIncidentRow(row: Record<string, unknown>): Record<string, unknown> {
   return {
     id: row.id,
@@ -63,8 +124,10 @@ router.get('/:id', (req: Request, res: Response): void => {
 
   const notes = db.prepare('SELECT * FROM incident_notes WHERE incident_id = ? ORDER BY created_at ASC').all(id)
   const transitions = db.prepare('SELECT * FROM status_transitions WHERE incident_id = ? ORDER BY created_at ASC').all(id)
-  const insurance = db.prepare('SELECT * FROM insurance_materials WHERE incident_id = ? ORDER BY created_at ASC').all(id)
+  const insurance = db.prepare('SELECT * FROM insurance_materials WHERE incident_id = ? ORDER BY created_at ASC').all(id) as Record<string, unknown>[]
   const logs = db.prepare('SELECT * FROM operation_logs WHERE incident_id = ? ORDER BY created_at ASC').all(id)
+
+  const insuranceWithNotes = insurance.map(m => getMaterialWithNotes(m))
 
   res.json({
     success: true,
@@ -72,7 +135,7 @@ router.get('/:id', (req: Request, res: Response): void => {
       ...incident,
       notes,
       status_transitions: transitions,
-      insurance_materials: insurance,
+      insurance_materials: insuranceWithNotes,
       operation_logs: logs,
     },
   })

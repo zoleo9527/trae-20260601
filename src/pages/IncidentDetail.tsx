@@ -17,6 +17,7 @@ import {
   ChevronUp,
   Link2,
   Clock,
+  AlertTriangle,
 } from 'lucide-react'
 import StatusBadge from '@/components/StatusBadge'
 import Timeline from '@/components/Timeline'
@@ -102,12 +103,24 @@ export default function IncidentDetail() {
           countMap.set(note.id, (countMap.get(note.id) || 0) + 1)
         })
       }
+      if (m.anomaly_referenced_notes && m.anomaly_referenced_notes.length > 0) {
+        m.anomaly_referenced_notes.forEach((note) => {
+          countMap.set(note.id, (countMap.get(note.id) || 0) + 1)
+        })
+      }
     })
     return countMap
   }, [materials])
 
   const toggleMaterialExpand = (materialId: string) => {
     setExpandedMaterialId(expandedMaterialId === materialId ? null : materialId)
+  }
+
+  const getTotalReferencedNotesCount = (material: InsuranceMaterialWithNotes) => {
+    let count = 0
+    if (material.referenced_notes) count += material.referenced_notes.length
+    if (material.anomaly_referenced_notes) count += material.anomaly_referenced_notes.length
+    return count
   }
 
   return (
@@ -214,89 +227,128 @@ export default function IncidentDetail() {
                 </div>
                 {materials.length > 0 ? (
                   <div className="space-y-3">
-                    {materials.map((material) => (
-                      <div
-                        key={material.id}
-                        className="border border-slate-200 rounded-lg overflow-hidden"
-                      >
+                    {materials.map((material) => {
+                      const totalNotes = getTotalReferencedNotesCount(material)
+                      return (
                         <div
-                          className="flex items-center justify-between p-4 cursor-pointer hover:bg-slate-50 transition-colors"
-                          onClick={() => toggleMaterialExpand(material.id)}
+                          key={material.id}
+                          className="border border-slate-200 rounded-lg overflow-hidden"
                         >
-                          <div className="flex items-center gap-4 flex-1">
-                            <div className="p-2 bg-ice-50 rounded-lg">
-                              <FileText className="w-5 h-5 text-ice-600" />
-                            </div>
-                            <div className="flex-1">
-                              <div className="flex items-center gap-3 mb-1">
-                                <span className="text-sm font-medium text-slate-800">{material.material_type}</span>
-                                <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${materialStatusColors[material.status]}`}>
-                                  {materialStatusLabels[material.status]}
-                                </span>
+                          <div
+                            className="flex items-center justify-between p-4 cursor-pointer hover:bg-slate-50 transition-colors"
+                            onClick={() => toggleMaterialExpand(material.id)}
+                          >
+                            <div className="flex items-center gap-4 flex-1">
+                              <div className="p-2 bg-ice-50 rounded-lg">
+                                <FileText className="w-5 h-5 text-ice-600" />
                               </div>
-                              <div className="flex items-center gap-4 text-xs text-slate-500">
-                                <span className="flex items-center gap-1">
-                                  <User className="w-3 h-3" />
-                                  审核人: {material.reviewer || '未分配'}
-                                </span>
-                                <span className="flex items-center gap-1">
-                                  <Clock className="w-3 h-3" />
-                                  {formatDateTime(material.created_at)}
-                                </span>
-                                {material.referenced_notes && material.referenced_notes.length > 0 && (
-                                  <span className="flex items-center gap-1 text-ice-600">
-                                    <Link2 className="w-3 h-3" />
-                                    引用 {material.referenced_notes.length} 条备注
+                              <div className="flex-1">
+                                <div className="flex items-center gap-3 mb-1">
+                                  <span className="text-sm font-medium text-slate-800">{material.material_type}</span>
+                                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${materialStatusColors[material.status]}`}>
+                                    {materialStatusLabels[material.status]}
                                   </span>
+                                </div>
+                                <div className="flex items-center gap-4 text-xs text-slate-500">
+                                  <span className="flex items-center gap-1">
+                                    <User className="w-3 h-3" />
+                                    审核人: {material.reviewer || '未分配'}
+                                  </span>
+                                  <span className="flex items-center gap-1">
+                                    <Clock className="w-3 h-3" />
+                                    {formatDateTime(material.created_at)}
+                                  </span>
+                                  {totalNotes > 0 && (
+                                    <span className="flex items-center gap-1 text-ice-600">
+                                      <Link2 className="w-3 h-3" />
+                                      引用 {totalNotes} 条备注
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                              <button className="p-1 text-slate-400 hover:text-slate-600 transition-colors">
+                                {expandedMaterialId === material.id ? (
+                                  <ChevronUp className="w-5 h-5" />
+                                ) : (
+                                  <ChevronDown className="w-5 h-5" />
                                 )}
-                              </div>
+                              </button>
                             </div>
-                            <button className="p-1 text-slate-400 hover:text-slate-600 transition-colors">
-                              {expandedMaterialId === material.id ? (
-                                <ChevronUp className="w-5 h-5" />
-                              ) : (
-                                <ChevronDown className="w-5 h-5" />
-                              )}
-                            </button>
                           </div>
-                        </div>
-                        {expandedMaterialId === material.id && material.referenced_notes && material.referenced_notes.length > 0 && (
-                          <div className="border-t border-slate-200 bg-slate-50 p-4">
-                            <div className="pl-4 border-l-2 border-ice-300">
-                              <div className="flex items-center gap-2 mb-3">
-                                <Link2 className="w-4 h-4 text-ice-600" />
-                                <span className="text-xs font-medium text-ice-700">引用来源备注</span>
-                              </div>
-                              <div className="space-y-3">
-                                {material.referenced_notes.map((note, noteIndex) => (
-                                  <div key={note.id} className="relative">
-                                    {noteIndex > 0 && (
-                                      <div className="absolute -top-3 left-4 w-0.5 h-3 bg-slate-300" />
-                                    )}
-                                    <div className="bg-white border border-slate-200 rounded-lg p-3 shadow-sm">
-                                      <div className="flex items-center justify-between mb-2">
-                                        <div className="flex items-center gap-2">
-                                          <User className="w-3.5 h-3.5 text-slate-400" />
-                                          <span className="text-xs font-medium text-slate-700">{note.author}</span>
-                                          <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${noteCategoryColors[note.category]}`}>
-                                            {NOTE_CATEGORY_LABELS[note.category]}
-                                          </span>
-                                        </div>
-                                        <div className="flex items-center gap-1 text-xs text-slate-400">
-                                          <Clock className="w-3 h-3" />
-                                          {formatDateTime(note.created_at)}
+                          {expandedMaterialId === material.id && (
+                            <div className="border-t border-slate-200 bg-slate-50 p-4 space-y-4">
+                              {material.referenced_notes && material.referenced_notes.length > 0 && (
+                                <div className="pl-4 border-l-2 border-ice-300">
+                                  <div className="flex items-center gap-2 mb-3">
+                                    <Link2 className="w-4 h-4 text-ice-600" />
+                                    <span className="text-xs font-medium text-ice-700">引用来源备注</span>
+                                  </div>
+                                  <div className="space-y-3">
+                                    {material.referenced_notes.map((note, noteIndex) => (
+                                      <div key={note.id} className="relative">
+                                        {noteIndex > 0 && (
+                                          <div className="absolute -top-3 left-4 w-0.5 h-3 bg-slate-300" />
+                                        )}
+                                        <div className="bg-white border border-slate-200 rounded-lg p-3 shadow-sm">
+                                          <div className="flex items-center justify-between mb-2">
+                                            <div className="flex items-center gap-2">
+                                              <User className="w-3.5 h-3.5 text-slate-400" />
+                                              <span className="text-xs font-medium text-slate-700">{note.author}</span>
+                                              <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${noteCategoryColors[note.category]}`}>
+                                                {NOTE_CATEGORY_LABELS[note.category]}
+                                              </span>
+                                            </div>
+                                            <div className="flex items-center gap-1 text-xs text-slate-400">
+                                              <Clock className="w-3 h-3" />
+                                              {formatDateTime(note.created_at)}
+                                            </div>
+                                          </div>
+                                          <p className="text-sm text-slate-600">{note.content}</p>
                                         </div>
                                       </div>
-                                      <p className="text-sm text-slate-600">{note.content}</p>
-                                    </div>
+                                    ))}
                                   </div>
-                                ))}
-                              </div>
+                                </div>
+                              )}
+
+                              {material.anomaly_referenced_notes && material.anomaly_referenced_notes.length > 0 && (
+                                <div className="pl-4 border-l-2 border-amber-300">
+                                  <div className="flex items-center gap-2 mb-3">
+                                    <AlertTriangle className="w-4 h-4 text-amber-600" />
+                                    <span className="text-xs font-medium text-amber-700">异常说明引用备注</span>
+                                  </div>
+                                  <div className="space-y-3">
+                                    {material.anomaly_referenced_notes.map((note, noteIndex) => (
+                                      <div key={note.id} className="relative">
+                                        {noteIndex > 0 && (
+                                          <div className="absolute -top-3 left-4 w-0.5 h-3 bg-slate-300" />
+                                        )}
+                                        <div className="bg-white border border-amber-200 rounded-lg p-3 shadow-sm bg-amber-50">
+                                          <div className="flex items-center justify-between mb-2">
+                                            <div className="flex items-center gap-2">
+                                              <User className="w-3.5 h-3.5 text-slate-400" />
+                                              <span className="text-xs font-medium text-slate-700">{note.author}</span>
+                                              <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${noteCategoryColors[note.category]}`}>
+                                                {NOTE_CATEGORY_LABELS[note.category]}
+                                              </span>
+                                            </div>
+                                            <div className="flex items-center gap-1 text-xs text-slate-400">
+                                              <Clock className="w-3 h-3" />
+                                              {formatDateTime(note.created_at)}
+                                            </div>
+                                          </div>
+                                          <p className="text-sm text-slate-600">{note.content}</p>
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
                             </div>
-                          </div>
-                        )}
-                      </div>
-                    ))}
+                          )}
+                        </div>
+                      )
+                    })}
                   </div>
                 ) : (
                   <div className="text-center py-8 text-slate-500">

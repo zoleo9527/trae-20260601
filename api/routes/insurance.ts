@@ -16,6 +16,7 @@ interface IncidentNote {
 
 interface InsuranceMaterialWithNotes extends Record<string, unknown> {
   referenced_notes: IncidentNote[]
+  anomaly_referenced_notes: IncidentNote[]
 }
 
 function getMaterialWithNotes(material: Record<string, unknown>): InsuranceMaterialWithNotes {
@@ -38,9 +39,29 @@ function getMaterialWithNotes(material: Record<string, unknown>): InsuranceMater
     ).all(...noteIds) as IncidentNote[]
   }
   
+  const anomalyNoteIdsStr = material.anomaly_referenced_note_ids as string | null
+  let anomalyNoteIds: string[] = []
+  
+  if (anomalyNoteIdsStr) {
+    try {
+      anomalyNoteIds = JSON.parse(anomalyNoteIdsStr)
+    } catch {
+      anomalyNoteIds = []
+    }
+  }
+  
+  let anomalyReferencedNotes: IncidentNote[] = []
+  if (anomalyNoteIds.length > 0) {
+    const placeholders = anomalyNoteIds.map(() => '?').join(',')
+    anomalyReferencedNotes = db.prepare(
+      `SELECT * FROM incident_notes WHERE id IN (${placeholders})`
+    ).all(...anomalyNoteIds) as IncidentNote[]
+  }
+  
   return {
     ...material,
-    referenced_notes: referencedNotes
+    referenced_notes: referencedNotes,
+    anomaly_referenced_notes: anomalyReferencedNotes
   }
 }
 
@@ -86,9 +107,9 @@ router.post('/incidents/:id/insurance-materials', (req: Request, res: Response):
   }
 
   db.prepare(`
-    INSERT INTO insurance_materials (id, incident_id, material_type, status, notes, reviewer, anomaly_explanation, referenced_note_ids, created_at, updated_at)
-    VALUES (?, ?, ?, 'pending', ?, ?, ?, ?, ?, ?)
-  `).run(materialId, id, material_type, notes || null, reviewer || null, null, referencedNoteIdsStr, now, now)
+    INSERT INTO insurance_materials (id, incident_id, material_type, status, notes, reviewer, anomaly_explanation, referenced_note_ids, anomaly_referenced_note_ids, created_at, updated_at)
+    VALUES (?, ?, ?, 'pending', ?, ?, ?, ?, ?, ?, ?)
+  `).run(materialId, id, material_type, notes || null, reviewer || null, null, referencedNoteIdsStr, null, now, now)
 
   db.prepare(`
     INSERT INTO operation_logs (id, incident_id, action, operator, detail, created_at)
@@ -106,7 +127,7 @@ router.post('/incidents/:id/insurance-materials', (req: Request, res: Response):
 
 router.patch('/incidents/:id/insurance-materials/:materialId', (req: Request, res: Response): void => {
   const { materialId, id } = req.params
-  const { status, reviewer, notes, anomaly_explanation, referenced_note_ids } = req.body
+  const { status, reviewer, notes, anomaly_explanation, referenced_note_ids, anomaly_referenced_note_ids } = req.body
 
   const material = db.prepare('SELECT * FROM insurance_materials WHERE id = ?').get(materialId) as Record<string, unknown> | undefined
   if (!material) {
@@ -126,6 +147,15 @@ router.patch('/incidents/:id/insurance-materials/:materialId', (req: Request, re
     }
   }
 
+  let anomalyReferencedNoteIdsStr = material.anomaly_referenced_note_ids as string | null
+  if (anomaly_referenced_note_ids !== undefined) {
+    if (Array.isArray(anomaly_referenced_note_ids)) {
+      anomalyReferencedNoteIdsStr = JSON.stringify(anomaly_referenced_note_ids)
+    } else {
+      anomalyReferencedNoteIdsStr = null
+    }
+  }
+
   db.prepare(`
     UPDATE insurance_materials
     SET status = COALESCE(?, status), 
@@ -133,9 +163,10 @@ router.patch('/incidents/:id/insurance-materials/:materialId', (req: Request, re
         notes = COALESCE(?, notes), 
         anomaly_explanation = COALESCE(?, anomaly_explanation),
         referenced_note_ids = COALESCE(?, referenced_note_ids),
+        anomaly_referenced_note_ids = COALESCE(?, anomaly_referenced_note_ids),
         updated_at = ?
     WHERE id = ?
-  `).run(status || null, reviewer || null, notes || null, anomaly_explanation || null, referencedNoteIdsStr, now, materialId)
+  `).run(status || null, reviewer || null, notes || null, anomaly_explanation || null, referencedNoteIdsStr, anomalyReferencedNoteIdsStr, now, materialId)
 
   if (status) {
     db.prepare(`
@@ -155,7 +186,7 @@ router.patch('/incidents/:id/insurance-materials/:materialId', (req: Request, re
 
 router.post('/incidents/:id/insurance-materials/:materialId/anomaly', (req: Request, res: Response): void => {
   const { materialId, id } = req.params
-  const { anomaly_explanation, operator } = req.body
+  const { anomaly_explanation, operator, anomaly_referenced_note_ids } = req.body
 
   if (!anomaly_explanation || !operator) {
     res.status(400).json({ success: false, error: 'anomaly_explanation and operator are required' })
@@ -171,11 +202,16 @@ router.post('/incidents/:id/insurance-materials/:materialId/anomaly', (req: Requ
   const now = new Date().toISOString()
   const incidentId = material.incident_id as string
 
+  let anomalyReferencedNoteIdsStr = null
+  if (anomaly_referenced_note_ids && Array.isArray(anomaly_referenced_note_ids)) {
+    anomalyReferencedNoteIdsStr = JSON.stringify(anomaly_referenced_note_ids)
+  }
+
   db.prepare(`
     UPDATE insurance_materials
-    SET status = 'rejected', anomaly_explanation = ?, updated_at = ?
+    SET status = 'rejected', anomaly_explanation = ?, anomaly_referenced_note_ids = ?, updated_at = ?
     WHERE id = ?
-  `).run(anomaly_explanation, now, materialId)
+  `).run(anomaly_explanation, anomalyReferencedNoteIdsStr, now, materialId)
 
   const noteId = crypto.randomUUID()
   db.prepare(`

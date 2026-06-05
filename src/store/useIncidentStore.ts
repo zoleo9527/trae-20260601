@@ -35,7 +35,7 @@ interface IncidentActions {
   fetchInsuranceMaterials: (incidentId: string) => Promise<void>
   addInsuranceMaterial: (incidentId: string, data: { material_type: string; notes?: string; reviewer?: string; referenced_note_ids?: string[] }) => Promise<void>
   updateInsuranceMaterial: (materialId: string, incidentId: string, data: { status?: MaterialStatus; reviewer?: string; notes?: string; anomaly_explanation?: string; referenced_note_ids?: string[] }) => Promise<void>
-  addAnomalyExplanation: (materialId: string, incidentId: string, anomaly_explanation: string, operator: string) => Promise<void>
+  addAnomalyExplanation: (materialId: string, incidentId: string, anomaly_explanation: string, operator: string, anomaly_referenced_note_ids?: string[]) => Promise<void>
   setFilters: (filters: Partial<IncidentFilters>) => void
 }
 
@@ -198,11 +198,11 @@ export const useIncidentStore = create<IncidentState & IncidentActions>((set, ge
     }
   },
 
-  addAnomalyExplanation: async (materialId, incidentId, anomaly_explanation, operator) => {
+  addAnomalyExplanation: async (materialId, incidentId, anomaly_explanation, operator, anomaly_referenced_note_ids) => {
     try {
       await api(`/api/incidents/${incidentId}/insurance-materials/${materialId}/anomaly`, {
         method: 'POST',
-        body: JSON.stringify({ anomaly_explanation, operator }),
+        body: JSON.stringify({ anomaly_explanation, operator, anomaly_referenced_note_ids }),
       })
       await Promise.all([
         get().fetchInsuranceMaterials(incidentId),

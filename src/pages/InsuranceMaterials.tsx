@@ -86,6 +86,8 @@ export default function InsuranceMaterials() {
   const [selectedNoteForReference, setSelectedNoteForReference] = useState<string | null>(null)
   const [selectedReferencedNoteIds, setSelectedReferencedNoteIds] = useState<string[]>([])
   const [expandedMaterialNoteId, setExpandedMaterialNoteId] = useState<string | null>(null)
+  const [selectedAnomalyNoteIds, setSelectedAnomalyNoteIds] = useState<string[]>([])
+  const [expandedAnomalyNoteId, setExpandedAnomalyNoteId] = useState<string | null>(null)
 
   useEffect(() => {
     if (id) {
@@ -117,9 +119,16 @@ export default function InsuranceMaterials() {
     const explanation = anomalyInput[materialId]
     const operator = anomalyOperator[materialId]
     if (!explanation?.trim() || !operator?.trim()) return
-    addAnomalyExplanation(materialId, id!, explanation.trim(), operator.trim())
+    addAnomalyExplanation(
+      materialId,
+      id!,
+      explanation.trim(),
+      operator.trim(),
+      selectedAnomalyNoteIds.length > 0 ? selectedAnomalyNoteIds : undefined
+    )
     setAnomalyInput((prev) => ({ ...prev, [materialId]: '' }))
     setAnomalyOperator((prev) => ({ ...prev, [materialId]: '' }))
+    setSelectedAnomalyNoteIds([])
     setExpandedNoteId(null)
   }
 
@@ -133,8 +142,20 @@ export default function InsuranceMaterials() {
     setTimeout(() => setSelectedNoteForReference(null), 500)
   }
 
+  const handleAnomalyNoteSelect = (note: IncidentNote) => {
+    if (selectedAnomalyNoteIds.includes(note.id)) {
+      setSelectedAnomalyNoteIds((prev) => prev.filter((id) => id !== note.id))
+    } else {
+      setSelectedAnomalyNoteIds((prev) => [...prev, note.id])
+    }
+  }
+
   const handleRemoveReferencedNote = (noteId: string) => {
     setSelectedReferencedNoteIds((prev) => prev.filter((id) => id !== noteId))
+  }
+
+  const handleRemoveAnomalyNote = (noteId: string) => {
+    setSelectedAnomalyNoteIds((prev) => prev.filter((id) => id !== noteId))
   }
 
   const handleUpdateStatus = async (materialId: string, status: MaterialStatus) => {
@@ -143,6 +164,10 @@ export default function InsuranceMaterials() {
 
   const getSelectedReferencedNotes = () => {
     return rescueMedicalNotesList.filter((note) => selectedReferencedNoteIds.includes(note.id))
+  }
+
+  const getSelectedAnomalyNotes = () => {
+    return rescueMedicalNotesList.filter((note) => selectedAnomalyNoteIds.includes(note.id))
   }
 
   const buildReferenceChain = (material: InsuranceMaterialWithNotes) => {
@@ -170,6 +195,10 @@ export default function InsuranceMaterials() {
 
   const toggleMaterialNoteExpand = (materialId: string) => {
     setExpandedMaterialNoteId(expandedMaterialNoteId === materialId ? null : materialId)
+  }
+
+  const toggleAnomalyNoteExpand = (materialId: string) => {
+    setExpandedAnomalyNoteId(expandedAnomalyNoteId === materialId ? null : materialId)
   }
 
   return (
@@ -358,6 +387,7 @@ export default function InsuranceMaterials() {
                                     <button
                                       onClick={() => {
                                         setExpandedNoteId(m.id)
+                                        setSelectedAnomalyNoteIds([])
                                         if (!anomalyOperator[m.id] && currentIncident?.responsible_person) {
                                           setAnomalyOperator(prev => ({ ...prev, [m.id]: currentIncident.responsible_person || '' }))
                                         }
@@ -383,6 +413,17 @@ export default function InsuranceMaterials() {
                                       )}
                                     </button>
                                   )}
+                                  {m.anomaly_referenced_notes && m.anomaly_referenced_notes.length > 0 && (
+                                    <button
+                                      onClick={() => toggleAnomalyNoteExpand(m.id)}
+                                      className={`p-1.5 transition-colors ${
+                                        expandedAnomalyNoteId === m.id ? 'text-amber-600' : 'text-slate-400 hover:text-amber-600'
+                                      }`}
+                                      title="查看异常关联来源"
+                                    >
+                                      <Tag className="w-4 h-4" />
+                                    </button>
+                                  )}
                                 </div>
                               </td>
                             </tr>
@@ -399,6 +440,41 @@ export default function InsuranceMaterials() {
                                         <div
                                           key={note.id}
                                           className="bg-white border border-slate-200 rounded-lg p-3"
+                                        >
+                                          <div className="flex items-center justify-between mb-2">
+                                            <div className="flex items-center gap-2">
+                                              <User className="w-3.5 h-3.5 text-slate-400" />
+                                              <span className="text-xs font-medium text-slate-700">{note.author}</span>
+                                              <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${noteCategoryColors[note.category]}`}>
+                                                {NOTE_CATEGORY_LABELS[note.category]}
+                                              </span>
+                                            </div>
+                                            <div className="flex items-center gap-1 text-xs text-slate-400">
+                                              <Clock className="w-3 h-3" />
+                                              {formatDateTime(note.created_at)}
+                                            </div>
+                                          </div>
+                                          <p className="text-sm text-slate-600">{note.content}</p>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                </td>
+                              </tr>
+                            )}
+                            {expandedAnomalyNoteId === m.id && m.anomaly_referenced_notes && m.anomaly_referenced_notes.length > 0 && (
+                              <tr key={`${m.id}-anomaly-notes`} className="bg-amber-50">
+                                <td colSpan={5} className="px-5 py-4">
+                                  <div className="pl-4 border-l-2 border-amber-300">
+                                    <div className="flex items-center gap-2 mb-3">
+                                      <Tag className="w-4 h-4 text-amber-600" />
+                                      <span className="text-xs font-medium text-amber-700">异常关联来源</span>
+                                    </div>
+                                    <div className="space-y-3">
+                                      {m.anomaly_referenced_notes.map((note) => (
+                                        <div
+                                          key={note.id}
+                                          className="bg-white border border-amber-200 rounded-lg p-3"
                                         >
                                           <div className="flex items-center justify-between mb-2">
                                             <div className="flex items-center gap-2">
@@ -448,7 +524,7 @@ export default function InsuranceMaterials() {
                       </p>
                     </div>
                   )}
-                  <div className="space-y-3">
+                  <div className="space-y-4">
                     <div>
                       <label className="block text-xs text-slate-500 mb-1">操作人</label>
                       <div className="relative">
@@ -475,6 +551,76 @@ export default function InsuranceMaterials() {
                         rows={3}
                         className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
                       />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-slate-500 mb-2">
+                        关联来源备注 ({selectedAnomalyNoteIds.length})
+                      </label>
+                      <div className="mb-3">
+                        {getSelectedAnomalyNotes().length > 0 ? (
+                          <div className="space-y-2 mb-3">
+                            {getSelectedAnomalyNotes().map((note) => (
+                              <div
+                                key={note.id}
+                                className="flex items-center justify-between p-2 bg-amber-50 border border-amber-200 rounded-lg"
+                              >
+                                <div className="flex items-center gap-2 flex-1 min-w-0">
+                                  <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${noteCategoryColors[note.category]}`}>
+                                    {NOTE_CATEGORY_LABELS[note.category]}
+                                  </span>
+                                  <span className="text-xs text-slate-600 truncate">{truncateText(note.content, 30)}</span>
+                                </div>
+                                <button
+                                  onClick={() => handleRemoveAnomalyNote(note.id)}
+                                  className="p-1 text-slate-400 hover:text-red-500 transition-colors"
+                                >
+                                  <X className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-xs text-slate-400 mb-3">请从下方列表中选择关联的备注</p>
+                        )}
+                      </div>
+                      <div className="border border-slate-200 rounded-lg max-h-60 overflow-y-auto">
+                        {rescueMedicalNotesList.length > 0 ? (
+                          rescueMedicalNotesList.map((note) => {
+                            const isSelected = selectedAnomalyNoteIds.includes(note.id)
+                            return (
+                              <div
+                                key={note.id}
+                                onClick={() => handleAnomalyNoteSelect(note)}
+                                className={`p-3 border-b border-slate-100 cursor-pointer transition-all last:border-b-0 ${
+                                  isSelected
+                                    ? 'bg-amber-50 border-l-4 border-l-amber-500'
+                                    : 'hover:bg-slate-50 border-l-4 border-l-transparent'
+                                }`}
+                              >
+                                <div className="flex items-start gap-3">
+                                  <div className={`w-5 h-5 rounded flex items-center justify-center flex-shrink-0 mt-0.5 ${
+                                    isSelected ? 'bg-amber-500 text-white' : 'bg-slate-200'
+                                  }`}>
+                                    {isSelected && <Check className="w-3.5 h-3.5" />}
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-2 mb-1">
+                                      <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${noteCategoryColors[note.category]}`}>
+                                        {NOTE_CATEGORY_LABELS[note.category]}
+                                      </span>
+                                      <span className="text-xs font-medium text-slate-700">{note.author}</span>
+                                      <span className="text-xs text-slate-400">{formatDateTime(note.created_at)}</span>
+                                    </div>
+                                    <p className="text-xs text-slate-600 line-clamp-2">{note.content}</p>
+                                  </div>
+                                </div>
+                              </div>
+                            )
+                          })
+                        ) : (
+                          <div className="p-4 text-center text-slate-500 text-sm">暂无救援/医疗备注</div>
+                        )}
+                      </div>
                     </div>
                     <button
                       onClick={() => handleAddAnomaly(expandedNoteId)}

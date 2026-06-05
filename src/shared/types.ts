@@ -50,12 +50,14 @@ export interface InsuranceMaterial {
   notes: string
   anomaly_explanation: string
   referenced_note_ids: string
+  anomaly_referenced_note_ids: string | null
   created_at: string
   updated_at: string
 }
 
 export interface InsuranceMaterialWithNotes extends InsuranceMaterial {
   referenced_notes: IncidentNote[]
+  anomaly_referenced_notes: IncidentNote[]
 }
 
 export interface OperationLog {
