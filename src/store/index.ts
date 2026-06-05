@@ -57,7 +57,10 @@ interface AppState {
   getTodoCount: () => number;
   getFilteredRecords: () => ScheduleRecord[];
   getAlerts: () => ScheduleRecord[];
+  getVisibleRecordIds: () => string[];
 }
+
+export { getVisibleStatuses, isRecordVisible };
 
 const getOperatorName = (role: UserRole): string => {
   switch (role) {
@@ -65,6 +68,27 @@ const getOperatorName = (role: UserRole): string => {
     case 'coach': return '当前教练';
     case 'manager': return '值班店长';
   }
+};
+
+const getVisibleStatuses = (role: UserRole, filterStatus: RecordStatus | 'all'): RecordStatus[] => {
+  if (filterStatus !== 'all') {
+    return [filterStatus];
+  }
+  switch (role) {
+    case 'coach':
+      return ['pending_coach_confirm'];
+    case 'reception':
+      return ['pending_reception_handle'];
+    case 'manager':
+      return ['pending_manager_audit', 'disputed'];
+    default:
+      return [];
+  }
+};
+
+const isRecordVisible = (record: ScheduleRecord, role: UserRole, filterStatus: RecordStatus | 'all'): boolean => {
+  const visibleStatuses = getVisibleStatuses(role, filterStatus);
+  return visibleStatuses.includes(record.status);
 };
 
 export const useStore = create<AppState>((set, get) => ({
@@ -352,37 +376,25 @@ export const useStore = create<AppState>((set, get) => ({
   
   getTodoCount: () => {
     const { records, currentRole } = get();
-    return records.filter((r) => {
-      if (r.status === 'completed') return false;
-      if (currentRole === 'coach') return r.status === 'pending_coach_confirm';
-      if (currentRole === 'reception') return r.status === 'pending_reception_handle';
-      if (currentRole === 'manager') return r.status === 'pending_manager_audit' || r.status === 'disputed';
-      return false;
-    }).length;
+    return records.filter((r) => isRecordVisible(r, currentRole, 'all')).length;
   },
   
   getFilteredRecords: () => {
     const { records, filterStatus, currentRole } = get();
-    return records.filter((r) => {
-      if (filterStatus !== 'all' && r.status !== filterStatus) return false;
-      
-      if (currentRole === 'coach') {
-        return filterStatus === 'all' ? r.status === 'pending_coach_confirm' : true;
-      }
-      if (currentRole === 'reception') {
-        return filterStatus === 'all' ? r.status === 'pending_reception_handle' : true;
-      }
-      if (currentRole === 'manager') {
-        return filterStatus === 'all' ? r.status === 'pending_manager_audit' : true;
-      }
-      return true;
-    }).sort((a, b) => {
-      if (a.isOverdue && !b.isOverdue) return -1;
-      if (!a.isOverdue && b.isOverdue) return 1;
-      if (a.hasResponsibilityRisk && !b.hasResponsibilityRisk) return -1;
-      if (!a.hasResponsibilityRisk && b.hasResponsibilityRisk) return 1;
-      return b.createdAt - a.createdAt;
-    });
+    return records
+      .filter((r) => isRecordVisible(r, currentRole, filterStatus))
+      .sort((a, b) => {
+        if (a.isOverdue && !b.isOverdue) return -1;
+        if (!a.isOverdue && b.isOverdue) return 1;
+        if (a.hasResponsibilityRisk && !b.hasResponsibilityRisk) return -1;
+        if (!a.hasResponsibilityRisk && b.hasResponsibilityRisk) return 1;
+        return b.createdAt - a.createdAt;
+      });
+  },
+  
+  getVisibleRecordIds: () => {
+    const { records, filterStatus, currentRole } = get();
+    return records.filter((r) => isRecordVisible(r, currentRole, filterStatus)).map((r) => r.id);
   },
   
   getAlerts: () => {

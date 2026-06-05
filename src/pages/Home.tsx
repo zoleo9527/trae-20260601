@@ -3,28 +3,14 @@ import { AnomalyTrigger } from '@/components/debug/AnomalyTrigger';
 import { TopBar } from '@/components/layout/TopBar';
 import { RecordDetailPanel } from '@/components/records/RecordDetailPanel';
 import { RecordList } from '@/components/records/RecordList';
-import { useStore } from '@/store';
+import { isRecordVisible, useStore } from '@/store';
 import { useEffect } from 'react';
 
 export default function Home() {
   const { showDetailPanel, currentRole, filterStatus, selectedRecordIds, activeRecordId, records, setSelectedRecords, setActiveRecord, setShowDetailPanel } = useStore();
   
   useEffect(() => {
-    const isVisible = (r: any) => {
-      if (currentRole === 'coach') {
-        return filterStatus === 'all' ? r.status === 'pending_coach_confirm' : r.status === filterStatus;
-      }
-      if (currentRole === 'reception') {
-        return filterStatus === 'all' ? r.status === 'pending_reception_handle' : r.status === filterStatus;
-      }
-      if (currentRole === 'manager') {
-        return filterStatus === 'all' ? r.status === 'pending_manager_audit' : r.status === filterStatus;
-      }
-      return filterStatus === 'all' || r.status === filterStatus;
-    };
-    
-    const visibleRecords = records.filter(isVisible);
-    const visibleIds = visibleRecords.map((r: any) => r.id);
+    const visibleIds = records.filter((r) => isRecordVisible(r, currentRole, filterStatus)).map((r) => r.id);
     const validSelectedIds = selectedRecordIds.filter((id) => visibleIds.includes(id));
     if (validSelectedIds.length !== selectedRecordIds.length) {
       setSelectedRecords(validSelectedIds);
