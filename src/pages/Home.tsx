@@ -1,12 +1,39 @@
-import { TopBar } from '@/components/layout/TopBar';
-import { RecordList } from '@/components/records/RecordList';
-import { RecordDetailPanel } from '@/components/records/RecordDetailPanel';
 import { BatchActionBar } from '@/components/actions/BatchActionBar';
 import { AnomalyTrigger } from '@/components/debug/AnomalyTrigger';
+import { TopBar } from '@/components/layout/TopBar';
+import { RecordDetailPanel } from '@/components/records/RecordDetailPanel';
+import { RecordList } from '@/components/records/RecordList';
 import { useStore } from '@/store';
+import { useEffect } from 'react';
 
 export default function Home() {
-  const { showDetailPanel, selectedRecordIds } = useStore();
+  const { showDetailPanel, currentRole, filterStatus, selectedRecordIds, activeRecordId, records, setSelectedRecords, setActiveRecord, setShowDetailPanel } = useStore();
+  
+  useEffect(() => {
+    const isVisible = (r: any) => {
+      if (currentRole === 'coach') {
+        return filterStatus === 'all' ? r.status === 'pending_coach_confirm' : r.status === filterStatus;
+      }
+      if (currentRole === 'reception') {
+        return filterStatus === 'all' ? r.status === 'pending_reception_handle' : r.status === filterStatus;
+      }
+      if (currentRole === 'manager') {
+        return filterStatus === 'all' ? r.status === 'pending_manager_audit' : r.status === filterStatus;
+      }
+      return filterStatus === 'all' || r.status === filterStatus;
+    };
+    
+    const visibleRecords = records.filter(isVisible);
+    const visibleIds = visibleRecords.map((r: any) => r.id);
+    const validSelectedIds = selectedRecordIds.filter((id) => visibleIds.includes(id));
+    if (validSelectedIds.length !== selectedRecordIds.length) {
+      setSelectedRecords(validSelectedIds);
+    }
+    if (activeRecordId && !visibleIds.includes(activeRecordId)) {
+      setActiveRecord(null);
+      setShowDetailPanel(false);
+    }
+  }, [currentRole, filterStatus, records, selectedRecordIds, activeRecordId, setSelectedRecords, setActiveRecord, setShowDetailPanel]);
 
   return (
     <div className="min-h-screen bg-slate-950 flex flex-col">

@@ -4,17 +4,18 @@ import { responsibilityNames, type ResponsibilityFlag } from '@/types';
 import { useState } from 'react';
 
 export function BatchActionBar() {
-  const { selectedRecordIds, setSelectedRecords, batchConfirm, batchMarkResponsibility, records, currentRole } = useStore();
+  const { selectedRecordIds, setSelectedRecords, batchConfirm, batchMarkResponsibility, getFilteredRecords, currentRole } = useStore();
   const [showResponsibilityMenu, setShowResponsibilityMenu] = useState(false);
   
   if (selectedRecordIds.length === 0) return null;
   
-  const selectedRecords = records.filter((r) => selectedRecordIds.includes(r.id));
+  const filteredRecords = getFilteredRecords();
+  const selectedRecords = filteredRecords.filter((r) => selectedRecordIds.includes(r.id));
   const canConfirm = currentRole === 'coach' && selectedRecords.every((r) => r.status === 'pending_coach_confirm');
   const canMarkResponsibility = currentRole === 'manager';
   
   const handleSelectAll = () => {
-    const allIds = records.map((r) => r.id);
+    const allIds = filteredRecords.map((r) => r.id);
     setSelectedRecords(allIds);
   };
   

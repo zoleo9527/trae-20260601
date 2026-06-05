@@ -221,9 +221,7 @@ export const useStore = create<AppState>((set, get) => ({
         if (r.id === recordId) {
           return {
             ...r,
-            status: 'pending_coach_confirm' as RecordStatus,
-            rejectReason: undefined,
-            rejectRemark: undefined
+            status: 'pending_coach_confirm' as RecordStatus
           };
         }
         return r;
@@ -255,8 +253,6 @@ export const useStore = create<AppState>((set, get) => ({
             ...r,
             ...updates,
             status: 'pending_coach_confirm' as RecordStatus,
-            rejectReason: undefined,
-            rejectRemark: undefined,
             isOverdue: false,
             updatedAt: Date.now()
           };
@@ -371,13 +367,13 @@ export const useStore = create<AppState>((set, get) => ({
       if (filterStatus !== 'all' && r.status !== filterStatus) return false;
       
       if (currentRole === 'coach') {
-        return r.status === 'pending_coach_confirm' || r.status === 'completed';
+        return filterStatus === 'all' ? r.status === 'pending_coach_confirm' : true;
       }
       if (currentRole === 'reception') {
-        return r.status === 'pending_reception_handle' || r.status === 'completed' || r.status === 'pending_coach_confirm';
+        return filterStatus === 'all' ? r.status === 'pending_reception_handle' : true;
       }
       if (currentRole === 'manager') {
-        return r.status === 'pending_manager_audit' || r.status === 'disputed' || r.status === 'completed';
+        return filterStatus === 'all' ? r.status === 'pending_manager_audit' : true;
       }
       return true;
     }).sort((a, b) => {

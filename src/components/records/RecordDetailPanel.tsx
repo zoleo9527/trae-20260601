@@ -195,13 +195,13 @@ export function RecordDetailPanel() {
             </div>
           </div>
           
-          {!showScheduleEdit && (currentRole === 'reception' || currentRole === 'manager') && record.status !== 'completed' && (
+          {!showScheduleEdit && currentRole === 'reception' && record.status === 'pending_reception_handle' && (
             <button
               onClick={handleOpenScheduleEdit}
               className="w-full px-3 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 text-sm rounded transition-colors flex items-center justify-center gap-2"
             >
               <Settings className="w-4 h-4" />
-              调整排班（教练/时间/场地）
+              调整排班并重提（教练/时间/场地）
             </button>
           )}
           
