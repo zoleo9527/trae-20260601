@@ -1,4 +1,5 @@
 import { Router, type Request, type Response } from 'express'
+import { normalizeGrading, normalizeGradingLevel, normalizeProcurementGrading } from '../utils/grading.js'
 import prisma from '../prisma.js'
 
 const router = Router()
@@ -23,7 +24,8 @@ router.get('/pending', async (req: Request, res: Response): Promise<void> => {
       ],
     })
 
-    const sorted = procurements.sort((a, b) => {
+    const normalizedProcurements = procurements.map(p => normalizeProcurementGrading(p));
+    const sorted = normalizedProcurements.sort((a, b) => {
       const aOrder = urgencyOrder[a.urgency] ?? 99
       const bOrder = urgencyOrder[b.urgency] ?? 99
       if (aOrder !== bOrder) return aOrder - bOrder
@@ -48,7 +50,7 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
       const grading = await tx.grading.create({
         data: {
           procurementId,
-          level,
+          level: normalizeGradingLevel(level),
           gradedById,
           anomalyNote,
           remarks,
@@ -76,7 +78,7 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
       })
       return grading
     })
-    res.status(201).json({ success: true, data: result })
+    res.status(201).json({ success: true, data: normalizeGrading(result) })
   } catch (error) {
     res.status(500).json({ success: false, error: 'Server internal error' })
   }
@@ -100,7 +102,7 @@ router.get('/:id', async (req: Request, res: Response): Promise<void> => {
       res.status(404).json({ success: false, error: 'Grading not found' })
       return
     }
-    res.status(200).json({ success: true, data: grading })
+    res.status(200).json({ success: true, data: normalizeGrading(grading) })
   } catch (error) {
     res.status(500).json({ success: false, error: 'Server internal error' })
   }

@@ -1,4 +1,5 @@
 import { Router, type Request, type Response } from 'express'
+import { normalizeProcurementGrading } from '../utils/grading.js'
 import prisma from '../prisma.js'
 
 const router = Router()
@@ -53,7 +54,8 @@ router.get('/', async (req: Request, res: Response): Promise<void> => {
       prisma.procurement.count({ where }),
     ])
 
-    const sortedProcurements = procurements.sort((a, b) => {
+    const normalizedProcurements = procurements.map(p => normalizeProcurementGrading(p));
+    const sortedProcurements = normalizedProcurements.sort((a, b) => {
       const aOrder = urgencyOrder[a.urgency] ?? 99
       const bOrder = urgencyOrder[b.urgency] ?? 99
       if (aOrder !== bOrder) return aOrder - bOrder
@@ -95,7 +97,7 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
         grading: true,
       },
     })
-    res.status(201).json({ success: true, data: procurement })
+    res.status(201).json({ success: true, data: normalizeProcurementGrading(procurement) })
   } catch (error) {
     res.status(500).json({ success: false, error: 'Server internal error' })
   }
@@ -125,7 +127,7 @@ router.get('/:id', async (req: Request, res: Response): Promise<void> => {
       res.status(404).json({ success: false, error: 'Procurement not found' })
       return
     }
-    res.status(200).json({ success: true, data: procurement })
+    res.status(200).json({ success: true, data: normalizeProcurementGrading(procurement) })
   } catch (error) {
     res.status(500).json({ success: false, error: 'Server internal error' })
   }
@@ -150,7 +152,7 @@ router.patch('/:id', async (req: Request, res: Response): Promise<void> => {
         grading: true,
       },
     })
-    res.status(200).json({ success: true, data: procurement })
+    res.status(200).json({ success: true, data: normalizeProcurementGrading(procurement) })
   } catch (error) {
     res.status(500).json({ success: false, error: 'Server internal error' })
   }
@@ -189,7 +191,7 @@ router.post('/:id/submit', async (req: Request, res: Response): Promise<void> =>
       })
       return updatedProcurement
     })
-    res.status(200).json({ success: true, data: updated })
+    res.status(200).json({ success: true, data: normalizeProcurementGrading(updated) })
   } catch (error) {
     res.status(500).json({ success: false, error: 'Server internal error' })
   }
@@ -225,7 +227,7 @@ router.post('/:id/reject', async (req: Request, res: Response): Promise<void> =>
       })
       return updatedProcurement
     })
-    res.status(200).json({ success: true, data: updated })
+    res.status(200).json({ success: true, data: normalizeProcurementGrading(updated) })
   } catch (error) {
     res.status(500).json({ success: false, error: 'Server internal error' })
   }
@@ -260,7 +262,7 @@ router.post('/:id/close', async (req: Request, res: Response): Promise<void> => 
       })
       return updatedProcurement
     })
-    res.status(200).json({ success: true, data: updated })
+    res.status(200).json({ success: true, data: normalizeProcurementGrading(updated) })
   } catch (error) {
     res.status(500).json({ success: false, error: 'Server internal error' })
   }
@@ -299,7 +301,7 @@ router.post('/:id/resubmit', async (req: Request, res: Response): Promise<void> 
       })
       return updatedProcurement
     })
-    res.status(200).json({ success: true, data: updated })
+    res.status(200).json({ success: true, data: normalizeProcurementGrading(updated) })
   } catch (error) {
     res.status(500).json({ success: false, error: 'Server internal error' })
   }
@@ -334,7 +336,7 @@ router.post('/:id/flag-review', async (req: Request, res: Response): Promise<voi
       })
       return updatedProcurement
     })
-    res.status(200).json({ success: true, data: updated })
+    res.status(200).json({ success: true, data: normalizeProcurementGrading(updated) })
   } catch (error) {
     res.status(500).json({ success: false, error: 'Server internal error' })
   }

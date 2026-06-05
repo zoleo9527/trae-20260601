@@ -2,7 +2,24 @@ export type UserRole = "FLORIST" | "DISPATCHER" | "AFTERCARE"
 
 export type ProcurementStatus = "PENDING" | "IN_PROGRESS" | "REJECTED" | "CLOSED" | "NEEDS_REVIEW"
 
-export type GradingLevel = "A" | "B" | "C" | "SCRAP"
+export const GRADING_LEVELS = { 
+  A: "A", 
+  B: "B", 
+  C: "C", 
+  SCRAP: "SCRAP", 
+} as const 
+
+export type GradingLevel = (typeof GRADING_LEVELS)[keyof typeof GRADING_LEVELS] 
+
+export const VALID_GRADING_LEVELS = new Set(Object.values(GRADING_LEVELS)) 
+
+export function normalizeGradingLevel(level: string | null | undefined): GradingLevel { 
+  if (!level) return GRADING_LEVELS.SCRAP 
+  const upperLevel = level.toUpperCase() 
+  if (upperLevel === "REJECTED") return GRADING_LEVELS.SCRAP 
+  if (VALID_GRADING_LEVELS.has(upperLevel as GradingLevel)) return upperLevel as GradingLevel 
+  return GRADING_LEVELS.SCRAP 
+}
 
 export type Urgency = "NORMAL" | "URGENT" | "CRITICAL"
 

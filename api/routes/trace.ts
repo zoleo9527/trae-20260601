@@ -1,4 +1,5 @@
 import { Router, type Request, type Response } from 'express'
+import { normalizeProcurementGrading, normalizeGradingLevel } from '../utils/grading.js'
 import prisma from '../prisma.js'
 
 const router = Router()
@@ -63,7 +64,7 @@ router.get('/:procurementId', async (req: Request, res: Response): Promise<void>
         timestamp: procurement.grading.gradedAt,
         user: procurement.grading.gradedBy,
         data: {
-          level: procurement.grading.level,
+          level: normalizeGradingLevel(procurement.grading.level),
           anomalyNote: procurement.grading.anomalyNote,
           remarks: procurement.grading.remarks,
         },
@@ -75,7 +76,7 @@ router.get('/:procurementId', async (req: Request, res: Response): Promise<void>
     res.status(200).json({
       success: true,
       data: {
-        procurement,
+        procurement: normalizeProcurementGrading(procurement),
         timeline,
       },
     })

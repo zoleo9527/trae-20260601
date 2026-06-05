@@ -1,6 +1,6 @@
 import { cn } from "@/lib/utils"
 import type { ProcurementStatus, Urgency, GradingLevel } from "@/types"
-import { STATUS_LABELS, URGENCY_LABELS, GRADING_LABELS } from "@/types"
+import { STATUS_LABELS, URGENCY_LABELS, GRADING_LABELS, normalizeGradingLevel } from "@/types"
 
 export function StatusBadge({ status, className }: { status: ProcurementStatus; className?: string }) {
   const base = "px-2 py-0.5 rounded text-xs font-medium font-mono"
@@ -32,7 +32,8 @@ export function UrgencyBadge({ urgency, className }: { urgency: Urgency; classNa
   )
 }
 
-export function GradingBadge({ level, className }: { level: GradingLevel; className?: string }) {
+export function GradingBadge({ level, className }: { level: GradingLevel | string | null | undefined; className?: string }) {
+  const safeLevel = normalizeGradingLevel(level);
   const base = "px-3 py-1 rounded text-sm font-bold font-mono"
   const variants: Record<GradingLevel, string> = {
     A: "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30",
@@ -41,8 +42,8 @@ export function GradingBadge({ level, className }: { level: GradingLevel; classN
     SCRAP: "bg-red-500/20 text-red-400 border border-red-500/30",
   }
   return (
-    <span className={cn(base, variants[level], className)}>
-      {GRADING_LABELS[level]}
+    <span className={cn(base, variants[safeLevel], className)}>
+      {GRADING_LABELS[safeLevel]}
     </span>
   )
 }
