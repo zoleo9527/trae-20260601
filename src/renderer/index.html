@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>鲜花配送站 - 配送派单与签收回传</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="app-header">
+    <h1 class="app-title">🌸 鲜花配送站</h1>
+    <nav class="main-nav">
+      <button class="nav-btn active" data-tab="dashboard">总览</button>
+      <button class="nav-btn" data-tab="orders">订单</button>
+      <button class="nav-btn" data-tab="dispatches">派单</button>
+      <button class="nav-btn" data-tab="signatures">签收回传</button>
+      <button class="nav-btn" data-tab="exceptions">异常</button>
+    </nav>
+    <div class="header-actions">
+      <span class="shortcut-hint">Ctrl+N 新增订单</span>
+    </div>
+  </header>
+
+  <main class="app-main">
+
+    <!-- 总览面板 -->
+    <section class="tab-panel active" id="panel-dashboard">
+      <div class="dashboard-grid">
+        <div class="stat-card stat-urgent">
+          <div class="stat-label">催办订单</div>
+          <div class="stat-value" id="dash-urgent">0</div>
+          <div class="stat-sub" id="dash-urgent-sub">无催办</div>
+        </div>
+        <div class="stat-card stat-pending-dispatch">
+          <div class="stat-label">待派单</div>
+          <div class="stat-value" id="dash-pending-dispatch">0</div>
+          <div class="stat-sub" id="dash-pending-dispatch-sub">—</div>
+        </div>
+        <div class="stat-card stat-pending-sign">
+          <div class="stat-label">待签收</div>
+          <div class="stat-value" id="dash-pending-sign">0</div>
+          <div class="stat-sub" id="dash-pending-sign-sub">—</div>
+        </div>
+        <div class="stat-card stat-returned">
+          <div class="stat-label">退回</div>
+          <div class="stat-value" id="dash-returned">0</div>
+          <div class="stat-sub" id="dash-returned-sub">—</div>
+        </div>
+        <div class="stat-card stat-supplement">
+          <div class="stat-label">补材料</div>
+          <div class="stat-value" id="dash-supplement">0</div>
+          <div class="stat-sub" id="dash-supplement-sub">—</div>
+        </div>
+        <div class="stat-card stat-total">
+          <div class="stat-label">今日总单</div>
+          <div class="stat-value" id="dash-total">0</div>
+          <div class="stat-sub">—</div>
+        </div>
+      </div>
+
+      <div class="dashboard-bottom">
+        <div class="dash-section">
+          <h3>催办列表</h3>
+          <div class="dash-table-wrap">
+            <table class="data-table" id="dash-urgent-table">
+              <thead>
+                <tr><th>订单号</th><th>客户</th><th>期望送达</th><th>当前状态</th><th>操作</th></tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="dash-section">
+          <h3>派单卡点</h3>
+          <div id="dash-stuck-list" class="stuck-list"></div>
+        </div>
+        <div class="dash-section">
+          <h3>签收回传未完成原因</h3>
+          <div id="dash-sig-reasons" class="sig-reason-list"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 订单面板 -->
+    <section class="tab-panel" id="panel-orders">
+      <div class="toolbar">
+        <div class="toolbar-left">
+          <button class="btn btn-primary" id="btn-new-order">+ 新增订单</button>
+          <div class="filter-group">
+            <label>状态</label>
+            <select id="filter-order-status">
+              <option value="">全部</option>
+              <option value="待制作">待制作</option>
+              <option value="制作中">制作中</option>
+              <option value="待派单">待派单</option>
+              <option value="已派单">已派单</option>
+              <option value="配送中">配送中</option>
+              <option value="已送达待签收">已送达待签收</option>
+              <option value="已签收">已签收</option>
+              <option value="退回">退回</option>
+              <option value="已关闭">已关闭</option>
+            </select>
+          </div>
+          <div class="filter-group">
+            <label>来源</label>
+            <select id="filter-order-source">
+              <option value="">全部</option>
+              <option value="现场">现场</option>
+              <option value="线上">线上</option>
+              <option value="电话">电话</option>
+              <option value="旧台账">旧台账</option>
+            </select>
+          </div>
+          <div class="filter-group">
+            <label>花艺师</label>
+            <select id="filter-order-florist"><option value="">全部</option></select>
+          </div>
+          <div class="filter-group">
+            <input type="text" id="filter-order-kw" placeholder="搜索订单号/客户/电话" class="input-search">
+          </div>
+          <button class="btn btn-secondary" id="btn-filter-order">筛选</button>
+        </div>
+      </div>
+
+      <div class="table-wrap">
+        <table class="data-table" id="order-table">
+          <thead>
+            <tr>
+              <th>订单号</th><th>客户</th><th>电话</th><th>花型</th><th>配送地址</th>
+              <th>期望送达</th><th>花艺师</th><th>来源</th><th>状态</th><th>操作</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- 派单面板 -->
+    <section class="tab-panel" id="panel-dispatches">
+      <div class="toolbar">
+        <div class="toolbar-left">
+          <div class="filter-group">
+            <label>派单状态</label>
+            <select id="filter-dispatch-status">
+              <option value="">全部</option>
+              <option value="待派单">待派单</option>
+              <option value="已派单">已派单</option>
+              <option value="配送中">配送中</option>
+              <option value="已送达待签收">已送达待签收</option>
+              <option value="退回">退回</option>
+              <option value="异常">异常</option>
+            </select>
+          </div>
+          <div class="filter-group">
+            <label>调度员</label>
+            <select id="filter-dispatch-dispatcher"><option value="">全部</option></select>
+          </div>
+          <button class="btn btn-secondary" id="btn-filter-dispatch">筛选</button>
+        </div>
+      </div>
+
+      <div class="table-wrap">
+        <table class="data-table" id="dispatch-table">
+          <thead>
+            <tr>
+              <th>订单号</th><th>客户</th><th>期望送达</th><th>调度员</th><th>配送员</th>
+              <th>配送员电话</th><th>派单时间</th><th>卡点原因</th><th>状态</th><th>操作</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- 签收回传面板 -->
+    <section class="tab-panel" id="panel-signatures">
+      <div class="toolbar">
+        <div class="toolbar-left">
+          <div class="filter-group">
+            <label>签收状态</label>
+            <select id="filter-sig-status">
+              <option value="">全部</option>
+              <option value="待签收">待签收</option>
+              <option value="已签收">已签收</option>
+              <option value="退回">退回</option>
+              <option value="补材料">补材料</option>
+            </select>
+          </div>
+          <button class="btn btn-secondary" id="btn-filter-sig">筛选</button>
+        </div>
+      </div>
+
+      <div class="table-wrap">
+        <table class="data-table" id="signature-table">
+          <thead>
+            <tr>
+              <th>订单号</th><th>客户</th><th>期望送达</th><th>配送员</th>
+              <th>签收人</th><th>签收时间</th><th>状态</th><th>退回原因</th><th>补材料说明</th><th>操作</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- 异常面板 -->
+    <section class="tab-panel" id="panel-exceptions">
+      <div class="toolbar">
+        <div class="toolbar-left">
+          <div class="filter-group">
+            <label>异常类型</label>
+            <select id="filter-exc-type">
+              <option value="">全部</option>
+              <option value="催">催</option>
+              <option value="退回">退回</option>
+              <option value="补材料">补材料</option>
+            </select>
+          </div>
+          <div class="filter-group">
+            <label>处理状态</label>
+            <select id="filter-exc-status">
+              <option value="">全部</option>
+              <option value="未处理">未处理</option>
+              <option value="处理中">处理中</option>
+              <option value="已解决">已解决</option>
+            </select>
+          </div>
+          <button class="btn btn-secondary" id="btn-filter-exc">筛选</button>
+        </div>
+      </div>
+
+      <div class="table-wrap">
+        <table class="data-table" id="exception-table">
+          <thead>
+            <tr>
+              <th>订单号</th><th>客户</th><th>类型</th><th>描述</th><th>处理人</th>
+              <th>异常状态</th><th>创建时间</th><th>解决时间</th><th>操作</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <!-- 订单详情侧滑 -->
+  <aside class="slide-panel" id="order-detail-panel">
+    <div class="slide-header">
+      <h2>订单详情</h2>
+      <button class="btn-close" id="btn-close-detail">&times;</button>
+    </div>
+    <div class="slide-body" id="order-detail-body"></div>
+  </aside>
+  <div class="overlay" id="overlay"></div>
+
+  <!-- 新增订单模态 -->
+  <div class="modal" id="modal-new-order">
+    <div class="modal-content modal-lg">
+      <div class="modal-header">
+        <h2>新增订单</h2>
+        <button class="btn-close modal-close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <form id="form-new-order" class="form-grid">
+          <div class="form-group">
+            <label>订单号</label>
+            <input type="text" name="order_no" required class="form-input">
+          </div>
+          <div class="form-group">
+            <label>客户姓名</label>
+            <input type="text" name="customer_name" required class="form-input">
+          </div>
+          <div class="form-group">
+            <label>客户电话</label>
+            <input type="text" name="customer_phone" class="form-input">
+          </div>
+          <div class="form-group">
+            <label>花型</label>
+            <input type="text" name="flower_type" class="form-input">
+          </div>
+          <div class="form-group">
+            <label>插花风格</label>
+            <input type="text" name="arrangement_style" class="form-input">
+          </div>
+          <div class="form-group">
+            <label>配送地址</label>
+            <input type="text" name="delivery_address" class="form-input">
+          </div>
+          <div class="form-group">
+            <label>期望送达时间</label>
+            <input type="datetime-local" name="expected_delivery_time" class="form-input">
+          </div>
+          <div class="form-group">
+            <label>花艺师</label>
+            <select name="florist_id" class="form-input" id="sel-new-florist"></select>
+          </div>
+          <div class="form-group">
+            <label>来源</label>
+            <select name="source" class="form-input">
+              <option value="现场">现场</option>
+              <option value="线上">线上</option>
+              <option value="电话">电话</option>
+              <option value="旧台账">旧台账</option>
+            </select>
+          </div>
+          <div class="form-group full-width">
+            <label>备注</label>
+            <textarea name="remarks" class="form-input" rows="2"></textarea>
+          </div>
+          <input type="hidden" name="status" value="待制作">
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary modal-close">取消</button>
+        <button class="btn btn-primary" id="btn-submit-order">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 派单操作模态 -->
+  <div class="modal" id="modal-dispatch">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>配送派单</h2>
+        <button class="btn-close modal-close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <form id="form-dispatch" class="form-grid">
+          <input type="hidden" name="order_id">
+          <input type="hidden" name="dispatch_id">
+          <div class="form-group full-width">
+            <label>订单号</label>
+            <input type="text" name="order_no_display" readonly class="form-input readonly">
+          </div>
+          <div class="form-group">
+            <label>调度员</label>
+            <select name="dispatcher_id" class="form-input" id="sel-dispatcher"></select>
+          </div>
+          <div class="form-group">
+            <label>配送员姓名</label>
+            <input type="text" name="courier_name" class="form-input">
+          </div>
+          <div class="form-group">
+            <label>配送员电话</label>
+            <input type="text" name="courier_phone" class="form-input">
+          </div>
+          <div class="form-group">
+            <label>派单时间</label>
+            <input type="datetime-local" name="dispatch_time" class="form-input">
+          </div>
+          <div class="form-group">
+            <label>状态</label>
+            <select name="status" class="form-input">
+              <option value="待派单">待派单</option>
+              <option value="已派单">已派单</option>
+              <option value="配送中">配送中</option>
+              <option value="已送达待签收">已送达待签收</option>
+              <option value="退回">退回</option>
+              <option value="异常">异常</option>
+            </select>
+          </div>
+          <div class="form-group full-width">
+            <label>卡点原因</label>
+            <input type="text" name="stuck_reason" class="form-input" placeholder="派单卡在哪里？">
+          </div>
+          <div class="form-group full-width">
+            <label>备注</label>
+            <textarea name="notes" class="form-input" rows="2"></textarea>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary modal-close">取消</button>
+        <button class="btn btn-primary" id="btn-submit-dispatch">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 签收回传模态 -->
+  <div class="modal" id="modal-signature">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>签收回传</h2>
+        <button class="btn-close modal-close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <form id="form-signature" class="form-grid">
+          <input type="hidden" name="dispatch_id">
+          <input type="hidden" name="signature_id">
+          <div class="form-group full-width">
+            <label>订单号</label>
+            <input type="text" name="order_no_display" readonly class="form-input readonly">
+          </div>
+          <div class="form-group">
+            <label>签收人</label>
+            <input type="text" name="signed_by" class="form-input">
+          </div>
+          <div class="form-group">
+            <label>签收时间</label>
+            <input type="datetime-local" name="signed_at" class="form-input">
+          </div>
+          <div class="form-group">
+            <label>签收状态</label>
+            <select name="status" class="form-input" id="sel-sig-status">
+              <option value="待签收">待签收</option>
+              <option value="已签收">已签收</option>
+              <option value="退回">退回</option>
+              <option value="补材料">补材料</option>
+            </select>
+          </div>
+          <div class="form-group full-width sig-return-reason" id="sig-return-wrap" style="display:none;">
+            <label>退回原因</label>
+            <input type="text" name="return_reason" class="form-input" placeholder="为什么退回？">
+          </div>
+          <div class="form-group full-width sig-supplement" id="sig-supplement-wrap" style="display:none;">
+            <label>补材料说明</label>
+            <input type="text" name="supplement_desc" class="form-input" placeholder="需要补什么材料？">
+          </div>
+          <div class="form-group full-width">
+            <label>备注</label>
+            <textarea name="remarks" class="form-input" rows="2"></textarea>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary modal-close">取消</button>
+        <button class="btn btn-primary" id="btn-submit-signature">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 异常登记模态 -->
+  <div class="modal" id="modal-exception">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>异常登记</h2>
+        <button class="btn-close modal-close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <form id="form-exception" class="form-grid">
+          <input type="hidden" name="order_id">
+          <input type="hidden" name="exception_id">
+          <div class="form-group full-width">
+            <label>订单号</label>
+            <input type="text" name="order_no_display" readonly class="form-input readonly">
+          </div>
+          <div class="form-group">
+            <label>异常类型</label>
+            <select name="type" class="form-input">
+              <option value="催">催</option>
+              <option value="退回">退回</option>
+              <option value="补材料">补材料</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>处理人</label>
+            <select name="handler_id" class="form-input" id="sel-exc-handler"></select>
+          </div>
+          <div class="form-group">
+            <label>处理状态</label>
+            <select name="status" class="form-input">
+              <option value="未处理">未处理</option>
+              <option value="处理中">处理中</option>
+              <option value="已解决">已解决</option>
+            </select>
+          </div>
+          <div class="form-group full-width">
+            <label>异常描述</label>
+            <textarea name="description" class="form-input" rows="3" placeholder="详细描述异常情况"></textarea>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary modal-close">取消</button>
+        <button class="btn btn-primary" id="btn-submit-exception">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
