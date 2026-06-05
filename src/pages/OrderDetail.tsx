@@ -378,28 +378,54 @@ export default function OrderDetail() {
   const overdue = isOrderOverdue()
   const currentStatusIndex = getStatusIndex(currentOrder.status as OrderStatus)
   const isAbnormalStatus = ['RETURNED', 'EXCEPTION'].includes(currentOrder.status)
+  
+  const latestAbnormalLog = auditLogs
+    .filter(log => log.action === 'RETURN' || log.action === 'MARK_EXCEPTION')
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0]
 
   const renderStatusFlow = () => {
     const showFlow = !isAbnormalStatus
 
     if (!showFlow) {
+      const isReturn = latestAbnormalLog?.action === 'RETURN'
+      const abnormalReason = latestAbnormalLog?.remark 
+        || (isReturn ? '订单已退回' : '订单标记为异常')
+      const abnormalUser = latestAbnormalLog?.user
+      const abnormalTime = latestAbnormalLog?.createdAt
+        ? new Date(latestAbnormalLog.createdAt).toLocaleString('zh-CN')
+        : null
+
       return (
         <div className="bg-white rounded-xl shadow-sm border border-red-200 p-6">
           <h2 className="text-lg font-semibold text-stone-900 mb-4">订单状态</h2>
-          <div className="flex items-center gap-4 p-4 bg-red-50 rounded-xl">
-            <div className="p-3 bg-red-100 rounded-xl">
-              {currentOrder.status === 'RETURNED' ? (
-                <RotateCcw className="w-6 h-6 text-red-600" />
-              ) : (
-                <XCircle className="w-6 h-6 text-red-600" />
-              )}
+          <div className="p-4 bg-red-50 rounded-xl space-y-3">
+            <div className="flex items-center gap-4">
+              <div className="p-3 bg-red-100 rounded-xl">
+                {isReturn ? (
+                  <RotateCcw className="w-6 h-6 text-red-600" />
+                ) : (
+                  <XCircle className="w-6 h-6 text-red-600" />
+                )}
+              </div>
+              <div>
+                <StatusBadge status={currentOrder.status} />
+                <p className="text-sm text-red-600 mt-1 font-medium">
+                  {abnormalReason}
+                </p>
+              </div>
             </div>
-            <div>
-              <StatusBadge status={currentOrder.status} />
-              <p className="text-sm text-red-600 mt-1">
-                {currentOrder.status === 'RETURNED' ? '订单已退回，请联系管理员重新提交' : '订单出现异常，请联系管理员处理'}
-              </p>
-            </div>
+            {abnormalUser && abnormalTime && (
+              <div className="flex items-center gap-4 pl-16 text-sm text-stone-600">
+                <span>
+                  操作人：<span className="font-medium text-stone-900">{abnormalUser.displayName || abnormalUser.username}</span>
+                  <span className="text-stone-400 mx-2">·</span>
+                  <span className="text-amber-700">({abnormalUser.role})</span>
+                </span>
+                <span>
+                  时间：<span className="font-medium text-stone-900">{abnormalTime}</span>
+                </span>
+              </div>
+            )}
           </div>
         </div>
       )

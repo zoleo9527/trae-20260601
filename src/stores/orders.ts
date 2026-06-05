@@ -2,8 +2,10 @@ import { create } from 'zustand'
 import type { Order, OrderStatus } from '../shared/types'
 import { useAuthStore } from './auth'
 
+type OrderFilterStatus = OrderStatus | 'ABNORMAL'
+
 interface OrderFilters {
-  status?: OrderStatus
+  status?: OrderFilterStatus
   search?: string
   page?: number
   limit?: number

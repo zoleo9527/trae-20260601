@@ -31,6 +31,7 @@ export interface Order {
   items: OrderItem[]
   shipments?: Shipment[]
   auditLogs?: AuditLog[]
+  latestAbnormalLog?: AuditLog | null
 }
 
 export interface Shipment {

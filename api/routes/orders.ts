@@ -1,4 +1,5 @@
 import { Router, type Request, type Response } from 'express'
+
 import { OrderStatus } from '../generated/prisma/enums.js'
 import { authenticate, requireRole } from '../lib/auth.js'
 import prisma from '../lib/prisma.js'
@@ -15,7 +16,11 @@ router.get('/', authenticate, async (req: Request, res: Response): Promise<void>
     const skip = (pageNum - 1) * limitNum
 
     const where: Record<string, unknown> = {}
-    if (status) where.status = status as string
+    if (status === 'ABNORMAL') {
+      where.status = { in: [OrderStatus.RETURNED, OrderStatus.EXCEPTION] }
+    } else if (status) {
+      where.status = status as string
+    }
     if (search) where.distributorName = { contains: search as string }
 
     const [data, total] = await Promise.all([
@@ -24,16 +29,32 @@ router.get('/', authenticate, async (req: Request, res: Response): Promise<void>
         include: {
           items: true,
           createdBy: { select: userSelect },
+          auditLogs: {
+            where: {
+              action: { in: ['RETURN', 'MARK_EXCEPTION'] },
+            },
+            include: { user: { select: userSelect } },
+            orderBy: { createdAt: 'desc' },
+          },
         },
         skip,
         take: limitNum,
-        orderBy: { createdAt: 'desc' },
+        orderBy: { updatedAt: 'desc' },
       }),
       prisma.order.count({ where }),
     ])
 
-    res.json({ data, total, page: pageNum, totalPages: Math.ceil(total / limitNum) })
+    const dataWithAbnormalSummary = data.map((order) => {
+      const latestAbnormalLog = (order.auditLogs?.[0] as any) || null
+      return {
+        ...order,
+        latestAbnormalLog,
+      }
+    })
+
+    res.json({ data: dataWithAbnormalSummary, total, page: pageNum, totalPages: Math.ceil(total / limitNum) })
   } catch (error) {
+    console.error('Error fetching orders:', error)
     res.status(500).json({ error: 'Internal server error' })
   }
 })

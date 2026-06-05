@@ -1,11 +1,11 @@
-import { useEffect, useState, useCallback, useMemo } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { Search, Plus, ChevronLeft, ChevronRight, Loader2, AlertCircle, RotateCcw } from 'lucide-react'
 import Layout from '@/components/Layout'
 import StatusBadge from '@/components/StatusBadge'
 import { useOrdersStore } from '@/stores/orders'
 import { useAuthStore } from '@/stores/auth'
-import type { OrderStatus, Order, AuditLog } from '@/shared/types'
+import type { OrderStatus, Order } from '@/shared/types'
 import { cn } from '@/lib/utils'
 
 type StatusFilterValue = OrderStatus | 'ALL' | 'ABNORMAL'
@@ -24,15 +24,11 @@ const statusOptions: { value: StatusFilterValue; label: string; highlight?: bool
 ]
 
 const getAbnormalReason = (order: Order): string | null => {
-  const logs = order.auditLogs || []
-  const abnormalLogs = logs.filter(
-    (log: AuditLog) => log.action === 'RETURN' || log.action === 'MARK_EXCEPTION'
-  )
-  if (abnormalLogs.length === 0) return null
-  const latest = abnormalLogs.sort(
-    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-  )[0]
-  return latest?.remark || (latest.action === 'RETURN' ? '订单已退回' : '订单标记为异常')
+  if (order.latestAbnormalLog) {
+    return order.latestAbnormalLog.remark 
+      || (order.latestAbnormalLog.action === 'RETURN' ? '订单已退回' : '订单标记为异常')
+  }
+  return null
 }
 
 export default function Orders() {
@@ -49,26 +45,9 @@ export default function Orders() {
   const [statusFilter, setStatusFilter] = useState<StatusFilterValue>(initialStatus)
   const [searchTerm, setSearchTerm] = useState('')
 
-  const filteredOrders = useMemo(() => {
-    let result = [...orders]
-    if (statusFilter === 'ABNORMAL') {
-      result = result.filter(o => o.status === 'RETURNED' || o.status === 'EXCEPTION')
-    } else if (statusFilter !== 'ALL') {
-      result = result.filter(o => o.status === statusFilter)
-    }
-    if (searchTerm) {
-      const term = searchTerm.toLowerCase()
-      result = result.filter(o =>
-        o.orderNo.toLowerCase().includes(term) ||
-        o.distributorName.toLowerCase().includes(term)
-      )
-    }
-    return result
-  }, [orders, statusFilter, searchTerm])
-
   const loadOrders = useCallback((currentPage: number) => {
     fetchOrders({
-      status: statusFilter === 'ALL' || statusFilter === 'ABNORMAL' ? undefined : statusFilter,
+      status: statusFilter === 'ALL' ? undefined : statusFilter,
       search: searchTerm || undefined,
       page: currentPage,
     })
@@ -166,7 +145,7 @@ export default function Orders() {
             <div className="flex items-center justify-center py-16">
               <Loader2 className="w-8 h-8 text-amber-600 animate-spin" />
             </div>
-          ) : filteredOrders.length === 0 ? (
+          ) : orders.length === 0 ? (
             <div className="text-center py-16 text-stone-500">
               暂无订单数据
             </div>
@@ -203,7 +182,7 @@ export default function Orders() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-stone-200">
-                    {filteredOrders.map((order) => {
+                    {orders.map((order) => {
                       const isAbnormal = order.status === 'RETURNED' || order.status === 'EXCEPTION'
                       const abnormalReason = isAbnormal ? getAbnormalReason(order) : null
 
@@ -227,7 +206,7 @@ export default function Orders() {
                           <td className="px-4 py-3 max-w-xs">
                             {abnormalReason ? (
                               <div className="flex items-start gap-1.5">
-                                {order.status === 'RETURNED' ? (
+                                {order.latestAbnormalLog?.action === 'RETURN' ? (
                                   <RotateCcw className="w-4 h-4 text-orange-500 flex-shrink-0 mt-0.5" />
                                 ) : (
                                   <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
@@ -266,7 +245,7 @@ export default function Orders() {
 
               <div className="px-4 py-3 border-t border-stone-200 flex items-center justify-between">
                 <div className="text-sm text-stone-500">
-                  共 {filteredOrders.length} 条记录
+                  共 {total} 条记录
                 </div>
                 <div className="flex items-center gap-2">
                   <button
