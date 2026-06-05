@@ -62,12 +62,16 @@ const availableCourses = computed(() =>
 const filteredStudentCheckins = computed(() => {
   if (rentalFilter.value === 'all') return studentCheckins.value
   if (rentalFilter.value === 'not_rented') return studentCheckins.value.filter(s => s.rentalStatus !== 'rented')
-  if (rentalFilter.value === 'abnormal') return studentCheckins.value.filter(s => s.rentalAbnormal)
+  if (rentalFilter.value === 'abnormal') return studentCheckins.value.filter(s => s.rentalStatus === 'other_course' || s.rentalAbnormal)
   return studentCheckins.value
 })
 
 const notRentedCount = computed(() => studentCheckins.value.filter(s => s.rentalStatus !== 'rented').length)
-const abnormalRentalCount = computed(() => studentCheckins.value.filter(s => s.rentalAbnormal).length)
+const abnormalRentalCount = computed(() => studentCheckins.value.filter(s => s.rentalStatus === 'other_course' || s.rentalAbnormal).length)
+
+const filteredPendingIds = computed(() =>
+  filteredStudentCheckins.value.filter(s => s.status === 'pending').map(s => s.studentId)
+)
 
 function showToast(msg: string) {
   toast.value = msg
@@ -132,13 +136,14 @@ function toggleStudent(id: string) {
 }
 
 function toggleAll() {
-  const pendingIds = studentCheckins.value
-    .filter(s => s.status === 'pending')
-    .map(s => s.studentId)
-  if (selectedStudentIds.value.length === pendingIds.length) {
-    selectedStudentIds.value = []
+  const visiblePending = filteredPendingIds.value
+  const allVisibleSelected = visiblePending.length > 0 && visiblePending.every(id => selectedStudentIds.value.includes(id))
+  if (allVisibleSelected) {
+    selectedStudentIds.value = selectedStudentIds.value.filter(id => !visiblePending.includes(id))
   } else {
-    selectedStudentIds.value = [...pendingIds]
+    const existing = new Set(selectedStudentIds.value)
+    for (const id of visiblePending) existing.add(id)
+    selectedStudentIds.value = [...existing]
   }
 }
 
@@ -165,7 +170,15 @@ async function batchCheckin() {
   }
 }
 
-watch(selectedCourseId, fetchStudents)
+watch(selectedCourseId, () => {
+  selectedStudentIds.value = []
+  fetchStudents()
+})
+
+watch(rentalFilter, () => {
+  const visibleIds = new Set(filteredStudentCheckins.value.map(s => s.studentId))
+  selectedStudentIds.value = selectedStudentIds.value.filter(id => visibleIds.has(id))
+})
 
 onMounted(async () => {
   await fetchCourses()
@@ -236,7 +249,7 @@ onMounted(async () => {
             @click="toggleAll"
             class="text-xs text-sky-600 hover:text-sky-700"
           >
-            {{ selectedStudentIds.length === filteredStudentCheckins.filter(s => s.status === 'pending').length ? '取消全选' : '全选' }}
+            {{ filteredPendingIds.length > 0 && filteredPendingIds.every(id => selectedStudentIds.includes(id)) ? '取消全选' : '全选' }}
           </button>
         </div>
         <table class="w-full text-sm">
