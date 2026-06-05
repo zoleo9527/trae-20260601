@@ -272,6 +272,25 @@ app.put('/api/schedules/:id/status', (req, res) => {
     
     db.get("SELECT * FROM staff_schedules WHERE id = ?", [id], (err, row) => {
       if (err) return res.status(500).json({ error: err.message });
+      if (row) {
+        const rf = {};
+        if (status === 'scheduled' || status === 'checked_in') {
+          rf.current_owner = row.staff_id;
+          rf.owner_role = row.role;
+        } else if (status === 'rejected') {
+          rf.current_owner = null;
+          rf.owner_role = 'manager';
+        } else if (status === 'cancelled') {
+          rf.current_owner = null;
+          rf.owner_role = null;
+        }
+        if (Object.keys(rf).length > 0) {
+          rf.updated_at = new Date().toISOString();
+          const fs = Object.keys(rf).map(k => k + ' = ?').join(', ');
+          db.run('UPDATE risk_alerts SET ' + fs + ' WHERE source_schedule_id = ?', 
+            [...Object.values(rf), id]);
+        }
+      }
       res.json(row);
     });
   });
@@ -322,10 +341,14 @@ app.put('/api/maintenance/:id/status', (req, res) => {
 
 app.get('/api/risks', (req, res) => {
   const { status } = req.query;
-  let sql = `SELECT ra.*, u.name as reporter_name, h.name as handler_name
+  let sql = `SELECT ra.*, u.name as reporter_name, h.name as handler_name, o.name as owner_name,
+             s.date as sched_date, s.shift as sched_shift, s.status as sched_status, su.name as sched_staff_name
              FROM risk_alerts ra
              LEFT JOIN users u ON ra.reported_by = u.id
-             LEFT JOIN users h ON ra.handled_by = h.id`;
+             LEFT JOIN users h ON ra.handled_by = h.id
+             LEFT JOIN users o ON ra.current_owner = o.id
+             LEFT JOIN staff_schedules s ON ra.source_schedule_id = s.id
+             LEFT JOIN users su ON s.staff_id = su.id`;
   const params = [];
   
   if (status) {
