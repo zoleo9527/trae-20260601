@@ -2,9 +2,10 @@ import { useState } from 'react'
 import { useOutletContext } from 'react-router-dom'
 import dayjs from 'dayjs'
 import {
-  maintenanceRecords as initialRecords, routes, getUserById,
+  routes, getUserById,
   MAINTENANCE_STATUS, MAINTENANCE_STATUS_LABEL, ROLES,
 } from '../mock/data'
+import { useStore } from '../store/StoreContext'
 import StatusBadge from '../components/StatusBadge'
 import AuditTrail from '../components/AuditTrail'
 
@@ -12,7 +13,7 @@ const MAINT_TYPES = ['换点', '补漆', '检查', '修复', '清洁', '其他']
 
 export default function Maintenance() {
   const { currentUserId } = useOutletContext()
-  const [records, setRecords] = useState(initialRecords)
+  const { maintenanceRecords, actions } = useStore()
   const [selectedId, setSelectedId] = useState(null)
   const [showNewForm, setShowNewForm] = useState(false)
   const [filter, setFilter] = useState('all')
@@ -24,86 +25,32 @@ export default function Maintenance() {
   const currentUser = getUserById(currentUserId)
 
   const filtered = filter === 'all'
-    ? records
-    : records.filter(m => m.status === filter)
+    ? maintenanceRecords
+    : maintenanceRecords.filter(m => m.status === filter)
 
-  const selected = records.find(m => m.id === selectedId)
+  const selected = maintenanceRecords.find(m => m.id === selectedId)
   const selectedRoute = selected ? routes.find(r => r.id === selected.routeId) : null
 
   function handleBelayerConfirm(id) {
-    setRecords(prev => prev.map(m => m.id === id ? {
-      ...m,
-      status: MAINTENANCE_STATUS.CONFIRMED,
-      confirmedBy: currentUserId,
-      confirmedAt: dayjs().format('YYYY-MM-DD HH:mm'),
-    } : m))
+    actions.confirmMaintenance({ id, confirmedBy: currentUserId })
   }
 
   function handleClose(id) {
-    setRecords(prev => prev.map(m => m.id === id ? {
-      ...m,
-      status: MAINTENANCE_STATUS.CLOSED,
-      closedAt: dayjs().format('YYYY-MM-DD HH:mm'),
-    } : m))
+    actions.closeMaintenance({ id, operatorId: currentUserId })
   }
 
   function handleSubmitNew() {
     if (!newRouteId || !newDesc) return
-    const newId = `m${Date.now()}`
-    setRecords(prev => [{
-      id: newId,
+    const newId = actions.submitMaintenance({
       routeId: newRouteId,
       type: newType,
       description: newDesc,
       submittedBy: currentUserId,
-      submittedAt: dayjs().format('YYYY-MM-DD HH:mm'),
-      status: MAINTENANCE_STATUS.PENDING_CONFIRM,
-      confirmedBy: null,
-      confirmedAt: null,
-      closedAt: null,
-      attachments: [],
-    }, ...prev])
+    })
     setNewRouteId('')
     setNewDesc('')
     setShowNewForm(false)
     setSelectedId(newId)
-  }
-
-  function buildAuditLogs(rec) {
-    const logs = []
-    const route = routes.find(r => r.id === rec.routeId)
-    logs.push({
-      id: `${rec.id}-submit`,
-      type: 'maintenance',
-      refId: rec.id,
-      action: '提交维护记录',
-      operatorId: rec.submittedBy,
-      timestamp: rec.submittedAt,
-      detail: `${rec.type} - ${route?.name} (${route?.grade})`,
-    })
-    if (rec.confirmedBy) {
-      logs.push({
-        id: `${rec.id}-confirm`,
-        type: 'maintenance',
-        refId: rec.id,
-        action: '保护员确认维护',
-        operatorId: rec.confirmedBy,
-        timestamp: rec.confirmedAt,
-        detail: `已确认${rec.type}完成`,
-      })
-    }
-    if (rec.closedAt) {
-      logs.push({
-        id: `${rec.id}-close`,
-        type: 'maintenance',
-        refId: rec.id,
-        action: '关闭维护记录',
-        operatorId: rec.submittedBy,
-        timestamp: rec.closedAt,
-        detail: '维护完成，线路恢复',
-      })
-    }
-    return logs
   }
 
   return (
@@ -347,7 +294,7 @@ export default function Maintenance() {
 
             <div style={{ borderTop: '1px solid #f0f0f0', paddingTop: 14 }}>
               <h4 style={{ margin: '0 0 10px', fontSize: 13, color: '#666' }}>操作留痕</h4>
-              <AuditTrail logs={buildAuditLogs(selected)} />
+              <AuditTrail logs={actions.buildMaintenanceAuditLogs(selected)} />
             </div>
           </div>
         )}

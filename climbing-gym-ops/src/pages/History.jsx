@@ -2,34 +2,25 @@ import { useState } from 'react'
 import { useOutletContext } from 'react-router-dom'
 import dayjs from 'dayjs'
 import {
-  routeOpenings, maintenanceRecords, routes, auditLogs,
-  getUserById, getRouteById, getAuditLogsByRef,
+  routes, getUserById, getRouteById,
   ROUTE_OPEN_STATUS_LABEL, MAINTENANCE_STATUS_LABEL,
   ROLES,
 } from '../mock/data'
+import { useStore } from '../store/StoreContext'
 import StatusBadge from '../components/StatusBadge'
 import AuditTrail from '../components/AuditTrail'
 
 export default function History() {
   const { currentUserId } = useOutletContext()
+  const { routeOpenings, maintenanceRecords, actions } = useStore()
   const [tab, setTab] = useState('route_open')
   const [filterRoute, setFilterRoute] = useState('all')
   const [filterRole, setFilterRole] = useState('all')
   const [expandedId, setExpandedId] = useState(null)
 
-  const allRouteOpenings = routeOpenings.map(ro => ({
-    ...ro,
-    _type: 'route_open',
-    route: getRouteById(ro.routeId),
-  }))
-
-  const allMaintenance = maintenanceRecords.map(m => ({
-    ...m,
-    _type: 'maintenance',
-    route: getRouteById(m.routeId),
-  }))
-
-  const items = tab === 'route_open' ? allRouteOpenings : allMaintenance
+  const items = tab === 'route_open'
+    ? routeOpenings.map(ro => ({ ...ro, _type: 'route_open', route: getRouteById(ro.routeId) }))
+    : maintenanceRecords.map(m => ({ ...m, _type: 'maintenance', route: getRouteById(m.routeId) }))
 
   const filtered = items.filter(item => {
     if (filterRoute !== 'all' && item.routeId !== filterRoute) return false
@@ -123,76 +114,9 @@ export default function History() {
               ? ROUTE_OPEN_STATUS_LABEL[item.status]
               : MAINTENANCE_STATUS_LABEL[item.status]
 
-            let auditLogsForItem
-            if (tab === 'route_open') {
-              auditLogsForItem = []
-              const route = getRouteById(item.routeId)
-              auditLogsForItem.push({
-                id: `${item.id}-submit`,
-                type: 'route_open',
-                refId: item.id,
-                action: '提交线路开放申请',
-                operatorId: item.submittedBy,
-                timestamp: item.submittedAt,
-                detail: `线路：${route?.name} (${route?.grade})`,
-              })
-              if (item.belayerId) {
-                auditLogsForItem.push({
-                  id: `${item.id}-belayer`,
-                  type: 'route_open',
-                  refId: item.id,
-                  action: '保护员确认',
-                  operatorId: item.belayerId,
-                  timestamp: item.belayerConfirmedAt,
-                  detail: '已确认安全检查通过',
-                })
-              }
-              if (item.adminId) {
-                auditLogsForItem.push({
-                  id: `${item.id}-admin`,
-                  type: 'route_open',
-                  refId: item.id,
-                  action: item.status === 'approved' ? '线路管理员审核通过' : '线路管理员驳回',
-                  operatorId: item.adminId,
-                  timestamp: item.adminApprovedAt,
-                  detail: item.status === 'approved' ? '线路正式开放' : item.remark,
-                })
-              }
-            } else {
-              auditLogsForItem = []
-              const route = getRouteById(item.routeId)
-              auditLogsForItem.push({
-                id: `${item.id}-submit`,
-                type: 'maintenance',
-                refId: item.id,
-                action: '提交维护记录',
-                operatorId: item.submittedBy,
-                timestamp: item.submittedAt,
-                detail: `${item.type} - ${route?.name}`,
-              })
-              if (item.confirmedBy) {
-                auditLogsForItem.push({
-                  id: `${item.id}-confirm`,
-                  type: 'maintenance',
-                  refId: item.id,
-                  action: '保护员确认维护',
-                  operatorId: item.confirmedBy,
-                  timestamp: item.confirmedAt,
-                  detail: `已确认${item.type}完成`,
-                })
-              }
-              if (item.closedAt) {
-                auditLogsForItem.push({
-                  id: `${item.id}-close`,
-                  type: 'maintenance',
-                  refId: item.id,
-                  action: '关闭维护记录',
-                  operatorId: item.submittedBy,
-                  timestamp: item.closedAt,
-                  detail: '维护完成，线路恢复',
-                })
-              }
-            }
+            const auditLogsForItem = tab === 'route_open'
+              ? actions.buildRouteOpeningAuditLogs(item)
+              : actions.buildMaintenanceAuditLogs(item)
 
             return (
               <div key={item.id} style={{

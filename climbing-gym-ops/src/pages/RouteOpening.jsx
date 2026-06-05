@@ -2,15 +2,16 @@ import { useState } from 'react'
 import { useOutletContext } from 'react-router-dom'
 import dayjs from 'dayjs'
 import {
-  routeOpenings as initialOpenings, routes, getUserById,
+  routes, getUserById,
   ROUTE_OPEN_STATUS, ROUTE_OPEN_STATUS_LABEL, ROLES,
 } from '../mock/data'
+import { useStore } from '../store/StoreContext'
 import StatusBadge from '../components/StatusBadge'
 import AuditTrail from '../components/AuditTrail'
 
 export default function RouteOpening() {
   const { currentUserId } = useOutletContext()
-  const [openings, setOpenings] = useState(initialOpenings)
+  const { routeOpenings, actions } = useStore()
   const [selectedId, setSelectedId] = useState(null)
   const [showNewForm, setShowNewForm] = useState(false)
   const [newRouteId, setNewRouteId] = useState('')
@@ -20,100 +21,38 @@ export default function RouteOpening() {
   const currentUser = getUserById(currentUserId)
 
   const filtered = filter === 'all'
-    ? openings
-    : openings.filter(o => o.status === filter)
+    ? routeOpenings
+    : routeOpenings.filter(o => o.status === filter)
 
-  const selected = openings.find(o => o.id === selectedId)
+  const selected = routeOpenings.find(o => o.id === selectedId)
   const selectedRoute = selected ? routes.find(r => r.id === selected.routeId) : null
 
   function handleBelayerConfirm(id) {
-    setOpenings(prev => prev.map(o => o.id === id ? {
-      ...o,
-      status: ROUTE_OPEN_STATUS.BELAYER_CONFIRMED,
-      belayerId: currentUserId,
-      belayerConfirmedAt: dayjs().format('YYYY-MM-DD HH:mm'),
-    } : o))
+    actions.confirmRouteOpeningByBelayer({ id, belayerId: currentUserId })
   }
 
   function handleAdminApprove(id) {
-    setOpenings(prev => prev.map(o => o.id === id ? {
-      ...o,
-      status: ROUTE_OPEN_STATUS.APPROVED,
-      adminId: currentUserId,
-      adminApprovedAt: dayjs().format('YYYY-MM-DD HH:mm'),
-      openDate: dayjs().format('YYYY-MM-DD'),
-    } : o))
+    actions.approveRouteOpening({ id, adminId: currentUserId })
   }
 
   function handleAdminReject(id) {
-    setOpenings(prev => prev.map(o => o.id === id ? {
-      ...o,
-      status: ROUTE_OPEN_STATUS.REJECTED,
-      adminId: currentUserId,
-      adminApprovedAt: dayjs().format('YYYY-MM-DD HH:mm'),
-    } : o))
+    actions.rejectRouteOpening({ id, adminId: currentUserId })
   }
 
   function handleSubmitNew() {
     if (!newRouteId) return
-    const newId = `ro${Date.now()}`
-    setOpenings(prev => [{
-      id: newId,
+    const newId = actions.submitRouteOpening({
       routeId: newRouteId,
-      submittedBy: currentUserId,
-      submittedAt: dayjs().format('YYYY-MM-DD HH:mm'),
-      status: ROUTE_OPEN_STATUS.PENDING_BELAYER,
-      belayerId: null,
-      belayerConfirmedAt: null,
-      adminId: null,
-      adminApprovedAt: null,
-      openDate: null,
       remark: newRemark,
-    }, ...prev])
+      submittedBy: currentUserId,
+    })
     setNewRouteId('')
     setNewRemark('')
     setShowNewForm(false)
     setSelectedId(newId)
   }
 
-  function buildAuditLogs(opening) {
-    const logs = []
-    const route = routes.find(r => r.id === opening.routeId)
-    logs.push({
-      id: `${opening.id}-submit`,
-      type: 'route_open',
-      refId: opening.id,
-      action: '提交线路开放申请',
-      operatorId: opening.submittedBy,
-      timestamp: opening.submittedAt,
-      detail: `线路：${route?.name} (${route?.grade})`,
-    })
-    if (opening.belayerId) {
-      logs.push({
-        id: `${opening.id}-belayer`,
-        type: 'route_open',
-        refId: opening.id,
-        action: '保护员确认',
-        operatorId: opening.belayerId,
-        timestamp: opening.belayerConfirmedAt,
-        detail: '已确认安全检查通过',
-      })
-    }
-    if (opening.adminId) {
-      logs.push({
-        id: `${opening.id}-admin`,
-        type: 'route_open',
-        refId: opening.id,
-        action: opening.status === ROUTE_OPEN_STATUS.APPROVED ? '线路管理员审核通过' : '线路管理员驳回',
-        operatorId: opening.adminId,
-        timestamp: opening.adminApprovedAt,
-        detail: opening.status === ROUTE_OPEN_STATUS.APPROVED ? '线路正式开放' : opening.remark,
-      })
-    }
-    return logs
-  }
-
-  const openedRouteIds = new Set(openings.filter(o => o.status === ROUTE_OPEN_STATUS.APPROVED).map(o => o.routeId))
+  const openedRouteIds = new Set(routeOpenings.filter(o => o.status === ROUTE_OPEN_STATUS.APPROVED).map(o => o.routeId))
   const availableRoutes = routes.filter(r => !openedRouteIds.has(r.id))
 
   return (
@@ -350,7 +289,7 @@ export default function RouteOpening() {
 
             <div style={{ borderTop: '1px solid #f0f0f0', paddingTop: 14 }}>
               <h4 style={{ margin: '0 0 10px', fontSize: 13, color: '#666' }}>操作留痕</h4>
-              <AuditTrail logs={buildAuditLogs(selected)} />
+              <AuditTrail logs={actions.buildRouteOpeningAuditLogs(selected)} />
             </div>
           </div>
         )}

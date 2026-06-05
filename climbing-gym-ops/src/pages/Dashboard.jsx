@@ -2,14 +2,16 @@ import { useState } from 'react'
 import { useNavigate, useOutletContext } from 'react-router-dom'
 import dayjs from 'dayjs'
 import {
-  routeOpenings, maintenanceRecords, auditLogs, routes,
+  routes,
   getUserById, getRouteById, ROUTE_OPEN_STATUS, MAINTENANCE_STATUS,
   ROUTE_OPEN_STATUS_LABEL, MAINTENANCE_STATUS_LABEL,
 } from '../mock/data'
+import { useStore } from '../store/StoreContext'
 import StatusBadge from '../components/StatusBadge'
 
 export default function Dashboard() {
   const { currentUserId } = useOutletContext()
+  const { routeOpenings, maintenanceRecords, auditLogs } = useStore()
   const navigate = useNavigate()
   const [expandedLog, setExpandedLog] = useState(null)
 
