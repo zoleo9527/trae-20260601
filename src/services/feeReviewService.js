@@ -27,8 +27,48 @@ class FeeReviewService {
     const auditLogs = booking.auditLogs || [];
     const latestAudit = auditLogs.length > 0 ? auditLogs[0] : null;
 
-    const reviewNote = notes.find(n => n.stage === 'FEE_APPROVE' || n.stage === 'FEE_REJECT');
-    const rejectAudit = auditLogs.find(l => l.action === 'FEE_REJECTED');
+    const feeActions = ['FEE_APPROVED', 'FEE_REJECTED'];
+    const latestFeeAudit = auditLogs.find(l => feeActions.includes(l.action));
+
+    let currentReviewNote = null;
+    let currentRejectReason = null;
+    let currentReviewedBy = reviewer;
+    let currentReviewedAt = feeReview?.reviewedAt || null;
+    let currentActualAmount = feeReview?.actualAmount || null;
+    let currentPaymentMethod = feeReview?.paymentMethod || null;
+    let currentIsApproved = feeReview?.isApproved;
+
+    if (latestFeeAudit) {
+      if (latestFeeAudit.action === 'FEE_APPROVED') {
+        currentRejectReason = null;
+        const approveNote = notes.find(n =>
+          n.stage === 'FEE_APPROVE' &&
+          n.createdAt >= latestFeeAudit.createdAt
+        );
+        if (approveNote) {
+          currentReviewNote = approveNote.content;
+          currentReviewedBy = approveNote.createdBy;
+        }
+        currentIsApproved = true;
+      } else if (latestFeeAudit.action === 'FEE_REJECTED') {
+        currentRejectReason = latestFeeAudit.details;
+        const rejectNote = notes.find(n =>
+          n.stage === 'FEE_REJECT' &&
+          n.createdAt >= latestFeeAudit.createdAt
+        );
+        if (rejectNote) {
+          currentReviewNote = rejectNote.content;
+          currentReviewedBy = rejectNote.createdBy;
+        }
+        currentIsApproved = false;
+        currentActualAmount = null;
+        currentPaymentMethod = null;
+      }
+    }
+
+    if (extraNote && extraNote.trim()) {
+      currentReviewNote = extraNote;
+    }
 
     return {
       feeReview,
@@ -50,17 +90,17 @@ class FeeReviewService {
         submittedBy: booking.submittedBy,
       },
       reviewSummary: {
-        reviewedBy: reviewer,
-        reviewedAt: feeReview?.reviewedAt || null,
-        actualAmount: feeReview?.actualAmount || null,
-        paymentMethod: feeReview?.paymentMethod || null,
-        isApproved: feeReview?.isApproved,
-        rejectReason: rejectAudit?.details || null,
-        reviewNote: reviewNote?.content || extraNote || null,
+        reviewedBy: currentReviewedBy,
+        reviewedAt: currentReviewedAt,
+        actualAmount: currentActualAmount,
+        paymentMethod: currentPaymentMethod,
+        isApproved: currentIsApproved,
+        rejectReason: currentRejectReason,
+        reviewNote: currentReviewNote,
         oldStatus,
         newStatus,
-        latestOperator: latestAudit?.user || reviewer,
-        latestOperatedAt: latestAudit?.createdAt || feeReview?.reviewedAt || new Date(),
+        latestOperator: latestAudit?.user || currentReviewedBy,
+        latestOperatedAt: latestAudit?.createdAt || currentReviewedAt || new Date(),
       },
       notes,
       auditLogs,
@@ -333,39 +373,13 @@ class FeeReviewService {
 
     const latestAudit = booking.auditLogs && booking.auditLogs.length > 0 ? booking.auditLogs[0] : null;
 
-    return {
+    return this._buildReviewResponse(
+      booking,
       feeReview,
-      booking: {
-        id: booking.id,
-        customerName: booking.customerName,
-        customerPhone: booking.customerPhone,
-        bookingDate: booking.bookingDate,
-        startTime: booking.startTime,
-        endTime: booking.endTime,
-        hours: booking.hours,
-        totalAmount: booking.totalAmount,
-        status: booking.status,
-        priority: booking.priority,
-        createdAt: booking.createdAt,
-        updatedAt: booking.updatedAt,
-        venue: booking.venue,
-        submittedBy: booking.submittedBy,
-      },
-      reviewSummary: {
-        reviewedBy: feeReview?.reviewedBy || null,
-        reviewedAt: feeReview?.reviewedAt || null,
-        actualAmount: feeReview?.actualAmount || null,
-        paymentMethod: feeReview?.paymentMethod || null,
-        isApproved: feeReview?.isApproved,
-        rejectReason: booking.auditLogs?.find(l => l.action === 'FEE_REJECTED')?.details || null,
-        oldStatus: latestAudit?.oldStatus || null,
-        newStatus: latestAudit?.newStatus || null,
-        latestOperator: latestAudit?.user || null,
-        latestOperatedAt: latestAudit?.createdAt || null,
-      },
-      notes: booking.notes,
-      auditLogs: booking.auditLogs,
-    };
+      latestAudit?.oldStatus || null,
+      latestAudit?.newStatus || null,
+      feeReview?.reviewedBy || null
+    );
   }
 
   static async listPending() {
