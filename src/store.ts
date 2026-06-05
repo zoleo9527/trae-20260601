@@ -15,6 +15,8 @@ export interface RecentChange {
   action: string;
   operator: string;
   target: string;
+  targetType: string;
+  targetId: string;
   timestamp: string;
 }
 
@@ -312,7 +314,9 @@ function mapInventoryRow(row: any): InventoryItem {
     remaining: row.remaining_kg,
     roastDate: row.roast_date,
     expiryDate: row.expiry_date,
-    fifoStatus: row.fifoStatus ?? (row.status === 'expired' ? 'expired' : row.status === 'near_expiry' ? 'warning' : 'normal'),
+    fifoStatus: row.fifoStatus === 'near_expiry' || row.status === 'near_expiry' 
+      ? 'warning' 
+      : (row.fifoStatus ?? row.status === 'expired' ? 'expired' : 'normal'),
     curveId: row.curve_id ? String(row.curve_id) : undefined,
     daysUntilExpiry: row.daysUntilExpiry,
     roastLevel: row.roast_level,
@@ -424,6 +428,8 @@ export const useStore = create<AppState>((set, get) => ({
         action: r.action,
         operator: r.operator,
         target: r.detail ?? '',
+        targetType: r.target_type ?? '',
+        targetId: r.target_id ? String(r.target_id) : '',
         timestamp: r.created_at,
       }));
       set({

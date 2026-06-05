@@ -73,17 +73,18 @@ export default function Dashboard() {
   };
 
   const getChangeLink = (change: RecentChange): string | null => {
-    const targetMatch = change.target.match(/(\w+)#(\d+)/);
-    if (!targetMatch) {
+    const { targetType, targetId } = change;
+    if (!targetType || !targetId) {
       if (change.module === 'roast_curve') return '/roast-curves';
       if (change.module === 'cupping_score') return '/cupping-scores';
-      if (change.module === 'complaint' || change.module === 'inventory_batch') return '/complaints-inventory';
+      if (change.module === 'complaint') return '/complaints-inventory?tab=complaints';
+      if (change.module === 'inventory' || change.module === 'inventory_batch') return '/complaints-inventory?tab=inventory';
       return null;
     }
-    const [, targetType, targetId] = targetMatch;
     if (targetType === 'roast_curve') return `/roast-curves/${targetId}`;
     if (targetType === 'cupping_score') return `/cupping-scores/${targetId}`;
-    if (targetType === 'complaint' || targetType === 'inventory_batch') return '/complaints-inventory';
+    if (targetType === 'complaint') return '/complaints-inventory?tab=complaints';
+    if (targetType === 'inventory_batch') return '/complaints-inventory?tab=inventory';
     return null;
   };
 
