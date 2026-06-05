@@ -125,18 +125,24 @@ class ComplaintService {
   proposeCompensation(
     complaintId: string,
     data: CreateCompensationRequest,
-    operatorRole: UserRole,
-    operatorName: string
+    operatorRole?: UserRole,
+    operatorName?: string
   ): Complaint | null {
     const complaint = complaintRepository.findById(complaintId);
     if (!complaint) return null;
 
-    compensationRepository.create(complaintId, data);
+    const safeRole: UserRole = operatorRole || 'reception';
+    const safeName = operatorName?.trim() || '场馆前台';
+
+    compensationRepository.create(complaintId, {
+      ...data,
+      proposedBy: data.proposedBy?.trim() || safeName,
+    });
 
     actionLogRepository.create(complaintId, {
       actionType: 'compensation_propose',
-      operatorRole,
-      operatorName,
+      operatorRole: safeRole,
+      operatorName: safeName,
       remark: `提出补偿方案: ${data.description}`,
     });
 

@@ -54,18 +54,35 @@ router.post('/:id/actions', (req, res) => {
 });
 
 router.post('/:id/compensations', (req, res) => {
-  const { operatorRole, operatorName, ...data } = req.body;
-  const complaint = complaintService.proposeCompensation(
-    req.params.id,
-    data,
-    operatorRole,
-    operatorName
-  );
-  if (!complaint) {
-    res.status(404).json({ error: '投诉记录不存在' });
-    return;
+  try {
+    let { operatorRole, operatorName, ...data } = req.body;
+
+    if (!data.description || !data.description.trim()) {
+      res.status(400).json({ error: '补偿方案描述不能为空' });
+      return;
+    }
+
+    if (!operatorRole) {
+      operatorRole = 'reception';
+    }
+    if (!operatorName || !operatorName.trim()) {
+      operatorName = '场馆前台';
+    }
+
+    const complaint = complaintService.proposeCompensation(
+      req.params.id,
+      data,
+      operatorRole,
+      operatorName
+    );
+    if (!complaint) {
+      res.status(404).json({ error: '投诉记录不存在' });
+      return;
+    }
+    res.json(complaint);
+  } catch (e: any) {
+    res.status(400).json({ error: e.message });
   }
-  res.json(complaint);
 });
 
 export default router;

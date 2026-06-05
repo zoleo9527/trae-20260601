@@ -1,9 +1,10 @@
 import { Link } from 'react-router-dom';
-import { Clock, User, ArrowRight } from 'lucide-react';
+import { Clock, User, ArrowRight, UserCheck } from 'lucide-react';
 import type { Complaint } from '../../shared/types';
 import StatusBadge from './StatusBadge';
 import PriorityBadge from './PriorityBadge';
 import { TYPE_LABELS } from '../../shared/types';
+import { getHandlerDisplay } from '../../shared/utils';
 
 interface TodoCardProps {
   complaint: Complaint;
@@ -58,10 +59,16 @@ export default function TodoCard({ complaint }: TodoCardProps) {
           <span>{TYPE_LABELS[complaint.type]}</span>
           <span>{complaint.complaintNo}</span>
         </div>
-        <span className="flex items-center gap-1">
-          <Clock size={14} />
-          {formatTimeAgo(complaint.createdAt)}
-        </span>
+        <div className="flex items-center gap-4">
+          <span className="flex items-center gap-1 text-navy-600">
+            <UserCheck size={14} />
+            {getHandlerDisplay(complaint)}
+          </span>
+          <span className="flex items-center gap-1">
+            <Clock size={14} />
+            {formatTimeAgo(complaint.createdAt)}
+          </span>
+        </div>
       </div>
     </Link>
   );

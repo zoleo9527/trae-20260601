@@ -9,7 +9,8 @@ import {
   MessageSquare,
 } from 'lucide-react';
 import type { ActionLog } from '../../shared/types';
-import { ACTION_LABELS, ROLE_LABELS } from '../../shared/types';
+import { ACTION_LABELS } from '../../shared/types';
+import { ROLE_LABELS } from '../../shared/utils';
 
 interface TimelineProps {
   logs: ActionLog[];

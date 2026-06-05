@@ -11,11 +11,11 @@ import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import {
     COMPENSATION_TYPE_LABELS,
-    ROLE_LABELS,
     SOURCE_LABELS,
     TYPE_LABELS,
     type CompensationType
 } from '../../shared/types';
+import { ROLE_LABELS } from '../../shared/utils';
 import PriorityBadge from '../components/PriorityBadge';
 import StatusBadge from '../components/StatusBadge';
 import Timeline from '../components/Timeline';
@@ -180,7 +180,7 @@ export default function ComplaintDetail() {
               <div>
                 <span className="text-gray-500">当前处理:</span>
                 <span className="ml-2 text-gray-900 font-medium">
-                  {ROLE_LABELS[selectedComplaint.currentHandlerRole]} · {selectedComplaint.currentHandlerName}
+                  {getHandlerDisplay(selectedComplaint)}
                 </span>
               </div>
               {selectedComplaint.relatedCoach && (
