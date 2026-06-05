@@ -73,18 +73,19 @@ model OrderItem {
 }
 
 model Shipment {
-  id             String   @id @default(cuid())
-  orderId        String
-  order          Order    @relation(fields: [orderId], references: [id])
+  id              String   @id @default(cuid())
+  orderId         String
+  order           Order    @relation(fields: [orderId], references: [id])
   logisticsCompany String?
-  trackingNo     String?
-  shippedAt      DateTime?
-  receivedAt     DateTime?
-  receivedById   String?
-  receiveRemark  String?
-  createdById    String
-  createdBy      User     @relation(fields: [createdById], references: [id])
-  createdAt      DateTime @default(now())
+  trackingNo      String?
+  shippedAt       DateTime?
+  shippedById     String?
+  receivedAt      DateTime?
+  receivedById    String?
+  receiveRemark   String?
+  createdById     String
+  createdBy       User     @relation(fields: [createdById], references: [id])
+  createdAt       DateTime @default(now())
 
   @@index([orderId])
   @@map("shipments")

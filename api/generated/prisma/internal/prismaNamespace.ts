@@ -858,6 +858,7 @@ export const ShipmentScalarFieldEnum = {
   logisticsCompany: 'logisticsCompany',
   trackingNo: 'trackingNo',
   shippedAt: 'shippedAt',
+  shippedById: 'shippedById',
   receivedAt: 'receivedAt',
   receivedById: 'receivedById',
   receiveRemark: 'receiveRemark',

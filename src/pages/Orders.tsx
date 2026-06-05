@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useEffect, useState, useCallback } from 'react'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { Search, Plus, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react'
 import Layout from '@/components/Layout'
 import StatusBadge from '@/components/StatusBadge'
@@ -22,34 +22,42 @@ const statusOptions: { value: OrderStatus | 'ALL'; label: string }[] = [
 
 export default function Orders() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const { user } = useAuthStore()
   const { orders, total, page, totalPages, isLoading, fetchOrders } = useOrdersStore()
+
+  const urlStatus = searchParams.get('status') as OrderStatus | null
+  const initialStatus = urlStatus && statusOptions.some(o => o.value === urlStatus)
+    ? urlStatus
+    : 'ALL'
   
-  const [statusFilter, setStatusFilter] = useState<OrderStatus | 'ALL'>('ALL')
+  const [statusFilter, setStatusFilter] = useState<OrderStatus | 'ALL'>(initialStatus)
   const [searchTerm, setSearchTerm] = useState('')
 
-  useEffect(() => {
+  const loadOrders = useCallback((currentPage: number) => {
     fetchOrders({
       status: statusFilter === 'ALL' ? undefined : statusFilter,
       search: searchTerm || undefined,
-      page: 1,
+      page: currentPage,
     })
-  }, [])
+  }, [statusFilter, searchTerm, fetchOrders])
+
+  useEffect(() => {
+    if (urlStatus && statusOptions.some(o => o.value === urlStatus)) {
+      setStatusFilter(urlStatus)
+    }
+  }, [urlStatus])
+
+  useEffect(() => {
+    loadOrders(1)
+  }, [statusFilter])
 
   const handleSearch = () => {
-    fetchOrders({
-      status: statusFilter === 'ALL' ? undefined : statusFilter,
-      search: searchTerm || undefined,
-      page: 1,
-    })
+    loadOrders(1)
   }
 
   const handlePageChange = (newPage: number) => {
-    fetchOrders({
-      status: statusFilter === 'ALL' ? undefined : statusFilter,
-      search: searchTerm || undefined,
-      page: newPage,
-    })
+    loadOrders(newPage)
   }
 
   const formatDate = (dateStr: string) => {

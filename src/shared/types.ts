@@ -39,6 +39,7 @@ export interface Shipment {
   logisticsCompany: string | null
   trackingNo: string | null
   shippedAt: string | null
+  shippedById: string | null
   receivedAt: string | null
   receivedById: string | null
   receiveRemark: string | null

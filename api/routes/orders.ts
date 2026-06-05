@@ -152,30 +152,6 @@ router.patch('/:id/status', authenticate, async (req: Request, res: Response): P
         toStatus = OrderStatus.READY_TO_SHIP
         break
 
-      case 'SHIP':
-        if (userRole !== 'PACKER') {
-          res.status(403).json({ error: 'Only PACKER can ship orders' })
-          return
-        }
-        if (fromStatus !== 'READY_TO_SHIP') {
-          res.status(400).json({ error: 'Order must be in READY_TO_SHIP status' })
-          return
-        }
-        toStatus = OrderStatus.SHIPPED
-        break
-
-      case 'RECEIVE':
-        if (userRole !== 'SALES') {
-          res.status(403).json({ error: 'Only SALES can receive orders' })
-          return
-        }
-        if (fromStatus !== 'SHIPPED') {
-          res.status(400).json({ error: 'Order must be in SHIPPED status' })
-          return
-        }
-        toStatus = OrderStatus.COMPLETED
-        break
-
       case 'RETURN':
         if (!reason) {
           res.status(400).json({ error: 'Reason is required for return' })
@@ -230,7 +206,7 @@ router.patch('/:id/status', authenticate, async (req: Request, res: Response): P
             remark: reason || null,
           },
         },
-        ...(action === 'SHIP'
+        ...(action === 'COMPLETE_PRODUCTION'
           ? {
               shipments: {
                 create: { createdById: userId },

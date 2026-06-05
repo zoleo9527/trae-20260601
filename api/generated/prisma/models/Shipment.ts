@@ -30,6 +30,7 @@ export type ShipmentMinAggregateOutputType = {
   logisticsCompany: string | null
   trackingNo: string | null
   shippedAt: Date | null
+  shippedById: string | null
   receivedAt: Date | null
   receivedById: string | null
   receiveRemark: string | null
@@ -43,6 +44,7 @@ export type ShipmentMaxAggregateOutputType = {
   logisticsCompany: string | null
   trackingNo: string | null
   shippedAt: Date | null
+  shippedById: string | null
   receivedAt: Date | null
   receivedById: string | null
   receiveRemark: string | null
@@ -56,6 +58,7 @@ export type ShipmentCountAggregateOutputType = {
   logisticsCompany: number
   trackingNo: number
   shippedAt: number
+  shippedById: number
   receivedAt: number
   receivedById: number
   receiveRemark: number
@@ -71,6 +74,7 @@ export type ShipmentMinAggregateInputType = {
   logisticsCompany?: true
   trackingNo?: true
   shippedAt?: true
+  shippedById?: true
   receivedAt?: true
   receivedById?: true
   receiveRemark?: true
@@ -84,6 +88,7 @@ export type ShipmentMaxAggregateInputType = {
   logisticsCompany?: true
   trackingNo?: true
   shippedAt?: true
+  shippedById?: true
   receivedAt?: true
   receivedById?: true
   receiveRemark?: true
@@ -97,6 +102,7 @@ export type ShipmentCountAggregateInputType = {
   logisticsCompany?: true
   trackingNo?: true
   shippedAt?: true
+  shippedById?: true
   receivedAt?: true
   receivedById?: true
   receiveRemark?: true
@@ -183,6 +189,7 @@ export type ShipmentGroupByOutputType = {
   logisticsCompany: string | null
   trackingNo: string | null
   shippedAt: Date | null
+  shippedById: string | null
   receivedAt: Date | null
   receivedById: string | null
   receiveRemark: string | null
@@ -217,6 +224,7 @@ export type ShipmentWhereInput = {
   logisticsCompany?: Prisma.StringNullableFilter<"Shipment"> | string | null
   trackingNo?: Prisma.StringNullableFilter<"Shipment"> | string | null
   shippedAt?: Prisma.DateTimeNullableFilter<"Shipment"> | Date | string | null
+  shippedById?: Prisma.StringNullableFilter<"Shipment"> | string | null
   receivedAt?: Prisma.DateTimeNullableFilter<"Shipment"> | Date | string | null
   receivedById?: Prisma.StringNullableFilter<"Shipment"> | string | null
   receiveRemark?: Prisma.StringNullableFilter<"Shipment"> | string | null
@@ -232,6 +240,7 @@ export type ShipmentOrderByWithRelationInput = {
   logisticsCompany?: Prisma.SortOrderInput | Prisma.SortOrder
   trackingNo?: Prisma.SortOrderInput | Prisma.SortOrder
   shippedAt?: Prisma.SortOrderInput | Prisma.SortOrder
+  shippedById?: Prisma.SortOrderInput | Prisma.SortOrder
   receivedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   receivedById?: Prisma.SortOrderInput | Prisma.SortOrder
   receiveRemark?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -250,6 +259,7 @@ export type ShipmentWhereUniqueInput = Prisma.AtLeast<{
   logisticsCompany?: Prisma.StringNullableFilter<"Shipment"> | string | null
   trackingNo?: Prisma.StringNullableFilter<"Shipment"> | string | null
   shippedAt?: Prisma.DateTimeNullableFilter<"Shipment"> | Date | string | null
+  shippedById?: Prisma.StringNullableFilter<"Shipment"> | string | null
   receivedAt?: Prisma.DateTimeNullableFilter<"Shipment"> | Date | string | null
   receivedById?: Prisma.StringNullableFilter<"Shipment"> | string | null
   receiveRemark?: Prisma.StringNullableFilter<"Shipment"> | string | null
@@ -265,6 +275,7 @@ export type ShipmentOrderByWithAggregationInput = {
   logisticsCompany?: Prisma.SortOrderInput | Prisma.SortOrder
   trackingNo?: Prisma.SortOrderInput | Prisma.SortOrder
   shippedAt?: Prisma.SortOrderInput | Prisma.SortOrder
+  shippedById?: Prisma.SortOrderInput | Prisma.SortOrder
   receivedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   receivedById?: Prisma.SortOrderInput | Prisma.SortOrder
   receiveRemark?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -284,6 +295,7 @@ export type ShipmentScalarWhereWithAggregatesInput = {
   logisticsCompany?: Prisma.StringNullableWithAggregatesFilter<"Shipment"> | string | null
   trackingNo?: Prisma.StringNullableWithAggregatesFilter<"Shipment"> | string | null
   shippedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"Shipment"> | Date | string | null
+  shippedById?: Prisma.StringNullableWithAggregatesFilter<"Shipment"> | string | null
   receivedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"Shipment"> | Date | string | null
   receivedById?: Prisma.StringNullableWithAggregatesFilter<"Shipment"> | string | null
   receiveRemark?: Prisma.StringNullableWithAggregatesFilter<"Shipment"> | string | null
@@ -296,6 +308,7 @@ export type ShipmentCreateInput = {
   logisticsCompany?: string | null
   trackingNo?: string | null
   shippedAt?: Date | string | null
+  shippedById?: string | null
   receivedAt?: Date | string | null
   receivedById?: string | null
   receiveRemark?: string | null
@@ -310,6 +323,7 @@ export type ShipmentUncheckedCreateInput = {
   logisticsCompany?: string | null
   trackingNo?: string | null
   shippedAt?: Date | string | null
+  shippedById?: string | null
   receivedAt?: Date | string | null
   receivedById?: string | null
   receiveRemark?: string | null
@@ -322,6 +336,7 @@ export type ShipmentUpdateInput = {
   logisticsCompany?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   trackingNo?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   shippedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  shippedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   receivedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   receivedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   receiveRemark?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -336,6 +351,7 @@ export type ShipmentUncheckedUpdateInput = {
   logisticsCompany?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   trackingNo?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   shippedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  shippedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   receivedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   receivedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   receiveRemark?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -349,6 +365,7 @@ export type ShipmentCreateManyInput = {
   logisticsCompany?: string | null
   trackingNo?: string | null
   shippedAt?: Date | string | null
+  shippedById?: string | null
   receivedAt?: Date | string | null
   receivedById?: string | null
   receiveRemark?: string | null
@@ -361,6 +378,7 @@ export type ShipmentUpdateManyMutationInput = {
   logisticsCompany?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   trackingNo?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   shippedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  shippedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   receivedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   receivedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   receiveRemark?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -373,6 +391,7 @@ export type ShipmentUncheckedUpdateManyInput = {
   logisticsCompany?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   trackingNo?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   shippedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  shippedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   receivedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   receivedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   receiveRemark?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -396,6 +415,7 @@ export type ShipmentCountOrderByAggregateInput = {
   logisticsCompany?: Prisma.SortOrder
   trackingNo?: Prisma.SortOrder
   shippedAt?: Prisma.SortOrder
+  shippedById?: Prisma.SortOrder
   receivedAt?: Prisma.SortOrder
   receivedById?: Prisma.SortOrder
   receiveRemark?: Prisma.SortOrder
@@ -409,6 +429,7 @@ export type ShipmentMaxOrderByAggregateInput = {
   logisticsCompany?: Prisma.SortOrder
   trackingNo?: Prisma.SortOrder
   shippedAt?: Prisma.SortOrder
+  shippedById?: Prisma.SortOrder
   receivedAt?: Prisma.SortOrder
   receivedById?: Prisma.SortOrder
   receiveRemark?: Prisma.SortOrder
@@ -422,6 +443,7 @@ export type ShipmentMinOrderByAggregateInput = {
   logisticsCompany?: Prisma.SortOrder
   trackingNo?: Prisma.SortOrder
   shippedAt?: Prisma.SortOrder
+  shippedById?: Prisma.SortOrder
   receivedAt?: Prisma.SortOrder
   receivedById?: Prisma.SortOrder
   receiveRemark?: Prisma.SortOrder
@@ -522,6 +544,7 @@ export type ShipmentCreateWithoutCreatedByInput = {
   logisticsCompany?: string | null
   trackingNo?: string | null
   shippedAt?: Date | string | null
+  shippedById?: string | null
   receivedAt?: Date | string | null
   receivedById?: string | null
   receiveRemark?: string | null
@@ -535,6 +558,7 @@ export type ShipmentUncheckedCreateWithoutCreatedByInput = {
   logisticsCompany?: string | null
   trackingNo?: string | null
   shippedAt?: Date | string | null
+  shippedById?: string | null
   receivedAt?: Date | string | null
   receivedById?: string | null
   receiveRemark?: string | null
@@ -575,6 +599,7 @@ export type ShipmentScalarWhereInput = {
   logisticsCompany?: Prisma.StringNullableFilter<"Shipment"> | string | null
   trackingNo?: Prisma.StringNullableFilter<"Shipment"> | string | null
   shippedAt?: Prisma.DateTimeNullableFilter<"Shipment"> | Date | string | null
+  shippedById?: Prisma.StringNullableFilter<"Shipment"> | string | null
   receivedAt?: Prisma.DateTimeNullableFilter<"Shipment"> | Date | string | null
   receivedById?: Prisma.StringNullableFilter<"Shipment"> | string | null
   receiveRemark?: Prisma.StringNullableFilter<"Shipment"> | string | null
@@ -587,6 +612,7 @@ export type ShipmentCreateWithoutOrderInput = {
   logisticsCompany?: string | null
   trackingNo?: string | null
   shippedAt?: Date | string | null
+  shippedById?: string | null
   receivedAt?: Date | string | null
   receivedById?: string | null
   receiveRemark?: string | null
@@ -599,6 +625,7 @@ export type ShipmentUncheckedCreateWithoutOrderInput = {
   logisticsCompany?: string | null
   trackingNo?: string | null
   shippedAt?: Date | string | null
+  shippedById?: string | null
   receivedAt?: Date | string | null
   receivedById?: string | null
   receiveRemark?: string | null
@@ -637,6 +664,7 @@ export type ShipmentCreateManyCreatedByInput = {
   logisticsCompany?: string | null
   trackingNo?: string | null
   shippedAt?: Date | string | null
+  shippedById?: string | null
   receivedAt?: Date | string | null
   receivedById?: string | null
   receiveRemark?: string | null
@@ -648,6 +676,7 @@ export type ShipmentUpdateWithoutCreatedByInput = {
   logisticsCompany?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   trackingNo?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   shippedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  shippedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   receivedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   receivedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   receiveRemark?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -661,6 +690,7 @@ export type ShipmentUncheckedUpdateWithoutCreatedByInput = {
   logisticsCompany?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   trackingNo?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   shippedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  shippedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   receivedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   receivedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   receiveRemark?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -673,6 +703,7 @@ export type ShipmentUncheckedUpdateManyWithoutCreatedByInput = {
   logisticsCompany?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   trackingNo?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   shippedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  shippedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   receivedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   receivedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   receiveRemark?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -684,6 +715,7 @@ export type ShipmentCreateManyOrderInput = {
   logisticsCompany?: string | null
   trackingNo?: string | null
   shippedAt?: Date | string | null
+  shippedById?: string | null
   receivedAt?: Date | string | null
   receivedById?: string | null
   receiveRemark?: string | null
@@ -696,6 +728,7 @@ export type ShipmentUpdateWithoutOrderInput = {
   logisticsCompany?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   trackingNo?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   shippedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  shippedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   receivedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   receivedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   receiveRemark?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -708,6 +741,7 @@ export type ShipmentUncheckedUpdateWithoutOrderInput = {
   logisticsCompany?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   trackingNo?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   shippedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  shippedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   receivedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   receivedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   receiveRemark?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -720,6 +754,7 @@ export type ShipmentUncheckedUpdateManyWithoutOrderInput = {
   logisticsCompany?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   trackingNo?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   shippedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  shippedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   receivedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   receivedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   receiveRemark?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -735,6 +770,7 @@ export type ShipmentSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs
   logisticsCompany?: boolean
   trackingNo?: boolean
   shippedAt?: boolean
+  shippedById?: boolean
   receivedAt?: boolean
   receivedById?: boolean
   receiveRemark?: boolean
@@ -750,6 +786,7 @@ export type ShipmentSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Exte
   logisticsCompany?: boolean
   trackingNo?: boolean
   shippedAt?: boolean
+  shippedById?: boolean
   receivedAt?: boolean
   receivedById?: boolean
   receiveRemark?: boolean
@@ -765,6 +802,7 @@ export type ShipmentSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Exte
   logisticsCompany?: boolean
   trackingNo?: boolean
   shippedAt?: boolean
+  shippedById?: boolean
   receivedAt?: boolean
   receivedById?: boolean
   receiveRemark?: boolean
@@ -780,6 +818,7 @@ export type ShipmentSelectScalar = {
   logisticsCompany?: boolean
   trackingNo?: boolean
   shippedAt?: boolean
+  shippedById?: boolean
   receivedAt?: boolean
   receivedById?: boolean
   receiveRemark?: boolean
@@ -787,7 +826,7 @@ export type ShipmentSelectScalar = {
   createdAt?: boolean
 }
 
-export type ShipmentOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "orderId" | "logisticsCompany" | "trackingNo" | "shippedAt" | "receivedAt" | "receivedById" | "receiveRemark" | "createdById" | "createdAt", ExtArgs["result"]["shipment"]>
+export type ShipmentOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "orderId" | "logisticsCompany" | "trackingNo" | "shippedAt" | "shippedById" | "receivedAt" | "receivedById" | "receiveRemark" | "createdById" | "createdAt", ExtArgs["result"]["shipment"]>
 export type ShipmentInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   order?: boolean | Prisma.OrderDefaultArgs<ExtArgs>
   createdBy?: boolean | Prisma.UserDefaultArgs<ExtArgs>
@@ -813,6 +852,7 @@ export type $ShipmentPayload<ExtArgs extends runtime.Types.Extensions.InternalAr
     logisticsCompany: string | null
     trackingNo: string | null
     shippedAt: Date | null
+    shippedById: string | null
     receivedAt: Date | null
     receivedById: string | null
     receiveRemark: string | null
@@ -1248,6 +1288,7 @@ export interface ShipmentFieldRefs {
   readonly logisticsCompany: Prisma.FieldRef<"Shipment", 'String'>
   readonly trackingNo: Prisma.FieldRef<"Shipment", 'String'>
   readonly shippedAt: Prisma.FieldRef<"Shipment", 'DateTime'>
+  readonly shippedById: Prisma.FieldRef<"Shipment", 'String'>
   readonly receivedAt: Prisma.FieldRef<"Shipment", 'DateTime'>
   readonly receivedById: Prisma.FieldRef<"Shipment", 'String'>
   readonly receiveRemark: Prisma.FieldRef<"Shipment", 'String'>
