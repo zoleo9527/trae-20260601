@@ -276,7 +276,10 @@ export default function Handover() {
                                           <div>
                                             <div className="text-gray-700">{e.booking_course_name}</div>
                                             <div className="text-gray-400">{e.booking_date} {e.booking_time_slot}</div>
-                                            {e.booking_status && <StatusBadge type="booking" status={e.booking_status} />}
+                                            <div className="flex items-center gap-1 mt-0.5">
+                                              <span className="text-[10px] font-mono bg-gray-100 text-gray-500 px-1 rounded">预约#{e.booking_id}</span>
+                                              {e.booking_status && <StatusBadge type="booking" status={e.booking_status} />}
+                                            </div>
                                           </div>
                                         ) : (
                                           <span className="text-gray-300">-</span>
@@ -289,10 +292,11 @@ export default function Handover() {
                                           <div className="space-y-1">
                                             {e.related_anomalies.map((a) => (
                                               <div key={a.anomaly_id} className="flex items-center gap-1" title={`${a.source === 'booking' ? '预约级' : '装备级'}: ${a.description}`}>
-                                                <AlertTriangle className={`w-3 h-3 ${a.severity === 'high' ? 'text-warning-red' : a.severity === 'medium' ? 'text-climbing-orange' : 'text-info-blue'}`} />
-                                                <span className={`text-xs px-1 rounded ${a.source === 'booking' ? 'bg-purple-50 text-purple-600' : 'bg-orange-50 text-orange-600'}`}>
+                                                <AlertTriangle className={`w-3 h-3 shrink-0 ${a.severity === 'high' ? 'text-warning-red' : a.severity === 'medium' ? 'text-climbing-orange' : 'text-info-blue'}`} />
+                                                <span className={`text-[10px] px-1 rounded shrink-0 ${a.source === 'booking' ? 'bg-purple-50 text-purple-600' : 'bg-orange-50 text-orange-600'}`}>
                                                   {a.source === 'booking' ? '预' : '装'}
                                                 </span>
+                                                <span className="text-[10px] font-mono text-gray-500 shrink-0">#{a.anomaly_id}</span>
                                                 <span className="text-xs text-gray-600 truncate max-w-[100px]">{a.description}</span>
                                               </div>
                                             ))}
