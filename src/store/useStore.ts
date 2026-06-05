@@ -16,6 +16,19 @@ export interface Booking {
   updated_at: string
 }
 
+export interface BookingSummary {
+  course_name: string
+  booking_date: string
+  time_slot: string
+  status: string
+}
+
+export interface RelatedAnomaly {
+  anomaly_id: number
+  description: string
+  severity: string
+}
+
 export interface EquipmentIssuance {
   id: number
   booking_id: number | null
@@ -29,6 +42,8 @@ export interface EquipmentIssuance {
   returned_at: string | null
   returned_by: string | null
   idempotency_key: string
+  booking_summary: BookingSummary | null
+  related_anomalies: RelatedAnomaly[]
 }
 
 export interface Anomaly {
@@ -54,6 +69,46 @@ export interface HandoverSnapshot {
   operator_in: string
   notes: string
   created_at: string
+}
+
+export interface SnapshotBooking {
+  id: number
+  snapshot_id: number
+  booking_id: number
+  member_name: string
+  course_name: string
+  booking_date: string
+  time_slot: string
+  status: string
+}
+
+export interface SnapshotEquipment {
+  id: number
+  snapshot_id: number
+  issuance_id: number
+  member_name: string
+  equipment_type: string
+  equipment_id: string
+  condition_out: string
+  issued_by: string
+  issued_at: string
+}
+
+export interface SnapshotAnomaly {
+  id: number
+  snapshot_id: number
+  anomaly_id: number
+  description: string
+  severity: string
+  reported_by: string
+  created_at: string
+}
+
+export interface SnapshotDetails {
+  snapshot: HandoverSnapshot
+  bookings: SnapshotBooking[]
+  equipment: SnapshotEquipment[]
+  anomalies: SnapshotAnomaly[]
 }
 
 export interface ShiftTodo {
@@ -101,6 +156,7 @@ interface AppState {
   anomalies: Anomaly[]
   shiftTodos: ShiftTodo[]
   handoverSnapshots: HandoverSnapshot[]
+  snapshotDetails: SnapshotDetails | null
   courses: Course[]
   belayers: Belayer[]
   equipmentTypes: EquipmentType[]
@@ -111,6 +167,7 @@ interface AppState {
   loadingAnomalies: boolean
   loadingHandover: boolean
   loadingDashboard: boolean
+  loadingSnapshotDetails: boolean
 
   fetchBookings: (params?: Record<string, string>) => Promise<void>
   createBooking: (data: Partial<Booking> & { idempotency_key: string }) => Promise<void>
@@ -130,6 +187,8 @@ interface AppState {
 
   fetchHandoverSnapshots: () => Promise<void>
   createHandoverSnapshot: (data: { operator_out: string; operator_in: string; notes: string }) => Promise<void>
+  fetchSnapshotDetails: (id: number) => Promise<void>
+  clearSnapshotDetails: () => void
 
   fetchDashboard: () => Promise<void>
   fetchCourses: () => Promise<void>
@@ -156,6 +215,7 @@ export const useStore = create<AppState>((set, get) => ({
   anomalies: [],
   shiftTodos: [],
   handoverSnapshots: [],
+  snapshotDetails: null,
   courses: [],
   belayers: [],
   equipmentTypes: [],
@@ -166,6 +226,7 @@ export const useStore = create<AppState>((set, get) => ({
   loadingAnomalies: false,
   loadingHandover: false,
   loadingDashboard: false,
+  loadingSnapshotDetails: false,
 
   fetchBookings: async (params) => {
     set({ loadingBookings: true })
@@ -305,6 +366,20 @@ export const useStore = create<AppState>((set, get) => ({
       body: JSON.stringify(data),
     })
     set({ handoverSnapshots: [...get().handoverSnapshots, created] })
+  },
+
+  fetchSnapshotDetails: async (id) => {
+    set({ loadingSnapshotDetails: true })
+    try {
+      const data = await apiFetch<SnapshotDetails>(`/api/handover/snapshots/${id}/details`)
+      set({ snapshotDetails: data, loadingSnapshotDetails: false })
+    } catch {
+      set({ loadingSnapshotDetails: false })
+    }
+  },
+
+  clearSnapshotDetails: () => {
+    set({ snapshotDetails: null })
   },
 
   fetchDashboard: async () => {

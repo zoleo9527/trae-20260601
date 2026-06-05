@@ -82,6 +82,39 @@ CREATE TABLE IF NOT EXISTS handover_snapshots (
     created_at TEXT NOT NULL DEFAULT (datetime('now','localtime'))
 );
 
+CREATE TABLE IF NOT EXISTS snapshot_bookings (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    snapshot_id INTEGER NOT NULL REFERENCES handover_snapshots(id),
+    booking_id INTEGER NOT NULL,
+    member_name TEXT NOT NULL,
+    course_name TEXT NOT NULL,
+    booking_date TEXT NOT NULL,
+    time_slot TEXT NOT NULL,
+    status TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS snapshot_equipment (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    snapshot_id INTEGER NOT NULL REFERENCES handover_snapshots(id),
+    issuance_id INTEGER NOT NULL,
+    member_name TEXT NOT NULL,
+    equipment_type TEXT NOT NULL,
+    equipment_id TEXT NOT NULL,
+    condition_out TEXT NOT NULL,
+    issued_by TEXT NOT NULL,
+    issued_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS snapshot_anomalies (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    snapshot_id INTEGER NOT NULL REFERENCES handover_snapshots(id),
+    anomaly_id INTEGER NOT NULL,
+    description TEXT NOT NULL,
+    severity TEXT NOT NULL,
+    reported_by TEXT NOT NULL,
+    created_at TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS shift_todos (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     content TEXT NOT NULL,
@@ -138,6 +171,18 @@ if (countCourses.cnt === 0) {
 
   const insertSnapshot = db.prepare(`INSERT INTO handover_snapshots (pending_bookings, unreturned_equipment, open_anomalies, operator_out, operator_in, notes, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)`)
   insertSnapshot.run(3, 1, 2, '值班员A', '值班员B', '3号保护点异常待检修，攀岩鞋磨损需关注', '2026-06-05 14:00:00')
+
+  const insertSnapshotBooking = db.prepare(`INSERT INTO snapshot_bookings (snapshot_id, booking_id, member_name, course_name, booking_date, time_slot, status) VALUES (?, ?, ?, ?, ?, ?, ?)`)
+  insertSnapshotBooking.run(1, 1, '赵强', '基础攀岩体验', '2026-06-05', '10:00-11:30', 'pending')
+  insertSnapshotBooking.run(1, 2, '孙丽', '进阶攀岩技术', '2026-06-05', '13:00-15:00', 'confirmed')
+  insertSnapshotBooking.run(1, 3, '周伟', '顶绳保护训练', '2026-06-05', '14:00-15:00', 'in_progress')
+
+  const insertSnapshotEquipment = db.prepare(`INSERT INTO snapshot_equipment (snapshot_id, issuance_id, member_name, equipment_type, equipment_id, condition_out, issued_by, issued_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`)
+  insertSnapshotEquipment.run(1, 3, '周伟', '安全带', 'HB-003', '良好', '值班员A', '2026-06-05 14:00:00')
+
+  const insertSnapshotAnomaly = db.prepare(`INSERT INTO snapshot_anomalies (snapshot_id, anomaly_id, description, severity, reported_by, created_at) VALUES (?, ?, ?, ?, ?, ?)`)
+  insertSnapshotAnomaly.run(1, 1, '保护点螺丝松动需检修', 'high', '张磊', '2026-06-05 16:24:14')
+  insertSnapshotAnomaly.run(1, 2, '攀岩鞋右脚底部磨损偏重', 'medium', '值班员B', '2026-06-05 16:24:14')
 }
 
 export default db

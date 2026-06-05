@@ -28,14 +28,34 @@ router.post('/snapshot', (req: Request, res: Response) => {
     return
   }
 
-  const pendingBookings = db.prepare("SELECT COUNT(*) as cnt FROM bookings WHERE status IN ('pending', 'confirmed', 'in_progress')").get() as { cnt: number }
-  const unreturnedEquipment = db.prepare('SELECT COUNT(*) as cnt FROM equipment_issuances WHERE returned_at IS NULL').get() as { cnt: number }
-  const openAnomalies = db.prepare("SELECT COUNT(*) as cnt FROM anomalies WHERE status = 'open'").get() as { cnt: number }
+  const pendingBookingsRows = db.prepare(`SELECT b.id, b.member_name, c.name as course_name, b.booking_date, b.time_slot, b.status FROM bookings b LEFT JOIN courses c ON b.course_id = c.id WHERE b.status IN ('pending', 'confirmed', 'in_progress')`).all() as any[]
+  const unreturnedEquipmentRows = db.prepare('SELECT id, member_name, equipment_type, equipment_id, condition_out, issued_by, issued_at FROM equipment_issuances WHERE returned_at IS NULL').all() as any[]
+  const openAnomaliesRows = db.prepare("SELECT id, description, severity, reported_by, created_at FROM anomalies WHERE status = 'open'").all() as any[]
 
-  const stmt = db.prepare('INSERT INTO handover_snapshots (pending_bookings, unreturned_equipment, open_anomalies, operator_out, operator_in, notes) VALUES (?, ?, ?, ?, ?, ?)')
-  const result = stmt.run(pendingBookings.cnt, unreturnedEquipment.cnt, openAnomalies.cnt, operator_out, operator_in, notes || '')
+  const insertSnapshot = db.prepare('INSERT INTO handover_snapshots (pending_bookings, unreturned_equipment, open_anomalies, operator_out, operator_in, notes) VALUES (?, ?, ?, ?, ?, ?)')
+  const insertBooking = db.prepare('INSERT INTO snapshot_bookings (snapshot_id, booking_id, member_name, course_name, booking_date, time_slot, status) VALUES (?, ?, ?, ?, ?, ?, ?)')
+  const insertEquipment = db.prepare('INSERT INTO snapshot_equipment (snapshot_id, issuance_id, member_name, equipment_type, equipment_id, condition_out, issued_by, issued_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
+  const insertAnomaly = db.prepare('INSERT INTO snapshot_anomalies (snapshot_id, anomaly_id, description, severity, reported_by, created_at) VALUES (?, ?, ?, ?, ?, ?)')
 
-  const snapshot = db.prepare('SELECT * FROM handover_snapshots WHERE id = ?').get(result.lastInsertRowid)
+  const tx = db.transaction(() => {
+    const result = insertSnapshot.run(pendingBookingsRows.length, unreturnedEquipmentRows.length, openAnomaliesRows.length, operator_out, operator_in, notes || '')
+    const snapshotId = Number(result.lastInsertRowid)
+
+    for (const b of pendingBookingsRows) {
+      insertBooking.run(snapshotId, b.id, b.member_name, b.course_name, b.booking_date, b.time_slot, b.status)
+    }
+    for (const e of unreturnedEquipmentRows) {
+      insertEquipment.run(snapshotId, e.id, e.member_name, e.equipment_type, e.equipment_id, e.condition_out, e.issued_by, e.issued_at)
+    }
+    for (const a of openAnomaliesRows) {
+      insertAnomaly.run(snapshotId, a.id, a.description, a.severity, a.reported_by, a.created_at)
+    }
+
+    return snapshotId
+  })
+
+  const snapshotId = tx()
+  const snapshot = db.prepare('SELECT * FROM handover_snapshots WHERE id = ?').get(snapshotId)
   res.status(201).json({ success: true, data: snapshot })
 })
 
@@ -84,6 +104,28 @@ router.patch('/todos/:id/complete', (req: Request, res: Response) => {
   db.prepare("UPDATE shift_todos SET status = 'done', completed_by = ?, completed_at = datetime('now','localtime') WHERE id = ?").run(completed_by, id)
   const updated = db.prepare('SELECT * FROM shift_todos WHERE id = ?').get(id)
   res.json({ success: true, data: updated })
+})
+
+router.get('/snapshots/:id/details', (req: Request, res: Response) => {
+  const snapshot = db.prepare('SELECT * FROM handover_snapshots WHERE id = ?').get(req.params.id) as any
+  if (!snapshot) {
+    res.status(404).json({ success: false, error: 'Snapshot not found' })
+    return
+  }
+
+  const bookings = db.prepare('SELECT * FROM snapshot_bookings WHERE snapshot_id = ?').all(req.params.id)
+  const equipment = db.prepare('SELECT * FROM snapshot_equipment WHERE snapshot_id = ?').all(req.params.id)
+  const anomalies = db.prepare('SELECT * FROM snapshot_anomalies WHERE snapshot_id = ?').all(req.params.id)
+
+  res.json({
+    success: true,
+    data: {
+      snapshot,
+      bookings,
+      equipment,
+      anomalies,
+    },
+  })
 })
 
 router.get('/snapshots/:id', (req: Request, res: Response) => {

@@ -1,19 +1,20 @@
 import { useEffect, useState } from 'react'
-import { Calendar, Package, AlertTriangle, Plus, X } from 'lucide-react'
+import { Calendar, Package, AlertTriangle, Plus, X, ChevronDown, ChevronRight } from 'lucide-react'
 import { useStore } from '@/store/useStore'
 import StatusBadge from '@/components/StatusBadge'
 
 export default function Handover() {
   const {
-    bookings, equipmentIssuances, anomalies, shiftTodos, handoverSnapshots,
-    loadingHandover, fetchBookings, fetchEquipmentIssuances, fetchAnomalies,
+    bookings, equipmentIssuances, anomalies, shiftTodos, handoverSnapshots, snapshotDetails,
+    loadingHandover, loadingSnapshotDetails, fetchBookings, fetchEquipmentIssuances, fetchAnomalies,
     fetchShiftTodos, fetchHandoverSnapshots, createHandoverSnapshot,
-    addShiftTodo, completeShiftTodo,
+    addShiftTodo, completeShiftTodo, fetchSnapshotDetails, clearSnapshotDetails,
   } = useStore()
 
   const [showSnapshotModal, setShowSnapshotModal] = useState(false)
   const [snapshotForm, setSnapshotForm] = useState({ operator_out: '', operator_in: '', notes: '' })
   const [todoForm, setTodoForm] = useState({ content: '', priority: 'medium', created_by: '' })
+  const [expandedSnapshotId, setExpandedSnapshotId] = useState<number | null>(null)
 
   useEffect(() => {
     fetchBookings()
@@ -49,6 +50,16 @@ export default function Handover() {
   const handleCompleteTodo = async (id: number) => {
     await completeShiftTodo(id, '值班员')
     fetchShiftTodos()
+  }
+
+  const handleToggleSnapshot = async (id: number) => {
+    if (expandedSnapshotId === id) {
+      setExpandedSnapshotId(null)
+      clearSnapshotDetails()
+      return
+    }
+    setExpandedSnapshotId(id)
+    await fetchSnapshotDetails(id)
   }
 
   return (
@@ -167,33 +178,149 @@ export default function Handover() {
         ) : handoverSnapshots.length === 0 ? (
           <p className="text-gray-400 text-sm py-4">暂无历史交班记录</p>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">日期</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">交班人</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">接班人</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">待处理预约</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">待回收装备</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">未关闭异常</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">备注</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200">
-                {handoverSnapshots.map((s) => (
-                  <tr key={s.id} className="hover:bg-gray-50">
-                    <td className="px-4 py-3 text-sm text-gray-700">{s.created_at}</td>
-                    <td className="px-4 py-3 text-sm">{s.operator_out}</td>
-                    <td className="px-4 py-3 text-sm">{s.operator_in}</td>
-                    <td className="px-4 py-3 text-sm">{s.pending_bookings}</td>
-                    <td className="px-4 py-3 text-sm">{s.unreturned_equipment}</td>
-                    <td className="px-4 py-3 text-sm">{s.open_anomalies}</td>
-                    <td className="px-4 py-3 text-sm text-gray-500 max-w-xs truncate">{s.notes || '-'}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="space-y-3">
+            {handoverSnapshots.map((s) => (
+              <div key={s.id} className="border border-gray-200 rounded-lg overflow-hidden">
+                <button
+                  onClick={() => handleToggleSnapshot(s.id)}
+                  className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 text-left"
+                >
+                  {expandedSnapshotId === s.id ? (
+                    <ChevronDown className="w-4 h-4 text-gray-400 shrink-0" />
+                  ) : (
+                    <ChevronRight className="w-4 h-4 text-gray-400 shrink-0" />
+                  )}
+                  <span className="text-sm text-gray-700 w-36 shrink-0">{s.created_at}</span>
+                  <span className="text-sm">{s.operator_out} → {s.operator_in}</span>
+                  <span className="ml-auto flex items-center gap-4 text-xs text-gray-500">
+                    <span className="flex items-center gap-1"><Calendar className="w-3 h-3" />{s.pending_bookings} 预约</span>
+                    <span className="flex items-center gap-1"><Package className="w-3 h-3" />{s.unreturned_equipment} 装备</span>
+                    <span className="flex items-center gap-1"><AlertTriangle className="w-3 h-3" />{s.open_anomalies} 异常</span>
+                  </span>
+                </button>
+
+                {expandedSnapshotId === s.id && (
+                  <div className="border-t border-gray-100 px-4 py-4 bg-gray-50/50">
+                    {loadingSnapshotDetails ? (
+                      <div className="text-center py-4 text-gray-400 text-sm">加载明细...</div>
+                    ) : snapshotDetails && snapshotDetails.snapshot.id === s.id ? (
+                      <div className="space-y-4">
+                        {s.notes && (
+                          <div className="text-sm text-gray-600 bg-yellow-50 border border-yellow-100 rounded-lg px-3 py-2">
+                            备注：{s.notes}
+                          </div>
+                        )}
+
+                        <div>
+                          <h4 className="text-sm font-medium text-gray-700 mb-2 flex items-center gap-1">
+                            <Calendar className="w-4 h-4 text-climbing-orange" />
+                            未完成预约（{snapshotDetails.bookings.length}）
+                          </h4>
+                          {snapshotDetails.bookings.length > 0 ? (
+                            <div className="overflow-x-auto">
+                              <table className="min-w-full divide-y divide-gray-200 text-xs">
+                                <thead className="bg-gray-100">
+                                  <tr>
+                                    <th className="px-3 py-2 text-left font-medium text-gray-500">会员</th>
+                                    <th className="px-3 py-2 text-left font-medium text-gray-500">课程</th>
+                                    <th className="px-3 py-2 text-left font-medium text-gray-500">日期</th>
+                                    <th className="px-3 py-2 text-left font-medium text-gray-500">时段</th>
+                                    <th className="px-3 py-2 text-left font-medium text-gray-500">状态</th>
+                                  </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-100">
+                                  {snapshotDetails.bookings.map((b) => (
+                                    <tr key={b.id} className="hover:bg-white">
+                                      <td className="px-3 py-2">{b.member_name}</td>
+                                      <td className="px-3 py-2">{b.course_name}</td>
+                                      <td className="px-3 py-2">{b.booking_date}</td>
+                                      <td className="px-3 py-2">{b.time_slot}</td>
+                                      <td className="px-3 py-2"><StatusBadge type="booking" status={b.status} /></td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          ) : (
+                            <p className="text-xs text-gray-400 py-2">无待处理预约</p>
+                          )}
+                        </div>
+
+                        <div>
+                          <h4 className="text-sm font-medium text-gray-700 mb-2 flex items-center gap-1">
+                            <Package className="w-4 h-4 text-info-blue" />
+                            未归还装备（{snapshotDetails.equipment.length}）
+                          </h4>
+                          {snapshotDetails.equipment.length > 0 ? (
+                            <div className="overflow-x-auto">
+                              <table className="min-w-full divide-y divide-gray-200 text-xs">
+                                <thead className="bg-gray-100">
+                                  <tr>
+                                    <th className="px-3 py-2 text-left font-medium text-gray-500">会员</th>
+                                    <th className="px-3 py-2 text-left font-medium text-gray-500">装备类型</th>
+                                    <th className="px-3 py-2 text-left font-medium text-gray-500">编号</th>
+                                    <th className="px-3 py-2 text-left font-medium text-gray-500">出场状态</th>
+                                    <th className="px-3 py-2 text-left font-medium text-gray-500">发放人</th>
+                                    <th className="px-3 py-2 text-left font-medium text-gray-500">发放时间</th>
+                                  </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-100">
+                                  {snapshotDetails.equipment.map((e) => (
+                                    <tr key={e.id} className="hover:bg-white">
+                                      <td className="px-3 py-2">{e.member_name}</td>
+                                      <td className="px-3 py-2">{e.equipment_type}</td>
+                                      <td className="px-3 py-2 font-mono">{e.equipment_id}</td>
+                                      <td className="px-3 py-2">{e.condition_out}</td>
+                                      <td className="px-3 py-2">{e.issued_by}</td>
+                                      <td className="px-3 py-2 text-gray-400">{e.issued_at}</td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          ) : (
+                            <p className="text-xs text-gray-400 py-2">无未归还装备</p>
+                          )}
+                        </div>
+
+                        <div>
+                          <h4 className="text-sm font-medium text-gray-700 mb-2 flex items-center gap-1">
+                            <AlertTriangle className="w-4 h-4 text-warning-red" />
+                            未关闭异常（{snapshotDetails.anomalies.length}）
+                          </h4>
+                          {snapshotDetails.anomalies.length > 0 ? (
+                            <div className="overflow-x-auto">
+                              <table className="min-w-full divide-y divide-gray-200 text-xs">
+                                <thead className="bg-gray-100">
+                                  <tr>
+                                    <th className="px-3 py-2 text-left font-medium text-gray-500">描述</th>
+                                    <th className="px-3 py-2 text-left font-medium text-gray-500">严重度</th>
+                                    <th className="px-3 py-2 text-left font-medium text-gray-500">报告人</th>
+                                    <th className="px-3 py-2 text-left font-medium text-gray-500">报告时间</th>
+                                  </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-100">
+                                  {snapshotDetails.anomalies.map((a) => (
+                                    <tr key={a.id} className="hover:bg-white">
+                                      <td className="px-3 py-2">{a.description}</td>
+                                      <td className="px-3 py-2"><StatusBadge type="severity" status={a.severity} /></td>
+                                      <td className="px-3 py-2">{a.reported_by}</td>
+                                      <td className="px-3 py-2 text-gray-400">{a.created_at}</td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          ) : (
+                            <p className="text-xs text-gray-400 py-2">无未关闭异常</p>
+                          )}
+                        </div>
+                      </div>
+                    ) : null}
+                  </div>
+                )}
+              </div>
+            ))}
           </div>
         )}
       </div>

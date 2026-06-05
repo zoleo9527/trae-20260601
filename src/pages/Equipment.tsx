@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Plus, Check, ChevronDown, ChevronUp } from 'lucide-react'
+import { Plus, Check, ChevronDown, ChevronUp, AlertTriangle } from 'lucide-react'
 import { useStore } from '@/store/useStore'
 import StatusBadge from '@/components/StatusBadge'
 import EquipmentIssueModal from '@/components/EquipmentIssueModal'
@@ -95,8 +95,10 @@ export default function Equipment() {
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">会员</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">装备类型</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">装备编号</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">关联预约</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">出场状态</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">回场状态</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">异常</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">发放人</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">发放时间</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">归还时间</th>
@@ -109,9 +111,34 @@ export default function Equipment() {
                     <td className="px-4 py-3 text-sm">{e.member_name}</td>
                     <td className="px-4 py-3 text-sm">{e.equipment_type}</td>
                     <td className="px-4 py-3 text-sm font-mono text-xs">{e.equipment_id}</td>
+                    <td className="px-4 py-3 text-sm">
+                      {e.booking_summary ? (
+                        <div className="space-y-0.5">
+                          <div className="text-xs font-medium text-gray-700">{e.booking_summary.course_name}</div>
+                          <div className="text-xs text-gray-400">{e.booking_summary.booking_date} {e.booking_summary.time_slot}</div>
+                          <StatusBadge type="booking" status={e.booking_summary.status} />
+                        </div>
+                      ) : (
+                        <span className="text-gray-300">-</span>
+                      )}
+                    </td>
                     <td className="px-4 py-3 text-sm">{e.condition_out}</td>
                     <td className="px-4 py-3 text-sm">
                       {e.returned_at ? <StatusBadge type="equipment" status="returned" /> : <StatusBadge type="equipment" status="unreturned" />}
+                    </td>
+                    <td className="px-4 py-3 text-sm">
+                      {e.related_anomalies.length > 0 ? (
+                        <div className="space-y-1">
+                          {e.related_anomalies.map((a) => (
+                            <div key={a.anomaly_id} className="flex items-center gap-1" title={a.description}>
+                              <AlertTriangle className={`w-3 h-3 ${a.severity === 'high' ? 'text-warning-red' : a.severity === 'medium' ? 'text-climbing-orange' : 'text-info-blue'}`} />
+                              <span className="text-xs text-gray-600 truncate max-w-[120px]">#{a.anomaly_id}</span>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <span className="text-gray-300">-</span>
+                      )}
                     </td>
                     <td className="px-4 py-3 text-sm">{e.issued_by}</td>
                     <td className="px-4 py-3 text-sm text-gray-500">{e.issued_at}</td>
@@ -132,7 +159,7 @@ export default function Equipment() {
                 ))}
                 {equipmentIssuances.length === 0 && (
                   <tr>
-                    <td colSpan={9} className="px-4 py-10 text-center text-gray-400 text-sm">暂无装备发放记录</td>
+                    <td colSpan={11} className="px-4 py-10 text-center text-gray-400 text-sm">暂无装备发放记录</td>
                   </tr>
                 )}
               </tbody>
@@ -158,8 +185,10 @@ export default function Equipment() {
                     <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">会员</th>
                     <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">装备</th>
                     <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">编号</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">关联预约</th>
                     <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">出场</th>
                     <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">回场</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">异常</th>
                     <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">发放人</th>
                     <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">发放时间</th>
                     <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">归还时间</th>
@@ -172,8 +201,21 @@ export default function Equipment() {
                       <td className="px-4 py-2 text-xs">{e.member_name}</td>
                       <td className="px-4 py-2 text-xs">{e.equipment_type}</td>
                       <td className="px-4 py-2 text-xs font-mono">{e.equipment_id}</td>
+                      <td className="px-4 py-2 text-xs">
+                        {e.booking_summary ? (
+                          <span className="text-gray-600">{e.booking_summary.course_name}</span>
+                        ) : '-'}
+                      </td>
                       <td className="px-4 py-2 text-xs">{e.condition_out}</td>
                       <td className="px-4 py-2 text-xs">{e.condition_in ?? '-'}</td>
+                      <td className="px-4 py-2 text-xs">
+                        {e.related_anomalies.length > 0 ? (
+                          <span className="inline-flex items-center gap-1 text-warning-red">
+                            <AlertTriangle className="w-3 h-3" />
+                            {e.related_anomalies.length}
+                          </span>
+                        ) : '-'}
+                      </td>
                       <td className="px-4 py-2 text-xs">{e.issued_by}</td>
                       <td className="px-4 py-2 text-xs text-gray-500">{e.issued_at}</td>
                       <td className="px-4 py-2 text-xs text-gray-500">{e.returned_at ?? '-'}</td>
