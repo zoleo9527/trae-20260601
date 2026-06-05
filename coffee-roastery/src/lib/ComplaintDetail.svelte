@@ -183,24 +183,28 @@
             <label>退回原因</label>
             {#if record.returnReason}
               <p class="form-value">{record.returnReason}</p>
-            {:else}
+            {:else if record.status === 'pending' && currentRole === '渠道客服'}
               <textarea bind:value={returnReasonText} placeholder="填写退回原因…"></textarea>
               <button class="btn-sm" onclick={handleSaveReturnReason} disabled={!returnReasonText.trim()}>保存</button>
+            {:else}
+              <p class="placeholder">尚未填写（需渠道客服在待处理阶段填写）</p>
             {/if}
           </div>
           <div class="form-group">
             <label>回收动作</label>
             {#if record.recoveryAction}
               <p class="form-value">{record.recoveryAction}</p>
-            {:else}
+            {:else if record.status === 'pending' && currentRole === '渠道客服'}
               <textarea bind:value={recoveryActionText} placeholder="填写回收处理动作…"></textarea>
               <button class="btn-sm" onclick={handleSaveRecoveryAction} disabled={!recoveryActionText.trim()}>保存</button>
+            {:else}
+              <p class="placeholder">尚未填写（需渠道客服在待处理阶段填写）</p>
             {/if}
           </div>
 
           {#if record.returnReason && record.recoveryAction}
             <div class="recovery-done">
-              ✓ 回收信息已完整，可推进状态
+              ✓ 回收信息已完整
             </div>
           {/if}
         </div>
@@ -235,7 +239,7 @@
               </div>
               <p class="flavor-notes">{record.flavorReview.notes}</p>
             </div>
-          {:else if currentRole === '杯测员'}
+          {:else if record.status === 'recovering' && currentRole === '杯测员'}
             <div class="flavor-form">
               <div class="section-label">录入风味复盘</div>
               <div class="slider-group">
@@ -260,8 +264,8 @@
               </div>
               <button class="btn-primary" onclick={handleSubmitFlavorReview} disabled={!reviewNotes.trim()}>提交复盘</button>
             </div>
-          {:else}
-            <p class="placeholder">等待杯测员提交复盘结果</p>
+          {:else if !record.flavorReview}
+            <p class="placeholder">等待杯测员在回收中阶段提交风味复盘</p>
           {/if}
         </div>
       {/if}

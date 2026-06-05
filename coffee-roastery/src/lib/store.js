@@ -29,13 +29,19 @@ export const STATUS_ACTION_MAP = {
   reviewing: {
     action: '确认关闭客诉',
     byRole: '烘焙师',
-    required: []
+    required: ['returnReason', 'recoveryAction', 'flavorReview']
   },
   resolved: {
     action: null,
     byRole: null,
     required: []
   }
+};
+
+const FIELD_LABELS = {
+  returnReason: '退回原因',
+  recoveryAction: '回收动作',
+  flavorReview: '风味复盘'
 };
 
 export function getMissingRequired(record) {
@@ -55,12 +61,7 @@ export function canAdvance(record, role) {
   if (config.byRole !== role) return { can: false, reason: `需${config.byRole}操作` };
   const missing = getMissingRequired(record);
   if (missing.length > 0) {
-    const fieldLabels = {
-      returnReason: '退回原因',
-      recoveryAction: '回收动作',
-      flavorReview: '风味复盘'
-    };
-    return { can: false, reason: `请先填写：${missing.map(f => fieldLabels[f] || f).join('、')}` };
+    return { can: false, reason: `请先填写：${missing.map(f => FIELD_LABELS[f] || f).join('、')}` };
   }
   return { can: true, reason: '' };
 }
@@ -294,8 +295,16 @@ export const roleTodos = derived(
 );
 
 export function advanceWithAction(recordId, role, actionLabel) {
-  complaintRecords.update(records =>
-    records.map(r => {
+  const records = get(complaintRecords);
+  const record = records.find(r => r.id === recordId);
+  const check = canAdvance(record, role);
+  if (!check.can) {
+    console.warn(`[advanceWithAction] 拒绝推进 ${recordId}: ${check.reason}`);
+    return { success: false, reason: check.reason };
+  }
+
+  complaintRecords.update(recs =>
+    recs.map(r => {
       if (r.id !== recordId) return r;
       const next = STATUS_MAP[r.status]?.next;
       if (!next) return r;
@@ -314,6 +323,7 @@ export function advanceWithAction(recordId, role, actionLabel) {
       };
     })
   );
+  return { success: true, reason: '' };
 }
 
 export function addNote(recordId, author, role, content) {
@@ -332,26 +342,46 @@ export function addNote(recordId, author, role, content) {
 }
 
 export function updateReturnReason(recordId, reason) {
-  complaintRecords.update(records =>
-    records.map(r => {
+  const records = get(complaintRecords);
+  const record = records.find(r => r.id === recordId);
+  if (record && record.status !== 'pending') {
+    console.warn(`[updateReturnReason] 拒绝修改 ${recordId}: 当前状态 ${record.status} 不允许修改退回原因`);
+    return { success: false, reason: '当前状态不允许修改退回原因' };
+  }
+  complaintRecords.update(recs =>
+    recs.map(r => {
       if (r.id !== recordId) return r;
       return { ...r, returnReason: reason };
     })
   );
+  return { success: true, reason: '' };
 }
 
 export function updateRecoveryAction(recordId, action) {
-  complaintRecords.update(records =>
-    records.map(r => {
+  const records = get(complaintRecords);
+  const record = records.find(r => r.id === recordId);
+  if (record && record.status !== 'pending') {
+    console.warn(`[updateRecoveryAction] 拒绝修改 ${recordId}: 当前状态 ${record.status} 不允许修改回收动作`);
+    return { success: false, reason: '当前状态不允许修改回收动作' };
+  }
+  complaintRecords.update(recs =>
+    recs.map(r => {
       if (r.id !== recordId) return r;
       return { ...r, recoveryAction: action };
     })
   );
+  return { success: true, reason: '' };
 }
 
 export function submitFlavorReview(recordId, review) {
-  complaintRecords.update(records =>
-    records.map(r => {
+  const records = get(complaintRecords);
+  const record = records.find(r => r.id === recordId);
+  if (record && record.status !== 'recovering') {
+    console.warn(`[submitFlavorReview] 拒绝提交 ${recordId}: 当前状态 ${record.status} 不允许提交风味复盘`);
+    return { success: false, reason: '当前状态不允许提交风味复盘' };
+  }
+  complaintRecords.update(recs =>
+    recs.map(r => {
       if (r.id !== recordId) return r;
       const now = new Date();
       const ts = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
@@ -362,6 +392,7 @@ export function submitFlavorReview(recordId, review) {
       };
     })
   );
+  return { success: true, reason: '' };
 }
 
 export function getBeanName(beanId) {
