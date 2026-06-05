@@ -1,4 +1,4 @@
-import { getDb, getRoastBatches, getCuppingRecords } from '$lib/db.js';
+import { getDb, getCuppingRecords } from '$lib/db.js';
 import type { PageServerLoad } from './$types.js';
 
 export const load: PageServerLoad = async ({ locals }) => {
@@ -8,7 +8,8 @@ export const load: PageServerLoad = async ({ locals }) => {
 		FROM roast_batches rb
 		LEFT JOIN green_beans gb ON rb.green_bean_id = gb.id
 		LEFT JOIN roasting_plans rp ON rb.roasting_plan_id = rp.id
-		WHERE rb.end_time IS NULL OR rb.output_weight_kg IS NULL
+		WHERE rb.end_time IS NOT NULL AND rb.output_weight_kg IS NOT NULL
+		AND rb.id NOT IN (SELECT roast_batch_id FROM cupping_records)
 		ORDER BY rb.created_at DESC
 	`).all();
 	const recentCuppings = getCuppingRecords();

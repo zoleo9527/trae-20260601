@@ -31,9 +31,9 @@
 <div>
 	<div class="flex items-center justify-between mb-6">
 		<div>
-			<h2 class="text-xl font-bold text-stone-800">杯测记录</h2>
-			<p class="text-sm text-stone-500 mt-0.5">待杯测批次: {(data.batches as any[]).length}</p>
-		</div>
+		<h2 class="text-xl font-bold text-stone-800">杯测记录</h2>
+		<p class="text-sm text-stone-500 mt-0.5">待杯测批次（已完结、未杯测）: {(data.batches as any[]).length}</p>
+	</div>
 		{#if data.user?.role === 'cupper'}
 			<button onclick={() => showForm = !showForm} class="bg-stone-800 text-white px-4 py-2 rounded text-sm hover:bg-stone-700">
 				{showForm ? '取消' : '+ 新增杯测'}

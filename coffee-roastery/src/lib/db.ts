@@ -314,12 +314,29 @@ export function createException(data: {
 export function updateException(id: number, data: { status?: string; resolution?: string; handler_id?: number }) {
 	const db = getDb();
 	const now = new Date().toISOString();
+	const ex = db.prepare('SELECT * FROM exceptions WHERE id = ?').get(id) as any;
+	if (!ex) return;
+
 	if (data.status === 'resolved' || data.status === 'closed') {
 		db.prepare('UPDATE exceptions SET status = ?, resolution = ?, handler_id = ?, resolved_at = ? WHERE id = ?')
 			.run(data.status, data.resolution || null, data.handler_id || null, now, id);
+		addTimelineEvent(
+			ex.entity_type,
+			ex.entity_id,
+			'exception_resolved',
+			`异常已解决: ${ex.title} - ${data.resolution || '已处理'}`,
+			data.handler_id
+		);
 	} else if (data.status) {
 		db.prepare('UPDATE exceptions SET status = ?, handler_id = ? WHERE id = ?')
 			.run(data.status, data.handler_id || null, id);
+		addTimelineEvent(
+			ex.entity_type,
+			ex.entity_id,
+			'exception_status_change',
+			`异常状态变更: ${ex.title} → ${data.status}`,
+			data.handler_id
+		);
 	}
 }
 
@@ -384,8 +401,55 @@ export function createRoastBatch(data: {
 		data.actual_roast_level, data.start_time, data.input_weight_kg, data.notes || '', now
 	);
 	const batchId = Number(result.lastInsertRowid);
-	addTimelineEvent('roasting_plan', data.roasting_plan_id, 'batch_started', `烘焙批次 ${batch_no} 开始`, data.roaster_id);
+	addTimelineEvent('roasting_plan', data.roasting_plan_id, 'batch_started', `烘焙批次 ${batch_no} 开始，投入 ${data.input_weight_kg}kg`, data.roaster_id);
 	return { id: batchId, batch_no };
+}
+
+export function getRoastBatch(id: number) {
+	const db = getDb();
+	return db.prepare(`
+		SELECT rb.*, gb.name as green_bean_name, gb.batch_no as green_bean_batch_no, rp.plan_no, u.display_name as roaster_name
+		FROM roast_batches rb
+		LEFT JOIN green_beans gb ON rb.green_bean_id = gb.id
+		LEFT JOIN roasting_plans rp ON rb.roasting_plan_id = rp.id
+		LEFT JOIN users u ON rb.roaster_id = u.id
+		WHERE rb.id = ?
+	`).get(id);
+}
+
+export function completeRoastBatch(batchId: number, end_time: string, output_weight_kg: number, notes?: string) {
+	const db = getDb();
+	const now = new Date().toISOString();
+	const batch = getRoastBatch(batchId) as any;
+	if (!batch || batch.end_time) return null;
+
+	db.prepare(`
+		UPDATE roast_batches SET end_time = ?, output_weight_kg = ?, notes = COALESCE(?, notes) WHERE id = ?
+	`).run(end_time, output_weight_kg, notes || null, batchId);
+
+	const lossRate = batch.input_weight_kg > 0
+		? ((1 - output_weight_kg / batch.input_weight_kg) * 100).toFixed(1)
+		: '0';
+
+	const remaining = (db.prepare('SELECT remaining_kg FROM green_beans WHERE id = ?').get(batch.green_bean_id) as { remaining_kg: number }).remaining_kg;
+	const newRemaining = Math.max(0, remaining - batch.input_weight_kg);
+	db.prepare('UPDATE green_beans SET remaining_kg = ?, updated_at = ? WHERE id = ?').run(newRemaining, now, batch.green_bean_id);
+
+	addTimelineEvent(
+		'roasting_plan',
+		batch.roasting_plan_id,
+		'batch_completed',
+		`烘焙批次 ${batch.batch_no} 完结：投入 ${batch.input_weight_kg}kg → 产出 ${output_weight_kg}kg，失水率 ${lossRate}%`,
+		batch.roaster_id
+	);
+
+	const planBatches = getRoastBatches(batch.roasting_plan_id) as any[];
+	const allCompleted = planBatches.every((b: any) => b.end_time && b.output_weight_kg);
+	if (allCompleted) {
+		updateRoastingPlanStatus(batch.roasting_plan_id, 'completed', batch.roaster_id);
+	}
+
+	return { batchId, lossRate, newRemaining };
 }
 
 export function createCuppingRecord(data: {

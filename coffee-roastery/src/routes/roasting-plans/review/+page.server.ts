@@ -18,6 +18,7 @@ export const load: PageServerLoad = async ({ url }) => {
 	const planIds = (completedPlans as any[]).map((p: any) => p.id);
 	let batches: any[] = [];
 	let cuppingRecords: any[] = [];
+	let exceptions: any[] = [];
 
 	if (planIds.length > 0) {
 		const placeholders = planIds.map(() => '?').join(',');
@@ -41,7 +42,26 @@ export const load: PageServerLoad = async ({ url }) => {
 				ORDER BY cr.created_at DESC
 			`).all(...batchIds);
 		}
+
+		exceptions = db.prepare(`
+			SELECT e.*
+			FROM exceptions e
+			WHERE e.entity_type = 'roasting_plan' AND e.entity_id IN (${placeholders})
+			ORDER BY e.created_at DESC
+		`).all(...planIds);
 	}
 
-	return { completedPlans, batches, cuppingRecords, startDate, endDate };
+	const cuppingMap: Record<number, any[]> = {};
+	for (const c of cuppingRecords) {
+		if (!cuppingMap[c.roast_batch_id]) cuppingMap[c.roast_batch_id] = [];
+		cuppingMap[c.roast_batch_id].push(c);
+	}
+
+	const exceptionMap: Record<number, any[]> = {};
+	for (const e of exceptions) {
+		if (!exceptionMap[e.entity_id]) exceptionMap[e.entity_id] = [];
+		exceptionMap[e.entity_id].push(e);
+	}
+
+	return { completedPlans, batches, cuppingMap, exceptionMap, startDate, endDate };
 };

@@ -14,11 +14,18 @@
 
 	let showExceptionDrawer = $state(false);
 	let showStartBatch = $state(false);
+	let showCompleteBatch = $state(false);
+	let completingBatch = $state<any>(null);
 	let exForm = $state({ severity: 'medium', title: '', description: '' });
 	let batchForm = $state({
 		actual_roast_level: data.plan.target_roast_level,
 		start_time: new Date().toISOString().slice(0, 16),
 		input_weight_kg: String(data.plan.batch_size_kg),
+		notes: ''
+	});
+	let completeForm = $state({
+		end_time: new Date().toISOString().slice(0, 16),
+		output_weight_kg: '',
 		notes: ''
 	});
 
@@ -70,6 +77,28 @@
 			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify({ status: 'resolved', resolution })
 		});
+		window.location.reload();
+	}
+
+	function openCompleteBatch(batch: any) {
+		completingBatch = batch;
+		completeForm = {
+			end_time: new Date().toISOString().slice(0, 16),
+			output_weight_kg: String((batch.input_weight_kg * 0.85).toFixed(1)),
+			notes: ''
+		};
+		showCompleteBatch = true;
+	}
+
+	async function submitCompleteBatch() {
+		if (!completingBatch) return;
+		await fetch(`/api/roast-batches/${completingBatch.id}/complete`, {
+			method: 'PUT',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify(completeForm)
+		});
+		showCompleteBatch = false;
+		completingBatch = null;
 		window.location.reload();
 	}
 
@@ -128,15 +157,42 @@
 							<div class="border border-stone-100 rounded p-3">
 								<div class="flex justify-between items-center">
 									<span class="font-mono text-xs text-stone-400">{batch.batch_no}</span>
-									<span class="text-xs text-stone-500">{batch.actual_roast_level}</span>
+									<div class="flex items-center gap-2">
+										<span class="text-xs text-stone-500">{batch.actual_roast_level}</span>
+										{#if !batch.end_time && data.user.role === 'roaster'}
+											<button onclick={() => openCompleteBatch(batch)} class="text-xs bg-green-600 text-white px-2 py-0.5 rounded hover:bg-green-700">完结</button>
+										{/if}
+										{#if batch.end_time}
+											<span class="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded">已完结</span>
+										{/if}
+									</div>
 								</div>
 								<div class="text-sm text-stone-700 mt-1">
-									投入 {batch.input_weight_kg}kg{batch.output_weight_kg ? ` → 产出 ${batch.output_weight_kg}kg` : ''}
+									投入 {batch.input_weight_kg}kg
+									{#if batch.output_weight_kg}
+										→ 产出 {batch.output_weight_kg}kg
+										<span class="text-stone-500 ml-1">（失水率 {((1 - batch.output_weight_kg / batch.input_weight_kg) * 100).toFixed(1)}%）</span>
+									{/if}
 								</div>
 								<div class="text-xs text-stone-400 mt-0.5">
 									开始: {new Date(batch.start_time).toLocaleString('zh-CN')}
 									{batch.end_time ? ` · 结束: ${new Date(batch.end_time).toLocaleString('zh-CN')}` : ' · 进行中'}
 								</div>
+								{#if data.cuppingMap && data.cuppingMap[batch.id]}
+									<div class="mt-2 space-y-1">
+										{#each data.cuppingMap[batch.id] as cup (cup.id)}
+											<div class="bg-amber-50 border border-amber-100 rounded p-2 text-xs">
+												<span class="font-medium text-amber-800">杯测</span>
+												<span class="text-amber-700 ml-1">综合 {cup.overall_score} 分</span>
+												<span class="text-amber-600 ml-1">({cup.cupper_name})</span>
+												<span class="text-stone-500 ml-2">香{cup.aroma_score} 味{cup.flavor_score} 酸{cup.acidity_score} 体{cup.body_score} 均{cup.balance_score}</span>
+												{#if cup.notes}
+													<div class="text-amber-700 mt-0.5">{cup.notes}</div>
+												{/if}
+											</div>
+										{/each}
+									</div>
+								{/if}
 							</div>
 						{/each}
 					</div>
@@ -267,6 +323,39 @@
 		</div>
 		<div class="p-5 border-t border-stone-200">
 			<button onclick={submitBatch} class="w-full bg-indigo-600 text-white py-2 rounded text-sm hover:bg-indigo-700">确认开始</button>
+		</div>
+	</div>
+{/if}
+
+{#if showCompleteBatch && completingBatch}
+	<div class="fixed inset-0 bg-black/30 z-40" onclick={() => showCompleteBatch = false}></div>
+	<div class="fixed right-0 top-0 bottom-0 w-96 bg-white shadow-xl z-50 flex flex-col">
+		<div class="p-5 border-b border-stone-200 flex justify-between items-center">
+			<h3 class="font-semibold text-stone-800">完结烘焙批次</h3>
+			<button onclick={() => showCompleteBatch = false} class="text-stone-400 hover:text-stone-600 text-lg">&times;</button>
+		</div>
+		<div class="flex-1 overflow-auto p-5">
+			<p class="text-xs text-stone-500 mb-4">批次 {completingBatch.batch_no} · 投入 {completingBatch.input_weight_kg}kg</p>
+			<div class="mb-4">
+				<label class="block text-xs font-medium text-stone-600 mb-1">结束时间 *</label>
+				<input type="datetime-local" bind:value={completeForm.end_time} class="w-full border border-stone-300 rounded px-2 py-1.5 text-sm" />
+			</div>
+			<div class="mb-4">
+				<label class="block text-xs font-medium text-stone-600 mb-1">产出重量(kg) *</label>
+				<input type="number" step="0.1" bind:value={completeForm.output_weight_kg} class="w-full border border-stone-300 rounded px-2 py-1.5 text-sm" />
+				{#if completeForm.output_weight_kg && completingBatch.input_weight_kg}
+					<p class="text-xs text-stone-400 mt-1">
+						预计失水率: {((1 - parseFloat(completeForm.output_weight_kg) / completingBatch.input_weight_kg) * 100).toFixed(1)}%
+					</p>
+				{/if}
+			</div>
+			<div class="mb-4">
+				<label class="block text-xs font-medium text-stone-600 mb-1">备注</label>
+				<textarea bind:value={completeForm.notes} rows="3" class="w-full border border-stone-300 rounded px-2 py-1.5 text-sm"></textarea>
+			</div>
+		</div>
+		<div class="p-5 border-t border-stone-200">
+			<button onclick={submitCompleteBatch} class="w-full bg-green-600 text-white py-2 rounded text-sm hover:bg-green-700" disabled={!completeForm.end_time || !completeForm.output_weight_kg}>确认完结</button>
 		</div>
 	</div>
 {/if}
