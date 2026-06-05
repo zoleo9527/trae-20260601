@@ -492,6 +492,18 @@ export const useStore = create<AppState>((set, get) => ({
       if (raw.curve_status) {
         (score as any).curveStatus = raw.curve_status;
       }
+      score.relatedCurve = {
+        id: String(raw.curve_id || ''),
+        beanType: raw.bean_type || '',
+        roastLevel: raw.roast_level || '',
+        currentVersion: raw.curve_version_id ? 1 : 0,
+        status: raw.curve_status || 'draft',
+        createdBy: '',
+        updatedAt: '',
+      };
+      if (raw.batch) {
+        score.relatedBatch = mapInventoryRow(raw.batch);
+      }
       set({ selectedScore: score });
     } finally {
       set((s) => ({ loading: { ...s.loading, selectedScore: false } }));

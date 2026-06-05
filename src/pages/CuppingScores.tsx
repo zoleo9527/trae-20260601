@@ -5,12 +5,13 @@ import { useStore } from '@/store';
 
 export default function CuppingScores() {
   const navigate = useNavigate();
-  const { cuppingScores, loading, cuppingFilters, setCuppingFilters, fetchCuppingScores } = useStore();
+  const { cuppingScores, loading, cuppingFilters, setCuppingFilters, fetchCuppingScores, fetchCurvesForSelect, curvesForSelect, createCuppingScore } = useStore();
   const [showDrawer, setShowDrawer] = useState(false);
 
   useEffect(() => {
     fetchCuppingScores();
-  }, [fetchCuppingScores]);
+    fetchCurvesForSelect();
+  }, [fetchCuppingScores, fetchCurvesForSelect]);
 
   const filtered = cuppingScores.filter((s) => {
     if (cuppingFilters.beanType && s.beanType !== cuppingFilters.beanType) return false;
@@ -130,24 +131,62 @@ export default function CuppingScores() {
 }
 
 function CuppingDrawer({ onClose }: { onClose: () => void }) {
+  const { curvesForSelect, createCuppingScore } = useStore();
   const [form, setForm] = useState({
-    beanType: '', batchCode: '', cupper: '', cuppingDate: new Date().toISOString().slice(0, 10),
-    dryAroma: '', wetAroma: '', acidity: '', body: '', aftertaste: '', balance: '', overall: '',
+    curveId: '',
+    batchCode: '',
+    cupper: '李杯测',
+    cuppingDate: new Date().toISOString().slice(0, 10),
+    dryAroma: '7.5',
+    wetAroma: '7.5',
+    acidity: '7.5',
+    body: '7.5',
+    aftertaste: '7.5',
+    balance: '7.5',
+    overall: '7.5',
+    flavorAnomaly: false,
+    anomalyDescription: '',
   });
+  const [submitting, setSubmitting] = useState(false);
 
-  const handleChange = (field: string, value: string) => {
+  const handleChange = (field: string, value: any) => {
     setForm((prev) => ({ ...prev, [field]: value }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    onClose();
+    if (!form.curveId || !form.batchCode) return;
+    setSubmitting(true);
+    try {
+      await createCuppingScore({
+        curve_id: Number(form.curveId),
+        batch_code: form.batchCode,
+        dry_aroma: Number(form.dryAroma),
+        wet_aroma: Number(form.wetAroma),
+        acidity: Number(form.acidity),
+        body: Number(form.body),
+        aftertaste: Number(form.aftertaste),
+        balance: Number(form.balance),
+        overall: Number(form.overall),
+        flavor_anomaly: form.flavorAnomaly,
+        anomaly_description: form.anomalyDescription || undefined,
+        cupper_name: form.cupper,
+        cupped_at: form.cuppingDate,
+      });
+      onClose();
+    } finally {
+      setSubmitting(false);
+    }
   };
+
+  const selectedCurve = curvesForSelect.find((c) => c.id === form.curveId);
+  const totalScore = [form.dryAroma, form.wetAroma, form.acidity, form.body, form.aftertaste, form.balance, form.overall]
+    .reduce((sum, v) => sum + (Number(v) || 0), 0);
 
   return (
     <div className="fixed inset-0 bg-black/40 z-50 flex justify-end" onClick={onClose}>
       <div
-        className="bg-white w-[420px] h-full shadow-xl overflow-auto"
+        className="bg-white w-[460px] h-full shadow-xl overflow-auto"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="p-6 border-b border-gray-100">
@@ -155,25 +194,62 @@ function CuppingDrawer({ onClose }: { onClose: () => void }) {
         </div>
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-600 mb-1">豆种</label>
-            <input className="filter-input w-full" value={form.beanType} onChange={(e) => handleChange('beanType', e.target.value)} placeholder="如：哥伦比亚蕙兰" />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-600 mb-1">批次号</label>
-            <input className="filter-input w-full" value={form.batchCode} onChange={(e) => handleChange('batchCode', e.target.value)} placeholder="如：B2024-001" />
+            <label className="block text-sm font-medium text-gray-600 mb-1">关联烘焙曲线 <span className="text-risk-red">*</span></label>
+            <select
+              className="filter-input w-full"
+              value={form.curveId}
+              onChange={(e) => handleChange('curveId', e.target.value)}
+            >
+              <option value="">请选择曲线</option>
+              {curvesForSelect.map((c) => (
+                <option key={c.id} value={c.id}>{c.beanType} · {c.roastLevel} (v{c.currentVersion})</option>
+              ))}
+            </select>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-sm font-medium text-gray-600 mb-1">杯测员</label>
-              <input className="filter-input w-full" value={form.cupper} onChange={(e) => handleChange('cupper', e.target.value)} />
+              <label className="block text-sm font-medium text-gray-600 mb-1">批次号 <span className="text-risk-red">*</span></label>
+              <input
+                className="filter-input w-full"
+                value={form.batchCode}
+                onChange={(e) => handleChange('batchCode', e.target.value)}
+                placeholder="如：BATCH-2024-011"
+              />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-600 mb-1">杯测日期</label>
-              <input type="date" className="filter-input w-full" value={form.cuppingDate} onChange={(e) => handleChange('cuppingDate', e.target.value)} />
+              <label className="block text-sm font-medium text-gray-600 mb-1">杯测员</label>
+              <input
+                className="filter-input w-full"
+                value={form.cupper}
+                onChange={(e) => handleChange('cupper', e.target.value)}
+              />
             </div>
           </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-600 mb-1">杯测日期</label>
+            <input
+              type="date"
+              className="filter-input w-full"
+              value={form.cuppingDate}
+              onChange={(e) => handleChange('cuppingDate', e.target.value)}
+            />
+          </div>
+
+          {selectedCurve && (
+            <div className="bg-roast-cream rounded-lg p-3">
+              <div className="text-xs text-gray-500 mb-1">已选曲线</div>
+              <div className="text-sm font-medium text-roast-text">
+                {selectedCurve.beanType} · {selectedCurve.roastLevel}
+                <span className="ml-2 text-xs text-gray-500">v{selectedCurve.currentVersion} · {selectedCurve.status === 'active' ? '启用' : selectedCurve.status === 'draft' ? '草稿' : '已弃用'}</span>
+              </div>
+            </div>
+          )}
+
           <div className="border-t border-gray-100 pt-4">
-            <h3 className="text-sm font-medium text-gray-600 mb-3">评分 (0-10)</h3>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-medium text-gray-600">评分 (0-10)</h3>
+              <span className="text-sm font-bold text-roast-orange">总分: {totalScore.toFixed(1)}</span>
+            </div>
             <div className="grid grid-cols-2 gap-3">
               {[
                 ['dryAroma', '干香'], ['wetAroma', '湿香'], ['acidity', '酸质'],
@@ -184,16 +260,44 @@ function CuppingDrawer({ onClose }: { onClose: () => void }) {
                   <input
                     type="number" min="0" max="10" step="0.5"
                     className="filter-input w-full"
-                    value={form[key as keyof typeof form]}
+                    value={form[key as keyof Omit<typeof form, 'flavorAnomaly'>] as string}
                     onChange={(e) => handleChange(key, e.target.value)}
                   />
                 </div>
               ))}
             </div>
           </div>
+
+          <div className="border-t border-gray-100 pt-4">
+            <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer mb-2">
+              <input
+                type="checkbox"
+                className="w-4 h-4 rounded border-gray-300 text-risk-red focus:ring-risk-red"
+                checked={form.flavorAnomaly}
+                onChange={(e) => handleChange('flavorAnomaly', e.target.checked)}
+              />
+              <span className="font-medium">标记风味异常</span>
+            </label>
+            {form.flavorAnomaly && (
+              <textarea
+                className="filter-input w-full"
+                rows={3}
+                value={form.anomalyDescription}
+                onChange={(e) => handleChange('anomalyDescription', e.target.value)}
+                placeholder="描述异常风味，如：焦苦味明显、酸质尖锐不愉悦..."
+              />
+            )}
+          </div>
+
           <div className="flex justify-end gap-3 pt-4 border-t border-gray-100">
-            <button type="button" className="btn-secondary" onClick={onClose}>取消</button>
-            <button type="submit" className="btn-primary">提交</button>
+            <button type="button" className="btn-secondary" onClick={onClose} disabled={submitting}>取消</button>
+            <button
+              type="submit"
+              className="btn-primary"
+              disabled={submitting || !form.curveId || !form.batchCode}
+            >
+              {submitting ? '提交中...' : '提交'}
+            </button>
           </div>
         </form>
       </div>

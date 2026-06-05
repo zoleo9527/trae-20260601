@@ -98,23 +98,52 @@ export default function CuppingScoreDetail() {
       {score.relatedCurve && (
         <div className="card mb-5">
           <h3 className="text-sm font-semibold text-gray-500 mb-4">关联烘焙曲线</h3>
-          <div className="grid grid-cols-4 gap-4">
+          <div className="grid grid-cols-4 gap-4 mb-4">
             <ParamItem label="豆种" value={score.relatedCurve!.beanType} />
             <ParamItem label="烘焙度" value={score.relatedCurve!.roastLevel} />
             <ParamItem label="当前版本" value={`v${score.relatedCurve!.currentVersion}`} />
             <ParamItem label="状态" value={score.relatedCurve!.status === 'active' ? '启用' : score.relatedCurve!.status === 'draft' ? '草稿' : '已弃用'} />
           </div>
+          {score.curveVersion && (
+            <div className="border-t border-gray-100 pt-4">
+              <h4 className="text-xs font-medium text-gray-500 mb-3">关联版本参数 (v{score.curveVersion.version_number})</h4>
+              <div className="grid grid-cols-4 gap-3">
+                <ParamItem label="入豆温" value={`${score.curveVersion.charge_temp}°C`} />
+                <ParamItem label="回温点" value={`${score.curveVersion.turn_point_temp}°C`} />
+                <ParamItem label="一爆温" value={`${score.curveVersion.first_crack_temp}°C`} />
+                <ParamItem label="出豆温" value={`${score.curveVersion.drop_temp}°C`} />
+                <ParamItem label="回温时间" value={`${score.curveVersion.turn_point_time}分`} />
+                <ParamItem label="一爆时间" value={`${score.curveVersion.first_crack_time}分`} />
+                <ParamItem label="发展期" value={`${score.curveVersion.development_time}分`} />
+              </div>
+              {score.curveVersion.notes && (
+                <div className="mt-3 text-xs text-gray-500 bg-roast-cream rounded p-2">
+                  <span className="font-medium">版本备注：</span>{score.curveVersion.notes}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
 
       {score.relatedBatch && (
         <div className="card">
-          <h3 className="text-sm font-semibold text-gray-500 mb-4">关联批次信息</h3>
+          <h3 className="text-sm font-semibold text-gray-500 mb-4">关联库存批次</h3>
           <div className="grid grid-cols-4 gap-4">
             <ParamItem label="批次号" value={score.relatedBatch!.batchCode} />
-            <ParamItem label="剩余/总量" value={`${score.relatedBatch!.remaining}/${score.relatedBatch!.quantity}`} />
+            <ParamItem label="剩余/总量" value={`${score.relatedBatch!.remaining}/${score.relatedBatch!.quantity} kg`} />
             <ParamItem label="烘焙日期" value={new Date(score.relatedBatch!.roastDate).toLocaleDateString('zh-CN')} />
             <ParamItem label="到期日" value={new Date(score.relatedBatch!.expiryDate).toLocaleDateString('zh-CN')} />
+          </div>
+          <div className="mt-3">
+            <span className={`text-xs px-2 py-1 rounded-full font-medium ${
+              score.relatedBatch!.fifoStatus === 'expired' ? 'bg-red-100 text-red-700' :
+              score.relatedBatch!.fifoStatus === 'warning' ? 'bg-amber-100 text-amber-700' :
+              'bg-green-100 text-green-700'
+            }`}>
+              {score.relatedBatch!.fifoStatus === 'expired' ? '已过期' :
+               score.relatedBatch!.fifoStatus === 'warning' ? '临近过期' : '库存正常'}
+            </span>
           </div>
         </div>
       )}

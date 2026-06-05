@@ -1,11 +1,15 @@
 import db, { initTables } from './db.js'
 
 function ago(hours: number): string {
-  return new Date(Date.now() - hours * 3600000).toISOString().replace('T', ' ').replace('Z', '')
+  const d = new Date(Date.now() - hours * 3600000)
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`
 }
 
 function future(hours: number): string {
-  return new Date(Date.now() + hours * 3600000).toISOString().replace('T', ' ').replace('Z', '')
+  const d = new Date(Date.now() + hours * 3600000)
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`
 }
 
 export function seed(): void {
