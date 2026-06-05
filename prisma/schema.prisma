@@ -1,0 +1,106 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        Int      @id @default(autoincrement())
+  name      String
+  role      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  bookings        BookingRequest[] @relation("SubmittedBookings")
+  feeReviews      FeeReview[]      @relation("ReviewedFees")
+  auditLogs       AuditLog[]
+  notes           Note[]
+}
+
+model Venue {
+  id        Int      @id @default(autoincrement())
+  name      String   @unique
+  type      String
+  hourlyRate Float
+  createdAt DateTime  @default(now())
+
+  bookings BookingRequest[]
+}
+
+model BookingRequest {
+  id              Int      @id @default(autoincrement())
+  venueId         Int
+  customerName    String
+  customerPhone   String?
+  bookingDate     DateTime
+  startTime       String
+  endTime         String
+  hours           Float
+  totalAmount     Float
+  status          String   @default("DRAFT")
+  submittedById   Int
+  priority        Int      @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  venue     Venue        @relation(fields: [venueId], references: [id])
+  submittedBy User       @relation("SubmittedBookings", fields: [submittedById], references: [id])
+  feeReview  FeeReview?
+  notes      Note[]
+  auditLogs  AuditLog[]
+
+  @@index([status])
+  @@index([bookingDate])
+  @@index([submittedById])
+}
+
+model FeeReview {
+  id           Int      @id @default(autoincrement())
+  bookingId    Int      @unique
+  reviewedById Int?
+  reviewedAt   DateTime?
+  actualAmount Float?
+  paymentMethod String?
+  isApproved   Boolean?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  booking   BookingRequest @relation(fields: [bookingId], references: [id])
+  reviewedBy User?         @relation("ReviewedFees", fields: [reviewedById], references: [id])
+}
+
+model Note {
+  id          Int      @id @default(autoincrement())
+  bookingId   Int
+  createdById Int
+  content     String
+  stage       String
+  createdAt   DateTime @default(now())
+
+  booking   BookingRequest @relation(fields: [bookingId], references: [id])
+  createdBy User           @relation(fields: [createdById], references: [id])
+
+  @@index([bookingId])
+  @@index([createdAt])
+}
+
+model AuditLog {
+  id         Int      @id @default(autoincrement())
+  bookingId  Int
+  userId     Int
+  action     String
+  oldStatus  String?
+  newStatus  String?
+  details    String?
+  createdAt  DateTime @default(now())
+
+  booking BookingRequest @relation(fields: [bookingId], references: [id])
+  user    User           @relation(fields: [userId], references: [id])
+
+  @@index([bookingId])
+  @@index([userId])
+  @@index([createdAt])
+}
