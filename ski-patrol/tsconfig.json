@@ -1,0 +1,19 @@
+{
+  "compilerOptions": {
+    "forceConsistentCasingInFileNames": true,
+    "strict": true,
+    "noEmit": true,
+    "target": "ESNext",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "allowJs": true,
+    "skipLibCheck": true,
+    "paths": {
+      "#imports": ["./.nuxt/imports.d.ts"],
+      "~/*": ["./*"],
+      "@/*": ["./*"]
+    }
+  },
+  "include": [".nuxt/nuxt.d.ts", "**/*.ts", "**/*.vue"],
+  "exclude": ["node_modules", ".nuxt", ".output"]
+}

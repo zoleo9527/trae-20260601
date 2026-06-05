@@ -1,0 +1,61 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply font-sans antialiased;
+    font-family: 'Noto Sans SC', system-ui, sans-serif;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply bg-sky-500 hover:bg-sky-600 text-white font-medium py-2 px-4 rounded-lg transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg active:translate-y-0;
+  }
+  .btn-secondary {
+    @apply bg-slate-700 hover:bg-slate-600 text-white font-medium py-2 px-4 rounded-lg transition-all duration-200;
+  }
+  .btn-danger {
+    @apply bg-orange-500 hover:bg-orange-600 text-white font-medium py-2 px-4 rounded-lg transition-all duration-200;
+  }
+  .btn-success {
+    @apply bg-emerald-500 hover:bg-emerald-600 text-white font-medium py-2 px-4 rounded-lg transition-all duration-200;
+  }
+  .card {
+    @apply bg-slate-800 border border-slate-700 rounded-xl p-5 transition-all duration-200 hover:border-slate-600;
+  }
+  .input-field {
+    @apply bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-transparent transition-all duration-200;
+  }
+  .label-text {
+    @apply text-sm font-medium text-slate-300 mb-1 block;
+  }
+  .badge {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+  }
+  .badge-pending {
+    @apply badge bg-amber-500/20 text-amber-400;
+  }
+  .badge-progress {
+    @apply badge bg-sky-500/20 text-sky-400;
+  }
+  .badge-completed {
+    @apply badge bg-emerald-500/20 text-emerald-400;
+  }
+  .badge-archived {
+    @apply badge bg-slate-500/20 text-slate-400;
+  }
+  .badge-reported {
+    @apply badge bg-orange-500/20 text-orange-400;
+  }
+  .badge-approved {
+    @apply badge bg-emerald-500/20 text-emerald-400;
+  }
+  .badge-rejected {
+    @apply badge bg-red-500/20 text-red-400;
+  }
+  .badge-resubmitted {
+    @apply badge bg-purple-500/20 text-purple-400;
+  }
+}
