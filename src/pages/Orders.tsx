@@ -1,14 +1,16 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useMemo } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { Search, Plus, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react'
+import { Search, Plus, ChevronLeft, ChevronRight, Loader2, AlertCircle, RotateCcw } from 'lucide-react'
 import Layout from '@/components/Layout'
 import StatusBadge from '@/components/StatusBadge'
 import { useOrdersStore } from '@/stores/orders'
 import { useAuthStore } from '@/stores/auth'
-import type { OrderStatus } from '@/shared/types'
+import type { OrderStatus, Order, AuditLog } from '@/shared/types'
 import { cn } from '@/lib/utils'
 
-const statusOptions: { value: OrderStatus | 'ALL'; label: string }[] = [
+type StatusFilterValue = OrderStatus | 'ALL' | 'ABNORMAL'
+
+const statusOptions: { value: StatusFilterValue; label: string; highlight?: boolean }[] = [
   { value: 'ALL', label: '全部状态' },
   { value: 'DRAFT', label: '草稿' },
   { value: 'PENDING_CONFIRM', label: '待确认' },
@@ -16,9 +18,22 @@ const statusOptions: { value: OrderStatus | 'ALL'; label: string }[] = [
   { value: 'READY_TO_SHIP', label: '待发货' },
   { value: 'SHIPPED', label: '已发货' },
   { value: 'COMPLETED', label: '已完成' },
+  { value: 'ABNORMAL', label: '🔴 异常订单', highlight: true },
   { value: 'RETURNED', label: '已退回' },
   { value: 'EXCEPTION', label: '异常' },
 ]
+
+const getAbnormalReason = (order: Order): string | null => {
+  const logs = order.auditLogs || []
+  const abnormalLogs = logs.filter(
+    (log: AuditLog) => log.action === 'RETURN' || log.action === 'MARK_EXCEPTION'
+  )
+  if (abnormalLogs.length === 0) return null
+  const latest = abnormalLogs.sort(
+    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+  )[0]
+  return latest?.remark || (latest.action === 'RETURN' ? '订单已退回' : '订单标记为异常')
+}
 
 export default function Orders() {
   const navigate = useNavigate()
@@ -26,17 +41,34 @@ export default function Orders() {
   const { user } = useAuthStore()
   const { orders, total, page, totalPages, isLoading, fetchOrders } = useOrdersStore()
 
-  const urlStatus = searchParams.get('status') as OrderStatus | null
+  const urlStatus = searchParams.get('status') as StatusFilterValue | null
   const initialStatus = urlStatus && statusOptions.some(o => o.value === urlStatus)
     ? urlStatus
     : 'ALL'
   
-  const [statusFilter, setStatusFilter] = useState<OrderStatus | 'ALL'>(initialStatus)
+  const [statusFilter, setStatusFilter] = useState<StatusFilterValue>(initialStatus)
   const [searchTerm, setSearchTerm] = useState('')
+
+  const filteredOrders = useMemo(() => {
+    let result = [...orders]
+    if (statusFilter === 'ABNORMAL') {
+      result = result.filter(o => o.status === 'RETURNED' || o.status === 'EXCEPTION')
+    } else if (statusFilter !== 'ALL') {
+      result = result.filter(o => o.status === statusFilter)
+    }
+    if (searchTerm) {
+      const term = searchTerm.toLowerCase()
+      result = result.filter(o =>
+        o.orderNo.toLowerCase().includes(term) ||
+        o.distributorName.toLowerCase().includes(term)
+      )
+    }
+    return result
+  }, [orders, statusFilter, searchTerm])
 
   const loadOrders = useCallback((currentPage: number) => {
     fetchOrders({
-      status: statusFilter === 'ALL' ? undefined : statusFilter,
+      status: statusFilter === 'ALL' || statusFilter === 'ABNORMAL' ? undefined : statusFilter,
       search: searchTerm || undefined,
       page: currentPage,
     })
@@ -92,7 +124,7 @@ export default function Orders() {
               </label>
               <select
                 value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value as OrderStatus | 'ALL')}
+                onChange={(e) => setStatusFilter(e.target.value as StatusFilterValue)}
                 className="w-full px-3 py-2 border border-stone-300 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
               >
                 {statusOptions.map((option) => (
@@ -134,7 +166,7 @@ export default function Orders() {
             <div className="flex items-center justify-center py-16">
               <Loader2 className="w-8 h-8 text-amber-600 animate-spin" />
             </div>
-          ) : orders.length === 0 ? (
+          ) : filteredOrders.length === 0 ? (
             <div className="text-center py-16 text-stone-500">
               暂无订单数据
             </div>
@@ -154,13 +186,16 @@ export default function Orders() {
                         状态
                       </th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-stone-500 uppercase tracking-wider">
+                        异常原因
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-stone-500 uppercase tracking-wider">
                         交货日期
                       </th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-stone-500 uppercase tracking-wider">
                         创建人
                       </th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-stone-500 uppercase tracking-wider">
-                        创建时间
+                        更新时间
                       </th>
                       <th className="px-4 py-3 text-right text-xs font-medium text-stone-500 uppercase tracking-wider">
                         操作
@@ -168,46 +203,70 @@ export default function Orders() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-stone-200">
-                    {orders.map((order) => (
-                      <tr
-                        key={order.id}
-                        className="hover:bg-stone-50 transition-colors"
-                      >
-                        <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-stone-900">
-                          {order.orderNo}
-                        </td>
-                        <td className="px-4 py-3 whitespace-nowrap text-sm text-stone-700">
-                          {order.distributorName}
-                        </td>
-                        <td className="px-4 py-3 whitespace-nowrap">
-                          <StatusBadge status={order.status} />
-                        </td>
-                        <td className="px-4 py-3 whitespace-nowrap text-sm text-stone-700">
-                          {formatDate(order.deliveryDate)}
-                        </td>
-                        <td className="px-4 py-3 whitespace-nowrap text-sm text-stone-700">
-                          {order.createdBy?.displayName || order.createdBy?.username || '-'}
-                        </td>
-                        <td className="px-4 py-3 whitespace-nowrap text-sm text-stone-500">
-                          {formatDateTime(order.createdAt)}
-                        </td>
-                        <td className="px-4 py-3 whitespace-nowrap text-right text-sm">
-                          <Link
-                            to={`/orders/${order.id}`}
-                            className="text-amber-600 hover:text-amber-700 font-medium"
-                          >
-                            查看
-                          </Link>
-                        </td>
-                      </tr>
-                    ))}
+                    {filteredOrders.map((order) => {
+                      const isAbnormal = order.status === 'RETURNED' || order.status === 'EXCEPTION'
+                      const abnormalReason = isAbnormal ? getAbnormalReason(order) : null
+
+                      return (
+                        <tr
+                          key={order.id}
+                          className={cn(
+                            'hover:bg-stone-50 transition-colors',
+                            isAbnormal && 'bg-red-50/30'
+                          )}
+                        >
+                          <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-stone-900">
+                            {order.orderNo}
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap text-sm text-stone-700">
+                            {order.distributorName}
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap">
+                            <StatusBadge status={order.status} />
+                          </td>
+                          <td className="px-4 py-3 max-w-xs">
+                            {abnormalReason ? (
+                              <div className="flex items-start gap-1.5">
+                                {order.status === 'RETURNED' ? (
+                                  <RotateCcw className="w-4 h-4 text-orange-500 flex-shrink-0 mt-0.5" />
+                                ) : (
+                                  <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
+                                )}
+                                <span className="text-sm text-stone-600 truncate">
+                                  {abnormalReason}
+                                </span>
+                              </div>
+                            ) : (
+                              <span className="text-sm text-stone-400">-</span>
+                            )}
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap text-sm text-stone-700">
+                            {formatDate(order.deliveryDate)}
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap text-sm text-stone-700">
+                            {order.createdBy?.displayName || order.createdBy?.username || '-'}
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap text-sm text-stone-500">
+                            {formatDateTime(order.updatedAt)}
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap text-right text-sm">
+                            <Link
+                              to={`/orders/${order.id}`}
+                              className="text-amber-600 hover:text-amber-700 font-medium"
+                            >
+                              查看
+                            </Link>
+                          </td>
+                        </tr>
+                      )
+                    })}
                   </tbody>
                 </table>
               </div>
 
               <div className="px-4 py-3 border-t border-stone-200 flex items-center justify-between">
                 <div className="text-sm text-stone-500">
-                  共 {total} 条记录
+                  共 {filteredOrders.length} 条记录
                 </div>
                 <div className="flex items-center gap-2">
                   <button

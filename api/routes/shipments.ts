@@ -21,7 +21,16 @@ router.get('/', authenticate, async (req: Request, res: Response): Promise<void>
       prisma.shipment.findMany({
         where,
         include: {
-          order: true,
+          order: {
+            include: {
+              auditLogs: {
+                include: {
+                  user: { select: userSelect },
+                },
+                orderBy: { createdAt: 'desc' },
+              },
+            },
+          },
           createdBy: { select: userSelect },
         },
         skip,

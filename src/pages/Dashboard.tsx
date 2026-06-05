@@ -98,7 +98,7 @@ export default function Dashboard() {
         {hasAbnormal && (
           <div
             className="flex items-center gap-3 p-4 bg-red-50 border border-red-200 rounded-xl cursor-pointer hover:bg-red-100 transition-colors"
-            onClick={() => navigate('/orders?status=EXCEPTION')}
+            onClick={() => navigate('/orders?status=ABNORMAL')}
           >
             <div className="relative">
               <div className="p-2 bg-red-100 rounded-lg">
@@ -222,7 +222,7 @@ export default function Dashboard() {
 
           <div
             className="bg-red-50 rounded-xl p-4 border border-red-200 hover:shadow-md transition-all cursor-pointer"
-            onClick={() => navigate('/orders?status=EXCEPTION')}
+            onClick={() => navigate('/orders?status=ABNORMAL')}
           >
             <div className="flex items-center gap-3">
               <div className="p-2 bg-red-200 rounded-lg">
@@ -287,7 +287,7 @@ export default function Dashboard() {
                 异常订单处理
               </h3>
               <button
-                onClick={() => navigate('/orders?status=EXCEPTION')}
+                onClick={() => navigate('/orders?status=ABNORMAL')}
                 className="text-sm text-red-600 hover:text-red-700 font-medium"
               >
                 查看全部

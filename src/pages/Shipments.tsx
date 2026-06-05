@@ -19,7 +19,7 @@ import ShipModal from '@/components/ShipModal'
 import ReceiveModal from '@/components/ReceiveModal'
 import { useShipmentsStore } from '@/stores/shipments'
 import { useAuthStore } from '@/stores/auth'
-import type { Shipment } from '@/shared/types'
+import type { Shipment, AuditLog } from '@/shared/types'
 import type { OrderStatus } from '@/shared/types'
 import { cn } from '@/lib/utils'
 
@@ -79,6 +79,11 @@ function ShipmentTimeline({ shipment }: ShipmentTimelineProps) {
   const orderStatus = shipment.order?.status as OrderStatus
   const isException = orderStatus === 'RETURNED' || orderStatus === 'EXCEPTION'
 
+  const auditLogs = shipment.order?.auditLogs || []
+  const latestAbnormalLog = auditLogs
+    .filter((log: AuditLog) => log.action === 'RETURN' || log.action === 'MARK_EXCEPTION')
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0]
+
   const timelineSteps = [
     {
       key: 'order_created',
@@ -121,12 +126,17 @@ function ShipmentTimeline({ shipment }: ShipmentTimelineProps) {
   ]
 
   if (isException) {
+    const abnormalDesc = latestAbnormalLog?.remark 
+      || (latestAbnormalLog?.action === 'RETURN' ? '订单已退回' : '订单标记为异常')
+    const abnormalTime = latestAbnormalLog?.createdAt || shipment.order?.updatedAt
+    const abnormalRole = latestAbnormalLog?.user?.role || 'ADMIN'
+
     timelineSteps.push({
       key: 'exception',
       label: orderStatus === 'RETURNED' ? '已退回' : '异常',
-      description: shipment.order?.remark || '订单出现异常',
-      time: shipment.order?.updatedAt,
-      role: 'ADMIN',
+      description: abnormalDesc,
+      time: abnormalTime,
+      role: abnormalRole,
       icon: <AlertCircle className="w-4 h-4" />,
       completed: true,
     })
