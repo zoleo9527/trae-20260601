@@ -63,6 +63,7 @@ export function seed(): void {
 
     insertVersion.run(c2.lastInsertRowid, 1, 'draft', 195, 100, 1.8, 198, 7.0, 4.2, 200, '初版曲线，酸质偏高需调整', '王烘焙', ago(68))
     const v2v2 = insertVersion.run(c2.lastInsertRowid, 2, 'active', 198, 102, 1.6, 200, 6.8, 4.0, 202, '调整入豆温度和回温点，改善平衡度', '王烘焙', ago(12))
+    insertVersion.run(c2.lastInsertRowid, 3, 'draft', 200, 100, 1.5, 199, 6.5, 3.8, 201, '尝试提高入豆温，增强甜感，待验证', '王烘焙', ago(4))
 
     const v3 = insertVersion.run(c3.lastInsertRowid, 1, 'draft', 202, 96, 1.3, 194, 5.8, 3.5, 196, '新曲线草稿，一爆偏早需验证', '王烘焙', ago(48))
 
@@ -110,6 +111,7 @@ export function seed(): void {
     insertLog.run('complaint', 'create', '张客服', 'complaint', 2, '收到客诉：刘女士-巴西豆焦味严重', ago(42))
     insertLog.run('complaint', 'update', '张客服', 'complaint', 2, '客诉处理中：已联系刘女士确认退换流程', ago(18))
     insertLog.run('roast_curve', 'update', '王烘焙', 'roast_curve', Number(c2.lastInsertRowid), '更新曲线版本：哥伦比亚 慧兰 v2', ago(12))
+    insertLog.run('roast_curve', 'update', '王烘焙', 'roast_curve', Number(c2.lastInsertRowid), '新建版本草稿：哥伦比亚 慧兰 v3 尝试提高入豆温', ago(4))
     insertLog.run('cupping_score', 'create', '李杯测', 'cupping_score', 6, '录入杯测评分：肯尼亚 AA BATCH-2024-006 异常', ago(24))
     insertLog.run('cupping_score', 'create', '李杯测', 'cupping_score', 8, '录入杯测评分：哥伦比亚 慧兰 BATCH-2024-008', ago(10))
     insertLog.run('complaint', 'create', '张客服', 'complaint', 3, '收到客诉：赵先生-危地马拉风味不对', ago(2))

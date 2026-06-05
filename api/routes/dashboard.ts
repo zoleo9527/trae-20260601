@@ -30,14 +30,20 @@ router.get('/', (req: Request, res: Response): void => {
     ).get() as { count: number }
 
     const versionConflicts = db.prepare(`
-      SELECT rc.id, rc.bean_type, rc.current_version
+      SELECT rc.id, rc.bean_type, 
+             cv_active.version_number as active_version,
+             cv_draft.version_number as latest_draft_version,
+             cv_draft.notes as draft_notes
       FROM roast_curves rc
-      WHERE rc.status = 'active'
-      AND rc.current_version > 1
-      AND EXISTS (
-        SELECT 1 FROM curve_versions cv
-        WHERE cv.curve_id = rc.id AND cv.status = 'draft'
+      INNER JOIN curve_versions cv_active 
+        ON cv_active.curve_id = rc.id AND cv_active.status = 'active'
+      INNER JOIN curve_versions cv_draft 
+        ON cv_draft.curve_id = rc.id AND cv_draft.status = 'draft'
+      WHERE cv_draft.version_number > cv_active.version_number
+      AND cv_draft.version_number = (
+        SELECT MAX(version_number) FROM curve_versions WHERE curve_id = rc.id AND status = 'draft'
       )
+      GROUP BY rc.id
     `).all()
 
     const anomalyScoreDetails = db.prepare(`

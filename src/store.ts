@@ -377,7 +377,7 @@ export const useStore = create<AppState>((set, get) => ({
             type: 'anomaly_score',
             title: `${s.bean_type} 杯测异常`,
             description: s.anomaly_description ?? '风味异常',
-            severity: s.total_score < 35 ? 'high' : 'medium',
+            severity: (s.total_score < 35 ? 'high' : 'medium') as 'high' | 'medium' | 'low',
             linkTo: `/cupping-scores/${s.id}`,
           });
         }
@@ -388,8 +388,8 @@ export const useStore = create<AppState>((set, get) => ({
           type: 'expired_inventory',
           title: `${raw.risks.expiredBatches} 批库存已过期`,
           description: '存在已过期库存批次，请立即处理',
-          severity: 'high',
-          linkTo: '/complaints-inventory',
+          severity: 'high' as const,
+          linkTo: '/complaints-inventory?tab=inventory&filter=expired',
         });
       }
       if (raw.risks?.nearExpiryBatches > 0) {
@@ -398,8 +398,8 @@ export const useStore = create<AppState>((set, get) => ({
           type: 'expired_inventory',
           title: `${raw.risks.nearExpiryBatches} 批库存临期`,
           description: '存在临近过期库存，请关注先进先出',
-          severity: 'medium',
-          linkTo: '/complaints-inventory',
+          severity: 'medium' as const,
+          linkTo: '/complaints-inventory?tab=inventory&filter=warning',
         });
       }
       if (raw.risks?.versionConflicts?.length > 0) {
@@ -408,8 +408,8 @@ export const useStore = create<AppState>((set, get) => ({
             id: `vc-${vc.id}`,
             type: 'version_conflict',
             title: `${vc.bean_type} 存在未启用的新版本`,
-            description: `当前启用 v${vc.current_version}，有草稿版本待确认`,
-            severity: 'low',
+            description: `当前启用 v${vc.active_version}，最新草稿 v${vc.latest_draft_version} 待确认${vc.draft_notes ? `：${vc.draft_notes}` : ''}`,
+            severity: 'low' as const,
             linkTo: `/roast-curves/${vc.id}`,
           });
         }

@@ -1,5 +1,6 @@
-import { useEffect } from 'react';
-import { useStore, Complaint, InventoryItem } from '@/store';
+import { Complaint, InventoryItem, useStore } from '@/store';
+import { forwardRef, RefObject, useEffect, useMemo, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 
 const complaintStatusMap: Record<string, { label: string; cls: string }> = {
   pending: { label: '待处理', cls: 'badge-draft' },
@@ -13,11 +14,40 @@ export default function ComplaintsInventory() {
     complaintsTab, setComplaintsTab,
     fetchComplaints, fetchInventory,
   } = useStore();
+  const [searchParams] = useSearchParams();
+  const inventoryRef = useRef<HTMLDivElement>(null);
+  const highlightedRef = useRef<HTMLTableRowElement>(null);
+
+  const tabParam = searchParams.get('tab');
+  const filterParam = searchParams.get('filter');
 
   useEffect(() => {
     fetchComplaints();
     fetchInventory();
   }, [fetchComplaints, fetchInventory]);
+
+  useEffect(() => {
+    if (tabParam === 'inventory') {
+      setComplaintsTab('inventory');
+    } else if (tabParam === 'complaints') {
+      setComplaintsTab('complaints');
+    }
+  }, [tabParam, setComplaintsTab]);
+
+  useEffect(() => {
+    if (filterParam && complaintsTab === 'inventory' && highlightedRef.current) {
+      setTimeout(() => {
+        highlightedRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 100);
+    }
+  }, [filterParam, complaintsTab]);
+
+  const filteredInventory = useMemo(() => {
+    if (!filterParam) return inventory;
+    if (filterParam === 'expired') return inventory.filter(i => i.fifoStatus === 'expired');
+    if (filterParam === 'warning') return inventory.filter(i => i.fifoStatus === 'warning');
+    return inventory;
+  }, [inventory, filterParam]);
 
   return (
     <div className="p-8">
@@ -41,7 +71,14 @@ export default function ComplaintsInventory() {
       {complaintsTab === 'complaints' ? (
         <ComplaintsTab complaints={complaints} loading={loading.complaints} />
       ) : (
-        <InventoryTab inventory={inventory} loading={loading.inventory} />
+        <InventoryTab
+          ref={inventoryRef}
+          inventory={filteredInventory}
+          loading={loading.inventory}
+          highlightFilter={filterParam}
+          highlightedRef={highlightedRef}
+          hasFilter={!!filterParam}
+        />
       )}
     </div>
   );
@@ -91,53 +128,71 @@ function ComplaintsTab({ complaints, loading }: { complaints: Complaint[]; loadi
   );
 }
 
-function InventoryTab({ inventory, loading }: { inventory: InventoryItem[]; loading: boolean }) {
+const InventoryTab = forwardRef<HTMLDivElement, {
+  inventory: InventoryItem[];
+  loading: boolean;
+  highlightFilter?: string | null;
+  highlightedRef?: RefObject<HTMLTableRowElement>;
+  hasFilter?: boolean;
+}>(({ inventory, loading, highlightFilter, highlightedRef, hasFilter }, ref) => {
   if (loading) {
     return <div className="table-container animate-pulse"><table><thead><tr>{[1,2,3,4,5,6,7].map(i=><th key={i}><div className="h-4 bg-gray-200 rounded" /></th>)}</tr></thead></table></div>;
   }
 
   return (
-    <div className="table-container">
-      <table>
-        <thead>
-          <tr>
-            <th>批次号</th>
-            <th>豆种</th>
-            <th>数量/剩余</th>
-            <th>烘焙日期</th>
-            <th>到期日</th>
-            <th>FIFO状态</th>
-          </tr>
-        </thead>
-        <tbody>
-          {inventory.length === 0 ? (
-            <tr><td colSpan={6} className="text-center text-gray-400 py-8">暂无数据</td></tr>
-          ) : (
-            inventory.map((item) => (
-              <tr
-                key={item.id}
-                className={item.fifoStatus === 'expired' ? 'bg-red-50' : item.fifoStatus === 'warning' ? 'bg-amber-50' : ''}
-              >
-                <td className="font-medium">{item.batchCode}</td>
-                <td>{item.beanType}</td>
-                <td>
-                  <span className={item.remaining < item.quantity * 0.2 ? 'text-risk-red font-medium' : ''}>
-                    {item.remaining}
-                  </span>
-                  <span className="text-gray-400">/{item.quantity}</span>
-                </td>
-                <td className="text-xs text-gray-500">{new Date(item.roastDate).toLocaleDateString('zh-CN')}</td>
-                <td className="text-xs text-gray-500">{new Date(item.expiryDate).toLocaleDateString('zh-CN')}</td>
-                <td>
-                  {item.fifoStatus === 'expired' ? <span className="badge-risk">已过期</span> :
-                   item.fifoStatus === 'warning' ? <span className="badge-draft">临近过期</span> :
-                   <span className="badge-active">正常</span>}
-                </td>
-              </tr>
-            ))
-          )}
-        </tbody>
-      </table>
+    <div ref={ref}>
+      {hasFilter && (
+        <div className="mb-3 text-sm text-gray-500">
+          当前筛选：<span className="text-roast-orange font-medium">
+            {highlightFilter === 'expired' ? '仅显示已过期' : highlightFilter === 'warning' ? '仅显示临期' : '全部'}
+          </span>
+        </div>
+      )}
+      <div className="table-container">
+        <table>
+          <thead>
+            <tr>
+              <th>批次号</th>
+              <th>豆种</th>
+              <th>数量/剩余</th>
+              <th>烘焙日期</th>
+              <th>到期日</th>
+              <th>FIFO状态</th>
+            </tr>
+          </thead>
+          <tbody>
+            {inventory.length === 0 ? (
+              <tr><td colSpan={6} className="text-center text-gray-400 py-8">暂无数据</td></tr>
+            ) : (
+              inventory.map((item, idx) => (
+                <tr
+                  key={item.id}
+                  ref={idx === 0 && hasFilter ? highlightedRef as any : null}
+                  className={`${item.fifoStatus === 'expired' ? 'bg-red-50' : item.fifoStatus === 'warning' ? 'bg-amber-50' : ''} ${idx === 0 && hasFilter ? 'ring-2 ring-roast-orange ring-inset' : ''}`}
+                >
+                  <td className="font-medium">{item.batchCode}</td>
+                  <td>{item.beanType}</td>
+                  <td>
+                    <span className={item.remaining < item.quantity * 0.2 ? 'text-risk-red font-medium' : ''}>
+                      {item.remaining}
+                    </span>
+                    <span className="text-gray-400">/{item.quantity}</span>
+                  </td>
+                  <td className="text-xs text-gray-500">{new Date(item.roastDate).toLocaleDateString('zh-CN')}</td>
+                  <td className="text-xs text-gray-500">{new Date(item.expiryDate).toLocaleDateString('zh-CN')}</td>
+                  <td>
+                    {item.fifoStatus === 'expired' ? <span className="badge-risk">已过期</span> :
+                     item.fifoStatus === 'warning' ? <span className="badge-draft">临近过期</span> :
+                     <span className="badge-active">正常</span>}
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
-}
+});
+
+InventoryTab.displayName = 'InventoryTab';
