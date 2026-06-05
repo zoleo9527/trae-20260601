@@ -29,18 +29,24 @@
       />
     </div>
 
+    <div v-if="showPendingReviewOnly" class="mb-4 flex items-center gap-2 px-4 py-2.5 rounded-lg bg-orange-500/10 border border-orange-500/20">
+      <AlertTriangle class="w-4 h-4 text-orange-400 shrink-0" />
+      <span class="text-sm text-orange-300">仅显示待审批记录</span>
+      <button @click="showPendingReviewOnly = false" class="ml-auto text-xs text-slate-400 hover:text-white transition-colors">查看全部</button>
+    </div>
+
     <div v-if="loading" class="text-center py-12">
       <Loader2 class="w-8 h-8 text-orange-400 animate-spin mx-auto" />
     </div>
 
-    <div v-else-if="risks.length === 0" class="text-center py-12">
+    <div v-else-if="displayRisks.length === 0" class="text-center py-12">
       <AlertTriangle class="w-12 h-12 text-slate-600 mx-auto mb-3" />
       <p class="text-slate-400">暂无风险上报记录</p>
     </div>
 
     <div v-else class="space-y-3">
       <NuxtLink
-        v-for="risk in risks"
+        v-for="risk in displayRisks"
         :key="risk.id"
         :to="`/risks/${risk.id}`"
         class="card flex items-center gap-4 group cursor-pointer"
@@ -67,11 +73,22 @@
 <script setup lang="ts">
 import { Plus, AlertTriangle, ChevronRight, Loader2 } from 'lucide-vue-next'
 
+const route = useRoute()
+
+const initStatus = (route.query.status as string) || ''
 const risks = ref<any[]>([])
 const loading = ref(true)
-const filterStatus = ref('')
+const filterStatus = ref(initStatus === 'pending_review' ? '' : initStatus)
+const showPendingReviewOnly = ref(initStatus === 'pending_review')
 const searchKeyword = ref('')
 let debounceTimer: any = null
+
+const displayRisks = computed(() => {
+  if (showPendingReviewOnly.value) {
+    return risks.value.filter((r: any) => r.status === 'reported' || r.status === 'resubmitted')
+  }
+  return risks.value
+})
 
 async function loadRisks() {
   loading.value = true
@@ -92,7 +109,10 @@ function debouncedLoad() {
   debounceTimer = setTimeout(loadRisks, 300)
 }
 
-watch(filterStatus, loadRisks)
+watch(filterStatus, () => {
+  showPendingReviewOnly.value = false
+  loadRisks()
+})
 
 function levelLabel(l: string) {
   const map: Record<string, string> = { low: '低', medium: '中', high: '高', critical: '严重' }

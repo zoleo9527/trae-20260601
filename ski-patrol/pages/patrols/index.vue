@@ -67,9 +67,11 @@
 <script setup lang="ts">
 import { Plus, Shield, ChevronRight, Loader2 } from 'lucide-vue-next'
 
+const route = useRoute()
+
 const patrols = ref<any[]>([])
 const loading = ref(true)
-const filterStatus = ref('')
+const filterStatus = ref((route.query.status as string) || '')
 const searchKeyword = ref('')
 let debounceTimer: any = null
 

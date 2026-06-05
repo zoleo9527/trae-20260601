@@ -79,12 +79,11 @@
 </template>
 
 <script setup lang="ts">
-import { Shield, AlertTriangle, CheckCircle2, ChevronRight, PlusCircle, ClipboardCheck, MessageSquareOff, FileWarning, SendHorizonal, Archive, Settings } from 'lucide-vue-next'
+import { Shield, AlertTriangle, CheckCircle2, ChevronRight, PlusCircle, ClipboardCheck, MessageSquareOff, SendHorizonal, Archive, Settings } from 'lucide-vue-next'
 
 const authStore = useAuthStore()
 
 const todos = ref<any[]>([])
-const completedToday = ref(0)
 
 const role = computed(() => authStore.user?.role || '')
 
@@ -97,43 +96,44 @@ const roleStatCards = computed(() => {
     return [
       { label: '待巡查', value: patrolTodos.value.length, icon: Shield, iconBg: 'bg-sky-500/20', iconColor: 'text-sky-400' },
       { label: '待归档', value: archivedReadyCount.value, icon: Archive, iconBg: 'bg-slate-500/20', iconColor: 'text-slate-400' },
-      { label: '今日已完成', value: completedToday.value, icon: CheckCircle2, iconBg: 'bg-emerald-500/20', iconColor: 'text-emerald-400' },
+      { label: '已上报风险', value: riskResubmitReadyCount.value, icon: AlertTriangle, iconBg: 'bg-orange-500/20', iconColor: 'text-orange-400' },
     ]
   } else if (role.value === 'coach') {
     return [
       { label: '待审批', value: riskTodos.value.length, icon: AlertTriangle, iconBg: 'bg-orange-500/20', iconColor: 'text-orange-400' },
-      { label: '其中紧急', value: riskTodos.value.filter((t: any) => t.urgency === 'urgent' || t.urgency === 'immediate').length, icon: FileWarning, iconBg: 'bg-red-500/20', iconColor: 'text-red-400' },
-      { label: '今日已审批', value: completedToday.value, icon: CheckCircle2, iconBg: 'bg-emerald-500/20', iconColor: 'text-emerald-400' },
+      { label: '待巡查', value: patrolTodos.value.length, icon: Shield, iconBg: 'bg-sky-500/20', iconColor: 'text-sky-400' },
+      { label: '待归档', value: archivedReadyCount.value, icon: Archive, iconBg: 'bg-slate-500/20', iconColor: 'text-slate-400' },
     ]
   } else {
     return [
       { label: '待巡查', value: patrolTodos.value.length, icon: Shield, iconBg: 'bg-sky-500/20', iconColor: 'text-sky-400' },
       { label: '待补充', value: resubmitTodos.value.length, icon: MessageSquareOff, iconBg: 'bg-red-500/20', iconColor: 'text-red-400' },
-      { label: '今日已完成', value: completedToday.value, icon: CheckCircle2, iconBg: 'bg-emerald-500/20', iconColor: 'text-emerald-400' },
+      { label: '待归档', value: archivedReadyCount.value, icon: Archive, iconBg: 'bg-slate-500/20', iconColor: 'text-slate-400' },
     ]
   }
 })
 
 const archivedReadyCount = ref(0)
+const riskResubmitReadyCount = ref(0)
 
 const quickActions = computed(() => {
   if (role.value === 'rental') {
     return [
       { to: '/patrols/new', label: '创建巡查单', description: '为雪道创建新的巡查任务', icon: PlusCircle, iconColor: 'text-sky-400', cardClass: 'bg-sky-500/5 border-sky-500/20 hover:border-sky-500/50 hover:bg-sky-500/10' },
-      { to: '/patrols', label: '巡查管理', description: '查看所有巡查记录', icon: ClipboardCheck, iconColor: 'text-emerald-400', cardClass: 'bg-emerald-500/5 border-emerald-500/20 hover:border-emerald-500/50 hover:bg-emerald-500/10' },
+      { to: '/patrols?status=completed', label: '巡查归档', description: '归档已完成的巡查记录', icon: ClipboardCheck, iconColor: 'text-emerald-400', cardClass: 'bg-emerald-500/5 border-emerald-500/20 hover:border-emerald-500/50 hover:bg-emerald-500/10' },
       { to: '/settings', label: '系统管理', description: '数据重置与演示账号', icon: Settings, iconColor: 'text-slate-400', cardClass: 'bg-slate-500/5 border-slate-500/20 hover:border-slate-500/50 hover:bg-slate-500/10' },
     ]
   } else if (role.value === 'coach') {
     return [
-      { to: '/risks', label: '风险审批', description: '审批待处理的风险上报', icon: AlertTriangle, iconColor: 'text-orange-400', cardClass: 'bg-orange-500/5 border-orange-500/20 hover:border-orange-500/50 hover:bg-orange-500/10' },
+      { to: '/risks?status=pending_review', label: '风险审批', description: '审批待处理的风险上报', icon: AlertTriangle, iconColor: 'text-orange-400', cardClass: 'bg-orange-500/5 border-orange-500/20 hover:border-orange-500/50 hover:bg-orange-500/10' },
       { to: '/patrols', label: '巡查记录', description: '查看巡查执行情况', icon: ClipboardCheck, iconColor: 'text-sky-400', cardClass: 'bg-sky-500/5 border-sky-500/20 hover:border-sky-500/50 hover:bg-sky-500/10' },
       { to: '/settings', label: '系统管理', description: '数据重置与演示账号', icon: Settings, iconColor: 'text-slate-400', cardClass: 'bg-slate-500/5 border-slate-500/20 hover:border-slate-500/50 hover:bg-slate-500/10' },
     ]
   } else {
     return [
-      { to: '/patrols', label: '执行巡查', description: '查看并执行巡查任务', icon: Shield, iconColor: 'text-sky-400', cardClass: 'bg-sky-500/5 border-sky-500/20 hover:border-sky-500/50 hover:bg-sky-500/10' },
+      { to: '/patrols?status=pending', label: '执行巡查', description: '查看并执行巡查任务', icon: Shield, iconColor: 'text-sky-400', cardClass: 'bg-sky-500/5 border-sky-500/20 hover:border-sky-500/50 hover:bg-sky-500/10' },
       { to: '/risks/new', label: '上报风险', description: '新上报雪道风险问题', icon: AlertTriangle, iconColor: 'text-orange-400', cardClass: 'bg-orange-500/5 border-orange-500/20 hover:border-orange-500/50 hover:bg-orange-500/10' },
-      { to: '/risks', label: '补充备注', description: '处理被退回的风险上报', icon: SendHorizonal, iconColor: 'text-purple-400', cardClass: 'bg-purple-500/5 border-purple-500/20 hover:border-purple-500/50 hover:bg-purple-500/10' },
+      { to: '/risks?status=rejected', label: '补充备注', description: '处理被退回的风险上报', icon: SendHorizonal, iconColor: 'text-purple-400', cardClass: 'bg-purple-500/5 border-purple-500/20 hover:border-purple-500/50 hover:bg-purple-500/10' },
     ]
   }
 })
@@ -150,19 +150,9 @@ async function loadData() {
 
     const patrolArr = patrols || []
     const riskArr = risks || []
-    const today = new Date().toISOString().split('T')[0]
 
     archivedReadyCount.value = patrolArr.filter((p: any) => p.status === 'completed').length
-
-    if (role.value === 'coach') {
-      completedToday.value = riskArr.filter((r: any) =>
-        r.status === 'approved' && r.resolvedAt && r.resolvedAt.startsWith(today)
-      ).length
-    } else {
-      completedToday.value = patrolArr.filter((p: any) =>
-        p.status === 'completed' && p.completedAt && p.completedAt.startsWith(today)
-      ).length
-    }
+    riskResubmitReadyCount.value = riskArr.filter((r: any) => r.status === 'approved').length
   } catch (e) {
     console.error('加载数据失败', e)
   }
