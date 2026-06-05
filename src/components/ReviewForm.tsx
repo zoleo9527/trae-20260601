@@ -1,8 +1,9 @@
 import { useState } from "react"
-import type { Complaint, RootCause } from "@/types"
-import { ROOT_CAUSE_LABELS } from "@/types"
+import type { Complaint, RootCause, Role } from "@/types"
+import { ROOT_CAUSE_LABELS, ROLE_LABELS } from "@/types"
 import { useComplaintStore, useCurrentRole } from "@/store/complaintStore"
 import { resolvePersonName } from "@/utils/resolvePersonName"
+import { findRoleByName } from "@/utils/findRoleByName"
 import { Flower2, Truck, FileText, HelpCircle, CheckCircle2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -35,6 +36,7 @@ export default function ReviewForm({ complaint }: ReviewFormProps) {
   }
 
   if (complaint.reviewConclusion) {
+    const reviewerRole = findRoleByName(complaint, complaint.reviewConclusion.reviewedBy)
     return (
       <div className="bg-white rounded-xl border border-moss-100 p-5">
         <h3 className="font-serif text-lg font-semibold text-moss-900 mb-4">复盘结论</h3>
@@ -48,9 +50,23 @@ export default function ReviewForm({ complaint }: ReviewFormProps) {
           <p className="text-sm text-moss-600 pl-6">
             {complaint.reviewConclusion.improvement}
           </p>
-          <p className="text-xs text-moss-400 pl-6">
-            复盘人: {complaint.reviewConclusion.reviewedBy} · {complaint.reviewConclusion.reviewedAt}
-          </p>
+          <div className="flex items-center gap-1.5 text-xs text-moss-400 pl-6">
+            <span>复盘人:</span>
+            <span className="text-moss-600 font-medium">{complaint.reviewConclusion.reviewedBy}</span>
+            {reviewerRole && (
+              <span
+                className={cn(
+                  "px-1.5 py-0 rounded text-xs font-medium",
+                  reviewerRole === "cs" && "bg-brand-50 text-brand-600",
+                  reviewerRole === "florist" && "bg-moss-50 text-moss-600",
+                  reviewerRole === "dispatcher" && "bg-honey-50 text-honey-500"
+                )}
+              >
+                {ROLE_LABELS[reviewerRole]}
+              </span>
+            )}
+            <span className="ml-auto">{complaint.reviewConclusion.reviewedAt}</span>
+          </div>
         </div>
       </div>
     )

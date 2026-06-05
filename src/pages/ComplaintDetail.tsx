@@ -7,7 +7,9 @@ import {
   STATUS_COLORS,
   URGENCY_LABELS,
   COMPENSATION_LABELS,
+  ROLE_LABELS,
 } from "@/types"
+import type { Role } from "@/types"
 import {
   ArrowLeft,
   Package,
@@ -21,11 +23,15 @@ import {
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { resolvePersonName } from "@/utils/resolvePersonName"
+import { findRoleByName } from "@/utils/findRoleByName"
 import TimelineEntry from "@/components/TimelineEntry"
+import TimelineFilter, { filterTimeline } from "@/components/TimelineFilter"
+import type { RoleFilter, VisibilityFilter } from "@/components/TimelineFilter"
 import CompensationPanel from "@/components/CompensationPanel"
+import CollaboratorSummary from "@/components/CollaboratorSummary"
 import AddNote from "@/components/AddNote"
 import ReviewForm from "@/components/ReviewForm"
-import { useState } from "react"
+import { useState, useMemo } from "react"
 
 type CloseBlockReason = "no_compensation" | "compensation_unconfirmed" | null
 
@@ -37,6 +43,8 @@ export default function ComplaintDetail() {
   const [showCloseConfirm, setShowCloseConfirm] = useState(false)
   const [closeReason, setCloseReason] = useState("")
   const [closeBlockReason, setCloseBlockReason] = useState<CloseBlockReason>(null)
+  const [roleFilter, setRoleFilter] = useState<RoleFilter>("all")
+  const [visibilityFilter, setVisibilityFilter] = useState<VisibilityFilter>("all")
 
   const complaint = id ? getComplaintById(id) : undefined
 
@@ -68,6 +76,11 @@ export default function ComplaintDetail() {
     setShowCloseConfirm(false)
     setCloseReason("")
   }
+
+  const filteredTimeline = useMemo(
+    () => filterTimeline(complaint.timeline, roleFilter, visibilityFilter),
+    [complaint.timeline, roleFilter, visibilityFilter]
+  )
 
   return (
     <div className="p-8 max-w-6xl mx-auto">
@@ -141,13 +154,26 @@ export default function ComplaintDetail() {
             </div>
           </div>
 
+          <CollaboratorSummary complaint={complaint} />
+
           <div className="bg-white rounded-xl border border-moss-100 p-5">
             <h3 className="font-serif text-base font-semibold text-moss-900 mb-4">协作时间线</h3>
-            <div>
-              {complaint.timeline.map((entry) => (
-                <TimelineEntry key={entry.id} {...entry} />
-              ))}
-            </div>
+            <TimelineFilter
+              entries={complaint.timeline}
+              roleFilter={roleFilter}
+              setRoleFilter={setRoleFilter}
+              visibilityFilter={visibilityFilter}
+              setVisibilityFilter={setVisibilityFilter}
+            />
+            {filteredTimeline.length === 0 ? (
+              <p className="text-sm text-moss-400 py-4 text-center">当前筛选条件下无匹配记录</p>
+            ) : (
+              <div>
+                {filteredTimeline.map((entry) => (
+                  <TimelineEntry key={entry.id} {...entry} />
+                ))}
+              </div>
+            )}
           </div>
 
           <AddNote complaint={complaint} />
@@ -233,7 +259,28 @@ export default function ComplaintDetail() {
   )
 }
 
+function RoleTag({ role }: { role: Role | null }) {
+  if (!role) return null
+  return (
+    <span
+      className={cn(
+        "px-1.5 py-0 rounded text-xs font-medium",
+        role === "cs" && "bg-brand-50 text-brand-600",
+        role === "florist" && "bg-moss-50 text-moss-600",
+        role === "dispatcher" && "bg-honey-50 text-honey-500"
+      )}
+    >
+      {ROLE_LABELS[role]}
+    </span>
+  )
+}
+
 function CloseInfoCard({ complaint }: { complaint: import("@/types").Complaint }) {
+  const closedByRole = complaint.closedBy ? findRoleByName(complaint, complaint.closedBy) : null
+  const confirmedByRole = complaint.compensation?.confirmedBy
+    ? findRoleByName(complaint, complaint.compensation.confirmedBy)
+    : null
+
   return (
     <div className="bg-white rounded-xl border border-moss-100 p-5">
       <h3 className="font-serif text-base font-semibold text-moss-900 mb-3">关闭信息</h3>
@@ -245,9 +292,11 @@ function CloseInfoCard({ complaint }: { complaint: import("@/types").Complaint }
           </div>
         )}
         {complaint.closedBy && (
-          <div className="flex items-center justify-between text-xs text-moss-500">
-            <span>关闭人: {complaint.closedBy}</span>
-            <span>{complaint.closedAt}</span>
+          <div className="flex items-center gap-1.5 text-xs text-moss-500">
+            <span>关闭人:</span>
+            <span className="text-moss-700 font-medium">{complaint.closedBy}</span>
+            <RoleTag role={closedByRole} />
+            <span className="ml-auto">{complaint.closedAt}</span>
           </div>
         )}
         {complaint.compensation && (
@@ -263,6 +312,14 @@ function CloseInfoCard({ complaint }: { complaint: import("@/types").Complaint }
                 )}
               </p>
             </div>
+            {complaint.compensation.confirmedBy && (
+              <div className="flex items-center gap-1.5 text-xs text-moss-500">
+                <span>确认人:</span>
+                <span className="text-moss-700 font-medium">{complaint.compensation.confirmedBy}</span>
+                <RoleTag role={confirmedByRole} />
+                {complaint.compensation.confirmedAt && <span className="ml-auto">{complaint.compensation.confirmedAt}</span>}
+              </div>
+            )}
             {complaint.compensation.reason && (
               <p className="text-xs text-moss-500 leading-relaxed">{complaint.compensation.reason}</p>
             )}
