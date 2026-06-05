@@ -670,6 +670,7 @@ async function submitSignature() {
 
     const dispatch = (await window.api.getDispatches({})).find(d2 => d2.id === dispatchId);
     const orderId = dispatch ? dispatch.order_id : null;
+    const isEdit = !!signatureId;
 
     if (s.status === '已签收' && orderId) {
       await window.api.updateOrder(orderId, { status: '已签收' });
@@ -690,13 +691,35 @@ async function submitSignature() {
       await window.api.updateDispatch(dispatchId, { status: '退回' });
       const csHandlers = allHandlers.filter(h => h.role === '售后客服');
       const csHandler = csHandlers.length > 0 ? csHandlers[0] : null;
-      await window.api.createException({
-        order_id: orderId,
-        handler_id: csHandler ? csHandler.id : null,
-        type: '退回',
-        description: `签收退回: ${s.return_reason}`,
-        status: '未处理',
-      });
+
+      if (isEdit) {
+        const existingExcs = await window.api.getExceptions({ order_id: orderId, type: '退回' });
+        const openExc = existingExcs.find(ex => ex.status !== '已解决');
+        if (openExc) {
+          await window.api.updateException(openExc.id, {
+            description: `签收退回: ${s.return_reason}`,
+            status: '未处理',
+            handler_id: csHandler ? csHandler.id : openExc.handler_id,
+          });
+        } else {
+          await window.api.createException({
+            order_id: orderId,
+            handler_id: csHandler ? csHandler.id : null,
+            type: '退回',
+            description: `签收退回: ${s.return_reason}`,
+            status: '未处理',
+          });
+        }
+      } else {
+        await window.api.createException({
+          order_id: orderId,
+          handler_id: csHandler ? csHandler.id : null,
+          type: '退回',
+          description: `签收退回: ${s.return_reason}`,
+          status: '未处理',
+        });
+      }
+
       const dispatcher = allHandlers.find(h => h.id === dispatch.dispatcher_id);
       if (dispatcher && csHandler) {
         await window.api.createHandoverLog({
@@ -711,13 +734,35 @@ async function submitSignature() {
     } else if (s.status === '补材料' && orderId) {
       const csHandlers = allHandlers.filter(h => h.role === '售后客服');
       const csHandler = csHandlers.length > 0 ? csHandlers[0] : null;
-      await window.api.createException({
-        order_id: orderId,
-        handler_id: csHandler ? csHandler.id : null,
-        type: '补材料',
-        description: `签收补材料: ${s.supplement_desc}`,
-        status: '未处理',
-      });
+
+      if (isEdit) {
+        const existingExcs = await window.api.getExceptions({ order_id: orderId, type: '补材料' });
+        const openExc = existingExcs.find(ex => ex.status !== '已解决');
+        if (openExc) {
+          await window.api.updateException(openExc.id, {
+            description: `签收补材料: ${s.supplement_desc}`,
+            status: '未处理',
+            handler_id: csHandler ? csHandler.id : openExc.handler_id,
+          });
+        } else {
+          await window.api.createException({
+            order_id: orderId,
+            handler_id: csHandler ? csHandler.id : null,
+            type: '补材料',
+            description: `签收补材料: ${s.supplement_desc}`,
+            status: '未处理',
+          });
+        }
+      } else {
+        await window.api.createException({
+          order_id: orderId,
+          handler_id: csHandler ? csHandler.id : null,
+          type: '补材料',
+          description: `签收补材料: ${s.supplement_desc}`,
+          status: '未处理',
+        });
+      }
+
       const dispatcher = allHandlers.find(h => h.id === dispatch.dispatcher_id);
       if (dispatcher && csHandler) {
         await window.api.createHandoverLog({
@@ -733,6 +778,7 @@ async function submitSignature() {
 
     hideModal('modal-signature');
     loadSignatures();
+    loadDispatches();
     loadOrders();
     loadExceptions();
     loadDashboard();
