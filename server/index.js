@@ -96,63 +96,14 @@ app.get('/api/dashboard/today', (req, res) => {
       });
     }
     
-    if (role === 'frontdesk' || role === 'manager') {
-      db.all(`
-        SELECT s.*, u.name as staff_name 
-        FROM staff_schedules s 
-        JOIN users u ON s.staff_id = u.id 
-        WHERE s.date = ? AND s.status = 'pending_review'
-        ORDER BY s.shift
-      `, [today], (err, rows) => {
-        if (rows && rows.length > 0) {
-          result.tasks.push({
-            category: '排班待审核',
-            priority: 'high',
-            items: rows.map(s => ({
-              id: s.id,
-              title: `${s.staff_name} - ${s.shift === 'morning' ? '早班' : s.shift === 'afternoon' ? '午班' : '晚班'}`,
-              subtitle: '待审核确认',
-              status: s.status,
-              type: 'schedule'
-            }))
-          });
-        }
-      });
-    }
-    
-    if (role === 'belayer' || role === 'manager') {
-      db.all(`
-        SELECT s.*, u.name as staff_name 
-        FROM staff_schedules s 
-        JOIN users u ON s.staff_id = u.id 
-        WHERE s.date = ? AND s.status IN ('scheduled', 'checked_in')
-        ORDER BY s.shift
-      `, [today], (err, rows) => {
-        if (rows && rows.length > 0) {
-          result.tasks.push({
-            category: '今日排班',
-            priority: 'medium',
-            items: rows.map(s => ({
-              id: s.id,
-              title: `${s.staff_name} - ${s.shift === 'morning' ? '早班' : s.shift === 'afternoon' ? '午班' : '晚班'}`,
-              subtitle: s.status === 'checked_in' ? '已签到' : '待签到',
-              status: s.status,
-              type: 'schedule'
-            }))
-          });
-        }
-      });
-    }
-    
-    if (role === 'routesetter' || role === 'manager') {
-      db.all(`
-        SELECT rm.*, r.name as route_name, r.grade, u.name as maintainer_name
-        FROM route_maintenance rm
-        JOIN routes r ON rm.route_id = r.id
-        LEFT JOIN users u ON rm.maintainer_id = u.id
-        WHERE rm.status IN ('pending', 'in_progress')
-        ORDER BY rm.scheduled_date
-      `, (err, rows) => {
+    if (role === 'frontdesk' || role === 'manager' || role === 'routesetter') {
+      db.all(`SELECT rm.*, r.name as route_name, r.grade, r.color,
+              u.name as maintainer_name
+              FROM route_maintenance rm
+              JOIN routes r ON rm.route_id = r.id
+              LEFT JOIN users u ON rm.maintainer_id = u.id
+              WHERE rm.status IN ('pending', 'in_progress')
+              ORDER BY rm.scheduled_date`, (err, rows) => {
         if (rows && rows.length > 0) {
           result.tasks.push({
             category: '线路维护',
@@ -170,52 +121,16 @@ app.get('/api/dashboard/today', (req, res) => {
     }
     
     db.all(`
-      SELECT ra.*, u.name as reporter_name, o.name as owner_name, 
-             s.date as sched_date, s.shift as sched_shift, su.name as sched_staff_name 
-      FROM risk_alerts ra 
-      LEFT JOIN users u ON ra.reported_by = u.id 
-      LEFT JOIN users o ON ra.current_owner = o.id 
-      LEFT JOIN staff_schedules s ON ra.source_schedule_id = s.id 
-      LEFT JOIN users su ON s.staff_id = su.id 
-      WHERE ra.status IN ("open", "processing") 
-      ORDER BY CASE ra.severity WHEN "high" THEN 1 WHEN "medium" THEN 2 ELSE 3 END
-      SELECT ra.*, u.name as reporter_name, o.name as owner_name, 
-             s.date as sched_date, s.shift as sched_shift, su.name as sched_staff_name 
-      FROM risk_alerts ra 
-      LEFT JOIN users u ON ra.reported_by = u.id 
-      LEFT JOIN users o ON ra.current_owner = o.id 
-      LEFT JOIN staff_schedules s ON ra.source_schedule_id = s.id 
-      LEFT JOIN users su ON s.staff_id = su.id 
-      WHERE ra.status IN ("open", "processing") 
-      ORDER BY CASE ra.severity WHEN "high" THEN 1 WHEN "medium" THEN 2 ELSE 3 END
-      SELECT ra.*, u.name as reporter_name, o.name as owner_name, 
-             s.date as sched_date, s.shift as sched_shift, su.name as sched_staff_name 
-      FROM risk_alerts ra 
-      LEFT JOIN users u ON ra.reported_by = u.id 
-      LEFT JOIN users o ON ra.current_owner = o.id 
-      LEFT JOIN staff_schedules s ON ra.source_schedule_id = s.id 
-      LEFT JOIN users su ON s.staff_id = su.id 
-      WHERE ra.status IN ("open", "processing") 
-      ORDER BY CASE ra.severity WHEN "high" THEN 1 WHEN "medium" THEN 2 ELSE 3 END
-      SELECT ra.*, u.name as reporter_name, o.name as owner_name, 
-             s.date as sched_date, s.shift as sched_shift, su.name as sched_staff_name 
-      FROM risk_alerts ra 
-      LEFT JOIN users u ON ra.reported_by = u.id 
-      LEFT JOIN users o ON ra.current_owner = o.id 
-      LEFT JOIN staff_schedules s ON ra.source_schedule_id = s.id 
-      LEFT JOIN users su ON s.staff_id = su.id 
-      WHERE ra.status IN ("open", "processing") 
-      ORDER BY CASE ra.severity WHEN "high" THEN 1 WHEN "medium" THEN 2 ELSE 3 END
-      SELECT ra.*, u.name as reporter_name, o.name as owner_name, 
-             s.date as sched_date, s.shift as sched_shift, su.name as sched_staff_name 
-      FROM risk_alerts ra 
-      LEFT JOIN users u ON ra.reported_by = u.id 
-      LEFT JOIN users o ON ra.current_owner = o.id 
-      LEFT JOIN staff_schedules s ON ra.source_schedule_id = s.id 
-      LEFT JOIN users su ON s.staff_id = su.id 
-      WHERE ra.status IN ("open", "processing") 
-      ORDER BY CASE ra.severity WHEN "high" THEN 1 WHEN "medium" THEN 2 ELSE 3 END
-    `, (err, rows) => {
+            SELECT ra.*, u.name as reporter_name, o.name as owner_name,
+             s.date as sched_date, s.shift as sched_shift, su.name as sched_staff_name
+      FROM risk_alerts ra
+      LEFT JOIN users u ON ra.reported_by = u.id
+      LEFT JOIN users o ON ra.current_owner = o.id
+      LEFT JOIN staff_schedules s ON ra.source_schedule_id = s.id
+      LEFT JOIN users su ON s.staff_id = su.id
+      WHERE ra.status IN ('open', 'processing')
+      ORDER BY CASE ra.severity WHEN 'high' THEN 1 WHEN 'medium' THEN 2 ELSE 3 END
+`, (err, rows) => {
       if (rows && rows.length > 0) {
         result.tasks.push({
           category: '风险提示',
@@ -281,6 +196,10 @@ app.get('/api/schedules', (req, res) => {
 
 app.post('/api/schedules', (req, res) => {
   const { staff_id, date, shift, role, assigned_by } = req.body;
+  const userRole = req.headers['x-role'] || 'manager';
+  if (userRole !== 'frontdesk' && userRole !== 'manager') {
+    return res.status(403).json({ error: '无权限创建排班' });
+  }
   const id = uuidv4();
   db.run(`INSERT INTO staff_schedules (id, staff_id, date, shift, role, status, assigned_by) 
           VALUES (?, ?, ?, ?, ?, 'draft', ?)`,
@@ -294,13 +213,12 @@ app.post('/api/schedules', (req, res) => {
 
 app.put('/api/schedules/:id/status', (req, res) => {
   const { id } = req.params;
+  const { status, reviewed_by, review_notes, check_in_time, check_out_time } = req.body;
   const role = req.headers["x-role"] || "manager";
   const PERM = { frontdesk: ["draft", "pending_review"], manager: ["scheduled", "rejected"], belayer: ["checked_in", "completed"], routesetter: [] };
-  if (!PERM[role] || !PERM[role].includes(status)) {
-    return res.status(403).json({ error: "无权限：" + role + " 不能执行 " + status });
+  if (!status || !PERM[role] || !PERM[role].includes(status)) {
+    return res.status(403).json({ error: "无权限：" + role + " 不能执行 " + (status || '空操作') });
   }
-
-  const { status, reviewed_by, review_notes, check_in_time, check_out_time } = req.body;
   
   let sql = "UPDATE staff_schedules SET status = ?";
   const params = [status];

@@ -44,7 +44,7 @@ function ScheduleModal({ scheduleId, currentRole, currentUser, onClose, onUpdate
     if (!schedule) return;
     try {
       const updateData = { status: newStatus };
-      if (currentRole === 'manager' || currentRole === 'frontdesk') {
+      if (canReview || canSubmit) {
         updateData.reviewed_by = currentUser?.id;
         if (notes !== undefined) updateData.review_notes = notes;
       }
@@ -74,7 +74,6 @@ function ScheduleModal({ scheduleId, currentRole, currentUser, onClose, onUpdate
   const canSubmit = currentRole === "frontdesk" || currentRole === "manager";
   const canReview = currentRole === "manager";
   const canCheckIn = currentRole === "belayer" || currentRole === "manager";
-  const canCheckIn = currentRole === 'belayer' || currentRole === 'manager';
 
   return (
     <div className="modal-overlay" onClick={onClose}>

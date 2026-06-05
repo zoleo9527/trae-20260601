@@ -24,7 +24,6 @@ const roleLabels = {
 function Dashboard({ currentRole, currentUser }) {
   const [data, setData] = useState(null);
   const [risks, setRisks] = useState([]);
-  const [risks, setRisks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedSchedule, setSelectedSchedule] = useState(null);
   const [selectedRisk, setSelectedRisk] = useState(null);
