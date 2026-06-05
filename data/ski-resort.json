@@ -1,0 +1,243 @@
+{
+  "equipment": [
+    {
+      "id": "3aba1a98-a4fb-425c-8709-f1ee1bb4865b",
+      "code": "SK-001",
+      "name": "双板滑雪板-标准",
+      "type": "ski",
+      "status": "available"
+    },
+    {
+      "id": "7362e251-c432-4fad-ae0f-aa4592e7d35a",
+      "code": "SK-002",
+      "name": "双板滑雪板-加长",
+      "type": "ski",
+      "status": "available"
+    },
+    {
+      "id": "8530dc16-9933-4ff1-8ccb-3494698fd036",
+      "code": "SB-001",
+      "name": "单板滑雪板-初级",
+      "type": "snowboard",
+      "status": "available"
+    },
+    {
+      "id": "896ebeca-c4f2-412d-81c5-0c6a0ef504db",
+      "code": "SB-002",
+      "name": "单板滑雪板-中级",
+      "type": "snowboard",
+      "status": "rented"
+    },
+    {
+      "id": "ca53250f-d10a-4156-9fbc-ef33655d7ded",
+      "code": "HM-001",
+      "name": "头盔-成人款",
+      "type": "helmet",
+      "status": "available"
+    },
+    {
+      "id": "6eb5e614-1d4b-4c1d-a28a-cfc7a63e51d3",
+      "code": "GG-001",
+      "name": "滑雪护目镜-防雾",
+      "type": "goggles",
+      "status": "available"
+    },
+    {
+      "id": "bda5df3b-afa8-4c98-8fd0-a1c3a81bacb6",
+      "code": "BT-001",
+      "name": "双板雪靴-42码",
+      "type": "boots",
+      "status": "available"
+    },
+    {
+      "id": "05df97ae-1e44-4a73-b330-e9d8600323ba",
+      "code": "BT-002",
+      "name": "双板雪靴-39码",
+      "type": "boots",
+      "status": "maintenance"
+    }
+  ],
+  "students": [
+    {
+      "id": "57ab6c24-1da8-4151-a5cb-9a961775b19d",
+      "name": "张小明",
+      "level": "beginner"
+    },
+    {
+      "id": "32489f67-e2cc-4c93-b284-6adbe9f1c080",
+      "name": "李思雨",
+      "level": "intermediate"
+    },
+    {
+      "id": "51452d02-6807-48d0-a0e4-f8bcbff0a2b0",
+      "name": "王大鹏",
+      "level": "advanced"
+    },
+    {
+      "id": "027871b7-40f1-4c0c-99ab-030134d889d1",
+      "name": "赵雪晴",
+      "level": "beginner"
+    },
+    {
+      "id": "5ca8796a-64fa-4e77-8a3b-4e5c46fb81a8",
+      "name": "陈飞宇",
+      "level": "intermediate"
+    },
+    {
+      "id": "7940047d-34ad-45f0-8806-7ba77df29b71",
+      "name": "刘梦琪",
+      "level": "advanced"
+    }
+  ],
+  "coaches": [
+    {
+      "id": "7dd0668f-2df7-4b02-8d25-8279d8822788",
+      "name": "孙志强",
+      "qualification": "高级教练"
+    },
+    {
+      "id": "67a434c4-7d61-4002-90e9-a1125d9543a9",
+      "name": "周雅文",
+      "qualification": "中级教练"
+    },
+    {
+      "id": "f62b0303-f626-47cf-8c7f-20bf158085cb",
+      "name": "吴国庆",
+      "qualification": "高级教练"
+    },
+    {
+      "id": "14dfc76f-792c-4095-aebb-2e97a809924e",
+      "name": "郑晓峰",
+      "qualification": "初级教练"
+    }
+  ],
+  "patrols": [
+    {
+      "id": "679392b1-5dd3-498c-92a8-e3c11e3fff1e",
+      "name": "马卫东",
+      "role": "安全巡逻员"
+    },
+    {
+      "id": "bf3022aa-4ff2-4274-968d-20686b9d8c51",
+      "name": "黄海波",
+      "role": "安全巡逻员"
+    },
+    {
+      "id": "f1dd85f1-ace3-4e14-9399-cf2e5e121976",
+      "name": "林安全",
+      "role": "安全巡逻员"
+    }
+  ],
+  "courses": [
+    {
+      "id": "63813191-b6a8-43eb-b2e6-fb9600650fe3",
+      "coachId": "7dd0668f-2df7-4b02-8d25-8279d8822788",
+      "date": "2026-06-05",
+      "startTime": "09:00",
+      "endTime": "11:00",
+      "maxStudents": 8,
+      "status": "completed",
+      "confirmedByCoachAt": "2026-06-05T08:50:00.000Z"
+    },
+    {
+      "id": "be90ad53-a033-4be2-aaeb-0c50321097a2",
+      "coachId": "67a434c4-7d61-4002-90e9-a1125d9543a9",
+      "date": "2026-06-05",
+      "startTime": "13:00",
+      "endTime": "15:00",
+      "maxStudents": 6,
+      "status": "in_progress",
+      "confirmedByCoachAt": "2026-06-05T12:55:00.000Z"
+    },
+    {
+      "id": "e3b57bb5-c818-4175-b843-4aae08263937",
+      "coachId": "f62b0303-f626-47cf-8c7f-20bf158085cb",
+      "date": "2026-06-05",
+      "startTime": "15:30",
+      "endTime": "17:30",
+      "maxStudents": 10,
+      "status": "pending"
+    }
+  ],
+  "checkinRecords": [
+    {
+      "id": "2c46c81c-f3ae-4c2d-9ca3-9ce7c18ad30e",
+      "courseId": "63813191-b6a8-43eb-b2e6-fb9600650fe3",
+      "studentId": "57ab6c24-1da8-4151-a5cb-9a961775b19d",
+      "status": "checked_in",
+      "checkedInAt": "2026-06-05T08:55:00.000Z"
+    },
+    {
+      "id": "c1c2564f-c5f0-4fee-941f-86759ec8831e",
+      "courseId": "63813191-b6a8-43eb-b2e6-fb9600650fe3",
+      "studentId": "32489f67-e2cc-4c93-b284-6adbe9f1c080",
+      "status": "checked_in",
+      "checkedInAt": "2026-06-05T08:57:00.000Z"
+    },
+    {
+      "id": "6f31a807-e043-4350-a5ed-df1d3b370e42",
+      "courseId": "63813191-b6a8-43eb-b2e6-fb9600650fe3",
+      "studentId": "51452d02-6807-48d0-a0e4-f8bcbff0a2b0",
+      "status": "no_show"
+    },
+    {
+      "id": "dd0202f6-2edb-44ac-88df-59fcee2b3fa7",
+      "courseId": "be90ad53-a033-4be2-aaeb-0c50321097a2",
+      "studentId": "027871b7-40f1-4c0c-99ab-030134d889d1",
+      "status": "checked_in",
+      "checkedInAt": "2026-06-05T12:58:00.000Z"
+    },
+    {
+      "id": "5ef46481-444d-40ce-a191-eed38bd3463c",
+      "courseId": "be90ad53-a033-4be2-aaeb-0c50321097a2",
+      "studentId": "5ca8796a-64fa-4e77-8a3b-4e5c46fb81a8",
+      "status": "pending"
+    },
+    {
+      "id": "ded93d1a-ad0f-4ca1-a149-000120a79f87",
+      "courseId": "e3b57bb5-c818-4175-b843-4aae08263937",
+      "studentId": "7940047d-34ad-45f0-8806-7ba77df29b71",
+      "status": "pending"
+    }
+  ],
+  "rescueRecords": [
+    {
+      "id": "c07ca811-c792-4b1d-92e8-ac94d38cd461",
+      "date": "2026-06-05",
+      "location": "中级雪道3号弯",
+      "description": "学员在转弯时摔倒，右脚踝疑似扭伤",
+      "patientName": "赵雪晴",
+      "severity": "moderate",
+      "patrolId": "679392b1-5dd3-498c-92a8-e3c11e3fff1e",
+      "attachments": [
+        {
+          "id": "aab96667-8bbb-4a2d-a65f-ad147c7bd385",
+          "name": "现场照片.jpg",
+          "type": "image/jpeg"
+        },
+        {
+          "id": "adb39bdf-486c-4565-8f09-5f8030587c0d",
+          "name": "伤情记录.pdf",
+          "type": "application/pdf"
+        }
+      ]
+    }
+  ],
+  "rentalRecords": [
+    {
+      "id": "d411c47f-be00-4b3f-8bce-b4b62a94b793",
+      "equipmentId": "896ebeca-c4f2-412d-81c5-0c6a0ef504db",
+      "studentId": "32489f67-e2cc-4c93-b284-6adbe9f1c080",
+      "rentedAt": "2026-06-05T08:30:00.000Z",
+      "status": "active"
+    },
+    {
+      "id": "931c4eba-12f3-4a6b-a6fc-2cc6910f4e34",
+      "equipmentId": "7362e251-c432-4fad-ae0f-aa4592e7d35a",
+      "studentId": "57ab6c24-1da8-4151-a5cb-9a961775b19d",
+      "rentedAt": "2026-06-05T08:20:00.000Z",
+      "returnedAt": "2026-06-05T11:05:00.000Z",
+      "status": "returned"
+    }
+  ]
+}

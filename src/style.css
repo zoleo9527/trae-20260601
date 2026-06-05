@@ -1,0 +1,67 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;600;700&display=swap');
+
+:root {
+  --color-ice-50: #f0f9ff;
+  --color-ice-100: #e0f2fe;
+  --color-ice-200: #bae6fd;
+  --color-ice-300: #7dd3fc;
+  --color-ice-400: #38bdf8;
+  --color-ice-500: #0ea5e9;
+  --color-slate-850: #1a2332;
+
+  font-family: 'DM Sans', 'Noto Sans SC', -apple-system, BlinkMacSystemFont, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+@layer components {
+  .card {
+    @apply bg-white rounded-xl border border-slate-200/80 shadow-sm;
+  }
+
+  .input-field {
+    @apply w-full px-3 py-2 rounded-lg border border-slate-200 text-sm bg-white
+           focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-400
+           placeholder:text-slate-400 transition-colors;
+  }
+
+  .btn-primary {
+    @apply inline-flex items-center justify-center px-4 py-2 rounded-lg text-sm font-medium
+           bg-sky-500 text-white hover:bg-sky-600 active:bg-sky-700
+           disabled:opacity-40 disabled:cursor-not-allowed transition-colors shadow-sm;
+  }
+
+  .btn-secondary {
+    @apply inline-flex items-center justify-center px-4 py-2 rounded-lg text-sm font-medium
+           bg-white text-slate-700 border border-slate-200 hover:bg-slate-50
+           active:bg-slate-100 transition-colors;
+  }
+
+  .btn-danger {
+    @apply inline-flex items-center justify-center px-4 py-2 rounded-lg text-sm font-medium
+           bg-red-500 text-white hover:bg-red-600 active:bg-red-700
+           disabled:opacity-40 disabled:cursor-not-allowed transition-colors shadow-sm;
+  }
+
+  .btn-orange {
+    @apply inline-flex items-center justify-center px-4 py-2 rounded-lg text-sm font-medium
+           bg-orange-500 text-white hover:bg-orange-600 active:bg-orange-700
+           disabled:opacity-40 disabled:cursor-not-allowed transition-colors shadow-sm;
+  }
+
+  .modal-overlay {
+    @apply fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm;
+  }
+
+  .modal-content {
+    @apply bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto;
+  }
+}
