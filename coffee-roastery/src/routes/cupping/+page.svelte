@@ -2,6 +2,7 @@
 	let { data } = $props();
 	let showForm = $state(false);
 	let selectedBatch = $state('');
+	let errorMessage = $state<string | null>(null);
 	let cupForm = $state({
 		aroma_score: '7',
 		flavor_score: '7',
@@ -14,14 +15,46 @@
 	});
 
 	async function submitCupping() {
-		await fetch('/api/cupping', {
+		if (!selectedBatch) {
+			errorMessage = '请选择烘焙批次';
+			setTimeout(() => errorMessage = null, 3000);
+			return;
+		}
+		const scores = [
+			parseFloat(cupForm.aroma_score),
+			parseFloat(cupForm.flavor_score),
+			parseFloat(cupForm.aftertaste_score),
+			parseFloat(cupForm.acidity_score),
+			parseFloat(cupForm.body_score),
+			parseFloat(cupForm.balance_score),
+			parseFloat(cupForm.overall_score)
+		];
+		if (scores.some(s => isNaN(s) || s < 0 || s > 10)) {
+			errorMessage = '请输入有效的评分（0-10）';
+			setTimeout(() => errorMessage = null, 3000);
+			return;
+		}
+		const res = await fetch('/api/cupping', {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify({
 				roast_batch_id: parseInt(selectedBatch),
-				...cupForm
+				aroma_score: parseFloat(cupForm.aroma_score),
+				flavor_score: parseFloat(cupForm.flavor_score),
+				aftertaste_score: parseFloat(cupForm.aftertaste_score),
+				acidity_score: parseFloat(cupForm.acidity_score),
+				body_score: parseFloat(cupForm.body_score),
+				balance_score: parseFloat(cupForm.balance_score),
+				overall_score: parseFloat(cupForm.overall_score),
+				notes: cupForm.notes
 			})
 		});
+		if (!res.ok) {
+			const data = await res.json().catch(() => ({ error: '提交失败' }));
+			errorMessage = data.error || '提交失败';
+			setTimeout(() => errorMessage = null, 3000);
+			return;
+		}
 		showForm = false;
 		selectedBatch = '';
 		window.location.reload();
@@ -29,6 +62,12 @@
 </script>
 
 <div>
+	{#if errorMessage}
+		<div class="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded text-sm flex items-center justify-between">
+			<span>{errorMessage}</span>
+			<button onclick={() => errorMessage = null} class="text-red-500 hover:text-red-700 ml-2">×</button>
+		</div>
+	{/if}
 	<div class="flex items-center justify-between mb-6">
 		<div>
 		<h2 class="text-xl font-bold text-stone-800">杯测记录</h2>

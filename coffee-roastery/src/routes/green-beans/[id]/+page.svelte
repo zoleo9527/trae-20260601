@@ -17,6 +17,7 @@
 
 	let showExceptionDrawer = $state(false);
 	let showCreatePlan = $state(false);
+	let errorMessage = $state<string | null>(null);
 	let exForm = $state({ severity: 'medium', title: '', description: '' });
 	let planForm = $state({
 		plan_date: new Date().toISOString().slice(0, 10),
@@ -29,16 +30,27 @@
 	});
 
 	async function changeStatus(newStatus: string) {
-		await fetch(`/api/green-beans/${data.bean.id}/status`, {
+		const res = await fetch(`/api/green-beans/${data.bean.id}/status`, {
 			method: 'PUT',
 			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify({ status: newStatus })
 		});
+		if (!res.ok) {
+			const data = await res.json().catch(() => ({ error: '操作失败' }));
+			errorMessage = data.error || '操作失败';
+			setTimeout(() => errorMessage = null, 3000);
+			return;
+		}
 		window.location.reload();
 	}
 
 	async function submitException() {
-		await fetch(`/api/exceptions`, {
+		if (!exForm.title || !exForm.description) {
+			errorMessage = '请填写异常标题和描述';
+			setTimeout(() => errorMessage = null, 3000);
+			return;
+		}
+		const res = await fetch(`/api/exceptions`, {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify({
@@ -47,23 +59,47 @@
 				...exForm
 			})
 		});
+		if (!res.ok) {
+			const data = await res.json().catch(() => ({ error: '提交失败' }));
+			errorMessage = data.error || '提交失败';
+			setTimeout(() => errorMessage = null, 3000);
+			return;
+		}
 		showExceptionDrawer = false;
 		exForm = { severity: 'medium', title: '', description: '' };
 		window.location.reload();
 	}
 
 	async function submitPlan() {
-		await fetch('/api/roasting-plans', {
+		if (!planForm.plan_date || !planForm.target_roast_level || !planForm.batch_size_kg || !planForm.expected_output_kg) {
+			errorMessage = '请填写完整的计划信息';
+			setTimeout(() => errorMessage = null, 3000);
+			return;
+		}
+		const batchSize = parseFloat(planForm.batch_size_kg);
+		const expectedOutput = parseFloat(planForm.expected_output_kg);
+		if (isNaN(batchSize) || batchSize <= 0 || isNaN(expectedOutput) || expectedOutput <= 0) {
+			errorMessage = '请输入有效的重量数值';
+			setTimeout(() => errorMessage = null, 3000);
+			return;
+		}
+		const res = await fetch('/api/roasting-plans', {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify({
 				green_bean_id: data.bean.id,
 				...planForm,
-				batch_size_kg: parseFloat(planForm.batch_size_kg),
-				expected_output_kg: parseFloat(planForm.expected_output_kg),
+				batch_size_kg: batchSize,
+				expected_output_kg: expectedOutput,
 				assigned_roaster: planForm.assigned_roaster ? parseInt(planForm.assigned_roaster) : null
 			})
 		});
+		if (!res.ok) {
+			const data = await res.json().catch(() => ({ error: '创建计划失败' }));
+			errorMessage = data.error || '创建计划失败';
+			setTimeout(() => errorMessage = null, 3000);
+			return;
+		}
 		showCreatePlan = false;
 		window.location.reload();
 	}
@@ -71,16 +107,28 @@
 	async function resolveException(exId: number) {
 		const resolution = prompt('请输入处理结果：');
 		if (!resolution) return;
-		await fetch(`/api/exceptions/${exId}`, {
+		const res = await fetch(`/api/exceptions/${exId}`, {
 			method: 'PUT',
 			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify({ status: 'resolved', resolution })
 		});
+		if (!res.ok) {
+			const data = await res.json().catch(() => ({ error: '处理失败' }));
+			errorMessage = data.error || '处理失败';
+			setTimeout(() => errorMessage = null, 3000);
+			return;
+		}
 		window.location.reload();
 	}
 </script>
 
 <div>
+	{#if errorMessage}
+		<div class="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded text-sm flex items-center justify-between">
+			<span>{errorMessage}</span>
+			<button onclick={() => errorMessage = null} class="text-red-500 hover:text-red-700 ml-2">×</button>
+		</div>
+	{/if}
 	<div class="flex items-center justify-between mb-6">
 		<div>
 			<div class="flex items-center gap-3">

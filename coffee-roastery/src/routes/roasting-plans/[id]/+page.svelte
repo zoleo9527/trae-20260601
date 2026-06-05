@@ -46,18 +46,40 @@
 	}
 
 	async function submitException() {
-		await fetch('/api/exceptions', {
+		if (!exForm.title || !exForm.description) {
+			errorMessage = '请填写异常标题和描述';
+			setTimeout(() => errorMessage = null, 3000);
+			return;
+		}
+		const res = await fetch('/api/exceptions', {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify({ entity_type: 'roasting_plan', entity_id: data.plan.id, ...exForm })
 		});
+		if (!res.ok) {
+			const data = await res.json().catch(() => ({ error: '提交失败' }));
+			errorMessage = data.error || '提交失败';
+			setTimeout(() => errorMessage = null, 3000);
+			return;
+		}
 		showExceptionDrawer = false;
 		exForm = { severity: 'medium', title: '', description: '' };
 		window.location.reload();
 	}
 
 	async function submitBatch() {
-		await fetch('/api/roast-batches', {
+		if (!batchForm.actual_roast_level || !batchForm.start_time || !batchForm.input_weight_kg) {
+			errorMessage = '请填写完整的批次信息';
+			setTimeout(() => errorMessage = null, 3000);
+			return;
+		}
+		const inputWeight = parseFloat(batchForm.input_weight_kg);
+		if (isNaN(inputWeight) || inputWeight <= 0) {
+			errorMessage = '请输入有效的投入重量';
+			setTimeout(() => errorMessage = null, 3000);
+			return;
+		}
+		const res = await fetch('/api/roast-batches', {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify({
@@ -65,25 +87,39 @@
 				green_bean_id: data.plan.green_bean_id,
 				actual_roast_level: batchForm.actual_roast_level,
 				start_time: batchForm.start_time,
-				input_weight_kg: parseFloat(batchForm.input_weight_kg),
+				input_weight_kg: inputWeight,
 				notes: batchForm.notes
 			})
 		});
+		if (!res.ok) {
+			const data = await res.json().catch(() => ({ error: '创建批次失败' }));
+			errorMessage = data.error || '创建批次失败';
+			setTimeout(() => errorMessage = null, 3000);
+			return;
+		}
 		showStartBatch = false;
 		if (data.plan.status !== 'in_progress') {
 			await changePlanStatus('in_progress');
 		}
-		window.location.reload();
+		if (data.plan.status === 'in_progress') {
+			window.location.reload();
+		}
 	}
 
 	async function resolveException(exId: number) {
 		const resolution = prompt('请输入处理结果：');
 		if (!resolution) return;
-		await fetch(`/api/exceptions/${exId}`, {
+		const res = await fetch(`/api/exceptions/${exId}`, {
 			method: 'PUT',
 			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify({ status: 'resolved', resolution })
 		});
+		if (!res.ok) {
+			const data = await res.json().catch(() => ({ error: '处理失败' }));
+			errorMessage = data.error || '处理失败';
+			setTimeout(() => errorMessage = null, 3000);
+			return;
+		}
 		window.location.reload();
 	}
 
@@ -99,11 +135,32 @@
 
 	async function submitCompleteBatch() {
 		if (!completingBatch) return;
-		await fetch(`/api/roast-batches/${completingBatch.id}/complete`, {
+		if (!completeForm.end_time || !completeForm.output_weight_kg) {
+			errorMessage = '请填写结束时间和产出重量';
+			setTimeout(() => errorMessage = null, 3000);
+			return;
+		}
+		const outputWeight = parseFloat(completeForm.output_weight_kg);
+		if (isNaN(outputWeight) || outputWeight <= 0) {
+			errorMessage = '请输入有效的产出重量';
+			setTimeout(() => errorMessage = null, 3000);
+			return;
+		}
+		const res = await fetch(`/api/roast-batches/${completingBatch.id}/complete`, {
 			method: 'PUT',
 			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify(completeForm)
+			body: JSON.stringify({
+				end_time: completeForm.end_time,
+				output_weight_kg: outputWeight,
+				notes: completeForm.notes
+			})
 		});
+		if (!res.ok) {
+			const data = await res.json().catch(() => ({ error: '完结批次失败' }));
+			errorMessage = data.error || '完结批次失败';
+			setTimeout(() => errorMessage = null, 3000);
+			return;
+		}
 		showCompleteBatch = false;
 		completingBatch = null;
 		window.location.reload();
