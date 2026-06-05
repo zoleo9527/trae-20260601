@@ -14,7 +14,7 @@ export default defineEventHandler(async (event) => {
       SELECT p.id, p.type, p.status, p.created_at, t.name as trail_name
       FROM patrols p
       LEFT JOIN trails t ON p.trail_id = t.id
-      WHERE p.status = 'pending'
+      WHERE p.status IN ('pending', 'in_progress')
       ORDER BY p.created_at DESC
     `).all() as any[]
     pendingPatrols.forEach((p) => {
@@ -25,11 +25,14 @@ export default defineEventHandler(async (event) => {
         status: p.status,
         createdAt: p.created_at,
         entityId: p.id,
+        trailName: p.trail_name,
       })
     })
   } else if (userRole === 'coach') {
     const pendingRisks = db.prepare(`
-      SELECT r.id, r.level, r.urgency, r.status, r.created_at, t.name as trail_name
+      SELECT r.id, r.level, r.urgency, r.status, r.created_at, r.description,
+             r.reject_reason, r.supplement_note,
+             t.name as trail_name
       FROM risks r
       LEFT JOIN patrols p ON r.patrol_id = p.id
       LEFT JOIN trails t ON p.trail_id = t.id
@@ -46,6 +49,10 @@ export default defineEventHandler(async (event) => {
         urgency: r.urgency,
         createdAt: r.created_at,
         entityId: r.id,
+        trailName: r.trail_name,
+        description: r.description,
+        rejectReason: r.reject_reason,
+        supplementNote: r.supplement_note,
       })
     })
   } else if (userRole === 'patrol') {
@@ -64,11 +71,13 @@ export default defineEventHandler(async (event) => {
         status: p.status,
         createdAt: p.created_at,
         entityId: p.id,
+        trailName: p.trail_name,
       })
     })
 
     const rejectedRisks = db.prepare(`
-      SELECT r.id, r.level, r.status, r.created_at, t.name as trail_name
+      SELECT r.id, r.level, r.status, r.created_at, r.reject_reason, r.description,
+             t.name as trail_name
       FROM risks r
       LEFT JOIN patrols p ON r.patrol_id = p.id
       LEFT JOIN trails t ON p.trail_id = t.id
@@ -84,6 +93,9 @@ export default defineEventHandler(async (event) => {
         level: r.level,
         createdAt: r.created_at,
         entityId: r.id,
+        trailName: r.trail_name,
+        rejectReason: r.reject_reason,
+        description: r.description,
       })
     })
   }

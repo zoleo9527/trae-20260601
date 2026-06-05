@@ -469,7 +469,7 @@ const _routes = [
   {
     name: "dashboard",
     path: "/dashboard",
-    component: () => import('./dashboard-CBORKOLw.mjs')
+    component: () => import('./dashboard-B_eBEYoJ.mjs')
   },
   {
     name: "risks-new",
@@ -716,12 +716,7 @@ const useAuthStore = defineStore("auth", {
   }
 });
 const auth_45global = /* @__PURE__ */ defineNuxtRouteMiddleware((to) => {
-  const authStore = useAuthStore();
-  const publicPages = ["/login", "/"];
-  if (publicPages.includes(to.path)) return;
-  if (!authStore.isLoggedIn) {
-    return navigateTo("/login");
-  }
+  return;
 });
 const manifest_45route_45rule = /* @__PURE__ */ defineNuxtRouteMiddleware((to) => {
   {
