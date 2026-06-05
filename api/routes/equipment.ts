@@ -59,6 +59,17 @@ router.post('/rent', (req: Request, res: Response): void => {
       res.status(404).json({ success: false, error: 'Course not found' })
       return
     }
+    if (course.status === 'completed' || course.status === 'cancelled') {
+      res.status(400).json({ success: false, error: `课程当前状态为「${course.status}」，不可绑定租赁` })
+      return
+    }
+    const enrolled = data.checkinRecords.some(
+      (r) => r.courseId === courseId && r.studentId === studentId
+    )
+    if (!enrolled) {
+      res.status(400).json({ success: false, error: '该学员未报名此课程，不可绑定课程租赁' })
+      return
+    }
   }
 
   equipment.status = 'rented'

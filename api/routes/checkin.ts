@@ -78,12 +78,19 @@ router.post('/', (req: Request, res: Response): void => {
       continue
     }
 
-    const hasRental = data.rentalRecords.some(
-      (r) => r.studentId === studentId && r.status === 'active'
+    const courseRental = data.rentalRecords.find(
+      (r) => r.studentId === studentId && r.courseId === courseId && r.status === 'active'
     )
-    if (!hasRental) {
+    if (!courseRental) {
+      const anyRental = data.rentalRecords.find(
+        (r) => r.studentId === studentId && r.status === 'active'
+      )
       const student = data.students.find((s) => s.id === studentId)
-      blocked.push({ studentId, reason: `${student?.name || '该学员'}尚未租赁雪具` })
+      if (anyRental) {
+        blocked.push({ studentId, reason: `${student?.name || '该学员'}的租赁未关联当前课程，请先绑定课程租赁` })
+      } else {
+        blocked.push({ studentId, reason: `${student?.name || '该学员'}尚未租赁雪具` })
+      }
       continue
     }
 
@@ -119,10 +126,10 @@ router.get('/history', (req: Request, res: Response): void => {
     const student = data.students.find((s) => s.id === r.studentId)
     const course = data.courses.find((c) => c.id === r.courseId)
     const coach = course ? data.coaches.find((ch) => ch.id === course.coachId) : undefined
-    const activeRental = data.rentalRecords.find(
-      (rr) => rr.studentId === r.studentId && (rr.status === 'active' || rr.status === 'returned')
+    const matchedRental = data.rentalRecords.find(
+      (rr) => rr.studentId === r.studentId && rr.courseId === r.courseId && (rr.status === 'active' || rr.status === 'returned')
     )
-    const rentalEquipment = activeRental ? data.equipment.find((e) => e.id === activeRental.equipmentId) : undefined
+    const rentalEquipment = matchedRental ? data.equipment.find((e) => e.id === matchedRental.equipmentId) : undefined
     return {
       id: r.id,
       studentId: r.studentId,
@@ -135,7 +142,7 @@ router.get('/history', (req: Request, res: Response): void => {
       checkinAt: r.checkedInAt,
       equipmentCode: rentalEquipment?.code,
       equipmentName: rentalEquipment?.name,
-      rentalAbnormal: activeRental?.abnormal,
+      rentalAbnormal: matchedRental?.abnormal,
     }
   })
 

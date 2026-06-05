@@ -16,13 +16,14 @@ router.get('/', (req: Request, res: Response): void => {
 
   const joined = result.map((c) => {
     const coach = data.coaches.find((ch) => ch.id === c.coachId)
-    const currentStudents = data.checkinRecords.filter(
-      (r) => r.courseId === c.id && r.status !== 'no_show'
-    ).length
+    const courseCheckins = data.checkinRecords.filter((r) => r.courseId === c.id)
+    const currentStudents = courseCheckins.filter((r) => r.status !== 'no_show').length
+    const enrolledStudentIds = courseCheckins.map((r) => r.studentId)
     return {
       ...c,
       coachName: coach?.name || '未知教练',
       currentStudents,
+      enrolledStudentIds,
     }
   })
 

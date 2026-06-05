@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useApi } from '@/composables/useApi'
 import { useRoleStore } from '@/stores/role'
 import StatusBadge from '@/components/StatusBadge.vue'
@@ -47,6 +47,7 @@ interface Course {
   startTime: string
   endTime: string
   status: string
+  enrolledStudentIds?: string[]
 }
 
 const activeTab = ref<'equipment' | 'rentals'>('equipment')
@@ -63,6 +64,13 @@ const rentForm = ref({ studentId: '', courseId: '' })
 const returnForm = ref({ abnormal: false, abnormalType: 'wrong_person' as 'wrong_person' | 'damaged', actualReturner: '', note: '' })
 const loading = ref(false)
 const toast = ref('')
+
+const filteredStudentsForRent = computed(() => {
+  if (!rentForm.value.courseId) return students.value
+  const course = courses.value.find(c => c.id === rentForm.value.courseId)
+  if (!course?.enrolledStudentIds?.length) return []
+  return students.value.filter(s => course.enrolledStudentIds!.includes(s.id))
+})
 
 const typeLabels: Record<string, string> = {
   ski: '双板', snowboard: '单板', helmet: '头盔', goggles: '护目镜', boots: '雪鞋',
@@ -184,6 +192,10 @@ async function submitReturn() {
     showToast(e.message || '归还失败')
   }
 }
+
+watch(() => rentForm.value.courseId, () => {
+  rentForm.value.studentId = ''
+})
 
 onMounted(fetchEquipment)
 </script>
@@ -328,8 +340,11 @@ onMounted(fetchEquipment)
             <label class="block text-sm font-medium text-slate-700 mb-1">选择学员</label>
             <select v-model="rentForm.studentId" class="input-field">
               <option value="">请选择学员</option>
-              <option v-for="s in students" :key="s.id" :value="s.id">{{ s.name }}（{{ s.level }}）</option>
+              <option v-for="s in filteredStudentsForRent" :key="s.id" :value="s.id">{{ s.name }}（{{ s.level }}）</option>
             </select>
+            <p v-if="rentForm.courseId && filteredStudentsForRent.length === 0" class="text-xs text-amber-600 mt-1">
+              该课程暂无已报名学员
+            </p>
           </div>
           <div>
             <label class="block text-sm font-medium text-slate-700 mb-1">关联课程 <span class="text-slate-400 font-normal">（可选）</span></label>
