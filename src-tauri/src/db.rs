@@ -375,9 +375,82 @@ impl Database {
         self.get_booking_by_id(id)
     }
 
-    pub fn verify_member(&self, id: i64, v: MemberVerify, operator: String) -> Result<BookingRecord> {
-        let verify_at = Local::now().format("%Y-%m-%d %H:%M:%S").to_string();
+    pub fn get_member_by_card_no(&self, card_no: &str) -> Result<Option<MemberCard>> {
+        let result = self.conn.query_row(
+            "SELECT id, card_no, member_name, phone, balance, card_type FROM member_cards WHERE card_no = ?1",
+            params![card_no],
+            |row| {
+                Ok(MemberCard {
+                    id: row.get(0)?,
+                    card_no: row.get(1)?,
+                    member_name: row.get(2)?,
+                    phone: row.get(3)?,
+                    balance: row.get(4)?,
+                    card_type: row.get(5)?,
+                })
+            },
+        );
+        match result {
+            Ok(member) => Ok(Some(member)),
+            Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+            Err(e) => Err(e),
+        }
+    }
+
+    pub fn get_member_by_id(&self, member_id: i64) -> Result<Option<MemberCard>> {
+        let result = self.conn.query_row(
+            "SELECT id, card_no, member_name, phone, balance, card_type FROM member_cards WHERE id = ?1",
+            params![member_id],
+            |row| {
+                Ok(MemberCard {
+                    id: row.get(0)?,
+                    card_no: row.get(1)?,
+                    member_name: row.get(2)?,
+                    phone: row.get(3)?,
+                    balance: row.get(4)?,
+                    card_type: row.get(5)?,
+                })
+            },
+        );
+        match result {
+            Ok(member) => Ok(Some(member)),
+            Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+            Err(e) => Err(e),
+        }
+    }
+
+    pub fn update_member_balance(&self, card_no: &str, new_balance: f64) -> Result<()> {
         self.conn.execute(
+            "UPDATE member_cards SET balance = ?1 WHERE card_no = ?2",
+            params![new_balance, card_no],
+        )?;
+        Ok(())
+    }
+
+    pub fn verify_member(&self, booking_id: i64, card_no: &str, amount: f64, operator: String) -> Result<BookingRecord> {
+        let tx = self.conn.transaction()?;
+
+        let member = tx.query_row(
+            "SELECT id, balance FROM member_cards WHERE card_no = ?1",
+            params![card_no],
+            |row| {
+                Ok((row.get::<_, i64>(0)?, row.get::<_, f64>(1)?))
+            },
+        ).map_err(|_| "会员卡不存在")?;
+
+        let (_member_id, balance_before) = member;
+        if balance_before < amount {
+            return Err(rusqlite::Error::InvalidParameterName("余额不足".to_string()));
+        }
+        let balance_after = balance_before - amount;
+
+        tx.execute(
+            "UPDATE member_cards SET balance = ?1 WHERE card_no = ?2",
+            params![balance_after, card_no],
+        )?;
+
+        let verify_at = Local::now().format("%Y-%m-%d %H:%M:%S").to_string();
+        tx.execute(
             r#"UPDATE bookings SET 
                 status = ?1, status_text = ?2,
                 verify_status = 'verified', verify_card_no = ?3,
@@ -387,11 +460,13 @@ impl Database {
             WHERE id = ?9"#,
             params![
                 STATUS_VERIFIED, STATUS_VERIFIED_TEXT,
-                v.card_no, v.balance_before, v.balance_after, v.amount,
-                operator, verify_at, id
+                card_no, balance_before, balance_after, amount,
+                operator, verify_at, booking_id
             ],
         )?;
-        self.get_booking_by_id(id)
+
+        tx.commit()?;
+        self.get_booking_by_id(booking_id)
     }
 
     pub fn get_todos(&self, role: String) -> Result<TodoList> {

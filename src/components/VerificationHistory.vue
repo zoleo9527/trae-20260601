@@ -12,6 +12,10 @@ const store = useStore();
 const history = computed(() => store.verificationHistory.value);
 const loading = computed(() => store.historyLoading.value);
 
+const getMemberByCardNo = (cardNo: string) => {
+  return store.getMemberByCardNo(cardNo);
+};
+
 onMounted(() => {
   store.loadVerificationHistory();
 });
@@ -37,6 +41,7 @@ onMounted(() => {
                 <th>核销前余额</th>
                 <th>核销金额</th>
                 <th>核销后余额</th>
+                <th>当前余额（台账）</th>
                 <th>核销人</th>
                 <th>核销时间</th>
               </tr>
@@ -51,6 +56,12 @@ onMounted(() => {
                 <td style="color:#6b7280;">¥{{ b.verify_balance_before?.toFixed(2) }}</td>
                 <td style="color:#ef4444;font-weight:600;">-¥{{ b.verify_amount?.toFixed(2) }}</td>
                 <td style="color:#10b981;font-weight:600;">¥{{ b.verify_balance_after?.toFixed(2) }}</td>
+                <td>
+                  <span v-if="getMemberByCardNo(b.verify_card_no)" style="color:#059669;font-weight:600;">
+                    ¥{{ getMemberByCardNo(b.verify_card_no).balance.toFixed(2) }}
+                  </span>
+                  <span v-else style="color:#9ca3af;">-</span>
+                </td>
                 <td>{{ b.verify_by }}</td>
                 <td><small>{{ formatLocalDateTime(b.verify_at) }}</small></td>
               </tr>

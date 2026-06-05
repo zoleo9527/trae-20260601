@@ -4,7 +4,6 @@ import type {
   CreateBooking,
   BookingFilter,
   BookingSupplement,
-  MemberVerify,
   TodoList,
   Court,
   Coach,
@@ -30,8 +29,11 @@ export const api = {
   reviewBooking: (id: number, approved: boolean, reviewNote: string | null, operator: string): Promise<BookingRecord> =>
     invoke('review_booking', { id, approved, reviewNote: reviewNote || undefined, operator }),
 
-  verifyMember: (id: number, verify: MemberVerify, operator: string): Promise<BookingRecord> =>
-    invoke('verify_member', { id, verify, operator }),
+  verifyMember: (id: number, cardNo: string, amount: number, operator: string): Promise<BookingRecord> =>
+    invoke('verify_member', { id, cardNo, amount, operator }),
+
+  getMemberByCardNo: (cardNo: string): Promise<MemberCard | null> =>
+    invoke('get_member_by_card_no', { cardNo }),
 
   getTodos: (role: string): Promise<TodoList> =>
     invoke('get_todos', { role }),

@@ -49,6 +49,18 @@ export const useStore = () => {
     }
   };
 
+  const loadMembers = async () => {
+    state.members = await api.getMembers();
+  };
+
+  const getMemberById = (memberId: number): MemberCard | undefined => {
+    return state.members.find(m => m.id === memberId);
+  };
+
+  const getMemberByCardNo = (cardNo: string): MemberCard | undefined => {
+    return state.members.find(m => m.card_no === cardNo);
+  };
+
   const loadTodos = async () => {
     todosLoading.value = true;
     try {
@@ -100,6 +112,9 @@ export const useStore = () => {
     baseDataLoading,
     setRole,
     loadBaseData,
+    loadMembers,
+    getMemberById,
+    getMemberByCardNo,
     loadTodos,
     loadBookings,
     loadVerificationHistory,

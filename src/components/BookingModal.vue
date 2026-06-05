@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, reactive, computed } from 'vue';
-import type { RoleType, BookingRecord, BookingSupplement, MemberVerify } from '../types';
+import type { RoleType, BookingRecord, BookingSupplement } from '../types';
 import { api } from '../api';
 import { useStore } from '../store';
 import { formatLocalDateTime } from '../utils/date';
@@ -39,17 +39,40 @@ const reviewForm = reactive({
   review_note: '',
 });
 
-const verifyForm = reactive<MemberVerify>({
+const verifyForm = reactive({
+  member_id: 0,
   card_no: '',
   amount: 0,
-  balance_before: 0,
-  balance_after: 0,
 });
 
 const courts = computed(() => store.state.courts);
 const coaches = computed(() => store.state.coaches);
 const members = computed(() => store.state.members);
 const role = computed(() => store.state.currentRole);
+
+const bookingMember = computed(() => {
+  if (!booking.value) return undefined;
+  if (booking.value.member_id) {
+    return store.getMemberById(booking.value.member_id);
+  }
+  if (booking.value.member_card_no) {
+    return store.getMemberByCardNo(booking.value.member_card_no);
+  }
+  return undefined;
+});
+
+const currentMemberForVerify = computed(() => {
+  if (verifyForm.card_no) {
+    return store.getMemberByCardNo(verifyForm.card_no);
+  }
+  if (verifyForm.member_id) {
+    return store.getMemberById(verifyForm.member_id);
+  }
+  return undefined;
+});
+
+const verifyBalanceBefore = computed(() => currentMemberForVerify.value?.balance || 0);
+const verifyBalanceAfter = computed(() => Math.max(0, verifyBalanceBefore.value - verifyForm.amount));
 
 const operatorName = computed(() => {
   const map: Record<RoleType, string> = {
@@ -132,36 +155,40 @@ const handleReview = async (approved: boolean) => {
 };
 
 const handleVerify = async () => {
-  if (!verifyForm.card_no || verifyForm.amount <= 0) {
-    alert('请填写完整核销信息');
+  const member = currentMemberForVerify.value;
+  if (!member) {
+    alert('请选择会员');
+    return;
+  }
+  if (verifyForm.amount <= 0) {
+    alert('请输入有效的核销金额');
+    return;
+  }
+  if (member.balance < verifyForm.amount) {
+    alert('会员余额不足，当前余额：¥' + member.balance.toFixed(2));
     return;
   }
   try {
-    await api.verifyMember(props.bookingId, { ...verifyForm }, operatorName.value);
+    await api.verifyMember(props.bookingId, member.card_no, verifyForm.amount, operatorName.value);
     showVerifyModal.value = false;
     Object.assign(verifyForm, {
+      member_id: 0,
       card_no: '',
       amount: 0,
-      balance_before: 0,
-      balance_after: 0,
     });
     loadBooking();
     store.refreshAll();
   } catch (e) {
-    alert('操作失败：' + e);
+    alert('核销失败：' + e);
   }
 };
 
 const selectMemberForVerify = (memberId: number) => {
+  verifyForm.member_id = memberId;
   const member = members.value.find(m => m.id === memberId);
   if (member) {
     verifyForm.card_no = member.card_no;
-    verifyForm.balance_before = member.balance;
   }
-};
-
-const calculateBalanceAfter = () => {
-  verifyForm.balance_after = verifyForm.balance_before - verifyForm.amount;
 };
 
 onMounted(() => {
@@ -232,6 +259,10 @@ onMounted(() => {
                 <div class="detail-item">
                   <div class="label">会员</div>
                   <div class="value">{{ booking.member_name ? `${booking.member_name} (${booking.member_card_no})` : '散客' }}</div>
+                </div>
+                <div class="detail-item" v-if="bookingMember">
+                  <div class="label">当前余额（实时台账）</div>
+                  <div class="value" style="color:#059669;font-weight:600;">¥{{ bookingMember.balance.toFixed(2) }}</div>
                 </div>
                 <div class="detail-item" style="grid-column: span 2;">
                   <div class="label">备注</div>
@@ -425,7 +456,7 @@ onMounted(() => {
             <label>会员信息（如之前未填写）</label>
             <select v-model.number="supplementForm.member_id">
               <option :value="undefined">不选择（散客）</option>
-              <option v-for="m in members" :key="m.id" :value="m.id">{{ m.member_name }} - {{ m.card_no }}</option>
+              <option v-for="m in members" :key="m.id" :value="m.id">{{ m.member_name }} - {{ m.card_no }} (余额:¥{{ m.balance }})</option>
             </select>
           </div>
           <div class="form-group">
@@ -471,7 +502,7 @@ onMounted(() => {
         </div>
         <div class="modal-body">
           <div class="form-group">
-            <label>选择会员</label>
+            <label>选择会员 <span class="required">*</span></label>
             <select @change="selectMemberForVerify(Number(($event.target as HTMLSelectElement).value))">
               <option :value="0">请选择会员</option>
               <option v-for="m in members" :key="m.id" :value="m.id">{{ m.member_name }} - {{ m.card_no }} (余额:¥{{ m.balance }})</option>
@@ -480,21 +511,27 @@ onMounted(() => {
           <div class="form-row">
             <div class="form-group">
               <label>会员卡号</label>
-              <input type="text" v-model="verifyForm.card_no" placeholder="系统自动填入或手动输入" />
+              <input type="text" v-model="verifyForm.card_no" readonly style="background:#f3f4f6;" />
             </div>
             <div class="form-group">
-              <label>核销前余额</label>
-              <input type="number" v-model.number="verifyForm.balance_before" @change="calculateBalanceAfter" />
+              <label>当前余额（实时台账）</label>
+              <input type="text" :value="'¥' + verifyBalanceBefore.toFixed(2)" readonly style="background:#ecfdf5;color:#059669;font-weight:600;" />
             </div>
           </div>
           <div class="form-row">
             <div class="form-group">
               <label>核销金额 <span class="required">*</span></label>
-              <input type="number" v-model.number="verifyForm.amount" @change="calculateBalanceAfter" placeholder="请输入金额" />
+              <input type="number" v-model.number="verifyForm.amount" placeholder="请输入金额" />
             </div>
             <div class="form-group">
-              <label>核销后余额</label>
-              <input type="number" v-model.number="verifyForm.balance_after" readonly style="background:#f3f4f6;" />
+              <label>核销后余额（计算）</label>
+              <input type="text" :value="'¥' + verifyBalanceAfter.toFixed(2)" readonly :style="verifyBalanceAfter < 0 ? 'background:#fef2f2;color:#dc2626;' : 'background:#f3f4f6;'" />
+            </div>
+          </div>
+          <div v-if="currentMemberForVerify" style="margin-top:12px;padding:12px;background:#f0f9ff;border:1px solid #bae6fd;border-radius:8px;">
+            <div style="font-size:13px;color:#0369a1;">
+              <strong>会员信息：</strong>{{ currentMemberForVerify.member_name }}
+              ({{ currentMemberForVerify.card_type }}) - {{ currentMemberForVerify.phone }}
             </div>
           </div>
         </div>

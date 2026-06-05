@@ -71,13 +71,7 @@ pub struct BookingSupplement {
     pub coach_id: Option<i64>,
 }
 
-#[derive(Debug, Deserialize)]
-pub struct MemberVerify {
-    pub card_no: String,
-    pub amount: f64,
-    pub balance_before: f64,
-    pub balance_after: f64,
-}
+
 
 #[derive(Debug, Serialize)]
 pub struct TodoItem {

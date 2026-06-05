@@ -4,7 +4,7 @@ mod db;
 mod models;
 
 use db::Database;
-use models::*;
+use models::{BookingRecord, BookingFilter, BookingSupplement, CreateBooking, TodoList, Court, Coach, MemberCard};
 use std::sync::Mutex;
 use tauri::State;
 
@@ -72,13 +72,23 @@ fn review_booking(
 #[tauri::command]
 fn verify_member(
     id: i64,
-    verify: MemberVerify,
+    card_no: String,
+    amount: f64,
     operator: String,
     state: State<AppState>,
 ) -> Result<BookingRecord, String> {
     let db = state.db.lock().map_err(|e| e.to_string())?;
-    db.verify_member(id, verify, operator)
+    db.verify_member(id, &card_no, amount, operator)
         .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn get_member_by_card_no(
+    card_no: String,
+    state: State<AppState>,
+) -> Result<Option<MemberCard>, String> {
+    let db = state.db.lock().map_err(|e| e.to_string())?;
+    db.get_member_by_card_no(&card_no).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -125,6 +135,7 @@ fn main() {
             supplement_booking,
             review_booking,
             verify_member,
+            get_member_by_card_no,
             get_todos,
             get_courts,
             get_coaches,

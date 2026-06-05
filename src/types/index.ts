@@ -65,12 +65,7 @@ export interface BookingSupplement {
   coach_id?: number;
 }
 
-export interface MemberVerify {
-  card_no: string;
-  amount: number;
-  balance_before: number;
-  balance_after: number;
-}
+
 
 export interface TodoItem {
   id: number;
