@@ -59,12 +59,10 @@ const ROLE_PERMISSIONS = {
     canCreate: true,
     canEditStatus: Object.values(BookingStatus),
     canTransition: {
-      [BookingStatus.PENDING_REVIEW]: [BookingStatus.FEE_PENDING],
-      [BookingStatus.FEE_PENDING]: [BookingStatus.FEE_APPROVED, BookingStatus.FEE_REJECTED],
-      [BookingStatus.FEE_REJECTED]: [BookingStatus.FEE_PENDING],
-      [BookingStatus.FEE_APPROVED]: [BookingStatus.COMPLETED],
       [BookingStatus.DRAFT]: [BookingStatus.PENDING_REVIEW, BookingStatus.CANCELLED],
-      [BookingStatus.PENDING_REVIEW]: [BookingStatus.CANCELLED],
+      [BookingStatus.PENDING_REVIEW]: [BookingStatus.FEE_PENDING, BookingStatus.CANCELLED, BookingStatus.DRAFT],
+      [BookingStatus.FEE_REJECTED]: [BookingStatus.FEE_PENDING, BookingStatus.CANCELLED],
+      [BookingStatus.FEE_APPROVED]: [BookingStatus.COMPLETED],
     },
     canAddNote: true,
     canReviewFee: true,
@@ -147,6 +145,11 @@ class BookingService {
   }
 
   static async changeStatus(id, targetStatus, userId, userRole, details = '') {
+    const FEE_STATUSES = [BookingStatus.FEE_APPROVED, BookingStatus.FEE_REJECTED];
+    if (FEE_STATUSES.includes(targetStatus)) {
+      throw new Error(`无法直接变更为 ${targetStatus}，请通过费用审核接口操作`);
+    }
+
     return prisma.$transaction(async (tx) => {
       const booking = await tx.bookingRequest.findUnique({ where: { id } });
       if (!booking) throw new Error('申请不存在');

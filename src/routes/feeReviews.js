@@ -26,12 +26,13 @@ router.post('/:bookingId/approve', validate(feeApproveSchema), async (req, res) 
 });
 
 router.post('/:bookingId/reject', validate(feeRejectSchema), async (req, res) => {
-  const { reason } = req.validatedBody;
+  const { reason, note } = req.validatedBody;
   const result = await FeeReviewService.reject(
     Number(req.params.bookingId),
     reason,
     req.user.id,
-    req.user.role
+    req.user.role,
+    note
   );
   res.json({ data: result });
 });

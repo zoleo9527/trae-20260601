@@ -122,6 +122,17 @@ class FeeReviewService {
         },
       });
 
+      if (data.note && data.note.trim()) {
+        await tx.note.create({
+          data: {
+            bookingId,
+            createdById: userId,
+            content: data.note,
+            stage: 'FEE_APPROVE',
+          },
+        });
+      }
+
       return {
         feeReview,
         booking: await tx.bookingRequest.findUnique({
@@ -130,14 +141,21 @@ class FeeReviewService {
             venue: true,
             submittedBy: { select: { id: true, name: true, role: true } },
             feeReview: { include: { reviewedBy: { select: { id: true, name: true, role: true } } } },
-            notes: { include: { createdBy: { select: { id: true, name: true, role: true } } } },
+            notes: {
+              include: { createdBy: { select: { id: true, name: true, role: true } } },
+              orderBy: { createdAt: 'desc' },
+            },
+            auditLogs: {
+              include: { user: { select: { id: true, name: true, role: true } } },
+              orderBy: { createdAt: 'desc' },
+            },
           },
         }),
       };
     });
   }
 
-  static async reject(bookingId, reason, userId, userRole) {
+  static async reject(bookingId, reason, userId, userRole, note = null) {
     if (!await this.canReview(userId, userRole)) {
       throw new Error('无权进行费用审核');
     }
@@ -186,6 +204,18 @@ class FeeReviewService {
         },
       });
 
+      const noteContent = note || reason;
+      if (noteContent && noteContent.trim()) {
+        await tx.note.create({
+          data: {
+            bookingId,
+            createdById: userId,
+            content: noteContent,
+            stage: 'FEE_REJECT',
+          },
+        });
+      }
+
       return {
         feeReview,
         booking: await tx.bookingRequest.findUnique({
@@ -194,7 +224,14 @@ class FeeReviewService {
             venue: true,
             submittedBy: { select: { id: true, name: true, role: true } },
             feeReview: { include: { reviewedBy: { select: { id: true, name: true, role: true } } } },
-            notes: { include: { createdBy: { select: { id: true, name: true, role: true } } } },
+            notes: {
+              include: { createdBy: { select: { id: true, name: true, role: true } } },
+              orderBy: { createdAt: 'desc' },
+            },
+            auditLogs: {
+              include: { user: { select: { id: true, name: true, role: true } } },
+              orderBy: { createdAt: 'desc' },
+            },
           },
         }),
       };

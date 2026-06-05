@@ -48,10 +48,12 @@ const addNoteSchema = z.object({
 const feeApproveSchema = z.object({
   actualAmount: z.number().positive(),
   paymentMethod: z.string().min(1),
+  note: z.string().optional(),
 });
 
 const feeRejectSchema = z.object({
   reason: z.string().min(1),
+  note: z.string().optional(),
 });
 
 module.exports = {
