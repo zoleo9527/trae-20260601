@@ -391,18 +391,45 @@ export function createRoastBatch(data: {
 }) {
 	const db = getDb();
 	const now = new Date().toISOString();
+
+	const plan = db.prepare('SELECT status FROM roasting_plans WHERE id = ?').get(data.roasting_plan_id) as any;
+	if (!plan) throw new Error('烘焙计划不存在');
+
 	const count = (db.prepare("SELECT COUNT(*) as c FROM roast_batches WHERE created_at >= date('now')").get() as { c: number }).c;
 	const batch_no = `RB-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${String(count + 1).padStart(3, '0')}`;
-	const result = db.prepare(`
+
+	const insertBatch = db.prepare(`
 		INSERT INTO roast_batches (batch_no, roasting_plan_id, green_bean_id, roaster_id, actual_roast_level, start_time, input_weight_kg, notes, created_at)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-	`).run(
-		batch_no, data.roasting_plan_id, data.green_bean_id, data.roaster_id,
-		data.actual_roast_level, data.start_time, data.input_weight_kg, data.notes || '', now
-	);
-	const batchId = Number(result.lastInsertRowid);
-	addTimelineEvent('roasting_plan', data.roasting_plan_id, 'batch_started', `烘焙批次 ${batch_no} 开始，投入 ${data.input_weight_kg}kg`, data.roaster_id);
-	return { id: batchId, batch_no };
+	`);
+	const updatePlan = db.prepare('UPDATE roasting_plans SET status = ?, updated_at = ? WHERE id = ?');
+	const addPlanTimeline = db.prepare(`
+		INSERT INTO timeline_events (entity_type, entity_id, event_type, description, created_by, created_at)
+		VALUES ('roasting_plan', ?, 'status_change', ?, ?, ?)
+	`);
+	const addBatchTimeline = db.prepare(`
+		INSERT INTO timeline_events (entity_type, entity_id, event_type, description, created_by, created_at)
+		VALUES ('roasting_plan', ?, 'batch_started', ?, ?, ?)
+	`);
+
+	const transaction = db.transaction(() => {
+		const result = insertBatch.run(
+			batch_no, data.roasting_plan_id, data.green_bean_id, data.roaster_id,
+			data.actual_roast_level, data.start_time, data.input_weight_kg, data.notes || '', now
+		);
+		const batchId = Number(result.lastInsertRowid);
+
+		if (plan.status !== 'in_progress') {
+			updatePlan.run('in_progress', now, data.roasting_plan_id);
+			addPlanTimeline.run(data.roasting_plan_id, '烘焙计划状态变更为: in_progress', data.roaster_id, now);
+		}
+
+		addBatchTimeline.run(data.roasting_plan_id, `烘焙批次 ${batch_no} 开始，投入 ${data.input_weight_kg}kg`, data.roaster_id, now);
+
+		return { id: batchId, batch_no };
+	});
+
+	return transaction();
 }
 
 export function getRoastBatch(id: number) {

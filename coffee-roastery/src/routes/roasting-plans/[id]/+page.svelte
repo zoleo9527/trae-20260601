@@ -98,12 +98,7 @@
 			return;
 		}
 		showStartBatch = false;
-		if (data.plan.status !== 'in_progress') {
-			await changePlanStatus('in_progress');
-		}
-		if (data.plan.status === 'in_progress') {
-			window.location.reload();
-		}
+		window.location.reload();
 	}
 
 	async function resolveException(exId: number) {
