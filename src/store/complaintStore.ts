@@ -1,5 +1,6 @@
 import { create } from "zustand"
 import type { Complaint, ComplaintStatus, TimelineEntry, Compensation, ReviewConclusion, Role } from "@/types"
+import { ROLE_LABELS, COMPENSATION_LABELS } from "@/types"
 import { mockComplaints } from "@/data/mock"
 
 interface CurrentRoleState {
@@ -15,7 +16,7 @@ interface ComplaintStore {
   addTimelineEntry: (complaintId: string, entry: TimelineEntry) => void
   setCompensation: (complaintId: string, compensation: Compensation) => void
   confirmCompensation: (complaintId: string, confirmedBy: string) => void
-  closeComplaint: (complaintId: string) => void
+  closeComplaint: (complaintId: string, reason: string, closedBy: string) => void
   setReviewConclusion: (complaintId: string, conclusion: ReviewConclusion) => void
   filteredComplaints: () => Complaint[]
 }
@@ -24,6 +25,17 @@ export const useCurrentRole = create<CurrentRoleState>((set) => ({
   currentRole: "cs",
   setCurrentRole: (role) => set({ currentRole: role }),
 }))
+
+function makeTimelineEntry(role: Role, author: string, content: string): TimelineEntry {
+  return {
+    id: `tl-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+    role,
+    author,
+    content,
+    timestamp: new Date().toLocaleString("zh-CN"),
+    isInternal: true,
+  }
+}
 
 export const useComplaintStore = create<ComplaintStore>((set, get) => ({
   complaints: mockComplaints,
@@ -61,26 +73,48 @@ export const useComplaintStore = create<ComplaintStore>((set, get) => ({
 
   confirmCompensation: (complaintId, confirmedBy) =>
     set((state) => ({
-      complaints: state.complaints.map((c) =>
-        c.id === complaintId && c.compensation
-          ? {
-              ...c,
-              compensation: {
-                ...c.compensation,
-                confirmedBy,
-                confirmedAt: new Date().toLocaleString("zh-CN"),
-              },
-              status: "processing" as ComplaintStatus,
-            }
-          : c
-      ),
+      complaints: state.complaints.map((c) => {
+        if (c.id !== complaintId || !c.compensation) return c
+        const now = new Date().toLocaleString("zh-CN")
+        const compLabel = COMPENSATION_LABELS[c.compensation.type]
+        const amountStr = c.compensation.amount > 0 ? ` ¥${c.compensation.amount}` : ""
+        const entry = makeTimelineEntry(
+          "cs",
+          confirmedBy,
+          `已确认补偿方案：${compLabel}${amountStr}。原因：${c.compensation.reason}`
+        )
+        return {
+          ...c,
+          compensation: {
+            ...c.compensation,
+            confirmedBy,
+            confirmedAt: now,
+          },
+          timeline: [...c.timeline, entry],
+          status: "processing" as ComplaintStatus,
+        }
+      }),
     })),
 
-  closeComplaint: (complaintId) =>
+  closeComplaint: (complaintId, reason, closedBy) =>
     set((state) => ({
-      complaints: state.complaints.map((c) =>
-        c.id === complaintId ? { ...c, status: "closed" as ComplaintStatus } : c
-      ),
+      complaints: state.complaints.map((c) => {
+        if (c.id !== complaintId) return c
+        const now = new Date().toLocaleString("zh-CN")
+        const entry = makeTimelineEntry(
+          "cs",
+          closedBy,
+          `售后已关闭。关闭原因：${reason}`
+        )
+        return {
+          ...c,
+          status: "closed" as ComplaintStatus,
+          closeReason: reason,
+          closedAt: now,
+          closedBy,
+          timeline: [...c.timeline, entry],
+        }
+      }),
     })),
 
   setReviewConclusion: (complaintId, conclusion) =>

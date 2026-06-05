@@ -1,5 +1,5 @@
 import type { Complaint } from "@/types"
-import { PROBLEM_TYPE_LABELS, PROBLEM_TYPE_COLORS, STATUS_LABELS, STATUS_COLORS, URGENCY_LABELS } from "@/types"
+import { PROBLEM_TYPE_LABELS, PROBLEM_TYPE_COLORS, STATUS_LABELS, STATUS_COLORS, URGENCY_LABELS, COMPENSATION_LABELS } from "@/types"
 import { Clock, MapPin, User, AlertTriangle } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useNavigate } from "react-router-dom"
@@ -81,7 +81,7 @@ export default function ComplaintCard({ complaint }: ComplaintCardProps) {
       {complaint.compensation && (
         <div className="px-5 py-2.5 bg-cream/50 border-t border-moss-50 flex items-center justify-between">
           <span className="text-xs text-moss-600">
-            补偿方案: {complaint.compensation.type === "reflower" ? "补花" : complaint.compensation.type === "refund" ? "退款" : "优惠券"}
+            补偿方案: {COMPENSATION_LABELS[complaint.compensation.type]}
             {complaint.compensation.amount > 0 && ` ¥${complaint.compensation.amount}`}
           </span>
           {complaint.compensation.confirmedAt ? (

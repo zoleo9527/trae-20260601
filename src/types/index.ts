@@ -46,6 +46,9 @@ export interface Complaint {
   assignee: string
   timeline: TimelineEntry[]
   compensation: Compensation | null
+  closeReason: string | null
+  closedAt: string | null
+  closedBy: string | null
   reviewConclusion: ReviewConclusion | null
 }
 

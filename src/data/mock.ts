@@ -57,6 +57,9 @@ export const mockComplaints: Complaint[] = [
       confirmedBy: "",
       confirmedAt: null,
     },
+    closeReason: null,
+    closedAt: null,
+    closedBy: null,
     reviewConclusion: null,
   },
   {
@@ -93,6 +96,9 @@ export const mockComplaints: Complaint[] = [
       },
     ],
     compensation: null,
+    closeReason: null,
+    closedAt: null,
+    closedBy: null,
     reviewConclusion: null,
   },
   {
@@ -151,6 +157,9 @@ export const mockComplaints: Complaint[] = [
       confirmedBy: "王小花",
       confirmedAt: "2024-01-17 14:00",
     },
+    closeReason: "已补发新贺卡，客户接受方案并确认收花无误，售后关闭",
+    closedAt: "2024-01-17 14:30",
+    closedBy: "王小花",
     reviewConclusion: null,
   },
   {
@@ -201,6 +210,9 @@ export const mockComplaints: Complaint[] = [
       confirmedBy: "",
       confirmedAt: null,
     },
+    closeReason: null,
+    closedAt: null,
+    closedBy: null,
     reviewConclusion: null,
   },
 ]
