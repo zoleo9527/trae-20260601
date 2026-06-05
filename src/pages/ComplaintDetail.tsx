@@ -68,10 +68,13 @@ export default function ComplaintDetail() {
   const canReviewApprove = status === 'pending_review' && currentRole === 'manager';
   const canReviewReject = status === 'pending_review' && currentRole === 'manager';
   const canResubmit = status === 'review_rejected' && currentRole === currentHandlerRole;
-  const canProposeCompensation = (status === 'pending_compensation' || status === 'compensation_rejected') && currentRole === 'reception';
   const hasPendingCompensation = compensations.some((c) => c.status === 'pending');
-  const canApproveCompensation = status === 'pending_compensation' && currentRole === 'manager' && hasPendingCompensation;
-  const canRejectCompensation = status === 'pending_compensation' && currentRole === 'manager' && hasPendingCompensation;
+  const canProposeCompensation = 
+    currentRole === 'reception' && 
+    (status === 'compensation_rejected' || 
+     (status === 'pending_compensation' && currentHandlerRole === 'reception' && !hasPendingCompensation));
+  const canApproveCompensation = status === 'pending_compensation' && currentRole === 'manager' && currentHandlerRole === 'manager' && hasPendingCompensation;
+  const canRejectCompensation = status === 'pending_compensation' && currentRole === 'manager' && currentHandlerRole === 'manager' && hasPendingCompensation;
   const canComplete = status === 'completed';
 
   const latestRejectLog = [...actionLogs].reverse().find((log) => log.actionType === 'review_reject' || log.actionType === 'compensation_reject');

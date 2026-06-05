@@ -8,6 +8,7 @@ import type {
   CreateCompensationRequest,
   UserRole,
   ActionType,
+  ComplaintStatus,
 } from '../../shared/types.js';
 
 class ComplaintService {

@@ -114,6 +114,9 @@ export default function ComplaintList() {
                   状态
                 </th>
                 <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  当前处理
+                </th>
+                <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">
                   创建时间
                 </th>
               </tr>
@@ -139,6 +142,9 @@ export default function ComplaintList() {
                   </td>
                   <td className="px-6 py-4">
                     <StatusBadge status={complaint.status} />
+                  </td>
+                  <td className="px-6 py-4 text-sm text-gray-600">
+                    {complaint.currentHandlerName}
                   </td>
                   <td className="px-6 py-4 text-sm text-gray-500">
                     {formatTime(complaint.createdAt)}
