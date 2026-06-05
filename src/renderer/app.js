@@ -718,20 +718,21 @@ async function submitSignature() {
           description: `签收退回: ${s.return_reason}`,
           status: '未处理',
         });
-      }
-
-      const dispatcher = allHandlers.find(h => h.id === dispatch.dispatcher_id);
-      if (dispatcher && csHandler) {
-        await window.api.createHandoverLog({
-          order_id: orderId,
-          from_handler_id: dispatcher.id,
-          to_handler_id: csHandler.id,
-          from_stage: '签收',
-          to_stage: '退回处理',
-          notes: `退回原因: ${s.return_reason}`,
-        });
+        const dispatcher = allHandlers.find(h => h.id === dispatch.dispatcher_id);
+        if (dispatcher && csHandler) {
+          await window.api.createHandoverLog({
+            order_id: orderId,
+            from_handler_id: dispatcher.id,
+            to_handler_id: csHandler.id,
+            from_stage: '签收',
+            to_stage: '退回处理',
+            notes: `退回原因: ${s.return_reason}`,
+          });
+        }
       }
     } else if (s.status === '补材料' && orderId) {
+      await window.api.updateOrder(orderId, { status: '补材料' });
+      await window.api.updateDispatch(dispatchId, { status: '异常' });
       const csHandlers = allHandlers.filter(h => h.role === '售后客服');
       const csHandler = csHandlers.length > 0 ? csHandlers[0] : null;
 
@@ -761,18 +762,17 @@ async function submitSignature() {
           description: `签收补材料: ${s.supplement_desc}`,
           status: '未处理',
         });
-      }
-
-      const dispatcher = allHandlers.find(h => h.id === dispatch.dispatcher_id);
-      if (dispatcher && csHandler) {
-        await window.api.createHandoverLog({
-          order_id: orderId,
-          from_handler_id: dispatcher.id,
-          to_handler_id: csHandler.id,
-          from_stage: '签收',
-          to_stage: '补材料处理',
-          notes: `补材料说明: ${s.supplement_desc}`,
-        });
+        const dispatcher = allHandlers.find(h => h.id === dispatch.dispatcher_id);
+        if (dispatcher && csHandler) {
+          await window.api.createHandoverLog({
+            order_id: orderId,
+            from_handler_id: dispatcher.id,
+            to_handler_id: csHandler.id,
+            from_stage: '签收',
+            to_stage: '补材料处理',
+            notes: `补材料说明: ${s.supplement_desc}`,
+          });
+        }
       }
     }
 

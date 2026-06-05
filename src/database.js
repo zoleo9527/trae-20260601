@@ -33,7 +33,7 @@ CREATE TABLE IF NOT EXISTS orders (
   arrangement_style TEXT DEFAULT '',
   delivery_address TEXT DEFAULT '',
   expected_delivery_time TEXT DEFAULT '',
-  status TEXT NOT NULL DEFAULT '待制作' CHECK(status IN ('待制作','制作中','待派单','已派单','配送中','已送达待签收','已签收','退回','已关闭')),
+  status TEXT NOT NULL DEFAULT '待制作' CHECK(status IN ('待制作','制作中','待派单','已派单','配送中','已送达待签收','已签收','退回','补材料','已关闭')),
   florist_id INTEGER,
   remarks TEXT DEFAULT '',
   source TEXT DEFAULT '现场' CHECK(source IN ('现场','线上','电话','旧台账')),
