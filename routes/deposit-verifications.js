@@ -43,11 +43,11 @@ router.post('/', async (req, res) => {
     const vType = verificationType || 'return_check';
     const existingPending = rental.depositVerifications.find(v => v.status === 'pending' && v.verificationType === vType);
     if (existingPending) {
-      return res.json({ item: existingPending, created: false, message: '该租赁单已有待处理的同类型核验记录，已复用返回' });
+      return res.json({ item: existingPending, created: false, message: '该租赁单已有待处理的同类型核验记录，已复用返回', rentalOrderId });
     }
     const existingAnyPending = rental.depositVerifications.find(v => v.status === 'pending');
     if (existingAnyPending) {
-      return res.status(409).json({ error: '该租赁单已有待处理的核验记录(类型: ' + (existingAnyPending.verificationType === 'return_check' ? '归还核验' : '损坏评估') + ')，请先处理完成后再创建新核验', existingId: existingAnyPending.id });
+      return res.status(409).json({ error: '该租赁单已有待处理的核验记录(类型: ' + (existingAnyPending.verificationType === 'return_check' ? '归还核验' : '损坏评估') + ')，请先处理完成后再创建新核验', existingId: existingAnyPending.id, rentalOrderId });
     }
 
     const item = await prisma.depositVerification.create({
@@ -63,8 +63,23 @@ router.post('/', async (req, res) => {
         notes: notes || ''
       }
     });
+
+    const prevDepositStatus = rental.depositStatus;
+    const entryInfo = `[${new Date().toISOString()}] 新建押金核验入口: 类型=${vType === 'return_check' ? '归还核验' : '损坏评估'}, 押金=¥${item.depositAmount}, 发起人=${verifierName}${notes ? ', 备注=' + notes : ''}`;
+    await prisma.rentalOrder.update({
+      where: { id: rentalOrderId },
+      data: {
+        depositStatus: 'pending',
+        notes: rental.notes ? rental.notes + '\n' + entryInfo : entryInfo
+      }
+    });
+
     await createAuditLog('DepositVerification', item.id, 'create', '', 'pending', verifierName, '创建押金核验', { depositVerificationId: item.id, rentalOrderId });
-    res.status(201).json({ item, created: true });
+    if (prevDepositStatus !== 'pending') {
+      await createAuditLog('RentalOrder', rentalOrderId, 'deposit_status_change', prevDepositStatus, 'pending', verifierName, '新建核验，押金状态重置为待处理: ' + entryInfo, { rentalOrderId });
+    }
+
+    res.status(201).json({ item, created: true, rentalOrderId });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
