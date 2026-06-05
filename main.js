@@ -5,7 +5,7 @@ const {
   createOrder, updateOrder, getOrders, getOrderById,
   createDispatch, updateDispatch, getDispatchesByOrder, getDispatches,
   createSignature, updateSignature, getSignaturesByDispatch, getSignatures,
-  createException, updateException, getExceptions,
+  createException, updateException, getExceptionById, getExceptions,
   createHandoverLog, getHandoverLogs,
   getDashboardStats, getOrderFullDetail,
 } = require('./src/database');
@@ -59,6 +59,7 @@ ipcMain.handle('get-signatures', (_, filter) => getSignatures(filter || {}));
 
 ipcMain.handle('create-exception', (_, e) => createException(e));
 ipcMain.handle('update-exception', (_, id, fields) => updateException(id, fields));
+ipcMain.handle('get-exception-by-id', (_, id) => getExceptionById(id));
 ipcMain.handle('get-exceptions', (_, filter) => getExceptions(filter || {}));
 
 ipcMain.handle('create-handover-log', (_, l) => createHandoverLog(l));

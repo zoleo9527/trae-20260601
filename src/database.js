@@ -260,6 +260,13 @@ function updateException(id, fields) {
   return db.prepare(`UPDATE exceptions SET ${sets.join(', ')} WHERE id = @id`).run(vals);
 }
 
+function getExceptionById(id) {
+  return db.prepare(`SELECT e.*, o.order_no, o.customer_name, h.name AS handler_name
+    FROM exceptions e
+    JOIN orders o ON e.order_id = o.id
+    LEFT JOIN handlers h ON e.handler_id = h.id WHERE e.id = ?`).get(id);
+}
+
 function getExceptions(filter) {
   let sql = `SELECT e.*, o.order_no, o.customer_name, h.name AS handler_name
     FROM exceptions e
@@ -319,7 +326,7 @@ module.exports = {
   createOrder, updateOrder, getOrders, getOrderById,
   createDispatch, updateDispatch, getDispatchesByOrder, getDispatches,
   createSignature, updateSignature, getSignaturesByDispatch, getSignatures,
-  createException, updateException, getExceptions,
+  createException, updateException, getExceptionById, getExceptions,
   createHandoverLog, getHandoverLogs,
   getDashboardStats, getOrderFullDetail,
 };

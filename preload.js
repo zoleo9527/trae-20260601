@@ -20,6 +20,7 @@ contextBridge.exposeInMainWorld('api', {
 
   createException: (e) => ipcRenderer.invoke('create-exception', e),
   updateException: (id, fields) => ipcRenderer.invoke('update-exception', id, fields),
+  getExceptionById: (id) => ipcRenderer.invoke('get-exception-by-id', id),
   getExceptions: (filter) => ipcRenderer.invoke('get-exceptions', filter),
 
   createHandoverLog: (l) => ipcRenderer.invoke('create-handover-log', l),

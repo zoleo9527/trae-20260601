@@ -225,7 +225,6 @@ async function loadDispatches() {
       <td class="td-actions">
         <button class="btn btn-sm btn-secondary" onclick="editDispatch(${d.id}, ${d.order_id})">编辑</button>
         ${d.status === '已送达待签收' ? `<button class="btn btn-sm btn-primary" onclick="openSignatureModal(${d.id}, '${escHtml(d.order_no)}')">签收</button>` : ''}
-        ${d.status !== '已送达待签收' && d.status !== '退回' ? `<button class="btn btn-sm btn-primary" onclick="openSignatureModal(${d.id}, '${escHtml(d.order_no)}')">签收</button>` : ''}
       </td>
     </tr>
   `).join('');
@@ -454,7 +453,13 @@ window.editDispatch = async function(dispatchId, orderId) {
   showModal('modal-dispatch');
 };
 
-window.openSignatureModal = function(dispatchId, orderNo) {
+window.openSignatureModal = async function(dispatchId, orderNo) {
+  const allDispatches = await window.api.getDispatches({});
+  const dispatch = allDispatches.find(d2 => d2.id === dispatchId);
+  if (dispatch && dispatch.status !== '已送达待签收') {
+    alert('派单状态为「' + dispatch.status + '」，必须先到达「已送达待签收」才能录入签收。');
+    return;
+  }
   const form = $('#form-signature');
   form.reset();
   form.dispatch_id.value = dispatchId;
@@ -520,13 +525,21 @@ window.openExceptionModal = function(orderId, orderNo) {
   showModal('modal-exception');
 };
 
-window.editException = function(excId, orderId, orderNo) {
+window.editException = async function(excId, orderId, orderNo) {
+  const exc = await window.api.getExceptionById(excId);
+  if (!exc) {
+    alert('异常记录不存在');
+    return;
+  }
   const form = $('#form-exception');
   form.reset();
-  form.order_id.value = orderId;
-  form.exception_id.value = excId;
-  form.order_no_display.value = orderNo;
-  form.status.value = '处理中';
+  form.order_id.value = exc.order_id;
+  form.exception_id.value = exc.id;
+  form.order_no_display.value = exc.order_no || orderNo;
+  form.type.value = exc.type || '催';
+  form.handler_id.value = exc.handler_id || '';
+  form.status.value = exc.status || '未处理';
+  form.description.value = exc.description || '';
   showModal('modal-exception');
 };
 
@@ -566,6 +579,11 @@ async function submitDispatch() {
   const dispatchId = d.dispatch_id ? parseInt(d.dispatch_id) : null;
   d.dispatcher_id = parseInt(d.dispatcher_id);
   d.order_id = orderId;
+
+  if ((d.status === '待派单' || d.status === '异常') && !d.stuck_reason.trim()) {
+    alert('派单状态为「' + d.status + '」时，必须填写卡点原因');
+    return;
+  }
 
   try {
     if (dispatchId) {
@@ -632,6 +650,15 @@ async function submitSignature() {
   const signatureId = s.signature_id ? parseInt(s.signature_id) : null;
   s.dispatch_id = dispatchId;
 
+  if (s.status === '退回' && !s.return_reason.trim()) {
+    alert('签收退回时必须填写退回原因');
+    return;
+  }
+  if (s.status === '补材料' && !s.supplement_desc.trim()) {
+    alert('补材料时必须填写补材料说明');
+    return;
+  }
+
   try {
     if (signatureId) {
       const { dispatch_id, signature_id, order_no_display, ...fields } = s;
@@ -641,21 +668,73 @@ async function submitSignature() {
       await window.api.createSignature(s);
     }
 
-    if (s.status === '已签收') {
-      const dispatch = (await window.api.getDispatches({})).find(d2 => d2.id === dispatchId);
-      if (dispatch) {
-        await window.api.updateOrder(dispatch.order_id, { status: '已签收' });
+    const dispatch = (await window.api.getDispatches({})).find(d2 => d2.id === dispatchId);
+    const orderId = dispatch ? dispatch.order_id : null;
+
+    if (s.status === '已签收' && orderId) {
+      await window.api.updateOrder(orderId, { status: '已签收' });
+      const csHandlers = allHandlers.filter(h => h.role === '售后客服');
+      const dispatcher = allHandlers.find(h => h.id === dispatch.dispatcher_id);
+      if (dispatcher && csHandlers.length > 0) {
+        await window.api.createHandoverLog({
+          order_id: orderId,
+          from_handler_id: dispatcher.id,
+          to_handler_id: csHandlers[0].id,
+          from_stage: '配送',
+          to_stage: '已签收',
+          notes: `签收人: ${s.signed_by || '—'}`,
+        });
       }
-    } else if (s.status === '退回') {
-      const dispatch = (await window.api.getDispatches({})).find(d2 => d2.id === dispatchId);
-      if (dispatch) {
-        await window.api.updateOrder(dispatch.order_id, { status: '退回' });
+    } else if (s.status === '退回' && orderId) {
+      await window.api.updateOrder(orderId, { status: '退回' });
+      await window.api.updateDispatch(dispatchId, { status: '退回' });
+      const csHandlers = allHandlers.filter(h => h.role === '售后客服');
+      const csHandler = csHandlers.length > 0 ? csHandlers[0] : null;
+      await window.api.createException({
+        order_id: orderId,
+        handler_id: csHandler ? csHandler.id : null,
+        type: '退回',
+        description: `签收退回: ${s.return_reason}`,
+        status: '未处理',
+      });
+      const dispatcher = allHandlers.find(h => h.id === dispatch.dispatcher_id);
+      if (dispatcher && csHandler) {
+        await window.api.createHandoverLog({
+          order_id: orderId,
+          from_handler_id: dispatcher.id,
+          to_handler_id: csHandler.id,
+          from_stage: '签收',
+          to_stage: '退回处理',
+          notes: `退回原因: ${s.return_reason}`,
+        });
+      }
+    } else if (s.status === '补材料' && orderId) {
+      const csHandlers = allHandlers.filter(h => h.role === '售后客服');
+      const csHandler = csHandlers.length > 0 ? csHandlers[0] : null;
+      await window.api.createException({
+        order_id: orderId,
+        handler_id: csHandler ? csHandler.id : null,
+        type: '补材料',
+        description: `签收补材料: ${s.supplement_desc}`,
+        status: '未处理',
+      });
+      const dispatcher = allHandlers.find(h => h.id === dispatch.dispatcher_id);
+      if (dispatcher && csHandler) {
+        await window.api.createHandoverLog({
+          order_id: orderId,
+          from_handler_id: dispatcher.id,
+          to_handler_id: csHandler.id,
+          from_stage: '签收',
+          to_stage: '补材料处理',
+          notes: `补材料说明: ${s.supplement_desc}`,
+        });
       }
     }
 
     hideModal('modal-signature');
     loadSignatures();
     loadOrders();
+    loadExceptions();
     loadDashboard();
   } catch (err) {
     alert('签收操作失败: ' + err.message);
