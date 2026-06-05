@@ -1,8 +1,8 @@
 <script>
   import {
     complaintRecords, greenBeans, roastCurves,
-    advanceStatus, addNote, updateReturnReason, updateRecoveryAction,
-    submitFlavorReview, STATUS_MAP
+    advanceWithAction, addNote, updateReturnReason, updateRecoveryAction,
+    submitFlavorReview, STATUS_MAP, STATUS_ACTION_MAP, canAdvance
   } from './store.js';
   import StatusBadge from './StatusBadge.svelte';
 
@@ -31,15 +31,9 @@
     { key: 'notes', label: '备注历史' }
   ]);
 
-  let canAdvance = $derived(() => {
-    if (!record) return false;
-    const next = STATUS_MAP[record.status]?.next;
-    if (!next) return false;
-    if (record.status === 'pending') return currentRole === '渠道客服';
-    if (record.status === 'recovering') return currentRole === '杯测员';
-    if (record.status === 'reviewing') return currentRole === '烘焙师';
-    return false;
-  });
+  let advanceState = $derived(canAdvance(record, currentRole));
+
+  let advanceBtnLabel = $derived(STATUS_ACTION_MAP[record?.status]?.action || '已完成');
 
   function handleAddNote() {
     if (!noteText.trim()) return;
@@ -71,14 +65,9 @@
   }
 
   function handleAdvance() {
-    const authorMap = { '烘焙师': '林烘焙', '杯测员': '陈杯测', '渠道客服': '李客服' };
-    const statusLabels = {
-      pending: '开始回收处理',
-      recovering: '提交风味复盘',
-      reviewing: '确认并关闭'
-    };
-    advanceStatus(recordId);
-    addNote(recordId, authorMap[currentRole], currentRole, statusLabels[record.status] + '（状态推进）');
+    if (!advanceState.can) return;
+    const actionLabel = STATUS_ACTION_MAP[record.status]?.action || '状态推进';
+    advanceWithAction(recordId, currentRole, actionLabel);
   }
 
   function flavorBar(value, color) {
@@ -311,16 +300,18 @@
         <div class="action-info">
           <span>当前状态：</span>
           <StatusBadge status={record.status} />
-          {#if canAdvance()}
+          {#if advanceState.can}
             <span class="action-hint">→ 可推进至 <strong>{STATUS_MAP[STATUS_MAP[record.status].next]?.label}</strong></span>
+          {:else}
+            <span class="action-hint action-disabled">⚠ {advanceState.reason}</span>
           {/if}
         </div>
         <button
           class="btn-advance"
           onclick={handleAdvance}
-          disabled={!canAdvance()}
+          disabled={!advanceState.can}
         >
-          {#if record.status === 'pending'}开始回收处理{:else if record.status === 'recovering'}提交复盘并推进{:else if record.status === 'reviewing'}确认关闭{:else}已完成{/if}
+          {advanceBtnLabel}
         </button>
       </div>
     {:else}
@@ -803,6 +794,9 @@
   }
   .action-hint strong {
     color: #6366f1;
+  }
+  .action-disabled {
+    color: #dc2626;
   }
   .btn-advance {
     padding: 10px 28px;

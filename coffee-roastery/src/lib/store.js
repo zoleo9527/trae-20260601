@@ -11,9 +11,59 @@ export const STATUS_MAP = {
 
 export const ROLE_TODO_MAP = {
   '渠道客服': (c) => c.status === 'pending',
-  '杯测员': (c) => c.status === 'recovering' || c.status === 'reviewing',
+  '杯测员': (c) => c.status === 'recovering',
   '烘焙师': (c) => c.status === 'reviewing'
 };
+
+export const STATUS_ACTION_MAP = {
+  pending: {
+    action: '开始回收处理',
+    byRole: '渠道客服',
+    required: ['returnReason', 'recoveryAction']
+  },
+  recovering: {
+    action: '提交风味复盘',
+    byRole: '杯测员',
+    required: ['flavorReview']
+  },
+  reviewing: {
+    action: '确认关闭客诉',
+    byRole: '烘焙师',
+    required: []
+  },
+  resolved: {
+    action: null,
+    byRole: null,
+    required: []
+  }
+};
+
+export function getMissingRequired(record) {
+  const config = STATUS_ACTION_MAP[record.status];
+  if (!config) return [];
+  return config.required.filter(field => {
+    const value = record[field];
+    if (value === null || value === undefined) return true;
+    if (typeof value === 'string') return !value.trim();
+    return false;
+  });
+}
+
+export function canAdvance(record, role) {
+  const config = STATUS_ACTION_MAP[record?.status];
+  if (!config || !config.action) return { can: false, reason: '已完成' };
+  if (config.byRole !== role) return { can: false, reason: `需${config.byRole}操作` };
+  const missing = getMissingRequired(record);
+  if (missing.length > 0) {
+    const fieldLabels = {
+      returnReason: '退回原因',
+      recoveryAction: '回收动作',
+      flavorReview: '风味复盘'
+    };
+    return { can: false, reason: `请先填写：${missing.map(f => fieldLabels[f] || f).join('、')}` };
+  }
+  return { can: true, reason: '' };
+}
 
 export const greenBeans = writable([
   { id: 'GB-001', name: '耶加雪菲 G1', origin: '埃塞俄比亚', batchNo: 'YT-2026-04', weight: 120, arrivalDate: '2026-01-10', stockDate: '2026-01-15', fifoAlert: false },
@@ -243,13 +293,25 @@ export const roleTodos = derived(
   }
 );
 
-export function advanceStatus(recordId) {
+export function advanceWithAction(recordId, role, actionLabel) {
   complaintRecords.update(records =>
     records.map(r => {
       if (r.id !== recordId) return r;
       const next = STATUS_MAP[r.status]?.next;
       if (!next) return r;
-      return { ...r, status: next };
+      const now = new Date();
+      const ts = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+      const authorMap = { '烘焙师': '林烘焙', '杯测员': '陈杯测', '渠道客服': '李客服' };
+      return {
+        ...r,
+        status: next,
+        history: [...r.history, {
+          action: actionLabel,
+          by: authorMap[role] || role,
+          role,
+          timestamp: ts
+        }]
+      };
     })
   );
 }

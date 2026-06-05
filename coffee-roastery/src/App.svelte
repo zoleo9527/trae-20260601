@@ -1,5 +1,5 @@
 <script>
-  import { ROLES, complaintRecords, alerts } from './lib/store.js';
+  import { ROLES, complaintRecords, alerts, ROLE_TODO_MAP } from './lib/store.js';
   import AlertBanner from './lib/AlertBanner.svelte';
   import TodoBoard from './lib/TodoBoard.svelte';
   import ComplaintDetail from './lib/ComplaintDetail.svelte';
@@ -7,11 +7,12 @@
   let currentRole = $state('渠道客服');
   let selectedId = $state(null);
 
-  let pendingCount = $derived({
-    '烘焙师': $complaintRecords.filter(c => c.status === 'reviewing').length,
-    '杯测员': $complaintRecords.filter(c => c.status === 'recovering' || c.status === 'reviewing').length,
-    '渠道客服': $complaintRecords.filter(c => c.status === 'pending').length
-  });
+  let pendingCount = $derived(
+    ROLES.reduce((acc, role) => {
+      acc[role] = $complaintRecords.filter(c => ROLE_TODO_MAP[role](c)).length;
+      return acc;
+    }, {})
+  );
 
   function selectRecord(id) {
     selectedId = id;
