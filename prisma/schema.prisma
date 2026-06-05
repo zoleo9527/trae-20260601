@@ -1,0 +1,70 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String         @id @default(uuid()) @db.Uuid
+  name         String
+  role         String
+  procurements Procurement[]  @relation("CreatedBy")
+  gradings     Grading[]
+  statusChanges StatusChange[]
+
+  @@map("users")
+}
+
+model Procurement {
+  id           String         @id @default(uuid()) @db.Uuid
+  flowerName   String
+  quantity     Int
+  unit         String         @default("扎")
+  supplier     String
+  urgency      String         @default("NORMAL")
+  status       String         @default("PENDING")
+  remarks      String?
+  createdBy    User           @relation("CreatedBy", fields: [createdById], references: [id])
+  createdById  String         @db.Uuid
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  grading      Grading?
+  statusChanges StatusChange[]
+
+  @@index([status])
+  @@index([urgency])
+  @@map("procurements")
+}
+
+model Grading {
+  id             String       @id @default(uuid()) @db.Uuid
+  procurementId  String       @unique @db.Uuid
+  procurement    Procurement  @relation(fields: [procurementId], references: [id], onDelete: Cascade)
+  level          String
+  gradedBy       User         @relation(fields: [gradedById], references: [id])
+  gradedById     String       @db.Uuid
+  gradedAt       DateTime     @default(now())
+  anomalyNote    String?
+  remarks        String?
+
+  @@index([procurementId])
+  @@map("gradings")
+}
+
+model StatusChange {
+  id             String       @id @default(uuid()) @db.Uuid
+  procurementId  String       @db.Uuid
+  procurement    Procurement  @relation(fields: [procurementId], references: [id], onDelete: Cascade)
+  fromStatus     String
+  toStatus       String
+  changedBy      User         @relation(fields: [changedById], references: [id])
+  changedById    String       @db.Uuid
+  changedAt      DateTime     @default(now())
+  reason         String?
+
+  @@index([procurementId])
+  @@map("status_changes")
+}
