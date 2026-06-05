@@ -126,6 +126,23 @@
     <div class="tab-content">
       {#if activeTab === 'overview'}
         <div class="overview-grid">
+          <div class="flow-timeline">
+            {#each [
+              { key: 'pending', label: '客诉登记', done: true, emoji: '📋' },
+              { key: 'recovering', label: '回收处理', done: ['recovering','reviewing','resolved'].includes(record.status), emoji: '📦' },
+              { key: 'reviewing', label: '风味复盘', done: ['reviewing','resolved'].includes(record.status), emoji: '☕' },
+              { key: 'resolved', label: '关闭', done: record.status === 'resolved', emoji: '✅' }
+            ] as node, i}
+              <div class="flow-node" class:active={record.status === node.key} class:done={node.done}>
+                <div class="flow-dot">{node.emoji}</div>
+                <div class="flow-label">{node.label}</div>
+                {#if i < 3}
+                  <div class="flow-line" class:done={node.done}></div>
+                {/if}
+              </div>
+            {/each}
+          </div>
+
           <div class="overview-card">
             <div class="section-label">退回原因</div>
             {#if record.returnReason}
@@ -449,6 +466,72 @@
     display: flex;
     flex-direction: column;
     gap: 16px;
+  }
+  .flow-timeline {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    padding: 16px 20px;
+    position: relative;
+  }
+  .flow-node {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    flex: 1;
+    position: relative;
+    z-index: 1;
+  }
+  .flow-dot {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: #f3f4f6;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    border: 2px solid #e5e7eb;
+    transition: all 0.25s;
+  }
+  .flow-node.done .flow-dot {
+    background: #ecfdf5;
+    border-color: #10b981;
+  }
+  .flow-node.active .flow-dot {
+    background: #eef2ff;
+    border-color: #6366f1;
+    box-shadow: 0 0 0 4px rgba(99,102,241,0.12);
+  }
+  .flow-label {
+    font-size: 12px;
+    color: #999;
+    font-weight: 500;
+    text-align: center;
+    transition: all 0.25s;
+  }
+  .flow-node.done .flow-label {
+    color: #10b981;
+  }
+  .flow-node.active .flow-label {
+    color: #6366f1;
+    font-weight: 600;
+  }
+  .flow-line {
+    position: absolute;
+    top: 20px;
+    left: calc(50% + 20px);
+    width: calc(100% - 40px);
+    height: 2px;
+    background: #e5e7eb;
+    transition: all 0.25s;
+  }
+  .flow-line.done {
+    background: #10b981;
   }
   .overview-card {
     background: #f9fafb;

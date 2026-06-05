@@ -34,7 +34,7 @@
         <button
           class="role-btn"
           class:active={currentRole === role}
-          onclick={() => { currentRole = role; selectedId = null; }}
+          onclick={() => { currentRole = role; }}
         >
           {role}
           {#if pendingCount[role] > 0}
