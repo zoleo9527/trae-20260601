@@ -30,6 +30,22 @@ export default function AftercareDashboard() {
       if (searchQuery) {
         params.set("search", searchQuery)
       }
+      if (timeRange === "TODAY") {
+        const today = new Date()
+        today.setHours(0, 0, 0, 0)
+        params.set("startDate", today.toISOString())
+        params.set("endDate", new Date().toISOString())
+      } else if (timeRange === "7DAYS") {
+        const sevenDaysAgo = new Date()
+        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
+        params.set("startDate", sevenDaysAgo.toISOString())
+        params.set("endDate", new Date().toISOString())
+      } else if (timeRange === "30DAYS") {
+        const thirtyDaysAgo = new Date()
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
+        params.set("startDate", thirtyDaysAgo.toISOString())
+        params.set("endDate", new Date().toISOString())
+      }
       params.set("pageSize", "50")
 
       const res = await fetch(`/api/procurements?${params.toString()}`)
@@ -42,7 +58,7 @@ export default function AftercareDashboard() {
     } finally {
       setLoading(false)
     }
-  }, [activeStatus, searchQuery])
+  }, [activeStatus, searchQuery, timeRange])
 
   useEffect(() => {
     fetchProcurements()

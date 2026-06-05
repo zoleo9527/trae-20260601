@@ -4,15 +4,14 @@ import prisma from '../prisma.js'
 const router = Router()
 
 const urgencyOrder: Record<string, number> = {
-  URGENT: 0,
-  HIGH: 1,
+  CRITICAL: 0,
+  URGENT: 1,
   NORMAL: 2,
-  LOW: 3,
 }
 
 router.get('/', async (req: Request, res: Response): Promise<void> => {
   try {
-    const { status, search, page = '1', pageSize = '10' } = req.query
+    const { status, search, page = '1', pageSize = '10', startDate, endDate } = req.query
     const pageNum = parseInt(page as string)
     const pageSizeNum = parseInt(pageSize as string)
     const skip = (pageNum - 1) * pageSizeNum
@@ -26,6 +25,15 @@ router.get('/', async (req: Request, res: Response): Promise<void> => {
         { flowerName: { contains: search as string, mode: 'insensitive' } },
         { supplier: { contains: search as string, mode: 'insensitive' } },
       ]
+    }
+    if (startDate || endDate) {
+      where.createdAt = {}
+      if (startDate) {
+        where.createdAt.gte = new Date(startDate as string)
+      }
+      if (endDate) {
+        where.createdAt.lte = new Date(endDate as string)
+      }
     }
 
     const [procurements, total] = await Promise.all([

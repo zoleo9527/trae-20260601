@@ -15,7 +15,7 @@ router.post('/login', async (req: Request, res: Response): Promise<void> => {
       res.status(404).json({ success: false, error: 'User not found' })
       return
     }
-    res.status(200).json({ success: true, data: user })
+    res.status(200).json({ success: true, user })
   } catch (error) {
     res.status(500).json({ success: false, error: 'Server internal error' })
   }
@@ -24,7 +24,7 @@ router.post('/login', async (req: Request, res: Response): Promise<void> => {
 router.get('/users', async (req: Request, res: Response): Promise<void> => {
   try {
     const users = await prisma.user.findMany()
-    res.status(200).json({ success: true, data: users })
+    res.status(200).json({ success: true, users })
   } catch (error) {
     res.status(500).json({ success: false, error: 'Server internal error' })
   }

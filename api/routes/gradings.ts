@@ -4,10 +4,9 @@ import prisma from '../prisma.js'
 const router = Router()
 
 const urgencyOrder: Record<string, number> = {
-  URGENT: 0,
-  HIGH: 1,
+  CRITICAL: 0,
+  URGENT: 1,
   NORMAL: 2,
-  LOW: 3,
 }
 
 router.get('/pending', async (req: Request, res: Response): Promise<void> => {

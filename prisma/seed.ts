@@ -247,11 +247,11 @@ async function main() {
     await prisma.grading.create({
       data: {
         procurementId: p.id,
-        level: 'REJECTED',
+        level: 'SCRAP',
         gradedById: USER_IDS.AFTERCARE,
         gradedAt: daysAgo(1),
         anomalyNote: rejectionReasons[i],
-        remarks: '需重新采购或与供应商协商退款',
+        remarks: '品质不合格，做报废处理并退回',
       },
     });
   }
