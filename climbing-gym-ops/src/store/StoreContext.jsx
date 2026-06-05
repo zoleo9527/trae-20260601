@@ -12,23 +12,34 @@ import {
 
 const StoreContext = createContext(null)
 
-function buildRouteOpeningTrail(opening, extraLogs = []) {
+const STAGE = {
+  SUBMIT: 'submit',
+  BELAYER_CONFIRM: 'belayer_confirm',
+  ADMIN_APPROVE: 'admin_approve',
+  ADMIN_REJECT: 'admin_reject',
+  MAINT_CONFIRM: 'maint_confirm',
+  MAINT_CLOSE: 'maint_close',
+}
+
+function buildRouteOpeningTrail(opening) {
   const trail = []
   const route = getRouteById(opening.routeId)
 
   trail.push({
-    id: `${opening.id}-submit`,
+    id: `${opening.id}-${STAGE.SUBMIT}`,
+    stage: STAGE.SUBMIT,
     type: 'route_open',
     refId: opening.id,
     action: '提交线路开放申请',
     operatorId: opening.submittedBy,
     timestamp: opening.submittedAt,
-    detail: `线路：${route?.name} (${route?.grade} · ${route?.zone})`,
+    detail: `线路：${route?.name}（${route?.grade} · ${route?.zone}）`,
   })
 
   if (opening.belayerId && opening.belayerConfirmedAt) {
     trail.push({
-      id: `${opening.id}-belayer`,
+      id: `${opening.id}-${STAGE.BELAYER_CONFIRM}`,
+      stage: STAGE.BELAYER_CONFIRM,
       type: 'route_open',
       refId: opening.id,
       action: '保护员确认',
@@ -41,7 +52,8 @@ function buildRouteOpeningTrail(opening, extraLogs = []) {
   if (opening.adminId && opening.adminApprovedAt) {
     const isApproved = opening.status === ROUTE_OPEN_STATUS.APPROVED
     trail.push({
-      id: `${opening.id}-admin`,
+      id: `${opening.id}-${isApproved ? STAGE.ADMIN_APPROVE : STAGE.ADMIN_REJECT}`,
+      stage: isApproved ? STAGE.ADMIN_APPROVE : STAGE.ADMIN_REJECT,
       type: 'route_open',
       refId: opening.id,
       action: isApproved ? '线路管理员审核通过' : '线路管理员驳回',
@@ -51,33 +63,28 @@ function buildRouteOpeningTrail(opening, extraLogs = []) {
     })
   }
 
-  const existingIds = new Set(trail.map(t => t.id))
-  extraLogs.forEach(log => {
-    if (!existingIds.has(log.id)) {
-      trail.push(log)
-    }
-  })
-
   return trail.sort((a, b) => dayjs(a.timestamp).valueOf() - dayjs(b.timestamp).valueOf())
 }
 
-function buildMaintenanceTrail(record, extraLogs = []) {
+function buildMaintenanceTrail(record) {
   const trail = []
   const route = getRouteById(record.routeId)
 
   trail.push({
-    id: `${record.id}-submit`,
+    id: `${record.id}-${STAGE.SUBMIT}`,
+    stage: STAGE.SUBMIT,
     type: 'maintenance',
     refId: record.id,
     action: '提交维护记录',
     operatorId: record.submittedBy,
     timestamp: record.submittedAt,
-    detail: `${record.type} - ${route?.name} (${route?.grade})：${record.description}`,
+    detail: `${record.type} - ${route?.name}（${route?.grade}）：${record.description}`,
   })
 
   if (record.confirmedBy && record.confirmedAt) {
     trail.push({
-      id: `${record.id}-confirm`,
+      id: `${record.id}-${STAGE.MAINT_CONFIRM}`,
+      stage: STAGE.MAINT_CONFIRM,
       type: 'maintenance',
       refId: record.id,
       action: '保护员确认维护',
@@ -89,7 +96,8 @@ function buildMaintenanceTrail(record, extraLogs = []) {
 
   if (record.closedAt) {
     trail.push({
-      id: `${record.id}-close`,
+      id: `${record.id}-${STAGE.MAINT_CLOSE}`,
+      stage: STAGE.MAINT_CLOSE,
       type: 'maintenance',
       refId: record.id,
       action: '关闭维护记录',
@@ -98,13 +106,6 @@ function buildMaintenanceTrail(record, extraLogs = []) {
       detail: '维护完成，线路恢复正常使用',
     })
   }
-
-  const existingIds = new Set(trail.map(t => t.id))
-  extraLogs.forEach(log => {
-    if (!existingIds.has(log.id)) {
-      trail.push(log)
-    }
-  })
 
   return trail.sort((a, b) => dayjs(a.timestamp).valueOf() - dayjs(b.timestamp).valueOf())
 }
@@ -256,22 +257,28 @@ export function StoreProvider({ children }) {
       })
     },
 
-    getAuditLogsByRef(refId) {
-      return auditLogs
-        .filter(l => l.refId === refId)
-        .sort((a, b) => dayjs(a.timestamp).valueOf() - dayjs(b.timestamp).valueOf())
-    },
-
     buildRouteOpeningAuditLogs(opening) {
-      const extraLogs = auditLogs.filter(l => l.refId === opening.id)
-      return buildRouteOpeningTrail(opening, extraLogs)
+      return buildRouteOpeningTrail(opening)
     },
 
     buildMaintenanceAuditLogs(record) {
-      const extraLogs = auditLogs.filter(l => l.refId === record.id)
-      return buildMaintenanceTrail(record, extraLogs)
+      return buildMaintenanceTrail(record)
     },
-  }), [auditLogs])
+
+    buildAuditLogsForRef(refId) {
+      const opening = routeOpenings.find(o => o.id === refId)
+      if (opening) return buildRouteOpeningTrail(opening)
+      const record = maintenanceRecords.find(m => m.id === refId)
+      if (record) return buildMaintenanceTrail(record)
+      return []
+    },
+
+    getRecentGlobalAuditLogs(limit = 8) {
+      return [...auditLogs]
+        .sort((a, b) => dayjs(b.timestamp).valueOf() - dayjs(a.timestamp).valueOf())
+        .slice(0, limit)
+    },
+  }), [auditLogs, routeOpenings, maintenanceRecords])
 
   const value = useMemo(() => ({
     routeOpenings,

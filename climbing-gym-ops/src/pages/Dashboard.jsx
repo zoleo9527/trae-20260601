@@ -11,7 +11,7 @@ import StatusBadge from '../components/StatusBadge'
 
 export default function Dashboard() {
   const { currentUserId } = useOutletContext()
-  const { routeOpenings, maintenanceRecords, auditLogs } = useStore()
+  const { routeOpenings, maintenanceRecords, actions } = useStore()
   const navigate = useNavigate()
   const [expandedLog, setExpandedLog] = useState(null)
 
@@ -55,9 +55,7 @@ export default function Dashboard() {
     },
   ]
 
-  const recentLogs = [...auditLogs]
-    .sort((a, b) => dayjs(b.timestamp).valueOf() - dayjs(a.timestamp).valueOf())
-    .slice(0, 8)
+  const recentLogs = actions.getRecentGlobalAuditLogs(8)
 
   return (
     <div>
