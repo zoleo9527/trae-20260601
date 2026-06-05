@@ -41,12 +41,16 @@ router.put('/:id', (req, res) => {
 });
 
 router.post('/:id/actions', (req, res) => {
-  const complaint = complaintService.executeAction(req.params.id, req.body);
-  if (!complaint) {
-    res.status(404).json({ error: '投诉记录不存在' });
-    return;
+  try {
+    const complaint = complaintService.executeAction(req.params.id, req.body);
+    if (!complaint) {
+      res.status(404).json({ error: '投诉记录不存在' });
+      return;
+    }
+    res.json(complaint);
+  } catch (e: any) {
+    res.status(400).json({ error: e.message });
   }
-  res.json(complaint);
 });
 
 router.post('/:id/compensations', (req, res) => {

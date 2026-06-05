@@ -27,6 +27,7 @@ export default function ComplaintDetail() {
   const { selectedComplaint, fetchComplaintDetail, executeAction, proposeCompensation, currentRole, currentUserName, loading } = useStore();
 
   const [showRejectModal, setShowRejectModal] = useState(false);
+  const [rejectType, setRejectType] = useState<'review' | 'compensation'>('review');
   const [showCompensationModal, setShowCompensationModal] = useState(false);
   const [showResubmitModal, setShowResubmitModal] = useState(false);
   const [rejectReason, setRejectReason] = useState('');
@@ -66,7 +67,7 @@ export default function ComplaintDetail() {
   const canSubmit = status === 'draft' && currentRole === 'reception';
   const canReviewApprove = status === 'pending_review' && currentRole === 'manager';
   const canReviewReject = status === 'pending_review' && currentRole === 'manager';
-  const canResubmit = (status === 'review_rejected' || status === 'compensation_rejected') && currentRole === currentHandlerRole;
+  const canResubmit = status === 'review_rejected' && currentRole === currentHandlerRole;
   const canProposeCompensation = (status === 'pending_compensation' || status === 'compensation_rejected') && currentRole === 'reception';
   const hasPendingCompensation = compensations.some((c) => c.status === 'pending');
   const canApproveCompensation = status === 'pending_compensation' && currentRole === 'manager' && hasPendingCompensation;
@@ -248,7 +249,7 @@ export default function ComplaintDetail() {
               <div className="card p-4 bg-rose-50 border-rose-200">
                 <h3 className="text-sm font-semibold text-rose-800 mb-2 flex items-center gap-2">
                   <X size={16} />
-                  最新驳回原因
+                  {latestRejectLog.actionType === 'review_reject' ? '初审驳回原因' : '补偿方案驳回原因'}
                 </h3>
                 <p className="text-sm text-rose-700">{latestRejectLog.rejectReason}</p>
                 <p className="text-xs text-rose-500 mt-2">
@@ -305,10 +306,10 @@ export default function ComplaintDetail() {
                       <Check size={16} />
                       初审通过
                     </button>
-                    <button onClick={() => setShowRejectModal(true)} className="btn-danger w-full flex items-center justify-center gap-2">
-                      <X size={16} />
-                      初审驳回
-                    </button>
+                    <button onClick={() => { setRejectType('review'); setShowRejectModal(true); }} className="btn-danger w-full flex items-center justify-center gap-2">
+                    <X size={16} />
+                    初审驳回
+                  </button>
                   </>
                 )}
 
@@ -339,10 +340,10 @@ export default function ComplaintDetail() {
                       <Award size={16} />
                       通过补偿方案
                     </button>
-                    <button onClick={() => setShowRejectModal(true)} className="btn-danger w-full flex items-center justify-center gap-2">
-                      <X size={16} />
-                      驳回补偿方案
-                    </button>
+                    <button onClick={() => { setRejectType('compensation'); setShowRejectModal(true); }} className="btn-danger w-full flex items-center justify-center gap-2">
+                    <X size={16} />
+                    驳回补偿方案
+                  </button>
                   </>
                 )}
 
@@ -358,7 +359,9 @@ export default function ComplaintDetail() {
       {showRejectModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 animate-fade-in">
           <div className="bg-white rounded-lg p-6 w-full max-w-md animate-slide-up">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">驳回</h3>
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">
+              {rejectType === 'review' ? '初审驳回' : '驳回补偿方案'}
+            </h3>
             <p className="text-sm text-gray-500 mb-4">请填写驳回原因（必填）</p>
             <textarea
               placeholder="请详细说明驳回原因..."
@@ -368,11 +371,11 @@ export default function ComplaintDetail() {
               rows={4}
             />
             <div className="flex gap-3 mt-4">
-              <button onClick={() => setShowRejectModal(false)} className="btn-secondary flex-1">
+              <button onClick={() => { setShowRejectModal(false); setRejectReason(''); }} className="btn-secondary flex-1">
                 取消
               </button>
               <button
-                onClick={handleReviewReject}
+                onClick={rejectType === 'review' ? handleReviewReject : handleRejectCompensation}
                 disabled={!rejectReason.trim()}
                 className="btn-danger flex-1 disabled:opacity-50"
               >
@@ -421,7 +424,9 @@ export default function ComplaintDetail() {
       {showCompensationModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 animate-fade-in">
           <div className="bg-white rounded-lg p-6 w-full max-w-md animate-slide-up">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">提出补偿方案</h3>
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">
+              {status === 'compensation_rejected' ? '重新提出补偿方案' : '提出补偿方案'}
+            </h3>
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">补偿类型</label>

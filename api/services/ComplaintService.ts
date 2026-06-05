@@ -60,6 +60,26 @@ class ComplaintService {
     const complaint = complaintRepository.findById(id);
     if (!complaint) return null;
 
+    const validTransitions: Record<ActionType, ComplaintStatus[]> = {
+      submit: ['draft'],
+      review_approve: ['pending_review'],
+      review_reject: ['pending_review'],
+      resubmit: ['review_rejected'],
+      compensation_propose: ['pending_compensation', 'compensation_rejected'],
+      compensation_approve: ['pending_compensation'],
+      compensation_reject: ['pending_compensation'],
+      complete: ['pending_compensation', 'completed'],
+      create: [],
+      note: [],
+    };
+
+    const allowedStatuses = validTransitions[action.actionType];
+    if (allowedStatuses && allowedStatuses.length > 0 && !allowedStatuses.includes(complaint.status)) {
+      throw new Error(
+        `当前状态 "${complaint.status}" 不允许执行操作 "${action.actionType}"`
+      );
+    }
+
     actionLogRepository.create(id, action);
 
     const statusMap: Record<ActionType, { status: string; role: UserRole; name: string } | null> = {
@@ -119,7 +139,7 @@ class ComplaintService {
       remark: `提出补偿方案: ${data.description}`,
     });
 
-    complaintRepository.updateStatus(complaintId, 'pending_compensation', 'manager', operatorName);
+    complaintRepository.updateStatus(complaintId, 'pending_compensation', 'manager', '王店长');
 
     return this.getComplaintWithDetails(complaintId);
   }
