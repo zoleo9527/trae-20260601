@@ -2,6 +2,7 @@
 import { ref, onMounted } from 'vue';
 import type { BookingRecord } from '../types';
 import { api } from '../api';
+import { formatLocalDateTime } from '../utils/date';
 
 const emit = defineEmits<{
   (e: 'row-click', id: number): void;
@@ -18,6 +19,12 @@ const loadHistory = async () => {
     loading.value = false;
   }
 };
+
+const refresh = () => {
+  loadHistory();
+};
+
+defineExpose({ refresh });
 
 onMounted(() => {
   loadHistory();
@@ -59,7 +66,7 @@ onMounted(() => {
                 <td style="color:#ef4444;font-weight:600;">-¥{{ b.verify_amount?.toFixed(2) }}</td>
                 <td style="color:#10b981;font-weight:600;">¥{{ b.verify_balance_after?.toFixed(2) }}</td>
                 <td>{{ b.verify_by }}</td>
-                <td><small>{{ b.verify_at }}</small></td>
+                <td><small>{{ formatLocalDateTime(b.verify_at) }}</small></td>
               </tr>
             </tbody>
           </table>

@@ -1,5 +1,5 @@
 use super::models::*;
-use chrono::{Local, NaiveDateTime};
+use chrono::Local;
 use dirs::data_dir;
 use rusqlite::{params, Connection, Result};
 use std::fs;
@@ -573,14 +573,6 @@ impl Database {
     }
 
     fn row_to_booking(row: &rusqlite::Row) -> Result<BookingRecord> {
-        let parse_dt = |s: Option<String>| -> Option<DateTime<Local>> {
-            s.and_then(|s| {
-                NaiveDateTime::parse_from_str(&s, "%Y-%m-%d %H:%M:%S")
-                    .ok()
-                    .map(|nd| DateTime::<Local>::from_naive_utc_and_offset(nd, *Local::now().offset()))
-            })
-        };
-
         Ok(BookingRecord {
             id: row.get(0)?,
             booking_no: row.get(1)?,
@@ -599,24 +591,24 @@ impl Database {
             status: row.get(14)?,
             status_text: row.get(15)?,
             created_by: row.get(16)?,
-            created_at: parse_dt(row.get::<_, Option<String>>(17)?).unwrap_or_else(Local::now),
+            created_at: row.get::<_, Option<String>>(17)?.unwrap_or_default(),
             return_reason: row.get(18)?,
             return_by: row.get(19)?,
-            return_at: parse_dt(row.get::<_, Option<String>>(20)?),
+            return_at: row.get(20)?,
             supplement_note: row.get(21)?,
             supplement_by: row.get(22)?,
-            supplement_at: parse_dt(row.get::<_, Option<String>>(23)?),
+            supplement_at: row.get(23)?,
             review_result: row.get(24)?,
             review_note: row.get(25)?,
             review_by: row.get(26)?,
-            review_at: parse_dt(row.get::<_, Option<String>>(27)?),
+            review_at: row.get(27)?,
             verify_status: row.get(28)?,
             verify_card_no: row.get(29)?,
             verify_balance_before: row.get(30)?,
             verify_balance_after: row.get(31)?,
             verify_amount: row.get(32)?,
             verify_by: row.get(33)?,
-            verify_at: parse_dt(row.get::<_, Option<String>>(34)?),
+            verify_at: row.get(34)?,
             liability_flag: row.get(35)?,
             remark: row.get(36)?,
         })

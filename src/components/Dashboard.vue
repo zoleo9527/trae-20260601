@@ -23,6 +23,12 @@ const loadTodos = async () => {
   }
 };
 
+const refresh = () => {
+  loadTodos();
+};
+
+defineExpose({ refresh });
+
 watch(() => props.role, () => {
   loadTodos();
 });

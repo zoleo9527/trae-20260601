@@ -2,6 +2,7 @@
 import { ref, onMounted, reactive, computed } from 'vue';
 import type { RoleType, BookingRecord, Court, Coach, MemberCard, BookingSupplement, MemberVerify } from '../types';
 import { api } from '../api';
+import { formatLocalDateTime } from '../utils/date';
 
 const props = defineProps<{
   bookingId: number;
@@ -248,7 +249,7 @@ onMounted(() => {
                 </div>
                 <div class="detail-item">
                   <div class="label">退回时间</div>
-                  <div class="value">{{ booking.return_at }}</div>
+                  <div class="value">{{ formatLocalDateTime(booking.return_at) }}</div>
                 </div>
               </div>
             </div>
@@ -266,7 +267,7 @@ onMounted(() => {
                 </div>
                 <div class="detail-item">
                   <div class="label">补录时间</div>
-                  <div class="value">{{ booking.supplement_at }}</div>
+                  <div class="value">{{ formatLocalDateTime(booking.supplement_at) }}</div>
                 </div>
               </div>
             </div>
@@ -286,7 +287,7 @@ onMounted(() => {
                 </div>
                 <div class="detail-item">
                   <div class="label">复核时间</div>
-                  <div class="value">{{ booking.review_at }}</div>
+                  <div class="value">{{ formatLocalDateTime(booking.review_at) }}</div>
                 </div>
                 <div class="detail-item" v-if="booking.review_note" style="grid-column: span 2;">
                   <div class="label">复核备注</div>
@@ -299,29 +300,29 @@ onMounted(() => {
           <div v-if="activeTab === 'flow'">
             <div class="timeline">
               <div class="timeline-item">
-                <div class="time">{{ booking.created_at }}</div>
+                <div class="time">{{ formatLocalDateTime(booking.created_at) }}</div>
                 <div class="title">预约创建</div>
                 <div class="note">由 {{ booking.created_by }} 创建预约</div>
               </div>
               <div v-if="booking.return_at" class="timeline-item">
-                <div class="time">{{ booking.return_at }}</div>
+                <div class="time">{{ formatLocalDateTime(booking.return_at) }}</div>
                 <div class="title" style="color:#dc2626;">已退回</div>
                 <div class="note">{{ booking.return_by }}：{{ booking.return_reason }}</div>
               </div>
               <div v-if="booking.supplement_at" class="timeline-item">
-                <div class="time">{{ booking.supplement_at }}</div>
+                <div class="time">{{ formatLocalDateTime(booking.supplement_at) }}</div>
                 <div class="title" style="color:#2563eb;">补录完成</div>
                 <div class="note">{{ booking.supplement_by }}：{{ booking.supplement_note }}</div>
               </div>
               <div v-if="booking.review_at" class="timeline-item">
-                <div class="time">{{ booking.review_at }}</div>
+                <div class="time">{{ formatLocalDateTime(booking.review_at) }}</div>
                 <div class="title" :style="{ color: booking.review_result === 'approved' ? '#059669' : '#dc2626' }">
                   复核{{ booking.review_result === 'approved' ? '通过' : '拒绝' }}
                 </div>
                 <div class="note">{{ booking.review_by }}：{{ booking.review_note || '无备注' }}</div>
               </div>
               <div v-if="booking.verify_at" class="timeline-item">
-                <div class="time">{{ booking.verify_at }}</div>
+                <div class="time">{{ formatLocalDateTime(booking.verify_at) }}</div>
                 <div class="title" style="color:#8b5cf6;">会员核销完成</div>
                 <div class="note">
                   {{ booking.verify_by }} 核销卡号 {{ booking.verify_card_no }}，
@@ -357,7 +358,7 @@ onMounted(() => {
                 </div>
                 <div class="detail-item">
                   <div class="label">核销时间</div>
-                  <div class="value">{{ booking.verify_at }}</div>
+                  <div class="value">{{ formatLocalDateTime(booking.verify_at) }}</div>
                 </div>
               </div>
             </div>

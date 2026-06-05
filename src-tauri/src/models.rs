@@ -1,4 +1,3 @@
-use chrono::{DateTime, Local};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -20,24 +19,24 @@ pub struct BookingRecord {
     pub status: String,
     pub status_text: String,
     pub created_by: String,
-    pub created_at: DateTime<Local>,
+    pub created_at: String,
     pub return_reason: Option<String>,
     pub return_by: Option<String>,
-    pub return_at: Option<DateTime<Local>>,
+    pub return_at: Option<String>,
     pub supplement_note: Option<String>,
     pub supplement_by: Option<String>,
-    pub supplement_at: Option<DateTime<Local>>,
+    pub supplement_at: Option<String>,
     pub review_result: Option<String>,
     pub review_note: Option<String>,
     pub review_by: Option<String>,
-    pub review_at: Option<DateTime<Local>>,
+    pub review_at: Option<String>,
     pub verify_status: Option<String>,
     pub verify_card_no: Option<String>,
     pub verify_balance_before: Option<f64>,
     pub verify_balance_after: Option<f64>,
     pub verify_amount: Option<f64>,
     pub verify_by: Option<String>,
-    pub verify_at: Option<DateTime<Local>>,
+    pub verify_at: Option<String>,
     pub liability_flag: Option<String>,
     pub remark: Option<String>,
 }

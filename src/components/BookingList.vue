@@ -95,6 +95,12 @@ const handleCreate = async () => {
   }
 };
 
+const refresh = () => {
+  loadBookings();
+};
+
+defineExpose({ refresh });
+
 onMounted(() => {
   loadBookings();
 });

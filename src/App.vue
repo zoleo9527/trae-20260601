@@ -15,6 +15,10 @@ const members = ref<MemberCard[]>([]);
 const selectedBookingId = ref<number | null>(null);
 const showBookingModal = ref(false);
 
+const dashboardRef = ref<InstanceType<typeof Dashboard> | null>(null);
+const bookingListRef = ref<InstanceType<typeof BookingList> | null>(null);
+const verifyHistoryRef = ref<InstanceType<typeof VerificationHistory> | null>(null);
+
 const roleName = computed(() => {
   const map: Record<RoleType, string> = {
     reception: '场馆前台',
@@ -30,6 +34,13 @@ const loadBaseData = async () => {
   members.value = await api.getMembers();
 };
 
+const refreshAll = async () => {
+  await loadBaseData();
+  dashboardRef.value?.refresh();
+  bookingListRef.value?.refresh();
+  verifyHistoryRef.value?.refresh();
+};
+
 const handleTodoClick = (id: number) => {
   selectedBookingId.value = id;
   showBookingModal.value = true;
@@ -41,7 +52,7 @@ const handleBookingClick = (id: number) => {
 };
 
 const refreshData = () => {
-  loadBaseData();
+  refreshAll();
 };
 
 onMounted(() => {
@@ -104,22 +115,25 @@ onMounted(() => {
 
       <div class="content-area">
         <Dashboard
+          ref="dashboardRef"
           v-if="currentPage === 'dashboard'"
           :role="currentRole"
           @todo-click="handleTodoClick"
         />
 
         <BookingList
+          ref="bookingListRef"
           v-if="currentPage === 'bookings'"
           :role="currentRole"
           :courts="courts"
           :coaches="coaches"
           :members="members"
           @row-click="handleBookingClick"
-          @refresh="refreshData"
+          @refresh="refreshAll"
         />
 
         <VerificationHistory
+          ref="verifyHistoryRef"
           v-if="currentPage === 'verify'"
           @row-click="handleBookingClick"
         />
@@ -134,7 +148,7 @@ onMounted(() => {
       :coaches="coaches"
       :members="members"
       @close="showBookingModal = false"
-      @refresh="refreshData"
+      @refresh="refreshAll"
     />
   </div>
 </template>
