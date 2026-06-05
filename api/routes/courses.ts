@@ -154,10 +154,20 @@ router.post('/:id/confirm', (req: Request, res: Response): void => {
     return
   }
 
+  if (course.status !== 'pending') {
+    res.status(400).json({ success: false, error: `Course is already ${course.status}, cannot confirm` })
+    return
+  }
+
   course.confirmedByCoachAt = new Date().toISOString()
+  course.status = 'in_progress'
   writeData(data)
 
-  res.json({ success: true, data: course })
+  const coach = data.coaches.find((ch) => ch.id === course.coachId)
+  const currentStudents = data.checkinRecords.filter(
+    (r) => r.courseId === id && r.status !== 'no_show'
+  ).length
+  res.json({ success: true, data: { ...course, coachName: coach?.name || '未知教练', currentStudents } })
 })
 
 export default router

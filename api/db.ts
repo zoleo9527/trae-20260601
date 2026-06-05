@@ -77,6 +77,7 @@ export interface RentalRecord {
   id: string
   equipmentId: string
   studentId: string
+  courseId?: string
   rentedAt: string
   returnedAt?: string
   status: 'active' | 'returned'
@@ -202,10 +203,12 @@ function createSeedData(): SkiResortData {
   const rentalRecords: RentalRecord[] = [
     {
       id: generateId(), equipmentId: equipment[3].id, studentId: students[1].id,
+      courseId: courses[1].id,
       rentedAt: `${today}T08:30:00.000Z`, status: 'active',
     },
     {
       id: generateId(), equipmentId: equipment[1].id, studentId: students[0].id,
+      courseId: courses[0].id,
       rentedAt: `${today}T08:20:00.000Z`, returnedAt: `${today}T11:05:00.000Z`,
       status: 'returned',
     },

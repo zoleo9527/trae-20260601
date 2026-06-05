@@ -3,7 +3,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useApi } from '@/composables/useApi'
 import { useRoleStore } from '@/stores/role'
 import StatusBadge from '@/components/StatusBadge.vue'
-import { Plus, RotateCcw, Filter, AlertTriangle, List, Package } from 'lucide-vue-next'
+import { Plus, RotateCcw, Filter, AlertTriangle, List, Package, CalendarCheck } from 'lucide-vue-next'
 
 const { get, post } = useApi()
 const roleStore = useRoleStore()
@@ -33,22 +33,33 @@ interface Rental {
   studentName?: string
   equipmentCode?: string
   equipmentName?: string
+  courseName?: string
   status: 'active' | 'returned' | 'abnormal'
   rentedAt: string
   returnedAt?: string
   abnormal?: { type: string; note?: string; actualReturner?: string }
 }
 
+interface Course {
+  id: string
+  coachName: string
+  date: string
+  startTime: string
+  endTime: string
+  status: string
+}
+
 const activeTab = ref<'equipment' | 'rentals'>('equipment')
 const equipmentList = ref<Equipment[]>([])
 const rentalList = ref<Rental[]>([])
 const students = ref<Student[]>([])
+const courses = ref<Course[]>([])
 const filterStatus = ref<string>('all')
 const filterRentalStatus = ref<string>('all')
 const showRentModal = ref(false)
 const showReturnModal = ref(false)
 const selectedEquipment = ref<Equipment | null>(null)
-const rentForm = ref({ studentId: '' })
+const rentForm = ref({ studentId: '', courseId: '' })
 const returnForm = ref({ abnormal: false, abnormalType: 'wrong_person' as 'wrong_person' | 'damaged', actualReturner: '', note: '' })
 const loading = ref(false)
 const toast = ref('')
@@ -87,15 +98,18 @@ function showToast(msg: string) {
 async function fetchEquipment() {
   loading.value = true
   try {
-    const [eqRes, stRes] = await Promise.all([
+    const [eqRes, stRes, cRes] = await Promise.all([
       get<{ success: boolean; data: Equipment[] }>('/equipment'),
       get<{ success: boolean; data: Student[] }>('/students'),
+      get<{ success: boolean; data: Course[] }>('/courses'),
     ])
     equipmentList.value = eqRes.data ?? []
     students.value = stRes.data ?? []
+    courses.value = (cRes.data ?? []).filter(c => c.status === 'pending' || c.status === 'in_progress')
   } catch {
     equipmentList.value = []
     students.value = []
+    courses.value = []
   } finally {
     loading.value = false
   }
@@ -119,6 +133,7 @@ function switchTab(tab: 'equipment' | 'rentals') {
 function openRentModal(item: Equipment) {
   selectedEquipment.value = item
   rentForm.value.studentId = ''
+  rentForm.value.courseId = ''
   showRentModal.value = true
 }
 
@@ -131,10 +146,12 @@ function openReturnModal(item: Equipment) {
 async function submitRent() {
   if (!selectedEquipment.value || !rentForm.value.studentId) return
   try {
-    await post('/equipment/rent', {
+    const body: any = {
       equipmentId: selectedEquipment.value.id,
       studentId: rentForm.value.studentId,
-    })
+    }
+    if (rentForm.value.courseId) body.courseId = rentForm.value.courseId
+    await post('/equipment/rent', body)
     showRentModal.value = false
     showToast('租赁成功')
     await fetchEquipment()
@@ -287,6 +304,9 @@ onMounted(fetchEquipment)
             <span>租赁时间: {{ new Date(r.rentedAt).toLocaleString('zh-CN') }}</span>
             <span v-if="r.returnedAt">归还时间: {{ new Date(r.returnedAt).toLocaleString('zh-CN') }}</span>
           </div>
+          <div v-if="r.courseName" class="mt-1 text-xs text-sky-600 flex items-center gap-1">
+            <CalendarCheck class="w-3 h-3" />关联课程：{{ r.courseName }}
+          </div>
           <div v-if="r.abnormal" class="mt-2 p-2 bg-orange-50 rounded text-xs text-orange-700 flex items-center gap-1.5">
             <AlertTriangle class="w-3.5 h-3.5" />
             <span>异常: {{ r.abnormal.type === 'wrong_person' ? '错拿' : '损坏' }}</span>
@@ -309,6 +329,13 @@ onMounted(fetchEquipment)
             <select v-model="rentForm.studentId" class="input-field">
               <option value="">请选择学员</option>
               <option v-for="s in students" :key="s.id" :value="s.id">{{ s.name }}（{{ s.level }}）</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-slate-700 mb-1">关联课程 <span class="text-slate-400 font-normal">（可选）</span></label>
+            <select v-model="rentForm.courseId" class="input-field">
+              <option value="">不关联课程</option>
+              <option v-for="c in courses" :key="c.id" :value="c.id">{{ c.coachName }} · {{ c.date }} {{ c.startTime }}-{{ c.endTime }}</option>
             </select>
           </div>
         </div>

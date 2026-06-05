@@ -121,7 +121,7 @@ async function createCourse() {
 async function confirmAttendance(course: Course) {
   try {
     await post(`/courses/${course.id}/confirm`)
-    showToast('教练确认到场')
+    showToast('教练确认开课，课程已进入可签到状态')
     await fetchData()
   } catch (e: any) {
     showToast(e.message || '确认失败')
@@ -206,8 +206,8 @@ onMounted(fetchData)
         <Filter class="w-4 h-4 text-slate-400" />
         <select v-model="statusFilter" class="input-field text-sm py-1 w-auto">
           <option value="all">全部状态</option>
-          <option value="pending">待开始</option>
-          <option value="in_progress">进行中</option>
+          <option value="pending">待确认</option>
+          <option value="in_progress">可签到</option>
           <option value="completed">已结束</option>
           <option value="cancelled">已取消</option>
         </select>
@@ -236,7 +236,7 @@ onMounted(fetchData)
                   <UserPlus class="w-3 h-3 inline mr-1" />报名
                 </button>
                 <button v-if="course.status === 'pending'" @click="confirmAttendance(course)" class="btn-primary text-xs px-3 py-1">
-                  <UserCheck class="w-3 h-3 inline mr-1" />确认到场
+                  <UserCheck class="w-3 h-3 inline mr-1" />确认开课
                 </button>
                 <button v-if="course.status === 'in_progress'" @click="completeCourse(course)" class="btn-primary text-xs px-3 py-1">
                   <CheckCircle class="w-3 h-3 inline mr-1" />结束课程

@@ -31,7 +31,7 @@ function getAlerts(role: string) {
       return course && course.date === today && r.status === 'no_show'
     })
     if (pendingCourses.length > 0) {
-      alerts.push({ type: 'pending_courses', message: `${pendingCourses.length} 节课程待确认`, severity: 'orange' })
+      alerts.push({ type: 'pending_courses', message: `${pendingCourses.length} 节课程待确认开课`, severity: 'orange' })
     }
     if (noShows.length > 0) {
       alerts.push({ type: 'no_show', message: `${noShows.length} 名学员未到`, severity: 'red' })

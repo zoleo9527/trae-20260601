@@ -20,6 +20,7 @@ import rescueRoutes from './routes/rescue.js'
 import dashboardRoutes from './routes/dashboard.js'
 import studentsRoutes from './routes/students.js'
 import coachesRoutes from './routes/coaches.js'
+import patrolsRoutes from './routes/patrols.js'
 import { resetData } from './db.js'
 
 // for esm mode
@@ -47,6 +48,7 @@ app.use('/api/rescue', rescueRoutes)
 app.use('/api/dashboard', dashboardRoutes)
 app.use('/api/students', studentsRoutes)
 app.use('/api/coaches', coachesRoutes)
+app.use('/api/patrols', patrolsRoutes)
 
 app.post('/api/reset', (req: Request, res: Response): void => {
   resetData()

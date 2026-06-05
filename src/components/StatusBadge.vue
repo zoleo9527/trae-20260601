@@ -13,8 +13,8 @@ const statusMap: Record<string, Record<string, { label: string; color: string }>
     maintenance: { label: '维护', color: 'bg-orange-100 text-orange-700' },
   },
   course: {
-    pending: { label: '待开始', color: 'bg-green-100 text-green-700' },
-    in_progress: { label: '进行中', color: 'bg-blue-100 text-blue-700' },
+    pending: { label: '待确认', color: 'bg-amber-100 text-amber-700' },
+    in_progress: { label: '可签到', color: 'bg-blue-100 text-blue-700' },
     completed: { label: '已结束', color: 'bg-slate-100 text-slate-700' },
     cancelled: { label: '已取消', color: 'bg-red-100 text-red-700' },
   },

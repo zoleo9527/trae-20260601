@@ -16,6 +16,12 @@ interface AttachmentPlaceholder {
   isPlaceholder?: boolean
 }
 
+interface Patrol {
+  id: string
+  name: string
+  role: string
+}
+
 interface RescueRecord {
   id: string
   patrolId: string
@@ -30,6 +36,7 @@ interface RescueRecord {
 }
 
 const records = ref<RescueRecord[]>([])
+const patrols = ref<Patrol[]>([])
 const activeTab = ref<'create' | 'history'>('create')
 const toast = ref('')
 
@@ -52,7 +59,7 @@ const editAttachments = ref<{ id: string; fileName: string; fileType: 'photo' | 
 const showEditModal = ref(false)
 
 const canSubmit = computed(() => {
-  return form.value.location && form.value.description && form.value.patientName && attachments.value.length > 0
+  return form.value.location && form.value.description && form.value.patientName && form.value.patrolId && attachments.value.length > 0
 })
 
 const filteredRecords = computed(() => {
@@ -185,7 +192,19 @@ function allPlaceholders(record: RescueRecord) {
   return record.attachments.length > 0 && record.attachments.every(a => a.isPlaceholder)
 }
 
-onMounted(fetchRecords)
+async function fetchPatrols() {
+  try {
+    const res = await get<{ success: boolean; data: Patrol[] }>('/patrols')
+    patrols.value = res.data || []
+  } catch {
+    patrols.value = []
+  }
+}
+
+onMounted(async () => {
+  await fetchPatrols()
+  await fetchRecords()
+})
 </script>
 
 <template>
@@ -248,6 +267,13 @@ onMounted(fetchRecords)
           <div>
             <label class="block text-sm font-medium text-slate-700 mb-1">伤者姓名</label>
             <input v-model="form.patientName" class="input-field" placeholder="请输入伤者姓名" />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-slate-700 mb-1">巡逻员 <span class="text-red-500">*</span></label>
+            <select v-model="form.patrolId" class="input-field">
+              <option value="">请选择巡逻员</option>
+              <option v-for="p in patrols" :key="p.id" :value="p.id">{{ p.name }}</option>
+            </select>
           </div>
           <div>
             <label class="block text-sm font-medium text-slate-700 mb-1">伤情描述</label>

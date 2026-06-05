@@ -34,8 +34,8 @@ router.get('/', (req: Request, res: Response): void => {
 router.post('/', (req: Request, res: Response): void => {
   const { date, location, description, patientName, severity, attachments, patrolId } = req.body
 
-  if (!date || !location || !description || !patientName || !severity) {
-    res.status(400).json({ success: false, error: 'date, location, description, patientName, severity are required' })
+  if (!date || !location || !description || !patientName || !severity || !patrolId) {
+    res.status(400).json({ success: false, error: 'date, location, description, patientName, severity, patrolId are required' })
     return
   }
 
@@ -45,12 +45,17 @@ router.post('/', (req: Request, res: Response): void => {
     return
   }
 
+  const data = readData()
+  const patrol = data.patrols.find((p) => p.id === patrolId)
+  if (!patrol) {
+    res.status(404).json({ success: false, error: 'Patrol not found' })
+    return
+  }
+
   if (!Array.isArray(attachments) || attachments.length < 1) {
     res.status(400).json({ success: false, error: 'At least 1 attachment is required' })
     return
   }
-
-  const data = readData()
 
   const processedAttachments = attachments.map((a: { id?: string; name: string; type: string; url?: string; isPlaceholder?: boolean; fileName?: string; fileType?: string; size?: string }) => ({
     id: a.id || generateId(),
@@ -67,14 +72,13 @@ router.post('/', (req: Request, res: Response): void => {
     description,
     patientName,
     severity,
-    patrolId: patrolId || undefined,
+    patrolId,
     attachments: processedAttachments,
   }
   data.rescueRecords.push(record)
   writeData(data)
 
-  const patrol = data.patrols.find((p) => p.id === patrolId)
-  res.json({ success: true, data: { ...record, patrolName: patrol?.name } })
+  res.json({ success: true, data: { ...record, patrolName: patrol.name } })
 })
 
 router.patch('/:id/attachments', (req: Request, res: Response): void => {

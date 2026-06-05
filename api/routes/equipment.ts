@@ -30,7 +30,7 @@ router.get('/', (req: Request, res: Response): void => {
 })
 
 router.post('/rent', (req: Request, res: Response): void => {
-  const { equipmentId, studentId } = req.body
+  const { equipmentId, studentId, courseId } = req.body
   if (!equipmentId || !studentId) {
     res.status(400).json({ success: false, error: 'equipmentId and studentId are required' })
     return
@@ -53,11 +53,20 @@ router.post('/rent', (req: Request, res: Response): void => {
     return
   }
 
+  if (courseId) {
+    const course = data.courses.find((c) => c.id === courseId)
+    if (!course) {
+      res.status(404).json({ success: false, error: 'Course not found' })
+      return
+    }
+  }
+
   equipment.status = 'rented'
   const rental = {
     id: generateId(),
     equipmentId,
     studentId,
+    courseId: courseId || undefined,
     rentedAt: new Date().toISOString(),
     status: 'active' as const,
   }
@@ -117,11 +126,14 @@ router.get('/rentals', (req: Request, res: Response): void => {
   const joined = result.map((r) => {
     const student = data.students.find((s) => s.id === r.studentId)
     const equipment = data.equipment.find((e) => e.id === r.equipmentId)
+    const course = r.courseId ? data.courses.find((c) => c.id === r.courseId) : undefined
+    const coach = course ? data.coaches.find((ch) => ch.id === course.coachId) : undefined
     return {
       ...r,
       studentName: student?.name,
       equipmentCode: equipment?.code,
       equipmentName: equipment?.name,
+      courseName: course ? `${coach?.name || ''} ${course.date} ${course.startTime}-${course.endTime}` : undefined,
       status: r.abnormal ? 'abnormal' : r.status,
     }
   })

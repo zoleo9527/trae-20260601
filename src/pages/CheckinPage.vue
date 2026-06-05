@@ -27,6 +27,9 @@ interface StudentCheckin {
   courseName?: string
   checkinAt?: string
   status: 'pending' | 'checked_in' | 'no_show'
+  equipmentCode?: string
+  equipmentName?: string
+  rentalAbnormal?: { type: string; note?: string; actualReturner?: string }
 }
 
 interface Gap {
@@ -51,7 +54,7 @@ const historyCourseId = ref('')
 const historyStudentId = ref('')
 
 const availableCourses = computed(() =>
-  courses.value.filter(c => c.status === 'pending' || c.status === 'in_progress')
+  courses.value.filter(c => c.status === 'in_progress')
 )
 
 function showToast(msg: string) {
@@ -130,12 +133,20 @@ function toggleAll() {
 async function batchCheckin() {
   if (!selectedCourseId.value || selectedStudentIds.value.length === 0) return
   try {
-    await post('/checkin', {
+    const res = await post<{ success: boolean; data: { checkedIn: any[]; blocked: { studentId: string; reason: string }[] } }>('/checkin', {
       courseId: selectedCourseId.value,
       studentIds: selectedStudentIds.value,
     })
     selectedStudentIds.value = []
-    showToast('签到成功')
+    const blocked = res.data?.blocked || []
+    const checkedIn = res.data?.checkedIn || []
+    if (blocked.length > 0 && checkedIn.length === 0) {
+      showToast(`签到被阻断：${blocked.map(b => b.reason).join('；')}`)
+    } else if (blocked.length > 0) {
+      showToast(`${checkedIn.length}人签到成功，${blocked.length}人被阻断：${blocked.map(b => b.reason).join('；')}`)
+    } else {
+      showToast('签到成功')
+    }
     await fetchStudents()
   } catch (e: any) {
     showToast(e.message || '签到失败')
@@ -188,6 +199,9 @@ onMounted(async () => {
             {{ c.coachName }} - {{ c.date }} {{ c.startTime }}
           </option>
         </select>
+        <p v-if="availableCourses.length === 0" class="text-xs text-amber-600 mt-1">
+          当前无可签到课程，教练确认开课后课程才会进入可签到状态
+        </p>
       </div>
 
       <div v-if="selectedCourseId" class="card overflow-hidden">
@@ -259,10 +273,20 @@ onMounted(async () => {
           </thead>
           <tbody>
             <tr v-for="r in historyRecords" :key="r.id" class="border-b border-slate-100 hover:bg-slate-50">
-              <td class="px-4 py-3">{{ r.studentName }}</td>
+              <td class="px-4 py-3">
+                {{ r.studentName }}
+                <div v-if="r.equipmentName" class="text-xs text-slate-400 mt-0.5">
+                  {{ r.equipmentCode }} {{ r.equipmentName }}
+                </div>
+              </td>
               <td class="px-4 py-3">{{ r.courseName || r.courseId }}</td>
               <td class="px-4 py-3">{{ r.checkinAt ? new Date(r.checkinAt).toLocaleString('zh-CN') : '-' }}</td>
-              <td class="px-4 py-3"><StatusBadge :status="r.status" type="checkin" /></td>
+              <td class="px-4 py-3">
+                <StatusBadge :status="r.status" type="checkin" />
+                <span v-if="r.rentalAbnormal" class="ml-1 inline-flex items-center gap-0.5 text-xs text-orange-600">
+                  <AlertTriangle class="w-3 h-3" />{{ r.rentalAbnormal.type === 'wrong_person' ? '错拿' : '损坏' }}
+                </span>
+              </td>
             </tr>
             <tr v-if="historyRecords.length === 0">
               <td colspan="4" class="px-4 py-8 text-center text-slate-400">暂无记录</td>

@@ -50,32 +50,53 @@ router.post('/', (req: Request, res: Response): void => {
     return
   }
 
+  if (course.status !== 'in_progress') {
+    res.status(400).json({ success: false, error: `课程当前状态为「${course.status}」，只有「可签到」状态的课程才能签到` })
+    return
+  }
+
   const now = new Date().toISOString()
   const updated: typeof data.checkinRecords = []
+  const blocked: { studentId: string; reason: string }[] = []
 
   for (const studentId of studentIds) {
     const existing = data.checkinRecords.find(
       (r) => r.courseId === courseId && r.studentId === studentId
     )
-    if (existing) {
-      existing.status = 'checked_in'
-      existing.checkedInAt = now
-      updated.push(existing)
-    } else {
-      const record = {
-        id: generateId(),
-        courseId,
-        studentId,
-        status: 'checked_in' as const,
-        checkedInAt: now,
-      }
-      data.checkinRecords.push(record)
-      updated.push(record)
+
+    if (!existing) {
+      blocked.push({ studentId, reason: '该学员未报名此课程' })
+      continue
     }
+
+    if (existing.status === 'checked_in') {
+      continue
+    }
+
+    if (existing.status === 'no_show') {
+      blocked.push({ studentId, reason: '该学员已被标记爽约' })
+      continue
+    }
+
+    const hasRental = data.rentalRecords.some(
+      (r) => r.studentId === studentId && r.status === 'active'
+    )
+    if (!hasRental) {
+      const student = data.students.find((s) => s.id === studentId)
+      blocked.push({ studentId, reason: `${student?.name || '该学员'}尚未租赁雪具` })
+      continue
+    }
+
+    existing.status = 'checked_in'
+    existing.checkedInAt = now
+    updated.push(existing)
   }
 
-  writeData(data)
-  res.json({ success: true, data: updated })
+  if (updated.length > 0) {
+    writeData(data)
+  }
+
+  res.json({ success: true, data: { checkedIn: updated, blocked } })
 })
 
 router.get('/history', (req: Request, res: Response): void => {
@@ -98,6 +119,10 @@ router.get('/history', (req: Request, res: Response): void => {
     const student = data.students.find((s) => s.id === r.studentId)
     const course = data.courses.find((c) => c.id === r.courseId)
     const coach = course ? data.coaches.find((ch) => ch.id === course.coachId) : undefined
+    const activeRental = data.rentalRecords.find(
+      (rr) => rr.studentId === r.studentId && (rr.status === 'active' || rr.status === 'returned')
+    )
+    const rentalEquipment = activeRental ? data.equipment.find((e) => e.id === activeRental.equipmentId) : undefined
     return {
       id: r.id,
       studentId: r.studentId,
@@ -108,6 +133,9 @@ router.get('/history', (req: Request, res: Response): void => {
         : r.courseId,
       status: r.status,
       checkinAt: r.checkedInAt,
+      equipmentCode: rentalEquipment?.code,
+      equipmentName: rentalEquipment?.name,
+      rentalAbnormal: activeRental?.abnormal,
     }
   })
 
