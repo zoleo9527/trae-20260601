@@ -89,6 +89,13 @@ class OrderSummary(BaseModel):
     highest_anomaly_severity: Optional[AnomalySeverity] = None
 
 
+class OrderDashboardStats(BaseModel):
+    pending_inspection: int
+    pending_delivery: int
+    open_anomalies: int
+    recent_inspection_failed: int
+
+
 class OrderRead(OrderSummary):
     id: int
     order_no: str

@@ -12,7 +12,7 @@ from app.models import (
 )
 from app.schemas import (
     OrderCreate, OrderRead, OrderReadDetail, OrderStatusUpdate,
-    OrderItemReadWithMaterial,
+    OrderItemReadWithMaterial, OrderDashboardStats,
 )
 from app.auth import get_current_user, florist_or_admin, delivery_or_admin
 from app.errors import ErrorCode, ERROR_MESSAGES
@@ -153,6 +153,8 @@ def create_order(body: OrderCreate, db: Session = Depends(get_db), current_user=
 def list_orders(
     status: Optional[OrderStatus] = Query(None),
     view: Optional[str] = Query(None),
+    latest_inspection_result: Optional[InspectionResult] = Query(None),
+    highest_anomaly_severity: Optional[AnomalySeverity] = Query(None),
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
@@ -185,7 +187,44 @@ def list_orders(
         q = q.filter(Order.id.in_(open_anomaly_order_ids))
 
     orders = q.order_by(Order.id.desc()).all()
-    return [_enrich_order_response(o) for o in orders]
+    results = [_enrich_order_response(o) for o in orders]
+
+    if latest_inspection_result is not None:
+        results = [r for r in results if r.get("latest_inspection_result") == latest_inspection_result.value]
+
+    if highest_anomaly_severity is not None:
+        results = [r for r in results if r.get("highest_anomaly_severity") == highest_anomaly_severity.value]
+
+    return results
+
+
+@router.get("/dashboard", response_model=OrderDashboardStats)
+def order_dashboard(db: Session = Depends(get_db), current_user=Depends(get_current_user)):
+    pending_inspection = db.query(Order).filter(Order.status == OrderStatus.INSPECTING).count()
+    pending_delivery = db.query(Order).filter(Order.status == OrderStatus.PASSED).count()
+    open_anomaly_order_ids = (
+        db.query(AnomalyRecord.order_id)
+        .filter(AnomalyRecord.status.in_([AnomalyStatus.OPEN, AnomalyStatus.ACKNOWLEDGED]))
+        .distinct()
+        .subquery()
+    )
+    open_anomalies = db.query(Order).filter(Order.id.in_(open_anomaly_order_ids)).count()
+
+    inspected_order_ids = db.query(QualityInspection.order_id).distinct().subquery()
+    recent_inspection_failed = 0
+    inspected_orders = db.query(Order).filter(Order.id.in_(inspected_order_ids)).all()
+    for order in inspected_orders:
+        if order.inspections:
+            latest = sorted(order.inspections, key=lambda i: i.inspected_at, reverse=True)[0]
+            if latest.overall_result == InspectionResult.FAIL:
+                recent_inspection_failed += 1
+
+    return OrderDashboardStats(
+        pending_inspection=pending_inspection,
+        pending_delivery=pending_delivery,
+        open_anomalies=open_anomalies,
+        recent_inspection_failed=recent_inspection_failed,
+    )
 
 
 @router.get("/{order_id}", response_model=OrderReadDetail)
