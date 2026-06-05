@@ -71,7 +71,9 @@ function ScheduleModal({ scheduleId, currentRole, currentUser, onClose, onUpdate
 
   if (loading || !schedule) return null;
 
-  const canReview = currentRole === 'manager' || currentRole === 'frontdesk';
+  const canSubmit = currentRole === "frontdesk" || currentRole === "manager";
+  const canReview = currentRole === "manager";
+  const canCheckIn = currentRole === "belayer" || currentRole === "manager";
   const canCheckIn = currentRole === 'belayer' || currentRole === 'manager';
 
   return (
@@ -133,7 +135,7 @@ function ScheduleModal({ scheduleId, currentRole, currentUser, onClose, onUpdate
         <div className="modal-footer">
           <button className="btn btn-secondary" onClick={onClose}>关闭</button>
           
-          {schedule.status === 'draft' && canReview && (
+          {schedule.status === 'draft' && canSubmit && (
             <button className="btn btn-primary" onClick={() => handleStatusChange('pending_review')}>
               提交审核
             </button>
@@ -171,7 +173,7 @@ function ScheduleModal({ scheduleId, currentRole, currentUser, onClose, onUpdate
             </button>
           )}
 
-          {schedule.status === 'rejected' && canReview && (
+          {schedule.status === 'rejected' && canSubmit && (
             <button className="btn btn-primary" onClick={() => handleStatusChange('pending_review')}>
               重新提交
             </button>

@@ -170,11 +170,51 @@ app.get('/api/dashboard/today', (req, res) => {
     }
     
     db.all(`
-      SELECT ra.*, u.name as reporter_name
-      FROM risk_alerts ra
-      LEFT JOIN users u ON ra.reported_by = u.id
-      WHERE ra.status IN ('open', 'processing')
-      ORDER BY CASE ra.severity WHEN 'high' THEN 1 WHEN 'medium' THEN 2 ELSE 3 END
+      SELECT ra.*, u.name as reporter_name, o.name as owner_name, 
+             s.date as sched_date, s.shift as sched_shift, su.name as sched_staff_name 
+      FROM risk_alerts ra 
+      LEFT JOIN users u ON ra.reported_by = u.id 
+      LEFT JOIN users o ON ra.current_owner = o.id 
+      LEFT JOIN staff_schedules s ON ra.source_schedule_id = s.id 
+      LEFT JOIN users su ON s.staff_id = su.id 
+      WHERE ra.status IN ("open", "processing") 
+      ORDER BY CASE ra.severity WHEN "high" THEN 1 WHEN "medium" THEN 2 ELSE 3 END
+      SELECT ra.*, u.name as reporter_name, o.name as owner_name, 
+             s.date as sched_date, s.shift as sched_shift, su.name as sched_staff_name 
+      FROM risk_alerts ra 
+      LEFT JOIN users u ON ra.reported_by = u.id 
+      LEFT JOIN users o ON ra.current_owner = o.id 
+      LEFT JOIN staff_schedules s ON ra.source_schedule_id = s.id 
+      LEFT JOIN users su ON s.staff_id = su.id 
+      WHERE ra.status IN ("open", "processing") 
+      ORDER BY CASE ra.severity WHEN "high" THEN 1 WHEN "medium" THEN 2 ELSE 3 END
+      SELECT ra.*, u.name as reporter_name, o.name as owner_name, 
+             s.date as sched_date, s.shift as sched_shift, su.name as sched_staff_name 
+      FROM risk_alerts ra 
+      LEFT JOIN users u ON ra.reported_by = u.id 
+      LEFT JOIN users o ON ra.current_owner = o.id 
+      LEFT JOIN staff_schedules s ON ra.source_schedule_id = s.id 
+      LEFT JOIN users su ON s.staff_id = su.id 
+      WHERE ra.status IN ("open", "processing") 
+      ORDER BY CASE ra.severity WHEN "high" THEN 1 WHEN "medium" THEN 2 ELSE 3 END
+      SELECT ra.*, u.name as reporter_name, o.name as owner_name, 
+             s.date as sched_date, s.shift as sched_shift, su.name as sched_staff_name 
+      FROM risk_alerts ra 
+      LEFT JOIN users u ON ra.reported_by = u.id 
+      LEFT JOIN users o ON ra.current_owner = o.id 
+      LEFT JOIN staff_schedules s ON ra.source_schedule_id = s.id 
+      LEFT JOIN users su ON s.staff_id = su.id 
+      WHERE ra.status IN ("open", "processing") 
+      ORDER BY CASE ra.severity WHEN "high" THEN 1 WHEN "medium" THEN 2 ELSE 3 END
+      SELECT ra.*, u.name as reporter_name, o.name as owner_name, 
+             s.date as sched_date, s.shift as sched_shift, su.name as sched_staff_name 
+      FROM risk_alerts ra 
+      LEFT JOIN users u ON ra.reported_by = u.id 
+      LEFT JOIN users o ON ra.current_owner = o.id 
+      LEFT JOIN staff_schedules s ON ra.source_schedule_id = s.id 
+      LEFT JOIN users su ON s.staff_id = su.id 
+      WHERE ra.status IN ("open", "processing") 
+      ORDER BY CASE ra.severity WHEN "high" THEN 1 WHEN "medium" THEN 2 ELSE 3 END
     `, (err, rows) => {
       if (rows && rows.length > 0) {
         result.tasks.push({
@@ -254,6 +294,12 @@ app.post('/api/schedules', (req, res) => {
 
 app.put('/api/schedules/:id/status', (req, res) => {
   const { id } = req.params;
+  const role = req.headers["x-role"] || "manager";
+  const PERM = { frontdesk: ["draft", "pending_review"], manager: ["scheduled", "rejected"], belayer: ["checked_in", "completed"], routesetter: [] };
+  if (!PERM[role] || !PERM[role].includes(status)) {
+    return res.status(403).json({ error: "无权限：" + role + " 不能执行 " + status });
+  }
+
   const { status, reviewed_by, review_notes, check_in_time, check_out_time } = req.body;
   
   let sql = "UPDATE staff_schedules SET status = ?";
@@ -274,7 +320,7 @@ app.put('/api/schedules/:id/status', (req, res) => {
       if (err) return res.status(500).json({ error: err.message });
       if (row) {
         const rf = {};
-        if (status === 'scheduled' || status === 'checked_in') {
+        if (status === 'pending_review') { rf.current_owner = null; rf.owner_role = 'manager'; } else if (status === 'scheduled' || status === 'checked_in') {
           rf.current_owner = row.staff_id;
           rf.owner_role = row.role;
         } else if (status === 'rejected') {
