@@ -8,6 +8,7 @@ class ErrorCode(IntEnum):
     DUPLICATE = 1003
     STATE_TRANSITION_INVALID = 2001
     PERMISSION_DENIED = 2002
+    STATUS_ROLE_DENIED = 2003
     SUBSTITUTION_REASON_REQUIRED = 3001
     DELIVERY_TIMEOUT = 3002
     CARD_TEXT_MISMATCH = 3003
@@ -23,6 +24,7 @@ ERROR_MESSAGES = {
     ErrorCode.DUPLICATE: "资源已存在",
     ErrorCode.STATE_TRANSITION_INVALID: "订单状态流转不合法",
     ErrorCode.PERMISSION_DENIED: "无操作权限",
+    ErrorCode.STATUS_ROLE_DENIED: "当前角色无权变更此订单状态",
     ErrorCode.SUBSTITUTION_REASON_REQUIRED: "花材替换必须填写替换原因",
     ErrorCode.DELIVERY_TIMEOUT: "配送已超时",
     ErrorCode.CARD_TEXT_MISMATCH: "贺卡内容与订单不符",

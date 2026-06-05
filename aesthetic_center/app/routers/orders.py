@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from app.database import get_db
 from app.models import (
-    Order, OrderItem, OrderStatus, FlowerMaterial,
+    Order, OrderItem, OrderStatus, FlowerMaterial, UserRole,
     AnomalyRecord, AnomalyType, AnomalySeverity, AnomalyStatus,
     VALID_TRANSITIONS,
 )
@@ -18,6 +18,20 @@ from app.auth import get_current_user, florist_or_admin, delivery_or_admin
 from app.errors import ErrorCode, ERROR_MESSAGES
 
 router = APIRouter(prefix="/orders", tags=["订单制作"])
+
+ROLE_STATUS_TRANSITIONS = {
+    UserRole.FLORIST: {
+        OrderStatus.PENDING: {OrderStatus.IN_PRODUCTION},
+        OrderStatus.IN_PRODUCTION: {OrderStatus.PRODUCED},
+        OrderStatus.PRODUCED: {OrderStatus.INSPECTING},
+        OrderStatus.REWORK: {OrderStatus.IN_PRODUCTION},
+    },
+    UserRole.DELIVERY: {
+        OrderStatus.PASSED: {OrderStatus.DELIVERING},
+        OrderStatus.DELIVERING: {OrderStatus.DELIVERED},
+    },
+    UserRole.INSPECTOR: {},
+}
 
 
 def _generate_order_no(db: Session) -> str:
@@ -152,6 +166,18 @@ def update_order_status(order_id: int, body: OrderStatusUpdate, db: Session = De
                 "message": f"{ERROR_MESSAGES[ErrorCode.STATE_TRANSITION_INVALID]}: {order.status.value} -> {new_status.value}",
             },
         )
+
+    if current_user.role != UserRole.ADMIN:
+        role_transitions = ROLE_STATUS_TRANSITIONS.get(current_user.role, {})
+        allowed_targets = role_transitions.get(order.status, set())
+        if new_status not in allowed_targets:
+            raise HTTPException(
+                status_code=403,
+                detail={
+                    "code": ErrorCode.STATUS_ROLE_DENIED,
+                    "message": f"{ERROR_MESSAGES[ErrorCode.STATUS_ROLE_DENIED]}: {current_user.role.value} 不可将订单从 {order.status.value} 变更为 {new_status.value}",
+                },
+            )
 
     order.status = new_status
     order.updated_at = datetime.utcnow()

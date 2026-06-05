@@ -19,7 +19,7 @@ def create_inspection(body: QualityInspectionCreate, db: Session = Depends(get_d
     if not order:
         raise HTTPException(status_code=404, detail={"code": ErrorCode.NOT_FOUND, "message": "订单不存在"})
 
-    if order.status not in (OrderStatus.INSPECTING, OrderStatus.PRODUCED):
+    if order.status != OrderStatus.INSPECTING:
         raise HTTPException(
             status_code=409,
             detail={"code": ErrorCode.INSPECTION_NOT_ALLOWED, "message": ERROR_MESSAGES[ErrorCode.INSPECTION_NOT_ALLOWED]},
