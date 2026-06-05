@@ -1,0 +1,117 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model RentalOrder {
+  id            String   @id @default(uuid())
+  orderNo       String   @unique
+  guestName     String
+  guestPhone    String
+  idCardNo      String   @default("")
+  equipmentType String
+  equipmentCode String
+  size          String   @default("")
+  depositAmount Float
+  depositStatus String   @default("pending")
+  status        String   @default("rented")
+  operatorName  String
+  notes         String   @default("")
+  returnedAt    DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  coachSchedules     CoachSchedule[]
+  rescueRecords      RescueRecord[]
+  depositVerifications DepositVerification[]
+  auditLogs          AuditLog[]
+}
+
+model CoachSchedule {
+  id           String   @id @default(uuid())
+  coachName    String
+  guestName    String
+  guestPhone   String
+  scheduleDate String
+  timeSlot     String
+  courseType   String
+  status       String   @default("scheduled")
+  rentalOrderId String?
+  rentalOrder  RentalOrder? @relation(fields: [rentalOrderId], references: [id])
+  operatorName String
+  notes        String   @default("")
+  completedAt  DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  rescueRecords      RescueRecord[]
+  auditLogs          AuditLog[]
+}
+
+model RescueRecord {
+  id              String   @id @default(uuid())
+  guestName       String
+  guestPhone      String
+  incidentType    String
+  incidentTime    DateTime
+  location        String
+  description     String
+  severity        String   @default("minor")
+  status          String   @default("reported")
+  rentalOrderId   String?
+  rentalOrder     RentalOrder? @relation(fields: [rentalOrderId], references: [id])
+  coachScheduleId String?
+  coachSchedule   CoachSchedule? @relation(fields: [coachScheduleId], references: [id])
+  operatorName    String
+  evidenceNotes   String   @default("")
+  resolvedAt      DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  auditLogs AuditLog[]
+}
+
+model DepositVerification {
+  id             String   @id @default(uuid())
+  rentalOrderId  String
+  rentalOrder    RentalOrder @relation(fields: [rentalOrderId], references: [id])
+  verificationType String  @default("return_check")
+  depositAmount  Float
+  actualRefund   Float?
+  damageDeducted Float   @default(0)
+  damageNotes    String   @default("")
+  status         String   @default("pending")
+  verifierName   String
+  evidencePhotos String   @default("")
+  notes          String   @default("")
+  verifiedAt     DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  auditLogs AuditLog[]
+}
+
+model AuditLog {
+  id          String   @id @default(uuid())
+  entityType  String
+  entityId    String
+  action      String
+  fromStatus  String   @default("")
+  toStatus    String
+  operatorName String
+  notes       String   @default("")
+  createdAt   DateTime @default(now())
+
+  rentalOrderId    String?
+  rentalOrder      RentalOrder? @relation(fields: [rentalOrderId], references: [id])
+  coachScheduleId  String?
+  coachSchedule    CoachSchedule? @relation(fields: [coachScheduleId], references: [id])
+  rescueRecordId   String?
+  rescueRecord     RescueRecord? @relation(fields: [rescueRecordId], references: [id])
+  depositVerificationId String?
+  depositVerification DepositVerification? @relation(fields: [depositVerificationId], references: [id])
+}
