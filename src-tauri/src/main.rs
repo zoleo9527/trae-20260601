@@ -92,6 +92,15 @@ fn get_member_by_card_no(
 }
 
 #[tauri::command]
+fn get_member_by_id(
+    member_id: i64,
+    state: State<AppState>,
+) -> Result<Option<MemberCard>, String> {
+    let db = state.db.lock().map_err(|e| e.to_string())?;
+    db.get_member_by_id(member_id).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 fn get_todos(role: String, state: State<AppState>) -> Result<TodoList, String> {
     let db = state.db.lock().map_err(|e| e.to_string())?;
     db.get_todos(role).map_err(|e| e.to_string())
@@ -136,6 +145,7 @@ fn main() {
             review_booking,
             verify_member,
             get_member_by_card_no,
+            get_member_by_id,
             get_todos,
             get_courts,
             get_coaches,

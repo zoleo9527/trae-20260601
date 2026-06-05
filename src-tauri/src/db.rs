@@ -430,17 +430,30 @@ impl Database {
     pub fn verify_member(&self, booking_id: i64, card_no: &str, amount: f64, operator: String) -> Result<BookingRecord> {
         let tx = self.conn.transaction()?;
 
-        let member = tx.query_row(
+        let member_result = tx.query_row(
             "SELECT id, balance FROM member_cards WHERE card_no = ?1",
             params![card_no],
             |row| {
                 Ok((row.get::<_, i64>(0)?, row.get::<_, f64>(1)?))
             },
-        ).map_err(|_| "会员卡不存在")?;
+        );
 
-        let (_member_id, balance_before) = member;
+        let (_member_id, balance_before) = match member_result {
+            Ok(m) => m,
+            Err(rusqlite::Error::QueryReturnedNoRows) => {
+                return Err(rusqlite::Error::from(std::io::Error::new(
+                    std::io::ErrorKind::NotFound,
+                    "会员卡不存在，请检查卡号",
+                )));
+            }
+            Err(e) => return Err(e),
+        };
+
         if balance_before < amount {
-            return Err(rusqlite::Error::InvalidParameterName("余额不足".to_string()));
+            return Err(rusqlite::Error::from(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                format!("余额不足，当前余额: ¥{:.2}，核销金额: ¥{:.2}", balance_before, amount),
+            )));
         }
         let balance_after = balance_before - amount;
 

@@ -53,6 +53,25 @@ export const useStore = () => {
     state.members = await api.getMembers();
   };
 
+  const refreshMemberBalance = async (memberId?: number, cardNo?: string): Promise<MemberCard | undefined> => {
+    let member: MemberCard | null = null;
+    if (cardNo) {
+      member = await api.getMemberByCardNo(cardNo);
+    } else if (memberId) {
+      member = await api.getMemberById(memberId);
+    }
+    if (member) {
+      const idx = state.members.findIndex(m => m.id === member!.id);
+      if (idx >= 0) {
+        state.members[idx] = member;
+      } else {
+        state.members.push(member);
+      }
+      return member;
+    }
+    return undefined;
+  };
+
   const getMemberById = (memberId: number): MemberCard | undefined => {
     return state.members.find(m => m.id === memberId);
   };
@@ -113,6 +132,7 @@ export const useStore = () => {
     setRole,
     loadBaseData,
     loadMembers,
+    refreshMemberBalance,
     getMemberById,
     getMemberByCardNo,
     loadTodos,

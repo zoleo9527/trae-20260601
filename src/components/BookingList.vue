@@ -19,6 +19,22 @@ const role = computed(() => store.state.currentRole);
 
 const showCreateModal = ref(false);
 
+const openCreateModal = async () => {
+  Object.assign(newBooking, {
+    court_id: 0,
+    coach_id: undefined,
+    member_id: undefined,
+    booker_name: '',
+    booker_phone: '',
+    booking_date: new Date().toISOString().split('T')[0],
+    start_time: '09:00',
+    end_time: '10:00',
+    remark: '',
+  });
+  await store.loadMembers();
+  showCreateModal.value = true;
+};
+
 const filter = reactive<BookingFilter>({
   status: '',
   date_from: '',
@@ -101,7 +117,7 @@ onMounted(() => {
     <div class="card">
       <div class="card-header">
         <h3>场地预约列表</h3>
-        <button v-if="role === 'reception'" class="btn btn-primary" @click="showCreateModal = true">
+        <button v-if="role === 'reception'" class="btn btn-primary" @click="openCreateModal()">
           + 新建预约
         </button>
       </div>

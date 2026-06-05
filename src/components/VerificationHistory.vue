@@ -12,12 +12,24 @@ const store = useStore();
 const history = computed(() => store.verificationHistory.value);
 const loading = computed(() => store.historyLoading.value);
 
-const getMemberByCardNo = (cardNo: string) => {
-  return store.getMemberByCardNo(cardNo);
+const getMemberForHistory = (booking: any) => {
+  if (booking.verify_card_no) {
+    const m = store.getMemberByCardNo(booking.verify_card_no);
+    if (m) return m;
+  }
+  if (booking.member_id) {
+    const m = store.getMemberById(booking.member_id);
+    if (m) return m;
+  }
+  if (booking.member_card_no) {
+    return store.getMemberByCardNo(booking.member_card_no);
+  }
+  return undefined;
 };
 
-onMounted(() => {
-  store.loadVerificationHistory();
+onMounted(async () => {
+  await store.loadMembers();
+  await store.loadVerificationHistory();
 });
 </script>
 
@@ -26,7 +38,7 @@ onMounted(() => {
     <div class="card">
       <div class="card-header">
         <h3>会员核销回看</h3>
-        <button class="btn btn-secondary" @click="store.loadVerificationHistory()">🔄 刷新</button>
+        <button class="btn btn-secondary" @click="async () => { await store.loadMembers(); store.loadVerificationHistory(); }">🔄 刷新</button>
       </div>
       <div class="card-body">
         <div class="table-container" style="overflow-x: auto;">
@@ -57,8 +69,8 @@ onMounted(() => {
                 <td style="color:#ef4444;font-weight:600;">-¥{{ b.verify_amount?.toFixed(2) }}</td>
                 <td style="color:#10b981;font-weight:600;">¥{{ b.verify_balance_after?.toFixed(2) }}</td>
                 <td>
-                  <span v-if="getMemberByCardNo(b.verify_card_no)" style="color:#059669;font-weight:600;">
-                    ¥{{ getMemberByCardNo(b.verify_card_no).balance.toFixed(2) }}
+                  <span v-if="getMemberForHistory(b)" style="color:#059669;font-weight:600;">
+                    ¥{{ getMemberForHistory(b).balance.toFixed(2) }}
                   </span>
                   <span v-else style="color:#9ca3af;">-</span>
                 </td>

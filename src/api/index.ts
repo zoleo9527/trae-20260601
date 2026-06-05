@@ -35,6 +35,9 @@ export const api = {
   getMemberByCardNo: (cardNo: string): Promise<MemberCard | null> =>
     invoke('get_member_by_card_no', { cardNo }),
 
+  getMemberById: (memberId: number): Promise<MemberCard | null> =>
+    invoke('get_member_by_id', { memberId }),
+
   getTodos: (role: string): Promise<TodoList> =>
     invoke('get_todos', { role }),
 

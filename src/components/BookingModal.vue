@@ -52,14 +52,53 @@ const role = computed(() => store.state.currentRole);
 
 const bookingMember = computed(() => {
   if (!booking.value) return undefined;
+  if (booking.value.verify_card_no) {
+    const m = store.getMemberByCardNo(booking.value.verify_card_no);
+    if (m) return m;
+  }
   if (booking.value.member_id) {
-    return store.getMemberById(booking.value.member_id);
+    const m = store.getMemberById(booking.value.member_id);
+    if (m) return m;
   }
   if (booking.value.member_card_no) {
     return store.getMemberByCardNo(booking.value.member_card_no);
   }
   return undefined;
 });
+
+const refreshBookingMember = async () => {
+  if (!booking.value) return;
+  if (booking.value.verify_card_no) {
+    await store.refreshMemberBalance(undefined, booking.value.verify_card_no);
+  } else if (booking.value.member_id) {
+    await store.refreshMemberBalance(booking.value.member_id);
+  } else if (booking.value.member_card_no) {
+    await store.refreshMemberBalance(undefined, booking.value.member_card_no);
+  }
+};
+
+const openVerifyModal = async () => {
+  Object.assign(verifyForm, { member_id: 0, card_no: '', amount: 0 });
+  if (booking.value) {
+    if (booking.value.member_id) {
+      await store.refreshMemberBalance(booking.value.member_id);
+    } else if (booking.value.member_card_no) {
+      await store.refreshMemberBalance(undefined, booking.value.member_card_no);
+    }
+    if (booking.value.member_id) {
+      selectMemberForVerify(booking.value.member_id);
+    }
+  }
+  showVerifyModal.value = true;
+};
+
+const openSupplementModal = async () => {
+  Object.assign(supplementForm, { supplement_note: '', member_id: undefined, coach_id: undefined });
+  if (booking.value?.member_id) {
+    await store.refreshMemberBalance(booking.value.member_id);
+  }
+  showSupplementModal.value = true;
+};
 
 const currentMemberForVerify = computed(() => {
   if (verifyForm.card_no) {
@@ -103,6 +142,7 @@ const loadBooking = async () => {
   loading.value = true;
   try {
     booking.value = await api.getBookingById(props.bookingId);
+    await refreshBookingMember();
   } finally {
     loading.value = false;
   }
@@ -408,13 +448,13 @@ onMounted(() => {
           <button v-if="canReturn" class="btn btn-danger" @click="showReturnModal = true">
             ↩️ 退回
           </button>
-          <button v-if="canSupplement" class="btn btn-warning" @click="showSupplementModal = true">
+          <button v-if="canSupplement" class="btn btn-warning" @click="openSupplementModal()">
             ✏️ 补录
           </button>
           <button v-if="canReview" class="btn btn-primary" @click="showReviewModal = true">
             ✅ 复核
           </button>
-          <button v-if="canVerify" class="btn btn-success" @click="showVerifyModal = true">
+          <button v-if="canVerify" class="btn btn-success" @click="openVerifyModal()">
             💳 会员核销
           </button>
           <button class="btn btn-secondary" @click="emit('close')">关闭</button>
