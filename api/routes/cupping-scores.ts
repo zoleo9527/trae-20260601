@@ -44,9 +44,11 @@ router.get('/:id', (req: Request, res: Response): void => {
   try {
     const { id } = req.params
     const score = db.prepare(`
-      SELECT cs.*, rc.bean_type, rc.roast_level, rc.status as curve_status
+      SELECT cs.*, rc.bean_type, rc.roast_level, rc.status as curve_status,
+             cv.version_number as curve_version_number
       FROM cupping_scores cs
       LEFT JOIN roast_curves rc ON cs.curve_id = rc.id
+      LEFT JOIN curve_versions cv ON cs.curve_version_id = cv.id
       WHERE cs.id = ?
     `).get(id) as any
 
@@ -60,7 +62,10 @@ router.get('/:id', (req: Request, res: Response): void => {
       : null
 
     const batch = db.prepare(
-      'SELECT * FROM inventory_batches WHERE batch_code = ?'
+      `SELECT ib.*, rc.bean_type as curve_bean_type
+       FROM inventory_batches ib
+       LEFT JOIN roast_curves rc ON ib.curve_id = rc.id
+       WHERE ib.batch_code = ?`
     ).get(score.batch_code)
 
     res.json({
@@ -75,13 +80,37 @@ router.get('/:id', (req: Request, res: Response): void => {
 router.post('/', (req: Request, res: Response): void => {
   try {
     const {
-      curve_id, curve_version_id, batch_code,
+      curve_id, batch_code,
       dry_aroma, wet_aroma, acidity, body, aftertaste, balance, overall,
       flavor_anomaly, anomaly_description, cupper_name, cupped_at,
     } = req.body
 
     if (!curve_id || !batch_code || !cupper_name || !cupped_at) {
       res.status(400).json({ success: false, error: '缺少必填字段' })
+      return
+    }
+
+    const curve = db.prepare('SELECT * FROM roast_curves WHERE id = ?').get(curve_id) as any
+    if (!curve) {
+      res.status(400).json({ success: false, error: '所选曲线不存在' })
+      return
+    }
+
+    const activeVersion = db.prepare(
+      'SELECT * FROM curve_versions WHERE curve_id = ? AND status = ?'
+    ).get(curve_id, 'active') as any
+    if (!activeVersion) {
+      res.status(400).json({ success: false, error: '该曲线尚未启用任何版本，请先启用一个版本' })
+      return
+    }
+
+    const batch = db.prepare('SELECT * FROM inventory_batches WHERE batch_code = ?').get(batch_code) as any
+    if (!batch) {
+      res.status(400).json({ success: false, error: '库存批次不存在' })
+      return
+    }
+    if (batch.curve_id !== curve_id) {
+      res.status(400).json({ success: false, error: '该库存批次不属于所选曲线' })
       return
     }
 
@@ -93,7 +122,7 @@ router.post('/', (req: Request, res: Response): void => {
         `INSERT INTO cupping_scores (curve_id, curve_version_id, batch_code, dry_aroma, wet_aroma, acidity, body, aftertaste, balance, overall, total_score, flavor_anomaly, anomaly_description, cupper_name, cupped_at)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
       ).run(
-        curve_id, curve_version_id ?? null, batch_code,
+        curve_id, activeVersion.id, batch_code,
         dry_aroma ?? null, wet_aroma ?? null, acidity ?? null,
         body ?? null, aftertaste ?? null, balance ?? null, overall ?? null,
         total_score, flavor_anomaly ? 1 : 0, anomaly_description ?? null,
@@ -102,7 +131,7 @@ router.post('/', (req: Request, res: Response): void => {
 
       const scoreId = Number(result.lastInsertRowid)
       logOperation('cupping_score', 'create', cupper_name, 'cupping_score', scoreId,
-        `录入杯测评分：${batch_code}${flavor_anomaly ? ' 异常' : ''}`
+        `录入杯测评分：${batch_code}${flavor_anomaly ? ' 异常' : ''} 绑定版本 v${activeVersion.version_number}`
       )
 
       return scoreId

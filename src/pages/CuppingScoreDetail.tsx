@@ -101,7 +101,7 @@ export default function CuppingScoreDetail() {
           <div className="grid grid-cols-4 gap-4 mb-4">
             <ParamItem label="豆种" value={score.relatedCurve!.beanType} />
             <ParamItem label="烘焙度" value={score.relatedCurve!.roastLevel} />
-            <ParamItem label="当前版本" value={`v${score.relatedCurve!.currentVersion}`} />
+            <ParamItem label="绑定版本" value={score.relatedCurve!.currentVersion > 0 ? `v${score.relatedCurve!.currentVersion}` : '未绑定'} />
             <ParamItem label="状态" value={score.relatedCurve!.status === 'active' ? '启用' : score.relatedCurve!.status === 'draft' ? '草稿' : '已弃用'} />
           </div>
           {score.curveVersion && (

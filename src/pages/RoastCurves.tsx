@@ -97,7 +97,16 @@ export default function RoastCurves() {
                   >
                     <td className="font-medium">{curve.beanType}</td>
                     <td>{curve.roastLevel}</td>
-                    <td>v{curve.currentVersion}</td>
+                    <td>
+                      {curve.activeVersion > 0 ? (
+                        <span className="font-medium text-roast-brown">v{curve.activeVersion}</span>
+                      ) : (
+                        <span className="text-gray-400">未启用</span>
+                      )}
+                      {curve.latestVersion > curve.activeVersion && (
+                        <span className="text-xs text-amber-600 ml-2">(最新 v{curve.latestVersion})</span>
+                      )}
+                    </td>
                     <td><span className={statusMap[curve.status]?.cls}>{statusMap[curve.status]?.label}</span></td>
                     <td>{curve.createdBy}</td>
                     <td className="text-gray-500 text-xs">{new Date(curve.updatedAt).toLocaleString('zh-CN')}</td>

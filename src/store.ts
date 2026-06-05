@@ -49,6 +49,8 @@ export interface RoastCurve {
   beanType: string;
   roastLevel: string;
   currentVersion: number;
+  activeVersion: number;
+  latestVersion: number;
   status: 'draft' | 'active' | 'deprecated';
   createdBy: string;
   updatedAt: string;
@@ -233,7 +235,9 @@ function mapCurveRow(row: any): RoastCurve {
     id: String(row.id),
     beanType: row.bean_type,
     roastLevel: row.roast_level,
-    currentVersion: row.current_version ?? row.latest_version ?? 1,
+    currentVersion: row.active_version ?? row.current_version ?? 0,
+    activeVersion: row.active_version ?? row.current_version ?? 0,
+    latestVersion: row.latest_version ?? row.current_version ?? 1,
     status: row.status,
     createdBy: row.created_by,
     updatedAt: row.updated_at,
@@ -496,7 +500,9 @@ export const useStore = create<AppState>((set, get) => ({
         id: String(raw.curve_id || ''),
         beanType: raw.bean_type || '',
         roastLevel: raw.roast_level || '',
-        currentVersion: raw.curve_version_id ? 1 : 0,
+        currentVersion: raw.curve_version_number ?? 0,
+        activeVersion: raw.curve_version_number ?? 0,
+        latestVersion: raw.curve_version_number ?? 0,
         status: raw.curve_status || 'draft',
         createdBy: '',
         updatedAt: '',

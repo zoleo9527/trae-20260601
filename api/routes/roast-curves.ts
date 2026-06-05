@@ -7,11 +7,17 @@ router.get('/', (req: Request, res: Response): void => {
   try {
     const { beanType, status, keyword } = req.query
     let sql = `
-      SELECT rc.*, cv.version_number as latest_version, cv.status as latest_version_status,
-             cv.charge_temp, cv.turn_point_temp, cv.turn_point_time,
-             cv.first_crack_temp, cv.first_crack_time, cv.development_time, cv.drop_temp
+      SELECT rc.*, 
+             cv_active.version_number as active_version,
+             cv_latest.version_number as latest_version,
+             cv_active.status as active_version_status,
+             cv_active.charge_temp, cv_active.turn_point_temp, cv_active.turn_point_time,
+             cv_active.first_crack_temp, cv_active.first_crack_time, cv_active.development_time, cv_active.drop_temp
       FROM roast_curves rc
-      LEFT JOIN curve_versions cv ON cv.id = (
+      LEFT JOIN curve_versions cv_active ON cv_active.id = (
+        SELECT id FROM curve_versions WHERE curve_id = rc.id AND status = 'active' LIMIT 1
+      )
+      LEFT JOIN curve_versions cv_latest ON cv_latest.id = (
         SELECT id FROM curve_versions WHERE curve_id = rc.id ORDER BY version_number DESC LIMIT 1
       )
       WHERE 1=1
@@ -81,7 +87,7 @@ router.post('/', (req: Request, res: Response): void => {
     const tx = db.transaction(() => {
       const curveResult = db.prepare(
         `INSERT INTO roast_curves (bean_type, roast_level, status, current_version, created_by)
-         VALUES (?, ?, 'draft', 1, ?)`
+         VALUES (?, ?, 'draft', 0, ?)`
       ).run(bean_type, roast_level, created_by)
 
       const curveId = Number(curveResult.lastInsertRowid)
@@ -135,15 +141,16 @@ router.put('/:id', (req: Request, res: Response): void => {
     }
 
     const tx = db.transaction(() => {
-      const newVersion = (curve.current_version as number) + 1
+      const maxVersion = db.prepare(
+        'SELECT MAX(version_number) as max_ver FROM curve_versions WHERE curve_id = ?'
+      ).get(Number(id)) as any
+      const newVersion = (maxVersion?.max_ver ?? 0) + 1
 
       db.prepare(
-        `UPDATE roast_curves SET bean_type = ?, roast_level = ?, status = ?, current_version = ?, updated_at = datetime('now') WHERE id = ?`
+        `UPDATE roast_curves SET bean_type = ?, roast_level = ?, updated_at = datetime('now') WHERE id = ?`
       ).run(
         bean_type ?? curve.bean_type,
         roast_level ?? curve.roast_level,
-        status ?? curve.status,
-        newVersion,
         id
       )
 

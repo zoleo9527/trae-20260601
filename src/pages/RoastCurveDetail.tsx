@@ -34,7 +34,7 @@ export default function RoastCurveDetail() {
   }
 
   const curve = selectedCurve;
-  const activeVersion = curve.versions?.find((v) => v.version === curve.currentVersion);
+  const activeVersion = curve.versions?.find((v) => v.status === 'active');
   const sortedVersions = [...(curve.versions || [])].sort((a, b) => b.version - a.version);
 
   const handleActivate = async (ver: number) => {
@@ -54,12 +54,18 @@ export default function RoastCurveDetail() {
       <div className="flex items-center gap-4 mb-6">
         <h1 className="text-2xl font-display font-bold text-roast-text">{curve.beanType} · {curve.roastLevel}</h1>
         <span className={statusMap[curve.status]?.cls}>{statusMap[curve.status]?.label}</span>
-        <span className="text-sm text-gray-400">v{curve.currentVersion}</span>
+        {activeVersion ? (
+          <span className="text-sm text-gray-400">当前启用 v{activeVersion.version}</span>
+        ) : (
+          <span className="text-sm text-amber-500">尚未启用任何版本</span>
+        )}
       </div>
 
       <div className="grid grid-cols-2 gap-5 mb-6">
         <div className="card">
-          <h3 className="text-sm font-semibold text-gray-500 mb-4">当前版本参数 (v{curve.currentVersion})</h3>
+          <h3 className="text-sm font-semibold text-gray-500 mb-4">
+            当前版本参数 {activeVersion ? `(v${activeVersion.version})` : '(暂无启用版本)'}
+          </h3>
           {activeVersion ? (
             <div className="grid grid-cols-2 gap-4">
               <ParamItem label="入豆温" value={`${activeVersion.chargeTemp}°C`} />
@@ -89,7 +95,7 @@ export default function RoastCurveDetail() {
               <div className="absolute left-2 top-1 bottom-1 w-0.5 bg-gray-200" />
               {sortedVersions.map((v) => (
                 <div key={v.version} className="relative pb-4 last:pb-0">
-                  <div className={`absolute -left-4 top-1 w-4 h-4 rounded-full border-2 ${v.version === curve.currentVersion ? 'bg-roast-orange border-roast-orange' : 'bg-white border-gray-300'}`} />
+                  <div className={`absolute -left-4 top-1 w-4 h-4 rounded-full border-2 ${v.status === 'active' ? 'bg-roast-orange border-roast-orange' : 'bg-white border-gray-300'}`} />
                   <div className="flex items-center justify-between">
                     <div>
                       <div className="flex items-center gap-2">
@@ -98,7 +104,7 @@ export default function RoastCurveDetail() {
                       </div>
                       <div className="text-xs text-gray-400 mt-0.5">{v.createdBy} · {new Date(v.createdAt).toLocaleDateString('zh-CN')}</div>
                     </div>
-                    {v.status === 'draft' && v.version !== curve.currentVersion && (
+                    {v.status === 'draft' && (
                       <button
                         className="flex items-center gap-1 text-xs text-roast-orange hover:text-roast-brown transition-colors"
                         onClick={() => handleActivate(v.version)}
@@ -197,7 +203,11 @@ function NewVersionModal({ curve, onClose, onCreated }: {
   onCreated: () => void;
 }) {
   const { newVersion } = useStore();
-  const lastVersion = curve.versions?.[curve.versions.length - 1] || {};
+  const versions = curve.versions || [];
+  const lastVersion = versions[versions.length - 1] || {};
+  const nextVersion = versions.length > 0
+    ? Math.max(...versions.map((v: any) => v.version)) + 1
+    : 1;
   const [chargeTemp, setChargeTemp] = useState(String(lastVersion.chargeTemp ?? 200));
   const [turnPointTemp, setTurnPointTemp] = useState(String(lastVersion.turningPoint ?? 100));
   const [turnPointTime, setTurnPointTime] = useState(String(lastVersion.turningPointTime ?? 1.5));
@@ -235,7 +245,7 @@ function NewVersionModal({ curve, onClose, onCreated }: {
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50" onClick={onClose}>
       <div className="bg-white rounded-xl shadow-xl w-[560px] max-h-[90vh] overflow-auto p-6" onClick={(e) => e.stopPropagation()}>
         <h2 className="text-lg font-display font-semibold text-roast-text mb-5">
-          新建版本 · {curve.beanType} · v{curve.currentVersion + 1}
+          新建版本 · {curve.beanType} · v{nextVersion}
         </h2>
         <form onSubmit={handleSubmit} className="space-y-4">
           <h3 className="text-sm font-medium text-gray-600">版本参数</h3>
