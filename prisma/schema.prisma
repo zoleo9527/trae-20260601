@@ -1,0 +1,179 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  DORM_MANAGER
+  COUNSELOR
+  MAINTENANCE
+}
+
+enum InspectionStatus {
+  PENDING_INSPECTION
+  INSPECTED
+  NEEDS_RECTIFICATION
+  RECTIFIED
+  RECTIFICATION_PASSED
+  RECTIFICATION_REJECTED
+  MAINTENANCE_ASSIGNED
+  MAINTENANCE_COMPLETED
+  PASSED
+  CLOSED
+}
+
+enum InspectionGrade {
+  EXCELLENT
+  GOOD
+  FAIR
+  POOR
+}
+
+enum TimelineEventType {
+  CREATED
+  INSPECTION_SUBMITTED
+  NEEDS_RECTIFICATION_NOTIFIED
+  RECTIFICATION_SUBMITTED
+  RECTIFICATION_APPROVED
+  RECTIFICATION_REJECTED
+  MAINTENANCE_ASSIGNED
+  MAINTENANCE_COMPLETED
+  PASSED
+  CLOSED
+  NOTE_ADDED
+}
+
+model User {
+  id           String     @id @default(uuid())
+  username     String     @unique
+  passwordHash String
+  name         String
+  role         UserRole
+  phone        String?
+  createdAt    DateTime   @default(now())
+  inspections  Inspection[] @relation("Inspector")
+  assignedMaintenance Inspection[] @relation("MaintenanceAssignee")
+  timelineEvents TimelineEvent[]
+}
+
+model Dorm {
+  id          String   @id @default(uuid())
+  building    String
+  roomNumber  String
+  floor       Int
+  capacity    Int
+  type        String   @default("standard")
+  students    Student[]
+  inspections Inspection[]
+  keyRecords  KeyRecord[]
+  createdAt   DateTime @default(now())
+  @@unique([building, roomNumber])
+}
+
+model Student {
+  id            String    @id @default(uuid())
+  studentId     String    @unique
+  name          String
+  gender        String
+  major         String
+  grade         String
+  phone         String?
+  dormId        String?
+  dorm          Dorm?     @relation(fields: [dormId], references: [id])
+  checkInDate   DateTime?
+  checkOutDate  DateTime?
+  lateReturns   LateReturnRecord[]
+  createdAt     DateTime  @default(now())
+}
+
+model KeyRecord {
+  id         String   @id @default(uuid())
+  dormId     String
+  dorm       Dorm     @relation(fields: [dormId], references: [id])
+  keyNumber  String
+  status     String   @default("in_stock")
+  borrower   String?
+  borrowedAt DateTime?
+  returnedAt DateTime?
+  remarks    String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model LateReturnRecord {
+  id         String   @id @default(uuid())
+  studentId  String
+  student    Student  @relation(fields: [studentId], references: [id])
+  date       DateTime
+  time       String
+  reason     String?
+  recordedBy String?
+  createdAt  DateTime @default(now())
+}
+
+model Inspection {
+  id                String            @id @default(uuid())
+  dormId            String
+  dorm              Dorm              @relation(fields: [dormId], references: [id])
+  inspectorId       String?
+  inspector         User?             @relation("Inspector", fields: [inspectorId], references: [id])
+  maintenanceId     String?
+  maintenanceAssignee User?           @relation("MaintenanceAssignee", fields: [maintenanceId], references: [id])
+  status            InspectionStatus  @default(PENDING_INSPECTION)
+  overallGrade      InspectionGrade?
+  inspectionDate    DateTime?
+  deadline          DateTime?
+  items             InspectionItem[]
+  rectifications    Rectification[]
+  timelineEvents    TimelineEvent[]
+  remarks           String?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+}
+
+model InspectionItem {
+  id             String   @id @default(uuid())
+  inspectionId   String
+  inspection     Inspection @relation(fields: [inspectionId], references: [id])
+  category       String
+  name           String
+  isPassed       Boolean?
+  score          Int?
+  issue          String?
+  needRepair     Boolean  @default(false)
+  createdAt      DateTime @default(now())
+}
+
+model Rectification {
+  id             String   @id @default(uuid())
+  inspectionId   String
+  inspection     Inspection @relation(fields: [inspectionId], references: [id])
+  submittedBy    String?
+  submittedAt    DateTime?
+  description    String
+  photos         String[]
+  reviewedBy     String?
+  reviewedAt     DateTime?
+  reviewResult   String?
+  reviewComments String?
+  isRejected     Boolean  @default(false)
+  rejectionCount Int      @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+model TimelineEvent {
+  id            String              @id @default(uuid())
+  inspectionId  String
+  inspection    Inspection          @relation(fields: [inspectionId], references: [id])
+  eventType     TimelineEventType
+  userId        String?
+  user          User?               @relation(fields: [userId], references: [id])
+  description   String
+  metadata      Json?
+  createdAt     DateTime            @default(now())
+}
