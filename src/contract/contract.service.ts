@@ -18,7 +18,8 @@ export class ContractService {
     [ContractStatus.DRAFT]: [ContractStatus.PENDING_BUSINESS_REVIEW, ContractStatus.CANCELLED],
     [ContractStatus.PENDING_BUSINESS_REVIEW]: [ContractStatus.PENDING_TALENT_SIGN, ContractStatus.REJECTED],
     [ContractStatus.PENDING_TALENT_SIGN]: [ContractStatus.PENDING_ARCHIVE, ContractStatus.REJECTED],
-    [ContractStatus.PENDING_ARCHIVE]: [ContractStatus.ARCHIVED, ContractStatus.REJECTED],
+    [ContractStatus.PENDING_ARCHIVE]: [ContractStatus.ARCHIVE_IN_PROGRESS, ContractStatus.REJECTED],
+    [ContractStatus.ARCHIVE_IN_PROGRESS]: [ContractStatus.ARCHIVED, ContractStatus.PENDING_ARCHIVE],
     [ContractStatus.ARCHIVED]: [],
     [ContractStatus.REJECTED]: [ContractStatus.DRAFT, ContractStatus.CANCELLED],
     [ContractStatus.CANCELLED]: [],
@@ -165,24 +166,40 @@ export class ContractService {
 
   archive(id: string, operator: User): Contract {
     const contract = this.findOne(id);
-    const previousState = { status: contract.status };
+    const previousState = { status: contract.status, archivedAt: contract.archivedAt };
 
-    if (contract.status !== ContractStatus.PENDING_ARCHIVE) {
-      throw new BadRequestException('当前状态不允许归档');
+    if (contract.status !== ContractStatus.ARCHIVE_IN_PROGRESS && contract.status !== ContractStatus.PENDING_ARCHIVE) {
+      throw new BadRequestException(`当前状态「${contract.status}」不允许归档。请确保合同处于「建档维护中」或「待建档」状态`);
     }
 
-    if (operator.role !== UserRole.TALENT_AGENT) {
-      throw new ForbiddenException('只有达人经纪可以执行归档');
+    if (operator.role !== UserRole.TALENT_AGENT && operator.role !== UserRole.ADMIN) {
+      throw new ForbiddenException('只有达人经纪或管理员可以执行归档');
+    }
+
+    if (contract.archiveId) {
+      const archive = this.store.getArchive(contract.archiveId);
+      if (archive && archive.status !== 'completed') {
+        throw new BadRequestException(`档案状态为「${archive.status}」，未完成维护，不允许归档。请先将档案状态更新为「已完成」`);
+      }
     }
 
     contract.status = ContractStatus.ARCHIVED;
     contract.archivedAt = new Date();
+    contract.currentHandler = '';
+    contract.currentHandlerRole = UserRole.ADMIN;
     contract.updatedAt = new Date();
     contract.operationLogs.push(
-      this.store.createOperationLog(operator, '合同归档', '签约流程完成，合同已归档', previousState, { status: contract.status })
+      this.store.createOperationLog(
+        operator, 
+        '合同归档', 
+        '签约流程完成，合同已正式归档', 
+        previousState, 
+        { status: ContractStatus.ARCHIVED, archivedAt: contract.archivedAt, currentHandler: '', currentHandlerRole: UserRole.ADMIN }
+      )
     );
 
     this.store.saveContract(contract);
+    this.notificationService.notifyArchiveCompleted(id, contract.talentName);
 
     return contract;
   }
@@ -225,14 +242,30 @@ export class ContractService {
 
   onArchiveCreated(contractId: string, archiveId: string, operator: User): Contract {
     const contract = this.findOne(contractId);
-    const previousState = { archiveId: contract.archiveId, currentHandler: contract.currentHandler, currentHandlerRole: contract.currentHandlerRole };
+    const previousState = { 
+      status: contract.status, 
+      archiveId: contract.archiveId, 
+      currentHandler: contract.currentHandler, 
+      currentHandlerRole: contract.currentHandlerRole 
+    };
 
+    if (contract.status !== ContractStatus.PENDING_ARCHIVE) {
+      throw new BadRequestException(`合同状态为「${contract.status}」，无法创建档案。请确保合同处于待建档状态`);
+    }
+
+    contract.status = ContractStatus.ARCHIVE_IN_PROGRESS;
     contract.archiveId = archiveId;
     contract.currentHandler = '';
     contract.currentHandlerRole = UserRole.TALENT_AGENT;
     contract.updatedAt = new Date();
     contract.operationLogs.push(
-      this.store.createOperationLog(operator, '档案已创建', `档案 ID: ${archiveId} 已创建，合同与档案已关联`, previousState, { archiveId, currentHandler: '', currentHandlerRole: UserRole.TALENT_AGENT })
+      this.store.createOperationLog(
+        operator, 
+        '档案已创建', 
+        `档案 ID: ${archiveId} 已创建，合同状态变更为「建档维护中」`, 
+        previousState, 
+        { status: ContractStatus.ARCHIVE_IN_PROGRESS, archiveId, currentHandler: '', currentHandlerRole: UserRole.TALENT_AGENT }
+      )
     );
 
     this.store.saveContract(contract);
@@ -241,21 +274,42 @@ export class ContractService {
 
   onArchiveStatusChanged(contractId: string, archiveStatus: ArchiveStatus, operator: User): Contract {
     const contract = this.findOne(contractId);
-    const previousState = { currentHandler: contract.currentHandler, currentHandlerRole: contract.currentHandlerRole };
+    const previousState = { 
+      status: contract.status, 
+      currentHandler: contract.currentHandler, 
+      currentHandlerRole: contract.currentHandlerRole,
+      archivedAt: contract.archivedAt,
+    };
 
     if (archiveStatus === ArchiveStatus.NEEDS_REVISION) {
+      contract.status = ContractStatus.PENDING_ARCHIVE;
       contract.currentHandler = '';
       contract.currentHandlerRole = UserRole.TALENT_AGENT;
       contract.operationLogs.push(
-        this.store.createOperationLog(operator, '档案退回', '档案需要修改，已通知达人经纪', previousState, { currentHandler: '', currentHandlerRole: UserRole.TALENT_AGENT })
+        this.store.createOperationLog(
+          operator, 
+          '档案退回', 
+          '档案需要修改，合同状态恢复为「待建档」，已通知达人经纪', 
+          previousState, 
+          { status: ContractStatus.PENDING_ARCHIVE, currentHandler: '', currentHandlerRole: UserRole.TALENT_AGENT }
+        )
       );
       this.notificationService.notifyArchiveNeeded(contract.archiveId, contract.talentName);
     } else if (archiveStatus === ArchiveStatus.COMPLETED) {
+      contract.status = ContractStatus.ARCHIVED;
+      contract.archivedAt = new Date();
       contract.currentHandler = '';
       contract.currentHandlerRole = UserRole.ADMIN;
       contract.operationLogs.push(
-        this.store.createOperationLog(operator, '档案完成', '档案维护已完成', previousState, { currentHandler: '', currentHandlerRole: UserRole.ADMIN })
+        this.store.createOperationLog(
+          operator, 
+          '档案完成', 
+          '档案维护已完成，合同已正式归档', 
+          previousState, 
+          { status: ContractStatus.ARCHIVED, archivedAt: new Date(), currentHandler: '', currentHandlerRole: UserRole.ADMIN }
+        )
       );
+      this.notificationService.notifyArchiveCompleted(contract.id, contract.talentName);
     }
 
     contract.updatedAt = new Date();

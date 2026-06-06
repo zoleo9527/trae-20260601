@@ -1,10 +1,21 @@
 import { Injectable } from '@nestjs/common';
-import { NotificationType } from '../common/enums';
+import { NotificationType, UserRole } from '../common/enums';
 import { InMemoryStore } from '../common/services/in-memory-store.service';
 
 @Injectable()
 export class NotificationService {
   constructor(private readonly store: InMemoryStore) {}
+
+  notifyArchiveCompleted(contractId: string, talentName: string) {
+    return this.store.createNotification(
+      NotificationType.ARCHIVE_COMPLETED,
+      '档案维护完成，合同已归档',
+      `达人「${talentName}」的档案维护已完成，合同已正式归档，请管理员确认`,
+      UserRole.ADMIN,
+      contractId,
+      'contract',
+    );
+  }
 
   notifyContractSubmitted(contractId: string, talentName: string) {
     return this.store.createNotification(
