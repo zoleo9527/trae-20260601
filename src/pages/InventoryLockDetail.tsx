@@ -26,7 +26,7 @@ const InventoryLockDetail: React.FC = () => {
       <div className="flex flex-col items-center justify-center py-20">
         <p className="text-gray-500 mb-4">锁定单不存在</p>
         <button
-          onClick={() => navigate('/inventory-locks')}
+          onClick={() => navigate('/inventory-lock')}
           className="text-blue-600 hover:text-blue-800 font-medium"
         >
           返回列表
@@ -78,7 +78,7 @@ const InventoryLockDetail: React.FC = () => {
     <div className="space-y-6">
       <div className="flex items-center gap-4">
         <button
-          onClick={() => navigate('/inventory-locks')}
+          onClick={() => navigate('/inventory-lock')}
           className="flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors"
         >
           <ArrowLeft className="w-5 h-5" />
@@ -207,7 +207,7 @@ const InventoryLockDetail: React.FC = () => {
                 <div className="bg-purple-50 rounded-lg p-4 mb-4">
                   <div className="flex items-center justify-between mb-3">
                     <Link 
-                      to={`/preparation-orders/${preparationOrder.id}`}
+                      to={`/preparation/${lock.bizId}`}
                       className="text-lg font-semibold text-purple-700 hover:text-purple-900 hover:underline"
                     >
                       {preparationOrder.orderNo}
@@ -300,7 +300,7 @@ const InventoryLockDetail: React.FC = () => {
                 </div>
                 {lock.bizNo && (
                   <Link
-                    to={lock.bizType === 'preparation' ? `/preparation-orders/${lock.bizId}` : '#'}
+                    to={lock.bizType === 'preparation' ? `/preparation/${lock.bizId}` : '#'}
                     className="text-sm text-blue-600 hover:text-blue-800 font-medium"
                   >
                     {lock.bizNo} →

@@ -5,10 +5,11 @@ import { StatusBadge } from '@/components/StatusBadge';
 import { Search, Filter, Eye, Plus } from 'lucide-react';
 import { PREPARATION_STATUS_MAP } from '@/types';
 import type { PreparationOrderStatus } from '@/types';
+import { hasPermission } from '@/utils/permission';
 
 export const StockPreparationList: React.FC = () => {
   const navigate = useNavigate();
-  const { preparationOrders } = useStore();
+  const { preparationOrders, currentRole } = useStore();
 
   const [searchKeyword, setSearchKeyword] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -46,17 +47,21 @@ export const StockPreparationList: React.FC = () => {
     });
   };
 
+  const canCreate = hasPermission('preparation', 'create', currentRole);
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-900">备货单管理</h1>
-        <button
-          className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-          onClick={() => navigate('/prep-orders/create')}
-        >
-          <Plus size={18} />
-          新建备货单
-        </button>
+        {canCreate && (
+          <button
+            className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            // onClick={() => navigate('/preparation/create')}
+          >
+            <Plus size={18} />
+            新建备货单
+          </button>
+        )}
       </div>
 
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4">
@@ -146,7 +151,7 @@ export const StockPreparationList: React.FC = () => {
                   <tr
                     key={order.id}
                     className="hover:bg-gray-50 cursor-pointer transition-colors"
-                    onClick={() => navigate(`/prep-orders/${order.id}`)}
+                    onClick={() => navigate(`/preparation/${order.id}`)}
                   >
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className="font-medium text-blue-600">
@@ -172,7 +177,7 @@ export const StockPreparationList: React.FC = () => {
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          navigate(`/prep-orders/${order.id}`);
+                          navigate(`/preparation/${order.id}`);
                         }}
                         className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-700 text-sm"
                       >

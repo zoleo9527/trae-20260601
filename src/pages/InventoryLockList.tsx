@@ -196,7 +196,7 @@ const InventoryLockList: React.FC = () => {
                     className={`hover:bg-gray-50 transition-colors ${expiringSoon ? 'bg-orange-50' : ''}`}
                   >
                     <td className="px-4 py-3 text-sm font-medium text-blue-600 cursor-pointer hover:underline"
-                        onClick={() => navigate(`/inventory-locks/${lock.id}`)}>
+                        onClick={() => navigate(`/inventory-lock/${lock.id}`)}>
                       {lock.lockNo}
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-900">{lock.sku}</td>
@@ -228,7 +228,7 @@ const InventoryLockList: React.FC = () => {
                     </td>
                     <td className="px-4 py-3">
                       <button
-                        onClick={() => navigate(`/inventory-locks/${lock.id}`)}
+                        onClick={() => navigate(`/inventory-lock/${lock.id}`)}
                         className="text-sm text-blue-600 hover:text-blue-800 font-medium"
                       >
                         查看详情

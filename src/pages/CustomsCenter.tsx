@@ -1,7 +1,8 @@
 import React, { useState, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { FileText, Clock, Loader, AlertCircle, CheckCircle, Search, Filter, AlertTriangle } from 'lucide-react';
 import { useStore } from '@/store/useStore';
+import { hasPermission } from '@/utils/permission';
 import { StatusBadge } from '@/components/StatusBadge';
 import { RiskTag } from '@/components/RiskTag';
 import { CUSTOMS_STATUS_MAP } from '@/types';
@@ -9,7 +10,7 @@ import type { CustomsDocStatus } from '@/types';
 
 const CustomsCenter: React.FC = () => {
   const navigate = useNavigate();
-  const { customsDocs } = useStore();
+  const { customsDocs, currentRole } = useStore();
 
   const [statusFilter, setStatusFilter] = useState<CustomsDocStatus | 'ALL'>('ALL');
   const [searchKeyword, setSearchKeyword] = useState('');
@@ -164,12 +165,12 @@ const CustomsCenter: React.FC = () => {
                       {doc.docNo}
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-900">
-                      <span 
-                        className="text-blue-600 cursor-pointer hover:underline"
-                        onClick={() => navigate(`/preparation-orders/${doc.preparationId}`)}
+                      <Link 
+                        to={`/preparation/${doc.preparationId}`}
+                        className="text-blue-600 hover:underline"
                       >
                         {doc.preparationOrderNo}
-                      </span>
+                      </Link>
                     </td>
                     <td className="px-4 py-3">
                       <StatusBadge status={doc.status} type="customs" />
@@ -194,7 +195,7 @@ const CustomsCenter: React.FC = () => {
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-3">
-                        {isPendingSupplement && (
+                        {isPendingSupplement && hasPermission('customs', 'upload', currentRole) && (
                           <button className="text-sm text-orange-600 hover:text-orange-800 font-medium">
                             上传补件
                           </button>

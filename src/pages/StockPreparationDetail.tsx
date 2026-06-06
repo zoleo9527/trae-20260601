@@ -57,7 +57,7 @@ export const StockPreparationDetail: React.FC = () => {
         <FileText size={48} className="text-gray-300 mb-4" />
         <p className="text-gray-500 mb-4">备货单不存在或已被删除</p>
         <button
-          onClick={() => navigate('/prep-orders')}
+          onClick={() => navigate('/preparation')}
           className="text-blue-600 hover:text-blue-700"
         >
           返回列表
@@ -129,7 +129,7 @@ export const StockPreparationDetail: React.FC = () => {
     <div className="space-y-6">
       <div className="flex items-center gap-4">
         <button
-          onClick={() => navigate('/prep-orders')}
+          onClick={() => navigate('/preparation')}
           className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
         >
           <ArrowLeft size={20} className="text-gray-600" />
@@ -323,7 +323,7 @@ export const StockPreparationDetail: React.FC = () => {
                   <div
                     key={lock.id}
                     className="p-4 border border-gray-200 rounded-lg hover:border-blue-300 cursor-pointer transition-colors"
-                    onClick={() => navigate(`/stock-locks/${lock.id}`)}
+                    onClick={() => navigate(`/inventory-lock/${lock.id}`)}
                   >
                     <div className="flex items-center justify-between">
                       <div>

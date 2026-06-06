@@ -26,8 +26,8 @@ const roleLabels: Record<UserRole, string> = {
 
 const menuItems = [
   { path: '/', label: '工作台', icon: LayoutDashboard },
-  { path: '/prep-orders', label: '备货单管理', icon: Package },
-  { path: '/stock-locks', label: '库存锁定', icon: Lock },
+  { path: '/preparation', label: '备货单管理', icon: Package },
+  { path: '/inventory-lock', label: '库存锁定', icon: Lock },
   { path: '/customs', label: '报关资料', icon: FileText },
   { path: '/returns', label: '退件复盘', icon: RotateCcw },
   { path: '/api-docs', label: '接口文档', icon: BookOpen },

@@ -134,7 +134,7 @@ export const Dashboard: React.FC = () => {
                   className="px-6 py-4 hover:bg-gray-50 cursor-pointer transition-colors"
                   onClick={() => {
                     if (risk.relatedType === 'preparation' && risk.relatedId) {
-                      navigate(`/prep-orders/${risk.relatedId}`);
+                      navigate(`/preparation/${risk.relatedId}`);
                     }
                   }}
                 >
@@ -174,7 +174,7 @@ export const Dashboard: React.FC = () => {
           <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
             <h2 className="text-lg font-semibold text-gray-900">最近备货单</h2>
             <button
-              onClick={() => navigate('/prep-orders')}
+              onClick={() => navigate('/preparation')}
               className="text-sm text-blue-600 hover:text-blue-700 flex items-center gap-1"
             >
               查看全部 <ChevronRight size={16} />
@@ -188,7 +188,7 @@ export const Dashboard: React.FC = () => {
                 <div
                   key={order.id}
                   className="px-6 py-4 hover:bg-gray-50 cursor-pointer transition-colors"
-                  onClick={() => navigate(`/prep-orders/${order.id}`)}
+                  onClick={() => navigate(`/preparation/${order.id}`)}
                 >
                   <div className="flex items-center justify-between">
                     <div className="min-w-0 flex-1">
