@@ -188,8 +188,11 @@ router.post('/cases/:caseId/transition', (req: Request, res: Response) => {
   if (targetStatus === 'delayed') {
     caseRecord.delayedDays = (caseRecord.delayedDays || 0) + 1;
     if (remark) {
-      caseRecord.supplementaryRemark = remark;
-      caseRecord.supplementaryAt = now;
+      const prevDelayRemark = caseRecord.delayRemark;
+      caseRecord.delayRemark = prevDelayRemark 
+        ? `${prevDelayRemark}\n[${new Date().toLocaleString()}] ${remark}`
+        : remark;
+      caseRecord.delayAt = now;
     }
   }
 
@@ -427,6 +430,9 @@ router.get('/export/cases', (req: Request, res: Response) => {
       '最近一次退回原因': enriched.latestRejectReason || '-',
       '是否有补录备注': enriched.hasSupplementary ? '是' : '否',
       '补录备注摘要': enriched.supplementarySummary || '-',
+      '是否有延期记录': enriched.hasDelay ? '是' : '否',
+      '延期备注摘要': enriched.delaySummary || '-',
+      '是否延期': c.delayedDays ? `是（${c.delayedDays}天）` : '否',
       '播放量': c.settlementData?.views || '-',
       '点赞数': c.settlementData?.likes || '-',
       '评论数': c.settlementData?.comments || '-',
@@ -435,10 +441,10 @@ router.get('/export/cases', (req: Request, res: Response) => {
       '平台服务费': c.settlementData?.platformFee || '-',
       '达人费用': c.settlementData?.talentFee || '-',
       '完整驳回记录': c.rejectReason || '-',
-      '完整补充备注': c.supplementaryRemark || '-',
+      '完整补录备注': c.supplementaryRemark || '-',
+      '完整延期备注': c.delayRemark || '-',
       '创建时间': c.createdAt,
-      '更新时间': c.updatedAt,
-      '是否延期': c.delayedDays ? `是（${c.delayedDays}天）` : '否'
+      '更新时间': c.updatedAt
     };
   });
 

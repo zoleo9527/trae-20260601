@@ -87,6 +87,9 @@ export interface CaseRecord {
   supplementaryRemark?: string;
   supplementaryAt?: string;
   
+  delayRemark?: string;
+  delayAt?: string;
+  
   settlementReviewedAt?: string;
   settlementReviewedBy?: string;
   settlementRemark?: string;

@@ -280,8 +280,8 @@ const seedData = () => {
       status: 'delayed',
       currentHandler: 'director',
       delayedDays: 7,
-      supplementaryRemark: '达人档期调整，脚本需要重新修改',
-      supplementaryAt: '2024-06-01T10:00:00Z',
+      delayRemark: '达人档期调整，脚本需要重新修改',
+      delayAt: '2024-06-01T10:00:00Z',
       createdAt: '2024-05-20T00:00:00Z',
       updatedAt: '2024-06-05T00:00:00Z'
     },

@@ -84,6 +84,8 @@ export interface CaseRecord {
   rejectBy?: string;
   supplementaryRemark?: string;
   supplementaryAt?: string;
+  delayRemark?: string;
+  delayAt?: string;
   settlementReviewedAt?: string;
   settlementReviewedBy?: string;
   settlementRemark?: string;
@@ -101,6 +103,8 @@ export interface CaseRecord {
   supplementarySummary?: string;
   hasReject?: boolean;
   hasSupplementary?: boolean;
+  delaySummary?: string;
+  hasDelay?: boolean;
   responsibleRole?: string;
 }
 

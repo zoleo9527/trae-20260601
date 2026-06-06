@@ -25,6 +25,18 @@ export const hasSupplementary = (record: CaseRecord): boolean => {
   return !!record.supplementaryRemark && record.supplementaryRemark.trim().length > 0;
 };
 
+export const getLatestDelayRemark = (record: CaseRecord): string => {
+  if (!record.delayRemark) return '';
+  const lines = record.delayRemark.split('\n').filter(l => l.trim());
+  const latest = lines[lines.length - 1];
+  const cleaned = latest.replace(/^\[.*?\]\s*/, '');
+  return cleaned.length > 50 ? cleaned.substring(0, 50) + '...' : cleaned;
+};
+
+export const hasDelayHistory = (record: CaseRecord): boolean => {
+  return !!record.delayRemark && record.delayRemark.trim().length > 0;
+};
+
 export const enrichCaseRecord = (record: CaseRecord, extra: {
   brandName?: string;
   productName?: string;
@@ -41,6 +53,8 @@ export const enrichCaseRecord = (record: CaseRecord, extra: {
     supplementarySummary: getSupplementarySummary(record),
     hasReject: hasRejectHistory(record),
     hasSupplementary: hasSupplementary(record),
+    delaySummary: getLatestDelayRemark(record),
+    hasDelay: hasDelayHistory(record),
     responsibleRole: record.currentHandler ? ROLE_LABELS[record.currentHandler] : '-',
     businessName: extra.businessName,
     agentName: extra.agentName

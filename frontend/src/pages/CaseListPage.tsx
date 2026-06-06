@@ -136,7 +136,8 @@ const CaseListPage: React.FC<CaseListPageProps> = ({ role, onViewCase }) => {
               <th>最近退回原因</th>
               <th>有补录</th>
               <th>补录摘要</th>
-              <th>是否延期</th>
+              <th>有延期</th>
+              <th>延期摘要</th>
               <th>更新时间</th>
               <th>操作</th>
             </tr>
@@ -176,9 +177,12 @@ const CaseListPage: React.FC<CaseListPageProps> = ({ role, onViewCase }) => {
                   {c.supplementarySummary || '-'}
                 </td>
                 <td>
-                  {c.delayedDays
-                    ? <span className="delayed-badge">延期 {c.delayedDays} 天</span>
-                    : '否'}
+                  {c.hasDelay
+                    ? <span className="tag tag-warning">是</span>
+                    : <span className="tag tag-muted">否</span>}
+                </td>
+                <td className="text-ellipsis" title={c.delaySummary}>
+                  {c.delaySummary || '-'}
                 </td>
                 <td>{new Date(c.updatedAt).toLocaleDateString()}</td>
                 <td>
