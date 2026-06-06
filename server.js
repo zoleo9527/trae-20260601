@@ -156,12 +156,19 @@ app.get('/api/meals/:id', (req, res) => {
   if (!meal) return res.status(404).json({ error: '记录不存在' });
   
   const feedbacks = db.feedbacks.filter(f => f.mealRecordId === meal.id);
+  const pendingFeedbacks = feedbacks.filter(f => f.status === 'PENDING');
+  const resolvedFeedbacks = feedbacks.filter(f => f.status === 'RESOLVED');
   const timeline = buildTimeline(meal, feedbacks);
   
   res.json({
     ...meal,
     class: getClassById(db, meal.classId),
     feedbacks,
+    feedbackStats: {
+      total: feedbacks.length,
+      pending: pendingFeedbacks.length,
+      resolved: resolvedFeedbacks.length
+    },
     timeline
   });
 });
@@ -284,6 +291,15 @@ app.post('/api/archive/meal/:id', (req, res) => {
   const meal = db.meals[idx];
   if (meal.archived) {
     return res.status(400).json({ error: '该取餐记录已归档' });
+  }
+  
+  const relatedFeedbacks = db.feedbacks.filter(fb => fb.mealRecordId === meal.id);
+  const pendingFeedbacks = relatedFeedbacks.filter(fb => fb.status === 'PENDING');
+  
+  if (pendingFeedbacks.length > 0) {
+    return res.status(400).json({ 
+      error: `归档失败：关联的 ${relatedFeedbacks.length} 条反馈中，仍有 ${pendingFeedbacks.length} 条待处理，请先处理完所有反馈后再归档` 
+    });
   }
   
   const now = new Date().toISOString();

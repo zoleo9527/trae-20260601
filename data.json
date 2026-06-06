@@ -44,9 +44,9 @@
       "receivedAt": "2026-06-06T08:52:09.832Z",
       "status": "DELIVERED",
       "notes": "全员就餐",
-      "archived": false,
-      "archivedAt": null,
-      "archivedBy": null,
+      "archived": true,
+      "archivedAt": "2026-06-06T09:10:14.954Z",
+      "archivedBy": "测试管理员",
       "createdAt": "2026-06-06T08:52:09.832Z"
     },
     {
@@ -59,9 +59,9 @@
       "receivedAt": "2026-06-06T08:52:09.832Z",
       "status": "DELIVERED",
       "notes": "1人请假",
-      "archived": false,
-      "archivedAt": null,
-      "archivedBy": null,
+      "archived": true,
+      "archivedAt": "2026-06-06T09:09:12.517Z",
+      "archivedBy": "测试管理员",
       "createdAt": "2026-06-06T08:52:09.832Z"
     },
     {
@@ -74,13 +74,51 @@
       "receivedAt": "2026-06-06T08:52:09.832Z",
       "status": "DELIVERED",
       "notes": "2人请假未取餐",
-      "archived": false,
-      "archivedAt": null,
-      "archivedBy": null,
+      "archived": true,
+      "archivedAt": "2026-06-06T09:10:29.945Z",
+      "archivedBy": "测试管理员",
       "createdAt": "2026-06-06T08:52:09.832Z"
     }
   ],
   "feedbacks": [
+    {
+      "id": "f36401c8-42da-4b4d-886b-f5b231d8e179",
+      "classId": "80cf125d-d6ce-4762-abc1-8b9e3e38499b",
+      "mealRecordId": "6f3ff1f8-b2a7-45cb-91a3-267fd900bdcd",
+      "mealDate": "2026-06-05",
+      "mealType": "午餐",
+      "feedbackType": "MISSING",
+      "description": "测试-少了一份饭",
+      "reportedBy": "测试老师",
+      "reportedAt": "2026-06-06T09:10:29.935Z",
+      "status": "RESOLVED",
+      "handledBy": "食堂管理员",
+      "handledAt": "2026-06-06T09:10:29.942Z",
+      "handleNotes": "已补餐",
+      "archived": true,
+      "archivedAt": "2026-06-06T09:10:29.945Z",
+      "archivedBy": "测试管理员",
+      "createdAt": "2026-06-06T09:10:29.935Z"
+    },
+    {
+      "id": "5832b392-b992-494f-a0fe-41f04706f09d",
+      "classId": "bdd9aaf2-f1af-4d7f-b399-d982ba5e8c45",
+      "mealRecordId": "a380b0bb-fa95-4466-a8f7-d6d5492115a3",
+      "mealDate": "2026-06-06",
+      "mealType": "午餐",
+      "feedbackType": "MISSING",
+      "description": "测试-少了一份饭",
+      "reportedBy": "测试老师",
+      "reportedAt": "2026-06-06T09:10:14.944Z",
+      "status": "PENDING",
+      "handledBy": null,
+      "handledAt": null,
+      "handleNotes": null,
+      "archived": true,
+      "archivedAt": "2026-06-06T09:10:14.954Z",
+      "archivedBy": "测试管理员",
+      "createdAt": "2026-06-06T09:10:14.944Z"
+    },
     {
       "id": "6e721fb7-8e5b-46b2-b802-637ec81429ec",
       "classId": "43c7c349-df90-4323-84d5-0a026d7e1274",
@@ -95,9 +133,9 @@
       "handledBy": null,
       "handledAt": null,
       "handleNotes": null,
-      "archived": false,
-      "archivedAt": null,
-      "archivedBy": null,
+      "archived": true,
+      "archivedAt": "2026-06-06T09:09:12.517Z",
+      "archivedBy": "测试管理员",
       "createdAt": "2026-06-06T08:52:09.832Z"
     },
     {
@@ -114,9 +152,9 @@
       "handledBy": "食堂管理员",
       "handledAt": "2026-06-06T08:52:09.832Z",
       "handleNotes": "已反馈给后厨，明天改善米饭软硬程度",
-      "archived": false,
-      "archivedAt": null,
-      "archivedBy": null,
+      "archived": true,
+      "archivedAt": "2026-06-06T09:10:29.945Z",
+      "archivedBy": "测试管理员",
       "createdAt": "2026-06-06T08:52:09.832Z"
     }
   ]

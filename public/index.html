@@ -95,6 +95,14 @@
     .archive-banner .text { font-size: 13px; color: #6b7280; }
     .archive-banner .text strong { color: #374151; }
     
+    .pending-banner { 
+      background: #fef3c7; border: 1px solid #f59e0b; border-radius: 8px; 
+      padding: 12px 16px; margin-bottom: 16px; display: flex; align-items: center; gap: 10px;
+    }
+    .pending-banner .icon { font-size: 20px; }
+    .pending-banner .text { font-size: 13px; color: #92400e; }
+    .pending-banner .text strong { color: #b45309; }
+    
     .example-section { background: #f8fafc; border-left: 4px solid #667eea; padding: 16px; margin-bottom: 16px; border-radius: 0 8px 8px 0; }
     .example-section h4 { color: #4338ca; margin-bottom: 8px; }
     .example-section p { font-size: 14px; line-height: 1.6; color: #374151; }
@@ -708,6 +716,13 @@
             <span class="text">此记录已由 <strong>${meal.archivedBy}</strong> 于 ${formatDate(meal.archivedAt)} 归档，数据只读不可修改</span>
           </div>
         `;
+      } else if (meal.feedbackStats && meal.feedbackStats.pending > 0) {
+        banner.innerHTML = `
+          <div class="pending-banner">
+            <span class="icon">⚠️</span>
+            <span class="text">关联的 ${meal.feedbackStats.total} 条反馈中，仍有 <strong>${meal.feedbackStats.pending} 条待处理</strong>，请先处理完成后再归档</span>
+          </div>
+        `;
       }
       
       const content = document.getElementById('meal-detail-content');
@@ -723,14 +738,22 @@
           <div class="detail-item" style="flex:1;"><label>领取时间</label><div class="value">${formatDate(meal.receivedAt)}</div></div>
         </div>
         <div class="detail-item"><label>备注</label><div class="value">${meal.notes || '无'}</div></div>
-        <div class="detail-item"><label>关联反馈</label><div class="value">${meal.feedbacks.length} 条</div></div>
+        <div class="detail-item">
+          <label>关联反馈</label>
+          <div class="value">
+            共 ${meal.feedbackStats.total} 条
+            ${meal.feedbackStats.pending > 0 ? `<span style="color: #ef4444; font-weight: 500;">（待处理 ${meal.feedbackStats.pending} 条）</span>` : ''}
+            ${meal.feedbackStats.resolved > 0 ? `<span style="color: #10b981; font-weight: 500;">（已解决 ${meal.feedbackStats.resolved} 条）</span>` : ''}
+          </div>
+        </div>
       `;
       
       renderTimeline('meal-timeline', meal.timeline);
       
       const archiveBtn = document.getElementById('archive-meal-btn');
-      archiveBtn.classList.toggle('hidden', meal.archived);
-      archiveBtn.disabled = meal.archived;
+      const canArchive = !meal.archived && meal.feedbackStats.pending === 0;
+      archiveBtn.classList.toggle('hidden', !canArchive);
+      archiveBtn.disabled = !canArchive;
       
       document.getElementById('meal-detail-modal').classList.remove('hidden');
     }
