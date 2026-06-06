@@ -1,7 +1,3 @@
-已补齐字段：follow_ups.closed_at
-已补齐字段：follow_ups.lost_reason
-已补齐字段：follow_ups.final_remark
-已补齐字段：follow_ups.contract_amount
 用户种子数据初始化完成
 试听预约种子数据初始化完成
 转化跟进和日志种子数据初始化完成
