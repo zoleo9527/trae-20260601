@@ -451,8 +451,13 @@ const App = {
   closeModal(){document.getElementById('modal-overlay').classList.remove('active');},
   showToast(msg,type='info'){
     const t=document.getElementById('toast');
-    t.textContent=msg;t.className='toast '+type;t.style.display='block';
-    setTimeout(()=>{t.style.display='none';},3000);
+    t.textContent=msg;
+    t.className='toast '+type+' show';
+    t.style.display='block';
+    setTimeout(()=>{
+      t.className='toast';
+      t.style.display='none';
+    },3000);
   },
   updateAllBadges(){
     const ops=AppData.returns.filter(r=>r.currentHandler==='operations').length;
