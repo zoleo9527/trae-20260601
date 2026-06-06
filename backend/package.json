@@ -1,0 +1,16 @@
+{
+  "name": "mcn-backend",
+  "version": "1.0.0",
+  "description": "MCN机构拍摄排期与素材交付系统后端",
+  "main": "server.js",
+  "type": "module",
+  "scripts": {
+    "dev": "node --watch server.js",
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.19.2",
+    "dayjs": "^1.11.11"
+  }
+}

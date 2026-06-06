@@ -42,7 +42,17 @@ const scheduleStatusMap: Record<string, { color: string; text: string }> = {
 
 export default function ShootingSchedules() {
   const navigate = useNavigate();
-  const { shootingSchedules, projects, fetchShootingSchedules, fetchProjects, updateShootingSchedule, createShootingSchedule } = useStore();
+  const {
+    shootingSchedules,
+    projects,
+    fetchShootingSchedules,
+    fetchProjects,
+    updateShootingSchedule,
+    createShootingSchedule,
+    startShooting,
+    completeShooting,
+    loading,
+  } = useStore();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingSchedule, setEditingSchedule] = useState<ShootingSchedule | null>(null);
   const [form] = Form.useForm();
@@ -78,38 +88,58 @@ export default function ShootingSchedules() {
     setIsModalOpen(true);
   };
 
-  const handleStatusChange = async (id: string, status: ShootingSchedule['status']) => {
-    await updateShootingSchedule(id, { status });
-    message.success('状态更新成功');
+  const handleStartShooting = async (id: string) => {
+    try {
+      await startShooting(id);
+      message.success('已开始拍摄');
+    } catch (error) {
+      message.error('操作失败');
+    }
+  };
+
+  const handleCompleteShooting = async (id: string) => {
+    try {
+      await completeShooting(id);
+      message.success('拍摄已完成');
+    } catch (error) {
+      message.error('操作失败');
+    }
+  };
+
+  const handleCancelSchedule = async (id: string) => {
+    try {
+      await updateShootingSchedule(id, { status: 'cancelled' });
+      message.success('排期已取消');
+    } catch (error) {
+      message.error('操作失败');
+    }
   };
 
   const handleSubmit = async (values: any) => {
-    const project = projects.find((p) => p.id === values.projectId) as Project;
+    try {
+      const data = {
+        projectId: values.projectId,
+        shootDate: values.shootDate.format('YYYY-MM-DD'),
+        shootTime: values.shootTime.format('HH:mm'),
+        location: values.location,
+        equipment: values.equipment || [],
+        notes: values.notes,
+        assignee: values.assignee,
+      };
 
-    const data = {
-      projectId: values.projectId,
-      projectName: project?.name || '',
-      brandName: project?.brandName || '',
-      talentName: project?.talentName || '',
-      shootDate: values.shootDate.format('YYYY-MM-DD'),
-      shootTime: values.shootTime.format('HH:mm') + '-18:00',
-      location: values.location,
-      status: values.status || 'scheduled',
-      equipment: values.equipment || [],
-      notes: values.notes,
-      assignee: values.assignee,
-    };
+      if (editingSchedule) {
+        await updateShootingSchedule(editingSchedule.id, data);
+        message.success('排期更新成功');
+      } else {
+        await createShootingSchedule(data);
+        message.success('排期创建成功');
+      }
 
-    if (editingSchedule) {
-      await updateShootingSchedule(editingSchedule.id, data);
-      message.success('排期更新成功');
-    } else {
-      await createShootingSchedule(data as any);
-      message.success('排期创建成功');
+      setIsModalOpen(false);
+      form.resetFields();
+    } catch (error) {
+      message.error('保存失败');
     }
-
-    setIsModalOpen(false);
-    form.resetFields();
   };
 
   const columns = [
@@ -200,7 +230,7 @@ export default function ShootingSchedules() {
               type="link"
               size="small"
               icon={<VideoCameraOutlined />}
-              onClick={() => handleStatusChange(record.id, 'in_progress')}
+              onClick={() => handleStartShooting(record.id)}
             >
               开始拍摄
             </Button>
@@ -210,7 +240,7 @@ export default function ShootingSchedules() {
               type="link"
               size="small"
               icon={<CheckCircleOutlined />}
-              onClick={() => handleStatusChange(record.id, 'completed')}
+              onClick={() => handleCompleteShooting(record.id)}
             >
               完成拍摄
             </Button>
@@ -218,7 +248,7 @@ export default function ShootingSchedules() {
           {record.status !== 'cancelled' && record.status !== 'completed' && (
             <Popconfirm
               title="确定取消此排期吗？"
-              onConfirm={() => handleStatusChange(record.id, 'cancelled')}
+              onConfirm={() => handleCancelSchedule(record.id)}
             >
               <Button type="link" size="small" danger icon={<CloseCircleOutlined />}>
                 取消
@@ -288,6 +318,7 @@ export default function ShootingSchedules() {
           dataSource={shootingSchedules}
           rowKey="id"
           pagination={{ pageSize: 10 }}
+          loading={loading}
         />
       </Card>
 

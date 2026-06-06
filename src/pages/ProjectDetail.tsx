@@ -117,10 +117,9 @@ export default function ProjectDetail() {
     materialDeliveries,
     fetchScriptVersions,
     scriptVersions,
-    updateMaterialDelivery,
     addTimelineEvent,
     fetchProjects,
-    projects,
+    loading,
   } = useStore();
 
   const [commentModalOpen, setCommentModalOpen] = useState(false);
@@ -441,6 +440,7 @@ export default function ProjectDetail() {
 
       <Card
         title="项目详情"
+        loading={loading}
         extra={
           <Space>
             <Button type="primary" onClick={() => handleQuickAction('comment')}>

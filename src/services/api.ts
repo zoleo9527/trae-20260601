@@ -1,15 +1,4 @@
-import {
-  mockTalents,
-  mockBrands,
-  mockProjects,
-  mockShootingSchedules,
-  mockMaterialDeliveries,
-  mockTimelineEvents,
-  mockTodos,
-  mockRisks,
-  mockRecentChanges,
-  mockScriptVersions,
-} from '@/mock/data';
+import request from './request';
 import type {
   Talent,
   Brand,
@@ -23,133 +12,82 @@ import type {
   ScriptVersion,
 } from '@/types';
 
-const delay = (ms: number = 300) => new Promise((resolve) => setTimeout(resolve, ms));
-
 export const api = {
-  getTalents: async (): Promise<Talent[]> => {
-    await delay();
-    return [...mockTalents];
-  },
+  getTalents: (): Promise<Talent[]> => request.get('/talents'),
 
-  getBrands: async (): Promise<Brand[]> => {
-    await delay();
-    return [...mockBrands];
-  },
+  getBrands: (): Promise<Brand[]> => request.get('/brands'),
 
-  getProjects: async (): Promise<Project[]> => {
-    await delay();
-    return [...mockProjects];
-  },
+  getProjects: (): Promise<Project[]> => request.get('/projects'),
 
-  getProjectById: async (id: string): Promise<Project | undefined> => {
-    await delay();
-    return mockProjects.find((p) => p.id === id);
-  },
+  getProjectById: (id: string): Promise<Project> => request.get(`/projects/${id}`),
 
-  getShootingSchedules: async (): Promise<ShootingSchedule[]> => {
-    await delay();
-    return [...mockShootingSchedules];
-  },
+  updateProject: (id: string, data: Partial<Project>): Promise<Project> =>
+    request.put(`/projects/${id}`, data),
 
-  getShootingScheduleById: async (id: string): Promise<ShootingSchedule | undefined> => {
-    await delay();
-    return mockShootingSchedules.find((s) => s.id === id);
-  },
+  getProjectSchedules: (projectId: string): Promise<ShootingSchedule[]> =>
+    request.get(`/projects/${projectId}/schedules`),
 
-  updateShootingSchedule: async (id: string, data: Partial<ShootingSchedule>): Promise<ShootingSchedule> => {
-    await delay();
-    const index = mockShootingSchedules.findIndex((s) => s.id === id);
-    if (index !== -1) {
-      mockShootingSchedules[index] = { ...mockShootingSchedules[index], ...data, updatedAt: new Date().toISOString() };
-      return mockShootingSchedules[index];
-    }
-    throw new Error('Schedule not found');
-  },
+  getProjectDeliveries: (projectId: string): Promise<MaterialDelivery[]> =>
+    request.get(`/projects/${projectId}/deliveries`),
 
-  createShootingSchedule: async (data: Omit<ShootingSchedule, 'id' | 'createdAt' | 'updatedAt'>): Promise<ShootingSchedule> => {
-    await delay();
-    const newSchedule: ShootingSchedule = {
-      ...data,
-      id: `sh${Date.now()}`,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-    mockShootingSchedules.unshift(newSchedule);
-    return newSchedule;
-  },
+  getShootingSchedules: (): Promise<ShootingSchedule[]> => request.get('/schedules'),
 
-  getMaterialDeliveries: async (): Promise<MaterialDelivery[]> => {
-    await delay();
-    return [...mockMaterialDeliveries];
-  },
+  getShootingScheduleById: (id: string): Promise<ShootingSchedule> =>
+    request.get(`/schedules/${id}`),
 
-  getMaterialDeliveryById: async (id: string): Promise<MaterialDelivery | undefined> => {
-    await delay();
-    return mockMaterialDeliveries.find((m) => m.id === id);
-  },
+  createShootingSchedule: (
+    data: Omit<ShootingSchedule, 'id' | 'createdAt' | 'updatedAt' | 'projectName' | 'brandName' | 'talentName'>
+  ): Promise<ShootingSchedule> => request.post('/schedules', data),
 
-  updateMaterialDelivery: async (id: string, data: Partial<MaterialDelivery>): Promise<MaterialDelivery> => {
-    await delay();
-    const index = mockMaterialDeliveries.findIndex((m) => m.id === id);
-    if (index !== -1) {
-      mockMaterialDeliveries[index] = { ...mockMaterialDeliveries[index], ...data, updatedAt: new Date().toISOString() };
-      return mockMaterialDeliveries[index];
-    }
-    throw new Error('Delivery not found');
-  },
+  updateShootingSchedule: (
+    id: string,
+    data: Partial<ShootingSchedule>
+  ): Promise<ShootingSchedule> => request.put(`/schedules/${id}`, data),
 
-  getTimelineEvents: async (projectId: string): Promise<TimelineEvent[]> => {
-    await delay();
-    return mockTimelineEvents.filter((e) => e.projectId === projectId);
-  },
+  startShooting: (id: string): Promise<ShootingSchedule> =>
+    request.post(`/schedules/${id}/start`),
 
-  getTodos: async (): Promise<TodoItem[]> => {
-    await delay();
-    return [...mockTodos];
-  },
+  completeShooting: (id: string): Promise<ShootingSchedule> =>
+    request.post(`/schedules/${id}/complete`),
 
-  updateTodo: async (id: string, data: Partial<TodoItem>): Promise<TodoItem> => {
-    await delay();
-    const index = mockTodos.findIndex((t) => t.id === id);
-    if (index !== -1) {
-      mockTodos[index] = { ...mockTodos[index], ...data };
-      return mockTodos[index];
-    }
-    throw new Error('Todo not found');
-  },
+  getMaterialDeliveries: (): Promise<MaterialDelivery[]> => request.get('/deliveries'),
 
-  getRisks: async (): Promise<RiskItem[]> => {
-    await delay();
-    return [...mockRisks];
-  },
+  getMaterialDeliveryById: (id: string): Promise<MaterialDelivery> =>
+    request.get(`/deliveries/${id}`),
 
-  getRecentChanges: async (): Promise<RecentChange[]> => {
-    await delay();
-    return [...mockRecentChanges];
-  },
+  createMaterialDelivery: (
+    data: Omit<MaterialDelivery, 'id' | 'createdAt' | 'updatedAt' | 'projectName' | 'brandName' | 'talentName'>
+  ): Promise<MaterialDelivery> => request.post('/deliveries', data),
 
-  getScriptVersions: async (projectId: string): Promise<ScriptVersion[]> => {
-    await delay();
-    return mockScriptVersions.filter((s) => s.projectId === projectId);
-  },
+  updateMaterialDelivery: (
+    id: string,
+    data: Partial<MaterialDelivery>
+  ): Promise<MaterialDelivery> => request.put(`/deliveries/${id}`, data),
 
-  getProjectDeliveries: async (projectId: string): Promise<MaterialDelivery[]> => {
-    await delay();
-    return mockMaterialDeliveries.filter((m) => m.projectId === projectId);
-  },
+  submitDelivery: (id: string): Promise<MaterialDelivery> =>
+    request.post(`/deliveries/${id}/submit`),
 
-  getProjectSchedules: async (projectId: string): Promise<ShootingSchedule[]> => {
-    await delay();
-    return mockShootingSchedules.filter((s) => s.projectId === projectId);
-  },
+  reviewDelivery: (
+    id: string,
+    data: { status: string; feedback: string; reviewer?: string }
+  ): Promise<MaterialDelivery> => request.post(`/deliveries/${id}/review`, data),
 
-  addTimelineEvent: async (event: Omit<TimelineEvent, 'id'>): Promise<TimelineEvent> => {
-    await delay();
-    const newEvent: TimelineEvent = {
-      ...event,
-      id: `tl${Date.now()}`,
-    };
-    mockTimelineEvents.unshift(newEvent);
-    return newEvent;
-  },
+  getTimelineEvents: (projectId: string): Promise<TimelineEvent[]> =>
+    request.get(`/projects/${projectId}/timeline`),
+
+  addTimelineEvent: (
+    event: Omit<TimelineEvent, 'id'>
+  ): Promise<TimelineEvent> => request.post('/timeline', event),
+
+  getScriptVersions: (projectId: string): Promise<ScriptVersion[]> =>
+    request.get(`/projects/${projectId}/scripts`),
+
+  getTodos: (): Promise<TodoItem[]> => request.get('/todos'),
+
+  updateTodo: (id: string, data: Partial<TodoItem>): Promise<TodoItem> =>
+    request.put(`/todos/${id}`, data),
+
+  getRisks: (): Promise<RiskItem[]> => request.get('/risks'),
+
+  getRecentChanges: (): Promise<RecentChange[]> => request.get('/recent-changes'),
 };

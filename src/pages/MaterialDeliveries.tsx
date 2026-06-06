@@ -51,7 +51,13 @@ const deliveryTypeMap: Record<string, { icon: React.ReactNode; text: string }> =
 
 export default function MaterialDeliveries() {
   const navigate = useNavigate();
-  const { materialDeliveries, fetchMaterialDeliveries, updateMaterialDelivery, projects } = useStore();
+  const {
+    materialDeliveries,
+    fetchMaterialDeliveries,
+    submitDelivery,
+    reviewDelivery,
+    loading,
+  } = useStore();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [viewModalOpen, setViewModalOpen] = useState(false);
   const [selectedDelivery, setSelectedDelivery] = useState<MaterialDelivery | null>(null);
@@ -75,9 +81,13 @@ export default function MaterialDeliveries() {
     (m) => dayjs(m.deadline).isBefore(dayjs()) && m.status !== 'approved'
   ).length;
 
-  const handleStatusChange = async (id: string, status: MaterialDelivery['status']) => {
-    await updateMaterialDelivery(id, { status });
-    message.success('状态更新成功');
+  const handleSubmit = async (id: string) => {
+    try {
+      await submitDelivery(id);
+      message.success('素材已提交');
+    } catch (error) {
+      message.error('提交失败');
+    }
   };
 
   const handleReview = (record: MaterialDelivery) => {
@@ -94,16 +104,18 @@ export default function MaterialDeliveries() {
   const handleReviewSubmit = async (values: any) => {
     if (!selectedDelivery) return;
 
-    await updateMaterialDelivery(selectedDelivery.id, {
-      status: values.status,
-      feedback: values.feedback,
-      reviewer: '当前用户',
-      reviewedAt: dayjs().format('YYYY-MM-DD HH:mm:ss'),
-    });
+    try {
+      await reviewDelivery(selectedDelivery.id, {
+        status: values.status,
+        feedback: values.feedback,
+      });
 
-    message.success('审核完成');
-    setIsModalOpen(false);
-    reviewForm.resetFields();
+      message.success('审核完成');
+      setIsModalOpen(false);
+      reviewForm.resetFields();
+    } catch (error) {
+      message.error('审核失败');
+    }
   };
 
   const formatFileSize = (bytes: number) => {
@@ -268,7 +280,7 @@ export default function MaterialDeliveries() {
             <Button
               type="link"
               size="small"
-              onClick={() => handleStatusChange(record.id, 'submitted')}
+              onClick={() => handleSubmit(record.id)}
             >
               提交
             </Button>
@@ -333,6 +345,7 @@ export default function MaterialDeliveries() {
           dataSource={materialDeliveries}
           rowKey="id"
           pagination={{ pageSize: 10 }}
+          loading={loading}
         />
       </Card>
 

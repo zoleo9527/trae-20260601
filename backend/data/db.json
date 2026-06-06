@@ -1,0 +1,589 @@
+{
+  "talents": [
+    {
+      "id": "t1",
+      "name": "李佳琪",
+      "avatar": "https://i.pravatar.cc/150?img=1",
+      "platform": "抖音",
+      "followers": 50000000,
+      "category": "美妆",
+      "phone": "13800138001"
+    },
+    {
+      "id": "t2",
+      "name": "薇娅",
+      "avatar": "https://i.pravatar.cc/150?img=2",
+      "platform": "淘宝直播",
+      "followers": 80000000,
+      "category": "全品类",
+      "phone": "13800138002"
+    },
+    {
+      "id": "t3",
+      "name": "李子柒",
+      "avatar": "https://i.pravatar.cc/150?img=3",
+      "platform": "YouTube",
+      "followers": 20000000,
+      "category": "美食生活",
+      "phone": "13800138003"
+    },
+    {
+      "id": "t4",
+      "name": "疯狂小杨哥",
+      "avatar": "https://i.pravatar.cc/150?img=4",
+      "platform": "抖音",
+      "followers": 120000000,
+      "category": "搞笑带货",
+      "phone": "13800138004"
+    }
+  ],
+  "brands": [
+    {
+      "id": "b1",
+      "name": "完美日记",
+      "logo": "https://via.placeholder.com/50",
+      "industry": "美妆护肤",
+      "contactPerson": "张经理",
+      "contactPhone": "13900139001"
+    },
+    {
+      "id": "b2",
+      "name": "小米",
+      "logo": "https://via.placeholder.com/50",
+      "industry": "数码家电",
+      "contactPerson": "李总监",
+      "contactPhone": "13900139002"
+    },
+    {
+      "id": "b3",
+      "name": "三只松鼠",
+      "logo": "https://via.placeholder.com/50",
+      "industry": "食品零食",
+      "contactPerson": "王经理",
+      "contactPhone": "13900139003"
+    },
+    {
+      "id": "b4",
+      "name": "阿迪达斯",
+      "logo": "https://via.placeholder.com/50",
+      "industry": "运动服饰",
+      "contactPerson": "陈总监",
+      "contactPhone": "13900139004"
+    }
+  ],
+  "projects": [
+    {
+      "id": "p1",
+      "name": "完美日记618口红推广",
+      "brandId": "b1",
+      "brandName": "完美日记",
+      "talentId": "t1",
+      "talentName": "李佳琪",
+      "scriptId": "s1",
+      "scriptVersion": "v2.1",
+      "status": "shooting",
+      "priority": "high",
+      "deadline": "2026-06-09",
+      "createdAt": "2026-05-30 10:00:00",
+      "updatedAt": "2026-06-05 15:00:00"
+    },
+    {
+      "id": "p2",
+      "name": "小米14新品发布会",
+      "brandId": "b2",
+      "brandName": "小米",
+      "talentId": "t2",
+      "talentName": "薇娅",
+      "scriptId": "s2",
+      "scriptVersion": "v1.0",
+      "status": "pending",
+      "priority": "high",
+      "deadline": "2026-06-13",
+      "createdAt": "2026-06-01 09:00:00",
+      "updatedAt": "2026-06-04 18:00:00"
+    },
+    {
+      "id": "p3",
+      "name": "三只松鼠年货节预热",
+      "brandId": "b3",
+      "brandName": "三只松鼠",
+      "talentId": "t3",
+      "talentName": "李子柒",
+      "scriptId": "s3",
+      "scriptVersion": "v3.0",
+      "status": "editing",
+      "priority": "medium",
+      "deadline": "2026-06-16",
+      "createdAt": "2026-05-27 14:00:00",
+      "updatedAt": "2026-06-06 11:00:00"
+    },
+    {
+      "id": "p4",
+      "name": "阿迪达斯夏季新品",
+      "brandId": "b4",
+      "brandName": "阿迪达斯",
+      "talentId": "t4",
+      "talentName": "疯狂小杨哥",
+      "scriptId": "s4",
+      "scriptVersion": "v1.5",
+      "status": "delivering",
+      "priority": "medium",
+      "deadline": "2026-06-11",
+      "createdAt": "2026-05-23 16:00:00",
+      "updatedAt": "2026-06-06 09:00:00"
+    },
+    {
+      "id": "p5",
+      "name": "完美日记气垫BB霜",
+      "brandId": "b1",
+      "brandName": "完美日记",
+      "talentId": "t2",
+      "talentName": "薇娅",
+      "scriptId": "s5",
+      "scriptVersion": "v2.0",
+      "status": "completed",
+      "priority": "low",
+      "deadline": "2026-06-04",
+      "createdAt": "2026-05-17 10:00:00",
+      "updatedAt": "2026-06-04 17:00:00"
+    }
+  ],
+  "shootingSchedules": [
+    {
+      "id": "sh1",
+      "projectId": "p1",
+      "projectName": "完美日记618口红推广",
+      "brandName": "完美日记",
+      "talentName": "李佳琪",
+      "shootDate": "2026-06-06",
+      "shootTime": "14:00-17:00",
+      "location": "上海静安摄影棚A",
+      "status": "in_progress",
+      "equipment": [
+        "相机A7R4",
+        "补光灯x3",
+        "背景板",
+        "麦克风"
+      ],
+      "notes": "需要准备5支不同色号口红，提前1小时到场化妆",
+      "assignee": "编导-小王",
+      "createdAt": "2026-06-03 10:00:00",
+      "updatedAt": "2026-06-06 11:30:00"
+    },
+    {
+      "id": "sh2",
+      "projectId": "p2",
+      "projectName": "小米14新品发布会",
+      "brandName": "小米",
+      "talentName": "薇娅",
+      "shootDate": "2026-06-07",
+      "shootTime": "09:00-12:00",
+      "location": "北京小米科技园演播厅",
+      "status": "scheduled",
+      "equipment": [
+        "专业摄像机x2",
+        "提词器",
+        "直播设备全套"
+      ],
+      "notes": "新品发布会直播，需要提前彩排",
+      "assignee": "编导-小李",
+      "createdAt": "2026-06-04 14:00:00",
+      "updatedAt": "2026-06-06 07:00:00"
+    },
+    {
+      "id": "sh3",
+      "projectId": "p3",
+      "projectName": "三只松鼠年货节预热",
+      "brandName": "三只松鼠",
+      "talentName": "李子柒",
+      "shootDate": "2026-06-09",
+      "shootTime": "10:00-16:00",
+      "location": "成都郊外拍摄基地",
+      "status": "scheduled",
+      "equipment": [
+        "电影机",
+        "无人机",
+        "稳定器",
+        "录音设备"
+      ],
+      "notes": "外景拍摄，注意天气变化，准备备用方案",
+      "assignee": "编导-小张",
+      "createdAt": "2026-06-01 09:00:00",
+      "updatedAt": "2026-06-05 18:00:00"
+    },
+    {
+      "id": "sh4",
+      "projectId": "p4",
+      "projectName": "阿迪达斯夏季新品",
+      "brandName": "阿迪达斯",
+      "talentName": "疯狂小杨哥",
+      "shootDate": "2026-06-04",
+      "shootTime": "15:00-19:00",
+      "location": "合肥直播间",
+      "status": "completed",
+      "equipment": [
+        "直播设备",
+        "产品展示台",
+        "灯光组"
+      ],
+      "notes": "直播带货，准备充分库存",
+      "assignee": "编导-小刘",
+      "createdAt": "2026-05-30 16:00:00",
+      "updatedAt": "2026-06-04 19:30:00"
+    }
+  ],
+  "materialDeliveries": [
+    {
+      "id": "m1",
+      "projectId": "p1",
+      "projectName": "完美日记618口红推广",
+      "brandName": "完美日记",
+      "talentName": "李佳琪",
+      "type": "video",
+      "version": "v1.0",
+      "fileUrl": "/videos/perfect-diary-v1.mp4",
+      "fileName": "完美日记口红推广_v1.0.mp4",
+      "size": 268435456,
+      "status": "reviewing",
+      "submitter": "剪辑师-阿明",
+      "submittedAt": "2026-06-06 09:00:00",
+      "deadline": "2026-06-08",
+      "createdAt": "2026-06-03 10:00:00",
+      "updatedAt": "2026-06-06 09:00:00"
+    },
+    {
+      "id": "m2",
+      "projectId": "p3",
+      "projectName": "三只松鼠年货节预热",
+      "brandName": "三只松鼠",
+      "talentName": "李子柒",
+      "type": "video",
+      "version": "v2.0",
+      "fileUrl": "/videos/three-squirrels-v2.mp4",
+      "fileName": "三只松鼠年货节_v2.0.mp4",
+      "size": 536870912,
+      "status": "revision_requested",
+      "submitter": "剪辑师-小红",
+      "submittedAt": "2026-06-05 10:00:00",
+      "reviewer": "品牌方-王经理",
+      "reviewedAt": "2026-06-06 08:00:00",
+      "feedback": "开场节奏太慢，建议加快；产品特写镜头需要增加",
+      "deadline": "2026-06-11",
+      "createdAt": "2026-05-30 14:00:00",
+      "updatedAt": "2026-06-06 08:00:00"
+    },
+    {
+      "id": "m3",
+      "projectId": "p4",
+      "projectName": "阿迪达斯夏季新品",
+      "brandName": "阿迪达斯",
+      "talentName": "疯狂小杨哥",
+      "type": "image",
+      "version": "v1.0",
+      "fileUrl": "/images/adidas-v1.zip",
+      "fileName": "阿迪达斯夏季新品图_v1.0.zip",
+      "size": 134217728,
+      "status": "approved",
+      "submitter": "摄影师-阿强",
+      "submittedAt": "2026-06-03 14:00:00",
+      "reviewer": "品牌方-陈总监",
+      "reviewedAt": "2026-06-05 10:00:00",
+      "deadline": "2026-06-07",
+      "createdAt": "2026-05-27 16:00:00",
+      "updatedAt": "2026-06-05 10:00:00"
+    },
+    {
+      "id": "m4",
+      "projectId": "p1",
+      "projectName": "完美日记618口红推广",
+      "brandName": "完美日记",
+      "talentName": "李佳琪",
+      "type": "copy",
+      "version": "v1.2",
+      "fileUrl": "/copy/perfect-diary-copy-v1.2.docx",
+      "fileName": "口播文案_v1.2.docx",
+      "size": 51200,
+      "status": "submitted",
+      "submitter": "文案-小艾",
+      "deadline": "2026-06-06",
+      "createdAt": "2026-06-05 09:00:00",
+      "updatedAt": "2026-06-06 13:06:17",
+      "submittedAt": "2026-06-06 13:06:17"
+    },
+    {
+      "id": "m5",
+      "projectId": "p5",
+      "projectName": "完美日记气垫BB霜",
+      "brandName": "完美日记",
+      "talentName": "薇娅",
+      "type": "video",
+      "version": "v3.0",
+      "fileUrl": "/videos/perfect-diary-bb-v3.mp4",
+      "fileName": "完美日记气垫BB霜_v3.0.mp4",
+      "size": 402653184,
+      "status": "approved",
+      "submitter": "剪辑师-阿明",
+      "submittedAt": "2026-06-01 14:00:00",
+      "reviewer": "品牌方-张经理",
+      "reviewedAt": "2026-06-03 10:00:00",
+      "deadline": "2026-06-04",
+      "createdAt": "2026-05-23 10:00:00",
+      "updatedAt": "2026-06-03 10:00:00"
+    }
+  ],
+  "timelineEvents": [
+    {
+      "id": "tl1780722377610_awhfip8pb",
+      "projectId": "p1",
+      "type": "delivery_update",
+      "title": "提交素材",
+      "description": "文案素材 v1.2 已提交审核",
+      "operator": "文案-小艾",
+      "operatorRole": "director",
+      "createdAt": "2026-06-06 13:06:17",
+      "metadata": {
+        "deliveryId": "m4",
+        "version": "v1.2"
+      }
+    },
+    {
+      "id": "tl1",
+      "projectId": "p1",
+      "type": "status_change",
+      "title": "项目状态更新",
+      "description": "项目状态从「待拍摄」变更为「拍摄中」",
+      "operator": "编导-小王",
+      "operatorRole": "director",
+      "createdAt": "2026-06-06 11:30:00",
+      "metadata": {
+        "from": "pending",
+        "to": "shooting"
+      }
+    },
+    {
+      "id": "tl2",
+      "projectId": "p1",
+      "type": "schedule_update",
+      "title": "拍摄时间调整",
+      "description": "拍摄时间从 10:00-13:00 调整为 14:00-17:00",
+      "operator": "编导-小王",
+      "operatorRole": "director",
+      "createdAt": "2026-06-06 09:00:00",
+      "metadata": {
+        "from": "10:00-13:00",
+        "to": "14:00-17:00"
+      }
+    },
+    {
+      "id": "tl3",
+      "projectId": "p1",
+      "type": "comment",
+      "title": "添加评论",
+      "description": "口红色号需要增加 #233 番茄红",
+      "operator": "商务-张经理",
+      "operatorRole": "business",
+      "createdAt": "2026-06-06 07:00:00"
+    },
+    {
+      "id": "tl4",
+      "projectId": "p1",
+      "type": "file_upload",
+      "title": "脚本上传",
+      "description": "脚本版本 v2.1 已上传并通过审核",
+      "operator": "编导-小王",
+      "operatorRole": "director",
+      "createdAt": "2026-06-05 15:00:00",
+      "metadata": {
+        "version": "v2.1",
+        "fileName": "完美日记口红脚本_v2.1.docx"
+      }
+    },
+    {
+      "id": "tl5",
+      "projectId": "p3",
+      "type": "delivery_update",
+      "title": "素材审核意见",
+      "description": "品牌方要求修改：开场节奏太慢，建议加快；产品特写镜头需要增加",
+      "operator": "品牌方-王经理",
+      "operatorRole": "business",
+      "createdAt": "2026-06-06 08:00:00",
+      "metadata": {
+        "deliveryId": "m2",
+        "status": "revision_requested"
+      }
+    }
+  ],
+  "todos": [
+    {
+      "id": "todo1",
+      "title": "确认完美日记拍摄场地",
+      "description": "与摄影棚确认今天下午14:00的拍摄场地可用性",
+      "type": "shooting",
+      "relatedId": "sh1",
+      "priority": "high",
+      "dueDate": "2026-06-06",
+      "status": "pending",
+      "assignee": "编导-小王"
+    },
+    {
+      "id": "todo2",
+      "title": "提交口播文案",
+      "description": "完美日记口红推广的口播文案需要在今天下班前提交",
+      "type": "delivery",
+      "relatedId": "m4",
+      "priority": "high",
+      "dueDate": "2026-06-06",
+      "status": "pending",
+      "assignee": "文案-小艾"
+    },
+    {
+      "id": "todo3",
+      "title": "审核完美日记视频素材",
+      "description": "剪辑师提交了v1.0版本视频，需要在24小时内完成审核",
+      "type": "review",
+      "relatedId": "m1",
+      "priority": "high",
+      "dueDate": "2026-06-07",
+      "status": "pending",
+      "assignee": "品牌方-张经理"
+    },
+    {
+      "id": "todo4",
+      "title": "小米14发布会彩排",
+      "description": "明天上午9点直播，今天下午需要完成彩排",
+      "type": "meeting",
+      "relatedId": "p2",
+      "priority": "medium",
+      "dueDate": "2026-06-06",
+      "status": "pending",
+      "assignee": "编导-小李"
+    },
+    {
+      "id": "todo5",
+      "title": "三只松鼠视频修改",
+      "description": "根据品牌方反馈修改视频，5天后交付v3.0版本",
+      "type": "delivery",
+      "relatedId": "m2",
+      "priority": "medium",
+      "dueDate": "2026-06-11",
+      "status": "pending",
+      "assignee": "剪辑师-小红"
+    }
+  ],
+  "risks": [
+    {
+      "id": "r1",
+      "title": "完美日记拍摄延期风险",
+      "description": "达人李佳琪今天下午有其他行程，可能迟到2小时",
+      "level": "warning",
+      "relatedId": "sh1",
+      "relatedType": "schedule",
+      "createdAt": "2026-06-06 11:00:00"
+    },
+    {
+      "id": "r2",
+      "title": "三只松鼠交付延期",
+      "description": "品牌方反馈修改意见较多，原定交付时间可能需要延期",
+      "level": "critical",
+      "relatedId": "m2",
+      "relatedType": "delivery",
+      "createdAt": "2026-06-06 09:00:00"
+    },
+    {
+      "id": "r3",
+      "title": "小米14脚本待确认",
+      "description": "品牌方还未最终确认脚本版本，可能影响明天的拍摄",
+      "level": "warning",
+      "relatedId": "p2",
+      "relatedType": "project",
+      "createdAt": "2026-06-06 07:00:00"
+    }
+  ],
+  "recentChanges": [
+    {
+      "id": "rc1780722377610_upi9qdhpu",
+      "title": "提交素材",
+      "description": "完美日记618口红推广 - 口播文案_v1.2.docx 已提交审核",
+      "type": "delivery",
+      "relatedId": "m4",
+      "operator": "文案-小艾",
+      "createdAt": "2026-06-06 13:06:17"
+    },
+    {
+      "id": "rc1",
+      "title": "完美日记拍摄时间调整",
+      "description": "拍摄时间从 10:00-13:00 调整为 14:00-17:00",
+      "type": "schedule",
+      "relatedId": "sh1",
+      "operator": "编导-小王",
+      "createdAt": "2026-06-06 09:00:00"
+    },
+    {
+      "id": "rc2",
+      "title": "三只松鼠素材审核意见",
+      "description": "品牌方要求修改视频，状态变更为「待修改」",
+      "type": "delivery",
+      "relatedId": "m2",
+      "operator": "品牌方-王经理",
+      "createdAt": "2026-06-06 08:00:00"
+    },
+    {
+      "id": "rc3",
+      "title": "完美日记视频提交审核",
+      "description": "剪辑师提交了v1.0版本视频，等待品牌方审核",
+      "type": "delivery",
+      "relatedId": "m1",
+      "operator": "剪辑师-阿明",
+      "createdAt": "2026-06-06 09:00:00"
+    },
+    {
+      "id": "rc4",
+      "title": "阿迪达斯图片素材通过",
+      "description": "夏季新品图片素材v1.0版本已通过品牌方审核",
+      "type": "delivery",
+      "relatedId": "m3",
+      "operator": "品牌方-陈总监",
+      "createdAt": "2026-06-05 10:00:00"
+    },
+    {
+      "id": "rc5",
+      "title": "脚本版本更新",
+      "description": "完美日记口红脚本更新至v2.1版本",
+      "type": "script",
+      "relatedId": "p1",
+      "operator": "编导-小王",
+      "createdAt": "2026-06-05 15:00:00"
+    }
+  ],
+  "scriptVersions": [
+    {
+      "id": "s1",
+      "projectId": "p1",
+      "version": "v2.1",
+      "content": "【开场】李佳琪手持完美日记小细跟口红，对着镜头微笑\n【产品介绍】逐一展示5款热门色号，上嘴试色\n【使用教程】讲解如何搭配不同妆容\n【结尾】引导点击购物车下单",
+      "createdAt": "2026-06-05 15:00:00",
+      "createdBy": "编导-小王",
+      "status": "approved"
+    },
+    {
+      "id": "s2",
+      "projectId": "p1",
+      "version": "v2.0",
+      "content": "【开场】李佳琪手持完美日记小细跟口红\n【产品介绍】展示3款热门色号\n【使用教程】简单讲解\n【结尾】引导下单",
+      "createdAt": "2026-06-03 10:00:00",
+      "createdBy": "编导-小王",
+      "status": "rejected",
+      "remark": "色号太少，需要增加到5款；使用教程需要更详细"
+    },
+    {
+      "id": "s3",
+      "projectId": "p1",
+      "version": "v1.0",
+      "content": "简单的产品介绍脚本初稿",
+      "createdAt": "2026-05-30 10:00:00",
+      "createdBy": "实习编导",
+      "status": "rejected",
+      "remark": "内容太简单，需要重新撰写"
+    }
+  ]
+}

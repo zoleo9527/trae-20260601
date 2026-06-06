@@ -38,10 +38,16 @@ interface AppState {
   fetchRecentChanges: () => Promise<void>;
   fetchScriptVersions: (projectId: string) => Promise<void>;
 
+  createShootingSchedule: (data: any) => Promise<void>;
   updateShootingSchedule: (id: string, data: Partial<ShootingSchedule>) => Promise<void>;
+  startShooting: (id: string) => Promise<void>;
+  completeShooting: (id: string) => Promise<void>;
+
+  submitDelivery: (id: string) => Promise<void>;
+  reviewDelivery: (id: string, data: { status: string; feedback: string }) => Promise<void>;
   updateMaterialDelivery: (id: string, data: Partial<MaterialDelivery>) => Promise<void>;
+
   updateTodo: (id: string, data: Partial<TodoItem>) => Promise<void>;
-  createShootingSchedule: (data: Omit<ShootingSchedule, 'id' | 'createdAt' | 'updatedAt'>) => Promise<void>;
   addTimelineEvent: (event: Omit<TimelineEvent, 'id'>) => Promise<void>;
 
   getProjectById: (id: string) => Project | undefined;
@@ -187,6 +193,25 @@ export const useStore = create<AppState>((set, get) => ({
     }
   },
 
+  createShootingSchedule: async (data: any) => {
+    set({ loading: true });
+    try {
+      const newSchedule = await api.createShootingSchedule(data);
+      set((state) => ({
+        shootingSchedules: [newSchedule, ...state.shootingSchedules],
+      }));
+      await Promise.all([
+        get().fetchProjects(),
+        get().fetchRecentChanges(),
+      ]);
+    } catch (error) {
+      set({ error: (error as Error).message });
+      throw error;
+    } finally {
+      set({ loading: false });
+    }
+  },
+
   updateShootingSchedule: async (id: string, data: Partial<ShootingSchedule>) => {
     set({ loading: true });
     try {
@@ -196,8 +221,101 @@ export const useStore = create<AppState>((set, get) => ({
           s.id === id ? updated : s
         ),
       }));
+      await Promise.all([
+        get().fetchProjects(),
+        get().fetchRecentChanges(),
+      ]);
     } catch (error) {
       set({ error: (error as Error).message });
+      throw error;
+    } finally {
+      set({ loading: false });
+    }
+  },
+
+  startShooting: async (id: string) => {
+    set({ loading: true });
+    try {
+      const updated = await api.startShooting(id);
+      set((state) => ({
+        shootingSchedules: state.shootingSchedules.map((s) =>
+          s.id === id ? updated : s
+        ),
+      }));
+      await Promise.all([
+        get().fetchProjects(),
+        get().fetchRecentChanges(),
+        get().fetchTimelineEvents(updated.projectId),
+      ]);
+    } catch (error) {
+      set({ error: (error as Error).message });
+      throw error;
+    } finally {
+      set({ loading: false });
+    }
+  },
+
+  completeShooting: async (id: string) => {
+    set({ loading: true });
+    try {
+      const updated = await api.completeShooting(id);
+      set((state) => ({
+        shootingSchedules: state.shootingSchedules.map((s) =>
+          s.id === id ? updated : s
+        ),
+      }));
+      await Promise.all([
+        get().fetchProjects(),
+        get().fetchRecentChanges(),
+        get().fetchTimelineEvents(updated.projectId),
+      ]);
+    } catch (error) {
+      set({ error: (error as Error).message });
+      throw error;
+    } finally {
+      set({ loading: false });
+    }
+  },
+
+  submitDelivery: async (id: string) => {
+    set({ loading: true });
+    try {
+      const updated = await api.submitDelivery(id);
+      set((state) => ({
+        materialDeliveries: state.materialDeliveries.map((m) =>
+          m.id === id ? updated : m
+        ),
+      }));
+      await Promise.all([
+        get().fetchProjects(),
+        get().fetchRecentChanges(),
+        get().fetchTimelineEvents(updated.projectId),
+      ]);
+    } catch (error) {
+      set({ error: (error as Error).message });
+      throw error;
+    } finally {
+      set({ loading: false });
+    }
+  },
+
+  reviewDelivery: async (id: string, data: { status: string; feedback: string }) => {
+    set({ loading: true });
+    try {
+      const updated = await api.reviewDelivery(id, { ...data, reviewer: '当前用户' });
+      set((state) => ({
+        materialDeliveries: state.materialDeliveries.map((m) =>
+          m.id === id ? updated : m
+        ),
+      }));
+      await Promise.all([
+        get().fetchProjects(),
+        get().fetchRecentChanges(),
+        get().fetchTimelineEvents(updated.projectId),
+      ]);
+    } catch (error) {
+      set({ error: (error as Error).message });
+      throw error;
     } finally {
       set({ loading: false });
     }
@@ -214,6 +332,7 @@ export const useStore = create<AppState>((set, get) => ({
       }));
     } catch (error) {
       set({ error: (error as Error).message });
+      throw error;
     } finally {
       set({ loading: false });
     }
@@ -228,20 +347,7 @@ export const useStore = create<AppState>((set, get) => ({
       }));
     } catch (error) {
       set({ error: (error as Error).message });
-    } finally {
-      set({ loading: false });
-    }
-  },
-
-  createShootingSchedule: async (data: Omit<ShootingSchedule, 'id' | 'createdAt' | 'updatedAt'>) => {
-    set({ loading: true });
-    try {
-      const newSchedule = await api.createShootingSchedule(data);
-      set((state) => ({
-        shootingSchedules: [newSchedule, ...state.shootingSchedules],
-      }));
-    } catch (error) {
-      set({ error: (error as Error).message });
+      throw error;
     } finally {
       set({ loading: false });
     }
@@ -257,8 +363,10 @@ export const useStore = create<AppState>((set, get) => ({
           [event.projectId]: [newEvent, ...(state.timelineEvents[event.projectId] || [])],
         },
       }));
+      await get().fetchRecentChanges();
     } catch (error) {
       set({ error: (error as Error).message });
+      throw error;
     } finally {
       set({ loading: false });
     }
