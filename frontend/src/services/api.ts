@@ -24,6 +24,8 @@ export async function getTickets(
     handler?: UserRole;
     hasReject?: boolean;
     hasSupplementary?: boolean;
+    isOverdue?: boolean;
+    isUrgent?: boolean;
     keyword?: string;
   }
 ): Promise<ApiResponse<GroupTicket[]>> {
@@ -32,6 +34,8 @@ export async function getTickets(
   if (params?.handler) query.append('handler', params.handler);
   if (params?.hasReject !== undefined) query.append('hasReject', String(params.hasReject));
   if (params?.hasSupplementary !== undefined) query.append('hasSupplementary', String(params.hasSupplementary));
+  if (params?.isOverdue !== undefined) query.append('isOverdue', String(params.isOverdue));
+  if (params?.isUrgent !== undefined) query.append('isUrgent', String(params.isUrgent));
   if (params?.keyword) query.append('keyword', params.keyword);
 
   const res = await fetch(`${API_BASE}/tickets?${query.toString()}`, {
@@ -140,6 +144,8 @@ export function getExportUrl(params?: {
   handler?: UserRole;
   hasReject?: boolean;
   hasSupplementary?: boolean;
+  isOverdue?: boolean;
+  isUrgent?: boolean;
   keyword?: string;
 }): string {
   const query = new URLSearchParams();
@@ -147,6 +153,8 @@ export function getExportUrl(params?: {
   if (params?.handler) query.append('handler', params.handler);
   if (params?.hasReject !== undefined) query.append('hasReject', String(params.hasReject));
   if (params?.hasSupplementary !== undefined) query.append('hasSupplementary', String(params.hasSupplementary));
+  if (params?.isOverdue !== undefined) query.append('isOverdue', String(params.isOverdue));
+  if (params?.isUrgent !== undefined) query.append('isUrgent', String(params.isUrgent));
   if (params?.keyword) query.append('keyword', params.keyword);
   return `${API_BASE}/export/tickets?${query.toString()}`;
 }

@@ -33,11 +33,12 @@ function addStatusLog(
   db.statusLogs.push(log);
 }
 
-function addTodo(ticketId: string, title: string, description: string, role: UserRole) {
+function addTodo(ticketId: string, title: string, description: string, role: UserRole, slaDeadline?: string) {
   const existingTodo = db.todos.find(t => t.ticketId === ticketId && t.role === role);
   if (existingTodo) {
     existingTodo.title = title;
     existingTodo.description = description;
+    existingTodo.slaDeadline = slaDeadline;
     return;
   }
   const todo: TodoItem = {
@@ -47,6 +48,7 @@ function addTodo(ticketId: string, title: string, description: string, role: Use
     description,
     role,
     priority: 'high',
+    slaDeadline,
     createdAt: new Date().toISOString(),
   };
   db.todos.push(todo);
@@ -62,6 +64,8 @@ router.get('/tickets', (req, res) => {
     handler: req.query.handler as any,
     hasReject: req.query.hasReject ? req.query.hasReject === 'true' : undefined,
     hasSupplementary: req.query.hasSupplementary ? req.query.hasSupplementary === 'true' : undefined,
+    isOverdue: req.query.isOverdue ? req.query.isOverdue === 'true' : undefined,
+    isUrgent: req.query.isUrgent ? req.query.isUrgent === 'true' : undefined,
     keyword: req.query.keyword as string,
   };
 

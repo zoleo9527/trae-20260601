@@ -1,6 +1,23 @@
 import { GroupTicket, FilterParams, GroupTicketStatus } from '../types';
 import { STATUS_LABELS, STATUS_COLORS, ROLE_LABELS } from './statusFlow';
 
+function isOverdueTicket(ticket: GroupTicket): boolean {
+  if (!ticket.slaDeadline || ticket.status === 'completed' || ticket.status === 'cancelled') {
+    return false;
+  }
+  return new Date(ticket.slaDeadline).getTime() < Date.now();
+}
+
+function isUrgentTicket(ticket: GroupTicket): boolean {
+  if (!ticket.slaDeadline || ticket.status === 'completed' || ticket.status === 'cancelled') {
+    return false;
+  }
+  const deadline = new Date(ticket.slaDeadline).getTime();
+  const now = Date.now();
+  const oneDayMs = 24 * 60 * 60 * 1000;
+  return deadline > now && deadline - now < oneDayMs;
+}
+
 export function filterGroupTickets(
   tickets: GroupTicket[],
   params: FilterParams
@@ -21,6 +38,18 @@ export function filterGroupTickets(
     if (params.hasSupplementary !== undefined) {
       const hasSupplementary = !!ticket.supplementaryRemark;
       if (hasSupplementary !== params.hasSupplementary) {
+        return false;
+      }
+    }
+    if (params.isOverdue !== undefined) {
+      const overdue = isOverdueTicket(ticket);
+      if (overdue !== params.isOverdue) {
+        return false;
+      }
+    }
+    if (params.isUrgent !== undefined) {
+      const urgent = isUrgentTicket(ticket);
+      if (urgent !== params.isUrgent) {
         return false;
       }
     }
@@ -46,6 +75,8 @@ export interface EnrichedGroupTicket extends GroupTicket {
   currentHandlerLabel: string;
   hasReject: boolean;
   hasSupplementary: boolean;
+  isOverdue: boolean;
+  isUrgent: boolean;
 }
 
 export function enrichGroupTicket(ticket: GroupTicket): EnrichedGroupTicket {
@@ -56,5 +87,7 @@ export function enrichGroupTicket(ticket: GroupTicket): EnrichedGroupTicket {
     currentHandlerLabel: ROLE_LABELS[ticket.currentHandler],
     hasReject: ticket.rejectRecords.length > 0,
     hasSupplementary: !!ticket.supplementaryRemark,
+    isOverdue: isOverdueTicket(ticket),
+    isUrgent: isUrgentTicket(ticket),
   };
 }

@@ -55,6 +55,10 @@ export interface GroupTicket {
   reviewedBy?: string;
   reviewRemark?: string;
 
+  slaDeadline?: string;
+  stuckReason?: string;
+  nextNodeTime?: string;
+
   createdAt: string;
   updatedAt: string;
 
@@ -63,6 +67,8 @@ export interface GroupTicket {
   currentHandlerLabel?: string;
   hasReject?: boolean;
   hasSupplementary?: boolean;
+  isOverdue?: boolean;
+  isUrgent?: boolean;
 }
 
 export interface TodoItem {
@@ -73,8 +79,11 @@ export interface TodoItem {
   role: UserRole;
   priority: 'high' | 'medium' | 'low';
   dueDate?: string;
+  slaDeadline?: string;
   createdAt: string;
   ticket?: GroupTicket;
+  isOverdue?: boolean;
+  isUrgent?: boolean;
 }
 
 export interface StatusLog {

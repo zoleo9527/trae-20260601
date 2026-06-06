@@ -43,7 +43,20 @@ function addStatusLog(
   db.statusLogs.push(log);
 }
 
-function addTodo(ticketId: string, title: string, description: string, role: UserRole) {
+function addTodo(
+  ticketId: string,
+  title: string,
+  description: string,
+  role: UserRole,
+  slaDeadline?: string
+) {
+  const existingTodo = db.todos.find(t => t.ticketId === ticketId && t.role === role);
+  if (existingTodo) {
+    existingTodo.title = title;
+    existingTodo.description = description;
+    existingTodo.slaDeadline = slaDeadline;
+    return;
+  }
   const todo: TodoItem = {
     id: generateId(),
     ticketId,
@@ -51,6 +64,7 @@ function addTodo(ticketId: string, title: string, description: string, role: Use
     description,
     role,
     priority: 'high',
+    slaDeadline,
     createdAt: new Date().toISOString(),
   };
   db.todos.push(todo);
@@ -88,6 +102,8 @@ function createCompletedTicket(): GroupTicket {
     reviewedAt: new Date(now.getTime() - 86400000).toISOString(),
     reviewedBy: 'u3',
     reviewRemark: '核销数据准确，无误',
+    slaDeadline: new Date(now.getTime() - 86400000 * 2).toISOString(),
+    nextNodeTime: null,
   };
 
   addStatusLog(id, null, 'pending_scheduling', 'u1', 'scheduling_manager', '系统', '企业提交团体票预约');
@@ -129,6 +145,9 @@ function createVerificationPendingReviewTicket(): GroupTicket {
     },
     verifiedAt: new Date(now.getTime() - 3600000).toISOString(),
     verifiedBy: 'u2',
+    slaDeadline: new Date(now.getTime() - 3600000).toISOString(),
+    stuckReason: '值班经理正在处理其他紧急事务，核销复核延后',
+    nextNodeTime: new Date(now.getTime() + 3600000).toISOString(),
   };
 
   addStatusLog(id, null, 'pending_scheduling', 'u1', 'scheduling_manager', '系统', '企业提交团体票预约');
@@ -138,7 +157,7 @@ function createVerificationPendingReviewTicket(): GroupTicket {
   addStatusLog(id, 'pending_verification', 'verifying', 'u2', 'ticket_supervisor', '李娜', '开始现场核销');
   addStatusLog(id, 'verifying', 'verification_pending_review', 'u2', 'ticket_supervisor', '李娜', '提交核销数据，待值班经理复核');
 
-  addTodo(id, '核销复核', '阿里巴巴集团80人团体票核销数据待复核', 'duty_manager');
+  addTodo(id, '核销复核', '阿里巴巴集团80人团体票核销数据待复核', 'duty_manager', new Date(now.getTime() - 3600000).toISOString());
 
   return ticket;
 }
@@ -178,6 +197,9 @@ function createVerificationRejectedTicket(): GroupTicket {
     },
     verifiedAt: new Date(now.getTime() - 10800000).toISOString(),
     verifiedBy: 'u2',
+    slaDeadline: new Date(now.getTime() - 10800000).toISOString(),
+    stuckReason: '核销被驳回，票务主管正在重新整理签到记录',
+    nextNodeTime: new Date(now.getTime() + 7200000).toISOString(),
   };
 
   addStatusLog(id, null, 'pending_scheduling', 'u1', 'scheduling_manager', '系统', '企业提交团体票预约');
@@ -188,7 +210,7 @@ function createVerificationRejectedTicket(): GroupTicket {
   addStatusLog(id, 'verifying', 'verification_pending_review', 'u2', 'ticket_supervisor', '李娜', '提交核销数据');
   addStatusLog(id, 'verification_pending_review', 'verification_rejected', 'u3', 'duty_manager', '王强', '核销数据驳回：缺少签到明细');
 
-  addTodo(id, '核销数据重新提交', '腾讯科技150人团体票核销被驳回，请重新核对数据后提交', 'ticket_supervisor');
+  addTodo(id, '核销数据重新提交', '腾讯科技150人团体票核销被驳回，请重新核对数据后提交', 'ticket_supervisor', new Date(now.getTime() + 7200000).toISOString());
 
   return ticket;
 }
@@ -216,6 +238,8 @@ function createSchedulingApprovedWithRemarkTicket(): GroupTicket {
     supplementaryAt: new Date(now.getTime() - 86400000).toISOString(),
     createdAt: new Date(now.getTime() - 86400000 * 2).toISOString(),
     updatedAt: new Date(now.getTime() - 86400000).toISOString(),
+    slaDeadline: new Date(now.getTime() + 86400000).toISOString(),
+    nextNodeTime: new Date(now.getTime() + 82800000).toISOString(),
   };
 
   addStatusLog(id, null, 'pending_scheduling', 'u1', 'scheduling_manager', '系统', '企业提交团体票预约');
@@ -223,7 +247,7 @@ function createSchedulingApprovedWithRemarkTicket(): GroupTicket {
   addStatusLog(id, 'scheduling_reviewing', 'scheduling_approved', 'u1', 'scheduling_manager', '张伟', '排片审核通过，注意需提供3D眼镜');
   addStatusLog(id, 'scheduling_approved', 'scheduling_approved', 'u1', 'scheduling_manager', '张伟', '补充备注：企业要求提供3D眼镜60副');
 
-  addTodo(id, '待核销准备', '字节跳动60人团体票明日放映，请提前准备3D眼镜', 'ticket_supervisor');
+  addTodo(id, '待核销准备', '字节跳动60人团体票明日放映，请提前准备3D眼镜', 'ticket_supervisor', new Date(now.getTime() + 82800000).toISOString());
 
   return ticket;
 }
@@ -256,13 +280,16 @@ function createSchedulingRejectedTicket(): GroupTicket {
     ],
     createdAt: new Date(now.getTime() - 86400000 * 2).toISOString(),
     updatedAt: new Date(now.getTime() - 43200000).toISOString(),
+    slaDeadline: new Date(now.getTime() - 7200000).toISOString(),
+    stuckReason: '排片被驳回，等待企业确认是否调整场次',
+    nextNodeTime: new Date(now.getTime() + 14400000).toISOString(),
   };
 
   addStatusLog(id, null, 'pending_scheduling', 'u1', 'scheduling_manager', '系统', '企业提交团体票预约');
   addStatusLog(id, 'pending_scheduling', 'scheduling_reviewing', 'u1', 'scheduling_manager', '张伟', '开始排片审核');
   addStatusLog(id, 'scheduling_reviewing', 'scheduling_rejected', 'u1', 'scheduling_manager', '张伟', '排片驳回：VIP厅已被包场');
 
-  addTodo(id, '排片方案重新确认', '美团点评30人团体票排片被驳回，请联系企业调整场次', 'scheduling_manager');
+  addTodo(id, '排片方案重新确认', '美团点评30人团体票排片被驳回，请联系企业调整场次', 'scheduling_manager', new Date(now.getTime() + 14400000).toISOString());
 
   return ticket;
 }
@@ -288,11 +315,13 @@ function createPendingSchedulingTicket(): GroupTicket {
     rejectRecords: [],
     createdAt: new Date(now.getTime() - 3600000 * 5).toISOString(),
     updatedAt: new Date(now.getTime() - 3600000 * 5).toISOString(),
+    slaDeadline: new Date(now.getTime() + 43200000).toISOString(),
+    nextNodeTime: new Date(now.getTime() + 28800000).toISOString(),
   };
 
   addStatusLog(id, null, 'pending_scheduling', 'u1', 'scheduling_manager', '系统', '企业提交团体票预约');
 
-  addTodo(id, '排片审核', '京东集团200人团体票待排片审核', 'scheduling_manager');
+  addTodo(id, '排片审核', '京东集团200人团体票待排片审核', 'scheduling_manager', new Date(now.getTime() + 28800000).toISOString());
 
   return ticket;
 }
@@ -318,6 +347,8 @@ function createPendingVerificationTicket(): GroupTicket {
     rejectRecords: [],
     createdAt: new Date(now.getTime() - 86400000 * 2).toISOString(),
     updatedAt: new Date(now.getTime() - 86400000).toISOString(),
+    slaDeadline: new Date(now.getTime() + 3600000 * 3).toISOString(),
+    nextNodeTime: new Date(now.getTime() + 3600000 * 2).toISOString(),
   };
 
   addStatusLog(id, null, 'pending_scheduling', 'u1', 'scheduling_manager', '系统', '企业提交团体票预约');
@@ -325,7 +356,7 @@ function createPendingVerificationTicket(): GroupTicket {
   addStatusLog(id, 'scheduling_reviewing', 'scheduling_approved', 'u1', 'scheduling_manager', '张伟', '排片审核通过');
   addStatusLog(id, 'scheduling_approved', 'pending_verification', 'u2', 'ticket_supervisor', '系统', '等待票务主管现场核销');
 
-  addTodo(id, '现场核销', '小米科技100人团体票今日21:00放映，请到场核销', 'ticket_supervisor');
+  addTodo(id, '现场核销', '小米科技100人团体票今日21:00放映，请到场核销', 'ticket_supervisor', new Date(now.getTime() + 3600000 * 2).toISOString());
 
   return ticket;
 }
@@ -351,12 +382,14 @@ function createSchedulingReviewingTicket(): GroupTicket {
     rejectRecords: [],
     createdAt: new Date(now.getTime() - 86400000).toISOString(),
     updatedAt: new Date(now.getTime() - 1800000).toISOString(),
+    slaDeadline: new Date(now.getTime() + 7200000).toISOString(),
+    nextNodeTime: new Date(now.getTime() + 3600000).toISOString(),
   };
 
   addStatusLog(id, null, 'pending_scheduling', 'u1', 'scheduling_manager', '系统', '企业提交团体票预约');
   addStatusLog(id, 'pending_scheduling', 'scheduling_reviewing', 'u1', 'scheduling_manager', '张伟', '开始排片审核');
 
-  addTodo(id, '排片审核', '百度公司90人团体票排片审核中，请确认场次', 'scheduling_manager');
+  addTodo(id, '排片审核', '百度公司90人团体票排片审核中，请确认场次', 'scheduling_manager', new Date(now.getTime() + 7200000).toISOString());
 
   return ticket;
 }

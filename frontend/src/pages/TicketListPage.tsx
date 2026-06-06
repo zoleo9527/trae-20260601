@@ -15,10 +15,12 @@ const TicketListPage: React.FC<TicketListPageProps> = ({ role, onViewTicket }) =
   const [handlerFilter, setHandlerFilter] = useState<UserRole | ''>('');
   const [hasRejectFilter, setHasRejectFilter] = useState<'' | 'true' | 'false'>('');
   const [hasSupplementaryFilter, setHasSupplementaryFilter] = useState<'' | 'true' | 'false'>('');
+  const [isOverdueFilter, setIsOverdueFilter] = useState<'' | 'true' | 'false'>('');
+  const [isUrgentFilter, setIsUrgentFilter] = useState<'' | 'true' | 'false'>('');
 
   useEffect(() => {
     loadTickets();
-  }, [role, statusFilter, handlerFilter, hasRejectFilter, hasSupplementaryFilter, keyword]);
+  }, [role, statusFilter, handlerFilter, hasRejectFilter, hasSupplementaryFilter, isOverdueFilter, isUrgentFilter, keyword]);
 
   const loadTickets = async () => {
     setLoading(true);
@@ -28,6 +30,8 @@ const TicketListPage: React.FC<TicketListPageProps> = ({ role, onViewTicket }) =
       if (handlerFilter) params.handler = handlerFilter;
       if (hasRejectFilter) params.hasReject = hasRejectFilter === 'true';
       if (hasSupplementaryFilter) params.hasSupplementary = hasSupplementaryFilter === 'true';
+      if (isOverdueFilter) params.isOverdue = isOverdueFilter === 'true';
+      if (isUrgentFilter) params.isUrgent = isUrgentFilter === 'true';
       if (keyword) params.keyword = keyword;
 
       const response = await getTickets(role, params);
@@ -50,11 +54,23 @@ const TicketListPage: React.FC<TicketListPageProps> = ({ role, onViewTicket }) =
     if (handlerFilter) params.handler = handlerFilter;
     if (hasRejectFilter) params.hasReject = hasRejectFilter === 'true';
     if (hasSupplementaryFilter) params.hasSupplementary = hasSupplementaryFilter === 'true';
+    if (isOverdueFilter) params.isOverdue = isOverdueFilter === 'true';
+    if (isUrgentFilter) params.isUrgent = isUrgentFilter === 'true';
     if (keyword) params.keyword = keyword;
     window.open(getExportUrl(params), '_blank');
   };
 
   const getStatusCount = (status: GroupTicketStatus) => tickets.filter(t => t.status === status).length;
+
+  const handleReset = () => {
+    setKeyword('');
+    setStatusFilter('');
+    setHandlerFilter('');
+    setHasRejectFilter('');
+    setHasSupplementaryFilter('');
+    setIsOverdueFilter('');
+    setIsUrgentFilter('');
+  };
 
   return (
     <div className="ticket-list-page">
@@ -85,8 +101,12 @@ const TicketListPage: React.FC<TicketListPageProps> = ({ role, onViewTicket }) =
           <span className="stat-value">{getStatusCount('completed')}</span>
         </div>
         <div className="stat-item">
-          <span className="stat-label">有驳回</span>
-          <span className="stat-value">{tickets.filter(t => t.rejectRecords.length > 0).length}</span>
+          <span className="stat-label">已逾期</span>
+          <span className="stat-value" style={{ color: '#ff4d4f' }}>{tickets.filter(t => t.isOverdue).length}</span>
+        </div>
+        <div className="stat-item">
+          <span className="stat-label">临期中</span>
+          <span className="stat-value" style={{ color: '#fa8c16' }}>{tickets.filter(t => t.isUrgent).length}</span>
         </div>
       </div>
 
@@ -129,13 +149,19 @@ const TicketListPage: React.FC<TicketListPageProps> = ({ role, onViewTicket }) =
             <option value="false">无补充备注</option>
           </select>
 
-          <button onClick={() => {
-            setKeyword('');
-            setStatusFilter('');
-            setHandlerFilter('');
-            setHasRejectFilter('');
-            setHasSupplementaryFilter('');
-          }} className="reset-btn">重置</button>
+          <select value={isOverdueFilter} onChange={(e) => setIsOverdueFilter(e.target.value as any)} className="filter-select">
+            <option value="">全部逾期状态</option>
+            <option value="true">已逾期</option>
+            <option value="false">未逾期</option>
+          </select>
+
+          <select value={isUrgentFilter} onChange={(e) => setIsUrgentFilter(e.target.value as any)} className="filter-select">
+            <option value="">全部临期状态</option>
+            <option value="true">临期中</option>
+            <option value="false">非临期</option>
+          </select>
+
+          <button onClick={handleReset} className="reset-btn">重置</button>
         </div>
       </div>
 
@@ -150,9 +176,11 @@ const TicketListPage: React.FC<TicketListPageProps> = ({ role, onViewTicket }) =
               <th>票数</th>
               <th>金额</th>
               <th>状态</th>
+              <th>时效</th>
               <th>当前责任人</th>
               <th>驳回</th>
               <th>补充备注</th>
+              <th>SLA截止</th>
               <th>更新时间</th>
               <th>操作</th>
             </tr>
@@ -160,11 +188,11 @@ const TicketListPage: React.FC<TicketListPageProps> = ({ role, onViewTicket }) =
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={12} className="text-center">加载中...</td>
+                <td colSpan={14} className="text-center">加载中...</td>
               </tr>
             ) : tickets.length === 0 ? (
               <tr>
-                <td colSpan={12} className="text-center">暂无数据</td>
+                <td colSpan={14} className="text-center">暂无数据</td>
               </tr>
             ) : tickets.map((ticket) => (
               <tr key={ticket.id} className="ticket-row" onClick={() => onViewTicket(ticket.id)}>
@@ -175,11 +203,20 @@ const TicketListPage: React.FC<TicketListPageProps> = ({ role, onViewTicket }) =
                 <td>{ticket.ticketCount}张</td>
                 <td>¥{ticket.totalAmount}</td>
                 <td>
-                  <span className="status-tag" style={{ backgroundColor: (ticket as any).statusColor || '#1890ff' }}>
-                    {(ticket as any).statusLabel || ticket.status}
+                  <span className="status-tag" style={{ backgroundColor: ticket.statusColor || '#1890ff' }}>
+                    {ticket.statusLabel || ticket.status}
                   </span>
                 </td>
-                <td>{(ticket as any).currentHandlerLabel || ticket.currentHandler}</td>
+                <td>
+                  {ticket.isOverdue ? (
+                    <span className="tag tag-danger">已逾期</span>
+                  ) : ticket.isUrgent ? (
+                    <span className="tag tag-warning">临期</span>
+                  ) : (
+                    <span className="tag tag-success">正常</span>
+                  )}
+                </td>
+                <td>{ticket.currentHandlerLabel || ticket.currentHandler}</td>
                 <td>
                   {ticket.rejectRecords.length > 0 ? (
                     <span className="tag tag-danger">是({ticket.rejectRecords.length})</span>
@@ -193,6 +230,13 @@ const TicketListPage: React.FC<TicketListPageProps> = ({ role, onViewTicket }) =
                   ) : (
                     <span className="tag tag-default">无</span>
                   )}
+                </td>
+                <td>
+                  {ticket.slaDeadline ? (
+                    <span style={{ color: ticket.isOverdue ? '#ff4d4f' : ticket.isUrgent ? '#fa8c16' : 'inherit' }}>
+                      {new Date(ticket.slaDeadline).toLocaleDateString('zh-CN')}
+                    </span>
+                  ) : '-'}
                 </td>
                 <td>{new Date(ticket.updatedAt).toLocaleString('zh-CN')}</td>
                 <td>

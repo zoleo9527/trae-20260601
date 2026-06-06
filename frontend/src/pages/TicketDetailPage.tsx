@@ -157,6 +157,60 @@ const TicketDetailPage: React.FC<TicketDetailPageProps> = ({ ticketId, role, onB
         </div>
       </div>
 
+      <div className="summary-cards">
+        <div className="summary-card">
+          <div className="summary-card-label">当前责任人</div>
+          <div className="summary-card-value">
+            <span className="role-avatar">{(ticket.currentHandlerLabel || ROLE_LABELS[ticket.currentHandler]).charAt(0)}</span>
+            {ticket.currentHandlerLabel || ROLE_LABELS[ticket.currentHandler]}
+          </div>
+        </div>
+        <div className="summary-card">
+          <div className="summary-card-label">时效状态</div>
+          <div className="summary-card-value">
+            {ticket.isOverdue ? (
+              <span className="tag tag-danger">已逾期</span>
+            ) : ticket.isUrgent ? (
+              <span className="tag tag-warning">临期中</span>
+            ) : ticket.status === 'completed' ? (
+              <span className="tag tag-success">已完成</span>
+            ) : (
+              <span className="tag tag-success">正常</span>
+            )}
+            {ticket.slaDeadline && (
+              <span style={{ marginLeft: '8px', color: '#8c8c8c', fontSize: '13px' }}>
+                SLA截止: {new Date(ticket.slaDeadline).toLocaleString('zh-CN')}
+              </span>
+            )}
+          </div>
+        </div>
+        <div className="summary-card">
+          <div className="summary-card-label">卡住原因</div>
+          <div className="summary-card-value" style={{ color: ticket.stuckReason ? '#fa8c16' : '#52c41a' }}>
+            {ticket.stuckReason || '流程正常进行中'}
+          </div>
+        </div>
+        <div className="summary-card">
+          <div className="summary-card-label">下一节点时间</div>
+          <div className="summary-card-value">
+            {ticket.nextNodeTime ? new Date(ticket.nextNodeTime).toLocaleString('zh-CN') : '-'}
+          </div>
+        </div>
+        <div className="summary-card" style={{ gridColumn: 'span 2' }}>
+          <div className="summary-card-label">最近一次备注</div>
+          <div className="summary-card-value" style={{ color: '#595959' }}>
+            {logs.length > 0 && logs[logs.length - 1].remark
+              ? logs[logs.length - 1].remark
+              : '暂无操作备注'}
+            {logs.length > 0 && (
+              <span style={{ marginLeft: '8px', color: '#8c8c8c', fontSize: '13px' }}>
+                —— {logs[logs.length - 1].operatorName}
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+
       <div className="tabs">
         <button
           className={activeTab === 'info' ? 'tab-btn active' : 'tab-btn'}
