@@ -90,7 +90,6 @@ function switchView(view) {
             break;
         case 'script':
             renderScriptList();
-            updateScriptStats();
             break;
         case 'flow':
             renderFlowTimeline();
@@ -663,66 +662,30 @@ function approveBrief(projectId) {
 
 function renderScriptList() {
     const container = document.getElementById('scriptList');
-    let allScripts = [];
+    const scriptProjects = projects.filter(p => p.scripts && p.scripts.length > 0);
     
-    projects.forEach(p => {
-        if (p.scripts) {
-            p.scripts.forEach(s => {
-                allScripts.push({
-                    ...s,
-                    projectId: p.id,
-                    brand: p.brand,
-                    projectName: p.name,
-                    assignee: p.assignee,
-                    updatedBy: p.updatedBy,
-                    updatedAt: p.updatedAt,
-                    projectStatus: p.status,
-                    blockedReason: p.blockedReason
-                });
-            });
-        }
-    });
-    
-    if (scriptStatusFilter !== 'all') {
-        if (scriptStatusFilter === 'pending') {
-            allScripts = allScripts.filter(s => s.status === 'pending' || s.status === 'processing');
-        } else if (scriptStatusFilter === 'blocked') {
-            allScripts = allScripts.filter(s => s.status === 'rejected' || s.projectStatus === 'blocked');
-        } else if (scriptStatusFilter === 'approved') {
-            allScripts = allScripts.filter(s => s.status === 'approved');
-        }
-    }
-    
-    if (scriptAssigneeFilter !== 'all') {
-        allScripts = allScripts.filter(s => {
-            const role = getUserRole(s.assignee);
-            return role === scriptAssigneeFilter;
-        });
-    }
-    
-    if (allScripts.length === 0) {
-        container.innerHTML = '<div style="padding: 40px; text-align: center; color: #8c8c8c;">暂无符合条件的脚本</div>';
+    if (scriptProjects.length === 0) {
+        container.innerHTML = '<div style="padding: 40px; text-align: center; color: #8c8c8c;">暂无脚本数据</div>';
         return;
     }
     
     let html = '';
-    allScripts.forEach(s => {
-        const rejectReason = s.feedback || (s.projectStatus === 'blocked' ? s.blockedReason : '');
-        
-        html += `
-            <div class="script-item ${selectedScript === s.id ? 'active' : ''}" onclick="selectScript('${s.projectId}', '${s.id}')">
-                <div class="script-project">${s.brand} - ${s.projectName}</div>
-                <div>
-                    <span class="script-version">${s.version}</span>
-                    <span class="status-tag ${s.status}" style="font-size: 11px;">${getStatusName(s.status)}</span>
+    scriptProjects.forEach(p => {
+        p.scripts.forEach(s => {
+            html += `
+                <div class="script-item ${selectedScript === s.id ? 'active' : ''}" onclick="selectScript('${p.id}', '${s.id}')">
+                    <div class="script-project">${p.brand} - ${p.name}</div>
+                    <div>
+                        <span class="script-version">${s.version}</span>
+                        <span class="status-tag ${s.status}" style="font-size: 11px;">${getStatusName(s.status)}</span>
+                    </div>
+                    <div class="script-meta">
+                        <span>${getUserAvatar(p.assignee)} ${getUserName(p.assignee)}</span>
+                        <span>${s.createdAt}</span>
+                    </div>
                 </div>
-                <div class="script-item-meta">
-                    <span class="script-item-updater">${getUserAvatar(s.updatedBy)} ${getUserName(s.updatedBy)}</span>
-                    <span>${formatTime(s.updatedAt)}</span>
-                </div>
-                ${rejectReason ? `<div class="script-item-reject">⚠️ ${rejectReason.substring(0, 50)}${rejectReason.length > 50 ? '...' : ''}</div>` : ''}
-            </div>
-        `;
+            `;
+        });
     });
     
     container.innerHTML = html;
@@ -755,15 +718,6 @@ function renderScriptDetail(projectId, scriptId) {
             </div>
         </div>
         
-        ${(project.status === 'blocked' || script.status === 'rejected') ? `
-        <div class="script-blocked-info">
-            <div style="font-weight: 600; color: #ff4d4f; margin-bottom: 8px;">⚠️ 当前卡点</div>
-            <div style="color: #595959;">
-                ${script.feedback || project.blockedReason || '待补充卡点原因'}
-            </div>
-        </div>
-        ` : ''}
-        
         <div class="script-version-history">
             <h4>版本历史</h4>
             ${project.scripts.map(s => `
@@ -776,15 +730,6 @@ function renderScriptDetail(projectId, scriptId) {
                 </div>
             `).join('')}
         </div>
-        
-        ${(project.status === 'blocked' || script.status === 'rejected') ? `
-        <div class="script-blocked-info">
-            <div style="font-weight: 600; color: #ff4d4f; margin-bottom: 8px;">⚠️ 当前卡点</div>
-            <div style="color: #595959;">
-                ${script.feedback || project.blockedReason || '待补充卡点原因'}
-            </div>
-        </div>
-        ` : ''}
         
         <div class="script-version-history">
             <h4>脚本内容</h4>
@@ -1081,7 +1026,6 @@ function refreshAllViews() {
         renderBriefList();
     } else if (currentView === 'script') {
         renderScriptList();
-        updateScriptStats();
         if (selectedScript) {
             const project = projects.find(p => p.scripts && p.scripts.some(s => s.id === selectedScript));
             if (project) {

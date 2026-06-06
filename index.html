@@ -195,10 +195,27 @@
                         <h2>脚本审批</h2>
                         <div class="view-actions">
                             <div class="approval-stats-mini">
-                                <span class="mini-stat"><span class="dot pending"></span> 待审批 <strong>6</strong></span>
-                                <span class="mini-stat"><span class="dot review"></span> 审批中 <strong>3</strong></span>
-                                <span class="mini-stat"><span class="dot done"></span> 已通过 <strong>15</strong></span>
+                                <span class="mini-stat"><span class="dot pending"></span> 待审批 <strong id="statPending">0</strong></span>
+                                <span class="mini-stat"><span class="dot blocked"></span> 已卡点 <strong id="statBlocked">0</strong></span>
+                                <span class="mini-stat"><span class="dot done"></span> 已通过 <strong id="statApproved">0</strong></span>
                             </div>
+                        </div>
+                    </div>
+
+                    <div class="script-filter-bar" id="scriptFilterBar">
+                        <div class="filter-tabs" id="statusFilterTabs">
+                            <button class="filter-tab active" data-status="all">全部</button>
+                            <button class="filter-tab" data-status="pending">待审批</button>
+                            <button class="filter-tab" data-status="blocked">已卡点</button>
+                            <button class="filter-tab" data-status="approved">已通过</button>
+                        </div>
+                        <div class="filter-assignee">
+                            <select id="scriptAssigneeFilter" class="filter-select">
+                                <option value="all">全部负责人</option>
+                                <option value="business">商务</option>
+                                <option value="director">编导</option>
+                                <option value="agent">达人经纪</option>
+                            </select>
                         </div>
                     </div>
 
