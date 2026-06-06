@@ -4,7 +4,8 @@ from django.utils import timezone
 from datetime import timedelta
 from adoption.models import (
     Staff, Animal, AdoptionApplication, ApplicationTimeline,
-    HomeVisitRecord, Role, AnimalStatus, AdoptionStatus, VisitResult
+    HomeVisitRecord, FollowUpRecord, MedicalRecord,
+    Role, AnimalStatus, AdoptionStatus, VisitResult
 )
 
 
@@ -18,6 +19,8 @@ class Command(BaseCommand):
         self.create_animals()
         self.create_normal_applications()
         self.create_abnormal_applications()
+        self.create_medical_records()
+        self.create_completed_application()
 
         self.stdout.write(self.style.SUCCESS('演示数据初始化完成！'))
 
@@ -402,3 +405,223 @@ class Command(BaseCommand):
         )
 
         self.stdout.write(self.style.SUCCESS('  已创建3个异常申请单'))
+
+    def create_medical_records(self):
+        self.stdout.write('创建医疗记录...')
+        vet = Staff.objects.filter(role=Role.VET).first()
+        animals = Animal.objects.all()
+
+        medical_data = [
+            {
+                'animal': animals[0],
+                'visit_date': (timezone.now() - timedelta(days=58)).date(),
+                'diagnosis': '常规体检，健康状况良好',
+                'treatment': '驱虫',
+                'medication': '体内外驱虫药',
+                'cost': 200
+            },
+            {
+                'animal': animals[0],
+                'visit_date': (timezone.now() - timedelta(days=55)).date(),
+                'diagnosis': '疫苗接种',
+                'treatment': '狂犬疫苗+多联疫苗',
+                'medication': '疫苗',
+                'cost': 300
+            },
+            {
+                'animal': animals[0],
+                'visit_date': (timezone.now() - timedelta(days=50)).date(),
+                'diagnosis': '绝育手术',
+                'treatment': '公犬去势手术',
+                'medication': '消炎药、止痛药',
+                'cost': 300
+            },
+            {
+                'animal': animals[3],
+                'visit_date': (timezone.now() - timedelta(days=9)).date(),
+                'diagnosis': '猫瘟病毒检测阳性，伴有呕吐腹泻',
+                'treatment': '抗病毒治疗、补液、止吐止泻',
+                'medication': '干扰素、单抗、电解质液',
+                'cost': 1500
+            },
+            {
+                'animal': animals[3],
+                'visit_date': (timezone.now() - timedelta(days=6)).date(),
+                'diagnosis': '猫瘟治疗复查，精神好转',
+                'treatment': '继续治疗，加强营养支持',
+                'medication': '继续用药+处方粮',
+                'cost': 1200
+            },
+            {
+                'animal': animals[3],
+                'visit_date': (timezone.now() - timedelta(days=3)).date(),
+                'diagnosis': '猫瘟康复期复查，各项指标正常',
+                'treatment': '出院，继续在家调养',
+                'medication': '益生菌、营养膏',
+                'cost': 800
+            },
+        ]
+
+        for data in medical_data:
+            MedicalRecord.objects.create(
+                animal=data['animal'],
+                vet=vet,
+                visit_date=data['visit_date'],
+                diagnosis=data['diagnosis'],
+                treatment=data['treatment'],
+                medication=data['medication'],
+                cost=data['cost']
+            )
+
+    def create_completed_application(self):
+        self.stdout.write('创建已完成的领养申请（完整闭环示例）...')
+        auditor = Staff.objects.filter(role=Role.ADOPTION_AUDITOR, user__username='auditor1').first()
+        visitor = Staff.objects.filter(role=Role.HOME_VISITOR).first()
+        volunteer = Staff.objects.filter(role=Role.VOLUNTEER).first()
+        vet = Staff.objects.filter(role=Role.VET).first()
+
+        animal = Animal.objects.create(
+            name='福宝',
+            species='猫',
+            breed='狸花猫',
+            age_months=36,
+            gender='female',
+            color='虎斑',
+            status=AnimalStatus.ADOPTED,
+            rescue_date=(timezone.now() - timedelta(days=180)).date(),
+            rescue_location='东城区地铁站',
+            rescue_volunteer=volunteer,
+            vet=vet,
+            health_condition='已绝育，已驱虫，疫苗齐全，健康',
+            medical_cost=650,
+            foster_family='寄养在王阿姨家2个月',
+            description='温柔粘人，喜欢蹭人，会用猫砂'
+        )
+
+        MedicalRecord.objects.create(
+            animal=animal,
+            vet=vet,
+            visit_date=(timezone.now() - timedelta(days=175)).date(),
+            diagnosis='体检+驱虫',
+            treatment='常规处理',
+            medication='驱虫药',
+            cost=150
+        )
+        MedicalRecord.objects.create(
+            animal=animal,
+            vet=vet,
+            visit_date=(timezone.now() - timedelta(days=170)).date(),
+            diagnosis='疫苗接种',
+            treatment='猫三联',
+            medication='疫苗',
+            cost=200
+        )
+        MedicalRecord.objects.create(
+            animal=animal,
+            vet=vet,
+            visit_date=(timezone.now() - timedelta(days=160)).date(),
+            diagnosis='绝育手术',
+            treatment='母猫绝育',
+            medication='消炎药',
+            cost=300
+        )
+
+        app = AdoptionApplication.objects.create(
+            idempotency_key='demo-completed-001',
+            animal=animal,
+            applicant_name='郑幸福',
+            applicant_phone='13900139005',
+            applicant_id_card='110101198801014321',
+            address='北京市朝阳区某某花园5号楼3单元101',
+            housing_type='house',
+            has_pet_experience=True,
+            current_pets='之前养过两只猫，均已寿终',
+            family_members=2,
+            has_children=False,
+            work_situation='大学老师，时间自由',
+            monthly_income='18000',
+            reason_for_adoption='一直喜欢猫，家里有独立阳台，想给猫咪一个温暖的家',
+            status=AdoptionStatus.ADOPTION_COMPLETED,
+            current_handler=auditor,
+            pre_reviewer=auditor,
+            home_visitor=visitor,
+            rechecker=auditor,
+            submitted_at=timezone.now() - timedelta(days=100),
+            deadline_at=None,
+            remark='领养流程已全部完成，回访正常'
+        )
+
+        ApplicationTimeline.objects.create(application=app, action='提交领养申请', status_from='', status_to=AdoptionStatus.SUBMITTED, operator=auditor, operator_role=Role.ADOPTION_AUDITOR, remark='申请已提交')
+        ApplicationTimeline.objects.create(application=app, action='直接确认材料齐全', status_from=AdoptionStatus.SUBMITTED, status_to=AdoptionStatus.MATERIALS_RECEIVED, operator=auditor, operator_role=Role.ADOPTION_AUDITOR, remark='材料齐全，申请人条件优秀')
+        ApplicationTimeline.objects.create(application=app, action='初审通过', status_from=AdoptionStatus.MATERIALS_RECEIVED, status_to=AdoptionStatus.PRE_REVIEW_PASS, operator=auditor, operator_role=Role.ADOPTION_AUDITOR, remark='完全符合领养条件')
+        ApplicationTimeline.objects.create(application=app, action=f'安排家访: {visitor.name}', status_from=AdoptionStatus.PRE_REVIEW_PASS, status_to=AdoptionStatus.HOME_VISIT_SCHEDULED, operator=auditor, operator_role=Role.ADOPTION_AUDITOR, remark='周末家访')
+        ApplicationTimeline.objects.create(application=app, action='家访通过', status_from=AdoptionStatus.HOME_VISIT_SCHEDULED, status_to=AdoptionStatus.HOME_VISIT_PASS, operator=visitor, operator_role=Role.HOME_VISITOR, remark='居住环境好，有养猫经验，非常适合')
+        ApplicationTimeline.objects.create(application=app, action='审核通过', status_from=AdoptionStatus.HOME_VISIT_PASS, status_to=AdoptionStatus.APPROVED, operator=auditor, operator_role=Role.ADOPTION_AUDITOR, remark='审核通过，可以接猫')
+        ApplicationTimeline.objects.create(application=app, action='领养完成', status_from=AdoptionStatus.APPROVED, status_to=AdoptionStatus.ADOPTION_COMPLETED, operator=auditor, operator_role=Role.ADOPTION_AUDITOR, remark='已签署领养协议，猫咪已入住新家')
+
+        HomeVisitRecord.objects.create(
+            application=app,
+            visitor=visitor,
+            scheduled_at=timezone.now() - timedelta(days=95),
+            visited_at=timezone.now() - timedelta(days=94),
+            completed_at=timezone.now() - timedelta(days=94),
+            result=VisitResult.PASS,
+            environment_score=9,
+            experience_score=10,
+            attitude_score=10,
+            total_score=10,
+            environment_description='独栋房屋，有封窗的独立阳台，猫爬架、猫窝、猫砂盆齐全',
+            family_communication='夫妻二人都支持养猫，家人意见一致',
+            pet_knowledge='非常了解养猫知识，之前养过多年猫',
+            concerns='无',
+            suggestions='继续保持',
+            recheck_required=False
+        )
+
+        FollowUpRecord.objects.create(
+            application=app,
+            follow_up_date=(timezone.now() - timedelta(days=85)).date(),
+            follow_up_type='week1',
+            operator=volunteer,
+            animal_health='健康，精神好',
+            adaptation='适应良好，第二天就开始到处探索了',
+            problems='无',
+            suggestions='继续观察，按时喂粮',
+            next_follow_up_at=(timezone.now() - timedelta(days=70)).date()
+        )
+        FollowUpRecord.objects.create(
+            application=app,
+            follow_up_date=(timezone.now() - timedelta(days=68)).date(),
+            follow_up_type='month1',
+            operator=volunteer,
+            animal_health='非常健康，胖了0.5斤',
+            adaptation='完全适应，和家人很亲',
+            problems='无',
+            suggestions='建议做驱虫',
+            next_follow_up_at=(timezone.now() - timedelta(days=10)).date()
+        )
+
+        fu_gap = FollowUpRecord.objects.create(
+            application=app,
+            follow_up_date=(timezone.now() - timedelta(days=8)).date(),
+            follow_up_type='month3',
+            operator=None,
+            animal_health='',
+            adaptation='',
+            problems='',
+            suggestions='',
+            next_follow_up_at=None,
+            is_gap=True,
+            gap_reason='申请人电话未接通，微信未回，回访断档，需持续跟进'
+        )
+        ApplicationTimeline.objects.create(
+            application=app,
+            action='标记回访断档',
+            status_from=AdoptionStatus.ADOPTION_COMPLETED,
+            status_to=AdoptionStatus.ADOPTION_COMPLETED,
+            operator=volunteer,
+            operator_role=Role.VOLUNTEER,
+            remark='三月回访联系不上申请人，标记断档'
+        )
+
+        self.stdout.write(self.style.SUCCESS('  已创建完整闭环示例（含回访断档）'))

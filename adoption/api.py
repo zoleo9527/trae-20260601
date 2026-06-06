@@ -29,6 +29,9 @@ class ErrorCode:
     INSUFFICIENT_PERMISSION = 40301
     TIMEOUT_ERROR = 40801
     INTERNAL_ERROR = 50001
+    FOLLOW_UP_NOT_FOUND = 40405
+    MEDICAL_RECORD_NOT_FOUND = 40406
+    FOLLOW_UP_GAP_MARKED = 40903
 
 
 ERROR_MESSAGES = {
@@ -43,6 +46,9 @@ ERROR_MESSAGES = {
     ErrorCode.INSUFFICIENT_PERMISSION: '权限不足',
     ErrorCode.TIMEOUT_ERROR: '操作超时',
     ErrorCode.INTERNAL_ERROR: '内部错误',
+    ErrorCode.FOLLOW_UP_NOT_FOUND: '回访记录不存在',
+    ErrorCode.MEDICAL_RECORD_NOT_FOUND: '医疗记录不存在',
+    ErrorCode.FOLLOW_UP_GAP_MARKED: '回访断档已标记',
 }
 
 
@@ -241,10 +247,10 @@ class ApplicationDetailSchema(Schema):
 
     @staticmethod
     def from_orm(obj: AdoptionApplication):
-        is_timeout = obj.deadline_at and obj.deadline_at < timezone.now() and obj.status not in [
+        is_timeout = bool(obj.deadline_at and obj.deadline_at < timezone.now() and obj.status not in [
             AdoptionStatus.APPROVED, AdoptionStatus.REJECTED, AdoptionStatus.ADOPTION_COMPLETED,
             AdoptionStatus.CANCELLED, AdoptionStatus.TIMEOUT
-        ]
+        ])
         try:
             home_visit = HomeVisitSchema.from_orm(obj.home_visit)
         except HomeVisitRecord.DoesNotExist:
@@ -296,10 +302,10 @@ class ApplicationListItemSchema(Schema):
 
     @staticmethod
     def from_orm(obj: AdoptionApplication):
-        is_timeout = obj.deadline_at and obj.deadline_at < timezone.now() and obj.status not in [
+        is_timeout = bool(obj.deadline_at and obj.deadline_at < timezone.now() and obj.status not in [
             AdoptionStatus.APPROVED, AdoptionStatus.REJECTED, AdoptionStatus.ADOPTION_COMPLETED,
             AdoptionStatus.CANCELLED, AdoptionStatus.TIMEOUT
-        ]
+        ])
         has_materials_missing = obj.status == AdoptionStatus.MATERIALS_MISSING
         has_review_issue = obj.status in [
             AdoptionStatus.PRE_REVIEW_REJECT,
@@ -387,6 +393,218 @@ class HomeVisitResultIn(Schema):
 class RecheckIn(Schema):
     passed: bool
     remark: str = ''
+
+
+class ApproveIn(Schema):
+    remark: str = ''
+
+
+class CompleteAdoptionIn(Schema):
+    adoption_date: str
+    remark: str = ''
+
+
+class CreateFollowUpIn(Schema):
+    idempotency_key: str = ''
+    follow_up_date: str
+    follow_up_type: str
+    operator_id: Optional[int] = None
+    animal_health: str = ''
+    adaptation: str = ''
+    problems: str = ''
+    suggestions: str = ''
+    next_follow_up_at: Optional[str] = None
+    is_gap: bool = False
+    gap_reason: str = ''
+
+
+class MedicalRecordSchema(Schema):
+    id: str
+    vet: Optional[StaffSchema]
+    visit_date: str
+    diagnosis: str
+    treatment: str
+    medication: str
+    cost: float
+    next_visit_date: Optional[str]
+    created_at: str
+
+    @staticmethod
+    def from_orm(obj: MedicalRecord):
+        return MedicalRecordSchema(
+            id=str(obj.id),
+            vet=StaffSchema.from_orm(obj.vet) if obj.vet else None,
+            visit_date=obj.visit_date.isoformat(),
+            diagnosis=obj.diagnosis,
+            treatment=obj.treatment,
+            medication=obj.medication,
+            cost=float(obj.cost),
+            next_visit_date=obj.next_visit_date.isoformat() if obj.next_visit_date else None,
+            created_at=obj.created_at.isoformat()
+        )
+
+
+class FollowUpSchema(Schema):
+    id: str
+    follow_up_date: str
+    follow_up_type: str
+    follow_up_type_display: str
+    operator: Optional[StaffSchema]
+    animal_health: str
+    adaptation: str
+    problems: str
+    suggestions: str
+    next_follow_up_at: Optional[str]
+    is_gap: bool
+    gap_reason: str
+    created_at: str
+
+    @staticmethod
+    def from_orm(obj: FollowUpRecord):
+        return FollowUpSchema(
+            id=str(obj.id),
+            follow_up_date=obj.follow_up_date.isoformat(),
+            follow_up_type=obj.follow_up_type,
+            follow_up_type_display=obj.get_follow_up_type_display(),
+            operator=StaffSchema.from_orm(obj.operator) if obj.operator else None,
+            animal_health=obj.animal_health,
+            adaptation=obj.adaptation,
+            problems=obj.problems,
+            suggestions=obj.suggestions,
+            next_follow_up_at=obj.next_follow_up_at.isoformat() if obj.next_follow_up_at else None,
+            is_gap=getattr(obj, 'is_gap', False),
+            gap_reason=getattr(obj, 'gap_reason', ''),
+            created_at=obj.created_at.isoformat()
+        )
+
+
+class AnimalDetailSchema(Schema):
+    id: str
+    name: str
+    species: str
+    breed: str
+    age_months: Optional[int]
+    gender: str
+    color: str
+    status: str
+    status_display: str
+    rescue_date: str
+    rescue_location: str
+    rescue_volunteer: Optional[StaffSchema]
+    vet: Optional[StaffSchema]
+    health_condition: str
+    medical_cost: float
+    foster_family: str
+    description: str
+    medical_records: List[MedicalRecordSchema]
+
+    @staticmethod
+    def from_orm(obj: Animal):
+        return AnimalDetailSchema(
+            id=str(obj.id),
+            name=obj.name,
+            species=obj.species,
+            breed=obj.breed,
+            age_months=obj.age_months,
+            gender=obj.gender,
+            color=obj.color,
+            status=obj.status,
+            status_display=obj.get_status_display(),
+            rescue_date=obj.rescue_date.isoformat(),
+            rescue_location=obj.rescue_location,
+            rescue_volunteer=StaffSchema.from_orm(obj.rescue_volunteer) if obj.rescue_volunteer else None,
+            vet=StaffSchema.from_orm(obj.vet) if obj.vet else None,
+            health_condition=obj.health_condition,
+            medical_cost=float(obj.medical_cost),
+            foster_family=obj.foster_family,
+            description=obj.description,
+            medical_records=[MedicalRecordSchema.from_orm(m) for m in obj.medical_records_list.all()]
+        )
+
+
+class ApplicationFullDetailSchema(Schema):
+    id: str
+    idempotency_key: str
+    animal: AnimalDetailSchema
+    applicant_name: str
+    applicant_phone: str
+    applicant_id_card: str
+    address: str
+    housing_type: str
+    has_pet_experience: bool
+    current_pets: str
+    family_members: int
+    has_children: bool
+    reason_for_adoption: str
+    status: str
+    status_display: str
+    current_handler: Optional[StaffSchema]
+    pre_reviewer: Optional[StaffSchema]
+    home_visitor: Optional[StaffSchema]
+    rechecker: Optional[StaffSchema]
+    submitted_at: str
+    last_updated_at: str
+    deadline_at: Optional[str]
+    remark: str
+    is_timeout: bool
+    has_follow_up_gap: bool
+    timelines: List[TimelineSchema]
+    home_visit: Optional[HomeVisitSchema]
+    follow_ups: List[FollowUpSchema]
+    medical_summary: dict
+
+    @staticmethod
+    def from_orm(obj: AdoptionApplication):
+        is_timeout = bool(obj.deadline_at and obj.deadline_at < timezone.now() and obj.status not in [
+            AdoptionStatus.APPROVED, AdoptionStatus.REJECTED, AdoptionStatus.ADOPTION_COMPLETED,
+            AdoptionStatus.CANCELLED, AdoptionStatus.TIMEOUT
+        ])
+        try:
+            home_visit = HomeVisitSchema.from_orm(obj.home_visit)
+        except HomeVisitRecord.DoesNotExist:
+            home_visit = None
+        
+        follow_ups = [FollowUpSchema.from_orm(f) for f in obj.follow_ups.all()]
+        has_follow_up_gap = any(getattr(f, 'is_gap', False) for f in obj.follow_ups.all())
+        
+        medical_records = obj.animal.medical_records_list.all()
+        total_cost = sum(m.cost for m in medical_records)
+        
+        return ApplicationFullDetailSchema(
+            id=str(obj.id),
+            idempotency_key=obj.idempotency_key,
+            animal=AnimalDetailSchema.from_orm(obj.animal),
+            applicant_name=obj.applicant_name,
+            applicant_phone=obj.applicant_phone,
+            applicant_id_card=obj.applicant_id_card,
+            address=obj.address,
+            housing_type=obj.housing_type,
+            has_pet_experience=obj.has_pet_experience,
+            current_pets=obj.current_pets,
+            family_members=obj.family_members,
+            has_children=obj.has_children,
+            reason_for_adoption=obj.reason_for_adoption,
+            status=obj.status,
+            status_display=obj.get_status_display(),
+            current_handler=StaffSchema.from_orm(obj.current_handler) if obj.current_handler else None,
+            pre_reviewer=StaffSchema.from_orm(obj.pre_reviewer) if obj.pre_reviewer else None,
+            home_visitor=StaffSchema.from_orm(obj.home_visitor) if obj.home_visitor else None,
+            rechecker=StaffSchema.from_orm(obj.rechecker) if obj.rechecker else None,
+            submitted_at=obj.submitted_at.isoformat(),
+            last_updated_at=obj.last_updated_at.isoformat(),
+            deadline_at=obj.deadline_at.isoformat() if obj.deadline_at else None,
+            remark=obj.remark,
+            is_timeout=is_timeout,
+            has_follow_up_gap=has_follow_up_gap,
+            timelines=[TimelineSchema.from_orm(t) for t in obj.timelines.all()],
+            home_visit=home_visit,
+            follow_ups=follow_ups,
+            medical_summary={
+                'total_cost': float(total_cost),
+                'record_count': medical_records.count(),
+                'last_visit': medical_records.first().visit_date.isoformat() if medical_records.exists() else None
+            }
+        )
 
 
 @api.get('/staff', response=List[StaffSchema], summary='获取工作人员列表')
@@ -839,3 +1057,274 @@ def get_dashboard_stats(request):
             'approved': approved
         }
     )
+
+
+@api.post('/applications/{application_id}/confirm-materials', response=ApiResponse, summary='提交后直接确认材料')
+@transaction.atomic
+def confirm_materials_directly(request, application_id: str, payload: ApproveIn):
+    try:
+        app = AdoptionApplication.objects.select_related('current_handler').get(id=application_id)
+        if app.status != AdoptionStatus.SUBMITTED:
+            return ApiResponse(code=ErrorCode.INVALID_STATUS_TRANSITION, message='当前状态无法直接确认材料')
+        
+        handler = app.current_handler
+        new_status = AdoptionStatus.MATERIALS_RECEIVED
+        action = '直接确认材料齐全'
+        
+        create_timeline(app, action, new_status, handler, payload.remark)
+        app.status = new_status
+        app.deadline_at = timezone.now() + timedelta(days=3)
+        app.last_action_at = timezone.now()
+        app.save()
+        
+        return ApiResponse(
+            code=ErrorCode.SUCCESS,
+            message='材料已确认',
+            data=ApplicationFullDetailSchema.from_orm(app).dict()
+        )
+    except AdoptionApplication.DoesNotExist:
+        return ApiResponse(code=ErrorCode.APPLICATION_NOT_FOUND, message=ERROR_MESSAGES[ErrorCode.APPLICATION_NOT_FOUND])
+
+
+@api.post('/applications/{application_id}/approve', response=ApiResponse, summary='复核通过后审核通过')
+@transaction.atomic
+def approve_application(request, application_id: str, payload: ApproveIn):
+    try:
+        app = AdoptionApplication.objects.select_related('current_handler', 'animal').get(id=application_id)
+        if app.status not in [AdoptionStatus.RECHECK_PASS, AdoptionStatus.HOME_VISIT_PASS]:
+            return ApiResponse(code=ErrorCode.INVALID_STATUS_TRANSITION, message='当前状态无法审核通过')
+        
+        approver = app.current_handler
+        if approver and approver.role not in [Role.ADOPTION_AUDITOR, Role.ADMIN]:
+            return ApiResponse(code=ErrorCode.INSUFFICIENT_PERMISSION, message='无权审核通过')
+        
+        new_status = AdoptionStatus.APPROVED
+        action = '审核通过'
+        
+        create_timeline(app, action, new_status, approver, payload.remark)
+        app.status = new_status
+        app.deadline_at = timezone.now() + timedelta(days=7)
+        app.last_action_at = timezone.now()
+        app.animal.status = AnimalStatus.ADOPTED
+        app.animal.save()
+        app.save()
+        
+        return ApiResponse(
+            code=ErrorCode.SUCCESS,
+            message='审核通过',
+            data=ApplicationFullDetailSchema.from_orm(app).dict()
+        )
+    except AdoptionApplication.DoesNotExist:
+        return ApiResponse(code=ErrorCode.APPLICATION_NOT_FOUND, message=ERROR_MESSAGES[ErrorCode.APPLICATION_NOT_FOUND])
+
+
+@api.post('/applications/{application_id}/complete', response=ApiResponse, summary='确认领养完成')
+@transaction.atomic
+def complete_adoption(request, application_id: str, payload: CompleteAdoptionIn):
+    try:
+        app = AdoptionApplication.objects.select_related('current_handler', 'animal').get(id=application_id)
+        if app.status != AdoptionStatus.APPROVED:
+            return ApiResponse(code=ErrorCode.INVALID_STATUS_TRANSITION, message='当前状态无法确认领养完成')
+        
+        handler = app.current_handler
+        new_status = AdoptionStatus.ADOPTION_COMPLETED
+        action = '领养完成'
+        
+        create_timeline(app, action, new_status, handler, payload.remark)
+        app.status = new_status
+        app.last_action_at = timezone.now()
+        app.deadline_at = None
+        app.animal.status = AnimalStatus.ADOPTED
+        app.animal.save()
+        app.save()
+        
+        FollowUpRecord.objects.create(
+            application=app,
+            follow_up_date=datetime.fromisoformat(payload.adoption_date.replace('Z', '+00:00')).date(),
+            follow_up_type='other',
+            operator=handler,
+            animal_health='健康',
+            adaptation='领养交接完成',
+            problems='无',
+            suggestions='请按计划进行后续回访'
+        )
+        
+        return ApiResponse(
+            code=ErrorCode.SUCCESS,
+            message='领养已完成',
+            data=ApplicationFullDetailSchema.from_orm(app).dict()
+        )
+    except AdoptionApplication.DoesNotExist:
+        return ApiResponse(code=ErrorCode.APPLICATION_NOT_FOUND, message=ERROR_MESSAGES[ErrorCode.APPLICATION_NOT_FOUND])
+
+
+@api.get('/applications/{application_id}/follow-ups', response=ApiResponse, summary='获取领养回访记录列表')
+def list_follow_ups(request, application_id: str):
+    try:
+        app = AdoptionApplication.objects.prefetch_related('follow_ups').get(id=application_id)
+        follow_ups = [FollowUpSchema.from_orm(f).dict() for f in app.follow_ups.all()]
+        return ApiResponse(
+            code=ErrorCode.SUCCESS,
+            message='成功',
+            data={
+                'follow_ups': follow_ups,
+                'has_gap': any(getattr(f, 'is_gap', False) for f in app.follow_ups.all())
+            }
+        )
+    except AdoptionApplication.DoesNotExist:
+        return ApiResponse(code=ErrorCode.APPLICATION_NOT_FOUND, message=ERROR_MESSAGES[ErrorCode.APPLICATION_NOT_FOUND])
+
+
+@api.post('/applications/{application_id}/follow-ups', response=ApiResponse, summary='新增领养回访记录')
+@transaction.atomic
+def create_follow_up(request, application_id: str, payload: CreateFollowUpIn):
+    try:
+        if payload.idempotency_key:
+            cached = check_idempotency(payload.idempotency_key, f'create_follow_up_{application_id}')
+            if cached:
+                return ApiResponse(code=ErrorCode.SUCCESS, message='成功（幂等）', data=cached)
+        
+        app = AdoptionApplication.objects.get(id=application_id)
+        if app.status not in [AdoptionStatus.APPROVED, AdoptionStatus.ADOPTION_COMPLETED]:
+            return ApiResponse(code=ErrorCode.INVALID_STATUS_TRANSITION, message='当前状态无法添加回访记录')
+        
+        operator = None
+        if payload.operator_id:
+            operator = Staff.objects.get(id=payload.operator_id)
+        
+        follow_up_date = datetime.fromisoformat(payload.follow_up_date.replace('Z', '+00:00')).date()
+        next_follow_up = None
+        if payload.next_follow_up_at:
+            next_follow_up = datetime.fromisoformat(payload.next_follow_up_at.replace('Z', '+00:00')).date()
+        
+        follow_up = FollowUpRecord.objects.create(
+            application=app,
+            follow_up_date=follow_up_date,
+            follow_up_type=payload.follow_up_type,
+            operator=operator,
+            animal_health=payload.animal_health,
+            adaptation=payload.adaptation,
+            problems=payload.problems,
+            suggestions=payload.suggestions,
+            next_follow_up_at=next_follow_up
+        )
+        
+        if payload.is_gap:
+            follow_up.is_gap = True
+            follow_up.gap_reason = payload.gap_reason
+            follow_up.save()
+            create_timeline(app, '标记回访断档', app.status, operator, payload.gap_reason)
+        
+        result = FollowUpSchema.from_orm(follow_up).dict()
+        
+        if payload.idempotency_key:
+            save_idempotency(payload.idempotency_key, f'create_follow_up_{application_id}', result)
+        
+        return ApiResponse(
+            code=ErrorCode.SUCCESS,
+            message='回访记录已创建',
+            data=result
+        )
+    except AdoptionApplication.DoesNotExist:
+        return ApiResponse(code=ErrorCode.APPLICATION_NOT_FOUND, message=ERROR_MESSAGES[ErrorCode.APPLICATION_NOT_FOUND])
+    except Staff.DoesNotExist:
+        return ApiResponse(code=ErrorCode.STAFF_NOT_FOUND, message=ERROR_MESSAGES[ErrorCode.STAFF_NOT_FOUND])
+
+
+@api.post('/applications/{application_id}/follow-ups/mark-gap', response=ApiResponse, summary='标记回访断档')
+@transaction.atomic
+def mark_follow_up_gap(request, application_id: str, remark: str = ''):
+    try:
+        app = AdoptionApplication.objects.get(id=application_id)
+        
+        latest_follow_up = app.follow_ups.order_by('-follow_up_date').first()
+        
+        if not latest_follow_up:
+            return ApiResponse(code=ErrorCode.FOLLOW_UP_NOT_FOUND, message=ERROR_MESSAGES[ErrorCode.FOLLOW_UP_NOT_FOUND])
+        
+        latest_follow_up.is_gap = True
+        latest_follow_up.gap_reason = remark or '回访断档'
+        latest_follow_up.save()
+        
+        create_timeline(app, '标记回访断档', app.status, app.current_handler, remark)
+        
+        return ApiResponse(
+            code=ErrorCode.SUCCESS,
+            message='已标记回访断档',
+            data=FollowUpSchema.from_orm(latest_follow_up).dict()
+        )
+    except AdoptionApplication.DoesNotExist:
+        return ApiResponse(code=ErrorCode.APPLICATION_NOT_FOUND, message=ERROR_MESSAGES[ErrorCode.APPLICATION_NOT_FOUND])
+
+
+@api.get('/animals/{animal_id}/medical-records', response=ApiResponse, summary='获取动物医疗记录明细')
+def get_animal_medical_records(request, animal_id: str):
+    try:
+        animal = Animal.objects.prefetch_related('medical_records_list').get(id=animal_id)
+        records = [MedicalRecordSchema.from_orm(m).dict() for m in animal.medical_records_list.all()]
+        total_cost = sum(m.cost for m in animal.medical_records_list.all())
+        return ApiResponse(
+            code=ErrorCode.SUCCESS,
+            message='成功',
+            data={
+                'animal': {
+                    'id': str(animal.id),
+                    'name': animal.name,
+                    'species': animal.species
+                },
+                'medical_records': records,
+                'summary': {
+                    'total_cost': float(total_cost),
+                    'record_count': len(records)
+                }
+            }
+        )
+    except Animal.DoesNotExist:
+        return ApiResponse(code=ErrorCode.ANIMAL_NOT_FOUND, message=ERROR_MESSAGES[ErrorCode.ANIMAL_NOT_FOUND])
+
+
+@api.get('/applications/{application_id}/medical-summary', response=ApiResponse, summary='获取申请关联的医疗费用汇总')
+def get_application_medical_summary(request, application_id: str):
+    try:
+        app = AdoptionApplication.objects.select_related('animal').prefetch_related('animal__medical_records_list').get(id=application_id)
+        records = app.animal.medical_records_list.all()
+        total_cost = sum(m.cost for m in records)
+        return ApiResponse(
+            code=ErrorCode.SUCCESS,
+            message='成功',
+            data={
+                'application_id': str(app.id),
+                'animal': {
+                    'id': str(app.animal.id),
+                    'name': app.animal.name,
+                    'species': app.animal.species,
+                    'foster_family': app.animal.foster_family,
+                    'status': app.animal.status,
+                    'status_display': app.animal.get_status_display()
+                },
+                'medical_summary': {
+                    'total_cost': float(total_cost),
+                    'record_count': records.count(),
+                    'records': [MedicalRecordSchema.from_orm(m).dict() for m in records]
+                }
+            }
+        )
+    except AdoptionApplication.DoesNotExist:
+        return ApiResponse(code=ErrorCode.APPLICATION_NOT_FOUND, message=ERROR_MESSAGES[ErrorCode.APPLICATION_NOT_FOUND])
+
+
+@api.get('/applications/{application_id}/full-detail', response=ApiResponse, summary='获取完整申请详情（含动物、寄养、回访、费用）')
+def get_application_full_detail(request, application_id: str):
+    try:
+        app = AdoptionApplication.objects.select_related(
+            'animal', 'current_handler', 'pre_reviewer', 'home_visitor', 'rechecker'
+        ).prefetch_related(
+            'timelines', 'follow_ups', 'animal__medical_records_list', 'animal__rescue_volunteer', 'animal__vet'
+        ).get(id=application_id)
+        return ApiResponse(
+            code=ErrorCode.SUCCESS,
+            message='成功',
+            data=ApplicationFullDetailSchema.from_orm(app).dict()
+        )
+    except AdoptionApplication.DoesNotExist:
+        return ApiResponse(code=ErrorCode.APPLICATION_NOT_FOUND, message=ERROR_MESSAGES[ErrorCode.APPLICATION_NOT_FOUND])

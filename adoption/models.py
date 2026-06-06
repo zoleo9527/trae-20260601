@@ -194,6 +194,8 @@ class FollowUpRecord(models.Model):
     problems = models.TextField(blank=True)
     suggestions = models.TextField(blank=True)
     next_follow_up_at = models.DateField(null=True, blank=True)
+    is_gap = models.BooleanField(default=False)
+    gap_reason = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
