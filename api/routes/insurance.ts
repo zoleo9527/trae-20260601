@@ -201,10 +201,15 @@ router.post('/incidents/:id/insurance-materials/:materialId/anomaly', (req: Requ
 
   const now = new Date().toISOString()
   const incidentId = material.incident_id as string
+  const materialType = material.material_type as string
 
   let anomalyReferencedNoteIdsStr = null
+  let referencedNoteId: string | null = null
   if (anomaly_referenced_note_ids && Array.isArray(anomaly_referenced_note_ids)) {
     anomalyReferencedNoteIdsStr = JSON.stringify(anomaly_referenced_note_ids)
+    if (anomaly_referenced_note_ids.length > 0) {
+      referencedNoteId = anomaly_referenced_note_ids[0]
+    }
   }
 
   db.prepare(`
@@ -214,15 +219,18 @@ router.post('/incidents/:id/insurance-materials/:materialId/anomaly', (req: Requ
   `).run(anomaly_explanation, anomalyReferencedNoteIdsStr, now, materialId)
 
   const noteId = crypto.randomUUID()
+  const noteContent = `[材料异常] ${materialType}: ${anomaly_explanation}`
   db.prepare(`
-    INSERT INTO incident_notes (id, incident_id, author, category, content, created_at)
-    VALUES (?, ?, ?, 'anomaly', ?, ?)
-  `).run(noteId, incidentId, operator, `[材料异常说明] ${anomaly_explanation}`, now)
+    INSERT INTO incident_notes (id, incident_id, author, category, content, referenced_note_id, created_at)
+    VALUES (?, ?, ?, 'anomaly', ?, ?, ?)
+  `).run(noteId, incidentId, operator, noteContent, referencedNoteId, now)
+
+  const createdNote = db.prepare('SELECT * FROM incident_notes WHERE id = ?').get(noteId) as Record<string, unknown>
 
   db.prepare(`
     INSERT INTO operation_logs (id, incident_id, action, operator, detail, created_at)
     VALUES (?, ?, 'insurance_anomaly', ?, ?, ?)
-  `).run(crypto.randomUUID(), incidentId, operator, `保险材料异常: ${anomaly_explanation}`, now)
+  `).run(crypto.randomUUID(), incidentId, operator, `保险材料异常[${materialType}]: ${anomaly_explanation}`, now)
 
   db.prepare(`
     UPDATE rescue_incidents SET updated_at = ? WHERE id = ?
@@ -230,7 +238,7 @@ router.post('/incidents/:id/insurance-materials/:materialId/anomaly', (req: Requ
 
   const updatedMaterial = db.prepare('SELECT * FROM insurance_materials WHERE id = ?').get(materialId) as Record<string, unknown>
   const updatedMaterialWithNotes = getMaterialWithNotes(updatedMaterial)
-  res.json({ success: true, data: updatedMaterialWithNotes })
+  res.json({ success: true, data: { ...updatedMaterialWithNotes, anomaly_note: createdNote } })
 })
 
 router.get('/incidents/:id/notes/rescue-medical', (req: Request, res: Response): void => {

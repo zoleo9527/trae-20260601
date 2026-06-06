@@ -1,4 +1,6 @@
-import { useState } from 'react'
+const fs = require('fs');
+
+const content = `import { useState } from 'react'
 import { MessageSquare, ArrowRightCircle, Activity, Link2, ChevronDown, ChevronUp, User, Clock } from 'lucide-react'
 import type { TimelineItem as TimelineItemType, IncidentNote, StatusTransition, OperationLog } from '@/shared/types'
 import { NOTE_CATEGORY_LABELS } from '@/shared/types'
@@ -52,7 +54,7 @@ export default function Timeline({ items, noteReferenceCount, notes, onReference
               <div className="absolute left-[11px] top-6 w-0.5 h-[calc(100%+8px)] bg-slate-200" />
             )}
             <div className="relative z-10 mt-0.5">
-              <div className={`w-6 h-6 rounded-full ${style.dot} flex items-center justify-center shrink-0`}>
+              <div className={\`w-6 h-6 rounded-full \${style.dot} flex items-center justify-center shrink-0\`}>
                 <style.icon className="w-3 h-3 text-white" />
               </div>
             </div>
@@ -66,7 +68,7 @@ export default function Timeline({ items, noteReferenceCount, notes, onReference
                 <NoteContent 
                   data={item.data as IncidentNote} 
                   referenceCount={noteReferenceCount?.get((item.data as IncidentNote).id) || 0}
-                  referencedNote={findNoteById((item.data as IncidentNote).referenced_note_id || "")}
+                  referencedNote={findNoteById((item.data as IncidentNote).referenced_note_id || '')}
                   onReferenceClick={onReferenceClick}
                 />
               )}
@@ -99,11 +101,11 @@ function NoteContent({
   const isAnomaly = data.category === 'anomaly'
 
   return (
-    <div className={`rounded-lg p-3 border ${isAnomaly ? 'bg-amber-50 border-amber-200' : 'bg-slate-50 border-slate-200'}`}>
+    <div className={\`rounded-lg p-3 border \${isAnomaly ? 'bg-amber-50 border-amber-200' : 'bg-slate-50 border-slate-200'}\`}>
       <div className="flex items-center gap-2 mb-2">
         <User className="w-3.5 h-3.5 text-slate-400" />
         <span className="text-sm font-medium text-slate-700">{data.author}</span>
-        <span className={`text-xs px-2 py-0.5 rounded-full ${categoryStyles[data.category]}`}>
+        <span className={\`text-xs px-2 py-0.5 rounded-full \${categoryStyles[data.category]}\`}>
           {NOTE_CATEGORY_LABELS[data.category]}
         </span>
         {referenceCount > 0 && (
@@ -139,7 +141,7 @@ function NoteContent({
                 <div className="flex items-center gap-2">
                   <User className="w-3 h-3 text-slate-400" />
                   <span className="text-xs font-medium text-slate-700">{referencedNote.author}</span>
-                  <span className={`text-xs px-1 py-0.5 rounded ${referencedNote.category === 'anomaly' ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-600'}`}>
+                  <span className={\`text-xs px-1 py-0.5 rounded \${referencedNote.category === 'anomaly' ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-600'}\`}>
                     {NOTE_CATEGORY_LABELS[referencedNote.category]}
                   </span>
                 </div>
@@ -196,3 +198,7 @@ function LogContent({ data }: { data: OperationLog }) {
     </div>
   )
 }
+`;
+
+fs.writeFileSync('src/components/Timeline.tsx', content);
+console.log('Timeline.tsx written successfully');

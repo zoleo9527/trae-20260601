@@ -16,6 +16,7 @@ import {
   ChevronUp,
   Clock,
   Tag,
+  ArrowRight,
 } from 'lucide-react'
 import NoteCard from '@/components/NoteCard'
 import { useIncidentStore } from '@/store/useIncidentStore'
@@ -41,6 +42,20 @@ const noteCategoryColors: Record<string, string> = {
   medical: 'bg-red-100 text-red-700',
   insurance: 'bg-green-100 text-green-700',
   anomaly: 'bg-amber-100 text-amber-700',
+}
+
+const noteCategoryBorderStyles: Record<string, string> = {
+  rescue: 'border-l-blue-500',
+  medical: 'border-l-red-500',
+  insurance: 'border-l-green-500',
+  anomaly: 'border-l-amber-500',
+}
+
+const noteCategoryBgStyles: Record<string, string> = {
+  rescue: 'bg-blue-50',
+  medical: 'bg-red-50',
+  insurance: 'bg-green-50',
+  anomaly: 'bg-amber-50',
 }
 
 function formatDateTime(isoString: string) {
@@ -188,6 +203,34 @@ export default function InsuranceMaterials() {
           parent.children.push(note.id)
         }
       }
+    })
+
+    return chains
+  }
+
+  const buildAnomalyReferenceChain = (material: InsuranceMaterialWithNotes) => {
+    const noteMap = new Map<string, IncidentNote>()
+    const allNotes = [...rescueMedicalNotesList]
+    allNotes.forEach((n) => noteMap.set(n.id, n))
+
+    const buildChain = (note: IncidentNote): Array<IncidentNote> => {
+      const chain: Array<IncidentNote> = [note]
+      let current = note
+      while (current.referenced_note_id && noteMap.has(current.referenced_note_id)) {
+        const parent = noteMap.get(current.referenced_note_id)
+        if (parent) {
+          chain.unshift(parent)
+          current = parent
+        } else {
+          break
+        }
+      }
+      return chain
+    }
+
+    const chains: Array<Array<IncidentNote>> = []
+    material.anomaly_referenced_notes.forEach((note) => {
+      chains.push(buildChain(note))
     })
 
     return chains
@@ -466,30 +509,48 @@ export default function InsuranceMaterials() {
                               <tr key={`${m.id}-anomaly-notes`} className="bg-amber-50">
                                 <td colSpan={5} className="px-5 py-4">
                                   <div className="pl-4 border-l-2 border-amber-300">
-                                    <div className="flex items-center gap-2 mb-3">
+                                    <div className="flex items-center gap-2 mb-4">
                                       <Tag className="w-4 h-4 text-amber-600" />
                                       <span className="text-xs font-medium text-amber-700">异常关联来源</span>
                                     </div>
-                                    <div className="space-y-3">
-                                      {m.anomaly_referenced_notes.map((note) => (
-                                        <div
-                                          key={note.id}
-                                          className="bg-white border border-amber-200 rounded-lg p-3"
-                                        >
-                                          <div className="flex items-center justify-between mb-2">
-                                            <div className="flex items-center gap-2">
-                                              <User className="w-3.5 h-3.5 text-slate-400" />
-                                              <span className="text-xs font-medium text-slate-700">{note.author}</span>
-                                              <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${noteCategoryColors[note.category]}`}>
-                                                {NOTE_CATEGORY_LABELS[note.category]}
-                                              </span>
-                                            </div>
-                                            <div className="flex items-center gap-1 text-xs text-slate-400">
-                                              <Clock className="w-3 h-3" />
-                                              {formatDateTime(note.created_at)}
-                                            </div>
+                                    <div className="space-y-4">
+                                      {buildAnomalyReferenceChain(m).map((chain, chainIndex) => (
+                                        <div key={chainIndex} className="space-y-2">
+                                          <div className="flex items-center gap-2 mb-2">
+                                            <span className="text-xs font-medium text-slate-600">关联链 {chainIndex + 1}</span>
                                           </div>
-                                          <p className="text-sm text-slate-600">{note.content}</p>
+                                          <div className="flex items-center gap-2 flex-wrap">
+                                            <div className="flex-shrink-0 px-3 py-2 bg-amber-100 border border-amber-300 rounded-lg">
+                                              <div className="flex items-center gap-2">
+                                                <AlertCircle className="w-3.5 h-3.5 text-amber-600" />
+                                                <span className="text-xs font-medium text-amber-700">异常说明</span>
+                                              </div>
+                                            </div>
+                                            {chain.map((note, noteIndex) => (
+                                              <>
+                                                <ArrowRight className="w-4 h-4 text-amber-400 flex-shrink-0" />
+                                                <div
+                                                  key={note.id}
+                                                  className={`border-l-4 ${noteCategoryBorderStyles[note.category]} ${noteCategoryBgStyles[note.category]} rounded-r-lg p-3 flex-1 min-w-0`}
+                                                >
+                                                  <div className="flex items-center justify-between mb-1">
+                                                    <div className="flex items-center gap-2">
+                                                      <User className="w-3.5 h-3.5 text-slate-400" />
+                                                      <span className="text-xs font-medium text-slate-700">{note.author}</span>
+                                                      <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${noteCategoryColors[note.category]}`}>
+                                                        {NOTE_CATEGORY_LABELS[note.category]}
+                                                      </span>
+                                                    </div>
+                                                    <div className="flex items-center gap-1 text-xs text-slate-400 whitespace-nowrap">
+                                                      <Clock className="w-3 h-3" />
+                                                      {formatDateTime(note.created_at)}
+                                                    </div>
+                                                  </div>
+                                                  <p className="text-sm text-slate-600">{note.content}</p>
+                                                </div>
+                                              </>
+                                            ))}
+                                          </div>
                                         </div>
                                       ))}
                                     </div>

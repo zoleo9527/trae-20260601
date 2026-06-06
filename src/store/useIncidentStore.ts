@@ -207,7 +207,12 @@ export const useIncidentStore = create<IncidentState & IncidentActions>((set, ge
       await Promise.all([
         get().fetchInsuranceMaterials(incidentId),
         get().fetchTimeline(incidentId),
+        get().fetchNotes(incidentId),
+        get().fetchIncidentDetail(incidentId),
       ])
+      if (get().currentIncident?.id) {
+        await get().fetchIncidentDetail(get().currentIncident.id)
+      }
     } catch (e) {
       console.error('addAnomalyExplanation error:', e)
     }

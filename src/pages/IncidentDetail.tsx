@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react'
+import { useEffect, useState, useMemo, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import {
   ArrowLeft,
@@ -76,7 +76,7 @@ function formatDateTime(isoString: string) {
 export default function IncidentDetail() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
-  const { currentIncident, timeline, insuranceMaterials, loading, fetchIncidentDetail, fetchTimeline } = useIncidentStore()
+  const { currentIncident, timeline, insuranceMaterials, notes, loading, fetchIncidentDetail, fetchTimeline } = useIncidentStore()
   const [dataReady, setDataReady] = useState(false)
   const [expandedMaterialId, setExpandedMaterialId] = useState<string | null>(null)
 
@@ -122,6 +122,10 @@ export default function IncidentDetail() {
     if (material.anomaly_referenced_notes) count += material.anomaly_referenced_notes.length
     return count
   }
+
+  const handleReferenceClick = useCallback((noteId: string) => {
+    console.log('Reference clicked:', noteId)
+  }, [])
 
   return (
     <div className="p-6">
@@ -214,7 +218,7 @@ export default function IncidentDetail() {
               <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
                 <h2 className="text-base font-semibold text-slate-800 mb-4">事件时间线</h2>
                 {displayTimeline.length > 0 ? (
-                  <Timeline items={displayTimeline} noteReferenceCount={noteReferenceCount} />
+                  <Timeline items={displayTimeline} noteReferenceCount={noteReferenceCount} notes={notes} onReferenceClick={handleReferenceClick} />
                 ) : (
                   <div className="text-center py-8 text-slate-500">暂无时间线记录</div>
                 )}
