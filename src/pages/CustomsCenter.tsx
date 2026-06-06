@@ -2,7 +2,6 @@ import React, { useState, useMemo } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { FileText, Clock, Loader, AlertCircle, CheckCircle, Search, Filter, AlertTriangle } from 'lucide-react';
 import { useStore } from '@/store/useStore';
-import { hasPermission } from '@/utils/permission';
 import { StatusBadge } from '@/components/StatusBadge';
 import { RiskTag } from '@/components/RiskTag';
 import { CUSTOMS_STATUS_MAP } from '@/types';
@@ -10,7 +9,7 @@ import type { CustomsDocStatus } from '@/types';
 
 const CustomsCenter: React.FC = () => {
   const navigate = useNavigate();
-  const { customsDocs, currentRole } = useStore();
+  const { customsDocs } = useStore();
 
   const [statusFilter, setStatusFilter] = useState<CustomsDocStatus | 'ALL'>('ALL');
   const [searchKeyword, setSearchKeyword] = useState('');
@@ -194,16 +193,7 @@ const CustomsCenter: React.FC = () => {
                       )}
                     </td>
                     <td className="px-4 py-3">
-                      <div className="flex items-center gap-3">
-                        {isPendingSupplement && hasPermission('customs', 'upload', currentRole) && (
-                          <button className="text-sm text-orange-600 hover:text-orange-800 font-medium">
-                            上传补件
-                          </button>
-                        )}
-                        <button className="text-sm text-blue-600 hover:text-blue-800 font-medium">
-                          查看详情
-                        </button>
-                      </div>
+                      <span className="text-sm text-gray-400">-</span>
                     </td>
                   </tr>
                 );

@@ -115,14 +115,8 @@ export const Dashboard: React.FC = () => {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
-          <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+          <div className="px-6 py-4 border-b border-gray-100">
             <h2 className="text-lg font-semibold text-gray-900">风险预警</h2>
-            <button
-              onClick={() => navigate('/risk-alerts')}
-              className="text-sm text-blue-600 hover:text-blue-700 flex items-center gap-1"
-            >
-              查看全部 <ChevronRight size={16} />
-            </button>
           </div>
           <div className="divide-y divide-gray-100">
             {recentRisks.length === 0 ? (

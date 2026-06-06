@@ -2,10 +2,9 @@ import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useStore } from '@/store/useStore';
 import { StatusBadge } from '@/components/StatusBadge';
-import { Search, Filter, Eye, Plus } from 'lucide-react';
+import { Search, Filter, Eye } from 'lucide-react';
 import { PREPARATION_STATUS_MAP } from '@/types';
 import type { PreparationOrderStatus } from '@/types';
-import { hasPermission } from '@/utils/permission';
 
 export const StockPreparationList: React.FC = () => {
   const navigate = useNavigate();
@@ -47,21 +46,10 @@ export const StockPreparationList: React.FC = () => {
     });
   };
 
-  const canCreate = hasPermission('preparation', 'create', currentRole);
-
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-900">备货单管理</h1>
-        {canCreate && (
-          <button
-            className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-            // onClick={() => navigate('/preparation/create')}
-          >
-            <Plus size={18} />
-            新建备货单
-          </button>
-        )}
       </div>
 
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4">
