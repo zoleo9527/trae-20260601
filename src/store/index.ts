@@ -13,11 +13,15 @@ interface AppState {
     status: RefundStatus | '全部';
     search: string;
     handler: string;
+    onlyAnomaly: boolean;
+    onlyWithVisit: boolean;
   };
   visitFilters: {
     status: VisitStatus | '全部';
     search: string;
     operator: string;
+    onlyNeedFollowUp: boolean;
+    onlyFromAnomaly: boolean;
   };
   actions: {
     setCurrentUser: (user: User) => void;
@@ -89,11 +93,15 @@ export const useStore = create<AppState>((set, get) => ({
     status: '全部',
     search: '',
     handler: '',
+    onlyAnomaly: false,
+    onlyWithVisit: false,
   },
   visitFilters: {
     status: '全部',
     search: '',
     operator: '',
+    onlyNeedFollowUp: false,
+    onlyFromAnomaly: false,
   },
 
   actions: {
@@ -380,7 +388,7 @@ export const useStore = create<AppState>((set, get) => ({
       }),
 
     getFilteredRefunds: () => {
-      const { refunds, refundFilters } = get();
+      const { refunds, refundFilters, visits } = get();
       return refunds.filter((r) => {
         const matchStatus = refundFilters.status === '全部' || r.status === refundFilters.status;
         const matchSearch =
@@ -390,12 +398,15 @@ export const useStore = create<AppState>((set, get) => ({
           r.id.includes(refundFilters.search) ||
           r.className.includes(refundFilters.search);
         const matchHandler = !refundFilters.handler || r.currentHandler.id === refundFilters.handler;
-        return matchStatus && matchSearch && matchHandler;
+        const matchAnomaly = !refundFilters.onlyAnomaly || r.hasAnomaly || r.status === '异常';
+        const hasRelatedVisit = visits.some((v) => v.refundId === r.id);
+        const matchWithVisit = !refundFilters.onlyWithVisit || hasRelatedVisit;
+        return matchStatus && matchSearch && matchHandler && matchAnomaly && matchWithVisit;
       });
     },
 
     getFilteredVisits: () => {
-      const { visits, visitFilters } = get();
+      const { visits, visitFilters, refunds } = get();
       return visits.filter((v) => {
         const matchStatus = visitFilters.status === '全部' || v.status === visitFilters.status;
         const matchSearch =
@@ -406,7 +417,11 @@ export const useStore = create<AppState>((set, get) => ({
           v.refundId.includes(visitFilters.search) ||
           v.className.includes(visitFilters.search);
         const matchOperator = !visitFilters.operator || v.operator.id === visitFilters.operator;
-        return matchStatus && matchSearch && matchOperator;
+        const matchNeedFollowUp = !visitFilters.onlyNeedFollowUp || v.needFollowUp;
+        const relatedRefund = refunds.find((r) => r.id === v.refundId);
+        const isFromAnomaly = relatedRefund?.hasAnomaly || relatedRefund?.status === '异常';
+        const matchFromAnomaly = !visitFilters.onlyFromAnomaly || isFromAnomaly;
+        return matchStatus && matchSearch && matchOperator && matchNeedFollowUp && matchFromAnomaly;
       });
     },
 
