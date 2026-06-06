@@ -46,9 +46,17 @@ export default function ReviewCenter() {
   const [reviewNotes, setReviewNotes] = useState('');
   const [supplementReason, setSupplementReason] = useState('');
 
-  const pendingMedicalReviews = medicalRecords.filter(r => !r.reviewed);
-  const pendingFosterReviews = fosterRecords.filter(f => f.status === 'ended' && !reviewLogs.some(r => r.caseId === f.caseId && r.type === 'foster'));
-  const pendingArchiveReviews = cases.filter(c => c.status === 'adopted' && !reviewLogs.some(r => r.caseId === c.id && r.type === 'archive'));
+  const pendingMedicalReviews = medicalRecords.filter(r => r.reviewStatus !== 'approved');
+  const pendingFosterReviews = fosterRecords.filter(f => {
+    if (f.status !== 'ended') return false;
+    const fosterReview = reviewLogs.find(r => r.caseId === f.caseId && r.type === 'foster');
+    return !fosterReview || fosterReview.status !== 'approved';
+  });
+  const pendingArchiveReviews = cases.filter(c => {
+    if (c.status !== 'adopted') return false;
+    const archiveReview = reviewLogs.find(r => r.caseId === c.id && r.type === 'archive');
+    return !archiveReview || archiveReview.status !== 'approved';
+  });
 
   const getReviewItems = () => {
     switch (activeTab) {

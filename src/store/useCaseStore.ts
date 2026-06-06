@@ -30,7 +30,7 @@ interface CaseState {
   currentCaseId: string | null;
   filters: FilterOptions;
   setCurrentCaseId: (id: string | null) => void;
-  setFilters: (filters: FilterOptions) => void;
+  setFilters: (filters: FilterOptions | ((prev: FilterOptions) => FilterOptions)) => void;
   getCaseById: (id: string) => RescueCase | undefined;
   getFosterRecordsByCaseId: (caseId: string) => FosterRecord[];
   getMedicalRecordsByCaseId: (caseId: string) => MedicalRecord[];
@@ -63,7 +63,9 @@ export const useCaseStore = create<CaseState>((set, get) => ({
 
   setCurrentCaseId: (id) => set({ currentCaseId: id }),
   
-  setFilters: (filters) => set({ filters }),
+  setFilters: (filters) => set((state) => ({ 
+    filters: typeof filters === 'function' ? filters(state.filters) : filters 
+  })),
 
   getCaseById: (id) => get().cases.find(c => c.id === id),
 

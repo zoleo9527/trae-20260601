@@ -280,6 +280,7 @@ export const mockMedicalRecords: MedicalRecord[] = [
     reviewed: true,
     reviewedBy: 'u003',
     reviewedAt: '2026-05-25T10:00:00Z',
+    reviewStatus: 'approved',
     notes: '幼猫，体重偏轻，需加强营养',
   },
   {
@@ -294,6 +295,7 @@ export const mockMedicalRecords: MedicalRecord[] = [
     reviewed: true,
     reviewedBy: 'u003',
     reviewedAt: '2026-05-25T10:05:00Z',
+    reviewStatus: 'approved',
     notes: '体重从0.8kg增至1.5kg，恢复良好',
   },
   {
@@ -308,6 +310,7 @@ export const mockMedicalRecords: MedicalRecord[] = [
     reviewed: true,
     reviewedBy: 'u003',
     reviewedAt: '2026-05-28T14:30:00Z',
+    reviewStatus: 'approved',
     notes: '已绝育，旧伤不影响正常行走',
   },
   {
@@ -322,6 +325,7 @@ export const mockMedicalRecords: MedicalRecord[] = [
     reviewed: true,
     reviewedBy: 'u003',
     reviewedAt: '2026-05-28T14:35:00Z',
+    reviewStatus: 'approved',
     notes: '身体健康，适合领养',
   },
   {
@@ -370,6 +374,7 @@ export const mockMedicalRecords: MedicalRecord[] = [
     veterinarian: 'u002',
     healthStatus: 'poor',
     reviewed: false,
+    reviewStatus: 'supplement_needed',
     notes: '手术成功，需静养2个月，定期复查',
   },
   {

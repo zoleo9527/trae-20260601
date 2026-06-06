@@ -16,12 +16,22 @@ import {
   Archive,
   AlertTriangle,
   Clock,
-  X
+  X,
+  RotateCcw,
+  CheckCircle
 } from 'lucide-react';
 
 export default function Dashboard() {
   const navigate = useNavigate();
-  const { cases, getFilteredCases, setFilters, filters } = useCaseStore();
+  const { 
+    cases, 
+    medicalRecords, 
+    fosterRecords, 
+    reviewLogs,
+    getFilteredCases, 
+    setFilters, 
+    filters 
+  } = useCaseStore();
   const [searchKeyword, setSearchKeyword] = useState(filters.keyword || '');
   const [showFilters, setShowFilters] = useState(false);
 
@@ -33,16 +43,125 @@ export default function Dashboard() {
       adopted: cases.filter(c => c.status === 'adopted').length,
       archived: cases.filter(c => c.status === 'archived').length,
       inCare: cases.filter(c => c.status === 'in_care').length,
-      pendingReview: cases.filter(c => c.status === 'medical' || c.medicalStatus === 'treating').length,
     };
   }, [cases]);
 
+  const pendingTasks = useMemo(() => {
+    const tasks: Array<{
+      id: string;
+      type: 'medical' | 'foster' | 'archive' | 'return' | 'supplement';
+      title: string;
+      description: string;
+      caseId: string;
+      caseName: string;
+      caseNo: string;
+      status: string;
+      priority: 'high' | 'medium' | 'low';
+    }> = [];
+
+    medicalRecords.forEach(r => {
+      if (r.reviewStatus === 'supplement_needed') {
+        const caseData = cases.find(c => c.id === r.caseId);
+        if (caseData) {
+          tasks.push({
+            id: `med_sup_${r.id}`,
+            type: 'supplement',
+            title: '医疗记录需补录',
+            description: `${r.diagnosis} - ${r.treatment.substring(0, 30)}...`,
+            caseId: r.caseId,
+            caseName: caseData.animalName,
+            caseNo: caseData.caseNo,
+            status: '需补录',
+            priority: 'high',
+          });
+        }
+      } else if (r.reviewStatus !== 'approved') {
+        const caseData = cases.find(c => c.id === r.caseId);
+        if (caseData) {
+          tasks.push({
+            id: `med_${r.id}`,
+            type: 'medical',
+            title: '医疗费用待复核',
+            description: `${r.diagnosis}，费用 ¥${r.cost}`,
+            caseId: r.caseId,
+            caseName: caseData.animalName,
+            caseNo: caseData.caseNo,
+            status: '待复核',
+            priority: 'medium',
+          });
+        }
+      }
+    });
+
+    fosterRecords.filter(f => f.status === 'ended').forEach(f => {
+      const fosterReview = reviewLogs.find(r => r.caseId === f.caseId && r.type === 'foster');
+      if (!fosterReview || fosterReview.status !== 'approved') {
+        const caseData = cases.find(c => c.id === f.caseId);
+        if (caseData) {
+          tasks.push({
+            id: `foster_${f.id}`,
+            type: 'foster',
+            title: '寄养记录待复核',
+            description: `寄养家庭：${f.fosterFamilyName}`,
+            caseId: f.caseId,
+            caseName: caseData.animalName,
+            caseNo: caseData.caseNo,
+            status: fosterReview?.status === 'supplement_needed' ? '需补录' : '待复核',
+            priority: 'medium',
+          });
+        }
+      }
+    });
+
+    cases.filter(c => c.status === 'adopted').forEach(c => {
+      const archiveReview = reviewLogs.find(r => r.caseId === c.id && r.type === 'archive');
+      if (!archiveReview || archiveReview.status !== 'approved') {
+        tasks.push({
+          id: `archive_${c.id}`,
+          type: 'archive',
+          title: '个案待归档',
+          description: '领养完成，待复核归档',
+          caseId: c.id,
+          caseName: c.animalName,
+          caseNo: c.caseNo,
+          status: archiveReview?.status === 'supplement_needed' ? '需补录' : '待归档',
+          priority: 'low',
+        });
+      }
+    });
+
+    fosterRecords.filter(f => (f.status === 'returned' || (f.status === 'ended' && f.returnReason))).forEach(f => {
+      const caseData = cases.find(c => c.id === f.caseId);
+      if (caseData && (caseData.status === 'in_care' || caseData.status === 'registered')) {
+        const hasActiveFoster = fosterRecords.some(fr => fr.caseId === f.caseId && fr.status === 'active');
+        if (!hasActiveFoster) {
+          tasks.push({
+            id: `return_${f.id}`,
+            type: 'return',
+            title: '寄养退回待处理',
+            description: `退回原因：${(f.returnReason || '无').substring(0, 30)}...`,
+            caseId: f.caseId,
+            caseName: caseData.animalName,
+            caseNo: caseData.caseNo,
+            status: '待重新安排',
+            priority: 'high',
+          });
+        }
+      }
+    });
+
+    return tasks.sort((a, b) => {
+      const priorityOrder = { high: 0, medium: 1, low: 2 };
+      return priorityOrder[a.priority] - priorityOrder[b.priority];
+    });
+  }, [cases, medicalRecords, fosterRecords, reviewLogs]);
+
   useEffect(() => {
     const timer = setTimeout(() => {
-      setFilters({ ...filters, keyword: searchKeyword || undefined });
+      setFilters((prev) => ({ ...prev, keyword: searchKeyword || undefined }));
     }, 200);
     return () => clearTimeout(timer);
-  }, [searchKeyword]);
+  }, [searchKeyword, setFilters]);
 
   const filteredCases = useMemo(() => {
     return getFilteredCases();
@@ -54,20 +173,21 @@ export default function Dashboard() {
 
   const clearSearch = () => {
     setSearchKeyword('');
-    setFilters({ ...filters, keyword: undefined });
+    setFilters((prev) => ({ ...prev, keyword: undefined }));
   };
 
   const handleStatusFilter = (status: string) => {
-    if (status === 'all') {
-      setFilters({ ...filters, status: undefined });
-    } else {
-      const currentStatus = filters.status || [];
+    setFilters((prev) => {
+      if (status === 'all') {
+        return { ...prev, status: undefined };
+      }
+      const currentStatus = prev.status || [];
       const isSelected = currentStatus.includes(status as any);
       const newStatus = isSelected 
         ? currentStatus.filter(s => s !== status)
         : [...currentStatus, status as any];
-      setFilters({ ...filters, status: newStatus.length > 0 ? newStatus : undefined });
-    }
+      return { ...prev, status: newStatus.length > 0 ? newStatus : undefined };
+    });
   };
 
   const isStatusSelected = (status: string) => {
@@ -120,39 +240,65 @@ export default function Dashboard() {
         <div className="col-span-2 card p-6">
           <div className="flex items-center justify-between mb-6">
             <h2 className="section-title mb-0">待处理任务</h2>
-            <span className="text-sm text-warm-500">共 {stats.pendingReview} 项待处理</span>
+            <span className="text-sm text-warm-500">共 {pendingTasks.length} 项待处理</span>
           </div>
-          <div className="space-y-3">
-            <div className="flex items-center gap-4 p-3 bg-orange-50 rounded-lg border border-orange-100">
-              <div className="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center">
-                <AlertTriangle className="w-5 h-5 text-orange-600" />
+          <div className="space-y-3 max-h-[400px] overflow-y-auto">
+            {pendingTasks.length > 0 ? (
+              pendingTasks.map((task) => {
+                const typeConfig = {
+                  medical: { bg: 'bg-red-50', border: 'border-red-100', iconBg: 'bg-red-100', icon: Stethoscope, text: 'text-red-600' },
+                  supplement: { bg: 'bg-orange-50', border: 'border-orange-100', iconBg: 'bg-orange-100', icon: AlertTriangle, text: 'text-orange-600' },
+                  foster: { bg: 'bg-primary-50', border: 'border-primary-100', iconBg: 'bg-primary-100', icon: Home, text: 'text-primary-600' },
+                  archive: { bg: 'bg-warm-50', border: 'border-warm-200', iconBg: 'bg-warm-100', icon: Archive, text: 'text-warm-600' },
+                  return: { bg: 'bg-yellow-50', border: 'border-yellow-100', iconBg: 'bg-yellow-100', icon: RotateCcw, text: 'text-yellow-600' },
+                };
+                const config = typeConfig[task.type as keyof typeof typeConfig] || typeConfig.medical;
+                const Icon = config.icon;
+                
+                const statusColors = {
+                  '需补录': 'text-orange-600 bg-orange-100',
+                  '待复核': 'text-yellow-600 bg-yellow-100',
+                  '待归档': 'text-warm-600 bg-warm-100',
+                  '待重新安排': 'text-red-600 bg-red-100',
+                };
+
+                return (
+                  <div
+                    key={task.id}
+                    onClick={() => {
+                      if (task.type === 'return' || task.type === 'foster') {
+                        navigate(`/case/${task.caseId}/foster`);
+                      } else if (task.type === 'medical' || task.type === 'supplement') {
+                        navigate('/review');
+                      } else if (task.type === 'archive') {
+                        navigate('/review');
+                      } else {
+                        navigate(`/case/${task.caseId}`);
+                      }
+                    }}
+                    className={`flex items-center gap-4 p-3 ${config.bg} rounded-lg border ${config.border} cursor-pointer hover:shadow-sm transition-shadow`}
+                  >
+                    <div className={`w-10 h-10 ${config.iconBg} rounded-lg flex items-center justify-center flex-shrink-0`}>
+                      <Icon className={`w-5 h-5 ${config.text}`} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-warm-800">{task.title}</p>
+                      <p className="text-sm text-warm-500 truncate">
+                        {task.caseName}（{task.caseNo}）{task.description}
+                      </p>
+                    </div>
+                    <span className={`text-xs font-medium px-2 py-1 rounded-full ${statusColors[task.status] || 'bg-warm-100 text-warm-600'}`}>
+                      {task.status}
+                    </span>
+                  </div>
+                );
+              })
+            ) : (
+              <div className="text-center py-12">
+                <CheckCircle className="w-12 h-12 text-green-300 mx-auto mb-3" />
+                <p className="text-warm-500">暂无待处理任务</p>
               </div>
-              <div className="flex-1">
-                <p className="font-medium text-warm-800">医疗费用待复核</p>
-                <p className="text-sm text-warm-500">花花（RESCUE-2026-005）手术费用需补录明细</p>
-              </div>
-              <span className="text-xs text-orange-600 font-medium">需补录</span>
-            </div>
-            <div className="flex items-center gap-4 p-3 bg-yellow-50 rounded-lg border border-yellow-100">
-              <div className="w-10 h-10 bg-yellow-100 rounded-lg flex items-center justify-center">
-                <Clock className="w-5 h-5 text-yellow-600" />
-              </div>
-              <div className="flex-1">
-                <p className="font-medium text-warm-800">领养申请待审核</p>
-                <p className="text-sm text-warm-500">灰灰（RESCUE-2026-006）有新的领养申请</p>
-              </div>
-              <span className="text-xs text-yellow-600 font-medium">审核中</span>
-            </div>
-            <div className="flex items-center gap-4 p-3 bg-blue-50 rounded-lg border border-blue-100">
-              <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                <Clock className="w-5 h-5 text-blue-600" />
-              </div>
-              <div className="flex-1">
-                <p className="font-medium text-warm-800">回访计划即将到期</p>
-                <p className="text-sm text-warm-500">大黄（RESCUE-2026-002）领养后一周回访</p>
-              </div>
-              <span className="text-xs text-blue-600 font-medium">今日</span>
-            </div>
+            )}
           </div>
         </div>
 
