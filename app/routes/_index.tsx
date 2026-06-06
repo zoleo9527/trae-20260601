@@ -11,18 +11,22 @@ import {
 import { ArtworkGallery } from "~/components/ArtworkGallery";
 import DashboardLayout from "~/components/DashboardLayout";
 import { StatusBadge } from "~/components/StatusBadge";
-import { formatDate, mockReviews, mockTodos } from "~/data/mockData";
+import { formatDate } from "~/data/mockData";
+import { getAllReviews, getAllTodos } from "~/data/store";
 
 export const loader = async () => {
+  const reviews = getAllReviews();
+  const todos = getAllTodos();
+
   const stats = {
-    totalReviews: mockReviews.length,
-    unreadFeedbacks: mockReviews.filter((r) => r.feedbackStatus === "parent_unread").length,
-    pendingTodos: mockTodos.filter((t) => t.status !== "completed").length,
-    pendingMakeup: mockReviews.filter((r) => r.feedbackStatus === "pending_makeup").length,
+    totalReviews: reviews.length,
+    unreadFeedbacks: reviews.filter((r) => r.feedbackStatus === "parent_unread").length,
+    pendingTodos: todos.filter((t) => t.status !== "completed").length,
+    pendingMakeup: reviews.filter((r) => r.feedbackStatus === "pending_makeup").length,
   };
 
-  const recentReviews = mockReviews.slice(0, 3);
-  const urgentTodos = mockTodos.filter((t) => t.status !== "completed").slice(0, 3);
+  const recentReviews = reviews.slice(0, 3);
+  const urgentTodos = todos.filter((t) => t.status !== "completed").slice(0, 3);
 
   return json({ stats, recentReviews, urgentTodos });
 };

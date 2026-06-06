@@ -5,10 +5,11 @@ import { useState } from "react";
 import { ArtworkGallery } from "~/components/ArtworkGallery";
 import DashboardLayout from "~/components/DashboardLayout";
 import { StatusBadge } from "~/components/StatusBadge";
-import { formatDate, mockReviews } from "~/data/mockData";
+import { formatDate } from "~/data/mockData";
+import { getAllReviews } from "~/data/store";
 
 export const loader = async () => {
-  return json({ reviews: mockReviews });
+  return json({ reviews: getAllReviews() });
 };
 
 export default function ReviewsIndex() {
@@ -46,10 +47,10 @@ export default function ReviewsIndex() {
             <h1 className="text-2xl font-bold text-gray-900">作品点评</h1>
             <p className="text-gray-500 mt-1">管理学生作品点评和家长反馈</p>
           </div>
-          <button className="btn-primary flex items-center gap-2">
+          <Link to="/reviews/new" className="btn-primary flex items-center gap-2">
             <Plus size={18} />
             新建点评
-          </button>
+          </Link>
         </div>
 
         <div className="card p-4">

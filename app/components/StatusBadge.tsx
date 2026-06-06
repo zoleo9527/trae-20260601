@@ -6,22 +6,24 @@ interface StatusBadgeProps {
 }
 
 export function StatusBadge({ status, type = "feedback" }: StatusBadgeProps) {
-  let config: { label: string; color: string; icon?: string };
-  
-  if (type === "feedback") {
-    config = getStatusLabel(status);
-  } else if (type === "feedbackType") {
-    config = getFeedbackTypeLabel(status);
-  } else if (type === "todo") {
-    config = getTodoStatusLabel(status);
-  } else {
-    config = getTodoTypeLabel(status);
+  if (type === "todoType") {
+    const config = getTodoTypeLabel(status);
     return (
       <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700">
         <span>{config.icon}</span>
         {config.label}
       </span>
     );
+  }
+
+  let config: { label: string; color: string };
+  
+  if (type === "feedback") {
+    config = getStatusLabel(status);
+  } else if (type === "feedbackType") {
+    config = getFeedbackTypeLabel(status);
+  } else {
+    config = getTodoStatusLabel(status);
   }
 
   return (

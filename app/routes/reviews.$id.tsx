@@ -1,5 +1,5 @@
-import { json } from "@remix-run/node";
-import { Link, useLoaderData } from "@remix-run/react";
+import { json, type ActionFunctionArgs } from "@remix-run/node";
+import { Form, Link, useActionData, useLoaderData } from "@remix-run/react";
 import {
     AlertTriangle,
     ArrowLeft,
@@ -22,17 +22,21 @@ import { StatusBadge } from "~/components/StatusBadge";
 import {
     formatDate,
     formatDateTime,
-    mockFeedbacks,
-    mockFollowUps,
-    mockReviews,
-    mockTodos,
 } from "~/data/mockData";
+import {
+    createFollowUp,
+    getFeedbacksByReviewId,
+    getFollowUpsByReviewId,
+    getReviewById,
+    getTodosByReviewId,
+    updateReviewStatus,
+} from "~/data/store";
 
 export const loader = async ({ params }: { params: { id: string } }) => {
-  const review = mockReviews.find((r) => r.id === params.id);
-  const feedbacks = mockFeedbacks.filter((f) => f.reviewId === params.id);
-  const followUps = mockFollowUps.filter((f) => f.reviewId === params.id).reverse();
-  const todos = mockTodos.filter((t) => t.reviewId === params.id);
+  const review = getReviewById(params.id);
+  const feedbacks = getFeedbacksByReviewId(params.id);
+  const followUps = getFollowUpsByReviewId(params.id).reverse();
+  const todos = getTodosByReviewId(params.id);
 
   if (!review) {
     throw new Response("Not Found", { status: 404 });
@@ -41,8 +45,41 @@ export const loader = async ({ params }: { params: { id: string } }) => {
   return json({ review, feedbacks, followUps, todos });
 };
 
+export const action = async ({ request, params }: ActionFunctionArgs) => {
+  const formData = await request.formData();
+  const intent = formData.get("intent") as string;
+  const reviewId = params.id as string;
+
+  if (intent === "addFollowUp") {
+    const content = formData.get("content") as string;
+    const operatorRole = formData.get("operatorRole") as "teacher" | "consultant" | "director";
+
+    if (!content?.trim()) {
+      return json({ error: "跟进内容不能为空" }, { status: 400 });
+    }
+
+    createFollowUp({
+      reviewId,
+      operatorId: "c1",
+      operatorName: "张顾问",
+      operatorRole: operatorRole || "consultant",
+      content: content.trim(),
+    });
+
+    const review = getReviewById(reviewId);
+    if (review && review.feedbackStatus !== "consultant_following" && review.feedbackStatus !== "resolved") {
+      updateReviewStatus(reviewId, "consultant_following");
+    }
+
+    return json({ success: true });
+  }
+
+  return json({ error: "无效操作" }, { status: 400 });
+};
+
 export default function ReviewDetail() {
   const { review, feedbacks, followUps, todos } = useLoaderData<typeof loader>();
+  const actionData = useActionData<typeof action>();
   const [followUpInput, setFollowUpInput] = useState("");
   const [showTodoModal, setShowTodoModal] = useState(false);
 
@@ -268,19 +305,28 @@ export default function ReviewDetail() {
 
             <div className="card p-6">
               <h2 className="text-lg font-semibold text-gray-900 mb-4">跟进记录</h2>
-              <div className="mb-4">
+              <Form method="post" className="mb-4">
+                <input type="hidden" name="intent" value="addFollowUp" />
+                <input type="hidden" name="operatorRole" value="consultant" />
+                {actionData && "error" in actionData && (
+                  <p className="text-sm text-red-600 mb-2">{actionData.error}</p>
+                )}
                 <textarea
+                  name="content"
                   className="input-field resize-none"
                   rows={3}
                   placeholder="添加跟进记录..."
                   value={followUpInput}
                   onChange={(e) => setFollowUpInput(e.target.value)}
                 />
-                <button className="btn-primary w-full mt-2 flex items-center justify-center gap-2">
+                <button
+                  type="submit"
+                  className="btn-primary w-full mt-2 flex items-center justify-center gap-2"
+                >
                   <Plus size={16} />
                   添加记录
                 </button>
-              </div>
+              </Form>
               <FollowUpTimeline records={followUps} />
             </div>
           </div>

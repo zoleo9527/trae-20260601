@@ -3,11 +3,14 @@ import { useLoaderData } from "@remix-run/react";
 import { Phone, Search, Users } from "lucide-react";
 import { useState } from "react";
 import DashboardLayout from "~/components/DashboardLayout";
-import { mockReviews, mockStudents } from "~/data/mockData";
+import { getAllReviews, getStudents } from "~/data/store";
 
 export const loader = async () => {
-  const studentsWithStats = mockStudents.map((student) => {
-    const studentReviews = mockReviews.filter((r) => r.studentId === student.id);
+  const students = getStudents();
+  const reviews = getAllReviews();
+
+  const studentsWithStats = students.map((student) => {
+    const studentReviews = reviews.filter((r) => r.studentId === student.id);
     const lastReview = studentReviews[0];
     const unreadCount = studentReviews.filter(
       (r) => r.feedbackStatus === "parent_unread"

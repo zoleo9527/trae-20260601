@@ -1,13 +1,37 @@
-import { json } from "@remix-run/node";
-import { useLoaderData } from "@remix-run/react";
-import { Calendar, ClipboardList, Filter, Plus, Users } from "lucide-react";
+import { json, type ActionFunctionArgs } from "@remix-run/node";
+import { Form, useLoaderData } from "@remix-run/react";
+import { Calendar, Check, ClipboardList, Filter, Plus, Users } from "lucide-react";
 import { useState } from "react";
 import DashboardLayout from "~/components/DashboardLayout";
 import { StatusBadge } from "~/components/StatusBadge";
-import { formatDate, mockTodos } from "~/data/mockData";
+import { formatDate } from "~/data/mockData";
+import { getAllTodos, getReviewById, updateReviewStatus, updateTodoStatus } from "~/data/store";
 
 export const loader = async () => {
-  return json({ todos: mockTodos });
+  return json({ todos: getAllTodos() });
+};
+
+export const action = async ({ request }: ActionFunctionArgs) => {
+  const formData = await request.formData();
+  const intent = formData.get("intent") as string;
+
+  if (intent === "updateStatus") {
+    const todoId = formData.get("todoId") as string;
+    const status = formData.get("status") as "pending" | "in_progress" | "completed";
+
+    const updatedTodo = updateTodoStatus(todoId, status);
+
+    if (updatedTodo && status === "completed") {
+      const review = getReviewById(updatedTodo.reviewId);
+      if (review && review.feedbackStatus !== "resolved") {
+        updateReviewStatus(updatedTodo.reviewId, "resolved");
+      }
+    }
+
+    return json({ success: true, todo: updatedTodo });
+  }
+
+  return json({ error: "无效操作" }, { status: 400 });
 };
 
 export default function TodosIndex() {
@@ -160,9 +184,45 @@ export default function TodosIndex() {
 
                 <div className="flex gap-2 mt-4 pt-4 border-t border-gray-100">
                   {todo.status !== "completed" && (
-                    <button className="btn-primary flex-1">标记完成</button>
+                    <Form method="post" className="flex-1">
+                      <input type="hidden" name="intent" value="updateStatus" />
+                      <input type="hidden" name="todoId" value={todo.id} />
+                      <input type="hidden" name="status" value="completed" />
+                      <button
+                        type="submit"
+                        className="btn-primary w-full flex items-center justify-center gap-2"
+                      >
+                        <Check size={16} />
+                        标记完成
+                      </button>
+                    </Form>
                   )}
-                  <button className="btn-secondary flex-1">查看详情</button>
+                  {todo.status === "pending" && (
+                    <Form method="post" className="flex-1">
+                      <input type="hidden" name="intent" value="updateStatus" />
+                      <input type="hidden" name="todoId" value={todo.id} />
+                      <input type="hidden" name="status" value="in_progress" />
+                      <button
+                        type="submit"
+                        className="btn-secondary w-full"
+                      >
+                        开始处理
+                      </button>
+                    </Form>
+                  )}
+                  {todo.status === "in_progress" && (
+                    <Form method="post" className="flex-1">
+                      <input type="hidden" name="intent" value="updateStatus" />
+                      <input type="hidden" name="todoId" value={todo.id} />
+                      <input type="hidden" name="status" value="pending" />
+                      <button
+                        type="submit"
+                        className="btn-secondary w-full"
+                      >
+                        暂停处理
+                      </button>
+                    </Form>
+                  )}
                 </div>
               </div>
             ))
