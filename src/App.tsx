@@ -1,6 +1,6 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import { Layout } from "@/components/layout/Layout";
-import { Dashboard } from "@/pages/Dashboard";
+import Home from "@/pages/Home";
 import { Detention } from "@/pages/Detention";
 import { Appeal } from "@/pages/Appeal";
 
@@ -9,10 +9,10 @@ export default function App() {
     <Router>
       <Routes>
         <Route path="/" element={<Layout />}>
-          <Route index element={<Navigate to="/dashboard" replace />} />
-          <Route path="dashboard" element={<Dashboard />} />
+          <Route index element={<Home />} />
           <Route path="detention" element={<Detention />} />
           <Route path="appeal" element={<Appeal />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>
     </Router>

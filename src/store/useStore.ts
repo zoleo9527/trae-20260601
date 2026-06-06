@@ -12,7 +12,6 @@ import {
 import {
   mockDetentionRecords,
   mockAppealRecords,
-  mockDashboardStats,
   mockTodoItems,
 } from '@/data/mockData';
 import { generateId } from '@/utils/format';
@@ -20,7 +19,6 @@ import { generateId } from '@/utils/format';
 interface AppState {
   detentions: DetentionRecord[];
   appeals: AppealRecord[];
-  stats: DashboardStats;
   todos: TodoItem[];
   currentUser: { name: string; role: UserRole };
   selectedDetentionId: string | null;
@@ -29,6 +27,9 @@ interface AppState {
   setSelectedDetentionId: (id: string | null) => void;
   setSelectedAppealId: (id: string | null) => void;
   switchRole: (role: UserRole) => void;
+
+  getStats: () => DashboardStats;
+  getRoleTodos: () => TodoItem[];
 
   updateDetentionStatus: (
     id: string,
@@ -65,8 +66,30 @@ interface AppState {
     operatorRole: UserRole
   ) => void;
 
+  recordLoadingStart: (
+    detentionId: string,
+    operator: string,
+    operatorRole: UserRole,
+    remark?: string
+  ) => void;
+
+  recordLoadingEnd: (
+    detentionId: string,
+    operator: string,
+    operatorRole: UserRole,
+    remark?: string
+  ) => void;
+
+  recordLoadingException: (
+    detentionId: string,
+    operator: string,
+    operatorRole: UserRole,
+    exceptionRemark: string
+  ) => void;
+
   getNextPendingDetention: (currentId?: string) => DetentionRecord | undefined;
   getNextPendingAppeal: (currentId?: string) => AppealRecord | undefined;
+  getNextLoadingTask: (currentId?: string) => DetentionRecord | undefined;
 
   getDetentionById: (id: string) => DetentionRecord | undefined;
   getAppealById: (id: string) => AppealRecord | undefined;
@@ -86,10 +109,61 @@ const roleUsers: Record<UserRole, { name: string; role: UserRole }> = {
   warehouse_clerk: { name: '王芳', role: 'warehouse_clerk' },
 };
 
+const getTodayStr = () => new Date().toISOString().split('T')[0];
+
+const createTodoFromDetention = (detention: DetentionRecord, type: TodoItem['type']): TodoItem | null => {
+  const typeConfig: Record<TodoItem['type'], { title: string; desc: (d: DetentionRecord) => string }> = {
+    detention_confirm: {
+      title: '待确认滞留费用',
+      desc: (d) => `订单${d.orderNo}，${d.plateNumber}，超时${d.detentionHours}小时，费用¥${d.feeAmount.toFixed(2)}`,
+    },
+    loading_record: {
+      title: '待记录装卸时间',
+      desc: (d) => `订单${d.orderNo}，${d.plateNumber}，月台${d.platformNo}`,
+    },
+    fee_adjust: {
+      title: '待调整费用',
+      desc: (d) => `订单${d.orderNo}，${d.plateNumber}，当前费用¥${d.feeAmount.toFixed(2)}`,
+    },
+    appeal_process: {
+      title: '待处理申诉',
+      desc: (d) => `订单${d.orderNo}，${d.plateNumber}`,
+    },
+    detention_review: {
+      title: '待复核滞留单',
+      desc: (d) => `订单${d.orderNo}，${d.plateNumber}，费用¥${d.feeAmount.toFixed(2)}`,
+    },
+  };
+
+  const config = typeConfig[type];
+  if (!config) return null;
+
+  return {
+    id: `todo_${detention.id}_${type}`,
+    type,
+    title: config.title,
+    description: config.desc(detention),
+    status: 'pending',
+    createTime: new Date().toISOString().replace('T', ' ').substring(0, 19),
+    relatedId: detention.id,
+  };
+};
+
+const createTodoFromAppeal = (appeal: AppealRecord): TodoItem => {
+  return {
+    id: `todo_${appeal.id}_appeal_process`,
+    type: 'appeal_process',
+    title: '待处理司机申诉',
+    description: `订单${appeal.detention?.orderNo || appeal.detentionId}，${appeal.driverName}申请减免¥${appeal.requestedAdjustment.toFixed(2)}`,
+    status: 'pending',
+    createTime: appeal.submittedAt,
+    relatedId: appeal.id,
+  };
+};
+
 export const useStore = create<AppState>((set, get) => ({
   detentions: mockDetentionRecords,
   appeals: mockAppealRecords,
-  stats: mockDashboardStats,
   todos: mockTodoItems,
   currentUser: { name: '王芳', role: 'warehouse_clerk' },
   selectedDetentionId: null,
@@ -100,6 +174,58 @@ export const useStore = create<AppState>((set, get) => ({
 
   switchRole: (role) => {
     set({ currentUser: roleUsers[role] });
+  },
+
+  getStats: () => {
+    const { detentions, appeals } = get();
+    const todayStr = getTodayStr();
+
+    const todayDetentions = detentions.filter((d) => d.createdAt.startsWith(todayStr));
+    const pendingAppeals = appeals.filter((a) => a.status === 'pending' || a.status === 'processing');
+    const totalFee = detentions.reduce((sum, d) => sum + d.feeAmount, 0);
+    const pendingConfirmations = detentions.filter((d) => d.status === 'pending');
+
+    return {
+      todayDetentionCount: todayDetentions.length,
+      pendingAppealCount: pendingAppeals.length,
+      totalFeeAmount: totalFee,
+      pendingConfirmationCount: pendingConfirmations.length,
+    };
+  },
+
+  getRoleTodos: () => {
+    const { currentUser, detentions, appeals, todos } = get();
+    const role = currentUser.role;
+
+    const todosFromDetentions: TodoItem[] = [];
+
+    detentions.forEach((d) => {
+      if (role === 'dispatcher' || role === 'warehouse_clerk') {
+        if (d.status === 'pending') {
+          const todo = createTodoFromDetention(d, 'detention_confirm');
+          if (todo) todosFromDetentions.push(todo);
+        }
+      }
+      if (role === 'forklift_foreman' || role === 'dispatcher') {
+        if (d.status === 'pending') {
+          const todo = createTodoFromDetention(d, 'loading_record');
+          if (todo) todosFromDetentions.push(todo);
+        }
+      }
+    });
+
+    if (role === 'warehouse_clerk') {
+      appeals.forEach((a) => {
+        if (a.status === 'pending' || a.status === 'processing') {
+          todosFromDetentions.push(createTodoFromAppeal(a));
+        }
+      });
+    }
+
+    const existingTodoIds = new Set(todos.map((t) => t.id));
+    const newTodos = todosFromDetentions.filter((t) => !existingTodoIds.has(t.id));
+
+    return [...todos, ...newTodos];
   },
 
   getRolePermissions: (role) => ({
@@ -145,7 +271,14 @@ export const useStore = create<AppState>((set, get) => ({
         return a;
       });
 
-      return { detentions, appeals };
+      const todos = state.todos.filter((t) => {
+        if (t.relatedId === id && t.type === 'detention_confirm' && newStatus === 'confirmed') {
+          return false;
+        }
+        return true;
+      });
+
+      return { detentions, appeals, todos };
     });
   },
 
@@ -199,7 +332,14 @@ export const useStore = create<AppState>((set, get) => ({
         return a;
       });
 
-      return { detentions, appeals };
+      const todos = state.todos.filter((t) => {
+        if (t.relatedId === id && t.type === 'fee_adjust') {
+          return false;
+        }
+        return true;
+      });
+
+      return { detentions, appeals, todos };
     });
   },
 
@@ -229,7 +369,15 @@ export const useStore = create<AppState>((set, get) => ({
         }
         return a;
       });
-      return { appeals };
+
+      const todos = state.todos.filter((t) => {
+        if (t.relatedId === id && t.type === 'appeal_process') {
+          return false;
+        }
+        return true;
+      });
+
+      return { appeals, todos };
     });
   },
 
@@ -307,7 +455,145 @@ export const useStore = create<AppState>((set, get) => ({
         return a;
       });
 
-      return { detentions, appeals };
+      const todos = state.todos.filter((t) => {
+        if (t.relatedId === appealId && t.type === 'appeal_process') {
+          return false;
+        }
+        if (t.relatedId === appeal.detentionId && t.type === 'fee_adjust') {
+          return false;
+        }
+        return true;
+      });
+
+      return { detentions, appeals, todos };
+    });
+  },
+
+  recordLoadingStart: (detentionId, operator, operatorRole, remark) => {
+    set((state) => {
+      const now = new Date().toISOString().replace('T', ' ').substring(0, 19);
+      const detentions = state.detentions.map((d) => {
+        if (d.id === detentionId) {
+          const newLog: StatusLog = {
+            id: generateId(),
+            recordId: detentionId,
+            fromStatus: d.status,
+            toStatus: d.status,
+            operator,
+            operatorRole,
+            operateTime: now,
+            remark: remark ? `开始装卸 - ${remark}` : '开始装卸作业',
+          };
+          return {
+            ...d,
+            startLoadingTime: now,
+            updatedAt: now,
+            statusLogs: [...d.statusLogs, newLog],
+          };
+        }
+        return d;
+      });
+
+      const todos = state.todos.filter((t) => {
+        if (t.relatedId === detentionId && t.type === 'loading_record') {
+          return false;
+        }
+        return true;
+      });
+
+      return { detentions, todos };
+    });
+  },
+
+  recordLoadingEnd: (detentionId, operator, operatorRole, remark) => {
+    set((state) => {
+      const now = new Date().toISOString().replace('T', ' ').substring(0, 19);
+      const detentions = state.detentions.map((d) => {
+        if (d.id === detentionId) {
+          const start = new Date(d.startLoadingTime).getTime();
+          const end = new Date(now).getTime();
+          const actualDurationMin = Math.round((end - start) / 60000);
+          const detentionHours = Math.max(
+            0,
+            Math.round(((actualDurationMin - d.expectedDurationMin) / 60) * 100) / 100
+          );
+          const feeAmount = Math.round(detentionHours * 100 * 100) / 100;
+
+          const newLog: StatusLog = {
+            id: generateId(),
+            recordId: detentionId,
+            fromStatus: d.status,
+            toStatus: d.status,
+            operator,
+            operatorRole,
+            operateTime: now,
+            remark: remark
+              ? `结束装卸 - ${remark}，实际用时${actualDurationMin}分钟，超时${detentionHours}小时`
+              : `结束装卸作业，实际用时${actualDurationMin}分钟，超时${detentionHours}小时`,
+          };
+
+          return {
+            ...d,
+            endLoadingTime: now,
+            actualDurationMin,
+            detentionHours,
+            feeAmount: d.feeAmount === 0 ? feeAmount : d.feeAmount,
+            originalFee: d.originalFee === 0 ? feeAmount : d.originalFee,
+            updatedAt: now,
+            statusLogs: [...d.statusLogs, newLog],
+          };
+        }
+        return d;
+      });
+
+      return { detentions };
+    });
+  },
+
+  recordLoadingException: (detentionId, operator, operatorRole, exceptionRemark) => {
+    set((state) => {
+      const now = new Date().toISOString().replace('T', ' ').substring(0, 19);
+      const detentions = state.detentions.map((d) => {
+        if (d.id === detentionId) {
+          const newLog: StatusLog = {
+            id: generateId(),
+            recordId: detentionId,
+            fromStatus: d.status,
+            toStatus: d.status,
+            operator,
+            operatorRole,
+            operateTime: now,
+            remark: `异常记录：${exceptionRemark}`,
+          };
+          return {
+            ...d,
+            remark: d.remark ? `${d.remark}；${exceptionRemark}` : exceptionRemark,
+            updatedAt: now,
+            statusLogs: [...d.statusLogs, newLog],
+          };
+        }
+        return d;
+      });
+
+      const detention = detentions.find((d) => d.id === detentionId);
+      if (detention) {
+        const exceptionTodo: TodoItem = {
+          id: `todo_${detentionId}_detention_review`,
+          type: 'detention_review',
+          title: '滞留单需复核（有异常）',
+          description: `订单${detention.orderNo}，${detention.plateNumber}，异常：${exceptionRemark}`,
+          status: 'pending',
+          createTime: now,
+          relatedId: detentionId,
+        };
+
+        return {
+          detentions,
+          todos: [...state.todos.filter((t) => t.id !== exceptionTodo.id), exceptionTodo],
+        };
+      }
+
+      return { detentions };
     });
   },
 
@@ -321,6 +607,13 @@ export const useStore = create<AppState>((set, get) => ({
   getNextPendingAppeal: (currentId) => {
     const pendingList = get().appeals.filter(
       (a) => (a.status === 'pending' || a.status === 'processing') && a.id !== currentId
+    );
+    return pendingList[0];
+  },
+
+  getNextLoadingTask: (currentId) => {
+    const pendingList = get().detentions.filter(
+      (d) => d.status === 'pending' && !d.endLoadingTime && d.id !== currentId
     );
     return pendingList[0];
   },

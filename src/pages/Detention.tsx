@@ -1,10 +1,11 @@
 import { useState, useMemo } from 'react';
-import { Eye, CheckCircle, ArrowRight, Filter } from 'lucide-react';
+import { Eye, CheckCircle, ArrowRight, Filter, Play, Square } from 'lucide-react';
 import { useStore } from '@/store/useStore';
 import { StatusTag } from '@/components/common/StatusTag';
 import { SearchBar } from '@/components/common/SearchBar';
 import { DetentionDetail } from '@/components/detention/DetentionDetail';
 import { FeeAdjustModal } from '@/components/detention/FeeAdjustModal';
+import { LoadingOperationModal } from '@/components/detention/LoadingOperationModal';
 import { formatCurrency, formatDateTime, detentionStatusMap, userRoleMap } from '@/utils/format';
 import { DetentionStatus } from '@/types';
 
@@ -17,9 +18,12 @@ export const Detention = () => {
     currentUser,
     getRolePermissions,
     getNextPendingDetention,
+    getNextLoadingTask,
   } = useStore();
 
   const [showAdjustModal, setShowAdjustModal] = useState(false);
+  const [showLoadingModal, setShowLoadingModal] = useState(false);
+  const [quickLoadingId, setQuickLoadingId] = useState('');
   const [keyword, setKeyword] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [roleFilter, setRoleFilter] = useState('');
@@ -27,6 +31,7 @@ export const Detention = () => {
   const permissions = getRolePermissions(currentUser.role);
   const selectedDetention = detentions.find((d) => d.id === selectedDetentionId);
   const nextPending = getNextPendingDetention(selectedDetentionId || undefined);
+  const nextLoadingTask = getNextLoadingTask(selectedDetentionId || undefined);
 
   const filteredDetentions = useMemo(() => {
     return detentions.filter((d) => {
@@ -63,6 +68,11 @@ export const Detention = () => {
     }
   };
 
+  const handleQuickLoading = (detentionId: string) => {
+    setQuickLoadingId(detentionId);
+    setShowLoadingModal(true);
+  };
+
   const filters = [
     {
       label: '状态',
@@ -85,6 +95,9 @@ export const Detention = () => {
   ];
 
   const pendingCount = detentions.filter((d) => d.status === 'pending').length;
+  const pendingLoadingCount = detentions.filter(
+    (d) => d.status === 'pending' && !d.endLoadingTime
+  ).length;
 
   return (
     <div className="p-6 space-y-6">
@@ -96,6 +109,21 @@ export const Detention = () => {
           </p>
         </div>
         <div className="flex items-center gap-3">
+          {permissions.canRecordLoading && pendingLoadingCount > 0 && (
+            <div className="flex items-center gap-2 px-3 py-1.5 bg-green-50 border border-green-200 rounded">
+              <span className="text-sm text-green-700">
+                待装卸 <span className="font-semibold">{pendingLoadingCount}</span> 条
+              </span>
+              {nextLoadingTask && (
+                <button
+                  onClick={() => handleQuickLoading(nextLoadingTask.id)}
+                  className="text-xs px-2 py-0.5 bg-green-600 text-white rounded hover:bg-green-700 transition-colors"
+                >
+                  快速记录
+                </button>
+              )}
+            </div>
+          )}
           {pendingCount > 0 && permissions.canConfirmDetention && (
             <div className="flex items-center gap-2 px-3 py-1.5 bg-orange-50 border border-orange-200 rounded">
               <span className="text-sm text-orange-700">
@@ -135,10 +163,10 @@ export const Detention = () => {
                 <th className="text-left px-5 py-3 text-xs font-medium text-gray-500">车牌号</th>
                 <th className="text-left px-5 py-3 text-xs font-medium text-gray-500">司机</th>
                 <th className="text-left px-5 py-3 text-xs font-medium text-gray-500">月台</th>
+                <th className="text-left px-5 py-3 text-xs font-medium text-gray-500">装卸进度</th>
                 <th className="text-left px-5 py-3 text-xs font-medium text-gray-500">滞留时长</th>
                 <th className="text-left px-5 py-3 text-xs font-medium text-gray-500">费用</th>
                 <th className="text-left px-5 py-3 text-xs font-medium text-gray-500">状态</th>
-                <th className="text-left px-5 py-3 text-xs font-medium text-gray-500">创建人</th>
                 <th className="text-left px-5 py-3 text-xs font-medium text-gray-500">更新时间</th>
                 <th className="text-left px-5 py-3 text-xs font-medium text-gray-500">操作</th>
               </tr>
@@ -156,6 +184,25 @@ export const Detention = () => {
                   <td className="px-5 py-3 text-sm text-gray-600">{d.plateNumber}</td>
                   <td className="px-5 py-3 text-sm text-gray-600">{d.driverName}</td>
                   <td className="px-5 py-3 text-sm text-gray-600">{d.platformNo}</td>
+                  <td className="px-5 py-3">
+                    <div className="flex items-center gap-1 text-xs">
+                      {!d.startLoadingTime && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-gray-100 text-gray-600 rounded">
+                          未开始
+                        </span>
+                      )}
+                      {d.startLoadingTime && !d.endLoadingTime && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-100 text-blue-700 rounded">
+                          进行中
+                        </span>
+                      )}
+                      {d.endLoadingTime && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-green-100 text-green-700 rounded">
+                          已完成
+                        </span>
+                      )}
+                    </div>
+                  </td>
                   <td className="px-5 py-3 text-sm text-gray-600">{d.detentionHours}小时</td>
                   <td className="px-5 py-3 text-sm font-medium text-gray-900">
                     <div>
@@ -170,12 +217,6 @@ export const Detention = () => {
                   <td className="px-5 py-3">
                     <StatusTag status={d.status} type="detention" />
                   </td>
-                  <td className="px-5 py-3 text-sm text-gray-600">
-                    {d.createdBy}
-                    <span className="text-xs text-gray-400 ml-1">
-                      ({userRoleMap[d.createdByRole]})
-                    </span>
-                  </td>
                   <td className="px-5 py-3 text-sm text-gray-500">{formatDateTime(d.updatedAt)}</td>
                   <td className="px-5 py-3">
                     <div className="flex items-center gap-1">
@@ -189,6 +230,26 @@ export const Detention = () => {
                       >
                         <Eye className="w-4 h-4" />
                       </button>
+                      {permissions.canRecordLoading && !d.endLoadingTime && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleQuickLoading(d.id);
+                          }}
+                          className={`p-1.5 text-gray-400 hover:bg-blue-50 rounded transition-colors ${
+                            !d.startLoadingTime
+                              ? 'hover:text-green-600'
+                              : 'hover:text-blue-600'
+                          }`}
+                          title={!d.startLoadingTime ? '开始装卸' : '结束装卸'}
+                        >
+                          {!d.startLoadingTime ? (
+                            <Play className="w-4 h-4" />
+                          ) : (
+                            <Square className="w-4 h-4" />
+                          )}
+                        </button>
+                      )}
                       {d.status === 'pending' && permissions.canConfirmDetention && (
                         <button
                           onClick={(e) => {
@@ -239,6 +300,12 @@ export const Detention = () => {
           currentFee={selectedDetention.feeAmount}
         />
       )}
+
+      <LoadingOperationModal
+        isOpen={showLoadingModal}
+        onClose={() => setShowLoadingModal(false)}
+        detentionId={quickLoadingId}
+      />
     </div>
   );
 };

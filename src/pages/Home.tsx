@@ -10,11 +10,16 @@ import {
   DollarSign,
   ClipboardList,
   Settings,
+  Play,
+  Square,
+  AlertTriangle,
 } from 'lucide-react';
 import { useStore } from '@/store/useStore';
 import { WorkbenchCard } from '@/components/common/WorkbenchCard';
 import { StatusTag } from '@/components/common/StatusTag';
 import { userRoleMap, formatDateTime, formatCurrency } from '@/utils/format';
+import { LoadingOperationModal } from '@/components/detention/LoadingOperationModal';
+import { useState } from 'react';
 
 export default function Home() {
   const navigate = useNavigate();
@@ -22,20 +27,24 @@ export default function Home() {
     currentUser,
     detentions,
     appeals,
-    todos,
-    getRolePermissions,
     setSelectedDetentionId,
     setSelectedAppealId,
+    getStats,
+    getRoleTodos,
+    getRolePermissions,
+    getNextLoadingTask,
   } = useStore();
 
+  const [showLoadingModal, setShowLoadingModal] = useState(false);
+  const [loadingDetentionId, setLoadingDetentionId] = useState('');
+
+  const stats = getStats();
+  const todos = getRoleTodos();
   const permissions = getRolePermissions(currentUser.role);
+  const nextLoadingTask = getNextLoadingTask();
 
   const pendingDetentions = detentions.filter((d) => d.status === 'pending');
   const pendingAppeals = appeals.filter((a) => a.status === 'pending' || a.status === 'processing');
-  const todayDetentions = detentions.filter(
-    (d) => d.createdAt.startsWith(new Date().toISOString().split('T')[0])
-  );
-  const totalFee = detentions.reduce((sum, d) => sum + d.feeAmount, 0);
 
   const roleWelcome: Record<string, { title: string; subtitle: string; tips: string[] }> = {
     dispatcher: {
@@ -51,9 +60,9 @@ export default function Home() {
       title: '叉车班长工作台',
       subtitle: '负责装卸作业记录、效率监控',
       tips: [
-        '准确记录装卸开始和结束时间',
-        '及时反馈装卸现场异常情况',
-        '配合调度员优化月台使用效率',
+        '车辆到位后及时记录开始装卸时间',
+        '装卸完成后立即记录结束时间',
+        '遇到异常情况及时记录并上报',
       ],
     },
     warehouse_clerk: {
@@ -69,34 +78,34 @@ export default function Home() {
 
   const welcome = roleWelcome[currentUser.role] || roleWelcome.warehouse_clerk;
 
-  const stats = [
+  const statCards = [
     {
       label: '今日滞留单',
-      value: todayDetentions.length,
+      value: stats.todayDetentionCount,
       icon: <Truck className="w-5 h-5" />,
       color: 'bg-blue-50 text-blue-600',
     },
     {
       label: '待确认费用',
-      value: pendingDetentions.length,
+      value: stats.pendingConfirmationCount,
       icon: <Clock className="w-5 h-5" />,
       color: 'bg-orange-50 text-orange-600',
     },
     {
       label: '待处理申诉',
-      value: pendingAppeals.length,
+      value: stats.pendingAppealCount,
       icon: <AlertCircle className="w-5 h-5" />,
       color: 'bg-purple-50 text-purple-600',
     },
     {
       label: '累计费用',
-      value: formatCurrency(totalFee),
+      value: formatCurrency(stats.totalFeeAmount),
       icon: <DollarSign className="w-5 h-5" />,
       color: 'bg-green-50 text-green-600',
     },
   ];
 
-  const quickActions = [
+  const allQuickActions = [
     {
       label: '滞留费用管理',
       icon: <FileText className="w-5 h-5" />,
@@ -110,9 +119,38 @@ export default function Home() {
       show: permissions.canProcessAppeal || permissions.canViewAll,
     },
     {
-      label: '装卸记录',
-      icon: <ClipboardList className="w-5 h-5" />,
-      onClick: () => navigate('/detention'),
+      label: '开始装卸',
+      icon: <Play className="w-5 h-5" />,
+      onClick: () => {
+        if (nextLoadingTask) {
+          setLoadingDetentionId(nextLoadingTask.id);
+          setShowLoadingModal(true);
+        }
+      },
+      show: permissions.canRecordLoading && !!nextLoadingTask && !nextLoadingTask.startLoadingTime,
+    },
+    {
+      label: '结束装卸',
+      icon: <Square className="w-5 h-5" />,
+      onClick: () => {
+        const inProgress = detentions.find((d) => d.startLoadingTime && !d.endLoadingTime);
+        if (inProgress) {
+          setLoadingDetentionId(inProgress.id);
+          setShowLoadingModal(true);
+        }
+      },
+      show: permissions.canRecordLoading && detentions.some((d) => d.startLoadingTime && !d.endLoadingTime),
+    },
+    {
+      label: '记录异常',
+      icon: <AlertTriangle className="w-5 h-5" />,
+      onClick: () => {
+        const inProgress = detentions.find((d) => d.startLoadingTime && !d.endLoadingTime);
+        if (inProgress) {
+          setLoadingDetentionId(inProgress.id);
+          setShowLoadingModal(true);
+        }
+      },
       show: permissions.canRecordLoading,
     },
     {
@@ -121,10 +159,12 @@ export default function Home() {
       onClick: () => {},
       show: true,
     },
-  ].filter((a) => a.show);
+  ];
+
+  const quickActions = allQuickActions.filter((a) => a.show);
 
   const recentActivities = [
-    ...detentions.slice(0, 3).map((d) => ({
+    ...detentions.slice(0, 5).map((d) => ({
       id: d.id,
       type: 'detention' as const,
       title: `滞留单 ${d.orderNo}`,
@@ -132,7 +172,7 @@ export default function Home() {
       status: d.status,
       time: d.updatedAt,
     })),
-    ...appeals.slice(0, 3).map((a) => ({
+    ...appeals.slice(0, 5).map((a) => ({
       id: a.id,
       type: 'appeal' as const,
       title: `申诉 #${a.id}`,
@@ -142,7 +182,20 @@ export default function Home() {
     })),
   ]
     .sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime())
-    .slice(0, 5);
+    .slice(0, 6);
+
+  const handleTodoClick = (todo: typeof todos[0]) => {
+    if (todo.type === 'loading_record') {
+      setLoadingDetentionId(todo.relatedId);
+      setShowLoadingModal(true);
+    } else if (todo.type === 'appeal_process') {
+      setSelectedAppealId(todo.relatedId);
+      navigate('/appeal');
+    } else {
+      setSelectedDetentionId(todo.relatedId);
+      navigate('/detention');
+    }
+  };
 
   return (
     <div className="p-6 space-y-6">
@@ -170,7 +223,7 @@ export default function Home() {
       </div>
 
       <div className="grid grid-cols-4 gap-4">
-        {stats.map((stat, index) => (
+        {statCards.map((stat, index) => (
           <div
             key={index}
             className="bg-white border border-gray-200 rounded-lg p-4 flex items-center gap-4"
@@ -192,14 +245,6 @@ export default function Home() {
             title="待办任务"
             count={todos.length}
             icon={<ClipboardList className="w-4 h-4" />}
-            action={
-              <button
-                onClick={() => navigate('/detention')}
-                className="text-xs text-blue-600 hover:text-blue-700 flex items-center gap-1"
-              >
-                查看全部 <ArrowRight className="w-3 h-3" />
-              </button>
-            }
           >
             <div className="space-y-3">
               {todos.length === 0 ? (
@@ -209,15 +254,7 @@ export default function Home() {
                   <div
                     key={todo.id}
                     className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 cursor-pointer transition-colors"
-                    onClick={() => {
-                      if (todo.type.includes('detention')) {
-                        setSelectedDetentionId(todo.relatedId);
-                        navigate('/detention');
-                      } else if (todo.type.includes('appeal')) {
-                        setSelectedAppealId(todo.relatedId);
-                        navigate('/appeal');
-                      }
-                    }}
+                    onClick={() => handleTodoClick(todo)}
                   >
                     <div className="flex items-center gap-3">
                       <div className="w-8 h-8 rounded-full bg-orange-100 flex items-center justify-center">
@@ -340,8 +377,69 @@ export default function Home() {
               )}
             </div>
           </WorkbenchCard>
+
+          {permissions.canRecordLoading && (
+            <WorkbenchCard
+              title="装卸作业"
+              icon={<ClipboardList className="w-4 h-4" />}
+            >
+              <div className="space-y-3">
+                {nextLoadingTask && !nextLoadingTask.startLoadingTime && (
+                  <div className="p-3 bg-green-50 rounded-lg border border-green-100">
+                    <p className="text-sm font-medium text-green-800 mb-1">待开始装卸</p>
+                    <p className="text-xs text-green-600 mb-2">
+                      {nextLoadingTask.plateNumber} - 月台{nextLoadingTask.platformNo}
+                    </p>
+                    <button
+                      onClick={() => {
+                        setLoadingDetentionId(nextLoadingTask.id);
+                        setShowLoadingModal(true);
+                      }}
+                      className="w-full text-xs py-1.5 bg-green-600 text-white rounded hover:bg-green-700 transition-colors"
+                    >
+                      开始装卸
+                    </button>
+                  </div>
+                )}
+
+                {(() => {
+                  const inProgress = detentions.filter((d) => d.startLoadingTime && !d.endLoadingTime);
+                  return inProgress.map((d) => (
+                    <div key={d.id} className="p-3 bg-blue-50 rounded-lg border border-blue-100">
+                      <p className="text-sm font-medium text-blue-800 mb-1">装卸进行中</p>
+                      <p className="text-xs text-blue-600 mb-2">
+                        {d.plateNumber} - 月台{d.platformNo}
+                      </p>
+                      <p className="text-xs text-blue-500 mb-2">
+                        开始: {formatDateTime(d.startLoadingTime)}
+                      </p>
+                      <button
+                        onClick={() => {
+                          setLoadingDetentionId(d.id);
+                          setShowLoadingModal(true);
+                        }}
+                        className="w-full text-xs py-1.5 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+                      >
+                        结束装卸
+                      </button>
+                    </div>
+                  ));
+                })()}
+
+                {!nextLoadingTask && !detentions.some((d) => d.startLoadingTime && !d.endLoadingTime) && (
+                  <p className="text-sm text-gray-500 text-center py-4">暂无装卸作业</p>
+                )}
+              </div>
+            </WorkbenchCard>
+          )}
         </div>
       </div>
+
+      <LoadingOperationModal
+        isOpen={showLoadingModal}
+        onClose={() => setShowLoadingModal(false)}
+        detentionId={loadingDetentionId}
+      />
     </div>
   );
 }

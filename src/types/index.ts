@@ -88,7 +88,7 @@ export interface DashboardStats {
 
 export interface TodoItem {
   id: string;
-  type: 'detention_confirm' | 'appeal_process' | 'fee_adjust';
+  type: TodoType;
   title: string;
   description: string;
   status: string;

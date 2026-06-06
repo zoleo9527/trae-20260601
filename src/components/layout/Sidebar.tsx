@@ -3,7 +3,7 @@ import { LayoutDashboard, Clock, FileText, Settings } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const navItems = [
-  { path: '/dashboard', label: '工作台', icon: LayoutDashboard },
+  { path: '/', label: '工作台', icon: LayoutDashboard },
   { path: '/detention', label: '滞留费用', icon: Clock },
   { path: '/appeal', label: '司机申诉', icon: FileText },
 ];
