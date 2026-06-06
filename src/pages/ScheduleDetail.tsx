@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Card,
   Descriptions,
@@ -13,25 +13,25 @@ import {
   Timeline,
   Tabs,
   Divider,
+  Spin,
   Popconfirm,
 } from 'antd';
 import {
   ArrowLeftOutlined,
   EditOutlined,
   CheckOutlined,
-  CloseOutlined,
   RollbackOutlined,
   PlayCircleOutlined,
   StopOutlined,
-  DeleteOutlined,
   SendOutlined,
   HistoryOutlined,
   ProductOutlined,
+  ReloadOutlined,
 } from '@ant-design/icons';
 import { useParams, useNavigate } from 'react-router-dom';
 import dayjs from 'dayjs';
-import { useStore } from '@/store';
-import type { ScheduleStatus, WorkflowRecord, ScheduleProduct } from '@/types';
+import { scheduleApi } from '@/services/api';
+import type { ScheduleStatus, WorkflowRecord, LiveSchedule } from '@/types';
 
 const { TextArea } = Input;
 
@@ -62,14 +62,8 @@ const actionTypeMap: Record<string, { text: string; color: string }> = {
 const ScheduleDetail = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const schedule = useStore((state) => state.getScheduleById(id || ''));
-  const getWorkflowHistory = useStore((state) => state.getWorkflowHistory);
-  const submitScheduleForReview = useStore((state) => state.submitScheduleForReview);
-  const reviewSchedule = useStore((state) => state.reviewSchedule);
-  const returnSchedule = useStore((state) => state.returnSchedule);
-  const startLive = useStore((state) => state.startLive);
-  const endLive = useStore((state) => state.endLive);
-  const cancelSchedule = useStore((state) => state.cancelSchedule);
+  const [loading, setLoading] = useState(false);
+  const [schedule, setSchedule] = useState<(LiveSchedule & { history: WorkflowRecord[] }) | null>(null);
 
   const [submitModal, setSubmitModal] = useState(false);
   const [returnModal, setReturnModal] = useState(false);
@@ -78,68 +72,104 @@ const ScheduleDetail = () => {
   const [returnForm] = Form.useForm();
   const [cancelForm] = Form.useForm();
 
+  const fetchDetail = async () => {
+    if (!id) return;
+    setLoading(true);
+    try {
+      const res = await scheduleApi.getDetail(id);
+      setSchedule(res.data);
+    } catch (e: any) {
+      message.error(e.message || '加载详情失败');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchDetail();
+  }, [id]);
+
+  if (!schedule && loading) {
+    return (
+      <div style={{ textAlign: 'center', padding: 100 }}>
+        <Spin size="large" />
+      </div>
+    );
+  }
+
   if (!schedule) {
     return <div>排期不存在</div>;
   }
 
-  const workflowHistory = getWorkflowHistory('SCHEDULE', schedule.id);
   const cfg = statusMap[schedule.status];
 
   const handleSubmit = async () => {
     try {
       const values = await form.validateFields();
-      const success = submitScheduleForReview(schedule.id, values.remark);
-      if (success) {
-        message.success('提交复核成功');
-        setSubmitModal(false);
-        form.resetFields();
-      }
-    } catch (e) {
-      // validation error
+      await scheduleApi.submitForReview(schedule.id, { remark: values.remark });
+      message.success('提交复核成功');
+      setSubmitModal(false);
+      form.resetFields();
+      fetchDetail();
+    } catch (e: any) {
+      message.error(e.message || '提交失败');
     }
   };
 
   const handleReturn = async () => {
     try {
       const values = await returnForm.validateFields();
-      const success = returnSchedule(schedule.id, values.remark);
-      if (success) {
-        message.success('已退回补录');
-        setReturnModal(false);
-        returnForm.resetFields();
-      }
-    } catch (e) {
-      // validation error
+      await scheduleApi.return(schedule.id, { remark: values.remark });
+      message.success('已退回补录');
+      setReturnModal(false);
+      returnForm.resetFields();
+      fetchDetail();
+    } catch (e: any) {
+      message.error(e.message || '退回失败');
     }
   };
 
-  const handleCancel = async () => {
+  const handleApprove = async () => {
+    try {
+      await scheduleApi.approve(schedule.id, {});
+      message.success('复核通过');
+      fetchDetail();
+    } catch (e: any) {
+      message.error(e.message || '操作失败');
+    }
+  };
+
+  const handleStartLive = async () => {
+    try {
+      await scheduleApi.startLive(schedule.id);
+      message.success('直播已开始');
+      fetchDetail();
+    } catch (e: any) {
+      message.error(e.message || '操作失败');
+    }
+  };
+
+  const handleEndLive = async () => {
+    try {
+      await scheduleApi.endLive(schedule.id);
+      message.success('直播已结束');
+      fetchDetail();
+    } catch (e: any) {
+      message.error(e.message || '操作失败');
+    }
+  };
+
+  const handleCancelSchedule = async () => {
     try {
       const values = await cancelForm.validateFields();
-      const success = cancelSchedule(schedule.id, values.remark);
-      if (success) {
-        message.success('排期已取消');
-        setCancelModal(false);
-        cancelForm.resetFields();
-      }
-    } catch (e) {
-      // validation error
+      await scheduleApi.cancel(schedule.id, { remark: values.remark });
+      message.success('排期已取消');
+      setCancelModal(false);
+      cancelForm.resetFields();
+      fetchDetail();
+    } catch (e: any) {
+      message.error(e.message || '取消失败');
     }
-  };
-
-  const handleApprove = () => {
-    const success = reviewSchedule(schedule.id, true, '');
-    if (success) message.success('复核通过');
-  };
-
-  const handleStartLive = () => {
-    const success = startLive(schedule.id);
-    if (success) message.success('直播已开始');
-  };
-
-  const handleEndLive = () => {
-    const success = endLive(schedule.id);
-    if (success) message.success('直播已结束');
   };
 
   const renderActions = () => {
@@ -187,22 +217,6 @@ const ScheduleDetail = () => {
       );
     }
 
-    if (!['COMPLETED', 'CANCELLED', 'LIVE'].includes(schedule.status)) {
-      buttons.push(
-        <Popconfirm
-          key="cancel"
-          title="确定要取消这个排期吗？"
-          onConfirm={() => setCancelModal(true)}
-          okText="确定"
-          cancelText="取消"
-        >
-          <Button danger icon={<DeleteOutlined />}>
-            取消排期
-          </Button>
-        </Popconfirm>,
-      );
-    }
-
     return buttons;
   };
 
@@ -242,14 +256,14 @@ const ScheduleDetail = () => {
       title: '状态',
       key: 'selected',
       width: 80,
-      render: (_: any, record: ScheduleProduct) =>
+      render: (_: any, record: any) =>
         record.isSelected ? <Tag color="success">已选</Tag> : <Tag>未选</Tag>,
     },
   ];
 
   const renderTimeline = () => (
     <Timeline
-      items={workflowHistory.map((record: WorkflowRecord) => ({
+      items={schedule.history.map((record: WorkflowRecord) => ({
         color: actionTypeMap[record.actionType]?.color || 'blue',
         children: (
           <div>
@@ -340,10 +354,14 @@ const ScheduleDetail = () => {
         <Button icon={<ArrowLeftOutlined />} onClick={() => navigate('/schedules')}>
           返回列表
         </Button>
+        <Button icon={<ReloadOutlined />} onClick={fetchDetail}>
+          刷新
+        </Button>
       </Space>
 
       <Card
         title={schedule.title}
+        loading={loading}
         extra={
           <Space>
             <Tag color={cfg.color}>{cfg.text}</Tag>
@@ -394,7 +412,7 @@ const ScheduleDetail = () => {
       <Modal
         title="取消排期"
         open={cancelModal}
-        onOk={handleCancel}
+        onOk={handleCancelSchedule}
         onCancel={() => setCancelModal(false)}
         okText="确认取消"
         okButtonProps={{ danger: true }}

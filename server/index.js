@@ -9,64 +9,7 @@ const PORT = 3001;
 app.use(cors());
 app.use(express.json());
 
-interface Product {
-  id: string;
-  name: string;
-  sku: string;
-  category: string;
-  price: number;
-  originalPrice: number;
-  stock: number;
-  imageUrl: string;
-  status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'OFF_SHELF';
-  createdBy: string;
-  createdAt: string;
-  updatedAt: string;
-  version: number;
-}
-
-interface ScheduleProduct {
-  productId: string;
-  productName: string;
-  productSku: string;
-  salePrice: number;
-  plannedQuantity: number;
-  displayOrder: number;
-  isSelected: boolean;
-}
-
-interface LiveSchedule {
-  id: string;
-  title: string;
-  anchorName: string;
-  assistantName: string;
-  startTime: string;
-  endTime: string;
-  estimatedDuration: number;
-  platform: string;
-  status: 'DRAFT' | 'PENDING_REVIEW' | 'REVIEWED' | 'APPROVED' | 'LIVE' | 'COMPLETED' | 'CANCELLED' | 'RETURNED';
-  products: ScheduleProduct[];
-  createdBy: string;
-  createdAt: string;
-  updatedAt: string;
-  currentVersion: number;
-}
-
-interface WorkflowRecord {
-  id: string;
-  bizType: 'SCHEDULE' | 'PRODUCT';
-  bizId: string;
-  bizVersion: number;
-  actionType: string;
-  actionBy: string;
-  actionAt: string;
-  remark: string;
-  previousStatus: string;
-  newStatus: string;
-  idempotencyKey: string;
-}
-
-const products: Product[] = [
+const products = [
   {
     id: 'prod-001',
     name: '轻奢真皮手提包',
@@ -144,7 +87,7 @@ const products: Product[] = [
   },
 ];
 
-const schedules: LiveSchedule[] = [
+const schedules = [
   {
     id: 'sched-001',
     title: '618年中大促 - 美妆专场',
@@ -203,7 +146,7 @@ const schedules: LiveSchedule[] = [
   },
 ];
 
-const workflowRecords: WorkflowRecord[] = [
+const workflowRecords = [
   {
     id: 'wf-001',
     bizType: 'SCHEDULE',
@@ -351,14 +294,14 @@ const workflowRecords: WorkflowRecord[] = [
 
 const processedKeys = new Set(workflowRecords.map(r => r.idempotencyKey));
 
-const addWorkflowRecord = (record: Omit<WorkflowRecord, 'id' | 'idempotencyKey' | 'actionAt'> & { idempotencyKey?: string }): { success: boolean; idempotencyKey: string; isDuplicate: boolean } => {
+const addWorkflowRecord = (record) => {
   const idempotencyKey = record.idempotencyKey || uuidv4();
   
   if (processedKeys.has(idempotencyKey)) {
     return { success: true, idempotencyKey, isDuplicate: true };
   }
 
-  const newRecord: WorkflowRecord = {
+  const newRecord = {
     ...record,
     id: uuidv4(),
     idempotencyKey,
@@ -418,7 +361,7 @@ app.get('/api/schedules/:id/history', (req, res) => {
 
 app.post('/api/schedules', (req, res) => {
   const data = req.body;
-  const newSchedule: LiveSchedule = {
+  const newSchedule = {
     id: uuidv4(),
     title: data.title || '',
     anchorName: data.anchorName || '',
@@ -695,6 +638,45 @@ app.put('/api/schedules/:id/end-live', (req, res) => {
   });
 });
 
+app.put('/api/schedules/:id/cancel', (req, res) => {
+  const { id } = req.params;
+  const { remark, idempotencyKey, userId } = req.body;
+
+  const schedule = schedules.find(s => s.id === id);
+  if (!schedule) {
+    return res.status(404).json({ code: 404, message: '排期不存在' });
+  }
+
+  if (['COMPLETED', 'CANCELLED', 'LIVE'].includes(schedule.status)) {
+    return res.status(400).json({ code: 400, message: `当前状态${schedule.status}不能取消` });
+  }
+
+  const result = addWorkflowRecord({
+    bizType: 'SCHEDULE',
+    bizId: id,
+    bizVersion: schedule.currentVersion,
+    actionType: 'CANCEL',
+    actionBy: userId || 'user-001',
+    remark: remark || '取消排期',
+    previousStatus: schedule.status,
+    newStatus: 'CANCELLED',
+    idempotencyKey,
+  });
+
+  if (!result.isDuplicate) {
+    schedule.status = 'CANCELLED';
+    schedule.updatedAt = dayjs().toISOString();
+  }
+
+  res.json({
+    code: 0,
+    data: schedule,
+    idempotencyKey: result.idempotencyKey,
+    isDuplicate: result.isDuplicate,
+    message: result.isDuplicate ? '重复提交，已忽略' : '排期已取消',
+  });
+});
+
 app.get('/api/products', (_req, res) => {
   res.json({
     code: 0,
@@ -738,7 +720,7 @@ app.get('/api/products/:id/history', (req, res) => {
 
 app.post('/api/products', (req, res) => {
   const data = req.body;
-  const newProduct: Product = {
+  const newProduct = {
     id: uuidv4(),
     name: data.name || '',
     sku: data.sku || '',
@@ -914,6 +896,7 @@ app.listen(PORT, () => {
   console.log(`   PUT  /api/schedules/:id/supplement`);
   console.log(`   PUT  /api/schedules/:id/start-live`);
   console.log(`   PUT  /api/schedules/:id/end-live`);
+  console.log(`   PUT  /api/schedules/:id/cancel`);
   console.log(`   GET  /api/products`);
   console.log(`   GET  /api/products/:id`);
   console.log(`   GET  /api/products/:id/history`);

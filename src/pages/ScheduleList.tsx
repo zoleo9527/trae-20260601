@@ -1,10 +1,10 @@
-import { useState } from 'react';
-import { Table, Button, Tag, Space, Select, Input, Card, Row, Col, Statistic } from 'antd';
+import { useState, useEffect } from 'react';
+import { Table, Button, Tag, Space, Select, Input, Card, Row, Col, Statistic, message } from 'antd';
 import { PlusOutlined, SearchOutlined, EyeOutlined, EditOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import dayjs from 'dayjs';
-import { useStore } from '@/store';
-import type { ScheduleStatus } from '@/types';
+import { scheduleApi, statsApi } from '@/services/api';
+import type { ScheduleStatus, LiveSchedule } from '@/types';
 
 const { Search } = Input;
 
@@ -21,9 +21,44 @@ const statusMap: Record<ScheduleStatus, { text: string; color: string }> = {
 
 const ScheduleList = () => {
   const navigate = useNavigate();
-  const schedules = useStore((state) => state.schedules);
+  const [schedules, setSchedules] = useState<LiveSchedule[]>([]);
+  const [loading, setLoading] = useState(false);
   const [statusFilter, setStatusFilter] = useState<ScheduleStatus | undefined>();
   const [searchText, setSearchText] = useState('');
+  const [stats, setStats] = useState<Record<string, number>>({
+    total: 0,
+    pending: 0,
+    live: 0,
+    returned: 0,
+    completed: 0,
+  });
+
+  const fetchData = async () => {
+    setLoading(true);
+    try {
+      const [schedulesRes, statsRes] = await Promise.all([
+        scheduleApi.getList(),
+        statsApi.getOverview(),
+      ]);
+      setSchedules(schedulesRes.data);
+      const s = statsRes.data.schedules;
+      setStats({
+        total: s.total,
+        pending: s.pendingReview,
+        live: s.live,
+        returned: s.returned,
+        completed: s.completed,
+      });
+    } catch (e: any) {
+      message.error(e.message || '加载数据失败');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, []);
 
   const filteredSchedules = schedules.filter((s) => {
     const matchStatus = !statusFilter || s.status === statusFilter;
@@ -34,21 +69,13 @@ const ScheduleList = () => {
     return matchStatus && matchSearch;
   });
 
-  const stats = {
-    total: schedules.length,
-    pending: schedules.filter((s) => s.status === 'PENDING_REVIEW').length,
-    live: schedules.filter((s) => s.status === 'LIVE').length,
-    returned: schedules.filter((s) => s.status === 'RETURNED').length,
-    completed: schedules.filter((s) => s.status === 'COMPLETED').length,
-  };
-
   const columns = [
     {
       title: '排期标题',
       dataIndex: 'title',
       key: 'title',
       width: 200,
-      render: (text: string, record: any) => (
+      render: (text: string, record: LiveSchedule) => (
         <a onClick={() => navigate(`/schedules/${record.id}`)}>{text}</a>
       ),
     },
@@ -74,7 +101,7 @@ const ScheduleList = () => {
       title: '直播时间',
       key: 'time',
       width: 220,
-      render: (_: any, record: any) => (
+      render: (_: any, record: LiveSchedule) => (
         <div>
           <div>{dayjs(record.startTime).format('YYYY-MM-DD HH:mm')}</div>
           <div style={{ color: '#999', fontSize: 12 }}>
@@ -87,7 +114,7 @@ const ScheduleList = () => {
       title: '选品数量',
       key: 'productCount',
       width: 100,
-      render: (_: any, record: any) => record.products.filter((p: any) => p.isSelected).length,
+      render: (_: any, record: LiveSchedule) => record.products.filter((p) => p.isSelected).length,
     },
     {
       title: '状态',
@@ -118,7 +145,7 @@ const ScheduleList = () => {
       key: 'actions',
       width: 150,
       fixed: 'right' as const,
-      render: (_: any, record: any) => (
+      render: (_: any, record: LiveSchedule) => (
         <Space>
           <Button
             type="link"
@@ -180,6 +207,7 @@ const ScheduleList = () => {
             <Button type="primary" icon={<PlusOutlined />} onClick={() => navigate('/schedules/new')}>
               新建排期
             </Button>
+            <Button onClick={fetchData}>刷新</Button>
           </Space>
         }
       >
@@ -208,6 +236,7 @@ const ScheduleList = () => {
           columns={columns}
           dataSource={filteredSchedules}
           rowKey="id"
+          loading={loading}
           pagination={{ pageSize: 10 }}
           scroll={{ x: 1200 }}
         />

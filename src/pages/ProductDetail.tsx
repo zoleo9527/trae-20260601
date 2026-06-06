@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import {
   Card,
   Descriptions,
@@ -7,16 +8,19 @@ import {
   Image,
   Tabs,
   Timeline,
+  Spin,
+  message,
 } from 'antd';
 import {
   ArrowLeftOutlined,
   HistoryOutlined,
   InfoCircleOutlined,
+  ReloadOutlined,
 } from '@ant-design/icons';
 import { useParams, useNavigate } from 'react-router-dom';
 import dayjs from 'dayjs';
-import { useStore } from '@/store';
-import type { ProductStatus, WorkflowRecord } from '@/types';
+import { productApi } from '@/services/api';
+import type { ProductStatus, WorkflowRecord, Product } from '@/types';
 
 const statusMap: Record<ProductStatus, { text: string; color: string }> = {
   PENDING: { text: '待审核', color: 'warning' },
@@ -35,19 +39,43 @@ const actionTypeMap: Record<string, { text: string; color: string }> = {
 const ProductDetail = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const product = useStore((state) => state.getProductById(id || ''));
-  const getProductHistory = useStore((state) => state.getProductHistory);
+  const [loading, setLoading] = useState(false);
+  const [product, setProduct] = useState<(Product & { history: WorkflowRecord[] }) | null>(null);
+
+  const fetchDetail = async () => {
+    if (!id) return;
+    setLoading(true);
+    try {
+      const res = await productApi.getDetail(id);
+      setProduct(res.data);
+    } catch (e: any) {
+      message.error(e.message || '加载详情失败');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchDetail();
+  }, [id]);
+
+  if (!product && loading) {
+    return (
+      <div style={{ textAlign: 'center', padding: 100 }}>
+        <Spin size="large" />
+      </div>
+    );
+  }
 
   if (!product) {
     return <div>商品不存在</div>;
   }
 
-  const history = getProductHistory(product.id);
   const cfg = statusMap[product.status];
 
   const renderTimeline = () => (
     <Timeline
-      items={history.map((record: WorkflowRecord) => ({
+      items={product.history.map((record: WorkflowRecord) => ({
         color: actionTypeMap[record.actionType]?.color || 'blue',
         children: (
           <div>
@@ -136,10 +164,14 @@ const ProductDetail = () => {
         <Button icon={<ArrowLeftOutlined />} onClick={() => navigate('/products')}>
           返回列表
         </Button>
+        <Button icon={<ReloadOutlined />} onClick={fetchDetail}>
+          刷新
+        </Button>
       </Space>
 
       <Card
         title={product.name}
+        loading={loading}
         extra={<Tag color={cfg.color}>{cfg.text}</Tag>}
       >
         <Tabs items={tabItems} defaultActiveKey="info" />

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Table,
   Button,
@@ -16,11 +16,11 @@ import {
   InputNumber,
   message,
 } from 'antd';
-import { PlusOutlined, SearchOutlined, EyeOutlined, CheckOutlined, CloseOutlined } from '@ant-design/icons';
+import { PlusOutlined, SearchOutlined, EyeOutlined, CheckOutlined, CloseOutlined, ReloadOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import dayjs from 'dayjs';
-import { useStore } from '@/store';
-import type { ProductStatus } from '@/types';
+import { productApi, statsApi } from '@/services/api';
+import type { ProductStatus, Product } from '@/types';
 
 const { Search } = Input;
 
@@ -33,11 +33,8 @@ const statusMap: Record<ProductStatus, { text: string; color: string }> = {
 
 const ProductPool = () => {
   const navigate = useNavigate();
-  const products = useStore((state) => state.products);
-  const approveProduct = useStore((state) => state.approveProduct);
-  const rejectProduct = useStore((state) => state.rejectProduct);
-  const createProduct = useStore((state) => state.createProduct);
-
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(false);
   const [statusFilter, setStatusFilter] = useState<ProductStatus | undefined>();
   const [categoryFilter, setCategoryFilter] = useState<string | undefined>();
   const [searchText, setSearchText] = useState('');
@@ -45,8 +42,40 @@ const ProductPool = () => {
   const [rejectModal, setRejectModal] = useState<string | null>(null);
   const [form] = Form.useForm();
   const [rejectForm] = Form.useForm();
+  const [stats, setStats] = useState<Record<string, number>>({
+    total: 0,
+    pending: 0,
+    approved: 0,
+    rejected: 0,
+  });
 
   const categories = [...new Set(products.map((p) => p.category))];
+
+  const fetchData = async () => {
+    setLoading(true);
+    try {
+      const [productsRes, statsRes] = await Promise.all([
+        productApi.getList(),
+        statsApi.getOverview(),
+      ]);
+      setProducts(productsRes.data);
+      const s = statsRes.data.products;
+      setStats({
+        total: s.total,
+        pending: s.pending,
+        approved: s.approved,
+        rejected: s.rejected,
+      });
+    } catch (e: any) {
+      message.error(e.message || '加载数据失败');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, []);
 
   const filteredProducts = products.filter((p) => {
     const matchStatus = !statusFilter || p.status === statusFilter;
@@ -58,22 +87,16 @@ const ProductPool = () => {
     return matchStatus && matchCategory && matchSearch;
   });
 
-  const stats = {
-    total: products.length,
-    pending: products.filter((p) => p.status === 'PENDING').length,
-    approved: products.filter((p) => p.status === 'APPROVED').length,
-    rejected: products.filter((p) => p.status === 'REJECTED').length,
-  };
-
   const handleCreate = async () => {
     try {
       const values = await form.validateFields();
-      createProduct(values);
+      await productApi.create(values);
       message.success('商品创建成功，等待审核');
       setCreateModal(false);
       form.resetFields();
-    } catch (e) {
-      // validation error
+      fetchData();
+    } catch (e: any) {
+      message.error(e.message || '创建失败');
     }
   };
 
@@ -81,20 +104,24 @@ const ProductPool = () => {
     if (!rejectModal) return;
     try {
       const values = await rejectForm.validateFields();
-      const success = rejectProduct(rejectModal, values.remark);
-      if (success) {
-        message.success('已拒绝该商品');
-        setRejectModal(null);
-        rejectForm.resetFields();
-      }
-    } catch (e) {
-      // validation error
+      await productApi.reject(rejectModal, { remark: values.remark });
+      message.success('已拒绝该商品');
+      setRejectModal(null);
+      rejectForm.resetFields();
+      fetchData();
+    } catch (e: any) {
+      message.error(e.message || '操作失败');
     }
   };
 
-  const handleApprove = (id: string) => {
-    const success = approveProduct(id);
-    if (success) message.success('商品审核通过');
+  const handleApprove = async (id: string) => {
+    try {
+      await productApi.approve(id);
+      message.success('商品审核通过');
+      fetchData();
+    } catch (e: any) {
+      message.error(e.message || '操作失败');
+    }
   };
 
   const columns = [
@@ -110,7 +137,7 @@ const ProductPool = () => {
       dataIndex: 'name',
       key: 'name',
       width: 200,
-      render: (text: string, record: any) => (
+      render: (text: string, record: Product) => (
         <a onClick={() => navigate(`/products/${record.id}`)}>{text}</a>
       ),
     },
@@ -177,7 +204,7 @@ const ProductPool = () => {
       key: 'actions',
       width: 180,
       fixed: 'right' as const,
-      render: (_: any, record: any) => (
+      render: (_: any, record: Product) => (
         <Space>
           <Button
             type="link"
@@ -246,6 +273,7 @@ const ProductPool = () => {
             <Button type="primary" icon={<PlusOutlined />} onClick={() => setCreateModal(true)}>
               新增商品
             </Button>
+            <Button icon={<ReloadOutlined />} onClick={fetchData}>刷新</Button>
           </Space>
         }
       >
@@ -282,6 +310,7 @@ const ProductPool = () => {
           columns={columns}
           dataSource={filteredProducts}
           rowKey="id"
+          loading={loading}
           pagination={{ pageSize: 10 }}
           scroll={{ x: 1300 }}
         />
