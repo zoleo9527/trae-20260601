@@ -1,9 +1,9 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useStore } from '@/store'
 import { StatusBadge } from '@/components/Badges'
 import { RemarkPanel, AttachmentPanel } from '@/components/RemarkPanel'
 import { canPerformAction } from '@/services/permissions'
-import type { Screening, ScreeningStatus } from '@/types'
+import type { ScreeningStatus } from '@/types'
 import {
   Film,
   Search,
@@ -25,21 +25,20 @@ import { zhCN } from 'date-fns/locale'
 import { Link } from 'react-router-dom'
 
 export default function Screenings() {
-  const {
-    screenings,
-    inventoryItems,
-    currentUser,
-    changeHall,
-    recordEquipmentFailure,
-    processRefund,
-    redeemGroupTicket,
-    completeScreeningReconciliation,
-    refreshAll,
-  } = useStore()
+  const screenings = useStore((state) => state.screenings)
+  const inventoryItems = useStore((state) => state.inventoryItems)
+  const currentUser = useStore((state) => state.currentUser)
+  const changeHall = useStore((state) => state.changeHall)
+  const recordEquipmentFailure = useStore((state) => state.recordEquipmentFailure)
+  const processRefund = useStore((state) => state.processRefund)
+  const redeemGroupTicket = useStore((state) => state.redeemGroupTicket)
+  const completeScreeningReconciliation = useStore((state) => state.completeScreeningReconciliation)
+  const refreshAll = useStore((state) => state.refreshAll)
+  const getScreeningById = useStore((state) => state.getScreeningById)
 
   const [filter, setFilter] = useState<ScreeningStatus | 'all'>('all')
   const [searchTerm, setSearchTerm] = useState('')
-  const [selectedScreening, setSelectedScreening] = useState<Screening | null>(null)
+  const [selectedScreeningId, setSelectedScreeningId] = useState<string | null>(null)
   const [completing, setCompleting] = useState(false)
   
   const [hallModalOpen, setHallModalOpen] = useState(false)
@@ -56,6 +55,11 @@ export default function Screenings() {
   const [redeemModalOpen, setRedeemModalOpen] = useState(false)
   const [redeemCount, setRedeemCount] = useState(1)
 
+  const selectedScreening = useMemo(
+    () => (selectedScreeningId ? getScreeningById(selectedScreeningId) : null),
+    [selectedScreeningId, screenings, getScreeningById]
+  )
+
   const canChangeHall = canPerformAction('screening', 'change_hall', currentUser.role)
   const canRecordEquipment = canPerformAction('screening', 'record_equipment_failure', currentUser.role)
   const canProcessRefund = canPerformAction('screening', 'process_refund', currentUser.role)
@@ -64,11 +68,13 @@ export default function Screenings() {
   const canAddRemark = canPerformAction('screening', 'add_remark', currentUser.role)
   const canAddAttachment = canPerformAction('screening', 'add_attachment', currentUser.role)
 
-  const filteredScreenings = screenings.filter((s) => {
-    const matchesFilter = filter === 'all' || s.status === filter
-    const matchesSearch = s.movieName.toLowerCase().includes(searchTerm.toLowerCase())
-    return matchesFilter && matchesSearch
-  })
+  const filteredScreenings = useMemo(() => {
+    return screenings.filter((s) => {
+      const matchesFilter = filter === 'all' || s.status === filter
+      const matchesSearch = s.movieName.toLowerCase().includes(searchTerm.toLowerCase())
+      return matchesFilter && matchesSearch
+    })
+  }, [screenings, filter, searchTerm])
 
   const handleChangeHall = () => {
     if (selectedScreening && newHall && hallReason) {
@@ -76,7 +82,6 @@ export default function Screenings() {
       setHallModalOpen(false)
       setNewHall('')
       setHallReason('')
-      refreshSelected()
     }
   }
 
@@ -85,7 +90,6 @@ export default function Screenings() {
       recordEquipmentFailure(selectedScreening.id, equipmentDesc, currentUser.id, currentUser.name)
       setEquipmentModalOpen(false)
       setEquipmentDesc('')
-      refreshSelected()
     }
   }
 
@@ -95,7 +99,6 @@ export default function Screenings() {
       setRefundModalOpen(false)
       setRefundCount(1)
       setRefundReason('')
-      refreshSelected()
     }
   }
 
@@ -104,7 +107,6 @@ export default function Screenings() {
       redeemGroupTicket(selectedScreening.id, redeemCount, currentUser.id, currentUser.name)
       setRedeemModalOpen(false)
       setRedeemCount(1)
-      refreshSelected()
     }
   }
 
@@ -113,14 +115,6 @@ export default function Screenings() {
     setCompleting(true)
     await completeScreeningReconciliation(selectedScreening.id, currentUser.id, currentUser.name)
     setCompleting(false)
-    refreshSelected()
-  }
-
-  const refreshSelected = () => {
-    if (selectedScreening) {
-      const updated = screenings.find((s) => s.id === selectedScreening.id)
-      if (updated) setSelectedScreening(updated)
-    }
   }
 
   const halls = ['1号厅', '2号厅', '3号厅', '4号厅', 'IMAX厅', 'VIP厅']
@@ -239,7 +233,7 @@ export default function Screenings() {
                       ? 'border-primary-300 bg-primary-50'
                       : 'border-gray-200 bg-white hover:border-gray-300'
                   }`}
-                  onClick={() => setSelectedScreening(screening)}
+                  onClick={() => setSelectedScreeningId(screening.id)}
                 >
                   <div className="flex items-start justify-between">
                     <div className="flex items-start gap-4">
@@ -323,7 +317,7 @@ export default function Screenings() {
                   </div>
                 </div>
                 <button
-                  onClick={() => setSelectedScreening(null)}
+                  onClick={() => setSelectedScreeningId(null)}
                   className="p-1 hover:bg-gray-100 rounded-lg"
                 >
                   <X className="w-5 h-5 text-gray-400" />

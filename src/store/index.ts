@@ -16,6 +16,7 @@ import type {
 } from '@/types'
 
 const generateId = () => Math.random().toString(36).substr(2, 9)
+const CURRENT_USER_KEY = 'cinema_current_user_id'
 
 interface AppState {
   loading: boolean
@@ -32,6 +33,7 @@ interface AppState {
   refreshAll: () => Promise<void>
 
   switchRole: (role: Role) => Promise<void>
+  setCurrentUser: (userId: string) => void
 
   addRemark: (params: {
     sourceType: 'inventory' | 'screening' | 'exception'
@@ -125,11 +127,11 @@ interface AppState {
   getRecentChanges: () => OperationLog[]
 }
 
-const initialUser: User = { id: 'u1', name: '张小明', role: 'frontline' }
+const defaultUser: User = { id: 'u1', name: '张小明', role: 'frontline' }
 
 export const useStore = create<AppState>((set, get) => ({
   loading: false,
-  currentUser: initialUser,
+  currentUser: defaultUser,
   users: [],
   inventoryItems: [],
   screenings: [],
@@ -137,6 +139,14 @@ export const useStore = create<AppState>((set, get) => ({
   risks: [],
   operationLogs: [],
   exceptions: [],
+
+  setCurrentUser: (userId: string) => {
+    const user = get().users.find((u) => u.id === userId)
+    if (user) {
+      set({ currentUser: user })
+      localStorage.setItem(CURRENT_USER_KEY, userId)
+    }
+  },
 
   initialize: async () => {
     set({ loading: true })
@@ -151,8 +161,13 @@ export const useStore = create<AppState>((set, get) => ({
         apiClient.exceptions.list(),
       ])
 
+      const userList = users.data || []
+      const savedUserId = localStorage.getItem(CURRENT_USER_KEY)
+      let currentUser = userList.find((u) => u.id === savedUserId) || userList[0] || defaultUser
+
       set({
-        users: users.data || [],
+        users: userList,
+        currentUser,
         inventoryItems: inventory.data || [],
         screenings: screenings.data || [],
         todos: todos.data || [],
@@ -172,19 +187,23 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   switchRole: async (role) => {
-    const { currentUser } = get()
-    const result = await apiClient.auth.switchRole(currentUser.id, role)
-    if (result.success && result.data) {
-      set({ currentUser: { ...currentUser, role } })
-      await get().addOperationLog({
-        action: 'role_switched',
-        description: `切换角色为 ${role === 'frontline' ? '一线员工' : role === 'manager' ? '经理' : '管理员'}`,
-        operatorId: currentUser.id,
-        operatorName: currentUser.name,
-        operatorRole: role,
-        targetType: 'user',
-        targetId: currentUser.id,
-      })
+    const { users } = get()
+    const targetUser = users.find((u) => u.role === role)
+    if (targetUser) {
+      const result = await apiClient.auth.switchRole(targetUser.id, role)
+      if (result.success && result.data) {
+        set({ currentUser: targetUser })
+        localStorage.setItem(CURRENT_USER_KEY, targetUser.id)
+        await get().addOperationLog({
+          action: 'role_switched',
+          description: `切换角色为 ${role === 'frontline' ? '一线员工' : role === 'manager' ? '经理' : '管理员'}`,
+          operatorId: targetUser.id,
+          operatorName: targetUser.name,
+          operatorRole: role,
+          targetType: 'user',
+          targetId: targetUser.id,
+        })
+      }
     }
   },
 

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useStore } from '@/store'
 import { RiskLevelBadge } from '@/components/Badges'
 import { RemarkPanel, AttachmentPanel } from '@/components/RemarkPanel'
@@ -32,11 +32,21 @@ const typeConfig = {
 }
 
 export default function Exceptions() {
-  const { exceptions, screenings, currentUser, updateExceptionStatus, refreshAll } = useStore()
+  const exceptions = useStore((state) => state.exceptions)
+  const screenings = useStore((state) => state.screenings)
+  const currentUser = useStore((state) => state.currentUser)
+  const updateExceptionStatus = useStore((state) => state.updateExceptionStatus)
+  const getExceptionById = useStore((state) => state.getExceptionById)
+
   const [filter, setFilter] = useState<ExceptionRecord['status'] | 'all'>('all')
   const [typeFilter, setTypeFilter] = useState<ExceptionRecord['type'] | 'all'>('all')
   const [searchTerm, setSearchTerm] = useState('')
-  const [selectedException, setSelectedException] = useState<ExceptionRecord | null>(null)
+  const [selectedExceptionId, setSelectedExceptionId] = useState<string | null>(null)
+
+  const selectedException = useMemo(
+    () => (selectedExceptionId ? getExceptionById(selectedExceptionId) : null),
+    [selectedExceptionId, exceptions, getExceptionById]
+  )
 
   const canUpdateStatus = canPerformAction('exception', 'update_status', currentUser.role)
   const canStartHandling = canPerformAction('exception', 'update_status:handling', currentUser.role)
@@ -44,20 +54,19 @@ export default function Exceptions() {
   const canAddRemark = canPerformAction('exception', 'add_remark', currentUser.role)
   const canAddAttachment = canPerformAction('exception', 'add_attachment', currentUser.role)
 
-  const filteredExceptions = exceptions.filter((e) => {
-    const matchesStatus = filter === 'all' || e.status === filter
-    const matchesType = typeFilter === 'all' || e.type === typeFilter
-    const matchesSearch = e.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      e.description.toLowerCase().includes(searchTerm.toLowerCase())
-    return matchesStatus && matchesType && matchesSearch
-  })
+  const filteredExceptions = useMemo(() => {
+    return exceptions.filter((e) => {
+      const matchesStatus = filter === 'all' || e.status === filter
+      const matchesType = typeFilter === 'all' || e.type === typeFilter
+      const matchesSearch = e.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        e.description.toLowerCase().includes(searchTerm.toLowerCase())
+      return matchesStatus && matchesType && matchesSearch
+    })
+  }, [exceptions, filter, typeFilter, searchTerm])
 
   const handleStatusUpdate = (id: string, status: ExceptionRecord['status']) => {
     if (!canUpdateStatus && !canStartHandling && !canResolve) return
     updateExceptionStatus(id, status, currentUser.id, currentUser.name)
-    if (selectedException?.id === id) {
-      setSelectedException({ ...selectedException, status })
-    }
   }
 
   const statusLabels = {
@@ -108,13 +117,6 @@ export default function Exceptions() {
           <h1 className="text-2xl font-bold text-gray-900">异常处理</h1>
           <p className="text-gray-500 mt-1">统一管理所有异常事件，一线处理和管理回看基于同一份数据</p>
         </div>
-        <button
-          onClick={() => refreshAll()}
-          className="flex items-center gap-2 px-3 py-2 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
-        >
-          <Clock className="w-4 h-4" />
-          刷新数据
-        </button>
       </div>
 
       <div className="grid grid-cols-5 gap-4">
@@ -192,7 +194,7 @@ export default function Exceptions() {
                         ? 'border-primary-300 bg-primary-50'
                         : 'border-gray-200 bg-white hover:border-gray-300'
                     }`}
-                    onClick={() => setSelectedException(exception)}
+                    onClick={() => setSelectedExceptionId(exception.id)}
                   >
                     <div className="flex items-start justify-between">
                       <div className="flex items-start gap-3">
@@ -255,7 +257,7 @@ export default function Exceptions() {
                   <p className="text-sm text-gray-500 mt-1">{typeConfig[selectedException.type].label}异常</p>
                 </div>
                 <button
-                  onClick={() => setSelectedException(null)}
+                  onClick={() => setSelectedExceptionId(null)}
                   className="p-1 hover:bg-gray-100 rounded-lg"
                 >
                   <X className="w-5 h-5 text-gray-400" />

@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useStore } from '@/store'
-import type { InventoryItem, InventoryStatus } from '@/types'
+import type { InventoryStatus } from '@/types'
 import { StatusBadge } from '@/components/Badges'
 import { RemarkPanel, AttachmentPanel } from '@/components/RemarkPanel'
 import { canPerformAction } from '@/services/permissions'
@@ -22,34 +22,38 @@ import { zhCN } from 'date-fns/locale'
 import { Link } from 'react-router-dom'
 
 export default function Inventory() {
-  const {
-    inventoryItems,
-    screenings,
-    currentUser,
-    updateInventoryStatus,
-    linkInventoryToScreening,
-    syncInventoryToScreenings,
-  } = useStore()
+  const inventoryItems = useStore((state) => state.inventoryItems)
+  const screenings = useStore((state) => state.screenings)
+  const currentUser = useStore((state) => state.currentUser)
+  const updateInventoryStatus = useStore((state) => state.updateInventoryStatus)
+  const linkInventoryToScreening = useStore((state) => state.linkInventoryToScreening)
+  const syncInventoryToScreenings = useStore((state) => state.syncInventoryToScreenings)
+  const getInventoryById = useStore((state) => state.getInventoryById)
 
   const [filter, setFilter] = useState<InventoryStatus | 'all'>('all')
   const [searchTerm, setSearchTerm] = useState('')
-  const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null)
+  const [selectedItemId, setSelectedItemId] = useState<string | null>(null)
   const [linkModalOpen, setLinkModalOpen] = useState(false)
   const [selectedScreening, setSelectedScreening] = useState('')
   const [syncing, setSyncing] = useState(false)
 
-  const filteredItems = inventoryItems.filter((item) => {
-    const matchesFilter = filter === 'all' || item.status === filter
-    const matchesSearch =
-      item.productName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.sku.toLowerCase().includes(searchTerm.toLowerCase())
-    return matchesFilter && matchesSearch
-  })
+  const selectedItem = useMemo(
+    () => (selectedItemId ? getInventoryById(selectedItemId) : null),
+    [selectedItemId, inventoryItems, getInventoryById]
+  )
+
+  const filteredItems = useMemo(() => {
+    return inventoryItems.filter((item) => {
+      const matchesFilter = filter === 'all' || item.status === filter
+      const matchesSearch =
+        item.productName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        item.sku.toLowerCase().includes(searchTerm.toLowerCase())
+      return matchesFilter && matchesSearch
+    })
+  }, [inventoryItems, filter, searchTerm])
 
   const handleStatusUpdate = async (id: string, status: InventoryStatus) => {
     await updateInventoryStatus(id, status, currentUser.id, currentUser.name)
-    const updated = inventoryItems.find((i) => i.id === id)
-    if (updated) setSelectedItem({ ...updated, status })
   }
 
   const handleLinkScreening = async () => {
@@ -65,8 +69,6 @@ export default function Inventory() {
     setSyncing(true)
     await syncInventoryToScreenings(selectedItem.id)
     setSyncing(false)
-    const updated = inventoryItems.find((i) => i.id === selectedItem.id)
-    if (updated) setSelectedItem(updated)
   }
 
   const getDiscrepancyIcon = (discrepancy: number) => {
@@ -91,6 +93,8 @@ export default function Inventory() {
   const canSync = canPerformAction('inventory', 'sync_to_screening', currentUser.role)
   const canLink = canPerformAction('inventory', 'link_screening', currentUser.role)
   const canCreate = canPerformAction('inventory', 'create', currentUser.role)
+  const canAddRemark = canPerformAction('inventory', 'add_remark', currentUser.role)
+  const canAddAttachment = canPerformAction('inventory', 'add_attachment', currentUser.role)
 
   return (
     <div className="space-y-6">
@@ -182,7 +186,7 @@ export default function Inventory() {
                     <tr
                       key={item.id}
                       className="border-b border-gray-100 hover:bg-gray-50 cursor-pointer"
-                      onClick={() => setSelectedItem(item)}
+                      onClick={() => setSelectedItemId(item.id)}
                     >
                       <td className="py-4 px-4">
                         <div className="flex items-center gap-3">
@@ -229,7 +233,7 @@ export default function Inventory() {
                         <button
                           onClick={(e) => {
                             e.stopPropagation()
-                            setSelectedItem(item)
+                            setSelectedItemId(item.id)
                           }}
                           className="text-primary-600 hover:text-primary-700 text-sm font-medium"
                         >
@@ -253,7 +257,7 @@ export default function Inventory() {
                   <p className="text-sm text-gray-500 mt-0.5">{selectedItem.sku}</p>
                 </div>
                 <button
-                  onClick={() => setSelectedItem(null)}
+                  onClick={() => setSelectedItemId(null)}
                   className="p-1 hover:bg-gray-100 rounded-lg"
                 >
                   <X className="w-5 h-5 text-gray-400" />
@@ -299,9 +303,10 @@ export default function Inventory() {
                           onClick={() => handleStatusUpdate(selectedItem.id, opt.value)}
                           disabled={!allowed}
                           className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                            allowed ? opt.color : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                            allowed ? opt.color : 'bg-gray-100 text-gray-400 cursor-not-allowed flex items-center justify-center gap-1'
                           }`}
                         >
+                          {!allowed && <Lock className="w-3.5 h-3.5" />}
                           {opt.label}
                         </button>
                       )
@@ -381,11 +386,27 @@ export default function Inventory() {
               )}
 
               <div className="border-t border-gray-100 pt-4">
-                <RemarkPanel sourceType="inventory" sourceId={selectedItem.id} />
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-sm font-medium text-gray-900">备注</p>
+                  {!canAddRemark && (
+                    <span className="text-xs text-gray-400 flex items-center gap-1">
+                      <Lock className="w-3 h-3" /> 无权限添加
+                    </span>
+                  )}
+                </div>
+                <RemarkPanel sourceType="inventory" sourceId={selectedItem.id} readOnly={!canAddRemark} />
               </div>
 
               <div className="border-t border-gray-100 pt-4">
-                <AttachmentPanel sourceType="inventory" sourceId={selectedItem.id} />
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-sm font-medium text-gray-900">附件</p>
+                  {!canAddAttachment && (
+                    <span className="text-xs text-gray-400 flex items-center gap-1">
+                      <Lock className="w-3 h-3" /> 无权限上传
+                    </span>
+                  )}
+                </div>
+                <AttachmentPanel sourceType="inventory" sourceId={selectedItem.id} readOnly={!canAddAttachment} />
               </div>
 
               <div className="border-t border-gray-100 pt-4">

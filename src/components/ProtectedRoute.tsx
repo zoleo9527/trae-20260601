@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { Navigate, useLocation } from 'react-router-dom'
 import { useStore } from '@/store'
 import { canAccessRoute } from '@/services/permissions'
@@ -10,9 +10,13 @@ interface ProtectedRouteProps {
 export function ProtectedRoute({ children }: ProtectedRouteProps) {
   const { currentUser, initialize, loading } = useStore()
   const location = useLocation()
+  const initialized = useRef(false)
 
   useEffect(() => {
-    initialize()
+    if (!initialized.current) {
+      initialized.current = true
+      initialize()
+    }
   }, [initialize])
 
   if (loading) {
@@ -27,7 +31,7 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
   }
 
   if (!canAccessRoute(location.pathname, currentUser.role)) {
-    return <Navigate to="/" replace />
+    return <Navigate to="/" replace state={{ from: location.pathname }} />
   }
 
   return <>{children}</>
