@@ -1,0 +1,292 @@
+{
+  "users": [
+    {
+      "id": "8ca89056-1154-42e1-a0f7-c458d7bf05b6",
+      "name": "王宿管",
+      "role": "DORM_MANAGER",
+      "phone": "13800138001",
+      "createdAt": "2026-06-06T13:46:47.406Z",
+      "updatedAt": "2026-06-06T13:46:47.406Z"
+    },
+    {
+      "id": "873a5b6d-f7a6-4af7-8bfd-768f1f9342bf",
+      "name": "李师傅",
+      "role": "REPAIR_WORKER",
+      "phone": "13800138002",
+      "createdAt": "2026-06-06T13:46:47.409Z",
+      "updatedAt": "2026-06-06T13:46:47.409Z"
+    },
+    {
+      "id": "7f3ef592-7d9a-4413-8d27-9104ea5e0a74",
+      "name": "赵主管",
+      "role": "LOGISTICS_SUPERVISOR",
+      "phone": "13800138004",
+      "createdAt": "2026-06-06T13:46:47.409Z",
+      "updatedAt": "2026-06-06T13:46:47.409Z"
+    }
+  ],
+  "orders": [
+    {
+      "id": "421712c9-87b1-4b70-afa3-4a2edc0d6369",
+      "orderNo": "WX202606061864",
+      "dormitory": "3号楼",
+      "roomNumber": "201",
+      "issueType": "水电维修",
+      "description": "阳台水管漏水严重",
+      "currentStatus": "COMPLETED",
+      "creatorId": "8ca89056-1154-42e1-a0f7-c458d7bf05b6",
+      "createdAt": "2026-06-06T13:46:47.410Z",
+      "updatedAt": "2026-06-06T13:46:47.412Z",
+      "assigneeId": "873a5b6d-f7a6-4af7-8bfd-768f1f9342bf",
+      "supplementNote": "漏水点已修复，试水正常"
+    },
+    {
+      "id": "106adf56-db57-4daf-a7dc-40b20caffb3a",
+      "orderNo": "WX202606068240",
+      "dormitory": "1号楼",
+      "roomNumber": "305",
+      "issueType": "家具维修",
+      "description": "椅子腿松动",
+      "currentStatus": "COMPLETED",
+      "creatorId": "8ca89056-1154-42e1-a0f7-c458d7bf05b6",
+      "createdAt": "2026-06-06T13:46:47.428Z",
+      "updatedAt": "2026-06-06T13:46:47.430Z",
+      "assigneeId": "873a5b6d-f7a6-4af7-8bfd-768f1f9342bf"
+    }
+  ],
+  "materials": [
+    {
+      "id": "741cd8a3-73df-48aa-8026-03d0b3d76301",
+      "orderId": "421712c9-87b1-4b70-afa3-4a2edc0d6369",
+      "materialName": "PVC水管",
+      "specification": "20mm",
+      "quantity": 2,
+      "unit": "米",
+      "unitPrice": 15,
+      "registeredBy": "873a5b6d-f7a6-4af7-8bfd-768f1f9342bf",
+      "registeredAt": "2026-06-06T13:46:47.411Z",
+      "note": "优质PVC管"
+    },
+    {
+      "id": "64894908-b80b-4548-a869-739597d9c5ac",
+      "orderId": "421712c9-87b1-4b70-afa3-4a2edc0d6369",
+      "materialName": "水管接头",
+      "quantity": 3,
+      "unit": "个",
+      "unitPrice": 5,
+      "registeredBy": "873a5b6d-f7a6-4af7-8bfd-768f1f9342bf",
+      "registeredAt": "2026-06-06T13:46:47.411Z"
+    },
+    {
+      "id": "40c99b12-dafb-4937-86a0-1ca23b8d086f",
+      "orderId": "421712c9-87b1-4b70-afa3-4a2edc0d6369",
+      "materialName": "防水胶带",
+      "quantity": 1,
+      "unit": "卷",
+      "unitPrice": 8,
+      "registeredBy": "873a5b6d-f7a6-4af7-8bfd-768f1f9342bf",
+      "registeredAt": "2026-06-06T13:46:47.411Z"
+    },
+    {
+      "id": "c08c2407-d83a-4247-a04a-c449bcb8d913",
+      "orderId": "106adf56-db57-4daf-a7dc-40b20caffb3a",
+      "materialName": "螺丝",
+      "quantity": 4,
+      "unit": "个",
+      "unitPrice": 0.5,
+      "registeredBy": "873a5b6d-f7a6-4af7-8bfd-768f1f9342bf",
+      "registeredAt": "2026-06-06T13:46:47.429Z",
+      "note": "只用了4颗"
+    }
+  ],
+  "fees": [
+    {
+      "id": "f51987f9-a7ec-4740-a116-50a0dd154cfb",
+      "orderId": "421712c9-87b1-4b70-afa3-4a2edc0d6369",
+      "feeType": "材料费",
+      "amount": 53,
+      "registeredBy": "873a5b6d-f7a6-4af7-8bfd-768f1f9342bf",
+      "registeredAt": "2026-06-06T13:46:47.411Z",
+      "note": "水管30 + 接头15 + 胶带8"
+    },
+    {
+      "id": "7c6e27a6-763e-4721-a7b9-1ae8004157ea",
+      "orderId": "421712c9-87b1-4b70-afa3-4a2edc0d6369",
+      "feeType": "人工费",
+      "amount": 60,
+      "registeredBy": "873a5b6d-f7a6-4af7-8bfd-768f1f9342bf",
+      "registeredAt": "2026-06-06T13:46:47.411Z",
+      "note": "维修时长约1.5小时"
+    },
+    {
+      "id": "a995c4b3-c5e0-420d-85c3-4fd4ebd058d6",
+      "orderId": "106adf56-db57-4daf-a7dc-40b20caffb3a",
+      "feeType": "材料费",
+      "amount": 2,
+      "registeredBy": "873a5b6d-f7a6-4af7-8bfd-768f1f9342bf",
+      "registeredAt": "2026-06-06T13:46:47.429Z",
+      "note": "4颗螺丝"
+    },
+    {
+      "id": "035e9c76-36b9-4412-bd66-93385b0a9b10",
+      "orderId": "106adf56-db57-4daf-a7dc-40b20caffb3a",
+      "feeType": "人工费",
+      "amount": 30,
+      "registeredBy": "873a5b6d-f7a6-4af7-8bfd-768f1f9342bf",
+      "registeredAt": "2026-06-06T13:46:47.429Z",
+      "note": "简单维修"
+    }
+  ],
+  "statusHistories": [
+    {
+      "id": "f3d0c9cb-efcd-4bbc-aa89-60834c86e055",
+      "orderId": "421712c9-87b1-4b70-afa3-4a2edc0d6369",
+      "toStatus": "CREATED",
+      "operatorId": "8ca89056-1154-42e1-a0f7-c458d7bf05b6",
+      "operatedAt": "2026-06-06T13:46:47.410Z",
+      "remark": "创建维修工单"
+    },
+    {
+      "id": "a66e2427-9012-42e1-868f-8c6e5afff11e",
+      "orderId": "421712c9-87b1-4b70-afa3-4a2edc0d6369",
+      "fromStatus": "CREATED",
+      "toStatus": "ASSIGNED",
+      "operatorId": "7f3ef592-7d9a-4413-8d27-9104ea5e0a74",
+      "operatedAt": "2026-06-06T13:46:47.411Z",
+      "remark": "紧急工单，请尽快处理"
+    },
+    {
+      "id": "5349be9d-be76-4896-9a9d-31a945f15bdc",
+      "orderId": "421712c9-87b1-4b70-afa3-4a2edc0d6369",
+      "fromStatus": "ASSIGNED",
+      "toStatus": "MATERIAL_REGISTERED",
+      "operatorId": "873a5b6d-f7a6-4af7-8bfd-768f1f9342bf",
+      "operatedAt": "2026-06-06T13:46:47.411Z",
+      "remark": "登记维修材料"
+    },
+    {
+      "id": "47154646-88af-4df5-9f48-3d6bd7a270e1",
+      "orderId": "421712c9-87b1-4b70-afa3-4a2edc0d6369",
+      "fromStatus": "MATERIAL_REGISTERED",
+      "toStatus": "FEE_REGISTERED",
+      "operatorId": "873a5b6d-f7a6-4af7-8bfd-768f1f9342bf",
+      "operatedAt": "2026-06-06T13:46:47.411Z",
+      "remark": "登记维修费用"
+    },
+    {
+      "id": "2afdffa9-b211-4882-8097-5b08ee741420",
+      "orderId": "421712c9-87b1-4b70-afa3-4a2edc0d6369",
+      "fromStatus": "FEE_REGISTERED",
+      "toStatus": "FEE_REGISTERED",
+      "operatorId": "873a5b6d-f7a6-4af7-8bfd-768f1f9342bf",
+      "operatedAt": "2026-06-06T13:46:47.411Z",
+      "remark": "补充备注: 漏水点已修复，试水正常"
+    },
+    {
+      "id": "bad92e0b-9da2-405d-b9c4-139e9b3afc73",
+      "orderId": "421712c9-87b1-4b70-afa3-4a2edc0d6369",
+      "fromStatus": "FEE_REGISTERED",
+      "toStatus": "COMPLETED",
+      "operatorId": "7f3ef592-7d9a-4413-8d27-9104ea5e0a74",
+      "operatedAt": "2026-06-06T13:46:47.412Z",
+      "remark": "审核通过: 费用合理，材料使用正常"
+    },
+    {
+      "id": "0a91a02b-fc29-4cae-aebe-7e055117ab6e",
+      "orderId": "106adf56-db57-4daf-a7dc-40b20caffb3a",
+      "toStatus": "CREATED",
+      "operatorId": "8ca89056-1154-42e1-a0f7-c458d7bf05b6",
+      "operatedAt": "2026-06-06T13:46:47.428Z",
+      "remark": "创建维修工单"
+    },
+    {
+      "id": "7e7b91c4-ddd5-41c1-a4ef-20acaa49bfd4",
+      "orderId": "106adf56-db57-4daf-a7dc-40b20caffb3a",
+      "fromStatus": "CREATED",
+      "toStatus": "ASSIGNED",
+      "operatorId": "7f3ef592-7d9a-4413-8d27-9104ea5e0a74",
+      "operatedAt": "2026-06-06T13:46:47.428Z",
+      "remark": "派单给维修师傅: 李师傅"
+    },
+    {
+      "id": "526946f1-c9e9-47c0-b087-43b9cd97f9e2",
+      "orderId": "106adf56-db57-4daf-a7dc-40b20caffb3a",
+      "fromStatus": "ASSIGNED",
+      "toStatus": "MATERIAL_REGISTERED",
+      "operatorId": "873a5b6d-f7a6-4af7-8bfd-768f1f9342bf",
+      "operatedAt": "2026-06-06T13:46:47.428Z",
+      "remark": "登记维修材料"
+    },
+    {
+      "id": "c595acec-178c-4df5-9a67-9d87983ad0d0",
+      "orderId": "106adf56-db57-4daf-a7dc-40b20caffb3a",
+      "fromStatus": "MATERIAL_REGISTERED",
+      "toStatus": "FEE_REGISTERED",
+      "operatorId": "873a5b6d-f7a6-4af7-8bfd-768f1f9342bf",
+      "operatedAt": "2026-06-06T13:46:47.429Z",
+      "remark": "登记维修费用"
+    },
+    {
+      "id": "7861bff1-30d7-4427-8426-482ebbdee02c",
+      "orderId": "106adf56-db57-4daf-a7dc-40b20caffb3a",
+      "fromStatus": "FEE_REGISTERED",
+      "toStatus": "RETURNED",
+      "operatorId": "7f3ef592-7d9a-4413-8d27-9104ea5e0a74",
+      "operatedAt": "2026-06-06T13:46:47.429Z",
+      "remark": "审核退回: 人工费过高，请重新核实收费标准"
+    },
+    {
+      "id": "771a208f-b023-438b-bd28-89391cb1f142",
+      "orderId": "106adf56-db57-4daf-a7dc-40b20caffb3a",
+      "fromStatus": "RETURNED",
+      "toStatus": "MATERIAL_REGISTERED",
+      "operatorId": "873a5b6d-f7a6-4af7-8bfd-768f1f9342bf",
+      "operatedAt": "2026-06-06T13:46:47.429Z",
+      "remark": "登记维修材料"
+    },
+    {
+      "id": "9b0b5951-cf89-4600-a16e-0e6d5d48c613",
+      "orderId": "106adf56-db57-4daf-a7dc-40b20caffb3a",
+      "fromStatus": "MATERIAL_REGISTERED",
+      "toStatus": "FEE_REGISTERED",
+      "operatorId": "873a5b6d-f7a6-4af7-8bfd-768f1f9342bf",
+      "operatedAt": "2026-06-06T13:46:47.429Z",
+      "remark": "登记维修费用"
+    },
+    {
+      "id": "002aa1d2-4e05-4c77-812c-26280fe6e0c7",
+      "orderId": "106adf56-db57-4daf-a7dc-40b20caffb3a",
+      "fromStatus": "FEE_REGISTERED",
+      "toStatus": "COMPLETED",
+      "operatorId": "7f3ef592-7d9a-4413-8d27-9104ea5e0a74",
+      "operatedAt": "2026-06-06T13:46:47.430Z",
+      "remark": "审核通过: 费用合理"
+    }
+  ],
+  "auditRecords": [
+    {
+      "id": "908107fb-1d66-4f24-91fa-b62272a6444f",
+      "orderId": "421712c9-87b1-4b70-afa3-4a2edc0d6369",
+      "auditorId": "7f3ef592-7d9a-4413-8d27-9104ea5e0a74",
+      "auditResult": "APPROVED",
+      "auditAt": "2026-06-06T13:46:47.412Z",
+      "auditOpinion": "费用合理，材料使用正常"
+    },
+    {
+      "id": "2858771a-b139-482c-8e33-30447da2b9e8",
+      "orderId": "106adf56-db57-4daf-a7dc-40b20caffb3a",
+      "auditorId": "7f3ef592-7d9a-4413-8d27-9104ea5e0a74",
+      "auditResult": "REJECTED",
+      "auditAt": "2026-06-06T13:46:47.429Z",
+      "auditOpinion": "简单紧固螺丝，人工费不应超过50元"
+    },
+    {
+      "id": "dc4378ba-628a-4a2e-80e3-924ab0d6b0ab",
+      "orderId": "106adf56-db57-4daf-a7dc-40b20caffb3a",
+      "auditorId": "7f3ef592-7d9a-4413-8d27-9104ea5e0a74",
+      "auditResult": "APPROVED",
+      "auditAt": "2026-06-06T13:46:47.430Z",
+      "auditOpinion": "费用合理"
+    }
+  ]
+}
