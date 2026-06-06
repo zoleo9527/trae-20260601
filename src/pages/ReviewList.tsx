@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Search, Filter, AlertTriangle } from "lucide-react";
+import { Search, Filter, AlertTriangle, Clock, X, XCircle } from "lucide-react";
 import { useReviewStore } from "@/store/useReviewStore";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import { RejectBadge } from "@/components/common/RejectBadge";
@@ -12,7 +12,7 @@ import type { ReviewStatus, UserRole } from "@/types";
 
 export function ReviewList() {
   const navigate = useNavigate();
-  const { reviews, filters, fetchReviews, getFilteredReviews, setFilters } = useReviewStore();
+  const { reviews, filters, fetchReviews, getFilteredReviews, setFilters, resetFilters } = useReviewStore();
   const [showFilters, setShowFilters] = useState(false);
 
   useEffect(() => {
@@ -22,6 +22,24 @@ export function ReviewList() {
   }, [fetchReviews, reviews.length]);
 
   const filteredReviews = getFilteredReviews();
+
+  const activeFilters = [
+    filters.todayUpdated && { key: "todayUpdated", label: "今日更新", icon: Clock },
+    filters.isOverdue && { key: "isOverdue", label: "超时未处理", icon: AlertTriangle },
+    filters.hasReject && { key: "hasReject", label: "已驳回", icon: XCircle },
+    filters.hasSupplement && { key: "hasSupplement", label: "需补录", icon: XCircle },
+    filters.currentHandler && { key: "currentHandler", label: `${ROLE_MAP[filters.currentHandler]?.label}处理`, icon: null },
+    filters.status && { key: "status", label: REVIEW_STATUS_MAP[filters.status]?.label, icon: null },
+  ].filter(Boolean) as { key: string; label: string; icon: any }[];
+
+  const removeFilter = (key: string) => {
+    if (key === "todayUpdated") setFilters({ todayUpdated: undefined });
+    else if (key === "isOverdue") setFilters({ isOverdue: undefined });
+    else if (key === "hasReject") setFilters({ hasReject: undefined });
+    else if (key === "hasSupplement") setFilters({ hasSupplement: undefined });
+    else if (key === "currentHandler") setFilters({ currentHandler: undefined });
+    else if (key === "status") setFilters({ status: undefined });
+  };
 
   const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFilters({ keyword: e.target.value });
@@ -36,13 +54,7 @@ export function ReviewList() {
   };
 
   const handleClearFilters = () => {
-    setFilters({
-      status: undefined,
-      keyword: undefined,
-      currentHandler: undefined,
-      hasReject: false,
-      hasSupplement: false,
-    });
+    resetFilters();
   };
 
   return (
@@ -80,6 +92,33 @@ export function ReviewList() {
           </button>
         </div>
 
+        {activeFilters.length > 0 && (
+          <div className="px-4 py-3 bg-gray-50 border-b flex items-center gap-2 flex-wrap">
+            <span className="text-sm text-gray-500">当前筛选：</span>
+            {activeFilters.map((f) => (
+              <span
+                key={f.key}
+                className="inline-flex items-center gap-1 px-2.5 py-1 bg-navy-100 text-navy-700 text-sm rounded-full"
+              >
+                {f.icon && <f.icon size={14} />}
+                {f.label}
+                <button
+                  onClick={() => removeFilter(f.key)}
+                  className="ml-1 hover:text-navy-900"
+                >
+                  <X size={14} />
+                </button>
+              </span>
+            ))}
+            <button
+              onClick={handleClearFilters}
+              className="text-sm text-gray-500 hover:text-gray-700 ml-2"
+            >
+              清除全部
+            </button>
+          </div>
+        )}
+
         {showFilters && (
           <div className="p-4 bg-gray-50 border-b">
             <div className="flex items-center gap-6 flex-wrap">
@@ -109,7 +148,25 @@ export function ReviewList() {
                   ))}
                 </select>
               </div>
-              <div className="flex items-end gap-4">
+              <div className="flex items-end gap-4 flex-wrap">
+                <label className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={filters.todayUpdated || false}
+                    onChange={(e) => setFilters({ todayUpdated: e.target.checked })}
+                    className="rounded text-navy-600 focus:ring-navy-500"
+                  />
+                  <span className="text-sm text-gray-700">仅显示今日更新</span>
+                </label>
+                <label className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={filters.isOverdue || false}
+                    onChange={(e) => setFilters({ isOverdue: e.target.checked })}
+                    className="rounded text-navy-600 focus:ring-navy-500"
+                  />
+                  <span className="text-sm text-gray-700">仅显示超时</span>
+                </label>
                 <label className="flex items-center gap-2">
                   <input
                     type="checkbox"

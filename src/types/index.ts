@@ -95,6 +95,8 @@ export interface ReviewFilters {
   hasReject?: boolean;
   hasSupplement?: boolean;
   currentHandler?: UserRole;
+  isOverdue?: boolean;
+  todayUpdated?: boolean;
 }
 
 export interface User {

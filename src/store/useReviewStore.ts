@@ -12,6 +12,7 @@ interface ReviewState {
   fetchReviewById: (id: string) => void;
   fetchOrderById: (reviewId: string, orderId: string) => void;
   setFilters: (filters: Partial<ReviewFilters>) => void;
+  resetFilters: () => void;
   submitReview: (id: string) => void;
   rejectReview: (id: string, reason: string) => void;
   confirmReview: (id: string) => void;
@@ -31,6 +32,16 @@ interface ReviewState {
 }
 
 const STORAGE_KEY = "live_review_data";
+
+function isToday(dateStr: string): boolean {
+  const date = new Date(dateStr);
+  const today = new Date();
+  return (
+    date.getFullYear() === today.getFullYear() &&
+    date.getMonth() === today.getMonth() &&
+    date.getDate() === today.getDate()
+  );
+}
 
 function loadFromStorage(): LiveReview[] {
   try {
@@ -104,6 +115,10 @@ export const useReviewStore = create<ReviewState>((set, get) => ({
 
   setFilters: (filters) => {
     set((state) => ({ filters: { ...state.filters, ...filters } }));
+  },
+
+  resetFilters: () => {
+    set({ filters: {} });
   },
 
   submitReview: (id: string) => {
@@ -546,6 +561,8 @@ export const useReviewStore = create<ReviewState>((set, get) => ({
       if (filters.hasReject && !r.rejectReason) return false;
       if (filters.hasSupplement && !r.supplementRequired) return false;
       if (filters.currentHandler && r.currentHandler !== filters.currentHandler) return false;
+      if (filters.isOverdue && !r.isOverdue) return false;
+      if (filters.todayUpdated && !isToday(r.updatedAt)) return false;
       return true;
     });
   },
@@ -554,6 +571,7 @@ export const useReviewStore = create<ReviewState>((set, get) => ({
     const { reviews } = get();
     return reviews.filter((r) => {
       if (r.status === "closed" || r.status === "draft") return false;
+      if (!isToday(r.updatedAt)) return false;
       if (userRole && r.currentHandler !== userRole) return false;
       return true;
     });

@@ -20,6 +20,7 @@ export function Dashboard() {
     getOverdue,
     getRecentlyRejected,
     setFilters,
+    resetFilters,
   } = useReviewStore();
 
   const [todayPending, setTodayPending] = useState(0);
@@ -43,12 +44,23 @@ export function Dashboard() {
   }, [getTodayPending, getOverdue, getRecentlyRejected, currentUser.role]);
 
   const handleCardClick = (filterType: "pending" | "overdue" | "rejected") => {
+    resetFilters();
     if (filterType === "pending") {
-      setFilters({ currentHandler: currentUser.role });
+      setFilters({
+        todayUpdated: true,
+        currentHandler: currentUser.role,
+      });
     } else if (filterType === "overdue") {
-      setFilters({ currentHandler: currentUser.role });
+      setFilters({
+        isOverdue: true,
+        currentHandler: currentUser.role,
+      });
     } else if (filterType === "rejected") {
-      setFilters({ hasReject: true, hasSupplement: true });
+      setFilters({
+        hasReject: true,
+        hasSupplement: true,
+        currentHandler: currentUser.role,
+      });
     }
     navigate("/reviews");
   };
