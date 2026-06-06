@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
   AlertTriangle,
@@ -20,9 +20,13 @@ import { DISCREPANCY_LABELS } from '../../shared/types';
 export default function Discrepancy() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [records, setRecords] = useState<UnloadRecord[]>([]);
+  const [allRecords, setAllRecords] = useState<UnloadRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedRecord, setSelectedRecord] = useState<UnloadRecord | null>(null);
   const [logs, setLogs] = useState<OperationLog[]>([]);
+  const [highlightedId, setHighlightedId] = useState<string | null>(null);
+  const [targetRecordOutsideFilter, setTargetRecordOutsideFilter] = useState<UnloadRecord | null>(null);
+  const recordRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
   const { currentUser } = useAppStore();
 
   const targetRecordId = searchParams.get('recordId');
@@ -31,6 +35,8 @@ export default function Discrepancy() {
     const params = new URLSearchParams(searchParams);
     params.delete('recordId');
     setSearchParams(params, { replace: true });
+    setHighlightedId(null);
+    setTargetRecordOutsideFilter(null);
   }
 
   const [form, setForm] = useState({
@@ -45,6 +51,7 @@ export default function Discrepancy() {
     setLoading(true);
     try {
       const data = await api.getRecords();
+      setAllRecords(data);
       setRecords(data.filter(r => r.status === 'finished' || r.status === 'discrepancy'));
     } catch (e) {
       console.error(e);
@@ -58,13 +65,26 @@ export default function Discrepancy() {
   }, []);
 
   useEffect(() => {
-    if (!loading && targetRecordId && records.length > 0 && !selectedRecord) {
-      const record = records.find(r => r.id === targetRecordId);
-      if (record) {
-        handleSelect(record);
+    if (!loading && targetRecordId && allRecords.length > 0 && !selectedRecord) {
+      const targetInAll = allRecords.find(r => r.id === targetRecordId);
+      const targetInFiltered = records.find(r => r.id === targetRecordId);
+
+      if (targetInAll) {
+        if (!targetInFiltered) {
+          setTargetRecordOutsideFilter(targetInAll);
+        }
+        handleSelect(targetInAll);
+        setTimeout(() => {
+          const el = recordRefs.current.get(targetRecordId);
+          if (el) {
+            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            setHighlightedId(targetRecordId);
+            setTimeout(() => setHighlightedId(null), 3000);
+          }
+        }, 150);
       }
     }
-  }, [loading, targetRecordId, records, selectedRecord]);
+  }, [loading, targetRecordId, allRecords, records, selectedRecord]);
 
   async function handleSelect(record: UnloadRecord) {
     setSelectedRecord(record);
@@ -172,13 +192,55 @@ export default function Discrepancy() {
                   <div key={i} className="h-16 bg-slate-800/50 rounded-lg animate-pulse" />
                 ))}
               </div>
-            ) : records.length === 0 ? (
+            ) : records.length === 0 && !targetRecordOutsideFilter ? (
               <div className="py-8 text-center text-slate-400 text-sm">
                 暂无待处理差异
               </div>
             ) : (
               <>
-                {targetRecordId && (
+                {targetRecordOutsideFilter && (
+                  <div className="mb-2">
+                    <div className="text-xs text-amber-400 mb-1.5 flex items-center gap-1">
+                      <AlertTriangle className="w-3 h-3" />
+                      目标记录不在待处理范围内，已置顶显示
+                    </div>
+                    <button
+                      key={targetRecordOutsideFilter.id}
+                      ref={(el) => {
+                        if (el) recordRefs.current.set(targetRecordOutsideFilter.id, el);
+                      }}
+                      onClick={() => handleSelect(targetRecordOutsideFilter)}
+                      className={`w-full text-left p-3 rounded-lg border transition-all duration-300 ${
+                        highlightedId === targetRecordOutsideFilter.id
+                          ? 'border-blue-500 ring-2 ring-blue-500/50 shadow-lg shadow-blue-500/20 bg-blue-500/10'
+                          : selectedRecord?.id === targetRecordOutsideFilter.id
+                            ? 'bg-blue-600/10 border-blue-500/50 ring-1 ring-blue-500/30'
+                            : 'border-amber-500/30 bg-amber-500/5 hover:bg-amber-500/10'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="font-medium text-slate-100">{targetRecordOutsideFilter.plateNumber}</span>
+                        <StatusBadge status={targetRecordOutsideFilter.status} size="sm" />
+                      </div>
+                      <div className="mt-1 text-xs text-slate-400">
+                        {targetRecordOutsideFilter.cargoType} · 计划 {targetRecordOutsideFilter.plannedQuantity} 件
+                        {targetRecordOutsideFilter.dockNumber && ` · ${targetRecordOutsideFilter.dockNumber}号月台`}
+                      </div>
+                      {targetRecordOutsideFilter.discrepancyType && (
+                        <div className="mt-1 text-xs text-orange-400">
+                          差异: {DISCREPANCY_LABELS[targetRecordOutsideFilter.discrepancyType]}
+                          {targetRecordOutsideFilter.discrepancyQuantity ? ` ${targetRecordOutsideFilter.discrepancyQuantity}件` : ''}
+                        </div>
+                      )}
+                    </button>
+                  </div>
+                )}
+                {records.length > 0 && targetRecordOutsideFilter && (
+                  <div className="pt-2 mt-2 border-t border-slate-700/50">
+                    <p className="text-xs text-slate-500 mb-2">待处理列表 ({records.length})</p>
+                  </div>
+                )}
+                {targetRecordId && !targetRecordOutsideFilter && (
                   <div className="mb-3 flex items-center justify-between px-3 py-2 bg-blue-500/20 border border-blue-500/30 rounded-lg">
                     <span className="text-xs text-blue-300">已定位到目标记录</span>
                     <button
@@ -190,34 +252,39 @@ export default function Discrepancy() {
                   </div>
                 )}
                 <div className="space-y-2 max-h-[560px] overflow-y-auto pr-1">
-                {records.map((record) => (
-                  <button
-                    key={record.id}
-                    onClick={() => handleSelect(record)}
-                    className={`w-full text-left p-3 rounded-lg border transition-all duration-300 ${
-                      selectedRecord?.id === record.id
-                        ? 'bg-blue-600/10 border-blue-500/50 ring-1 ring-blue-500/30'
-                        : targetRecordId === record.id
-                          ? 'bg-blue-500/10 border-blue-500/50 ring-2 ring-blue-500/30 shadow-lg shadow-blue-500/10'
-                          : 'bg-slate-800/50 border-slate-700/30 hover:bg-slate-800'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="font-medium text-slate-100">{record.plateNumber}</span>
-                      <StatusBadge status={record.status} size="sm" />
-                    </div>
-                    <div className="mt-1 text-xs text-slate-400">
-                      {record.cargoType} · 计划 {record.plannedQuantity} 件
-                      {record.dockNumber && ` · ${record.dockNumber}号月台`}
-                    </div>
-                    {record.discrepancyType && (
-                      <div className="mt-1 text-xs text-orange-400">
-                        差异: {DISCREPANCY_LABELS[record.discrepancyType]}
-                        {record.discrepancyQuantity ? ` ${record.discrepancyQuantity}件` : ''}
+                {records
+                  .filter(r => r.id !== targetRecordOutsideFilter?.id)
+                  .map((record) => (
+                    <button
+                      key={record.id}
+                      ref={(el) => {
+                        if (el) recordRefs.current.set(record.id, el);
+                      }}
+                      onClick={() => handleSelect(record)}
+                      className={`w-full text-left p-3 rounded-lg border transition-all duration-300 ${
+                        highlightedId === record.id
+                          ? 'border-blue-500 ring-2 ring-blue-500/50 shadow-lg shadow-blue-500/20 bg-blue-500/10'
+                          : selectedRecord?.id === record.id
+                            ? 'bg-blue-600/10 border-blue-500/50 ring-1 ring-blue-500/30'
+                            : 'bg-slate-800/50 border-slate-700/30 hover:bg-slate-800'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="font-medium text-slate-100">{record.plateNumber}</span>
+                        <StatusBadge status={record.status} size="sm" />
                       </div>
-                    )}
-                  </button>
-                ))}
+                      <div className="mt-1 text-xs text-slate-400">
+                        {record.cargoType} · 计划 {record.plannedQuantity} 件
+                        {record.dockNumber && ` · ${record.dockNumber}号月台`}
+                      </div>
+                      {record.discrepancyType && (
+                        <div className="mt-1 text-xs text-orange-400">
+                          差异: {DISCREPANCY_LABELS[record.discrepancyType]}
+                          {record.discrepancyQuantity ? ` ${record.discrepancyQuantity}件` : ''}
+                        </div>
+                      )}
+                    </button>
+                  ))}
                 </div>
               </>
             )}

@@ -14,6 +14,7 @@ import {
   X,
   Check,
   ArrowLeft,
+  AlertTriangle,
 } from 'lucide-react';
 import { api } from '../api/client';
 import { StatusBadge } from '../components/StatusBadge';
@@ -33,16 +34,11 @@ export default function CheckIn() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [showBatchAssign, setShowBatchAssign] = useState(false);
   const [highlightedId, setHighlightedId] = useState<string | null>(null);
+  const [targetRecordOutsideFilter, setTargetRecordOutsideFilter] = useState<UnloadRecord | null>(null);
   const recordRefs = useRef<Map<string, HTMLDivElement>>(new Map());
   const { currentUser } = useAppStore();
 
   const targetRecordId = searchParams.get('recordId');
-
-  useEffect(() => {
-    if (searchParams.get('status')) {
-      setFilter(searchParams.get('status') as RecordStatus | 'all');
-    }
-  }, [searchParams]);
 
   function updateFilter(newFilter: RecordStatus | 'all') {
     setFilter(newFilter);
@@ -52,9 +48,9 @@ export default function CheckIn() {
     } else {
       params.set('status', newFilter);
     }
-    params.delete('recordId');
     setSearchParams(params, { replace: true });
     setSelectedIds(new Set());
+    setTargetRecordOutsideFilter(null);
   }
 
   function clearTargetRecord() {
@@ -62,6 +58,7 @@ export default function CheckIn() {
     params.delete('recordId');
     setSearchParams(params, { replace: true });
     setHighlightedId(null);
+    setTargetRecordOutsideFilter(null);
   }
 
   const [form, setForm] = useState({
@@ -97,8 +94,9 @@ export default function CheckIn() {
     if (!loading && targetRecordId && records.length > 0) {
       const record = records.find(r => r.id === targetRecordId);
       if (record) {
-        if (record.status !== filter && filter !== 'all') {
-          updateFilter('all');
+        const inFilter = filter === 'all' || record.status === filter;
+        if (!inFilter) {
+          setTargetRecordOutsideFilter(record);
         }
         setTimeout(() => {
           const el = recordRefs.current.get(targetRecordId);
@@ -115,6 +113,122 @@ export default function CheckIn() {
   const filteredRecords = filter === 'all'
     ? records
     : records.filter(r => r.status === filter);
+
+  function renderRecordRow(record: UnloadRecord, isOutsideFilter: boolean) {
+    return (
+      <div
+        key={record.id}
+        ref={(el) => {
+          if (el) recordRefs.current.set(record.id, el);
+        }}
+        className={`bg-slate-800/30 rounded-xl border p-4 hover:bg-slate-800/50 transition-all duration-300 ${
+          highlightedId === record.id
+            ? 'border-blue-500 ring-2 ring-blue-500/50 shadow-lg shadow-blue-500/20 bg-blue-500/10 scale-[1.01]'
+            : isOutsideFilter
+              ? 'border-amber-500/30 bg-amber-500/5'
+              : selectedIds.has(record.id)
+                ? 'border-blue-500/50 bg-blue-500/5'
+                : 'border-slate-700/50'
+        }`}
+      >
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => toggleSelect(record.id)}
+              className="p-1 text-slate-400 hover:text-slate-200"
+              disabled={record.status === 'completed'}
+            >
+              {selectedIds.has(record.id) ? (
+                <CheckSquare className="w-4 h-4 text-blue-400" />
+              ) : (
+                <SquareIcon className="w-4 h-4" />
+              )}
+            </button>
+            <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-blue-600 to-cyan-500 flex items-center justify-center">
+              <Package className="w-6 h-6 text-white" />
+            </div>
+            <div>
+              <div className="flex items-center gap-3">
+                <span className="font-semibold text-lg text-slate-100">
+                  {record.plateNumber}
+                </span>
+                <StatusBadge status={record.status} />
+              </div>
+              <div className="flex items-center gap-4 mt-1 text-sm text-slate-400">
+                <span className="flex items-center gap-1">
+                  <User className="w-3.5 h-3.5" />
+                  {record.driverName}
+                </span>
+                <span className="flex items-center gap-1">
+                  <Phone className="w-3.5 h-3.5" />
+                  {record.driverPhone}
+                </span>
+                <span className="flex items-center gap-1">
+                  <Package className="w-3.5 h-3.5" />
+                  {record.cargoType} · {record.plannedQuantity}件
+                </span>
+                {record.dockNumber ? (
+                  <span className="flex items-center gap-1 text-emerald-400">
+                    <MapPin className="w-3.5 h-3.5" />
+                    {record.dockNumber} 号月台
+                  </span>
+                ) : canAssignDock(record) ? (
+                  <div className="flex items-center gap-1">
+                    <MapPin className="w-3.5 h-3.5" />
+                    <select
+                      className="bg-transparent text-amber-400 text-sm border-b border-amber-500/30 focus:outline-none cursor-pointer"
+                      value=""
+                      onChange={(e) => {
+                        if (e.target.value) {
+                          handleAssignDock(record.id, e.target.value);
+                        }
+                      }}
+                    >
+                      <option value="">分配月台</option>
+                      {idleDocks.map(d => (
+                        <option key={d.id} value={d.id} className="bg-slate-800">
+                          {d.number} 号月台
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                ) : null}
+              </div>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            {canCheckIn(record) && (
+              <button
+                onClick={() => handleCheckIn(record)}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-sm font-medium transition-colors"
+              >
+                签到
+              </button>
+            )}
+            {canStartUnload(record) && (
+              <button
+                onClick={() => handleStartUnload(record)}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-600 hover:bg-amber-500 text-white rounded-lg text-sm font-medium transition-colors"
+              >
+                <Play className="w-3.5 h-3.5" />
+                开始卸货
+              </button>
+            )}
+            {canFinishUnload(record) && (
+              <button
+                onClick={() => handleFinishUnload(record)}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-sm font-medium transition-colors"
+              >
+                <Square className="w-3.5 h-3.5" />
+                卸货完成
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const canCheckIn = (r: UnloadRecord) => r.status === 'pending';
   const canStartUnload = (r: UnloadRecord) => r.status === 'checkin';
@@ -512,120 +626,26 @@ export default function CheckIn() {
         </div>
       ) : (
         <div className="space-y-3">
-          {filteredRecords.length === 0 ? (
+          {targetRecordOutsideFilter && (
+            <div className="mb-2">
+              <div className="text-xs text-amber-400 mb-1.5 flex items-center gap-1">
+                <AlertTriangle className="w-3 h-3" />
+                目标记录不在当前筛选范围内，已置顶显示
+              </div>
+              {renderRecordRow(targetRecordOutsideFilter, true)}
+            </div>
+          )}
+          {filteredRecords.length > 0 && targetRecordOutsideFilter && (
+            <div className="pt-2 mt-2 border-t border-slate-700/50">
+              <p className="text-xs text-slate-500 mb-2">筛选结果 ({filteredRecords.length})</p>
+            </div>
+          )}
+          {filteredRecords.length === 0 && !targetRecordOutsideFilter ? (
             <div className="py-16 text-center text-slate-400">暂无记录</div>
           ) : (
-            filteredRecords.map((record) => (
-              <div
-                key={record.id}
-                ref={(el) => {
-                  if (el) recordRefs.current.set(record.id, el);
-                }}
-                className={`bg-slate-800/30 rounded-xl border p-4 hover:bg-slate-800/50 transition-all duration-300 ${
-                  highlightedId === record.id
-                    ? 'border-blue-500 ring-2 ring-blue-500/50 shadow-lg shadow-blue-500/20 bg-blue-500/10 scale-[1.01]'
-                    : selectedIds.has(record.id)
-                      ? 'border-blue-500/50 bg-blue-500/5'
-                      : 'border-slate-700/50'
-                }`}
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-4">
-                    <button
-                      onClick={() => toggleSelect(record.id)}
-                      className="p-1 text-slate-400 hover:text-slate-200"
-                      disabled={record.status === 'completed'}
-                    >
-                      {selectedIds.has(record.id) ? (
-                        <CheckSquare className="w-4 h-4 text-blue-400" />
-                      ) : (
-                        <SquareIcon className="w-4 h-4" />
-                      )}
-                    </button>
-                    <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-blue-600 to-cyan-500 flex items-center justify-center">
-                      <Package className="w-6 h-6 text-white" />
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-3">
-                        <span className="font-semibold text-lg text-slate-100">
-                          {record.plateNumber}
-                        </span>
-                        <StatusBadge status={record.status} />
-                      </div>
-                      <div className="flex items-center gap-4 mt-1 text-sm text-slate-400">
-                        <span className="flex items-center gap-1">
-                          <User className="w-3.5 h-3.5" />
-                          {record.driverName}
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <Phone className="w-3.5 h-3.5" />
-                          {record.driverPhone}
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <Package className="w-3.5 h-3.5" />
-                          {record.cargoType} · {record.plannedQuantity}件
-                        </span>
-                        {record.dockNumber ? (
-                          <span className="flex items-center gap-1 text-emerald-400">
-                            <MapPin className="w-3.5 h-3.5" />
-                            {record.dockNumber} 号月台
-                          </span>
-                        ) : canAssignDock(record) ? (
-                          <div className="flex items-center gap-1">
-                            <MapPin className="w-3.5 h-3.5" />
-                            <select
-                              className="bg-transparent text-amber-400 text-sm border-b border-amber-500/30 focus:outline-none cursor-pointer"
-                              value=""
-                              onChange={(e) => {
-                                if (e.target.value) {
-                                  handleAssignDock(record.id, e.target.value);
-                                }
-                              }}
-                            >
-                              <option value="">分配月台</option>
-                              {idleDocks.map(d => (
-                                <option key={d.id} value={d.id} className="bg-slate-800">
-                                  {d.number} 号月台
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-                        ) : null}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    {canCheckIn(record) && (
-                      <button
-                        onClick={() => handleCheckIn(record)}
-                        className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-sm font-medium transition-colors"
-                      >
-                        签到
-                      </button>
-                    )}
-                    {canStartUnload(record) && (
-                      <button
-                        onClick={() => handleStartUnload(record)}
-                        className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-600 hover:bg-amber-500 text-white rounded-lg text-sm font-medium transition-colors"
-                      >
-                        <Play className="w-3.5 h-3.5" />
-                        开始卸货
-                      </button>
-                    )}
-                    {canFinishUnload(record) && (
-                      <button
-                        onClick={() => handleFinishUnload(record)}
-                        className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-sm font-medium transition-colors"
-                      >
-                        <Square className="w-3.5 h-3.5" />
-                        卸货完成
-                      </button>
-                    )}
-                  </div>
-                </div>
-              </div>
-            ))
+            filteredRecords
+              .filter(r => r.id !== targetRecordOutsideFilter?.id)
+              .map(record => renderRecordRow(record, false))
           )}
         </div>
       )}
