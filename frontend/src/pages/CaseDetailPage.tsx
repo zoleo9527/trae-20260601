@@ -69,6 +69,33 @@ const CaseDetailPage: React.FC<CaseDetailPageProps> = ({ caseId, role, onBack })
         </div>
       </div>
 
+      <div className="responsibility-card">
+        <div className="responsibility-header">
+          <h3>当前责任状态</h3>
+          <span className="responsible-role-badge">
+            {caseRecord.responsibleRole || '无'}
+          </span>
+        </div>
+        <div className="responsibility-info">
+          <div className="info-item">
+            <span className="info-label">当前处理角色</span>
+            <span className="info-value">{caseRecord.responsibleRole || '-'}</span>
+          </div>
+          <div className="info-item">
+            <span className="info-label">商务对接</span>
+            <span className="info-value">{caseRecord.businessName || '-'}</span>
+          </div>
+          <div className="info-item">
+            <span className="info-label">达人经纪</span>
+            <span className="info-value">{caseRecord.agentName || '-'}</span>
+          </div>
+          <div className="info-item">
+            <span className="info-label">更新时间</span>
+            <span className="info-value">{new Date(caseRecord.updatedAt).toLocaleString()}</span>
+          </div>
+        </div>
+      </div>
+
       <div className="tabs">
         <button
           className={activeTab === 'overview' ? 'tab-btn active' : 'tab-btn'}
@@ -169,21 +196,63 @@ const CaseDetailPage: React.FC<CaseDetailPageProps> = ({ caseId, role, onBack })
               )}
             </div>
 
-            {(caseRecord.rejectReason || caseRecord.supplementaryRemark) && (
+            {caseRecord.hasReject && (
+              <div className="info-card danger">
+                <h3>驳回记录</h3>
+                <div className="info-row">
+                  <span className="label">最近退回原因</span>
+                  <span className="value reject">{caseRecord.latestRejectReason}</span>
+                </div>
+                <div className="info-row">
+                  <span className="label">驳回时间</span>
+                  <span className="value">{caseRecord.rejectAt ? new Date(caseRecord.rejectAt).toLocaleString() : '-'}</span>
+                </div>
+                <div className="info-row full">
+                  <span className="label">完整驳回历史</span>
+                  <pre className="value pre">{caseRecord.rejectReason}</pre>
+                </div>
+              </div>
+            )}
+
+            {caseRecord.hasSupplementary && (
               <div className="info-card warning">
-                <h3>特殊记录</h3>
-                {caseRecord.rejectReason && (
+                <h3>补录备注</h3>
+                <div className="info-row">
+                  <span className="label">补录摘要</span>
+                  <span className="value">{caseRecord.supplementarySummary}</span>
+                </div>
+                <div className="info-row">
+                  <span className="label">补录时间</span>
+                  <span className="value">{caseRecord.supplementaryAt ? new Date(caseRecord.supplementaryAt).toLocaleString() : '-'}</span>
+                </div>
+                <div className="info-row full">
+                  <span className="label">完整补录历史</span>
+                  <pre className="value pre">{caseRecord.supplementaryRemark}</pre>
+                </div>
+              </div>
+            )}
+
+            {caseRecord.hasDelay && (
+              <div className="info-card delayed">
+                <h3>延期记录</h3>
+                <div className="info-row">
+                  <span className="label">延期摘要</span>
+                  <span className="value">{caseRecord.delaySummary}</span>
+                </div>
+                <div className="info-row">
+                  <span className="label">延期时间</span>
+                  <span className="value">{caseRecord.delayAt ? new Date(caseRecord.delayAt).toLocaleString() : '-'}</span>
+                </div>
+                {caseRecord.delayedDays && (
                   <div className="info-row">
-                    <span className="label">驳回原因</span>
-                    <span className="value reject">{caseRecord.rejectReason}</span>
+                    <span className="label">延期天数</span>
+                    <span className="value">{caseRecord.delayedDays} 天</span>
                   </div>
                 )}
-                {caseRecord.supplementaryRemark && (
-                  <div className="info-row">
-                    <span className="label">补充备注</span>
-                    <span className="value">{caseRecord.supplementaryRemark}</span>
-                  </div>
-                )}
+                <div className="info-row full">
+                  <span className="label">完整延期历史</span>
+                  <pre className="value pre">{caseRecord.delayRemark}</pre>
+                </div>
               </div>
             )}
           </div>

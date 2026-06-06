@@ -360,8 +360,16 @@ router.get('/cases/:caseId', (req: Request, res: Response) => {
   const business = db.users.find(u => u.id === demand?.businessId);
   const agent = db.users.find(u => u.id === talent?.agentId);
 
+  const enrichedCase = enrichCaseRecord(caseRecord, {
+    brandName: demand?.brandName,
+    productName: demand?.productName,
+    talentName: talent?.name,
+    businessName: business?.name,
+    agentName: agent?.name
+  });
+
   res.json({
-    case: caseRecord,
+    case: enrichedCase,
     demand,
     talent,
     script,
