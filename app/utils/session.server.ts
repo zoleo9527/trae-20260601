@@ -1,122 +1,76 @@
 import { createCookieSessionStorage, redirect } from "@remix-run/node";
-import invariant from "tiny-invariant";
+import { findUserByUsername, verifyPassword } from "./dataService";
 import { db } from "./db.server";
-import bcrypt from "bcryptjs";
+import type { User } from "@prisma/client";
 
-invariant(process.env.SESSION_SECRET, "SESSION_SECRET must be set");
+if (!process.env.SESSION_SECRET) {
+  throw new Error("SESSION_SECRET must be set");
+}
 
-export const sessionStorage = createCookieSessionStorage({
+const storage = createCookieSessionStorage({
   cookie: {
-    name: "__session",
-    httpOnly: true,
-    path: "/",
-    sameSite: "lax",
-    secrets: [process.env.SESSION_SECRET],
+    name: "dorm_inspection_session",
     secure: process.env.NODE_ENV === "production",
-    maxAge: 60 * 60 * 24 * 7,
+    secrets: [process.env.SESSION_SECRET],
+    sameSite: "lax",
+    path: "/",
+    maxAge: 60 * 60 * 24 * 30,
+    httpOnly: true,
   },
 });
 
-const USER_SESSION_KEY = "userId";
+export async function createUserSession(userId: string, redirectTo: string) {
+  const session = await storage.getSession();
+  session.set("userId", userId);
+  return redirect(redirectTo, {
+    headers: {
+      "Set-Cookie": await storage.commitSession(session),
+    },
+  });
+}
 
-export async function getUserId(request: Request) {
-  const session = await getSession(request);
-  const userId = session.get(USER_SESSION_KEY);
+export async function getUserSession(request: Request) {
+  return storage.getSession(request.headers.get("Cookie"));
+}
+
+export async function getUserId(request: Request): Promise<string | null> {
+  const session = await getUserSession(request);
+  const userId = session.get("userId");
+  if (!userId || typeof userId !== "string") return null;
   return userId;
 }
 
-export async function getUser(request: Request) {
+export async function getUser(request: Request): Promise<User | null> {
   const userId = await getUserId(request);
-  if (typeof userId !== "string") {
-    return null;
-  }
-
-  try {
-    const user = await db.user.findUnique({
-      where: { id: userId },
-      select: { id: true, username: true, name: true, role: true },
-    });
-    return user;
-  } catch {
-    throw logout(request);
-  }
+  if (!userId) return null;
+  
+  return db.user.findUnique({ where: { id: userId } });
 }
 
-export async function requireUserId(
-  request: Request,
-  redirectTo: string = new URL(request.url).pathname
-) {
-  const userId = await getUserId(request);
-  if (!userId) {
+export async function requireUser(request: Request, redirectTo: string = new URL(request.url).pathname) {
+  const user = await getUser(request);
+  if (!user) {
     const searchParams = new URLSearchParams([["redirectTo", redirectTo]]);
     throw redirect(`/login?${searchParams}`);
-  }
-  return userId;
-}
-
-export async function requireUser(request: Request) {
-  const userId = await requireUserId(request);
-
-  const user = await db.user.findUnique({
-    where: { id: userId },
-    select: { id: true, username: true, name: true, role: true },
-  });
-  if (!user) {
-    throw logout(request);
   }
   return user;
 }
 
-export async function login({
-  username,
-  password,
-}: {
-  username: string;
-  password: string;
-}) {
-  const user = await db.user.findUnique({ where: { username } });
+export async function login(username: string, password: string): Promise<User | null> {
+  const user = await findUserByUsername(username);
   if (!user) return null;
-
-  const isCorrectPassword = await bcrypt.compare(password, user.passwordHash);
-  if (!isCorrectPassword) return null;
-
-  return { id: user.id, username: user.username, name: user.name, role: user.role };
-}
-
-export async function createUserSession({
-  request,
-  userId,
-  remember = false,
-  redirectTo = "/",
-}: {
-  request: Request;
-  userId: string;
-  remember?: boolean;
-  redirectTo?: string;
-}) {
-  const session = await getSession(request);
-  session.set(USER_SESSION_KEY, userId);
-  return redirect(redirectTo, {
-    headers: {
-      "Set-Cookie": await sessionStorage.commitSession(session, {
-        maxAge: remember
-          ? 60 * 60 * 24 * 7
-          : undefined,
-      }),
-    },
-  });
+  
+  const isValid = await verifyPassword(user, password);
+  if (!isValid) return null;
+  
+  return user;
 }
 
 export async function logout(request: Request) {
-  const session = await getSession(request);
+  const session = await getUserSession(request);
   return redirect("/login", {
     headers: {
-      "Set-Cookie": await sessionStorage.destroySession(session),
+      "Set-Cookie": await storage.destroySession(session),
     },
   });
-}
-
-async function getSession(request: Request) {
-  const cookie = request.headers.get("Cookie");
-  return sessionStorage.getSession(cookie);
 }

@@ -1,83 +1,185 @@
-import {
-  mockUsers,
-  mockStudents,
-  mockKeyRecords,
-  mockInspections,
-  mockDorms,
-  generateId,
-  type User,
-  type Student,
-  type KeyRecord,
-  type Inspection,
-  type Dorm,
-  type Rectification,
-  type TimelineEvent,
-} from "./mockData";
+import { db } from "./db.server";
 import bcrypt from "bcryptjs";
-
-export let currentUserId: string | null = null;
+import type {
+  User,
+  Inspection,
+  InspectionItem,
+  Student,
+  KeyRecord,
+  Dorm,
+  InspectionStatus,
+  InspectionGrade,
+  TimelineEventType,
+} from "@prisma/client";
 
 export async function findUserByUsername(username: string): Promise<User | null> {
-  return mockUsers.find((u) => u.username === username) || null;
+  return db.user.findUnique({ where: { username } });
 }
 
 export async function verifyPassword(user: User, password: string): Promise<boolean> {
-  if (password === "123456") return true;
   return bcrypt.compare(password, user.passwordHash).catch(() => false);
 }
 
-export function setCurrentUserId(userId: string | null) {
-  currentUserId = userId;
-}
-
-export function getCurrentUser(): User | null {
-  if (!currentUserId) return null;
-  return mockUsers.find((u) => u.id === currentUserId) || null;
-}
+const inspectionInclude = {
+  dorm: true,
+  inspector: true,
+  maintenanceAssignee: true,
+  items: true,
+  rectifications: true,
+  timelineEvents: {
+    include: { user: true },
+    orderBy: { createdAt: "asc" as const },
+  },
+};
 
 export async function getAllInspections(statusFilter?: string): Promise<Inspection[]> {
+  const where: any = {};
   if (statusFilter && statusFilter !== "all") {
-    return mockInspections.filter((i) => i.status === statusFilter);
+    where.status = statusFilter as InspectionStatus;
   }
-  return [...mockInspections].sort((a, b) => 
-    new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-  );
+  return db.inspection.findMany({
+    where,
+    include: inspectionInclude,
+    orderBy: { createdAt: "desc" as const },
+  });
 }
 
 export async function getInspectionById(id: string): Promise<Inspection | null> {
-  return mockInspections.find((i) => i.id === id) || null;
+  return db.inspection.findUnique({
+    where: { id },
+    include: inspectionInclude,
+  });
 }
 
 export async function getInspectionStats(): Promise<Record<string, number>> {
+  const inspections = await db.inspection.groupBy({
+    by: ["status"],
+    _count: { status: true },
+  });
   const stats: Record<string, number> = {};
-  mockInspections.forEach((i) => {
-    stats[i.status] = (stats[i.status] || 0) + 1;
+  inspections.forEach((i) => {
+    stats[i.status] = i._count.status;
   });
   return stats;
 }
 
 export async function getInspectionCount(): Promise<number> {
-  return mockInspections.length;
+  return db.inspection.count();
 }
 
 export async function getStudentsWithLateReturns(dormId?: string): Promise<Student[]> {
-  let students = [...mockStudents];
+  const where: any = {};
   if (dormId) {
-    students = students.filter((s) => s.dormId === dormId);
+    where.dormId = dormId;
   }
-  return students;
+  return db.student.findMany({
+    where,
+    include: { lateReturns: true },
+    orderBy: { studentId: "asc" as const },
+  });
 }
 
 export async function getAllStudents(): Promise<Student[]> {
-  return [...mockStudents];
+  return db.student.findMany({
+    include: { lateReturns: true, dorm: true },
+    orderBy: { studentId: "asc" as const },
+  });
 }
 
 export async function getAllKeyRecords(): Promise<KeyRecord[]> {
-  return [...mockKeyRecords];
+  return db.keyRecord.findMany({
+    include: { dorm: true },
+    orderBy: { createdAt: "desc" as const },
+  });
 }
 
 export async function getDormById(id: string): Promise<Dorm | null> {
-  return mockDorms.find((d) => d.id === id) || null;
+  return db.dorm.findUnique({ where: { id } });
+}
+
+export async function submitInspection(
+  inspectionId: string,
+  data: {
+    items: Array<{
+      id: string;
+      isPassed: boolean;
+      score?: number;
+      issue?: string;
+      needRepair: boolean;
+    }>;
+    overallGrade: InspectionGrade;
+    deadline?: Date;
+    remarks?: string;
+    currentUser: User;
+  }
+): Promise<Inspection | null> {
+  const inspection = await db.inspection.findUnique({ where: { id: inspectionId } });
+  if (!inspection) return null;
+
+  const hasFailedItems = data.items.some((item) => !item.isPassed);
+  const hasRepairItems = data.items.some((item) => item.needRepair);
+  const newStatus: InspectionStatus = hasFailedItems || hasRepairItems
+    ? "NEEDS_RECTIFICATION"
+    : "PASSED";
+
+  await db.$transaction(async (tx) => {
+    for (const item of data.items) {
+      await tx.inspectionItem.update({
+        where: { id: item.id },
+        data: {
+          isPassed: item.isPassed,
+          score: item.score,
+          issue: item.issue,
+          needRepair: item.needRepair,
+        },
+      });
+    }
+
+    await tx.inspection.update({
+      where: { id: inspectionId },
+      data: {
+        inspectorId: data.currentUser.id,
+        overallGrade: data.overallGrade,
+        inspectionDate: new Date(),
+        deadline: data.deadline,
+        remarks: data.remarks,
+        status: newStatus,
+      },
+    });
+
+    await tx.timelineEvent.create({
+      data: {
+        inspectionId,
+        eventType: "INSPECTION_SUBMITTED" as TimelineEventType,
+        description: `${data.currentUser.name}完成卫生检查，评定为${data.overallGrade}`,
+        userId: data.currentUser.id,
+        metadata: { grade: data.overallGrade },
+      },
+    });
+
+    if (newStatus === "NEEDS_RECTIFICATION") {
+      await tx.timelineEvent.create({
+        data: {
+          inspectionId,
+          eventType: "NEEDS_RECTIFICATION_NOTIFIED" as TimelineEventType,
+          description: "已通知需要整改的问题",
+          userId: data.currentUser.id,
+          metadata: { deadline: data.deadline?.toISOString() },
+        },
+      });
+    } else {
+      await tx.timelineEvent.create({
+        data: {
+          inspectionId,
+          eventType: "PASSED" as TimelineEventType,
+          description: "检查通过，无需整改",
+          userId: data.currentUser.id,
+        },
+      });
+    }
+  });
+
+  return getInspectionById(inspectionId);
 }
 
 export async function submitRectification(
@@ -86,38 +188,37 @@ export async function submitRectification(
   submittedBy: string,
   currentUser: User
 ): Promise<Inspection | null> {
-  const inspection = mockInspections.find((i) => i.id === inspectionId);
+  const inspection = await db.inspection.findUnique({ where: { id: inspectionId } });
   if (!inspection) return null;
 
-  const newRect: Rectification = {
-    id: generateId(),
-    inspectionId,
-    description,
-    submittedBy,
-    submittedAt: new Date().toISOString(),
-    photos: [],
-    isRejected: false,
-    rejectionCount: 0,
-  };
+  await db.$transaction(async (tx) => {
+    await tx.rectification.create({
+      data: {
+        inspectionId,
+        description,
+        submittedBy,
+        submittedAt: new Date(),
+        photos: [],
+      },
+    });
 
-  inspection.rectifications.push(newRect);
-  inspection.status = "RECTIFIED";
-  inspection.updatedAt = new Date().toISOString();
+    await tx.inspection.update({
+      where: { id: inspectionId },
+      data: { status: "RECTIFIED" as InspectionStatus },
+    });
 
-  const timelineEvent: TimelineEvent = {
-    id: generateId(),
-    inspectionId,
-    eventType: "RECTIFICATION_SUBMITTED",
-    description: `${submittedBy}提交了整改材料，等待复查`,
-    userId: currentUser.role === "DORM_MANAGER" ? currentUser.id : undefined,
-    user: currentUser.role === "DORM_MANAGER" ? currentUser : undefined,
-    metadata: { submittedBy },
-    createdAt: new Date().toISOString(),
-  };
+    await tx.timelineEvent.create({
+      data: {
+        inspectionId,
+        eventType: "RECTIFICATION_SUBMITTED" as TimelineEventType,
+        description: `${submittedBy}提交了整改材料，等待复查`,
+        userId: currentUser.role === "DORM_MANAGER" ? currentUser.id : null,
+        metadata: { submittedBy },
+      },
+    });
+  });
 
-  inspection.timelineEvents.push(timelineEvent);
-
-  return inspection;
+  return getInspectionById(inspectionId);
 }
 
 export async function approveRectification(
@@ -126,35 +227,38 @@ export async function approveRectification(
   reviewComments: string,
   currentUser: User
 ): Promise<Inspection | null> {
-  const inspection = mockInspections.find((i) => i.id === inspectionId);
+  const inspection = await db.inspection.findUnique({ where: { id: inspectionId } });
   if (!inspection) return null;
 
-  const rect = inspection.rectifications.find((r) => r.id === rectificationId);
-  if (!rect) return null;
+  await db.$transaction(async (tx) => {
+    await tx.rectification.update({
+      where: { id: rectificationId },
+      data: {
+        reviewedBy: currentUser.name,
+        reviewedAt: new Date(),
+        reviewResult: "approved",
+        reviewComments,
+        isRejected: false,
+      },
+    });
 
-  rect.reviewedBy = currentUser.name;
-  rect.reviewedAt = new Date().toISOString();
-  rect.reviewResult = "approved";
-  rect.reviewComments = reviewComments;
-  rect.isRejected = false;
+    await tx.inspection.update({
+      where: { id: inspectionId },
+      data: { status: "RECTIFICATION_PASSED" as InspectionStatus },
+    });
 
-  inspection.status = "RECTIFICATION_PASSED";
-  inspection.updatedAt = new Date().toISOString();
+    await tx.timelineEvent.create({
+      data: {
+        inspectionId,
+        eventType: "RECTIFICATION_APPROVED" as TimelineEventType,
+        description: `辅导员${currentUser.name}复查通过，整改完成`,
+        userId: currentUser.id,
+        metadata: { comments: reviewComments },
+      },
+    });
+  });
 
-  const timelineEvent: TimelineEvent = {
-    id: generateId(),
-    inspectionId,
-    eventType: "RECTIFICATION_APPROVED",
-    description: `辅导员${currentUser.name}复查通过，整改完成`,
-    userId: currentUser.id,
-    user: currentUser,
-    metadata: { comments: reviewComments },
-    createdAt: new Date().toISOString(),
-  };
-
-  inspection.timelineEvents.push(timelineEvent);
-
-  return inspection;
+  return getInspectionById(inspectionId);
 }
 
 export async function rejectRectification(
@@ -163,36 +267,45 @@ export async function rejectRectification(
   reviewComments: string,
   currentUser: User
 ): Promise<Inspection | null> {
-  const inspection = mockInspections.find((i) => i.id === inspectionId);
+  const inspection = await db.inspection.findUnique({
+    where: { id: inspectionId },
+    include: { rectifications: true },
+  });
   if (!inspection) return null;
 
   const rect = inspection.rectifications.find((r) => r.id === rectificationId);
-  if (!rect) return null;
+  const newRejectionCount = (rect?.rejectionCount || 0) + 1;
 
-  rect.reviewedBy = currentUser.name;
-  rect.reviewedAt = new Date().toISOString();
-  rect.reviewResult = "rejected";
-  rect.reviewComments = reviewComments;
-  rect.isRejected = true;
-  rect.rejectionCount = rect.rejectionCount + 1;
+  await db.$transaction(async (tx) => {
+    await tx.rectification.update({
+      where: { id: rectificationId },
+      data: {
+        reviewedBy: currentUser.name,
+        reviewedAt: new Date(),
+        reviewResult: "rejected",
+        reviewComments,
+        isRejected: true,
+        rejectionCount: newRejectionCount,
+      },
+    });
 
-  inspection.status = "RECTIFICATION_REJECTED";
-  inspection.updatedAt = new Date().toISOString();
+    await tx.inspection.update({
+      where: { id: inspectionId },
+      data: { status: "RECTIFICATION_REJECTED" as InspectionStatus },
+    });
 
-  const timelineEvent: TimelineEvent = {
-    id: generateId(),
-    inspectionId,
-    eventType: "RECTIFICATION_REJECTED",
-    description: `辅导员${currentUser.name}复核不通过，要求重新整改`,
-    userId: currentUser.id,
-    user: currentUser,
-    metadata: { comments: reviewComments, rejectionCount: rect.rejectionCount },
-    createdAt: new Date().toISOString(),
-  };
+    await tx.timelineEvent.create({
+      data: {
+        inspectionId,
+        eventType: "RECTIFICATION_REJECTED" as TimelineEventType,
+        description: `辅导员${currentUser.name}复核不通过，要求重新整改`,
+        userId: currentUser.id,
+        metadata: { comments: reviewComments, rejectionCount: newRejectionCount },
+      },
+    });
+  });
 
-  inspection.timelineEvents.push(timelineEvent);
-
-  return inspection;
+  return getInspectionById(inspectionId);
 }
 
 export async function assignMaintenance(
@@ -200,81 +313,95 @@ export async function assignMaintenance(
   maintenanceId: string,
   currentUser: User
 ): Promise<Inspection | null> {
-  const inspection = mockInspections.find((i) => i.id === inspectionId);
+  const inspection = await db.inspection.findUnique({ where: { id: inspectionId } });
   if (!inspection) return null;
 
-  const maintenanceUser = mockUsers.find((u) => u.id === maintenanceId);
-  inspection.maintenanceId = maintenanceId;
-  inspection.maintenanceAssignee = maintenanceUser;
-  inspection.status = "MAINTENANCE_ASSIGNED";
-  inspection.updatedAt = new Date().toISOString();
+  const maintenanceUser = await db.user.findUnique({ where: { id: maintenanceId } });
 
-  const timelineEvent: TimelineEvent = {
-    id: generateId(),
-    inspectionId,
-    eventType: "MAINTENANCE_ASSIGNED",
-    description: `已指派${maintenanceUser?.name || "维修人员"}进行维修`,
-    userId: currentUser.id,
-    user: currentUser,
-    metadata: { maintenanceId, maintenanceName: maintenanceUser?.name },
-    createdAt: new Date().toISOString(),
-  };
+  await db.$transaction(async (tx) => {
+    await tx.inspection.update({
+      where: { id: inspectionId },
+      data: {
+        maintenanceId,
+        status: "MAINTENANCE_ASSIGNED" as InspectionStatus,
+      },
+    });
 
-  inspection.timelineEvents.push(timelineEvent);
+    await tx.timelineEvent.create({
+      data: {
+        inspectionId,
+        eventType: "MAINTENANCE_ASSIGNED" as TimelineEventType,
+        description: `已指派${maintenanceUser?.name || "维修人员"}进行维修`,
+        userId: currentUser.id,
+        metadata: { maintenanceId, maintenanceName: maintenanceUser?.name },
+      },
+    });
+  });
 
-  return inspection;
+  return getInspectionById(inspectionId);
 }
 
 export async function completeMaintenance(
   inspectionId: string,
   currentUser: User
 ): Promise<Inspection | null> {
-  const inspection = mockInspections.find((i) => i.id === inspectionId);
+  const inspection = await db.inspection.findUnique({ where: { id: inspectionId } });
   if (!inspection) return null;
 
-  inspection.status = "MAINTENANCE_COMPLETED";
-  inspection.updatedAt = new Date().toISOString();
+  await db.$transaction(async (tx) => {
+    await tx.inspection.update({
+      where: { id: inspectionId },
+      data: { status: "MAINTENANCE_COMPLETED" as InspectionStatus },
+    });
 
-  const timelineEvent: TimelineEvent = {
-    id: generateId(),
-    inspectionId,
-    eventType: "MAINTENANCE_COMPLETED",
-    description: `维修人员${currentUser.name}已完成维修工作`,
-    userId: currentUser.id,
-    user: currentUser,
-    createdAt: new Date().toISOString(),
-  };
+    await tx.timelineEvent.create({
+      data: {
+        inspectionId,
+        eventType: "MAINTENANCE_COMPLETED" as TimelineEventType,
+        description: `维修人员${currentUser.name}已完成维修工作`,
+        userId: currentUser.id,
+      },
+    });
+  });
 
-  inspection.timelineEvents.push(timelineEvent);
-
-  return inspection;
+  return getInspectionById(inspectionId);
 }
 
 export async function closeInspection(
   inspectionId: string,
   currentUser: User
 ): Promise<Inspection | null> {
-  const inspection = mockInspections.find((i) => i.id === inspectionId);
+  const inspection = await db.inspection.findUnique({ where: { id: inspectionId } });
   if (!inspection) return null;
 
-  inspection.status = "CLOSED";
-  inspection.updatedAt = new Date().toISOString();
+  await db.$transaction(async (tx) => {
+    await tx.inspection.update({
+      where: { id: inspectionId },
+      data: { status: "CLOSED" as InspectionStatus },
+    });
 
-  const timelineEvent: TimelineEvent = {
-    id: generateId(),
-    inspectionId,
-    eventType: "CLOSED",
-    description: `${currentUser.name}已关闭检查单`,
-    userId: currentUser.id,
-    user: currentUser,
-    createdAt: new Date().toISOString(),
-  };
+    await tx.timelineEvent.create({
+      data: {
+        inspectionId,
+        eventType: "CLOSED" as TimelineEventType,
+        description: `${currentUser.name}已关闭检查单`,
+        userId: currentUser.id,
+      },
+    });
+  });
 
-  inspection.timelineEvents.push(timelineEvent);
-
-  return inspection;
+  return getInspectionById(inspectionId);
 }
 
-export function getMaintenanceUsers(): User[] {
-  return mockUsers.filter((u) => u.role === "MAINTENANCE");
+export function getMaintenanceUsers(): Promise<User[]> {
+  return db.user.findMany({
+    where: { role: "MAINTENANCE" },
+  });
+}
+
+export async function getLateReturnRecords() {
+  return db.lateReturnRecord.findMany({
+    include: { student: true },
+    orderBy: { date: "desc" as const },
+  });
 }

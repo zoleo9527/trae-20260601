@@ -2,7 +2,7 @@ import type { LoaderFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
 import { Link, useLoaderData } from "@remix-run/react";
 import { Layout } from "~/components/Layout";
-import { requireUser } from "~/utils/simpleSession";
+import { requireUser } from "~/utils/session.server";
 import { getAllInspections, getInspectionStats, getInspectionCount } from "~/utils/dataService";
 import { STATUS_LABELS, STATUS_COLORS, GRADE_LABELS } from "~/utils/types";
 import clsx from "clsx";

@@ -2,7 +2,7 @@ import type { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
 import { json, redirect } from "@remix-run/node";
 import { Form, useLoaderData, useNavigation } from "@remix-run/react";
 import { Layout } from "~/components/Layout";
-import { requireUser } from "~/utils/simpleSession";
+import { requireUser } from "~/utils/session.server";
 import {
   getInspectionById,
   getStudentsWithLateReturns,
@@ -13,10 +13,32 @@ import {
   completeMaintenance,
   closeInspection,
   getMaintenanceUsers,
+  submitInspection,
 } from "~/utils/dataService";
 import { STATUS_LABELS, STATUS_COLORS, GRADE_LABELS } from "~/utils/types";
 import clsx from "clsx";
 import invariant from "tiny-invariant";
+import type { InspectionGrade, InspectionItem, Rectification, TimelineEvent, Dorm, User } from "@prisma/client";
+
+type InspectionWithRelations = {
+  id: string;
+  dormId: string;
+  inspectorId: string | null;
+  maintenanceId: string | null;
+  status: string;
+  overallGrade: InspectionGrade | null;
+  inspectionDate: Date | null;
+  deadline: Date | null;
+  remarks: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+  dorm: Dorm;
+  inspector: User | null;
+  maintenanceAssignee: User | null;
+  items: InspectionItem[];
+  rectifications: Rectification[];
+  timelineEvents: (TimelineEvent & { user: User | null })[];
+};
 
 export async function loader({ request, params }: LoaderFunctionArgs) {
   const user = await requireUser(request);
@@ -28,7 +50,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
   }
 
   const studentsWithLateReturns = await getStudentsWithLateReturns(inspection.dormId);
-  const maintenanceUsers = getMaintenanceUsers();
+  const maintenanceUsers = await getMaintenanceUsers();
 
   return json({ user, inspection, studentsWithLateReturns, maintenanceUsers });
 }
@@ -39,6 +61,36 @@ export async function action({ request, params }: ActionFunctionArgs) {
 
   const formData = await request.formData();
   const _action = formData.get("_action")?.toString();
+
+  if (_action === "submit_inspection") {
+    const items = [];
+    const itemIds = formData.getAll("itemId") as string[];
+    
+    for (const itemId of itemIds) {
+      const isPassed = formData.get(`isPassed_${itemId}`) === "true";
+      const score = parseInt(formData.get(`score_${itemId}`)?.toString() || "0");
+      const issue = formData.get(`issue_${itemId}`)?.toString() || "";
+      const needRepair = formData.get(`needRepair_${itemId}`) === "true";
+      
+      items.push({ id: itemId, isPassed, score, issue, needRepair });
+    }
+
+    const overallGrade = formData.get("overallGrade")?.toString() as InspectionGrade;
+    const deadlineStr = formData.get("deadline")?.toString();
+    const remarks = formData.get("remarks")?.toString() || "";
+    
+    const deadline = deadlineStr ? new Date(deadlineStr) : undefined;
+
+    await submitInspection(params.id, {
+      items,
+      overallGrade,
+      deadline,
+      remarks,
+      currentUser: user,
+    });
+
+    return redirect(`/inspections/${params.id}`);
+  }
 
   if (_action === "submit_rectification") {
     const description = formData.get("description")?.toString() || "";
@@ -81,17 +133,26 @@ export async function action({ request, params }: ActionFunctionArgs) {
 }
 
 export default function InspectionDetailPage() {
-  const { user, inspection, studentsWithLateReturns, maintenanceUsers } = useLoaderData<typeof loader>();
+  const loaderData = useLoaderData<typeof loader>();
+  const { user, studentsWithLateReturns, maintenanceUsers } = loaderData;
+  const inspection = loaderData.inspection as unknown as InspectionWithRelations;
   const navigation = useNavigation();
 
   const isOverdue = inspection.deadline && new Date(inspection.deadline) < new Date();
-  const latestRectification = inspection.rectifications[0];
+  const latestRectification = inspection.rectifications[inspection.rectifications.length - 1];
 
-  const groupedItems = inspection.items.reduce((acc: any, item: any) => {
+  const groupedItems = inspection.items.reduce((acc: Record<string, typeof inspection.items>, item) => {
     if (!acc[item.category]) acc[item.category] = [];
     acc[item.category].push(item);
     return acc;
   }, {});
+
+  const gradeOptions = [
+    { value: "EXCELLENT", label: "优秀" },
+    { value: "GOOD", label: "良好" },
+    { value: "FAIR", label: "一般" },
+    { value: "POOR", label: "差" },
+  ];
 
   return (
     <Layout user={user}>
@@ -109,10 +170,10 @@ export default function InspectionDetailPage() {
             <span
               className={clsx(
                 "px-3 py-1.5 rounded-full text-sm font-medium",
-                STATUS_COLORS[inspection.status]
+                STATUS_COLORS[inspection.status as keyof typeof STATUS_COLORS]
               )}
             >
-              {STATUS_LABELS[inspection.status]}
+              {STATUS_LABELS[inspection.status as keyof typeof STATUS_LABELS]}
             </span>
             {isOverdue && (
               <span className="px-3 py-1.5 bg-red-100 text-red-700 rounded-full text-sm font-medium animate-pulse">
@@ -124,75 +185,213 @@ export default function InspectionDetailPage() {
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 space-y-6">
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">检查项目明细</h2>
-              {Object.entries(groupedItems).map(([category, items]: any) => (
-                <div key={category} className="mb-6 last:mb-0">
-                  <h3 className="text-sm font-medium text-gray-700 mb-3">{category}</h3>
-                  <div className="space-y-3">
-                    {items.map((item: any) => (
-                      <div
-                        key={item.id}
-                        className={clsx(
-                          "p-4 rounded-lg border",
-                          item.isPassed === false
-                            ? "bg-red-50 border-red-200"
-                            : item.isPassed === true
-                            ? "bg-green-50 border-green-200"
-                            : "bg-gray-50 border-gray-200"
-                        )}
-                      >
-                        <div className="flex items-start justify-between">
-                          <div>
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <span className="font-medium text-gray-900">{item.name}</span>
-                              {item.needRepair && (
-                                <span className="px-2 py-0.5 bg-yellow-100 text-yellow-700 rounded text-xs font-medium">
-                                  需维修
-                                </span>
-                              )}
-                              {item.issue?.includes("缺材料") && (
-                                <span className="px-2 py-0.5 bg-orange-100 text-orange-700 rounded text-xs font-medium">
-                                  缺材料
-                                </span>
-                              )}
+            {inspection.status === "PENDING_INSPECTION" && user.role === "DORM_MANAGER" && (
+              <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                <h2 className="text-lg font-semibold text-gray-900 mb-4">执行卫生检查</h2>
+                <Form method="post" className="space-y-6">
+                  <input type="hidden" name="_action" value="submit_inspection" />
+                  
+                  {Object.entries(groupedItems).map(([category, items]: any) => (
+                    <div key={category} className="mb-6 last:mb-0">
+                      <h3 className="text-sm font-medium text-gray-700 mb-3">{category}</h3>
+                      <div className="space-y-4">
+                        {items.map((item: any) => (
+                          <div key={item.id} className="p-4 bg-gray-50 rounded-lg border border-gray-200">
+                            <input type="hidden" name="itemId" value={item.id} />
+                            <div className="flex items-start justify-between gap-4">
+                              <div className="flex-1">
+                                <p className="font-medium text-gray-900 mb-3">{item.name}</p>
+                                <div className="grid grid-cols-2 gap-4">
+                                  <div>
+                                    <label className="block text-sm text-gray-600 mb-1">检查结果</label>
+                                    <div className="flex gap-3">
+                                      <label className="flex items-center gap-1.5 cursor-pointer">
+                                        <input
+                                          type="radio"
+                                          name={`isPassed_${item.id}`}
+                                          value="true"
+                                          defaultChecked={item.isPassed === true}
+                                          className="w-4 h-4 text-green-600"
+                                        />
+                                        <span className="text-sm text-green-700">通过</span>
+                                      </label>
+                                      <label className="flex items-center gap-1.5 cursor-pointer">
+                                        <input
+                                          type="radio"
+                                          name={`isPassed_${item.id}`}
+                                          value="false"
+                                          defaultChecked={item.isPassed === false}
+                                          className="w-4 h-4 text-red-600"
+                                        />
+                                        <span className="text-sm text-red-700">不通过</span>
+                                      </label>
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <label className="block text-sm text-gray-600 mb-1">评分 (0-100)</label>
+                                    <input
+                                      type="number"
+                                      name={`score_${item.id}`}
+                                      min="0"
+                                      max="100"
+                                      defaultValue={item.score || 80}
+                                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                                    />
+                                  </div>
+                                </div>
+                                <div className="mt-3">
+                                  <label className="block text-sm text-gray-600 mb-1">问题描述（如不通过）</label>
+                                  <input
+                                    type="text"
+                                    name={`issue_${item.id}`}
+                                    defaultValue={item.issue || ""}
+                                    placeholder="请描述存在的问题..."
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                                  />
+                                </div>
+                                <div className="mt-3">
+                                  <label className="flex items-center gap-2 cursor-pointer">
+                                    <input
+                                      type="checkbox"
+                                      name={`needRepair_${item.id}`}
+                                      value="true"
+                                      defaultChecked={item.needRepair}
+                                      className="w-4 h-4 text-yellow-600"
+                                    />
+                                    <span className="text-sm text-yellow-700">需要维修</span>
+                                  </label>
+                                </div>
+                              </div>
                             </div>
-                            {item.issue && (
-                              <p className="text-sm text-gray-600 mt-1">问题描述：{item.issue}</p>
-                            )}
                           </div>
-                          <div className="text-right">
-                            {item.score !== null && item.score !== undefined && (
-                              <span
-                                className={clsx(
-                                  "text-lg font-bold",
-                                  item.score >= 80
-                                    ? "text-green-600"
-                                    : item.score >= 60
-                                    ? "text-yellow-600"
-                                    : "text-red-600"
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 border-t border-gray-200">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        总体评级
+                      </label>
+                      <select
+                        name="overallGrade"
+                        required
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                      >
+                        {gradeOptions.map((opt) => (
+                          <option key={opt.value} value={opt.value}>
+                            {opt.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        整改期限（如需整改）
+                      </label>
+                      <input
+                        type="date"
+                        name="deadline"
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      检查备注
+                    </label>
+                    <textarea
+                      name="remarks"
+                      rows={2}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                      placeholder="请填写检查备注..."
+                    />
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={navigation.state === "submitting"}
+                    className="w-full bg-primary-600 text-white py-3 px-4 rounded-lg font-medium hover:bg-primary-700 disabled:opacity-50 transition-colors"
+                  >
+                    {navigation.state === "submitting" ? "提交中..." : "✓ 提交检查结果"}
+                  </button>
+                </Form>
+              </div>
+            )}
+
+            {inspection.status !== "PENDING_INSPECTION" && (
+              <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                <h2 className="text-lg font-semibold text-gray-900 mb-4">检查项目明细</h2>
+                {Object.entries(groupedItems).map(([category, items]: any) => (
+                  <div key={category} className="mb-6 last:mb-0">
+                    <h3 className="text-sm font-medium text-gray-700 mb-3">{category}</h3>
+                    <div className="space-y-3">
+                      {items.map((item: any) => (
+                        <div
+                          key={item.id}
+                          className={clsx(
+                            "p-4 rounded-lg border",
+                            item.isPassed === false
+                              ? "bg-red-50 border-red-200"
+                              : item.isPassed === true
+                              ? "bg-green-50 border-green-200"
+                              : "bg-gray-50 border-gray-200"
+                          )}
+                        >
+                          <div className="flex items-start justify-between">
+                            <div>
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="font-medium text-gray-900">{item.name}</span>
+                                {item.needRepair && (
+                                  <span className="px-2 py-0.5 bg-yellow-100 text-yellow-700 rounded text-xs font-medium">
+                                    需维修
+                                  </span>
                                 )}
-                              >
-                                {item.score}分
-                              </span>
-                            )}
-                            {item.isPassed !== null && item.isPassed !== undefined && (
-                              <div className="text-sm mt-0.5">
-                                {item.isPassed ? (
-                                  <span className="text-green-600">✓ 通过</span>
-                                ) : (
-                                  <span className="text-red-600">✗ 不通过</span>
+                                {item.issue?.includes("缺材料") && (
+                                  <span className="px-2 py-0.5 bg-orange-100 text-orange-700 rounded text-xs font-medium">
+                                    缺材料
+                                  </span>
                                 )}
                               </div>
-                            )}
+                              {item.issue && (
+                                <p className="text-sm text-gray-600 mt-1">问题描述：{item.issue}</p>
+                              )}
+                            </div>
+                            <div className="text-right">
+                              {item.score !== null && item.score !== undefined && (
+                                <span
+                                  className={clsx(
+                                    "text-lg font-bold",
+                                    item.score >= 80
+                                      ? "text-green-600"
+                                      : item.score >= 60
+                                      ? "text-yellow-600"
+                                      : "text-red-600"
+                                  )}
+                                >
+                                  {item.score}分
+                                </span>
+                              )}
+                              {item.isPassed !== null && item.isPassed !== undefined && (
+                                <div className="text-sm mt-0.5">
+                                  {item.isPassed ? (
+                                    <span className="text-green-600">✓ 通过</span>
+                                  ) : (
+                                    <span className="text-red-600">✗ 不通过</span>
+                                  )}
+                                </div>
+                              )}
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    ))}
+                      ))}
+                    </div>
                   </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
 
             {inspection.rectifications.length > 0 && (
               <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
@@ -213,7 +412,7 @@ export default function InspectionDetailPage() {
                       <div className="flex items-center justify-between mb-3">
                         <div className="flex items-center gap-2 flex-wrap">
                           <span className="text-sm text-gray-500">
-                            第 {inspection.rectifications.length - idx} 次整改
+                            第 {idx + 1} 次整改
                           </span>
                           {rect.rejectionCount > 0 && (
                             <span className="px-2 py-0.5 bg-red-100 text-red-700 rounded text-xs font-medium">
@@ -443,7 +642,7 @@ export default function InspectionDetailPage() {
                   <span className="text-gray-500">总体评级</span>
                   <span className="font-medium">
                     {inspection.overallGrade
-                      ? GRADE_LABELS[inspection.overallGrade]
+                      ? GRADE_LABELS[inspection.overallGrade as keyof typeof GRADE_LABELS]
                       : "待评定"}
                   </span>
                 </div>
@@ -484,6 +683,9 @@ export default function InspectionDetailPage() {
                     </div>
                   </div>
                 ))}
+                {studentsWithLateReturns.length === 0 && (
+                  <p className="text-sm text-gray-500 text-center py-4">暂无入住学生</p>
+                )}
               </div>
             </div>
 
@@ -495,22 +697,10 @@ export default function InspectionDetailPage() {
                     <span className="text-sm font-medium">
                       K-{inspection.dorm.building}-{inspection.dorm.roomNumber}
                     </span>
-                    <span
-                      className={clsx(
-                        "px-2 py-0.5 rounded text-xs font-medium",
-                        studentsWithLateReturns[0]?.name
-                          ? "bg-yellow-100 text-yellow-700"
-                          : "bg-green-100 text-green-700"
-                      )}
-                    >
-                      {studentsWithLateReturns[0]?.name ? "已借出" : "在库"}
+                    <span className="px-2 py-0.5 bg-green-100 text-green-700 rounded text-xs font-medium">
+                      在库
                     </span>
                   </div>
-                  {studentsWithLateReturns[0]?.name && (
-                    <p className="text-xs text-gray-500 mt-1">
-                      借用人：{studentsWithLateReturns[0]?.name}
-                    </p>
-                  )}
                 </div>
               </div>
             </div>

@@ -2,7 +2,7 @@ import type { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
 import { json, redirect } from "@remix-run/node";
 import { Form, useActionData, useSearchParams } from "@remix-run/react";
 import { useEffect, useRef } from "react";
-import { createUserSession, login, getUserId } from "~/utils/simpleSession";
+import { createUserSession, login, getUserId } from "~/utils/session.server";
 import { ROLE_LABELS } from "~/utils/types";
 
 export async function loader({ request }: LoaderFunctionArgs) {
@@ -17,7 +17,7 @@ export async function action({ request }: ActionFunctionArgs) {
   const password = formData.get("password")?.toString() || "";
   const redirectTo = formData.get("redirectTo")?.toString() || "/";
 
-  const user = await login({ username, password });
+  const user = await login(username, password);
 
   if (!user) {
     return json(
@@ -26,11 +26,7 @@ export async function action({ request }: ActionFunctionArgs) {
     );
   }
 
-  return createUserSession({
-    request,
-    userId: user.id,
-    redirectTo,
-  });
+  return createUserSession(user.id, redirectTo);
 }
 
 export default function LoginPage() {
