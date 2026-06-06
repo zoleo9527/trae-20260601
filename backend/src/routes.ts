@@ -7,8 +7,15 @@ import {
   GiftConfigRequest, 
   ReturnRequest,
   OperationLog,
-  InventoryStatus
+  InventoryStatus,
+  Role
 } from './types';
+
+const RoleUserMap: Record<Role, string> = {
+  ASSISTANT: '李明',
+  STAGE_CONTROL: '王芳',
+  AFTER_SALES_LEAD: '赵敏'
+};
 
 const router = Router();
 
@@ -119,7 +126,7 @@ router.post('/orders/:id/submit-lock', (req: Request, res: Response) => {
     skuList: updatedSkus,
     totalLockedAmount,
     status: 'PENDING_REVIEW',
-    currentHandler: '待场控处理',
+    currentHandler: RoleUserMap.STAGE_CONTROL,
     currentHandlerRole: 'STAGE_CONTROL',
     operationLogs: [...order.operationLogs, log]
   });
@@ -138,7 +145,7 @@ router.post('/orders/:id/review', (req: Request, res: Response) => {
 
   const newStatus: InventoryStatus = body.approved ? 'GIFT_CONFIGURING' : 'REVIEW_REJECTED';
   const action = body.approved ? '审核通过' : '审核驳回';
-  const nextHandler = body.approved ? '待售后组长配置' : order.createdBy;
+  const nextHandler = body.approved ? RoleUserMap.AFTER_SALES_LEAD : order.createdBy;
   const nextRole = body.approved ? 'AFTER_SALES_LEAD' : 'ASSISTANT';
 
   const log = addOperationLog(

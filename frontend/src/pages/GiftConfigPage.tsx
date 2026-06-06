@@ -12,22 +12,28 @@ import {
   Tag,
   Descriptions,
   Typography,
-  message
+  message,
+  Steps,
+  Divider
 } from 'antd';
 import { 
   PlusOutlined, 
   GiftOutlined, 
   DeleteOutlined,
   SaveOutlined,
-  CheckCircleOutlined
+  CheckCircleOutlined,
+  ShoppingCartOutlined,
+  ControlOutlined,
+  CustomerServiceOutlined,
+  InfoCircleOutlined
 } from '@ant-design/icons';
-import { GiftItem, InventoryLockOrder, RoleNames, StatusNames, StatusColors } from '../types';
+import { GiftItem, InventoryLockOrder, RoleNames, StatusNames, StatusColors, OperationLog } from '../types';
 import { orderApi } from '../api';
 import { useAppStore } from '../store';
 import dayjs from 'dayjs';
 import { v4 as uuidv4 } from 'uuid';
 
-const { Text } = Typography;
+const { Text, Paragraph } = Typography;
 
 interface Props {
   orderId: string;
@@ -51,6 +57,26 @@ const presetGifts = [
   { giftId: 'GIFT004', giftName: '运费险', stock: 9999, condition: '下单即赠' },
   { giftId: 'GIFT005', giftName: '精美礼盒', stock: 300, condition: '单笔满499赠1套' },
 ];
+
+const extractHandoverInfo = (logs: OperationLog[]) => {
+  const lockLog = logs.find(l => l.action === '提交锁定');
+  const reviewLog = logs.find(l => l.action === '审核通过' || l.action === '审核驳回');
+  const rejectLog = logs.find(l => l.action === '审核驳回');
+  const returnLog = logs.find(l => l.action === '退回订单');
+  
+  return {
+    lockRemark: lockLog?.remark || '',
+    lockOperator: lockLog?.operator || '',
+    lockTime: lockLog?.timestamp || '',
+    reviewRemark: reviewLog?.remark || '',
+    reviewOperator: reviewLog?.operator || '',
+    reviewTime: reviewLog?.timestamp || '',
+    rejectReason: rejectLog?.remark || '',
+    returnReason: returnLog?.remark || '',
+    hasReject: !!rejectLog,
+    hasReturn: !!returnLog
+  };
+};
 
 const GiftConfigPage: React.FC<Props> = ({ orderId, visible, onClose, initialGiftList }) => {
   const { currentUser } = useAppStore();
@@ -225,6 +251,8 @@ const GiftConfigPage: React.FC<Props> = ({ orderId, visible, onClose, initialGif
 
   if (!order) return null;
 
+  const handover = extractHandoverInfo(order.operationLogs);
+
   return (
     <Modal
       title={
@@ -236,30 +264,116 @@ const GiftConfigPage: React.FC<Props> = ({ orderId, visible, onClose, initialGif
       }
       open={visible}
       onCancel={onClose}
-      width={1000}
+      width={1100}
       footer={null}
       destroyOnHidden
     >
       <Alert
-        message="无缝衔接提示"
+        message="交接信息（从库存锁定无缝衔接）"
         description={
-          <Space direction="vertical" size={4}>
-            <Text>
-              来自场次: <Text strong>{order.liveSessionName}</Text>
-            </Text>
-            <Text>
-              创建人: {order.createdBy} ({RoleNames[order.createdByRole]}) | 
-              当前处理角色: {RoleNames[order.currentHandlerRole]}
-            </Text>
-            <Text type="secondary">
-              价格口径: {order.priceRemark || '无特殊说明'}
-            </Text>
+          <Space direction="vertical" size={6} style={{ width: '100%' }}>
+            <Descriptions column={3} size="small" style={{ marginBottom: 0 }}>
+              <Descriptions.Item label="直播场次">
+                <Text strong>{order.liveSessionName}</Text>
+              </Descriptions.Item>
+              <Descriptions.Item label="当前处理人">
+                <Tag color="green">{order.currentHandler}</Tag>
+                <Text type="secondary">（{RoleNames[order.currentHandlerRole]}）</Text>
+              </Descriptions.Item>
+              <Descriptions.Item label="创建人">
+                {order.createdBy}（{RoleNames[order.createdByRole]}）
+              </Descriptions.Item>
+            </Descriptions>
+            {order.priceRemark && (
+              <div>
+                <Tag color="orange">价格口径</Tag>
+                <Text type="warning">{order.priceRemark}</Text>
+              </div>
+            )}
           </Space>
         }
-        type="info"
+        type="success"
         showIcon
+        icon={<InfoCircleOutlined />}
         style={{ marginBottom: 16 }}
       />
+
+      <Card title="历史交接说明" size="small" style={{ marginBottom: 16 }}>
+        <Steps
+          direction="vertical"
+          size="small"
+          current={2}
+          items={[
+            {
+              icon: <ShoppingCartOutlined />,
+              title: (
+                <Space>
+                  <span>主播助理锁定库存</span>
+                  {handover.lockOperator && (
+                    <Tag color="blue">{handover.lockOperator}</Tag>
+                  )}
+                  {handover.lockTime && (
+                    <Text type="secondary" style={{ fontSize: 12 }}>
+                      {dayjs(handover.lockTime).format('MM-DD HH:mm')}
+                    </Text>
+                  )}
+                </Space>
+              ),
+              description: handover.lockRemark ? (
+                <Paragraph type="secondary" style={{ marginBottom: 0 }}>
+                  锁定备注: {handover.lockRemark}
+                </Paragraph>
+              ) : (
+                <Text type="secondary">无备注</Text>
+              ),
+              status: 'finish'
+            },
+            {
+              icon: <ControlOutlined />,
+              title: (
+                <Space>
+                  <span>场控审核</span>
+                  {handover.reviewOperator && (
+                    <Tag color="orange">{handover.reviewOperator}</Tag>
+                  )}
+                  {handover.reviewTime && (
+                    <Text type="secondary" style={{ fontSize: 12 }}>
+                      {dayjs(handover.reviewTime).format('MM-DD HH:mm')}
+                    </Text>
+                  )}
+                </Space>
+              ),
+              description: (
+                <Space direction="vertical" size={2}>
+                  {handover.reviewRemark && (
+                    <Paragraph type="secondary" style={{ marginBottom: 0 }}>
+                      审核意见: {handover.reviewRemark}
+                    </Paragraph>
+                  )}
+                  {handover.hasReject && (
+                    <Tag color="red">曾被驳回: {handover.rejectReason}</Tag>
+                  )}
+                  {handover.hasReturn && (
+                    <Tag color="red">曾被退回: {handover.returnReason}</Tag>
+                  )}
+                </Space>
+              ),
+              status: 'finish'
+            },
+            {
+              icon: <CustomerServiceOutlined />,
+              title: (
+                <Space>
+                  <span>售后组长配置赠品</span>
+                  <Tag color="green">{currentUser}（当前）</Tag>
+                </Space>
+              ),
+              description: <Text type="secondary">请配置赠品并核对所有交接信息</Text>,
+              status: 'process'
+            }
+          ]}
+        />
+      </Card>
 
       <Card 
         title="关联的SKU信息 (库存已锁定)" 
