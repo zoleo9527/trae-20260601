@@ -1,0 +1,1 @@
+<template><div class="borrow-page"><div class="card"><h3>借还处理</h3><p>借用登记和归还处理功能</p></div></div></template><script setup lang="ts"></script><style scoped>.borrow-page { display: flex; flex-direction: column; gap: 20px; } .card { background: #fff; border-radius: 8px; padding: 20px; box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1); }</style>
