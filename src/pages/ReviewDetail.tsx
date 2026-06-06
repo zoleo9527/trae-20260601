@@ -7,13 +7,13 @@ import {
   Clock,
   DollarSign,
   Eye,
-  ShoppingCart,
   Send,
   XCircle,
   CheckCircle,
   Edit3,
   ArrowRight,
   Archive,
+  AlertTriangle,
 } from "lucide-react";
 import { useReviewStore } from "@/store/useReviewStore";
 import { useUserStore } from "@/store/useUserStore";
@@ -21,25 +21,40 @@ import { StatusBadge } from "@/components/common/StatusBadge";
 import { RejectBadge } from "@/components/common/RejectBadge";
 import { SupplementBadge } from "@/components/common/SupplementBadge";
 import { Timeline } from "@/components/common/Timeline";
+import { Modal } from "@/components/common/Modal";
 import {
   formatDateTime,
   formatDuration,
   formatNumber,
   formatAmount,
 } from "@/utils/date";
-import { ROLE_MAP, ORDER_STATUS_MAP } from "@/utils/status";
+import { ROLE_MAP } from "@/utils/status";
 import { cn } from "@/lib/utils";
 
 export function ReviewDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { currentReview, fetchReviewById, rejectReview, confirmReview, supplementReview, transferToAftersales, closeReview, reviews } = useReviewStore();
   const { currentUser } = useUserStore();
+  const {
+    currentReview,
+    fetchReviewById,
+    rejectReview,
+    confirmReview,
+    supplementReview,
+    transferToAftersales,
+    closeReview,
+    canCloseReview,
+    reviews,
+  } = useReviewStore();
 
   const [showRejectModal, setShowRejectModal] = useState(false);
-  const [rejectReason, setRejectReason] = useState("");
   const [showSupplementModal, setShowSupplementModal] = useState(false);
-  const [supplementText, setSupplementText] = useState("");
+  const [rejectReason, setRejectReason] = useState("");
+  const [supplementData, setSupplementData] = useState({
+    siteRecords: "",
+    oldLedger: "",
+  });
+  const [showCloseAlert, setShowCloseAlert] = useState(false);
 
   useEffect(() => {
     if (id) {
@@ -52,18 +67,24 @@ export function ReviewDetail() {
         }
       }
     }
-  }, [id, fetchReviewById, reviews.length, reviews]);
+  }, [id, fetchReviewById, reviews]);
+
+  useEffect(() => {
+    if (currentReview) {
+      setSupplementData({
+        siteRecords: currentReview.siteRecords,
+        oldLedger: currentReview.oldLedger,
+      });
+    }
+  }, [currentReview]);
 
   if (!currentReview) {
-    return (
-      <div className="flex items-center justify-center py-20">
-        <div className="animate-pulse text-gray-500">加载中...</div>
-      </div>
-    );
+    return <div className="text-center py-12 text-gray-500">加载中...</div>;
   }
 
   const handleReject = () => {
-    if (id && rejectReason) {
+    if (!rejectReason.trim()) return;
+    if (id) {
       rejectReview(id, rejectReason);
       setShowRejectModal(false);
       setRejectReason("");
@@ -80,9 +101,8 @@ export function ReviewDetail() {
 
   const handleSupplement = () => {
     if (id) {
-      supplementReview(id, { siteRecords: supplementText });
+      supplementReview(id, supplementData);
       setShowSupplementModal(false);
-      setSupplementText("");
       fetchReviewById(id);
     }
   };
@@ -95,121 +115,100 @@ export function ReviewDetail() {
   };
 
   const handleClose = () => {
-    if (id) {
-      closeReview(id);
+    if (!id) return;
+    if (!canCloseReview(id)) {
+      setShowCloseAlert(true);
+      return;
+    }
+    const success = closeReview(id);
+    if (success) {
       fetchReviewById(id);
     }
   };
 
+  const unresolvedCount = currentReview.abnormalOrders.filter(
+    (o) => o.status !== "resolved"
+  ).length;
+
   return (
-    <div className="space-y-6">
-      <div className="flex items-center gap-4">
-        <button
-          onClick={() => navigate("/reviews")}
-          className="p-2 hover:bg-gray-100 rounded-md transition-colors"
-        >
-          <ArrowLeft size={20} />
-        </button>
-        <div>
-          <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-bold font-serif text-navy-900">
-              {currentReview.liveTitle}
-            </h1>
-            <StatusBadge status={currentReview.status} type="review" />
-            {currentReview.rejectReason && <RejectBadge reason={currentReview.rejectReason} showReason />}
-            {currentReview.supplementRequired && <SupplementBadge notes={currentReview.supplementNotes} showNotes />}
+    <div>
+      <button
+        onClick={() => navigate("/reviews")}
+        className="flex items-center gap-2 text-gray-600 hover:text-navy-600 mb-4"
+      >
+        <ArrowLeft size={18} />
+        返回列表
+      </button>
+
+      <div className="bg-white rounded-lg border shadow-card p-6 mb-6">
+        <div className="flex items-start justify-between mb-6">
+          <div>
+            <div className="flex items-center gap-3 mb-2">
+              <h1 className="text-xl font-bold text-navy-900">{currentReview.liveTitle}</h1>
+              <StatusBadge status={currentReview.status} type="review" />
+              {currentReview.rejectReason && <RejectBadge reason={currentReview.rejectReason} showReason />}
+              {currentReview.supplementRequired && <SupplementBadge notes={currentReview.supplementNotes} showNotes />}
+            </div>
+            <p className="font-mono text-sm text-gray-500">{currentReview.sessionNo}</p>
           </div>
-          <p className="text-gray-500 mt-1">
-            场次号：{currentReview.sessionNo}
-          </p>
+          <div className="text-right">
+            <p className="text-sm text-gray-500">当前处理</p>
+            <p className={cn("font-medium", ROLE_MAP[currentReview.currentHandler].color)}>
+              {ROLE_MAP[currentReview.currentHandler].label}
+            </p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-6 gap-4">
+          <div className="flex items-center gap-2">
+            <User size={16} className="text-gray-400" />
+            <span className="text-sm text-gray-600">主播：{currentReview.anchorName}</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <User size={16} className="text-gray-400" />
+            <span className="text-sm text-gray-600">助理：{currentReview.assistantName}</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Calendar size={16} className="text-gray-400" />
+            <span className="text-sm text-gray-600">{formatDateTime(currentReview.startTime)}</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Clock size={16} className="text-gray-400" />
+            <span className="text-sm text-gray-600">{formatDuration(currentReview.duration)}</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <DollarSign size={16} className="text-gray-400" />
+            <span className="text-sm text-gray-600">GMV：¥{formatNumber(currentReview.gmv)}</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Eye size={16} className="text-gray-400" />
+            <span className="text-sm text-gray-600">观看：{formatNumber(currentReview.viewerCount)}</span>
+          </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 space-y-6">
+      <div className="grid grid-cols-3 gap-6">
+        <div className="col-span-2 space-y-6">
           <div className="bg-white rounded-lg border shadow-card p-6">
-            <h2 className="text-lg font-semibold text-navy-900 mb-4">直播信息</h2>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-              <div className="flex items-center gap-2">
-                <User size={16} className="text-gray-400" />
-                <div>
-                  <p className="text-xs text-gray-500">主播</p>
-                  <p className="text-sm font-medium">{currentReview.anchorName}</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <User size={16} className="text-gray-400" />
-                <div>
-                  <p className="text-xs text-gray-500">主播助理</p>
-                  <p className="text-sm font-medium">{currentReview.assistantName}</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <Calendar size={16} className="text-gray-400" />
-                <div>
-                  <p className="text-xs text-gray-500">开播时间</p>
-                  <p className="text-sm font-medium">
-                    {formatDateTime(currentReview.startTime)}
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <Clock size={16} className="text-gray-400" />
-                <div>
-                  <p className="text-xs text-gray-500">直播时长</p>
-                  <p className="text-sm font-medium">
-                    {formatDuration(currentReview.duration)}
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <DollarSign size={16} className="text-gray-400" />
-                <div>
-                  <p className="text-xs text-gray-500">GMV</p>
-                  <p className="text-sm font-medium text-amber-600">
-                    ¥{formatNumber(currentReview.gmv)}
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <ShoppingCart size={16} className="text-gray-400" />
-                <div>
-                  <p className="text-xs text-gray-500">订单数</p>
-                  <p className="text-sm font-medium">{formatNumber(currentReview.orderCount)}</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <Eye size={16} className="text-gray-400" />
-                <div>
-                  <p className="text-xs text-gray-500">观看人数</p>
-                  <p className="text-sm font-medium">{formatNumber(currentReview.viewerCount)}</p>
-                </div>
-              </div>
-            </div>
+            <h2 className="text-lg font-semibold text-navy-900 mb-4">现场记录</h2>
+            <p className="text-gray-600 text-sm leading-relaxed">{currentReview.siteRecords}</p>
           </div>
 
           <div className="bg-white rounded-lg border shadow-card p-6">
-            <h2 className="text-lg font-semibold text-navy-900 mb-4">现场记录与台账</h2>
-            <div className="space-y-4">
-              <div>
-                <p className="text-sm font-medium text-gray-700 mb-1">现场记录</p>
-                <p className="text-sm text-gray-600 bg-gray-50 p-3 rounded-md">
-                  {currentReview.siteRecords}
-                </p>
-              </div>
-              <div>
-                <p className="text-sm font-medium text-gray-700 mb-1">旧台账备注</p>
-                <p className="text-sm text-gray-600 bg-gray-50 p-3 rounded-md">
-                  {currentReview.oldLedger}
-                </p>
-              </div>
-            </div>
+            <h2 className="text-lg font-semibold text-navy-900 mb-4">旧台账背景</h2>
+            <p className="text-gray-600 text-sm leading-relaxed">{currentReview.oldLedger}</p>
           </div>
 
           <div className="bg-white rounded-lg border shadow-card p-6">
-            <h2 className="text-lg font-semibold text-navy-900 mb-4">
-              异常订单 ({currentReview.abnormalOrders.length})
-            </h2>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold text-navy-900">异常订单</h2>
+              {unresolvedCount > 0 && (
+                <span className="flex items-center gap-1 text-sm text-status-error">
+                  <AlertTriangle size={14} />
+                  {unresolvedCount} 单未处理完成
+                </span>
+              )}
+            </div>
             <div className="space-y-3">
               {currentReview.abnormalOrders.map((order) => (
                 <div
@@ -217,37 +216,34 @@ export function ReviewDetail() {
                   onClick={() => navigate(`/reviews/${id}/orders/${order.id}`)}
                   className={cn(
                     "p-4 border rounded-lg cursor-pointer transition-all hover:shadow-md",
-                    order.status === "rejected" ? "bg-red-50 border-red-200" : "",
-                    order.supplementRequired ? "bg-orange-50 border-orange-200" : ""
+                    order.status === "rejected" && "bg-red-50 border-red-200",
+                    order.supplementRequired && "bg-orange-50 border-orange-200"
                   )}
                 >
-                  <div className="flex items-center gap-4">
-                    <img
-                      src={order.productImage}
-                      alt={order.productName}
-                      className="w-16 h-16 rounded-md object-cover"
-                    />
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="font-mono text-sm text-navy-600">
-                          {order.orderNo}
-                        </span>
-                        <StatusBadge status={order.status} type="order" />
-                        {order.rejectReason && <RejectBadge />}
-                        {order.supplementRequired && <SupplementBadge />}
-                      </div>
-                      <p className="text-sm font-medium text-gray-900">
-                        {order.productName}
-                      </p>
-                      <div className="flex items-center gap-4 mt-1 text-sm text-gray-500">
-                        <span>{order.buyerName}</span>
-                        <span>{order.abnormalType}</span>
-                        <span className="text-amber-600 font-medium">
-                          {formatAmount(order.amount)}
-                        </span>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <img
+                        src={order.productImage}
+                        alt={order.productName}
+                        className="w-12 h-12 rounded object-cover"
+                      />
+                      <div>
+                        <p className="font-medium text-gray-900">{order.productName}</p>
+                        <p className="text-sm text-gray-500">订单号：{order.orderNo}</p>
                       </div>
                     </div>
-                    <ArrowRight size={18} className="text-gray-400" />
+                    <div className="text-right">
+                      <StatusBadge status={order.status} type="order" />
+                      {order.rejectReason && <RejectBadge />}
+                      {order.supplementRequired && <SupplementBadge />}
+                      <p className="text-sm font-medium text-navy-600 mt-1">{formatAmount(order.amount)}</p>
+                    </div>
+                  </div>
+                  <div className="mt-3 flex items-center justify-between text-sm">
+                    <span className="text-gray-500">异常类型：{order.abnormalType}</span>
+                    <span className="text-navy-600 flex items-center gap-1">
+                      查看详情 <ArrowRight size={14} />
+                    </span>
                   </div>
                 </div>
               ))}
@@ -261,49 +257,6 @@ export function ReviewDetail() {
         </div>
 
         <div className="space-y-6">
-          <div className="bg-white rounded-lg border shadow-card p-6">
-            <h2 className="text-lg font-semibold text-navy-900 mb-4">处理流程</h2>
-            <div className="space-y-3">
-              {[
-                { role: "assistant", label: "主播助理", desc: "创建并提交复盘" },
-                { role: "controller", label: "场控", desc: "审核并确认异常" },
-                { role: "aftersales", label: "售后组长", desc: "处理异常订单" },
-              ].map((step, index) => {
-                const isActive = currentReview.currentHandler === step.role;
-                return (
-                  <div key={step.role} className="flex items-center gap-3">
-                    <div
-                      className={cn(
-                        "w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-medium",
-                        isActive
-                          ? "bg-amber-500 ring-4 ring-amber-100"
-                          : "bg-gray-300"
-                      )}
-                    >
-                      {index + 1}
-                    </div>
-                    <div className="flex-1">
-                      <p
-                        className={cn(
-                          "font-medium",
-                          isActive ? "text-amber-600" : "text-gray-600"
-                        )}
-                      >
-                        {step.label}
-                      </p>
-                      <p className="text-xs text-gray-500">{step.desc}</p>
-                    </div>
-                    {isActive && (
-                      <span className="text-xs px-2 py-1 bg-amber-100 text-amber-700 rounded">
-                        当前
-                      </span>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
           <div className="bg-white rounded-lg border shadow-card p-6">
             <h2 className="text-lg font-semibold text-navy-900 mb-4">操作</h2>
             <div className="space-y-3">
@@ -357,7 +310,12 @@ export function ReviewDetail() {
                 currentReview.currentHandler === "aftersales" && (
                   <button
                     onClick={handleClose}
-                    className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-status-success text-white rounded-md hover:bg-green-600 transition-colors"
+                    className={cn(
+                      "w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-md transition-colors",
+                      unresolvedCount > 0
+                        ? "bg-gray-200 text-gray-400 cursor-not-allowed"
+                        : "bg-status-success text-white hover:bg-green-600"
+                    )}
                   >
                     <Archive size={18} />
                     关闭复盘单
@@ -381,72 +339,97 @@ export function ReviewDetail() {
         </div>
       </div>
 
-      {showRejectModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
-            <h3 className="text-lg font-semibold text-navy-900 mb-4">驳回复盘单</h3>
-            <p className="text-sm text-gray-600 mb-4">请填写驳回原因，主播助理将收到补录提醒</p>
+      <Modal open={showRejectModal} onClose={() => setShowRejectModal(false)} title="驳回复盘单">
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">驳回原因</label>
             <textarea
               value={rejectReason}
               onChange={(e) => setRejectReason(e.target.value)}
               placeholder="请输入驳回原因和补录要求..."
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-navy-500/20 focus:border-navy-500 h-32 resize-none"
+              className="w-full px-3 py-2 border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-navy-500/20 focus:border-navy-500 resize-none"
+              rows={4}
             />
-            <div className="flex gap-3 mt-4">
-              <button
-                onClick={() => setShowRejectModal(false)}
-                className="flex-1 px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
-              >
-                取消
-              </button>
-              <button
-                onClick={handleReject}
-                disabled={!rejectReason}
-                className="flex-1 px-4 py-2 bg-status-error text-white rounded-md hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                确认驳回
-              </button>
-            </div>
+          </div>
+          <div className="flex gap-3 justify-end">
+            <button
+              onClick={() => setShowRejectModal(false)}
+              className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-md transition-colors"
+            >
+              取消
+            </button>
+            <button
+              onClick={handleReject}
+              disabled={!rejectReason.trim()}
+              className="px-4 py-2 bg-status-error text-white rounded-md hover:bg-red-600 transition-colors disabled:opacity-50"
+            >
+              确认驳回
+            </button>
           </div>
         </div>
-      )}
+      </Modal>
 
-      {showSupplementModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
-            <h3 className="text-lg font-semibold text-navy-900 mb-4">补录信息</h3>
-            {currentReview.supplementNotes && (
-              <div className="mb-4 p-3 bg-orange-50 border border-orange-200 rounded-md">
-                <p className="text-sm text-orange-700 font-medium">补录要求：</p>
-                <p className="text-sm text-orange-600 mt-1">
-                  {currentReview.supplementNotes}
-                </p>
-              </div>
-            )}
+      <Modal open={showSupplementModal} onClose={() => setShowSupplementModal(false)} title="补录信息">
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">现场记录</label>
             <textarea
-              value={supplementText}
-              onChange={(e) => setSupplementText(e.target.value)}
-              placeholder="请补充现场记录信息..."
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-navy-500/20 focus:border-navy-500 h-32 resize-none"
+              value={supplementData.siteRecords}
+              onChange={(e) => setSupplementData((prev) => ({ ...prev, siteRecords: e.target.value }))}
+              placeholder="请补充现场记录详情..."
+              className="w-full px-3 py-2 border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-navy-500/20 focus:border-navy-500 resize-none"
+              rows={3}
             />
-            <div className="flex gap-3 mt-4">
-              <button
-                onClick={() => setShowSupplementModal(false)}
-                className="flex-1 px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
-              >
-                取消
-              </button>
-              <button
-                onClick={handleSupplement}
-                disabled={!supplementText}
-                className="flex-1 px-4 py-2 bg-amber-500 text-white rounded-md hover:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                提交补录
-              </button>
-            </div>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">旧台账背景</label>
+            <textarea
+              value={supplementData.oldLedger}
+              onChange={(e) => setSupplementData((prev) => ({ ...prev, oldLedger: e.target.value }))}
+              placeholder="请补充旧台账对比信息..."
+              className="w-full px-3 py-2 border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-navy-500/20 focus:border-navy-500 resize-none"
+              rows={3}
+            />
+          </div>
+          <div className="flex gap-3 justify-end">
+            <button
+              onClick={() => setShowSupplementModal(false)}
+              className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-md transition-colors"
+            >
+              取消
+            </button>
+            <button
+              onClick={handleSupplement}
+              className="px-4 py-2 bg-amber-500 text-white rounded-md hover:bg-amber-600 transition-colors"
+            >
+              提交审核
+            </button>
           </div>
         </div>
-      )}
+      </Modal>
+
+      <Modal open={showCloseAlert} onClose={() => setShowCloseAlert(false)} title="无法关闭复盘单">
+        <div className="space-y-4">
+          <div className="flex items-start gap-3">
+            <AlertTriangle size={24} className="text-status-warning flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="font-medium text-gray-900">还有异常订单未处理完成</p>
+              <p className="text-sm text-gray-500 mt-1">
+                还有 <span className="font-medium text-status-error">{unresolvedCount}</span> 个异常订单未处理完成，
+                请先处理所有异常订单后再关闭复盘单。
+              </p>
+            </div>
+          </div>
+          <div className="flex justify-end">
+            <button
+              onClick={() => setShowCloseAlert(false)}
+              className="px-4 py-2 bg-navy-600 text-white rounded-md hover:bg-navy-700 transition-colors"
+            >
+              我知道了
+            </button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }

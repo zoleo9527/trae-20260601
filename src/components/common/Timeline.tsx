@@ -8,12 +8,12 @@ import {
   Wrench,
   Archive,
 } from "lucide-react";
-import type { OperationLog } from "@/types";
 import { formatDateTime } from "@/utils/date";
-import { ROLE_MAP } from "@/utils/status";
+import { OPERATION_TYPE_MAP, ROLE_MAP } from "@/utils/status";
 import { cn } from "@/lib/utils";
+import type { OperationLog } from "@/types";
 
-const iconMap = {
+const ICON_MAP = {
   create: FilePlus,
   submit: Send,
   reject: XCircle,
@@ -24,15 +24,15 @@ const iconMap = {
   close: Archive,
 };
 
-const colorMap = {
-  create: "bg-gray-500",
-  submit: "bg-navy-500",
+const COLOR_MAP: Record<string, string> = {
+  create: "bg-gray-400",
+  submit: "bg-amber-500",
   reject: "bg-status-error",
   confirm: "bg-status-success",
   supplement: "bg-status-warning",
   transfer: "bg-status-info",
-  process: "bg-purple-500",
-  close: "bg-gray-700",
+  process: "bg-navy-500",
+  close: "bg-gray-600",
 };
 
 interface TimelineProps {
@@ -41,49 +41,44 @@ interface TimelineProps {
 
 export function Timeline({ logs }: TimelineProps) {
   const sortedLogs = [...logs].sort(
-    (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
   );
 
   return (
-    <div className="space-y-4">
+    <div className="relative">
       {sortedLogs.map((log, index) => {
-        const Icon = iconMap[log.operationType];
-        const roleConfig = ROLE_MAP[log.operatorRole];
+        const Icon = ICON_MAP[log.operationType];
+        const isLast = index === sortedLogs.length - 1;
 
         return (
-          <div key={log.id} className="flex gap-4">
-            <div className="flex flex-col items-center">
-              <div
-                className={cn(
-                  "w-8 h-8 rounded-full flex items-center justify-center text-white",
-                  colorMap[log.operationType]
-                )}
-              >
-                <Icon size={14} />
-              </div>
-              {index < sortedLogs.length - 1 && (
-                <div className="w-0.5 h-full bg-gray-200 mt-1"></div>
+          <div key={log.id} className="relative pl-8 pb-6">
+            {!isLast && (
+              <div className="absolute left-[11px] top-6 w-0.5 h-full bg-gray-200" />
+            )}
+            <div
+              className={cn(
+                "absolute left-0 top-1 w-6 h-6 rounded-full flex items-center justify-center",
+                COLOR_MAP[log.operationType]
               )}
+            >
+              <Icon size={12} className="text-white" />
             </div>
-            <div className="flex-1 pb-4">
+            <div>
               <div className="flex items-center gap-2 mb-1">
-                <span className="font-medium text-gray-900">{log.operator}</span>
-                <span
-                  className={cn(
-                    "text-xs px-1.5 py-0.5 rounded bg-gray-100",
-                    roleConfig.color
-                  )}
-                >
-                  {roleConfig.label}
+                <span className="font-medium text-gray-900">
+                  {OPERATION_TYPE_MAP[log.operationType].label}
                 </span>
-                <span className="text-xs text-gray-400 ml-auto">
+                <span className="text-xs text-gray-400">
                   {formatDateTime(log.createdAt)}
                 </span>
               </div>
-              <p className="text-sm text-gray-600">{log.operationDesc}</p>
-              {log.remark && (
-                <p className="text-xs text-gray-500 mt-1">备注：{log.remark}</p>
-              )}
+              <p className="text-sm text-gray-600 mb-1">{log.operationDesc}</p>
+              <p className="text-xs text-gray-400">
+                操作人：{log.operator}
+                <span className={cn("ml-1", ROLE_MAP[log.operatorRole].color)}>
+                  ({ROLE_MAP[log.operatorRole].label})
+                </span>
+              </p>
             </div>
           </div>
         );

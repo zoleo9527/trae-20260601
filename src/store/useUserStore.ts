@@ -30,7 +30,7 @@ function saveToStorage(user: User) {
   }
 }
 
-export const useUserStore = create<UserState>((set, get) => ({
+export const useUserStore = create<UserState>((set) => ({
   currentUser: loadFromStorage(),
 
   setCurrentUser: (user: User) => {

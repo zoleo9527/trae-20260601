@@ -17,21 +17,31 @@ import { StatusBadge } from "@/components/common/StatusBadge";
 import { RejectBadge } from "@/components/common/RejectBadge";
 import { SupplementBadge } from "@/components/common/SupplementBadge";
 import { Timeline } from "@/components/common/Timeline";
-import { formatDateTime, formatAmount } from "@/utils/date";
+import { Modal } from "@/components/common/Modal";
+import { formatAmount } from "@/utils/date";
 import { ROLE_MAP } from "@/utils/status";
 import { cn } from "@/lib/utils";
 
 export function OrderDetail() {
   const { id: reviewId, orderId } = useParams<{ id: string; orderId: string }>();
   const navigate = useNavigate();
-  const { currentOrder, currentReview, fetchOrderById, rejectOrder, confirmOrder, supplementOrder, processOrder, reviews } = useReviewStore();
   const { currentUser } = useUserStore();
+  const {
+    currentOrder,
+    currentReview,
+    fetchOrderById,
+    rejectOrder,
+    confirmOrder,
+    supplementOrder,
+    processOrder,
+    reviews,
+  } = useReviewStore();
 
   const [showRejectModal, setShowRejectModal] = useState(false);
-  const [rejectReason, setRejectReason] = useState("");
   const [showSupplementModal, setShowSupplementModal] = useState(false);
-  const [supplementText, setSupplementText] = useState("");
   const [showProcessModal, setShowProcessModal] = useState(false);
+  const [rejectReason, setRejectReason] = useState("");
+  const [supplementNotes, setSupplementNotes] = useState("");
   const [processResult, setProcessResult] = useState("");
 
   useEffect(() => {
@@ -39,26 +49,25 @@ export function OrderDetail() {
       if (reviews.length === 0) {
         fetchOrderById(reviewId, orderId);
       } else {
-        fetchOrderById(reviewId, orderId);
+        const review = reviews.find((r) => r.id === reviewId);
+        const order = review?.abnormalOrders.find((o) => o.id === orderId);
+        if (order) {
+          fetchOrderById(reviewId, orderId);
+        }
       }
     }
-  }, [reviewId, orderId, fetchOrderById, reviews.length]);
+  }, [reviewId, orderId, fetchOrderById, reviews]);
 
   if (!currentOrder || !currentReview) {
-    return (
-      <div className="flex items-center justify-center py-20">
-        <div className="animate-pulse text-gray-500">加载中...</div>
-      </div>
-    );
+    return <div className="text-center py-12 text-gray-500">加载中...</div>;
   }
 
   const handleReject = () => {
-    if (reviewId && orderId && rejectReason) {
-      rejectOrder(reviewId, orderId, rejectReason);
-      setShowRejectModal(false);
-      setRejectReason("");
-      fetchOrderById(reviewId, orderId);
-    }
+    if (!rejectReason.trim() || !reviewId || !orderId) return;
+    rejectOrder(reviewId, orderId, rejectReason);
+    setShowRejectModal(false);
+    setRejectReason("");
+    fetchOrderById(reviewId, orderId);
   };
 
   const handleConfirm = () => {
@@ -69,161 +78,114 @@ export function OrderDetail() {
   };
 
   const handleSupplement = () => {
-    if (reviewId && orderId && supplementText) {
-      supplementOrder(reviewId, orderId, supplementText);
-      setShowSupplementModal(false);
-      setSupplementText("");
-      fetchOrderById(reviewId, orderId);
-    }
+    if (!supplementNotes.trim() || !reviewId || !orderId) return;
+    supplementOrder(reviewId, orderId, supplementNotes);
+    setShowSupplementModal(false);
+    setSupplementNotes("");
+    fetchOrderById(reviewId, orderId);
   };
 
   const handleProcess = () => {
-    if (reviewId && orderId && processResult) {
-      processOrder(reviewId, orderId, processResult);
-      setShowProcessModal(false);
-      setProcessResult("");
-      fetchOrderById(reviewId, orderId);
-    }
+    if (!processResult.trim() || !reviewId || !orderId) return;
+    processOrder(reviewId, orderId, processResult);
+    setShowProcessModal(false);
+    setProcessResult("");
+    fetchOrderById(reviewId, orderId);
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center gap-4">
-        <button
-          onClick={() => navigate(`/reviews/${reviewId}`)}
-          className="p-2 hover:bg-gray-100 rounded-md transition-colors"
-        >
-          <ArrowLeft size={20} />
-        </button>
-        <div>
-          <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-bold font-serif text-navy-900">
-              异常订单详情
-            </h1>
-            <StatusBadge status={currentOrder.status} type="order" />
-            {currentOrder.rejectReason && <RejectBadge reason={currentOrder.rejectReason} showReason />}
-            {currentOrder.supplementRequired && <SupplementBadge notes={currentOrder.supplementNotes} showNotes />}
-          </div>
-          <p className="text-gray-500 mt-1">
-            订单号：{currentOrder.orderNo} | 所属场次：{currentReview.sessionNo}
-          </p>
-        </div>
-      </div>
+    <div>
+      <button
+        onClick={() => navigate(`/reviews/${reviewId}`)}
+        className="flex items-center gap-2 text-gray-600 hover:text-navy-600 mb-4"
+      >
+        <ArrowLeft size={18} />
+        返回复盘详情
+      </button>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 space-y-6">
-          <div className="bg-white rounded-lg border shadow-card p-6">
-            <h2 className="text-lg font-semibold text-navy-900 mb-4">商品信息</h2>
-            <div className="flex items-start gap-4">
+      <div className="bg-white rounded-lg border shadow-card p-6 mb-6">
+        <div className="flex items-start justify-between mb-6">
+          <div>
+            <div className="flex items-center gap-3 mb-2">
+              <h1 className="text-xl font-bold text-navy-900">异常订单详情</h1>
+              <StatusBadge status={currentOrder.status} type="order" />
+              {currentOrder.rejectReason && <RejectBadge reason={currentOrder.rejectReason} showReason />}
+              {currentOrder.supplementRequired && <SupplementBadge notes={currentOrder.supplementNotes} showNotes />}
+            </div>
+            <p className="font-mono text-sm text-gray-500">{currentOrder.orderNo}</p>
+          </div>
+          <div className="text-right">
+            <p className="text-sm text-gray-500">所属复盘单</p>
+            <p className="font-medium text-navy-600">{currentReview.sessionNo}</p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-6">
+          <div>
+            <h3 className="text-sm font-medium text-gray-500 mb-3">商品信息</h3>
+            <div className="flex items-start gap-4 p-4 bg-gray-50 rounded-lg">
               <img
                 src={currentOrder.productImage}
                 alt={currentOrder.productName}
-                className="w-24 h-24 rounded-lg object-cover"
+                className="w-20 h-20 rounded-lg object-cover"
               />
               <div className="flex-1">
-                <h3 className="text-lg font-medium text-gray-900">
-                  {currentOrder.productName}
-                </h3>
-                <p className="text-2xl font-bold text-amber-600 mt-2">
-                  {formatAmount(currentOrder.amount)}
-                </p>
+                <p className="font-medium text-gray-900 mb-2">{currentOrder.productName}</p>
+                <p className="text-lg font-bold text-navy-600">{formatAmount(currentOrder.amount)}</p>
               </div>
             </div>
           </div>
 
-          <div className="bg-white rounded-lg border shadow-card p-6">
-            <h2 className="text-lg font-semibold text-navy-900 mb-4">买家信息</h2>
-            <div className="grid grid-cols-2 gap-4">
+          <div>
+            <h3 className="text-sm font-medium text-gray-500 mb-3">买家信息</h3>
+            <div className="p-4 bg-gray-50 rounded-lg space-y-3">
               <div className="flex items-center gap-2">
                 <User size={16} className="text-gray-400" />
-                <div>
-                  <p className="text-xs text-gray-500">买家昵称</p>
-                  <p className="text-sm font-medium">{currentOrder.buyerName}</p>
-                </div>
+                <span className="text-gray-900">{currentOrder.buyerName}</span>
               </div>
               <div className="flex items-center gap-2">
                 <Phone size={16} className="text-gray-400" />
-                <div>
-                  <p className="text-xs text-gray-500">联系电话</p>
-                  <p className="text-sm font-medium">{currentOrder.buyerPhone}</p>
-                </div>
+                <span className="text-gray-900">{currentOrder.buyerPhone}</span>
               </div>
             </div>
           </div>
 
-          <div className="bg-white rounded-lg border shadow-card p-6">
-            <h2 className="text-lg font-semibold text-navy-900 mb-4">异常信息</h2>
-            <div className="space-y-4">
-              <div>
-                <p className="text-sm font-medium text-gray-700 mb-1">异常类型</p>
-                <div className="flex items-center gap-2">
-                  <Tag size={16} className="text-status-error" />
-                  <span className="text-sm text-gray-600 bg-red-50 px-2 py-1 rounded">
-                    {currentOrder.abnormalType}
-                  </span>
-                </div>
+          <div>
+            <h3 className="text-sm font-medium text-gray-500 mb-3">异常信息</h3>
+            <div className="p-4 bg-gray-50 rounded-lg space-y-3">
+              <div className="flex items-center gap-2">
+                <Tag size={16} className="text-gray-400" />
+                <span className="text-gray-900">
+                  异常类型：<span className="font-medium">{currentOrder.abnormalType}</span>
+                </span>
               </div>
-              <div>
-                <p className="text-sm font-medium text-gray-700 mb-1">异常描述</p>
-                <p className="text-sm text-gray-600 bg-gray-50 p-3 rounded-md">
-                  {currentOrder.abnormalDesc}
-                </p>
+              <div className="flex items-start gap-2">
+                <FileText size={16} className="text-gray-400 mt-0.5" />
+                <span className="text-gray-900">{currentOrder.abnormalDesc}</span>
               </div>
-              {currentOrder.processResult && (
-                <div>
-                  <p className="text-sm font-medium text-gray-700 mb-1">处理结果</p>
-                  <p className="text-sm text-gray-600 bg-green-50 p-3 rounded-md border border-green-200">
-                    {currentOrder.processResult}
-                  </p>
-                </div>
-              )}
             </div>
           </div>
 
+          {currentOrder.processResult && (
+            <div>
+              <h3 className="text-sm font-medium text-gray-500 mb-3">处理结果</h3>
+              <div className="p-4 bg-green-50 rounded-lg border border-green-200">
+                <p className="text-gray-900">{currentOrder.processResult}</p>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-3 gap-6">
+        <div className="col-span-2">
           <div className="bg-white rounded-lg border shadow-card p-6">
             <h2 className="text-lg font-semibold text-navy-900 mb-4">操作日志</h2>
             <Timeline logs={currentOrder.operationLogs} />
           </div>
         </div>
 
-        <div className="space-y-6">
-          <div className="bg-white rounded-lg border shadow-card p-6">
-            <h2 className="text-lg font-semibold text-navy-900 mb-4">处理流程</h2>
-            <div className="space-y-3">
-              {[
-                { role: "assistant", label: "主播助理", desc: "标记异常订单" },
-                { role: "controller", label: "场控", desc: "核实异常真实性" },
-                { role: "aftersales", label: "售后组长", desc: "处理订单问题" },
-              ].map((step, index) => {
-                const isActive = currentReview.currentHandler === step.role && currentOrder.status !== "resolved";
-                return (
-                  <div key={step.role} className="flex items-center gap-3">
-                    <div
-                      className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-medium ${
-                        isActive
-                          ? "bg-amber-500 ring-4 ring-amber-100"
-                          : "bg-gray-300"
-                      }`}
-                    >
-                      {index + 1}
-                    </div>
-                    <div className="flex-1">
-                      <p className={`font-medium ${isActive ? "text-amber-600" : "text-gray-600"}`}>
-                        {step.label}
-                      </p>
-                      <p className="text-xs text-gray-500">{step.desc}</p>
-                    </div>
-                    {isActive && (
-                      <span className="text-xs px-2 py-1 bg-amber-100 text-amber-700 rounded">
-                        当前
-                      </span>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
+        <div>
           <div className="bg-white rounded-lg border shadow-card p-6">
             <h2 className="text-lg font-semibold text-navy-900 mb-4">操作</h2>
             <div className="space-y-3">
@@ -291,101 +253,101 @@ export function OrderDetail() {
         </div>
       </div>
 
-      {showRejectModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
-            <h3 className="text-lg font-semibold text-navy-900 mb-4">驳回异常订单</h3>
-            <p className="text-sm text-gray-600 mb-4">请填写驳回原因，主播助理将收到补录提醒</p>
+      <Modal open={showRejectModal} onClose={() => setShowRejectModal(false)} title="驳回异常订单">
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">驳回原因和补录要求</label>
             <textarea
               value={rejectReason}
               onChange={(e) => setRejectReason(e.target.value)}
-              placeholder="请输入驳回原因..."
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-navy-500/20 focus:border-navy-500 h-32 resize-none"
+              placeholder="请输入驳回原因和补录要求..."
+              className="w-full px-3 py-2 border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-navy-500/20 focus:border-navy-500 resize-none"
+              rows={4}
             />
-            <div className="flex gap-3 mt-4">
-              <button
-                onClick={() => setShowRejectModal(false)}
-                className="flex-1 px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
-              >
-                取消
-              </button>
-              <button
-                onClick={handleReject}
-                disabled={!rejectReason}
-                className="flex-1 px-4 py-2 bg-status-error text-white rounded-md hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                确认驳回
-              </button>
-            </div>
+          </div>
+          <p className="text-xs text-amber-600 bg-amber-50 p-3 rounded-md">
+            注意：驳回订单后，复盘单将退回给主播助理进行补录
+          </p>
+          <div className="flex gap-3 justify-end">
+            <button
+              onClick={() => setShowRejectModal(false)}
+              className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-md transition-colors"
+            >
+              取消
+            </button>
+            <button
+              onClick={handleReject}
+              disabled={!rejectReason.trim()}
+              className="px-4 py-2 bg-status-error text-white rounded-md hover:bg-red-600 transition-colors disabled:opacity-50"
+            >
+              确认驳回
+            </button>
           </div>
         </div>
-      )}
+      </Modal>
 
-      {showSupplementModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
-            <h3 className="text-lg font-semibold text-navy-900 mb-4">补录信息</h3>
-            {currentOrder.supplementNotes && (
-              <div className="mb-4 p-3 bg-orange-50 border border-orange-200 rounded-md">
-                <p className="text-sm text-orange-700 font-medium">补录要求：</p>
-                <p className="text-sm text-orange-600 mt-1">
-                  {currentOrder.supplementNotes}
-                </p>
-              </div>
-            )}
+      <Modal open={showSupplementModal} onClose={() => setShowSupplementModal(false)} title="补录异常订单信息">
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">补充的信息</label>
             <textarea
-              value={supplementText}
-              onChange={(e) => setSupplementText(e.target.value)}
-              placeholder="请补充异常订单相关信息..."
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-navy-500/20 focus:border-navy-500 h-32 resize-none"
+              value={supplementNotes}
+              onChange={(e) => setSupplementNotes(e.target.value)}
+              placeholder="请补充相关证据和说明..."
+              className="w-full px-3 py-2 border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-navy-500/20 focus:border-navy-500 resize-none"
+              rows={4}
             />
-            <div className="flex gap-3 mt-4">
-              <button
-                onClick={() => setShowSupplementModal(false)}
-                className="flex-1 px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
-              >
-                取消
-              </button>
-              <button
-                onClick={handleSupplement}
-                disabled={!supplementText}
-                className="flex-1 px-4 py-2 bg-amber-500 text-white rounded-md hover:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                提交补录
-              </button>
-            </div>
+          </div>
+          <p className="text-xs text-amber-600 bg-amber-50 p-3 rounded-md">
+            注意：补录完成后将重新提交给场控审核
+          </p>
+          <div className="flex gap-3 justify-end">
+            <button
+              onClick={() => setShowSupplementModal(false)}
+              className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-md transition-colors"
+            >
+              取消
+            </button>
+            <button
+              onClick={handleSupplement}
+              disabled={!supplementNotes.trim()}
+              className="px-4 py-2 bg-amber-500 text-white rounded-md hover:bg-amber-600 transition-colors disabled:opacity-50"
+            >
+              提交审核
+            </button>
           </div>
         </div>
-      )}
+      </Modal>
 
-      {showProcessModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
-            <h3 className="text-lg font-semibold text-navy-900 mb-4">记录处理结果</h3>
+      <Modal open={showProcessModal} onClose={() => setShowProcessModal(false)} title="记录处理结果">
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">处理结果</label>
             <textarea
               value={processResult}
               onChange={(e) => setProcessResult(e.target.value)}
-              placeholder="请输入处理结果，如：已全额退款、已补发商品、已补偿优惠券等..."
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-navy-500/20 focus:border-navy-500 h-32 resize-none"
+              placeholder="请记录处理结果..."
+              className="w-full px-3 py-2 border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-navy-500/20 focus:border-navy-500 resize-none"
+              rows={4}
             />
-            <div className="flex gap-3 mt-4">
-              <button
-                onClick={() => setShowProcessModal(false)}
-                className="flex-1 px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
-              >
-                取消
-              </button>
-              <button
-                onClick={handleProcess}
-                disabled={!processResult}
-                className="flex-1 px-4 py-2 bg-status-success text-white rounded-md hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                确认处理
-              </button>
-            </div>
+          </div>
+          <div className="flex gap-3 justify-end">
+            <button
+              onClick={() => setShowProcessModal(false)}
+              className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-md transition-colors"
+            >
+              取消
+            </button>
+            <button
+              onClick={handleProcess}
+              disabled={!processResult.trim()}
+              className="px-4 py-2 bg-status-success text-white rounded-md hover:bg-green-600 transition-colors disabled:opacity-50"
+            >
+              确认完成
+            </button>
           </div>
         </div>
-      )}
+      </Modal>
     </div>
   );
 }

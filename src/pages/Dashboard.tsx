@@ -4,81 +4,97 @@ import { StatusBadge } from "@/components/common/StatusBadge";
 import { SupplementBadge } from "@/components/common/SupplementBadge";
 import { cn } from "@/lib/utils";
 import { useReviewStore } from "@/store/useReviewStore";
+import { useUserStore } from "@/store/useUserStore";
 import { formatDateTime, formatNumber } from "@/utils/date";
 import { ROLE_MAP } from "@/utils/status";
-import { AlertTriangle, Clock, FileText, XCircle } from "lucide-react";
-import { useEffect } from "react";
+import { AlertTriangle, ArrowRight, Clock, XCircle } from "lucide-react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 export function Dashboard() {
   const navigate = useNavigate();
+  const { currentUser } = useUserStore();
   const {
-    reviews,
     fetchReviews,
     getTodayPending,
     getOverdue,
     getRecentlyRejected,
+    setFilters,
   } = useReviewStore();
 
+  const [todayPending, setTodayPending] = useState(0);
+  const [overdue, setOverdue] = useState(0);
+  const [recentlyRejected, setRecentlyRejected] = useState(0);
+  const [quickList, setQuickList] = useState<ReturnType<typeof getTodayPending>>([]);
+
   useEffect(() => {
-    if (reviews.length === 0) {
-      fetchReviews();
+    fetchReviews();
+  }, [fetchReviews]);
+
+  useEffect(() => {
+    const pending = getTodayPending(currentUser.role);
+    const overdueList = getOverdue(currentUser.role);
+    const rejected = getRecentlyRejected(currentUser.role);
+
+    setTodayPending(pending.length);
+    setOverdue(overdueList.length);
+    setRecentlyRejected(rejected.length);
+    setQuickList(pending.slice(0, 5));
+  }, [getTodayPending, getOverdue, getRecentlyRejected, currentUser.role]);
+
+  const handleCardClick = (filterType: "pending" | "overdue" | "rejected") => {
+    if (filterType === "pending") {
+      setFilters({ currentHandler: currentUser.role });
+    } else if (filterType === "overdue") {
+      setFilters({ currentHandler: currentUser.role });
+    } else if (filterType === "rejected") {
+      setFilters({ hasReject: true, hasSupplement: true });
     }
-  }, [reviews.length, fetchReviews]);
-
-  const todayPending = getTodayPending();
-  const overdue = getOverdue();
-  const recentlyRejected = getRecentlyRejected();
-
-  const quickList = [...todayPending]
-    .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
-    .slice(0, 5);
+    navigate("/reviews");
+  };
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold font-serif text-navy-900">工作台</h1>
-        <p className="text-gray-500 mt-1">欢迎回来，查看今日待处理事项</p>
+    <div>
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold text-navy-900 mb-1">工作台</h1>
+        <p className="text-gray-500">欢迎回来，查看今日待处理事项</p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-3 gap-6 mb-8">
         <StatCard
           title="今日待处理"
-          value={todayPending.length}
+          value={todayPending}
           icon={Clock}
-          color="amber"
-          trend={12}
-          onClick={() => navigate("/reviews?status=pending")}
+          color="text-navy-600"
+          bgColor="bg-navy-50"
+          onClick={() => handleCardClick("pending")}
         />
         <StatCard
           title="超时未处理"
-          value={overdue.length}
+          value={overdue}
           icon={AlertTriangle}
-          color="red"
-          trend={-5}
-          onClick={() => navigate("/reviews?overdue=true")}
+          color="text-status-error"
+          bgColor="bg-red-50"
+          onClick={() => handleCardClick("overdue")}
         />
         <StatCard
           title="刚退回/需补录"
-          value={recentlyRejected.length}
+          value={recentlyRejected}
           icon={XCircle}
-          color="navy"
-          trend={0}
-          onClick={() => navigate("/reviews?status=rejected")}
+          color="text-status-warning"
+          bgColor="bg-amber-50"
+          onClick={() => handleCardClick("rejected")}
         />
       </div>
 
       <div className="bg-white rounded-lg border shadow-card">
-        <div className="p-4 border-b flex items-center justify-between">
-          <h2 className="font-semibold text-navy-900 flex items-center gap-2">
-            <FileText size={18} />
-            待处理列表
-          </h2>
+        <div className="flex items-center justify-between p-5 border-b">
+          <h2 className="text-lg font-semibold text-navy-900">待处理列表</h2>
           <button
             onClick={() => navigate("/reviews")}
-            className="text-sm text-navy-600 hover:text-navy-800 font-medium"
+            className="text-sm text-navy-600 hover:text-navy-700 flex items-center gap-1"
           >
-            查看全部 →
+            查看全部 <ArrowRight size={14} />
           </button>
         </div>
         <div className="divide-y">

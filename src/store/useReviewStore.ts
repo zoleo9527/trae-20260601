@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { LiveReview, ReviewFilters, AbnormalOrder, OperationLog } from "@/types";
+import type { LiveReview, ReviewFilters, AbnormalOrder, OperationLog, UserRole } from "@/types";
 import { createMockReviews } from "@/utils/mock";
 
 interface ReviewState {
@@ -21,11 +21,12 @@ interface ReviewState {
   rejectOrder: (reviewId: string, orderId: string, reason: string) => void;
   confirmOrder: (reviewId: string, orderId: string) => void;
   supplementOrder: (reviewId: string, orderId: string, notes: string) => void;
-  closeReview: (id: string) => void;
+  closeReview: (id: string) => boolean;
+  canCloseReview: (id: string) => boolean;
   getFilteredReviews: () => LiveReview[];
-  getTodayPending: () => LiveReview[];
-  getOverdue: () => LiveReview[];
-  getRecentlyRejected: () => LiveReview[];
+  getTodayPending: (userRole?: UserRole) => LiveReview[];
+  getOverdue: (userRole?: UserRole) => LiveReview[];
+  getRecentlyRejected: (userRole?: UserRole) => LiveReview[];
   getAllLogs: () => OperationLog[];
 }
 
@@ -58,7 +59,7 @@ function addLog(
   targetId: string,
   targetType: "review" | "order",
   operator: string,
-  operatorRole: "assistant" | "controller" | "aftersales",
+  operatorRole: UserRole,
   operationType: OperationLog["operationType"],
   operationDesc: string
 ): OperationLog[] {
@@ -219,6 +220,8 @@ export const useReviewStore = create<ReviewState>((set, get) => ({
             status: "pending",
             currentHandler: "controller",
             supplementRequired: false,
+            rejectReason: undefined,
+            supplementNotes: undefined,
             updatedAt: new Date().toISOString(),
             operationLogs: addLog(
               r.operationLogs,
@@ -327,6 +330,8 @@ export const useReviewStore = create<ReviewState>((set, get) => ({
                 ...o,
                 status: "rejected" as const,
                 rejectReason: reason,
+                supplementRequired: true,
+                supplementNotes: reason,
                 updatedAt: new Date().toISOString(),
                 operationLogs: addLog(
                   o.operationLogs,
@@ -343,8 +348,22 @@ export const useReviewStore = create<ReviewState>((set, get) => ({
           });
           return {
             ...r,
+            status: "rejected" as const,
+            currentHandler: "assistant" as const,
+            rejectReason: reason,
+            supplementRequired: true,
+            supplementNotes: reason,
             abnormalOrders: updatedOrders,
             updatedAt: new Date().toISOString(),
+            operationLogs: addLog(
+              r.operationLogs,
+              r.id,
+              "review",
+              "场控A",
+              "controller",
+              "reject",
+              `异常订单被驳回，退回主播助理补录：${reason}`
+            ),
           };
         }
         return r;
@@ -365,6 +384,7 @@ export const useReviewStore = create<ReviewState>((set, get) => ({
                 status: "confirmed" as const,
                 rejectReason: undefined,
                 supplementRequired: false,
+                supplementNotes: undefined,
                 updatedAt: new Date().toISOString(),
                 operationLogs: addLog(
                   o.operationLogs,
@@ -379,10 +399,29 @@ export const useReviewStore = create<ReviewState>((set, get) => ({
             }
             return o;
           });
+          const allOrdersConfirmed = updatedOrders.every(
+            (o) => o.status === "confirmed" || o.status === "resolved"
+          );
           return {
             ...r,
+            status: allOrdersConfirmed ? ("confirmed" as const) : r.status,
+            currentHandler: allOrdersConfirmed ? ("aftersales" as const) : r.currentHandler,
+            rejectReason: allOrdersConfirmed ? undefined : r.rejectReason,
+            supplementRequired: allOrdersConfirmed ? false : r.supplementRequired,
+            supplementNotes: allOrdersConfirmed ? undefined : r.supplementNotes,
             abnormalOrders: updatedOrders,
             updatedAt: new Date().toISOString(),
+            operationLogs: allOrdersConfirmed
+              ? addLog(
+                  r.operationLogs,
+                  r.id,
+                  "review",
+                  "场控A",
+                  "controller",
+                  "confirm",
+                  "所有异常订单已确认，流转至售后组长"
+                )
+              : r.operationLogs,
           };
         }
         return r;
@@ -403,6 +442,7 @@ export const useReviewStore = create<ReviewState>((set, get) => ({
                 status: "pending" as const,
                 supplementRequired: false,
                 rejectReason: undefined,
+                supplementNotes: undefined,
                 updatedAt: new Date().toISOString(),
                 operationLogs: addLog(
                   o.operationLogs,
@@ -417,10 +457,27 @@ export const useReviewStore = create<ReviewState>((set, get) => ({
             }
             return o;
           });
+          const hasRejectedOrder = updatedOrders.some(
+            (o) => o.status === "rejected" || o.supplementRequired
+          );
           return {
             ...r,
+            status: hasRejectedOrder ? r.status : ("pending" as const),
+            currentHandler: hasRejectedOrder ? r.currentHandler : ("controller" as const),
+            rejectReason: hasRejectedOrder ? r.rejectReason : undefined,
+            supplementRequired: hasRejectedOrder,
+            supplementNotes: hasRejectedOrder ? r.supplementNotes : undefined,
             abnormalOrders: updatedOrders,
             updatedAt: new Date().toISOString(),
+            operationLogs: addLog(
+              r.operationLogs,
+              r.id,
+              "review",
+              "小王",
+              "assistant",
+              "supplement",
+              `补充异常订单信息后重新提交审核`
+            ),
           };
         }
         return r;
@@ -430,10 +487,23 @@ export const useReviewStore = create<ReviewState>((set, get) => ({
     });
   },
 
+  canCloseReview: (id: string) => {
+    const review = get().reviews.find((r) => r.id === id);
+    if (!review) return false;
+    return review.abnormalOrders.every((o) => o.status === "resolved");
+  },
+
   closeReview: (id: string) => {
+    if (!get().canCloseReview(id)) {
+      return false;
+    }
     set((state) => {
       const reviews = state.reviews.map((r) => {
         if (r.id === id) {
+          const allResolved = r.abnormalOrders.every(
+            (o) => o.status === "resolved"
+          );
+          if (!allResolved) return r;
           const updated: LiveReview = {
             ...r,
             status: "closed",
@@ -455,6 +525,7 @@ export const useReviewStore = create<ReviewState>((set, get) => ({
       saveToStorage(reviews);
       return { reviews };
     });
+    return true;
   },
 
   getFilteredReviews: () => {
@@ -479,19 +550,31 @@ export const useReviewStore = create<ReviewState>((set, get) => ({
     });
   },
 
-  getTodayPending: () => {
+  getTodayPending: (userRole?: UserRole) => {
     const { reviews } = get();
-    return reviews.filter((r) => r.status !== "closed" && r.status !== "draft");
+    return reviews.filter((r) => {
+      if (r.status === "closed" || r.status === "draft") return false;
+      if (userRole && r.currentHandler !== userRole) return false;
+      return true;
+    });
   },
 
-  getOverdue: () => {
+  getOverdue: (userRole?: UserRole) => {
     const { reviews } = get();
-    return reviews.filter((r) => r.isOverdue && r.status !== "closed");
+    return reviews.filter((r) => {
+      if (!r.isOverdue || r.status === "closed") return false;
+      if (userRole && r.currentHandler !== userRole) return false;
+      return true;
+    });
   },
 
-  getRecentlyRejected: () => {
+  getRecentlyRejected: (userRole?: UserRole) => {
     const { reviews } = get();
-    return reviews.filter((r) => r.status === "rejected");
+    return reviews.filter((r) => {
+      if (r.status !== "rejected" && !r.supplementRequired) return false;
+      if (userRole && r.currentHandler !== userRole) return false;
+      return true;
+    });
   },
 
   getAllLogs: () => {

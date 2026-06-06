@@ -158,11 +158,13 @@ export function createMockReviews(): LiveReview[] {
   for (let i = 0; i < 12; i++) {
     const daysAgo = Math.floor(i / 2);
     const status = pickRandom(statuses);
-    const handler = status === "pending" || status === "rejected"
-      ? "controller"
-      : status === "confirmed"
-        ? "aftersales"
-        : pickRandom(handlers);
+    const handler = status === "rejected"
+      ? "assistant"
+      : status === "pending"
+        ? "controller"
+        : status === "confirmed"
+          ? "aftersales"
+          : pickRandom(handlers);
 
     const orderCount = Math.floor(Math.random() * 3) + 1;
     const abnormalOrders: AbnormalOrder[] = [];
