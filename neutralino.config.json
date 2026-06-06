@@ -1,0 +1,51 @@
+{
+  "applicationId": "com.crossborder.returnmanager",
+  "version": "1.0.0",
+  "defaultMode": "window",
+  "port": 0,
+  "documentRoot": "/www",
+  "url": "/",
+  "enableServer": true,
+  "enableNativeAPI": true,
+  "tokenSecurity": "one-time",
+  "logging": {
+    "enabled": true,
+    "writeToLogFile": true
+  },
+  "nativeAllowList": [
+    "app.*",
+    "os.*",
+    "storage.*",
+    "filesystem.*"
+  ],
+  "globalVariables": {
+    "appName": "跨境电商退件管理系统"
+  },
+  "modes": {
+    "window": {
+      "title": "跨境电商退件管理系统",
+      "width": 1280,
+      "height": 800,
+      "minWidth": 1024,
+      "minHeight": 680,
+      "center": true,
+      "resizable": true,
+      "fullScreen": false,
+      "alwaysOnTop": false,
+      "icon": "/www/assets/icon.png",
+      "enableInspector": true,
+      "borderless": false,
+      "maximize": false,
+      "hidden": false,
+      "maximizable": true,
+      "minimizable": true,
+      "closable": true
+    }
+  },
+  "cli": {
+    "binaryName": "return-manager",
+    "resourcesPath": "/www/",
+    "clientVersion": "4.7.0",
+    "binaryVersion": "4.7.0"
+  }
+}
