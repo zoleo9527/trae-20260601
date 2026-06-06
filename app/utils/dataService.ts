@@ -405,3 +405,10 @@ export async function getLateReturnRecords() {
     orderBy: { date: "desc" as const },
   });
 }
+
+export async function getKeyRecordsByDormId(dormId: string) {
+  return db.keyRecord.findMany({
+    where: { dormId },
+    orderBy: { createdAt: "desc" as const },
+  });
+}

@@ -14,11 +14,12 @@ import {
   closeInspection,
   getMaintenanceUsers,
   submitInspection,
+  getKeyRecordsByDormId,
 } from "~/utils/dataService";
 import { STATUS_LABELS, STATUS_COLORS, GRADE_LABELS } from "~/utils/types";
 import clsx from "clsx";
 import invariant from "tiny-invariant";
-import type { InspectionGrade, InspectionItem, Rectification, TimelineEvent, Dorm, User } from "@prisma/client";
+import type { InspectionGrade, InspectionItem, Rectification, TimelineEvent, Dorm, User, KeyRecord } from "@prisma/client";
 
 type InspectionWithRelations = {
   id: string;
@@ -51,8 +52,9 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
 
   const studentsWithLateReturns = await getStudentsWithLateReturns(inspection.dormId);
   const maintenanceUsers = await getMaintenanceUsers();
+  const keyRecords = await getKeyRecordsByDormId(inspection.dormId);
 
-  return json({ user, inspection, studentsWithLateReturns, maintenanceUsers });
+  return json({ user, inspection, studentsWithLateReturns, maintenanceUsers, keyRecords });
 }
 
 export async function action({ request, params }: ActionFunctionArgs) {
@@ -134,7 +136,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
 
 export default function InspectionDetailPage() {
   const loaderData = useLoaderData<typeof loader>();
-  const { user, studentsWithLateReturns, maintenanceUsers } = loaderData;
+  const { user, studentsWithLateReturns, maintenanceUsers, keyRecords } = loaderData;
   const inspection = loaderData.inspection as unknown as InspectionWithRelations;
   const navigation = useNavigation();
 
@@ -691,17 +693,56 @@ export default function InspectionDetailPage() {
 
             <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
               <h2 className="text-lg font-semibold text-gray-900 mb-4">钥匙台账</h2>
-              <div className="space-y-2">
-                <div className="p-3 bg-gray-50 rounded-lg">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium">
-                      K-{inspection.dorm.building}-{inspection.dorm.roomNumber}
-                    </span>
-                    <span className="px-2 py-0.5 bg-green-100 text-green-700 rounded text-xs font-medium">
-                      在库
-                    </span>
+              <div className="space-y-3">
+                {keyRecords.length === 0 ? (
+                  <div className="text-center py-6">
+                    <p className="text-sm text-gray-400">暂无钥匙记录</p>
                   </div>
-                </div>
+                ) : (
+                  keyRecords.map((key) => (
+                    <div key={key.id} className="p-3 bg-gray-50 rounded-lg">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-sm font-medium text-gray-900">
+                          {key.keyNumber}
+                        </span>
+                        <span
+                          className={clsx(
+                            "px-2 py-0.5 rounded text-xs font-medium",
+                            key.status === "borrowed"
+                              ? "bg-yellow-100 text-yellow-700"
+                              : "bg-green-100 text-green-700"
+                          )}
+                        >
+                          {key.status === "borrowed" ? "已借出" : "在库"}
+                        </span>
+                      </div>
+                      {key.borrower && (
+                        <p className="text-xs text-gray-600">
+                          <span className="font-medium">借用人：</span>
+                          {key.borrower}
+                        </p>
+                      )}
+                      {key.borrowedAt && (
+                        <p className="text-xs text-gray-500 mt-1">
+                          <span className="font-medium">借出时间：</span>
+                          {new Date(key.borrowedAt).toLocaleString("zh-CN")}
+                        </p>
+                      )}
+                      {key.returnedAt && (
+                        <p className="text-xs text-gray-500 mt-1">
+                          <span className="font-medium">归还时间：</span>
+                          {new Date(key.returnedAt).toLocaleString("zh-CN")}
+                        </p>
+                      )}
+                      {key.remarks && (
+                        <p className="text-xs text-gray-500 mt-1">
+                          <span className="font-medium">备注：</span>
+                          {key.remarks}
+                        </p>
+                      )}
+                    </div>
+                  ))
+                )}
               </div>
             </div>
 
