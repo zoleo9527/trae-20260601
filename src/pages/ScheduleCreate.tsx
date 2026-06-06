@@ -19,7 +19,7 @@ import { ArrowLeftOutlined, SaveOutlined, PlusOutlined, DeleteOutlined } from '@
 import { useParams, useNavigate } from 'react-router-dom';
 import dayjs from 'dayjs';
 import { scheduleApi, productApi } from '@/services/api';
-import { useIdempotentSubmit, generateIdempotencyKey } from '@/utils/idempotent';
+import { useIdempotentSubmit } from '@/utils/idempotent';
 import type { ScheduleProduct, Product, LiveSchedule } from '@/types';
 
 const { TextArea } = Input;

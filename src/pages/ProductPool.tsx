@@ -70,6 +70,9 @@ const ProductPool = () => {
       setApprovingId(null);
       fetchData();
     },
+    onError: () => {
+      setApprovingId(null);
+    },
   });
 
   const rejectSubmit = useIdempotentSubmit({
@@ -80,6 +83,9 @@ const ProductPool = () => {
       setRejectModal(null);
       rejectForm.resetFields();
       fetchData();
+    },
+    onError: () => {
+      setRejectModal(null);
     },
   });
 
