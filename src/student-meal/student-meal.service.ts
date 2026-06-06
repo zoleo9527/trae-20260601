@@ -1,8 +1,8 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { MealType, OrderStatus, TimelineBusinessType } from '../common/enums';
+import { MealType, OrderStatus, SpecialTagStatus, TimelineBusinessType } from '../common/enums';
 import { ClassInfo, Student, User } from '../common/interfaces';
 import { InMemoryStore } from '../common/services/in-memory-store.service';
-import { BatchConfirmOrderDto, BatchCreateOrderDto, CreateOrderDto, StudentMealOrder } from './interfaces/student-meal.interface';
+import { BatchConfirmOrderDto, BatchCreateOrderDto, CreateOrderDto, OrderDetailAggregate, StudentMealOrder } from './interfaces/student-meal.interface';
 
 @Injectable()
 export class StudentMealService {
@@ -176,5 +176,38 @@ export class StudentMealService {
 
   getAllClasses(): ClassInfo[] {
     return this.store.getClasses();
+  }
+
+  getOrderDetailAggregate(orderId: string): OrderDetailAggregate {
+    const order = this.findOne(orderId);
+
+    const timeline = this.store
+      .getTimelines()
+      .filter(
+        t =>
+          (t.businessType === TimelineBusinessType.ORDER && t.businessId === orderId) ||
+          (t.businessType === TimelineBusinessType.SPECIAL_TAG && t.detail?.studentId === order.studentId)
+      )
+      .sort((a, b) => new Date(b.operateTime).getTime() - new Date(a.operateTime).getTime());
+
+    const studentCurrentTags = this.store
+      .getSpecialTags()
+      .filter(t => t.studentId === order.studentId && t.status === SpecialTagStatus.ACTIVE)
+      .sort((a, b) => new Date(b.createTime).getTime() - new Date(a.createTime).getTime());
+
+    const recentTagLogs = this.store
+      .getSpecialTagLogs()
+      .filter(l => l.studentId === order.studentId)
+      .sort((a, b) => new Date(b.operateTime).getTime() - new Date(a.operateTime).getTime())
+      .slice(0, 10);
+
+    return {
+      order,
+      timeline,
+      studentCurrentTags,
+      recentTagLogs,
+      specialMealReviewPath: `/special-meal/student/${order.studentId}/review`,
+      orderDetailPath: `/student-meal/${order.id}/detail`,
+    };
   }
 }

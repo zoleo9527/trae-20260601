@@ -1,6 +1,6 @@
 import { Controller, Get } from '@nestjs/common';
 import { ApiHeader, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { OrderStatus, PurchaseStatus, SummaryStatus, UserRole } from '../common/enums';
+import { MealType, OrderStatus, PurchaseStatus, SummaryStatus, UserRole } from '../common/enums';
 import { InMemoryStore } from '../common/services/in-memory-store.service';
 import { PurchaseService } from '../purchase/purchase.service';
 import { SpecialMealService } from '../special-meal/special-meal.service';
@@ -46,9 +46,27 @@ export class RoleEntranceController {
       pendingTasks: {
         pendingOrders: {
           count: pendingOrders.length,
-          items: pendingOrders.slice(0, 5),
+          items: pendingOrders.slice(0, 5).map(o => ({
+            id: o.id,
+            orderId: o.id,
+            studentId: o.studentId,
+            studentName: o.studentName,
+            date: o.date,
+            mealType: o.mealType,
+            status: o.status,
+            detailPath: `/student-meal/${o.id}/detail`,
+            studentReviewPath: `/special-meal/student/${o.studentId}/review`,
+          })),
         },
-        specialToReview: specialOrders.slice(0, 3),
+        specialToReview: specialOrders.slice(0, 3).map(o => ({
+          id: o.id,
+          orderId: o.id,
+          studentId: o.studentId,
+          studentName: o.studentName,
+          specialTags: o.specialDietTag,
+          detailPath: `/student-meal/${o.id}/detail`,
+          studentReviewPath: `/special-meal/student/${o.studentId}/review`,
+        })),
       },
       riskItems: [
         {
@@ -56,12 +74,16 @@ export class RoleEntranceController {
           level: 'high',
           message: '赵小雨 连续3天标记特殊餐（清真+坚果过敏）',
           studentId: 'stu-004',
+          studentName: '赵小雨',
+          detailPath: '/special-meal/student/stu-004/review',
         },
         {
           type: 'tag_conflict',
           level: 'high',
           message: '刘小强 标签冲突：同时标记"高嘌呤"和"排骨汤"',
           studentId: 'stu-005',
+          studentName: '刘小强',
+          detailPath: '/special-meal/student/stu-005/review',
         },
       ],
       recentChanges: recentChanges.slice(0, 5).map(t => ({
@@ -96,6 +118,15 @@ export class RoleEntranceController {
     const pendingSummary = tomorrowSummary.status === SummaryStatus.DRAFT;
     const pendingSample = samples.length < 2;
 
+    const pendingServeOrders = this.studentMealService
+      .findAll({ date: today, status: OrderStatus.CONFIRMED })
+      .slice(0, 8);
+
+    const specialTodayOrders = this.studentMealService
+      .findAll({ date: today })
+      .filter(o => o.mealType === MealType.SPECIAL && o.status !== OrderStatus.CANCELLED)
+      .slice(0, 6);
+
     return {
       role: UserRole.CANTEEN_ADMIN,
       welcome: '食堂管理员工作台',
@@ -111,11 +142,33 @@ export class RoleEntranceController {
               date: tomorrow,
               total: tomorrowSummary.totalCount,
               special: tomorrowSummary.specialCount,
+              detailPath: `/purchase/summary/${tomorrow}`,
             }
           : null,
         sampleToRecord: pendingSample
-          ? [{ mealType: 'dinner', label: '晚餐留样待录入' }]
+          ? [{ mealType: 'dinner', label: '晚餐留样待录入', detailPath: '/sample' }]
           : [],
+        ordersToServe: pendingServeOrders.map(o => ({
+          id: o.id,
+          orderId: o.id,
+          studentId: o.studentId,
+          studentName: o.studentName,
+          className: o.className,
+          mealType: o.mealType,
+          specialTags: o.specialDietTag,
+          detailPath: `/student-meal/${o.id}/detail`,
+          studentReviewPath: `/special-meal/student/${o.studentId}/review`,
+        })),
+        specialMealToday: specialTodayOrders.map(o => ({
+          id: o.id,
+          orderId: o.id,
+          studentId: o.studentId,
+          studentName: o.studentName,
+          className: o.className,
+          specialTags: o.specialDietTag,
+          detailPath: `/student-meal/${o.id}/detail`,
+          studentReviewPath: `/special-meal/student/${o.studentId}/review`,
+        })),
       },
       riskItems: [
         {

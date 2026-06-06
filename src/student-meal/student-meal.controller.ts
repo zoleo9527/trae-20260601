@@ -41,6 +41,13 @@ export class StudentMealController {
     return this.studentMealService.findOne(id);
   }
 
+  @Get(':id/detail')
+  @ApiOperation({ summary: '获取订餐详情聚合（含时间线、学生标签、最近变更）' })
+  @ApiHeader({ name: 'x-user-id', description: '用户ID' })
+  getDetailAggregate(@Param('id') id: string) {
+    return this.studentMealService.getOrderDetailAggregate(id);
+  }
+
   @Post()
   @ApiOperation({ summary: '创建单条订餐' })
   @ApiHeader({ name: 'x-user-id', description: '用户ID' })
