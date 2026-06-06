@@ -10,14 +10,24 @@ import {
   AlertTriangle,
   CheckCircle,
   Clock,
+  AlertCircle,
 } from 'lucide-react';
 import StatusBadge from '@/components/StatusBadge';
-import { format } from 'date-fns';
+import { format, differenceInDays, startOfDay, parseISO, isToday } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
 
 export default function Dashboard() {
   const { animals, getTodayTasks, medicalRecords } = useStore();
   const tasks = getTodayTasks();
+  const today = startOfDay(new Date());
+
+  const overdueFollowUps = tasks.followUpsDue
+    .filter((f) => !isToday(parseISO(f.date)))
+    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+  const todayFollowUps = tasks.followUpsDue
+    .filter((f) => isToday(parseISO(f.date)))
+    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
   const stats = [
     {
@@ -212,25 +222,80 @@ export default function Dashboard() {
                 <p>今日无回访任务</p>
               </div>
             ) : (
-              tasks.followUpsDue.slice(0, 3).map((fu) => {
-                const animal = animals.find((a) => a.id === fu.animalId);
-                return (
-                  <Link
-                    key={fu.id}
-                    to={`/rescue/${fu.animalId}`}
-                    className="p-4 hover:bg-gray-50 block"
-                  >
-                    <div className="flex items-start gap-3">
-                      <Clock size={16} className="text-purple-500 mt-0.5 shrink-0" />
-                      <div className="min-w-0">
-                        <p className="font-medium text-gray-900">{animal?.name || '未知动物'}</p>
-                        <p className="text-sm text-gray-500 mt-0.5 truncate">{fu.content}</p>
-                        <p className="text-xs text-gray-400 mt-1">负责人: {fu.operator}</p>
-                      </div>
+              <>
+                {overdueFollowUps.length > 0 && (
+                  <div>
+                    <div className="px-4 py-2 bg-red-50 border-b border-red-100">
+                      <p className="text-xs font-medium text-red-600 flex items-center gap-1">
+                        <AlertCircle size={12} />
+                        已逾期（{overdueFollowUps.length}）
+                      </p>
                     </div>
-                  </Link>
-                );
-              })
+                    {overdueFollowUps.map((fu) => {
+                      const animal = animals.find((a) => a.id === fu.animalId);
+                      const overdueDays = differenceInDays(today, startOfDay(parseISO(fu.date)));
+                      return (
+                        <Link
+                          key={fu.id}
+                          to={`/rescue/${fu.animalId}`}
+                          className="p-4 hover:bg-red-50 block bg-red-50/30"
+                        >
+                          <div className="flex items-start gap-3">
+                            <AlertTriangle size={16} className="text-red-500 mt-0.5 shrink-0" />
+                            <div className="min-w-0 flex-1">
+                              <p className="font-medium text-gray-900">{animal?.name || '未知动物'}</p>
+                              <p className="text-sm text-gray-600 mt-0.5 truncate">{fu.content}</p>
+                              <div className="flex items-center gap-3 mt-1">
+                                <p className="text-xs text-red-600 font-medium">
+                                  逾期 {overdueDays} 天
+                                </p>
+                                <p className="text-xs text-gray-400">
+                                  应完成：{fu.date}
+                                </p>
+                              </div>
+                              <p className="text-xs text-gray-400 mt-1">负责人: {fu.operator}</p>
+                            </div>
+                          </div>
+                        </Link>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {todayFollowUps.length > 0 && (
+                  <div>
+                    <div className="px-4 py-2 bg-yellow-50 border-b border-yellow-100">
+                      <p className="text-xs font-medium text-yellow-700 flex items-center gap-1">
+                        <Clock size={12} />
+                        今日到期（{todayFollowUps.length}）
+                      </p>
+                    </div>
+                    {todayFollowUps.map((fu) => {
+                      const animal = animals.find((a) => a.id === fu.animalId);
+                      return (
+                        <Link
+                          key={fu.id}
+                          to={`/rescue/${fu.animalId}`}
+                          className="p-4 hover:bg-yellow-50 block"
+                        >
+                          <div className="flex items-start gap-3">
+                            <Clock size={16} className="text-yellow-500 mt-0.5 shrink-0" />
+                            <div className="min-w-0 flex-1">
+                              <p className="font-medium text-gray-900">{animal?.name || '未知动物'}</p>
+                              <p className="text-sm text-gray-600 mt-0.5 truncate">{fu.content}</p>
+                              <div className="flex items-center gap-3 mt-1">
+                                <p className="text-xs text-yellow-600 font-medium">今日到期</p>
+                                <p className="text-xs text-gray-400">计划日期：{fu.date}</p>
+                              </div>
+                              <p className="text-xs text-gray-400 mt-1">负责人: {fu.operator}</p>
+                            </div>
+                          </div>
+                        </Link>
+                      );
+                    })}
+                  </div>
+                )}
+              </>
             )}
           </div>
         </div>
