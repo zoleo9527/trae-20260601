@@ -25,11 +25,19 @@ export class MaintenanceService {
       throw new BadRequestException('该报修单状态不正确，无法接单');
     }
 
-    if (repairOrder.assignedWorkerId !== operator.id) {
-      throw new BadRequestException('该工单不是派给您的');
+    const latestDispatch = await this.getLatestDispatch(repairOrderId);
+    if (!latestDispatch) {
+      throw new BadRequestException('该工单还未派单');
     }
 
-    const latestDispatch = await this.getLatestDispatch(repairOrderId);
+    if (latestDispatch.workerId !== operator.id) {
+      throw new BadRequestException('该工单已转派给其他师傅，您无法操作');
+    }
+
+    if (latestDispatch.status === 'reassigned') {
+      throw new BadRequestException('该派单已被转派，无法操作');
+    }
+
     if (latestDispatch) {
       this.dispatchService.updateStatus(latestDispatch.id, 'accepted', note);
     }
@@ -63,11 +71,19 @@ export class MaintenanceService {
       throw new BadRequestException('该报修单状态不正确，无法开始处理');
     }
 
-    if (repairOrder.assignedWorkerId !== operator.id) {
-      throw new BadRequestException('该工单不是派给您的');
+    const latestDispatch = await this.getLatestDispatch(repairOrderId);
+    if (!latestDispatch) {
+      throw new BadRequestException('该工单还未派单');
     }
 
-    const latestDispatch = await this.getLatestDispatch(repairOrderId);
+    if (latestDispatch.workerId !== operator.id) {
+      throw new BadRequestException('该工单已转派给其他师傅，您无法操作');
+    }
+
+    if (latestDispatch.status === 'reassigned') {
+      throw new BadRequestException('该派单已被转派，无法操作');
+    }
+
     if (latestDispatch) {
       this.dispatchService.updateStatus(latestDispatch.id, 'in_progress', note);
     }
@@ -101,11 +117,19 @@ export class MaintenanceService {
       throw new BadRequestException('该报修单状态不正确，无法完成');
     }
 
-    if (repairOrder.assignedWorkerId !== operator.id) {
-      throw new BadRequestException('该工单不是派给您的');
+    const latestDispatch = await this.getLatestDispatch(repairOrderId);
+    if (!latestDispatch) {
+      throw new BadRequestException('该工单还未派单');
     }
 
-    const latestDispatch = await this.getLatestDispatch(repairOrderId);
+    if (latestDispatch.workerId !== operator.id) {
+      throw new BadRequestException('该工单已转派给其他师傅，您无法操作');
+    }
+
+    if (latestDispatch.status === 'reassigned') {
+      throw new BadRequestException('该派单已被转派，无法操作');
+    }
+
     if (latestDispatch) {
       this.dispatchService.updateStatus(latestDispatch.id, 'completed', note);
     }
@@ -133,20 +157,29 @@ export class MaintenanceService {
   }
 
   async getMyOrders(workerId: string): Promise<any[]> {
-    const dispatches = await this.dispatchService.findAll({ workerId });
-    const repairOrderIds = [...new Set(dispatches.map(d => d.repairOrderId))];
+    const allDispatches = await this.dispatchService.findAll();
+    
+    const latestDispatchByOrder: Record<string, any> = {};
+    allDispatches.forEach(d => {
+      if (!latestDispatchByOrder[d.repairOrderId] || 
+          new Date(d.createdAt) > new Date(latestDispatchByOrder[d.repairOrderId].createdAt)) {
+        latestDispatchByOrder[d.repairOrderId] = d;
+      }
+    });
     
     const orders = [];
-    for (const orderId of repairOrderIds) {
-      try {
-        const order = await this.repairService.findOne(orderId);
-        const orderDispatches = dispatches.filter(d => d.repairOrderId === orderId);
-        orders.push({
-          ...order,
-          latestDispatch: orderDispatches[0],
-        });
-      } catch (e) {
-        // skip
+    for (const orderId of Object.keys(latestDispatchByOrder)) {
+      const latestDispatch = latestDispatchByOrder[orderId];
+      if (latestDispatch.workerId === workerId && latestDispatch.status !== 'reassigned') {
+        try {
+          const order = await this.repairService.findOne(orderId);
+          orders.push({
+            ...order,
+            latestDispatch,
+          });
+        } catch (e) {
+          // skip
+        }
       }
     }
     
@@ -168,6 +201,19 @@ export class MaintenanceService {
   }
 
   async reportException(repairOrderId: string, operator: User, exceptionType: string, content: string): Promise<void> {
+    const latestDispatch = await this.getLatestDispatch(repairOrderId);
+    if (!latestDispatch) {
+      throw new BadRequestException('该工单还未派单');
+    }
+
+    if (latestDispatch.workerId !== operator.id) {
+      throw new BadRequestException('该工单已转派给其他师傅，您无法操作');
+    }
+
+    if (latestDispatch.status === 'reassigned') {
+      throw new BadRequestException('该派单已被转派，无法操作');
+    }
+
     const note: HistoryNote = {
       id: `note_${Date.now()}`,
       orderId: repairOrderId,
