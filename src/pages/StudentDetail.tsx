@@ -1,5 +1,5 @@
 import { useParams, useNavigate } from 'react-router-dom';
-import { mockStudents, mockClasses, mockCommunications, mockPerformances, mockTransferApplications, getStatusText, getStatusColor } from '../data/mockData';
+import { mockStudents, mockClasses, mockCommunications, mockPerformances, getTransferApplications, getStatusText, getStatusColor } from '../data/mockData';
 
 export default function StudentDetail() {
   const { id } = useParams<{ id: string }>();
@@ -9,7 +9,7 @@ export default function StudentDetail() {
   const currentClass = mockClasses.find(c => c.id === student?.currentClassId);
   const studentCommunications = mockCommunications.filter(c => c.studentId === id);
   const studentPerformances = mockPerformances.filter(p => p.studentId === id);
-  const activeTransfer = mockTransferApplications.find(t => t.studentId === id && t.status !== 'completed' && t.status !== 'rejected');
+  const activeTransfer = getTransferApplications().find(t => t.studentId === id && t.status !== 'completed' && t.status !== 'rejected');
 
   if (!student) {
     return <div className="empty-state">未找到学员信息</div>;

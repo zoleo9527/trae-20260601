@@ -1,17 +1,17 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { mockTransferApplications, getStatusText, getStatusColor } from '../data/mockData';
+import { getTransferApplications, getStatusText, getStatusColor, approveTransfer, rejectTransfer } from '../data/mockData';
 
 export default function TransferApproval() {
   const navigate = useNavigate();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [auditComment, setAuditComment] = useState('');
 
-  const pendingApplications = mockTransferApplications.filter(
+  const pendingApplications = getTransferApplications().filter(
     t => t.status === 'pending_audit' || t.status === 'price_confirmed' || t.status === 'trial_class'
   );
 
-  const selectedApp = mockTransferApplications.find(t => t.id === selectedId);
+  const selectedApp = getTransferApplications().find(t => t.id === selectedId);
 
   return (
     <div className="grid grid-2" style={{ gap: 24 }}>

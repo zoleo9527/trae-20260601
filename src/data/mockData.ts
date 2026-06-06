@@ -184,3 +184,67 @@ export const getStatusColor = (status: string): string => {
   };
   return map[status] || '#9ca3af';
 };
+
+// ========== 共享状态 Store & 更新方法 ==========
+let transferApplicationsStore: ClassTransferApplication[] = [...mockTransferApplications];
+
+export const getTransferApplications = (): ClassTransferApplication[] => transferApplicationsStore;
+
+export const updateTransferApplication = (
+  id: string,
+  updates: Partial<ClassTransferApplication>
+): boolean => {
+  const idx = transferApplicationsStore.findIndex(t => t.id === id);
+  if (idx !== -1) {
+    transferApplicationsStore[idx] = {
+      ...transferApplicationsStore[idx],
+      ...updates,
+      updatedAt: new Date().toISOString().replace('T', ' ').slice(0, 19),
+    };
+    return true;
+  }
+  return false;
+};
+
+export const addTransferApplication = (
+  app: Omit<ClassTransferApplication, 'id' | 'createdAt' | 'updatedAt'>
+): ClassTransferApplication => {
+  const newId = 't' + (transferApplicationsStore.length + 1) + '-' + Date.now();
+  const now = new Date().toISOString().replace('T', ' ').slice(0, 19);
+  const newApp: ClassTransferApplication = {
+    ...app,
+    id: newId,
+    createdAt: now,
+    updatedAt: now,
+  };
+  transferApplicationsStore.push(newApp);
+  return newApp;
+};
+
+export const submitTransferForAudit = (id: string): boolean => {
+  return updateTransferApplication(id, { status: 'pending_audit' });
+};
+
+export const approveTransfer = (
+  id: string,
+  auditorName: string,
+  comment?: string
+): boolean => {
+  return updateTransferApplication(id, {
+    status: 'approved',
+    auditorName,
+    auditComment: comment,
+  });
+};
+
+export const rejectTransfer = (
+  id: string,
+  auditorName: string,
+  comment: string
+): boolean => {
+  return updateTransferApplication(id, {
+    status: 'rejected',
+    auditorName,
+    auditComment: comment,
+  });
+};

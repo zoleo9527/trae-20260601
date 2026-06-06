@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { mockStudents, mockClasses, mockTransferApplications, getStatusText, getStatusColor } from '../data/mockData';
+import { mockStudents, mockClasses, getTransferApplications, getStatusText, getStatusColor } from '../data/mockData';
 
 export default function StudentList() {
   const navigate = useNavigate();
@@ -16,9 +16,14 @@ export default function StudentList() {
   };
 
   const getStudentTransfer = (studentId: string) => {
-    return mockTransferApplications.find(t => t.studentId === studentId && t.status !== 'completed' && t.status !== 'rejected');
+    return getTransferApplications().find(t => t.studentId === studentId && t.status !== 'completed' && t.status !== 'rejected');
   };
 
+  const transferStudents = mockStudents.filter(s => {
+    const apps = getTransferApplications();
+    return apps.some(t => t.studentId === s.id && t.status !== 'completed' && t.status !== 'rejected');
+  });
+  const displayStudents = activeTab === 'all' ? filteredStudents : transferStudents;
   return (
     <div>
       <div className="grid grid-4 mb-4">
@@ -27,7 +32,7 @@ export default function StudentList() {
           <div className="stat-label">在籍学员</div>
         </div>
         <div className="stat-card">
-          <div className="stat-value">{mockTransferApplications.filter(t => t.status !== 'draft' && t.status !== 'completed' && t.status !== 'rejected').length}</div>
+          <div className="stat-value">{getTransferApplications().filter(t => t.status !== 'draft' && t.status !== 'completed' && t.status !== 'rejected').length}</div>
           <div className="stat-label">调班申请中</div>
         </div>
         <div className="stat-card">
@@ -35,7 +40,7 @@ export default function StudentList() {
           <div className="stat-label">开设班级</div>
         </div>
         <div className="stat-card">
-          <div className="stat-value">{mockTransferApplications.filter(t => t.status === 'price_confirmed').length}</div>
+          <div className="stat-value">{getTransferApplications().filter(t => t.status === 'price_confirmed').length}</div>
           <div className="stat-label">待确认差价</div>
         </div>
       </div>
@@ -76,13 +81,18 @@ export default function StudentList() {
               </tr>
             </thead>
             <tbody>
-              {filteredStudents.map(student => {
+              {displayStudents.map(student => {
                 const cls = getStudentClass(student.currentClassId);
                 const transfer = getStudentTransfer(student.id);
 
                 if (activeTab === 'transfer' && !transfer) return null;
 
-                return (
+                const transferStudents = mockStudents.filter(s => {
+    const apps = getTransferApplications();
+    return apps.some(t => t.studentId === s.id && t.status !== 'completed' && t.status !== 'rejected');
+  });
+  const displayStudents = activeTab === 'all' ? filteredStudents : transferStudents;
+  return (
                   <tr key={student.id}>
                     <td>
                       <div className="student-name">

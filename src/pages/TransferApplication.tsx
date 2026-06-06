@@ -1,12 +1,13 @@
 import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { mockStudents, mockClasses, mockTransferApplications } from '../data/mockData';
+import { mockStudents, mockClasses, getTransferApplications, submitTransferForAudit, updateTransferApplication } from '../data/mockData';
 
 export default function TransferApplication() {
   const { id, studentId } = useParams();
   const navigate = useNavigate();
   const isNew = id === 'new';
-  const existingApp = !isNew ? mockTransferApplications.find(t => t.id === id) : null;
+  const applications = getTransferApplications();
+  const existingApp = !isNew ? applications.find(t => t.id === id) : null;
   const sid = isNew ? studentId : existingApp?.studentId;
   const student = mockStudents.find(s => s.id === sid);
   const currentClass = mockClasses.find(c => c.id === student?.currentClassId);
