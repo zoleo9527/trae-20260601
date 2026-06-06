@@ -88,19 +88,8 @@ export function getRefundList(
     whereClauses.push('applied_at <= ?');
     params.push(filter.endDate);
   }
-  if (filter.keyword) {
-    whereClauses.push('(user_name LIKE ? OR phone LIKE ? OR order_id LIKE ?)');
-    const keyword = `%${filter.keyword}%`;
-    params.push(keyword, keyword, keyword);
-  }
 
   const whereSql = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : '';
-
-  const countResult = getQuery<any>(
-    `SELECT COUNT(*) as total FROM refunds ${whereSql}`,
-    params
-  );
-  const total = countResult?.total || 0;
 
   const rows = allQuery<any>(
     `SELECT 
@@ -111,13 +100,25 @@ export function getRefundList(
       reject_reason as rejectReason, processed_at as processedAt, remark
      FROM refunds 
      ${whereSql}
-     ORDER BY applied_at DESC
-     LIMIT ? OFFSET ?`,
-    [...params, pageSize, offset]
+     ORDER BY applied_at DESC`,
+    params
   );
 
+  let filteredRows = rows;
+  if (filter.keyword) {
+    const keyword = String(filter.keyword).toLowerCase();
+    filteredRows = rows.filter(r => 
+      String(r.userName || '').toLowerCase().includes(keyword) ||
+      String(r.phone || '').toLowerCase().includes(keyword) ||
+      String(r.orderId || '').toLowerCase().includes(keyword)
+    );
+  }
+
+  const total = filteredRows.length;
+  const paginatedRows = filteredRows.slice(offset, offset + pageSize);
+
   return {
-    list: rows,
+    list: paginatedRows,
     total,
     page,
     pageSize

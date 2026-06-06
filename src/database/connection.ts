@@ -91,7 +91,7 @@ export function runQuery(sql: string, params: any[] = []): { lastID: any; change
     const match = sql.match(/UPDATE\s+(\w+)\s+SET\s+(.+?)\s+WHERE\s+(.+)/i);
     if (match) {
       const tableName = match[1];
-      const setClauses = match[2];
+      const setClausesStr = match[2];
       const whereClause = match[3];
 
       const idMatch = whereClause.match(/id\s*=\s*\?/i);
@@ -100,7 +100,24 @@ export function runQuery(sql: string, params: any[] = []): { lastID: any; change
         targetId = params[params.length - 1];
       }
 
-      const setMatches = setClauses.split(',').map(s => s.trim());
+      const setMatches: string[] = [];
+      let depth = 0;
+      let currentClause = '';
+      for (let i = 0; i < setClausesStr.length; i++) {
+        const char = setClausesStr[i];
+        if (char === '(') depth++;
+        else if (char === ')') depth--;
+        else if (char === ',' && depth === 0) {
+          setMatches.push(currentClause.trim());
+          currentClause = '';
+          continue;
+        }
+        currentClause += char;
+      }
+      if (currentClause.trim()) {
+        setMatches.push(currentClause.trim());
+      }
+
       const updates: { column: string; value: any; isCoalesceResolution?: boolean }[] = [];
       
       let paramIdx = 0;
@@ -155,13 +172,17 @@ export function getQuery<T = any>(sql: string, params: any[] = []): T | undefine
   return result[0] as T | undefined;
 }
 
-function parseWhereConditions(whereStr: string, params: any[]): { key: string; op: string; value: any }[] {
-  const conditions: { key: string; op: string; value: any }[] = [];
+function parseWhereConditions(whereStr: string, params: any[]): { key?: string; op: string; value: any; multiKeys?: string[]; isMultiLike?: boolean }[] {
+  const conditions: { key?: string; op: string; value: any; multiKeys?: string[]; isMultiLike?: boolean }[] = [];
   let paramIdx = 0;
   
-  const clauses = whereStr.split(/\s+AND\s+/i);
+  const clauses = whereStr.split(/\s+AND\s+(?![^()]*\))/i);
   for (const clause of clauses) {
-    const trimmed = clause.trim();
+    let trimmed = clause.trim();
+    
+    if (trimmed.startsWith('(') && trimmed.endsWith(')')) {
+      trimmed = trimmed.slice(1, -1);
+    }
     
     if (trimmed.includes('IN (?, ?, ?)')) {
       const keyMatch = trimmed.match(/(\w+)\s+IN/i);
@@ -169,6 +190,17 @@ function parseWhereConditions(whereStr: string, params: any[]): { key: string; o
         const values = [params[paramIdx], params[paramIdx + 1], params[paramIdx + 2]];
         conditions.push({ key: toCamelCase(keyMatch[1]), op: 'IN', value: values });
         paramIdx += 3;
+      }
+    } else if (trimmed.toUpperCase().includes('LIKE') && trimmed.toUpperCase().includes('OR')) {
+      const likeMatches = trimmed.match(/(\w+)\s+LIKE\s*\?/gi);
+      if (likeMatches && likeMatches.length > 0) {
+        const keys = likeMatches.map(m => {
+          const keyMatch = m.match(/(\w+)\s+LIKE/i);
+          return toCamelCase(keyMatch![1]);
+        });
+        const keyword = params[paramIdx];
+        conditions.push({ op: 'MULTI_LIKE', value: keyword, multiKeys: keys, isMultiLike: true });
+        paramIdx += keys.length;
       }
     } else if (trimmed.includes('LIKE ?')) {
       const keyMatch = trimmed.match(/(\w+)\s+LIKE/i);
@@ -185,7 +217,11 @@ function parseWhereConditions(whereStr: string, params: any[]): { key: string; o
     } else if (trimmed.includes('<=')) {
       const keyMatch = trimmed.match(/(\w+)\s+<=/);
       if (keyMatch) {
-        conditions.push({ key: toCamelCase(keyMatch[1]), op: '<=', value: params[paramIdx] });
+        let value = params[paramIdx];
+        if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
+          value = `${value} 23:59:59`;
+        }
+        conditions.push({ key: toCamelCase(keyMatch[1]), op: '<=', value: value });
         paramIdx++;
       }
     } else if (trimmed.includes('=')) {
@@ -200,10 +236,18 @@ function parseWhereConditions(whereStr: string, params: any[]): { key: string; o
   return conditions;
 }
 
-function applyConditions<T>(records: T[], conditions: { key: string; op: string; value: any }[]): T[] {
+function applyConditions<T>(records: T[], conditions: { key?: string; op: string; value: any; multiKeys?: string[]; isMultiLike?: boolean }[]): T[] {
   return records.filter(record => {
     return conditions.every(cond => {
-      const recordValue = (record as any)[cond.key];
+      if (cond.isMultiLike && cond.multiKeys) {
+        const searchValue = String(cond.value).replace(/%/g, '');
+        return cond.multiKeys.some(key => {
+          const recordValue = (record as any)[key];
+          return String(recordValue || '').includes(searchValue);
+        });
+      }
+      
+      const recordValue = (record as any)[cond.key!];
       
       if (cond.op === '=') {
         return recordValue === cond.value;
