@@ -275,13 +275,13 @@ export default function MaterialDeliveries() {
               审核
             </Button>
           )}
-          {record.status === 'pending' && (
+          {['pending', 'revision_requested', 'rejected'].includes(record.status) && (
             <Button
               type="link"
               size="small"
               onClick={() => handleSubmit(record.id)}
             >
-              提交
+              {record.status === 'pending' ? '提交' : '重新提交'}
             </Button>
           )}
         </Space>

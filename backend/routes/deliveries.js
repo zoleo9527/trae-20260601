@@ -45,6 +45,9 @@ export const submitDelivery = (req, res) => {
   db.materialDeliveries[index].status = 'submitted';
   db.materialDeliveries[index].submittedAt = getNow();
   db.materialDeliveries[index].updatedAt = getNow();
+  db.materialDeliveries[index].reviewer = '';
+  db.materialDeliveries[index].reviewedAt = '';
+  db.materialDeliveries[index].feedback = '';
 
   const delivery = db.materialDeliveries[index];
   const typeText = delivery.type === 'video' ? '视频' : delivery.type === 'image' ? '图片' : '文案';
