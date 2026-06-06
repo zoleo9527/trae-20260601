@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Search, History, ChevronDown, ChevronUp, X } from 'lucide-react';
+import { Search, History, ChevronDown, ChevronUp, X, AlertTriangle } from 'lucide-react';
 import { api } from '../api/client';
 import { StatusBadge } from '../components/StatusBadge';
 import { Timeline } from '../components/Timeline';
@@ -182,24 +182,27 @@ export default function Records() {
                   </div>
 
                   {record.discrepancyType && (
-                    <div className="mb-5 p-4 bg-orange-500/10 border border-orange-500/30 rounded-lg">
-                      <h4 className="text-sm font-medium text-orange-400 mb-2">差异信息</h4>
-                      <div className="grid grid-cols-4 gap-4 text-sm">
-                        <div>
-                          <span className="text-slate-400">类型：</span>
-                          <span className="text-slate-200">{DISCREPANCY_LABELS[record.discrepancyType]}</span>
+                    <div className="mb-5 space-y-3">
+                      <h4 className="text-sm font-medium text-orange-400 flex items-center gap-1.5">
+                        <AlertTriangle className="w-4 h-4" />
+                        差异信息
+                      </h4>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="p-3 bg-slate-800/50 border border-slate-700/50 rounded-lg">
+                          <p className="text-xs text-slate-500 mb-1">差异类型</p>
+                          <p className="text-sm text-slate-200 font-medium">{DISCREPANCY_LABELS[record.discrepancyType]}</p>
                         </div>
-                        <div>
-                          <span className="text-slate-400">差异数量：</span>
-                          <span className="text-orange-400">{record.discrepancyQuantity} 件</span>
+                        <div className="p-3 bg-slate-800/50 border border-slate-700/50 rounded-lg">
+                          <p className="text-xs text-slate-500 mb-1">差异数量</p>
+                          <p className="text-sm text-orange-400 font-medium">{record.discrepancyQuantity} 件</p>
                         </div>
-                        <div>
-                          <span className="text-slate-400">退回原因：</span>
-                          <span className="text-slate-200">{record.returnReason || '-'}</span>
+                        <div className="p-3 bg-orange-500/10 border border-orange-500/20 rounded-lg">
+                          <p className="text-xs text-orange-400/80 mb-1">退回原因</p>
+                          <p className="text-sm text-orange-200">{record.returnReason || '无'}</p>
                         </div>
-                        <div>
-                          <span className="text-slate-400">补充备注：</span>
-                          <span className="text-slate-200">{record.remark || '-'}</span>
+                        <div className="p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg">
+                          <p className="text-xs text-blue-400/80 mb-1">补充备注</p>
+                          <p className="text-sm text-blue-200">{record.remark || '无'}</p>
                         </div>
                       </div>
                     </div>

@@ -1,4 +1,5 @@
 import { db } from '../data/database.js';
+import { DISCREPANCY_LABELS } from '../../shared/types.js';
 import type {
   UnloadRecord,
   CreateRecordRequest,
@@ -168,12 +169,13 @@ export const recordService = {
     db.addLog({
       id: generateLogId(),
       recordId: id,
-      operation: `登记差异`,
+      operation: `登记差异：${DISCREPANCY_LABELS[req.discrepancyType]} ${req.discrepancyQuantity}件`,
       operatorId: req.operatorId,
       operatorName: req.operatorName,
       operatorRole: req.operatorRole,
       operateTime: now,
-      remark: req.returnReason || req.remark,
+      returnReason: req.returnReason,
+      discrepancyRemark: req.remark,
     });
 
     return updated;
@@ -286,8 +288,8 @@ export const recordService = {
     const record = db.getRecord(id);
     if (!record) return undefined;
 
-    if (record.status !== 'finished' && record.status !== 'unloading') {
-      throw new Error('当前状态不能直接完成');
+    if (record.status !== 'finished') {
+      throw new Error('只有卸货完成状态才能无差异结案');
     }
 
     const now = new Date().toISOString();

@@ -1,6 +1,6 @@
-import { Clock, User } from 'lucide-react';
+import { Clock, User, FileText, AlertCircle } from 'lucide-react';
 import type { OperationLog } from '../../shared/types';
-import { ROLE_LABELS, STATUS_COLORS } from '../../shared/types';
+import { ROLE_LABELS } from '../../shared/types';
 
 interface TimelineProps {
   logs: OperationLog[];
@@ -44,10 +44,33 @@ export function Timeline({ logs }: TimelineProps) {
                   {ROLE_LABELS[log.operatorRole]}
                 </span>
               </div>
-              {log.remark && (
-                <p className="mt-2 text-xs text-slate-300 bg-slate-900/50 rounded p-2">
-                  {log.remark}
-                </p>
+
+              {(log.returnReason || log.discrepancyRemark || log.remark) && (
+                <div className="mt-2 space-y-1.5">
+                  {log.returnReason && (
+                    <div className="text-xs bg-orange-500/10 border border-orange-500/20 rounded p-2">
+                      <span className="flex items-center gap-1 text-orange-300 font-medium mb-0.5">
+                        <AlertCircle className="w-3 h-3" />
+                        退回原因
+                      </span>
+                      <p className="text-orange-200">{log.returnReason}</p>
+                    </div>
+                  )}
+                  {log.discrepancyRemark && (
+                    <div className="text-xs bg-blue-500/10 border border-blue-500/20 rounded p-2">
+                      <span className="flex items-center gap-1 text-blue-300 font-medium mb-0.5">
+                        <FileText className="w-3 h-3" />
+                        补充备注
+                      </span>
+                      <p className="text-blue-200">{log.discrepancyRemark}</p>
+                    </div>
+                  )}
+                  {log.remark && !log.returnReason && !log.discrepancyRemark && (
+                    <p className="text-xs text-slate-300 bg-slate-900/50 rounded p-2">
+                      {log.remark}
+                    </p>
+                  )}
+                </div>
               )}
             </div>
           </li>

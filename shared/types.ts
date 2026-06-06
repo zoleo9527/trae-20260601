@@ -58,6 +58,8 @@ export interface OperationLog {
   operatorRole: UserRole;
   operateTime: string;
   remark?: string;
+  returnReason?: string;
+  discrepancyRemark?: string;
 }
 
 export interface DashboardData {
