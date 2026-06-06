@@ -1,96 +1,96 @@
 {
   "classes": [
     {
-      "id": "7ff917ca-b014-40ba-8309-1e01ab3db53a",
+      "id": "bdd9aaf2-f1af-4d7f-b399-d982ba5e8c45",
       "name": "一年级1班",
       "grade": "一年级",
       "teacher": "张老师",
       "students": 45,
-      "createdAt": "2026-06-06T08:41:16.135Z"
+      "createdAt": "2026-06-06T08:52:09.832Z"
     },
     {
-      "id": "f636db49-a32a-47c3-8a58-20e3da884eda",
+      "id": "43c7c349-df90-4323-84d5-0a026d7e1274",
       "name": "一年级2班",
       "grade": "一年级",
       "teacher": "李老师",
       "students": 43,
-      "createdAt": "2026-06-06T08:41:16.135Z"
+      "createdAt": "2026-06-06T08:52:09.832Z"
     },
     {
-      "id": "7ae4e425-aed1-4c64-8753-56c6e5e9a6eb",
+      "id": "80cf125d-d6ce-4762-abc1-8b9e3e38499b",
       "name": "二年级1班",
       "grade": "二年级",
       "teacher": "王老师",
       "students": 42,
-      "createdAt": "2026-06-06T08:41:16.135Z"
+      "createdAt": "2026-06-06T08:52:09.832Z"
     },
     {
-      "id": "00f44783-f2ec-4f06-ab01-58614cdcdaab",
+      "id": "5b27402f-6cac-4c1b-899f-d7bc6350b4c9",
       "name": "三年级1班",
       "grade": "三年级",
       "teacher": "赵老师",
       "students": 40,
-      "createdAt": "2026-06-06T08:41:16.135Z"
+      "createdAt": "2026-06-06T08:52:09.832Z"
     }
   ],
   "meals": [
     {
-      "id": "41726303-b7a6-42cc-b433-326a41483798",
-      "classId": "7ff917ca-b014-40ba-8309-1e01ab3db53a",
+      "id": "a380b0bb-fa95-4466-a8f7-d6d5492115a3",
+      "classId": "bdd9aaf2-f1af-4d7f-b399-d982ba5e8c45",
       "mealDate": "2026-06-06",
       "mealType": "午餐",
       "quantity": 45,
       "receivedBy": "张老师",
-      "receivedAt": "2026-06-06T08:41:16.135Z",
+      "receivedAt": "2026-06-06T08:52:09.832Z",
       "status": "DELIVERED",
       "notes": "全员就餐",
       "archived": false,
       "archivedAt": null,
       "archivedBy": null,
-      "createdAt": "2026-06-06T08:41:16.135Z"
+      "createdAt": "2026-06-06T08:52:09.832Z"
     },
     {
-      "id": "db7d0d92-e246-45f9-b05f-e7351d8d362f",
-      "classId": "f636db49-a32a-47c3-8a58-20e3da884eda",
+      "id": "cf186918-3424-4dc1-9779-ffc0237a3605",
+      "classId": "43c7c349-df90-4323-84d5-0a026d7e1274",
       "mealDate": "2026-06-06",
       "mealType": "午餐",
       "quantity": 42,
       "receivedBy": "李老师",
-      "receivedAt": "2026-06-06T08:41:16.135Z",
+      "receivedAt": "2026-06-06T08:52:09.832Z",
       "status": "DELIVERED",
       "notes": "1人请假",
       "archived": false,
       "archivedAt": null,
       "archivedBy": null,
-      "createdAt": "2026-06-06T08:41:16.135Z"
+      "createdAt": "2026-06-06T08:52:09.832Z"
     },
     {
-      "id": "70106ddb-a8cc-4099-ad34-681ec009a34e",
-      "classId": "7ae4e425-aed1-4c64-8753-56c6e5e9a6eb",
+      "id": "6f3ff1f8-b2a7-45cb-91a3-267fd900bdcd",
+      "classId": "80cf125d-d6ce-4762-abc1-8b9e3e38499b",
       "mealDate": "2026-06-05",
       "mealType": "午餐",
       "quantity": 40,
       "receivedBy": "王老师",
-      "receivedAt": "2026-06-06T08:41:16.135Z",
+      "receivedAt": "2026-06-06T08:52:09.832Z",
       "status": "DELIVERED",
       "notes": "2人请假未取餐",
       "archived": false,
       "archivedAt": null,
       "archivedBy": null,
-      "createdAt": "2026-06-06T08:41:16.135Z"
+      "createdAt": "2026-06-06T08:52:09.832Z"
     }
   ],
   "feedbacks": [
     {
-      "id": "386f8fa2-1eec-4241-b1b1-35507e83ae1a",
-      "classId": "f636db49-a32a-47c3-8a58-20e3da884eda",
-      "mealRecordId": "db7d0d92-e246-45f9-b05f-e7351d8d362f",
+      "id": "6e721fb7-8e5b-46b2-b802-637ec81429ec",
+      "classId": "43c7c349-df90-4323-84d5-0a026d7e1274",
+      "mealRecordId": "cf186918-3424-4dc1-9779-ffc0237a3605",
       "mealDate": "2026-06-06",
       "mealType": "午餐",
       "feedbackType": "MISSING",
       "description": "本班实际43人，只收到42份，李明同学没有领到午餐",
       "reportedBy": "李老师",
-      "reportedAt": "2026-06-06T08:41:16.135Z",
+      "reportedAt": "2026-06-06T08:52:09.832Z",
       "status": "PENDING",
       "handledBy": null,
       "handledAt": null,
@@ -98,26 +98,26 @@
       "archived": false,
       "archivedAt": null,
       "archivedBy": null,
-      "createdAt": "2026-06-06T08:41:16.135Z"
+      "createdAt": "2026-06-06T08:52:09.832Z"
     },
     {
-      "id": "710439ae-21eb-463f-8b04-342dccc3b878",
-      "classId": "7ae4e425-aed1-4c64-8753-56c6e5e9a6eb",
-      "mealRecordId": null,
+      "id": "a2440818-16ed-4608-80f1-ccd84248c881",
+      "classId": "80cf125d-d6ce-4762-abc1-8b9e3e38499b",
+      "mealRecordId": "6f3ff1f8-b2a7-45cb-91a3-267fd900bdcd",
       "mealDate": "2026-06-05",
       "mealType": "午餐",
       "feedbackType": "QUALITY",
       "description": "今天的米饭有点硬，部分学生反映吃不惯",
       "reportedBy": "王老师",
-      "reportedAt": "2026-06-06T08:41:16.135Z",
+      "reportedAt": "2026-06-06T08:52:09.832Z",
       "status": "RESOLVED",
       "handledBy": "食堂管理员",
-      "handledAt": "2026-06-06T08:41:16.135Z",
+      "handledAt": "2026-06-06T08:52:09.832Z",
       "handleNotes": "已反馈给后厨，明天改善米饭软硬程度",
       "archived": false,
       "archivedAt": null,
       "archivedBy": null,
-      "createdAt": "2026-06-06T08:41:16.135Z"
+      "createdAt": "2026-06-06T08:52:09.832Z"
     }
   ]
 }

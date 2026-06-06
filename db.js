@@ -28,7 +28,7 @@ function loadDB() {
       ],
       feedbacks: [
         { id: feedbackIds[0], classId: classIds[1], mealRecordId: mealIds[1], mealDate: today, mealType: '午餐', feedbackType: 'MISSING', description: '本班实际43人，只收到42份，李明同学没有领到午餐', reportedBy: '李老师', reportedAt: now, status: 'PENDING', handledBy: null, handledAt: null, handleNotes: null, archived: false, archivedAt: null, archivedBy: null, createdAt: now },
-        { id: feedbackIds[1], classId: classIds[2], mealRecordId: null, mealDate: yesterday, mealType: '午餐', feedbackType: 'QUALITY', description: '今天的米饭有点硬，部分学生反映吃不惯', reportedBy: '王老师', reportedAt: now, status: 'RESOLVED', handledBy: '食堂管理员', handledAt: now, handleNotes: '已反馈给后厨，明天改善米饭软硬程度', archived: false, archivedAt: null, archivedBy: null, createdAt: now },
+        { id: feedbackIds[1], classId: classIds[2], mealRecordId: mealIds[2], mealDate: yesterday, mealType: '午餐', feedbackType: 'QUALITY', description: '今天的米饭有点硬，部分学生反映吃不惯', reportedBy: '王老师', reportedAt: now, status: 'RESOLVED', handledBy: '食堂管理员', handledAt: now, handleNotes: '已反馈给后厨，明天改善米饭软硬程度', archived: false, archivedAt: null, archivedBy: null, createdAt: now },
       ]
     };
     fs.writeFileSync(DB_PATH, JSON.stringify(initData, null, 2));

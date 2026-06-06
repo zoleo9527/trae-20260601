@@ -14,6 +14,73 @@ function getClassById(db, classId) {
   return db.classes.find(c => c.id === classId);
 }
 
+function buildTimeline(meal, feedbacks) {
+  const events = [];
+  
+  events.push({
+    type: 'MEAL_DELIVERED',
+    time: meal.receivedAt,
+    title: '取餐完成',
+    content: `${meal.receivedBy} 领取了 ${meal.quantity} 份${meal.mealType}${meal.notes ? '，备注：' + meal.notes : ''}`,
+    operator: meal.receivedBy
+  });
+  
+  feedbacks.forEach(fb => {
+    events.push({
+      type: 'FEEDBACK_SUBMITTED',
+      time: fb.reportedAt,
+      title: '问题反馈',
+      content: `${fb.reportedBy} 提交${getFeedbackTypeLabel(fb.feedbackType)}：${fb.description}`,
+      operator: fb.reportedBy,
+      feedbackId: fb.id
+    });
+    
+    if (fb.handledAt) {
+      events.push({
+        type: 'FEEDBACK_HANDLED',
+        time: fb.handledAt,
+        title: '反馈已处理',
+        content: `${fb.handledBy} 处理结果：${fb.handleNotes}（${getStatusLabel(fb.status)}）`,
+        operator: fb.handledBy,
+        feedbackId: fb.id
+      });
+    }
+    
+    if (fb.archivedAt) {
+      events.push({
+        type: 'FEEDBACK_ARCHIVED',
+        time: fb.archivedAt,
+        title: '反馈已归档',
+        content: `${fb.archivedBy} 归档了此反馈记录`,
+        operator: fb.archivedBy,
+        feedbackId: fb.id
+      });
+    }
+  });
+  
+  if (meal.archivedAt) {
+    events.push({
+      type: 'MEAL_ARCHIVED',
+      time: meal.archivedAt,
+      title: '取餐记录已归档',
+      content: `${meal.archivedBy} 归档了此取餐记录及关联反馈`,
+      operator: meal.archivedBy
+    });
+  }
+  
+  return events.sort((a, b) => new Date(a.time) - new Date(b.time));
+}
+
+function getFeedbackTypeLabel(type) {
+  const map = { MISSING: '缺餐/少餐', QUALITY: '质量问题', LATE: '送餐延迟', OTHER: '其他' };
+  return map[type] || type;
+}
+
+function getStatusLabel(status) {
+  const map = { PENDING: '待处理', RESOLVED: '已解决', REJECTED: '已驳回' };
+  return map[status] || status;
+}
+
 app.get('/api/classes', (req, res) => {
   const db = loadDB();
   const withCounts = db.classes.map(c => ({
@@ -24,6 +91,12 @@ app.get('/api/classes', (req, res) => {
     }
   }));
   res.json(withCounts);
+});
+
+app.get('/api/classes/:id/available-meals', (req, res) => {
+  const db = loadDB();
+  const meals = db.meals.filter(m => m.classId === req.params.id && !m.archived);
+  res.json(meals);
 });
 
 app.post('/api/classes', (req, res) => {
@@ -82,23 +155,41 @@ app.get('/api/meals/:id', (req, res) => {
   const meal = db.meals.find(m => m.id === req.params.id);
   if (!meal) return res.status(404).json({ error: '记录不存在' });
   
+  const feedbacks = db.feedbacks.filter(f => f.mealRecordId === meal.id);
+  const timeline = buildTimeline(meal, feedbacks);
+  
   res.json({
     ...meal,
     class: getClassById(db, meal.classId),
-    feedbacks: db.feedbacks.filter(f => f.mealRecordId === meal.id)
+    feedbacks,
+    timeline
   });
 });
 
 app.post('/api/feedbacks', (req, res) => {
   const db = loadDB();
-  const { classId, mealRecordId, mealDate, mealType, feedbackType, description, reportedBy } = req.body;
+  const { mealRecordId, feedbackType, description, reportedBy } = req.body;
+  
+  if (!mealRecordId) {
+    return res.status(400).json({ error: '必须关联对应的取餐记录' });
+  }
+  
+  const meal = db.meals.find(m => m.id === mealRecordId);
+  if (!meal) {
+    return res.status(400).json({ error: '关联的取餐记录不存在' });
+  }
+  
+  if (meal.archived) {
+    return res.status(400).json({ error: '该取餐记录已归档，不能再提交反馈' });
+  }
+  
   const now = new Date().toISOString();
   const feedback = {
     id: uuidv4(),
-    classId,
-    mealRecordId: mealRecordId || null,
-    mealDate,
-    mealType,
+    classId: meal.classId,
+    mealRecordId,
+    mealDate: meal.mealDate,
+    mealType: meal.mealType,
     feedbackType,
     description,
     reportedBy,
@@ -112,9 +203,10 @@ app.post('/api/feedbacks', (req, res) => {
     archivedBy: null,
     createdAt: now
   };
+  
   db.feedbacks.unshift(feedback);
   saveDB(db);
-  res.json({ ...feedback, class: getClassById(db, classId) });
+  res.json({ ...feedback, class: getClassById(db, meal.classId), mealRecord: meal });
 });
 
 app.get('/api/feedbacks', (req, res) => {
@@ -128,7 +220,8 @@ app.get('/api/feedbacks', (req, res) => {
   
   const result = feedbacks.map(f => ({
     ...f,
-    class: getClassById(db, f.classId)
+    class: getClassById(db, f.classId),
+    mealRecord: db.meals.find(m => m.id === f.mealRecordId) || null
   }));
   
   res.json(result);
@@ -139,27 +232,44 @@ app.get('/api/feedbacks/:id', (req, res) => {
   const fb = db.feedbacks.find(f => f.id === req.params.id);
   if (!fb) return res.status(404).json({ error: '反馈不存在' });
   
-  let mealRecord = null;
-  if (fb.mealRecordId) {
-    mealRecord = db.meals.find(m => m.id === fb.mealRecordId) || null;
-  }
+  const meal = db.meals.find(m => m.id === fb.mealRecordId) || null;
+  const allFeedbacksForMeal = meal ? db.feedbacks.filter(f => f.mealRecordId === meal.id) : [fb];
+  const timeline = meal ? buildTimeline(meal, allFeedbacksForMeal) : [];
   
-  res.json({ ...fb, class: getClassById(db, fb.classId), mealRecord });
+  res.json({ 
+    ...fb, 
+    class: getClassById(db, fb.classId), 
+    mealRecord: meal,
+    timeline
+  });
 });
 
 app.put('/api/feedbacks/:id/handle', (req, res) => {
   const db = loadDB();
   const { handledBy, handleNotes, status } = req.body;
   const idx = db.feedbacks.findIndex(f => f.id === req.params.id);
+  
   if (idx === -1) return res.status(404).json({ error: '反馈不存在' });
   
+  const feedback = db.feedbacks[idx];
+  
+  if (feedback.archived) {
+    return res.status(400).json({ error: '该反馈已归档，不能再处理' });
+  }
+  
+  const meal = db.meals.find(m => m.id === feedback.mealRecordId);
+  if (meal && meal.archived) {
+    return res.status(400).json({ error: '关联的取餐记录已归档，不能再处理此反馈' });
+  }
+  
   db.feedbacks[idx] = {
-    ...db.feedbacks[idx],
+    ...feedback,
     handledBy,
     handledAt: new Date().toISOString(),
     handleNotes,
     status: status || 'RESOLVED'
   };
+  
   saveDB(db);
   res.json({ ...db.feedbacks[idx], class: getClassById(db, db.feedbacks[idx].classId) });
 });
@@ -168,14 +278,33 @@ app.post('/api/archive/meal/:id', (req, res) => {
   const db = loadDB();
   const { archivedBy } = req.body;
   const idx = db.meals.findIndex(m => m.id === req.params.id);
+  
   if (idx === -1) return res.status(404).json({ error: '记录不存在' });
   
+  const meal = db.meals[idx];
+  if (meal.archived) {
+    return res.status(400).json({ error: '该取餐记录已归档' });
+  }
+  
+  const now = new Date().toISOString();
   db.meals[idx] = {
-    ...db.meals[idx],
+    ...meal,
     archived: true,
-    archivedAt: new Date().toISOString(),
+    archivedAt: now,
     archivedBy
   };
+  
+  db.feedbacks.forEach((fb, fbIdx) => {
+    if (fb.mealRecordId === meal.id && !fb.archived) {
+      db.feedbacks[fbIdx] = {
+        ...fb,
+        archived: true,
+        archivedAt: now,
+        archivedBy
+      };
+    }
+  });
+  
   saveDB(db);
   res.json(db.meals[idx]);
 });
@@ -184,14 +313,25 @@ app.post('/api/archive/feedback/:id', (req, res) => {
   const db = loadDB();
   const { archivedBy } = req.body;
   const idx = db.feedbacks.findIndex(f => f.id === req.params.id);
+  
   if (idx === -1) return res.status(404).json({ error: '反馈不存在' });
   
+  const feedback = db.feedbacks[idx];
+  if (feedback.archived) {
+    return res.status(400).json({ error: '该反馈已归档' });
+  }
+  
+  if (feedback.status === 'PENDING') {
+    return res.status(400).json({ error: '待处理的反馈不能归档，请先处理' });
+  }
+  
   db.feedbacks[idx] = {
-    ...db.feedbacks[idx],
+    ...feedback,
     archived: true,
     archivedAt: new Date().toISOString(),
     archivedBy
   };
+  
   saveDB(db);
   res.json(db.feedbacks[idx]);
 });
@@ -215,21 +355,25 @@ app.get('/api/dashboard', (req, res) => {
 app.get('/api/docs', (req, res) => {
   res.json({
     title: '学校食堂班级取餐与缺餐反馈系统 API 文档',
-    version: '1.0.0',
+    version: '2.0.0',
+    features: [
+      '提交反馈必须关联取餐记录',
+      '归档后只读约束，禁止修改',
+      '完整时间线追溯'
+    ],
     endpoints: [
       { method: 'GET', path: '/api/classes', desc: '获取所有班级列表' },
-      { method: 'POST', path: '/api/classes', desc: '创建新班级' },
-      { method: 'GET', path: '/api/meals', desc: '获取取餐记录列表，支持按班级、日期、归档状态筛选' },
+      { method: 'GET', path: '/api/classes/:id/available-meals', desc: '获取班级可关联的未归档取餐记录' },
+      { method: 'GET', path: '/api/meals', desc: '获取取餐记录列表' },
       { method: 'POST', path: '/api/meals', desc: '记录班级取餐' },
-      { method: 'GET', path: '/api/meals/:id', desc: '获取取餐记录详情' },
-      { method: 'GET', path: '/api/feedbacks', desc: '获取缺餐反馈列表，支持按状态、班级筛选' },
-      { method: 'POST', path: '/api/feedbacks', desc: '提交缺餐反馈' },
-      { method: 'GET', path: '/api/feedbacks/:id', desc: '获取反馈详情' },
-      { method: 'PUT', path: '/api/feedbacks/:id/handle', desc: '处理缺餐反馈' },
-      { method: 'POST', path: '/api/archive/meal/:id', desc: '归档取餐记录' },
-      { method: 'POST', path: '/api/archive/feedback/:id', desc: '归档反馈记录' },
-      { method: 'GET', path: '/api/dashboard', desc: '获取仪表盘统计数据' },
-      { method: 'GET', path: '/api/docs', desc: '获取API文档' }
+      { method: 'GET', path: '/api/meals/:id', desc: '取餐详情（含完整时间线）' },
+      { method: 'GET', path: '/api/feedbacks', desc: '获取反馈列表' },
+      { method: 'POST', path: '/api/feedbacks', desc: '提交反馈（必须关联mealRecordId）' },
+      { method: 'GET', path: '/api/feedbacks/:id', desc: '反馈详情（含完整时间线）' },
+      { method: 'PUT', path: '/api/feedbacks/:id/handle', desc: '处理反馈（已归档禁止）' },
+      { method: 'POST', path: '/api/archive/meal/:id', desc: '归档取餐（同时归档其下所有反馈）' },
+      { method: 'POST', path: '/api/archive/feedback/:id', desc: '归档反馈（待处理禁止归档）' },
+      { method: 'GET', path: '/api/dashboard', desc: '仪表盘统计' }
     ]
   });
 });
@@ -242,10 +386,9 @@ app.listen(PORT, () => {
   console.log(`   🚀 服务地址:  http://localhost:${PORT}`);
   console.log(`   📄 API 文档:  http://localhost:${PORT}/api/docs`);
   console.log('');
-  console.log('   💡 功能说明:');
-  console.log('      - 班级取餐记录与详情查询');
-  console.log('      - 缺餐反馈提交与处理');
-  console.log('      - 数据归档与追溯');
-  console.log('      - 一线与管理端数据统一');
+  console.log('   ✅ 追溯闭环已启用:');
+  console.log('      - 反馈必须关联取餐记录');
+  console.log('      - 详情展示完整时间线');
+  console.log('      - 归档后只读不可修改');
   console.log('');
 });
