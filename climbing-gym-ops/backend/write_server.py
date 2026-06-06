@@ -1,3 +1,1 @@
-import sys
-
-content = '''const express
+import os
