@@ -1,7 +1,7 @@
 {
-  "name": "mcn-settlement-backend",
+  "name": "cinema-group-ticket-backend",
   "version": "1.0.0",
-  "description": "MCN机构结案数据与费用结算系统",
+  "description": "影院团体票预约与核销复核系统",
   "main": "src/index.ts",
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only src/index.ts",

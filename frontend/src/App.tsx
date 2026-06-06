@@ -8,6 +8,7 @@ import { ROLE_LABELS, UserRole } from './types';
 const App: React.FC = () => {
   const [currentRole, setCurrentRole] = useState<UserRole | null>(null);
   const [currentPage, setCurrentPage] = useState<'todos' | 'tickets' | 'detail'>('todos');
+  const [previousPage, setPreviousPage] = useState<'todos' | 'tickets'>('todos');
   const [selectedTicketId, setSelectedTicketId] = useState<string | null>(null);
 
   if (!currentRole) {
@@ -31,13 +32,14 @@ const App: React.FC = () => {
   }
 
   const handleViewTicket = (ticketId: string) => {
+    setPreviousPage(currentPage === 'detail' ? previousPage : currentPage as 'todos' | 'tickets');
     setSelectedTicketId(ticketId);
     setCurrentPage('detail');
   };
 
   const handleBack = () => {
     setSelectedTicketId(null);
-    setCurrentPage('todos');
+    setCurrentPage(previousPage);
   };
 
   return (
@@ -69,12 +71,12 @@ const App: React.FC = () => {
       </header>
 
       <main className="app-main">
-        {currentPage === 'todos' && (
+        <div style={{ display: currentPage === 'todos' ? 'block' : 'none' }}>
           <TodoPage role={currentRole} onViewTicket={handleViewTicket} />
-        )}
-        {currentPage === 'tickets' && (
+        </div>
+        <div style={{ display: currentPage === 'tickets' ? 'block' : 'none' }}>
           <TicketListPage role={currentRole} onViewTicket={handleViewTicket} />
-        )}
+        </div>
         {currentPage === 'detail' && selectedTicketId && (
           <TicketDetailPage
             ticketId={selectedTicketId}

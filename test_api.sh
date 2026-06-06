@@ -6,33 +6,42 @@ curl -s "$BASE/health"
 echo ""
 echo ""
 
-echo "=== 2. 测试 cases 列表（有驳回记录）==="
-curl -s -H "x-user-role: business" "$BASE/cases?hasReject=true" | python3 -c "
+echo "=== 2. 测试 tickets 列表（有驳回记录）==="
+curl -s -H "x-user-role: scheduling_manager" "$BASE/tickets?hasReject=true" | python3 -c "
 import sys, json
 data = json.load(sys.stdin)
-cases = data.get('cases', [])
-print(f'返回 {len(cases)} 条记录')
-for c in cases:
-    print(f\"  {c['id']}: {c['brandName']} - 状态:{c['status']}\")
-    print(f\"    责任角色: {c.get('responsibleRole', '-')}, 有驳回:{c.get('hasReject', '-')}, 有补录:{c.get('hasSupplementary', '-')}\")
-    print(f\"    最近退回: {c.get('latestRejectReason', '-')}\")
-    print(f\"    补录摘要: {c.get('supplementarySummary', '-')}\")
+tickets = data.get('data', [])
+print(f'返回 {len(tickets)} 条记录')
+for t in tickets:
+    print(f\"  {t['orderNo']}: {t['companyName']} - {t['movieName']} - 状态:{t.get('statusLabel', t['status'])}\")
+    print(f\"    当前责任人: {t.get('currentHandlerLabel', t['currentHandler'])}, 有驳回:{t.get('hasReject', '-')}, 有补充备注:{t.get('hasSupplementary', '-')}\")
 "
 echo ""
 
-echo "=== 3. 测试 cases 列表（按当前处理角色筛选 director）==="
-curl -s -H "x-user-role: business" "$BASE/cases?currentHandler=director" | python3 -c "
+echo "=== 3. 测试 tickets 列表（按当前处理角色筛选 ticket_supervisor）==="
+curl -s -H "x-user-role: ticket_supervisor" "$BASE/tickets?handler=ticket_supervisor" | python3 -c "
 import sys, json
 data = json.load(sys.stdin)
-cases = data.get('cases', [])
-print(f'返回 {len(cases)} 条记录')
-for c in cases:
-    print(f\"  {c['id']}: {c['brandName']} - 状态:{c['status']}, 处理人:{c['currentHandler']}\")
+tickets = data.get('data', [])
+print(f'返回 {len(tickets)} 条记录')
+for t in tickets:
+    print(f\"  {t['orderNo']}: {t['companyName']} - {t['movieName']} - 状态:{t.get('statusLabel', t['status'])}, 处理人:{t.get('currentHandlerLabel', t['currentHandler'])}\")
 "
 echo ""
 
-echo "=== 4. 测试导出接口 ==="
-curl -s -o /tmp/test_export.xlsx -w "HTTP状态: %{http_code}, 文件大小: %{size_download} 字节" \
-  -H "x-user-role: business" "$BASE/export/cases?hasReject=true"
+echo "=== 4. 测试待办接口（scheduling_manager 角色）==="
+curl -s -H "x-user-role: scheduling_manager" "$BASE/todos" | python3 -c "
+import sys, json
+data = json.load(sys.stdin)
+todos = data.get('data', [])
+print(f'返回 {len(todos)} 条待办')
+for t in todos:
+    print(f\"  {t['title']} - {t.get('ticket', {}).get('companyName', '')}\")
+"
 echo ""
-echo "导出文件已保存到 /tmp/test_export.xlsx"
+
+echo "=== 5. 测试导出接口 ==="
+curl -s -o /tmp/test_tickets_export.csv -w "HTTP状态: %{http_code}, 文件大小: %{size_download} 字节" \
+  -H "x-user-role: duty_manager" "$BASE/export/tickets?hasReject=true"
+echo ""
+echo "导出文件已保存到 /tmp/test_tickets_export.csv"
