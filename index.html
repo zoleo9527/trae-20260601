@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MCN机构 - 品牌Brief与脚本审批工作台</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- 顶部导航 -->
+        <header class="header">
+            <div class="header-left">
+                <h1 class="logo">🎬 MCN 业务工作台</h1>
+                <span class="env-tag">生产环境</span>
+            </div>
+            <div class="header-right">
+                <div class="search-box">
+                    <input type="text" id="globalSearch" placeholder="搜索项目、品牌、达人、负责人...">
+                    <span class="search-icon">🔍</span>
+                </div>
+                <div class="user-info">
+                    <span class="user-avatar">👤</span>
+                    <span class="user-name">张经理</span>
+                </div>
+            </div>
+        </header>
+
+        <div class="main-content">
+            <!-- 左侧边栏 -->
+            <aside class="sidebar">
+                <nav class="nav-menu">
+                    <div class="nav-item active" data-view="dashboard">
+                        <span class="nav-icon">📊</span>
+                        <span class="nav-text">工作台概览</span>
+                        <span class="nav-badge" id="pendingBadge">8</span>
+                    </div>
+                    <div class="nav-item" data-view="brief">
+                        <span class="nav-icon">📋</span>
+                        <span class="nav-text">品牌Brief处理</span>
+                    </div>
+                    <div class="nav-item" data-view="script">
+                        <span class="nav-icon">📝</span>
+                        <span class="nav-text">脚本审批</span>
+                    </div>
+                    <div class="nav-item" data-view="flow">
+                        <span class="nav-icon">🔄</span>
+                        <span class="nav-text">本地流转</span>
+                    </div>
+                    <div class="nav-item" data-view="archive">
+                        <span class="nav-icon">📁</span>
+                        <span class="nav-text">历史档案</span>
+                    </div>
+                </nav>
+
+                <div class="sidebar-footer">
+                    <div class="quick-stats">
+                        <div class="stat-item">
+                            <span class="stat-value" id="totalProjects">24</span>
+                            <span class="stat-label">进行中项目</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-value warning" id="blockedCount">5</span>
+                            <span class="stat-label">卡点项目</span>
+                        </div>
+                    </div>
+                </div>
+            </aside>
+
+            <!-- 主内容区 -->
+            <main class="content-area">
+                <!-- 工作台概览视图 -->
+                <div class="view" id="view-dashboard">
+                    <div class="view-header">
+                        <h2>工作台概览</h2>
+                        <div class="view-actions">
+                            <button class="btn btn-primary" onclick="showNewBriefModal()">+ 新建Brief</button>
+                        </div>
+                    </div>
+
+                    <!-- 优先级卡片组 -->
+                    <div class="priority-cards">
+                        <div class="priority-card urgent">
+                            <div class="card-header">
+                                <span class="card-icon">⚠️</span>
+                                <span class="card-title">紧急待处理</span>
+                                <span class="card-count" id="urgentCount">3</span>
+                            </div>
+                            <div class="card-body" id="urgentList">
+                            </div>
+                        </div>
+
+                        <div class="priority-card blocked">
+                            <div class="card-header">
+                                <span class="card-icon">🚫</span>
+                                <span class="card-title">卡点项目</span>
+                                <span class="card-count" id="blockedCardCount">5</span>
+                            </div>
+                            <div class="card-body" id="blockedList">
+                            </div>
+                        </div>
+
+                        <div class="priority-card recent">
+                            <div class="card-header">
+                                <span class="card-icon">🕐</span>
+                                <span class="card-title">最近变更</span>
+                                <span class="card-count">12</span>
+                            </div>
+                            <div class="card-body" id="recentList">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 筛选栏 -->
+                    <div class="filter-bar">
+                        <div class="filter-group">
+                            <label>角色筛选:</label>
+                            <select class="filter-select" id="roleFilter">
+                                <option value="all">全部角色</option>
+                                <option value="business">商务</option>
+                                <option value="director">编导</option>
+                                <option value="agent">达人经纪</option>
+                            </select>
+                        </div>
+                        <div class="filter-group">
+                            <label>状态:</label>
+                            <select class="filter-select" id="statusFilter">
+                                <option value="all">全部状态</option>
+                                <option value="pending">待处理</option>
+                                <option value="processing">处理中</option>
+                                <option value="blocked">已卡点</option>
+                                <option value="approved">已通过</option>
+                            </select>
+                        </div>
+                        <div class="filter-group">
+                            <label>时间范围:</label>
+                            <select class="filter-select" id="timeFilter">
+                                <option value="week">近7天</option>
+                                <option value="month">近30天</option>
+                                <option value="all">全部</option>
+                            </select>
+                        </div>
+                        <button class="btn btn-outline" onclick="resetFilters()">重置筛选</button>
+                    </div>
+
+                    <!-- 项目列表 -->
+                    <div class="project-list-section">
+                        <div class="section-header">
+                            <h3>所有项目</h3>
+                            <div class="view-toggle">
+                                <button class="toggle-btn active" data-view-type="list">列表</button>
+                                <button class="toggle-btn" data-view-type="kanban">看板</button>
+                            </div>
+                        </div>
+                        <div class="project-table" id="projectTable">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 品牌Brief处理视图 -->
+                <div class="view hidden" id="view-brief">
+                    <div class="view-header">
+                        <h2>品牌Brief处理</h2>
+                        <div class="view-actions">
+                            <button class="btn btn-primary" onclick="showNewBriefModal()">+ 新建Brief</button>
+                        </div>
+                    </div>
+
+                    <div class="brief-stats">
+                        <div class="brief-stat">
+                            <span class="stat-num" id="briefTotal">12</span>
+                            <span class="stat-desc">Brief总数</span>
+                        </div>
+                        <div class="brief-stat">
+                            <span class="stat-num pending" id="briefPending">4</span>
+                            <span class="stat-desc">待评估</span>
+                        </div>
+                        <div class="brief-stat">
+                            <span class="stat-num progress" id="briefProgress">5</span>
+                            <span class="stat-desc">执行中</span>
+                        </div>
+                        <div class="brief-stat">
+                            <span class="stat-num done" id="briefDone">3</span>
+                            <span class="stat-desc">已完成</span>
+                        </div>
+                    </div>
+
+                    <div class="brief-list" id="briefList">
+                    </div>
+                </div>
+
+                <!-- 脚本审批视图 -->
+                <div class="view hidden" id="view-script">
+                    <div class="view-header">
+                        <h2>脚本审批</h2>
+                        <div class="view-actions">
+                            <div class="approval-stats-mini">
+                                <span class="mini-stat"><span class="dot pending"></span> 待审批 <strong>6</strong></span>
+                                <span class="mini-stat"><span class="dot review"></span> 审批中 <strong>3</strong></span>
+                                <span class="mini-stat"><span class="dot done"></span> 已通过 <strong>15</strong></span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="script-approval-container">
+                        <div class="script-list-panel" id="scriptList">
+                        </div>
+                        <div class="script-detail-panel" id="scriptDetail">
+                            <div class="empty-state">
+                                <span class="empty-icon">📄</span>
+                                <p>选择左侧脚本查看详情</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 本地流转视图 -->
+                <div class="view hidden" id="view-flow">
+                    <div class="view-header">
+                        <h2>本地流转</h2>
+                        <div class="view-actions">
+                            <button class="btn btn-primary" onclick="showTransferModal()">+ 发起流转</button>
+                        </div>
+                    </div>
+
+                    <div class="flow-container">
+                        <div class="flow-timeline" id="flowTimeline">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 历史档案视图 -->
+                <div class="view hidden" id="view-archive">
+                    <div class="view-header">
+                        <h2>历史档案</h2>
+                    </div>
+                    <div class="archive-container" id="archiveList">
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <!-- 新建Brief弹窗 -->
+    <div class="modal hidden" id="newBriefModal">
+        <div class="modal-overlay" onclick="closeModal('newBriefModal')"></div>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>新建品牌Brief</h3>
+                <button class="modal-close" onclick="closeModal('newBriefModal')">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>品牌名称 *</label>
+                    <input type="text" id="newBrandName" placeholder="请输入品牌名称">
+                </div>
+                <div class="form-group">
+                    <label>项目名称 *</label>
+                    <input type="text" id="newProjectName" placeholder="请输入项目名称">
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>负责人 *</label>
+                        <select id="newAssignee">
+                            <option value="">选择负责人</option>
+                            <option value="business_1">商务 - 李明</option>
+                            <option value="business_2">商务 - 王芳</option>
+                            <option value="director_1">编导 - 张伟</option>
+                            <option value="director_2">编导 - 刘洋</option>
+                            <option value="agent_1">达人经纪 - 陈静</option>
+                            <option value="agent_2">达人经纪 - 赵磊</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>截止日期</label>
+                        <input type="date" id="newDeadline">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Brief需求描述</label>
+                    <textarea id="newBriefDesc" rows="4" placeholder="请输入品牌需求、产品卖点、目标受众等信息..."></textarea>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>预算范围</label>
+                        <input type="text" id="newBudget" placeholder="例如：5-10万">
+                    </div>
+                    <div class="form-group">
+                        <label>达人类型</label>
+                        <input type="text" id="newTalentType" placeholder="例如：美妆、美食、生活">
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline" onclick="closeModal('newBriefModal')">取消</button>
+                <button class="btn btn-primary" onclick="createNewBrief()">创建Brief</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 流转弹窗 -->
+    <div class="modal hidden" id="transferModal">
+        <div class="modal-overlay" onclick="closeModal('transferModal')"></div>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>发起流转</h3>
+                <button class="modal-close" onclick="closeModal('transferModal')">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>选择项目</label>
+                    <select id="transferProject">
+                        <option value="">请选择项目</option>
+                    </select>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>当前处理人</label>
+                        <input type="text" id="transferFrom" readonly>
+                    </div>
+                    <div class="form-group">
+                        <label>流转给 *</label>
+                        <select id="transferTo">
+                            <option value="">选择接收人</option>
+                            <option value="business_1">商务 - 李明</option>
+                            <option value="business_2">商务 - 王芳</option>
+                            <option value="director_1">编导 - 张伟</option>
+                            <option value="director_2">编导 - 刘洋</option>
+                            <option value="agent_1">达人经纪 - 陈静</option>
+                            <option value="agent_2">达人经纪 - 赵磊</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>流转说明</label>
+                    <textarea id="transferNote" rows="3" placeholder="请说明流转原因、注意事项..."></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline" onclick="closeModal('transferModal')">取消</button>
+                <button class="btn btn-primary" onclick="submitTransfer()">确认流转</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 脚本审批详情弹窗 -->
+    <div class="modal hidden" id="scriptApprovalModal">
+        <div class="modal-overlay" onclick="closeModal('scriptApprovalModal')"></div>
+        <div class="modal-content large">
+            <div class="modal-header">
+                <h3>脚本审批</h3>
+                <button class="modal-close" onclick="closeModal('scriptApprovalModal')">✕</button>
+            </div>
+            <div class="modal-body" id="scriptApprovalBody">
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline" onclick="closeModal('scriptApprovalModal')">返回</button>
+                <button class="btn btn-danger" onclick="rejectScript()">驳回修改</button>
+                <button class="btn btn-success" onclick="approveScript()">审批通过</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 项目详情侧边栏 -->
+    <div class="side-panel hidden" id="projectDetailPanel">
+        <div class="side-panel-header">
+            <h3>项目详情</h3>
+            <button class="panel-close" onclick="closeProjectDetail()">✕</button>
+        </div>
+        <div class="side-panel-body" id="projectDetailBody">
+        </div>
+    </div>
+
+    <script src="data.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
