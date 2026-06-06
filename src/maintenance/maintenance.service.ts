@@ -13,6 +13,11 @@ export class MaintenanceService {
     private readonly dispatchService: DispatchService,
   ) {}
 
+  private async getLatestDispatch(repairOrderId: string) {
+    const dispatches = await this.dispatchService.findByRepairOrder(repairOrderId);
+    return dispatches[0] || null;
+  }
+
   async acceptOrder(repairOrderId: string, operator: User, note?: string): Promise<void> {
     const repairOrder = await this.repairService.findOne(repairOrderId);
     
@@ -24,8 +29,7 @@ export class MaintenanceService {
       throw new BadRequestException('该工单不是派给您的');
     }
 
-    const dispatches = await this.dispatchService.findByRepairOrder(repairOrderId);
-    const latestDispatch = dispatches[0];
+    const latestDispatch = await this.getLatestDispatch(repairOrderId);
     if (latestDispatch) {
       this.dispatchService.updateStatus(latestDispatch.id, 'accepted', note);
     }
@@ -36,6 +40,20 @@ export class MaintenanceService {
       operator,
       `已接单${note ? `，备注：${note}` : ''}`,
     );
+
+    if (latestDispatch) {
+      const syncNote: HistoryNote = {
+        id: `note_${Date.now()}_sync`,
+        orderId: repairOrderId,
+        operatorId: operator.id,
+        operatorName: operator.name,
+        operatorRole: operator.role,
+        action: 'dispatch_sync',
+        content: `派单状态同步：已派单 → 已接单`,
+        timestamp: new Date(),
+      };
+      this.repairService.addHistoryNote(repairOrderId, syncNote);
+    }
   }
 
   async startProcessing(repairOrderId: string, operator: User, note?: string): Promise<void> {
@@ -49,12 +67,31 @@ export class MaintenanceService {
       throw new BadRequestException('该工单不是派给您的');
     }
 
+    const latestDispatch = await this.getLatestDispatch(repairOrderId);
+    if (latestDispatch) {
+      this.dispatchService.updateStatus(latestDispatch.id, 'in_progress', note);
+    }
+
     this.repairService.updateStatus(
       repairOrderId,
       'in_progress',
       operator,
       `开始维修${note ? `，备注：${note}` : ''}`,
     );
+
+    if (latestDispatch) {
+      const syncNote: HistoryNote = {
+        id: `note_${Date.now()}_sync`,
+        orderId: repairOrderId,
+        operatorId: operator.id,
+        operatorName: operator.name,
+        operatorRole: operator.role,
+        action: 'dispatch_sync',
+        content: `派单状态同步：已接单 → 处理中`,
+        timestamp: new Date(),
+      };
+      this.repairService.addHistoryNote(repairOrderId, syncNote);
+    }
   }
 
   async completeOrder(repairOrderId: string, operator: User, note?: string): Promise<void> {
@@ -68,10 +105,9 @@ export class MaintenanceService {
       throw new BadRequestException('该工单不是派给您的');
     }
 
-    const dispatches = await this.dispatchService.findByRepairOrder(repairOrderId);
-    const latestDispatch = dispatches[0];
+    const latestDispatch = await this.getLatestDispatch(repairOrderId);
     if (latestDispatch) {
-      this.dispatchService.updateStatus(latestDispatch.id, 'accepted', note);
+      this.dispatchService.updateStatus(latestDispatch.id, 'completed', note);
     }
 
     this.repairService.updateStatus(
@@ -82,17 +118,17 @@ export class MaintenanceService {
     );
 
     if (latestDispatch) {
-      const dispatchNote: HistoryNote = {
-        id: `note_${Date.now()}_dispatch`,
+      const syncNote: HistoryNote = {
+        id: `note_${Date.now()}_sync`,
         orderId: repairOrderId,
         operatorId: operator.id,
         operatorName: operator.name,
         operatorRole: operator.role,
-        action: 'dispatch_complete',
-        content: `派单已完成，维修师傅确认交付`,
+        action: 'dispatch_sync',
+        content: `派单状态同步：处理中 → 已完成，派单闭环`,
         timestamp: new Date(),
       };
-      this.repairService.addHistoryNote(repairOrderId, dispatchNote);
+      this.repairService.addHistoryNote(repairOrderId, syncNote);
     }
   }
 

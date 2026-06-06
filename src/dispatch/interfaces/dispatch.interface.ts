@@ -1,4 +1,4 @@
-export type DispatchStatus = 'pending' | 'dispatched' | 'accepted' | 'rejected' | 'reassigned';
+export type DispatchStatus = 'pending' | 'dispatched' | 'accepted' | 'in_progress' | 'completed' | 'rejected' | 'reassigned';
 
 export interface DispatchRecord {
   id: string;

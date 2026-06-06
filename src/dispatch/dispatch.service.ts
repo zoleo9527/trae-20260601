@@ -69,7 +69,7 @@ export class DispatchService {
       dispatcherName: operator.name,
       workerId,
       workerName,
-      status: 'reassigned',
+      status: 'dispatched',
       dispatchNote: note,
       createdAt: new Date(),
       updatedAt: new Date(),
@@ -90,10 +90,22 @@ export class DispatchService {
       operatorName: operator.name,
       operatorRole: operator.role,
       action: 'reassign',
-      content: `转派给 ${workerName}${note ? `，备注：${note}` : ''}`,
+      content: `转派：从 ${oldRecord.workerName} 转给 ${workerName}${note ? `，备注：${note}` : ''}`,
       timestamp: new Date(),
     };
     this.repairService.addHistoryNote(oldRecord.repairOrderId, historyNote);
+
+    const syncNote: HistoryNote = {
+      id: `note_${Date.now()}_sync`,
+      orderId: oldRecord.repairOrderId,
+      operatorId: operator.id,
+      operatorName: operator.name,
+      operatorRole: operator.role,
+      action: 'dispatch_sync',
+      content: `派单状态同步：原派单标记为已转派，新派单已生成待接单`,
+      timestamp: new Date(),
+    };
+    this.repairService.addHistoryNote(oldRecord.repairOrderId, syncNote);
 
     return newRecord;
   }
