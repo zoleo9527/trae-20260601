@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Plus, Film, Clock, MapPin, DollarSign, Search, Filter } from 'lucide-react';
+import { Plus, Layers, Film, Clock, MapPin, DollarSign, Search, Filter } from 'lucide-react';
 import { useScheduleStore } from '@/store/scheduleStore';
 import { StatusBadge } from '@/components/common/StatusBadge';
 import { formatDateTime, formatTime } from '@/utils/date';
@@ -38,10 +38,16 @@ const ScheduleList: React.FC = () => {
           <h1 className="text-2xl font-bold text-gray-900">影片排片</h1>
           <p className="text-gray-500 mt-1">管理影片排片计划，处理调整申请</p>
         </div>
-        <Link to="/schedule/new" className="btn-primary">
-          <Plus className="w-4 h-4 mr-2" />
-          新建排片
-        </Link>
+        <div className="flex gap-2">
+          <Link to="/schedule/batch" className="btn-secondary">
+            <Layers className="w-4 h-4 mr-2" />
+            批量录入
+          </Link>
+          <Link to="/schedule/new" className="btn-primary">
+            <Plus className="w-4 h-4 mr-2" />
+            新建排片
+          </Link>
+        </div>
       </div>
 
       <div className="card p-4">

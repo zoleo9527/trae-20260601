@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { Hall, HallLog, Inspection, FaultTicket, CreateFaultTicketDTO, SubmitInspectionDTO } from '@/types/hall';
+import type { Hall, HallLog, Inspection, FaultTicket, CreateFaultTicketDTO, SubmitInspectionDTO, AffectedSchedule } from '@/types/hall';
 import type { HallStatus, FaultStatus } from '@/types/common';
 import { generateId } from '@/utils/id';
 import { now } from '@/utils/date';
@@ -20,10 +20,11 @@ interface HallState {
   getFaultTicket: (id: string) => FaultTicket | undefined;
   changeHallStatus: (hallId: string, status: HallStatus, reason?: string) => void;
   submitInspection: (data: SubmitInspectionDTO) => void;
-  createFaultTicket: (data: CreateFaultTicketDTO) => void;
+  createFaultTicket: (data: CreateFaultTicketDTO, affectedSchedules: AffectedSchedule[]) => void;
   updateFaultTicketStatus: (ticketId: string, status: FaultStatus, remark?: string) => void;
   resolveFaultTicket: (ticketId: string, resolveRemark: string) => void;
   closeFaultTicket: (ticketId: string) => void;
+  addHallLog: (hallId: string, action: string, reason?: string) => void;
 }
 
 const initialHalls: Hall[] = [
@@ -120,6 +121,22 @@ export const useHallStore = create<HallState>()(
 
       getFaultTicket: (id) => get().faultTickets.find((t) => t.id === id),
 
+      addHallLog: (hallId, action, reason) => {
+        const { currentRole, getRoleName } = useRoleStore.getState();
+        const log: HallLog = {
+          id: generateId(),
+          hallId,
+          action,
+          reason,
+          operator: getRoleName(),
+          operatorRole: currentRole,
+          createdAt: now(),
+        };
+        set((state) => ({
+          hallLogs: [...state.hallLogs, log],
+        }));
+      },
+
       changeHallStatus: (hallId, status, reason) => {
         const { currentRole, getRoleName } = useRoleStore.getState();
         const hall = get().halls.find((h) => h.id === hallId);
@@ -176,7 +193,7 @@ export const useHallStore = create<HallState>()(
         }));
       },
 
-      createFaultTicket: (data) => {
+      createFaultTicket: (data, affectedSchedules) => {
         const { currentRole, getRoleName } = useRoleStore.getState();
         const hall = get().halls.find((h) => h.id === data.hallId);
         if (!hall) return;
@@ -186,17 +203,21 @@ export const useHallStore = create<HallState>()(
           hallId: data.hallId,
           hallName: hall.name,
           scheduleId: data.scheduleId,
+          affectedSchedules,
           title: data.title,
           description: data.description,
           status: 'pending',
           reportedBy: getRoleName(),
           reportedByRole: currentRole,
           createdAt: now(),
+          refundGenerated: false,
         };
 
         if (hall.status !== 'fault') {
           get().changeHallStatus(data.hallId, 'fault', `设备故障：${data.title}`);
         }
+
+        get().addHallLog(data.hallId, '上报故障', `${data.title}：${data.description}`);
 
         set((state) => ({
           faultTickets: [...state.faultTickets, ticket],
@@ -230,6 +251,7 @@ export const useHallStore = create<HallState>()(
         if (!ticket) return;
 
         get().updateFaultTicketStatus(ticketId, 'resolved', resolveRemark);
+        get().addHallLog(ticket.hallId, '故障解决', resolveRemark);
 
         const pendingFaults = get().faultTickets.filter(
           (t) => t.hallId === ticket.hallId && t.status !== 'closed' && t.status !== 'resolved' && t.id !== ticketId
@@ -240,7 +262,11 @@ export const useHallStore = create<HallState>()(
       },
 
       closeFaultTicket: (ticketId) => {
-        get().updateFaultTicketStatus(ticketId, 'closed');
+        const ticket = get().faultTickets.find((t) => t.id === ticketId);
+        if (ticket) {
+          get().updateFaultTicketStatus(ticketId, 'closed');
+          get().addHallLog(ticket.hallId, '关闭工单');
+        }
       },
     }),
     {

@@ -12,21 +12,38 @@ import {
   X,
   FileText,
   DollarSign,
+  ListTodo,
+  ChevronRight,
 } from 'lucide-react';
 import { useTicketStore } from '@/store/ticketStore';
 import { StatusBadge } from '@/components/common/StatusBadge';
 import { Modal } from '@/components/common/Modal';
-import { formatDateTime } from '@/utils/date';
+import { formatDateTime, formatTime } from '@/utils/date';
 import type { TicketStatus } from '@/types/common';
+import type { BatchRefundResult } from '@/types/ticket';
 
 const TicketCenter: React.FC = () => {
-  const { tickets, batchCheckTickets, checkTicket, verifyTicket, applyRefund, approveRefund, getTicketLogs } = useTicketStore();
+  const {
+    tickets,
+    getPendingRefundLists,
+    getRefundLists,
+    processRefundList,
+    batchCheckTickets,
+    checkTicket,
+    verifyTicket,
+    applyRefund,
+    approveRefund,
+    getTicketLogs,
+  } = useTicketStore();
+
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<TicketStatus | 'all'>('all');
   const [checkModalOpen, setCheckModalOpen] = useState(false);
   const [batchModalOpen, setBatchModalOpen] = useState(false);
   const [refundModalOpen, setRefundModalOpen] = useState(false);
   const [approveModalOpen, setApproveModalOpen] = useState(false);
+  const [refundListModalOpen, setRefundListModalOpen] = useState(false);
+  const [selectedRefundListId, setSelectedRefundListId] = useState<string | null>(null);
 
   const [singleCode, setSingleCode] = useState('');
   const [batchCodes, setBatchCodes] = useState('');
@@ -37,6 +54,10 @@ const TicketCenter: React.FC = () => {
   const [success, setSuccess] = useState<string | null>(null);
   const [batchResult, setBatchResult] = useState<any>(null);
   const [verifyResult, setVerifyResult] = useState<any>(null);
+  const [refundResult, setRefundResult] = useState<BatchRefundResult | null>(null);
+
+  const pendingRefundLists = getPendingRefundLists();
+  const allRefundLists = getRefundLists();
 
   const filteredTickets = tickets
     .filter((t) => {
@@ -135,12 +156,39 @@ const TicketCenter: React.FC = () => {
     }
   };
 
+  const handleProcessRefundList = () => {
+    if (!selectedRefundListId) return;
+    const result = processRefundList(selectedRefundListId);
+    setRefundResult(result);
+    if (result.failed === 0) {
+      setSuccess(`退票处理完成：成功 ${result.success} 张`);
+      setTimeout(() => {
+        setSuccess(null);
+        setRefundListModalOpen(false);
+        setRefundResult(null);
+        setSelectedRefundListId(null);
+      }, 2000);
+    }
+  };
+
+  const openRefundListModal = (refundListId: string) => {
+    setSelectedRefundListId(refundListId);
+    setRefundResult(null);
+    setRefundListModalOpen(true);
+  };
+
   const stats = {
     total: tickets.length,
     unused: tickets.filter((t) => t.status === 'unused').length,
     checked: tickets.filter((t) => t.status === 'checked').length,
     refunded: tickets.filter((t) => t.status === 'refunded').length,
+    refunding: tickets.filter((t) => t.status === 'refunding').length,
+    pendingRefundLists: pendingRefundLists.length,
   };
+
+  const selectedRefundList = selectedRefundListId
+    ? allRefundLists.find((r) => r.id === selectedRefundListId)
+    : null;
 
   return (
     <div className="space-y-6">
@@ -156,7 +204,7 @@ const TicketCenter: React.FC = () => {
         <p className="text-gray-500 mt-1">团体票核销、退票处理、票务流水查询</p>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         <div className="card p-4">
           <div className="flex items-center justify-between">
             <div>
@@ -193,6 +241,17 @@ const TicketCenter: React.FC = () => {
         <div className="card p-4">
           <div className="flex items-center justify-between">
             <div>
+              <p className="text-sm text-gray-500">退票中</p>
+              <p className="text-2xl font-bold text-amber-600 mt-1">{stats.refunding}</p>
+            </div>
+            <div className="w-10 h-10 bg-amber-100 rounded-lg flex items-center justify-center">
+              <RefreshCw className="w-5 h-5 text-amber-600" />
+            </div>
+          </div>
+        </div>
+        <div className="card p-4">
+          <div className="flex items-center justify-between">
+            <div>
               <p className="text-sm text-gray-500">已退票</p>
               <p className="text-2xl font-bold text-gray-900 mt-1">{stats.refunded}</p>
             </div>
@@ -202,6 +261,42 @@ const TicketCenter: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {pendingRefundLists.length > 0 && (
+        <div className="card p-6 bg-amber-50 border-amber-200">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-amber-100 rounded-lg flex items-center justify-center">
+                <ListTodo className="w-5 h-5 text-amber-600" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-amber-900">待处理退票清单</h3>
+                <p className="text-sm text-amber-700">{pendingRefundLists.length} 个退票清单等待处理</p>
+              </div>
+            </div>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+            {pendingRefundLists.slice(0, 6).map((refund) => (
+              <button
+                key={refund.id}
+                onClick={() => openRefundListModal(refund.id)}
+                className="w-full p-4 bg-white rounded-xl border border-amber-200 hover:border-amber-400 transition-all text-left"
+              >
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="font-medium text-gray-900">{refund.scheduleName}</p>
+                    <p className="text-xs text-gray-500 mt-1">
+                      {refund.hallName} · {formatTime(refund.startTime)}-{formatTime(refund.endTime)}
+                    </p>
+                    <p className="text-xs text-amber-600 mt-1">{refund.ticketIds.length} 张票待退票</p>
+                  </div>
+                  <ChevronRight className="w-5 h-5 text-gray-400" />
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="card p-4">
         <div className="flex flex-col md:flex-row gap-4">
@@ -602,6 +697,128 @@ const TicketCenter: React.FC = () => {
         }
       >
         <p className="text-gray-600">确定要批准此退票申请吗？</p>
+      </Modal>
+
+      <Modal
+        isOpen={refundListModalOpen}
+        onClose={() => {
+          setRefundListModalOpen(false);
+          setError(null);
+          setRefundResult(null);
+          setSelectedRefundListId(null);
+        }}
+        title="处理退票清单"
+        size="lg"
+        footer={
+          <>
+            <button
+              onClick={() => {
+                setRefundListModalOpen(false);
+                setError(null);
+                setRefundResult(null);
+                setSelectedRefundListId(null);
+              }}
+              className="btn-secondary"
+            >
+              关闭
+            </button>
+            {!refundResult && selectedRefundList && selectedRefundList.status === 'pending' && (
+              <button onClick={handleProcessRefundList} className="btn-danger">
+                <RefreshCw className="w-4 h-4 mr-2" />
+                批量处理退票
+              </button>
+            )}
+          </>
+        }
+      >
+        {error && (
+          <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+            {error}
+          </div>
+        )}
+        {selectedRefundList && (
+          <div className="space-y-4">
+            <div className="p-4 bg-gray-50 rounded-xl">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-sm text-gray-500">场次</p>
+                  <p className="font-medium text-gray-900">{selectedRefundList.scheduleName}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-500">影厅</p>
+                  <p className="font-medium text-gray-900">{selectedRefundList.hallName}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-500">时间</p>
+                  <p className="font-medium text-gray-900">
+                    {formatTime(selectedRefundList.startTime)} - {formatTime(selectedRefundList.endTime)}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-500">退票数量</p>
+                  <p className="font-medium text-amber-600">{selectedRefundList.ticketIds.length} 张</p>
+                </div>
+              </div>
+              <div className="mt-4 pt-4 border-t border-gray-200">
+                <p className="text-sm text-gray-500">退票原因</p>
+                <p className="text-gray-900">{selectedRefundList.reason}</p>
+              </div>
+            </div>
+
+            {refundResult ? (
+              <div className="space-y-4">
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="p-4 bg-gray-50 rounded-xl text-center">
+                    <p className="text-2xl font-bold text-gray-900">{refundResult.total}</p>
+                    <p className="text-sm text-gray-500">总计</p>
+                  </div>
+                  <div className="p-4 bg-green-50 rounded-xl text-center">
+                    <p className="text-2xl font-bold text-green-600">{refundResult.success}</p>
+                    <p className="text-sm text-green-600">成功</p>
+                  </div>
+                  <div className="p-4 bg-red-50 rounded-xl text-center">
+                    <p className="text-2xl font-bold text-red-600">{refundResult.failed}</p>
+                    <p className="text-sm text-red-600">失败</p>
+                  </div>
+                </div>
+                {refundResult.failedItems.length > 0 && (
+                  <div>
+                    <p className="text-sm font-medium text-gray-700 mb-2">失败列表：</p>
+                    <div className="max-h-40 overflow-y-auto space-y-1">
+                      {refundResult.failedItems.map((item, index) => (
+                        <div key={index} className="flex items-center gap-2 p-2 bg-red-50 rounded text-sm">
+                          <XCircle className="w-4 h-4 text-red-500 flex-shrink-0" />
+                          <span className="font-mono text-red-800">{item.code}</span>
+                          <span className="text-red-600">- {item.reason}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div>
+                <p className="text-sm font-medium text-gray-700 mb-2">
+                  待退票票券 ({selectedRefundList.ticketIds.length} 张)：
+                </p>
+                <div className="max-h-60 overflow-y-auto border border-gray-200 rounded-lg">
+                  <div className="grid grid-cols-4 gap-2 p-3">
+                    {selectedRefundList.ticketIds.map((ticketId) => {
+                      const ticket = tickets.find((t) => t.id === ticketId);
+                      return (
+                        <div key={ticketId} className="p-2 bg-gray-50 rounded text-center">
+                          <span className="font-mono text-xs text-gray-700">
+                            {ticket?.code || ticketId.slice(-8)}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </Modal>
     </div>
   );

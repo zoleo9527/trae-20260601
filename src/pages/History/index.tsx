@@ -9,6 +9,7 @@ import {
   AlertTriangle,
   User,
   Clock,
+  RefreshCw,
 } from 'lucide-react';
 import { useScheduleStore } from '@/store/scheduleStore';
 import { useHallStore } from '@/store/hallStore';
@@ -19,7 +20,8 @@ import { roleLabels } from '@/types/common';
 const HistoryCenter: React.FC = () => {
   const { scheduleLogs } = useScheduleStore();
   const { hallLogs, inspections, faultTickets } = useHallStore();
-  const { ticketLogs } = useTicketStore();
+  const { ticketLogs, getAllRefundListLogs } = useTicketStore();
+  const refundListLogs = getAllRefundListLogs();
 
   const [searchTerm, setSearchTerm] = useState('');
   const [typeFilter, setTypeFilter] = useState<string>('all');
@@ -113,8 +115,25 @@ const HistoryCenter: React.FC = () => {
       });
     });
 
+    refundListLogs.forEach((log) => {
+      logs.push({
+        id: log.id,
+        type: 'refund',
+        typeLabel: '退票',
+        entityId: log.refundListId,
+        action: log.action,
+        operator: log.operator,
+        operatorRole: log.operatorRole,
+        remark: log.remark,
+        createdAt: log.createdAt,
+        icon: RefreshCw,
+        color: 'text-red-600',
+        bgColor: 'bg-red-50',
+      });
+    });
+
     return logs.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-  }, [scheduleLogs, hallLogs, inspections, faultTickets, ticketLogs]);
+  }, [scheduleLogs, hallLogs, inspections, faultTickets, ticketLogs, refundListLogs]);
 
   const filteredLogs = allLogs.filter((log) => {
     const matchesSearch =
@@ -133,6 +152,7 @@ const HistoryCenter: React.FC = () => {
     { value: 'inspection', label: '巡检记录' },
     { value: 'fault', label: '故障工单' },
     { value: 'ticket', label: '票务操作' },
+    { value: 'refund', label: '退票操作' },
   ];
 
   const roleOptions = [
@@ -148,6 +168,7 @@ const HistoryCenter: React.FC = () => {
     hall: allLogs.filter((l) => l.type === 'hall' || l.type === 'inspection').length,
     ticket: allLogs.filter((l) => l.type === 'ticket').length,
     fault: allLogs.filter((l) => l.type === 'fault').length,
+    refund: allLogs.filter((l) => l.type === 'refund').length,
   };
 
   return (
@@ -157,7 +178,7 @@ const HistoryCenter: React.FC = () => {
         <p className="text-gray-500 mt-1">全系统操作日志，完整追溯每一步操作</p>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
         <div className="card p-4">
           <div className="flex items-center justify-between">
             <div>
@@ -210,6 +231,17 @@ const HistoryCenter: React.FC = () => {
             </div>
             <div className="w-10 h-10 bg-amber-100 rounded-lg flex items-center justify-center">
               <AlertTriangle className="w-5 h-5 text-amber-600" />
+            </div>
+          </div>
+        </div>
+        <div className="card p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-500">退票操作</p>
+              <p className="text-2xl font-bold text-gray-900 mt-1">{stats.refund}</p>
+            </div>
+            <div className="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center">
+              <RefreshCw className="w-5 h-5 text-red-600" />
             </div>
           </div>
         </div>

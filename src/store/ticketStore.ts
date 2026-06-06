@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { Ticket, TicketLog, BatchCheckResult } from '@/types/ticket';
+import type { Ticket, TicketLog, BatchCheckResult, RefundList, BatchRefundResult, RefundListLog } from '@/types/ticket';
 import type { TicketStatus } from '@/types/common';
 import { generateId } from '@/utils/id';
 import { now } from '@/utils/date';
@@ -10,6 +10,8 @@ import { useScheduleStore } from './scheduleStore';
 interface TicketState {
   tickets: Ticket[];
   ticketLogs: TicketLog[];
+  refundLists: RefundList[];
+  refundListLogs: RefundListLog[];
   generateTickets: (scheduleId: string, count: number, type: 'normal' | 'group') => Ticket[];
   getTicket: (id: string) => Ticket | undefined;
   getTicketByCode: (code: string) => Ticket | undefined;
@@ -20,6 +22,13 @@ interface TicketState {
   applyRefund: (ticketId: string, reason: string) => boolean;
   approveRefund: (ticketId: string) => boolean;
   getTicketLogs: (ticketId: string) => TicketLog[];
+  createRefundList: (scheduleId: string, reason: string, faultTicketId?: string) => RefundList | null;
+  getRefundLists: () => RefundList[];
+  getRefundList: (id: string) => RefundList | undefined;
+  getPendingRefundLists: () => RefundList[];
+  processRefundList: (refundListId: string) => BatchRefundResult;
+  getRefundListLogs: (refundListId: string) => RefundListLog[];
+  getAllRefundListLogs: () => RefundListLog[];
 }
 
 export const useTicketStore = create<TicketState>()(
@@ -27,6 +36,8 @@ export const useTicketStore = create<TicketState>()(
     (set, get) => ({
       tickets: [],
       ticketLogs: [],
+      refundLists: [],
+      refundListLogs: [],
 
       generateTickets: (scheduleId, count, type) => {
         const schedule = useScheduleStore.getState().getSchedule(scheduleId);
@@ -86,7 +97,6 @@ export const useTicketStore = create<TicketState>()(
         }
 
         const ticket = verification.ticket;
-        const beforeData = { ...ticket };
         const updated: Ticket = {
           ...ticket,
           status: 'checked',
@@ -199,6 +209,142 @@ export const useTicketStore = create<TicketState>()(
         get()
           .ticketLogs.filter((l) => l.ticketId === ticketId)
           .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()),
+
+      createRefundList: (scheduleId, reason, faultTicketId) => {
+        const { currentRole, getRoleName } = useRoleStore.getState();
+        const schedule = useScheduleStore.getState().getSchedule(scheduleId);
+        if (!schedule) return null;
+
+        const scheduleTickets = get().getTicketsBySchedule(scheduleId);
+        const unusedTickets = scheduleTickets.filter((t) => t.status === 'unused');
+        const ticketIds = unusedTickets.map((t) => t.id);
+
+        if (ticketIds.length === 0) return null;
+
+        const refundList: RefundList = {
+          id: generateId(),
+          faultTicketId,
+          scheduleId,
+          scheduleName: schedule.movieName,
+          hallName: schedule.hallName,
+          startTime: schedule.startTime,
+          endTime: schedule.endTime,
+          ticketIds,
+          reason,
+          status: 'pending',
+          createdBy: getRoleName(),
+          createdAt: now(),
+        };
+
+        ticketIds.forEach((ticketId) => {
+          get().applyRefund(ticketId, reason);
+        });
+
+        const log: RefundListLog = {
+          id: generateId(),
+          refundListId: refundList.id,
+          action: '生成退票清单',
+          operator: getRoleName(),
+          operatorRole: currentRole,
+          remark: `${reason}，共 ${ticketIds.length} 张票`,
+          createdAt: now(),
+        };
+
+        set((state) => ({
+          refundLists: [...state.refundLists, refundList],
+          refundListLogs: [...state.refundListLogs, log],
+        }));
+
+        return refundList;
+      },
+
+      getRefundLists: () =>
+        get()
+          .refundLists.slice()
+          .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()),
+
+      getRefundList: (id) => get().refundLists.find((r) => r.id === id),
+
+      getPendingRefundLists: () =>
+        get()
+          .refundLists.filter((r) => r.status === 'pending')
+          .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()),
+
+      getRefundListLogs: (refundListId) =>
+        get()
+          .refundListLogs.filter((l) => l.refundListId === refundListId)
+          .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()),
+
+      getAllRefundListLogs: () =>
+        get()
+          .refundListLogs.slice()
+          .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()),
+
+      processRefundList: (refundListId) => {
+        const { currentRole, getRoleName } = useRoleStore.getState();
+        const refundList = get().getRefundList(refundListId);
+        if (!refundList || refundList.status !== 'pending') {
+          return { total: 0, success: 0, failed: 0, failedItems: [], successItems: [] };
+        }
+
+        const result: BatchRefundResult = {
+          total: refundList.ticketIds.length,
+          success: 0,
+          failed: 0,
+          failedItems: [],
+          successItems: [],
+        };
+
+        refundList.ticketIds.forEach((ticketId) => {
+          const ticket = get().getTicket(ticketId);
+          if (ticket && ticket.status === 'refunding') {
+            const success = get().approveRefund(ticketId);
+            if (success) {
+              result.success++;
+              result.successItems.push({ ticketId, code: ticket.code });
+            } else {
+              result.failed++;
+              result.failedItems.push({ ticketId, code: ticket.code, reason: '退票失败' });
+            }
+          } else if (ticket && ticket.status === 'refunded') {
+            result.success++;
+            result.successItems.push({ ticketId, code: ticket.code });
+          } else {
+            result.failed++;
+            result.failedItems.push({
+              ticketId,
+              code: ticket?.code || '未知票券',
+              reason: `状态异常：${ticket?.status || '不存在'}`,
+            });
+          }
+        });
+
+        const log: RefundListLog = {
+          id: generateId(),
+          refundListId,
+          action: '批量处理退票',
+          operator: getRoleName(),
+          operatorRole: currentRole,
+          remark: `成功 ${result.success} 张，失败 ${result.failed} 张`,
+          createdAt: now(),
+        };
+
+        set((state) => ({
+          refundLists: state.refundLists.map((r) =>
+            r.id === refundListId
+              ? {
+                  ...r,
+                  status: result.failed === 0 ? 'completed' : 'processing',
+                  processedBy: getRoleName(),
+                  processedAt: now(),
+                }
+              : r
+          ),
+          refundListLogs: [...state.refundListLogs, log],
+        }));
+
+        return result;
+      },
     }),
     {
       name: 'cinema-ops-ticket',

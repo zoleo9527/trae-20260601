@@ -12,14 +12,18 @@ import {
   FileCheck,
   XCircle,
   User,
+  Ticket,
+  RefreshCw,
 } from 'lucide-react';
 import { useHallStore } from '@/store/hallStore';
 import { useScheduleStore } from '@/store/scheduleStore';
+import { useTicketStore } from '@/store/ticketStore';
 import { StatusBadge } from '@/components/common/StatusBadge';
 import { Timeline, type TimelineItem } from '@/components/common/Timeline';
 import { Modal } from '@/components/common/Modal';
-import { formatDateTime } from '@/utils/date';
+import { formatDateTime, formatTime } from '@/utils/date';
 import { hallStatusLabels, type HallStatus } from '@/types/common';
+import type { AffectedSchedule } from '@/types/hall';
 
 const HallDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -35,13 +39,16 @@ const HallDetail: React.FC = () => {
     closeFaultTicket,
     updateFaultTicketStatus,
   } = useHallStore();
-  const { getSchedulesByHall } = useScheduleStore();
+  const { getSchedulesByHall, getSchedule } = useScheduleStore();
+  const { createRefundList, getRefundLists } = useTicketStore();
 
   const hall = id ? getHall(id) : undefined;
   const logs = id ? getHallLogs(id) : [];
   const inspections = id ? getInspections(id) : [];
   const faultTickets = id ? getFaultTickets(id) : [];
   const schedules = id ? getSchedulesByHall(id) : [];
+  const activeSchedules = schedules.filter((s) => s.status === 'active' || s.status === 'adjusting');
+  const refundLists = getRefundLists().filter((r) => hall && r.hallName === hall.name);
 
   const [inspectionModalOpen, setInspectionModalOpen] = useState(false);
   const [faultModalOpen, setFaultModalOpen] = useState(false);
@@ -52,6 +59,8 @@ const HallDetail: React.FC = () => {
   const [inspectionRemark, setInspectionRemark] = useState('');
   const [faultTitle, setFaultTitle] = useState('');
   const [faultDescription, setFaultDescription] = useState('');
+  const [selectedScheduleIds, setSelectedScheduleIds] = useState<string[]>([]);
+  const [autoGenerateRefund, setAutoGenerateRefund] = useState(true);
   const [newStatus, setNewStatus] = useState<HallStatus>('idle');
   const [statusReason, setStatusReason] = useState('');
   const [resolveRemark, setResolveRemark] = useState('');
@@ -82,6 +91,14 @@ const HallDetail: React.FC = () => {
     createdAt: log.createdAt,
   }));
 
+  const toggleScheduleSelection = (scheduleId: string) => {
+    setSelectedScheduleIds((prev) =>
+      prev.includes(scheduleId)
+        ? prev.filter((id) => id !== scheduleId)
+        : [...prev, scheduleId]
+    );
+  };
+
   const handleSubmitInspection = () => {
     if (!inspectionRemark.trim() && inspectionResult !== 'normal') {
       setError('请填写巡检备注');
@@ -109,17 +126,45 @@ const HallDetail: React.FC = () => {
       setError('请输入故障描述');
       return;
     }
-    createFaultTicket({
-      hallId: hall.id,
-      title: faultTitle,
-      description: faultDescription,
+
+    const affectedSchedules: AffectedSchedule[] = selectedScheduleIds.map((scheduleId) => {
+      const schedule = getSchedule(scheduleId);
+      return {
+        scheduleId,
+        scheduleName: schedule?.movieName || '',
+        startTime: schedule?.startTime || '',
+        endTime: schedule?.endTime || '',
+        refundTicketIds: [],
+      };
     });
+
+    const newTicket = createFaultTicket(
+      {
+        hallId: hall.id,
+        affectedScheduleIds: selectedScheduleIds,
+        title: faultTitle,
+        description: faultDescription,
+      },
+      affectedSchedules
+    );
+
+    if (autoGenerateRefund && selectedScheduleIds.length > 0) {
+      const ticket = useHallStore.getState().faultTickets[useHallStore.getState().faultTickets.length - 1];
+      if (ticket) {
+        selectedScheduleIds.forEach((scheduleId) => {
+          createRefundList(scheduleId, `设备故障：${faultTitle}`, ticket.id);
+        });
+      }
+    }
+
     setFaultModalOpen(false);
     setFaultTitle('');
     setFaultDescription('');
+    setSelectedScheduleIds([]);
+    setAutoGenerateRefund(true);
     setError(null);
-    setSuccess('故障工单已创建');
-    setTimeout(() => setSuccess(null), 2000);
+    setSuccess('故障工单已创建' + (autoGenerateRefund && selectedScheduleIds.length > 0 ? '，退票清单已生成' : ''));
+    setTimeout(() => setSuccess(null), 2500);
   };
 
   const handleChangeStatus = () => {
@@ -251,6 +296,19 @@ const HallDetail: React.FC = () => {
                         <p className="text-sm text-gray-500 mt-1">{ticket.description}</p>
                       </div>
                     </div>
+                    {ticket.affectedSchedules && ticket.affectedSchedules.length > 0 && (
+                      <div className="mt-3 p-3 bg-amber-50 rounded-lg">
+                        <p className="text-xs font-medium text-amber-800 mb-2">受影响排片</p>
+                        <div className="space-y-1">
+                          {ticket.affectedSchedules.map((s) => (
+                            <div key={s.scheduleId} className="text-xs text-amber-700 flex items-center gap-2">
+                              <span className="w-1.5 h-1.5 bg-amber-400 rounded-full"></span>
+                              {s.scheduleName} ({formatTime(s.startTime)}-{formatTime(s.endTime)})
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                     <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-200">
                       <div className="flex items-center gap-2 text-xs text-gray-500">
                         <User className="w-3 h-3" />
@@ -284,6 +342,37 @@ const HallDetail: React.FC = () => {
                           </button>
                         )}
                       </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {refundLists.length > 0 && (
+            <div className="card p-6">
+              <h2 className="text-lg font-semibold text-gray-900 mb-4">退票清单</h2>
+              <div className="space-y-3">
+                {refundLists.slice(0, 5).map((refund) => (
+                  <div key={refund.id} className="p-4 bg-gray-50 rounded-xl">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center">
+                          <RefreshCw className="w-5 h-5 text-red-600" />
+                        </div>
+                        <div>
+                          <p className="font-medium text-gray-900">{refund.scheduleName}</p>
+                          <p className="text-xs text-gray-500">{refund.ticketIds.length} 张票 · {refund.reason}</p>
+                        </div>
+                      </div>
+                      <span className={`badge ${
+                        refund.status === 'pending' ? 'bg-amber-100 text-amber-800' :
+                        refund.status === 'processing' ? 'bg-blue-100 text-blue-800' :
+                        'bg-green-100 text-green-800'
+                      }`}>
+                        {refund.status === 'pending' ? '待处理' :
+                         refund.status === 'processing' ? '处理中' : '已完成'}
+                      </span>
                     </div>
                   </div>
                 ))}
@@ -357,11 +446,11 @@ const HallDetail: React.FC = () => {
             </div>
           </div>
 
-          {schedules.length > 0 && (
+          {activeSchedules.length > 0 && (
             <div className="card p-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">今日排片</h2>
+              <h2 className="text-lg font-semibold text-gray-900 mb-4">当日排片</h2>
               <div className="space-y-2">
-                {schedules.slice(0, 5).map((schedule) => (
+                {activeSchedules.map((schedule) => (
                   <Link
                     key={schedule.id}
                     to={`/schedule/${schedule.id}`}
@@ -370,7 +459,7 @@ const HallDetail: React.FC = () => {
                     <p className="font-medium text-gray-900 text-sm">{schedule.movieName}</p>
                     <div className="flex items-center justify-between mt-1">
                       <span className="text-xs text-gray-500">
-                        {formatDateTime(schedule.startTime).split(' ')[1]} - {formatDateTime(schedule.endTime).split(' ')[1]}
+                        {formatTime(schedule.startTime)} - {formatTime(schedule.endTime)}
                       </span>
                       <StatusBadge type="schedule" status={schedule.status} />
                     </div>
@@ -479,6 +568,7 @@ const HallDetail: React.FC = () => {
         onClose={() => {
           setFaultModalOpen(false);
           setError(null);
+          setSelectedScheduleIds([]);
         }}
         title="上报设备故障"
         footer={
@@ -487,6 +577,7 @@ const HallDetail: React.FC = () => {
               onClick={() => {
                 setFaultModalOpen(false);
                 setError(null);
+                setSelectedScheduleIds([]);
               }}
               className="btn-secondary"
             >
@@ -520,10 +611,56 @@ const HallDetail: React.FC = () => {
               value={faultDescription}
               onChange={(e) => setFaultDescription(e.target.value)}
               placeholder="详细描述故障情况..."
-              rows={4}
+              rows={3}
               className="input resize-none"
             />
           </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">受影响排片（可选）</label>
+            {activeSchedules.length > 0 ? (
+              <div className="space-y-2 max-h-48 overflow-y-auto">
+                {activeSchedules.map((schedule) => (
+                  <label
+                    key={schedule.id}
+                    className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-all ${
+                      selectedScheduleIds.includes(schedule.id)
+                        ? 'border-cinema-red bg-red-50'
+                        : 'border-gray-200 hover:border-gray-300'
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={selectedScheduleIds.includes(schedule.id)}
+                      onChange={() => toggleScheduleSelection(schedule.id)}
+                      className="w-4 h-4 rounded border-gray-300 text-cinema-red focus:ring-cinema-red"
+                    />
+                    <div className="flex-1">
+                      <p className="font-medium text-gray-900 text-sm">{schedule.movieName}</p>
+                      <p className="text-xs text-gray-500">
+                        {formatTime(schedule.startTime)} - {formatTime(schedule.endTime)}
+                      </p>
+                    </div>
+                  </label>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-gray-500 p-3 bg-gray-50 rounded-lg">当日暂无排片</p>
+            )}
+          </div>
+          {selectedScheduleIds.length > 0 && (
+            <div className="flex items-center gap-3 p-3 bg-amber-50 rounded-lg">
+              <input
+                type="checkbox"
+                checked={autoGenerateRefund}
+                onChange={(e) => setAutoGenerateRefund(e.target.checked)}
+                className="w-4 h-4 rounded border-gray-300 text-cinema-red focus:ring-cinema-red"
+              />
+              <div>
+                <p className="text-sm font-medium text-amber-900">自动生成退票清单</p>
+                <p className="text-xs text-amber-700">为选中排片的未使用票券生成退票申请</p>
+              </div>
+            </div>
+          )}
         </div>
       </Modal>
 

@@ -47,3 +47,20 @@ export interface UpdateScheduleDTO {
   status?: ScheduleStatus;
   remark?: string;
 }
+
+export interface BatchScheduleItem {
+  movieName: string;
+  hallId: string;
+  startTime: string;
+  endTime: string;
+  price: number;
+  remark?: string;
+}
+
+export interface BatchScheduleResult {
+  total: number;
+  success: number;
+  failed: number;
+  failedItems: { index: number; movieName: string; reason: string }[];
+  successIds: string[];
+}

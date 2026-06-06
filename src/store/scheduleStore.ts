@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { Schedule, ScheduleLog, CreateScheduleDTO, UpdateScheduleDTO } from '@/types/schedule';
+import type { Schedule, ScheduleLog, CreateScheduleDTO, UpdateScheduleDTO, BatchScheduleItem, BatchScheduleResult } from '@/types/schedule';
 import type { ScheduleStatus } from '@/types/common';
 import { generateId } from '@/utils/id';
 import { now, calculateDuration } from '@/utils/date';
@@ -18,8 +18,9 @@ interface ScheduleState {
   changeScheduleStatus: (id: string, status: ScheduleStatus, remark?: string) => void;
   changeHall: (scheduleId: string, newHallId: string, reason: string) => boolean;
   closeSchedule: (id: string) => void;
-  checkTimeConflict: (hallId: string, startTime: string, endTime: string, excludeId?: string) => boolean;
+  checkTimeConflict: (hallId: string, startTime: string, endTime: string, excludeId?: string) => Schedule | undefined;
   getActiveSchedules: () => Schedule[];
+  batchCreateSchedules: (items: BatchScheduleItem[]) => BatchScheduleResult;
 }
 
 export const useScheduleStore = create<ScheduleState>()(
@@ -47,7 +48,7 @@ export const useScheduleStore = create<ScheduleState>()(
         const newStart = new Date(startTime).getTime();
         const newEnd = new Date(endTime).getTime();
 
-        return schedules.some((s) => {
+        return schedules.find((s) => {
           const sStart = new Date(s.startTime).getTime();
           const sEnd = new Date(s.endTime).getTime();
           return (newStart >= sStart && newStart < sEnd) || (newEnd > sStart && newEnd <= sEnd) || (newStart <= sStart && newEnd >= sEnd);
@@ -200,6 +201,79 @@ export const useScheduleStore = create<ScheduleState>()(
         return get()
           .schedules.filter((s) => s.status === 'active' || s.status === 'adjusting')
           .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
+      },
+
+      batchCreateSchedules: (items) => {
+        const { currentRole, getRoleName } = useRoleStore.getState();
+        const halls = useHallStore.getState().halls;
+        const result: BatchScheduleResult = {
+          total: items.length,
+          success: 0,
+          failed: 0,
+          failedItems: [],
+          successIds: [],
+        };
+
+        const createdSchedules: Schedule[] = [];
+        const createdLogs: ScheduleLog[] = [];
+
+        items.forEach((item, index) => {
+          const hall = halls.find((h) => h.id === item.hallId);
+          if (!hall) {
+            result.failed++;
+            result.failedItems.push({ index, movieName: item.movieName, reason: '影厅不存在' });
+            return;
+          }
+
+          const conflict = get().checkTimeConflict(item.hallId, item.startTime, item.endTime);
+          if (conflict) {
+            result.failed++;
+            result.failedItems.push({
+              index,
+              movieName: item.movieName,
+              reason: `时间冲突：与 ${conflict.movieName} (${new Date(conflict.startTime).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}-${new Date(conflict.endTime).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}) 冲突`,
+            });
+            return;
+          }
+
+          const schedule: Schedule = {
+            id: generateId(),
+            movieName: item.movieName,
+            hallId: item.hallId,
+            hallName: hall.name,
+            startTime: item.startTime,
+            endTime: item.endTime,
+            duration: calculateDuration(item.startTime, item.endTime),
+            price: item.price,
+            status: 'active',
+            createdBy: getRoleName(),
+            createdAt: now(),
+            updatedAt: now(),
+            remark: item.remark,
+          };
+
+          const log: ScheduleLog = {
+            id: generateId(),
+            scheduleId: schedule.id,
+            action: '批量创建排片',
+            operator: getRoleName(),
+            operatorRole: currentRole,
+            createdAt: now(),
+            afterData: schedule,
+          };
+
+          createdSchedules.push(schedule);
+          createdLogs.push(log);
+          result.success++;
+          result.successIds.push(schedule.id);
+        });
+
+        set((state) => ({
+          schedules: [...state.schedules, ...createdSchedules],
+          scheduleLogs: [...state.scheduleLogs, ...createdLogs],
+        }));
+
+        return result;
       },
     }),
     {
