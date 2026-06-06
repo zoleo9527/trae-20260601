@@ -1,0 +1,15 @@
+{
+  "name": "live-ecommerce-aftersale",
+  "version": "1.0.0",
+  "description": "直播电商售后退款与补发审核系统",
+  "scripts": {
+    "dev:client": "cd client && vite",
+    "dev:server": "cd server && node index.js",
+    "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\"",
+    "build": "cd client && vite build",
+    "preview": "cd client && vite preview"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}
