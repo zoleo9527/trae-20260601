@@ -1,0 +1,766 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>学校食堂 - 班级取餐与缺餐反馈系统</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background: #f5f7fa; color: #333; }
+    
+    .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px 40px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+    .header h1 { font-size: 24px; margin-bottom: 5px; }
+    .header p { opacity: 0.9; font-size: 14px; }
+    
+    .container { max-width: 1400px; margin: 0 auto; padding: 20px 40px; }
+    
+    .tabs { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
+    .tab { padding: 10px 20px; background: white; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; transition: all 0.2s; }
+    .tab:hover { background: #e8ecf3; }
+    .tab.active { background: #667eea; color: white; }
+    
+    .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 30px; }
+    .stat-card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
+    .stat-card h3 { font-size: 13px; color: #666; margin-bottom: 8px; }
+    .stat-card .number { font-size: 32px; font-weight: bold; color: #333; }
+    .stat-card.pending .number { color: #f59e0b; }
+    .stat-card.success .number { color: #10b981; }
+    
+    .card { background: white; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); padding: 24px; margin-bottom: 20px; }
+    .card h2 { font-size: 18px; margin-bottom: 16px; display: flex; align-items: center; gap: 10px; }
+    
+    .btn { padding: 8px 16px; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; transition: all 0.2s; }
+    .btn-primary { background: #667eea; color: white; }
+    .btn-primary:hover { background: #5a6fd8; }
+    .btn-success { background: #10b981; color: white; }
+    .btn-success:hover { background: #059669; }
+    .btn-warning { background: #f59e0b; color: white; }
+    .btn-warning:hover { background: #d97706; }
+    .btn-outline { background: transparent; border: 1px solid #d1d5db; color: #374151; }
+    .btn-outline:hover { background: #f3f4f6; }
+    
+    table { width: 100%; border-collapse: collapse; }
+    th, td { padding: 12px 16px; text-align: left; border-bottom: 1px solid #e5e7eb; }
+    th { background: #f9fafb; font-weight: 600; font-size: 13px; color: #6b7280; }
+    tr:hover { background: #f9fafb; }
+    
+    .badge { display: inline-block; padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 500; }
+    .badge-pending { background: #fef3c7; color: #d97706; }
+    .badge-resolved { background: #d1fae5; color: #059669; }
+    .badge-delivered { background: #dbeafe; color: #2563eb; }
+    .badge-archived { background: #e5e7eb; color: #6b7280; }
+    
+    .form-row { display: flex; gap: 16px; margin-bottom: 16px; flex-wrap: wrap; }
+    .form-group { flex: 1; min-width: 200px; }
+    .form-group label { display: block; font-size: 13px; color: #6b7280; margin-bottom: 6px; }
+    .form-group input, .form-group select, .form-group textarea { width: 100%; padding: 10px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 14px; }
+    .form-group input:focus, .form-group select:focus, .form-group textarea:focus { outline: none; border-color: #667eea; }
+    .form-group textarea { resize: vertical; min-height: 80px; }
+    
+    .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 1000; }
+    .modal { background: white; border-radius: 12px; padding: 24px; max-width: 600px; width: 90%; max-height: 80vh; overflow-y: auto; }
+    .modal h3 { font-size: 18px; margin-bottom: 16px; }
+    .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; }
+    
+    .detail-item { margin-bottom: 12px; }
+    .detail-item label { font-size: 13px; color: #6b7280; display: block; margin-bottom: 4px; }
+    .detail-item .value { font-size: 14px; color: #111827; }
+    
+    .timeline { position: relative; padding-left: 24px; }
+    .timeline::before { content: ''; position: absolute; left: 8px; top: 0; bottom: 0; width: 2px; background: #e5e7eb; }
+    .timeline-item { position: relative; padding-bottom: 20px; }
+    .timeline-item::before { content: ''; position: absolute; left: -20px; top: 4px; width: 10px; height: 10px; border-radius: 50%; background: #667eea; }
+    .timeline-item .time { font-size: 12px; color: #6b7280; }
+    .timeline-item .content { font-size: 14px; margin-top: 4px; }
+    
+    .example-section { background: #f8fafc; border-left: 4px solid #667eea; padding: 16px; margin-bottom: 16px; border-radius: 0 8px 8px 0; }
+    .example-section h4 { color: #4338ca; margin-bottom: 8px; }
+    .example-section p { font-size: 14px; line-height: 1.6; color: #374151; }
+    .example-section .step { background: white; padding: 12px; border-radius: 6px; margin: 8px 0; font-size: 13px; }
+    .example-section .step strong { color: #667eea; }
+    
+    .hidden { display: none; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>🍱 学校食堂 - 班级取餐与缺餐反馈系统</h1>
+    <p>一线处理与管理回看基于同一份数据，全程可追溯</p>
+  </div>
+  
+  <div class="container">
+    <div class="tabs">
+      <button class="tab active" onclick="showTab('dashboard')">📊 仪表盘</button>
+      <button class="tab" onclick="showTab('meals')">🍽️ 班级取餐</button>
+      <button class="tab" onclick="showTab('feedbacks')">📝 缺餐反馈</button>
+      <button class="tab" onclick="showTab('examples')">📖 使用样例</button>
+    </div>
+    
+    <div id="dashboard" class="tab-content">
+      <div class="stats-grid">
+        <div class="stat-card">
+          <h3>今日取餐</h3>
+          <div class="number" id="stat-today-meals">-</div>
+        </div>
+        <div class="stat-card pending">
+          <h3>待处理反馈</h3>
+          <div class="number" id="stat-pending">-</div>
+        </div>
+        <div class="stat-card">
+          <h3>班级总数</h3>
+          <div class="number" id="stat-classes">-</div>
+        </div>
+        <div class="stat-card success">
+          <h3>累计取餐记录</h3>
+          <div class="number" id="stat-total-meals">-</div>
+        </div>
+      </div>
+      
+      <div class="card">
+        <h2>🕐 最近取餐记录</h2>
+        <table id="recent-meals-table">
+          <thead>
+            <tr>
+              <th>班级</th>
+              <th>餐次</th>
+              <th>数量</th>
+              <th>领取人</th>
+              <th>时间</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      
+      <div class="card">
+        <h2>⚠️ 待处理反馈</h2>
+        <table id="pending-feedbacks-table">
+          <thead>
+            <tr>
+              <th>班级</th>
+              <th>类型</th>
+              <th>描述</th>
+              <th>反馈人</th>
+              <th>时间</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+    
+    <div id="meals" class="tab-content hidden">
+      <div class="card">
+        <h2>
+          🍽️ 班级取餐记录
+          <button class="btn btn-primary" style="margin-left: auto;" onclick="openMealModal()">+ 记录取餐</button>
+        </h2>
+        <div class="form-row">
+          <div class="form-group">
+            <label>筛选班级</label>
+            <select id="meal-class-filter" onchange="loadMeals()">
+              <option value="">全部班级</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>归档状态</label>
+            <select id="meal-archived-filter" onchange="loadMeals()">
+              <option value="">全部</option>
+              <option value="false">未归档</option>
+              <option value="true">已归档</option>
+            </select>
+          </div>
+        </div>
+        <table id="meals-table">
+          <thead>
+            <tr>
+              <th>班级</th>
+              <th>日期</th>
+              <th>餐次</th>
+              <th>数量</th>
+              <th>领取人</th>
+              <th>状态</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+    
+    <div id="feedbacks" class="tab-content hidden">
+      <div class="card">
+        <h2>
+          📝 缺餐反馈
+          <button class="btn btn-primary" style="margin-left: auto;" onclick="openFeedbackModal()">+ 提交反馈</button>
+        </h2>
+        <div class="form-row">
+          <div class="form-group">
+            <label>筛选状态</label>
+            <select id="feedback-status-filter" onchange="loadFeedbacks()">
+              <option value="">全部</option>
+              <option value="PENDING">待处理</option>
+              <option value="RESOLVED">已解决</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>归档状态</label>
+            <select id="feedback-archived-filter" onchange="loadFeedbacks()">
+              <option value="">全部</option>
+              <option value="false">未归档</option>
+              <option value="true">已归档</option>
+            </select>
+          </div>
+        </div>
+        <table id="feedbacks-table">
+          <thead>
+            <tr>
+              <th>班级</th>
+              <th>日期</th>
+              <th>类型</th>
+              <th>描述</th>
+              <th>状态</th>
+              <th>反馈人</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+    
+    <div id="examples" class="tab-content hidden">
+      <div class="card">
+        <h2>📖 真实样例说明</h2>
+        
+        <div class="example-section">
+          <h4>✅ 顺利流：正常取餐流程</h4>
+          <p><strong>场景：</strong>一年级1班正常领取午餐，全员就餐无异常</p>
+          <div class="step"><strong>步骤1：</strong>食堂工作人员在「班级取餐」页面点击「记录取餐」，选择一年级1班，填写午餐45份，领取人张老师</div>
+          <div class="step"><strong>步骤2：</strong>系统生成取餐记录，状态为「已送达」，自动记录领取时间</div>
+          <div class="step"><strong>步骤3：</strong>管理人员在仪表盘可看到今日取餐数+1，数据实时同步</div>
+          <div class="step"><strong>步骤4：</strong>学期结束时，管理员可将该记录归档，数据永久保存可追溯</div>
+        </div>
+        
+        <div class="example-section">
+          <h4>⚠️ 问题流：缺餐异常处理</h4>
+          <p><strong>场景：</strong>一年级2班领取午餐时发现少了1份，学生李明没有领到</p>
+          <div class="step"><strong>步骤1：</strong>李老师在「缺餐反馈」页面提交反馈：选择一年级2班，类型「缺餐」，描述"本班实际43人，只收到42份，李明同学未领到"</div>
+          <div class="step"><strong>步骤2：</strong>系统生成反馈记录，状态为「待处理」，仪表盘待处理数+1</div>
+          <div class="step"><strong>步骤3：</strong>食堂管理员看到待处理反馈，点击「处理」，核实是配餐时少装了1份</div>
+          <div class="step"><strong>步骤4：</strong>管理员填写处理说明："已补送1份午餐给李明同学，已批评配餐人员"，状态改为「已解决」</div>
+          <div class="step"><strong>步骤5：</strong>数据全程留痕，谁反馈的、谁处理的、怎么处理的一目了然，无需口头解释</div>
+        </div>
+        
+        <div class="example-section">
+          <h4>📦 最终归档：数据闭环</h4>
+          <p><strong>场景：</strong>本月食堂运营复盘，所有记录归档保存</p>
+          <div class="step"><strong>步骤1：</strong>管理员在「班级取餐」页面筛选本月未归档记录，逐条查看确认</div>
+          <div class="step"><strong>步骤2：</strong>对已确认无误的记录点击「归档」，填写归档人</div>
+          <div class="step"><strong>步骤3：</strong>在「缺餐反馈」页面确认所有反馈都已处理完毕，批量归档</div>
+          <div class="step"><strong>步骤4：</strong>归档后的数据仍可查询回看（筛选「已归档」状态），但不可再修改</div>
+          <div class="step"><strong>步骤5：</strong>管理层复盘时，可直接基于系统数据说话，责任清晰，无需翻旧台账和聊天记录</div>
+        </div>
+        
+        <div style="margin-top: 20px; padding: 16px; background: #eef2ff; border-radius: 8px;">
+          <h4 style="color: #4338ca; margin-bottom: 8px;">💡 核心价值</h4>
+          <ul style="font-size: 14px; line-height: 1.8; color: #374151; padding-left: 20px;">
+            <li><strong>数据统一：</strong>一线老师和管理人员看到的是同一份数据，不存在信息差</li>
+            <li><strong>责任清晰：</strong>谁取餐、谁反馈、谁处理，全程留痕可追溯</li>
+            <li><strong>无需口头：</strong>出现问题直接查系统记录，不用靠回忆和聊天截图</li>
+            <li><strong>永久存档：</strong>归档后数据不可篡改，满足审计和复盘要求</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <div id="meal-modal" class="modal-overlay hidden">
+    <div class="modal">
+      <h3>记录班级取餐</h3>
+      <div class="form-group">
+        <label>选择班级</label>
+        <select id="meal-class"></select>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>餐次</label>
+          <select id="meal-type">
+            <option value="早餐">早餐</option>
+            <option value="午餐" selected>午餐</option>
+            <option value="晚餐">晚餐</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>份数</label>
+          <input type="number" id="meal-quantity" value="40" min="1">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>日期</label>
+          <input type="date" id="meal-date">
+        </div>
+        <div class="form-group">
+          <label>领取人</label>
+          <input type="text" id="meal-received-by" placeholder="如：张老师">
+        </div>
+      </div>
+      <div class="form-group">
+        <label>备注</label>
+        <textarea id="meal-notes" placeholder="如：全员就餐、有人请假等"></textarea>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-outline" onclick="closeMealModal()">取消</button>
+        <button class="btn btn-primary" onclick="submitMeal()">确认记录</button>
+      </div>
+    </div>
+  </div>
+  
+  <div id="feedback-modal" class="modal-overlay hidden">
+    <div class="modal">
+      <h3>提交缺餐反馈</h3>
+      <div class="form-group">
+        <label>选择班级</label>
+        <select id="feedback-class"></select>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>反馈类型</label>
+          <select id="feedback-type">
+            <option value="MISSING">缺餐/少餐</option>
+            <option value="QUALITY">质量问题</option>
+            <option value="LATE">送餐延迟</option>
+            <option value="OTHER">其他</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>餐次</label>
+          <select id="feedback-meal-type">
+            <option value="早餐">早餐</option>
+            <option value="午餐" selected>午餐</option>
+            <option value="晚餐">晚餐</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>日期</label>
+          <input type="date" id="feedback-date">
+        </div>
+        <div class="form-group">
+          <label>反馈人</label>
+          <input type="text" id="feedback-reported-by" placeholder="如：李老师">
+        </div>
+      </div>
+      <div class="form-group">
+        <label>问题描述</label>
+        <textarea id="feedback-description" placeholder="请详细描述问题，包括涉及人数、具体情况等"></textarea>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-outline" onclick="closeFeedbackModal()">取消</button>
+        <button class="btn btn-primary" onclick="submitFeedback()">提交反馈</button>
+      </div>
+    </div>
+  </div>
+  
+  <div id="meal-detail-modal" class="modal-overlay hidden">
+    <div class="modal">
+      <h3>取餐记录详情</h3>
+      <div id="meal-detail-content"></div>
+      <div class="modal-actions">
+        <button class="btn btn-warning" id="archive-meal-btn" onclick="archiveMeal()">归档记录</button>
+        <button class="btn btn-outline" onclick="closeMealDetailModal()">关闭</button>
+      </div>
+    </div>
+  </div>
+  
+  <div id="feedback-detail-modal" class="modal-overlay hidden">
+    <div class="modal">
+      <h3>反馈详情与处理</h3>
+      <div id="feedback-detail-content"></div>
+      <div id="handle-feedback-section" class="hidden">
+        <h4 style="margin: 16px 0 10px;">处理反馈</h4>
+        <div class="form-group">
+          <label>处理人</label>
+          <input type="text" id="handle-by" placeholder="如：食堂管理员">
+        </div>
+        <div class="form-group">
+          <label>处理说明</label>
+          <textarea id="handle-notes" placeholder="请描述处理方案和结果"></textarea>
+        </div>
+        <div class="form-group">
+          <label>处理结果</label>
+          <select id="handle-status">
+            <option value="RESOLVED">已解决</option>
+            <option value="REJECTED">已驳回</option>
+          </select>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-success hidden" id="submit-handle-btn" onclick="handleFeedback()">确认处理</button>
+        <button class="btn btn-warning hidden" id="archive-feedback-btn" onclick="archiveFeedback()">归档记录</button>
+        <button class="btn btn-outline" onclick="closeFeedbackDetailModal()">关闭</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const API_BASE = '/api';
+    let classes = [];
+    let currentMealId = null;
+    let currentFeedbackId = null;
+    
+    function showTab(tabId) {
+      document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+      document.querySelectorAll('.tab').forEach(el => el.classList.remove('active'));
+      document.getElementById(tabId).classList.remove('hidden');
+      event.target.classList.add('active');
+      
+      if (tabId === 'dashboard') loadDashboard();
+      if (tabId === 'meals') loadMeals();
+      if (tabId === 'feedbacks') loadFeedbacks();
+    }
+    
+    async function loadDashboard() {
+      const res = await fetch(`${API_BASE}/dashboard`);
+      const data = await res.json();
+      document.getElementById('stat-today-meals').textContent = data.todayMeals;
+      document.getElementById('stat-pending').textContent = data.pendingFeedbacks;
+      document.getElementById('stat-classes').textContent = data.totalClasses;
+      document.getElementById('stat-total-meals').textContent = data.totalMeals;
+      
+      const mealsRes = await fetch(`${API_BASE}/meals?archived=false`);
+      const meals = await mealsRes.json();
+      const mealsTbody = document.querySelector('#recent-meals-table tbody');
+      mealsTbody.innerHTML = meals.slice(0, 5).map(m => `
+        <tr>
+          <td>${m.class.name}</td>
+          <td>${m.mealType}</td>
+          <td>${m.quantity}份</td>
+          <td>${m.receivedBy}</td>
+          <td>${formatDate(m.receivedAt)}</td>
+          <td><button class="btn btn-outline btn-sm" onclick="viewMealDetail('${m.id}')">查看</button></td>
+        </tr>
+      `).join('');
+      
+      const fbRes = await fetch(`${API_BASE}/feedbacks?status=PENDING&archived=false`);
+      const feedbacks = await fbRes.json();
+      const fbTbody = document.querySelector('#pending-feedbacks-table tbody');
+      fbTbody.innerHTML = feedbacks.map(f => `
+        <tr>
+          <td>${f.class.name}</td>
+          <td>${getFeedbackTypeLabel(f.feedbackType)}</td>
+          <td>${f.description.substring(0, 30)}...</td>
+          <td>${f.reportedBy}</td>
+          <td>${formatDate(f.reportedAt)}</td>
+          <td><button class="btn btn-warning btn-sm" onclick="viewFeedbackDetail('${f.id}')">处理</button></td>
+        </tr>
+      `).join('');
+    }
+    
+    async function loadClasses() {
+      const res = await fetch(`${API_BASE}/classes`);
+      classes = await res.json();
+      
+      const selects = ['#meal-class', '#feedback-class', '#meal-class-filter'];
+      selects.forEach(sel => {
+        const el = document.querySelector(sel);
+        if (el) {
+          if (sel.includes('filter')) {
+            el.innerHTML = '<option value="">全部班级</option>' + classes.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+          } else {
+            el.innerHTML = classes.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+          }
+        }
+      });
+    }
+    
+    async function loadMeals() {
+      const classId = document.getElementById('meal-class-filter').value;
+      const archived = document.getElementById('meal-archived-filter').value;
+      let url = `${API_BASE}/meals?`;
+      if (classId) url += `classId=${classId}&`;
+      if (archived) url += `archived=${archived}`;
+      
+      const res = await fetch(url);
+      const meals = await res.json();
+      const tbody = document.querySelector('#meals-table tbody');
+      tbody.innerHTML = meals.map(m => `
+        <tr>
+          <td>${m.class.name}</td>
+          <td>${formatDate(m.mealDate, true)}</td>
+          <td>${m.mealType}</td>
+          <td>${m.quantity}份</td>
+          <td>${m.receivedBy}</td>
+          <td>
+            <span class="badge ${m.archived ? 'badge-archived' : 'badge-delivered'}">
+              ${m.archived ? '已归档' : '已送达'}
+            </span>
+          </td>
+          <td><button class="btn btn-outline btn-sm" onclick="viewMealDetail('${m.id}')">详情</button></td>
+        </tr>
+      `).join('');
+    }
+    
+    async function loadFeedbacks() {
+      const status = document.getElementById('feedback-status-filter').value;
+      const archived = document.getElementById('feedback-archived-filter').value;
+      let url = `${API_BASE}/feedbacks?`;
+      if (status) url += `status=${status}&`;
+      if (archived) url += `archived=${archived}`;
+      
+      const res = await fetch(url);
+      const feedbacks = await res.json();
+      const tbody = document.querySelector('#feedbacks-table tbody');
+      tbody.innerHTML = feedbacks.map(f => `
+        <tr>
+          <td>${f.class.name}</td>
+          <td>${formatDate(f.mealDate, true)}</td>
+          <td>${getFeedbackTypeLabel(f.feedbackType)}</td>
+          <td>${f.description.substring(0, 40)}...</td>
+          <td>
+            <span class="badge ${f.status === 'PENDING' ? 'badge-pending' : 'badge-resolved'}">
+              ${getStatusLabel(f.status)}
+            </span>
+          </td>
+          <td>${f.reportedBy}</td>
+          <td><button class="btn btn-outline btn-sm" onclick="viewFeedbackDetail('${f.id}')">详情</button></td>
+        </tr>
+      `).join('');
+    }
+    
+    function openMealModal() {
+      document.getElementById('meal-date').value = new Date().toISOString().split('T')[0];
+      document.getElementById('meal-modal').classList.remove('hidden');
+    }
+    
+    function closeMealModal() {
+      document.getElementById('meal-modal').classList.add('hidden');
+    }
+    
+    async function submitMeal() {
+      const data = {
+        classId: document.getElementById('meal-class').value,
+        mealType: document.getElementById('meal-type').value,
+        quantity: parseInt(document.getElementById('meal-quantity').value),
+        mealDate: document.getElementById('meal-date').value,
+        receivedBy: document.getElementById('meal-received-by').value,
+        notes: document.getElementById('meal-notes').value
+      };
+      
+      if (!data.receivedBy) { alert('请填写领取人'); return; }
+      
+      await fetch(`${API_BASE}/meals`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      });
+      
+      closeMealModal();
+      loadMeals();
+      loadDashboard();
+      alert('取餐记录已提交！');
+    }
+    
+    function openFeedbackModal() {
+      document.getElementById('feedback-date').value = new Date().toISOString().split('T')[0];
+      document.getElementById('feedback-modal').classList.remove('hidden');
+    }
+    
+    function closeFeedbackModal() {
+      document.getElementById('feedback-modal').classList.add('hidden');
+    }
+    
+    async function submitFeedback() {
+      const data = {
+        classId: document.getElementById('feedback-class').value,
+        feedbackType: document.getElementById('feedback-type').value,
+        mealType: document.getElementById('feedback-meal-type').value,
+        mealDate: document.getElementById('feedback-date').value,
+        reportedBy: document.getElementById('feedback-reported-by').value,
+        description: document.getElementById('feedback-description').value
+      };
+      
+      if (!data.reportedBy || !data.description) { alert('请填写完整信息'); return; }
+      
+      await fetch(`${API_BASE}/feedbacks`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      });
+      
+      closeFeedbackModal();
+      loadFeedbacks();
+      loadDashboard();
+      alert('反馈已提交！');
+    }
+    
+    async function viewMealDetail(id) {
+      currentMealId = id;
+      const res = await fetch(`${API_BASE}/meals/${id}`);
+      const meal = await res.json();
+      
+      const content = document.getElementById('meal-detail-content');
+      content.innerHTML = `
+        <div class="detail-item"><label>班级</label><div class="value">${meal.class.name}</div></div>
+        <div class="detail-item"><label>日期</label><div class="value">${formatDate(meal.mealDate, true)}</div></div>
+        <div class="detail-item"><label>餐次</label><div class="value">${meal.mealType}</div></div>
+        <div class="detail-item"><label>份数</label><div class="value">${meal.quantity}份</div></div>
+        <div class="detail-item"><label>领取人</label><div class="value">${meal.receivedBy}</div></div>
+        <div class="detail-item"><label>领取时间</label><div class="value">${formatDate(meal.receivedAt)}</div></div>
+        <div class="detail-item"><label>备注</label><div class="value">${meal.notes || '无'}</div></div>
+        <div class="detail-item"><label>状态</label><div class="value">
+          <span class="badge ${meal.archived ? 'badge-archived' : 'badge-delivered'}">
+            ${meal.archived ? '已归档' : '已送达'}
+          </span>
+        </div></div>
+        ${meal.archived ? `
+          <div class="detail-item"><label>归档人</label><div class="value">${meal.archivedBy}</div></div>
+          <div class="detail-item"><label>归档时间</label><div class="value">${formatDate(meal.archivedAt)}</div></div>
+        ` : ''}
+        <div class="detail-item" style="margin-top: 16px;">
+          <label>关联反馈 (${meal.feedbacks.length})</label>
+          <div class="timeline" style="margin-top: 8px;">
+            ${meal.feedbacks.map(f => `
+              <div class="timeline-item">
+                <div class="time">${formatDate(f.reportedAt)} · ${f.reportedBy}</div>
+                <div class="content">${getFeedbackTypeLabel(f.feedbackType)}: ${f.description}</div>
+              </div>
+            `).join('')}
+            ${meal.feedbacks.length === 0 ? '<div style="color: #9ca3af; font-size: 13px;">暂无关联反馈</div>' : ''}
+          </div>
+        </div>
+      `;
+      
+      document.getElementById('archive-meal-btn').classList.toggle('hidden', meal.archived);
+      document.getElementById('meal-detail-modal').classList.remove('hidden');
+    }
+    
+    function closeMealDetailModal() {
+      document.getElementById('meal-detail-modal').classList.add('hidden');
+      currentMealId = null;
+    }
+    
+    async function archiveMeal() {
+      if (!confirm('确认归档此记录？归档后不可修改。')) return;
+      const archivedBy = prompt('请输入归档人姓名：');
+      if (!archivedBy) return;
+      
+      await fetch(`${API_BASE}/archive/meal/${currentMealId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ archivedBy })
+      });
+      
+      closeMealDetailModal();
+      loadMeals();
+      loadDashboard();
+      alert('归档成功！');
+    }
+    
+    async function viewFeedbackDetail(id) {
+      currentFeedbackId = id;
+      const res = await fetch(`${API_BASE}/feedbacks/${id}`);
+      const fb = await res.json();
+      
+      const content = document.getElementById('feedback-detail-content');
+      content.innerHTML = `
+        <div class="detail-item"><label>班级</label><div class="value">${fb.class.name}</div></div>
+        <div class="detail-item"><label>日期</label><div class="value">${formatDate(fb.mealDate, true)}</div></div>
+        <div class="detail-item"><label>餐次</label><div class="value">${fb.mealType}</div></div>
+        <div class="detail-item"><label>反馈类型</label><div class="value">${getFeedbackTypeLabel(fb.feedbackType)}</div></div>
+        <div class="detail-item"><label>问题描述</label><div class="value">${fb.description}</div></div>
+        <div class="detail-item"><label>反馈人</label><div class="value">${fb.reportedBy}</div></div>
+        <div class="detail-item"><label>反馈时间</label><div class="value">${formatDate(fb.reportedAt)}</div></div>
+        <div class="detail-item"><label>状态</label><div class="value">
+          <span class="badge ${fb.status === 'PENDING' ? 'badge-pending' : 'badge-resolved'}">
+            ${getStatusLabel(fb.status)}
+          </span>
+        </div></div>
+        ${fb.handledBy ? `
+          <div class="detail-item"><label>处理人</label><div class="value">${fb.handledBy}</div></div>
+          <div class="detail-item"><label>处理时间</label><div class="value">${formatDate(fb.handledAt)}</div></div>
+          <div class="detail-item"><label>处理说明</label><div class="value">${fb.handleNotes}</div></div>
+        ` : ''}
+        ${fb.archived ? `
+          <div class="detail-item"><label>归档人</label><div class="value">${fb.archivedBy}</div></div>
+          <div class="detail-item"><label>归档时间</label><div class="value">${formatDate(fb.archivedAt)}</div></div>
+        ` : ''}
+      `;
+      
+      document.getElementById('handle-feedback-section').classList.toggle('hidden', fb.status !== 'PENDING' || fb.archived);
+      document.getElementById('submit-handle-btn').classList.toggle('hidden', fb.status !== 'PENDING' || fb.archived);
+      document.getElementById('archive-feedback-btn').classList.toggle('hidden', fb.archived || fb.status === 'PENDING');
+      
+      document.getElementById('feedback-detail-modal').classList.remove('hidden');
+    }
+    
+    function closeFeedbackDetailModal() {
+      document.getElementById('feedback-detail-modal').classList.add('hidden');
+      currentFeedbackId = null;
+    }
+    
+    async function handleFeedback() {
+      const handledBy = document.getElementById('handle-by').value;
+      const handleNotes = document.getElementById('handle-notes').value;
+      const status = document.getElementById('handle-status').value;
+      
+      if (!handledBy || !handleNotes) { alert('请填写处理人及处理说明'); return; }
+      
+      await fetch(`${API_BASE}/feedbacks/${currentFeedbackId}/handle`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ handledBy, handleNotes, status })
+      });
+      
+      closeFeedbackDetailModal();
+      loadFeedbacks();
+      loadDashboard();
+      alert('处理完成！');
+    }
+    
+    async function archiveFeedback() {
+      if (!confirm('确认归档此反馈？归档后不可修改。')) return;
+      const archivedBy = prompt('请输入归档人姓名：');
+      if (!archivedBy) return;
+      
+      await fetch(`${API_BASE}/archive/feedback/${currentFeedbackId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ archivedBy })
+      });
+      
+      closeFeedbackDetailModal();
+      loadFeedbacks();
+      loadDashboard();
+      alert('归档成功！');
+    }
+    
+    function formatDate(dateStr, justDate = false) {
+      const d = new Date(dateStr);
+      if (justDate) {
+        return d.toLocaleDateString('zh-CN');
+      }
+      return d.toLocaleString('zh-CN');
+    }
+    
+    function getFeedbackTypeLabel(type) {
+      const map = { MISSING: '缺餐/少餐', QUALITY: '质量问题', LATE: '送餐延迟', OTHER: '其他' };
+      return map[type] || type;
+    }
+    
+    function getStatusLabel(status) {
+      const map = { PENDING: '待处理', RESOLVED: '已解决', REJECTED: '已驳回' };
+      return map[status] || status;
+    }
+    
+    document.addEventListener('DOMContentLoaded', async () => {
+      await loadClasses();
+      loadDashboard();
+    });
+  </script>
+</body>
+</html>

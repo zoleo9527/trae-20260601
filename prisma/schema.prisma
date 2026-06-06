@@ -1,0 +1,59 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model Class {
+  id        String   @id @default(uuid())
+  name      String
+  grade     String
+  teacher   String?
+  students  Int
+  meals     MealRecord[]
+  feedbacks MealFeedback[]
+  createdAt DateTime @default(now())
+}
+
+model MealRecord {
+  id            String    @id @default(uuid())
+  classId       String
+  class         Class     @relation(fields: [classId], references: [id])
+  mealDate      DateTime
+  mealType      String
+  quantity      Int
+  receivedBy    String
+  receivedAt    DateTime  @default(now())
+  status        String    @default("DELIVERED")
+  notes         String?
+  feedbacks     MealFeedback[]
+  archived      Boolean   @default(false)
+  archivedAt    DateTime?
+  archivedBy    String?
+  createdAt     DateTime  @default(now())
+}
+
+model MealFeedback {
+  id            String    @id @default(uuid())
+  classId       String
+  class         Class     @relation(fields: [classId], references: [id])
+  mealRecordId  String?
+  mealRecord    MealRecord? @relation(fields: [mealRecordId], references: [id])
+  mealDate      DateTime
+  mealType      String
+  feedbackType  String
+  description   String
+  reportedBy    String
+  reportedAt    DateTime  @default(now())
+  status        String    @default("PENDING")
+  handledBy     String?
+  handledAt     DateTime?
+  handleNotes   String?
+  archived      Boolean   @default(false)
+  archivedAt    DateTime?
+  archivedBy    String?
+  createdAt     DateTime  @default(now())
+}
