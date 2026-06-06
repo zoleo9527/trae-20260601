@@ -188,22 +188,33 @@ const editDocument = (id: string) => {
 const handleFormSubmit = async (formData: any) => {
   try {
     if (formMode.value === 'create') {
-      await $fetch('/api/customs', {
+      const result: any = await $fetch('/api/customs', {
         method: 'POST',
         body: {
           ...formData,
           version: 1,
-          status: 'draft'
+          status: 'draft',
+          submitter: appStore.currentUser.name
         }
       })
+      closeFormModal()
+      if (result?.success && result?.data?.id) {
+        navigateTo(`/customs/${result.data.id}`)
+      } else {
+        refresh()
+      }
     } else if (formMode.value === 'edit' && editingDoc.value) {
-      await $fetch(`/api/customs/${editingDoc.value.id}`, {
+      const result: any = await $fetch(`/api/customs/${editingDoc.value.id}`, {
         method: 'PUT',
-        body: formData
+        body: { ...formData, operator: appStore.currentUser.name }
       })
+      closeFormModal()
+      if (result?.success && result?.data?.id) {
+        navigateTo(`/customs/${result.data.id}`)
+      } else {
+        refresh()
+      }
     }
-    closeFormModal()
-    refresh()
   } catch (error: any) {
     alert(error.message || '操作失败，请重试')
   }

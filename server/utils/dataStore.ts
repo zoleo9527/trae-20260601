@@ -67,6 +67,31 @@ export function getDataStore() {
       }
       return null;
     },
+    createCustomsDocumentNewVersion: (oldDocId: string, updates: Partial<CustomsDocument>) => {
+      const oldDoc = customsDocuments.find(c => c.id === oldDocId);
+      if (!oldDoc) return null;
+
+      const maxVersion = Math.max(
+        ...customsDocuments
+          .filter(c => c.orderId === oldDoc.orderId)
+          .map(c => c.version),
+        oldDoc.version
+      );
+
+      const newDoc: CustomsDocument = {
+        ...oldDoc,
+        ...updates,
+        id: `cd_${Date.now()}`,
+        version: maxVersion + 1,
+        status: 'draft',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        timeline: []
+      };
+
+      customsDocuments.unshift(newDoc);
+      return newDoc;
+    },
     addCustomsTimelineEvent: (docId: string, event: Omit<TimelineEvent, 'id'>) => {
       const doc = customsDocuments.find(c => c.id === docId);
       if (doc) {

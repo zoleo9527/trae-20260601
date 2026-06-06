@@ -11,6 +11,9 @@ export default defineEventHandler(async (event) => {
       };
     }
 
+    const body = await readBody(event);
+    const { operator = '系统' } = body;
+
     const store = getDataStore();
     const order = store.getOrderById(id);
 
@@ -24,6 +27,7 @@ export default defineEventHandler(async (event) => {
     const newStatus: OrderStatus = 'synced';
     const updatedOrder = store.updateOrder(id, {
       status: newStatus,
+      responsibilityFlag: 'none',
       syncCount: order.syncCount + 1,
       lastSyncAt: new Date().toISOString()
     });
@@ -32,8 +36,8 @@ export default defineEventHandler(async (event) => {
       type: 'sync',
       title: '订单同步成功',
       description: '订单信息已同步至ERP系统',
-      operator: '系统',
-      operatorRole: 'system',
+      operator,
+      operatorRole: 'operation',
       timestamp: new Date().toISOString(),
       metadata: { syncCount: order.syncCount + 1 }
     });

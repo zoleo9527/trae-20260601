@@ -45,6 +45,22 @@ export default defineEventHandler(async (event) => {
       metadata: { from: document.status, to: 'pending_review' }
     });
 
+    const order = store.getOrderById(document.orderId);
+    if (order) {
+      store.updateOrder(document.orderId, {
+        status: 'customs_processing',
+        responsibilityFlag: 'none'
+      });
+      store.addOrderTimelineEvent(document.orderId, {
+        type: 'customs',
+        title: '报关资料提交审核',
+        description: `关务人员 ${submitter} 已提交报关资料审核`,
+        operator: submitter,
+        operatorRole: 'customs',
+        timestamp: new Date().toISOString()
+      });
+    }
+
     return {
       success: true,
       data: updatedDoc

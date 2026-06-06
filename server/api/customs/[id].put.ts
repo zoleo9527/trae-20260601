@@ -23,20 +23,35 @@ export default defineEventHandler(async (event) => {
 
     const operator = body.submitter || body.operator || '系统';
     
-    const updatedDoc = store.updateCustomsDocument(id, body);
+    const newDoc = store.createCustomsDocumentNewVersion(id, body);
 
-    store.addCustomsTimelineEvent(id, {
-      type: 'customs',
-      title: '编辑报关资料',
-      description: '报关资料内容已更新',
-      operator,
-      operatorRole: 'customs',
-      timestamp: new Date().toISOString()
-    });
+    if (newDoc) {
+      store.addCustomsTimelineEvent(newDoc.id, {
+        type: 'customs',
+        title: '创建新版本',
+        description: `基于 V${document.version} 创建新版本 V${newDoc.version}`,
+        operator,
+        operatorRole: 'customs',
+        timestamp: new Date().toISOString(),
+        metadata: { fromVersion: document.version, toVersion: newDoc.version }
+      });
+
+      const order = store.getOrderById(document.orderId);
+      if (order) {
+        store.addOrderTimelineEvent(document.orderId, {
+          type: 'customs',
+          title: '报关资料更新',
+          description: `关务人员 ${operator} 更新了报关资料，版本 V${newDoc.version}`,
+          operator,
+          operatorRole: 'customs',
+          timestamp: new Date().toISOString()
+        });
+      }
+    }
 
     return {
       success: true,
-      data: updatedDoc
+      data: newDoc
     };
   } catch (error: any) {
     return {

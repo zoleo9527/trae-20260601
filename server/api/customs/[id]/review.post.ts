@@ -47,6 +47,37 @@ export default defineEventHandler(async (event) => {
       metadata: { passed, comment }
     });
 
+    const order = store.getOrderById(document.orderId);
+    if (order) {
+      if (passed) {
+        store.updateOrder(document.orderId, {
+          status: 'completed',
+          responsibilityFlag: 'none'
+        });
+        store.addOrderTimelineEvent(document.orderId, {
+          type: 'customs',
+          title: '报关审核通过',
+          description: `关务人员 ${reviewer} 审核通过了报关资料，订单完成`,
+          operator: reviewer,
+          operatorRole: 'customs',
+          timestamp: new Date().toISOString()
+        });
+      } else {
+        store.updateOrder(document.orderId, {
+          status: 'exception',
+          responsibilityFlag: 'customs'
+        });
+        store.addOrderTimelineEvent(document.orderId, {
+          type: 'customs',
+          title: '报关审核驳回',
+          description: `关务人员 ${reviewer} 驳回了报关资料：${comment || '资料不符合要求'}`,
+          operator: reviewer,
+          operatorRole: 'customs',
+          timestamp: new Date().toISOString()
+        });
+      }
+    }
+
     return {
       success: true,
       data: updatedDoc

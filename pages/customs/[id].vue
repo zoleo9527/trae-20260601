@@ -188,12 +188,16 @@ const handleEdit = () => {
 
 const handleEditSubmit = async (formData: any) => {
   try {
-    await $fetch(`/api/customs/${docId.value}`, {
+    const result: any = await $fetch(`/api/customs/${docId.value}`, {
       method: 'PUT',
-      body: formData
+      body: { ...formData, operator: appStore.currentUser.name }
     })
     showEditModal.value = false
-    refresh()
+    if (result?.success && result?.data?.id) {
+      navigateTo(`/customs/${result.data.id}`)
+    } else {
+      refresh()
+    }
   } catch (error: any) {
     alert(error.message || '保存失败，请重试')
   }
