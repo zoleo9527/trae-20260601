@@ -19,6 +19,7 @@ import { ArrowLeftOutlined, SaveOutlined, PlusOutlined, DeleteOutlined } from '@
 import { useParams, useNavigate } from 'react-router-dom';
 import dayjs from 'dayjs';
 import { scheduleApi, productApi } from '@/services/api';
+import { useIdempotentSubmit, generateIdempotencyKey } from '@/utils/idempotent';
 import type { ScheduleProduct, Product, LiveSchedule } from '@/types';
 
 const { TextArea } = Input;
@@ -35,6 +36,25 @@ const ScheduleCreate = () => {
   const [selectedProducts, setSelectedProducts] = useState<ScheduleProduct[]>([]);
   const [productModal, setProductModal] = useState(false);
   const [form] = Form.useForm();
+
+  const saveSubmit = useIdempotentSubmit({
+    action: async (data: any) => {
+      if (isEdit) {
+        if (schedule?.status === 'RETURNED') {
+          return scheduleApi.supplement(schedule.id, data);
+        } else {
+          return scheduleApi.update(schedule!.id, data);
+        }
+      } else {
+        return scheduleApi.create(data);
+      }
+    },
+    successMessage: isEdit ? (schedule?.status === 'RETURNED' ? '补录成功' : '更新成功') : '创建成功',
+    duplicateMessage: '请勿重复提交',
+    onSuccess: () => {
+      navigate('/schedules');
+    },
+  });
 
   const fetchData = async () => {
     setLoading(true);
@@ -85,27 +105,11 @@ const ScheduleCreate = () => {
         endTime: end.toISOString(),
         estimatedDuration: end.diff(start, 'minute'),
         products: selectedProducts,
+        ...(schedule?.status === 'RETURNED' && { remark: values.remark || '补录完成' }),
       };
 
-      if (isEdit) {
-        if (schedule?.status === 'RETURNED') {
-          await scheduleApi.supplement(schedule.id, {
-            ...scheduleData,
-            remark: values.remark || '补录完成',
-          });
-          message.success('补录成功，已回到草稿状态');
-        } else {
-          await scheduleApi.update(schedule!.id, scheduleData);
-          message.success('更新成功');
-        }
-      } else {
-        await scheduleApi.create(scheduleData);
-        message.success('创建成功');
-      }
-
-      navigate('/schedules');
+      await saveSubmit.submit(scheduleData);
     } catch (e: any) {
-      message.error(e.message || '保存失败');
     }
   };
 
@@ -312,10 +316,18 @@ const ScheduleCreate = () => {
 
           <Form.Item>
             <Space>
-              <Button type="primary" icon={<SaveOutlined />} onClick={handleSave}>
-                保存草稿
+              <Button
+                type="primary"
+                icon={<SaveOutlined />}
+                onClick={handleSave}
+                loading={saveSubmit.loading}
+                disabled={saveSubmit.loading}
+              >
+                {schedule?.status === 'RETURNED' ? '提交补录' : '保存草稿'}
               </Button>
-              <Button onClick={() => navigate('/schedules')}>取消</Button>
+              <Button onClick={() => navigate('/schedules')} disabled={saveSubmit.loading}>
+                取消
+              </Button>
             </Space>
           </Form.Item>
         </Form>

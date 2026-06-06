@@ -20,6 +20,7 @@ import { PlusOutlined, SearchOutlined, EyeOutlined, CheckOutlined, CloseOutlined
 import { useNavigate } from 'react-router-dom';
 import dayjs from 'dayjs';
 import { productApi, statsApi } from '@/services/api';
+import { useIdempotentSubmit } from '@/utils/idempotent';
 import type { ProductStatus, Product } from '@/types';
 
 const { Search } = Input;
@@ -40,6 +41,7 @@ const ProductPool = () => {
   const [searchText, setSearchText] = useState('');
   const [createModal, setCreateModal] = useState(false);
   const [rejectModal, setRejectModal] = useState<string | null>(null);
+  const [approvingId, setApprovingId] = useState<string | null>(null);
   const [form] = Form.useForm();
   const [rejectForm] = Form.useForm();
   const [stats, setStats] = useState<Record<string, number>>({
@@ -47,6 +49,38 @@ const ProductPool = () => {
     pending: 0,
     approved: 0,
     rejected: 0,
+  });
+
+  const createSubmit = useIdempotentSubmit({
+    action: (data: any) => productApi.create(data),
+    successMessage: '商品创建成功，等待审核',
+    duplicateMessage: '请勿重复创建',
+    onSuccess: () => {
+      setCreateModal(false);
+      form.resetFields();
+      fetchData();
+    },
+  });
+
+  const approveSubmit = useIdempotentSubmit({
+    action: (data: any) => productApi.approve(data.id, data),
+    successMessage: '商品审核通过',
+    duplicateMessage: '请勿重复操作',
+    onSuccess: () => {
+      setApprovingId(null);
+      fetchData();
+    },
+  });
+
+  const rejectSubmit = useIdempotentSubmit({
+    action: (data: any) => productApi.reject(data.id, data),
+    successMessage: '已拒绝该商品',
+    duplicateMessage: '请勿重复操作',
+    onSuccess: () => {
+      setRejectModal(null);
+      rejectForm.resetFields();
+      fetchData();
+    },
   });
 
   const categories = [...new Set(products.map((p) => p.category))];
@@ -90,38 +124,21 @@ const ProductPool = () => {
   const handleCreate = async () => {
     try {
       const values = await form.validateFields();
-      await productApi.create(values);
-      message.success('商品创建成功，等待审核');
-      setCreateModal(false);
-      form.resetFields();
-      fetchData();
-    } catch (e: any) {
-      message.error(e.message || '创建失败');
-    }
+      await createSubmit.submit(values);
+    } catch (e: any) {}
   };
 
   const handleReject = async () => {
     if (!rejectModal) return;
     try {
       const values = await rejectForm.validateFields();
-      await productApi.reject(rejectModal, { remark: values.remark });
-      message.success('已拒绝该商品');
-      setRejectModal(null);
-      rejectForm.resetFields();
-      fetchData();
-    } catch (e: any) {
-      message.error(e.message || '操作失败');
-    }
+      await rejectSubmit.submit({ id: rejectModal, remark: values.remark });
+    } catch (e: any) {}
   };
 
   const handleApprove = async (id: string) => {
-    try {
-      await productApi.approve(id);
-      message.success('商品审核通过');
-      fetchData();
-    } catch (e: any) {
-      message.error(e.message || '操作失败');
-    }
+    setApprovingId(id);
+    await approveSubmit.submit({ id });
   };
 
   const columns = [
@@ -204,40 +221,47 @@ const ProductPool = () => {
       key: 'actions',
       width: 180,
       fixed: 'right' as const,
-      render: (_: any, record: Product) => (
-        <Space>
-          <Button
-            type="link"
-            size="small"
-            icon={<EyeOutlined />}
-            onClick={() => navigate(`/products/${record.id}`)}
-          >
-            详情
-          </Button>
-          {record.status === 'PENDING' && (
-            <>
-              <Button
-                type="link"
-                size="small"
-                icon={<CheckOutlined />}
-                onClick={() => handleApprove(record.id)}
-                style={{ color: '#52c41a' }}
-              >
-                通过
-              </Button>
-              <Button
-                type="link"
-                size="small"
-                danger
-                icon={<CloseOutlined />}
-                onClick={() => setRejectModal(record.id)}
-              >
-                拒绝
-              </Button>
-            </>
-          )}
-        </Space>
-      ),
+      render: (_: any, record: Product) => {
+        const isProcessing = approvingId === record.id || rejectModal === record.id;
+        return (
+          <Space>
+            <Button
+              type="link"
+              size="small"
+              icon={<EyeOutlined />}
+              onClick={() => navigate(`/products/${record.id}`)}
+              disabled={isProcessing}
+            >
+              详情
+            </Button>
+            {record.status === 'PENDING' && (
+              <>
+                <Button
+                  type="link"
+                  size="small"
+                  icon={<CheckOutlined />}
+                  onClick={() => handleApprove(record.id)}
+                  style={{ color: '#52c41a' }}
+                  loading={approvingId === record.id && approveSubmit.loading}
+                  disabled={isProcessing}
+                >
+                  通过
+                </Button>
+                <Button
+                  type="link"
+                  size="small"
+                  danger
+                  icon={<CloseOutlined />}
+                  onClick={() => setRejectModal(record.id)}
+                  disabled={isProcessing}
+                >
+                  拒绝
+                </Button>
+              </>
+            )}
+          </Space>
+        );
+      },
     },
   ];
 
@@ -323,6 +347,7 @@ const ProductPool = () => {
         onCancel={() => setCreateModal(false)}
         okText="创建"
         width={600}
+        confirmLoading={createSubmit.loading}
       >
         <Form form={form} layout="vertical">
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
@@ -391,6 +416,7 @@ const ProductPool = () => {
         onCancel={() => setRejectModal(null)}
         okText="确认拒绝"
         okButtonProps={{ danger: true }}
+        confirmLoading={rejectSubmit.loading}
       >
         <Form form={rejectForm} layout="vertical">
           <Form.Item

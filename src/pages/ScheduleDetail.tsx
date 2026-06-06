@@ -31,6 +31,7 @@ import {
 import { useParams, useNavigate } from 'react-router-dom';
 import dayjs from 'dayjs';
 import { scheduleApi } from '@/services/api';
+import { useIdempotentSubmit } from '@/utils/idempotent';
 import type { ScheduleStatus, WorkflowRecord, LiveSchedule } from '@/types';
 
 const { TextArea } = Input;
@@ -72,6 +73,60 @@ const ScheduleDetail = () => {
   const [returnForm] = Form.useForm();
   const [cancelForm] = Form.useForm();
 
+  const submitReview = useIdempotentSubmit({
+    action: (data: any) => scheduleApi.submitForReview(schedule!.id, data),
+    successMessage: '提交复核成功',
+    duplicateMessage: '请勿重复提交复核',
+    onSuccess: () => {
+      setSubmitModal(false);
+      form.resetFields();
+      fetchDetail();
+    },
+  });
+
+  const approveSubmit = useIdempotentSubmit({
+    action: (data: any) => scheduleApi.approve(schedule!.id, data),
+    successMessage: '复核通过',
+    duplicateMessage: '请勿重复操作',
+    onSuccess: () => fetchDetail(),
+  });
+
+  const returnSubmit = useIdempotentSubmit({
+    action: (data: any) => scheduleApi.return(schedule!.id, data),
+    successMessage: '已退回补录',
+    duplicateMessage: '请勿重复退回',
+    onSuccess: () => {
+      setReturnModal(false);
+      returnForm.resetFields();
+      fetchDetail();
+    },
+  });
+
+  const startLiveSubmit = useIdempotentSubmit({
+    action: (data: any) => scheduleApi.startLive(schedule!.id, data),
+    successMessage: '直播已开始',
+    duplicateMessage: '请勿重复操作',
+    onSuccess: () => fetchDetail(),
+  });
+
+  const endLiveSubmit = useIdempotentSubmit({
+    action: (data: any) => scheduleApi.endLive(schedule!.id, data),
+    successMessage: '直播已结束',
+    duplicateMessage: '请勿重复操作',
+    onSuccess: () => fetchDetail(),
+  });
+
+  const cancelSubmit = useIdempotentSubmit({
+    action: (data: any) => scheduleApi.cancel(schedule!.id, data),
+    successMessage: '已取消排期',
+    duplicateMessage: '请勿重复操作',
+    onSuccess: () => {
+      setCancelModal(false);
+      cancelForm.resetFields();
+      fetchDetail();
+    },
+  });
+
   const fetchDetail = async () => {
     if (!id) return;
     setLoading(true);
@@ -106,83 +161,49 @@ const ScheduleDetail = () => {
   const handleSubmit = async () => {
     try {
       const values = await form.validateFields();
-      await scheduleApi.submitForReview(schedule.id, { remark: values.remark });
-      message.success('提交复核成功');
-      setSubmitModal(false);
-      form.resetFields();
-      fetchDetail();
-    } catch (e: any) {
-      message.error(e.message || '提交失败');
-    }
+      await submitReview.submit({ remark: values.remark });
+    } catch (e: any) {}
   };
 
   const handleReturn = async () => {
     try {
       const values = await returnForm.validateFields();
-      await scheduleApi.return(schedule.id, { remark: values.remark });
-      message.success('已退回补录');
-      setReturnModal(false);
-      returnForm.resetFields();
-      fetchDetail();
-    } catch (e: any) {
-      message.error(e.message || '退回失败');
-    }
+      await returnSubmit.submit({ remark: values.remark });
+    } catch (e: any) {}
   };
 
   const handleApprove = async () => {
-    try {
-      await scheduleApi.approve(schedule.id, {});
-      message.success('复核通过');
-      fetchDetail();
-    } catch (e: any) {
-      message.error(e.message || '操作失败');
-    }
+    await approveSubmit.submit({});
   };
 
   const handleStartLive = async () => {
-    try {
-      await scheduleApi.startLive(schedule.id);
-      message.success('直播已开始');
-      fetchDetail();
-    } catch (e: any) {
-      message.error(e.message || '操作失败');
-    }
+    await startLiveSubmit.submit({});
   };
 
   const handleEndLive = async () => {
-    try {
-      await scheduleApi.endLive(schedule.id);
-      message.success('直播已结束');
-      fetchDetail();
-    } catch (e: any) {
-      message.error(e.message || '操作失败');
-    }
+    await endLiveSubmit.submit({});
   };
 
   const handleCancelSchedule = async () => {
     try {
       const values = await cancelForm.validateFields();
-      await scheduleApi.cancel(schedule.id, { remark: values.remark });
-      message.success('排期已取消');
-      setCancelModal(false);
-      cancelForm.resetFields();
-      fetchDetail();
-    } catch (e: any) {
-      message.error(e.message || '取消失败');
-    }
+      await cancelSubmit.submit({ remark: values.remark });
+    } catch (e: any) {}
   };
 
   const renderActions = () => {
     const buttons: React.ReactNode[] = [];
+    const anyLoading = submitReview.loading || approveSubmit.loading || returnSubmit.loading ||
+      startLiveSubmit.loading || endLiveSubmit.loading || cancelSubmit.loading;
 
     if (['DRAFT', 'RETURNED'].includes(schedule.status)) {
       buttons.push(
-        <Button key="edit" icon={<EditOutlined />} onClick={() => navigate(`/schedules/${schedule.id}/edit`)}>
+        <Button key="edit" icon={<EditOutlined />} onClick={() => navigate(`/schedules/${schedule.id}/edit`)} disabled={anyLoading}>
           编辑
         </Button>,
       );
       buttons.push(
-        <Button key="submit" type="primary" icon={<SendOutlined />} onClick={() => setSubmitModal(true)}>
+        <Button key="submit" type="primary" icon={<SendOutlined />} onClick={() => setSubmitModal(true)} disabled={anyLoading}>
           提交复核
         </Button>,
       );
@@ -190,12 +211,12 @@ const ScheduleDetail = () => {
 
     if (schedule.status === 'PENDING_REVIEW') {
       buttons.push(
-        <Button key="approve" type="primary" icon={<CheckOutlined />} onClick={handleApprove}>
+        <Button key="approve" type="primary" icon={<CheckOutlined />} onClick={handleApprove} loading={approveSubmit.loading} disabled={anyLoading}>
           复核通过
         </Button>,
       );
       buttons.push(
-        <Button key="return" danger icon={<RollbackOutlined />} onClick={() => setReturnModal(true)}>
+        <Button key="return" danger icon={<RollbackOutlined />} onClick={() => setReturnModal(true)} disabled={anyLoading}>
           退回补录
         </Button>,
       );
@@ -203,7 +224,7 @@ const ScheduleDetail = () => {
 
     if (schedule.status === 'APPROVED') {
       buttons.push(
-        <Button key="start" type="primary" icon={<PlayCircleOutlined />} onClick={handleStartLive}>
+        <Button key="start" type="primary" icon={<PlayCircleOutlined />} onClick={handleStartLive} loading={startLiveSubmit.loading} disabled={anyLoading}>
           开始直播
         </Button>,
       );
@@ -211,7 +232,7 @@ const ScheduleDetail = () => {
 
     if (schedule.status === 'LIVE') {
       buttons.push(
-        <Button key="end" type="primary" icon={<StopOutlined />} onClick={handleEndLive}>
+        <Button key="end" type="primary" icon={<StopOutlined />} onClick={handleEndLive} loading={endLiveSubmit.loading} disabled={anyLoading}>
           结束直播
         </Button>,
       );
@@ -378,6 +399,7 @@ const ScheduleDetail = () => {
         onOk={handleSubmit}
         onCancel={() => setSubmitModal(false)}
         okText="提交"
+        confirmLoading={submitReview.loading}
       >
         <Form form={form} layout="vertical">
           <Form.Item
@@ -397,6 +419,7 @@ const ScheduleDetail = () => {
         onCancel={() => setReturnModal(false)}
         okText="确认退回"
         okButtonProps={{ danger: true }}
+        confirmLoading={returnSubmit.loading}
       >
         <Form form={returnForm} layout="vertical">
           <Form.Item
@@ -416,6 +439,7 @@ const ScheduleDetail = () => {
         onCancel={() => setCancelModal(false)}
         okText="确认取消"
         okButtonProps={{ danger: true }}
+        confirmLoading={cancelSubmit.loading}
       >
         <Form form={cancelForm} layout="vertical">
           <Form.Item
