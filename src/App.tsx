@@ -1,9 +1,9 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
+import { Layout } from './components/Layout';
 import StudentList from './pages/StudentList';
 import StudentDetail from './pages/StudentDetail';
 import TransferApplication from './pages/TransferApplication';
 import TransferApproval from './pages/TransferApproval';
-import Layout from './components/Layout';
 
 function App() {
   return (
