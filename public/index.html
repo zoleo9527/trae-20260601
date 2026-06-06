@@ -1,0 +1,851 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>校园维修-报修登记与派单响应系统</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f7fa; color: #333; }
+    
+    .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 16px 24px; display: flex; justify-content: space-between; align-items: center; }
+    .header h1 { font-size: 20px; }
+    .role-switcher { display: flex; gap: 8px; }
+    .role-btn { padding: 8px 16px; border: none; border-radius: 6px; cursor: pointer; background: rgba(255,255,255,0.2); color: white; transition: all 0.3s; }
+    .role-btn.active { background: white; color: #667eea; font-weight: 600; }
+    .role-btn:hover { background: rgba(255,255,255,0.3); }
+    
+    .container { max-width: 1200px; margin: 24px auto; padding: 0 16px; }
+    
+    .card { background: white; border-radius: 12px; padding: 20px; margin-bottom: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+    .card-title { font-size: 18px; font-weight: 600; margin-bottom: 16px; color: #1a1a2e; display: flex; align-items: center; gap: 8px; }
+    
+    .btn { padding: 10px 20px; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 500; transition: all 0.2s; }
+    .btn-primary { background: #667eea; color: white; }
+    .btn-primary:hover { background: #5a67d8; }
+    .btn-success { background: #48bb78; color: white; }
+    .btn-success:hover { background: #38a169; }
+    .btn-warning { background: #ed8936; color: white; }
+    .btn-warning:hover { background: #dd6b20; }
+    .btn-danger { background: #f56565; color: white; }
+    .btn-danger:hover { background: #e53e3e; }
+    .btn-secondary { background: #e2e8f0; color: #4a5568; }
+    .btn-secondary:hover { background: #cbd5e0; }
+    .btn-sm { padding: 6px 12px; font-size: 12px; }
+    
+    .form-group { margin-bottom: 16px; }
+    .form-label { display: block; margin-bottom: 6px; font-weight: 500; color: #4a5568; font-size: 14px; }
+    .form-input, .form-select, .form-textarea { width: 100%; padding: 10px 12px; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 14px; transition: border-color 0.2s; }
+    .form-input:focus, .form-select:focus, .form-textarea:focus { outline: none; border-color: #667eea; box-shadow: 0 0 0 3px rgba(102,126,234,0.1); }
+    .form-textarea { resize: vertical; min-height: 80px; }
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    
+    .table { width: 100%; border-collapse: collapse; }
+    .table th, .table td { padding: 12px; text-align: left; border-bottom: 1px solid #e2e8f0; }
+    .table th { background: #f7fafc; font-weight: 600; color: #4a5568; font-size: 13px; }
+    .table tr:hover { background: #f7fafc; }
+    
+    .badge { display: inline-block; padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 500; }
+    .badge-pending { background: #fef3c7; color: #92400e; }
+    .badge-dispatched { background: #dbeafe; color: #1e40af; }
+    .badge-accepted { background: #cffafe; color: #155e75; }
+    .badge-in_progress { background: #e0e7ff; color: #3730a3; }
+    .badge-completed { background: #d1fae5; color: #065f46; }
+    .badge-urgent { background: #fee2e2; color: #991b1b; }
+    .badge-high { background: #fed7aa; color: #9a3412; }
+    .badge-medium { background: #fef3c7; color: #92400e; }
+    .badge-low { background: #d1fae5; color: #065f46; }
+    .badge-exception { background: #fecaca; color: #991b1b; }
+    
+    .exception-banner { background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 12px 16px; margin-bottom: 16px; display: flex; align-items: center; gap: 12px; }
+    .exception-banner .icon { font-size: 20px; }
+    .exception-banner .text { flex: 1; }
+    .exception-banner .title { font-weight: 600; color: #991b1b; }
+    .exception-banner .desc { font-size: 13px; color: #b91c1c; }
+    
+    .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: none; justify-content: center; align-items: center; z-index: 1000; }
+    .modal-overlay.active { display: flex; }
+    .modal { background: white; border-radius: 16px; max-width: 600px; width: 90%; max-height: 90vh; overflow-y: auto; }
+    .modal-header { padding: 20px; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; }
+    .modal-header h3 { font-size: 18px; }
+    .modal-close { background: none; border: none; font-size: 24px; cursor: pointer; color: #718096; }
+    .modal-body { padding: 20px; }
+    .modal-footer { padding: 16px 20px; border-top: 1px solid #e2e8f0; display: flex; justify-content: flex-end; gap: 12px; }
+    
+    .drawer { position: fixed; top: 0; right: -500px; width: 500px; height: 100%; background: white; box-shadow: -4px 0 16px rgba(0,0,0,0.1); transition: right 0.3s; z-index: 1000; display: flex; flex-direction: column; }
+    .drawer.active { right: 0; }
+    .drawer-header { padding: 20px; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; }
+    .drawer-header h3 { font-size: 18px; }
+    .drawer-body { flex: 1; overflow-y: auto; padding: 20px; }
+    
+    .timeline { position: relative; padding-left: 28px; }
+    .timeline::before { content: ''; position: absolute; left: 8px; top: 0; bottom: 0; width: 2px; background: #e2e8f0; }
+    .timeline-item { position: relative; margin-bottom: 20px; }
+    .timeline-item::before { content: ''; position: absolute; left: -24px; top: 4px; width: 12px; height: 12px; border-radius: 50%; background: #667eea; border: 2px solid white; box-shadow: 0 0 0 2px #667eea; }
+    .timeline-item.exception::before { background: #f56565; box-shadow: 0 0 0 2px #f56565; }
+    .timeline-time { font-size: 12px; color: #718096; margin-bottom: 4px; }
+    .timeline-content { background: #f7fafc; padding: 12px; border-radius: 8px; font-size: 14px; }
+    .timeline-operator { font-weight: 600; color: #4a5568; margin-bottom: 4px; }
+    
+    .detail-section { margin-bottom: 20px; }
+    .detail-section h4 { font-size: 15px; font-weight: 600; margin-bottom: 12px; color: #1a1a2e; }
+    .detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .detail-item { }
+    .detail-label { font-size: 12px; color: #718096; margin-bottom: 4px; }
+    .detail-value { font-size: 14px; font-weight: 500; }
+    
+    .action-buttons { display: flex; gap: 8px; flex-wrap: wrap; }
+    .empty-state { text-align: center; padding: 40px; color: #a0aec0; }
+    
+    .tab-bar { display: flex; gap: 4px; margin-bottom: 16px; background: #f1f5f9; padding: 4px; border-radius: 10px; }
+    .tab-btn { flex: 1; padding: 10px; border: none; background: transparent; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 500; color: #64748b; transition: all 0.2s; }
+    .tab-btn.active { background: white; color: #667eea; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+    
+    .user-info { display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: rgba(255,255,255,0.1); border-radius: 8px; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>🔧 校园维修管理系统</h1>
+    <div style="display: flex; align-items: center; gap: 16px;">
+      <div class="user-info">
+        <span id="currentUserName">张宿管</span>
+        <span class="badge" style="background: rgba(255,255,255,0.2); color: white;" id="currentUserRole">宿管</span>
+      </div>
+      <div class="role-switcher">
+        <button class="role-btn active" data-role="dorm_manager" data-user-id="dorm_1" data-user-name="张宿管">宿管</button>
+        <button class="role-btn" data-role="logistics_supervisor" data-user-id="logistics_1" data-user-name="王主管">后勤主管</button>
+        <button class="role-btn" data-role="maintenance_worker" data-user-id="worker_1" data-user-name="刘师傅">维修师傅</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="container">
+    <div id="dormManagerView">
+      <div class="card">
+        <div class="card-title">📋 报修登记</div>
+        <form id="repairForm">
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">报修标题 *</label>
+              <input type="text" class="form-input" name="title" placeholder="例如：3号楼卫生间水管漏水" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label">报修类别 *</label>
+              <select class="form-select" name="category" required>
+                <option value="">请选择</option>
+                <option value="electrical">水电维修</option>
+                <option value="plumbing">管道维修</option>
+                <option value="carpentry">木工维修</option>
+                <option value="appliance">电器维修</option>
+                <option value="other">其他</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">紧急程度 *</label>
+              <select class="form-select" name="urgency" required>
+                <option value="low">低</option>
+                <option value="medium" selected>中</option>
+                <option value="high">高</option>
+                <option value="urgent">紧急</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">位置 *</label>
+              <input type="text" class="form-input" name="location" placeholder="例如：3号楼2层" required>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">宿舍号</label>
+              <input type="text" class="form-input" name="dormitory" placeholder="例如：3-205">
+            </div>
+            <div class="form-group">
+              <label class="form-label">联系电话 *</label>
+              <input type="text" class="form-input" name="reporterPhone" placeholder="请输入联系电话" required>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">详细描述 *</label>
+            <textarea class="form-textarea" name="description" placeholder="请详细描述故障情况..." required></textarea>
+          </div>
+          <div class="form-group" style="display: flex; align-items: center; gap: 8px;">
+            <input type="checkbox" id="hasUnclearResponsibility" name="hasUnclearResponsibility">
+            <label for="hasUnclearResponsibility" style="font-size: 14px; color: #4a5568;">标记责任不清</label>
+          </div>
+          <div class="form-group" id="responsibilityNoteGroup" style="display: none;">
+            <label class="form-label">责任不清备注</label>
+            <textarea class="form-textarea" name="responsibilityNote" placeholder="请说明责任不清的原因..."></textarea>
+          </div>
+          <button type="submit" class="btn btn-primary">提交报修</button>
+        </form>
+      </div>
+
+      <div class="card">
+        <div class="card-title">📝 我的报修单</div>
+        <div id="dormManagerRepairs"></div>
+      </div>
+    </div>
+
+    <div id="logisticsView" style="display: none;">
+      <div class="card">
+        <div class="card-title">📦 待派单列表</div>
+        <div id="pendingDispatches"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">📋 已派单列表</div>
+        <div id="dispatchedList"></div>
+      </div>
+    </div>
+
+    <div id="maintenanceView" style="display: none;">
+      <div class="card">
+        <div class="card-title">🔧 我的工单</div>
+        <div class="tab-bar">
+          <button class="tab-btn active" data-tab="all">全部</button>
+          <button class="tab-btn" data-tab="pending">待接单</button>
+          <button class="tab-btn" data-tab="processing">处理中</button>
+          <button class="tab-btn" data-tab="completed">已完成</button>
+        </div>
+        <div id="myOrders"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="dispatchModal">
+    <div class="modal">
+      <div class="modal-header">
+        <h3>派单</h3>
+        <button class="modal-close" onclick="closeModal('dispatchModal')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label">选择维修师傅 *</label>
+          <select class="form-select" id="dispatchWorker" required>
+            <option value="">请选择</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">派单备注</label>
+          <textarea class="form-textarea" id="dispatchNote" placeholder="请输入派单备注..."></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeModal('dispatchModal')">取消</button>
+        <button class="btn btn-primary" onclick="confirmDispatch()">确认派单</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="drawer" id="detailDrawer">
+    <div class="drawer-header">
+      <h3>报修单详情</h3>
+      <button class="modal-close" onclick="closeDrawer('detailDrawer')">&times;</button>
+    </div>
+    <div class="drawer-body" id="detailContent">
+    </div>
+  </div>
+
+  <div class="drawer" id="exceptionDrawer">
+    <div class="drawer-header">
+      <h3>异常处理</h3>
+      <button class="modal-close" onclick="closeDrawer('exceptionDrawer')">&times;</button>
+    </div>
+    <div class="drawer-body">
+      <div class="form-group">
+        <label class="form-label">异常类型</label>
+        <select class="form-select" id="exceptionType">
+          <option value="responsibility_unclear">责任不清</option>
+          <option value="parts_shortage">配件不足</option>
+          <option value="need_coordination">需要协调</option>
+          <option value="other">其他</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">异常描述 *</label>
+        <textarea class="form-textarea" id="exceptionContent" placeholder="请详细描述异常情况..."></textarea>
+      </div>
+      <button class="btn btn-danger" style="width: 100%;" onclick="submitException()">提交异常</button>
+    </div>
+  </div>
+
+  <script>
+    const API_BASE = '/api';
+    let currentRole = 'dorm_manager';
+    let currentUserId = 'dorm_1';
+    let currentUserName = '张宿管';
+    let currentRepairOrderId = null;
+    let currentDispatchId = null;
+    let currentMaintenanceTab = 'all';
+
+    const roleNames = {
+      dorm_manager: '宿管',
+      logistics_supervisor: '后勤主管',
+      maintenance_worker: '维修师傅'
+    };
+
+    const statusNames = {
+      pending: '待派单',
+      dispatched: '已派单',
+      accepted: '已接单',
+      in_progress: '处理中',
+      completed: '已完成',
+      cancelled: '已取消'
+    };
+
+    const categoryNames = {
+      electrical: '水电维修',
+      plumbing: '管道维修',
+      carpentry: '木工维修',
+      appliance: '电器维修',
+      other: '其他'
+    };
+
+    const urgencyNames = {
+      low: '低',
+      medium: '中',
+      high: '高',
+      urgent: '紧急'
+    };
+
+    document.querySelectorAll('.role-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.role-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        currentRole = btn.dataset.role;
+        currentUserId = btn.dataset.userId;
+        currentUserName = btn.dataset.userName;
+        document.getElementById('currentUserName').textContent = currentUserName;
+        document.getElementById('currentUserRole').textContent = roleNames[currentRole];
+        switchView();
+      });
+    });
+
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        currentMaintenanceTab = btn.dataset.tab;
+        loadMyOrders();
+      });
+    });
+
+    document.getElementById('hasUnclearResponsibility').addEventListener('change', (e) => {
+      document.getElementById('responsibilityNoteGroup').style.display = e.target.checked ? 'block' : 'none';
+    });
+
+    function switchView() {
+      document.getElementById('dormManagerView').style.display = currentRole === 'dorm_manager' ? 'block' : 'none';
+      document.getElementById('logisticsView').style.display = currentRole === 'logistics_supervisor' ? 'block' : 'none';
+      document.getElementById('maintenanceView').style.display = currentRole === 'maintenance_worker' ? 'block' : 'none';
+      
+      if (currentRole === 'dorm_manager') {
+        loadDormManagerRepairs();
+      } else if (currentRole === 'logistics_supervisor') {
+        loadPendingDispatches();
+        loadDispatchedList();
+        loadWorkers();
+      } else if (currentRole === 'maintenance_worker') {
+        loadMyOrders();
+      }
+    }
+
+    async function api(url, options = {}) {
+      const res = await fetch(API_BASE + url, {
+        headers: { 'Content-Type': 'application/json' },
+        ...options
+      });
+      return res.json();
+    }
+
+    async function loadDormManagerRepairs() {
+      const orders = await api(`/repairs?reporterId=${currentUserId}`);
+      const container = document.getElementById('dormManagerRepairs');
+      
+      if (orders.length === 0) {
+        container.innerHTML = '<div class="empty-state">暂无报修单</div>';
+        return;
+      }
+
+      container.innerHTML = `
+        <table class="table">
+          <thead>
+            <tr>
+              <th>单号</th>
+              <th>标题</th>
+              <th>类别</th>
+              <th>紧急程度</th>
+              <th>状态</th>
+              <th>创建时间</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${orders.map(order => `
+              <tr>
+                <td>${order.orderNo}</td>
+                <td>${order.title}</td>
+                <td>${categoryNames[order.category]}</td>
+                <td><span class="badge badge-${order.urgency}">${urgencyNames[order.urgency]}</span></td>
+                <td><span class="badge badge-${order.status}">${statusNames[order.status]}</span></td>
+                <td>${new Date(order.createdAt).toLocaleString()}</td>
+                <td>
+                  <div class="action-buttons">
+                    <button class="btn btn-sm btn-secondary" onclick="viewDetail('${order.id}')">查看</button>
+                    ${order.hasUnclearResponsibility ? '<span class="badge badge-exception">责任不清</span>' : ''}
+                  </div>
+                </td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      `;
+    }
+
+    async function loadPendingDispatches() {
+      const orders = await api('/repairs?status=pending');
+      const container = document.getElementById('pendingDispatches');
+      
+      if (orders.length === 0) {
+        container.innerHTML = '<div class="empty-state">暂无待派单</div>';
+        return;
+      }
+
+      container.innerHTML = `
+        <table class="table">
+          <thead>
+            <tr>
+              <th>单号</th>
+              <th>标题</th>
+              <th>类别</th>
+              <th>紧急程度</th>
+              <th>位置</th>
+              <th>报修人</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${orders.map(order => `
+              <tr>
+                <td>${order.orderNo}</td>
+                <td>
+                  ${order.title}
+                  ${order.hasUnclearResponsibility ? '<div><span class="badge badge-exception" style="margin-top:4px;">责任不清</span></div>' : ''}
+                </td>
+                <td>${categoryNames[order.category]}</td>
+                <td><span class="badge badge-${order.urgency}">${urgencyNames[order.urgency]}</span></td>
+                <td>${order.location}</td>
+                <td>${order.reporterName}</td>
+                <td>
+                  <div class="action-buttons">
+                    <button class="btn btn-sm btn-primary" onclick="openDispatchModal('${order.id}')">派单</button>
+                    <button class="btn btn-sm btn-secondary" onclick="viewDetail('${order.id}')">详情</button>
+                  </div>
+                </td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      `;
+    }
+
+    async function loadDispatchedList() {
+      const dispatches = await api('/dispatches');
+      const container = document.getElementById('dispatchedList');
+      
+      if (dispatches.length === 0) {
+        container.innerHTML = '<div class="empty-state">暂无已派单</div>';
+        return;
+      }
+
+      container.innerHTML = `
+        <table class="table">
+          <thead>
+            <tr>
+              <th>报修单号</th>
+              <th>标题</th>
+              <th>维修师傅</th>
+              <th>状态</th>
+              <th>派单时间</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${dispatches.map(d => `
+              <tr>
+                <td>${d.repairOrderNo}</td>
+                <td>${d.repairTitle}</td>
+                <td>${d.workerName}</td>
+                <td><span class="badge badge-${d.status}">${statusNames[d.status] || d.status}</span></td>
+                <td>${new Date(d.createdAt).toLocaleString()}</td>
+                <td>
+                  <div class="action-buttons">
+                    <button class="btn btn-sm btn-warning" onclick="openReassignModal('${d.id}', '${d.repairOrderId}')">转派</button>
+                    <button class="btn btn-sm btn-secondary" onclick="viewDetail('${d.repairOrderId}')">详情</button>
+                  </div>
+                </td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      `;
+    }
+
+    async function loadWorkers() {
+      const users = await api('/role-entrance/users?role=maintenance_worker');
+      const select = document.getElementById('dispatchWorker');
+      select.innerHTML = '<option value="">请选择</option>' + 
+        users.map(u => `<option value="${u.id}" data-name="${u.name}">${u.name}</option>`).join('');
+    }
+
+    async function loadMyOrders() {
+      const orders = await api(`/maintenance/my-orders?workerId=${currentUserId}`);
+      const container = document.getElementById('myOrders');
+      
+      let filtered = orders;
+      if (currentMaintenanceTab === 'pending') {
+        filtered = orders.filter(o => o.status === 'dispatched');
+      } else if (currentMaintenanceTab === 'processing') {
+        filtered = orders.filter(o => o.status === 'accepted' || o.status === 'in_progress');
+      } else if (currentMaintenanceTab === 'completed') {
+        filtered = orders.filter(o => o.status === 'completed');
+      }
+      
+      if (filtered.length === 0) {
+        container.innerHTML = '<div class="empty-state">暂无工单</div>';
+        return;
+      }
+
+      container.innerHTML = `
+        <table class="table">
+          <thead>
+            <tr>
+              <th>单号</th>
+              <th>标题</th>
+              <th>类别</th>
+              <th>位置</th>
+              <th>状态</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${filtered.map(order => `
+              <tr>
+                <td>${order.orderNo}</td>
+                <td>${order.title}</td>
+                <td>${categoryNames[order.category]}</td>
+                <td>${order.location}</td>
+                <td><span class="badge badge-${order.status}">${statusNames[order.status]}</span></td>
+                <td>
+                  <div class="action-buttons">
+                    <button class="btn btn-sm btn-secondary" onclick="viewDetail('${order.id}')">详情</button>
+                    ${order.status === 'dispatched' ? `<button class="btn btn-sm btn-success" onclick="acceptOrder('${order.id}')">接单</button>` : ''}
+                    ${order.status === 'accepted' ? `<button class="btn btn-sm btn-primary" onclick="startProcessing('${order.id}')">开始处理</button>` : ''}
+                    ${order.status === 'in_progress' ? `<button class="btn btn-sm btn-success" onclick="completeOrder('${order.id}')">完成</button>` : ''}
+                    ${order.status === 'in_progress' || order.status === 'accepted' ? `<button class="btn btn-sm btn-danger" onclick="openExceptionDrawer('${order.id}')">异常</button>` : ''}
+                  </div>
+                </td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      `;
+    }
+
+    async function viewDetail(id) {
+      const order = await api(`/repairs/${id}`);
+      const history = await api(`/repairs/${id}/history`);
+      const dispatches = await api(`/dispatches/repair-order/${id}`);
+      
+      currentRepairOrderId = id;
+      
+      const content = document.getElementById('detailContent');
+      content.innerHTML = `
+        ${order.hasUnclearResponsibility ? `
+          <div class="exception-banner">
+            <span class="icon">⚠️</span>
+            <div class="text">
+              <div class="title">责任不清</div>
+              <div class="desc">${order.responsibilityNote || '未填写备注'}</div>
+            </div>
+          </div>
+        ` : ''}
+        
+        <div class="detail-section">
+          <h4>基本信息</h4>
+          <div class="detail-grid">
+            <div class="detail-item">
+              <div class="detail-label">报修单号</div>
+              <div class="detail-value">${order.orderNo}</div>
+            </div>
+            <div class="detail-item">
+              <div class="detail-label">状态</div>
+              <div class="detail-value"><span class="badge badge-${order.status}">${statusNames[order.status]}</span></div>
+            </div>
+            <div class="detail-item">
+              <div class="detail-label">类别</div>
+              <div class="detail-value">${categoryNames[order.category]}</div>
+            </div>
+            <div class="detail-item">
+              <div class="detail-label">紧急程度</div>
+              <div class="detail-value"><span class="badge badge-${order.urgency}">${urgencyNames[order.urgency]}</span></div>
+            </div>
+            <div class="detail-item">
+              <div class="detail-label">位置</div>
+              <div class="detail-value">${order.location}</div>
+            </div>
+            <div class="detail-item">
+              <div class="detail-label">宿舍</div>
+              <div class="detail-value">${order.dormitory || '-'}</div>
+            </div>
+          </div>
+        </div>
+        
+        <div class="detail-section">
+          <h4>报修信息</h4>
+          <div class="detail-grid">
+            <div class="detail-item">
+              <div class="detail-label">报修人</div>
+              <div class="detail-value">${order.reporterName}</div>
+            </div>
+            <div class="detail-item">
+              <div class="detail-label">联系电话</div>
+              <div class="detail-value">${order.reporterPhone}</div>
+            </div>
+          </div>
+          <div class="detail-item" style="margin-top: 12px;">
+            <div class="detail-label">详细描述</div>
+            <div class="detail-value">${order.description}</div>
+          </div>
+        </div>
+        
+        ${order.assignedWorkerName ? `
+          <div class="detail-section">
+            <h4>派单信息</h4>
+            <div class="detail-grid">
+              <div class="detail-item">
+                <div class="detail-label">维修师傅</div>
+                <div class="detail-value">${order.assignedWorkerName}</div>
+              </div>
+            </div>
+          </div>
+        ` : ''}
+        
+        ${dispatches.length > 0 ? `
+          <div class="detail-section">
+            <h4>派单记录</h4>
+            ${dispatches.map(d => `
+              <div style="background: #f7fafc; padding: 12px; border-radius: 8px; margin-bottom: 8px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                  <span style="font-weight: 500;">派给 ${d.workerName}</span>
+                  <span class="badge badge-${d.status}">${statusNames[d.status] || d.status}</span>
+                </div>
+                ${d.dispatchNote ? `<div style="font-size: 13px; color: #718096;">备注：${d.dispatchNote}</div>` : ''}
+                <div style="font-size: 12px; color: #a0aec0; margin-top: 4px;">${d.dispatcherName} 于 ${new Date(d.createdAt).toLocaleString()} 派单</div>
+              </div>
+            `).join('')}
+          </div>
+        ` : ''}
+        
+        <div class="detail-section">
+          <h4>历史记录</h4>
+          <div class="timeline">
+            ${history.map(h => `
+              <div class="timeline-item ${h.isException ? 'exception' : ''}">
+                <div class="timeline-time">${new Date(h.timestamp).toLocaleString()}</div>
+                <div class="timeline-content">
+                  <div class="timeline-operator">${h.operatorName} (${roleNames[h.operatorRole]})</div>
+                  <div>${h.content}</div>
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+        
+        <div class="detail-section">
+          ${currentRole === 'dorm_manager' && order.status === 'pending' && !order.hasUnclearResponsibility ? `
+            <button class="btn btn-warning" style="width: 100%;" onclick="markResponsibility()">标记责任不清</button>
+          ` : ''}
+        </div>
+      `;
+      
+      openDrawer('detailDrawer');
+    }
+
+    function openDispatchModal(orderId) {
+      currentRepairOrderId = orderId;
+      openModal('dispatchModal');
+    }
+
+    function openReassignModal(dispatchId, repairOrderId) {
+      currentDispatchId = dispatchId;
+      currentRepairOrderId = repairOrderId;
+      openModal('dispatchModal');
+    }
+
+    async function confirmDispatch() {
+      const workerSelect = document.getElementById('dispatchWorker');
+      const workerId = workerSelect.value;
+      const workerName = workerSelect.options[workerSelect.selectedIndex].dataset.name;
+      const dispatchNote = document.getElementById('dispatchNote').value;
+      
+      if (!workerId) {
+        alert('请选择维修师傅');
+        return;
+      }
+
+      if (currentDispatchId) {
+        await api(`/dispatches/${currentDispatchId}/reassign`, {
+          method: 'PUT',
+          body: JSON.stringify({
+            workerId,
+            workerName,
+            note: dispatchNote,
+            operatorId: currentUserId,
+            operatorName: currentUserName
+          })
+        });
+        currentDispatchId = null;
+      } else {
+        await api('/dispatches', {
+          method: 'POST',
+          body: JSON.stringify({
+            repairOrderId: currentRepairOrderId,
+            workerId,
+            workerName,
+            dispatchNote,
+            dispatcherId: currentUserId,
+            dispatcherName: currentUserName
+          })
+        });
+      }
+
+      closeModal('dispatchModal');
+      document.getElementById('dispatchNote').value = '';
+      loadPendingDispatches();
+      loadDispatchedList();
+    }
+
+    async function acceptOrder(orderId) {
+      await api(`/maintenance/${orderId}/accept`, {
+        method: 'POST',
+        body: JSON.stringify({
+          workerId: currentUserId,
+          workerName: currentUserName
+        })
+      });
+      loadMyOrders();
+    }
+
+    async function startProcessing(orderId) {
+      await api(`/maintenance/${orderId}/start`, {
+        method: 'POST',
+        body: JSON.stringify({
+          workerId: currentUserId,
+          workerName: currentUserName
+        })
+      });
+      loadMyOrders();
+    }
+
+    async function completeOrder(orderId) {
+      const note = prompt('请输入完成备注（可选）：');
+      await api(`/maintenance/${orderId}/complete`, {
+        method: 'POST',
+        body: JSON.stringify({
+          workerId: currentUserId,
+          workerName: currentUserName,
+          note
+        })
+      });
+      loadMyOrders();
+    }
+
+    function openExceptionDrawer(orderId) {
+      currentRepairOrderId = orderId;
+      openDrawer('exceptionDrawer');
+    }
+
+    async function submitException() {
+      const exceptionType = document.getElementById('exceptionType').value;
+      const content = document.getElementById('exceptionContent').value;
+      
+      if (!content) {
+        alert('请填写异常描述');
+        return;
+      }
+
+      await api(`/maintenance/${currentRepairOrderId}/exception`, {
+        method: 'POST',
+        body: JSON.stringify({
+          workerId: currentUserId,
+          workerName: currentUserName,
+          exceptionType,
+          content
+        })
+      });
+
+      closeDrawer('exceptionDrawer');
+      document.getElementById('exceptionContent').value = '';
+      alert('异常已上报');
+    }
+
+    async function markResponsibility() {
+      const note = prompt('请输入责任不清的原因：');
+      if (!note) return;
+      
+      await api(`/repairs/${currentRepairOrderId}/mark-responsibility`, {
+        method: 'PUT',
+        body: JSON.stringify({
+          note,
+          operatorId: currentUserId,
+          operatorName: currentUserName
+        })
+      });
+      
+      viewDetail(currentRepairOrderId);
+      loadDormManagerRepairs();
+    }
+
+    document.getElementById('repairForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const formData = new FormData(e.target);
+      const data = Object.fromEntries(formData);
+      data.hasUnclearResponsibility = !!data.hasUnclearResponsibility;
+      data.reporterId = currentUserId;
+      data.reporterName = currentUserName;
+      
+      await api('/repairs', {
+        method: 'POST',
+        body: JSON.stringify(data)
+      });
+      
+      e.target.reset();
+      document.getElementById('responsibilityNoteGroup').style.display = 'none';
+      loadDormManagerRepairs();
+      alert('报修单已提交');
+    });
+
+    function openModal(id) {
+      document.getElementById(id).classList.add('active');
+    }
+
+    function closeModal(id) {
+      document.getElementById(id).classList.remove('active');
+    }
+
+    function openDrawer(id) {
+      document.getElementById(id).classList.add('active');
+    }
+
+    function closeDrawer(id) {
+      document.getElementById(id).classList.remove('active');
+    }
+
+    switchView();
+  </script>
+</body>
+</html>
