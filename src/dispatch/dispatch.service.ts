@@ -6,6 +6,17 @@ import { RepairService } from '../repair/repair.service';
 import { HistoryNote } from '../common/interfaces/history-note.interface';
 import { User } from '../common/interfaces/user.interface';
 
+const statusNames: Record<string, string> = {
+  pending: '待派单',
+  dispatched: '已派单',
+  accepted: '已接单',
+  in_progress: '处理中',
+  completed: '已完成',
+  cancelled: '已取消',
+  reassigned: '已转派',
+  rejected: '已拒绝',
+};
+
 @Injectable()
 export class DispatchService {
   constructor(
@@ -60,6 +71,25 @@ export class DispatchService {
     }
 
     const oldRecord = records[index];
+
+    const allDispatchesForOrder = records
+      .filter(r => r.repairOrderId === oldRecord.repairOrderId)
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+    
+    const latestDispatch = allDispatchesForOrder[0];
+    if (latestDispatch.id !== oldRecord.id) {
+      throw new BadRequestException('仅允许对最新的派单记录进行转派');
+    }
+
+    const completedStatuses = ['completed', 'rejected', 'cancelled'];
+    if (completedStatuses.includes(oldRecord.status)) {
+      throw new BadRequestException('该派单已完成或终止，无法转派');
+    }
+
+    const repairOrder = await this.repairService.findOne(oldRecord.repairOrderId);
+    const oldStatus = repairOrder.status;
+    const oldWorkerName = oldRecord.workerName;
+
     const newRecord: DispatchRecord = {
       id: `dispatch_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
       repairOrderId: oldRecord.repairOrderId,
@@ -82,6 +112,13 @@ export class DispatchService {
     this.dataStore.setDispatchRecords(records);
 
     this.repairService.assignWorker(oldRecord.repairOrderId, workerId, workerName);
+
+    this.repairService.updateStatus(
+      oldRecord.repairOrderId,
+      'dispatched',
+      operator,
+      `转派后重置状态：从「${statusNames[oldStatus] || oldStatus}」回退为待新师傅接单`,
+    );
     
     const historyNote: HistoryNote = {
       id: `note_${Date.now()}`,
@@ -90,10 +127,22 @@ export class DispatchService {
       operatorName: operator.name,
       operatorRole: operator.role,
       action: 'reassign',
-      content: `转派：从 ${oldRecord.workerName} 转给 ${workerName}${note ? `，备注：${note}` : ''}`,
+      content: `转派：从 ${oldWorkerName} 转给 ${workerName}${note ? `，备注：${note}` : ''}`,
       timestamp: new Date(),
     };
     this.repairService.addHistoryNote(oldRecord.repairOrderId, historyNote);
+
+    const statusRollbackNote: HistoryNote = {
+      id: `note_${Date.now()}_rollback`,
+      orderId: oldRecord.repairOrderId,
+      operatorId: operator.id,
+      operatorName: operator.name,
+      operatorRole: operator.role,
+      action: 'status_rollback',
+      content: `状态回退：报修单状态从「${statusNames[oldStatus] || oldStatus}」重置为「已派单」，等待 ${workerName} 接单`,
+      timestamp: new Date(),
+    };
+    this.repairService.addHistoryNote(oldRecord.repairOrderId, statusRollbackNote);
 
     const syncNote: HistoryNote = {
       id: `note_${Date.now()}_sync`,
@@ -102,7 +151,7 @@ export class DispatchService {
       operatorName: operator.name,
       operatorRole: operator.role,
       action: 'dispatch_sync',
-      content: `派单状态同步：原派单标记为已转派，新派单已生成待接单`,
+      content: `派单状态同步：原派单(#${oldRecord.id.slice(-6)})标记为已转派，新派单(#${newRecord.id.slice(-6)})已生成待接单`,
       timestamp: new Date(),
     };
     this.repairService.addHistoryNote(oldRecord.repairOrderId, syncNote);

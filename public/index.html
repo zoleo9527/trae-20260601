@@ -462,7 +462,16 @@
       const dispatches = await api('/dispatches');
       const container = document.getElementById('dispatchedList');
       
-      if (dispatches.length === 0) {
+      const latestByOrder = {};
+      dispatches.forEach(d => {
+        if (!latestByOrder[d.repairOrderId] || new Date(d.createdAt) > new Date(latestByOrder[d.repairOrderId].createdAt)) {
+          latestByOrder[d.repairOrderId] = d;
+        }
+      });
+      const latestDispatches = Object.values(latestByOrder)
+        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+      
+      if (latestDispatches.length === 0) {
         container.innerHTML = '<div class="empty-state">暂无已派单</div>';
         return;
       }
@@ -480,7 +489,9 @@
             </tr>
           </thead>
           <tbody>
-            ${dispatches.map(d => `
+            ${latestDispatches.map(d => {
+              const isCompleted = ['completed', 'rejected', 'cancelled', 'reassigned'].includes(d.status);
+              return `
               <tr>
                 <td>${d.repairOrderNo}</td>
                 <td>${d.repairTitle}</td>
@@ -489,12 +500,12 @@
                 <td>${new Date(d.createdAt).toLocaleString()}</td>
                 <td>
                   <div class="action-buttons">
-                    <button class="btn btn-sm btn-warning" onclick="openReassignModal('${d.id}', '${d.repairOrderId}')">转派</button>
+                    ${!isCompleted ? `<button class="btn btn-sm btn-warning" onclick="openReassignModal('${d.id}', '${d.repairOrderId}')">转派</button>` : '<span class="badge badge-cancelled">已结束</span>'}
                     <button class="btn btn-sm btn-secondary" onclick="viewDetail('${d.repairOrderId}')">详情</button>
                   </div>
                 </td>
               </tr>
-            `).join('')}
+            `}).join('')}
           </tbody>
         </table>
       `;
@@ -644,16 +655,29 @@
         ${dispatches.length > 0 ? `
           <div class="detail-section">
             <h4>派单记录</h4>
-            ${dispatches.map(d => `
-              <div style="background: #f7fafc; padding: 12px; border-radius: 8px; margin-bottom: 8px;">
+            ${dispatches.map((d, idx) => {
+              const isLatest = idx === 0;
+              const isCompleted = ['completed', 'rejected', 'cancelled', 'reassigned'].includes(d.status);
+              const canReassign = isLatest && !isCompleted && currentRole === 'logistics_supervisor';
+              return `
+              <div style="background: ${isLatest ? '#f0f9ff' : '#f7fafc'}; padding: 12px; border-radius: 8px; margin-bottom: 8px; border: ${isLatest ? '2px solid #bae6fd' : 'none'};">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
-                  <span style="font-weight: 500;">派给 ${d.workerName}</span>
+                  <span style="font-weight: 500;">
+                    ${isLatest ? '<span style="color: #0284c7;">📍 最新</span> ' : ''}派给 ${d.workerName}
+                  </span>
                   <span class="badge badge-${d.status}">${statusNames[d.status] || d.status}</span>
                 </div>
                 ${d.dispatchNote ? `<div style="font-size: 13px; color: #718096;">备注：${d.dispatchNote}</div>` : ''}
+                ${d.workerNote ? `<div style="font-size: 13px; color: #0369a1;">师傅备注：${d.workerNote}</div>` : ''}
                 <div style="font-size: 12px; color: #a0aec0; margin-top: 4px;">${d.dispatcherName} 于 ${new Date(d.createdAt).toLocaleString()} 派单</div>
+                ${canReassign ? `
+                  <div style="margin-top: 8px;">
+                    <button class="btn btn-sm btn-warning" onclick="openReassignModalFromList('${d.id}', '${order.id}')">转派此单</button>
+                    ${isCompleted ? '<span style="font-size: 12px; color: #94a3b8; margin-left: 8px;">已完成/终止，无法转派</span>' : ''}
+                  </div>
+                ` : ''}
               </div>
-            `).join('')}
+            `}).join('')}
           </div>
         ` : ''}
         
@@ -691,8 +715,13 @@
               ${order.status === 'pending' ? `
                 <button class="btn btn-primary" style="width: 100%;" onclick="openDispatchFromDetail()">派单</button>
               ` : ''}
-              ${order.status !== 'pending' && order.status !== 'completed' ? `
-                <button class="btn btn-warning" style="width: 100%;" onclick="openReassignFromDetail()">转派</button>
+              ${order.status !== 'pending' && order.status !== 'completed' && dispatches.length > 0 && !['completed', 'rejected', 'cancelled', 'reassigned'].includes(dispatches[0].status) ? `
+                <button class="btn btn-warning" style="width: 100%;" onclick="openReassignFromDetail()">转派当前工单</button>
+              ` : ''}
+              ${order.status !== 'pending' && order.status !== 'completed' && dispatches.length > 0 && ['completed', 'rejected', 'cancelled', 'reassigned'].includes(dispatches[0].status) ? `
+                <div style="background: #fef3c7; padding: 12px; border-radius: 8px; color: #92400e; font-size: 14px; text-align: center;">
+                  ⚠️ 最新派单已结束，无法转派
+                </div>
               ` : ''}
               ${order.status === 'completed' ? `
                 <div style="background: #d1fae5; padding: 12px; border-radius: 8px; color: #065f46; font-size: 14px; text-align: center;">
@@ -751,6 +780,10 @@
       } else {
         alert('请先派单');
       }
+    }
+    
+    function openReassignModalFromList(dispatchId, repairOrderId) {
+      openReassignModal(dispatchId, repairOrderId);
     }
     
     async function acceptOrderFromDetail() {
