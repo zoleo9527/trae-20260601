@@ -4,7 +4,7 @@ import { useStore } from '@/store';
 import { StatusBadge } from '@/components/StatusBadge';
 import { UserAvatar } from '@/components/UserAvatar';
 import { Timeline } from '@/components/Timeline';
-import { ArrowLeft, Calendar, Phone, User, AlertTriangle, Check, X, RotateCcw, MessageSquare, Send } from 'lucide-react';
+import { ArrowLeft, Calendar, Phone, User, AlertTriangle, Check, X, RotateCcw, MessageSquare, Send, ArrowRight } from 'lucide-react';
 import { format } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
 
@@ -12,7 +12,7 @@ export function RefundDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { actions, currentUser } = useStore();
-  const { getRefundById, getVisitsByRefundId, approveRefund, rejectRefund, returnRefund, markRefundAnomaly, addRefundRemark } = actions;
+  const { getRefundById, getVisitsByRefundId, approveRefund, rejectRefund, returnRefund, markRefundAnomaly, addRefundRemark, submitRefundForReview } = actions;
   
   const refund = id ? getRefundById(id) : undefined;
   const relatedVisits = id ? getVisitsByRefundId(id) : [];
@@ -33,7 +33,9 @@ export function RefundDetail() {
   }
 
   const handleAction = (action: string) => {
-    if (action === 'approve') {
+    if (action === 'submit') {
+      submitRefundForReview(refund.id, actionReason);
+    } else if (action === 'approve') {
       approveRefund(refund.id, actionReason);
     } else if (action === 'reject') {
       rejectRefund(refund.id, actionReason);
@@ -53,10 +55,12 @@ export function RefundDetail() {
     }
   };
 
-  const canApprove = ['待审核', '审核中'].includes(refund.status) && currentUser.role === '年级主任';
+  // 权限判断
+  const canSubmit = refund.status === '待审核' && currentUser.role === '食堂管理员';
+  const canApprove = refund.status === '审核中' && currentUser.role === '年级主任';
   const canReject = ['待审核', '审核中'].includes(refund.status) && (currentUser.role === '年级主任' || currentUser.role === '校长');
-  const canReturn = ['审核中'].includes(refund.status) && currentUser.role === '年级主任';
-  const canMarkAnomaly = refund.status !== '异常' && (currentUser.role === '食堂管理员' || currentUser.role === '年级主任');
+  const canReturn = refund.status === '审核中' && currentUser.role === '年级主任';
+  const canMarkAnomaly = !['已通过', '已拒绝', '已退回'].includes(refund.status);
 
   return (
     <div className="space-y-6">
@@ -250,6 +254,15 @@ export function RefundDetail() {
           <div className="card p-6">
             <h2 className="text-lg font-semibold text-gray-900 mb-4">处理操作</h2>
             <div className="space-y-3">
+              {canSubmit && (
+                <button
+                  className="btn-primary w-full"
+                  onClick={() => setShowActionModal('submit')}
+                >
+                  <ArrowRight className="w-4 h-4 mr-2" />
+                  提交审核
+                </button>
+              )}
               {canApprove && (
                 <button
                   className="btn-primary w-full"
@@ -286,7 +299,7 @@ export function RefundDetail() {
                   标记异常
                 </button>
               )}
-              {!canApprove && !canReject && !canReturn && !canMarkAnomaly && (
+              {!canSubmit && !canApprove && !canReject && !canReturn && !canMarkAnomaly && (
                 <p className="text-sm text-gray-500 text-center py-4">当前状态无可用操作</p>
               )}
             </div>
@@ -298,6 +311,7 @@ export function RefundDetail() {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg max-w-md w-full p-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">
+              {showActionModal === 'submit' && '确认提交审核？'}
               {showActionModal === 'approve' && '确认审核通过？'}
               {showActionModal === 'reject' && '确认拒绝申请？'}
               {showActionModal === 'return' && '确认退回申请？'}
@@ -305,12 +319,14 @@ export function RefundDetail() {
             </h3>
             <div className="mb-4">
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                {showActionModal === 'approve' ? '备注（可选）' : '原因'}
+                {showActionModal === 'approve' || showActionModal === 'submit' ? '备注（可选）' : '原因'}
               </label>
               <textarea
                 className="input h-24 resize-none"
                 placeholder={
-                  showActionModal === 'approve'
+                  showActionModal === 'submit'
+                    ? '请输入备注...'
+                    : showActionModal === 'approve'
                     ? '请输入备注...'
                     : showActionModal === 'reject'
                     ? '请输入拒绝原因...'
@@ -334,14 +350,16 @@ export function RefundDetail() {
               </button>
               <button
                 className={
-                  showActionModal === 'approve'
+                  showActionModal === 'approve' || showActionModal === 'submit'
                     ? 'btn-primary'
                     : showActionModal === 'anomaly'
                     ? 'btn-warning'
                     : 'btn-danger'
                 }
                 onClick={() => handleAction(showActionModal)}
-                disabled={showActionModal !== 'approve' && !actionReason.trim()}
+                disabled={
+                  showActionModal !== 'approve' && showActionModal !== 'submit' && !actionReason.trim()
+                }
               >
                 <Send className="w-4 h-4 mr-2" />
                 确认

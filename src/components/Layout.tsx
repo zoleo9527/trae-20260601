@@ -1,5 +1,6 @@
 import { NavLink, Outlet } from 'react-router-dom';
 import { UserAvatar } from './UserAvatar';
+import { RoleSwitcher } from './RoleSwitcher';
 import { useStore } from '@/store';
 import { FileText, Users, School } from 'lucide-react';
 
@@ -48,10 +49,12 @@ export function Layout() {
             </NavLink>
           </nav>
 
-          <div className="p-4 border-t border-gray-200">
-            <div className="flex items-center gap-3">
-              <UserAvatar user={currentUser} size="md" showName showRole />
+          <div className="p-4 border-t border-gray-200 space-y-3">
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+              <div className="text-xs text-amber-700 font-medium mb-1">当前身份</div>
+              <UserAvatar user={currentUser} size="sm" showName showRole />
             </div>
+            <RoleSwitcher />
           </div>
         </aside>
 

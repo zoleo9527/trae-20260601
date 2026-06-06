@@ -20,6 +20,8 @@ interface AppState {
     operator: string;
   };
   actions: {
+    setCurrentUser: (user: User) => void;
+    submitRefundForReview: (id: string, remark?: string) => void;
     setRefundFilters: (filters: Partial<AppState['refundFilters']>) => void;
     setVisitFilters: (filters: Partial<AppState['visitFilters']>) => void;
     selectRefund: (id: string | null) => void;
@@ -40,8 +42,34 @@ interface AppState {
 }
 
 const generateId = () => Math.random().toString(36).substr(2, 9);
+const generateVisitId = () => 'VIS' + Math.random().toString(36).substr(2, 6).toUpperCase();
 
 const now = () => new Date().toISOString();
+
+const createAutoVisit = (refund: RefundApplication, operator: User, visitContent: string): ParentVisit => {
+  return {
+    id: generateVisitId(),
+    refundId: refund.id,
+    studentName: refund.studentName,
+    className: refund.className,
+    parentName: refund.parentName,
+    parentPhone: refund.parentPhone,
+    status: '待回访',
+    visitContent,
+    createdAt: now(),
+    operator,
+    needFollowUp: false,
+    timeline: [
+      {
+        id: generateId(),
+        eventType: '创建',
+        operator,
+        timestamp: now(),
+        description: '系统自动生成回访任务',
+      },
+    ],
+  };
+};
 
 export const useStore = create<AppState>((set, get) => ({
   refunds: mockRefunds,
@@ -62,6 +90,36 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   actions: {
+    setCurrentUser: (user) => set({ currentUser: user }),
+
+    submitRefundForReview: (id, remark) =>
+      set((state) => {
+        const currentUser = state.currentUser;
+        const gradeDirector = state.users.find((u) => u.role === '年级主任') || state.users[1];
+        const newEvent: TimelineEvent = {
+          id: generateId(),
+          eventType: '提交审核',
+          operator: currentUser,
+          timestamp: now(),
+          description: `${currentUser.name}核实后提交年级主任审核`,
+          remark,
+        };
+        return {
+          refunds: state.refunds.map((r) =>
+            r.id === id
+              ? {
+                  ...r,
+                  status: '审核中',
+                  updatedAt: now(),
+                  currentHandler: gradeDirector,
+                  historyHandlers: [...r.historyHandlers, currentUser],
+                  timeline: [...r.timeline, newEvent],
+                }
+              : r
+          ),
+        };
+      }),
+
     setRefundFilters: (filters) =>
       set((state) => ({
         refundFilters: { ...state.refundFilters, ...filters },
@@ -78,12 +136,13 @@ export const useStore = create<AppState>((set, get) => ({
     approveRefund: (id, remark) =>
       set((state) => {
         const currentUser = state.currentUser;
+        const financeUser = state.users.find((u) => u.role === '财务') || state.users[2];
         const newEvent: TimelineEvent = {
           id: generateId(),
           eventType: '审核通过',
           operator: currentUser,
           timestamp: now(),
-          description: `${currentUser.name}审核通过`,
+          description: `${currentUser.name}审核通过，移交财务处理`,
           remark,
         };
         return {
@@ -93,7 +152,7 @@ export const useStore = create<AppState>((set, get) => ({
                   ...r,
                   status: '已通过',
                   updatedAt: now(),
-                  currentHandler: state.users[2],
+                  currentHandler: financeUser,
                   historyHandlers: [...r.historyHandlers, currentUser],
                   timeline: [...r.timeline, newEvent],
                 }
@@ -105,6 +164,7 @@ export const useStore = create<AppState>((set, get) => ({
     rejectRefund: (id, reason) =>
       set((state) => {
         const currentUser = state.currentUser;
+        const refund = state.refunds.find((r) => r.id === id);
         const newEvent: TimelineEvent = {
           id: generateId(),
           eventType: '审核拒绝',
@@ -113,6 +173,11 @@ export const useStore = create<AppState>((set, get) => ({
           description: `${currentUser.name}拒绝申请`,
           remark: reason,
         };
+
+        const newVisit = refund
+          ? createAutoVisit(refund, currentUser, `拒绝退费申请后的家长沟通回访 - 原因：${reason}`)
+          : null;
+
         return {
           refunds: state.refunds.map((r) =>
             r.id === id
@@ -122,24 +187,33 @@ export const useStore = create<AppState>((set, get) => ({
                   updatedAt: now(),
                   currentHandler: currentUser,
                   historyHandlers: [...r.historyHandlers, currentUser],
+                  relatedVisitId: newVisit?.id || r.relatedVisitId,
                   timeline: [...r.timeline, newEvent],
                 }
               : r
           ),
+          visits: newVisit ? [...state.visits, newVisit] : state.visits,
         };
       }),
 
     returnRefund: (id, reason) =>
       set((state) => {
         const currentUser = state.currentUser;
+        const refund = state.refunds.find((r) => r.id === id);
+        const canteenAdmin = state.users.find((u) => u.role === '食堂管理员') || state.users[0];
         const newEvent: TimelineEvent = {
           id: generateId(),
           eventType: '退回',
           operator: currentUser,
           timestamp: now(),
-          description: `${currentUser.name}退回申请`,
+          description: `${currentUser.name}退回申请，退回食堂管理员补充材料`,
           remark: reason,
         };
+
+        const newVisit = refund
+          ? createAutoVisit(refund, currentUser, `退回申请原因说明回访 - 原因：${reason}`)
+          : null;
+
         return {
           refunds: state.refunds.map((r) =>
             r.id === id
@@ -147,18 +221,21 @@ export const useStore = create<AppState>((set, get) => ({
                   ...r,
                   status: '已退回',
                   updatedAt: now(),
-                  currentHandler: state.users[0],
+                  currentHandler: canteenAdmin,
                   historyHandlers: [...r.historyHandlers, currentUser],
+                  relatedVisitId: newVisit?.id || r.relatedVisitId,
                   timeline: [...r.timeline, newEvent],
                 }
               : r
           ),
+          visits: newVisit ? [...state.visits, newVisit] : state.visits,
         };
       }),
 
     markRefundAnomaly: (id, reason) =>
       set((state) => {
         const currentUser = state.currentUser;
+        const refund = state.refunds.find((r) => r.id === id);
         const newEvent: TimelineEvent = {
           id: generateId(),
           eventType: '异常标记',
@@ -167,6 +244,11 @@ export const useStore = create<AppState>((set, get) => ({
           description: '标记为异常',
           remark: reason,
         };
+
+        const newVisit = refund
+          ? createAutoVisit(refund, currentUser, `异常退费申请核实回访 - 原因：${reason}`)
+          : null;
+
         return {
           refunds: state.refunds.map((r) =>
             r.id === id
@@ -176,10 +258,12 @@ export const useStore = create<AppState>((set, get) => ({
                   hasAnomaly: true,
                   anomalyReason: reason,
                   updatedAt: now(),
+                  relatedVisitId: newVisit?.id || r.relatedVisitId,
                   timeline: [...r.timeline, newEvent],
                 }
               : r
           ),
+          visits: newVisit ? [...state.visits, newVisit] : state.visits,
         };
       }),
 
