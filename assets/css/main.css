@@ -1,0 +1,107 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-slate-50 text-slate-900 font-sans antialiased;
+  }
+}
+
+@layer components {
+  .btn {
+    @apply px-4 py-2 rounded text-sm font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-navy-500;
+  }
+  
+  .btn-primary {
+    @apply bg-navy-700 text-white hover:bg-navy-800 shadow-sm hover:shadow hover:-translate-y-px active:translate-y-0;
+  }
+  
+  .btn-secondary {
+    @apply bg-white text-slate-700 border border-slate-300 hover:bg-slate-50 hover:border-slate-400;
+  }
+  
+  .btn-danger {
+    @apply bg-red-600 text-white hover:bg-red-700;
+  }
+  
+  .btn-warning {
+    @apply bg-amber-500 text-white hover:bg-amber-600;
+  }
+  
+  .card {
+    @apply bg-white rounded-lg shadow-sm border border-slate-200 transition-all duration-200;
+  }
+  
+  .card-hover {
+    @apply hover:shadow-md hover:-translate-y-0.5;
+  }
+  
+  .badge {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+  }
+  
+  .status-badge {
+    @apply inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium;
+  }
+  
+  .table-header {
+    @apply bg-slate-50 text-slate-600 text-xs font-medium uppercase tracking-wider;
+  }
+  
+  .table-cell {
+    @apply px-4 py-3 text-sm text-slate-900;
+  }
+  
+  .input-field {
+    @apply w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-navy-500 focus:border-transparent;
+  }
+  
+  .label {
+    @apply block text-sm font-medium text-slate-700 mb-1;
+  }
+  
+  .section-title {
+    @apply text-lg font-semibold text-slate-900 mb-4;
+  }
+  
+  .card-title {
+    @apply text-sm font-semibold text-slate-900;
+  }
+  
+  .card-subtitle {
+    @apply text-xs text-slate-500;
+  }
+}
+
+@layer utilities {
+  .scrollbar-thin {
+    scrollbar-width: thin;
+  }
+  
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  
+  .scrollbar-thin::-webkit-scrollbar-track {
+    @apply bg-slate-100 rounded;
+  }
+  
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    @apply bg-slate-300 rounded hover:bg-slate-400;
+  }
+  
+  .animate-pulse-breathing {
+    animation: breathing 2s ease-in-out infinite;
+  }
+  
+  @keyframes breathing {
+    0%, 100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.6;
+    }
+  }
+}
