@@ -266,12 +266,42 @@ function applyConditions<T>(records: T[], conditions: { key?: string; op: string
   });
 }
 
+function extractLimitOffset(sql: string, params: any[]): { limit: number; offset: number; hasLimit: boolean } {
+  const sqlLower = sql.toLowerCase();
+  
+  const placeholderMatch = sqlLower.match(/limit\s+\?\s+offset\s+\?/);
+  if (placeholderMatch && params.length >= 2) {
+    const offset = params[params.length - 1];
+    const limit = params[params.length - 2];
+    return { limit: Number(limit), offset: Number(offset), hasLimit: true };
+  }
+  
+  const numberMatch = sql.match(/LIMIT\s+(\d+)\s+OFFSET\s+(\d+)/i);
+  if (numberMatch) {
+    return { limit: parseInt(numberMatch[1]), offset: parseInt(numberMatch[2]), hasLimit: true };
+  }
+  
+  return { limit: 0, offset: 0, hasLimit: false };
+}
+
+function hasOrderBy(sql: string, field: string): boolean {
+  const sqlLower = sql.toLowerCase();
+  const patterns = [
+    `order by ${field} desc`,
+    `order by r.${field} desc`,
+    `order by ${field} asc`,
+    `order by r.${field} asc`
+  ];
+  return patterns.some(p => sqlLower.includes(p));
+}
+
 export function allQuery<T = any>(sql: string, params: any[] = []): T[] {
   const db = getDatabase();
   const sqlLower = sql.toLowerCase();
 
   if (sqlLower.includes('from screening_exceptions')) {
     let results = [...db.screeningExceptions] as T[];
+    const isCountQuery = sqlLower.includes('count(*)');
     
     if (sqlLower.includes('where')) {
       const whereMatch = sql.match(/WHERE\s+(.+?)\s*(ORDER|LIMIT|GROUP|$)/i);
@@ -290,21 +320,17 @@ export function allQuery<T = any>(sql: string, params: any[] = []): T[] {
       return Object.entries(counts).map(([status, count]) => ({ status, count })) as T[];
     }
 
-    if (sqlLower.includes('order by reported_at desc')) {
+    if (hasOrderBy(sql, 'reported_at')) {
       results.sort((a: any, b: any) => new Date(b.reportedAt).getTime() - new Date(a.reportedAt).getTime());
     }
 
-    if (sqlLower.includes('limit')) {
-      const limitMatch = sql.match(/LIMIT\s+(\d+)\s+OFFSET\s+(\d+)/i);
-      if (limitMatch) {
-        const limit = parseInt(limitMatch[1]);
-        const offset = parseInt(limitMatch[2]);
-        results = results.slice(offset, offset + limit);
-      }
+    if (isCountQuery) {
+      return [{ total: results.length }] as T[];
     }
 
-    if (sqlLower.includes('count(*)')) {
-      return [{ total: results.length }] as T[];
+    const { limit, offset, hasLimit } = extractLimitOffset(sql, params);
+    if (hasLimit) {
+      results = results.slice(offset, offset + limit);
     }
 
     return results;
@@ -312,6 +338,7 @@ export function allQuery<T = any>(sql: string, params: any[] = []): T[] {
 
   if (sqlLower.includes('from refunds')) {
     let results = [...db.refunds] as T[];
+    const isCountQuery = sqlLower.includes('count(*)');
     
     if (sqlLower.includes('where')) {
       const whereMatch = sql.match(/WHERE\s+(.+?)\s*(ORDER|LIMIT|GROUP|$)/i);
@@ -332,21 +359,17 @@ export function allQuery<T = any>(sql: string, params: any[] = []): T[] {
       return Object.entries(stats).map(([status, data]) => ({ status, count: data.count, amount: data.amount })) as T[];
     }
 
-    if (sqlLower.includes('order by applied_at desc')) {
+    if (hasOrderBy(sql, 'applied_at')) {
       results.sort((a: any, b: any) => new Date(b.appliedAt).getTime() - new Date(a.appliedAt).getTime());
     }
 
-    if (sqlLower.includes('limit')) {
-      const limitMatch = sql.match(/LIMIT\s+(\d+)\s+OFFSET\s+(\d+)/i);
-      if (limitMatch) {
-        const limit = parseInt(limitMatch[1]);
-        const offset = parseInt(limitMatch[2]);
-        results = results.slice(offset, offset + limit);
-      }
+    if (isCountQuery) {
+      return [{ total: results.length }] as T[];
     }
 
-    if (sqlLower.includes('count(*)')) {
-      return [{ total: results.length }] as T[];
+    const { limit, offset, hasLimit } = extractLimitOffset(sql, params);
+    if (hasLimit) {
+      results = results.slice(offset, offset + limit);
     }
 
     if (sqlLower.includes('left join schedules')) {
