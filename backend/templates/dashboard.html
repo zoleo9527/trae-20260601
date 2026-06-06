@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>物流园月台 - 叉车派工与作业计时</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .status-badge {
+            padding: 4px 12px;
+            border-radius: 9999px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        .status-pending_dispatch { background: #FEF3C7; color: #92400E; }
+        .status-dispatched { background: #DBEAFE; color: #1E40AF; }
+        .status-in_progress { background: #D1FAE5; color: #065F46; }
+        .status-pending_confirm { background: #EDE9FE; color: #5B21B6; }
+        .status-completed { background: #E5E7EB; color: #1F2937; }
+        .status-returned { background: #FEE2E2; color: #991B1B; }
+        .status-exception { background: #FECACA; color: #991B1B; }
+
+        .card-hover:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+        }
+
+        .timeline-item::before {
+            content: '';
+            position: absolute;
+            left: -21px;
+            top: 8px;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #3B82F6;
+            border: 2px solid white;
+            box-shadow: 0 0 0 2px #3B82F6;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <header class="bg-gradient-to-r from-blue-600 to-blue-800 text-white shadow-lg">
+        <div class="max-w-7xl mx-auto px-4 py-6">
+            <div class="flex items-center justify-between">
+                <div>
+                    <h1 class="text-2xl font-bold">物流园月台 - 叉车派工与作业计时</h1>
+                    <p class="text-blue-100 mt-1">一体化责任追踪 · 实时作业看板</p>
+                </div>
+                <div class="flex items-center gap-4">
+                    <span class="text-sm bg-blue-500 bg-opacity-30 px-3 py-1 rounded-full">
+                        API 文档: <a href="/docs" class="underline hover:text-blue-200">/docs</a>
+                    </span>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto px-4 py-8">
+        <section class="mb-8">
+            <h2 class="text-lg font-semibold text-gray-800 mb-4">实时统计</h2>
+            <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+                <div class="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
+                    <div class="text-3xl font-bold text-gray-800">{{ stats.total }}</div>
+                    <div class="text-sm text-gray-500 mt-1">作业单总数</div>
+                </div>
+                <div class="bg-white rounded-xl p-5 shadow-sm border border-yellow-100">
+                    <div class="text-3xl font-bold text-yellow-600">{{ stats.pending_dispatch }}</div>
+                    <div class="text-sm text-gray-500 mt-1">待派工</div>
+                </div>
+                <div class="bg-white rounded-xl p-5 shadow-sm border border-green-100">
+                    <div class="text-3xl font-bold text-green-600">{{ stats.in_progress }}</div>
+                    <div class="text-sm text-gray-500 mt-1">进行中</div>
+                </div>
+                <div class="bg-white rounded-xl p-5 shadow-sm border border-purple-100">
+                    <div class="text-3xl font-bold text-purple-600">{{ stats.pending_confirm }}</div>
+                    <div class="text-sm text-gray-500 mt-1">待确认</div>
+                </div>
+                <div class="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
+                    <div class="text-3xl font-bold text-gray-600">{{ stats.completed }}</div>
+                    <div class="text-sm text-gray-500 mt-1">已完成</div>
+                </div>
+                <div class="bg-white rounded-xl p-5 shadow-sm border border-red-100">
+                    <div class="text-3xl font-bold text-red-600">{{ stats.exception }}</div>
+                    <div class="text-sm text-gray-500 mt-1">异常</div>
+                </div>
+            </div>
+        </section>
+
+        <section class="mb-8">
+            <h2 class="text-lg font-semibold text-gray-800 mb-4">各角色待办事项</h2>
+            <div class="grid md:grid-cols-3 gap-6">
+                <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                    <div class="bg-yellow-50 px-5 py-3 border-b border-yellow-100">
+                        <div class="flex items-center justify-between">
+                            <h3 class="font-semibold text-yellow-800">调度员待办</h3>
+                            <span class="bg-yellow-200 text-yellow-800 text-xs font-medium px-2.5 py-0.5 rounded-full">
+                                {{ todos.dispatcher|length }}
+                            </span>
+                        </div>
+                    </div>
+                    <div class="p-4 space-y-3 max-h-80 overflow-y-auto">
+                        {% for order in todos.dispatcher %}
+                        <div class="p-3 bg-gray-50 rounded-lg border border-gray-100 card-hover transition-all">
+                            <div class="flex items-center justify-between mb-2">
+                                <span class="font-medium text-gray-800">{{ order.vehicle_plate }}</span>
+                                <span class="status-badge status-{{ order.status }}">{{ order.get_status_display }}</span>
+                            </div>
+                            <div class="text-sm text-gray-500 space-y-1">
+                                <div>月台: {{ order.dock_number }} · {{ order.cargo_type }}</div>
+                                <div>司机: {{ order.driver_name }} ({{ order.driver_phone }})</div>
+                            </div>
+                            {% if order.supplementary_notes %}
+                            <div class="mt-2 text-xs text-gray-400 bg-yellow-50 border-l-2 border-yellow-300 pl-2 py-1">
+                                {{ order.supplementary_notes|truncatechars:30 }}
+                            </div>
+                            {% endif %}
+                        </div>
+                        {% empty %}
+                        <div class="text-center text-gray-400 py-8">暂无待办事项</div>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                    <div class="bg-green-50 px-5 py-3 border-b border-green-100">
+                        <div class="flex items-center justify-between">
+                            <h3 class="font-semibold text-green-800">叉车班长待办</h3>
+                            <span class="bg-green-200 text-green-800 text-xs font-medium px-2.5 py-0.5 rounded-full">
+                                {{ todos.forklift_leader|length }}
+                            </span>
+                        </div>
+                    </div>
+                    <div class="p-4 space-y-3 max-h-80 overflow-y-auto">
+                        {% for order in todos.forklift_leader %}
+                        <div class="p-3 bg-gray-50 rounded-lg border border-gray-100 card-hover transition-all">
+                            <div class="flex items-center justify-between mb-2">
+                                <span class="font-medium text-gray-800">{{ order.vehicle_plate }}</span>
+                                <span class="status-badge status-{{ order.status }}">{{ order.get_status_display }}</span>
+                            </div>
+                            <div class="text-sm text-gray-500 space-y-1">
+                                <div>月台: {{ order.dock_number }} · {{ order.cargo_type }}</div>
+                                <div>叉车: {{ order.forklift_number|default:"-" }} · {{ order.operator_name|default:"-" }}</div>
+                            </div>
+                            {% if order.supplementary_notes %}
+                            <div class="mt-2 text-xs text-gray-400 bg-green-50 border-l-2 border-green-300 pl-2 py-1">
+                                {{ order.supplementary_notes|truncatechars:30 }}
+                            </div>
+                            {% endif %}
+                        </div>
+                        {% empty %}
+                        <div class="text-center text-gray-400 py-8">暂无待办事项</div>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                    <div class="bg-purple-50 px-5 py-3 border-b border-purple-100">
+                        <div class="flex items-center justify-between">
+                            <h3 class="font-semibold text-purple-800">仓库文员待办</h3>
+                            <span class="bg-purple-200 text-purple-800 text-xs font-medium px-2.5 py-0.5 rounded-full">
+                                {{ todos.warehouse_clerk|length }}
+                            </span>
+                        </div>
+                    </div>
+                    <div class="p-4 space-y-3 max-h-80 overflow-y-auto">
+                        {% for order in todos.warehouse_clerk %}
+                        <div class="p-3 bg-gray-50 rounded-lg border border-gray-100 card-hover transition-all">
+                            <div class="flex items-center justify-between mb-2">
+                                <span class="font-medium text-gray-800">{{ order.vehicle_plate }}</span>
+                                <span class="status-badge status-{{ order.status }}">{{ order.get_status_display }}</span>
+                            </div>
+                            <div class="text-sm text-gray-500 space-y-1">
+                                <div>月台: {{ order.dock_number }} · {{ order.cargo_type }}</div>
+                                <div>作业时长: {{ order.work_duration_minutes|default:"-" }} 分钟</div>
+                            </div>
+                            {% if order.supplementary_notes %}
+                            <div class="mt-2 text-xs text-gray-400 bg-purple-50 border-l-2 border-purple-300 pl-2 py-1">
+                                {{ order.supplementary_notes|truncatechars:30 }}
+                            </div>
+                            {% endif %}
+                        </div>
+                        {% empty %}
+                        <div class="text-center text-gray-400 py-8">暂无待办事项</div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section>
+            <h2 class="text-lg font-semibold text-gray-800 mb-4">最近作业单</h2>
+            <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                <div class="overflow-x-auto">
+                    <table class="w-full">
+                        <thead class="bg-gray-50 border-b border-gray-100">
+                            <tr>
+                                <th class="text-left px-5 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">车牌号</th>
+                                <th class="text-left px-5 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">月台</th>
+                                <th class="text-left px-5 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">货物类型</th>
+                                <th class="text-left px-5 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">状态</th>
+                                <th class="text-left px-5 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">叉车/司机</th>
+                                <th class="text-left px-5 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">作业时长</th>
+                                <th class="text-left px-5 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">当前负责</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-50">
+                            {% for order in recent_orders %}
+                            <tr class="hover:bg-gray-50 transition-colors">
+                                <td class="px-5 py-4">
+                                    <div class="font-medium text-gray-800">{{ order.vehicle_plate }}</div>
+                                    <div class="text-xs text-gray-400">{{ order.driver_name }}</div>
+                                </td>
+                                <td class="px-5 py-4 text-gray-600">{{ order.dock_number }}</td>
+                                <td class="px-5 py-4 text-gray-600">{{ order.cargo_type }}</td>
+                                <td class="px-5 py-4">
+                                    <span class="status-badge status-{{ order.status }}">{{ order.get_status_display }}</span>
+                                </td>
+                                <td class="px-5 py-4 text-gray-600">
+                                    {% if order.forklift_number %}
+                                    {{ order.forklift_number }} / {{ order.operator_name|default:"-" }}
+                                    {% else %}
+                                    <span class="text-gray-300">-</span>
+                                    {% endif %}
+                                </td>
+                                <td class="px-5 py-4 text-gray-600">
+                                    {% if order.work_duration_minutes %}
+                                    {{ order.work_duration_minutes }} 分钟
+                                    {% else %}
+                                    <span class="text-gray-300">-</span>
+                                    {% endif %}
+                                </td>
+                                <td class="px-5 py-4">
+                                    {% if order.current_role %}
+                                    <span class="text-sm text-gray-600">{{ order.get_current_role_display }}</span>
+                                    {% else %}
+                                    <span class="text-gray-300">-</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <section class="mt-8">
+            <div class="bg-blue-50 border border-blue-100 rounded-xl p-6">
+                <h3 class="font-semibold text-blue-800 mb-3">📌 设计说明</h3>
+                <div class="grid md:grid-cols-2 gap-4 text-sm text-blue-700">
+                    <div>
+                        <p class="font-medium mb-1">一体化设计：</p>
+                        <ul class="list-disc list-inside space-y-1 text-blue-600">
+                            <li>叉车派工、作业计时、退回原因、补充备注在同一条记录</li>
+                            <li>状态历史全程追踪，责任清晰可追溯</li>
+                            <li>作业计时从派工上下文自动带出，无需重复录入</li>
+                        </ul>
+                    </div>
+                    <div>
+                        <p class="font-medium mb-1">API 接口：</p>
+                        <ul class="list-disc list-inside space-y-1 text-blue-600">
+                            <li>幂等提交：创建作业单支持 idempotency_key 防重复</li>
+                            <li>状态变更：派工→开始→结束→确认，状态流转有校验</li>
+                            <li>计时回看：每条作业单时间线完整可查</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer class="bg-white border-t border-gray-100 mt-12">
+        <div class="max-w-7xl mx-auto px-4 py-6 text-center text-sm text-gray-400">
+            物流园月台叉车派工与作业计时系统 · Django Ninja + Django 4.2
+        </div>
+    </footer>
+</body>
+</html>
