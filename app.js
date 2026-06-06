@@ -1,6 +1,7 @@
 let currentView = 'dashboard';
 let selectedScript = null;
 let selectedProject = null;
+let approvalModalContext = null;
 
 document.addEventListener('DOMContentLoaded', function() {
     initNavigation();
@@ -702,6 +703,17 @@ function viewScriptApproval(projectId) {
     const project = getProjectById(projectId);
     if (!project) return;
     
+    const latestScript = project.scripts && project.scripts.length > 0 
+        ? project.scripts[project.scripts.length - 1] 
+        : null;
+    
+    approvalModalContext = {
+        projectId: projectId,
+        scriptId: latestScript ? latestScript.id : null,
+        scriptVersion: latestScript ? latestScript.version : null,
+        scriptStatus: latestScript ? latestScript.status : null
+    };
+    
     const body = document.getElementById('scriptApprovalBody');
     const role = getUserRole(project.assignee);
     
@@ -711,6 +723,7 @@ function viewScriptApproval(projectId) {
             <div style="color: #8c8c8c;">
                 负责人：${getUserName(project.assignee)} (${getRoleName(role)}) · 
                 截止日期：${project.deadline}
+                ${latestScript ? ` · 最新脚本：${latestScript.version} (${getStatusName(latestScript.status)})` : ''}
             </div>
         </div>
         
@@ -755,6 +768,9 @@ function approveScriptAction(projectId, scriptId) {
     
     script.status = 'approved';
     project.scriptStatus = 'approved';
+    project.status = 'processing';
+    project.blockedReason = '';
+    project.blockDays = 0;
     
     const now = new Date();
     const nowStr = now.toISOString().split('T')[0] + ' ' + now.toTimeString().split(' ')[0].substring(0, 5);
@@ -764,13 +780,24 @@ function approveScriptAction(projectId, scriptId) {
         time: nowStr,
         user: project.assignee,
         action: '脚本' + script.version + '通过',
-        note: '脚本审批通过，可以开始拍摄'
+        note: '脚本审批通过，可以开始拍摄执行'
     });
     
-    alert('脚本已通过！');
+    flowRecords.unshift({
+        id: 'F' + String(flowRecords.length + 1).padStart(3, '0'),
+        projectId: projectId,
+        fromUser: project.assignee,
+        toUser: project.assignee,
+        time: nowStr,
+        action: '脚本审批通过',
+        note: script.version + ' 脚本通过，进入拍摄执行阶段'
+    });
+    
+    alert('脚本已通过！项目已进入拍摄执行阶段。');
     renderScriptDetail(projectId, scriptId);
     renderScriptList();
     updateStats();
+    refreshAllViews();
 }
 
 function showRejectModal(projectId, scriptId) {
@@ -789,6 +816,10 @@ function rejectScriptAction(projectId, scriptId, feedback) {
     
     script.status = 'rejected';
     script.feedback = feedback;
+    project.scriptStatus = 'blocked';
+    project.status = 'blocked';
+    project.blockedReason = '脚本' + script.version + '被驳回：' + feedback;
+    project.blockDays = 1;
     
     const now = new Date();
     const nowStr = now.toISOString().split('T')[0] + ' ' + now.toTimeString().split(' ')[0].substring(0, 5);
@@ -801,20 +832,152 @@ function rejectScriptAction(projectId, scriptId, feedback) {
         note: feedback
     });
     
-    alert('脚本已驳回！');
+    flowRecords.unshift({
+        id: 'F' + String(flowRecords.length + 1).padStart(3, '0'),
+        projectId: projectId,
+        fromUser: project.assignee,
+        toUser: project.assignee,
+        time: nowStr,
+        action: '脚本驳回卡点',
+        note: script.version + ' 脚本被驳回：' + feedback
+    });
+    
+    alert('脚本已驳回！项目已标记为卡点状态。');
     renderScriptDetail(projectId, scriptId);
     renderScriptList();
+    updateStats();
+    refreshAllViews();
 }
 
 function approveScript() {
+    if (!approvalModalContext || !approvalModalContext.projectId) {
+        alert('无法获取项目信息，请关闭弹窗后重试');
+        return;
+    }
+    
+    const projectId = approvalModalContext.projectId;
+    const scriptId = approvalModalContext.scriptId;
+    
+    const project = getProjectById(projectId);
+    if (!project) return;
+    
+    const script = scriptId ? project.scripts.find(s => s.id === scriptId) : null;
+    const scriptVersion = script ? script.version : (approvalModalContext.scriptVersion || '脚本');
+    
+    if (script) {
+        script.status = 'approved';
+    }
+    project.scriptStatus = 'approved';
+    project.status = 'processing';
+    project.blockedReason = '';
+    project.blockDays = 0;
+    
+    const now = new Date();
+    const nowStr = now.toISOString().split('T')[0] + ' ' + now.toTimeString().split(' ')[0].substring(0, 5);
+    project.updatedAt = nowStr;
+    project.updatedBy = project.assignee;
+    project.history.push({
+        time: nowStr,
+        user: project.assignee,
+        action: scriptVersion + '审批通过',
+        note: '脚本审批通过，可以开始拍摄执行'
+    });
+    
+    flowRecords.unshift({
+        id: 'F' + String(flowRecords.length + 1).padStart(3, '0'),
+        projectId: projectId,
+        fromUser: project.assignee,
+        toUser: project.assignee,
+        time: nowStr,
+        action: '脚本审批通过',
+        note: scriptVersion + ' 通过，项目进入拍摄执行阶段'
+    });
+    
     closeModal('scriptApprovalModal');
+    approvalModalContext = null;
+    
+    alert(scriptVersion + ' 已通过审批！项目已进入拍摄执行阶段。');
+    updateStats();
+    refreshAllViews();
 }
 
 function rejectScript() {
+    if (!approvalModalContext || !approvalModalContext.projectId) {
+        alert('无法获取项目信息，请关闭弹窗后重试');
+        return;
+    }
+    
     const feedback = prompt('请输入驳回意见：');
-    if (feedback) {
-        alert('驳回意见已提交');
-        closeModal('scriptApprovalModal');
+    if (!feedback) return;
+    
+    const projectId = approvalModalContext.projectId;
+    const scriptId = approvalModalContext.scriptId;
+    
+    const project = getProjectById(projectId);
+    if (!project) return;
+    
+    const script = scriptId ? project.scripts.find(s => s.id === scriptId) : null;
+    const scriptVersion = script ? script.version : (approvalModalContext.scriptVersion || '脚本');
+    
+    if (script) {
+        script.status = 'rejected';
+        script.feedback = feedback;
+    }
+    project.scriptStatus = 'blocked';
+    project.status = 'blocked';
+    project.blockedReason = scriptVersion + '被驳回：' + feedback;
+    project.blockDays = 1;
+    
+    const now = new Date();
+    const nowStr = now.toISOString().split('T')[0] + ' ' + now.toTimeString().split(' ')[0].substring(0, 5);
+    project.updatedAt = nowStr;
+    project.updatedBy = project.assignee;
+    project.history.push({
+        time: nowStr,
+        user: project.assignee,
+        action: scriptVersion + '驳回',
+        note: feedback
+    });
+    
+    flowRecords.unshift({
+        id: 'F' + String(flowRecords.length + 1).padStart(3, '0'),
+        projectId: projectId,
+        fromUser: project.assignee,
+        toUser: project.assignee,
+        time: nowStr,
+        action: '脚本驳回卡点',
+        note: scriptVersion + ' 被驳回：' + feedback
+    });
+    
+    closeModal('scriptApprovalModal');
+    approvalModalContext = null;
+    
+    alert(scriptVersion + ' 已驳回！项目已标记为卡点状态，请及时处理。');
+    updateStats();
+    refreshAllViews();
+}
+
+function refreshAllViews() {
+    if (currentView === 'dashboard') {
+        renderDashboard();
+    } else if (currentView === 'brief') {
+        renderBriefList();
+    } else if (currentView === 'script') {
+        renderScriptList();
+        if (selectedScript) {
+            const project = projects.find(p => p.scripts && p.scripts.some(s => s.id === selectedScript));
+            if (project) {
+                renderScriptDetail(project.id, selectedScript);
+            }
+        }
+    } else if (currentView === 'flow') {
+        renderFlowTimeline();
+    } else if (currentView === 'archive') {
+        renderArchiveList();
+    }
+    
+    if (selectedProject) {
+        openProjectDetail(selectedProject.id);
     }
 }
 
