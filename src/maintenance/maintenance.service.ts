@@ -80,6 +80,20 @@ export class MaintenanceService {
       operator,
       `维修完成${note ? `，备注：${note}` : ''}`,
     );
+
+    if (latestDispatch) {
+      const dispatchNote: HistoryNote = {
+        id: `note_${Date.now()}_dispatch`,
+        orderId: repairOrderId,
+        operatorId: operator.id,
+        operatorName: operator.name,
+        operatorRole: operator.role,
+        action: 'dispatch_complete',
+        content: `派单已完成，维修师傅确认交付`,
+        timestamp: new Date(),
+      };
+      this.repairService.addHistoryNote(repairOrderId, dispatchNote);
+    }
   }
 
   async getMyOrders(workerId: string): Promise<any[]> {

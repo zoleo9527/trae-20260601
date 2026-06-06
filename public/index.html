@@ -279,6 +279,7 @@
     let currentUserName = '张宿管';
     let currentRepairOrderId = null;
     let currentDispatchId = null;
+    let currentLatestDispatchId = null;
     let currentMaintenanceTab = 'all';
 
     const roleNames = {
@@ -561,6 +562,7 @@
       const dispatches = await api(`/dispatches/repair-order/${id}`);
       
       currentRepairOrderId = id;
+      currentLatestDispatchId = dispatches.length > 0 ? dispatches[0].id : null;
       
       const content = document.getElementById('detailContent');
       content.innerHTML = `
@@ -666,13 +668,103 @@
         </div>
         
         <div class="detail-section">
-          ${currentRole === 'dorm_manager' && order.status === 'pending' && !order.hasUnclearResponsibility ? `
-            <button class="btn btn-warning" style="width: 100%;" onclick="markResponsibility()">标记责任不清</button>
+          <h4>操作区</h4>
+          
+          ${currentRole === 'dorm_manager' ? `
+            ${order.status === 'pending' && !order.hasUnclearResponsibility ? `
+              <button class="btn btn-warning" style="width: 100%; margin-bottom: 8px;" onclick="markResponsibility()">标记责任不清</button>
+            ` : ''}
+            ${order.hasUnclearResponsibility ? `
+              <div style="background: #fef2f2; padding: 12px; border-radius: 8px; color: #991b1b; font-size: 14px;">
+                ⚠️ 已标记责任不清：${order.responsibilityNote || '无备注'}
+              </div>
+            ` : ''}
+          ` : ''}
+          
+          ${currentRole === 'logistics_supervisor' ? `
+            <div class="action-buttons" style="flex-direction: column;">
+              ${order.status === 'pending' ? `
+                <button class="btn btn-primary" style="width: 100%;" onclick="openDispatchFromDetail()">派单</button>
+              ` : ''}
+              ${order.status !== 'pending' && order.status !== 'completed' ? `
+                <button class="btn btn-warning" style="width: 100%;" onclick="openReassignFromDetail()">转派</button>
+              ` : ''}
+              ${order.status === 'completed' ? `
+                <div style="background: #d1fae5; padding: 12px; border-radius: 8px; color: #065f46; font-size: 14px; text-align: center;">
+                  ✅ 报修单已完成
+                </div>
+              ` : ''}
+            </div>
+          ` : ''}
+          
+          ${currentRole === 'maintenance_worker' && order.assignedWorkerId === currentUserId ? `
+            <div class="action-buttons" style="flex-direction: column; gap: 8px;">
+              ${order.status === 'dispatched' ? `
+                <button class="btn btn-success" style="width: 100%;" onclick="acceptOrderFromDetail()">接单</button>
+              ` : ''}
+              ${order.status === 'accepted' ? `
+                <button class="btn btn-primary" style="width: 100%;" onclick="startProcessingFromDetail()">开始处理</button>
+              ` : ''}
+              ${order.status === 'in_progress' ? `
+                <button class="btn btn-success" style="width: 100%;" onclick="completeOrderFromDetail()">完成维修</button>
+              ` : ''}
+              ${(order.status === 'accepted' || order.status === 'in_progress') ? `
+                <button class="btn btn-danger" style="width: 100%;" onclick="openExceptionFromDetail()">上报异常</button>
+              ` : ''}
+              ${order.status === 'completed' ? `
+                <div style="background: #d1fae5; padding: 12px; border-radius: 8px; color: #065f46; font-size: 14px; text-align: center;">
+                  ✅ 您已完成此维修
+                </div>
+              ` : ''}
+              ${order.status === 'dispatched' ? `
+                <div style="background: #dbeafe; padding: 12px; border-radius: 8px; color: #1e40af; font-size: 14px; text-align: center;">
+                  📋 您有一个新的派单，请接单
+                </div>
+              ` : ''}
+            </div>
+          ` : ''}
+          
+          ${currentRole === 'maintenance_worker' && order.assignedWorkerId && order.assignedWorkerId !== currentUserId ? `
+            <div style="background: #fef3c7; padding: 12px; border-radius: 8px; color: #92400e; font-size: 14px; text-align: center;">
+              👤 此工单已派给 ${order.assignedWorkerName}
+            </div>
           ` : ''}
         </div>
       `;
       
       openDrawer('detailDrawer');
+    }
+    
+    function openDispatchFromDetail() {
+      currentDispatchId = null;
+      openDispatchModal(currentRepairOrderId);
+    }
+    
+    function openReassignFromDetail() {
+      if (currentLatestDispatchId) {
+        openReassignModal(currentLatestDispatchId, currentRepairOrderId);
+      } else {
+        alert('请先派单');
+      }
+    }
+    
+    async function acceptOrderFromDetail() {
+      await acceptOrder(currentRepairOrderId);
+      setTimeout(() => viewDetail(currentRepairOrderId), 300);
+    }
+    
+    async function startProcessingFromDetail() {
+      await startProcessing(currentRepairOrderId);
+      setTimeout(() => viewDetail(currentRepairOrderId), 300);
+    }
+    
+    async function completeOrderFromDetail() {
+      await completeOrder(currentRepairOrderId);
+      setTimeout(() => viewDetail(currentRepairOrderId), 300);
+    }
+    
+    function openExceptionFromDetail() {
+      openExceptionDrawer(currentRepairOrderId);
     }
 
     function openDispatchModal(orderId) {
@@ -725,8 +817,13 @@
 
       closeModal('dispatchModal');
       document.getElementById('dispatchNote').value = '';
+      currentDispatchId = null;
       loadPendingDispatches();
       loadDispatchedList();
+      loadMyOrders();
+      if (currentRepairOrderId) {
+        setTimeout(() => viewDetail(currentRepairOrderId), 300);
+      }
     }
 
     async function acceptOrder(orderId) {
@@ -738,6 +835,7 @@
         })
       });
       loadMyOrders();
+      loadDispatchedList();
     }
 
     async function startProcessing(orderId) {
@@ -749,6 +847,7 @@
         })
       });
       loadMyOrders();
+      loadDispatchedList();
     }
 
     async function completeOrder(orderId) {
@@ -762,6 +861,7 @@
         })
       });
       loadMyOrders();
+      loadDispatchedList();
     }
 
     function openExceptionDrawer(orderId) {
@@ -791,6 +891,9 @@
       closeDrawer('exceptionDrawer');
       document.getElementById('exceptionContent').value = '';
       alert('异常已上报');
+      if (currentRepairOrderId) {
+        setTimeout(() => viewDetail(currentRepairOrderId), 300);
+      }
     }
 
     async function markResponsibility() {
@@ -806,8 +909,10 @@
         })
       });
       
-      viewDetail(currentRepairOrderId);
-      loadDormManagerRepairs();
+      setTimeout(() => {
+        viewDetail(currentRepairOrderId);
+        loadDormManagerRepairs();
+      }, 300);
     }
 
     document.getElementById('repairForm').addEventListener('submit', async (e) => {
