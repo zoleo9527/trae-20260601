@@ -162,7 +162,8 @@ class BorrowRequest(BaseModel):
 
 
 class ReturnRequest(BaseModel):
-    key_id: int
+    key_id: Optional[int] = None
+    record_id: Optional[int] = None
     operator: str
     remark: Optional[str] = None
 
