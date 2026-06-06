@@ -133,3 +133,23 @@ export interface RefundFilter extends PaginationParams {
   endDate?: string;
   keyword?: string;
 }
+
+export interface MenuQuickFilter {
+  status?: string;
+  type?: string;
+  reason?: string;
+  [key: string]: any;
+}
+
+export interface MenuItem {
+  id: string;
+  name: string;
+  path: string;
+  icon?: string;
+  badge?: {
+    pendingCount: number;
+    stuckCount: number;
+    highlightTip?: string;
+  };
+  quickFilter?: MenuQuickFilter;
+}

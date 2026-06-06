@@ -1,6 +1,7 @@
 import { Response } from 'express';
-import { AuthenticatedRequest, getRoleMenu } from '../middleware/auth';
+import { AuthenticatedRequest } from '../middleware/auth';
 import { ApiResponse } from '../types';
+import { getRoleMenusWithStats } from '../services/menuService';
 
 export function getCurrentUser(req: AuthenticatedRequest, res: Response) {
   const response: ApiResponse = {
@@ -8,7 +9,7 @@ export function getCurrentUser(req: AuthenticatedRequest, res: Response) {
     message: 'success',
     data: {
       user: req.user,
-      menus: req.user ? getRoleMenu(req.user.role) : []
+      menus: req.user ? getRoleMenusWithStats(req.user.role) : []
     }
   };
   res.json(response);
