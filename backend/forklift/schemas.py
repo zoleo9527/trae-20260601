@@ -54,7 +54,7 @@ class WorkOrderException(BaseModel):
 
 class StatusHistoryOut(BaseModel):
     id: UUID
-    from_status: WorkOrderStatus
+    from_status: Optional[WorkOrderStatus]
     to_status: WorkOrderStatus
     operator_role: Role
     operator_name: str
@@ -109,6 +109,9 @@ class WorkOrderListOut(BaseModel):
     work_start_at: Optional[datetime]
     work_end_at: Optional[datetime]
     work_duration_minutes: Optional[int]
+    return_reason: Optional[str]
+    exception_note: Optional[str]
+    supplementary_notes: Optional[str]
     created_at: datetime
 
     class Config:

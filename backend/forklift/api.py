@@ -71,9 +71,9 @@ def get_dashboard_stats(request):
 @router.get('/todos/{role}', response=TodoItemOut, summary='获取指定角色的待办列表')
 def get_todos_by_role(request, role: Role):
     if role == Role.DISPATCHER:
-        status_filter = {'status': WorkOrderStatus.PENDING_DISPATCH}
+        status_filter = {'status__in': [WorkOrderStatus.PENDING_DISPATCH, WorkOrderStatus.EXCEPTION]}
     elif role == Role.FORKLIFT_LEADER:
-        status_filter = {'status__in': [WorkOrderStatus.DISPATCHED, WorkOrderStatus.IN_PROGRESS]}
+        status_filter = {'status__in': [WorkOrderStatus.DISPATCHED, WorkOrderStatus.IN_PROGRESS, WorkOrderStatus.RETURNED]}
     elif role == Role.WAREHOUSE_CLERK:
         status_filter = {'status': WorkOrderStatus.PENDING_CONFIRM}
     else:
@@ -155,7 +155,43 @@ def create_work_order(request, payload: WorkOrderCreate):
 @router.get('/work-orders/{work_order_id}', response=WorkOrderOut, summary='获取作业单详情（含状态历史）')
 def get_work_order(request, work_order_id: UUID):
     work_order = get_object_or_404(ForkliftWorkOrder, id=work_order_id)
-    return work_order
+    history_list = []
+    for h in work_order.status_history.all():
+        history_list.append({
+            'id': h.id,
+            'from_status': h.from_status if h.from_status else None,
+            'to_status': h.to_status,
+            'operator_role': h.operator_role,
+            'operator_name': h.operator_name,
+            'remark': h.remark,
+            'created_at': h.created_at,
+        })
+    return {
+        'id': work_order.id,
+        'idempotency_key': work_order.idempotency_key,
+        'vehicle_plate': work_order.vehicle_plate,
+        'driver_name': work_order.driver_name,
+        'driver_phone': work_order.driver_phone,
+        'dock_number': work_order.dock_number,
+        'cargo_type': work_order.cargo_type,
+        'cargo_weight': work_order.cargo_weight,
+        'status': work_order.status,
+        'current_role': work_order.current_role,
+        'forklift_number': work_order.forklift_number,
+        'operator_name': work_order.operator_name,
+        'dispatched_at': work_order.dispatched_at,
+        'work_start_at': work_order.work_start_at,
+        'work_end_at': work_order.work_end_at,
+        'work_duration_minutes': work_order.work_duration_minutes,
+        'return_reason': work_order.return_reason,
+        'supplementary_notes': work_order.supplementary_notes,
+        'exception_note': work_order.exception_note,
+        'dispatcher': work_order.dispatcher,
+        'warehouse_clerk': work_order.warehouse_clerk,
+        'created_at': work_order.created_at,
+        'updated_at': work_order.updated_at,
+        'status_history': history_list,
+    }
 
 
 @router.post('/work-orders/{work_order_id}/dispatch', response=WorkOrderOut, summary='叉车派工')
@@ -351,7 +387,7 @@ def mark_exception(request, work_order_id: UUID, payload: WorkOrderException):
 
     work_order.exception_note = payload.exception_note
     work_order.status = WorkOrderStatus.EXCEPTION
-    work_order.current_role = None
+    work_order.current_role = Role.DISPATCHER
     if payload.supplementary_notes:
         work_order.supplementary_notes = (
             (work_order.supplementary_notes + '\n' if work_order.supplementary_notes else '') +

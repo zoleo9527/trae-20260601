@@ -110,6 +110,11 @@
                                 <div>月台: {{ order.dock_number }} · {{ order.cargo_type }}</div>
                                 <div>司机: {{ order.driver_name }} ({{ order.driver_phone }})</div>
                             </div>
+                            {% if order.exception_note %}
+                            <div class="mt-2 text-xs text-red-600 bg-red-50 border-l-2 border-red-400 pl-2 py-1">
+                                ⚠️ 异常: {{ order.exception_note|truncatechars:40 }}
+                            </div>
+                            {% endif %}
                             {% if order.supplementary_notes %}
                             <div class="mt-2 text-xs text-gray-400 bg-yellow-50 border-l-2 border-yellow-300 pl-2 py-1">
                                 {{ order.supplementary_notes|truncatechars:30 }}
@@ -142,6 +147,11 @@
                                 <div>月台: {{ order.dock_number }} · {{ order.cargo_type }}</div>
                                 <div>叉车: {{ order.forklift_number|default:"-" }} · {{ order.operator_name|default:"-" }}</div>
                             </div>
+                            {% if order.return_reason %}
+                            <div class="mt-2 text-xs text-orange-700 bg-orange-50 border-l-2 border-orange-400 pl-2 py-1">
+                                🔄 退回: {{ order.return_reason|truncatechars:40 }}
+                            </div>
+                            {% endif %}
                             {% if order.supplementary_notes %}
                             <div class="mt-2 text-xs text-gray-400 bg-green-50 border-l-2 border-green-300 pl-2 py-1">
                                 {{ order.supplementary_notes|truncatechars:30 }}
@@ -202,6 +212,7 @@
                                 <th class="text-left px-5 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">叉车/司机</th>
                                 <th class="text-left px-5 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">作业时长</th>
                                 <th class="text-left px-5 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">当前负责</th>
+                                <th class="text-left px-5 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">责任备注</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-gray-50">
@@ -233,6 +244,23 @@
                                 <td class="px-5 py-4">
                                     {% if order.current_role %}
                                     <span class="text-sm text-gray-600">{{ order.get_current_role_display }}</span>
+                                    {% else %}
+                                    <span class="text-gray-300">-</span>
+                                    {% endif %}
+                                </td>
+                                <td class="px-5 py-4">
+                                    {% if order.exception_note %}
+                                    <div class="text-xs text-red-600 bg-red-50 border-l-2 border-red-400 pl-2 py-1">
+                                        ⚠️ {{ order.exception_note|truncatechars:30 }}
+                                    </div>
+                                    {% elif order.return_reason %}
+                                    <div class="text-xs text-orange-700 bg-orange-50 border-l-2 border-orange-400 pl-2 py-1">
+                                        🔄 {{ order.return_reason|truncatechars:30 }}
+                                    </div>
+                                    {% elif order.supplementary_notes %}
+                                    <div class="text-xs text-gray-500 truncate max-w-[200px]">
+                                        {{ order.supplementary_notes|truncatechars:30 }}
+                                    </div>
                                     {% else %}
                                     <span class="text-gray-300">-</span>
                                     {% endif %}

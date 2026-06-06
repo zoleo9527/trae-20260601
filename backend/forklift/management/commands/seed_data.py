@@ -177,7 +177,7 @@ class Command(BaseCommand):
                 'cargo_type': '精密仪器',
                 'cargo_weight': 8.5,
                 'status': WorkOrderStatus.EXCEPTION,
-                'current_role': None,
+                'current_role': Role.DISPATCHER,
                 'forklift_number': 'FL-002',
                 'operator_name': '王司机',
                 'dispatcher': '吴调度',
