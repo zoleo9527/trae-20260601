@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useStore, RescueStatus, Role } from '@/store';
+import { StatusExtraData } from '@/types';
 import StatusBadge from '@/components/StatusBadge';
 import Timeline from '@/components/Timeline';
 import {
@@ -19,7 +20,11 @@ import {
   RotateCcw,
   Plus,
   Send,
+  CheckSquare,
+  AlertCircle,
 } from 'lucide-react';
+import { format, isToday, isBefore, startOfDay, parseISO } from 'date-fns';
+import { zhCN } from 'date-fns/locale';
 
 export default function RescueDetail() {
   const { id } = useParams<{ id: string }>();
@@ -28,8 +33,10 @@ export default function RescueDetail() {
     animals,
     medicalRecords,
     historyRecords,
+    followUps,
     updateAnimalStatus,
     addFollowUp,
+    completeFollowUp,
     currentRole,
   } = useStore();
 
@@ -38,6 +45,9 @@ export default function RescueDetail() {
   const animalHistory = historyRecords.filter((h) => h.animalId === id).sort(
     (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
   );
+  const animalFollowUps = followUps
+    .filter((f) => f.animalId === id)
+    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
   const [showStatusModal, setShowStatusModal] = useState(false);
   const [selectedStatus, setSelectedStatus] = useState<RescueStatus | null>(null);
@@ -45,6 +55,21 @@ export default function RescueDetail() {
   const [showFollowUpModal, setShowFollowUpModal] = useState(false);
   const [followUpDate, setFollowUpDate] = useState('');
   const [followUpContent, setFollowUpContent] = useState('');
+  const [showCompleteModal, setShowCompleteModal] = useState(false);
+  const [selectedFollowUpId, setSelectedFollowUpId] = useState<string | null>(null);
+  const [completeNote, setCompleteNote] = useState('');
+
+  const [extraForm, setExtraForm] = useState({
+    fostererName: '',
+    fostererPhone: '',
+    adopterName: '',
+    adopterPhone: '',
+    adoptionDate: new Date().toISOString().split('T')[0],
+    returnReason: '',
+    closeReason: '',
+    followUpDate: '',
+    followUpContent: '',
+  });
 
   if (!animal) {
     return (
@@ -70,12 +95,49 @@ export default function RescueDetail() {
     { value: RescueStatus.CLOSED, label: '关闭', icon: XCircle, roles: [Role.VOLUNTEER, Role.ADOPTION_REVIEWER] },
   ];
 
+  const resetExtraForm = () => {
+    setExtraForm({
+      fostererName: '',
+      fostererPhone: '',
+      adopterName: '',
+      adopterPhone: '',
+      adoptionDate: new Date().toISOString().split('T')[0],
+      returnReason: '',
+      closeReason: '',
+      followUpDate: '',
+      followUpContent: '',
+    });
+  };
+
   const handleStatusChange = () => {
     if (selectedStatus && statusNote.trim()) {
-      updateAnimalStatus(animal.id, selectedStatus, statusNote);
+      const extraData: StatusExtraData = {};
+
+      if (selectedStatus === RescueStatus.FOSTERING) {
+        if (extraForm.fostererName) extraData.fostererName = extraForm.fostererName;
+        if (extraForm.fostererPhone) extraData.fostererPhone = extraForm.fostererPhone;
+      }
+      if (selectedStatus === RescueStatus.ADOPTED) {
+        if (extraForm.adopterName) extraData.adopterName = extraForm.adopterName;
+        if (extraForm.adopterPhone) extraData.adopterPhone = extraForm.adopterPhone;
+        if (extraForm.adoptionDate) extraData.adoptionDate = extraForm.adoptionDate;
+      }
+      if (selectedStatus === RescueStatus.RETURNED && extraForm.returnReason) {
+        extraData.returnReason = extraForm.returnReason;
+      }
+      if (selectedStatus === RescueStatus.CLOSED && extraForm.closeReason) {
+        extraData.closeReason = extraForm.closeReason;
+      }
+      if (extraForm.followUpDate && extraForm.followUpContent) {
+        extraData.followUpDate = extraForm.followUpDate;
+        extraData.followUpContent = extraForm.followUpContent;
+      }
+
+      updateAnimalStatus(animal.id, selectedStatus, statusNote, extraData);
       setShowStatusModal(false);
       setSelectedStatus(null);
       setStatusNote('');
+      resetExtraForm();
     }
   };
 
@@ -94,9 +156,37 @@ export default function RescueDetail() {
     }
   };
 
-  const canChangeStatus = availableStatuses.some((s) => s.roles.includes(currentRole));
+  const handleCompleteFollowUp = () => {
+    if (selectedFollowUpId && completeNote.trim()) {
+      completeFollowUp(selectedFollowUpId, completeNote);
+      setShowCompleteModal(false);
+      setSelectedFollowUpId(null);
+      setCompleteNote('');
+    }
+  };
 
+  const canChangeStatus = availableStatuses.some((s) => s.roles.includes(currentRole));
   const totalCost = animalMedicalRecords.reduce((sum, r) => sum + (r.cost || 0), 0);
+  const today = startOfDay(new Date());
+  const overdueFollowUps = animalFollowUps.filter(
+    (f) => !f.isCompleted && isBefore(startOfDay(parseISO(f.date)), today)
+  );
+  const todayFollowUps = animalFollowUps.filter(
+    (f) => !f.isCompleted && isToday(parseISO(f.date))
+  );
+  const upcomingFollowUps = animalFollowUps.filter(
+    (f) => !f.isCompleted && !isToday(parseISO(f.date)) && !isBefore(startOfDay(parseISO(f.date)), today)
+  );
+  const completedFollowUps = animalFollowUps.filter((f) => f.isCompleted);
+
+  const isFormValid = () => {
+    if (!selectedStatus || !statusNote.trim()) return false;
+    if (selectedStatus === RescueStatus.FOSTERING && !extraForm.fostererName.trim()) return false;
+    if (selectedStatus === RescueStatus.ADOPTED && !extraForm.adopterName.trim()) return false;
+    if (selectedStatus === RescueStatus.RETURNED && !extraForm.returnReason.trim()) return false;
+    if (selectedStatus === RescueStatus.CLOSED && !extraForm.closeReason.trim()) return false;
+    return true;
+  };
 
   return (
     <div className="space-y-6">
@@ -138,7 +228,10 @@ export default function RescueDetail() {
                 添加回访
               </button>
               <button
-                onClick={() => setShowStatusModal(true)}
+                onClick={() => {
+                  setShowStatusModal(true);
+                  resetExtraForm();
+                }}
                 className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
               >
                 <Edit size={18} />
@@ -152,6 +245,140 @@ export default function RescueDetail() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left Column - Info */}
         <div className="lg:col-span-2 space-y-6">
+          {/* Follow-ups */}
+          <div className="bg-white rounded-xl border border-gray-200 p-6">
+            <h3 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
+              <Clock size={18} className="text-purple-600" />
+              回访任务
+              {overdueFollowUps.length > 0 && (
+                <span className="bg-red-100 text-red-700 text-xs px-2 py-0.5 rounded-full">
+                  {overdueFollowUps.length} 个逾期
+                </span>
+              )}
+            </h3>
+
+            {overdueFollowUps.length > 0 && (
+              <div className="mb-4">
+                <p className="text-xs text-red-600 font-medium mb-2 flex items-center gap-1">
+                  <AlertCircle size={12} />
+                  已逾期
+                </p>
+                <div className="space-y-2">
+                  {overdueFollowUps.map((fu) => (
+                    <div
+                      key={fu.id}
+                      className="flex items-center justify-between p-3 bg-red-50 border border-red-200 rounded-lg"
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <AlertCircle size={16} className="text-red-500 shrink-0" />
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium text-gray-900 truncate">{fu.content}</p>
+                          <p className="text-xs text-red-600">应于 {fu.date} 完成</p>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => {
+                          setSelectedFollowUpId(fu.id);
+                          setShowCompleteModal(true);
+                        }}
+                        className="shrink-0 inline-flex items-center gap-1 px-3 py-1.5 bg-red-600 text-white text-xs rounded-lg hover:bg-red-700 transition-colors"
+                      >
+                        <CheckSquare size={14} />
+                        完成
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {todayFollowUps.length > 0 && (
+              <div className="mb-4">
+                <p className="text-xs text-yellow-600 font-medium mb-2 flex items-center gap-1">
+                  <Calendar size={12} />
+                  今日待办
+                </p>
+                <div className="space-y-2">
+                  {todayFollowUps.map((fu) => (
+                    <div
+                      key={fu.id}
+                      className="flex items-center justify-between p-3 bg-yellow-50 border border-yellow-200 rounded-lg"
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <Clock size={16} className="text-yellow-600 shrink-0" />
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium text-gray-900 truncate">{fu.content}</p>
+                          <p className="text-xs text-gray-500">负责人: {fu.operator}</p>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => {
+                          setSelectedFollowUpId(fu.id);
+                          setShowCompleteModal(true);
+                        }}
+                        className="shrink-0 inline-flex items-center gap-1 px-3 py-1.5 bg-green-600 text-white text-xs rounded-lg hover:bg-green-700 transition-colors"
+                      >
+                        <CheckSquare size={14} />
+                        完成
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {upcomingFollowUps.length > 0 && (
+              <div className="mb-4">
+                <p className="text-xs text-gray-500 font-medium mb-2">即将到来</p>
+                <div className="space-y-2">
+                  {upcomingFollowUps.map((fu) => (
+                    <div
+                      key={fu.id}
+                      className="flex items-center justify-between p-3 bg-gray-50 border border-gray-200 rounded-lg"
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <Calendar size={16} className="text-gray-400 shrink-0" />
+                        <div className="min-w-0">
+                          <p className="text-sm text-gray-700 truncate">{fu.content}</p>
+                          <p className="text-xs text-gray-500">{fu.date} · {fu.operator}</p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {completedFollowUps.length > 0 && (
+              <div>
+                <p className="text-xs text-gray-400 font-medium mb-2">已完成</p>
+                <div className="space-y-2">
+                  {completedFollowUps.slice(0, 3).map((fu) => (
+                    <div
+                      key={fu.id}
+                      className="flex items-center gap-3 p-3 bg-gray-50 border border-gray-100 rounded-lg opacity-70"
+                    >
+                      <CheckCircle size={16} className="text-green-500 shrink-0" />
+                      <div className="min-w-0">
+                        <p className="text-sm text-gray-500 line-through truncate">{fu.content}</p>
+                        <p className="text-xs text-gray-400">
+                          {fu.completedAt ? format(new Date(fu.completedAt), 'yyyy-MM-dd', { locale: zhCN }) : fu.date}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {animalFollowUps.length === 0 && (
+              <div className="text-center py-8 text-gray-500">
+                <Clock size={32} className="mx-auto mb-2 text-gray-300" />
+                <p className="text-sm">暂无回访计划</p>
+              </div>
+            )}
+          </div>
+
           {/* Basic Info */}
           <div className="bg-white rounded-xl border border-gray-200 p-6">
             <h3 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
@@ -196,7 +423,7 @@ export default function RescueDetail() {
           <div className="bg-white rounded-xl border border-gray-200 p-6">
             <h3 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
               <MapPin size={18} className="text-green-600" />
-              救助信息
+              救助与安置信息
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
@@ -227,7 +454,7 @@ export default function RescueDetail() {
                   {animal.rescuerPhone}
                 </p>
               </div>
-              <div>
+              <div className="md:col-span-2">
                 <p className="text-xs text-gray-500 mb-1">当前位置</p>
                 <p className="text-sm font-medium text-gray-900 flex items-center gap-1">
                   <Home size={14} className="text-gray-400" />
@@ -236,26 +463,38 @@ export default function RescueDetail() {
               </div>
             </div>
             {animal.fostererName && (
-              <div className="mt-4 pt-4 border-t border-gray-100 grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-xs text-gray-500 mb-1">寄养人</p>
-                  <p className="text-sm font-medium text-gray-900">{animal.fostererName}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-gray-500 mb-1">寄养人电话</p>
-                  <p className="text-sm font-medium text-gray-900">{animal.fostererPhone}</p>
+              <div className="mt-4 pt-4 border-t border-gray-100">
+                <p className="text-xs text-purple-600 font-medium mb-3">寄养信息</p>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-xs text-gray-500 mb-1">寄养人</p>
+                    <p className="text-sm font-medium text-gray-900">{animal.fostererName}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500 mb-1">联系电话</p>
+                    <p className="text-sm font-medium text-gray-900">{animal.fostererPhone}</p>
+                  </div>
                 </div>
               </div>
             )}
             {animal.adopterName && (
-              <div className="mt-4 pt-4 border-t border-gray-100 grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-xs text-gray-500 mb-1">领养人</p>
-                  <p className="text-sm font-medium text-gray-900">{animal.adopterName}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-gray-500 mb-1">领养日期</p>
-                  <p className="text-sm font-medium text-gray-900">{animal.adoptionDate}</p>
+              <div className="mt-4 pt-4 border-t border-gray-100">
+                <p className="text-xs text-green-600 font-medium mb-3">领养信息</p>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-xs text-gray-500 mb-1">领养人</p>
+                    <p className="text-sm font-medium text-gray-900">{animal.adopterName}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500 mb-1">领养日期</p>
+                    <p className="text-sm font-medium text-gray-900">{animal.adoptionDate}</p>
+                  </div>
+                  {animal.adopterPhone && (
+                    <div>
+                      <p className="text-xs text-gray-500 mb-1">联系电话</p>
+                      <p className="text-sm font-medium text-gray-900">{animal.adopterPhone}</p>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
@@ -334,6 +573,7 @@ export default function RescueDetail() {
                       onClick={() => {
                         setSelectedStatus(action.value);
                         setShowStatusModal(true);
+                        resetExtraForm();
                       }}
                       className="w-full flex items-center gap-3 p-3 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors text-left"
                     >
@@ -416,7 +656,7 @@ export default function RescueDetail() {
       {/* Status Change Modal */}
       {showStatusModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl p-6 w-full max-w-md">
+          <div className="bg-white rounded-xl p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">变更救助状态</h3>
             <div className="space-y-4">
               <div>
@@ -431,6 +671,7 @@ export default function RescueDetail() {
                       return (
                         <button
                           key={s.value}
+                          type="button"
                           onClick={() => setSelectedStatus(s.value)}
                           className={`p-3 rounded-lg border text-left transition-colors ${
                             selectedStatus === s.value
@@ -456,6 +697,112 @@ export default function RescueDetail() {
                     })}
                 </div>
               </div>
+
+              {selectedStatus === RescueStatus.FOSTERING && (
+                <div className="space-y-3 p-3 bg-purple-50 rounded-lg border border-purple-200">
+                  <p className="text-sm font-medium text-purple-800">寄养信息</p>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs text-gray-600 mb-1">
+                        寄养人姓名 <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={extraForm.fostererName}
+                        onChange={(e) => setExtraForm({ ...extraForm, fostererName: e.target.value })}
+                        placeholder="寄养人姓名"
+                        className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-600 mb-1">联系电话</label>
+                      <input
+                        type="tel"
+                        value={extraForm.fostererPhone}
+                        onChange={(e) => setExtraForm({ ...extraForm, fostererPhone: e.target.value })}
+                        placeholder="联系电话"
+                        className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {selectedStatus === RescueStatus.ADOPTED && (
+                <div className="space-y-3 p-3 bg-green-50 rounded-lg border border-green-200">
+                  <p className="text-sm font-medium text-green-800">领养信息</p>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs text-gray-600 mb-1">
+                        领养人姓名 <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={extraForm.adopterName}
+                        onChange={(e) => setExtraForm({ ...extraForm, adopterName: e.target.value })}
+                        placeholder="领养人姓名"
+                        className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-600 mb-1">联系电话</label>
+                      <input
+                        type="tel"
+                        value={extraForm.adopterPhone}
+                        onChange={(e) => setExtraForm({ ...extraForm, adopterPhone: e.target.value })}
+                        placeholder="联系电话"
+                        className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-600 mb-1">领养日期</label>
+                      <input
+                        type="date"
+                        value={extraForm.adoptionDate}
+                        onChange={(e) => setExtraForm({ ...extraForm, adoptionDate: e.target.value })}
+                        className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {selectedStatus === RescueStatus.RETURNED && (
+                <div className="space-y-3 p-3 bg-orange-50 rounded-lg border border-orange-200">
+                  <p className="text-sm font-medium text-orange-800">退回信息</p>
+                  <div>
+                    <label className="block text-xs text-gray-600 mb-1">
+                      退回原因 <span className="text-red-500">*</span>
+                    </label>
+                    <textarea
+                      value={extraForm.returnReason}
+                      onChange={(e) => setExtraForm({ ...extraForm, returnReason: e.target.value })}
+                      rows={2}
+                      placeholder="请说明退回原因..."
+                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {selectedStatus === RescueStatus.CLOSED && (
+                <div className="space-y-3 p-3 bg-gray-50 rounded-lg border border-gray-300">
+                  <p className="text-sm font-medium text-gray-800">关闭信息</p>
+                  <div>
+                    <label className="block text-xs text-gray-600 mb-1">
+                      关闭原因 <span className="text-red-500">*</span>
+                    </label>
+                    <textarea
+                      value={extraForm.closeReason}
+                      onChange={(e) => setExtraForm({ ...extraForm, closeReason: e.target.value })}
+                      rows={2}
+                      placeholder="请说明关闭原因..."
+                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                    />
+                  </div>
+                </div>
+              )}
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   变更说明 <span className="text-red-500">*</span>
@@ -463,26 +810,52 @@ export default function RescueDetail() {
                 <textarea
                   value={statusNote}
                   onChange={(e) => setStatusNote(e.target.value)}
-                  rows={3}
+                  rows={2}
                   placeholder="请说明变更原因和详情..."
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
                 />
               </div>
+
+              <div className="space-y-2">
+                <p className="text-sm font-medium text-gray-700">添加回访计划（可选）</p>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <input
+                      type="date"
+                      value={extraForm.followUpDate}
+                      onChange={(e) => setExtraForm({ ...extraForm, followUpDate: e.target.value })}
+                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <input
+                      type="text"
+                      value={extraForm.followUpContent}
+                      onChange={(e) => setExtraForm({ ...extraForm, followUpContent: e.target.value })}
+                      placeholder="回访内容"
+                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                </div>
+              </div>
             </div>
             <div className="flex justify-end gap-3 mt-6">
               <button
+                type="button"
                 onClick={() => {
                   setShowStatusModal(false);
                   setSelectedStatus(null);
                   setStatusNote('');
+                  resetExtraForm();
                 }}
                 className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
               >
                 取消
               </button>
               <button
+                type="button"
                 onClick={handleStatusChange}
-                disabled={!selectedStatus || !statusNote.trim()}
+                disabled={!isFormValid()}
                 className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
               >
                 <Send size={16} />
@@ -525,6 +898,7 @@ export default function RescueDetail() {
             </div>
             <div className="flex justify-end gap-3 mt-6">
               <button
+                type="button"
                 onClick={() => {
                   setShowFollowUpModal(false);
                   setFollowUpDate('');
@@ -535,12 +909,58 @@ export default function RescueDetail() {
                 取消
               </button>
               <button
+                type="button"
                 onClick={handleAddFollowUp}
                 disabled={!followUpDate || !followUpContent.trim()}
                 className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
               >
                 <Plus size={16} />
                 添加
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Complete Follow-up Modal */}
+      {showCompleteModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl p-6 w-full max-w-md">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">完成回访</h3>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  完成说明 <span className="text-red-500">*</span>
+                </label>
+                <textarea
+                  value={completeNote}
+                  onChange={(e) => setCompleteNote(e.target.value)}
+                  rows={4}
+                  placeholder="请详细记录回访结果、动物状况、后续建议等..."
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                />
+              </div>
+            </div>
+            <div className="flex justify-end gap-3 mt-6">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowCompleteModal(false);
+                  setSelectedFollowUpId(null);
+                  setCompleteNote('');
+                }}
+                className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                取消
+              </button>
+              <button
+                type="button"
+                onClick={handleCompleteFollowUp}
+                disabled={!completeNote.trim()}
+                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              >
+                <CheckCircle size={16} />
+                确认完成
               </button>
             </div>
           </div>

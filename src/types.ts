@@ -84,6 +84,7 @@ export interface FollowUpRecord {
   content: string;
   operator: string;
   isCompleted: boolean;
+  completedAt?: string;
   nextDate?: string;
 }
 
@@ -96,11 +97,23 @@ export interface AppState {
   currentUser: string;
 }
 
+export interface StatusExtraData {
+  fostererName?: string;
+  fostererPhone?: string;
+  adopterName?: string;
+  adopterPhone?: string;
+  adoptionDate?: string;
+  returnReason?: string;
+  closeReason?: string;
+  followUpDate?: string;
+  followUpContent?: string;
+}
+
 export interface AppActions {
   setRole: (role: Role) => void;
   addAnimal: (animal: Omit<Animal, 'id' | 'createdAt' | 'updatedAt'>) => Animal;
   updateAnimal: (id: string, updates: Partial<Animal>) => void;
-  updateAnimalStatus: (id: string, status: RescueStatus, note: string) => void;
+  updateAnimalStatus: (id: string, status: RescueStatus, note: string, extraData?: StatusExtraData) => void;
   addMedicalRecord: (record: Omit<MedicalRecord, 'id' | 'createdAt'>) => MedicalRecord;
   addHistoryRecord: (record: Omit<HistoryRecord, 'id'>) => void;
   addFollowUp: (followUp: Omit<FollowUpRecord, 'id'>) => FollowUpRecord;

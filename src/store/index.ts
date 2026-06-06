@@ -379,20 +379,65 @@ export const useStore = create<AppState & AppActions>()(
         }));
       },
 
-      updateAnimalStatus: (id, status, note) => {
+      updateAnimalStatus: (id, status, note, extraData) => {
         const animal = get().animals.find((a) => a.id === id);
         if (animal) {
-          get().updateAnimal(id, { status });
+          const updates: Partial<Animal> = { status };
+
+          if (status === RescueStatus.FOSTERING && extraData) {
+            if (extraData.fostererName) updates.fostererName = extraData.fostererName;
+            if (extraData.fostererPhone) updates.fostererPhone = extraData.fostererPhone;
+          }
+
+          if (status === RescueStatus.ADOPTED && extraData) {
+            if (extraData.adopterName) updates.adopterName = extraData.adopterName;
+            if (extraData.adopterPhone) updates.adopterPhone = extraData.adopterPhone;
+            if (extraData.adoptionDate) updates.adoptionDate = extraData.adoptionDate;
+          }
+
+          if (status === RescueStatus.RETURNED && extraData?.returnReason) {
+            updates.adopterName = undefined;
+            updates.adopterPhone = undefined;
+            updates.adoptionDate = undefined;
+          }
+
+          get().updateAnimal(id, updates);
+
+          let fullNote = note;
+          if (extraData) {
+            const details: string[] = [];
+            if (extraData.fostererName) details.push(`寄养人: ${extraData.fostererName}`);
+            if (extraData.fostererPhone) details.push(`电话: ${extraData.fostererPhone}`);
+            if (extraData.adopterName) details.push(`领养人: ${extraData.adopterName}`);
+            if (extraData.adopterPhone) details.push(`电话: ${extraData.adopterPhone}`);
+            if (extraData.returnReason) details.push(`退回原因: ${extraData.returnReason}`);
+            if (extraData.closeReason) details.push(`关闭原因: ${extraData.closeReason}`);
+            if (details.length > 0) {
+              fullNote = note + ' (' + details.join(', ') + ')';
+            }
+          }
+
           get().addHistoryRecord({
             animalId: id,
             action: '状态变更',
             fromStatus: animal.status,
             toStatus: status,
-            note,
+            note: fullNote,
             operator: get().currentUser,
             role: get().currentRole,
             timestamp: new Date().toISOString(),
           });
+
+          if (extraData?.followUpDate && extraData?.followUpContent) {
+            get().addFollowUp({
+              animalId: id,
+              date: extraData.followUpDate,
+              content: extraData.followUpContent,
+              operator: get().currentUser,
+              isCompleted: false,
+              nextDate: undefined,
+            });
+          }
         }
       },
 
@@ -432,11 +477,22 @@ export const useStore = create<AppState & AppActions>()(
       },
 
       completeFollowUp: (id, content) => {
+        const followUp = get().followUps.find((f) => f.id === id);
         set((state) => ({
           followUps: state.followUps.map((f) =>
-            f.id === id ? { ...f, isCompleted: true, content: f.content + ' | 完成：' + content } : f
+            f.id === id ? { ...f, isCompleted: true, completedAt: new Date().toISOString() } : f
           ),
         }));
+        if (followUp) {
+          get().addHistoryRecord({
+            animalId: followUp.animalId,
+            action: '回访完成',
+            note: followUp.content + ' → 完成说明：' + content,
+            operator: get().currentUser,
+            role: get().currentRole,
+            timestamp: new Date().toISOString(),
+          });
+        }
       },
 
       backupData: () => {
@@ -489,7 +545,7 @@ export const useStore = create<AppState & AppActions>()(
             (a) => a.medicalStatus === MedicalStatus.NOT_ASSESSED && a.status !== RescueStatus.CLOSED
           ),
           followUpsDue: followUps.filter(
-            (f) => !f.isCompleted && isBefore(startOfDay(parseISO(f.date)), today) || isToday(parseISO(f.date))
+            (f) => !f.isCompleted && (isBefore(startOfDay(parseISO(f.date)), today) || isToday(parseISO(f.date)))
           ),
         };
       },
