@@ -249,7 +249,7 @@ const GiftConfigPage: React.FC<Props> = ({ orderId, visible, onClose, initialGif
             </Text>
             <Text>
               创建人: {order.createdBy} ({RoleNames[order.createdByRole]}) | 
-              当前处理: {currentUser} (售后组长)
+              当前处理角色: {RoleNames[order.currentHandlerRole]}
             </Text>
             <Text type="secondary">
               价格口径: {order.priceRemark || '无特殊说明'}

@@ -293,7 +293,7 @@ const LockOrderDetail: React.FC<Props> = ({ orderId, visible, onClose, onRefresh
               <Tag color={PriorityColors[order.priority]}>{PriorityNames[order.priority]}</Tag>
             </Descriptions.Item>
             <Descriptions.Item label="创建人">{order.createdBy} ({RoleNames[order.createdByRole]})</Descriptions.Item>
-            <Descriptions.Item label="当前处理人">{order.currentHandler} ({RoleNames[currentRole]})</Descriptions.Item>
+            <Descriptions.Item label="当前处理人">{order.currentHandler} ({RoleNames[order.currentHandlerRole]})</Descriptions.Item>
             <Descriptions.Item label="预计开播">
               {order.expectedLiveTime ? dayjs(order.expectedLiveTime).format('YYYY-MM-DD HH:mm') : '-'}
             </Descriptions.Item>
