@@ -106,7 +106,13 @@ export class RoleEntranceController {
         { key: 'view_special_list', label: '特殊餐清单', path: '/special-meal/students/all', method: 'GET' },
       ],
       pendingTasks: {
-        summaryToConfirm: pendingSummary ? { date: tomorrow, total: 568, special: 23 } : null,
+        summaryToConfirm: pendingSummary
+          ? {
+              date: tomorrow,
+              total: tomorrowSummary.totalCount,
+              special: tomorrowSummary.specialCount,
+            }
+          : null,
         sampleToRecord: pendingSample
           ? [{ mealType: 'dinner', label: '晚餐留样待录入' }]
           : [],
@@ -154,6 +160,11 @@ export class RoleEntranceController {
     const pendingReceive = purchaseOrders.filter(o => o.status === PurchaseStatus.SUBMITTED);
     const recentChanges = this.timelineService.getRecentChanges(10);
 
+    const tomorrowPurchase = purchaseOrders.find(o => o.date === tomorrow);
+    const tomorrowSummary = this.store.getMealSummary(tomorrow);
+    const needGenerate = !tomorrowPurchase && tomorrowSummary?.status === SummaryStatus.CONFIRMED;
+    const summaryReady = tomorrowSummary?.status === SummaryStatus.CONFIRMED;
+
     return {
       role: UserRole.PURCHASER,
       welcome: '采购员工作台',
@@ -170,7 +181,11 @@ export class RoleEntranceController {
           date: o.date,
           itemCount: o.items.length,
         })),
-        toGenerate: [{ date: tomorrow, summaryStatus: 'draft' }],
+        toGenerate: needGenerate
+          ? [{ date: tomorrow, summaryStatus: 'confirmed' }]
+          : summaryReady
+          ? []
+          : [{ date: tomorrow, summaryStatus: 'pending' }],
       },
       recentChanges: recentChanges.slice(0, 5).map(t => ({
         time: t.operateTime,

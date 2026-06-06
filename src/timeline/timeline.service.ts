@@ -22,15 +22,21 @@ export class TimelineService {
     const cutoff = new Date();
     cutoff.setDate(cutoff.getDate() - days);
 
+    const orderIds = new Set(
+      this.store
+        .getMealOrders()
+        .filter(o => o.studentId === studentId)
+        .map(o => o.id)
+    );
+
     return this.store
       .getTimelines()
       .filter(t => {
         if (new Date(t.operateTime) < cutoff) return false;
-        return (
-          t.detail?.studentId === studentId ||
-          t.detail?.orderStudentId === studentId ||
-          t.detail?.studentName?.includes?.('')
-        );
+        if (t.detail?.studentId === studentId) return true;
+        if (t.businessType === TimelineBusinessType.ORDER && orderIds.has(t.businessId)) return true;
+        if (t.businessType === TimelineBusinessType.SPECIAL_TAG && t.detail?.studentId === studentId) return true;
+        return false;
       })
       .sort((a, b) => new Date(b.operateTime).getTime() - new Date(a.operateTime).getTime());
   }

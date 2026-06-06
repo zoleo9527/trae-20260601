@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { MealType, OrderStatus, PurchaseStatus, SampleMealType, SpecialTagStatus, SpecialTagType, SummaryStatus, UserRole } from '../common/enums';
+import { MealType, OrderStatus, PurchaseStatus, SampleMealType, SpecialTagStatus, SpecialTagType, SummaryStatus, TimelineBusinessType, UserRole } from '../common/enums';
 import { ClassInfo, Student, User } from '../common/interfaces';
 import { InMemoryStore } from '../common/services/in-memory-store.service';
 import { MealSummary, PurchaseOrder } from '../purchase/interfaces/purchase.interface';
@@ -41,19 +41,13 @@ export class SeedService {
     const class2 = this.createClass('class-002', '三年级1班', '三年级', 'teacher-002', '李老师');
     const class3 = this.createClass('class-003', '四年级1班', '四年级', 'teacher-003', '张老师');
 
-    const students = [
-      this.createStudent('stu-001', '张小明', '20230201', class1.id, class1.name),
-      this.createStudent('stu-002', '李小红', '20230202', class1.id, class1.name),
-      this.createStudent('stu-003', '王小刚', '20230203', class1.id, class1.name),
-      this.createStudent('stu-004', '赵小雨', '20230204', class1.id, class1.name),
-      this.createStudent('stu-005', '刘小强', '20230205', class1.id, class1.name),
-      this.createStudent('stu-006', '陈小燕', '20230206', class1.id, class1.name),
-      this.createStudent('stu-007', '杨大壮', '20230207', class1.id, class1.name),
-      this.createStudent('stu-008', '周小美', '20230208', class1.id, class1.name),
-    ];
+    const students: Student[] = [];
+    const studentNames = ['张小明', '李小红', '王小刚', '赵小雨', '刘小强', '陈小燕', '杨大壮', '周小美', '吴小天', '郑小琳', '孙小龙', '钱小燕', '冯小伟', '刘小芳', '陈小龙', '杨小燕', '黄小刚', '赵小美', '周小强', '吴小燕', '郑小伟', '王小芳', '李小刚', '张小燕', '刘小伟', '陈小芳', '杨小龙', '黄小燕', '赵小刚', '周小美'];
 
-    for (let i = 9; i <= 30; i++) {
-      this.createStudent(`stu-${String(i).padStart(3, '0')}`, `学生${i}`, `202302${String(i).padStart(2, '0')}`, class1.id, class1.name);
+    for (let i = 0; i < 30; i++) {
+      const id = `stu-${String(i + 1).padStart(3, '0')}`;
+      const student = this.createStudent(id, studentNames[i], `202302${String(i + 1).padStart(2, '0')}`, class1.id, class1.name);
+      students.push(student);
     }
 
     const today = '2026-06-06';
@@ -66,39 +60,109 @@ export class SeedService {
     this.createSpecialTag('tag-005', students[4].id, students[4].name, SpecialTagType.HEALTH, '高嘌呤', '⚠️高嘌呤', false, '2026-07-01', teacherUser, '尿酸偏高');
     this.createSpecialTag('tag-006', students[4].id, students[4].name, SpecialTagType.OTHER, '排骨汤', '🍖排骨汤', false, '2026-06-10', teacherUser, '家属要求');
 
-    this.createMealOrder('order-today-001', today, students[0], MealType.SPECIAL, OrderStatus.SERVED, teacherUser, ['花生过敏', '乳糖不耐受']);
-    this.createMealOrder('order-today-002', today, students[1], MealType.NORMAL, OrderStatus.SERVED, teacherUser);
-    this.createMealOrder('order-today-003', today, students[2], MealType.NORMAL, OrderStatus.CONFIRMED, teacherUser);
-    this.createMealOrder('order-today-004', today, students[3], MealType.SPECIAL, OrderStatus.SERVED, teacherUser, ['清真', '坚果过敏']);
-    this.createMealOrder('order-today-005', today, students[4], MealType.SPECIAL, OrderStatus.CANCELLED, teacherUser, ['高嘌呤']);
-    this.createMealOrder('order-today-006', today, students[5], MealType.NORMAL, OrderStatus.PENDING, teacherUser);
+    const specialStudentIds = new Set([0, 3, 4]);
 
-    for (let i = 6; i < 30; i++) {
-      const status = i < 20 ? OrderStatus.CONFIRMED : i < 25 ? OrderStatus.SERVED : OrderStatus.PENDING;
-      this.createMealOrder(`order-today-${String(i + 1).padStart(3, '0')}`, today, students[i] || students[5], MealType.NORMAL, status, teacherUser);
+    for (let i = 0; i < 30; i++) {
+      const student = students[i];
+      const isSpecial = specialStudentIds.has(i);
+      let status: OrderStatus;
+
+      if (i === 4) {
+        status = OrderStatus.CANCELLED;
+      } else if (i < 5) {
+        status = i % 2 === 0 ? OrderStatus.SERVED : OrderStatus.CONFIRMED;
+      } else if (i < 20) {
+        status = OrderStatus.CONFIRMED;
+      } else if (i < 25) {
+        status = OrderStatus.SERVED;
+      } else {
+        status = OrderStatus.PENDING;
+      }
+
+      const orderId = `order-today-${String(i + 1).padStart(3, '0')}`;
+      const tags = isSpecial ? this.getStudentTagContents(student.id) : undefined;
+
+      this.createMealOrder(orderId, today, student, isSpecial ? MealType.SPECIAL : MealType.NORMAL, status, teacherUser, tags);
+
+      if (status !== OrderStatus.CANCELLED) {
+        this.store.createTimeline(
+          TimelineBusinessType.ORDER,
+          orderId,
+          '创建订餐',
+          teacherUser as any,
+          { date: today, mealType: isSpecial ? MealType.SPECIAL : MealType.NORMAL, studentId: student.id }
+        );
+
+        if (status === OrderStatus.CONFIRMED || status === OrderStatus.SERVED) {
+          this.store.createTimeline(
+            TimelineBusinessType.ORDER,
+            orderId,
+            '确认订餐',
+            teacherUser as any,
+            { from: OrderStatus.PENDING, to: OrderStatus.CONFIRMED, studentId: student.id }
+          );
+        }
+
+        if (status === OrderStatus.SERVED) {
+          this.store.createTimeline(
+            TimelineBusinessType.ORDER,
+            orderId,
+            '标记已配餐',
+            canteenUser as any,
+            { from: OrderStatus.CONFIRMED, to: OrderStatus.SERVED, studentId: student.id }
+          );
+        }
+      }
     }
 
-    this.createMealOrder('order-tomorrow-001', tomorrow, students[0], MealType.SPECIAL, OrderStatus.PENDING, teacherUser, ['花生过敏', '乳糖不耐受']);
-    this.createMealOrder('order-tomorrow-002', tomorrow, students[1], MealType.NORMAL, OrderStatus.PENDING, teacherUser);
-    this.createMealOrder('order-tomorrow-003', tomorrow, students[2], MealType.NORMAL, OrderStatus.CONFIRMED, teacherUser);
-    this.createMealOrder('order-tomorrow-004', tomorrow, students[3], MealType.SPECIAL, OrderStatus.PENDING, teacherUser, ['清真', '坚果过敏']);
-    this.createMealOrder('order-tomorrow-005', tomorrow, students[4], MealType.SPECIAL, OrderStatus.PENDING, teacherUser, ['高嘌呤']);
+    for (let i = 0; i < 28; i++) {
+      const student = students[i];
+      const isSpecial = specialStudentIds.has(i);
+      const status = i === 2 ? OrderStatus.CONFIRMED : OrderStatus.PENDING;
 
-    for (let i = 5; i < 28; i++) {
-      this.createMealOrder(`order-tomorrow-${String(i + 1).padStart(3, '0')}`, tomorrow, students[i] || students[5], MealType.NORMAL, OrderStatus.PENDING, teacherUser);
+      const orderId = `order-tomorrow-${String(i + 1).padStart(3, '0')}`;
+      const tags = isSpecial ? this.getStudentTagContents(student.id) : undefined;
+
+      this.createMealOrder(orderId, tomorrow, student, isSpecial ? MealType.SPECIAL : MealType.NORMAL, status, teacherUser, tags);
+
+      this.store.createTimeline(
+        TimelineBusinessType.ORDER,
+        orderId,
+        '创建订餐',
+        teacherUser as any,
+        { date: tomorrow, mealType: isSpecial ? MealType.SPECIAL : MealType.NORMAL, studentId: student.id }
+      );
+
+      if (status === OrderStatus.CONFIRMED) {
+        this.store.createTimeline(
+          TimelineBusinessType.ORDER,
+          orderId,
+          '确认订餐',
+          teacherUser as any,
+          { from: OrderStatus.PENDING, to: OrderStatus.CONFIRMED, studentId: student.id }
+        );
+      }
     }
+
+    const todayOrders = this.store.getMealOrders().filter(o => o.date === today && o.status !== OrderStatus.CANCELLED);
+    const specialCountToday = todayOrders.filter(o => o.mealType === MealType.SPECIAL).length;
+
+    const classBreakdown = [
+      { classId: class1.id, className: class1.name, count: todayOrders.length, specialCount: specialCountToday },
+      { classId: class2.id, className: class2.name, count: 32, specialCount: 3 },
+      { classId: class3.id, className: class3.name, count: 30, specialCount: 4 },
+    ];
+
+    const totalAll = classBreakdown.reduce((sum, c) => sum + c.count, 0);
+    const specialAll = classBreakdown.reduce((sum, c) => sum + c.specialCount, 0);
 
     const summaryToday: MealSummary = {
       id: 'summary-today',
       date: today,
-      totalCount: 568,
-      normalCount: 545,
-      specialCount: 23,
-      classBreakdown: [
-        { classId: class1.id, className: class1.name, count: 28, specialCount: 5 },
-        { classId: class2.id, className: class2.name, count: 32, specialCount: 3 },
-        { classId: class3.id, className: class3.name, count: 30, specialCount: 4 },
-      ],
+      totalCount: totalAll,
+      normalCount: totalAll - specialAll,
+      specialCount: specialAll,
+      classBreakdown,
       status: SummaryStatus.CONFIRMED,
       confirmTime: new Date(),
       confirmBy: canteenUser.id,
@@ -108,31 +172,20 @@ export class SeedService {
     };
     this.store.saveMealSummary(summaryToday);
 
-    const summaryTomorrow: MealSummary = {
-      id: 'summary-tomorrow',
-      date: tomorrow,
-      totalCount: 0,
-      normalCount: 0,
-      specialCount: 0,
-      classBreakdown: [],
-      status: SummaryStatus.DRAFT,
-      createTime: new Date(),
-      updateTime: new Date(),
-    };
-    this.store.saveMealSummary(summaryTomorrow);
+    this.store.createTimeline(
+      TimelineBusinessType.SUMMARY,
+      'summary-today',
+      '确认订餐汇总',
+      canteenUser as any,
+      { date: today, totalCount: totalAll, specialCount: specialAll }
+    );
 
     const purchaseToday: PurchaseOrder = {
       id: 'purchase-today',
       orderNo: 'CG20260606001',
       date: today,
       summaryId: summaryToday.id,
-      items: [
-        { ingredient: '大米', quantity: 85.2, unit: 'kg' },
-        { ingredient: '蔬菜', quantity: 125.8, unit: 'kg' },
-        { ingredient: '肉类', quantity: 62.5, unit: 'kg' },
-        { ingredient: '鸡蛋', quantity: 31.2, unit: 'kg' },
-        { ingredient: '食用油', quantity: 9.4, unit: 'kg' },
-      ],
+      items: this.calculateIngredients(totalAll, specialAll),
       status: PurchaseStatus.RECEIVED,
       createTime: new Date(Date.now() - 86400000),
       updateTime: new Date(),
@@ -143,23 +196,27 @@ export class SeedService {
     };
     this.store.savePurchaseOrder(purchaseToday);
 
-    const purchaseTomorrow: PurchaseOrder = {
-      id: 'purchase-tomorrow',
-      orderNo: 'CG20260607001',
-      date: tomorrow,
-      summaryId: summaryTomorrow.id,
-      items: [
-        { ingredient: '大米', quantity: 82.0, unit: 'kg' },
-        { ingredient: '蔬菜', quantity: 120.0, unit: 'kg' },
-        { ingredient: '肉类', quantity: 60.0, unit: 'kg' },
-      ],
-      status: PurchaseStatus.DRAFT,
-      createTime: new Date(),
-      updateTime: new Date(),
-      createBy: purchaserUser.id,
-      createByName: purchaserUser.name,
-    };
-    this.store.savePurchaseOrder(purchaseTomorrow);
+    this.store.createTimeline(
+      TimelineBusinessType.PURCHASE,
+      'purchase-today',
+      '生成采购单',
+      purchaserUser as any,
+      { date: today, itemCount: purchaseToday.items.length }
+    );
+    this.store.createTimeline(
+      TimelineBusinessType.PURCHASE,
+      'purchase-today',
+      '提交采购单',
+      purchaserUser as any,
+      { orderNo: 'CG20260606001' }
+    );
+    this.store.createTimeline(
+      TimelineBusinessType.PURCHASE,
+      'purchase-today',
+      '确认采购到货',
+      purchaserUser as any,
+      { orderNo: 'CG20260606001' }
+    );
 
     const sampleLunch: SampleRecord = {
       id: 'sample-lunch-today',
@@ -176,26 +233,25 @@ export class SeedService {
     };
     this.store.saveSampleRecord(sampleLunch);
 
-    this.store.createTimeline('order' as any, 'order-today-001', '创建订餐', teacherUser as any, { date: today, mealType: MealType.SPECIAL });
-    this.store.createTimeline('order' as any, 'order-today-001', '确认订餐', teacherUser as any, { from: OrderStatus.PENDING, to: OrderStatus.CONFIRMED });
-    this.store.createTimeline('order' as any, 'order-today-001', '标记已配餐', canteenUser as any, { from: OrderStatus.CONFIRMED, to: OrderStatus.SERVED });
-    this.store.createTimeline('special_tag' as any, 'tag-001', '新增特殊餐标签', teacherUser as any, { tagType: SpecialTagType.ALLERGY, tagContent: '花生过敏', studentName: students[0].name });
-    this.store.createTimeline('summary' as any, 'summary-today', '确认订餐汇总', canteenUser as any, { date: today, totalCount: 568, specialCount: 23 });
-    this.store.createTimeline('purchase' as any, 'purchase-today', '生成采购单', purchaserUser as any, { date: today, itemCount: 5 });
-    this.store.createTimeline('purchase' as any, 'purchase-today', '提交采购单', purchaserUser as any, { orderNo: 'CG20260606001' });
-    this.store.createTimeline('purchase' as any, 'purchase-today', '确认采购到货', purchaserUser as any, { orderNo: 'CG20260606001' });
-    this.store.createTimeline('sample' as any, 'sample-lunch-today', '录入留样记录', canteenUser as any, { date: today, mealType: SampleMealType.LUNCH, dishCount: 4 });
+    this.store.createTimeline(
+      TimelineBusinessType.SAMPLE,
+      'sample-lunch-today',
+      '录入留样记录',
+      canteenUser as any,
+      { date: today, mealType: SampleMealType.LUNCH, dishCount: 4 }
+    );
 
     return {
       message: '学校食堂系统种子数据初始化完成（非满状态）',
       data: {
         users: [teacherUser, canteenUser, purchaserUser, adminUser],
         classes: [class1, class2, class3],
-        students: students.length + 22,
+        students: students.length,
         mealOrders: this.store.getMealOrders().length,
         specialTags: this.store.getSpecialTags().length,
         purchaseOrders: this.store.getPurchaseOrders().length,
         sampleRecords: this.store.getSampleRecords().length,
+        timelines: this.store.getTimelines().length,
       },
     };
   }
@@ -271,6 +327,61 @@ export class SeedService {
       remark,
     };
     this.store.saveSpecialTagLog(log);
+
+    this.store.createTimeline(
+      TimelineBusinessType.SPECIAL_TAG,
+      tag.id,
+      '新增特殊餐标签',
+      operator as any,
+      { tagType, tagContent, studentId, studentName }
+    );
+  }
+
+  private getStudentTagContents(studentId: string): string[] {
+    return this.store
+      .getSpecialTags()
+      .filter(t => t.studentId === studentId && t.status === SpecialTagStatus.ACTIVE)
+      .map(t => t.tagContent);
+  }
+
+  private calculateIngredients(totalCount: number, specialCount: number) {
+    const normalCount = totalCount - specialCount;
+    const perPerson = {
+      rice: { quantity: 150, unit: 'g' },
+      vegetables: { quantity: 200, unit: 'g' },
+      meat: { quantity: 100, unit: 'g' },
+      egg: { quantity: 50, unit: 'g' },
+      oil: { quantity: 15, unit: 'g' },
+    };
+    const specialExtra = {
+      vegetables: { quantity: 50, unit: 'g' },
+      meat: { quantity: 30, unit: 'g' },
+    };
+
+    const items = [];
+    for (const [key, val] of Object.entries(perPerson)) {
+      let quantityGrams = val.quantity * normalCount;
+      if (specialExtra[key as keyof typeof specialExtra]) {
+        quantityGrams += specialExtra[key as keyof typeof specialExtra].quantity * specialCount;
+      }
+      items.push({
+        ingredient: this.getIngredientName(key),
+        quantity: Math.ceil((quantityGrams / 1000) * 10) / 10,
+        unit: 'kg',
+      });
+    }
+    return items;
+  }
+
+  private getIngredientName(key: string): string {
+    const names: Record<string, string> = {
+      rice: '大米',
+      vegetables: '蔬菜',
+      meat: '肉类',
+      egg: '鸡蛋',
+      oil: '食用油',
+    };
+    return names[key] || key;
   }
 
   clear() {
