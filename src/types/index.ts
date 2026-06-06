@@ -92,11 +92,10 @@ export interface ReviewFilters {
   anchorName?: string;
   startDate?: string;
   endDate?: string;
-  hasReject?: boolean;
-  hasSupplement?: boolean;
   currentHandler?: UserRole;
   isOverdue?: boolean;
   todayUpdated?: boolean;
+  recentlyRejected?: boolean;
 }
 
 export interface User {

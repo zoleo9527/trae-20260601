@@ -43,6 +43,10 @@ function isToday(dateStr: string): boolean {
   );
 }
 
+function isRecentlyRejected(review: LiveReview): boolean {
+  return review.status === "rejected" || !!review.supplementRequired;
+}
+
 function loadFromStorage(): LiveReview[] {
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
@@ -558,11 +562,10 @@ export const useReviewStore = create<ReviewState>((set, get) => ({
         }
       }
       if (filters.anchorName && r.anchorName !== filters.anchorName) return false;
-      if (filters.hasReject && !r.rejectReason) return false;
-      if (filters.hasSupplement && !r.supplementRequired) return false;
       if (filters.currentHandler && r.currentHandler !== filters.currentHandler) return false;
       if (filters.isOverdue && !r.isOverdue) return false;
       if (filters.todayUpdated && !isToday(r.updatedAt)) return false;
+      if (filters.recentlyRejected && !isRecentlyRejected(r)) return false;
       return true;
     });
   },
@@ -589,7 +592,7 @@ export const useReviewStore = create<ReviewState>((set, get) => ({
   getRecentlyRejected: (userRole?: UserRole) => {
     const { reviews } = get();
     return reviews.filter((r) => {
-      if (r.status !== "rejected" && !r.supplementRequired) return false;
+      if (!isRecentlyRejected(r)) return false;
       if (userRole && r.currentHandler !== userRole) return false;
       return true;
     });

@@ -57,8 +57,7 @@ export function Dashboard() {
       });
     } else if (filterType === "rejected") {
       setFilters({
-        hasReject: true,
-        hasSupplement: true,
+        recentlyRejected: true,
         currentHandler: currentUser.role,
       });
     }

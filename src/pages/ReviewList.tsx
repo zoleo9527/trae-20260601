@@ -26,8 +26,7 @@ export function ReviewList() {
   const activeFilters = [
     filters.todayUpdated && { key: "todayUpdated", label: "今日更新", icon: Clock },
     filters.isOverdue && { key: "isOverdue", label: "超时未处理", icon: AlertTriangle },
-    filters.hasReject && { key: "hasReject", label: "已驳回", icon: XCircle },
-    filters.hasSupplement && { key: "hasSupplement", label: "需补录", icon: XCircle },
+    filters.recentlyRejected && { key: "recentlyRejected", label: "刚退回/需补录", icon: XCircle },
     filters.currentHandler && { key: "currentHandler", label: `${ROLE_MAP[filters.currentHandler]?.label}处理`, icon: null },
     filters.status && { key: "status", label: REVIEW_STATUS_MAP[filters.status]?.label, icon: null },
   ].filter(Boolean) as { key: string; label: string; icon: any }[];
@@ -35,8 +34,7 @@ export function ReviewList() {
   const removeFilter = (key: string) => {
     if (key === "todayUpdated") setFilters({ todayUpdated: undefined });
     else if (key === "isOverdue") setFilters({ isOverdue: undefined });
-    else if (key === "hasReject") setFilters({ hasReject: undefined });
-    else if (key === "hasSupplement") setFilters({ hasSupplement: undefined });
+    else if (key === "recentlyRejected") setFilters({ recentlyRejected: undefined });
     else if (key === "currentHandler") setFilters({ currentHandler: undefined });
     else if (key === "status") setFilters({ status: undefined });
   };
@@ -170,20 +168,11 @@ export function ReviewList() {
                 <label className="flex items-center gap-2">
                   <input
                     type="checkbox"
-                    checked={filters.hasReject || false}
-                    onChange={(e) => setFilters({ hasReject: e.target.checked })}
+                    checked={filters.recentlyRejected || false}
+                    onChange={(e) => setFilters({ recentlyRejected: e.target.checked })}
                     className="rounded text-navy-600 focus:ring-navy-500"
                   />
-                  <span className="text-sm text-gray-700">仅显示驳回</span>
-                </label>
-                <label className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={filters.hasSupplement || false}
-                    onChange={(e) => setFilters({ hasSupplement: e.target.checked })}
-                    className="rounded text-navy-600 focus:ring-navy-500"
-                  />
-                  <span className="text-sm text-gray-700">仅显示需补录</span>
+                  <span className="text-sm text-gray-700">仅显示刚退回/需补录</span>
                 </label>
                 <button
                   onClick={handleClearFilters}
