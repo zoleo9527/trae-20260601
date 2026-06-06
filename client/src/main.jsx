@@ -1,10 +1,10 @@
 import React, { Component } from 'react'
 import ReactDOM from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
-import App from './App.jsx'
-import { AuthProvider } from './context/AuthContext.jsx'
-import { TicketProvider } from './context/TicketContext.jsx'
 import './index.css'
+import App from './App'
+import { AuthProvider } from './context/AuthContext'
+import { TicketProvider } from './context/TicketContext'
 
 class ErrorBoundary extends Component {
   constructor(props) {
@@ -20,38 +20,43 @@ class ErrorBoundary extends Component {
     console.error('应用错误:', error, errorInfo)
   }
 
+  handleReload = () => {
+    window.location.reload()
+  }
+
   render() {
     if (this.state.hasError) {
       return (
-        <div style={{ 
-          minHeight: '100vh', 
-          display: 'flex', 
-          alignItems: 'center', 
+        <div style={{
+          minHeight: '100vh',
+          display: 'flex',
+          alignItems: 'center',
           justifyContent: 'center',
           background: '#f5f7fa',
           padding: '20px'
         }}>
-          <div style={{ 
-            background: 'white', 
-            padding: '32px', 
+          <div style={{
+            background: 'white',
+            padding: '40px',
             borderRadius: '8px',
-            maxWidth: '500px',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
             textAlign: 'center',
-            boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+            maxWidth: '500px'
           }}>
-            <h2 style={{ color: '#ff4d4f', marginBottom: '16px' }}>应用出错了</h2>
-            <p style={{ color: '#666', marginBottom: '16px' }}>
-              {this.state.error?.message || '发生了未知错误'}
+            <h2 style={{ color: '#ff4d4f', marginBottom: '16px' }}>页面加载出错</h2>
+            <p style={{ color: '#666', marginBottom: '24px', lineHeight: '1.6' }}>
+              抱歉，应用遇到了一些问题。您可以尝试刷新页面。
             </p>
-            <button 
-              onClick={() => window.location.reload()}
+            <button
+              onClick={this.handleReload}
               style={{
-                padding: '8px 24px',
+                padding: '10px 32px',
                 background: '#1677ff',
                 color: 'white',
                 border: 'none',
                 borderRadius: '4px',
-                cursor: 'pointer'
+                cursor: 'pointer',
+                fontSize: '14px'
               }}
             >
               刷新页面
@@ -60,18 +65,27 @@ class ErrorBoundary extends Component {
         </div>
       )
     }
+
     return this.props.children
   }
 }
 
-ReactDOM.createRoot(document.getElementById('root')).render(
-  <ErrorBoundary>
-    <BrowserRouter>
-      <AuthProvider>
-        <TicketProvider>
-          <App />
-        </TicketProvider>
-      </AuthProvider>
-    </BrowserRouter>
-  </ErrorBoundary>,
-)
+const rootElement = document.getElementById('root')
+
+if (!rootElement) {
+  console.error('找不到 root 元素')
+} else {
+  ReactDOM.createRoot(rootElement).render(
+    <React.StrictMode>
+      <ErrorBoundary>
+        <BrowserRouter>
+          <AuthProvider>
+            <TicketProvider>
+              <App />
+            </TicketProvider>
+          </AuthProvider>
+        </BrowserRouter>
+      </ErrorBoundary>
+    </React.StrictMode>
+  )
+}
