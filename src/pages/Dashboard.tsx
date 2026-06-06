@@ -1,9 +1,9 @@
+import { Activity, AlertTriangle, ArrowRight, ClipboardList, Truck } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { ClipboardList, Truck, AlertTriangle, Activity, ArrowRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import type { DashboardData, UnloadRecord } from '../../shared/types';
 import { api } from '../api/client';
 import { Timeline } from '../components/Timeline';
-import type { DashboardData, UnloadRecord } from '../../shared/types';
 import { useAppStore } from '../store/appStore';
 
 export default function Dashboard() {
@@ -144,31 +144,33 @@ export default function Dashboard() {
             </div>
           ) : (
             <div className="space-y-2">
-              {todos.map((record) => (
-                <div
-                  key={record.id}
-                  className="flex items-center justify-between p-3 rounded-lg bg-slate-800/50 hover:bg-slate-800 border border-slate-700/30 cursor-pointer transition-colors"
-                  onClick={() => navigate(
-                    record.status === 'discrepancy' || record.status === 'finished'
-                      ? '/discrepancy'
-                      : '/check-in'
-                  )}
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-lg bg-slate-700/50 flex items-center justify-center">
-                      <Truck className="w-4 h-4 text-slate-300" />
+              {todos.map((record) => {
+                const targetPage =
+                  record.status === 'discrepancy' || record.status === 'finished'
+                    ? '/discrepancy'
+                    : '/check-in';
+                return (
+                  <div
+                    key={record.id}
+                    className="flex items-center justify-between p-3 rounded-lg bg-slate-800/50 hover:bg-slate-800 border border-slate-700/30 cursor-pointer transition-colors group"
+                    onClick={() => navigate(`${targetPage}?recordId=${record.id}`)}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-lg bg-slate-700/50 flex items-center justify-center group-hover:bg-blue-600/20 transition-colors">
+                        <Truck className="w-4 h-4 text-slate-300 group-hover:text-blue-400 transition-colors" />
+                      </div>
+                      <div>
+                        <p className="font-medium text-sm text-slate-100">{record.plateNumber}</p>
+                        <p className="text-xs text-slate-400">
+                          {record.driverName} · {record.cargoType} · {record.plannedQuantity}件
+                          {record.dockNumber && ` · ${record.dockNumber}号月台`}
+                        </p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="font-medium text-sm text-slate-100">{record.plateNumber}</p>
-                      <p className="text-xs text-slate-400">
-                        {record.driverName} · {record.cargoType} · {record.plannedQuantity}件
-                        {record.dockNumber && ` · ${record.dockNumber}号月台`}
-                      </p>
-                    </div>
+                    <ArrowRight className="w-4 h-4 text-slate-500 group-hover:text-blue-400 group-hover:translate-x-0.5 transition-all" />
                   </div>
-                  <ArrowRight className="w-4 h-4 text-slate-500" />
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
@@ -179,7 +181,7 @@ export default function Dashboard() {
             最近状态变化
           </h2>
           <div className="overflow-y-auto max-h-[420px] pr-1">
-            {data && <Timeline logs={data.recentStatus.slice(0, 8)} />}
+            {data && <Timeline logs={data.recentStatus.slice(0, 8)} clickable />}
           </div>
         </div>
       </div>

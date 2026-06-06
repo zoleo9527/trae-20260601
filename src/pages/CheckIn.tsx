@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import {
   Plus,
   Play,
@@ -12,6 +13,7 @@ import {
   Layers,
   X,
   Check,
+  ArrowLeft,
 } from 'lucide-react';
 import { api } from '../api/client';
 import { StatusBadge } from '../components/StatusBadge';
@@ -19,14 +21,48 @@ import { useAppStore } from '../store/appStore';
 import type { UnloadRecord, Dock, RecordStatus } from '../../shared/types';
 
 export default function CheckIn() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
   const [records, setRecords] = useState<UnloadRecord[]>([]);
   const [docks, setDocks] = useState<Dock[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
-  const [filter, setFilter] = useState<RecordStatus | 'all'>('all');
+  const [filter, setFilter] = useState<RecordStatus | 'all'>(
+    (searchParams.get('status') as RecordStatus | 'all') || 'all'
+  );
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [showBatchAssign, setShowBatchAssign] = useState(false);
+  const [highlightedId, setHighlightedId] = useState<string | null>(null);
+  const recordRefs = useRef<Map<string, HTMLDivElement>>(new Map());
   const { currentUser } = useAppStore();
+
+  const targetRecordId = searchParams.get('recordId');
+
+  useEffect(() => {
+    if (searchParams.get('status')) {
+      setFilter(searchParams.get('status') as RecordStatus | 'all');
+    }
+  }, [searchParams]);
+
+  function updateFilter(newFilter: RecordStatus | 'all') {
+    setFilter(newFilter);
+    const params = new URLSearchParams(searchParams);
+    if (newFilter === 'all') {
+      params.delete('status');
+    } else {
+      params.set('status', newFilter);
+    }
+    params.delete('recordId');
+    setSearchParams(params, { replace: true });
+    setSelectedIds(new Set());
+  }
+
+  function clearTargetRecord() {
+    const params = new URLSearchParams(searchParams);
+    params.delete('recordId');
+    setSearchParams(params, { replace: true });
+    setHighlightedId(null);
+  }
 
   const [form, setForm] = useState({
     plateNumber: '',
@@ -56,6 +92,25 @@ export default function CheckIn() {
   useEffect(() => {
     loadData();
   }, []);
+
+  useEffect(() => {
+    if (!loading && targetRecordId && records.length > 0) {
+      const record = records.find(r => r.id === targetRecordId);
+      if (record) {
+        if (record.status !== filter && filter !== 'all') {
+          updateFilter('all');
+        }
+        setTimeout(() => {
+          const el = recordRefs.current.get(targetRecordId);
+          if (el) {
+            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            setHighlightedId(targetRecordId);
+            setTimeout(() => setHighlightedId(null), 3000);
+          }
+        }, 100);
+      }
+    }
+  }, [loading, targetRecordId, records, filter]);
 
   const filteredRecords = filter === 'all'
     ? records
@@ -408,7 +463,7 @@ export default function CheckIn() {
         </div>
       )}
 
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 flex-wrap">
         <button
           onClick={toggleSelectAll}
           className="p-1.5 rounded hover:bg-slate-800 text-slate-400"
@@ -426,10 +481,7 @@ export default function CheckIn() {
         {statusFilters.map((f) => (
           <button
             key={f.key}
-            onClick={() => {
-              setFilter(f.key);
-              setSelectedIds(new Set());
-            }}
+            onClick={() => updateFilter(f.key)}
             className={`px-3 py-1.5 rounded-lg text-sm transition-colors ${
               filter === f.key
                 ? 'bg-blue-600 text-white'
@@ -439,6 +491,17 @@ export default function CheckIn() {
             {f.label}
           </button>
         ))}
+        {targetRecordId && (
+          <div className="ml-auto flex items-center gap-2 px-3 py-1.5 bg-blue-500/20 border border-blue-500/30 rounded-lg">
+            <span className="text-xs text-blue-300">已定位到目标记录</span>
+            <button
+              onClick={clearTargetRecord}
+              className="text-blue-400 hover:text-blue-300"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
       </div>
 
       {loading ? (
@@ -455,8 +518,15 @@ export default function CheckIn() {
             filteredRecords.map((record) => (
               <div
                 key={record.id}
-                className={`bg-slate-800/30 rounded-xl border p-4 hover:bg-slate-800/50 transition-colors ${
-                  selectedIds.has(record.id) ? 'border-blue-500/50 bg-blue-500/5' : 'border-slate-700/50'
+                ref={(el) => {
+                  if (el) recordRefs.current.set(record.id, el);
+                }}
+                className={`bg-slate-800/30 rounded-xl border p-4 hover:bg-slate-800/50 transition-all duration-300 ${
+                  highlightedId === record.id
+                    ? 'border-blue-500 ring-2 ring-blue-500/50 shadow-lg shadow-blue-500/20 bg-blue-500/10 scale-[1.01]'
+                    : selectedIds.has(record.id)
+                      ? 'border-blue-500/50 bg-blue-500/5'
+                      : 'border-slate-700/50'
                 }`}
               >
                 <div className="flex items-center justify-between">

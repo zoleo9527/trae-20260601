@@ -1,9 +1,11 @@
-import { Clock, User, FileText, AlertCircle } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { AlertCircle, Clock, FileText, User, ExternalLink } from 'lucide-react';
 import type { OperationLog } from '../../shared/types';
 import { ROLE_LABELS } from '../../shared/types';
 
 interface TimelineProps {
   logs: OperationLog[];
+  clickable?: boolean;
 }
 
 function formatTime(iso: string): string {
@@ -11,7 +13,9 @@ function formatTime(iso: string): string {
   return `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 }
 
-export function Timeline({ logs }: TimelineProps) {
+export function Timeline({ logs, clickable = false }: TimelineProps) {
+  const navigate = useNavigate();
+
   if (logs.length === 0) {
     return <div className="text-slate-400 text-sm py-8 text-center">暂无操作记录</div>;
   }
@@ -27,11 +31,21 @@ export function Timeline({ logs }: TimelineProps) {
               log.operatorRole === 'forklift' ? 'bg-amber-500' :
               'bg-emerald-500'
             }`} />
-            <div className="bg-slate-800/50 rounded-lg p-3 border border-slate-700/50">
+            <div
+              className={`bg-slate-800/50 rounded-lg p-3 border border-slate-700/50 ${
+                clickable ? 'cursor-pointer hover:bg-slate-800 hover:border-slate-600 transition-colors' : ''
+              }`}
+              onClick={() => {
+                if (clickable) {
+                  navigate(`/records?recordId=${log.recordId}`);
+                }
+              }}
+            >
               <div className="flex items-center justify-between mb-1">
                 <span className="font-medium text-slate-100 text-sm">{log.operation}</span>
-                <span className="flex items-center text-xs text-slate-400">
-                  <Clock className="w-3 h-3 mr-1" />
+                <span className="flex items-center text-xs text-slate-400 gap-2">
+                  {clickable && <ExternalLink className="w-3 h-3 text-slate-500" />}
+                  <Clock className="w-3 h-3" />
                   {formatTime(log.operateTime)}
                 </span>
               </div>

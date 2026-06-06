@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Search, History, ChevronDown, ChevronUp, X, AlertTriangle } from 'lucide-react';
 import { api } from '../api/client';
 import { StatusBadge } from '../components/StatusBadge';
@@ -7,12 +8,50 @@ import type { UnloadRecord, OperationLog, RecordStatus } from '../../shared/type
 import { STATUS_LABELS, DISCREPANCY_LABELS } from '../../shared/types';
 
 export default function Records() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [records, setRecords] = useState<UnloadRecord[]>([]);
   const [loading, setLoading] = useState(true);
-  const [searchPlate, setSearchPlate] = useState('');
-  const [statusFilter, setStatusFilter] = useState<RecordStatus | 'all'>('all');
+  const [searchPlate, setSearchPlate] = useState(searchParams.get('search') || '');
+  const [statusFilter, setStatusFilter] = useState<RecordStatus | 'all'>(
+    (searchParams.get('status') as RecordStatus | 'all') || 'all'
+  );
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [logs, setLogs] = useState<Record<string, OperationLog[]>>({});
+  const [highlightedId, setHighlightedId] = useState<string | null>(null);
+  const recordRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+
+  const targetRecordId = searchParams.get('recordId');
+
+  function updateSearch(value: string) {
+    setSearchPlate(value);
+    const params = new URLSearchParams(searchParams);
+    if (value) {
+      params.set('search', value);
+    } else {
+      params.delete('search');
+    }
+    params.delete('recordId');
+    setSearchParams(params, { replace: true });
+  }
+
+  function updateStatusFilter(value: RecordStatus | 'all') {
+    setStatusFilter(value);
+    const params = new URLSearchParams(searchParams);
+    if (value === 'all') {
+      params.delete('status');
+    } else {
+      params.set('status', value);
+    }
+    params.delete('recordId');
+    setSearchParams(params, { replace: true });
+  }
+
+  function clearTargetRecord() {
+    const params = new URLSearchParams(searchParams);
+    params.delete('recordId');
+    setSearchParams(params, { replace: true });
+    setHighlightedId(null);
+  }
 
   async function loadData() {
     setLoading(true);
@@ -32,6 +71,31 @@ export default function Records() {
   useEffect(() => {
     loadData();
   }, [searchPlate, statusFilter]);
+
+  useEffect(() => {
+    if (!loading && targetRecordId && records.length > 0) {
+      const record = records.find(r => r.id === targetRecordId);
+      if (record) {
+        if (!searchPlate && statusFilter !== 'all') {
+          updateStatusFilter('all');
+          return;
+        }
+        if (searchPlate && !record.plateNumber.toLowerCase().includes(searchPlate.toLowerCase())) {
+          updateSearch('');
+          return;
+        }
+        handleExpand(record);
+        setTimeout(() => {
+          const el = recordRefs.current.get(targetRecordId);
+          if (el) {
+            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            setHighlightedId(targetRecordId);
+            setTimeout(() => setHighlightedId(null), 3000);
+          }
+        }, 200);
+      }
+    }
+  }, [loading, targetRecordId, records, searchPlate, statusFilter]);
 
   async function handleExpand(record: UnloadRecord) {
     if (expandedId === record.id) {
@@ -72,19 +136,19 @@ export default function Records() {
         <p className="text-slate-400 text-sm mt-1">查询和回看所有卸货记录</p>
       </div>
 
-      <div className="flex gap-4 items-center">
+      <div className="flex gap-4 items-center flex-wrap">
         <div className="relative flex-1 max-w-md">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
           <input
             type="text"
             value={searchPlate}
-            onChange={(e) => setSearchPlate(e.target.value)}
+            onChange={(e) => updateSearch(e.target.value)}
             placeholder="搜索车牌号..."
             className="w-full pl-10 pr-4 py-2 bg-slate-800/50 border border-slate-700 rounded-lg text-sm text-slate-100 focus:outline-none focus:border-blue-500"
           />
           {searchPlate && (
             <button
-              onClick={() => setSearchPlate('')}
+              onClick={() => updateSearch('')}
               className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200"
             >
               <X className="w-4 h-4" />
@@ -93,13 +157,24 @@ export default function Records() {
         </div>
         <select
           value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value as RecordStatus | 'all')}
+          onChange={(e) => updateStatusFilter(e.target.value as RecordStatus | 'all')}
           className="px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-lg text-sm text-slate-100 focus:outline-none focus:border-blue-500"
         >
           {statusOptions.map(opt => (
             <option key={opt.key} value={opt.key}>{opt.label}</option>
           ))}
         </select>
+        {targetRecordId && (
+          <div className="ml-auto flex items-center gap-2 px-3 py-2 bg-blue-500/20 border border-blue-500/30 rounded-lg">
+            <span className="text-xs text-blue-300">已定位到目标记录</span>
+            <button
+              onClick={clearTargetRecord}
+              className="text-blue-400 hover:text-blue-300"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
       </div>
 
       {loading ? (
@@ -118,7 +193,14 @@ export default function Records() {
           {records.map((record) => (
             <div
               key={record.id}
-              className="bg-slate-800/30 rounded-xl border border-slate-700/50 overflow-hidden"
+              ref={(el) => {
+                if (el) recordRefs.current.set(record.id, el);
+              }}
+              className={`bg-slate-800/30 rounded-xl border overflow-hidden transition-all duration-300 ${
+                highlightedId === record.id
+                  ? 'border-blue-500 ring-2 ring-blue-500/50 shadow-lg shadow-blue-500/20 bg-blue-500/10'
+                  : 'border-slate-700/50'
+              }`}
             >
               <button
                 onClick={() => handleExpand(record)}

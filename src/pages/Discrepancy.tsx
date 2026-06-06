@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   AlertTriangle,
   Check,
@@ -17,11 +18,20 @@ import type { UnloadRecord, OperationLog, DiscrepancyType } from '../../shared/t
 import { DISCREPANCY_LABELS } from '../../shared/types';
 
 export default function Discrepancy() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [records, setRecords] = useState<UnloadRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedRecord, setSelectedRecord] = useState<UnloadRecord | null>(null);
   const [logs, setLogs] = useState<OperationLog[]>([]);
   const { currentUser } = useAppStore();
+
+  const targetRecordId = searchParams.get('recordId');
+
+  function clearTargetRecord() {
+    const params = new URLSearchParams(searchParams);
+    params.delete('recordId');
+    setSearchParams(params, { replace: true });
+  }
 
   const [form, setForm] = useState({
     discrepancyType: 'quantity' as DiscrepancyType,
@@ -46,6 +56,15 @@ export default function Discrepancy() {
   useEffect(() => {
     loadData();
   }, []);
+
+  useEffect(() => {
+    if (!loading && targetRecordId && records.length > 0 && !selectedRecord) {
+      const record = records.find(r => r.id === targetRecordId);
+      if (record) {
+        handleSelect(record);
+      }
+    }
+  }, [loading, targetRecordId, records, selectedRecord]);
 
   async function handleSelect(record: UnloadRecord) {
     setSelectedRecord(record);
@@ -158,15 +177,29 @@ export default function Discrepancy() {
                 暂无待处理差异
               </div>
             ) : (
-              <div className="space-y-2 max-h-[560px] overflow-y-auto pr-1">
+              <>
+                {targetRecordId && (
+                  <div className="mb-3 flex items-center justify-between px-3 py-2 bg-blue-500/20 border border-blue-500/30 rounded-lg">
+                    <span className="text-xs text-blue-300">已定位到目标记录</span>
+                    <button
+                      onClick={clearTargetRecord}
+                      className="text-blue-400 hover:text-blue-300"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                )}
+                <div className="space-y-2 max-h-[560px] overflow-y-auto pr-1">
                 {records.map((record) => (
                   <button
                     key={record.id}
                     onClick={() => handleSelect(record)}
-                    className={`w-full text-left p-3 rounded-lg border transition-colors ${
+                    className={`w-full text-left p-3 rounded-lg border transition-all duration-300 ${
                       selectedRecord?.id === record.id
-                        ? 'bg-blue-600/10 border-blue-500/30'
-                        : 'bg-slate-800/50 border-slate-700/30 hover:bg-slate-800'
+                        ? 'bg-blue-600/10 border-blue-500/50 ring-1 ring-blue-500/30'
+                        : targetRecordId === record.id
+                          ? 'bg-blue-500/10 border-blue-500/50 ring-2 ring-blue-500/30 shadow-lg shadow-blue-500/10'
+                          : 'bg-slate-800/50 border-slate-700/30 hover:bg-slate-800'
                     }`}
                   >
                     <div className="flex items-center justify-between">
@@ -185,7 +218,8 @@ export default function Discrepancy() {
                     )}
                   </button>
                 ))}
-              </div>
+                </div>
+              </>
             )}
           </div>
         </div>
