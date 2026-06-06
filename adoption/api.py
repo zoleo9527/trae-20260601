@@ -1105,8 +1105,6 @@ def approve_application(request, application_id: str, payload: ApproveIn):
         app.status = new_status
         app.deadline_at = timezone.now() + timedelta(days=7)
         app.last_action_at = timezone.now()
-        app.animal.status = AnimalStatus.ADOPTED
-        app.animal.save()
         app.save()
         
         return ApiResponse(
