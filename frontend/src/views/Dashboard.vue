@@ -14,6 +14,32 @@
       </el-col>
     </el-row>
 
+    <el-row :gutter="20" class="quick-action-row">
+      <el-col :span="24">
+        <h3 class="section-title">快捷处理</h3>
+      </el-col>
+      <el-col :span="quickActionColSpan" v-for="action in quickActions" :key="action.title">
+        <div class="quick-action-card" @click="handleQuickAction(action)">
+          <div class="action-icon" :style="{ backgroundColor: action.color + '15', color: action.color }">
+            <el-icon :size="28"><component :is="action.icon" /></el-icon>
+          </div>
+          <div class="action-content">
+            <div class="action-count" v-if="action.showCount">
+              {{ loading ? '--' : action.count }}
+            </div>
+            <div class="action-count-label" v-else>
+              {{ action.countLabel }}
+            </div>
+            <div class="action-title">{{ action.title }}</div>
+            <div class="action-desc">{{ action.description }}</div>
+          </div>
+          <div class="action-arrow">
+            <el-icon :size="18"><ArrowRight /></el-icon>
+          </div>
+        </div>
+      </el-col>
+    </el-row>
+
     <el-row :gutter="20" class="content-row">
       <el-col :span="12">
         <div class="card">
@@ -84,6 +110,7 @@ import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { getDashboardStats, getRiskItems, getOperationLogs } from '@/api'
 import type { DashboardStats, RiskItem, OperationLog } from '@/types'
+import { useUserStore } from '@/stores/user'
 import {
   Key,
   Check,
@@ -93,16 +120,34 @@ import {
   Tools,
   WarningFilled,
   InfoFilled,
-  CircleCheck
+  CircleCheck,
+  ArrowRight,
+  Switch,
+  Refresh,
+  View,
+  Document,
+  CirclePlus
 } from '@element-plus/icons-vue'
 
 const router = useRouter()
+const userStore = useUserStore()
 
 const loading = ref(true)
 const logsLoading = ref(false)
 const stats = ref<DashboardStats | null>(null)
 const risks = ref<RiskItem[]>([])
 const logs = ref<OperationLog[]>([])
+
+interface QuickAction {
+  title: string
+  count: number
+  countLabel: string
+  showCount: boolean
+  description: string
+  icon: any
+  color: string
+  path: string
+}
 
 const statsList = computed(() => [
   {
@@ -142,6 +187,107 @@ const statsList = computed(() => [
     icon: Tools
   }
 ])
+
+const quickActions = computed<QuickAction[]>(() => {
+  const role = userStore.user?.role
+  const activeBorrows = stats.value?.active_borrows || stats.value?.borrowed_keys || 0
+  const overdueBorrows = stats.value?.overdue_borrows || 0
+  const lostKeys = stats.value?.lost_keys || 0
+
+  if (role === 'dorm_manager') {
+    return [
+      {
+        title: '借还处理',
+        count: activeBorrows,
+        countLabel: '',
+        showCount: true,
+        description: `${activeBorrows} 把钥匙借出未还，其中 ${overdueBorrows} 把已逾期`,
+        icon: Switch,
+        color: '#3b82f6',
+        path: '/borrow'
+      },
+      {
+        title: '挂失补配',
+        count: lostKeys,
+        countLabel: '',
+        showCount: true,
+        description: `${lostKeys} 把钥匙挂失中，需跟进补配`,
+        icon: Warning,
+        color: '#ef4444',
+        path: '/lost'
+      },
+      {
+        title: '数据重置',
+        count: 0,
+        countLabel: '系统操作',
+        showCount: false,
+        description: '恢复初始样例数据与风险记录',
+        icon: Refresh,
+        color: '#64748b',
+        path: '/settings'
+      }
+    ]
+  } else if (role === 'counselor') {
+    return [
+      {
+        title: '风险宿舍',
+        count: risks.value.length || overdueBorrows,
+        countLabel: '',
+        showCount: true,
+        description: `${risks.value.length || overdueBorrows} 个宿舍存在钥匙逾期，需关注学生动向`,
+        icon: View,
+        color: '#f59e0b',
+        path: '/keys'
+      },
+      {
+        title: '挂失跟进',
+        count: lostKeys,
+        countLabel: '',
+        showCount: true,
+        description: `${lostKeys} 名学生钥匙挂失，需核实补配进度`,
+        icon: Document,
+        color: '#8b5cf6',
+        path: '/lost'
+      }
+    ]
+  } else if (role === 'maintenance') {
+    return [
+      {
+        title: '待归还钥匙',
+        count: activeBorrows,
+        countLabel: '',
+        showCount: true,
+        description: `${activeBorrows} 把公共区域钥匙待归还`,
+        icon: Check,
+        color: '#10b981',
+        path: '/borrow'
+      },
+      {
+        title: '借用登记',
+        count: 0,
+        countLabel: '快速操作',
+        showCount: false,
+        description: '登记领取公共区域维修钥匙',
+        icon: CirclePlus,
+        color: '#3b82f6',
+        path: '/borrow'
+      }
+    ]
+  }
+  return []
+})
+
+const quickActionColSpan = computed(() => {
+  const count = quickActions.value.length
+  if (count === 0) return 24
+  if (count === 1) return 24
+  if (count === 2) return 12
+  return 8
+})
+
+const handleQuickAction = (action: QuickAction) => {
+  router.push(action.path)
+}
 
 const formatTime = (time: string) => {
   const date = new Date(time)
@@ -280,6 +426,86 @@ onMounted(() => {
 .stat-label {
   font-size: 13px;
   color: #64748b;
+  margin-top: 4px;
+}
+
+.quick-action-row {
+  flex-shrink: 0;
+}
+
+.section-title {
+  margin: 0 0 12px 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.quick-action-card {
+  background: #fff;
+  border-radius: 8px;
+  padding: 20px;
+  box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1);
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  position: relative;
+  height: 100%;
+}
+
+.quick-action-card:hover {
+  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+  transform: translateY(-2px);
+}
+
+.action-icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.action-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.action-count {
+  font-size: 32px;
+  font-weight: 700;
+  color: #1e293b;
+  line-height: 1.2;
+  margin-bottom: 4px;
+}
+
+.action-count-label {
+  font-size: 14px;
+  font-weight: 500;
+  color: #64748b;
+  line-height: 1.2;
+  margin-bottom: 8px;
+}
+
+.action-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #1e293b;
+  margin-bottom: 4px;
+}
+
+.action-desc {
+  font-size: 13px;
+  color: #64748b;
+  line-height: 1.4;
+}
+
+.action-arrow {
+  color: #94a3b8;
+  flex-shrink: 0;
   margin-top: 4px;
 }
 
