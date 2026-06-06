@@ -9,6 +9,7 @@ import {
   StatusHistory,
   Notification,
   OrderStatus,
+  UserRole,
   BackupData
 } from '@/types';
 
@@ -231,7 +232,7 @@ interface StoreState extends AppState {
   exportBackup: () => BackupData;
   importBackup: (data: BackupData) => void;
   batchImportOrders: (orders: Array<Omit<RepairOrder, 'id' | 'orderNo' | 'createdAt' | 'completions' | 'reworks' | 'statusHistory' | 'status'>>) => void;
-  getRecentActivity: () => StatusHistory[];
+  getRecentActivity: (role?: UserRole) => StatusHistory[];
 }
 
 export const useStore = create<StoreState>()(
@@ -681,9 +682,23 @@ export const useStore = create<StoreState>()(
         set({ orders: [...state.orders, ...newOrders] });
       },
 
-      getRecentActivity: () => {
+      getRecentActivity: (role) => {
         const state = get();
-        const allHistory = state.orders.flatMap(o => o.statusHistory);
+        const currentUser = state.currentUser;
+        let filteredOrders = state.orders;
+        
+        if (role || currentUser) {
+          const targetRole = role || currentUser?.role;
+          if (targetRole === 'repair_worker' && currentUser) {
+            filteredOrders = state.orders.filter(order => order.assignedTo === currentUser.id);
+          } else if (targetRole === 'dorm_manager') {
+            filteredOrders = state.orders;
+          } else if (targetRole === 'logistics_supervisor') {
+            filteredOrders = state.orders;
+          }
+        }
+        
+        const allHistory = filteredOrders.flatMap(o => o.statusHistory);
         return allHistory
           .sort((a, b) => new Date(b.changedAt).getTime() - new Date(a.changedAt).getTime())
           .slice(0, 20);

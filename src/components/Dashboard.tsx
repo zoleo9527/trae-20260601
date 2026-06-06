@@ -36,7 +36,7 @@ export function Dashboard({ role, onViewOrder }: DashboardProps) {
   
   const roleOrders = getOrdersForRole(role);
   const pendingCount = getPendingCount(role);
-  const allActivity = getRecentActivity();
+  const allActivity = getRecentActivity(role);
 
   const getUserName = (userId: string) => {
     return users.find(u => u.id === userId)?.name || '未知';

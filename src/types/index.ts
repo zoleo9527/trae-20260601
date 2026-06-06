@@ -118,6 +118,9 @@ export interface NotificationDetail {
   confirmRemark?: string;
   reworkReason?: string;
   originalCompletionDescription?: string;
+  originalConfirmRemark?: string;
+  originalMaterialsUsed?: string;
+  originalLaborHours?: number;
 }
 
 export interface Notification {
