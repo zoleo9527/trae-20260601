@@ -242,6 +242,8 @@ class ApplicationDetailSchema(Schema):
     deadline_at: Optional[str]
     remark: str
     is_timeout: bool
+    has_follow_up_gap: bool = False
+    latest_gap_reason: str = ""
     timelines: List[TimelineSchema]
     home_visit: Optional[HomeVisitSchema]
 
@@ -280,6 +282,8 @@ class ApplicationDetailSchema(Schema):
             deadline_at=obj.deadline_at.isoformat() if obj.deadline_at else None,
             remark=obj.remark,
             is_timeout=is_timeout,
+            has_follow_up_gap=obj.follow_ups.filter(is_gap=True).exists(),
+            latest_gap_reason=obj.follow_ups.filter(is_gap=True).order_by("-follow_up_date").first().gap_reason if obj.follow_ups.filter(is_gap=True).exists() else "",
             timelines=[TimelineSchema.from_orm(t) for t in obj.timelines.all()],
             home_visit=home_visit
         )
@@ -299,7 +303,6 @@ class ApplicationListItemSchema(Schema):
     is_timeout: bool
     has_materials_missing: bool
     has_review_issue: bool
-    has_follow_up_gap: bool
 
     @staticmethod
     def from_orm(obj: AdoptionApplication):
@@ -326,9 +329,10 @@ class ApplicationListItemSchema(Schema):
             submitted_at=obj.submitted_at.isoformat(),
             deadline_at=obj.deadline_at.isoformat() if obj.deadline_at else None,
             is_timeout=is_timeout,
+            has_follow_up_gap=obj.follow_ups.filter(is_gap=True).exists(),
+            latest_gap_reason=obj.follow_ups.filter(is_gap=True).order_by("-follow_up_date").first().gap_reason if obj.follow_ups.filter(is_gap=True).exists() else "",
             has_materials_missing=has_materials_missing,
-            has_review_issue=has_review_issue,
-            has_follow_up_gap=obj.follow_ups.filter(is_gap=True).exists()
+            has_review_issue=has_review_issue
         )
 
 
@@ -597,7 +601,8 @@ class ApplicationFullDetailSchema(Schema):
             deadline_at=obj.deadline_at.isoformat() if obj.deadline_at else None,
             remark=obj.remark,
             is_timeout=is_timeout,
-            has_follow_up_gap=has_follow_up_gap,
+            has_follow_up_gap=obj.follow_ups.filter(is_gap=True).exists(),
+            latest_gap_reason=obj.follow_ups.filter(is_gap=True).order_by("-follow_up_date").first().gap_reason if obj.follow_ups.filter(is_gap=True).exists() else "",
             timelines=[TimelineSchema.from_orm(t) for t in obj.timelines.all()],
             home_visit=home_visit,
             follow_ups=follow_ups,
@@ -652,9 +657,8 @@ def list_applications(request, status: Optional[str] = Query(None), handler_id: 
                 AdoptionStatus.APPROVED, AdoptionStatus.REJECTED,
                 AdoptionStatus.ADOPTION_COMPLETED, AdoptionStatus.CANCELLED,
                 AdoptionStatus.TIMEOUT
-            ])) |
-            Q(follow_ups__is_gap=True)
-        ).distinct()
+            ]))
+        )
     return [ApplicationListItemSchema.from_orm(a) for a in queryset]
 
 
@@ -723,10 +727,7 @@ def create_application(request, payload: CreateApplicationIn):
 @transaction.atomic
 def assign_handler(request, application_id: str, payload: AssignHandlerIn):
     try:
-        app = AdoptionApplication.objects.select_related('current_handler').get(id=application_id)
-        
-        if app.status not in [AdoptionStatus.APPROVED, AdoptionStatus.ADOPTION_COMPLETED]:
-            return ApiResponse(code=ErrorCode.INVALID_STATUS_TRANSITION, message='当前状态无法标记回访断档')
+        app = AdoptionApplication.objects.get(id=application_id)
         staff = Staff.objects.get(id=payload.staff_id)
         app.current_handler = staff
         app.last_action_at = timezone.now()
@@ -823,10 +824,7 @@ def pre_review(request, application_id: str, payload: PreReviewIn):
 @transaction.atomic
 def schedule_home_visit(request, application_id: str, payload: ScheduleHomeVisitIn):
     try:
-        app = AdoptionApplication.objects.select_related('current_handler').get(id=application_id)
-        
-        if app.status not in [AdoptionStatus.APPROVED, AdoptionStatus.ADOPTION_COMPLETED]:
-            return ApiResponse(code=ErrorCode.INVALID_STATUS_TRANSITION, message='当前状态无法标记回访断档')
+        app = AdoptionApplication.objects.get(id=application_id)
         if app.status != AdoptionStatus.PRE_REVIEW_PASS:
             return ApiResponse(code=ErrorCode.INVALID_STATUS_TRANSITION, message='当前状态无法安排家访')
 
@@ -927,10 +925,7 @@ def submit_home_visit(request, application_id: str, payload: HomeVisitResultIn):
 @transaction.atomic
 def recheck(request, application_id: str, payload: RecheckIn):
     try:
-        app = AdoptionApplication.objects.select_related('current_handler').get(id=application_id)
-        
-        if app.status not in [AdoptionStatus.APPROVED, AdoptionStatus.ADOPTION_COMPLETED]:
-            return ApiResponse(code=ErrorCode.INVALID_STATUS_TRANSITION, message='当前状态无法标记回访断档')
+        app = AdoptionApplication.objects.get(id=application_id)
         if app.status not in [AdoptionStatus.RECHECK_REQUIRED, AdoptionStatus.HOME_VISIT_PASS]:
             return ApiResponse(code=ErrorCode.INVALID_STATUS_TRANSITION, message='当前状态无法复核')
 
@@ -1066,8 +1061,7 @@ def get_dashboard_stats(request):
             'materials_missing': materials_missing,
             'timeout': timeout,
             'rejected': rejected,
-            'approved': approved,
-            'follow_up_gaps': AdoptionApplication.objects.filter(follow_ups__is_gap=True).distinct().count()
+            'approved': approved
         }
     )
 
@@ -1195,10 +1189,7 @@ def create_follow_up(request, application_id: str, payload: CreateFollowUpIn):
             if cached:
                 return ApiResponse(code=ErrorCode.SUCCESS, message='成功（幂等）', data=cached)
         
-        app = AdoptionApplication.objects.select_related('current_handler').get(id=application_id)
-        
-        if app.status not in [AdoptionStatus.APPROVED, AdoptionStatus.ADOPTION_COMPLETED]:
-            return ApiResponse(code=ErrorCode.INVALID_STATUS_TRANSITION, message='当前状态无法标记回访断档')
+        app = AdoptionApplication.objects.get(id=application_id)
         if app.status not in [AdoptionStatus.APPROVED, AdoptionStatus.ADOPTION_COMPLETED]:
             return ApiResponse(code=ErrorCode.INVALID_STATUS_TRANSITION, message='当前状态无法添加回访记录')
         
@@ -1249,18 +1240,20 @@ def create_follow_up(request, application_id: str, payload: CreateFollowUpIn):
 @transaction.atomic
 def mark_follow_up_gap(request, application_id: str, remark: str = '', follow_up_date: str = ''):
     try:
-        app = AdoptionApplication.objects.select_related('current_handler').get(id=application_id)
+        app = AdoptionApplication.objects.select_related("current_handler").get(id=application_id)
         
         if app.status not in [AdoptionStatus.APPROVED, AdoptionStatus.ADOPTION_COMPLETED]:
-            return ApiResponse(code=ErrorCode.INVALID_STATUS_TRANSITION, message='当前状态无法标记回访断档')
+            return ApiResponse(code=ErrorCode.INVALID_STATUS_TRANSITION, message="当前状态无法标记回访断档")
         
         latest_follow_up = app.follow_ups.order_by('-follow_up_date').first()
         
-        # 没有回访记录时直接创建断档记录
+        # 无回访记录时直接创建断档记录
         
-        latest_follow_up.is_gap = True
-        latest_follow_up.gap_reason = remark or '回访断档'
-        latest_follow_up.save()
+        if latest_follow_up and not latest_follow_up.is_gap:
+            latest_follow_up.is_gap = True
+            latest_follow_up.gap_reason = remark or '回访断档'
+            latest_follow_up.save()
+            gap_record = latest_follow_up
         
         create_timeline(app, '标记回访断档', app.status, app.current_handler, remark)
         
