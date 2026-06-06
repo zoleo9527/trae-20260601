@@ -348,6 +348,7 @@ async function main() {
     auditResult: AuditResult.REJECTED,
     auditAt: db.now(),
     auditOpinion: '费用需要重新核对',
+    returnReason: '费用明细不清晰，人工费标准需要重新核对',
   });
   db.statusHistories.push({
     id: db.generateId(),
