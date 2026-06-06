@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useCaseStore } from '@/store/useCaseStore';
 import StatusTag from '@/components/StatusTag/StatusTag';
@@ -15,13 +15,14 @@ import {
   Heart,
   Archive,
   AlertTriangle,
-  Clock
+  Clock,
+  X
 } from 'lucide-react';
 
 export default function Dashboard() {
   const navigate = useNavigate();
   const { cases, getFilteredCases, setFilters, filters } = useCaseStore();
-  const [searchKeyword, setSearchKeyword] = useState('');
+  const [searchKeyword, setSearchKeyword] = useState(filters.keyword || '');
   const [showFilters, setShowFilters] = useState(false);
 
   const stats = useMemo(() => {
@@ -31,32 +32,53 @@ export default function Dashboard() {
       fostering: cases.filter(c => c.status === 'fostering').length,
       adopted: cases.filter(c => c.status === 'adopted').length,
       archived: cases.filter(c => c.status === 'archived').length,
+      inCare: cases.filter(c => c.status === 'in_care').length,
       pendingReview: cases.filter(c => c.status === 'medical' || c.medicalStatus === 'treating').length,
     };
   }, [cases]);
 
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setFilters({ ...filters, keyword: searchKeyword || undefined });
+    }, 200);
+    return () => clearTimeout(timer);
+  }, [searchKeyword]);
+
   const filteredCases = useMemo(() => {
-    if (searchKeyword) {
-      setFilters({ ...filters, keyword: searchKeyword });
-    }
     return getFilteredCases();
-  }, [searchKeyword, filters, getFilteredCases, setFilters]);
+  }, [filters, getFilteredCases]);
 
   const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchKeyword(e.target.value);
+  };
+
+  const clearSearch = () => {
+    setSearchKeyword('');
+    setFilters({ ...filters, keyword: undefined });
   };
 
   const handleStatusFilter = (status: string) => {
     if (status === 'all') {
       setFilters({ ...filters, status: undefined });
     } else {
-      setFilters({ ...filters, status: [status as any] });
+      const currentStatus = filters.status || [];
+      const isSelected = currentStatus.includes(status as any);
+      const newStatus = isSelected 
+        ? currentStatus.filter(s => s !== status)
+        : [...currentStatus, status as any];
+      setFilters({ ...filters, status: newStatus.length > 0 ? newStatus : undefined });
     }
+  };
+
+  const isStatusSelected = (status: string) => {
+    if (status === 'all') return !filters.status || filters.status.length === 0;
+    return filters.status?.includes(status as any);
   };
 
   const statCards = [
     { label: '全部个案', value: stats.total, icon: PawPrint, color: 'bg-blue-500', bg: 'bg-blue-50' },
     { label: '医疗中', value: stats.medical, icon: Stethoscope, color: 'bg-red-500', bg: 'bg-red-50' },
+    { label: '待寄养', value: stats.inCare, icon: Home, color: 'bg-orange-500', bg: 'bg-orange-50' },
     { label: '寄养中', value: stats.fostering, icon: Home, color: 'bg-primary-500', bg: 'bg-primary-50' },
     { label: '已领养', value: stats.adopted, icon: Heart, color: 'bg-green-500', bg: 'bg-green-50' },
     { label: '已归档', value: stats.archived, icon: Archive, color: 'bg-warm-500', bg: 'bg-warm-100' },
@@ -75,7 +97,7 @@ export default function Dashboard() {
         </button>
       </div>
 
-      <div className="grid grid-cols-5 gap-4">
+      <div className="grid grid-cols-6 gap-4">
         {statCards.map((stat) => {
           const Icon = stat.icon;
           return (
@@ -139,7 +161,9 @@ export default function Dashboard() {
           <div className="space-y-2">
             {[
               { status: 'all', label: '全部个案', count: stats.total },
+              { status: 'registered', label: '已登记', count: stats.total - stats.medical - stats.inCare - stats.fostering - stats.adopted - stats.archived },
               { status: 'medical', label: '医疗中', count: stats.medical },
+              { status: 'in_care', label: '待寄养', count: stats.inCare },
               { status: 'fostering', label: '寄养中', count: stats.fostering },
               { status: 'adopted', label: '已领养', count: stats.adopted },
               { status: 'archived', label: '已归档', count: stats.archived },
@@ -148,7 +172,7 @@ export default function Dashboard() {
                 key={item.status}
                 onClick={() => handleStatusFilter(item.status)}
                 className={`w-full flex items-center justify-between p-3 rounded-lg transition-colors ${
-                  filters.status?.includes(item.status as any) 
+                  isStatusSelected(item.status)
                     ? 'bg-primary-50 text-primary-700' 
                     : 'hover:bg-warm-50 text-warm-700'
                 }`}
@@ -172,8 +196,16 @@ export default function Dashboard() {
                 placeholder="搜索个案编号、名称..."
                 value={searchKeyword}
                 onChange={handleSearch}
-                className="input pl-10 w-64"
+                className="input pl-10 pr-10 w-64"
               />
+              {searchKeyword && (
+                <button
+                  onClick={clearSearch}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-warm-400 hover:text-warm-600"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
             </div>
             <button 
               className="btn btn-outline"

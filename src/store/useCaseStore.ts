@@ -39,10 +39,13 @@ interface CaseState {
   getTimelineEventsByCaseId: (caseId: string) => TimelineEvent[];
   getSupplyUsagesByCaseId: (caseId: string) => SupplyUsage[];
   addFosterRecord: (record: FosterRecord) => void;
+  updateFosterRecord: (id: string, updates: Partial<FosterRecord>) => void;
   addSupplyUsage: (usage: SupplyUsage) => void;
   addMedicalRecord: (record: MedicalRecord) => void;
+  updateMedicalRecord: (id: string, updates: Partial<MedicalRecord>) => void;
   addTimelineEvent: (event: TimelineEvent) => void;
   updateCaseStatus: (caseId: string, status: RescueCase['status']) => void;
+  updateCase: (caseId: string, updates: Partial<RescueCase>) => void;
   addReviewLog: (log: ReviewLog) => void;
   getFilteredCases: () => RescueCase[];
 }
@@ -88,12 +91,24 @@ export const useCaseStore = create<CaseState>((set, get) => ({
     fosterRecords: [...state.fosterRecords, record],
   })),
 
+  updateFosterRecord: (id, updates) => set((state) => ({
+    fosterRecords: state.fosterRecords.map(f =>
+      f.id === id ? { ...f, ...updates } : f
+    ),
+  })),
+
   addSupplyUsage: (usage) => set((state) => ({
     supplyUsages: [...state.supplyUsages, usage],
   })),
 
   addMedicalRecord: (record) => set((state) => ({
     medicalRecords: [...state.medicalRecords, record],
+  })),
+
+  updateMedicalRecord: (id, updates) => set((state) => ({
+    medicalRecords: state.medicalRecords.map(m =>
+      m.id === id ? { ...m, ...updates } : m
+    ),
   })),
 
   addTimelineEvent: (event) => set((state) => ({
@@ -103,6 +118,12 @@ export const useCaseStore = create<CaseState>((set, get) => ({
   updateCaseStatus: (caseId, status) => set((state) => ({
     cases: state.cases.map(c => 
       c.id === caseId ? { ...c, status, updatedAt: new Date().toISOString() } : c
+    ),
+  })),
+
+  updateCase: (caseId, updates) => set((state) => ({
+    cases: state.cases.map(c =>
+      c.id === caseId ? { ...c, ...updates, updatedAt: new Date().toISOString() } : c
     ),
   })),
 

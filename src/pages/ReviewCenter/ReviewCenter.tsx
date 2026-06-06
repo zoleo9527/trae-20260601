@@ -26,7 +26,16 @@ type ReviewTab = 'medical' | 'foster' | 'archive';
 
 export default function ReviewCenter() {
   const navigate = useNavigate();
-  const { cases, medicalRecords, fosterRecords, reviewLogs, addReviewLog, addTimelineEvent } = useCaseStore();
+  const { 
+    cases, 
+    medicalRecords, 
+    fosterRecords, 
+    reviewLogs, 
+    addReviewLog, 
+    addTimelineEvent,
+    updateMedicalRecord,
+    updateCaseStatus
+  } = useCaseStore();
   const currentUser = useUserStore((state) => state.currentUser);
   const getUserName = useUserStore((state) => state.getUserName);
 
@@ -97,6 +106,17 @@ export default function ReviewCenter() {
     };
 
     addReviewLog(newReview);
+
+    if (activeTab === 'medical' && selectedItem.id) {
+      updateMedicalRecord(selectedItem.id, {
+        reviewed: status === 'approved',
+        reviewStatus: status,
+      });
+    }
+
+    if (activeTab === 'archive' && status === 'approved') {
+      updateCaseStatus(selectedItem.caseId, 'archived');
+    }
 
     const titleMap = {
       medical: '医疗记录复核',

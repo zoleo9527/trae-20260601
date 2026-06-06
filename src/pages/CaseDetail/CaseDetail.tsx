@@ -89,7 +89,7 @@ export default function CaseDetail() {
             <Home className="w-4 h-4" />
             寄养安排
           </Link>
-          <Link to={`/case/${id}/supplies`} className="btn btn-primary">
+          <Link to={`/case/${id}/supply`} className="btn btn-primary">
             <Package className="w-4 h-4" />
             物资领用
           </Link>

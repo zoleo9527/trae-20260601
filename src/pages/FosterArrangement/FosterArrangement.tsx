@@ -28,6 +28,8 @@ export default function FosterArrangement() {
   const caseData = useCaseStore((state) => state.getCaseById(id || ''));
   const fosterRecords = useCaseStore((state) => state.getFosterRecordsByCaseId(id || ''));
   const addFosterRecord = useCaseStore((state) => state.addFosterRecord);
+  const updateFosterRecord = useCaseStore((state) => state.updateFosterRecord);
+  const updateCaseStatus = useCaseStore((state) => state.updateCaseStatus);
   const addTimelineEvent = useCaseStore((state) => state.addTimelineEvent);
   const currentUser = useUserStore((state) => state.currentUser);
   
@@ -71,6 +73,7 @@ export default function FosterArrangement() {
     };
 
     addFosterRecord(newRecord);
+    updateCaseStatus(caseData.id, 'fostering');
     addTimelineEvent({
       id: `te_${Date.now()}`,
       caseId: caseData.id,
@@ -89,6 +92,14 @@ export default function FosterArrangement() {
 
   const handleReturnFoster = () => {
     if (!returnReason || !activeFoster) return;
+
+    updateFosterRecord(activeFoster.id, {
+      status: 'ended',
+      endDate: new Date().toISOString().split('T')[0],
+      returnReason,
+    });
+
+    updateCaseStatus(caseData.id, 'in_care');
 
     addTimelineEvent({
       id: `te_${Date.now()}`,
@@ -302,7 +313,7 @@ export default function FosterArrangement() {
           <div className="card p-6">
             <h3 className="section-title mb-4">快捷跳转</h3>
             <div className="space-y-2">
-              <Link to={`/case/${id}/supplies`} className="flex items-center justify-between p-3 rounded-lg hover:bg-warm-50 transition-colors">
+              <Link to={`/case/${id}/supply`} className="flex items-center justify-between p-3 rounded-lg hover:bg-warm-50 transition-colors">
                 <span className="text-warm-700">前往物资领用</span>
                 <span className="text-warm-400">→</span>
               </Link>

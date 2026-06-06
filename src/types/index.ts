@@ -8,7 +8,7 @@ export interface User {
   phone: string;
 }
 
-export type CaseStatus = 'registered' | 'medical' | 'fostering' | 'adopted' | 'archived';
+export type CaseStatus = 'registered' | 'medical' | 'in_care' | 'fostering' | 'adopted' | 'archived';
 export type MedicalStatus = 'pending' | 'treating' | 'healthy';
 export type AnimalType = 'cat' | 'dog' | 'other';
 
@@ -77,6 +77,7 @@ export interface MedicalRecord {
   reviewed: boolean;
   reviewedBy?: string;
   reviewedAt?: string;
+  reviewStatus?: 'approved' | 'rejected' | 'supplement_needed';
   notes: string;
 }
 

@@ -15,6 +15,7 @@ export const formatCaseStatus = (status: CaseStatus): { label: string; color: st
   const statusMap: Record<CaseStatus, { label: string; color: string }> = {
     registered: { label: '已登记', color: 'bg-blue-100 text-blue-700' },
     medical: { label: '医疗中', color: 'bg-red-100 text-red-700' },
+    in_care: { label: '待寄养', color: 'bg-orange-100 text-orange-700' },
     fostering: { label: '寄养中', color: 'bg-primary-100 text-primary-700' },
     adopted: { label: '已领养', color: 'bg-green-100 text-green-700' },
     archived: { label: '已归档', color: 'bg-warm-100 text-warm-600' },
