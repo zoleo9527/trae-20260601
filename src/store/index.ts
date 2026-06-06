@@ -17,9 +17,19 @@ import type {
 
 const generateId = () => Math.random().toString(36).substr(2, 9)
 const CURRENT_USER_KEY = 'cinema_current_user_id'
+const defaultUser: User = { id: 'u1', name: '张小明', role: 'frontline' }
+
+const getSavedUserId = (): string | null => {
+  try {
+    return localStorage.getItem(CURRENT_USER_KEY)
+  } catch {
+    return null
+  }
+}
 
 interface AppState {
   loading: boolean
+  userRestored: boolean
   currentUser: User
   users: User[]
   inventoryItems: InventoryItem[]
@@ -127,10 +137,9 @@ interface AppState {
   getRecentChanges: () => OperationLog[]
 }
 
-const defaultUser: User = { id: 'u1', name: '张小明', role: 'frontline' }
-
 export const useStore = create<AppState>((set, get) => ({
-  loading: false,
+  loading: true,
+  userRestored: false,
   currentUser: defaultUser,
   users: [],
   inventoryItems: [],
@@ -149,7 +158,7 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   initialize: async () => {
-    set({ loading: true })
+    set({ loading: true, userRestored: false })
     try {
       const [users, inventory, screenings, todos, risks, logs, exceptions] = await Promise.all([
         apiClient.auth.listUsers(),
@@ -162,8 +171,8 @@ export const useStore = create<AppState>((set, get) => ({
       ])
 
       const userList = users.data || []
-      const savedUserId = localStorage.getItem(CURRENT_USER_KEY)
-      let currentUser = userList.find((u) => u.id === savedUserId) || userList[0] || defaultUser
+      const savedUserId = getSavedUserId()
+      const currentUser = userList.find((u) => u.id === savedUserId) || userList[0] || defaultUser
 
       set({
         users: userList,
@@ -175,10 +184,11 @@ export const useStore = create<AppState>((set, get) => ({
         operationLogs: logs.data || [],
         exceptions: exceptions.data || [],
         loading: false,
+        userRestored: true,
       })
     } catch (error) {
       console.error('Failed to initialize store:', error)
-      set({ loading: false })
+      set({ loading: false, userRestored: true })
     }
   },
 

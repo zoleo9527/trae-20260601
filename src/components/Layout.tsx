@@ -5,9 +5,20 @@ import { Bell, Search } from 'lucide-react'
 import { useStore } from '@/store'
 
 export function Layout() {
-  const { todos, risks } = useStore()
+  const { todos, risks, userRestored } = useStore()
   const pendingTodos = todos.filter((t) => !t.completed).length
   const openRisks = risks.filter((r) => r.status !== 'resolved').length
+
+  if (!userRestored) {
+    return (
+      <div className="flex items-center justify-center h-screen bg-gray-50">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto mb-4" />
+          <p className="text-gray-500">加载中...</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="flex h-screen bg-gray-50">

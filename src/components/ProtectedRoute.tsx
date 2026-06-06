@@ -8,7 +8,7 @@ interface ProtectedRouteProps {
 }
 
 export function ProtectedRoute({ children }: ProtectedRouteProps) {
-  const { currentUser, initialize, loading } = useStore()
+  const { currentUser, userRestored, initialize, loading } = useStore()
   const location = useLocation()
   const initialized = useRef(false)
 
@@ -19,7 +19,7 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
     }
   }, [initialize])
 
-  if (loading) {
+  if (loading || !userRestored) {
     return (
       <div className="flex items-center justify-center h-screen">
         <div className="text-center">
