@@ -1,4 +1,4 @@
-<template>
+content = '''<template>
   <div class="borrow-page">
     <div class="page-header">
       <h2>钥匙借还管理</h2>
@@ -212,11 +212,11 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { getKeys, getStudents, borrowKey, returnKey, getBorrowRecords } from '@/api'
 import type { Key, Student, BorrowRecord } from '@/types'
 import { Check } from '@element-plus/icons-vue'
-import { useRoute } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 
 const route = useRoute()
@@ -244,8 +244,6 @@ const borrowForm = ref({
   remark: ''
 })
 
-const availableKeys = computed(() => keys.value.filter((k: Key) => k.status === 'available'))
-
 const validTabs = ['borrow', 'pending', 'history']
 
 const setTabFromQuery = () => {
@@ -254,6 +252,8 @@ const setTabFromQuery = () => {
     activeTab.value = tab
   }
 }
+
+const availableKeys = computed(() => keys.value.filter((k: Key) => k.status === 'available'))
 
 const formatTime = (time: string) => {
   if (!time) return '-'
@@ -458,3 +458,8 @@ onMounted(() => {
   font-weight: 500;
 }
 </style>
+'''
+
+with open('src/views/Borrow.vue', 'w') as f:
+    f.write(content)
+print('Borrow.vue written successfully')

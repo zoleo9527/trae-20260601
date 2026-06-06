@@ -147,6 +147,7 @@ interface QuickAction {
   icon: any
   color: string
   path: string
+  query?: Record<string, string | undefined>
 }
 
 const statsList = computed(() => [
@@ -204,7 +205,8 @@ const quickActions = computed<QuickAction[]>(() => {
         description: `${activeBorrows} 把钥匙借出未还，其中 ${overdueBorrows} 把已逾期`,
         icon: Switch,
         color: '#3b82f6',
-        path: '/borrow'
+        path: '/borrow',
+        query: { tab: 'pending' }
       },
       {
         title: '挂失补配',
@@ -214,7 +216,8 @@ const quickActions = computed<QuickAction[]>(() => {
         description: `${lostKeys} 把钥匙挂失中，需跟进补配`,
         icon: Warning,
         color: '#ef4444',
-        path: '/lost'
+        path: '/lost',
+        query: { tab: 'pending' }
       },
       {
         title: '数据重置',
@@ -231,13 +234,14 @@ const quickActions = computed<QuickAction[]>(() => {
     return [
       {
         title: '风险宿舍',
-        count: risks.value.length || overdueBorrows,
+        count: overdueBorrows,
         countLabel: '',
         showCount: true,
-        description: `${risks.value.length || overdueBorrows} 个宿舍存在钥匙逾期，需关注学生动向`,
+        description: `${overdueBorrows} 个宿舍存在钥匙逾期未还`,
         icon: View,
         color: '#f59e0b',
-        path: '/keys'
+        path: '/keys',
+        query: { filter: 'overdue' }
       },
       {
         title: '挂失跟进',
@@ -247,7 +251,8 @@ const quickActions = computed<QuickAction[]>(() => {
         description: `${lostKeys} 名学生钥匙挂失，需核实补配进度`,
         icon: Document,
         color: '#8b5cf6',
-        path: '/lost'
+        path: '/lost',
+        query: { tab: 'history' }
       }
     ]
   } else if (role === 'maintenance') {
@@ -260,7 +265,8 @@ const quickActions = computed<QuickAction[]>(() => {
         description: `${activeBorrows} 把公共区域钥匙待归还`,
         icon: Check,
         color: '#10b981',
-        path: '/borrow'
+        path: '/borrow',
+        query: { tab: 'pending' }
       },
       {
         title: '借用登记',
@@ -270,7 +276,8 @@ const quickActions = computed<QuickAction[]>(() => {
         description: '登记领取公共区域维修钥匙',
         icon: CirclePlus,
         color: '#3b82f6',
-        path: '/borrow'
+        path: '/borrow',
+        query: { tab: 'borrow' }
       }
     ]
   }
@@ -286,7 +293,10 @@ const quickActionColSpan = computed(() => {
 })
 
 const handleQuickAction = (action: QuickAction) => {
-  router.push(action.path)
+  router.push({
+    path: action.path,
+    query: action.query
+  })
 }
 
 const formatTime = (time: string) => {

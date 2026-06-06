@@ -197,13 +197,15 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { getKeys, reportLost, replaceKey, getLostRecords } from '@/api'
 import type { Key, LostRecord } from '@/types'
 import { Warning } from '@element-plus/icons-vue'
 import { useUserStore } from '@/stores/user'
 
+const route = useRoute()
 const userStore = useUserStore()
 
 const activeTab = ref('report')
@@ -232,6 +234,15 @@ const replaceForm = ref({
 })
 
 const availableKeys = computed(() => keys.value.filter(k => k.status !== 'lost'))
+
+const validTabs = ['report', 'pending', 'history']
+
+const setTabFromQuery = () => {
+  const tab = route.query.tab as string
+  if (tab && validTabs.includes(tab)) {
+    activeTab.value = tab
+  }
+}
 
 const formatTime = (time: string) => {
   if (!time) return '-'
@@ -378,7 +389,15 @@ const confirmReplace = async () => {
   }
 }
 
+watch(
+  () => route.query.tab,
+  () => {
+    setTabFromQuery()
+  }
+)
+
 onMounted(() => {
+  setTabFromQuery()
   loadKeys()
   loadPendingRecords()
   loadAllRecords()

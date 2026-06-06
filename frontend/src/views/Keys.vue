@@ -1,6 +1,14 @@
 <template>
   <div class="keys-page">
     <div class="card">
+      <div v-if="isOverdueView" class="overdue-alert">
+        <el-alert
+          title="当前显示：逾期风险视图 - 仅显示借出中的钥匙"
+          type="warning"
+          :closable="false"
+          show-icon
+        />
+      </div>
       <div class="filter-section">
         <el-form :inline="true" :model="filters" class="filter-form">
           <el-form-item label="楼栋">
@@ -194,7 +202,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { getKeys, getStudents, borrowKey, returnKey, reportLost } from '@/api'
@@ -203,12 +212,22 @@ import { Search } from '@element-plus/icons-vue'
 import { useUserStore } from '@/stores/user'
 
 const router = useRouter()
+const route = useRoute()
 const userStore = useUserStore()
 
 const loading = ref(false)
 const submitting = ref(false)
 const keys = ref<Key[]>([])
 const students = ref<Student[]>([])
+
+const isOverdueView = computed(() => route.query.filter === 'overdue')
+
+const applyFilterFromQuery = () => {
+  if (route.query.filter === 'overdue') {
+    filters.value.status = 'borrowed'
+    loadKeys()
+  }
+}
 
 const filters = ref({
   building: '',
@@ -414,13 +433,25 @@ const submitLost = async () => {
   }
 }
 
+watch(
+  () => route.query.filter,
+  () => {
+    applyFilterFromQuery()
+  }
+)
+
 onMounted(() => {
+  applyFilterFromQuery()
   loadKeys()
   loadStudents()
 })
 </script>
 
 <style scoped>
+.overdue-alert {
+  margin-bottom: 20px;
+}
+
 .keys-page {
   display: flex;
   flex-direction: column;
