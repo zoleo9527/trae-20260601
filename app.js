@@ -350,11 +350,19 @@ function openProjectDetail(projectId) {
         
         <div style="display: flex; gap: 8px; margin-top: 24px;">
             <button class="btn btn-primary" onclick="showTransferModalFromProject('${project.id}')">发起流转</button>
-            ${project.scripts && project.scripts.length > 0 ? `<button class="btn btn-outline" onclick="viewScriptApproval('${project.id}')">查看脚本审批</button>` : ''}
+            ${project.scripts && project.scripts.length > 0 ? `<button class="btn btn-outline" onclick="viewScriptApprovalFromProject('${project.id}')">查看脚本审批</button>` : ''}
         </div>
     `;
     
     panel.classList.remove('hidden');
+}
+
+function viewScriptApprovalFromProject(projectId) {
+    const project = getProjectById(projectId);
+    if (!project || !project.scripts || project.scripts.length === 0) return;
+    
+    const latestScriptId = project.scripts[project.scripts.length - 1].id;
+    viewScriptApproval(projectId, latestScriptId);
 }
 
 function closeProjectDetail() {
@@ -694,24 +702,28 @@ function renderScriptDetail(projectId, scriptId) {
                 <button class="btn btn-success" onclick="approveScriptAction('${projectId}', '${scriptId}')">审批通过</button>
                 <button class="btn btn-danger" onclick="showRejectModal('${projectId}', '${scriptId}')">驳回修改</button>
             ` : ''}
-            <button class="btn btn-primary" onclick="viewScriptApproval('${projectId}')">完整审批流程</button>
+            <button class="btn btn-primary" onclick="viewScriptApproval('${projectId}', '${scriptId}')">完整审批流程</button>
         </div>
     `;
 }
 
-function viewScriptApproval(projectId) {
+function viewScriptApproval(projectId, scriptId) {
     const project = getProjectById(projectId);
     if (!project) return;
     
-    const latestScript = project.scripts && project.scripts.length > 0 
-        ? project.scripts[project.scripts.length - 1] 
-        : null;
+    let targetScript = null;
+    if (scriptId && project.scripts) {
+        targetScript = project.scripts.find(s => s.id === scriptId);
+    }
+    if (!targetScript && project.scripts && project.scripts.length > 0) {
+        targetScript = project.scripts[project.scripts.length - 1];
+    }
     
     approvalModalContext = {
         projectId: projectId,
-        scriptId: latestScript ? latestScript.id : null,
-        scriptVersion: latestScript ? latestScript.version : null,
-        scriptStatus: latestScript ? latestScript.status : null
+        scriptId: targetScript ? targetScript.id : null,
+        scriptVersion: targetScript ? targetScript.version : null,
+        scriptStatus: targetScript ? targetScript.status : null
     };
     
     const body = document.getElementById('scriptApprovalBody');
@@ -723,7 +735,7 @@ function viewScriptApproval(projectId) {
             <div style="color: #8c8c8c;">
                 负责人：${getUserName(project.assignee)} (${getRoleName(role)}) · 
                 截止日期：${project.deadline}
-                ${latestScript ? ` · 最新脚本：${latestScript.version} (${getStatusName(latestScript.status)})` : ''}
+                ${targetScript ? ` · 当前操作：${targetScript.version} (${getStatusName(targetScript.status)})` : ''}
             </div>
         </div>
         
@@ -744,9 +756,12 @@ function viewScriptApproval(projectId) {
         ${project.scripts && project.scripts.length > 0 ? `
             <h4 style="margin: 24px 0 16px;">脚本版本</h4>
             ${project.scripts.map(s => `
-                <div style="padding: 16px; background: #fafafa; border-radius: 6px; margin-bottom: 12px;">
+                <div style="padding: 16px; background: ${s.id === (targetScript ? targetScript.id : null) ? '#e6f7ff' : '#fafafa'}; border-radius: 6px; margin-bottom: 12px; border: ${s.id === (targetScript ? targetScript.id : null) ? '2px solid #1890ff' : 'none'};">
                     <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
-                        <strong>${s.version}</strong>
+                        <div>
+                            <strong>${s.version}</strong>
+                            ${s.id === (targetScript ? targetScript.id : null) ? '<span style="margin-left: 8px; color: #1890ff; font-size: 12px;">← 当前操作</span>' : ''}
+                        </div>
                         <span class="status-tag ${s.status}">${getStatusName(s.status)}</span>
                     </div>
                     <div style="font-size: 13px; color: #8c8c8c; margin-bottom: 8px;">${s.createdAt}</div>
@@ -767,6 +782,9 @@ function approveScriptAction(projectId, scriptId) {
     if (!script) return;
     
     script.status = 'approved';
+    if (script.feedback) {
+        delete script.feedback;
+    }
     project.scriptStatus = 'approved';
     project.status = 'processing';
     project.blockedReason = '';
@@ -866,6 +884,9 @@ function approveScript() {
     
     if (script) {
         script.status = 'approved';
+        if (script.feedback) {
+            delete script.feedback;
+        }
     }
     project.scriptStatus = 'approved';
     project.status = 'processing';
@@ -977,7 +998,10 @@ function refreshAllViews() {
     }
     
     if (selectedProject) {
-        openProjectDetail(selectedProject.id);
+        const updatedProject = getProjectById(selectedProject.id);
+        if (updatedProject) {
+            openProjectDetail(updatedProject.id);
+        }
     }
 }
 
@@ -1016,7 +1040,7 @@ function renderFlowTimeline() {
 
 function renderArchiveList() {
     const container = document.getElementById('archiveList');
-    const archived = projects.filter(p => p.status === 'approved');
+    const archived = projects.filter(p => p.status === 'approved' || p.scriptStatus === 'approved');
     
     if (archived.length === 0) {
         container.innerHTML = '<div style="padding: 40px; text-align: center; color: #8c8c8c;">暂无已完成项目</div>';
