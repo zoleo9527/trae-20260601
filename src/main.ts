@@ -43,6 +43,9 @@ async function bootstrap() {
     console.log('  GET    /api/bed-adjustment/:id/logs     - 获取床位调整操作日志');
     console.log('  GET    /api/bed-adjustment/:id/review   - 床位调整回看（详情+日志）');
     console.log('');
+    console.log('【总览催办】');
+    console.log('  GET    /api/overview/todos               - 待办总览（按角色聚合统计）');
+    console.log('');
   });
 }
 
