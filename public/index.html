@@ -593,13 +593,23 @@
       `).join('');
     }
     
-    function openMealModal() {
+    function resetMealModal() {
+      document.getElementById('meal-class').value = '';
+      document.getElementById('meal-type').value = '午餐';
+      document.getElementById('meal-quantity').value = '40';
       document.getElementById('meal-date').value = new Date().toISOString().split('T')[0];
+      document.getElementById('meal-received-by').value = '';
+      document.getElementById('meal-notes').value = '';
+    }
+    
+    function openMealModal() {
+      resetMealModal();
       document.getElementById('meal-modal').classList.remove('hidden');
     }
     
     function closeMealModal() {
       document.getElementById('meal-modal').classList.add('hidden');
+      resetMealModal();
     }
     
     async function submitMeal() {
@@ -626,16 +636,22 @@
       alert('取餐记录已提交！');
     }
     
-    function openFeedbackModal() {
+    function resetFeedbackModal() {
       document.getElementById('feedback-class').value = '';
       document.getElementById('feedback-meal-record').innerHTML = '<option value="">请先选择班级</option>';
+      document.getElementById('feedback-type').value = 'MISSING';
       document.getElementById('feedback-reported-by').value = '';
       document.getElementById('feedback-description').value = '';
+    }
+    
+    function openFeedbackModal() {
+      resetFeedbackModal();
       document.getElementById('feedback-modal').classList.remove('hidden');
     }
     
     function closeFeedbackModal() {
       document.getElementById('feedback-modal').classList.add('hidden');
+      resetFeedbackModal();
     }
     
     async function submitFeedback() {
@@ -668,7 +684,18 @@
       alert('反馈已提交！已与取餐记录绑定，可追溯。');
     }
     
+    function resetMealDetailModal() {
+      document.getElementById('meal-archive-banner').innerHTML = '';
+      document.getElementById('meal-detail-content').innerHTML = '';
+      document.getElementById('meal-timeline').innerHTML = '';
+      const btn = document.getElementById('archive-meal-btn');
+      btn.classList.remove('hidden');
+      btn.disabled = false;
+      currentMealId = null;
+    }
+    
     async function viewMealDetail(id) {
+      resetMealDetailModal();
       currentMealId = id;
       const res = await fetch(`${API_BASE}/meals/${id}`);
       const meal = await res.json();
@@ -681,8 +708,6 @@
             <span class="text">此记录已由 <strong>${meal.archivedBy}</strong> 于 ${formatDate(meal.archivedAt)} 归档，数据只读不可修改</span>
           </div>
         `;
-      } else {
-        banner.innerHTML = '';
       }
       
       const content = document.getElementById('meal-detail-content');
@@ -703,16 +728,16 @@
       
       renderTimeline('meal-timeline', meal.timeline);
       
-      document.getElementById('archive-meal-btn').classList.toggle('hidden', meal.archived);
-      if (meal.archived) {
-        document.getElementById('archive-meal-btn').disabled = true;
-      }
+      const archiveBtn = document.getElementById('archive-meal-btn');
+      archiveBtn.classList.toggle('hidden', meal.archived);
+      archiveBtn.disabled = meal.archived;
+      
       document.getElementById('meal-detail-modal').classList.remove('hidden');
     }
     
     function closeMealDetailModal() {
       document.getElementById('meal-detail-modal').classList.add('hidden');
-      currentMealId = null;
+      resetMealDetailModal();
     }
     
     async function archiveMeal() {
@@ -739,7 +764,21 @@
       alert('归档成功！此取餐记录及其关联反馈已全部只读归档。');
     }
     
+    function resetFeedbackDetailModal() {
+      document.getElementById('feedback-archive-banner').innerHTML = '';
+      document.getElementById('feedback-detail-content').innerHTML = '';
+      document.getElementById('feedback-timeline').innerHTML = '';
+      document.getElementById('handle-feedback-section').classList.add('hidden');
+      document.getElementById('submit-handle-btn').classList.add('hidden');
+      document.getElementById('archive-feedback-btn').classList.add('hidden');
+      document.getElementById('handle-by').value = '';
+      document.getElementById('handle-notes').value = '';
+      document.getElementById('handle-status').value = 'RESOLVED';
+      currentFeedbackId = null;
+    }
+    
     async function viewFeedbackDetail(id) {
+      resetFeedbackDetailModal();
       currentFeedbackId = id;
       const res = await fetch(`${API_BASE}/feedbacks/${id}`);
       const fb = await res.json();
@@ -759,8 +798,6 @@
             <span class="text">关联的取餐记录已归档，此反馈已自动只读</span>
           </div>
         `;
-      } else {
-        banner.innerHTML = '';
       }
       
       const content = document.getElementById('feedback-detail-content');
@@ -796,9 +833,13 @@
       const canHandle = fb.status === 'PENDING' && !fb.archived && !(fb.mealRecord && fb.mealRecord.archived);
       const canArchive = !fb.archived && fb.status !== 'PENDING' && !(fb.mealRecord && fb.mealRecord.archived);
       
-      document.getElementById('handle-feedback-section').classList.toggle('hidden', !canHandle);
-      document.getElementById('submit-handle-btn').classList.toggle('hidden', !canHandle);
-      document.getElementById('archive-feedback-btn').classList.toggle('hidden', !canArchive);
+      if (canHandle) {
+        document.getElementById('handle-feedback-section').classList.remove('hidden');
+        document.getElementById('submit-handle-btn').classList.remove('hidden');
+      }
+      if (canArchive) {
+        document.getElementById('archive-feedback-btn').classList.remove('hidden');
+      }
       
       renderTimeline('feedback-timeline', fb.timeline);
       document.getElementById('feedback-detail-modal').classList.remove('hidden');
@@ -806,7 +847,7 @@
     
     function closeFeedbackDetailModal() {
       document.getElementById('feedback-detail-modal').classList.add('hidden');
-      currentFeedbackId = null;
+      resetFeedbackDetailModal();
     }
     
     async function handleFeedback() {
