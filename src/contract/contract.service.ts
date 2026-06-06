@@ -1,5 +1,5 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
-import { ContractStatus, UserRole } from '../common/enums';
+import { ArchiveStatus, ContractStatus, UserRole } from '../common/enums';
 import { User } from '../common/interfaces';
 import { InMemoryStore } from '../common/services/in-memory-store.service';
 import { NotificationService } from '../notification/notification.service';
@@ -221,6 +221,46 @@ export class ContractService {
 
   getStatusFlow(): Record<string, string[]> {
     return this.statusTransitions;
+  }
+
+  onArchiveCreated(contractId: string, archiveId: string, operator: User): Contract {
+    const contract = this.findOne(contractId);
+    const previousState = { archiveId: contract.archiveId, currentHandler: contract.currentHandler, currentHandlerRole: contract.currentHandlerRole };
+
+    contract.archiveId = archiveId;
+    contract.currentHandler = '';
+    contract.currentHandlerRole = UserRole.TALENT_AGENT;
+    contract.updatedAt = new Date();
+    contract.operationLogs.push(
+      this.store.createOperationLog(operator, '档案已创建', `档案 ID: ${archiveId} 已创建，合同与档案已关联`, previousState, { archiveId, currentHandler: '', currentHandlerRole: UserRole.TALENT_AGENT })
+    );
+
+    this.store.saveContract(contract);
+    return contract;
+  }
+
+  onArchiveStatusChanged(contractId: string, archiveStatus: ArchiveStatus, operator: User): Contract {
+    const contract = this.findOne(contractId);
+    const previousState = { currentHandler: contract.currentHandler, currentHandlerRole: contract.currentHandlerRole };
+
+    if (archiveStatus === ArchiveStatus.NEEDS_REVISION) {
+      contract.currentHandler = '';
+      contract.currentHandlerRole = UserRole.TALENT_AGENT;
+      contract.operationLogs.push(
+        this.store.createOperationLog(operator, '档案退回', '档案需要修改，已通知达人经纪', previousState, { currentHandler: '', currentHandlerRole: UserRole.TALENT_AGENT })
+      );
+      this.notificationService.notifyArchiveNeeded(contract.archiveId, contract.talentName);
+    } else if (archiveStatus === ArchiveStatus.COMPLETED) {
+      contract.currentHandler = '';
+      contract.currentHandlerRole = UserRole.ADMIN;
+      contract.operationLogs.push(
+        this.store.createOperationLog(operator, '档案完成', '档案维护已完成', previousState, { currentHandler: '', currentHandlerRole: UserRole.ADMIN })
+      );
+    }
+
+    contract.updatedAt = new Date();
+    this.store.saveContract(contract);
+    return contract;
   }
 
   triggerException(id: string, exceptionType: 'reject' | 'conflict' | 'overdue', operator: User): Contract {

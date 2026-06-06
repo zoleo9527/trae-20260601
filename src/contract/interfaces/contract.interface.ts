@@ -32,6 +32,7 @@ export interface Contract {
   remarks: ContractRemark[];
   currentHandler: string;
   currentHandlerRole: string;
+  archiveId?: string;
   submittedAt?: Date;
   signedAt?: Date;
   archivedAt?: Date;

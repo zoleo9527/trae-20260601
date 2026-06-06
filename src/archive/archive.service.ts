@@ -1,5 +1,5 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
-import { ArchiveStatus, UserRole } from '../common/enums';
+import { ArchiveStatus, ContractStatus, UserRole } from '../common/enums';
 import { User } from '../common/interfaces';
 import { InMemoryStore } from '../common/services/in-memory-store.service';
 import { ContractService } from '../contract/contract.service';
@@ -40,6 +40,19 @@ export class ArchiveService {
     const talent = this.talentService.findOne(talentId);
     const contract = this.contractService.findOne(contractId);
 
+    if (contract.talentId !== talentId) {
+      throw new BadRequestException('合同与达人不匹配，无法创建档案');
+    }
+
+    if (contract.status !== ContractStatus.PENDING_ARCHIVE) {
+      throw new BadRequestException(`合同状态为「${contract.status}」，无法创建档案。请先完成签约流程`);
+    }
+
+    const existingArchive = this.store.getArchiveByTalent(talentId);
+    if (existingArchive) {
+      throw new BadRequestException('该达人已存在档案，请勿重复创建');
+    }
+
     const sharedRemarks = contract.remarks
       .filter(r => r.isSharedToArchive)
       .map(r => ({
@@ -62,11 +75,14 @@ export class ArchiveService {
       lastModifiedBy: operator.id,
       lastModifiedAt: new Date(),
       operationLogs: [
-        this.store.createOperationLog(operator, '创建档案', `为达人「${talent.name}」创建档案，同步${sharedRemarks.length}条签约备注`),
+        this.store.createOperationLog(operator, '创建档案', `为达人「${talent.name}」创建档案，同步${sharedRemarks.length}条签约备注，签约状态：${contract.status}`),
       ],
     };
 
     this.store.saveArchive(archive);
+
+    this.contractService.onArchiveCreated(contractId, archive.id, operator);
+
     return archive;
   }
 
@@ -86,6 +102,11 @@ export class ArchiveService {
     );
 
     this.store.saveArchive(archive);
+
+    if (archive.contractId && (status === ArchiveStatus.NEEDS_REVISION || status === ArchiveStatus.COMPLETED)) {
+      this.contractService.onArchiveStatusChanged(archive.contractId, status, operator);
+    }
+
     return archive;
   }
 
@@ -163,6 +184,10 @@ export class ArchiveService {
   addBrandCooperation(id: string, cooperation: Omit<BrandCooperation, 'id'>, operator: User): TalentArchive {
     const archive = this.findOne(id);
 
+    if (operator.role !== UserRole.BUSINESS && operator.role !== UserRole.ADMIN) {
+      throw new ForbiddenException('只有商务可以添加品牌合作');
+    }
+
     const conflicts = this.checkScheduleConflict(archive, cooperation);
     if (conflicts.length > 0) {
       this.notificationService.notifyScheduleConflict(archive.talentName, cooperation.brandName, new Date());
@@ -204,6 +229,10 @@ export class ArchiveService {
       throw new NotFoundException('品牌合作不存在');
     }
 
+    if (operator.role !== UserRole.DIRECTOR && operator.role !== UserRole.ADMIN) {
+      throw new ForbiddenException('只有编导可以添加脚本版本');
+    }
+
     const oldVersions = archive.scriptVersions.filter(s => s.brandCooperationId === cooperationId);
     oldVersions.forEach(v => v.isLatest = false);
 
@@ -237,6 +266,10 @@ export class ArchiveService {
     
     if (!cooperation) {
       throw new NotFoundException('品牌合作不存在');
+    }
+
+    if (operator.role !== UserRole.BUSINESS && operator.role !== UserRole.ADMIN) {
+      throw new ForbiddenException('只有商务可以更新结算状态');
     }
 
     const previousState = { settlementStatus: cooperation.settlementStatus };
