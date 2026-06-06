@@ -57,6 +57,15 @@ export const scheduleApi = {
       body: JSON.stringify(data),
     }),
 
+  update: (
+    id: string,
+    data: Partial<LiveSchedule> & { idempotencyKey?: string; userId?: string },
+  ): Promise<ApiResponse<LiveSchedule>> =>
+    request(`/schedules/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+
   submitForReview: (
     id: string,
     data: { remark: string; idempotencyKey?: string; userId?: string },

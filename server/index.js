@@ -398,6 +398,47 @@ app.post('/api/schedules', (req, res) => {
   });
 });
 
+app.put('/api/schedules/:id', (req, res) => {
+  const { id } = req.params;
+  const { idempotencyKey, userId, ...data } = req.body;
+
+  const schedule = schedules.find(s => s.id === id);
+  if (!schedule) {
+    return res.status(404).json({ code: 404, message: '排期不存在' });
+  }
+
+  if (!['DRAFT', 'RETURNED'].includes(schedule.status)) {
+    return res.status(400).json({ code: 400, message: `当前状态${schedule.status}不能编辑` });
+  }
+
+  const result = addWorkflowRecord({
+    bizType: 'SCHEDULE',
+    bizId: id,
+    bizVersion: schedule.currentVersion + 1,
+    actionType: 'UPDATE',
+    actionBy: userId || 'user-001',
+    remark: '更新排期信息',
+    previousStatus: schedule.status,
+    newStatus: schedule.status,
+    idempotencyKey,
+  });
+
+  if (!result.isDuplicate) {
+    Object.assign(schedule, data, {
+      currentVersion: schedule.currentVersion + 1,
+      updatedAt: dayjs().toISOString(),
+    });
+  }
+
+  res.json({
+    code: 0,
+    data: schedule,
+    idempotencyKey: result.idempotencyKey,
+    isDuplicate: result.isDuplicate,
+    message: result.isDuplicate ? '重复提交，已忽略' : '更新成功',
+  });
+});
+
 app.put('/api/schedules/:id/submit', (req, res) => {
   const { id } = req.params;
   const { remark, idempotencyKey, userId } = req.body;
@@ -890,6 +931,7 @@ app.listen(PORT, () => {
   console.log(`   GET  /api/schedules/:id`);
   console.log(`   GET  /api/schedules/:id/history`);
   console.log(`   POST /api/schedules`);
+  console.log(`   PUT  /api/schedules/:id`);
   console.log(`   PUT  /api/schedules/:id/submit`);
   console.log(`   PUT  /api/schedules/:id/approve`);
   console.log(`   PUT  /api/schedules/:id/return`);

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Card,
   Form,
@@ -13,12 +13,13 @@ import {
   Checkbox,
   message,
   Divider,
+  Spin,
 } from 'antd';
 import { ArrowLeftOutlined, SaveOutlined, PlusOutlined, DeleteOutlined } from '@ant-design/icons';
 import { useParams, useNavigate } from 'react-router-dom';
 import dayjs from 'dayjs';
-import { useStore } from '@/store';
-import type { ScheduleProduct, Product } from '@/types';
+import { scheduleApi, productApi } from '@/services/api';
+import type { ScheduleProduct, Product, LiveSchedule } from '@/types';
 
 const { TextArea } = Input;
 const { RangePicker } = DatePicker;
@@ -28,20 +29,47 @@ const ScheduleCreate = () => {
   const navigate = useNavigate();
   const isEdit = !!id;
 
-  const schedule = useStore((state) => (isEdit ? state.getScheduleById(id) : null));
-  const products = useStore((state) => state.products);
-  const createSchedule = useStore((state) => state.createSchedule);
-  const updateSchedule = useStore((state) => state.updateSchedule);
-  const supplementSchedule = useStore((state) => state.supplementSchedule);
-
-  const [form] = Form.useForm();
-  const [selectedProducts, setSelectedProducts] = useState<ScheduleProduct[]>(
-    schedule?.products || [],
-  );
+  const [loading, setLoading] = useState(false);
+  const [schedule, setSchedule] = useState<LiveSchedule | null>(null);
+  const [availableProducts, setAvailableProducts] = useState<Product[]>([]);
+  const [selectedProducts, setSelectedProducts] = useState<ScheduleProduct[]>([]);
   const [productModal, setProductModal] = useState(false);
-  const [availableProducts, setAvailableProducts] = useState<Product[]>(
-    products.filter((p) => p.status === 'APPROVED'),
-  );
+  const [form] = Form.useForm();
+
+  const fetchData = async () => {
+    setLoading(true);
+    try {
+      const [productsRes] = await Promise.all([
+        productApi.getList(),
+        isEdit ? scheduleApi.getDetail(id!) : Promise.resolve(null),
+      ]);
+
+      const approvedProducts = productsRes.data.filter((p) => p.status === 'APPROVED');
+      setAvailableProducts(approvedProducts);
+
+      if (isEdit) {
+        const scheduleRes = await scheduleApi.getDetail(id!);
+        setSchedule(scheduleRes.data);
+        setSelectedProducts(scheduleRes.data.products || []);
+        form.setFieldsValue({
+          title: scheduleRes.data.title,
+          anchorName: scheduleRes.data.anchorName,
+          assistantName: scheduleRes.data.assistantName,
+          platform: scheduleRes.data.platform,
+          timeRange: [dayjs(scheduleRes.data.startTime), dayjs(scheduleRes.data.endTime)],
+          remark: '',
+        });
+      }
+    } catch (e: any) {
+      message.error(e.message || '加载数据失败');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, [id]);
 
   const handleSave = async () => {
     try {
@@ -61,20 +89,23 @@ const ScheduleCreate = () => {
 
       if (isEdit) {
         if (schedule?.status === 'RETURNED') {
-          supplementSchedule(schedule.id, scheduleData, values.remark || '补录完成');
+          await scheduleApi.supplement(schedule.id, {
+            ...scheduleData,
+            remark: values.remark || '补录完成',
+          });
           message.success('补录成功，已回到草稿状态');
         } else {
-          updateSchedule(schedule!.id, scheduleData);
+          await scheduleApi.update(schedule!.id, scheduleData);
           message.success('更新成功');
         }
       } else {
-        createSchedule(scheduleData);
+        await scheduleApi.create(scheduleData);
         message.success('创建成功');
       }
 
       navigate('/schedules');
-    } catch (e) {
-      // validation error
+    } catch (e: any) {
+      message.error(e.message || '保存失败');
     }
   };
 
@@ -82,7 +113,7 @@ const ScheduleCreate = () => {
     const newProducts: ScheduleProduct[] = productIds
       .filter((pid) => !selectedProducts.find((sp) => sp.productId === pid))
       .map((pid, idx) => {
-        const p = products.find((prod) => prod.id === pid)!;
+        const p = availableProducts.find((prod) => prod.id === pid)!;
         return {
           productId: p.id,
           productName: p.name,
@@ -114,7 +145,7 @@ const ScheduleCreate = () => {
       dataIndex: 'displayOrder',
       key: 'displayOrder',
       width: 70,
-      render: (v: number, _: any, idx: number) => idx + 1,
+      render: (_v: number, _r: any, idx: number) => idx + 1,
     },
     {
       title: '商品名称',
@@ -170,6 +201,14 @@ const ScheduleCreate = () => {
     },
   ];
 
+  if (loading && isEdit) {
+    return (
+      <div style={{ textAlign: 'center', padding: 100 }}>
+        <Spin size="large" />
+      </div>
+    );
+  }
+
   return (
     <div>
       <Space style={{ marginBottom: 16 }}>
@@ -183,13 +222,11 @@ const ScheduleCreate = () => {
           form={form}
           layout="vertical"
           initialValues={{
-            title: schedule?.title || '',
-            anchorName: schedule?.anchorName || '',
-            assistantName: schedule?.assistantName || '',
-            platform: schedule?.platform || '抖音',
-            timeRange: schedule
-              ? [dayjs(schedule.startTime), dayjs(schedule.endTime)]
-              : [dayjs().add(1, 'day').hour(19).minute(0), dayjs().add(1, 'day').hour(21).minute(0)],
+            platform: '抖音',
+            timeRange: [
+              dayjs().add(1, 'day').hour(19).minute(0),
+              dayjs().add(1, 'day').hour(21).minute(0),
+            ],
             remark: '',
           }}
         >
