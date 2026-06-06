@@ -31,7 +31,7 @@ const AppData = {
     {type:'restock',id:'RS20260606001',title:'USB-C快充充电器 - 重新上架',time:fmtDate(today)+' 09:50',icon:'📥'},
     {type:'return',id:'RT20260606003',title:'面部精华液套装 - 签收处理',time:fmtDate(today)+' 08:35',icon:'📦'}
   ],
-  getReturns(f={}){let r=[...this.returns];if(f.status)r=r.filter(x=>x.status===f.status);if(f.handler)r=r.filter(x=>x.currentHandler===f.handler);if(f.delayed)r=r.filter(x=>x.isDelayed);if(f.newReturn)r=r.filter(x=>x.isNewReturn);if(f.todayDue)r=r.filter(x=>x.dueDate===fmtDate(today));return r;},
+  getReturns(f={}){let r=[...this.returns];if(f.status)r=r.filter(x=>x.status===f.status);if(f.handler)r=r.filter(x=>x.currentHandler===f.handler);if(f.delayed)r=r.filter(x=>x.isDelayed&&x.status!=='completed');if(f.newReturn)r=r.filter(x=>x.isNewReturn);if(f.todayDue)r=r.filter(x=>x.dueDate===fmtDate(today)&&x.status!=='completed');if(f.excludeCompleted)r=r.filter(x=>x.status!=='completed');return r;},
   getReturnById(id){return this.returns.find(x=>x.id===id);},
   getRestocks(f={}){let r=[...this.restocks];if(f.status)r=r.filter(x=>x.status===f.status);return r;},
   getRestockById(id){return this.restocks.find(x=>x.id===id);},
