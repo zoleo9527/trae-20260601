@@ -81,6 +81,7 @@ export class SpecialMealService {
     this.store.createTimeline(TimelineBusinessType.SPECIAL_TAG, tag.id, '新增特殊餐标签', operator, {
       tagType: tag.tagType,
       tagContent: tag.tagContent,
+      studentId: student.id,
       studentName: student.name,
     });
 
@@ -115,6 +116,8 @@ export class SpecialMealService {
     this.store.createTimeline(TimelineBusinessType.SPECIAL_TAG, tag.id, '移除特殊餐标签', operator, {
       tagType: tag.tagType,
       tagContent: tag.tagContent,
+      studentId: tag.studentId,
+      studentName: tag.studentName,
       reason: dto.reason,
     });
 

@@ -145,16 +145,28 @@ export class SeedService {
     }
 
     const todayOrders = this.store.getMealOrders().filter(o => o.date === today && o.status !== OrderStatus.CANCELLED);
-    const specialCountToday = todayOrders.filter(o => o.mealType === MealType.SPECIAL).length;
 
-    const classBreakdown = [
-      { classId: class1.id, className: class1.name, count: todayOrders.length, specialCount: specialCountToday },
-      { classId: class2.id, className: class2.name, count: 32, specialCount: 3 },
-      { classId: class3.id, className: class3.name, count: 30, specialCount: 4 },
-    ];
+    const classMap = new Map<string, { name: string; count: number; specialCount: number }>();
+    for (const order of todayOrders) {
+      if (!classMap.has(order.classId)) {
+        classMap.set(order.classId, { name: order.className, count: 0, specialCount: 0 });
+      }
+      const cls = classMap.get(order.classId)!;
+      cls.count++;
+      if (order.mealType === MealType.SPECIAL) {
+        cls.specialCount++;
+      }
+    }
 
-    const totalAll = classBreakdown.reduce((sum, c) => sum + c.count, 0);
-    const specialAll = classBreakdown.reduce((sum, c) => sum + c.specialCount, 0);
+    const classBreakdown = Array.from(classMap.entries()).map(([classId, data]) => ({
+      classId,
+      className: data.name,
+      count: data.count,
+      specialCount: data.specialCount,
+    }));
+
+    const totalAll = todayOrders.length;
+    const specialAll = todayOrders.filter(o => o.mealType === MealType.SPECIAL).length;
 
     const summaryToday: MealSummary = {
       id: 'summary-today',
@@ -352,6 +364,7 @@ export class SeedService {
       meat: { quantity: 100, unit: 'g' },
       egg: { quantity: 50, unit: 'g' },
       oil: { quantity: 15, unit: 'g' },
+      salt: { quantity: 3, unit: 'g' },
     };
     const specialExtra = {
       vegetables: { quantity: 50, unit: 'g' },
@@ -380,6 +393,7 @@ export class SeedService {
       meat: '肉类',
       egg: '鸡蛋',
       oil: '食用油',
+      salt: '食盐',
     };
     return names[key] || key;
   }
