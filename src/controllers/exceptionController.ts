@@ -170,15 +170,19 @@ export function initiateRefund(req: AuthenticatedRequest, res: Response) {
   try {
     const { id } = req.params;
 
-    const exception = exceptionService.initiateRefundForException(
+    const result = exceptionService.initiateRefundForException(
       id,
       req.user!.id
     );
 
     const response: ApiResponse = {
       code: 200,
-      message: '退票流程已发起',
-      data: exception
+      message: '退票流程已发起，已生成待审核退票记录',
+      data: {
+        exception: result.exception,
+        refunds: result.refunds,
+        pendingCount: result.refunds.filter(r => r.status === 'pending').length
+      }
     };
     res.json(response);
   } catch (error: any) {

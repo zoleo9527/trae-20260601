@@ -2,7 +2,7 @@
 
 ## 基础信息
 
-- 服务地址: `http://localhost:3000`
+- 服务地址: `http://localhost:3002`
 - 接口前缀: `/api`
 - 认证方式: Header 中传入 `x-user-key`
 
@@ -23,7 +23,7 @@
 
 **请求示例:**
 ```bash
-curl -H "x-user-key: schedule-manager" http://localhost:3000/api/auth/me
+curl -H "x-user-key: schedule-manager" http://localhost:3002/api/auth/me
 ```
 
 **响应示例:**
@@ -57,7 +57,7 @@ curl -H "x-user-key: schedule-manager" http://localhost:3000/api/auth/me
 
 **请求示例:**
 ```bash
-curl -H "x-user-key: duty-manager" http://localhost:3000/api/exceptions/statistics
+curl -H "x-user-key: duty-manager" http://localhost:3002/api/exceptions/statistics
 ```
 
 **响应示例:**
@@ -98,54 +98,96 @@ curl -X POST -H "Content-Type: application/json" -H "x-user-key: schedule-manage
     "currentHallId": "hall-001",
     "affectedTicketCount": 110
   }' \
-  http://localhost:3000/api/exceptions
+  http://localhost:3002/api/exceptions
 ```
 
-**请求参数说明:
+**请求参数:**
+
 | 参数 | 类型 | 必填 | 说明 |
 |------|------|------|------|
 | scheduleId | string | 是 | 排片ID |
-| type | string | 是 | 异常类型: temp_hall_change(临时换厅), equipment_failure(设备故障), group_ticket_confusion(团体票核销混乱), content_abnormal(内容异常) |
+| type | string | 是 | 异常类型: equipment_failure(设备故障), temp_hall_change(临时换厅), content_abnormal(内容异常), group_ticket_confusion(团体票核销混乱) |
 | title | string | 是 | 异常标题 |
-| description | string | 是 | 异常描述 |
+| description | string | 是 | 异常详细描述 |
 | currentHallId | string | 否 | 当前影厅ID |
 | affectedTicketCount | number | 否 | 受影响票数 |
 
-### 4. 获取异常列表（分页筛选）
+**响应示例:**
+```json
+{
+  "code": 200,
+  "message": "异常上报成功",
+  "data": {
+    "id": "exc-uuid",
+    "scheduleId": "sched-003",
+    "type": "equipment_failure",
+    "status": "reported",
+    "title": "放映机灯泡告警",
+    "description": "放映机出现温度过高告警，需紧急处理",
+    "reportedBy": "user-schedule-001",
+    "reportedAt": "2026-06-06T10:00:00.000Z",
+    "currentHallId": "hall-001",
+    "affectedTicketCount": 110
+  }
+}
+```
+
+### 4. 获取放映异常列表
 **GET** `/api/exceptions`
 
-**请求示例 - 全部异常列表:
-```bash
-curl -H "x-user-key: duty-manager" "http://localhost:3000/api/exceptions?page=1&pageSize=10"
-```
+**请求参数:**
 
-**请求示例 - 按状态筛选(处理中):
-```bash
-curl -H "x-user-key: duty-manager" "http://localhost:3000/api/exceptions?status=processing"
-```
-
-**请求示例 - 按类型筛选(设备故障):
-```bash
-curl -H "x-user-key: duty-manager" "http://localhost:3000/api/exceptions?type=equipment_failure"
-```
-
-**筛选参数:**
-| 参数 | 类型 | 说明 |
-|------|------|------|
-| page | number | 页码，默认1 |
-| pageSize | number | 每页条数，默认10 |
-| status | string | 状态: reported, processing, hall_changed, refund_initiated, resolved, closed |
-| type | string | 异常类型 |
-| scheduleId | string | 排片ID |
-| startDate | string | 开始日期 |
-| endDate | string | 结束日期 |
-
-### 5. 获取异常详情
-**GET** `/api/exceptions/:id
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| page | number | 否 | 页码，默认 1 |
+| pageSize | number | 否 | 每页条数，默认 10 |
+| status | string | 否 | 按状态筛选 |
+| type | string | 否 | 按类型筛选 |
+| scheduleId | string | 否 | 按排片ID筛选 |
+| startDate | string | 否 | 上报开始时间 (yyyy-MM-dd) |
+| endDate | string | 否 | 上报结束时间 (yyyy-MM-dd) |
 
 **请求示例:**
 ```bash
-curl -H "x-user-key: duty-manager" http://localhost:3000/api/exceptions/exc-003
+curl -H "x-user-key: duty-manager" \
+  "http://localhost:3002/api/exceptions?page=1&pageSize=10&status=processing&startDate=2026-06-01"
+```
+
+**响应示例:**
+```json
+{
+  "code": 200,
+  "message": "success",
+  "data": {
+    "list": [
+      {
+        "id": "exc-003",
+        "scheduleId": "sched-003",
+        "type": "temp_hall_change",
+        "status": "processing",
+        "title": "临时换厅需求",
+        "description": "因1号厅空调系统突发故障",
+        "reportedBy": "user-schedule-001",
+        "reportedAt": "2026-06-06 17:00:00",
+        "currentHallId": "hall-001",
+        "affectedTicketCount": 110,
+        "handledBy": "user-schedule-001",
+        "handledAt": "2026-06-06 17:10:00"
+      }
+    ],
+    "total": 1,
+    "page": 1,
+    "pageSize": 10
+  }
+}
+```
+
+### 5. 获取放映异常详情
+**GET** `/api/exceptions/:id`
+
+**请求示例:**
+```bash
+curl -H "x-user-key: duty-manager" http://localhost:3002/api/exceptions/exc-005
 ```
 
 ### 6. 更新异常状态
@@ -153,46 +195,78 @@ curl -H "x-user-key: duty-manager" http://localhost:3000/api/exceptions/exc-003
 
 **权限:** 排片经理、值班经理
 
-**请求示例 - 从已上报转为处理中:**
+**请求示例:**
 ```bash
 curl -X PUT -H "Content-Type: application/json" -H "x-user-key: duty-manager" \
-  -d '{"status": "processing"}' \
-  http://localhost:3000/api/exceptions/exc-004/status
+  -d '{"status": "processing", "resolution": "已联系技术人员现场处理"}' \
+  http://localhost:3002/api/exceptions/exc-004/status
 ```
 
-**状态流转规则:**
-- reported → processing, resolved
-- processing → hall_changed, refund_initiated, resolved
-- hall_changed → resolved, refund_initiated
-- refund_initiated → resolved
-- resolved → closed
-- closed → (终态，不可转移
+**请求参数:**
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| status | string | 是 | 目标状态 |
+| resolution | string | 否 | 处理说明（可选，不传则保留原有值） |
 
 ### 7. 执行临时换厅
 **POST** `/api/exceptions/:id/hall-change`
 
 **权限:** 排片经理、值班经理
 
-**前置条件:** 异常状态必须为 processing
-
 **请求示例:**
 ```bash
 curl -X POST -H "Content-Type: application/json" -H "x-user-key: schedule-manager" \
-  -d '{"targetHallId": "hall-005"}' \
-  http://localhost:3000/api/exceptions/exc-003/hall-change
+  -d '{"targetHallId": "hall-005", "remark": "转移至VIP厅继续放映"}' \
+  http://localhost:3002/api/exceptions/exc-003/hall-change
 ```
 
-### 8. 发起退票流程
+### 8. 发起异常退票
 **POST** `/api/exceptions/:id/initiate-refund`
 
 **权限:** 值班经理
 
-**前置条件:** 异常状态必须为 processing 或 hall_changed
+**功能说明:** 
+- 将异常状态更新为 `refund_initiated`
+- 自动创建并关联待审核的退票记录
+- 返回生成的退票列表，可直接进行后续审批
 
 **请求示例:**
 ```bash
 curl -X POST -H "x-user-key: duty-manager" \
-  http://localhost:3000/api/exceptions/exc-003/initiate-refund
+  http://localhost:3002/api/exceptions/exc-004/initiate-refund
+```
+
+**响应示例:**
+```json
+{
+  "code": 200,
+  "message": "退票流程已发起，已生成待审核退票记录",
+  "data": {
+    "exception": {
+      "id": "exc-004",
+      "scheduleId": "sched-005",
+      "status": "refund_initiated",
+      "title": "IMAX厅音响系统异常"
+    },
+    "refunds": [
+      {
+        "id": "refund-uuid",
+        "orderId": "ORD-EXC-004-1",
+        "scheduleId": "sched-005",
+        "exceptionId": "exc-004",
+        "userName": "观众1",
+        "phone": "138xxxxxxxx",
+        "ticketCount": 2,
+        "totalAmount": 90,
+        "reason": "screening_exception",
+        "status": "pending",
+        "appliedAt": "2026-06-06T10:00:00.000Z"
+      }
+    ],
+    "pendingCount": 3
+  }
+}
 ```
 
 ### 9. 关闭异常
@@ -200,100 +274,85 @@ curl -X POST -H "x-user-key: duty-manager" \
 
 **权限:** 值班经理
 
-**前置条件:** 异常状态必须为 resolved
-
 **请求示例:**
 ```bash
 curl -X POST -H "Content-Type: application/json" -H "x-user-key: duty-manager" \
-  -d '{"resolution": "设备已修复，观众已全部妥善处理完毕"}' \
-  http://localhost:3000/api/exceptions/exc-006/close
+  -d '{"resolution": "已确认所有观众妥善安置，设备恢复正常，异常关闭"}' \
+  http://localhost:3002/api/exceptions/exc-006/close
 ```
 
 ---
 
-## 三、退票处理管理
+## 三、退票管理
 
 ### 10. 获取退票统计
 **GET** `/api/refunds/statistics`
 
 **请求示例:**
 ```bash
-curl -H "x-user-key: ticket-supervisor" http://localhost:3000/api/refunds/statistics
+curl -H "x-user-key: ticket-supervisor" http://localhost:3002/api/refunds/statistics
 ```
 
-### 11. 退票处理回看
-**GET** `/api/refunds/review`
-
-**权限:** 票务主管、值班经理
+### 11. 提交退票申请
+**POST** `/api/refunds`
 
 **请求示例:**
 ```bash
-curl -H "x-user-key: ticket-supervisor" "http://localhost:3000/api/refunds/review?page=1&pageSize=20"
-```
-
-### 12. 创建退票申请
-**POST** `/api/refunds`
-
-**权限:** 票务主管、值班经理
-
-**请求示例 - 关联异常的退票:**
-```bash
 curl -X POST -H "Content-Type: application/json" -H "x-user-key: ticket-supervisor" \
   -d '{
-    "orderId": "ORD20260606008",
-    "scheduleId": "sched-004",
-    "exceptionId": "exc-005",
+    "orderId": "ORD20260606088",
+    "scheduleId": "sched-003",
+    "exceptionId": "exc-003",
     "userId": "u008",
     "userName": "郑十",
     "phone": "13800138008",
     "ticketCount": 2,
-    "totalAmount": 80.00,
-    "reason": "screening_exception"
+    "totalAmount": 100,
+    "reason": "user_request",
+    "remark": "用户临时有事"
   }' \
-  http://localhost:3000/api/refunds
+  http://localhost:3002/api/refunds
 ```
 
-### 13. 获取退票列表（分页筛选）
+### 12. 获取退票列表
 **GET** `/api/refunds`
 
-**请求示例 - 待审核退票:**
+**请求参数:**
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| page | number | 否 | 页码，默认 1 |
+| pageSize | number | 否 | 每页条数，默认 10 |
+| status | string | 否 | 按状态筛选: pending/approved/processed/rejected |
+| reason | string | 否 | 按原因筛选: screening_exception/user_request/group_ticket_issue/other |
+| scheduleId | string | 否 | 按排片ID筛选 |
+| exceptionId | string | 否 | 按异常ID筛选 |
+| startDate | string | 否 | 申请开始时间 |
+| endDate | string | 否 | 申请结束时间 |
+| keyword | string | 否 | 关键词搜索（用户名/手机号/订单号） |
+
+**请求示例:**
 ```bash
-curl -H "x-user-key: ticket-supervisor" "http://localhost:3000/api/refunds?status=pending"
+curl -H "x-user-key: ticket-supervisor" \
+  "http://localhost:3002/api/refunds?page=1&pageSize=10&status=pending&reason=screening_exception"
 ```
 
-**请求示例 - 关键字搜索:**
-```bash
-curl -H "x-user-key: ticket-supervisor" "http://localhost:3000/api/refunds?keyword=张三"
-```
-
-**筛选参数:**
-| 参数 | 类型 | 说明 |
-|------|------|------|
-| page | number | 页码 |
-| pageSize | number | 每页条数 |
-| status | string | 状态: pending, approved, rejected, processed, failed |
-| reason | string | 原因: screening_exception, user_request, group_ticket_issue |
-| scheduleId | string | 排片ID |
-| exceptionId | string | 异常ID |
-| keyword | string | 搜索关键字(用户名/手机号/订单号) |
-
-### 14. 获取退票详情
+### 13. 获取退票详情
 **GET** `/api/refunds/:id`
 
-### 15. 审批通过退票
+### 14. 审批通过退票
 **POST** `/api/refunds/:id/approve`
 
 **权限:** 票务主管、值班经理
 
-**前置条件:** 状态为 pending
-
 **请求示例:**
 ```bash
-curl -X POST -H "x-user-key: ticket-supervisor" \
-  http://localhost:3000/api/refunds/refund-003/approve
+curl -X POST -H "Content-Type: application/json" -H "x-user-key: ticket-supervisor" \
+  -d '{"remark": "情况属实，同意退票"}' \
+  http://localhost:3002/api/refunds/refund-003/approve
 ```
 
-### 16. 驳回退票
+### 15. 驳回退票
 **POST** `/api/refunds/:id/reject`
 
 **权限:** 票务主管、值班经理
@@ -301,106 +360,154 @@ curl -X POST -H "x-user-key: ticket-supervisor" \
 **请求示例:**
 ```bash
 curl -X POST -H "Content-Type: application/json" -H "x-user-key: ticket-supervisor" \
-  -d '{"rejectReason": "影片已正常放映超过30分钟，不符合退票政策"}' \
-  http://localhost:3000/api/refunds/refund-005/reject
+  -d '{"rejectReason": "影片已开场超过30分钟，不符合退票条件"}' \
+  http://localhost:3002/api/refunds/refund-005/reject
 ```
 
-### 17. 执行退款
+### 16. 执行退款
 **POST** `/api/refunds/:id/process`
 
 **权限:** 票务主管、值班经理
 
-**前置条件:** 状态为 approved
-
 **请求示例:**
 ```bash
 curl -X POST -H "x-user-key: ticket-supervisor" \
-  http://localhost:3000/api/refunds/refund-004/process
+  http://localhost:3002/api/refunds/refund-004/process
 ```
 
-### 18. 查询某异常关联的所有退票
+### 17. 查询异常关联的退票记录
 **GET** `/api/refunds/by-exception/:exceptionId`
+
+### 18. 退票处理回看
+**GET** `/api/refunds/review`
+
+**功能说明:** 查看已完成的退票记录（含已处理、已驳回、已失败），支持多条件筛选
+
+**请求参数:**
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| page | number | 否 | 页码，默认 1 |
+| pageSize | number | 否 | 每页条数，默认 20 |
+| startDate | string | 否 | 申请开始时间 |
+| endDate | string | 否 | 申请结束时间 |
+| reason | string | 否 | 按退票原因筛选 |
 
 **请求示例:**
 ```bash
-curl -H "x-user-key: ticket-supervisor" http://localhost:3000/api/refunds/by-exception/exc-005
+curl -H "x-user-key: ticket-supervisor" \
+  "http://localhost:3002/api/refunds/review?page=1&pageSize=10&reason=screening_exception&startDate=2026-06-01"
+```
+
+**响应示例:**
+```json
+{
+  "code": 200,
+  "message": "success",
+  "data": {
+    "list": [
+      {
+        "id": "refund-001",
+        "orderId": "ORD20260606001",
+        "scheduleId": "sched-001",
+        "exceptionId": "exc-001",
+        "userName": "张三",
+        "phone": "13800138001",
+        "ticketCount": 2,
+        "totalAmount": 98,
+        "reason": "screening_exception",
+        "status": "processed",
+        "appliedAt": "2026-06-06 09:35:00",
+        "approvedBy": "user-ticket-001",
+        "approvedAt": "2026-06-06 09:40:00",
+        "processedAt": "2026-06-06 09:45:00",
+        "movieName": "流浪地球3",
+        "startTime": "2026-06-06 10:00:00"
+      }
+    ],
+    "total": 3,
+    "page": 1,
+    "pageSize": 10
+  }
+}
 ```
 
 ---
 
-## 四、主链路完整流程示例
+## 四、状态流转说明
 
-### 流程: 设备故障 → 上报 → 处理 → 换厅 → 退票 → 关闭
+### 放映异常状态流转
+
+```
+reported (已上报)
+    ↓
+processing (处理中)
+    ↓        ↓
+hall_changed (换厅完成)  →  refund_initiated (退票中)
+    ↓        ↓
+resolved (已解决)
+    ↓
+closed (已关闭)
+```
+
+| 状态 | 说明 | 可操作角色 |
+|------|------|-----------|
+| reported | 已上报，待处理 | 排片经理、值班经理 |
+| processing | 处理中 | 排片经理、值班经理 |
+| hall_changed | 已完成换厅 | 排片经理、值班经理 |
+| refund_initiated | 退票流程进行中 | 值班经理 |
+| resolved | 问题已解决，待关闭 | 值班经理 |
+| closed | 异常已关闭 | 值班经理 |
+
+### 退票状态流转
+
+```
+pending (待审核)
+    ↓      ↓
+approved (已审批)  rejected (已驳回)
+    ↓
+processed (已退款)
+```
+
+---
+
+## 五、主链路完整流程示例
+
+### 场景：设备故障 → 上报异常 → 发起退票 → 审核退票 → 执行退款 → 关闭异常
 
 ```bash
-# 1. 排片经理上报异常
+# 1. 排片经理上报放映异常
 curl -X POST -H "Content-Type: application/json" -H "x-user-key: schedule-manager" \
   -d '{
     "scheduleId": "sched-003",
     "type": "equipment_failure",
-    "title": "1号厅空调故障",
-    "description": "空调突然停止制冷，室内温度上升",
+    "title": "放映机突发故障",
+    "description": "放映机无法启动，需紧急处理",
     "currentHallId": "hall-001",
     "affectedTicketCount": 110
   }' \
-  http://localhost:3000/api/exceptions
+  http://localhost:3002/api/exceptions
 
-# 2. 值班经理接收，转为处理中
+# 2. 值班经理领取处理（状态变为 processing）
 curl -X PUT -H "Content-Type: application/json" -H "x-user-key: duty-manager" \
   -d '{"status": "processing"}' \
-  http://localhost:3000/api/exceptions/<exceptionId>/status
+  http://localhost:3002/api/exceptions/{exc-id}/status
 
-# 3. 排片经理执行换厅到5号厅
-curl -X POST -H "Content-Type: application/json" -H "x-user-key: schedule-manager" \
-  -d '{"targetHallId": "hall-005"}' \
-  http://localhost:3000/api/exceptions/<exceptionId>/hall-change
-
-# 4. 值班经理发起退票流程（部分观众不愿意换厅）
+# 3. 值班经理发起退票流程（自动生成待审核退票记录）
 curl -X POST -H "x-user-key: duty-manager" \
-  http://localhost:3000/api/exceptions/<exceptionId>/initiate-refund
+  http://localhost:3002/api/exceptions/{exc-id}/initiate-refund
 
-# 5. 票务主管审核退票
+# 4. 票务主管审核退票
+curl -X POST -H "Content-Type: application/json" -H "x-user-key: ticket-supervisor" \
+  -d '{"remark": "情况属实"}' \
+  http://localhost:3002/api/refunds/{refund-id}/approve
+
+# 5. 执行退款
 curl -X POST -H "x-user-key: ticket-supervisor" \
-  http://localhost:3000/api/refunds/<refundId>/approve
+  http://localhost:3002/api/refunds/{refund-id}/process
 
-# 6. 执行退款
-curl -X POST -H "x-user-key: ticket-supervisor" \
-  http://localhost:3000/api/refunds/<refundId>/process
-
-# 7. 异常标记为已解决
-curl -X PUT -H "Content-Type: application/json" -H "x-user-key: duty-manager" \
-  -d '{"status": "resolved", "resolution": "换厅成功，部分退票已完成退款"}' \
-  http://localhost:3000/api/exceptions/<exceptionId>/status
-
-# 8. 值班经理关闭异常
+# 6. 值班经理关闭异常
 curl -X POST -H "Content-Type: application/json" -H "x-user-key: duty-manager" \
-  -d '{"resolution": "全部处理完毕，无后续问题"}' \
-  http://localhost:3000/api/exceptions/<exceptionId>/close
+  -d '{"resolution": "设备已修复，所有退票已处理完成"}' \
+  http://localhost:3002/api/exceptions/{exc-id}/close
 ```
-
----
-
-## 五、测试数据说明
-
-### 放映异常记录 (6条)
-
-| ID | 类型 | 状态 | 说明 |
-|----|------|------|------|
-| exc-001 | 设备故障 | closed(已关闭) | ✅ 正常关闭，换厅+退票完成 |
-| exc-002 | 团体票混乱 | closed(已关闭) | ✅ 正常关闭，核销问题已处理 |
-| exc-003 | 临时换厅 | processing(处理中) | ⚠️ 卡住，等待换厅处理 |
-| exc-004 | 设备故障 | reported(已上报) | ⚠️ 卡住，无人接单处理 |
-| exc-005 | 内容异常 | refund_initiated(退票中) | 🔄 退票流程进行中 |
-| exc-006 | 设备故障 | resolved(已解决) | ⏳ 待值班经理关闭 |
-
-### 退票记录 (7条)
-
-| ID | 状态 | 关联异常 |
-|----|------|----------|
-| refund-001 | processed(已处理) | exc-001 |
-| refund-002 | processed(已处理) | exc-001 |
-| refund-003 | pending(待审核) | exc-005 |
-| refund-004 | approved(已审批) | exc-005 |
-| refund-005 | pending(待审核) | - |
-| refund-006 | rejected(已驳回) | exc-002 |
-| refund-007 | pending(待审核) | exc-005 |

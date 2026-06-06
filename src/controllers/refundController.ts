@@ -221,13 +221,14 @@ export function getStatistics(req: AuthenticatedRequest, res: Response) {
 
 export function getReviewList(req: AuthenticatedRequest, res: Response) {
   try {
-    const { startDate, endDate, page, pageSize } = req.query;
+    const { startDate, endDate, page, pageSize, reason } = req.query;
 
     const result = refundService.getRefundReviewList(
       startDate as string,
       endDate as string,
       Number(page) || 1,
-      Number(pageSize) || 20
+      Number(pageSize) || 20,
+      reason as string
     );
 
     const response: ApiResponse = {

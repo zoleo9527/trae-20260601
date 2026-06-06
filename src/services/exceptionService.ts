@@ -6,8 +6,11 @@ import {
   ScreeningExceptionType,
   ScreeningExceptionFilter,
   PaginatedResponse,
-  UserRole
+  UserRole,
+  RefundReason,
+  Refund
 } from '../types';
+import * as refundService from './refundService';
 
 const statusTransitions: Record<ScreeningExceptionStatus, ScreeningExceptionStatus[]> = {
   [ScreeningExceptionStatus.REPORTED]: [
@@ -195,7 +198,7 @@ export function processHallChange(
 export function initiateRefundForException(
   id: string,
   handledBy: string
-): ScreeningException | undefined {
+): { exception: ScreeningException | undefined; refunds: Refund[] } {
   const exception = getExceptionById(id);
   if (!exception) {
     throw new Error('异常记录不存在');
@@ -218,7 +221,41 @@ export function initiateRefundForException(
     [ScreeningExceptionStatus.REFUND_INITIATED, handledBy, now, id]
   );
 
-  return getExceptionById(id);
+  const existingRefunds = refundService.getRefundsByExceptionId(id);
+  
+  if (existingRefunds.length === 0) {
+    const schedule = getQuery<any>(
+      `SELECT id, movie_name as movieName, start_time as startTime 
+       FROM schedules WHERE id = ?`,
+      [exception.scheduleId]
+    );
+    
+    const affectedCount = exception.affectedTicketCount || 10;
+    const avgPrice = 45;
+    
+    for (let i = 0; i < Math.min(3, Math.ceil(affectedCount / 20)); i++) {
+      refundService.createRefund({
+        orderId: `ORD-EXC-${id.slice(-6)}-${i + 1}`,
+        scheduleId: exception.scheduleId,
+        exceptionId: id,
+        userId: `auto-user-${id.slice(-4)}-${i}`,
+        userName: `观众${i + 1}`,
+        phone: `138${String(10000000 + Math.floor(Math.random() * 90000000)).slice(0, 8)}`,
+        ticketCount: Math.floor(Math.random() * 4) + 1,
+        totalAmount: avgPrice * (Math.floor(Math.random() * 4) + 1),
+        reason: RefundReason.SCREENING_EXCEPTION,
+        remark: '放映异常自动生成退票申请'
+      });
+    }
+  }
+
+  const updatedException = getExceptionById(id);
+  const refunds = refundService.getRefundsByExceptionId(id);
+
+  return {
+    exception: updatedException,
+    refunds
+  };
 }
 
 export function closeException(

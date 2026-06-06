@@ -25,6 +25,38 @@ export function getDatabase(): DatabaseData {
   return dbInstance;
 }
 
+function toCamelCase(snakeStr: string): string {
+  return snakeStr.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase());
+}
+
+function toSnakeCase(camelStr: string): string {
+  return camelStr.replace(/([A-Z])/g, '_$1').toLowerCase();
+}
+
+function convertKeysToCamelCase(obj: any): any {
+  if (!obj || typeof obj !== 'object') return obj;
+  if (Array.isArray(obj)) {
+    return obj.map(item => convertKeysToCamelCase(item));
+  }
+  const result: any = {};
+  for (const key of Object.keys(obj)) {
+    result[toCamelCase(key)] = obj[key];
+  }
+  return result;
+}
+
+function convertKeysToSnakeCase(obj: any): any {
+  if (!obj || typeof obj !== 'object') return obj;
+  if (Array.isArray(obj)) {
+    return obj.map(item => convertKeysToSnakeCase(item));
+  }
+  const result: any = {};
+  for (const key of Object.keys(obj)) {
+    result[toSnakeCase(key)] = obj[key];
+  }
+  return result;
+}
+
 export function runQuery(sql: string, params: any[] = []): { lastID: any; changes: number } {
   const db = getDatabase();
   const sqlLower = sql.toLowerCase().trim();
@@ -35,24 +67,25 @@ export function runQuery(sql: string, params: any[] = []): { lastID: any; change
       const tableName = match[1];
       const columns = match[2].split(',').map(c => c.trim());
       
-      let newId = uuidv4();
+      const id = params[columns.indexOf('id')] !== undefined ? params[columns.indexOf('id')] : uuidv4();
       const newRecord: any = {};
       
       columns.forEach((col, index) => {
-        if (col === 'id' && params[index] === undefined) {
-          newRecord[col] = newId;
-        } else {
-          newRecord[col] = params[index];
-        }
+        const camelKey = toCamelCase(col);
+        newRecord[camelKey] = params[index];
       });
+      
+      if (columns.indexOf('id') === -1 || newRecord.id === undefined) {
+        newRecord.id = id;
+      }
 
-      if (tableName === 'users') db.users.push(newRecord as User);
-      else if (tableName === 'halls') db.halls.push(newRecord as Hall);
-      else if (tableName === 'schedules') db.schedules.push(newRecord as Schedule);
-      else if (tableName === 'screening_exceptions') db.screeningExceptions.push(newRecord as ScreeningException);
-      else if (tableName === 'refunds') db.refunds.push(newRecord as Refund);
+      if (tableName === 'users') db.users.push(convertKeysToCamelCase(newRecord) as User);
+      else if (tableName === 'halls') db.halls.push(convertKeysToCamelCase(newRecord) as Hall);
+      else if (tableName === 'schedules') db.schedules.push(convertKeysToCamelCase(newRecord) as Schedule);
+      else if (tableName === 'screening_exceptions') db.screeningExceptions.push(convertKeysToCamelCase(newRecord) as ScreeningException);
+      else if (tableName === 'refunds') db.refunds.push(convertKeysToCamelCase(newRecord) as Refund);
 
-      return { lastID: newRecord.id || newId, changes: 1 };
+      return { lastID: newRecord.id, changes: 1 };
     }
   } else if (sqlLower.startsWith('update')) {
     const match = sql.match(/UPDATE\s+(\w+)\s+SET\s+(.+?)\s+WHERE\s+(.+)/i);
@@ -67,10 +100,22 @@ export function runQuery(sql: string, params: any[] = []): { lastID: any; change
         targetId = params[params.length - 1];
       }
 
-      const updates = setClauses.split(',').map(s => {
-        const [col, val] = s.trim().split('=').map(p => p.trim());
-        return { column: col, value: val };
-      });
+      const setMatches = setClauses.split(',').map(s => s.trim());
+      const updates: { column: string; value: any; isCoalesceResolution?: boolean }[] = [];
+      
+      let paramIdx = 0;
+      for (const clause of setMatches) {
+        if (clause.includes('COALESCE(?, resolution)')) {
+          updates.push({ column: 'resolution', value: params[paramIdx], isCoalesceResolution: true });
+          paramIdx++;
+        } else {
+          const eqMatch = clause.match(/(\w+)\s*=\s*\?/i);
+          if (eqMatch) {
+            updates.push({ column: eqMatch[1], value: params[paramIdx] });
+            paramIdx++;
+          }
+        }
+      }
 
       let changes = 0;
       let list: any[] = [];
@@ -81,16 +126,16 @@ export function runQuery(sql: string, params: any[] = []): { lastID: any; change
       else if (tableName === 'halls') list = db.halls;
       else if (tableName === 'schedules') list = db.schedules;
 
-      let paramIdx = 0;
       for (const record of list) {
         if (targetId && record.id === targetId) {
           updates.forEach(u => {
-            const paramVal = params[paramIdx];
-            paramIdx++;
-            if (u.value === 'COALESCE(?, resolution)') {
-              if (paramVal !== null) record.resolution = paramVal;
-            } else if (u.value === '?') {
-              (record as any)[u.column] = paramVal;
+            const camelKey = toCamelCase(u.column);
+            if (u.isCoalesceResolution) {
+              if (u.value !== null && u.value !== undefined) {
+                (record as any)[camelKey] = u.value;
+              }
+            } else {
+              (record as any)[camelKey] = u.value;
             }
           });
           changes++;
@@ -105,19 +150,76 @@ export function runQuery(sql: string, params: any[] = []): { lastID: any; change
   return { lastID: null, changes: 0 };
 }
 
-function mapRowToCamelCase(row: any): any {
-  if (!row) return row;
-  const result: any = {};
-  for (const key of Object.keys(row)) {
-    const camelKey = key.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase());
-    result[camelKey] = row[key];
-  }
-  return result;
-}
-
 export function getQuery<T = any>(sql: string, params: any[] = []): T | undefined {
   const result = allQuery(sql, params);
   return result[0] as T | undefined;
+}
+
+function parseWhereConditions(whereStr: string, params: any[]): { key: string; op: string; value: any }[] {
+  const conditions: { key: string; op: string; value: any }[] = [];
+  let paramIdx = 0;
+  
+  const clauses = whereStr.split(/\s+AND\s+/i);
+  for (const clause of clauses) {
+    const trimmed = clause.trim();
+    
+    if (trimmed.includes('IN (?, ?, ?)')) {
+      const keyMatch = trimmed.match(/(\w+)\s+IN/i);
+      if (keyMatch) {
+        const values = [params[paramIdx], params[paramIdx + 1], params[paramIdx + 2]];
+        conditions.push({ key: toCamelCase(keyMatch[1]), op: 'IN', value: values });
+        paramIdx += 3;
+      }
+    } else if (trimmed.includes('LIKE ?')) {
+      const keyMatch = trimmed.match(/(\w+)\s+LIKE/i);
+      if (keyMatch) {
+        conditions.push({ key: toCamelCase(keyMatch[1]), op: 'LIKE', value: params[paramIdx] });
+        paramIdx++;
+      }
+    } else if (trimmed.includes('>=')) {
+      const keyMatch = trimmed.match(/(\w+)\s+>=/);
+      if (keyMatch) {
+        conditions.push({ key: toCamelCase(keyMatch[1]), op: '>=', value: params[paramIdx] });
+        paramIdx++;
+      }
+    } else if (trimmed.includes('<=')) {
+      const keyMatch = trimmed.match(/(\w+)\s+<=/);
+      if (keyMatch) {
+        conditions.push({ key: toCamelCase(keyMatch[1]), op: '<=', value: params[paramIdx] });
+        paramIdx++;
+      }
+    } else if (trimmed.includes('=')) {
+      const keyMatch = trimmed.match(/(\w+)\s*=/);
+      if (keyMatch) {
+        conditions.push({ key: toCamelCase(keyMatch[1]), op: '=', value: params[paramIdx] });
+        paramIdx++;
+      }
+    }
+  }
+  
+  return conditions;
+}
+
+function applyConditions<T>(records: T[], conditions: { key: string; op: string; value: any }[]): T[] {
+  return records.filter(record => {
+    return conditions.every(cond => {
+      const recordValue = (record as any)[cond.key];
+      
+      if (cond.op === '=') {
+        return recordValue === cond.value;
+      } else if (cond.op === '>=') {
+        return new Date(recordValue).getTime() >= new Date(cond.value).getTime();
+      } else if (cond.op === '<=') {
+        return new Date(recordValue).getTime() <= new Date(cond.value).getTime();
+      } else if (cond.op === 'IN') {
+        return cond.value.includes(recordValue);
+      } else if (cond.op === 'LIKE') {
+        const searchValue = String(cond.value).replace(/%/g, '');
+        return String(recordValue || '').includes(searchValue);
+      }
+      return true;
+    });
+  });
 }
 
 export function allQuery<T = any>(sql: string, params: any[] = []): T[] {
@@ -125,30 +227,14 @@ export function allQuery<T = any>(sql: string, params: any[] = []): T[] {
   const sqlLower = sql.toLowerCase();
 
   if (sqlLower.includes('from screening_exceptions')) {
-    let results = [...db.screeningExceptions];
+    let results = [...db.screeningExceptions] as T[];
     
     if (sqlLower.includes('where')) {
-      const whereMatch = sql.match(/WHERE\s+(.+?)\s*(ORDER|LIMIT|$)/i);
+      const whereMatch = sql.match(/WHERE\s+(.+?)\s*(ORDER|LIMIT|GROUP|$)/i);
       if (whereMatch) {
         const whereStr = whereMatch[1];
-        let paramIdx = 0;
-        
-        if (whereStr.includes('status = ?')) {
-          results = results.filter(r => r.status === params[paramIdx]);
-          paramIdx++;
-        }
-        if (whereStr.includes('type = ?')) {
-          results = results.filter(r => r.type === params[paramIdx]);
-          paramIdx++;
-        }
-        if (whereStr.includes('schedule_id = ?')) {
-          results = results.filter(r => r.scheduleId === params[paramIdx]);
-          paramIdx++;
-        }
-        if (whereStr.includes('id = ?')) {
-          results = results.filter(r => r.id === params[paramIdx]);
-          paramIdx++;
-        }
+        const conditions = parseWhereConditions(whereStr, params);
+        results = applyConditions(results, conditions);
       }
     }
 
@@ -161,7 +247,7 @@ export function allQuery<T = any>(sql: string, params: any[] = []): T[] {
     }
 
     if (sqlLower.includes('order by reported_at desc')) {
-      results.sort((a, b) => new Date(b.reportedAt).getTime() - new Date(a.reportedAt).getTime());
+      results.sort((a: any, b: any) => new Date(b.reportedAt).getTime() - new Date(a.reportedAt).getTime());
     }
 
     if (sqlLower.includes('limit')) {
@@ -177,42 +263,18 @@ export function allQuery<T = any>(sql: string, params: any[] = []): T[] {
       return [{ total: results.length }] as T[];
     }
 
-    return results as T[];
+    return results;
   }
 
   if (sqlLower.includes('from refunds')) {
-    let results = [...db.refunds];
+    let results = [...db.refunds] as T[];
     
     if (sqlLower.includes('where')) {
-      let paramIdx = 0;
-      if (sqlLower.includes('status = ?')) {
-        results = results.filter(r => r.status === params[paramIdx]);
-        paramIdx++;
-      }
-      if (sqlLower.includes('exception_id = ?')) {
-        results = results.filter(r => r.exceptionId === params[paramIdx]);
-        paramIdx++;
-      }
-      if (sqlLower.includes('schedule_id = ?')) {
-        results = results.filter(r => r.scheduleId === params[paramIdx]);
-        paramIdx++;
-      }
-      if (sqlLower.includes('id = ?')) {
-        results = results.filter(r => r.id === params[paramIdx]);
-        paramIdx++;
-      }
-      if (sqlLower.includes('status IN (?, ?, ?)')) {
-        const statuses = [params[0], params[1], params[2]];
-        results = results.filter(r => statuses.includes(r.status));
-      }
-      if (sqlLower.includes('user_name like')) {
-        const keyword = params[paramIdx] as string;
-        const cleanKeyword = keyword.replace(/%/g, '');
-        results = results.filter(r => 
-          r.userName.includes(cleanKeyword) || 
-          r.phone.includes(cleanKeyword) || 
-          r.orderId.includes(cleanKeyword)
-        );
+      const whereMatch = sql.match(/WHERE\s+(.+?)\s*(ORDER|LIMIT|GROUP|$)/i);
+      if (whereMatch) {
+        const whereStr = whereMatch[1];
+        const conditions = parseWhereConditions(whereStr, params);
+        results = applyConditions(results, conditions);
       }
     }
 
@@ -227,7 +289,7 @@ export function allQuery<T = any>(sql: string, params: any[] = []): T[] {
     }
 
     if (sqlLower.includes('order by applied_at desc')) {
-      results.sort((a, b) => new Date(b.appliedAt).getTime() - new Date(a.appliedAt).getTime());
+      results.sort((a: any, b: any) => new Date(b.appliedAt).getTime() - new Date(a.appliedAt).getTime());
     }
 
     if (sqlLower.includes('limit')) {
@@ -244,17 +306,17 @@ export function allQuery<T = any>(sql: string, params: any[] = []): T[] {
     }
 
     if (sqlLower.includes('left join schedules')) {
-      results = results.map(r => {
+      results = (results as any[]).map(r => {
         const schedule = db.schedules.find(s => s.id === r.scheduleId);
         return {
           ...r,
           movieName: schedule?.movieName,
           startTime: schedule?.startTime
         };
-      });
+      }) as T[];
     }
 
-    return results as T[];
+    return results;
   }
 
   return [];

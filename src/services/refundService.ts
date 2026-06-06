@@ -247,7 +247,8 @@ export function getRefundReviewList(
   startDate?: string,
   endDate?: string,
   page: number = 1,
-  pageSize: number = 20
+  pageSize: number = 20,
+  reason?: string
 ): PaginatedResponse<any> {
   const offset = (page - 1) * pageSize;
 
@@ -261,6 +262,10 @@ export function getRefundReviewList(
   if (endDate) {
     whereClauses.push('applied_at <= ?');
     params.push(endDate);
+  }
+  if (reason) {
+    whereClauses.push('reason = ?');
+    params.push(reason);
   }
 
   const whereSql = `WHERE ${whereClauses.join(' AND ')}`;
