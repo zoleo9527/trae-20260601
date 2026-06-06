@@ -177,7 +177,13 @@ export default function RescueDetail() {
   const upcomingFollowUps = animalFollowUps.filter(
     (f) => !f.isCompleted && !isToday(parseISO(f.date)) && !isBefore(startOfDay(parseISO(f.date)), today)
   );
-  const completedFollowUps = animalFollowUps.filter((f) => f.isCompleted);
+  const completedFollowUps = animalFollowUps
+    .filter((f) => f.isCompleted)
+    .sort((a, b) => {
+      const dateA = a.completedAt ? new Date(a.completedAt).getTime() : new Date(a.date).getTime();
+      const dateB = b.completedAt ? new Date(b.completedAt).getTime() : new Date(b.date).getTime();
+      return dateB - dateA;
+    });
 
   const isFormValid = () => {
     if (!selectedStatus || !statusNote.trim()) return false;
@@ -353,7 +359,7 @@ export default function RescueDetail() {
               <div>
                 <p className="text-xs text-gray-400 font-medium mb-2">已完成</p>
                 <div className="space-y-2">
-                  {completedFollowUps.slice(0, 3).map((fu) => (
+                  {completedFollowUps.map((fu) => (
                     <div
                       key={fu.id}
                       className="p-3 bg-gray-50 border border-gray-100 rounded-lg opacity-90"
