@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { Appointment, Dock, User, AppointmentStatus } from '../types';
+import { Appointment, Dock, User } from '../types';
 
 const api = axios.create({
   baseURL: '/api',

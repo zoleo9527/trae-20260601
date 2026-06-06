@@ -7,7 +7,6 @@ import {
   Space,
   Input,
   Select,
-  DatePicker,
   message,
 } from 'antd';
 import { EyeOutlined, ReloadOutlined, SearchOutlined } from '@ant-design/icons';
@@ -15,8 +14,6 @@ import { useNavigate } from 'react-router-dom';
 import dayjs from 'dayjs';
 import { appointmentsApi } from '../../services/api';
 import { Appointment, AppointmentStatus, StatusTextMap, StatusColorMap } from '../../types';
-
-const { RangePicker } = DatePicker;
 
 const AppointmentList: React.FC = () => {
   const navigate = useNavigate();

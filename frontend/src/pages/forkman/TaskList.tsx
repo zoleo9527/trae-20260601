@@ -22,7 +22,7 @@ import { useNavigate } from 'react-router-dom';
 import dayjs from 'dayjs';
 import { appointmentsApi } from '../../services/api';
 import { useAuth } from '../../store/auth';
-import { Appointment, AppointmentStatus, StatusTextMap, StatusColorMap } from '../../types';
+import { Appointment, AppointmentStatus, StatusTextMap } from '../../types';
 
 const TaskList: React.FC = () => {
   const { user } = useAuth();

@@ -73,48 +73,6 @@ const DockAssignment: React.FC = () => {
 
   const availableDocks = docks.filter((d) => d.status === DockStatus.AVAILABLE);
 
-  const dockColumns = [
-    {
-      title: '月台编号',
-      dataIndex: 'code',
-      key: 'code',
-      width: 100,
-    },
-    {
-      title: '月台名称',
-      dataIndex: 'name',
-      key: 'name',
-    },
-    {
-      title: '区域',
-      dataIndex: 'zone',
-      key: 'zone',
-    },
-    {
-      title: '类型',
-      dataIndex: 'type',
-      key: 'type',
-    },
-    {
-      title: '状态',
-      dataIndex: 'status',
-      key: 'status',
-      render: (status: DockStatus) => {
-        const colorMap: Record<DockStatus, string> = {
-          [DockStatus.AVAILABLE]: 'green',
-          [DockStatus.OCCUPIED]: 'red',
-          [DockStatus.MAINTENANCE]: 'orange',
-        };
-        const textMap: Record<DockStatus, string> = {
-          [DockStatus.AVAILABLE]: '空闲',
-          [DockStatus.OCCUPIED]: '占用',
-          [DockStatus.MAINTENANCE]: '维护',
-        };
-        return <Tag color={colorMap[status]}>{textMap[status]}</Tag>;
-      },
-    },
-  ];
-
   const pendingColumns = [
     {
       title: '预约单号',

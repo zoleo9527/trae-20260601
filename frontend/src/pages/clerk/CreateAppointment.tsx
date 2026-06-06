@@ -5,8 +5,6 @@ import dayjs from 'dayjs';
 import { appointmentsApi } from '../../services/api';
 import { useAuth } from '../../store/auth';
 
-const { TextArea } = Input;
-
 const CreateAppointment: React.FC = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
