@@ -20,6 +20,7 @@ import { StatusTag } from '@/components/common/StatusTag';
 import { userRoleMap, formatDateTime, formatCurrency } from '@/utils/format';
 import { LoadingOperationModal } from '@/components/detention/LoadingOperationModal';
 import { useState, useMemo } from 'react';
+import type { StatusLog } from '@/types';
 
 export default function Home() {
   const navigate = useNavigate();
@@ -238,31 +239,47 @@ export default function Home() {
     return actions.filter((a) => a.show);
   }, [permissions, nextLoadingTask, hasInProgressLoading, inProgressLoading, navigate]);
 
+  const getLatestTime = (record: { statusLogs?: StatusLog[]; updatedAt?: string; feeUpdatedAt?: string; submittedAt?: string }) => {
+    const times: string[] = [];
+    if (record.statusLogs && record.statusLogs.length > 0) {
+      times.push(...record.statusLogs.map((l) => l.operateTime));
+    }
+    if (record.feeUpdatedAt) times.push(record.feeUpdatedAt);
+    if (record.updatedAt) times.push(record.updatedAt);
+    if (record.submittedAt) times.push(record.submittedAt);
+    if (times.length === 0) return '';
+    return times.sort((a, b) => new Date(b).getTime() - new Date(a).getTime())[0];
+  };
+
   const recentActivities = useMemo(() => {
     const role = currentUser.role;
 
-    const activities: Array<{
-      id: string;
-      type: 'detention' | 'appeal';
-      title: string;
-      desc: string;
-      status: string;
-      time: string;
-    }> = [];
+    const activityMap = new Map<
+      string,
+      {
+        id: string;
+        type: 'detention' | 'appeal';
+        title: string;
+        desc: string;
+        status: string;
+        time: string;
+      }
+    >();
 
     if (role === 'forklift_foreman') {
       detentions
         .filter((d) => !d.endLoadingTime)
         .forEach((d) => {
-          activities.push({
+          const key = `detention-${d.id}`;
+          activityMap.set(key, {
             id: d.id,
             type: 'detention',
             title: `装卸作业 ${d.orderNo}`,
             desc: `${d.plateNumber} 月台${d.platformNo} - ${
               d.startLoadingTime ? '进行中' : '待开始'
-            }`,
+            }${d.hasException ? ' · 有异常' : ''}`,
             status: d.status,
-            time: d.startLoadingTime || d.arrivalTime || d.createdAt,
+            time: getLatestTime(d),
           });
         });
     }
@@ -271,14 +288,21 @@ export default function Home() {
       detentions
         .filter((d) => d.status === 'pending')
         .forEach((d) => {
-          activities.push({
-            id: d.id,
-            type: 'detention',
-            title: `待确认 ${d.orderNo}`,
-            desc: `${d.plateNumber} ${d.driverName} 超时${d.detentionHours}小时`,
-            status: d.status,
-            time: d.updatedAt,
-          });
+          const key = `detention-${d.id}`;
+          const existing = activityMap.get(key);
+          const time = getLatestTime(d);
+          if (!existing || new Date(time).getTime() > new Date(existing.time).getTime()) {
+            activityMap.set(key, {
+              id: d.id,
+              type: 'detention',
+              title: d.hasException ? `待复核 ${d.orderNo}` : `待确认 ${d.orderNo}`,
+              desc: `${d.plateNumber} ${d.driverName} 超时${d.detentionHours}小时${
+                d.hasException ? ' · 有异常' : ''
+              }`,
+              status: d.status,
+              time,
+            });
+          }
         });
     }
 
@@ -286,13 +310,16 @@ export default function Home() {
       appeals
         .filter((a) => a.status === 'pending' || a.status === 'processing')
         .forEach((a) => {
-          activities.push({
+          const key = `appeal-${a.id}`;
+          activityMap.set(key, {
             id: a.id,
             type: 'appeal',
             title: `待处理申诉 #${a.id}`,
-            desc: `${a.driverName} 申请减免 ${formatCurrency(a.requestedAdjustment)}`,
+            desc: `${a.driverName} 申请减免 ${formatCurrency(a.requestedAdjustment)}${
+              a.hasFeeUpdate ? ' · 费用已更新' : ''
+            }`,
             status: a.status,
-            time: a.submittedAt,
+            time: getLatestTime(a),
           });
         });
     }
@@ -304,6 +331,7 @@ export default function Home() {
       desc: string;
       status: string;
       time: string;
+      recordKey: string;
     }> = [];
 
     detentions.forEach((d) => {
@@ -316,6 +344,7 @@ export default function Home() {
             desc: `${d.plateNumber}`,
             status: log.toStatus,
             time: log.operateTime,
+            recordKey: `detention-${d.id}`,
           });
         }
       });
@@ -331,17 +360,28 @@ export default function Home() {
             desc: `${a.driverName}`,
             status: log.toStatus,
             time: log.operateTime,
+            recordKey: `appeal-${a.id}`,
           });
         }
       });
     });
 
-    const uniqueActivities = [
-      ...activities,
-      ...allLogs.sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime()).slice(0, 3),
-    ];
+    allLogs
+      .sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime())
+      .forEach((log) => {
+        if (!activityMap.has(log.recordKey)) {
+          activityMap.set(log.recordKey, {
+            id: log.id,
+            type: log.type,
+            title: log.title,
+            desc: log.desc,
+            status: log.status,
+            time: log.time,
+          });
+        }
+      });
 
-    return uniqueActivities
+    return Array.from(activityMap.values())
       .sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime())
       .slice(0, 6);
   }, [currentUser.role, detentions, appeals]);

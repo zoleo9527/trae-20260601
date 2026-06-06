@@ -131,8 +131,8 @@ const createTodoFromDetention = (detention: DetentionRecord, type: TodoItem['typ
       desc: (d) => `订单${d.orderNo}，${d.plateNumber}`,
     },
     detention_review: {
-      title: '待复核滞留单',
-      desc: (d) => `订单${d.orderNo}，${d.plateNumber}，费用¥${d.feeAmount.toFixed(2)}`,
+      title: '待复核（有异常）',
+      desc: (d) => `订单${d.orderNo}，${d.plateNumber}，异常：${d.exceptionRemark || '待查看'}`,
     },
   };
 
@@ -228,13 +228,13 @@ export const useStore = create<AppState>((set, get) => ({
 
     const pendingReviewCount =
       role === 'warehouse_clerk' || role === 'dispatcher'
-        ? detentions.filter((d) => d.remark && d.remark.includes('异常') && d.status === 'pending').length
+        ? detentions.filter((d) => d.hasException && d.status === 'pending').length
         : 0;
 
     if (role === 'forklift_foreman') {
       return {
         todayDetentionCount: todayDetentions.length,
-        pendingAppealCount: pendingLoadingCount,
+        pendingAppealCount: detentions.filter((d) => d.hasException && !d.endLoadingTime).length,
         totalFeeAmount: totalFee,
         pendingConfirmationCount: pendingLoadingCount,
       };
@@ -277,7 +277,7 @@ export const useStore = create<AppState>((set, get) => ({
         }
       }
       if (role === 'dispatcher' || role === 'warehouse_clerk') {
-        if (d.remark && d.remark.includes('异常') && d.status === 'pending') {
+        if (d.hasException && d.status === 'pending') {
           const todo = createTodoFromDetention(d, 'detention_review');
           if (todo) todoList.push(todo);
         }
@@ -336,6 +336,9 @@ export const useStore = create<AppState>((set, get) => ({
             status: newStatus,
             updatedAt: new Date().toISOString().replace('T', ' ').substring(0, 19),
             confirmedBy: newStatus === 'confirmed' ? operator : d.confirmedBy,
+            feeConfirmed: newStatus === 'confirmed' ? true : d.feeConfirmed,
+            hasException: newStatus === 'confirmed' ? false : d.hasException,
+            exceptionRemark: newStatus === 'confirmed' ? undefined : d.exceptionRemark,
             statusLogs: [...d.statusLogs, newLog],
           };
         }
@@ -648,31 +651,16 @@ export const useStore = create<AppState>((set, get) => ({
           };
           return {
             ...d,
-            remark: d.remark ? `${d.remark}；${exceptionRemark}` : exceptionRemark,
+            hasException: true,
+            exceptionRemark,
+            exceptionReportedBy: operator,
+            exceptionReportedAt: now,
             updatedAt: now,
             statusLogs: [...d.statusLogs, newLog],
           };
         }
         return d;
       });
-
-      const detention = detentions.find((d) => d.id === detentionId);
-      if (detention) {
-        const exceptionTodo: TodoItem = {
-          id: `todo_${detentionId}_detention_review`,
-          type: 'detention_review',
-          title: '滞留单需复核（有异常）',
-          description: `订单${detention.orderNo}，${detention.plateNumber}，异常：${exceptionRemark}`,
-          status: 'pending',
-          createTime: now,
-          relatedId: detentionId,
-        };
-
-        return {
-          detentions,
-          todos: [...state.todos.filter((t) => t.id !== exceptionTodo.id), exceptionTodo],
-        };
-      }
 
       return { detentions };
     });

@@ -44,6 +44,10 @@ export interface DetentionRecord {
   createdByRole: UserRole;
   confirmedBy?: string;
   feeConfirmed?: boolean;
+  hasException?: boolean;
+  exceptionRemark?: string;
+  exceptionReportedBy?: string;
+  exceptionReportedAt?: string;
   createdAt: string;
   updatedAt: string;
   remark?: string;
