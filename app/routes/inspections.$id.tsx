@@ -1,6 +1,7 @@
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
 import { json, redirect } from "@remix-run/node";
 import { Form, useLoaderData, useNavigation } from "@remix-run/react";
+import { useState } from "react";
 import { Layout } from "~/components/Layout";
 import { requireUser } from "~/utils/session.server";
 import {
@@ -19,7 +20,7 @@ import {
 import { STATUS_LABELS, STATUS_COLORS, GRADE_LABELS } from "~/utils/types";
 import clsx from "clsx";
 import invariant from "tiny-invariant";
-import type { InspectionGrade, InspectionItem, Rectification, TimelineEvent, Dorm, User, KeyRecord } from "@prisma/client";
+import type { InspectionGrade, InspectionItem, Rectification, TimelineEvent, Dorm, User, KeyRecord, LateReturnRecord, Student } from "@prisma/client";
 
 type InspectionWithRelations = {
   id: string;
@@ -139,9 +140,22 @@ export default function InspectionDetailPage() {
   const { user, studentsWithLateReturns, maintenanceUsers, keyRecords } = loaderData;
   const inspection = loaderData.inspection as unknown as InspectionWithRelations;
   const navigation = useNavigation();
+  const [expandedStudents, setExpandedStudents] = useState<Set<string>>(new Set());
 
   const isOverdue = inspection.deadline && new Date(inspection.deadline) < new Date();
   const latestRectification = inspection.rectifications[inspection.rectifications.length - 1];
+
+  const toggleStudentExpand = (studentId: string) => {
+    setExpandedStudents((prev) => {
+      const next = new Set(prev);
+      if (next.has(studentId)) {
+        next.delete(studentId);
+      } else {
+        next.add(studentId);
+      }
+      return next;
+    });
+  };
 
   const groupedItems = inspection.items.reduce((acc: Record<string, typeof inspection.items>, item) => {
     if (!acc[item.category]) acc[item.category] = [];
@@ -666,27 +680,133 @@ export default function InspectionDetailPage() {
             </div>
 
             <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">入住学生</h2>
+              <h2 className="text-lg font-semibold text-gray-900 mb-4">入住学生与晚归记录</h2>
               <div className="space-y-3">
-                {studentsWithLateReturns.map((student: any) => (
-                  <div key={student.id} className="p-3 bg-gray-50 rounded-lg">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="font-medium text-gray-900">{student.name}</p>
-                        <p className="text-xs text-gray-500">
-                          {student.studentId} · {student.major}
-                        </p>
+                {studentsWithLateReturns.map((student: any) => {
+                  const sortedLateReturns = [...student.lateReturns].sort(
+                    (a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime()
+                  );
+                  const latestReturn = sortedLateReturns[0];
+                  const isExpanded = expandedStudents.has(student.id);
+                  const hasMultipleReturns = student.lateReturns.length > 1;
+
+                  return (
+                    <div
+                      key={student.id}
+                      className={clsx(
+                        "rounded-lg border overflow-hidden",
+                        student.lateReturns.length > 0
+                          ? "bg-orange-50 border-orange-200"
+                          : "bg-gray-50 border-gray-200"
+                      )}
+                    >
+                      <div
+                        className={clsx(
+                          "p-3 cursor-pointer",
+                          hasMultipleReturns && "hover:bg-black/[0.02] transition-colors"
+                        )}
+                        onClick={() => hasMultipleReturns && toggleStudentExpand(student.id)}
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <p className="font-medium text-gray-900">{student.name}</p>
+                              {student.lateReturns.length > 0 && (
+                                <span className="px-2 py-0.5 bg-orange-100 text-orange-700 rounded text-xs font-medium">
+                                  晚归 {student.lateReturns.length} 次
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-xs text-gray-500 mt-0.5">
+                              {student.studentId} · {student.major}
+                            </p>
+                          </div>
+                          {hasMultipleReturns && (
+                            <span className="text-gray-400 text-sm shrink-0 mt-1">
+                              {isExpanded ? "▲" : "▼"}
+                            </span>
+                          )}
+                        </div>
+
+                        {latestReturn && (
+                          <div className="mt-3 p-2.5 bg-white rounded-md border border-orange-100">
+                            <p className="text-xs font-medium text-orange-800 mb-1.5">
+                              最近一次晚归
+                            </p>
+                            <div className="space-y-1">
+                              <p className="text-xs text-gray-700">
+                                <span className="text-gray-500">日期：</span>
+                                {new Date(latestReturn.date).toLocaleDateString("zh-CN")}
+                                <span className="text-gray-400 mx-1.5">|</span>
+                                <span className="text-gray-500">时间：</span>
+                                {latestReturn.time}
+                              </p>
+                              {latestReturn.reason && (
+                                <p className="text-xs text-gray-700">
+                                  <span className="text-gray-500">原因：</span>
+                                  {latestReturn.reason}
+                                </p>
+                              )}
+                              {latestReturn.recordedBy && (
+                                <p className="text-xs text-gray-500">
+                                  记录人：{latestReturn.recordedBy}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        )}
                       </div>
-                      {student.lateReturns.length > 0 && (
-                        <span className="px-2 py-1 bg-orange-100 text-orange-700 rounded text-xs font-medium">
-                          晚归 {student.lateReturns.length} 次
-                        </span>
+
+                      {hasMultipleReturns && isExpanded && (
+                        <div className="border-t border-orange-200 bg-white">
+                          <div className="p-3">
+                            <p className="text-xs font-medium text-gray-700 mb-2.5">
+                              全部晚归记录 ({sortedLateReturns.length}次)
+                            </p>
+                            <div className="space-y-2">
+                              {sortedLateReturns.map((record: any, idx: number) => (
+                                <div
+                                  key={record.id}
+                                  className={clsx(
+                                    "p-2 rounded-md text-xs",
+                                    idx === 0
+                                      ? "bg-orange-50 border border-orange-100"
+                                      : "bg-gray-50 border border-gray-100"
+                                  )}
+                                >
+                                  <div className="flex items-center gap-2 mb-1">
+                                    <span className="font-medium text-gray-800">
+                                      {new Date(record.date).toLocaleDateString("zh-CN")}
+                                    </span>
+                                    <span className="text-gray-500">{record.time}</span>
+                                    {idx === 0 && (
+                                      <span className="px-1.5 py-0.5 bg-orange-100 text-orange-600 rounded text-[10px] font-medium">
+                                        最近
+                                      </span>
+                                    )}
+                                  </div>
+                                  {record.reason && (
+                                    <p className="text-gray-600">
+                                      <span className="text-gray-400">原因：</span>
+                                      {record.reason}
+                                    </p>
+                                  )}
+                                  {record.recordedBy && (
+                                    <p className="text-gray-400 mt-0.5">
+                                      记录人：{record.recordedBy}
+                                    </p>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
                       )}
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
                 {studentsWithLateReturns.length === 0 && (
-                  <p className="text-sm text-gray-500 text-center py-4">暂无入住学生</p>
+                  <p className="text-sm text-gray-500 text-center py-8">暂无入住学生</p>
                 )}
               </div>
             </div>
