@@ -1,0 +1,10 @@
+const Database = require("better-sqlite3");
+const db = new Database("./art_training.db");
+db.pragma("journal_mode = WAL");
+db.exec("CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT UNIQUE, name TEXT, role TEXT, phone TEXT, created_at TEXT)");
+db.exec("CREATE TABLE IF NOT EXISTS trial_bookings (id INTEGER PRIMARY KEY AUTOINCREMENT, student_name TEXT, age INTEGER, parent_name TEXT, phone TEXT, course_type TEXT, preferred_time TEXT, remark TEXT, status TEXT, reject_reason TEXT, supplement_note TEXT, scheduled_time TEXT, teacher_id INTEGER, consultant_id INTEGER, created_at TEXT, updated_at TEXT, processed_at TEXT, processed_by INTEGER, trial_result TEXT, trial_remark TEXT)");
+db.exec("CREATE TABLE IF NOT EXISTS follow_ups (id INTEGER PRIMARY KEY AUTOINCREMENT, trial_booking_id INTEGER, status TEXT, consultant_id INTEGER, created_at TEXT, updated_at TEXT, next_follow_at TEXT)");
+db.exec("CREATE TABLE IF NOT EXISTS follow_up_records (id INTEGER PRIMARY KEY AUTOINCREMENT, follow_up_id INTEGER, content TEXT, method TEXT, handler_id INTEGER, created_at TEXT, next_follow_at TEXT)");
+db.exec("CREATE TABLE IF NOT EXISTS operation_logs (id INTEGER PRIMARY KEY AUTOINCREMENT, trial_booking_id INTEGER, action TEXT, content TEXT, operator_id INTEGER, created_at TEXT)");
+const cols = db.prepare("PRAGMA table_info(follow_ups)").all();
+console.log("旧库 follow_ups 字段：", cols.map(c=>c.name).join(", "));
