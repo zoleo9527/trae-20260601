@@ -49,6 +49,7 @@ export default function TodosIndex() {
   const typeOptions = [
     { value: "all", label: "全部类型" },
     { value: "class_change", label: "换班" },
+    { value: "teacher_change", label: "换老师" },
     { value: "suspension", label: "停课" },
     { value: "complaint", label: "投诉" },
     { value: "makeup", label: "补交" },

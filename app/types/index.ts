@@ -68,6 +68,7 @@ export type FeedbackType =
   | "suggestion" 
   | "complaint" 
   | "class_change" 
+  | "teacher_change"
   | "suspension" 
   | "makeup_required";
 
@@ -121,7 +122,7 @@ export interface TodoItem {
   id: string;
   title: string;
   description: string;
-  type: "class_change" | "suspension" | "complaint" | "makeup" | "other";
+  type: "class_change" | "teacher_change" | "suspension" | "complaint" | "makeup" | "other";
   reviewId: string;
   studentName: string;
   parentName: string;

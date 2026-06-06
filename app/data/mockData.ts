@@ -245,6 +245,36 @@ export const mockReviews: Review[] = [
     createdAt: "2026-05-29T16:00:00",
     updatedAt: "2026-05-30T10:00:00",
   },
+  {
+    id: "r6",
+    studentId: "s4",
+    studentName: "赵小刚",
+    courseId: "c2",
+    courseName: "水彩进阶班",
+    teacherId: "t2",
+    teacherName: "王老师",
+    templateId: "template2",
+    templateName: "水彩画专业模板",
+    classDate: "2026-06-05",
+    classTime: "10:00-11:30",
+    artworkImages: [
+      { id: "img7", url: placeholderImages[0], isPlaceholder: false },
+    ],
+    highlights: "小刚今天尝试了湿画法，效果还不错，色彩过渡比较自然。",
+    improvements: "对色彩的理解还需要加强，调色的时候有点混乱。",
+    observation: "今天上课比较沉默，没有像往常一样主动提问，好像有些心事。",
+    nextPractice: "1. 练习色彩基础知识\n2. 尝试不同的调色练习\n3. 保持和老师的沟通",
+    answers: [
+      { sectionId: "sec1", content: "湿画法尝试有进步。" },
+      { sectionId: "sec2", content: "色彩过渡自然。" },
+      { sectionId: "sec3", content: "调色需要加强。" },
+      { sectionId: "sec4", content: "练习色彩基础知识。" },
+    ],
+    feedbackStatus: "parent_replied",
+    feedbackType: "teacher_change",
+    createdAt: "2026-06-05T12:00:00",
+    updatedAt: "2026-06-06T08:30:00",
+  },
 ];
 
 export const mockFeedbacks: ParentFeedback[] = [
@@ -267,6 +297,16 @@ export const mockFeedbacks: ParentFeedback[] = [
     content: "谢谢老师的点评！小明回家很喜欢上您的课，每次回来都很开心，我们会继续支持的！",
     type: "praise",
     createdAt: "2026-05-30T10:00:00",
+    hasTodo: false,
+  },
+  {
+    id: "f3",
+    reviewId: "r6",
+    parentId: "p4",
+    parentName: "小刚爸爸",
+    content: "老师您好，我们家小刚最近回家说不太适应现在的上课节奏，我们想考虑换一位老师试试看。小刚之前很喜欢画画的，现在积极性有点下降，我们担心会影响他的兴趣。想咨询一下有没有其他老师的班可以安排试听？",
+    type: "teacher_change",
+    createdAt: "2026-06-06T08:30:00",
     hasTodo: false,
   },
 ];
@@ -354,6 +394,7 @@ export function getFeedbackTypeLabel(type: string): { label: string; color: stri
     suggestion: { label: "建议", color: "bg-yellow-100 text-yellow-700" },
     complaint: { label: "投诉", color: "bg-red-100 text-red-700" },
     class_change: { label: "要求换班", color: "bg-purple-100 text-purple-700" },
+    teacher_change: { label: "要求换老师", color: "bg-indigo-100 text-indigo-700" },
     suspension: { label: "要求停课", color: "bg-red-100 text-red-700" },
     makeup_required: { label: "需补交作品", color: "bg-orange-100 text-orange-700" },
   };
@@ -372,6 +413,7 @@ export function getTodoStatusLabel(status: string): { label: string; color: stri
 export function getTodoTypeLabel(type: string): { label: string; icon: string } {
   const typeMap: Record<string, { label: string; icon: string }> = {
     class_change: { label: "换班", icon: "🔄" },
+    teacher_change: { label: "换老师", icon: "👩‍🏫" },
     suspension: { label: "停课", icon: "⏸️" },
     complaint: { label: "投诉", icon: "⚠️" },
     makeup: { label: "补交", icon: "📝" },

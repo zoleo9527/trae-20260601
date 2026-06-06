@@ -64,9 +64,9 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
 const todoTypeMap: Record<string, { type: TodoItem["type"]; defaultTitle: string }> = {
   class_change: { type: "class_change", defaultTitle: "家长要求换班" },
+  teacher_change: { type: "teacher_change", defaultTitle: "家长要求换老师" },
   suspension: { type: "suspension", defaultTitle: "家长要求停课" },
   complaint: { type: "complaint", defaultTitle: "家长投诉" },
-  teacher_change: { type: "other", defaultTitle: "家长要求换老师" },
   makeup_required: { type: "makeup", defaultTitle: "作品需补交" },
 };
 
@@ -84,6 +84,7 @@ export default function FeedbacksIndex() {
     { value: "suggestion", label: "建议" },
     { value: "complaint", label: "投诉" },
     { value: "class_change", label: "要求换班" },
+    { value: "teacher_change", label: "要求换老师" },
     { value: "suspension", label: "要求停课" },
     { value: "makeup_required", label: "需补交" },
   ];
@@ -93,7 +94,7 @@ export default function FeedbacksIndex() {
   );
 
   const canConvertToTodo = (type: string) => {
-    return ["class_change", "suspension", "complaint", "makeup_required"].includes(type);
+    return ["class_change", "teacher_change", "suspension", "complaint", "makeup_required"].includes(type);
   };
 
   const handleOpenTodoModal = (feedback: typeof feedbacks[0]) => {
@@ -105,7 +106,7 @@ export default function FeedbacksIndex() {
     { label: "总反馈数", value: feedbacks.length, color: "text-blue-600", bg: "bg-blue-50" },
     {
       label: "待处理",
-      value: feedbacks.filter((f) => f.hasTodo || f.type === "complaint" || f.type === "class_change").length,
+      value: feedbacks.filter((f) => f.hasTodo || f.type === "complaint" || f.type === "class_change" || f.type === "teacher_change" || f.type === "suspension").length,
       color: "text-orange-600",
       bg: "bg-orange-50",
     },
