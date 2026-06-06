@@ -46,7 +46,13 @@ const generateVisitId = () => 'VIS' + Math.random().toString(36).substr(2, 6).to
 
 const now = () => new Date().toISOString();
 
-const createAutoVisit = (refund: RefundApplication, operator: User, visitContent: string): ParentVisit => {
+const createAutoVisit = (
+  refund: RefundApplication,
+  operator: User,
+  visitContent: string,
+  needFollowUp: boolean = true,
+  followUpNote?: string
+): ParentVisit => {
   return {
     id: generateVisitId(),
     refundId: refund.id,
@@ -58,14 +64,15 @@ const createAutoVisit = (refund: RefundApplication, operator: User, visitContent
     visitContent,
     createdAt: now(),
     operator,
-    needFollowUp: false,
+    needFollowUp,
+    followUpNote,
     timeline: [
       {
         id: generateId(),
         eventType: '创建',
         operator,
         timestamp: now(),
-        description: '系统自动生成回访任务',
+        description: needFollowUp ? '系统自动生成回访任务（需跟进）' : '系统自动生成回访任务',
       },
     ],
   };
@@ -175,7 +182,13 @@ export const useStore = create<AppState>((set, get) => ({
         };
 
         const newVisit = refund
-          ? createAutoVisit(refund, currentUser, `拒绝退费申请后的家长沟通回访 - 原因：${reason}`)
+          ? createAutoVisit(
+              refund,
+              currentUser,
+              `拒绝退费申请后的家长沟通回访`,
+              true,
+              `退费申请被拒绝，请向家长说明原因：${reason}`
+            )
           : null;
 
         return {
@@ -211,7 +224,13 @@ export const useStore = create<AppState>((set, get) => ({
         };
 
         const newVisit = refund
-          ? createAutoVisit(refund, currentUser, `退回申请原因说明回访 - 原因：${reason}`)
+          ? createAutoVisit(
+              refund,
+              currentUser,
+              `退回申请原因说明回访`,
+              true,
+              `申请被退回，请与家长沟通补充材料，退回原因：${reason}`
+            )
           : null;
 
         return {
@@ -236,6 +255,12 @@ export const useStore = create<AppState>((set, get) => ({
       set((state) => {
         const currentUser = state.currentUser;
         const refund = state.refunds.find((r) => r.id === id);
+
+        // 已经是异常状态，禁止重复标记
+        if (!refund || refund.status === '异常' || refund.hasAnomaly) {
+          return state;
+        }
+
         const newEvent: TimelineEvent = {
           id: generateId(),
           eventType: '异常标记',
@@ -246,7 +271,13 @@ export const useStore = create<AppState>((set, get) => ({
         };
 
         const newVisit = refund
-          ? createAutoVisit(refund, currentUser, `异常退费申请核实回访 - 原因：${reason}`)
+          ? createAutoVisit(
+              refund,
+              currentUser,
+              `异常退费申请核实回访`,
+              true,
+              `退费申请存在异常，请尽快与家长核实，异常原因：${reason}`
+            )
           : null;
 
         return {

@@ -4,7 +4,7 @@ import { useStore } from '@/store';
 import { StatusBadge } from '@/components/StatusBadge';
 import { UserAvatar } from '@/components/UserAvatar';
 import { Timeline } from '@/components/Timeline';
-import { ArrowLeft, Calendar, Phone, User, AlertTriangle, Check, X, RotateCcw, MessageSquare, Send, ArrowRight } from 'lucide-react';
+import { ArrowLeft, Calendar, Phone, User, AlertTriangle, AlertCircle, Check, X, RotateCcw, MessageSquare, Send, ArrowRight } from 'lucide-react';
 import { format } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
 
@@ -60,7 +60,7 @@ export function RefundDetail() {
   const canApprove = refund.status === '审核中' && currentUser.role === '年级主任';
   const canReject = ['待审核', '审核中'].includes(refund.status) && (currentUser.role === '年级主任' || currentUser.role === '校长');
   const canReturn = refund.status === '审核中' && currentUser.role === '年级主任';
-  const canMarkAnomaly = !['已通过', '已拒绝', '已退回'].includes(refund.status);
+  const canMarkAnomaly = !['已通过', '已拒绝', '已退回', '异常'].includes(refund.status) && !refund.hasAnomaly;
 
   return (
     <div className="space-y-6">
@@ -237,14 +237,27 @@ export function RefundDetail() {
                 {relatedVisits.map((visit) => (
                   <div
                     key={visit.id}
-                    className="p-3 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition-colors"
+                    className={`p-3 rounded-lg cursor-pointer hover:bg-gray-100 transition-colors ${
+                      visit.needFollowUp ? 'bg-orange-50 border border-orange-200' : 'bg-gray-50'
+                    }`}
                     onClick={() => navigate(`/visits/${visit.id}`)}
                   >
                     <div className="flex items-center justify-between mb-1">
-                      <span className="text-sm font-medium text-gray-900">{visit.id}</span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium text-gray-900">{visit.id}</span>
+                        {visit.needFollowUp && (
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-orange-100 text-orange-700">
+                            <AlertCircle className="w-3 h-3 mr-0.5" />
+                            需跟进
+                          </span>
+                        )}
+                      </div>
                       <StatusBadge status={visit.status} type="visit" />
                     </div>
                     <p className="text-xs text-gray-500 line-clamp-2">{visit.visitContent}</p>
+                    {visit.followUpNote && (
+                      <p className="text-xs text-orange-700 mt-2 line-clamp-2">📌 {visit.followUpNote}</p>
+                    )}
                   </div>
                 ))}
               </div>
