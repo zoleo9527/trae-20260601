@@ -31,8 +31,10 @@ function now(): Date {
 
 class Database {
   private data: DatabaseData;
+  private inMemory: boolean;
 
-  constructor() {
+  constructor(inMemory: boolean = false) {
+    this.inMemory = inMemory;
     this.data = {
       users: [],
       orders: [],
@@ -41,7 +43,9 @@ class Database {
       statusHistories: [],
       auditRecords: [],
     };
-    this.load();
+    if (!inMemory) {
+      this.load();
+    }
   }
 
   private load(): void {
@@ -84,6 +88,9 @@ class Database {
   }
 
   save(): void {
+    if (this.inMemory) {
+      return;
+    }
     try {
       fs.mkdirSync(path.dirname(DATA_FILE), { recursive: true });
       fs.writeFileSync(DATA_FILE, JSON.stringify(this.data, null, 2), 'utf-8');
@@ -101,7 +108,7 @@ class Database {
       statusHistories: [],
       auditRecords: [],
     };
-    if (fs.existsSync(DATA_FILE)) {
+    if (!this.inMemory && fs.existsSync(DATA_FILE)) {
       fs.unlinkSync(DATA_FILE);
     }
   }
@@ -148,3 +155,9 @@ class Database {
 }
 
 export const db = new Database();
+
+export function createInMemoryDatabase(): Database {
+  return new Database(true);
+}
+
+export { Database };

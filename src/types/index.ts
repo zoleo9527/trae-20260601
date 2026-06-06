@@ -67,6 +67,7 @@ export interface AuditRecord {
   auditResult: AuditResult;
   auditAt: Date;
   auditOpinion?: string;
+  returnReason?: string;
 }
 
 export interface RepairOrder {

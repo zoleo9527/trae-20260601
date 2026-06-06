@@ -1,22 +1,28 @@
 import { Role, User } from '../types';
-import { db } from '../db/database';
+import { db as defaultDb, Database } from '../db/database';
 import { BusinessError, ErrorCode } from '../common/errorCode';
 
 export class UserService {
+  private db: Database;
+
+  constructor(db?: Database) {
+    this.db = db || defaultDb;
+  }
+
   async getAllUsers(): Promise<User[]> {
-    return [...db.users].sort((a, b) => 
+    return [...this.db.users].sort((a, b) => 
       a.createdAt.getTime() - b.createdAt.getTime()
     );
   }
 
   async getUsersByRole(role: Role): Promise<User[]> {
-    return db.users.filter(u => u.role === role).sort((a, b) => 
+    return this.db.users.filter(u => u.role === role).sort((a, b) => 
       a.createdAt.getTime() - b.createdAt.getTime()
     );
   }
 
   async getUserById(id: string): Promise<User> {
-    const user = db.users.find(u => u.id === id);
+    const user = this.db.users.find(u => u.id === id);
     if (!user) {
       throw new BusinessError(ErrorCode.USER_NOT_FOUND);
     }
@@ -25,15 +31,15 @@ export class UserService {
 
   async createUser(data: { name: string; role: Role; phone?: string }): Promise<User> {
     const user: User = {
-      id: db.generateId(),
+      id: this.db.generateId(),
       name: data.name,
       role: data.role,
       phone: data.phone,
-      createdAt: db.now(),
-      updatedAt: db.now(),
+      createdAt: this.db.now(),
+      updatedAt: this.db.now(),
     };
-    db.users.push(user);
-    db.save();
+    this.db.users.push(user);
+    this.db.save();
     return user;
   }
 }

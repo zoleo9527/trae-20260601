@@ -1,6 +1,6 @@
-import { db } from '../src/db/database';
-import { orderService } from '../src/services/order.service';
-import { userService } from '../src/services/user.service';
+import { createInMemoryDatabase } from '../src/db/database';
+import { OrderService } from '../src/services/order.service';
+import { UserService } from '../src/services/user.service';
 import { getStatusDisplayName, getRoleDisplayName } from '../src/common/utils';
 
 async function test() {
@@ -9,7 +9,10 @@ async function test() {
   console.log('═══════════════════════════════════════════════════════════\n');
 
   try {
-    db.reset();
+    const testDb = createInMemoryDatabase();
+    testDb.reset();
+    const userService = new UserService(testDb);
+    const orderService = new OrderService(testDb);
 
     console.log('0️⃣  创建测试用户');
     const dormManager = await userService.createUser({
@@ -342,6 +345,28 @@ async function test() {
     });
     console.log(`   ✅ 审核通过`);
     console.log(`      当前状态: ${getStatusDisplayName(finalOrder.currentStatus)}`);
+    console.log('');
+
+    console.log('4️⃣  验证：再次审核通过后退回原因仍然保留');
+    const verifyOrder = await orderService.getOrderDetail(returnTestOrder.id);
+    console.log(`   ✅ 工单当前状态: ${getStatusDisplayName(verifyOrder.currentStatus)}`);
+    console.log(`   ✅ 工单退回原因保留: ${verifyOrder.returnReason || '(空)'}`);
+    console.log(`   ✅ 结构化审核记录数量: ${verifyOrder.auditRecords.length}`);
+    verifyOrder.auditRecords.forEach((r: any, idx: number) => {
+      console.log(`     审核记录${idx + 1}:`);
+      console.log(`       结果: ${r.auditResult === 'APPROVED' ? '通过' : '退回'}`);
+      console.log(`       审核人: ${r.auditor.name}`);
+      if (r.returnReason) console.log(`       退回原因: ${r.returnReason}`);
+      if (r.auditOpinion) console.log(`       审核意见: ${r.auditOpinion}`);
+    });
+    const hasReturnReasonInAudit = verifyOrder.auditRecords.some((r: any) => r.returnReason);
+    if (!hasReturnReasonInAudit) {
+      throw new Error('验证失败：结构化审核记录中没有保存退回原因');
+    }
+    if (!verifyOrder.returnReason) {
+      throw new Error('验证失败：工单详情中退回原因被清空了');
+    }
+    console.log(`   ✅ 验证通过：退回原因在工单详情和审核历史中均持久保留`);
     console.log('');
 
     console.log('═══════════════════════════════════════════════════════════');

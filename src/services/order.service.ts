@@ -9,7 +9,7 @@ import {
   AuditRecord,
   AuditResult,
 } from '../types';
-import { db } from '../db/database';
+import { db as defaultDb, Database } from '../db/database';
 import { BusinessError, ErrorCode } from '../common/errorCode';
 import { generateOrderNo } from '../common/utils';
 
@@ -66,19 +66,25 @@ export interface SupplementNoteInput {
 }
 
 export class OrderService {
+  private db: Database;
+
+  constructor(db?: Database) {
+    this.db = db || defaultDb;
+  }
+
   async createOrder(input: CreateOrderInput): Promise<RepairOrderDetail> {
     const { dormitory, roomNumber, issueType, description, creatorId } = input;
 
-    const creator = db.users.find(u => u.id === creatorId);
+    const creator = this.db.users.find(u => u.id === creatorId);
     if (!creator) {
       throw new BusinessError(ErrorCode.USER_NOT_FOUND);
     }
 
     const orderNo = generateOrderNo();
-    const now = db.now();
+    const now = this.db.now();
 
     const order: RepairOrder = {
-      id: db.generateId(),
+      id: this.db.generateId(),
       orderNo,
       dormitory,
       roomNumber,
@@ -90,26 +96,26 @@ export class OrderService {
       updatedAt: now,
     };
 
-    db.orders.push(order);
+    this.db.orders.push(order);
 
     const statusHistory: StatusHistory = {
-      id: db.generateId(),
+      id: this.db.generateId(),
       orderId: order.id,
       toStatus: RepairStatus.CREATED,
       operatorId: creatorId,
       operatedAt: now,
       remark: '创建维修工单',
     };
-    db.statusHistories.push(statusHistory);
+    this.db.statusHistories.push(statusHistory);
 
-    db.save();
+    this.db.save();
     return this.getOrderDetail(order.id);
   }
 
   async assignOrder(input: AssignOrderInput): Promise<RepairOrderDetail> {
     const { orderId, assigneeId, operatorId, remark } = input;
 
-    const order = db.orders.find(o => o.id === orderId);
+    const order = this.db.orders.find(o => o.id === orderId);
     if (!order) {
       throw new BusinessError(ErrorCode.ORDER_NOT_FOUND);
     }
@@ -118,17 +124,17 @@ export class OrderService {
       throw new BusinessError(ErrorCode.OPERATION_NOT_ALLOWED, '只有待派单状态可以派单');
     }
 
-    const assignee = db.users.find(u => u.id === assigneeId);
+    const assignee = this.db.users.find(u => u.id === assigneeId);
     if (!assignee || assignee.role !== Role.REPAIR_WORKER) {
       throw new BusinessError(ErrorCode.USER_ROLE_INVALID, '被指派人必须是维修师傅');
     }
 
-    const operator = db.users.find(u => u.id === operatorId);
+    const operator = this.db.users.find(u => u.id === operatorId);
     if (!operator || operator.role !== Role.LOGISTICS_SUPERVISOR) {
       throw new BusinessError(ErrorCode.PERMISSION_DENIED, '只有后勤主管可以派单');
     }
 
-    const now = db.now();
+    const now = this.db.now();
     const fromStatus = order.currentStatus;
 
     order.assigneeId = assigneeId;
@@ -136,7 +142,7 @@ export class OrderService {
     order.updatedAt = now;
 
     const statusHistory: StatusHistory = {
-      id: db.generateId(),
+      id: this.db.generateId(),
       orderId,
       fromStatus,
       toStatus: RepairStatus.ASSIGNED,
@@ -144,16 +150,16 @@ export class OrderService {
       operatedAt: now,
       remark: remark || `派单给维修师傅: ${assignee.name}`,
     };
-    db.statusHistories.push(statusHistory);
+    this.db.statusHistories.push(statusHistory);
 
-    db.save();
+    this.db.save();
     return this.getOrderDetail(orderId);
   }
 
   async registerMaterials(input: RegisterMaterialInput): Promise<RepairOrderDetail> {
     const { orderId, materials, operatorId } = input;
 
-    const order = db.orders.find(o => o.id === orderId);
+    const order = this.db.orders.find(o => o.id === orderId);
     if (!order) {
       throw new BusinessError(ErrorCode.ORDER_NOT_FOUND);
     }
@@ -162,7 +168,7 @@ export class OrderService {
       throw new BusinessError(ErrorCode.OPERATION_NOT_ALLOWED, '当前状态不允许登记材料');
     }
 
-    const operator = db.users.find(u => u.id === operatorId);
+    const operator = this.db.users.find(u => u.id === operatorId);
     if (!operator || operator.role !== Role.REPAIR_WORKER) {
       throw new BusinessError(ErrorCode.PERMISSION_DENIED, '只有维修师傅可以登记材料');
     }
@@ -171,15 +177,15 @@ export class OrderService {
       throw new BusinessError(ErrorCode.PERMISSION_DENIED, '只有被指派的维修师傅可以登记材料');
     }
 
-    const now = db.now();
+    const now = this.db.now();
     const fromStatus = order.currentStatus;
 
-    const filteredMaterials = db.materials.filter(m => m.orderId !== orderId);
-    db.setMaterials(filteredMaterials);
+    const filteredMaterials = this.db.materials.filter(m => m.orderId !== orderId);
+    this.db.setMaterials(filteredMaterials);
 
     for (const mat of materials) {
       const material: RepairMaterial = {
-        id: db.generateId(),
+        id: this.db.generateId(),
         orderId,
         materialName: mat.materialName,
         specification: mat.specification,
@@ -190,14 +196,14 @@ export class OrderService {
         registeredAt: now,
         note: mat.note,
       };
-      db.materials.push(material);
+      this.db.materials.push(material);
     }
 
     order.currentStatus = RepairStatus.MATERIAL_REGISTERED;
     order.updatedAt = now;
 
     const statusHistory: StatusHistory = {
-      id: db.generateId(),
+      id: this.db.generateId(),
       orderId,
       fromStatus,
       toStatus: RepairStatus.MATERIAL_REGISTERED,
@@ -205,16 +211,16 @@ export class OrderService {
       operatedAt: now,
       remark: '登记维修材料',
     };
-    db.statusHistories.push(statusHistory);
+    this.db.statusHistories.push(statusHistory);
 
-    db.save();
+    this.db.save();
     return this.getOrderDetail(orderId);
   }
 
   async registerFees(input: RegisterFeeInput): Promise<RepairOrderDetail> {
     const { orderId, fees, operatorId } = input;
 
-    const order = db.orders.find(o => o.id === orderId);
+    const order = this.db.orders.find(o => o.id === orderId);
     if (!order) {
       throw new BusinessError(ErrorCode.ORDER_NOT_FOUND);
     }
@@ -223,7 +229,7 @@ export class OrderService {
       throw new BusinessError(ErrorCode.OPERATION_NOT_ALLOWED, '只有材料已登记状态可以登记费用');
     }
 
-    const operator = db.users.find(u => u.id === operatorId);
+    const operator = this.db.users.find(u => u.id === operatorId);
     if (!operator || operator.role !== Role.REPAIR_WORKER) {
       throw new BusinessError(ErrorCode.PERMISSION_DENIED, '只有维修师傅可以登记费用');
     }
@@ -232,15 +238,15 @@ export class OrderService {
       throw new BusinessError(ErrorCode.PERMISSION_DENIED, '只有被指派的维修师傅可以登记费用');
     }
 
-    const now = db.now();
+    const now = this.db.now();
     const fromStatus = order.currentStatus;
 
-    const filteredFees = db.fees.filter(f => f.orderId !== orderId);
-    db.setFees(filteredFees);
+    const filteredFees = this.db.fees.filter(f => f.orderId !== orderId);
+    this.db.setFees(filteredFees);
 
     for (const fee of fees) {
       const repairFee: RepairFee = {
-        id: db.generateId(),
+        id: this.db.generateId(),
         orderId,
         feeType: fee.feeType,
         amount: fee.amount,
@@ -248,14 +254,14 @@ export class OrderService {
         registeredAt: now,
         note: fee.note,
       };
-      db.fees.push(repairFee);
+      this.db.fees.push(repairFee);
     }
 
     order.currentStatus = RepairStatus.FEE_REGISTERED;
     order.updatedAt = now;
 
     const statusHistory: StatusHistory = {
-      id: db.generateId(),
+      id: this.db.generateId(),
       orderId,
       fromStatus,
       toStatus: RepairStatus.FEE_REGISTERED,
@@ -263,16 +269,16 @@ export class OrderService {
       operatedAt: now,
       remark: '登记维修费用',
     };
-    db.statusHistories.push(statusHistory);
+    this.db.statusHistories.push(statusHistory);
 
-    db.save();
+    this.db.save();
     return this.getOrderDetail(orderId);
   }
 
   async auditOrder(input: AuditOrderInput): Promise<RepairOrderDetail> {
     const { orderId, auditorId, auditResult, auditOpinion, returnReason } = input;
 
-    const order = db.orders.find(o => o.id === orderId);
+    const order = this.db.orders.find(o => o.id === orderId);
     if (!order) {
       throw new BusinessError(ErrorCode.ORDER_NOT_FOUND);
     }
@@ -281,33 +287,36 @@ export class OrderService {
       throw new BusinessError(ErrorCode.OPERATION_NOT_ALLOWED, '只有费用已登记状态可以审核');
     }
 
-    const auditor = db.users.find(u => u.id === auditorId);
+    const auditor = this.db.users.find(u => u.id === auditorId);
     if (!auditor || auditor.role !== Role.LOGISTICS_SUPERVISOR) {
       throw new BusinessError(ErrorCode.PERMISSION_DENIED, '只有后勤主管可以审核');
     }
 
-    const now = db.now();
+    const now = this.db.now();
     const fromStatus = order.currentStatus;
     const targetStatus = auditResult === 'APPROVED' 
       ? RepairStatus.COMPLETED 
       : RepairStatus.RETURNED;
 
     order.currentStatus = targetStatus;
-    order.returnReason = auditResult === 'REJECTED' ? returnReason : undefined;
+    if (auditResult === 'REJECTED') {
+      order.returnReason = returnReason;
+    }
     order.updatedAt = now;
 
     const auditRecord: AuditRecord = {
-      id: db.generateId(),
+      id: this.db.generateId(),
       orderId,
       auditorId,
       auditResult: auditResult as AuditResult,
       auditAt: now,
       auditOpinion,
+      returnReason: auditResult === 'REJECTED' ? returnReason : undefined,
     };
-    db.auditRecords.push(auditRecord);
+    this.db.auditRecords.push(auditRecord);
 
     const statusHistory: StatusHistory = {
-      id: db.generateId(),
+      id: this.db.generateId(),
       orderId,
       fromStatus,
       toStatus: targetStatus,
@@ -317,27 +326,27 @@ export class OrderService {
         ? `审核通过: ${auditOpinion || ''}` 
         : `审核退回: ${returnReason || ''}`,
     };
-    db.statusHistories.push(statusHistory);
+    this.db.statusHistories.push(statusHistory);
 
-    db.save();
+    this.db.save();
     return this.getOrderDetail(orderId);
   }
 
   async supplementNote(input: SupplementNoteInput): Promise<RepairOrderDetail> {
     const { orderId, note, operatorId } = input;
 
-    const order = db.orders.find(o => o.id === orderId);
+    const order = this.db.orders.find(o => o.id === orderId);
     if (!order) {
       throw new BusinessError(ErrorCode.ORDER_NOT_FOUND);
     }
 
-    const now = db.now();
+    const now = this.db.now();
 
     order.supplementNote = note;
     order.updatedAt = now;
 
     const statusHistory: StatusHistory = {
-      id: db.generateId(),
+      id: this.db.generateId(),
       orderId,
       fromStatus: order.currentStatus,
       toStatus: order.currentStatus,
@@ -345,40 +354,40 @@ export class OrderService {
       operatedAt: now,
       remark: `补充备注: ${note}`,
     };
-    db.statusHistories.push(statusHistory);
+    this.db.statusHistories.push(statusHistory);
 
-    db.save();
+    this.db.save();
     return this.getOrderDetail(orderId);
   }
 
   async getOrderDetail(orderId: string): Promise<RepairOrderDetail> {
-    const order = db.orders.find(o => o.id === orderId);
+    const order = this.db.orders.find(o => o.id === orderId);
     if (!order) {
       throw new BusinessError(ErrorCode.ORDER_NOT_FOUND);
     }
 
-    const creator = db.users.find(u => u.id === order.creatorId)!;
+    const creator = this.db.users.find(u => u.id === order.creatorId)!;
     const assignee = order.assigneeId 
-      ? db.users.find(u => u.id === order.assigneeId) 
+      ? this.db.users.find(u => u.id === order.assigneeId) 
       : undefined;
 
-    const materials = db.materials.filter(m => m.orderId === orderId);
-    const fees = db.fees.filter(f => f.orderId === orderId);
+    const materials = this.db.materials.filter(m => m.orderId === orderId);
+    const fees = this.db.fees.filter(f => f.orderId === orderId);
 
-    const statusHistories = db.statusHistories
+    const statusHistories = this.db.statusHistories
       .filter(s => s.orderId === orderId)
       .sort((a, b) => a.operatedAt.getTime() - b.operatedAt.getTime())
       .map(s => ({
         ...s,
-        operator: db.users.find(u => u.id === s.operatorId)!,
+        operator: this.db.users.find(u => u.id === s.operatorId)!,
       }));
 
-    const auditRecords = db.auditRecords
+    const auditRecords = this.db.auditRecords
       .filter(a => a.orderId === orderId)
       .sort((a, b) => b.auditAt.getTime() - a.auditAt.getTime())
       .map(a => ({
         ...a,
-        auditor: db.users.find(u => u.id === a.auditorId)!,
+        auditor: this.db.users.find(u => u.id === a.auditorId)!,
       }));
 
     return {
@@ -406,12 +415,12 @@ export class OrderService {
   }
 
   private async getDormManagerTodoList(userId: string) {
-    const orders = db.orders.filter(o => o.creatorId === userId);
+    const orders = this.db.orders.filter(o => o.creatorId === userId);
     return this.enhanceOrderList(orders);
   }
 
   private async getRepairWorkerTodoList(userId: string) {
-    const orders = db.orders.filter(o => 
+    const orders = this.db.orders.filter(o => 
       o.assigneeId === userId && 
       [RepairStatus.ASSIGNED, RepairStatus.MATERIAL_REGISTERED, RepairStatus.RETURNED].includes(o.currentStatus)
     );
@@ -420,7 +429,7 @@ export class OrderService {
   }
 
   private async getLogisticsSupervisorTodoList() {
-    const orders = db.orders.filter(o => 
+    const orders = this.db.orders.filter(o => 
       [RepairStatus.CREATED, RepairStatus.FEE_REGISTERED].includes(o.currentStatus)
     );
 
@@ -431,10 +440,10 @@ export class OrderService {
     return orders
       .sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime())
       .map(o => {
-        const creator = db.users.find(u => u.id === o.creatorId);
-        const assignee = o.assigneeId ? db.users.find(u => u.id === o.assigneeId) : undefined;
-        const materials = db.materials.filter(m => m.orderId === o.id);
-        const fees = db.fees.filter(f => f.orderId === o.id);
+        const creator = this.db.users.find(u => u.id === o.creatorId);
+        const assignee = o.assigneeId ? this.db.users.find(u => u.id === o.assigneeId) : undefined;
+        const materials = this.db.materials.filter(m => m.orderId === o.id);
+        const fees = this.db.fees.filter(f => f.orderId === o.id);
 
         return {
           ...o,
@@ -447,7 +456,7 @@ export class OrderService {
   }
 
   async getAllOrders(params?: { status?: string; startDate?: string; endDate?: string }) {
-    let orders = [...db.orders];
+    let orders = [...this.db.orders];
     
     if (params?.status) {
       orders = orders.filter(o => o.currentStatus === params.status);
