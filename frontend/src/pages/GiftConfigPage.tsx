@@ -59,22 +59,35 @@ const presetGifts = [
 ];
 
 const extractHandoverInfo = (logs: OperationLog[]) => {
-  const lockLog = logs.find(l => l.action === '提交锁定');
-  const reviewLog = logs.find(l => l.action === '审核通过' || l.action === '审核驳回');
-  const rejectLog = logs.find(l => l.action === '审核驳回');
-  const returnLog = logs.find(l => l.action === '退回订单');
+  const sortedLogs = [...logs].sort((a, b) => 
+    new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+  );
+
+  const latestLockLog = sortedLogs.find(l => l.action === '提交锁定');
+  const latestApproveLog = sortedLogs.find(l => l.action === '审核通过');
+  const allRejectLogs = sortedLogs.filter(l => l.action === '审核驳回');
+  const allReturnLogs = sortedLogs.filter(l => l.action === '退回订单');
   
   return {
-    lockRemark: lockLog?.remark || '',
-    lockOperator: lockLog?.operator || '',
-    lockTime: lockLog?.timestamp || '',
-    reviewRemark: reviewLog?.remark || '',
-    reviewOperator: reviewLog?.operator || '',
-    reviewTime: reviewLog?.timestamp || '',
-    rejectReason: rejectLog?.remark || '',
-    returnReason: returnLog?.remark || '',
-    hasReject: !!rejectLog,
-    hasReturn: !!returnLog
+    lockRemark: latestLockLog?.remark || '',
+    lockOperator: latestLockLog?.operator || '',
+    lockTime: latestLockLog?.timestamp || '',
+    reviewRemark: latestApproveLog?.remark || '',
+    reviewOperator: latestApproveLog?.operator || '',
+    reviewTime: latestApproveLog?.timestamp || '',
+    rejectHistory: allRejectLogs.map(l => ({
+      reason: l.remark,
+      operator: l.operator,
+      time: l.timestamp
+    })),
+    returnHistory: allReturnLogs.map(l => ({
+      reason: l.remark,
+      operator: l.operator,
+      time: l.timestamp
+    })),
+    hasRejectHistory: allRejectLogs.length > 0,
+    hasReturnHistory: allReturnLogs.length > 0,
+    totalExceptionCount: allRejectLogs.length + allReturnLogs.length
   };
 };
 
@@ -298,7 +311,18 @@ const GiftConfigPage: React.FC<Props> = ({ orderId, visible, onClose, initialGif
         style={{ marginBottom: 16 }}
       />
 
-      <Card title="历史交接说明" size="small" style={{ marginBottom: 16 }}>
+      <Card 
+        title={
+          <Space>
+            <span>历史交接说明</span>
+            {handover.totalExceptionCount > 0 && (
+              <Tag color="red">历经 {handover.totalExceptionCount} 次异常处理</Tag>
+            )}
+          </Space>
+        } 
+        size="small" 
+        style={{ marginBottom: 16 }}
+      >
         <Steps
           direction="vertical"
           size="small"
@@ -308,7 +332,7 @@ const GiftConfigPage: React.FC<Props> = ({ orderId, visible, onClose, initialGif
               icon: <ShoppingCartOutlined />,
               title: (
                 <Space>
-                  <span>主播助理锁定库存</span>
+                  <span>主播助理锁定库存（最新一次）</span>
                   {handover.lockOperator && (
                     <Tag color="blue">{handover.lockOperator}</Tag>
                   )}
@@ -332,7 +356,7 @@ const GiftConfigPage: React.FC<Props> = ({ orderId, visible, onClose, initialGif
               icon: <ControlOutlined />,
               title: (
                 <Space>
-                  <span>场控审核</span>
+                  <span>场控审核通过（最新一次）</span>
                   {handover.reviewOperator && (
                     <Tag color="orange">{handover.reviewOperator}</Tag>
                   )}
@@ -344,17 +368,13 @@ const GiftConfigPage: React.FC<Props> = ({ orderId, visible, onClose, initialGif
                 </Space>
               ),
               description: (
-                <Space direction="vertical" size={2}>
-                  {handover.reviewRemark && (
+                <Space direction="vertical" size={4}>
+                  {handover.reviewRemark ? (
                     <Paragraph type="secondary" style={{ marginBottom: 0 }}>
-                      审核意见: {handover.reviewRemark}
+                      通过意见: {handover.reviewRemark}
                     </Paragraph>
-                  )}
-                  {handover.hasReject && (
-                    <Tag color="red">曾被驳回: {handover.rejectReason}</Tag>
-                  )}
-                  {handover.hasReturn && (
-                    <Tag color="red">曾被退回: {handover.returnReason}</Tag>
+                  ) : (
+                    <Text type="secondary">无审核意见</Text>
                   )}
                 </Space>
               ),
@@ -373,6 +393,63 @@ const GiftConfigPage: React.FC<Props> = ({ orderId, visible, onClose, initialGif
             }
           ]}
         />
+
+        {(handover.hasRejectHistory || handover.hasReturnHistory) && (
+          <>
+            <Divider style={{ margin: '16px 0' }} />
+            <div>
+              <Text strong style={{ marginBottom: 8, display: 'inline-block' }}>
+                历次异常处理记录（按时间倒序）
+              </Text>
+              <Space direction="vertical" size={6} style={{ width: '100%' }}>
+                {handover.rejectHistory.map((item, index) => (
+                  <div 
+                    key={`reject-${index}`}
+                    style={{ 
+                      padding: '8px 12px', 
+                      background: '#fff2f0', 
+                      borderRadius: 4,
+                      borderLeft: '3px solid #ff4d4f'
+                    }}
+                  >
+                    <Space>
+                      <Tag color="red">驳回</Tag>
+                      <Text strong>{item.operator}</Text>
+                      <Text type="secondary" style={{ fontSize: 12 }}>
+                        {dayjs(item.time).format('MM-DD HH:mm')}
+                      </Text>
+                    </Space>
+                    <Text type="secondary" style={{ fontSize: 13 }}>
+                      原因: {item.reason}
+                    </Text>
+                  </div>
+                ))}
+                {handover.returnHistory.map((item, index) => (
+                  <div 
+                    key={`return-${index}`}
+                    style={{ 
+                      padding: '8px 12px', 
+                      background: '#fff7e6', 
+                      borderRadius: 4,
+                      borderLeft: '3px solid #faad14'
+                    }}
+                  >
+                    <Space>
+                      <Tag color="orange">退回</Tag>
+                      <Text strong>{item.operator}</Text>
+                      <Text type="secondary" style={{ fontSize: 12 }}>
+                        {dayjs(item.time).format('MM-DD HH:mm')}
+                      </Text>
+                    </Space>
+                    <Text type="secondary" style={{ fontSize: 13 }}>
+                      原因: {item.reason}
+                    </Text>
+                  </div>
+                ))}
+              </Space>
+            </div>
+          </>
+        )}
       </Card>
 
       <Card 
