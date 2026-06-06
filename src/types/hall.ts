@@ -52,9 +52,16 @@ export interface FaultTicket {
   status: FaultStatus;
   reportedBy: string;
   reportedByRole: string;
+  processStartedBy?: string;
+  processStartedByRole?: string;
+  resolvedBy?: string;
+  resolvedByRole?: string;
+  closedBy?: string;
+  closedByRole?: string;
   handledBy?: string;
   handledByRole?: string;
   createdAt: string;
+  processStartedAt?: string;
   resolvedAt?: string;
   closedAt?: string;
   resolveRemark?: string;

@@ -231,16 +231,27 @@ export const useHallStore = create<HallState>()(
 
         let logAction = '';
         let logReason = remark || '';
+        const updates: Partial<FaultTicket> = { status };
 
         if (ticket.status === 'pending' && status === 'processing') {
           logAction = '开始处理故障';
           logReason = `工单「${ticket.title}」已开始处理`;
+          updates.processStartedBy = getRoleName();
+          updates.processStartedByRole = currentRole;
+          updates.processStartedAt = now();
         } else if (status === 'resolved') {
           logAction = '故障解决';
           logReason = remark || `工单「${ticket.title}」已解决`;
+          updates.resolvedBy = getRoleName();
+          updates.resolvedByRole = currentRole;
+          updates.resolvedAt = now();
+          updates.resolveRemark = remark || ticket.resolveRemark;
         } else if (status === 'closed') {
           logAction = '关闭工单';
           logReason = `工单「${ticket.title}」已关闭`;
+          updates.closedBy = getRoleName();
+          updates.closedByRole = currentRole;
+          updates.closedAt = now();
         }
 
         if (logAction) {
@@ -249,17 +260,7 @@ export const useHallStore = create<HallState>()(
 
         set((state) => ({
           faultTickets: state.faultTickets.map((t) =>
-            t.id === ticketId
-              ? {
-                  ...t,
-                  status,
-                  handledBy: getRoleName(),
-                  handledByRole: currentRole,
-                  resolveRemark: remark || t.resolveRemark,
-                  resolvedAt: status === 'resolved' ? now() : t.resolvedAt,
-                  closedAt: status === 'closed' ? now() : t.closedAt,
-                }
-              : t
+            t.id === ticketId ? { ...t, ...updates } : t
           ),
         }));
       },
@@ -287,6 +288,49 @@ export const useHallStore = create<HallState>()(
     }),
     {
       name: 'cinema-ops-hall',
+      migrate: (persistedState: any, version: number) => {
+        const state = persistedState as HallState;
+
+        if (state.hallLogs && state.hallLogs.length > 0) {
+          const seen = new Set<string>();
+          const deduplicatedLogs: HallLog[] = [];
+
+          state.hallLogs.forEach((log) => {
+            const key = `${log.hallId}-${log.action}-${log.createdAt}-${log.operator}`;
+            if (!seen.has(key)) {
+              seen.add(key);
+              deduplicatedLogs.push(log);
+            }
+          });
+
+          state.hallLogs = deduplicatedLogs;
+        }
+
+        if (state.faultTickets && state.faultTickets.length > 0) {
+          state.faultTickets = state.faultTickets.map((ticket) => {
+            const migrated = { ...ticket };
+
+            if (ticket.handledBy && !ticket.resolvedBy && ticket.resolvedAt) {
+              migrated.resolvedBy = ticket.handledBy;
+              migrated.resolvedByRole = ticket.handledByRole;
+            }
+
+            if (ticket.handledBy && !ticket.closedBy && ticket.closedAt) {
+              migrated.closedBy = ticket.handledBy;
+              migrated.closedByRole = ticket.handledByRole;
+            }
+
+            if (ticket.handledBy && !ticket.processStartedBy && !ticket.resolvedAt && !ticket.closedAt) {
+              migrated.processStartedBy = ticket.handledBy;
+              migrated.processStartedByRole = ticket.handledByRole;
+            }
+
+            return migrated;
+          });
+        }
+
+        return state;
+      },
     }
   )
 );

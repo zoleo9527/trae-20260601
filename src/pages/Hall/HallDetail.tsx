@@ -445,18 +445,25 @@ const HallDetail: React.FC = () => {
                             <span className="text-gray-500">上报：</span>
                             <span>{ticket.reportedBy} · {formatDateTime(ticket.createdAt)}</span>
                           </div>
-                          {ticket.handledBy && ticket.resolvedAt && (
+                          {(ticket.processStartedBy || ticket.processStartedAt) && (
+                            <div className="flex items-center gap-2">
+                              <span className="w-1.5 h-1.5 bg-amber-500 rounded-full flex-shrink-0"></span>
+                              <span className="text-gray-500">开始处理：</span>
+                              <span>{ticket.processStartedBy || '未知'} · {formatDateTime(ticket.processStartedAt || '')}</span>
+                            </div>
+                          )}
+                          {(ticket.resolvedBy || ticket.resolvedAt) && (
                             <div className="flex items-center gap-2">
                               <span className="w-1.5 h-1.5 bg-green-500 rounded-full flex-shrink-0"></span>
                               <span className="text-gray-500">解决：</span>
-                              <span>{ticket.handledBy} · {formatDateTime(ticket.resolvedAt)}</span>
+                              <span>{ticket.resolvedBy || ticket.handledBy || '未知'} · {formatDateTime(ticket.resolvedAt || '')}</span>
                             </div>
                           )}
-                          {ticket.closedAt && (
+                          {(ticket.closedBy || ticket.closedAt) && (
                             <div className="flex items-center gap-2">
                               <span className="w-1.5 h-1.5 bg-gray-500 rounded-full flex-shrink-0"></span>
                               <span className="text-gray-500">关闭：</span>
-                              <span>{ticket.handledBy || '系统'} · {formatDateTime(ticket.closedAt)}</span>
+                              <span>{ticket.closedBy || ticket.handledBy || '系统'} · {formatDateTime(ticket.closedAt || '')}</span>
                             </div>
                           )}
                         </div>
