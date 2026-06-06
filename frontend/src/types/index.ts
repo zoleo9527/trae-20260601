@@ -95,6 +95,13 @@ export interface CaseRecord {
   brandName?: string;
   productName?: string;
   talentName?: string;
+  businessName?: string;
+  agentName?: string;
+  latestRejectReason?: string;
+  supplementarySummary?: string;
+  hasReject?: boolean;
+  hasSupplementary?: boolean;
+  responsibleRole?: string;
 }
 
 export interface TodoItem {

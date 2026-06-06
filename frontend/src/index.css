@@ -619,3 +619,63 @@ body {
     width: 100%;
   }
 }
+
+.filter-bar {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+  padding: 16px;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.filter-select {
+  padding: 8px 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 14px;
+  background: white;
+  color: #334155;
+  min-width: 140px;
+}
+
+.case-table.wide {
+  min-width: 1400px;
+}
+
+.text-ellipsis {
+  max-width: 200px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tag {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.tag-danger {
+  background: #fef2f2;
+  color: #dc2626;
+}
+
+.tag-warning {
+  background: #fffbeb;
+  color: #d97706;
+}
+
+.tag-muted {
+  background: #f1f5f9;
+  color: #64748b;
+}
+
+.case-table-container {
+  overflow-x: auto;
+}
+

@@ -2,6 +2,7 @@ import { Request, Response, Router } from 'express';
 import * as XLSX from 'xlsx';
 import { db } from './models/database';
 import { CaseStatus, SettlementData, TodoItem, UserRole } from './types';
+import { enrichCaseRecord, filterCases } from './utils/caseHelper';
 import { canTransition, getHandlerForStatus, ROLE_LABELS, STATUS_LABELS } from './utils/statusFlow';
 
 const router = Router();
@@ -366,48 +367,51 @@ router.get('/cases/:caseId', (req: Request, res: Response) => {
   });
 });
 
-// 获取所有案例列表（带筛选）
+// 获取所有案例列表（带筛选：状态、当前处理角色、是否有驳回、是否有补录备注）
 router.get('/cases', (req: Request, res: Response) => {
-  const { status, role } = req.query;
+  const { status, currentHandler, hasReject, hasSupplementary } = req.query;
   
-  let cases = [...db.caseRecords];
-  
-  if (status) {
-    cases = cases.filter(c => c.status === status);
-  }
-  
-  if (role) {
-    cases = cases.filter(c => c.currentHandler === role);
-  }
+  const filtered = filterCases(db.caseRecords, {
+    status: status as string | undefined,
+    currentHandler: currentHandler as UserRole | undefined,
+    hasReject: hasReject === 'true' ? true : hasReject === 'false' ? false : undefined,
+    hasSupplementary: hasSupplementary === 'true' ? true : hasSupplementary === 'false' ? false : undefined
+  });
 
-  const enriched = cases.map(c => {
+  const enriched = filtered.map(c => {
     const demand = db.brandDemands.find(d => d.id === c.demandId);
     const talent = db.talents.find(t => t.id === c.talentId);
-    return {
-      ...c,
+    const business = db.users.find(u => u.id === demand?.businessId);
+    const agent = db.users.find(u => u.id === talent?.agentId);
+    return enrichCaseRecord(c, {
       brandName: demand?.brandName,
       productName: demand?.productName,
-      talentName: talent?.name
-    };
+      talentName: talent?.name,
+      businessName: business?.name,
+      agentName: agent?.name
+    });
   });
 
   res.json({ cases: enriched });
 });
 
-// 导出任务 - 导出Excel
+// 导出任务 - 导出Excel（带筛选：状态、当前处理角色、是否驳回、是否补录备注）
 router.get('/export/cases', (req: Request, res: Response) => {
-  const { status } = req.query;
+  const { status, currentHandler, hasReject, hasSupplementary } = req.query;
   
-  let cases = [...db.caseRecords];
-  if (status) {
-    cases = cases.filter(c => c.status === status);
-  }
+  const filtered = filterCases(db.caseRecords, {
+    status: status as string | undefined,
+    currentHandler: currentHandler as UserRole | undefined,
+    hasReject: hasReject === 'true' ? true : hasReject === 'false' ? false : undefined,
+    hasSupplementary: hasSupplementary === 'true' ? true : hasSupplementary === 'false' ? false : undefined
+  });
 
-  const exportData = cases.map(c => {
+  const exportData = filtered.map(c => {
     const demand = db.brandDemands.find(d => d.id === c.demandId);
     const talent = db.talents.find(t => t.id === c.talentId);
     const business = db.users.find(u => u.id === demand?.businessId);
     const agent = db.users.find(u => u.id === talent?.agentId);
+    const enriched = enrichCaseRecord(c, {});
 
     return {
       '案例ID': c.id,
@@ -416,9 +420,13 @@ router.get('/export/cases', (req: Request, res: Response) => {
       '达人名称': talent?.name || '',
       '平台': talent?.platform || '',
       '当前状态': STATUS_LABELS[c.status],
-      '当前处理人': c.currentHandler ? ROLE_LABELS[c.currentHandler] : '-',
+      '当前责任角色': enriched.responsibleRole,
       '商务对接人': business?.name || '',
       '达人经纪': agent?.name || '',
+      '是否有驳回记录': enriched.hasReject ? '是' : '否',
+      '最近一次退回原因': enriched.latestRejectReason || '-',
+      '是否有补录备注': enriched.hasSupplementary ? '是' : '否',
+      '补录备注摘要': enriched.supplementarySummary || '-',
       '播放量': c.settlementData?.views || '-',
       '点赞数': c.settlementData?.likes || '-',
       '评论数': c.settlementData?.comments || '-',
@@ -426,8 +434,8 @@ router.get('/export/cases', (req: Request, res: Response) => {
       '实际费用': c.settlementData?.actualFee || '-',
       '平台服务费': c.settlementData?.platformFee || '-',
       '达人费用': c.settlementData?.talentFee || '-',
-      '驳回原因': c.rejectReason || '-',
-      '补充备注': c.supplementaryRemark || '-',
+      '完整驳回记录': c.rejectReason || '-',
+      '完整补充备注': c.supplementaryRemark || '-',
       '创建时间': c.createdAt,
       '更新时间': c.updatedAt,
       '是否延期': c.delayedDays ? `是（${c.delayedDays}天）` : '否'

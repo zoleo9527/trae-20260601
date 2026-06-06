@@ -17,9 +17,20 @@ export const api = {
     return data.todos;
   },
 
-  getCases: async (role: UserRole, status?: CaseStatus): Promise<CaseRecord[]> => {
+  getCases: async (
+    role: UserRole, 
+    filters?: {
+      status?: CaseStatus;
+      currentHandler?: UserRole;
+      hasReject?: boolean;
+      hasSupplementary?: boolean;
+    }
+  ): Promise<CaseRecord[]> => {
     const params = new URLSearchParams();
-    if (status) params.set('status', status);
+    if (filters?.status) params.set('status', filters.status);
+    if (filters?.currentHandler) params.set('currentHandler', filters.currentHandler);
+    if (filters?.hasReject !== undefined) params.set('hasReject', String(filters.hasReject));
+    if (filters?.hasSupplementary !== undefined) params.set('hasSupplementary', String(filters.hasSupplementary));
     const res = await fetch(`${API_BASE}/cases?${params}`, {
       headers: getHeaders(role)
     });
@@ -88,9 +99,20 @@ export const api = {
     return res.json();
   },
 
-  exportCases: async (role: UserRole, status?: CaseStatus) => {
+  exportCases: async (
+    role: UserRole, 
+    filters?: {
+      status?: CaseStatus;
+      currentHandler?: UserRole;
+      hasReject?: boolean;
+      hasSupplementary?: boolean;
+    }
+  ) => {
     const params = new URLSearchParams();
-    if (status) params.set('status', status);
+    if (filters?.status) params.set('status', filters.status);
+    if (filters?.currentHandler) params.set('currentHandler', filters.currentHandler);
+    if (filters?.hasReject !== undefined) params.set('hasReject', String(filters.hasReject));
+    if (filters?.hasSupplementary !== undefined) params.set('hasSupplementary', String(filters.hasSupplementary));
     const res = await fetch(`${API_BASE}/export/cases?${params}`, {
       headers: getHeaders(role)
     });
