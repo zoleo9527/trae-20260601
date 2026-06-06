@@ -164,44 +164,75 @@ export class ContractService {
     return contract;
   }
 
+  private executeArchive(contract: Contract, operator: User, archiveId: string, triggerSource: 'manual' | 'archive_complete'): Contract {
+    const previousState = { 
+      status: contract.status, 
+      archivedAt: contract.archivedAt,
+      currentHandler: contract.currentHandler,
+      currentHandlerRole: contract.currentHandlerRole,
+    };
+
+    const now = new Date();
+    const actionText = triggerSource === 'manual' 
+      ? `手工归档：档案「${archiveId}」已完成维护，合同正式归档`
+      : `档案完成自动归档：档案「${archiveId}」已完成维护`;
+
+    contract.status = ContractStatus.ARCHIVED;
+    contract.archivedAt = now;
+    contract.currentHandler = '';
+    contract.currentHandlerRole = UserRole.ADMIN;
+    contract.updatedAt = now;
+    contract.operationLogs.push(
+      this.store.createOperationLog(
+        operator, 
+        '合同归档', 
+        actionText, 
+        previousState, 
+        { 
+          status: ContractStatus.ARCHIVED, 
+          archivedAt: now, 
+          currentHandler: '', 
+          currentHandlerRole: UserRole.ADMIN,
+          triggerSource,
+        }
+      )
+    );
+
+    this.store.saveContract(contract);
+    this.notificationService.notifyArchiveCompleted(contract.id, contract.talentName);
+
+    return contract;
+  }
+
   archive(id: string, operator: User): Contract {
     const contract = this.findOne(id);
-    const previousState = { status: contract.status, archivedAt: contract.archivedAt };
 
-    if (contract.status !== ContractStatus.ARCHIVE_IN_PROGRESS && contract.status !== ContractStatus.PENDING_ARCHIVE) {
-      throw new BadRequestException(`当前状态「${contract.status}」不允许归档。请确保合同处于「建档维护中」或「待建档」状态`);
+    if (contract.status === ContractStatus.ARCHIVED) {
+      throw new BadRequestException('合同已归档，请勿重复操作');
     }
 
     if (operator.role !== UserRole.TALENT_AGENT && operator.role !== UserRole.ADMIN) {
       throw new ForbiddenException('只有达人经纪或管理员可以执行归档');
     }
 
-    if (contract.archiveId) {
-      const archive = this.store.getArchive(contract.archiveId);
-      if (archive && archive.status !== 'completed') {
-        throw new BadRequestException(`档案状态为「${archive.status}」，未完成维护，不允许归档。请先将档案状态更新为「已完成」`);
-      }
+    if (!contract.archiveId) {
+      throw new BadRequestException('该合同未关联档案，请先创建档案并完成维护后再归档');
     }
 
-    contract.status = ContractStatus.ARCHIVED;
-    contract.archivedAt = new Date();
-    contract.currentHandler = '';
-    contract.currentHandlerRole = UserRole.ADMIN;
-    contract.updatedAt = new Date();
-    contract.operationLogs.push(
-      this.store.createOperationLog(
-        operator, 
-        '合同归档', 
-        '签约流程完成，合同已正式归档', 
-        previousState, 
-        { status: ContractStatus.ARCHIVED, archivedAt: contract.archivedAt, currentHandler: '', currentHandlerRole: UserRole.ADMIN }
-      )
-    );
+    const archive = this.store.getArchive(contract.archiveId);
+    if (!archive) {
+      throw new BadRequestException('关联的档案不存在，请检查档案是否已被删除');
+    }
 
-    this.store.saveContract(contract);
-    this.notificationService.notifyArchiveCompleted(id, contract.talentName);
+    if (archive.status !== 'completed') {
+      throw new BadRequestException(`档案状态为「${archive.status}」，未完成维护，不允许归档。请先将档案状态更新为「已完成」`);
+    }
 
-    return contract;
+    if (contract.status !== ContractStatus.ARCHIVE_IN_PROGRESS) {
+      throw new BadRequestException(`合同状态异常「${contract.status}」，应处于「建档维护中」状态。请检查签约流程是否正常完成`);
+    }
+
+    return this.executeArchive(contract, operator, contract.archiveId, 'manual');
   }
 
   addRemark(id: string, content: string, category: ContractRemark['category'], isSharedToArchive: boolean, operator: User): Contract {
@@ -296,20 +327,22 @@ export class ContractService {
       );
       this.notificationService.notifyArchiveNeeded(contract.archiveId, contract.talentName);
     } else if (archiveStatus === ArchiveStatus.COMPLETED) {
-      contract.status = ContractStatus.ARCHIVED;
-      contract.archivedAt = new Date();
-      contract.currentHandler = '';
-      contract.currentHandlerRole = UserRole.ADMIN;
-      contract.operationLogs.push(
-        this.store.createOperationLog(
-          operator, 
-          '档案完成', 
-          '档案维护已完成，合同已正式归档', 
-          previousState, 
-          { status: ContractStatus.ARCHIVED, archivedAt: new Date(), currentHandler: '', currentHandlerRole: UserRole.ADMIN }
-        )
-      );
-      this.notificationService.notifyArchiveCompleted(contract.id, contract.talentName);
+      if (contract.archiveId && contract.status === ContractStatus.ARCHIVE_IN_PROGRESS) {
+        return this.executeArchive(contract, operator, contract.archiveId, 'archive_complete');
+      } else {
+        contract.currentHandler = '';
+        contract.currentHandlerRole = UserRole.ADMIN;
+        contract.updatedAt = new Date();
+        contract.operationLogs.push(
+          this.store.createOperationLog(
+            operator, 
+            '档案完成', 
+            '档案维护已完成，等待合同归档', 
+            previousState, 
+            { currentHandler: '', currentHandlerRole: UserRole.ADMIN }
+          )
+        );
+      }
     }
 
     contract.updatedAt = new Date();
