@@ -6,7 +6,7 @@ import StatusTag from '@/components/StatusTag/StatusTag';
 import Modal from '@/components/Modal/Modal';
 import { formatDateTime } from '@/utils/date';
 import { formatCurrency } from '@/utils/format';
-import { ReviewLog } from '@/types';
+import { ReviewLog, ReviewType } from '@/types';
 import {
   CheckSquare,
   Search,
@@ -34,6 +34,7 @@ export default function ReviewCenter() {
     addReviewLog, 
     addTimelineEvent,
     updateMedicalRecord,
+    updateFosterRecord,
     updateCaseStatus
   } = useCaseStore();
   const currentUser = useUserStore((state) => state.currentUser);
@@ -46,16 +47,27 @@ export default function ReviewCenter() {
   const [reviewNotes, setReviewNotes] = useState('');
   const [supplementReason, setSupplementReason] = useState('');
 
-  const pendingMedicalReviews = medicalRecords.filter(r => r.reviewStatus !== 'approved');
-  const pendingFosterReviews = fosterRecords.filter(f => {
-    if (f.status !== 'ended') return false;
-    const fosterReview = reviewLogs.find(r => r.caseId === f.caseId && r.type === 'foster');
-    return !fosterReview || fosterReview.status !== 'approved';
+  const getLatestReviewForTarget = (targetId: string, type: ReviewType) => {
+    return reviewLogs
+      .filter(r => r.targetId === targetId && r.type === type)
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
+  };
+
+  const pendingMedicalReviews = medicalRecords.filter(r => {
+    const latestReview = getLatestReviewForTarget(r.id, 'medical');
+    return !latestReview || latestReview.status !== 'approved';
   });
+
+  const pendingFosterReviews = fosterRecords.filter(f => {
+    if (f.status !== 'ended' && f.status !== 'returned') return false;
+    const latestReview = getLatestReviewForTarget(f.id, 'foster');
+    return !latestReview || latestReview.status !== 'approved';
+  });
+
   const pendingArchiveReviews = cases.filter(c => {
     if (c.status !== 'adopted') return false;
-    const archiveReview = reviewLogs.find(r => r.caseId === c.id && r.type === 'archive');
-    return !archiveReview || archiveReview.status !== 'approved';
+    const latestReview = getLatestReviewForTarget(c.id, 'archive');
+    return !latestReview || latestReview.status !== 'approved';
   });
 
   const getReviewItems = () => {
@@ -102,9 +114,12 @@ export default function ReviewCenter() {
       archive: 'archive',
     };
 
+    const targetId = activeTab === 'archive' ? selectedItem.caseId : selectedItem.id;
+    
     const newReview: ReviewLog = {
       id: `rl_${Date.now()}`,
       caseId: selectedItem.caseId,
+      targetId,
       type: typeMap[activeTab],
       status,
       reviewer: currentUser.id,
@@ -118,6 +133,12 @@ export default function ReviewCenter() {
     if (activeTab === 'medical' && selectedItem.id) {
       updateMedicalRecord(selectedItem.id, {
         reviewed: status === 'approved',
+        reviewStatus: status,
+      });
+    }
+
+    if (activeTab === 'foster' && selectedItem.id) {
+      updateFosterRecord(selectedItem.id, {
         reviewStatus: status,
       });
     }

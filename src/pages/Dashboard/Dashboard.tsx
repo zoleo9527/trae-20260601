@@ -59,8 +59,17 @@ export default function Dashboard() {
       priority: 'high' | 'medium' | 'low';
     }> = [];
 
+    const getLatestReviewForTarget = (targetId: string, type: string) => {
+      return reviewLogs
+        .filter(r => r.targetId === targetId && r.type === type)
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
+    };
+
     medicalRecords.forEach(r => {
-      if (r.reviewStatus === 'supplement_needed') {
+      const latestReview = getLatestReviewForTarget(r.id, 'medical');
+      const status = latestReview?.status || r.reviewStatus;
+      
+      if (status === 'supplement_needed') {
         const caseData = cases.find(c => c.id === r.caseId);
         if (caseData) {
           tasks.push({
@@ -75,7 +84,7 @@ export default function Dashboard() {
             priority: 'high',
           });
         }
-      } else if (r.reviewStatus !== 'approved') {
+      } else if (status !== 'approved') {
         const caseData = cases.find(c => c.id === r.caseId);
         if (caseData) {
           tasks.push({
@@ -93,9 +102,9 @@ export default function Dashboard() {
       }
     });
 
-    fosterRecords.filter(f => f.status === 'ended').forEach(f => {
-      const fosterReview = reviewLogs.find(r => r.caseId === f.caseId && r.type === 'foster');
-      if (!fosterReview || fosterReview.status !== 'approved') {
+    fosterRecords.filter(f => f.status === 'ended' || f.status === 'returned').forEach(f => {
+      const latestReview = getLatestReviewForTarget(f.id, 'foster');
+      if (!latestReview || latestReview.status !== 'approved') {
         const caseData = cases.find(c => c.id === f.caseId);
         if (caseData) {
           tasks.push({
@@ -106,7 +115,7 @@ export default function Dashboard() {
             caseId: f.caseId,
             caseName: caseData.animalName,
             caseNo: caseData.caseNo,
-            status: fosterReview?.status === 'supplement_needed' ? '需补录' : '待复核',
+            status: latestReview?.status === 'supplement_needed' ? '需补录' : '待复核',
             priority: 'medium',
           });
         }
@@ -114,8 +123,8 @@ export default function Dashboard() {
     });
 
     cases.filter(c => c.status === 'adopted').forEach(c => {
-      const archiveReview = reviewLogs.find(r => r.caseId === c.id && r.type === 'archive');
-      if (!archiveReview || archiveReview.status !== 'approved') {
+      const latestReview = getLatestReviewForTarget(c.id, 'archive');
+      if (!latestReview || latestReview.status !== 'approved') {
         tasks.push({
           id: `archive_${c.id}`,
           type: 'archive',
@@ -124,7 +133,7 @@ export default function Dashboard() {
           caseId: c.id,
           caseName: c.animalName,
           caseNo: c.caseNo,
-          status: archiveReview?.status === 'supplement_needed' ? '需补录' : '待归档',
+          status: latestReview?.status === 'supplement_needed' ? '需补录' : '待归档',
           priority: 'low',
         });
       }

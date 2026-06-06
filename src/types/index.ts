@@ -59,6 +59,7 @@ export interface FosterRecord {
   keyJudgment: string;
   specialRequirements: string;
   returnReason?: string;
+  reviewStatus?: ReviewStatus;
   createdBy: string;
   createdAt: string;
 }
@@ -148,6 +149,7 @@ export type ReviewStatus = 'pending' | 'approved' | 'rejected' | 'supplement_nee
 export interface ReviewLog {
   id: string;
   caseId: string;
+  targetId: string;
   type: ReviewType;
   status: ReviewStatus;
   reviewer: string;
