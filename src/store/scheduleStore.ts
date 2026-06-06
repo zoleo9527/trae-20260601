@@ -157,6 +157,7 @@ export const useScheduleStore = create<ScheduleState>()(
         const schedule = get().schedules.find((s) => s.id === scheduleId);
         const halls = useHallStore.getState().halls;
         const newHall = halls.find((h) => h.id === newHallId);
+        const oldHallId = schedule?.hallId;
 
         if (!schedule || !newHall) return false;
 
@@ -189,6 +190,20 @@ export const useScheduleStore = create<ScheduleState>()(
           schedules: state.schedules.map((s) => (s.id === scheduleId ? updated : s)),
           scheduleLogs: [...state.scheduleLogs, log],
         }));
+
+        if (oldHallId && oldHallId !== newHallId) {
+          useHallStore.getState().addHallLog(
+            oldHallId,
+            '排片移出',
+            `《${schedule.movieName}》换厅至 ${newHall.name}，原因：${reason}`
+          );
+        }
+
+        useHallStore.getState().addHallLog(
+          newHallId,
+          '排片移入',
+          `《${schedule.movieName}》从 ${oldHallId ? halls.find(h => h.id === oldHallId)?.name || '未知影厅' : '未知影厅'} 换厅移入，原因：${reason}`
+        );
 
         return true;
       },

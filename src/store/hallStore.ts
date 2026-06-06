@@ -229,6 +229,24 @@ export const useHallStore = create<HallState>()(
         const ticket = get().faultTickets.find((t) => t.id === ticketId);
         if (!ticket) return;
 
+        let logAction = '';
+        let logReason = remark || '';
+
+        if (ticket.status === 'pending' && status === 'processing') {
+          logAction = '开始处理故障';
+          logReason = `工单「${ticket.title}」已开始处理`;
+        } else if (status === 'resolved') {
+          logAction = '故障解决';
+          logReason = remark || `工单「${ticket.title}」已解决`;
+        } else if (status === 'closed') {
+          logAction = '关闭工单';
+          logReason = `工单「${ticket.title}」已关闭`;
+        }
+
+        if (logAction) {
+          get().addHallLog(ticket.hallId, logAction, logReason);
+        }
+
         set((state) => ({
           faultTickets: state.faultTickets.map((t) =>
             t.id === ticketId

@@ -6,6 +6,7 @@ import { generateId } from '@/utils/id';
 import { now } from '@/utils/date';
 import { useRoleStore } from './roleStore';
 import { useScheduleStore } from './scheduleStore';
+import { useHallStore } from './hallStore';
 
 interface TicketState {
   tickets: Ticket[];
@@ -255,6 +256,16 @@ export const useTicketStore = create<TicketState>()(
           refundListLogs: [...state.refundListLogs, log],
         }));
 
+        const halls = useHallStore.getState().halls;
+        const hall = halls.find((h) => h.name === schedule.hallName);
+        if (hall) {
+          useHallStore.getState().addHallLog(
+            hall.id,
+            '生成退票清单',
+            `《${schedule.movieName}》因${reason}生成退票清单，共 ${ticketIds.length} 张票待处理`
+          );
+        }
+
         return refundList;
       },
 
@@ -342,6 +353,16 @@ export const useTicketStore = create<TicketState>()(
           ),
           refundListLogs: [...state.refundListLogs, log],
         }));
+
+        const halls = useHallStore.getState().halls;
+        const hall = halls.find((h) => h.name === refundList.hallName);
+        if (hall) {
+          useHallStore.getState().addHallLog(
+            hall.id,
+            '退票处理完成',
+            `《${refundList.scheduleName}》退票清单处理完成：成功 ${result.success} 张，失败 ${result.failed} 张，原因：${refundList.reason}`
+          );
+        }
 
         return result;
       },

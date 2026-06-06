@@ -48,7 +48,12 @@ const HallDetail: React.FC = () => {
   const faultTickets = id ? getFaultTickets(id) : [];
   const schedules = id ? getSchedulesByHall(id) : [];
   const activeSchedules = schedules.filter((s) => s.status === 'active' || s.status === 'adjusting');
-  const refundLists = getRefundLists().filter((r) => hall && r.hallName === hall.name);
+  const allRefundLists = getRefundLists();
+  const refundLists = allRefundLists.filter((r) => hall && r.hallName === hall.name);
+
+  const getRefundListsByFaultTicket = (faultTicketId: string) => {
+    return allRefundLists.filter((r) => r.faultTicketId === faultTicketId);
+  };
 
   const [inspectionModalOpen, setInspectionModalOpen] = useState(false);
   const [faultModalOpen, setFaultModalOpen] = useState(false);
@@ -284,67 +289,93 @@ const HallDetail: React.FC = () => {
           {activeFaults.length > 0 && (
             <div className="card p-6">
               <h2 className="text-lg font-semibold text-gray-900 mb-4">活跃故障工单</h2>
-              <div className="space-y-3">
-                {activeFaults.map((ticket) => (
-                  <div key={ticket.id} className="p-4 bg-gray-50 rounded-xl">
-                    <div className="flex items-start justify-between mb-2">
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <h3 className="font-medium text-gray-900">{ticket.title}</h3>
-                          <StatusBadge type="fault" status={ticket.status} />
-                        </div>
-                        <p className="text-sm text-gray-500 mt-1">{ticket.description}</p>
-                      </div>
-                    </div>
-                    {ticket.affectedSchedules && ticket.affectedSchedules.length > 0 && (
-                      <div className="mt-3 p-3 bg-amber-50 rounded-lg">
-                        <p className="text-xs font-medium text-amber-800 mb-2">受影响排片</p>
-                        <div className="space-y-1">
-                          {ticket.affectedSchedules.map((s) => (
-                            <div key={s.scheduleId} className="text-xs text-amber-700 flex items-center gap-2">
-                              <span className="w-1.5 h-1.5 bg-amber-400 rounded-full"></span>
-                              {s.scheduleName} ({formatTime(s.startTime)}-{formatTime(s.endTime)})
-                            </div>
-                          ))}
+              <div className="space-y-4">
+                {activeFaults.map((ticket) => {
+                  const ticketRefundLists = getRefundListsByFaultTicket(ticket.id);
+                  return (
+                    <div key={ticket.id} className="p-4 bg-gray-50 rounded-xl">
+                      <div className="flex items-start justify-between mb-2">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <h3 className="font-medium text-gray-900">{ticket.title}</h3>
+                            <StatusBadge type="fault" status={ticket.status} />
+                          </div>
+                          <p className="text-sm text-gray-500 mt-1">{ticket.description}</p>
                         </div>
                       </div>
-                    )}
-                    <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-200">
-                      <div className="flex items-center gap-2 text-xs text-gray-500">
-                        <User className="w-3 h-3" />
-                        上报人：{ticket.reportedBy}
-                        <span className="mx-1">·</span>
-                        {formatDateTime(ticket.createdAt)}
-                      </div>
-                      <div className="flex gap-2">
-                        {ticket.status === 'pending' && (
-                          <button
-                            onClick={() => updateFaultTicketStatus(ticket.id, 'processing')}
-                            className="text-xs px-3 py-1 bg-amber-100 text-amber-700 rounded-lg hover:bg-amber-200 transition-colors"
-                          >
-                            开始处理
-                          </button>
-                        )}
-                        {ticket.status === 'processing' && (
-                          <button
-                            onClick={() => openResolveModal(ticket.id)}
-                            className="text-xs px-3 py-1 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition-colors"
-                          >
-                            标记解决
-                          </button>
-                        )}
-                        {ticket.status === 'resolved' && (
-                          <button
-                            onClick={() => closeFaultTicket(ticket.id)}
-                            className="text-xs px-3 py-1 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors"
-                          >
-                            关闭工单
-                          </button>
-                        )}
+                      {ticket.affectedSchedules && ticket.affectedSchedules.length > 0 && (
+                        <div className="mt-3 p-3 bg-amber-50 rounded-lg">
+                          <p className="text-xs font-medium text-amber-800 mb-2">受影响排片</p>
+                          <div className="space-y-1">
+                            {ticket.affectedSchedules.map((s) => (
+                              <div key={s.scheduleId} className="text-xs text-amber-700 flex items-center gap-2">
+                                <span className="w-1.5 h-1.5 bg-amber-400 rounded-full"></span>
+                                {s.scheduleName} ({formatTime(s.startTime)}-{formatTime(s.endTime)})
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {ticketRefundLists.length > 0 && (
+                        <div className="mt-3 p-3 bg-red-50 rounded-lg">
+                          <p className="text-xs font-medium text-red-800 mb-2">关联退票清单 ({ticketRefundLists.length} 个)</p>
+                          <div className="space-y-2">
+                            {ticketRefundLists.map((refund) => (
+                              <div key={refund.id} className="flex items-center justify-between p-2 bg-white rounded-lg">
+                                <div className="flex-1">
+                                  <p className="text-sm font-medium text-gray-900">{refund.scheduleName}</p>
+                                  <p className="text-xs text-gray-500">{refund.ticketIds.length} 张票 · {refund.reason}</p>
+                                </div>
+                                <span className={`badge ${
+                                  refund.status === 'pending' ? 'bg-amber-100 text-amber-800' :
+                                  refund.status === 'processing' ? 'bg-blue-100 text-blue-800' :
+                                  'bg-green-100 text-green-800'
+                                }`}>
+                                  {refund.status === 'pending' ? '待处理' :
+                                   refund.status === 'processing' ? '处理中' : '已完成'}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-200">
+                        <div className="flex items-center gap-2 text-xs text-gray-500">
+                          <User className="w-3 h-3" />
+                          上报人：{ticket.reportedBy}
+                          <span className="mx-1">·</span>
+                          {formatDateTime(ticket.createdAt)}
+                        </div>
+                        <div className="flex gap-2">
+                          {ticket.status === 'pending' && (
+                            <button
+                              onClick={() => updateFaultTicketStatus(ticket.id, 'processing')}
+                              className="text-xs px-3 py-1 bg-amber-100 text-amber-700 rounded-lg hover:bg-amber-200 transition-colors"
+                            >
+                              开始处理
+                            </button>
+                          )}
+                          {ticket.status === 'processing' && (
+                            <button
+                              onClick={() => openResolveModal(ticket.id)}
+                              className="text-xs px-3 py-1 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition-colors"
+                            >
+                              标记解决
+                            </button>
+                          )}
+                          {ticket.status === 'resolved' && (
+                            <button
+                              onClick={() => closeFaultTicket(ticket.id)}
+                              className="text-xs px-3 py-1 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors"
+                            >
+                              关闭工单
+                            </button>
+                          )}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           )}
