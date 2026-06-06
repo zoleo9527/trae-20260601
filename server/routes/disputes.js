@@ -103,6 +103,7 @@ router.post('/:purchaseId/mediate', async (req, res) => {
     updateStepStatus(steps, 'acceptance_pending', 'completed', timestamp, mediatorName)
     updateStepStatus(steps, 'acceptance_completed', 'completed', timestamp, mediatorName)
     updateStepStatus(steps, 'sample_pending', 'current')
+    purchase.dispute = null
   } else if (resolutionType === 'reject') {
     purchase.status = 'rejected'
     purchase.currentHandlerId = purchase.purchaserId || 'u2'
@@ -110,7 +111,13 @@ router.post('/:purchaseId/mediate', async (req, res) => {
     purchase.currentHandlerRole = 'purchaser'
     updateStepStatus(steps, 'acceptance_pending', 'error', timestamp, mediatorName, resolution)
     updateStepStatus(steps, 'supplement_requested', 'completed', timestamp, mediatorName, resolution)
-    updateStepStatus(steps, 'supplement_submitted', 'current')
+    updateStepStatus(steps, 'supplement_submitted', 'current', timestamp)
+    const supplementStep = steps.find(s => s.key === 'supplement_submitted')
+    if (supplementStep) {
+      delete supplementStep.remark
+      delete supplementStep.operatorName
+      delete supplementStep.timestamp
+    }
     
     const oldRejectException = purchase.exceptions.find(e => (e.type === 'reject' || e.type === 'supplement') && e.status !== 'resolved')
     if (oldRejectException) {
@@ -133,12 +140,20 @@ router.post('/:purchaseId/mediate', async (req, res) => {
       comments: []
     }
     purchase.exceptions.push(rejectException)
+    
+    purchase.dispute = null
   } else {
     purchase.status = 'pending_acceptance'
     purchase.currentHandlerId = 'u1'
     purchase.currentHandlerName = '张管理'
     purchase.currentHandlerRole = 'admin'
-    updateStepStatus(steps, 'acceptance_pending', 'current')
+    updateStepStatus(steps, 'acceptance_pending', 'current', timestamp)
+    const acceptanceStep = steps.find(s => s.key === 'acceptance_pending')
+    if (acceptanceStep) {
+      delete acceptanceStep.remark
+      delete acceptanceStep.operatorName
+    }
+    purchase.dispute = null
   }
 
   purchase.updatedAt = timestamp

@@ -30,6 +30,7 @@ router.post('/:purchaseId', async (req, res) => {
   
   const steps = purchase.processSteps
   const timestamp = now()
+  const isResubmit = purchase.status === 'supplement_submitted'
 
   if (action === 'accept') {
     purchase.status = 'sample_pending'
@@ -37,7 +38,9 @@ router.post('/:purchaseId', async (req, res) => {
     purchase.currentHandlerName = operatorName
     purchase.currentHandlerRole = 'admin'
     updateStepStatus(steps, 'acceptance_pending', 'completed', timestamp, operatorName)
-    updateStepStatus(steps, 'supplement_submitted', 'completed', timestamp, operatorName)
+    if (isResubmit) {
+      updateStepStatus(steps, 'supplement_submitted', 'completed', timestamp, operatorName)
+    }
     updateStepStatus(steps, 'acceptance_completed', 'completed', timestamp, operatorName)
     updateStepStatus(steps, 'sample_pending', 'current')
   } else if (action === 'supplement') {
@@ -47,6 +50,14 @@ router.post('/:purchaseId', async (req, res) => {
     purchase.currentHandlerRole = 'purchaser'
     updateStepStatus(steps, 'acceptance_pending', 'completed', timestamp, operatorName)
     updateStepStatus(steps, 'supplement_requested', 'current', timestamp, operatorName, remark)
+    
+    const supplementSubmittedStep = steps.find(s => s.key === 'supplement_submitted')
+    if (supplementSubmittedStep) {
+      supplementSubmittedStep.status = 'pending'
+      delete supplementSubmittedStep.remark
+      delete supplementSubmittedStep.operatorName
+      delete supplementSubmittedStep.timestamp
+    }
     
     const exception = {
       id: uuidv4(),
@@ -68,6 +79,14 @@ router.post('/:purchaseId', async (req, res) => {
     purchase.currentHandlerName = purchase.purchaserName
     purchase.currentHandlerRole = 'purchaser'
     updateStepStatus(steps, 'acceptance_pending', 'error', timestamp, operatorName, remark)
+    
+    const supplementSubmittedStep = steps.find(s => s.key === 'supplement_submitted')
+    if (supplementSubmittedStep) {
+      supplementSubmittedStep.status = 'pending'
+      delete supplementSubmittedStep.remark
+      delete supplementSubmittedStep.operatorName
+      delete supplementSubmittedStep.timestamp
+    }
     
     const exception = {
       id: uuidv4(),
