@@ -11,9 +11,10 @@ import type { FeedbackStatus, Review, Student } from "~/types";
 function calculateDaysSince(dateStr: string): number {
   const date = new Date(dateStr);
   const today = new Date();
-  const diffTime = Math.abs(today.getTime() - date.getTime());
-  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-  return diffDays;
+  const dateOnly = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const todayOnly = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  const diffTime = todayOnly.getTime() - dateOnly.getTime();
+  return Math.floor(diffTime / (1000 * 60 * 60 * 24));
 }
 
 function getFeedbackAlertType(status: FeedbackStatus): "unread" | "read_no_reply" | null {
@@ -111,6 +112,8 @@ export default function StudentsIndex() {
                     >
                       <span>{s.name} - {s.parentName}</span>
                       <span className="text-red-500">·</span>
+                      <span className="text-red-500">{formatDate(s.lastReview?.createdAt || "")}</span>
+                      <span className="text-red-500">·</span>
                       <span className="text-red-500">{s.daysSinceLastReview}天未读</span>
                       <ArrowRight size={12} className="text-red-400" />
                     </Link>
@@ -136,6 +139,8 @@ export default function StudentsIndex() {
                       className="bg-white px-3 py-1.5 rounded-full text-sm text-orange-700 border border-orange-200 hover:bg-orange-50 transition-colors flex items-center gap-2"
                     >
                       <span>{s.name} - {s.parentName}</span>
+                      <span className="text-orange-500">·</span>
+                      <span className="text-orange-500">{formatDate(s.lastReview?.createdAt || "")}</span>
                       <span className="text-orange-500">·</span>
                       <span className="text-orange-500">{s.daysSinceLastReview}天未回复</span>
                       <ArrowRight size={12} className="text-orange-400" />
@@ -226,7 +231,7 @@ export default function StudentsIndex() {
                       <Calendar size={12} />
                       最近点评：{formatDate(student.lastReview.createdAt)}
                     </p>
-                    {student.daysSinceLastReview !== null && student.daysSinceLastReview >= 2 && (
+                    {student.feedbackAlertType && student.daysSinceLastReview !== null && student.daysSinceLastReview >= 2 && (
                       <p className={`text-xs flex items-center gap-1 ${
                         student.feedbackAlertType === "unread" ? "text-red-600" : "text-orange-600"
                       }`}>

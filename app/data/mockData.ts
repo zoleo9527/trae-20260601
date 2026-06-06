@@ -270,7 +270,7 @@ export const mockReviews: Review[] = [
       { sectionId: "sec3", content: "调色需要加强。" },
       { sectionId: "sec4", content: "练习色彩基础知识。" },
     ],
-    feedbackStatus: "parent_replied",
+    feedbackStatus: "parent_read",
     feedbackType: "teacher_change",
     createdAt: "2026-06-05T12:00:00",
     updatedAt: "2026-06-06T08:30:00",
@@ -377,7 +377,7 @@ export const mockTodos: TodoItem[] = [
 export function getStatusLabel(status: string): { label: string; color: string } {
   const statusMap: Record<string, { label: string; color: string }> = {
     parent_unread: { label: "家长未读", color: "bg-gray-100 text-gray-700" },
-    parent_read: { label: "家长已读", color: "bg-blue-100 text-blue-700" },
+    parent_read: { label: "已读未回复", color: "bg-orange-100 text-orange-700" },
     parent_replied: { label: "家长已回复", color: "bg-purple-100 text-purple-700" },
     consultant_following: { label: "顾问跟进中", color: "bg-orange-100 text-orange-700" },
     resolved: { label: "已处理", color: "bg-green-100 text-green-700" },
