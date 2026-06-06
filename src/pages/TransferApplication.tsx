@@ -50,6 +50,25 @@ export default function TransferApplication() {
   const handleNext = () => step < 5 && setStep(step + 1);
   const handlePrev = () => step > 1 && setStep(step - 1);
   const handleSubmit = () => {
+    const targetClassInfo = mockClasses.find(c => c.id === formData.toClassId);
+    if (existingApp) {
+      updateTransferApplication(existingApp.id, {
+        reason: formData.reason as any,
+        reasonDetail: formData.reasonDetail,
+        toClassId: formData.toClassId,
+        toClassName: targetClassInfo?.name || '',
+        trialDate: formData.trialDate,
+        trialResult: formData.trialResult as any,
+        trialFeedback: formData.trialFeedback,
+        trialTeacherName: formData.trialTeacherName,
+        parentConfirmed: formData.parentConfirmed,
+        priceConfirmed: true,
+        priceDifference: priceDiff,
+        remainingHoursFrom: student?.remainingHours || 0,
+        remainingHoursTo: student?.remainingHours || 0,
+      });
+      submitTransferForAudit(existingApp.id);
+    }
     alert('调班申请已提交！请等待校区主管审批。');
     navigate('/students/' + student?.id);
   };

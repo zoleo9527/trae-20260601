@@ -23,7 +23,9 @@ export default function StudentList() {
     const apps = getTransferApplications();
     return apps.some(t => t.studentId === s.id && t.status !== 'completed' && t.status !== 'rejected');
   });
+
   const displayStudents = activeTab === 'all' ? filteredStudents : transferStudents;
+
   return (
     <div>
       <div className="grid grid-4 mb-4">
@@ -87,12 +89,7 @@ export default function StudentList() {
 
                 if (activeTab === 'transfer' && !transfer) return null;
 
-                const transferStudents = mockStudents.filter(s => {
-    const apps = getTransferApplications();
-    return apps.some(t => t.studentId === s.id && t.status !== 'completed' && t.status !== 'rejected');
-  });
-  const displayStudents = activeTab === 'all' ? filteredStudents : transferStudents;
-  return (
+                return (
                   <tr key={student.id}>
                     <td>
                       <div className="student-name">

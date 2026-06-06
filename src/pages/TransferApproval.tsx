@@ -14,7 +14,7 @@ export default function TransferApproval() {
   const selectedApp = getTransferApplications().find(t => t.id === selectedId);
 
   return (
-    <div className="grid grid-2" style={{ gap: 24 }}>
+    <div className="grid grid-2" style={{ gap: 24 }} key={refreshKey}>
       <div>
         <div className="card">
           <div className="card-header flex justify-between items-center">
@@ -180,7 +180,7 @@ export default function TransferApproval() {
                 <button
                   className="btn btn-success flex-1"
                   onClick={() => {
-                    alert('已批准该调班申请！');
+                    approveTransfer(selectedId, '王主管（校区主管）', auditComment); alert('已批准该调班申请！'); setRefreshKey(k=>k+1);
                     setSelectedId(null);
                     setAuditComment('');
                   }}
@@ -191,7 +191,7 @@ export default function TransferApproval() {
                   className="btn btn-danger flex-1"
                   onClick={() => {
                     if (!auditComment.trim()) { alert('请填写拒绝原因'); return; }
-                    alert('已拒绝该调班申请！');
+                    rejectTransfer(selectedId, '王主管（校区主管）', auditComment); alert('已拒绝该调班申请！'); setRefreshKey(k=>k+1);
                     setSelectedId(null);
                     setAuditComment('');
                   }}
