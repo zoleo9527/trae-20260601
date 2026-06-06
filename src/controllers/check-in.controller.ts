@@ -141,11 +141,21 @@ export class CheckInController {
     return '待确认';
   }
 
+  private getHandlerRole(item: any): string | null {
+    const handler = item.currentHandler || item.assignedTo;
+    return handler ? handler.role : null;
+  }
+
   private getBlockedAt(item: any): string {
+    const role = this.getHandlerRole(item);
+
     switch (item.status) {
       case CheckInStatus.PENDING:
         return '待宿管员初查分配';
       case CheckInStatus.IN_PROGRESS:
+        if (role === 'dorm_manager') {
+          return '宿管员核实分配信息中';
+        }
         return '辅导员审核中';
       case CheckInStatus.RETURNED:
         return '退回学生补充材料';
@@ -154,6 +164,9 @@ export class CheckInController {
       case CheckInStatus.DISPUTED:
         return '责任争议，三方协商中';
       case CheckInStatus.OVERDUE:
+        if (role === 'dorm_manager') {
+          return '宿管分配逾期，待跟进';
+        }
         return '处理逾期，待跟进';
       case CheckInStatus.APPROVED:
         return '已通过，待宿管员确认入住';

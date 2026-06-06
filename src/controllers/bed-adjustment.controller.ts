@@ -175,11 +175,24 @@ export class BedAdjustmentController {
     return '待确认';
   }
 
+  private getHandlerRole(item: any): string | null {
+    const handler = item.currentHandler || item.assignedTo;
+    return handler ? handler.role : null;
+  }
+
   private getBlockedAt(item: any): string {
+    const role = this.getHandlerRole(item);
+
     switch (item.status) {
       case AdjustmentStatus.PENDING:
         return '待宿管员初查申请';
       case AdjustmentStatus.IN_PROGRESS:
+        if (role === 'maintenance') {
+          return '维修人员处理设施问题中';
+        }
+        if (role === 'dorm_manager') {
+          return '宿管员核实情况中';
+        }
         return '辅导员审核中';
       case AdjustmentStatus.RETURNED:
         return '退回学生补充材料';
@@ -188,6 +201,9 @@ export class BedAdjustmentController {
       case AdjustmentStatus.DISPUTED:
         return '责任争议，三方协商中';
       case AdjustmentStatus.OVERDUE:
+        if (role === 'maintenance') {
+          return '维修处理逾期，待跟进';
+        }
         return '处理逾期，待跟进';
       case AdjustmentStatus.APPROVED:
         return '已通过，待宿管员执行调换';
@@ -221,6 +237,15 @@ export class BedAdjustmentController {
     }
     if (item.status === AdjustmentStatus.MAINTENANCE_REQUIRED) {
       return '需维修人员配合处理设施问题';
+    }
+    if (item.status === AdjustmentStatus.IN_PROGRESS) {
+      const role = this.getHandlerRole(item);
+      if (role === 'maintenance') {
+        return item.reasonDetail ? `维修处理中：${item.reasonDetail}` : '维修人员正在处理设施问题';
+      }
+      if (role === 'dorm_manager') {
+        return '宿管员正在核实情况';
+      }
     }
     if (item.reasonDetail) {
       return `调整原因：${item.reasonDetail}`;
