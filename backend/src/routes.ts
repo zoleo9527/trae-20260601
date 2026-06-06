@@ -28,10 +28,13 @@ router.get('/todos', (req: Request, res: Response) => {
   res.json({ todos });
 });
 
-// 结案数据处理：提交结案数据
+// 结案数据处理：提交结案数据（支持补录备注）
 router.post('/cases/:caseId/submit-data', (req: Request, res: Response) => {
   const { caseId } = req.params;
-  const { settlementData } = req.body as { settlementData: SettlementData };
+  const { settlementData, supplementaryRemark } = req.body as { 
+    settlementData: SettlementData;
+    supplementaryRemark?: string;
+  };
   const userRole = (req as any).userRole as UserRole;
   const userId = (req as any).userId as string;
 
@@ -48,6 +51,7 @@ router.post('/cases/:caseId/submit-data', (req: Request, res: Response) => {
   }
 
   const now = new Date().toISOString();
+  const fromStatus = caseRecord.status;
   caseRecord.settlementData = settlementData;
   caseRecord.dataSubmittedAt = now;
   caseRecord.dataSubmittedBy = userId;
@@ -55,13 +59,22 @@ router.post('/cases/:caseId/submit-data', (req: Request, res: Response) => {
   caseRecord.currentHandler = 'business';
   caseRecord.updatedAt = now;
 
+  if (supplementaryRemark) {
+    const prevRemark = caseRecord.supplementaryRemark;
+    caseRecord.supplementaryRemark = prevRemark 
+      ? `${prevRemark}\n[${new Date().toLocaleString()}] ${supplementaryRemark}`
+      : supplementaryRemark;
+    caseRecord.supplementaryAt = now;
+  }
+
   db.statusLogs.push({
     id: db.generateId(),
     caseId,
-    fromStatus: caseRecord.status,
+    fromStatus,
     toStatus: 'data_submitted',
     operatorId: userId,
     operatorRole: userRole,
+    remark: supplementaryRemark,
     createdAt: now
   });
 
@@ -99,13 +112,17 @@ router.post('/cases/:caseId/review-data', (req: Request, res: Response) => {
   }
 
   const now = new Date().toISOString();
+  const fromStatus = caseRecord.status;
   const newStatus: CaseStatus = approved ? 'pending_settlement' : 'data_rejected';
   
   caseRecord.status = newStatus;
   caseRecord.currentHandler = approved ? 'finance' : 'talent_agent';
   
   if (!approved && rejectReason) {
-    caseRecord.rejectReason = rejectReason;
+    const prevReject = caseRecord.rejectReason;
+    caseRecord.rejectReason = prevReject 
+      ? `${prevReject}\n[${new Date().toLocaleString()}] ${rejectReason}`
+      : rejectReason;
     caseRecord.rejectAt = now;
     caseRecord.rejectBy = userId;
   }
@@ -115,7 +132,7 @@ router.post('/cases/:caseId/review-data', (req: Request, res: Response) => {
   db.statusLogs.push({
     id: db.generateId(),
     caseId,
-    fromStatus: 'data_submitted',
+    fromStatus,
     toStatus: newStatus,
     operatorId: userId,
     operatorRole: userRole,
@@ -203,10 +220,16 @@ router.post('/cases/:caseId/transition', (req: Request, res: Response) => {
   res.json({ case: caseRecord });
 });
 
-// 费用结算处理
+// 费用结算处理（支持提交、复核通过、复核驳回、重新提交、付款）
 router.post('/cases/:caseId/settlement', (req: Request, res: Response) => {
   const { caseId } = req.params;
-  const { action, remark } = req.body as { action: 'submit' | 'review' | 'pay'; remark?: string };
+  const { action, approved, remark, rejectReason, supplementaryRemark } = req.body as {
+    action: 'submit' | 'review' | 'resubmit' | 'pay';
+    approved?: boolean;
+    remark?: string;
+    rejectReason?: string;
+    supplementaryRemark?: string;
+  };
   const userRole = (req as any).userRole as UserRole;
   const userId = (req as any).userId as string;
 
@@ -217,29 +240,66 @@ router.post('/cases/:caseId/settlement', (req: Request, res: Response) => {
 
   const now = new Date().toISOString();
   let targetStatus: CaseStatus | null = null;
+  let logRemark = remark;
 
   if (action === 'submit' && userRole === 'finance') {
-    if (caseRecord.status !== 'pending_settlement') {
+    if (!canTransition(caseRecord.status, 'settlement_pending_review', userRole)) {
       return res.status(400).json({ error: 'Invalid status for settlement submission' });
     }
     targetStatus = 'settlement_pending_review';
     caseRecord.settlementReviewedAt = now;
     caseRecord.settlementReviewedBy = userId;
+    logRemark = '财务提交结算复核';
   } else if (action === 'review' && userRole === 'business') {
     if (caseRecord.status !== 'settlement_pending_review') {
       return res.status(400).json({ error: 'Invalid status for settlement review' });
     }
-    targetStatus = 'completed';
-    caseRecord.settlementRemark = remark;
+    if (approved === true) {
+      if (!canTransition(caseRecord.status, 'completed', userRole)) {
+        return res.status(403).json({ error: 'Permission denied' });
+      }
+      targetStatus = 'completed';
+      caseRecord.settlementRemark = remark;
+      logRemark = remark || '结算复核通过';
+    } else {
+      if (!canTransition(caseRecord.status, 'settlement_rejected', userRole)) {
+        return res.status(403).json({ error: 'Permission denied' });
+      }
+      targetStatus = 'settlement_rejected';
+      const prevReject = caseRecord.rejectReason;
+      caseRecord.rejectReason = prevReject 
+        ? `${prevReject}\n[结算驳回 ${new Date().toLocaleString()}] ${rejectReason || '结算复核不通过'}`
+        : `[结算驳回 ${new Date().toLocaleString()}] ${rejectReason || '结算复核不通过'}`;
+      caseRecord.rejectAt = now;
+      caseRecord.rejectBy = userId;
+      logRemark = rejectReason || '结算复核不通过';
+    }
+  } else if (action === 'resubmit' && userRole === 'finance') {
+    if (!canTransition(caseRecord.status, 'settlement_pending_review', userRole)) {
+      return res.status(400).json({ error: 'Invalid status for settlement resubmission' });
+    }
+    targetStatus = 'settlement_pending_review';
+    caseRecord.settlementReviewedAt = now;
+    caseRecord.settlementReviewedBy = userId;
+    if (supplementaryRemark) {
+      const prevRemark = caseRecord.supplementaryRemark;
+      caseRecord.supplementaryRemark = prevRemark 
+        ? `${prevRemark}\n[结算补充 ${new Date().toLocaleString()}] ${supplementaryRemark}`
+        : `[结算补充 ${new Date().toLocaleString()}] ${supplementaryRemark}`;
+      caseRecord.supplementaryAt = now;
+    }
+    logRemark = supplementaryRemark || '财务重新提交结算';
   } else if (action === 'pay' && userRole === 'finance') {
     if (caseRecord.status !== 'completed') {
       return res.status(400).json({ error: 'Invalid status for payment' });
     }
     caseRecord.paidAt = now;
     caseRecord.paidAmount = caseRecord.settlementData?.talentFee || 0;
+    logRemark = `已付款 ¥${caseRecord.paidAmount.toLocaleString()}`;
   }
 
   if (targetStatus) {
+    const fromStatus = caseRecord.status;
     caseRecord.status = targetStatus;
     caseRecord.currentHandler = getHandlerForStatus(targetStatus);
     caseRecord.updatedAt = now;
@@ -247,13 +307,31 @@ router.post('/cases/:caseId/settlement', (req: Request, res: Response) => {
     db.statusLogs.push({
       id: db.generateId(),
       caseId,
-      fromStatus: caseRecord.status,
+      fromStatus,
       toStatus: targetStatus,
       operatorId: userId,
       operatorRole: userRole,
-      remark,
+      remark: logRemark,
       createdAt: now
     });
+
+    const handler = getHandlerForStatus(targetStatus);
+    if (handler) {
+      const todo: TodoItem = {
+        id: db.generateId(),
+        caseId,
+        title: targetStatus === 'settlement_rejected' 
+          ? `结算被驳回，请修改：${caseRecord.id}`
+          : targetStatus === 'completed'
+            ? `结算完成，待付款：${caseRecord.id}`
+            : `结算待复核：${caseRecord.id}`,
+        description: logRemark || `结算状态变更为：${STATUS_LABELS[targetStatus]}`,
+        role: handler,
+        priority: targetStatus === 'settlement_rejected' ? 'high' : 'medium',
+        createdAt: now
+      };
+      db.todoItems.push(todo);
+    }
   }
 
   res.json({ case: caseRecord });

@@ -42,11 +42,11 @@ export const api = {
     return data.logs;
   },
 
-  submitCaseData: async (caseId: string, settlementData: any, role: UserRole) => {
+  submitCaseData: async (caseId: string, settlementData: any, supplementaryRemark: string | undefined, role: UserRole) => {
     const res = await fetch(`${API_BASE}/cases/${caseId}/submit-data`, {
       method: 'POST',
       headers: getHeaders(role),
-      body: JSON.stringify({ settlementData })
+      body: JSON.stringify({ settlementData, supplementaryRemark })
     });
     return res.json();
   },
@@ -69,11 +69,21 @@ export const api = {
     return res.json();
   },
 
-  handleSettlement: async (caseId: string, action: 'submit' | 'review' | 'pay', remark: string | undefined, role: UserRole) => {
+  handleSettlement: async (
+    caseId: string, 
+    action: 'submit' | 'review' | 'resubmit' | 'pay', 
+    options: {
+      approved?: boolean;
+      remark?: string;
+      rejectReason?: string;
+      supplementaryRemark?: string;
+    }, 
+    role: UserRole
+  ) => {
     const res = await fetch(`${API_BASE}/cases/${caseId}/settlement`, {
       method: 'POST',
       headers: getHeaders(role),
-      body: JSON.stringify({ action, remark })
+      body: JSON.stringify({ action, ...options })
     });
     return res.json();
   },
