@@ -7,9 +7,10 @@ import { zhCN } from 'date-fns/locale'
 interface RemarkPanelProps {
   sourceType: 'inventory' | 'screening' | 'exception'
   sourceId: string
+  readOnly?: boolean
 }
 
-export function RemarkPanel({ sourceType, sourceId }: RemarkPanelProps) {
+export function RemarkPanel({ sourceType, sourceId, readOnly = false }: RemarkPanelProps) {
   const [newRemark, setNewRemark] = useState('')
   const { getRemarksBySource, addRemark } = useStore()
   const remarks = getRemarksBySource(sourceType, sourceId)
@@ -57,20 +58,22 @@ export function RemarkPanel({ sourceType, sourceId }: RemarkPanelProps) {
         )}
       </div>
 
-      <div className="flex gap-2">
-        <input
-          type="text"
-          value={newRemark}
-          onChange={(e) => setNewRemark(e.target.value)}
-          placeholder="添加备注（将同步关联到相关场次对账）"
-          className="input flex-1"
-          onKeyDown={(e) => e.key === 'Enter' && handleSubmit()}
-        />
-        <button onClick={handleSubmit} className="btn-primary flex items-center gap-2">
-          <Send className="w-4 h-4" />
-          发送
-        </button>
-      </div>
+      {!readOnly && (
+        <div className="flex gap-2">
+          <input
+            type="text"
+            value={newRemark}
+            onChange={(e) => setNewRemark(e.target.value)}
+            placeholder="添加备注（将同步关联到相关场次对账）"
+            className="input flex-1"
+            onKeyDown={(e) => e.key === 'Enter' && handleSubmit()}
+          />
+          <button onClick={handleSubmit} className="btn-primary flex items-center gap-2">
+            <Send className="w-4 h-4" />
+            发送
+          </button>
+        </div>
+      )}
     </div>
   )
 }
@@ -78,9 +81,10 @@ export function RemarkPanel({ sourceType, sourceId }: RemarkPanelProps) {
 interface AttachmentPanelProps {
   sourceType: 'inventory' | 'screening' | 'exception'
   sourceId: string
+  readOnly?: boolean
 }
 
-export function AttachmentPanel({ sourceType, sourceId }: AttachmentPanelProps) {
+export function AttachmentPanel({ sourceType, sourceId, readOnly = false }: AttachmentPanelProps) {
   const { addAttachment } = useStore()
   const [sourceData] = useStore((state) => {
     if (sourceType === 'inventory') return [state.inventoryItems.find((i) => i.id === sourceId)]
@@ -132,13 +136,15 @@ export function AttachmentPanel({ sourceType, sourceId }: AttachmentPanelProps) 
         )}
       </div>
 
-      <label className="block">
-        <span className="btn-secondary w-full text-center cursor-pointer flex items-center justify-center gap-2">
-          <Paperclip className="w-4 h-4" />
-          上传附件
-        </span>
-        <input type="file" className="hidden" onChange={handleFileUpload} />
-      </label>
+      {!readOnly && (
+        <label className="block">
+          <span className="btn-secondary w-full text-center cursor-pointer flex items-center justify-center gap-2">
+            <Paperclip className="w-4 h-4" />
+            上传附件
+          </span>
+          <input type="file" className="hidden" onChange={handleFileUpload} />
+        </label>
+      )}
     </div>
   )
 }

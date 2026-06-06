@@ -1,7 +1,9 @@
 import { useState } from 'react'
-import { useStore, ExceptionRecord } from '@/store'
+import { useStore } from '@/store'
 import { RiskLevelBadge } from '@/components/Badges'
 import { RemarkPanel, AttachmentPanel } from '@/components/RemarkPanel'
+import { canPerformAction } from '@/services/permissions'
+import type { ExceptionRecord } from '@/types'
 import {
   ArrowRightLeft,
   Users,
@@ -14,6 +16,8 @@ import {
   Film,
   Clock,
   CheckCircle2,
+  Lock,
+  Play,
 } from 'lucide-react'
 import { format } from 'date-fns'
 import { zhCN } from 'date-fns/locale'
@@ -28,11 +32,17 @@ const typeConfig = {
 }
 
 export default function Exceptions() {
-  const { exceptions, screenings, currentUser, updateExceptionStatus } = useStore()
+  const { exceptions, screenings, currentUser, updateExceptionStatus, refreshAll } = useStore()
   const [filter, setFilter] = useState<ExceptionRecord['status'] | 'all'>('all')
   const [typeFilter, setTypeFilter] = useState<ExceptionRecord['type'] | 'all'>('all')
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedException, setSelectedException] = useState<ExceptionRecord | null>(null)
+
+  const canUpdateStatus = canPerformAction('exception', 'update_status', currentUser.role)
+  const canStartHandling = canPerformAction('exception', 'update_status:handling', currentUser.role)
+  const canResolve = canPerformAction('exception', 'update_status', currentUser.role)
+  const canAddRemark = canPerformAction('exception', 'add_remark', currentUser.role)
+  const canAddAttachment = canPerformAction('exception', 'add_attachment', currentUser.role)
 
   const filteredExceptions = exceptions.filter((e) => {
     const matchesStatus = filter === 'all' || e.status === filter
@@ -43,6 +53,7 @@ export default function Exceptions() {
   })
 
   const handleStatusUpdate = (id: string, status: ExceptionRecord['status']) => {
+    if (!canUpdateStatus && !canStartHandling && !canResolve) return
     updateExceptionStatus(id, status, currentUser.id, currentUser.name)
     if (selectedException?.id === id) {
       setSelectedException({ ...selectedException, status })
@@ -55,6 +66,41 @@ export default function Exceptions() {
     resolved: '已解决',
   }
 
+  const ActionButton = ({
+    onClick,
+    disabled,
+    canPerform,
+    children,
+    className = '',
+  }: {
+    onClick?: () => void
+    disabled?: boolean
+    canPerform: boolean
+    children: React.ReactNode
+    className?: string
+  }) => {
+    if (!canPerform) {
+      return (
+        <button
+          disabled
+          className={`px-3 py-2 bg-gray-100 text-gray-400 rounded-lg cursor-not-allowed text-sm font-medium flex items-center justify-center gap-1 ${className}`}
+        >
+          <Lock className="w-4 h-4" />
+          {children}
+        </button>
+      )
+    }
+    return (
+      <button
+        onClick={onClick}
+        disabled={disabled}
+        className={`px-3 py-2 rounded-lg transition-colors text-sm font-medium flex items-center justify-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed ${className}`}
+      >
+        {children}
+      </button>
+    )
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -62,6 +108,13 @@ export default function Exceptions() {
           <h1 className="text-2xl font-bold text-gray-900">异常处理</h1>
           <p className="text-gray-500 mt-1">统一管理所有异常事件，一线处理和管理回看基于同一份数据</p>
         </div>
+        <button
+          onClick={() => refreshAll()}
+          className="flex items-center gap-2 px-3 py-2 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+        >
+          <Clock className="w-4 h-4" />
+          刷新数据
+        </button>
       </div>
 
       <div className="grid grid-cols-5 gap-4">
@@ -256,31 +309,55 @@ export default function Exceptions() {
                 <p className="text-sm font-medium text-gray-900 mb-2">推进动作</p>
                 <div className="grid grid-cols-2 gap-2">
                   {selectedException.status !== 'handling' && (
-                    <button
+                    <ActionButton
                       onClick={() => handleStatusUpdate(selectedException.id, 'handling')}
-                      className="px-3 py-2 bg-primary-50 text-primary-700 rounded-lg hover:bg-primary-100 transition-colors text-sm font-medium"
+                      canPerform={canStartHandling || canUpdateStatus}
+                      className="bg-primary-50 text-primary-700 hover:bg-primary-100"
                     >
+                      <Play className="w-4 h-4" />
                       开始处理
-                    </button>
+                    </ActionButton>
                   )}
                   {selectedException.status !== 'resolved' && (
-                    <button
+                    <ActionButton
                       onClick={() => handleStatusUpdate(selectedException.id, 'resolved')}
-                      className="px-3 py-2 bg-success-50 text-success-700 rounded-lg hover:bg-success-100 transition-colors text-sm font-medium flex items-center justify-center gap-1"
+                      canPerform={canResolve || canUpdateStatus}
+                      className="bg-success-50 text-success-700 hover:bg-success-100"
                     >
                       <CheckCircle2 className="w-4 h-4" />
                       标记解决
-                    </button>
+                    </ActionButton>
                   )}
                 </div>
+                {(!canStartHandling && !canUpdateStatus && !canResolve) && (
+                  <p className="text-xs text-gray-400 mt-2 text-center">
+                    您没有权限处理此异常
+                  </p>
+                )}
               </div>
 
               <div className="border-t border-gray-100 pt-4">
-                <RemarkPanel sourceType="exception" sourceId={selectedException.id} />
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-sm font-medium text-gray-900">备注</p>
+                  {!canAddRemark && (
+                    <span className="text-xs text-gray-400 flex items-center gap-1">
+                      <Lock className="w-3 h-3" /> 无权限添加
+                    </span>
+                  )}
+                </div>
+                <RemarkPanel sourceType="exception" sourceId={selectedException.id} readOnly={!canAddRemark} />
               </div>
 
               <div className="border-t border-gray-100 pt-4">
-                <AttachmentPanel sourceType="exception" sourceId={selectedException.id} />
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-sm font-medium text-gray-900">附件</p>
+                  {!canAddAttachment && (
+                    <span className="text-xs text-gray-400 flex items-center gap-1">
+                      <Lock className="w-3 h-3" /> 无权限上传
+                    </span>
+                  )}
+                </div>
+                <AttachmentPanel sourceType="exception" sourceId={selectedException.id} readOnly={!canAddAttachment} />
               </div>
 
               <div className="border-t border-gray-100 pt-4">

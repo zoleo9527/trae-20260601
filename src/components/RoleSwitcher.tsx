@@ -1,4 +1,5 @@
-import { useStore, Role } from '@/store'
+import { useStore } from '@/store'
+import type { Role } from '@/types'
 import { User, Users, ChevronDown } from 'lucide-react'
 import { useState } from 'react'
 import clsx from 'clsx'

@@ -1,5 +1,6 @@
 import { Routes, Route } from 'react-router-dom'
 import { Layout } from '@/components/Layout'
+import { ProtectedRoute } from '@/components/ProtectedRoute'
 import Dashboard from '@/pages/Dashboard'
 import Inventory from '@/pages/Inventory'
 import Screenings from '@/pages/Screenings'
@@ -12,13 +13,41 @@ function App() {
   return (
     <Routes>
       <Route path="/" element={<Layout />}>
-        <Route index element={<Dashboard />} />
-        <Route path="inventory" element={<Inventory />} />
-        <Route path="screenings" element={<Screenings />} />
-        <Route path="exceptions" element={<Exceptions />} />
-        <Route path="audit" element={<Audit />} />
-        <Route path="reports" element={<Reports />} />
-        <Route path="settings" element={<Settings />} />
+        <Route index element={
+          <ProtectedRoute>
+            <Dashboard />
+          </ProtectedRoute>
+        } />
+        <Route path="inventory" element={
+          <ProtectedRoute>
+            <Inventory />
+          </ProtectedRoute>
+        } />
+        <Route path="screenings" element={
+          <ProtectedRoute>
+            <Screenings />
+          </ProtectedRoute>
+        } />
+        <Route path="exceptions" element={
+          <ProtectedRoute>
+            <Exceptions />
+          </ProtectedRoute>
+        } />
+        <Route path="audit" element={
+          <ProtectedRoute>
+            <Audit />
+          </ProtectedRoute>
+        } />
+        <Route path="reports" element={
+          <ProtectedRoute>
+            <Reports />
+          </ProtectedRoute>
+        } />
+        <Route path="settings" element={
+          <ProtectedRoute>
+            <Settings />
+          </ProtectedRoute>
+        } />
       </Route>
     </Routes>
   )

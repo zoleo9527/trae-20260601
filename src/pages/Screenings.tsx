@@ -1,7 +1,9 @@
 import { useState } from 'react'
-import { useStore, Screening, ScreeningStatus } from '@/store'
+import { useStore } from '@/store'
 import { StatusBadge } from '@/components/Badges'
 import { RemarkPanel, AttachmentPanel } from '@/components/RemarkPanel'
+import { canPerformAction } from '@/services/permissions'
+import type { Screening, ScreeningStatus } from '@/types'
 import {
   Film,
   Search,
@@ -15,6 +17,8 @@ import {
   Monitor,
   Undo2,
   CheckCircle2,
+  Lock,
+  RefreshCw,
 } from 'lucide-react'
 import { format } from 'date-fns'
 import { zhCN } from 'date-fns/locale'
@@ -29,12 +33,14 @@ export default function Screenings() {
     recordEquipmentFailure,
     processRefund,
     redeemGroupTicket,
-    createException,
+    completeScreeningReconciliation,
+    refreshAll,
   } = useStore()
 
   const [filter, setFilter] = useState<ScreeningStatus | 'all'>('all')
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedScreening, setSelectedScreening] = useState<Screening | null>(null)
+  const [completing, setCompleting] = useState(false)
   
   const [hallModalOpen, setHallModalOpen] = useState(false)
   const [newHall, setNewHall] = useState('')
@@ -50,6 +56,14 @@ export default function Screenings() {
   const [redeemModalOpen, setRedeemModalOpen] = useState(false)
   const [redeemCount, setRedeemCount] = useState(1)
 
+  const canChangeHall = canPerformAction('screening', 'change_hall', currentUser.role)
+  const canRecordEquipment = canPerformAction('screening', 'record_equipment_failure', currentUser.role)
+  const canProcessRefund = canPerformAction('screening', 'process_refund', currentUser.role)
+  const canRedeem = canPerformAction('screening', 'redeem_group_ticket', currentUser.role)
+  const canComplete = canPerformAction('screening', 'complete_reconciliation', currentUser.role)
+  const canAddRemark = canPerformAction('screening', 'add_remark', currentUser.role)
+  const canAddAttachment = canPerformAction('screening', 'add_attachment', currentUser.role)
+
   const filteredScreenings = screenings.filter((s) => {
     const matchesFilter = filter === 'all' || s.status === filter
     const matchesSearch = s.movieName.toLowerCase().includes(searchTerm.toLowerCase())
@@ -59,15 +73,6 @@ export default function Screenings() {
   const handleChangeHall = () => {
     if (selectedScreening && newHall && hallReason) {
       changeHall(selectedScreening.id, newHall, currentUser.id, currentUser.name, hallReason)
-      createException({
-        type: 'hall_change',
-        title: `${selectedScreening.movieName} 临时换厅`,
-        description: `从 ${selectedScreening.currentHall} 更换至 ${newHall}，原因：${hallReason}`,
-        screeningId: selectedScreening.id,
-        status: 'handling',
-        handlerId: currentUser.id,
-        handlerName: currentUser.name,
-      })
       setHallModalOpen(false)
       setNewHall('')
       setHallReason('')
@@ -78,15 +83,6 @@ export default function Screenings() {
   const handleEquipmentFailure = () => {
     if (selectedScreening && equipmentDesc) {
       recordEquipmentFailure(selectedScreening.id, equipmentDesc, currentUser.id, currentUser.name)
-      createException({
-        type: 'equipment_failure',
-        title: `${selectedScreening.currentHall} 设备故障`,
-        description: equipmentDesc,
-        screeningId: selectedScreening.id,
-        status: 'handling',
-        handlerId: currentUser.id,
-        handlerName: currentUser.name,
-      })
       setEquipmentModalOpen(false)
       setEquipmentDesc('')
       refreshSelected()
@@ -96,17 +92,6 @@ export default function Screenings() {
   const handleRefund = () => {
     if (selectedScreening && refundReason) {
       processRefund(selectedScreening.id, refundCount, refundReason, currentUser.id, currentUser.name)
-      if (selectedScreening.hasEquipmentFailure) {
-        createException({
-          type: 'refund',
-          title: `${selectedScreening.movieName} 设备故障退票`,
-          description: `退票 ${refundCount} 张，原因：${refundReason}`,
-          screeningId: selectedScreening.id,
-          status: 'handling',
-          handlerId: currentUser.id,
-          handlerName: currentUser.name,
-        })
-      }
       setRefundModalOpen(false)
       setRefundCount(1)
       setRefundReason('')
@@ -123,6 +108,14 @@ export default function Screenings() {
     }
   }
 
+  const handleCompleteReconciliation = async () => {
+    if (!selectedScreening || !canComplete) return
+    setCompleting(true)
+    await completeScreeningReconciliation(selectedScreening.id, currentUser.id, currentUser.name)
+    setCompleting(false)
+    refreshSelected()
+  }
+
   const refreshSelected = () => {
     if (selectedScreening) {
       const updated = screenings.find((s) => s.id === selectedScreening.id)
@@ -132,6 +125,41 @@ export default function Screenings() {
 
   const halls = ['1号厅', '2号厅', '3号厅', '4号厅', 'IMAX厅', 'VIP厅']
 
+  const ActionButton = ({
+    onClick,
+    disabled,
+    canPerform,
+    children,
+    className = '',
+  }: {
+    onClick?: () => void
+    disabled?: boolean
+    canPerform: boolean
+    children: React.ReactNode
+    className?: string
+  }) => {
+    if (!canPerform) {
+      return (
+        <button
+          disabled
+          className={`flex items-center justify-center gap-2 px-3 py-2.5 bg-gray-100 text-gray-400 rounded-lg cursor-not-allowed text-sm font-medium ${className}`}
+        >
+          <Lock className="w-4 h-4" />
+          {children}
+        </button>
+      )
+    }
+    return (
+      <button
+        onClick={onClick}
+        disabled={disabled}
+        className={`flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed ${className}`}
+      >
+        {children}
+      </button>
+    )
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -139,6 +167,13 @@ export default function Screenings() {
           <h1 className="text-2xl font-bold text-gray-900">场次对账</h1>
           <p className="text-gray-500 mt-1">处理场次换厅、团体票核销、设备故障退票，替代排片表反复确认</p>
         </div>
+        <button
+          onClick={() => refreshAll()}
+          className="flex items-center gap-2 px-3 py-2 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+        >
+          <RefreshCw className="w-4 h-4" />
+          刷新数据
+        </button>
       </div>
 
       <div className="grid grid-cols-5 gap-4">
@@ -249,6 +284,12 @@ export default function Screenings() {
                               设备故障
                             </span>
                           )}
+                          {screening.syncedRemarks.length > 0 && (
+                            <span className="flex items-center gap-1 text-purple-600">
+                              <Package className="w-3.5 h-3.5" />
+                              已同步 {screening.syncedRemarks.length} 条备注
+                            </span>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -269,10 +310,15 @@ export default function Screenings() {
               <div className="flex items-start justify-between">
                 <div>
                   <h2 className="text-lg font-semibold text-gray-900">{selectedScreening.movieName}</h2>
-                  <div className="flex items-center gap-2 mt-1">
+                  <div className="flex items-center gap-2 mt-1 flex-wrap">
                     <StatusBadge status={selectedScreening.status} />
                     {selectedScreening.hasEquipmentFailure && (
                       <span className="badge bg-danger-100 text-danger-600">设备故障</span>
+                    )}
+                    {selectedScreening.syncedRemarks.length > 0 && (
+                      <span className="badge bg-purple-100 text-purple-600">
+                        已同步 {selectedScreening.syncedRemarks.length} 条库存备注
+                      </span>
                     )}
                   </div>
                 </div>
@@ -325,45 +371,66 @@ export default function Screenings() {
                     </p>
                     <p className="text-xs text-gray-500 mt-0.5">已核销 / 总团体票</p>
                   </div>
-                  <button
+                  <ActionButton
                     onClick={() => setRedeemModalOpen(true)}
-                    disabled={selectedScreening.groupRedeemed >= selectedScreening.groupTickets}
-                    className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
+                    disabled={selectedScreening.groupRedeemed >= selectedScreening.groupTickets || selectedScreening.status === 'completed'}
+                    canPerform={canRedeem}
+                    className="bg-primary-50 text-primary-700 hover:bg-primary-100"
                   >
                     核销
-                  </button>
+                  </ActionButton>
                 </div>
               </div>
 
               <div>
                 <p className="text-sm font-medium text-gray-900 mb-3">推进动作</p>
                 <div className="grid grid-cols-2 gap-2">
-                  <button
+                  <ActionButton
                     onClick={() => setHallModalOpen(true)}
-                    className="flex items-center justify-center gap-2 px-3 py-2.5 bg-warning-50 text-warning-700 rounded-lg hover:bg-warning-100 transition-colors text-sm font-medium"
+                    disabled={selectedScreening.status === 'completed'}
+                    canPerform={canChangeHall}
+                    className="bg-warning-50 text-warning-700 hover:bg-warning-100"
                   >
                     <ArrowRightLeft className="w-4 h-4" />
                     临时换厅
-                  </button>
-                  <button
+                  </ActionButton>
+                  <ActionButton
                     onClick={() => setEquipmentModalOpen(true)}
-                    className="flex items-center justify-center gap-2 px-3 py-2.5 bg-danger-50 text-danger-700 rounded-lg hover:bg-danger-100 transition-colors text-sm font-medium"
+                    disabled={selectedScreening.status === 'completed'}
+                    canPerform={canRecordEquipment}
+                    className="bg-danger-50 text-danger-700 hover:bg-danger-100"
                   >
                     <Monitor className="w-4 h-4" />
                     设备故障
-                  </button>
-                  <button
+                  </ActionButton>
+                  <ActionButton
                     onClick={() => setRefundModalOpen(true)}
-                    className="flex items-center justify-center gap-2 px-3 py-2.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors text-sm font-medium"
+                    disabled={selectedScreening.status === 'completed'}
+                    canPerform={canProcessRefund}
+                    className="bg-gray-100 text-gray-700 hover:bg-gray-200"
                   >
                     <Undo2 className="w-4 h-4" />
                     处理退票
-                  </button>
-                  <button className="flex items-center justify-center gap-2 px-3 py-2.5 bg-success-50 text-success-700 rounded-lg hover:bg-success-100 transition-colors text-sm font-medium">
-                    <CheckCircle2 className="w-4 h-4" />
-                    完成对账
-                  </button>
+                  </ActionButton>
+                  <ActionButton
+                    onClick={handleCompleteReconciliation}
+                    disabled={selectedScreening.status === 'completed' || completing}
+                    canPerform={canComplete}
+                    className="bg-success-50 text-success-700 hover:bg-success-100"
+                  >
+                    {completing ? (
+                      <RefreshCw className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <CheckCircle2 className="w-4 h-4" />
+                    )}
+                    {selectedScreening.status === 'completed' ? '已完成对账' : '完成对账'}
+                  </ActionButton>
                 </div>
+                {selectedScreening.status === 'completed' && (
+                  <p className="text-xs text-gray-500 mt-2 text-center">
+                    本场次已完成对账，关联异常和待办已自动收口
+                  </p>
+                )}
               </div>
 
               <div>
@@ -372,6 +439,9 @@ export default function Screenings() {
                   {selectedScreening.inventoryIds.map((iid) => {
                     const inv = inventoryItems.find((i) => i.id === iid)
                     if (!inv) return null
+                    const hasSynced = selectedScreening.syncedRemarks.some((r) =>
+                      inv.remarks.some((ir) => ir.id === r)
+                    )
                     return (
                       <Link
                         key={iid}
@@ -384,6 +454,7 @@ export default function Screenings() {
                           <p className="text-xs text-gray-500">
                             差异 {inv.discrepancy > 0 ? '+' : ''}{inv.discrepancy}
                             {inv.remarks.length > 0 && ` · ${inv.remarks.length}条备注`}
+                            {hasSynced && <span className="text-purple-600 ml-1">· 已同步</span>}
                           </p>
                         </div>
                         <ChevronRight className="w-4 h-4 text-gray-400" />
@@ -397,11 +468,27 @@ export default function Screenings() {
               </div>
 
               <div className="border-t border-gray-100 pt-4">
-                <RemarkPanel sourceType="screening" sourceId={selectedScreening.id} />
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-sm font-medium text-gray-900">备注</p>
+                  {!canAddRemark && (
+                    <span className="text-xs text-gray-400 flex items-center gap-1">
+                      <Lock className="w-3 h-3" /> 无权限添加
+                    </span>
+                  )}
+                </div>
+                <RemarkPanel sourceType="screening" sourceId={selectedScreening.id} readOnly={!canAddRemark} />
               </div>
 
               <div className="border-t border-gray-100 pt-4">
-                <AttachmentPanel sourceType="screening" sourceId={selectedScreening.id} />
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-sm font-medium text-gray-900">附件</p>
+                  {!canAddAttachment && (
+                    <span className="text-xs text-gray-400 flex items-center gap-1">
+                      <Lock className="w-3 h-3" /> 无权限上传
+                    </span>
+                  )}
+                </div>
+                <AttachmentPanel sourceType="screening" sourceId={selectedScreening.id} readOnly={!canAddAttachment} />
               </div>
 
               <div className="border-t border-gray-100 pt-4">

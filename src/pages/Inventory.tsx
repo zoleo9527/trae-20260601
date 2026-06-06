@@ -1,7 +1,9 @@
 import { useState } from 'react'
-import { useStore, InventoryItem, InventoryStatus } from '@/store'
+import { useStore } from '@/store'
+import type { InventoryItem, InventoryStatus } from '@/types'
 import { StatusBadge } from '@/components/Badges'
 import { RemarkPanel, AttachmentPanel } from '@/components/RemarkPanel'
+import { canPerformAction } from '@/services/permissions'
 import {
   Package,
   Search,
@@ -12,6 +14,8 @@ import {
   X,
   ChevronRight,
   Film,
+  RefreshCw,
+  Lock,
 } from 'lucide-react'
 import { format } from 'date-fns'
 import { zhCN } from 'date-fns/locale'
@@ -24,6 +28,7 @@ export default function Inventory() {
     currentUser,
     updateInventoryStatus,
     linkInventoryToScreening,
+    syncInventoryToScreenings,
   } = useStore()
 
   const [filter, setFilter] = useState<InventoryStatus | 'all'>('all')
@@ -31,6 +36,7 @@ export default function Inventory() {
   const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null)
   const [linkModalOpen, setLinkModalOpen] = useState(false)
   const [selectedScreening, setSelectedScreening] = useState('')
+  const [syncing, setSyncing] = useState(false)
 
   const filteredItems = inventoryItems.filter((item) => {
     const matchesFilter = filter === 'all' || item.status === filter
@@ -40,19 +46,27 @@ export default function Inventory() {
     return matchesFilter && matchesSearch
   })
 
-  const handleStatusUpdate = (id: string, status: InventoryStatus) => {
-    updateInventoryStatus(id, status, currentUser.id, currentUser.name)
-    if (selectedItem?.id === id) {
-      setSelectedItem({ ...selectedItem, status })
-    }
+  const handleStatusUpdate = async (id: string, status: InventoryStatus) => {
+    await updateInventoryStatus(id, status, currentUser.id, currentUser.name)
+    const updated = inventoryItems.find((i) => i.id === id)
+    if (updated) setSelectedItem({ ...updated, status })
   }
 
-  const handleLinkScreening = () => {
+  const handleLinkScreening = async () => {
     if (selectedItem && selectedScreening) {
-      linkInventoryToScreening(selectedItem.id, selectedScreening)
+      await linkInventoryToScreening(selectedItem.id, selectedScreening)
       setLinkModalOpen(false)
       setSelectedScreening('')
     }
+  }
+
+  const handleSyncToScreenings = async () => {
+    if (!selectedItem) return
+    setSyncing(true)
+    await syncInventoryToScreenings(selectedItem.id)
+    setSyncing(false)
+    const updated = inventoryItems.find((i) => i.id === selectedItem.id)
+    if (updated) setSelectedItem(updated)
   }
 
   const getDiscrepancyIcon = (discrepancy: number) => {
@@ -67,21 +81,32 @@ export default function Inventory() {
     return 'text-gray-600'
   }
 
-  const statusOptions: { value: InventoryStatus; label: string; color: string }[] = [
-    { value: 'pending', label: '标记为待处理', color: 'bg-warning-50 text-warning-700 hover:bg-warning-100' },
-    { value: 'in_progress', label: '开始处理', color: 'bg-primary-50 text-primary-700 hover:bg-primary-100' },
-    { value: 'resolved', label: '标记已解决', color: 'bg-success-50 text-success-700 hover:bg-success-100' },
-    { value: 'escalated', label: '升级处理', color: 'bg-danger-50 text-danger-700 hover:bg-danger-100' },
+  const statusOptions: { value: InventoryStatus; label: string; color: string; permission: string }[] = [
+    { value: 'pending', label: '标记为待处理', color: 'bg-warning-50 text-warning-700 hover:bg-warning-100', permission: 'update_status:pending' },
+    { value: 'in_progress', label: '开始处理', color: 'bg-primary-50 text-primary-700 hover:bg-primary-100', permission: 'update_status:in_progress' },
+    { value: 'resolved', label: '标记已解决', color: 'bg-success-50 text-success-700 hover:bg-success-100', permission: 'update_status' },
+    { value: 'escalated', label: '升级处理', color: 'bg-danger-50 text-danger-700 hover:bg-danger-100', permission: 'update_status' },
   ]
+
+  const canSync = canPerformAction('inventory', 'sync_to_screening', currentUser.role)
+  const canLink = canPerformAction('inventory', 'link_screening', currentUser.role)
+  const canCreate = canPerformAction('inventory', 'create', currentUser.role)
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">卖品库存</h1>
-          <p className="text-gray-500 mt-1">管理卖品库存盘点、差异处理，备注将同步到关联场次对账</p>
+          <p className="text-gray-500 mt-1">管理卖品库存盘点、差异处理，备注支持同步到关联场次对账</p>
         </div>
-        <button className="btn-primary">新建盘点单</button>
+        {canCreate ? (
+          <button className="btn-primary">新建盘点单</button>
+        ) : (
+          <button className="btn-primary opacity-50 cursor-not-allowed flex items-center gap-2" disabled>
+            <Lock className="w-4 h-4" />
+            新建盘点单
+          </button>
+        )}
       </div>
 
       <div className="grid grid-cols-4 gap-4">
@@ -266,27 +291,40 @@ export default function Inventory() {
                 <div className="grid grid-cols-2 gap-2">
                   {statusOptions
                     .filter((opt) => opt.value !== selectedItem.status)
-                    .map((opt) => (
-                      <button
-                        key={opt.value}
-                        onClick={() => handleStatusUpdate(selectedItem.id, opt.value)}
-                        className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${opt.color}`}
-                      >
-                        {opt.label}
-                      </button>
-                    ))}
+                    .map((opt) => {
+                      const allowed = canPerformAction('inventory', opt.permission, currentUser.role)
+                      return (
+                        <button
+                          key={opt.value}
+                          onClick={() => handleStatusUpdate(selectedItem.id, opt.value)}
+                          disabled={!allowed}
+                          className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                            allowed ? opt.color : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                          }`}
+                        >
+                          {opt.label}
+                        </button>
+                      )
+                    })}
                 </div>
               </div>
 
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <p className="text-sm text-gray-500">关联场次对账</p>
-                  <button
-                    onClick={() => setLinkModalOpen(true)}
-                    className="text-xs text-primary-600 hover:text-primary-700"
-                  >
-                    + 关联场次
-                  </button>
+                  {canLink ? (
+                    <button
+                      onClick={() => setLinkModalOpen(true)}
+                      className="text-xs text-primary-600 hover:text-primary-700"
+                    >
+                      + 关联场次
+                    </button>
+                  ) : (
+                    <span className="text-xs text-gray-400 flex items-center gap-1">
+                      <Lock className="w-3 h-3" />
+                      无权限
+                    </span>
+                  )}
                 </div>
                 <div className="space-y-2">
                   {selectedItem.relatedScreeningIds.map((sid) => {
@@ -315,6 +353,33 @@ export default function Inventory() {
                 </div>
               </div>
 
+              {selectedItem.relatedScreeningIds.length > 0 && (
+                <div className="bg-primary-50 rounded-lg p-4">
+                  <p className="text-sm font-medium text-primary-900 mb-2">数据同步</p>
+                  <p className="text-xs text-primary-700 mb-3">
+                    将库存备注和附件同步到关联的场次对账记录中，在场次页可继续处理
+                  </p>
+                  {canSync ? (
+                    <button
+                      onClick={handleSyncToScreenings}
+                      disabled={syncing}
+                      className="w-full btn-primary flex items-center justify-center gap-2 disabled:opacity-50"
+                    >
+                      <RefreshCw className={`w-4 h-4 ${syncing ? 'animate-spin' : ''}`} />
+                      {syncing ? '同步中...' : '同步到关联场次'}
+                    </button>
+                  ) : (
+                    <button
+                      disabled
+                      className="w-full btn-primary opacity-50 cursor-not-allowed flex items-center justify-center gap-2"
+                    >
+                      <Lock className="w-4 h-4" />
+                      同步到关联场次
+                    </button>
+                  )}
+                </div>
+              )}
+
               <div className="border-t border-gray-100 pt-4">
                 <RemarkPanel sourceType="inventory" sourceId={selectedItem.id} />
               </div>
@@ -338,7 +403,7 @@ export default function Inventory() {
           <div className="bg-white rounded-2xl w-full max-w-md p-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">关联到场次对账</h3>
             <p className="text-sm text-gray-500 mb-4">
-              选择要关联的场次，库存备注将自动同步到该场次的对账记录中
+              选择要关联的场次，库存备注可同步到该场次的对账记录中
             </p>
             <select
               value={selectedScreening}

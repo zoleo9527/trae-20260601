@@ -1,4 +1,4 @@
-import { InventoryStatus, ScreeningStatus, TodoPriority, RiskLevel } from '@/store'
+import type { InventoryStatus, ScreeningStatus, TodoPriority, RiskLevel } from '@/types'
 import clsx from 'clsx'
 
 export function StatusBadge({ status }: { status: InventoryStatus | ScreeningStatus }) {
