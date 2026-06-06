@@ -132,6 +132,7 @@
             type="datetime"
             placeholder="选择日期时间"
             style="width: 100%"
+            value-format="YYYY-MM-DD HH:mm:ss"
           />
         </el-form-item>
         <el-form-item label="备注">
@@ -335,8 +336,8 @@ const handleLost = (row: Key) => {
 }
 
 const submitBorrow = async () => {
-  if (!selectedKey.value || !borrowForm.value.student_id) {
-    ElMessage.warning('请选择借用人')
+  if (!selectedKey.value || !borrowForm.value.student_id || !borrowForm.value.expected_return_time) {
+    ElMessage.warning('请填写完整信息')
     return
   }
   
@@ -345,6 +346,7 @@ const submitBorrow = async () => {
     await borrowKey({
       key_id: selectedKey.value.id,
       student_id: borrowForm.value.student_id,
+      expected_return_time: borrowForm.value.expected_return_time,
       operator: userStore.user?.name || '未知',
       remark: borrowForm.value.remark
     })

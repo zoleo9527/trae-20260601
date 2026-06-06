@@ -51,18 +51,19 @@
             <div class="card-body">
               <el-timeline>
                 <el-timeline-item
-                  v-for="log in operationLogs"
-                  :key="log.id"
-                  :timestamp="formatTime(log.created_at)"
-                  :type="getLogType(log.action)"
-                  :color="getLogColor(log.action)"
+                  v-for="item in timelineItems"
+                  :key="item.id"
+                  :timestamp="formatTime(item.time)"
+                  :type="item.type"
+                  :color="item.color"
                 >
                   <div class="timeline-content">
-                    <div class="timeline-action">{{ getActionLabel(log.action) }}</div>
-                    <div class="timeline-detail">{{ log.detail || '无详情' }}</div>
+                    <div class="timeline-action">{{ item.action }}</div>
+                    <div class="timeline-id">记录ID: {{ item.id }}</div>
+                    <div class="timeline-detail">{{ item.detail || '无详情' }}</div>
                     <div class="timeline-operator">
-                      <el-tag size="small">{{ log.operator_role }}</el-tag>
-                      <span>{{ log.operator }}</span>
+                      <el-tag size="small">{{ item.operator_role || '系统' }}</el-tag>
+                      <span>{{ item.operator }}</span>
                     </div>
                   </div>
                 </el-timeline-item>
@@ -88,7 +89,8 @@
               <h3>借还历史记录</h3>
             </div>
             <div class="card-body">
-              <el-table :data="borrowRecords" stripe style="width: 100%">
+              <el-table :data="borrowRecords" stripe style="width: 100%" v-loading="loadingBorrow">
+                <el-table-column prop="id" label="记录ID" width="80" />
                 <el-table-column prop="student_name" label="借用人" width="120" />
                 <el-table-column prop="borrow_time" label="借用时间" width="180">
                   <template #default="{ row }">
@@ -123,7 +125,8 @@
               <h3>挂失补配记录</h3>
             </div>
             <div class="card-body">
-              <el-table :data="lostRecords" stripe style="width: 100%">
+              <el-table :data="lostRecords" stripe style="width: 100%" v-loading="loadingLost">
+                <el-table-column prop="id" label="记录ID" width="80" />
                 <el-table-column prop="student_name" label="挂失人" width="120" />
                 <el-table-column prop="lost_time" label="挂失时间" width="180">
                   <template #default="{ row }">
@@ -158,19 +161,87 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
-import { getKey, getOperationLogs } from '@/api'
-import type { Key, OperationLog, BorrowRecord, LostRecord } from '@/types'
+import { getKey, getKeyBorrowRecords, getKeyLostRecords } from '@/api'
+import type { Key, BorrowRecord, LostRecord } from '@/types'
 
 const route = useRoute()
 const keyId = Number(route.params.id)
 
 const loading = ref(true)
+const loadingBorrow = ref(false)
+const loadingLost = ref(false)
 const key = ref<Key | null>(null)
-const operationLogs = ref<OperationLog[]>([])
 const borrowRecords = ref<BorrowRecord[]>([])
 const lostRecords = ref<LostRecord[]>([])
+
+interface TimelineItem {
+  id: number
+  time: string
+  action: string
+  detail?: string
+  operator: string
+  operator_role?: string
+  type: 'primary' | 'success' | 'warning' | 'danger' | 'info'
+  color: string
+}
+
+const timelineItems = computed<TimelineItem[]>(() => {
+  const items: TimelineItem[] = []
+
+  borrowRecords.value.forEach(record => {
+    items.push({
+      id: record.id,
+      time: record.borrow_time,
+      action: '借用钥匙',
+      detail: record.remark || `借用人: ${record.student_name}`,
+      operator: record.operator,
+      operator_role: '宿管员',
+      type: 'primary',
+      color: '#3b82f6'
+    })
+    if (record.actual_return_time) {
+      items.push({
+        id: record.id,
+        time: record.actual_return_time,
+        action: '归还钥匙',
+        detail: record.remark || `归还人: ${record.student_name}`,
+        operator: record.operator,
+        operator_role: '宿管员',
+        type: 'success',
+        color: '#10b981'
+      })
+    }
+  })
+
+  lostRecords.value.forEach(record => {
+    items.push({
+      id: record.id,
+      time: record.lost_time,
+      action: '挂失钥匙',
+      detail: record.lost_reason || `挂失人: ${record.student_name}`,
+      operator: record.operator,
+      operator_role: '宿管员',
+      type: 'danger',
+      color: '#ef4444'
+    })
+    if (record.replace_time) {
+      items.push({
+        id: record.id,
+        time: record.replace_time,
+        action: '补配钥匙',
+        detail: `费用: ¥${record.replace_fee || 0}`,
+        operator: record.operator,
+        operator_role: '宿管员',
+        type: 'warning',
+        color: '#f59e0b'
+      })
+    }
+  })
+
+  return items.sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime())
+})
 
 const formatTime = (time?: string) => {
   if (!time) return '-'
@@ -202,75 +273,29 @@ const getStatusType = (status?: string) => {
   return types[status || ''] || 'info'
 }
 
-const getActionLabel = (action: string) => {
-  const labels: Record<string, string> = {
-    borrow: '借用钥匙',
-    return: '归还钥匙',
-    report_lost: '挂失钥匙',
-    replace_key: '补配钥匙',
-    create_key: '创建钥匙',
-    update_key: '更新钥匙',
-    delete_key: '删除钥匙'
-  }
-  return labels[action] || action
-}
-
-const getLogType = (action: string) => {
-  if (action.includes('borrow') || action.includes('return')) return 'primary'
-  if (action.includes('lost') || action.includes('replace')) return 'danger'
-  if (action.includes('create')) return 'success'
-  return 'info'
-}
-
-const getLogColor = (action: string) => {
-  if (action.includes('borrow') || action.includes('return')) return '#3b82f6'
-  if (action.includes('lost') || action.includes('replace')) return '#ef4444'
-  if (action.includes('create')) return '#10b981'
-  return '#64748b'
-}
-
 const loadData = async () => {
   loading.value = true
+  loadingBorrow.value = true
+  loadingLost.value = true
   try {
-    const [keyData, logsData] = await Promise.all([
+    const [keyData, borrowData, lostData] = await Promise.all([
       getKey(keyId),
-      getOperationLogs({ key_id: keyId, limit: 50 })
+      getKeyBorrowRecords(keyId),
+      getKeyLostRecords(keyId)
     ])
     key.value = keyData
-    operationLogs.value = logsData
-
-    borrowRecords.value = logsData
-      .filter(log => log.action === 'borrow' || log.action === 'return')
-      .map(log => ({
-        id: log.id,
-        key_id: keyId,
-        student_id: '',
-        student_name: log.detail?.match(/by (.+)/)?.[1] || '',
-        borrower_role: 'student',
-        borrow_time: log.created_at,
-        expected_return_time: log.created_at,
-        actual_return_time: log.action === 'return' ? log.created_at : undefined,
-        is_overdue: false,
-        operator: log.operator,
-        remark: log.detail
-      })) as BorrowRecord[]
-
-    lostRecords.value = logsData
-      .filter(log => log.action === 'report_lost' || log.action === 'replace_key')
-      .map(log => ({
-        id: log.id,
-        key_id: keyId,
-        student_name: log.detail?.match(/by (.+)/)?.[1] || '',
-        lost_reason: log.detail || '',
-        lost_time: log.created_at,
-        replace_time: log.action === 'replace_key' ? log.created_at : undefined,
-        status: log.action === 'replace_key' ? 'replaced' : 'lost',
-        operator: log.operator
-      })) as LostRecord[]
+    borrowRecords.value = borrowData.sort((a, b) => 
+      new Date(b.borrow_time).getTime() - new Date(a.borrow_time).getTime()
+    )
+    lostRecords.value = lostData.sort((a, b) => 
+      new Date(b.lost_time).getTime() - new Date(a.lost_time).getTime()
+    )
   } catch (e) {
     console.error('加载钥匙详情失败', e)
   } finally {
     loading.value = false
+    loadingBorrow.value = false
+    loadingLost.value = false
   }
 }
 
@@ -353,6 +378,12 @@ onMounted(() => {
   font-size: 14px;
   font-weight: 500;
   color: #1e293b;
+  margin-bottom: 4px;
+}
+
+.timeline-id {
+  font-size: 12px;
+  color: #94a3b8;
   margin-bottom: 4px;
 }
 

@@ -54,6 +54,18 @@ class Key(KeyBase):
         from_attributes = True
 
 
+class KeyInfo(BaseModel):
+    id: int
+    key_number: str
+    building: str
+    room: str
+    key_type: str
+    status: str
+
+    class Config:
+        from_attributes = True
+
+
 class BorrowRecordBase(BaseModel):
     key_id: int
     student_id: str
@@ -73,6 +85,13 @@ class BorrowRecord(BorrowRecordBase):
     borrow_time: datetime
     actual_return_time: Optional[datetime] = None
     is_overdue: bool = False
+
+    class Config:
+        from_attributes = True
+
+
+class BorrowRecordWithKey(BorrowRecord):
+    key: Optional[KeyInfo] = None
 
     class Config:
         from_attributes = True
@@ -107,6 +126,13 @@ class LostRecord(LostRecordBase):
         from_attributes = True
 
 
+class LostRecordWithKey(LostRecord):
+    key: Optional[KeyInfo] = None
+
+    class Config:
+        from_attributes = True
+
+
 class OperationLogBase(BaseModel):
     key_id: Optional[int] = None
     action: str
@@ -131,6 +157,7 @@ class BorrowRequest(BaseModel):
     key_id: int
     student_id: str
     operator: str
+    expected_return_time: datetime
     remark: Optional[str] = None
 
 

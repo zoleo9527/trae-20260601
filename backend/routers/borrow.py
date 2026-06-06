@@ -1,5 +1,6 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
+from typing import List, Optional
 from datetime import datetime, timedelta
 
 from database import get_db
@@ -7,6 +8,75 @@ import models
 import schemas
 
 router = APIRouter(tags=["borrow"])
+
+
+@router.get("/api/borrow-records", response_model=List[schemas.BorrowRecordWithKey])
+def get_borrow_records(
+    key_id: Optional[int] = None,
+    student_id: Optional[str] = None,
+    status: Optional[str] = Query("all", pattern="^(active|returned|all)$"),
+    limit: Optional[int] = None,
+    db: Session = Depends(get_db)
+):
+    query = db.query(models.BorrowRecord).join(models.Key)
+    
+    if key_id:
+        query = query.filter(models.BorrowRecord.key_id == key_id)
+    if student_id:
+        query = query.filter(models.BorrowRecord.student_id == student_id)
+    
+    if status == "active":
+        query = query.filter(models.BorrowRecord.actual_return_time.is_(None))
+    elif status == "returned":
+        query = query.filter(models.BorrowRecord.actual_return_time.isnot(None))
+    
+    query = query.order_by(models.BorrowRecord.borrow_time.desc())
+    
+    if limit:
+        query = query.limit(limit)
+    
+    return query.all()
+
+
+@router.get("/api/borrow-records/{id}", response_model=schemas.BorrowRecordWithKey)
+def get_borrow_record(id: int, db: Session = Depends(get_db)):
+    record = db.query(models.BorrowRecord).join(models.Key).filter(models.BorrowRecord.id == id).first()
+    if not record:
+        raise HTTPException(status_code=404, detail="Borrow record not found")
+    return record
+
+
+@router.get("/api/lost-records", response_model=List[schemas.LostRecordWithKey])
+def get_lost_records(
+    key_id: Optional[int] = None,
+    status: Optional[str] = Query("all", pattern="^(lost|replaced|all)$"),
+    limit: Optional[int] = None,
+    db: Session = Depends(get_db)
+):
+    query = db.query(models.LostRecord).join(models.Key, models.LostRecord.key_id == models.Key.id)
+    
+    if key_id:
+        query = query.filter(models.LostRecord.key_id == key_id)
+    
+    if status == "lost":
+        query = query.filter(models.LostRecord.status == "lost")
+    elif status == "replaced":
+        query = query.filter(models.LostRecord.status == "replaced")
+    
+    query = query.order_by(models.LostRecord.lost_time.desc())
+    
+    if limit:
+        query = query.limit(limit)
+    
+    return query.all()
+
+
+@router.get("/api/lost-records/{id}", response_model=schemas.LostRecordWithKey)
+def get_lost_record(id: int, db: Session = Depends(get_db)):
+    record = db.query(models.LostRecord).join(models.Key, models.LostRecord.key_id == models.Key.id).filter(models.LostRecord.id == id).first()
+    if not record:
+        raise HTTPException(status_code=404, detail="Lost record not found")
+    return record
 
 
 @router.post("/api/borrow", response_model=schemas.BorrowRecord)
@@ -31,7 +101,7 @@ def borrow_key(request: schemas.BorrowRequest, db: Session = Depends(get_db)):
         student_id=student.id,
         student_name=student.name,
         borrower_role="student",
-        expected_return_time=datetime.utcnow() + timedelta(hours=4),
+        expected_return_time=request.expected_return_time,
         operator=request.operator,
         remark=request.remark
     )

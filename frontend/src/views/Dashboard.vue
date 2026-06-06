@@ -23,7 +23,7 @@
           </div>
           <div class="card-body">
             <el-empty v-if="!loading && risks.length === 0" description="暂无风险项" :image-size="80" />
-            <div v-else class="risk-list">
+            <div v-else class="risk-list" v-loading="loading">
               <div v-for="risk in risks" :key="risk.key_id" class="risk-item">
                 <div class="risk-level" :class="risk.level">
                   <el-icon v-if="risk.level === 'high'"><WarningFilled /></el-icon>
@@ -53,7 +53,7 @@
           </div>
           <div class="card-body">
             <el-empty v-if="!logsLoading && logs.length === 0" description="暂无操作记录" :image-size="80" />
-            <el-timeline v-else>
+            <el-timeline v-else v-loading="logsLoading">
               <el-timeline-item
                 v-for="log in logs"
                 :key="log.id"
@@ -62,7 +62,7 @@
                 :color="getLogColor(log.action)"
               >
                 <div class="log-item">
-                  <div class="log-action">{{ log.action }}</div>
+                  <div class="log-action">{{ getActionLabel(log.action) }}</div>
                   <div class="log-detail">{{ log.detail || '无详情' }}</div>
                   <div class="log-operator">
                     <el-tag size="small" :type="getOperatorRoleType(log.operator_role)">{{ log.operator_role }}</el-tag>
@@ -81,6 +81,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { ElMessage } from 'element-plus'
 import { getDashboardStats, getRiskItems, getOperationLogs } from '@/api'
 import type { DashboardStats, RiskItem, OperationLog } from '@/types'
 import {
@@ -152,24 +153,37 @@ const formatTime = (time: string) => {
   })
 }
 
+const getActionLabel = (action: string) => {
+  const labels: Record<string, string> = {
+    borrow: '借用钥匙',
+    return: '归还钥匙',
+    report_lost: '挂失钥匙',
+    replace_key: '补配钥匙',
+    create_key: '创建钥匙',
+    update_key: '更新钥匙',
+    delete_key: '删除钥匙'
+  }
+  return labels[action] || action
+}
+
 const getLogType = (action: string) => {
-  if (action.includes('借') || action.includes('还')) return 'primary'
-  if (action.includes('挂失') || action.includes('补配')) return 'danger'
-  if (action.includes('创建') || action.includes('添加')) return 'success'
+  if (action.includes('borrow') || action.includes('return')) return 'primary'
+  if (action.includes('lost') || action.includes('replace')) return 'danger'
+  if (action.includes('create')) return 'success'
   return 'info'
 }
 
 const getLogColor = (action: string) => {
-  if (action.includes('借') || action.includes('还')) return '#3b82f6'
-  if (action.includes('挂失') || action.includes('补配')) return '#ef4444'
-  if (action.includes('创建') || action.includes('添加')) return '#10b981'
+  if (action.includes('borrow') || action.includes('return')) return '#3b82f6'
+  if (action.includes('lost') || action.includes('replace')) return '#ef4444'
+  if (action.includes('create')) return '#10b981'
   return '#64748b'
 }
 
 const getOperatorRoleType = (role: string) => {
-  if (role === '宿管员') return 'primary'
-  if (role === '辅导员') return 'success'
-  if (role === '维修人员') return 'warning'
+  if (role === 'dorm_manager' || role === '宿管员') return 'primary'
+  if (role === 'counselor' || role === '辅导员') return 'success'
+  if (role === 'maintenance' || role === '维修人员') return 'warning'
   return 'info'
 }
 
@@ -188,6 +202,7 @@ const loadData = async () => {
     risks.value = risksData
   } catch (e) {
     console.error('加载仪表盘数据失败', e)
+    ElMessage.error('加载仪表盘数据失败')
   } finally {
     loading.value = false
   }
@@ -200,6 +215,7 @@ const loadLogs = async () => {
     logs.value = logsData
   } catch (e) {
     console.error('加载操作日志失败', e)
+    ElMessage.error('加载操作日志失败')
   } finally {
     logsLoading.value = false
   }

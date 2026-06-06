@@ -8,13 +8,16 @@ export interface Student {
   created_at: string
 }
 
-export interface Key {
+export interface KeyInfo {
   id: number
   key_number: string
   building: string
   room: string
-  key_type: string
   status: 'available' | 'borrowed' | 'lost'
+}
+
+export interface Key extends KeyInfo {
+  key_type: string
   current_holder?: string
   created_at: string
   updated_at: string
@@ -23,6 +26,7 @@ export interface Key {
 export interface BorrowRecord {
   id: number
   key_id: number
+  key?: KeyInfo
   student_id: string
   student_name: string
   borrower_role: string
@@ -37,6 +41,7 @@ export interface BorrowRecord {
 export interface LostRecord {
   id: number
   key_id: number
+  key?: KeyInfo
   student_name: string
   lost_reason: string
   replace_fee?: number

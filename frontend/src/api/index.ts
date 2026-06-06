@@ -13,11 +13,35 @@ export const getStudents = (params?: { building?: string; room?: string }) => {
   return request.get<Student[]>('/students', { params })
 }
 
-export const borrowKey = (data: { key_id: number; student_id: string; operator: string; remark?: string }) => {
+export const getBorrowRecords = (params?: { key_id?: number; student_id?: string; status?: string; limit?: number }) => {
+  return request.get<BorrowRecord[]>('/borrow-records', { params })
+}
+
+export const getBorrowRecord = (id: number) => {
+  return request.get<BorrowRecord>(`/borrow-records/${id}`)
+}
+
+export const getLostRecords = (params?: { key_id?: number; status?: string; limit?: number }) => {
+  return request.get<LostRecord[]>('/lost-records', { params })
+}
+
+export const getLostRecord = (id: number) => {
+  return request.get<LostRecord>(`/lost-records/${id}`)
+}
+
+export const getKeyBorrowRecords = (keyId: number) => {
+  return request.get<BorrowRecord[]>(`/keys/${keyId}/borrow-records`)
+}
+
+export const getKeyLostRecords = (keyId: number) => {
+  return request.get<LostRecord[]>(`/keys/${keyId}/lost-records`)
+}
+
+export const borrowKey = (data: { key_id: number; student_id: string; expected_return_time: string; operator: string; remark?: string }) => {
   return request.post<BorrowRecord>('/borrow', data)
 }
 
-export const returnKey = (data: { key_id: number; operator: string; remark?: string }) => {
+export const returnKey = (data: { record_id?: number; key_id?: number; operator: string; remark?: string }) => {
   return request.post<BorrowRecord>('/return', data)
 }
 

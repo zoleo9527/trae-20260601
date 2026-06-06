@@ -35,6 +35,32 @@ def get_key(key_id: int, db: Session = Depends(get_db)):
     return key
 
 
+@router.get("/{key_id}/borrow-records", response_model=List[schemas.BorrowRecordWithKey])
+def get_key_borrow_records(key_id: int, db: Session = Depends(get_db)):
+    key = db.query(models.Key).filter(models.Key.id == key_id).first()
+    if not key:
+        raise HTTPException(status_code=404, detail="Key not found")
+    
+    records = db.query(models.BorrowRecord).join(models.Key).filter(
+        models.BorrowRecord.key_id == key_id
+    ).order_by(models.BorrowRecord.borrow_time.desc()).all()
+    
+    return records
+
+
+@router.get("/{key_id}/lost-records", response_model=List[schemas.LostRecordWithKey])
+def get_key_lost_records(key_id: int, db: Session = Depends(get_db)):
+    key = db.query(models.Key).filter(models.Key.id == key_id).first()
+    if not key:
+        raise HTTPException(status_code=404, detail="Key not found")
+    
+    records = db.query(models.LostRecord).join(models.Key, models.LostRecord.key_id == models.Key.id).filter(
+        models.LostRecord.key_id == key_id
+    ).order_by(models.LostRecord.lost_time.desc()).all()
+    
+    return records
+
+
 @router.post("", response_model=schemas.Key)
 def create_key(key: schemas.KeyCreate, db: Session = Depends(get_db)):
     existing = db.query(models.Key).filter(models.Key.key_number == key.key_number).first()

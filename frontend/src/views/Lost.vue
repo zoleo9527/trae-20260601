@@ -13,6 +13,7 @@
                       placeholder="请选择钥匙"
                       filterable
                       style="width: 100%"
+                      :loading="loadingKeys"
                     >
                       <el-option
                         v-for="key in availableKeys"
@@ -63,10 +64,22 @@
 
         <el-tab-pane label="待补配列表" name="pending">
           <div class="tab-content">
-            <el-table :data="pendingLostRecords" v-loading="loading" stripe style="width: 100%">
-              <el-table-column prop="key_number" label="钥匙编号" width="120" />
-              <el-table-column prop="building" label="楼栋" width="100" />
-              <el-table-column prop="room" label="房间" width="100" />
+            <el-table :data="pendingLostRecords" v-loading="loadingPending" stripe style="width: 100%">
+              <el-table-column prop="key.key_number" label="钥匙编号" width="120">
+                <template #default="{ row }">
+                  {{ row.key?.key_number || '-' }}
+                </template>
+              </el-table-column>
+              <el-table-column prop="key.building" label="楼栋" width="100">
+                <template #default="{ row }">
+                  {{ row.key?.building || '-' }}
+                </template>
+              </el-table-column>
+              <el-table-column prop="key.room" label="房间" width="100">
+                <template #default="{ row }">
+                  {{ row.key?.room || '-' }}
+                </template>
+              </el-table-column>
               <el-table-column prop="student_name" label="挂失人" width="120" />
               <el-table-column prop="lost_time" label="挂失时间" width="180">
                 <template #default="{ row }">
@@ -92,10 +105,22 @@
 
         <el-tab-pane label="历史回看" name="history">
           <div class="tab-content">
-            <el-table :data="allLostRecords" v-loading="loading" stripe style="width: 100%">
-              <el-table-column prop="key_number" label="钥匙编号" width="120" />
-              <el-table-column prop="building" label="楼栋" width="100" />
-              <el-table-column prop="room" label="房间" width="100" />
+            <el-table :data="allLostRecords" v-loading="loadingHistory" stripe style="width: 100%">
+              <el-table-column prop="key.key_number" label="钥匙编号" width="120">
+                <template #default="{ row }">
+                  {{ row.key?.key_number || '-' }}
+                </template>
+              </el-table-column>
+              <el-table-column prop="key.building" label="楼栋" width="100">
+                <template #default="{ row }">
+                  {{ row.key?.building || '-' }}
+                </template>
+              </el-table-column>
+              <el-table-column prop="key.room" label="房间" width="100">
+                <template #default="{ row }">
+                  {{ row.key?.room || '-' }}
+                </template>
+              </el-table-column>
               <el-table-column prop="student_name" label="挂失人" width="120" />
               <el-table-column prop="lost_time" label="挂失时间" width="180">
                 <template #default="{ row }">
@@ -134,13 +159,13 @@
     >
       <el-form :model="replaceForm" label-width="120px">
         <el-form-item label="原钥匙编号">
-          <span>{{ selectedLost?.key_number }}</span>
+          <span>{{ selectedLost?.key?.key_number }}</span>
         </el-form-item>
         <el-form-item label="楼栋">
-          <span>{{ selectedLost?.building }}</span>
+          <span>{{ selectedLost?.key?.building }}</span>
         </el-form-item>
         <el-form-item label="房间">
-          <span>{{ selectedLost?.room }}</span>
+          <span>{{ selectedLost?.key?.room }}</span>
         </el-form-item>
         <el-form-item label="新钥匙编号" required>
           <el-input v-model="replaceForm.new_key_number" placeholder="请输入新钥匙编号" />
@@ -174,21 +199,24 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { getKeys, reportLost, replaceKey, getOperationLogs } from '@/api'
-import type { Key, OperationLog } from '@/types'
+import { getKeys, reportLost, replaceKey, getLostRecords } from '@/api'
+import type { Key, LostRecord } from '@/types'
 import { Warning } from '@element-plus/icons-vue'
 import { useUserStore } from '@/stores/user'
 
 const userStore = useUserStore()
 
 const activeTab = ref('report')
-const loading = ref(false)
+const loadingKeys = ref(false)
+const loadingPending = ref(false)
+const loadingHistory = ref(false)
 const submitting = ref(false)
 const keys = ref<Key[]>([])
-const logs = ref<OperationLog[]>([])
+const pendingLostRecords = ref<LostRecord[]>([])
+const allLostRecords = ref<LostRecord[]>([])
 
 const replaceDialogVisible = ref(false)
-const selectedLost = ref<any>(null)
+const selectedLost = ref<LostRecord | null>(null)
 
 const lostForm = ref({
   key_id: null as number | null,
@@ -204,61 +232,6 @@ const replaceForm = ref({
 })
 
 const availableKeys = computed(() => keys.value.filter(k => k.status !== 'lost'))
-
-const pendingLostRecords = computed(() => {
-  const lostKeys = keys.value.filter(k => k.status === 'lost')
-  return lostKeys.map(k => {
-    const log = logs.value.find(l => 
-      l.key_id === k.id && l.action === 'report_lost'
-    )
-    return {
-      id: k.id,
-      lost_record_id: log?.id || k.id,
-      key_id: k.id,
-      key_number: k.key_number,
-      building: k.building,
-      room: k.room,
-      student_name: log?.detail?.match(/by (.+)/)?.[1] || '',
-      lost_time: log?.created_at || k.updated_at,
-      lost_reason: log?.detail || '',
-      replace_fee: 0,
-      status: 'lost'
-    }
-  })
-})
-
-const allLostRecords = computed(() => {
-  const lostLogs = logs.value.filter(l => l.action === 'report_lost' || l.action === 'replace_key')
-  const records: any[] = []
-  
-  lostLogs.forEach(log => {
-    if (log.action === 'report_lost') {
-      const key = keys.value.find(k => k.id === log.key_id)
-      const replaceLog = lostLogs.find(l => 
-        l.action === 'replace_key' && 
-        l.detail?.includes(`Key replaced: ${log.key_id}`)
-      )
-      records.push({
-        id: log.id,
-        key_id: log.key_id,
-        key_number: key?.key_number || '',
-        building: key?.building || '',
-        room: key?.room || '',
-        student_name: log.detail?.match(/by (.+)/)?.[1] || '',
-        lost_time: log.created_at,
-        lost_reason: log.detail || '',
-        replace_fee: 0,
-        replace_time: replaceLog?.created_at,
-        status: replaceLog ? 'replaced' : 'lost',
-        operator: log.operator
-      })
-    }
-  })
-  
-  return records.sort((a, b) => 
-    new Date(b.lost_time).getTime() - new Date(a.lost_time).getTime()
-  )
-})
 
 const formatTime = (time: string) => {
   if (!time) return '-'
@@ -281,19 +254,44 @@ const resetLostForm = () => {
   }
 }
 
-const loadData = async () => {
-  loading.value = true
+const loadKeys = async () => {
+  loadingKeys.value = true
   try {
-    const [keysData, logsData] = await Promise.all([
-      getKeys(),
-      getOperationLogs({ limit: 100 })
-    ])
-    keys.value = keysData
-    logs.value = logsData
+    const data = await getKeys()
+    keys.value = data
   } catch (e) {
-    console.error('加载数据失败', e)
+    console.error('加载钥匙列表失败', e)
+    ElMessage.error('加载钥匙列表失败')
   } finally {
-    loading.value = false
+    loadingKeys.value = false
+  }
+}
+
+const loadPendingRecords = async () => {
+  loadingPending.value = true
+  try {
+    const data = await getLostRecords({ status: 'lost' })
+    pendingLostRecords.value = data
+  } catch (e) {
+    console.error('加载待补配记录失败', e)
+    ElMessage.error('加载待补配记录失败')
+  } finally {
+    loadingPending.value = false
+  }
+}
+
+const loadAllRecords = async () => {
+  loadingHistory.value = true
+  try {
+    const data = await getLostRecords({ status: 'all' })
+    allLostRecords.value = data.sort((a, b) => 
+      new Date(b.lost_time).getTime() - new Date(a.lost_time).getTime()
+    )
+  } catch (e) {
+    console.error('加载挂失历史失败', e)
+    ElMessage.error('加载挂失历史失败')
+  } finally {
+    loadingHistory.value = false
   }
 }
 
@@ -329,15 +327,18 @@ const submitLost = async () => {
     ElMessage.success('挂失成功')
     resetLostForm()
     activeTab.value = 'pending'
-    loadData()
+    loadKeys()
+    loadPendingRecords()
+    loadAllRecords()
   } catch (e) {
     console.error('挂失失败', e)
+    ElMessage.error('挂失失败')
   } finally {
     submitting.value = false
   }
 }
 
-const handleReplace = (row: any) => {
+const handleReplace = (row: LostRecord) => {
   selectedLost.value = row
   replaceForm.value = {
     new_key_number: '',
@@ -356,26 +357,31 @@ const confirmReplace = async () => {
   submitting.value = true
   try {
     await replaceKey({
-      lost_record_id: selectedLost.value.lost_record_id,
+      lost_record_id: selectedLost.value.id,
       new_key_number: replaceForm.value.new_key_number,
-      building: selectedLost.value.building,
-      room: selectedLost.value.room,
+      building: selectedLost.value.key?.building || '',
+      room: selectedLost.value.key?.room || '',
       key_type: replaceForm.value.key_type,
       operator: userStore.user?.name || '未知',
       replace_fee: replaceForm.value.replace_fee || undefined
     })
     ElMessage.success('补配成功')
     replaceDialogVisible.value = false
-    loadData()
+    loadKeys()
+    loadPendingRecords()
+    loadAllRecords()
   } catch (e) {
     console.error('补配失败', e)
+    ElMessage.error('补配失败')
   } finally {
     submitting.value = false
   }
 }
 
 onMounted(() => {
-  loadData()
+  loadKeys()
+  loadPendingRecords()
+  loadAllRecords()
 })
 </script>
 
