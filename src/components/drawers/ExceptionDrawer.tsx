@@ -65,7 +65,7 @@ export function ExceptionDrawer() {
   const allComments = [
     ...(activeException?.comments || []),
     ...(purchase.dispute?.comments || [])
-  ].sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
+  ].sort((a, b) => new Date(a.timestamp || 0).getTime() - new Date(b.timestamp || 0).getTime())
 
   return (
     <>
@@ -227,7 +227,7 @@ export function ExceptionDrawer() {
                         <div className="flex-1">
                           <div className="flex items-center gap-2">
                             <span className="font-medium text-sm text-gray-900">{c.userName}</span>
-                            <span className="text-xs text-gray-500">{formatDateTime(c.timestamp)}</span>
+                            <span className="text-xs text-gray-500">{c.timestamp ? formatDateTime(c.timestamp) : ''}</span>
                           </div>
                           <p className="text-sm text-gray-600 mt-1">{c.content}</p>
                         </div>

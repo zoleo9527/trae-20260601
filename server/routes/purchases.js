@@ -35,8 +35,11 @@ router.post('/', async (req, res) => {
     processSteps: [
       { key: 'purchase_created', label: '采购员下单', role: 'purchaser', status: 'completed', timestamp: now(), operatorName: req.body.purchaserName || '采购员' },
       { key: 'acceptance_pending', label: '待管理员验收', role: 'admin', status: 'current' },
+      { key: 'acceptance_completed', label: '验收完成', role: 'admin', status: 'pending' },
       { key: 'supplement_requested', label: '要求补充材料', role: 'admin', status: 'pending' },
       { key: 'supplement_submitted', label: '采购员补录重提', role: 'purchaser', status: 'pending' },
+      { key: 'dispute_raised', label: '发起责任争议', role: 'purchaser', status: 'pending' },
+      { key: 'dispute_resolved', label: '争议仲裁完成', role: 'teacher', status: 'pending' },
       { key: 'sample_pending', label: '待留样登记', role: 'admin', status: 'pending' },
       { key: 'sample_completed', label: '留样完成', role: 'admin', status: 'pending' },
       { key: 'sample_confirmed', label: '班主任确认', role: 'teacher', status: 'pending' },

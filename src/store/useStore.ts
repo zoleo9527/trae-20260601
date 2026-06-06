@@ -90,7 +90,7 @@ export const useStore = create<AppState>((set, get) => ({
       const { currentUser, fetchPurchases } = get()
       await api.acceptance.process(purchaseId, {
         action,
-        remark,
+        remark: remark || '',
         operatorId: currentUser.id,
         operatorName: currentUser.name
       })
@@ -119,7 +119,7 @@ export const useStore = create<AppState>((set, get) => ({
       set({ loading: true })
       const { currentUser, fetchPurchases } = get()
       await api.acceptance.resubmit(purchaseId, {
-        remark,
+        remark: remark || '',
         operatorId: currentUser.id,
         operatorName: currentUser.name
       })

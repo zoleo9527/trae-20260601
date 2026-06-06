@@ -133,11 +133,11 @@ export interface ExceptionRecord {
 }
 
 export interface ExceptionComment {
-  id: string
+  id?: string
   userId: string
   userName: string
   content: string
-  timestamp: string
+  timestamp?: string
   attachments?: Attachment[]
 }
 

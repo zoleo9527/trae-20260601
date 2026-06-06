@@ -105,11 +105,34 @@ router.post('/:purchaseId/mediate', async (req, res) => {
     updateStepStatus(steps, 'sample_pending', 'current')
   } else if (resolutionType === 'reject') {
     purchase.status = 'rejected'
-    purchase.currentHandlerId = 'u2'
-    purchase.currentHandlerName = '李采购'
+    purchase.currentHandlerId = purchase.purchaserId || 'u2'
+    purchase.currentHandlerName = purchase.purchaserName || '李采购'
     purchase.currentHandlerRole = 'purchaser'
     updateStepStatus(steps, 'acceptance_pending', 'error', timestamp, mediatorName, resolution)
+    updateStepStatus(steps, 'supplement_requested', 'completed', timestamp, mediatorName, resolution)
     updateStepStatus(steps, 'supplement_submitted', 'current')
+    
+    const oldRejectException = purchase.exceptions.find(e => (e.type === 'reject' || e.type === 'supplement') && e.status !== 'resolved')
+    if (oldRejectException) {
+      oldRejectException.status = 'resolved'
+      oldRejectException.resolvedAt = timestamp
+      oldRejectException.resolution = '争议仲裁后重新处理'
+    }
+    
+    const rejectException = {
+      id: uuidv4(),
+      purchaseId,
+      type: 'reject',
+      initiatorId: mediatorId,
+      initiatorName: mediatorName,
+      handlerId: purchase.purchaserId || 'u2',
+      handlerName: purchase.purchaserName || '李采购',
+      description: resolution || '仲裁决定驳回，需采购员重新处理',
+      status: 'processing',
+      createdAt: timestamp,
+      comments: []
+    }
+    purchase.exceptions.push(rejectException)
   } else {
     purchase.status = 'pending_acceptance'
     purchase.currentHandlerId = 'u1'
