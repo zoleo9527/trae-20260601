@@ -36,6 +36,14 @@ export class BedAdjustmentService {
       throw new HttpException('原床位不存在', ErrorCode.BED_NOT_FOUND);
     }
 
+    if (sourceBed.studentId !== dto.studentId) {
+      throw new HttpException('原床位不属于该学生，无法调整', ErrorCode.ADJUSTMENT_SOURCE_BED_NOT_OWNED);
+    }
+
+    if (sourceBed.underMaintenance) {
+      throw new HttpException('原床位正在维修中', ErrorCode.ADJUSTMENT_SOURCE_BED_UNDER_MAINTENANCE);
+    }
+
     const targetBed = await this.bedRepository.findOne({ where: { id: dto.targetBedId } });
     if (!targetBed) {
       throw new HttpException('目标床位不存在', ErrorCode.BED_NOT_FOUND);
@@ -43,6 +51,10 @@ export class BedAdjustmentService {
 
     if (dto.sourceBedId === dto.targetBedId) {
       throw new HttpException('目标床位与原床位相同', ErrorCode.ADJUSTMENT_SAME_BED);
+    }
+
+    if (targetBed.underMaintenance) {
+      throw new HttpException('目标床位正在维修中，无法迁入', ErrorCode.ADJUSTMENT_TARGET_BED_UNDER_MAINTENANCE);
     }
 
     if (targetBed.isOccupied && targetBed.studentId !== dto.studentId) {
@@ -143,9 +155,23 @@ export class BedAdjustmentService {
     }
 
     if (dto.targetStatus === AdjustmentStatus.COMPLETED) {
-      adjustment.completedAt = new Date();
       const sourceBed = await this.bedRepository.findOne({ where: { id: adjustment.sourceBedId } });
       const targetBed = await this.bedRepository.findOne({ where: { id: adjustment.targetBedId } });
+
+      if (sourceBed && sourceBed.studentId !== adjustment.studentId) {
+        throw new HttpException('原床位不属于该学生，无法完成调整', ErrorCode.ADJUSTMENT_SOURCE_BED_NOT_OWNED);
+      }
+
+      if (targetBed) {
+        if (targetBed.underMaintenance) {
+          throw new HttpException('目标床位正在维修中，无法迁入', ErrorCode.ADJUSTMENT_TARGET_BED_UNDER_MAINTENANCE);
+        }
+        if (targetBed.isOccupied && targetBed.studentId !== adjustment.studentId) {
+          throw new HttpException('目标床位已被占用', ErrorCode.ADJUSTMENT_TARGET_BED_OCCUPIED);
+        }
+      }
+
+      adjustment.completedAt = new Date();
       if (sourceBed) {
         sourceBed.isOccupied = false;
         sourceBed.studentId = null;

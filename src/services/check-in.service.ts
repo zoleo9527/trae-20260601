@@ -36,6 +36,14 @@ export class CheckInService {
       throw new HttpException('床位不存在', ErrorCode.BED_NOT_FOUND);
     }
 
+    if (bed.isOccupied) {
+      throw new HttpException('该床位已被占用，无法分配', ErrorCode.CHECKIN_BED_OCCUPIED);
+    }
+
+    if (bed.underMaintenance) {
+      throw new HttpException('该床位正在维修中，无法分配', ErrorCode.CHECKIN_BED_UNDER_MAINTENANCE);
+    }
+
     const assignment = this.checkInRepository.create({
       id: uuidv4(),
       studentId: dto.studentId,

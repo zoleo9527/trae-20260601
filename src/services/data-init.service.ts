@@ -78,15 +78,15 @@ export class DataInitService implements OnModuleInit {
 
   private async initBeds(): Promise<Bed[]> {
     const beds = [
-      { id: 'bed-1', buildingNo: '1号楼', roomNo: '101', bedNo: 1, floor: 1, isOccupied: true, studentId: 'stu-5' },
-      { id: 'bed-2', buildingNo: '1号楼', roomNo: '101', bedNo: 2, floor: 1, isOccupied: false },
-      { id: 'bed-3', buildingNo: '1号楼', roomNo: '101', bedNo: 3, floor: 1, isOccupied: false },
+      { id: 'bed-1', buildingNo: '1号楼', roomNo: '101', bedNo: 1, floor: 1, isOccupied: false },
+      { id: 'bed-2', buildingNo: '1号楼', roomNo: '101', bedNo: 2, floor: 1, isOccupied: true, studentId: 'stu-1' },
+      { id: 'bed-3', buildingNo: '1号楼', roomNo: '101', bedNo: 3, floor: 1, isOccupied: true, studentId: 'stu-5' },
       { id: 'bed-4', buildingNo: '1号楼', roomNo: '101', bedNo: 4, floor: 1, isOccupied: false },
-      { id: 'bed-5', buildingNo: '1号楼', roomNo: '102', bedNo: 1, floor: 1, isOccupied: false },
+      { id: 'bed-5', buildingNo: '1号楼', roomNo: '102', bedNo: 1, floor: 1, isOccupied: true, studentId: 'stu-2' },
       { id: 'bed-6', buildingNo: '1号楼', roomNo: '102', bedNo: 2, floor: 1, isOccupied: false },
-      { id: 'bed-7', buildingNo: '2号楼', roomNo: '201', bedNo: 1, floor: 2, isOccupied: false },
+      { id: 'bed-7', buildingNo: '2号楼', roomNo: '201', bedNo: 1, floor: 2, isOccupied: true, studentId: 'stu-3' },
       { id: 'bed-8', buildingNo: '2号楼', roomNo: '201', bedNo: 2, floor: 2, isOccupied: false, underMaintenance: true },
-      { id: 'bed-9', buildingNo: '3号楼', roomNo: '301', bedNo: 1, floor: 3, isOccupied: false },
+      { id: 'bed-9', buildingNo: '3号楼', roomNo: '301', bedNo: 1, floor: 3, isOccupied: true, studentId: 'stu-4' },
       { id: 'bed-10', buildingNo: '3号楼', roomNo: '301', bedNo: 2, floor: 3, isOccupied: false },
     ];
 
@@ -266,7 +266,7 @@ export class DataInitService implements OnModuleInit {
       id: 'adj-5',
       studentId: students[4].id,
       sourceBedId: beds[2].id,
-      targetBedId: beds[7].id,
+      targetBedId: beds[3].id,
       reason: AdjustmentReason.MAINTENANCE,
       reasonDetail: '原床位上方漏水，需临时调换',
       status: AdjustmentStatus.IN_PROGRESS,
@@ -278,7 +278,7 @@ export class DataInitService implements OnModuleInit {
       updatedAt: new Date(now.getTime() - 2 * 60 * 60 * 1000),
     });
     await this.adjustmentRepository.save(adj5);
-    await this.operationLogService.createLog('bed_adjustment', adj5.id, OperationType.CREATE, staffs[0].id, staffs[0].name, staffs[0].role, '紧急调整：床位漏水需维修', null, AdjustmentStatus.PENDING);
+    await this.operationLogService.createLog('bed_adjustment', adj5.id, OperationType.CREATE, staffs[0].id, staffs[0].name, staffs[0].role, '紧急调整：床位漏水需维修，临时调至空床位', null, AdjustmentStatus.PENDING);
     await this.operationLogService.createLog('bed_adjustment', adj5.id, OperationType.UPDATE, staffs[2].id, staffs[2].name, staffs[2].role, '维修人员已接单，正在检查漏水原因', AdjustmentStatus.PENDING, AdjustmentStatus.IN_PROGRESS);
   }
 }
