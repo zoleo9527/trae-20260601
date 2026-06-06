@@ -115,6 +115,7 @@ const createSampleOrders = (): RepairOrder[] => {
           submittedAt: yesterday,
           confirmedBy: 'user_1',
           confirmedAt: yesterday,
+          confirmRemark: '验收合格，门锁开关顺畅，学生已确认可用',
           description: '已更换锁芯，开关顺畅',
           materialsUsed: '锁芯1套',
           laborHours: 1,
@@ -160,7 +161,8 @@ const createSampleOrders = (): RepairOrder[] => {
           reworkCount: 0,
           confirmed: true,
           confirmedBy: 'user_1',
-          confirmedAt: yesterday
+          confirmedAt: yesterday,
+          confirmRemark: '初步验收看起来闭合正常，但当晚刮风发现仍有漏风'
         }
       ],
       reworks: [
@@ -421,7 +423,8 @@ export const useStore = create<StoreState>()(
                   ...c,
                   confirmed: true,
                   confirmedBy: state.currentUser?.id || '',
-                  confirmedAt: new Date().toISOString()
+                  confirmedAt: new Date().toISOString(),
+                  confirmRemark: remark
                 };
               }
               return c;
@@ -455,12 +458,33 @@ export const useStore = create<StoreState>()(
         const order = orders.find(o => o.id === orderId);
         if (order) {
           const completion = order.completions.find(c => c.id === completionId);
+          const type = completion?.isRework ? '返修' : '';
+          const remarkText = remark ? `，备注：${remark}` : '';
+          
           get().addNotification({
             type: 'status_change',
             orderId,
             orderNo: order.orderNo,
-            message: `工单 ${order.orderNo} 已${completion?.isRework ? '返修' : ''}完工确认`,
-            relatedUserId: order.assignedTo
+            message: `工单 ${order.orderNo} 已${type}完工确认${remarkText}`,
+            relatedUserId: order.assignedTo,
+            detail: {
+              completionId,
+              confirmedBy: state.currentUser?.id,
+              confirmRemark: remark
+            }
+          });
+          
+          get().addNotification({
+            type: 'status_change',
+            orderId,
+            orderNo: order.orderNo,
+            message: `工单 ${order.orderNo} 已${type}完工确认${remarkText}`,
+            relatedUserId: 'user_3',
+            detail: {
+              completionId,
+              confirmedBy: state.currentUser?.id,
+              confirmRemark: remark
+            }
           });
         }
         set({ orders: orders as RepairOrder[] });
@@ -499,19 +523,31 @@ export const useStore = create<StoreState>()(
         });
         const order = orders.find(o => o.id === orderId);
         if (order) {
+          const originalCompletion = order.completions.find(c => c.id === completionId);
+          const detail = {
+            completionId,
+            reworkReason: reason,
+            originalCompletionDescription: originalCompletion?.description,
+            originalConfirmRemark: originalCompletion?.confirmRemark,
+            originalMaterialsUsed: originalCompletion?.materialsUsed,
+            originalLaborHours: originalCompletion?.laborHours
+          };
+          
           get().addNotification({
             type: 'rework',
             orderId,
             orderNo: order.orderNo,
             message: `工单 ${order.orderNo} 申请二次返修：${reason}`,
-            relatedUserId: order.assignedTo
+            relatedUserId: order.assignedTo,
+            detail
           });
           get().addNotification({
             type: 'rework',
             orderId,
             orderNo: order.orderNo,
-            message: `工单 ${order.orderNo} 申请二次返修`,
-            relatedUserId: 'user_3'
+            message: `工单 ${order.orderNo} 申请二次返修：${reason}`,
+            relatedUserId: 'user_3',
+            detail
           });
         }
         set({ orders: orders as RepairOrder[] });

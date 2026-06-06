@@ -1,26 +1,26 @@
-import { useState } from 'react';
 import { useStore } from '@/store';
-import { RepairOrder, statusLabels, statusColors, UserRole, CompletionRecord } from '@/types';
+import { CompletionRecord, RepairOrder, statusColors, statusLabels, UserRole } from '@/types';
 import { format } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
-import { 
-  X, 
-  MapPin, 
-  Tag, 
-  User, 
-  Phone,
-  Clock,
-  FileText,
-  CheckCircle2,
-  AlertTriangle,
-  Send,
-  RefreshCw,
-  MessageSquare,
-  Calendar,
-  Wrench,
-  Package,
-  Timer
+import {
+    AlertTriangle,
+    Calendar,
+    CheckCircle2,
+    Clock,
+    FileText,
+    MapPin,
+    MessageSquare,
+    Package,
+    Phone,
+    RefreshCw,
+    Send,
+    Tag,
+    Timer,
+    User,
+    Wrench,
+    X
 } from 'lucide-react';
+import { useState } from 'react';
 
 interface OrderDetailProps {
   order: RepairOrder;
@@ -202,9 +202,13 @@ export function OrderDetail({ order, onClose }: OrderDetailProps) {
     return buttons;
   };
 
+  const getCompletionById = (completionId: string) => {
+    return order.completions.find(c => c.id === completionId);
+  };
+
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col">
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-5xl max-h-[90vh] flex flex-col">
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 flex-shrink-0">
           <div>
             <div className="flex items-center space-x-3">
@@ -212,6 +216,12 @@ export function OrderDetail({ order, onClose }: OrderDetailProps) {
               <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${statusColors[order.status]}`}>
                 {statusLabels[order.status]}
               </span>
+              {order.reworks.length > 0 && (
+                <span className="bg-red-100 text-red-700 text-xs px-2 py-0.5 rounded-full flex items-center space-x-1">
+                  <AlertTriangle className="w-3 h-3" />
+                  <span>已返修 {order.reworks.length} 次</span>
+                </span>
+              )}
             </div>
             <p className="text-sm text-gray-500 mt-0.5">工单号：{order.orderNo}</p>
           </div>
@@ -224,7 +234,7 @@ export function OrderDetail({ order, onClose }: OrderDetailProps) {
           <div className="flex">
             {[
               { key: 'detail', label: '工单详情', icon: FileText },
-              { key: 'completions', label: '完工与返修', icon: CheckCircle2 },
+              { key: 'completions', label: '完工与返修追溯', icon: CheckCircle2 },
               { key: 'history', label: '状态历史', icon: Clock }
             ].map(tab => (
               <button
@@ -307,23 +317,69 @@ export function OrderDetail({ order, onClose }: OrderDetailProps) {
 
               {order.reworks.length > 0 && (
                 <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-                  <div className="flex items-center space-x-2 text-red-700 font-medium mb-2">
+                  <div className="flex items-center space-x-2 text-red-700 font-medium mb-3">
                     <AlertTriangle className="w-5 h-5" />
-                    <span>返修记录（共 {order.reworks.length} 次）</span>
+                    <span>返修追溯链路（共 {order.reworks.length} 次）</span>
                   </div>
-                  <div className="space-y-3">
-                    {order.reworks.map((rework, index) => (
-                      <div key={rework.id} className="bg-white rounded p-3 border border-red-100">
-                        <div className="flex items-center justify-between mb-1">
-                          <span className="text-sm font-medium text-gray-900">第 {index + 1} 次返修</span>
-                          <span className="text-xs text-gray-500">
-                            {format(new Date(rework.requestedAt), 'MM-dd HH:mm', { locale: zhCN })}
-                          </span>
+                  <div className="space-y-4">
+                    {order.reworks.map((rework, index) => {
+                      const originalCompletion = getCompletionById(rework.originalCompletionId);
+                      return (
+                        <div key={rework.id} className="bg-white rounded-lg p-4 border border-red-100">
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-sm font-semibold text-red-700">第 {index + 1} 次返修</span>
+                            <span className="text-xs text-gray-500">
+                              {format(new Date(rework.requestedAt), 'MM-dd HH:mm', { locale: zhCN })}
+                            </span>
+                          </div>
+                          
+                          <div className="space-y-2">
+                            <div className="bg-red-50 rounded p-3 border border-red-100">
+                              <p className="text-xs text-red-600 font-medium mb-1">返修原因</p>
+                              <p className="text-sm text-gray-800">{rework.reason}</p>
+                              <p className="text-xs text-gray-500 mt-1">申请人：{getUserName(rework.requestedBy)}</p>
+                            </div>
+                            
+                            {originalCompletion && (
+                              <div className="bg-amber-50 rounded p-3 border border-amber-100">
+                                <p className="text-xs text-amber-700 font-medium mb-2 flex items-center">
+                                  <RefreshCw className="w-3 h-3 mr-1" />
+                                  关联的原始完工记录
+                                </p>
+                                <div className="text-xs space-y-1">
+                                  <div>
+                                    <span className="text-gray-500">维修说明：</span>
+                                    <span className="text-gray-800">{originalCompletion.description}</span>
+                                  </div>
+                                  {originalCompletion.confirmRemark && (
+                                    <div className="text-amber-700">
+                                      <span className="font-medium">确认备注：</span>
+                                      {originalCompletion.confirmRemark}
+                                    </div>
+                                  )}
+                                  {originalCompletion.materialsUsed && (
+                                    <div>
+                                      <span className="text-gray-500">使用材料：</span>
+                                      <span className="text-gray-800">{originalCompletion.materialsUsed}</span>
+                                    </div>
+                                  )}
+                                  {originalCompletion.laborHours !== undefined && (
+                                    <div>
+                                      <span className="text-gray-500">工时：</span>
+                                      <span className="text-gray-800">{originalCompletion.laborHours} 小时</span>
+                                    </div>
+                                  )}
+                                  <div className="text-gray-500">
+                                    完工时间：{format(new Date(originalCompletion.submittedAt), 'MM-dd HH:mm', { locale: zhCN })}
+                                    {' · '}确认人：{getUserName(originalCompletion.confirmedBy)}
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+                          </div>
                         </div>
-                        <p className="text-sm text-gray-600">{rework.reason}</p>
-                        <p className="text-xs text-gray-500 mt-1">申请人：{getUserName(rework.requestedBy)}</p>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               )}
@@ -331,23 +387,24 @@ export function OrderDetail({ order, onClose }: OrderDetailProps) {
           )}
 
           {activeTab === 'completions' && (
-            <div className="space-y-4">
+            <div className="space-y-6">
               {order.completions.length === 0 ? (
                 <div className="text-center py-12">
                   <CheckCircle2 className="w-12 h-12 text-gray-300 mx-auto mb-3" />
                   <p className="text-gray-500">暂无完工记录</p>
                 </div>
               ) : (
-                order.completions.map((completion, index) => (
+                [...order.completions].reverse().map((completion, index) => (
                   <CompletionCard 
                     key={completion.id} 
                     completion={completion} 
-                    index={index}
+                    index={order.completions.length - 1 - index}
                     getUserName={getUserName}
                     onConfirm={canConfirmCompletion && !completion.confirmed ? () => {
                       setSelectedCompletionId(completion.id);
                       setShowConfirmCompletion(true);
                     } : undefined}
+                    reworks={order.reworks}
                   />
                 ))
               )}
@@ -523,37 +580,74 @@ export function OrderDetail({ order, onClose }: OrderDetailProps) {
 
       {showRequestRework && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-md">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg">
             <div className="px-6 py-4 border-b border-gray-200">
               <h3 className="text-lg font-semibold text-gray-900">申请二次返修</h3>
             </div>
-            <div className="p-6 space-y-4">
+            <div className="p-6 space-y-5 max-h-[70vh] overflow-y-auto">
               <div className="bg-red-50 border border-red-200 rounded-lg p-4">
                 <div className="flex items-start space-x-3">
                   <AlertTriangle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
                   <div>
                     <p className="font-medium text-red-800">申请返修说明</p>
-                    <p className="text-sm text-red-600 mt-1">返修申请将通知原维修师傅和后勤主管</p>
+                    <p className="text-sm text-red-600 mt-1">返修申请将立即通知原维修师傅和后勤主管，责任链路将永久记录</p>
                   </div>
                 </div>
               </div>
               
-              {order.completions.filter(c => c.confirmed).length > 0 && (
-                <div className="bg-gray-50 rounded-lg p-4">
-                  <p className="text-sm font-medium text-gray-700 mb-2">上次完工记录：</p>
-                  {(() => {
-                    const lastConfirmed = [...order.completions].reverse().find(c => c.confirmed);
-                    return lastConfirmed ? (
-                      <div className="text-sm text-gray-600">
-                        <p className="font-medium">{lastConfirmed.description}</p>
-                        <p className="text-xs text-gray-500 mt-1">
-                          完工时间：{format(new Date(lastConfirmed.submittedAt), 'MM-dd HH:mm', { locale: zhCN })}
-                        </p>
+              {(() => {
+                const lastConfirmed = [...order.completions].reverse().find(c => c.confirmed);
+                return lastConfirmed ? (
+                  <div className="border border-amber-200 rounded-lg overflow-hidden">
+                    <div className="bg-amber-50 px-4 py-2 border-b border-amber-200">
+                      <p className="text-sm font-semibold text-amber-800 flex items-center">
+                        <RefreshCw className="w-4 h-4 mr-2" />
+                        上次完工记录（将作为返修追溯依据）
+                      </p>
+                    </div>
+                    <div className="p-4 space-y-3 bg-white">
+                      <div>
+                        <p className="text-xs text-gray-500 mb-1">维修说明</p>
+                        <p className="text-sm text-gray-900 bg-gray-50 rounded p-2">{lastConfirmed.description}</p>
                       </div>
-                    ) : null;
-                  })()}
-                </div>
-              )}
+                      
+                      {lastConfirmed.confirmRemark && (
+                        <div className="bg-amber-50 rounded p-3 border border-amber-100">
+                          <p className="text-xs text-amber-700 font-medium mb-1">宿管确认备注</p>
+                          <p className="text-sm text-amber-900">{lastConfirmed.confirmRemark}</p>
+                        </div>
+                      )}
+                      
+                      <div className="grid grid-cols-2 gap-3">
+                        {lastConfirmed.materialsUsed && (
+                          <div>
+                            <p className="text-xs text-gray-500 mb-1">使用材料</p>
+                            <p className="text-sm text-gray-900 bg-gray-50 rounded p-2">{lastConfirmed.materialsUsed}</p>
+                          </div>
+                        )}
+                        {lastConfirmed.laborHours !== undefined && (
+                          <div>
+                            <p className="text-xs text-gray-500 mb-1">工时</p>
+                            <p className="text-sm text-gray-900 bg-gray-50 rounded p-2">{lastConfirmed.laborHours} 小时</p>
+                          </div>
+                        )}
+                      </div>
+                      
+                      <div className="flex items-center justify-between pt-2 border-t border-gray-100 text-xs text-gray-500">
+                        <span>提交人：{getUserName(lastConfirmed.submittedBy)}</span>
+                        <span>完工时间：{format(new Date(lastConfirmed.submittedAt), 'MM-dd HH:mm', { locale: zhCN })}</span>
+                      </div>
+                      {lastConfirmed.confirmedBy && (
+                        <div className="text-xs text-gray-500">
+                          确认人：{getUserName(lastConfirmed.confirmedBy)}
+                          {' · '}
+                          确认时间：{lastConfirmed.confirmedAt && format(new Date(lastConfirmed.confirmedAt), 'MM-dd HH:mm', { locale: zhCN })}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ) : null;
+              })()}
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -562,19 +656,19 @@ export function OrderDetail({ order, onClose }: OrderDetailProps) {
                 <textarea
                   value={reworkReason}
                   onChange={(e) => setReworkReason(e.target.value)}
-                  placeholder="请详细说明需要返修的原因..."
+                  placeholder="请详细说明需要返修的原因，建议说明具体问题和期望效果..."
                   rows={4}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 resize-none"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 resize-none"
                 />
               </div>
             </div>
-            <div className="px-6 py-4 border-t border-gray-200 flex justify-end space-x-3">
+            <div className="px-6 py-4 border-t border-gray-200 flex justify-end space-x-3 bg-gray-50">
               <button
                 onClick={() => {
                   setShowRequestRework(false);
                   setReworkReason('');
                 }}
-                className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
               >
                 取消
               </button>
@@ -599,9 +693,12 @@ interface CompletionCardProps {
   index: number;
   getUserName: (userId?: string) => string;
   onConfirm?: () => void;
+  reworks?: Array<{ originalCompletionId: string; reason: string; requestedAt: string; requestedBy: string }>;
 }
 
-function CompletionCard({ completion, index, getUserName, onConfirm }: CompletionCardProps) {
+function CompletionCard({ completion, index, getUserName, onConfirm, reworks = [] }: CompletionCardProps) {
+  const relatedReworks = reworks.filter(r => r.originalCompletionId === completion.id);
+  
   return (
     <div className={`rounded-lg border-2 p-5 ${
       completion.confirmed 
@@ -609,7 +706,7 @@ function CompletionCard({ completion, index, getUserName, onConfirm }: Completio
         : 'bg-yellow-50 border-yellow-200'
     }`}>
       <div className="flex items-start justify-between mb-3">
-        <div className="flex items-center space-x-2">
+        <div className="flex items-center space-x-2 flex-wrap gap-2">
           <span className={`text-sm font-semibold ${
             completion.isRework ? 'text-red-600' : 'text-gray-900'
           }`}>
@@ -626,6 +723,12 @@ function CompletionCard({ completion, index, getUserName, onConfirm }: Completio
               <span>待确认</span>
             </span>
           )}
+          {relatedReworks.length > 0 && (
+            <span className="bg-red-100 text-red-700 text-xs px-2 py-0.5 rounded-full flex items-center space-x-1">
+              <AlertTriangle className="w-3 h-3" />
+              <span>引发 {relatedReworks.length} 次返修</span>
+            </span>
+          )}
         </div>
         {!completion.confirmed && onConfirm && (
           <button
@@ -638,7 +741,7 @@ function CompletionCard({ completion, index, getUserName, onConfirm }: Completio
         )}
       </div>
 
-      <div className="space-y-3">
+      <div className="space-y-4">
         <div>
           <div className="flex items-center space-x-1 text-sm text-gray-500 mb-1">
             <MessageSquare className="w-4 h-4" />
@@ -648,6 +751,16 @@ function CompletionCard({ completion, index, getUserName, onConfirm }: Completio
             {completion.description}
           </p>
         </div>
+
+        {completion.confirmRemark && (
+          <div className="bg-emerald-50 rounded-lg p-3 border border-emerald-200">
+            <div className="flex items-center space-x-1 text-sm text-emerald-700 font-medium mb-1">
+              <CheckCircle2 className="w-4 h-4" />
+              <span>宿管确认备注</span>
+            </div>
+            <p className="text-sm text-emerald-900">{completion.confirmRemark}</p>
+          </div>
+        )}
 
         <div className="grid grid-cols-2 gap-3">
           {completion.materialsUsed && (
@@ -674,22 +787,42 @@ function CompletionCard({ completion, index, getUserName, onConfirm }: Completio
           )}
         </div>
 
-        <div className="flex items-center justify-between pt-2 border-t border-gray-200/50">
+        {relatedReworks.length > 0 && (
+          <div className="bg-red-50 rounded-lg p-3 border border-red-200">
+            <div className="flex items-center space-x-1 text-sm text-red-700 font-medium mb-2">
+              <AlertTriangle className="w-4 h-4" />
+              <span>关联的返修记录（{relatedReworks.length} 次）</span>
+            </div>
+            <div className="space-y-2">
+              {relatedReworks.map((rework, idx) => (
+                <div key={idx} className="bg-white rounded p-2 border border-red-100">
+                  <p className="text-sm text-gray-800">{rework.reason}</p>
+                  <p className="text-xs text-gray-500 mt-1">
+                    {format(new Date(rework.requestedAt), 'MM-dd HH:mm', { locale: zhCN })}
+                    {' · '}申请人：{getUserName(rework.requestedBy)}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div className="flex flex-wrap items-center justify-between pt-2 border-t border-gray-200/50 gap-2">
           <div className="text-sm">
             <span className="text-gray-500">提交人：</span>
-            <span className="text-gray-900">{getUserName(completion.submittedBy)}</span>
+            <span className="text-gray-900 font-medium">{getUserName(completion.submittedBy)}</span>
             <span className="text-gray-400 mx-2">·</span>
             <span className="text-gray-500">
-              {format(new Date(completion.submittedAt), 'MM-dd HH:mm', { locale: zhCN })}
+              {format(new Date(completion.submittedAt), 'yyyy-MM-dd HH:mm', { locale: zhCN })}
             </span>
           </div>
           {completion.confirmed && completion.confirmedBy && (
             <div className="text-sm">
               <span className="text-gray-500">确认人：</span>
-              <span className="text-gray-900">{getUserName(completion.confirmedBy)}</span>
+              <span className="text-gray-900 font-medium">{getUserName(completion.confirmedBy)}</span>
               <span className="text-gray-400 mx-2">·</span>
               <span className="text-gray-500">
-                {completion.confirmedAt && format(new Date(completion.confirmedAt), 'MM-dd HH:mm', { locale: zhCN })}
+                {completion.confirmedAt && format(new Date(completion.confirmedAt), 'yyyy-MM-dd HH:mm', { locale: zhCN })}
               </span>
             </div>
           )}

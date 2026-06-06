@@ -1,7 +1,7 @@
 import { useStore } from '@/store';
 import { format } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
-import { X, CheckCheck, Bell } from 'lucide-react';
+import { X, CheckCheck, Bell, AlertTriangle, CheckCircle2, Wrench, User } from 'lucide-react';
 
 interface NotificationPanelProps {
   onClose: () => void;
@@ -52,25 +52,67 @@ export function NotificationPanel({ onClose }: NotificationPanelProps) {
           </div>
         ) : (
           <div className="divide-y divide-gray-100">
-            {userNotifications.slice(0, 20).map(notification => (
-              <div
-                key={notification.id}
-                onClick={() => markNotificationRead(notification.id)}
-                className={`px-4 py-3 cursor-pointer hover:bg-gray-50 transition-colors ${
-                  !notification.read ? 'bg-primary-50/50' : ''
-                }`}
-              >
-                <div className="flex items-start justify-between">
-                  <p className="text-sm text-gray-900 flex-1">{notification.message}</p>
-                  {!notification.read && (
-                    <span className="w-2 h-2 bg-primary-500 rounded-full mt-1.5 ml-2 flex-shrink-0" />
-                  )}
+            {userNotifications.slice(0, 20).map(notification => {
+              const Icon = notification.type === 'rework' ? AlertTriangle :
+                notification.type === 'completion' ? CheckCircle2 :
+                notification.type === 'assignment' ? Wrench : Bell;
+              const iconColor = notification.type === 'rework' ? 'text-red-500' :
+                notification.type === 'completion' ? 'text-green-500' :
+                notification.type === 'assignment' ? 'text-blue-500' : 'text-gray-500';
+              
+              return (
+                <div
+                  key={notification.id}
+                  onClick={() => markNotificationRead(notification.id)}
+                  className={`px-4 py-3 cursor-pointer hover:bg-gray-50 transition-colors ${
+                    !notification.read ? 'bg-primary-50/50' : ''
+                  }`}
+                >
+                  <div className="flex items-start space-x-3">
+                    <div className={`flex-shrink-0 mt-0.5 ${iconColor}`}>
+                      <Icon className="w-4 h-4" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-start justify-between">
+                        <p className="text-sm text-gray-900 font-medium">{notification.message}</p>
+                        {!notification.read && (
+                          <span className="w-2 h-2 bg-primary-500 rounded-full mt-1.5 ml-2 flex-shrink-0" />
+                        )}
+                      </div>
+                      
+                      {notification.detail && (
+                        <div className="mt-2 text-xs space-y-1 bg-gray-50 rounded p-2 border border-gray-100">
+                          {notification.detail.confirmRemark && (
+                            <div className="text-emerald-700">
+                              <span className="font-medium">确认备注：</span>
+                              {notification.detail.confirmRemark}
+                            </div>
+                          )}
+                          {notification.detail.reworkReason && (
+                            <div className="text-red-700">
+                              <span className="font-medium">返修原因：</span>
+                              {notification.detail.reworkReason}
+                            </div>
+                          )}
+                          {notification.detail.originalCompletionDescription && (
+                            <div className="text-gray-600">
+                              <span className="font-medium">原完工说明：</span>
+                              {notification.detail.originalCompletionDescription}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      
+                      <p className="text-xs text-gray-500 mt-1 flex items-center">
+                        <span>{format(new Date(notification.createdAt), 'MM-dd HH:mm', { locale: zhCN })}</span>
+                        <span className="mx-1">·</span>
+                        <span className="text-gray-400">{notification.orderNo}</span>
+                      </p>
+                    </div>
+                  </div>
                 </div>
-                <p className="text-xs text-gray-500 mt-1">
-                  {format(new Date(notification.createdAt), 'MM-dd HH:mm', { locale: zhCN })}
-                </p>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>

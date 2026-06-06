@@ -52,6 +52,7 @@ export interface CompletionRecord {
   submittedAt: string;
   confirmedBy?: string;
   confirmedAt?: string;
+  confirmRemark?: string;
   description: string;
   materialsUsed?: string;
   laborHours?: number;
@@ -111,6 +112,14 @@ export interface AppState {
   initialized: boolean;
 }
 
+export interface NotificationDetail {
+  completionId?: string;
+  confirmedBy?: string;
+  confirmRemark?: string;
+  reworkReason?: string;
+  originalCompletionDescription?: string;
+}
+
 export interface Notification {
   id: string;
   type: 'status_change' | 'rework' | 'completion' | 'assignment';
@@ -120,6 +129,7 @@ export interface Notification {
   createdAt: string;
   read: boolean;
   relatedUserId?: string;
+  detail?: NotificationDetail;
 }
 
 export interface BackupData {
