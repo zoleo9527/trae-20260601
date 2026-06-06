@@ -473,6 +473,14 @@ export const useStore = create<AppState & AppActions>()(
           id: generateId(),
         };
         set((state) => ({ followUps: [newFollowUp, ...state.followUps] }));
+        get().addHistoryRecord({
+          animalId: followUp.animalId,
+          action: '创建回访计划',
+          note: followUp.content + '（计划日期：' + followUp.date + '）',
+          operator: followUp.operator || get().currentUser,
+          role: get().currentRole,
+          timestamp: new Date().toISOString(),
+        });
         return newFollowUp;
       },
 
@@ -480,7 +488,7 @@ export const useStore = create<AppState & AppActions>()(
         const followUp = get().followUps.find((f) => f.id === id);
         set((state) => ({
           followUps: state.followUps.map((f) =>
-            f.id === id ? { ...f, isCompleted: true, completedAt: new Date().toISOString() } : f
+            f.id === id ? { ...f, isCompleted: true, completedAt: new Date().toISOString(), resultNote: content } : f
           ),
         }));
         if (followUp) {

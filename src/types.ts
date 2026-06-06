@@ -85,6 +85,7 @@ export interface FollowUpRecord {
   operator: string;
   isCompleted: boolean;
   completedAt?: string;
+  resultNote?: string;
   nextDate?: string;
 }
 

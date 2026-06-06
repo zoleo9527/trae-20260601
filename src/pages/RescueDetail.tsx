@@ -356,14 +356,22 @@ export default function RescueDetail() {
                   {completedFollowUps.slice(0, 3).map((fu) => (
                     <div
                       key={fu.id}
-                      className="flex items-center gap-3 p-3 bg-gray-50 border border-gray-100 rounded-lg opacity-70"
+                      className="p-3 bg-gray-50 border border-gray-100 rounded-lg opacity-90"
                     >
-                      <CheckCircle size={16} className="text-green-500 shrink-0" />
-                      <div className="min-w-0">
-                        <p className="text-sm text-gray-500 line-through truncate">{fu.content}</p>
-                        <p className="text-xs text-gray-400">
-                          {fu.completedAt ? format(new Date(fu.completedAt), 'yyyy-MM-dd', { locale: zhCN }) : fu.date}
-                        </p>
+                      <div className="flex items-start gap-3">
+                        <CheckCircle size={16} className="text-green-500 shrink-0 mt-0.5" />
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm text-gray-500 line-through">{fu.content}</p>
+                          <p className="text-xs text-gray-400 mt-1">
+                            完成于 {fu.completedAt ? format(new Date(fu.completedAt), 'yyyy-MM-dd', { locale: zhCN }) : fu.date}
+                          </p>
+                          {fu.resultNote && (
+                            <div className="mt-2 p-2 bg-white rounded border border-gray-200">
+                              <p className="text-xs text-gray-500 mb-1">完成说明：</p>
+                              <p className="text-sm text-gray-700">{fu.resultNote}</p>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
                   ))}
