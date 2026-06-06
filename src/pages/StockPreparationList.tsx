@@ -2,17 +2,22 @@ import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useStore } from '@/store/useStore';
 import { StatusBadge } from '@/components/StatusBadge';
-import { Search, Filter, Eye } from 'lucide-react';
+import { Search, Filter, Eye, Plus } from 'lucide-react';
 import { PREPARATION_STATUS_MAP } from '@/types';
 import type { PreparationOrderStatus } from '@/types';
+import { hasPermission } from '@/utils/permission';
+import { CreatePreparationModal } from '@/components/CreatePreparationModal';
 
 export const StockPreparationList: React.FC = () => {
   const navigate = useNavigate();
-  const { preparationOrders, currentRole } = useStore();
+  const { preparationOrders, currentRole, currentUser, createPreparationOrder } = useStore();
 
   const [searchKeyword, setSearchKeyword] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [warehouseFilter, setWarehouseFilter] = useState<string>('all');
+  const [showCreateModal, setShowCreateModal] = useState(false);
+
+  const canCreate = hasPermission('preparation', 'create', currentRole);
 
   const warehouses = useMemo(() => {
     const whSet = new Set(preparationOrders.map((o) => o.warehouseName));
@@ -50,6 +55,15 @@ export const StockPreparationList: React.FC = () => {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-900">备货单管理</h1>
+        {canCreate && (
+          <button
+            onClick={() => setShowCreateModal(true)}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            <Plus size={18} />
+            新建备货单
+          </button>
+        )}
       </div>
 
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4">
@@ -186,6 +200,21 @@ export const StockPreparationList: React.FC = () => {
           </p>
         </div>
       </div>
+
+      <CreatePreparationModal
+        visible={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        onSubmit={(data) => {
+          createPreparationOrder({
+            ...data,
+            orderNo: `BH${new Date().toISOString().slice(0, 10).replace(/-/g, '')}${String(Math.floor(Math.random() * 1000)).padStart(3, '0')}`,
+            status: 'DRAFT',
+            creator: currentUser.id,
+            creatorName: currentUser.name,
+          });
+          setShowCreateModal(false);
+        }}
+      />
     </div>
   );
 };

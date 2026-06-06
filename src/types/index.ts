@@ -86,6 +86,7 @@ export type CustomsDocStatus =
   | 'PENDING_DECLARE'
   | 'DECLARING'
   | 'PENDING_SUPPLEMENT'
+  | 'AUDITING'
   | 'DECLARED'
   | 'CLEARED'
   | 'REJECTED';
@@ -192,6 +193,7 @@ export const CUSTOMS_STATUS_MAP: Record<CustomsDocStatus, { label: string; color
   PENDING_DECLARE: { label: '待申报', color: 'bg-yellow-100 text-yellow-700' },
   DECLARING: { label: '申报中', color: 'bg-blue-100 text-blue-700' },
   PENDING_SUPPLEMENT: { label: '待补件', color: 'bg-orange-100 text-orange-700' },
+  AUDITING: { label: '审核中', color: 'bg-blue-100 text-blue-700' },
   DECLARED: { label: '已申报', color: 'bg-cyan-100 text-cyan-700' },
   CLEARED: { label: '已通关', color: 'bg-green-100 text-green-700' },
   REJECTED: { label: '已驳回', color: 'bg-red-100 text-red-700' },

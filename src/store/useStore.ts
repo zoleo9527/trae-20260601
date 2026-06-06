@@ -44,6 +44,7 @@ interface AppState {
   createPreparationOrder: (order: Omit<PreparationOrder, 'id' | 'createdAt' | 'updatedAt'>) => void;
   updatePreparationStatus: (id: string, status: PreparationOrderStatus, remark?: string) => void;
   addPreparationRemark: (id: string, remark: string) => void;
+  submitCustomsSupplement: (docId: string, supplementItems: string[], remark: string) => void;
   
   createInventoryLock: (lock: Omit<InventoryLock, 'id' | 'createdAt' | 'updatedAt'>) => void;
   releaseInventoryLock: (id: string, reason: string) => void;
@@ -166,6 +167,48 @@ export const useStore = create<AppState>((set, get) => ({
       operatorName: get().currentUser.name,
       detail: remark,
     });
+  },
+
+  submitCustomsSupplement: (docId, supplementItems, remark) => {
+    const doc = get().getCustomsDocById(docId);
+    if (!doc) return;
+    
+    set(state => ({
+      customsDocs: state.customsDocs.map(c =>
+        c.id === docId
+          ? {
+              ...c,
+              status: 'AUDITING',
+              supplementItems,
+              remark,
+              updatedAt: new Date().toISOString(),
+            }
+          : c
+      ),
+    }));
+    
+    get().addOperationLog({
+      bizType: 'customs',
+      bizId: docId,
+      operation: '提交补件',
+      operator: get().currentUser.id,
+      operatorName: get().currentUser.name,
+      detail: `提交补件：${supplementItems.join('、')}`,
+      fromStatus: doc.status,
+      toStatus: 'AUDITING',
+      remark,
+    });
+    
+    if (doc.preparationId) {
+      get().addOperationLog({
+        bizType: 'preparation',
+        bizId: doc.preparationId,
+        operation: '报关补件提交',
+        operator: get().currentUser.id,
+        operatorName: get().currentUser.name,
+        detail: `报关单${doc.docNo}已提交补件`,
+      });
+    }
   },
 
   createInventoryLock: (lock) => {

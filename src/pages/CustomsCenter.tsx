@@ -6,13 +6,17 @@ import { StatusBadge } from '@/components/StatusBadge';
 import { RiskTag } from '@/components/RiskTag';
 import { CUSTOMS_STATUS_MAP } from '@/types';
 import type { CustomsDocStatus } from '@/types';
+import { hasPermission } from '@/utils/permission';
+import { CustomsSupplementModal } from '@/components/CustomsSupplementModal';
 
 const CustomsCenter: React.FC = () => {
   const navigate = useNavigate();
-  const { customsDocs } = useStore();
+  const { customsDocs, currentRole, submitCustomsSupplement } = useStore();
 
   const [statusFilter, setStatusFilter] = useState<CustomsDocStatus | 'ALL'>('ALL');
   const [searchKeyword, setSearchKeyword] = useState('');
+  const [showSupplementModal, setShowSupplementModal] = useState(false);
+  const [selectedDoc, setSelectedDoc] = useState<any>(null);
 
   const stats = useMemo(() => {
     return {
@@ -193,7 +197,19 @@ const CustomsCenter: React.FC = () => {
                       )}
                     </td>
                     <td className="px-4 py-3">
-                      <span className="text-sm text-gray-400">-</span>
+                      {isPendingSupplement && hasPermission('customs', 'upload', currentRole) ? (
+                        <button
+                          className="text-sm text-orange-600 hover:text-orange-800 font-medium"
+                          onClick={() => {
+                            setSelectedDoc(doc);
+                            setShowSupplementModal(true);
+                          }}
+                        >
+                          上传补件
+                        </button>
+                      ) : (
+                        <span className="text-sm text-gray-400">-</span>
+                      )}
                     </td>
                   </tr>
                 );
@@ -208,6 +224,20 @@ const CustomsCenter: React.FC = () => {
           </div>
         )}
       </div>
+
+      <CustomsSupplementModal
+        visible={showSupplementModal}
+        doc={selectedDoc}
+        onClose={() => {
+          setShowSupplementModal(false);
+          setSelectedDoc(null);
+        }}
+        onSubmit={(docId, supplementItems, remark) => {
+          submitCustomsSupplement(docId, supplementItems, remark);
+          setShowSupplementModal(false);
+          setSelectedDoc(null);
+        }}
+      />
     </div>
   );
 };
