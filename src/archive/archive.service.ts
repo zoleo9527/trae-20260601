@@ -86,12 +86,49 @@ export class ArchiveService {
     return archive;
   }
 
+  private readonly archiveStatusTransitions: Record<ArchiveStatus, ArchiveStatus[]> = {
+    [ArchiveStatus.PENDING]: [ArchiveStatus.IN_PROGRESS, ArchiveStatus.NEEDS_REVISION],
+    [ArchiveStatus.IN_PROGRESS]: [ArchiveStatus.NEEDS_REVISION, ArchiveStatus.COMPLETED],
+    [ArchiveStatus.NEEDS_REVISION]: [ArchiveStatus.IN_PROGRESS, ArchiveStatus.COMPLETED],
+    [ArchiveStatus.COMPLETED]: [],
+  };
+
+  private canArchiveStatusTransition(current: ArchiveStatus, next: ArchiveStatus): boolean {
+    return this.archiveStatusTransitions[current]?.includes(next) || false;
+  }
+
+  getStatusFlow(): Record<string, string[]> {
+    return this.archiveStatusTransitions;
+  }
+
   updateStatus(id: string, status: ArchiveStatus, operator: User, remark?: string): TalentArchive {
     const archive = this.findOne(id);
     const previousState = { status: archive.status };
 
     if (operator.role !== UserRole.TALENT_AGENT && operator.role !== UserRole.ADMIN) {
       throw new ForbiddenException('只有达人经纪可以更新档案状态');
+    }
+
+    if (archive.status === status) {
+      throw new BadRequestException(`档案已处于「${status}」状态，无需重复更新`);
+    }
+
+    if (!this.canArchiveStatusTransition(archive.status, status)) {
+      throw new BadRequestException(`档案状态不允许从「${archive.status}」变更为「${status}」`);
+    }
+
+    if (archive.contractId) {
+      const contract = this.store.getContract(archive.contractId);
+      if (contract && contract.status === ContractStatus.ARCHIVED) {
+        throw new BadRequestException('关联合同已归档，禁止再修改档案状态');
+      }
+    }
+
+    if (status === ArchiveStatus.COMPLETED && archive.contractId) {
+      const contract = this.store.getContract(archive.contractId);
+      if (contract && contract.status === ContractStatus.ARCHIVED) {
+        throw new BadRequestException('关联合同已归档，档案无需重复完成');
+      }
     }
 
     archive.status = status;

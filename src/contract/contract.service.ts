@@ -165,6 +165,10 @@ export class ContractService {
   }
 
   private executeArchive(contract: Contract, operator: User, archiveId: string, triggerSource: 'manual' | 'archive_complete'): Contract {
+    if (contract.status === ContractStatus.ARCHIVED && contract.archivedAt) {
+      return contract;
+    }
+
     const previousState = { 
       status: contract.status, 
       archivedAt: contract.archivedAt,

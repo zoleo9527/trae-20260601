@@ -25,6 +25,12 @@ export class ArchiveController {
     };
   }
 
+  @Get('status-flow')
+  @ApiOperation({ summary: '获取档案状态流转图' })
+  getStatusFlow() {
+    return this.archiveService.getStatusFlow();
+  }
+
   @Get()
   @ApiOperation({ summary: '获取档案列表（达人经纪入口）' })
   @ApiHeader({ name: 'x-user-id', description: '用户ID' })
