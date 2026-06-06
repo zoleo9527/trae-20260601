@@ -25,7 +25,7 @@
   }
 
   function viewOrder(order) {
-    selectedOrder = order
+    selectedOrder = orderList.find(o => o.id === order.id) || order
     currentView = 'detail'
   }
 
@@ -92,6 +92,54 @@
       }
       return o
     })
+  }
+
+  function addException(orderId, type, desc) {
+    const now = new Date().toLocaleString('zh-CN')
+    orderList = orderList.map(o => {
+      if (o.id === orderId) {
+        const newLog = {
+          time: now,
+          action: '添加异常',
+          operator: '当前用户',
+          remark: '新增异常: ' + type + ' - ' + desc
+        }
+        const newException = {
+          type,
+          desc,
+          createdAt: new Date().toLocaleDateString('zh-CN'),
+          resolved: false
+        }
+        return { ...o, logs: [...o.logs, newLog], exceptions: [...o.exceptions, newException] }
+      }
+      return o
+    })
+    if (selectedOrder && selectedOrder.id === orderId) {
+      selectedOrder = orderList.find(o => o.id === orderId)
+    }
+  }
+
+  function resolveException(orderId, exceptionIndex) {
+    const now = new Date().toLocaleString('zh-CN')
+    orderList = orderList.map(o => {
+      if (o.id === orderId) {
+        const targetException = o.exceptions[exceptionIndex]
+        const newExceptions = o.exceptions.map((e, i) =>
+          i === exceptionIndex ? { ...e, resolved: true } : e
+        )
+        const newLog = {
+          time: now,
+          action: '解决异常',
+          operator: '当前用户',
+          remark: '异常已解决: ' + targetException.type + ' - ' + targetException.desc
+        }
+        return { ...o, exceptions: newExceptions, logs: [...o.logs, newLog] }
+      }
+      return o
+    })
+    if (selectedOrder && selectedOrder.id === orderId) {
+      selectedOrder = orderList.find(o => o.id === orderId)
+    }
   }
 </script>
 
@@ -230,6 +278,8 @@
         {statusColors}
         {calculateProfit}
         {updateOrderStatus}
+        {addException}
+        {resolveException}
       />
     {/if}
   </div>

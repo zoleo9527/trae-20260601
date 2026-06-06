@@ -5,6 +5,8 @@
   export let statusColors
   export let calculateProfit
   export let updateOrderStatus
+  export let addException
+  export let resolveException
 
   let activeTab = 'basic'
   let showAddException = false
@@ -13,38 +15,15 @@
 
   $: profit = order.settlementRate ? calculateProfit(order) : null
 
-  function addException() {
+  function addExceptionHandler() {
     if (!newExceptionDesc.trim()) return
-    const now = new Date().toLocaleString('zh-CN')
-    const newLog = {
-      time: now,
-      action: '添加异常',
-      operator: '当前用户',
-      remark: '新增异常: ' + newExceptionType + ' - ' + newExceptionDesc
-    }
-    order.logs.push(newLog)
-    order.exceptions.push({
-      type: newExceptionType,
-      desc: newExceptionDesc,
-      createdAt: new Date().toLocaleDateString('zh-CN'),
-      resolved: false
-    })
+    addException(order.id, newExceptionType, newExceptionDesc)
     newExceptionDesc = ''
     showAddException = false
-    order = order
   }
 
-  function resolveException(index) {
-    order.exceptions[index].resolved = true
-    const now = new Date().toLocaleString('zh-CN')
-    const newLog = {
-      time: now,
-      action: '解决异常',
-      operator: '当前用户',
-      remark: '异常已解决: ' + order.exceptions[index].type + ' - ' + order.exceptions[index].desc
-    }
-    order.logs.push(newLog)
-    order = order
+  function resolveExceptionHandler(index) {
+    resolveException(order.id, index)
   }
 </script>
 
@@ -234,7 +213,7 @@
               </div>
               <div class="form-actions">
                 <button class="btn btn-secondary" on:click={() => showAddException = false}>取消</button>
-                <button class="btn btn-primary" on:click={addException}>提交</button>
+                <button class="btn btn-primary" on:click={addExceptionHandler}>提交</button>
               </div>
             </div>
           {/if}
@@ -251,7 +230,7 @@
                 <div class="exception-desc">{ex.desc}</div>
                 {#if !ex.resolved}
                   <div style="text-align: right;">
-                    <button class="btn btn-success" on:click={() => resolveException(index)}>标记已解决</button>
+                    <button class="btn btn-success" on:click={() => resolveExceptionHandler(index)}>标记已解决</button>
                   </div>
                 {/if}
               </div>
