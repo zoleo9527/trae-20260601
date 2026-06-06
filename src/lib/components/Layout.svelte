@@ -51,16 +51,12 @@
 	const filteredMenuItems = $derived(menuItems.filter((item) => item.roles.includes(user.role)));
 
 	async function handleLogout() {
-		document.cookie = 'userId=; path=/; max-age=0';
-		document.cookie = 'userName=; path=/; max-age=0';
-		document.cookie = 'userRole=; path=/; max-age=0';
+		await fetch('/logout', { method: 'POST' });
 		await goto('/login');
 	}
 
 	async function handleSwitchRole() {
-		document.cookie = 'userId=; path=/; max-age=0';
-		document.cookie = 'userName=; path=/; max-age=0';
-		document.cookie = 'userRole=; path=/; max-age=0';
+		await fetch('/logout', { method: 'POST' });
 		await goto('/login');
 	}
 

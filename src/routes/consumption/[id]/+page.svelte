@@ -1,8 +1,7 @@
 <script lang="ts">
-	import Layout from '$lib/components/Layout.svelte';
 	import StatusBadge from '$lib/components/StatusBadge.svelte';
 	import { formatDate } from '$lib/utils/format';
-	import { ArrowLeft, Check, X, Clock, User, FileText, AlertCircle } from '@lucide/svelte';
+	import { ArrowLeft, Check, X, Clock, User as UserIcon, FileText, AlertCircle } from '@lucide/svelte';
 	import type { PageData } from './$types';
 	import type { ActionData } from './$types';
 
@@ -70,8 +69,7 @@
 	}
 </script>
 
-<Layout user={data.user}>
-	<div class="max-w-3xl mx-auto space-y-6">
+<div class="max-w-3xl mx-auto space-y-6">
 		<div class="flex items-center justify-between">
 			<div class="flex items-center gap-4">
 				<a
@@ -131,14 +129,14 @@
 					<div>
 						<label class="text-sm text-gray-500 block mb-1.5">提交人（课程顾问）</label>
 						<div class="flex items-center gap-2">
-							<User size={16} class="text-gray-400" />
+							<UserIcon size={16} class="text-gray-400" />
 							<span class="font-medium text-gray-900">{data.consumption.consultantName}</span>
 						</div>
 					</div>
 					<div>
 						<label class="text-sm text-gray-500 block mb-1.5">确认人（任课老师）</label>
 						<div class="flex items-center gap-2">
-							<User size={16} class="text-gray-400" />
+							<UserIcon size={16} class="text-gray-400" />
 							<span class="font-medium text-gray-900">
 								{data.consumption.teacherName || '-'}
 							</span>
@@ -250,7 +248,7 @@
 		{/if}
 	</div>
 
-	{#if showRejectModal}
+{#if showRejectModal}
 		<div class="fixed inset-0 z-50 flex items-center justify-center p-4">
 			<div
 				class="fixed inset-0 bg-black/50"
@@ -291,5 +289,4 @@
 				</form>
 			</div>
 		</div>
-	{/if}
-</Layout>
+{/if}

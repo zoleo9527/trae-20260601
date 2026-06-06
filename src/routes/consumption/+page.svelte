@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
-	import Layout from '$lib/components/Layout.svelte';
 	import StatusBadge from '$lib/components/StatusBadge.svelte';
 	import { formatDate } from '$lib/utils/format';
 	import { Plus, Search, Filter, Eye, Check, X } from '@lucide/svelte';
@@ -36,8 +35,7 @@
 	}
 </script>
 
-<Layout user={data.user}>
-	<div class="space-y-6">
+<div class="space-y-6">
 		<div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
 			<div>
 				<h1 class="text-2xl font-bold text-gray-800">课包消耗</h1>
@@ -207,4 +205,3 @@
 			</div>
 		</div>
 	</div>
-</Layout>
