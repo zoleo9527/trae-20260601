@@ -23,7 +23,7 @@ export function PurchaseCard({ purchase }: PurchaseCardProps) {
         setActiveDrawer('exception')
       }
     } else if (currentUser.role === 'purchaser') {
-      if (purchase.status === 'supplementing') {
+      if (purchase.status === 'supplementing' || purchase.status === 'rejected') {
         setActiveDrawer('resubmit')
       } else if (purchase.exceptions.length > 0) {
         setActiveDrawer('exception')
@@ -46,6 +46,7 @@ export function PurchaseCard({ purchase }: PurchaseCardProps) {
     (purchase.status === 'sample_pending' && currentUser.role === 'admin') ||
     (purchase.status === 'sample_completed' && currentUser.role === 'teacher') ||
     (purchase.status === 'supplementing' && currentUser.role === 'purchaser') ||
+    (purchase.status === 'rejected' && currentUser.role === 'purchaser') ||
     ((purchase.status === 'dispute_pending' || purchase.status === 'dispute_processing') && currentUser.role === 'teacher')
 
   const hasExceptions = purchase.exceptions.length > 0
@@ -57,9 +58,9 @@ export function PurchaseCard({ purchase }: PurchaseCardProps) {
       className={cn(
         'card p-5 cursor-pointer transition-all duration-200 hover:shadow-md hover:border-primary-200',
         needsAction && 'ring-2 ring-primary-200 ring-offset-1',
-        hasUnresolvedExceptions && purchase.status !== 'dispute' && 'ring-2 ring-orange-200 ring-offset-1',
+        hasUnresolvedExceptions && purchase.status !== 'dispute_pending' && purchase.status !== 'dispute_processing' && 'ring-2 ring-orange-200 ring-offset-1',
         purchase.status === 'overdue' && 'ring-2 ring-red-200 ring-offset-1',
-        purchase.status === 'dispute' && 'ring-2 ring-purple-200 ring-offset-1'
+        (purchase.status === 'dispute_pending' || purchase.status === 'dispute_processing') && 'ring-2 ring-purple-200 ring-offset-1'
       )}
     >
       <div className="flex items-start justify-between mb-4">

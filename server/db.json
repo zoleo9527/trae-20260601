@@ -18,14 +18,14 @@
   ],
   "purchaseOrders": [
     {
-      "id": "e9919391-cea5-4ff9-8f3c-410f5d76e4b2",
+      "id": "d2ed1f5c-244d-47de-82ae-ff9dbc1bb01a",
       "orderNo": "CG20260606001",
       "supplierName": "绿源蔬菜配送有限公司",
-      "deliveryTime": "2026-06-06 04:33:55",
-      "expectedDeliveryTime": "2026-06-06 05:03:55",
+      "deliveryTime": "2026-06-06 04:52:36",
+      "expectedDeliveryTime": "2026-06-06 05:22:36",
       "items": [
         {
-          "id": "5d10eba2-51b5-44a3-aac7-924b7c99d727",
+          "id": "43f09b31-267f-46da-9159-5ee8dece98b4",
           "name": "大白菜",
           "quantity": 50,
           "unit": "kg",
@@ -36,7 +36,7 @@
           "expiryDate": "2026-06-08"
         },
         {
-          "id": "280ec148-56b9-45d1-ab10-8b234558beb4",
+          "id": "bef0a24c-b2e6-419b-a048-784d4d57d547",
           "name": "西红柿",
           "quantity": 30,
           "unit": "kg",
@@ -47,7 +47,7 @@
           "expiryDate": "2026-06-09"
         },
         {
-          "id": "7b94982a-9042-4c4a-a96f-7e26b7dfb474",
+          "id": "4b9ec6c8-3692-4ca2-8b86-1b02e8a5233c",
           "name": "黄瓜",
           "quantity": 25,
           "unit": "kg",
@@ -64,21 +64,21 @@
       "status": "sample_completed",
       "acceptanceRecords": [
         {
-          "id": "3881aecf-6f8a-4e41-a61a-6104a2e87026",
-          "purchaseId": "e9919391-cea5-4ff9-8f3c-410f5d76e4b2",
+          "id": "f47c6e0a-55cb-423a-8af1-f1979dde0f0d",
+          "purchaseId": "d2ed1f5c-244d-47de-82ae-ff9dbc1bb01a",
           "operatorId": "u1",
           "operatorName": "张管理",
           "action": "accept",
           "remark": "菜品新鲜，数量准确，验收通过",
-          "timestamp": "2026-06-06 05:33:55"
+          "timestamp": "2026-06-06 05:52:36"
         }
       ],
       "sampleRecord": {
-        "id": "e983ecab-da7d-4b21-a662-33b8a086b839",
-        "purchaseId": "e9919391-cea5-4ff9-8f3c-410f5d76e4b2",
+        "id": "d2078c13-643e-41cd-8bab-d9a2dda8770e",
+        "purchaseId": "d2ed1f5c-244d-47de-82ae-ff9dbc1bb01a",
         "operatorId": "u1",
         "operatorName": "张管理",
-        "sampleTime": "2026-06-06 06:33:55",
+        "sampleTime": "2026-06-06 06:52:36",
         "sampleQuantity": "各200g",
         "storageLocation": "食堂冷藏留样柜A区",
         "temperature": "4°C",
@@ -97,7 +97,7 @@
           "label": "采购员下单",
           "role": "purchaser",
           "status": "completed",
-          "timestamp": "2026-06-05 07:33:55",
+          "timestamp": "2026-06-05 07:52:36",
           "operatorName": "李采购"
         },
         {
@@ -105,7 +105,15 @@
           "label": "待管理员验收",
           "role": "admin",
           "status": "completed",
-          "timestamp": "2026-06-06 05:33:55",
+          "timestamp": "2026-06-06 05:52:36",
+          "operatorName": "张管理"
+        },
+        {
+          "key": "acceptance_completed",
+          "label": "验收完成",
+          "role": "admin",
+          "status": "completed",
+          "timestamp": "2026-06-06 05:52:36",
           "operatorName": "张管理"
         },
         {
@@ -121,11 +129,23 @@
           "status": "pending"
         },
         {
+          "key": "dispute_raised",
+          "label": "发起责任争议",
+          "role": "purchaser",
+          "status": "pending"
+        },
+        {
+          "key": "dispute_resolved",
+          "label": "争议仲裁完成",
+          "role": "teacher",
+          "status": "pending"
+        },
+        {
           "key": "sample_pending",
           "label": "待留样登记",
           "role": "admin",
           "status": "completed",
-          "timestamp": "2026-06-06 06:03:55",
+          "timestamp": "2026-06-06 06:22:36",
           "operatorName": "张管理"
         },
         {
@@ -133,7 +153,7 @@
           "label": "留样完成",
           "role": "admin",
           "status": "completed",
-          "timestamp": "2026-06-06 06:33:55",
+          "timestamp": "2026-06-06 06:52:36",
           "operatorName": "张管理"
         },
         {
@@ -149,18 +169,18 @@
           "status": "pending"
         }
       ],
-      "createdAt": "2026-06-05 05:33:55",
-      "updatedAt": "2026-06-06 06:33:55"
+      "createdAt": "2026-06-05 05:52:36",
+      "updatedAt": "2026-06-06 06:52:36"
     },
     {
-      "id": "742e1897-6831-4cf5-8d91-855e56439446",
+      "id": "919cf6b5-f7c6-47df-99e4-79b908bccb46",
       "orderNo": "CG20260606002",
       "supplierName": "鲜肉直供合作社",
-      "deliveryTime": "2026-06-06 02:33:55",
-      "expectedDeliveryTime": "2026-06-06 03:03:55",
+      "deliveryTime": "2026-06-06 02:52:36",
+      "expectedDeliveryTime": "2026-06-06 03:22:36",
       "items": [
         {
-          "id": "81011ed6-2c52-4cc5-ad29-011a6960a863",
+          "id": "b35467a1-7a13-47ff-8a5a-2f34237f1162",
           "name": "猪五花肉",
           "quantity": 20,
           "unit": "kg",
@@ -171,7 +191,7 @@
           "expiryDate": "2026-06-07"
         },
         {
-          "id": "f9b57fb7-5474-4fc4-bac8-86960e858ab9",
+          "id": "8e34df0a-7f72-4d66-a0b1-df5327532a47",
           "name": "猪瘦肉",
           "quantity": 15,
           "unit": "kg",
@@ -188,19 +208,19 @@
       "status": "supplementing",
       "acceptanceRecords": [
         {
-          "id": "100e4ba1-f91e-4b36-8d1f-e43aed7bd60e",
-          "purchaseId": "742e1897-6831-4cf5-8d91-855e56439446",
+          "id": "6e399b11-8689-4cea-af40-89f7bc816e29",
+          "purchaseId": "919cf6b5-f7c6-47df-99e4-79b908bccb46",
           "operatorId": "u1",
           "operatorName": "张管理",
           "action": "supplement",
           "remark": "缺少动物检疫合格证明，请补充上传",
-          "timestamp": "2026-06-06 03:33:55"
+          "timestamp": "2026-06-06 03:52:36"
         }
       ],
       "exceptions": [
         {
-          "id": "bd419294-de75-4f11-8a51-b359b21d9e43",
-          "purchaseId": "742e1897-6831-4cf5-8d91-855e56439446",
+          "id": "68374f02-4a4b-4345-a569-ce85b42a162f",
+          "purchaseId": "919cf6b5-f7c6-47df-99e4-79b908bccb46",
           "type": "supplement",
           "initiatorId": "u1",
           "initiatorName": "张管理",
@@ -208,14 +228,14 @@
           "handlerName": "李采购",
           "description": "验收时发现缺少动物检疫合格证明文件，需补充上传后重新提交验收",
           "status": "processing",
-          "createdAt": "2026-06-06 03:33:55",
+          "createdAt": "2026-06-06 03:52:36",
           "comments": [
             {
-              "id": "3f89a3a2-07ef-4536-b9ac-8cecff4c050b",
+              "id": "021caf1a-889c-480b-9959-1f2c005c4702",
               "userId": "u2",
               "userName": "李采购",
               "content": "已联系供应商，正在索要电子版本检疫证明，预计10分钟内上传",
-              "timestamp": "2026-06-06 03:45:55"
+              "timestamp": "2026-06-06 04:04:36"
             }
           ]
         }
@@ -223,7 +243,7 @@
       "currentHandlerId": "u2",
       "currentHandlerName": "李采购",
       "currentHandlerRole": "purchaser",
-      "deadline": "2026-06-06 08:33:55",
+      "deadline": "2026-06-06 08:52:36",
       "resubmitCount": 0,
       "processSteps": [
         {
@@ -231,7 +251,7 @@
           "label": "采购员下单",
           "role": "purchaser",
           "status": "completed",
-          "timestamp": "2026-06-05 07:33:55",
+          "timestamp": "2026-06-05 07:52:36",
           "operatorName": "李采购"
         },
         {
@@ -239,15 +259,21 @@
           "label": "待管理员验收",
           "role": "admin",
           "status": "completed",
-          "timestamp": "2026-06-06 03:33:55",
+          "timestamp": "2026-06-06 03:52:36",
           "operatorName": "张管理"
+        },
+        {
+          "key": "acceptance_completed",
+          "label": "验收完成",
+          "role": "admin",
+          "status": "pending"
         },
         {
           "key": "supplement_requested",
           "label": "要求补充材料",
           "role": "admin",
           "status": "completed",
-          "timestamp": "2026-06-06 04:03:55",
+          "timestamp": "2026-06-06 04:22:36",
           "operatorName": "张管理",
           "remark": "缺少检疫合格证明"
         },
@@ -256,6 +282,18 @@
           "label": "采购员补录重提",
           "role": "purchaser",
           "status": "current"
+        },
+        {
+          "key": "dispute_raised",
+          "label": "发起责任争议",
+          "role": "purchaser",
+          "status": "pending"
+        },
+        {
+          "key": "dispute_resolved",
+          "label": "争议仲裁完成",
+          "role": "teacher",
+          "status": "pending"
         },
         {
           "key": "sample_pending",
@@ -282,18 +320,18 @@
           "status": "pending"
         }
       ],
-      "createdAt": "2026-06-05 03:33:55",
-      "updatedAt": "2026-06-06 03:45:55"
+      "createdAt": "2026-06-05 03:52:36",
+      "updatedAt": "2026-06-06 04:04:36"
     },
     {
-      "id": "550f65b5-e632-4bf2-bee9-29ca939dc5fa",
+      "id": "f290f410-7b8c-45c5-8055-9ac578690b8c",
       "orderNo": "CG20260605003",
       "supplierName": "鸡蛋直销基地",
-      "deliveryTime": "2026-06-05 05:33:55",
-      "expectedDeliveryTime": "2026-06-05 06:03:55",
+      "deliveryTime": "2026-06-05 05:52:36",
+      "expectedDeliveryTime": "2026-06-05 06:22:36",
       "items": [
         {
-          "id": "acfe341c-d59f-4564-bf5d-1d3a8c80a997",
+          "id": "9a484f54-0d9f-4621-a15f-45017e18c608",
           "name": "鲜鸡蛋",
           "quantity": 200,
           "unit": "斤",
@@ -311,8 +349,8 @@
       "acceptanceRecords": [],
       "exceptions": [
         {
-          "id": "5b2de4b4-fb34-4b23-844e-1b92b03126a0",
-          "purchaseId": "550f65b5-e632-4bf2-bee9-29ca939dc5fa",
+          "id": "13f78b9d-fe44-44ae-8445-f6bf4dfb5dc2",
+          "purchaseId": "f290f410-7b8c-45c5-8055-9ac578690b8c",
           "type": "overdue",
           "initiatorId": "u1",
           "initiatorName": "张管理",
@@ -320,13 +358,13 @@
           "handlerName": "张管理",
           "description": "该批次鸡蛋已超过验收处理时限，供应商昨天配送后未及时安排验收，现在鸡蛋是否还可使用存疑",
           "status": "pending",
-          "createdAt": "2026-06-06 05:33:55"
+          "createdAt": "2026-06-06 05:52:36"
         }
       ],
       "currentHandlerId": "u1",
       "currentHandlerName": "张管理",
       "currentHandlerRole": "admin",
-      "deadline": "2026-06-05 17:33:55",
+      "deadline": "2026-06-05 17:52:36",
       "remark": "昨天配送后食堂太忙，忘记安排验收",
       "resubmitCount": 0,
       "processSteps": [
@@ -335,7 +373,7 @@
           "label": "采购员下单",
           "role": "purchaser",
           "status": "completed",
-          "timestamp": "2026-06-05 07:33:55",
+          "timestamp": "2026-06-05 07:52:36",
           "operatorName": "李采购"
         },
         {
@@ -343,6 +381,12 @@
           "label": "待管理员验收",
           "role": "admin",
           "status": "error"
+        },
+        {
+          "key": "acceptance_completed",
+          "label": "验收完成",
+          "role": "admin",
+          "status": "pending"
         },
         {
           "key": "supplement_requested",
@@ -354,6 +398,18 @@
           "key": "supplement_submitted",
           "label": "采购员补录重提",
           "role": "purchaser",
+          "status": "pending"
+        },
+        {
+          "key": "dispute_raised",
+          "label": "发起责任争议",
+          "role": "purchaser",
+          "status": "pending"
+        },
+        {
+          "key": "dispute_resolved",
+          "label": "争议仲裁完成",
+          "role": "teacher",
           "status": "pending"
         },
         {
@@ -381,18 +437,18 @@
           "status": "pending"
         }
       ],
-      "createdAt": "2026-06-04 15:33:55",
-      "updatedAt": "2026-06-06 05:33:55"
+      "createdAt": "2026-06-04 15:52:36",
+      "updatedAt": "2026-06-06 05:52:36"
     },
     {
-      "id": "02d34d8f-8cd1-4a5d-a67a-20ce5fc8ea35",
+      "id": "13c3c1eb-a214-459e-b49f-7227a4e4819e",
       "orderNo": "CG20260605004",
       "supplierName": "大海水产批发",
-      "deliveryTime": "2026-06-05 09:33:55",
-      "expectedDeliveryTime": "2026-06-05 10:03:55",
+      "deliveryTime": "2026-06-05 09:52:36",
+      "expectedDeliveryTime": "2026-06-05 10:22:36",
       "items": [
         {
-          "id": "977c24f9-03a5-4d63-afb2-a4657cbc29fb",
+          "id": "7c6edf8e-219e-44c3-9dd8-5d3402658243",
           "name": "带鱼",
           "quantity": 30,
           "unit": "kg",
@@ -409,19 +465,19 @@
       "status": "dispute_processing",
       "acceptanceRecords": [
         {
-          "id": "41b4991c-08fa-4e32-af97-1e0b769890d6",
-          "purchaseId": "02d34d8f-8cd1-4a5d-a67a-20ce5fc8ea35",
+          "id": "85aabad1-3b7d-4ced-9173-09f997d4e689",
+          "purchaseId": "13c3c1eb-a214-459e-b49f-7227a4e4819e",
           "operatorId": "u1",
           "operatorName": "张管理",
           "action": "reject",
           "remark": "部分带鱼解冻后发现不新鲜，怀疑反复冻融",
-          "timestamp": "2026-06-05 10:33:55"
+          "timestamp": "2026-06-05 10:52:36"
         }
       ],
       "exceptions": [
         {
-          "id": "04fc8cee-110d-4415-9f81-f8a995c39106",
-          "purchaseId": "02d34d8f-8cd1-4a5d-a67a-20ce5fc8ea35",
+          "id": "86168b33-a0c0-471a-9193-a4848d69effe",
+          "purchaseId": "13c3c1eb-a214-459e-b49f-7227a4e4819e",
           "type": "dispute",
           "initiatorId": "u2",
           "initiatorName": "李采购",
@@ -429,49 +485,49 @@
           "handlerName": "王老师",
           "description": "采购员认为带鱼质量合格，是正常冷冻状态，反复冻融的说法不成立。双方存在争议，需班主任介入确认。",
           "status": "processing",
-          "createdAt": "2026-06-05 11:33:55",
+          "createdAt": "2026-06-05 11:52:36",
           "comments": [
             {
-              "id": "ddb438db-e72d-4ca3-805b-4a5f6017bd42",
+              "id": "3d0c09f5-77b4-43db-9ca5-0f2930a4c7da",
               "userId": "u2",
               "userName": "李采购",
               "content": "这批带鱼是今天凌晨刚从冷库拉出来的，绝对没有反复冻融，外包装完好无破损",
-              "timestamp": "2026-06-05 11:33:55",
+              "timestamp": "2026-06-05 11:52:36",
               "attachments": []
             },
             {
-              "id": "1dbb49f4-f290-406b-8720-65110b26bf13",
+              "id": "258c6d44-db54-457b-8631-18f5b09f97c9",
               "userId": "u1",
               "userName": "张管理",
               "content": "化冻后肉质松软，没有新鲜带鱼的弹性，我坚持认为有问题",
-              "timestamp": "2026-06-05 12:03:55"
+              "timestamp": "2026-06-05 12:22:36"
             },
             {
-              "id": "48937024-5a4a-475b-bd40-bfbadaa70c48",
+              "id": "2a8fe781-28cb-4322-9cf2-02432128569f",
               "userId": "u3",
               "userName": "王老师",
               "content": "我已收到争议通知，今天下午会到现场查看确认",
-              "timestamp": "2026-06-05 14:33:55"
+              "timestamp": "2026-06-05 14:52:36"
             }
           ]
         }
       ],
       "dispute": {
-        "id": "7fe0270d-d1a0-4e53-8168-7bbbfbbe3c49",
-        "purchaseId": "02d34d8f-8cd1-4a5d-a67a-20ce5fc8ea35",
+        "id": "edb9e544-56db-429e-beb1-6ee6ec5259df",
+        "purchaseId": "13c3c1eb-a214-459e-b49f-7227a4e4819e",
         "raisedById": "u2",
         "raisedByName": "李采购",
         "description": "带鱼质量争议：管理员认为反复冻融，采购员认为质量合格",
         "status": "investigating",
         "mediatorId": "u3",
         "mediatorName": "王老师",
-        "createdAt": "2026-06-05 11:33:55",
+        "createdAt": "2026-06-05 11:52:36",
         "comments": []
       },
       "currentHandlerId": "u3",
       "currentHandlerName": "王老师",
       "currentHandlerRole": "teacher",
-      "deadline": "2026-06-06 11:33:55",
+      "deadline": "2026-06-06 11:52:36",
       "resubmitCount": 0,
       "processSteps": [
         {
@@ -479,7 +535,7 @@
           "label": "采购员下单",
           "role": "purchaser",
           "status": "completed",
-          "timestamp": "2026-06-05 07:33:55",
+          "timestamp": "2026-06-05 07:52:36",
           "operatorName": "李采购"
         },
         {
@@ -487,8 +543,15 @@
           "label": "待管理员验收",
           "role": "admin",
           "status": "error",
-          "timestamp": "2026-06-05 23:33:55",
-          "operatorName": "张管理"
+          "timestamp": "2026-06-05 23:52:36",
+          "operatorName": "张管理",
+          "remark": "验收被驳回"
+        },
+        {
+          "key": "acceptance_completed",
+          "label": "验收完成",
+          "role": "admin",
+          "status": "pending"
         },
         {
           "key": "supplement_requested",
@@ -501,6 +564,21 @@
           "label": "采购员补录重提",
           "role": "purchaser",
           "status": "pending"
+        },
+        {
+          "key": "dispute_raised",
+          "label": "发起责任争议",
+          "role": "purchaser",
+          "status": "completed",
+          "timestamp": "2026-06-06 00:52:36",
+          "operatorName": "李采购",
+          "remark": "带鱼质量争议"
+        },
+        {
+          "key": "dispute_resolved",
+          "label": "争议仲裁完成",
+          "role": "teacher",
+          "status": "current"
         },
         {
           "key": "sample_pending",
@@ -527,18 +605,18 @@
           "status": "pending"
         }
       ],
-      "createdAt": "2026-06-04 13:33:55",
-      "updatedAt": "2026-06-05 14:33:55"
+      "createdAt": "2026-06-04 13:52:36",
+      "updatedAt": "2026-06-05 14:52:36"
     },
     {
-      "id": "e3d37517-32a2-413e-93ba-26ad47478ef7",
+      "id": "ea22ace0-dbae-416a-86f5-2e09a01e9137",
       "orderNo": "CG20260606005",
       "supplierName": "五谷丰粮油配送",
-      "deliveryTime": "2026-06-06 06:03:55",
-      "expectedDeliveryTime": "2026-06-06 06:33:55",
+      "deliveryTime": "2026-06-06 06:22:36",
+      "expectedDeliveryTime": "2026-06-06 06:52:36",
       "items": [
         {
-          "id": "8879200c-8dd7-406d-95b7-430407b6901a",
+          "id": "cc7f28d9-cdee-4393-b2af-36af1c616d66",
           "name": "大米",
           "quantity": 100,
           "unit": "kg",
@@ -549,7 +627,7 @@
           "expiryDate": "2026-11-20"
         },
         {
-          "id": "3b93ae68-425b-4c7e-928d-ffc6120a52b3",
+          "id": "02f9b450-9db9-459f-907a-e92b353e8c90",
           "name": "食用油",
           "quantity": 10,
           "unit": "桶",
@@ -566,13 +644,13 @@
       "status": "sample_pending",
       "acceptanceRecords": [
         {
-          "id": "eeaf720b-bb88-49d1-9e75-e6a507c85192",
-          "purchaseId": "e3d37517-32a2-413e-93ba-26ad47478ef7",
+          "id": "79b0ea56-e330-4384-a2dd-f481dd85c135",
+          "purchaseId": "ea22ace0-dbae-416a-86f5-2e09a01e9137",
           "operatorId": "u1",
           "operatorName": "张管理",
           "action": "accept",
           "remark": "验收通过，需进行留样登记",
-          "timestamp": "2026-06-06 06:33:55"
+          "timestamp": "2026-06-06 06:52:36"
         }
       ],
       "exceptions": [],
@@ -586,7 +664,7 @@
           "label": "采购员下单",
           "role": "purchaser",
           "status": "completed",
-          "timestamp": "2026-06-05 07:33:55",
+          "timestamp": "2026-06-05 07:52:36",
           "operatorName": "李采购"
         },
         {
@@ -594,7 +672,15 @@
           "label": "待管理员验收",
           "role": "admin",
           "status": "completed",
-          "timestamp": "2026-06-06 06:33:55",
+          "timestamp": "2026-06-06 06:52:36",
+          "operatorName": "张管理"
+        },
+        {
+          "key": "acceptance_completed",
+          "label": "验收完成",
+          "role": "admin",
+          "status": "completed",
+          "timestamp": "2026-06-06 06:52:36",
           "operatorName": "张管理"
         },
         {
@@ -607,6 +693,18 @@
           "key": "supplement_submitted",
           "label": "采购员补录重提",
           "role": "purchaser",
+          "status": "pending"
+        },
+        {
+          "key": "dispute_raised",
+          "label": "发起责任争议",
+          "role": "purchaser",
+          "status": "pending"
+        },
+        {
+          "key": "dispute_resolved",
+          "label": "争议仲裁完成",
+          "role": "teacher",
           "status": "pending"
         },
         {
@@ -634,18 +732,18 @@
           "status": "pending"
         }
       ],
-      "createdAt": "2026-06-05 19:33:55",
-      "updatedAt": "2026-06-06 06:33:55"
+      "createdAt": "2026-06-05 19:52:36",
+      "updatedAt": "2026-06-06 06:52:36"
     },
     {
-      "id": "3746577f-760c-4ab4-9935-eda0bfce9d75",
-      "orderNo": "CG20260606006",
+      "id": "e2b8d478-f172-4080-9cb1-4f26e70c7447",
+      "orderNo": "CG20260606007",
       "supplierName": "绿源蔬菜配送有限公司",
-      "deliveryTime": "2026-06-06 06:33:55",
-      "expectedDeliveryTime": "2026-06-06 07:03:55",
+      "deliveryTime": "2026-06-06 06:52:36",
+      "expectedDeliveryTime": "2026-06-06 07:22:36",
       "items": [
         {
-          "id": "dddf466d-8f10-4621-9c55-1567bbccc5cb",
+          "id": "e73fd23f-80ea-4c3b-a826-884420134a67",
           "name": "土豆",
           "quantity": 40,
           "unit": "kg",
@@ -656,7 +754,7 @@
           "expiryDate": "2026-06-20"
         },
         {
-          "id": "bc0cbf36-acd2-4f34-b74b-7d17aa4fca92",
+          "id": "a39aca18-c7ce-42ea-bf7b-7baa8f746d42",
           "name": "青椒",
           "quantity": 20,
           "unit": "kg",
@@ -676,7 +774,7 @@
       "currentHandlerId": "u1",
       "currentHandlerName": "张管理",
       "currentHandlerRole": "admin",
-      "deadline": "2026-06-06 09:03:55",
+      "deadline": "2026-06-06 09:22:36",
       "resubmitCount": 0,
       "processSteps": [
         {
@@ -684,7 +782,7 @@
           "label": "采购员下单",
           "role": "purchaser",
           "status": "completed",
-          "timestamp": "2026-06-05 07:33:55",
+          "timestamp": "2026-06-05 07:52:36",
           "operatorName": "李采购"
         },
         {
@@ -692,6 +790,12 @@
           "label": "待管理员验收",
           "role": "admin",
           "status": "current"
+        },
+        {
+          "key": "acceptance_completed",
+          "label": "验收完成",
+          "role": "admin",
+          "status": "pending"
         },
         {
           "key": "supplement_requested",
@@ -703,6 +807,18 @@
           "key": "supplement_submitted",
           "label": "采购员补录重提",
           "role": "purchaser",
+          "status": "pending"
+        },
+        {
+          "key": "dispute_raised",
+          "label": "发起责任争议",
+          "role": "purchaser",
+          "status": "pending"
+        },
+        {
+          "key": "dispute_resolved",
+          "label": "争议仲裁完成",
+          "role": "teacher",
           "status": "pending"
         },
         {
@@ -730,8 +846,149 @@
           "status": "pending"
         }
       ],
-      "createdAt": "2026-06-05 23:33:55",
-      "updatedAt": "2026-06-06 06:33:55"
+      "createdAt": "2026-06-05 23:52:36",
+      "updatedAt": "2026-06-06 06:52:36"
+    },
+    {
+      "id": "5647e7f0-e2e6-43f8-a9a1-4d4e083afbea",
+      "orderNo": "CG20260606008",
+      "supplierName": "新鲜果蔬配送中心",
+      "deliveryTime": "2026-06-06 01:52:36",
+      "expectedDeliveryTime": "2026-06-06 02:22:36",
+      "items": [
+        {
+          "id": "d86b2218-6858-46b1-a129-1986c90cb706",
+          "name": "生菜",
+          "quantity": 30,
+          "unit": "kg",
+          "specification": "有机",
+          "price": 8.5,
+          "batchNumber": "V2026060601",
+          "productionDate": "2026-06-06",
+          "expiryDate": "2026-06-08"
+        },
+        {
+          "id": "ef01fab7-3238-4dad-a7a2-4b835f3f3490",
+          "name": "菠菜",
+          "quantity": 25,
+          "unit": "kg",
+          "specification": "有机",
+          "price": 7.2,
+          "batchNumber": "V2026060602",
+          "productionDate": "2026-06-06",
+          "expiryDate": "2026-06-08"
+        }
+      ],
+      "totalAmount": 435,
+      "purchaserId": "u2",
+      "purchaserName": "李采购",
+      "status": "rejected",
+      "acceptanceRecords": [
+        {
+          "id": "15c2dc85-97b7-402f-953c-edb4f245ef90",
+          "purchaseId": "5647e7f0-e2e6-43f8-a9a1-4d4e083afbea",
+          "operatorId": "u1",
+          "operatorName": "张管理",
+          "action": "reject",
+          "remark": "部分蔬菜有腐烂迹象，外包装有水渍，怀疑运输过程中淋雨",
+          "timestamp": "2026-06-06 02:52:36"
+        }
+      ],
+      "exceptions": [
+        {
+          "id": "c5f67b48-5253-4a2a-831c-f528a16d0e6b",
+          "purchaseId": "5647e7f0-e2e6-43f8-a9a1-4d4e083afbea",
+          "type": "reject",
+          "initiatorId": "u1",
+          "initiatorName": "张管理",
+          "handlerId": "u2",
+          "handlerName": "李采购",
+          "description": "验收发现部分蔬菜腐烂，外包装有水渍，需确认是否更换批次或重新配送",
+          "status": "processing",
+          "createdAt": "2026-06-06 02:52:36",
+          "comments": []
+        }
+      ],
+      "currentHandlerId": "u2",
+      "currentHandlerName": "李采购",
+      "currentHandlerRole": "purchaser",
+      "deadline": "2026-06-06 09:52:36",
+      "resubmitCount": 0,
+      "processSteps": [
+        {
+          "key": "purchase_created",
+          "label": "采购员下单",
+          "role": "purchaser",
+          "status": "completed",
+          "timestamp": "2026-06-05 07:52:36",
+          "operatorName": "李采购"
+        },
+        {
+          "key": "acceptance_pending",
+          "label": "待管理员验收",
+          "role": "admin",
+          "status": "error",
+          "timestamp": "2026-06-06 02:52:36",
+          "operatorName": "张管理",
+          "remark": "验收被驳回"
+        },
+        {
+          "key": "acceptance_completed",
+          "label": "验收完成",
+          "role": "admin",
+          "status": "pending"
+        },
+        {
+          "key": "supplement_requested",
+          "label": "要求补充材料",
+          "role": "admin",
+          "status": "pending"
+        },
+        {
+          "key": "supplement_submitted",
+          "label": "采购员补录重提",
+          "role": "purchaser",
+          "status": "current"
+        },
+        {
+          "key": "dispute_raised",
+          "label": "发起责任争议",
+          "role": "purchaser",
+          "status": "pending"
+        },
+        {
+          "key": "dispute_resolved",
+          "label": "争议仲裁完成",
+          "role": "teacher",
+          "status": "pending"
+        },
+        {
+          "key": "sample_pending",
+          "label": "待留样登记",
+          "role": "admin",
+          "status": "pending"
+        },
+        {
+          "key": "sample_completed",
+          "label": "留样完成",
+          "role": "admin",
+          "status": "pending"
+        },
+        {
+          "key": "sample_confirmed",
+          "label": "班主任确认",
+          "role": "teacher",
+          "status": "pending"
+        },
+        {
+          "key": "completed",
+          "label": "流程完成",
+          "role": "admin",
+          "status": "pending"
+        }
+      ],
+      "createdAt": "2026-06-05 21:52:36",
+      "updatedAt": "2026-06-06 02:52:36"
     }
   ]
 }

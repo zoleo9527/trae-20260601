@@ -120,7 +120,7 @@ function isStepRelevant(stepKey: string, status: string): boolean {
     'completed'
   ])
   
-  if (status === 'supplementing' || status === 'supplement_submitted') {
+  if (status === 'supplementing' || status === 'supplement_submitted' || status === 'rejected') {
     relevantSteps.add('supplement_requested')
     relevantSteps.add('supplement_submitted')
   }

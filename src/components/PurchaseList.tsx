@@ -1,29 +1,39 @@
 import { useState } from 'react'
-import { Filter, Search, AlertCircle, Clock, CheckCircle, XCircle, FileWarning } from 'lucide-react'
+import { Filter, Search, AlertCircle, Clock, CheckCircle, XCircle, FileWarning, AlertTriangle } from 'lucide-react'
 import { useStore } from '../store/useStore'
 import { PurchaseCard } from './PurchaseCard'
 import { PurchaseStatus } from '../types'
 import { cn } from '../utils'
 
-const statusFilters: { value: PurchaseStatus | 'all'; label: string; icon: React.ReactNode }[] = [
+type FilterKey = PurchaseStatus | 'all' | 'dispute' | 'completed_group'
+
+const statusFilters: { value: FilterKey; label: string; icon: React.ReactNode; statuses?: PurchaseStatus[] }[] = [
   { value: 'all', label: '全部', icon: null },
   { value: 'pending_acceptance', label: '待验收', icon: <Clock className="w-4 h-4" /> },
   { value: 'sample_pending', label: '待留样', icon: <AlertCircle className="w-4 h-4" /> },
-  { value: 'supplementing', label: '补充中', icon: <FileWarning className="w-4 h-4" /> },
-  { value: 'dispute', label: '有争议', icon: <XCircle className="w-4 h-4" /> },
+  { value: 'supplementing', label: '补充中', icon: <FileWarning className="w-4 h-4" />, statuses: ['supplementing', 'rejected'] },
+  { value: 'dispute', label: '有争议', icon: <AlertTriangle className="w-4 h-4" />, statuses: ['dispute_pending', 'dispute_processing'] },
   { value: 'overdue', label: '已逾期', icon: <AlertCircle className="w-4 h-4" /> },
-  { value: 'sample_completed', label: '已完成', icon: <CheckCircle className="w-4 h-4" /> },
+  { value: 'completed_group', label: '已完成', icon: <CheckCircle className="w-4 h-4" />, statuses: ['sample_completed', 'sample_confirmed', 'completed'] },
 ]
 
 export function PurchaseList() {
   const { getFilteredPurchases, currentUser } = useStore()
-  const [activeFilter, setActiveFilter] = useState<PurchaseStatus | 'all'>('all')
+  const [activeFilter, setActiveFilter] = useState<FilterKey>('all')
   const [searchQuery, setSearchQuery] = useState('')
 
   const purchases = getFilteredPurchases()
 
+  const getFilterStatuses = (key: FilterKey): PurchaseStatus[] => {
+    const filter = statusFilters.find(f => f.value === key)
+    if (filter?.statuses) return filter.statuses
+    if (key === 'all') return []
+    return [key as PurchaseStatus]
+  }
+
   const filteredPurchases = purchases.filter((p) => {
-    const matchesStatus = activeFilter === 'all' || p.status === activeFilter
+    const filterStatuses = getFilterStatuses(activeFilter)
+    const matchesStatus = activeFilter === 'all' || filterStatuses.includes(p.status)
     const matchesSearch = 
       p.orderNo.toLowerCase().includes(searchQuery.toLowerCase()) ||
       p.supplierName.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -33,16 +43,34 @@ export function PurchaseList() {
 
   const stats = {
     total: purchases.length,
-    pending: purchases.filter(p => p.status === 'pending_acceptance' || p.status === 'sample_pending').length,
-    exception: purchases.filter(p => p.status === 'supplementing' || p.status === 'dispute' || p.status === 'overdue').length,
-    completed: purchases.filter(p => p.status === 'sample_completed').length,
+    pending: purchases.filter(p => 
+      p.status === 'pending_acceptance' || 
+      p.status === 'sample_pending' || 
+      p.status === 'supplement_submitted' ||
+      p.status === 'supplementing' ||
+      p.status === 'rejected'
+    ).length,
+    exception: purchases.filter(p => 
+      p.status === 'dispute_pending' || 
+      p.status === 'dispute_processing' || 
+      p.status === 'overdue'
+    ).length,
+    completed: purchases.filter(p => 
+      p.status === 'sample_completed' || 
+      p.status === 'sample_confirmed' || 
+      p.status === 'completed'
+    ).length,
   }
 
   const needsMyAction = purchases.filter(p => 
     p.currentHandlerId === currentUser.id ||
     (p.status === 'pending_acceptance' && currentUser.role === 'admin') ||
+    (p.status === 'supplement_submitted' && currentUser.role === 'admin') ||
     (p.status === 'sample_pending' && currentUser.role === 'admin') ||
-    (p.status === 'supplementing' && currentUser.role === 'purchaser')
+    (p.status === 'sample_completed' && currentUser.role === 'teacher') ||
+    (p.status === 'supplementing' && currentUser.role === 'purchaser') ||
+    (p.status === 'rejected' && currentUser.role === 'purchaser') ||
+    ((p.status === 'dispute_pending' || p.status === 'dispute_processing') && currentUser.role === 'teacher')
   ).length
 
   return (

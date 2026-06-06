@@ -37,6 +37,7 @@ router.post('/:purchaseId', async (req, res) => {
     purchase.currentHandlerName = operatorName
     purchase.currentHandlerRole = 'admin'
     updateStepStatus(steps, 'acceptance_pending', 'completed', timestamp, operatorName)
+    updateStepStatus(steps, 'acceptance_completed', 'completed', timestamp, operatorName)
     updateStepStatus(steps, 'sample_pending', 'current')
   } else if (action === 'supplement') {
     purchase.status = 'supplementing'
@@ -113,7 +114,7 @@ router.post('/:purchaseId/resubmit', async (req, res) => {
   updateStepStatus(steps, 'supplement_submitted', 'completed', timestamp, operatorName, remark)
   updateStepStatus(steps, 'acceptance_pending', 'current', timestamp)
 
-  const supplementException = purchase.exceptions.find(e => e.type === 'supplement' && e.status !== 'resolved')
+  const supplementException = purchase.exceptions.find(e => (e.type === 'supplement' || e.type === 'reject') && e.status !== 'resolved')
   if (supplementException) {
     supplementException.status = 'resolved'
     supplementException.resolvedAt = timestamp

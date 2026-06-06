@@ -21,12 +21,14 @@ export function AppNotification() {
     success: <CheckCircle className="w-5 h-5 text-green-600" />,
     info: <Info className="w-5 h-5 text-blue-600" />,
     warning: <AlertTriangle className="w-5 h-5 text-amber-600" />,
+    error: <AlertTriangle className="w-5 h-5 text-red-600" />,
   }
 
   const bgColors = {
     success: 'bg-green-50 border-green-200 text-green-800',
     info: 'bg-blue-50 border-blue-200 text-blue-800',
     warning: 'bg-amber-50 border-amber-200 text-amber-800',
+    error: 'bg-red-50 border-red-200 text-red-800',
   }
 
   return (

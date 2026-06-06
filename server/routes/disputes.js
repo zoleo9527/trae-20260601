@@ -100,6 +100,7 @@ router.post('/:purchaseId/mediate', async (req, res) => {
     purchase.currentHandlerId = 'u1'
     purchase.currentHandlerName = '张管理'
     purchase.currentHandlerRole = 'admin'
+    updateStepStatus(steps, 'acceptance_pending', 'completed', timestamp, mediatorName)
     updateStepStatus(steps, 'acceptance_completed', 'completed', timestamp, mediatorName)
     updateStepStatus(steps, 'sample_pending', 'current')
   } else if (resolutionType === 'reject') {
@@ -107,6 +108,8 @@ router.post('/:purchaseId/mediate', async (req, res) => {
     purchase.currentHandlerId = 'u2'
     purchase.currentHandlerName = '李采购'
     purchase.currentHandlerRole = 'purchaser'
+    updateStepStatus(steps, 'acceptance_pending', 'error', timestamp, mediatorName, resolution)
+    updateStepStatus(steps, 'supplement_submitted', 'current')
   } else {
     purchase.status = 'pending_acceptance'
     purchase.currentHandlerId = 'u1'

@@ -17,8 +17,11 @@ function createProcessSteps(status) {
   const steps = [
     { key: 'purchase_created', label: '采购员下单', role: 'purchaser', status: 'completed', timestamp: hoursAgo(24), operatorName: '李采购' },
     { key: 'acceptance_pending', label: '待管理员验收', role: 'admin', status: 'pending' },
+    { key: 'acceptance_completed', label: '验收完成', role: 'admin', status: 'pending' },
     { key: 'supplement_requested', label: '要求补充材料', role: 'admin', status: 'pending' },
     { key: 'supplement_submitted', label: '采购员补录重提', role: 'purchaser', status: 'pending' },
+    { key: 'dispute_raised', label: '发起责任争议', role: 'purchaser', status: 'pending' },
+    { key: 'dispute_resolved', label: '争议仲裁完成', role: 'teacher', status: 'pending' },
     { key: 'sample_pending', label: '待留样登记', role: 'admin', status: 'pending' },
     { key: 'sample_completed', label: '留样完成', role: 'admin', status: 'pending' },
     { key: 'sample_confirmed', label: '班主任确认', role: 'teacher', status: 'pending' },
@@ -40,14 +43,20 @@ function createProcessSteps(status) {
     if (step) step.status = 'current'
   }
 
-  const markError = (key) => {
+  const markError = (key, timestamp, operatorName, remark) => {
     const step = steps.find(s => s.key === key)
-    if (step) step.status = 'error'
+    if (step) {
+      step.status = 'error'
+      if (timestamp) step.timestamp = timestamp
+      if (operatorName) step.operatorName = operatorName
+      if (remark) step.remark = remark
+    }
   }
 
   switch (status) {
     case 'sample_completed':
       markCompleted('acceptance_pending', hoursAgo(2), '张管理')
+      markCompleted('acceptance_completed', hoursAgo(2), '张管理')
       markCompleted('sample_pending', hoursAgo(1.5), '张管理')
       markCompleted('sample_completed', hoursAgo(1), '张管理')
       markCurrent('sample_confirmed')
@@ -55,6 +64,11 @@ function createProcessSteps(status) {
     case 'supplementing':
       markCompleted('acceptance_pending', hoursAgo(4), '张管理')
       markCompleted('supplement_requested', hoursAgo(3.5), '张管理', '缺少检疫合格证明')
+      markCurrent('supplement_submitted')
+      break
+    case 'rejected':
+      markCompleted('acceptance_pending', hoursAgo(5), '张管理')
+      markError('acceptance_pending', hoursAgo(5), '张管理', '验收被驳回')
       markCurrent('supplement_submitted')
       break
     case 'supplement_submitted':
@@ -68,16 +82,25 @@ function createProcessSteps(status) {
       markError('acceptance_pending')
       break
     case 'dispute_pending':
+      markCompleted('acceptance_pending', hoursAgo(8), '张管理')
+      markError('acceptance_pending', hoursAgo(8), '张管理', '验收被驳回')
+      markCompleted('dispute_raised', hoursAgo(7), '李采购', '带鱼质量争议')
+      markCurrent('dispute_resolved')
+      break
     case 'dispute_processing':
       markCompleted('acceptance_pending', hoursAgo(8), '张管理')
-      markError('acceptance_pending')
+      markError('acceptance_pending', hoursAgo(8), '张管理', '验收被驳回')
+      markCompleted('dispute_raised', hoursAgo(7), '李采购', '带鱼质量争议')
+      markCurrent('dispute_resolved')
       break
     case 'sample_pending':
       markCompleted('acceptance_pending', hoursAgo(1), '张管理')
+      markCompleted('acceptance_completed', hoursAgo(1), '张管理')
       markCurrent('sample_pending')
       break
     case 'sample_confirmed':
       markCompleted('acceptance_pending', hoursAgo(5), '张管理')
+      markCompleted('acceptance_completed', hoursAgo(5), '张管理')
       markCompleted('sample_pending', hoursAgo(4.5), '张管理')
       markCompleted('sample_completed', hoursAgo(4), '张管理')
       markCompleted('sample_confirmed', hoursAgo(3), '王老师')
@@ -85,6 +108,7 @@ function createProcessSteps(status) {
       break
     case 'completed':
       markCompleted('acceptance_pending', hoursAgo(10), '张管理')
+      markCompleted('acceptance_completed', hoursAgo(10), '张管理')
       markCompleted('sample_pending', hoursAgo(9), '张管理')
       markCompleted('sample_completed', hoursAgo(8), '张管理')
       markCompleted('sample_confirmed', hoursAgo(7), '王老师')
@@ -369,7 +393,7 @@ export function seedDatabase() {
     },
     {
       id: uuidv4(),
-      orderNo: 'CG20260606006',
+      orderNo: 'CG20260606007',
       supplierName: '绿源蔬菜配送有限公司',
       deliveryTime: hoursAgo(1),
       expectedDeliveryTime: hoursAgo(0.5),
@@ -391,6 +415,55 @@ export function seedDatabase() {
       processSteps: createProcessSteps('pending_acceptance'),
       createdAt: hoursAgo(8),
       updatedAt: hoursAgo(1)
+    },
+    {
+      id: uuidv4(),
+      orderNo: 'CG20260606008',
+      supplierName: '新鲜果蔬配送中心',
+      deliveryTime: hoursAgo(6),
+      expectedDeliveryTime: hoursAgo(5.5),
+      items: [
+        { id: uuidv4(), name: '生菜', quantity: 30, unit: 'kg', specification: '有机', price: 8.5, batchNumber: 'V2026060601', productionDate: '2026-06-06', expiryDate: '2026-06-08' },
+        { id: uuidv4(), name: '菠菜', quantity: 25, unit: 'kg', specification: '有机', price: 7.2, batchNumber: 'V2026060602', productionDate: '2026-06-06', expiryDate: '2026-06-08' },
+      ],
+      totalAmount: 435,
+      purchaserId: 'u2',
+      purchaserName: '李采购',
+      status: 'rejected',
+      acceptanceRecords: [
+        {
+          id: uuidv4(),
+          purchaseId: 'po8',
+          operatorId: 'u1',
+          operatorName: '张管理',
+          action: 'reject',
+          remark: '部分蔬菜有腐烂迹象，外包装有水渍，怀疑运输过程中淋雨',
+          timestamp: hoursAgo(5)
+        }
+      ],
+      exceptions: [
+        {
+          id: uuidv4(),
+          purchaseId: 'po8',
+          type: 'reject',
+          initiatorId: 'u1',
+          initiatorName: '张管理',
+          handlerId: 'u2',
+          handlerName: '李采购',
+          description: '验收发现部分蔬菜腐烂，外包装有水渍，需确认是否更换批次或重新配送',
+          status: 'processing',
+          createdAt: hoursAgo(5),
+          comments: []
+        }
+      ],
+      currentHandlerId: 'u2',
+      currentHandlerName: '李采购',
+      currentHandlerRole: 'purchaser',
+      deadline: hoursLater(2),
+      resubmitCount: 0,
+      processSteps: createProcessSteps('rejected'),
+      createdAt: hoursAgo(10),
+      updatedAt: hoursAgo(5)
     }
   ]
 

@@ -1,4 +1,6 @@
 export type Role = 'admin' | 'purchaser' | 'teacher'
+export type AcceptanceAction = 'accept' | 'reject' | 'supplement'
+export type NotificationType = 'success' | 'info' | 'warning' | 'error'
 
 export type PurchaseStatus = 
   | 'pending_acceptance' 
@@ -136,6 +138,30 @@ export interface ExceptionComment {
   userName: string
   content: string
   timestamp: string
+  attachments?: Attachment[]
+}
+
+export interface SampleData {
+  operatorId: string
+  operatorName: string
+  sampleTime: string
+  sampleQuantity: string
+  storageLocation: string
+  temperature?: string
+  remark?: string
+  attachments?: Attachment[]
+}
+
+export interface DisputeData {
+  raisedById: string
+  raisedByName: string
+  description: string
+}
+
+export interface DisputeComment {
+  userId: string
+  userName: string
+  content: string
   attachments?: Attachment[]
 }
 

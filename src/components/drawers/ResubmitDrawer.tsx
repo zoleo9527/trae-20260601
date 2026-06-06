@@ -28,7 +28,7 @@ export function ResubmitDrawer() {
     setRemark('')
   }
 
-  const lastSupplementRequest = purchase.exceptions.find(e => e.type === 'supplement')
+  const lastSupplementRequest = purchase.exceptions.find(e => e.type === 'supplement' || e.type === 'reject')
 
   return (
     <>
