@@ -49,7 +49,7 @@
 
 	function canCancel(makeup: MakeupRecord): boolean {
 		if (data.user.role === 'admin') {
-			return true;
+			return makeup.status === 'pending' || makeup.status === 'scheduled';
 		}
 		if (data.user.role === 'consultant' && makeup.status === 'pending' && makeup.consultantId === data.user.id) {
 			return true;

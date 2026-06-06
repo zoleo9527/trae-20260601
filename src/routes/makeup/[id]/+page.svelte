@@ -81,9 +81,9 @@
 
 	function canCancel(): boolean {
 		if (user.role === 'admin') {
-			return true;
+			return makeup.status === 'pending' || makeup.status === 'scheduled';
 		}
-		if (user.role === 'consultant' && (makeup.status === 'pending' || makeup.status === 'scheduled') && makeup.consultantId === user.id) {
+		if (user.role === 'consultant' && makeup.status === 'pending' && makeup.consultantId === user.id) {
 			return true;
 		}
 		return false;

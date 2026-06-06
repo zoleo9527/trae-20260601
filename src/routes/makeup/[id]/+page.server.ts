@@ -4,7 +4,9 @@ import {
 	getMakeupById,
 	scheduleMakeup,
 	completeMakeup,
-	cancelMakeup
+	cancelMakeup,
+	PermissionError,
+	StateError
 } from '$lib/server/services/makeupService';
 import type { PageServerLoad, Actions } from './$types';
 
@@ -50,8 +52,15 @@ export const actions: Actions = {
 		}
 
 		try {
-			await scheduleMakeup(params.id, user.id, user.name, scheduledDate, classroom);
+			await scheduleMakeup(params.id, user, scheduledDate, classroom);
 		} catch (e) {
+			if (e instanceof PermissionError || e instanceof StateError) {
+				return fail(403, {
+					scheduleError: e.message,
+					scheduledDate,
+					classroom
+				});
+			}
 			return fail(500, {
 				scheduleError: '安排补课失败',
 				scheduledDate,
@@ -64,7 +73,7 @@ export const actions: Actions = {
 
 	complete: async ({ request, cookies, params }) => {
 		const user = getUserFromCookies(cookies);
-		requireAuth(user);
+		requireAuth(user, ['teacher', 'admin']);
 
 		if (!user) {
 			redirect(302, '/login');
@@ -81,8 +90,14 @@ export const actions: Actions = {
 		}
 
 		try {
-			await completeMakeup(params.id, content);
+			await completeMakeup(params.id, user, content);
 		} catch (e) {
+			if (e instanceof PermissionError || e instanceof StateError) {
+				return fail(403, {
+					completeError: e.message,
+					makeupContent: content
+				});
+			}
 			return fail(500, {
 				completeError: '完成补课失败',
 				makeupContent: content
@@ -111,8 +126,14 @@ export const actions: Actions = {
 		}
 
 		try {
-			await cancelMakeup(params.id, reason);
+			await cancelMakeup(params.id, user, reason);
 		} catch (e) {
+			if (e instanceof PermissionError || e instanceof StateError) {
+				return fail(403, {
+					cancelError: e.message,
+					cancelReason: reason
+				});
+			}
 			return fail(500, {
 				cancelError: '取消补课失败',
 				cancelReason: reason

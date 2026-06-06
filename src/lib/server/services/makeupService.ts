@@ -1,7 +1,21 @@
 import { eq, and, desc, type SQL } from 'drizzle-orm';
 import { db } from '../db';
 import { makeups, auditLogs, students } from '../db/schema';
-import type { MakeupRecord, MakeupStatus } from '$lib/types';
+import type { MakeupRecord, MakeupStatus, User } from '$lib/types';
+
+class PermissionError extends Error {
+	constructor(message: string) {
+		super(message);
+		this.name = 'PermissionError';
+	}
+}
+
+class StateError extends Error {
+	constructor(message: string) {
+		super(message);
+		this.name = 'StateError';
+	}
+}
 
 interface MakeupFilters {
 	studentId?: string;
@@ -105,17 +119,29 @@ export async function createMakeup(
 
 export async function scheduleMakeup(
 	id: string,
-	teacherId: string,
-	teacherName: string,
+	user: User,
 	scheduledDate: string,
 	classroom: string
 ): Promise<MakeupRecord> {
+	const makeup = await getMakeupById(id);
+	if (!makeup) {
+		throw new Error('补课记录不存在');
+	}
+
+	if (makeup.status !== 'pending') {
+		throw new StateError('只有待安排状态的补课可以被安排');
+	}
+
+	if (user.role !== 'teacher' && user.role !== 'admin') {
+		throw new PermissionError('只有任课老师或校区主管可以安排补课');
+	}
+
 	const [updated] = await db
 		.update(makeups)
 		.set({
 			status: 'scheduled',
-			teacherId,
-			teacherName,
+			teacherId: user.id,
+			teacherName: user.name,
 			scheduledDate,
 			classroom,
 			scheduledAt: new Date().toISOString()
@@ -124,8 +150,8 @@ export async function scheduleMakeup(
 		.returning();
 
 	await db.insert(auditLogs).values({
-		userId: teacherId,
-		userName: teacherName,
+		userId: user.id,
+		userName: user.name,
 		action: 'schedule',
 		entityType: 'makeup',
 		entityId: id,
@@ -140,7 +166,24 @@ export async function scheduleMakeup(
 	} as MakeupRecord;
 }
 
-export async function completeMakeup(id: string, content: string): Promise<MakeupRecord> {
+export async function completeMakeup(
+	id: string,
+	user: User,
+	content: string
+): Promise<MakeupRecord> {
+	const makeup = await getMakeupById(id);
+	if (!makeup) {
+		throw new Error('补课记录不存在');
+	}
+
+	if (makeup.status !== 'scheduled') {
+		throw new StateError('只有待上课状态的补课可以被完成');
+	}
+
+	if (user.role !== 'teacher' && user.role !== 'admin') {
+		throw new PermissionError('只有任课老师或校区主管可以完成补课');
+	}
+
 	const [updated] = await db
 		.update(makeups)
 		.set({
@@ -152,8 +195,8 @@ export async function completeMakeup(id: string, content: string): Promise<Makeu
 		.returning();
 
 	await db.insert(auditLogs).values({
-		userId: updated.teacherId || '',
-		userName: updated.teacherName || '',
+		userId: user.id,
+		userName: user.name,
 		action: 'complete',
 		entityType: 'makeup',
 		entityId: id,
@@ -168,7 +211,38 @@ export async function completeMakeup(id: string, content: string): Promise<Makeu
 	} as MakeupRecord;
 }
 
-export async function cancelMakeup(id: string, reason: string): Promise<MakeupRecord> {
+export async function cancelMakeup(
+	id: string,
+	user: User,
+	reason: string
+): Promise<MakeupRecord> {
+	const makeup = await getMakeupById(id);
+	if (!makeup) {
+		throw new Error('补课记录不存在');
+	}
+
+	if (makeup.status !== 'pending' && makeup.status !== 'scheduled') {
+		throw new StateError('只有待安排或待上课状态的补课可以被取消');
+	}
+
+	const isOwner = makeup.consultantId === user.id;
+	const isAdmin = user.role === 'admin';
+
+	if (makeup.status === 'pending') {
+		if (!isOwner && !isAdmin) {
+			throw new PermissionError('待安排状态的补课只有创建人或校区主管可以取消');
+		}
+		if (user.role === 'consultant' && !isOwner) {
+			throw new PermissionError('课程顾问只能取消自己创建的补课申请');
+		}
+	}
+
+	if (makeup.status === 'scheduled') {
+		if (!isAdmin) {
+			throw new PermissionError('待上课状态的补课只有校区主管可以取消');
+		}
+	}
+
 	const [updated] = await db
 		.update(makeups)
 		.set({
@@ -180,8 +254,8 @@ export async function cancelMakeup(id: string, reason: string): Promise<MakeupRe
 		.returning();
 
 	await db.insert(auditLogs).values({
-		userId: updated.consultantId,
-		userName: updated.consultantName,
+		userId: user.id,
+		userName: user.name,
 		action: 'cancel',
 		entityType: 'makeup',
 		entityId: id,
@@ -195,3 +269,5 @@ export async function cancelMakeup(id: string, reason: string): Promise<MakeupRe
 		studentName: student?.name
 	} as MakeupRecord;
 }
+
+export { PermissionError, StateError };
