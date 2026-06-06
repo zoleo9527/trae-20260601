@@ -184,6 +184,10 @@ export async function completeMakeup(
 		throw new PermissionError('只有任课老师或校区主管可以完成补课');
 	}
 
+	if (user.role === 'teacher' && makeup.teacherId !== user.id) {
+		throw new PermissionError('只有安排该补课的任课老师可以完成此补课');
+	}
+
 	const [updated] = await db
 		.update(makeups)
 		.set({

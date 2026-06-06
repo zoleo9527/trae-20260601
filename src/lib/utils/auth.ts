@@ -1,6 +1,13 @@
 import type { User, UserRole } from '$lib/types';
 import type { Cookies } from '@sveltejs/kit';
 
+export class AuthError extends Error {
+	constructor(message: string) {
+		super(message);
+		this.name = 'AuthError';
+	}
+}
+
 export function getUserFromCookies(cookies: Cookies): User | null {
 	try {
 		const userId = cookies.get('userId');
@@ -57,9 +64,9 @@ export function isAdmin(user: User | null): boolean {
 
 export function requireAuth(user: User | null, requiredRoles: UserRole[] = ['consultant', 'teacher', 'admin']): void {
 	if (!user) {
-		throw new Error('未登录');
+		throw new AuthError('未登录');
 	}
 	if (!hasPermission(user, requiredRoles)) {
-		throw new Error('权限不足');
+		throw new AuthError('权限不足');
 	}
 }

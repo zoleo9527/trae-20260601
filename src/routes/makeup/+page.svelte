@@ -44,7 +44,10 @@
 	}
 
 	function canComplete(makeup: MakeupRecord): boolean {
-		return makeup.status === 'scheduled' && (data.user.role === 'teacher' || data.user.role === 'admin');
+		if (makeup.status !== 'scheduled') return false;
+		if (data.user.role === 'admin') return true;
+		if (data.user.role === 'teacher' && makeup.teacherId === data.user.id) return true;
+		return false;
 	}
 
 	function canCancel(makeup: MakeupRecord): boolean {

@@ -76,7 +76,10 @@
 	}
 
 	function canComplete(): boolean {
-		return makeup.status === 'scheduled' && (user.role === 'teacher' || user.role === 'admin');
+		if (makeup.status !== 'scheduled') return false;
+		if (user.role === 'admin') return true;
+		if (user.role === 'teacher' && makeup.teacherId === user.id) return true;
+		return false;
 	}
 
 	function canCancel(): boolean {

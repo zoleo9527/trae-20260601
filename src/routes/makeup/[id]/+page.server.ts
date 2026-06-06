@@ -1,5 +1,5 @@
 import { redirect, fail, error } from '@sveltejs/kit';
-import { getUserFromCookies, requireAuth } from '$lib/utils/auth';
+import { getUserFromCookies, requireAuth, AuthError } from '$lib/utils/auth';
 import {
 	getMakeupById,
 	scheduleMakeup,
@@ -12,7 +12,6 @@ import type { PageServerLoad, Actions } from './$types';
 
 export const load: PageServerLoad = async ({ cookies, params }) => {
 	const user = getUserFromCookies(cookies);
-	requireAuth(user);
 
 	if (!user) {
 		redirect(302, '/login');
@@ -33,7 +32,6 @@ export const load: PageServerLoad = async ({ cookies, params }) => {
 export const actions: Actions = {
 	schedule: async ({ request, cookies, params }) => {
 		const user = getUserFromCookies(cookies);
-		requireAuth(user, ['teacher', 'admin']);
 
 		if (!user) {
 			redirect(302, '/login');
@@ -52,9 +50,10 @@ export const actions: Actions = {
 		}
 
 		try {
+			requireAuth(user, ['teacher', 'admin']);
 			await scheduleMakeup(params.id, user, scheduledDate, classroom);
 		} catch (e) {
-			if (e instanceof PermissionError || e instanceof StateError) {
+			if (e instanceof AuthError || e instanceof PermissionError || e instanceof StateError) {
 				return fail(403, {
 					scheduleError: e.message,
 					scheduledDate,
@@ -73,7 +72,6 @@ export const actions: Actions = {
 
 	complete: async ({ request, cookies, params }) => {
 		const user = getUserFromCookies(cookies);
-		requireAuth(user, ['teacher', 'admin']);
 
 		if (!user) {
 			redirect(302, '/login');
@@ -90,9 +88,10 @@ export const actions: Actions = {
 		}
 
 		try {
+			requireAuth(user, ['teacher', 'admin']);
 			await completeMakeup(params.id, user, content);
 		} catch (e) {
-			if (e instanceof PermissionError || e instanceof StateError) {
+			if (e instanceof AuthError || e instanceof PermissionError || e instanceof StateError) {
 				return fail(403, {
 					completeError: e.message,
 					makeupContent: content
@@ -109,7 +108,6 @@ export const actions: Actions = {
 
 	cancel: async ({ request, cookies, params }) => {
 		const user = getUserFromCookies(cookies);
-		requireAuth(user);
 
 		if (!user) {
 			redirect(302, '/login');
@@ -126,9 +124,10 @@ export const actions: Actions = {
 		}
 
 		try {
+			requireAuth(user);
 			await cancelMakeup(params.id, user, reason);
 		} catch (e) {
-			if (e instanceof PermissionError || e instanceof StateError) {
+			if (e instanceof AuthError || e instanceof PermissionError || e instanceof StateError) {
 				return fail(403, {
 					cancelError: e.message,
 					cancelReason: reason
