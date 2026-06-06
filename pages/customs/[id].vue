@@ -15,10 +15,22 @@
         <span class="px-2.5 py-0.5 bg-blue-100 text-blue-800 rounded-full text-xs font-medium">
           V{{ document?.version }}
         </span>
+        <span 
+          v-if="isLatestVersion" 
+          class="px-2.5 py-0.5 bg-green-100 text-green-800 rounded-full text-xs font-medium"
+        >
+          当前生效版本
+        </span>
+        <span 
+          v-else 
+          class="px-2.5 py-0.5 bg-gray-100 text-gray-600 rounded-full text-xs font-medium"
+        >
+          历史版本
+        </span>
         <StatusBadge v-if="document" :status="document.status" type="customs" />
       </div>
       <div class="flex items-center gap-3">
-        <template v-if="document?.status === 'draft'">
+        <template v-if="isLatestVersion && document?.status === 'draft'">
           <button
             class="flex items-center gap-2 px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition-colors"
             @click="handleEdit"
@@ -34,7 +46,7 @@
             提交审核
           </button>
         </template>
-        <template v-if="document?.status === 'pending_review'">
+        <template v-if="isLatestVersion && document?.status === 'pending_review'">
           <button
             class="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
             @click="handleReview(true)"
@@ -126,12 +138,23 @@
             <div
               v-for="version in versionHistory"
               :key="version.id"
-              class="p-3 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100"
-              :class="{ 'ring-2 ring-blue-500': version.id === document.id }"
+              class="p-3 rounded-lg cursor-pointer transition-colors"
+              :class="[
+                version.id === document.id ? 'ring-2 ring-blue-500 bg-blue-50' : 'bg-gray-50 hover:bg-gray-100',
+                version.version === maxVersion ? 'border-l-4 border-green-500' : 'border-l-4 border-gray-300'
+              ]"
               @click="navigateTo(`/customs/${version.id}`)"
             >
               <div class="flex items-center justify-between">
-                <span class="text-sm font-medium text-gray-900">V{{ version.version }}</span>
+                <div class="flex items-center gap-2">
+                  <span class="text-sm font-medium text-gray-900">V{{ version.version }}</span>
+                  <span 
+                    v-if="version.version === maxVersion" 
+                    class="px-1.5 py-0.5 bg-green-100 text-green-700 rounded text-xs font-medium"
+                  >
+                    最新
+                  </span>
+                </div>
                 <StatusBadge :status="version.status" type="customs" />
               </div>
               <p class="text-xs text-gray-500 mt-1">
@@ -180,6 +203,15 @@ const versionHistory = computed(() => {
   return allDocuments.value
     .filter(doc => doc.orderNo === document.value!.orderNo)
     .sort((a, b) => b.version - a.version)
+})
+
+const maxVersion = computed(() => {
+  if (!versionHistory.value.length) return 0
+  return Math.max(...versionHistory.value.map(v => v.version))
+})
+
+const isLatestVersion = computed(() => {
+  return document.value?.version === maxVersion.value
 })
 
 const handleEdit = () => {

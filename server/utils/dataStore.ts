@@ -44,6 +44,19 @@ export function getDataStore() {
     getCustomsDocumentById: (id: string) => customsDocuments.find(c => c.id === id),
     getCustomsDocumentsByOrderId: (orderId: string) => 
       customsDocuments.filter(c => c.orderId === orderId).sort((a, b) => b.version - a.version),
+    getLatestCustomsDocumentByOrderId: (orderId: string) => {
+      const docs = customsDocuments.filter(c => c.orderId === orderId);
+      if (docs.length === 0) return null;
+      return docs.reduce((latest, doc) => doc.version > latest.version ? doc : latest);
+    },
+    isLatestCustomsVersion: (docId: string) => {
+      const doc = customsDocuments.find(c => c.id === docId);
+      if (!doc) return false;
+      const latest = customsDocuments
+        .filter(c => c.orderId === doc.orderId)
+        .reduce((max, d) => d.version > max.version ? d : max, doc);
+      return latest.id === docId;
+    },
     createCustomsDocument: (doc: Omit<CustomsDocument, 'id' | 'createdAt' | 'updatedAt' | 'timeline'>) => {
       const newDoc: CustomsDocument = {
         ...doc,

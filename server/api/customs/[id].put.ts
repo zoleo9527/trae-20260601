@@ -21,6 +21,13 @@ export default defineEventHandler(async (event) => {
       };
     }
 
+    if (!store.isLatestCustomsVersion(id)) {
+      return {
+        success: false,
+        error: '仅允许对最新版本的报关资料执行此操作'
+      };
+    }
+
     const operator = body.submitter || body.operator || '系统';
     
     const newDoc = store.createCustomsDocumentNewVersion(id, body);

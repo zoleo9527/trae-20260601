@@ -30,6 +30,13 @@ export default defineEventHandler(async (event) => {
       };
     }
 
+    if (!store.isLatestCustomsVersion(id)) {
+      return {
+        success: false,
+        error: '仅允许对最新版本的报关资料执行此操作'
+      };
+    }
+
     const updatedDoc = store.updateCustomsDocument(id, {
       status: 'pending_review',
       submitter

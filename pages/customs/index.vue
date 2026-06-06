@@ -56,7 +56,23 @@
                 </span>
               </td>
               <td class="px-4 py-4 text-sm text-gray-600">{{ doc.orderNo }}</td>
-              <td class="px-4 py-4 text-sm text-gray-600">V{{ doc.version }}</td>
+              <td class="px-4 py-4">
+                <div class="flex items-center gap-2">
+                  <span class="text-sm text-gray-600">V{{ doc.version }}</span>
+                  <span 
+                    v-if="isLatestVersion(doc)"
+                    class="px-1.5 py-0.5 bg-green-100 text-green-700 rounded text-xs font-medium"
+                  >
+                    最新
+                  </span>
+                  <span 
+                    v-else
+                    class="px-1.5 py-0.5 bg-gray-100 text-gray-500 rounded text-xs font-medium"
+                  >
+                    历史
+                  </span>
+                </div>
+              </td>
               <td class="px-4 py-4">
                 <StatusBadge :status="doc.status" type="customs" />
               </td>
@@ -70,7 +86,7 @@
                   >
                     详情
                   </button>
-                  <template v-if="doc.status === 'draft'">
+                  <template v-if="isLatestVersion(doc) && doc.status === 'draft'">
                     <span class="text-gray-300">|</span>
                     <button
                       class="text-green-600 hover:text-green-800"
@@ -139,6 +155,21 @@ const availableOrders = computed(() => {
     order.status === 'pending_customs' || order.status === 'synced'
   )
 })
+
+const orderMaxVersionMap = computed(() => {
+  if (!documents.value) return {}
+  const map: Record<string, number> = {}
+  for (const doc of documents.value) {
+    if (!map[doc.orderId] || doc.version > map[doc.orderId]) {
+      map[doc.orderId] = doc.version
+    }
+  }
+  return map
+})
+
+const isLatestVersion = (doc: CustomsDocument) => {
+  return doc.version === orderMaxVersionMap.value[doc.orderId]
+}
 
 const filteredDocuments = computed(() => {
   if (!documents.value) return []
