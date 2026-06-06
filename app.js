@@ -319,14 +319,19 @@ function openProjectDetail(projectId) {
             <h4>脚本版本</h4>
             <div style="display: flex; flex-direction: column; gap: 8px;">
                 ${project.scripts.map(s => `
-                    <div style="padding: 10px; background: #fafafa; border-radius: 6px; display: flex; justify-content: space-between; align-items: center;">
-                        <div>
-                            <strong>${s.version}</strong>
-                            <span style="margin-left: 8px; font-size: 12px; color: #8c8c8c;">${s.createdAt}</span>
+                    <div style="padding: 12px; background: #fafafa; border-radius: 6px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: ${s.feedback ? '8px' : '0'};">
+                            <div style="display: flex; align-items: center; gap: 12px;">
+                                <div>
+                                    <strong>${s.version}</strong>
+                                    <span style="margin-left: 8px; font-size: 12px; color: #8c8c8c;">${s.createdAt}</span>
+                                </div>
+                                <span class="status-tag ${s.status}">${getStatusName(s.status)}</span>
+                            </div>
+                            <button class="btn btn-outline" style="padding: 4px 12px; font-size: 12px;" onclick="event.stopPropagation(); viewScriptApproval('${project.id}', '${s.id}')">查看审批</button>
                         </div>
-                        <span class="status-tag ${s.status}">${getStatusName(s.status)}</span>
+                        ${s.feedback ? `<div style="padding: 8px 12px; background: #fff1f0; color: #ff4d4f; border-radius: 4px; font-size: 12px;">驳回原因：${s.feedback}</div>` : ''}
                     </div>
-                    ${s.feedback ? `<div style="padding: 8px 12px; background: #fff1f0; color: #ff4d4f; border-radius: 4px; font-size: 12px; margin-left: 16px;">驳回原因：${s.feedback}</div>` : ''}
                 `).join('')}
             </div>
         </div>
@@ -350,19 +355,10 @@ function openProjectDetail(projectId) {
         
         <div style="display: flex; gap: 8px; margin-top: 24px;">
             <button class="btn btn-primary" onclick="showTransferModalFromProject('${project.id}')">发起流转</button>
-            ${project.scripts && project.scripts.length > 0 ? `<button class="btn btn-outline" onclick="viewScriptApprovalFromProject('${project.id}')">查看脚本审批</button>` : ''}
         </div>
     `;
     
     panel.classList.remove('hidden');
-}
-
-function viewScriptApprovalFromProject(projectId) {
-    const project = getProjectById(projectId);
-    if (!project || !project.scripts || project.scripts.length === 0) return;
-    
-    const latestScriptId = project.scripts[project.scripts.length - 1].id;
-    viewScriptApproval(projectId, latestScriptId);
 }
 
 function closeProjectDetail() {
@@ -1040,7 +1036,7 @@ function renderFlowTimeline() {
 
 function renderArchiveList() {
     const container = document.getElementById('archiveList');
-    const archived = projects.filter(p => p.status === 'approved' || p.scriptStatus === 'approved');
+    const archived = projects.filter(p => p.status === 'approved');
     
     if (archived.length === 0) {
         container.innerHTML = '<div style="padding: 40px; text-align: center; color: #8c8c8c;">暂无已完成项目</div>';
