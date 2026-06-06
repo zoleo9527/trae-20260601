@@ -29,6 +29,7 @@ interface AppState {
   switchRole: (role: UserRole) => void;
 
   getStats: () => DashboardStats;
+  getRoleStats: (role: UserRole) => DashboardStats;
   getRoleTodos: () => TodoItem[];
 
   updateDetentionStatus: (
@@ -193,6 +194,69 @@ export const useStore = create<AppState>((set, get) => ({
     };
   },
 
+  getRoleStats: (role: UserRole) => {
+    const { detentions, appeals } = get();
+    const todayStr = getTodayStr();
+
+    const roleDetentions = detentions.filter((d) => {
+      if (role === 'forklift_foreman') {
+        return !d.endLoadingTime;
+      }
+      if (role === 'dispatcher') {
+        return d.status === 'pending';
+      }
+      return true;
+    });
+
+    const todayDetentions = roleDetentions.filter((d) => d.createdAt.startsWith(todayStr));
+    const totalFee = roleDetentions.reduce((sum, d) => sum + d.feeAmount, 0);
+
+    const pendingConfirmationCount =
+      role === 'dispatcher' || role === 'warehouse_clerk'
+        ? detentions.filter((d) => d.status === 'pending').length
+        : 0;
+
+    const pendingLoadingCount =
+      role === 'forklift_foreman' || role === 'dispatcher'
+        ? detentions.filter((d) => !d.endLoadingTime && d.status === 'pending').length
+        : 0;
+
+    const pendingAppealCount =
+      role === 'warehouse_clerk'
+        ? appeals.filter((a) => a.status === 'pending' || a.status === 'processing').length
+        : 0;
+
+    const pendingReviewCount =
+      role === 'warehouse_clerk' || role === 'dispatcher'
+        ? detentions.filter((d) => d.remark && d.remark.includes('异常') && d.status === 'pending').length
+        : 0;
+
+    if (role === 'forklift_foreman') {
+      return {
+        todayDetentionCount: todayDetentions.length,
+        pendingAppealCount: pendingLoadingCount,
+        totalFeeAmount: totalFee,
+        pendingConfirmationCount: pendingLoadingCount,
+      };
+    }
+
+    if (role === 'dispatcher') {
+      return {
+        todayDetentionCount: todayDetentions.length,
+        pendingAppealCount: pendingReviewCount,
+        totalFeeAmount: totalFee,
+        pendingConfirmationCount: pendingConfirmationCount,
+      };
+    }
+
+    return {
+      todayDetentionCount: todayDetentions.length,
+      pendingAppealCount: pendingAppealCount,
+      totalFeeAmount: totalFee,
+      pendingConfirmationCount: pendingConfirmationCount + pendingReviewCount,
+    };
+  },
+
   getRoleTodos: () => {
     const { currentUser, detentions, appeals } = get();
     const role = currentUser.role;
@@ -212,6 +276,18 @@ export const useStore = create<AppState>((set, get) => ({
           if (todo) todoList.push(todo);
         }
       }
+      if (role === 'dispatcher' || role === 'warehouse_clerk') {
+        if (d.remark && d.remark.includes('异常') && d.status === 'pending') {
+          const todo = createTodoFromDetention(d, 'detention_review');
+          if (todo) todoList.push(todo);
+        }
+      }
+      if (role === 'warehouse_clerk') {
+        if (d.status === 'confirmed' && !d.feeConfirmed) {
+          const todo = createTodoFromDetention(d, 'fee_adjust');
+          if (todo) todoList.push(todo);
+        }
+      }
     });
 
     if (role === 'warehouse_clerk') {
@@ -222,7 +298,13 @@ export const useStore = create<AppState>((set, get) => ({
       });
     }
 
-    const uniqueTodos = Array.from(new Map(todoList.map(t => [t.id, t])).values());
+    const seen = new Set<string>();
+    const uniqueTodos = todoList.filter((todo) => {
+      const key = `${todo.relatedId}-${todo.type}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
 
     return uniqueTodos.sort((a, b) => new Date(b.createTime).getTime() - new Date(a.createTime).getTime());
   },

@@ -29,7 +29,7 @@ export default function Home() {
     appeals,
     setSelectedDetentionId,
     setSelectedAppealId,
-    getStats,
+    getRoleStats,
     getRoleTodos,
     getRolePermissions,
     getNextLoadingTask,
@@ -38,7 +38,7 @@ export default function Home() {
   const [showLoadingModal, setShowLoadingModal] = useState(false);
   const [loadingDetentionId, setLoadingDetentionId] = useState('');
 
-  const stats = getStats();
+  const stats = getRoleStats(currentUser.role);
   const todos = getRoleTodos();
   const permissions = getRolePermissions(currentUser.role);
   const nextLoadingTask = getNextLoadingTask();
@@ -82,32 +82,95 @@ export default function Home() {
 
   const welcome = roleWelcome[currentUser.role] || roleWelcome.warehouse_clerk;
 
-  const statCards = [
-    {
-      label: '今日滞留单',
-      value: stats.todayDetentionCount,
-      icon: <Truck className="w-5 h-5" />,
-      color: 'bg-blue-50 text-blue-600',
-    },
-    {
-      label: '待确认费用',
-      value: stats.pendingConfirmationCount,
-      icon: <Clock className="w-5 h-5" />,
-      color: 'bg-orange-50 text-orange-600',
-    },
-    {
-      label: '待处理申诉',
-      value: stats.pendingAppealCount,
-      icon: <AlertCircle className="w-5 h-5" />,
-      color: 'bg-purple-50 text-purple-600',
-    },
-    {
-      label: '累计费用',
-      value: formatCurrency(stats.totalFeeAmount),
-      icon: <DollarSign className="w-5 h-5" />,
-      color: 'bg-green-50 text-green-600',
-    },
-  ];
+  const statCards = useMemo(() => {
+    const role = currentUser.role;
+    const cards = [];
+
+    if (role === 'forklift_foreman') {
+      cards.push(
+        {
+          label: '今日装卸任务',
+          value: stats.todayDetentionCount,
+          icon: <Truck className="w-5 h-5" />,
+          color: 'bg-blue-50 text-blue-600',
+        },
+        {
+          label: '待开始装卸',
+          value: detentions.filter((d) => !d.startLoadingTime && !d.endLoadingTime).length,
+          icon: <Clock className="w-5 h-5" />,
+          color: 'bg-orange-50 text-orange-600',
+        },
+        {
+          label: '进行中装卸',
+          value: detentions.filter((d) => d.startLoadingTime && !d.endLoadingTime).length,
+          icon: <Play className="w-5 h-5" />,
+          color: 'bg-purple-50 text-purple-600',
+        },
+        {
+          label: '待处理异常',
+          value: stats.pendingAppealCount,
+          icon: <AlertTriangle className="w-5 h-5" />,
+          color: 'bg-red-50 text-red-600',
+        }
+      );
+    } else if (role === 'dispatcher') {
+      cards.push(
+        {
+          label: '今日滞留单',
+          value: stats.todayDetentionCount,
+          icon: <Truck className="w-5 h-5" />,
+          color: 'bg-blue-50 text-blue-600',
+        },
+        {
+          label: '待确认费用',
+          value: stats.pendingConfirmationCount,
+          icon: <Clock className="w-5 h-5" />,
+          color: 'bg-orange-50 text-orange-600',
+        },
+        {
+          label: '待异常复核',
+          value: stats.pendingAppealCount,
+          icon: <AlertCircle className="w-5 h-5" />,
+          color: 'bg-purple-50 text-purple-600',
+        },
+        {
+          label: '预计费用',
+          value: formatCurrency(stats.totalFeeAmount),
+          icon: <DollarSign className="w-5 h-5" />,
+          color: 'bg-green-50 text-green-600',
+        }
+      );
+    } else {
+      cards.push(
+        {
+          label: '今日滞留单',
+          value: stats.todayDetentionCount,
+          icon: <Truck className="w-5 h-5" />,
+          color: 'bg-blue-50 text-blue-600',
+        },
+        {
+          label: '待处理事项',
+          value: stats.pendingConfirmationCount,
+          icon: <Clock className="w-5 h-5" />,
+          color: 'bg-orange-50 text-orange-600',
+        },
+        {
+          label: '待处理申诉',
+          value: stats.pendingAppealCount,
+          icon: <AlertCircle className="w-5 h-5" />,
+          color: 'bg-purple-50 text-purple-600',
+        },
+        {
+          label: '累计费用',
+          value: formatCurrency(stats.totalFeeAmount),
+          icon: <DollarSign className="w-5 h-5" />,
+          color: 'bg-green-50 text-green-600',
+        }
+      );
+    }
+
+    return cards;
+  }, [currentUser.role, stats, detentions]);
 
   const allQuickActions = useMemo(() => {
     const actions = [
