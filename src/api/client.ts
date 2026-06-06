@@ -7,6 +7,9 @@ import type {
   UpdateStatusRequest,
   DiscrepancyRequest,
   AssignDockRequest,
+  BatchAssignDockRequest,
+  BatchCheckInRequest,
+  CompleteNoDiscrepancyRequest,
 } from '../../shared/types';
 
 const API_BASE = '/api';
@@ -66,4 +69,22 @@ export const api = {
 
   getLogs: (recordId: string) =>
     request<OperationLog[]>(`/records/${recordId}/logs`),
+
+  batchAssignDock: (data: BatchAssignDockRequest) =>
+    request<{ success: string[]; failed: string[] }>('/records/batch/assign-dock', {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+
+  batchCheckIn: (data: BatchCheckInRequest) =>
+    request<{ success: string[]; failed: string[] }>('/records/batch/check-in', {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+
+  completeNoDiscrepancy: (id: string, data: CompleteNoDiscrepancyRequest) =>
+    request<UnloadRecord>(`/records/${id}/complete-no-discrepancy`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
 };

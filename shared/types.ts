@@ -77,6 +77,9 @@ export interface CreateRecordRequest {
   cargoType: string;
   plannedQuantity: number;
   dockId?: string;
+  operatorId: string;
+  operatorName: string;
+  operatorRole: UserRole;
 }
 
 export interface UpdateStatusRequest {
@@ -100,6 +103,29 @@ export interface DiscrepancyRequest {
 
 export interface AssignDockRequest {
   recordId: string;
+  operatorId: string;
+  operatorName: string;
+  operatorRole: UserRole;
+}
+
+export interface BatchAssignDockRequest {
+  recordIds: string[];
+  dockIds: string[];
+  operatorId: string;
+  operatorName: string;
+  operatorRole: UserRole;
+}
+
+export interface BatchCheckInRequest {
+  recordIds: string[];
+  operatorId: string;
+  operatorName: string;
+  operatorRole: UserRole;
+}
+
+export interface CompleteNoDiscrepancyRequest {
+  actualQuantity: number;
+  remark?: string;
   operatorId: string;
   operatorName: string;
   operatorRole: UserRole;

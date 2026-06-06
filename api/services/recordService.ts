@@ -5,6 +5,9 @@ import type {
   UpdateStatusRequest,
   DiscrepancyRequest,
   AssignDockRequest,
+  BatchAssignDockRequest,
+  BatchCheckInRequest,
+  CompleteNoDiscrepancyRequest,
   RecordStatus,
 } from '../../shared/types.js';
 
@@ -55,7 +58,7 @@ export const recordService = {
       cargoType: req.cargoType,
       plannedQuantity: req.plannedQuantity,
       status: 'pending',
-      createdBy: req.plateNumber,
+      createdBy: req.operatorId,
       createdAt: now,
       updatedAt: now,
     };
@@ -74,9 +77,9 @@ export const recordService = {
       id: generateLogId(),
       recordId: record.id,
       operation: '创建到车计划',
-      operatorId: 'system',
-      operatorName: '系统',
-      operatorRole: 'dispatcher',
+      operatorId: req.operatorId,
+      operatorName: req.operatorName,
+      operatorRole: req.operatorRole,
       operateTime: now,
     });
 
@@ -91,9 +94,9 @@ export const recordService = {
           id: generateLogId(),
           recordId: record.id,
           operation: `分配月台 ${dock.number} 号`,
-          operatorId: 'system',
-          operatorName: '系统',
-          operatorRole: 'dispatcher',
+          operatorId: req.operatorId,
+          operatorName: req.operatorName,
+          operatorRole: req.operatorRole,
           operateTime: now,
         });
       }
@@ -216,5 +219,106 @@ export const recordService = {
 
   getOperationLogs(recordId: string) {
     return db.getLogsByRecord(recordId);
+  },
+
+  batchAssignDock(req: BatchAssignDockRequest): { success: string[]; failed: string[] } {
+    const success: string[] = [];
+    const failed: string[] = [];
+
+    req.recordIds.forEach((recordId, index) => {
+      try {
+        const dockId = req.dockIds[index];
+        if (!dockId) {
+          failed.push(recordId);
+          return;
+        }
+        const result = this.assignDock(dockId, {
+          recordId,
+          operatorId: req.operatorId,
+          operatorName: req.operatorName,
+          operatorRole: req.operatorRole,
+        });
+        if (result) {
+          success.push(recordId);
+        } else {
+          failed.push(recordId);
+        }
+      } catch {
+        failed.push(recordId);
+      }
+    });
+
+    return { success, failed };
+  },
+
+  batchCheckIn(req: BatchCheckInRequest): { success: string[]; failed: string[] } {
+    const success: string[] = [];
+    const failed: string[] = [];
+
+    req.recordIds.forEach((recordId) => {
+      try {
+        const record = db.getRecord(recordId);
+        if (!record || record.status !== 'pending') {
+          failed.push(recordId);
+          return;
+        }
+        const result = this.updateStatus(recordId, {
+          status: 'checkin',
+          operatorId: req.operatorId,
+          operatorName: req.operatorName,
+          operatorRole: req.operatorRole,
+          remark: '司机签到',
+        });
+        if (result) {
+          success.push(recordId);
+        } else {
+          failed.push(recordId);
+        }
+      } catch {
+        failed.push(recordId);
+      }
+    });
+
+    return { success, failed };
+  },
+
+  completeNoDiscrepancy(id: string, req: CompleteNoDiscrepancyRequest): UnloadRecord | undefined {
+    const record = db.getRecord(id);
+    if (!record) return undefined;
+
+    if (record.status !== 'finished' && record.status !== 'unloading') {
+      throw new Error('当前状态不能直接完成');
+    }
+
+    const now = new Date().toISOString();
+    const updated = db.updateRecord(id, {
+      status: 'completed',
+      actualQuantity: req.actualQuantity,
+      endTime: record.endTime || now,
+      remark: req.remark,
+      discrepancyType: undefined,
+      discrepancyQuantity: undefined,
+      returnReason: undefined,
+    });
+
+    db.addLog({
+      id: generateLogId(),
+      recordId: id,
+      operation: '无差异，确认完成',
+      operatorId: req.operatorId,
+      operatorName: req.operatorName,
+      operatorRole: req.operatorRole,
+      operateTime: now,
+      remark: req.remark,
+    });
+
+    if (record.dockId) {
+      db.updateDock(record.dockId, {
+        status: 'idle',
+        currentRecordId: undefined,
+      });
+    }
+
+    return updated;
   },
 };

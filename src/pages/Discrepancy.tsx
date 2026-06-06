@@ -85,8 +85,8 @@ export default function Discrepancy() {
     }
   }
 
-  async function handleComplete(record: UnloadRecord) {
-    if (!confirm('确认完成该记录吗？')) return;
+  async function handleCompleteWithDiscrepancy(record: UnloadRecord) {
+    if (!confirm('确认完成该差异记录吗？')) return;
     try {
       await api.updateStatus(record.id, {
         status: 'completed',
@@ -99,6 +99,35 @@ export default function Discrepancy() {
       if (selectedRecord?.id === record.id) {
         setSelectedRecord(null);
       }
+    } catch (err) {
+      alert((err as Error).message);
+    }
+  }
+
+  async function handleCompleteNoDiscrepancy() {
+    if (!selectedRecord) return;
+    const actualQty = prompt(
+      '请输入实收数量（无差异）',
+      selectedRecord.plannedQuantity.toString()
+    );
+    if (actualQty === null) return;
+    const qty = parseInt(actualQty);
+    if (isNaN(qty) || qty < 0) {
+      alert('请输入有效的数量');
+      return;
+    }
+    const remark = prompt('补充备注（可选）', '');
+    if (remark === null) return;
+    try {
+      await api.completeNoDiscrepancy(selectedRecord.id, {
+        actualQuantity: qty,
+        remark: remark || undefined,
+        operatorId: currentUser.id,
+        operatorName: currentUser.name,
+        operatorRole: currentUser.role,
+      });
+      setSelectedRecord(null);
+      loadData();
     } catch (err) {
       alert((err as Error).message);
     }
@@ -218,6 +247,19 @@ export default function Discrepancy() {
                 </div>
               </div>
 
+              {selectedRecord.status === 'finished' && (
+                <div className="p-4 bg-emerald-500/10 border border-emerald-500/30 rounded-xl mb-4">
+                  <p className="text-sm text-emerald-300 flex items-start gap-2">
+                    <Check className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                    <span>
+                      <strong>卸货已完成，可选择：</strong><br />
+                      ① 无差异 → 点击「无差异，直接完成」快速结案<br />
+                      ② 有差异 → 填写下方差异登记表单后保存
+                    </span>
+                  </p>
+                </div>
+              )}
+
               <form onSubmit={handleSubmit} className="bg-slate-800/30 rounded-xl border border-slate-700/50 p-5">
                 <h3 className="font-semibold mb-4 flex items-center gap-2">
                   <FileText className="w-4 h-4 text-blue-400" />
@@ -280,10 +322,20 @@ export default function Discrepancy() {
                   </div>
                 </div>
                 <div className="flex gap-3 justify-end mt-5">
+                  {selectedRecord.status === 'finished' && (
+                    <button
+                      type="button"
+                      onClick={handleCompleteNoDiscrepancy}
+                      className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-sm font-medium transition-colors"
+                    >
+                      <Check className="w-4 h-4" />
+                      无差异，直接完成
+                    </button>
+                  )}
                   {selectedRecord.status === 'discrepancy' && (
                     <button
                       type="button"
-                      onClick={() => handleComplete(selectedRecord)}
+                      onClick={() => handleCompleteWithDiscrepancy(selectedRecord)}
                       className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-sm font-medium transition-colors"
                     >
                       <Check className="w-4 h-4" />
@@ -294,7 +346,7 @@ export default function Discrepancy() {
                     type="submit"
                     className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-sm font-medium transition-colors"
                   >
-                    保存差异
+                    {selectedRecord.status === 'discrepancy' ? '更新差异' : '保存差异'}
                   </button>
                 </div>
               </form>

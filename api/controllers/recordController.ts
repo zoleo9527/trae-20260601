@@ -66,4 +66,28 @@ export const recordController = {
     const { id } = req.params;
     res.json(recordService.getOperationLogs(id));
   },
+
+  batchAssignDock(req: Request, res: Response) {
+    const result = recordService.batchAssignDock(req.body);
+    res.json(result);
+  },
+
+  batchCheckIn(req: Request, res: Response) {
+    const result = recordService.batchCheckIn(req.body);
+    res.json(result);
+  },
+
+  completeNoDiscrepancy(req: Request, res: Response) {
+    const { id } = req.params;
+    try {
+      const updated = recordService.completeNoDiscrepancy(id, req.body);
+      if (!updated) {
+        res.status(404).json({ error: '记录不存在' });
+        return;
+      }
+      res.json(updated);
+    } catch (e) {
+      res.status(400).json({ error: (e as Error).message });
+    }
+  },
 };
