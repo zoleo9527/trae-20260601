@@ -28,8 +28,28 @@ export interface IncidentNote {
   category: NoteCategory
   content: string
   referenced_note_id: string | null
+  referenced_note_ids: string[] | null
   created_at: string
 }
+
+export function parseNoteIds(noteIdsStr: string | null): string[] {
+  if (!noteIdsStr) return []
+  try {
+    const parsed = JSON.parse(noteIdsStr)
+    return Array.isArray(parsed) ? parsed : []
+  } catch {
+    return []
+  }
+}
+
+export function findReferencedNotes(note: IncidentNote, allNotes: IncidentNote[]): IncidentNote[] {
+  const ids = note.referenced_note_ids || (note.referenced_note_id ? [note.referenced_note_id] : [])
+  return ids
+    .map(id => allNotes.find(n => n.id === id))
+    .filter((n): n is IncidentNote => n !== undefined)
+}
+
+
 
 export interface StatusTransition {
   id: string
@@ -50,7 +70,7 @@ export interface InsuranceMaterial {
   notes: string
   anomaly_explanation: string
   referenced_note_ids: string
-  anomaly_referenced_note_ids: string | null
+  anomaly_referenced_note_ids: string[] | null
   created_at: string
   updated_at: string
 }

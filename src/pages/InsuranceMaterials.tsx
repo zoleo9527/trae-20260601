@@ -74,6 +74,54 @@ function truncateText(text: string, maxLength: number = 50) {
   return text.slice(0, maxLength) + '...'
 }
 
+function parseNoteIds(noteIdsStr: string | null): string[] {
+  if (!noteIdsStr) return []
+  try {
+    const parsed = JSON.parse(noteIdsStr)
+    return Array.isArray(parsed) ? parsed : []
+  } catch {
+    return []
+  }
+}
+
+function buildFullReferenceChain(note: IncidentNote, allNotes: IncidentNote[]): IncidentNote[][] {
+  const noteMap = new Map<string, IncidentNote>()
+  allNotes.forEach((n) => noteMap.set(n.id, n))
+
+  const chains: IncidentNote[][] = []
+
+  const buildChainsRecursive = (currentNote: IncidentNote, currentChain: IncidentNote[]): void => {
+    const newChain = [...currentChain, currentNote]
+
+    let referencedIds: string[] = []
+    if (currentNote.referenced_note_ids && Array.isArray(currentNote.referenced_note_ids)) {
+      referencedIds = currentNote.referenced_note_ids
+    } else if (typeof currentNote.referenced_note_ids === 'string') {
+      referencedIds = parseNoteIds(currentNote.referenced_note_ids)
+    }
+    if (currentNote.referenced_note_id && !referencedIds.includes(currentNote.referenced_note_id)) {
+      referencedIds.push(currentNote.referenced_note_id)
+    }
+
+    const validReferencedIds = referencedIds.filter((id) => noteMap.has(id))
+
+    if (validReferencedIds.length === 0) {
+      chains.push(newChain)
+    } else {
+      validReferencedIds.forEach((id) => {
+        const parentNote = noteMap.get(id)
+        if (parentNote) {
+          buildChainsRecursive(parentNote, newChain)
+        }
+      })
+    }
+  }
+
+  buildChainsRecursive(note, [])
+
+  return chains.map((chain) => chain.reverse())
+}
+
 export default function InsuranceMaterials() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
@@ -186,51 +234,24 @@ export default function InsuranceMaterials() {
   }
 
   const buildReferenceChain = (material: InsuranceMaterialWithNotes) => {
-    const noteMap = new Map<string, IncidentNote>()
-    material.referenced_notes.forEach((n) => noteMap.set(n.id, n))
-
-    const chains: Array<{ note: IncidentNote; children: string[] }> = []
-    material.referenced_notes.forEach((note) => {
-      if (!note.referenced_note_id || !noteMap.has(note.referenced_note_id)) {
-        chains.push({ note, children: [] })
-      }
-    })
+    const allNotes = [...rescueMedicalNotesList, ...material.referenced_notes]
+    const chains: IncidentNote[][] = []
 
     material.referenced_notes.forEach((note) => {
-      if (note.referenced_note_id && noteMap.has(note.referenced_note_id)) {
-        const parent = chains.find((c) => c.note.id === note.referenced_note_id)
-        if (parent) {
-          parent.children.push(note.id)
-        }
-      }
+      const noteChains = buildFullReferenceChain(note, allNotes)
+      chains.push(...noteChains)
     })
 
     return chains
   }
 
   const buildAnomalyReferenceChain = (material: InsuranceMaterialWithNotes) => {
-    const noteMap = new Map<string, IncidentNote>()
     const allNotes = [...rescueMedicalNotesList]
-    allNotes.forEach((n) => noteMap.set(n.id, n))
+    const chains: IncidentNote[][] = []
 
-    const buildChain = (note: IncidentNote): Array<IncidentNote> => {
-      const chain: Array<IncidentNote> = [note]
-      let current = note
-      while (current.referenced_note_id && noteMap.has(current.referenced_note_id)) {
-        const parent = noteMap.get(current.referenced_note_id)
-        if (parent) {
-          chain.unshift(parent)
-          current = parent
-        } else {
-          break
-        }
-      }
-      return chain
-    }
-
-    const chains: Array<Array<IncidentNote>> = []
     material.anomaly_referenced_notes.forEach((note) => {
-      chains.push(buildChain(note))
+      const noteChains = buildFullReferenceChain(note, allNotes)
+      chains.push(...noteChains)
     })
 
     return chains
@@ -774,46 +795,25 @@ export default function InsuranceMaterials() {
                               {material.material_type}
                             </div>
                             {chains.length > 0 ? (
-                              chains.map((chain) => (
-                                <div key={chain.note.id} className="space-y-1 ml-2">
-                                  <div className="text-xs text-slate-600 flex items-center gap-2">
-                                    <span
-                                      className={`w-1.5 h-1.5 rounded-full ${
-                                        chain.note.category === 'rescue'
-                                          ? 'bg-blue-500'
-                                          : chain.note.category === 'medical'
-                                          ? 'bg-red-500'
-                                          : 'bg-green-500'
-                                      }`}
-                                    />
-                                    {NOTE_CATEGORY_LABELS[chain.note.category]}备注 #{chain.note.id.slice(0, 8)}
-                                  </div>
-                                  {chain.children.length > 0 && (
-                                    <div className="ml-4 border-l-2 border-slate-200 pl-3 space-y-1">
-                                      {chain.children.map((childId) => {
-                                        const childNote = material.referenced_notes.find((n) => n.id === childId)
-                                        if (!childNote) return null
-                                        return (
-                                          <div
-                                            key={childId}
-                                            className="text-xs text-slate-500 flex items-center gap-2"
-                                          >
-                                            <span
-                                              className={`w-1.5 h-1.5 rounded-full ${
-                                                childNote.category === 'rescue'
-                                                  ? 'bg-blue-500'
-                                                  : childNote.category === 'medical'
-                                                  ? 'bg-red-500'
-                                                  : 'bg-green-500'
-                                              }`}
-                                            />
-                                            ↳ {NOTE_CATEGORY_LABELS[childNote.category]}备注 #
-                                            {childNote.id.slice(0, 8)}
-                                          </div>
-                                        )
-                                      })}
+                              chains.map((chain, chainIndex) => (
+                                <div key={`${chainIndex}-${chain.map(n => n.id).join('-')}`} className="space-y-1 ml-2">
+                                  {chain.map((note, noteIndex) => (
+                                    <div key={note.id} className="text-xs text-slate-600 flex items-center gap-2">
+                                      {noteIndex > 0 && <ArrowRight className="w-3 h-3 text-slate-400" />}
+                                      <span
+                                        className={`w-1.5 h-1.5 rounded-full ${
+                                          note.category === 'rescue'
+                                            ? 'bg-blue-500'
+                                            : note.category === 'medical'
+                                            ? 'bg-red-500'
+                                            : note.category === 'anomaly'
+                                            ? 'bg-amber-500'
+                                            : 'bg-green-500'
+                                        }`}
+                                      />
+                                      {NOTE_CATEGORY_LABELS[note.category]}备注 #{note.id.slice(0, 8)}
                                     </div>
-                                  )}
+                                  ))}
                                 </div>
                               ))
                             ) : (

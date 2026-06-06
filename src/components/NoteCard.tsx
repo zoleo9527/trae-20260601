@@ -17,15 +17,38 @@ const categoryBgStyles = {
   anomaly: 'bg-amber-50',
 }
 
+const categoryLabelStyles = {
+  rescue: 'bg-blue-100 text-blue-700',
+  medical: 'bg-red-100 text-red-700',
+  insurance: 'bg-green-100 text-green-700',
+  anomaly: 'bg-amber-100 text-amber-700',
+}
+
 interface NoteCardProps {
   note: IncidentNote
-  referencedNote?: IncidentNote | null
+  referencedNotes?: IncidentNote[]
   onReferenceClick?: (noteId: string) => void
 }
 
-export default function NoteCard({ note, referencedNote, onReferenceClick }: NoteCardProps) {
-  const [showReferencedNote, setShowReferencedNote] = useState(false)
+export default function NoteCard({ note, referencedNotes = [], onReferenceClick }: NoteCardProps) {
+  const [expandedRefIds, setExpandedRefIds] = useState<Set<string>>(new Set())
   const isAnomaly = note.category === 'anomaly'
+
+  const toggleRefExpand = (noteId: string) => {
+    const newExpanded = new Set(expandedRefIds)
+    if (newExpanded.has(noteId)) {
+      newExpanded.delete(noteId)
+    } else {
+      newExpanded.add(noteId)
+    }
+    setExpandedRefIds(newExpanded)
+    onReferenceClick?.(noteId)
+  }
+
+  const getContentSummary = (content: string, maxLength: number = 50): string => {
+    if (content.length <= maxLength) return content
+    return content.slice(0, maxLength) + '...'
+  }
 
   return (
     <div
@@ -46,48 +69,55 @@ export default function NoteCard({ note, referencedNote, onReferenceClick }: Not
       </div>
       <p className="text-sm text-slate-600 whitespace-pre-wrap">{note.content}</p>
       
-      {note.referenced_note_id && (
+      {referencedNotes.length > 0 && (
         <div className="mt-3 pt-3 border-t border-white/50">
-          <button
-            onClick={() => {
-              setShowReferencedNote(!showReferencedNote)
-              onReferenceClick?.(note.referenced_note_id!)
-            }}
-            className="flex items-center gap-2 text-xs text-ice-600 hover:text-ice-700 transition-colors"
-          >
+          <div className="text-xs text-slate-500 mb-2 flex items-center gap-1">
             <Link2 className="w-3.5 h-3.5" />
-            <span>引用自备注 #{note.referenced_note_id.slice(0, 8)}</span>
-            {showReferencedNote ? (
-              <ChevronUp className="w-3.5 h-3.5" />
-            ) : (
-              <ChevronDown className="w-3.5 h-3.5" />
-            )}
-          </button>
-          
-          {showReferencedNote && referencedNote && (
-            <div className="mt-3 p-3 bg-white rounded-lg border border-slate-200 shadow-sm">
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2">
-                  <User className="w-3 h-3 text-slate-400" />
-                  <span className="text-xs font-medium text-slate-700">{referencedNote.author}</span>
-                  <span className={`text-xs px-1.5 py-0.5 rounded ${referencedNote.category === 'anomaly' ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-600'}`}>
-                    {NOTE_CATEGORY_LABELS[referencedNote.category]}
-                  </span>
+            <span>引用备注 ({referencedNotes.length} 条)</span>
+          </div>
+          <div className="space-y-2">
+            {referencedNotes.map((refNote) => {
+              const isExpanded = expandedRefIds.has(refNote.id)
+              return (
+                <div key={refNote.id} className="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden">
+                  <button
+                    onClick={() => toggleRefExpand(refNote.id)}
+                    className="w-full p-3 flex items-center justify-between text-left hover:bg-slate-50 transition-colors"
+                  >
+                    <div className="flex items-center gap-2 flex-1 min-w-0">
+                      <User className="w-3 h-3 text-slate-400 shrink-0" />
+                      <span className="text-xs font-medium text-slate-700 truncate">{refNote.author}</span>
+                      <span className={`text-xs px-1.5 py-0.5 rounded shrink-0 ${categoryLabelStyles[refNote.category]}`}>
+                        {NOTE_CATEGORY_LABELS[refNote.category]}
+                      </span>
+                      <span className="text-xs text-slate-400 shrink-0">
+                        {new Date(refNote.created_at).toLocaleDateString('zh-CN')}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1 shrink-0 ml-2">
+                      {isExpanded ? (
+                        <ChevronUp className="w-3.5 h-3.5 text-slate-400" />
+                      ) : (
+                        <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+                      )}
+                    </div>
+                  </button>
+                  <div className="px-3 pb-2">
+                    <p className="text-xs text-slate-500">{getContentSummary(refNote.content)}</p>
+                  </div>
+                  {isExpanded && (
+                    <div className="px-3 pb-3 pt-1 border-t border-slate-100">
+                      <div className="flex items-center gap-1 text-xs text-slate-400 mb-2">
+                        <Clock className="w-3 h-3" />
+                        {new Date(refNote.created_at).toLocaleString('zh-CN')}
+                      </div>
+                      <p className="text-xs text-slate-600 whitespace-pre-wrap">{refNote.content}</p>
+                    </div>
+                  )}
                 </div>
-                <div className="flex items-center gap-1 text-xs text-slate-400">
-                  <Clock className="w-3 h-3" />
-                  {new Date(referencedNote.created_at).toLocaleString('zh-CN')}
-                </div>
-              </div>
-              <p className="text-xs text-slate-600 whitespace-pre-wrap">{referencedNote.content}</p>
-            </div>
-          )}
-          
-          {showReferencedNote && !referencedNote && (
-            <div className="mt-3 p-3 bg-white rounded-lg border border-slate-200 shadow-sm">
-              <p className="text-xs text-slate-500">加载中...</p>
-            </div>
-          )}
+              )
+            })}
+          </div>
         </div>
       )}
     </div>

@@ -33,7 +33,7 @@ function processNote(note: Record<string, unknown>): IncidentNote {
   }
   
   return {
-    ...(note as unknown as IncidentNote),
+    ...note as IncidentNote,
     referenced_note_ids: noteIds
   }
 }
@@ -55,7 +55,7 @@ function getMaterialWithNotes(material: Record<string, unknown>): InsuranceMater
     const placeholders = noteIds.map(() => '?').join(',')
     referencedNotes = db.prepare(
       `SELECT * FROM incident_notes WHERE id IN (${placeholders})`
-    ).all(...noteIds).map(n => processNote(n as Record<string, unknown>)) as IncidentNote[]
+    ).all(...noteIds).map(n => processNote(n)) as IncidentNote[]
   }
   
   const anomalyNoteIdsStr = material.anomaly_referenced_note_ids as string | null
@@ -74,7 +74,7 @@ function getMaterialWithNotes(material: Record<string, unknown>): InsuranceMater
     const placeholders = anomalyNoteIds.map(() => '?').join(',')
     anomalyReferencedNotes = db.prepare(
       `SELECT * FROM incident_notes WHERE id IN (${placeholders})`
-    ).all(...anomalyNoteIds).map(n => processNote(n as Record<string, unknown>)) as IncidentNote[]
+    ).all(...anomalyNoteIds).map(n => processNote(n)) as IncidentNote[]
   }
   
   return {

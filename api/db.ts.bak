@@ -41,7 +41,6 @@ db.exec(`
     category TEXT NOT NULL,
     content TEXT NOT NULL,
     referenced_note_id TEXT,
-    referenced_note_ids TEXT,
     created_at TEXT NOT NULL,
     FOREIGN KEY (incident_id) REFERENCES rescue_incidents(id)
   );
@@ -92,8 +91,8 @@ if (count.c === 0) {
       VALUES (@id, @incident_no, @type, @status, @location, @injured_name, @injured_phone, @responsible_person, @description, @occurred_at, @created_at, @updated_at)
     `)
     const insertNote = db.prepare(`
-      INSERT INTO incident_notes (id, incident_id, author, category, content, referenced_note_id, referenced_note_ids, created_at)
-      VALUES (@id, @incident_id, @author, @category, @content, @referenced_note_id, @referenced_note_ids, @created_at)
+      INSERT INTO incident_notes (id, incident_id, author, category, content, referenced_note_id, created_at)
+      VALUES (@id, @incident_id, @author, @category, @content, @referenced_note_id, @created_at)
     `)
     const insertTransition = db.prepare(`
       INSERT INTO status_transitions (id, incident_id, from_status, to_status, operator, remark, created_at)
@@ -137,7 +136,6 @@ if (count.c === 0) {
       category: 'rescue',
       content: '接到救援通知后5分钟内到达现场，发现伤者左臂畸形肿胀，活动受限。已使用夹板进行初步固定处理，伤者意识清醒，生命体征稳定。',
       referenced_note_id: null,
-      referenced_note_ids: JSON.stringify([]),
       created_at: '2026-06-03T09:22:00.000Z',
     })
     insertNote.run({
@@ -147,7 +145,6 @@ if (count.c === 0) {
       category: 'medical',
       content: '伤者送达医务室后进行初步检查：血压125/80mmHg，心率88次/分，意识清醒。初步诊断为左桡骨远端Colles骨折，已进行石膏固定处理。建议转院至县人民医院骨科进一步治疗。现场陪同人员为伤者妻子。',
       referenced_note_id: note1_1,
-      referenced_note_ids: JSON.stringify([note1_1]),
       created_at: '2026-06-03T09:45:00.000Z',
     })
     insertNote.run({
@@ -157,7 +154,6 @@ if (count.c === 0) {
       category: 'rescue',
       content: '已安排救护车转运伤者至县人民医院，随车医护人员为王护士。已联系伤者家属告知情况。现场已清理完毕，雪道A3区已于10:15恢复正常通行。',
       referenced_note_id: null,
-      referenced_note_ids: JSON.stringify([]),
       created_at: '2026-06-03T10:10:00.000Z',
     })
     insertNote.run({
@@ -167,7 +163,6 @@ if (count.c === 0) {
       category: 'insurance',
       content: '已向平安保险报案，报案号：PA20260603001。需准备材料：1. 救援记录 2. 医疗诊断证明 3. 伤者身份证复印件 4. 现场照片。请救援组配合提供相关材料。',
       referenced_note_id: note1_2,
-      referenced_note_ids: JSON.stringify([note1_2]),
       created_at: '2026-06-03T10:30:00.000Z',
     })
 
@@ -240,7 +235,6 @@ if (count.c === 0) {
     const note2_3 = crypto.randomUUID()
     const note2_4 = crypto.randomUUID()
     const note2_5 = crypto.randomUUID()
-    const note2_6 = crypto.randomUUID()
 
     insertNote.run({
       id: note2_1,
@@ -249,7 +243,6 @@ if (count.c === 0) {
       category: 'rescue',
       content: '到达现场，伤者为28岁男性单板滑雪者，在完成360度转体动作落地时失去平衡摔倒，右膝着地。目前无法站立，右膝肿胀明显，压痛剧烈。已使用雪地担架转移至巡逻艇。',
       referenced_note_id: null,
-      referenced_note_ids: JSON.stringify([]),
       created_at: '2026-06-02T14:38:00.000Z',
     })
     insertNote.run({
@@ -259,7 +252,6 @@ if (count.c === 0) {
       category: 'medical',
       content: '医务室检查：右膝关节肿胀，活动受限，前抽屉试验阳性，麦氏征阳性。怀疑前交叉韧带损伤伴半月板损伤。已佩戴膝关节支具固定，冰袋冷敷。建议立即转至市骨科医院做MRI检查。',
       referenced_note_id: note2_1,
-      referenced_note_ids: JSON.stringify([note2_1]),
       created_at: '2026-06-02T14:55:00.000Z',
     })
     insertNote.run({
@@ -269,7 +261,6 @@ if (count.c === 0) {
       category: 'rescue',
       content: '已联系120急救中心，救护车将于15:20到达。已通过滑雪场广播找到伤者同行朋友赵某陪同前往医院。雪场已购买公众责任险，已通知保险公司。',
       referenced_note_id: null,
-      referenced_note_ids: JSON.stringify([]),
       created_at: '2026-06-02T15:05:00.000Z',
     })
     insertNote.run({
@@ -279,7 +270,6 @@ if (count.c === 0) {
       category: 'anomaly',
       content: '【异常说明】经现场勘查，该跳台近期刚完成维护，但发现落地坡积雪硬度分布不均，可能增加了落地风险。已通知造雪班组重新处理该区域雪质，今日内完成整改。此次事件雪场可能需承担部分责任。',
       referenced_note_id: note2_1,
-      referenced_note_ids: JSON.stringify([note2_1]),
       created_at: '2026-06-02T16:20:00.000Z',
     })
     insertNote.run({
@@ -289,19 +279,7 @@ if (count.c === 0) {
       category: 'insurance',
       content: '已收到医院初步诊断：右膝前交叉韧带完全断裂，需手术治疗。预估医疗费用约5-6万元。已将救援备注#1、医疗备注#2、异常说明备注#4作为理赔参考材料提交保险公司。理赔专员将于明日上午来雪场核实情况。',
       referenced_note_id: note2_4,
-      referenced_note_ids: JSON.stringify([note2_4]),
       created_at: '2026-06-02T17:30:00.000Z',
-    })
-
-    insertNote.run({
-      id: note2_6,
-      incident_id: inc2Id,
-      author: '李保险',
-      category: 'anomaly',
-      content: '[材料异常] 伤者身份证及滑雪票：身份证复印件模糊不清，需重新提交清晰版本',
-      referenced_note_id: note2_1,
-      referenced_note_ids: JSON.stringify([note2_1, note2_2, note2_5]),
-      created_at: '2026-06-02T17:45:00.000Z',
     })
 
     insertTransition.run({
@@ -361,7 +339,7 @@ if (count.c === 0) {
       reviewer: '李保险',
       anomaly_explanation: '当天雪场前台打印机出现故障，身份证复印件是用备用便携打印机打印的，清晰度不佳。已联系伤者家属重新提供高清扫描件，预计明日上午收到。滑雪票存根因前台交接班时遗失，正在查找。',
       referenced_note_ids: JSON.stringify([]),
-      anomaly_referenced_note_ids: JSON.stringify([note2_6]),
+      anomaly_referenced_note_ids: JSON.stringify([note2_5]),
       created_at: '2026-06-02T17:10:00.000Z',
       updated_at: '2026-06-02T17:45:00.000Z',
     })
@@ -372,7 +350,6 @@ if (count.c === 0) {
     insertLog.run({ id: crypto.randomUUID(), incident_id: inc2Id, action: 'add_note', operator: '王芳护士', detail: '添加医疗分类备注', created_at: '2026-06-02T14:55:00.000Z' })
     insertLog.run({ id: crypto.randomUUID(), incident_id: inc2Id, action: 'add_note', operator: '赵安全', detail: '添加异常分类备注', created_at: '2026-06-02T16:20:00.000Z' })
     insertLog.run({ id: crypto.randomUUID(), incident_id: inc2Id, action: 'add_note', operator: '李保险', detail: '添加保险分类备注', created_at: '2026-06-02T17:30:00.000Z' })
-    insertLog.run({ id: crypto.randomUUID(), incident_id: inc2Id, action: 'add_note', operator: '李保险', detail: '添加异常分类备注', created_at: '2026-06-02T17:45:00.000Z' })
     insertLog.run({ id: crypto.randomUUID(), incident_id: inc2Id, action: 'status_change', operator: '李明', detail: '状态从 processing 变更为 review', created_at: '2026-06-02T18:00:00.000Z' })
     insertLog.run({ id: crypto.randomUUID(), incident_id: inc2Id, action: 'insurance_anomaly', operator: '李保险', detail: '保险材料异常: 身份证复印件清晰度不达标，滑雪票存根缺失', created_at: '2026-06-02T17:45:00.000Z' })
 
@@ -407,7 +384,6 @@ if (count.c === 0) {
       category: 'rescue',
       content: '接到缆车操作员紧急报告后，立即按下C2线紧急停止按钮。3号吊椅在离地约2米处停止，乘客刘女士（35岁）因安全护栏突然弹开险些滑落，所幸抓住护栏未坠落。已安排救援梯前往救援。',
       referenced_note_id: null,
-      referenced_note_ids: JSON.stringify([]),
       created_at: '2026-05-28T10:05:00.000Z',
     })
     insertNote.run({
@@ -417,7 +393,6 @@ if (count.c === 0) {
       category: 'rescue',
       content: '【设备排查】已将3号吊椅收回检修站检查。发现安全护栏卡扣弹簧老化，弹性不足，导致卡扣未能完全锁止。同批次共安装了12个弹簧，已使用18个月。建议立即停用C2线，对全部24个吊椅的安全卡扣进行逐一排查并更换弹簧。',
       referenced_note_id: note3_1,
-      referenced_note_ids: JSON.stringify([note3_1]),
       created_at: '2026-05-28T12:30:00.000Z',
     })
     insertNote.run({
@@ -427,7 +402,6 @@ if (count.c === 0) {
       category: 'medical',
       content: '乘客刘女士已接受全面身体检查，无外伤，但受惊吓过度，血压偏高（145/95mmHg），心率偏快。已给予心理疏导，建议休息观察24小时。已安排心理咨询师后续跟进。乘客已由家属接回家中。',
       referenced_note_id: null,
-      referenced_note_ids: JSON.stringify([]),
       created_at: '2026-05-28T10:45:00.000Z',
     })
     insertNote.run({
@@ -437,7 +411,6 @@ if (count.c === 0) {
       category: 'rescue',
       content: '【处置进展】已完成全部24个吊椅的安全卡扣检查，共发现5个存在弹簧老化问题，已全部更换为新批次弹簧。C2线已于14:00通过安全检测，恢复正常运营。已向主管领导提交设备故障报告。',
       referenced_note_id: note3_2,
-      referenced_note_ids: JSON.stringify([note3_2]),
       created_at: '2026-05-28T14:10:00.000Z',
     })
     insertNote.run({
@@ -447,7 +420,6 @@ if (count.c === 0) {
       category: 'insurance',
       content: '已向保险公司报备设备故障事件。需提交材料：1. 设备维护记录 2. 安全检查报告 3. 乘客医疗检查证明 4. 事件处置报告。目前乘客方暂未提出赔偿要求，但建议做好协商准备。',
       referenced_note_id: note3_4,
-      referenced_note_ids: JSON.stringify([note3_4]),
       created_at: '2026-05-28T15:00:00.000Z',
     })
     insertNote.run({
@@ -457,7 +429,6 @@ if (count.c === 0) {
       category: 'insurance',
       content: '保险理赔已完成。经与乘客友好协商，雪场承担全部医疗检查费用，并赠送价值2000元的雪季卡作为精神补偿。乘客表示满意，不再追究其他责任。设备供应商已同意承担部分弹簧更换费用。此案可结案。',
       referenced_note_id: note3_5,
-      referenced_note_ids: JSON.stringify([note3_5]),
       created_at: '2026-05-29T15:00:00.000Z',
     })
 
@@ -568,7 +539,6 @@ if (count.c === 0) {
       category: 'medical',
       content: '接到急救呼叫后2分钟到达现场。患者张XX，男，65岁，有冠心病史，今日未按时服药。查体：意识清醒，表情痛苦，大汗淋漓，心率110次/分，血压95/60mmHg。已给予硝酸甘油舌下含服，吸氧，建立静脉通道。疑似急性冠脉综合征，需立即转院。',
       referenced_note_id: null,
-      referenced_note_ids: JSON.stringify([]),
       created_at: '2026-06-04T08:50:00.000Z',
     })
 
@@ -614,7 +584,6 @@ if (count.c === 0) {
       category: 'rescue',
       content: '接到游客求助电话，3名摄影爱好者为拍摄云海日出登上未开放区域，遭遇突发大雾，能见度不足5米，迷失方向。已通过手机定位确定大致位置在观景台北侧约500米处。已组织2支搜救队携带对讲设备和热成像仪出发搜救。',
       referenced_note_id: null,
-      referenced_note_ids: JSON.stringify([]),
       created_at: '2026-05-25T11:25:00.000Z',
     })
     insertNote.run({
@@ -624,7 +593,6 @@ if (count.c === 0) {
       category: 'rescue',
       content: '搜救一队在观景台北侧300米处发现被困人员。3人状态良好，无冻伤或受伤，只是情绪有些紧张。已提供热水和保暖毯，正在引导下山。预计40分钟后可到达安全区域。',
       referenced_note_id: note5_1,
-      referenced_note_ids: JSON.stringify([note5_1]),
       created_at: '2026-05-25T12:10:00.000Z',
     })
     insertNote.run({
@@ -634,7 +602,6 @@ if (count.c === 0) {
       category: 'medical',
       content: '3名被困人员已在医务室接受检查。生命体征平稳，无明显外伤，其中一人有轻微受凉症状，已给予姜茶保暖。观察30分钟后无异常，可自行离开。已进行安全教育，提醒不要进入未开放区域。',
       referenced_note_id: null,
-      referenced_note_ids: JSON.stringify([]),
       created_at: '2026-05-25T13:00:00.000Z',
     })
     insertNote.run({
@@ -644,7 +611,6 @@ if (count.c === 0) {
       category: 'insurance',
       content: '此事件无人员受伤，不涉及保险理赔。已将救援记录归档，作为案例用于安全宣传教育。建议在观景台周边增设更多警示标识和临时护栏。',
       referenced_note_id: null,
-      referenced_note_ids: JSON.stringify([]),
       created_at: '2026-05-25T15:00:00.000Z',
     })
 

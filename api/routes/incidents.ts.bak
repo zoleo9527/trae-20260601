@@ -13,7 +13,6 @@ interface IncidentNote {
   category: string
   content: string
   referenced_note_id: string | null
-  referenced_note_ids: string[] | null
   created_at: string
 }
 
@@ -39,7 +38,7 @@ function getMaterialWithNotes(material: Record<string, unknown>): InsuranceMater
     const placeholders = noteIds.map(() => '?').join(',')
     referencedNotes = db.prepare(
       `SELECT * FROM incident_notes WHERE id IN (${placeholders})`
-    ).all(...noteIds).map(n => processNote(n as Record<string, unknown>)) as IncidentNote[]
+    ).all(...noteIds) as IncidentNote[]
   }
 
   const anomalyNoteIdsStr = material.anomaly_referenced_note_ids as string | null
@@ -58,7 +57,7 @@ function getMaterialWithNotes(material: Record<string, unknown>): InsuranceMater
     const placeholders = anomalyNoteIds.map(() => '?').join(',')
     anomalyReferencedNotes = db.prepare(
       `SELECT * FROM incident_notes WHERE id IN (${placeholders})`
-    ).all(...anomalyNoteIds).map(n => processNote(n as Record<string, unknown>)) as IncidentNote[]
+    ).all(...anomalyNoteIds) as IncidentNote[]
   }
   
   return {
@@ -67,24 +66,6 @@ function getMaterialWithNotes(material: Record<string, unknown>): InsuranceMater
     anomaly_referenced_notes: anomalyReferencedNotes
   }
 }
-function processNote(note: Record<string, unknown>): IncidentNote {
-  const noteIdsStr = note.referenced_note_ids as string | null
-  let noteIds: string[] | null = null
-  
-  if (noteIdsStr) {
-    try {
-      noteIds = JSON.parse(noteIdsStr)
-    } catch {
-      noteIds = null
-    }
-  }
-  
-  return {
-    ...(note as unknown as IncidentNote),
-    referenced_note_ids: noteIds
-  }
-}
-
 
 function mapIncidentRow(row: Record<string, unknown>): Record<string, unknown> {
   return {
@@ -141,8 +122,7 @@ router.get('/:id', (req: Request, res: Response): void => {
 
   const incident = mapIncidentRow(row)
 
-  const notesRaw = db.prepare('SELECT * FROM incident_notes WHERE incident_id = ? ORDER BY created_at ASC').all(id) as Record<string, unknown>[]
-  const notes = notesRaw.map(n => processNote(n))
+  const notes = db.prepare('SELECT * FROM incident_notes WHERE incident_id = ? ORDER BY created_at ASC').all(id)
   const transitions = db.prepare('SELECT * FROM status_transitions WHERE incident_id = ? ORDER BY created_at ASC').all(id)
   const insurance = db.prepare('SELECT * FROM insurance_materials WHERE incident_id = ? ORDER BY created_at ASC').all(id) as Record<string, unknown>[]
   const logs = db.prepare('SELECT * FROM operation_logs WHERE incident_id = ? ORDER BY created_at ASC').all(id)
@@ -197,14 +177,13 @@ router.get('/:id/notes', (req: Request, res: Response): void => {
     return
   }
 
-  const notesRaw = db.prepare('SELECT * FROM incident_notes WHERE incident_id = ? ORDER BY created_at DESC').all(id) as Record<string, unknown>[]
-  const notes = notesRaw.map(n => processNote(n))
+  const notes = db.prepare('SELECT * FROM incident_notes WHERE incident_id = ? ORDER BY created_at DESC').all(id)
   res.json({ success: true, data: notes })
 })
 
 router.post('/:id/notes', (req: Request, res: Response): void => {
   const { id } = req.params
-  const { author, category, content, referenced_note_id, referenced_note_ids } = req.body
+  const { author, category, content, referenced_note_id } = req.body
 
   if (!author || !category || !content) {
     res.status(400).json({ success: false, error: 'author, category, and content are required' })
@@ -219,16 +198,11 @@ router.post('/:id/notes', (req: Request, res: Response): void => {
 
   const noteId = crypto.randomUUID()
   const now = new Date().toISOString()
-  
-  let referencedNoteIdsStr = null;
-  if (referenced_note_ids && Array.isArray(referenced_note_ids)) {
-    referencedNoteIdsStr = JSON.stringify(referenced_note_ids);
-  }
 
   db.prepare(`
-    INSERT INTO incident_notes (id, incident_id, author, category, content, referenced_note_id, referenced_note_ids, created_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(noteId, id, author, category, content, referenced_note_id || null, referencedNoteIdsStr, now)
+    INSERT INTO incident_notes (id, incident_id, author, category, content, referenced_note_id, created_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+  `).run(noteId, id, author, category, content, referenced_note_id || null, now)
 
   db.prepare(`
     INSERT INTO operation_logs (id, incident_id, action, operator, detail, created_at)
@@ -239,8 +213,7 @@ router.post('/:id/notes', (req: Request, res: Response): void => {
     UPDATE rescue_incidents SET updated_at = ? WHERE id = ?
   `).run(now, id)
 
-  const noteRaw = db.prepare('SELECT * FROM incident_notes WHERE id = ?').get(noteId) as Record<string, unknown>
-  const note = processNote(noteRaw)
+  const note = db.prepare('SELECT * FROM incident_notes WHERE id = ?').get(noteId)
   res.status(201).json({ success: true, data: note })
 })
 
@@ -287,7 +260,7 @@ router.post('/:id/status', (req: Request, res: Response): void => {
 
   db.prepare(`
     INSERT INTO status_transitions (id, incident_id, from_status, to_status, operator, remark, created_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
   `).run(transitionId, id, fromStatus, to_status, operator, remark || null, now)
 
   db.prepare(`
@@ -313,7 +286,7 @@ router.get('/:id/timeline', (req: Request, res: Response): void => {
   }
 
   const notes = db.prepare(`
-    SELECT id, 'note' as type, created_at, author as actor, category, content, referenced_note_id, referenced_note_ids
+    SELECT id, 'note' as type, created_at, author as actor, category, content, referenced_note_id
     FROM incident_notes
     WHERE incident_id = ?
   `).all(id)
