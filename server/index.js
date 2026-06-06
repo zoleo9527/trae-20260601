@@ -360,7 +360,20 @@ app.get('/api/schedules/:id/history', (req, res) => {
 });
 
 app.post('/api/schedules', (req, res) => {
-  const data = req.body;
+  const { idempotencyKey, userId, ...data } = req.body;
+
+  if (idempotencyKey && processedKeys.has(idempotencyKey)) {
+    const record = workflowRecords.find(r => r.idempotencyKey === idempotencyKey);
+    const existingSchedule = record ? schedules.find(s => s.id === record.bizId) : null;
+    return res.json({
+      code: 0,
+      data: existingSchedule,
+      idempotencyKey,
+      isDuplicate: true,
+      message: '重复提交，已忽略',
+    });
+  }
+
   const newSchedule = {
     id: uuidv4(),
     title: data.title || '',
@@ -372,7 +385,7 @@ app.post('/api/schedules', (req, res) => {
     platform: data.platform || '抖音',
     status: 'DRAFT',
     products: data.products || [],
-    createdBy: data.userId || 'user-001',
+    createdBy: userId || 'user-001',
     createdAt: dayjs().toISOString(),
     updatedAt: dayjs().toISOString(),
     currentVersion: 1,
@@ -380,20 +393,23 @@ app.post('/api/schedules', (req, res) => {
 
   schedules.push(newSchedule);
 
-  addWorkflowRecord({
+  const result = addWorkflowRecord({
     bizType: 'SCHEDULE',
     bizId: newSchedule.id,
     bizVersion: 1,
     actionType: 'CREATE',
-    actionBy: data.userId || 'user-001',
+    actionBy: userId || 'user-001',
     remark: '创建直播排期',
     previousStatus: '',
     newStatus: 'DRAFT',
+    idempotencyKey,
   });
 
   res.json({
     code: 0,
     data: newSchedule,
+    idempotencyKey: result.idempotencyKey,
+    isDuplicate: result.isDuplicate,
     message: '创建成功',
   });
 });
@@ -448,6 +464,16 @@ app.put('/api/schedules/:id/submit', (req, res) => {
     return res.status(404).json({ code: 404, message: '排期不存在' });
   }
 
+  if (idempotencyKey && processedKeys.has(idempotencyKey)) {
+    return res.json({
+      code: 0,
+      data: schedule,
+      idempotencyKey,
+      isDuplicate: true,
+      message: '重复提交，已忽略',
+    });
+  }
+
   if (!['DRAFT', 'RETURNED'].includes(schedule.status)) {
     return res.status(400).json({ code: 400, message: `当前状态${schedule.status}不能提交复核` });
   }
@@ -486,6 +512,16 @@ app.put('/api/schedules/:id/approve', (req, res) => {
   const schedule = schedules.find(s => s.id === id);
   if (!schedule) {
     return res.status(404).json({ code: 404, message: '排期不存在' });
+  }
+
+  if (idempotencyKey && processedKeys.has(idempotencyKey)) {
+    return res.json({
+      code: 0,
+      data: schedule,
+      idempotencyKey,
+      isDuplicate: true,
+      message: '重复提交，已忽略',
+    });
   }
 
   if (schedule.status !== 'PENDING_REVIEW') {
@@ -528,6 +564,16 @@ app.put('/api/schedules/:id/return', (req, res) => {
     return res.status(404).json({ code: 404, message: '排期不存在' });
   }
 
+  if (idempotencyKey && processedKeys.has(idempotencyKey)) {
+    return res.json({
+      code: 0,
+      data: schedule,
+      idempotencyKey,
+      isDuplicate: true,
+      message: '重复提交，已忽略',
+    });
+  }
+
   if (!['PENDING_REVIEW', 'REVIEWED'].includes(schedule.status)) {
     return res.status(400).json({ code: 400, message: `当前状态${schedule.status}不能退回` });
   }
@@ -566,6 +612,16 @@ app.put('/api/schedules/:id/supplement', (req, res) => {
   const schedule = schedules.find(s => s.id === id);
   if (!schedule) {
     return res.status(404).json({ code: 404, message: '排期不存在' });
+  }
+
+  if (idempotencyKey && processedKeys.has(idempotencyKey)) {
+    return res.json({
+      code: 0,
+      data: schedule,
+      idempotencyKey,
+      isDuplicate: true,
+      message: '重复提交，已忽略',
+    });
   }
 
   if (schedule.status !== 'RETURNED') {
@@ -610,6 +666,16 @@ app.put('/api/schedules/:id/start-live', (req, res) => {
     return res.status(404).json({ code: 404, message: '排期不存在' });
   }
 
+  if (idempotencyKey && processedKeys.has(idempotencyKey)) {
+    return res.json({
+      code: 0,
+      data: schedule,
+      idempotencyKey,
+      isDuplicate: true,
+      message: '重复提交，已忽略',
+    });
+  }
+
   if (schedule.status !== 'APPROVED') {
     return res.status(400).json({ code: 400, message: `当前状态${schedule.status}不能开始直播` });
   }
@@ -649,6 +715,16 @@ app.put('/api/schedules/:id/end-live', (req, res) => {
     return res.status(404).json({ code: 404, message: '排期不存在' });
   }
 
+  if (idempotencyKey && processedKeys.has(idempotencyKey)) {
+    return res.json({
+      code: 0,
+      data: schedule,
+      idempotencyKey,
+      isDuplicate: true,
+      message: '重复提交，已忽略',
+    });
+  }
+
   if (schedule.status !== 'LIVE') {
     return res.status(400).json({ code: 400, message: `当前状态${schedule.status}不能结束直播` });
   }
@@ -686,6 +762,16 @@ app.put('/api/schedules/:id/cancel', (req, res) => {
   const schedule = schedules.find(s => s.id === id);
   if (!schedule) {
     return res.status(404).json({ code: 404, message: '排期不存在' });
+  }
+
+  if (idempotencyKey && processedKeys.has(idempotencyKey)) {
+    return res.json({
+      code: 0,
+      data: schedule,
+      idempotencyKey,
+      isDuplicate: true,
+      message: '重复提交，已忽略',
+    });
   }
 
   if (['COMPLETED', 'CANCELLED', 'LIVE'].includes(schedule.status)) {
