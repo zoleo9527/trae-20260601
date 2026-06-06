@@ -683,12 +683,15 @@ export default function InspectionDetailPage() {
               <h2 className="text-lg font-semibold text-gray-900 mb-4">入住学生与晚归记录</h2>
               <div className="space-y-3">
                 {studentsWithLateReturns.map((student: any) => {
-                  const sortedLateReturns = [...student.lateReturns].sort(
-                    (a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime()
-                  );
+                  const sortedLateReturns = [...student.lateReturns].sort((a: any, b: any) => {
+                    const dateTimeA = new Date(`${a.date}T${a.time || "00:00"}`).getTime();
+                    const dateTimeB = new Date(`${b.date}T${b.time || "00:00"}`).getTime();
+                    return dateTimeB - dateTimeA;
+                  });
                   const latestReturn = sortedLateReturns[0];
                   const isExpanded = expandedStudents.has(student.id);
                   const hasMultipleReturns = student.lateReturns.length > 1;
+                  const hasNoReturns = student.lateReturns.length === 0;
 
                   return (
                     <div
@@ -702,8 +705,8 @@ export default function InspectionDetailPage() {
                     >
                       <div
                         className={clsx(
-                          "p-3 cursor-pointer",
-                          hasMultipleReturns && "hover:bg-black/[0.02] transition-colors"
+                          "p-3",
+                          hasMultipleReturns && "cursor-pointer hover:bg-black/[0.02] transition-colors"
                         )}
                         onClick={() => hasMultipleReturns && toggleStudentExpand(student.id)}
                       >
@@ -753,6 +756,14 @@ export default function InspectionDetailPage() {
                                 </p>
                               )}
                             </div>
+                          </div>
+                        )}
+
+                        {hasNoReturns && (
+                          <div className="mt-3 p-2.5 bg-white rounded-md border border-gray-100">
+                            <p className="text-xs text-gray-400 text-center">
+                              ✓ 无晚归记录
+                            </p>
                           </div>
                         )}
                       </div>
