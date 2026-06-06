@@ -1,0 +1,45 @@
+export enum ErrorCode {
+  SUCCESS = 0,
+
+  CHECKIN_NOT_FOUND = 10001,
+  CHECKIN_ALREADY_PROCESSED = 10002,
+  CHECKIN_INVALID_STATUS = 10003,
+  CHECKIN_NO_PERMISSION = 10004,
+
+  ADJUSTMENT_NOT_FOUND = 20001,
+  ADJUSTMENT_ALREADY_COMPLETED = 20002,
+  ADJUSTMENT_INVALID_STATUS = 20003,
+  ADJUSTMENT_TARGET_BED_OCCUPIED = 20004,
+  ADJUSTMENT_SAME_BED = 20005,
+
+  STUDENT_NOT_FOUND = 30001,
+  BED_NOT_FOUND = 30002,
+  BED_ALREADY_OCCUPIED = 30003,
+  STAFF_NOT_FOUND = 30004,
+
+  PARAM_VALIDATION_ERROR = 40000,
+  INTERNAL_ERROR = 50000,
+}
+
+export const ErrorMessage: Record<ErrorCode, string> = {
+  [ErrorCode.SUCCESS]: '成功',
+
+  [ErrorCode.CHECKIN_NOT_FOUND]: '入住分配记录不存在',
+  [ErrorCode.CHECKIN_ALREADY_PROCESSED]: '入住分配已处理，无法重复操作',
+  [ErrorCode.CHECKIN_INVALID_STATUS]: '入住分配状态不合法',
+  [ErrorCode.CHECKIN_NO_PERMISSION]: '无权限处理该入住分配',
+
+  [ErrorCode.ADJUSTMENT_NOT_FOUND]: '床位调整记录不存在',
+  [ErrorCode.ADJUSTMENT_ALREADY_COMPLETED]: '床位调整已完成，无法重复操作',
+  [ErrorCode.ADJUSTMENT_INVALID_STATUS]: '床位调整状态不合法',
+  [ErrorCode.ADJUSTMENT_TARGET_BED_OCCUPIED]: '目标床位已被占用',
+  [ErrorCode.ADJUSTMENT_SAME_BED]: '目标床位与原床位相同',
+
+  [ErrorCode.STUDENT_NOT_FOUND]: '学生不存在',
+  [ErrorCode.BED_NOT_FOUND]: '床位不存在',
+  [ErrorCode.BED_ALREADY_OCCUPIED]: '床位已被占用',
+  [ErrorCode.STAFF_NOT_FOUND]: '工作人员不存在',
+
+  [ErrorCode.PARAM_VALIDATION_ERROR]: '参数校验失败',
+  [ErrorCode.INTERNAL_ERROR]: '系统内部错误',
+};
