@@ -1,4 +1,4 @@
-import { eq, desc } from 'drizzle-orm';
+import { eq, and, desc } from 'drizzle-orm';
 import { db } from '../db';
 import { students, consumptions, makeups, auditLogs, studentPackages } from '../db/schema';
 import type { DashboardData, TodoItem, RiskItem, ChangeItem } from '$lib/types';
@@ -37,7 +37,7 @@ export async function getDashboardData(role: string, userId: string): Promise<Da
 		avgHoursPerStudent
 	};
 
-	const todos = await getTodosByRole(role, userId);
+	const todos = await getTodosByRole(role, userId, studentsResult);
 	const risks = await getRisks(studentPackagesResult, studentsResult);
 	const recentChanges = auditLogsResult.map((log) => ({
 		id: log.id,
@@ -58,21 +58,31 @@ export async function getDashboardData(role: string, userId: string): Promise<Da
 	};
 }
 
-async function getTodosByRole(role: string, userId: string): Promise<TodoItem[]> {
+function getStudentName(studentId: string, studentsList: typeof students.$inferSelect[]): string {
+	const student = studentsList.find((s) => s.id === studentId);
+	return student?.name || '未知学生';
+}
+
+async function getTodosByRole(
+	role: string,
+	userId: string,
+	studentsList: typeof students.$inferSelect[]
+): Promise<TodoItem[]> {
 	const todos: TodoItem[] = [];
 
 	if (role === 'teacher') {
-		const pendingConsumptionsForTeacher = await db
+		const pendingConsumptions = await db
 			.select()
 			.from(consumptions)
 			.where(eq(consumptions.status, 'pending'))
 			.all();
 
-		pendingConsumptionsForTeacher.forEach((c) => {
+		pendingConsumptions.forEach((c) => {
+			const studentName = getStudentName(c.studentId, studentsList);
 			todos.push({
 				id: `consumption-${c.id}`,
-				title: `待确认课消: ${c.courseName}`,
-				description: `学生ID: ${c.studentId}, 课时: ${c.hours}`,
+				title: `待确认课消: ${studentName} - ${c.courseName}`,
+				description: `提交顾问: ${c.consultantName}, 课时: ${c.hours}`,
 				type: 'consumption',
 				relatedId: c.id,
 				priority: 'high',
@@ -84,33 +94,35 @@ async function getTodosByRole(role: string, userId: string): Promise<TodoItem[]>
 		const scheduledMakeups = await db
 			.select()
 			.from(makeups)
-			.where(eq(makeups.status, 'scheduled'))
+			.where(and(eq(makeups.status, 'scheduled'), eq(makeups.teacherId, userId)))
 			.all();
 
 		scheduledMakeups.forEach((m) => {
+			const studentName = getStudentName(m.studentId, studentsList);
 			todos.push({
 				id: `makeup-${m.id}`,
-				title: `待完成补课: ${m.originalCourseName}`,
-				description: `学生ID: ${m.studentId}, 安排日期: ${m.scheduledDate}`,
+				title: `待完成补课: ${studentName} - ${m.originalCourseName}`,
+				description: `安排日期: ${m.scheduledDate}, 教室: ${m.classroom || '-'}`,
 				type: 'makeup',
 				relatedId: m.id,
-				priority: 'medium',
+				priority: 'high',
 				status: 'pending',
 				createdAt: m.createdAt || new Date().toISOString()
 			});
 		});
 	} else if (role === 'consultant') {
-		const pendingMakeupsForConsultant = await db
+		const pendingMakeups = await db
 			.select()
 			.from(makeups)
-			.where(eq(makeups.status, 'pending'))
+			.where(and(eq(makeups.status, 'pending'), eq(makeups.consultantId, userId)))
 			.all();
 
-		pendingMakeupsForConsultant.forEach((m) => {
+		pendingMakeups.forEach((m) => {
+			const studentName = getStudentName(m.studentId, studentsList);
 			todos.push({
 				id: `makeup-${m.id}`,
-				title: `待安排补课: ${m.originalCourseName}`,
-				description: `学生ID: ${m.studentId}, 原课程日期: ${m.originalCourseDate}`,
+				title: `待安排补课: ${studentName} - ${m.originalCourseName}`,
+				description: `原课程日期: ${m.originalCourseDate}, 提交人: 我`,
 				type: 'makeup',
 				relatedId: m.id,
 				priority: 'high',
@@ -119,22 +131,43 @@ async function getTodosByRole(role: string, userId: string): Promise<TodoItem[]>
 			});
 		});
 	} else if (role === 'admin') {
-		const allPending = await db
+		const pendingConsumptions = await db
 			.select()
 			.from(consumptions)
 			.where(eq(consumptions.status, 'pending'))
 			.all();
 
-		allPending.forEach((c) => {
+		pendingConsumptions.forEach((c) => {
+			const studentName = getStudentName(c.studentId, studentsList);
 			todos.push({
 				id: `consumption-${c.id}`,
-				title: `待确认课消: ${c.courseName}`,
-				description: `顾问: ${c.consultantName}`,
+				title: `待确认课消: ${studentName} - ${c.courseName}`,
+				description: `提交顾问: ${c.consultantName}, 课时: ${c.hours}`,
 				type: 'consumption',
 				relatedId: c.id,
 				priority: 'medium',
 				status: 'pending',
 				createdAt: c.createdAt || new Date().toISOString()
+			});
+		});
+
+		const pendingMakeups = await db
+			.select()
+			.from(makeups)
+			.where(eq(makeups.status, 'pending'))
+			.all();
+
+		pendingMakeups.forEach((m) => {
+			const studentName = getStudentName(m.studentId, studentsList);
+			todos.push({
+				id: `makeup-${m.id}`,
+				title: `待安排补课: ${studentName} - ${m.originalCourseName}`,
+				description: `提交顾问: ${m.consultantName}, 原课程日期: ${m.originalCourseDate}`,
+				type: 'makeup',
+				relatedId: m.id,
+				priority: 'medium',
+				status: 'pending',
+				createdAt: m.createdAt || new Date().toISOString()
 			});
 		});
 	}
