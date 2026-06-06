@@ -1,10 +1,10 @@
 import { Router, Request, Response } from 'express';
 import { v4 as uuidv4 } from 'uuid';
 import { store } from './store';
-import { 
-  CreateLockOrderRequest, 
-  ReviewRequest, 
-  GiftConfigRequest, 
+import {
+  CreateLockOrderRequest,
+  ReviewRequest,
+  GiftConfigRequest,
   ReturnRequest,
   OperationLog,
   InventoryStatus,
@@ -20,10 +20,10 @@ const RoleUserMap: Record<Role, string> = {
 const router = Router();
 
 const addOperationLog = (
-  orderId: string, 
-  operator: string, 
-  role: string, 
-  action: string, 
+  orderId: string,
+  operator: string,
+  role: string,
+  action: string,
   remark: string,
   fromStatus?: InventoryStatus,
   toStatus?: InventoryStatus
@@ -41,12 +41,61 @@ const addOperationLog = (
 };
 
 router.get('/orders', (req: Request, res: Response) => {
-  const { role } = req.query;
+  const { role, liveSessionName, priority, status, currentHandler, liveTimeFrom, liveTimeTo } = req.query;
+
+  let orders = store.getAllOrders();
+
   if (role) {
-    res.json(store.getOrdersByRole(role as any));
-  } else {
-    res.json(store.getAllOrders());
+    orders = orders.filter(order => {
+      if (role === 'ASSISTANT') {
+        return ['DRAFT', 'PENDING_LOCK', 'REVIEW_REJECTED', 'RETURNED'].includes(order.status)
+          || order.createdByRole === 'ASSISTANT';
+      }
+      if (role === 'STAGE_CONTROL') {
+        return ['PENDING_REVIEW', 'GIFT_CONFIGURING', 'GIFT_CONFIGURED'].includes(order.status);
+      }
+      if (role === 'AFTER_SALES_LEAD') {
+        return ['GIFT_CONFIGURING', 'GIFT_CONFIGURED', 'COMPLETED'].includes(order.status);
+      }
+      return false;
+    });
   }
+
+  if (liveSessionName) {
+    orders = orders.filter(o =>
+      o.liveSessionName.toLowerCase().includes((liveSessionName as string).toLowerCase())
+    );
+  }
+
+  if (priority) {
+    orders = orders.filter(o => o.priority === priority);
+  }
+
+  if (status) {
+    orders = orders.filter(o => o.status === status);
+  }
+
+  if (currentHandler) {
+    orders = orders.filter(o =>
+      o.currentHandler.toLowerCase().includes((currentHandler as string).toLowerCase())
+    );
+  }
+
+  if (liveTimeFrom) {
+    orders = orders.filter(o =>
+      o.expectedLiveTime && new Date(o.expectedLiveTime) >= new Date(liveTimeFrom as string)
+    );
+  }
+
+  if (liveTimeTo) {
+    orders = orders.filter(o =>
+      o.expectedLiveTime && new Date(o.expectedLiveTime) <= new Date(liveTimeTo as string)
+    );
+  }
+
+  orders.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+  res.json(orders);
 });
 
 router.get('/orders/:id', (req: Request, res: Response) => {
@@ -62,12 +111,12 @@ router.post('/orders', (req: Request, res: Response) => {
   const body: CreateLockOrderRequest = req.body;
   const now = new Date().toISOString();
   const orderNo = `INV-${new Date().toISOString().slice(0,10).replace(/-/g,'')}-${String(Math.floor(Math.random() * 1000)).padStart(3, '0')}`;
-  
+
   const skuListWithLocked = body.skuList.map(sku => ({
     ...sku,
     stockLocked: 0
   }));
-  
+
   const totalLockedAmount = 0;
 
   const newOrder = {
@@ -102,7 +151,7 @@ router.post('/orders/:id/submit-lock', (req: Request, res: Response) => {
   const { id } = req.params;
   const { operator, skuList } = req.body;
   const order = store.getOrderById(id);
-  
+
   if (!order) {
     return res.status(404).json({ error: 'Order not found' });
   }
@@ -117,7 +166,7 @@ router.post('/orders/:id/submit-lock', (req: Request, res: Response) => {
   );
 
   const log = addOperationLog(
-    id, operator, 'ASSISTANT', '提交锁定', 
+    id, operator, 'ASSISTANT', '提交锁定',
     '已确认SKU数量和价格，提交场控审核',
     order.status, 'PENDING_REVIEW'
   );
@@ -138,7 +187,7 @@ router.post('/orders/:id/review', (req: Request, res: Response) => {
   const { id } = req.params;
   const body: ReviewRequest = req.body;
   const order = store.getOrderById(id);
-  
+
   if (!order) {
     return res.status(404).json({ error: 'Order not found' });
   }
@@ -169,7 +218,7 @@ router.post('/orders/:id/gift-config', (req: Request, res: Response) => {
   const { id } = req.params;
   const body: GiftConfigRequest = req.body;
   const order = store.getOrderById(id);
-  
+
   if (!order) {
     return res.status(404).json({ error: 'Order not found' });
   }
@@ -195,7 +244,7 @@ router.post('/orders/:id/complete', (req: Request, res: Response) => {
   const { id } = req.params;
   const { operator } = req.body;
   const order = store.getOrderById(id);
-  
+
   if (!order) {
     return res.status(404).json({ error: 'Order not found' });
   }
@@ -218,7 +267,7 @@ router.post('/orders/:id/return', (req: Request, res: Response) => {
   const { id } = req.params;
   const body: ReturnRequest = req.body;
   const order = store.getOrderById(id);
-  
+
   if (!order) {
     return res.status(404).json({ error: 'Order not found' });
   }
@@ -244,7 +293,7 @@ router.post('/orders/:id/re-edit', (req: Request, res: Response) => {
   const { id } = req.params;
   const { operator } = req.body;
   const order = store.getOrderById(id);
-  
+
   if (!order) {
     return res.status(404).json({ error: 'Order not found' });
   }

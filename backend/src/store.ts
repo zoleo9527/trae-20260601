@@ -10,7 +10,10 @@ class DataStore {
 
   private initMockData() {
     const now = new Date().toISOString();
-    
+    const in12Hours = new Date(Date.now() + 12 * 60 * 60 * 1000).toISOString();
+    const in36Hours = new Date(Date.now() + 36 * 60 * 60 * 1000).toISOString();
+    const in60Hours = new Date(Date.now() + 60 * 60 * 60 * 1000).toISOString();
+
     const mockOrders: InventoryLockOrder[] = [
       {
         id: uuidv4(),
@@ -53,7 +56,7 @@ class DataStore {
             toStatus: 'PENDING_REVIEW'
           }
         ],
-        expectedLiveTime: '2026-06-06 20:00:00'
+        expectedLiveTime: in12Hours
       },
       {
         id: uuidv4(),
@@ -67,7 +70,7 @@ class DataStore {
         totalLockedAmount: 100 * 299 + 300 * 89,
         priority: 'URGENT',
         status: 'GIFT_CONFIGURING',
-        createdBy: '张伟',
+        createdBy: '李明',
         createdByRole: 'ASSISTANT',
         createdAt: now,
         updatedAt: now,
@@ -79,7 +82,7 @@ class DataStore {
           {
             id: uuidv4(),
             timestamp: now,
-            operator: '张伟',
+            operator: '李明',
             role: 'ASSISTANT',
             action: '创建库存锁定单',
             remark: '服饰专场预热',
@@ -88,7 +91,7 @@ class DataStore {
           {
             id: uuidv4(),
             timestamp: now,
-            operator: '张伟',
+            operator: '李明',
             role: 'ASSISTANT',
             action: '提交锁定',
             remark: '',
@@ -106,7 +109,7 @@ class DataStore {
             toStatus: 'GIFT_CONFIGURING'
           }
         ],
-        expectedLiveTime: '2026-06-07 19:30:00'
+        expectedLiveTime: in36Hours
       },
       {
         id: uuidv4(),
@@ -114,16 +117,16 @@ class DataStore {
         liveSessionId: 'LIVE-003',
         liveSessionName: '家居生活专场',
         skuList: [
-          { skuId: 'SKU005', skuName: '保温杯500ml', originalPrice: 199, livePrice: 99, stockAvailable: 1000, stockLocked: 500, unit: '个' },
+          { skuId: 'SKU005', skuName: '保温杯500ml', originalPrice: 199, livePrice: 99, stockAvailable: 1000, stockLocked: 0, unit: '个' },
         ],
-        totalLockedAmount: 500 * 99,
+        totalLockedAmount: 0,
         priority: 'NORMAL',
         status: 'REVIEW_REJECTED',
-        createdBy: '陈静',
+        createdBy: '李明',
         createdByRole: 'ASSISTANT',
         createdAt: now,
         updatedAt: now,
-        currentHandler: '陈静',
+        currentHandler: '李明',
         currentHandlerRole: 'ASSISTANT',
         giftList: [],
         priceRemark: '',
@@ -131,7 +134,7 @@ class DataStore {
           {
             id: uuidv4(),
             timestamp: now,
-            operator: '陈静',
+            operator: '李明',
             role: 'ASSISTANT',
             action: '创建库存锁定单',
             remark: '',
@@ -140,7 +143,7 @@ class DataStore {
           {
             id: uuidv4(),
             timestamp: now,
-            operator: '陈静',
+            operator: '李明',
             role: 'ASSISTANT',
             action: '提交锁定',
             remark: '',
@@ -159,7 +162,61 @@ class DataStore {
           }
         ],
         rejectReason: '价格口径不一致，直播价比日常价还高，请重新确认',
-        expectedLiveTime: '2026-06-08 20:00:00'
+        expectedLiveTime: in60Hours
+      },
+      {
+        id: uuidv4(),
+        orderNo: 'INV-20260606-004',
+        liveSessionId: 'LIVE-004',
+        liveSessionName: '食品生鲜专场',
+        skuList: [
+          { skuId: 'SKU006', skuName: '进口牛排套餐', originalPrice: 399, livePrice: 199, stockAvailable: 200, stockLocked: 150, unit: '套' },
+        ],
+        totalLockedAmount: 150 * 199,
+        priority: 'NORMAL',
+        status: 'COMPLETED',
+        createdBy: '李明',
+        createdByRole: 'ASSISTANT',
+        createdAt: now,
+        updatedAt: now,
+        currentHandler: '赵敏',
+        currentHandlerRole: 'AFTER_SALES_LEAD',
+        giftList: [
+          { giftId: 'GIFT001', giftName: '黑胡椒酱', quantity: 2, condition: '下单即赠', stock: 500 }
+        ],
+        priceRemark: '冷链配送，注意售后时效',
+        operationLogs: [
+          { id: uuidv4(), timestamp: now, operator: '李明', role: 'ASSISTANT', action: '创建库存锁定单', remark: '', toStatus: 'PENDING_LOCK' },
+          { id: uuidv4(), timestamp: now, operator: '李明', role: 'ASSISTANT', action: '提交锁定', remark: '', fromStatus: 'PENDING_LOCK', toStatus: 'PENDING_REVIEW' },
+          { id: uuidv4(), timestamp: now, operator: '王芳', role: 'STAGE_CONTROL', action: '审核通过', remark: '', fromStatus: 'PENDING_REVIEW', toStatus: 'GIFT_CONFIGURING' },
+          { id: uuidv4(), timestamp: now, operator: '赵敏', role: 'AFTER_SALES_LEAD', action: '配置赠品', remark: '', fromStatus: 'GIFT_CONFIGURING', toStatus: 'GIFT_CONFIGURED' },
+          { id: uuidv4(), timestamp: now, operator: '赵敏', role: 'AFTER_SALES_LEAD', action: '完成配置', remark: '', fromStatus: 'GIFT_CONFIGURED', toStatus: 'COMPLETED' }
+        ],
+        expectedLiveTime: in60Hours
+      },
+      {
+        id: uuidv4(),
+        orderNo: 'INV-20260606-005',
+        liveSessionId: 'LIVE-005',
+        liveSessionName: '数码3C专场',
+        skuList: [
+          { skuId: 'SKU007', skuName: '无线耳机', originalPrice: 299, livePrice: 159, stockAvailable: 300, stockLocked: 0, unit: '副' },
+        ],
+        totalLockedAmount: 0,
+        priority: 'URGENT',
+        status: 'PENDING_LOCK',
+        createdBy: '李明',
+        createdByRole: 'ASSISTANT',
+        createdAt: now,
+        updatedAt: now,
+        currentHandler: '李明',
+        currentHandlerRole: 'ASSISTANT',
+        giftList: [],
+        priceRemark: '限时秒杀，库存有限',
+        operationLogs: [
+          { id: uuidv4(), timestamp: now, operator: '李明', role: 'ASSISTANT', action: '创建库存锁定单', remark: '', toStatus: 'PENDING_LOCK' }
+        ],
+        expectedLiveTime: in36Hours
       }
     ];
 
@@ -169,7 +226,7 @@ class DataStore {
   }
 
   getAllOrders(): InventoryLockOrder[] {
-    return Array.from(this.orders.values()).sort((a, b) => 
+    return Array.from(this.orders.values()).sort((a, b) =>
       new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
     );
   }
@@ -181,7 +238,7 @@ class DataStore {
   getOrdersByRole(role: Role): InventoryLockOrder[] {
     return this.getAllOrders().filter(order => {
       if (role === 'ASSISTANT') {
-        return ['DRAFT', 'PENDING_LOCK', 'REVIEW_REJECTED', 'RETURNED'].includes(order.status) 
+        return ['DRAFT', 'PENDING_LOCK', 'REVIEW_REJECTED', 'RETURNED'].includes(order.status)
           || order.createdByRole === 'ASSISTANT';
       }
       if (role === 'STAGE_CONTROL') {

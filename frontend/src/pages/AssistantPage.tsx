@@ -1,145 +1,122 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  Card, 
-  Table, 
-  Button, 
-  Space, 
-  Tag, 
-  Modal, 
-  Form, 
-  Input, 
-  InputNumber, 
-  Select, 
-  DatePicker,
+import {
+  Button,
+  Table,
+  Space,
+  Tag,
   message,
-  Popconfirm,
-  Typography,
+  Statistic,
   Row,
-  Col
+  Col,
+  Card,
+  Modal,
+  Form,
+  Input,
+  InputNumber,
+  Select,
+  DatePicker
 } from 'antd';
-import { 
-  PlusOutlined, 
-  EditOutlined, 
-  EyeOutlined, 
-  ReloadOutlined 
+import {
+  PlusOutlined,
+  LockOutlined,
+  EyeOutlined,
+  EditOutlined,
+  ExclamationCircleOutlined,
+  ShoppingOutlined,
+  ClockCircleOutlined
 } from '@ant-design/icons';
-import { 
-  InventoryLockOrder, 
-  StatusNames, 
-  StatusColors, 
-  PriorityNames, 
-  PriorityColors 
+import {
+  InventoryLockOrder,
+  StatusNames,
+  StatusColors,
+  PriorityNames,
+  PriorityColors,
+  OrderFilterParams,
+  RoleNames
 } from '../types';
-import { orderApi, statsApi } from '../api';
+import { orderApi } from '../api';
 import { useAppStore } from '../store';
-import StatsCards from '../components/StatsCards';
-import dayjs, { Dayjs } from 'dayjs';
-import LockOrderDetail from './LockOrderDetail';
+import OrderFilter from '../components/OrderFilter';
+import dayjs from 'dayjs';
 
-const { Title } = Typography;
 const { Option } = Select;
 const { TextArea } = Input;
 
-interface SkuFormItem {
-  skuId: string;
-  skuName: string;
-  originalPrice: number;
-  livePrice: number;
-  stockAvailable: number;
-  unit: string;
-}
-
 const AssistantPage: React.FC = () => {
-  const { currentRole, currentUser, setSelectedOrder } = useAppStore();
+  const { currentUser } = useAppStore();
   const [orders, setOrders] = useState<InventoryLockOrder[]>([]);
-  const [stats, setStats] = useState({ total: 0, pendingReview: 0, giftConfiguring: 0, rejected: 0, completed: 0, urgent: 0 });
   const [loading, setLoading] = useState(false);
+  const [filters, setFilters] = useState<OrderFilterParams>({});
   const [createModalVisible, setCreateModalVisible] = useState(false);
-  const [detailVisible, setDetailVisible] = useState(false);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [form] = Form.useForm();
-  const [skus, setSkus] = useState<SkuFormItem[]>([
-    { skuId: '', skuName: '', originalPrice: 0, livePrice: 0, stockAvailable: 0, unit: '件' }
-  ]);
+  const [createForm] = Form.useForm();
 
-  const fetchData = async () => {
+  const quickFilters = [
+    {
+      label: '待锁定',
+      value: { status: 'PENDING_LOCK' } as OrderFilterParams,
+      type: 'processing' as const
+    },
+    {
+      label: '被驳回',
+      value: { status: 'REVIEW_REJECTED' } as OrderFilterParams,
+      type: 'danger' as const
+    },
+    {
+      label: '已退回',
+      value: { status: 'RETURNED' } as OrderFilterParams,
+      type: 'warning' as const
+    },
+    {
+      label: '24小时内开播',
+      value: {
+        liveTimeFrom: new Date().toISOString(),
+        liveTimeTo: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+      } as OrderFilterParams,
+      type: 'primary' as const
+    }
+  ];
+
+  const fetchOrders = async () => {
     setLoading(true);
     try {
-      const [ordersData, statsData] = await Promise.all([
-        orderApi.getAll(currentRole),
-        statsApi.getSummary()
-      ]);
-      setOrders(ordersData);
-      setStats(statsData);
+      const data = await orderApi.getAll('ASSISTANT', filters);
+      setOrders(data);
     } catch (error) {
-      message.error('加载数据失败');
+      message.error('加载订单失败');
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchData();
-  }, [currentRole]);
+    fetchOrders();
+  }, [filters]);
 
-  const handleCreate = async (values: any) => {
+  const handleCreateOrder = async (values: any) => {
     try {
-      const validSkus = skus.filter(s => s.skuId && s.skuName && s.stockAvailable > 0);
-      if (validSkus.length === 0) {
-        message.error('请至少添加一个有效SKU');
-        return;
-      }
-
       await orderApi.create({
-        liveSessionId: values.liveSessionId,
-        liveSessionName: values.liveSessionName,
-        skuList: validSkus,
-        priority: values.priority,
-        priceRemark: values.priceRemark || '',
+        ...values,
         createdBy: currentUser,
-        expectedLiveTime: values.expectedLiveTime?.toISOString()
+        liveSessionId: 'LS-' + Date.now(),
+        expectedLiveTime: values.expectedLiveTime ? values.expectedLiveTime.toISOString() : undefined,
+        skuList: [
+          {
+            skuId: 'SKU-' + Date.now(),
+            skuName: values.skuName,
+            originalPrice: values.originalPrice,
+            livePrice: values.livePrice,
+            stockAvailable: values.stockAvailable,
+            unit: '件'
+          }
+        ]
       });
-
       message.success('创建成功');
       setCreateModalVisible(false);
-      form.resetFields();
-      setSkus([{ skuId: '', skuName: '', originalPrice: 0, livePrice: 0, stockAvailable: 0, unit: '件' }]);
-      fetchData();
+      createForm.resetFields();
+      fetchOrders();
     } catch (error) {
       message.error('创建失败');
     }
-  };
-
-  const handleViewDetail = (order: InventoryLockOrder) => {
-    setSelectedOrder(order);
-    setSelectedId(order.id);
-    setDetailVisible(true);
-  };
-
-  const handleReEdit = async (id: string) => {
-    try {
-      await orderApi.reEdit(id, { operator: currentUser });
-      message.success('已进入重新编辑状态');
-      fetchData();
-    } catch (error) {
-      message.error('操作失败');
-    }
-  };
-
-  const addSku = () => {
-    setSkus([...skus, { skuId: '', skuName: '', originalPrice: 0, livePrice: 0, stockAvailable: 0, unit: '件' }]);
-  };
-
-  const removeSku = (index: number) => {
-    if (skus.length > 1) {
-      setSkus(skus.filter((_, i) => i !== index));
-    }
-  };
-
-  const updateSku = (index: number, field: keyof SkuFormItem, value: any) => {
-    const newSkus = [...skus];
-    newSkus[index] = { ...newSkus[index], [field]: value };
-    setSkus(newSkus);
   };
 
   const columns = [
@@ -147,89 +124,76 @@ const AssistantPage: React.FC = () => {
       title: '订单编号',
       dataIndex: 'orderNo',
       key: 'orderNo',
-      width: 150,
-      render: (text: string, record: InventoryLockOrder) => (
-        <Space>
-          {record.priority === 'EXTREME' && (
-            <Tag color="red" className="extreme-badge">特急</Tag>
-          )}
-          {record.priority === 'URGENT' && (
-            <Tag color="orange">紧急</Tag>
-          )}
-          <span>{text}</span>
-        </Space>
-      )
+      width: 160,
+      render: (text: string) => <b>{text}</b>
     },
     {
       title: '直播场次',
       dataIndex: 'liveSessionName',
       key: 'liveSessionName',
-      ellipsis: true,
+      render: (text: string, record: InventoryLockOrder) => (
+        <Space direction="vertical" size={0}>
+          <span>{text}</span>
+          {record.expectedLiveTime && (
+            <span style={{ fontSize: 12, color: '#999' }}>
+              <ClockCircleOutlined style={{ marginRight: 4 }} />
+              {dayjs(record.expectedLiveTime).format('MM-DD HH:mm')}
+            </span>
+          )}
+        </Space>
+      )
     },
     {
-      title: 'SKU数量',
-      dataIndex: ['skuList', 'length'],
-      key: 'skuCount',
-      width: 80,
+      title: '优先级',
+      dataIndex: 'priority',
+      key: 'priority',
+      width: 100,
+      render: (p: string) => <Tag color={PriorityColors[p as any]}>{PriorityNames[p as any]}</Tag>
+    },
+    {
+      title: '状态',
+      dataIndex: 'status',
+      key: 'status',
+      width: 120,
+      render: (s: string) => <Tag color={StatusColors[s as any]}>{StatusNames[s as any]}</Tag>
+    },
+    {
+      title: '当前处理人',
+      dataIndex: 'currentHandler',
+      key: 'currentHandler',
+      width: 120,
+      render: (text: string, record: InventoryLockOrder) => (
+        <Space>
+          <span>{text}</span>
+          <span style={{ fontSize: 12, color: '#999' }}>
+            ({RoleNames[record.currentHandlerRole]})
+          </span>
+        </Space>
+      )
     },
     {
       title: '锁定金额',
       dataIndex: 'totalLockedAmount',
       key: 'totalLockedAmount',
       width: 120,
-      render: (val: number) => `¥${val.toLocaleString()}`
-    },
-    {
-      title: '状态',
-      dataIndex: 'status',
-      key: 'status',
-      width: 100,
-      render: (status: any) => (
-        <Tag color={StatusColors[status]}>{StatusNames[status]}</Tag>
-      )
-    },
-    {
-      title: '当前处理人',
-      dataIndex: 'currentHandler',
-      key: 'currentHandler',
-      width: 100,
-    },
-    {
-      title: '预计开播',
-      dataIndex: 'expectedLiveTime',
-      key: 'expectedLiveTime',
-      width: 150,
-      render: (time: string) => time ? dayjs(time).format('MM-DD HH:mm') : '-'
+      render: (v: number) => `¥${v.toLocaleString()}`
     },
     {
       title: '创建时间',
       dataIndex: 'createdAt',
       key: 'createdAt',
-      width: 150,
-      render: (time: string) => dayjs(time).format('MM-DD HH:mm')
+      width: 160,
+      render: (t: string) => dayjs(t).format('YYYY-MM-DD HH:mm')
     },
     {
       title: '操作',
       key: 'action',
-      width: 180,
-      fixed: 'right' as const,
+      width: 200,
       render: (_: any, record: InventoryLockOrder) => (
         <Space size="small">
-          <Button 
-            type="link" 
-            size="small" 
-            icon={<EyeOutlined />}
-            onClick={() => handleViewDetail(record)}
-          >
-            详情
-          </Button>
-          {['REVIEW_REJECTED', 'RETURNED', 'PENDING_LOCK'].includes(record.status) && (
-            <Button 
-              type="link" 
-              size="small" 
-              icon={<EditOutlined />}
-              onClick={() => handleReEdit(record.id)}
-            >
+          <Button size="small" icon={<EyeOutlined />}>查看</Button>
+          {['PENDING_LOCK', 'REVIEW_REJECTED', 'RETURNED'].includes(record.status) && (
+            <Button size="small" type="primary" icon={<LockOutlined />}>
               {record.status === 'PENDING_LOCK' ? '锁定库存' : '重新编辑'}
             </Button>
           )}
@@ -238,32 +202,72 @@ const AssistantPage: React.FC = () => {
     }
   ];
 
+  const pendingCount = orders.filter(o => o.status === 'PENDING_LOCK').length;
+  const rejectedCount = orders.filter(o => o.status === 'REVIEW_REJECTED').length;
+  const urgentCount = orders.filter(o => ['URGENT', 'EXTREME'].includes(o.priority)).length;
+
   return (
     <div>
-      <Card style={{ marginBottom: 24 }}>
-        <Space style={{ width: '100%', justifyContent: 'space-between' }}>
-          <Title level={4} style={{ margin: 0 }}>主播助理工作台</Title>
-          <Space>
-            <Button icon={<ReloadOutlined />} onClick={fetchData}>刷新</Button>
-            <Button 
-              type="primary" 
-              icon={<PlusOutlined />}
-              onClick={() => setCreateModalVisible(true)}
-            >
-              新建库存锁定单
-            </Button>
-          </Space>
-        </Space>
-      </Card>
+      <Row gutter={16} style={{ marginBottom: 16 }}>
+        <Col xs={12} sm={8} md={6}>
+          <Card size="small">
+            <Statistic
+              title="待锁定"
+              value={pendingCount}
+              prefix={<ShoppingOutlined />}
+              valueStyle={{ color: '#1890ff' }}
+            />
+          </Card>
+        </Col>
+        <Col xs={12} sm={8} md={6}>
+          <Card size="small">
+            <Statistic
+              title="被驳回"
+              value={rejectedCount}
+              prefix={<ExclamationCircleOutlined />}
+              valueStyle={{ color: '#ff4d4f' }}
+            />
+          </Card>
+        </Col>
+        <Col xs={12} sm={8} md={6}>
+          <Card size="small">
+            <Statistic
+              title="紧急订单"
+              value={urgentCount}
+              prefix={<ExclamationCircleOutlined />}
+              valueStyle={{ color: '#fa8c16' }}
+            />
+          </Card>
+        </Col>
+      </Row>
 
-      <StatsCards stats={stats} />
+      <OrderFilter
+        filters={filters}
+        onChange={setFilters}
+        onSearch={fetchOrders}
+        onReset={() => setFilters({})}
+        quickFilters={quickFilters}
+      />
 
-      <Card>
+      <Card
+        title="库存锁定单列表"
+        size="small"
+        extra={
+          <Button
+            type="primary"
+            icon={<PlusOutlined />}
+            onClick={() => setCreateModalVisible(true)}
+          >
+            新建锁定单
+          </Button>
+        }
+      >
         <Table
           rowKey="id"
           columns={columns}
           dataSource={orders}
           loading={loading}
+          size="small"
           pagination={{ pageSize: 10 }}
           scroll={{ x: 1200 }}
         />
@@ -274,165 +278,69 @@ const AssistantPage: React.FC = () => {
         open={createModalVisible}
         onCancel={() => setCreateModalVisible(false)}
         footer={null}
-        width={900}
-        destroyOnHidden
+        width={700}
       >
         <Form
-          form={form}
+          form={createForm}
           layout="vertical"
-          onFinish={handleCreate}
+          onFinish={handleCreateOrder}
         >
           <Row gutter={16}>
-            <Col span={12}>
-              <Form.Item
-                label="场次ID"
-                name="liveSessionId"
-                rules={[{ required: true, message: '请输入场次ID' }]}
-              >
-                <Input placeholder="如: LIVE-001" />
+            <Col span={16}>
+              <Form.Item label="直播场次名称" name="liveSessionName" rules={[{ required: true }]}>
+                <Input placeholder="如：618大促美妆专场" />
               </Form.Item>
             </Col>
-            <Col span={12}>
-              <Form.Item
-                label="直播场次名称"
-                name="liveSessionName"
-                rules={[{ required: true, message: '请输入场次名称' }]}
-              >
-                <Input placeholder="如: 618大促专场-美妆护肤" />
+            <Col span={8}>
+              <Form.Item label="预计开播时间" name="expectedLiveTime">
+                <DatePicker showTime style={{ width: '100%' }} />
               </Form.Item>
             </Col>
           </Row>
           <Row gutter={16}>
-            <Col span={12}>
-              <Form.Item
-                label="优先级"
-                name="priority"
-                initialValue="NORMAL"
-                rules={[{ required: true }]}
-              >
-                <Select>
+            <Col span={8}>
+              <Form.Item label="SKU名称" name="skuName" rules={[{ required: true }]}>
+                <Input placeholder="如：精华液50ml" />
+              </Form.Item>
+            </Col>
+            <Col span={8}>
+              <Form.Item label="日常原价" name="originalPrice" rules={[{ required: true }]}>
+                <InputNumber style={{ width: '100%' }} min={0} prefix="¥" />
+              </Form.Item>
+            </Col>
+            <Col span={8}>
+              <Form.Item label="直播价" name="livePrice" rules={[{ required: true }]}>
+                <InputNumber style={{ width: '100%' }} min={0} prefix="¥" />
+              </Form.Item>
+            </Col>
+          </Row>
+          <Row gutter={16}>
+            <Col span={8}>
+              <Form.Item label="可用库存" name="stockAvailable" rules={[{ required: true }]}>
+                <InputNumber style={{ width: '100%' }} min={0} />
+              </Form.Item>
+            </Col>
+            <Col span={8}>
+              <Form.Item label="优先级" name="priority" rules={[{ required: true }]}>
+                <Select placeholder="选择优先级">
                   <Option value="NORMAL">普通</Option>
                   <Option value="URGENT">紧急</Option>
-                  <Option value="EXTREME">特急 (立即处理)</Option>
+                  <Option value="EXTREME">特急</Option>
                 </Select>
               </Form.Item>
             </Col>
-            <Col span={12}>
-              <Form.Item
-                label="预计开播时间"
-                name="expectedLiveTime"
-              >
-                <DatePicker 
-                  showTime 
-                  style={{ width: '100%' }}
-                  format="YYYY-MM-DD HH:mm"
-                />
-              </Form.Item>
-            </Col>
           </Row>
-
-          <Form.Item label="SKU列表">
-            <div style={{ border: '1px solid #f0f0f0', padding: 16, borderRadius: 8 }}>
-              {skus.map((sku, index) => (
-                <Row key={index} gutter={8} style={{ marginBottom: 8 }} align="middle">
-                  <Col span={4}>
-                    <Input 
-                      placeholder="SKU编码" 
-                      value={sku.skuId}
-                      onChange={(e) => updateSku(index, 'skuId', e.target.value)}
-                    />
-                  </Col>
-                  <Col span={5}>
-                    <Input 
-                      placeholder="商品名称" 
-                      value={sku.skuName}
-                      onChange={(e) => updateSku(index, 'skuName', e.target.value)}
-                    />
-                  </Col>
-                  <Col span={3}>
-                    <InputNumber 
-                      placeholder="原价" 
-                      style={{ width: '100%' }}
-                      min={0}
-                      value={sku.originalPrice}
-                      onChange={(v) => updateSku(index, 'originalPrice', v || 0)}
-                    />
-                  </Col>
-                  <Col span={3}>
-                    <InputNumber 
-                      placeholder="直播价" 
-                      style={{ width: '100%' }}
-                      min={0}
-                      value={sku.livePrice}
-                      onChange={(v) => updateSku(index, 'livePrice', v || 0)}
-                    />
-                  </Col>
-                  <Col span={3}>
-                    <InputNumber 
-                      placeholder="可锁库存" 
-                      style={{ width: '100%' }}
-                      min={0}
-                      value={sku.stockAvailable}
-                      onChange={(v) => updateSku(index, 'stockAvailable', v || 0)}
-                    />
-                  </Col>
-                  <Col span={3}>
-                    <Select 
-                      value={sku.unit}
-                      onChange={(v) => updateSku(index, 'unit', v)}
-                    >
-                      <Option value="件">件</Option>
-                      <Option value="个">个</Option>
-                      <Option value="瓶">瓶</Option>
-                      <Option value="套">套</Option>
-                    </Select>
-                  </Col>
-                  <Col span={3}>
-                    <Button 
-                      type="text" 
-                      danger 
-                      onClick={() => removeSku(index)}
-                      disabled={skus.length === 1}
-                    >
-                      删除
-                    </Button>
-                  </Col>
-                </Row>
-              ))}
-              <Button type="dashed" block onClick={addSku} icon={<PlusOutlined />}>
-                添加SKU
-              </Button>
-            </div>
+          <Form.Item label="价格口径说明" name="priceRemark">
+            <TextArea rows={3} placeholder="请填写价格口径说明，避免审核时出现价格争议。如：直播间专属价，比日常低50%，活动仅限直播期间..." />
           </Form.Item>
-
-          <Form.Item
-            label="价格口径说明"
-            name="priceRemark"
-            tooltip="请详细说明价格计算规则，避免价格口径错误"
-          >
-            <TextArea 
-              rows={3} 
-              placeholder="如: 主播直播间专属价，比日常低50%，满299减50..."
-            />
-          </Form.Item>
-
-          <Form.Item style={{ marginBottom: 0, textAlign: 'right' }}>
+          <div style={{ textAlign: 'right' }}>
             <Space>
               <Button onClick={() => setCreateModalVisible(false)}>取消</Button>
-              <Button type="primary" htmlType="submit">创建锁定单</Button>
+              <Button type="primary" htmlType="submit">创建</Button>
             </Space>
-          </Form.Item>
+          </div>
         </Form>
       </Modal>
-
-      {detailVisible && selectedId && (
-        <LockOrderDetail
-          orderId={selectedId}
-          visible={detailVisible}
-          onClose={() => setDetailVisible(false)}
-          onRefresh={fetchData}
-        />
-      )}
     </div>
   );
 };

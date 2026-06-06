@@ -1,113 +1,119 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  Card, 
-  Table, 
-  Button, 
-  Space, 
-  Tag, 
-  Modal, 
-  Form, 
-  Input, 
+import {
+  Button,
+  Table,
+  Space,
+  Tag,
   message,
-  Typography,
+  Statistic,
+  Row,
+  Col,
+  Card,
+  Modal,
+  Form,
   Radio,
-  Alert
+  Input,
+  Descriptions
 } from 'antd';
-import { 
-  CheckOutlined, 
-  CloseOutlined, 
-  EyeOutlined, 
-  ReloadOutlined,
-  RollbackOutlined
+import {
+  CheckCircleOutlined,
+  CloseCircleOutlined,
+  EyeOutlined,
+  RollbackOutlined,
+  ClockCircleOutlined
 } from '@ant-design/icons';
-import { 
-  InventoryLockOrder, 
-  StatusNames, 
-  StatusColors, 
-  PriorityNames, 
-  PriorityColors 
+import {
+  InventoryLockOrder,
+  StatusNames,
+  StatusColors,
+  PriorityNames,
+  PriorityColors,
+  OrderFilterParams,
+  RoleNames
 } from '../types';
-import { orderApi, statsApi } from '../api';
+import { orderApi } from '../api';
 import { useAppStore } from '../store';
-import StatsCards from '../components/StatsCards';
+import OrderFilter from '../components/OrderFilter';
 import dayjs from 'dayjs';
-import LockOrderDetail from './LockOrderDetail';
 
-const { Title, Text } = Typography;
 const { TextArea } = Input;
 
 const StageControlPage: React.FC = () => {
-  const { currentRole, currentUser } = useAppStore();
+  const { currentUser } = useAppStore();
   const [orders, setOrders] = useState<InventoryLockOrder[]>([]);
-  const [stats, setStats] = useState({ total: 0, pendingReview: 0, giftConfiguring: 0, rejected: 0, completed: 0, urgent: 0 });
   const [loading, setLoading] = useState(false);
+  const [filters, setFilters] = useState<OrderFilterParams>({});
   const [reviewModalVisible, setReviewModalVisible] = useState(false);
-  const [detailVisible, setDetailVisible] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<InventoryLockOrder | null>(null);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [form] = Form.useForm();
-  const [reviewResult, setReviewResult] = useState<'approve' | 'reject'>('approve');
+  const [reviewForm] = Form.useForm();
 
-  const fetchData = async () => {
+  const quickFilters = [
+    {
+      label: '待审核',
+      value: { status: 'PENDING_REVIEW' } as OrderFilterParams,
+      type: 'warning' as const
+    },
+    {
+      label: '特急订单',
+      value: { priority: 'EXTREME' } as OrderFilterParams,
+      type: 'danger' as const
+    },
+    {
+      label: '12小时内开播',
+      value: {
+        liveTimeFrom: new Date().toISOString(),
+        liveTimeTo: new Date(Date.now() + 12 * 60 * 60 * 1000).toISOString()
+      } as OrderFilterParams,
+      type: 'primary' as const
+    }
+  ];
+
+  const fetchOrders = async () => {
     setLoading(true);
     try {
-      const [ordersData, statsData] = await Promise.all([
-        orderApi.getAll(currentRole),
-        statsApi.getSummary()
-      ]);
-      setOrders(ordersData);
-      setStats(statsData);
+      const data = await orderApi.getAll('STAGE_CONTROL', filters);
+      setOrders(data);
     } catch (error) {
-      message.error('加载数据失败');
+      message.error('加载订单失败');
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchData();
-  }, [currentRole]);
-
-  const handleOpenReview = (order: InventoryLockOrder) => {
-    setSelectedOrder(order);
-    setReviewResult('approve');
-    form.resetFields();
-    setReviewModalVisible(true);
-  };
+    fetchOrders();
+  }, [filters]);
 
   const handleReview = async (values: any) => {
     if (!selectedOrder) return;
-    
+
     try {
       await orderApi.review(selectedOrder.id, {
-        approved: reviewResult === 'approve',
+        ...values,
         reviewer: currentUser,
-        remark: values.remark || '',
-        rejectReason: reviewResult === 'reject' ? values.rejectReason : undefined
+        orderId: selectedOrder.id
       });
-      
-      message.success(reviewResult === 'approve' ? '审核通过，已流转到赠品配置' : '已驳回');
+      message.success(values.approved ? '审核通过' : '已驳回');
       setReviewModalVisible(false);
-      fetchData();
+      reviewForm.resetFields();
+      fetchOrders();
     } catch (error) {
       message.error('操作失败');
     }
   };
 
-  const handleReturn = async (order: InventoryLockOrder) => {
+  const handleReturn = async (record: InventoryLockOrder) => {
     Modal.confirm({
-      title: '确认退回订单',
-      content: '退回后订单将返回给主播助理重新处理',
-      okText: '确认退回',
-      okType: 'danger',
+      title: '确认退回此订单？',
+      content: '退回后主播助理将重新编辑，订单状态将变为「已退回」',
       onOk: async () => {
         try {
-          await orderApi.return(order.id, {
+          await orderApi.return(record.id, {
             operator: currentUser,
-            reason: '场控审核退回，需重新核对信息'
+            reason: '需要补充更多信息'
           });
           message.success('已退回');
-          fetchData();
+          fetchOrders();
         } catch (error) {
           message.error('操作失败');
         }
@@ -115,87 +121,80 @@ const StageControlPage: React.FC = () => {
     });
   };
 
-  const handleViewDetail = (order: InventoryLockOrder) => {
-    setSelectedOrder(order);
-    setSelectedId(order.id);
-    setDetailVisible(true);
+  const openReviewModal = (record: InventoryLockOrder) => {
+    setSelectedOrder(record);
+    setReviewModalVisible(true);
+    reviewForm.setFieldsValue({
+      approved: true,
+      remark: '',
+      rejectReason: ''
+    });
   };
-
-  const pendingReviewOrders = orders.filter(o => o.status === 'PENDING_REVIEW');
-  const otherOrders = orders.filter(o => o.status !== 'PENDING_REVIEW');
 
   const columns = [
     {
       title: '订单编号',
       dataIndex: 'orderNo',
       key: 'orderNo',
-      width: 150,
-      render: (text: string, record: InventoryLockOrder) => (
-        <Space>
-          {record.priority === 'EXTREME' && (
-            <Tag color="red" className="extreme-badge">特急</Tag>
-          )}
-          {record.priority === 'URGENT' && (
-            <Tag color="orange">紧急</Tag>
-          )}
-          <span>{text}</span>
-        </Space>
-      )
+      width: 160,
+      render: (text: string) => <b>{text}</b>
     },
     {
       title: '直播场次',
       dataIndex: 'liveSessionName',
       key: 'liveSessionName',
-      ellipsis: true,
+      render: (text: string, record: InventoryLockOrder) => (
+        <Space direction="vertical" size={0}>
+          <span>{text}</span>
+          {record.expectedLiveTime && (
+            <span style={{ fontSize: 12, color: '#999' }}>
+              <ClockCircleOutlined style={{ marginRight: 4 }} />
+              {dayjs(record.expectedLiveTime).format('MM-DD HH:mm')}
+            </span>
+          )}
+        </Space>
+      )
+    },
+    {
+      title: '优先级',
+      dataIndex: 'priority',
+      key: 'priority',
+      width: 100,
+      render: (p: string) => <Tag color={PriorityColors[p as any]}>{PriorityNames[p as any]}</Tag>
+    },
+    {
+      title: '状态',
+      dataIndex: 'status',
+      key: 'status',
+      width: 120,
+      render: (s: string) => <Tag color={StatusColors[s as any]}>{StatusNames[s as any]}</Tag>
+    },
+    {
+      title: '当前处理人',
+      dataIndex: 'currentHandler',
+      key: 'currentHandler',
+      width: 120,
+      render: (text: string, record: InventoryLockOrder) => (
+        <Space>
+          <span>{text}</span>
+          <span style={{ fontSize: 12, color: '#999' }}>
+            ({RoleNames[record.currentHandlerRole]})
+          </span>
+        </Space>
+      )
     },
     {
       title: '创建人',
       dataIndex: 'createdBy',
       key: 'createdBy',
-      width: 100,
-    },
-    {
-      title: 'SKU数',
-      dataIndex: ['skuList', 'length'],
-      key: 'skuCount',
-      width: 80,
+      width: 100
     },
     {
       title: '锁定金额',
       dataIndex: 'totalLockedAmount',
       key: 'totalLockedAmount',
       width: 120,
-      render: (val: number) => `¥${val.toLocaleString()}`
-    },
-    {
-      title: '状态',
-      dataIndex: 'status',
-      key: 'status',
-      width: 100,
-      render: (status: any) => (
-        <Tag color={StatusColors[status]}>{StatusNames[status]}</Tag>
-      )
-    },
-    {
-      title: '预计开播',
-      dataIndex: 'expectedLiveTime',
-      key: 'expectedLiveTime',
-      width: 150,
-      render: (time: string) => {
-        if (!time) return '-';
-        const diff = dayjs(time).diff(dayjs(), 'hour');
-        return (
-          <Space>
-            <span>{dayjs(time).format('MM-DD HH:mm')}</span>
-            {diff < 24 && diff > 0 && (
-              <Tag color="orange" className="urgent-pulse">{diff}小时后</Tag>
-            )}
-            {diff <= 0 && (
-              <Tag color="red" className="extreme-badge">已临近</Tag>
-            )}
-          </Space>
-        );
-      }
+      render: (v: number) => `¥${v.toLocaleString()}`
     },
     {
       title: '操作',
@@ -204,27 +203,19 @@ const StageControlPage: React.FC = () => {
       fixed: 'right' as const,
       render: (_: any, record: InventoryLockOrder) => (
         <Space size="small">
-          <Button 
-            type="link" 
-            size="small" 
-            icon={<EyeOutlined />}
-            onClick={() => handleViewDetail(record)}
-          >
-            详情
-          </Button>
+          <Button size="small" icon={<EyeOutlined />}>查看</Button>
           {record.status === 'PENDING_REVIEW' && (
             <>
-              <Button 
-                type="primary" 
-                size="small" 
-                icon={<CheckOutlined />}
-                onClick={() => handleOpenReview(record)}
+              <Button
+                size="small"
+                type="primary"
+                icon={<CheckCircleOutlined />}
+                onClick={() => openReviewModal(record)}
               >
                 审核
               </Button>
-              <Button 
+              <Button
                 size="small"
-                danger
                 icon={<RollbackOutlined />}
                 onClick={() => handleReturn(record)}
               >
@@ -237,73 +228,66 @@ const StageControlPage: React.FC = () => {
     }
   ];
 
+  const pendingReviewCount = orders.filter(o => o.status === 'PENDING_REVIEW').length;
+  const urgentCount = orders.filter(o => ['URGENT', 'EXTREME'].includes(o.priority)).length;
+  const todayCount = orders.filter(o =>
+    o.expectedLiveTime && dayjs(o.expectedLiveTime).isSame(dayjs(), 'day')
+  ).length;
+
   return (
     <div>
-      <Card style={{ marginBottom: 24 }}>
-        <Space style={{ width: '100%', justifyContent: 'space-between' }}>
-          <Title level={4} style={{ margin: 0 }}>场控工作台</Title>
-          <Button icon={<ReloadOutlined />} onClick={fetchData}>刷新</Button>
-        </Space>
-      </Card>
+      <Row gutter={16} style={{ marginBottom: 16 }}>
+        <Col xs={12} sm={8} md={6}>
+          <Card size="small">
+            <Statistic
+              title="待审核"
+              value={pendingReviewCount}
+              valueStyle={{ color: '#faad14' }}
+            />
+          </Card>
+        </Col>
+        <Col xs={12} sm={8} md={6}>
+          <Card size="small">
+            <Statistic
+              title="今日开播"
+              value={todayCount}
+              valueStyle={{ color: '#1890ff' }}
+            />
+          </Card>
+        </Col>
+        <Col xs={12} sm={8} md={6}>
+          <Card size="small">
+            <Statistic
+              title="紧急订单"
+              value={urgentCount}
+              valueStyle={{ color: '#ff4d4f' }}
+            />
+          </Card>
+        </Col>
+      </Row>
 
-      <StatsCards stats={stats} />
+      <OrderFilter
+        filters={filters}
+        onChange={setFilters}
+        onSearch={fetchOrders}
+        onReset={() => setFilters({})}
+        quickFilters={quickFilters}
+      />
 
-      {pendingReviewOrders.length > 0 && (
-        <Alert
-          message={`有 ${pendingReviewOrders.length} 个订单待审核`}
-          description={pendingReviewOrders.some(o => o.priority === 'EXTREME' || o.priority === 'URGENT') 
-            ? '包含紧急/特急订单，请优先处理！' 
-            : '请及时审核，避免影响直播进度'}
-          type="warning"
-          showIcon
-          style={{ marginBottom: 24 }}
-          className={pendingReviewOrders.some(o => o.priority === 'EXTREME') ? 'urgent-pulse' : ''}
-        />
-      )}
-
-      <Card 
-        title={
-          <Space>
-            <span>待审核订单</span>
-            <Tag color="red">{pendingReviewOrders.length}</Tag>
-          </Space>
-        } 
-        style={{ marginBottom: 24 }}
-      >
+      <Card title="订单审核列表" size="small">
         <Table
           rowKey="id"
           columns={columns}
-          dataSource={pendingReviewOrders}
+          dataSource={orders}
           loading={loading}
-          pagination={false}
-          scroll={{ x: 1200 }}
-          locale={{ emptyText: '暂无待审核订单' }}
-        />
-      </Card>
-
-      <Card title="其他订单">
-        <Table
-          rowKey="id"
-          columns={columns}
-          dataSource={otherOrders}
-          loading={loading}
+          size="small"
           pagination={{ pageSize: 10 }}
-          scroll={{ x: 1200 }}
-          locale={{ emptyText: '暂无其他订单' }}
+          scroll={{ x: 1300 }}
         />
       </Card>
 
       <Modal
-        title={
-          <Space>
-            <span>审核订单</span>
-            {selectedOrder && (
-              <Tag color={PriorityColors[selectedOrder.priority]}>
-                {PriorityNames[selectedOrder.priority]}
-              </Tag>
-            )}
-          </Space>
-        }
+        title="审核库存锁定单"
         open={reviewModalVisible}
         onCancel={() => setReviewModalVisible(false)}
         footer={null}
@@ -312,87 +296,61 @@ const StageControlPage: React.FC = () => {
       >
         {selectedOrder && (
           <>
-            <Alert
-              message={selectedOrder.liveSessionName}
-              description={
-                <Space direction="vertical" size={2}>
-                  <Text>订单号: {selectedOrder.orderNo}</Text>
-                  <Text>锁定金额: ¥{selectedOrder.totalLockedAmount.toLocaleString()}</Text>
-                  {selectedOrder.priceRemark && (
-                    <Text type="warning">价格口径: {selectedOrder.priceRemark}</Text>
-                  )}
-                </Space>
-              }
-              type="info"
-              showIcon
-              style={{ marginBottom: 16 }}
-            />
+            <Card size="small" style={{ marginBottom: 16 }} title="订单信息">
+              <Descriptions column={2} size="small">
+                <Descriptions.Item label="订单编号">{selectedOrder.orderNo}</Descriptions.Item>
+                <Descriptions.Item label="直播场次">{selectedOrder.liveSessionName}</Descriptions.Item>
+                <Descriptions.Item label="创建人">{selectedOrder.createdBy}</Descriptions.Item>
+                <Descriptions.Item label="锁定金额">¥{selectedOrder.totalLockedAmount.toLocaleString()}</Descriptions.Item>
+              </Descriptions>
+              {selectedOrder.priceRemark && (
+                <div style={{ marginTop: 8, padding: '8px 12px', background: '#fffbe6', borderRadius: 4 }}>
+                  <b>价格口径：</b>{selectedOrder.priceRemark}
+                </div>
+              )}
+              <div style={{ marginTop: 8 }}>
+                <b>SKU明细：</b>
+                {selectedOrder.skuList.map(sku => (
+                  <div key={sku.skuId} style={{ fontSize: 13, color: '#666', paddingLeft: 12 }}>
+                    {sku.skuName} - 锁定 {sku.stockLocked}{sku.unit} | 直播价 ¥{sku.livePrice}（原价 ¥{sku.originalPrice}）
+                  </div>
+                ))}
+              </div>
+            </Card>
 
-            <Form form={form} layout="vertical" onFinish={handleReview}>
-              <Form.Item label="审核结果">
-                <Radio.Group 
-                  value={reviewResult} 
-                  onChange={(e) => setReviewResult(e.target.value)}
-                  optionType="button"
-                  buttonStyle="solid"
-                >
-                  <Radio.Button value="approve">
-                    <CheckOutlined style={{ color: '#52c41a' }} /> 审核通过
-                  </Radio.Button>
-                  <Radio.Button value="reject">
-                    <CloseOutlined style={{ color: '#ff4d4f' }} /> 驳回
-                  </Radio.Button>
+            <Form
+              form={reviewForm}
+              layout="vertical"
+              onFinish={handleReview}
+            >
+              <Form.Item label="审核结果" name="approved" rules={[{ required: true }]}>
+                <Radio.Group>
+                  <Radio value={true}>通过</Radio>
+                  <Radio value={false}>驳回</Radio>
                 </Radio.Group>
               </Form.Item>
-
-              {reviewResult === 'reject' && (
-                <Form.Item
-                  name="rejectReason"
-                  label="驳回原因"
-                  rules={[{ required: true, message: '请填写驳回原因' }]}
-                >
-                  <TextArea 
-                    rows={3} 
-                    placeholder="请详细说明驳回原因，如价格口径错误、库存数据不符等，便于主播助理修改"
-                  />
-                </Form.Item>
-              )}
-
-              <Form.Item
-                name="remark"
-                label="审核备注"
-              >
-                <TextArea 
-                  rows={2} 
-                  placeholder="可选，填写审核意见或补充说明"
-                />
+              <Form.Item label="审核意见" name="remark">
+                <TextArea rows={3} placeholder="请填写审核意见" />
               </Form.Item>
-
-              <Form.Item style={{ marginBottom: 0, textAlign: 'right' }}>
+              <Form.Item noStyle shouldUpdate={(prev, curr) => prev.approved !== curr.approved}>
+                {({ getFieldValue }) =>
+                  getFieldValue('approved') === false && (
+                    <Form.Item label="驳回原因" name="rejectReason" rules={[{ required: true, message: '请填写驳回原因' }]}>
+                      <TextArea rows={3} placeholder="请详细说明驳回原因，如价格口径错误、库存不足等" />
+                    </Form.Item>
+                  )
+                }
+              </Form.Item>
+              <div style={{ textAlign: 'right' }}>
                 <Space>
                   <Button onClick={() => setReviewModalVisible(false)}>取消</Button>
-                  <Button 
-                    type={reviewResult === 'approve' ? 'primary' : 'default'}
-                    danger={reviewResult === 'reject'}
-                    htmlType="submit"
-                  >
-                    {reviewResult === 'approve' ? '确认通过' : '确认驳回'}
-                  </Button>
+                  <Button type="primary" htmlType="submit">确认</Button>
                 </Space>
-              </Form.Item>
+              </div>
             </Form>
           </>
         )}
       </Modal>
-
-      {detailVisible && selectedId && (
-        <LockOrderDetail
-          orderId={selectedId}
-          visible={detailVisible}
-          onClose={() => setDetailVisible(false)}
-          onRefresh={fetchData}
-        />
-      )}
     </div>
   );
 };

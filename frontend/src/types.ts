@@ -74,6 +74,15 @@ export interface StatsSummary {
   urgent: number;
 }
 
+export interface OrderFilterParams {
+  liveSessionName?: string;
+  priority?: string;
+  status?: string;
+  currentHandler?: string;
+  liveTimeFrom?: string;
+  liveTimeTo?: string;
+}
+
 export const RoleNames: Record<Role, string> = {
   ASSISTANT: '主播助理',
   STAGE_CONTROL: '场控',
