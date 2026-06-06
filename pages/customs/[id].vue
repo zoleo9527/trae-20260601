@@ -142,14 +142,23 @@
         </div>
       </div>
     </div>
+
+    <CustomsFormModal
+      :visible="showEditModal"
+      mode="edit"
+      :initial-data="document"
+      @close="showEditModal = false"
+      @submit="handleEditSubmit"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { ref, computed } from 'vue'
 import { ArrowLeft, Edit, Send, Check, X } from 'lucide-vue-next'
 import StatusBadge from '~/components/StatusBadge.vue'
 import Timeline from '~/components/Timeline.vue'
+import CustomsFormModal from '~/components/CustomsFormModal.vue'
 import { useAppStore } from '~/stores/app'
 import { useFormat } from '~/composables/useFormat'
 import type { CustomsDocument } from '~/types'
@@ -159,9 +168,12 @@ const appStore = useAppStore()
 const { formatMoney, formatDate } = useFormat()
 
 const docId = computed(() => route.params.id as string)
+const showEditModal = ref(false)
 
-const { data: document, refresh } = await useFetch<CustomsDocument>(() => `/api/customs/${docId.value}`)
-const { data: allDocuments } = await useFetch<CustomsDocument[]>('/api/customs')
+const { data: documentRaw, refresh } = await useFetch<{ success: boolean; data: CustomsDocument }>(() => `/api/customs/${docId.value}`)
+const document = computed(() => documentRaw.value?.data)
+const { data: allDocumentsRaw } = await useFetch<{ success: boolean; data: CustomsDocument[] }>('/api/customs')
+const allDocuments = computed(() => allDocumentsRaw.value?.data)
 
 const versionHistory = computed(() => {
   if (!allDocuments.value || !document.value) return []
@@ -171,11 +183,27 @@ const versionHistory = computed(() => {
 })
 
 const handleEdit = () => {
-  alert('编辑报关资料')
+  showEditModal.value = true
+}
+
+const handleEditSubmit = async (formData: any) => {
+  try {
+    await $fetch(`/api/customs/${docId.value}`, {
+      method: 'PUT',
+      body: formData
+    })
+    showEditModal.value = false
+    refresh()
+  } catch (error: any) {
+    alert(error.message || '保存失败，请重试')
+  }
 }
 
 const handleSubmit = async () => {
-  await $fetch(`/api/customs/${docId.value}/submit`, { method: 'POST' })
+  await $fetch(`/api/customs/${docId.value}/submit`, { 
+    method: 'POST',
+    body: { submitter: appStore.currentUser.name }
+  })
   refresh()
 }
 
@@ -185,7 +213,7 @@ const handleReview = async (approved: boolean) => {
 
   await $fetch(`/api/customs/${docId.value}/review`, {
     method: 'POST',
-    body: { approved, comment }
+    body: { passed: approved, reviewer: appStore.currentUser.name, comment }
   })
   refresh()
 }

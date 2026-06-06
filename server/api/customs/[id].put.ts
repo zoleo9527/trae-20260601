@@ -21,7 +21,18 @@ export default defineEventHandler(async (event) => {
       };
     }
 
+    const operator = body.submitter || body.operator || '系统';
+    
     const updatedDoc = store.updateCustomsDocument(id, body);
+
+    store.addCustomsTimelineEvent(id, {
+      type: 'customs',
+      title: '编辑报关资料',
+      description: '报关资料内容已更新',
+      operator,
+      operatorRole: 'customs',
+      timestamp: new Date().toISOString()
+    });
 
     return {
       success: true,

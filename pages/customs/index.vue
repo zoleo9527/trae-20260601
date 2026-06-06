@@ -4,7 +4,7 @@
       <h1 class="text-2xl font-bold text-gray-900">报关资料</h1>
       <button
         class="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-        @click="handleCreateCustoms"
+        @click="openCreateModal"
       >
         <Plus class="w-4 h-4" />
         创建报关资料
@@ -98,6 +98,15 @@
         </table>
       </div>
     </div>
+
+    <CustomsFormModal
+      :visible="showFormModal"
+      :mode="formMode"
+      :initial-data="editingDoc"
+      :available-orders="availableOrders"
+      @close="closeFormModal"
+      @submit="handleFormSubmit"
+    />
   </div>
 </template>
 
@@ -105,16 +114,31 @@
 import { ref, computed } from 'vue'
 import { Plus } from 'lucide-vue-next'
 import StatusBadge from '~/components/StatusBadge.vue'
+import CustomsFormModal from '~/components/CustomsFormModal.vue'
 import { useAppStore } from '~/stores/app'
 import { useFormat } from '~/composables/useFormat'
-import type { CustomsDocument, CustomsStatus } from '~/types'
+import type { CustomsDocument, CustomsStatus, Order } from '~/types'
 
 const appStore = useAppStore()
 const { formatDate } = useFormat()
 
 const statusFilter = ref<string>('')
+const showFormModal = ref(false)
+const formMode = ref<'create' | 'edit'>('create')
+const editingDoc = ref<CustomsDocument | null>(null)
 
-const { data: documents, refresh } = await useFetch<CustomsDocument[]>('/api/customs')
+const { data: documentsRaw, refresh } = await useFetch<{ success: boolean; data: CustomsDocument[] }>('/api/customs')
+const documents = computed(() => documentsRaw.value?.data)
+
+const { data: ordersRaw } = await useFetch<{ success: boolean; data: Order[] }>('/api/orders')
+const allOrders = computed(() => ordersRaw.value?.data || [])
+
+const availableOrders = computed(() => {
+  if (!allOrders.value) return []
+  return allOrders.value.filter(order => 
+    order.status === 'pending_customs' || order.status === 'synced'
+  )
+})
 
 const filteredDocuments = computed(() => {
   if (!documents.value) return []
@@ -125,8 +149,21 @@ const filteredDocuments = computed(() => {
   })
 })
 
-const handleCreateCustoms = () => {
-  alert('请选择订单创建报关资料')
+const openCreateModal = () => {
+  formMode.value = 'create'
+  editingDoc.value = null
+  showFormModal.value = true
+}
+
+const openEditModal = (doc: CustomsDocument) => {
+  formMode.value = 'edit'
+  editingDoc.value = doc
+  showFormModal.value = true
+}
+
+const closeFormModal = () => {
+  showFormModal.value = false
+  editingDoc.value = null
 }
 
 const viewDetail = (id: string) => {
@@ -134,11 +171,41 @@ const viewDetail = (id: string) => {
 }
 
 const submitReview = async (id: string) => {
-  await $fetch(`/api/customs/${id}/submit`, { method: 'POST' })
+  await $fetch(`/api/customs/${id}/submit`, { 
+    method: 'POST',
+    body: { submitter: appStore.currentUser.name }
+  })
   refresh()
 }
 
 const editDocument = (id: string) => {
-  alert(`编辑报关资料 ${id}`)
+  const doc = documents.value?.find(d => d.id === id)
+  if (doc) {
+    openEditModal(doc)
+  }
+}
+
+const handleFormSubmit = async (formData: any) => {
+  try {
+    if (formMode.value === 'create') {
+      await $fetch('/api/customs', {
+        method: 'POST',
+        body: {
+          ...formData,
+          version: 1,
+          status: 'draft'
+        }
+      })
+    } else if (formMode.value === 'edit' && editingDoc.value) {
+      await $fetch(`/api/customs/${editingDoc.value.id}`, {
+        method: 'PUT',
+        body: formData
+      })
+    }
+    closeFormModal()
+    refresh()
+  } catch (error: any) {
+    alert(error.message || '操作失败，请重试')
+  }
 }
 </script>

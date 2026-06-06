@@ -117,7 +117,8 @@ import type { DashboardStats } from '~/types'
 const appStore = useAppStore()
 const { formatDate } = useFormat()
 
-const { data: stats } = await useFetch<DashboardStats>('/api/dashboard/stats')
+const { data: statsRaw } = await useFetch<{ success: boolean; data: DashboardStats }>('/api/dashboard/stats')
+const stats = computed(() => statsRaw.value?.data)
 
 const todoTasks = computed(() => {
   const tasks: Array<{ id: string; title: string; description: string; priority: 'high' | 'medium' | 'low'; createdAt: string }> = []

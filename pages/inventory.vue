@@ -97,7 +97,8 @@ const { formatDate } = useFormat()
 const warehouseFilter = ref<string>('')
 const searchKeyword = ref<string>('')
 
-const { data: inventoryItems } = await useFetch<InventoryItem[]>('/api/inventory')
+const { data: inventoryItemsRaw } = await useFetch<{ success: boolean; data: InventoryItem[] }>('/api/inventory')
+const inventoryItems = computed(() => inventoryItemsRaw.value?.data)
 
 const filteredItems = computed(() => {
   if (!inventoryItems.value) return []

@@ -188,8 +188,10 @@ const orderId = computed(() => route.params.id as string)
 const showCommentModal = ref(false)
 const commentText = ref('')
 
-const { data: order, refresh } = await useFetch<Order>(() => `/api/orders/${orderId.value}`)
-const { data: customsList } = await useFetch<CustomsDocument[]>('/api/customs')
+const { data: orderRaw, refresh } = await useFetch<{ success: boolean; data: Order }>(() => `/api/orders/${orderId.value}`)
+const order = computed(() => orderRaw.value?.data)
+const { data: customsListRaw } = await useFetch<{ success: boolean; data: CustomsDocument[] }>('/api/customs')
+const customsList = computed(() => customsListRaw.value?.data)
 
 const relatedCustoms = computed(() => {
   if (!customsList.value || !order.value) return []
@@ -197,7 +199,10 @@ const relatedCustoms = computed(() => {
 })
 
 const handleSync = async () => {
-  await $fetch(`/api/orders/${orderId.value}/sync`, { method: 'POST' })
+  await $fetch(`/api/orders/${orderId.value}/sync`, { 
+    method: 'POST',
+    body: { operator: appStore.currentUser.name }
+  })
   refresh()
 }
 
@@ -206,7 +211,7 @@ const handleFlagResponsibility = async () => {
   if (flag) {
     await $fetch(`/api/orders/${orderId.value}/flag`, {
       method: 'POST',
-      body: { flag }
+      body: { flag, operator: appStore.currentUser.name }
     })
     refresh()
   }
@@ -217,7 +222,11 @@ const handleAddComment = async () => {
 
   await $fetch(`/api/orders/${orderId.value}/comment`, {
     method: 'POST',
-    body: { comment: commentText.value }
+    body: { 
+      content: commentText.value, 
+      operator: appStore.currentUser.name,
+      operatorRole: appStore.currentUser.role
+    }
   })
   commentText.value = ''
   showCommentModal.value = false

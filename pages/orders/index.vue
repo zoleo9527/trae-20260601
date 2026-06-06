@@ -170,7 +170,8 @@ const platformFilter = ref<string>('')
 const responsibilityFilter = ref<string>((route.query.responsibility as string) || '')
 const searchKeyword = ref<string>('')
 
-const { data: orders, refresh } = await useFetch<Order[]>('/api/orders')
+const { data: ordersRaw, refresh } = await useFetch<{ success: boolean; data: Order[] }>('/api/orders')
+const orders = computed(() => ordersRaw.value?.data)
 
 const filteredOrders = computed(() => {
   if (!orders.value) return []
@@ -199,7 +200,10 @@ const viewDetail = (id: string) => {
 }
 
 const syncOrder = async (id: string) => {
-  await $fetch(`/api/orders/${id}/sync`, { method: 'POST' })
+  await $fetch(`/api/orders/${id}/sync`, { 
+    method: 'POST',
+    body: { operator: appStore.currentUser.name }
+  })
   refresh()
 }
 
@@ -208,7 +212,7 @@ const flagResponsibility = async (id: string) => {
   if (flag) {
     await $fetch(`/api/orders/${id}/flag`, {
       method: 'POST',
-      body: { flag }
+      body: { flag, operator: appStore.currentUser.name }
     })
     refresh()
   }
