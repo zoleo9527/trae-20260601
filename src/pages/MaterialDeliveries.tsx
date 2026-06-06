@@ -18,7 +18,6 @@ import {
   Descriptions,
 } from 'antd';
 import {
-  FileZipOutlined,
   VideoCameraOutlined,
   FileImageOutlined,
   FileTextOutlined,
@@ -246,7 +245,7 @@ export default function MaterialDeliveries() {
         text: value.text,
         value: key,
       })),
-      onFilter: (value: string, record: MaterialDelivery) => record.status === value,
+      onFilter: (value: React.Key | boolean, record: MaterialDelivery) => record.status === String(value),
     },
     {
       title: '提交人',

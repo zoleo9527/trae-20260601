@@ -17,7 +17,6 @@ import {
   message,
   Modal,
   Form,
-  Select,
   Input,
 } from 'antd';
 import {
@@ -33,7 +32,7 @@ import {
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { useStore } from '@/store';
-import type { ShootingSchedule, MaterialDelivery, ScriptVersion, TimelineEvent } from '@/types';
+import type { ScriptVersion, TimelineEvent } from '@/types';
 
 const { TextArea } = Input;
 
@@ -51,7 +50,7 @@ const priorityMap: Record<string, { color: string; text: string }> = {
   low: { color: 'green', text: '低优先级' },
 };
 
-const stepItems = [
+const stepItems: { title: string; status: 'wait' | 'process' | 'finish' | 'error' }[] = [
   { title: '项目创建', status: 'finish' },
   { title: '脚本确认', status: 'finish' },
   { title: '拍摄排期', status: 'process' },
@@ -152,9 +151,9 @@ export default function ProjectDetail() {
   }
 
   const currentStepIndex = getStepIndex(project.status);
-  const steps = stepItems.map((item, index) => ({
+  const steps: { title: string; status: 'wait' | 'process' | 'finish' | 'error' }[] = stepItems.map((item, index) => ({
     ...item,
-    status: index < currentStepIndex ? 'finish' : index === currentStepIndex ? 'process' : 'wait',
+    status: (index < currentStepIndex ? 'finish' : index === currentStepIndex ? 'process' : 'wait') as 'wait' | 'process' | 'finish' | 'error',
   }));
 
   const scheduleColumns = [

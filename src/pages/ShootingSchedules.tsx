@@ -29,7 +29,7 @@ import {
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { useStore } from '@/store';
-import type { ShootingSchedule, Project } from '@/types';
+import type { ShootingSchedule } from '@/types';
 
 const { TextArea } = Input;
 
@@ -205,7 +205,7 @@ export default function ShootingSchedules() {
         text: value.text,
         value: key,
       })),
-      onFilter: (value: string, record: ShootingSchedule) => record.status === value,
+      onFilter: (value: React.Key | boolean, record: ShootingSchedule) => record.status === String(value),
     },
     {
       title: '负责人',

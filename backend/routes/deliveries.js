@@ -24,6 +24,7 @@ export const submitDelivery = (req, res) => {
     return res.status(404).json({ code: 1, message: '交付记录不存在' });
   }
 
+  const oldDelivery = db.materialDeliveries[index];
   db.materialDeliveries[index].status = 'submitted';
   db.materialDeliveries[index].submittedAt = getNow();
   db.materialDeliveries[index].updatedAt = getNow();
@@ -39,10 +40,32 @@ export const submitDelivery = (req, res) => {
     operator: delivery.submitter || '系统',
     operatorRole: 'director',
     createdAt: getNow(),
-    metadata: { deliveryId: id, version: delivery.version },
+    metadata: { deliveryId: id, version: delivery.version, from: oldDelivery.status, to: 'submitted' },
   };
   db.timelineEvents = db.timelineEvents || [];
   db.timelineEvents.unshift(timelineEvent);
+
+  const projIndex = (db.projects || []).findIndex(p => p.id === delivery.projectId);
+  if (projIndex !== -1) {
+    const oldStatus = db.projects[projIndex].status;
+    if (oldStatus !== 'delivering' && oldStatus !== 'completed') {
+      db.projects[projIndex].status = 'delivering';
+      db.projects[projIndex].updatedAt = getNow();
+
+      const projTimeline = {
+        id: generateId('tl'),
+        projectId: delivery.projectId,
+        type: 'status_change',
+        title: '项目状态更新',
+        description: '项目状态变更为「交付中」',
+        operator: delivery.submitter || '系统',
+        operatorRole: 'director',
+        createdAt: getNow(),
+        metadata: { from: oldStatus, to: 'delivering' },
+      };
+      db.timelineEvents.unshift(projTimeline);
+    }
+  }
 
   const recentChange = {
     id: generateId('rc'),
@@ -106,8 +129,7 @@ export const reviewDelivery = (req, res) => {
 
   const projIndex = (db.projects || []).findIndex(p => p.id === delivery.projectId);
   if (projIndex !== -1) {
-    db.projects[projIndex].status = 'delivering';
-    db.projects[projIndex].updatedAt = getNow();
+    const oldStatus = db.projects[projIndex].status;
 
     if (status === 'approved') {
       const allDeliveries = (db.materialDeliveries || []).filter(m => m.projectId === delivery.projectId);
@@ -125,10 +147,42 @@ export const reviewDelivery = (req, res) => {
           operator: reviewer || '审核人员',
           operatorRole: 'business',
           createdAt: getNow(),
-          metadata: { from: 'delivering', to: 'completed' },
+          metadata: { from: oldStatus, to: 'completed' },
+        };
+        db.timelineEvents.unshift(projTimeline);
+      } else if (oldStatus !== 'delivering') {
+        db.projects[projIndex].status = 'delivering';
+        db.projects[projIndex].updatedAt = getNow();
+
+        const projTimeline = {
+          id: generateId('tl'),
+          projectId: delivery.projectId,
+          type: 'status_change',
+          title: '项目状态更新',
+          description: '项目状态变更为「交付中」',
+          operator: reviewer || '审核人员',
+          operatorRole: 'business',
+          createdAt: getNow(),
+          metadata: { from: oldStatus, to: 'delivering' },
         };
         db.timelineEvents.unshift(projTimeline);
       }
+    } else if (oldStatus !== 'delivering' && oldStatus !== 'completed') {
+      db.projects[projIndex].status = 'delivering';
+      db.projects[projIndex].updatedAt = getNow();
+
+      const projTimeline = {
+        id: generateId('tl'),
+        projectId: delivery.projectId,
+        type: 'status_change',
+        title: '项目状态更新',
+        description: '项目状态变更为「交付中」',
+        operator: reviewer || '审核人员',
+        operatorRole: 'business',
+        createdAt: getNow(),
+        metadata: { from: oldStatus, to: 'delivering' },
+      };
+      db.timelineEvents.unshift(projTimeline);
     }
   }
 
