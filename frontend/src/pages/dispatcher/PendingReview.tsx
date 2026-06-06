@@ -13,8 +13,9 @@ import {
   Statistic,
   Row,
   Col,
+  Tooltip,
 } from 'antd';
-import { CheckOutlined, CloseOutlined, EyeOutlined, ReloadOutlined } from '@ant-design/icons';
+import { CheckOutlined, CloseOutlined, EyeOutlined, ReloadOutlined, ExclamationCircleOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import dayjs from 'dayjs';
 import { appointmentsApi } from '../../services/api';
@@ -37,10 +38,15 @@ const PendingReview: React.FC = () => {
     setLoading(true);
     try {
       const [listRes, statsRes] = await Promise.all([
-        appointmentsApi.getList({ status: AppointmentStatus.PENDING, pageSize: 100 }),
+        appointmentsApi.getList({ pageSize: 200 }),
         appointmentsApi.getStats(),
       ]);
-      setData(listRes.items);
+      const pendingList = listRes.items.filter(
+        (item: Appointment) =>
+          item.status === AppointmentStatus.PENDING ||
+          item.status === AppointmentStatus.SUPPLEMENTED
+      );
+      setData(pendingList);
       setStats(statsRes);
     } catch (error) {
       message.error('获取数据失败');
@@ -89,8 +95,17 @@ const PendingReview: React.FC = () => {
       title: '预约单号',
       dataIndex: 'orderNo',
       key: 'orderNo',
-      width: 140,
-      render: (text: string) => <Tag color="blue">{text}</Tag>,
+      width: 160,
+      render: (text: string, record: Appointment) => (
+        <Space>
+          <Tag color="blue">{text}</Tag>
+          {record.status === AppointmentStatus.SUPPLEMENTED && (
+            <Tag color="orange" icon={<ExclamationCircleOutlined />}>
+              补录重审
+            </Tag>
+          )}
+        </Space>
+      ),
     },
     {
       title: '承运商',
@@ -120,10 +135,29 @@ const PendingReview: React.FC = () => {
       key: 'cargoType',
     },
     {
+      title: '驳回原因',
+      dataIndex: 'rejectionReason',
+      key: 'rejectionReason',
+      width: 180,
+      render: (text: string) => {
+        if (!text) return <span style={{ color: '#bfbfbf' }}>-</span>;
+        return (
+          <Tooltip title={text}>
+            <Space style={{ cursor: 'pointer', color: '#ff4d4f' }}>
+              <ExclamationCircleOutlined />
+              <span style={{ maxWidth: 120, display: 'inline-block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {text}
+              </span>
+            </Space>
+          </Tooltip>
+        );
+      },
+    },
+    {
       title: '状态',
       dataIndex: 'status',
       key: 'status',
-      width: 100,
+      width: 110,
       render: (status: AppointmentStatus) => (
         <Tag color={StatusColorMap[status]}>{StatusTextMap[status]}</Tag>
       ),
@@ -177,7 +211,12 @@ const PendingReview: React.FC = () => {
       <Row gutter={16} style={{ marginBottom: 16 }}>
         <Col span={4}>
           <Card>
-            <Statistic title="待审核" value={stats.pending || 0} valueStyle={{ color: '#fa8c16' }} />
+            <Statistic
+              title="待审核"
+              value={stats.totalPending || 0}
+              valueStyle={{ color: '#fa8c16' }}
+              suffix={stats.supplemented ? <span style={{ fontSize: 12, color: '#fa8c16' }}>（含 {stats.supplemented} 补录）</span> : null}
+            />
           </Card>
         </Col>
         <Col span={4}>

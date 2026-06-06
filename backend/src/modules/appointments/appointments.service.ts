@@ -463,15 +463,25 @@ export class AppointmentsService {
   }
 
   async getStats() {
-    const [total, pending, approved, assigned, completed, rejected] = await Promise.all([
+    const [total, pending, supplemented, approved, assigned, completed, rejected] = await Promise.all([
       this.appointmentsRepository.count(),
       this.appointmentsRepository.count({ where: { status: AppointmentStatus.PENDING } }),
+      this.appointmentsRepository.count({ where: { status: AppointmentStatus.SUPPLEMENTED } }),
       this.appointmentsRepository.count({ where: { status: AppointmentStatus.APPROVED } }),
       this.appointmentsRepository.count({ where: { status: AppointmentStatus.ASSIGNED } }),
       this.appointmentsRepository.count({ where: { status: AppointmentStatus.COMPLETED } }),
       this.appointmentsRepository.count({ where: { status: AppointmentStatus.REJECTED } }),
     ]);
 
-    return { total, pending, approved, assigned, completed, rejected };
+    return {
+      total,
+      pending,
+      supplemented,
+      totalPending: pending + supplemented,
+      approved,
+      assigned,
+      completed,
+      rejected,
+    };
   }
 }
