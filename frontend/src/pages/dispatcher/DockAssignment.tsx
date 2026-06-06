@@ -8,6 +8,7 @@ import {
   Modal,
   Form,
   Select,
+  Input,
   message,
   Row,
   Col,
@@ -20,7 +21,7 @@ import { useNavigate } from 'react-router-dom';
 import dayjs from 'dayjs';
 import { appointmentsApi, docksApi } from '../../services/api';
 import { useAuth } from '../../store/auth';
-import { Appointment, AppointmentStatus, StatusTextMap, StatusColorMap, Dock, DockStatus } from '../../types';
+import { Appointment, AppointmentStatus, Dock, DockStatus } from '../../types';
 
 const DockAssignment: React.FC = () => {
   const { user } = useAuth();

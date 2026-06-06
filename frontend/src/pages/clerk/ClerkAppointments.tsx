@@ -36,7 +36,6 @@ const ClerkAppointments: React.FC = () => {
   const [data, setData] = useState<Appointment[]>([]);
   const [supplementModalVisible, setSupplementModalVisible] = useState(false);
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
-  const [checkInModalVisible, setCheckInModalVisible] = useState(false);
   const [supplementForm] = Form.useForm();
 
   const fetchData = async () => {
@@ -55,15 +54,12 @@ const ClerkAppointments: React.FC = () => {
     fetchData();
   }, []);
 
-  const handleCheckIn = async () => {
-    if (!selectedAppointment) return;
+  const handleCheckIn = async (record: Appointment) => {
     try {
-      await appointmentsApi.checkIn(selectedAppointment.id, {
+      await appointmentsApi.checkIn(record.id, {
         operatorId: user?.id,
       });
       message.success('车辆签到成功');
-      setCheckInModalVisible(false);
-      setSelectedAppointment(null);
       fetchData();
     } catch (error: any) {
       message.error(error.response?.data?.message || '签到失败');
@@ -181,16 +177,12 @@ const ClerkAppointments: React.FC = () => {
             <Popconfirm
               title="确认车辆到场签到？"
               description="签到后将进入作业队列"
-              onConfirm={() => {
-                setSelectedAppointment(record);
-                handleCheckIn();
-              }}
+              onConfirm={() => handleCheckIn(record)}
             >
               <Button
                 type="primary"
                 size="small"
                 icon={<CarOutlined />}
-                success
               >
                 到车签到
               </Button>

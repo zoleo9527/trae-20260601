@@ -294,7 +294,8 @@ export class AppointmentsService {
         throw new BadRequestException('当前状态不允许调整月台');
       }
 
-      const oldDock = appointment.dockId ? await manager.findOne(Dock, { where: { id: appointment.dockId } }) : null;
+      const prevDockId = appointment.dockId;
+      const oldDock = prevDockId ? await manager.findOne(Dock, { where: { id: prevDockId } }) : null;
       const newDock = await manager.findOne(Dock, { where: { id: dto.dockId } });
       if (!newDock) throw new NotFoundException('新月台不存在');
       if (newDock.status !== DockStatus.AVAILABLE) {
@@ -323,7 +324,12 @@ export class AppointmentsService {
         operatorId: dto.assignerId,
         operatorName: user?.name || '未知用户',
         remark: dto.remark || `调整月台：${oldDock?.code || '无'} → ${newDock.code}`,
-        meta: { oldDockId: appointment.dockId, newDockId: dto.dockId, newDockCode: newDock.code },
+        meta: {
+          oldDockId: prevDockId,
+          oldDockCode: oldDock?.code,
+          newDockId: dto.dockId,
+          newDockCode: newDock.code,
+        },
       });
       await manager.save(log);
 

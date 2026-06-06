@@ -11,7 +11,6 @@ import {
   Row,
   Col,
   Badge,
-  Timeline,
 } from 'antd';
 import {
   PlayCircleOutlined,
@@ -197,7 +196,6 @@ const TaskList: React.FC = () => {
                 type="primary"
                 size="small"
                 icon={<CheckCircleOutlined />}
-                success
               >
                 完成
               </Button>
