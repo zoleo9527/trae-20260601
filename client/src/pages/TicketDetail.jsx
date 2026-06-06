@@ -79,9 +79,15 @@ export default function TicketDetail() {
 
   const loadTicket = async () => {
     setLoading(true)
-    const data = await fetchTicket(id)
-    setTicket(data)
-    setLoading(false)
+    try {
+      const data = await fetchTicket(id)
+      setTicket(data)
+    } catch (e) {
+      console.error('加载工单失败:', e)
+      setTicket(null)
+    } finally {
+      setLoading(false)
+    }
   }
 
   const canPerformAction = (action) => {
@@ -162,7 +168,13 @@ export default function TicketDetail() {
 
   const statusStyle = getStatusStyle(ticket.status)
   const availableActions = getAvailableActions()
-  const sortedLogs = [...(ticket.logs || [])].sort((a, b) => new Date(b.time) - new Date(a.time))
+  const sortedLogs = [...(ticket.logs || [])].sort((a, b) => {
+    try {
+      return new Date(b.time) - new Date(a.time)
+    } catch (e) {
+      return 0
+    }
+  })
   const creator = ticket.logs && ticket.logs[0] ? ticket.logs[0].operator : '-'
 
   return (
@@ -200,7 +212,7 @@ export default function TicketDetail() {
                     background: ticket.type === 'refund' ? '#fff1f0' : '#e6f7ff',
                     color: ticket.type === 'refund' ? '#ff4d4f' : '#1890ff'
                   }}>
-                    {TYPE_LABELS[ticket.type]}
+                    {TYPE_LABELS[ticket.type] || ticket.type}
                   </span>
                 </div>
               </div>
@@ -218,7 +230,7 @@ export default function TicketDetail() {
                     background: statusStyle.background,
                     color: statusStyle.color
                   }}>
-                    {STATUS_LABELS[ticket.status]}
+                    {STATUS_LABELS[ticket.status] || ticket.status}
                   </span>
                 </div>
               </div>
@@ -228,7 +240,7 @@ export default function TicketDetail() {
               </div>
               <div>
                 <div style={{ fontSize: '13px', color: '#999', marginBottom: '4px' }}>金额</div>
-                <div style={{ fontSize: '14px', fontWeight: '500', color: '#ff4d4f' }}>¥{ticket.amount?.toFixed(2)}</div>
+                <div style={{ fontSize: '14px', fontWeight: '500', color: '#ff4d4f' }}>¥{ticket.amount != null ? ticket.amount.toFixed(2) : '0.00'}</div>
               </div>
               <div>
                 <div style={{ fontSize: '13px', color: '#999', marginBottom: '4px' }}>客户姓名</div>
@@ -282,17 +294,17 @@ export default function TicketDetail() {
                     <div style={{ flex: 1, paddingBottom: '0' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '4px' }}>
                         <div>
-                          <span style={{ fontSize: '14px', fontWeight: '500' }}>{log.operator}</span>
+                          <span style={{ fontSize: '14px', fontWeight: '500' }}>{log?.operator}</span>
                           <span style={{ fontSize: '12px', color: '#999', marginLeft: '8px' }}>
-                            ({ROLE_LABELS[log.operatorRole] || log.operatorRole})
+                            ({ROLE_LABELS[log?.operatorRole] || log?.operatorRole})
                           </span>
                         </div>
-                        <span style={{ fontSize: '12px', color: '#999' }}>{formatDate(log.time)}</span>
+                        <span style={{ fontSize: '12px', color: '#999' }}>{formatDate(log?.time)}</span>
                       </div>
                       <div style={{ fontSize: '14px', marginBottom: '4px' }}>
-                        <span style={{ color: '#1890ff' }}>{log.action}</span>
+                        <span style={{ color: '#1890ff' }}>{log?.action}</span>
                       </div>
-                      {log.remark && (
+                      {log?.remark && (
                         <div style={{ fontSize: '13px', color: '#666', background: '#fafafa', padding: '8px 12px', borderRadius: '4px' }}>
                           备注：{log.remark}
                         </div>

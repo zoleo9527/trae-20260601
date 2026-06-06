@@ -26,7 +26,7 @@ export default function Header() {
     <div className="header">
       <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
         <h1 onClick={() => navigate('/')}>直播电商售后系统</h1>
-        {user && <span style={{ fontSize: '14px', color: 'rgba(255,255,255,0.7)' }}>{ROLE_LABELS[user.role]}工作台</span>}
+        {user && <span style={{ fontSize: '14px', color: 'rgba(255,255,255,0.7)' }}>{ROLE_LABELS[user.role] || user.role}工作台</span>}
       </div>
       <div className="header-right">
         <div className="role-selector">
@@ -36,7 +36,7 @@ export default function Header() {
             </button>
           ))}
         </div>
-        <span style={{ fontSize: '14px' }}>当前: {user?.name}</span>
+        <span style={{ fontSize: '14px' }}>当前: {user?.name || '-'}</span>
         <button className="btn btn-default" style={{ padding: '4px 12px', fontSize: '13px' }} onClick={logout}>退出</button>
       </div>
     </div>

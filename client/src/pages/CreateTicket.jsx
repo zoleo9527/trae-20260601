@@ -41,14 +41,21 @@ export default function CreateTicket() {
     }
   }
 
+  const getRoleLabel = (role) => {
+    if (role === 'assistant') return '主播助理'
+    if (role === 'controller') return '场控'
+    if (role === 'lead') return '售后组长'
+    return role || '-'
+  }
+
   return (
     <div className="card" style={{ padding: '24px', maxWidth: '800px', margin: '0 auto' }}>
       <h2 style={{ margin: '0 0 24px 0', fontSize: '20px' }}>创建工单</h2>
 
       <div style={{ background: '#f5f7fa', padding: '12px 16px', borderRadius: '6px', marginBottom: '24px' }}>
         <span style={{ fontSize: '14px', color: '#666' }}>创建人：</span>
-        <span style={{ fontSize: '14px', fontWeight: '500' }}>{user?.name}</span>
-        <span style={{ fontSize: '14px', color: '#999', marginLeft: '16px' }}>角色：{user?.role === 'assistant' ? '主播助理' : user?.role === 'controller' ? '场控' : '售后组长'}</span>
+        <span style={{ fontSize: '14px', fontWeight: '500' }}>{user?.name || '-'}</span>
+        <span style={{ fontSize: '14px', color: '#999', marginLeft: '16px' }}>角色：{getRoleLabel(user?.role)}</span>
       </div>
 
       <form onSubmit={handleSubmit}>

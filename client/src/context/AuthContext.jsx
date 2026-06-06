@@ -13,11 +13,22 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    const saved = localStorage.getItem('user')
-    if (saved) {
-      try { setUser(JSON.parse(saved)) } catch (e) {}
+    try {
+      const saved = localStorage.getItem('user')
+      if (saved) {
+        const parsed = JSON.parse(saved)
+        if (parsed && typeof parsed === 'object') {
+          setUser(parsed)
+        } else {
+          localStorage.removeItem('user')
+        }
+      }
+    } catch (e) {
+      console.error('解析用户数据失败:', e)
+      localStorage.removeItem('user')
+    } finally {
+      setLoading(false)
     }
-    setLoading(false)
   }, [])
 
   const login = async (username, password) => {

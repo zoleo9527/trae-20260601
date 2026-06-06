@@ -39,19 +39,21 @@ export default function Dashboard() {
 
   const roleStyle = ROLE_STYLES[user?.role] || ROLE_STYLES.assistant
 
+  const safeTickets = Array.isArray(tickets) ? tickets : []
+
   const stats = {
-    total: tickets.length,
-    pending_review: tickets.filter(t => t.status === 'pending_review').length,
-    processing: tickets.filter(t => PROCESSING_STATUSES.includes(t.status)).length,
-    completed: tickets.filter(t => t.status === 'completed').length
+    total: safeTickets.length,
+    pending_review: safeTickets.filter(t => t?.status === 'pending_review').length,
+    processing: safeTickets.filter(t => PROCESSING_STATUSES.includes(t?.status)).length,
+    completed: safeTickets.filter(t => t?.status === 'completed').length
   }
 
-  const pendingReviewRefundCount = tickets.filter(t => t.status === 'pending_review' && t.type === 'refund').length
-  const pendingReviewReissueCount = tickets.filter(t => t.status === 'pending_review' && t.type === 'reissue').length
+  const pendingReviewRefundCount = safeTickets.filter(t => t?.status === 'pending_review' && t?.type === 'refund').length
+  const pendingReviewReissueCount = safeTickets.filter(t => t?.status === 'pending_review' && t?.type === 'reissue').length
 
-  const filteredTickets = tickets.filter(t => {
-    const typeMatch = typeFilter === 'all' || t.type === typeFilter
-    const statusMatch = statusFilter === 'all' || t.status === statusFilter
+  const filteredTickets = safeTickets.filter(t => {
+    const typeMatch = typeFilter === 'all' || t?.type === typeFilter
+    const statusMatch = statusFilter === 'all' || t?.status === statusFilter
     return typeMatch && statusMatch
   })
 
@@ -75,7 +77,7 @@ export default function Dashboard() {
   }
 
   const getOperatorName = (ticket) => {
-    if (ticket.logs && ticket.logs.length > 0 && ticket.logs[0].operator) {
+    if (ticket?.logs && Array.isArray(ticket.logs) && ticket.logs.length > 0 && ticket.logs[0]?.operator) {
       return ticket.logs[0].operator
     }
     return '-'
@@ -279,30 +281,30 @@ export default function Dashboard() {
             </thead>
             <tbody>
               {filteredTickets.map((ticket) => {
-                const statusStyle = getStatusStyle(ticket.status)
+                const statusStyle = getStatusStyle(ticket?.status)
                 return (
                   <tr
-                    key={ticket.id}
-                    onClick={() => navigate(`/ticket/${ticket.id}`)}
+                    key={ticket?.id}
+                    onClick={() => ticket?.id && navigate(`/ticket/${ticket.id}`)}
                     style={{ borderBottom: '1px solid #f0f0f0', cursor: 'pointer' }}
                     onMouseEnter={(e) => e.currentTarget.style.background = '#fafafa'}
                     onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
                   >
-                    <td style={{ padding: '12px', fontSize: '14px' }}>{ticket.id}</td>
+                    <td style={{ padding: '12px', fontSize: '14px' }}>{ticket?.id}</td>
                     <td style={{ padding: '12px', fontSize: '14px' }}>
                       <span style={{
                         padding: '2px 8px',
                         borderRadius: '4px',
                         fontSize: '12px',
-                        background: ticket.type === 'refund' ? '#fff1f0' : '#e6f7ff',
-                        color: ticket.type === 'refund' ? '#ff4d4f' : '#1890ff'
+                        background: ticket?.type === 'refund' ? '#fff1f0' : '#e6f7ff',
+                        color: ticket?.type === 'refund' ? '#ff4d4f' : '#1890ff'
                       }}>
-                        {TYPE_LABELS[ticket.type]}
+                        {TYPE_LABELS[ticket?.type] || ticket?.type}
                       </span>
                     </td>
-                    <td style={{ padding: '12px', fontSize: '14px' }}>{ticket.orderNo}</td>
-                    <td style={{ padding: '12px', fontSize: '14px' }}>{ticket.productName}</td>
-                    <td style={{ padding: '12px', fontSize: '14px' }}>¥{ticket.amount?.toFixed(2)}</td>
+                    <td style={{ padding: '12px', fontSize: '14px' }}>{ticket?.orderNo}</td>
+                    <td style={{ padding: '12px', fontSize: '14px' }}>{ticket?.productName}</td>
+                    <td style={{ padding: '12px', fontSize: '14px' }}>¥{ticket?.amount != null ? ticket.amount.toFixed(2) : '0.00'}</td>
                     <td style={{ padding: '12px', fontSize: '14px' }}>
                       <span style={{
                         padding: '2px 8px',
@@ -311,11 +313,11 @@ export default function Dashboard() {
                         background: statusStyle.background,
                         color: statusStyle.color
                       }}>
-                        {STATUS_LABELS[ticket.status]}
+                        {STATUS_LABELS[ticket?.status] || ticket?.status}
                       </span>
                     </td>
                     <td style={{ padding: '12px', fontSize: '14px' }}>{getOperatorName(ticket)}</td>
-                    <td style={{ padding: '12px', fontSize: '14px', color: '#999' }}>{ticket.createdAt}</td>
+                    <td style={{ padding: '12px', fontSize: '14px', color: '#999' }}>{ticket?.createdAt}</td>
                   </tr>
                 )
               })}
