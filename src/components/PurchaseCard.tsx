@@ -13,20 +13,40 @@ export function PurchaseCard({ purchase }: PurchaseCardProps) {
 
   const handleCardClick = () => {
     setSelectedPurchaseId(purchase.id)
-    if (purchase.status === 'pending_acceptance' && currentUser.role === 'admin') {
-      setActiveDrawer('acceptance')
-    } else if (purchase.status === 'sample_pending' && currentUser.role === 'admin') {
-      setActiveDrawer('sample')
-    } else if (purchase.exceptions.length > 0) {
-      setActiveDrawer('exception')
+    
+    if (currentUser.role === 'admin') {
+      if (purchase.status === 'pending_acceptance' || purchase.status === 'supplement_submitted') {
+        setActiveDrawer('acceptance')
+      } else if (purchase.status === 'sample_pending') {
+        setActiveDrawer('sample')
+      } else if (purchase.exceptions.length > 0) {
+        setActiveDrawer('exception')
+      }
+    } else if (currentUser.role === 'purchaser') {
+      if (purchase.status === 'supplementing') {
+        setActiveDrawer('resubmit')
+      } else if (purchase.exceptions.length > 0) {
+        setActiveDrawer('exception')
+      }
+    } else if (currentUser.role === 'teacher') {
+      if (purchase.status === 'sample_completed') {
+        setActiveDrawer('sample')
+      } else if (purchase.status === 'dispute_pending' || purchase.status === 'dispute_processing') {
+        setActiveDrawer('exception')
+      } else if (purchase.exceptions.length > 0) {
+        setActiveDrawer('exception')
+      }
     }
   }
 
   const needsAction = 
     purchase.currentHandlerId === currentUser.id ||
     (purchase.status === 'pending_acceptance' && currentUser.role === 'admin') ||
+    (purchase.status === 'supplement_submitted' && currentUser.role === 'admin') ||
     (purchase.status === 'sample_pending' && currentUser.role === 'admin') ||
-    (purchase.status === 'supplementing' && currentUser.role === 'purchaser')
+    (purchase.status === 'sample_completed' && currentUser.role === 'teacher') ||
+    (purchase.status === 'supplementing' && currentUser.role === 'purchaser') ||
+    ((purchase.status === 'dispute_pending' || purchase.status === 'dispute_processing') && currentUser.role === 'teacher')
 
   const hasExceptions = purchase.exceptions.length > 0
   const hasUnresolvedExceptions = purchase.exceptions.some(ex => ex.status === 'pending' || ex.status === 'processing')

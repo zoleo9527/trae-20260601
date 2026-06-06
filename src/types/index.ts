@@ -5,14 +5,41 @@ export type PurchaseStatus =
   | 'accepted' 
   | 'rejected' 
   | 'supplementing' 
+  | 'supplement_submitted'
   | 'overdue' 
-  | 'dispute'
+  | 'dispute_pending'
+  | 'dispute_processing'
   | 'sample_pending'
   | 'sample_completed'
+  | 'sample_confirmed'
+  | 'completed'
 
 export type SampleStatus = 'pending' | 'completed' | 'failed'
 
 export type ExceptionType = 'reject' | 'supplement' | 'overdue' | 'dispute'
+
+export type ProcessStepKey = 
+  | 'purchase_created'
+  | 'acceptance_pending'
+  | 'acceptance_completed'
+  | 'supplement_requested'
+  | 'supplement_submitted'
+  | 'sample_pending'
+  | 'sample_completed'
+  | 'sample_confirmed'
+  | 'dispute_raised'
+  | 'dispute_resolved'
+  | 'completed'
+
+export interface ProcessStep {
+  key: ProcessStepKey
+  label: string
+  role: Role
+  status: 'completed' | 'current' | 'pending' | 'error'
+  timestamp?: string
+  operatorName?: string
+  remark?: string
+}
 
 export interface User {
   id: string
@@ -51,6 +78,7 @@ export interface AcceptanceRecord {
   remark?: string
   attachments?: Attachment[]
   timestamp: string
+  resubmitCount?: number
 }
 
 export interface SampleRecord {
@@ -65,6 +93,25 @@ export interface SampleRecord {
   remark?: string
   attachments?: Attachment[]
   status: SampleStatus
+  confirmedById?: string
+  confirmedByName?: string
+  confirmedAt?: string
+}
+
+export interface DisputeRecord {
+  id: string
+  purchaseId: string
+  raisedById: string
+  raisedByName: string
+  description: string
+  status: 'pending' | 'investigating' | 'resolved'
+  mediatorId?: string
+  mediatorName?: string
+  resolution?: string
+  resolutionType?: 'accept' | 'reject' | 'compromise'
+  createdAt: string
+  resolvedAt?: string
+  comments?: ExceptionComment[]
 }
 
 export interface ExceptionRecord {
@@ -106,10 +153,14 @@ export interface PurchaseOrder {
   acceptanceRecords: AcceptanceRecord[]
   sampleRecord?: SampleRecord
   exceptions: ExceptionRecord[]
+  dispute?: DisputeRecord
   currentHandlerId?: string
   currentHandlerName?: string
+  currentHandlerRole?: Role
   deadline?: string
   remark?: string
+  resubmitCount: number
+  processSteps: ProcessStep[]
   createdAt: string
   updatedAt: string
 }
@@ -142,7 +193,9 @@ export const ROLE_PERMISSIONS: Record<Role, RolePermission> = {
     actions: [
       'view_my_purchases',
       'submit_supplement',
+      'resubmit_acceptance',
       'respond_to_exceptions',
+      'raise_dispute',
       'view_acceptance_status'
     ]
   },
@@ -153,6 +206,7 @@ export const ROLE_PERMISSIONS: Record<Role, RolePermission> = {
       'view_purchases',
       'confirm_sample',
       'report_exceptions',
+      'mediate_dispute',
       'participate_dispute'
     ]
   }

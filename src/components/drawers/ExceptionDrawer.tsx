@@ -1,10 +1,11 @@
 import { useState } from 'react'
 import { 
-  X, AlertTriangle, Clock, User, Send, CheckCircle, FileUp, 
-  MessageSquare, Package, FileText, AlertCircle
+  X, AlertTriangle, Clock, User, Send, CheckCircle, 
+  MessageSquare, Package, AlertCircle, GraduationCap,
+  ThumbsUp, ThumbsDown, Scale, Loader2
 } from 'lucide-react'
 import { useStore } from '../../store/useStore'
-import { formatDateTime, cn, exceptionTypeConfig, isOverdue, getTimeRemaining, roleConfig } from '../../utils'
+import { formatDateTime, cn, exceptionTypeConfig, roleConfig } from '../../utils'
 import { StatusBadge } from '../StatusBadge'
 
 export function ExceptionDrawer() {
@@ -13,57 +14,45 @@ export function ExceptionDrawer() {
     purchaseOrders, 
     setActiveDrawer, 
     addExceptionComment, 
-    resolveException,
-    submitSupplement,
+    mediateDispute,
+    addDisputeComment,
+    setActiveDrawer: setDrawer,
     currentUser,
-    setActiveDrawer: setDrawer
+    loading
   } = useStore()
   
   const [comment, setComment] = useState('')
   const [resolution, setResolution] = useState('')
+  const [resolutionType, setResolutionType] = useState<'accept' | 'reject' | 'compromise'>('compromise')
   const [selectedExceptionId, setSelectedExceptionId] = useState<string | null>(null)
-  const [submitting, setSubmitting] = useState(false)
 
   const purchase = purchaseOrders.find(p => p.id === selectedPurchaseId)
-
   if (!purchase) return null
 
   const activeException = selectedExceptionId 
     ? purchase.exceptions.find(ex => ex.id === selectedExceptionId)
     : purchase.exceptions.find(ex => ex.status === 'pending' || ex.status === 'processing') || purchase.exceptions[0]
 
+  const isDispute = purchase.dispute || activeException?.type === 'dispute'
+  const canMediate = currentUser.role === 'teacher' && isDispute && 
+    (purchase.status === 'dispute_pending' || purchase.status === 'dispute_processing')
+  const canGoToAcceptance = currentUser.role === 'admin' && 
+    (purchase.status === 'pending_acceptance' || purchase.status === 'supplement_submitted')
+  const canGoToSample = currentUser.role === 'admin' && purchase.status === 'sample_pending'
+
   const handleAddComment = () => {
     if (!comment.trim() || !activeException) return
-    addExceptionComment(purchase.id, activeException.id, comment)
+    if (isDispute) {
+      addDisputeComment(purchase.id, comment)
+    } else {
+      addExceptionComment(purchase.id, activeException.id, comment)
+    }
     setComment('')
   }
 
-  const handleResolve = () => {
-    if (!resolution.trim() || !activeException) return
-    setSubmitting(true)
-    setTimeout(() => {
-      resolveException(purchase.id, activeException.id, resolution)
-      setSubmitting(false)
-      setResolution('')
-    }, 500)
-  }
-
-  const handleSubmitSupplement = () => {
-    setSubmitting(true)
-    setTimeout(() => {
-      submitSupplement(purchase.id, comment || '材料已补充')
-      setSubmitting(false)
-      setComment('')
-      setActiveDrawer(null)
-    }, 500)
-  }
-
-  const handleGoToAcceptance = () => {
-    setDrawer('acceptance')
-  }
-
-  const handleGoToSample = () => {
-    setDrawer('sample')
+  const handleMediate = () => {
+    if (!resolution.trim()) return
+    mediateDispute(purchase.id, resolution, resolutionType)
   }
 
   const handleClose = () => {
@@ -73,9 +62,10 @@ export function ExceptionDrawer() {
     setResolution('')
   }
 
-  const canResolve = currentUser.role === 'admin' && activeException?.status !== 'resolved' && activeException?.status !== 'closed'
-  const canSubmitSupplement = currentUser.role === 'purchaser' && purchase.status === 'supplementing'
-  const isMyTurn = purchase.currentHandlerId === currentUser.id
+  const allComments = [
+    ...(activeException?.comments || []),
+    ...(purchase.dispute?.comments || [])
+  ].sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
 
   return (
     <>
@@ -85,17 +75,17 @@ export function ExceptionDrawer() {
           <div className="flex items-center gap-3">
             <div className={cn(
               'w-10 h-10 rounded-lg flex items-center justify-center',
-              purchase.status === 'dispute' ? 'bg-purple-100' :
-              purchase.status === 'overdue' ? 'bg-red-100' : 'bg-orange-100'
+              isDispute ? 'bg-purple-100' : 'bg-orange-100'
             )}>
               <AlertTriangle className={cn(
                 'w-5 h-5',
-                purchase.status === 'dispute' ? 'text-purple-600' :
-                purchase.status === 'overdue' ? 'text-red-600' : 'text-orange-600'
+                isDispute ? 'text-purple-600' : 'text-orange-600'
               )} />
             </div>
             <div>
-              <h3 className="text-lg font-semibold text-gray-900">异常处理</h3>
+              <h3 className="text-lg font-semibold text-gray-900">
+                {isDispute ? '争议处理' : '异常处理'}
+              </h3>
               <p className="text-sm text-gray-500">{purchase.orderNo}</p>
             </div>
           </div>
@@ -120,18 +110,6 @@ export function ExceptionDrawer() {
                 <span>采购员: {purchase.purchaserName}</span>
               </div>
             </div>
-            {purchase.deadline && (
-              <div className={cn(
-                'mt-3 flex items-center gap-2 text-sm',
-                isOverdue(purchase.deadline) ? 'text-red-600' : 'text-amber-600'
-              )}>
-                <AlertCircle className="w-4 h-4" />
-                <span>
-                  处理期限: {formatDateTime(purchase.deadline)} 
-                  ({isOverdue(purchase.deadline) ? '已逾期' : `剩余 ${getTimeRemaining(purchase.deadline)}`})
-                </span>
-              </div>
-            )}
           </div>
 
           {purchase.items.length > 0 && (
@@ -218,14 +196,27 @@ export function ExceptionDrawer() {
                 </div>
               )}
 
-              {activeException.comments && activeException.comments.length > 0 && (
+              {purchase.dispute && (
+                <div className="p-3 bg-purple-50 rounded-lg border border-purple-100">
+                  <div className="flex items-center gap-2 text-purple-700 font-medium text-sm mb-1">
+                    <Scale className="w-4 h-4" />
+                    争议详情
+                  </div>
+                  <p className="text-purple-900 text-sm">{purchase.dispute.description}</p>
+                  <p className="text-xs text-purple-600 mt-1">
+                    发起人: {purchase.dispute.raisedByName} · 仲裁人: {purchase.dispute.mediatorName || '待指派'}
+                  </p>
+                </div>
+              )}
+
+              {allComments.length > 0 && (
                 <div>
                   <h5 className="text-sm font-medium text-gray-700 mb-3 flex items-center gap-2">
                     <MessageSquare className="w-4 h-4" />
-                    沟通记录 ({activeException.comments.length})
+                    沟通记录 ({allComments.length})
                   </h5>
                   <div className="space-y-3">
-                    {activeException.comments.map((c) => (
+                    {allComments.map((c) => (
                       <div key={c.id} className="flex gap-3">
                         <div className={cn(
                           'w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-medium',
@@ -246,7 +237,7 @@ export function ExceptionDrawer() {
                 </div>
               )}
 
-              {activeException.status !== 'resolved' && activeException.status !== 'closed' && (
+              {(activeException.status !== 'resolved' && activeException.status !== 'closed') && (
                 <div className="pt-3 border-t border-gray-100">
                   <div className="flex gap-2">
                     <input
@@ -270,38 +261,101 @@ export function ExceptionDrawer() {
             </div>
           )}
 
-          {purchase.acceptanceRecords.length > 0 && (
-            <div className="card p-4">
-              <h4 className="font-medium text-gray-900 mb-3 flex items-center gap-2">
-                <FileText className="w-4 h-4" />
-                验收记录
+          {canMediate && (
+            <div className="card p-4 space-y-4 border-purple-200 bg-purple-50">
+              <h4 className="font-medium text-purple-900 flex items-center gap-2">
+                <GraduationCap className="w-5 h-5" />
+                班主任仲裁
               </h4>
-              <div className="space-y-2">
-                {purchase.acceptanceRecords.map((record) => (
-                  <div key={record.id} className="p-3 bg-gray-50 rounded-lg">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium text-gray-900">{record.operatorName}</span>
-                      <span className="text-xs text-gray-500">{formatDateTime(record.timestamp)}</span>
-                    </div>
-                    <p className="text-sm text-gray-600 mt-1">
-                      {record.action === 'accept' ? '验收通过' :
-                       record.action === 'reject' ? '验收驳回' : '要求补充材料'}
-                    </p>
-                    {record.remark && <p className="text-sm text-gray-500 mt-1">{record.remark}</p>}
-                  </div>
-                ))}
+              <p className="text-sm text-purple-700">
+                作为第三方，请根据实际情况给出仲裁结果。
+              </p>
+              
+              <div className="grid grid-cols-3 gap-2">
+                <button
+                  onClick={() => setResolutionType('accept')}
+                  className={cn(
+                    'flex flex-col items-center gap-1 p-3 rounded-lg border-2 transition-all',
+                    resolutionType === 'accept' 
+                      ? 'border-green-500 bg-green-100' 
+                      : 'border-gray-200 bg-white hover:border-green-300'
+                  )}
+                >
+                  <ThumbsUp className={cn(
+                    'w-5 h-5',
+                    resolutionType === 'accept' ? 'text-green-600' : 'text-gray-400'
+                  )} />
+                  <span className={cn(
+                    'text-xs font-medium',
+                    resolutionType === 'accept' ? 'text-green-700' : 'text-gray-600'
+                  )}>
+                    支持采购员
+                  </span>
+                </button>
+                <button
+                  onClick={() => setResolutionType('compromise')}
+                  className={cn(
+                    'flex flex-col items-center gap-1 p-3 rounded-lg border-2 transition-all',
+                    resolutionType === 'compromise' 
+                      ? 'border-amber-500 bg-amber-100' 
+                      : 'border-gray-200 bg-white hover:border-amber-300'
+                  )}
+                >
+                  <Scale className={cn(
+                    'w-5 h-5',
+                    resolutionType === 'compromise' ? 'text-amber-600' : 'text-gray-400'
+                  )} />
+                  <span className={cn(
+                    'text-xs font-medium',
+                    resolutionType === 'compromise' ? 'text-amber-700' : 'text-gray-600'
+                  )}>
+                    协商处理
+                  </span>
+                </button>
+                <button
+                  onClick={() => setResolutionType('reject')}
+                  className={cn(
+                    'flex flex-col items-center gap-1 p-3 rounded-lg border-2 transition-all',
+                    resolutionType === 'reject' 
+                      ? 'border-red-500 bg-red-100' 
+                      : 'border-gray-200 bg-white hover:border-red-300'
+                  )}
+                >
+                  <ThumbsDown className={cn(
+                    'w-5 h-5',
+                    resolutionType === 'reject' ? 'text-red-600' : 'text-gray-400'
+                  )} />
+                  <span className={cn(
+                    'text-xs font-medium',
+                    resolutionType === 'reject' ? 'text-red-700' : 'text-gray-600'
+                  )}>
+                    支持管理员
+                  </span>
+                </button>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-purple-800 mb-1.5">
+                  仲裁说明 *
+                </label>
+                <textarea
+                  value={resolution}
+                  onChange={(e) => setResolution(e.target.value)}
+                  placeholder="请详细说明仲裁结果和理由..."
+                  className="textarea h-24 bg-white"
+                />
               </div>
             </div>
           )}
 
-          {currentUser.role === 'admin' && purchase.status === 'sample_pending' && (
-            <button onClick={handleGoToSample} className="w-full btn-primary">
-              前往留样登记
+          {canGoToAcceptance && (
+            <button onClick={() => setDrawer('acceptance')} className="w-full btn-primary">
+              前往验收处理
             </button>
           )}
-          {currentUser.role === 'admin' && purchase.status === 'pending_acceptance' && (
-            <button onClick={handleGoToAcceptance} className="w-full btn-primary">
-              前往验收处理
+          {canGoToSample && (
+            <button onClick={() => setDrawer('sample')} className="w-full btn-primary">
+              前往留样登记
             </button>
           )}
         </div>
@@ -311,10 +365,7 @@ export function ExceptionDrawer() {
             <div>
               <p className="text-sm text-gray-500">
                 当前处理人：
-                <span className={cn(
-                  'font-medium ml-1',
-                  isMyTurn ? 'text-primary-600' : 'text-gray-700'
-                )}>
+                <span className="font-medium ml-1 text-primary-600">
                   {purchase.currentHandlerName || '待分配'}
                 </span>
               </p>
@@ -328,41 +379,21 @@ export function ExceptionDrawer() {
               <button onClick={handleClose} className="btn-secondary">
                 关闭
               </button>
-              {canSubmitSupplement && (
+              {canMediate && (
                 <button
-                  onClick={handleSubmitSupplement}
-                  disabled={submitting}
-                  className="btn-success"
+                  onClick={handleMediate}
+                  disabled={loading || !resolution.trim()}
+                  className="btn-primary"
                 >
-                  <FileUp className="w-4 h-4 mr-1.5" />
-                  {submitting ? '提交中...' : '提交补充材料'}
-                </button>
-              )}
-              {canResolve && (
-                <button
-                  onClick={() => {
-                    if (resolution.trim()) {
-                      handleResolve()
-                    }
-                  }}
-                  disabled={submitting || !resolution.trim()}
-                  className="btn-success"
-                >
-                  {submitting ? '处理中...' : '标记解决'}
+                  {loading ? (
+                    <><Loader2 className="w-4 h-4 mr-1.5 animate-spin" />处理中...</>
+                  ) : (
+                    <><CheckCircle className="w-4 h-4 mr-1.5" />提交仲裁</>
+                  )}
                 </button>
               )}
             </div>
           </div>
-          {canResolve && (
-            <div className="mt-3">
-              <textarea
-                value={resolution}
-                onChange={(e) => setResolution(e.target.value)}
-                placeholder="输入处理结果说明..."
-                className="textarea h-20"
-              />
-            </div>
-          )}
         </div>
       </div>
     </>

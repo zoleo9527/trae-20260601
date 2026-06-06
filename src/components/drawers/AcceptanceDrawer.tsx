@@ -1,33 +1,32 @@
 import { useState } from 'react'
-import { X, Check, XCircle, FilePlus, Package, Clock, User, FileText } from 'lucide-react'
+import { X, Check, XCircle, FilePlus, Package, Clock, User, FileText, Loader2 } from 'lucide-react'
 import { useStore } from '../../store/useStore'
-import { formatDateTime, cn } from '../../utils'
+import { formatDateTime, cn, roleConfig } from '../../utils'
 import { StatusBadge } from '../StatusBadge'
+import { ProcessTimeline } from '../ProcessTimeline'
 
 export function AcceptanceDrawer() {
-  const { selectedPurchaseId, purchaseOrders, setActiveDrawer, processAcceptance, currentUser } = useStore()
+  const { 
+    selectedPurchaseId, 
+    purchaseOrders, 
+    setActiveDrawer, 
+    processAcceptance, 
+    currentUser,
+    loading
+  } = useStore()
   const [action, setAction] = useState<'accept' | 'reject' | 'supplement' | null>(null)
   const [remark, setRemark] = useState('')
-  const [submitting, setSubmitting] = useState(false)
 
   const purchase = purchaseOrders.find(p => p.id === selectedPurchaseId)
-
   if (!purchase) return null
+
+  const isResubmit = purchase.status === 'supplement_submitted'
 
   const handleSubmit = () => {
     if (!action) return
-    setSubmitting(true)
-    setTimeout(() => {
-      processAcceptance(purchase.id, action, remark)
-      if (action === 'accept') {
-        setActiveDrawer('sample')
-      } else {
-        setActiveDrawer(null)
-      }
-      setAction(null)
-      setRemark('')
-      setSubmitting(false)
-    }, 500)
+    processAcceptance(purchase.id, action, remark)
+    setAction(null)
+    setRemark('')
   }
 
   const handleClose = () => {
@@ -46,7 +45,9 @@ export function AcceptanceDrawer() {
               <FileText className="w-5 h-5 text-primary-600" />
             </div>
             <div>
-              <h3 className="text-lg font-semibold text-gray-900">采购验收</h3>
+              <h3 className="text-lg font-semibold text-gray-900">
+                {isResubmit ? '重新验收' : '采购验收'}
+              </h3>
               <p className="text-sm text-gray-500">{purchase.orderNo}</p>
             </div>
           </div>
@@ -64,14 +65,22 @@ export function AcceptanceDrawer() {
             <div className="grid grid-cols-2 gap-3 text-sm text-gray-600">
               <div className="flex items-center gap-2">
                 <Clock className="w-4 h-4" />
-                <span>配送时间: {formatDateTime(purchase.deliveryTime)}</span>
+                <span>配送: {formatDateTime(purchase.deliveryTime)}</span>
               </div>
               <div className="flex items-center gap-2">
                 <User className="w-4 h-4" />
                 <span>采购员: {purchase.purchaserName}</span>
               </div>
             </div>
+            {isResubmit && (
+              <div className="mt-3 flex items-center gap-2 text-sm text-cyan-600 bg-cyan-50 px-3 py-2 rounded-lg">
+                <FilePlus className="w-4 h-4" />
+                <span>采购员已补录材料，这是第 {purchase.resubmitCount + 1} 次验收</span>
+              </div>
+            )}
           </div>
+
+          <ProcessTimeline purchase={purchase} currentRole={currentUser.role} />
 
           <div className="card p-4">
             <h4 className="font-medium text-gray-900 mb-3 flex items-center gap-2">
@@ -134,8 +143,8 @@ export function AcceptanceDrawer() {
             </div>
           )}
 
-          <div className="card p-4">
-            <h4 className="font-medium text-gray-900 mb-3">选择验收结果</h4>
+          <div className="card p-4 space-y-4">
+            <h4 className="font-medium text-gray-900">选择验收结果</h4>
             <div className="grid grid-cols-3 gap-3 mb-4">
               <button
                 onClick={() => setAction('accept')}
@@ -226,7 +235,9 @@ export function AcceptanceDrawer() {
                 </div>
                 <div>
                   <p className="font-medium text-blue-900">验收通过后将进入留样登记环节</p>
-                  <p className="text-sm text-blue-700 mt-1">由 {currentUser.name}（食堂管理员）负责留样登记</p>
+                  <p className="text-sm text-blue-700 mt-1">
+                    由 {currentUser.name}（食堂管理员）负责留样登记，然后通知班主任确认
+                  </p>
                 </div>
               </div>
             </div>
@@ -242,7 +253,9 @@ export function AcceptanceDrawer() {
                   <p className="font-medium text-orange-900">
                     {action === 'reject' ? '驳回后将通知采购员处理' : '补充材料要求将发送给采购员'}
                   </p>
-                  <p className="text-sm text-orange-700 mt-1">当前处理人：{purchase.purchaserName}（采购员）</p>
+                  <p className="text-sm text-orange-700 mt-1">
+                    当前处理人将变更为：{purchase.purchaserName}（采购员）
+                  </p>
                 </div>
               </div>
             </div>
@@ -252,7 +265,10 @@ export function AcceptanceDrawer() {
         <div className="p-5 border-t border-gray-200 bg-gray-50">
           <div className="flex items-center justify-between">
             <p className="text-sm text-gray-500">
-              操作人：{currentUser.name}（食堂管理员）
+              操作人：{currentUser.name}
+              <span className={cn('ml-1.5 px-1.5 py-0.5 rounded text-xs', roleConfig[currentUser.role].color)}>
+                {roleConfig[currentUser.role].label}
+              </span>
             </p>
             <div className="flex items-center gap-3">
               <button onClick={handleClose} className="btn-secondary">
@@ -260,14 +276,16 @@ export function AcceptanceDrawer() {
               </button>
               <button
                 onClick={handleSubmit}
-                disabled={!action || submitting || ((action === 'reject' || action === 'supplement') && !remark.trim())}
+                disabled={!action || loading || ((action === 'reject' || action === 'supplement') && !remark.trim())}
                 className={cn(
                   action === 'accept' ? 'btn-success' :
                   action === 'supplement' ? 'btn-warning' :
                   'btn-danger'
                 )}
               >
-                {submitting ? '提交中...' : '确认提交'}
+                {loading ? (
+                  <><Loader2 className="w-4 h-4 mr-1.5 animate-spin" />处理中...</>
+                ) : '确认提交'}
               </button>
             </div>
           </div>

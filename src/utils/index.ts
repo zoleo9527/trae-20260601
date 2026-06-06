@@ -10,11 +10,15 @@ export const statusConfig: Record<PurchaseStatus, { label: string; color: string
   pending_acceptance: { label: '待验收', color: 'text-amber-700', bgColor: 'bg-amber-50 border-amber-200' },
   accepted: { label: '已验收', color: 'text-green-700', bgColor: 'bg-green-50 border-green-200' },
   rejected: { label: '已驳回', color: 'text-red-700', bgColor: 'bg-red-50 border-red-200' },
-  supplementing: { label: '补充中', color: 'text-orange-700', bgColor: 'bg-orange-50 border-orange-200' },
+  supplementing: { label: '待补充', color: 'text-orange-700', bgColor: 'bg-orange-50 border-orange-200' },
+  supplement_submitted: { label: '已补录待重验', color: 'text-cyan-700', bgColor: 'bg-cyan-50 border-cyan-200' },
   overdue: { label: '逾期未处理', color: 'text-red-700', bgColor: 'bg-red-50 border-red-200' },
-  dispute: { label: '责任争议', color: 'text-purple-700', bgColor: 'bg-purple-50 border-purple-200' },
+  dispute_pending: { label: '待仲裁', color: 'text-purple-700', bgColor: 'bg-purple-50 border-purple-200' },
+  dispute_processing: { label: '争议处理中', color: 'text-pink-700', bgColor: 'bg-pink-50 border-pink-200' },
   sample_pending: { label: '待留样', color: 'text-blue-700', bgColor: 'bg-blue-50 border-blue-200' },
-  sample_completed: { label: '留样完成', color: 'text-emerald-700', bgColor: 'bg-emerald-50 border-emerald-200' },
+  sample_completed: { label: '留样完成待确认', color: 'text-indigo-700', bgColor: 'bg-indigo-50 border-indigo-200' },
+  sample_confirmed: { label: '留样已确认', color: 'text-teal-700', bgColor: 'bg-teal-50 border-teal-200' },
+  completed: { label: '流程完成', color: 'text-emerald-700', bgColor: 'bg-emerald-50 border-emerald-200' },
 }
 
 export const exceptionTypeConfig: Record<ExceptionType, { label: string; color: string; icon: string }> = {
