@@ -7,9 +7,10 @@
   import OrderDetail from './components/OrderDetail.svelte'
 
   let currentView = 'dashboard'
-  let selectedOrder = null
+  let selectedOrderId = null
   let orderList = orders.map(o => ({ ...o, selected: false }))
 
+  $: selectedOrder = selectedOrderId ? orderList.find(o => o.id === selectedOrderId) : null
   $: allSelected = orderList.length > 0 && orderList.every(o => o.selected)
   $: selectedCount = orderList.filter(o => o.selected).length
 
@@ -25,18 +26,18 @@
   }
 
   function viewOrder(order) {
-    selectedOrder = orderList.find(o => o.id === order.id) || order
+    selectedOrderId = order.id
     currentView = 'detail'
   }
 
   function closeDetail() {
-    selectedOrder = null
+    selectedOrderId = null
     currentView = 'dashboard'
   }
 
   function setView(view) {
     currentView = view
-    selectedOrder = null
+    selectedOrderId = null
   }
 
   function getStats() {
@@ -73,9 +74,6 @@
       }
       return o
     })
-    if (selectedOrder && selectedOrder.id === id) {
-      selectedOrder = orderList.find(o => o.id === id)
-    }
   }
 
   function batchUpdateStatus(newStatus) {
@@ -114,9 +112,6 @@
       }
       return o
     })
-    if (selectedOrder && selectedOrder.id === orderId) {
-      selectedOrder = orderList.find(o => o.id === orderId)
-    }
   }
 
   function resolveException(orderId, exceptionIndex) {
@@ -137,9 +132,6 @@
       }
       return o
     })
-    if (selectedOrder && selectedOrder.id === orderId) {
-      selectedOrder = orderList.find(o => o.id === orderId)
-    }
   }
 </script>
 

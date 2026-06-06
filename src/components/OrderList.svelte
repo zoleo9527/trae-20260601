@@ -57,9 +57,9 @@
               <span class="amount">{order.currency} {order.orderAmount.toLocaleString()}</span>
             </td>
             <td>
-              {#if order.rateDiff !== null && order.rateDiff !== undefined}
-                <span class="amount diff-positive">+¥{order.diffAmount.toFixed(2)}</span>
-                <div style="font-size: 11px; color: #9ca3af;">差异 {order.rateDiff}</div>
+              {#if order.diffAmount !== null && order.diffAmount !== undefined}
+                <span class="amount diff-positive">+¥{order.diffAmount ? order.diffAmount.toFixed(2) : '0.00'}</span>
+                <div style="font-size: 11px; color: #9ca3af;">差异 {order.rateDiff || 0}</div>
               {:else}
                 <span style="color: #9ca3af;">未结算</span>
               {/if}
