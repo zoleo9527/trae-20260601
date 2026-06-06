@@ -207,6 +207,7 @@ const HallDetail: React.FC = () => {
   };
 
   const activeFaults = faultTickets.filter((t) => t.status !== 'closed');
+  const closedFaults = faultTickets.filter((t) => t.status === 'closed');
 
   return (
     <div className="space-y-6">
@@ -372,6 +373,98 @@ const HallDetail: React.FC = () => {
                             </button>
                           )}
                         </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {closedFaults.length > 0 && (
+            <div className="card p-6">
+              <h2 className="text-lg font-semibold text-gray-900 mb-4">历史故障工单</h2>
+              <div className="space-y-4">
+                {closedFaults.map((ticket) => {
+                  const ticketRefundLists = getRefundListsByFaultTicket(ticket.id);
+                  return (
+                    <div key={ticket.id} className="p-4 bg-gray-50 rounded-xl border border-gray-200 opacity-80">
+                      <div className="flex items-start justify-between mb-2">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <h3 className="font-medium text-gray-900">{ticket.title}</h3>
+                            <StatusBadge type="fault" status={ticket.status} />
+                          </div>
+                          <p className="text-sm text-gray-500 mt-1">{ticket.description}</p>
+                        </div>
+                      </div>
+
+                      {ticket.affectedSchedules && ticket.affectedSchedules.length > 0 && (
+                        <div className="mt-3 p-3 bg-amber-50 rounded-lg">
+                          <p className="text-xs font-medium text-amber-800 mb-2">受影响排片</p>
+                          <div className="space-y-1">
+                            {ticket.affectedSchedules.map((s) => (
+                              <div key={s.scheduleId} className="text-xs text-amber-700 flex items-center gap-2">
+                                <span className="w-1.5 h-1.5 bg-amber-400 rounded-full"></span>
+                                {s.scheduleName} ({formatTime(s.startTime)}-{formatTime(s.endTime)})
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {ticketRefundLists.length > 0 && (
+                        <div className="mt-3 p-3 bg-red-50 rounded-lg">
+                          <p className="text-xs font-medium text-red-800 mb-2">关联退票清单 ({ticketRefundLists.length} 个)</p>
+                          <div className="space-y-2">
+                            {ticketRefundLists.map((refund) => (
+                              <div key={refund.id} className="flex items-center justify-between p-2 bg-white rounded-lg">
+                                <div className="flex-1">
+                                  <p className="text-sm font-medium text-gray-900">{refund.scheduleName}</p>
+                                  <p className="text-xs text-gray-500">{refund.ticketIds.length} 张票 · {refund.reason}</p>
+                                </div>
+                                <span className={`badge ${
+                                  refund.status === 'pending' ? 'bg-amber-100 text-amber-800' :
+                                  refund.status === 'processing' ? 'bg-blue-100 text-blue-800' :
+                                  'bg-green-100 text-green-800'
+                                }`}>
+                                  {refund.status === 'pending' ? '待处理' :
+                                   refund.status === 'processing' ? '处理中' : '已完成'}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="mt-3 p-3 bg-gray-100 rounded-lg">
+                        <p className="text-xs font-medium text-gray-700 mb-2">关键流转信息</p>
+                        <div className="space-y-1.5 text-xs text-gray-600">
+                          <div className="flex items-center gap-2">
+                            <span className="w-1.5 h-1.5 bg-blue-500 rounded-full flex-shrink-0"></span>
+                            <span className="text-gray-500">上报：</span>
+                            <span>{ticket.reportedBy} · {formatDateTime(ticket.createdAt)}</span>
+                          </div>
+                          {ticket.handledBy && ticket.resolvedAt && (
+                            <div className="flex items-center gap-2">
+                              <span className="w-1.5 h-1.5 bg-green-500 rounded-full flex-shrink-0"></span>
+                              <span className="text-gray-500">解决：</span>
+                              <span>{ticket.handledBy} · {formatDateTime(ticket.resolvedAt)}</span>
+                            </div>
+                          )}
+                          {ticket.closedAt && (
+                            <div className="flex items-center gap-2">
+                              <span className="w-1.5 h-1.5 bg-gray-500 rounded-full flex-shrink-0"></span>
+                              <span className="text-gray-500">关闭：</span>
+                              <span>{ticket.handledBy || '系统'} · {formatDateTime(ticket.closedAt)}</span>
+                            </div>
+                          )}
+                        </div>
+                        {ticket.resolveRemark && (
+                          <div className="mt-2 pt-2 border-t border-gray-200">
+                            <p className="text-xs text-gray-500">解决备注：<span className="text-gray-700">{ticket.resolveRemark}</span></p>
+                          </div>
+                        )}
                       </div>
                     </div>
                   );

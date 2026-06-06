@@ -269,7 +269,6 @@ export const useHallStore = create<HallState>()(
         if (!ticket) return;
 
         get().updateFaultTicketStatus(ticketId, 'resolved', resolveRemark);
-        get().addHallLog(ticket.hallId, '故障解决', resolveRemark);
 
         const pendingFaults = get().faultTickets.filter(
           (t) => t.hallId === ticket.hallId && t.status !== 'closed' && t.status !== 'resolved' && t.id !== ticketId
@@ -283,7 +282,6 @@ export const useHallStore = create<HallState>()(
         const ticket = get().faultTickets.find((t) => t.id === ticketId);
         if (ticket) {
           get().updateFaultTicketStatus(ticketId, 'closed');
-          get().addHallLog(ticket.hallId, '关闭工单');
         }
       },
     }),
