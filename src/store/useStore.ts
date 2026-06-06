@@ -194,22 +194,22 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   getRoleTodos: () => {
-    const { currentUser, detentions, appeals, todos } = get();
+    const { currentUser, detentions, appeals } = get();
     const role = currentUser.role;
 
-    const todosFromDetentions: TodoItem[] = [];
+    const todoList: TodoItem[] = [];
 
     detentions.forEach((d) => {
       if (role === 'dispatcher' || role === 'warehouse_clerk') {
         if (d.status === 'pending') {
           const todo = createTodoFromDetention(d, 'detention_confirm');
-          if (todo) todosFromDetentions.push(todo);
+          if (todo) todoList.push(todo);
         }
       }
       if (role === 'forklift_foreman' || role === 'dispatcher') {
-        if (d.status === 'pending') {
+        if (d.status === 'pending' && !d.endLoadingTime) {
           const todo = createTodoFromDetention(d, 'loading_record');
-          if (todo) todosFromDetentions.push(todo);
+          if (todo) todoList.push(todo);
         }
       }
     });
@@ -217,15 +217,14 @@ export const useStore = create<AppState>((set, get) => ({
     if (role === 'warehouse_clerk') {
       appeals.forEach((a) => {
         if (a.status === 'pending' || a.status === 'processing') {
-          todosFromDetentions.push(createTodoFromAppeal(a));
+          todoList.push(createTodoFromAppeal(a));
         }
       });
     }
 
-    const existingTodoIds = new Set(todos.map((t) => t.id));
-    const newTodos = todosFromDetentions.filter((t) => !existingTodoIds.has(t.id));
+    const uniqueTodos = Array.from(new Map(todoList.map(t => [t.id, t])).values());
 
-    return [...todos, ...newTodos];
+    return uniqueTodos.sort((a, b) => new Date(b.createTime).getTime() - new Date(a.createTime).getTime());
   },
 
   getRolePermissions: (role) => ({

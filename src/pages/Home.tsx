@@ -19,7 +19,7 @@ import { WorkbenchCard } from '@/components/common/WorkbenchCard';
 import { StatusTag } from '@/components/common/StatusTag';
 import { userRoleMap, formatDateTime, formatCurrency } from '@/utils/format';
 import { LoadingOperationModal } from '@/components/detention/LoadingOperationModal';
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 
 export default function Home() {
   const navigate = useNavigate();
@@ -43,8 +43,12 @@ export default function Home() {
   const permissions = getRolePermissions(currentUser.role);
   const nextLoadingTask = getNextLoadingTask();
 
-  const pendingDetentions = detentions.filter((d) => d.status === 'pending');
-  const pendingAppeals = appeals.filter((a) => a.status === 'pending' || a.status === 'processing');
+  const inProgressLoading = useMemo(
+    () => detentions.find((d) => d.startLoadingTime && !d.endLoadingTime),
+    [detentions]
+  );
+
+  const hasInProgressLoading = !!inProgressLoading;
 
   const roleWelcome: Record<string, { title: string; subtitle: string; tips: string[] }> = {
     dispatcher: {
@@ -105,84 +109,179 @@ export default function Home() {
     },
   ];
 
-  const allQuickActions = [
-    {
-      label: '滞留费用管理',
-      icon: <FileText className="w-5 h-5" />,
-      onClick: () => navigate('/detention'),
-      show: permissions.canViewAll,
-    },
-    {
-      label: '司机申诉处理',
-      icon: <Users className="w-5 h-5" />,
-      onClick: () => navigate('/appeal'),
-      show: permissions.canProcessAppeal || permissions.canViewAll,
-    },
-    {
-      label: '开始装卸',
-      icon: <Play className="w-5 h-5" />,
-      onClick: () => {
-        if (nextLoadingTask) {
-          setLoadingDetentionId(nextLoadingTask.id);
-          setShowLoadingModal(true);
-        }
+  const allQuickActions = useMemo(() => {
+    const actions = [
+      {
+        label: '滞留费用管理',
+        icon: <FileText className="w-5 h-5" />,
+        onClick: () => navigate('/detention'),
+        show: permissions.canViewAll,
       },
-      show: permissions.canRecordLoading && !!nextLoadingTask && !nextLoadingTask.startLoadingTime,
-    },
-    {
-      label: '结束装卸',
-      icon: <Square className="w-5 h-5" />,
-      onClick: () => {
-        const inProgress = detentions.find((d) => d.startLoadingTime && !d.endLoadingTime);
-        if (inProgress) {
-          setLoadingDetentionId(inProgress.id);
-          setShowLoadingModal(true);
-        }
+      {
+        label: '司机申诉处理',
+        icon: <Users className="w-5 h-5" />,
+        onClick: () => navigate('/appeal'),
+        show: permissions.canProcessAppeal || permissions.canViewAll,
       },
-      show: permissions.canRecordLoading && detentions.some((d) => d.startLoadingTime && !d.endLoadingTime),
-    },
-    {
-      label: '记录异常',
-      icon: <AlertTriangle className="w-5 h-5" />,
-      onClick: () => {
-        const inProgress = detentions.find((d) => d.startLoadingTime && !d.endLoadingTime);
-        if (inProgress) {
-          setLoadingDetentionId(inProgress.id);
-          setShowLoadingModal(true);
-        }
-      },
-      show: permissions.canRecordLoading,
-    },
-    {
+    ];
+
+    if (permissions.canRecordLoading) {
+      if (nextLoadingTask && !nextLoadingTask.startLoadingTime) {
+        actions.push({
+          label: '开始装卸',
+          icon: <Play className="w-5 h-5" />,
+          onClick: () => {
+            setLoadingDetentionId(nextLoadingTask.id);
+            setShowLoadingModal(true);
+          },
+          show: true,
+        });
+      }
+
+      if (hasInProgressLoading) {
+        actions.push({
+          label: '结束装卸',
+          icon: <Square className="w-5 h-5" />,
+          onClick: () => {
+            if (inProgressLoading) {
+              setLoadingDetentionId(inProgressLoading.id);
+              setShowLoadingModal(true);
+            }
+          },
+          show: true,
+        });
+
+        actions.push({
+          label: '记录异常',
+          icon: <AlertTriangle className="w-5 h-5" />,
+          onClick: () => {
+            if (inProgressLoading) {
+              setLoadingDetentionId(inProgressLoading.id);
+              setShowLoadingModal(true);
+            }
+          },
+          show: true,
+        });
+      }
+    }
+
+    actions.push({
       label: '系统设置',
       icon: <Settings className="w-5 h-5" />,
       onClick: () => {},
       show: true,
-    },
-  ];
+    });
 
-  const quickActions = allQuickActions.filter((a) => a.show);
+    return actions.filter((a) => a.show);
+  }, [permissions, nextLoadingTask, hasInProgressLoading, inProgressLoading, navigate]);
 
-  const recentActivities = [
-    ...detentions.slice(0, 5).map((d) => ({
-      id: d.id,
-      type: 'detention' as const,
-      title: `滞留单 ${d.orderNo}`,
-      desc: `${d.plateNumber} ${d.driverName} 超时${d.detentionHours}小时`,
-      status: d.status,
-      time: d.updatedAt,
-    })),
-    ...appeals.slice(0, 5).map((a) => ({
-      id: a.id,
-      type: 'appeal' as const,
-      title: `申诉 #${a.id}`,
-      desc: `${a.driverName} 申请减免 ${formatCurrency(a.requestedAdjustment)}`,
-      status: a.status,
-      time: a.submittedAt,
-    })),
-  ]
-    .sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime())
-    .slice(0, 6);
+  const recentActivities = useMemo(() => {
+    const role = currentUser.role;
+
+    const activities: Array<{
+      id: string;
+      type: 'detention' | 'appeal';
+      title: string;
+      desc: string;
+      status: string;
+      time: string;
+    }> = [];
+
+    if (role === 'forklift_foreman') {
+      detentions
+        .filter((d) => !d.endLoadingTime)
+        .forEach((d) => {
+          activities.push({
+            id: d.id,
+            type: 'detention',
+            title: `装卸作业 ${d.orderNo}`,
+            desc: `${d.plateNumber} 月台${d.platformNo} - ${
+              d.startLoadingTime ? '进行中' : '待开始'
+            }`,
+            status: d.status,
+            time: d.startLoadingTime || d.arrivalTime || d.createdAt,
+          });
+        });
+    }
+
+    if (role === 'dispatcher' || role === 'warehouse_clerk') {
+      detentions
+        .filter((d) => d.status === 'pending')
+        .forEach((d) => {
+          activities.push({
+            id: d.id,
+            type: 'detention',
+            title: `待确认 ${d.orderNo}`,
+            desc: `${d.plateNumber} ${d.driverName} 超时${d.detentionHours}小时`,
+            status: d.status,
+            time: d.updatedAt,
+          });
+        });
+    }
+
+    if (role === 'warehouse_clerk') {
+      appeals
+        .filter((a) => a.status === 'pending' || a.status === 'processing')
+        .forEach((a) => {
+          activities.push({
+            id: a.id,
+            type: 'appeal',
+            title: `待处理申诉 #${a.id}`,
+            desc: `${a.driverName} 申请减免 ${formatCurrency(a.requestedAdjustment)}`,
+            status: a.status,
+            time: a.submittedAt,
+          });
+        });
+    }
+
+    const allLogs: Array<{
+      id: string;
+      type: 'detention' | 'appeal';
+      title: string;
+      desc: string;
+      status: string;
+      time: string;
+    }> = [];
+
+    detentions.forEach((d) => {
+      d.statusLogs.forEach((log) => {
+        if (log.operatorRole === role) {
+          allLogs.push({
+            id: `${d.id}-${log.id}`,
+            type: 'detention',
+            title: `${d.orderNo} - ${log.remark || '状态变更'}`,
+            desc: `${d.plateNumber}`,
+            status: log.toStatus,
+            time: log.operateTime,
+          });
+        }
+      });
+    });
+
+    appeals.forEach((a) => {
+      a.statusLogs.forEach((log) => {
+        if (log.operatorRole === role) {
+          allLogs.push({
+            id: `${a.id}-${log.id}`,
+            type: 'appeal',
+            title: `申诉 #${a.id} - ${log.remark || '状态变更'}`,
+            desc: `${a.driverName}`,
+            status: log.toStatus,
+            time: log.operateTime,
+          });
+        }
+      });
+    });
+
+    const uniqueActivities = [
+      ...activities,
+      ...allLogs.sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime()).slice(0, 3),
+    ];
+
+    return uniqueActivities
+      .sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime())
+      .slice(0, 6);
+  }, [currentUser.role, detentions, appeals]);
 
   const handleTodoClick = (todo: typeof todos[0]) => {
     if (todo.type === 'loading_record') {
@@ -196,6 +295,8 @@ export default function Home() {
       navigate('/detention');
     }
   };
+
+  const pendingAppeals = appeals.filter((a) => a.status === 'pending' || a.status === 'processing');
 
   return (
     <div className="p-6 space-y-6">
@@ -277,36 +378,43 @@ export default function Home() {
             icon={<Clock className="w-4 h-4" />}
           >
             <div className="space-y-3">
-              {recentActivities.map((activity) => (
-                <div
-                  key={`${activity.type}-${activity.id}`}
-                  className="flex items-center justify-between py-2 border-b border-gray-100 last:border-0"
-                >
-                  <div className="flex items-center gap-3">
-                    <div
-                      className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                        activity.type === 'detention' ? 'bg-blue-100' : 'bg-purple-100'
-                      }`}
-                    >
-                      {activity.type === 'detention' ? (
-                        <Truck className="w-4 h-4 text-blue-600" />
-                      ) : (
-                        <Users className="w-4 h-4 text-purple-600" />
-                      )}
+              {recentActivities.length === 0 ? (
+                <p className="text-sm text-gray-500 text-center py-4">暂无动态</p>
+              ) : (
+                recentActivities.map((activity) => (
+                  <div
+                    key={activity.id}
+                    className="flex items-center justify-between py-2 border-b border-gray-100 last:border-0"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div
+                        className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                          activity.type === 'detention' ? 'bg-blue-100' : 'bg-purple-100'
+                        }`}
+                      >
+                        {activity.type === 'detention' ? (
+                          <Truck className="w-4 h-4 text-blue-600" />
+                        ) : (
+                          <Users className="w-4 h-4 text-purple-600" />
+                        )}
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-gray-900">{activity.title}</p>
+                        <p className="text-xs text-gray-500">{activity.desc}</p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-sm font-medium text-gray-900">{activity.title}</p>
-                      <p className="text-xs text-gray-500">{activity.desc}</p>
+                    <div className="text-right">
+                      <StatusTag
+                        status={activity.status as 'pending' | 'confirmed' | 'appealed' | 'adjusted' | 'closed'}
+                        type={activity.type}
+                      />
+                      <p className="text-xs text-gray-400 mt-1">
+                        {formatDateTime(activity.time)}
+                      </p>
                     </div>
                   </div>
-                  <div className="text-right">
-                    <StatusTag status={activity.status} type={activity.type} />
-                    <p className="text-xs text-gray-400 mt-1">
-                      {formatDateTime(activity.time)}
-                    </p>
-                  </div>
-                </div>
-              ))}
+                ))
+              )}
             </div>
           </WorkbenchCard>
         </div>
@@ -314,7 +422,7 @@ export default function Home() {
         <div className="space-y-6">
           <WorkbenchCard title="快捷操作" icon={<Settings className="w-4 h-4" />}>
             <div className="grid grid-cols-2 gap-3">
-              {quickActions.map((action, index) => (
+              {allQuickActions.map((action, index) => (
                 <button
                   key={index}
                   onClick={action.onClick}
@@ -402,31 +510,39 @@ export default function Home() {
                   </div>
                 )}
 
-                {(() => {
-                  const inProgress = detentions.filter((d) => d.startLoadingTime && !d.endLoadingTime);
-                  return inProgress.map((d) => (
-                    <div key={d.id} className="p-3 bg-blue-50 rounded-lg border border-blue-100">
-                      <p className="text-sm font-medium text-blue-800 mb-1">装卸进行中</p>
-                      <p className="text-xs text-blue-600 mb-2">
-                        {d.plateNumber} - 月台{d.platformNo}
-                      </p>
-                      <p className="text-xs text-blue-500 mb-2">
-                        开始: {formatDateTime(d.startLoadingTime)}
-                      </p>
+                {inProgressLoading && (
+                  <div className="p-3 bg-blue-50 rounded-lg border border-blue-100">
+                    <p className="text-sm font-medium text-blue-800 mb-1">装卸进行中</p>
+                    <p className="text-xs text-blue-600 mb-2">
+                      {inProgressLoading.plateNumber} - 月台{inProgressLoading.platformNo}
+                    </p>
+                    <p className="text-xs text-blue-500 mb-2">
+                      开始: {formatDateTime(inProgressLoading.startLoadingTime)}
+                    </p>
+                    <div className="flex gap-2">
                       <button
                         onClick={() => {
-                          setLoadingDetentionId(d.id);
+                          setLoadingDetentionId(inProgressLoading.id);
                           setShowLoadingModal(true);
                         }}
-                        className="w-full text-xs py-1.5 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+                        className="flex-1 text-xs py-1.5 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
                       >
                         结束装卸
                       </button>
+                      <button
+                        onClick={() => {
+                          setLoadingDetentionId(inProgressLoading.id);
+                          setShowLoadingModal(true);
+                        }}
+                        className="flex-1 text-xs py-1.5 bg-orange-600 text-white rounded hover:bg-orange-700 transition-colors"
+                      >
+                        记录异常
+                      </button>
                     </div>
-                  ));
-                })()}
+                  </div>
+                )}
 
-                {!nextLoadingTask && !detentions.some((d) => d.startLoadingTime && !d.endLoadingTime) && (
+                {!nextLoadingTask && !hasInProgressLoading && (
                   <p className="text-sm text-gray-500 text-center py-4">暂无装卸作业</p>
                 )}
               </div>
