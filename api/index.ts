@@ -1,15 +1,16 @@
-import express from 'express';
-import cors from 'cors';
+import express from "express";
+import cors from "cors";
 import {
-  getStudents, getUsers, getLateReturns, getStatusLogs,
-  insertLateReturn, updateLateReturn, insertStatusLog, resetData, loadData
-} from './db';
+  getStudents, getUsers, getLateReturns, getLateReturnById,
+  insertLateReturn, updateLateReturn, insertStatusLog, resetData
+} from "./db";
+import { initDatabase } from "./schema";
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
-loadData();
+initDatabase();
 
 app.get('/api/students', (req, res) => {
   res.json(getStudents());
@@ -20,35 +21,16 @@ app.get('/api/users', (req, res) => {
 });
 
 app.get('/api/late-returns', (req, res) => {
-  const students = getStudents();
-  const records = getLateReturns().map(r => {
-    const s = students.find(s => s.student_id === r.student_id);
-    return {
-      ...r,
-      student_name: s?.name,
-      dorm_room: s?.dorm_room,
-      counselor: s?.counselor
-    };
-  });
-  res.json(records);
+  res.json(getLateReturns());
 });
 
 app.get('/api/late-returns/:id', (req, res) => {
   const id = parseInt(req.params.id);
-  const students = getStudents();
-  const record = getLateReturns().find(r => r.id === id);
+  const record = getLateReturnById(id);
   if (!record) {
     return res.status(404).json({ error: '记录不存在' });
   }
-  const s = students.find(s => s.student_id === record.student_id);
-  const logs = getStatusLogs().filter(l => l.record_id === id);
-  res.json({
-    ...record,
-    student_name: s?.name,
-    dorm_room: s?.dorm_room,
-    counselor: s?.counselor,
-    logs
-  });
+  res.json(record);
 });
 
 app.post('/api/late-returns', (req, res) => {
@@ -61,8 +43,7 @@ app.post('/api/late-returns', (req, res) => {
     reason,
     dorm_officer_id: officer_id,
     dorm_officer_name: officer_name,
-    dorm_officer_note: officer_note,
-    status: '已登记'
+    dorm_officer_note: officer_note
   });
 
   insertStatusLog({
@@ -82,8 +63,7 @@ app.put('/api/late-returns/:id/counselor-follow', (req, res) => {
   const id = parseInt(req.params.id);
   const { counselor_id, counselor_name, counselor_note, repair_needed, repair_note } = req.body;
   
-  const records = getLateReturns();
-  const record = records.find(r => r.id === id);
+  const record = getLateReturnById(id);
   if (!record) {
     return res.status(404).json({ error: '记录不存在' });
   }
@@ -117,8 +97,7 @@ app.put('/api/late-returns/:id/repair-complete', (req, res) => {
   const id = parseInt(req.params.id);
   const { repair_person_id, repair_person_name, repair_note } = req.body;
   
-  const records = getLateReturns();
-  const record = records.find(r => r.id === id);
+  const record = getLateReturnById(id);
   if (!record) {
     return res.status(404).json({ error: '记录不存在' });
   }

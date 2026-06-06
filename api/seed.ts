@@ -1,5 +1,7 @@
-import { insertStudent, insertUser, insertKey, saveData, resetData } from './db';
+import { initDatabase } from "./schema";
+import { insertStudent, insertUser, insertKey, resetData } from "./db";
 
+initDatabase();
 resetData();
 
 // 学生数据
@@ -21,5 +23,4 @@ insertKey({ id: 'K003', student_id: '2024003', key_number: 'KEY-102-01', status:
 insertKey({ id: 'K004', student_id: '2024004', key_number: 'KEY-102-02', status: '丢失', issued_at: '2024-09-01' });
 insertKey({ id: 'K005', student_id: '2024005', key_number: 'KEY-103-01', status: '正常', issued_at: '2024-09-01' });
 
-saveData();
 console.log('种子数据写入完成');
