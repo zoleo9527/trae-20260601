@@ -70,16 +70,7 @@ def get_dashboard_stats(request):
 
 @router.get('/todos/{role}', response=TodoItemOut, summary='获取指定角色的待办列表')
 def get_todos_by_role(request, role: Role):
-    if role == Role.DISPATCHER:
-        status_filter = {'status__in': [WorkOrderStatus.PENDING_DISPATCH, WorkOrderStatus.EXCEPTION]}
-    elif role == Role.FORKLIFT_LEADER:
-        status_filter = {'status__in': [WorkOrderStatus.DISPATCHED, WorkOrderStatus.IN_PROGRESS, WorkOrderStatus.RETURNED]}
-    elif role == Role.WAREHOUSE_CLERK:
-        status_filter = {'status': WorkOrderStatus.PENDING_CONFIRM}
-    else:
-        status_filter = {}
-
-    items = ForkliftWorkOrder.objects.filter(**status_filter)
+    items = ForkliftWorkOrder.objects.filter(current_role=role)
 
     return {
         'role': role,

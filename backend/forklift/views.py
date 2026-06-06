@@ -15,11 +15,9 @@ def dashboard(request):
     }
 
     todos = {
-        'dispatcher': ForkliftWorkOrder.objects.filter(status=WorkOrderStatus.PENDING_DISPATCH),
-        'forklift_leader': ForkliftWorkOrder.objects.filter(
-            status__in=[WorkOrderStatus.DISPATCHED, WorkOrderStatus.IN_PROGRESS]
-        ),
-        'warehouse_clerk': ForkliftWorkOrder.objects.filter(status=WorkOrderStatus.PENDING_CONFIRM),
+        'dispatcher': ForkliftWorkOrder.objects.filter(current_role=Role.DISPATCHER),
+        'forklift_leader': ForkliftWorkOrder.objects.filter(current_role=Role.FORKLIFT_LEADER),
+        'warehouse_clerk': ForkliftWorkOrder.objects.filter(current_role=Role.WAREHOUSE_CLERK),
     }
 
     recent_orders = ForkliftWorkOrder.objects.all()[:10]
