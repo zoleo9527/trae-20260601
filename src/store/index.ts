@@ -332,6 +332,13 @@ export const useStore = create<AppState>((set, get) => ({
           description: `更新状态为：${status}`,
           remark: result,
         };
+
+        // 状态为已完成时，自动取消需跟进并清空提醒说明
+        const isCompleted = status === '已完成';
+        const finalNeedFollowUp = isCompleted ? false : needFollowUp;
+        // 取消需跟进时，清空提醒说明
+        const finalFollowUpNote = finalNeedFollowUp ? (followUpNote || undefined) : undefined;
+
         return {
           visits: state.visits.map((v) =>
             v.id === id
@@ -341,8 +348,8 @@ export const useStore = create<AppState>((set, get) => ({
                   visitResult: result || v.visitResult,
                   dissatisfaction: dissatisfaction || v.dissatisfaction,
                   visitTime: now(),
-                  needFollowUp,
-                  followUpNote: followUpNote || v.followUpNote,
+                  needFollowUp: finalNeedFollowUp,
+                  followUpNote: finalFollowUpNote,
                   timeline: [...v.timeline, newEvent],
                 }
               : v

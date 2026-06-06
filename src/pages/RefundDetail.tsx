@@ -255,7 +255,7 @@ export function RefundDetail() {
                       <StatusBadge status={visit.status} type="visit" />
                     </div>
                     <p className="text-xs text-gray-500 line-clamp-2">{visit.visitContent}</p>
-                    {visit.followUpNote && (
+                    {visit.needFollowUp && visit.followUpNote && (
                       <p className="text-xs text-orange-700 mt-2 line-clamp-2">📌 {visit.followUpNote}</p>
                     )}
                   </div>
