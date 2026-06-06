@@ -1,0 +1,159 @@
+export type Role = 'admin' | 'purchaser' | 'teacher'
+
+export type PurchaseStatus = 
+  | 'pending_acceptance' 
+  | 'accepted' 
+  | 'rejected' 
+  | 'supplementing' 
+  | 'overdue' 
+  | 'dispute'
+  | 'sample_pending'
+  | 'sample_completed'
+
+export type SampleStatus = 'pending' | 'completed' | 'failed'
+
+export type ExceptionType = 'reject' | 'supplement' | 'overdue' | 'dispute'
+
+export interface User {
+  id: string
+  name: string
+  role: Role
+  avatar?: string
+}
+
+export interface PurchaseItem {
+  id: string
+  name: string
+  quantity: number
+  unit: string
+  specification?: string
+  price?: number
+  batchNumber?: string
+  productionDate?: string
+  expiryDate?: string
+}
+
+export interface Attachment {
+  id: string
+  name: string
+  type: 'image' | 'pdf' | 'other'
+  url: string
+  uploadTime: string
+  uploaderId: string
+}
+
+export interface AcceptanceRecord {
+  id: string
+  purchaseId: string
+  operatorId: string
+  operatorName: string
+  action: 'accept' | 'reject' | 'supplement'
+  remark?: string
+  attachments?: Attachment[]
+  timestamp: string
+}
+
+export interface SampleRecord {
+  id: string
+  purchaseId: string
+  operatorId: string
+  operatorName: string
+  sampleTime: string
+  sampleQuantity: string
+  storageLocation: string
+  temperature?: string
+  remark?: string
+  attachments?: Attachment[]
+  status: SampleStatus
+}
+
+export interface ExceptionRecord {
+  id: string
+  purchaseId: string
+  type: ExceptionType
+  initiatorId: string
+  initiatorName: string
+  handlerId?: string
+  handlerName?: string
+  description: string
+  status: 'pending' | 'processing' | 'resolved' | 'closed'
+  createdAt: string
+  resolvedAt?: string
+  resolution?: string
+  comments?: ExceptionComment[]
+}
+
+export interface ExceptionComment {
+  id: string
+  userId: string
+  userName: string
+  content: string
+  timestamp: string
+  attachments?: Attachment[]
+}
+
+export interface PurchaseOrder {
+  id: string
+  orderNo: string
+  supplierName: string
+  deliveryTime: string
+  expectedDeliveryTime: string
+  items: PurchaseItem[]
+  totalAmount?: number
+  purchaserId: string
+  purchaserName: string
+  status: PurchaseStatus
+  acceptanceRecords: AcceptanceRecord[]
+  sampleRecord?: SampleRecord
+  exceptions: ExceptionRecord[]
+  currentHandlerId?: string
+  currentHandlerName?: string
+  deadline?: string
+  remark?: string
+  createdAt: string
+  updatedAt: string
+}
+
+export interface RolePermission {
+  role: Role
+  name: string
+  actions: string[]
+}
+
+export const ROLE_PERMISSIONS: Record<Role, RolePermission> = {
+  admin: {
+    role: 'admin',
+    name: '食堂管理员',
+    actions: [
+      'view_all_purchases',
+      'process_acceptance',
+      'reject_purchase',
+      'request_supplement',
+      'initiate_sample',
+      'view_samples',
+      'handle_exceptions',
+      'resolve_disputes',
+      'switch_role'
+    ]
+  },
+  purchaser: {
+    role: 'purchaser',
+    name: '采购员',
+    actions: [
+      'view_my_purchases',
+      'submit_supplement',
+      'respond_to_exceptions',
+      'view_acceptance_status'
+    ]
+  },
+  teacher: {
+    role: 'teacher',
+    name: '班主任',
+    actions: [
+      'view_purchases',
+      'confirm_sample',
+      'report_exceptions',
+      'participate_dispute'
+    ]
+  }
+}
