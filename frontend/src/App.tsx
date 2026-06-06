@@ -11,6 +11,22 @@ const App: React.FC = () => {
   const [previousPage, setPreviousPage] = useState<'todos' | 'tickets'>('todos');
   const [selectedTicketId, setSelectedTicketId] = useState<string | null>(null);
 
+  const resetPageState = () => {
+    setCurrentPage('todos');
+    setPreviousPage('todos');
+    setSelectedTicketId(null);
+  };
+
+  const handleSelectRole = (role: UserRole) => {
+    resetPageState();
+    setCurrentRole(role);
+  };
+
+  const handleLogout = () => {
+    resetPageState();
+    setCurrentRole(null);
+  };
+
   if (!currentRole) {
     return (
       <div className="role-selector">
@@ -21,7 +37,7 @@ const App: React.FC = () => {
             <button
               key={role}
               className="role-btn"
-              onClick={() => setCurrentRole(role)}
+              onClick={() => handleSelectRole(role)}
             >
               {ROLE_LABELS[role]}
             </button>
@@ -42,6 +58,14 @@ const App: React.FC = () => {
     setCurrentPage(previousPage);
   };
 
+  const handleNavClick = (page: 'todos' | 'tickets') => {
+    if (currentPage !== 'detail') {
+      setPreviousPage(currentPage as 'todos' | 'tickets');
+    }
+    setSelectedTicketId(null);
+    setCurrentPage(page);
+  };
+
   return (
     <div className="app">
       <header className="app-header">
@@ -53,18 +77,18 @@ const App: React.FC = () => {
           <nav className="nav">
             <button
               className={currentPage === 'todos' ? 'nav-btn active' : 'nav-btn'}
-              onClick={() => setCurrentPage('todos')}
+              onClick={() => handleNavClick('todos')}
             >
               我的待办
             </button>
             <button
               className={currentPage === 'tickets' ? 'nav-btn active' : 'nav-btn'}
-              onClick={() => setCurrentPage('tickets')}
+              onClick={() => handleNavClick('tickets')}
             >
               团体票记录
             </button>
           </nav>
-          <button className="logout-btn" onClick={() => setCurrentRole(null)}>
+          <button className="logout-btn" onClick={handleLogout}>
             切换角色
           </button>
         </div>
