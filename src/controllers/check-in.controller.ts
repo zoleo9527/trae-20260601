@@ -67,6 +67,11 @@ export class CheckInController {
   }
 
   private formatDetail(item: any) {
+    const isOverdue = this.calculateOverdue(item.status, item.expectedCompleteAt, item.completedAt);
+    const responsibleRole = this.getResponsibleRole(item);
+    const blockedAt = this.getBlockedAt(item);
+    const unfinishedReason = this.getUnfinishedReason(item);
+
     return {
       id: item.id,
       student: item.student ? {
@@ -105,7 +110,80 @@ export class CheckInController {
       completedAt: item.completedAt,
       createdAt: item.createdAt,
       updatedAt: item.updatedAt,
+      isOverdue,
+      responsibleRole,
+      blockedAt,
+      unfinishedReason,
     };
+  }
+
+  private calculateOverdue(status: string, expectedCompleteAt: Date, completedAt: Date): boolean {
+    if (status === CheckInStatus.COMPLETED || status === CheckInStatus.REJECTED) {
+      return false;
+    }
+    if (status === CheckInStatus.OVERDUE) {
+      return true;
+    }
+    if (!expectedCompleteAt) {
+      return false;
+    }
+    return new Date() > new Date(expectedCompleteAt);
+  }
+
+  private getResponsibleRole(item: any): string {
+    const handler = item.currentHandler || item.assignedTo;
+    if (handler) {
+      return StaffRoleLabel[handler.role] || handler.role;
+    }
+    if (item.status === CheckInStatus.PENDING) {
+      return '待分配处理人';
+    }
+    return '待确认';
+  }
+
+  private getBlockedAt(item: any): string {
+    switch (item.status) {
+      case CheckInStatus.PENDING:
+        return '待宿管员初查分配';
+      case CheckInStatus.IN_PROGRESS:
+        return '辅导员审核中';
+      case CheckInStatus.RETURNED:
+        return '退回学生补充材料';
+      case CheckInStatus.REJECTED:
+        return '已拒绝，流程终止';
+      case CheckInStatus.DISPUTED:
+        return '责任争议，三方协商中';
+      case CheckInStatus.OVERDUE:
+        return '处理逾期，待跟进';
+      case CheckInStatus.APPROVED:
+        return '已通过，待宿管员确认入住';
+      case CheckInStatus.COMPLETED:
+        return '已完成入住';
+      default:
+        return '处理中';
+    }
+  }
+
+  private getUnfinishedReason(item: any): string | null {
+    if (item.status === CheckInStatus.COMPLETED) {
+      return null;
+    }
+    if (item.returnReason) {
+      return `退回补充：${item.returnReason}`;
+    }
+    if (item.rejectionReason) {
+      return `已拒绝：${item.rejectionReason}`;
+    }
+    if (item.remark) {
+      return item.remark;
+    }
+    if (item.status === CheckInStatus.OVERDUE) {
+      return '超过预期处理时间未完成';
+    }
+    if (item.status === CheckInStatus.DISPUTED) {
+      return '存在责任争议，待协商解决';
+    }
+    return '正在按流程推进';
   }
 
   private formatListItem(item: any) {

@@ -89,6 +89,11 @@ export class BedAdjustmentController {
   }
 
   private formatDetail(item: any) {
+    const isOverdue = this.calculateOverdue(item.status, item.expectedCompleteAt, item.completedAt);
+    const responsibleRole = this.getResponsibleRole(item);
+    const blockedAt = this.getBlockedAt(item);
+    const unfinishedReason = this.getUnfinishedReason(item);
+
     return {
       id: item.id,
       student: item.student ? {
@@ -136,7 +141,91 @@ export class BedAdjustmentController {
       completedAt: item.completedAt,
       createdAt: item.createdAt,
       updatedAt: item.updatedAt,
+      isOverdue,
+      responsibleRole,
+      blockedAt,
+      unfinishedReason,
     };
+  }
+
+  private calculateOverdue(status: string, expectedCompleteAt: Date, completedAt: Date): boolean {
+    if (status === AdjustmentStatus.COMPLETED || status === AdjustmentStatus.REJECTED) {
+      return false;
+    }
+    if (status === AdjustmentStatus.OVERDUE) {
+      return true;
+    }
+    if (!expectedCompleteAt) {
+      return false;
+    }
+    return new Date() > new Date(expectedCompleteAt);
+  }
+
+  private getResponsibleRole(item: any): string {
+    const handler = item.currentHandler || item.assignedTo;
+    if (handler) {
+      return StaffRoleLabel[handler.role] || handler.role;
+    }
+    if (item.status === AdjustmentStatus.MAINTENANCE_REQUIRED) {
+      return '维修人员';
+    }
+    if (item.status === AdjustmentStatus.PENDING) {
+      return '待分配处理人';
+    }
+    return '待确认';
+  }
+
+  private getBlockedAt(item: any): string {
+    switch (item.status) {
+      case AdjustmentStatus.PENDING:
+        return '待宿管员初查申请';
+      case AdjustmentStatus.IN_PROGRESS:
+        return '辅导员审核中';
+      case AdjustmentStatus.RETURNED:
+        return '退回学生补充材料';
+      case AdjustmentStatus.REJECTED:
+        return '已拒绝，流程终止';
+      case AdjustmentStatus.DISPUTED:
+        return '责任争议，三方协商中';
+      case AdjustmentStatus.OVERDUE:
+        return '处理逾期，待跟进';
+      case AdjustmentStatus.APPROVED:
+        return '已通过，待宿管员执行调换';
+      case AdjustmentStatus.COMPLETED:
+        return '已完成床位调换';
+      case AdjustmentStatus.MAINTENANCE_REQUIRED:
+        return '维修人员处理中，待修复完成';
+      default:
+        return '处理中';
+    }
+  }
+
+  private getUnfinishedReason(item: any): string | null {
+    if (item.status === AdjustmentStatus.COMPLETED) {
+      return null;
+    }
+    if (item.returnReason) {
+      return `退回补充：${item.returnReason}`;
+    }
+    if (item.rejectionReason) {
+      return `已拒绝：${item.rejectionReason}`;
+    }
+    if (item.remark) {
+      return item.remark;
+    }
+    if (item.status === AdjustmentStatus.OVERDUE) {
+      return '超过预期处理时间未完成';
+    }
+    if (item.status === AdjustmentStatus.DISPUTED) {
+      return '存在责任争议，待协商解决';
+    }
+    if (item.status === AdjustmentStatus.MAINTENANCE_REQUIRED) {
+      return '需维修人员配合处理设施问题';
+    }
+    if (item.reasonDetail) {
+      return `调整原因：${item.reasonDetail}`;
+    }
+    return '正在按流程推进';
   }
 
   private formatListItem(item: any) {
