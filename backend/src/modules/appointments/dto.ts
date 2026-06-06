@@ -70,10 +70,17 @@ export class SupplementAppointmentDto {
   plateNumber?: string;
 
   @IsOptional()
+  @IsDateString()
+  scheduledArrivalTime?: string;
+
+  @IsOptional()
   cargoType?: string;
 
   @IsOptional()
   cargoWeight?: number;
+
+  @IsOptional()
+  warehouseZone?: string;
 
   @IsOptional()
   remark?: string;

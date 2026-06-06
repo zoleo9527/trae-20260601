@@ -16,6 +16,74 @@ interface StatusTimelineProps {
   logs: StatusLog[];
 }
 
+const fieldNameMap: Record<string, string> = {
+  carrierName: '承运商',
+  driverName: '司机姓名',
+  driverPhone: '司机电话',
+  plateNumber: '车牌号',
+  scheduledArrivalTime: '预计到车时间',
+  cargoType: '货物类型',
+  cargoWeight: '货物重量',
+  warehouseZone: '仓库区域',
+  dockId: '月台ID',
+  oldDockId: '原月台ID',
+  newDockId: '新月台ID',
+  oldDockCode: '原月台',
+  newDockCode: '新月台',
+  dockCode: '月台编号',
+  dockName: '月台名称',
+  rejectionReason: '驳回原因',
+  supplementNote: '补录说明',
+};
+
+const formatValue = (key: string, value: any): string => {
+  if (value === null || value === undefined || value === '') return '空';
+  if (key.includes('Time') && typeof value === 'string') {
+    return dayjs(value).format('YYYY-MM-DD HH:mm');
+  }
+  if (typeof value === 'number') {
+    if (key === 'cargoWeight') return `${value} 吨`;
+    return String(value);
+  }
+  return String(value);
+};
+
+const renderChanges = (changes: Record<string, any>) => {
+  const changeEntries = Object.entries(changes);
+  if (changeEntries.length === 0) return null;
+
+  return (
+    <div style={{ marginTop: 8, padding: 12, background: '#e6fffb', border: '1px solid #87e8de', borderRadius: 4 }}>
+      <div style={{ fontWeight: 500, marginBottom: 8, color: '#08979c' }}>字段变更：</div>
+      <div style={{ fontSize: 13 }}>
+        {changeEntries.map(([key, change]) => {
+          const fieldName = fieldNameMap[key] || key;
+          if (change && typeof change === 'object' && 'from' in change && 'to' in change) {
+            return (
+              <div key={key} style={{ marginBottom: 4, display: 'flex', alignItems: 'flex-start' }}>
+                <span style={{ color: '#666', minWidth: 100, display: 'inline-block' }}>{fieldName}：</span>
+                <span style={{ color: '#ff4d4f', textDecoration: 'line-through' }}>
+                  {formatValue(key, change.from)}
+                </span>
+                <span style={{ margin: '0 6px' }}>→</span>
+                <span style={{ color: '#52c41a', fontWeight: 500 }}>
+                  {formatValue(key, change.to)}
+                </span>
+              </div>
+            );
+          }
+          return (
+            <div key={key} style={{ marginBottom: 4 }}>
+              <span style={{ color: '#666', minWidth: 100, display: 'inline-block' }}>{fieldName}：</span>
+              <span>{formatValue(key, change)}</span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
+
 const getActionIcon = (action: LogAction) => {
   switch (action) {
     case LogAction.CREATE:
@@ -69,9 +137,17 @@ const StatusTimeline: React.FC<StatusTimelineProps> = ({ logs }) => {
                 {log.remark}
               </div>
             )}
-            {log.meta && Object.keys(log.meta).length > 0 && (
-              <div style={{ marginTop: 4, fontSize: 12, color: '#999' }}>
-                详情：{JSON.stringify(log.meta)}
+            {log.meta && log.meta.changes && renderChanges(log.meta.changes)}
+            {log.meta && !log.meta.changes && Object.keys(log.meta).length > 0 && (
+              <div style={{ marginTop: 8, padding: 12, background: '#f6ffed', border: '1px solid #b7eb8f', borderRadius: 4, fontSize: 13 }}>
+                {Object.entries(log.meta).map(([key, value]) => (
+                  <div key={key} style={{ marginBottom: 4 }}>
+                    <span style={{ color: '#666', minWidth: 100, display: 'inline-block' }}>
+                      {fieldNameMap[key] || key}：
+                    </span>
+                    <span>{formatValue(key, value)}</span>
+                  </div>
+                ))}
               </div>
             )}
           </div>

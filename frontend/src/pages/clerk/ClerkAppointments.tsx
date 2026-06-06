@@ -9,6 +9,7 @@ import {
   Form,
   Input,
   InputNumber,
+  DatePicker,
   message,
   Popconfirm,
   Tooltip,
@@ -26,8 +27,6 @@ import dayjs from 'dayjs';
 import { appointmentsApi } from '../../services/api';
 import { useAuth } from '../../store/auth';
 import { Appointment, AppointmentStatus, StatusTextMap, StatusColorMap } from '../../types';
-
-const { TextArea } = Input;
 
 const ClerkAppointments: React.FC = () => {
   const { user } = useAuth();
@@ -69,10 +68,14 @@ const ClerkAppointments: React.FC = () => {
   const handleSupplement = async (values: any) => {
     if (!selectedAppointment) return;
     try {
-      await appointmentsApi.supplement(selectedAppointment.id, {
+      const payload: any = {
         ...values,
         operatorId: user?.id,
-      });
+      };
+      if (values.scheduledArrivalTime) {
+        payload.scheduledArrivalTime = values.scheduledArrivalTime.toISOString();
+      }
+      await appointmentsApi.supplement(selectedAppointment.id, payload);
       message.success('补录成功，已重新提交审核');
       setSupplementModalVisible(false);
       supplementForm.resetFields();
@@ -164,8 +167,10 @@ const ClerkAppointments: React.FC = () => {
                   driverName: record.driverName,
                   driverPhone: record.driverPhone,
                   plateNumber: record.plateNumber,
+                  scheduledArrivalTime: dayjs(record.scheduledArrivalTime),
                   cargoType: record.cargoType,
                   cargoWeight: record.cargoWeight,
+                  warehouseZone: record.warehouseZone,
                 });
                 setSupplementModalVisible(true);
               }}
@@ -288,6 +293,18 @@ const ClerkAppointments: React.FC = () => {
             <Input placeholder="请输入车牌号" />
           </Form.Item>
 
+          <Form.Item
+            name="scheduledArrivalTime"
+            label="预计到车时间"
+            rules={[{ required: true, message: '请选择预计到车时间' }]}
+          >
+            <DatePicker
+              showTime
+              style={{ width: '100%' }}
+              placeholder="选择预计到车时间"
+            />
+          </Form.Item>
+
           <Space size="large" style={{ display: 'flex', width: '100%' }}>
             <Form.Item
               name="cargoType"
@@ -308,10 +325,17 @@ const ClerkAppointments: React.FC = () => {
           </Space>
 
           <Form.Item
+            name="warehouseZone"
+            label="仓库区域"
+          >
+            <Input placeholder="如：A区、B区、冷藏区等" />
+          </Form.Item>
+
+          <Form.Item
             name="supplementNote"
             label="补录说明"
           >
-            <TextArea rows={3} placeholder="请说明补录或修改的内容（选填）" />
+            <Input.TextArea rows={3} placeholder="请说明补录或修改的内容（选填）" />
           </Form.Item>
 
           <Form.Item>

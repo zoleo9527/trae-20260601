@@ -217,13 +217,45 @@ export class AppointmentsService {
 
       const fromStatus = appointment.status;
       const changes: any = {};
-      if (dto.carrierName !== undefined) { changes.carrierName = dto.carrierName; appointment.carrierName = dto.carrierName; }
-      if (dto.driverName !== undefined) { changes.driverName = dto.driverName; appointment.driverName = dto.driverName; }
-      if (dto.driverPhone !== undefined) { changes.driverPhone = dto.driverPhone; appointment.driverPhone = dto.driverPhone; }
-      if (dto.plateNumber !== undefined) { changes.plateNumber = dto.plateNumber; appointment.plateNumber = dto.plateNumber; }
-      if (dto.cargoType !== undefined) { changes.cargoType = dto.cargoType; appointment.cargoType = dto.cargoType; }
-      if (dto.cargoWeight !== undefined) { changes.cargoWeight = dto.cargoWeight; appointment.cargoWeight = dto.cargoWeight; }
-      if (dto.supplementNote !== undefined) { appointment.supplementNote = dto.supplementNote; }
+      if (dto.carrierName !== undefined && dto.carrierName !== appointment.carrierName) {
+        changes.carrierName = { from: appointment.carrierName, to: dto.carrierName };
+        appointment.carrierName = dto.carrierName;
+      }
+      if (dto.driverName !== undefined && dto.driverName !== appointment.driverName) {
+        changes.driverName = { from: appointment.driverName, to: dto.driverName };
+        appointment.driverName = dto.driverName;
+      }
+      if (dto.driverPhone !== undefined && dto.driverPhone !== appointment.driverPhone) {
+        changes.driverPhone = { from: appointment.driverPhone, to: dto.driverPhone };
+        appointment.driverPhone = dto.driverPhone;
+      }
+      if (dto.plateNumber !== undefined && dto.plateNumber !== appointment.plateNumber) {
+        changes.plateNumber = { from: appointment.plateNumber, to: dto.plateNumber };
+        appointment.plateNumber = dto.plateNumber;
+      }
+      if (dto.scheduledArrivalTime !== undefined) {
+        const newTime = new Date(dto.scheduledArrivalTime).toISOString();
+        const oldTime = appointment.scheduledArrivalTime.toISOString();
+        if (newTime !== oldTime) {
+          changes.scheduledArrivalTime = { from: oldTime, to: newTime };
+          appointment.scheduledArrivalTime = new Date(dto.scheduledArrivalTime);
+        }
+      }
+      if (dto.cargoType !== undefined && dto.cargoType !== appointment.cargoType) {
+        changes.cargoType = { from: appointment.cargoType, to: dto.cargoType };
+        appointment.cargoType = dto.cargoType;
+      }
+      if (dto.cargoWeight !== undefined && dto.cargoWeight !== appointment.cargoWeight) {
+        changes.cargoWeight = { from: appointment.cargoWeight, to: dto.cargoWeight };
+        appointment.cargoWeight = dto.cargoWeight;
+      }
+      if (dto.warehouseZone !== undefined && dto.warehouseZone !== appointment.warehouseZone) {
+        changes.warehouseZone = { from: appointment.warehouseZone, to: dto.warehouseZone };
+        appointment.warehouseZone = dto.warehouseZone;
+      }
+      if (dto.supplementNote !== undefined) {
+        appointment.supplementNote = dto.supplementNote;
+      }
 
       appointment.status = AppointmentStatus.SUPPLEMENTED;
       await manager.save(appointment);
