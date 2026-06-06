@@ -51,7 +51,9 @@
       pendingDiff: 0
     }
     orderList.forEach(o => {
-      stats[o.status]++
+      if (stats[o.status] !== undefined) {
+        stats[o.status]++
+      }
       if (o.diffAmount) {
         stats.totalDiff += o.diffAmount
         if (o.status !== 'normal') stats.pendingDiff += o.diffAmount
@@ -70,7 +72,7 @@
           operator: '当前用户',
           remark: remark || '状态更新为: ' + statusLabels[newStatus]
         }
-        return { ...o, status: newStatus, logs: [...o.logs, newLog] }
+        return { ...o, status: newStatus, logs: [...(o.logs || []), newLog] }
       }
       return o
     })
@@ -86,7 +88,7 @@
           operator: '当前用户',
           remark: '批量更新为: ' + statusLabels[newStatus]
         }
-        return { ...o, status: newStatus, selected: false, logs: [...o.logs, newLog] }
+        return { ...o, status: newStatus, selected: false, logs: [...(o.logs || []), newLog] }
       }
       return o
     })
@@ -108,7 +110,7 @@
           createdAt: new Date().toLocaleDateString('zh-CN'),
           resolved: false
         }
-        return { ...o, logs: [...o.logs, newLog], exceptions: [...o.exceptions, newException] }
+        return { ...o, logs: [...(o.logs || []), newLog], exceptions: [...(o.exceptions || []), newException] }
       }
       return o
     })
@@ -118,8 +120,9 @@
     const now = new Date().toLocaleString('zh-CN')
     orderList = orderList.map(o => {
       if (o.id === orderId) {
-        const targetException = o.exceptions[exceptionIndex]
-        const newExceptions = o.exceptions.map((e, i) =>
+        const exceptions = o.exceptions || []
+        const targetException = exceptions[exceptionIndex]
+        const newExceptions = exceptions.map((e, i) =>
           i === exceptionIndex ? { ...e, resolved: true } : e
         )
         const newLog = {
@@ -128,7 +131,7 @@
           operator: '当前用户',
           remark: '异常已解决: ' + targetException.type + ' - ' + targetException.desc
         }
-        return { ...o, exceptions: newExceptions, logs: [...o.logs, newLog] }
+        return { ...o, exceptions: newExceptions, logs: [...(o.logs || []), newLog] }
       }
       return o
     })
@@ -209,7 +212,7 @@
         </div>
         <div class="stat-card">
           <div class="label">累计汇率差异</div>
-          <div class="value">¥{getStats().totalDiff.toFixed(2)}</div>
+          <div class="value">¥{(getStats().totalDiff || 0).toFixed(2)}</div>
         </div>
       </div>
 

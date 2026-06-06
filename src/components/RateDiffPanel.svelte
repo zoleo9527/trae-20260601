@@ -76,11 +76,11 @@
   <div class="summary">
     <div class="s-item">
       <div class="label">累计汇率差异</div>
-      <div class="value green">+¥{totalDiff.toFixed(2)}</div>
+      <div class="value green">+¥{(totalDiff || 0).toFixed(2)}</div>
     </div>
     <div class="s-item">
       <div class="label">待确认差异</div>
-      <div class="value orange">¥{pendingDiff.toFixed(2)}</div>
+      <div class="value orange">¥{(pendingDiff || 0).toFixed(2)}</div>
     </div>
   </div>
 
@@ -104,7 +104,7 @@
           </div>
           <div class="item-meta">
             <span>{order.platform} · {order.orderRate} → {order.settlementRate}</span>
-            <span class="diff-amount">+¥{order.diffAmount.toFixed(2)}</span>
+            <span class="diff-amount">+¥{(order.diffAmount || 0).toFixed(2)}</span>
           </div>
           {#if full && updateOrderStatus && order.status !== 'normal'}
             <div class="actions">
@@ -122,11 +122,11 @@
   <div class="modal-overlay" on:click={() => showConfirmModal = false}>
     <div class="modal" on:click|stopPropagation>
       <h3>确认汇率差异</h3>
-      <p>订单 {selectedOrder.id} 的汇率差异为 ¥{selectedOrder.diffAmount.toFixed(2)}，确认无异议吗？</p>
+      <p>订单 {selectedOrder.id} 的汇率差异为 ¥{(selectedOrder.diffAmount || 0).toFixed(2)}，确认无异议吗？</p>
       <div class="info-box">
         <div class="info-row"><span style="color: #6b7280;">下单时汇率</span><span style="font-weight: 600;">{selectedOrder.orderRate}</span></div>
         <div class="info-row"><span style="color: #6b7280;">结算时汇率</span><span style="font-weight: 600;">{selectedOrder.settlementRate}</span></div>
-        <div class="info-row"><span style="color: #6b7280;">差异金额</span><span style="font-weight: 600; color: #10b981;">+¥{selectedOrder.diffAmount.toFixed(2)}</span></div>
+        <div class="info-row"><span style="color: #6b7280;">差异金额</span><span style="font-weight: 600; color: #10b981;">+¥{(selectedOrder.diffAmount || 0).toFixed(2)}</span></div>
       </div>
       <div class="modal-actions">
         <button class="btn-sm secondary" on:click={() => showConfirmModal = false}>取消</button>

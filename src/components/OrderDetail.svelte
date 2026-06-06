@@ -113,7 +113,7 @@
               <div class="info-row"><span class="label">订单号</span><span class="value">{order.id}</span></div>
               <div class="info-row"><span class="label">下单日期</span><span class="value">{order.orderDate}</span></div>
               <div class="info-row"><span class="label">平台/国家</span><span class="value">{order.platform} / {order.country}</span></div>
-              <div class="info-row"><span class="label">订单金额</span><span class="value">{order.currency} {order.orderAmount.toLocaleString()}</span></div>
+              <div class="info-row"><span class="label">订单金额</span><span class="value">{order.currency} {(order.orderAmount || 0).toLocaleString()}</span></div>
               <div class="info-row"><span class="label">结算日期</span><span class="value">{order.settlementDate || '未结算'}</span></div>
             </div>
           </div>
@@ -135,7 +135,7 @@
               <div class="info-row"><span class="label">下单时汇率</span><span class="value">{order.orderRate}</span></div>
               <div class="info-row"><span class="label">结算时汇率</span><span class="value">{order.settlementRate}</span></div>
               <div class="info-row"><span class="label">汇率差异</span><span class="value" style="color: #10b981;">+{order.rateDiff}</span></div>
-              <div class="info-row"><span class="label">差异金额 (RMB)</span><span class="value" style="color: #10b981;">+¥{order.diffAmount.toFixed(2)}</span></div>
+              <div class="info-row"><span class="label">差异金额 (RMB)</span><span class="value" style="color: #10b981;">+¥{(order.diffAmount || 0).toFixed(2)}</span></div>
             </div>
             {#if order.status !== 'normal'}
               <div style="margin-top: 16px;">
@@ -158,15 +158,15 @@
               <div class="section-title">收入</div>
               <div class="info-card">
                 <div class="info-row"><span class="label">结算收入 (RMB)</span><span class="value">¥{profit.revenueRMB}</span></div>
-                <div class="info-row"><span class="label">汇率收益</span><span class="value" style="color: #10b981;">+¥{order.diffAmount ? order.diffAmount.toFixed(2) : '0.00'}</span></div>
+                <div class="info-row"><span class="label">汇率收益</span><span class="value" style="color: #10b981;">+¥{order.diffAmount ? (order.diffAmount || 0).toFixed(2) : '0.00'}</span></div>
               </div>
             </div>
             <div class="section">
               <div class="section-title">成本明细</div>
               <div class="info-card">
-                <div class="info-row"><span class="label">产品成本</span><span class="value">¥{order.productCost.toFixed(2)}</span></div>
-                <div class="info-row"><span class="label">物流成本</span><span class="value">¥{order.shippingCost.toFixed(2)}</span></div>
-                <div class="info-row"><span class="label">平台费用</span><span class="value">¥{order.platformFee.toFixed(2)}</span></div>
+                <div class="info-row"><span class="label">产品成本</span><span class="value">¥{(order.productCost || 0).toFixed(2)}</span></div>
+                <div class="info-row"><span class="label">物流成本</span><span class="value">¥{(order.shippingCost || 0).toFixed(2)}</span></div>
+                <div class="info-row"><span class="label">平台费用</span><span class="value">¥{(order.platformFee || 0).toFixed(2)}</span></div>
                 <div class="info-row"><span class="label">总成本</span><span class="value" style="color: #f59e0b;">¥{profit.totalCost}</span></div>
               </div>
             </div>
@@ -178,7 +178,7 @@
         <div class="section">
           <div class="section-title">操作日志 (全程追溯)</div>
           <div class="timeline">
-            {#each order.logs as log (log.time + log.action)}
+            {#each (order.logs || []) as log (log.time + log.action)}
               <div class="timeline-item">
                 <div class="timeline-time">{log.time}</div>
                 <div class="timeline-action">{log.action}</div>
@@ -191,7 +191,7 @@
       {:else if activeTab === 'exceptions'}
         <div class="section">
           <div class="section-title" style="display: flex; justify-content: space-between; align-items: center;">
-            <span>异常说明 ({order.exceptions.filter(e => !e.resolved).length} 项待处理)</span>
+            <span>异常说明 ({(order.exceptions || []).filter(e => !e.resolved).length} 项待处理)</span>
             <button class="btn btn-primary" on:click={() => showAddException = !showAddException}>+ 添加异常</button>
           </div>
           
@@ -218,10 +218,10 @@
             </div>
           {/if}
 
-          {#if order.exceptions.length === 0}
+          {#if (order.exceptions || []).length === 0}
             <div style="color: #9ca3af; padding: 30px; text-align: center;">暂无异常记录</div>
           {:else}
-            {#each order.exceptions as ex, index (index)}
+            {#each (order.exceptions || []) as ex, index (index)}
               <div class="exception-card {ex.resolved ? 'resolved' : ''}">
                 <div class="exception-header">
                   <span class="exception-type">{ex.type} {ex.resolved ? '✓ 已解决' : ''}</span>

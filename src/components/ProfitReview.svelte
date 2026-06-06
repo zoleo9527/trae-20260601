@@ -46,9 +46,9 @@
 
   <div class="summary">
     <div class="stat"><div class="label">已结算订单</div><div class="value blue">{settled.length}</div></div>
-    <div class="stat"><div class="label">总收入 (RMB)</div><div class="value">¥{totalRevenue.toFixed(2)}</div></div>
-    <div class="stat"><div class="label">总成本 (RMB)</div><div class="value orange">¥{totalCost.toFixed(2)}</div></div>
-    <div class="stat"><div class="label">总利润 (RMB)</div><div class="value green">¥{totalProfit.toFixed(2)}</div></div>
+    <div class="stat"><div class="label">总收入 (RMB)</div><div class="value">¥{(totalRevenue || 0).toFixed(2)}</div></div>
+    <div class="stat"><div class="label">总成本 (RMB)</div><div class="value orange">¥{(totalCost || 0).toFixed(2)}</div></div>
+    <div class="stat"><div class="label">总利润 (RMB)</div><div class="value green">¥{(totalProfit || 0).toFixed(2)}</div></div>
     <div class="stat"><div class="label">平均利润率</div><div class="value green">{avgRate}%</div></div>
   </div>
 

@@ -54,7 +54,7 @@
               <div style="font-size: 11px; color: #9ca3af;">{order.country} · {order.warehouse}</div>
             </td>
             <td>
-              <span class="amount">{order.currency} {order.orderAmount.toLocaleString()}</span>
+              <span class="amount">{order.currency} {(order.orderAmount || 0).toLocaleString()}</span>
             </td>
             <td>
               {#if order.diffAmount !== null && order.diffAmount !== undefined}
