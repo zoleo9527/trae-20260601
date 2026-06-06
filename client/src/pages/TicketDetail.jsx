@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext'
 import { useTickets } from '../context/TicketContext'
 
 const STATUS_LABELS = {
-  pending: '待审核',
+  pending_review: '待审核',
   processing: '处理中',
   reviewing: '审核中',
   approved: '已审核通过',
@@ -26,7 +26,7 @@ const ROLE_LABELS = {
 
 const getStatusStyle = (status) => {
   const styles = {
-    pending: { background: '#fff7e6', color: '#fa8c16' },
+    pending_review: { background: '#fff7e6', color: '#fa8c16' },
     processing: { background: '#e6f4ff', color: '#1890ff' },
     reviewing: { background: '#fff0f6', color: '#eb2f96' },
     approved: { background: '#f6ffed', color: '#52c41a' },
@@ -34,18 +34,18 @@ const getStatusStyle = (status) => {
     completed: { background: '#f6ffed', color: '#52c41a' },
     rejected: { background: '#fff1f0', color: '#ff4d4f' }
   }
-  return styles[status] || styles.pending
+  return styles[status] || styles.pending_review
 }
 
 const REFUND_FLOW = {
-  pending: ['processing', 'rejected'],
+  pending_review: ['processing', 'rejected'],
   processing: ['completed'],
   completed: [],
   rejected: []
 }
 
 const REISSUE_FLOW = {
-  pending: ['reviewing', 'rejected'],
+  pending_review: ['reviewing', 'rejected'],
   reviewing: ['approved', 'rejected'],
   approved: ['shipped'],
   shipped: ['completed'],
@@ -163,6 +163,7 @@ export default function TicketDetail() {
   const statusStyle = getStatusStyle(ticket.status)
   const availableActions = getAvailableActions()
   const sortedLogs = [...(ticket.logs || [])].sort((a, b) => new Date(b.time) - new Date(a.time))
+  const creator = ticket.logs && ticket.logs[0] ? ticket.logs[0].operator : '-'
 
   return (
     <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
@@ -240,12 +241,12 @@ export default function TicketDetail() {
               <div style={{ gridColumn: '1 / -1' }}>
                 <div style={{ fontSize: '13px', color: '#999', marginBottom: '4px' }}>问题描述</div>
                 <div style={{ fontSize: '14px', lineHeight: '1.6', background: '#fafafa', padding: '12px', borderRadius: '4px' }}>
-                  {ticket.description}
+                  {ticket.reason}
                 </div>
               </div>
               <div>
                 <div style={{ fontSize: '13px', color: '#999', marginBottom: '4px' }}>创建人</div>
-                <div style={{ fontSize: '14px' }}>{ticket.operatorName}</div>
+                <div style={{ fontSize: '14px' }}>{creator}</div>
               </div>
               <div>
                 <div style={{ fontSize: '13px', color: '#999', marginBottom: '4px' }}>创建时间</div>
@@ -281,7 +282,7 @@ export default function TicketDetail() {
                     <div style={{ flex: 1, paddingBottom: '0' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '4px' }}>
                         <div>
-                          <span style={{ fontSize: '14px', fontWeight: '500' }}>{log.operatorName}</span>
+                          <span style={{ fontSize: '14px', fontWeight: '500' }}>{log.operator}</span>
                           <span style={{ fontSize: '12px', color: '#999', marginLeft: '8px' }}>
                             ({ROLE_LABELS[log.operatorRole] || log.operatorRole})
                           </span>
@@ -380,9 +381,9 @@ export default function TicketDetail() {
             <div style={{ position: 'relative', paddingLeft: '8px' }}>
               {ticket.type === 'refund' ? (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                  {['pending', 'processing', 'completed'].map((status, index) => {
+                  {['pending_review', 'processing', 'completed'].map((status, index) => {
                     const isActive = ticket.status === status
-                    const isPassed = ['pending', 'processing', 'completed'].indexOf(ticket.status) > index
+                    const isPassed = ['pending_review', 'processing', 'completed'].indexOf(ticket.status) > index
                     const style = getStatusStyle(status)
                     return (
                       <div key={status} style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -434,9 +435,9 @@ export default function TicketDetail() {
                 </div>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                  {['pending', 'reviewing', 'approved', 'shipped', 'completed'].map((status, index) => {
+                  {['pending_review', 'reviewing', 'approved', 'shipped', 'completed'].map((status, index) => {
                     const isActive = ticket.status === status
-                    const isPassed = ['pending', 'reviewing', 'approved', 'shipped', 'completed'].indexOf(ticket.status) > index
+                    const isPassed = ['pending_review', 'reviewing', 'approved', 'shipped', 'completed'].indexOf(ticket.status) > index
                     const style = getStatusStyle(status)
                     return (
                       <div key={status} style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>

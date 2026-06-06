@@ -15,7 +15,7 @@ export default function CreateTicket() {
     amount: '',
     customerName: '',
     customerPhone: '',
-    description: ''
+    reason: ''
   })
 
   const handleChange = (e) => {
@@ -128,8 +128,8 @@ export default function CreateTicket() {
         <div className="form-group" style={{ marginBottom: '24px' }}>
           <label>问题描述</label>
           <textarea
-            name="description"
-            value={form.description}
+            name="reason"
+            value={form.reason}
             onChange={handleChange}
             placeholder="请详细描述问题..."
             rows={4}
