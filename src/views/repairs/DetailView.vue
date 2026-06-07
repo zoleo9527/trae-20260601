@@ -158,7 +158,9 @@
                     <span class="font-medium">{{ store.repairStatusLabel(item.toStatus as any) }}</span>
                   </template>
                   <template v-else>
-                    巡检单状态更新为: 
+                    <template v-if="item.fromStatus && item.fromStatus !== item.inspectionStatus">
+                      {{ store.inspectionStatusLabel(item.fromStatus as any) }} →
+                    </template>
                     <StatusBadge type="inspection" :status="item.inspectionStatus!" />
                   </template>
                 </p>
@@ -450,7 +452,8 @@ const unifiedTimeline = computed<TimelineItem[]>(() => {
     type: 'inspection' as const,
     timestamp: update.timestamp,
     userName: update.operatorName,
-    userRole: 'station_master' as UserRole,
+    userRole: update.operatorRole,
+    fromStatus: update.fromStatus,
     inspectionStatus: update.inspectionStatus,
     remark: update.inspectionRemark
   }))

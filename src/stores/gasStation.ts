@@ -162,16 +162,20 @@ const initialRepairs: AbnormalRepair[] = [
       {
         timestamp: daysAgo(4),
         inspectionId: 'insp2',
+        fromStatus: 'in_progress',
         inspectionStatus: 'abnormal',
         inspectionRemark: '发现3号油枪出油异常，创建报修单',
-        operatorName: '王计量'
+        operatorName: '王计量',
+        operatorRole: 'gauge_officer'
       },
       {
         timestamp: hoursAgo(4 * 24 + 3),
         inspectionId: 'insp2',
+        fromStatus: 'abnormal',
         inspectionStatus: 'abnormal',
         inspectionRemark: '站长已确认异常，安排维修',
-        operatorName: '张站长'
+        operatorName: '张站长',
+        operatorRole: 'station_master'
       }
     ],
     repairProgress: '已拆开油枪，发现过滤器堵塞严重，正在更换备件',
@@ -203,16 +207,20 @@ const initialRepairs: AbnormalRepair[] = [
       {
         timestamp: daysAgo(2),
         inspectionId: 'insp3',
+        fromStatus: 'in_progress',
         inspectionStatus: 'abnormal',
         inspectionRemark: '呼吸阀异常，提交报修',
-        operatorName: '王计量'
+        operatorName: '王计量',
+        operatorRole: 'gauge_officer'
       },
       {
         timestamp: hoursAgo(2 * 24 + 5),
         inspectionId: 'insp3',
+        fromStatus: 'abnormal',
         inspectionStatus: 'recheck',
         inspectionRemark: '站长安排自行清理后复检',
-        operatorName: '张站长'
+        operatorName: '张站长',
+        operatorRole: 'station_master'
       }
     ],
     repairProgress: '已采购密封垫，预计明天到货后更换',
@@ -429,13 +437,14 @@ export const useGasStationStore = defineStore('gasStation', {
       const inspection = this.inspections.find(i => i.id === inspectionId)
       if (!inspection) return
 
+      const oldStatus = inspection.status
       const log: StatusLog = {
         id: 'sl-' + Date.now(),
         timestamp: new Date().toISOString(),
         userId: this.currentUser.id,
         userName: this.currentUser.name,
         userRole: this.currentUser.role,
-        fromStatus: inspection.status,
+        fromStatus: oldStatus,
         toStatus: newStatus,
         remark
       }
@@ -448,7 +457,7 @@ export const useGasStationStore = defineStore('gasStation', {
       }
 
       if (inspection.relatedRepairId) {
-        this.syncInspectionToRepair(inspection)
+        this.syncInspectionToRepair(inspection, oldStatus, newStatus, remark)
       }
     },
 
@@ -460,7 +469,7 @@ export const useGasStationStore = defineStore('gasStation', {
       inspection.updatedAt = new Date().toISOString()
 
       if (inspection.relatedRepairId && oldRemark !== remark) {
-        this.syncInspectionToRepair(inspection, '更新备注')
+        this.syncInspectionToRepair(inspection, inspection.status, inspection.status, `更新总体备注: ${remark || '(清空)'}`)
       }
     },
 
@@ -469,28 +478,42 @@ export const useGasStationStore = defineStore('gasStation', {
       if (!inspection) return
       const item = inspection.items.find(it => it.id === itemId)
       if (item) {
+        const oldResult = item.result
+        const oldRemark = item.remark
         item.result = result
         item.remark = remark
         inspection.updatedAt = new Date().toISOString()
+        
+        if (inspection.relatedRepairId && (oldResult !== result || oldRemark !== remark)) {
+          const resultLabel = { normal: '正常', abnormal: '异常', na: '不适用' }
+          const changeDesc = []
+          if (oldResult !== result) {
+            changeDesc.push(`结果: ${resultLabel[oldResult]} → ${resultLabel[result]}`)
+          }
+          if (oldRemark !== remark) {
+            changeDesc.push(`备注: ${remark || '(清空)'}`)
+          }
+          this.syncInspectionToRepair(inspection, inspection.status, inspection.status, `巡检项「${item.name}」变更 - ${changeDesc.join('; ')}`)
+        }
       }
     },
 
-    syncInspectionToRepair(inspection: DeviceInspection, actionType?: string) {
+    syncInspectionToRepair(inspection: DeviceInspection, fromStatus: InspectionStatus, toStatus: InspectionStatus, remark?: string) {
       if (!inspection.relatedRepairId) return
       const repair = this.repairs.find(r => r.id === inspection.relatedRepairId)
       if (!repair) return
 
       const lastLog = inspection.statusLogs[inspection.statusLogs.length - 1]
-      const remark = actionType 
-        ? `${actionType}: ${lastLog?.remark || inspection.overallRemark || ''}`
-        : (lastLog?.remark || inspection.overallRemark || '')
+      const finalRemark = remark || lastLog?.remark || inspection.overallRemark || ''
       
       repair.inspectionUpdates.push({
         timestamp: new Date().toISOString(),
         inspectionId: inspection.id,
-        inspectionStatus: inspection.status,
-        inspectionRemark: remark,
-        operatorName: this.currentUser.name
+        fromStatus,
+        inspectionStatus: toStatus,
+        inspectionRemark: finalRemark,
+        operatorName: this.currentUser.name,
+        operatorRole: this.currentUser.role
       })
       repair.updatedAt = new Date().toISOString()
     },
@@ -568,9 +591,11 @@ export const useGasStationStore = defineStore('gasStation', {
           {
             timestamp: new Date().toISOString(),
             inspectionId: inspection.id,
+            fromStatus: inspection.status,
             inspectionStatus: inspection.status,
             inspectionRemark: '从巡检创建报修单',
-            operatorName: this.currentUser.name
+            operatorName: this.currentUser.name,
+            operatorRole: this.currentUser.role
           }
         ],
         repairProgress: '',

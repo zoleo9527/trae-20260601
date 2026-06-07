@@ -69,9 +69,11 @@ export interface AbnormalRepair {
   inspectionUpdates: {
     timestamp: string
     inspectionId: string
+    fromStatus: InspectionStatus
     inspectionStatus: InspectionStatus
     inspectionRemark: string
     operatorName: string
+    operatorRole: UserRole
   }[]
   repairProgress: string
   solution?: string
