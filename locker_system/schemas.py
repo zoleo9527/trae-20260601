@@ -434,6 +434,20 @@ class CompensationSchema(BaseModel):
         )
 
 
+class CompensationListStatusSummary(BaseModel):
+    current_stage: str = Field(..., description="当前阶段：待审核/待支付/已完成/已拒绝")
+    next_action: str = Field(..., description="下一步动作提示")
+    priority_tag: str = Field(..., description="优先级标签：紧急/普通/低")
+
+
+class CompensationListAbnormalBrief(BaseModel):
+    abnormal_type: str = Field(..., description="异常类型码")
+    abnormal_type_display: str = Field(..., description="异常类型中文")
+    abnormal_description: str = Field(..., description="异常描述摘要")
+    priority: int = Field(..., description="异常优先级")
+    process_result_brief: str = Field(..., description="主管处理结果摘要")
+
+
 class CompensationListSchema(BaseModel):
     id: int
     abnormal_id: int
@@ -445,6 +459,10 @@ class CompensationListSchema(BaseModel):
     proposed_at: datetime
     reviewed_at: Optional[datetime] = None
     paid_at: Optional[datetime] = None
+    status_summary: CompensationListStatusSummary = Field(..., description="状态摘要")
+    abnormal_brief: CompensationListAbnormalBrief = Field(..., description="关联异常摘要")
+    waiting_days: int = Field(..., description="已等待天数（今天-提交日期）")
+    is_urgent: bool = Field(..., description="是否紧急：超24小时未处理标记为紧急")
 
 
 class ReportAbnormalRequest(BaseModel):

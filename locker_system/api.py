@@ -1,6 +1,6 @@
 from datetime import datetime, date, timedelta
 from typing import Optional
-from django.db.models import Q, Count
+from django.db.models import Q, Count, Case, When, IntegerField
 from django.shortcuts import get_object_or_404
 from django.contrib.auth.models import User
 from ninja import Router, Query
@@ -218,6 +218,73 @@ def _build_unified_timeline(abnormal: LockerAbnormal, comp: Compensation) -> lis
 
     timeline.sort(key=lambda x: x["created_at"])
     return timeline
+
+
+def _build_compensation_list_item(comp: Compensation) -> dict:
+    now = datetime.now()
+    status_map = {
+        "pending_review": {
+            "current_stage": "待审核",
+            "next_action": "请尽快审核赔付申请",
+            "priority_tag": "紧急" if (now - comp.proposed_at).total_seconds() > 86400 else "普通",
+        },
+        "reviewed": {
+            "current_stage": "待支付",
+            "next_action": "请尽快安排支付",
+            "priority_tag": "紧急" if (now - (comp.reviewed_at or comp.proposed_at)).total_seconds() > 86400 else "普通",
+        },
+        "rejected": {
+            "current_stage": "已拒绝",
+            "next_action": "已退回楼层主管处理",
+            "priority_tag": "低",
+        },
+        "paid": {
+            "current_stage": "已完成",
+            "next_action": "赔付流程已结束",
+            "priority_tag": "低",
+        },
+    }
+
+    info = status_map.get(comp.status, {
+        "current_stage": "未知",
+        "next_action": "请检查状态",
+        "priority_tag": "普通",
+    })
+
+    waiting_timedelta = now - comp.proposed_at
+    waiting_days = waiting_timedelta.days
+    is_urgent = info["priority_tag"] == "紧急"
+
+    abnormal = comp.abnormal
+    desc_brief = abnormal.description[:30] + "..." if len(abnormal.description) > 30 else abnormal.description
+    result_brief = abnormal.process_result[:30] + "..." if abnormal.process_result and len(abnormal.process_result) > 30 else (abnormal.process_result or "无")
+
+    return {
+        "id": comp.id,
+        "abnormal_id": abnormal.id,
+        "locker_no": abnormal.locker.locker_no,
+        "customer_name": comp.customer_name,
+        "compensation_amount": comp.compensation_amount,
+        "status": comp.status,
+        "status_display": comp.get_status_display(),
+        "proposed_at": comp.proposed_at,
+        "reviewed_at": comp.reviewed_at,
+        "paid_at": comp.paid_at,
+        "status_summary": {
+            "current_stage": info["current_stage"],
+            "next_action": info["next_action"],
+            "priority_tag": info["priority_tag"],
+        },
+        "abnormal_brief": {
+            "abnormal_type": abnormal.abnormal_type,
+            "abnormal_type_display": abnormal.get_abnormal_type_display(),
+            "abnormal_description": desc_brief,
+            "priority": abnormal.priority,
+            "process_result_brief": result_brief,
+        },
+        "waiting_days": waiting_days,
+        "is_urgent": is_urgent,
+    }
 
 
 @router.get("/dashboard", response=SuccessResponse[DashboardStats], summary="仪表盘统计")
@@ -572,6 +639,11 @@ def list_compensations(
         "paid_by", "paid_by__user",
     ).all()
 
+    has_filter = any([status, start_date, end_date, keyword])
+
+    if not has_filter:
+        qs = qs.filter(status__in=["pending_review", "reviewed", "rejected"])
+
     if status:
         qs = qs.filter(status=status)
     if start_date:
@@ -586,20 +658,22 @@ def list_compensations(
 
     total = qs.count()
     offset = (pagination.page - 1) * pagination.page_size
+
+    if not has_filter:
+        qs = qs.order_by(
+            Case(
+                When(status="pending_review", then=0),
+                When(status="reviewed", then=1),
+                When(status="rejected", then=2),
+                default=3,
+                output_field=IntegerField(),
+            ),
+            "-proposed_at"
+        )
+
     items = qs[offset:offset + pagination.page_size]
 
-    data = [CompensationListSchema(
-        id=c.id,
-        abnormal_id=c.abnormal.id,
-        locker_no=c.abnormal.locker.locker_no,
-        customer_name=c.customer_name,
-        compensation_amount=c.compensation_amount,
-        status=c.status,
-        status_display=c.get_status_display(),
-        proposed_at=c.proposed_at,
-        reviewed_at=c.reviewed_at,
-        paid_at=c.paid_at,
-    ) for c in items]
+    data = [_build_compensation_list_item(c) for c in items]
 
     total_pages = (total + pagination.page_size - 1) // pagination.page_size
 
