@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Wallet, Check, X, AlertTriangle, Clock, ChevronDown, ChevronUp, User, Plus } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Wallet, Check, X, AlertTriangle, Clock, ChevronDown, ChevronUp, User, Plus, FileText } from 'lucide-react';
 import { useAppStore } from '@/store/appStore';
 import { StatusTag } from '@/components/StatusTag';
 import { DepositReconciliationStatus, UserRole } from '@/types';
@@ -57,9 +58,15 @@ interface DepositCardProps {
 }
 
 function DepositCard({ record, currentRole }: DepositCardProps) {
+  const navigate = useNavigate();
   const [expanded, setExpanded] = useState(false);
   const [modal, setModal] = useState<{ type: string; title: string } | null>(null);
-  const { updateDepositStatus, createDepositReconciliation } = useAppStore();
+  const { updateDepositStatus, createDepositReconciliation, setLogFilters } = useAppStore();
+
+  const handleViewLogs = () => {
+    setLogFilters({ targetType: 'deposit_reconciliation', targetId: record.id });
+    navigate('/logs', { state: { depositId: record.id } });
+  };
 
   const canMatch = currentRole === 'station_clerk' && record.status === 'pending';
   const canMismatch = currentRole === 'station_clerk' && record.status === 'pending';
@@ -219,6 +226,12 @@ function DepositCard({ record, currentRole }: DepositCardProps) {
               <Clock className="w-4 h-4" /> 标记卡住
             </button>
           )}
+          <button
+            onClick={handleViewLogs}
+            className="px-3 py-1.5 bg-indigo-100 text-indigo-700 text-sm rounded-lg hover:bg-indigo-200 transition-colors flex items-center gap-1"
+          >
+            <FileText className="w-4 h-4" /> 查看日志
+          </button>
           <button
             onClick={() => setExpanded(!expanded)}
             className="ml-auto px-2 py-1 text-gray-500 hover:bg-gray-100 rounded transition-colors"

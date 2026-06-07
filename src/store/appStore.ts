@@ -36,15 +36,26 @@ interface AppState {
   alerts: Alert[];
   bottleReturnFilters: BottleReturnFilters;
   depositFilters: DepositReconciliationFilters;
+  logFilters: {
+    targetType?: 'bottle_return' | 'deposit_reconciliation' | 'alert';
+    targetId?: string;
+    operationType?: OperationType;
+    operatorRole?: UserRole;
+  };
   setCurrentUser: (user: User) => void;
   setCurrentUserRole: (role: UserRole) => void;
   setBottleReturnFilters: (filters: Partial<BottleReturnFilters>) => void;
   setDepositFilters: (filters: Partial<DepositReconciliationFilters>) => void;
+  setLogFilters: (filters: Partial<AppState['logFilters']>) => void;
   getFilteredBottleReturns: () => BottleReturnRecord[];
   getFilteredDeposits: () => DepositReconciliation[];
+  getFilteredLogs: () => OperationLog[];
   getStuckItems: () => { bottles: BottleReturnRecord[]; deposits: DepositReconciliation[] };
   getActiveAlerts: () => Alert[];
   getAlertsForRole: (role: UserRole) => Alert[];
+  getLogsForTarget: (targetType: 'bottle_return' | 'deposit_reconciliation', targetId: string) => OperationLog[];
+  getRelatedLogsByBottleId: (bottleReturnId: string) => OperationLog[];
+  getRelatedLogsByDepositId: (depositId: string) => OperationLog[];
   updateBottleReturnStatus: (id: string, status: BottleReturnStatus, remark: string, extra?: any) => void;
   updateDepositStatus: (id: string, status: DepositReconciliationStatus, remark: string, extra?: any) => void;
   acknowledgeAlert: (alertId: string) => void;
@@ -64,6 +75,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   alerts: mockAlerts,
   bottleReturnFilters: {},
   depositFilters: {},
+  logFilters: {},
   setCurrentUser: (user) => set({ currentUser: user }),
   setCurrentUserRole: (role) => {
     const userForRole = mockUsers.find((u) => u.role === role);
@@ -104,6 +116,42 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
   getActiveAlerts: () => get().alerts.filter((a) => a.status !== 'resolved'),
   getAlertsForRole: (role) => get().alerts.filter((a) => a.status !== 'resolved' && (!a.assignedRole || a.assignedRole === role)),
+  setLogFilters: (filters) =>
+    set((state) => ({ logFilters: { ...state.logFilters, ...filters } })),
+  getFilteredLogs: () => {
+    const { operationLogs, logFilters } = get();
+    return operationLogs.filter((log) => {
+      if (logFilters.targetType && log.targetType !== logFilters.targetType) return false;
+      if (logFilters.targetId && log.targetId !== logFilters.targetId) return false;
+      if (logFilters.operationType && log.operationType !== logFilters.operationType) return false;
+      if (logFilters.operatorRole && log.operatorRole !== logFilters.operatorRole) return false;
+      return true;
+    });
+  },
+  getLogsForTarget: (targetType, targetId) => {
+    return get().operationLogs.filter((log) => log.targetType === targetType && log.targetId === targetId);
+  },
+  getRelatedLogsByBottleId: (bottleReturnId) => {
+    const { operationLogs, depositReconciliations } = get();
+    const linkedDeposit = depositReconciliations.find((d) => d.bottleReturnRecordId === bottleReturnId);
+    const bottleLogs = operationLogs.filter((log) => log.targetType === 'bottle_return' && log.targetId === bottleReturnId);
+    const depositLogs = linkedDeposit
+      ? operationLogs.filter((log) => log.targetType === 'deposit_reconciliation' && log.targetId === linkedDeposit.id)
+      : [];
+    const alertLogs = operationLogs.filter((log) => log.targetType === 'alert' && (
+      bottleLogs.some((bl) => log.targetId === bl.targetId) ||
+      depositLogs.some((dl) => log.targetId === dl.targetId)
+    ));
+    return [...bottleLogs, ...depositLogs, ...alertLogs].sort((a, b) => 
+      new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+    );
+  },
+  getRelatedLogsByDepositId: (depositId) => {
+    const { operationLogs, depositReconciliations } = get();
+    const deposit = depositReconciliations.find((d) => d.id === depositId);
+    if (!deposit) return [];
+    return get().getRelatedLogsByBottleId(deposit.bottleReturnRecordId);
+  },
   updateBottleReturnStatus: (id, status, remark, extra = {}) => {
     const { currentUser } = get();
     if (!currentUser) return;

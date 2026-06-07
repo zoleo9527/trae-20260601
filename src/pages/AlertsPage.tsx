@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { AlertTriangle, Check, Clock, Bell, CheckCircle, XCircle } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { AlertTriangle, Check, Clock, Bell, CheckCircle, XCircle, FileText } from 'lucide-react';
 import { useAppStore } from '@/store/appStore';
 import { Alert } from '@/types';
 import { formatDate, getAlertTypeText, getAlertPriorityColor, getRoleText, cn } from '@/lib/utils';
@@ -11,9 +12,16 @@ interface AlertCardProps {
 }
 
 function AlertCard({ alert, onAcknowledge, onResolve }: AlertCardProps) {
+  const navigate = useNavigate();
+  const { setLogFilters } = useAppStore();
   const [showResolveModal, setShowResolveModal] = useState(false);
   const [resolveRemark, setResolveRemark] = useState('');
   const priorityColor = getAlertPriorityColor(alert.priority);
+
+  const handleViewLogs = () => {
+    setLogFilters({ targetType: alert.targetType, targetId: alert.targetId });
+    navigate('/logs', { state: { alertId: alert.id } });
+  };
 
   const statusConfig = {
     active: { label: '待处理', color: 'bg-red-100 text-red-700' },
@@ -57,6 +65,12 @@ function AlertCard({ alert, onAcknowledge, onResolve }: AlertCardProps) {
           </div>
         </div>
         <div className="flex items-center gap-2 ml-4">
+          <button
+            onClick={handleViewLogs}
+            className="px-3 py-1.5 bg-indigo-100 text-indigo-700 text-sm rounded-lg hover:bg-indigo-200 transition-colors flex items-center gap-1"
+          >
+            <FileText className="w-4 h-4" /> 日志
+          </button>
           {alert.status === 'active' && (
             <button
               onClick={onAcknowledge}

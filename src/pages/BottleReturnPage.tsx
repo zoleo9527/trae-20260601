@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { RefreshCw, Check, X, AlertTriangle, Clock, MapPin, User, ChevronDown, ChevronUp, Wallet } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { RefreshCw, Check, X, AlertTriangle, Clock, MapPin, User, ChevronDown, ChevronUp, Wallet, FileText } from 'lucide-react';
 import { useAppStore } from '@/store/appStore';
 import { StatusTag } from '@/components/StatusTag';
 import { BottleReturnStatus, UserRole } from '@/types';
@@ -60,9 +61,15 @@ interface BottleCardProps {
 }
 
 function BottleCard({ record, currentRole }: BottleCardProps) {
+  const navigate = useNavigate();
   const [expanded, setExpanded] = useState(false);
   const [modal, setModal] = useState<{ type: string; title: string } | null>(null);
-  const { updateBottleReturnStatus, createDepositReconciliation, depositReconciliations } = useAppStore();
+  const { updateBottleReturnStatus, createDepositReconciliation, depositReconciliations, setLogFilters, getRelatedLogsByBottleId } = useAppStore();
+
+  const handleViewLogs = () => {
+    setLogFilters({ targetType: 'bottle_return', targetId: record.id });
+    navigate('/logs', { state: { bottleReturnId: record.id } });
+  };
 
   const linkedDeposit = depositReconciliations.find(d => d.bottleReturnRecordId === record.id);
   const canCreateDeposit = currentRole === 'station_clerk' && 
@@ -261,6 +268,12 @@ function BottleCard({ record, currentRole }: BottleCardProps) {
               <Clock className="w-4 h-4" /> 标记卡住
             </button>
           )}
+          <button
+            onClick={handleViewLogs}
+            className="px-3 py-1.5 bg-indigo-100 text-indigo-700 text-sm rounded-lg hover:bg-indigo-200 transition-colors flex items-center gap-1"
+          >
+            <FileText className="w-4 h-4" /> 查看日志
+          </button>
           <button
             onClick={() => setExpanded(!expanded)}
             className="ml-auto px-2 py-1 text-gray-500 hover:bg-gray-100 rounded transition-colors"

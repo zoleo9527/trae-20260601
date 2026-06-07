@@ -1,8 +1,9 @@
-import { useState } from 'react';
-import { AlertTriangle, X, Check, Clock } from 'lucide-react';
+import { cn, formatDate, getAlertPriorityColor, getAlertTypeText, getRoleText } from '@/lib/utils';
+import { useAppStore } from '@/store/appStore';
 import { Alert } from '@/types';
-import { getAlertTypeText, getAlertPriorityColor, formatDate, getRoleText } from '@/lib/utils';
-import { cn } from '@/lib/utils';
+import { AlertTriangle, Check, Clock } from 'lucide-react';
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 interface AlertBannerProps {
   alert: Alert;
@@ -11,6 +12,8 @@ interface AlertBannerProps {
 }
 
 export function AlertBanner({ alert, onAcknowledge, onResolve }: AlertBannerProps) {
+  const navigate = useNavigate();
+  const { setLogFilters } = useAppStore();
   const [showResolveModal, setShowResolveModal] = useState(false);
   const [resolveRemark, setResolveRemark] = useState('');
   const priorityColor = getAlertPriorityColor(alert.priority);
@@ -21,6 +24,11 @@ export function AlertBanner({ alert, onAcknowledge, onResolve }: AlertBannerProp
       setResolveRemark('');
       setShowResolveModal(false);
     }
+  };
+
+  const handleViewLogs = () => {
+    setLogFilters({ targetType: alert.targetType, targetId: alert.targetId });
+    navigate('/logs', { state: { alertId: alert.id } });
   };
 
   return (
@@ -56,25 +64,32 @@ export function AlertBanner({ alert, onAcknowledge, onResolve }: AlertBannerProp
             </div>
           </div>
           <div className="flex items-center gap-2">
-            {alert.status === 'active' && onAcknowledge && (
-              <button
-                onClick={onAcknowledge}
-                className="text-xs bg-blue-50 text-blue-600 px-3 py-1.5 rounded hover:bg-blue-100 transition-colors flex items-center gap-1"
-              >
-                <Check className="w-3 h-3" />
-                确认
-              </button>
-            )}
-            {onResolve && (
-              <button
-                onClick={() => setShowResolveModal(true)}
-                className="text-xs bg-green-50 text-green-600 px-3 py-1.5 rounded hover:bg-green-100 transition-colors flex items-center gap-1"
-              >
-                <Check className="w-3 h-3" />
-                解决
-              </button>
-            )}
-          </div>
+          <button
+            onClick={handleViewLogs}
+            className="text-xs bg-indigo-50 text-indigo-600 px-3 py-1.5 rounded hover:bg-indigo-100 transition-colors flex items-center gap-1"
+          >
+            <FileText className="w-3 h-3" />
+            日志
+          </button>
+          {alert.status === 'active' && onAcknowledge && (
+            <button
+              onClick={onAcknowledge}
+              className="text-xs bg-blue-50 text-blue-600 px-3 py-1.5 rounded hover:bg-blue-100 transition-colors flex items-center gap-1"
+            >
+              <Check className="w-3 h-3" />
+              确认
+            </button>
+          )}
+          {onResolve && (
+            <button
+              onClick={() => setShowResolveModal(true)}
+              className="text-xs bg-green-50 text-green-600 px-3 py-1.5 rounded hover:bg-green-100 transition-colors flex items-center gap-1"
+            >
+              <Check className="w-3 h-3" />
+              解决
+            </button>
+          )}
+        </div>
         </div>
       </div>
 
