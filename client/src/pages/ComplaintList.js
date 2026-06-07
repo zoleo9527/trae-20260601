@@ -54,7 +54,9 @@ function ComplaintList({ constants, loading: constantsLoading }) {
   const fetchComplaints = () => {
     setLoading(true);
     setLoadError(null);
-    const params = new URLSearchParams(filters);
+    const params = new URLSearchParams();
+    if (filters.type) params.set('type', filters.type);
+    if (filters.customerName) params.set('customerName', filters.customerName);
     fetch(`/api/complaints?${params}`)
       .then(res => {
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -74,11 +76,15 @@ function ComplaintList({ constants, loading: constantsLoading }) {
 
   useEffect(() => {
     fetchComplaints();
-  }, [filters]);
+  }, [filters.type, filters.customerName]);
+
+  const filteredComplaints = filters.status 
+    ? complaints.filter(c => c.status === filters.status) 
+    : complaints;
 
   const handleSelectAll = (e) => {
     if (e.target.checked) {
-      setSelectedIds(complaints.map(c => c.id));
+      setSelectedIds(filteredComplaints.map(c => c.id));
     } else {
       setSelectedIds([]);
     }
@@ -232,7 +238,7 @@ function ComplaintList({ constants, loading: constantsLoading }) {
                   <th style={{ width: '40px' }}>
                     <input 
                       type="checkbox" 
-                      checked={selectedIds.length === complaints.length && complaints.length > 0}
+                      checked={selectedIds.length === filteredComplaints.length && filteredComplaints.length > 0}
                       onChange={handleSelectAll}
                     />
                   </th>
@@ -247,12 +253,12 @@ function ComplaintList({ constants, loading: constantsLoading }) {
                 </tr>
               </thead>
               <tbody>
-                {complaints.length === 0 ? (
+                {filteredComplaints.length === 0 ? (
                   <tr>
                     <td colSpan="9" className="empty-state">暂无数据</td>
                   </tr>
                 ) : (
-                  complaints.map(complaint => (
+                  filteredComplaints.map(complaint => (
                     <tr key={complaint.id}>
                       <td>
                         <input 

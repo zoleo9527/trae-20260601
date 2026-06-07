@@ -36,7 +36,9 @@ function BillList({ constants, loading: constantsLoading }) {
   const fetchBills = () => {
     setLoading(true);
     setLoadError(null);
-    const params = new URLSearchParams(filters);
+    const params = new URLSearchParams();
+    if (filters.month) params.set('month', filters.month);
+    if (filters.customerName) params.set('customerName', filters.customerName);
     fetch(`/api/bills?${params}`)
       .then(res => {
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -56,11 +58,15 @@ function BillList({ constants, loading: constantsLoading }) {
 
   useEffect(() => {
     fetchBills();
-  }, [filters]);
+  }, [filters.month, filters.customerName]);
+
+  const filteredBills = filters.status 
+    ? bills.filter(b => b.status === filters.status) 
+    : bills;
 
   const handleSelectAll = (e) => {
     if (e.target.checked) {
-      setSelectedIds(bills.map(b => b.id));
+      setSelectedIds(filteredBills.map(b => b.id));
     } else {
       setSelectedIds([]);
     }
@@ -210,7 +216,7 @@ function BillList({ constants, loading: constantsLoading }) {
                   <th style={{ width: '40px' }}>
                     <input 
                       type="checkbox" 
-                      checked={selectedIds.length === bills.length && bills.length > 0}
+                      checked={selectedIds.length === filteredBills.length && filteredBills.length > 0}
                       onChange={handleSelectAll}
                     />
                   </th>
@@ -228,12 +234,12 @@ function BillList({ constants, loading: constantsLoading }) {
                 </tr>
               </thead>
               <tbody>
-                {bills.length === 0 ? (
+                {filteredBills.length === 0 ? (
                   <tr>
                     <td colSpan="12" className="empty-state">暂无数据</td>
                   </tr>
                 ) : (
-                  bills.map(bill => (
+                  filteredBills.map(bill => (
                     <tr key={bill.id}>
                       <td>
                         <input 

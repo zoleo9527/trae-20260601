@@ -1,14 +1,17 @@
 import React from 'react';
 
-const STATUS_ORDER = ['pending', 'urged', 'returned', 'supplement_needed', 'closed'];
+const STATUS_ORDER = ['pending', 'processing', 'urged', 'returned', 'supplement_needed', 'closed'];
 
 const STATUS_ICONS = {
   pending: '⏳',
+  processing: '⚙️',
   urged: '🔥',
   returned: '↩️',
   supplement_needed: '📎',
   closed: '✅'
 };
+
+const ACTIVE_STATUSES = ['pending', 'processing', 'urged', 'returned', 'supplement_needed'];
 
 function StatusStats({ data = [], statusLabels = {}, activeStatus, onStatusClick, onClearFilter }) {
   const stats = STATUS_ORDER.map(status => ({
@@ -18,10 +21,7 @@ function StatusStats({ data = [], statusLabels = {}, activeStatus, onStatusClick
   }));
 
   const totalCount = data.length;
-  const totalActive = STATUS_ORDER.reduce((sum, status) => {
-    if (status !== 'closed') return sum + data.filter(item => item.status === status).length;
-    return sum;
-  }, 0);
+  const totalActive = data.filter(item => ACTIVE_STATUSES.includes(item.status)).length;
 
   return (
     <div style={{ 
