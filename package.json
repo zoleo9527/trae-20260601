@@ -1,0 +1,14 @@
+{
+  "name": "ktv-management-system",
+  "version": "1.0.0",
+  "private": true,
+  "description": "KTV门店酒水出库与赠品核销系统",
+  "scripts": {
+    "dev:frontend": "cd frontend && npm run dev",
+    "dev:backend": "cd backend && mvn spring-boot:run",
+    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\""
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}
