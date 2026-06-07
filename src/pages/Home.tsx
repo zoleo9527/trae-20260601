@@ -1,11 +1,11 @@
-import { useNavigate } from 'react-router-dom';
-import { RefreshCw, Wallet, AlertTriangle, Clock, CheckCircle, XCircle, FileText } from 'lucide-react';
-import { useAppStore } from '@/store/appStore';
-import { StatCard } from '@/components/StatCard';
 import { AlertBanner } from '@/components/AlertBanner';
 import { RoleSelector } from '@/components/RoleSelector';
+import { StatCard } from '@/components/StatCard';
 import { StatusTag } from '@/components/StatusTag';
 import { formatDate } from '@/lib/utils';
+import { useAppStore } from '@/store/appStore';
+import { AlertTriangle, CheckCircle, Clock, RefreshCw, Wallet, XCircle } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 export default function Home() {
   const navigate = useNavigate();
@@ -54,7 +54,7 @@ export default function Home() {
               key={alert.id}
               alert={alert}
               onAcknowledge={() => acknowledgeAlert(alert.id)}
-              onResolve={() => resolveAlert(alert.id, '已处理')}
+              onResolve={(remark) => resolveAlert(alert.id, remark)}
             />
           ))}
           {activeAlerts.length > 3 && (

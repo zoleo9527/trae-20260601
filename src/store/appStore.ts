@@ -11,7 +11,8 @@ import type {
   BottleReturnStatus,
   DepositReconciliationStatus,
   BottleReturnFilters,
-  DepositReconciliationFilters
+  DepositReconciliationFilters,
+  OperationType
 } from '@/types';
 import {
   mockUsers,
@@ -120,17 +121,21 @@ export const useAppStore = create<AppState>((set, get) => ({
         }
         return r;
       });
-      const operationTypeMap: Record<string, OperationType> = {
-        pending_collection: 'bottle_collect',
-        collected: 'bottle_collect',
-        returned_to_station: 'bottle_return_station',
-        verified: 'bottle_verify',
-        disputed: 'bottle_dispute',
-        stuck: 'bottle_stick',
-        rejected: 'bottle_reject',
-        unstuck: 'bottle_unstick',
-      };
-      const opType = operationTypeMap[status] || 'bottle_collect';
+      let opType: OperationType;
+      if (oldRecord.status === 'stuck') {
+        opType = 'bottle_unstick';
+      } else {
+        const operationTypeMap: Record<string, OperationType> = {
+          pending_collection: 'bottle_collect',
+          collected: 'bottle_collect',
+          returned_to_station: 'bottle_return_station',
+          verified: 'bottle_verify',
+          disputed: 'bottle_dispute',
+          stuck: 'bottle_stick',
+          rejected: 'bottle_reject',
+        };
+        opType = operationTypeMap[status] || 'bottle_collect';
+      }
       const newLog: OperationLog = {
         id: generateId(),
         operationType: opType,
@@ -198,17 +203,21 @@ export const useAppStore = create<AppState>((set, get) => ({
         }
         return r;
       });
-      const depositOpTypeMap: Record<string, OperationType> = {
-        pending: 'deposit_init',
-        matched: 'deposit_match',
-        mismatched: 'deposit_mismatch',
-        pending_verification: 'deposit_verify',
-        verified: 'deposit_verify',
-        disputed: 'deposit_dispute',
-        stuck: 'deposit_stick',
-        unstuck: 'deposit_unstick',
-      };
-      const depositOpType = depositOpTypeMap[status] || 'deposit_init';
+      let depositOpType: OperationType;
+      if (oldRecord.status === 'stuck') {
+        depositOpType = 'deposit_unstick';
+      } else {
+        const depositOpTypeMap: Record<string, OperationType> = {
+          pending: 'deposit_init',
+          matched: 'deposit_match',
+          mismatched: 'deposit_mismatch',
+          pending_verification: 'deposit_verify',
+          verified: 'deposit_verify',
+          disputed: 'deposit_dispute',
+          stuck: 'deposit_stick',
+        };
+        depositOpType = depositOpTypeMap[status] || 'deposit_init';
+      }
       const newLog: OperationLog = {
         id: generateId(),
         operationType: depositOpType,
@@ -288,6 +297,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     const { currentUser } = get();
     if (!currentUser) return;
     set((state) => {
+      const alert = state.alerts.find((a) => a.id === alertId);
       const newLog: OperationLog = {
         id: generateId(),
         operationType: 'resolve_alert',
@@ -297,6 +307,8 @@ export const useAppStore = create<AppState>((set, get) => ({
         targetType: 'alert',
         targetId: alertId,
         remark,
+        oldStatus: alert?.status,
+        newStatus: 'resolved',
         createdAt: new Date().toISOString()
       };
       return {
