@@ -2,13 +2,15 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Gift, Plus, Clock, CheckCircle, Wine } from 'lucide-react';
 import { usePackageStore } from '../stores/packageStore';
+import { useBookingStore } from '../stores/bookingStore';
 import { StatusBadge } from '../components/StatusBadge';
-import { formatDateTime } from '../utils/storage';
+import { formatDateTime, formatTime } from '../utils/storage';
 import { PackageOrderStatus } from '../types';
 
 const PackageList: React.FC = () => {
   const navigate = useNavigate();
   const { packages, packageOrders, getPackageById } = usePackageStore();
+  const { getBookingById } = useBookingStore();
 
   return (
     <div className="space-y-6">
@@ -65,7 +67,9 @@ const PackageList: React.FC = () => {
               <tr className="border-b border-slate-800">
                 <th className="text-left px-5 py-3 font-medium text-slate-400">订单号</th>
                 <th className="text-left px-5 py-3 font-medium text-slate-400">套餐名称</th>
-                <th className="text-left px-5 py-3 font-medium text-slate-400">关联预订</th>
+                <th className="text-left px-5 py-3 font-medium text-slate-400">包厢</th>
+                <th className="text-left px-5 py-3 font-medium text-slate-400">客户</th>
+                <th className="text-left px-5 py-3 font-medium text-slate-400">时段</th>
                 <th className="text-left px-5 py-3 font-medium text-slate-400">金额</th>
                 <th className="text-left px-5 py-3 font-medium text-slate-400">操作员</th>
                 <th className="text-left px-5 py-3 font-medium text-slate-400">状态</th>
@@ -75,14 +79,20 @@ const PackageList: React.FC = () => {
             <tbody>
               {packageOrders.map((order) => {
                 const pkg = getPackageById(order.packageId);
+                const booking = order.bookingId ? getBookingById(order.bookingId) : undefined;
                 return (
                   <tr
                     key={order.id}
+                    onClick={() => booking && navigate(`/bookings/${booking.id}`)}
                     className="border-b border-slate-800/50 hover:bg-slate-800/30 cursor-pointer last:border-0"
                   >
                     <td className="px-5 py-3 font-mono text-xs">{order.id}</td>
                     <td className="px-5 py-3">{pkg?.name || '未知套餐'}</td>
-                    <td className="px-5 py-3 text-slate-400">{order.bookingId}</td>
+                    <td className="px-5 py-3">{booking?.roomNumber || '-'}</td>
+                    <td className="px-5 py-3">{booking?.customerName || '-'}</td>
+                    <td className="px-5 py-3 text-xs text-slate-400">
+                      {booking ? `${formatTime(booking.startTime)}-${formatTime(booking.endTime)}` : '-'}
+                    </td>
                     <td className="px-5 py-3 font-medium text-emerald-400">¥{order.actualPrice}</td>
                     <td className="px-5 py-3 text-slate-400">{order.operator || '-'}</td>
                     <td className="px-5 py-3">
