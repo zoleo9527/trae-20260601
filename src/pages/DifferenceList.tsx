@@ -27,6 +27,7 @@ import {
   InventoryDifferenceStatus,
   DifferenceType,
   PaginatedResponse,
+  LossRecord,
 } from '@/types';
 import type { ColumnsType } from 'antd/es/table';
 import dayjs from 'dayjs';
@@ -47,6 +48,8 @@ export const DifferenceList: React.FC = () => {
   const [confirmModalVisible, setConfirmModalVisible] = useState(false);
   const [resolveModalVisible, setResolveModalVisible] = useState(false);
   const [selectedDifference, setSelectedDifference] = useState<InventoryDifference | null>(null);
+  const [availableLossRecords, setAvailableLossRecords] = useState<LossRecord[]>([]);
+  const [loadingLossRecords, setLoadingLossRecords] = useState(false);
   const [form] = Form.useForm();
   const [refreshKey, setRefreshKey] = useState(0);
 
@@ -61,6 +64,7 @@ export const DifferenceList: React.FC = () => {
   const {
     getInventoryDifferences,
     updateDifferenceStatus,
+    getLossRecords,
     stores,
     currentUser,
   } = useStore();
@@ -108,8 +112,28 @@ export const DifferenceList: React.FC = () => {
     }
   };
 
+  const loadAvailableLossRecords = async (record: InventoryDifference) => {
+    setLoadingLossRecords(true);
+    try {
+      const result = await getLossRecords({ page: 1, pageSize: 100 }, {
+        storeId: record.storeId,
+        status: 'recorded' as any,
+      });
+      const filtered = result.data.filter(
+        (l) => l.productId === record.productId && l.status !== 'archived'
+      );
+      setAvailableLossRecords(filtered);
+    } catch (error: any) {
+      message.error('加载关联损耗记录失败：' + error.message);
+      setAvailableLossRecords([]);
+    } finally {
+      setLoadingLossRecords(false);
+    }
+  };
+
   const handleResolve = (record: InventoryDifference) => {
     setSelectedDifference(record);
+    loadAvailableLossRecords(record);
     setResolveModalVisible(true);
   };
 
@@ -117,7 +141,12 @@ export const DifferenceList: React.FC = () => {
     try {
       const values = await form.validateFields();
       if (selectedDifference) {
-        await updateDifferenceStatus(selectedDifference.id, 'resolved', values.resolution);
+        await updateDifferenceStatus(
+          selectedDifference.id,
+          'resolved',
+          values.resolution,
+          values.relatedLossId
+        );
         message.success('差异已解决');
         setResolveModalVisible(false);
         form.resetFields();
@@ -392,6 +421,25 @@ export const DifferenceList: React.FC = () => {
         width={600}
       >
         <Form form={form} layout="vertical">
+          <Form.Item
+            name="relatedLossId"
+            label="关联损耗记录"
+            extra="选择与此差异关联的损耗记录（同一门店、同一商品）"
+          >
+            <Select
+              placeholder="请选择关联的损耗记录（可选）"
+              allowClear
+              showSearch
+              optionFilterProp="children"
+              loading={loadingLossRecords}
+            >
+              {availableLossRecords.map((loss) => (
+                <Option key={loss.id} value={loss.id}>
+                  {loss.lossNo} - {loss.productName} - ¥{loss.lossAmount.toFixed(2)}
+                </Option>
+              ))}
+            </Select>
+          </Form.Item>
           <Form.Item
             name="resolution"
             label="处理方案"
