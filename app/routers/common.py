@@ -115,12 +115,13 @@ async def get_delivery_status_list():
     from app.constants import (
         DeliveryStatus, DELIVERY_STATUS_NAMES, 
         DELIVERY_ALLOWED_ACTIONS, DELIVERY_NEXT_ACTION_GUIDE,
-        ACTION_NAMES, ROLE_NAMES
+        ACTION_NAMES, ROLE_NAMES, get_delivery_current_handler
     )
     status_list = []
     for status in DeliveryStatus:
         allowed_actions = DELIVERY_ALLOWED_ACTIONS.get(status, [])
         next_guide = DELIVERY_NEXT_ACTION_GUIDE.get(status)
+        handler = get_delivery_current_handler(status)
         status_list.append({
             "status": status.value,
             "status_name": DELIVERY_STATUS_NAMES.get(status, ""),
@@ -129,6 +130,8 @@ async def get_delivery_status_list():
                 {"code": code, "name": ACTION_NAMES.get(code, code)}
                 for code in allowed_actions
             ],
+            "current_handler": handler.value if handler else None,
+            "current_handler_name": ROLE_NAMES.get(handler, "") if handler else "",
             "next_action": {
                 "action": next_guide.get("action"),
                 "action_name": ACTION_NAMES.get(next_guide.get("action"), ""),

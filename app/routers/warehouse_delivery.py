@@ -9,7 +9,7 @@ from app.constants import (
     DeliveryStatus, DELIVERY_STATUS_NAMES,
     DELIVERY_ALLOWED_ACTIONS, DELIVERY_NEXT_ACTION_GUIDE,
     ACTION_NAMES,
-    UserRole, ROLE_NAMES, get_current_handler,
+    UserRole, ROLE_NAMES, get_current_handler, get_delivery_current_handler,
     OrderStatus as OrderStatusEnum
 )
 from app.schemas import CreateDeliveryRequest, DeliveryActionRequest
@@ -21,6 +21,10 @@ def _build_delivery_detail(delivery: dict) -> dict:
     delivery = delivery.copy()
     status = DeliveryStatus(delivery["status"])
     delivery["status_name"] = DELIVERY_STATUS_NAMES.get(status, "")
+    
+    handler = get_delivery_current_handler(status)
+    delivery["current_handler"] = handler.value if handler else None
+    delivery["current_handler_name"] = ROLE_NAMES.get(handler, "") if handler else ""
     
     allowed_action_codes = DELIVERY_ALLOWED_ACTIONS.get(status, [])
     delivery["allowed_actions"] = allowed_action_codes
@@ -102,6 +106,21 @@ async def get_deliveries(
         item = d.copy()
         status_enum = DeliveryStatus(item["status"])
         item["status_name"] = DELIVERY_STATUS_NAMES.get(status_enum, "")
+        handler = get_delivery_current_handler(status_enum)
+        item["current_handler"] = handler.value if handler else None
+        item["current_handler_name"] = ROLE_NAMES.get(handler, "") if handler else ""
+        next_guide = DELIVERY_NEXT_ACTION_GUIDE.get(status_enum)
+        if next_guide:
+            target_role = next_guide.get("target_role")
+            item["next_action"] = {
+                "action": next_guide.get("action"),
+                "action_name": ACTION_NAMES.get(next_guide.get("action"), ""),
+                "target_role": target_role.value if target_role else None,
+                "target_role_name": ROLE_NAMES.get(target_role, "") if target_role else "",
+                "guide": next_guide.get("guide", "")
+            }
+        else:
+            item["next_action"] = None
         result.append(item)
     
     return success_response({
@@ -132,12 +151,10 @@ async def create_delivery(request: CreateDeliveryRequest):
     
     if order["status"] not in [
         OrderStatus.PRODUCT_REVIEWED.value,
+        OrderStatus.DELIVERY_ASSIGNED.value,
         OrderStatus.PARTIAL_DELIVERED.value
     ]:
-        if order["status"] == OrderStatus.PRODUCT_REVIEWED.value:
-            pass
-        else:
-            return error_response(ErrorCode.ORDER_STATUS_ERROR, "当前订单状态不允许分配配货")
+        return error_response(ErrorCode.ORDER_STATUS_ERROR, "当前订单状态不允许分配配货")
     
     operator = db.get_by_id("users", request.operator_id)
     if not operator:
@@ -195,29 +212,16 @@ async def create_delivery(request: CreateDeliveryRequest):
     
     delivery = db.add("deliveries", delivery_data)
     
-    order_items = order["items"]
-    for item in order_items:
-        for d_item in items:
-            if item["product_id"] == d_item["product_id"]:
-                current_delivered = item.get("delivered_quantity", 0) or 0
-                item["delivered_quantity"] = current_delivered + d_item["quantity"]
-    
-    all_delivered = True
-    for item in order_items:
-        confirmed = item.get("confirmed_quantity") or item["quantity"]
-        delivered = item.get("delivered_quantity", 0) or 0
-        if delivered < confirmed:
-            all_delivered = False
-            break
-    
-    new_order_status = OrderStatus.FULL_DELIVERED.value if all_delivered else OrderStatus.PARTIAL_DELIVERED.value
-    if order["status"] == OrderStatus.PRODUCT_REVIEWED.value:
+    old_status_str = order["status"]
+    if old_status_str == OrderStatus.PRODUCT_REVIEWED.value:
         new_order_status = OrderStatus.DELIVERY_ASSIGNED.value
+    else:
+        new_order_status = old_status_str
     
-    db.update("store_orders", order["id"], {
-        "status": new_order_status,
-        "items": order_items
-    })
+    if old_status_str != new_order_status:
+        db.update("store_orders", order["id"], {
+            "status": new_order_status
+        })
     
     from app.routers.store_order import _add_log
     _add_log(
@@ -225,7 +229,7 @@ async def create_delivery(request: CreateDeliveryRequest):
         action="assign_delivery",
         action_name="分配配货",
         operator=operator,
-        from_status=OrderStatus(order["status"]),
+        from_status=OrderStatus(old_status_str),
         to_status=OrderStatus(new_order_status),
         remark=f"创建配货单 {delivery_no}，共 {total_quantity} 件商品"
     )
@@ -316,9 +320,26 @@ async def ship_delivery(delivery_id: str, request: DeliveryActionRequest):
     })
     
     order = db.get_by_id("store_orders", delivery["order_id"])
-    if order and order["status"] == OrderStatus.DELIVERY_ASSIGNED.value:
+    if order:
+        order_items = order["items"]
+        for item in order_items:
+            for d_item in delivery["items"]:
+                if item["product_id"] == d_item["product_id"]:
+                    current_delivered = item.get("delivered_quantity", 0) or 0
+                    item["delivered_quantity"] = current_delivered + d_item["quantity"]
+        
+        old_order_status_str = order["status"]
+        if old_order_status_str in [
+            OrderStatus.DELIVERY_ASSIGNED.value,
+            OrderStatus.PRODUCT_REVIEWED.value
+        ]:
+            new_order_status = OrderStatus.PARTIAL_DELIVERED.value
+        else:
+            new_order_status = old_order_status_str
+        
         db.update("store_orders", order["id"], {
-            "status": OrderStatus.PARTIAL_DELIVERED.value
+            "status": new_order_status,
+            "items": order_items
         })
     
     from app.routers.store_order import _add_log
@@ -327,7 +348,7 @@ async def ship_delivery(delivery_id: str, request: DeliveryActionRequest):
         action="shipped",
         action_name="已发货",
         operator=operator,
-        remark=request.remark or f"配货单 {delivery['delivery_no']} 已发货"
+        remark=request.remark or f"配货单 {delivery['delivery_no']} 已发货，共 {delivery['total_quantity']} 件商品"
     )
     
     detail = _build_delivery_detail(updated)
@@ -389,16 +410,22 @@ async def confirm_delivery(delivery_id: str, request: DeliveryActionRequest):
     
     order = db.get_by_id("store_orders", delivery["order_id"])
     if order:
+        all_deliveries = db.query("deliveries", {"order_id": order["id"]})
+        all_delivery_confirmed = all(
+            d.get("status") == DeliveryStatus.CONFIRMED.value
+            for d in all_deliveries
+        )
+        
         order_items = order["items"]
-        all_delivered = True
+        all_items_delivered = True
         for item in order_items:
             confirmed = item.get("confirmed_quantity") or item["quantity"]
             delivered = item.get("delivered_quantity", 0) or 0
             if delivered < confirmed:
-                all_delivered = False
+                all_items_delivered = False
                 break
         
-        if all_delivered:
+        if all_delivery_confirmed and all_items_delivered:
             db.update("store_orders", order["id"], {
                 "status": OrderStatus.FULL_DELIVERED.value
             })

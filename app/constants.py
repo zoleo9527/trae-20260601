@@ -234,3 +234,15 @@ def get_current_handler(order_status: OrderStatus) -> UserRole:
         OrderStatus.CANCELLED: None,
     }
     return handler_map.get(order_status)
+
+
+def get_delivery_current_handler(delivery_status: DeliveryStatus) -> UserRole:
+    handler_map = {
+        DeliveryStatus.PENDING: UserRole.PRODUCT_SPECIALIST,
+        DeliveryStatus.PICKING: UserRole.PRODUCT_SPECIALIST,
+        DeliveryStatus.PACKED: UserRole.PRODUCT_SPECIALIST,
+        DeliveryStatus.SHIPPED: UserRole.STORE_MANAGER,
+        DeliveryStatus.RECEIVED: UserRole.PRODUCT_SPECIALIST,
+        DeliveryStatus.CONFIRMED: None,
+    }
+    return handler_map.get(delivery_status)
