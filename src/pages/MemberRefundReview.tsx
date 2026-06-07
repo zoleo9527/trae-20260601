@@ -75,11 +75,13 @@ export default function MemberRefundReview() {
   };
 
   const getRefundDestination = (refund: RefundApplication): string => {
-    if (!refund.finalRefundAmount && !refund.couponAmount) return '待处理';
-    if (refund.couponAmount && refund.couponAmount > 0) return '补偿券发放';
-    if (refund.finalRefundAmount && refund.finalRefundAmount > 0) return '退回储值账户';
     if (refund.status === '已拒绝') return '无';
     if (refund.status === '已退回') return '退回申请';
+    if (refund.status === '补偿券替代') return '补偿券发放';
+    if (refund.status === '部分退款') return '部分退回储值账户';
+    if (refund.status === '已批准') return '全额退回储值账户';
+    if (refund.couponAmount && refund.couponAmount > 0) return '补偿券发放';
+    if (refund.finalRefundAmount && refund.finalRefundAmount > 0) return '退回储值账户';
     return '待处理';
   };
 
@@ -430,15 +432,17 @@ export default function MemberRefundReview() {
                         扣费方式
                       </th>
                       <th className="px-4 py-3 text-center text-xs font-medium text-slate-500 uppercase tracking-wider">
-                        退款
+                        退款去向
                       </th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {memberConsumptions.map((item) => {
-                      const hasRefund = refunds.some(
+                      const consumeRefunds = refunds.filter(
                         (r) => r.consumeId === item.id
                       );
+                      const hasRefund = consumeRefunds.length > 0;
+                      const latestRefund = consumeRefunds.length > 0 ? consumeRefunds[0] : null;
                       return (
                         <tr
                           key={item.id}
@@ -473,9 +477,19 @@ export default function MemberRefundReview() {
                             </span>
                           </td>
                           <td className="px-4 py-3 text-center whitespace-nowrap">
-                            {hasRefund ? (
-                              <span className="px-2 py-0.5 bg-red-50 text-red-700 text-xs font-medium rounded">
-                                有退款
+                            {hasRefund && latestRefund ? (
+                              <span className={`px-2 py-0.5 text-xs font-medium rounded ${
+                                ['退回储值账户', '部分退回储值账户', '全额退回储值账户'].includes(getRefundDestination(latestRefund))
+                                  ? 'bg-emerald-50 text-emerald-700'
+                                  : getRefundDestination(latestRefund) === '补偿券发放'
+                                  ? 'bg-pink-50 text-pink-700'
+                                  : getRefundDestination(latestRefund) === '待处理'
+                                  ? 'bg-amber-50 text-amber-700'
+                                  : getRefundDestination(latestRefund) === '退回申请'
+                                  ? 'bg-orange-50 text-orange-700'
+                                  : 'bg-slate-100 text-slate-500'
+                              }`}>
+                                {getRefundDestination(latestRefund)}
                               </span>
                             ) : (
                               <span className="text-xs text-slate-400">-</span>
@@ -535,12 +549,27 @@ export default function MemberRefundReview() {
                           <p className="text-sm text-slate-800 mb-1">
                             {refund.itemName}
                           </p>
-                          <div className="flex items-center justify-between">
+                          <div className="flex items-center justify-between mb-1">
                             <span className="text-sm font-semibold text-red-600">
                               ¥{refund.applyAmount.toFixed(2)}
                             </span>
                             <span className="text-xs text-slate-400">
                               {refund.applyTime.slice(5, 16)}
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <span className={`text-xs font-medium ${
+                              ['退回储值账户', '部分退回储值账户', '全额退回储值账户'].includes(getRefundDestination(refund))
+                                ? 'text-emerald-600'
+                                : getRefundDestination(refund) === '补偿券发放'
+                                ? 'text-pink-600'
+                                : getRefundDestination(refund) === '待处理'
+                                ? 'text-amber-600'
+                                : getRefundDestination(refund) === '退回申请'
+                                ? 'text-orange-600'
+                                : 'text-slate-400'
+                            }`}>
+                              去向：{getRefundDestination(refund)}
                             </span>
                           </div>
                         </div>
@@ -616,10 +645,12 @@ export default function MemberRefundReview() {
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-slate-500">退款去向</span>
                     <span className={`text-sm font-medium ${
-                      getRefundDestination(selectedRefund) === '退回储值账户'
+                      ['退回储值账户', '部分退回储值账户', '全额退回储值账户'].includes(getRefundDestination(selectedRefund))
                         ? 'text-emerald-600'
                         : getRefundDestination(selectedRefund) === '补偿券发放'
                         ? 'text-pink-600'
+                        : getRefundDestination(selectedRefund) === '无'
+                        ? 'text-slate-400'
                         : 'text-slate-500'
                     }`}>
                       {getRefundDestination(selectedRefund)}
