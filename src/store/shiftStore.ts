@@ -43,11 +43,12 @@ export const useShiftStore = create<ShiftStore>((set, get) => ({
 
     shifts.forEach((shift) => {
       shift.discrepancies.forEach((d) => {
-        if (Number(d.difference) === 0) return;
+        const diffValue = Number(d.difference);
+        if (isNaN(diffValue) || diffValue === 0) return;
         const existing = typeMap.get(d.type) || { count: 0, amount: 0, unit: d.unit };
         typeMap.set(d.type, {
           count: existing.count + 1,
-          amount: existing.amount + Math.abs(Number(d.difference)),
+          amount: existing.amount + Math.abs(diffValue),
           unit: d.unit,
         });
       });

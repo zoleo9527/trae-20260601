@@ -28,7 +28,25 @@ export default function DiscrepancyCard({ discrepancy, onReview, disabled }: Dis
   const [opinion, setOpinion] = useState(discrepancy.reviewOpinion || '');
   const status = statusConfig[discrepancy.status];
   const StatusIcon = status.icon;
-  const hasDifference = Number(discrepancy.difference) !== 0;
+
+  const diffValue = Number(discrepancy.difference);
+  const hasValidDiff = !isNaN(diffValue);
+  const hasDifference = hasValidDiff && diffValue !== 0;
+
+  const formatValue = (value: number | string, type: string) => {
+    const num = Number(value);
+    if (isNaN(num)) return value;
+    if (type === 'cash') return `¥${num.toFixed(2)}`;
+    return num.toFixed(2);
+  };
+
+  const formatDiff = (value: number | string, type: string) => {
+    const num = Number(value);
+    if (isNaN(num)) return value;
+    const sign = num > 0 ? '+' : '';
+    if (type === 'cash') return `${sign}¥${num.toFixed(2)}`;
+    return `${sign}${num.toFixed(2)}`;
+  };
 
   const handleSubmit = () => {
     if (opinion.trim()) {
@@ -58,29 +76,21 @@ export default function DiscrepancyCard({ discrepancy, onReview, disabled }: Dis
           <div className="bg-gray-50 rounded-lg p-3">
             <p className="text-xs text-gray-500 mb-1">系统记录</p>
             <p className="text-lg font-bold text-gray-900">
-              {typeof discrepancy.systemValue === 'number' && discrepancy.type === 'cash'
-                ? `¥${discrepancy.systemValue.toFixed(2)}`
-                : discrepancy.systemValue}
+              {formatValue(discrepancy.systemValue, discrepancy.type)}
               <span className="text-sm font-normal text-gray-500 ml-1">{discrepancy.unit}</span>
             </p>
           </div>
           <div className="bg-gray-50 rounded-lg p-3">
             <p className="text-xs text-gray-500 mb-1">实际值</p>
             <p className="text-lg font-bold text-gray-900">
-              {typeof discrepancy.actualValue === 'number' && discrepancy.type === 'cash'
-                ? `¥${discrepancy.actualValue.toFixed(2)}`
-                : discrepancy.actualValue}
+              {formatValue(discrepancy.actualValue, discrepancy.type)}
               <span className="text-sm font-normal text-gray-500 ml-1">{discrepancy.unit}</span>
             </p>
           </div>
-          <div className={`rounded-lg p-3 ${hasDifference ? 'bg-rose-50' : 'bg-emerald-50'}`}>
+          <div className={`rounded-lg p-3 ${hasDifference ? 'bg-rose-50' : hasValidDiff ? 'bg-emerald-50' : 'bg-gray-50'}`}>
             <p className="text-xs text-gray-500 mb-1">差异</p>
-            <p className={`text-lg font-bold ${hasDifference ? 'text-rose-600' : 'text-emerald-600'}`}>
-              {typeof discrepancy.difference === 'number' && discrepancy.type === 'cash'
-                ? `${discrepancy.difference > 0 ? '+' : ''}¥${discrepancy.difference.toFixed(2)}`
-                : typeof discrepancy.difference === 'number'
-                ? `${discrepancy.difference > 0 ? '+' : ''}${discrepancy.difference}`
-                : discrepancy.difference}
+            <p className={`text-lg font-bold ${hasDifference ? 'text-rose-600' : hasValidDiff ? 'text-emerald-600' : 'text-gray-400'}`}>
+              {formatDiff(discrepancy.difference, discrepancy.type)}
               <span className="text-sm font-normal text-gray-500 ml-1">{discrepancy.unit}</span>
             </p>
           </div>

@@ -49,20 +49,35 @@ export default function OilDataPanel({ oilData }: OilDataPanelProps) {
           </thead>
           <tbody className="divide-y divide-gray-100">
             {oilData.map((item, index) => {
-              const isAbnormal = item.difference > 10;
+              const diffValue = Number(item.difference);
+              const isAbnormal = diffValue > 10;
+              const isPositive = diffValue > 0;
+              const isRecorded = item.isRecorded !== false;
+              const hasDiff = !isNaN(diffValue);
+              
               return (
                 <tr key={index} className={isAbnormal ? 'bg-rose-50' : ''}>
                   <td className="table-cell font-medium">{item.tankNo}</td>
                   <td className="table-cell">{item.oilType}</td>
-                  <td className="table-cell">{item.startStock} L</td>
-                  <td className="table-cell">{item.endStock} L</td>
-                  <td className="table-cell">{item.salesVolume} L</td>
-                  <td className="table-cell">{item.actualLoss} L</td>
+                  <td className="table-cell">{item.startStock.toLocaleString()} L</td>
+                  <td className="table-cell">
+                    {isRecorded && item.endStock > 0 ? `${item.endStock.toLocaleString()} L` : <span className="text-gray-400">--</span>}
+                  </td>
+                  <td className="table-cell">{item.salesVolume.toFixed(2)} L</td>
+                  <td className="table-cell">
+                    {isRecorded ? `${item.actualLoss.toFixed(2)} L` : <span className="text-gray-400">--</span>}
+                  </td>
                   <td className="table-cell">{item.standardLoss.toFixed(2)} L</td>
                   <td className="table-cell">
-                    <div className={`inline-flex items-center gap-1 ${isAbnormal ? 'text-rose-600 font-semibold' : 'text-gray-700'}`}>
+                    <div className={`inline-flex items-center gap-1 ${isAbnormal ? 'text-rose-600 font-semibold' : hasDiff ? 'text-gray-700' : 'text-gray-400'}`}>
                       {isAbnormal && <AlertCircle className="w-4 h-4" />}
-                      +{item.difference.toFixed(2)} L
+                      {isRecorded && hasDiff ? (
+                        <>
+                          {isPositive ? '+' : ''}{diffValue.toFixed(2)} L
+                        </>
+                      ) : (
+                        '--'
+                      )}
                     </div>
                   </td>
                 </tr>
