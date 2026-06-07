@@ -11,10 +11,7 @@ export function getAllInspections(storeId?: string): InspectionRectification[] {
   if (storeId) {
     inspections = inspections.filter((i) => i.storeId === storeId);
   }
-  return inspections.map((i) => {
-    const inspectionRemarks = db.remarks.filter((r) => r.sourceId === i.id && r.source === 'inspection');
-    return { ...i, remarks: inspectionRemarks };
-  });
+  return inspections;
 }
 
 export function getInspectionById(id: string): InspectionRectification | null {

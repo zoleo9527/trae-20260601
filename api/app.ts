@@ -5,28 +5,18 @@ import express, {
   type NextFunction,
 } from 'express';
 import cors from 'cors';
-import path from 'path';
 import dotenv from 'dotenv';
-import { fileURLToPath } from 'url';
-import { initDatabase, seedData } from './db/database.js';
+import { initDatabase } from './db/database.js';
 import authRoutes from './routes/auth.js';
 import userRoutes from './routes/users.js';
 import promotionRoutes from './routes/promotions.js';
 import inspectionRoutes from './routes/inspections.js';
 import systemRoutes from './routes/system.js';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
 dotenv.config();
 
 try {
   initDatabase();
-  const fs = await import('fs');
-  const dbPath = path.join(__dirname, '..', 'data', 'app.db');
-  if (!fs.existsSync(dbPath) || fs.statSync(dbPath).size === 0) {
-    seedData();
-  }
 } catch (error) {
   console.error('Database init error:', error);
 }

@@ -11,11 +11,7 @@ export function getAllPromotions(storeId?: string): PromotionDisplay[] {
   if (storeId) {
     promotions = promotions.filter((p) => p.storeId === storeId);
   }
-  return promotions.map((p) => {
-    const remarks = db.remarks.filter((r) => r.sourceId === p.id && r.source === 'promotion');
-    const inspectionCount = db.inspections.filter((i) => i.promotionId === p.id).length;
-    return { ...p, remarks, inspectionCount };
-  });
+  return promotions;
 }
 
 export function getPromotionById(id: string): PromotionDisplay | null {
