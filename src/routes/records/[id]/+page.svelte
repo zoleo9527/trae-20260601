@@ -207,6 +207,7 @@
         body: JSON.stringify({ 
           status: 'lost', 
           reason: issueReason,
+          supplementaryNotes: issueSupplementary,
           operator: currentUser,
           operatorRole: currentRole
         })
@@ -219,6 +220,7 @@
         body: JSON.stringify({ 
           status: 'complaint', 
           reason: issueReason,
+          supplementaryNotes: issueSupplementary,
           operator: currentUser,
           operatorRole: currentRole
         })
@@ -315,8 +317,7 @@
     
     if (res.ok) {
       record = await res.json();
-      const allScheduled = record.schedules.every(s => s.status !== 'pending');
-      if (allScheduled && record.status === 'scheduling') {
+      if (record.status === 'scheduling') {
         await updateStatus('in_service');
       }
     }
@@ -740,11 +741,8 @@
                   + 追加服务项目
                 </button>
                 <p class="text-xs text-gray-500 text-center">
-                  在左侧各项目中点击「结束服务计时」
+                  在左侧各项目中点击「结束服务计时」，全部结束后自动进入待结账
                 </p>
-                <button class="btn btn-success w-full" onclick={() => updateStatus('service_completed')}>
-                  标记所有服务完成
-                </button>
               {/if}
               
               {#if record.status === 'service_completed' && (currentRole === 'finance' || currentRole === 'admin')}

@@ -684,6 +684,10 @@ export function addServiceRecord(recordId: string, service: Omit<ServiceRecord, 
       schedule.startTime = service.startTime;
     }
     
+    if (record.status === 'scheduling') {
+      record.status = 'in_service';
+    }
+    
     record.updatedAt = new Date();
   }
   return record;
@@ -704,7 +708,8 @@ export function updateServiceRecord(recordId: string, serviceId: string, updates
 export function updateHandTagStatus(
   recordId: string, 
   status: ConsumptionRecord['handTagStatus'], 
-  reason?: string, 
+  reason?: string,
+  supplementaryNotes?: string,
   operator?: string,
   operatorRole?: UserRole
 ): ConsumptionRecord | undefined {
@@ -720,7 +725,7 @@ export function updateHandTagStatus(
         addIssue(recordId, {
           type: 'hand_tag_lost',
           reason,
-          supplementaryNotes: '',
+          supplementaryNotes: supplementaryNotes || '',
           createdBy: operator,
           createdByRole: operatorRole
         });
@@ -743,6 +748,7 @@ export function updateLockerStatus(
   recordId: string, 
   status: ConsumptionRecord['lockerStatus'], 
   reason?: string,
+  supplementaryNotes?: string,
   operator?: string,
   operatorRole?: UserRole
 ): ConsumptionRecord | undefined {
@@ -758,7 +764,7 @@ export function updateLockerStatus(
         addIssue(recordId, {
           type: 'locker_complaint',
           reason,
-          supplementaryNotes: '',
+          supplementaryNotes: supplementaryNotes || '',
           createdBy: operator,
           createdByRole: operatorRole
         });
