@@ -10,14 +10,16 @@ const InspectionList: React.FC = () => {
   const [searchParams] = useSearchParams();
   const [inspections, setInspections] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState(searchParams.get('status') || '');
+  const [filter, setFilter] = useState<string>(() => {
+    const f = searchParams.get('filter');
+    const s = searchParams.get('status');
+    return f || s || '';
+  });
   const [search, setSearch] = useState('');
 
   const fetchData = () => {
     setLoading(true);
-    const params: any = {};
-    if (filter) params.status = filter;
-    inspectionAPI.list(params).then(data => {
+    inspectionAPI.list().then(data => {
       setInspections(data);
       setLoading(false);
     });
@@ -25,7 +27,9 @@ const InspectionList: React.FC = () => {
 
   useEffect(() => {
     fetchData();
-  }, [filter]);
+  }, []);
+
+  const filterStatuses = filter ? filter.split(',') : [];
 
   const getStatusConfig = (status: string) => {
     const configs: Record<string, { label: string; color: string; icon: any }> = {
@@ -43,10 +47,12 @@ const InspectionList: React.FC = () => {
   const canReview = user?.role === 'STORE_MANAGER';
   const canSupplement = user?.role === 'NETWORK_ADMIN';
 
-  const filtered = inspections.filter(i =>
-    !search || i.machine?.machineNo?.toLowerCase().includes(search.toLowerCase()) ||
-    i.machine?.name?.toLowerCase().includes(search.toLowerCase())
-  );
+  const filtered = inspections.filter(i => {
+    const matchSearch = !search || i.machine?.machineNo?.toLowerCase().includes(search.toLowerCase()) ||
+      i.machine?.name?.toLowerCase().includes(search.toLowerCase());
+    const matchStatus = filterStatuses.length === 0 || filterStatuses.includes(i.status);
+    return matchSearch && matchStatus;
+  });
 
   return (
     <div className="space-y-6">

@@ -10,13 +10,16 @@ const RepairList: React.FC = () => {
   const [searchParams] = useSearchParams();
   const [repairs, setRepairs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState(searchParams.get('status') || '');
+  const [filter, setFilter] = useState<string>(() => {
+    const f = searchParams.get('filter');
+    const s = searchParams.get('status');
+    return f || s || '';
+  });
   const [search, setSearch] = useState('');
 
   const fetchData = () => {
     setLoading(true);
     const params: any = {};
-    if (filter) params.status = filter;
     if (searchParams.get('assignedToId')) params.assignedToId = searchParams.get('assignedToId');
     repairAPI.list(params).then(data => {
       setRepairs(data);
@@ -26,7 +29,9 @@ const RepairList: React.FC = () => {
 
   useEffect(() => {
     fetchData();
-  }, [filter, searchParams]);
+  }, [searchParams]);
+
+  const filterStatuses = filter ? filter.split(',') : [];
 
   const getStatusConfig = (status: string) => {
     const configs: Record<string, { label: string; color: string }> = {
@@ -57,11 +62,14 @@ const RepairList: React.FC = () => {
   const canCreate = user?.role !== 'TECHNICIAN';
   const canApprove = user?.role === 'STORE_MANAGER';
   const canAssign = user?.role === 'STORE_MANAGER';
+  const canSupplement = user?.role === 'TECHNICIAN';
 
-  const filtered = repairs.filter(r =>
-    !search || r.title?.toLowerCase().includes(search.toLowerCase()) ||
-    r.machine?.machineNo?.toLowerCase().includes(search.toLowerCase())
-  );
+  const filtered = repairs.filter(r => {
+    const matchSearch = !search || r.title?.toLowerCase().includes(search.toLowerCase()) ||
+      r.machine?.machineNo?.toLowerCase().includes(search.toLowerCase());
+    const matchStatus = filterStatuses.length === 0 || filterStatuses.includes(r.status);
+    return matchSearch && matchStatus;
+  });
 
   return (
     <div className="space-y-6">
@@ -92,6 +100,7 @@ const RepairList: React.FC = () => {
             <option value="COMPLETED">待复核</option>
             <option value="REVIEWED">已完成</option>
             <option value="RETURNED">已退回</option>
+            <option value="REOPENED">已重开</option>
           </select>
         </div>
         {canCreate && (
@@ -102,8 +111,8 @@ const RepairList: React.FC = () => {
       </div>
 
       {/* Status Summary */}
-      <div className="grid grid-cols-2 md:grid-cols-8 gap-3">
-        {['DRAFT', 'PENDING_APPROVAL', 'APPROVED', 'ASSIGNED', 'IN_PROGRESS', 'COMPLETED', 'REVIEWED', 'RETURNED'].map(status => {
+      <div className="grid grid-cols-2 md:grid-cols-9 gap-3">
+        {['DRAFT', 'PENDING_APPROVAL', 'APPROVED', 'ASSIGNED', 'IN_PROGRESS', 'COMPLETED', 'REVIEWED', 'RETURNED', 'REOPENED'].map(status => {
           const config = getStatusConfig(status);
           const count = repairs.filter(r => r.status === status).length;
           return (
@@ -153,6 +162,7 @@ const RepairList: React.FC = () => {
                   const priorityConfig = getPriorityConfig(item.priority);
                   const showApprove = item.status === 'PENDING_APPROVAL' && canApprove;
                   const showAssign = item.status === 'APPROVED' && canAssign;
+                  const showSupplement = ['RETURNED', 'REOPENED'].includes(item.status) && canSupplement;
                   
                   return (
                     <tr key={item.id} className="border-b border-gray-100 hover:bg-gray-50">
@@ -197,6 +207,14 @@ const RepairList: React.FC = () => {
                               className="text-amber-600 hover:text-amber-700 text-sm font-medium"
                             >
                               指派
+                            </button>
+                          )}
+                          {showSupplement && (
+                            <button
+                              onClick={() => navigate(`/repairs/${item.id}`)}
+                              className="text-orange-600 hover:text-orange-700 text-sm font-medium"
+                            >
+                              补录
                             </button>
                           )}
                         </div>

@@ -30,10 +30,10 @@ const Dashboard: React.FC = () => {
     ['PENDING', 'IN_PROGRESS', 'RETURNED', 'SUPPLEMENTED'].includes(i.status)
   );
   const pendingRepairs = stats.repairs.filter((r: any) => 
-    ['PENDING_APPROVAL', 'APPROVED', 'ASSIGNED', 'IN_PROGRESS'].includes(r.status)
+    ['PENDING_APPROVAL', 'APPROVED', 'ASSIGNED', 'IN_PROGRESS', 'RETURNED', 'REOPENED'].includes(r.status)
   );
   const myTasks = stats.repairs.filter((r: any) => 
-    user?.role === 'TECHNICIAN' && r.assignedToId === user.id && ['ASSIGNED', 'IN_PROGRESS'].includes(r.status)
+    user?.role === 'TECHNICIAN' && r.assignedToId === user.id && ['ASSIGNED', 'IN_PROGRESS', 'RETURNED', 'REOPENED'].includes(r.status)
   );
   const needsReview = {
     inspections: stats.inspections.filter((i: any) => ['COMPLETED', 'SUPPLEMENTED'].includes(i.status)).length,
@@ -55,13 +55,13 @@ const Dashboard: React.FC = () => {
         ];
       case 'STORE_MANAGER':
         return [
-          { label: '待复核巡检', icon: ClipboardCheck, action: () => navigate('/inspections?status=COMPLETED'), color: 'bg-purple-500', badge: needsReview.inspections },
-          { label: '待审批/复核工单', icon: Wrench, action: () => navigate('/repairs?status=PENDING_APPROVAL'), color: 'bg-amber-500', badge: needsReview.repairs },
+          { label: '待复核巡检', icon: ClipboardCheck, action: () => navigate('/inspections?filter=COMPLETED,SUPPLEMENTED'), color: 'bg-purple-500', badge: needsReview.inspections },
+          { label: '待审批/复核工单', icon: Wrench, action: () => navigate('/repairs?filter=PENDING_APPROVAL,COMPLETED'), color: 'bg-amber-500', badge: needsReview.repairs },
           { label: '设备总览', icon: Monitor, action: () => navigate('/machines'), color: 'bg-green-500' }
         ];
       case 'TECHNICIAN':
         return [
-          { label: '我的维修任务', icon: Wrench, action: () => navigate(`/repairs?assignedToId=${user.id}`), color: 'bg-amber-500', badge: myTasks.length },
+          { label: '我的维修任务', icon: Wrench, action: () => navigate(`/repairs?assignedToId=${user.id}&filter=ASSIGNED,IN_PROGRESS,RETURNED,REOPENED`), color: 'bg-amber-500', badge: myTasks.length },
           { label: '待处理巡检', icon: ClipboardCheck, action: () => navigate('/inspections'), color: 'bg-blue-500' }
         ];
       default:
