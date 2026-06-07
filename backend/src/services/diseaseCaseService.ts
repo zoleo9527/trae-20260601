@@ -70,6 +70,21 @@ function getUserRole(userId: string): UserRole {
   return user.role;
 }
 
+const ROLE_LABELS: Record<UserRole, string> = {
+  TECHNICIAN: '养殖技术员',
+  WAREHOUSE_KEEPER: '饲料仓管',
+  FIELD_MANAGER: '场长',
+};
+
+function validateHandlerRole(caseData: any, operatorRole: UserRole, actionName: string) {
+  if (caseData.current_handler_role !== operatorRole) {
+    throw new Error(
+      `越级操作：当前处理节点为【${ROLE_LABELS[caseData.current_handler_role as UserRole]}】，` +
+      `您的角色是【${ROLE_LABELS[operatorRole]}】，${actionName}需等待上一节点处理完成`
+    );
+  }
+}
+
 export function createDiseaseCase(req: CreateDiseaseCaseRequest) {
   const caseNo = generateCaseNo();
   const caseId = uuidv4();
@@ -120,6 +135,8 @@ export function submitDiseaseCase(caseId: string, operatorId: string) {
     throw new Error('只有养殖技术员可以提交');
   }
 
+  validateHandlerRole(caseData, operatorRole, '提交病害单');
+
   const oldStatus = caseData.status;
 
   db.prepare(`
@@ -145,6 +162,8 @@ export function rejectDiseaseCase(req: RejectRequest) {
   if (operatorRole !== 'FIELD_MANAGER') {
     throw new Error('只有场长可以驳回');
   }
+
+  validateHandlerRole(caseData, operatorRole, '驳回病害单');
 
   if (!req.rejectReason || req.rejectReason.trim().length < 5) {
     throw new Error('驳回理由不得少于5个字');
@@ -175,6 +194,8 @@ export function allocateMedicine(req: AllocateMedicineRequest) {
   if (operatorRole !== 'WAREHOUSE_KEEPER') {
     throw new Error('只有饲料仓管可以配药');
   }
+
+  validateHandlerRole(caseData, operatorRole, '药品配药出库');
 
   const oldStatus = caseData.status;
 
@@ -223,6 +244,8 @@ export function approveDiseaseCase(req: ApproveRequest) {
     throw new Error('只有场长可以审批');
   }
 
+  validateHandlerRole(caseData, operatorRole, '审批病害单');
+
   const oldStatus = caseData.status;
 
   db.prepare(`
@@ -248,6 +271,8 @@ export function recordMedication(req: RecordMedicationRequest) {
   if (operatorRole !== 'TECHNICIAN') {
     throw new Error('只有养殖技术员可以记录用药');
   }
+
+  validateHandlerRole(caseData, operatorRole, '记录用药');
 
   const oldStatus = caseData.status;
   const caseMedicines = db.prepare('SELECT * FROM disease_case_medicines WHERE disease_case_id = ?').all(req.caseId) as any[];
@@ -295,6 +320,8 @@ export function closeDiseaseCase(caseId: string, operatorId: string, remark?: st
   if (operatorRole !== 'FIELD_MANAGER') {
     throw new Error('只有场长可以结案');
   }
+
+  validateHandlerRole(caseData, operatorRole, '结案归档');
 
   const oldStatus = caseData.status;
 
