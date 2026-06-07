@@ -23,6 +23,10 @@ export interface DailyOrder {
   product_name?: string;
   product_spec?: string;
   route_name?: string;
+  exception_id?: number | null;
+  exception_type?: string | null;
+  exception_status?: string | null;
+  exception_description?: string | null;
 }
 
 export interface MorningCheckin {

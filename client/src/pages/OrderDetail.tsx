@@ -36,6 +36,13 @@ const OrderDetail: React.FC = () => {
   const [replenishments, setReplenishments] = useState<Replenishment[]>([]);
   const [showExceptionModal, setShowExceptionModal] = useState(false);
   const [exceptionForm, setExceptionForm] = useState({ type: 'missed', description: '' });
+  const [showReplenishModal, setShowReplenishModal] = useState(false);
+  const [selectedException, setSelectedException] = useState<Exception | null>(null);
+  const [replenishForm, setReplenishForm] = useState({
+    method: 'redelivery' as 'redelivery' | 'refund' | 'replace',
+    quantity: 1,
+    remark: '',
+  });
 
   const loadData = async () => {
     if (!id) return;
@@ -73,14 +80,27 @@ const OrderDetail: React.FC = () => {
     }
   };
 
-  const handleCreateReplenishment = async (exception: Exception) => {
+  const handleCreateReplenishment = (exception: Exception) => {
+    setSelectedException(exception);
+    setReplenishForm({
+      method: 'redelivery',
+      quantity: 1,
+      remark: '',
+    });
+    setShowReplenishModal(true);
+  };
+
+  const confirmCreateReplenishment = async () => {
+    if (!selectedException) return;
     try {
       await replenishmentsAPI.create({
-        exception_id: exception.id,
-        daily_order_id: exception.daily_order_id,
-        quantity: 1,
-        method: 'redelivery',
+        exception_id: selectedException.id,
+        daily_order_id: selectedException.daily_order_id,
+        quantity: replenishForm.quantity,
+        method: replenishForm.method,
+        remark: replenishForm.remark,
       });
+      setShowReplenishModal(false);
       loadData();
     } catch (err: any) {
       alert(err.response?.data?.error || '创建补送失败');
@@ -224,7 +244,9 @@ const OrderDetail: React.FC = () => {
               <tr>
                 <th>方式</th>
                 <th>数量</th>
+                <th>备注</th>
                 <th>处理人</th>
+                <th>确认人</th>
                 <th>状态</th>
                 <th>创建时间</th>
                 <th>操作</th>
@@ -235,7 +257,9 @@ const OrderDetail: React.FC = () => {
                 <tr key={r.id}>
                   <td>{methodMap[r.method]}</td>
                   <td>{r.quantity}</td>
+                  <td style={{ maxWidth: 150 }}>{r.remark || '-'}</td>
                   <td>{r.handler_name}</td>
+                  <td>{r.confirmer_name || '-'}</td>
                   <td>
                     <span className={`status-tag status-${r.status}`}>
                       {r.status === 'pending' ? '待配送' : r.status === 'delivered' ? '已配送' : r.status === 'confirmed' ? '已确认' : '已取消'}
@@ -310,6 +334,57 @@ const OrderDetail: React.FC = () => {
             <div className="modal-footer">
               <button className="btn btn-default" onClick={() => setShowExceptionModal(false)}>取消</button>
               <button className="btn btn-primary" onClick={handleReportException}>提交</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showReplenishModal && selectedException && (
+        <div className="modal-overlay">
+          <div className="modal">
+            <div className="modal-header">
+              <div className="modal-title">安排补送 - 异常 #{selectedException.id}</div>
+              <button className="modal-close" onClick={() => setShowReplenishModal(false)}>×</button>
+            </div>
+            <div className="modal-body">
+              <p className="mb-16 text-muted">
+                原订单数量: {order?.quantity} | 异常类型: {exceptionTypeMap[selectedException.type]}
+              </p>
+              <div className="form-group">
+                <label className="form-label">补送方式 *</label>
+                <select
+                  className="form-select"
+                  value={replenishForm.method}
+                  onChange={(e) => setReplenishForm({ ...replenishForm, method: e.target.value as any })}
+                >
+                  {Object.entries(methodMap).map(([k, v]) => (
+                    <option key={k} value={k}>{v}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="form-group">
+                <label className="form-label">补送数量 *</label>
+                <input
+                  type="number"
+                  min="1"
+                  className="form-input"
+                  value={replenishForm.quantity}
+                  onChange={(e) => setReplenishForm({ ...replenishForm, quantity: Number(e.target.value) })}
+                />
+              </div>
+              <div className="form-group">
+                <label className="form-label">备注</label>
+                <textarea
+                  className="form-textarea"
+                  value={replenishForm.remark}
+                  onChange={(e) => setReplenishForm({ ...replenishForm, remark: e.target.value })}
+                  placeholder="补送说明或客户特殊要求"
+                />
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-default" onClick={() => setShowReplenishModal(false)}>取消</button>
+              <button className="btn btn-primary" onClick={confirmCreateReplenishment}>确认安排</button>
             </div>
           </div>
         </div>

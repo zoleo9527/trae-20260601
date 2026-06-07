@@ -107,6 +107,7 @@ const ReplenishmentsPage: React.FC = () => {
                 <th>方式</th>
                 <th>数量</th>
                 <th>处理人</th>
+                <th>确认人</th>
                 <th>状态</th>
                 <th>创建时间</th>
                 <th>操作</th>
@@ -121,6 +122,7 @@ const ReplenishmentsPage: React.FC = () => {
                   <td>{methodMap[r.method]}</td>
                   <td>{r.quantity}</td>
                   <td>{r.handler_name}</td>
+                  <td>{r.confirmer_name || '-'}</td>
                   <td>
                     <span className={`status-tag status-${r.status}`}>
                       {statusMap[r.status]}

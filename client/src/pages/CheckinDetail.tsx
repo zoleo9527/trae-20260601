@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import dayjs from 'dayjs';
 import { checkinsAPI, timelineAPI } from '@/api';
-import type { MorningCheckin, DailyOrder, Exception, TimelineEvent } from '@/types';
+import type { MorningCheckin, DailyOrder, Exception, TimelineEvent, ExceptionType } from '@/types';
 import { useAuth } from '@/context/AuthContext';
 
 const statusMap: Record<string, string> = {
@@ -16,6 +16,14 @@ const orderStatusMap: Record<string, string> = {
   signed: '已签收',
   exception: '异常',
   replenished: '已补送',
+};
+
+const exceptionTypeMap: Record<string, string> = {
+  missed: '漏送',
+  damaged: '破损',
+  wrong_product: '送错品',
+  customer_absent: '客户不在',
+  other: '其他',
 };
 
 const CheckinDetail: React.FC = () => {
@@ -34,6 +42,12 @@ const CheckinDetail: React.FC = () => {
   const [showSubmitModal, setShowSubmitModal] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [confirmRemark, setConfirmRemark] = useState('');
+  const [showExceptionModal, setShowExceptionModal] = useState(false);
+  const [selectedOrder, setSelectedOrder] = useState<DailyOrder | null>(null);
+  const [exceptionForm, setExceptionForm] = useState({
+    type: 'missed' as ExceptionType,
+    description: '',
+  });
 
   const loadData = async () => {
     if (!id) return;
@@ -59,6 +73,63 @@ const CheckinDetail: React.FC = () => {
   useEffect(() => {
     loadData();
   }, [id]);
+
+  const handleSign = async (order: DailyOrder) => {
+    if (!id) return;
+    try {
+      const res = await checkinsAPI.updateOrderStatus(Number(id), order.id, 'signed');
+      setOrders(orders.map(o => o.id === order.id ? { ...o, status: 'signed' } : o));
+      if (checkin) {
+        setCheckin({
+          ...checkin,
+          signed_orders: res.data.signedCount,
+          exception_orders: res.data.exceptionCount,
+        });
+      }
+      setSubmitForm(prev => ({
+        ...prev,
+        signed_orders: res.data.signedCount,
+        exception_orders: res.data.exceptionCount,
+      }));
+    } catch (err: any) {
+      alert(err.response?.data?.error || '操作失败');
+    }
+  };
+
+  const handleReportException = (order: DailyOrder) => {
+    setSelectedOrder(order);
+    setExceptionForm({ type: 'missed', description: '' });
+    setShowExceptionModal(true);
+  };
+
+  const confirmException = async () => {
+    if (!id || !selectedOrder) return;
+    try {
+      const res = await checkinsAPI.reportOrderException(Number(id), selectedOrder.id, exceptionForm);
+      setOrders(orders.map(o => o.id === selectedOrder.id ? {
+        ...o,
+        status: 'exception',
+        exception_id: res.data.id,
+        exception_type: exceptionForm.type,
+        exception_status: 'pending',
+        exception_description: exceptionForm.description,
+      } : o));
+      if (checkin) {
+        setCheckin({
+          ...checkin,
+          exception_orders: res.data.exceptionCount,
+        });
+      }
+      setSubmitForm(prev => ({
+        ...prev,
+        exception_orders: res.data.exceptionCount,
+      }));
+      setShowExceptionModal(false);
+      loadData();
+    } catch (err: any) {
+      alert(err.response?.data?.error || '上报失败');
+    }
+  };
 
   const handleSubmit = async () => {
     if (!id) return;
@@ -86,6 +157,7 @@ const CheckinDetail: React.FC = () => {
     return <div className="empty-state">加载中...</div>;
   }
 
+  const canOperateOrder = (user?.role === 'courier' || user?.role === 'clerk') && checkin.status !== 'confirmed';
   const canSubmit = (user?.role === 'courier' || user?.role === 'clerk') && checkin.status === 'draft';
   const canConfirm = user?.role === 'clerk' && checkin.status === 'submitted';
 
@@ -174,7 +246,10 @@ const CheckinDetail: React.FC = () => {
 
       <div className="card">
         <div className="card-header">
-          <div className="card-title">关联订单 ({orders.length})</div>
+          <div className="card-title">逐单签收 ({orders.length})</div>
+          {canOperateOrder && (
+            <div className="text-sm text-muted">点击「签收」或「异常上报」处理每一笔订单</div>
+          )}
         </div>
         <table className="table">
           <thead>
@@ -185,6 +260,7 @@ const CheckinDetail: React.FC = () => {
               <th>商品</th>
               <th>数量</th>
               <th>状态</th>
+              <th>异常</th>
               <th>操作</th>
             </tr>
           </thead>
@@ -193,7 +269,7 @@ const CheckinDetail: React.FC = () => {
               <tr key={o.id}>
                 <td>#{o.id}</td>
                 <td>{o.customer_name}</td>
-                <td style={{ maxWidth: 200 }}>{o.customer_address}</td>
+                <td style={{ maxWidth: 180 }}>{o.customer_address}</td>
                 <td>{o.product_name} {o.product_spec}</td>
                 <td>{o.quantity}</td>
                 <td>
@@ -202,9 +278,33 @@ const CheckinDetail: React.FC = () => {
                   </span>
                 </td>
                 <td>
-                  <button className="btn btn-default btn-sm" onClick={() => navigate(`/orders/${o.id}`)}>
-                    详情
-                  </button>
+                  {o.exception_type ? (
+                    <span className="status-tag status-exception">
+                      {exceptionTypeMap[o.exception_type]}
+                    </span>
+                  ) : '-'}
+                </td>
+                <td>
+                  <div className="btn-group">
+                    <button className="btn btn-default btn-sm" onClick={() => navigate(`/orders/${o.id}`)}>
+                      详情
+                    </button>
+                    {canOperateOrder && o.status === 'pending' && (
+                      <>
+                        <button className="btn btn-success btn-sm" onClick={() => handleSign(o)}>
+                          签收
+                        </button>
+                        <button className="btn btn-danger btn-sm" onClick={() => handleReportException(o)}>
+                          异常上报
+                        </button>
+                      </>
+                    )}
+                    {canOperateOrder && o.status === 'signed' && !o.exception_id && (
+                      <button className="btn btn-danger btn-sm" onClick={() => handleReportException(o)}>
+                        标记异常
+                      </button>
+                    )}
+                  </div>
                 </td>
               </tr>
             ))}
@@ -226,13 +326,14 @@ const CheckinDetail: React.FC = () => {
                 <th>上报人</th>
                 <th>时间</th>
                 <th>状态</th>
+                <th>操作</th>
               </tr>
             </thead>
             <tbody>
               {exceptions.map((e) => (
                 <tr key={e.id}>
                   <td>#{e.id}</td>
-                  <td>{e.type}</td>
+                  <td>{exceptionTypeMap[e.type]}</td>
                   <td>{e.description || '-'}</td>
                   <td>{e.reporter_name}</td>
                   <td>{dayjs(e.created_at).format('MM-DD HH:mm')}</td>
@@ -240,6 +341,11 @@ const CheckinDetail: React.FC = () => {
                     <span className={`status-tag status-${e.status}`}>
                       {e.status}
                     </span>
+                  </td>
+                  <td>
+                    <button className="btn btn-default btn-sm" onClick={() => navigate(`/orders/${e.daily_order_id}`)}>
+                      查看订单
+                    </button>
                   </td>
                 </tr>
               ))}
@@ -264,6 +370,45 @@ const CheckinDetail: React.FC = () => {
         </div>
       </div>
 
+      {showExceptionModal && selectedOrder && (
+        <div className="modal-overlay">
+          <div className="modal">
+            <div className="modal-header">
+              <div className="modal-title">上报异常 - 订单 #{selectedOrder.id}</div>
+              <button className="modal-close" onClick={() => setShowExceptionModal(false)}>×</button>
+            </div>
+            <div className="modal-body">
+              <p className="mb-16 text-muted">客户: {selectedOrder.customer_name} | 商品: {selectedOrder.product_name}</p>
+              <div className="form-group">
+                <label className="form-label">异常类型 *</label>
+                <select
+                  className="form-input"
+                  value={exceptionForm.type}
+                  onChange={(e) => setExceptionForm({ ...exceptionForm, type: e.target.value as ExceptionType })}
+                >
+                  {Object.entries(exceptionTypeMap).map(([key, label]) => (
+                    <option key={key} value={key}>{label}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="form-group">
+                <label className="form-label">详细描述</label>
+                <textarea
+                  className="form-textarea"
+                  value={exceptionForm.description}
+                  onChange={(e) => setExceptionForm({ ...exceptionForm, description: e.target.value })}
+                  placeholder="请详细描述异常情况"
+                />
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-default" onClick={() => setShowExceptionModal(false)}>取消</button>
+              <button className="btn btn-danger" onClick={confirmException}>确认上报</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {showSubmitModal && (
         <div className="modal-overlay">
           <div className="modal">
@@ -272,7 +417,7 @@ const CheckinDetail: React.FC = () => {
               <button className="modal-close" onClick={() => setShowSubmitModal(false)}>×</button>
             </div>
             <div className="modal-body">
-              <p className="mb-16">当前路线共 {checkin.total_orders} 单，请填写实际数据：</p>
+              <p className="mb-16">当前路线共 {checkin.total_orders} 单：</p>
               <div className="form-group">
                 <label className="form-label">已签收数量</label>
                 <input

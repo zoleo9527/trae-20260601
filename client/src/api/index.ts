@@ -34,6 +34,16 @@ export const checkinsAPI = {
     client.put<{ message: string }>(`/checkins/${id}/submit`, data),
   confirm: (id: number, data: { remark?: string }) =>
     client.put<{ message: string }>(`/checkins/${id}/confirm`, data),
+  updateOrderStatus: (checkinId: number, orderId: number, status: string) =>
+    client.put<{ message: string; signedCount: number; exceptionCount: number }>(
+      `/checkins/${checkinId}/orders/${orderId}/status`,
+      { status }
+    ),
+  reportOrderException: (checkinId: number, orderId: number, data: { type: string; description?: string }) =>
+    client.post<{ id: number; message: string; exceptionCount: number }>(
+      `/checkins/${checkinId}/orders/${orderId}/exception`,
+      data
+    ),
 };
 
 export const exceptionsAPI = {

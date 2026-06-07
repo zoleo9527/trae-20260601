@@ -108,20 +108,44 @@ router.post('/', authMiddleware, (req, res) => {
     return res.status(404).json({ error: '订单不存在' });
   }
 
+  let finalCheckinId = checkin_id;
+  if (!finalCheckinId && order.delivery_date && order.route_id) {
+    const checkin = db.prepare(`
+      SELECT id FROM morning_checkins 
+      WHERE checkin_date = ? AND route_id = ?
+      LIMIT 1
+    `).get(order.delivery_date, order.route_id);
+    if (checkin) {
+      finalCheckinId = checkin.id;
+    }
+  }
+
   const result = db.prepare(`
     INSERT INTO exceptions (daily_order_id, checkin_id, reported_by, type, description, status)
     VALUES (?, ?, ?, ?, ?, 'pending')
-  `).run(daily_order_id, checkin_id || null, req.user.id, type, description || null);
+  `).run(daily_order_id, finalCheckinId || null, req.user.id, type, description || null);
 
   db.prepare('UPDATE daily_orders SET status = ? WHERE id = ?').run('exception', daily_order_id);
 
+  if (finalCheckinId) {
+    const exceptionCount = db.prepare(`
+      SELECT COUNT(*) as count FROM daily_orders 
+      WHERE delivery_date = ? AND route_id = ? AND status = 'exception'
+    `).get(order.delivery_date, order.route_id).count;
+
+    db.prepare(`
+      UPDATE morning_checkins SET exception_orders = ? WHERE id = ?
+    `).run(exceptionCount, finalCheckinId);
+  }
+
   logOperation(req.user.id, 'create_exception', 'exception', result.lastInsertRowid, {
     daily_order_id,
+    checkin_id: finalCheckinId,
     type,
     description
   });
 
-  res.json({ id: result.lastInsertRowid, message: '异常已上报' });
+  res.json({ id: result.lastInsertRowid, message: '异常已上报', checkin_id: finalCheckinId });
 });
 
 router.put('/:id/status', authMiddleware, (req, res) => {

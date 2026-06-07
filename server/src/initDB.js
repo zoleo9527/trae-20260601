@@ -244,7 +244,101 @@ function initSeedData() {
     );
   }
 
-  console.log('种子数据初始化完成');
+  const yesterday = dayjs().subtract(1, 'day').format('YYYY-MM-DD');
+  const yesterdayRoute1Checkin = db.prepare('SELECT id FROM morning_checkins WHERE checkin_date = ? AND route_id = ?').get(yesterday, route1Id);
+  const yesterdayExceptionOrders = db.prepare(`
+    SELECT id FROM daily_orders WHERE delivery_date = ? AND route_id = ? AND status = 'exception' LIMIT 3
+  `).all(yesterday, route1Id);
+
+  if (yesterdayExceptionOrders.length >= 3) {
+    const insertException = db.prepare(`
+      INSERT INTO exceptions (daily_order_id, checkin_id, reported_by, type, description, status, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `);
+    const insertReplenishment = db.prepare(`
+      INSERT INTO replenishments (exception_id, daily_order_id, handled_by, confirmed_by, quantity, method, remark, status, delivered_at, confirmed_at, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+
+    const ex1 = insertException.run(
+      yesterdayExceptionOrders[0].id, yesterdayRoute1Checkin.id, courier1Id,
+      'missed', '配送时漏装了一瓶鲜牛奶', 'resolved',
+      dayjs(yesterday).add(6, 'hour').add(15, 'minute').toISOString()
+    ).lastInsertRowid;
+    insertReplenishment.run(
+      ex1, yesterdayExceptionOrders[0].id, clerkId, csId,
+      1, 'redelivery', '客户要求下午4点后配送', 'confirmed',
+      dayjs(yesterday).add(9, 'hour').toISOString(),
+      dayjs(yesterday).add(10, 'hour').toISOString(),
+      dayjs(yesterday).add(7, 'hour').toISOString()
+    );
+
+    const ex2 = insertException.run(
+      yesterdayExceptionOrders[1].id, yesterdayRoute1Checkin.id, courier1Id,
+      'damaged', '配送途中瓶盖破裂，牛奶洒出', 'resolved',
+      dayjs(yesterday).add(6, 'hour').add(25, 'minute').toISOString()
+    ).lastInsertRowid;
+    insertReplenishment.run(
+      ex2, yesterdayExceptionOrders[1].id, clerkId, null,
+      2, 'replace', '更换全新的两瓶原味酸奶', 'delivered',
+      dayjs(yesterday).add(11, 'hour').toISOString(),
+      null,
+      dayjs(yesterday).add(8, 'hour').toISOString()
+    );
+
+    const ex3 = insertException.run(
+      yesterdayExceptionOrders[2].id, yesterdayRoute1Checkin.id, courier1Id,
+      'customer_absent', '客户不在家，电话未接通', 'pending',
+      dayjs(yesterday).add(6, 'hour').add(40, 'minute').toISOString()
+    ).lastInsertRowid;
+  }
+
+  const todayDate = dayjs().format('YYYY-MM-DD');
+  const todayRoute1CheckinId = insertCheckin.run(
+    todayDate, route1Id, courier1Id, null,
+    db.prepare('SELECT COUNT(*) as count FROM daily_orders WHERE delivery_date = ? AND route_id = ?').get(todayDate, route1Id).count,
+    0, 0, 'draft', null, null
+  ).lastInsertRowid;
+
+  const todayPendingOrders = db.prepare(`
+    SELECT id FROM daily_orders WHERE delivery_date = ? AND route_id = ? LIMIT 4
+  `).all(todayDate, route1Id);
+
+  if (todayPendingOrders.length >= 2) {
+    db.prepare('UPDATE daily_orders SET status = ? WHERE id = ?').run('signed', todayPendingOrders[0].id);
+    db.prepare('UPDATE daily_orders SET status = ? WHERE id = ?').run('signed', todayPendingOrders[1].id);
+
+    const todayEx = db.prepare(`
+      INSERT INTO exceptions (daily_order_id, checkin_id, reported_by, type, description, status, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      todayPendingOrders[0].id, todayRoute1CheckinId, courier1Id,
+      'wrong_product', '拿错了规格，客户订的高钙奶拿成了鲜牛奶', 'processing',
+      dayjs().add(5, 'hour').toISOString()
+    ).lastInsertRowid;
+
+    db.prepare(`
+      INSERT INTO replenishments (exception_id, daily_order_id, handled_by, quantity, method, remark, status, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      todayEx, todayPendingOrders[0].id, clerkId,
+      1, 'redelivery', '正在仓库换货，半小时后送出', 'pending',
+      dayjs().add(5, 'hour').add(10, 'minute').toISOString()
+    );
+  }
+
+  const signedCount = db.prepare(`
+    SELECT COUNT(*) as count FROM daily_orders WHERE delivery_date = ? AND route_id = ? AND status = 'signed'
+  `).get(todayDate, route1Id).count;
+  const exceptionCount = db.prepare(`
+    SELECT COUNT(*) as count FROM daily_orders WHERE delivery_date = ? AND route_id = ? AND status = 'exception'
+  `).get(todayDate, route1Id).count;
+
+  db.prepare('UPDATE morning_checkins SET signed_orders = ?, exception_orders = ? WHERE id = ?').run(
+    signedCount, exceptionCount, todayRoute1CheckinId
+  );
+
+  console.log('种子数据初始化完成，已包含异常补送演示数据');
 }
 
 initSchema();
