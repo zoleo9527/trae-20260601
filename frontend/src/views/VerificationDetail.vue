@@ -10,31 +10,55 @@
               {{ statusMap[detail.status] || detail.status }}
             </el-tag>
           </div>
-          <div v-if="detail?.status === 'PENDING'">
-            <el-button type="success" @click="handleApprove">通过</el-button>
-            <el-button type="danger" @click="handleReject">退回</el-button>
+          <div style="display: flex; gap: 10px">
+            <div v-if="detail?.status === 'PENDING'">
+              <el-button type="success" @click="handleApprove">通过</el-button>
+              <el-button type="danger" @click="handleReject">退回</el-button>
+            </div>
+            <el-button
+              v-if="detail?.status === 'COMPLETED' && detail.outboundStatus === 'PENDING'"
+              type="warning"
+              @click="goToOutbound"
+            >
+              <el-icon><Bell /></el-icon>
+              待出库处理
+            </el-button>
           </div>
         </div>
       </template>
 
       <div v-loading="loading" v-if="detail">
         <el-row :gutter="20">
-          <el-col :span="12">
+          <el-col :span="8">
             <el-card>
               <template #header>
                 <span style="font-weight: 500">基本信息</span>
               </template>
-              <el-descriptions :column="2" border>
+              <el-descriptions :column="1" border size="small">
                 <el-descriptions-item label="核销单号">{{ detail.verificationNo }}</el-descriptions-item>
                 <el-descriptions-item label="关联预订">{{ detail.bookingNo }}</el-descriptions-item>
                 <el-descriptions-item label="包厢号">{{ detail.roomNo }}</el-descriptions-item>
                 <el-descriptions-item label="客户姓名">{{ detail.customerName }}</el-descriptions-item>
                 <el-descriptions-item label="会员ID">{{ detail.memberId || '-' }}</el-descriptions-item>
-                <el-descriptions-item label="赠送总额">¥{{ detail.giftAmount }}</el-descriptions-item>
+              </el-descriptions>
+            </el-card>
+          </el-col>
+          <el-col :span="8">
+            <el-card>
+              <template #header>
+                <span style="font-weight: 500">额度信息</span>
+              </template>
+              <el-descriptions :column="1" border size="small">
+                <el-descriptions-item label="赠送总额度">
+                  <span style="color: #409eff">¥{{ detail.giftAmount }}</span>
+                </el-descriptions-item>
+                <el-descriptions-item label="历史已核销">
+                  <span style="color: #e6a23c">¥{{ detail.historicalUsedAmount || 0 }}</span>
+                </el-descriptions-item>
                 <el-descriptions-item label="本次核销">
                   <span style="color: #409eff; font-weight: 500">¥{{ detail.usedAmount }}</span>
                 </el-descriptions-item>
-                <el-descriptions-item label="剩余额度">
+                <el-descriptions-item label="核销后剩余">
                   <span :style="{ color: detail.remainingAmount > 0 ? '#67c23a' : '#909399', fontWeight: 500 }">
                     ¥{{ detail.remainingAmount }}
                   </span>
@@ -42,22 +66,51 @@
               </el-descriptions>
             </el-card>
           </el-col>
-          <el-col :span="12">
+          <el-col :span="8">
             <el-card>
               <template #header>
                 <span style="font-weight: 500">处理信息</span>
               </template>
-              <el-descriptions :column="2" border>
+              <el-descriptions :column="1" border size="small">
                 <el-descriptions-item label="创建时间">{{ formatTime(detail.createTime) }}</el-descriptions-item>
                 <el-descriptions-item label="处理时间">{{ formatTime(detail.handleTime) }}</el-descriptions-item>
-                <el-descriptions-item label="备注" :span="2">{{ detail.remark || '-' }}</el-descriptions-item>
-                <el-descriptions-item v-if="detail.status === 'REJECTED'" label="退回原因" :span="2">
+                <el-descriptions-item label="备注">{{ detail.remark || '-' }}</el-descriptions-item>
+                <el-descriptions-item v-if="detail.status === 'REJECTED'" label="退回原因">
                   <span style="color: #f56c6c">{{ detail.rejectReason }}</span>
                 </el-descriptions-item>
               </el-descriptions>
             </el-card>
           </el-col>
         </el-row>
+
+        <el-card v-if="detail.outboundId" style="margin-top: 20px">
+          <template #header>
+            <div style="display: flex; align-items: center; justify-content: space-between">
+              <span style="font-weight: 500">关联出库单信息</span>
+              <el-tag :type="getOutboundTagType(detail.outboundStatus)" size="small">
+                {{ outboundStatusMap[detail.outboundStatus] || detail.outboundStatus }}
+              </el-tag>
+            </div>
+          </template>
+          <el-descriptions :column="3" border size="small">
+            <el-descriptions-item label="出库单号">
+              <span style="color: #409eff; cursor: pointer" @click="goToOutbound">{{ detail.outboundNo }}</span>
+            </el-descriptions-item>
+            <el-descriptions-item label="出库类型">赠送出库</el-descriptions-item>
+            <el-descriptions-item label="出库金额">¥{{ detail.usedAmount }}</el-descriptions-item>
+          </el-descriptions>
+          <div style="margin-top: 10px; text-align: right">
+            <el-button
+              v-if="detail.outboundStatus === 'PENDING'"
+              type="warning"
+              size="small"
+              @click="goToOutbound"
+            >
+              <el-icon><Bell /></el-icon>
+              前去处理出库
+            </el-button>
+          </div>
+        </el-card>
 
         <el-card style="margin-top: 20px">
           <template #header>
@@ -104,9 +157,9 @@
 import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { ArrowLeft } from '@element-plus/icons-vue'
+import { ArrowLeft, Bell } from '@element-plus/icons-vue'
 import dayjs from 'dayjs'
-import { getVerification, getVerificationItems, approveVerification, rejectVerification } from '@/api/verification'
+import { getVerificationDetail, getVerificationItems, approveVerification, rejectVerification } from '@/api/verification'
 import { getBooking } from '@/api/booking'
 
 const route = useRoute()
@@ -122,6 +175,23 @@ const statusMap = {
   REJECTED: '已退回'
 }
 
+const outboundStatusMap = {
+  NOT_CREATED: '未生成',
+  PENDING: '待出库',
+  COMPLETED: '已出库',
+  REJECTED: '已退回'
+}
+
+const getOutboundTagType = (status) => {
+  const map = {
+    PENDING: 'warning',
+    COMPLETED: 'success',
+    REJECTED: 'danger',
+    NOT_CREATED: 'info'
+  }
+  return map[status] || ''
+}
+
 const bookingStatusMap = {
   PENDING: '待到店',
   CHECKED_IN: '已到店',
@@ -132,8 +202,8 @@ const loadData = async () => {
   loading.value = true
   try {
     const id = route.params.id
-    detail.value = await getVerification(id)
-    items.value = await getVerificationItems(id)
+    detail.value = await getVerificationDetail(id)
+    items.value = detail.value.items || []
     if (detail.value.bookingId) {
       bookingInfo.value = await getBooking(detail.value.bookingId)
     }
@@ -143,9 +213,9 @@ const loadData = async () => {
 }
 
 const handleApprove = async () => {
-  await ElMessageBox.confirm('确认通过该核销申请？', '提示', { type: 'warning' })
+  await ElMessageBox.confirm('确认通过该核销申请？通过后将自动生成赠送出库单。', '提示', { type: 'warning' })
   await approveVerification(route.params.id)
-  ElMessage.success('操作成功')
+  ElMessage.success('操作成功，已自动生成赠送出库单')
   loadData()
 }
 
@@ -161,6 +231,10 @@ const handleReject = async () => {
     ElMessage.success('操作成功')
     loadData()
   }
+}
+
+const goToOutbound = () => {
+  router.push('/outbound')
 }
 
 const formatTime = (time) => {

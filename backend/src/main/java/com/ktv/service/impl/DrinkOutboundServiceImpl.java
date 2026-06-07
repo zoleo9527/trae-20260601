@@ -28,6 +28,8 @@ public class DrinkOutboundServiceImpl extends ServiceImpl<DrinkOutboundMapper, D
     private DrinkService drinkService;
     @Autowired
     private BookingService bookingService;
+    @Autowired
+    private GiftVerificationService verificationService;
 
     @Override
     @Transactional
@@ -133,7 +135,13 @@ public class DrinkOutboundServiceImpl extends ServiceImpl<DrinkOutboundMapper, D
         outbound.setStatus("COMPLETED");
         outbound.setHandleBy(userId);
         outbound.setHandleTime(LocalDateTime.now());
-        return updateById(outbound);
+        boolean result = updateById(outbound);
+
+        if (result && outbound.getVerificationId() != null) {
+            verificationService.updateOutboundStatus(outbound.getVerificationId(), "COMPLETED");
+        }
+
+        return result;
     }
 
     @Override
@@ -147,7 +155,13 @@ public class DrinkOutboundServiceImpl extends ServiceImpl<DrinkOutboundMapper, D
         outbound.setHandleBy(userId);
         outbound.setHandleTime(LocalDateTime.now());
         outbound.setRemark(reason != null ? reason : outbound.getRemark());
-        return updateById(outbound);
+        boolean result = updateById(outbound);
+
+        if (result && outbound.getVerificationId() != null) {
+            verificationService.updateOutboundStatus(outbound.getVerificationId(), "REJECTED");
+        }
+
+        return result;
     }
 
     @Override

@@ -18,6 +18,8 @@ public class DrinkOutbound {
     private String status;
     private BigDecimal totalAmount;
     private String remark;
+    private Long verificationId;
+    private String verificationNo;
     private String idempotentKey;
     private Long createBy;
     private Long handleBy;

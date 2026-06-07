@@ -7,8 +7,10 @@ import com.ktv.dto.GiftVerificationQueryDTO;
 import com.ktv.entity.GiftVerification;
 import com.ktv.entity.GiftVerificationItem;
 import com.ktv.service.GiftVerificationService;
+import com.ktv.vo.GiftVerificationDetailVO;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
 
@@ -35,9 +37,24 @@ public class GiftVerificationController {
         return Result.success(giftVerificationService.getDetail(id));
     }
 
+    @GetMapping("/{id}/detail")
+    public Result<GiftVerificationDetailVO> getDetail(@PathVariable Long id) {
+        return Result.success(giftVerificationService.getDetailWithRelations(id));
+    }
+
     @GetMapping("/{id}/items")
     public Result<List<GiftVerificationItem>> getItems(@PathVariable Long id) {
         return Result.success(giftVerificationService.getItems(id));
+    }
+
+    @GetMapping("/booking/{bookingId}/used-amount")
+    public Result<BigDecimal> getBookingUsedAmount(@PathVariable Long bookingId) {
+        return Result.success(giftVerificationService.getBookingUsedAmount(bookingId));
+    }
+
+    @GetMapping("/booking/{bookingId}/remaining-amount")
+    public Result<BigDecimal> getBookingRemainingAmount(@PathVariable Long bookingId) {
+        return Result.success(giftVerificationService.getBookingRemainingAmount(bookingId));
     }
 
     @PutMapping("/{id}/approve")

@@ -114,10 +114,16 @@
             <span style="font-weight: 500; color: #f56c6c">超时未处理（超过2小时）</span>
           </template>
           <el-table :data="dashboard.timeoutList || []" size="small" style="width: 100%">
-            <el-table-column prop="outboundNo" label="单号" width="140" />
+            <el-table-column label="类型" width="80">
+              <template #default="{ row }">
+                <el-tag v-if="row.type === 'OUTBOUND'" type="warning" size="small">出库</el-tag>
+                <el-tag v-else type="primary" size="small">核销</el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column prop="no" label="单号" width="150" />
             <el-table-column prop="roomNo" label="包厢" width="80" />
-            <el-table-column prop="totalAmount" label="金额" width="100">
-              <template #default="{ row }">¥{{ row.totalAmount }}</template>
+            <el-table-column prop="amount" label="金额" width="100">
+              <template #default="{ row }">¥{{ row.amount }}</template>
             </el-table-column>
             <el-table-column prop="createTime" label="创建时间" width="160">
               <template #default="{ row }">
@@ -126,7 +132,7 @@
             </el-table-column>
             <el-table-column label="操作" width="100">
               <template #default="{ row }">
-                <el-button type="primary" size="small" link @click="handleOutbound(row)">去处理</el-button>
+                <el-button type="primary" size="small" link @click="handleTimeoutItem(row)">去处理</el-button>
               </template>
             </el-table-column>
           </el-table>
@@ -136,12 +142,17 @@
       <el-col :span="12">
         <el-card>
           <template #header>
-            <span style="font-weight: 500; color: #909399">24小时内刚退回的核销单</span>
+            <span style="font-weight: 500; color: #909399">24小时内刚退回记录</span>
           </template>
           <el-table :data="dashboard.rejectedList || []" size="small" style="width: 100%">
-            <el-table-column prop="verificationNo" label="核销单号" width="140" />
+            <el-table-column label="类型" width="80">
+              <template #default="{ row }">
+                <el-tag v-if="row.type === 'OUTBOUND'" type="warning" size="small">出库</el-tag>
+                <el-tag v-else type="primary" size="small">核销</el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column prop="no" label="单号" width="150" />
             <el-table-column prop="roomNo" label="包厢" width="80" />
-            <el-table-column prop="customerName" label="客户" width="80" />
             <el-table-column prop="rejectReason" label="退回原因" show-overflow-tooltip />
             <el-table-column prop="handleTime" label="退回时间" width="160">
               <template #default="{ row }">{{ formatTime(row.handleTime) }}</template>
@@ -159,6 +170,7 @@ import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import dayjs from 'dayjs'
 import { getDashboard } from '@/api/dashboard'
+import { Goods, Present, Warning, RefreshLeft } from '@element-plus/icons-vue'
 
 const router = useRouter()
 const dashboard = ref({})
@@ -171,8 +183,12 @@ const formatTime = (time) => {
   return time ? dayjs(time).format('YYYY-MM-DD HH:mm') : '-'
 }
 
-const handleOutbound = (row) => {
-  router.push('/outbound')
+const handleTimeoutItem = (row) => {
+  if (row.type === 'OUTBOUND') {
+    router.push('/outbound')
+  } else {
+    router.push('/verification')
+  }
 }
 
 onMounted(() => {

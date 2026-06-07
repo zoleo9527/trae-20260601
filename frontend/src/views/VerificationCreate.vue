@@ -10,7 +10,14 @@
 
       <el-form :model="form" :rules="rules" ref="formRef" label-width="100px" style="max-width: 900px">
         <el-form-item label="选择预订" prop="bookingId">
-          <el-select v-model="form.bookingId" placeholder="请选择预订" filterable style="width: 400px" @change="handleBookingChange">
+          <el-select
+            v-model="form.bookingId"
+            placeholder="请选择预订"
+            filterable
+            style="width: 400px"
+            @change="handleBookingChange"
+            :disabled="bookingLocked"
+          >
             <el-option
               v-for="b in bookingList"
               :key="b.id"
@@ -18,6 +25,10 @@
               :value="b.id"
             />
           </el-select>
+          <el-tag v-if="bookingLocked" type="warning" size="small" style="margin-left: 10px">
+            <Lock style="width: 12px; height: 12px; margin-right: 4px" />
+            已锁定关联预订
+          </el-tag>
         </el-form-item>
 
         <el-card v-if="selectedBooking" style="background: #f5f7fa; margin-bottom: 20px">
@@ -25,8 +36,12 @@
             <div><strong>预订号：</strong>{{ selectedBooking.bookingNo }}</div>
             <div><strong>包厢：</strong>{{ selectedBooking.roomNo }}</div>
             <div><strong>客户：</strong>{{ selectedBooking.customerName || '散客' }}</div>
+          </div>
+          <el-divider style="margin: 12px 0" />
+          <div style="display: flex; gap: 40px; flex-wrap: wrap">
             <div><strong>赠送总额度：</strong><span style="color: #409eff; font-weight: 500">¥{{ selectedBooking.giftAmount }}</span></div>
-            <div><strong>剩余可用：</strong><span style="color: #67c23a; font-weight: 500">¥{{ remainingAmount.toFixed(2) }}</span></div>
+            <div><strong>历史已核销：</strong><span style="color: #e6a23c; font-weight: 500">¥{{ historicalUsedAmount.toFixed(2) }}</span></div>
+            <div><strong>剩余可用：</strong><span style="color: #67c23a; font-weight: 500; font-size: 16px">¥{{ remainingAmount.toFixed(2) }}</span></div>
           </div>
         </el-card>
 
@@ -75,7 +90,7 @@
         </el-form-item>
 
         <el-form-item>
-          <el-button type="primary" size="large" :loading="submitting" :disabled="totalAmount > remainingAmount" @click="handleSubmit">提交</el-button>
+          <el-button type="primary" size="large" :loading="submitting" :disabled="totalAmount > remainingAmount || !form.bookingId" @click="handleSubmit">提交</el-button>
           <el-button size="large" @click="$router.back()">取消</el-button>
         </el-form-item>
       </el-form>
@@ -85,19 +100,22 @@
 
 <script setup>
 import { ref, reactive, computed, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { ArrowLeft, Plus } from '@element-plus/icons-vue'
+import { ArrowLeft, Plus, Lock } from '@element-plus/icons-vue'
 import { getAvailableDrinks } from '@/api/drink'
-import { getBookingPage } from '@/api/booking'
-import { createVerification } from '@/api/verification'
+import { getBookingPage, getBooking } from '@/api/booking'
+import { createVerification, getBookingUsedAmount, getBookingRemainingAmount } from '@/api/verification'
 
 const router = useRouter()
+const route = useRoute()
 const formRef = ref()
 const drinkList = ref([])
 const bookingList = ref([])
 const selectedBooking = ref(null)
 const submitting = ref(false)
+const bookingLocked = ref(false)
+const historicalUsedAmount = ref(0)
 
 const form = reactive({
   bookingId: null,
@@ -117,17 +135,31 @@ const totalAmount = computed(() => {
 
 const remainingAmount = computed(() => {
   if (!selectedBooking.value) return 0
-  return Number(selectedBooking.value.giftAmount) || 0
+  const totalGift = Number(selectedBooking.value.giftAmount) || 0
+  return totalGift - historicalUsedAmount.value
 })
 
 const loadData = async () => {
   drinkList.value = await getAvailableDrinks()
   const bookingData = await getBookingPage({ pageNum: 1, pageSize: 100 })
   bookingList.value = bookingData.records.filter(b => Number(b.giftAmount) > 0)
+
+  const queryBookingId = route.query.bookingId
+  if (queryBookingId) {
+    form.bookingId = Number(queryBookingId)
+    bookingLocked.value = true
+    await handleBookingChange(form.bookingId)
+  }
 }
 
-const handleBookingChange = (id) => {
+const handleBookingChange = async (id) => {
   selectedBooking.value = bookingList.value.find(b => b.id === id)
+  if (!selectedBooking.value) {
+    selectedBooking.value = await getBooking(id)
+  }
+  if (selectedBooking.value) {
+    historicalUsedAmount.value = await getBookingUsedAmount(id)
+  }
   form.items = []
   addItem()
 }
@@ -168,7 +200,7 @@ const handleSubmit = async () => {
     return
   }
   if (totalAmount.value > remainingAmount.value) {
-    ElMessage.error('核销金额不能超过赠送额度')
+    ElMessage.error('核销金额不能超过剩余可用额度')
     return
   }
 

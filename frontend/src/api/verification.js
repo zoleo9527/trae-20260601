@@ -12,8 +12,20 @@ export function getVerification(id) {
   return request.get(`/verification/${id}`)
 }
 
+export function getVerificationDetail(id) {
+  return request.get(`/verification/${id}/detail`)
+}
+
 export function getVerificationItems(id) {
   return request.get(`/verification/${id}/items`)
+}
+
+export function getBookingUsedAmount(bookingId) {
+  return request.get(`/verification/booking/${bookingId}/used-amount`)
+}
+
+export function getBookingRemainingAmount(bookingId) {
+  return request.get(`/verification/booking/${bookingId}/remaining-amount`)
 }
 
 export function approveVerification(id) {

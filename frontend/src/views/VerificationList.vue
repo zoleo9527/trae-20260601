@@ -38,33 +38,47 @@
         <el-table-column prop="bookingNo" label="关联预订" width="160" />
         <el-table-column prop="roomNo" label="包厢" width="100" />
         <el-table-column prop="customerName" label="客户" width="100" />
-        <el-table-column prop="giftAmount" label="赠送总额" width="120">
-          <template #default="{ row }">¥{{ row.giftAmount }}</template>
-        </el-table-column>
         <el-table-column prop="usedAmount" label="本次核销" width="120">
           <template #default="{ row }">¥{{ row.usedAmount }}</template>
         </el-table-column>
-        <el-table-column prop="remainingAmount" label="剩余额度" width="120">
-          <template #default="{ row }">
-            <span :style="{ color: row.remainingAmount > 0 ? '#67c23a' : '#909399' }">¥{{ row.remainingAmount }}</span>
-          </template>
-        </el-table-column>
-        <el-table-column prop="status" label="状态" width="100">
+        <el-table-column prop="status" label="核销状态" width="100">
           <template #default="{ row }">
             <el-tag :class="`status-${row.status.toLowerCase()}`" size="small">
               {{ statusMap[row.status] || row.status }}
             </el-tag>
           </template>
         </el-table-column>
+        <el-table-column prop="outboundStatus" label="出库状态" width="120">
+          <template #default="{ row }">
+            <el-tag v-if="row.outboundStatus" :type="getOutboundTagType(row.outboundStatus)" size="small">
+              {{ outboundStatusMap[row.outboundStatus] || row.outboundStatus }}
+            </el-tag>
+            <span v-else style="color: #909399">-</span>
+          </template>
+        </el-table-column>
+        <el-table-column prop="outboundNo" label="关联出库单" width="160">
+          <template #default="{ row }">
+            <span v-if="row.outboundNo" style="color: #409eff; cursor: pointer" @click="goToOutbound(row.outboundId)">
+              {{ row.outboundNo }}
+            </span>
+            <span v-else>-</span>
+          </template>
+        </el-table-column>
         <el-table-column prop="createTime" label="创建时间" width="160">
           <template #default="{ row }">{{ formatTime(row.createTime) }}</template>
         </el-table-column>
-        <el-table-column label="操作" width="240" fixed="right">
+        <el-table-column label="操作" width="280" fixed="right">
           <template #default="{ row }">
             <el-button type="primary" size="small" link @click="viewDetail(row)">查看</el-button>
             <template v-if="row.status === 'PENDING'">
               <el-button type="success" size="small" link @click="handleApprove(row)">通过</el-button>
               <el-button type="danger" size="small" link @click="handleReject(row)">退回</el-button>
+            </template>
+            <template v-else-if="row.status === 'COMPLETED' && row.outboundStatus === 'PENDING'">
+              <el-button type="warning" size="small" link @click="goToOutbound(row.outboundId)">
+                <el-icon><Bell /></el-icon>
+                待出库
+              </el-button>
             </template>
           </template>
         </el-table-column>
@@ -101,7 +115,7 @@
 import { ref, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus } from '@element-plus/icons-vue'
+import { Plus, Bell } from '@element-plus/icons-vue'
 import dayjs from 'dayjs'
 import { getVerificationPage, approveVerification, rejectVerification } from '@/api/verification'
 
@@ -130,6 +144,23 @@ const statusMap = {
   PENDING: '待处理',
   COMPLETED: '已通过',
   REJECTED: '已退回'
+}
+
+const outboundStatusMap = {
+  NOT_CREATED: '未生成',
+  PENDING: '待出库',
+  COMPLETED: '已出库',
+  REJECTED: '已退回'
+}
+
+const getOutboundTagType = (status) => {
+  const map = {
+    PENDING: 'warning',
+    COMPLETED: 'success',
+    REJECTED: 'danger',
+    NOT_CREATED: 'info'
+  }
+  return map[status] || ''
 }
 
 const loadList = async () => {
@@ -164,10 +195,14 @@ const viewDetail = (row) => {
   router.push(`/verification/${row.id}`)
 }
 
+const goToOutbound = (outboundId) => {
+  router.push(`/outbound`)
+}
+
 const handleApprove = async (row) => {
-  await ElMessageBox.confirm('确认通过该核销申请？', '提示', { type: 'warning' })
+  await ElMessageBox.confirm('确认通过该核销申请？通过后将自动生成赠送出库单。', '提示', { type: 'warning' })
   await approveVerification(row.id)
-  ElMessage.success('操作成功')
+  ElMessage.success('操作成功，已自动生成赠送出库单')
   loadList()
 }
 

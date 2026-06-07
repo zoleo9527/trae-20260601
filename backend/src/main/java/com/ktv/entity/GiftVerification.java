@@ -17,9 +17,13 @@ public class GiftVerification {
     private String customerName;
     private Long memberId;
     private BigDecimal giftAmount;
+    private BigDecimal historicalUsedAmount;
     private BigDecimal usedAmount;
     private BigDecimal remainingAmount;
     private String status;
+    private String outboundStatus;
+    private Long outboundId;
+    private String outboundNo;
     private String remark;
     private String rejectReason;
     private String idempotentKey;
