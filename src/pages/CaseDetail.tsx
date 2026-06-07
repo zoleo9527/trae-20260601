@@ -259,42 +259,110 @@ export function CaseDetail() {
             <Timeline items={timelineItems} />
           </div>
 
-          {currentCase.status === 'recalling' && relatedRecall && (
-            <Link
-              to="/recalls"
-              className="block bg-red-50 border border-red-200 rounded-lg p-5 hover:bg-red-100/50 transition-colors"
+          {relatedRecall && (
+            <div
+              className={`rounded-lg p-5 border transition-colors transition-shadow hover:shadow-sm ${
+                relatedRecall.status === 'completed'
+                  ? 'bg-slate-50 border-slate-200'
+                  : 'bg-red-50 border-red-200 hover:bg-red-100/50'
+              }`}
             >
-              <div className="flex items-center gap-3 mb-4">
-                <div className="p-2 bg-red-100 text-red-600 rounded-lg">
-                  <AlertTriangle className="w-5 h-5" />
+              <Link to="/recalls">
+                <div className="flex items-center gap-3 mb-4">
+                  <div
+                    className={`p-2 rounded-lg ${
+                      relatedRecall.status === 'completed'
+                        ? 'bg-slate-100 text-slate-600'
+                        : 'bg-red-100 text-red-600'
+                    }`}
+                  >
+                    {relatedRecall.status === 'completed' ? (
+                      <CheckCircle className="w-5 h-5" />
+                    ) : (
+                      <AlertTriangle className="w-5 h-5" />
+                    )}
+                  </div>
+                  <div className="flex-1">
+                    <div
+                      className={`font-semibold ${
+                        relatedRecall.status === 'completed'
+                          ? 'text-slate-700'
+                          : 'text-red-700'
+                      }`}
+                    >
+                      {relatedRecall.status === 'completed' ? '召回已完成' : '召回进行中'}
+                    </div>
+                    <div
+                      className={`text-sm ${
+                        relatedRecall.status === 'completed'
+                          ? 'text-slate-600'
+                          : 'text-red-600'
+                      }`}
+                    >
+                      点击查看召回详情 →
+                    </div>
+                  </div>
+                  <StatusTag type="recall" status={relatedRecall.status} />
                 </div>
-                <div className="flex-1">
-                  <div className="font-semibold text-red-700">召回进行中</div>
-                  <div className="text-sm text-red-600">点击查看召回进度 →</div>
+              </Link>
+
+              <div
+                className={`grid grid-cols-4 gap-2 pt-3 border-t ${
+                  relatedRecall.status === 'completed'
+                    ? 'border-slate-200/50'
+                    : 'border-red-200/50'
+                }`}
+              >
+                <div className="text-center">
+                  <div className="text-lg font-bold text-slate-700">
+                    {relatedRecall.customers.length}
+                  </div>
+                  <div className="text-xs text-slate-500">影响客户</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-lg font-bold text-blue-600">
+                    {
+                      relatedRecall.customers.filter((c) => c.notifyStatus !== 'pending').length
+                    }
+                  </div>
+                  <div className="text-xs text-slate-500">已通知</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-lg font-bold text-green-600">
+                    {
+                      relatedRecall.customers.filter((c) => c.notifyStatus === 'returned').length
+                    }
+                  </div>
+                  <div className="text-xs text-slate-500">已退回</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-lg font-bold text-[#1E3A5F]">
+                    {relatedRecall.customers.reduce((sum, c) => sum + (c.returnedQuantity || 0), 0)}
+                  </div>
+                  <div className="text-xs text-slate-500">退回总量(kg)</div>
                 </div>
               </div>
-              <div className="grid grid-cols-3 gap-2 pt-3 border-t border-red-200/50">
-                <div className="text-center">
-                  <div className="text-xl font-bold text-red-700">{relatedRecall.customers.length}</div>
-                  <div className="text-xs text-red-600">涉及客户</div>
+
+              {relatedRecall.status === 'completed' && (
+                <div className="mt-4 pt-4 border-t border-slate-200/50 space-y-2">
+                  {relatedRecall.completedAt && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-slate-500">完成时间：</span>
+                      <span className="text-slate-700 font-medium">{relatedRecall.completedAt}</span>
+                    </div>
+                  )}
+                  {relatedRecall.finalDisposition && (
+                    <div className="text-sm pt-2 mt-2 border-t border-slate-200/50">
+                      <span className="text-slate-500">最终处置：</span>
+                      <span className="text-slate-700 ml-1">{relatedRecall.finalDisposition}</span>
+                    </div>
+                  )}
                 </div>
-                <div className="text-center">
-                  <div className="text-xl font-bold text-amber-600">
-                    {relatedRecall.customers.filter((c) => c.notifyStatus === 'returned').length}
-                  </div>
-                  <div className="text-xs text-red-600">已退回</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-xl font-bold text-blue-600">
-                    {relatedRecall.customers.filter((c) => c.notifyStatus !== 'pending').length}
-                  </div>
-                  <div className="text-xs text-red-600">已通知</div>
-                </div>
-              </div>
-            </Link>
+              )}
+            </div>
           )}
 
-          {currentCase.status === 'closed' && (
+          {currentCase.status === 'closed' && !relatedRecall && (
             <div className="bg-green-50 border border-green-200 rounded-lg p-5">
               <div className="flex items-center gap-3 mb-3">
                 <div className="p-2 bg-green-100 text-green-600 rounded-lg">
@@ -320,6 +388,30 @@ export function CaseDetail() {
                     <span className="text-amber-600 font-bold">¥ {currentCase.priceAdjustment}</span>
                   </div>
                 )}
+              </div>
+            </div>
+          )}
+
+          {currentCase.status === 'closed' && relatedRecall && (
+            <div className="bg-green-50 border border-green-200 rounded-lg p-5">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="p-2 bg-green-100 text-green-600 rounded-lg">
+                  <CheckCircle className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="font-semibold text-green-700">案件已关闭</div>
+                  <div className="text-sm text-green-600">召回处置完毕，案件结案</div>
+                </div>
+              </div>
+              <div className="pt-3 border-t border-green-200/50 space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span className="text-green-600">关闭人：</span>
+                  <span className="text-green-800 font-medium">{currentCase.closedBy}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-green-600">关闭时间：</span>
+                  <span className="text-green-800 font-medium">{currentCase.closedAt}</span>
+                </div>
               </div>
             </div>
           )}

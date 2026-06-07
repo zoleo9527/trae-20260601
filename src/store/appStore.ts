@@ -14,6 +14,7 @@ interface AppState {
   updateRecallCustomer: (recallId: string, customerId: string, updates: Partial<RecallTask['customers'][0]>) => void;
   updateReinspection: (caseId: string, updates: Partial<Reinspection>) => void;
   createRecallFromCase: (caseId: string) => void;
+  completeRecall: (recallId: string, disposition?: string) => void;
 }
 
 const mockContacts: Record<string, { contact: string; phone: string }> = {
@@ -37,24 +38,69 @@ export const useAppStore = create<AppState>((set, get) => ({
   updateCase: (id, updates) => set((state) => ({
     cases: state.cases.map((c) => c.id === id ? { ...c, ...updates } : c),
   })),
-  updateRecallCustomer: (recallId, customerId, updates) => set((state) => ({
-    recalls: state.recalls.map((r) =>
-      r.id === recallId
-        ? {
-            ...r,
-            customers: r.customers.map((c) =>
-              c.id === customerId ? { ...c, ...updates } : c
-            ),
-          }
-        : r
-    ),
-  })),
+  updateRecallCustomer: (recallId, customerId, updates) => set((state) => {
+    const updatedRecalls = state.recalls.map((r) => {
+      if (r.id !== recallId) return r;
+
+      const updatedCustomers = r.customers.map((c) =>
+        c.id === customerId ? { ...c, ...updates } : c
+      );
+
+      const allDone = updatedCustomers.every(
+        (c) => c.notifyStatus === 'confirmed' || c.notifyStatus === 'returned'
+      );
+
+      const now = new Date().toISOString().slice(0, 19).replace('T', ' ');
+
+      return {
+        ...r,
+        customers: updatedCustomers,
+        status: allDone ? 'completed' : r.status,
+        completedAt: allDone ? now : r.completedAt,
+      };
+    });
+
+    const completedRecall = updatedRecalls.find(
+      (r) => r.id === recallId && r.status === 'completed'
+    );
+
+    let updatedCases = state.cases;
+    if (completedRecall) {
+      updatedCases = state.cases.map((c) =>
+        c.id === completedRecall.caseId
+          ? { ...c, status: 'closed' as const, closedAt: completedRecall.completedAt, closedBy: '李主管' }
+          : c
+      );
+    }
+
+    return { recalls: updatedRecalls, cases: updatedCases };
+  }),
   updateReinspection: (caseId, updates) => set((state) => ({
     reinspections: {
       ...state.reinspections,
       [caseId]: { ...state.reinspections[caseId], ...updates },
     },
   })),
+  completeRecall: (recallId, disposition) => set((state) => {
+    const now = new Date().toISOString().slice(0, 19).replace('T', ' ');
+
+    const updatedRecalls = state.recalls.map((r) =>
+      r.id === recallId
+        ? { ...r, status: 'completed' as const, completedAt: now, finalDisposition: disposition }
+        : r
+    );
+
+    const recall = updatedRecalls.find((r) => r.id === recallId);
+    const updatedCases = recall
+      ? state.cases.map((c) =>
+          c.id === recall.caseId
+            ? { ...c, status: 'closed' as const, closedAt: now, closedBy: '李主管' }
+            : c
+        )
+      : state.cases;
+
+    return { recalls: updatedRecalls, cases: updatedCases };
+  }),
   createRecallFromCase: (caseId) => {
     const state = get();
     const caseItem = state.cases.find((c) => c.id === caseId);

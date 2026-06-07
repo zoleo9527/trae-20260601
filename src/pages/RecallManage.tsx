@@ -5,8 +5,9 @@ import { useAppStore } from '../store/appStore';
 import type { NotifyStatus } from '../types';
 
 export function RecallManage() {
-  const { recalls, updateRecallCustomer } = useAppStore();
+  const { recalls, updateRecallCustomer, completeRecall } = useAppStore();
   const [expandedRecall, setExpandedRecall] = useState<string | null>(recalls[0]?.id || null);
+  const [finalDisposition, setFinalDisposition] = useState<Record<string, string>>({});
 
   const stats = {
     total: recalls.length,
@@ -15,11 +16,27 @@ export function RecallManage() {
     totalCustomers: recalls.reduce((sum, r) => sum + r.customers.length, 0),
   };
 
+  const getRecallStats = (recall: typeof recalls[0]) => {
+    const customers = recall.customers;
+    return {
+      total: customers.length,
+      pending: customers.filter((c) => c.notifyStatus === 'pending').length,
+      notified: customers.filter((c) => c.notifyStatus === 'notified').length,
+      confirmed: customers.filter((c) => c.notifyStatus === 'confirmed').length,
+      returned: customers.filter((c) => c.notifyStatus === 'returned').length,
+      totalReturnedQty: customers.reduce((sum, c) => sum + (c.returnedQuantity || 0), 0),
+    };
+  };
+
   const handleStatusChange = (recallId: string, customerId: string, newStatus: NotifyStatus) => {
     updateRecallCustomer(recallId, customerId, {
       notifyStatus: newStatus,
       notifyTime: new Date().toISOString().slice(0, 19).replace('T', ' '),
     });
+  };
+
+  const handleCompleteRecall = (recallId: string) => {
+    completeRecall(recallId, finalDisposition[recallId] || '');
   };
 
   return (
@@ -94,6 +111,48 @@ export function RecallManage() {
 
             {expandedRecall === recall.id && (
               <div className="border-t border-slate-200">
+                <div className="p-5 bg-slate-50/50 border-b border-slate-200">
+                  <div className="text-sm font-medium text-slate-700 mb-3">召回进度汇总</div>
+                  <div className="grid grid-cols-5 gap-3">
+                    <div className="bg-white p-3 rounded-lg border border-slate-200 text-center">
+                      <div className="text-2xl font-bold text-slate-700">{getRecallStats(recall).total}</div>
+                      <div className="text-xs text-slate-500 mt-0.5">涉及客户</div>
+                    </div>
+                    <div className="bg-white p-3 rounded-lg border border-slate-200 text-center">
+                      <div className="text-2xl font-bold text-blue-600">{getRecallStats(recall).notified}</div>
+                      <div className="text-xs text-slate-500 mt-0.5">已通知</div>
+                    </div>
+                    <div className="bg-white p-3 rounded-lg border border-slate-200 text-center">
+                      <div className="text-2xl font-bold text-amber-600">{getRecallStats(recall).confirmed}</div>
+                      <div className="text-xs text-slate-500 mt-0.5">已确认</div>
+                    </div>
+                    <div className="bg-white p-3 rounded-lg border border-slate-200 text-center">
+                      <div className="text-2xl font-bold text-green-600">{getRecallStats(recall).returned}</div>
+                      <div className="text-xs text-slate-500 mt-0.5">已退回</div>
+                    </div>
+                    <div className="bg-white p-3 rounded-lg border border-slate-200 text-center">
+                      <div className="text-2xl font-bold text-[#1E3A5F]">
+                        {getRecallStats(recall).totalReturnedQty}
+                      </div>
+                      <div className="text-xs text-slate-500 mt-0.5">退回总量 (kg)</div>
+                    </div>
+                  </div>
+                  {recall.status === 'completed' && recall.completedAt && (
+                    <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg">
+                      <div className="flex items-center gap-2 mb-2">
+                        <CheckCircle className="w-4 h-4 text-green-600" />
+                        <span className="text-sm font-medium text-green-700">召回已完成</span>
+                        <span className="text-xs text-green-600 ml-auto">{recall.completedAt}</span>
+                      </div>
+                      {recall.finalDisposition && (
+                        <div className="text-sm text-green-600">
+                          <span className="font-medium">最终处置：</span>{recall.finalDisposition}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
                 <div className="overflow-x-auto">
                   <table className="w-full">
                     <thead className="bg-slate-50 border-b border-slate-200">
@@ -170,7 +229,8 @@ export function RecallManage() {
                                     e.target.value as NotifyStatus
                                   )
                                 }
-                                className="text-xs px-2 py-1.5 border border-slate-200 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white"
+                                disabled={recall.status === 'completed'}
+                                className="text-xs px-2 py-1.5 border border-slate-200 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white disabled:opacity-50 disabled:cursor-not-allowed"
                               >
                                 <option value="pending">标记待通知</option>
                                 <option value="notified">标记已通知</option>
@@ -184,6 +244,38 @@ export function RecallManage() {
                     </tbody>
                   </table>
                 </div>
+
+                {recall.status !== 'completed' && (
+                  <div className="p-5 bg-amber-50/50 border-t border-amber-200">
+                    <div className="text-sm font-medium text-amber-800 mb-3">手动完成召回</div>
+                    <div className="flex items-end gap-4">
+                      <div className="flex-1">
+                        <label className="block text-xs text-amber-700 mb-1.5">
+                          最终处置说明（可选）
+                        </label>
+                        <input
+                          type="text"
+                          value={finalDisposition[recall.id] || ''}
+                          onChange={(e) =>
+                            setFinalDisposition((prev) => ({
+                              ...prev,
+                              [recall.id]: e.target.value,
+                            }))
+                          }
+                          placeholder="如：剩余库存销毁、客户差价补偿、班组再培训等"
+                          className="w-full px-3 py-2 text-sm border border-amber-300 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500 bg-white"
+                        />
+                      </div>
+                      <button
+                        onClick={() => handleCompleteRecall(recall.id)}
+                        className="inline-flex items-center gap-2 px-4 py-2 bg-amber-600 text-white text-sm font-medium rounded-md hover:bg-amber-700 transition-colors shadow-sm"
+                      >
+                        <CheckCircle className="w-4 h-4" />
+                        完成召回
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>
