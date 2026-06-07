@@ -15,6 +15,8 @@ export type LockerStatus = 'normal' | 'complaint' | 'maintenance';
 
 export type TechnicianStatus = 'available' | 'busy' | 'rest' | 'off';
 
+export type IssueType = 'hand_tag_lost' | 'locker_complaint' | 'scheduling_conflict' | 'service_rejection' | 'checkout_rejection';
+
 export interface User {
   id: string;
   name: string;
@@ -35,7 +37,23 @@ export interface Note {
   createdBy: string;
   createdByRole: UserRole;
   createdAt: Date;
-  type: 'scheduling' | 'service' | 'general' | 'rejection';
+  type: 'scheduling' | 'service' | 'general' | 'rejection' | 'hand_tag' | 'locker' | 'issue';
+  relatedTo?: string;
+}
+
+export interface IssueRecord {
+  id: string;
+  type: IssueType;
+  reason: string;
+  supplementaryNotes: string;
+  createdBy: string;
+  createdByRole: UserRole;
+  createdAt: Date;
+  resolvedAt?: Date;
+  resolvedBy?: string;
+  status: 'open' | 'resolved';
+  relatedScheduleId?: string;
+  relatedServiceId?: string;
 }
 
 export interface Schedule {
@@ -49,6 +67,9 @@ export interface Schedule {
   duration: number;
   roomNo: string;
   notes: string;
+  issues: IssueRecord[];
+  status: 'pending' | 'confirmed' | 'in_progress' | 'completed' | 'cancelled';
+  rejectionReason?: string;
 }
 
 export interface ServiceRecord {
@@ -59,6 +80,7 @@ export interface ServiceRecord {
   actualDuration: number | null;
   completed: boolean;
   notes: string;
+  issues: IssueRecord[];
 }
 
 export interface ConsumptionRecord {
@@ -66,8 +88,12 @@ export interface ConsumptionRecord {
   customerName: string;
   handTagNo: string;
   handTagStatus: HandTagStatus;
+  handTagLostReason?: string;
+  handTagLostAt?: Date;
   lockerNo: string;
   lockerStatus: LockerStatus;
+  lockerComplaintReason?: string;
+  lockerComplaintAt?: Date;
   checkinTime: Date;
   checkoutTime: Date | null;
   status: ConsumptionStatus;
@@ -77,6 +103,7 @@ export interface ConsumptionRecord {
   schedules: Schedule[];
   serviceRecords: ServiceRecord[];
   notes: Note[];
+  issues: IssueRecord[];
   
   rejectionReason: string | null;
   attachments: string[];
@@ -88,11 +115,12 @@ export interface ConsumptionRecord {
 
 export interface TodoItem {
   id: string;
-  type: 'hand_tag' | 'scheduling' | 'service' | 'locker' | 'payment' | 'review';
+  type: 'hand_tag' | 'scheduling' | 'service' | 'locker' | 'payment' | 'review' | 'issue';
   title: string;
   description: string;
   recordId: string;
   priority: 'high' | 'medium' | 'low';
   role: UserRole;
   createdAt: Date;
+  issueType?: IssueType;
 }

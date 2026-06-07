@@ -1,4 +1,4 @@
-import type { ConsumptionRecord, Technician, User, TodoItem } from '../types';
+import type { ConsumptionRecord, Technician, User, TodoItem, IssueRecord, IssueType } from '../types';
 
 const currentUser: User = {
   id: 'user-001',
@@ -41,7 +41,9 @@ const mockRecords: ConsumptionRecord[] = [
         endTime: null,
         duration: 90,
         roomNo: '302',
-        notes: '客户指定要008号技师，之前来过几次'
+        notes: '客户指定要008号技师，之前来过几次',
+        issues: [],
+        status: 'pending'
       }
     ],
     serviceRecords: [],
@@ -63,6 +65,7 @@ const mockRecords: ConsumptionRecord[] = [
         type: 'scheduling'
       }
     ],
+    issues: [],
     rejectionReason: null,
     attachments: [],
     createdBy: '前台小李',
@@ -74,8 +77,12 @@ const mockRecords: ConsumptionRecord[] = [
     customerName: '张女士',
     handTagNo: 'B012',
     handTagStatus: 'lost',
+    handTagLostReason: '客户在休息区休息时手牌遗失，疑似被其他客人误拿',
+    handTagLostAt: new Date(today.getTime() + 9 * 60 * 60 * 1000 + 30 * 60000),
     lockerNo: 'L-208',
     lockerStatus: 'complaint',
+    lockerComplaintReason: '储物柜有异味，客户投诉，经检查是清洁不彻底残留清洁剂味道',
+    lockerComplaintAt: new Date(today.getTime() + 8 * 60 * 60 * 1000 + 20 * 60000),
     checkinTime: new Date(today.getTime() + 8 * 60 * 60 * 1000),
     checkoutTime: null,
     status: 'in_service',
@@ -92,7 +99,23 @@ const mockRecords: ConsumptionRecord[] = [
         endTime: null,
         duration: 120,
         roomNo: '501',
-        notes: '客户对力度敏感，需要轻一点'
+        notes: '客户对力度敏感，需要轻一点。客户反映上次力度太重，这次特别交代要012号技师轻柔一点',
+        issues: [
+          {
+            id: 'issue-001',
+            type: 'scheduling_conflict',
+            reason: '最初安排的008号技师临时被VIP客户点走，与张女士的排班产生冲突',
+            supplementaryNotes: '已与客户沟通，客户理解并同意更换为012号技师，赠送果盘一份作为补偿',
+            createdBy: '楼层主管王',
+            createdByRole: 'floor_supervisor',
+            createdAt: new Date(today.getTime() + 9 * 60 * 60 * 1000 + 20 * 60000),
+            status: 'resolved',
+            resolvedAt: new Date(today.getTime() + 9 * 60 * 60 * 1000 + 45 * 60000),
+            resolvedBy: '楼层主管王',
+            relatedScheduleId: 'sch-002'
+          }
+        ],
+        status: 'in_progress'
       }
     ],
     serviceRecords: [
@@ -103,7 +126,8 @@ const mockRecords: ConsumptionRecord[] = [
         endTime: null,
         actualDuration: null,
         completed: false,
-        notes: ''
+        notes: '',
+        issues: []
       }
     ],
     notes: [
@@ -117,27 +141,54 @@ const mockRecords: ConsumptionRecord[] = [
       },
       {
         id: 'note-004',
-        content: '储物柜有异味，客户投诉，已通知保洁去处理',
+        content: '储物柜有异味，客户投诉，已通知保洁去处理。原因：清洁不彻底残留清洁剂味道',
         createdBy: '楼层主管王',
         createdByRole: 'floor_supervisor',
         createdAt: new Date(today.getTime() + 8 * 60 * 60 * 1000 + 20 * 60000),
-        type: 'general'
+        type: 'locker',
+        relatedTo: 'locker-complaint'
       },
       {
         id: 'note-005',
-        content: '客户手牌遗失，正在寻找。已安排临时手牌',
+        content: '客户手牌遗失，正在寻找。已安排临时手牌。原因：客户在休息区休息时手牌遗失，疑似被其他客人误拿',
         createdBy: '前台小李',
         createdByRole: 'reception',
         createdAt: new Date(today.getTime() + 9 * 60 * 60 * 1000 + 30 * 60000),
-        type: 'general'
+        type: 'hand_tag',
+        relatedTo: 'hand-tag-lost'
       },
       {
         id: 'note-006',
-        content: '排班备注：客户反映上次力度太重，这次特别交代要012号技师轻柔一点',
+        content: '排班备注：客户反映上次力度太重，这次特别交代要012号技师轻柔一点。注意：之前安排的008号技师与VIP客户产生冲突，已更换并征得客户同意',
         createdBy: '楼层主管王',
         createdByRole: 'floor_supervisor',
         createdAt: new Date(today.getTime() + 9 * 60 * 60 * 1000 + 45 * 60000),
-        type: 'scheduling'
+        type: 'scheduling',
+        relatedTo: 'sch-002'
+      }
+    ],
+    issues: [
+      {
+        id: 'issue-002',
+        type: 'hand_tag_lost',
+        reason: '客户在休息区休息时手牌遗失，疑似被其他客人误拿',
+        supplementaryNotes: '已安排临时手牌，正在广播寻找，如找不到将收取工本费50元',
+        createdBy: '前台小李',
+        createdByRole: 'reception',
+        createdAt: new Date(today.getTime() + 9 * 60 * 60 * 1000 + 30 * 60000),
+        status: 'open'
+      },
+      {
+        id: 'issue-003',
+        type: 'locker_complaint',
+        reason: '储物柜有异味，客户投诉，经检查是清洁不彻底残留清洁剂味道',
+        supplementaryNotes: '保洁已重新清洁并放置香薰，客户表示可以接受，已赠送免费饮料券作为补偿',
+        createdBy: '楼层主管王',
+        createdByRole: 'floor_supervisor',
+        createdAt: new Date(today.getTime() + 8 * 60 * 60 * 1000 + 20 * 60000),
+        status: 'resolved',
+        resolvedAt: new Date(today.getTime() + 8 * 60 * 60 * 1000 + 40 * 60000),
+        resolvedBy: '楼层主管王'
       }
     ],
     rejectionReason: null,
@@ -169,7 +220,9 @@ const mockRecords: ConsumptionRecord[] = [
         endTime: new Date(today.getTime() + 9 * 60 * 60 * 1000),
         duration: 60,
         roomNo: '205',
-        notes: '客户腰部不好，重点照顾'
+        notes: '客户腰部不好，重点照顾',
+        issues: [],
+        status: 'completed'
       },
       {
         id: 'sch-004',
@@ -181,7 +234,9 @@ const mockRecords: ConsumptionRecord[] = [
         endTime: new Date(today.getTime() + 9 * 60 * 60 * 1000 + 45 * 60000),
         duration: 30,
         roomNo: '205',
-        notes: '追加项目'
+        notes: '追加项目',
+        issues: [],
+        status: 'completed'
       }
     ],
     serviceRecords: [
@@ -192,7 +247,8 @@ const mockRecords: ConsumptionRecord[] = [
         endTime: new Date(today.getTime() + 9 * 60 * 60 * 1000 + 5 * 60000),
         actualDuration: 65,
         completed: true,
-        notes: '客户满意，说按完腰舒服多了'
+        notes: '客户满意，说按完腰舒服多了',
+        issues: []
       },
       {
         id: 'srv-003',
@@ -201,7 +257,8 @@ const mockRecords: ConsumptionRecord[] = [
         endTime: new Date(today.getTime() + 9 * 60 * 60 * 1000 + 42 * 60000),
         actualDuration: 27,
         completed: true,
-        notes: ''
+        notes: '',
+        issues: []
       }
     ],
     notes: [
@@ -219,7 +276,8 @@ const mockRecords: ConsumptionRecord[] = [
         createdBy: '楼层主管王',
         createdByRole: 'floor_supervisor',
         createdAt: new Date(today.getTime() + 7 * 60 * 60 * 1000 + 10 * 60000),
-        type: 'scheduling'
+        type: 'scheduling',
+        relatedTo: 'sch-003'
       },
       {
         id: 'note-009',
@@ -227,7 +285,8 @@ const mockRecords: ConsumptionRecord[] = [
         createdBy: '楼层主管王',
         createdByRole: 'floor_supervisor',
         createdAt: new Date(today.getTime() + 9 * 60 * 60 * 1000),
-        type: 'scheduling'
+        type: 'scheduling',
+        relatedTo: 'sch-004'
       },
       {
         id: 'note-010',
@@ -238,6 +297,7 @@ const mockRecords: ConsumptionRecord[] = [
         type: 'service'
       }
     ],
+    issues: [],
     rejectionReason: null,
     attachments: [],
     createdBy: '前台小李',
@@ -267,7 +327,9 @@ const mockRecords: ConsumptionRecord[] = [
         endTime: new Date(today.getTime() - 24 * 60 * 60 * 1000 + 18 * 60 * 60 * 1000),
         duration: 180,
         roomNo: 'VIP-01',
-        notes: '生日优惠客户'
+        notes: '生日优惠客户',
+        issues: [],
+        status: 'completed'
       }
     ],
     serviceRecords: [
@@ -278,7 +340,8 @@ const mockRecords: ConsumptionRecord[] = [
         endTime: new Date(today.getTime() - 24 * 60 * 60 * 1000 + 18 * 60 * 60 * 1000),
         actualDuration: 180,
         completed: true,
-        notes: '客户很满意，送了果盘'
+        notes: '客户很满意，送了果盘',
+        issues: []
       }
     ],
     notes: [
@@ -296,7 +359,8 @@ const mockRecords: ConsumptionRecord[] = [
         createdBy: '楼层主管王',
         createdByRole: 'floor_supervisor',
         createdAt: new Date(today.getTime() - 24 * 60 * 60 * 1000 + 14 * 60 * 60 * 1000 + 10 * 60000),
-        type: 'scheduling'
+        type: 'scheduling',
+        relatedTo: 'sch-005'
       },
       {
         id: 'note-013',
@@ -307,6 +371,7 @@ const mockRecords: ConsumptionRecord[] = [
         type: 'general'
       }
     ],
+    issues: [],
     rejectionReason: null,
     attachments: [],
     createdBy: '前台小周',
@@ -342,11 +407,12 @@ export function getTodos(role: string): TodoItem[] {
         id: `todo-hand-${record.id}`,
         type: 'hand_tag',
         title: `手牌遗失处理：${record.handTagNo}`,
-        description: `${record.customerName} 的手牌 ${record.handTagNo} 遗失，需要处理`,
+        description: record.handTagLostReason || `${record.customerName} 的手牌 ${record.handTagNo} 遗失，需要处理`,
         recordId: record.id,
         priority: 'high',
         role: 'reception',
-        createdAt: record.updatedAt
+        createdAt: record.updatedAt,
+        issueType: 'hand_tag_lost'
       });
     }
     
@@ -355,11 +421,12 @@ export function getTodos(role: string): TodoItem[] {
         id: `todo-locker-${record.id}`,
         type: 'locker',
         title: `储物柜投诉处理：${record.lockerNo}`,
-        description: `${record.customerName} 的储物柜 ${record.lockerNo} 有投诉`,
+        description: record.lockerComplaintReason || `${record.customerName} 的储物柜 ${record.lockerNo} 有投诉`,
         recordId: record.id,
         priority: 'medium',
         role: 'floor_supervisor',
-        createdAt: record.updatedAt
+        createdAt: record.updatedAt,
+        issueType: 'locker_complaint'
       });
     }
     
@@ -401,6 +468,24 @@ export function getTodos(role: string): TodoItem[] {
         createdAt: record.updatedAt
       });
     }
+    
+    record.issues.filter(i => i.status === 'open').forEach(issue => {
+      let issueRole: UserRole = 'floor_supervisor';
+      if (issue.type === 'hand_tag_lost') issueRole = 'reception';
+      if (issue.type === 'checkout_rejection') issueRole = 'finance';
+      
+      todos.push({
+        id: `todo-issue-${issue.id}`,
+        type: 'issue',
+        title: `待处理问题：${issue.type === 'scheduling_conflict' ? '排班冲突' : issue.type === 'service_rejection' ? '服务退回' : issue.type}`,
+        description: issue.reason,
+        recordId: record.id,
+        priority: 'high',
+        role: issueRole,
+        createdAt: issue.createdAt,
+        issueType: issue.type
+      });
+    });
   });
   
   return todos
@@ -436,12 +521,14 @@ export function addNote(recordId: string, note: Omit<Note, 'id' | 'createdAt'>):
   return record;
 }
 
-export function addSchedule(recordId: string, schedule: Omit<Schedule, 'id'>): ConsumptionRecord | undefined {
+export function addSchedule(recordId: string, schedule: Omit<Schedule, 'id' | 'issues' | 'status'>): ConsumptionRecord | undefined {
   const record = records.find(r => r.id === recordId);
   if (record) {
     record.schedules.push({
       ...schedule,
-      id: `sch-${Date.now()}`
+      id: `sch-${Date.now()}`,
+      issues: [],
+      status: 'pending'
     });
     record.updatedAt = new Date();
   }
@@ -460,13 +547,143 @@ export function updateSchedule(recordId: string, scheduleId: string, updates: Pa
   return record;
 }
 
-export function addServiceRecord(recordId: string, service: Omit<ServiceRecord, 'id'>): ConsumptionRecord | undefined {
+export function rejectSchedule(recordId: string, scheduleId: string, reason: string, supplementaryNotes: string, operator: string, operatorRole: UserRole): ConsumptionRecord | undefined {
+  const record = records.find(r => r.id === recordId);
+  if (record) {
+    const schedule = record.schedules.find(s => s.id === scheduleId);
+    if (schedule) {
+      const issue: IssueRecord = {
+        id: `issue-${Date.now()}`,
+        type: 'scheduling_conflict',
+        reason,
+        supplementaryNotes,
+        createdBy: operator,
+        createdByRole: operatorRole,
+        createdAt: new Date(),
+        status: 'open',
+        relatedScheduleId: scheduleId
+      };
+      
+      schedule.issues.push(issue);
+      schedule.rejectionReason = reason;
+      schedule.status = 'pending';
+      
+      record.issues.push(issue);
+      record.notes.push({
+        id: `note-${Date.now()}`,
+        content: `排班退回：${reason}。补充说明：${supplementaryNotes}`,
+        createdBy: operator,
+        createdByRole: operatorRole,
+        createdAt: new Date(),
+        type: 'rejection',
+        relatedTo: scheduleId
+      });
+      
+      record.updatedAt = new Date();
+    }
+  }
+  return record;
+}
+
+export function addIssue(recordId: string, issue: Omit<IssueRecord, 'id' | 'createdAt' | 'status'>): ConsumptionRecord | undefined {
+  const record = records.find(r => r.id === recordId);
+  if (record) {
+    const newIssue: IssueRecord = {
+      ...issue,
+      id: `issue-${Date.now()}`,
+      createdAt: new Date(),
+      status: 'open'
+    };
+    
+    record.issues.push(newIssue);
+    
+    if (issue.relatedScheduleId) {
+      const schedule = record.schedules.find(s => s.id === issue.relatedScheduleId);
+      if (schedule) {
+        schedule.issues.push(newIssue);
+      }
+    }
+    
+    if (issue.relatedServiceId) {
+      const service = record.serviceRecords.find(s => s.id === issue.relatedServiceId);
+      if (service) {
+        service.issues.push(newIssue);
+      }
+    }
+    
+    const typeLabels: Record<IssueType, string> = {
+      hand_tag_lost: '手牌遗失',
+      locker_complaint: '储物柜投诉',
+      scheduling_conflict: '排班冲突',
+      service_rejection: '服务退回',
+      checkout_rejection: '结账退回'
+    };
+    
+    record.notes.push({
+      id: `note-${Date.now()}`,
+      content: `${typeLabels[issue.type]}：${issue.reason}。补充说明：${issue.supplementaryNotes}`,
+      createdBy: issue.createdBy,
+      createdByRole: issue.createdByRole,
+      createdAt: new Date(),
+      type: 'issue',
+      relatedTo: newIssue.id
+    });
+    
+    record.updatedAt = new Date();
+  }
+  return record;
+}
+
+export function resolveIssue(recordId: string, issueId: string, resolvedBy: string): ConsumptionRecord | undefined {
+  const record = records.find(r => r.id === recordId);
+  if (record) {
+    const issue = record.issues.find(i => i.id === issueId);
+    if (issue) {
+      issue.status = 'resolved';
+      issue.resolvedAt = new Date();
+      issue.resolvedBy = resolvedBy;
+      
+      if (issue.relatedScheduleId) {
+        const schedule = record.schedules.find(s => s.id === issue.relatedScheduleId);
+        const scheduleIssue = schedule?.issues.find(i => i.id === issueId);
+        if (scheduleIssue) {
+          scheduleIssue.status = 'resolved';
+          scheduleIssue.resolvedAt = new Date();
+          scheduleIssue.resolvedBy = resolvedBy;
+        }
+      }
+      
+      if (issue.relatedServiceId) {
+        const service = record.serviceRecords.find(s => s.id === issue.relatedServiceId);
+        const serviceIssue = service?.issues.find(i => i.id === issueId);
+        if (serviceIssue) {
+          serviceIssue.status = 'resolved';
+          serviceIssue.resolvedAt = new Date();
+          serviceIssue.resolvedBy = resolvedBy;
+        }
+      }
+      
+      record.updatedAt = new Date();
+    }
+  }
+  return record;
+}
+
+export function addServiceRecord(recordId: string, service: Omit<ServiceRecord, 'id' | 'issues'>): ConsumptionRecord | undefined {
   const record = records.find(r => r.id === recordId);
   if (record) {
     record.serviceRecords.push({
       ...service,
-      id: `srv-${Date.now()}`
+      id: `srv-${Date.now()}`,
+      issues: []
     });
+    
+    const schedule = record.schedules.find(s => s.id === service.scheduleId);
+    if (schedule) {
+      schedule.status = 'in_progress';
+      schedule.startTime = service.startTime;
+    }
+    
     record.updatedAt = new Date();
   }
   return record;
@@ -484,19 +701,77 @@ export function updateServiceRecord(recordId: string, serviceId: string, updates
   return record;
 }
 
-export function updateHandTagStatus(recordId: string, status: ConsumptionRecord['handTagStatus']): ConsumptionRecord | undefined {
+export function updateHandTagStatus(
+  recordId: string, 
+  status: ConsumptionRecord['handTagStatus'], 
+  reason?: string, 
+  operator?: string,
+  operatorRole?: UserRole
+): ConsumptionRecord | undefined {
   const record = records.find(r => r.id === recordId);
   if (record) {
     record.handTagStatus = status;
+    
+    if (status === 'lost' && reason) {
+      record.handTagLostReason = reason;
+      record.handTagLostAt = new Date();
+      
+      if (operator && operatorRole) {
+        addIssue(recordId, {
+          type: 'hand_tag_lost',
+          reason,
+          supplementaryNotes: '',
+          createdBy: operator,
+          createdByRole: operatorRole
+        });
+      }
+    }
+    
+    if (status === 'returned') {
+      const openIssue = record.issues.find(i => i.type === 'hand_tag_lost' && i.status === 'open');
+      if (openIssue && operator) {
+        resolveIssue(recordId, openIssue.id, operator);
+      }
+    }
+    
     record.updatedAt = new Date();
   }
   return record;
 }
 
-export function updateLockerStatus(recordId: string, status: ConsumptionRecord['lockerStatus']): ConsumptionRecord | undefined {
+export function updateLockerStatus(
+  recordId: string, 
+  status: ConsumptionRecord['lockerStatus'], 
+  reason?: string,
+  operator?: string,
+  operatorRole?: UserRole
+): ConsumptionRecord | undefined {
   const record = records.find(r => r.id === recordId);
   if (record) {
     record.lockerStatus = status;
+    
+    if (status === 'complaint' && reason) {
+      record.lockerComplaintReason = reason;
+      record.lockerComplaintAt = new Date();
+      
+      if (operator && operatorRole) {
+        addIssue(recordId, {
+          type: 'locker_complaint',
+          reason,
+          supplementaryNotes: '',
+          createdBy: operator,
+          createdByRole: operatorRole
+        });
+      }
+    }
+    
+    if (status === 'normal') {
+      const openIssue = record.issues.find(i => i.type === 'locker_complaint' && i.status === 'open');
+      if (openIssue && operator) {
+        resolveIssue(recordId, openIssue.id, operator);
+      }
+    }
+    
     record.updatedAt = new Date();
   }
   return record;
@@ -506,6 +781,24 @@ export function processPayment(recordId: string, amount: number): ConsumptionRec
   const record = records.find(r => r.id === recordId);
   if (record) {
     record.paidAmount = amount;
+    record.updatedAt = new Date();
+  }
+  return record;
+}
+
+export function rejectCheckout(recordId: string, reason: string, supplementaryNotes: string, operator: string, operatorRole: UserRole): ConsumptionRecord | undefined {
+  const record = records.find(r => r.id === recordId);
+  if (record) {
+    record.rejectionReason = reason;
+    
+    addIssue(recordId, {
+      type: 'checkout_rejection',
+      reason,
+      supplementaryNotes,
+      createdBy: operator,
+      createdByRole: operatorRole
+    });
+    
     record.updatedAt = new Date();
   }
   return record;
