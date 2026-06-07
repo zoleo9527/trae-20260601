@@ -179,6 +179,30 @@ const initialRepairs: AbnormalRepair[] = [
       }
     ],
     repairProgress: '已拆开油枪，发现过滤器堵塞严重，正在更换备件',
+    progressLogs: [
+      {
+        id: 'pl1',
+        timestamp: hoursAgo(4 * 24 + 4),
+        userId: 'u1',
+        userName: '张站长',
+        userRole: 'station_master',
+        type: 'progress',
+        oldValue: '',
+        newValue: '已联系维修人员，约定明天上午到场',
+        remark: '受理报修后同步更新进度'
+      },
+      {
+        id: 'pl2',
+        timestamp: hoursAgo(3 * 24 + 9),
+        userId: 'u1',
+        userName: '张站长',
+        userRole: 'station_master',
+        type: 'progress',
+        oldValue: '已联系维修人员，约定明天上午到场',
+        newValue: '已拆开油枪，发现过滤器堵塞严重，正在更换备件',
+        remark: '维修人员现场检查后更新'
+      }
+    ],
     createdAt: daysAgo(4),
     updatedAt: hoursAgo(3 * 24 + 8)
   },
@@ -224,6 +248,30 @@ const initialRepairs: AbnormalRepair[] = [
       }
     ],
     repairProgress: '已采购密封垫，预计明天到货后更换',
+    progressLogs: [
+      {
+        id: 'pl3',
+        timestamp: hoursAgo(2 * 24 + 4),
+        userId: 'u3',
+        userName: '王计量',
+        userRole: 'gauge_officer',
+        type: 'progress',
+        oldValue: '',
+        newValue: '尝试自行清理，效果不佳',
+        remark: '先尝试简单处理'
+      },
+      {
+        id: 'pl4',
+        timestamp: hoursAgo(2 * 24 + 7),
+        userId: 'u3',
+        userName: '王计量',
+        userRole: 'gauge_officer',
+        type: 'progress',
+        oldValue: '尝试自行清理，效果不佳',
+        newValue: '已采购密封垫，预计明天到货后更换',
+        remark: '清理无效，需更换密封垫'
+      }
+    ],
     createdAt: daysAgo(2),
     updatedAt: hoursAgo(2 * 24 + 6)
   },
@@ -250,6 +298,30 @@ const initialRepairs: AbnormalRepair[] = [
     ],
     inspectionUpdates: [],
     repairProgress: '',
+    progressLogs: [
+      {
+        id: 'pl5',
+        timestamp: hoursAgo(5 * 24 + 5),
+        userId: 'u1',
+        userName: '张站长',
+        userRole: 'station_master',
+        type: 'progress',
+        oldValue: '',
+        newValue: '已联系供应商技术支持，远程协助排查',
+        remark: '受理报修后同步进度'
+      },
+      {
+        id: 'pl6',
+        timestamp: daysAgo(3),
+        userId: 'u1',
+        userName: '张站长',
+        userRole: 'station_master',
+        type: 'solution',
+        oldValue: '',
+        newValue: '更新扫码枪固件，优化识别算法',
+        remark: '问题解决，记录最终方案'
+      }
+    ],
     solution: '更新扫码枪固件，优化识别算法',
     completedAt: daysAgo(3),
     verifierId: 'u2',
@@ -282,6 +354,30 @@ const initialRepairs: AbnormalRepair[] = [
     ],
     inspectionUpdates: [],
     repairProgress: '',
+    progressLogs: [
+      {
+        id: 'pl7',
+        timestamp: hoursAgo(6 * 24 + 4),
+        userId: 'u3',
+        userName: '王计量',
+        userRole: 'gauge_officer',
+        type: 'progress',
+        oldValue: '',
+        newValue: '检查亮度设置，调试中',
+        remark: '现场检查'
+      },
+      {
+        id: 'pl8',
+        timestamp: hoursAgo(6 * 24 + 5),
+        userId: 'u3',
+        userName: '王计量',
+        userRole: 'gauge_officer',
+        type: 'solution',
+        oldValue: '',
+        newValue: '调高显示屏亮度并清洁屏幕',
+        remark: '简单处理即可解决'
+      }
+    ],
     solution: '调高显示屏亮度并清洁屏幕',
     completedAt: hoursAgo(6 * 24 + 5),
     verifierId: 'u2',
@@ -550,9 +646,42 @@ export const useGasStationStore = defineStore('gasStation', {
     updateRepairProgress(repairId: string, progress: string, solution?: string) {
       const repair = this.repairs.find(r => r.id === repairId)
       if (!repair) return
+      
+      const oldProgress = repair.repairProgress
+      const oldSolution = repair.solution || ''
       repair.repairProgress = progress
-      if (solution) repair.solution = solution
       repair.updatedAt = new Date().toISOString()
+
+      if (oldProgress !== progress) {
+        const log: ProgressLog = {
+          id: 'pl-' + Date.now(),
+          timestamp: new Date().toISOString(),
+          userId: this.currentUser.id,
+          userName: this.currentUser.name,
+          userRole: this.currentUser.role,
+          type: 'progress',
+          oldValue: oldProgress,
+          newValue: progress,
+          remark: '更新维修进度'
+        }
+        repair.progressLogs.push(log)
+      }
+
+      if (solution !== undefined && solution !== oldSolution) {
+        repair.solution = solution
+        const log: ProgressLog = {
+          id: 'pl-' + Date.now() + '-sol',
+          timestamp: new Date().toISOString(),
+          userId: this.currentUser.id,
+          userName: this.currentUser.name,
+          userRole: this.currentUser.role,
+          type: 'solution',
+          oldValue: oldSolution,
+          newValue: solution,
+          remark: '更新解决方案'
+        }
+        repair.progressLogs.push(log)
+      }
     },
 
     createRepairFromInspection(inspectionId: string, priority: AbnormalRepair['priority'], description: string) {
@@ -599,6 +728,7 @@ export const useGasStationStore = defineStore('gasStation', {
           }
         ],
         repairProgress: '',
+        progressLogs: [],
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
       }

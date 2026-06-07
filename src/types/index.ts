@@ -22,6 +22,18 @@ export interface StatusLog {
   remark: string
 }
 
+export interface ProgressLog {
+  id: string
+  timestamp: string
+  userId: string
+  userName: string
+  userRole: UserRole
+  type: 'progress' | 'solution'
+  oldValue: string
+  newValue: string
+  remark: string
+}
+
 export interface InspectionItem {
   id: string
   name: string
@@ -76,6 +88,7 @@ export interface AbnormalRepair {
     operatorRole: UserRole
   }[]
   repairProgress: string
+  progressLogs: ProgressLog[]
   solution?: string
   completedAt?: string
   verifierId?: string

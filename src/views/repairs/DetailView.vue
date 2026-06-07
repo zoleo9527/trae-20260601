@@ -131,14 +131,14 @@
               <div class="relative flex flex-col items-center">
                 <div 
                   class="w-8 h-8 rounded-full flex items-center justify-center text-sm"
-                  :class="item.type === 'inspection' ? 'bg-blue-100 text-blue-700' : 'bg-orange-100 text-orange-700'"
+                  :class="getTimelineItemClass(item.type).bg"
                 >
                   {{ idx + 1 }}
                 </div>
                 <div 
                   v-if="idx < unifiedTimeline.length - 1" 
                   class="w-0.5 h-full absolute top-8"
-                  :class="item.type === 'inspection' ? 'bg-blue-200' : 'bg-gray-200'"
+                  :class="getTimelineItemClass(item.type).line"
                 ></div>
               </div>
               <div class="flex-1 pb-2">
@@ -147,9 +147,9 @@
                   <span class="text-xs text-gray-400">({{ store.roleLabel(item.userRole) }})</span>
                   <span 
                     class="text-xs px-2 py-0.5 rounded-full"
-                    :class="item.type === 'inspection' ? 'bg-blue-100 text-blue-700' : 'bg-orange-100 text-orange-700'"
+                    :class="getTimelineItemClass(item.type).badge"
                   >
-                    {{ item.type === 'inspection' ? '巡检变动' : '报修处理' }}
+                    {{ getTimelineItemLabel(item.type) }}
                   </span>
                 </div>
                 <p class="text-sm text-gray-600 mt-1">
@@ -157,13 +157,26 @@
                     {{ item.fromStatus ? store.repairStatusLabel(item.fromStatus as any) + ' → ' : '' }}
                     <span class="font-medium">{{ store.repairStatusLabel(item.toStatus as any) }}</span>
                   </template>
-                  <template v-else>
+                  <template v-else-if="item.type === 'inspection'">
                     <template v-if="item.fromStatus && item.fromStatus !== item.inspectionStatus">
                       {{ store.inspectionStatusLabel(item.fromStatus as any) }} →
                     </template>
                     <StatusBadge type="inspection" :status="item.inspectionStatus!" />
                   </template>
+                  <template v-else-if="item.type === 'progress'">
+                    <span class="text-gray-500">更新进度:</span>
+                    <span class="font-medium text-gray-800 ml-1">{{ item.newValue || '(空)' }}</span>
+                  </template>
+                  <template v-else-if="item.type === 'solution'">
+                    <span class="text-gray-500">记录方案:</span>
+                    <span class="font-medium text-green-700 ml-1">{{ item.newValue || '(空)' }}</span>
+                  </template>
                 </p>
+                <template v-if="item.type === 'progress' || item.type === 'solution'">
+                  <p v-if="item.oldValue" class="text-xs text-gray-400 mt-1">
+                    变更前: {{ item.oldValue || '(空)' }}
+                  </p>
+                </template>
                 <p v-if="item.remark" class="text-sm text-gray-500 mt-1 bg-gray-50 p-2 rounded">
                   {{ item.remark }}
                 </p>
@@ -423,13 +436,15 @@ const canResumeFromWaitingParts = computed(() => {
 
 interface TimelineItem {
   id: string
-  type: 'repair' | 'inspection'
+  type: 'repair' | 'inspection' | 'progress' | 'solution'
   timestamp: string
   userName: string
   userRole: UserRole
   fromStatus?: string
   toStatus?: string
   inspectionStatus?: InspectionStatus
+  oldValue?: string
+  newValue?: string
   remark: string
 }
 
@@ -457,8 +472,19 @@ const unifiedTimeline = computed<TimelineItem[]>(() => {
     inspectionStatus: update.inspectionStatus,
     remark: update.inspectionRemark
   }))
+
+  const progressLogs: TimelineItem[] = repair.value.progressLogs.map(log => ({
+    id: log.id,
+    type: log.type,
+    timestamp: log.timestamp,
+    userName: log.userName,
+    userRole: log.userRole,
+    oldValue: log.oldValue,
+    newValue: log.newValue,
+    remark: log.remark
+  }))
   
-  return [...repairLogs, ...inspectionLogs].sort(
+  return [...repairLogs, ...inspectionLogs, ...progressLogs].sort(
     (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
   )
 })
@@ -500,9 +526,35 @@ const saveProgress = () => {
   showEditProgress.value = false
 }
 
+const formatDate = (iso: string) => {
+  if (!iso) return '-'
+  const d = new Date(iso)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
 const formatDateTime = (iso: string) => {
   if (!iso) return '-'
   const d = new Date(iso)
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+}
+
+const getTimelineItemClass = (type: string) => {
+  const map: Record<string, { bg: string; line: string; badge: string }> = {
+    repair: { bg: 'bg-orange-100 text-orange-700', line: 'bg-gray-200', badge: 'bg-orange-100 text-orange-700' },
+    inspection: { bg: 'bg-blue-100 text-blue-700', line: 'bg-blue-200', badge: 'bg-blue-100 text-blue-700' },
+    progress: { bg: 'bg-purple-100 text-purple-700', line: 'bg-purple-200', badge: 'bg-purple-100 text-purple-700' },
+    solution: { bg: 'bg-green-100 text-green-700', line: 'bg-green-200', badge: 'bg-green-100 text-green-700' }
+  }
+  return map[type] || map.repair
+}
+
+const getTimelineItemLabel = (type: string) => {
+  const map: Record<string, string> = {
+    repair: '状态变更',
+    inspection: '巡检联动',
+    progress: '进度更新',
+    solution: '解决方案'
+  }
+  return map[type] || '操作记录'
 }
 </script>
