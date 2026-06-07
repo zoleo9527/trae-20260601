@@ -215,6 +215,116 @@ router.get('/checkin/:checkinId', authMiddleware, (req, res) => {
     });
   }
 
+  const orderLogs = db.prepare(`
+    SELECT ol.*, u.name as user_name, do.customer_id, c.name as customer_name
+    FROM operation_logs ol
+    LEFT JOIN users u ON ol.user_id = u.id
+    LEFT JOIN daily_orders do ON ol.target_id = do.id AND ol.target_type = 'daily_order'
+    LEFT JOIN customers c ON do.customer_id = c.id
+    WHERE ol.target_type = 'daily_order' 
+      AND do.delivery_date = ? AND do.route_id = ?
+    ORDER BY ol.created_at
+  `).all(checkin.checkin_date, checkin.route_id);
+
+  orderLogs.forEach(l => {
+    let detail = '';
+    try {
+      const parsed = JSON.parse(l.detail);
+      if (parsed.oldStatus && parsed.newStatus) {
+        const statusText = {
+          pending: '待处理',
+          signed: '已签收',
+          exception: '异常',
+          replenished: '已补送'
+        };
+        detail = `${l.customer_name || '客户'} 的订单状态从 ${statusText[parsed.oldStatus] || parsed.oldStatus} 变更为 ${statusText[parsed.newStatus] || parsed.newStatus}`;
+      }
+    } catch (e) {}
+    events.push({
+      type: 'order_status_change',
+      time: l.created_at,
+      title: '订单状态更新',
+      description: detail || l.action,
+      user: l.user_name
+    });
+  });
+
+  const exceptions = db.prepare(`
+    SELECT e.*, u.name as reporter_name, c.name as customer_name
+    FROM exceptions e
+    LEFT JOIN users u ON e.reported_by = u.id
+    LEFT JOIN daily_orders do ON e.daily_order_id = do.id
+    LEFT JOIN customers c ON do.customer_id = c.id
+    WHERE e.checkin_id = ?
+    ORDER BY e.created_at
+  `).all(checkinId);
+
+  const exceptionTypeMap = {
+    missed: '漏送',
+    damaged: '破损',
+    wrong_product: '错送',
+    customer_absent: '客户不在',
+    other: '其他'
+  };
+
+  exceptions.forEach(e => {
+    events.push({
+      type: 'exception_reported',
+      time: e.created_at,
+      title: `异常上报: ${exceptionTypeMap[e.type] || e.type}`,
+      description: `${e.customer_name || '客户'} - ${e.description || '无详细描述'}`,
+      user: e.reporter_name
+    });
+  });
+
+  const replenishments = db.prepare(`
+    SELECT r.*, u1.name as handler_name, u2.name as confirmer_name, c.name as customer_name
+    FROM replenishments r
+    LEFT JOIN exceptions e ON r.exception_id = e.id
+    LEFT JOIN users u1 ON r.handled_by = u1.id
+    LEFT JOIN users u2 ON r.confirmed_by = u2.id
+    LEFT JOIN daily_orders do ON r.daily_order_id = do.id
+    LEFT JOIN customers c ON do.customer_id = c.id
+    WHERE e.checkin_id = ?
+    ORDER BY r.created_at
+  `).all(checkinId);
+
+  const methodMap = {
+    redelivery: '重新配送',
+    refund: '退款',
+    replace: '换货'
+  };
+
+  replenishments.forEach(r => {
+    events.push({
+      type: 'replenishment_created',
+      time: r.created_at,
+      title: `补送安排: ${methodMap[r.method]}`,
+      description: `${r.customer_name || '客户'} - 数量: ${r.quantity}${r.remark ? '，备注: ' + r.remark : ''}`,
+      user: r.handler_name
+    });
+
+    if (r.delivered_at) {
+      events.push({
+        type: 'replenishment_delivered',
+        time: r.delivered_at,
+        title: '补送已配送',
+        description: r.customer_name || '',
+        user: r.handler_name
+      });
+    }
+
+    if (r.confirmed_at) {
+      events.push({
+        type: 'replenishment_confirmed',
+        time: r.confirmed_at,
+        title: '补送已确认',
+        description: r.customer_name || '',
+        user: r.confirmer_name
+      });
+    }
+  });
+
   const logs = db.prepare(`
     SELECT ol.*, u.name as user_name
     FROM operation_logs ol

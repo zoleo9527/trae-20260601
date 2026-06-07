@@ -258,6 +258,8 @@ router.post('/:id/orders/:orderId/exception', authMiddleware, requireRoles('cour
     return res.status(400).json({ error: '该订单已在本次签到中上报过异常' });
   }
 
+  const oldStatus = order.status;
+
   const result = db.prepare(`
     INSERT INTO exceptions (daily_order_id, checkin_id, reported_by, type, description, status)
     VALUES (?, ?, ?, ?, ?, 'pending')
@@ -265,23 +267,29 @@ router.post('/:id/orders/:orderId/exception', authMiddleware, requireRoles('cour
 
   db.prepare('UPDATE daily_orders SET status = ? WHERE id = ?').run('exception', orderId);
 
+  const signedCount = db.prepare(`
+    SELECT COUNT(*) as count FROM daily_orders 
+    WHERE delivery_date = ? AND route_id = ? AND status = 'signed'
+  `).get(checkin.checkin_date, checkin.route_id).count;
+
   const exceptionCount = db.prepare(`
     SELECT COUNT(*) as count FROM daily_orders 
     WHERE delivery_date = ? AND route_id = ? AND status = 'exception'
   `).get(checkin.checkin_date, checkin.route_id).count;
 
   db.prepare(`
-    UPDATE morning_checkins SET exception_orders = ? WHERE id = ?
-  `).run(exceptionCount, checkinId);
+    UPDATE morning_checkins SET signed_orders = ?, exception_orders = ? WHERE id = ?
+  `).run(signedCount, exceptionCount, checkinId);
 
   logOperation(req.user.id, 'report_exception_in_checkin', 'exception', result.lastInsertRowid, {
     checkinId,
     daily_order_id: orderId,
+    oldStatus,
     type,
     description
   });
 
-  res.json({ id: result.lastInsertRowid, message: '异常已上报', exceptionCount });
+  res.json({ id: result.lastInsertRowid, message: '异常已上报', signedCount, exceptionCount });
 });
 
 module.exports = router;
