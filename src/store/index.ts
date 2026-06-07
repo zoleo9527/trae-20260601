@@ -14,6 +14,11 @@ interface StoreState {
   getItemById: (id: string) => StorageItem | undefined;
   
   addTemperatureRecord: (storageId: string, record: Omit<TemperatureRecord, 'id' | 'storageId'>) => void;
+  addTemperatureRecordWithAbnormal: (
+    storageId: string,
+    record: Omit<TemperatureRecord, 'id' | 'storageId'>,
+    abnormalDescription?: string
+  ) => void;
   addHistoryNote: (storageId: string, note: Omit<HistoryNote, 'id' | 'storageId'>) => void;
   
   markAsAbnormal: (id: string, description: string) => void;
@@ -100,6 +105,53 @@ export const useStore = create<StoreState>()(
                 }
               : item
           ),
+        }));
+      },
+
+      addTemperatureRecordWithAbnormal: (storageId, record, abnormalDescription) => {
+        const now = dayjs().format('YYYY-MM-DD HH:mm:ss');
+        const newRecord: TemperatureRecord = {
+          ...record,
+          id: generateId(),
+          storageId,
+        };
+        
+        set((state) => ({
+          items: state.items.map((item) => {
+            if (item.id !== storageId) return item;
+            
+            const isAbnormal = record.status === 'warning' || record.status === 'critical';
+            const shouldMarkAbnormal = isAbnormal && abnormalDescription && item.status !== 'abnormal';
+            
+            const updatedItem = {
+              ...item,
+              currentTemperature: record.temperature,
+              temperatureRecords: [...item.temperatureRecords, newRecord],
+            };
+            
+            if (shouldMarkAbnormal) {
+              return {
+                ...updatedItem,
+                status: 'abnormal' as const,
+                abnormalDescription,
+                abnormalTime: now,
+                handler: get().currentUser,
+                historyNotes: [
+                  ...item.historyNotes,
+                  {
+                    id: generateId(),
+                    storageId,
+                    timestamp: now,
+                    operator: get().currentUser,
+                    action: '温度异常',
+                    content: abnormalDescription,
+                  },
+                ],
+              };
+            }
+            
+            return updatedItem;
+          }),
         }));
       },
 

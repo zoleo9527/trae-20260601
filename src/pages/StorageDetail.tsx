@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import {
   Card,
   Descriptions,
@@ -42,17 +42,25 @@ const { Option } = Select;
 const StorageDetail = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const getItemById = useStore((state) => state.getItemById);
-  const addTemperatureRecord = useStore((state) => state.addTemperatureRecord);
+  const items = useStore((state) => state.items);
+  const addTemperatureRecordWithAbnormal = useStore((state) => state.addTemperatureRecordWithAbnormal);
   const addHistoryNote = useStore((state) => state.addHistoryNote);
   const markAsCompleted = useStore((state) => state.markAsCompleted);
   const currentUser = useStore((state) => state.currentUser);
 
-  const item = getItemById(id || '');
+  const item = useMemo(() => items.find((i) => i.id === id), [items, id]);
+
   const [tempModalOpen, setTempModalOpen] = useState(false);
   const [noteModalOpen, setNoteModalOpen] = useState(false);
+  const [abnormalConfirmOpen, setAbnormalConfirmOpen] = useState(false);
+  const [pendingTempData, setPendingTempData] = useState<{
+    temperature: number;
+    status: 'normal' | 'warning' | 'critical';
+    remark?: string;
+  } | null>(null);
   const [tempForm] = Form.useForm();
   const [noteForm] = Form.useForm();
+  const [abnormalForm] = Form.useForm();
 
   if (!item) {
     return <div>未找到该入库记录</div>;
@@ -105,16 +113,54 @@ const StorageDetail = () => {
     if (diff > 5) status = 'critical';
     else if (diff > 2) status = 'warning';
 
-    addTemperatureRecord(item.id, {
-      timestamp: dayjs().format('YYYY-MM-DD HH:mm:ss'),
-      temperature: values.temperature,
-      status,
-      recordedBy: currentUser,
-      remark: values.remark,
-    });
-    setTempModalOpen(false);
+    if ((status === 'warning' || status === 'critical') && item.status !== 'abnormal') {
+      setPendingTempData({
+        temperature: values.temperature,
+        status,
+        remark: values.remark,
+      });
+      setTempModalOpen(false);
+      setAbnormalConfirmOpen(true);
+    } else {
+      addTemperatureRecordWithAbnormal(item.id, {
+        timestamp: dayjs().format('YYYY-MM-DD HH:mm:ss'),
+        temperature: values.temperature,
+        status,
+        recordedBy: currentUser,
+        remark: values.remark,
+      });
+      setTempModalOpen(false);
+      tempForm.resetFields();
+      message.success('温度记录已添加');
+    }
+  };
+
+  const handleAbnormalConfirm = (values: any) => {
+    if (!pendingTempData) return;
+
+    addTemperatureRecordWithAbnormal(
+      item.id,
+      {
+        timestamp: dayjs().format('YYYY-MM-DD HH:mm:ss'),
+        temperature: pendingTempData.temperature,
+        status: pendingTempData.status,
+        recordedBy: currentUser,
+        remark: pendingTempData.remark,
+      },
+      values.abnormalDescription
+    );
+
+    setAbnormalConfirmOpen(false);
+    setPendingTempData(null);
+    abnormalForm.resetFields();
     tempForm.resetFields();
-    message.success('温度记录已添加');
+    message.success('温度记录已添加，异常状态已同步更新');
+  };
+
+  const handleAbnormalCancel = () => {
+    setAbnormalConfirmOpen(false);
+    setPendingTempData(null);
+    setTempModalOpen(true);
   };
 
   const handleNoteSubmit = (values: any) => {
@@ -359,6 +405,46 @@ const StorageDetail = () => {
                 提交
               </Button>
               <Button onClick={() => setNoteModalOpen(false)}>取消</Button>
+            </Space>
+          </Form.Item>
+        </Form>
+      </Modal>
+
+      <Modal
+        title="温度异常确认"
+        open={abnormalConfirmOpen}
+        onCancel={handleAbnormalCancel}
+        footer={null}
+        maskClosable={false}
+      >
+        <Alert
+          message="检测到温度异常"
+          description={
+            pendingTempData
+              ? `当前记录温度 ${pendingTempData.temperature.toFixed(1)}℃，与目标温度 ${item.targetTemperature.toFixed(1)}℃ 偏差较大。`
+              : ''
+          }
+          type="warning"
+          showIcon
+          className="mb-4"
+        />
+        <Form form={abnormalForm} layout="vertical" onFinish={handleAbnormalConfirm}>
+          <Form.Item
+            name="abnormalDescription"
+            label="异常说明"
+            rules={[{ required: true, message: '请填写异常说明' }]}
+          >
+            <Input.TextArea
+              rows={4}
+              placeholder="请详细描述温度异常原因、已采取的措施等..."
+            />
+          </Form.Item>
+          <Form.Item>
+            <Space>
+              <Button type="primary" danger htmlType="submit">
+                确认并标记异常
+              </Button>
+              <Button onClick={handleAbnormalCancel}>返回修改</Button>
             </Space>
           </Form.Item>
         </Form>
