@@ -234,7 +234,7 @@ const handleReject = async () => {
 }
 
 const goToOutbound = () => {
-  router.push('/outbound')
+  router.push(`/outbound/${detail.value.outboundId}`)
 }
 
 const formatTime = (time) => {

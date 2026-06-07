@@ -36,6 +36,12 @@ const routes = [
         meta: { title: '创建出库单' }
       },
       {
+        path: 'outbound/:id',
+        name: 'OutboundDetail',
+        component: () => import('@/views/OutboundDetail.vue'),
+        meta: { title: '出库详情' }
+      },
+      {
         path: 'verification',
         name: 'Verification',
         component: () => import('@/views/VerificationList.vue'),

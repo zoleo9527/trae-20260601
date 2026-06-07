@@ -55,7 +55,7 @@
         </el-table-column>
         <el-table-column label="操作" width="200" fixed="right">
           <template #default="{ row }">
-            <el-button type="primary" size="small" link @click="viewDetail(row)">详情</el-button>
+            <el-button type="primary" size="small" link @click="goToDetail(row.id)">详情</el-button>
             <template v-if="row.status === 'PENDING'">
               <el-button type="success" size="small" link @click="handleComplete(row)">确认出库</el-button>
               <el-button type="danger" size="small" link @click="handleReject(row)">退回</el-button>
@@ -77,39 +77,6 @@
       </div>
     </el-card>
 
-    <el-dialog v-model="detailVisible" title="出库单详情" width="600px">
-      <el-descriptions :column="2" border v-if="currentDetail">
-        <el-descriptions-item label="出库单号">{{ currentDetail.outboundNo }}</el-descriptions-item>
-        <el-descriptions-item label="状态">
-          <el-tag :class="`status-${currentDetail.status.toLowerCase()}`" size="small">
-            {{ statusMap[currentDetail.status] || currentDetail.status }}
-          </el-tag>
-        </el-descriptions-item>
-        <el-descriptions-item label="关联预订">{{ currentDetail.bookingNo || '-' }}</el-descriptions-item>
-        <el-descriptions-item label="包厢">{{ currentDetail.roomNo || '-' }}</el-descriptions-item>
-        <el-descriptions-item label="类型">
-          <el-tag v-if="currentDetail.outboundType === 'SALE'" type="success" size="small">销售</el-tag>
-          <el-tag v-else type="warning" size="small">赠送</el-tag>
-        </el-descriptions-item>
-        <el-descriptions-item label="总金额">¥{{ currentDetail.totalAmount }}</el-descriptions-item>
-        <el-descriptions-item label="备注" :span="2">{{ currentDetail.remark || '-' }}</el-descriptions-item>
-        <el-descriptions-item label="创建时间">{{ formatTime(currentDetail.createTime) }}</el-descriptions-item>
-        <el-descriptions-item label="处理时间">{{ formatTime(currentDetail.handleTime) }}</el-descriptions-item>
-      </el-descriptions>
-      <el-table :data="detailItems" size="small" style="margin-top: 16px">
-        <el-table-column prop="drinkName" label="酒水名称" />
-        <el-table-column prop="spec" label="规格" width="100" />
-        <el-table-column prop="unit" label="单位" width="80" />
-        <el-table-column prop="price" label="单价" width="100">
-          <template #default="{ row }">¥{{ row.price }}</template>
-        </el-table-column>
-        <el-table-column prop="quantity" label="数量" width="80" />
-        <el-table-column prop="amount" label="金额" width="100">
-          <template #default="{ row }">¥{{ row.amount }}</template>
-        </el-table-column>
-      </el-table>
-    </el-dialog>
-
     <el-dialog v-model="rejectVisible" title="退回原因" width="400px">
       <el-form :model="rejectForm" label-width="80px">
         <el-form-item label="原因">
@@ -129,15 +96,14 @@ import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
 import dayjs from 'dayjs'
-import { getOutboundPage, getOutbound, getOutboundItems, completeOutbound, rejectOutbound } from '@/api/outbound'
+import { useRouter } from 'vue-router'
+import { getOutboundPage, completeOutbound, rejectOutbound } from '@/api/outbound'
 
+const router = useRouter()
 const loading = ref(false)
 const tableData = ref([])
 const total = ref(0)
-const detailVisible = ref(false)
 const rejectVisible = ref(false)
-const currentDetail = ref(null)
-const detailItems = ref([])
 const currentId = ref(null)
 
 const queryForm = reactive({
@@ -177,10 +143,8 @@ const resetQuery = () => {
   loadList()
 }
 
-const viewDetail = async (row) => {
-  currentDetail.value = await getOutbound(row.id)
-  detailItems.value = await getOutboundItems(row.id)
-  detailVisible.value = true
+const goToDetail = (id) => {
+  router.push(`/outbound/${id}`)
 }
 
 const handleComplete = async (row) => {

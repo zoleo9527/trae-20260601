@@ -58,7 +58,7 @@
         </el-table-column>
         <el-table-column prop="outboundNo" label="关联出库单" width="160">
           <template #default="{ row }">
-            <span v-if="row.outboundNo" style="color: #409eff; cursor: pointer" @click="goToOutbound(row.outboundId)">
+            <span v-if="row.outboundNo" style="color: #409eff; cursor: pointer" @click="goToOutboundDetail(row.outboundId)">
               {{ row.outboundNo }}
             </span>
             <span v-else>-</span>
@@ -75,7 +75,7 @@
               <el-button type="danger" size="small" link @click="handleReject(row)">退回</el-button>
             </template>
             <template v-else-if="row.status === 'COMPLETED' && row.outboundStatus === 'PENDING'">
-              <el-button type="warning" size="small" link @click="goToOutbound(row.outboundId)">
+              <el-button type="warning" size="small" link @click="goToOutboundDetail(row.outboundId)">
                 <el-icon><Bell /></el-icon>
                 待出库
               </el-button>
@@ -195,8 +195,8 @@ const viewDetail = (row) => {
   router.push(`/verification/${row.id}`)
 }
 
-const goToOutbound = (outboundId) => {
-  router.push(`/outbound`)
+const goToOutboundDetail = (outboundId) => {
+  router.push(`/outbound/${outboundId}`)
 }
 
 const handleApprove = async (row) => {
