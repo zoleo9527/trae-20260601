@@ -73,18 +73,30 @@
             </button>
           </div>
           <template v-if="showEditProgress">
-            <textarea 
-              v-model="progressText"
-              rows="3"
-              placeholder="更新维修进度..."
-              class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 mb-3"
-            ></textarea>
+            <div class="mb-3">
+              <label class="block text-sm font-medium text-gray-700 mb-1">维修进度</label>
+              <textarea 
+                v-model="progressText"
+                rows="3"
+                placeholder="更新维修进度..."
+                class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              ></textarea>
+            </div>
             <div v-if="repair.status === 'completed' || repair.status === 'verified' || repair.status === 'closed'" class="mb-3">
               <label class="block text-sm font-medium text-gray-700 mb-1">解决方案</label>
               <textarea 
                 v-model="solutionText"
                 rows="2"
                 placeholder="记录最终解决方案..."
+                class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              ></textarea>
+            </div>
+            <div class="mb-3">
+              <label class="block text-sm font-medium text-gray-700 mb-1">变更说明</label>
+              <textarea 
+                v-model="progressRemark"
+                rows="2"
+                placeholder="说明本次变更的原因或补充信息（可选）..."
                 class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               ></textarea>
             </div>
@@ -386,6 +398,7 @@ const relatedInspection = computed(() => {
 
 const progressText = ref('')
 const solutionText = ref('')
+const progressRemark = ref('')
 const showEditProgress = ref(false)
 const completeRemark = ref('')
 const verifyRemark = ref('')
@@ -501,16 +514,22 @@ const updateStatus = (status: RepairStatus, remark: string) => {
 }
 
 const confirmWaitingParts = () => {
-  store.updateRepairStatus(repairId.value, 'waiting_parts', waitingPartsRemark.value || '等待备件到货')
+  const remark = waitingPartsRemark.value || '等待备件到货'
+  store.updateRepairStatus(repairId.value, 'waiting_parts', remark)
+  store.updateRepairProgress(repairId.value, `等待备件: ${remark}`, undefined, remark)
   showWaitingPartsModal.value = false
   waitingPartsRemark.value = ''
 }
 
 const confirmComplete = () => {
-  store.updateRepairStatus(repairId.value, 'completed', completeRemark.value || '维修完成')
-  if (completeRemark.value) {
-    store.updateRepairProgress(repairId.value, repair.value?.repairProgress || '', completeRemark.value)
-  }
+  const remark = completeRemark.value || '维修完成'
+  store.updateRepairStatus(repairId.value, 'completed', remark)
+  store.updateRepairProgress(
+    repairId.value, 
+    `维修完成: ${remark}`, 
+    completeRemark.value || undefined, 
+    remark
+  )
   showCompleteModal.value = false
   completeRemark.value = ''
 }
@@ -522,8 +541,14 @@ const confirmVerify = () => {
 }
 
 const saveProgress = () => {
-  store.updateRepairProgress(repairId.value, progressText.value, solutionText.value || undefined)
+  store.updateRepairProgress(
+    repairId.value, 
+    progressText.value, 
+    solutionText.value || undefined,
+    progressRemark.value || undefined
+  )
   showEditProgress.value = false
+  progressRemark.value = ''
 }
 
 const formatDate = (iso: string) => {

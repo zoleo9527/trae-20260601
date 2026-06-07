@@ -643,7 +643,7 @@ export const useGasStationStore = defineStore('gasStation', {
       }
     },
 
-    updateRepairProgress(repairId: string, progress: string, solution?: string) {
+    updateRepairProgress(repairId: string, progress: string, solution?: string, remark?: string) {
       const repair = this.repairs.find(r => r.id === repairId)
       if (!repair) return
       
@@ -662,7 +662,7 @@ export const useGasStationStore = defineStore('gasStation', {
           type: 'progress',
           oldValue: oldProgress,
           newValue: progress,
-          remark: '更新维修进度'
+          remark: remark || '更新维修进度'
         }
         repair.progressLogs.push(log)
       }
@@ -678,7 +678,7 @@ export const useGasStationStore = defineStore('gasStation', {
           type: 'solution',
           oldValue: oldSolution,
           newValue: solution,
-          remark: '更新解决方案'
+          remark: remark || '更新解决方案'
         }
         repair.progressLogs.push(log)
       }
