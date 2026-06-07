@@ -1,9 +1,9 @@
 <script>
   import { page } from '$app/stores';
   import { oilIntakeRecords, currentRole, getRoleLabel, getStatusLabel, getStatusTagClass, formatDateTime, operationLogs } from '$lib/stores';
-  import { getAvailableActions, performAction, getWorkflowSteps, updateOilIntakeRecord } from '$lib/workflow';
+  import { getAvailableActions, performAction, getWorkflowSteps, updateOilIntakeRecord, WorkflowStatus } from '$lib/workflow';
   import { goto } from '$app/navigation';
-  import { derived } from 'svelte/store';
+  import { onMount, browser } from 'svelte';
   
   const recordId = $page.params.id;
   
@@ -11,6 +11,8 @@
   $: availableActions = record ? getAvailableActions(record) : [];
   $: workflowSteps = record ? getWorkflowSteps(record) : [];
   $: relatedLogs = $operationLogs.filter(l => l.recordId === recordId);
+  $: isReturned = record && ['returned_to_manager', 'returned_to_cashier', 'returned_to_measurer'].includes(record.status);
+  $: returnedRole = record ? record.status.replace('returned_to_', '') : null;
   
   let showActionModal = false;
   let selectedAction = null;
@@ -36,6 +38,18 @@
     verificationComment: ''
   };
   
+  let supplementaryForm = {
+    supplementaryContent: '',
+    supplementaryFiles: []
+  };
+  
+  let liabilityForm = {
+    confirmedBy: '',
+    liabilityParty: '',
+    liabilityDescription: '',
+    handlingMeasures: ''
+  };
+  
   $: if (record && record.cashierData) {
     cashierForm = { ...cashierForm, ...record.cashierData };
   }
@@ -58,6 +72,7 @@
   function openActionModal(action) {
     selectedAction = action;
     actionComment = '';
+    supplementaryForm.supplementaryContent = '';
     showActionModal = true;
   }
   
@@ -72,6 +87,14 @@
     
     if (selectedAction.action === 'measurer_verify' || selectedAction.action === 'measurer_flag_dispute') {
       data.measurerData = measurerForm;
+    }
+    
+    if (selectedAction.action === 'supplement_info') {
+      data.supplementaryData = { ...supplementaryForm };
+    }
+    
+    if (selectedAction.action === 'manager_final_review') {
+      data.liabilityConfirmed = { ...liabilityForm };
     }
     
     performAction(recordId, selectedAction.action, data);
@@ -93,9 +116,11 @@
     editing = false;
   }
   
-  if (!record) {
-    setTimeout(() => goto('/oil-intake'), 100);
-  }
+  onMount(() => {
+    if (!record && browser) {
+      setTimeout(() => goto('/oil-intake'), 100);
+    }
+  });
 </script>
 
 {#if record}
@@ -130,6 +155,18 @@
       {/each}
     </div>
     
+    {#if record.returnInfo}
+      <div class="alert alert-danger">
+        <strong>📌 退回通知：</strong>
+        <p><strong>退回原因：</strong>{record.returnInfo.returnReason}</p>
+        <p style="margin-top: 4px;">
+          <strong>退回人：</strong>{getRoleLabel(record.returnInfo.returnBy)} · 
+          <strong>退回时间：</strong>{formatDateTime(record.returnInfo.returnAt)} · 
+          <strong>退回至：</strong>{getRoleLabel(record.returnInfo.returnTo)}
+        </p>
+      </div>
+    {/if}
+    
     {#if record.hasDispute}
       <div class="alert alert-danger">
         <strong>⚠️ 责任边界预警：</strong>
@@ -142,6 +179,93 @@
           {/if}
           <li>责任方：<strong>待确认</strong> - 运输损耗？油库少发？计量误差？</li>
         </ul>
+      </div>
+    {/if}
+    
+    {#if isReturned && $currentRole === returnedRole}
+      <div class="card supplementary-card">
+        <h3 class="section-title">📝 补充资料</h3>
+        <div class="alert alert-warning" style="margin-bottom: 16px;">
+          <strong>请根据退回原因补充以下资料：</strong>
+          <p>{record.returnInfo?.returnReason || '请按要求补充相关资料'}</p>
+        </div>
+        
+        {#if returnedRole === 'cashier'}
+          <div class="row">
+            <div class="col">
+              <div class="form-group">
+                <label class="form-label">实际单价 (元/升)</label>
+                <input type="number" step="0.01" class="form-input" bind:value={cashierForm.actualPrice} />
+              </div>
+            </div>
+            <div class="col">
+              <div class="form-group">
+                <label class="form-label">总金额 (元)</label>
+                <input type="number" step="0.01" class="form-input" bind:value={cashierForm.totalAmount} />
+              </div>
+            </div>
+          </div>
+          <div class="row">
+            <div class="col">
+              <div class="form-group">
+                <label class="form-label">发票号码</label>
+                <input type="text" class="form-input" bind:value={cashierForm.invoiceNo} />
+              </div>
+            </div>
+            <div class="col">
+              <div class="form-group">
+                <label class="form-label">结算方式</label>
+                <select class="form-select" bind:value={cashierForm.paymentMethod}>
+                  <option value="银行转账">银行转账</option>
+                  <option value="现金">现金</option>
+                  <option value="月结">月结</option>
+                </select>
+              </div>
+            </div>
+          </div>
+        {:else if returnedRole === 'measurer'}
+          <div class="row">
+            <div class="col">
+              <div class="form-group">
+                <label class="form-label">卸前油位 (%)</label>
+                <input type="number" step="0.1" class="form-input" bind:value={measurerForm.beforeLevel} />
+              </div>
+            </div>
+            <div class="col">
+              <div class="form-group">
+                <label class="form-label">卸后油位 (%)</label>
+                <input type="number" step="0.1" class="form-input" bind:value={measurerForm.afterLevel} />
+              </div>
+            </div>
+          </div>
+          <div class="row">
+            <div class="col">
+              <div class="form-group">
+                <label class="form-label">实测温度 (℃)</label>
+                <input type="number" step="0.1" class="form-input" bind:value={measurerForm.temperature} />
+              </div>
+            </div>
+            <div class="col">
+              <div class="form-group">
+                <label class="form-label">实测密度</label>
+                <input type="number" step="0.001" class="form-input" bind:value={measurerForm.density} />
+              </div>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">校验备注</label>
+            <textarea class="form-textarea" bind:value={measurerForm.verificationComment} placeholder="请补充校验说明..."></textarea>
+          </div>
+        {/if}
+        
+        <div class="form-group">
+          <label class="form-label">补充说明 *</label>
+          <textarea 
+            class="form-textarea" 
+            bind:value={supplementaryForm.supplementaryContent} 
+            placeholder="请详细说明补充的内容和原因..."
+          ></textarea>
+        </div>
       </div>
     {/if}
     
@@ -432,6 +556,60 @@
           </div>
         {/if}
         
+        {#if record.supplementaryRecords && record.supplementaryRecords.length > 0}
+          <div class="card">
+            <h3 class="section-title">📋 补充记录历史</h3>
+            <div class="supplementary-list">
+              {#each record.supplementaryRecords as item, index}
+                <div class="supplementary-item">
+                  <div class="supplementary-header">
+                    <span class="role-badge role-{item.supplementaryBy}">{getRoleLabel(item.supplementaryBy)}</span>
+                    <span class="supplementary-time">{formatDateTime(item.supplementaryAt)}</span>
+                  </div>
+                  {#if item.supplementaryData && item.supplementaryData.supplementaryContent}
+                    <div class="supplementary-content">
+                      <strong>补充说明：</strong>
+                      <p>{item.supplementaryData.supplementaryContent}</p>
+                    </div>
+                  {/if}
+                  {#if item.comment}
+                    <div class="supplementary-comment">
+                      <strong>备注：</strong>
+                      <p>{item.comment}</p>
+                    </div>
+                  {/if}
+                </div>
+              {/each}
+            </div>
+          </div>
+        {/if}
+        
+        {#if record.liabilityConfirmed}
+          <div class="card">
+            <h3 class="section-title">✅ 责任确认说明</h3>
+            <div class="liability-box">
+              <div class="info-grid">
+                <div class="info-item">
+                  <span class="info-label">确认人</span>
+                  <span class="info-value">{getRoleLabel(record.liabilityConfirmed.confirmedBy || record.completedBy)}</span>
+                </div>
+                <div class="info-item">
+                  <span class="info-label">责任方</span>
+                  <span class="info-value highlight">{record.liabilityConfirmed.liabilityParty || '未明确'}</span>
+                </div>
+                <div class="info-item" style="grid-column: span 2;">
+                  <span class="info-label">责任说明</span>
+                  <span class="info-value">{record.liabilityConfirmed.liabilityDescription || '-'}</span>
+                </div>
+                <div class="info-item" style="grid-column: span 2;">
+                  <span class="info-label">处理措施</span>
+                  <span class="info-value">{record.liabilityConfirmed.handlingMeasures || '-'}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        {/if}
+        
         {#if availableActions.length > 0}
           <div class="card action-card">
             <h3 class="section-title">⚡ 可用操作</h3>
@@ -507,8 +685,44 @@
           <h3>{selectedAction?.label}</h3>
         </div>
         <div class="modal-body">
+          {#if selectedAction?.action === 'manager_final_review'}
+            {#if record.hasDispute}
+              <div class="alert alert-danger" style="margin-bottom: 16px;">
+                <strong>⚠️ 请确认责任归属：</strong>
+                <p>此单存在罐存校验差异，请在最终确认前明确责任方。</p>
+              </div>
+              <div class="form-group">
+                <label class="form-label">责任方认定</label>
+                <select class="form-select" bind:value={liabilityForm.liabilityParty}>
+                  <option value="">请选择责任方</option>
+                  <option value="运输公司">运输公司（运输损耗）</option>
+                  <option value="油库">油库（少发）</option>
+                  <option value="计量误差">计量误差（正常范围）</option>
+                  <option value="多方原因">多方原因</option>
+                  <option value="其他">其他</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">责任说明</label>
+                <textarea 
+                  class="form-textarea" 
+                  bind:value={liabilityForm.liabilityDescription} 
+                  placeholder="请详细说明责任认定依据..."
+                ></textarea>
+              </div>
+              <div class="form-group">
+                <label class="form-label">处理措施</label>
+                <textarea 
+                  class="form-textarea" 
+                  bind:value={liabilityForm.handlingMeasures} 
+                  placeholder="请说明后续处理措施..."
+                ></textarea>
+              </div>
+            {/if}
+          {/if}
+          
           <div class="form-group">
-            <label class="form-label">备注说明 {selectedAction?.action === 'manager_return' || selectedAction?.action === 'measurer_flag_dispute' ? '*' : ''}</label>
+            <label class="form-label">备注说明 {selectedAction?.action?.startsWith('manager_return') || selectedAction?.action === 'measurer_flag_dispute' ? '*' : ''}</label>
             <textarea 
               class="form-textarea" 
               bind:value={actionComment} 
@@ -523,7 +737,7 @@
             </div>
           {/if}
           
-          {#if selectedAction?.action === 'manager_return'}
+          {#if selectedAction?.action?.startsWith('manager_return')}
             <div class="alert alert-danger">
               <strong>⚠️ 退回说明：</strong>
               <p>请明确说明退回原因，以便相关人员补充修改。</p>
@@ -778,6 +992,55 @@
   .empty-icon {
     font-size: 48px;
     margin-bottom: 12px;
+  }
+  
+  .supplementary-card {
+    border-left: 4px solid var(--warning);
+    background: linear-gradient(135deg, #FFF7E8 0%, #fff 100%);
+  }
+  
+  .supplementary-list {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  
+  .supplementary-item {
+    padding: 16px;
+    background: var(--bg-light);
+    border-radius: 8px;
+    border-left: 3px solid var(--primary);
+  }
+  
+  .supplementary-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+  }
+  
+  .supplementary-time {
+    font-size: 12px;
+    color: var(--text-placeholder);
+  }
+  
+  .supplementary-content,
+  .supplementary-comment {
+    font-size: 14px;
+    margin-top: 4px;
+  }
+  
+  .supplementary-content p,
+  .supplementary-comment p {
+    margin: 4px 0 0 0;
+    color: var(--text-primary);
+  }
+  
+  .liability-box {
+    padding: 16px;
+    background: #E8FFEA;
+    border-radius: 8px;
+    border: 1px solid #B7EB8F;
   }
   
   @media (max-width: 900px) {

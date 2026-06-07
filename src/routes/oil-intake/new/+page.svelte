@@ -2,6 +2,7 @@
   import { createOilIntakeRecord } from '$lib/workflow';
   import { currentRole } from '$lib/stores';
   import { goto } from '$app/navigation';
+  import { onMount } from 'svelte';
   
   let formData = {
     oilType: '92#汽油',
@@ -15,7 +16,17 @@
   
   let submitting = false;
   
+  onMount(() => {
+    if ($currentRole !== 'manager') {
+      goto('/oil-intake');
+    }
+  });
+  
   function handleSubmit() {
+    if ($currentRole !== 'manager') {
+      alert('只有站长可以创建入库单');
+      return;
+    }
     if (!formData.quantity || formData.quantity <= 0) {
       alert('请输入有效的入库数量');
       return;

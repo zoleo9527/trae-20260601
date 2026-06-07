@@ -45,7 +45,13 @@ export function initDemoData() {
   });
   
   currentRole.set('manager');
-  performAction(record1.id, WorkflowActions.MANAGER_FINAL_REVIEW, {});
+  performAction(record1.id, WorkflowActions.MANAGER_FINAL_REVIEW, {
+    liabilityConfirmed: {
+      liabilityParty: '计量误差',
+      liabilityDescription: '差异在±0.3%范围内，属于正常计量误差',
+      handlingMeasures: '正常核销，纳入月度损耗统计'
+    }
+  });
   
   const record2 = createOilIntakeRecord({
     oilType: '0#柴油',
@@ -95,7 +101,7 @@ export function initDemoData() {
   });
   
   performAction(record3.id, WorkflowActions.SUBMIT_FOR_APPROVAL, {});
-  performAction(record3.id, WorkflowActions.MANAGER_RETURN, { comment: '请补充罐车铅封照片' });
+  performAction(record3.id, WorkflowActions.MANAGER_RETURN_TO_EDIT, { comment: '请补充罐车铅封照片和司机行驶证信息' });
   
   const record4 = createOilIntakeRecord({
     oilType: '98#汽油',
@@ -105,6 +111,44 @@ export function initDemoData() {
     sourceDepot: '中石化北京油库',
     deliveryOrderNo: 'CK20240604009',
     tankNo: '4#罐'
+  });
+  
+  performAction(record4.id, WorkflowActions.SUBMIT_FOR_APPROVAL, {});
+  performAction(record4.id, WorkflowActions.MANAGER_APPROVE, {});
+  
+  currentRole.set('cashier');
+  performAction(record4.id, WorkflowActions.CASHIER_ENTER, {
+    cashierData: {
+      actualPrice: 8.52,
+      totalAmount: 127800,
+      invoiceNo: 'FP20240604011',
+      paymentMethod: '银行转账'
+    }
+  });
+  
+  currentRole.set('measurer');
+  performAction(record4.id, WorkflowActions.MEASURER_VERIFY, {
+    measurerData: {
+      beforeLevel: 40,
+      afterLevel: 78,
+      actualVolume: 14850,
+      temperature: 21,
+      density: 0.748,
+      difference: -150,
+      differenceRate: -1.0,
+      verificationComment: '差异略大，但在可接受范围内'
+    }
+  });
+  
+  currentRole.set('manager');
+  performAction(record4.id, WorkflowActions.MANAGER_RETURN_TO_MEASURER, { comment: '请提供更详细的检尺记录照片，差异原因需要说明' });
+  
+  currentRole.set('measurer');
+  performAction(record4.id, WorkflowActions.SUPPLEMENT_INFO, {
+    supplementaryData: {
+      supplementaryContent: '已补充检尺记录照片3张，差异原因主要是由于油罐底部有少量水杂，实际油品体积略小于计算值。'
+    },
+    comment: '已补充检尺记录'
   });
   
   currentRole.set('manager');

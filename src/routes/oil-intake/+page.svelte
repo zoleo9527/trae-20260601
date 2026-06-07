@@ -1,5 +1,5 @@
 <script>
-  import { oilIntakeRecords, getStatusLabel, getStatusTagClass, formatDateTime } from '$lib/stores';
+  import { oilIntakeRecords, getStatusLabel, getStatusTagClass, formatDateTime, currentRole } from '$lib/stores';
   import { goto } from '$app/navigation';
   
   let filterStatus = 'all';
@@ -23,7 +23,9 @@
       <h1>油品入库与罐存校验</h1>
       <p class="subtitle">加油站油品入库全流程管理 · 站长→收银员→计量员接力</p>
     </div>
-    <a href="/oil-intake/new" class="btn btn-primary">+ 新建入库单</a>
+    {#if $currentRole === 'manager'}
+      <a href="/oil-intake/new" class="btn btn-primary">+ 新建入库单</a>
+    {/if}
   </div>
   
   <div class="card">
@@ -59,7 +61,9 @@
       <div class="empty-state">
         <div class="empty-icon">📋</div>
         <p>暂无单据记录</p>
-        <a href="/oil-intake/new" class="btn btn-primary" style="margin-top: 16px;">创建第一个入库单</a>
+        {#if $currentRole === 'manager'}
+          <a href="/oil-intake/new" class="btn btn-primary" style="margin-top: 16px;">创建第一个入库单</a>
+        {/if}
       </div>
     {:else}
       <table class="table">

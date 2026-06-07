@@ -7,7 +7,9 @@ export const WorkflowStatus = {
   PENDING_CASHIER: 'pending_cashier',
   PENDING_MEASURER: 'pending_measurer',
   MANAGER_REVIEW: 'manager_review',
-  RETURNED: 'returned',
+  RETURNED_TO_MANAGER: 'returned_to_manager',
+  RETURNED_TO_CASHIER: 'returned_to_cashier',
+  RETURNED_TO_MEASURER: 'returned_to_measurer',
   SUPPLEMENTARY: 'supplementary',
   COMPLETED: 'completed',
   CLOSED: 'closed'
@@ -16,7 +18,9 @@ export const WorkflowStatus = {
 export const WorkflowActions = {
   SUBMIT_FOR_APPROVAL: 'submit_for_approval',
   MANAGER_APPROVE: 'manager_approve',
-  MANAGER_RETURN: 'manager_return',
+  MANAGER_RETURN_TO_EDIT: 'manager_return_to_edit',
+  MANAGER_RETURN_TO_CASHIER: 'manager_return_to_cashier',
+  MANAGER_RETURN_TO_MEASURER: 'manager_return_to_measurer',
   CASHIER_ENTER: 'cashier_enter',
   MEASURER_VERIFY: 'measurer_verify',
   MEASURER_FLAG_DISPUTE: 'measurer_flag_dispute',
@@ -32,7 +36,7 @@ const workflowTransitions = {
   },
   [WorkflowStatus.PENDING_MANAGER_APPROVAL]: {
     [WorkflowActions.MANAGER_APPROVE]: WorkflowStatus.PENDING_CASHIER,
-    [WorkflowActions.MANAGER_RETURN]: WorkflowStatus.RETURNED
+    [WorkflowActions.MANAGER_RETURN_TO_EDIT]: WorkflowStatus.RETURNED_TO_MANAGER
   },
   [WorkflowStatus.PENDING_CASHIER]: {
     [WorkflowActions.CASHIER_ENTER]: WorkflowStatus.PENDING_MEASURER
@@ -43,12 +47,16 @@ const workflowTransitions = {
   },
   [WorkflowStatus.MANAGER_REVIEW]: {
     [WorkflowActions.MANAGER_FINAL_REVIEW]: WorkflowStatus.COMPLETED,
-    [WorkflowActions.MANAGER_RETURN]: WorkflowStatus.SUPPLEMENTARY
+    [WorkflowActions.MANAGER_RETURN_TO_CASHIER]: WorkflowStatus.RETURNED_TO_CASHIER,
+    [WorkflowActions.MANAGER_RETURN_TO_MEASURER]: WorkflowStatus.RETURNED_TO_MEASURER
   },
-  [WorkflowStatus.RETURNED]: {
+  [WorkflowStatus.RETURNED_TO_MANAGER]: {
     [WorkflowActions.SUPPLEMENT_INFO]: WorkflowStatus.PENDING_MANAGER_APPROVAL
   },
-  [WorkflowStatus.SUPPLEMENTARY]: {
+  [WorkflowStatus.RETURNED_TO_CASHIER]: {
+    [WorkflowActions.SUPPLEMENT_INFO]: WorkflowStatus.PENDING_MEASURER
+  },
+  [WorkflowStatus.RETURNED_TO_MEASURER]: {
     [WorkflowActions.SUPPLEMENT_INFO]: WorkflowStatus.MANAGER_REVIEW
   },
   [WorkflowStatus.COMPLETED]: {
@@ -79,13 +87,13 @@ export function getAvailableActions(record) {
   const status = record.status;
   const actions = [];
   
-  if (status === WorkflowStatus.DRAFT) {
-    actions.push({ action: WorkflowActions.SUBMIT_FOR_APPROVAL, label: '提交审核', role: 'manager' });
+  if (status === WorkflowStatus.DRAFT && role === 'manager') {
+    actions.push({ action: WorkflowActions.SUBMIT_FOR_APPROVAL, label: '提交审核', style: 'primary' });
   }
   
   if (status === WorkflowStatus.PENDING_MANAGER_APPROVAL && role === 'manager') {
     actions.push({ action: WorkflowActions.MANAGER_APPROVE, label: '审核通过', style: 'primary' });
-    actions.push({ action: WorkflowActions.MANAGER_RETURN, label: '退回修改', style: 'danger' });
+    actions.push({ action: WorkflowActions.MANAGER_RETURN_TO_EDIT, label: '退回修改', style: 'danger' });
   }
   
   if (status === WorkflowStatus.PENDING_CASHIER && role === 'cashier') {
@@ -99,15 +107,20 @@ export function getAvailableActions(record) {
   
   if (status === WorkflowStatus.MANAGER_REVIEW && role === 'manager') {
     actions.push({ action: WorkflowActions.MANAGER_FINAL_REVIEW, label: '最终确认完成', style: 'success' });
-    actions.push({ action: WorkflowActions.MANAGER_RETURN, label: '退回补充', style: 'danger' });
+    actions.push({ action: WorkflowActions.MANAGER_RETURN_TO_CASHIER, label: '退回收银员补充', style: 'warning' });
+    actions.push({ action: WorkflowActions.MANAGER_RETURN_TO_MEASURER, label: '退回计量员补充', style: 'warning' });
   }
   
-  if (status === WorkflowStatus.RETURNED) {
-    actions.push({ action: WorkflowActions.SUPPLEMENT_INFO, label: '补充后重新提交', style: 'primary' });
+  if (status === WorkflowStatus.RETURNED_TO_MANAGER && role === 'manager') {
+    actions.push({ action: WorkflowActions.SUPPLEMENT_INFO, label: '补充后重新提交审核', style: 'primary' });
   }
   
-  if (status === WorkflowStatus.SUPPLEMENTARY) {
-    actions.push({ action: WorkflowActions.SUPPLEMENT_INFO, label: '补充后提交复核', style: 'primary' });
+  if (status === WorkflowStatus.RETURNED_TO_CASHIER && role === 'cashier') {
+    actions.push({ action: WorkflowActions.SUPPLEMENT_INFO, label: '补充收银数据后提交', style: 'primary' });
+  }
+  
+  if (status === WorkflowStatus.RETURNED_TO_MEASURER && role === 'measurer') {
+    actions.push({ action: WorkflowActions.SUPPLEMENT_INFO, label: '补充校验数据后提交', style: 'primary' });
   }
   
   if (status === WorkflowStatus.COMPLETED && role === 'manager') {
@@ -133,12 +146,45 @@ export function performAction(recordId, action, data = {}) {
   const role = get(currentRole);
   const timestamp = new Date().toISOString();
   
+  const historyEntry = {
+    status: nextStatus,
+    action,
+    timestamp,
+    operator: role,
+    comment: data.comment || '',
+    data: data.supplementaryData || null
+  };
+  
   const updatedRecord = {
     ...record,
     status: nextStatus,
     updatedAt: timestamp,
-    ...data
+    ...data,
+    history: [...(record.history || []), historyEntry]
   };
+  
+  if (action.startsWith('MANAGER_RETURN')) {
+    updatedRecord.returnInfo = {
+      returnAction: action,
+      returnBy: role,
+      returnAt: timestamp,
+      returnReason: data.comment || '',
+      returnTo: action === WorkflowActions.MANAGER_RETURN_TO_EDIT ? 'manager' :
+               action === WorkflowActions.MANAGER_RETURN_TO_CASHIER ? 'cashier' : 'measurer'
+    };
+  }
+  
+  if (action === WorkflowActions.SUPPLEMENT_INFO) {
+    if (!updatedRecord.supplementaryRecords) {
+      updatedRecord.supplementaryRecords = [];
+    }
+    updatedRecord.supplementaryRecords.push({
+      supplementaryBy: role,
+      supplementaryAt: timestamp,
+      supplementaryData: data.supplementaryData || {},
+      comment: data.comment || ''
+    });
+  }
   
   if (action === WorkflowActions.MANAGER_APPROVE) {
     updatedRecord.managerApprovedAt = timestamp;
@@ -161,6 +207,7 @@ export function performAction(recordId, action, data = {}) {
   if (action === WorkflowActions.MANAGER_FINAL_REVIEW) {
     updatedRecord.completedAt = timestamp;
     updatedRecord.completedBy = role;
+    updatedRecord.liabilityConfirmed = data.liabilityConfirmed || null;
   }
   
   if (action === WorkflowActions.CLOSE) {
@@ -177,6 +224,11 @@ export function performAction(recordId, action, data = {}) {
 }
 
 export function createOilIntakeRecord(data) {
+  const role = get(currentRole);
+  if (role !== 'manager') {
+    throw new Error('只有站长才能创建油品入库单');
+  }
+  
   const now = new Date().toISOString();
   const record = {
     id: generateId(),
@@ -192,11 +244,12 @@ export function createOilIntakeRecord(data) {
     hasDispute: false,
     createdAt: now,
     updatedAt: now,
-    createdBy: get(currentRole),
+    createdBy: role,
     history: [{
       status: WorkflowStatus.DRAFT,
+      action: 'create',
       timestamp: now,
-      operator: get(currentRole),
+      operator: role,
       comment: '创建单据'
     }]
   };
@@ -205,7 +258,7 @@ export function createOilIntakeRecord(data) {
   records.unshift(record);
   oilIntakeRecords.set(records);
   
-  addLog(record.id, 'create', get(currentRole), '创建油品入库单');
+  addLog(record.id, 'create', role, '创建油品入库单');
   
   return record;
 }
@@ -226,12 +279,14 @@ export function updateOilIntakeRecord(recordId, data) {
 }
 
 export function getWorkflowSteps(record) {
+  const isReturned = [WorkflowStatus.RETURNED_TO_MANAGER, WorkflowStatus.RETURNED_TO_CASHIER, WorkflowStatus.RETURNED_TO_MEASURER].includes(record.status);
+  
   return [
-    { key: 'draft', label: '创建单据', completed: true, active: record.status === WorkflowStatus.DRAFT },
-    { key: 'manager_approval', label: '站长审核', completed: record.status !== WorkflowStatus.DRAFT && record.status !== WorkflowStatus.RETURNED, active: record.status === WorkflowStatus.PENDING_MANAGER_APPROVAL },
-    { key: 'cashier', label: '收银员录入', completed: record.status !== WorkflowStatus.DRAFT && record.status !== WorkflowStatus.RETURNED && record.status !== WorkflowStatus.PENDING_MANAGER_APPROVAL, active: record.status === WorkflowStatus.PENDING_CASHIER },
-    { key: 'measurer', label: '计量员校验', completed: [WorkflowStatus.MANAGER_REVIEW, WorkflowStatus.SUPPLEMENTARY, WorkflowStatus.COMPLETED, WorkflowStatus.CLOSED].includes(record.status), active: record.status === WorkflowStatus.PENDING_MEASURER },
-    { key: 'final_review', label: '站长复核', completed: [WorkflowStatus.COMPLETED, WorkflowStatus.CLOSED].includes(record.status), active: record.status === WorkflowStatus.MANAGER_REVIEW || record.status === WorkflowStatus.SUPPLEMENTARY },
+    { key: 'draft', label: '创建单据', completed: record.status !== WorkflowStatus.DRAFT, active: record.status === WorkflowStatus.DRAFT },
+    { key: 'manager_approval', label: '站长审核', completed: ![WorkflowStatus.DRAFT, WorkflowStatus.PENDING_MANAGER_APPROVAL, WorkflowStatus.RETURNED_TO_MANAGER].includes(record.status), active: record.status === WorkflowStatus.PENDING_MANAGER_APPROVAL || record.status === WorkflowStatus.RETURNED_TO_MANAGER, warning: record.status === WorkflowStatus.RETURNED_TO_MANAGER },
+    { key: 'cashier', label: '收银员录入', completed: ![WorkflowStatus.DRAFT, WorkflowStatus.PENDING_MANAGER_APPROVAL, WorkflowStatus.RETURNED_TO_MANAGER, WorkflowStatus.PENDING_CASHIER, WorkflowStatus.RETURNED_TO_CASHIER].includes(record.status), active: record.status === WorkflowStatus.PENDING_CASHIER || record.status === WorkflowStatus.RETURNED_TO_CASHIER, warning: record.status === WorkflowStatus.RETURNED_TO_CASHIER },
+    { key: 'measurer', label: '计量员校验', completed: [WorkflowStatus.MANAGER_REVIEW, WorkflowStatus.COMPLETED, WorkflowStatus.CLOSED].includes(record.status), active: record.status === WorkflowStatus.PENDING_MEASURER || record.status === WorkflowStatus.RETURNED_TO_MEASURER, warning: record.status === WorkflowStatus.RETURNED_TO_MEASURER },
+    { key: 'final_review', label: '站长复核', completed: [WorkflowStatus.COMPLETED, WorkflowStatus.CLOSED].includes(record.status), active: record.status === WorkflowStatus.MANAGER_REVIEW },
     { key: 'completed', label: '完成/关闭', completed: [WorkflowStatus.COMPLETED, WorkflowStatus.CLOSED].includes(record.status), active: false }
   ];
 }

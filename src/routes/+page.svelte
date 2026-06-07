@@ -33,7 +33,9 @@
       <h1>工作台</h1>
       <p class="subtitle">当前角色：<span class="role-badge role-{$currentRole}">{getRoleLabel($currentRole)}</span></p>
     </div>
-    <a href="/oil-intake/new" class="btn btn-primary">+ 新建油品入库单</a>
+    {#if $currentRole === 'manager'}
+      <a href="/oil-intake/new" class="btn btn-primary">+ 新建油品入库单</a>
+    {/if}
   </div>
   
   {#if showDemo}

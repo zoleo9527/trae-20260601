@@ -68,7 +68,9 @@ export function getStatusLabel(status) {
     pending_cashier: '待收银员录入',
     pending_measurer: '待计量员校验',
     manager_review: '站长复核中',
-    returned: '已退回',
+    returned_to_manager: '退回站长补充',
+    returned_to_cashier: '退回收银员补充',
+    returned_to_measurer: '退回计量员补充',
     supplementary: '补充资料中',
     completed: '已完成',
     closed: '已关闭'
@@ -83,7 +85,9 @@ export function getStatusTagClass(status) {
     pending_cashier: 'tag-warning',
     pending_measurer: 'tag-warning',
     manager_review: 'tag-primary',
-    returned: 'tag-danger',
+    returned_to_manager: 'tag-danger',
+    returned_to_cashier: 'tag-danger',
+    returned_to_measurer: 'tag-danger',
     supplementary: 'tag-warning',
     completed: 'tag-success',
     closed: 'tag-primary'
