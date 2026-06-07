@@ -786,14 +786,54 @@ export function requestSupplement(bookingId: string, supplementInfo: string, ope
   return booking;
 }
 
-export function completeSupplement(bookingId: string, operator: string, operatorRole: UserRole): Booking | undefined {
+export function completeSupplement(
+  bookingId: string, 
+  operator: string, 
+  operatorRole: UserRole,
+  supplementData?: {
+    customerPhone?: string;
+    numberOfPeople?: number;
+    memberId?: string;
+    memberName?: string;
+    memberLevel?: MemberLevel;
+    deposit?: number;
+  }
+): Booking | undefined {
   const booking = bookings.find(b => b.id === bookingId);
   if (booking && booking.status === 'supplement_required') {
+    const changes: string[] = [];
+    
+    if (supplementData) {
+      if (supplementData.customerPhone && supplementData.customerPhone !== booking.customerPhone) {
+        booking.customerPhone = supplementData.customerPhone;
+        changes.push(`联系电话更新为 ${supplementData.customerPhone}`);
+      }
+      if (supplementData.numberOfPeople !== undefined && supplementData.numberOfPeople !== booking.numberOfPeople) {
+        booking.numberOfPeople = supplementData.numberOfPeople;
+        changes.push(`人数更新为 ${supplementData.numberOfPeople} 人`);
+      }
+      if (supplementData.memberId && supplementData.memberId !== booking.memberId) {
+        booking.memberId = supplementData.memberId;
+        booking.memberName = supplementData.memberName;
+        booking.memberLevel = supplementData.memberLevel;
+        changes.push(`关联会员：${supplementData.memberName} (${supplementData.memberLevel || '普通'})`);
+      }
+      if (supplementData.deposit !== undefined && supplementData.deposit !== booking.deposit) {
+        booking.deposit = supplementData.deposit;
+        booking.paidAmount = supplementData.deposit;
+        changes.push(`定金更新为 ¥${supplementData.deposit}`);
+      }
+    }
+    
     booking.status = 'pending';
+    
+    const supplementNote = changes.length > 0 
+      ? `信息已补充完成：${changes.join('；')}。提交等待确认`
+      : '信息已补充完成，等待确认';
     
     booking.notes.push({
       id: `note-${Date.now()}`,
-      content: '信息已补充完成，等待确认',
+      content: supplementNote,
       createdBy: operator,
       createdByRole: operatorRole,
       createdAt: new Date(),

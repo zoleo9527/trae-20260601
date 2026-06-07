@@ -27,7 +27,7 @@ export async function PATCH({ params, request }: { params: { id: string }; reque
       booking = requestSupplement(params.id, rest.supplementInfo, operator, operatorRole as UserRole);
       break;
     case 'complete_supplement':
-      booking = completeSupplement(params.id, operator, operatorRole as UserRole);
+      booking = completeSupplement(params.id, operator, operatorRole as UserRole, rest.supplementData);
       break;
     case 'checkin':
       booking = checkInBooking(params.id, operator, operatorRole as UserRole);

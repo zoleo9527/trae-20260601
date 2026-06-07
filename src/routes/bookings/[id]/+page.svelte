@@ -30,6 +30,15 @@
   
   let selectedDrinks = $state<{drinkId: string, quantity: number}[]>([]);
   
+  let supplementForm = $state({
+    customerPhone: '',
+    numberOfPeople: 0,
+    memberId: '',
+    deposit: 0
+  });
+  
+  let supplementSubmitting = $state(false);
+  
   const statusNames: Record<string, string> = {
     pending: '待确认',
     confirmed: '已确认',
@@ -138,6 +147,15 @@
       rooms = await roomsRes.json();
       members = await membersRes.json();
       drinkItems = await drinksRes.json();
+      
+      if (booking) {
+        supplementForm = {
+          customerPhone: booking.customerPhone || '',
+          numberOfPeople: booking.numberOfPeople || 0,
+          memberId: booking.memberId || '',
+          deposit: booking.deposit || 0
+        };
+      }
     } finally {
       loading = false;
     }
@@ -228,18 +246,35 @@
   async function completeSupplement() {
     if (!booking) return;
     
-    const res = await fetch(`/api/bookings/${booking.id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ 
-        action: 'complete_supplement',
-        operator: currentUser,
-        operatorRole: currentRole
-      })
-    });
-    
-    if (res.ok) {
-      booking = await res.json();
+    supplementSubmitting = true;
+    try {
+      const selectedMember = members.find(m => m.id === supplementForm.memberId);
+      
+      const supplementData = {
+        customerPhone: supplementForm.customerPhone,
+        numberOfPeople: supplementForm.numberOfPeople,
+        memberId: supplementForm.memberId || undefined,
+        memberName: selectedMember?.name,
+        memberLevel: selectedMember?.level,
+        deposit: supplementForm.deposit
+      };
+      
+      const res = await fetch(`/api/bookings/${booking.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          action: 'complete_supplement',
+          operator: currentUser,
+          operatorRole: currentRole,
+          supplementData
+        })
+      });
+      
+      if (res.ok) {
+        booking = await res.json();
+      }
+    } finally {
+      supplementSubmitting = false;
     }
   }
   
@@ -528,8 +563,8 @@
     {/if}
     
     {#if booking.status === 'supplement_required'}
-      <div class="card border-orange-300 bg-orange-50">
-        <div class="p-4 border-b border-orange-200 flex items-center justify-between">
+      <div class="card border-orange-300">
+        <div class="p-4 border-b border-orange-200 bg-orange-50 flex items-center justify-between">
           <div class="flex items-center gap-2">
             <span class="text-orange-600 font-semibold text-lg">⚠️ 信息待补录</span>
             <span class="badge badge-warning">处理中</span>
@@ -540,34 +575,97 @@
             </span>
           </div>
         </div>
-        <div class="p-4 space-y-3">
-          <div class="text-sm text-orange-700">
+        <div class="p-4 space-y-4">
+          <div class="text-sm text-orange-700 bg-orange-50 p-3 rounded-lg">
             <strong>需补充信息：</strong>{booking.supplementRequired}
           </div>
-          <div class="bg-white rounded-lg p-3 border border-orange-200">
-            <div class="text-xs font-medium text-orange-600 mb-2">补录处理流程</div>
-            <div class="space-y-2 text-sm">
-              <div class="flex items-center gap-2">
-                <span class="w-4 h-4 rounded-full bg-orange-200 flex items-center justify-center text-xs">1</span>
-                <span>预订员联系客户确认缺失信息</span>
+          
+          {#if canCompleteSupplement()}
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label class="label">联系电话 <span class="text-red-500">*</span></label>
+                <input 
+                  type="tel" 
+                  class="input" 
+                  placeholder="请输入客户联系电话"
+                  bind:value={supplementForm.customerPhone}
+                />
               </div>
-              <div class="flex items-center gap-2">
-                <span class="w-4 h-4 rounded-full bg-orange-200 flex items-center justify-center text-xs">2</span>
-                <span>在下方更新预订信息</span>
+              <div>
+                <label class="label">人数 <span class="text-red-500">*</span></label>
+                <input 
+                  type="number" 
+                  class="input" 
+                  placeholder="请输入人数"
+                  min="1"
+                  bind:value={supplementForm.numberOfPeople}
+                />
               </div>
-              <div class="flex items-center gap-2">
-                <span class="w-4 h-4 rounded-full bg-orange-200 flex items-center justify-center text-xs">3</span>
-                <span>点击"补录完成"提交确认</span>
+              <div>
+                <label class="label">关联会员</label>
+                <select class="select" bind:value={supplementForm.memberId}>
+                  <option value="">散客（不关联会员）</option>
+                  {#each members as member}
+                    <option value={member.id}>
+                      {member.name} - {member.level} (余额¥{member.balance})
+                    </option>
+                  {/each}
+                </select>
+              </div>
+              <div>
+                <label class="label">定金 (元)</label>
+                <input 
+                  type="number" 
+                  class="input" 
+                  placeholder="请输入定金金额"
+                  min="0"
+                  bind:value={supplementForm.deposit}
+                />
               </div>
             </div>
-          </div>
-          {#if canCompleteSupplement()}
-            <button class="btn btn-primary w-full" onclick={completeSupplement}>
-              ✓ 补录完成，提交确认
-            </button>
+            
+            <div class="pt-2">
+              <div class="text-xs text-gray-500 mb-3">
+                📝 补录信息将自动记入备注历史，提交后状态回到「待确认」，由楼面经理审核确认
+              </div>
+              <button 
+                class="btn btn-primary w-full" 
+                onclick={completeSupplement}
+                disabled={supplementSubmitting || !supplementForm.customerPhone.trim() || supplementForm.numberOfPeople <= 0}
+              >
+                {#if supplementSubmitting}
+                  提交中...
+                {:else}
+                  ✓ 补录完成，提交确认
+                {/if}
+              </button>
+            </div>
           {:else}
-            <div class="text-xs text-orange-500 text-center py-2">
-              📌 请切换到「预订员」角色进行补录操作
+            <div class="bg-gray-50 rounded-lg p-4 text-center">
+              <div class="text-sm text-gray-600 mb-2">
+                <strong>当前补录信息预览</strong>
+              </div>
+              <div class="grid grid-cols-2 gap-3 text-sm">
+                <div class="text-left">
+                  <span class="text-gray-500">联系电话：</span>
+                  <span>{booking.customerPhone || '未填写'}</span>
+                </div>
+                <div class="text-left">
+                  <span class="text-gray-500">人数：</span>
+                  <span>{booking.numberOfPeople || '未确认'}</span>
+                </div>
+                <div class="text-left">
+                  <span class="text-gray-500">会员：</span>
+                  <span>{booking.memberName || '散客'}</span>
+                </div>
+                <div class="text-left">
+                  <span class="text-gray-500">定金：</span>
+                  <span>¥{booking.deposit}</span>
+                </div>
+              </div>
+              <div class="text-xs text-orange-500 mt-4 pt-3 border-t border-gray-200">
+                📌 请切换到「预订员」角色进行补录编辑
+              </div>
             </div>
           {/if}
         </div>
