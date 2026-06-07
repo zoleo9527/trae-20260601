@@ -351,6 +351,10 @@
     selectedDrinks = selectedDrinks.filter(d => d.drinkId !== drinkId);
   }
   
+  function getSelectedDrink(drinkId: string) {
+    return selectedDrinks.find(d => d.drinkId === drinkId);
+  }
+  
   function updateDrinkQuantity(drinkId: string, quantity: number) {
     const item = selectedDrinks.find(d => d.drinkId === drinkId);
     if (item) {
@@ -446,7 +450,7 @@
     loadData();
     
     const observer = new MutationObserver(() => {
-      const select = document.querySelector('header select');
+      const select = document.querySelector('header select') as HTMLSelectElement | null;
       if (select && select.value !== currentRole) {
         currentRole = select.value as any;
       }
@@ -487,37 +491,96 @@
       </div>
     </div>
 
-    {#if booking.rejectionReason}
+    {#if booking.status === 'rejected'}
       <div class="card border-red-300 bg-red-50">
-        <div class="p-4 border-b border-red-200 flex items-center gap-2">
-          <span class="text-red-600 font-semibold">❌ 已驳回</span>
+        <div class="p-4 border-b border-red-200 flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <span class="text-red-600 font-semibold text-lg">❌ 预订已驳回</span>
+            <span class="badge badge-danger">终态</span>
+          </div>
+          <span class="text-xs text-red-500">
+            {booking.notes.find(n => n.type === 'rejection')?.createdBy || '未知'} · {formatDateTime(booking.notes.find(n => n.type === 'rejection')?.createdAt || booking.updatedAt)}
+          </span>
         </div>
-        <div class="p-4 text-sm text-red-700">
-          <strong>驳回原因：</strong>{booking.rejectionReason}
+        <div class="p-4 space-y-3">
+          <div class="text-sm text-red-700">
+            <strong>驳回原因：</strong>{booking.rejectionReason}
+          </div>
+          {#if booking.issues.filter(i => i.type === 'booking_rejection').length > 0}
+            <div class="bg-white rounded-lg p-3 border border-red-200">
+              <div class="text-xs font-medium text-red-600 mb-2">相关问题记录</div>
+              {#each booking.issues.filter(i => i.type === 'booking_rejection') as issue}
+                <div class="text-sm text-gray-600">
+                  {issue.reason}
+                  {#if issue.supplementaryNotes}
+                    <div class="text-xs text-gray-500 mt-1">补充：{issue.supplementaryNotes}</div>
+                  {/if}
+                </div>
+              {/each}
+            </div>
+          {/if}
+          <div class="text-xs text-red-500 flex items-center gap-1">
+            <span>📌</span>
+            此状态为终态，如需重新预订，请创建新的预订记录
+          </div>
         </div>
       </div>
     {/if}
     
-    {#if booking.supplementRequired}
+    {#if booking.status === 'supplement_required'}
       <div class="card border-orange-300 bg-orange-50">
         <div class="p-4 border-b border-orange-200 flex items-center justify-between">
-          <span class="text-orange-600 font-semibold">⚠️ 需要补充信息</span>
-          {#if canCompleteSupplement()}
-            <button class="btn btn-primary text-xs py-1 px-3" onclick={completeSupplement}>
-              已完成补录
-            </button>
-          {/if}
+          <div class="flex items-center gap-2">
+            <span class="text-orange-600 font-semibold text-lg">⚠️ 信息待补录</span>
+            <span class="badge badge-warning">处理中</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <span class="text-xs text-orange-500">
+              发起：{booking.notes.find(n => n.type === 'supplement')?.createdBy || '未知'}
+            </span>
+          </div>
         </div>
-        <div class="p-4 text-sm text-orange-700">
-          <strong>待补充：</strong>{booking.supplementRequired}
+        <div class="p-4 space-y-3">
+          <div class="text-sm text-orange-700">
+            <strong>需补充信息：</strong>{booking.supplementRequired}
+          </div>
+          <div class="bg-white rounded-lg p-3 border border-orange-200">
+            <div class="text-xs font-medium text-orange-600 mb-2">补录处理流程</div>
+            <div class="space-y-2 text-sm">
+              <div class="flex items-center gap-2">
+                <span class="w-4 h-4 rounded-full bg-orange-200 flex items-center justify-center text-xs">1</span>
+                <span>预订员联系客户确认缺失信息</span>
+              </div>
+              <div class="flex items-center gap-2">
+                <span class="w-4 h-4 rounded-full bg-orange-200 flex items-center justify-center text-xs">2</span>
+                <span>在下方更新预订信息</span>
+              </div>
+              <div class="flex items-center gap-2">
+                <span class="w-4 h-4 rounded-full bg-orange-200 flex items-center justify-center text-xs">3</span>
+                <span>点击"补录完成"提交确认</span>
+              </div>
+            </div>
+          </div>
+          {#if canCompleteSupplement()}
+            <button class="btn btn-primary w-full" onclick={completeSupplement}>
+              ✓ 补录完成，提交确认
+            </button>
+          {:else}
+            <div class="text-xs text-orange-500 text-center py-2">
+              📌 请切换到「预订员」角色进行补录操作
+            </div>
+          {/if}
         </div>
       </div>
     {/if}
 
     {#if booking.issues.filter(i => i.status === 'open').length > 0}
       <div class="card border-yellow-300 bg-yellow-50">
-        <div class="p-4 border-b border-yellow-200 flex items-center gap-2">
-          <span class="text-yellow-600 font-semibold">⚠️ 待处理问题</span>
+        <div class="p-4 border-b border-yellow-200 flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <span class="text-yellow-600 font-semibold">🔴 待处理风险项</span>
+            <span class="badge badge-danger">{booking.issues.filter(i => i.status === 'open').length} 项</span>
+          </div>
         </div>
         <div class="divide-y divide-yellow-200">
           {#each booking.issues.filter(i => i.status === 'open') as issue}
@@ -535,14 +598,21 @@
                   <div class="mt-1"><strong>补充说明：</strong>{issue.supplementaryNotes}</div>
                 {/if}
               </div>
-              {#if (currentRole === 'admin' || 
-                (currentRole === 'booking_clerk' && issue.type === 'booking_rejection') ||
-                (currentRole === 'floor_manager' && (issue.type === 'room_issue' || issue.type === 'checkin_rejection')) ||
-                (currentRole === 'bar_staff' && issue.type === 'drink_issue'))}
-                <button class="btn btn-primary text-xs py-1 px-3 mt-3" onclick={() => resolveIssue(issue.id)}>
-                  标记已解决
-                </button>
-              {/if}
+              <div class="mt-3 flex items-center justify-between">
+                <div class="text-xs text-gray-500">
+                  处理角色：{issue.type === 'drink_issue' ? '吧台' : issue.type === 'booking_rejection' ? '预订员' : '楼面经理'}
+                </div>
+                {#if (currentRole === 'admin' || 
+                  (currentRole === 'booking_clerk' && issue.type === 'booking_rejection') ||
+                  (currentRole === 'floor_manager' && (issue.type === 'room_issue' || issue.type === 'checkin_rejection')) ||
+                  (currentRole === 'bar_staff' && issue.type === 'drink_issue'))}
+                  <button class="btn btn-primary text-xs py-1 px-3" onclick={() => resolveIssue(issue.id)}>
+                    标记已解决
+                  </button>
+                {:else}
+                  <span class="text-xs text-gray-400">无权限处理</span>
+                {/if}
+              </div>
             </div>
           {/each}
         </div>
@@ -658,80 +728,163 @@
         <div class="lg:col-span-2 space-y-6">
           <div class="card">
             <div class="p-4 border-b border-gray-100 flex items-center justify-between">
-              <h3 class="font-semibold text-gray-800">预订处理流程</h3>
+              <h3 class="font-semibold text-gray-800">📊 状态流转时间线</h3>
+              <span class="text-xs text-gray-500">包厢预约 → 到店确认 全流程追踪</span>
             </div>
-            <div class="p-4 space-y-4">
-              <div class="flex items-center gap-4">
-                <div class="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-medium text-sm">1</div>
-                <div class="flex-1">
-                  <div class="font-medium">创建预订</div>
-                  <div class="text-sm text-gray-500">{booking.createdBy} · {formatDateTime(booking.createdAt)}</div>
+            <div class="p-4">
+              <div class="relative">
+                <div class="absolute left-4 top-2 bottom-2 w-0.5 bg-gray-200"></div>
+                
+                <div class="relative flex gap-4 pb-6">
+                  <div class="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-white font-medium text-sm z-10 flex-shrink-0">1</div>
+                  <div class="flex-1 pt-1">
+                    <div class="flex items-center justify-between">
+                      <div class="font-medium text-gray-800">创建预订</div>
+                      <span class="badge badge-success">已完成</span>
+                    </div>
+                    <div class="text-sm text-gray-500 mt-1">{booking.createdBy} · {formatDateTime(booking.createdAt)}</div>
+                    <div class="text-xs text-gray-400 mt-1">预订编号：{booking.bookingNo}</div>
+                  </div>
                 </div>
-                <span class="badge badge-success">已完成</span>
-              </div>
-              
-              <div class="flex items-center gap-4">
-                <div class="w-8 h-8 rounded-full {booking.status === 'pending' || booking.status === 'supplement_required' ? 'bg-yellow-100 text-yellow-600' : 'bg-green-100 text-green-600'} flex items-center justify-center font-medium text-sm">2</div>
-                <div class="flex-1">
-                  <div class="font-medium">确认预订</div>
-                  {#if booking.confirmedAt}
-                    <div class="text-sm text-gray-500">{booking.confirmedBy} · {formatDateTime(booking.confirmedAt)}</div>
-                  {:else}
-                    <div class="text-sm text-gray-500">等待确认</div>
-                  {/if}
+
+                <div class="relative flex gap-4 pb-6">
+                  <div class="w-8 h-8 rounded-full {booking.status === 'pending' || booking.status === 'supplement_required' ? 'bg-yellow-500' : booking.status === 'rejected' ? 'bg-red-500' : 'bg-green-500'} flex items-center justify-center text-white font-medium text-sm z-10 flex-shrink-0">2</div>
+                  <div class="flex-1 pt-1">
+                    <div class="flex items-center justify-between">
+                      <div class="font-medium text-gray-800">预订确认</div>
+                      {#if booking.confirmedAt}
+                        <span class="badge badge-success">已确认</span>
+                      {:else if booking.status === 'rejected'}
+                        <span class="badge badge-danger">已驳回</span>
+                      {:else if booking.status === 'supplement_required'}
+                        <span class="badge badge-warning">待补录</span>
+                      {:else}
+                        <span class="badge badge-warning">待处理</span>
+                      {/if}
+                    </div>
+                    {#if booking.confirmedAt}
+                      <div class="text-sm text-gray-500 mt-1">{booking.confirmedBy} · {formatDateTime(booking.confirmedAt)}</div>
+                    {:else if booking.status === 'rejected'}
+                      <div class="text-sm text-red-600 mt-1">驳回原因：{booking.rejectionReason}</div>
+                    {:else if booking.status === 'supplement_required'}
+                      <div class="text-sm text-orange-600 mt-1">待补：{booking.supplementRequired}</div>
+                    {:else}
+                      <div class="text-sm text-gray-400 mt-1">等待楼面经理确认</div>
+                    {/if}
+                    {#if booking.status === 'supplement_required' || booking.status === 'rejected'}
+                      <div class="mt-2 p-2 rounded bg-gray-50 text-xs">
+                        <span class="text-gray-500">📌 处理角色：</span>
+                        <span class="font-medium">{booking.status === 'supplement_required' ? '预订员补录信息 → 楼面经理确认' : '楼面经理驳回'}</span>
+                      </div>
+                    {/if}
+                  </div>
                 </div>
-                {#if booking.confirmedAt || booking.status === 'rejected'}
-                  <span class="badge badge-{booking.status === 'rejected' ? 'danger' : 'success'}">
-                    {booking.status === 'rejected' ? '已驳回' : '已完成'}
-                  </span>
-                {:else if booking.status === 'supplement_required'}
-                  <span class="badge badge-warning">待补录</span>
-                {:else}
-                  <span class="badge badge-warning">待处理</span>
-                {/if}
-              </div>
-              
-              <div class="flex items-center gap-4">
-                <div class="w-8 h-8 rounded-full {booking.status === 'confirmed' || booking.status === 'arrived' ? 'bg-yellow-100 text-yellow-600' : booking.status === 'in_use' || booking.status === 'completed' ? 'bg-green-100 text-green-600' : 'bg-gray-100 text-gray-400'} flex items-center justify-center font-medium text-sm">3</div>
-                <div class="flex-1">
-                  <div class="font-medium">到店确认</div>
-                  {#if booking.checkedInAt}
-                    <div class="text-sm text-gray-500">{booking.checkedInBy} · {formatDateTime(booking.checkedInAt)}</div>
-                  {:else}
-                    <div class="text-sm text-gray-500">等待客户到店</div>
-                  {/if}
+
+                <div class="relative flex gap-4 pb-6">
+                  <div class="w-8 h-8 rounded-full {booking.status === 'confirmed' ? 'bg-blue-500' : booking.status === 'arrived' ? 'bg-purple-500' : booking.checkedInAt ? 'bg-green-500' : 'bg-gray-300'} flex items-center justify-center text-white font-medium text-sm z-10 flex-shrink-0">3</div>
+                  <div class="flex-1 pt-1">
+                    <div class="flex items-center justify-between">
+                      <div class="font-medium text-gray-800">到店确认</div>
+                      {#if booking.checkedInAt}
+                        <span class="badge badge-success">已到店</span>
+                      {:else if booking.status === 'arrived'}
+                        <span class="badge badge-purple">客户已到达</span>
+                      {:else if booking.status === 'confirmed'}
+                        <span class="badge badge-info">待到店</span>
+                      {:else}
+                        <span class="badge badge-gray">未开始</span>
+                      {/if}
+                    </div>
+                    {#if booking.checkedInAt}
+                      <div class="text-sm text-gray-500 mt-1">{booking.checkedInBy} · {formatDateTime(booking.checkedInAt)}</div>
+                      <div class="text-xs text-green-600 mt-1">✓ 包厢已开始使用，实际开始时间：{formatTime(booking.actualStartTime)}</div>
+                    {:else if booking.status === 'arrived'}
+                      <div class="text-sm text-purple-600 mt-1">客户已到达门店，正在安排包厢</div>
+                    {:else if booking.status === 'confirmed'}
+                      <div class="text-sm text-blue-600 mt-1">预计到店时间：{formatDateTime(booking.bookedStartTime)}</div>
+                      <div class="mt-2 p-2 rounded bg-blue-50 text-xs">
+                        <span class="text-blue-600">📌 处理角色：</span>
+                        <span class="font-medium">楼面经理接待并确认到店</span>
+                      </div>
+                    {:else}
+                      <div class="text-sm text-gray-400 mt-1">等待预订确认完成</div>
+                    {/if}
+                  </div>
                 </div>
-                {#if booking.checkedInAt}
-                  <span class="badge badge-success">已完成</span>
-                {:else if booking.status === 'arrived'}
-                  <span class="badge badge-info">已到达</span>
-                {:else if booking.status === 'confirmed'}
-                  <span class="badge badge-gray">待到店</span>
-                {:else}
-                  <span class="badge badge-gray">未开始</span>
-                {/if}
-              </div>
-              
-              <div class="flex items-center gap-4">
-                <div class="w-8 h-8 rounded-full {booking.status === 'in_use' ? 'bg-yellow-100 text-yellow-600' : booking.status === 'completed' ? 'bg-green-100 text-green-600' : 'bg-gray-100 text-gray-400'} flex items-center justify-center font-medium text-sm">4</div>
-                <div class="flex-1">
-                  <div class="font-medium">结账完成</div>
-                  {#if booking.completedAt}
-                    <div class="text-sm text-gray-500">{booking.completedBy} · {formatDateTime(booking.completedAt)}</div>
-                  {:else}
-                    <div class="text-sm text-gray-500">等待使用结束</div>
-                  {/if}
+
+                <div class="relative flex gap-4">
+                  <div class="w-8 h-8 rounded-full {booking.status === 'in_use' ? 'bg-yellow-500' : booking.completedAt ? 'bg-green-500' : 'bg-gray-300'} flex items-center justify-center text-white font-medium text-sm z-10 flex-shrink-0">4</div>
+                  <div class="flex-1 pt-1">
+                    <div class="flex items-center justify-between">
+                      <div class="font-medium text-gray-800">结账完成</div>
+                      {#if booking.completedAt}
+                        <span class="badge badge-success">已完成</span>
+                      {:else if booking.status === 'in_use'}
+                        <span class="badge badge-info">使用中</span>
+                      {:else}
+                        <span class="badge badge-gray">未开始</span>
+                      {/if}
+                    </div>
+                    {#if booking.completedAt}
+                      <div class="text-sm text-gray-500 mt-1">{booking.completedBy} · {formatDateTime(booking.completedAt)}</div>
+                      <div class="text-xs text-gray-500 mt-1">
+                        实际时长：{booking.actualEndTime && booking.actualStartTime ? Math.round((new Date(booking.actualEndTime).getTime() - new Date(booking.actualStartTime).getTime()) / 60000) : '-'} 分钟
+                      </div>
+                    {:else if booking.status === 'in_use'}
+                      <div class="text-sm text-yellow-600 mt-1">预计结束时间：{formatTime(booking.bookedEndTime)}</div>
+                      <div class="mt-2 p-2 rounded bg-yellow-50 text-xs">
+                        <span class="text-yellow-600">📌 处理角色：</span>
+                        <span class="font-medium">吧台负责结账收款</span>
+                      </div>
+                    {:else}
+                      <div class="text-sm text-gray-400 mt-1">等待客户到店使用</div>
+                    {/if}
+                  </div>
                 </div>
-                {#if booking.completedAt}
-                  <span class="badge badge-success">已完成</span>
-                {:else if booking.status === 'in_use'}
-                  <span class="badge badge-info">使用中</span>
-                {:else}
-                  <span class="badge badge-gray">未开始</span>
-                {/if}
               </div>
             </div>
           </div>
+
+          {#if booking.checkedInAt}
+            <div class="card border-green-200 bg-green-50">
+              <div class="p-4 border-b border-green-200">
+                <h3 class="font-semibold text-green-800 flex items-center gap-2">
+                  <span>📋</span> 到店确认回看
+                </h3>
+              </div>
+              <div class="p-4 space-y-3">
+                <div class="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <span class="text-gray-500">预订时间</span>
+                    <div class="font-medium mt-1">{formatDateTime(booking.bookedStartTime)} - {formatTime(booking.bookedEndTime)}</div>
+                  </div>
+                  <div>
+                    <span class="text-gray-500">实际到店</span>
+                    <div class="font-medium mt-1 text-green-600">{formatDateTime(booking.checkedInAt)}</div>
+                  </div>
+                  <div>
+                    <span class="text-gray-500">确认人</span>
+                    <div class="font-medium mt-1">{booking.checkedInBy}</div>
+                  </div>
+                  <div>
+                    <span class="text-gray-500">包厢</span>
+                    <div class="font-medium mt-1">{booking.roomNo} ({roomTypeNames[booking.roomType]})</div>
+                  </div>
+                </div>
+                {#if booking.notes.filter(n => n.type === 'checkin').length > 0}
+                  <div class="mt-3 pt-3 border-t border-green-200">
+                    <div class="text-xs text-gray-500 mb-2">到店备注</div>
+                    {#each booking.notes.filter(n => n.type === 'checkin') as note}
+                      <div class="text-sm text-gray-700 bg-white rounded p-2">
+                        {note.content}
+                        <div class="text-xs text-gray-400 mt-1">{note.createdBy} · {formatDateTime(note.createdAt)}</div>
+                      </div>
+                    {/each}
+                  </div>
+                {/if}
+              </div>
+            </div>
+          {/if}
           
           {#if booking.notes.length > 0}
             <div class="card">
@@ -1249,16 +1402,15 @@
                   <span class="text-blue-600">¥{drink.price}</span>
                 </div>
                 <div class="text-xs text-gray-500 mt-1">{drink.category} · 库存{drink.stock}{drink.unit}</div>
-                {#const selected = selectedDrinks.find(d => d.drinkId === drink.id)}
-                {#if selected}
+                {#if getSelectedDrink(drink.id)}
                   <div class="mt-2 flex items-center justify-between">
                     <button class="btn btn-secondary text-xs py-0.5 px-2" 
-                            onclick={(e) => { e.stopPropagation(); updateDrinkQuantity(drink.id, selected.quantity - 1); }}>
+                            onclick={(e) => { e.stopPropagation(); updateDrinkQuantity(drink.id, (getSelectedDrink(drink.id)?.quantity || 1) - 1); }}>
                       -
                     </button>
-                    <span class="font-medium">{selected.quantity}</span>
+                    <span class="font-medium">{getSelectedDrink(drink.id)?.quantity}</span>
                     <button class="btn btn-secondary text-xs py-0.5 px-2"
-                            onclick={(e) => { e.stopPropagation(); updateDrinkQuantity(drink.id, selected.quantity + 1); }}>
+                            onclick={(e) => { e.stopPropagation(); updateDrinkQuantity(drink.id, (getSelectedDrink(drink.id)?.quantity || 1) + 1); }}>
                       +
                     </button>
                     <button class="text-red-500 text-xs"

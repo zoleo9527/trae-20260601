@@ -1,4 +1,4 @@
-import type { Booking, Room, Member, DrinkItem, User, TodoItem, IssueRecord, Note, RechargeRecord, RejectionType, UserRole } from '../types';
+import type { Booking, Room, Member, DrinkItem, User, TodoItem, IssueRecord, Note, RechargeRecord, RejectionType, UserRole, DrinkOrderItem, DrinkOrderStatus } from '../types';
 
 const currentUser: User = {
   id: 'user-001',
