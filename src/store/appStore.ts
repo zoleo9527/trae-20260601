@@ -13,9 +13,20 @@ interface AppState {
   updateCase: (id: string, updates: Partial<ReturnCase>) => void;
   updateRecallCustomer: (recallId: string, customerId: string, updates: Partial<RecallTask['customers'][0]>) => void;
   updateReinspection: (caseId: string, updates: Partial<Reinspection>) => void;
+  createRecallFromCase: (caseId: string) => void;
 }
 
-export const useAppStore = create<AppState>((set) => ({
+const mockContacts: Record<string, { contact: string; phone: string }> = {
+  '北京鑫源餐饮有限公司': { contact: '张经理', phone: '138****1234' },
+  '天津美食城': { contact: '李总', phone: '139****5678' },
+  '上海鲜天下食品有限公司': { contact: '周经理', phone: '138****5678' },
+  '杭州杭帮菜餐饮': { contact: '吴采购', phone: '139****1234' },
+  '南京金陵饭店': { contact: '郑总厨', phone: '137****9876' },
+  '广州好味道连锁餐饮': { contact: '黄店长', phone: '136****4321' },
+  '深圳粤菜馆联盟': { contact: '陈会长', phone: '135****8765' },
+};
+
+export const useAppStore = create<AppState>((set, get) => ({
   cases: mockCases,
   traces: mockTraces,
   reinspections: mockReinspections,
@@ -44,4 +55,48 @@ export const useAppStore = create<AppState>((set) => ({
       [caseId]: { ...state.reinspections[caseId], ...updates },
     },
   })),
+  createRecallFromCase: (caseId) => {
+    const state = get();
+    const caseItem = state.cases.find((c) => c.id === caseId);
+    if (!caseItem) return;
+
+    const existingRecall = state.recalls.find((r) => r.caseId === caseId);
+    if (existingRecall) return;
+
+    const trace = state.traces[caseItem.batchNo];
+    if (!trace) return;
+
+    const now = new Date().toISOString().slice(0, 19).replace('T', ' ');
+
+    const customers = trace.coldStorage.outRecords.map((record, index) => {
+      const contactInfo = mockContacts[record.customerName] || { contact: '联系人', phone: '138****0000' };
+      return {
+        id: `cust-${Date.now()}-${index}`,
+        customerName: record.customerName,
+        contact: contactInfo.contact,
+        phone: contactInfo.phone,
+        shippedQuantity: record.quantity,
+        shippedDate: record.outTime.slice(0, 10),
+        unit: trace.coldStorage.unit,
+        notifyStatus: 'pending' as const,
+        remark: '',
+      };
+    });
+
+    const newRecall: RecallTask = {
+      id: `recall-${Date.now()}`,
+      caseId: caseItem.id,
+      caseNo: caseItem.caseNo,
+      productName: caseItem.productName,
+      batchNo: caseItem.batchNo,
+      status: 'notifying',
+      createdAt: now,
+      reason: caseItem.reasonDetail || '该批次产品存在质量问题，启动产品召回',
+      customers,
+    };
+
+    set((state) => ({
+      recalls: [...state.recalls, newRecall],
+    }));
+  },
 }));

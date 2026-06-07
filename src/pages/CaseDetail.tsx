@@ -15,11 +15,12 @@ import { useAppStore } from '../store/appStore';
 export function CaseDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { cases, reinspections, traces } = useAppStore();
+  const { cases, reinspections, traces, recalls } = useAppStore();
 
   const currentCase = cases.find((c) => c.id === id);
   const reinspect = reinspections[id || ''];
   const trace = currentCase?.batchNo ? traces[currentCase.batchNo] : null;
+  const relatedRecall = recalls.find((r) => r.caseId === id);
 
   if (!currentCase) {
     return (
@@ -258,12 +259,12 @@ export function CaseDetail() {
             <Timeline items={timelineItems} />
           </div>
 
-          {currentCase.status === 'recalling' && (
+          {currentCase.status === 'recalling' && relatedRecall && (
             <Link
               to="/recalls"
               className="block bg-red-50 border border-red-200 rounded-lg p-5 hover:bg-red-100/50 transition-colors"
             >
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 mb-4">
                 <div className="p-2 bg-red-100 text-red-600 rounded-lg">
                   <AlertTriangle className="w-5 h-5" />
                 </div>
@@ -272,12 +273,30 @@ export function CaseDetail() {
                   <div className="text-sm text-red-600">点击查看召回进度 →</div>
                 </div>
               </div>
+              <div className="grid grid-cols-3 gap-2 pt-3 border-t border-red-200/50">
+                <div className="text-center">
+                  <div className="text-xl font-bold text-red-700">{relatedRecall.customers.length}</div>
+                  <div className="text-xs text-red-600">涉及客户</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-xl font-bold text-amber-600">
+                    {relatedRecall.customers.filter((c) => c.notifyStatus === 'returned').length}
+                  </div>
+                  <div className="text-xs text-red-600">已退回</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-xl font-bold text-blue-600">
+                    {relatedRecall.customers.filter((c) => c.notifyStatus !== 'pending').length}
+                  </div>
+                  <div className="text-xs text-red-600">已通知</div>
+                </div>
+              </div>
             </Link>
           )}
 
           {currentCase.status === 'closed' && (
             <div className="bg-green-50 border border-green-200 rounded-lg p-5">
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 mb-3">
                 <div className="p-2 bg-green-100 text-green-600 rounded-lg">
                   <CheckCircle className="w-5 h-5" />
                 </div>
@@ -285,6 +304,22 @@ export function CaseDetail() {
                   <div className="font-semibold text-green-700">案件已关闭</div>
                   <div className="text-sm text-green-600">所有流程已处理完毕</div>
                 </div>
+              </div>
+              <div className="pt-3 border-t border-green-200/50 space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span className="text-green-600">关闭人：</span>
+                  <span className="text-green-800 font-medium">{currentCase.closedBy}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-green-600">关闭时间：</span>
+                  <span className="text-green-800 font-medium">{currentCase.closedAt}</span>
+                </div>
+                {currentCase.priceAdjustment !== undefined && (
+                  <div className="flex justify-between text-sm pt-2 mt-2 border-t border-green-200/50">
+                    <span className="text-green-600">补偿金额：</span>
+                    <span className="text-amber-600 font-bold">¥ {currentCase.priceAdjustment}</span>
+                  </div>
+                )}
               </div>
             </div>
           )}

@@ -9,10 +9,11 @@ import type { ConclusionType, PhotoItem } from '../types';
 export function Reinspection() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { cases, reinspections, updateReinspection, updateCase } = useAppStore();
+  const { cases, reinspections, traces, updateReinspection, updateCase, createRecallFromCase } = useAppStore();
 
   const currentCase = cases.find((c) => c.id === id);
   const existingReinspect = reinspections[id || ''];
+  const trace = currentCase?.batchNo ? traces[currentCase.batchNo] : null;
 
   const [conclusion, setConclusion] = useState<ConclusionType>(
     existingReinspect?.conclusion || 'false_alarm'
@@ -28,32 +29,52 @@ export function Reinspection() {
   const [remainingStock, setRemainingStock] = useState(
     existingReinspect?.stockConfirmation?.remainingStock || 0
   );
+  const [priceAdjustment, setPriceAdjustment] = useState<number>(
+    currentCase?.priceAdjustment || 0
+  );
 
   const handleSave = () => {
-    if (!id) return;
+    if (!id || !currentCase) return;
+
+    const now = new Date().toISOString().slice(0, 19).replace('T', ' ');
+
     updateReinspection(id, {
       inspector: '张质检',
-      inspectTime: new Date().toISOString().slice(0, 19).replace('T', ' '),
+      inspectTime: now,
       photos,
       conclusion,
       remark,
       productionSupplement: {
-        teamLeader: currentCase?.batchNo === 'B2026052803' ? '王建国' : '李明华',
-        supplementTime: new Date().toISOString().slice(0, 19).replace('T', ' '),
+        teamLeader: trace?.production.teamLeader || '李明华',
+        supplementTime: now,
         content: productionContent,
       },
       stockConfirmation: {
         warehouseKeeper: '陈库管',
-        confirmTime: new Date().toISOString().slice(0, 19).replace('T', ' '),
+        confirmTime: now,
         remainingStock,
         remark: stockRemark,
       },
     });
-    updateCase(id, {
+
+    const caseUpdates: Partial<typeof currentCase> = {
       conclusion,
       conclusionRemark: remark,
-      status: conclusion === 'quality_issue' ? 'recalling' : 'processing',
-    });
+    };
+
+    if (conclusion === 'quality_issue') {
+      caseUpdates.status = 'recalling';
+      createRecallFromCase(currentCase.id);
+    } else {
+      caseUpdates.status = 'closed';
+      caseUpdates.closedAt = now;
+      caseUpdates.closedBy = '李主管';
+      if (conclusion === 'price_adjustment') {
+        caseUpdates.priceAdjustment = priceAdjustment;
+      }
+    }
+
+    updateCase(id, caseUpdates);
     navigate(`/return/${id}`);
   };
 
@@ -159,6 +180,26 @@ export function Reinspection() {
               className="w-full px-4 py-2.5 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-shadow resize-none"
             />
           </div>
+
+          {conclusion === 'price_adjustment' && (
+            <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg">
+              <label className="block text-sm font-medium text-amber-800 mb-2">
+                补偿金额 (元)
+              </label>
+              <input
+                type="number"
+                value={priceAdjustment}
+                onChange={(e) => setPriceAdjustment(Number(e.target.value))}
+                min="0"
+                step="0.01"
+                placeholder="请输入补偿金额"
+                className="w-full px-4 py-2.5 border border-amber-300 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500 transition-shadow bg-white"
+              />
+              <p className="text-xs text-amber-600 mt-1.5">
+                请填写与客户协商一致的差价补偿金额
+              </p>
+            </div>
+          )}
         </div>
       </div>
 
