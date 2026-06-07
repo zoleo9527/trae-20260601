@@ -1,491 +1,690 @@
-import type { ConsumptionRecord, Technician, User, TodoItem, IssueRecord, IssueType } from '../types';
+import type { Booking, Room, Member, DrinkItem, User, TodoItem, IssueRecord, Note, RechargeRecord, RejectionType, UserRole } from '../types';
 
 const currentUser: User = {
   id: 'user-001',
-  name: '张经理',
+  name: '系统管理员',
   role: 'admin'
 };
 
-const technicians: Technician[] = [
-  { id: 'tech-001', name: '李小红', no: '008', status: 'available', skills: ['足疗', '推拿', 'SPA'] },
-  { id: 'tech-002', name: '王美丽', no: '012', status: 'busy', skills: ['推拿', '油压'] },
-  { id: 'tech-003', name: '张芳', no: '016', status: 'available', skills: ['足疗', '采耳'] },
-  { id: 'tech-004', name: '刘燕', no: '023', status: 'rest', skills: ['SPA', '油压'] },
-  { id: 'tech-005', name: '陈静', no: '028', status: 'available', skills: ['推拿', '足疗', '采耳'] }
+const rooms: Room[] = [
+  { id: 'room-001', roomNo: '101', type: 'mini', capacity: 2, status: 'available', hourlyRate: 58, features: ['点歌系统', '空调'] },
+  { id: 'room-002', roomNo: '102', type: 'small', capacity: 4, status: 'occupied', hourlyRate: 88, features: ['点歌系统', '空调', '沙发'] },
+  { id: 'room-003', roomNo: '103', type: 'small', capacity: 4, status: 'reserved', hourlyRate: 88, features: ['点歌系统', '空调', '沙发'] },
+  { id: 'room-004', roomNo: '201', type: 'medium', capacity: 8, status: 'available', hourlyRate: 158, features: ['点歌系统', '空调', '沙发', '茶几'] },
+  { id: 'room-005', roomNo: '202', type: 'medium', capacity: 8, status: 'cleaning', hourlyRate: 158, features: ['点歌系统', '空调', '沙发', '茶几'] },
+  { id: 'room-006', roomNo: '301', type: 'large', capacity: 15, status: 'available', hourlyRate: 258, features: ['点歌系统', '空调', '沙发', '茶几', '舞池'] },
+  { id: 'room-007', roomNo: 'VIP-01', type: 'vip', capacity: 20, status: 'maintenance', hourlyRate: 388, features: ['点歌系统', '空调', '真皮沙发', '独立卫生间', '茶水服务'] },
+  { id: 'room-008', roomNo: 'VIP-02', type: 'luxury', capacity: 30, status: 'available', hourlyRate: 688, features: ['点歌系统', '空调', '真皮沙发', '独立卫生间', '茶水服务', 'DJ台'] },
+];
+
+const members: Member[] = [
+  { id: 'member-001', name: '张伟', phone: '13800138001', level: 'gold', balance: 2580, totalRecharge: 10000, points: 5680, createdAt: new Date('2025-06-15'), lastVisitAt: new Date('2026-06-01') },
+  { id: 'member-002', name: '李娜', phone: '13800138002', level: 'silver', balance: 860, totalRecharge: 3000, points: 1240, createdAt: new Date('2026-01-20'), lastVisitAt: new Date('2026-06-05') },
+  { id: 'member-003', name: '王强', phone: '13800138003', level: 'diamond', balance: 8800, totalRecharge: 50000, points: 32500, createdAt: new Date('2024-12-01'), lastVisitAt: new Date('2026-06-06') },
+  { id: 'member-004', name: '刘芳', phone: '13800138004', level: 'normal', balance: 200, totalRecharge: 500, points: 180, createdAt: new Date('2026-05-10') },
+];
+
+const drinkItems: DrinkItem[] = [
+  { id: 'drink-001', name: '青岛啤酒', category: '啤酒', price: 18, stock: 120, unit: '瓶' },
+  { id: 'drink-002', name: '百威啤酒', category: '啤酒', price: 25, stock: 80, unit: '瓶' },
+  { id: 'drink-003', name: '芝华士12年', category: '洋酒', price: 688, stock: 25, unit: '瓶' },
+  { id: 'drink-004', name: '可乐', category: '软饮', price: 12, stock: 200, unit: '罐' },
+  { id: 'drink-005', name: '雪碧', category: '软饮', price: 12, stock: 180, unit: '罐' },
+  { id: 'drink-006', name: '绿茶', category: '软饮', price: 15, stock: 150, unit: '瓶' },
+  { id: 'drink-007', name: '果盘（大）', category: '小吃', price: 88, stock: 30, unit: '份' },
+  { id: 'drink-008', name: '爆米花', category: '小吃', price: 28, stock: 50, unit: '份' },
+  { id: 'drink-009', name: '花生', category: '小吃', price: 18, stock: 60, unit: '份' },
 ];
 
 const now = new Date();
 const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
-const mockRecords: ConsumptionRecord[] = [
+const mockBookings: Booking[] = [
   {
-    id: 'REC-20260607-001',
-    customerName: '王先生',
-    handTagNo: 'A023',
-    handTagStatus: 'normal',
-    lockerNo: 'L-105',
-    lockerStatus: 'normal',
-    checkinTime: new Date(today.getTime() + 9 * 60 * 60 * 1000),
-    checkoutTime: null,
-    status: 'scheduling',
-    totalAmount: 588,
-    paidAmount: 0,
-    schedules: [
-      {
-        id: 'sch-001',
-        technicianId: 'tech-001',
-        technicianName: '李小红',
-        technicianNo: '008',
-        serviceItem: '经典足疗（90分钟）',
-        startTime: null,
-        endTime: null,
-        duration: 90,
-        roomNo: '302',
-        notes: '客户指定要008号技师，之前来过几次',
-        issues: [],
-        status: 'pending'
-      }
-    ],
-    serviceRecords: [],
+    id: 'booking-001',
+    bookingNo: 'KTV-20260607-001',
+    customerName: '陈先生',
+    customerPhone: '13900139001',
+    memberId: 'member-003',
+    memberName: '王强',
+    memberLevel: 'diamond',
+    roomId: 'room-006',
+    roomNo: '301',
+    roomType: 'large',
+    bookedStartTime: new Date(today.getTime() + 14 * 60 * 60 * 1000),
+    bookedEndTime: new Date(today.getTime() + 17 * 60 * 60 * 1000),
+    status: 'pending',
+    numberOfPeople: 12,
+    deposit: 300,
+    hourlyRate: 258,
+    roomAmount: 774,
+    drinkOrders: [],
+    totalDrinkAmount: 0,
+    totalAmount: 774,
+    paidAmount: 300,
+    useMemberBalance: 0,
     notes: [
       {
         id: 'note-001',
-        content: '前台登记：客户第一次来，手牌A023，储物柜L-105',
-        createdBy: '前台小李',
-        createdByRole: 'reception',
-        createdAt: new Date(today.getTime() + 9 * 60 * 60 * 1000),
-        type: 'general'
-      },
-      {
-        id: 'note-002',
-        content: '客户要求安排008号技师，说上次体验很好',
-        createdBy: '楼层主管王',
-        createdByRole: 'floor_supervisor',
-        createdAt: new Date(today.getTime() + 9 * 60 * 60 * 1000 + 5 * 60000),
-        type: 'scheduling'
+        content: '客户预订大包301，晚上8点到11点，12人左右。钻石会员王强帮忙预订的。',
+        createdBy: '预订员小李',
+        createdByRole: 'booking_clerk',
+        createdAt: new Date(today.getTime() + 10 * 60 * 60 * 1000),
+        type: 'booking'
       }
     ],
     issues: [],
-    rejectionReason: null,
-    attachments: [],
-    createdBy: '前台小李',
-    createdAt: new Date(today.getTime() + 9 * 60 * 60 * 1000),
-    updatedAt: new Date(today.getTime() + 9 * 60 * 60 * 1000 + 5 * 60000)
+    createdBy: '预订员小李',
+    createdAt: new Date(today.getTime() + 10 * 60 * 60 * 1000),
+    updatedAt: new Date(today.getTime() + 10 * 60 * 60 * 1000)
   },
   {
-    id: 'REC-20260607-002',
-    customerName: '张女士',
-    handTagNo: 'B012',
-    handTagStatus: 'lost',
-    handTagLostReason: '客户在休息区休息时手牌遗失，疑似被其他客人误拿',
-    handTagLostAt: new Date(today.getTime() + 9 * 60 * 60 * 1000 + 30 * 60000),
-    lockerNo: 'L-208',
-    lockerStatus: 'complaint',
-    lockerComplaintReason: '储物柜有异味，客户投诉，经检查是清洁不彻底残留清洁剂味道',
-    lockerComplaintAt: new Date(today.getTime() + 8 * 60 * 60 * 1000 + 20 * 60000),
-    checkinTime: new Date(today.getTime() + 8 * 60 * 60 * 1000),
-    checkoutTime: null,
-    status: 'in_service',
-    totalAmount: 1288,
+    id: 'booking-002',
+    bookingNo: 'KTV-20260607-002',
+    customerName: '林小姐',
+    customerPhone: '13900139002',
+    roomId: 'room-003',
+    roomNo: '103',
+    roomType: 'small',
+    bookedStartTime: new Date(today.getTime() + 15 * 60 * 60 * 1000),
+    bookedEndTime: new Date(today.getTime() + 18 * 60 * 60 * 1000),
+    status: 'supplement_required',
+    supplementRequired: '客户联系电话不完整，需要补充确认人数和是否有会员',
+    numberOfPeople: 0,
+    deposit: 0,
+    hourlyRate: 88,
+    roomAmount: 264,
+    drinkOrders: [],
+    totalDrinkAmount: 0,
+    totalAmount: 264,
     paidAmount: 0,
-    schedules: [
-      {
-        id: 'sch-002',
-        technicianId: 'tech-002',
-        technicianName: '王美丽',
-        technicianNo: '012',
-        serviceItem: '全身SPA（120分钟）',
-        startTime: new Date(today.getTime() + 10 * 60 * 60 * 1000),
-        endTime: null,
-        duration: 120,
-        roomNo: '501',
-        notes: '客户对力度敏感，需要轻一点。客户反映上次力度太重，这次特别交代要012号技师轻柔一点',
-        issues: [
-          {
-            id: 'issue-001',
-            type: 'scheduling_conflict',
-            reason: '最初安排的008号技师临时被VIP客户点走，与张女士的排班产生冲突',
-            supplementaryNotes: '已与客户沟通，客户理解并同意更换为012号技师，赠送果盘一份作为补偿',
-            createdBy: '楼层主管王',
-            createdByRole: 'floor_supervisor',
-            createdAt: new Date(today.getTime() + 9 * 60 * 60 * 1000 + 20 * 60000),
-            status: 'resolved',
-            resolvedAt: new Date(today.getTime() + 9 * 60 * 60 * 1000 + 45 * 60000),
-            resolvedBy: '楼层主管王',
-            relatedScheduleId: 'sch-002'
-          }
-        ],
-        status: 'in_progress'
-      }
-    ],
-    serviceRecords: [
-      {
-        id: 'srv-001',
-        scheduleId: 'sch-002',
-        startTime: new Date(today.getTime() + 10 * 60 * 60 * 1000),
-        endTime: null,
-        actualDuration: null,
-        completed: false,
-        notes: '',
-        issues: []
-      }
-    ],
+    useMemberBalance: 0,
     notes: [
       {
-        id: 'note-003',
-        content: '前台登记：VIP客户，手牌B012',
-        createdBy: '前台小李',
-        createdByRole: 'reception',
-        createdAt: new Date(today.getTime() + 8 * 60 * 60 * 1000),
-        type: 'general'
+        id: 'note-002',
+        content: '客户电话预订小包103，晚上9点到12点。但只留了手机号，没说具体人数，也没说是不是会员。',
+        createdBy: '预订员小李',
+        createdByRole: 'booking_clerk',
+        createdAt: new Date(today.getTime() + 11 * 60 * 60 * 1000),
+        type: 'booking'
       },
       {
+        id: 'note-003',
+        content: '信息不全，需要补充确认人数和会员信息才能确认预订。已标记为待补录。',
+        createdBy: '楼面经理张',
+        createdByRole: 'floor_manager',
+        createdAt: new Date(today.getTime() + 11 * 60 * 60 * 1000 + 30 * 60000),
+        type: 'supplement',
+        relatedTo: 'supplement-info'
+      }
+    ],
+    issues: [
+      {
+        id: 'issue-001',
+        type: 'booking_rejection',
+        reason: '客户联系信息不完整，缺少人数确认',
+        supplementaryNotes: '需要回电确认具体人数和是否使用会员',
+        createdBy: '楼面经理张',
+        createdByRole: 'floor_manager',
+        createdAt: new Date(today.getTime() + 11 * 60 * 60 * 1000 + 30 * 60000),
+        status: 'open',
+        relatedBookingId: 'booking-002'
+      }
+    ],
+    createdBy: '预订员小李',
+    createdAt: new Date(today.getTime() + 11 * 60 * 60 * 1000),
+    updatedAt: new Date(today.getTime() + 11 * 60 * 60 * 1000 + 30 * 60000)
+  },
+  {
+    id: 'booking-003',
+    bookingNo: 'KTV-20260607-003',
+    customerName: '赵先生',
+    customerPhone: '13900139003',
+    memberId: 'member-001',
+    memberName: '张伟',
+    memberLevel: 'gold',
+    roomId: 'room-002',
+    roomNo: '102',
+    roomType: 'small',
+    bookedStartTime: new Date(today.getTime() + 12 * 60 * 60 * 1000),
+    bookedEndTime: new Date(today.getTime() + 16 * 60 * 60 * 1000),
+    actualStartTime: new Date(today.getTime() + 12 * 60 * 60 * 1000 + 10 * 60000),
+    status: 'in_use',
+    numberOfPeople: 3,
+    deposit: 100,
+    hourlyRate: 88,
+    roomAmount: 352,
+    drinkOrders: [
+      {
+        id: 'drink-order-001',
+        bookingId: 'booking-003',
+        items: [
+          { drinkId: 'drink-002', drinkName: '百威啤酒', quantity: 6, price: 25, subtotal: 150 },
+          { drinkId: 'drink-007', drinkName: '果盘（大）', quantity: 1, price: 88, subtotal: 88 },
+          { drinkId: 'drink-008', drinkName: '爆米花', quantity: 2, price: 28, subtotal: 56 }
+        ],
+        totalAmount: 294,
+        status: 'delivered',
+        createdBy: '吧台小王',
+        createdAt: new Date(today.getTime() + 12 * 60 * 60 * 1000 + 30 * 60000),
+        deliveredAt: new Date(today.getTime() + 12 * 60 * 60 * 1000 + 45 * 60000)
+      }
+    ],
+    totalDrinkAmount: 294,
+    totalAmount: 646,
+    paidAmount: 100,
+    useMemberBalance: 0,
+    notes: [
+      {
         id: 'note-004',
-        content: '储物柜有异味，客户投诉，已通知保洁去处理。原因：清洁不彻底残留清洁剂味道',
-        createdBy: '楼层主管王',
-        createdByRole: 'floor_supervisor',
-        createdAt: new Date(today.getTime() + 8 * 60 * 60 * 1000 + 20 * 60000),
-        type: 'locker',
-        relatedTo: 'locker-complaint'
+        content: '金卡会员张伟预订小包102，下午4点到8点，3人。已到店并开始使用。',
+        createdBy: '预订员小李',
+        createdByRole: 'booking_clerk',
+        createdAt: new Date(today.getTime() + 9 * 60 * 60 * 1000),
+        type: 'booking'
       },
       {
         id: 'note-005',
-        content: '客户手牌遗失，正在寻找。已安排临时手牌。原因：客户在休息区休息时手牌遗失，疑似被其他客人误拿',
-        createdBy: '前台小李',
-        createdByRole: 'reception',
-        createdAt: new Date(today.getTime() + 9 * 60 * 60 * 1000 + 30 * 60000),
-        type: 'hand_tag',
-        relatedTo: 'hand-tag-lost'
+        content: '客户已到店，16:10开始使用。确认是3人。',
+        createdBy: '楼面经理张',
+        createdByRole: 'floor_manager',
+        createdAt: new Date(today.getTime() + 12 * 60 * 60 * 1000 + 10 * 60000),
+        type: 'checkin'
       },
       {
         id: 'note-006',
-        content: '排班备注：客户反映上次力度太重，这次特别交代要012号技师轻柔一点。注意：之前安排的008号技师与VIP客户产生冲突，已更换并征得客户同意',
-        createdBy: '楼层主管王',
-        createdByRole: 'floor_supervisor',
-        createdAt: new Date(today.getTime() + 9 * 60 * 60 * 1000 + 45 * 60000),
-        type: 'scheduling',
-        relatedTo: 'sch-002'
+        content: '客户点了6瓶百威、一个大果盘、两份爆米花，已送到。',
+        createdBy: '吧台小王',
+        createdByRole: 'bar_staff',
+        createdAt: new Date(today.getTime() + 12 * 60 * 60 * 1000 + 45 * 60000),
+        type: 'drink'
+      }
+    ],
+    issues: [],
+    createdBy: '预订员小李',
+    createdAt: new Date(today.getTime() + 9 * 60 * 60 * 1000),
+    confirmedBy: '楼面经理张',
+    confirmedAt: new Date(today.getTime() + 9 * 60 * 60 * 1000 + 15 * 60000),
+    checkedInBy: '楼面经理张',
+    checkedInAt: new Date(today.getTime() + 12 * 60 * 60 * 1000 + 10 * 60000),
+    updatedAt: new Date(today.getTime() + 12 * 60 * 60 * 1000 + 45 * 60000)
+  },
+  {
+    id: 'booking-004',
+    bookingNo: 'KTV-20260607-004',
+    customerName: '周女士',
+    customerPhone: '13900139004',
+    memberId: 'member-002',
+    memberName: '李娜',
+    memberLevel: 'silver',
+    roomId: 'room-004',
+    roomNo: '201',
+    roomType: 'medium',
+    bookedStartTime: new Date(today.getTime() + 13 * 60 * 60 * 1000),
+    bookedEndTime: new Date(today.getTime() + 15 * 60 * 60 * 1000),
+    status: 'rejected',
+    rejectionReason: '客户预订的201包厢设备临时故障，无法使用。客户不同意更换其他包厢。',
+    numberOfPeople: 6,
+    deposit: 200,
+    hourlyRate: 158,
+    roomAmount: 316,
+    drinkOrders: [],
+    totalDrinkAmount: 0,
+    totalAmount: 316,
+    paidAmount: 200,
+    useMemberBalance: 0,
+    notes: [
+      {
+        id: 'note-007',
+        content: '银卡会员李娜帮朋友周女士预订中包201，下午5点到7点，6人。已付定金200元。',
+        createdBy: '预订员小李',
+        createdByRole: 'booking_clerk',
+        createdAt: new Date(today.getTime() + 8 * 60 * 60 * 1000),
+        type: 'booking'
+      },
+      {
+        id: 'note-008',
+        content: '201包厢点歌系统故障，需要维修。已联系客户更换包厢，但客户坚持要201，不同意其他包厢。',
+        createdBy: '楼面经理张',
+        createdByRole: 'floor_manager',
+        createdAt: new Date(today.getTime() + 10 * 60 * 60 * 1000),
+        type: 'issue',
+        relatedTo: 'room-004'
+      },
+      {
+        id: 'note-009',
+        content: '已驳回预订，原因：包厢设备故障，客户不同意更换。定金已原路退还。',
+        createdBy: '楼面经理张',
+        createdByRole: 'floor_manager',
+        createdAt: new Date(today.getTime() + 10 * 60 * 60 * 1000 + 30 * 60000),
+        type: 'rejection'
       }
     ],
     issues: [
       {
         id: 'issue-002',
-        type: 'hand_tag_lost',
-        reason: '客户在休息区休息时手牌遗失，疑似被其他客人误拿',
-        supplementaryNotes: '已安排临时手牌，正在广播寻找，如找不到将收取工本费50元',
-        createdBy: '前台小李',
-        createdByRole: 'reception',
-        createdAt: new Date(today.getTime() + 9 * 60 * 60 * 1000 + 30 * 60000),
-        status: 'open'
-      },
-      {
-        id: 'issue-003',
-        type: 'locker_complaint',
-        reason: '储物柜有异味，客户投诉，经检查是清洁不彻底残留清洁剂味道',
-        supplementaryNotes: '保洁已重新清洁并放置香薰，客户表示可以接受，已赠送免费饮料券作为补偿',
-        createdBy: '楼层主管王',
-        createdByRole: 'floor_supervisor',
-        createdAt: new Date(today.getTime() + 8 * 60 * 60 * 1000 + 20 * 60000),
-        status: 'resolved',
-        resolvedAt: new Date(today.getTime() + 8 * 60 * 60 * 1000 + 40 * 60000),
-        resolvedBy: '楼层主管王'
+        type: 'room_issue',
+        reason: '201包厢点歌系统故障',
+        supplementaryNotes: '已通知技术人员维修，预计明天可以恢复使用',
+        createdBy: '楼面经理张',
+        createdByRole: 'floor_manager',
+        createdAt: new Date(today.getTime() + 10 * 60 * 60 * 1000),
+        status: 'open',
+        relatedBookingId: 'booking-004'
       }
     ],
-    rejectionReason: null,
-    attachments: [],
-    createdBy: '前台小李',
+    createdBy: '预订员小李',
     createdAt: new Date(today.getTime() + 8 * 60 * 60 * 1000),
-    updatedAt: new Date(today.getTime() + 10 * 60 * 60 * 1000)
+    updatedAt: new Date(today.getTime() + 10 * 60 * 60 * 1000 + 30 * 60000)
   },
   {
-    id: 'REC-20260607-003',
-    customerName: '李先生',
-    handTagNo: 'A008',
-    handTagStatus: 'normal',
-    lockerNo: 'L-112',
-    lockerStatus: 'normal',
-    checkinTime: new Date(today.getTime() + 7 * 60 * 60 * 1000),
-    checkoutTime: null,
-    status: 'service_completed',
-    totalAmount: 886,
-    paidAmount: 0,
-    schedules: [
+    id: 'booking-005',
+    bookingNo: 'KTV-20260607-005',
+    customerName: '吴先生',
+    customerPhone: '13900139005',
+    roomId: 'room-001',
+    roomNo: '101',
+    roomType: 'mini',
+    bookedStartTime: new Date(today.getTime() + 10 * 60 * 60 * 1000),
+    bookedEndTime: new Date(today.getTime() + 12 * 60 * 60 * 1000),
+    actualStartTime: new Date(today.getTime() + 10 * 60 * 60 * 1000),
+    actualEndTime: new Date(today.getTime() + 12 * 60 * 60 * 1000 + 15 * 60000),
+    status: 'completed',
+    numberOfPeople: 2,
+    deposit: 50,
+    hourlyRate: 58,
+    roomAmount: 116,
+    drinkOrders: [
       {
-        id: 'sch-003',
-        technicianId: 'tech-003',
-        technicianName: '张芳',
-        technicianNo: '016',
-        serviceItem: '中式推拿（60分钟）',
-        startTime: new Date(today.getTime() + 8 * 60 * 60 * 1000),
-        endTime: new Date(today.getTime() + 9 * 60 * 60 * 1000),
-        duration: 60,
-        roomNo: '205',
-        notes: '客户腰部不好，重点照顾',
-        issues: [],
-        status: 'completed'
-      },
-      {
-        id: 'sch-004',
-        technicianId: 'tech-005',
-        technicianName: '陈静',
-        technicianNo: '028',
-        serviceItem: '采耳（30分钟）',
-        startTime: new Date(today.getTime() + 9 * 60 * 60 * 1000 + 15 * 60000),
-        endTime: new Date(today.getTime() + 9 * 60 * 60 * 1000 + 45 * 60000),
-        duration: 30,
-        roomNo: '205',
-        notes: '追加项目',
-        issues: [],
-        status: 'completed'
+        id: 'drink-order-002',
+        bookingId: 'booking-005',
+        items: [
+          { drinkId: 'drink-004', drinkName: '可乐', quantity: 2, price: 12, subtotal: 24 },
+          { drinkId: 'drink-009', drinkName: '花生', quantity: 1, price: 18, subtotal: 18 }
+        ],
+        totalAmount: 42,
+        status: 'delivered',
+        createdBy: '吧台小王',
+        createdAt: new Date(today.getTime() + 10 * 60 * 60 * 1000 + 15 * 60000),
+        deliveredAt: new Date(today.getTime() + 10 * 60 * 60 * 1000 + 25 * 60000)
       }
     ],
-    serviceRecords: [
-      {
-        id: 'srv-002',
-        scheduleId: 'sch-003',
-        startTime: new Date(today.getTime() + 8 * 60 * 60 * 1000),
-        endTime: new Date(today.getTime() + 9 * 60 * 60 * 1000 + 5 * 60000),
-        actualDuration: 65,
-        completed: true,
-        notes: '客户满意，说按完腰舒服多了',
-        issues: []
-      },
-      {
-        id: 'srv-003',
-        scheduleId: 'sch-004',
-        startTime: new Date(today.getTime() + 9 * 60 * 60 * 1000 + 15 * 60000),
-        endTime: new Date(today.getTime() + 9 * 60 * 60 * 1000 + 42 * 60000),
-        actualDuration: 27,
-        completed: true,
-        notes: '',
-        issues: []
-      }
-    ],
+    totalDrinkAmount: 42,
+    totalAmount: 158,
+    paidAmount: 158,
+    useMemberBalance: 0,
     notes: [
-      {
-        id: 'note-007',
-        content: '前台登记：老客户，手牌A008',
-        createdBy: '前台小李',
-        createdByRole: 'reception',
-        createdAt: new Date(today.getTime() + 7 * 60 * 60 * 1000),
-        type: 'general'
-      },
-      {
-        id: 'note-008',
-        content: '客户说最近腰间盘突出犯了，安排张芳，她对腰部护理有经验',
-        createdBy: '楼层主管王',
-        createdByRole: 'floor_supervisor',
-        createdAt: new Date(today.getTime() + 7 * 60 * 60 * 1000 + 10 * 60000),
-        type: 'scheduling',
-        relatedTo: 'sch-003'
-      },
-      {
-        id: 'note-009',
-        content: '推拿做完后客户想加个采耳，已安排028号',
-        createdBy: '楼层主管王',
-        createdByRole: 'floor_supervisor',
-        createdAt: new Date(today.getTime() + 9 * 60 * 60 * 1000),
-        type: 'scheduling',
-        relatedTo: 'sch-004'
-      },
       {
         id: 'note-010',
-        content: '服务全部完成，客户对016号技师评价很高，说下次还点她',
-        createdBy: '楼层主管王',
-        createdByRole: 'floor_supervisor',
-        createdAt: new Date(today.getTime() + 9 * 60 * 60 * 1000 + 45 * 60000),
-        type: 'service'
-      }
-    ],
-    issues: [],
-    rejectionReason: null,
-    attachments: [],
-    createdBy: '前台小李',
-    createdAt: new Date(today.getTime() + 7 * 60 * 60 * 1000),
-    updatedAt: new Date(today.getTime() + 9 * 60 * 60 * 1000 + 45 * 60000)
-  },
-  {
-    id: 'REC-20260606-015',
-    customerName: '赵先生',
-    handTagNo: 'C003',
-    handTagStatus: 'returned',
-    lockerNo: 'L-305',
-    lockerStatus: 'normal',
-    checkinTime: new Date(today.getTime() - 24 * 60 * 60 * 1000 + 14 * 60 * 60 * 1000),
-    checkoutTime: new Date(today.getTime() - 24 * 60 * 60 * 1000 + 18 * 60 * 60 * 1000),
-    status: 'completed',
-    totalAmount: 1588,
-    paidAmount: 1588,
-    schedules: [
-      {
-        id: 'sch-005',
-        technicianId: 'tech-004',
-        technicianName: '刘燕',
-        technicianNo: '023',
-        serviceItem: '豪华套餐（180分钟）',
-        startTime: new Date(today.getTime() - 24 * 60 * 60 * 1000 + 15 * 60 * 60 * 1000),
-        endTime: new Date(today.getTime() - 24 * 60 * 60 * 1000 + 18 * 60 * 60 * 1000),
-        duration: 180,
-        roomNo: 'VIP-01',
-        notes: '生日优惠客户',
-        issues: [],
-        status: 'completed'
-      }
-    ],
-    serviceRecords: [
-      {
-        id: 'srv-004',
-        scheduleId: 'sch-005',
-        startTime: new Date(today.getTime() - 24 * 60 * 60 * 1000 + 15 * 60 * 60 * 1000),
-        endTime: new Date(today.getTime() - 24 * 60 * 60 * 1000 + 18 * 60 * 60 * 1000),
-        actualDuration: 180,
-        completed: true,
-        notes: '客户很满意，送了果盘',
-        issues: []
-      }
-    ],
-    notes: [
+        content: '散客吴先生，两人，迷你包101，下午2点到4点。',
+        createdBy: '预订员小李',
+        createdByRole: 'booking_clerk',
+        createdAt: new Date(today.getTime() + 9 * 60 * 60 * 1000 + 30 * 60000),
+        type: 'booking'
+      },
       {
         id: 'note-011',
-        content: '前台登记：生日当天来的，给了八折优惠',
-        createdBy: '前台小周',
-        createdByRole: 'reception',
-        createdAt: new Date(today.getTime() - 24 * 60 * 60 * 1000 + 14 * 60 * 60 * 1000),
-        type: 'general'
+        content: '客户已到店，准时开始。',
+        createdBy: '楼面经理张',
+        createdByRole: 'floor_manager',
+        createdAt: new Date(today.getTime() + 10 * 60 * 60 * 1000),
+        type: 'checkin'
       },
       {
         id: 'note-012',
-        content: '安排VIP包间，023号技师',
-        createdBy: '楼层主管王',
-        createdByRole: 'floor_supervisor',
-        createdAt: new Date(today.getTime() - 24 * 60 * 60 * 1000 + 14 * 60 * 60 * 1000 + 10 * 60000),
-        type: 'scheduling',
-        relatedTo: 'sch-005'
-      },
-      {
-        id: 'note-013',
-        content: '财务已收款，微信支付1588元',
-        createdBy: '财务刘',
-        createdByRole: 'finance',
-        createdAt: new Date(today.getTime() - 24 * 60 * 60 * 1000 + 18 * 60 * 60 * 1000),
+        content: '客户超时15分钟，已按规定加收半小时费用。已结账，微信支付。',
+        createdBy: '吧台小王',
+        createdByRole: 'bar_staff',
+        createdAt: new Date(today.getTime() + 12 * 60 * 60 * 1000 + 15 * 60000),
         type: 'general'
       }
     ],
     issues: [],
-    rejectionReason: null,
-    attachments: [],
-    createdBy: '前台小周',
+    createdBy: '预订员小李',
+    createdAt: new Date(today.getTime() + 9 * 60 * 60 * 1000 + 30 * 60000),
+    confirmedBy: '楼面经理张',
+    confirmedAt: new Date(today.getTime() + 9 * 60 * 60 * 1000 + 45 * 60000),
+    checkedInBy: '楼面经理张',
+    checkedInAt: new Date(today.getTime() + 10 * 60 * 60 * 1000),
+    completedBy: '吧台小王',
+    completedAt: new Date(today.getTime() + 12 * 60 * 60 * 1000 + 15 * 60000),
+    updatedAt: new Date(today.getTime() + 12 * 60 * 60 * 1000 + 15 * 60000)
+  },
+  {
+    id: 'booking-006',
+    bookingNo: 'KTV-20260606-012',
+    customerName: '郑总',
+    customerPhone: '13900139006',
+    memberId: 'member-003',
+    memberName: '王强',
+    memberLevel: 'diamond',
+    roomId: 'room-008',
+    roomNo: 'VIP-02',
+    roomType: 'luxury',
+    bookedStartTime: new Date(today.getTime() - 24 * 60 * 60 * 1000 + 19 * 60 * 60 * 1000),
+    bookedEndTime: new Date(today.getTime() - 24 * 60 * 60 * 1000 + 23 * 60 * 60 * 1000),
+    actualStartTime: new Date(today.getTime() - 24 * 60 * 60 * 1000 + 19 * 60 * 60 * 1000 + 20 * 60000),
+    actualEndTime: new Date(today.getTime() - 24 * 60 * 60 * 1000 + 23 * 60 * 60 * 1000 + 30 * 60000),
+    status: 'completed',
+    numberOfPeople: 25,
+    deposit: 1000,
+    hourlyRate: 688,
+    roomAmount: 2752,
+    drinkOrders: [
+      {
+        id: 'drink-order-003',
+        bookingId: 'booking-006',
+        items: [
+          { drinkId: 'drink-003', drinkName: '芝华士12年', quantity: 3, price: 688, subtotal: 2064 },
+          { drinkId: 'drink-002', drinkName: '百威啤酒', quantity: 24, price: 25, subtotal: 600 },
+          { drinkId: 'drink-007', drinkName: '果盘（大）', quantity: 3, price: 88, subtotal: 264 },
+          { drinkId: 'drink-008', drinkName: '爆米花', quantity: 5, price: 28, subtotal: 140 }
+        ],
+        totalAmount: 3068,
+        status: 'delivered',
+        createdBy: '吧台小王',
+        createdAt: new Date(today.getTime() - 24 * 60 * 60 * 1000 + 19 * 60 * 60 * 1000 + 30 * 60000),
+        deliveredAt: new Date(today.getTime() - 24 * 60 * 60 * 1000 + 20 * 60 * 60 * 1000),
+        notes: 'VIP客户，优先配送'
+      }
+    ],
+    totalDrinkAmount: 3068,
+    totalAmount: 5820,
+    paidAmount: 5820,
+    useMemberBalance: 5820,
+    notes: [
+      {
+        id: 'note-013',
+        content: '钻石会员王强帮郑总预订豪华VIP-02，晚上7点到11点，25人。已从会员卡扣除定金1000。',
+        createdBy: '预订员小李',
+        createdByRole: 'booking_clerk',
+        createdAt: new Date(today.getTime() - 24 * 60 * 60 * 1000 + 14 * 60 * 60 * 1000),
+        type: 'booking'
+      },
+      {
+        id: 'note-014',
+        content: '客户公司聚会，25人左右，已到店，7:20开始。',
+        createdBy: '楼面经理张',
+        createdByRole: 'floor_manager',
+        createdAt: new Date(today.getTime() - 24 * 60 * 60 * 1000 + 19 * 60 * 60 * 1000 + 20 * 60000),
+        type: 'checkin'
+      },
+      {
+        id: 'note-015',
+        content: '客户充值了10000元，赠送2000元。余额充足。',
+        createdBy: '吧台小王',
+        createdByRole: 'bar_staff',
+        createdAt: new Date(today.getTime() - 24 * 60 * 60 * 1000 + 20 * 60 * 60 * 1000),
+        type: 'member'
+      },
+      {
+        id: 'note-016',
+        content: '已结账，全部从会员卡余额扣除。客户很满意。',
+        createdBy: '吧台小王',
+        createdByRole: 'bar_staff',
+        createdAt: new Date(today.getTime() - 24 * 60 * 60 * 1000 + 23 * 60 * 60 * 1000 + 30 * 60000),
+        type: 'general'
+      }
+    ],
+    issues: [],
+    createdBy: '预订员小李',
     createdAt: new Date(today.getTime() - 24 * 60 * 60 * 1000 + 14 * 60 * 60 * 1000),
-    updatedAt: new Date(today.getTime() - 24 * 60 * 60 * 1000 + 18 * 60 * 60 * 1000)
+    confirmedBy: '楼面经理张',
+    confirmedAt: new Date(today.getTime() - 24 * 60 * 60 * 1000 + 14 * 60 * 60 * 1000 + 30 * 60000),
+    checkedInBy: '楼面经理张',
+    checkedInAt: new Date(today.getTime() - 24 * 60 * 60 * 1000 + 19 * 60 * 60 * 1000 + 20 * 60000),
+    completedBy: '吧台小王',
+    completedAt: new Date(today.getTime() - 24 * 60 * 60 * 1000 + 23 * 60 * 60 * 1000 + 30 * 60000),
+    updatedAt: new Date(today.getTime() - 24 * 60 * 60 * 1000 + 23 * 60 * 60 * 1000 + 30 * 60000)
+  },
+  {
+    id: 'booking-007',
+    bookingNo: 'KTV-20260607-007',
+    customerName: '孙先生',
+    customerPhone: '13900139007',
+    memberId: 'member-004',
+    memberName: '刘芳',
+    memberLevel: 'normal',
+    roomId: 'room-004',
+    roomNo: '201',
+    roomType: 'medium',
+    bookedStartTime: new Date(today.getTime() + 16 * 60 * 60 * 1000),
+    bookedEndTime: new Date(today.getTime() + 19 * 60 * 60 * 1000),
+    status: 'confirmed',
+    numberOfPeople: 6,
+    deposit: 200,
+    hourlyRate: 158,
+    roomAmount: 474,
+    drinkOrders: [],
+    totalDrinkAmount: 0,
+    totalAmount: 474,
+    paidAmount: 200,
+    useMemberBalance: 0,
+    notes: [
+      {
+        id: 'note-017',
+        content: '普通会员刘芳帮朋友孙先生预订中包201，晚上10点到凌晨1点，6人。已付定金。',
+        createdBy: '预订员小李',
+        createdByRole: 'booking_clerk',
+        createdAt: new Date(today.getTime() + 12 * 60 * 60 * 1000),
+        type: 'booking'
+      },
+      {
+        id: 'note-018',
+        content: '已确认预订，201包厢维修完成，可以正常使用。',
+        createdBy: '楼面经理张',
+        createdByRole: 'floor_manager',
+        createdAt: new Date(today.getTime() + 12 * 60 * 60 * 1000 + 20 * 60000),
+        type: 'booking'
+      }
+    ],
+    issues: [],
+    createdBy: '预订员小李',
+    createdAt: new Date(today.getTime() + 12 * 60 * 60 * 1000),
+    confirmedBy: '楼面经理张',
+    confirmedAt: new Date(today.getTime() + 12 * 60 * 60 * 1000 + 20 * 60000),
+    updatedAt: new Date(today.getTime() + 12 * 60 * 60 * 1000 + 20 * 60000)
+  },
+  {
+    id: 'booking-008',
+    bookingNo: 'KTV-20260607-008',
+    customerName: '黄先生',
+    customerPhone: '13900139008',
+    roomId: 'room-005',
+    roomNo: '202',
+    roomType: 'medium',
+    bookedStartTime: new Date(today.getTime() + 18 * 60 * 60 * 1000),
+    bookedEndTime: new Date(today.getTime() + 21 * 60 * 60 * 1000),
+    status: 'pending',
+    numberOfPeople: 7,
+    deposit: 0,
+    hourlyRate: 158,
+    roomAmount: 474,
+    drinkOrders: [],
+    totalDrinkAmount: 0,
+    totalAmount: 474,
+    paidAmount: 0,
+    useMemberBalance: 0,
+    notes: [
+      {
+        id: 'note-019',
+        content: '客户电话预订中包202，凌晨12点到3点，7人左右。未付定金，需要确认。',
+        createdBy: '预订员小李',
+        createdByRole: 'booking_clerk',
+        createdAt: new Date(today.getTime() + 13 * 60 * 60 * 1000),
+        type: 'booking'
+      }
+    ],
+    issues: [],
+    createdBy: '预订员小李',
+    createdAt: new Date(today.getTime() + 13 * 60 * 60 * 1000),
+    updatedAt: new Date(today.getTime() + 13 * 60 * 60 * 1000)
   }
 ];
 
-let records: ConsumptionRecord[] = [...mockRecords];
+const rechargeRecords: RechargeRecord[] = [
+  {
+    id: 'recharge-001',
+    memberId: 'member-003',
+    memberName: '王强',
+    amount: 10000,
+    bonus: 2000,
+    paymentMethod: '微信支付',
+    createdBy: '吧台小王',
+    createdAt: new Date(today.getTime() - 24 * 60 * 60 * 1000 + 20 * 60 * 60 * 1000),
+    bookingId: 'booking-006'
+  },
+  {
+    id: 'recharge-002',
+    memberId: 'member-001',
+    memberName: '张伟',
+    amount: 2000,
+    bonus: 200,
+    paymentMethod: '支付宝',
+    createdBy: '吧台小王',
+    createdAt: new Date(today.getTime() + 8 * 60 * 60 * 1000),
+  }
+];
+
+let bookings: Booking[] = [...mockBookings];
+let rechargeRecordList: RechargeRecord[] = [...rechargeRecords];
 
 export function getCurrentUser(): User {
   return currentUser;
 }
 
-export function getTechnicians(): Technician[] {
-  return technicians;
+export function getRooms(): Room[] {
+  return rooms;
 }
 
-export function getRecords(): ConsumptionRecord[] {
-  return records.sort((a, b) => b.checkinTime.getTime() - a.checkinTime.getTime());
+export function getRoomById(id: string): Room | undefined {
+  return rooms.find(r => r.id === id);
 }
 
-export function getRecordById(id: string): ConsumptionRecord | undefined {
-  return records.find(r => r.id === id);
+export function getMembers(): Member[] {
+  return members;
+}
+
+export function getMemberById(id: string): Member | undefined {
+  return members.find(m => m.id === id);
+}
+
+export function getDrinkItems(): DrinkItem[] {
+  return drinkItems;
+}
+
+export function getDrinkItemById(id: string): DrinkItem | undefined {
+  return drinkItems.find(d => d.id === id);
+}
+
+export function getBookings(): Booking[] {
+  return bookings.sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
+}
+
+export function getBookingById(id: string): Booking | undefined {
+  return bookings.find(b => b.id === id);
+}
+
+export function getRechargeRecords(): RechargeRecord[] {
+  return rechargeRecordList.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
 }
 
 export function getTodos(role: string): TodoItem[] {
   const todos: TodoItem[] = [];
   
-  records.forEach(record => {
-    if (record.handTagStatus === 'lost') {
+  bookings.forEach(booking => {
+    if (booking.status === 'pending') {
       todos.push({
-        id: `todo-hand-${record.id}`,
-        type: 'hand_tag',
-        title: `手牌遗失处理：${record.handTagNo}`,
-        description: record.handTagLostReason || `${record.customerName} 的手牌 ${record.handTagNo} 遗失，需要处理`,
-        recordId: record.id,
+        id: `todo-booking-${booking.id}`,
+        type: 'booking',
+        title: `待确认预订：${booking.customerName} - ${booking.roomNo}`,
+        description: `预订时间：${formatTime(booking.bookedStartTime)}，人数：${booking.numberOfPeople || '未确认'}`,
+        bookingId: booking.id,
         priority: 'high',
-        role: 'reception',
-        createdAt: record.updatedAt,
-        issueType: 'hand_tag_lost'
+        role: 'floor_manager',
+        createdAt: booking.createdAt
       });
     }
     
-    if (record.lockerStatus === 'complaint') {
+    if (booking.status === 'supplement_required') {
       todos.push({
-        id: `todo-locker-${record.id}`,
-        type: 'locker',
-        title: `储物柜投诉处理：${record.lockerNo}`,
-        description: record.lockerComplaintReason || `${record.customerName} 的储物柜 ${record.lockerNo} 有投诉`,
-        recordId: record.id,
-        priority: 'medium',
-        role: 'floor_supervisor',
-        createdAt: record.updatedAt,
-        issueType: 'locker_complaint'
-      });
-    }
-    
-    if (record.status === 'scheduling') {
-      todos.push({
-        id: `todo-schedule-${record.id}`,
-        type: 'scheduling',
-        title: `待排班：${record.customerName}`,
-        description: '需要安排技师和房间',
-        recordId: record.id,
+        id: `todo-supplement-${booking.id}`,
+        type: 'supplement',
+        title: `待补录信息：${booking.customerName} - ${booking.roomNo}`,
+        description: booking.supplementRequired || '需要补充客户信息',
+        bookingId: booking.id,
         priority: 'high',
-        role: 'floor_supervisor',
-        createdAt: record.createdAt
+        role: 'booking_clerk',
+        createdAt: booking.updatedAt
       });
     }
     
-    if (record.status === 'service_completed') {
-      todos.push({
-        id: `todo-checkout-${record.id}`,
-        type: 'payment',
-        title: `待结账：${record.customerName}`,
-        description: `消费金额：¥${record.totalAmount}`,
-        recordId: record.id,
-        priority: 'medium',
-        role: 'finance',
-        createdAt: record.updatedAt
-      });
+    if (booking.status === 'confirmed') {
+      const now = new Date();
+      const startDiff = booking.bookedStartTime.getTime() - now.getTime();
+      if (startDiff > 0 && startDiff < 60 * 60 * 1000) {
+        todos.push({
+          id: `todo-checkin-${booking.id}`,
+          type: 'checkin',
+          title: `即将到店：${booking.customerName} - ${booking.roomNo}`,
+          description: `预计${formatTime(booking.bookedStartTime)}到达，请准备接待`,
+          bookingId: booking.id,
+          priority: 'medium',
+          role: 'floor_manager',
+          createdAt: booking.updatedAt
+        });
+      }
     }
     
-    if (record.status === 'in_service') {
-      todos.push({
-        id: `todo-service-${record.id}`,
-        type: 'service',
-        title: `服务进行中：${record.customerName}`,
-        description: '需要关注服务进度',
-        recordId: record.id,
-        priority: 'low',
-        role: 'floor_supervisor',
-        createdAt: record.updatedAt
-      });
-    }
+    booking.drinkOrders.forEach(order => {
+      if (order.status === 'pending') {
+        todos.push({
+          id: `todo-drink-${order.id}`,
+          type: 'drink',
+          title: `待配送酒水：${booking.roomNo}`,
+          description: `${order.items.length}件商品，合计¥${order.totalAmount}`,
+          bookingId: booking.id,
+          priority: 'medium',
+          role: 'bar_staff',
+          createdAt: order.createdAt
+        });
+      }
+    });
     
-    record.issues.filter(i => i.status === 'open').forEach(issue => {
-      let issueRole: UserRole = 'floor_supervisor';
-      if (issue.type === 'hand_tag_lost') issueRole = 'reception';
-      if (issue.type === 'checkout_rejection') issueRole = 'finance';
+    booking.issues.filter(i => i.status === 'open').forEach(issue => {
+      let issueRole: UserRole = 'floor_manager';
+      if (issue.type === 'drink_issue') issueRole = 'bar_staff';
+      if (issue.type === 'booking_rejection') issueRole = 'booking_clerk';
       
       todos.push({
         id: `todo-issue-${issue.id}`,
         type: 'issue',
-        title: `待处理问题：${issue.type === 'scheduling_conflict' ? '排班冲突' : issue.type === 'service_rejection' ? '服务退回' : issue.type}`,
+        title: `待处理问题：${getIssueTypeName(issue.type)}`,
         description: issue.reason,
-        recordId: record.id,
+        bookingId: booking.id,
         priority: 'high',
         role: issueRole,
         createdAt: issue.createdAt,
         issueType: issue.type
       });
     });
+    
+    if (booking.status === 'in_use') {
+      const now = new Date();
+      const endDiff = booking.bookedEndTime.getTime() - now.getTime();
+      if (endDiff > 0 && endDiff < 30 * 60 * 1000) {
+        todos.push({
+          id: `todo-review-${booking.id}`,
+          type: 'review',
+          title: `即将结束：${booking.roomNo} - ${booking.customerName}`,
+          description: `预计${formatTime(booking.bookedEndTime)}结束，准备结账`,
+          bookingId: booking.id,
+          priority: 'medium',
+          role: 'bar_staff',
+          createdAt: booking.updatedAt
+        });
+      }
+    }
   });
   
   return todos
@@ -496,98 +695,205 @@ export function getTodos(role: string): TodoItem[] {
     });
 }
 
-export function updateRecordStatus(recordId: string, status: ConsumptionRecord['status']): ConsumptionRecord | undefined {
-  const record = records.find(r => r.id === recordId);
-  if (record) {
-    record.status = status;
-    record.updatedAt = new Date();
-    if (status === 'completed') {
-      record.checkoutTime = new Date();
-    }
-  }
-  return record;
+function formatTime(date: Date): string {
+  return date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
 }
 
-export function addNote(recordId: string, note: Omit<Note, 'id' | 'createdAt'>): ConsumptionRecord | undefined {
-  const record = records.find(r => r.id === recordId);
-  if (record) {
-    record.notes.push({
+function getIssueTypeName(type: RejectionType): string {
+  const names: Record<RejectionType, string> = {
+    booking_rejection: '预订驳回',
+    checkin_rejection: '到店驳回',
+    drink_issue: '酒水问题',
+    member_issue: '会员问题',
+    room_issue: '包厢问题'
+  };
+  return names[type];
+}
+
+export function confirmBooking(bookingId: string, operator: string, operatorRole: UserRole): Booking | undefined {
+  const booking = bookings.find(b => b.id === bookingId);
+  if (booking && booking.status === 'pending') {
+    booking.status = 'confirmed';
+    booking.confirmedBy = operator;
+    booking.confirmedAt = new Date();
+    booking.notes.push({
+      id: `note-${Date.now()}`,
+      content: `预订已确认，由${operator}确认`,
+      createdBy: operator,
+      createdByRole: operatorRole,
+      createdAt: new Date(),
+      type: 'booking'
+    });
+    booking.updatedAt = new Date();
+    
+    const room = rooms.find(r => r.id === booking.roomId);
+    if (room) room.status = 'reserved';
+  }
+  return booking;
+}
+
+export function rejectBooking(bookingId: string, reason: string, supplementaryNotes: string, operator: string, operatorRole: UserRole): Booking | undefined {
+  const booking = bookings.find(b => b.id === bookingId);
+  if (booking) {
+    booking.status = 'rejected';
+    booking.rejectionReason = reason;
+    
+    const issue: IssueRecord = {
+      id: `issue-${Date.now()}`,
+      type: 'booking_rejection',
+      reason,
+      supplementaryNotes,
+      createdBy: operator,
+      createdByRole: operatorRole,
+      createdAt: new Date(),
+      status: 'open',
+      relatedBookingId: bookingId
+    };
+    
+    booking.issues.push(issue);
+    booking.notes.push({
+      id: `note-${Date.now()}`,
+      content: `预订被驳回：${reason}。补充说明：${supplementaryNotes}`,
+      createdBy: operator,
+      createdByRole: operatorRole,
+      createdAt: new Date(),
+      type: 'rejection'
+    });
+    booking.updatedAt = new Date();
+    
+    const room = rooms.find(r => r.id === booking.roomId);
+    if (room && room.status === 'reserved') room.status = 'available';
+  }
+  return booking;
+}
+
+export function requestSupplement(bookingId: string, supplementInfo: string, operator: string, operatorRole: UserRole): Booking | undefined {
+  const booking = bookings.find(b => b.id === bookingId);
+  if (booking) {
+    booking.status = 'supplement_required';
+    booking.supplementRequired = supplementInfo;
+    
+    booking.notes.push({
+      id: `note-${Date.now()}`,
+      content: `需要补充信息：${supplementInfo}`,
+      createdBy: operator,
+      createdByRole: operatorRole,
+      createdAt: new Date(),
+      type: 'supplement'
+    });
+    booking.updatedAt = new Date();
+  }
+  return booking;
+}
+
+export function completeSupplement(bookingId: string, operator: string, operatorRole: UserRole): Booking | undefined {
+  const booking = bookings.find(b => b.id === bookingId);
+  if (booking && booking.status === 'supplement_required') {
+    booking.status = 'pending';
+    
+    booking.notes.push({
+      id: `note-${Date.now()}`,
+      content: '信息已补充完成，等待确认',
+      createdBy: operator,
+      createdByRole: operatorRole,
+      createdAt: new Date(),
+      type: 'supplement'
+    });
+    
+    const openIssue = booking.issues.find(i => i.type === 'booking_rejection' && i.status === 'open');
+    if (openIssue) {
+      openIssue.status = 'resolved';
+      openIssue.resolvedAt = new Date();
+      openIssue.resolvedBy = operator;
+    }
+    
+    booking.updatedAt = new Date();
+  }
+  return booking;
+}
+
+export function checkInBooking(bookingId: string, operator: string, operatorRole: UserRole): Booking | undefined {
+  const booking = bookings.find(b => b.id === bookingId);
+  if (booking && (booking.status === 'confirmed' || booking.status === 'arrived')) {
+    booking.status = 'in_use';
+    booking.actualStartTime = new Date();
+    booking.checkedInBy = operator;
+    booking.checkedInAt = new Date();
+    
+    booking.notes.push({
+      id: `note-${Date.now()}`,
+      content: `客户已到店，开始使用包厢`,
+      createdBy: operator,
+      createdByRole: operatorRole,
+      createdAt: new Date(),
+      type: 'checkin'
+    });
+    booking.updatedAt = new Date();
+    
+    const room = rooms.find(r => r.id === booking.roomId);
+    if (room) room.status = 'occupied';
+  }
+  return booking;
+}
+
+export function markArrived(bookingId: string, operator: string, operatorRole: UserRole): Booking | undefined {
+  const booking = bookings.find(b => b.id === bookingId);
+  if (booking && booking.status === 'confirmed') {
+    booking.status = 'arrived';
+    
+    booking.notes.push({
+      id: `note-${Date.now()}`,
+      content: `客户已到达，正在安排包厢`,
+      createdBy: operator,
+      createdByRole: operatorRole,
+      createdAt: new Date(),
+      type: 'checkin'
+    });
+    booking.updatedAt = new Date();
+  }
+  return booking;
+}
+
+export function completeBooking(bookingId: string, operator: string, operatorRole: UserRole): Booking | undefined {
+  const booking = bookings.find(b => b.id === bookingId);
+  if (booking && booking.status === 'in_use') {
+    booking.status = 'completed';
+    booking.actualEndTime = new Date();
+    booking.completedBy = operator;
+    booking.completedAt = new Date();
+    
+    booking.notes.push({
+      id: `note-${Date.now()}`,
+      content: `包厢使用结束，已结账`,
+      createdBy: operator,
+      createdByRole: operatorRole,
+      createdAt: new Date(),
+      type: 'general'
+    });
+    booking.updatedAt = new Date();
+    
+    const room = rooms.find(r => r.id === booking.roomId);
+    if (room) room.status = 'cleaning';
+  }
+  return booking;
+}
+
+export function addNote(bookingId: string, note: Omit<Note, 'id' | 'createdAt'>): Booking | undefined {
+  const booking = bookings.find(b => b.id === bookingId);
+  if (booking) {
+    booking.notes.push({
       ...note,
       id: `note-${Date.now()}`,
       createdAt: new Date()
     });
-    record.updatedAt = new Date();
+    booking.updatedAt = new Date();
   }
-  return record;
+  return booking;
 }
 
-export function addSchedule(recordId: string, schedule: Omit<Schedule, 'id' | 'issues' | 'status'>): ConsumptionRecord | undefined {
-  const record = records.find(r => r.id === recordId);
-  if (record) {
-    record.schedules.push({
-      ...schedule,
-      id: `sch-${Date.now()}`,
-      issues: [],
-      status: 'pending'
-    });
-    record.updatedAt = new Date();
-  }
-  return record;
-}
-
-export function updateSchedule(recordId: string, scheduleId: string, updates: Partial<Schedule>): ConsumptionRecord | undefined {
-  const record = records.find(r => r.id === recordId);
-  if (record) {
-    const schedule = record.schedules.find(s => s.id === scheduleId);
-    if (schedule) {
-      Object.assign(schedule, updates);
-      record.updatedAt = new Date();
-    }
-  }
-  return record;
-}
-
-export function rejectSchedule(recordId: string, scheduleId: string, reason: string, supplementaryNotes: string, operator: string, operatorRole: UserRole): ConsumptionRecord | undefined {
-  const record = records.find(r => r.id === recordId);
-  if (record) {
-    const schedule = record.schedules.find(s => s.id === scheduleId);
-    if (schedule) {
-      const issue: IssueRecord = {
-        id: `issue-${Date.now()}`,
-        type: 'scheduling_conflict',
-        reason,
-        supplementaryNotes,
-        createdBy: operator,
-        createdByRole: operatorRole,
-        createdAt: new Date(),
-        status: 'open',
-        relatedScheduleId: scheduleId
-      };
-      
-      schedule.issues.push(issue);
-      schedule.rejectionReason = reason;
-      schedule.status = 'pending';
-      
-      record.issues.push(issue);
-      record.notes.push({
-        id: `note-${Date.now()}`,
-        content: `排班退回：${reason}。补充说明：${supplementaryNotes}`,
-        createdBy: operator,
-        createdByRole: operatorRole,
-        createdAt: new Date(),
-        type: 'rejection',
-        relatedTo: scheduleId
-      });
-      
-      record.updatedAt = new Date();
-    }
-  }
-  return record;
-}
-
-export function addIssue(recordId: string, issue: Omit<IssueRecord, 'id' | 'createdAt' | 'status'>): ConsumptionRecord | undefined {
-  const record = records.find(r => r.id === recordId);
-  if (record) {
+export function addIssue(bookingId: string, issue: Omit<IssueRecord, 'id' | 'createdAt' | 'status'>): Booking | undefined {
+  const booking = bookings.find(b => b.id === bookingId);
+  if (booking) {
     const newIssue: IssueRecord = {
       ...issue,
       id: `issue-${Date.now()}`,
@@ -595,33 +901,11 @@ export function addIssue(recordId: string, issue: Omit<IssueRecord, 'id' | 'crea
       status: 'open'
     };
     
-    record.issues.push(newIssue);
+    booking.issues.push(newIssue);
     
-    if (issue.relatedScheduleId) {
-      const schedule = record.schedules.find(s => s.id === issue.relatedScheduleId);
-      if (schedule) {
-        schedule.issues.push(newIssue);
-      }
-    }
-    
-    if (issue.relatedServiceId) {
-      const service = record.serviceRecords.find(s => s.id === issue.relatedServiceId);
-      if (service) {
-        service.issues.push(newIssue);
-      }
-    }
-    
-    const typeLabels: Record<IssueType, string> = {
-      hand_tag_lost: '手牌遗失',
-      locker_complaint: '储物柜投诉',
-      scheduling_conflict: '排班冲突',
-      service_rejection: '服务退回',
-      checkout_rejection: '结账退回'
-    };
-    
-    record.notes.push({
+    booking.notes.push({
       id: `note-${Date.now()}`,
-      content: `${typeLabels[issue.type]}：${issue.reason}。补充说明：${issue.supplementaryNotes}`,
+      content: `${getIssueTypeName(issue.type)}：${issue.reason}。补充说明：${issue.supplementaryNotes}`,
       createdBy: issue.createdBy,
       createdByRole: issue.createdByRole,
       createdAt: new Date(),
@@ -629,271 +913,112 @@ export function addIssue(recordId: string, issue: Omit<IssueRecord, 'id' | 'crea
       relatedTo: newIssue.id
     });
     
-    record.updatedAt = new Date();
+    booking.updatedAt = new Date();
   }
-  return record;
+  return booking;
 }
 
-export function resolveIssue(recordId: string, issueId: string, resolvedBy: string): ConsumptionRecord | undefined {
-  const record = records.find(r => r.id === recordId);
-  if (record) {
-    const issue = record.issues.find(i => i.id === issueId);
+export function resolveIssue(bookingId: string, issueId: string, resolvedBy: string): Booking | undefined {
+  const booking = bookings.find(b => b.id === bookingId);
+  if (booking) {
+    const issue = booking.issues.find(i => i.id === issueId);
     if (issue) {
       issue.status = 'resolved';
       issue.resolvedAt = new Date();
       issue.resolvedBy = resolvedBy;
-      
-      if (issue.relatedScheduleId) {
-        const schedule = record.schedules.find(s => s.id === issue.relatedScheduleId);
-        const scheduleIssue = schedule?.issues.find(i => i.id === issueId);
-        if (scheduleIssue) {
-          scheduleIssue.status = 'resolved';
-          scheduleIssue.resolvedAt = new Date();
-          scheduleIssue.resolvedBy = resolvedBy;
-        }
-      }
-      
-      if (issue.relatedServiceId) {
-        const service = record.serviceRecords.find(s => s.id === issue.relatedServiceId);
-        const serviceIssue = service?.issues.find(i => i.id === issueId);
-        if (serviceIssue) {
-          serviceIssue.status = 'resolved';
-          serviceIssue.resolvedAt = new Date();
-          serviceIssue.resolvedBy = resolvedBy;
-        }
-      }
-      
-      record.updatedAt = new Date();
+      booking.updatedAt = new Date();
     }
   }
-  return record;
+  return booking;
 }
 
-export function addServiceRecord(recordId: string, service: Omit<ServiceRecord, 'id' | 'issues'>): ConsumptionRecord | undefined {
-  const record = records.find(r => r.id === recordId);
-  if (!record) return undefined;
-  
-  if (record.status !== 'scheduling' && record.status !== 'in_service') {
-    return undefined;
-  }
-  
-  const schedule = record.schedules.find(s => s.id === service.scheduleId);
-  if (!schedule) return undefined;
-  
-  if (schedule.status !== 'pending' && schedule.status !== 'confirmed') {
-    return undefined;
-  }
-
-  record.serviceRecords.push({
-    ...service,
-    id: `srv-${Date.now()}`,
-    issues: []
-  });
-  
-  schedule.status = 'in_progress';
-  schedule.startTime = service.startTime;
-  
-  if (record.status === 'scheduling') {
-    record.status = 'in_service';
-  }
-  
-  record.updatedAt = new Date();
-  return record;
-}
-
-export function updateServiceRecord(recordId: string, serviceId: string, updates: Partial<ServiceRecord>): ConsumptionRecord | undefined {
-  const record = records.find(r => r.id === recordId);
-  if (record) {
-    const service = record.serviceRecords.find(s => s.id === serviceId);
-    if (service) {
-      Object.assign(service, updates);
-      record.updatedAt = new Date();
-    }
-  }
-  return record;
-}
-
-export function completeService(recordId: string, serviceId: string, scheduleId: string, endTime: Date, actualDuration: number | null, operator?: string, operatorRole?: UserRole): ConsumptionRecord | undefined {
-  const record = records.find(r => r.id === recordId);
-  if (!record) return undefined;
-  
-  if (record.status !== 'in_service') {
-    return undefined;
-  }
-
-  const service = record.serviceRecords.find(s => s.id === serviceId);
-  if (!service) return undefined;
-  
-  if (service.scheduleId !== scheduleId) {
-    return undefined;
-  }
-  
-  if (service.completed) {
-    return undefined;
-  }
-
-  const schedule = record.schedules.find(s => s.id === scheduleId);
-  if (!schedule) return undefined;
-  
-  if (schedule.status !== 'in_progress') {
-    return undefined;
-  }
-
-  service.endTime = endTime;
-  service.actualDuration = actualDuration;
-  service.completed = true;
-
-  schedule.status = 'completed';
-  schedule.endTime = endTime;
-
-  const allCompleted = record.schedules.every(s => s.status === 'completed');
-  if (allCompleted && record.status === 'in_service') {
-    record.status = 'service_completed';
-  }
-
-  if (operator && operatorRole) {
-    record.notes.push({
+export function addDrinkOrder(bookingId: string, items: DrinkOrderItem[], notes?: string): Booking | undefined {
+  const booking = bookings.find(b => b.id === bookingId);
+  if (booking) {
+    const totalAmount = items.reduce((sum, item) => sum + item.subtotal, 0);
+    
+    const order = {
+      id: `drink-order-${Date.now()}`,
+      bookingId,
+      items,
+      totalAmount,
+      status: 'pending' as const,
+      createdBy: '吧台小王',
+      createdAt: new Date(),
+      notes
+    };
+    
+    booking.drinkOrders.push(order);
+    booking.totalDrinkAmount += totalAmount;
+    booking.totalAmount += totalAmount;
+    booking.updatedAt = new Date();
+    
+    booking.notes.push({
       id: `note-${Date.now()}`,
-      type: 'service',
-      content: `服务结束：${schedule.serviceItem}，技师：${schedule.technicianName}，时长：${actualDuration || '未知'}分钟`,
-      createdBy: operator,
-      createdByRole: operatorRole,
-      createdAt: new Date()
+      content: `新增酒水订单：${items.length}件商品，合计¥${totalAmount}`,
+      createdBy: '吧台小王',
+      createdByRole: 'bar_staff',
+      createdAt: new Date(),
+      type: 'drink'
     });
   }
-
-  record.updatedAt = new Date();
-  return record;
+  return booking;
 }
 
-export function confirmPaymentAndComplete(recordId: string, amount: number, operator?: string, operatorRole?: UserRole): ConsumptionRecord | undefined {
-  const record = records.find(r => r.id === recordId);
-  if (!record) return undefined;
-  
-  if (record.status !== 'service_completed') {
-    return undefined;
+export function updateDrinkOrderStatus(bookingId: string, orderId: string, status: DrinkOrderStatus): Booking | undefined {
+  const booking = bookings.find(b => b.id === bookingId);
+  if (booking) {
+    const order = booking.drinkOrders.find(o => o.id === orderId);
+    if (order) {
+      order.status = status;
+      if (status === 'delivered') {
+        order.deliveredAt = new Date();
+      }
+      booking.updatedAt = new Date();
+    }
   }
+  return booking;
+}
 
-  record.paidAmount = amount;
-  record.status = 'completed';
-  record.checkoutTime = new Date();
-
-  if (operator && operatorRole) {
-    record.notes.push({
-      id: `note-${Date.now()}`,
-      type: 'general',
-      content: `确认收款 ¥${amount}，订单完成`,
+export function rechargeMember(memberId: string, amount: number, bonus: number, paymentMethod: string, operator: string, bookingId?: string): RechargeRecord | undefined {
+  const member = members.find(m => m.id === memberId);
+  if (member) {
+    member.balance += amount + bonus;
+    member.totalRecharge += amount;
+    
+    const record: RechargeRecord = {
+      id: `recharge-${Date.now()}`,
+      memberId,
+      memberName: member.name,
+      amount,
+      bonus,
+      paymentMethod,
       createdBy: operator,
-      createdByRole: operatorRole,
-      createdAt: new Date()
-    });
+      createdAt: new Date(),
+      bookingId
+    };
+    
+    rechargeRecordList.push(record);
+    return record;
   }
-
-  record.updatedAt = new Date();
-  return record;
+  return undefined;
 }
 
-export function updateHandTagStatus(
-  recordId: string, 
-  status: ConsumptionRecord['handTagStatus'], 
-  reason?: string,
-  supplementaryNotes?: string,
-  operator?: string,
-  operatorRole?: UserRole
-): ConsumptionRecord | undefined {
-  const record = records.find(r => r.id === recordId);
-  if (record) {
-    record.handTagStatus = status;
-    
-    if (status === 'lost' && reason) {
-      record.handTagLostReason = reason;
-      record.handTagLostAt = new Date();
-      
-      if (operator && operatorRole) {
-        addIssue(recordId, {
-          type: 'hand_tag_lost',
-          reason,
-          supplementaryNotes: supplementaryNotes || '',
-          createdBy: operator,
-          createdByRole: operatorRole
-        });
-      }
-    }
-    
-    if (status === 'returned') {
-      const openIssue = record.issues.find(i => i.type === 'hand_tag_lost' && i.status === 'open');
-      if (openIssue && operator) {
-        resolveIssue(recordId, openIssue.id, operator);
-      }
-    }
-    
-    record.updatedAt = new Date();
+export function updateBookingPayment(bookingId: string, paidAmount: number, useMemberBalance: number): Booking | undefined {
+  const booking = bookings.find(b => b.id === bookingId);
+  if (booking) {
+    booking.paidAmount += paidAmount;
+    booking.useMemberBalance += useMemberBalance;
+    booking.updatedAt = new Date();
   }
-  return record;
+  return booking;
 }
 
-export function updateLockerStatus(
-  recordId: string, 
-  status: ConsumptionRecord['lockerStatus'], 
-  reason?: string,
-  supplementaryNotes?: string,
-  operator?: string,
-  operatorRole?: UserRole
-): ConsumptionRecord | undefined {
-  const record = records.find(r => r.id === recordId);
-  if (record) {
-    record.lockerStatus = status;
-    
-    if (status === 'complaint' && reason) {
-      record.lockerComplaintReason = reason;
-      record.lockerComplaintAt = new Date();
-      
-      if (operator && operatorRole) {
-        addIssue(recordId, {
-          type: 'locker_complaint',
-          reason,
-          supplementaryNotes: supplementaryNotes || '',
-          createdBy: operator,
-          createdByRole: operatorRole
-        });
-      }
-    }
-    
-    if (status === 'normal') {
-      const openIssue = record.issues.find(i => i.type === 'locker_complaint' && i.status === 'open');
-      if (openIssue && operator) {
-        resolveIssue(recordId, openIssue.id, operator);
-      }
-    }
-    
-    record.updatedAt = new Date();
+export function updateBooking(bookingId: string, updates: Partial<Booking>): Booking | undefined {
+  const booking = bookings.find(b => b.id === bookingId);
+  if (booking) {
+    Object.assign(booking, updates);
+    booking.updatedAt = new Date();
   }
-  return record;
-}
-
-export function processPayment(recordId: string, amount: number): ConsumptionRecord | undefined {
-  const record = records.find(r => r.id === recordId);
-  if (record) {
-    record.paidAmount = amount;
-    record.updatedAt = new Date();
-  }
-  return record;
-}
-
-export function rejectCheckout(recordId: string, reason: string, supplementaryNotes: string, operator: string, operatorRole: UserRole): ConsumptionRecord | undefined {
-  const record = records.find(r => r.id === recordId);
-  if (record) {
-    record.rejectionReason = reason;
-    
-    addIssue(recordId, {
-      type: 'checkout_rejection',
-      reason,
-      supplementaryNotes,
-      createdBy: operator,
-      createdByRole: operatorRole
-    });
-    
-    record.updatedAt = new Date();
-  }
-  return record;
+  return booking;
 }

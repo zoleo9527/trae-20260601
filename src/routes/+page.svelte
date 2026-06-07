@@ -2,38 +2,40 @@
   import { page } from '$app/stores';
   import { goto } from '$app/navigation';
   import { onMount } from 'svelte';
-  import type { TodoItem, ConsumptionRecord } from '$lib/types';
+  import type { TodoItem, Booking } from '$lib/types';
   
   let todos: TodoItem[] = $state([]);
-  let records: ConsumptionRecord[] = $state([]);
+  let bookings: Booking[] = $state([]);
   let loading = $state(true);
   
-  let currentRole = $state<'reception' | 'floor_supervisor' | 'finance' | 'admin'>('admin');
+  let currentRole = $state<'booking_clerk' | 'floor_manager' | 'bar_staff' | 'admin'>('admin');
   
   const roleNames: Record<string, string> = {
-    reception: '前台',
-    floor_supervisor: '楼层主管',
-    finance: '财务',
+    booking_clerk: '预订员',
+    floor_manager: '楼面经理',
+    bar_staff: '吧台',
     admin: '管理员'
   };
   
   const todoTypeNames: Record<string, string> = {
-    hand_tag: '手牌',
-    scheduling: '排班',
-    service: '服务',
-    locker: '储物柜',
-    payment: '结账',
-    review: '审核'
+    booking: '预订确认',
+    checkin: '到店接待',
+    drink: '酒水配送',
+    recharge: '会员充值',
+    issue: '问题处理',
+    supplement: '信息补录',
+    review: '结账准备'
   };
   
   const statusNames: Record<string, string> = {
-    checkin: '已登记',
-    scheduling: '待排班',
-    in_service: '服务中',
-    service_completed: '服务完成',
-    checkout_pending: '待结账',
+    pending: '待确认',
+    confirmed: '已确认',
+    arrived: '已到达',
+    in_use: '使用中',
     completed: '已完成',
-    cancelled: '已取消'
+    cancelled: '已取消',
+    rejected: '已驳回',
+    supplement_required: '待补录'
   };
   
   function getPriorityColor(priority: string) {
@@ -48,30 +50,49 @@
     return todos.filter(t => t.role === role || role === 'admin');
   }
   
-  onMount(async () => {
+  function getIssueTypeName(type: string) {
+    const names: Record<string, string> = {
+      booking_rejection: '预订驳回',
+      checkin_rejection: '到店驳回',
+      drink_issue: '酒水问题',
+      member_issue: '会员问题',
+      room_issue: '包厢问题'
+    };
+    return names[type] || type;
+  }
+  
+  async function loadData() {
+    loading = true;
     try {
-      const roleMatch = document.querySelector('select')?.value || 'admin';
-      currentRole = roleMatch as any;
+      const select = document.querySelector('header select') as HTMLSelectElement | null;
+      if (select?.value) {
+        currentRole = select.value as any;
+      }
       
-      const [todosRes, recordsRes] = await Promise.all([
+      const [todosRes, bookingsRes] = await Promise.all([
         fetch(`/api/todos?role=${currentRole}`),
-        fetch('/api/records')
+        fetch('/api/bookings')
       ]);
       
       todos = await todosRes.json();
-      records = await recordsRes.json();
+      bookings = await bookingsRes.json();
     } finally {
       loading = false;
     }
-  });
+  }
   
-  $effect(async () => {
-    const select = document.querySelector('nav + main select') || document.querySelector('header select');
-    if (select?.value) {
-      currentRole = select.value as any;
-      const res = await fetch(`/api/todos?role=${currentRole}`);
-      todos = await res.json();
-    }
+  onMount(() => {
+    loadData();
+    
+    const observer = new MutationObserver(() => {
+      const select = document.querySelector('header select') as HTMLSelectElement | null;
+      if (select && select.value !== currentRole) {
+        currentRole = select.value as any;
+        loadData();
+      }
+    });
+    
+    observer.observe(document.body, { subtree: true, childList: true });
   });
 </script>
 
@@ -86,28 +107,32 @@
   {#if loading}
     <div class="text-center py-12 text-gray-500">加载中...</div>
   {:else}
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
       <div class="card p-4">
-        <div class="text-3xl font-bold text-blue-600">{records.filter(r => r.status === 'scheduling').length}</div>
-        <div class="text-sm text-gray-500 mt-1">待排班</div>
+        <div class="text-3xl font-bold text-blue-600">{bookings.filter(r => r.status === 'pending').length}</div>
+        <div class="text-sm text-gray-500 mt-1">待确认</div>
       </div>
       <div class="card p-4">
-        <div class="text-3xl font-bold text-orange-600">{records.filter(r => r.status === 'in_service').length}</div>
-        <div class="text-sm text-gray-500 mt-1">服务中</div>
+        <div class="text-3xl font-bold text-orange-600">{bookings.filter(r => r.status === 'supplement_required').length}</div>
+        <div class="text-sm text-gray-500 mt-1">待补录</div>
       </div>
       <div class="card p-4">
-        <div class="text-3xl font-bold text-green-600">{records.filter(r => r.status === 'service_completed').length}</div>
-        <div class="text-sm text-gray-500 mt-1">待结账</div>
+        <div class="text-3xl font-bold text-purple-600">{bookings.filter(r => r.status === 'confirmed' || r.status === 'arrived').length}</div>
+        <div class="text-sm text-gray-500 mt-1">待到店</div>
       </div>
       <div class="card p-4">
-        <div class="text-3xl font-bold text-red-600">{records.filter(r => r.handTagStatus === 'lost').length}</div>
-        <div class="text-sm text-gray-500 mt-1">手牌遗失</div>
+        <div class="text-3xl font-bold text-green-600">{bookings.filter(r => r.status === 'in_use').length}</div>
+        <div class="text-sm text-gray-500 mt-1">使用中</div>
+      </div>
+      <div class="card p-4">
+        <div class="text-3xl font-bold text-red-600">{bookings.filter(r => r.issues.some(i => i.status === 'open')).length}</div>
+        <div class="text-sm text-gray-500 mt-1">待处理问题</div>
       </div>
     </div>
 
     {#if currentRole === 'admin'}
       <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {#each ['reception', 'floor_supervisor', 'finance'] as role}
+        {#each ['booking_clerk', 'floor_manager', 'bar_staff'] as role}
           <div class="card">
             <div class="p-4 border-b border-gray-100">
               <h3 class="font-semibold text-gray-800">{roleNames[role]}待办</h3>
@@ -116,7 +141,7 @@
               {#each getRoleTodos(role).slice(0, 5) as todo}
                 <button 
                   class="w-full p-4 text-left hover:bg-gray-50 transition-colors"
-                  onclick={() => goto(`/records/${todo.recordId}`)}
+                  onclick={() => goto(`/bookings/${todo.bookingId}`)}
                 >
                   <div class="flex items-start justify-between gap-2">
                     <div class="flex-1 min-w-0">
@@ -144,7 +169,7 @@
           {#each getRoleTodos(currentRole) as todo}
             <button 
               class="w-full p-4 text-left hover:bg-gray-50 transition-colors"
-              onclick={() => goto(`/records/${todo.recordId}`)}
+              onclick={() => goto(`/bookings/${todo.bookingId}`)}
             >
               <div class="flex items-start justify-between gap-2">
                 <div class="flex-1 min-w-0">
@@ -153,6 +178,9 @@
                     {todo.title}
                   </div>
                   <div class="text-sm text-gray-500 mt-1">{todo.description}</div>
+                  {#if todo.issueType}
+                    <div class="text-xs text-red-500 mt-1">问题类型：{getIssueTypeName(todo.issueType)}</div>
+                  {/if}
                 </div>
                 <span class="badge badge-{getPriorityColor(todo.priority)}">
                   {todo.priority === 'high' ? '高优' : todo.priority === 'medium' ? '中优' : '低优'}
@@ -165,5 +193,29 @@
         </div>
       </div>
     {/if}
+    
+    <div class="card">
+      <div class="p-4 border-b border-gray-100">
+        <h3 class="font-semibold text-gray-800">最近变更</h3>
+      </div>
+      <div class="divide-y divide-gray-100">
+        {#each bookings.slice(0, 5) as booking}
+          <button 
+            class="w-full p-4 text-left hover:bg-gray-50 transition-colors"
+            onclick={() => goto(`/bookings/${booking.id}`)}
+          >
+            <div class="flex items-center justify-between">
+              <div>
+                <div class="font-medium text-gray-800">{booking.customerName} - {booking.roomNo}</div>
+                <div class="text-sm text-gray-500 mt-1">{booking.bookingNo}</div>
+              </div>
+              <span class="badge badge-{booking.status === 'rejected' ? 'danger' : booking.status === 'supplement_required' ? 'warning' : booking.status === 'completed' ? 'success' : 'info'}">
+                {statusNames[booking.status]}
+              </span>
+            </div>
+          </button>
+        {/each}
+      </div>
+    </div>
   {/if}
 </div>

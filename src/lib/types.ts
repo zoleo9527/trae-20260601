@@ -1,21 +1,24 @@
-export type UserRole = 'reception' | 'floor_supervisor' | 'finance' | 'admin';
+export type UserRole = 'booking_clerk' | 'floor_manager' | 'bar_staff' | 'admin';
 
-export type ConsumptionStatus = 
-  | 'checkin'
-  | 'scheduling'
-  | 'in_service'
-  | 'service_completed'
-  | 'checkout_pending'
+export type BookingStatus = 
+  | 'pending'
+  | 'confirmed'
+  | 'arrived'
+  | 'in_use'
   | 'completed'
-  | 'cancelled';
+  | 'cancelled'
+  | 'rejected'
+  | 'supplement_required';
 
-export type HandTagStatus = 'normal' | 'lost' | 'returned';
+export type RoomStatus = 'available' | 'occupied' | 'reserved' | 'maintenance' | 'cleaning';
 
-export type LockerStatus = 'normal' | 'complaint' | 'maintenance';
+export type RoomType = 'mini' | 'small' | 'medium' | 'large' | 'vip' | 'luxury';
 
-export type TechnicianStatus = 'available' | 'busy' | 'rest' | 'off';
+export type DrinkOrderStatus = 'pending' | 'preparing' | 'delivered' | 'cancelled';
 
-export type IssueType = 'hand_tag_lost' | 'locker_complaint' | 'scheduling_conflict' | 'service_rejection' | 'checkout_rejection';
+export type MemberLevel = 'normal' | 'silver' | 'gold' | 'diamond';
+
+export type RejectionType = 'booking_rejection' | 'checkin_rejection' | 'drink_issue' | 'member_issue' | 'room_issue';
 
 export interface User {
   id: string;
@@ -23,12 +26,67 @@ export interface User {
   role: UserRole;
 }
 
-export interface Technician {
+export interface Room {
+  id: string;
+  roomNo: string;
+  type: RoomType;
+  capacity: number;
+  status: RoomStatus;
+  hourlyRate: number;
+  features: string[];
+}
+
+export interface Member {
   id: string;
   name: string;
-  no: string;
-  status: TechnicianStatus;
-  skills: string[];
+  phone: string;
+  level: MemberLevel;
+  balance: number;
+  totalRecharge: number;
+  points: number;
+  createdAt: Date;
+  lastVisitAt?: Date;
+}
+
+export interface DrinkItem {
+  id: string;
+  name: string;
+  category: string;
+  price: number;
+  stock: number;
+  unit: string;
+}
+
+export interface DrinkOrderItem {
+  drinkId: string;
+  drinkName: string;
+  quantity: number;
+  price: number;
+  subtotal: number;
+}
+
+export interface DrinkOrder {
+  id: string;
+  bookingId: string;
+  items: DrinkOrderItem[];
+  totalAmount: number;
+  status: DrinkOrderStatus;
+  createdBy: string;
+  createdAt: Date;
+  deliveredAt?: Date;
+  notes?: string;
+}
+
+export interface RechargeRecord {
+  id: string;
+  memberId: string;
+  memberName: string;
+  amount: number;
+  bonus: number;
+  paymentMethod: string;
+  createdBy: string;
+  createdAt: Date;
+  bookingId?: string;
 }
 
 export interface Note {
@@ -37,13 +95,13 @@ export interface Note {
   createdBy: string;
   createdByRole: UserRole;
   createdAt: Date;
-  type: 'scheduling' | 'service' | 'general' | 'rejection' | 'hand_tag' | 'locker' | 'issue';
+  type: 'booking' | 'checkin' | 'drink' | 'member' | 'rejection' | 'supplement' | 'general' | 'issue';
   relatedTo?: string;
 }
 
 export interface IssueRecord {
   id: string;
-  type: IssueType;
+  type: RejectionType;
   reason: string;
   supplementaryNotes: string;
   createdBy: string;
@@ -52,75 +110,66 @@ export interface IssueRecord {
   resolvedAt?: Date;
   resolvedBy?: string;
   status: 'open' | 'resolved';
-  relatedScheduleId?: string;
-  relatedServiceId?: string;
+  relatedBookingId?: string;
+  relatedDrinkOrderId?: string;
 }
 
-export interface Schedule {
+export interface Booking {
   id: string;
-  technicianId: string;
-  technicianName: string;
-  technicianNo: string;
-  serviceItem: string;
-  startTime: Date | null;
-  endTime: Date | null;
-  duration: number;
-  roomNo: string;
-  notes: string;
-  issues: IssueRecord[];
-  status: 'pending' | 'confirmed' | 'in_progress' | 'completed' | 'cancelled';
-  rejectionReason?: string;
-}
-
-export interface ServiceRecord {
-  id: string;
-  scheduleId: string;
-  startTime: Date;
-  endTime: Date | null;
-  actualDuration: number | null;
-  completed: boolean;
-  notes: string;
-  issues: IssueRecord[];
-}
-
-export interface ConsumptionRecord {
-  id: string;
+  bookingNo: string;
   customerName: string;
-  handTagNo: string;
-  handTagStatus: HandTagStatus;
-  handTagLostReason?: string;
-  handTagLostAt?: Date;
-  lockerNo: string;
-  lockerStatus: LockerStatus;
-  lockerComplaintReason?: string;
-  lockerComplaintAt?: Date;
-  checkinTime: Date;
-  checkoutTime: Date | null;
-  status: ConsumptionStatus;
+  customerPhone: string;
+  memberId?: string;
+  memberName?: string;
+  memberLevel?: MemberLevel;
+  
+  roomId: string;
+  roomNo: string;
+  roomType: RoomType;
+  
+  bookedStartTime: Date;
+  bookedEndTime: Date;
+  actualStartTime?: Date;
+  actualEndTime?: Date;
+  
+  status: BookingStatus;
+  rejectionReason?: string;
+  supplementRequired?: string;
+  
+  numberOfPeople: number;
+  deposit: number;
+  hourlyRate: number;
+  roomAmount: number;
+  
+  drinkOrders: DrinkOrder[];
+  totalDrinkAmount: number;
+  
   totalAmount: number;
   paidAmount: number;
+  useMemberBalance: number;
   
-  schedules: Schedule[];
-  serviceRecords: ServiceRecord[];
   notes: Note[];
   issues: IssueRecord[];
   
-  rejectionReason: string | null;
-  attachments: string[];
-  
   createdBy: string;
   createdAt: Date;
+  confirmedBy?: string;
+  confirmedAt?: Date;
+  checkedInBy?: string;
+  checkedInAt?: Date;
+  completedBy?: string;
+  completedAt?: Date;
   updatedAt: Date;
 }
 
 export interface TodoItem {
   id: string;
-  type: 'hand_tag' | 'scheduling' | 'service' | 'locker' | 'payment' | 'review' | 'issue';
+  type: 'booking' | 'checkin' | 'drink' | 'recharge' | 'issue' | 'supplement' | 'review';
   title: string;
   description: string;
-  recordId: string;
+  bookingId: string;
   priority: 'high' | 'medium' | 'low';
   role: UserRole;
   createdAt: Date;
-  issueType?: IssueType;
+  issueType?: RejectionType;
 }

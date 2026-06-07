@@ -5,24 +5,32 @@
   
   let { children } = $props();
   
-  let currentRole = $state<'reception' | 'floor_supervisor' | 'finance' | 'admin'>('admin');
+  let currentRole = $state<'booking_clerk' | 'floor_manager' | 'bar_staff' | 'admin'>('admin');
   
   const roleNames: Record<string, string> = {
-    reception: '前台',
-    floor_supervisor: '楼层主管',
-    finance: '财务',
+    booking_clerk: '预订员',
+    floor_manager: '楼面经理',
+    bar_staff: '吧台',
     admin: '管理员'
   };
+  
+  function handleRoleChange() {
+    const select = document.querySelector('header select') as HTMLSelectElement;
+    if (select) {
+      currentRole = select.value as any;
+      goto($page.url.pathname + $page.url.search);
+    }
+  }
 </script>
 
 <div class="min-h-screen flex flex-col">
   <header class="bg-white border-b border-gray-200 shadow-sm">
     <div class="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
       <div class="flex items-center gap-3">
-        <div class="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-          <span class="text-white font-bold text-sm">浴</span>
+        <div class="w-8 h-8 bg-purple-600 rounded-lg flex items-center justify-center">
+          <span class="text-white font-bold text-sm">K</span>
         </div>
-        <h1 class="text-xl font-bold text-gray-800">洗浴中心管理系统</h1>
+        <h1 class="text-xl font-bold text-gray-800">KTV包厢管理系统</h1>
       </div>
       
       <div class="flex items-center gap-4">
@@ -32,12 +40,12 @@
             class="select text-sm" 
             style="width: auto"
             bind:value={currentRole}
-            onchange={() => goto($page.url.pathname + $page.url.search)}
+            onchange={handleRoleChange}
           >
             <option value="admin">管理员</option>
-            <option value="reception">前台</option>
-            <option value="floor_supervisor">楼层主管</option>
-            <option value="finance">财务</option>
+            <option value="booking_clerk">预订员</option>
+            <option value="floor_manager">楼面经理</option>
+            <option value="bar_staff">吧台</option>
           </select>
         </div>
       </div>
@@ -54,12 +62,12 @@
           仪表盘
         </a>
         <a 
-          href="/records" 
+          href="/bookings" 
           class="px-4 py-2 text-sm font-medium text-gray-700 hover:text-blue-600 hover:bg-white"
-          class:bg-white={$page.url.pathname.startsWith('/records')}
-          class:text-blue-600={$page.url.pathname.startsWith('/records')}
+          class:bg-white={$page.url.pathname.startsWith('/bookings')}
+          class:text-blue-600={$page.url.pathname.startsWith('/bookings')}
         >
-          消费记录
+          包厢预订
         </a>
       </div>
     </nav>
