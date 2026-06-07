@@ -87,10 +87,10 @@ const AnomalyCenter: React.FC = () => {
       const pkg = order ? getPackageById(order.packageId) : undefined;
       const booking = order?.bookingId ? getBookingById(order.bookingId) : undefined;
       return {
-        to: order?.bookingId ? `/bookings/${order.bookingId}` : '/packages',
+        to: `/packages/orders/${anomaly.relatedEntityId}`,
         label: booking
-          ? `${pkg?.name || '套餐'} → 包厢${booking.roomNumber}`
-          : pkg?.name || '查看套餐',
+          ? `${pkg?.name || '套餐'} · 包厢${booking.roomNumber}`
+          : pkg?.name || '查看套餐订单',
         icon: Gift,
       };
     }

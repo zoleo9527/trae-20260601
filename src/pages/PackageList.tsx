@@ -4,9 +4,16 @@ import { Gift, Plus, Clock, CheckCircle, Wine, AlertTriangle } from 'lucide-reac
 import { usePackageStore } from '../stores/packageStore';
 import { useBookingStore } from '../stores/bookingStore';
 import { useAnomalyStore } from '../stores/anomalyStore';
-import { StatusBadge, SeverityBadge } from '../components/StatusBadge';
+import { StatusBadge } from '../components/StatusBadge';
 import { formatDateTime, formatTime } from '../utils/storage';
 import { PackageOrderStatus } from '../types';
+
+const anomalyStatusText: Record<string, string> = {
+  open: '待处理',
+  handling: '处理中',
+  resolved: '已解决',
+  ignored: '已忽略',
+};
 
 const PackageList: React.FC = () => {
   const navigate = useNavigate();
@@ -85,11 +92,11 @@ const PackageList: React.FC = () => {
                 const booking = order.bookingId ? getBookingById(order.bookingId) : undefined;
                 const orderAnomalies = getAnomaliesByOrderId(order.id);
                 const hasOpenAnomaly = orderAnomalies.some((a) => a.status === 'open' || a.status === 'handling');
-                const latestHandled = orderAnomalies.find((a) => a.handlingNote);
+                const latestAnomaly = orderAnomalies[0];
                 return (
                   <tr
                     key={order.id}
-                    onClick={() => booking && navigate(`/bookings/${booking.id}`)}
+                    onClick={() => navigate(`/packages/orders/${order.id}`)}
                     className={`border-b border-slate-800/50 hover:bg-slate-800/30 cursor-pointer last:border-0 ${
                       hasOpenAnomaly ? 'bg-amber-500/5' : ''
                     }`}
@@ -106,15 +113,21 @@ const PackageList: React.FC = () => {
                       {orderAnomalies.length === 0 ? (
                         <span className="text-slate-600">-</span>
                       ) : (
-                        <div className="flex items-center gap-1">
-                          <AlertTriangle className={`w-3.5 h-3.5 ${hasOpenAnomaly ? 'text-amber-400' : 'text-emerald-400'}`} />
-                          <span className={`text-xs ${hasOpenAnomaly ? 'text-amber-400' : 'text-emerald-400'}`}>
-                            {orderAnomalies.length}
-                          </span>
-                          {latestHandled && (
-                            <span className="text-xs text-slate-500 truncate max-w-[100px]" title={latestHandled.handlingNote}>
-                              · {latestHandled.handlingNote}
+                        <div>
+                          <div className="flex items-center gap-1.5">
+                            <AlertTriangle className={`w-3.5 h-3.5 flex-shrink-0 ${
+                              hasOpenAnomaly ? 'text-amber-400' : 'text-emerald-400'
+                            }`} />
+                            <span className={`text-xs font-medium ${
+                              hasOpenAnomaly ? 'text-amber-400' : 'text-emerald-400'
+                            }`}>
+                              酒水异常{anomalyStatusText[latestAnomaly.status] || ''}
                             </span>
+                          </div>
+                          {latestAnomaly.handlingNote && (
+                            <p className="text-xs text-slate-500 mt-0.5 truncate max-w-[140px]" title={latestAnomaly.handlingNote}>
+                              {latestAnomaly.handlingNote}
+                            </p>
                           )}
                         </div>
                       )}

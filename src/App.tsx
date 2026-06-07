@@ -11,6 +11,7 @@ import DecorationNew from "@/pages/DecorationNew";
 import MemberDetail from "@/pages/MemberDetail";
 import MemberList from "@/pages/MemberList";
 import PackageList from "@/pages/PackageList";
+import PackageOrderDetail from "@/pages/PackageOrderDetail";
 import PackageProcess from "@/pages/PackageProcess";
 import Settings from "@/pages/Settings";
 import { Route, BrowserRouter as Router, Routes } from "react-router-dom";
@@ -26,6 +27,7 @@ export default function App() {
           <Route path="/bookings/:id" element={<BookingDetail />} />
           <Route path="/packages" element={<PackageList />} />
           <Route path="/packages/process" element={<PackageProcess />} />
+          <Route path="/packages/orders/:id" element={<PackageOrderDetail />} />
           <Route path="/decorations" element={<DecorationBoard />} />
           <Route path="/decorations/new" element={<DecorationNew />} />
           <Route path="/decorations/:id" element={<DecorationDetail />} />
