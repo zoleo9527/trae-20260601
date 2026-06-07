@@ -79,9 +79,9 @@ function BillList({ constants }) {
     });
   };
 
-  if (!constants || !constants.STATUS_LABELS) return <div>加载中...</div>;
+  if (!constants || !constants.statusLabels) return <div>加载中...</div>;
 
-  const { STATUS_LABELS = {}, ROLE_LABELS = {} } = constants;
+  const { statusLabels: STATUS_LABELS = {}, roleLabels: ROLE_LABELS = {} } = constants;
 
   return (
     <div>

@@ -68,13 +68,19 @@ function BillDetail({ constants }) {
           billNo: bill.billNo,
           customerName: bill.customerName,
           customerPhone: bill.customerPhone,
-          address: bill.address
+          address: bill.address,
+          assignee: bill.assignee,
+          assigneeRole: bill.assigneeRole,
+          currentHandler: bill.currentHandler,
+          currentHandlerRole: bill.currentHandlerRole,
+          status: bill.status,
+          history: bill.history
         }
       }
     });
   };
 
-  if (!constants || !constants.STATUS_LABELS || loading) {
+  if (!constants || !constants.statusLabels || loading) {
     return <div className="empty-state">加载中...</div>;
   }
 
@@ -82,7 +88,7 @@ function BillDetail({ constants }) {
     return <div className="empty-state">账单不存在</div>;
   }
 
-  const { STATUS_LABELS = {}, ROLE_LABELS = {} } = constants;
+  const { statusLabels: STATUS_LABELS = {}, roleLabels: ROLE_LABELS = {} } = constants;
 
   return (
     <div>

@@ -6,7 +6,7 @@ function HistoryList({ history, constants }) {
     return <div className="empty-state">暂无历史记录</div>;
   }
 
-  const { STATUS_LABELS = {}, ROLE_LABELS = {} } = constants || {};
+  const { statusLabels: STATUS_LABELS = {}, roleLabels: ROLE_LABELS = {} } = constants || {};
 
   return (
     <div>

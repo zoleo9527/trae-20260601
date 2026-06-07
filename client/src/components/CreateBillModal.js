@@ -48,9 +48,9 @@ function CreateBillModal({ constants, onConfirm, onCancel }) {
     onConfirm(formData);
   };
 
-  if (!constants || !constants.ROLE_LABELS) return null;
+  if (!constants || !constants.roleLabels) return null;
 
-  const { ROLE_LABELS = {} } = constants;
+  const { roleLabels: ROLE_LABELS = {} } = constants;
 
   return (
     <div className="modal-overlay" onClick={onCancel}>

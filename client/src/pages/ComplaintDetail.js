@@ -14,6 +14,7 @@ function ComplaintDetail({ constants }) {
   const [statusAction, setStatusAction] = useState(null);
   const [showEvidenceModal, setShowEvidenceModal] = useState(false);
   const [evidenceName, setEvidenceName] = useState('');
+  const [showBillHistory, setShowBillHistory] = useState(false);
 
   const fetchComplaint = () => {
     setLoading(true);
@@ -77,7 +78,7 @@ function ComplaintDetail({ constants }) {
     }
   };
 
-  if (!constants || !constants.STATUS_LABELS || loading) {
+  if (!constants || !constants.statusLabels || loading) {
     return <div className="empty-state">加载中...</div>;
   }
 
@@ -85,7 +86,7 @@ function ComplaintDetail({ constants }) {
     return <div className="empty-state">申诉不存在</div>;
   }
 
-  const { STATUS_LABELS = {}, ROLE_LABELS = {} } = constants;
+  const { statusLabels: STATUS_LABELS = {}, roleLabels: ROLE_LABELS = {} } = constants;
 
   return (
     <div>
@@ -174,11 +175,61 @@ function ComplaintDetail({ constants }) {
                 </span>
               </span>
             </div>
+            <div className="detail-item">
+              <span className="detail-label">账单负责人</span>
+              <span className="detail-value">
+                {complaint.relatedBill.assignee ? (
+                  <div className="assignee-info">
+                    <span className="assignee-avatar">{complaint.relatedBill.assignee.charAt(0)}</span>
+                    <div>
+                      <div>{complaint.relatedBill.assignee}</div>
+                      <span className="assignee-role">
+                        {getRoleLabel(complaint.relatedBill.assigneeRole, ROLE_LABELS)}
+                      </span>
+                    </div>
+                  </div>
+                ) : '-'}
+              </span>
+            </div>
+            <div className="detail-item">
+              <span className="detail-label">账单当前处理人</span>
+              <span className="detail-value">
+                {complaint.relatedBill.currentHandler ? (
+                  <div className="assignee-info">
+                    <span className="assignee-avatar">{complaint.relatedBill.currentHandler.charAt(0)}</span>
+                    <div>
+                      <div>{complaint.relatedBill.currentHandler}</div>
+                      <span className="assignee-role">
+                        {getRoleLabel(complaint.relatedBill.currentHandlerRole, ROLE_LABELS)}
+                      </span>
+                    </div>
+                  </div>
+                ) : '-'}
+              </span>
+            </div>
           </div>
+          
+          <div style={{ marginTop: '16px' }}>
+            <button 
+              className="btn btn-sm btn-default"
+              onClick={() => setShowBillHistory(!showBillHistory)}
+            >
+              {showBillHistory ? '▼ 收起账单历史' : '▶ 查看账单历史记录'}
+            </button>
+          </div>
+          
+          {showBillHistory && (
+            <div style={{ marginTop: '16px', padding: '16px', background: 'white', borderRadius: '8px' }}>
+              <h4 style={{ marginBottom: '12px', fontSize: '14px', color: '#1565c0' }}>
+                📋 账单处理历史记录
+              </h4>
+              <HistoryList history={complaint.relatedBill.history} constants={constants} />
+            </div>
+          )}
+          
           <div style={{ marginTop: '12px', fontSize: '13px', color: '#666' }}>
             <strong>💡 提示：</strong>
-            点击账单编号可跳转到账单详情页，查看账单的责任人和完整历史记录。
-            页面跳转时会自动关联上下文信息。
+            点击账单编号可跳转到账单详情页，页面跳转时会自动关联上下文信息，不会丢失责任人和历史说明。
           </div>
         </div>
       )}

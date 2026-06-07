@@ -9,9 +9,9 @@ function StatusModal({ title, constants, defaultStatus, onConfirm, onCancel }) {
     onConfirm({ newStatus, remark });
   };
 
-  if (!constants || !constants.STATUS_LABELS) return null;
+  if (!constants || !constants.statusLabels) return null;
 
-  const { STATUS_LABELS = {} } = constants;
+  const { statusLabels: STATUS_LABELS = {} } = constants;
 
   return (
     <div className="modal-overlay" onClick={onCancel}>
