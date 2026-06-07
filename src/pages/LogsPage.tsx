@@ -30,14 +30,16 @@ export default function LogsPage() {
     { value: 'bottle_verify', label: '核验空瓶' },
     { value: 'bottle_dispute', label: '空瓶争议' },
     { value: 'bottle_reject', label: '退回回收' },
+    { value: 'bottle_stick', label: '标记空瓶卡住' },
     { value: 'bottle_unstick', label: '解除空瓶卡住' },
     { value: 'deposit_init', label: '发起核对' },
     { value: 'deposit_match', label: '核对一致' },
     { value: 'deposit_mismatch', label: '核对不一致' },
     { value: 'deposit_verify', label: '核验押金' },
     { value: 'deposit_dispute', label: '押金争议' },
+    { value: 'deposit_stick', label: '标记押金卡住' },
     { value: 'deposit_unstick', label: '解除押金卡住' },
-    { value: 'create_alert', label: '创建提醒' },
+    { value: 'acknowledge_alert', label: '确认提醒' },
     { value: 'resolve_alert', label: '解决提醒' },
   ];
 

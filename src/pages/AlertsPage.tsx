@@ -7,7 +7,7 @@ import { formatDate, getAlertTypeText, getAlertPriorityColor, getRoleText, cn } 
 interface AlertCardProps {
   alert: Alert;
   onAcknowledge: () => void;
-  onResolve: () => void;
+  onResolve: (remark: string) => void;
 }
 
 function AlertCard({ alert, onAcknowledge, onResolve }: AlertCardProps) {
@@ -95,7 +95,7 @@ function AlertCard({ alert, onAcknowledge, onResolve }: AlertCardProps) {
               </button>
               <button
                 onClick={() => {
-                  onResolve();
+                  onResolve(resolveRemark || '已处理');
                   setResolveRemark('');
                   setShowResolveModal(false);
                 }}
@@ -209,7 +209,7 @@ export default function AlertsPage() {
             key={alert.id}
             alert={alert}
             onAcknowledge={() => acknowledgeAlert(alert.id)}
-            onResolve={() => resolveAlert(alert.id, '已处理')}
+            onResolve={(remark) => resolveAlert(alert.id, remark)}
           />
         ))}
       </div>

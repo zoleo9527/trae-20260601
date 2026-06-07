@@ -89,14 +89,16 @@ export type OperationType =
   | 'bottle_verify'
   | 'bottle_dispute'
   | 'bottle_reject'
+  | 'bottle_stick'
   | 'bottle_unstick'
   | 'deposit_init'
   | 'deposit_match'
   | 'deposit_mismatch'
   | 'deposit_verify'
   | 'deposit_dispute'
+  | 'deposit_stick'
   | 'deposit_unstick'
-  | 'create_alert'
+  | 'acknowledge_alert'
   | 'resolve_alert';
 
 export interface OperationLog {

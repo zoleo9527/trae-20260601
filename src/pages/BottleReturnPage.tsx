@@ -62,7 +62,7 @@ interface BottleCardProps {
 function BottleCard({ record, currentRole }: BottleCardProps) {
   const [expanded, setExpanded] = useState(false);
   const [modal, setModal] = useState<{ type: string; title: string } | null>(null);
-  const { updateBottleReturnStatus, createDepositReconciliation, depositReconciliations, addOperationLog, currentUser } = useAppStore();
+  const { updateBottleReturnStatus, createDepositReconciliation, depositReconciliations } = useAppStore();
 
   const linkedDeposit = depositReconciliations.find(d => d.bottleReturnRecordId === record.id);
   const canCreateDeposit = currentRole === 'station_clerk' && 
@@ -103,19 +103,6 @@ function BottleCard({ record, currentRole }: BottleCardProps) {
         break;
       case 'create_deposit':
         createDepositReconciliation(record.id);
-        if (currentUser) {
-          addOperationLog({
-            operationType: 'deposit_init',
-            operatorId: currentUser.id,
-            operatorName: currentUser.name,
-            operatorRole: currentUser.role,
-            targetType: 'deposit_reconciliation',
-            targetId: record.id,
-            remark: remark || '从空瓶回收记录发起押金核对',
-            oldStatus: record.status,
-            newStatus: 'pending',
-          });
-        }
         break;
     }
   };

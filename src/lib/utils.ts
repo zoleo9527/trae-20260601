@@ -1,7 +1,7 @@
 import { clsx, type ClassValue } from 'clsx';
-import { twMerge } from 'tailwind-merge';
 import { format } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
+import { twMerge } from 'tailwind-merge';
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -103,14 +103,16 @@ export function getOperationTypeText(type: string): string {
     bottle_verify: '核验空瓶',
     bottle_dispute: '发起争议',
     bottle_reject: '退回回收',
+    bottle_stick: '标记卡住',
     bottle_unstick: '解除卡住',
     deposit_init: '发起核对',
     deposit_match: '核对一致',
     deposit_mismatch: '核对不一致',
     deposit_verify: '核验押金',
     deposit_dispute: '发起争议',
+    deposit_stick: '标记卡住',
     deposit_unstick: '解除卡住',
-    create_alert: '创建提醒',
+    acknowledge_alert: '确认提醒',
     resolve_alert: '解决提醒',
   };
   return typeMap[type] || type;

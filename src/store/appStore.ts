@@ -120,9 +120,20 @@ export const useAppStore = create<AppState>((set, get) => ({
         }
         return r;
       });
+      const operationTypeMap: Record<string, OperationType> = {
+        pending_collection: 'bottle_collect',
+        collected: 'bottle_collect',
+        returned_to_station: 'bottle_return_station',
+        verified: 'bottle_verify',
+        disputed: 'bottle_dispute',
+        stuck: 'bottle_stick',
+        rejected: 'bottle_reject',
+        unstuck: 'bottle_unstick',
+      };
+      const opType = operationTypeMap[status] || 'bottle_collect';
       const newLog: OperationLog = {
         id: generateId(),
-        operationType: `bottle_${status.replace(/_/g, '')}` as any,
+        operationType: opType,
         operatorId: currentUser.id,
         operatorName: currentUser.name,
         operatorRole: currentUser.role,
@@ -187,9 +198,20 @@ export const useAppStore = create<AppState>((set, get) => ({
         }
         return r;
       });
+      const depositOpTypeMap: Record<string, OperationType> = {
+        pending: 'deposit_init',
+        matched: 'deposit_match',
+        mismatched: 'deposit_mismatch',
+        pending_verification: 'deposit_verify',
+        verified: 'deposit_verify',
+        disputed: 'deposit_dispute',
+        stuck: 'deposit_stick',
+        unstuck: 'deposit_unstick',
+      };
+      const depositOpType = depositOpTypeMap[status] || 'deposit_init';
       const newLog: OperationLog = {
         id: generateId(),
-        operationType: `deposit_${status.replace(/_/g, '')}` as any,
+        operationType: depositOpType,
         operatorId: currentUser.id,
         operatorName: currentUser.name,
         operatorRole: currentUser.role,
@@ -243,7 +265,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       const alert = state.alerts.find((a) => a.id === alertId);
       const newLog: OperationLog = {
         id: generateId(),
-        operationType: 'create_alert',
+        operationType: 'acknowledge_alert',
         operatorId: currentUser.id,
         operatorName: currentUser.name,
         operatorRole: currentUser.role,
