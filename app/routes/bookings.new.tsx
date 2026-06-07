@@ -169,10 +169,14 @@ const paymentMethods = [
 ];
 
 export default function NewBooking() {
-  const { availableHandTags, availableLockers, technicians } = useLoaderData<typeof loader>();
+  const { availableHandTags, availableLockers, technicians, user } = useLoaderData<typeof loader>();
   const actionData = useActionData<typeof action>();
   const navigation = useNavigation();
   const isSubmitting = navigation.state === "submitting";
+
+  const isReceptionist = user.role === "RECEPTIONIST";
+  const isSupervisor = user.role === "FLOOR_SUPERVISOR";
+  const isAdmin = user.role === "ADMIN";
 
   const [selectedHandTag, setSelectedHandTag] = useState("");
   const [selectedLocker, setSelectedLocker] = useState("");
@@ -180,9 +184,74 @@ export default function NewBooking() {
   return (
     <div className="max-w-4xl mx-auto">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">新开台登记</h1>
-        <p className="text-gray-500 mt-1">请填写客户信息并分配手牌、储物柜和技师</p>
+        <div className="flex items-start justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">
+              {isReceptionist ? "前台开台登记" : isSupervisor ? "主管代开台" : "新开台登记"}
+            </h1>
+            <p className="text-gray-500 mt-1">
+              {isReceptionist && "请仔细核对客户信息，准确分配手牌、储物柜并收取押金"}
+              {isSupervisor && "前台忙碌时代为开台，确保信息完整后转交前台跟进"}
+              {isAdmin && "系统管理员开台，请注意记录操作原因"}
+            </p>
+          </div>
+        </div>
       </div>
+
+      {isReceptionist && (
+        <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+          <div className="flex items-start">
+            <svg className="h-5 w-5 text-blue-600 mt-0.5 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <div className="text-sm text-blue-800">
+              <p className="font-medium">前台职责说明</p>
+              <ul className="mt-2 space-y-1 list-disc list-inside text-blue-700">
+                <li>核对客户有效身份证件，如实登记姓名和联系方式</li>
+                <li>确保手牌和储物柜编号准确，避免重复分配</li>
+                <li>押金收取后当面点清，选择正确的支付方式</li>
+                <li>特殊需求或备注信息务必详细记录</li>
+                <li>开台完成后引导客户入场，通知楼层主管</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isSupervisor && (
+        <div className="mb-6 p-4 bg-purple-50 border border-purple-200 rounded-lg">
+          <div className="flex items-start">
+            <svg className="h-5 w-5 text-purple-600 mt-0.5 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+            </svg>
+            <div className="text-sm text-purple-800">
+              <p className="font-medium">主管代开台职责说明</p>
+              <ul className="mt-2 space-y-1 list-disc list-inside text-purple-700">
+                <li>前台忙碌时协助开台，确保信息录入完整准确</li>
+                <li>开台后及时通知对应前台跟进后续服务</li>
+                <li>关注高价值客户和VIP订单，优先安排资源</li>
+                <li>如涉及技师排班，请确认无冲突后再提交</li>
+                <li>异常情况请在备注中说明，便于后续跟进</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isAdmin && (
+        <div className="mb-6 p-4 bg-gray-50 border border-gray-200 rounded-lg">
+          <div className="flex items-start">
+            <svg className="h-5 w-5 text-gray-600 mt-0.5 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+            <div className="text-sm text-gray-800">
+              <p className="font-medium">管理员模式</p>
+              <p className="mt-1 text-gray-600">系统管理员开台，所有操作将被记录审计日志。非必要情况下请让前台或主管执行开台操作。</p>
+            </div>
+          </div>
+        </div>
+      )}
 
       <Form method="post" className="space-y-8">
         {actionData?.errors?._form && (
