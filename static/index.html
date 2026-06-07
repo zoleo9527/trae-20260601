@@ -223,6 +223,16 @@
         </div>
     </div>
 
+    <div class="modal" id="ledgerModal">
+        <div class="modal-content" style="max-width: 900px;">
+            <div class="modal-header">
+                <h3 id="ledgerModalTitle">📋 统一台账回看</h3>
+                <button class="modal-close" onclick="closeModal('ledgerModal')">&times;</button>
+            </div>
+            <div id="ledgerModalBody"></div>
+        </div>
+    </div>
+
     <div class="modal" id="actionModal">
         <div class="modal-content">
             <div class="modal-header">
@@ -473,10 +483,207 @@
 
         function handleTodo(type, id) {
             if (type === 'recharge') {
-                showRechargeDetail(id);
+                showLedger('recharge', id);
             } else {
-                showInvoiceDetail(id);
+                showLedger('invoice', id);
             }
+        }
+
+        async function showLedger(type, id) {
+            const url = type === 'recharge' ? `/ledger/recharge/${id}` : `/ledger/invoice/${id}`;
+            const data = await apiRequest(url);
+            if (!data) return;
+
+            document.getElementById('ledgerModalTitle').textContent = '📋 统一台账回看';
+            const r = data.recharge;
+            const inv = data.invoice;
+
+            let rechargeHtml = '';
+            if (r) {
+                rechargeHtml = `
+                    <div class="detail-section">
+                        <h4>💰 会员充值信息</h4>
+                        <div class="detail-grid">
+                            <div class="detail-item"><div class="label">会员姓名</div><div class="value">${r.member_name}</div></div>
+                            <div class="detail-item"><div class="label">手机号</div><div class="value">${r.member_phone}</div></div>
+                            <div class="detail-item"><div class="label">会员卡号</div><div class="value">${r.member_card_no}</div></div>
+                            <div class="detail-item"><div class="label">充值金额</div><div class="value">¥${r.recharge_amount.toFixed(2)}</div></div>
+                            <div class="detail-item"><div class="label">支付方式</div><div class="value">${r.payment_method}</div></div>
+                            <div class="detail-item"><div class="label">充值时间</div><div class="value">${new Date(r.recharge_time).toLocaleString('zh-CN')}</div></div>
+                            <div class="detail-item"><div class="label">充值状态</div><div class="value">${statusBadges[r.status] || r.status}</div></div>
+                            <div class="detail-item"><div class="label">创建人</div><div class="value">${r.creator_name || '-'}</div></div>
+                        </div>
+                        ${r.remark ? `<p style="margin-top:10px; background:#f9fafb; padding:10px; border-radius:6px;"><strong>充值备注:</strong> ${r.remark}</p>` : ''}
+                    </div>
+                `;
+            }
+
+            let invoiceHtml = '';
+            if (inv) {
+                invoiceHtml = `
+                    <div class="detail-section">
+                        <h4>📄 发票补开信息</h4>
+                        <div class="detail-grid">
+                            <div class="detail-item"><div class="label">发票抬头</div><div class="value">${inv.invoice_title}</div></div>
+                            <div class="detail-item"><div class="label">税号</div><div class="value">${inv.tax_no || '-'}</div></div>
+                            <div class="detail-item"><div class="label">开票金额</div><div class="value">¥${inv.invoice_amount.toFixed(2)}</div></div>
+                            <div class="detail-item"><div class="label">发票类型</div><div class="value">${inv.invoice_type}</div></div>
+                            <div class="detail-item"><div class="label">收件邮箱</div><div class="value">${inv.recipient_email || '-'}</div></div>
+                            <div class="detail-item"><div class="label">收件电话</div><div class="value">${inv.recipient_phone || '-'}</div></div>
+                            <div class="detail-item"><div class="label">发票状态</div><div class="value">${statusBadges[inv.status] || inv.status}</div></div>
+                            <div class="detail-item"><div class="label">创建人</div><div class="value">${inv.creator_name || '-'}</div></div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            let summaryHtml = `
+                <div class="detail-section" style="background: linear-gradient(135deg, #eff6ff, #dbeafe); padding: 15px; border-radius: 10px; margin-bottom: 20px;">
+                    <h4 style="color: #1e40af; margin-bottom: 12px;">🔍 同屏摘要</h4>
+                    <div class="detail-grid">
+                        <div class="detail-item" style="background: white;"><div class="label">当前处理状态</div><div class="value" style="color: #1e40af; font-weight: 600;">${data.current_status_text}</div></div>
+                        <div class="detail-item" style="background: white;"><div class="label">当前处理人</div><div class="value">${data.current_handler_name || '待分配'}</div></div>
+                    </div>
+                    ${data.return_reason ? `<div style="margin-top:10px; background:#fef2f2; padding:10px; border-radius:6px; border-left: 4px solid #ef4444;"><strong>⚠️ 退回原因:</strong> ${data.return_reason}</div>` : ''}
+                    ${data.supplement_remark ? `<div style="margin-top:10px; background:#ecfdf5; padding:10px; border-radius:6px; border-left: 4px solid #10b981;"><strong>📝 补充备注:</strong> ${data.supplement_remark}</div>` : ''}
+                </div>
+            `;
+
+            let actionsHtml = '';
+            if (data.available_actions && data.available_actions.length > 0) {
+                const btnClassMap = { success: 'btn-success', warning: 'btn-warning', danger: 'btn-danger', primary: 'btn-primary' };
+                actionsHtml = '<div class="action-buttons" style="margin-bottom: 20px;">';
+                data.available_actions.forEach(act => {
+                    const cls = btnClassMap[act.type] || 'btn-primary';
+                    actionsHtml += `<button class="btn ${cls} btn-sm" onclick="handleLedgerAction('${act.action}', ${JSON.stringify(data).replace(/"/g, '&quot;')})">${act.label}</button>`;
+                });
+                actionsHtml += '</div>';
+            }
+
+            let timelineHtml = '';
+            if (data.all_flow_logs && data.all_flow_logs.length > 0) {
+                timelineHtml = `
+                    <div class="detail-section">
+                        <h4>⏱️ 完整流转时间线</h4>
+                        <div class="flow-log">
+                ` + data.all_flow_logs.map(log => `
+                    <div class="flow-log-item">
+                        <div class="action">${log.action_desc}</div>
+                        <div class="time">${new Date(log.created_at).toLocaleString('zh-CN')} · 操作人: ${log.operator_name || '未知'}</div>
+                        ${log.from_status || log.to_status ? `<div style="font-size:12px; color:#6b7280; margin-top:2px;">状态: ${log.from_status || '-'} → ${log.to_status || '-'}</div>` : ''}
+                        ${log.remark ? `<div class="remark">${log.remark}</div>` : ''}
+                    </div>
+                `).join('') + `
+                        </div>
+                    </div>
+                `;
+            }
+
+            document.getElementById('ledgerModalBody').innerHTML = summaryHtml + actionsHtml + rechargeHtml + invoiceHtml + timelineHtml;
+            openModal('ledgerModal');
+        }
+
+        function handleLedgerAction(action, data) {
+            closeModal('ledgerModal');
+            const r = data.recharge;
+            const inv = data.invoice;
+
+            if (action === 'verify_recharge' && r) {
+                showLedgerRechargeAction(r.id, 'verified', '审核充值记录');
+            } else if (action === 'reject_recharge' && r) {
+                showLedgerRechargeAction(r.id, 'rejected', '驳回充值申请');
+            } else if (action === 'confirm_recharge' && r) {
+                showLedgerRechargeAction(r.id, 'confirmed', '确认充值到账');
+            } else if (action === 'process_invoice' && inv) {
+                showLedgerInvoiceAction(inv.id, 'processing', '开始处理发票');
+            } else if (action === 'complete_invoice' && inv) {
+                showLedgerInvoiceAction(inv.id, 'completed', '完成发票开具');
+            } else if (action === 'return_invoice' && inv) {
+                showLedgerInvoiceAction(inv.id, 'returned', '退回发票申请');
+            } else if (action === 'resubmit_invoice' && inv) {
+                showLedgerInvoiceSupplement(inv.id);
+            }
+        }
+
+        function showLedgerRechargeAction(id, status, title) {
+            document.getElementById('actionModalTitle').textContent = title;
+            document.getElementById('actionModalBody').innerHTML = `
+                <div class="form-group">
+                    <label>处理备注</label>
+                    <textarea id="actionRemark" rows="3" placeholder="请输入处理备注..."></textarea>
+                </div>
+                <button class="btn btn-primary" style="width: 100%;" onclick="submitLedgerRechargeAction(${id}, '${status}')">确认提交</button>
+            `;
+            openModal('actionModal');
+        }
+
+        async function submitLedgerRechargeAction(id, status) {
+            const remark = document.getElementById('actionRemark').value;
+            const result = await apiRequest(`/recharges/${id}`, 'PUT', { status, remark });
+            if (result) {
+                closeModal('actionModal');
+                alert('处理成功');
+                refreshAll();
+            }
+        }
+
+        function showLedgerInvoiceAction(id, status, title) {
+            document.getElementById('actionModalTitle').textContent = title;
+            const isReturn = status === 'returned';
+            document.getElementById('actionModalBody').innerHTML = `
+                <div class="form-group">
+                    <label>${isReturn ? '退回原因' : '处理备注'}</label>
+                    <textarea id="actionRemark" rows="3" placeholder="${isReturn ? '请输入退回原因...' : '请输入处理备注...'}"></textarea>
+                </div>
+                <button class="btn btn-primary" style="width: 100%;" onclick="submitLedgerInvoiceAction(${id}, '${status}')">确认提交</button>
+            `;
+            openModal('actionModal');
+        }
+
+        async function submitLedgerInvoiceAction(id, status) {
+            const remark = document.getElementById('actionRemark').value;
+            const body = { status };
+            if (status === 'returned') {
+                body.return_reason = remark;
+            } else {
+                body.supplement_remark = remark;
+            }
+            const result = await apiRequest(`/invoices/${id}`, 'PUT', body);
+            if (result) {
+                closeModal('actionModal');
+                alert('处理成功');
+                refreshAll();
+            }
+        }
+
+        function showLedgerInvoiceSupplement(id) {
+            document.getElementById('actionModalTitle').textContent = '补充信息并重新提交';
+            document.getElementById('actionModalBody').innerHTML = `
+                <div class="form-group">
+                    <label>补充备注</label>
+                    <textarea id="actionRemark" rows="3" placeholder="请输入补充的信息..."></textarea>
+                </div>
+                <button class="btn btn-primary" style="width: 100%;" onclick="submitLedgerInvoiceSupplement(${id})">提交</button>
+            `;
+            openModal('actionModal');
+        }
+
+        async function submitLedgerInvoiceSupplement(id) {
+            const remark = document.getElementById('actionRemark').value;
+            const body = { status: 'pending', supplement_remark: remark, return_reason: null };
+            const result = await apiRequest(`/invoices/${id}`, 'PUT', body);
+            if (result) {
+                closeModal('actionModal');
+                alert('已重新提交');
+                refreshAll();
+            }
+        }
+
+        function refreshAll() {
+            loadDashboard();
+            loadTodos();
+            loadRecharges();
+            loadInvoices();
         }
 
         async function loadRecharges() {
@@ -495,7 +702,7 @@
                     <td>${r.creator_name || '-'}</td>
                     <td>${new Date(r.created_at).toLocaleString('zh-CN')}</td>
                     <td>
-                        <button class="btn btn-primary btn-sm" onclick="showRechargeDetail(${r.id})">查看</button>
+                        <button class="btn btn-primary btn-sm" onclick="showLedger('recharge', ${r.id})">📋 台账回看</button>
                     </td>
                 </tr>
             `).join('');
@@ -522,7 +729,7 @@
                     <div class="detail-item">
                         <div class="label">发票 #${inv.id}</div>
                         <div class="value">${inv.invoice_title} - ¥${inv.invoice_amount.toFixed(2)} ${statusBadges[inv.status]}</div>
-                        <button class="btn btn-secondary btn-sm" style="margin-top: 5px;" onclick="showInvoiceDetail(${inv.id})">查看发票详情</button>
+                        <button class="btn btn-secondary btn-sm" style="margin-top: 5px;" onclick="showLedger('invoice', ${inv.id})">📋 台账回看</button>
                     </div>
                 `).join('') : '<p style="color: #6b7280;">暂无关联发票</p>';
 
@@ -598,7 +805,7 @@
             tbody.innerHTML = data.map(inv => `
                 <tr>
                     <td>${inv.id}</td>
-                    <td><a href="#" onclick="showRechargeDetail(${inv.recharge_id}); return false;">#${inv.recharge_id}</a></td>
+                    <td><a href="#" onclick="showLedger('recharge', ${inv.recharge_id}); return false;" style="color: #3b82f6; text-decoration: underline;">#${inv.recharge_id}</a></td>
                     <td>${inv.invoice_title}</td>
                     <td>¥${inv.invoice_amount.toFixed(2)}</td>
                     <td>${inv.invoice_type}</td>
@@ -607,7 +814,7 @@
                     <td>${inv.creator_name || '-'}</td>
                     <td>${new Date(inv.created_at).toLocaleString('zh-CN')}</td>
                     <td>
-                        <button class="btn btn-primary btn-sm" onclick="showInvoiceDetail(${inv.id})">查看</button>
+                        <button class="btn btn-primary btn-sm" onclick="showLedger('invoice', ${inv.id})">📋 台账回看</button>
                     </td>
                 </tr>
             `).join('');
@@ -638,7 +845,7 @@
                 <div class="detail-item">
                     <div class="label">充值记录 #${data.recharge.id}</div>
                     <div class="value">${data.recharge.member_name} - ¥${data.recharge.recharge_amount.toFixed(2)} ${statusBadges[data.recharge.status]}</div>
-                    <button class="btn btn-secondary btn-sm" style="margin-top: 5px;" onclick="showRechargeDetail(${data.recharge.id})">查看充值详情</button>
+                    <button class="btn btn-secondary btn-sm" style="margin-top: 5px;" onclick="showLedger('recharge', ${data.recharge.id})">📋 台账回看</button>
                 </div>
             ` : '<p style="color: #6b7280;">无关联充值记录</p>';
 

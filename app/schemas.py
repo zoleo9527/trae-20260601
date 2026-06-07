@@ -152,5 +152,20 @@ class TodoListResponse(BaseModel):
     todos: List[TodoItem]
 
 
+class UnifiedLedgerDetail(BaseModel):
+    ledger_type: str
+    recharge: Optional[MemberRechargeResponse] = None
+    invoice: Optional[InvoiceReissueResponse] = None
+    current_handler_name: Optional[str] = None
+    current_status_text: str
+    return_reason: Optional[str] = None
+    supplement_remark: Optional[str] = None
+    all_flow_logs: List[FlowLogResponse] = []
+    available_actions: List[dict] = []
+
+    class Config:
+        from_attributes = True
+
+
 MemberRechargeDetail.model_rebuild()
 InvoiceReissueDetail.model_rebuild()

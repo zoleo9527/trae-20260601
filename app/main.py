@@ -468,6 +468,116 @@ def get_invoice_flow_logs(
     return [enrich_flow_log_response(log) for log in logs]
 
 
+def build_unified_ledger(
+    db: Session,
+    current_user: models.User,
+    recharge: Optional[models.MemberRecharge] = None,
+    invoice: Optional[models.InvoiceReissue] = None
+) -> schemas.UnifiedLedgerDetail:
+    if invoice and not recharge:
+        recharge = invoice.recharge
+    if recharge and not invoice:
+        invoice = db.query(models.InvoiceReissue).filter(
+            models.InvoiceReissue.recharge_id == recharge.id
+        ).first()
+
+    recharge_resp = enrich_recharge_response(recharge) if recharge else None
+    invoice_resp = enrich_invoice_response(invoice) if invoice else None
+
+    ledger_type = "recharge" if recharge and not invoice else "full"
+
+    status_text_map = {
+        "pending": "待审核",
+        "verified": "已审核待确认",
+        "confirmed": "充值已到账",
+        "rejected": "充值已驳回",
+        "processing": "发票处理中",
+        "returned": "发票已退回待补充",
+        "completed": "发票已开具完成"
+    }
+
+    current_status = None
+    current_handler = None
+    if invoice:
+        current_status = invoice.status
+        current_handler = invoice.handler
+    elif recharge:
+        current_status = recharge.status
+        current_handler = recharge.handler
+
+    current_status_text = status_text_map.get(current_status, current_status or "未知")
+    current_handler_name = current_handler.full_name if current_handler else None
+
+    return_reason = invoice.return_reason if invoice else None
+    supplement_remark = invoice.supplement_remark if invoice else None
+
+    all_logs_dict = {}
+    if recharge:
+        for log in recharge.flow_logs:
+            all_logs_dict[log.id] = log
+    if invoice:
+        for log in invoice.flow_logs:
+            all_logs_dict[log.id] = log
+    all_logs = sorted(all_logs_dict.values(), key=lambda x: x.created_at)
+    all_logs_resp = [enrich_flow_log_response(log) for log in all_logs]
+
+    available_actions = []
+    role = current_user.role
+
+    if recharge and recharge.status == RechargeStatusEnum.PENDING.value:
+        if role in [RoleEnum.STATION_MANAGER.value, RoleEnum.METER_READER.value]:
+            available_actions.append({"action": "verify_recharge", "label": "审核通过", "type": "success"})
+            available_actions.append({"action": "reject_recharge", "label": "驳回申请", "type": "danger"})
+    if recharge and recharge.status == RechargeStatusEnum.VERIFIED.value:
+        if role == RoleEnum.STATION_MANAGER.value:
+            available_actions.append({"action": "confirm_recharge", "label": "确认到账", "type": "success"})
+    if invoice:
+        if role == RoleEnum.STATION_MANAGER.value:
+            if invoice.status in [InvoiceStatusEnum.PENDING.value, InvoiceStatusEnum.RETURNED.value]:
+                available_actions.append({"action": "process_invoice", "label": "开始处理", "type": "success"})
+            if invoice.status == InvoiceStatusEnum.PROCESSING.value:
+                available_actions.append({"action": "complete_invoice", "label": "完成开票", "type": "success"})
+                available_actions.append({"action": "return_invoice", "label": "退回补充", "type": "warning"})
+        if role == RoleEnum.CASHIER.value and invoice.status == InvoiceStatusEnum.RETURNED.value and invoice.created_by == current_user.id:
+            available_actions.append({"action": "resubmit_invoice", "label": "补充信息重新提交", "type": "primary"})
+
+    return schemas.UnifiedLedgerDetail(
+        ledger_type=ledger_type,
+        recharge=recharge_resp,
+        invoice=invoice_resp,
+        current_handler_name=current_handler_name,
+        current_status_text=current_status_text,
+        return_reason=return_reason,
+        supplement_remark=supplement_remark,
+        all_flow_logs=all_logs_resp,
+        available_actions=available_actions
+    )
+
+
+@app.get("/ledger/recharge/{recharge_id}", response_model=schemas.UnifiedLedgerDetail, tags=["统一台账"])
+def get_ledger_by_recharge(
+    recharge_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(auth.get_current_user)
+):
+    recharge = db.query(models.MemberRecharge).filter(models.MemberRecharge.id == recharge_id).first()
+    if not recharge:
+        raise HTTPException(status_code=404, detail="充值记录不存在")
+    return build_unified_ledger(db, current_user, recharge=recharge)
+
+
+@app.get("/ledger/invoice/{invoice_id}", response_model=schemas.UnifiedLedgerDetail, tags=["统一台账"])
+def get_ledger_by_invoice(
+    invoice_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(auth.get_current_user)
+):
+    invoice = db.query(models.InvoiceReissue).filter(models.InvoiceReissue.id == invoice_id).first()
+    if not invoice:
+        raise HTTPException(status_code=404, detail="发票记录不存在")
+    return build_unified_ledger(db, current_user, invoice=invoice)
+
+
 @app.get("/", include_in_schema=False)
 def root():
     return {"message": "加油站运营系统 API 已启动，请访问 /docs 查看接口文档"}
