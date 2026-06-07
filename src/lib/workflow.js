@@ -146,6 +146,13 @@ export function performAction(recordId, action, data = {}) {
   const role = get(currentRole);
   const timestamp = new Date().toISOString();
   
+  if (action === WorkflowActions.MANAGER_FINAL_REVIEW && record.hasDispute) {
+    const liability = data.liabilityConfirmed || {};
+    if (!liability.liabilityParty || !liability.liabilityDescription || !liability.handlingMeasures) {
+      throw new Error('争议单必须填写责任方、责任说明和处理措施');
+    }
+  }
+  
   const historyEntry = {
     status: nextStatus,
     action,
@@ -159,19 +166,23 @@ export function performAction(recordId, action, data = {}) {
     ...record,
     status: nextStatus,
     updatedAt: timestamp,
-    ...data,
     history: [...(record.history || []), historyEntry]
   };
   
-  if (action.startsWith('MANAGER_RETURN')) {
+  if (action.startsWith('manager_return')) {
+    const returnToRole = action === WorkflowActions.MANAGER_RETURN_TO_EDIT ? 'manager' :
+                        action === WorkflowActions.MANAGER_RETURN_TO_CASHIER ? 'cashier' : 'measurer';
     updatedRecord.returnInfo = {
       returnAction: action,
       returnBy: role,
       returnAt: timestamp,
       returnReason: data.comment || '',
-      returnTo: action === WorkflowActions.MANAGER_RETURN_TO_EDIT ? 'manager' :
-               action === WorkflowActions.MANAGER_RETURN_TO_CASHIER ? 'cashier' : 'measurer'
+      returnTo: returnToRole
     };
+    if (!updatedRecord.returnHistory) {
+      updatedRecord.returnHistory = [];
+    }
+    updatedRecord.returnHistory.push(updatedRecord.returnInfo);
   }
   
   if (action === WorkflowActions.SUPPLEMENT_INFO) {
@@ -184,6 +195,18 @@ export function performAction(recordId, action, data = {}) {
       supplementaryData: data.supplementaryData || {},
       comment: data.comment || ''
     });
+    
+    if (data.cashierData && role === 'cashier') {
+      updatedRecord.cashierData = data.cashierData;
+      updatedRecord.cashierEnteredAt = timestamp;
+      updatedRecord.cashierEnteredBy = role;
+    }
+    
+    if (data.measurerData && role === 'measurer') {
+      updatedRecord.measurerData = data.measurerData;
+      updatedRecord.measurerVerifiedAt = timestamp;
+      updatedRecord.measurerVerifiedBy = role;
+    }
   }
   
   if (action === WorkflowActions.MANAGER_APPROVE) {
@@ -192,11 +215,13 @@ export function performAction(recordId, action, data = {}) {
   }
   
   if (action === WorkflowActions.CASHIER_ENTER) {
+    updatedRecord.cashierData = data.cashierData;
     updatedRecord.cashierEnteredAt = timestamp;
     updatedRecord.cashierEnteredBy = role;
   }
   
   if (action === WorkflowActions.MEASURER_VERIFY || action === WorkflowActions.MEASURER_FLAG_DISPUTE) {
+    updatedRecord.measurerData = data.measurerData;
     updatedRecord.measurerVerifiedAt = timestamp;
     updatedRecord.measurerVerifiedBy = role;
     if (action === WorkflowActions.MEASURER_FLAG_DISPUTE) {
@@ -207,7 +232,13 @@ export function performAction(recordId, action, data = {}) {
   if (action === WorkflowActions.MANAGER_FINAL_REVIEW) {
     updatedRecord.completedAt = timestamp;
     updatedRecord.completedBy = role;
-    updatedRecord.liabilityConfirmed = data.liabilityConfirmed || null;
+    if (data.liabilityConfirmed) {
+      updatedRecord.liabilityConfirmed = {
+        ...data.liabilityConfirmed,
+        confirmedBy: role,
+        confirmedAt: timestamp
+      };
+    }
   }
   
   if (action === WorkflowActions.CLOSE) {

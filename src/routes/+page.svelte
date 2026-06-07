@@ -13,11 +13,15 @@
   
   $: myTasks = $oilIntakeRecords.filter(r => {
     if ($currentRole === 'manager') {
-      return r.status === 'pending_manager_approval' || r.status === 'manager_review';
+      return r.status === 'pending_manager_approval' || 
+             r.status === 'manager_review' || 
+             r.status === 'returned_to_manager';
     } else if ($currentRole === 'cashier') {
-      return r.status === 'pending_cashier';
+      return r.status === 'pending_cashier' || 
+             r.status === 'returned_to_cashier';
     } else if ($currentRole === 'measurer') {
-      return r.status === 'pending_measurer';
+      return r.status === 'pending_measurer' || 
+             r.status === 'returned_to_measurer';
     }
     return false;
   });

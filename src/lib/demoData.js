@@ -145,6 +145,16 @@ export function initDemoData() {
   
   currentRole.set('measurer');
   performAction(record4.id, WorkflowActions.SUPPLEMENT_INFO, {
+    measurerData: {
+      beforeLevel: 40,
+      afterLevel: 78,
+      actualVolume: 14850,
+      temperature: 21,
+      density: 0.748,
+      difference: -150,
+      differenceRate: -1.0,
+      verificationComment: '已补充检尺记录照片3张，差异原因主要是由于油罐底部有少量水杂，实际油品体积略小于计算值。'
+    },
     supplementaryData: {
       supplementaryContent: '已补充检尺记录照片3张，差异原因主要是由于油罐底部有少量水杂，实际油品体积略小于计算值。'
     },

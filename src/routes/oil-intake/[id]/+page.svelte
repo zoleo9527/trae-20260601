@@ -79,6 +79,13 @@
   function confirmAction() {
     if (!selectedAction) return;
     
+    if (selectedAction.action === 'manager_final_review' && record.hasDispute) {
+      if (!liabilityForm.liabilityParty || !liabilityForm.liabilityDescription || !liabilityForm.handlingMeasures) {
+        alert('争议单必须填写责任方、责任说明和处理措施');
+        return;
+      }
+    }
+    
     let data = { comment: actionComment };
     
     if (selectedAction.action === 'cashier_enter') {
@@ -91,15 +98,25 @@
     
     if (selectedAction.action === 'supplement_info') {
       data.supplementaryData = { ...supplementaryForm };
+      if ($currentRole === 'cashier') {
+        data.cashierData = cashierForm;
+      }
+      if ($currentRole === 'measurer') {
+        data.measurerData = measurerForm;
+      }
     }
     
     if (selectedAction.action === 'manager_final_review') {
       data.liabilityConfirmed = { ...liabilityForm };
     }
     
-    performAction(recordId, selectedAction.action, data);
-    showActionModal = false;
-    selectedAction = null;
+    try {
+      performAction(recordId, selectedAction.action, data);
+      showActionModal = false;
+      selectedAction = null;
+    } catch (e) {
+      alert(e.message);
+    }
   }
   
   function startEdit() {
@@ -164,6 +181,26 @@
           <strong>退回时间：</strong>{formatDateTime(record.returnInfo.returnAt)} · 
           <strong>退回至：</strong>{getRoleLabel(record.returnInfo.returnTo)}
         </p>
+      </div>
+    {/if}
+    
+    {#if record.returnHistory && record.returnHistory.length > 1}
+      <div class="card">
+        <h3 class="section-title">📜 历史退回记录</h3>
+        <div class="return-history-list">
+          {#each record.returnHistory.slice(0, -1) as item, index}
+            <div class="return-history-item">
+              <div class="return-history-header">
+                <span class="role-badge role-{item.returnBy}">{getRoleLabel(item.returnBy)}</span>
+                <span class="return-time">{formatDateTime(item.returnAt)}</span>
+              </div>
+              <div class="return-history-content">
+                <p><strong>退回至：</strong>{getRoleLabel(item.returnTo)}</p>
+                <p><strong>退回原因：</strong>{item.returnReason || '无'}</p>
+              </div>
+            </div>
+          {/each}
+        </div>
       </div>
     {/if}
     
@@ -1041,6 +1078,36 @@
     background: #E8FFEA;
     border-radius: 8px;
     border: 1px solid #B7EB8F;
+  }
+  
+  .return-history-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  
+  .return-history-item {
+    padding: 12px;
+    background: #FFF1F0;
+    border-radius: 6px;
+    border-left: 3px solid var(--danger);
+  }
+  
+  .return-history-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 6px;
+  }
+  
+  .return-time {
+    font-size: 12px;
+    color: var(--text-placeholder);
+  }
+  
+  .return-history-content p {
+    margin: 2px 0;
+    font-size: 13px;
   }
   
   @media (max-width: 900px) {
