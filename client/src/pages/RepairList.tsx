@@ -163,6 +163,8 @@ const RepairList: React.FC = () => {
                   const showApprove = item.status === 'PENDING_APPROVAL' && canApprove;
                   const showAssign = item.status === 'APPROVED' && canAssign;
                   const showSupplement = ['RETURNED', 'REOPENED'].includes(item.status) && canSupplement;
+                  const showReview = item.status === 'COMPLETED' && canApprove;
+                  const primaryAction = showApprove ? '审批' : showReview ? '复核' : showAssign ? '指派' : showSupplement ? '补录' : null;
                   
                   return (
                     <tr key={item.id} className="border-b border-gray-100 hover:bg-gray-50">
@@ -187,36 +189,25 @@ const RepairList: React.FC = () => {
                       </td>
                       <td className="py-3 px-4">
                         <div className="flex items-center gap-2">
+                          {primaryAction && (
+                            <button
+                              onClick={() => navigate(`/repairs/${item.id}`)}
+                              className={`text-sm font-medium ${
+                                showApprove ? 'text-green-600 hover:text-green-700' :
+                                showReview ? 'text-purple-600 hover:text-purple-700' :
+                                showAssign ? 'text-amber-600 hover:text-amber-700' :
+                                'text-orange-600 hover:text-orange-700'
+                              }`}
+                            >
+                              {primaryAction}
+                            </button>
+                          )}
                           <button
                             onClick={() => navigate(`/repairs/${item.id}`)}
                             className="text-primary-600 hover:text-primary-700 text-sm font-medium flex items-center"
                           >
                             详情 <ChevronRight size={14} />
                           </button>
-                          {showApprove && (
-                            <button
-                              onClick={() => navigate(`/repairs/${item.id}`)}
-                              className="text-green-600 hover:text-green-700 text-sm font-medium"
-                            >
-                              审批
-                            </button>
-                          )}
-                          {showAssign && (
-                            <button
-                              onClick={() => navigate(`/repairs/${item.id}`)}
-                              className="text-amber-600 hover:text-amber-700 text-sm font-medium"
-                            >
-                              指派
-                            </button>
-                          )}
-                          {showSupplement && (
-                            <button
-                              onClick={() => navigate(`/repairs/${item.id}`)}
-                              className="text-orange-600 hover:text-orange-700 text-sm font-medium"
-                            >
-                              补录
-                            </button>
-                          )}
                         </div>
                       </td>
                     </tr>
