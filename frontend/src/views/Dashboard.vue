@@ -1,238 +1,84 @@
 <template>
   <div class="page-container">
     <el-row :gutter="16" style="margin-bottom: 20px">
-      <el-col :span="6">
-        <el-card shadow="hover">
+      <el-col :span="24">
+        <el-card shadow="never" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: #fff">
           <div style="display: flex; align-items: center; justify-content: space-between">
             <div>
-              <div style="font-size: 14px; color: #909399">今日待处理出库</div>
-              <div style="font-size: 32px; font-weight: bold; color: #e6a23c; margin-top: 8px">{{ dashboard.pendingOutboundCount || 0 }}</div>
+              <div style="font-size: 20px; font-weight: 500; margin-bottom: 8px">
+                {{ greetingText }}，{{ userStore.roleName }}
+              </div>
+              <div style="font-size: 14px; opacity: 0.85">
+                {{ roleTipText }}
+              </div>
             </div>
-            <div style="width: 60px; height: 60px; background: #fdf6ec; border-radius: 50%; display: flex; align-items: center; justify-content: center">
-              <el-icon style="font-size: 28px; color: #e6a23c"><Goods /></el-icon>
-            </div>
-          </div>
-        </el-card>
-      </el-col>
-      <el-col :span="6">
-        <el-card shadow="hover">
-          <div style="display: flex; align-items: center; justify-content: space-between">
-            <div>
-              <div style="font-size: 14px; color: #909399">今日待处理核销</div>
-              <div style="font-size: 32px; font-weight: bold; color: #409eff; margin-top: 8px">{{ dashboard.pendingVerificationCount || 0 }}</div>
-            </div>
-            <div style="width: 60px; height: 60px; background: #ecf5ff; border-radius: 50%; display: flex; align-items: center; justify-content: center">
-              <el-icon style="font-size: 28px; color: #409eff"><Present /></el-icon>
-            </div>
-          </div>
-        </el-card>
-      </el-col>
-      <el-col :span="6">
-        <el-card shadow="hover">
-          <div style="display: flex; align-items: center; justify-content: space-between">
-            <div>
-              <div style="font-size: 14px; color: #909399">超时未处理</div>
-              <div style="font-size: 32px; font-weight: bold; color: #f56c6c; margin-top: 8px">{{ dashboard.timeoutCount || 0 }}</div>
-            </div>
-            <div style="width: 60px; height: 60px; background: #fef0f0; border-radius: 50%; display: flex; align-items: center; justify-content: center">
-              <el-icon style="font-size: 28px; color: #f56c6c"><Warning /></el-icon>
-            </div>
-          </div>
-        </el-card>
-      </el-col>
-      <el-col :span="6">
-        <el-card shadow="hover">
-          <div style="display: flex; align-items: center; justify-content: space-between">
-            <div>
-              <div style="font-size: 14px; color: #909399">24小时内退回</div>
-              <div style="font-size: 32px; font-weight: bold; color: #909399; margin-top: 8px">{{ dashboard.rejectedCount || 0 }}</div>
-            </div>
-            <div style="width: 60px; height: 60px; background: #f4f4f5; border-radius: 50%; display: flex; align-items: center; justify-content: center">
-              <el-icon style="font-size: 28px; color: #909399"><RefreshLeft /></el-icon>
+            <div style="display: flex; gap: 12px">
+              <el-button
+                v-for="action in quickActions"
+                :key="action.key"
+                :type="action.type"
+                size="large"
+                @click="handleQuickAction(action)"
+              >
+                <el-icon style="margin-right: 6px"><component :is="action.icon" /></el-icon>
+                {{ action.label }}
+              </el-button>
             </div>
           </div>
         </el-card>
       </el-col>
     </el-row>
 
-    <el-row :gutter="16">
-      <el-col :span="12">
-        <el-card>
+    <el-row :gutter="16" v-for="(row, rowIndex) in cardRows" :key="rowIndex" style="margin-bottom: 16px">
+      <el-col :span="col.span" v-for="col in row" :key="col.key">
+        <el-card shadow="hover">
           <template #header>
             <div class="card-header">
-              <span style="font-weight: 500">今日待处理出库单</span>
-              <el-button type="primary" link @click="$router.push('/outbound')">查看全部</el-button>
-            </div>
-          </template>
-          <el-table :data="dashboard.pendingOutboundList || []" size="small" style="width: 100%">
-            <el-table-column prop="outboundNo" label="出库单号" width="140">
-              <template #default="{ row }">
-                <span style="color: #409eff; cursor: pointer" @click="goToOutboundDetail(row.id)">{{ row.outboundNo }}</span>
-              </template>
-            </el-table-column>
-            <el-table-column prop="roomNo" label="包厢" width="80" />
-            <el-table-column prop="totalAmount" label="金额" width="100">
-              <template #default="{ row }">¥{{ row.totalAmount }}</template>
-            </el-table-column>
-            <el-table-column prop="outboundType" label="类型" width="80">
-              <template #default="{ row }">
-                <el-tag v-if="row.outboundType === 'SALE'" type="success" size="small">销售</el-tag>
-                <el-tag v-else type="warning" size="small">赠送</el-tag>
-              </template>
-            </el-table-column>
-            <el-table-column prop="createTime" label="创建时间" width="160">
-              <template #default="{ row }">{{ formatTime(row.createTime) }}</template>
-            </el-table-column>
-            <el-table-column label="操作" width="100">
-              <template #default="{ row }">
-                <el-button type="primary" size="small" link @click="goToOutboundDetail(row.id)">处理</el-button>
-              </template>
-            </el-table-column>
-          </el-table>
-          <el-empty v-if="!dashboard.pendingOutboundList?.length" description="暂无待处理出库单" :image-size="60" />
-        </el-card>
-      </el-col>
-      <el-col :span="12">
-        <el-card>
-          <template #header>
-            <div class="card-header">
-              <span style="font-weight: 500">今日待处理核销单</span>
-              <el-button type="primary" link @click="$router.push('/verification')">查看全部</el-button>
+              <div style="display: flex; align-items: center; gap: 10px">
+                <span style="font-weight: 500">{{ col.title }}</span>
+                <el-tag v-if="col.count !== undefined" :type="col.tagType" size="small">
+                  {{ col.count }}
+                </el-tag>
+              </div>
+              <el-button v-if="col.moreLink" type="primary" link @click="$router.push(col.moreLink)">
+                查看全部
+              </el-button>
             </div>
           </template>
 
-          <div v-if="pendingAuditList.length > 0" style="margin-bottom: 16px">
-            <div style="padding: 8px 12px; background: #ecf5ff; border-radius: 4px; margin-bottom: 8px; display: flex; align-items: center; gap: 8px">
-              <el-tag type="primary" size="small">待审核</el-tag>
-              <span style="font-size: 13px; color: #409eff">共 {{ pendingAuditList.length }} 条核销单等待审核</span>
+          <div v-if="col.type === 'stat'">
+            <div style="display: flex; align-items: center; justify-content: space-between">
+              <div>
+                <div style="font-size: 14px; color: #909399">{{ col.subtitle }}</div>
+                <div :style="{ fontSize: '32px', fontWeight: 'bold', color: col.color, marginTop: '8px' }">
+                  {{ col.value }}
+                </div>
+              </div>
+              <div :style="{ width: '60px', height: '60px', background: col.bgColor, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }">
+                <el-icon :style="{ fontSize: '28px', color: col.color }"><component :is="col.icon" /></el-icon>
+              </div>
             </div>
-            <el-table :data="pendingAuditList" size="small" style="width: 100%">
-              <el-table-column prop="verificationNo" label="核销单号" width="140">
-                <template #default="{ row }">
-                  <span style="color: #409eff; cursor: pointer" @click="goToVerificationDetail(row.id)">{{ row.verificationNo }}</span>
-                </template>
-              </el-table-column>
-              <el-table-column prop="roomNo" label="包厢" width="80" />
-              <el-table-column prop="customerName" label="客户" width="80" />
-              <el-table-column prop="usedAmount" label="金额" width="100">
-                <template #default="{ row }">¥{{ row.usedAmount }}</template>
-              </el-table-column>
-              <el-table-column prop="createTime" label="创建时间" width="160">
-                <template #default="{ row }">{{ formatTime(row.createTime) }}</template>
-              </el-table-column>
-              <el-table-column label="操作" width="100">
-                <template #default="{ row }">
-                  <el-button type="primary" size="small" link @click="goToVerificationDetail(row.id)">去审核</el-button>
+          </div>
+
+          <div v-else-if="col.type === 'list' && col.data?.length > 0">
+            <el-table :data="col.data" size="small" style="width: 100%">
+              <el-table-column v-for="c in col.columns" :key="c.prop" v-bind="c">
+                <template v-if="c.slot" #default="{ row }">
+                  <component :is="c.slot" :row="row" :col="c" />
                 </template>
               </el-table-column>
             </el-table>
           </div>
 
-          <div v-if="pendingOutboundList.length > 0">
-            <div style="padding: 8px 12px; background: #fdf6ec; border-radius: 4px; margin-bottom: 8px; display: flex; align-items: center; gap: 8px">
-              <el-tag type="warning" size="small">待出库</el-tag>
-              <span style="font-size: 13px; color: #e6a23c">共 {{ pendingOutboundList.length }} 条核销已通过，等待吧台出库</span>
-            </div>
-            <el-table :data="pendingOutboundList" size="small" style="width: 100%">
-              <el-table-column prop="verificationNo" label="核销单号" width="140">
-                <template #default="{ row }">
-                  <span style="color: #409eff; cursor: pointer" @click="goToVerificationDetail(row.id)">{{ row.verificationNo }}</span>
-                </template>
-              </el-table-column>
-              <el-table-column prop="roomNo" label="包厢" width="80" />
-              <el-table-column prop="customerName" label="客户" width="80" />
-              <el-table-column prop="usedAmount" label="金额" width="100">
-                <template #default="{ row }">¥{{ row.usedAmount }}</template>
-              </el-table-column>
-              <el-table-column prop="outboundNo" label="出库单号" width="140">
-                <template #default="{ row }">
-                  <span v-if="row.outboundNo" style="color: #e6a23c; cursor: pointer" @click="goToOutboundDetail(row.outboundId)">
-                    {{ row.outboundNo }}
-                  </span>
-                  <span v-else style="color: #909399">-</span>
-                </template>
-              </el-table-column>
-              <el-table-column label="操作" width="100">
-                <template #default="{ row }">
-                  <el-button type="warning" size="small" link @click="goToOutboundDetail(row.outboundId)">
-                    <el-icon><Bell /></el-icon>
-                    去出库
-                  </el-button>
-                </template>
-              </el-table-column>
-            </el-table>
+          <div v-else-if="col.type === 'list'">
+            <el-empty :description="col.emptyText" :image-size="60">
+              <template #footer>
+                <el-button size="small" type="primary" @click="handleQuickAction(col.emptyAction)">
+                  {{ col.emptyAction?.label || '去处理' }}
+                </el-button>
+              </template>
+            </el-empty>
           </div>
-
-          <el-empty v-if="pendingAuditList.length === 0 && pendingOutboundList.length === 0" description="暂无待处理核销单" :image-size="60" />
-        </el-card>
-      </el-col>
-    </el-row>
-
-    <el-row :gutter="16" style="margin-top: 16px">
-      <el-col :span="12">
-        <el-card>
-          <template #header>
-            <span style="font-weight: 500; color: #f56c6c">超时未处理（超过2小时）</span>
-          </template>
-          <el-table :data="dashboard.timeoutList || []" size="small" style="width: 100%">
-            <el-table-column label="类型" width="80">
-              <template #default="{ row }">
-                <el-tag v-if="row.type === 'OUTBOUND'" type="warning" size="small">出库</el-tag>
-                <el-tag v-else type="primary" size="small">核销</el-tag>
-              </template>
-            </el-table-column>
-            <el-table-column prop="no" label="单号" width="150">
-              <template #default="{ row }">
-                <span style="color: #409eff; cursor: pointer" @click="handleTimeoutItem(row)">{{ row.no }}</span>
-              </template>
-            </el-table-column>
-            <el-table-column prop="roomNo" label="包厢" width="80" />
-            <el-table-column prop="amount" label="金额" width="100">
-              <template #default="{ row }">¥{{ row.amount }}</template>
-            </el-table-column>
-            <el-table-column prop="createTime" label="创建时间" width="160">
-              <template #default="{ row }">
-                <span style="color: #f56c6c">{{ formatTime(row.createTime) }}</span>
-              </template>
-            </el-table-column>
-            <el-table-column label="操作" width="100">
-              <template #default="{ row }">
-                <el-button type="primary" size="small" link @click="handleTimeoutItem(row)">去处理</el-button>
-              </template>
-            </el-table-column>
-          </el-table>
-          <el-empty v-if="!dashboard.timeoutList?.length" description="暂无超时记录" :image-size="60" />
-        </el-card>
-      </el-col>
-      <el-col :span="12">
-        <el-card>
-          <template #header>
-            <span style="font-weight: 500; color: #909399">24小时内刚退回记录</span>
-          </template>
-          <el-table :data="dashboard.rejectedList || []" size="small" style="width: 100%">
-            <el-table-column label="类型" width="80">
-              <template #default="{ row }">
-                <el-tag v-if="row.type === 'OUTBOUND'" type="warning" size="small">出库</el-tag>
-                <el-tag v-else type="primary" size="small">核销</el-tag>
-              </template>
-            </el-table-column>
-            <el-table-column prop="no" label="单号" width="150">
-              <template #default="{ row }">
-                <span style="color: #409eff; cursor: pointer" @click="handleRejectedItem(row)">{{ row.no }}</span>
-              </template>
-            </el-table-column>
-            <el-table-column prop="roomNo" label="包厢" width="80" />
-            <el-table-column prop="rejectReason" label="退回原因" show-overflow-tooltip />
-            <el-table-column prop="handleTime" label="退回时间" width="160">
-              <template #default="{ row }">{{ formatTime(row.handleTime) }}</template>
-            </el-table-column>
-            <el-table-column label="操作" width="100">
-              <template #default="{ row }">
-                <el-button type="primary" size="small" link @click="handleRejectedItem(row)">查看</el-button>
-              </template>
-            </el-table-column>
-          </el-table>
-          <el-empty v-if="!dashboard.rejectedList?.length" description="暂无退回记录" :image-size="60" />
         </el-card>
       </el-col>
     </el-row>
@@ -240,14 +86,30 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, h } from 'vue'
 import { useRouter } from 'vue-router'
+import { useUserStore } from '@/stores/user'
 import dayjs from 'dayjs'
 import { getDashboard } from '@/api/dashboard'
-import { Goods, Present, Warning, RefreshLeft, Bell } from '@element-plus/icons-vue'
+import {
+  Goods, Present, Warning, RefreshLeft, Plus, Check, CircleClose, Bell, DocumentAdd, Edit
+} from '@element-plus/icons-vue'
 
 const router = useRouter()
+const userStore = useUserStore()
 const dashboard = ref({})
+
+const loadData = async () => {
+  dashboard.value = await getDashboard()
+}
+
+const greetingText = computed(() => {
+  const hour = dayjs().hour()
+  if (hour < 10) return '早上好'
+  if (hour < 14) return '中午好'
+  if (hour < 18) return '下午好'
+  return '晚上好'
+})
 
 const pendingAuditList = computed(() => {
   const list = dashboard.value.pendingVerificationList || []
@@ -259,36 +121,307 @@ const pendingOutboundList = computed(() => {
   return list.filter(item => item.status === 'COMPLETED' && item.outboundStatus === 'PENDING' && item.outboundId)
 })
 
-const loadData = async () => {
-  dashboard.value = await getDashboard()
-}
-
-const formatTime = (time) => {
-  return time ? dayjs(time).format('YYYY-MM-DD HH:mm') : '-'
-}
-
-const goToOutboundDetail = (id) => {
-  router.push(`/outbound/${id}`)
-}
-
-const goToVerificationDetail = (id) => {
-  router.push(`/verification/${id}`)
-}
-
-const handleTimeoutItem = (row) => {
-  if (row.type === 'OUTBOUND') {
-    router.push(`/outbound/${row.id}`)
-  } else {
-    router.push(`/verification/${row.id}`)
+const roleTipText = computed(() => {
+  if (userStore.isBooking) {
+    const count = pendingAuditList.value.length
+    return count > 0 ? `您有 ${count} 条核销单等待楼面经理审核，可继续发起新的核销` : '今日暂无待审核核销单，可随时发起核销'
   }
+  if (userStore.isFloor) {
+    const count = pendingAuditList.value.length
+    const timeout = dashboard.value.timeoutCount || 0
+    return count > 0 ? `您有 ${count} 条核销单待审核${timeout > 0 ? `，${timeout} 条超时未处理` : ''}` : '今日暂无待审核核销，注意处理超时和退回记录'
+  }
+  if (userStore.isBar) {
+    const count = (dashboard.value.pendingOutboundList || []).length + pendingOutboundList.value.length
+    return count > 0 ? `您有 ${count} 条出库单待处理，请及时完成出库` : '今日暂无待处理出库，保持关注新单'
+  }
+  return '全局概览，可查看所有岗位的待处理事项'
+})
+
+const quickActions = computed(() => {
+  if (userStore.isBooking) {
+    return [
+      { key: 'create-verification', label: '发起核销', type: 'primary', icon: DocumentAdd, path: '/verification/create' }
+    ]
+  }
+  if (userStore.isFloor) {
+    return [
+      { key: 'audit-verification', label: '处理审核', type: 'primary', icon: Check, path: '/verification' },
+      { key: 'view-rejected', label: '查看退回', type: 'info', icon: CircleClose, path: '/verification?status=REJECTED' }
+    ]
+  }
+  if (userStore.isBar) {
+    return [
+      { key: 'handle-outbound', label: '处理出库', type: 'warning', icon: Goods, path: '/outbound' },
+      { key: 'create-outbound', label: '新建出库', type: 'primary', icon: Plus, path: '/outbound/create' }
+    ]
+  }
+  return [
+    { key: 'verification', label: '核销管理', type: 'primary', icon: Present, path: '/verification' },
+    { key: 'outbound', label: '出库管理', type: 'warning', icon: Goods, path: '/outbound' }
+  ]
+})
+
+const VerificationNoCell = (props) => h('span', {
+  style: { color: '#409eff', cursor: 'pointer' },
+  onClick: () => router.push(`/verification/${props.row.id}`)
+}, props.row.verificationNo || props.row.no)
+
+const OutboundNoCell = (props) => h('span', {
+  style: { color: '#409eff', cursor: 'pointer' },
+  onClick: () => router.push(`/outbound/${props.row.id || props.row.outboundId}`)
+}, props.row.outboundNo || props.row.no)
+
+const ActionCell = (props) => {
+  const actions = props.col.actions || []
+  const action = actions.find(a => a.when ? a.when(props.row) : true)
+  if (!action) return null
+  return h(
+    'el-button',
+    { type: action.type, size: 'small', link: true, onClick: () => handleQuickAction(action, props.row) },
+    () => [action.icon && h('el-icon', {}, () => h(action.icon)), action.label]
+  )
 }
 
-const handleRejectedItem = (row) => {
-  if (row.type === 'OUTBOUND') {
-    router.push(`/outbound/${row.id}`)
-  } else {
-    router.push(`/verification/${row.id}`)
+const TypeTagCell = (props) => h('el-tag', {
+  type: props.row.type === 'OUTBOUND' ? 'warning' : 'primary', size: 'small'
+}, () => props.row.type === 'OUTBOUND' ? '出库' : '核销')
+
+const StatusTagCell = (props) => {
+  const map = { PENDING: 'warning', COMPLETED: 'success', REJECTED: 'danger' }
+  const labelMap = { PENDING: '待处理', COMPLETED: '已完成', REJECTED: '已退回' }
+  return h('el-tag', { type: map[props.row.status] || 'info', size: 'small' }, () => labelMap[props.row.status] || props.row.status)
+}
+
+const AmountCell = (props) => h('span', {}, `¥${props.row.usedAmount || props.row.totalAmount || props.row.amount || 0}`)
+
+const TimeCell = (props) => h('span', {
+  style: props.col.timeColor ? { color: props.col.timeColor } : {}
+}, dayjs(props.row.createTime || props.row.handleTime).format('MM-DD HH:mm'))
+
+const cardRows = computed(() => {
+  const baseCards = {
+    pendingOutbound: {
+      key: 'pending-outbound', title: '今日待处理出库', type: 'list',
+      tagType: 'warning', count: dashboard.value.pendingOutboundCount || 0,
+      moreLink: '/outbound',
+      data: dashboard.value.pendingOutboundList || [],
+      columns: [
+        { prop: 'outboundNo', label: '出库单号', width: 140, slot: OutboundNoCell },
+        { prop: 'roomNo', label: '包厢', width: 80 },
+        { prop: 'totalAmount', label: '金额', width: 100, slot: AmountCell },
+        { prop: 'outboundType', label: '类型', width: 80, slot: (props) => h('el-tag', {
+          type: props.row.outboundType === 'SALE' ? 'success' : 'warning', size: 'small'
+        }, () => props.row.outboundType === 'SALE' ? '销售' : '赠送') },
+        { prop: 'createTime', label: '创建时间', width: 140, slot: TimeCell },
+        { prop: 'action', label: '操作', width: 100, slot: ActionCell, actions: [
+          { label: '处理', type: 'primary', icon: Goods, path: '/outbound', useId: true }
+        ]}
+      ],
+      emptyText: '暂无待处理出库单',
+      emptyAction: { label: '新建出库', path: '/outbound/create' }
+    },
+
+    pendingAudit: {
+      key: 'pending-audit', title: '待审核核销单', type: 'list',
+      tagType: 'primary', count: pendingAuditList.value.length,
+      moreLink: '/verification',
+      data: pendingAuditList.value,
+      columns: [
+        { prop: 'verificationNo', label: '核销单号', width: 140, slot: VerificationNoCell },
+        { prop: 'roomNo', label: '包厢', width: 80 },
+        { prop: 'customerName', label: '客户', width: 80 },
+        { prop: 'usedAmount', label: '金额', width: 100, slot: AmountCell },
+        { prop: 'createTime', label: '创建时间', width: 140, slot: TimeCell },
+        { prop: 'action', label: '操作', width: 100, slot: ActionCell, actions: [
+          { label: '审核', type: 'primary', icon: Check, path: '/verification', useId: true }
+        ]}
+      ],
+      emptyText: '暂无待审核核销单',
+      emptyAction: userStore.isBooking
+        ? { label: '发起核销', path: '/verification/create' }
+        : { label: '查看全部', path: '/verification' }
+    },
+
+    pendingGiftOutbound: {
+      key: 'pending-gift-outbound', title: '核销已通过，待出库', type: 'list',
+      tagType: 'warning', count: pendingOutboundList.value.length,
+      moreLink: '/outbound',
+      data: pendingOutboundList.value,
+      columns: [
+        { prop: 'verificationNo', label: '核销单号', width: 140, slot: VerificationNoCell },
+        { prop: 'roomNo', label: '包厢', width: 80 },
+        { prop: 'usedAmount', label: '金额', width: 100, slot: AmountCell },
+        { prop: 'outboundNo', label: '出库单号', width: 140, slot: OutboundNoCell },
+        { prop: 'action', label: '操作', width: 100, slot: ActionCell, actions: [
+          { label: '去出库', type: 'warning', icon: Bell, path: '/outbound', useOutboundId: true }
+        ]}
+      ],
+      emptyText: '暂无待出库的核销单',
+      emptyAction: { label: '去出库列表', path: '/outbound' }
+    },
+
+    timeout: {
+      key: 'timeout', title: '超时未处理（超过2小时）', type: 'list',
+      tagType: 'danger', count: dashboard.value.timeoutCount || 0,
+      data: dashboard.value.timeoutList || [],
+      columns: [
+        { prop: 'type', label: '类型', width: 80, slot: TypeTagCell },
+        { prop: 'no', label: '单号', width: 150, slot: (props) => h('span', {
+          style: { color: '#409eff', cursor: 'pointer' },
+          onClick: () => {
+            if (props.row.type === 'OUTBOUND') router.push(`/outbound/${props.row.id}`)
+            else router.push(`/verification/${props.row.id}`)
+          }
+        }, props.row.no) },
+        { prop: 'roomNo', label: '包厢', width: 80 },
+        { prop: 'amount', label: '金额', width: 100, slot: AmountCell },
+        { prop: 'createTime', label: '超时时间', width: 140, slot: TimeCell, timeColor: '#f56c6c' },
+        { prop: 'action', label: '操作', width: 100, slot: ActionCell, actions: [
+          { label: '去处理', type: 'primary', useType: true }
+        ]}
+      ],
+      emptyText: '暂无超时记录',
+      emptyAction: { label: '去审核', path: '/verification' }
+    },
+
+    rejected: {
+      key: 'rejected', title: '24小时内刚退回', type: 'list',
+      tagType: 'info', count: dashboard.value.rejectedCount || 0,
+      data: dashboard.value.rejectedList || [],
+      columns: [
+        { prop: 'type', label: '类型', width: 80, slot: TypeTagCell },
+        { prop: 'no', label: '单号', width: 150, slot: (props) => h('span', {
+          style: { color: '#409eff', cursor: 'pointer' },
+          onClick: () => {
+            if (props.row.type === 'OUTBOUND') router.push(`/outbound/${props.row.id}`)
+            else router.push(`/verification/${props.row.id}`)
+          }
+        }, props.row.no) },
+        { prop: 'roomNo', label: '包厢', width: 80 },
+        { prop: 'rejectReason', label: '退回原因', showOverflowTooltip: true },
+        { prop: 'handleTime', label: '退回时间', width: 140, slot: TimeCell }
+      ],
+      emptyText: '暂无退回记录',
+      emptyAction: { label: '查看核销', path: '/verification?status=REJECTED' }
+    },
+
+    statPendingOutbound: {
+      key: 'stat-outbound', title: '待处理出库', type: 'stat',
+      value: dashboard.value.pendingOutboundCount || 0,
+      subtitle: '今日需处理出库单数',
+      color: '#e6a23c', bgColor: '#fdf6ec', icon: Goods
+    },
+
+    statPendingVerification: {
+      key: 'stat-verification', title: '待处理核销', type: 'stat',
+      value: dashboard.value.pendingVerificationCount || 0,
+      subtitle: '今日需处理核销单数',
+      color: '#409eff', bgColor: '#ecf5ff', icon: Present
+    },
+
+    statTimeout: {
+      key: 'stat-timeout', title: '超时未处理', type: 'stat',
+      value: dashboard.value.timeoutCount || 0,
+      subtitle: '超过2小时未处理',
+      color: '#f56c6c', bgColor: '#fef0f0', icon: Warning
+    },
+
+    statRejected: {
+      key: 'stat-rejected', title: '24h内退回', type: 'stat',
+      value: dashboard.value.rejectedCount || 0,
+      subtitle: '最近退回记录数',
+      color: '#909399', bgColor: '#f4f4f5', icon: RefreshLeft
+    }
   }
+
+  if (userStore.isBooking) {
+    return [
+      [
+        { ...baseCards.statPendingVerification, span: 12 },
+        { ...baseCards.statTimeout, span: 12 }
+      ],
+      [
+        { ...baseCards.pendingAudit, span: 24 }
+      ],
+      [
+        { ...baseCards.timeout, span: 12 },
+        { ...baseCards.rejected, span: 12 }
+      ]
+    ]
+  }
+
+  if (userStore.isFloor) {
+    return [
+      [
+        { ...baseCards.statPendingVerification, span: 8 },
+        { ...baseCards.statTimeout, span: 8 },
+        { ...baseCards.statRejected, span: 8 }
+      ],
+      [
+        { ...baseCards.pendingAudit, span: 12 },
+        { ...baseCards.pendingGiftOutbound, span: 12 }
+      ],
+      [
+        { ...baseCards.timeout, span: 12 },
+        { ...baseCards.rejected, span: 12 }
+      ]
+    ]
+  }
+
+  if (userStore.isBar) {
+    return [
+      [
+        { ...baseCards.statPendingOutbound, span: 12 },
+        { ...baseCards.statTimeout, span: 12 }
+      ],
+      [
+        { ...baseCards.pendingOutbound, span: 12 },
+        { ...baseCards.pendingGiftOutbound, span: 12 }
+      ],
+      [
+        { ...baseCards.timeout, span: 12 },
+        { ...baseCards.rejected, span: 12 }
+      ]
+    ]
+  }
+
+  return [
+    [
+      { ...baseCards.statPendingOutbound, span: 6 },
+      { ...baseCards.statPendingVerification, span: 6 },
+      { ...baseCards.statTimeout, span: 6 },
+      { ...baseCards.statRejected, span: 6 }
+    ],
+    [
+      { ...baseCards.pendingOutbound, span: 12 },
+      { ...baseCards.pendingAudit, span: 12 }
+    ],
+    [
+      { ...baseCards.pendingGiftOutbound, span: 24 }
+    ],
+    [
+      { ...baseCards.timeout, span: 12 },
+      { ...baseCards.rejected, span: 12 }
+    ]
+  ]
+})
+
+const handleQuickAction = (action, row) => {
+  if (!action?.path) return
+  let path = action.path
+  if (action.useId && row?.id) {
+    if (action.path.startsWith('/verification')) path = `/verification/${row.id}`
+    if (action.path.startsWith('/outbound')) path = `/outbound/${row.id}`
+  }
+  if (action.useOutboundId && row?.outboundId) {
+    path = `/outbound/${row.outboundId}`
+  }
+  if (action.useType && row) {
+    if (row.type === 'OUTBOUND') path = `/outbound/${row.id}`
+    else path = `/verification/${row.id}`
+  }
+  router.push(path)
 }
 
 onMounted(() => {
