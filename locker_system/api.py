@@ -111,28 +111,30 @@ def build_abnormal_detail_response(abnormal: LockerAbnormal) -> dict:
     return base_data
 
 
-def build_compensation_detail_response(comp: Compensation) -> dict:
-    evidence_chain = build_evidence_chain(comp.abnormal)
+def build_compensation_detail_response(comp: Compensation) -> CompensationSchema:
     abnormal = comp.abnormal
+
+    base_data = CompensationSchema.from_orm(comp).model_dump()
+    evidence_chain = build_evidence_chain(abnormal).model_dump()
 
     abnormal_summary = {
         "abnormal_id": abnormal.id,
         "abnormal_type": abnormal.abnormal_type,
         "abnormal_type_display": abnormal.get_abnormal_type_display(),
-        "description": abnormal.description,
+        "description": abnormal.description or "",
         "priority": abnormal.priority,
-        "customer_name": abnormal.customer_name,
-        "customer_phone": abnormal.customer_phone,
-        "reported_by_name": abnormal.reported_by.user.get_full_name() if abnormal.reported_by and abnormal.reported_by.user else "",
+        "customer_name": abnormal.customer_name or "",
+        "customer_phone": abnormal.customer_phone or "",
+        "reported_by_name": abnormal.reported_by.user.get_full_name() if (abnormal.reported_by and abnormal.reported_by.user) else "",
         "reported_at": abnormal.reported_at,
-        "assigned_to_name": abnormal.assigned_to.user.get_full_name() if abnormal.assigned_to and abnormal.assigned_to.user else "",
+        "assigned_to_name": abnormal.assigned_to.user.get_full_name() if (abnormal.assigned_to and abnormal.assigned_to.user) else "",
         "assigned_at": abnormal.assigned_at,
-        "processed_by_name": abnormal.processed_by.user.get_full_name() if abnormal.processed_by and abnormal.processed_by.user else "",
+        "processed_by_name": abnormal.processed_by.user.get_full_name() if (abnormal.processed_by and abnormal.processed_by.user) else "",
         "processed_at": abnormal.processed_at,
-        "process_result": abnormal.process_result,
-        "returned_by_name": abnormal.returned_by.user.get_full_name() if abnormal.returned_by and abnormal.returned_by.user else "",
+        "process_result": abnormal.process_result or "",
+        "returned_by_name": abnormal.returned_by.user.get_full_name() if (abnormal.returned_by and abnormal.returned_by.user) else "",
         "returned_at": abnormal.returned_at,
-        "return_reason": abnormal.return_reason,
+        "return_reason": abnormal.return_reason or "",
         "abnormal_status": abnormal.status,
         "abnormal_status_display": abnormal.get_status_display(),
     }
@@ -140,12 +142,12 @@ def build_compensation_detail_response(comp: Compensation) -> dict:
     status_summary = _build_compensation_status_summary(comp)
     full_timeline = _build_unified_timeline(abnormal, comp)
 
-    base_data = CompensationSchema.from_orm(comp).model_dump()
-    base_data["evidence_chain"] = evidence_chain.model_dump()
+    base_data["evidence_chain"] = evidence_chain
     base_data["abnormal_summary"] = abnormal_summary
     base_data["status_summary"] = status_summary
     base_data["full_timeline"] = full_timeline
-    return base_data
+
+    return CompensationSchema.model_validate(base_data)
 
 
 def _build_compensation_status_summary(comp: Compensation) -> dict:
@@ -191,21 +193,25 @@ def _build_unified_timeline(abnormal: LockerAbnormal, comp: Compensation) -> lis
     timeline = []
 
     for p in abnormal.progresses.all():
+        operator_name = p.operator.user.get_full_name() if p.operator and p.operator.user else "系统"
         timeline.append({
-            "id": f"a_{p.id}",
+            "record_id": f"a_{p.id}",
             "type": "abnormal",
+            "type_display": "异常处理",
             "action": p.action,
-            "operator_name": p.operator.user.get_full_name() if p.operator and p.operator.user else "系统",
+            "operator_name": operator_name,
             "detail": p.detail,
             "created_at": p.created_at,
         })
 
     for p in comp.progresses.all():
+        operator_name = p.operator.user.get_full_name() if p.operator and p.operator.user else "系统"
         timeline.append({
-            "id": f"c_{p.id}",
+            "record_id": f"c_{p.id}",
             "type": "compensation",
+            "type_display": "赔付处理",
             "action": p.action,
-            "operator_name": p.operator.user.get_full_name() if p.operator and p.operator.user else "系统",
+            "operator_name": operator_name,
             "detail": p.detail,
             "created_at": p.created_at,
         })

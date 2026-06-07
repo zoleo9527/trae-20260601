@@ -1,4 +1,5 @@
 from typing import Generic, TypeVar, Optional, List, Any
+from enum import Enum
 from datetime import datetime, date
 from pydantic import BaseModel, Field
 from decimal import Decimal
@@ -328,13 +329,19 @@ class CompensationProgressSchema(BaseModel):
         )
 
 
+class TimelineType(str, Enum):
+    ABNORMAL = "abnormal"
+    COMPENSATION = "compensation"
+
+
 class UnifiedTimelineSchema(BaseModel):
-    id: int
-    type: str
-    action: str
-    operator_name: str
-    detail: str
-    created_at: datetime
+    record_id: str = Field(..., description="唯一记录ID，格式：a_{异常进度ID} 或 c_{赔付进度ID}")
+    type: TimelineType = Field(..., description="节点类型：abnormal-异常处理；compensation-赔付处理")
+    type_display: str = Field(..., description="节点类型中文展示")
+    action: str = Field(..., description="操作动作")
+    operator_name: str = Field(..., description="操作人姓名")
+    detail: str = Field(..., description="操作详情")
+    created_at: datetime = Field(..., description="操作时间")
 
 
 class AbnormalSummarySchema(BaseModel):
@@ -360,11 +367,11 @@ class AbnormalSummarySchema(BaseModel):
 
 
 class CompensationStatusSummarySchema(BaseModel):
-    current_stage: str
-    current_status: str
-    current_status_display: str
-    next_action: str
-    summary_text: str
+    current_stage: str = Field(..., description="当前所处阶段：前台登记/楼层处理/财务审核/待支付/已完成/已拒绝")
+    current_status: str = Field(..., description="赔付状态码")
+    current_status_display: str = Field(..., description="赔付状态中文")
+    next_action: str = Field(..., description="下一步操作提示")
+    summary_text: str = Field(..., description="一句话状态摘要")
 
 
 class CompensationSchema(BaseModel):
