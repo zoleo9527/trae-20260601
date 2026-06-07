@@ -1,0 +1,130 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model User {
+  id        String   @id @default(uuid())
+  username  String   @unique
+  password  String   @default("123456")
+  name      String
+  role      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  inspections          Inspection[]        @relation("Inspector")
+  inspectionReviews    Inspection[]        @relation("Reviewer")
+  createdRepairOrders  RepairOrder[]       @relation("Creator")
+  assignedRepairOrders RepairOrder[]       @relation("Technician")
+  repairReviews        RepairOrder[]       @relation("RepairReviewer")
+  notifications        Notification[]
+}
+
+model Machine {
+  id          String   @id @default(uuid())
+  machineNo   String   @unique
+  name        String
+  area        String
+  status      String   @default("IDLE")
+  config      String?
+  purchaseDate DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  inspections  Inspection[]
+  repairOrders RepairOrder[]
+}
+
+model Inspection {
+  id           String   @id @default(uuid())
+  machineId    String
+  machine      Machine  @relation(fields: [machineId], references: [id])
+  inspectorId  String
+  inspector    User     @relation("Inspector", fields: [inspectorId], references: [id])
+  status       String   @default("PENDING")
+  checkItems   String
+  overallNote  String?
+  hasIssue     Boolean  @default(false)
+  reviewedById String?
+  reviewedBy   User?    @relation("Reviewer", fields: [reviewedById], references: [id])
+  reviewedAt   DateTime?
+  reviewNote   String?
+  returnNote   String?
+  supplementNote String?
+  supplementAt DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  statusHistory InspectionStatusLog[]
+  repairOrders  RepairOrder[]
+}
+
+model InspectionStatusLog {
+  id           String   @id @default(uuid())
+  inspectionId String
+  inspection   Inspection @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+  fromStatus   String?
+  toStatus     String
+  operatorId   String
+  note         String?
+  createdAt    DateTime @default(now())
+}
+
+model RepairOrder {
+  id              String   @id @default(uuid())
+  inspectionId    String?
+  inspection      Inspection? @relation(fields: [inspectionId], references: [id])
+  machineId       String
+  machine         Machine  @relation(fields: [machineId], references: [id])
+  creatorId       String
+  creator         User     @relation("Creator", fields: [creatorId], references: [id])
+  title           String
+  description     String
+  priority        String   @default("MEDIUM")
+  status          String   @default("DRAFT")
+  assignedToId    String?
+  assignedTo      User?    @relation("Technician", fields: [assignedToId], references: [id])
+  assignedAt      DateTime?
+  repairedAt      DateTime?
+  repairNote      String?
+  partsUsed       String
+  laborHours      Float?
+  reviewedById    String?
+  reviewedBy      User?    @relation("RepairReviewer", fields: [reviewedById], references: [id])
+  reviewedAt      DateTime?
+  reviewNote      String?
+  returnNote      String?
+  carryOverInspectionNote Boolean @default(true)
+  inspectionNoteSnapshot String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  statusHistory RepairStatusLog[]
+}
+
+model RepairStatusLog {
+  id            String   @id @default(uuid())
+  repairOrderId String
+  repairOrder   RepairOrder @relation(fields: [repairOrderId], references: [id], onDelete: Cascade)
+  fromStatus    String?
+  toStatus      String
+  operatorId    String
+  note          String?
+  createdAt     DateTime @default(now())
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  type      String
+  title     String
+  content   String
+  relatedId String?
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
