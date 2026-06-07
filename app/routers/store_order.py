@@ -5,7 +5,9 @@ from app.database import db
 from app.utils import success_response, error_response, generate_order_no
 from app.constants import (
     ErrorCode, OrderStatus, ORDER_STATUS_NAMES, ORDER_ALLOWED_ACTIONS,
-    UserRole, ROLE_NAMES, get_current_handler
+    ACTION_NAMES, NEXT_ACTION_GUIDE,
+    UserRole, ROLE_NAMES, get_current_handler,
+    DeliveryStatus, DELIVERY_STATUS_NAMES
 )
 from app.schemas import (
     CreateStoreOrderRequest, UpdateStoreOrderRequest, OrderActionRequest
@@ -24,7 +26,53 @@ def _build_order_detail(order: dict) -> dict:
     handler = get_current_handler(status)
     order["current_handler"] = handler.value if handler else None
     order["current_handler_name"] = ROLE_NAMES.get(handler, "") if handler else ""
-    order["allowed_actions"] = ORDER_ALLOWED_ACTIONS.get(status, [])
+    
+    allowed_action_codes = ORDER_ALLOWED_ACTIONS.get(status, [])
+    order["allowed_actions"] = allowed_action_codes
+    order["allowed_actions_detail"] = [
+        {"code": code, "name": ACTION_NAMES.get(code, code)}
+        for code in allowed_action_codes
+    ]
+    
+    next_guide = NEXT_ACTION_GUIDE.get(status)
+    if next_guide:
+        target_role = next_guide.get("target_role")
+        order["next_action"] = {
+            "action": next_guide.get("action"),
+            "action_name": ACTION_NAMES.get(next_guide.get("action"), ""),
+            "target_role": target_role.value if target_role else None,
+            "target_role_name": ROLE_NAMES.get(target_role, "") if target_role else "",
+            "guide": next_guide.get("guide", "")
+        }
+    else:
+        order["next_action"] = None
+    
+    deliveries = db.query("deliveries", {"order_id": order["id"]})
+    deliveries = sorted(deliveries, key=lambda x: x.get("created_at", ""))
+    deliveries_summary = []
+    total_delivered_qty = 0
+    total_delivered_amount = 0
+    for d in deliveries:
+        d_status = DeliveryStatus(d["status"])
+        deliveries_summary.append({
+            "id": d["id"],
+            "delivery_no": d["delivery_no"],
+            "status": d["status"],
+            "status_name": DELIVERY_STATUS_NAMES.get(d_status, ""),
+            "total_quantity": d["total_quantity"],
+            "total_amount": d["total_amount"],
+            "warehouse": d.get("warehouse", ""),
+            "created_at": d["created_at"],
+            "shipped_at": d.get("shipped_at")
+        })
+        if d_status in [DeliveryStatus.SHIPPED, DeliveryStatus.RECEIVED, DeliveryStatus.CONFIRMED]:
+            total_delivered_qty += d["total_quantity"]
+            total_delivered_amount += d["total_amount"]
+    
+    order["deliveries"] = deliveries_summary
+    order["deliveries_count"] = len(deliveries_summary)
+    order["total_delivered_quantity"] = total_delivered_qty
+    order["total_delivered_amount"] = round(total_delivered_amount, 2)
     
     logs = db.query("order_logs", {"order_id": order["id"]})
     logs = sorted(logs, key=lambda x: x.get("created_at", ""))
@@ -43,7 +91,43 @@ def _build_order_detail(order: dict) -> dict:
         blocked_reason = "部分商品已发货，等待剩余商品配货"
     order["blocked_reason"] = blocked_reason
     
+    order["progress_summary"] = _build_progress_summary(order, deliveries_summary)
+    
     return order
+
+
+def _build_progress_summary(order: dict, deliveries_summary: list) -> dict:
+    total_confirmed_qty = 0
+    total_ordered_qty = 0
+    total_delivered_qty = 0
+    
+    for item in order.get("items", []):
+        total_ordered_qty += item.get("quantity", 0)
+        confirmed = item.get("confirmed_quantity") or item.get("quantity", 0)
+        total_confirmed_qty += confirmed
+        delivered = item.get("delivered_quantity", 0) or 0
+        total_delivered_qty += delivered
+    
+    pending_qty = total_confirmed_qty - total_delivered_qty
+    
+    return {
+        "ordered_quantity": total_ordered_qty,
+        "confirmed_quantity": total_confirmed_qty,
+        "delivered_quantity": total_delivered_qty,
+        "pending_quantity": max(0, pending_qty),
+        "delivered_percent": round(
+            (total_delivered_qty / total_confirmed_qty * 100) 
+            if total_confirmed_qty > 0 else 0, 1
+        ),
+        "deliveries_count": len(deliveries_summary),
+        "pending_deliveries": len([d for d in deliveries_summary 
+                                  if d["status"] in [
+                                      DeliveryStatus.PENDING.value,
+                                      DeliveryStatus.PICKING.value,
+                                      DeliveryStatus.PACKED.value,
+                                      DeliveryStatus.SHIPPED.value
+                                  ]])
+    }
 
 
 @router.get("")

@@ -78,17 +78,30 @@ async def get_products(category: str = None):
 @router.get("/order-status")
 async def get_order_status_list():
     """获取订单所有状态定义"""
-    from app.constants import OrderStatus, ORDER_STATUS_NAMES, ORDER_ALLOWED_ACTIONS, get_current_handler
-    from app.constants import ROLE_NAMES
+    from app.constants import (
+        OrderStatus, ORDER_STATUS_NAMES, ORDER_ALLOWED_ACTIONS, 
+        get_current_handler, ROLE_NAMES, ACTION_NAMES, NEXT_ACTION_GUIDE
+    )
     status_list = []
     for status in OrderStatus:
         handler = get_current_handler(status)
+        allowed_actions = ORDER_ALLOWED_ACTIONS.get(status, [])
+        next_guide = NEXT_ACTION_GUIDE.get(status)
         status_list.append({
             "status": status.value,
             "status_name": ORDER_STATUS_NAMES.get(status, ""),
-            "allowed_actions": ORDER_ALLOWED_ACTIONS.get(status, []),
+            "allowed_actions": allowed_actions,
+            "allowed_actions_detail": [
+                {"code": code, "name": ACTION_NAMES.get(code, code)}
+                for code in allowed_actions
+            ],
             "current_handler": handler.value if handler else None,
-            "current_handler_name": ROLE_NAMES.get(handler, "") if handler else ""
+            "current_handler_name": ROLE_NAMES.get(handler, "") if handler else "",
+            "next_action": {
+                "action": next_guide.get("action"),
+                "action_name": ACTION_NAMES.get(next_guide.get("action"), ""),
+                "guide": next_guide.get("guide", "")
+            } if next_guide else None
         })
     return success_response({
         "total": len(status_list),
@@ -99,12 +112,30 @@ async def get_order_status_list():
 @router.get("/delivery-status")
 async def get_delivery_status_list():
     """获取配货所有状态定义"""
-    from app.constants import DeliveryStatus, DELIVERY_STATUS_NAMES
+    from app.constants import (
+        DeliveryStatus, DELIVERY_STATUS_NAMES, 
+        DELIVERY_ALLOWED_ACTIONS, DELIVERY_NEXT_ACTION_GUIDE,
+        ACTION_NAMES, ROLE_NAMES
+    )
     status_list = []
     for status in DeliveryStatus:
+        allowed_actions = DELIVERY_ALLOWED_ACTIONS.get(status, [])
+        next_guide = DELIVERY_NEXT_ACTION_GUIDE.get(status)
         status_list.append({
             "status": status.value,
-            "status_name": DELIVERY_STATUS_NAMES.get(status, "")
+            "status_name": DELIVERY_STATUS_NAMES.get(status, ""),
+            "allowed_actions": allowed_actions,
+            "allowed_actions_detail": [
+                {"code": code, "name": ACTION_NAMES.get(code, code)}
+                for code in allowed_actions
+            ],
+            "next_action": {
+                "action": next_guide.get("action"),
+                "action_name": ACTION_NAMES.get(next_guide.get("action"), ""),
+                "target_role": next_guide.get("target_role").value if next_guide and next_guide.get("target_role") else None,
+                "target_role_name": ROLE_NAMES.get(next_guide.get("target_role"), "") if next_guide and next_guide.get("target_role") else "",
+                "guide": next_guide.get("guide", "")
+            } if next_guide else None
         })
     return success_response({
         "total": len(status_list),

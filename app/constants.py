@@ -103,14 +103,122 @@ EXPORT_STATUS_NAMES = {
 
 
 ORDER_ALLOWED_ACTIONS = {
-    OrderStatus.DRAFT: ["submit", "edit", "delete"],
+    OrderStatus.DRAFT: ["submit", "edit", "cancel"],
     OrderStatus.SUBMITTED: ["supervisor_approve", "supervisor_reject", "cancel"],
     OrderStatus.SUPERVISOR_APPROVED: ["product_confirm", "product_adjust", "cancel"],
-    OrderStatus.PRODUCT_REVIEWED: ["assign_delivery"],
-    OrderStatus.DELIVERY_ASSIGNED: ["partial_complete", "full_complete"],
-    OrderStatus.PARTIAL_DELIVERED: ["full_complete"],
-    OrderStatus.FULL_DELIVERED: ["view"],
+    OrderStatus.PRODUCT_REVIEWED: ["assign_delivery", "cancel"],
+    OrderStatus.DELIVERY_ASSIGNED: ["view_deliveries"],
+    OrderStatus.PARTIAL_DELIVERED: ["view_deliveries", "assign_delivery"],
+    OrderStatus.FULL_DELIVERED: ["view", "view_deliveries"],
     OrderStatus.CANCELLED: ["view"],
+}
+
+
+ACTION_NAMES = {
+    "submit": "提交订单",
+    "edit": "修改订单",
+    "delete": "删除订单",
+    "cancel": "取消订单",
+    "supervisor_approve": "督导审核通过",
+    "supervisor_reject": "督导驳回",
+    "product_confirm": "商品确认",
+    "product_adjust": "商品调整",
+    "assign_delivery": "分配配货",
+    "view_deliveries": "查看配货单",
+    "view": "查看详情",
+    "start_picking": "开始拣货",
+    "pack": "打包完成",
+    "ship": "发货",
+    "receive": "收货确认",
+    "confirm": "配货完成确认",
+}
+
+
+DELIVERY_ALLOWED_ACTIONS = {
+    DeliveryStatus.PENDING: ["start_picking"],
+    DeliveryStatus.PICKING: ["pack", "ship"],
+    DeliveryStatus.PACKED: ["ship"],
+    DeliveryStatus.SHIPPED: ["receive", "confirm"],
+    DeliveryStatus.RECEIVED: ["confirm"],
+    DeliveryStatus.CONFIRMED: ["view"],
+}
+
+
+DELIVERY_NEXT_ACTION_GUIDE = {
+    DeliveryStatus.PENDING: {
+        "action": "start_picking",
+        "target_role": UserRole.PRODUCT_SPECIALIST,
+        "guide": "仓库开始拣货，核对商品数量"
+    },
+    DeliveryStatus.PICKING: {
+        "action": "pack",
+        "target_role": UserRole.PRODUCT_SPECIALIST,
+        "guide": "拣货完成后打包，准备发货"
+    },
+    DeliveryStatus.PACKED: {
+        "action": "ship",
+        "target_role": UserRole.PRODUCT_SPECIALIST,
+        "guide": "商品已打包，安排物流发货"
+    },
+    DeliveryStatus.SHIPPED: {
+        "action": "receive",
+        "target_role": UserRole.STORE_MANAGER,
+        "guide": "门店收到货后，确认收货"
+    },
+    DeliveryStatus.RECEIVED: {
+        "action": "confirm",
+        "target_role": UserRole.PRODUCT_SPECIALIST,
+        "guide": "商品专员确认本次配货完成"
+    },
+    DeliveryStatus.CONFIRMED: {
+        "action": "view",
+        "target_role": None,
+        "guide": "配货已完成，可查看详情"
+    },
+}
+
+
+NEXT_ACTION_GUIDE = {
+    OrderStatus.DRAFT: {
+        "action": "submit",
+        "target_role": UserRole.STORE_MANAGER,
+        "guide": "店长确认商品无误后，提交订单进入督导审核流程"
+    },
+    OrderStatus.SUBMITTED: {
+        "action": "supervisor_approve",
+        "target_role": UserRole.SUPERVISOR,
+        "guide": "督导审核订货数量是否合理，通过后进入商品确认环节"
+    },
+    OrderStatus.SUPERVISOR_APPROVED: {
+        "action": "product_confirm",
+        "target_role": UserRole.PRODUCT_SPECIALIST,
+        "guide": "商品专员确认库存，确认后进入配货分配"
+    },
+    OrderStatus.PRODUCT_REVIEWED: {
+        "action": "assign_delivery",
+        "target_role": UserRole.PRODUCT_SPECIALIST,
+        "guide": "商品专员创建配货单，安排仓库发货"
+    },
+    OrderStatus.DELIVERY_ASSIGNED: {
+        "action": "view_deliveries",
+        "target_role": UserRole.PRODUCT_SPECIALIST,
+        "guide": "进入配货单推进拣货、打包、发货流程"
+    },
+    OrderStatus.PARTIAL_DELIVERED: {
+        "action": "assign_delivery",
+        "target_role": UserRole.PRODUCT_SPECIALIST,
+        "guide": "库存到货后，创建新配货单补发剩余商品"
+    },
+    OrderStatus.FULL_DELIVERED: {
+        "action": "view",
+        "target_role": None,
+        "guide": "订单已完成，可查看历史配货记录"
+    },
+    OrderStatus.CANCELLED: {
+        "action": "view",
+        "target_role": None,
+        "guide": "订单已取消，可查看操作历史"
+    },
 }
 
 

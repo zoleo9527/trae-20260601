@@ -7,6 +7,8 @@ from app.utils import success_response, error_response, generate_delivery_no
 from app.constants import (
     ErrorCode, OrderStatus, ORDER_STATUS_NAMES,
     DeliveryStatus, DELIVERY_STATUS_NAMES,
+    DELIVERY_ALLOWED_ACTIONS, DELIVERY_NEXT_ACTION_GUIDE,
+    ACTION_NAMES,
     UserRole, ROLE_NAMES, get_current_handler,
     OrderStatus as OrderStatusEnum
 )
@@ -19,6 +21,39 @@ def _build_delivery_detail(delivery: dict) -> dict:
     delivery = delivery.copy()
     status = DeliveryStatus(delivery["status"])
     delivery["status_name"] = DELIVERY_STATUS_NAMES.get(status, "")
+    
+    allowed_action_codes = DELIVERY_ALLOWED_ACTIONS.get(status, [])
+    delivery["allowed_actions"] = allowed_action_codes
+    delivery["allowed_actions_detail"] = [
+        {"code": code, "name": ACTION_NAMES.get(code, code)}
+        for code in allowed_action_codes
+    ]
+    
+    next_guide = DELIVERY_NEXT_ACTION_GUIDE.get(status)
+    if next_guide:
+        target_role = next_guide.get("target_role")
+        delivery["next_action"] = {
+            "action": next_guide.get("action"),
+            "action_name": ACTION_NAMES.get(next_guide.get("action"), ""),
+            "target_role": target_role.value if target_role else None,
+            "target_role_name": ROLE_NAMES.get(target_role, "") if target_role else "",
+            "guide": next_guide.get("guide", "")
+        }
+    else:
+        delivery["next_action"] = None
+    
+    blocked_reason = None
+    if status == DeliveryStatus.PENDING:
+        blocked_reason = "等待仓库开始拣货"
+    elif status == DeliveryStatus.PICKING:
+        blocked_reason = "拣货中，等待打包"
+    elif status == DeliveryStatus.PACKED:
+        blocked_reason = "已打包，等待发货"
+    elif status == DeliveryStatus.SHIPPED:
+        blocked_reason = "运输中，等待门店收货"
+    elif status == DeliveryStatus.RECEIVED:
+        blocked_reason = "门店已收货，等待商品专员最终确认"
+    delivery["blocked_reason"] = blocked_reason
     
     order = db.get_by_id("store_orders", delivery["order_id"])
     if order:
