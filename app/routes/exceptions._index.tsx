@@ -141,7 +141,7 @@ const exceptionTypeLabels: Record<string, string> = {
   OTHER: "其他",
 };
 
-function ExceptionDrawer({ exception, onClose }: { exception: any; onClose: () => void }) {
+function ExceptionDrawer({ exception, onClose, canHandle }: { exception: any; onClose: () => void; canHandle: boolean }) {
   const actionData = useActionData<typeof action>();
   const navigation = useNavigation();
   const isSubmitting = navigation.state === "submitting";
@@ -198,7 +198,7 @@ function ExceptionDrawer({ exception, onClose }: { exception: any; onClose: () =
                 </p>
               </div>
             )}
-            {exception.status !== "RESOLVED" && (
+            {exception.status !== "RESOLVED" && canHandle && (
               <Form method="post">
                 <input type="hidden" name="actionType" value="resolve" />
                 <input type="hidden" name="exceptionId" value={exception.id} />
@@ -350,6 +350,7 @@ export default function ExceptionsIndex() {
         <ExceptionDrawer
           exception={selectedException}
           onClose={() => setSelectedException(null)}
+          canHandle={canHandle}
         />
       )}
     </div>

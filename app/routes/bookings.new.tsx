@@ -1,7 +1,7 @@
 import type { ActionFunction, LoaderFunction, MetaFunction } from "@remix-run/node";
 import { json, redirect } from "@remix-run/node";
 import { Form, useActionData, useLoaderData, useNavigation } from "@remix-run/react";
-import { requireUser } from "~/utils/session.server";
+import { requireUser, requireRole } from "~/utils/session.server";
 import { prisma } from "~/utils/db.server";
 import { generateBookingNumber, logAction } from "~/utils/booking.server";
 import { useState } from "react";

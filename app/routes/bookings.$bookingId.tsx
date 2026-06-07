@@ -357,9 +357,13 @@ export default function BookingDetail() {
   const [showSupplementModal, setShowSupplementModal] = useState(false);
   const [showExceptionModal, setShowExceptionModal] = useState(false);
 
-  const canEdit = ["PENDING", "CONFIRMED", "CHECKED_IN", "IN_SERVICE"].includes(booking.status);
+  const isActiveStatus = ["PENDING", "CONFIRMED", "CHECKED_IN", "IN_SERVICE"].includes(booking.status);
+  const canReschedule = isActiveStatus && ["RECEPTIONIST", "FLOOR_SUPERVISOR", "ADMIN"].includes(user.role);
+  const canSupplement = isActiveStatus && ["RECEPTIONIST", "FLOOR_SUPERVISOR", "ADMIN"].includes(user.role);
+  const canReportException = isActiveStatus && ["RECEPTIONIST", "FLOOR_SUPERVISOR", "ADMIN"].includes(user.role);
+  const canReject = isActiveStatus && ["FLOOR_SUPERVISOR", "ADMIN"].includes(user.role);
   const canVerifyDeposit = user.role === "FINANCE" || user.role === "ADMIN";
-  const canComplete = ["CHECKED_IN", "IN_SERVICE"].includes(booking.status);
+  const canComplete = ["CHECKED_IN", "IN_SERVICE"].includes(booking.status) && ["RECEPTIONIST", "FLOOR_SUPERVISOR", "ADMIN"].includes(user.role);
 
   return (
     <div className="space-y-6">
@@ -376,34 +380,38 @@ export default function BookingDetail() {
             创建于 {format(new Date(booking.createdAt), "yyyy年MM月dd日 HH:mm")}
           </p>
         </div>
-        <div className="flex space-x-3">
-          {canEdit && (
-            <>
-              <button
-                onClick={() => setShowRescheduleModal(true)}
-                className="btn-secondary"
-              >
-                改期
-              </button>
-              <button
-                onClick={() => setShowSupplementModal(true)}
-                className="btn-secondary"
-              >
-                补录
-              </button>
-              <button
-                onClick={() => setShowExceptionModal(true)}
-                className="btn-danger"
-              >
-                上报异常
-              </button>
-              <button
-                onClick={() => setShowRejectModal(true)}
-                className="btn-secondary"
-              >
-                驳回
-              </button>
-            </>
+        <div className="flex flex-wrap gap-2">
+          {canReschedule && (
+            <button
+              onClick={() => setShowRescheduleModal(true)}
+              className="btn-secondary"
+            >
+              改期
+            </button>
+          )}
+          {canSupplement && (
+            <button
+              onClick={() => setShowSupplementModal(true)}
+              className="btn-secondary"
+            >
+              补录
+            </button>
+          )}
+          {canReportException && (
+            <button
+              onClick={() => setShowExceptionModal(true)}
+              className="btn-danger"
+            >
+              上报异常
+            </button>
+          )}
+          {canReject && (
+            <button
+              onClick={() => setShowRejectModal(true)}
+              className="btn-secondary"
+            >
+              驳回
+            </button>
           )}
           {canComplete && (
             <Form method="post">
