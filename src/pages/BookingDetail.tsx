@@ -29,7 +29,7 @@ const BookingDetail: React.FC = () => {
   const { getBookingById, updateBookingStatus, checkRoomConflict } = useBookingStore();
   const { getPackageOrdersByBooking, packages } = usePackageStore();
   const { getTasksByBooking } = useDecorationStore();
-  const { getAnomaliesByType } = useAnomalyStore();
+  const { getAnomaliesByBookingId } = useAnomalyStore();
   const { getLogsByEntity } = useAuditStore();
   const [statusNote, setStatusNote] = useState('');
   const [showStatusMenu, setShowStatusMenu] = useState(false);
@@ -38,9 +38,7 @@ const BookingDetail: React.FC = () => {
   const packageOrder = booking?.packageOrderId ? getPackageOrdersByBooking(booking.id) : undefined;
   const pkg = packageOrder ? packages.find((p) => p.id === packageOrder.packageId) : undefined;
   const decorationTask = booking?.decorationTaskId ? getTasksByBooking(booking.id) : undefined;
-  const relatedAnomalies = booking
-    ? getAnomaliesByType('room_conflict').filter((a) => a.relatedBookingId === booking.id)
-    : [];
+  const relatedAnomalies = booking ? getAnomaliesByBookingId(booking.id) : [];
   const auditLogs = id ? getLogsByEntity('booking', id) : [];
 
   if (!booking) {
@@ -337,20 +335,42 @@ const BookingDetail: React.FC = () => {
           {relatedAnomalies.length > 0 && (
             <div className="bg-slate-900 border border-slate-800 rounded-lg p-5">
               <h3 className="font-semibold mb-3 flex items-center gap-2">
-                <AlertTriangle className="w-4 h-4 text-red-400" />
-                相关异常
+                <AlertTriangle className="w-4 h-4 text-amber-400" />
+                关联异常 ({relatedAnomalies.length})
               </h3>
               <div className="space-y-2">
-                {relatedAnomalies.map((a) => (
-                  <Link
-                    key={a.id}
-                    to="/anomalies"
-                    className="block p-3 bg-red-500/10 border border-red-500/20 rounded-lg hover:bg-red-500/20 transition-colors"
-                  >
-                    <p className="text-sm text-red-300">{a.description}</p>
-                    <p className="text-xs text-slate-500 mt-1">{formatDateTime(a.createdAt)}</p>
-                  </Link>
-                ))}
+                {relatedAnomalies.map((a) => {
+                  const typeLabel = a.type === 'room_conflict' ? '包厢撞档' : a.type === 'drink_gift_issue' ? '酒水赠送' : '其他';
+                  return (
+                    <Link
+                      key={a.id}
+                      to="/anomalies"
+                      className={`block p-3 rounded-lg border transition-colors ${
+                        a.status === 'resolved'
+                          ? 'bg-emerald-500/5 border-emerald-500/20 hover:bg-emerald-500/10'
+                          : a.status === 'ignored'
+                          ? 'bg-slate-800/30 border-slate-700 hover:bg-slate-800/50'
+                          : a.severity === 'high'
+                          ? 'bg-red-500/10 border-red-500/20 hover:bg-red-500/20'
+                          : 'bg-amber-500/10 border-amber-500/20 hover:bg-amber-500/20'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-xs text-slate-400">{typeLabel}</span>
+                        <StatusBadge status={a.status} type="anomaly" />
+                      </div>
+                      <p className={`text-sm ${
+                        a.status === 'resolved' ? 'text-emerald-300' : a.status === 'ignored' ? 'text-slate-500' : 'text-red-300'
+                      }`}>{a.description}</p>
+                      {a.handlingNote && (
+                        <p className="text-xs text-slate-400 mt-1.5 truncate">
+                          处理结果：{a.handlingNote}
+                        </p>
+                      )}
+                      <p className="text-xs text-slate-600 mt-1">{formatDateTime(a.createdAt)}</p>
+                    </Link>
+                  );
+                })}
               </div>
             </div>
           )}

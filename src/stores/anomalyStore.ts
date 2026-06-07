@@ -22,6 +22,9 @@ interface AnomalyStore {
   getOpenAnomalies: () => Anomaly[];
   getAnomaliesByType: (type: AnomalyType) => Anomaly[];
   getAnomaliesBySeverity: (severity: AnomalySeverity) => Anomaly[];
+  getAnomaliesByBookingId: (bookingId: string) => Anomaly[];
+  getAnomaliesByMemberId: (memberId: string) => Anomaly[];
+  getAnomaliesByOrderId: (orderId: string) => Anomaly[];
   detectRoomConflicts: () => void;
   detectDrinkGiftIssues: () => void;
   detectMemberBalanceIssues: () => void;
@@ -112,6 +115,24 @@ export const useAnomalyStore = create<AnomalyStore>((set, get) => ({
   getAnomaliesBySeverity: (severity) => {
     return get().anomalies.filter((a) => a.severity === severity)
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  },
+  
+  getAnomaliesByBookingId: (bookingId) => {
+    return get().anomalies.filter((a) =>
+      a.relatedBookingId === bookingId || a.relatedEntityId === bookingId
+    ).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  },
+  
+  getAnomaliesByMemberId: (memberId) => {
+    return get().anomalies.filter((a) =>
+      a.type === 'member_balance_issue' && a.relatedEntityId === memberId
+    ).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  },
+  
+  getAnomaliesByOrderId: (orderId) => {
+    return get().anomalies.filter((a) =>
+      a.type === 'drink_gift_issue' && a.relatedEntityId === orderId
+    ).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   },
   
   detectRoomConflicts: () => {

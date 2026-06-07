@@ -1,9 +1,10 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Gift, Plus, Clock, CheckCircle, Wine } from 'lucide-react';
+import { Gift, Plus, Clock, CheckCircle, Wine, AlertTriangle } from 'lucide-react';
 import { usePackageStore } from '../stores/packageStore';
 import { useBookingStore } from '../stores/bookingStore';
-import { StatusBadge } from '../components/StatusBadge';
+import { useAnomalyStore } from '../stores/anomalyStore';
+import { StatusBadge, SeverityBadge } from '../components/StatusBadge';
 import { formatDateTime, formatTime } from '../utils/storage';
 import { PackageOrderStatus } from '../types';
 
@@ -11,6 +12,7 @@ const PackageList: React.FC = () => {
   const navigate = useNavigate();
   const { packages, packageOrders, getPackageById } = usePackageStore();
   const { getBookingById } = useBookingStore();
+  const { getAnomaliesByOrderId } = useAnomalyStore();
 
   return (
     <div className="space-y-6">
@@ -71,6 +73,7 @@ const PackageList: React.FC = () => {
                 <th className="text-left px-5 py-3 font-medium text-slate-400">客户</th>
                 <th className="text-left px-5 py-3 font-medium text-slate-400">时段</th>
                 <th className="text-left px-5 py-3 font-medium text-slate-400">金额</th>
+                <th className="text-left px-5 py-3 font-medium text-slate-400">异常</th>
                 <th className="text-left px-5 py-3 font-medium text-slate-400">操作员</th>
                 <th className="text-left px-5 py-3 font-medium text-slate-400">状态</th>
                 <th className="text-left px-5 py-3 font-medium text-slate-400">创建时间</th>
@@ -80,11 +83,16 @@ const PackageList: React.FC = () => {
               {packageOrders.map((order) => {
                 const pkg = getPackageById(order.packageId);
                 const booking = order.bookingId ? getBookingById(order.bookingId) : undefined;
+                const orderAnomalies = getAnomaliesByOrderId(order.id);
+                const hasOpenAnomaly = orderAnomalies.some((a) => a.status === 'open' || a.status === 'handling');
+                const latestHandled = orderAnomalies.find((a) => a.handlingNote);
                 return (
                   <tr
                     key={order.id}
                     onClick={() => booking && navigate(`/bookings/${booking.id}`)}
-                    className="border-b border-slate-800/50 hover:bg-slate-800/30 cursor-pointer last:border-0"
+                    className={`border-b border-slate-800/50 hover:bg-slate-800/30 cursor-pointer last:border-0 ${
+                      hasOpenAnomaly ? 'bg-amber-500/5' : ''
+                    }`}
                   >
                     <td className="px-5 py-3 font-mono text-xs">{order.id}</td>
                     <td className="px-5 py-3">{pkg?.name || '未知套餐'}</td>
@@ -94,6 +102,23 @@ const PackageList: React.FC = () => {
                       {booking ? `${formatTime(booking.startTime)}-${formatTime(booking.endTime)}` : '-'}
                     </td>
                     <td className="px-5 py-3 font-medium text-emerald-400">¥{order.actualPrice}</td>
+                    <td className="px-5 py-3">
+                      {orderAnomalies.length === 0 ? (
+                        <span className="text-slate-600">-</span>
+                      ) : (
+                        <div className="flex items-center gap-1">
+                          <AlertTriangle className={`w-3.5 h-3.5 ${hasOpenAnomaly ? 'text-amber-400' : 'text-emerald-400'}`} />
+                          <span className={`text-xs ${hasOpenAnomaly ? 'text-amber-400' : 'text-emerald-400'}`}>
+                            {orderAnomalies.length}
+                          </span>
+                          {latestHandled && (
+                            <span className="text-xs text-slate-500 truncate max-w-[100px]" title={latestHandled.handlingNote}>
+                              · {latestHandled.handlingNote}
+                            </span>
+                          )}
+                        </div>
+                      )}
+                    </td>
                     <td className="px-5 py-3 text-slate-400">{order.operator || '-'}</td>
                     <td className="px-5 py-3">
                       <StatusBadge status={order.status as PackageOrderStatus} type="package" />

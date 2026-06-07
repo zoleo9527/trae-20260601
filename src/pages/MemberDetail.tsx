@@ -14,14 +14,18 @@ import {
 } from 'lucide-react';
 import { useMemberStore } from '../stores/memberStore';
 import { useBookingStore } from '../stores/bookingStore';
+import { useAnomalyStore } from '../stores/anomalyStore';
 import { formatDateTime } from '../utils/storage';
 import { TransactionType } from '../types';
+import { StatusBadge } from '../components/StatusBadge';
+import { Link } from 'react-router-dom';
 
 const MemberDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { getMemberById, getTransactionsByMember, addTransaction, checkBalanceConsistency } = useMemberStore();
   const { getBookingsByRoom } = useBookingStore();
+  const { getAnomaliesByMemberId } = useAnomalyStore();
 
   const [showRecharge, setShowRecharge] = useState(false);
   const [rechargeAmount, setRechargeAmount] = useState('');
@@ -30,6 +34,7 @@ const MemberDetail: React.FC = () => {
   const member = getMemberById(id!);
   const transactions = id ? getTransactionsByMember(id) : [];
   const consistency = member ? checkBalanceConsistency(member.id) : { consistent: true, diff: 0 };
+  const memberAnomalies = id ? getAnomaliesByMemberId(id) : [];
 
   if (!member) {
     return (
@@ -89,16 +94,40 @@ const MemberDetail: React.FC = () => {
         </button>
       </div>
 
-      {!consistency.consistent && (
-        <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-4">
-          <div className="flex items-start gap-3">
-            <AlertTriangle className="w-5 h-5 text-red-400 mt-0.5 flex-shrink-0" />
-            <div>
-              <p className="font-medium text-red-400 mb-1">会员账务预警</p>
-              <p className="text-sm text-slate-300">
-                账面余额与交易记录不一致，差额：<span className="text-red-400 font-medium">¥{consistency.diff.toFixed(2)}</span>
-              </p>
-            </div>
+      {memberAnomalies.length > 0 && (
+        <div className="bg-slate-900 border border-slate-800 rounded-lg p-5">
+          <h3 className="font-semibold mb-3 flex items-center gap-2">
+            <AlertTriangle className="w-4 h-4 text-amber-400" />
+            账务异常 ({memberAnomalies.length})
+          </h3>
+          <div className="space-y-2">
+            {memberAnomalies.map((a) => (
+              <Link
+                key={a.id}
+                to="/anomalies"
+                className={`block p-3 rounded-lg border transition-colors ${
+                  a.status === 'resolved'
+                    ? 'bg-emerald-500/5 border-emerald-500/20 hover:bg-emerald-500/10'
+                    : a.status === 'ignored'
+                    ? 'bg-slate-800/30 border-slate-700 hover:bg-slate-800/50'
+                    : 'bg-red-500/10 border-red-500/20 hover:bg-red-500/20'
+                }`}
+              >
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-xs text-slate-400">会员账务异常</span>
+                  <StatusBadge status={a.status} type="anomaly" />
+                </div>
+                <p className={`text-sm ${
+                  a.status === 'resolved' ? 'text-emerald-300' : a.status === 'ignored' ? 'text-slate-500' : 'text-red-300'
+                }`}>{a.description}</p>
+                {a.handlingNote && (
+                  <p className="text-xs text-slate-400 mt-1.5 truncate">
+                    处理结果：{a.handlingNote}
+                  </p>
+                )}
+                <p className="text-xs text-slate-600 mt-1">{formatDateTime(a.createdAt)}</p>
+              </Link>
+            ))}
           </div>
         </div>
       )}

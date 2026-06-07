@@ -1,12 +1,31 @@
 import React, { useState, useEffect } from 'react';
-import { AlertTriangle, AlertCircle, CheckCircle, RefreshCw, Filter, MessageSquare } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import {
+  AlertTriangle,
+  AlertCircle,
+  CheckCircle,
+  RefreshCw,
+  Filter,
+  MessageSquare,
+  ExternalLink,
+  Calendar,
+  Gift,
+  User
+} from 'lucide-react';
 import { useAnomalyStore } from '../stores/anomalyStore';
+import { useBookingStore } from '../stores/bookingStore';
+import { usePackageStore } from '../stores/packageStore';
+import { useMemberStore } from '../stores/memberStore';
 import { StatusBadge, SeverityBadge } from '../components/StatusBadge';
 import { formatDateTime } from '../utils/storage';
 import { AnomalyStatus, AnomalyType } from '../types';
 
 const AnomalyCenter: React.FC = () => {
   const { anomalies, getOpenAnomalies, updateAnomalyStatus, runAllChecks } = useAnomalyStore();
+  const { getBookingById } = useBookingStore();
+  const { getPackageOrderById, getPackageById } = usePackageStore();
+  const { getMemberById } = useMemberStore();
+
   const [typeFilter, setTypeFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [selectedAnomaly, setSelectedAnomaly] = useState<string | null>(null);
@@ -52,6 +71,38 @@ const AnomalyCenter: React.FC = () => {
     drink_gift_issue: { label: '酒水赠送', icon: AlertCircle },
     member_balance_issue: { label: '会员账务', icon: AlertCircle },
     other: { label: '其他异常', icon: AlertCircle },
+  };
+
+  const getRelatedLink = (anomaly: { type: AnomalyType; relatedBookingId?: string; relatedEntityId?: string }) => {
+    if (anomaly.type === 'room_conflict' && anomaly.relatedBookingId) {
+      const booking = getBookingById(anomaly.relatedBookingId);
+      return {
+        to: `/bookings/${anomaly.relatedBookingId}`,
+        label: booking ? `包厢${booking.roomNumber} · ${booking.customerName}` : '查看预订',
+        icon: Calendar,
+      };
+    }
+    if (anomaly.type === 'drink_gift_issue' && anomaly.relatedEntityId) {
+      const order = getPackageOrderById(anomaly.relatedEntityId);
+      const pkg = order ? getPackageById(order.packageId) : undefined;
+      const booking = order?.bookingId ? getBookingById(order.bookingId) : undefined;
+      return {
+        to: order?.bookingId ? `/bookings/${order.bookingId}` : '/packages',
+        label: booking
+          ? `${pkg?.name || '套餐'} → 包厢${booking.roomNumber}`
+          : pkg?.name || '查看套餐',
+        icon: Gift,
+      };
+    }
+    if (anomaly.type === 'member_balance_issue' && anomaly.relatedEntityId) {
+      const member = getMemberById(anomaly.relatedEntityId);
+      return {
+        to: `/members/${anomaly.relatedEntityId}`,
+        label: member ? `${member.name} · 余额¥${member.balance.toFixed(2)}` : '查看会员',
+        icon: User,
+      };
+    }
+    return null;
   };
 
   return (
@@ -140,6 +191,7 @@ const AnomalyCenter: React.FC = () => {
               const typeInfo = typeLabels[anomaly.type] || typeLabels.other;
               const TypeIcon = typeInfo.icon;
               const isExpanded = selectedAnomaly === anomaly.id;
+              const relatedLink = getRelatedLink(anomaly);
 
               return (
                 <div key={anomaly.id} className="hover:bg-slate-800/30">
@@ -167,6 +219,17 @@ const AnomalyCenter: React.FC = () => {
                         </div>
                       </div>
                       <div className="flex items-center gap-4 ml-4">
+                        {relatedLink && (
+                          <Link
+                            to={relatedLink.to}
+                            onClick={(e) => e.stopPropagation()}
+                            className="flex items-center gap-1 text-xs text-blue-400 hover:text-blue-300 transition-colors"
+                          >
+                            <relatedLink.icon className="w-3.5 h-3.5" />
+                            <span className="hidden sm:inline max-w-[120px] truncate">{relatedLink.label}</span>
+                            <ExternalLink className="w-3 h-3" />
+                          </Link>
+                        )}
                         <div className="text-right">
                           <StatusBadge status={anomaly.status as AnomalyStatus} type="anomaly" />
                           <p className="text-xs text-slate-500 mt-1">{formatDateTime(anomaly.createdAt)}</p>
@@ -175,9 +238,26 @@ const AnomalyCenter: React.FC = () => {
                     </div>
                   </div>
 
-                  {isExpanded && (anomaly.status === 'open' || anomaly.status === 'handling') && (
-                    <div className="px-5 pb-4 border-t border-slate-800/50 pt-4">
-                      <div className="space-y-3">
+                  {isExpanded && (
+                    <div className="px-5 pb-4 border-t border-slate-800/50 pt-4 space-y-4">
+                      {relatedLink && (
+                        <div className="flex items-center gap-3 p-3 bg-slate-800/50 rounded-lg">
+                          <relatedLink.icon className="w-4 h-4 text-blue-400 flex-shrink-0" />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs text-slate-400">关联记录</p>
+                            <p className="text-sm text-slate-200 truncate">{relatedLink.label}</p>
+                          </div>
+                          <Link
+                            to={relatedLink.to}
+                            className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded text-xs font-medium transition-colors flex-shrink-0"
+                          >
+                            查看详情
+                            <ExternalLink className="w-3 h-3" />
+                          </Link>
+                        </div>
+                      )}
+
+                      {(anomaly.status === 'open' || anomaly.status === 'handling') && (
                         <div>
                           <label className="text-xs text-slate-400 mb-1 block">处理说明</label>
                           <textarea
@@ -188,51 +268,64 @@ const AnomalyCenter: React.FC = () => {
                             rows={2}
                             onClick={(e) => e.stopPropagation()}
                           />
+                          <div className="flex items-center gap-2 mt-2">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleUpdateStatus(anomaly.id, 'handling');
+                              }}
+                              className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded text-sm transition-colors"
+                            >
+                              标记处理中
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleUpdateStatus(anomaly.id, 'resolved');
+                              }}
+                              className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-sm transition-colors"
+                            >
+                              标记已解决
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleUpdateStatus(anomaly.id, 'ignored');
+                              }}
+                              className="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-white rounded text-sm transition-colors"
+                            >
+                              忽略
+                            </button>
+                          </div>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleUpdateStatus(anomaly.id, 'handling');
-                            }}
-                            className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded text-sm transition-colors"
-                          >
-                            标记处理中
-                          </button>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleUpdateStatus(anomaly.id, 'resolved');
-                            }}
-                            className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-sm transition-colors"
-                          >
-                            标记已解决
-                          </button>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleUpdateStatus(anomaly.id, 'ignored');
-                            }}
-                            className="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-white rounded text-sm transition-colors"
-                          >
-                            忽略
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  )}
+                      )}
 
-                  {isExpanded && anomaly.handlingNote && (
-                    <div className="px-5 pb-4 border-t border-slate-800/50 pt-4">
-                      <div className="flex items-start gap-2">
-                        <MessageSquare className="w-4 h-4 text-slate-500 mt-0.5" />
-                        <div>
-                          <p className="text-xs text-slate-500 mb-1">
-                            处理人：{anomaly.handledBy} · {formatDateTime(anomaly.handledAt!)}
-                          </p>
-                          <p className="text-sm text-slate-300">{anomaly.handlingNote}</p>
+                      {anomaly.handlingNote && (
+                        <div className="flex items-start gap-2 p-3 bg-slate-800/30 rounded-lg">
+                          <MessageSquare className="w-4 h-4 text-slate-500 mt-0.5 flex-shrink-0" />
+                          <div>
+                            <p className="text-xs text-slate-500 mb-1">
+                              处理人：{anomaly.handledBy || '-'} · {anomaly.handledAt ? formatDateTime(anomaly.handledAt) : '-'}
+                            </p>
+                            <p className="text-sm text-slate-300">{anomaly.handlingNote}</p>
+                          </div>
                         </div>
-                      </div>
+                      )}
+
+                      {anomaly.status === 'resolved' && (
+                        <div className="flex items-center gap-2 text-xs text-emerald-400">
+                          <CheckCircle className="w-4 h-4" />
+                          <span>已解决</span>
+                          {anomaly.handledAt && <span className="text-slate-500">· {formatDateTime(anomaly.handledAt)}</span>}
+                        </div>
+                      )}
+
+                      {anomaly.status === 'ignored' && (
+                        <div className="flex items-center gap-2 text-xs text-slate-500">
+                          <CheckCircle className="w-4 h-4" />
+                          <span>已忽略</span>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
