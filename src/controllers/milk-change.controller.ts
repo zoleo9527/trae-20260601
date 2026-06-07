@@ -11,6 +11,7 @@ import {
 } from '@nestjs/common';
 import { MilkChangeService } from '../services/milk-change.service';
 import { ApiResponse } from '../common/response';
+import { BusinessException } from '../common/business-exception';
 import {
   CreateMilkChangeDto,
   ProcessMilkChangeDto,
@@ -30,16 +31,29 @@ import { ErrorCode } from '../common/error-code';
 export class MilkChangeController {
   constructor(private readonly milkChangeService: MilkChangeService) {}
 
+  private handleError(e: any): never {
+    if (e instanceof BusinessException) {
+      throw new HttpException(
+        ApiResponse.error(e.code, e.message),
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+    if (e instanceof HttpException) {
+      throw e;
+    }
+    throw new HttpException(
+      ApiResponse.error(ErrorCode.INTERNAL_ERROR, e.message || '系统内部错误'),
+      HttpStatus.INTERNAL_SERVER_ERROR,
+    );
+  }
+
   @Post()
   async create(@Body() dto: CreateMilkChangeDto) {
     try {
       const result = await this.milkChangeService.create(dto);
       return ApiResponse.success(this.formatDetail(result));
     } catch (e) {
-      throw new HttpException(
-        ApiResponse.error(ErrorCode.PARAM_VALIDATION_ERROR, e.message),
-        HttpStatus.BAD_REQUEST,
-      );
+      this.handleError(e);
     }
   }
 
@@ -49,10 +63,7 @@ export class MilkChangeController {
       const result = await this.milkChangeService.getDefaultList(dto);
       return ApiResponse.success(result);
     } catch (e) {
-      throw new HttpException(
-        ApiResponse.error(ErrorCode.INTERNAL_ERROR, e.message),
-        HttpStatus.INTERNAL_SERVER_ERROR,
-      );
+      this.handleError(e);
     }
   }
 
@@ -66,10 +77,7 @@ export class MilkChangeController {
       const result = await this.milkChangeService.getMyTodoList(staffId, staffRole, dto);
       return ApiResponse.success(result);
     } catch (e) {
-      throw new HttpException(
-        ApiResponse.error(ErrorCode.INTERNAL_ERROR, e.message),
-        HttpStatus.INTERNAL_SERVER_ERROR,
-      );
+      this.handleError(e);
     }
   }
 
@@ -79,10 +87,7 @@ export class MilkChangeController {
       const result = await this.milkChangeService.list(dto);
       return ApiResponse.success(result);
     } catch (e) {
-      throw new HttpException(
-        ApiResponse.error(ErrorCode.INTERNAL_ERROR, e.message),
-        HttpStatus.INTERNAL_SERVER_ERROR,
-      );
+      this.handleError(e);
     }
   }
 
@@ -92,10 +97,7 @@ export class MilkChangeController {
       const result = await this.milkChangeService.getDetail(id);
       return ApiResponse.success(this.formatDetail(result));
     } catch (e) {
-      throw new HttpException(
-        ApiResponse.error(ErrorCode.MILK_CHANGE_NOT_FOUND, e.message),
-        HttpStatus.NOT_FOUND,
-      );
+      this.handleError(e);
     }
   }
 
@@ -105,10 +107,7 @@ export class MilkChangeController {
       const result = await this.milkChangeService.process(id, dto);
       return ApiResponse.success(this.formatDetail(result));
     } catch (e) {
-      throw new HttpException(
-        ApiResponse.error(ErrorCode.PARAM_VALIDATION_ERROR, e.message),
-        HttpStatus.BAD_REQUEST,
-      );
+      this.handleError(e);
     }
   }
 
@@ -118,10 +117,7 @@ export class MilkChangeController {
       const result = await this.milkChangeService.assignRoute(id, dto);
       return ApiResponse.success(this.formatDetail(result));
     } catch (e) {
-      throw new HttpException(
-        ApiResponse.error(ErrorCode.PARAM_VALIDATION_ERROR, e.message),
-        HttpStatus.BAD_REQUEST,
-      );
+      this.handleError(e);
     }
   }
 
@@ -131,10 +127,7 @@ export class MilkChangeController {
       const result = await this.milkChangeService.getOperationLogs(id);
       return ApiResponse.success(result);
     } catch (e) {
-      throw new HttpException(
-        ApiResponse.error(ErrorCode.INTERNAL_ERROR, e.message),
-        HttpStatus.INTERNAL_SERVER_ERROR,
-      );
+      this.handleError(e);
     }
   }
 
@@ -144,10 +137,7 @@ export class MilkChangeController {
       const result = await this.milkChangeService.getRouteAdjustHistories(id);
       return ApiResponse.success(result);
     } catch (e) {
-      throw new HttpException(
-        ApiResponse.error(ErrorCode.INTERNAL_ERROR, e.message),
-        HttpStatus.INTERNAL_SERVER_ERROR,
-      );
+      this.handleError(e);
     }
   }
 
@@ -161,10 +151,7 @@ export class MilkChangeController {
         routeHistories: result.routeHistories,
       });
     } catch (e) {
-      throw new HttpException(
-        ApiResponse.error(ErrorCode.MILK_CHANGE_NOT_FOUND, e.message),
-        HttpStatus.NOT_FOUND,
-      );
+      this.handleError(e);
     }
   }
 

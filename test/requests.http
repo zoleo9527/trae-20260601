@@ -328,3 +328,97 @@ GET http://localhost:3000/api/milk-changes/default
 ### 32. 查看文员待办，验证 isOverdue 统计
 ### ========================================
 GET http://localhost:3000/api/milk-changes/my-todo?staffId=staff-clerk-1&staffRole=station_clerk
+
+### ========================================
+### 【最终验证】修复后完整测试
+### ========================================
+
+### 33. 验证错误码：不再统一返回 40000，返回真实 60011
+### ========================================
+PUT http://localhost:3000/api/milk-changes/mc-4/process
+Content-Type: application/json
+
+{
+  "handlerId": "staff-delivery-2",
+  "targetStatus": "returned",
+  "remark": "验证不再返回40000，而是60011"
+}
+
+### 34. 验证错误码：数量无效返回 60009
+### ========================================
+PUT http://localhost:3000/api/milk-changes/mc-3/process
+Content-Type: application/json
+
+{
+  "handlerId": "staff-clerk-1",
+  "targetStatus": "clerk_processing",
+  "newQuantity": -1
+}
+
+### 35. 验证错误码：配送时间格式无效返回 60008
+### ========================================
+PUT http://localhost:3000/api/milk-changes/mc-3/process
+Content-Type: application/json
+
+{
+  "handlerId": "staff-clerk-1",
+  "targetStatus": "clerk_processing",
+  "newDeliveryTime": "abc"
+}
+
+### 36. 验证错误码：改地址不指定路线返回 60007
+### ========================================
+PUT http://localhost:3000/api/milk-changes/mc-3/process
+Content-Type: application/json
+
+{
+  "handlerId": "staff-clerk-1",
+  "targetStatus": "clerk_processing",
+  "newAddress": "测试新地址但不指定路线"
+}
+
+### 37. 验证错误码：预计完成时间早于当前返回 60006
+### ========================================
+PUT http://localhost:3000/api/milk-changes/mc-3/process
+Content-Type: application/json
+
+{
+  "handlerId": "staff-clerk-1",
+  "targetStatus": "clerk_processing",
+  "expectedCompleteAt": "2020-01-01"
+}
+
+### 38. 验证首次路线调整：assign-route 旧路线从客户补齐
+### （先创建一个新的订奶变更，无路线变更记录）
+### ========================================
+POST http://localhost:3000/api/milk-changes
+Content-Type: application/json
+
+{
+  "customerId": "cust-1",
+  "changeType": "change_address",
+  "changeDetail": "测试首次路线调整",
+  "oldAddress": "城东区阳光花园1栋302室",
+  "newAddress": "城东区阳光花园5栋601室",
+  "assignedToId": "staff-clerk-1",
+  "remark": "用于测试首次路线调整旧路线不为空"
+}
+
+### 39. 拿到上面创建的记录的ID后，执行 assign-route
+### （请把 mc-new-1 替换成实际返回的ID）
+### ========================================
+# PUT http://localhost:3000/api/milk-changes/mc-new-1/assign-route
+# Content-Type: application/json
+#
+# {
+#   "handlerId": "staff-clerk-1",
+#   "newRouteId": "route-2",
+#   "newRouteName": "城东B线",
+#   "routeAdjustReason": "测试首次调整，验证oldRoute从客户补齐",
+#   "remark": "首次调整路线"
+# }
+
+### 40. 然后查看 route-histories，验证首次调整也落了历史记录
+### （请把 mc-new-1 替换成实际返回的ID）
+### ========================================
+# GET http://localhost:3000/api/milk-changes/mc-new-1/route-histories

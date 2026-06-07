@@ -1,9 +1,10 @@
-import { Injectable, HttpException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { Repository, In, MoreThan, LessThan, Between } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
 import { MilkChange } from '../entities/milk-change.entity';
 import { Customer } from '../entities/customer.entity';
 import { Staff } from '../entities/staff.entity';
+import { DeliveryRoute } from '../entities/delivery-route.entity';
 import { RouteAdjustHistory } from '../entities/route-adjust-history.entity';
 import {
   MilkChangeStatus,
@@ -16,6 +17,7 @@ import {
   ReturnReasonLabel,
 } from '../common/enums';
 import { ErrorCode, ErrorMessage } from '../common/error-code';
+import { BusinessException } from '../common/business-exception';
 import {
   CreateMilkChangeDto,
   ProcessMilkChangeDto,
@@ -33,6 +35,8 @@ export class MilkChangeService {
     private readonly customerRepository: Repository<Customer>,
     @InjectRepository(Staff)
     private readonly staffRepository: Repository<Staff>,
+    @InjectRepository(DeliveryRoute)
+    private readonly routeRepository: Repository<DeliveryRoute>,
     @InjectRepository(RouteAdjustHistory)
     private readonly routeAdjustHistoryRepository: Repository<RouteAdjustHistory>,
     private readonly operationLogService: OperationLogService,
@@ -53,10 +57,7 @@ export class MilkChangeService {
   private async getStaffById(id: string): Promise<Staff> {
     const staff = await this.staffRepository.findOne({ where: { id } });
     if (!staff) {
-      throw new HttpException(
-        ErrorMessage[ErrorCode.STAFF_NOT_FOUND],
-        400,
-      );
+      throw new BusinessException(ErrorCode.STAFF_NOT_FOUND);
     }
     return staff;
   }
@@ -64,12 +65,15 @@ export class MilkChangeService {
   private async getCustomerById(id: string): Promise<Customer> {
     const customer = await this.customerRepository.findOne({ where: { id } });
     if (!customer) {
-      throw new HttpException(
-        ErrorMessage[ErrorCode.CUSTOMER_NOT_FOUND],
-        400,
-      );
+      throw new BusinessException(ErrorCode.CUSTOMER_NOT_FOUND);
     }
     return customer;
+  }
+
+  private async getRouteNameById(routeId: string): Promise<string> {
+    if (!routeId) return '';
+    const route = await this.routeRepository.findOne({ where: { id: routeId } });
+    return route ? route.name : '';
   }
 
   async create(dto: CreateMilkChangeDto): Promise<MilkChange> {
@@ -132,10 +136,7 @@ export class MilkChangeService {
       relations: ['customer', 'currentHandler', 'assignedTo'],
     });
     if (!milkChange) {
-      throw new HttpException(
-        ErrorMessage[ErrorCode.MILK_CHANGE_NOT_FOUND],
-        404,
-      );
+      throw new BusinessException(ErrorCode.MILK_CHANGE_NOT_FOUND);
     }
     return milkChange;
   }
@@ -318,47 +319,29 @@ export class MilkChangeService {
     const handler = await this.getStaffById(dto.handlerId);
 
     if (!this.isValidStatusTransition(milkChange.status, dto.targetStatus, handler.role)) {
-      throw new HttpException(
-        ErrorMessage[ErrorCode.MILK_CHANGE_STATUS_TRANSITION_INVALID],
-        400,
-      );
+      throw new BusinessException(ErrorCode.MILK_CHANGE_STATUS_TRANSITION_INVALID);
     }
 
     if (dto.targetStatus === MilkChangeStatus.RETURNED && !dto.returnReason) {
-      throw new HttpException(
-        ErrorMessage[ErrorCode.MILK_CHANGE_RETURN_REASON_REQUIRED],
-        400,
-      );
+      throw new BusinessException(ErrorCode.MILK_CHANGE_RETURN_REASON_REQUIRED);
     }
 
     if (dto.newQuantity !== undefined && dto.newQuantity <= 0) {
-      throw new HttpException(
-        ErrorMessage[ErrorCode.MILK_CHANGE_QUANTITY_INVALID],
-        400,
-      );
+      throw new BusinessException(ErrorCode.MILK_CHANGE_QUANTITY_INVALID);
     }
 
     if (dto.newDeliveryTime && !this.validateDeliveryTime(dto.newDeliveryTime)) {
-      throw new HttpException(
-        ErrorMessage[ErrorCode.MILK_CHANGE_DELIVERY_TIME_INVALID],
-        400,
-      );
+      throw new BusinessException(ErrorCode.MILK_CHANGE_DELIVERY_TIME_INVALID);
     }
 
     if (dto.newAddress && !dto.newRouteId) {
-      throw new HttpException(
-        ErrorMessage[ErrorCode.MILK_CHANGE_ROUTE_REQUIRED],
-        400,
-      );
+      throw new BusinessException(ErrorCode.MILK_CHANGE_ROUTE_REQUIRED);
     }
 
     if (dto.expectedCompleteAt) {
       const expectedTime = new Date(dto.expectedCompleteAt);
       if (expectedTime < new Date()) {
-        throw new HttpException(
-          ErrorMessage[ErrorCode.MILK_CHANGE_EXPECTED_TIME_INVALID],
-          400,
-        );
+        throw new BusinessException(ErrorCode.MILK_CHANGE_EXPECTED_TIME_INVALID);
       }
     }
 
@@ -414,10 +397,15 @@ export class MilkChangeService {
     }
 
     if (dto.newRouteId && dto.newRouteName) {
-      const currentRouteId = milkChange.newRouteId || milkChange.oldRouteId;
-      const currentRouteName = milkChange.newRouteName || milkChange.oldRouteName;
+      let currentRouteId = milkChange.newRouteId || milkChange.oldRouteId;
+      let currentRouteName = milkChange.newRouteName || milkChange.oldRouteName;
       
-      if (currentRouteId !== dto.newRouteId) {
+      if (!currentRouteId && milkChange.customer?.routeId) {
+        currentRouteId = milkChange.customer.routeId;
+        currentRouteName = await this.getRouteNameById(currentRouteId);
+      }
+      
+      if (currentRouteId && currentRouteId !== dto.newRouteId) {
         await this.createRouteAdjustHistory(
           milkChange.id,
           currentRouteId,
@@ -433,9 +421,6 @@ export class MilkChangeService {
       if (!milkChange.oldRouteId && currentRouteId) {
         milkChange.oldRouteId = currentRouteId;
         milkChange.oldRouteName = currentRouteName;
-      } else if (!milkChange.oldRouteId) {
-        milkChange.oldRouteId = milkChange.customer?.routeId || '';
-        milkChange.oldRouteName = '';
       }
       
       milkChange.newRouteId = dto.newRouteId;
@@ -466,10 +451,15 @@ export class MilkChangeService {
     const milkChange = await this.getDetail(id);
     const handler = await this.getStaffById(dto.handlerId);
 
-    const currentRouteId = milkChange.newRouteId || milkChange.oldRouteId || milkChange.customer?.routeId;
-    const currentRouteName = milkChange.newRouteName || milkChange.oldRouteName || '';
+    let currentRouteId = milkChange.newRouteId || milkChange.oldRouteId;
+    let currentRouteName = milkChange.newRouteName || milkChange.oldRouteName;
 
-    if (currentRouteId !== dto.newRouteId) {
+    if (!currentRouteId && milkChange.customer?.routeId) {
+      currentRouteId = milkChange.customer.routeId;
+      currentRouteName = await this.getRouteNameById(currentRouteId);
+    }
+
+    if (currentRouteId && currentRouteId !== dto.newRouteId) {
       await this.createRouteAdjustHistory(
         milkChange.id,
         currentRouteId,
@@ -482,7 +472,7 @@ export class MilkChangeService {
       );
     }
 
-    if (!milkChange.oldRouteId) {
+    if (!milkChange.oldRouteId && currentRouteId) {
       milkChange.oldRouteId = currentRouteId;
       milkChange.oldRouteName = currentRouteName;
     }
