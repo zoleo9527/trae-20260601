@@ -35,6 +35,42 @@ export default function MemberRefundReview() {
   const [couponAmount, setCouponAmount] = useState('');
   const [reviewComment, setReviewComment] = useState('');
 
+  const handleSelectConsume = (consumeId: string) => {
+    setSelectedConsumeId(consumeId);
+    if (selectedRefundId) {
+      const refund = refunds.find((r) => r.id === selectedRefundId);
+      if (refund && refund.consumeId !== consumeId) {
+        setSelectedRefundId(null);
+        setDisputeText('');
+        setReviewComment('');
+        setReviewAmount('');
+        setCouponAmount('');
+      }
+    }
+  };
+
+  const handleSwitchMember = (memberId: string) => {
+    setSelectedMemberId(memberId);
+    setSelectedConsumeId(null);
+    setSelectedRefundId(null);
+    setDisputeText('');
+    setReviewComment('');
+    setReviewAmount('');
+    setCouponAmount('');
+  };
+
+  const handleSelectRefund = (refundId: string) => {
+    const refund = refunds.find((r) => r.id === refundId);
+    if (refund) {
+      setSelectedRefundId(refundId);
+      setSelectedConsumeId(refund.consumeId);
+      setDisputeText('');
+      setReviewComment('');
+      setReviewAmount('');
+      setCouponAmount('');
+    }
+  };
+
   const handleSearch = () => {
     if (!searchQuery.trim()) return;
 
@@ -56,9 +92,7 @@ export default function MemberRefundReview() {
     }
 
     if (foundMember) {
-      setSelectedMemberId(foundMember.id);
-      setSelectedConsumeId(null);
-      setSelectedRefundId(null);
+      handleSwitchMember(foundMember.id);
     }
   };
 
@@ -283,11 +317,7 @@ export default function MemberRefundReview() {
               {members.map((m) => (
                 <button
                   key={m.id}
-                  onClick={() => {
-                    setSelectedMemberId(m.id);
-                    setSelectedConsumeId(null);
-                    setSelectedRefundId(null);
-                  }}
+                  onClick={() => handleSwitchMember(m.id)}
                   className={`px-2 py-1 rounded transition-colors ${
                     selectedMemberId === m.id
                       ? 'bg-blue-100 text-blue-700 font-medium'
@@ -393,7 +423,7 @@ export default function MemberRefundReview() {
                       return (
                         <tr
                           key={item.id}
-                          onClick={() => setSelectedConsumeId(item.id)}
+                          onClick={() => handleSelectConsume(item.id)}
                           className={`cursor-pointer transition-colors ${
                             selectedConsumeId === item.id
                               ? 'bg-blue-50'
@@ -461,7 +491,7 @@ export default function MemberRefundReview() {
                       (refund) => (
                         <div
                           key={refund.id}
-                          onClick={() => setSelectedRefundId(refund.id)}
+                          onClick={() => handleSelectRefund(refund.id)}
                           className={`p-4 cursor-pointer transition-colors ${
                             selectedRefundId === refund.id
                               ? 'bg-blue-50 border-l-4 border-blue-500'

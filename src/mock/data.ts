@@ -121,6 +121,20 @@ export const mockConsumptions: ConsumptionItem[] = [
     floor: '3楼',
     payMethod: '储值',
   },
+  {
+    id: 'C007',
+    memberId: 'M003',
+    wristbandNo: 'C005',
+    itemName: '搓背服务',
+    itemType: '洗浴服务',
+    quantity: 1,
+    unitPrice: 68,
+    amount: 68,
+    consumeTime: '2026-06-05 19:30:00',
+    operator: '技师周师傅',
+    floor: '1楼',
+    payMethod: '储值',
+  },
 ];
 
 export const mockRefunds: RefundApplication[] = [
@@ -135,9 +149,6 @@ export const mockRefunds: RefundApplication[] = [
     applyTime: '2026-06-07 18:30:00',
     applicant: '前台小王',
     status: '处理中',
-    disputeSupplement: '已与当值技师核实，确实因临时紧急情况提前结束，约65分钟。客人表示不满，建议部分退款。',
-    disputeOperator: '楼层主管陈经理',
-    disputeTime: '2026-06-07 18:50:00',
   },
   {
     id: 'R002',
@@ -210,15 +221,6 @@ export const mockProcessingHistory: ProcessingHistory[] = [
     operateTime: '2026-06-07 18:30:00',
   },
   {
-    id: 'H002',
-    refundId: 'R001',
-    operator: '楼层主管陈经理',
-    role: '楼层主管',
-    action: '补充服务争议说明',
-    comment: '已与技师核实，确实提前结束约25分钟，建议部分退款处理',
-    operateTime: '2026-06-07 18:50:00',
-  },
-  {
     id: 'H003',
     refundId: 'R002',
     operator: '前台小王',
@@ -271,6 +273,33 @@ export const mockProcessingHistory: ProcessingHistory[] = [
     action: '复查并批准部分退款',
     comment: '同意部分退款200元，已退回储值账户',
     operateTime: '2026-06-06 21:45:00',
+  },
+  {
+    id: 'H009',
+    refundId: 'R004',
+    operator: '前台小刘',
+    role: '前台',
+    action: '提交退款申请',
+    comment: '客人不满意搓背服务质量，申请退款68元',
+    operateTime: '2026-06-05 20:00:00',
+  },
+  {
+    id: 'H010',
+    refundId: 'R004',
+    operator: '楼层主管陈经理',
+    role: '楼层主管',
+    action: '补充服务争议说明',
+    comment: '技师反馈服务流程正常，客人无正当理由',
+    operateTime: '2026-06-05 20:20:00',
+  },
+  {
+    id: 'H011',
+    refundId: 'R004',
+    operator: '财务李会计',
+    role: '财务',
+    action: '复查并拒绝退款申请',
+    comment: '无正当理由，不予退款',
+    operateTime: '2026-06-05 20:40:00',
   },
 ];
 
