@@ -18,13 +18,17 @@ export function RecallManage() {
 
   const getRecallStats = (recall: typeof recalls[0]) => {
     const customers = recall.customers;
+    const pending = customers.filter((c) => c.notifyStatus === 'pending').length;
+    const confirmed = customers.filter((c) => c.notifyStatus === 'confirmed').length;
+    const returned = customers.filter((c) => c.notifyStatus === 'returned').length;
     return {
       total: customers.length,
-      pending: customers.filter((c) => c.notifyStatus === 'pending').length,
+      pending,
       notified: customers.filter((c) => c.notifyStatus === 'notified').length,
-      confirmed: customers.filter((c) => c.notifyStatus === 'confirmed').length,
-      returned: customers.filter((c) => c.notifyStatus === 'returned').length,
+      confirmed,
+      returned,
       totalReturnedQty: customers.reduce((sum, c) => sum + (c.returnedQuantity || 0), 0),
+      canComplete: pending === 0 && (confirmed + returned === customers.length),
     };
   };
 
@@ -246,11 +250,87 @@ export function RecallManage() {
                 </div>
 
                 {recall.status !== 'completed' && (
-                  <div className="p-5 bg-amber-50/50 border-t border-amber-200">
-                    <div className="text-sm font-medium text-amber-800 mb-3">手动完成召回</div>
+                  <div
+                    className={`p-5 border-t ${
+                      getRecallStats(recall).canComplete
+                        ? 'bg-green-50/50 border-green-200'
+                        : 'bg-slate-50/50 border-slate-200'
+                    }`}
+                  >
+                    <div
+                      className={`text-sm font-medium mb-3 ${
+                        getRecallStats(recall).canComplete
+                          ? 'text-green-800'
+                          : 'text-slate-700'
+                      }`}
+                    >
+                      完成召回
+                    </div>
+
+                    <div
+                      className={`mb-4 p-3 rounded-lg border ${
+                        getRecallStats(recall).canComplete
+                          ? 'bg-green-100/50 border-green-200 text-green-700'
+                          : 'bg-amber-50 border-amber-200 text-amber-700'
+                      }`}
+                    >
+                      {getRecallStats(recall).canComplete ? (
+                        <div className="flex items-center gap-2 text-sm">
+                          <CheckCircle className="w-4 h-4" />
+                          <span>
+                            所有客户已处理完毕（
+                            {getRecallStats(recall).total}
+                            家全部已确认或已退回），可完成召回
+                          </span>
+                        </div>
+                      ) : (
+                        <div className="space-y-1.5 text-sm">
+                          <div className="font-medium">召回完成条件：</div>
+                          <div className="flex items-center gap-2">
+                            {getRecallStats(recall).pending === 0 ? (
+                              <CheckCircle className="w-3.5 h-3.5 text-green-600" />
+                            ) : (
+                              <div className="w-3.5 h-3.5 rounded-full border-2 border-amber-400" />
+                            )}
+                            <span>
+                              所有客户已通知（剩余
+                              {' '}
+                              {getRecallStats(recall).pending}
+                              {' '}
+                              家待通知）
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {getRecallStats(recall).confirmed +
+                              getRecallStats(recall).returned ===
+                            getRecallStats(recall).total ? (
+                              <CheckCircle className="w-3.5 h-3.5 text-green-600" />
+                            ) : (
+                              <div className="w-3.5 h-3.5 rounded-full border-2 border-amber-400" />
+                            )}
+                            <span>
+                              所有客户已确认或已退回（剩余
+                              {' '}
+                              {getRecallStats(recall).total -
+                                getRecallStats(recall).confirmed -
+                                getRecallStats(recall).returned}
+                              {' '}
+                              家处理中）
+                            </span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
                     <div className="flex items-end gap-4">
                       <div className="flex-1">
-                        <label className="block text-xs text-amber-700 mb-1.5">
+                        <label
+                          className={`block text-xs mb-1.5 ${
+                            getRecallStats(recall).canComplete
+                              ? 'text-green-700'
+                              : 'text-slate-500'
+                          }`}
+                        >
                           最终处置说明（可选）
                         </label>
                         <input
@@ -263,12 +343,22 @@ export function RecallManage() {
                             }))
                           }
                           placeholder="如：剩余库存销毁、客户差价补偿、班组再培训等"
-                          className="w-full px-3 py-2 text-sm border border-amber-300 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500 bg-white"
+                          disabled={!getRecallStats(recall).canComplete}
+                          className={`w-full px-3 py-2 text-sm border rounded-md focus:outline-none transition-colors ${
+                            getRecallStats(recall).canComplete
+                              ? 'border-green-300 focus:ring-2 focus:ring-green-500 focus:border-green-500 bg-white'
+                              : 'border-slate-200 bg-slate-100 text-slate-400 cursor-not-allowed'
+                          }`}
                         />
                       </div>
                       <button
                         onClick={() => handleCompleteRecall(recall.id)}
-                        className="inline-flex items-center gap-2 px-4 py-2 bg-amber-600 text-white text-sm font-medium rounded-md hover:bg-amber-700 transition-colors shadow-sm"
+                        disabled={!getRecallStats(recall).canComplete}
+                        className={`inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-md transition-colors shadow-sm ${
+                          getRecallStats(recall).canComplete
+                            ? 'bg-green-600 text-white hover:bg-green-700'
+                            : 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                        }`}
                       >
                         <CheckCircle className="w-4 h-4" />
                         完成召回

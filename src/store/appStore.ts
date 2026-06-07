@@ -40,23 +40,25 @@ export const useAppStore = create<AppState>((set, get) => ({
   })),
   updateRecallCustomer: (recallId, customerId, updates) => set((state) => {
     const updatedRecalls = state.recalls.map((r) => {
-      if (r.id !== recallId) return r;
+      if (r.id !== recallId || r.status === 'completed') return r;
 
       const updatedCustomers = r.customers.map((c) =>
         c.id === customerId ? { ...c, ...updates } : c
       );
 
-      const allDone = updatedCustomers.every(
+      const hasPending = updatedCustomers.some((c) => c.notifyStatus === 'pending');
+      const allConfirmedOrReturned = updatedCustomers.every(
         (c) => c.notifyStatus === 'confirmed' || c.notifyStatus === 'returned'
       );
+      const canComplete = !hasPending && allConfirmedOrReturned;
 
       const now = new Date().toISOString().slice(0, 19).replace('T', ' ');
 
       return {
         ...r,
         customers: updatedCustomers,
-        status: allDone ? 'completed' : r.status,
-        completedAt: allDone ? now : r.completedAt,
+        status: (canComplete ? 'completed' : r.status) as RecallTask['status'],
+        completedAt: canComplete ? now : r.completedAt,
       };
     });
 
@@ -81,26 +83,37 @@ export const useAppStore = create<AppState>((set, get) => ({
       [caseId]: { ...state.reinspections[caseId], ...updates },
     },
   })),
-  completeRecall: (recallId, disposition) => set((state) => {
+  completeRecall: (recallId, disposition) => {
+    const state = get();
+    const recall = state.recalls.find((r) => r.id === recallId);
+    if (!recall || recall.status === 'completed') return;
+
+    const hasPending = recall.customers.some((c) => c.notifyStatus === 'pending');
+    if (hasPending) return;
+
+    const allConfirmedOrReturned = recall.customers.every(
+      (c) => c.notifyStatus === 'confirmed' || c.notifyStatus === 'returned'
+    );
+    if (!allConfirmedOrReturned) return;
+
     const now = new Date().toISOString().slice(0, 19).replace('T', ' ');
 
-    const updatedRecalls = state.recalls.map((r) =>
-      r.id === recallId
-        ? { ...r, status: 'completed' as const, completedAt: now, finalDisposition: disposition }
-        : r
-    );
+    set((state) => {
+      const updatedRecalls = state.recalls.map((r) =>
+        r.id === recallId
+          ? { ...r, status: 'completed' as const, completedAt: now, finalDisposition: disposition }
+          : r
+      );
 
-    const recall = updatedRecalls.find((r) => r.id === recallId);
-    const updatedCases = recall
-      ? state.cases.map((c) =>
-          c.id === recall.caseId
-            ? { ...c, status: 'closed' as const, closedAt: now, closedBy: '李主管' }
-            : c
-        )
-      : state.cases;
+      const updatedCases = state.cases.map((c) =>
+        c.id === recall.caseId
+          ? { ...c, status: 'closed' as const, closedAt: now, closedBy: '李主管' }
+          : c
+      );
 
-    return { recalls: updatedRecalls, cases: updatedCases };
-  }),
+      return { recalls: updatedRecalls, cases: updatedCases };
+    });
+  },
   createRecallFromCase: (caseId) => {
     const state = get();
     const caseItem = state.cases.find((c) => c.id === caseId);
