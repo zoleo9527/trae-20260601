@@ -498,3 +498,30 @@ Content-Type: application/json
 ### 47. 查看 mc-3 详情，验证 newRouteName 是标准的"城西线"而非伪造名称
 ### ========================================
 GET http://localhost:3000/api/milk-changes/mc-3
+
+### ========================================
+### 【最新修复验证】回看子接口 404 一致性
+### ========================================
+
+### 48. 验证 logs 子接口：查询不存在的订奶变更日志
+### 预期：HTTP 404，code=60001（不再返回空数组）
+### ========================================
+GET http://localhost:3000/api/milk-changes/not-exist-001/logs
+
+### 49. 验证 route-histories 子接口：查询不存在的订奶变更路线历史
+### 预期：HTTP 404，code=60001（不再返回空数组）
+### ========================================
+GET http://localhost:3000/api/milk-changes/not-exist-001/route-histories
+
+### 50. 验证 review 接口：查询不存在的订奶变更回看
+### 预期：HTTP 404，code=60001（与详情、日志、路线历史保持一致）
+### ========================================
+GET http://localhost:3000/api/milk-changes/not-exist-001/review
+
+### 51. 对比验证：查询存在的记录 logs（正常返回数据）
+### ========================================
+GET http://localhost:3000/api/milk-changes/mc-6/logs
+
+### 52. 对比验证：查询存在的记录 route-histories（正常返回数据）
+### ========================================
+GET http://localhost:3000/api/milk-changes/mc-3/route-histories

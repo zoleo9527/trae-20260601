@@ -511,10 +511,12 @@ export class MilkChangeService {
   }
 
   async getOperationLogs(id: string): Promise<any[]> {
+    await this.getDetail(id);
     return await this.operationLogService.getLogsByMilkChangeId(id);
   }
 
   async getRouteAdjustHistories(id: string): Promise<any[]> {
+    await this.getDetail(id);
     const histories = await this.routeAdjustHistoryRepository.find({
       where: { milkChangeId: id },
       order: { createdAt: 'DESC' },
