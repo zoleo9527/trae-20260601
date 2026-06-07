@@ -15,6 +15,7 @@ const RepairDetail: React.FC = () => {
   const [note, setNote] = useState('');
   const [selectedTech, setSelectedTech] = useState('');
   const [repairForm, setRepairForm] = useState({ repairNote: '', partsUsed: '[]', laborHours: '' });
+  const [supplementForm, setSupplementForm] = useState({ supplementNote: '', description: '', repairNote: '' });
 
   const fetchData = () => {
     setLoading(true);
@@ -69,13 +70,14 @@ const RepairDetail: React.FC = () => {
   const statusConfig = getStatusConfig(repair.status);
   const priorityConfig = getPriorityConfig(repair.priority);
 
-  const canSubmit = repair.status === 'DRAFT' && repair.creatorId === user?.id;
+  const canSubmit = ['DRAFT', 'RETURNED', 'REOPENED'].includes(repair.status) && repair.creatorId === user?.id;
   const canApprove = repair.status === 'PENDING_APPROVAL' && user?.role === 'STORE_MANAGER';
   const canAssign = repair.status === 'APPROVED' && user?.role === 'STORE_MANAGER';
   const canStart = repair.status === 'ASSIGNED' && repair.assignedToId === user?.id;
   const canComplete = repair.status === 'IN_PROGRESS' && repair.assignedToId === user?.id;
   const canReturn = ['COMPLETED', 'IN_PROGRESS'].includes(repair.status) && user?.role === 'STORE_MANAGER';
   const canReview = repair.status === 'COMPLETED' && user?.role === 'STORE_MANAGER';
+  const canSupplement = ['RETURNED', 'REOPENED'].includes(repair.status) && repair.assignedToId === user?.id;
 
   const handleSubmit = async () => {
     await repairAPI.submit(id!, { operatorId: user!.id });
@@ -117,6 +119,24 @@ const RepairDetail: React.FC = () => {
     await repairAPI.return(id!, { operatorId: user!.id, returnNote: note });
     setAction(null);
     setNote('');
+    fetchData();
+  };
+
+  const handleSupplement = async () => {
+    if (!supplementForm.supplementNote.trim()) return alert('请填写补录说明');
+    await repairAPI.supplement(id!, {
+      operatorId: user!.id,
+      supplementNote: supplementForm.supplementNote,
+      description: supplementForm.description || undefined,
+      repairNote: supplementForm.repairNote || undefined
+    });
+    setAction(null);
+    setSupplementForm({ supplementNote: '', description: '', repairNote: '' });
+    fetchData();
+  };
+
+  const handleResubmit = async () => {
+    await repairAPI.submit(id!, { operatorId: user!.id });
     fetchData();
   };
 
@@ -268,7 +288,12 @@ const RepairDetail: React.FC = () => {
             <div className="space-y-2">
               {canSubmit && !action && (
                 <button onClick={handleSubmit} className="w-full btn btn-primary flex items-center justify-center gap-2">
-                  <Send size={16} /> 提交审批
+                  <Send size={16} /> {repair.status === 'DRAFT' ? '提交审批' : '重新提交审批'}
+                </button>
+              )}
+              {canSupplement && !action && (
+                <button onClick={() => setAction('supplement')} className="w-full btn btn-warning flex items-center justify-center gap-2">
+                  <RotateCcw size={16} /> 补录继续维修
                 </button>
               )}
               {canApprove && !action && (
@@ -377,6 +402,45 @@ const RepairDetail: React.FC = () => {
                 <div className="flex gap-2">
                   <button onClick={handleReturn} className="flex-1 btn btn-danger">确认退回</button>
                   <button onClick={() => { setAction(null); setNote(''); }} className="flex-1 btn btn-secondary">取消</button>
+                </div>
+              </div>
+            )}
+
+            {action === 'supplement' && (
+              <div className="mt-4 p-4 bg-amber-50 rounded-lg">
+                <h4 className="font-medium text-amber-800 mb-3">补录继续维修</h4>
+                <div className="space-y-3">
+                  <div>
+                    <label className="label">补录说明 <span className="text-red-500">*</span></label>
+                    <textarea
+                      value={supplementForm.supplementNote}
+                      onChange={e => setSupplementForm({ ...supplementForm, supplementNote: e.target.value })}
+                      className="input h-20"
+                      placeholder="请说明补充了哪些内容或修改了什么"
+                    />
+                  </div>
+                  <div>
+                    <label className="label">补充问题描述（可选）</label>
+                    <textarea
+                      value={supplementForm.description}
+                      onChange={e => setSupplementForm({ ...supplementForm, description: e.target.value })}
+                      className="input h-16"
+                      placeholder="补充或修正问题描述"
+                    />
+                  </div>
+                  <div>
+                    <label className="label">补充维修说明（可选）</label>
+                    <textarea
+                      value={supplementForm.repairNote}
+                      onChange={e => setSupplementForm({ ...supplementForm, repairNote: e.target.value })}
+                      className="input h-16"
+                      placeholder="补充或修正维修说明"
+                    />
+                  </div>
+                </div>
+                <div className="flex gap-2 mt-4">
+                  <button onClick={handleSupplement} className="flex-1 btn btn-warning">补录并继续维修</button>
+                  <button onClick={() => { setAction(null); setSupplementForm({ supplementNote: '', description: '', repairNote: '' }); }} className="flex-1 btn btn-secondary">取消</button>
                 </div>
               </div>
             )}

@@ -21,6 +21,8 @@ model User {
   createdRepairOrders  RepairOrder[]       @relation("Creator")
   assignedRepairOrders RepairOrder[]       @relation("Technician")
   repairReviews        RepairOrder[]       @relation("RepairReviewer")
+  inspectionLogOps     InspectionStatusLog[] @relation("InspectionLogOperator")
+  repairLogOps         RepairStatusLog[]     @relation("RepairLogOperator")
   notifications        Notification[]
 }
 
@@ -70,6 +72,7 @@ model InspectionStatusLog {
   fromStatus   String?
   toStatus     String
   operatorId   String
+  operator     User     @relation("InspectionLogOperator", fields: [operatorId], references: [id])
   note         String?
   createdAt    DateTime @default(now())
 }
@@ -113,6 +116,7 @@ model RepairStatusLog {
   fromStatus    String?
   toStatus      String
   operatorId    String
+  operator      User     @relation("RepairLogOperator", fields: [operatorId], references: [id])
   note          String?
   createdAt     DateTime @default(now())
 }

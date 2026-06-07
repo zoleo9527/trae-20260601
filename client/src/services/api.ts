@@ -32,6 +32,7 @@ export const repairAPI = {
   start: (id: string, data: any) => api.put(`/repairs/${id}/start`, data).then(res => res.data),
   complete: (id: string, data: any) => api.put(`/repairs/${id}/complete`, data).then(res => res.data),
   return: (id: string, data: any) => api.put(`/repairs/${id}/return`, data).then(res => res.data),
+  supplement: (id: string, data: any) => api.put(`/repairs/${id}/supplement`, data).then(res => res.data),
   review: (id: string, data: any) => api.put(`/repairs/${id}/review`, data).then(res => res.data)
 };
 

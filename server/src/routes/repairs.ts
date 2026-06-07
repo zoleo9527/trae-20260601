@@ -122,16 +122,28 @@ router.put('/:id/submit', async (req, res) => {
   const existing = await prisma.repairOrder.findUnique({ where: { id: req.params.id } });
   if (!existing) return res.status(404).json({ error: '工单不存在' });
 
+  const allowedFrom = ['DRAFT', 'RETURNED', 'REOPENED'];
+  if (!allowedFrom.includes(existing.status)) {
+    return res.status(400).json({ error: `当前状态 ${existing.status} 不可提交审批` });
+  }
+
+  const noteMap: Record<string, string> = {
+    DRAFT: '提交审批',
+    RETURNED: '补录后重新提交审批',
+    REOPENED: '重新提交审批'
+  };
+
   const repair = await prisma.repairOrder.update({
     where: { id: req.params.id },
     data: {
       status: 'PENDING_APPROVAL',
+      returnNote: null,
       statusHistory: {
         create: [{
           fromStatus: existing.status,
           toStatus: 'PENDING_APPROVAL',
           operatorId,
-          note: '提交审批'
+          note: noteMap[existing.status] || '提交审批'
         }]
       }
     },
@@ -302,6 +314,50 @@ router.put('/:id/return', async (req, res) => {
       }
     });
   }
+
+  res.json(transformRepair(repair));
+});
+
+router.put('/:id/supplement', async (req, res) => {
+  const { operatorId, supplementNote, description, repairNote } = req.body;
+  const existing = await prisma.repairOrder.findUnique({ where: { id: req.params.id } });
+  if (!existing) return res.status(404).json({ error: '工单不存在' });
+
+  if (!['RETURNED', 'REOPENED'].includes(existing.status)) {
+    return res.status(400).json({ error: `当前状态 ${existing.status} 不可补录` });
+  }
+
+  const updateData: any = {
+    status: 'IN_PROGRESS',
+    returnNote: null,
+    statusHistory: {
+      create: [{
+        fromStatus: existing.status,
+        toStatus: 'IN_PROGRESS',
+        operatorId,
+        note: supplementNote || '补录后继续维修'
+      }]
+    }
+  };
+
+  if (description) updateData.description = description;
+  if (repairNote) updateData.repairNote = repairNote;
+
+  const repair = await prisma.repairOrder.update({
+    where: { id: req.params.id },
+    data: updateData,
+    include: { statusHistory: { orderBy: { createdAt: 'asc' } } }
+  });
+
+  await prisma.notification.create({
+    data: {
+      userId: existing.creatorId,
+      type: 'REPAIR_ASSIGNED',
+      title: '维修工单已补录继续',
+      content: `工单 ${existing.title} 已补录并继续维修`,
+      relatedId: existing.id
+    }
+  });
 
   res.json(transformRepair(repair));
 });
