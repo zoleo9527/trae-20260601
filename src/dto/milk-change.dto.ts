@@ -34,6 +34,13 @@ export class ProcessMilkChangeDto {
   newRouteId?: string;
   newRouteName?: string;
   routeAdjustReason?: string;
+  newProduct?: string;
+  newQuantity?: number;
+  newAddress?: string;
+  newDeliveryTime?: string;
+  changeDetail?: string;
+  effectiveDate?: string;
+  expectedCompleteAt?: string;
 }
 
 export class ListMilkChangeDto {

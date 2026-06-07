@@ -145,7 +145,7 @@ export class MilkChangeService {
     staffRole: StaffRole,
     dto: ListMilkChangeDto,
   ): Promise<{ list: any[]; total: number; today: number; overdue: number; returned: number }> {
-    const staff = await this.getStaffById(staffId);
+    await this.getStaffById(staffId);
 
     let statuses: MilkChangeStatus[] = [];
     switch (staffRole) {
@@ -176,7 +176,6 @@ export class MilkChangeService {
       where: [
         { status: In(statuses), currentHandlerId: staffId },
         { status: MilkChangeStatus.RETURNED, currentHandlerId: staffId },
-        { status: MilkChangeStatus.OVERDUE, currentHandlerId: staffId },
       ],
       relations: ['customer', 'currentHandler', 'assignedTo'],
       order: { createdAt: 'DESC' },
@@ -188,10 +187,17 @@ export class MilkChangeService {
         item.createdAt <= todayEnd &&
         statuses.includes(item.status),
     );
-    const overdueItems = allItems.filter(item => item.status === MilkChangeStatus.OVERDUE);
+    const overdueItems = allItems.filter(item => this.isOverdue(item) && statuses.includes(item.status));
     const returnedItems = allItems.filter(item => item.status === MilkChangeStatus.RETURNED);
 
-    const list = allItems.map(item => this.formatListItem(item));
+    const list = allItems.map(item => {
+      const formatted = this.formatListItem(item);
+      formatted.isOverdue = this.isOverdue(item) && statuses.includes(item.status);
+      if (formatted.isOverdue && !formatted.statusLabel.includes('逾期')) {
+        formatted.statusLabel = `已逾期 - ${formatted.statusLabel}`;
+      }
+      return formatted;
+    });
 
     return {
       list,
@@ -202,31 +208,46 @@ export class MilkChangeService {
     };
   }
 
+  private isOverdue(item: MilkChange): boolean {
+    if (!item.expectedCompleteAt) return false;
+    if (item.status === MilkChangeStatus.COMPLETED || item.status === MilkChangeStatus.CANCELLED) {
+      return false;
+    }
+    return new Date(item.expectedCompleteAt) < new Date();
+  }
+
   async getDefaultList(dto: ListMilkChangeDto): Promise<{ list: any[]; total: number }> {
     const todayStart = this.getStartOfToday();
     const todayEnd = this.getEndOfToday();
+    const now = new Date();
+
+    const activeStatuses = [
+      MilkChangeStatus.PENDING_CLERK,
+      MilkChangeStatus.CLERK_PROCESSING,
+      MilkChangeStatus.PENDING_DELIVERY,
+      MilkChangeStatus.DELIVERY_IN_PROGRESS,
+      MilkChangeStatus.PENDING_CUSTOMER_SERVICE,
+      MilkChangeStatus.CUSTOMER_SERVICE_PROCESSING,
+    ];
 
     const todayItems = await this.milkChangeRepository.find({
       where: {
         createdAt: Between(todayStart, todayEnd),
-        status: In([
-          MilkChangeStatus.PENDING_CLERK,
-          MilkChangeStatus.PENDING_DELIVERY,
-          MilkChangeStatus.PENDING_CUSTOMER_SERVICE,
-        ]),
+        status: In(activeStatuses),
       },
       relations: ['customer', 'currentHandler', 'assignedTo'],
       order: { createdAt: 'DESC' },
     });
 
-    const overdueItems = await this.milkChangeRepository.find({
+    const allActiveItems = await this.milkChangeRepository.find({
       where: {
-        status: MilkChangeStatus.OVERDUE,
-        expectedCompleteAt: LessThan(new Date()),
+        status: In(activeStatuses),
+        expectedCompleteAt: LessThan(now),
       },
       relations: ['customer', 'currentHandler', 'assignedTo'],
       order: { expectedCompleteAt: 'ASC' },
     });
+    const overdueItems = allActiveItems.filter(item => this.isOverdue(item));
 
     const returnedItems = await this.milkChangeRepository.find({
       where: {
@@ -239,7 +260,21 @@ export class MilkChangeService {
 
     const allItems = [...todayItems, ...overdueItems, ...returnedItems];
 
-    const list = allItems.map(item => this.formatListItem(item));
+    const seen = new Set<string>();
+    const uniqueItems = allItems.filter(item => {
+      if (seen.has(item.id)) return false;
+      seen.add(item.id);
+      return true;
+    });
+
+    const list = uniqueItems.map(item => {
+      const formatted = this.formatListItem(item);
+      formatted.isOverdue = this.isOverdue(item);
+      if (formatted.isOverdue && !formatted.statusLabel.includes('逾期')) {
+        formatted.statusLabel = `已逾期 - ${formatted.statusLabel}`;
+      }
+      return formatted;
+    });
 
     return {
       list,
@@ -272,6 +307,12 @@ export class MilkChangeService {
     return { list, total };
   }
 
+  private validateDeliveryTime(time: string): boolean {
+    if (!time) return true;
+    const regex = /^([01]?[0-9]|2[0-3]):[0-5][0-9]$/;
+    return regex.test(time);
+  }
+
   async process(id: string, dto: ProcessMilkChangeDto): Promise<MilkChange> {
     const milkChange = await this.getDetail(id);
     const handler = await this.getStaffById(dto.handlerId);
@@ -281,6 +322,44 @@ export class MilkChangeService {
         ErrorMessage[ErrorCode.MILK_CHANGE_STATUS_TRANSITION_INVALID],
         400,
       );
+    }
+
+    if (dto.targetStatus === MilkChangeStatus.RETURNED && !dto.returnReason) {
+      throw new HttpException(
+        ErrorMessage[ErrorCode.MILK_CHANGE_RETURN_REASON_REQUIRED],
+        400,
+      );
+    }
+
+    if (dto.newQuantity !== undefined && dto.newQuantity <= 0) {
+      throw new HttpException(
+        ErrorMessage[ErrorCode.MILK_CHANGE_QUANTITY_INVALID],
+        400,
+      );
+    }
+
+    if (dto.newDeliveryTime && !this.validateDeliveryTime(dto.newDeliveryTime)) {
+      throw new HttpException(
+        ErrorMessage[ErrorCode.MILK_CHANGE_DELIVERY_TIME_INVALID],
+        400,
+      );
+    }
+
+    if (dto.newAddress && !dto.newRouteId) {
+      throw new HttpException(
+        ErrorMessage[ErrorCode.MILK_CHANGE_ROUTE_REQUIRED],
+        400,
+      );
+    }
+
+    if (dto.expectedCompleteAt) {
+      const expectedTime = new Date(dto.expectedCompleteAt);
+      if (expectedTime < new Date()) {
+        throw new HttpException(
+          ErrorMessage[ErrorCode.MILK_CHANGE_EXPECTED_TIME_INVALID],
+          400,
+        );
+      }
     }
 
     const fromStatus = milkChange.status;
@@ -301,17 +380,48 @@ export class MilkChangeService {
     if (dto.supplementRemark) {
       milkChange.supplementRemark = dto.supplementRemark;
     }
+    if (dto.changeDetail) {
+      milkChange.changeDetail = dto.changeDetail;
+    }
+    if (dto.newProduct) {
+      milkChange.newProduct = dto.newProduct;
+    }
+    if (dto.newQuantity !== undefined) {
+      milkChange.newQuantity = dto.newQuantity;
+    }
+    if (dto.newAddress) {
+      if (!milkChange.oldAddress) {
+        milkChange.oldAddress = milkChange.customer?.address || '';
+      }
+      milkChange.newAddress = dto.newAddress;
+    }
+    if (dto.newDeliveryTime) {
+      if (!milkChange.oldDeliveryTime) {
+        milkChange.oldDeliveryTime = milkChange.customer?.deliveryTime || '';
+      }
+      milkChange.newDeliveryTime = dto.newDeliveryTime;
+    }
+    if (dto.effectiveDate) {
+      milkChange.effectiveDate = new Date(dto.effectiveDate);
+    }
+    if (dto.expectedCompleteAt) {
+      milkChange.expectedCompleteAt = new Date(dto.expectedCompleteAt);
+    }
     if (dto.assignedToId) {
-      const nextHandler = await this.getStaffById(dto.assignedToId);
+      await this.getStaffById(dto.assignedToId);
       milkChange.assignedToId = dto.assignedToId;
       milkChange.currentHandlerId = dto.assignedToId;
     }
+
     if (dto.newRouteId && dto.newRouteName) {
-      if (milkChange.newRouteId) {
+      const currentRouteId = milkChange.newRouteId || milkChange.oldRouteId;
+      const currentRouteName = milkChange.newRouteName || milkChange.oldRouteName;
+      
+      if (currentRouteId !== dto.newRouteId) {
         await this.createRouteAdjustHistory(
           milkChange.id,
-          milkChange.newRouteId,
-          milkChange.newRouteName,
+          currentRouteId,
+          currentRouteName,
           dto.newRouteId,
           dto.newRouteName,
           dto.routeAdjustReason || '路线调整',
@@ -319,12 +429,20 @@ export class MilkChangeService {
           handler.name,
         );
       }
-      milkChange.oldRouteId = milkChange.newRouteId || milkChange.oldRouteId;
-      milkChange.oldRouteName = milkChange.newRouteName || milkChange.oldRouteName;
+      
+      if (!milkChange.oldRouteId && currentRouteId) {
+        milkChange.oldRouteId = currentRouteId;
+        milkChange.oldRouteName = currentRouteName;
+      } else if (!milkChange.oldRouteId) {
+        milkChange.oldRouteId = milkChange.customer?.routeId || '';
+        milkChange.oldRouteName = '';
+      }
+      
       milkChange.newRouteId = dto.newRouteId;
       milkChange.newRouteName = dto.newRouteName;
       milkChange.routeAdjustReason = dto.routeAdjustReason || milkChange.routeAdjustReason;
     }
+
     if (dto.targetStatus === MilkChangeStatus.COMPLETED) {
       milkChange.completedAt = new Date();
     }
@@ -348,11 +466,14 @@ export class MilkChangeService {
     const milkChange = await this.getDetail(id);
     const handler = await this.getStaffById(dto.handlerId);
 
-    if (milkChange.oldRouteId || milkChange.newRouteId) {
+    const currentRouteId = milkChange.newRouteId || milkChange.oldRouteId || milkChange.customer?.routeId;
+    const currentRouteName = milkChange.newRouteName || milkChange.oldRouteName || '';
+
+    if (currentRouteId !== dto.newRouteId) {
       await this.createRouteAdjustHistory(
         milkChange.id,
-        milkChange.newRouteId || milkChange.oldRouteId,
-        milkChange.newRouteName || milkChange.oldRouteName,
+        currentRouteId,
+        currentRouteName,
         dto.newRouteId,
         dto.newRouteName,
         dto.routeAdjustReason || '路线调整',
@@ -361,8 +482,11 @@ export class MilkChangeService {
       );
     }
 
-    milkChange.oldRouteId = milkChange.newRouteId || milkChange.oldRouteId;
-    milkChange.oldRouteName = milkChange.newRouteName || milkChange.oldRouteName;
+    if (!milkChange.oldRouteId) {
+      milkChange.oldRouteId = currentRouteId;
+      milkChange.oldRouteName = currentRouteName;
+    }
+
     milkChange.newRouteId = dto.newRouteId;
     milkChange.newRouteName = dto.newRouteName;
     milkChange.routeAdjustReason = dto.routeAdjustReason || milkChange.routeAdjustReason;

@@ -196,3 +196,135 @@ GET http://localhost:3000/api/milk-changes/mc-3/route-histories
 ### 19. 订奶变更回看（详情 + 日志 + 路线历史）
 ### ========================================
 GET http://localhost:3000/api/milk-changes/mc-6/review
+
+### ========================================
+### 【修复验证】错误码场景测试
+### ========================================
+
+### 20. 测试错误码：退回时不填退回原因 -> 60011
+### ========================================
+PUT http://localhost:3000/api/milk-changes/mc-4/process
+Content-Type: application/json
+
+{
+  "handlerId": "staff-delivery-2",
+  "targetStatus": "returned",
+  "remark": "测试不填退回原因"
+}
+
+### ========================================
+### 21. 测试错误码：数量为0或负数 -> 60009
+### ========================================
+PUT http://localhost:3000/api/milk-changes/mc-1/process
+Content-Type: application/json
+
+{
+  "handlerId": "staff-clerk-1",
+  "targetStatus": "clerk_processing",
+  "newQuantity": 0
+}
+
+### ========================================
+### 22. 测试错误码：配送时间格式无效 -> 60008
+### ========================================
+PUT http://localhost:3000/api/milk-changes/mc-6/process
+Content-Type: application/json
+
+{
+  "handlerId": "staff-cs-1",
+  "targetStatus": "customer_service_processing",
+  "newDeliveryTime": "25:00"
+}
+
+### ========================================
+### 23. 测试错误码：改地址但不指定路线 -> 60007
+### ========================================
+PUT http://localhost:3000/api/milk-changes/mc-3/process
+Content-Type: application/json
+
+{
+  "handlerId": "staff-clerk-1",
+  "targetStatus": "clerk_processing",
+  "newAddress": "城西区新地址"
+}
+
+### ========================================
+### 24. 测试错误码：预计完成时间早于当前 -> 60006
+### ========================================
+PUT http://localhost:3000/api/milk-changes/mc-3/process
+Content-Type: application/json
+
+{
+  "handlerId": "staff-clerk-1",
+  "targetStatus": "clerk_processing",
+  "expectedCompleteAt": "2020-01-01"
+}
+
+### ========================================
+### 【修复验证】字段更新写回测试
+### ========================================
+
+### 25. 处理时更新订奶字段：产品、数量、地址、配送时间
+### ========================================
+PUT http://localhost:3000/api/milk-changes/mc-3/process
+Content-Type: application/json
+
+{
+  "handlerId": "staff-clerk-1",
+  "targetStatus": "clerk_processing",
+  "newProduct": "鲜牛奶+酸奶",
+  "newQuantity": 4,
+  "newAddress": "城西区幸福里小区8栋301室",
+  "newDeliveryTime": "07:15",
+  "newRouteId": "route-3",
+  "newRouteName": "城西线",
+  "routeAdjustReason": "客户搬到城西，首次调整路线",
+  "changeDetail": "从城东搬到城西，同时增加酸奶",
+  "effectiveDate": "2026-06-10",
+  "remark": "已与客户确认所有变更信息"
+}
+
+### 26. 查看 mc-3 详情，验证字段都写回了
+### ========================================
+GET http://localhost:3000/api/milk-changes/mc-3
+
+### 27. 查看 mc-3 路线调整历史，验证首次调整也落了记录
+### ========================================
+GET http://localhost:3000/api/milk-changes/mc-3/route-histories
+
+### ========================================
+### 【修复验证】首次路线调整落历史测试
+### ========================================
+
+### 28. 为 mc-1 分配新路线（之前无路线变更），验证历史记录生成
+### ========================================
+PUT http://localhost:3000/api/milk-changes/mc-1/assign-route
+Content-Type: application/json
+
+{
+  "handlerId": "staff-clerk-1",
+  "newRouteId": "route-2",
+  "newRouteName": "城东B线",
+  "routeAdjustReason": "优化配送路线，从A线调整到B线",
+  "remark": "首次调整路线，验证历史记录生成"
+}
+
+### 29. 查看 mc-1 路线调整历史
+### ========================================
+GET http://localhost:3000/api/milk-changes/mc-1/route-histories
+
+### 30. 查看 mc-1 完整回看
+### ========================================
+GET http://localhost:3000/api/milk-changes/mc-1/review
+
+### ========================================
+### 【修复验证】默认列表超时自动判断
+### ========================================
+
+### 31. 查看默认列表，验证 isOverdue 字段和状态标签
+### ========================================
+GET http://localhost:3000/api/milk-changes/default
+
+### 32. 查看文员待办，验证 isOverdue 统计
+### ========================================
+GET http://localhost:3000/api/milk-changes/my-todo?staffId=staff-clerk-1&staffRole=station_clerk
