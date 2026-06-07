@@ -120,6 +120,7 @@ router.post('/', authMiddleware, (req, res) => {
     }
   }
 
+  const oldStatus = order.status;
   const result = db.prepare(`
     INSERT INTO exceptions (daily_order_id, checkin_id, reported_by, type, description, status)
     VALUES (?, ?, ?, ?, ?, 'pending')
@@ -127,15 +128,26 @@ router.post('/', authMiddleware, (req, res) => {
 
   db.prepare('UPDATE daily_orders SET status = ? WHERE id = ?').run('exception', daily_order_id);
 
+  logOperation(req.user.id, 'update_order_in_checkin', 'daily_order', daily_order_id, {
+    checkinId: finalCheckinId,
+    oldStatus,
+    newStatus: 'exception'
+  });
+
   if (finalCheckinId) {
+    const signedCount = db.prepare(`
+      SELECT COUNT(*) as count FROM daily_orders 
+      WHERE delivery_date = ? AND route_id = ? AND status = 'signed'
+    `).get(order.delivery_date, order.route_id).count;
+
     const exceptionCount = db.prepare(`
       SELECT COUNT(*) as count FROM daily_orders 
       WHERE delivery_date = ? AND route_id = ? AND status = 'exception'
     `).get(order.delivery_date, order.route_id).count;
 
     db.prepare(`
-      UPDATE morning_checkins SET exception_orders = ? WHERE id = ?
-    `).run(exceptionCount, finalCheckinId);
+      UPDATE morning_checkins SET signed_orders = ?, exception_orders = ? WHERE id = ?
+    `).run(signedCount, exceptionCount, finalCheckinId);
   }
 
   logOperation(req.user.id, 'create_exception', 'exception', result.lastInsertRowid, {

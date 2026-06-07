@@ -215,32 +215,42 @@ function initSeedData() {
   const dateYesterday = dayjs().subtract(1, 'day').format('YYYY-MM-DD');
   const dateTwoDaysAgo = dayjs().subtract(2, 'day').format('YYYY-MM-DD');
 
+  const route1SubIdx = [0, 1, 2, 3];
+  const route2SubIdx = [4, 5, 6, 7, 8];
+
+  const yesterdayRoute1ExceptionSubs = [0, 1, 2];
+  const yesterdayRoute1SignedSubs = [3];
+  const yesterdayRoute2ExceptionSubs = [5];
+  const yesterdayRoute2SignedSubs = [4, 6, 7, 8];
+  const twoDaysAgoExceptionSubs = [5];
+
   const createdOrderIds = {
-    [dateToday]: [],
-    [dateYesterday]: [],
-    [dateTwoDaysAgo]: [],
+    [dateToday]: {},
+    [dateYesterday]: {},
+    [dateTwoDaysAgo]: {},
   };
 
-  [dateToday, dateYesterday, dateTwoDaysAgo].forEach((date, dateIdx) => {
+  [dateToday, dateYesterday, dateTwoDaysAgo].forEach((date) => {
     subscriptionIds.forEach((subId, idx) => {
       const sub = subscriptions[idx];
       let status = 'signed';
       if (date === dateToday) {
         status = 'pending';
       } else if (date === dateYesterday) {
-        if (idx === 1) status = 'exception';
-        else if (idx === 2) status = 'exception';
-        else if (idx === 4) status = 'exception';
-        else status = 'signed';
+        if (yesterdayRoute1ExceptionSubs.includes(idx)) {
+          status = 'exception';
+        } else if (yesterdayRoute2ExceptionSubs.includes(idx)) {
+          status = 'exception';
+        } else {
+          status = 'signed';
+        }
       } else {
-        if (idx === 5) status = 'exception';
-        else status = 'signed';
+        status = twoDaysAgoExceptionSubs.includes(idx) ? 'exception' : 'signed';
       }
       const orderId = insertDailyOrder.run(
         date, subId, sub[0], sub[1], sub[2], customerRouteMap[sub[0]], status
       ).lastInsertRowid;
-      if (!createdOrderIds[date]) createdOrderIds[date] = [];
-      createdOrderIds[date].push(orderId);
+      createdOrderIds[date][idx] = orderId;
     });
   });
 
@@ -249,22 +259,44 @@ function initSeedData() {
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
 
-  [dateYesterday, dateTwoDaysAgo].forEach((date) => {
-    const route1Orders = db.prepare('SELECT COUNT(*) as count FROM daily_orders WHERE delivery_date = ? AND route_id = ?').get(date, route1Id).count;
-    const route2Orders = db.prepare('SELECT COUNT(*) as count FROM daily_orders WHERE delivery_date = ? AND route_id = ?').get(date, route2Id).count;
-    const route1Signed = db.prepare('SELECT COUNT(*) as count FROM daily_orders WHERE delivery_date = ? AND route_id = ? AND status = ?').get(date, route1Id, 'signed').count;
-    const route1Exception = db.prepare('SELECT COUNT(*) as count FROM daily_orders WHERE delivery_date = ? AND route_id = ? AND status = ?').get(date, route1Id, 'exception').count;
-    const route2Signed = db.prepare('SELECT COUNT(*) as count FROM daily_orders WHERE delivery_date = ? AND route_id = ? AND status = ?').get(date, route2Id, 'signed').count;
-    const route2Exception = db.prepare('SELECT COUNT(*) as count FROM daily_orders WHERE delivery_date = ? AND route_id = ? AND status = ?').get(date, route2Id, 'exception').count;
+  const insertOpLog = db.prepare(`
+    INSERT INTO operation_logs (user_id, action, target_type, target_id, detail, created_at)
+    VALUES (?, ?, ?, ?, ?, ?)
+  `);
 
-    insertCheckin.run(
-      date, route1Id, courier1Id, clerkId, route1Orders, route1Signed, route1Exception,
+  [dateYesterday, dateTwoDaysAgo].forEach((date) => {
+    const route1OrderIds = route1SubIdx.map(idx => createdOrderIds[date][idx]);
+    const route2OrderIds = route2SubIdx.map(idx => createdOrderIds[date][idx]);
+
+    const route1CheckinId = insertCheckin.run(
+      date, route1Id, courier1Id, clerkId, route1OrderIds.length,
+      route1OrderIds.length - yesterdayRoute1ExceptionSubs.length,
+      yesterdayRoute1ExceptionSubs.length,
       'confirmed',
       dayjs(date).add(6, 'hour').toISOString(),
       dayjs(date).add(7, 'hour').toISOString()
-    );
+    ).lastInsertRowid;
+
+    route1OrderIds.forEach((orderId, i) => {
+      const isException = yesterdayRoute1ExceptionSubs.includes(route1SubIdx[i]);
+      if (date === dateYesterday) {
+        insertOpLog.run(
+          courier1Id, 'update_order_in_checkin', 'daily_order', orderId,
+          JSON.stringify({
+            checkinId: route1CheckinId,
+            oldStatus: 'pending',
+            newStatus: isException ? 'exception' : 'signed'
+          }),
+          dayjs(date).add(6, 'hour').add(5 + i * 2, 'minute').toISOString()
+        );
+      }
+    });
+
+    const route2ExceptionCount = date === dateYesterday ? 1 : 1;
     insertCheckin.run(
-      date, route2Id, courier2Id, clerkId, route2Orders, route2Signed, route2Exception,
+      date, route2Id, courier2Id, clerkId, route2OrderIds.length,
+      route2OrderIds.length - route2ExceptionCount,
+      route2ExceptionCount,
       'confirmed',
       dayjs(date).add(6, 'hour').toISOString(),
       dayjs(date).add(7, 'hour').toISOString()
@@ -272,93 +304,104 @@ function initSeedData() {
   });
 
   const yesterdayRoute1Checkin = db.prepare('SELECT id FROM morning_checkins WHERE checkin_date = ? AND route_id = ?').get(dateYesterday, route1Id);
-  const yesterdayRoute1ExceptionOrders = db.prepare(`
-    SELECT id FROM daily_orders WHERE delivery_date = ? AND route_id = ? AND status = 'exception' ORDER BY id
-  `).all(dateYesterday, route1Id);
+  const yesterdayRoute1ExceptionOrderIds = yesterdayRoute1ExceptionSubs.map(idx => createdOrderIds[dateYesterday][idx]);
 
-  if (yesterdayRoute1ExceptionOrders.length >= 3) {
-    const insertException = db.prepare(`
-      INSERT INTO exceptions (daily_order_id, checkin_id, reported_by, type, description, status, created_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-    `);
-    const insertReplenishment = db.prepare(`
-      INSERT INTO replenishments (exception_id, daily_order_id, handled_by, confirmed_by, quantity, method, remark, status, delivered_at, confirmed_at, created_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `);
+  const insertException = db.prepare(`
+    INSERT INTO exceptions (daily_order_id, checkin_id, reported_by, type, description, status, created_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+  `);
+  const insertReplenishment = db.prepare(`
+    INSERT INTO replenishments (exception_id, daily_order_id, handled_by, confirmed_by, quantity, method, remark, status, delivered_at, confirmed_at, created_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `);
 
-    const ex1 = insertException.run(
-      yesterdayRoute1ExceptionOrders[0].id, yesterdayRoute1Checkin.id, courier1Id,
-      'missed', '配送时漏装了一瓶鲜牛奶', 'resolved',
-      dayjs(dateYesterday).add(6, 'hour').add(15, 'minute').toISOString()
-    ).lastInsertRowid;
-    insertReplenishment.run(
-      ex1, yesterdayRoute1ExceptionOrders[0].id, clerkId, csId,
-      1, 'redelivery', '客户要求下午4点后配送', 'confirmed',
-      dayjs(dateYesterday).add(9, 'hour').toISOString(),
-      dayjs(dateYesterday).add(10, 'hour').toISOString(),
-      dayjs(dateYesterday).add(7, 'hour').toISOString()
-    );
+  const ex1 = insertException.run(
+    yesterdayRoute1ExceptionOrderIds[0], yesterdayRoute1Checkin.id, courier1Id,
+    'missed', '配送时漏装了一瓶鲜牛奶', 'resolved',
+    dayjs(dateYesterday).add(6, 'hour').add(15, 'minute').toISOString()
+  ).lastInsertRowid;
+  insertReplenishment.run(
+    ex1, yesterdayRoute1ExceptionOrderIds[0], clerkId, csId,
+    1, 'redelivery', '客户要求下午4点后配送', 'confirmed',
+    dayjs(dateYesterday).add(9, 'hour').toISOString(),
+    dayjs(dateYesterday).add(10, 'hour').toISOString(),
+    dayjs(dateYesterday).add(7, 'hour').toISOString()
+  );
 
-    const ex2 = insertException.run(
-      yesterdayRoute1ExceptionOrders[1].id, yesterdayRoute1Checkin.id, courier1Id,
-      'damaged', '配送途中瓶盖破裂，牛奶洒出', 'resolved',
-      dayjs(dateYesterday).add(6, 'hour').add(25, 'minute').toISOString()
-    ).lastInsertRowid;
-    insertReplenishment.run(
-      ex2, yesterdayRoute1ExceptionOrders[1].id, clerkId, null,
-      2, 'replace', '更换全新的两瓶原味酸奶', 'delivered',
-      dayjs(dateYesterday).add(11, 'hour').toISOString(),
-      null,
-      dayjs(dateYesterday).add(8, 'hour').toISOString()
-    );
+  const ex2 = insertException.run(
+    yesterdayRoute1ExceptionOrderIds[1], yesterdayRoute1Checkin.id, courier1Id,
+    'damaged', '配送途中瓶盖破裂，牛奶洒出', 'resolved',
+    dayjs(dateYesterday).add(6, 'hour').add(25, 'minute').toISOString()
+  ).lastInsertRowid;
+  insertReplenishment.run(
+    ex2, yesterdayRoute1ExceptionOrderIds[1], clerkId, null,
+    2, 'replace', '更换全新的两瓶原味酸奶', 'delivered',
+    dayjs(dateYesterday).add(11, 'hour').toISOString(),
+    null,
+    dayjs(dateYesterday).add(8, 'hour').toISOString()
+  );
 
-    const ex3 = insertException.run(
-      yesterdayRoute1ExceptionOrders[2].id, yesterdayRoute1Checkin.id, courier1Id,
-      'customer_absent', '客户不在家，电话未接通', 'pending',
-      dayjs(dateYesterday).add(6, 'hour').add(40, 'minute').toISOString()
-    ).lastInsertRowid;
-  }
-
-  const todayRoute1Orders = db.prepare('SELECT COUNT(*) as count FROM daily_orders WHERE delivery_date = ? AND route_id = ?').get(dateToday, route1Id).count;
-  const todayRoute1CheckinId = insertCheckin.run(
-    dateToday, route1Id, courier1Id, null,
-    todayRoute1Orders, 0, 0, 'draft', null, null
+  const ex3 = insertException.run(
+    yesterdayRoute1ExceptionOrderIds[2], yesterdayRoute1Checkin.id, courier1Id,
+    'customer_absent', '客户不在家，电话未接通', 'pending',
+    dayjs(dateYesterday).add(6, 'hour').add(40, 'minute').toISOString()
   ).lastInsertRowid;
 
-  const todayFirstOrder = db.prepare(`
-    SELECT id FROM daily_orders WHERE delivery_date = ? AND route_id = ? ORDER BY id LIMIT 1
-  `).get(dateToday, route1Id);
+  const todayRoute1CheckinId = insertCheckin.run(
+    dateToday, route1Id, courier1Id, null,
+    route1SubIdx.length, 0, 0, 'draft', null, null
+  ).lastInsertRowid;
 
-  if (todayFirstOrder) {
-    db.prepare('UPDATE daily_orders SET status = ? WHERE id = ?').run('signed', todayFirstOrder.id);
+  const todayOrder0 = createdOrderIds[dateToday][route1SubIdx[0]];
+  const todayOrder1 = createdOrderIds[dateToday][route1SubIdx[1]];
 
-    const todaySecondOrder = db.prepare(`
-      SELECT id FROM daily_orders WHERE delivery_date = ? AND route_id = ? AND id > ? ORDER BY id LIMIT 1
-    `).get(dateToday, route1Id, todayFirstOrder.id);
+  if (todayOrder0 && todayOrder1) {
+    db.prepare('UPDATE daily_orders SET status = ? WHERE id = ?').run('signed', todayOrder0);
+    db.prepare('UPDATE daily_orders SET status = ? WHERE id = ?').run('signed', todayOrder1);
 
-    if (todaySecondOrder) {
-      db.prepare('UPDATE daily_orders SET status = ? WHERE id = ?').run('signed', todaySecondOrder.id);
+    insertOpLog.run(
+      courier1Id, 'update_order_in_checkin', 'daily_order', todayOrder0,
+      JSON.stringify({
+        checkinId: todayRoute1CheckinId,
+        oldStatus: 'pending',
+        newStatus: 'signed'
+      }),
+      dayjs().add(5, 'hour').toISOString()
+    );
+    insertOpLog.run(
+      courier1Id, 'update_order_in_checkin', 'daily_order', todayOrder1,
+      JSON.stringify({
+        checkinId: todayRoute1CheckinId,
+        oldStatus: 'pending',
+        newStatus: 'signed'
+      }),
+      dayjs().add(5, 'hour').add(1, 'minute').toISOString()
+    );
 
-      const todayEx = db.prepare(`
-        INSERT INTO exceptions (daily_order_id, checkin_id, reported_by, type, description, status, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-      `).run(
-        todayFirstOrder.id, todayRoute1CheckinId, courier1Id,
-        'wrong_product', '拿错了规格，客户订的高钙奶拿成了鲜牛奶', 'processing',
-        dayjs().add(5, 'hour').toISOString()
-      ).lastInsertRowid;
+    const todayEx = insertException.run(
+      todayOrder0, todayRoute1CheckinId, courier1Id,
+      'wrong_product', '拿错了规格，客户订的高钙奶拿成了鲜牛奶', 'processing',
+      dayjs().add(5, 'hour').add(5, 'minute').toISOString()
+    ).lastInsertRowid;
 
-      db.prepare('UPDATE daily_orders SET status = ? WHERE id = ?').run('exception', todayFirstOrder.id);
+    db.prepare('UPDATE daily_orders SET status = ? WHERE id = ?').run('exception', todayOrder0);
 
-      db.prepare(`
-        INSERT INTO replenishments (exception_id, daily_order_id, handled_by, quantity, method, remark, status, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-      `).run(
-        todayEx, todayFirstOrder.id, clerkId,
-        1, 'redelivery', '正在仓库换货，半小时后送出', 'pending',
-        dayjs().add(5, 'hour').add(10, 'minute').toISOString()
-      );
-    }
+    insertOpLog.run(
+      courier1Id, 'update_order_in_checkin', 'daily_order', todayOrder0,
+      JSON.stringify({
+        checkinId: todayRoute1CheckinId,
+        oldStatus: 'signed',
+        newStatus: 'exception'
+      }),
+      dayjs().add(5, 'hour').add(5, 'minute').toISOString()
+    );
+
+    insertReplenishment.run(
+      todayEx, todayOrder0, clerkId, null,
+      1, 'redelivery', '正在仓库换货，半小时后送出', 'pending',
+      null, null,
+      dayjs().add(5, 'hour').add(10, 'minute').toISOString()
+    );
   }
 
   const todaySignedCount = db.prepare(`
