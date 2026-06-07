@@ -2,10 +2,10 @@ import { AlertTriangle, CheckCircle, Clock } from 'lucide-react';
 import StatCard from '@/components/StatCard';
 import ShiftList from '@/components/ShiftList';
 import { useShiftStore } from '@/store/shiftStore';
-import { mockDiscrepancySummaries } from '@/data/mockData';
 
 export default function Dashboard() {
-  const { shifts } = useShiftStore();
+  const { shifts, getDiscrepancySummaries } = useShiftStore();
+  const summaries = getDiscrepancySummaries();
 
   const pendingShifts = shifts.filter((s) => s.status === 'pending').length;
   const reviewingShifts = shifts.filter((s) => s.status === 'reviewing').length;
@@ -60,7 +60,7 @@ export default function Dashboard() {
       <div>
         <h3 className="text-lg font-semibold text-gray-900 mb-4">差异分类统计</h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
-          {mockDiscrepancySummaries.map((summary) => (
+          {summaries.map((summary) => (
             <StatCard key={summary.type} summary={summary} />
           ))}
         </div>
