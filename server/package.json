@@ -1,0 +1,23 @@
+{
+  "name": "dairy-station-server",
+  "version": "1.0.0",
+  "description": "乳品配送站后端服务",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "nodemon src/index.js",
+    "init-db": "node src/initDB.js",
+    "reset-db": "node src/resetDB.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.18.2",
+    "better-sqlite3": "^9.2.2",
+    "jsonwebtoken": "^9.0.2",
+    "bcryptjs": "^2.4.3",
+    "dayjs": "^1.11.10"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.2"
+  }
+}
