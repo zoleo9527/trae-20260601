@@ -27,6 +27,7 @@ import {
   LossAnalysisStatus,
   LossType,
   PaginatedResponse,
+  InventoryDifference,
 } from '@/types';
 import type { ColumnsType } from 'antd/es/table';
 import dayjs from 'dayjs';
@@ -47,6 +48,7 @@ export const LossList: React.FC = () => {
   const [analysisModalVisible, setAnalysisModalVisible] = useState(false);
   const [concludeModalVisible, setConcludeModalVisible] = useState(false);
   const [selectedLoss, setSelectedLoss] = useState<LossRecord | null>(null);
+  const [availableDifferenceRecords, setAvailableDifferenceRecords] = useState<InventoryDifference[]>([]);
   const [concludeForm] = Form.useForm();
   const [refreshKey, setRefreshKey] = useState(0);
 
@@ -63,6 +65,7 @@ export const LossList: React.FC = () => {
     updateLossStatus,
     stores,
     currentUser,
+    getInventoryDifferences,
   } = useStore();
 
   const loadData = useCallback(async () => {
@@ -108,8 +111,25 @@ export const LossList: React.FC = () => {
     }
   };
 
+  const loadAvailableDifferenceRecords = useCallback(async (record: LossRecord) => {
+    try {
+      const result = await getInventoryDifferences({ page: 1, pageSize: 1000 });
+      const filtered = result.data.filter(
+        (item) =>
+          item.storeId === record.storeId &&
+          item.productId === record.productId &&
+          item.status !== 'closed' &&
+          item.status !== 'resolved'
+      );
+      setAvailableDifferenceRecords(filtered);
+    } catch (error: any) {
+      message.error(error.message);
+    }
+  }, [getInventoryDifferences]);
+
   const handleConclude = (record: LossRecord) => {
     setSelectedLoss(record);
+    loadAvailableDifferenceRecords(record);
     setConcludeModalVisible(true);
   };
 
@@ -350,6 +370,24 @@ export const LossList: React.FC = () => {
         width={700}
       >
         <Form form={concludeForm} layout="vertical">
+          <Form.Item
+            name="relatedDifferenceId"
+            label="关联盘点差异"
+            extra="选择与此损耗关联的盘点差异（同一门店、同一商品）"
+          >
+            <Select
+              placeholder="请选择关联的盘点差异（可选）"
+              allowClear
+              showSearch
+              optionFilterProp="children"
+            >
+              {availableDifferenceRecords.map((record) => (
+                <Select.Option key={record.id} value={record.id}>
+                  {record.differenceNo} - {record.productName} - ¥{record.differenceAmount.toFixed(2)}
+                </Select.Option>
+              ))}
+            </Select>
+          </Form.Item>
           <Form.Item
             name="rootCause"
             label="根本原因"

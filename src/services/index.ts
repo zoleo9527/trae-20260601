@@ -1,4 +1,4 @@
-export { differenceApi, lossApi, alertApi, dashboardApi, setCurrentApiUser } from './mockApi';
+export { differenceApi, lossApi, alertApi, dashboardApi } from './api';
 export type {
   ApiResponse,
   UpdateDifferenceStatusRequest,

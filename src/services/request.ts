@@ -1,4 +1,5 @@
 import axios, { AxiosInstance, AxiosResponse } from 'axios';
+import { useStore } from '@/store';
 
 const BASE_URL = '/api';
 
@@ -12,9 +13,9 @@ const request: AxiosInstance = axios.create({
 
 request.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('token');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
+    const state = useStore.getState();
+    if (state.currentUser) {
+      config.headers['X-User-Role'] = state.currentUser.role;
     }
     return config;
   },
@@ -25,11 +26,16 @@ request.interceptors.request.use(
 
 request.interceptors.response.use(
   (response: AxiosResponse) => {
-    return response.data;
+    const data = response.data;
+    if (data.code !== 0) {
+      return Promise.reject(new Error(data.message || '请求失败'));
+    }
+    return data.data;
   },
   (error) => {
     console.error('API Error:', error);
-    return Promise.reject(error);
+    const message = error.response?.data?.message || error.message || '网络请求失败';
+    return Promise.reject(new Error(message));
   }
 );
 

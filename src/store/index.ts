@@ -22,11 +22,7 @@ import {
   lossApi,
   alertApi,
   dashboardApi,
-  setCurrentApiUser,
-  UpdateDifferenceStatusRequest,
-  UpdateLossStatusRequest,
-  UpdateAlertStatusRequest,
-} from '@/services';
+} from '@/services/api';
 
 interface StoreState {
   stores: Store[];
@@ -61,7 +57,13 @@ interface StoreState {
   updateLossStatus: (
     id: string,
     status: LossAnalysisStatus,
-    analysisData?: Partial<UpdateLossStatusRequest>
+    analysisData?: {
+      rootCause?: string;
+      preventiveMeasure?: string;
+      responsibleParty?: string;
+      conclusion?: string;
+      relatedDifferenceId?: string;
+    }
   ) => Promise<LossRecord | null>;
 
   getAlerts: (
@@ -121,13 +123,11 @@ export const useStore = create<StoreState>()(
         })),
 
       setCurrentUser: (user) => {
-        setCurrentApiUser(user);
         set({ currentUser: user });
       },
 
       switchRole: (role) => {
         const user = getCurrentUserByRole(role);
-        setCurrentApiUser(user);
         set({ currentUser: user });
       },
 
@@ -136,11 +136,8 @@ export const useStore = create<StoreState>()(
         get().setLoading(key, true);
         get().setError(key, null);
         try {
-          const response = await differenceApi.getList(pagination, filters);
-          if (response.code !== 0) {
-            throw new Error(response.message);
-          }
-          return response.data;
+          const result = await differenceApi.getList(pagination, filters);
+          return result;
         } catch (error: any) {
           get().setError(key, error.message);
           throw error;
@@ -154,11 +151,8 @@ export const useStore = create<StoreState>()(
         get().setLoading(key, true);
         get().setError(key, null);
         try {
-          const response = await differenceApi.getById(id);
-          if (response.code !== 0) {
-            throw new Error(response.message);
-          }
-          return response.data;
+          const result = await differenceApi.getById(id);
+          return result;
         } catch (error: any) {
           get().setError(key, error.message);
           throw error;
@@ -172,16 +166,12 @@ export const useStore = create<StoreState>()(
         get().setLoading(key, true);
         get().setError(key, null);
         try {
-          const request: UpdateDifferenceStatusRequest = {
+          const result = await differenceApi.updateStatus(id, {
             status,
             remark,
             relatedLossId,
-          };
-          const response = await differenceApi.updateStatus(id, request);
-          if (response.code !== 0) {
-            throw new Error(response.message);
-          }
-          return response.data;
+          });
+          return result;
         } catch (error: any) {
           get().setError(key, error.message);
           throw error;
@@ -195,11 +185,8 @@ export const useStore = create<StoreState>()(
         get().setLoading(key, true);
         get().setError(key, null);
         try {
-          const response = await lossApi.getList(pagination, filters);
-          if (response.code !== 0) {
-            throw new Error(response.message);
-          }
-          return response.data;
+          const result = await lossApi.getList(pagination, filters);
+          return result;
         } catch (error: any) {
           get().setError(key, error.message);
           throw error;
@@ -213,11 +200,8 @@ export const useStore = create<StoreState>()(
         get().setLoading(key, true);
         get().setError(key, null);
         try {
-          const response = await lossApi.getById(id);
-          if (response.code !== 0) {
-            throw new Error(response.message);
-          }
-          return response.data;
+          const result = await lossApi.getById(id);
+          return result;
         } catch (error: any) {
           get().setError(key, error.message);
           throw error;
@@ -231,15 +215,11 @@ export const useStore = create<StoreState>()(
         get().setLoading(key, true);
         get().setError(key, null);
         try {
-          const request: UpdateLossStatusRequest = {
+          const result = await lossApi.updateStatus(id, {
             status,
             ...analysisData,
-          };
-          const response = await lossApi.updateStatus(id, request);
-          if (response.code !== 0) {
-            throw new Error(response.message);
-          }
-          return response.data;
+          });
+          return result;
         } catch (error: any) {
           get().setError(key, error.message);
           throw error;
@@ -253,11 +233,8 @@ export const useStore = create<StoreState>()(
         get().setLoading(key, true);
         get().setError(key, null);
         try {
-          const response = await alertApi.getList(pagination, filters);
-          if (response.code !== 0) {
-            throw new Error(response.message);
-          }
-          return response.data;
+          const result = await alertApi.getList(pagination, filters);
+          return result;
         } catch (error: any) {
           get().setError(key, error.message);
           throw error;
@@ -271,11 +248,8 @@ export const useStore = create<StoreState>()(
         get().setLoading(key, true);
         get().setError(key, null);
         try {
-          const response = await alertApi.getActive();
-          if (response.code !== 0) {
-            throw new Error(response.message);
-          }
-          return response.data;
+          const result = await alertApi.getActive();
+          return result;
         } catch (error: any) {
           get().setError(key, error.message);
           throw error;
@@ -289,15 +263,11 @@ export const useStore = create<StoreState>()(
         get().setLoading(key, true);
         get().setError(key, null);
         try {
-          const request: UpdateAlertStatusRequest = {
+          const result = await alertApi.updateStatus(id, {
             status,
             resolution,
-          };
-          const response = await alertApi.updateStatus(id, request);
-          if (response.code !== 0) {
-            throw new Error(response.message);
-          }
-          return response.data;
+          });
+          return result;
         } catch (error: any) {
           get().setError(key, error.message);
           throw error;
@@ -311,11 +281,8 @@ export const useStore = create<StoreState>()(
         get().setLoading(key, true);
         get().setError(key, null);
         try {
-          const response = await dashboardApi.getStats();
-          if (response.code !== 0) {
-            throw new Error(response.message);
-          }
-          return response.data;
+          const result = await dashboardApi.getStats();
+          return result;
         } catch (error: any) {
           get().setError(key, error.message);
           throw error;
@@ -329,11 +296,8 @@ export const useStore = create<StoreState>()(
         get().setLoading(key, true);
         get().setError(key, null);
         try {
-          const response = await dashboardApi.getLossTrend();
-          if (response.code !== 0) {
-            throw new Error(response.message);
-          }
-          return response.data;
+          const result = await dashboardApi.getLossTrend();
+          return result;
         } catch (error: any) {
           get().setError(key, error.message);
           throw error;
@@ -347,11 +311,8 @@ export const useStore = create<StoreState>()(
         get().setLoading(key, true);
         get().setError(key, null);
         try {
-          const response = await dashboardApi.getLossTypeDistribution();
-          if (response.code !== 0) {
-            throw new Error(response.message);
-          }
-          return response.data;
+          const result = await dashboardApi.getLossTypeDistribution();
+          return result;
         } catch (error: any) {
           get().setError(key, error.message);
           throw error;
@@ -365,11 +326,8 @@ export const useStore = create<StoreState>()(
         get().setLoading(key, true);
         get().setError(key, null);
         try {
-          const response = await dashboardApi.getDifferenceTypeDistribution();
-          if (response.code !== 0) {
-            throw new Error(response.message);
-          }
-          return response.data;
+          const result = await dashboardApi.getDifferenceTypeDistribution();
+          return result;
         } catch (error: any) {
           get().setError(key, error.message);
           throw error;
@@ -383,11 +341,6 @@ export const useStore = create<StoreState>()(
       partialize: (state) => ({
         currentUser: state.currentUser,
       }),
-      onRehydrateStorage: () => (state) => {
-        if (state?.currentUser) {
-          setCurrentApiUser(state.currentUser);
-        }
-      },
     }
   )
 );

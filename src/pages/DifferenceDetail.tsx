@@ -11,6 +11,7 @@ import {
   Modal,
   Form,
   Input,
+  Select,
   message,
   Spin,
   Tabs,
@@ -41,6 +42,7 @@ export const DifferenceDetail: React.FC = () => {
   const { getInventoryDifferenceById, updateDifferenceStatus, currentUser, getLossRecords } = useStore();
   const [difference, setDifference] = useState<InventoryDifference | null>(null);
   const [relatedLossRecords, setRelatedLossRecords] = useState<LossRecord[]>([]);
+  const [availableLossRecords, setAvailableLossRecords] = useState<LossRecord[]>([]);
   const [loading, setLoading] = useState(false);
   const [resolveModalVisible, setResolveModalVisible] = useState(false);
   const [form] = Form.useForm();
@@ -108,14 +110,31 @@ export const DifferenceDetail: React.FC = () => {
     });
   };
 
+  const loadAvailableLossRecords = useCallback(async () => {
+    if (!difference) return;
+    try {
+      const result = await getLossRecords({ page: 1, pageSize: 1000 });
+      const filtered = result.data.filter(
+        (record) =>
+          record.storeId === difference.storeId &&
+          record.productId === difference.productId &&
+          record.status !== 'archived'
+      );
+      setAvailableLossRecords(filtered);
+    } catch (error: any) {
+      message.error(error.message);
+    }
+  }, [difference, getLossRecords]);
+
   const handleResolve = () => {
+    loadAvailableLossRecords();
     setResolveModalVisible(true);
   };
 
   const handleResolveSubmit = async () => {
     try {
       const values = await form.validateFields();
-      await updateDifferenceStatus(difference.id, 'resolved', values.resolution);
+      await updateDifferenceStatus(difference.id, 'resolved', values.resolution, values.relatedLossId);
       message.success('差异已解决');
       setResolveModalVisible(false);
       form.resetFields();
@@ -341,6 +360,24 @@ export const DifferenceDetail: React.FC = () => {
         width={600}
       >
         <Form form={form} layout="vertical">
+          <Form.Item
+            name="relatedLossId"
+            label="关联损耗记录"
+            extra="选择与此差异关联的损耗记录（同一门店、同一商品）"
+          >
+            <Select
+              placeholder="请选择关联的损耗记录（可选）"
+              allowClear
+              showSearch
+              optionFilterProp="children"
+            >
+              {availableLossRecords.map((record) => (
+                <Select.Option key={record.id} value={record.id}>
+                  {record.lossNo} - {record.productName} - ¥{record.lossAmount.toFixed(2)}
+                </Select.Option>
+              ))}
+            </Select>
+          </Form.Item>
           <Form.Item
             name="resolution"
             label="处理方案"

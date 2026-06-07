@@ -11,6 +11,7 @@ import {
   Modal,
   Form,
   Input,
+  Select,
   message,
   Tabs,
   Spin,
@@ -41,6 +42,7 @@ export const LossDetail: React.FC = () => {
   const { getLossRecordById, updateLossStatus, currentUser, getInventoryDifferences } = useStore();
   const [loss, setLoss] = useState<LossRecord | null>(null);
   const [relatedDifferenceRecords, setRelatedDifferenceRecords] = useState<InventoryDifference[]>([]);
+  const [availableDifferenceRecords, setAvailableDifferenceRecords] = useState<InventoryDifference[]>([]);
   const [loading, setLoading] = useState(false);
   const [concludeModalVisible, setConcludeModalVisible] = useState(false);
   const [concludeForm] = Form.useForm();
@@ -108,7 +110,25 @@ export const LossDetail: React.FC = () => {
     });
   };
 
+  const loadAvailableDifferenceRecords = useCallback(async () => {
+    if (!loss) return;
+    try {
+      const result = await getInventoryDifferences({ page: 1, pageSize: 1000 });
+      const filtered = result.data.filter(
+        (record) =>
+          record.storeId === loss.storeId &&
+          record.productId === loss.productId &&
+          record.status !== 'closed' &&
+          record.status !== 'resolved'
+      );
+      setAvailableDifferenceRecords(filtered);
+    } catch (error: any) {
+      message.error(error.message);
+    }
+  }, [loss, getInventoryDifferences]);
+
   const handleConclude = () => {
+    loadAvailableDifferenceRecords();
     setConcludeModalVisible(true);
   };
 
@@ -335,6 +355,24 @@ export const LossDetail: React.FC = () => {
         width={700}
       >
         <Form form={concludeForm} layout="vertical">
+          <Form.Item
+            name="relatedDifferenceId"
+            label="关联盘点差异"
+            extra="选择与此损耗关联的盘点差异（同一门店、同一商品）"
+          >
+            <Select
+              placeholder="请选择关联的盘点差异（可选）"
+              allowClear
+              showSearch
+              optionFilterProp="children"
+            >
+              {availableDifferenceRecords.map((record) => (
+                <Select.Option key={record.id} value={record.id}>
+                  {record.differenceNo} - {record.productName} - ¥{record.differenceAmount.toFixed(2)}
+                </Select.Option>
+              ))}
+            </Select>
+          </Form.Item>
           <Form.Item
             name="rootCause"
             label="根本原因"
