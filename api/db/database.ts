@@ -417,6 +417,21 @@ function mapToRemark(row: any): Remark {
   };
 }
 
+function mapToOperationHistory(row: any): OperationHistory {
+  return {
+    id: row.id,
+    sourceId: row.source_id,
+    source: row.source,
+    action: row.action,
+    description: row.description,
+    userId: row.user_id,
+    userName: row.user_name,
+    userRole: row.user_role as UserRole,
+    createdAt: row.created_at,
+    rejectReason: row.reject_reason || undefined,
+  };
+}
+
 function rowToInspection(row: any): InspectionRectification {
   const inspectionRemarkRows = database.prepare(`
     SELECT * FROM remarks WHERE source_id = ? AND source = 'inspection' ORDER BY created_at DESC
@@ -566,10 +581,11 @@ export const dbAccess = {
     const row = database.prepare('SELECT * FROM promotions WHERE id = ?').get(id) as any;
     if (!row) return null;
     const promotion = rowToPromotion(row);
-    const history = database.prepare(`
+    const historyRows = database.prepare(`
       SELECT * FROM operation_history WHERE source_id = ? AND source = 'promotion' ORDER BY created_at DESC
     `).all(id);
-    return { ...promotion, operationHistory: history } as any;
+    const operationHistory = historyRows.map(mapToOperationHistory) as OperationHistory[];
+    return { ...promotion, operationHistory } as any;
   },
 
   addPromotionRemark: (promotionId: string, userId: string, userName: string, userRole: string, content: string): Remark => {
@@ -697,10 +713,11 @@ export const dbAccess = {
     const row = database.prepare('SELECT * FROM inspections WHERE id = ?').get(id) as any;
     if (!row) return null;
     const inspection = rowToInspection(row);
-    const history = database.prepare(`
+    const historyRows = database.prepare(`
       SELECT * FROM operation_history WHERE source_id = ? AND source = 'inspection' ORDER BY created_at DESC
     `).all(id);
-    return { ...inspection, operationHistory: history } as any;
+    const operationHistory = historyRows.map(mapToOperationHistory) as OperationHistory[];
+    return { ...inspection, operationHistory } as any;
   },
 
   addInspectionRemark: (inspectionId: string, userId: string, userName: string, userRole: string, content: string): Remark => {
