@@ -1,24 +1,19 @@
 import dayjs from 'dayjs';
 import {
-  InventoryDifference,
-  LossRecord,
-  Alert,
+  User,
   PaginationParams,
   DifferenceFilterParams,
   LossFilterParams,
   AlertFilterParams,
-  User,
   DifferenceType,
   LossType,
-  DifferenceHistoryItem,
-  AnalysisHistoryItem,
 } from '@/types';
+import { mockUsers } from '@/data/mockData';
 import {
-  mockInventoryDifferences,
-  mockLossRecords,
-  mockAlerts,
-  mockUsers,
-} from '@/data/mockData';
+  differenceRepository,
+  lossRepository,
+  alertRepository,
+} from '@/repository';
 import {
   ApiResponse,
   UpdateDifferenceStatusRequest,
@@ -34,8 +29,6 @@ import {
   canTransitionLoss,
   validateDifferenceLossLink,
 } from './stateConstraints';
-
-const generateId = () => Math.random().toString(36).substring(2, 10);
 
 let currentUser: User = mockUsers[0];
 
@@ -62,14 +55,28 @@ const filterByRole = <T extends { storeId: string }>(data: T[], user: User): T[]
   return data;
 };
 
-let inventoryDifferences = [...mockInventoryDifferences];
-let lossRecords = [...mockLossRecords];
-let alerts = [...mockAlerts];
+const getDisplayName = (status: string): string => {
+  const statusMap: Record<string, string> = {
+    pending: '待处理',
+    confirmed: '已确认',
+    resolved: '已解决',
+    appealed: '申诉中',
+    closed: '已关闭',
+    recorded: '已登记',
+    analyzing: '分析中',
+    concluded: '已结案',
+    archived: '已归档',
+    active: '活跃',
+    processing: '处理中',
+    ignored: '已忽略',
+  };
+  return statusMap[status] || status;
+};
 
 export const differenceApi: IDifferenceApi = {
   getList: async (pagination: PaginationParams, filters?: DifferenceFilterParams) => {
-    let data = [...inventoryDifferences];
-    data = filterByRole(data, currentUser);
+    const allData = await differenceRepository.findAll();
+    let data = filterByRole(allData, currentUser);
 
     if (filters) {
       if (filters.storeId) {
@@ -87,7 +94,8 @@ export const differenceApi: IDifferenceApi = {
           (d) =>
             d.productName.toLowerCase().includes(keyword) ||
             d.differenceNo.toLowerCase().includes(keyword) ||
-            d.storeName.toLowerCase().includes(keyword)
+            d.storeName.toLowerCase().includes(keyword) ||
+            d.sku.toLowerCase().includes(keyword)
         );
       }
       if (filters.dateRange) {
@@ -115,7 +123,7 @@ export const differenceApi: IDifferenceApi = {
   },
 
   getById: async (id: string) => {
-    const difference = inventoryDifferences.find((d) => d.id === id);
+    const difference = await differenceRepository.findById(id);
     if (!difference) {
       return delay(wrapResponse(null as any, 404, '盘点差异不存在'), 200);
     }
@@ -123,85 +131,79 @@ export const differenceApi: IDifferenceApi = {
   },
 
   updateStatus: async (id: string, request: UpdateDifferenceStatusRequest) => {
-    const index = inventoryDifferences.findIndex((d) => d.id === id);
-    if (index === -1) {
+    const current = await differenceRepository.findById(id);
+    if (!current) {
       return delay(wrapResponse(null as any, 404, '盘点差异不存在'), 200);
     }
 
-    const current = inventoryDifferences[index];
-    
     if (!canTransitionDifference(current.status, request.status, currentUser.role)) {
       return delay(
-        wrapResponse(null as any, 403, `当前角色无权限将状态从 ${current.status} 变更为 ${request.status}`),
+        wrapResponse(
+          null as any,
+          403,
+          `操作失败：${currentUser.role === 'store_manager' ? '店长' : currentUser.role === 'supervisor' ? '督导' : '商品专员'}无权将状态从「${getDisplayName(current.status)}」变更为「${getDisplayName(request.status)}」`
+        ),
         200
       );
     }
 
     const now = dayjs().format('YYYY-MM-DD HH:mm:ss');
-    const historyItem: DifferenceHistoryItem = {
-      id: generateId(),
-      differenceId: id,
-      timestamp: now,
-      operator: currentUser.name,
-      action: `状态变更: ${current.status} → ${request.status}`,
-      content: request.remark || `状态更新为${request.status}`,
-    };
 
-    const updated: InventoryDifference = {
-      ...current,
+    if (request.relatedLossId) {
+      const loss = await lossRepository.findById(request.relatedLossId);
+      if (!loss) {
+        return delay(wrapResponse(null as any, 404, '关联的损耗记录不存在'), 200);
+      }
+      const validation = validateDifferenceLossLink(current, loss);
+      if (!validation.valid) {
+        return delay(wrapResponse(null as any, 400, validation.reason!), 200);
+      }
+      await differenceRepository.linkLossRecord(id, request.relatedLossId);
+      await lossRepository.linkDifference(request.relatedLossId, id);
+    }
+
+    await differenceRepository.addHistory(
+      id,
+      currentUser.name,
+      `状态变更: ${current.status} → ${request.status}`,
+      request.remark || `状态更新为「${getDisplayName(request.status)}」`
+    );
+
+    const updated = await differenceRepository.update(id, {
       status: request.status,
       handler: currentUser.name,
       handledAt: now,
       resolution: request.remark || current.resolution,
-      history: [...current.history, historyItem],
-    };
+    });
 
-    if (request.relatedLossId) {
-      const loss = lossRecords.find((l) => l.id === request.relatedLossId);
-      if (loss) {
-        const validation = validateDifferenceLossLink(updated, loss);
-        if (!validation.valid) {
-          return delay(wrapResponse(null as any, 400, validation.reason!), 200);
-        }
-        (updated as any).relatedLossIds = [
-          ...((current as any).relatedLossIds || []),
-          request.relatedLossId,
-        ];
-      }
-    }
-
-    inventoryDifferences[index] = updated;
-    return delay(wrapResponse(updated));
+    return delay(wrapResponse(updated!));
   },
 
   linkLossRecord: async (differenceId: string, lossId: string) => {
-    const diffIndex = inventoryDifferences.findIndex((d) => d.id === differenceId);
-    const loss = lossRecords.find((l) => l.id === lossId);
-    
-    if (diffIndex === -1 || !loss) {
+    const difference = await differenceRepository.findById(differenceId);
+    const loss = await lossRepository.findById(lossId);
+
+    if (!difference || !loss) {
       return delay(wrapResponse(null as any, 404, '记录不存在'), 200);
     }
 
-    const difference = inventoryDifferences[diffIndex];
     const validation = validateDifferenceLossLink(difference, loss);
     if (!validation.valid) {
       return delay(wrapResponse(null as any, 400, validation.reason!), 200);
     }
 
-    const updated = {
-      ...difference,
-      relatedLossIds: [...((difference as any).relatedLossIds || []), lossId],
-    };
-    inventoryDifferences[diffIndex] = updated;
+    await differenceRepository.linkLossRecord(differenceId, lossId);
+    await lossRepository.linkDifference(lossId, differenceId);
 
-    return delay(wrapResponse(updated));
+    const updated = await differenceRepository.findById(differenceId);
+    return delay(wrapResponse(updated!));
   },
 };
 
 export const lossApi: ILossApi = {
   getList: async (pagination: PaginationParams, filters?: LossFilterParams) => {
-    let data = [...lossRecords];
-    data = filterByRole(data, currentUser);
+    const allData = await lossRepository.findAll();
+    let data = filterByRole(allData, currentUser);
 
     if (filters) {
       if (filters.storeId) {
@@ -219,7 +221,9 @@ export const lossApi: ILossApi = {
           (d) =>
             d.productName.toLowerCase().includes(keyword) ||
             d.lossNo.toLowerCase().includes(keyword) ||
-            d.storeName.toLowerCase().includes(keyword)
+            d.storeName.toLowerCase().includes(keyword) ||
+            d.sku.toLowerCase().includes(keyword) ||
+            d.description.toLowerCase().includes(keyword)
         );
       }
       if (filters.dateRange) {
@@ -247,7 +251,7 @@ export const lossApi: ILossApi = {
   },
 
   getById: async (id: string) => {
-    const loss = lossRecords.find((d) => d.id === id);
+    const loss = await lossRepository.findById(id);
     if (!loss) {
       return delay(wrapResponse(null as any, 404, '损耗记录不存在'), 200);
     }
@@ -255,103 +259,85 @@ export const lossApi: ILossApi = {
   },
 
   updateStatus: async (id: string, request: UpdateLossStatusRequest) => {
-    const index = lossRecords.findIndex((d) => d.id === id);
-    if (index === -1) {
+    const current = await lossRepository.findById(id);
+    if (!current) {
       return delay(wrapResponse(null as any, 404, '损耗记录不存在'), 200);
     }
 
-    const current = lossRecords[index];
-    
     if (!canTransitionLoss(current.status, request.status, currentUser.role)) {
       return delay(
-        wrapResponse(null as any, 403, `当前角色无权限将状态从 ${current.status} 变更为 ${request.status}`),
+        wrapResponse(
+          null as any,
+          403,
+          `操作失败：${currentUser.role === 'store_manager' ? '店长' : currentUser.role === 'supervisor' ? '督导' : '商品专员'}无权将状态从「${getDisplayName(current.status)}」变更为「${getDisplayName(request.status)}」`
+        ),
         200
       );
     }
 
     const now = dayjs().format('YYYY-MM-DD HH:mm:ss');
-    const historyItem: AnalysisHistoryItem = {
-      id: generateId(),
-      analysisId: current.analysis?.id || generateId(),
-      timestamp: now,
-      operator: currentUser.name,
-      action: `状态变更: ${current.status} → ${request.status}`,
-      content: `状态更新为${request.status}`,
-    };
-
-    const existingAnalysis = current.analysis || {
-      id: generateId(),
-      lossId: id,
-      analyst: currentUser.name,
-      analyzedAt: now,
-      rootCause: '',
-      preventiveMeasure: '',
-      responsibleParty: '',
-      conclusion: '',
-      history: [],
-    };
-
-    const updated: LossRecord = {
-      ...current,
-      status: request.status,
-      analysis: {
-        ...existingAnalysis,
-        rootCause: request.rootCause || existingAnalysis.rootCause,
-        preventiveMeasure: request.preventiveMeasure || existingAnalysis.preventiveMeasure,
-        responsibleParty: request.responsibleParty || existingAnalysis.responsibleParty,
-        conclusion: request.conclusion || existingAnalysis.conclusion,
-        analyst: currentUser.name,
-        analyzedAt: now,
-        history: [...existingAnalysis.history, historyItem],
-      },
-    };
 
     if (request.relatedDifferenceId) {
-      const diff = inventoryDifferences.find((d) => d.id === request.relatedDifferenceId);
-      if (diff) {
-        const validation = validateDifferenceLossLink(diff, updated);
-        if (!validation.valid) {
-          return delay(wrapResponse(null as any, 400, validation.reason!), 200);
-        }
-        (updated as any).relatedDifferenceIds = [
-          ...((current as any).relatedDifferenceIds || []),
-          request.relatedDifferenceId,
-        ];
+      const diff = await differenceRepository.findById(request.relatedDifferenceId);
+      if (!diff) {
+        return delay(wrapResponse(null as any, 404, '关联的盘点差异不存在'), 200);
       }
+      const validation = validateDifferenceLossLink(diff, current);
+      if (!validation.valid) {
+        return delay(wrapResponse(null as any, 400, validation.reason!), 200);
+      }
+      await lossRepository.linkDifference(id, request.relatedDifferenceId);
+      await differenceRepository.linkLossRecord(request.relatedDifferenceId, id);
     }
 
-    lossRecords[index] = updated;
-    return delay(wrapResponse(updated));
+    await lossRepository.addAnalysisHistory(
+      id,
+      currentUser.name,
+      `状态变更: ${current.status} → ${request.status}`,
+      `状态更新为「${getDisplayName(request.status)}」`
+    );
+
+    await lossRepository.updateAnalysis(id, {
+      rootCause: request.rootCause,
+      preventiveMeasure: request.preventiveMeasure,
+      responsibleParty: request.responsibleParty,
+      conclusion: request.conclusion,
+      analyst: currentUser.name,
+      analyzedAt: now,
+    });
+
+    const updated = await lossRepository.update(id, {
+      status: request.status,
+    });
+
+    return delay(wrapResponse(updated!));
   },
 
   linkDifference: async (lossId: string, differenceId: string) => {
-    const lossIndex = lossRecords.findIndex((l) => l.id === lossId);
-    const diff = inventoryDifferences.find((d) => d.id === differenceId);
-    
-    if (lossIndex === -1 || !diff) {
+    const loss = await lossRepository.findById(lossId);
+    const difference = await differenceRepository.findById(differenceId);
+
+    if (!loss || !difference) {
       return delay(wrapResponse(null as any, 404, '记录不存在'), 200);
     }
 
-    const loss = lossRecords[lossIndex];
-    const validation = validateDifferenceLossLink(diff, loss);
+    const validation = validateDifferenceLossLink(difference, loss);
     if (!validation.valid) {
       return delay(wrapResponse(null as any, 400, validation.reason!), 200);
     }
 
-    const updated = {
-      ...loss,
-      relatedDifferenceIds: [...((loss as any).relatedDifferenceIds || []), differenceId],
-    };
-    lossRecords[lossIndex] = updated;
+    await lossRepository.linkDifference(lossId, differenceId);
+    await differenceRepository.linkLossRecord(differenceId, lossId);
 
-    return delay(wrapResponse(updated));
+    const updated = await lossRepository.findById(lossId);
+    return delay(wrapResponse(updated!));
   },
 };
 
 export const alertApi: IAlertApi = {
   getList: async (pagination: PaginationParams, filters?: AlertFilterParams) => {
-    let data = [...alerts];
-    data = filterByRole(data, currentUser);
+    const allData = await alertRepository.findAll();
+    let data = filterByRole(allData, currentUser);
 
     if (filters) {
       if (filters.storeId) {
@@ -365,6 +351,18 @@ export const alertApi: IAlertApi = {
       }
       if (filters.severity) {
         data = data.filter((d) => d.severity === filters.severity);
+      }
+      if (filters.keyword) {
+        const keyword = filters.keyword.toLowerCase();
+        data = data.filter(
+          (d) =>
+            d.title.toLowerCase().includes(keyword) ||
+            d.description.toLowerCase().includes(keyword) ||
+            d.alertNo.toLowerCase().includes(keyword) ||
+            d.storeName.toLowerCase().includes(keyword) ||
+            (d.productName && d.productName.toLowerCase().includes(keyword)) ||
+            (d.sku && d.sku.toLowerCase().includes(keyword))
+        );
       }
       if (filters.dateRange) {
         const [start, end] = filters.dateRange;
@@ -400,36 +398,38 @@ export const alertApi: IAlertApi = {
   },
 
   getActive: async () => {
-    let data = alerts.filter((a) => a.status === 'active' || a.status === 'processing');
-    data = filterByRole(data, currentUser);
+    const allData = await alertRepository.findActive();
+    const data = filterByRole(allData, currentUser);
     return delay(wrapResponse(data));
   },
 
   updateStatus: async (id: string, request: UpdateAlertStatusRequest) => {
-    const index = alerts.findIndex((a) => a.id === id);
-    if (index === -1) {
+    const current = await alertRepository.findById(id);
+    if (!current) {
       return delay(wrapResponse(null as any, 404, '预警不存在'), 200);
     }
 
     const now = dayjs().format('YYYY-MM-DD HH:mm:ss');
-    const updated: Alert = {
-      ...alerts[index],
+    const updated = await alertRepository.update(id, {
       status: request.status,
       assignee: currentUser.name,
-      handledAt: request.status === 'resolved' || request.status === 'ignored' ? now : alerts[index].handledAt,
-      resolution: request.resolution || alerts[index].resolution,
-    };
+      handledAt: request.status === 'resolved' || request.status === 'ignored' ? now : current.handledAt,
+      resolution: request.resolution || current.resolution,
+    });
 
-    alerts[index] = updated;
-    return delay(wrapResponse(updated));
+    return delay(wrapResponse(updated!));
   },
 };
 
 export const dashboardApi: IDashboardApi = {
   getStats: async () => {
-    let filteredDifferences = filterByRole(inventoryDifferences, currentUser);
-    let filteredLosses = filterByRole(lossRecords, currentUser);
-    let filteredAlerts = filterByRole(alerts, currentUser);
+    const allDifferences = await differenceRepository.findAll();
+    const allLosses = await lossRepository.findAll();
+    const allAlerts = await alertRepository.findAll();
+
+    const filteredDifferences = filterByRole(allDifferences, currentUser);
+    const filteredLosses = filterByRole(allLosses, currentUser);
+    const filteredAlerts = filterByRole(allAlerts, currentUser);
 
     return delay(
       wrapResponse({
@@ -445,7 +445,8 @@ export const dashboardApi: IDashboardApi = {
   },
 
   getLossTrend: async () => {
-    let filteredLosses = filterByRole(lossRecords, currentUser);
+    const allLosses = await lossRepository.findAll();
+    const filteredLosses = filterByRole(allLosses, currentUser);
 
     const last7Days = Array.from({ length: 7 }, (_, i) =>
       dayjs().subtract(6 - i, 'day').format('MM-DD')
@@ -466,7 +467,8 @@ export const dashboardApi: IDashboardApi = {
   },
 
   getLossTypeDistribution: async () => {
-    let filteredLosses = filterByRole(lossRecords, currentUser);
+    const allLosses = await lossRepository.findAll();
+    const filteredLosses = filterByRole(allLosses, currentUser);
 
     const typeMap: Record<LossType, string> = {
       expired: '过期损耗',
@@ -491,7 +493,8 @@ export const dashboardApi: IDashboardApi = {
   },
 
   getDifferenceTypeDistribution: async () => {
-    let filteredDifferences = filterByRole(inventoryDifferences, currentUser);
+    const allDifferences = await differenceRepository.findAll();
+    const filteredDifferences = filterByRole(allDifferences, currentUser);
 
     const typeMap: Record<DifferenceType, string> = {
       overage: '溢余',

@@ -13,6 +13,8 @@ import {
   Input,
   message,
   Spin,
+  Tabs,
+  List,
 } from 'antd';
 import {
   ArrowLeftOutlined,
@@ -23,18 +25,22 @@ import { useStore } from '@/store';
 import {
   DifferenceStatusTag,
   DifferenceTypeTag,
+  LossTypeTag,
+  LossStatusTag,
 } from '@/components/common/StatusTags';
 import { HistoryTimeline } from '@/components/common/HistoryTimeline';
 import { useState, useCallback, useEffect } from 'react';
-import { InventoryDifference } from '@/types';
+import { InventoryDifference, LossRecord } from '@/types';
 
 const { TextArea } = Input;
+const { TabPane } = Tabs;
 
 export const DifferenceDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { getInventoryDifferenceById, updateDifferenceStatus, currentUser } = useStore();
+  const { getInventoryDifferenceById, updateDifferenceStatus, currentUser, getLossRecords } = useStore();
   const [difference, setDifference] = useState<InventoryDifference | null>(null);
+  const [relatedLossRecords, setRelatedLossRecords] = useState<LossRecord[]>([]);
   const [loading, setLoading] = useState(false);
   const [resolveModalVisible, setResolveModalVisible] = useState(false);
   const [form] = Form.useForm();
@@ -46,12 +52,22 @@ export const DifferenceDetail: React.FC = () => {
     try {
       const result = await getInventoryDifferenceById(id);
       setDifference(result || null);
+      
+      if (result?.relatedLossIds && result.relatedLossIds.length > 0) {
+        const allLossRecords = await getLossRecords({ page: 1, pageSize: 1000 });
+        const related = allLossRecords.data.filter((record) => 
+          result.relatedLossIds!.includes(record.id)
+        );
+        setRelatedLossRecords(related);
+      } else {
+        setRelatedLossRecords([]);
+      }
     } catch (error: any) {
-      message.error('加载差异详情失败: ' + error.message);
+      message.error(error.message);
     } finally {
       setLoading(false);
     }
-  }, [id, getInventoryDifferenceById]);
+  }, [id, getInventoryDifferenceById, getLossRecords]);
 
   useEffect(() => {
     loadData();
@@ -86,7 +102,7 @@ export const DifferenceDetail: React.FC = () => {
           message.success('已确认差异');
           setRefreshKey(k => k + 1);
         } catch (error: any) {
-          message.error('操作失败: ' + error.message);
+          message.error(error.message);
         }
       },
     });
@@ -106,7 +122,7 @@ export const DifferenceDetail: React.FC = () => {
       setRefreshKey(k => k + 1);
     } catch (error: any) {
       if (error.errorFields) return;
-      message.error('操作失败: ' + error.message);
+      message.error(error.message);
     }
   };
 
@@ -120,7 +136,7 @@ export const DifferenceDetail: React.FC = () => {
           message.success('已提交申诉');
           setRefreshKey(k => k + 1);
         } catch (error: any) {
-          message.error('操作失败: ' + error.message);
+          message.error(error.message);
         }
       },
     });
@@ -266,8 +282,55 @@ export const DifferenceDetail: React.FC = () => {
         </Col>
       </Row>
 
-      <Card title="处理历史">
-        <HistoryTimeline items={difference.history} />
+      <Card>
+        <Tabs defaultActiveKey="1">
+          <TabPane tab="处理历史" key="1">
+            <HistoryTimeline items={difference.history} />
+          </TabPane>
+          <TabPane tab="关联记录" key="2">
+            {relatedLossRecords.length > 0 ? (
+              <List
+                dataSource={relatedLossRecords}
+                renderItem={(item) => (
+                  <List.Item
+                    actions={[
+                      <Button
+                        type="link"
+                        size="small"
+                        onClick={() => navigate(`/loss/${item.id}`)}
+                      >
+                        查看详情
+                      </Button>
+                    ]}
+                  >
+                    <List.Item.Meta
+                      title={
+                        <Space>
+                          <span className="font-mono text-blue-600">{item.lossNo}</span>
+                          <LossTypeTag type={item.lossType} />
+                          <LossStatusTag status={item.status} />
+                        </Space>
+                      }
+                      description={
+                        <div className="space-y-1">
+                          <div><span className="text-gray-500">商品：</span>{item.productName} ({item.sku})</div>
+                          <div><span className="text-gray-500">损耗数量：</span>{item.quantity}{item.unit}</div>
+                          <div><span className="text-gray-500">损耗金额：</span><span className="text-red-600 font-medium">¥{item.lossAmount.toFixed(2)}</span></div>
+                          <div><span className="text-gray-500">上报人：</span>{item.reportedBy}</div>
+                          <div><span className="text-gray-500">上报时间：</span>{item.reportedAt}</div>
+                        </div>
+                      }
+                    />
+                  </List.Item>
+                )}
+              />
+            ) : (
+              <div className="text-center text-gray-400 py-8">
+                暂无关联损耗记录
+              </div>
+            )}
+          </TabPane>
+        </Tabs>
       </Card>
 
       <Modal

@@ -29,6 +29,7 @@ import {
   PaginatedResponse,
 } from '@/types';
 import type { ColumnsType } from 'antd/es/table';
+import dayjs from 'dayjs';
 
 const { RangePicker } = DatePicker;
 const { Option } = Select;
@@ -42,6 +43,7 @@ export const LossList: React.FC = () => {
   const [typeFilter, setTypeFilter] = useState<LossType | undefined>();
   const [storeFilter, setStoreFilter] = useState<string | undefined>();
   const [keyword, setKeyword] = useState('');
+  const [dateRange, setDateRange] = useState<[dayjs.Dayjs, dayjs.Dayjs] | null>(null);
   const [analysisModalVisible, setAnalysisModalVisible] = useState(false);
   const [concludeModalVisible, setConcludeModalVisible] = useState(false);
   const [selectedLoss, setSelectedLoss] = useState<LossRecord | null>(null);
@@ -72,16 +74,17 @@ export const LossList: React.FC = () => {
           status: statusFilter,
           lossType: typeFilter,
           storeId: storeFilter,
-          keyword,
+          keyword: keyword || undefined,
+          dateRange: dateRange ? [dateRange[0].format('YYYY-MM-DD'), dateRange[1].format('YYYY-MM-DD')] : undefined,
         }
       );
       setLossData(result);
     } catch (error: any) {
-      message.error('加载损耗列表失败: ' + error.message);
+      message.error(error.message);
     } finally {
       setLoading(false);
     }
-  }, [page, pageSize, statusFilter, typeFilter, storeFilter, keyword, getLossRecords]);
+  }, [page, pageSize, statusFilter, typeFilter, storeFilter, keyword, dateRange, getLossRecords]);
 
   useEffect(() => {
     loadData();
@@ -100,7 +103,7 @@ export const LossList: React.FC = () => {
         setAnalysisModalVisible(false);
         setRefreshKey(k => k + 1);
       } catch (error: any) {
-        message.error('操作失败: ' + error.message);
+        message.error(error.message);
       }
     }
   };
@@ -122,7 +125,7 @@ export const LossList: React.FC = () => {
       }
     } catch (error: any) {
       if (error.errorFields) return;
-      message.error('操作失败: ' + error.message);
+      message.error(error.message);
     }
   };
 
@@ -298,7 +301,7 @@ export const LossList: React.FC = () => {
               </Option>
             ))}
           </Select>
-          <RangePicker />
+          <RangePicker value={dateRange} onChange={(dates) => setDateRange(dates as [dayjs.Dayjs, dayjs.Dayjs] | null)} />
         </Space>
       }
     >

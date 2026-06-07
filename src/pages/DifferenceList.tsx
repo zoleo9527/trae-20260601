@@ -29,6 +29,7 @@ import {
   PaginatedResponse,
 } from '@/types';
 import type { ColumnsType } from 'antd/es/table';
+import dayjs from 'dayjs';
 
 const { RangePicker } = DatePicker;
 const { Option } = Select;
@@ -42,6 +43,7 @@ export const DifferenceList: React.FC = () => {
   const [typeFilter, setTypeFilter] = useState<DifferenceType | undefined>();
   const [storeFilter, setStoreFilter] = useState<string | undefined>();
   const [keyword, setKeyword] = useState('');
+  const [dateRange, setDateRange] = useState<[dayjs.Dayjs, dayjs.Dayjs] | null>(null);
   const [confirmModalVisible, setConfirmModalVisible] = useState(false);
   const [resolveModalVisible, setResolveModalVisible] = useState(false);
   const [selectedDifference, setSelectedDifference] = useState<InventoryDifference | null>(null);
@@ -72,16 +74,17 @@ export const DifferenceList: React.FC = () => {
           status: statusFilter,
           differenceType: typeFilter,
           storeId: storeFilter,
-          keyword,
+          keyword: keyword || undefined,
+          dateRange: dateRange ? [dateRange[0].format('YYYY-MM-DD'), dateRange[1].format('YYYY-MM-DD')] : undefined,
         }
       );
       setDifferenceData(result);
     } catch (error: any) {
-      message.error('加载差异列表失败: ' + error.message);
+      message.error(error.message);
     } finally {
       setLoading(false);
     }
-  }, [page, pageSize, statusFilter, typeFilter, storeFilter, keyword, getInventoryDifferences]);
+  }, [page, pageSize, statusFilter, typeFilter, storeFilter, keyword, dateRange, getInventoryDifferences]);
 
   useEffect(() => {
     loadData();
@@ -100,7 +103,7 @@ export const DifferenceList: React.FC = () => {
         setConfirmModalVisible(false);
         setRefreshKey(k => k + 1);
       } catch (error: any) {
-        message.error('操作失败: ' + error.message);
+        message.error(error.message);
       }
     }
   };
@@ -122,7 +125,7 @@ export const DifferenceList: React.FC = () => {
       }
     } catch (error: any) {
       if (error.errorFields) return;
-      message.error('操作失败: ' + error.message);
+      message.error(error.message);
     }
   };
 
@@ -136,7 +139,7 @@ export const DifferenceList: React.FC = () => {
           message.success('已提交申诉');
           setRefreshKey(k => k + 1);
         } catch (error: any) {
-          message.error('操作失败: ' + error.message);
+          message.error(error.message);
         }
       },
     });
@@ -340,7 +343,7 @@ export const DifferenceList: React.FC = () => {
               </Option>
             ))}
           </Select>
-          <RangePicker />
+          <RangePicker value={dateRange} onChange={(dates) => setDateRange(dates as [dayjs.Dayjs, dayjs.Dayjs] | null)} />
         </Space>
       }
     >

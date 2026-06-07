@@ -235,6 +235,7 @@ export const mockInventoryDifferences: InventoryDifference[] = [
         content: '经核查，其中20盒为临期商品未及时下架报损，10盒为收银员扫码错误。已调整库存并对员工进行培训。',
       },
     ],
+    relatedLossIds: ['L001'],
   },
   {
     id: 'D004',
@@ -371,6 +372,7 @@ export const mockLossRecords: LossRecord[] = [
         },
       ],
     },
+    relatedDifferenceIds: ['D003'],
   },
   {
     id: 'L002',

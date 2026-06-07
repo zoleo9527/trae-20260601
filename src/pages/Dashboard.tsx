@@ -65,6 +65,8 @@ export const Dashboard: React.FC = () => {
   const [typeFilter, setTypeFilter] = useState<AlertType | undefined>();
   const [severityFilter, setSeverityFilter] = useState<AlertTypeDef['severity'] | undefined>();
   const [storeFilter, setStoreFilter] = useState<string | undefined>();
+  const [keyword, setKeyword] = useState('');
+  const [dateRange, setDateRange] = useState<[dayjs.Dayjs, dayjs.Dayjs] | null>(null);
   const [resolveModalVisible, setResolveModalVisible] = useState(false);
   const [selectedAlert, setSelectedAlert] = useState<Alert | null>(null);
   const [form] = Form.useForm();
@@ -140,15 +142,17 @@ export const Dashboard: React.FC = () => {
           alertType: typeFilter,
           severity: severityFilter,
           storeId: storeFilter,
+          keyword: keyword || undefined,
+          dateRange: dateRange ? [dateRange[0].format('YYYY-MM-DD'), dateRange[1].format('YYYY-MM-DD')] : undefined,
         }
       );
       setAlertData(result);
     } catch (error: any) {
-      message.error('加载预警列表失败: ' + error.message);
+      message.error(error.message);
     } finally {
       setTableLoading(false);
     }
-  }, [page, pageSize, statusFilter, typeFilter, severityFilter, storeFilter, getAlerts]);
+  }, [page, pageSize, statusFilter, typeFilter, severityFilter, storeFilter, keyword, dateRange, getAlerts]);
 
   useEffect(() => {
     loadStats();
@@ -165,7 +169,7 @@ export const Dashboard: React.FC = () => {
       message.success('已标记为处理中');
       setRefreshKey(k => k + 1);
     } catch (error: any) {
-      message.error('操作失败: ' + error.message);
+      message.error(error.message);
     }
   };
 
@@ -186,7 +190,7 @@ export const Dashboard: React.FC = () => {
       }
     } catch (error: any) {
       if (error.errorFields) return;
-      message.error('操作失败: ' + error.message);
+      message.error(error.message);
     }
   };
 
@@ -200,7 +204,7 @@ export const Dashboard: React.FC = () => {
           message.success('已忽略预警');
           setRefreshKey(k => k + 1);
         } catch (error: any) {
-          message.error('操作失败: ' + error.message);
+          message.error(error.message);
         }
       },
     });
@@ -471,6 +475,12 @@ export const Dashboard: React.FC = () => {
       </Row>
 
       <Card title="预警列表" extra={<Space size="large">
+        <Input.Search
+          placeholder="搜索标题/描述/编号/门店/商品/SKU"
+          style={{ width: 240 }}
+          allowClear
+          onSearch={setKeyword}
+        />
         <Select
           placeholder="状态"
           style={{ width: 120 }}
@@ -520,7 +530,7 @@ export const Dashboard: React.FC = () => {
             </Option>
           ))}
         </Select>
-        <RangePicker />
+        <RangePicker value={dateRange} onChange={(dates) => setDateRange(dates as [dayjs.Dayjs, dayjs.Dayjs] | null)} />
       </Space>}>
         <Table
           columns={columns}

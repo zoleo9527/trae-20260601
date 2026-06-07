@@ -211,4 +211,5 @@ export interface AlertFilterParams {
   alertType?: AlertType;
   severity?: Alert['severity'];
   dateRange?: [string, string];
+  keyword?: string;
 }
