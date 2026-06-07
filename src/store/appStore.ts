@@ -651,11 +651,29 @@ export const useAppStore = create<AppState>((set, get) => ({
         newExpiryStatus = 'review_rejected';
         newHandlerRole = 'store_manager';
         updates.rejectReason = remark;
+        if (currentUser.role === 'supervisor') {
+          updates.firstReviewedBy = currentUser.id;
+          updates.firstReviewedAt = new Date().toISOString();
+          updates.firstReviewRemark = remark;
+        } else if (currentUser.role === 'product_specialist') {
+          updates.finalReviewedBy = currentUser.id;
+          updates.finalReviewedAt = new Date().toISOString();
+          updates.finalReviewRemark = remark;
+        }
       } else if (action === 'request_supplement') {
         newReviewStatus = 'supplement_requested';
         newExpiryStatus = 'supplement_requested';
         newHandlerRole = 'store_manager';
         updates.supplementRequest = remark;
+        if (currentUser.role === 'supervisor') {
+          updates.firstReviewedBy = currentUser.id;
+          updates.firstReviewedAt = new Date().toISOString();
+          updates.firstReviewRemark = remark;
+        } else if (currentUser.role === 'product_specialist') {
+          updates.finalReviewedBy = currentUser.id;
+          updates.finalReviewedAt = new Date().toISOString();
+          updates.finalReviewRemark = remark;
+        }
       } else if (action === 'approve') {
         if (currentUser.role === 'supervisor') {
           newReviewStatus = 'under_review';

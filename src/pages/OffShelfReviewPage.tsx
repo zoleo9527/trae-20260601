@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAppStore } from '@/store/appStore';
 import { RoleSelector } from '@/components/RoleSelector';
 import { StatCard } from '@/components/StatCard';
@@ -38,6 +38,21 @@ export default function OffShelfReviewPage() {
     });
   };
 
+  const pendingForMeCount = getPendingForMe(filteredReviews).length;
+
+  useEffect(() => {
+    if (currentUser?.role === 'supervisor' || currentUser?.role === 'product_specialist') {
+      const count = getPendingForMe(filteredReviews).length;
+      if (count > 0) {
+        setActiveTab('pending');
+      } else {
+        setActiveTab('all');
+      }
+    } else {
+      setActiveTab('all');
+    }
+  }, [currentUser?.role, filteredReviews]);
+
   const tabFilters: Record<string, OffShelfReview[]> = {
     all: filteredReviews,
     pending: getPendingForMe(filteredReviews),
@@ -47,8 +62,6 @@ export default function OffShelfReviewPage() {
   };
 
   const displayReviews = tabFilters[activeTab];
-
-  const pendingForMeCount = getPendingForMe(filteredReviews).length;
 
   const stats = {
     total: filteredReviews.length,
