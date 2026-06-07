@@ -37,7 +37,7 @@ import {
   RollbackOutlined,
 } from '@ant-design/icons';
 import { useStore } from '@/store';
-import { Order, AbnormalType, Member } from '@/store/types';
+import { Order, AbnormalType, Member, RefundRecord } from '@/store/types';
 import { refundHistory } from '@/store/mockData';
 import dayjs from 'dayjs';
 
@@ -58,16 +58,11 @@ const abnormalTypeOptions: { value: AbnormalType; label: string }[] = [
   { value: 'other', label: '其他异常' },
 ];
 
-const statusColors: Record<string, string> = {
-  pending: 'warning',
-  approved: 'success',
-  rejected: 'default',
-};
-
-const statusLabels: Record<string, string> = {
-  pending: '待审核',
-  approved: '已通过',
-  rejected: '已拒绝',
+const getRefundStatusDisplay = (record: RefundRecord) => {
+  if (record.status === 'approved') return { color: 'success', label: '已通过' };
+  if (record.status === 'rejected' && record.returnToHandler) return { color: 'warning', label: '退回重提' };
+  if (record.status === 'rejected') return { color: 'default', label: '已拒绝' };
+  return { color: 'warning', label: '待审核' };
 };
 
 const orderStatusLabels: Record<string, string> = {
@@ -91,19 +86,19 @@ export default function ManagerPage({ activeTab, onTabChange: _onTabChange }: Ma
   const [rechargeForm] = Form.useForm();
 
   const pendingRefunds = orders.filter(o => o.status === 'refunding' && o.refundRecord);
-  
-  const allRefundRecords = [
-    ...orders
-      .filter(o => o.refundRecord)
-      .map(o => ({
-        ...o.refundRecord!,
-        orderNo: o.orderNo,
-        memberName: o.memberName || '散客',
-      })),
+
+  const allRefundRecords: (RefundRecord & { orderNo: string; memberName: string })[] = [
+    ...orders.flatMap(o =>
+      (o.refundHistory || []).map(r => ({
+        ...r,
+        orderNo: r.orderNo || o.orderNo,
+        memberName: r.memberName || o.memberName || '散客',
+      }))
+    ),
     ...refundHistory.map(r => ({
       ...r,
-      orderNo: r.orderId,
-      memberName: '-',
+      orderNo: r.orderNo || r.orderId,
+      memberName: r.memberName || '-',
     })),
   ];
 
@@ -210,12 +205,12 @@ export default function ManagerPage({ activeTab, onTabChange: _onTabChange }: Ma
     { title: '申请人', dataIndex: 'applicant', key: 'applicant' },
     { title: '申请时间', dataIndex: 'appliedAt', key: 'appliedAt', width: 160 },
     { 
-      title: '状态', 
-      dataIndex: 'status', 
-      key: 'status',
-      render: (status: string) => (
-        <Tag color={statusColors[status]}>{statusLabels[status]}</Tag>
-      )
+      title: '审核结果', 
+      key: 'result',
+      render: (_: any, record: RefundRecord) => {
+        const display = getRefundStatusDisplay(record);
+        return <Tag color={display.color}>{display.label}</Tag>;
+      }
     },
     { title: '审核人', dataIndex: 'reviewedBy', key: 'reviewedBy', render: (t: string) => t || '-' },
     { title: '审核时间', dataIndex: 'reviewedAt', key: 'reviewedAt', width: 160, render: (t: string) => t || '-' },
@@ -424,7 +419,7 @@ export default function ManagerPage({ activeTab, onTabChange: _onTabChange }: Ma
                     <Card size="small">
                       <Statistic 
                         title="退回重提" 
-                        value={orders.filter(o => o.status === 'refund_rejected').length} 
+                        value={allRefundRecords.filter(r => r.status === 'rejected' && r.returnToHandler).length} 
                         valueStyle={{ color: '#fa8c16' }}
                         prefix={<RollbackOutlined />}
                       />
@@ -433,9 +428,10 @@ export default function ManagerPage({ activeTab, onTabChange: _onTabChange }: Ma
                 </Row>
 
                 <div style={{ marginBottom: 16, display: 'flex', gap: 16 }}>
-                  <Select placeholder="筛选状态" style={{ width: 150 }} allowClear>
+                  <Select placeholder="筛选审核结果" style={{ width: 150 }} allowClear>
                     <Option value="pending">待审核</Option>
                     <Option value="approved">已通过</Option>
+                    <Option value="returned">退回重提</Option>
                     <Option value="rejected">已拒绝</Option>
                   </Select>
                   <RangePicker />
@@ -446,11 +442,21 @@ export default function ManagerPage({ activeTab, onTabChange: _onTabChange }: Ma
                   rowKey="id"
                   columns={historyColumns}
                   expandable={{
-                    expandedRowRender: (record: any) => (
+                    expandedRowRender: (record: RefundRecord) => (
                       <Descriptions column={1} size="small">
                         <Descriptions.Item label="退款原因">{record.reason}</Descriptions.Item>
                         {record.managerNote && (
                           <Descriptions.Item label="审核意见">{record.managerNote}</Descriptions.Item>
+                        )}
+                        {record.returnToHandler && (
+                          <Descriptions.Item label="审核类型">
+                            <Tag color="orange">退回处理人员补充材料</Tag>
+                          </Descriptions.Item>
+                        )}
+                        {record.status === 'rejected' && !record.returnToHandler && record.reviewedAt && (
+                          <Descriptions.Item label="审核类型">
+                            <Tag>直接拒绝，不再处理</Tag>
+                          </Descriptions.Item>
                         )}
                       </Descriptions>
                     ),
@@ -850,10 +856,36 @@ export default function ManagerPage({ activeTab, onTabChange: _onTabChange }: Ma
                   description: '待处理',
                   status: 'wait'
                 },
-                selectedOrder.refundRecord?.reviewedAt ? {
-                  title: '店长审核',
-                  description: selectedOrder.refundRecord.reviewedAt,
+                ...(selectedOrder.refundHistory || []).length > 0 ? (selectedOrder.refundHistory || []).map((r, idx) => ({
+                  title: r.reviewedAt 
+                    ? `店长审核（第${idx + 1}轮）`
+                    : `退款申请（第${idx + 1}轮）`,
+                  description: r.appliedAt,
                   content: (
+                    <div>
+                      <p>申请退款 ¥{r.amount}：{r.reason}</p>
+                      {r.reviewedAt && (
+                        <p>
+                          <b>{r.reviewedBy}</b> 审核：
+                          {r.status === 'approved' ? 
+                            <Tag color="success">通过</Tag> : 
+                            r.returnToHandler ?
+                            <Tag color="warning">退回处理人员</Tag> :
+                            <Tag color="default">拒绝</Tag>
+                          }
+                          {r.managerNote && <span style={{ marginLeft: 8, color: '#666' }}>{r.managerNote}</span>}
+                        </p>
+                      )}
+                      {!r.reviewedAt && <Tag color="warning">待审核</Tag>}
+                    </div>
+                  ),
+                  status: r.reviewedAt 
+                    ? (r.status === 'approved' ? 'finish' : r.returnToHandler ? 'error' : 'finish') 
+                    : 'process' as const,
+                })) : selectedOrder.refundRecord ? [{
+                  title: '店长审核',
+                  description: selectedOrder.refundRecord.reviewedAt || '待审核',
+                  content: selectedOrder.refundRecord.reviewedAt ? (
                     <div>
                       <p><b>{selectedOrder.refundRecord.reviewedBy}</b> 审核：
                         {selectedOrder.refundRecord.status === 'approved' ? 
@@ -867,15 +899,14 @@ export default function ManagerPage({ activeTab, onTabChange: _onTabChange }: Ma
                         <p style={{ color: '#666' }}>{selectedOrder.refundRecord.managerNote}</p>
                       )}
                     </div>
-                  ),
-                  status: selectedOrder.status === 'refunded' ? 'finish' : 
-                          selectedOrder.status === 'refund_rejected' ? 'error' : 'finish'
-                } : {
+                  ) : <Tag color="warning">待审核</Tag>,
+                  status: selectedOrder.refundRecord.reviewedAt ? 'finish' : 'process',
+                }] : [{
                   title: '店长审核',
-                  description: selectedOrder.refundRecord ? '待审核' : '-',
-                  status: selectedOrder.refundRecord ? 'process' : 'wait'
-                },
-              ].filter(Boolean) as any}
+                  description: '-',
+                  status: 'wait' as const,
+                }],
+              ].flat() as any}
               style={{ marginBottom: 24 }}
             />
 

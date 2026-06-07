@@ -261,6 +261,8 @@ export const refundHistory: RefundRecord[] = [
   {
     id: 'rf2',
     orderId: 'o7',
+    orderNo: 'KTV' + now.subtract(3, 'day').format('YYYYMMDD') + '0012',
+    memberName: '孙八',
     amount: 256,
     reason: '设备故障，包厢音响中途损坏2小时，客人要求部分退款。',
     applicant: '处理员小张',
@@ -273,6 +275,8 @@ export const refundHistory: RefundRecord[] = [
   {
     id: 'rf3',
     orderId: 'o8',
+    orderNo: 'KTV' + now.subtract(5, 'day').format('YYYYMMDD') + '0007',
+    memberName: '周九',
     amount: 580,
     reason: '客人称未消费芝华士，但账单上有记录。',
     applicant: '处理员小李',

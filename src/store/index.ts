@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { Order, Role, StoreState, StoreActions } from './types';
+import { Order, RefundRecord, Role, StoreState, StoreActions } from './types';
 import { mockMembers, mockRooms, mockDrinks, mockOrders, abnormalOrders } from './mockData';
 import dayjs from 'dayjs';
 
@@ -127,18 +127,23 @@ export const useStore = create<StoreState & StoreActions>((set, get) => ({
     set((state) => {
       let newStatus: Order['status'] = 'abnormal';
       let refundRecord = undefined;
+      let refundHistoryUpdate: RefundRecord[] | undefined;
 
       if (data.needRefund && data.refundAmount && data.refundReason) {
         newStatus = 'refunding';
+        const order = state.orders.find(o => o.id === orderId);
         refundRecord = {
           id: 'rf' + Date.now(),
           orderId,
+          orderNo: order?.orderNo,
+          memberName: order?.memberName || '散客',
           amount: data.refundAmount,
           reason: data.refundReason,
           applicant: currentUser,
           appliedAt: now,
           status: 'pending' as const,
         };
+        refundHistoryUpdate = [...(order?.refundHistory || []), refundRecord];
       } else {
         newStatus = 'completed';
       }
@@ -161,6 +166,7 @@ export const useStore = create<StoreState & StoreActions>((set, get) => ({
                   }
                 : undefined,
               refundRecord,
+              ...(refundHistoryUpdate ? { refundHistory: refundHistoryUpdate } : {}),
             };
           }
           return o;
@@ -176,18 +182,22 @@ export const useStore = create<StoreState & StoreActions>((set, get) => ({
     set((state) => ({
       orders: state.orders.map((o) => {
         if (o.id === orderId) {
+          const newRecord: RefundRecord = {
+            id: 'rf' + Date.now(),
+            orderId,
+            orderNo: o.orderNo,
+            memberName: o.memberName || '散客',
+            amount: data.amount,
+            reason: data.reason,
+            applicant: currentUser,
+            appliedAt: now,
+            status: 'pending' as const,
+          };
           return {
             ...o,
             status: 'refunding' as const,
-            refundRecord: {
-              id: 'rf' + Date.now(),
-              orderId,
-              amount: data.amount,
-              reason: data.reason,
-              applicant: currentUser,
-              appliedAt: now,
-              status: 'pending' as const,
-            },
+            refundRecord: newRecord,
+            refundHistory: [...(o.refundHistory || []), newRecord],
           };
         }
         return o;
@@ -226,20 +236,25 @@ export const useStore = create<StoreState & StoreActions>((set, get) => ({
         );
       }
 
+      const reviewedRecord: RefundRecord = {
+        ...order.refundRecord!,
+        status: refundStatus,
+        managerNote: data.managerNote,
+        reviewedAt: now,
+        reviewedBy: currentUser,
+        returnToHandler: data.returnToHandler,
+        orderNo: order.orderNo,
+        memberName: order.memberName || '散客',
+      };
+
       return {
         orders: state.orders.map((o) => {
           if (o.refundRecord?.id === refundId) {
             return {
               ...o,
               status: newStatus,
-              refundRecord: {
-                ...o.refundRecord!,
-                status: refundStatus,
-                managerNote: data.managerNote,
-                reviewedAt: now,
-                reviewedBy: currentUser,
-                returnToHandler: data.returnToHandler,
-              },
+              refundRecord: reviewedRecord,
+              refundHistory: [...(o.refundHistory || []), reviewedRecord],
             };
           }
           return o;
@@ -256,21 +271,25 @@ export const useStore = create<StoreState & StoreActions>((set, get) => ({
     set((state) => ({
       orders: state.orders.map((o) => {
         if (o.id === orderId) {
+          const newRecord: RefundRecord = {
+            id: 'rf' + Date.now(),
+            orderId,
+            orderNo: o.orderNo,
+            memberName: o.memberName || '散客',
+            amount: data.amount,
+            reason: data.reason,
+            applicant: currentUser,
+            appliedAt: now,
+            status: 'pending' as const,
+          };
           return {
             ...o,
             status: 'refunding' as const,
             handlerNote: data.handlerNote,
             handledBy: currentUser,
             handledAt: now,
-            refundRecord: {
-              id: 'rf' + Date.now(),
-              orderId,
-              amount: data.amount,
-              reason: data.reason,
-              applicant: currentUser,
-              appliedAt: now,
-              status: 'pending' as const,
-            },
+            refundRecord: newRecord,
+            refundHistory: [...(o.refundHistory || []), newRecord],
           };
         }
         return o;

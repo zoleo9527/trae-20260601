@@ -70,6 +70,8 @@ export interface AbnormalRecord {
 export interface RefundRecord {
   id: string;
   orderId: string;
+  orderNo?: string;
+  memberName?: string;
   amount: number;
   reason: string;
   applicant: string;
@@ -105,6 +107,7 @@ export interface Order {
   createdAt: string;
   abnormalRecord?: AbnormalRecord;
   refundRecord?: RefundRecord;
+  refundHistory?: RefundRecord[];
   handlerNote?: string;
   handledBy?: string;
   handledAt?: string;
