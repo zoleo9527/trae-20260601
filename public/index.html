@@ -1,0 +1,801 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>肉类分割厂 - 检疫证明与质检放行系统</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .status-badge { padding: 2px 8px; border-radius: 9999px; font-size: 12px; font-weight: 500; }
+        .status-pending { background: #fef3c7; color: #92400e; }
+        .status-processing { background: #dbeafe; color: #1e40af; }
+        .status-approved { background: #d1fae5; color: #065f46; }
+        .status-rejected { background: #fee2e2; color: #991b1b; }
+        .status-blocked { background: #fecaca; color: #991b1b; animation: pulse 2s infinite; }
+        .status-reviewing { background: #e0e7ff; color: #3730a3; }
+        .status-passed { background: #d1fae5; color: #065f46; }
+        .status-failed { background: #fee2e2; color: #991b1b; }
+        .status-on_hold { background: #fed7aa; color: #92400e; animation: pulse 2s infinite; }
+        .status-released { background: #d1fae5; color: #065f46; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.7; } }
+        .tab-active { border-bottom: 3px solid #2563eb; color: #2563eb; font-weight: 600; }
+        .modal-backdrop { background: rgba(0,0,0,0.5); }
+        .timeline-item::before { content: ''; position: absolute; left: -21px; top: 6px; width: 12px; height: 12px; border-radius: 50%; background: #3b82f6; border: 2px solid white; box-shadow: 0 0 0 2px #bfdbfe; }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <div id="app"></div>
+    <div id="modal-container"></div>
+
+    <script>
+        const API_BASE = '/api';
+        let state = {
+            token: localStorage.getItem('token'),
+            user: JSON.parse(localStorage.getItem('user') || 'null'),
+            currentTab: ''
+        };
+
+        function setAuth(token, user) {
+            state.token = token;
+            state.user = user;
+            localStorage.setItem('token', token);
+            localStorage.setItem('user', JSON.stringify(user));
+        }
+
+        function clearAuth() {
+            state.token = null;
+            state.user = null;
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+        }
+
+        async function api(path, options) {
+            options = options || {};
+            const headers = { 'Content-Type': 'application/json' };
+            if (state.token) {
+                headers['Authorization'] = 'Bearer ' + state.token;
+            }
+            if (options.headers) {
+                Object.assign(headers, options.headers);
+            }
+            const res = await fetch(API_BASE + path, {
+                method: options.method || 'GET',
+                headers: headers,
+                body: options.body
+            });
+            if (res.status === 401) {
+                clearAuth();
+                renderApp();
+            }
+            if (!res.ok) {
+                const err = await res.json();
+                throw new Error(err.error || '请求失败');
+            }
+            return res.json();
+        }
+
+        function roleName(r) {
+            const map = {
+                production_foreman: '生产班长',
+                quality_inspector: '质检员',
+                cold_storage_admin: '冷库管理员'
+            };
+            return map[r] || r;
+        }
+
+        function statusName(s) {
+            const map = {
+                pending: '待处理',
+                processing: '处理中',
+                approved: '已通过',
+                rejected: '已驳回',
+                blocked: '已卡住',
+                reviewing: '审核中',
+                passed: '质检通过',
+                failed: '质检不通过',
+                on_hold: '待确认',
+                released: '已放行'
+            };
+            return map[s] || s;
+        }
+
+        function formatDate(d) {
+            if (!d) return '-';
+            const t = new Date(d);
+            return t.toLocaleString('zh-CN', {
+                year: 'numeric', month: '2-digit', day: '2-digit',
+                hour: '2-digit', minute: '2-digit'
+            });
+        }
+
+        function renderApp() {
+            const app = document.getElementById('app');
+            if (!state.token) {
+                app.innerHTML = renderLogin();
+                return;
+            }
+            app.innerHTML = renderMain();
+            initPage();
+        }
+
+        function renderLogin() {
+            return `
+                <div class="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-600 to-indigo-800">
+                    <div class="bg-white p-8 rounded-xl shadow-2xl w-full max-w-md">
+                        <h1 class="text-2xl font-bold text-center text-gray-800 mb-2">🏭 肉类分割厂</h1>
+                        <p class="text-gray-500 text-center mb-6">检疫证明与质检放行系统</p>
+                        <div id="login-error" class="text-red-500 text-sm mb-4 hidden"></div>
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">用户名</label>
+                                <input id="login-username" type="text" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" placeholder="foreman1 / inspector1 / coldstorage1">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">密码</label>
+                                <input id="login-password" type="password" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" placeholder="123456">
+                            </div>
+                            <button onclick="doLogin()" class="w-full bg-blue-600 hover:bg-blue-700 text-white py-2.5 rounded-lg font-medium transition">登 录</button>
+                        </div>
+                        <div class="mt-6 p-3 bg-gray-50 rounded-lg text-xs text-gray-500">
+                            <p class="font-medium text-gray-600 mb-1">测试账号：</p>
+                            <p>张班长（生产班长）: foreman1 / 123456</p>
+                            <p>李质检（质检员）: inspector1 / 123456</p>
+                            <p>王冷库（冷库管理员）: coldstorage1 / 123456</p>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        async function doLogin() {
+            const username = document.getElementById('login-username').value;
+            const password = document.getElementById('login-password').value;
+            try {
+                const data = await api('/login', {
+                    method: 'POST',
+                    body: JSON.stringify({ username: username, password: password })
+                });
+                setAuth(data.token, data.user);
+                renderApp();
+            } catch (e) {
+                document.getElementById('login-error').textContent = e.message;
+                document.getElementById('login-error').classList.remove('hidden');
+            }
+        }
+
+        function renderMain() {
+            const role = state.user.role;
+            let tabs = '';
+            if (role === 'production_foreman') {
+                state.currentTab = 'blocked';
+                tabs = renderForemanTabs();
+            } else if (role === 'quality_inspector') {
+                state.currentTab = 'pending';
+                tabs = renderInspectorTabs();
+            } else if (role === 'cold_storage_admin') {
+                state.currentTab = 'hold';
+                tabs = renderColdStorageTabs();
+            }
+
+            return `
+                <div class="min-h-screen">
+                    <header class="bg-white shadow-sm border-b">
+                        <div class="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
+                            <div class="flex items-center gap-3">
+                                <span class="text-2xl">🏭</span>
+                                <div>
+                                    <h1 class="text-lg font-bold text-gray-800">检疫证明与质检放行</h1>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-4">
+                                <div class="text-right">
+                                    <p class="text-sm font-medium text-gray-800">${state.user.name}</p>
+                                    <p class="text-xs text-gray-500">${roleName(role)}</p>
+                                </div>
+                                <button onclick="clearAuth(); renderApp();" class="text-sm text-gray-500 hover:text-red-500">退出</button>
+                            </div>
+                        </div>
+                    </header>
+                    <div class="max-w-7xl mx-auto px-4 py-6">
+                        ${tabs}
+                        <div id="main-content" class="mt-6">
+                            <div class="text-center py-12 text-gray-500">加载中...</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderForemanTabs() {
+            return `
+                <div class="mb-6">
+                    <h2 class="text-xl font-bold text-gray-800 mb-2">生产班长工作台</h2>
+                    <div class="flex gap-4 border-b">
+                        <button onclick="switchTab('blocked')" id="tab-blocked" class="py-2 px-4 tab-active">⚠️ 卡住的单子</button>
+                        <button onclick="switchTab('certs')" id="tab-certs" class="py-2 px-4 text-gray-600 hover:text-gray-800">📋 检疫证明</button>
+                        <button onclick="switchTab('releases')" id="tab-releases" class="py-2 px-4 text-gray-600 hover:text-gray-800">✅ 质检放行</button>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderInspectorTabs() {
+            return `
+                <div class="mb-6">
+                    <h2 class="text-xl font-bold text-gray-800 mb-2">质检员工作台</h2>
+                    <div class="flex gap-4 border-b">
+                        <button onclick="switchTab('pending')" id="tab-pending" class="py-2 px-4 tab-active">⏳ 待检疫/审核</button>
+                        <button onclick="switchTab('certs')" id="tab-certs" class="py-2 px-4 text-gray-600 hover:text-gray-800">📋 检疫证明</button>
+                        <button onclick="switchTab('releases')" id="tab-releases" class="py-2 px-4 text-gray-600 hover:text-gray-800">✅ 质检放行</button>
+                        <button onclick="switchTab('new-cert')" id="tab-new-cert" class="py-2 px-4 text-gray-600 hover:text-gray-800">➕ 新建检疫证明</button>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderColdStorageTabs() {
+            return `
+                <div class="mb-6">
+                    <h2 class="text-xl font-bold text-gray-800 mb-2">冷库管理员工作台</h2>
+                    <div class="flex gap-4 border-b">
+                        <button onclick="switchTab('hold')" id="tab-hold" class="py-2 px-4 tab-active">⏸️ 待入库确认</button>
+                        <button onclick="switchTab('releases')" id="tab-releases" class="py-2 px-4 text-gray-600 hover:text-gray-800">📦 放行记录</button>
+                    </div>
+                </div>
+            `;
+        }
+
+        function initPage() {
+            setTimeout(function() {
+                loadTabContent(state.currentTab);
+            }, 50);
+        }
+
+        function switchTab(tabId) {
+            state.currentTab = tabId;
+            const role = state.user.role;
+            const prefix = role === 'production_foreman' ? '' :
+                          role === 'quality_inspector' ? '' : '';
+
+            document.querySelectorAll('[id^="tab-"]').forEach(function(el) {
+                el.classList.remove('tab-active');
+                el.classList.add('text-gray-600');
+            });
+            const activeTab = document.getElementById('tab-' + tabId);
+            if (activeTab) {
+                activeTab.classList.add('tab-active');
+                activeTab.classList.remove('text-gray-600');
+            }
+            loadTabContent(tabId);
+        }
+
+        function loadTabContent(tabId) {
+            const content = document.getElementById('main-content');
+            content.innerHTML = '<div class="text-center py-12 text-gray-500">加载中...</div>';
+
+            if (tabId === 'blocked') {
+                loadBlockedItems();
+            } else if (tabId === 'pending') {
+                loadPendingItems();
+            } else if (tabId === 'hold') {
+                loadOnHoldReleases();
+            } else if (tabId === 'certs') {
+                loadCertificateList();
+            } else if (tabId === 'releases') {
+                loadReleaseList();
+            } else if (tabId === 'new-cert') {
+                    renderNewCertForm();
+                }
+        }
+
+        async function loadBlockedItems() {
+            try {
+                const data = await api('/dashboard/blocked');
+                const content = document.getElementById('main-content');
+                let html = '';
+
+                if (data.blocked_certificates.length === 0 && data.on_hold_releases.length === 0) {
+                    html = '<div class="text-center py-12 text-gray-500">✅ 当前没有卡住的单子</div>';
+                } else {
+                    if (data.blocked_certificates.length > 0) {
+                        html += '<div class="mb-8"><h3 class="text-lg font-semibold text-red-700 mb-3 flex items-center gap-2"><span class="w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>卡住的检疫证明 (' + data.blocked_certificates.length + ')</h3><div class="space-y-3">';
+                        data.blocked_certificates.forEach(function(c) {
+                            html += '<div class="bg-white border-l-4 border-red-500 rounded-lg p-4 shadow-sm hover:shadow-md transition cursor-pointer" onclick="showCertificateDetail(' + c.id + ')">';
+                            html += '<div class="flex items-start justify-between"><div>';
+                            html += '<p class="font-medium text-gray-800">' + c.product_name + ' · ' + c.batch_no + '</p>';
+                            html += '<p class="text-sm text-gray-500 mt-1">证明编号: ' + c.certificate_no + ' · 来源: ' + c.source + '</p>';
+                            html += '<p class="text-sm text-red-600 mt-2">⚠️ ' + (c.blocked_reason || '原因未知') + '</p>';
+                            html += '</div><span class="status-badge status-blocked">已卡住</span></div>';
+                            html += '<div class="mt-3 pt-3 border-t text-xs text-gray-500 flex justify-between">';
+                            html += '<span>提交人: ' + (c.submitted_by ? c.submitted_by.name : '-') + '</span>';
+                            html += '<span>' + formatDate(c.created_at) + '</span></div></div>';
+                        });
+                        html += '</div></div>';
+                    }
+
+                    if (data.on_hold_releases.length > 0) {
+                        html += '<div><h3 class="text-lg font-semibold text-amber-700 mb-3 flex items-center gap-2"><span class="w-2 h-2 bg-amber-500 rounded-full animate-pulse"></span>待确认的质检放行 (' + data.on_hold_releases.length + ')</h3><div class="space-y-3">';
+                        data.on_hold_releases.forEach(function(r) {
+                            html += '<div class="bg-white border-l-4 border-amber-500 rounded-lg p-4 shadow-sm hover:shadow-md transition cursor-pointer" onclick="showReleaseDetail(' + r.id + ')">';
+                            html += '<div class="flex items-start justify-between"><div>';
+                            html += '<p class="font-medium text-gray-800">' + r.product_name + ' · ' + r.batch_no + '</p>';
+                            html += '<p class="text-sm text-gray-500 mt-1">放行单号: ' + r.release_no + '</p>';
+                            html += '<p class="text-sm text-amber-600 mt-2">⏸️ ' + (r.hold_reason || '等待确认') + '</p>';
+                            html += '</div><span class="status-badge status-on_hold">待确认</span></div>';
+                            html += '<div class="mt-3 pt-3 border-t text-xs text-gray-500 flex justify-between">';
+                            html += '<span>提交人: ' + (r.submitted_by ? r.submitted_by.name : '-') + '</span>';
+                            html += '<span>' + formatDate(r.created_at) + '</span></div></div>';
+                        });
+                        html += '</div></div>';
+                    }
+                }
+                content.innerHTML = html;
+            } catch (e) {
+                    document.getElementById('main-content').innerHTML = '<div class="text-red-500">加载失败: ' + e.message + '</div>';
+                }
+        }
+
+        async function loadPendingItems() {
+            try {
+                const [certs, releases] = await Promise.all([
+                    api('/certificates?status=pending'),
+                    api('/releases?status=pending')
+                ]);
+                const content = document.getElementById('main-content');
+                let html = '<div class="space-y-6">';
+
+                html += '<div id="pending-certs-section"><h3 class="text-lg font-semibold text-gray-800 mb-3">待检疫的证明</h3>';
+                if (certs.length === 0) {
+                    html += '<p class="text-gray-500 text-sm">暂无待检疫的证明</p>';
+                } else {
+                    html += '<div class="space-y-3">';
+                    certs.forEach(function(c) {
+                        html += '<div class="bg-white rounded-lg p-4 shadow-sm hover:shadow-md transition cursor-pointer border" onclick="showCertificateDetail(' + c.id + ')">';
+                        html += '<div class="flex items-start justify-between"><div>';
+                        html += '<p class="font-medium text-gray-800">' + c.product_name + ' · ' + c.batch_no + '</p>';
+                        html += '<p class="text-sm text-gray-500">' + c.certificate_no + ' · ' + c.weight + 'kg · ' + c.source + '</p>';
+                        html += '</div><span class="status-badge status-pending">待检疫</span></div></div>';
+                    });
+                    html += '</div>';
+                }
+                html += '</div>';
+
+                html += '<div id="pending-releases-section"><h3 class="text-lg font-semibold text-gray-800 mb-3">待审核的放行单</h3>';
+                if (releases.length === 0) {
+                    html += '<p class="text-gray-500 text-sm">暂无待审核的放行单</p>';
+                } else {
+                    html += '<div class="space-y-3">';
+                    releases.forEach(function(r) {
+                        html += '<div class="bg-white rounded-lg p-4 shadow-sm hover:shadow-md transition cursor-pointer border" onclick="showReleaseDetail(' + r.id + ')">';
+                        html += '<div class="flex items-start justify-between"><div>';
+                        html += '<p class="font-medium text-gray-800">' + r.product_name + ' · ' + r.batch_no + '</p>';
+                        html += '<p class="text-sm text-gray-500">' + r.release_no + '</p>';
+                        html += '</div><span class="status-badge status-pending">待审核</span></div></div>';
+                    });
+                    html += '</div>';
+                }
+                html += '</div></div>';
+
+                content.innerHTML = html;
+            } catch (e) {
+                    document.getElementById('main-content').innerHTML = '<div class="text-red-500">加载失败: ' + e.message + '</div>';
+                }
+        }
+
+        async function loadOnHoldReleases() {
+            try {
+                const data = await api('/dashboard/blocked');
+                const releases = data.on_hold_releases;
+                const content = document.getElementById('main-content');
+
+                if (releases.length === 0) {
+                    content.innerHTML = '<div class="text-center py-12 text-gray-500">✅ 没有待入库确认的放行单</div>';
+                    return;
+                }
+
+                let html = '<div class="space-y-3">';
+                releases.forEach(function(r) {
+                    html += '<div class="bg-white border-l-4 border-amber-500 rounded-lg p-4 shadow-sm">';
+                    html += '<div class="flex items-start justify-between">';
+                    html += '<div class="flex-1 cursor-pointer" onclick="showReleaseDetail(' + r.id + ')">';
+                    html += '<p class="font-medium text-gray-800">' + r.product_name + ' · ' + r.batch_no + '</p>';
+                    html += '<p class="text-sm text-gray-500 mt-1">放行单号: ' + r.release_no + '</p>';
+                    html += '<p class="text-sm text-amber-600 mt-2">⏸️ ' + (r.hold_reason || '等待入库确认') + '</p>';
+                    html += '</div><div class="flex gap-2 ml-4">';
+                    html += '<button onclick="confirmRelease(' + r.id + ')" class="px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-sm rounded-lg">确认入库并放行</button>';
+                    html += '</div></div></div>';
+                });
+                html += '</div>';
+                content.innerHTML = html;
+            } catch (e) {
+                document.getElementById('main-content').innerHTML = '<div class="text-red-500">加载失败: ' + e.message + '</div>';
+            }
+        }
+
+        async function loadCertificateList() {
+            try {
+                const certs = await api('/certificates');
+                const content = document.getElementById('main-content');
+                let html = '<div class="bg-white rounded-lg shadow-sm overflow-hidden"><table class="w-full"><thead class="bg-gray-50"><tr>';
+                html += '<th class="text-left px-4 py-3 text-sm font-medium text-gray-600">证明编号</th>';
+                html += '<th class="text-left px-4 py-3 text-sm font-medium text-gray-600">产品</th>';
+                html += '<th class="text-left px-4 py-3 text-sm font-medium text-gray-600">批次</th>';
+                html += '<th class="text-left px-4 py-3 text-sm font-medium text-gray-600">来源</th>';
+                html += '<th class="text-left px-4 py-3 text-sm font-medium text-gray-600">状态</th>';
+                html += '<th class="text-left px-4 py-3 text-sm font-medium text-gray-600">提交时间</th>';
+                html += '</tr></thead><tbody class="divide-y">';
+                certs.forEach(function(c) {
+                    html += '<tr class="hover:bg-gray-50 cursor-pointer" onclick="showCertificateDetail(' + c.id + ')">';
+                    html += '<td class="px-4 py-3 text-sm font-mono">' + c.certificate_no + '</td>';
+                    html += '<td class="px-4 py-3 text-sm">' + c.product_name + '</td>';
+                    html += '<td class="px-4 py-3 text-sm">' + c.batch_no + '</td>';
+                    html += '<td class="px-4 py-3 text-sm">' + c.source + '</td>';
+                    html += '<td class="px-4 py-3"><span class="status-badge status-' + c.status + '">' + statusName(c.status) + '</span></td>';
+                    html += '<td class="px-4 py-3 text-sm text-gray-500">' + formatDate(c.created_at) + '</td>';
+                    html += '</tr>';
+                });
+                html += '</tbody></table></div>';
+                content.innerHTML = html;
+            } catch (e) {
+                document.getElementById('main-content').innerHTML = '<div class="text-red-500">加载失败: ' + e.message + '</div>';
+            }
+        }
+
+        async function loadReleaseList() {
+            try {
+                const releases = await api('/releases');
+                const content = document.getElementById('main-content');
+                let html = '<div class="bg-white rounded-lg shadow-sm overflow-hidden"><table class="w-full"><thead class="bg-gray-50"><tr>';
+                html += '<th class="text-left px-4 py-3 text-sm font-medium text-gray-600">放行单号</th>';
+                html += '<th class="text-left px-4 py-3 text-sm font-medium text-gray-600">产品</th>';
+                html += '<th class="text-left px-4 py-3 text-sm font-medium text-gray-600">批次</th>';
+                html += '<th class="text-left px-4 py-3 text-sm font-medium text-gray-600">关联检疫证明</th>';
+                html += '<th class="text-left px-4 py-3 text-sm font-medium text-gray-600">状态</th>';
+                html += '<th class="text-left px-4 py-3 text-sm font-medium text-gray-600">提交时间</th>';
+                html += '</tr></thead><tbody class="divide-y">';
+                releases.forEach(function(r) {
+                    html += '<tr class="hover:bg-gray-50 cursor-pointer" onclick="showReleaseDetail(' + r.id + ')">';
+                    html += '<td class="px-4 py-3 text-sm font-mono">' + r.release_no + '</td>';
+                    html += '<td class="px-4 py-3 text-sm">' + r.product_name + '</td>';
+                    html += '<td class="px-4 py-3 text-sm">' + r.batch_no + '</td>';
+                    html += '<td class="px-4 py-3 text-sm">' + (r.certificate ? r.certificate.certificate_no : '-') + '</td>';
+                    html += '<td class="px-4 py-3"><span class="status-badge status-' + r.status + '">' + statusName(r.status) + '</span></td>';
+                    html += '<td class="px-4 py-3 text-sm text-gray-500">' + formatDate(r.created_at) + '</td>';
+                    html += '</tr>';
+                });
+                html += '</tbody></table></div>';
+                content.innerHTML = html;
+            } catch (e) {
+                document.getElementById('main-content').innerHTML = '<div class="text-red-500">加载失败: ' + e.message + '</div>';
+            }
+        }
+
+        function renderNewCertForm() {
+            const content = document.getElementById('main-content');
+            content.innerHTML = `
+                <div class="bg-white rounded-lg shadow-sm p-6 max-w-2xl mx-auto">
+                    <h3 class="text-lg font-semibold mb-6">新建检疫证明</h3>
+                    <div class="space-y-4">
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">证明编号 *</label>
+                                <input id="new-cert-no" type="text" class="w-full px-3 py-2 border rounded-lg" placeholder="JY20260601004">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">批次号 *</label>
+                                <input id="new-cert-batch" type="text" class="w-full px-3 py-2 border rounded-lg" placeholder="PC20260603A">
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">产品名称 *</label>
+                                <input id="new-cert-product" type="text" class="w-full px-3 py-2 border rounded-lg" placeholder="猪白条肉">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">重量 (kg) *</label>
+                                <input id="new-cert-weight" type="number" step="0.01" class="w-full px-3 py-2 border rounded-lg" placeholder="1000">
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">来源 *</label>
+                                <input id="new-cert-source" type="text" class="w-full px-3 py-2 border rounded-lg" placeholder="XX养殖场">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">屠宰日期</label>
+                                <input id="new-cert-slaughter" type="date" class="w-full px-3 py-2 border rounded-lg">
+                            </div>
+                        </div>
+                        <div class="pt-4 flex gap-3">
+                            <button onclick="submitNewCert()" class="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium">提交</button>
+                            <button onclick="switchTab('certs')" class="px-6 py-2 bg-gray-200 hover:bg-gray-300 rounded-lg">取消</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        async function submitNewCert() {
+            const data = {
+                certificate_no: document.getElementById('new-cert-no').value,
+                batch_no: document.getElementById('new-cert-batch').value,
+                product_name: document.getElementById('new-cert-product').value,
+                weight: parseFloat(document.getElementById('new-cert-weight').value),
+                source: document.getElementById('new-cert-source').value,
+                slaughter_date: document.getElementById('new-cert-slaughter').value
+            };
+
+            try {
+                await api('/certificates', {
+                    method: 'POST',
+                    body: JSON.stringify(data),
+                    headers: { 'X-Idempotency-Key': 'cert-' + Date.now() }
+                });
+                switchTab('certs');
+            } catch (e) {
+                alert(e.message);
+            }
+        }
+
+        async function showCertificateDetail(id) {
+            const cert = await api('/certificates/' + id);
+            const isInspector = state.user.role === 'quality_inspector';
+            const isForeman = state.user.role === 'production_foreman';
+
+            let actionButtons = '';
+            if (isInspector && cert.status === 'pending') {
+                actionButtons += '<button onclick="updateCertStatus(' + id + ', \'approved\')" class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg">通过检疫</button>';
+                actionButtons += '<button onclick="updateCertStatus(' + id + ', \'processing\')" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg">标记处理中</button>';
+                actionButtons += '<button onclick="blockCert(' + id + ')" class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg">卡住单子</button>';
+            }
+            if (isForeman && cert.status === 'blocked') {
+                actionButtons += '<button onclick="updateCertStatus(' + id + ', \'pending\')" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg">重新提交</button>';
+            }
+
+            let blockedHtml = '';
+            if (cert.status === 'blocked') {
+                blockedHtml = '<div class="bg-red-50 border border-red-200 rounded-lg p-4 mb-6"><p class="text-red-700 font-medium">⚠️ 卡住原因</p><p class="text-red-600 text-sm mt-1">' + (cert.blocked_reason || '未填写') + '</p></div>';
+            }
+
+            let notesHtml = '<div class="border-l-2 border-gray-200 pl-6 ml-2 space-y-4">';
+            notesHtml += '<div class="relative timeline-item"><p class="text-sm font-medium text-gray-800">提交检疫证明</p><p class="text-xs text-gray-500">' + cert.submitted_by.name + ' · ' + formatDate(cert.created_at) + '</p></div>';
+            if (cert.notes && cert.notes.length > 0) {
+                cert.notes.forEach(function(n) {
+                    notesHtml += '<div class="relative timeline-item"><p class="text-sm text-gray-800">' + n.content + '</p><p class="text-xs text-gray-500">' + n.created_by.name + ' · ' + formatDate(n.created_at) + '</p></div>';
+                });
+            }
+            notesHtml += '</div>';
+
+            const modal = document.getElementById('modal-container');
+            modal.innerHTML = `
+                <div class="fixed inset-0 z-50 flex items-center justify-center modal-backdrop" onclick="if(event.target === this) closeModal()">
+                    <div class="bg-white rounded-xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto">
+                        <div class="sticky top-0 bg-white border-b px-6 py-4 flex items-center justify-between">
+                            <h3 class="text-lg font-semibold">检疫证明详情</h3>
+                            <button onclick="closeModal()" class="text-gray-400 hover:text-gray-600 text-2xl">&times;</button>
+                        </div>
+                        <div class="p-6">
+                            <div class="flex items-start justify-between mb-6">
+                                <div>
+                                    <p class="text-2xl font-bold text-gray-800">${cert.product_name}</p>
+                                    <p class="text-gray-500 mt-1">${cert.certificate_no} · ${cert.batch_no}</p>
+                                </div>
+                                <span class="status-badge status-${cert.status} text-base">${statusName(cert.status)}</span>
+                            </div>
+                            ${blockedHtml}
+                            <div class="grid grid-cols-2 gap-4 mb-6">
+                                <div class="bg-gray-50 rounded-lg p-3"><p class="text-xs text-gray-500">重量</p><p class="font-medium">${cert.weight} kg</p></div>
+                                <div class="bg-gray-50 rounded-lg p-3"><p class="text-xs text-gray-500">来源</p><p class="font-medium">${cert.source}</p></div>
+                                <div class="bg-gray-50 rounded-lg p-3"><p class="text-xs text-gray-500">屠宰日期</p><p class="font-medium">${formatDate(cert.slaughter_date)}</p></div>
+                                <div class="bg-gray-50 rounded-lg p-3"><p class="text-xs text-gray-500">检疫员</p><p class="font-medium">${cert.inspector ? cert.inspector.name : '未分配'}</p></div>
+                            </div>
+                            <div class="mb-6">
+                                <h4 class="font-medium text-gray-800 mb-3">操作历史与备注</h4>
+                                ${notesHtml}
+                            </div>
+                            <div class="mb-6">
+                                <h4 class="font-medium text-gray-800 mb-2">添加备注</h4>
+                                <div class="flex gap-2">
+                                    <input id="cert-note-input" type="text" class="flex-1 px-3 py-2 border rounded-lg" placeholder="输入备注内容...">
+                                    <button onclick="addCertNote(${id})" class="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg">添加</button>
+                                </div>
+                            </div>
+                            <div class="flex gap-3 pt-4 border-t">
+                                ${actionButtons}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        async function showReleaseDetail(id) {
+            const release = await api('/releases/' + id);
+            const isInspector = state.user.role === 'quality_inspector';
+            const isColdAdmin = state.user.role === 'cold_storage_admin';
+
+            let actionButtons = '';
+            if (isInspector && release.status === 'pending') {
+                actionButtons += '<button onclick="updateReleaseStatus(' + id + ', \'reviewing\')" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg">开始审核</button>';
+            }
+            if (isInspector && release.status === 'reviewing') {
+                actionButtons += '<button onclick="updateReleaseStatus(' + id + ', \'passed\')" class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg">质检通过</button>';
+                actionButtons += '<button onclick="updateReleaseStatus(' + id + ', \'failed\')" class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg">质检不通过</button>';
+                actionButtons += '<button onclick="holdRelease(' + id + ')" class="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg">暂缓（等冷库确认）</button>';
+            }
+            if (isColdAdmin && release.status === 'on_hold') {
+                actionButtons += '<button onclick="confirmRelease(' + id + ')" class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg">确认入库并放行</button>';
+            }
+
+            let holdHtml = '';
+            if (release.status === 'on_hold') {
+                holdHtml = '<div class="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-6"><p class="text-amber-700 font-medium">⏸️ 暂缓原因</p><p class="text-amber-600 text-sm mt-1">' + (release.hold_reason || '未填写') + '</p></div>';
+            }
+
+            let certHtml = '';
+            if (release.certificate) {
+                certHtml = '<div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6"><p class="text-blue-700 font-medium mb-1">📋 关联检疫证明</p><p class="text-blue-600 text-sm cursor-pointer" onclick="closeModal(); setTimeout(function() { showCertificateDetail(' + release.certificate.id + '); }, 100)">' + release.certificate.certificate_no + ' · ' + release.certificate.product_name + ' →</p></div>';
+            }
+
+            let notesHtml = '<div class="border-l-2 border-gray-200 pl-6 ml-2 space-y-4">';
+            notesHtml += '<div class="relative timeline-item"><p class="text-sm font-medium text-gray-800">创建放行单</p><p class="text-xs text-gray-500">' + (release.submitted_by ? release.submitted_by.name : '') + ' · ' + formatDate(release.created_at) + '</p></div>';
+            if (release.notes && release.notes.length > 0) {
+                release.notes.forEach(function(n) {
+                    notesHtml += '<div class="relative timeline-item"><p class="text-sm text-gray-800">' + n.content + '</p><p class="text-xs text-gray-500">' + n.created_by.name + ' · ' + formatDate(n.created_at) + '</p></div>';
+                });
+            }
+            notesHtml += '</div>';
+
+            const modal = document.getElementById('modal-container');
+            modal.innerHTML = `
+                <div class="fixed inset-0 z-50 flex items-center justify-center modal-backdrop" onclick="if(event.target === this) closeModal()">
+                    <div class="bg-white rounded-xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto">
+                        <div class="sticky top-0 bg-white border-b px-6 py-4 flex items-center justify-between">
+                            <h3 class="text-lg font-semibold">质检放行详情</h3>
+                            <button onclick="closeModal()" class="text-gray-400 hover:text-gray-600 text-2xl">&times;</button>
+                        </div>
+                        <div class="p-6">
+                            <div class="flex items-start justify-between mb-6">
+                                <div>
+                                    <p class="text-2xl font-bold text-gray-800">${release.product_name}</p>
+                                    <p class="text-gray-500 mt-1">${release.release_no} · ${release.batch_no}</p>
+                                </div>
+                                <span class="status-badge status-${release.status} text-base">${statusName(release.status)}</span>
+                            </div>
+                            ${holdHtml}
+                            ${certHtml}
+                            <div class="grid grid-cols-2 gap-4 mb-6">
+                                <div class="bg-gray-50 rounded-lg p-3"><p class="text-xs text-gray-500">质检项目</p><p class="font-medium">${release.inspection_items || '-'}</p></div>
+                                <div class="bg-gray-50 rounded-lg p-3"><p class="text-xs text-gray-500">质检结果</p><p class="font-medium">${release.inspection_result || '-'}</p></div>
+                                <div class="bg-gray-50 rounded-lg p-3"><p class="text-xs text-gray-500">审核人</p><p class="font-medium">${release.reviewer ? release.reviewer.name : '未分配'}</p></div>
+                                <div class="bg-gray-50 rounded-lg p-3"><p class="text-xs text-gray-500">提交人</p><p class="font-medium">${release.submitted_by ? release.submitted_by.name : '-'}</p></div>
+                            </div>
+                            <div class="mb-6">
+                                <h4 class="font-medium text-gray-800 mb-3">操作历史与备注</h4>
+                                ${notesHtml}
+                            </div>
+                            <div class="mb-6">
+                                <h4 class="font-medium text-gray-800 mb-2">添加备注</h4>
+                                <div class="flex gap-2">
+                                    <input id="release-note-input" type="text" class="flex-1 px-3 py-2 border rounded-lg" placeholder="输入备注内容...">
+                                    <button onclick="addReleaseNote(${id})" class="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg">添加</button>
+                                </div>
+                            </div>
+                            <div class="flex gap-3 pt-4 border-t">
+                                ${actionButtons}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function closeModal() {
+            document.getElementById('modal-container').innerHTML = '';
+        }
+
+        async function updateCertStatus(id, status) {
+            try {
+                await api('/certificates/' + id + '/status', {
+                    method: 'PUT',
+                    body: JSON.stringify({ status: status })
+                });
+                closeModal();
+                loadTabContent(state.currentTab);
+            } catch (e) {
+                alert(e.message);
+            }
+        }
+
+        function blockCert(id) {
+            const reason = prompt('请输入卡住原因：');
+            if (!reason) return;
+            api('/certificates/' + id + '/status', {
+                method: 'PUT',
+                body: JSON.stringify({ status: 'blocked', blocked_reason: reason })
+            }).then(function() {
+                closeModal();
+                loadTabContent(state.currentTab);
+            }).catch(function(e) {
+                alert(e.message);
+            });
+        }
+
+        async function addCertNote(id) {
+            const input = document.getElementById('cert-note-input');
+            const content = input.value.trim();
+            if (!content) return;
+            try {
+                await api('/certificates/' + id + '/notes', {
+                    method: 'POST',
+                    body: JSON.stringify({ content: content })
+                });
+                showCertificateDetail(id);
+            } catch (e) {
+                alert(e.message);
+            }
+        }
+
+        async function updateReleaseStatus(id, status) {
+            try {
+                await api('/releases/' + id + '/status', {
+                    method: 'PUT',
+                    body: JSON.stringify({ status: status })
+                });
+                closeModal();
+                loadTabContent(state.currentTab);
+            } catch (e) {
+                alert(e.message);
+            }
+        }
+
+        function holdRelease(id) {
+            const reason = prompt('请输入暂缓原因：', '等待冷库入库确认');
+            if (!reason) return;
+            api('/releases/' + id + '/status', {
+                method: 'PUT',
+                body: JSON.stringify({ status: 'on_hold', hold_reason: reason })
+            }).then(function() {
+                closeModal();
+                loadTabContent(state.currentTab);
+            }).catch(function(e) {
+                alert(e.message);
+            });
+        }
+
+        async function confirmRelease(id) {
+            try {
+                await api('/releases/' + id + '/notes', {
+                    method: 'POST',
+                    body: JSON.stringify({ content: '冷库已确认入库，数量核对无误' })
+                });
+                await api('/releases/' + id + '/status', {
+                    method: 'PUT',
+                    body: JSON.stringify({ status: 'released' })
+                });
+                closeModal();
+                loadTabContent(state.currentTab);
+            } catch (e) {
+                alert(e.message);
+            }
+        }
+
+        async function addReleaseNote(id) {
+            const input = document.getElementById('release-note-input');
+            const content = input.value.trim();
+            if (!content) return;
+            try {
+                await api('/releases/' + id + '/notes', {
+                    method: 'POST',
+                    body: JSON.stringify({ content: content })
+                });
+                showReleaseDetail(id);
+            } catch (e) {
+                alert(e.message);
+            }
+        }
+
+        renderApp();
+    </script>
+</body>
+</html>
