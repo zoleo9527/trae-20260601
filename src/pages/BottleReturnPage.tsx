@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { RefreshCw, Check, X, AlertTriangle, Clock, MapPin, User, ChevronDown, ChevronUp } from 'lucide-react';
+import { RefreshCw, Check, X, AlertTriangle, Clock, MapPin, User, ChevronDown, ChevronUp, Wallet } from 'lucide-react';
 import { useAppStore } from '@/store/appStore';
 import { StatusTag } from '@/components/StatusTag';
 import { BottleReturnStatus, UserRole } from '@/types';
@@ -62,8 +62,12 @@ interface BottleCardProps {
 function BottleCard({ record, currentRole }: BottleCardProps) {
   const [expanded, setExpanded] = useState(false);
   const [modal, setModal] = useState<{ type: string; title: string } | null>(null);
-  const { updateBottleReturnStatus } = useAppStore();
+  const { updateBottleReturnStatus, createDepositReconciliation, depositReconciliations, addOperationLog, currentUser } = useAppStore();
 
+  const linkedDeposit = depositReconciliations.find(d => d.bottleReturnRecordId === record.id);
+  const canCreateDeposit = currentRole === 'station_clerk' && 
+    record.status === 'returned_to_station' && 
+    !linkedDeposit;
   const canCollect = currentRole === 'delivery_person' && record.status === 'pending_collection';
   const canReturnToStation = currentRole === 'delivery_person' && record.status === 'collected';
   const canVerify = currentRole === 'station_clerk' && record.status === 'returned_to_station';
@@ -96,6 +100,22 @@ function BottleCard({ record, currentRole }: BottleCardProps) {
         break;
       case 'stick':
         updateBottleReturnStatus(record.id, 'stuck', remark, { stuckReason: remark });
+        break;
+      case 'create_deposit':
+        createDepositReconciliation(record.id);
+        if (currentUser) {
+          addOperationLog({
+            operationType: 'deposit_init',
+            operatorId: currentUser.id,
+            operatorName: currentUser.name,
+            operatorRole: currentUser.role,
+            targetType: 'deposit_reconciliation',
+            targetId: record.id,
+            remark: remark || '从空瓶回收记录发起押金核对',
+            oldStatus: record.status,
+            newStatus: 'pending',
+          });
+        }
         break;
     }
   };
@@ -176,6 +196,19 @@ function BottleCard({ record, currentRole }: BottleCardProps) {
           </div>
         )}
 
+        {linkedDeposit && (
+          <div className="mt-3 p-2 bg-purple-50 rounded-lg">
+            <p className="text-xs text-purple-700 flex items-center gap-1">
+              <Wallet className="w-3 h-3" />
+              <span className="font-medium">关联押金核对:</span>
+              <span className="ml-1">差额 {linkedDeposit.difference >= 0 ? '+' : ''}¥{linkedDeposit.difference}</span>
+            </p>
+            <div className="mt-1">
+              <StatusTag type="deposit" status={linkedDeposit.status} />
+            </div>
+          </div>
+        )}
+
         <div className="mt-4 flex flex-wrap gap-2">
           {canCollect && (
             <button
@@ -199,6 +232,14 @@ function BottleCard({ record, currentRole }: BottleCardProps) {
               className="px-3 py-1.5 bg-emerald-100 text-emerald-700 text-sm rounded-lg hover:bg-emerald-200 transition-colors flex items-center gap-1"
             >
               <Check className="w-4 h-4" /> 核验通过
+            </button>
+          )}
+          {canCreateDeposit && (
+            <button
+              onClick={() => setModal({ type: 'create_deposit', title: '发起押金核对' })}
+              className="px-3 py-1.5 bg-purple-100 text-purple-700 text-sm rounded-lg hover:bg-purple-200 transition-colors flex items-center gap-1"
+            >
+              <Wallet className="w-4 h-4" /> 发起押金核对
             </button>
           )}
           {canDispute && (

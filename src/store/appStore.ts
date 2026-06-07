@@ -133,7 +133,40 @@ export const useAppStore = create<AppState>((set, get) => ({
         newStatus: status,
         createdAt: new Date().toISOString()
       };
-      return { bottleReturnRecords: updatedRecords, operationLogs: [newLog, ...state.operationLogs] };
+      const newAlerts = [...state.alerts];
+      if (status === 'stuck') {
+        newAlerts.unshift({
+          id: generateId(),
+          type: 'stuck_bottle',
+          title: `空瓶回收卡住: ${oldRecord.customer.name}`,
+          description: remark || '空瓶回收记录被标记为卡住，需要及时处理',
+          targetType: 'bottle_return',
+          targetId: id,
+          status: 'active',
+          priority: 'high',
+          assignedRole: 'station_clerk',
+          createdAt: new Date().toISOString()
+        });
+      }
+      if (status === 'rejected') {
+        newAlerts.unshift({
+          id: generateId(),
+          type: 'disputed',
+          title: `空瓶回收被退回: ${oldRecord.customer.name}`,
+          description: remark || '空瓶回收记录被退回，请检查处理',
+          targetType: 'bottle_return',
+          targetId: id,
+          status: 'active',
+          priority: 'medium',
+          assignedRole: 'delivery_person',
+          createdAt: new Date().toISOString()
+        });
+      }
+      return {
+        bottleReturnRecords: updatedRecords,
+        operationLogs: [newLog, ...state.operationLogs],
+        alerts: newAlerts
+      };
     });
   },
   updateDepositStatus: (id, status, remark, extra = {}) => {
@@ -167,17 +200,67 @@ export const useAppStore = create<AppState>((set, get) => ({
         newStatus: status,
         createdAt: new Date().toISOString()
       };
-      return { depositReconciliations: updatedRecords, operationLogs: [newLog, ...state.operationLogs] };
+      const newAlerts = [...state.alerts];
+      if (status === 'stuck') {
+        newAlerts.unshift({
+          id: generateId(),
+          type: 'stuck_deposit',
+          title: `押金核对卡住: ${oldRecord.customer.name}`,
+          description: remark || '押金核对记录被标记为卡住，需要及时处理',
+          targetType: 'deposit_reconciliation',
+          targetId: id,
+          status: 'active',
+          priority: 'high',
+          assignedRole: 'station_clerk',
+          createdAt: new Date().toISOString()
+        });
+      }
+      if (status === 'mismatched') {
+        newAlerts.unshift({
+          id: generateId(),
+          type: 'mismatched_deposit',
+          title: `押金核对不一致: ${oldRecord.customer.name}`,
+          description: remark || `押金核对存在差额: ¥${oldRecord.difference}`,
+          targetType: 'deposit_reconciliation',
+          targetId: id,
+          status: 'active',
+          priority: 'medium',
+          assignedRole: 'station_clerk',
+          createdAt: new Date().toISOString()
+        });
+      }
+      return {
+        depositReconciliations: updatedRecords,
+        operationLogs: [newLog, ...state.operationLogs],
+        alerts: newAlerts
+      };
     });
   },
   acknowledgeAlert: (alertId) => {
     const { currentUser } = get();
     if (!currentUser) return;
-    set((state) => ({
-      alerts: state.alerts.map((a) =>
-        a.id === alertId ? { ...a, status: 'acknowledged' as const, acknowledgedBy: currentUser.id, acknowledgedAt: new Date().toISOString() } : a
-      )
-    }));
+    set((state) => {
+      const alert = state.alerts.find((a) => a.id === alertId);
+      const newLog: OperationLog = {
+        id: generateId(),
+        operationType: 'create_alert',
+        operatorId: currentUser.id,
+        operatorName: currentUser.name,
+        operatorRole: currentUser.role,
+        targetType: 'alert',
+        targetId: alertId,
+        remark: '确认已收到提醒',
+        oldStatus: alert?.status,
+        newStatus: 'acknowledged',
+        createdAt: new Date().toISOString()
+      };
+      return {
+        alerts: state.alerts.map((a) =>
+          a.id === alertId ? { ...a, status: 'acknowledged' as const, acknowledgedBy: currentUser.id, acknowledgedAt: new Date().toISOString() } : a
+        ),
+        operationLogs: [newLog, ...state.operationLogs]
+      };
+    });
   },
   resolveAlert: (alertId, remark) => {
     const { currentUser } = get();
@@ -215,8 +298,9 @@ export const useAppStore = create<AppState>((set, get) => ({
     const expectedDeposit = bottleReturn.expectedBottles * 10;
     const actualDeposit = bottleReturn.returnedBottles * 10;
     const difference = actualDeposit - expectedDeposit;
+    const newId = generateId();
     const newReconciliation: DepositReconciliation = {
-      id: generateId(),
+      id: newId,
       customerId: bottleReturn.customerId,
       customer: bottleReturn.customer,
       bottleReturnRecordId: bottleReturnId,
@@ -232,6 +316,40 @@ export const useAppStore = create<AppState>((set, get) => ({
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
-    set((state) => ({ depositReconciliations: [newReconciliation, ...state.depositReconciliations] }));
+    const newLog: OperationLog = {
+      id: generateId(),
+      operationType: 'deposit_init',
+      operatorId: currentUser.id,
+      operatorName: currentUser.name,
+      operatorRole: currentUser.role,
+      targetType: 'deposit_reconciliation',
+      targetId: newId,
+      remark: difference === 0 ? '自动创建押金核对，核对一致' : `自动创建押金核对，存在差额: ¥${difference}`,
+      oldStatus: bottleReturn.status,
+      newStatus: difference === 0 ? 'matched' : 'mismatched',
+      createdAt: new Date().toISOString()
+    };
+    set((state) => {
+      const newAlerts = [...state.alerts];
+      if (difference !== 0) {
+        newAlerts.unshift({
+          id: generateId(),
+          type: 'mismatched_deposit',
+          title: `押金核对存在差额: ${bottleReturn.customer.name}`,
+          description: `空瓶预期${bottleReturn.expectedBottles}个，实收${bottleReturn.returnedBottles}个，押金差额¥${difference}`,
+          targetType: 'deposit_reconciliation',
+          targetId: newId,
+          status: 'active',
+          priority: 'medium',
+          assignedRole: 'station_clerk',
+          createdAt: new Date().toISOString()
+        });
+      }
+      return {
+        depositReconciliations: [newReconciliation, ...state.depositReconciliations],
+        operationLogs: [newLog, ...state.operationLogs],
+        alerts: newAlerts
+      };
+    });
   }
 }));
