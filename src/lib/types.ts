@@ -160,6 +160,8 @@ export interface Booking {
   completedBy?: string;
   completedAt?: Date;
   updatedAt: Date;
+  
+  lastSupplementSummary?: string;
 }
 
 export interface TodoItem {

@@ -296,18 +296,25 @@
                 <span>📋</span> 最近变更
               </h3>
             </div>
-            <div class="divide-y divide-gray-100 max-h-60 overflow-y-auto">
+            <div class="divide-y divide-gray-100 max-h-80 overflow-y-auto">
               {#each bookings.slice(0, 6) as booking}
                 <button 
                   class="w-full p-3 text-left hover:bg-gray-50 transition-colors"
                   onclick={() => goto(`/bookings/${booking.id}`)}
                 >
-                  <div class="flex items-center justify-between">
-                    <div class="min-w-0">
-                      <div class="font-medium text-gray-800 text-sm truncate">{booking.customerName} - {booking.roomNo}</div>
+                  <div class="flex items-start justify-between gap-2">
+                    <div class="min-w-0 flex-1">
+                      <div class="flex items-center gap-2">
+                        <span class="font-medium text-gray-800 text-sm">{booking.customerName} - {booking.roomNo}</span>
+                      </div>
                       <div class="text-xs text-gray-500 mt-1 font-mono">{booking.bookingNo.slice(-8)}</div>
+                      {#if booking.lastSupplementSummary}
+                        <div class="text-xs text-blue-600 mt-1 bg-blue-50 px-2 py-1 rounded inline-block">
+                          📝 {booking.lastSupplementSummary}
+                        </div>
+                      {/if}
                     </div>
-                    <span class="badge badge-{booking.status === 'rejected' ? 'danger' : booking.status === 'supplement_required' ? 'warning' : booking.status === 'completed' ? 'success' : 'info'} text-xs flex-shrink-0">
+                    <span class="badge badge-{booking.status === 'rejected' ? 'danger' : booking.status === 'supplement_required' ? 'warning' : booking.status === 'completed' ? 'success' : 'info'} text-xs flex-shrink-0 mt-0.5">
                       {statusNames[booking.status]}
                     </span>
                   </div>

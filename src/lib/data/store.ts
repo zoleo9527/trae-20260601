@@ -800,55 +800,78 @@ export function completeSupplement(
   }
 ): Booking | undefined {
   const booking = bookings.find(b => b.id === bookingId);
-  if (booking && booking.status === 'supplement_required') {
-    const changes: string[] = [];
-    
-    if (supplementData) {
-      if (supplementData.customerPhone && supplementData.customerPhone !== booking.customerPhone) {
-        booking.customerPhone = supplementData.customerPhone;
-        changes.push(`联系电话更新为 ${supplementData.customerPhone}`);
-      }
-      if (supplementData.numberOfPeople !== undefined && supplementData.numberOfPeople !== booking.numberOfPeople) {
-        booking.numberOfPeople = supplementData.numberOfPeople;
-        changes.push(`人数更新为 ${supplementData.numberOfPeople} 人`);
-      }
-      if (supplementData.memberId && supplementData.memberId !== booking.memberId) {
-        booking.memberId = supplementData.memberId;
-        booking.memberName = supplementData.memberName;
-        booking.memberLevel = supplementData.memberLevel;
-        changes.push(`关联会员：${supplementData.memberName} (${supplementData.memberLevel || '普通'})`);
-      }
-      if (supplementData.deposit !== undefined && supplementData.deposit !== booking.deposit) {
-        booking.deposit = supplementData.deposit;
-        booking.paidAmount = supplementData.deposit;
-        changes.push(`定金更新为 ¥${supplementData.deposit}`);
-      }
-    }
-    
-    booking.status = 'pending';
-    
-    const supplementNote = changes.length > 0 
-      ? `信息已补充完成：${changes.join('；')}。提交等待确认`
-      : '信息已补充完成，等待确认';
-    
-    booking.notes.push({
-      id: `note-${Date.now()}`,
-      content: supplementNote,
-      createdBy: operator,
-      createdByRole: operatorRole,
-      createdAt: new Date(),
-      type: 'supplement'
-    });
-    
-    const openIssue = booking.issues.find(i => i.type === 'booking_rejection' && i.status === 'open');
-    if (openIssue) {
-      openIssue.status = 'resolved';
-      openIssue.resolvedAt = new Date();
-      openIssue.resolvedBy = operator;
-    }
-    
-    booking.updatedAt = new Date();
+  if (!booking || booking.status !== 'supplement_required') {
+    return undefined;
   }
+  
+  const finalPhone = supplementData?.customerPhone || booking.customerPhone;
+  const finalPeople = supplementData?.numberOfPeople !== undefined ? supplementData.numberOfPeople : booking.numberOfPeople;
+  
+  if (!finalPhone || !finalPhone.trim()) {
+    throw new Error('联系电话不能为空');
+  }
+  if (!finalPeople || finalPeople <= 0) {
+    throw new Error('人数不能为空且必须大于 0');
+  }
+  
+  const changes: string[] = [];
+  
+  if (finalPhone !== booking.customerPhone) {
+    booking.customerPhone = finalPhone;
+    changes.push(`联系电话更新为 ${finalPhone}`);
+  }
+  if (finalPeople !== booking.numberOfPeople) {
+    booking.numberOfPeople = finalPeople;
+    changes.push(`人数更新为 ${finalPeople} 人`);
+  }
+  
+  const memberChanged = supplementData?.memberId !== undefined && supplementData.memberId !== booking.memberId;
+  if (memberChanged) {
+    if (supplementData.memberId) {
+      booking.memberId = supplementData.memberId;
+      booking.memberName = supplementData.memberName;
+      booking.memberLevel = supplementData.memberLevel;
+      changes.push(`关联会员：${supplementData.memberName} (${supplementData.memberLevel || '普通'})`);
+    } else {
+      const oldMember = booking.memberName || '原会员';
+      booking.memberId = null;
+      booking.memberName = null;
+      booking.memberLevel = null;
+      changes.push(`取消会员关联，改为散客`);
+    }
+  }
+  
+  if (supplementData?.deposit !== undefined && supplementData.deposit !== booking.deposit) {
+    booking.deposit = supplementData.deposit;
+    booking.paidAmount = supplementData.deposit;
+    changes.push(`定金更新为 ¥${supplementData.deposit}`);
+  }
+  
+  booking.status = 'pending';
+  
+  const supplementNote = changes.length > 0 
+    ? `信息已补充完成：${changes.join('；')}。提交等待确认`
+    : '信息已补充完成，等待确认';
+  
+  booking.lastSupplementSummary = changes.length > 0 ? changes.join('；') : '补录完成';
+  
+  booking.notes.push({
+    id: `note-${Date.now()}`,
+    content: supplementNote,
+    createdBy: operator,
+    createdByRole: operatorRole,
+    createdAt: new Date(),
+    type: 'supplement'
+  });
+  
+  const openIssue = booking.issues.find(i => i.type === 'booking_rejection' && i.status === 'open');
+  if (openIssue) {
+    openIssue.status = 'resolved';
+    openIssue.resolvedAt = new Date();
+    openIssue.resolvedBy = operator;
+  }
+  
+  booking.updatedAt = new Date();
   return booking;
 }
 

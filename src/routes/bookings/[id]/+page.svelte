@@ -243,9 +243,12 @@
     }
   }
   
+  let supplementError = $state('');
+
   async function completeSupplement() {
     if (!booking) return;
     
+    supplementError = '';
     supplementSubmitting = true;
     try {
       const selectedMember = members.find(m => m.id === supplementForm.memberId);
@@ -253,7 +256,7 @@
       const supplementData = {
         customerPhone: supplementForm.customerPhone,
         numberOfPeople: supplementForm.numberOfPeople,
-        memberId: supplementForm.memberId || undefined,
+        memberId: supplementForm.memberId || null,
         memberName: selectedMember?.name,
         memberLevel: selectedMember?.level,
         deposit: supplementForm.deposit
@@ -272,7 +275,12 @@
       
       if (res.ok) {
         booking = await res.json();
+      } else {
+        const err = await res.json();
+        supplementError = err.message || '补录提交失败，请重试';
       }
+    } catch (e) {
+      supplementError = e instanceof Error ? e.message : '补录提交失败，请重试';
     } finally {
       supplementSubmitting = false;
     }
@@ -624,8 +632,13 @@
               </div>
             </div>
             
-            <div class="pt-2">
-              <div class="text-xs text-gray-500 mb-3">
+            <div class="pt-2 space-y-3">
+              {#if supplementError}
+                <div class="text-sm text-red-600 bg-red-50 p-3 rounded-lg border border-red-200">
+                  ⚠️ {supplementError}
+                </div>
+              {/if}
+              <div class="text-xs text-gray-500">
                 📝 补录信息将自动记入备注历史，提交后状态回到「待确认」，由楼面经理审核确认
               </div>
               <button 
@@ -1039,10 +1052,10 @@
                 {/if}
               {/if}
               
-              {#if booking.status === 'supplement_required' && canCompleteSupplement()}
-                <button class="btn btn-primary w-full" onclick={completeSupplement}>
-                  ✓ 补录完成，提交确认
-                </button>
+              {#if booking.status === 'supplement_required'}
+                <div class="text-sm text-orange-600 bg-orange-50 p-3 rounded-lg text-center">
+                  📝 请在上方「信息待补录」区域填写表单后提交
+                </div>
               {/if}
               
               {#if booking.status === 'confirmed' && canCheckIn()}

@@ -16,33 +16,38 @@ export async function PATCH({ params, request }: { params: { id: string }; reque
   
   let booking;
   
-  switch (action) {
-    case 'confirm':
-      booking = confirmBooking(params.id, operator, operatorRole as UserRole);
-      break;
-    case 'reject':
-      booking = rejectBooking(params.id, rest.reason, rest.supplementaryNotes, operator, operatorRole as UserRole);
-      break;
-    case 'request_supplement':
-      booking = requestSupplement(params.id, rest.supplementInfo, operator, operatorRole as UserRole);
-      break;
-    case 'complete_supplement':
-      booking = completeSupplement(params.id, operator, operatorRole as UserRole, rest.supplementData);
-      break;
-    case 'checkin':
-      booking = checkInBooking(params.id, operator, operatorRole as UserRole);
-      break;
-    case 'mark_arrived':
-      booking = markArrived(params.id, operator, operatorRole as UserRole);
-      break;
-    case 'complete':
-      booking = completeBooking(params.id, operator, operatorRole as UserRole);
-      break;
-    case 'update':
-      booking = updateBooking(params.id, rest);
-      break;
-    default:
-      throw error(400, '无效的操作');
+  try {
+    switch (action) {
+      case 'confirm':
+        booking = confirmBooking(params.id, operator, operatorRole as UserRole);
+        break;
+      case 'reject':
+        booking = rejectBooking(params.id, rest.reason, rest.supplementaryNotes, operator, operatorRole as UserRole);
+        break;
+      case 'request_supplement':
+        booking = requestSupplement(params.id, rest.supplementInfo, operator, operatorRole as UserRole);
+        break;
+      case 'complete_supplement':
+        booking = completeSupplement(params.id, operator, operatorRole as UserRole, rest.supplementData);
+        break;
+      case 'checkin':
+        booking = checkInBooking(params.id, operator, operatorRole as UserRole);
+        break;
+      case 'mark_arrived':
+        booking = markArrived(params.id, operator, operatorRole as UserRole);
+        break;
+      case 'complete':
+        booking = completeBooking(params.id, operator, operatorRole as UserRole);
+        break;
+      case 'update':
+        booking = updateBooking(params.id, rest);
+        break;
+      default:
+        throw error(400, '无效的操作');
+    }
+  } catch (e) {
+    const message = e instanceof Error ? e.message : '操作失败';
+    throw error(400, message);
   }
   
   if (!booking) {
