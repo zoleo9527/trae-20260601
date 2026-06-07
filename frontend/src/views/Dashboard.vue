@@ -100,46 +100,70 @@
               <el-button type="primary" link @click="$router.push('/verification')">查看全部</el-button>
             </div>
           </template>
-          <el-table :data="dashboard.pendingVerificationList || []" size="small" style="width: 100%">
-            <el-table-column prop="verificationNo" label="核销单号" width="140">
-              <template #default="{ row }">
-                <span style="color: #409eff; cursor: pointer" @click="goToVerificationDetail(row.id)">{{ row.verificationNo }}</span>
-              </template>
-            </el-table-column>
-            <el-table-column prop="roomNo" label="包厢" width="80" />
-            <el-table-column prop="customerName" label="客户" width="80" />
-            <el-table-column prop="usedAmount" label="核销金额" width="100">
-              <template #default="{ row }">¥{{ row.usedAmount }}</template>
-            </el-table-column>
-            <el-table-column prop="outboundStatus" label="出库状态" width="100">
-              <template #default="{ row }">
-                <el-tag v-if="row.outboundStatus" :type="getOutboundTagType(row.outboundStatus)" size="small">
-                  {{ outboundStatusMap[row.outboundStatus] || row.outboundStatus }}
-                </el-tag>
-                <span v-else style="color: #909399">-</span>
-              </template>
-            </el-table-column>
-            <el-table-column prop="createTime" label="创建时间" width="160">
-              <template #default="{ row }">{{ formatTime(row.createTime) }}</template>
-            </el-table-column>
-            <el-table-column label="操作" width="120">
-              <template #default="{ row }">
-                <template v-if="row.status === 'PENDING'">
-                  <el-button type="primary" size="small" link @click="goToVerificationDetail(row.id)">审核</el-button>
+
+          <div v-if="pendingAuditList.length > 0" style="margin-bottom: 16px">
+            <div style="padding: 8px 12px; background: #ecf5ff; border-radius: 4px; margin-bottom: 8px; display: flex; align-items: center; gap: 8px">
+              <el-tag type="primary" size="small">待审核</el-tag>
+              <span style="font-size: 13px; color: #409eff">共 {{ pendingAuditList.length }} 条核销单等待审核</span>
+            </div>
+            <el-table :data="pendingAuditList" size="small" style="width: 100%">
+              <el-table-column prop="verificationNo" label="核销单号" width="140">
+                <template #default="{ row }">
+                  <span style="color: #409eff; cursor: pointer" @click="goToVerificationDetail(row.id)">{{ row.verificationNo }}</span>
                 </template>
-                <template v-else-if="row.status === 'COMPLETED' && row.outboundStatus === 'PENDING'">
+              </el-table-column>
+              <el-table-column prop="roomNo" label="包厢" width="80" />
+              <el-table-column prop="customerName" label="客户" width="80" />
+              <el-table-column prop="usedAmount" label="金额" width="100">
+                <template #default="{ row }">¥{{ row.usedAmount }}</template>
+              </el-table-column>
+              <el-table-column prop="createTime" label="创建时间" width="160">
+                <template #default="{ row }">{{ formatTime(row.createTime) }}</template>
+              </el-table-column>
+              <el-table-column label="操作" width="100">
+                <template #default="{ row }">
+                  <el-button type="primary" size="small" link @click="goToVerificationDetail(row.id)">去审核</el-button>
+                </template>
+              </el-table-column>
+            </el-table>
+          </div>
+
+          <div v-if="pendingOutboundList.length > 0">
+            <div style="padding: 8px 12px; background: #fdf6ec; border-radius: 4px; margin-bottom: 8px; display: flex; align-items: center; gap: 8px">
+              <el-tag type="warning" size="small">待出库</el-tag>
+              <span style="font-size: 13px; color: #e6a23c">共 {{ pendingOutboundList.length }} 条核销已通过，等待吧台出库</span>
+            </div>
+            <el-table :data="pendingOutboundList" size="small" style="width: 100%">
+              <el-table-column prop="verificationNo" label="核销单号" width="140">
+                <template #default="{ row }">
+                  <span style="color: #409eff; cursor: pointer" @click="goToVerificationDetail(row.id)">{{ row.verificationNo }}</span>
+                </template>
+              </el-table-column>
+              <el-table-column prop="roomNo" label="包厢" width="80" />
+              <el-table-column prop="customerName" label="客户" width="80" />
+              <el-table-column prop="usedAmount" label="金额" width="100">
+                <template #default="{ row }">¥{{ row.usedAmount }}</template>
+              </el-table-column>
+              <el-table-column prop="outboundNo" label="出库单号" width="140">
+                <template #default="{ row }">
+                  <span v-if="row.outboundNo" style="color: #e6a23c; cursor: pointer" @click="goToOutboundDetail(row.outboundId)">
+                    {{ row.outboundNo }}
+                  </span>
+                  <span v-else style="color: #909399">-</span>
+                </template>
+              </el-table-column>
+              <el-table-column label="操作" width="100">
+                <template #default="{ row }">
                   <el-button type="warning" size="small" link @click="goToOutboundDetail(row.outboundId)">
                     <el-icon><Bell /></el-icon>
-                    待出库
+                    去出库
                   </el-button>
                 </template>
-                <template v-else>
-                  <el-button type="info" size="small" link @click="goToVerificationDetail(row.id)">查看</el-button>
-                </template>
-              </template>
-            </el-table-column>
-          </el-table>
-          <el-empty v-if="!dashboard.pendingVerificationList?.length" description="暂无待处理核销单" :image-size="60" />
+              </el-table-column>
+            </el-table>
+          </div>
+
+          <el-empty v-if="pendingAuditList.length === 0 && pendingOutboundList.length === 0" description="暂无待处理核销单" :image-size="60" />
         </el-card>
       </el-col>
     </el-row>
@@ -216,7 +240,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import dayjs from 'dayjs'
 import { getDashboard } from '@/api/dashboard'
@@ -225,22 +249,15 @@ import { Goods, Present, Warning, RefreshLeft, Bell } from '@element-plus/icons-
 const router = useRouter()
 const dashboard = ref({})
 
-const outboundStatusMap = {
-  NOT_CREATED: '未生成',
-  PENDING: '待出库',
-  COMPLETED: '已出库',
-  REJECTED: '已退回'
-}
+const pendingAuditList = computed(() => {
+  const list = dashboard.value.pendingVerificationList || []
+  return list.filter(item => item.status === 'PENDING')
+})
 
-const getOutboundTagType = (status) => {
-  const map = {
-    PENDING: 'warning',
-    COMPLETED: 'success',
-    REJECTED: 'danger',
-    NOT_CREATED: 'info'
-  }
-  return map[status] || ''
-}
+const pendingOutboundList = computed(() => {
+  const list = dashboard.value.pendingVerificationList || []
+  return list.filter(item => item.status === 'COMPLETED' && item.outboundStatus === 'PENDING' && item.outboundId)
+})
 
 const loadData = async () => {
   dashboard.value = await getDashboard()

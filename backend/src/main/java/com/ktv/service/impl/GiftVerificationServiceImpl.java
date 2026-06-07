@@ -281,10 +281,13 @@ public class GiftVerificationServiceImpl extends ServiceImpl<GiftVerificationMap
         LocalDateTime startOfDay = LocalDate.now().atStartOfDay();
         LocalDateTime endOfDay = LocalDate.now().atTime(LocalTime.MAX);
         LambdaQueryWrapper<GiftVerification> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(GiftVerification::getStatus, "PENDING")
-                .between(GiftVerification::getCreateTime, startOfDay, endOfDay)
+        wrapper.and(w -> w.eq(GiftVerification::getStatus, "PENDING")
+                        .or(w2 -> w2.eq(GiftVerification::getStatus, "COMPLETED")
+                                   .eq(GiftVerification::getOutboundStatus, "PENDING")))
+                .and(w2 -> w2.between(GiftVerification::getCreateTime, startOfDay, endOfDay)
+                            .or(w3 -> w3.between(GiftVerification::getHandleTime, startOfDay, endOfDay)))
                 .orderByDesc(GiftVerification::getCreateTime)
-                .last("LIMIT 10");
+                .last("LIMIT 20");
         return list(wrapper);
     }
 
