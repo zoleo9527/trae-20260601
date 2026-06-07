@@ -76,6 +76,17 @@ export class MilkChangeService {
     return route ? route.name : '';
   }
 
+  private async validateAndGetRoute(routeId: string): Promise<{ id: string; name: string }> {
+    if (!routeId) {
+      throw new BusinessException(ErrorCode.ROUTE_NOT_FOUND);
+    }
+    const route = await this.routeRepository.findOne({ where: { id: routeId } });
+    if (!route) {
+      throw new BusinessException(ErrorCode.ROUTE_NOT_FOUND);
+    }
+    return { id: route.id, name: route.name };
+  }
+
   async create(dto: CreateMilkChangeDto): Promise<MilkChange> {
     await this.getCustomerById(dto.customerId);
 
@@ -396,7 +407,9 @@ export class MilkChangeService {
       milkChange.currentHandlerId = dto.assignedToId;
     }
 
-    if (dto.newRouteId && dto.newRouteName) {
+    if (dto.newRouteId) {
+      const validRoute = await this.validateAndGetRoute(dto.newRouteId);
+      
       let currentRouteId = milkChange.newRouteId || milkChange.oldRouteId;
       let currentRouteName = milkChange.newRouteName || milkChange.oldRouteName;
       
@@ -405,13 +418,13 @@ export class MilkChangeService {
         currentRouteName = await this.getRouteNameById(currentRouteId);
       }
       
-      if (currentRouteId && currentRouteId !== dto.newRouteId) {
+      if (currentRouteId && currentRouteId !== validRoute.id) {
         await this.createRouteAdjustHistory(
           milkChange.id,
           currentRouteId,
           currentRouteName,
-          dto.newRouteId,
-          dto.newRouteName,
+          validRoute.id,
+          validRoute.name,
           dto.routeAdjustReason || '路线调整',
           handler.id,
           handler.name,
@@ -423,8 +436,8 @@ export class MilkChangeService {
         milkChange.oldRouteName = currentRouteName;
       }
       
-      milkChange.newRouteId = dto.newRouteId;
-      milkChange.newRouteName = dto.newRouteName;
+      milkChange.newRouteId = validRoute.id;
+      milkChange.newRouteName = validRoute.name;
       milkChange.routeAdjustReason = dto.routeAdjustReason || milkChange.routeAdjustReason;
     }
 
@@ -450,6 +463,7 @@ export class MilkChangeService {
   async assignRoute(id: string, dto: AssignRouteDto): Promise<MilkChange> {
     const milkChange = await this.getDetail(id);
     const handler = await this.getStaffById(dto.handlerId);
+    const validRoute = await this.validateAndGetRoute(dto.newRouteId);
 
     let currentRouteId = milkChange.newRouteId || milkChange.oldRouteId;
     let currentRouteName = milkChange.newRouteName || milkChange.oldRouteName;
@@ -459,13 +473,13 @@ export class MilkChangeService {
       currentRouteName = await this.getRouteNameById(currentRouteId);
     }
 
-    if (currentRouteId && currentRouteId !== dto.newRouteId) {
+    if (currentRouteId && currentRouteId !== validRoute.id) {
       await this.createRouteAdjustHistory(
         milkChange.id,
         currentRouteId,
         currentRouteName,
-        dto.newRouteId,
-        dto.newRouteName,
+        validRoute.id,
+        validRoute.name,
         dto.routeAdjustReason || '路线调整',
         handler.id,
         handler.name,
@@ -477,8 +491,8 @@ export class MilkChangeService {
       milkChange.oldRouteName = currentRouteName;
     }
 
-    milkChange.newRouteId = dto.newRouteId;
-    milkChange.newRouteName = dto.newRouteName;
+    milkChange.newRouteId = validRoute.id;
+    milkChange.newRouteName = validRoute.name;
     milkChange.routeAdjustReason = dto.routeAdjustReason || milkChange.routeAdjustReason;
 
     const saved = await this.milkChangeRepository.save(milkChange);
@@ -490,7 +504,7 @@ export class MilkChangeService {
       handler.name,
       milkChange.status,
       milkChange.status,
-      dto.remark || `路线调整: ${dto.newRouteName}`,
+      dto.remark || `路线调整: ${validRoute.name}`,
     );
 
     return saved;

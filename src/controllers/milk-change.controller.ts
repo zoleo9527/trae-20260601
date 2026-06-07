@@ -33,9 +33,19 @@ export class MilkChangeController {
 
   private handleError(e: any): never {
     if (e instanceof BusinessException) {
+      const notFoundCodes = [
+        ErrorCode.MILK_CHANGE_NOT_FOUND,
+        ErrorCode.CUSTOMER_NOT_FOUND,
+        ErrorCode.STAFF_NOT_FOUND,
+        ErrorCode.ROUTE_NOT_FOUND,
+        ErrorCode.ROUTE_ADJUST_HISTORY_NOT_FOUND,
+      ];
+      const httpStatus = notFoundCodes.includes(e.code)
+        ? HttpStatus.NOT_FOUND
+        : HttpStatus.BAD_REQUEST;
       throw new HttpException(
         ApiResponse.error(e.code, e.message),
-        HttpStatus.BAD_REQUEST,
+        httpStatus,
       );
     }
     if (e instanceof HttpException) {

@@ -422,3 +422,79 @@ Content-Type: application/json
 ### （请把 mc-new-1 替换成实际返回的ID）
 ### ========================================
 # GET http://localhost:3000/api/milk-changes/mc-new-1/route-histories
+
+### ========================================
+### 【最新修复验证】404 和路线校验
+### ========================================
+
+### 41. 验证 404：查询不存在的订奶变更
+### 预期：HTTP 404，code=60001
+### ========================================
+GET http://localhost:3000/api/milk-changes/not-exist-001
+
+### 42. 验证 404：使用不存在的员工ID处理
+### 预期：HTTP 404，code=61002
+### ========================================
+PUT http://localhost:3000/api/milk-changes/mc-3/process
+Content-Type: application/json
+
+{
+  "handlerId": "staff-not-exist",
+  "targetStatus": "clerk_processing"
+}
+
+### 43. 验证 404：创建订奶变更使用不存在的客户ID
+### 预期：HTTP 404，code=61001
+### ========================================
+POST http://localhost:3000/api/milk-changes
+Content-Type: application/json
+
+{
+  "customerId": "cust-not-exist",
+  "changeType": "add_product",
+  "changeDetail": "测试"
+}
+
+### 44. 验证路线校验：process 使用不存在的 routeId
+### 预期：HTTP 404，code=61003，不写入伪造路线名称
+### ========================================
+PUT http://localhost:3000/api/milk-changes/mc-3/process
+Content-Type: application/json
+
+{
+  "handlerId": "staff-clerk-1",
+  "targetStatus": "clerk_processing",
+  "newRouteId": "route-fake-999",
+  "newRouteName": "我伪造的路线名称",
+  "routeAdjustReason": "测试路线校验"
+}
+
+### 45. 验证路线校验：assign-route 使用不存在的 routeId
+### 预期：HTTP 404，code=61003，不写入伪造路线名称
+### ========================================
+PUT http://localhost:3000/api/milk-changes/mc-3/assign-route
+Content-Type: application/json
+
+{
+  "handlerId": "staff-clerk-1",
+  "newRouteId": "route-fake-999",
+  "newRouteName": "我伪造的路线名称"
+}
+
+### 46. 验证路线校验：即使 newRouteName 传错，也会回填标准名称
+### 传入 newRouteName="随便写的名字"，实际应该回填成"城西线"
+### ========================================
+PUT http://localhost:3000/api/milk-changes/mc-3/process
+Content-Type: application/json
+
+{
+  "handlerId": "staff-clerk-1",
+  "targetStatus": "clerk_processing",
+  "newRouteId": "route-3",
+  "newRouteName": "随便写的名字，应该会被覆盖",
+  "routeAdjustReason": "测试回填标准路线名称"
+}
+
+### 47. 查看 mc-3 详情，验证 newRouteName 是标准的"城西线"而非伪造名称
+### ========================================
+GET http://localhost:3000/api/milk-changes/mc-3
