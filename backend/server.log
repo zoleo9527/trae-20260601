@@ -1,0 +1,4 @@
+水产养殖场病害处理与用药追溯系统后端已启动
+服务地址: http://localhost:3001
+API 前缀: http://localhost:3001/api
+健康检查: http://localhost:3001/api/health
