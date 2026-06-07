@@ -1,11 +1,12 @@
 import { prisma } from "./db.server";
-import type { ActionType } from "@prisma/client";
+import type { ActionType, Prisma } from "@prisma/client";
 
-export async function generateBookingNumber() {
+export async function generateBookingNumber(tx?: Prisma.TransactionClient) {
+  const client = tx || prisma;
   const today = new Date();
   const dateStr = `${today.getFullYear()}${String(today.getMonth() + 1).padStart(2, "0")}${String(today.getDate()).padStart(2, "0")}`;
   
-  const count = await prisma.booking.count({
+  const count = await client.booking.count({
     where: {
       createdAt: {
         gte: new Date(today.getFullYear(), today.getMonth(), today.getDate()),
@@ -22,9 +23,11 @@ export async function logAction(
   actionType: ActionType,
   description: string,
   oldValues?: Record<string, unknown> | null,
-  newValues?: Record<string, unknown> | null
+  newValues?: Record<string, unknown> | null,
+  tx?: Prisma.TransactionClient
 ) {
-  return prisma.actionLog.create({
+  const client = tx || prisma;
+  return client.actionLog.create({
     data: {
       bookingId,
       actorId,

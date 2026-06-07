@@ -1,7 +1,7 @@
 import type { ActionFunction, LoaderFunction, MetaFunction } from "@remix-run/node";
 import { json, redirect } from "@remix-run/node";
 import { Form, useLoaderData, useActionData, useNavigation } from "@remix-run/react";
-import { requireUser } from "~/utils/session.server";
+import { requireUser, requireRole } from "~/utils/session.server";
 import { prisma } from "~/utils/db.server";
 import { logAction } from "~/utils/booking.server";
 import { roleLabels } from "~/utils/booking";
@@ -53,6 +53,7 @@ export const action: ActionFunction = async ({ request }) => {
 
   switch (actionType) {
     case "resolve": {
+      await requireRole(request, ["FLOOR_SUPERVISOR", "ADMIN"]);
       const result = ResolveSchema.safeParse(Object.fromEntries(formData));
       if (!result.success) {
         return json({ errors: result.error.flatten().fieldErrors }, { status: 400 });
@@ -65,29 +66,33 @@ export const action: ActionFunction = async ({ request }) => {
         return json({ error: "异常记录不存在" }, { status: 404 });
       }
 
-      await prisma.exception.update({
-        where: { id: result.data.exceptionId },
-        data: {
-          status: "RESOLVED",
-          resolution: result.data.resolution,
-          resolvedAt: new Date(),
-          assignedToId: user.id,
-        },
-      });
+      await prisma.$transaction(async (tx) => {
+        await tx.exception.update({
+          where: { id: result.data.exceptionId },
+          data: {
+            status: "RESOLVED",
+            resolution: result.data.resolution,
+            resolvedAt: new Date(),
+            assignedToId: user.id,
+          },
+        });
 
-      await logAction(
-        exception.bookingId,
-        user.id,
-        "UPDATE",
-        `处理异常：${result.data.resolution}`,
-        null,
-        { resolution: result.data.resolution }
-      );
+        await logAction(
+          exception.bookingId,
+          user.id,
+          "UPDATE",
+          `处理异常：${result.data.resolution}`,
+          null,
+          { resolution: result.data.resolution },
+          tx
+        );
+      });
 
       return redirect("/exceptions");
     }
 
     case "startProgress": {
+      await requireRole(request, ["FLOOR_SUPERVISOR", "ADMIN"]);
       const exceptionId = formData.get("exceptionId") as string;
       if (!exceptionId) {
         return json({ error: "缺少异常ID" }, { status: 400 });
@@ -100,22 +105,25 @@ export const action: ActionFunction = async ({ request }) => {
         return json({ error: "异常记录不存在" }, { status: 404 });
       }
 
-      await prisma.exception.update({
-        where: { id: exceptionId },
-        data: {
-          status: "IN_PROGRESS",
-          assignedToId: user.id,
-        },
-      });
+      await prisma.$transaction(async (tx) => {
+        await tx.exception.update({
+          where: { id: exceptionId },
+          data: {
+            status: "IN_PROGRESS",
+            assignedToId: user.id,
+          },
+        });
 
-      await logAction(
-        exception.bookingId,
-        user.id,
-        "UPDATE",
-        "开始处理异常",
-        null,
-        null
-      );
+        await logAction(
+          exception.bookingId,
+          user.id,
+          "UPDATE",
+          "开始处理异常",
+          null,
+          null,
+          tx
+        );
+      });
 
       return redirect("/exceptions");
     }

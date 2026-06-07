@@ -47,7 +47,7 @@ export const loader: LoaderFunction = async ({ request }) => {
 };
 
 export const action: ActionFunction = async ({ request }) => {
-  const user = await requireUser(request);
+  const user = await requireRole(request, ["RECEPTIONIST", "ADMIN", "FLOOR_SUPERVISOR"]);
   const formData = await request.formData();
 
   const result = CreateBookingSchema.safeParse(Object.fromEntries(formData));
@@ -57,94 +57,99 @@ export const action: ActionFunction = async ({ request }) => {
 
   const data = result.data;
 
-  const existingTag = await prisma.handTag.findUnique({
-    where: { id: data.handTagId },
-  });
-  if (!existingTag || existingTag.status !== "AVAILABLE") {
-    return json({ errors: { _form: "该手牌已被使用，请重新选择" } }, { status: 400 });
-  }
+  try {
+    const booking = await prisma.$transaction(async (tx) => {
+      const existingTag = await tx.handTag.findUnique({
+        where: { id: data.handTagId },
+      });
+      if (!existingTag || existingTag.status !== "AVAILABLE") {
+        throw new Error("该手牌已被使用，请重新选择");
+      }
 
-  const existingLocker = await prisma.locker.findUnique({
-    where: { id: data.lockerId },
-  });
-  if (!existingLocker || existingLocker.status !== "AVAILABLE") {
-    return json({ errors: { _form: "该储物柜已被使用，请重新选择" } }, { status: 400 });
-  }
+      const existingLocker = await tx.locker.findUnique({
+        where: { id: data.lockerId },
+      });
+      if (!existingLocker || existingLocker.status !== "AVAILABLE") {
+        throw new Error("该储物柜已被使用，请重新选择");
+      }
 
-  if (data.technicianId) {
-    const conflictBooking = await prisma.booking.findFirst({
-      where: {
-        technicianId: data.technicianId,
-        scheduledTime: new Date(data.scheduledTime),
-        status: { in: ["CONFIRMED", "CHECKED_IN", "IN_SERVICE"] },
-      },
-    });
-    if (conflictBooking) {
-      return json({ errors: { _form: "该技师在此时间段已有排班，请重新选择技师或时间" } }, { status: 400 });
-    }
-  }
+      if (data.technicianId) {
+        const conflictBooking = await tx.booking.findFirst({
+          where: {
+            technicianId: data.technicianId,
+            scheduledTime: new Date(data.scheduledTime),
+            status: { in: ["CONFIRMED", "CHECKED_IN", "IN_SERVICE"] },
+          },
+        });
+        if (conflictBooking) {
+          throw new Error("该技师在此时间段已有排班，请重新选择技师或时间");
+        }
+      }
 
-  const bookingNumber = await generateBookingNumber();
+      const bookingNumber = await generateBookingNumber(tx);
 
-  const booking = await prisma.$transaction(async (tx) => {
-    const customer = await tx.customer.create({
-      data: {
-        name: data.customerName,
-        phone: data.customerPhone,
-        idCard: data.customerIdCard,
-      },
-    });
-
-    const booking = await tx.booking.create({
-      data: {
-        bookingNumber,
-        customerId: customer.id,
-        handTagId: data.handTagId,
-        lockerId: data.lockerId,
-        technicianId: data.technicianId || null,
-        serviceType: data.serviceType,
-        scheduledTime: new Date(data.scheduledTime),
-        depositAmount: data.depositAmount,
-        notes: data.notes,
-        createdById: user.id,
-        status: "CONFIRMED",
-      },
-    });
-
-    await tx.handTag.update({
-      where: { id: data.handTagId },
-      data: { status: "IN_USE" },
-    });
-
-    await tx.locker.update({
-      where: { id: data.lockerId },
-      data: { status: "OCCUPIED" },
-    });
-
-    if (data.depositAmount > 0) {
-      await tx.deposit.create({
+      const customer = await tx.customer.create({
         data: {
-          bookingId: booking.id,
-          amount: data.depositAmount,
-          paymentMethod: data.paymentMethod,
-          receivedById: user.id,
+          name: data.customerName,
+          phone: data.customerPhone,
+          idCard: data.customerIdCard,
         },
       });
-    }
 
-    await logAction(
-      booking.id,
-      user.id,
-      "CREATE",
-      `创建订单 ${bookingNumber}，客户：${data.customerName}`,
-      null,
-      { bookingNumber, ...data }
-    );
+      const booking = await tx.booking.create({
+        data: {
+          bookingNumber,
+          customerId: customer.id,
+          handTagId: data.handTagId,
+          lockerId: data.lockerId,
+          technicianId: data.technicianId || null,
+          serviceType: data.serviceType,
+          scheduledTime: new Date(data.scheduledTime),
+          depositAmount: data.depositAmount,
+          notes: data.notes,
+          createdById: user.id,
+          status: "CONFIRMED",
+        },
+      });
 
-    return booking;
-  });
+      await tx.handTag.update({
+        where: { id: data.handTagId },
+        data: { status: "IN_USE" },
+      });
 
-  return redirect(`/bookings/${booking.id}`);
+      await tx.locker.update({
+        where: { id: data.lockerId },
+        data: { status: "OCCUPIED" },
+      });
+
+      if (data.depositAmount > 0) {
+        await tx.deposit.create({
+          data: {
+            bookingId: booking.id,
+            amount: data.depositAmount,
+            paymentMethod: data.paymentMethod,
+            receivedById: user.id,
+          },
+        });
+      }
+
+      await logAction(
+        booking.id,
+        user.id,
+        "CREATE",
+        `创建订单 ${bookingNumber}，客户：${data.customerName}`,
+        null,
+        { bookingNumber, ...data },
+        tx
+      );
+
+      return booking;
+    });
+
+    return redirect(`/bookings/${booking.id}`);
+  } catch (error: any) {
+    return json({ errors: { _form: error.message } }, { status: 400 });
+  }
 };
 
 const serviceTypes = [

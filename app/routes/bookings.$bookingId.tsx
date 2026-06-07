@@ -1,7 +1,7 @@
 import type { ActionFunction, LoaderFunction, MetaFunction } from "@remix-run/node";
 import { json, redirect } from "@remix-run/node";
 import { Form, useActionData, useLoaderData, useNavigation } from "@remix-run/react";
-import { requireUser } from "~/utils/session.server";
+import { requireUser, requireRole } from "~/utils/session.server";
 import { prisma } from "~/utils/db.server";
 import { getBookingWithDetails, logAction } from "~/utils/booking.server";
 import { statusLabels, depositStatusLabels, roleLabels } from "~/utils/booking";
@@ -73,97 +73,110 @@ export const action: ActionFunction = async ({ request, params }) => {
 
   switch (actionType) {
     case "reschedule": {
+      await requireRole(request, ["RECEPTIONIST", "FLOOR_SUPERVISOR", "ADMIN"]);
       const result = RescheduleSchema.safeParse(Object.fromEntries(formData));
       if (!result.success) {
         return json({ errors: result.error.flatten().fieldErrors, actionType: "reschedule" }, { status: 400 });
       }
 
-      await prisma.booking.update({
-        where: { id: bookingId },
-        data: {
-          scheduledTime: new Date(result.data.scheduledTime),
-          status: "RESCHEDULED",
-          notes: booking.notes ? `${booking.notes}\n改期原因：${result.data.reason}` : `改期原因：${result.data.reason}`,
-        },
-      });
+      await prisma.$transaction(async (tx) => {
+        await tx.booking.update({
+          where: { id: bookingId },
+          data: {
+            scheduledTime: new Date(result.data.scheduledTime),
+            status: "RESCHEDULED",
+            notes: booking.notes ? `${booking.notes}\n改期原因：${result.data.reason}` : `改期原因：${result.data.reason}`,
+          },
+        });
 
-      await logAction(
-        bookingId,
-        user.id,
-        "RESCHEDULE",
-        `改期订单，新时间：${result.data.scheduledTime}，原因：${result.data.reason}`,
-        { scheduledTime: booking.scheduledTime },
-        { scheduledTime: result.data.scheduledTime, reason: result.data.reason }
-      );
+        await logAction(
+          bookingId,
+          user.id,
+          "RESCHEDULE",
+          `改期订单，新时间：${result.data.scheduledTime}，原因：${result.data.reason}`,
+          { scheduledTime: booking.scheduledTime },
+          { scheduledTime: result.data.scheduledTime, reason: result.data.reason },
+          tx
+        );
+      });
 
       return redirect(`/bookings/${bookingId}`);
     }
 
     case "reject": {
+      await requireRole(request, ["FLOOR_SUPERVISOR", "ADMIN"]);
       const result = RejectSchema.safeParse(Object.fromEntries(formData));
       if (!result.success) {
         return json({ errors: result.error.flatten().fieldErrors, actionType: "reject" }, { status: 400 });
       }
 
-      if (booking.handTagId) {
-        await prisma.handTag.update({
-          where: { id: booking.handTagId },
-          data: { status: "AVAILABLE" },
-        });
-      }
-      if (booking.lockerId) {
-        await prisma.locker.update({
-          where: { id: booking.lockerId },
-          data: { status: "AVAILABLE" },
-        });
-      }
+      await prisma.$transaction(async (tx) => {
+        if (booking.handTagId) {
+          await tx.handTag.update({
+            where: { id: booking.handTagId },
+            data: { status: "AVAILABLE" },
+          });
+        }
+        if (booking.lockerId) {
+          await tx.locker.update({
+            where: { id: booking.lockerId },
+            data: { status: "AVAILABLE" },
+          });
+        }
 
-      await prisma.booking.update({
-        where: { id: bookingId },
-        data: {
-          status: "REJECTED",
-          notes: booking.notes ? `${booking.notes}\n驳回原因：${result.data.reason}` : `驳回原因：${result.data.reason}`,
-        },
+        await tx.booking.update({
+          where: { id: bookingId },
+          data: {
+            status: "REJECTED",
+            notes: booking.notes ? `${booking.notes}\n驳回原因：${result.data.reason}` : `驳回原因：${result.data.reason}`,
+          },
+        });
+
+        await logAction(
+          bookingId,
+          user.id,
+          "REJECT",
+          `驳回订单，原因：${result.data.reason}`,
+          { status: booking.status },
+          { status: "REJECTED", reason: result.data.reason },
+          tx
+        );
       });
-
-      await logAction(
-        bookingId,
-        user.id,
-        "REJECT",
-        `驳回订单，原因：${result.data.reason}`,
-        { status: booking.status },
-        { status: "REJECTED", reason: result.data.reason }
-      );
 
       return redirect(`/bookings/${bookingId}`);
     }
 
     case "supplement": {
+      await requireRole(request, ["RECEPTIONIST", "FLOOR_SUPERVISOR", "ADMIN"]);
       const result = SupplementSchema.safeParse(Object.fromEntries(formData));
       if (!result.success) {
         return json({ errors: result.error.flatten().fieldErrors, actionType: "supplement" }, { status: 400 });
       }
 
-      await prisma.booking.update({
-        where: { id: bookingId },
-        data: {
-          notes: booking.notes ? `${booking.notes}\n补录：${result.data.notes}` : `补录：${result.data.notes}`,
-        },
-      });
+      await prisma.$transaction(async (tx) => {
+        await tx.booking.update({
+          where: { id: bookingId },
+          data: {
+            notes: booking.notes ? `${booking.notes}\n补录：${result.data.notes}` : `补录：${result.data.notes}`,
+          },
+        });
 
-      await logAction(
-        bookingId,
-        user.id,
-        "SUPPLEMENT",
-        `补录信息：${result.data.notes}`,
-        null,
-        { notes: result.data.notes }
-      );
+        await logAction(
+          bookingId,
+          user.id,
+          "SUPPLEMENT",
+          `补录信息：${result.data.notes}`,
+          null,
+          { notes: result.data.notes },
+          tx
+        );
+      });
 
       return redirect(`/bookings/${bookingId}`);
     }
 
     case "reportException": {
+      await requireRole(request, ["RECEPTIONIST", "FLOOR_SUPERVISOR", "ADMIN"]);
       const result = ExceptionSchema.safeParse(Object.fromEntries(formData));
       if (!result.success) {
         return json({ errors: result.error.flatten().fieldErrors, actionType: "reportException" }, { status: 400 });
@@ -185,89 +198,103 @@ export const action: ActionFunction = async ({ request, params }) => {
           where: { id: bookingId },
           data: { isException: true },
         });
-      });
 
-      await logAction(
-        bookingId,
-        user.id,
-        "UPDATE",
-        `上报异常：${result.data.title}`,
-        null,
-        { exceptionType: result.data.type, title: result.data.title }
-      );
+        await logAction(
+          bookingId,
+          user.id,
+          "UPDATE",
+          `上报异常：${result.data.title}`,
+          null,
+          { exceptionType: result.data.type, title: result.data.title },
+          tx
+        );
+      });
 
       return redirect(`/bookings/${bookingId}`);
     }
 
     case "verifyDeposit": {
+      await requireRole(request, ["FINANCE", "ADMIN"]);
       const depositId = formData.get("depositId") as string;
       if (!depositId) {
         return json({ error: "缺少押金ID" }, { status: 400 });
       }
 
-      await prisma.deposit.update({
-        where: { id: depositId },
-        data: {
-          status: "VERIFIED",
-          verifiedById: user.id,
-          verifiedAt: new Date(),
-        },
-      });
+      const now = new Date();
+      await prisma.$transaction(async (tx) => {
+        await tx.deposit.update({
+          where: { id: depositId },
+          data: {
+            status: "VERIFIED",
+            verifiedById: user.id,
+            verifiedAt: now,
+          },
+        });
 
-      await prisma.booking.update({
-        where: { id: bookingId },
-        data: { depositStatus: "VERIFIED" },
-      });
+        await tx.booking.update({
+          where: { id: bookingId },
+          data: {
+            depositStatus: "VERIFIED",
+            verifiedById: user.id,
+            verifiedAt: now,
+          },
+        });
 
-      await logAction(
-        bookingId,
-        user.id,
-        "VERIFY",
-        "核验押金通过",
-        { depositStatus: "PENDING" },
-        { depositStatus: "VERIFIED" }
-      );
+        await logAction(
+          bookingId,
+          user.id,
+          "VERIFY",
+          "核验押金通过",
+          { depositStatus: "PENDING" },
+          { depositStatus: "VERIFIED", verifiedBy: user.id, verifiedAt: now },
+          tx
+        );
+      });
 
       return redirect(`/bookings/${bookingId}`);
     }
 
     case "complete": {
-      if (booking.handTagId) {
-        await prisma.handTag.update({
-          where: { id: booking.handTagId },
-          data: { status: "AVAILABLE" },
-        });
-      }
-      if (booking.lockerId) {
-        await prisma.locker.update({
-          where: { id: booking.lockerId },
-          data: { status: "AVAILABLE" },
-        });
-      }
+      await requireRole(request, ["RECEPTIONIST", "FLOOR_SUPERVISOR", "ADMIN"]);
+      await prisma.$transaction(async (tx) => {
+        if (booking.handTagId) {
+          await tx.handTag.update({
+            where: { id: booking.handTagId },
+            data: { status: "AVAILABLE" },
+          });
+        }
+        if (booking.lockerId) {
+          await tx.locker.update({
+            where: { id: booking.lockerId },
+            data: { status: "AVAILABLE" },
+          });
+        }
 
-      await prisma.booking.update({
-        where: { id: bookingId },
-        data: {
-          status: "COMPLETED",
-          checkOutTime: new Date(),
-        },
+        await tx.booking.update({
+          where: { id: bookingId },
+          data: {
+            status: "COMPLETED",
+            checkOutTime: new Date(),
+          },
+        });
+
+        if (booking.depositStatus === "VERIFIED") {
+          await tx.deposit.updateMany({
+            where: { bookingId, status: "VERIFIED" },
+            data: { status: "REFUNDED" },
+          });
+        }
+
+        await logAction(
+          bookingId,
+          user.id,
+          "COMPLETE",
+          "订单完成，退还押金",
+          { status: booking.status },
+          { status: "COMPLETED" },
+          tx
+        );
       });
-
-      if (booking.depositStatus === "VERIFIED") {
-        await prisma.deposit.updateMany({
-          where: { bookingId, status: "VERIFIED" },
-          data: { status: "REFUNDED" },
-        });
-      }
-
-      await logAction(
-        bookingId,
-        user.id,
-        "COMPLETE",
-        "订单完成，退还押金",
-        { status: booking.status },
-        { status: "COMPLETED" }
-      );
 
       return redirect(`/bookings/${bookingId}`);
     }
