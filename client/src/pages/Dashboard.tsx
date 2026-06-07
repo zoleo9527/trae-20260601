@@ -37,7 +37,8 @@ const Dashboard: React.FC = () => {
   );
   const needsReview = {
     inspections: stats.inspections.filter((i: any) => ['COMPLETED', 'SUPPLEMENTED'].includes(i.status)).length,
-    repairs: stats.repairs.filter((r: any) => ['PENDING_APPROVAL', 'COMPLETED'].includes(r.status)).length
+    pendingApprovalRepairs: stats.repairs.filter((r: any) => r.status === 'PENDING_APPROVAL').length,
+    completedRepairs: stats.repairs.filter((r: any) => r.status === 'COMPLETED').length
   };
 
   const getRoleShortcuts = () => {
@@ -56,7 +57,8 @@ const Dashboard: React.FC = () => {
       case 'STORE_MANAGER':
         return [
           { label: '待复核巡检', icon: ClipboardCheck, action: () => navigate('/inspections?filter=COMPLETED,SUPPLEMENTED'), color: 'bg-purple-500', badge: needsReview.inspections },
-          { label: '待审批/复核工单', icon: Wrench, action: () => navigate('/repairs?filter=PENDING_APPROVAL,COMPLETED'), color: 'bg-amber-500', badge: needsReview.repairs },
+          { label: '待审批工单', icon: Wrench, action: () => navigate('/repairs?filter=PENDING_APPROVAL&title=待审批工单'), color: 'bg-amber-500', badge: needsReview.pendingApprovalRepairs },
+          { label: '待复核工单', icon: CheckCircle, action: () => navigate('/repairs?filter=COMPLETED&title=待复核工单'), color: 'bg-cyan-500', badge: needsReview.completedRepairs },
           { label: '设备总览', icon: Monitor, action: () => navigate('/machines'), color: 'bg-green-500' }
         ];
       case 'TECHNICIAN':

@@ -17,6 +17,9 @@ const RepairList: React.FC = () => {
   });
   const [search, setSearch] = useState('');
 
+  const customTitle = searchParams.get('title') || '';
+  const filterStatuses = filter ? filter.split(',') : [];
+
   const fetchData = () => {
     setLoading(true);
     const params: any = {};
@@ -73,6 +76,14 @@ const RepairList: React.FC = () => {
 
   return (
     <div className="space-y-6">
+      {customTitle && (
+        <div className="flex items-center gap-3">
+          <h2 className="text-xl font-bold text-gray-800">{customTitle}</h2>
+          <span className="bg-primary-100 text-primary-700 text-sm font-medium px-2.5 py-0.5 rounded-full">
+            {filtered.length} 条待办
+          </span>
+        </div>
+      )}
       {/* Filters */}
       <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
         <div className="flex items-center gap-3 flex-wrap">
