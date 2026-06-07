@@ -255,34 +255,66 @@ def update_invoice(
     invoice_id: int,
     update: schemas.InvoiceReissueUpdate,
     db: Session = Depends(get_db),
-    current_user: models.User = Depends(auth.require_roles(RoleEnum.STATION_MANAGER.value, RoleEnum.METER_READER.value))
+    current_user: models.User = Depends(auth.get_current_user)
 ):
     invoice = db.query(models.InvoiceReissue).filter(models.InvoiceReissue.id == invoice_id).first()
     if not invoice:
         raise HTTPException(status_code=404, detail="发票记录不存在")
+
+    is_cashier_resubmit = (
+        current_user.role == RoleEnum.CASHIER.value
+        and invoice.status == InvoiceStatusEnum.RETURNED.value
+        and invoice.created_by == current_user.id
+        and update.status == InvoiceStatusEnum.PENDING.value
+    )
+    is_manager_process = current_user.role in [RoleEnum.STATION_MANAGER.value, RoleEnum.METER_READER.value]
+
+    if not is_cashier_resubmit and not is_manager_process:
+        raise HTTPException(status_code=403, detail="无权限执行此操作")
+
     old_status = invoice.status
+    old_return_reason = invoice.return_reason
+
     if update.status:
         invoice.status = update.status.value
     if update.return_reason is not None:
         invoice.return_reason = update.return_reason
     if update.supplement_remark is not None:
         invoice.supplement_remark = update.supplement_remark
-    invoice.handled_by = current_user.id
+
+    if is_cashier_resubmit:
+        invoice.handled_by = None
+    else:
+        invoice.handled_by = current_user.id
+
     db.commit()
     db.refresh(invoice)
-    status_map = {
-        InvoiceStatusEnum.PROCESSING.value: "开始处理发票补开",
-        InvoiceStatusEnum.RETURNED.value: "退回发票补开申请",
-        InvoiceStatusEnum.COMPLETED.value: "完成发票补开"
-    }
+
+    if is_cashier_resubmit:
+        action_desc = "收银员补充信息后重新提交"
+        remark_parts = []
+        if old_return_reason:
+            remark_parts.append(f"原退回原因: {old_return_reason}")
+        if update.supplement_remark:
+            remark_parts.append(f"补充说明: {update.supplement_remark}")
+        flow_remark = " | ".join(remark_parts) if remark_parts else None
+    else:
+        status_map = {
+            InvoiceStatusEnum.PROCESSING.value: "开始处理发票补开",
+            InvoiceStatusEnum.RETURNED.value: "退回发票补开申请",
+            InvoiceStatusEnum.COMPLETED.value: "完成发票补开"
+        }
+        action_desc = status_map.get(update.status.value, "更新发票状态") if update.status else "更新发票记录"
+        flow_remark = update.return_reason or update.supplement_remark
+
     add_flow_log(
         db, invoice_id=invoice.id, recharge_id=invoice.recharge_id,
         action="update_status",
-        action_desc=status_map.get(update.status.value, "更新发票状态") if update.status else "更新发票记录",
+        action_desc=action_desc,
         from_status=old_status,
         to_status=update.status.value if update.status else None,
         operator_id=current_user.id,
-        remark=update.return_reason or update.supplement_remark
+        remark=flow_remark
     )
     return enrich_invoice_response(invoice)
 

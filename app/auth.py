@@ -3,7 +3,7 @@ from typing import Optional
 from jose import JWTError, jwt
 import hashlib
 import os
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, status, Request
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
 from .database import get_db
@@ -13,7 +13,7 @@ SECRET_KEY = "gas-station-secret-key-2024"
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 120
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token", auto_error=False)
 
 
 def get_password_hash(password: str) -> str:
@@ -56,12 +56,21 @@ def authenticate_user(db: Session, username: str, password: str):
     return user
 
 
-async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
+async def get_current_user(
+    request: Request,
+    header_token: Optional[str] = Depends(oauth2_scheme),
+    db: Session = Depends(get_db)
+):
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="无法验证凭据",
         headers={"WWW-Authenticate": "Bearer"},
     )
+    token = header_token
+    if not token:
+        token = request.query_params.get("token")
+    if not token:
+        raise credentials_exception
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         username: str = payload.get("sub")
