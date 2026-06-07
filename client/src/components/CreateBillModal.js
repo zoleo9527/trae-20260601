@@ -43,14 +43,18 @@ function CreateBillModal({ constants, onConfirm, onCancel }) {
     setFormData({ ...formData, milkTypes: newMilkTypes });
   };
 
+  const DEFAULT_ROLE_LABELS = {
+    clerk: '站点文员',
+    delivery: '配送员',
+    customer_service: '客服'
+  };
+
   const handleSubmit = (e) => {
     e.preventDefault();
     onConfirm(formData);
   };
 
-  if (!constants || !constants.roleLabels) return null;
-
-  const { roleLabels: ROLE_LABELS = {} } = constants;
+  const { roleLabels: ROLE_LABELS = DEFAULT_ROLE_LABELS } = constants || {};
 
   return (
     <div className="modal-overlay" onClick={onCancel}>

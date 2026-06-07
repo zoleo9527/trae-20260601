@@ -4,11 +4,29 @@ import { formatDate, getRoleLabel } from '../utils';
 import HistoryList from '../components/HistoryList';
 import StatusModal from '../components/StatusModal';
 
-function ComplaintDetail({ constants }) {
+const DEFAULT_STATUS_LABELS = {
+  pending: '待处理',
+  processing: '处理中',
+  returned: '已退回',
+  supplement_needed: '待补材料',
+  closed: '已关闭',
+  urged: '有人催'
+};
+
+const DEFAULT_ROLE_LABELS = {
+  clerk: '站点文员',
+  delivery: '配送员',
+  customer_service: '客服',
+  customer: '客户',
+  system: '系统'
+};
+
+function ComplaintDetail({ constants, loading: constantsLoading }) {
   const { id } = useParams();
   const navigate = useNavigate();
   const [complaint, setComplaint] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(null);
   const [activeTab, setActiveTab] = useState('info');
   const [showStatusModal, setShowStatusModal] = useState(false);
   const [statusAction, setStatusAction] = useState(null);
@@ -16,12 +34,34 @@ function ComplaintDetail({ constants }) {
   const [evidenceName, setEvidenceName] = useState('');
   const [showBillHistory, setShowBillHistory] = useState(false);
 
+  const { statusLabels: STATUS_LABELS = DEFAULT_STATUS_LABELS, roleLabels: ROLE_LABELS = DEFAULT_ROLE_LABELS } = constants || {};
+
+  const safeGetRoleLabel = (role) => {
+    if (!role) return '-';
+    return ROLE_LABELS[role] || DEFAULT_ROLE_LABELS[role] || role;
+  };
+
+  const safeGetStatusLabel = (status) => {
+    if (!status) return '-';
+    return STATUS_LABELS[status] || DEFAULT_STATUS_LABELS[status] || status;
+  };
+
   const fetchComplaint = () => {
     setLoading(true);
+    setLoadError(null);
     fetch(`/api/complaints/${id}`)
-      .then(res => res.json())
+      .then(res => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return res.json();
+      })
       .then(data => {
-        setComplaint(data);
+        setComplaint(data || null);
+        setLoading(false);
+      })
+      .catch(err => {
+        console.error('加载申诉详情失败:', err);
+        setLoadError(err.message);
+        setComplaint(null);
         setLoading(false);
       });
   };
@@ -78,15 +118,49 @@ function ComplaintDetail({ constants }) {
     }
   };
 
-  if (!constants || !constants.statusLabels || loading) {
-    return <div className="empty-state">加载中...</div>;
+  if (loading && !loadError) {
+    return (
+      <div className="empty-state">
+        <div style={{ fontSize: '48px', marginBottom: '12px' }}>⏳</div>
+        <div style={{ fontSize: '16px', color: '#666' }}>正在加载申诉详情...</div>
+      </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <div className="card">
+        <div style={{ 
+          padding: '24px', 
+          background: '#ffebee', 
+          border: '1px solid #ef9a9a', 
+          borderRadius: '8px',
+          textAlign: 'center'
+        }}>
+          <div style={{ fontSize: '48px', marginBottom: '12px' }}>❌</div>
+          <div style={{ fontSize: '16px', color: '#c62828', fontWeight: 500, marginBottom: '8px' }}>
+            申诉加载失败
+          </div>
+          <div style={{ color: '#e57373', marginBottom: '16px' }}>({loadError})</div>
+          <button className="btn btn-primary" onClick={fetchComplaint}>
+            🔄 重新加载
+          </button>
+        </div>
+      </div>
+    );
   }
 
   if (!complaint) {
-    return <div className="empty-state">申诉不存在</div>;
+    return (
+      <div className="empty-state">
+        <div style={{ fontSize: '48px', marginBottom: '12px' }}>📭</div>
+        <div style={{ fontSize: '16px', color: '#666' }}>申诉不存在</div>
+        <button className="btn btn-default" style={{ marginTop: '16px' }} onClick={() => navigate('/complaints')}>
+          返回申诉列表
+        </button>
+      </div>
+    );
   }
-
-  const { statusLabels: STATUS_LABELS = {}, roleLabels: ROLE_LABELS = {} } = constants;
 
   return (
     <div>
@@ -159,19 +233,19 @@ function ComplaintDetail({ constants }) {
             </div>
             <div className="detail-item">
               <span className="detail-label">账单月份</span>
-              <span className="detail-value">{complaint.relatedBill.month}</span>
+              <span className="detail-value">{complaint.relatedBill.month || '-'}</span>
             </div>
             <div className="detail-item">
               <span className="detail-label">账单金额</span>
               <span className="detail-value" style={{ color: '#e53935', fontWeight: 600 }}>
-                ¥{Number(complaint.relatedBill.totalAmount).toFixed(2)}
+                ¥{Number(complaint.relatedBill.totalAmount || 0).toFixed(2)}
               </span>
             </div>
             <div className="detail-item">
               <span className="detail-label">账单状态</span>
               <span className="detail-value">
-                <span className={`status-badge status-${complaint.relatedBill.status}`}>
-                  {STATUS_LABELS[complaint.relatedBill.status]}
+                <span className={`status-badge status-${complaint.relatedBill.status || 'pending'}`}>
+                  {safeGetStatusLabel(complaint.relatedBill.status)}
                 </span>
               </span>
             </div>
@@ -180,11 +254,11 @@ function ComplaintDetail({ constants }) {
               <span className="detail-value">
                 {complaint.relatedBill.assignee ? (
                   <div className="assignee-info">
-                    <span className="assignee-avatar">{complaint.relatedBill.assignee.charAt(0)}</span>
+                    <span className="assignee-avatar">{(complaint.relatedBill.assignee || '-').charAt(0)}</span>
                     <div>
                       <div>{complaint.relatedBill.assignee}</div>
                       <span className="assignee-role">
-                        {getRoleLabel(complaint.relatedBill.assigneeRole, ROLE_LABELS)}
+                        {safeGetRoleLabel(complaint.relatedBill.assigneeRole)}
                       </span>
                     </div>
                   </div>
@@ -196,11 +270,11 @@ function ComplaintDetail({ constants }) {
               <span className="detail-value">
                 {complaint.relatedBill.currentHandler ? (
                   <div className="assignee-info">
-                    <span className="assignee-avatar">{complaint.relatedBill.currentHandler.charAt(0)}</span>
+                    <span className="assignee-avatar">{(complaint.relatedBill.currentHandler || '-').charAt(0)}</span>
                     <div>
                       <div>{complaint.relatedBill.currentHandler}</div>
                       <span className="assignee-role">
-                        {getRoleLabel(complaint.relatedBill.currentHandlerRole, ROLE_LABELS)}
+                        {safeGetRoleLabel(complaint.relatedBill.currentHandlerRole)}
                       </span>
                     </div>
                   </div>

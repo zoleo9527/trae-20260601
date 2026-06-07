@@ -4,23 +4,51 @@ import { formatDate, getRoleLabel, formatMoney } from '../utils';
 import StatusModal from '../components/StatusModal';
 import CreateBillModal from '../components/CreateBillModal';
 
-function BillList({ constants }) {
+const DEFAULT_STATUS_LABELS = {
+  pending: '待处理',
+  processing: '处理中',
+  returned: '已退回',
+  supplement_needed: '待补材料',
+  closed: '已关闭',
+  urged: '有人催'
+};
+
+const DEFAULT_ROLE_LABELS = {
+  clerk: '站点文员',
+  delivery: '配送员',
+  customer_service: '客服'
+};
+
+function BillList({ constants, loading: constantsLoading }) {
   const navigate = useNavigate();
   const [bills, setBills] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(null);
   const [filters, setFilters] = useState({ status: '', month: '', customerName: '' });
   const [selectedIds, setSelectedIds] = useState([]);
   const [showStatusModal, setShowStatusModal] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [batchAction, setBatchAction] = useState(null);
 
+  const { statusLabels: STATUS_LABELS = DEFAULT_STATUS_LABELS, roleLabels: ROLE_LABELS = DEFAULT_ROLE_LABELS } = constants || {};
+
   const fetchBills = () => {
     setLoading(true);
+    setLoadError(null);
     const params = new URLSearchParams(filters);
     fetch(`/api/bills?${params}`)
-      .then(res => res.json())
+      .then(res => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return res.json();
+      })
       .then(data => {
-        setBills(data);
+        setBills(Array.isArray(data) ? data : []);
+        setLoading(false);
+      })
+      .catch(err => {
+        console.error('加载账单列表失败:', err);
+        setLoadError(err.message);
+        setBills([]);
         setLoading(false);
       });
   };
@@ -78,10 +106,6 @@ function BillList({ constants }) {
       fetchBills();
     });
   };
-
-  if (!constants || !constants.statusLabels) return <div>加载中...</div>;
-
-  const { statusLabels: STATUS_LABELS = {}, roleLabels: ROLE_LABELS = {} } = constants;
 
   return (
     <div>
@@ -141,9 +165,33 @@ function BillList({ constants }) {
           </div>
         )}
 
-        {loading ? (
-          <div className="empty-state">加载中...</div>
-        ) : (
+        {loadError && (
+          <div style={{ 
+            padding: '16px', 
+            background: '#ffebee', 
+            border: '1px solid #ef9a9a', 
+            borderRadius: '8px', 
+            marginBottom: '16px',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center'
+          }}>
+            <div>
+              <span style={{ color: '#c62828', fontWeight: 500 }}>❌ 数据加载失败</span>
+              <span style={{ color: '#e57373', marginLeft: '8px' }}>({loadError})</span>
+            </div>
+            <button className="btn btn-sm btn-default" onClick={fetchBills}>
+              🔄 重试
+            </button>
+          </div>
+        )}
+
+        {loading && !loadError ? (
+          <div className="empty-state">
+            <div style={{ fontSize: '36px', marginBottom: '8px' }}>⏳</div>
+            <div style={{ fontSize: '14px', color: '#666' }}>正在加载账单数据...</div>
+          </div>
+        ) : !loadError ? (
           <div className="table-container">
             <table>
               <thead>
@@ -227,7 +275,7 @@ function BillList({ constants }) {
               </tbody>
             </table>
           </div>
-        )}
+        ) : null}
       </div>
 
       {showStatusModal && (

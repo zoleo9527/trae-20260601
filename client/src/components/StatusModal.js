@@ -1,5 +1,14 @@
 import React, { useState } from 'react';
 
+const DEFAULT_STATUS_LABELS = {
+  pending: '待处理',
+  processing: '处理中',
+  returned: '已退回',
+  supplement_needed: '待补材料',
+  closed: '已关闭',
+  urged: '有人催'
+};
+
 function StatusModal({ title, constants, defaultStatus, onConfirm, onCancel }) {
   const [newStatus, setNewStatus] = useState(defaultStatus || '');
   const [remark, setRemark] = useState('');
@@ -9,9 +18,7 @@ function StatusModal({ title, constants, defaultStatus, onConfirm, onCancel }) {
     onConfirm({ newStatus, remark });
   };
 
-  if (!constants || !constants.statusLabels) return null;
-
-  const { statusLabels: STATUS_LABELS = {} } = constants;
+  const { statusLabels: STATUS_LABELS = DEFAULT_STATUS_LABELS } = constants || {};
 
   return (
     <div className="modal-overlay" onClick={onCancel}>

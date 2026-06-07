@@ -4,23 +4,51 @@ import { formatDate, getRoleLabel, formatMoney } from '../utils';
 import HistoryList from '../components/HistoryList';
 import StatusModal from '../components/StatusModal';
 
-function BillDetail({ constants }) {
+const DEFAULT_STATUS_LABELS = {
+  pending: '待处理',
+  processing: '处理中',
+  returned: '已退回',
+  supplement_needed: '待补材料',
+  closed: '已关闭',
+  urged: '有人催'
+};
+
+const DEFAULT_ROLE_LABELS = {
+  clerk: '站点文员',
+  delivery: '配送员',
+  customer_service: '客服'
+};
+
+function BillDetail({ constants, loading: constantsLoading }) {
   const { id } = useParams();
   const navigate = useNavigate();
   const [bill, setBill] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(null);
   const [activeTab, setActiveTab] = useState('info');
   const [showStatusModal, setShowStatusModal] = useState(false);
   const [statusAction, setStatusAction] = useState(null);
 
+  const { statusLabels: STATUS_LABELS = DEFAULT_STATUS_LABELS, roleLabels: ROLE_LABELS = DEFAULT_ROLE_LABELS } = constants || {};
+
   const fetchBill = () => {
     setLoading(true);
+    setLoadError(null);
     fetch(`/api/bills/${id}`)
-      .then(res => res.json())
-      .then(data => {
-        setBill(data);
-        setLoading(false);
-      });
+      .then(res => {
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return res.json();
+    })
+    .then(data => {
+      setBill(data || null);
+      setLoading(false);
+    })
+    .catch(err => {
+      console.error('加载账单详情失败:', err);
+      setLoadError(err.message);
+      setBill(null);
+      setLoading(false);
+    });
   };
 
   useEffect(() => {
@@ -61,6 +89,7 @@ function BillDetail({ constants }) {
   };
 
   const handleCreateComplaint = () => {
+    if (!bill) return;
     navigate('/complaints', {
       state: {
         fromBill: {
@@ -80,15 +109,49 @@ function BillDetail({ constants }) {
     });
   };
 
-  if (!constants || !constants.statusLabels || loading) {
-    return <div className="empty-state">加载中...</div>;
+  if (loading && !loadError) {
+    return (
+      <div className="empty-state">
+        <div style={{ fontSize: '48px', marginBottom: '12px' }}>⏳</div>
+        <div style={{ fontSize: '16px', color: '#666' }}>正在加载账单详情...</div>
+      </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <div className="card">
+        <div style={{ 
+          padding: '24px', 
+          background: '#ffebee', 
+          border: '1px solid #ef9a9a', 
+          borderRadius: '8px',
+          textAlign: 'center'
+        }}>
+          <div style={{ fontSize: '48px', marginBottom: '12px' }}>❌</div>
+          <div style={{ fontSize: '16px', color: '#c62828', fontWeight: 500, marginBottom: '8px' }}>
+            账单加载失败
+          </div>
+          <div style={{ color: '#e57373', marginBottom: '16px' }}>({loadError})</div>
+          <button className="btn btn-primary" onClick={fetchBill}>
+            🔄 重新加载
+          </button>
+        </div>
+      </div>
+    );
   }
 
   if (!bill) {
-    return <div className="empty-state">账单不存在</div>;
+    return (
+      <div className="empty-state">
+        <div style={{ fontSize: '48px', marginBottom: '12px' }}>📭</div>
+        <div style={{ fontSize: '16px', color: '#666' }}>账单不存在</div>
+        <button className="btn btn-default" style={{ marginTop: '16px' }} onClick={() => navigate('/bills')}>
+          返回账单列表
+        </button>
+      </div>
+    );
   }
-
-  const { statusLabels: STATUS_LABELS = {}, roleLabels: ROLE_LABELS = {} } = constants;
 
   return (
     <div>

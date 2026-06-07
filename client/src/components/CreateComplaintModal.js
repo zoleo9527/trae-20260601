@@ -46,14 +46,25 @@ function CreateComplaintModal({ constants, prefillBill, onConfirm, onCancel }) {
     setFormData({ ...formData, ...updates });
   };
 
+  const DEFAULT_ROLE_LABELS = {
+    clerk: '站点文员',
+    delivery: '配送员',
+    customer_service: '客服',
+    customer: '客户',
+    system: '系统'
+  };
+
   const handleSubmit = (e) => {
     e.preventDefault();
     onConfirm(formData);
   };
 
-  if (!constants || !constants.roleLabels) return null;
+  const { roleLabels: ROLE_LABELS = DEFAULT_ROLE_LABELS } = constants || {};
 
-  const { roleLabels: ROLE_LABELS = {} } = constants;
+  const safeGetRoleLabel = (role) => {
+    if (!role) return '-';
+    return ROLE_LABELS[role] || DEFAULT_ROLE_LABELS[role] || role;
+  };
 
   return (
     <div className="modal-overlay" onClick={onCancel}>
@@ -95,7 +106,7 @@ function CreateComplaintModal({ constants, prefillBill, onConfirm, onCancel }) {
                       background: '#e0e0e0', 
                       borderRadius: '10px' 
                     }}>
-                      {getRoleLabel(prefillBill.assigneeRole, ROLE_LABELS)}
+                      {safeGetRoleLabel(prefillBill.assigneeRole)}
                     </span>
                   </div>
                 )}
@@ -110,7 +121,7 @@ function CreateComplaintModal({ constants, prefillBill, onConfirm, onCancel }) {
                       background: '#e0e0e0', 
                       borderRadius: '10px' 
                     }}>
-                      {getRoleLabel(prefillBill.currentHandlerRole, ROLE_LABELS)}
+                      {safeGetRoleLabel(prefillBill.currentHandlerRole)}
                     </span>
                   </div>
                 )}
