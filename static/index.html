@@ -537,15 +537,45 @@
                 `;
             }
 
+            const stageLabel = data.current_stage === 'recharge' ? '【充值环节】' : 
+                               data.current_stage === 'invoice' ? '【发票环节】' : 
+                               data.current_stage === 'recharge_done' ? '【充值完成】' : '';
+            const stageColor = data.current_stage === 'recharge' ? '#f59e0b' : 
+                               data.current_stage === 'invoice' ? '#3b82f6' : '#10b981';
+
+            let remarkHtml = '';
+            if (data.manager_return_reason) {
+                remarkHtml += `<div style="margin-top:10px; background:#fef2f2; padding:10px; border-radius:6px; border-left: 4px solid #ef4444;"><strong>🚨 站长退回原因:</strong> ${data.manager_return_reason}</div>`;
+            }
+            if (data.cashier_supplement_remark) {
+                remarkHtml += `<div style="margin-top:8px; background:#f0fdf4; padding:10px; border-radius:6px; border-left: 4px solid #16a34a;"><strong>📝 收银员补充说明:</strong> ${data.cashier_supplement_remark}</div>`;
+            }
+            if (data.manager_process_remark && !data.manager_return_reason) {
+                remarkHtml += `<div style="margin-top:8px; background:#eff6ff; padding:10px; border-radius:6px; border-left: 4px solid #2563eb;"><strong>💬 站长处理备注:</strong> ${data.manager_process_remark}</div>`;
+            }
+
+            let dualStatusHtml = '';
+            if (data.recharge_status_text && data.invoice_status_text) {
+                dualStatusHtml = `
+                    <div style="margin-top: 12px; padding-top: 12px; border-top: 1px dashed #bfdbfe;">
+                        <div style="font-size: 13px; color: #64748b; margin-bottom: 6px;">双环节状态一览:</div>
+                        <div style="display: flex; gap: 15px; flex-wrap: wrap;">
+                            <div style="font-size: 13px;"><span style="color: #f59e0b;">●</span> 充值: ${data.recharge_status_text}</div>
+                            <div style="font-size: 13px;"><span style="color: #3b82f6;">●</span> 发票: ${data.invoice_status_text}</div>
+                        </div>
+                    </div>
+                `;
+            }
+
             let summaryHtml = `
                 <div class="detail-section" style="background: linear-gradient(135deg, #eff6ff, #dbeafe); padding: 15px; border-radius: 10px; margin-bottom: 20px;">
-                    <h4 style="color: #1e40af; margin-bottom: 12px;">🔍 同屏摘要</h4>
+                    <h4 style="color: #1e40af; margin-bottom: 12px;">🔍 同屏摘要 <span style="font-size: 13px; color: ${stageColor}; font-weight: normal;">${stageLabel}</span></h4>
                     <div class="detail-grid">
                         <div class="detail-item" style="background: white;"><div class="label">当前处理状态</div><div class="value" style="color: #1e40af; font-weight: 600;">${data.current_status_text}</div></div>
                         <div class="detail-item" style="background: white;"><div class="label">当前处理人</div><div class="value">${data.current_handler_name || '待分配'}</div></div>
                     </div>
-                    ${data.return_reason ? `<div style="margin-top:10px; background:#fef2f2; padding:10px; border-radius:6px; border-left: 4px solid #ef4444;"><strong>⚠️ 退回原因:</strong> ${data.return_reason}</div>` : ''}
-                    ${data.supplement_remark ? `<div style="margin-top:10px; background:#ecfdf5; padding:10px; border-radius:6px; border-left: 4px solid #10b981;"><strong>📝 补充备注:</strong> ${data.supplement_remark}</div>` : ''}
+                    ${dualStatusHtml}
+                    ${remarkHtml}
                 </div>
             `;
 

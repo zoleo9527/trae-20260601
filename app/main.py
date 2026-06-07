@@ -486,30 +486,58 @@ def build_unified_ledger(
 
     ledger_type = "recharge" if recharge and not invoice else "full"
 
-    status_text_map = {
-        "pending": "待审核",
-        "verified": "已审核待确认",
+    recharge_status_map = {
+        "pending": "充值待审核",
+        "verified": "充值已审核待确认到账",
         "confirmed": "充值已到账",
-        "rejected": "充值已驳回",
+        "rejected": "充值已驳回"
+    }
+    invoice_status_map = {
+        "pending": "发票待处理",
         "processing": "发票处理中",
-        "returned": "发票已退回待补充",
+        "returned": "发票已退回待收银员补充",
         "completed": "发票已开具完成"
     }
 
-    current_status = None
-    current_handler = None
-    if invoice:
-        current_status = invoice.status
-        current_handler = invoice.handler
-    elif recharge:
-        current_status = recharge.status
-        current_handler = recharge.handler
+    recharge_status_text = recharge_status_map.get(recharge.status, recharge.status) if recharge else None
+    invoice_status_text = invoice_status_map.get(invoice.status, invoice.status) if invoice else None
 
-    current_status_text = status_text_map.get(current_status, current_status or "未知")
+    current_stage = "recharge"
+    current_status_text = recharge_status_text or "未知"
+    current_handler = None
+
+    if recharge and recharge.status in [RechargeStatusEnum.PENDING.value, RechargeStatusEnum.VERIFIED.value, RechargeStatusEnum.REJECTED.value]:
+        current_stage = "recharge"
+        current_status_text = recharge_status_text
+        current_handler = recharge.handler
+    elif recharge and recharge.status in [RechargeStatusEnum.CONFIRMED.value] and invoice:
+        current_stage = "invoice"
+        current_status_text = invoice_status_text
+        current_handler = invoice.handler
+    elif recharge and recharge.status in [RechargeStatusEnum.CONFIRMED.value] and not invoice:
+        current_stage = "recharge_done"
+        current_status_text = "充值已到账，未申请发票"
+        current_handler = recharge.handler
+    elif not recharge and invoice:
+        current_stage = "invoice"
+        current_status_text = invoice_status_text
+        current_handler = invoice.handler
+
     current_handler_name = current_handler.full_name if current_handler else None
 
-    return_reason = invoice.return_reason if invoice else None
-    supplement_remark = invoice.supplement_remark if invoice else None
+    manager_return_reason = None
+    cashier_supplement_remark = None
+    manager_process_remark = None
+
+    if invoice:
+        manager_return_reason = invoice.return_reason
+        if invoice.return_reason and invoice.supplement_remark:
+            cashier_supplement_remark = invoice.supplement_remark
+        elif invoice.supplement_remark and not invoice.return_reason:
+            manager_process_remark = invoice.supplement_remark
+
+    if recharge and recharge.remark and not invoice:
+        manager_process_remark = recharge.remark
 
     all_logs_dict = {}
     if recharge:
@@ -526,29 +554,33 @@ def build_unified_ledger(
 
     if recharge and recharge.status == RechargeStatusEnum.PENDING.value:
         if role in [RoleEnum.STATION_MANAGER.value, RoleEnum.METER_READER.value]:
-            available_actions.append({"action": "verify_recharge", "label": "审核通过", "type": "success"})
-            available_actions.append({"action": "reject_recharge", "label": "驳回申请", "type": "danger"})
+            available_actions.append({"action": "verify_recharge", "label": "【充值】审核通过", "type": "success", "stage": "recharge"})
+            available_actions.append({"action": "reject_recharge", "label": "【充值】驳回申请", "type": "danger", "stage": "recharge"})
     if recharge and recharge.status == RechargeStatusEnum.VERIFIED.value:
         if role == RoleEnum.STATION_MANAGER.value:
-            available_actions.append({"action": "confirm_recharge", "label": "确认到账", "type": "success"})
+            available_actions.append({"action": "confirm_recharge", "label": "【充值】确认到账", "type": "success", "stage": "recharge"})
     if invoice:
         if role == RoleEnum.STATION_MANAGER.value:
             if invoice.status in [InvoiceStatusEnum.PENDING.value, InvoiceStatusEnum.RETURNED.value]:
-                available_actions.append({"action": "process_invoice", "label": "开始处理", "type": "success"})
+                available_actions.append({"action": "process_invoice", "label": "【发票】开始处理", "type": "success", "stage": "invoice"})
             if invoice.status == InvoiceStatusEnum.PROCESSING.value:
-                available_actions.append({"action": "complete_invoice", "label": "完成开票", "type": "success"})
-                available_actions.append({"action": "return_invoice", "label": "退回补充", "type": "warning"})
+                available_actions.append({"action": "complete_invoice", "label": "【发票】完成开票", "type": "success", "stage": "invoice"})
+                available_actions.append({"action": "return_invoice", "label": "【发票】退回补充", "type": "warning", "stage": "invoice"})
         if role == RoleEnum.CASHIER.value and invoice.status == InvoiceStatusEnum.RETURNED.value and invoice.created_by == current_user.id:
-            available_actions.append({"action": "resubmit_invoice", "label": "补充信息重新提交", "type": "primary"})
+            available_actions.append({"action": "resubmit_invoice", "label": "【发票】补充信息重新提交", "type": "primary", "stage": "invoice"})
 
     return schemas.UnifiedLedgerDetail(
         ledger_type=ledger_type,
         recharge=recharge_resp,
         invoice=invoice_resp,
-        current_handler_name=current_handler_name,
+        current_stage=current_stage,
         current_status_text=current_status_text,
-        return_reason=return_reason,
-        supplement_remark=supplement_remark,
+        current_handler_name=current_handler_name,
+        recharge_status_text=recharge_status_text,
+        invoice_status_text=invoice_status_text,
+        manager_return_reason=manager_return_reason,
+        cashier_supplement_remark=cashier_supplement_remark,
+        manager_process_remark=manager_process_remark,
         all_flow_logs=all_logs_resp,
         available_actions=available_actions
     )

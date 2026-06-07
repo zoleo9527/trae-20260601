@@ -156,10 +156,14 @@ class UnifiedLedgerDetail(BaseModel):
     ledger_type: str
     recharge: Optional[MemberRechargeResponse] = None
     invoice: Optional[InvoiceReissueResponse] = None
-    current_handler_name: Optional[str] = None
+    current_stage: str
     current_status_text: str
-    return_reason: Optional[str] = None
-    supplement_remark: Optional[str] = None
+    current_handler_name: Optional[str] = None
+    recharge_status_text: Optional[str] = None
+    invoice_status_text: Optional[str] = None
+    manager_return_reason: Optional[str] = None
+    cashier_supplement_remark: Optional[str] = None
+    manager_process_remark: Optional[str] = None
     all_flow_logs: List[FlowLogResponse] = []
     available_actions: List[dict] = []
 
