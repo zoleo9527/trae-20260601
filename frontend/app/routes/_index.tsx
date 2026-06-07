@@ -1,14 +1,15 @@
 import { useLoaderData, useNavigate } from "@remix-run/react";
 import { useEffect, useState } from "react";
-import { RoleProvider, useRole, ROLE_LABELS } from "~/context/RoleContext";
-import { api, STATUS_LABELS } from "~/utils/api";
+import { useRole, ROLE_LABELS } from "~/context/RoleContext";
+import { STATUS_LABELS } from "~/utils/api";
+import { serverApi } from "~/utils/serverApi";
 
 export async function loader() {
   try {
     const [ponds, diseaseCases, medicines] = await Promise.all([
-      api.getPonds(),
-      api.getDiseaseCases(),
-      api.getMedicines(),
+      serverApi.getPonds(),
+      serverApi.getDiseaseCases(),
+      serverApi.getMedicines(),
     ]);
     return { ponds, diseaseCases, medicines };
   } catch (e) {
@@ -174,9 +175,5 @@ function DashboardContent() {
 }
 
 export default function Index() {
-  return (
-    <RoleProvider>
-      <DashboardContent />
-    </RoleProvider>
-  );
+  return <DashboardContent />;
 }

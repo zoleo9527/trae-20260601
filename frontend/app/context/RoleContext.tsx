@@ -1,29 +1,58 @@
-import { createContext, useContext, useState, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 
 type UserRole = 'TECHNICIAN' | 'WAREHOUSE_KEEPER' | 'FIELD_MANAGER';
+
+interface User {
+  id: string;
+  name: string;
+  role: UserRole;
+}
 
 interface RoleContextType {
   currentRole: UserRole;
   setCurrentRole: (role: UserRole) => void;
-  currentUser: { id: string; name: string; role: UserRole } | null;
+  currentUser: User | null;
+  usersByRole: Record<UserRole, User[]>;
+  loading: boolean;
 }
 
 const RoleContext = createContext<RoleContextType | undefined>(undefined);
 
-const ROLE_USERS: Record<UserRole, { id: string; name: string; role: UserRole }> = {
-  TECHNICIAN: { id: 'tech-1', name: '李技术', role: 'TECHNICIAN' },
-  WAREHOUSE_KEEPER: { id: 'keeper-1', name: '张仓管', role: 'WAREHOUSE_KEEPER' },
-  FIELD_MANAGER: { id: 'manager-1', name: '刘场长', role: 'FIELD_MANAGER' },
-};
-
 export function RoleProvider({ children }: { children: ReactNode }) {
   const [currentRole, setCurrentRole] = useState<UserRole>('TECHNICIAN');
+  const [users, setUsers] = useState<User[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function loadUsers() {
+      try {
+        const res = await fetch('/api/users');
+        const data = await res.json();
+        setUsers(data);
+      } catch (e) {
+        console.error('Failed to load users:', e);
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadUsers();
+  }, []);
+
+  const usersByRole = users.reduce((acc, user) => {
+    if (!acc[user.role]) acc[user.role] = [];
+    acc[user.role].push(user);
+    return acc;
+  }, {} as Record<UserRole, User[]>);
+
+  const currentUser = usersByRole[currentRole]?.[0] || null;
 
   return (
     <RoleContext.Provider value={{
       currentRole,
       setCurrentRole,
-      currentUser: ROLE_USERS[currentRole],
+      currentUser,
+      usersByRole,
+      loading,
     }}>
       {children}
     </RoleContext.Provider>

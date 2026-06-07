@@ -1,12 +1,13 @@
 import { useLoaderData, useNavigate } from "@remix-run/react";
 import { useState } from "react";
-import { RoleProvider, useRole, ROLE_LABELS } from "~/context/RoleContext";
+import { useRole, ROLE_LABELS } from "~/context/RoleContext";
 import { api } from "~/utils/api";
+import { serverApi } from "~/utils/serverApi";
 
 export async function loader() {
   const [ponds, medicines] = await Promise.all([
-    api.getPonds(),
-    api.getMedicines(),
+    serverApi.getPonds(),
+    serverApi.getMedicines(),
   ]);
   return { ponds, medicines };
 }
@@ -215,9 +216,5 @@ function NewDiseaseCase() {
 }
 
 export default function NewDiseaseCasePage() {
-  return (
-    <RoleProvider>
-      <NewDiseaseCase />
-    </RoleProvider>
-  );
+  return <NewDiseaseCase />;
 }

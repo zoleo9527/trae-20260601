@@ -1,16 +1,17 @@
 import { useLoaderData, useNavigate } from "@remix-run/react";
 import { useState } from "react";
-import { RoleProvider, useRole, ROLE_LABELS } from "~/context/RoleContext";
-import { api, STATUS_LABELS } from "~/utils/api";
+import { useRole, ROLE_LABELS } from "~/context/RoleContext";
+import { STATUS_LABELS } from "~/utils/api";
+import { serverApi } from "~/utils/serverApi";
 
 export async function loader({ params }: { params: { id: string } }) {
   const [pond, inspections, feedRecords, medications, summary, diseaseCases] = await Promise.all([
-    api.getPond(params.id),
-    api.getInspections(params.id),
-    api.getFeedRecords(params.id),
-    api.getTraceByPond(params.id),
-    api.getPondMedicationSummary(params.id),
-    api.getDiseaseCases({ pondId: params.id }),
+    serverApi.getPond(params.id),
+    serverApi.getInspections(params.id),
+    serverApi.getFeedRecords(params.id),
+    serverApi.getTraceByPond(params.id),
+    serverApi.getPondMedicationSummary(params.id),
+    serverApi.getDiseaseCases({ pondId: params.id }),
   ]);
   return { pond, inspections, feedRecords, medications, summary, diseaseCases };
 }
@@ -306,9 +307,5 @@ function PondDetail() {
 }
 
 export default function PondDetailPage() {
-  return (
-    <RoleProvider>
-      <PondDetail />
-    </RoleProvider>
-  );
+  return <PondDetail />;
 }

@@ -1,13 +1,14 @@
 import { useLoaderData, useNavigate, useRevalidator } from "@remix-run/react";
 import { useState } from "react";
-import { RoleProvider, useRole, ROLE_LABELS } from "~/context/RoleContext";
+import { useRole, ROLE_LABELS } from "~/context/RoleContext";
 import { api, STATUS_LABELS, ACTION_LABELS } from "~/utils/api";
+import { serverApi } from "~/utils/serverApi";
 
 export async function loader({ params }: { params: { id: string } }) {
   try {
     const [caseData, traceData] = await Promise.all([
-      api.getDiseaseCase(params.id),
-      api.getTraceByDiseaseCase(params.id),
+      serverApi.getDiseaseCase(params.id),
+      serverApi.getTraceByDiseaseCase(params.id),
     ]);
     return { caseData, traceData };
   } catch (e) {
@@ -406,9 +407,5 @@ function DiseaseCaseDetail() {
 }
 
 export default function DiseaseCaseDetailPage() {
-  return (
-    <RoleProvider>
-      <DiseaseCaseDetail />
-    </RoleProvider>
-  );
+  return <DiseaseCaseDetail />;
 }

@@ -1,9 +1,9 @@
 import { useLoaderData, useNavigate } from "@remix-run/react";
-import { RoleProvider, useRole, ROLE_LABELS } from "~/context/RoleContext";
-import { api } from "~/utils/api";
+import { useRole, ROLE_LABELS } from "~/context/RoleContext";
+import { serverApi } from "~/utils/serverApi";
 
 export async function loader() {
-  const ponds = await api.getPonds();
+  const ponds = await serverApi.getPonds();
   return { ponds };
 }
 
@@ -81,9 +81,5 @@ function PondsContent() {
 }
 
 export default function PondsIndex() {
-  return (
-    <RoleProvider>
-      <PondsContent />
-    </RoleProvider>
-  );
+  return <PondsContent />;
 }

@@ -1,11 +1,12 @@
 import { useLoaderData, useNavigate } from "@remix-run/react";
 import { useState } from "react";
-import { RoleProvider, useRole, ROLE_LABELS } from "~/context/RoleContext";
-import { api, STATUS_LABELS } from "~/utils/api";
+import { useRole, ROLE_LABELS } from "~/context/RoleContext";
+import { STATUS_LABELS } from "~/utils/api";
+import { serverApi } from "~/utils/serverApi";
 
 export async function loader() {
   try {
-    const diseaseCases = await api.getDiseaseCases();
+    const diseaseCases = await serverApi.getDiseaseCases();
     return { diseaseCases };
   } catch (e) {
     return { diseaseCases: [] };
@@ -124,9 +125,5 @@ function DiseaseCasesContent() {
 }
 
 export default function DiseaseCasesIndex() {
-  return (
-    <RoleProvider>
-      <DiseaseCasesContent />
-    </RoleProvider>
-  );
+  return <DiseaseCasesContent />;
 }
