@@ -135,22 +135,37 @@ export const useShiftStore = create<ShiftStore>((set, get) => ({
           return {
             ...oil,
             endStock: form.endStock,
-            actualLoss: Math.max(0, actualLoss),
-            difference: Math.max(0, difference),
+            actualLoss: actualLoss,
+            difference: difference,
             isRecorded: true,
           };
         });
 
-        const hasAbnormalLoss = newOilData?.some((oil) => oil.difference > 10);
+        const hasAbnormalLoss = newOilData?.some((oil) => Math.abs(oil.difference) > 10);
         const allRecorded = newOilData?.every((oil) => oil.isRecorded) ?? false;
 
         const totalSales = newOilData?.reduce((sum, oil) => sum + oil.salesVolume, 0) || 0;
         const totalLoss = newOilData?.reduce((sum, oil) => sum + oil.actualLoss, 0) || 0;
         const avgLossRate = totalSales > 0 ? ((totalLoss / totalSales) * 100).toFixed(2) : '0.00';
         const standardLossRate = '0.15';
-        const diffRate = hasAbnormalLoss
-          ? (parseFloat(avgLossRate) - parseFloat(standardLossRate)).toFixed(2)
-          : '0.00';
+        const diffRate = (parseFloat(avgLossRate) - parseFloat(standardLossRate)).toFixed(2);
+
+        const hasGain = parseFloat(diffRate) < 0;
+
+        let title = '油品损耗正常';
+        let description = '各油品损耗均在标准范围内';
+        if (hasAbnormalLoss) {
+          if (hasGain) {
+            title = '油品溢余异常';
+            description = '部分油品实际溢余超出合理范围，需核查原因';
+          } else {
+            title = '油品损耗异常';
+            description = '部分油品实际损耗超出标准范围，需核查原因';
+          }
+        } else if (hasGain) {
+          title = '油品溢余正常';
+          description = '各油品溢余在标准范围内';
+        }
 
         return {
           ...shift,
@@ -164,10 +179,8 @@ export const useShiftStore = create<ShiftStore>((set, get) => ({
                 actualValue: avgLossRate,
                 difference: diffRate,
                 status: allRecorded ? (hasAbnormalLoss ? 'pending' : 'confirmed') : d.status,
-                title: hasAbnormalLoss ? '油品损耗异常' : '油品损耗正常',
-                description: hasAbnormalLoss
-                  ? '部分油品实际损耗超出标准范围'
-                  : '各油品损耗均在标准范围内',
+                title: title,
+                description: description,
                 reviewer: allRecorded ? '刘计量员' : d.reviewer,
                 reviewTime: allRecorded ? new Date().toLocaleString('zh-CN') : d.reviewTime,
               };

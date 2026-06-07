@@ -50,7 +50,7 @@ export default function OilDataPanel({ oilData }: OilDataPanelProps) {
           <tbody className="divide-y divide-gray-100">
             {oilData.map((item, index) => {
               const diffValue = Number(item.difference);
-              const isAbnormal = diffValue > 10;
+              const isAbnormal = Math.abs(diffValue) > 10;
               const isPositive = diffValue > 0;
               const isRecorded = item.isRecorded !== false;
               const hasDiff = !isNaN(diffValue);
