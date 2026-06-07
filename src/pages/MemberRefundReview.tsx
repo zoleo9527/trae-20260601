@@ -42,6 +42,7 @@ export default function MemberRefundReview() {
       if (refund && refund.consumeId !== consumeId) {
         setSelectedRefundId(null);
         setDisputeText('');
+        setReviewResult('approve');
         setReviewComment('');
         setReviewAmount('');
         setCouponAmount('');
@@ -54,6 +55,7 @@ export default function MemberRefundReview() {
     setSelectedConsumeId(null);
     setSelectedRefundId(null);
     setDisputeText('');
+    setReviewResult('approve');
     setReviewComment('');
     setReviewAmount('');
     setCouponAmount('');
@@ -65,10 +67,20 @@ export default function MemberRefundReview() {
       setSelectedRefundId(refundId);
       setSelectedConsumeId(refund.consumeId);
       setDisputeText('');
+      setReviewResult('approve');
       setReviewComment('');
       setReviewAmount('');
       setCouponAmount('');
     }
+  };
+
+  const getRefundDestination = (refund: RefundApplication): string => {
+    if (!refund.finalRefundAmount && !refund.couponAmount) return '待处理';
+    if (refund.couponAmount && refund.couponAmount > 0) return '补偿券发放';
+    if (refund.finalRefundAmount && refund.finalRefundAmount > 0) return '退回储值账户';
+    if (refund.status === '已拒绝') return '无';
+    if (refund.status === '已退回') return '退回申请';
+    return '待处理';
   };
 
   const handleSearch = () => {
@@ -119,6 +131,10 @@ export default function MemberRefundReview() {
   const selectedRefund: RefundApplication | undefined = refunds.find(
     (r) => r.id === selectedRefundId
   );
+
+  const refundRelatedConsume: ConsumptionItem | undefined = selectedRefund
+    ? mockConsumptions.find((c) => c.id === selectedRefund.consumeId)
+    : undefined;
 
   const refundHistory: ProcessingHistory[] = selectedRefundId
     ? histories.filter((h) => h.refundId === selectedRefundId)
@@ -408,7 +424,10 @@ export default function MemberRefundReview() {
                         消费项目
                       </th>
                       <th className="px-4 py-3 text-right text-xs font-medium text-slate-500 uppercase tracking-wider">
-                        金额
+                        原扣金额
+                      </th>
+                      <th className="px-4 py-3 text-center text-xs font-medium text-slate-500 uppercase tracking-wider">
+                        扣费方式
                       </th>
                       <th className="px-4 py-3 text-center text-xs font-medium text-slate-500 uppercase tracking-wider">
                         退款
@@ -446,6 +465,11 @@ export default function MemberRefundReview() {
                           <td className="px-4 py-3 text-right whitespace-nowrap">
                             <span className="text-sm font-semibold text-slate-800">
                               ¥{item.amount.toFixed(2)}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-center whitespace-nowrap">
+                            <span className="px-2 py-0.5 bg-purple-50 text-purple-700 text-xs font-medium rounded">
+                              {item.payMethod}
                             </span>
                           </td>
                           <td className="px-4 py-3 text-center whitespace-nowrap">
@@ -567,10 +591,38 @@ export default function MemberRefundReview() {
                       {selectedRefund.wristbandNo}
                     </span>
                   </div>
+                  {refundRelatedConsume && (
+                    <>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-slate-500">原扣金额</span>
+                        <span className="text-sm font-semibold text-slate-800">
+                          ¥{refundRelatedConsume.amount.toFixed(2)}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-slate-500">扣费方式</span>
+                        <span className="px-2 py-0.5 bg-purple-50 text-purple-700 text-xs font-medium rounded">
+                          {refundRelatedConsume.payMethod}
+                        </span>
+                      </div>
+                    </>
+                  )}
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-slate-500">申请金额</span>
                     <span className="text-lg font-bold text-red-600">
                       ¥{selectedRefund.applyAmount.toFixed(2)}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-slate-500">退款去向</span>
+                    <span className={`text-sm font-medium ${
+                      getRefundDestination(selectedRefund) === '退回储值账户'
+                        ? 'text-emerald-600'
+                        : getRefundDestination(selectedRefund) === '补偿券发放'
+                        ? 'text-pink-600'
+                        : 'text-slate-500'
+                    }`}>
+                      {getRefundDestination(selectedRefund)}
                     </span>
                   </div>
                   {selectedRefund.finalRefundAmount !== undefined && (
@@ -637,36 +689,57 @@ export default function MemberRefundReview() {
               )}
             </div>
 
-            {selectedRefund && !selectedRefund.disputeSupplement && (
-              <div className="bg-white rounded-lg shadow-sm border border-amber-200">
-                <div className="px-5 py-3 border-b border-amber-100 bg-amber-50">
-                  <h3 className="font-semibold text-amber-800 text-sm">
-                    楼层主管 - 服务争议补充
-                  </h3>
+            {selectedRefund &&
+              !['已批准', '已拒绝', '部分退款', '补偿券替代'].includes(
+                selectedRefund.status
+              ) &&
+              !selectedRefund.disputeSupplement && (
+                <div className="bg-white rounded-lg shadow-sm border border-amber-200">
+                  <div className="px-5 py-3 border-b border-amber-100 bg-amber-50">
+                    <h3 className="font-semibold text-amber-800 text-sm">
+                      楼层主管 - 服务争议补充
+                    </h3>
+                  </div>
+                  <div className="p-4">
+                    <textarea
+                      value={disputeText}
+                      onChange={(e) => setDisputeText(e.target.value)}
+                      placeholder="请输入争议核实情况和补充说明..."
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent resize-none"
+                      rows={3}
+                    />
+                    <button
+                      onClick={handleSaveDispute}
+                      disabled={!disputeText.trim()}
+                      className="mt-3 w-full px-4 py-2 bg-amber-600 text-white text-sm font-medium rounded-lg hover:bg-amber-700 transition-colors disabled:bg-slate-300 disabled:cursor-not-allowed"
+                    >
+                      保存补充说明
+                    </button>
+                  </div>
                 </div>
-                <div className="p-4">
-                  <textarea
-                    value={disputeText}
-                    onChange={(e) => setDisputeText(e.target.value)}
-                    placeholder="请输入争议核实情况和补充说明..."
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent resize-none"
-                    rows={3}
-                  />
-                  <button
-                    onClick={handleSaveDispute}
-                    disabled={!disputeText.trim()}
-                    className="mt-3 w-full px-4 py-2 bg-amber-600 text-white text-sm font-medium rounded-lg hover:bg-amber-700 transition-colors disabled:bg-slate-300 disabled:cursor-not-allowed"
-                  >
-                    保存补充说明
-                  </button>
-                </div>
-              </div>
-            )}
+              )}
 
             {selectedRefund &&
               !['已批准', '已拒绝', '部分退款', '补偿券替代'].includes(
                 selectedRefund.status
-              ) && (
+              ) &&
+              !selectedRefund.disputeSupplement && (
+                <div className="bg-slate-50 rounded-lg border border-slate-200 p-5 text-center">
+                  <div className="text-3xl mb-2">⏳</div>
+                  <p className="text-sm font-medium text-slate-700 mb-1">
+                    待补资料
+                  </p>
+                  <p className="text-xs text-slate-500">
+                    请先由楼层主管补充服务争议说明后，再进行财务复查处理
+                  </p>
+                </div>
+              )}
+
+            {selectedRefund &&
+              !['已批准', '已拒绝', '部分退款', '补偿券替代'].includes(
+                selectedRefund.status
+              ) &&
+              selectedRefund.disputeSupplement && (
                 <div className="bg-white rounded-lg shadow-sm border border-emerald-200">
                   <div className="px-5 py-3 border-b border-emerald-100 bg-emerald-50">
                     <h3 className="font-semibold text-emerald-800 text-sm">
