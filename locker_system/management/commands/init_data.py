@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 from decimal import Decimal
 
 from locker_system.models import (
-    StaffProfile, LockerArea, Locker, Wristband, Technician,
+    StaffProfile, LockerArea, Locker, Wristband, Technician, TechnicianSchedule,
     LockerAbnormal, Compensation, RoleType
 )
 
@@ -112,6 +112,31 @@ class Command(BaseCommand):
         today = now.date()
         yesterday = today - timedelta(days=1)
         two_days_ago = today - timedelta(days=2)
+
+        area1 = LockerArea.objects.get(name="男宾区")
+        area2 = LockerArea.objects.get(name="女宾区")
+        area3 = LockerArea.objects.get(name="VIP区")
+
+        TechnicianSchedule.objects.get_or_create(
+            technician=tech1, shift_date=today,
+            defaults={"shift_type": "早班", "assigned_area": area1, "remark": "负责男宾区储物柜巡检"}
+        )
+        TechnicianSchedule.objects.get_or_create(
+            technician=tech1, shift_date=yesterday,
+            defaults={"shift_type": "中班", "assigned_area": area1, "remark": "负责男宾区储物柜巡检"}
+        )
+        TechnicianSchedule.objects.get_or_create(
+            technician=tech2, shift_date=today,
+            defaults={"shift_type": "中班", "assigned_area": area2, "remark": "负责女宾区储物柜巡检"}
+        )
+        TechnicianSchedule.objects.get_or_create(
+            technician=tech2, shift_date=two_days_ago,
+            defaults={"shift_type": "晚班", "assigned_area": area1, "remark": "负责男宾区储物柜巡检"}
+        )
+        TechnicianSchedule.objects.get_or_create(
+            technician=tech3, shift_date=today,
+            defaults={"shift_type": "晚班", "assigned_area": area3, "remark": "负责VIP区储物柜巡检"}
+        )
 
         reception_staff = StaffProfile.objects.get(role=RoleType.RECEPTION)
         supervisor_staff = StaffProfile.objects.get(role=RoleType.FLOOR_SUPERVISOR)

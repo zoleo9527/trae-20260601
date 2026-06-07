@@ -128,6 +128,56 @@ class TechnicianSchema(BaseModel):
         from_attributes = True
 
 
+class TechnicianScheduleSchema(BaseModel):
+    id: int
+    technician_id: int
+    technician_name: str
+    shift_date: date
+    shift_type: str
+    assigned_area_name: str
+    remark: str
+
+    @classmethod
+    def from_orm(cls, schedule):
+        return cls(
+            id=schedule.id,
+            technician_id=schedule.technician.id,
+            technician_name=schedule.technician.name,
+            shift_date=schedule.shift_date,
+            shift_type=schedule.shift_type,
+            assigned_area_name=str(schedule.assigned_area) if schedule.assigned_area else "",
+            remark=schedule.remark,
+        )
+
+
+class LockerOccupancyInfo(BaseModel):
+    locker_no: str
+    area_name: str
+    status: str
+    status_display: str
+    current_wristband_code: str
+    current_customer_name: str
+    check_in_time: Optional[datetime] = None
+    locker_remark: str
+
+
+class WristbandIssuanceInfo(BaseModel):
+    wristband_code: str
+    status: str
+    status_display: str
+    customer_name: str
+    customer_phone: str
+    issued_by_name: str
+    issued_at: Optional[datetime] = None
+    bound_locker_no: str
+
+
+class EvidenceChainSchema(BaseModel):
+    locker_info: LockerOccupancyInfo
+    wristband_info: Optional[WristbandIssuanceInfo] = None
+    technician_schedule: Optional[TechnicianScheduleSchema] = None
+
+
 class AbnormalProgressSchema(BaseModel):
     id: int
     action: str
@@ -175,6 +225,7 @@ class LockerAbnormalSchema(BaseModel):
     is_returned: bool
     remark: str
     progresses: List[AbnormalProgressSchema]
+    evidence_chain: Optional[EvidenceChainSchema] = None
 
     @classmethod
     def from_orm(cls, abnormal):
@@ -302,6 +353,7 @@ class CompensationSchema(BaseModel):
     reject_reason: str
     remark: str
     progresses: List[CompensationProgressSchema]
+    evidence_chain: Optional[EvidenceChainSchema] = None
 
     @classmethod
     def from_orm(cls, comp):

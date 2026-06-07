@@ -16,9 +16,12 @@ from .schemas import (
     ReportAbnormalRequest, AssignAbnormalRequest, ProcessAbnormalRequest,
     ReturnAbnormalRequest, ReviewCompensationRequest, PayCompensationRequest,
     AbnormalFilterQuery, DashboardStats, StaffSchema, WristbandSchema,
-    TechnicianSchema, LockerAreaSchema
+    TechnicianSchema, LockerAreaSchema,
+    EvidenceChainSchema, LockerOccupancyInfo, WristbandIssuanceInfo,
+    TechnicianScheduleSchema,
 )
 from .error_codes import ErrorCode, ERROR_MESSAGES
+from .models import TechnicianSchedule
 
 router = Router()
 
@@ -54,6 +57,64 @@ def get_default_staff(role: str = None) -> Optional[StaffProfile]:
     if role:
         qs = qs.filter(role=role)
     return qs.first()
+
+
+def build_evidence_chain(abnormal: LockerAbnormal) -> EvidenceChainSchema:
+    locker = abnormal.locker
+    locker_info = LockerOccupancyInfo(
+        locker_no=locker.locker_no,
+        area_name=str(locker.area),
+        status=locker.status,
+        status_display=locker.get_status_display(),
+        current_wristband_code=locker.wristband_code,
+        current_customer_name=locker.customer_name,
+        check_in_time=locker.check_in_time,
+        locker_remark=locker.remark,
+    )
+
+    wristband_info = None
+    wristband = abnormal.wristband
+    if wristband:
+        wristband_info = WristbandIssuanceInfo(
+            wristband_code=wristband.code,
+            status=wristband.status,
+            status_display=wristband.get_status_display(),
+            customer_name=wristband.customer_name,
+            customer_phone=wristband.customer_phone,
+            issued_by_name=wristband.issued_by.user.get_full_name() if wristband.issued_by and wristband.issued_by.user else "",
+            issued_at=wristband.issued_at,
+            bound_locker_no=wristband.bound_locker.locker_no if wristband.bound_locker else "",
+        )
+
+    technician_schedule = None
+    technician = abnormal.related_technician
+    if technician and abnormal.reported_at:
+        schedule = TechnicianSchedule.objects.filter(
+            technician=technician,
+            shift_date=abnormal.reported_at.date()
+        ).select_related("technician", "assigned_area").first()
+        if schedule:
+            technician_schedule = TechnicianScheduleSchema.from_orm(schedule)
+
+    return EvidenceChainSchema(
+        locker_info=locker_info,
+        wristband_info=wristband_info,
+        technician_schedule=technician_schedule,
+    )
+
+
+def build_abnormal_detail_response(abnormal: LockerAbnormal) -> dict:
+    evidence_chain = build_evidence_chain(abnormal)
+    base_data = LockerAbnormalSchema.from_orm(abnormal).model_dump()
+    base_data["evidence_chain"] = evidence_chain.model_dump()
+    return base_data
+
+
+def build_compensation_detail_response(comp: Compensation) -> dict:
+    evidence_chain = build_evidence_chain(comp.abnormal)
+    base_data = CompensationSchema.from_orm(comp).model_dump()
+    base_data["evidence_chain"] = evidence_chain.model_dump()
+    return base_data
 
 
 @router.get("/dashboard", response=SuccessResponse[DashboardStats], summary="仪表盘统计")
@@ -193,20 +254,52 @@ def list_abnormals(
     ])
 
     if default_view:
-        qs_today = qs.filter(
-            Q(expected_deadline__gte=today_start) & Q(expected_deadline__lte=now),
+        today_start = datetime.combine(today, datetime.min.time())
+        today_end = datetime.combine(today, datetime.max.time())
+
+        qs_today = LockerAbnormal.objects.filter(
+            expected_deadline__range=(today_start, today_end),
             status__in=["pending", "processing", "returned"]
         )
-        qs_overdue = qs.filter(
+        qs_overdue = LockerAbnormal.objects.filter(
             expected_deadline__lt=now,
             status__in=["pending", "processing"]
         )
-        qs_returned = qs.filter(status="returned")
-        ids = set(qs_today.values_list("id", flat=True)) | set(qs_overdue.values_list("id", flat=True)) | set(qs_returned.values_list("id", flat=True))
-        if ids:
-            qs = qs.filter(id__in=ids) | qs.filter(status__in=["pending", "processing"])
-        else:
-            qs = qs.filter(status__in=["pending", "processing", "returned"])
+        qs_returned = LockerAbnormal.objects.filter(
+            status="returned"
+        )
+
+        ids = (
+            set(qs_today.values_list("id", flat=True)) |
+            set(qs_overdue.values_list("id", flat=True)) |
+            set(qs_returned.values_list("id", flat=True))
+        )
+
+        qs = LockerAbnormal.objects.filter(id__in=ids).select_related(
+            "locker", "locker__area", "wristband",
+            "reported_by", "reported_by__user",
+            "assigned_to", "assigned_to__user",
+            "processed_by", "processed_by__user",
+            "related_technician"
+        ).prefetch_related("compensation").order_by(
+            "-priority",
+            "expected_deadline"
+        )
+    else:
+        if filters.show_today:
+            today_start = datetime.combine(today, datetime.min.time())
+            today_end = datetime.combine(today, datetime.max.time())
+            qs = qs.filter(
+                expected_deadline__range=(today_start, today_end),
+                status__in=["pending", "processing", "returned"]
+            )
+        if filters.show_overdue:
+            qs = qs.filter(
+                expected_deadline__lt=now,
+                status__in=["pending", "processing"]
+            )
+        if filters.show_returned:
+            qs = qs.filter(status="returned")
 
     total = qs.count()
     offset = (pagination.page - 1) * pagination.page_size
@@ -229,7 +322,8 @@ def list_abnormals(
 @router.get("/abnormals/{abnormal_id}", response=SuccessResponse[LockerAbnormalSchema], summary="异常详情")
 def get_abnormal(request, abnormal_id: int):
     abnormal = get_object_or_404(LockerAbnormal, id=abnormal_id)
-    return {"code": ErrorCode.SUCCESS.value, "message": "获取成功", "data": LockerAbnormalSchema.from_orm(abnormal)}
+    data = build_abnormal_detail_response(abnormal)
+    return {"code": ErrorCode.SUCCESS.value, "message": "获取成功", "data": data}
 
 
 @router.post("/abnormals", response=SuccessResponse[LockerAbnormalSchema], summary="前台登记异常")
@@ -265,7 +359,8 @@ def report_abnormal(request, payload: ReportAbnormalRequest):
 
     add_abnormal_progress(abnormal, "前台登记", f"登记异常：{abnormal.get_abnormal_type_display()}", reporter)
 
-    return {"code": ErrorCode.SUCCESS.value, "message": "登记成功", "data": LockerAbnormalSchema.from_orm(abnormal)}
+    data = build_abnormal_detail_response(abnormal)
+    return {"code": ErrorCode.SUCCESS.value, "message": "登记成功", "data": data}
 
 
 @router.put("/abnormals/{abnormal_id}/assign", response=SuccessResponse[LockerAbnormalSchema], summary="派单给楼层主管")
@@ -286,7 +381,8 @@ def assign_abnormal(request, abnormal_id: int, payload: AssignAbnormalRequest):
 
     add_abnormal_progress(abnormal, "派单", f"派单给{assignee.user.get_full_name()}", get_default_staff())
 
-    return {"code": ErrorCode.SUCCESS.value, "message": "派单成功", "data": LockerAbnormalSchema.from_orm(abnormal)}
+    data = build_abnormal_detail_response(abnormal)
+    return {"code": ErrorCode.SUCCESS.value, "message": "派单成功", "data": data}
 
 
 @router.put("/abnormals/{abnormal_id}/process", response=SuccessResponse[dict], summary="楼层主管处理异常")
@@ -323,15 +419,17 @@ def process_abnormal(request, abnormal_id: int, payload: ProcessAbnormalRequest)
         add_abnormal_progress(abnormal, "处理完成", f"处理结果：{payload.process_result}，已提交赔付申请", processor)
         add_compensation_progress(comp, "提交赔付申请", f"申请金额：{payload.compensation_amount}元", processor)
 
+        abnormal_data = build_abnormal_detail_response(abnormal)
         return {"code": ErrorCode.SUCCESS.value, "message": "处理完成，已提交赔付申请", "data": {
-            "abnormal": LockerAbnormalSchema.from_orm(abnormal).model_dump(),
+            "abnormal": abnormal_data,
             "compensation_id": comp.id
         }}
     else:
         abnormal.status = LockerAbnormal.Status.RESOLVED
         abnormal.save()
         add_abnormal_progress(abnormal, "处理完成", f"处理结果：{payload.process_result}", processor)
-        return {"code": ErrorCode.SUCCESS.value, "message": "处理完成", "data": {"abnormal": LockerAbnormalSchema.from_orm(abnormal).model_dump()}}
+        abnormal_data = build_abnormal_detail_response(abnormal)
+        return {"code": ErrorCode.SUCCESS.value, "message": "处理完成", "data": {"abnormal": abnormal_data}}
 
 
 @router.put("/abnormals/{abnormal_id}/return", response=SuccessResponse[LockerAbnormalSchema], summary="退回异常")
@@ -351,7 +449,8 @@ def return_abnormal(request, abnormal_id: int, payload: ReturnAbnormalRequest):
 
     add_abnormal_progress(abnormal, "退回", f"退回原因：{payload.return_reason}", operator)
 
-    return {"code": ErrorCode.SUCCESS.value, "message": "已退回", "data": LockerAbnormalSchema.from_orm(abnormal)}
+    data = build_abnormal_detail_response(abnormal)
+    return {"code": ErrorCode.SUCCESS.value, "message": "已退回", "data": data}
 
 
 @router.get("/compensations", response=PaginatedResponse[CompensationListSchema], summary="赔付记录列表")
@@ -415,7 +514,8 @@ def list_compensations(
 @router.get("/compensations/{compensation_id}", response=SuccessResponse[CompensationSchema], summary="赔付详情(回看)")
 def get_compensation(request, compensation_id: int):
     comp = get_object_or_404(Compensation, id=compensation_id)
-    return {"code": ErrorCode.SUCCESS.value, "message": "获取成功", "data": CompensationSchema.from_orm(comp)}
+    data = build_compensation_detail_response(comp)
+    return {"code": ErrorCode.SUCCESS.value, "message": "获取成功", "data": data}
 
 
 @router.put("/compensations/{compensation_id}/review", response=SuccessResponse[CompensationSchema], summary="财务审核赔付")
@@ -449,7 +549,8 @@ def review_compensation(request, compensation_id: int, payload: ReviewCompensati
 
     comp.save()
 
-    return {"code": ErrorCode.SUCCESS.value, "message": "审核完成", "data": CompensationSchema.from_orm(comp)}
+    data = build_compensation_detail_response(comp)
+    return {"code": ErrorCode.SUCCESS.value, "message": "审核完成", "data": data}
 
 
 @router.put("/compensations/{compensation_id}/pay", response=SuccessResponse[CompensationSchema], summary="财务支付赔付")
@@ -477,4 +578,5 @@ def pay_compensation(request, compensation_id: int, payload: PayCompensationRequ
     add_compensation_progress(comp, "支付完成", f"支付方式：{payload.payment_method}，凭证号：{payload.payment_voucher}", payer)
     add_abnormal_progress(comp.abnormal, "赔付完成", f"赔付金额：{comp.compensation_amount}元，支付完成", payer)
 
-    return {"code": ErrorCode.SUCCESS.value, "message": "支付完成", "data": CompensationSchema.from_orm(comp)}
+    data = build_compensation_detail_response(comp)
+    return {"code": ErrorCode.SUCCESS.value, "message": "支付完成", "data": data}
