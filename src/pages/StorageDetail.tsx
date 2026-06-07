@@ -113,7 +113,7 @@ const StorageDetail = () => {
     if (diff > 5) status = 'critical';
     else if (diff > 2) status = 'warning';
 
-    if ((status === 'warning' || status === 'critical') && item.status !== 'abnormal') {
+    if (status === 'warning' || status === 'critical') {
       setPendingTempData({
         temperature: values.temperature,
         status,

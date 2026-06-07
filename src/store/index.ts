@@ -121,7 +121,7 @@ export const useStore = create<StoreState>()(
             if (item.id !== storageId) return item;
             
             const isAbnormal = record.status === 'warning' || record.status === 'critical';
-            const shouldMarkAbnormal = isAbnormal && abnormalDescription && item.status !== 'abnormal';
+            const shouldUpdateAbnormal = isAbnormal && abnormalDescription;
             
             const updatedItem = {
               ...item,
@@ -129,7 +129,7 @@ export const useStore = create<StoreState>()(
               temperatureRecords: [...item.temperatureRecords, newRecord],
             };
             
-            if (shouldMarkAbnormal) {
+            if (shouldUpdateAbnormal) {
               return {
                 ...updatedItem,
                 status: 'abnormal' as const,
