@@ -67,6 +67,8 @@ export const api = {
     return request<any[]>(`/trace/medicines/${medicineId}/usage${query.toString() ? `?${query.toString()}` : ''}`);
   },
   getPondMedicationSummary: (pondId: string) => request<any[]>(`/trace/ponds/${pondId}/summary`),
+
+  resetDemoData: () => request<any>('/demo/reset', { method: 'POST' }, false),
 };
 
 export const STATUS_LABELS: Record<string, string> = {

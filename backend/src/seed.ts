@@ -1,14 +1,27 @@
-import { db, initDatabase } from './db';
 import { v4 as uuidv4 } from 'uuid';
+import { db, initDatabase } from './db';
 
-function seed() {
+export function resetDemoData() {
   initDatabase();
 
-  const existingUsers = db.prepare('SELECT COUNT(*) as cnt FROM users').get() as any;
-  if (existingUsers.cnt > 0) {
-    console.log('种子数据已存在，跳过');
-    return;
+  const tables = [
+    'medication_records',
+    'disease_case_audits',
+    'disease_case_medicines',
+    'disease_cases',
+    'feed_records',
+    'inspections',
+    'medicines',
+    'ponds',
+    'users',
+    'idempotency_keys',
+  ];
+
+  for (const table of tables) {
+    db.prepare(`DELETE FROM "${table}"`).run();
   }
+
+  console.log('已清空所有演示数据');
 
   const tx = db.transaction(() => {
     const users = [
@@ -264,7 +277,24 @@ function seed() {
   });
 
   tx();
-  console.log('种子数据插入完成');
+  console.log('演示数据重置完成');
+
+  return {
+    message: '演示数据已重置',
+    resetAt: new Date().toISOString(),
+  };
 }
 
-seed();
+export function seed() {
+  initDatabase();
+  const existingUsers = db.prepare('SELECT COUNT(*) as cnt FROM users').get() as any;
+  if (existingUsers.cnt > 0) {
+    console.log('种子数据已存在，跳过');
+    return;
+  }
+  resetDemoData();
+}
+
+if (require.main === module) {
+  seed();
+}

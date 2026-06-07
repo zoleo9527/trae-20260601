@@ -1,7 +1,7 @@
 import { useLoaderData, useNavigate } from "@remix-run/react";
 import { useEffect, useState } from "react";
-import { useRole, ROLE_LABELS } from "~/context/RoleContext";
-import { STATUS_LABELS } from "~/utils/api";
+import { ROLE_LABELS, useRole } from "~/context/RoleContext";
+import { api, STATUS_LABELS } from "~/utils/api";
 import { serverApi } from "~/utils/serverApi";
 
 export async function loader() {
@@ -41,6 +41,8 @@ function DashboardContent() {
   const data = useLoaderData<typeof loader>();
   const navigate = useNavigate();
   const [myCases, setMyCases] = useState<any[]>([]);
+  const [resetting, setResetting] = useState(false);
+  const [showBoundary, setShowBoundary] = useState(false);
 
   useEffect(() => {
     const filtered = data.diseaseCases.filter((c: any) => c.current_handler_role === currentRole);
@@ -54,11 +56,42 @@ function DashboardContent() {
     medicines: data.medicines.length,
   };
 
+  const handleReset = async () => {
+    if (!confirm('确定要重置所有演示数据吗？这将恢复病害单、药品库存和追溯样例到初始状态。')) {
+      return;
+    }
+    try {
+      setResetting(true);
+      await api.resetDemoData();
+      alert('演示数据已重置！页面将刷新。');
+      window.location.reload();
+    } catch (e: any) {
+      alert('重置失败：' + e.message);
+    } finally {
+      setResetting(false);
+    }
+  };
+
   return (
     <div className="app-container">
       <div className="header">
         <h1>🐟 水产养殖场 - 病害处理与用药追溯</h1>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <button
+            className="btn btn-default"
+            onClick={() => setShowBoundary(true)}
+            style={{ fontSize: '12px', padding: '4px 12px' }}
+          >
+            ℹ️ 系统说明
+          </button>
+          <button
+            className="btn btn-default"
+            onClick={handleReset}
+            disabled={resetting}
+            style={{ fontSize: '12px', padding: '4px 12px' }}
+          >
+            🔄 重置演示数据
+          </button>
           <span style={{ fontSize: '14px' }}>当前用户: {currentUser?.name}</span>
           <RoleSwitcher />
         </div>
@@ -170,6 +203,78 @@ function DashboardContent() {
           </div>
         </div>
       </div>
+
+      {showBoundary && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'rgba(0,0,0,0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000,
+          }}
+          onClick={() => setShowBoundary(false)}
+        >
+          <div
+            style={{
+              background: '#fff',
+              borderRadius: '8px',
+              padding: '24px',
+              maxWidth: '600px',
+              width: '90%',
+              maxHeight: '80vh',
+              overflowY: 'auto',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 style={{ marginTop: 0, marginBottom: '16px', color: '#2c5530' }}>📋 系统说明与边界</h2>
+
+            <div style={{ marginBottom: '20px' }}>
+              <h3 style={{ fontSize: '16px', color: '#333', marginBottom: '8px' }}>🎯 演示系统用途</h3>
+              <p style={{ fontSize: '14px', color: '#666', lineHeight: '1.6', margin: 0 }}>
+                本系统用于演示水产养殖场病害处理与用药追溯的全流程闭环，
+                重点展示<strong>驳回补录实体化、角色接力流转、用药追溯穿透</strong>三个核心特性。
+              </p>
+            </div>
+
+            <div style={{ marginBottom: '20px' }}>
+              <h3 style={{ fontSize: '16px', color: '#333', marginBottom: '8px' }}>🔄 预置演示数据</h3>
+              <ul style={{ fontSize: '14px', color: '#666', lineHeight: '1.8', margin: 0, paddingLeft: '20px' }}>
+                <li><strong>3条病害单：</strong>已结案（完整流程）、已驳回（待补录）、已提交（待配药）</li>
+                <li><strong>5个塘口：</strong>含正常和发病状态，养殖南美白对虾、草鱼、鲫鱼</li>
+                <li><strong>5种水产药品：</strong>聚维酮碘、二氧化氯、恩诺沙星、肝胆利康散、EM益生菌</li>
+                <li><strong>15天巡检记录、10天投喂记录：</strong>本地模拟样例数据</li>
+              </ul>
+            </div>
+
+            <div style={{ marginBottom: '20px' }}>
+              <h3 style={{ fontSize: '16px', color: '#e65100', marginBottom: '8px' }}>⚠️ 系统边界说明</h3>
+              <div style={{ fontSize: '14px', color: '#666', lineHeight: '1.8', background: '#fff3e0', padding: '12px', borderRadius: '4px' }}>
+                <p style={{ margin: '0 0 8px 0' }}><strong>当前系统未接入真实外部系统：</strong></p>
+                <ul style={{ margin: 0, paddingLeft: '20px' }}>
+                  <li>用户/组织架构：<strong>本地模拟数据</strong>，未对接企业微信/钉钉/HR系统</li>
+                  <li>巡检数据：<strong>本地样例数据</strong>，未对接物联网水质传感器</li>
+                  <li>投喂记录：<strong>本地样例数据</strong>，未对接智能投喂设备</li>
+                  <li>药品台账：<strong>本地模拟库存</strong>，未对接WMS仓储系统</li>
+                  <li>消息通知：无通知推送，仅通过页面待办展示</li>
+                  <li>监管上报：未对接农业农村部养殖用药直报系统</li>
+                </ul>
+              </div>
+            </div>
+
+            <div style={{ textAlign: 'right' }}>
+              <button className="btn btn-primary" onClick={() => setShowBoundary(false)}>
+                我知道了
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

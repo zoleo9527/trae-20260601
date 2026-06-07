@@ -1,4 +1,17 @@
-水产养殖场病害处理与用药追溯系统后端已启动
-服务地址: http://localhost:3001
-API 前缀: http://localhost:3001/api
-健康检查: http://localhost:3001/api/health
+Error: listen EADDRINUSE: address already in use :::3001
+    at Server.setupListenHandle [as _listen2] (node:net:1940:16)
+    at listenInCluster (node:net:1997:12)
+    at Server.listen (node:net:2102:7)
+    at Function.listen (/Users/zhangliu/Documents/private/model-test/trae-20260601-1/backend/node_modules/express/lib/application.js:635:24)
+    at Object.<anonymous> (/Users/zhangliu/Documents/private/model-test/trae-20260601-1/backend/src/index.ts:31:5)
+    at Module._compile (node:internal/modules/cjs/loader:1706:14)
+    at Module.m._compile (/Users/zhangliu/Documents/private/model-test/trae-20260601-1/backend/node_modules/ts-node/src/index.ts:1618:23)
+    at node:internal/modules/cjs/loader:1839:10
+    at Object.require.extensions.<computed> [as .ts] (/Users/zhangliu/Documents/private/model-test/trae-20260601-1/backend/node_modules/ts-node/src/index.ts:1621:12)
+    at Module.load (node:internal/modules/cjs/loader:1441:32) {
+  code: 'EADDRINUSE',
+  errno: -48,
+  syscall: 'listen',
+  address: '::',
+  port: 3001
+}

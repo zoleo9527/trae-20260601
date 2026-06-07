@@ -1,12 +1,22 @@
-import { Router, Request, Response } from 'express';
+import { Request, Response, Router } from 'express';
+import { resetDemoData } from './seed';
 import * as diseaseCaseService from './services/diseaseCaseService';
-import * as traceService from './services/traceService';
 import * as masterDataService from './services/masterDataService';
+import * as traceService from './services/traceService';
 
 const router = Router();
 
 router.get('/health', (req: Request, res: Response) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
+router.post('/demo/reset', (req: Request, res: Response) => {
+  try {
+    const result = resetDemoData();
+    res.json(result);
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
 });
 
 router.get('/users', (req: Request, res: Response) => {
