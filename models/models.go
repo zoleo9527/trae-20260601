@@ -59,6 +59,7 @@ type QuarantineCertificate struct {
 	CreatedAt       time.Time         `json:"created_at"`
 	UpdatedAt       time.Time         `json:"updated_at"`
 	Notes           []CertificateNote `gorm:"foreignKey:CertificateID" json:"notes,omitempty"`
+	Releases        []QualityRelease  `gorm:"foreignKey:CertificateID" json:"releases,omitempty"`
 }
 
 type CertificateNote struct {

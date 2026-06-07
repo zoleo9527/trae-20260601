@@ -551,10 +551,25 @@
             if (isForeman && cert.status === 'blocked') {
                 actionButtons += '<button onclick="updateCertStatus(' + id + ', \'pending\')" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg">重新提交</button>';
             }
+            if (isInspector && cert.status === 'approved') {
+                actionButtons += '<button onclick="showCreateReleaseForm(' + id + ')" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg">➕ 创建关联放行单</button>';
+            }
 
             let blockedHtml = '';
             if (cert.status === 'blocked') {
                 blockedHtml = '<div class="bg-red-50 border border-red-200 rounded-lg p-4 mb-6"><p class="text-red-700 font-medium">⚠️ 卡住原因</p><p class="text-red-600 text-sm mt-1">' + (cert.blocked_reason || '未填写') + '</p></div>';
+            }
+
+            let releasesHtml = '';
+            if (cert.releases && cert.releases.length > 0) {
+                releasesHtml = '<div class="bg-emerald-50 border border-emerald-200 rounded-lg p-4 mb-6"><p class="text-emerald-700 font-medium mb-3">📦 关联的质检放行单</p><div class="space-y-2">';
+                cert.releases.forEach(function(r) {
+                    releasesHtml += '<div class="flex items-center justify-between bg-white rounded-lg p-3 border cursor-pointer hover:bg-emerald-50 transition-colors" onclick="closeModal(); setTimeout(function() { showReleaseDetail(' + r.id + '); }, 100)">';
+                    releasesHtml += '<div><p class="font-medium text-gray-800">' + r.release_no + '</p><p class="text-sm text-gray-500">' + r.product_name + ' · ' + r.batch_no + '</p></div>';
+                    releasesHtml += '<span class="status-badge status-' + r.status + '">' + statusName(r.status) + ' →</span>';
+                    releasesHtml += '</div>';
+                });
+                releasesHtml += '</div></div>';
             }
 
             let notesHtml = '<div class="border-l-2 border-gray-200 pl-6 ml-2 space-y-4">';
@@ -583,6 +598,7 @@
                                 <span class="status-badge status-${cert.status} text-base">${statusName(cert.status)}</span>
                             </div>
                             ${blockedHtml}
+                            ${releasesHtml}
                             <div class="grid grid-cols-2 gap-4 mb-6">
                                 <div class="bg-gray-50 rounded-lg p-3"><p class="text-xs text-gray-500">重量</p><p class="font-medium">${cert.weight} kg</p></div>
                                 <div class="bg-gray-50 rounded-lg p-3"><p class="text-xs text-gray-500">来源</p><p class="font-medium">${cert.source}</p></div>
@@ -607,6 +623,57 @@
                     </div>
                 </div>
             `;
+        }
+
+        function showCreateReleaseForm(certId) {
+            const modal = document.getElementById('modal-container');
+            modal.innerHTML = `
+                <div class="fixed inset-0 z-50 flex items-center justify-center modal-backdrop" onclick="if(event.target === this) closeModal()">
+                    <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg">
+                        <div class="border-b px-6 py-4 flex items-center justify-between">
+                            <h3 class="text-lg font-semibold">创建关联放行单</h3>
+                            <button onclick="closeModal()" class="text-gray-400 hover:text-gray-600 text-2xl">&times;</button>
+                        </div>
+                        <div class="p-6 space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">放行单编号 *</label>
+                                <input id="new-release-no" type="text" class="w-full px-3 py-2 border rounded-lg" placeholder="ZJ20260601007">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">质检项目</label>
+                                <input id="new-release-items" type="text" class="w-full px-3 py-2 border rounded-lg" placeholder="感官指标、微生物检测">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">质检结果</label>
+                                <textarea id="new-release-result" rows="2" class="w-full px-3 py-2 border rounded-lg" placeholder="全部合格"></textarea>
+                            </div>
+                            <div class="flex gap-3 pt-4">
+                                <button onclick="submitCreateRelease(${certId})" class="flex-1 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg">创建并进入放行单</button>
+                                <button onclick="closeModal()" class="px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded-lg">取消</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        async function submitCreateRelease(certId) {
+            const data = {
+                release_no: document.getElementById('new-release-no').value,
+                inspection_items: document.getElementById('new-release-items').value,
+                inspection_result: document.getElementById('new-release-result').value
+            };
+            try {
+                const release = await api('/certificates/' + certId + '/releases', {
+                    method: 'POST',
+                    body: JSON.stringify(data),
+                    headers: { 'X-Idempotency-Key': 'release-' + Date.now() }
+                });
+                closeModal();
+                showReleaseDetail(release.id);
+            } catch (e) {
+                alert(e.message);
+            }
         }
 
         async function showReleaseDetail(id) {

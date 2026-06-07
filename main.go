@@ -36,6 +36,7 @@ func main() {
 	certificates.Post("/", middleware.IdempotencyCheck, handlers.CreateCertificate)
 	certificates.Put("/:id/status", handlers.UpdateCertificateStatus)
 	certificates.Post("/:id/notes", handlers.AddCertificateNote)
+	certificates.Post("/:id/releases", middleware.IdempotencyCheck, handlers.CreateReleaseFromCertificate)
 
 	releases := api.Group("/releases")
 	releases.Get("/", handlers.ListReleases)
