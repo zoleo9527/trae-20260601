@@ -7,9 +7,6 @@ const roleConfig = [
   { role: 'store_manager' as UserRole, icon: Tag, label: '店长', color: 'bg-cyan-500', description: '临期商品处理、提交下架复核' },
   { role: 'supervisor' as UserRole, icon: FileCheck, label: '督导', color: 'bg-blue-500', description: '下架复核初审、门店巡检' },
   { role: 'product_specialist' as UserRole, icon: FileText, label: '商品专员', color: 'bg-violet-500', description: '下架复核终审、商品管理' },
-  { role: 'station_clerk' as UserRole, icon: ClipboardList, label: '站点文员', color: 'bg-blue-500', description: '管理押金核对、数据统计' },
-  { role: 'delivery_person' as UserRole, icon: Users, label: '配送员', color: 'bg-green-500', description: '空瓶回收、运回站点' },
-  { role: 'customer_service' as UserRole, icon: Phone, label: '客服', color: 'bg-purple-500', description: '处理争议、客户沟通' },
 ];
 
 interface RoleSelectorProps {

@@ -1,48 +1,30 @@
 import { AlertBanner } from '@/components/AlertBanner';
 import { RoleSelector } from '@/components/RoleSelector';
 import { StatCard } from '@/components/StatCard';
-import { StatusTag } from '@/components/StatusTag';
-import { formatDate, getNearExpiryStatusColor, getNearExpiryStatusText, getReviewStatusColor, getReviewStatusText } from '@/lib/utils';
+import { formatDate, getNearExpiryStatusColor, getNearExpiryStatusText, getReviewStatusColor, getReviewStatusText, getRoleText } from '@/lib/utils';
 import { useAppStore } from '@/store/appStore';
-import { AlertTriangle, CheckCircle, Clock, FileCheck, RefreshCw, Tag, Wallet, XCircle } from 'lucide-react';
+import { AlertTriangle, CheckCircle, Clock, FileCheck, Tag, User } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 export default function Home() {
   const navigate = useNavigate();
   const { 
-    bottleReturnRecords, 
-    depositReconciliations, 
-    getStuckItems, 
     getAlertsForRole,
     currentUser,
     acknowledgeAlert,
     resolveAlert,
     nearExpiryRecords,
     offShelfReviews,
+    users,
   } = useAppStore();
 
-  const stuckItems = getStuckItems();
   const alerts = currentUser ? getAlertsForRole(currentUser.role) : [];
   const activeAlerts = alerts.filter(a => a.status !== 'resolved');
-
-  const bottleStats = {
-    total: bottleReturnRecords.length,
-    pending: bottleReturnRecords.filter(r => r.status === 'pending_collection').length,
-    verified: bottleReturnRecords.filter(r => r.status === 'verified').length,
-    stuck: stuckItems.bottles.length,
-  };
-
-  const depositStats = {
-    total: depositReconciliations.length,
-    matched: depositReconciliations.filter(r => r.status === 'matched').length,
-    verified: depositReconciliations.filter(r => r.status === 'verified').length,
-    stuck: stuckItems.deposits.length,
-  };
 
   const nearExpiryStats = {
     total: nearExpiryRecords.length,
     pending: nearExpiryRecords.filter(r => r.status === 'pending_process').length,
-    inReview: nearExpiryRecords.filter(r => ['pending_review', 'review_rejected'].includes(r.status)).length,
+    inReview: nearExpiryRecords.filter(r => ['pending_review', 'review_rejected', 'supplement_requested'].includes(r.status)).length,
     completed: nearExpiryRecords.filter(r => r.status === 'completed').length,
   };
 
@@ -52,6 +34,18 @@ export default function Home() {
     supplement: offShelfReviews.filter(r => ['supplement_requested', 'rejected'].includes(r.status)).length,
     approved: offShelfReviews.filter(r => r.status === 'approved').length,
   };
+
+  const getUserName = (userId?: string) => {
+    if (!userId) return '-';
+    const user = users.find(u => u.id === userId);
+    return user ? user.name : '-';
+  };
+
+  const quickEntries = [
+    { role: 'store_manager' as const, title: '店长工作台', desc: '临期商品处理、提交下架复核', icon: Tag, color: 'bg-cyan-500', path: '/near-expiry' },
+    { role: 'supervisor' as const, title: '督导工作台', desc: '下架复核初审、门店巡检', icon: FileCheck, color: 'bg-blue-500', path: '/off-shelf-review' },
+    { role: 'product_specialist' as const, title: '商品专员工作台', desc: '下架复核终审、商品管理', icon: CheckCircle, color: 'bg-violet-500', path: '/off-shelf-review' },
+  ];
 
   return (
     <div className="space-y-6">
@@ -84,66 +78,27 @@ export default function Home() {
         </div>
       )}
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard
-          title="空瓶回收总数"
-          value={bottleStats.total}
-          icon={<RefreshCw className="w-6 h-6 text-white" />}
-          color="bg-blue-500"
-          onClick={() => navigate('/bottles')}
-        />
-        <StatCard
-          title="待回收"
-          value={bottleStats.pending}
-          icon={<Clock className="w-6 h-6 text-white" />}
-          color="bg-yellow-500"
-          onClick={() => navigate('/bottles')}
-        />
-        <StatCard
-          title="已核验"
-          value={bottleStats.verified}
-          icon={<CheckCircle className="w-6 h-6 text-white" />}
-          color="bg-green-500"
-          onClick={() => navigate('/bottles')}
-        />
-        <StatCard
-          title="卡住的单子"
-          value={bottleStats.stuck}
-          icon={<XCircle className="w-6 h-6 text-white" />}
-          color="bg-red-500"
-          onClick={() => navigate('/bottles')}
-        />
-      </div>
-
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard
-          title="押金核对总数"
-          value={depositStats.total}
-          icon={<Wallet className="w-6 h-6 text-white" />}
-          color="bg-purple-500"
-          onClick={() => navigate('/deposits')}
-        />
-        <StatCard
-          title="核对一致"
-          value={depositStats.matched}
-          icon={<CheckCircle className="w-6 h-6 text-white" />}
-          color="bg-emerald-500"
-          onClick={() => navigate('/deposits')}
-        />
-        <StatCard
-          title="已核验"
-          value={depositStats.verified}
-          icon={<CheckCircle className="w-6 h-6 text-white" />}
-          color="bg-teal-500"
-          onClick={() => navigate('/deposits')}
-        />
-        <StatCard
-          title="卡住的单子"
-          value={depositStats.stuck}
-          icon={<XCircle className="w-6 h-6 text-white" />}
-          color="bg-orange-500"
-          onClick={() => navigate('/deposits')}
-        />
+      <div>
+        <h2 className="text-lg font-semibold text-gray-900 mb-4">快捷工作台入口</h2>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {quickEntries.map(entry => (
+            <div
+              key={entry.role}
+              className="bg-white rounded-xl shadow-sm p-5 hover:shadow-md transition-shadow cursor-pointer border border-gray-100 hover:border-gray-200"
+              onClick={() => navigate(entry.path)}
+            >
+              <div className="flex items-center gap-4">
+                <div className={`${entry.color} w-12 h-12 rounded-xl flex items-center justify-center`}>
+                  <entry.icon className="w-6 h-6 text-white" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="font-semibold text-gray-900">{entry.title}</h3>
+                  <p className="text-sm text-gray-500">{entry.desc}</p>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -176,6 +131,28 @@ export default function Home() {
           onClick={() => navigate('/off-shelf-review')}
         />
       </div>
+
+      {reviewStats.supplement > 0 && (
+        <div className="bg-orange-50 border border-orange-200 rounded-xl p-4">
+          <div className="flex items-center gap-3">
+            <AlertTriangle className="w-5 h-5 text-orange-500 flex-shrink-0" />
+            <div>
+              <p className="font-medium text-orange-800">
+                有 {reviewStats.supplement} 条复核记录需要注意
+              </p>
+              <p className="text-sm text-orange-700">
+                包含待补录和已驳回的申请，请及时处理
+              </p>
+            </div>
+            <button
+              onClick={() => navigate('/off-shelf-review')}
+              className="ml-auto px-4 py-2 bg-orange-500 text-white rounded-lg text-sm font-medium hover:bg-orange-600 transition-colors"
+            >
+              去处理
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="grid lg:grid-cols-2 gap-6">
         <div className="bg-white rounded-xl shadow-sm p-5">
@@ -224,7 +201,7 @@ export default function Home() {
                 <div>
                   <p className="text-sm font-medium text-gray-900">{review.nearExpiryRecord.product.name}</p>
                   <p className="text-xs text-gray-500">
-                    {review.store.name} · 提交人: {review.submittedBy}
+                    {review.store.name} · 提交人: {getUserName(review.submittedBy)}
                   </p>
                 </div>
                 <div className="text-right">
@@ -239,66 +216,20 @@ export default function Home() {
         </div>
       </div>
 
-      <div className="grid lg:grid-cols-2 gap-6">
-        <div className="bg-white rounded-xl shadow-sm p-5">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="font-semibold text-gray-900">最近空瓶回收</h3>
-            <button
-              onClick={() => navigate('/bottles')}
-              className="text-sm text-blue-600 hover:text-blue-700"
-            >
-              查看全部 →
-            </button>
-          </div>
-          <div className="space-y-3">
-            {bottleReturnRecords.slice(0, 4).map(record => (
-              <div key={record.id} className="flex items-center justify-between py-2 border-b border-gray-100 last:border-0">
-                <div>
-                  <p className="text-sm font-medium text-gray-900">{record.customer.name}</p>
-                  <p className="text-xs text-gray-500">
-                    预期 {record.expectedBottles} 个 / 实收 {record.returnedBottles} 个
-                  </p>
-                </div>
-                <div className="text-right">
-                  <StatusTag type="bottle" status={record.status} />
-                  <p className="text-xs text-gray-400 mt-1">{formatDate(record.createdAt, 'MM-dd HH:mm')}</p>
-                </div>
+      <div className="bg-white rounded-xl shadow-sm p-5">
+        <h3 className="font-semibold text-gray-900 mb-4">团队成员</h3>
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+          {users.filter(u => ['store_manager', 'supervisor', 'product_specialist'].includes(u.role)).map(user => (
+            <div key={user.id} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center">
+                <User className="w-5 h-5 text-white" />
               </div>
-            ))}
-          </div>
-        </div>
-
-        <div className="bg-white rounded-xl shadow-sm p-5">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="font-semibold text-gray-900">最近押金核对</h3>
-            <button
-              onClick={() => navigate('/deposits')}
-              className="text-sm text-blue-600 hover:text-blue-700"
-            >
-              查看全部 →
-            </button>
-          </div>
-          <div className="space-y-3">
-            {depositReconciliations.slice(0, 4).map(record => (
-              <div key={record.id} className="flex items-center justify-between py-2 border-b border-gray-100 last:border-0">
-                <div>
-                  <p className="text-sm font-medium text-gray-900">{record.customer.name}</p>
-                  <p className="text-xs text-gray-500">
-                    预期 ¥{record.expectedDeposit} / 实收 ¥{record.actualDeposit}
-                    {record.difference !== 0 && (
-                      <span className={record.difference < 0 ? 'text-red-500 ml-1' : 'text-green-500 ml-1'}>
-                        ({record.difference > 0 ? '+' : ''}{record.difference})
-                      </span>
-                    )}
-                  </p>
-                </div>
-                <div className="text-right">
-                  <StatusTag type="deposit" status={record.status} />
-                  <p className="text-xs text-gray-400 mt-1">{formatDate(record.createdAt, 'MM-dd HH:mm')}</p>
-                </div>
+              <div>
+                <p className="text-sm font-medium text-gray-900">{user.name}</p>
+                <p className="text-xs text-gray-500">{getRoleText(user.role)}</p>
               </div>
-            ))}
-          </div>
+            </div>
+          ))}
         </div>
       </div>
     </div>
