@@ -26,9 +26,21 @@ export default function OffShelfReviewPage() {
 
   const filteredReviews = getFilteredReviews();
 
+  const getPendingForMe = (reviews: OffShelfReview[]) => {
+    return reviews.filter(r => {
+      if (currentUser?.role === 'supervisor') {
+        return r.currentHandlerRole === 'supervisor' && (r.status === 'pending' || r.status === 'supplement_requested');
+      }
+      if (currentUser?.role === 'product_specialist') {
+        return r.currentHandlerRole === 'product_specialist' && r.status === 'under_review';
+      }
+      return false;
+    });
+  };
+
   const tabFilters: Record<string, OffShelfReview[]> = {
     all: filteredReviews,
-    pending: filteredReviews.filter(r => r.status === 'pending'),
+    pending: getPendingForMe(filteredReviews),
     reviewing: filteredReviews.filter(r => r.status === 'under_review'),
     supplement: filteredReviews.filter(r => r.status === 'supplement_requested' || r.status === 'rejected'),
     done: filteredReviews.filter(r => r.status === 'approved'),
@@ -36,11 +48,13 @@ export default function OffShelfReviewPage() {
 
   const displayReviews = tabFilters[activeTab];
 
+  const pendingForMeCount = getPendingForMe(filteredReviews).length;
+
   const stats = {
-    total: offShelfReviews.length,
-    pending: offShelfReviews.filter(r => r.status === 'pending' || r.status === 'under_review').length,
-    supplement: offShelfReviews.filter(r => r.status === 'supplement_requested' || r.status === 'rejected').length,
-    approved: offShelfReviews.filter(r => r.status === 'approved').length,
+    total: filteredReviews.length,
+    pending: pendingForMeCount,
+    supplement: filteredReviews.filter(r => r.status === 'supplement_requested' || r.status === 'rejected').length,
+    approved: filteredReviews.filter(r => r.status === 'approved').length,
   };
 
   const getUserName = (userId?: string) => {
@@ -135,12 +149,12 @@ export default function OffShelfReviewPage() {
         <div className="border-b border-gray-100 px-5">
           <div className="flex gap-1">
             {[
-              { key: 'all', label: '全部' },
-              { key: 'pending', label: '待处理' },
-              { key: 'reviewing', label: '审核中' },
-              { key: 'supplement', label: '待补录' },
-              { key: 'done', label: '已完成' },
-            ].map(tab => (
+              { key: 'all', label: '全部', show: true },
+              { key: 'pending', label: '待我处理', show: currentUser?.role === 'supervisor' || currentUser?.role === 'product_specialist' },
+              { key: 'reviewing', label: '审核中', show: currentUser?.role !== 'supervisor' && currentUser?.role !== 'product_specialist' },
+              { key: 'supplement', label: '待补录/驳回', show: currentUser?.role !== 'product_specialist' },
+              { key: 'done', label: '已完成', show: true },
+            ].filter(tab => tab.show).map(tab => (
               <button
                 key={tab.key}
                 onClick={() => setActiveTab(tab.key as any)}
@@ -151,6 +165,11 @@ export default function OffShelfReviewPage() {
                 }`}
               >
                 {tab.label}
+                {tab.key === 'pending' && pendingForMeCount > 0 && (
+                  <span className="ml-1.5 px-1.5 py-0.5 text-xs bg-blue-100 text-blue-700 rounded-full">
+                    {pendingForMeCount}
+                  </span>
+                )}
               </button>
             ))}
           </div>

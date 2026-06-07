@@ -493,6 +493,16 @@ export const useAppStore = create<AppState>((set, get) => ({
         const managedStore = get().stores.find(s => s.managerId === currentUser.id);
         if (managedStore && review.storeId !== managedStore.id) return false;
       }
+      if (currentUser?.role === 'supervisor') {
+        const isPendingForMe = review.currentHandlerRole === 'supervisor';
+        const isMyHandled = review.firstReviewedBy === currentUser.id;
+        if (!isPendingForMe && !isMyHandled) return false;
+      }
+      if (currentUser?.role === 'product_specialist') {
+        const isPendingForMe = review.currentHandlerRole === 'product_specialist';
+        const isMyHandled = review.finalReviewedBy === currentUser.id;
+        if (!isPendingForMe && !isMyHandled) return false;
+      }
       if (reviewFilters.status?.length && !reviewFilters.status.includes(review.status)) return false;
       if (reviewFilters.storeId && review.storeId !== reviewFilters.storeId) return false;
       return true;
