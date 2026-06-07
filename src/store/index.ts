@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { Order, Role, StoreState, StoreActions } from './types';
-import { mockMembers, mockRooms, mockDrinks, mockOrders, abnormalOrders, refundHistory } from './mockData';
+import { mockMembers, mockRooms, mockDrinks, mockOrders, abnormalOrders } from './mockData';
 import dayjs from 'dayjs';
 
 const userNames: Record<Role, string> = {
@@ -203,8 +203,19 @@ export const useStore = create<StoreState & StoreActions>((set, get) => ({
       const order = state.orders.find((o) => o.refundRecord?.id === refundId);
       if (!order) return state;
 
-      const newStatus: Order['status'] = data.approved ? 'refunded' : 'rejected';
-      const refundStatus = data.approved ? 'approved' : 'rejected';
+      let newStatus: Order['status'];
+      let refundStatus: 'approved' | 'rejected';
+
+      if (data.approved) {
+        newStatus = 'refunded';
+        refundStatus = 'approved';
+      } else if (data.returnToHandler) {
+        newStatus = 'refund_rejected';
+        refundStatus = 'rejected';
+      } else {
+        newStatus = 'rejected';
+        refundStatus = 'rejected';
+      }
 
       let updatedMembers = state.members;
       if (data.approved && order.memberId && order.refundRecord) {
@@ -227,6 +238,7 @@ export const useStore = create<StoreState & StoreActions>((set, get) => ({
                 managerNote: data.managerNote,
                 reviewedAt: now,
                 reviewedBy: currentUser,
+                returnToHandler: data.returnToHandler,
               },
             };
           }
@@ -235,6 +247,35 @@ export const useStore = create<StoreState & StoreActions>((set, get) => ({
         members: updatedMembers,
       };
     });
+  },
+
+  resubmitRefund: (orderId, data) => {
+    const { currentUser } = get();
+    const now = dayjs().format('YYYY-MM-DD HH:mm:ss');
+
+    set((state) => ({
+      orders: state.orders.map((o) => {
+        if (o.id === orderId) {
+          return {
+            ...o,
+            status: 'refunding' as const,
+            handlerNote: data.handlerNote,
+            handledBy: currentUser,
+            handledAt: now,
+            refundRecord: {
+              id: 'rf' + Date.now(),
+              orderId,
+              amount: data.amount,
+              reason: data.reason,
+              applicant: currentUser,
+              appliedAt: now,
+              status: 'pending' as const,
+            },
+          };
+        }
+        return o;
+      }),
+    }));
   },
 
   addMemberBalance: (memberId, amount) => {

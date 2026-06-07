@@ -113,6 +113,12 @@ export default function ReceptionPage({ activeTab, onTabChange }: ReceptionPageP
       durationHours: 0,
       roomFee: 0,
       createdBy: currentUser,
+      items: [],
+      drinksFee: 0,
+      complimentaryFee: 0,
+      totalAmount: 0,
+      useBalance: 0,
+      payAmount: 0,
       ...memberData,
     });
 
@@ -187,20 +193,14 @@ export default function ReceptionPage({ activeTab, onTabChange }: ReceptionPageP
   const handleCheckout = () => {
     if (!selectedOrder) return;
 
-    const checkIn = dayjs(selectedOrder.checkInTime);
-    const now = dayjs();
-    const durationHours = Math.ceil(now.diff(checkIn, 'minute') / 60);
-    const room = rooms.find(r => r.id === selectedOrder.roomId);
-    const roomFee = durationHours * (room?.pricePerHour || 0);
-
     completeConsume(selectedOrder.id, {
-      checkOutTime: now.format('YYYY-MM-DD HH:mm:ss'),
+      checkOutTime: dayjs().format('YYYY-MM-DD HH:mm:ss'),
       items: selectedItems,
       drinksFee: checkoutSummary.drinksFee,
       complimentaryFee: checkoutSummary.complimentaryFee,
       totalAmount: checkoutSummary.total,
       useBalance,
-      payAmount: checkoutSummary.actualPay,
+      payAmount: checkoutSummary.actualPay ?? 0,
     });
 
     message.success('结账成功');
@@ -503,10 +503,10 @@ export default function ReceptionPage({ activeTab, onTabChange }: ReceptionPageP
                 {drinks.map((d) => (
                   <Col span={12} key={d.id}>
                     <Card size="small" hoverable onClick={() => addItem(d)} style={{ cursor: 'pointer' }}>
-                      <Space justify="space-between" style={{ width: '100%' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}>
                         <span>{d.name}</span>
                         <span style={{ color: '#f5222d' }}>¥{d.price}</span>
-                      </Space>
+                      </div>
                     </Card>
                   </Col>
                 ))}

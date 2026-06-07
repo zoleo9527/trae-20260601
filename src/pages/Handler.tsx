@@ -5,7 +5,6 @@ import {
   Modal,
   Form,
   Input,
-  Select,
   Tag,
   Space,
   Card,
@@ -20,21 +19,21 @@ import {
   Alert,
   Divider,
   Steps,
+  Tabs,
 } from 'antd';
 import {
   CheckOutlined,
   CloseOutlined,
   RedoOutlined,
-  FileTextOutlined,
   MessageOutlined,
   WarningOutlined,
   ClockCircleOutlined,
   UserOutlined,
+  RollbackOutlined,
 } from '@ant-design/icons';
 import { useStore } from '@/store';
 import { AbnormalType, Order } from '@/store/types';
 
-const { Option } = Select;
 const { TextArea } = Input;
 
 interface HandlerPageProps {
@@ -56,6 +55,7 @@ const statusColors: Record<string, string> = {
   refunded: 'success',
   completed: 'success',
   rejected: 'default',
+  refund_rejected: 'warning',
 };
 
 const statusLabels: Record<string, string> = {
@@ -64,22 +64,28 @@ const statusLabels: Record<string, string> = {
   refunded: '已退款',
   completed: '已完成',
   rejected: '已拒绝',
+  refund_rejected: '店长退回待重提',
 };
 
 export default function HandlerPage({ activeTab, onTabChange }: HandlerPageProps) {
-  const { orders, handleAbnormal, applyRefund, currentUser } = useStore();
+  const { orders, handleAbnormal, applyRefund, resubmitRefund } = useStore();
   const [handleModalVisible, setHandleModalVisible] = useState(false);
   const [refundModalVisible, setRefundModalVisible] = useState(false);
+  const [resubmitModalVisible, setResubmitModalVisible] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [handleForm] = Form.useForm();
   const [refundForm] = Form.useForm();
+  const [resubmitForm] = Form.useForm();
 
   const pendingAbnormalOrders = orders.filter(o => o.status === 'abnormal');
   const refundingOrders = orders.filter(o => o.status === 'refunding');
+  const rejectedOrders = orders.filter(o => o.status === 'refund_rejected');
   const processedOrders = orders.filter(o => 
     (o.status === 'completed' || o.status === 'refunded' || o.status === 'rejected' || o.status === 'refunding') 
     && o.handledBy
   );
+
+  const totalTodo = pendingAbnormalOrders.length + rejectedOrders.length;
 
   const openHandleModal = (order: Order) => {
     setSelectedOrder(order);
@@ -92,6 +98,16 @@ export default function HandlerPage({ activeTab, onTabChange }: HandlerPageProps
     setSelectedOrder(order);
     refundForm.resetFields();
     setRefundModalVisible(true);
+  };
+
+  const openResubmitModal = (order: Order) => {
+    setSelectedOrder(order);
+    resubmitForm.resetFields();
+    resubmitForm.setFieldsValue({
+      amount: order.refundRecord?.amount,
+      reason: order.refundRecord?.reason,
+    });
+    setResubmitModalVisible(true);
   };
 
   const handleSubmit = (values: any) => {
@@ -129,6 +145,21 @@ export default function HandlerPage({ activeTab, onTabChange }: HandlerPageProps
     onTabChange('refund-apply');
   };
 
+  const handleResubmit = (values: any) => {
+    if (!selectedOrder) return;
+
+    resubmitRefund(selectedOrder.id, {
+      amount: values.amount,
+      reason: values.reason,
+      handlerNote: values.handlerNote,
+    });
+
+    message.success('已重新提交退款申请');
+    setResubmitModalVisible(false);
+    setSelectedOrder(null);
+    onTabChange('refund-apply');
+  };
+
   const abnormalColumns = [
     { title: '订单号', dataIndex: 'orderNo', key: 'orderNo', width: 140 },
     { title: '包厢', dataIndex: 'roomName', key: 'roomName', width: 80 },
@@ -150,6 +181,36 @@ export default function HandlerPage({ activeTab, onTabChange }: HandlerPageProps
         <Space>
           <Button type="primary" size="small" onClick={() => openHandleModal(record)}>
             处理
+          </Button>
+        </Space>
+      ),
+    },
+  ];
+
+  const rejectedColumns = [
+    { title: '订单号', dataIndex: 'orderNo', key: 'orderNo', width: 140 },
+    { title: '包厢', dataIndex: 'roomName', key: 'roomName', width: 80 },
+    { title: '客人', dataIndex: 'memberName', key: 'memberName', render: (t: string) => t || '散客' },
+    { 
+      title: '原申请金额', 
+      dataIndex: ['refundRecord', 'amount'], 
+      key: 'amount',
+      render: (v: number) => <span style={{ color: '#f5222d' }}>¥{v}</span>
+    },
+    { 
+      title: '店长意见', 
+      dataIndex: ['refundRecord', 'managerNote'], 
+      key: 'managerNote',
+      ellipsis: true,
+    },
+    { title: '退回时间', dataIndex: ['refundRecord', 'reviewedAt'], key: 'reviewedAt', width: 160 },
+    {
+      title: '操作',
+      key: 'action',
+      render: (_: any, record: Order) => (
+        <Space>
+          <Button type="primary" size="small" icon={<RedoOutlined />} onClick={() => openResubmitModal(record)}>
+            重新提交
           </Button>
         </Space>
       ),
@@ -213,6 +274,16 @@ export default function HandlerPage({ activeTab, onTabChange }: HandlerPageProps
         <Col span={6}>
           <Card>
             <Statistic 
+              title="店长退回重提" 
+              value={rejectedOrders.length} 
+              valueStyle={{ color: '#fa8c16' }}
+              prefix={<RollbackOutlined />}
+            />
+          </Card>
+        </Col>
+        <Col span={6}>
+          <Card>
+            <Statistic 
               title="待审核退款" 
               value={refundingOrders.length} 
               valueStyle={{ color: '#fa8c16' }}
@@ -230,17 +301,6 @@ export default function HandlerPage({ activeTab, onTabChange }: HandlerPageProps
             />
           </Card>
         </Col>
-        <Col span={6}>
-          <Card>
-            <Statistic 
-              title="平均处理时长" 
-              value={25} 
-              suffix="分钟"
-              valueStyle={{ color: '#1890ff' }}
-              prefix={<ClockCircleOutlined />}
-            />
-          </Card>
-        </Col>
       </Row>
     </div>
   );
@@ -248,51 +308,112 @@ export default function HandlerPage({ activeTab, onTabChange }: HandlerPageProps
   const renderPending = () => (
     <div>
       <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <h2>待处理异常</h2>
-        <Button type="primary" onClick={() => onTabChange('pending')}>
-          刷新
-        </Button>
+        <div>
+          <h2>待处理工单</h2>
+          <p>共 {totalTodo} 条待处理（含 {rejectedOrders.length} 条店长退回）</p>
+        </div>
       </div>
-      {pendingAbnormalOrders.length === 0 ? (
-        <Empty description="暂无待处理异常，干得漂亮！" />
-      ) : (
-        <Table
-          dataSource={pendingAbnormalOrders}
-          rowKey="id"
-          columns={abnormalColumns}
-          expandable={{
-            expandedRowRender: (record) => (
-              <div>
-                <Alert
-                  message="异常详情"
-                  description={record.abnormalRecord?.description}
-                  type="error"
-                  showIcon
-                  style={{ marginBottom: 16 }}
-                />
-                <Descriptions column={2} size="small">
-                  <Descriptions.Item label="订单号">{record.orderNo}</Descriptions.Item>
-                  <Descriptions.Item label="包厢">{record.roomName} ({record.roomType})</Descriptions.Item>
-                  <Descriptions.Item label="客人">{record.memberName || '散客'}</Descriptions.Item>
-                  <Descriptions.Item label="会员手机号">{record.memberPhone || '-'}</Descriptions.Item>
-                  <Descriptions.Item label="入场时间">{record.checkInTime}</Descriptions.Item>
-                  <Descriptions.Item label="上报人">{record.abnormalRecord?.reportedBy}</Descriptions.Item>
-                  <Descriptions.Item label="上报时间">{record.abnormalRecord?.reportedAt}</Descriptions.Item>
-                </Descriptions>
-              </div>
-            ),
-          }}
-        />
-      )}
-    </div>
-  );
 
-  const renderProcessing = () => (
-    <div>
-      <div style={{ marginBottom: 16 }}>
-        <h2>处理中</h2>
-      </div>
-      <Empty description="当前没有正在处理的工单" />
+      <Tabs
+        items={[
+          {
+            key: 'abnormal',
+            label: (
+              <Space>
+                新上报异常
+                {pendingAbnormalOrders.length > 0 && <Tag color="red">{pendingAbnormalOrders.length}</Tag>}
+              </Space>
+            ),
+            children: (
+              pendingAbnormalOrders.length === 0 ? (
+                <Empty description="暂无新上报的异常" />
+              ) : (
+                <Table
+                  dataSource={pendingAbnormalOrders}
+                  rowKey="id"
+                  columns={abnormalColumns}
+                  expandable={{
+                    expandedRowRender: (record) => (
+                      <div>
+                        <Alert
+                          message="异常详情"
+                          description={record.abnormalRecord?.description}
+                          type="error"
+                          showIcon
+                          style={{ marginBottom: 16 }}
+                        />
+                        <Descriptions column={2} size="small">
+                          <Descriptions.Item label="订单号">{record.orderNo}</Descriptions.Item>
+                          <Descriptions.Item label="包厢">{record.roomName} ({record.roomType})</Descriptions.Item>
+                          <Descriptions.Item label="客人">{record.memberName || '散客'}</Descriptions.Item>
+                          <Descriptions.Item label="会员手机号">{record.memberPhone || '-'}</Descriptions.Item>
+                          <Descriptions.Item label="入场时间">{record.checkInTime}</Descriptions.Item>
+                          <Descriptions.Item label="上报人">{record.abnormalRecord?.reportedBy}</Descriptions.Item>
+                          <Descriptions.Item label="上报时间">{record.abnormalRecord?.reportedAt}</Descriptions.Item>
+                        </Descriptions>
+                      </div>
+                    ),
+                  }}
+                />
+              )
+            ),
+          },
+          {
+            key: 'rejected',
+            label: (
+              <Space>
+                店长退回
+                {rejectedOrders.length > 0 && <Tag color="orange">{rejectedOrders.length}</Tag>}
+              </Space>
+            ),
+            children: (
+              rejectedOrders.length === 0 ? (
+                <Empty description="暂无店长退回的工单" />
+              ) : (
+                <>
+                  <Alert
+                    message="注意"
+                    description="以下工单被店长退回，请根据店长意见补充材料后重新提交"
+                    type="warning"
+                    showIcon
+                    style={{ marginBottom: 16 }}
+                  />
+                  <Table
+                    dataSource={rejectedOrders}
+                    rowKey="id"
+                    columns={rejectedColumns}
+                    expandable={{
+                      expandedRowRender: (record) => (
+                        <div>
+                          <Steps
+                            size="small"
+                            current={3}
+                            items={[
+                              { title: '前台上报', description: record.abnormalRecord?.reportedAt, status: 'finish' },
+                              { title: '我处理并提交', description: record.handledAt, status: 'finish' },
+                              { title: '店长退回', description: record.refundRecord?.reviewedAt, status: 'error' },
+                              { title: '重新提交', description: '待处理', status: 'wait' },
+                            ]}
+                            style={{ marginBottom: 16 }}
+                          />
+                          <Descriptions column={1} size="small">
+                            <Descriptions.Item label="原退款原因">
+                              {record.refundRecord?.reason}
+                            </Descriptions.Item>
+                            <Descriptions.Item label="店长退回意见">
+                              <Tag color="orange">{record.refundRecord?.managerNote}</Tag>
+                            </Descriptions.Item>
+                          </Descriptions>
+                        </div>
+                      ),
+                    }}
+                  />
+                </>
+              )
+            ),
+          },
+        ]}
+      />
     </div>
   );
 
@@ -309,6 +430,7 @@ export default function HandlerPage({ activeTab, onTabChange }: HandlerPageProps
             <p>1. 异常处理时如果需要退款，系统会自动生成退款申请并提交给店长审核</p>
             <p>2. 也可以对已完成的订单单独发起退款申请</p>
             <p>3. 退款申请需店长审核通过后，才能退回到会员储值账户</p>
+            <p>4. 如果店长退回，请根据意见补充材料后重新提交</p>
           </div>
         }
         type="info"
@@ -316,6 +438,7 @@ export default function HandlerPage({ activeTab, onTabChange }: HandlerPageProps
         style={{ marginBottom: 16 }}
       />
 
+      <h3>已提交待审核</h3>
       {refundingOrders.length === 0 ? (
         <Empty description="暂无待审核的退款申请" />
       ) : (
@@ -323,6 +446,7 @@ export default function HandlerPage({ activeTab, onTabChange }: HandlerPageProps
           dataSource={refundingOrders}
           rowKey="id"
           columns={refundingColumns}
+          style={{ marginBottom: 24 }}
           expandable={{
             expandedRowRender: (record) => (
               <div>
@@ -398,7 +522,7 @@ export default function HandlerPage({ activeTab, onTabChange }: HandlerPageProps
                   }
                   items={[
                     { title: '前台上报', description: record.abnormalRecord?.reportedAt, icon: <UserOutlined /> },
-                    { title: '处理人员处理', description: record.handledAt, icon: <MessageOutlined /> },
+                    { title: '我处理', description: record.handledAt, icon: <MessageOutlined /> },
                     { 
                       title: record.refundRecord ? '店长审核' : '处理完成', 
                       description: record.refundRecord?.reviewedAt || record.handledAt,
@@ -423,7 +547,12 @@ export default function HandlerPage({ activeTab, onTabChange }: HandlerPageProps
                         金额 ¥{record.refundRecord.amount}，原因：{record.refundRecord.reason}
                       </Descriptions.Item>
                       {record.refundRecord.managerNote && (
-                        <Descriptions.Item label="店长意见">{record.refundRecord.managerNote}</Descriptions.Item>
+                        <Descriptions.Item label="店长意见">
+                          <Tag color={record.refundRecord.status === 'approved' ? 'green' : 'orange'}>
+                            {record.refundRecord.status === 'approved' ? '通过' : record.refundRecord.returnToHandler ? '退回' : '拒绝'}
+                          </Tag>
+                          ：{record.refundRecord.managerNote}
+                        </Descriptions.Item>
                       )}
                     </>
                   )}
@@ -439,7 +568,13 @@ export default function HandlerPage({ activeTab, onTabChange }: HandlerPageProps
   return (
     <div>
       {activeTab === 'pending' && renderPending()}
-      {activeTab === 'processing' && renderProcessing()}
+      {activeTab === 'processing' && (
+        <div>
+          <div style={{ marginBottom: 16 }}><h2>处理中</h2></div>
+          {renderDashboard()}
+          <Empty description="当前没有正在处理的工单" />
+        </div>
+      )}
       {activeTab === 'refund-apply' && renderRefundApply()}
       {activeTab === 'history' && renderHistory()}
 
@@ -540,6 +675,50 @@ export default function HandlerPage({ activeTab, onTabChange }: HandlerPageProps
                 <Space>
                   <Button onClick={() => setRefundModalVisible(false)}>取消</Button>
                   <Button type="primary" htmlType="submit">提交申请</Button>
+                </Space>
+              </Form.Item>
+            </Form>
+          </div>
+        )}
+      </Modal>
+
+      <Modal
+        title="重新提交退款申请"
+        open={resubmitModalVisible}
+        onCancel={() => setResubmitModalVisible(false)}
+        footer={null}
+        width={500}
+      >
+        {selectedOrder && (
+          <div>
+            <Alert
+              message="店长退回意见"
+              description={selectedOrder.refundRecord?.managerNote}
+              type="warning"
+              showIcon
+              style={{ marginBottom: 16 }}
+            />
+
+            <Descriptions column={1} size="small" style={{ marginBottom: 16 }}>
+              <Descriptions.Item label="订单号">{selectedOrder.orderNo}</Descriptions.Item>
+              <Descriptions.Item label="原申请金额">¥{selectedOrder.refundRecord?.amount}</Descriptions.Item>
+              <Descriptions.Item label="原退款原因">{selectedOrder.refundRecord?.reason}</Descriptions.Item>
+            </Descriptions>
+
+            <Form form={resubmitForm} layout="vertical" onFinish={handleResubmit}>
+              <Form.Item name="amount" label="退款金额（元）" rules={[{ required: true, message: '请输入退款金额' }]}>
+                <InputNumber min={0} max={selectedOrder.totalAmount} style={{ width: '100%' }} />
+              </Form.Item>
+              <Form.Item name="reason" label="退款原因" rules={[{ required: true, message: '请输入退款原因' }]}>
+                <TextArea rows={2} placeholder="请重新说明退款原因" />
+              </Form.Item>
+              <Form.Item name="handlerNote" label="补充说明（针对店长意见）" rules={[{ required: true, message: '请输入补充说明' }]}>
+                <TextArea rows={2} placeholder="请针对店长的退回意见进行补充说明" />
+              </Form.Item>
+              <Form.Item>
+                <Space>
+                  <Button onClick={() => setResubmitModalVisible(false)}>取消</Button>
+                  <Button type="primary" htmlType="submit">重新提交</Button>
                 </Space>
               </Form.Item>
             </Form>

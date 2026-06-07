@@ -7,6 +7,7 @@ export type OrderStatus =
   | 'abnormal'     
   | 'refunding'    
   | 'refunded'     
+  | 'refund_rejected' 
   | 'rejected';    
 
 export type AbnormalType = 
@@ -77,6 +78,7 @@ export interface RefundRecord {
   managerNote?: string;
   reviewedAt?: string;
   reviewedBy?: string;
+  returnToHandler?: boolean;
 }
 
 export interface Order {
@@ -130,7 +132,7 @@ export interface StoreActions {
     useBalance: number;
     payAmount: number;
   }) => void;
-  reportAbnormal: (orderId: string, abnormal: Omit<AbnormalRecord, 'id' | 'orderId' | 'reportedAt'>) => void;
+  reportAbnormal: (orderId: string, abnormal: Omit<AbnormalRecord, 'id' | 'orderId' | 'reportedAt' | 'reportedBy'>) => void;
   handleAbnormal: (orderId: string, data: {
     handlerNote: string;
     needRefund: boolean;
@@ -144,6 +146,12 @@ export interface StoreActions {
   reviewRefund: (refundId: string, data: {
     approved: boolean;
     managerNote: string;
+    returnToHandler?: boolean;
+  }) => void;
+  resubmitRefund: (orderId: string, data: {
+    amount: number;
+    reason: string;
+    handlerNote: string;
   }) => void;
   addMemberBalance: (memberId: string, amount: number) => void;
 }

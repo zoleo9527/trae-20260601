@@ -1,4 +1,4 @@
-import { Member, Room, DrinkItem, Order, AbnormalRecord, RefundRecord } from './types';
+import { Member, Room, DrinkItem, Order, RefundRecord } from './types';
 import dayjs from 'dayjs';
 
 export const mockMembers: Member[] = [

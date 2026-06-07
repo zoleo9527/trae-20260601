@@ -21,10 +21,10 @@ import {
   InputNumber,
   DatePicker,
   Select,
+  Radio,
 } from 'antd';
 import {
   CheckOutlined,
-  CloseOutlined,
   EyeOutlined,
   FileTextOutlined,
   WarningOutlined,
@@ -34,6 +34,7 @@ import {
   MessageOutlined,
   ClockCircleOutlined,
   PlusOutlined,
+  RollbackOutlined,
 } from '@ant-design/icons';
 import { useStore } from '@/store';
 import { Order, AbnormalType, Member } from '@/store/types';
@@ -70,15 +71,16 @@ const statusLabels: Record<string, string> = {
 };
 
 const orderStatusLabels: Record<string, string> = {
-  abnormal: '异常',
+  abnormal: '异常待处理',
   refunding: '待退款审核',
   refunded: '已退款',
   completed: '已完成',
   rejected: '已拒绝',
+  refund_rejected: '退款被拒待重提',
   consuming: '消费中',
 };
 
-export default function ManagerPage({ activeTab, onTabChange }: ManagerPageProps) {
+export default function ManagerPage({ activeTab, onTabChange: _onTabChange }: ManagerPageProps) {
   const { orders, members, reviewRefund, addMemberBalance } = useStore();
   const [auditModalVisible, setAuditModalVisible] = useState(false);
   const [viewModalVisible, setViewModalVisible] = useState(false);
@@ -89,9 +91,20 @@ export default function ManagerPage({ activeTab, onTabChange }: ManagerPageProps
   const [rechargeForm] = Form.useForm();
 
   const pendingRefunds = orders.filter(o => o.status === 'refunding' && o.refundRecord);
+  
   const allRefundRecords = [
-    ...pendingRefunds.map(o => o.refundRecord!).filter(Boolean),
-    ...refundHistory,
+    ...orders
+      .filter(o => o.refundRecord)
+      .map(o => ({
+        ...o.refundRecord!,
+        orderNo: o.orderNo,
+        memberName: o.memberName || '散客',
+      })),
+    ...refundHistory.map(r => ({
+      ...r,
+      orderNo: r.orderId,
+      memberName: '-',
+    })),
   ];
 
   const openAuditModal = (order: Order) => {
@@ -111,7 +124,7 @@ export default function ManagerPage({ activeTab, onTabChange }: ManagerPageProps
     setRechargeModalVisible(true);
   };
 
-  const handleAudit = (approved: boolean) => {
+  const handleAudit = () => {
     if (!selectedOrder?.refundRecord) return;
 
     const values = auditForm.getFieldsValue();
@@ -120,12 +133,22 @@ export default function ManagerPage({ activeTab, onTabChange }: ManagerPageProps
       return;
     }
 
+    const approved = values.action === 'approve';
+
     reviewRefund(selectedOrder.refundRecord.id, {
       approved,
       managerNote: values.managerNote,
+      returnToHandler: values.action === 'return',
     });
 
-    message.success(approved ? '已通过退款申请' : '已拒绝退款申请');
+    if (approved) {
+      message.success('已通过退款申请，款项已退回会员账户');
+    } else if (values.action === 'return') {
+      message.success('已退回处理人员重新处理');
+    } else {
+      message.success('已拒绝退款申请');
+    }
+
     setAuditModalVisible(false);
     setSelectedOrder(null);
   };
@@ -139,7 +162,7 @@ export default function ManagerPage({ activeTab, onTabChange }: ManagerPageProps
     setSelectedMember(null);
   };
 
-  const pendingColumns = [
+  const todoColumns = [
     { title: '订单号', dataIndex: 'orderNo', key: 'orderNo', width: 140 },
     { title: '包厢', dataIndex: 'roomName', key: 'roomName', width: 80 },
     { title: '客人', dataIndex: 'memberName', key: 'memberName', render: (t: string) => t || '散客' },
@@ -155,7 +178,7 @@ export default function ManagerPage({ activeTab, onTabChange }: ManagerPageProps
       key: 'abnormalType',
       render: (t: AbnormalType) => t ? (
         <Tag color="red">{abnormalTypeOptions.find(o => o.value === t)?.label || t}</Tag>
-      ) : '-'
+      ) : <Tag color="default">无异常</Tag>
     },
     { title: '申请人', dataIndex: ['refundRecord', 'applicant'], key: 'applicant' },
     { title: '申请时间', dataIndex: ['refundRecord', 'appliedAt'], key: 'appliedAt', width: 160 },
@@ -165,7 +188,7 @@ export default function ManagerPage({ activeTab, onTabChange }: ManagerPageProps
       render: (_: any, record: Order) => (
         <Space>
           <Button size="small" onClick={() => openViewModal(record)} icon={<EyeOutlined />}>
-            详情
+            查看链路
           </Button>
           <Button type="primary" size="small" onClick={() => openAuditModal(record)}>
             审核
@@ -176,7 +199,8 @@ export default function ManagerPage({ activeTab, onTabChange }: ManagerPageProps
   ];
 
   const historyColumns = [
-    { title: '订单号', dataIndex: 'orderId', key: 'orderId', width: 140 },
+    { title: '订单号', dataIndex: 'orderNo', key: 'orderNo', width: 140 },
+    { title: '客人', dataIndex: 'memberName', key: 'memberName' },
     { 
       title: '退款金额', 
       dataIndex: 'amount', 
@@ -225,35 +249,79 @@ export default function ManagerPage({ activeTab, onTabChange }: ManagerPageProps
     },
   ];
 
-  const renderAudit = () => (
+  const renderTodo = () => (
     <div>
       <div style={{ marginBottom: 16 }}>
-        <h2>退款审核</h2>
-        <p>审核处理人员提交的退款申请，通过后款项将退回会员储值账户</p>
+        <h2>待办事项</h2>
+        <p>沿异常处理链路跟进的退款审核待办</p>
       </div>
 
+      <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
+        <Col span={6}>
+          <Card size="small">
+            <Statistic 
+              title="待审核退款" 
+              value={pendingRefunds.length} 
+              valueStyle={{ color: '#fa8c16' }}
+              prefix={<ClockCircleOutlined />}
+            />
+          </Card>
+        </Col>
+        <Col span={6}>
+          <Card size="small">
+            <Statistic 
+              title="今日已处理" 
+              value={allRefundRecords.filter(r => r.reviewedAt && dayjs(r.reviewedAt).isSame(dayjs(), 'day')).length} 
+              valueStyle={{ color: '#3f8600' }}
+              prefix={<CheckOutlined />}
+            />
+          </Card>
+        </Col>
+        <Col span={6}>
+          <Card size="small">
+            <Statistic 
+              title="待审核总金额" 
+              value={pendingRefunds.reduce((sum, o) => sum + (o.refundRecord?.amount || 0), 0)} 
+              valueStyle={{ color: '#f5222d' }}
+              prefix={<DollarOutlined />}
+              suffix="元"
+            />
+          </Card>
+        </Col>
+        <Col span={6}>
+          <Card size="small">
+            <Statistic 
+              title="平均处理时长" 
+              value={18} 
+              suffix="分钟"
+              valueStyle={{ color: '#1890ff' }}
+              prefix={<ClockCircleOutlined />}
+            />
+          </Card>
+        </Col>
+      </Row>
+
       {pendingRefunds.length === 0 ? (
-        <Empty description="暂无待审核的退款申请" />
+        <Empty description="暂无待办事项，干得漂亮！" />
       ) : (
         <>
           <Alert
             message="审核提示"
             description={
               <div>
-                <p>1. 请仔细核对退款原因和金额是否合理</p>
-                <p>2. 大额退款（超过500元）建议电话核实情况</p>
-                <p>3. 审核通过后，款项将自动退回会员储值账户</p>
-                <p>4. 拒绝退款请务必写明原因，处理人员会转告客人</p>
+                <p>1. 点击「查看链路」可以看到从异常上报到处理人员跟进的完整时间线</p>
+                <p>2. 「退回处理人员」可让处理人员补充材料后重新提交，不会直接结案</p>
+                <p>3. 审核通过后款项自动退回会员储值账户</p>
               </div>
             }
-            type="warning"
+            type="info"
             showIcon
             style={{ marginBottom: 16 }}
           />
           <Table
             dataSource={pendingRefunds}
             rowKey="id"
-            columns={pendingColumns}
+            columns={todoColumns}
             expandable={{
               expandedRowRender: (record) => (
                 <div>
@@ -261,8 +329,18 @@ export default function ManagerPage({ activeTab, onTabChange }: ManagerPageProps
                     size="small"
                     current={2}
                     items={[
-                      { title: '前台上报', description: record.abnormalRecord?.reportedAt, icon: <UserOutlined /> },
-                      { title: '处理人员处理', description: record.handledAt, icon: <MessageOutlined /> },
+                      { 
+                        title: '前台上报', 
+                        description: record.abnormalRecord?.reportedAt || record.createdAt, 
+                        icon: <UserOutlined />,
+                        status: record.abnormalRecord ? 'finish' : 'wait'
+                      },
+                      { 
+                        title: '处理人员跟进', 
+                        description: record.handledAt, 
+                        icon: <MessageOutlined />,
+                        status: record.handledAt ? 'finish' : 'wait'
+                      },
                       { title: '店长审核', description: '待处理', icon: <FileTextOutlined /> },
                     ]}
                     style={{ marginBottom: 16 }}
@@ -334,7 +412,7 @@ export default function ManagerPage({ activeTab, onTabChange }: ManagerPageProps
                   <Col span={6}>
                     <Card size="small">
                       <Statistic 
-                        title="通过率" 
+                        title="通过笔数" 
                         value={allRefundRecords.filter(r => r.status === 'approved').length} 
                         valueStyle={{ color: '#3f8600' }}
                         suffix={`/ ${allRefundRecords.length}`}
@@ -345,11 +423,10 @@ export default function ManagerPage({ activeTab, onTabChange }: ManagerPageProps
                   <Col span={6}>
                     <Card size="small">
                       <Statistic 
-                        title="拒绝率" 
-                        value={allRefundRecords.filter(r => r.status === 'rejected').length} 
-                        valueStyle={{ color: '#cf1322' }}
-                        suffix={`/ ${allRefundRecords.length}`}
-                        prefix={<CloseOutlined />}
+                        title="退回重提" 
+                        value={orders.filter(o => o.status === 'refund_rejected').length} 
+                        valueStyle={{ color: '#fa8c16' }}
+                        prefix={<RollbackOutlined />}
                       />
                     </Card>
                   </Col>
@@ -593,7 +670,7 @@ export default function ManagerPage({ activeTab, onTabChange }: ManagerPageProps
 
   return (
     <div>
-      {activeTab === 'audit' && renderAudit()}
+      {activeTab === 'todo' && renderTodo()}
       {activeTab === 'review' && renderReview()}
       {activeTab === 'members' && renderMembers()}
       {activeTab === 'statistics' && renderStatistics()}
@@ -602,19 +679,35 @@ export default function ManagerPage({ activeTab, onTabChange }: ManagerPageProps
         title="退款审核"
         open={auditModalVisible}
         onCancel={() => setAuditModalVisible(false)}
-        width={600}
+        width={650}
         footer={[
           <Button key="back" onClick={() => setAuditModalVisible(false)}>取消</Button>,
-          <Button key="reject" danger onClick={() => handleAudit(false)} icon={<CloseOutlined />}>
-            拒绝
-          </Button>,
-          <Button key="approve" type="primary" onClick={() => handleAudit(true)} icon={<CheckOutlined />}>
-            通过
+          <Button key="submit" type="primary" onClick={handleAudit}>
+            提交审核
           </Button>,
         ]}
       >
         {selectedOrder?.refundRecord && (
           <div>
+            <Steps
+              size="small"
+              current={2}
+              items={[
+                { 
+                  title: '前台上报', 
+                  description: selectedOrder.abnormalRecord?.reportedAt || selectedOrder.createdAt,
+                  status: 'finish' 
+                },
+                { 
+                  title: '处理人员跟进', 
+                  description: selectedOrder.handledAt,
+                  status: 'finish' 
+                },
+                { title: '店长审核', description: '进行中' },
+              ]}
+              style={{ marginBottom: 20 }}
+            />
+
             <Alert
               message={`退款申请：¥${selectedOrder.refundRecord.amount}`}
               description={selectedOrder.refundRecord.reason}
@@ -654,10 +747,34 @@ export default function ManagerPage({ activeTab, onTabChange }: ManagerPageProps
             )}
 
             <Form form={auditForm} layout="vertical">
-              <Form.Item name="managerNote" label="审核意见" rules={[{ required: true, message: '请输入审核意见' }]}>
+              <Form.Item 
+                name="action" 
+                label="审核结果" 
+                rules={[{ required: true, message: '请选择审核结果' }]}
+                initialValue="approve"
+              >
+                <Radio.Group>
+                  <Space direction="vertical">
+                    <Radio value="approve">
+                      <span style={{ color: '#3f8600', fontWeight: 'bold' }}>通过</span> - 同意退款，款项退回会员储值账户
+                    </Radio>
+                    <Radio value="return">
+                      <span style={{ color: '#fa8c16', fontWeight: 'bold' }}>退回处理人员</span> - 需要补充材料或重新核实
+                    </Radio>
+                    <Radio value="reject">
+                      <span style={{ color: '#cf1322', fontWeight: 'bold' }}>拒绝</span> - 直接结案，不再处理
+                    </Radio>
+                  </Space>
+                </Radio.Group>
+              </Form.Item>
+              <Form.Item 
+                name="managerNote" 
+                label="审核意见" 
+                rules={[{ required: true, message: '请输入审核意见' }]}
+              >
                 <TextArea 
                   rows={3} 
-                  placeholder="请输入审核意见。通过：请说明同意的原因；拒绝：请说明拒绝原因，处理人员会转告客人。"
+                  placeholder="请输入审核意见。通过：请说明同意的原因；退回：请说明需要补充什么；拒绝：请说明拒绝原因，处理人员会转告客人。"
                 />
               </Form.Item>
             </Form>
@@ -666,42 +783,98 @@ export default function ManagerPage({ activeTab, onTabChange }: ManagerPageProps
       </Modal>
 
       <Modal
-        title="订单详情"
+        title="完整链路查看"
         open={viewModalVisible}
         onCancel={() => setViewModalVisible(false)}
-        width={700}
+        width={750}
         footer={[
           <Button key="close" onClick={() => setViewModalVisible(false)}>关闭</Button>,
+          <Button key="audit" type="primary" onClick={() => {
+            setViewModalVisible(false);
+            if (selectedOrder) openAuditModal(selectedOrder);
+          }}>
+            去审核
+          </Button>,
         ]}
       >
         {selectedOrder && (
           <div>
             <Steps
+              direction="vertical"
               size="small"
               current={
-                selectedOrder.status === 'refunded' ? 3 :
+                selectedOrder.status === 'refunded' ? 4 :
                 selectedOrder.status === 'refunding' ? 2 :
                 selectedOrder.status === 'abnormal' ? 1 : 0
               }
               items={[
-                { title: '开单', description: selectedOrder.createdAt, icon: <UserOutlined /> },
-                selectedOrder.abnormalRecord ? 
-                  { title: '异常上报', description: selectedOrder.abnormalRecord.reportedAt, icon: <WarningOutlined /> } :
-                  { title: '消费完成', description: selectedOrder.checkOutTime || '-', icon: <CheckOutlined /> },
-                selectedOrder.refundRecord ? 
-                  { 
-                    title: '退款申请', 
-                    description: selectedOrder.refundRecord.appliedAt, 
-                    icon: <FileTextOutlined /> 
-                  } :
-                  { title: '完成', icon: <CheckOutlined /> },
-                selectedOrder.refundRecord?.reviewedAt ? 
-                  { 
-                    title: selectedOrder.refundRecord.status === 'approved' ? '退款完成' : '已拒绝', 
-                    description: selectedOrder.refundRecord.reviewedAt, 
-                    icon: selectedOrder.refundRecord.status === 'approved' ? <CheckOutlined /> : <CloseOutlined /> 
-                  } :
-                  { title: '待处理', icon: <ClockCircleOutlined /> },
+                { 
+                  title: '开单入场', 
+                  description: selectedOrder.createdAt,
+                  content: `${selectedOrder.createdBy} 为客人开单，包厢 ${selectedOrder.roomName}`,
+                  status: 'finish'
+                },
+                selectedOrder.abnormalRecord ? {
+                  title: '前台上报异常',
+                  description: selectedOrder.abnormalRecord.reportedAt,
+                  content: (
+                    <div>
+                      <p><b>{selectedOrder.abnormalRecord.reportedBy}</b> 上报 {abnormalTypeOptions.find(o => o.value === selectedOrder.abnormalRecord?.type)?.label}</p>
+                      <p style={{ color: '#666' }}>{selectedOrder.abnormalRecord.description}</p>
+                    </div>
+                  ),
+                  status: 'finish'
+                } : {
+                  title: '消费完成结账',
+                  description: selectedOrder.checkOutTime,
+                  content: `消费金额 ¥${selectedOrder.totalAmount}，储值抵扣 ¥${selectedOrder.useBalance}`,
+                  status: selectedOrder.checkOutTime ? 'finish' : 'wait'
+                },
+                selectedOrder.handledAt ? {
+                  title: '处理人员跟进',
+                  description: selectedOrder.handledAt,
+                  content: (
+                    <div>
+                      <p><b>{selectedOrder.handledBy}</b> 处理</p>
+                      {selectedOrder.handlerNote && <p style={{ color: '#666' }}>{selectedOrder.handlerNote}</p>}
+                      {selectedOrder.refundRecord && (
+                        <p style={{ color: '#f5222d' }}>
+                          发起退款申请 ¥{selectedOrder.refundRecord.amount}：{selectedOrder.refundRecord.reason}
+                        </p>
+                      )}
+                    </div>
+                  ),
+                  status: 'finish'
+                } : {
+                  title: '处理人员跟进',
+                  description: '待处理',
+                  status: 'wait'
+                },
+                selectedOrder.refundRecord?.reviewedAt ? {
+                  title: '店长审核',
+                  description: selectedOrder.refundRecord.reviewedAt,
+                  content: (
+                    <div>
+                      <p><b>{selectedOrder.refundRecord.reviewedBy}</b> 审核：
+                        {selectedOrder.refundRecord.status === 'approved' ? 
+                          <Tag color="success">通过</Tag> : 
+                          selectedOrder.refundRecord.returnToHandler ?
+                          <Tag color="warning">退回处理人员</Tag> :
+                          <Tag color="default">拒绝</Tag>
+                        }
+                      </p>
+                      {selectedOrder.refundRecord.managerNote && (
+                        <p style={{ color: '#666' }}>{selectedOrder.refundRecord.managerNote}</p>
+                      )}
+                    </div>
+                  ),
+                  status: selectedOrder.status === 'refunded' ? 'finish' : 
+                          selectedOrder.status === 'refund_rejected' ? 'error' : 'finish'
+                } : {
+                  title: '店长审核',
+                  description: selectedOrder.refundRecord ? '待审核' : '-',
+                  status: selectedOrder.refundRecord ? 'process' : 'wait'
+                },
               ].filter(Boolean) as any}
               style={{ marginBottom: 24 }}
             />
@@ -715,19 +888,8 @@ export default function ManagerPage({ activeTab, onTabChange }: ManagerPageProps
               <Descriptions.Item label="客人">{selectedOrder.memberName || '散客'}</Descriptions.Item>
               <Descriptions.Item label="入场时间">{selectedOrder.checkInTime}</Descriptions.Item>
               <Descriptions.Item label="离场时间">{selectedOrder.checkOutTime || '-'}</Descriptions.Item>
-              <Descriptions.Item label="时长">{selectedOrder.durationHours > 0 ? selectedOrder.durationHours + ' 小时' : '-'}</Descriptions.Item>
-              <Descriptions.Item label="创建人">{selectedOrder.createdBy}</Descriptions.Item>
-            </Descriptions>
-
-            <Divider />
-
-            <Descriptions title="消费明细" bordered column={2} size="small">
-              <Descriptions.Item label="包厢费">¥{selectedOrder.roomFee}</Descriptions.Item>
-              <Descriptions.Item label="酒水费">¥{selectedOrder.drinksFee}</Descriptions.Item>
-              <Descriptions.Item label="赠送减免">-¥{selectedOrder.complimentaryFee}</Descriptions.Item>
               <Descriptions.Item label="消费合计">¥{selectedOrder.totalAmount}</Descriptions.Item>
               <Descriptions.Item label="储值抵扣">¥{selectedOrder.useBalance}</Descriptions.Item>
-              <Descriptions.Item label="实收金额">¥{selectedOrder.payAmount}</Descriptions.Item>
             </Descriptions>
 
             {selectedOrder.items.length > 0 && (
@@ -748,46 +910,6 @@ export default function ManagerPage({ activeTab, onTabChange }: ManagerPageProps
                     },
                   ]}
                 />
-              </>
-            )}
-
-            {selectedOrder.abnormalRecord && (
-              <>
-                <Divider />
-                <h4>异常记录</h4>
-                <Alert
-                  message={abnormalTypeOptions.find(o => o.value === selectedOrder.abnormalRecord?.type)?.label}
-                  description={selectedOrder.abnormalRecord.description}
-                  type="error"
-                  showIcon
-                />
-              </>
-            )}
-
-            {selectedOrder.refundRecord && (
-              <>
-                <Divider />
-                <h4>退款记录</h4>
-                <Descriptions bordered column={2} size="small">
-                  <Descriptions.Item label="退款金额">
-                    <span style={{ color: '#f5222d', fontWeight: 'bold' }}>¥{selectedOrder.refundRecord.amount}</span>
-                  </Descriptions.Item>
-                  <Descriptions.Item label="状态">
-                    <Tag color={statusColors[selectedOrder.refundRecord.status]}>
-                      {statusLabels[selectedOrder.refundRecord.status]}
-                    </Tag>
-                  </Descriptions.Item>
-                  <Descriptions.Item label="退款原因" span={2}>{selectedOrder.refundRecord.reason}</Descriptions.Item>
-                  <Descriptions.Item label="申请人">{selectedOrder.refundRecord.applicant}</Descriptions.Item>
-                  <Descriptions.Item label="申请时间">{selectedOrder.refundRecord.appliedAt}</Descriptions.Item>
-                  {selectedOrder.refundRecord.managerNote && (
-                    <>
-                      <Descriptions.Item label="审核意见" span={2}>{selectedOrder.refundRecord.managerNote}</Descriptions.Item>
-                      <Descriptions.Item label="审核人">{selectedOrder.refundRecord.reviewedBy}</Descriptions.Item>
-                      <Descriptions.Item label="审核时间">{selectedOrder.refundRecord.reviewedAt}</Descriptions.Item>
-                    </>
-                  )}
-                </Descriptions>
               </>
             )}
           </div>

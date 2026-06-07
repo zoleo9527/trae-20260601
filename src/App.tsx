@@ -24,7 +24,7 @@ const roleMenus: Record<Role, { key: string; label: string }[]> = {
     { key: 'history', label: '处理记录' },
   ],
   manager: [
-    { key: 'audit', label: '退款审核' },
+    { key: 'todo', label: '待办' },
     { key: 'review', label: '数据回看' },
     { key: 'members', label: '会员管理' },
     { key: 'statistics', label: '经营统计' },
@@ -43,6 +43,7 @@ function App() {
 
   const pendingAbnormalCount = orders.filter(o => o.status === 'abnormal').length;
   const pendingRefundCount = orders.filter(o => o.status === 'refunding').length;
+  const rejectedRefundCount = orders.filter(o => o.status === 'refund_rejected').length;
 
   const handleRoleSwitch = (role: Role) => {
     setRole(role);
@@ -57,7 +58,7 @@ function App() {
 
   const getNotificationCount = () => {
     if (currentRole === 'reception') return pendingAbnormalCount;
-    if (currentRole === 'handler') return pendingAbnormalCount + pendingRefundCount;
+    if (currentRole === 'handler') return pendingAbnormalCount + rejectedRefundCount;
     if (currentRole === 'manager') return pendingRefundCount;
     return 0;
   };
@@ -113,9 +114,9 @@ function App() {
                   badgeCount = pendingAbnormalCount;
                 }
                 if (currentRole === 'handler' && item.key === 'pending') {
-                  badgeCount = pendingAbnormalCount;
+                  badgeCount = pendingAbnormalCount + rejectedRefundCount;
                 }
-                if (currentRole === 'manager' && item.key === 'audit') {
+                if (currentRole === 'manager' && item.key === 'todo') {
                   badgeCount = pendingRefundCount;
                 }
                 return {
