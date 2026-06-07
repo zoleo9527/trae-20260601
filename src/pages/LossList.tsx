@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import {
   Card,
   Table,
@@ -26,6 +26,7 @@ import {
   LossRecord,
   LossAnalysisStatus,
   LossType,
+  PaginatedResponse,
 } from '@/types';
 import type { ColumnsType } from 'antd/es/table';
 
@@ -45,6 +46,15 @@ export const LossList: React.FC = () => {
   const [concludeModalVisible, setConcludeModalVisible] = useState(false);
   const [selectedLoss, setSelectedLoss] = useState<LossRecord | null>(null);
   const [concludeForm] = Form.useForm();
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  const [lossData, setLossData] = useState<PaginatedResponse<LossRecord>>({
+    data: [],
+    total: 0,
+    page: 1,
+    pageSize: 10,
+  });
+  const [loading, setLoading] = useState(false);
 
   const {
     getLossRecords,
@@ -53,28 +63,45 @@ export const LossList: React.FC = () => {
     currentUser,
   } = useStore();
 
-  const lossData = useMemo(() => {
-    return getLossRecords(
-      { page, pageSize },
-      {
-        status: statusFilter,
-        lossType: typeFilter,
-        storeId: storeFilter,
-        keyword,
-      }
-    );
+  const loadData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const result = await getLossRecords(
+        { page, pageSize },
+        {
+          status: statusFilter,
+          lossType: typeFilter,
+          storeId: storeFilter,
+          keyword,
+        }
+      );
+      setLossData(result);
+    } catch (error: any) {
+      message.error('加载损耗列表失败: ' + error.message);
+    } finally {
+      setLoading(false);
+    }
   }, [page, pageSize, statusFilter, typeFilter, storeFilter, keyword, getLossRecords]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData, refreshKey]);
 
   const handleStartAnalysis = (record: LossRecord) => {
     setSelectedLoss(record);
     setAnalysisModalVisible(true);
   };
 
-  const handleStartAnalysisSubmit = () => {
+  const handleStartAnalysisSubmit = async () => {
     if (selectedLoss) {
-      updateLossStatus(selectedLoss.id, 'analyzing');
-      message.success('已开始分析');
-      setAnalysisModalVisible(false);
+      try {
+        await updateLossStatus(selectedLoss.id, 'analyzing');
+        message.success('已开始分析');
+        setAnalysisModalVisible(false);
+        setRefreshKey(k => k + 1);
+      } catch (error: any) {
+        message.error('操作失败: ' + error.message);
+      }
     }
   };
 
@@ -83,15 +110,20 @@ export const LossList: React.FC = () => {
     setConcludeModalVisible(true);
   };
 
-  const handleConcludeSubmit = () => {
-    concludeForm.validateFields().then((values) => {
+  const handleConcludeSubmit = async () => {
+    try {
+      const values = await concludeForm.validateFields();
       if (selectedLoss) {
-        updateLossStatus(selectedLoss.id, 'concluded', values);
+        await updateLossStatus(selectedLoss.id, 'concluded', values);
         message.success('已完成分析结案');
         setConcludeModalVisible(false);
         concludeForm.resetFields();
+        setRefreshKey(k => k + 1);
       }
-    });
+    } catch (error: any) {
+      if (error.errorFields) return;
+      message.error('操作失败: ' + error.message);
+    }
   };
 
   const getActionButtons = (record: LossRecord) => {
@@ -274,6 +306,7 @@ export const LossList: React.FC = () => {
         columns={columns}
         dataSource={lossData.data}
         rowKey="id"
+        loading={loading}
         pagination={{
           current: page,
           pageSize,

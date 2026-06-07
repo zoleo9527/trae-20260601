@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import {
   Card,
   Table,
@@ -26,6 +26,7 @@ import {
   InventoryDifference,
   InventoryDifferenceStatus,
   DifferenceType,
+  PaginatedResponse,
 } from '@/types';
 import type { ColumnsType } from 'antd/es/table';
 
@@ -45,6 +46,15 @@ export const DifferenceList: React.FC = () => {
   const [resolveModalVisible, setResolveModalVisible] = useState(false);
   const [selectedDifference, setSelectedDifference] = useState<InventoryDifference | null>(null);
   const [form] = Form.useForm();
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  const [differenceData, setDifferenceData] = useState<PaginatedResponse<InventoryDifference>>({
+    data: [],
+    total: 0,
+    page: 1,
+    pageSize: 10,
+  });
+  const [loading, setLoading] = useState(false);
 
   const {
     getInventoryDifferences,
@@ -53,28 +63,45 @@ export const DifferenceList: React.FC = () => {
     currentUser,
   } = useStore();
 
-  const differenceData = useMemo(() => {
-    return getInventoryDifferences(
-      { page, pageSize },
-      {
-        status: statusFilter,
-        differenceType: typeFilter,
-        storeId: storeFilter,
-        keyword,
-      }
-    );
+  const loadData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const result = await getInventoryDifferences(
+        { page, pageSize },
+        {
+          status: statusFilter,
+          differenceType: typeFilter,
+          storeId: storeFilter,
+          keyword,
+        }
+      );
+      setDifferenceData(result);
+    } catch (error: any) {
+      message.error('加载差异列表失败: ' + error.message);
+    } finally {
+      setLoading(false);
+    }
   }, [page, pageSize, statusFilter, typeFilter, storeFilter, keyword, getInventoryDifferences]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData, refreshKey]);
 
   const handleConfirm = (record: InventoryDifference) => {
     setSelectedDifference(record);
     setConfirmModalVisible(true);
   };
 
-  const handleConfirmSubmit = () => {
+  const handleConfirmSubmit = async () => {
     if (selectedDifference) {
-      updateDifferenceStatus(selectedDifference.id, 'confirmed');
-      message.success('已确认差异');
-      setConfirmModalVisible(false);
+      try {
+        await updateDifferenceStatus(selectedDifference.id, 'confirmed');
+        message.success('已确认差异');
+        setConfirmModalVisible(false);
+        setRefreshKey(k => k + 1);
+      } catch (error: any) {
+        message.error('操作失败: ' + error.message);
+      }
     }
   };
 
@@ -83,24 +110,34 @@ export const DifferenceList: React.FC = () => {
     setResolveModalVisible(true);
   };
 
-  const handleResolveSubmit = () => {
-    form.validateFields().then((values) => {
+  const handleResolveSubmit = async () => {
+    try {
+      const values = await form.validateFields();
       if (selectedDifference) {
-        updateDifferenceStatus(selectedDifference.id, 'resolved', values.resolution);
+        await updateDifferenceStatus(selectedDifference.id, 'resolved', values.resolution);
         message.success('差异已解决');
         setResolveModalVisible(false);
         form.resetFields();
+        setRefreshKey(k => k + 1);
       }
-    });
+    } catch (error: any) {
+      if (error.errorFields) return;
+      message.error('操作失败: ' + error.message);
+    }
   };
 
   const handleAppeal = (record: InventoryDifference) => {
     Modal.confirm({
       title: '确认申诉',
       content: '确定要对此差异进行申诉吗？',
-      onOk: () => {
-        updateDifferenceStatus(record.id, 'appealed');
-        message.success('已提交申诉');
+      onOk: async () => {
+        try {
+          await updateDifferenceStatus(record.id, 'appealed');
+          message.success('已提交申诉');
+          setRefreshKey(k => k + 1);
+        } catch (error: any) {
+          message.error('操作失败: ' + error.message);
+        }
       },
     });
   };
@@ -311,6 +348,7 @@ export const DifferenceList: React.FC = () => {
         columns={columns}
         dataSource={differenceData.data}
         rowKey="id"
+        loading={loading}
         pagination={{
           current: page,
           pageSize,

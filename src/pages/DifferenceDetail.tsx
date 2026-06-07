@@ -12,6 +12,7 @@ import {
   Form,
   Input,
   message,
+  Spin,
 } from 'antd';
 import {
   ArrowLeftOutlined,
@@ -24,7 +25,8 @@ import {
   DifferenceTypeTag,
 } from '@/components/common/StatusTags';
 import { HistoryTimeline } from '@/components/common/HistoryTimeline';
-import { useState } from 'react';
+import { useState, useCallback, useEffect } from 'react';
+import { InventoryDifference } from '@/types';
 
 const { TextArea } = Input;
 
@@ -32,9 +34,38 @@ export const DifferenceDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { getInventoryDifferenceById, updateDifferenceStatus, currentUser } = useStore();
-  const difference = getInventoryDifferenceById(id || '');
+  const [difference, setDifference] = useState<InventoryDifference | null>(null);
+  const [loading, setLoading] = useState(false);
   const [resolveModalVisible, setResolveModalVisible] = useState(false);
   const [form] = Form.useForm();
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  const loadData = useCallback(async () => {
+    if (!id) return;
+    setLoading(true);
+    try {
+      const result = await getInventoryDifferenceById(id);
+      setDifference(result || null);
+    } catch (error: any) {
+      message.error('加载差异详情失败: ' + error.message);
+    } finally {
+      setLoading(false);
+    }
+  }, [id, getInventoryDifferenceById]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData, refreshKey]);
+
+  if (loading) {
+    return (
+      <Card>
+        <div className="flex justify-center py-12">
+          <Spin size="large" />
+        </div>
+      </Card>
+    );
+  }
 
   if (!difference) {
     return (
@@ -49,9 +80,14 @@ export const DifferenceDetail: React.FC = () => {
     Modal.confirm({
       title: '确认差异',
       content: '确认要确认此差异吗？',
-      onOk: () => {
-        updateDifferenceStatus(difference.id, 'confirmed');
-        message.success('已确认差异');
+      onOk: async () => {
+        try {
+          await updateDifferenceStatus(difference.id, 'confirmed');
+          message.success('已确认差异');
+          setRefreshKey(k => k + 1);
+        } catch (error: any) {
+          message.error('操作失败: ' + error.message);
+        }
       },
     });
   };
@@ -60,21 +96,32 @@ export const DifferenceDetail: React.FC = () => {
     setResolveModalVisible(true);
   };
 
-  const handleResolveSubmit = () => {
-    form.validateFields().then((values) => {
-      updateDifferenceStatus(difference.id, 'resolved', values.resolution);
+  const handleResolveSubmit = async () => {
+    try {
+      const values = await form.validateFields();
+      await updateDifferenceStatus(difference.id, 'resolved', values.resolution);
       message.success('差异已解决');
       setResolveModalVisible(false);
-    });
+      form.resetFields();
+      setRefreshKey(k => k + 1);
+    } catch (error: any) {
+      if (error.errorFields) return;
+      message.error('操作失败: ' + error.message);
+    }
   };
 
   const handleAppeal = () => {
     Modal.confirm({
       title: '确认申诉',
       content: '确定要对此差异进行申诉吗？',
-      onOk: () => {
-        updateDifferenceStatus(difference.id, 'appealed');
-        message.success('已提交申诉');
+      onOk: async () => {
+        try {
+          await updateDifferenceStatus(difference.id, 'appealed');
+          message.success('已提交申诉');
+          setRefreshKey(k => k + 1);
+        } catch (error: any) {
+          message.error('操作失败: ' + error.message);
+        }
       },
     });
   };

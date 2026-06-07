@@ -100,6 +100,7 @@ export interface InventoryDifference {
   resolution?: string;
   history: DifferenceHistoryItem[];
   attachments?: string[];
+  relatedLossIds?: string[];
 }
 
 export interface DifferenceHistoryItem {
@@ -130,6 +131,7 @@ export interface LossRecord {
   status: LossAnalysisStatus;
   analysis?: LossAnalysis;
   attachments?: string[];
+  relatedDifferenceIds?: string[];
 }
 
 export interface LossAnalysis {

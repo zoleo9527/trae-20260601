@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { Layout, Menu, Badge, Dropdown, Avatar, Space } from 'antd';
 import {
   DashboardOutlined,
@@ -9,7 +10,7 @@ import {
 } from '@ant-design/icons';
 import { useLocation, useNavigate, Outlet } from 'react-router-dom';
 import { useStore } from '@/store';
-import { UserRole } from '@/types';
+import { UserRole, Alert } from '@/types';
 
 const { Header, Sider, Content } = Layout;
 
@@ -49,7 +50,19 @@ export const MainLayout: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { currentUser, switchRole, getActiveAlerts } = useStore();
-  const activeAlerts = getActiveAlerts();
+  const [activeAlerts, setActiveAlerts] = useState<Alert[]>([]);
+
+  useEffect(() => {
+    const loadActiveAlerts = async () => {
+      try {
+        const data = await getActiveAlerts();
+        setActiveAlerts(data);
+      } catch (e) {
+        console.error('Failed to load active alerts:', e);
+      }
+    };
+    loadActiveAlerts();
+  }, [currentUser, getActiveAlerts]);
 
   const roleItems = [
     { key: 'store_manager', label: '切换为店长' },

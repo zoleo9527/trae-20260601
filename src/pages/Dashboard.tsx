@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import {
   Row,
   Col,
@@ -14,6 +14,7 @@ import {
   Form,
   message,
   Tag,
+  Spin,
 } from 'antd';
 import {
   ExclamationCircleOutlined,
@@ -33,6 +34,7 @@ import {
   AlertStatus,
   AlertType,
   Alert as AlertTypeDef,
+  PaginatedResponse,
 } from '@/types';
 import {
   LineChart,
@@ -66,38 +68,105 @@ export const Dashboard: React.FC = () => {
   const [resolveModalVisible, setResolveModalVisible] = useState(false);
   const [selectedAlert, setSelectedAlert] = useState<Alert | null>(null);
   const [form] = Form.useForm();
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  const [stats, setStats] = useState({
+    activeAlerts: 0,
+    criticalAlerts: 0,
+    pendingDifferences: 0,
+    totalLoss: 0,
+  });
+  const [lossTrendData, setLossTrendData] = useState<Array<{ date: string; amount: number; count: number }>>([]);
+  const [lossTypeData, setLossTypeData] = useState<Array<{ type: string; value: number; name: string }>>([]);
+  const [differenceTypeData, setDifferenceTypeData] = useState<Array<{ type: string; value: number; name: string }>>([]);
+  const [alertData, setAlertData] = useState<PaginatedResponse<Alert>>({
+    data: [],
+    total: 0,
+    page: 1,
+    pageSize: 10,
+  });
+  const [statsLoading, setStatsLoading] = useState(false);
+  const [chartLoading, setChartLoading] = useState(false);
+  const [tableLoading, setTableLoading] = useState(false);
 
   const {
     getDashboardStats,
     getAlerts,
     updateAlertStatus,
     stores,
-    getLossTrendData,
-    getLossTypeDistribution,
-    getDifferenceTypeDistribution,
+    getLossTrendData: fetchLossTrendData,
+    getLossTypeDistribution: fetchLossTypeDistribution,
+    getDifferenceTypeDistribution: fetchDifferenceTypeDistribution,
     currentUser,
   } = useStore();
 
-  const stats = getDashboardStats();
-  const lossTrendData = getLossTrendData();
-  const lossTypeData = getLossTypeDistribution();
-  const differenceTypeData = getDifferenceTypeDistribution();
+  const loadStats = useCallback(async () => {
+    setStatsLoading(true);
+    try {
+      const result = await getDashboardStats();
+      setStats(result);
+    } catch (error: any) {
+      message.error('加载统计数据失败: ' + error.message);
+    } finally {
+      setStatsLoading(false);
+    }
+  }, [getDashboardStats]);
 
-  const alertData = useMemo(() => {
-    return getAlerts(
-      { page, pageSize },
-      {
-        status: statusFilter,
-        alertType: typeFilter,
-        severity: severityFilter,
-        storeId: storeFilter,
-      }
-    );
+  const loadCharts = useCallback(async () => {
+    setChartLoading(true);
+    try {
+      const [trend, lossType, diffType] = await Promise.all([
+        fetchLossTrendData(),
+        fetchLossTypeDistribution(),
+        fetchDifferenceTypeDistribution(),
+      ]);
+      setLossTrendData(trend);
+      setLossTypeData(lossType);
+      setDifferenceTypeData(diffType);
+    } catch (error: any) {
+      message.error('加载图表数据失败: ' + error.message);
+    } finally {
+      setChartLoading(false);
+    }
+  }, [fetchLossTrendData, fetchLossTypeDistribution, fetchDifferenceTypeDistribution]);
+
+  const loadAlerts = useCallback(async () => {
+    setTableLoading(true);
+    try {
+      const result = await getAlerts(
+        { page, pageSize },
+        {
+          status: statusFilter,
+          alertType: typeFilter,
+          severity: severityFilter,
+          storeId: storeFilter,
+        }
+      );
+      setAlertData(result);
+    } catch (error: any) {
+      message.error('加载预警列表失败: ' + error.message);
+    } finally {
+      setTableLoading(false);
+    }
   }, [page, pageSize, statusFilter, typeFilter, severityFilter, storeFilter, getAlerts]);
 
-  const handleProcess = (alert: Alert) => {
-    updateAlertStatus(alert.id, 'processing');
-    message.success('已标记为处理中');
+  useEffect(() => {
+    loadStats();
+    loadCharts();
+  }, [loadStats, loadCharts, refreshKey]);
+
+  useEffect(() => {
+    loadAlerts();
+  }, [loadAlerts]);
+
+  const handleProcess = async (alert: Alert) => {
+    try {
+      await updateAlertStatus(alert.id, 'processing');
+      message.success('已标记为处理中');
+      setRefreshKey(k => k + 1);
+    } catch (error: any) {
+      message.error('操作失败: ' + error.message);
+    }
   };
 
   const handleResolve = (alert: Alert) => {
@@ -105,24 +174,34 @@ export const Dashboard: React.FC = () => {
     setResolveModalVisible(true);
   };
 
-  const handleResolveSubmit = () => {
-    form.validateFields().then((values) => {
+  const handleResolveSubmit = async () => {
+    try {
+      const values = await form.validateFields();
       if (selectedAlert) {
-        updateAlertStatus(selectedAlert.id, 'resolved', values.resolution);
+        await updateAlertStatus(selectedAlert.id, 'resolved', values.resolution);
         message.success('预警已解决');
         setResolveModalVisible(false);
         form.resetFields();
+        setRefreshKey(k => k + 1);
       }
-    });
+    } catch (error: any) {
+      if (error.errorFields) return;
+      message.error('操作失败: ' + error.message);
+    }
   };
 
   const handleIgnore = (alert: Alert) => {
     Modal.confirm({
       title: '确认忽略',
       content: '确定要忽略此预警吗？',
-      onOk: () => {
-        updateAlertStatus(alert.id, 'ignored');
-        message.success('已忽略预警');
+      onOk: async () => {
+        try {
+          await updateAlertStatus(alert.id, 'ignored');
+          message.success('已忽略预警');
+          setRefreshKey(k => k + 1);
+        } catch (error: any) {
+          message.error('操作失败: ' + error.message);
+        }
       },
     });
   };
@@ -256,44 +335,52 @@ export const Dashboard: React.FC = () => {
       <Row gutter={16}>
         <Col span={6}>
           <Card>
-            <Statistic
-              title="活跃预警"
-              value={stats.activeAlerts}
-              prefix={<ExclamationCircleOutlined className="text-red-500" />}
-              valueStyle={{ color: '#cf1322' }}
-            />
+            <Spin spinning={statsLoading}>
+              <Statistic
+                title="活跃预警"
+                value={stats.activeAlerts}
+                prefix={<ExclamationCircleOutlined className="text-red-500" />}
+                valueStyle={{ color: '#cf1322' }}
+              />
+            </Spin>
           </Card>
         </Col>
         <Col span={6}>
           <Card>
-            <Statistic
-              title="紧急预警"
-              value={stats.criticalAlerts}
-              prefix={<WarningOutlined className="text-orange-500" />}
-              valueStyle={{ color: '#fa8c16' }}
-            />
+            <Spin spinning={statsLoading}>
+              <Statistic
+                title="紧急预警"
+                value={stats.criticalAlerts}
+                prefix={<WarningOutlined className="text-orange-500" />}
+                valueStyle={{ color: '#fa8c16' }}
+              />
+            </Spin>
           </Card>
         </Col>
         <Col span={6}>
           <Card>
-            <Statistic
-              title="待处理差异"
-              value={stats.pendingDifferences}
-              prefix={<FileTextOutlined className="text-blue-500" />}
-              valueStyle={{ color: '#1890ff' }}
-            />
+            <Spin spinning={statsLoading}>
+              <Statistic
+                title="待处理差异"
+                value={stats.pendingDifferences}
+                prefix={<FileTextOutlined className="text-blue-500" />}
+                valueStyle={{ color: '#1890ff' }}
+              />
+            </Spin>
           </Card>
         </Col>
         <Col span={6}>
           <Card>
-            <Statistic
-              title="累计损耗金额"
-              value={stats.totalLoss}
-              precision={2}
-              prefix={<ShopOutlined className="text-green-500" />}
-              suffix="元"
-              valueStyle={{ color: '#3f8600' }}
-            />
+            <Spin spinning={statsLoading}>
+              <Statistic
+                title="累计损耗金额"
+                value={stats.totalLoss}
+                precision={2}
+                prefix={<ShopOutlined className="text-green-500" />}
+                suffix="元"
+                valueStyle={{ color: '#3f8600' }}
+              />
+            </Spin>
           </Card>
         </Col>
       </Row>
@@ -301,78 +388,84 @@ export const Dashboard: React.FC = () => {
       <Row gutter={16}>
         <Col span={12}>
           <Card title="损耗趋势（近7天）">
-            <ResponsiveContainer width="100%" height={280}>
-              <LineChart data={lossTrendData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="date" />
-                <YAxis yAxisId="left" />
-                <YAxis yAxisId="right" orientation="right" />
-                <Tooltip />
-                <Legend />
-                <Line
-                  yAxisId="left"
-                  type="monotone"
-                  dataKey="amount"
-                  name="损耗金额(元)"
-                  stroke="#ff7300"
-                  strokeWidth={2}
-                />
-                <Line
-                  yAxisId="right"
-                  type="monotone"
-                  dataKey="count"
-                  name="损耗次数"
-                  stroke="#387908"
-                  strokeWidth={2}
-                />
-              </LineChart>
-            </ResponsiveContainer>
+            <Spin spinning={chartLoading}>
+              <ResponsiveContainer width="100%" height={280}>
+                <LineChart data={lossTrendData}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="date" />
+                  <YAxis yAxisId="left" />
+                  <YAxis yAxisId="right" orientation="right" />
+                  <Tooltip />
+                  <Legend />
+                  <Line
+                    yAxisId="left"
+                    type="monotone"
+                    dataKey="amount"
+                    name="损耗金额(元)"
+                    stroke="#ff7300"
+                    strokeWidth={2}
+                  />
+                  <Line
+                    yAxisId="right"
+                    type="monotone"
+                    dataKey="count"
+                    name="损耗次数"
+                    stroke="#387908"
+                    strokeWidth={2}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </Spin>
           </Card>
         </Col>
         <Col span={6}>
           <Card title="损耗类型分布">
-            <ResponsiveContainer width="100%" height={280}>
-              <PieChart>
-                <Pie
-                  data={lossTypeData}
-                  cx="50%"
-                  cy="50%"
-                  labelLine={false}
-                  label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                  outerRadius={80}
-                  fill="#8884d8"
-                  dataKey="value"
-                >
-                  {lossTypeData.map((_, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip />
-              </PieChart>
-            </ResponsiveContainer>
+            <Spin spinning={chartLoading}>
+              <ResponsiveContainer width="100%" height={280}>
+                <PieChart>
+                  <Pie
+                    data={lossTypeData}
+                    cx="50%"
+                    cy="50%"
+                    labelLine={false}
+                    label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                    outerRadius={80}
+                    fill="#8884d8"
+                    dataKey="value"
+                  >
+                    {lossTypeData.map((_, index) => (
+                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip />
+                </PieChart>
+              </ResponsiveContainer>
+            </Spin>
           </Card>
         </Col>
         <Col span={6}>
           <Card title="差异类型分布">
-            <ResponsiveContainer width="100%" height={280}>
-              <PieChart>
-                <Pie
-                  data={differenceTypeData}
-                  cx="50%"
-                  cy="50%"
-                  labelLine={false}
-                  label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                  outerRadius={80}
-                  fill="#8884d8"
-                  dataKey="value"
-                >
-                  {differenceTypeData.map((_, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip />
-              </PieChart>
-            </ResponsiveContainer>
+            <Spin spinning={chartLoading}>
+              <ResponsiveContainer width="100%" height={280}>
+                <PieChart>
+                  <Pie
+                    data={differenceTypeData}
+                    cx="50%"
+                    cy="50%"
+                    labelLine={false}
+                    label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                    outerRadius={80}
+                    fill="#8884d8"
+                    dataKey="value"
+                  >
+                    {differenceTypeData.map((_, index) => (
+                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip />
+                </PieChart>
+              </ResponsiveContainer>
+            </Spin>
           </Card>
         </Col>
       </Row>
@@ -433,6 +526,7 @@ export const Dashboard: React.FC = () => {
           columns={columns}
           dataSource={alertData.data}
           rowKey="id"
+          loading={tableLoading}
           pagination={{
             current: page,
             pageSize,

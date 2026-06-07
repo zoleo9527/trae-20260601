@@ -13,6 +13,7 @@ import {
   Input,
   message,
   Tabs,
+  Spin,
 } from 'antd';
 import {
   ArrowLeftOutlined,
@@ -25,7 +26,8 @@ import {
   LossTypeTag,
 } from '@/components/common/StatusTags';
 import { HistoryTimeline } from '@/components/common/HistoryTimeline';
-import { useState } from 'react';
+import { useState, useCallback, useEffect } from 'react';
+import { LossRecord } from '@/types';
 
 const { TextArea } = Input;
 const { TabPane } = Tabs;
@@ -34,9 +36,38 @@ export const LossDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { getLossRecordById, updateLossStatus, currentUser } = useStore();
-  const loss = getLossRecordById(id || '');
+  const [loss, setLoss] = useState<LossRecord | null>(null);
+  const [loading, setLoading] = useState(false);
   const [concludeModalVisible, setConcludeModalVisible] = useState(false);
   const [concludeForm] = Form.useForm();
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  const loadData = useCallback(async () => {
+    if (!id) return;
+    setLoading(true);
+    try {
+      const result = await getLossRecordById(id);
+      setLoss(result || null);
+    } catch (error: any) {
+      message.error('加载损耗详情失败: ' + error.message);
+    } finally {
+      setLoading(false);
+    }
+  }, [id, getLossRecordById]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData, refreshKey]);
+
+  if (loading) {
+    return (
+      <Card>
+        <div className="flex justify-center py-12">
+          <Spin size="large" />
+        </div>
+      </Card>
+    );
+  }
 
   if (!loss) {
     return (
@@ -51,9 +82,14 @@ export const LossDetail: React.FC = () => {
     Modal.confirm({
       title: '开始分析',
       content: '确认要开始分析此损耗记录吗？',
-      onOk: () => {
-        updateLossStatus(loss.id, 'analyzing');
-        message.success('已开始分析');
+      onOk: async () => {
+        try {
+          await updateLossStatus(loss.id, 'analyzing');
+          message.success('已开始分析');
+          setRefreshKey(k => k + 1);
+        } catch (error: any) {
+          message.error('操作失败: ' + error.message);
+        }
       },
     });
   };
@@ -62,12 +98,18 @@ export const LossDetail: React.FC = () => {
     setConcludeModalVisible(true);
   };
 
-  const handleConcludeSubmit = () => {
-    concludeForm.validateFields().then((values) => {
-      updateLossStatus(loss.id, 'concluded', values);
+  const handleConcludeSubmit = async () => {
+    try {
+      const values = await concludeForm.validateFields();
+      await updateLossStatus(loss.id, 'concluded', values);
       message.success('已完成分析结案');
       setConcludeModalVisible(false);
-    });
+      concludeForm.resetFields();
+      setRefreshKey(k => k + 1);
+    } catch (error: any) {
+      if (error.errorFields) return;
+      message.error('操作失败: ' + error.message);
+    }
   };
 
   const getActionButtons = () => {
