@@ -247,6 +247,16 @@ export const useStore = create<StoreState & StoreActions>((set, get) => ({
         memberName: order.memberName || '散客',
       };
 
+      const existingHistory = order.refundHistory || [];
+      const idx = existingHistory.findIndex(r => r.id === refundId);
+      let updatedHistory: RefundRecord[];
+      if (idx >= 0) {
+        updatedHistory = [...existingHistory];
+        updatedHistory[idx] = reviewedRecord;
+      } else {
+        updatedHistory = [...existingHistory, reviewedRecord];
+      }
+
       return {
         orders: state.orders.map((o) => {
           if (o.refundRecord?.id === refundId) {
@@ -254,7 +264,7 @@ export const useStore = create<StoreState & StoreActions>((set, get) => ({
               ...o,
               status: newStatus,
               refundRecord: reviewedRecord,
-              refundHistory: [...(o.refundHistory || []), reviewedRecord],
+              refundHistory: updatedHistory,
             };
           }
           return o;

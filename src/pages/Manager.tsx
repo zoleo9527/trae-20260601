@@ -88,13 +88,22 @@ export default function ManagerPage({ activeTab, onTabChange: _onTabChange }: Ma
   const pendingRefunds = orders.filter(o => o.status === 'refunding' && o.refundRecord);
 
   const allRefundRecords: (RefundRecord & { orderNo: string; memberName: string })[] = [
-    ...orders.flatMap(o =>
-      (o.refundHistory || []).map(r => ({
+    ...orders.flatMap(o => {
+      const historyIds = new Set((o.refundHistory || []).map(r => r.id));
+      const records = (o.refundHistory || []).map(r => ({
         ...r,
         orderNo: r.orderNo || o.orderNo,
         memberName: r.memberName || o.memberName || '散客',
-      }))
-    ),
+      }));
+      if (o.refundRecord && !historyIds.has(o.refundRecord.id)) {
+        records.push({
+          ...o.refundRecord,
+          orderNo: o.refundRecord.orderNo || o.orderNo,
+          memberName: o.refundRecord.memberName || o.memberName || '散客',
+        });
+      }
+      return records;
+    }),
     ...refundHistory.map(r => ({
       ...r,
       orderNo: r.orderNo || r.orderId,
@@ -445,6 +454,12 @@ export default function ManagerPage({ activeTab, onTabChange: _onTabChange }: Ma
                     expandedRowRender: (record: RefundRecord) => (
                       <Descriptions column={1} size="small">
                         <Descriptions.Item label="退款原因">{record.reason}</Descriptions.Item>
+                        <Descriptions.Item label="申请人">{record.applicant}</Descriptions.Item>
+                        {record.status === 'pending' && (
+                          <Descriptions.Item label="审核状态">
+                            <Tag color="warning">待审核</Tag>
+                          </Descriptions.Item>
+                        )}
                         {record.managerNote && (
                           <Descriptions.Item label="审核意见">{record.managerNote}</Descriptions.Item>
                         )}
@@ -857,14 +872,12 @@ export default function ManagerPage({ activeTab, onTabChange: _onTabChange }: Ma
                   status: 'wait'
                 },
                 ...(selectedOrder.refundHistory || []).length > 0 ? (selectedOrder.refundHistory || []).map((r, idx) => ({
-                  title: r.reviewedAt 
-                    ? `店长审核（第${idx + 1}轮）`
-                    : `退款申请（第${idx + 1}轮）`,
+                  title: `第${idx + 1}轮退款`,
                   description: r.appliedAt,
                   content: (
                     <div>
-                      <p>申请退款 ¥{r.amount}：{r.reason}</p>
-                      {r.reviewedAt && (
+                      <p>申请 ¥{r.amount}：{r.reason}（{r.applicant}）</p>
+                      {r.reviewedAt ? (
                         <p>
                           <b>{r.reviewedBy}</b> 审核：
                           {r.status === 'approved' ? 
@@ -875,31 +888,32 @@ export default function ManagerPage({ activeTab, onTabChange: _onTabChange }: Ma
                           }
                           {r.managerNote && <span style={{ marginLeft: 8, color: '#666' }}>{r.managerNote}</span>}
                         </p>
-                      )}
-                      {!r.reviewedAt && <Tag color="warning">待审核</Tag>}
+                      ) : <Tag color="warning">待审核</Tag>}
                     </div>
                   ),
                   status: r.reviewedAt 
                     ? (r.status === 'approved' ? 'finish' : r.returnToHandler ? 'error' : 'finish') 
                     : 'process' as const,
                 })) : selectedOrder.refundRecord ? [{
-                  title: '店长审核',
-                  description: selectedOrder.refundRecord.reviewedAt || '待审核',
-                  content: selectedOrder.refundRecord.reviewedAt ? (
+                  title: '第1轮退款',
+                  description: selectedOrder.refundRecord.appliedAt,
+                  content: (
                     <div>
-                      <p><b>{selectedOrder.refundRecord.reviewedBy}</b> 审核：
-                        {selectedOrder.refundRecord.status === 'approved' ? 
-                          <Tag color="success">通过</Tag> : 
-                          selectedOrder.refundRecord.returnToHandler ?
-                          <Tag color="warning">退回处理人员</Tag> :
-                          <Tag color="default">拒绝</Tag>
-                        }
-                      </p>
-                      {selectedOrder.refundRecord.managerNote && (
-                        <p style={{ color: '#666' }}>{selectedOrder.refundRecord.managerNote}</p>
-                      )}
+                      <p>申请 ¥{selectedOrder.refundRecord.amount}：{selectedOrder.refundRecord.reason}</p>
+                      {selectedOrder.refundRecord.reviewedAt ? (
+                        <p>
+                          <b>{selectedOrder.refundRecord.reviewedBy}</b> 审核：
+                          {selectedOrder.refundRecord.status === 'approved' ? 
+                            <Tag color="success">通过</Tag> : 
+                            selectedOrder.refundRecord.returnToHandler ?
+                            <Tag color="warning">退回处理人员</Tag> :
+                            <Tag color="default">拒绝</Tag>
+                          }
+                          {selectedOrder.refundRecord.managerNote && <span style={{ marginLeft: 8, color: '#666' }}>{selectedOrder.refundRecord.managerNote}</span>}
+                        </p>
+                      ) : <Tag color="warning">待审核</Tag>}
                     </div>
-                  ) : <Tag color="warning">待审核</Tag>,
+                  ),
                   status: selectedOrder.refundRecord.reviewedAt ? 'finish' : 'process',
                 }] : [{
                   title: '店长审核',

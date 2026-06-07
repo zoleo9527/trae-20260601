@@ -531,9 +531,7 @@ export default function HandlerPage({ activeTab, onTabChange }: HandlerPageProps
                         status: 'finish'
                       },
                       ...(record.refundHistory || []).map((r, idx) => ({
-                        title: r.reviewedAt 
-                          ? `店长审核（第${idx + 1}轮）` 
-                          : `退款申请（第${idx + 1}轮）`,
+                        title: `第${idx + 1}轮退款`,
                         description: r.appliedAt,
                         icon: r.reviewedAt 
                           ? (r.status === 'approved' ? <CheckOutlined /> : r.returnToHandler ? <RollbackOutlined /> : <CloseOutlined />) 
@@ -572,8 +570,8 @@ export default function HandlerPage({ activeTab, onTabChange }: HandlerPageProps
                   )}
                   {(record.refundHistory || []).map((r, idx) => (
                     <Descriptions.Item key={r.id} label={`第${idx + 1}轮退款`}>
-                      申请 ¥{r.amount}：{r.reason}
-                      {r.reviewedAt && (
+                      申请 ¥{r.amount}：{r.reason}（{r.applicant}）
+                      {r.reviewedAt ? (
                         <>
                           <br />
                           <Tag color={r.status === 'approved' ? 'green' : r.returnToHandler ? 'orange' : 'default'}>
@@ -581,6 +579,8 @@ export default function HandlerPage({ activeTab, onTabChange }: HandlerPageProps
                           </Tag>
                           {r.managerNote && <span style={{ color: '#666', marginLeft: 4 }}>{r.managerNote}</span>}
                         </>
+                      ) : (
+                        <Tag color="warning" style={{ marginLeft: 8 }}>待审核</Tag>
                       )}
                     </Descriptions.Item>
                   ))}
