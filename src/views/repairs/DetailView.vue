@@ -332,12 +332,24 @@
     <div v-if="showCompleteModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-md mx-4">
         <h3 class="text-lg font-semibold mb-4">完成维修</h3>
-        <textarea 
-          v-model="completeRemark"
-          rows="3"
-          placeholder="输入维修完成说明和解决方案..."
-          class="w-full px-3 py-2 border rounded-lg mb-4"
-        ></textarea>
+        <div class="mb-4">
+          <label class="block text-sm font-medium text-gray-700 mb-1">解决方案</label>
+          <textarea 
+            v-model="completeSolution"
+            rows="2"
+            placeholder="记录最终采取的解决方案..."
+            class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+          ></textarea>
+        </div>
+        <div class="mb-4">
+          <label class="block text-sm font-medium text-gray-700 mb-1">补充说明（备注）</label>
+          <textarea 
+            v-model="completeRemark"
+            rows="2"
+            placeholder="维修过程的补充说明或注意事项..."
+            class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+          ></textarea>
+        </div>
         <div class="flex justify-end space-x-3">
           <button @click="showCompleteModal = false" class="px-4 py-2 text-gray-600 hover:text-gray-900">取消</button>
           <button 
@@ -401,6 +413,7 @@ const solutionText = ref('')
 const progressRemark = ref('')
 const showEditProgress = ref(false)
 const completeRemark = ref('')
+const completeSolution = ref('')
 const verifyRemark = ref('')
 const waitingPartsRemark = ref('')
 const showCompleteModal = ref(false)
@@ -523,15 +536,19 @@ const confirmWaitingParts = () => {
 
 const confirmComplete = () => {
   const remark = completeRemark.value || '维修完成'
+  const solution = completeSolution.value || undefined
+  const progressDesc = solution ? `维修完成: ${solution}` : '维修完成'
+  
   store.updateRepairStatus(repairId.value, 'completed', remark)
   store.updateRepairProgress(
     repairId.value, 
-    `维修完成: ${remark}`, 
-    completeRemark.value || undefined, 
+    progressDesc, 
+    solution, 
     remark
   )
   showCompleteModal.value = false
   completeRemark.value = ''
+  completeSolution.value = ''
 }
 
 const confirmVerify = () => {

@@ -1,4 +1,4 @@
-import type { AbnormalRepair, DeviceInspection, InspectionStatus, RepairStatus, StatusLog, User, UserRole } from '@/types'
+import type { AbnormalRepair, DeviceInspection, InspectionStatus, ProgressLog, RepairStatus, StatusLog, User, UserRole } from '@/types'
 import { defineStore } from 'pinia'
 
 const demoUsers: User[] = [
