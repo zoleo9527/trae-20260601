@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.routers import store_order, warehouse_delivery, export_task, common
+from app.routers import store_order, warehouse_delivery, export_task, common, responsibility
 from app.database import init_db
 
 app = FastAPI(
@@ -22,6 +22,7 @@ app.include_router(common.router)
 app.include_router(store_order.router)
 app.include_router(warehouse_delivery.router)
 app.include_router(export_task.router)
+app.include_router(responsibility.router)
 
 
 @app.on_event("startup")
