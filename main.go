@@ -3,6 +3,7 @@ package main
 import (
 	"log"
 	"meat-inspection-system/database"
+	_ "meat-inspection-system/docs"
 	"meat-inspection-system/handlers"
 	"meat-inspection-system/middleware"
 	"os"
@@ -13,6 +14,17 @@ import (
 	"github.com/gofiber/swagger"
 )
 
+// @title 肉类分割厂-检疫证明与质检放行系统
+// @version 1.0
+// @description 肉类分割厂检疫证明管理、质检放行全流程管理系统，支持角色权限控制、状态流转、历史追溯
+// @contact.name API Support
+// @contact.email support@example.com
+// @host localhost:3000
+// @BasePath /api
+// @securityDefinitions.apikey BearerAuth
+// @in header
+// @name Authorization
+// @description Type "Bearer" followed by a space and JWT token.
 func main() {
 	database.InitDB()
 

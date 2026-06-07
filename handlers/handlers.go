@@ -16,6 +16,17 @@ type LoginRequest struct {
 	Password string `json:"password"`
 }
 
+// Login 用户登录
+// @Summary 用户登录获取JWT令牌
+// @Description 使用用户名和密码登录，返回JWT令牌和用户信息
+// @Tags 认证
+// @Accept json
+// @Produce json
+// @Param request body LoginRequest true "登录信息"
+// @Success 200 {object} object "登录成功，返回token和user"
+// @Failure 400 {object} object "请求参数错误"
+// @Failure 401 {object} object "用户名或密码错误"
+// @Router /login [post]
 func Login(c *fiber.Ctx) error {
 	var req LoginRequest
 	if err := c.BodyParser(&req); err != nil {
@@ -45,6 +56,17 @@ func Login(c *fiber.Ctx) error {
 	})
 }
 
+// ListCertificates 查询检疫证明列表
+// @Summary 查询检疫证明列表
+// @Description 获取所有检疫证明，可按状态筛选
+// @Tags 检疫证明
+// @Accept json
+// @Produce json
+// @Param status query string false "状态筛选：pending/processing/approved/rejected/blocked"
+// @Success 200 {array} models.QuarantineCertificate "检疫证明列表"
+// @Failure 500 {object} object "查询失败"
+// @Security BearerAuth
+// @Router /certificates [get]
 func ListCertificates(c *fiber.Ctx) error {
 	status := c.Query("status")
 	var certs []models.QuarantineCertificate
@@ -61,6 +83,17 @@ func ListCertificates(c *fiber.Ctx) error {
 	return c.JSON(certs)
 }
 
+// GetCertificate 获取检疫证明详情
+// @Summary 获取检疫证明详情
+// @Description 根据ID获取检疫证明的详细信息，包含历史备注和关联放行单
+// @Tags 检疫证明
+// @Accept json
+// @Produce json
+// @Param id path int true "检疫证明ID"
+// @Success 200 {object} models.QuarantineCertificate "检疫证明详情"
+// @Failure 404 {object} object "检疫证明不存在"
+// @Security BearerAuth
+// @Router /certificates/{id} [get]
 func GetCertificate(c *fiber.Ctx) error {
 	id := c.Params("id")
 	var cert models.QuarantineCertificate
@@ -78,6 +111,19 @@ type CreateReleaseFromCertRequest struct {
 	InspectionResult string `json:"inspection_result"`
 }
 
+// CreateReleaseFromCertificate 从检疫证明创建关联放行单
+// @Summary 从已通过的检疫证明创建关联放行单
+// @Description 从检疫证明详情页创建关联的质检放行单，自动关联批次和产品信息，支持幂等提交
+// @Tags 检疫证明
+// @Accept json
+// @Produce json
+// @Param id path int true "检疫证明ID（必须是已通过状态）"
+// @Param request body CreateReleaseFromCertRequest true "放行单信息"
+// @Success 201 {object} models.QualityRelease "创建成功，返回放行单详情"
+// @Failure 400 {object} object "请求参数错误或证明状态不允许"
+// @Failure 404 {object} object "检疫证明不存在"
+// @Security BearerAuth
+// @Router /certificates/{id}/releases [post]
 func CreateReleaseFromCertificate(c *fiber.Ctx) error {
 	certID := c.Params("id")
 	user := middleware.GetCurrentUser(c)
@@ -134,6 +180,10 @@ func CreateReleaseFromCertificate(c *fiber.Ctx) error {
 	database.DB.Create(&certNote)
 
 	database.DB.Preload("SubmittedBy").Preload("Certificate").First(&release, release.ID)
+
+	resp, _ := json.Marshal(release)
+	middleware.SaveIdempotencyResponse(c, resp)
+
 	return c.Status(201).JSON(release)
 }
 
@@ -147,6 +197,18 @@ type CreateCertificateRequest struct {
 	SlaughterDate  string  `json:"slaughter_date"`
 }
 
+// CreateCertificate 创建检疫证明
+// @Summary 创建新的检疫证明
+// @Description 创建新的检疫证明，支持幂等提交（通过 X-Idempotency-Key 请求头）
+// @Tags 检疫证明
+// @Accept json
+// @Produce json
+// @Param X-Idempotency-Key header string false "幂等键，相同键重复提交返回首次结果"
+// @Param request body CreateCertificateRequest true "检疫证明信息"
+// @Success 201 {object} models.QuarantineCertificate "创建成功"
+// @Failure 400 {object} object "请求参数错误或编号已存在"
+// @Security BearerAuth
+// @Router /certificates [post]
 func CreateCertificate(c *fiber.Ctx) error {
 	user := middleware.GetCurrentUser(c)
 	var req CreateCertificateRequest
@@ -200,6 +262,19 @@ type UpdateCertificateStatusRequest struct {
 	BlockedReason string                   `json:"blocked_reason"`
 }
 
+// UpdateCertificateStatus 更新检疫证明状态
+// @Summary 更新检疫证明状态
+// @Description 更新检疫证明的状态，支持状态流转：待处理→处理中→已通过/已驳回/已卡住，状态变更自动写入历史备注
+// @Tags 检疫证明
+// @Accept json
+// @Produce json
+// @Param id path int true "检疫证明ID"
+// @Param request body UpdateCertificateStatusRequest true "状态信息"
+// @Success 200 {object} models.QuarantineCertificate "更新成功，返回最新详情"
+// @Failure 400 {object} object "请求参数错误"
+// @Failure 404 {object} object "检疫证明不存在"
+// @Security BearerAuth
+// @Router /certificates/{id}/status [put]
 func UpdateCertificateStatus(c *fiber.Ctx) error {
 	id := c.Params("id")
 	user := middleware.GetCurrentUser(c)
@@ -255,6 +330,19 @@ type AddNoteRequest struct {
 	Content string `json:"content"`
 }
 
+// AddCertificateNote 添加检疫证明备注
+// @Summary 为检疫证明添加备注
+// @Description 为指定检疫证明添加操作备注，自动记录操作人和时间，显示在历史时间线中
+// @Tags 检疫证明
+// @Accept json
+// @Produce json
+// @Param id path int true "检疫证明ID"
+// @Param request body AddNoteRequest true "备注内容"
+// @Success 201 {object} models.CertificateNote "添加成功"
+// @Failure 400 {object} object "请求参数错误"
+// @Failure 500 {object} object "添加失败"
+// @Security BearerAuth
+// @Router /certificates/{id}/notes [post]
 func AddCertificateNote(c *fiber.Ctx) error {
 	id := c.Params("id")
 	user := middleware.GetCurrentUser(c)
@@ -278,6 +366,17 @@ func AddCertificateNote(c *fiber.Ctx) error {
 	return c.Status(201).JSON(note)
 }
 
+// ListReleases 查询质检放行单列表
+// @Summary 查询质检放行单列表
+// @Description 获取所有质检放行单，可按状态筛选，包含关联的检疫证明信息
+// @Tags 质检放行
+// @Accept json
+// @Produce json
+// @Param status query string false "状态筛选：pending/reviewing/passed/failed/on_hold/released"
+// @Success 200 {array} models.QualityRelease "放行单列表"
+// @Failure 500 {object} object "查询失败"
+// @Security BearerAuth
+// @Router /releases [get]
 func ListReleases(c *fiber.Ctx) error {
 	status := c.Query("status")
 	var releases []models.QualityRelease
@@ -294,6 +393,17 @@ func ListReleases(c *fiber.Ctx) error {
 	return c.JSON(releases)
 }
 
+// GetRelease 获取质检放行单详情
+// @Summary 获取质检放行单详情
+// @Description 根据ID获取质检放行单的详细信息，包含历史备注和关联的上游检疫证明状态
+// @Tags 质检放行
+// @Accept json
+// @Produce json
+// @Param id path int true "放行单ID"
+// @Success 200 {object} models.QualityRelease "放行单详情（含关联检疫证明）"
+// @Failure 404 {object} object "放行单不存在"
+// @Security BearerAuth
+// @Router /releases/{id} [get]
 func GetRelease(c *fiber.Ctx) error {
 	id := c.Params("id")
 	var release models.QualityRelease
@@ -314,6 +424,18 @@ type CreateReleaseRequest struct {
 	InspectionResult string `json:"inspection_result"`
 }
 
+// CreateRelease 创建质检放行单
+// @Summary 创建新的质检放行单
+// @Description 创建新的质检放行单，可关联已通过的检疫证明，支持幂等提交
+// @Tags 质检放行
+// @Accept json
+// @Produce json
+// @Param X-Idempotency-Key header string false "幂等键，相同键重复提交返回首次结果"
+// @Param request body CreateReleaseRequest true "放行单信息"
+// @Success 201 {object} models.QualityRelease "创建成功"
+// @Failure 400 {object} object "请求参数错误或编号已存在"
+// @Security BearerAuth
+// @Router /releases [post]
 func CreateRelease(c *fiber.Ctx) error {
 	user := middleware.GetCurrentUser(c)
 	var req CreateReleaseRequest
@@ -360,6 +482,19 @@ type UpdateReleaseStatusRequest struct {
 	HoldReason string               `json:"hold_reason"`
 }
 
+// UpdateReleaseStatus 更新质检放行单状态
+// @Summary 更新质检放行单状态
+// @Description 更新质检放行单的状态，支持状态流转：待处理→审核中→质检通过/质检不通过→待确认→已放行，状态变更自动写入历史备注
+// @Tags 质检放行
+// @Accept json
+// @Produce json
+// @Param id path int true "放行单ID"
+// @Param request body UpdateReleaseStatusRequest true "状态信息"
+// @Success 200 {object} models.QualityRelease "更新成功，返回最新详情"
+// @Failure 400 {object} object "请求参数错误"
+// @Failure 404 {object} object "放行单不存在"
+// @Security BearerAuth
+// @Router /releases/{id}/status [put]
 func UpdateReleaseStatus(c *fiber.Ctx) error {
 	id := c.Params("id")
 	user := middleware.GetCurrentUser(c)
@@ -412,6 +547,19 @@ func statusNameRelease(s models.ReleaseStatus) string {
 	return m[s]
 }
 
+// AddReleaseNote 添加质检放行单备注
+// @Summary 为质检放行单添加备注
+// @Description 为指定质检放行单添加操作备注，自动记录操作人和时间，显示在历史时间线中
+// @Tags 质检放行
+// @Accept json
+// @Produce json
+// @Param id path int true "放行单ID"
+// @Param request body AddNoteRequest true "备注内容"
+// @Success 201 {object} models.ReleaseNote "添加成功"
+// @Failure 400 {object} object "请求参数错误"
+// @Failure 500 {object} object "添加失败"
+// @Security BearerAuth
+// @Router /releases/{id}/notes [post]
 func AddReleaseNote(c *fiber.Ctx) error {
 	id := c.Params("id")
 	user := middleware.GetCurrentUser(c)
@@ -435,6 +583,16 @@ func AddReleaseNote(c *fiber.Ctx) error {
 	return c.Status(201).JSON(note)
 }
 
+// GetDashboardStats 获取仪表盘统计数据
+// @Summary 获取仪表盘统计
+// @Description 获取各状态的检疫证明和放行单数量统计，用于首页展示
+// @Tags 仪表盘
+// @Accept json
+// @Produce json
+// @Success 200 {object} object "统计数据"
+// @Failure 500 {object} object "查询失败"
+// @Security BearerAuth
+// @Router /dashboard/stats [get]
 func GetDashboardStats(c *fiber.Ctx) error {
 	var certPending, certBlocked, certApproved int64
 	var releasePending, releaseReviewing, releaseOnHold, releaseReleased int64
@@ -463,6 +621,16 @@ func GetDashboardStats(c *fiber.Ctx) error {
 	})
 }
 
+// GetBlockedItems 获取卡住的单子
+// @Summary 获取所有卡住的单子
+// @Description 获取所有卡住的检疫证明和待确认的放行单，用于工作台首页展示，及时暴露问题
+// @Tags 仪表盘
+// @Accept json
+// @Produce json
+// @Success 200 {object} object "包含 blocked_certificates 和 on_hold_releases 两个列表"
+// @Failure 500 {object} object "查询失败"
+// @Security BearerAuth
+// @Router /dashboard/blocked [get]
 func GetBlockedItems(c *fiber.Ctx) error {
 	var blockedCerts []models.QuarantineCertificate
 	var onHoldReleases []models.QualityRelease

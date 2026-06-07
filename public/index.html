@@ -701,7 +701,7 @@
 
             let certHtml = '';
             if (release.certificate) {
-                certHtml = '<div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6"><p class="text-blue-700 font-medium mb-1">📋 关联检疫证明</p><p class="text-blue-600 text-sm cursor-pointer" onclick="closeModal(); setTimeout(function() { showCertificateDetail(' + release.certificate.id + '); }, 100)">' + release.certificate.certificate_no + ' · ' + release.certificate.product_name + ' →</p></div>';
+                certHtml = '<div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6"><p class="text-blue-700 font-medium mb-2">📋 上游检疫证明</p><div class="flex items-center justify-between bg-white rounded-lg p-3 cursor-pointer hover:bg-blue-50 transition-colors" onclick="closeModal(); setTimeout(function() { showCertificateDetail(' + release.certificate.id + '); }, 100)"><div><p class="font-medium text-gray-800">' + release.certificate.certificate_no + '</p><p class="text-sm text-gray-500">' + release.certificate.product_name + ' · ' + release.certificate.batch_no + '</p></div><span class="status-badge status-' + release.certificate.status + '">' + statusName(release.certificate.status) + ' →</span></div></div>';
             }
 
             let notesHtml = '<div class="border-l-2 border-gray-200 pl-6 ml-2 space-y-4">';

@@ -1,0 +1,673 @@
+basePath: /api
+definitions:
+  handlers.AddNoteRequest:
+    properties:
+      content:
+        type: string
+    type: object
+  handlers.CreateCertificateRequest:
+    properties:
+      batch_no:
+        type: string
+      certificate_no:
+        type: string
+      product_name:
+        type: string
+      slaughter_date:
+        type: string
+      source:
+        type: string
+      weight:
+        type: number
+    type: object
+  handlers.CreateReleaseFromCertRequest:
+    properties:
+      inspection_items:
+        type: string
+      inspection_result:
+        type: string
+      release_no:
+        type: string
+    type: object
+  handlers.CreateReleaseRequest:
+    properties:
+      batch_no:
+        type: string
+      certificate_id:
+        type: integer
+      inspection_items:
+        type: string
+      inspection_result:
+        type: string
+      product_name:
+        type: string
+      release_no:
+        type: string
+    type: object
+  handlers.LoginRequest:
+    properties:
+      password:
+        type: string
+      username:
+        type: string
+    type: object
+  handlers.UpdateCertificateStatusRequest:
+    properties:
+      blocked_reason:
+        type: string
+      status:
+        $ref: '#/definitions/models.CertificateStatus'
+    type: object
+  handlers.UpdateReleaseStatusRequest:
+    properties:
+      hold_reason:
+        type: string
+      status:
+        $ref: '#/definitions/models.ReleaseStatus'
+    type: object
+  models.CertificateNote:
+    properties:
+      certificate_id:
+        type: integer
+      content:
+        type: string
+      created_at:
+        type: string
+      created_by:
+        $ref: '#/definitions/models.User'
+      created_by_id:
+        type: integer
+      id:
+        type: integer
+    type: object
+  models.CertificateStatus:
+    enum:
+    - pending
+    - processing
+    - approved
+    - rejected
+    - blocked
+    type: string
+    x-enum-varnames:
+    - CertStatusPending
+    - CertStatusProcessing
+    - CertStatusApproved
+    - CertStatusRejected
+    - CertStatusBlocked
+  models.QualityRelease:
+    properties:
+      batch_no:
+        type: string
+      certificate:
+        $ref: '#/definitions/models.QuarantineCertificate'
+      certificate_id:
+        type: integer
+      created_at:
+        type: string
+      hold_reason:
+        type: string
+      id:
+        type: integer
+      inspection_items:
+        type: string
+      inspection_result:
+        type: string
+      notes:
+        items:
+          $ref: '#/definitions/models.ReleaseNote'
+        type: array
+      product_name:
+        type: string
+      release_no:
+        type: string
+      reviewer:
+        $ref: '#/definitions/models.User'
+      reviewer_id:
+        type: integer
+      status:
+        $ref: '#/definitions/models.ReleaseStatus'
+      submitted_by:
+        $ref: '#/definitions/models.User'
+      submitted_by_id:
+        type: integer
+      updated_at:
+        type: string
+    type: object
+  models.QuarantineCertificate:
+    properties:
+      batch_no:
+        type: string
+      blocked_reason:
+        type: string
+      certificate_no:
+        type: string
+      created_at:
+        type: string
+      id:
+        type: integer
+      inspector:
+        $ref: '#/definitions/models.User'
+      inspector_id:
+        type: integer
+      notes:
+        items:
+          $ref: '#/definitions/models.CertificateNote'
+        type: array
+      product_name:
+        type: string
+      releases:
+        items:
+          $ref: '#/definitions/models.QualityRelease'
+        type: array
+      slaughter_date:
+        type: string
+      source:
+        type: string
+      status:
+        $ref: '#/definitions/models.CertificateStatus'
+      submitted_by:
+        $ref: '#/definitions/models.User'
+      submitted_by_id:
+        type: integer
+      updated_at:
+        type: string
+      weight:
+        type: number
+    type: object
+  models.ReleaseNote:
+    properties:
+      content:
+        type: string
+      created_at:
+        type: string
+      created_by:
+        $ref: '#/definitions/models.User'
+      created_by_id:
+        type: integer
+      id:
+        type: integer
+      release_id:
+        type: integer
+    type: object
+  models.ReleaseStatus:
+    enum:
+    - pending
+    - reviewing
+    - passed
+    - failed
+    - on_hold
+    - released
+    type: string
+    x-enum-varnames:
+    - ReleaseStatusPending
+    - ReleaseStatusReviewing
+    - ReleaseStatusPassed
+    - ReleaseStatusFailed
+    - ReleaseStatusOnHold
+    - ReleaseStatusReleased
+  models.User:
+    properties:
+      id:
+        type: integer
+      name:
+        type: string
+      role:
+        $ref: '#/definitions/models.UserRole'
+      username:
+        type: string
+    type: object
+  models.UserRole:
+    enum:
+    - production_foreman
+    - quality_inspector
+    - cold_storage_admin
+    type: string
+    x-enum-varnames:
+    - RoleProductionForeman
+    - RoleQualityInspector
+    - RoleColdStorageAdmin
+host: localhost:3000
+info:
+  contact:
+    email: support@example.com
+    name: API Support
+  description: 肉类分割厂检疫证明管理、质检放行全流程管理系统，支持角色权限控制、状态流转、历史追溯
+  title: 肉类分割厂-检疫证明与质检放行系统
+  version: "1.0"
+paths:
+  /certificates:
+    get:
+      consumes:
+      - application/json
+      description: 获取所有检疫证明，可按状态筛选
+      parameters:
+      - description: 状态筛选：pending/processing/approved/rejected/blocked
+        in: query
+        name: status
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 检疫证明列表
+          schema:
+            items:
+              $ref: '#/definitions/models.QuarantineCertificate'
+            type: array
+        "500":
+          description: 查询失败
+          schema:
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 查询检疫证明列表
+      tags:
+      - 检疫证明
+    post:
+      consumes:
+      - application/json
+      description: 创建新的检疫证明，支持幂等提交（通过 X-Idempotency-Key 请求头）
+      parameters:
+      - description: 幂等键，相同键重复提交返回首次结果
+        in: header
+        name: X-Idempotency-Key
+        type: string
+      - description: 检疫证明信息
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.CreateCertificateRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: 创建成功
+          schema:
+            $ref: '#/definitions/models.QuarantineCertificate'
+        "400":
+          description: 请求参数错误或编号已存在
+          schema:
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 创建新的检疫证明
+      tags:
+      - 检疫证明
+  /certificates/{id}:
+    get:
+      consumes:
+      - application/json
+      description: 根据ID获取检疫证明的详细信息，包含历史备注和关联放行单
+      parameters:
+      - description: 检疫证明ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 检疫证明详情
+          schema:
+            $ref: '#/definitions/models.QuarantineCertificate'
+        "404":
+          description: 检疫证明不存在
+          schema:
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 获取检疫证明详情
+      tags:
+      - 检疫证明
+  /certificates/{id}/notes:
+    post:
+      consumes:
+      - application/json
+      description: 为指定检疫证明添加操作备注，自动记录操作人和时间，显示在历史时间线中
+      parameters:
+      - description: 检疫证明ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 备注内容
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.AddNoteRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: 添加成功
+          schema:
+            $ref: '#/definitions/models.CertificateNote'
+        "400":
+          description: 请求参数错误
+          schema:
+            type: object
+        "500":
+          description: 添加失败
+          schema:
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 为检疫证明添加备注
+      tags:
+      - 检疫证明
+  /certificates/{id}/releases:
+    post:
+      consumes:
+      - application/json
+      description: 从检疫证明详情页创建关联的质检放行单，自动关联批次和产品信息，支持幂等提交
+      parameters:
+      - description: 检疫证明ID（必须是已通过状态）
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 放行单信息
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.CreateReleaseFromCertRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: 创建成功，返回放行单详情
+          schema:
+            $ref: '#/definitions/models.QualityRelease'
+        "400":
+          description: 请求参数错误或证明状态不允许
+          schema:
+            type: object
+        "404":
+          description: 检疫证明不存在
+          schema:
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 从已通过的检疫证明创建关联放行单
+      tags:
+      - 检疫证明
+  /certificates/{id}/status:
+    put:
+      consumes:
+      - application/json
+      description: 更新检疫证明的状态，支持状态流转：待处理→处理中→已通过/已驳回/已卡住，状态变更自动写入历史备注
+      parameters:
+      - description: 检疫证明ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 状态信息
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.UpdateCertificateStatusRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 更新成功，返回最新详情
+          schema:
+            $ref: '#/definitions/models.QuarantineCertificate'
+        "400":
+          description: 请求参数错误
+          schema:
+            type: object
+        "404":
+          description: 检疫证明不存在
+          schema:
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 更新检疫证明状态
+      tags:
+      - 检疫证明
+  /dashboard/blocked:
+    get:
+      consumes:
+      - application/json
+      description: 获取所有卡住的检疫证明和待确认的放行单，用于工作台首页展示，及时暴露问题
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 包含 blocked_certificates 和 on_hold_releases 两个列表
+          schema:
+            type: object
+        "500":
+          description: 查询失败
+          schema:
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 获取所有卡住的单子
+      tags:
+      - 仪表盘
+  /dashboard/stats:
+    get:
+      consumes:
+      - application/json
+      description: 获取各状态的检疫证明和放行单数量统计，用于首页展示
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 统计数据
+          schema:
+            type: object
+        "500":
+          description: 查询失败
+          schema:
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 获取仪表盘统计
+      tags:
+      - 仪表盘
+  /login:
+    post:
+      consumes:
+      - application/json
+      description: 使用用户名和密码登录，返回JWT令牌和用户信息
+      parameters:
+      - description: 登录信息
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.LoginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 登录成功，返回token和user
+          schema:
+            type: object
+        "400":
+          description: 请求参数错误
+          schema:
+            type: object
+        "401":
+          description: 用户名或密码错误
+          schema:
+            type: object
+      summary: 用户登录获取JWT令牌
+      tags:
+      - 认证
+  /releases:
+    get:
+      consumes:
+      - application/json
+      description: 获取所有质检放行单，可按状态筛选，包含关联的检疫证明信息
+      parameters:
+      - description: 状态筛选：pending/reviewing/passed/failed/on_hold/released
+        in: query
+        name: status
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 放行单列表
+          schema:
+            items:
+              $ref: '#/definitions/models.QualityRelease'
+            type: array
+        "500":
+          description: 查询失败
+          schema:
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 查询质检放行单列表
+      tags:
+      - 质检放行
+    post:
+      consumes:
+      - application/json
+      description: 创建新的质检放行单，可关联已通过的检疫证明，支持幂等提交
+      parameters:
+      - description: 幂等键，相同键重复提交返回首次结果
+        in: header
+        name: X-Idempotency-Key
+        type: string
+      - description: 放行单信息
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.CreateReleaseRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: 创建成功
+          schema:
+            $ref: '#/definitions/models.QualityRelease'
+        "400":
+          description: 请求参数错误或编号已存在
+          schema:
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 创建新的质检放行单
+      tags:
+      - 质检放行
+  /releases/{id}:
+    get:
+      consumes:
+      - application/json
+      description: 根据ID获取质检放行单的详细信息，包含历史备注和关联的上游检疫证明状态
+      parameters:
+      - description: 放行单ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 放行单详情（含关联检疫证明）
+          schema:
+            $ref: '#/definitions/models.QualityRelease'
+        "404":
+          description: 放行单不存在
+          schema:
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 获取质检放行单详情
+      tags:
+      - 质检放行
+  /releases/{id}/notes:
+    post:
+      consumes:
+      - application/json
+      description: 为指定质检放行单添加操作备注，自动记录操作人和时间，显示在历史时间线中
+      parameters:
+      - description: 放行单ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 备注内容
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.AddNoteRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: 添加成功
+          schema:
+            $ref: '#/definitions/models.ReleaseNote'
+        "400":
+          description: 请求参数错误
+          schema:
+            type: object
+        "500":
+          description: 添加失败
+          schema:
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 为质检放行单添加备注
+      tags:
+      - 质检放行
+  /releases/{id}/status:
+    put:
+      consumes:
+      - application/json
+      description: 更新质检放行单的状态，支持状态流转：待处理→审核中→质检通过/质检不通过→待确认→已放行，状态变更自动写入历史备注
+      parameters:
+      - description: 放行单ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 状态信息
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.UpdateReleaseStatusRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 更新成功，返回最新详情
+          schema:
+            $ref: '#/definitions/models.QualityRelease'
+        "400":
+          description: 请求参数错误
+          schema:
+            type: object
+        "404":
+          description: 放行单不存在
+          schema:
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 更新质检放行单状态
+      tags:
+      - 质检放行
+securityDefinitions:
+  BearerAuth:
+    description: Type "Bearer" followed by a space and JWT token.
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"
