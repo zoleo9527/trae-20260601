@@ -5,9 +5,8 @@ import { useAppStore } from '../store/appStore';
 import type { NotifyStatus } from '../types';
 
 export function RecallManage() {
-  const { recalls, updateRecallCustomer, completeRecall } = useAppStore();
+  const { recalls, updateRecallCustomer, completeRecall, setRecallFinalDisposition } = useAppStore();
   const [expandedRecall, setExpandedRecall] = useState<string | null>(recalls[0]?.id || null);
-  const [finalDisposition, setFinalDisposition] = useState<Record<string, string>>({});
 
   const stats = {
     total: recalls.length,
@@ -21,6 +20,7 @@ export function RecallManage() {
     const pending = customers.filter((c) => c.notifyStatus === 'pending').length;
     const confirmed = customers.filter((c) => c.notifyStatus === 'confirmed').length;
     const returned = customers.filter((c) => c.notifyStatus === 'returned').length;
+    const canComplete = pending === 0 && (confirmed + returned === customers.length);
     return {
       total: customers.length,
       pending,
@@ -28,7 +28,8 @@ export function RecallManage() {
       confirmed,
       returned,
       totalReturnedQty: customers.reduce((sum, c) => sum + (c.returnedQuantity || 0), 0),
-      canComplete: pending === 0 && (confirmed + returned === customers.length),
+      canComplete,
+      isReadyToComplete: canComplete && recall.status !== 'completed',
     };
   };
 
@@ -39,8 +40,13 @@ export function RecallManage() {
     });
   };
 
+  const handleDispositionChange = (recallId: string, value: string) => {
+    setRecallFinalDisposition(recallId, value);
+  };
+
   const handleCompleteRecall = (recallId: string) => {
-    completeRecall(recallId, finalDisposition[recallId] || '');
+    const recall = recalls.find((r) => r.id === recallId);
+    completeRecall(recallId, recall?.finalDisposition || '');
   };
 
   return (
@@ -77,7 +83,15 @@ export function RecallManage() {
                   <div>
                     <div className="flex items-center gap-3">
                       <h3 className="font-semibold text-slate-800">{recall.caseNo}</h3>
-                      <StatusTag type="recall" status={recall.status} />
+                      {recall.status === 'completed' ? (
+                        <StatusTag type="recall" status="completed" />
+                      ) : getRecallStats(recall).isReadyToComplete ? (
+                        <span className="inline-flex items-center px-2.5 py-1 text-xs font-medium rounded-md border bg-green-100 text-green-700 border-green-200">
+                          待收口
+                        </span>
+                      ) : (
+                        <StatusTag type="recall" status="notifying" />
+                      )}
                     </div>
                     <div className="text-sm text-slate-600 mt-1">
                       {recall.productName} · 批号 {recall.batchNo}
@@ -249,38 +263,51 @@ export function RecallManage() {
                   </table>
                 </div>
 
-                {recall.status !== 'completed' && (
+                {recall.status === 'completed' && recall.completedAt ? (
+                  <div className="p-5 bg-green-50 border-t border-green-200">
+                    <div className="flex items-center gap-2 mb-2">
+                      <CheckCircle className="w-4 h-4 text-green-600" />
+                      <span className="text-sm font-medium text-green-700">召回已完成</span>
+                      <span className="text-xs text-green-600 ml-auto">{recall.completedAt}</span>
+                    </div>
+                    {recall.finalDisposition && (
+                      <div className="text-sm text-green-600 mt-2 p-3 bg-green-100/50 rounded-lg">
+                        <span className="font-medium">最终处置：</span>{recall.finalDisposition}
+                      </div>
+                    )}
+                  </div>
+                ) : (
                   <div
                     className={`p-5 border-t ${
-                      getRecallStats(recall).canComplete
+                      getRecallStats(recall).isReadyToComplete
                         ? 'bg-green-50/50 border-green-200'
                         : 'bg-slate-50/50 border-slate-200'
                     }`}
                   >
                     <div
                       className={`text-sm font-medium mb-3 ${
-                        getRecallStats(recall).canComplete
+                        getRecallStats(recall).isReadyToComplete
                           ? 'text-green-800'
                           : 'text-slate-700'
                       }`}
                     >
-                      完成召回
+                      {getRecallStats(recall).isReadyToComplete ? '召回待收口' : '完成召回'}
                     </div>
 
                     <div
                       className={`mb-4 p-3 rounded-lg border ${
-                        getRecallStats(recall).canComplete
+                        getRecallStats(recall).isReadyToComplete
                           ? 'bg-green-100/50 border-green-200 text-green-700'
                           : 'bg-amber-50 border-amber-200 text-amber-700'
                       }`}
                     >
-                      {getRecallStats(recall).canComplete ? (
+                      {getRecallStats(recall).isReadyToComplete ? (
                         <div className="flex items-center gap-2 text-sm">
                           <CheckCircle className="w-4 h-4" />
                           <span>
                             所有客户已处理完毕（
                             {getRecallStats(recall).total}
-                            家全部已确认或已退回），可完成召回
+                            家全部已确认或已退回），请填写最终处置说明后完成召回
                           </span>
                         </div>
                       ) : (
@@ -326,26 +353,21 @@ export function RecallManage() {
                       <div className="flex-1">
                         <label
                           className={`block text-xs mb-1.5 ${
-                            getRecallStats(recall).canComplete
+                            getRecallStats(recall).isReadyToComplete
                               ? 'text-green-700'
                               : 'text-slate-500'
                           }`}
                         >
-                          最终处置说明（可选）
+                          最终处置说明
                         </label>
                         <input
                           type="text"
-                          value={finalDisposition[recall.id] || ''}
-                          onChange={(e) =>
-                            setFinalDisposition((prev) => ({
-                              ...prev,
-                              [recall.id]: e.target.value,
-                            }))
-                          }
+                          value={recall.finalDisposition || ''}
+                          onChange={(e) => handleDispositionChange(recall.id, e.target.value)}
                           placeholder="如：剩余库存销毁、客户差价补偿、班组再培训等"
-                          disabled={!getRecallStats(recall).canComplete}
+                          disabled={!getRecallStats(recall).isReadyToComplete}
                           className={`w-full px-3 py-2 text-sm border rounded-md focus:outline-none transition-colors ${
-                            getRecallStats(recall).canComplete
+                            getRecallStats(recall).isReadyToComplete
                               ? 'border-green-300 focus:ring-2 focus:ring-green-500 focus:border-green-500 bg-white'
                               : 'border-slate-200 bg-slate-100 text-slate-400 cursor-not-allowed'
                           }`}
@@ -353,9 +375,9 @@ export function RecallManage() {
                       </div>
                       <button
                         onClick={() => handleCompleteRecall(recall.id)}
-                        disabled={!getRecallStats(recall).canComplete}
+                        disabled={!getRecallStats(recall).isReadyToComplete}
                         className={`inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-md transition-colors shadow-sm ${
-                          getRecallStats(recall).canComplete
+                          getRecallStats(recall).isReadyToComplete
                             ? 'bg-green-600 text-white hover:bg-green-700'
                             : 'bg-slate-200 text-slate-400 cursor-not-allowed'
                         }`}

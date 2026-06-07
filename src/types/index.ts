@@ -106,6 +106,7 @@ export interface RecallTask {
   batchNo: string;
   status: 'pending' | 'notifying' | 'completed';
   createdAt: string;
+  readyToCompleteAt?: string;
   completedAt?: string;
   reason: string;
   finalDisposition?: string;

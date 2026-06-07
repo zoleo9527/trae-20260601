@@ -15,6 +15,7 @@ interface AppState {
   updateReinspection: (caseId: string, updates: Partial<Reinspection>) => void;
   createRecallFromCase: (caseId: string) => void;
   completeRecall: (recallId: string, disposition?: string) => void;
+  setRecallFinalDisposition: (recallId: string, disposition: string) => void;
 }
 
 const mockContacts: Record<string, { contact: string; phone: string }> = {
@@ -57,25 +58,12 @@ export const useAppStore = create<AppState>((set, get) => ({
       return {
         ...r,
         customers: updatedCustomers,
-        status: (canComplete ? 'completed' : r.status) as RecallTask['status'],
-        completedAt: canComplete ? now : r.completedAt,
+        status: 'notifying' as const,
+        readyToCompleteAt: canComplete ? now : r.readyToCompleteAt,
       };
     });
 
-    const completedRecall = updatedRecalls.find(
-      (r) => r.id === recallId && r.status === 'completed'
-    );
-
-    let updatedCases = state.cases;
-    if (completedRecall) {
-      updatedCases = state.cases.map((c) =>
-        c.id === completedRecall.caseId
-          ? { ...c, status: 'closed' as const, closedAt: completedRecall.completedAt, closedBy: '李主管' }
-          : c
-      );
-    }
-
-    return { recalls: updatedRecalls, cases: updatedCases };
+    return { recalls: updatedRecalls };
   }),
   updateReinspection: (caseId, updates) => set((state) => ({
     reinspections: {
@@ -97,11 +85,17 @@ export const useAppStore = create<AppState>((set, get) => ({
     if (!allConfirmedOrReturned) return;
 
     const now = new Date().toISOString().slice(0, 19).replace('T', ' ');
+    const finalDisp = disposition || recall.finalDisposition;
 
     set((state) => {
       const updatedRecalls = state.recalls.map((r) =>
         r.id === recallId
-          ? { ...r, status: 'completed' as const, completedAt: now, finalDisposition: disposition }
+          ? {
+              ...r,
+              status: 'completed' as const,
+              completedAt: now,
+              finalDisposition: finalDisp,
+            }
           : r
       );
 
@@ -114,6 +108,11 @@ export const useAppStore = create<AppState>((set, get) => ({
       return { recalls: updatedRecalls, cases: updatedCases };
     });
   },
+  setRecallFinalDisposition: (recallId, disposition) => set((state) => ({
+    recalls: state.recalls.map((r) =>
+      r.id === recallId ? { ...r, finalDisposition: disposition } : r
+    ),
+  })),
   createRecallFromCase: (caseId) => {
     const state = get();
     const caseItem = state.cases.find((c) => c.id === caseId);
