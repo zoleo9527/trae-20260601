@@ -1,5 +1,5 @@
 import { get } from 'svelte/store';
-import { oilIntakeRecords, generateId, addLog, currentRole } from '$lib/stores';
+import { oilIntakeRecords, generateId, addLog, currentRole, getRoleLabel } from '$lib/stores';
 
 export const WorkflowStatus = {
   DRAFT: 'draft',
@@ -74,6 +74,51 @@ export function canPerformAction(record, action) {
   return action in allowedTransitions;
 }
 
+export function hasRolePermission(record, action, role) {
+  const status = record.status;
+  
+  if (action === WorkflowActions.SUBMIT_FOR_APPROVAL) {
+    return role === 'manager' && status === WorkflowStatus.DRAFT;
+  }
+  
+  if (action === WorkflowActions.MANAGER_APPROVE) {
+    return role === 'manager' && status === WorkflowStatus.PENDING_MANAGER_APPROVAL;
+  }
+  
+  if ([WorkflowActions.MANAGER_RETURN_TO_EDIT, WorkflowActions.MANAGER_RETURN_TO_CASHIER, WorkflowActions.MANAGER_RETURN_TO_MEASURER].includes(action)) {
+    return role === 'manager' && [WorkflowStatus.PENDING_MANAGER_APPROVAL, WorkflowStatus.MANAGER_REVIEW].includes(status);
+  }
+  
+  if (action === WorkflowActions.CASHIER_ENTER) {
+    return role === 'cashier' && status === WorkflowStatus.PENDING_CASHIER;
+  }
+  
+  if (action === WorkflowActions.MEASURER_VERIFY || action === WorkflowActions.MEASURER_FLAG_DISPUTE) {
+    return role === 'measurer' && status === WorkflowStatus.PENDING_MEASURER;
+  }
+  
+  if (action === WorkflowActions.SUPPLEMENT_INFO) {
+    if (status === WorkflowStatus.RETURNED_TO_MANAGER) return role === 'manager';
+    if (status === WorkflowStatus.RETURNED_TO_CASHIER) return role === 'cashier';
+    if (status === WorkflowStatus.RETURNED_TO_MEASURER) return role === 'measurer';
+    return false;
+  }
+  
+  if (action === WorkflowActions.MANAGER_FINAL_REVIEW) {
+    return role === 'manager' && status === WorkflowStatus.MANAGER_REVIEW;
+  }
+  
+  if (action === WorkflowActions.CLOSE) {
+    return role === 'manager' && status === WorkflowStatus.COMPLETED;
+  }
+  
+  if (action === WorkflowActions.REOPEN) {
+    return role === 'manager' && status === WorkflowStatus.CLOSED;
+  }
+  
+  return false;
+}
+
 export function getNextStatus(currentStatus, action) {
   const allowedTransitions = workflowTransitions[currentStatus];
   if (!allowedTransitions || !(action in allowedTransitions)) {
@@ -137,14 +182,26 @@ export function getAvailableActions(record) {
 export function performAction(recordId, action, data = {}) {
   const records = get(oilIntakeRecords);
   const index = records.findIndex(r => r.id === recordId);
-  if (index === -1) return null;
+  if (index === -1) {
+    throw new Error('单据不存在');
+  }
   
   const record = records[index];
   const nextStatus = getNextStatus(record.status, action);
-  if (!nextStatus) return null;
+  if (!nextStatus) {
+    throw new Error('当前状态不允许执行此操作');
+  }
   
   const role = get(currentRole);
   const timestamp = new Date().toISOString();
+  
+  if (!hasRolePermission(record, action, role)) {
+    throw new Error(`当前角色(${getRoleLabel(role)})无权限执行此操作`);
+  }
+  
+  if (action.startsWith('manager_return') && (!data.comment || data.comment.trim() === '')) {
+    throw new Error('退回原因不能为空');
+  }
   
   if (action === WorkflowActions.MANAGER_FINAL_REVIEW && record.hasDispute) {
     const liability = data.liabilityConfirmed || {};

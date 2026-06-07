@@ -79,6 +79,11 @@
   function confirmAction() {
     if (!selectedAction) return;
     
+    if (selectedAction.action.startsWith('manager_return') && (!actionComment || actionComment.trim() === '')) {
+      alert('请填写退回原因');
+      return;
+    }
+    
     if (selectedAction.action === 'manager_final_review' && record.hasDispute) {
       if (!liabilityForm.liabilityParty || !liabilityForm.liabilityDescription || !liabilityForm.handlingMeasures) {
         alert('争议单必须填写责任方、责任说明和处理措施');
@@ -114,6 +119,7 @@
       performAction(recordId, selectedAction.action, data);
       showActionModal = false;
       selectedAction = null;
+      actionComment = '';
     } catch (e) {
       alert(e.message);
     }
@@ -225,6 +231,19 @@
         <div class="alert alert-warning" style="margin-bottom: 16px;">
           <strong>请根据退回原因补充以下资料：</strong>
           <p>{record.returnInfo?.returnReason || '请按要求补充相关资料'}</p>
+          {#if returnedRole === 'cashier'}
+            <p style="margin-top: 8px; color: var(--text-secondary); font-size: 13px;">
+              💡 提示：您作为收银员，只能修改和补充收银相关字段数据
+            </p>
+          {:else if returnedRole === 'measurer'}
+            <p style="margin-top: 8px; color: var(--text-secondary); font-size: 13px;">
+              💡 提示：您作为计量员，只能修改和补充罐存校验相关字段数据
+            </p>
+          {:else if returnedRole === 'manager'}
+            <p style="margin-top: 8px; color: var(--text-secondary); font-size: 13px;">
+              💡 提示：您作为站长，可修改单据基本信息后重新提交审核
+            </p>
+          {/if}
         </div>
         
         {#if returnedRole === 'cashier'}
@@ -763,7 +782,7 @@
             <textarea 
               class="form-textarea" 
               bind:value={actionComment} 
-              placeholder="请输入备注说明..."
+              placeholder={selectedAction?.action?.startsWith('manager_return') ? '请详细说明退回原因...' : '请输入备注说明...'}
             ></textarea>
           </div>
           
@@ -777,7 +796,7 @@
           {#if selectedAction?.action?.startsWith('manager_return')}
             <div class="alert alert-danger">
               <strong>⚠️ 退回说明：</strong>
-              <p>请明确说明退回原因，以便相关人员补充修改。</p>
+              <p>请明确说明退回原因（必填），以便相关人员补充修改。退回后单据将发送给对应岗位处理。</p>
             </div>
           {/if}
         </div>
