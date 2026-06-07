@@ -2,8 +2,8 @@ import { useState } from 'react';
 import { useAppStore } from '@/store/appStore';
 import { RoleSelector } from '@/components/RoleSelector';
 import { StatCard } from '@/components/StatCard';
-import { formatDate, getNearExpiryStatusText, getNearExpiryStatusColor, getProcessMethodText, getRoleText } from '@/lib/utils';
-import { AlertTriangle, Clock, CheckCircle, XCircle, ChevronRight, Tag, Gift, ArrowLeftCircle, Trash2, FileText, Plus, X } from 'lucide-react';
+import { formatDate, getNearExpiryStatusText, getNearExpiryStatusColor, getProcessMethodText, getRoleText, getOperationTypeText, getReviewStatusText } from '@/lib/utils';
+import { AlertTriangle, Clock, CheckCircle, XCircle, ChevronRight, Tag, Gift, ArrowLeftCircle, Trash2, FileText, Plus, X, History, ArrowRight, User } from 'lucide-react';
 import type { NearExpiryRecord } from '@/types';
 
 export default function NearExpiryPage() {
@@ -16,6 +16,7 @@ export default function NearExpiryPage() {
     supplementReview,
     offShelfReviews,
     users,
+    getRelatedLogsByNearExpiryId,
   } = useAppStore();
 
   const [selectedRecord, setSelectedRecord] = useState<NearExpiryRecord | null>(null);
@@ -27,6 +28,7 @@ export default function NearExpiryPage() {
   const [showSubmitConfirm, setShowSubmitConfirm] = useState(false);
   const [showSupplementModal, setShowSupplementModal] = useState(false);
   const [supplementRemark, setSupplementRemark] = useState('');
+  const [showHistory, setShowHistory] = useState(false);
 
   const filteredRecords = getFilteredNearExpiry();
 
@@ -34,7 +36,7 @@ export default function NearExpiryPage() {
     all: filteredRecords,
     pending: filteredRecords.filter(r => r.status === 'pending_process'),
     processing: filteredRecords.filter(r => ['marked_down', 'donated', 'returned', 'destroyed'].includes(r.status)),
-    review: filteredRecords.filter(r => ['pending_review', 'review_rejected', 'review_approved'].includes(r.status)),
+    review: filteredRecords.filter(r => ['pending_review', 'review_rejected', 'supplement_requested', 'review_approved'].includes(r.status)),
     done: filteredRecords.filter(r => r.status === 'completed'),
   };
 
@@ -43,7 +45,7 @@ export default function NearExpiryPage() {
   const stats = {
     total: nearExpiryRecords.length,
     pending: nearExpiryRecords.filter(r => r.status === 'pending_process').length,
-    inReview: nearExpiryRecords.filter(r => ['pending_review', 'review_rejected'].includes(r.status)).length,
+    inReview: nearExpiryRecords.filter(r => ['pending_review', 'review_rejected', 'supplement_requested'].includes(r.status)).length,
     completed: nearExpiryRecords.filter(r => r.status === 'completed').length,
   };
 
@@ -229,16 +231,26 @@ export default function NearExpiryPage() {
           <div className="bg-white rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
             <div className="sticky top-0 bg-white border-b border-gray-100 px-6 py-4 flex items-center justify-between">
               <h3 className="text-lg font-semibold text-gray-900">临期商品详情</h3>
-              <button
-                onClick={() => {
-                  setSelectedRecord(null);
-                  setRemark('');
-                  setMarkdownPrice('');
-                }}
-                className="text-gray-400 hover:text-gray-600"
-              >
-                <X className="w-5 h-5" />
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setShowHistory(true)}
+                  className="text-gray-400 hover:text-gray-600 p-2"
+                  title="查看操作历史"
+                >
+                  <History className="w-5 h-5" />
+                </button>
+                <button
+                  onClick={() => {
+                    setSelectedRecord(null);
+                    setRemark('');
+                    setMarkdownPrice('');
+                    setShowHistory(false);
+                  }}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
             </div>
 
             <div className="p-6 space-y-6">
@@ -411,6 +423,59 @@ export default function NearExpiryPage() {
               {selectedRecord.status === 'review_approved' && currentUser?.role === 'store_manager' && (
                 <div className="pt-4 border-t border-gray-100">
                   <p className="text-sm text-green-600 mb-3 text-center">复核已通过，请执行实际下架操作</p>
+                </div>
+              )}
+
+              {showHistory && (
+                <div className="pt-6 border-t border-gray-100">
+                  <p className="text-sm font-medium text-gray-900 mb-4">操作历史记录</p>
+                  <div className="space-y-4">
+                    {getRelatedLogsByNearExpiryId(selectedRecord.id).map((log, index) => (
+                      <div key={log.id} className="flex gap-4">
+                        <div className="flex flex-col items-center">
+                          <div className={`w-3 h-3 rounded-full ${index === 0 ? 'bg-blue-500' : 'bg-gray-300'}`} />
+                          {index < getRelatedLogsByNearExpiryId(selectedRecord.id).length - 1 && (
+                            <div className="w-0.5 flex-1 bg-gray-200 mt-1" />
+                          )}
+                        </div>
+                        <div className="flex-1 pb-4">
+                          <div className="flex items-center justify-between">
+                            <p className="text-sm font-medium text-gray-900">
+                              {getOperationTypeText(log.operationType)}
+                            </p>
+                            <p className="text-xs text-gray-400">
+                              {formatDate(log.createdAt, 'MM-dd HH:mm')}
+                            </p>
+                          </div>
+                          <p className="text-xs text-gray-500 mt-1">
+                            操作人: {log.operatorName} ({getRoleText(log.operatorRole)})
+                          </p>
+                          {log.remark && (
+                            <p className="text-sm text-gray-600 mt-2 bg-gray-50 rounded-lg p-3">
+                              {log.remark}
+                            </p>
+                          )}
+                          {(log.oldStatus || log.newStatus) && (
+                            <div className="flex items-center gap-2 mt-2 text-xs">
+                              {log.oldStatus && (
+                                <span className="text-gray-500">
+                                  {log.targetType === 'near_expiry' ? getNearExpiryStatusText(log.oldStatus) : getReviewStatusText(log.oldStatus)}
+                                </span>
+                              )}
+                              {log.oldStatus && log.newStatus && (
+                                <ArrowRight className="w-3 h-3 text-gray-400" />
+                              )}
+                              {log.newStatus && (
+                                <span className="text-green-600 font-medium">
+                                  {log.targetType === 'near_expiry' ? getNearExpiryStatusText(log.newStatus) : getReviewStatusText(log.newStatus)}
+                                </span>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>

@@ -193,6 +193,7 @@ export type NearExpiryStatus =
   | 'destroyed'
   | 'pending_review'
   | 'review_rejected'
+  | 'supplement_requested'
   | 'review_approved'
   | 'completed';
 

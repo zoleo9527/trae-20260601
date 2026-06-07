@@ -108,6 +108,7 @@ export function getNearExpiryStatusText(status: string): string {
     destroyed: '已销毁',
     pending_review: '待复核',
     review_rejected: '复核驳回',
+    supplement_requested: '待补录',
     review_approved: '复核通过',
     completed: '已完成',
   };
@@ -123,6 +124,7 @@ export function getNearExpiryStatusColor(status: string): string {
     destroyed: 'bg-gray-100 text-gray-800',
     pending_review: 'bg-orange-100 text-orange-800',
     review_rejected: 'bg-red-100 text-red-800',
+    supplement_requested: 'bg-amber-100 text-amber-800',
     review_approved: 'bg-green-100 text-green-800',
     completed: 'bg-emerald-100 text-emerald-800',
   };

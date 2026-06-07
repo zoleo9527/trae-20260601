@@ -1,7 +1,7 @@
 import { cn, formatDate, getAlertPriorityColor, getAlertTypeText, getRoleText } from '@/lib/utils';
 import { useAppStore } from '@/store/appStore';
 import { Alert } from '@/types';
-import { AlertTriangle, Check, Clock } from 'lucide-react';
+import { AlertTriangle, Check, Clock, FileText } from 'lucide-react';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 

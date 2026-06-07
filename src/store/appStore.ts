@@ -489,9 +489,6 @@ export const useAppStore = create<AppState>((set, get) => ({
   getFilteredReviews: () => {
     const { offShelfReviews, reviewFilters, currentUser } = get();
     return offShelfReviews.filter((review) => {
-      if (currentUser?.role === 'supervisor' || currentUser?.role === 'product_specialist') {
-        if (review.currentHandlerRole !== currentUser.role) return false;
-      }
       if (currentUser?.role === 'store_manager') {
         const managedStore = get().stores.find(s => s.managerId === currentUser.id);
         if (managedStore && review.storeId !== managedStore.id) return false;
@@ -646,6 +643,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         updates.rejectReason = remark;
       } else if (action === 'request_supplement') {
         newReviewStatus = 'supplement_requested';
+        newExpiryStatus = 'supplement_requested';
         newHandlerRole = 'store_manager';
         updates.supplementRequest = remark;
       } else if (action === 'approve') {
