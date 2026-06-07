@@ -134,20 +134,6 @@
     }
   }
   
-  async function updateStatus(newStatus: ConsumptionRecord['status']) {
-    if (!record) return;
-    
-    const res = await fetch(`/api/records/${record.id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status: newStatus })
-    });
-    
-    if (res.ok) {
-      record = await res.json();
-    }
-  }
-  
   async function addNote() {
     if (!record || !newNoteContent.trim()) return;
     
@@ -317,9 +303,6 @@
     
     if (res.ok) {
       record = await res.json();
-      if (record.status === 'scheduling') {
-        await updateStatus('in_service');
-      }
     }
   }
   
@@ -330,38 +313,21 @@
     const startTime = record.serviceRecords.find(s => s.id === serviceId)?.startTime;
     const actualDuration = startTime ? calculateDuration(startTime, endTime) : null;
     
-    const res = await fetch(`/api/records/${record.id}/service-records`, {
-      method: 'PATCH',
+    const res = await fetch(`/api/records/${record.id}/complete-service`, {
+      method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         serviceId,
+        scheduleId,
         endTime: endTime.toISOString(),
         actualDuration,
-        completed: true
+        operator: currentUser,
+        operatorRole: currentRole
       })
     });
     
     if (res.ok) {
       record = await res.json();
-      
-      const schedule = record.schedules.find(s => s.id === scheduleId);
-      if (schedule) {
-        await fetch(`/api/records/${record.id}/schedules`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            scheduleId,
-            status: 'completed',
-            endTime: endTime.toISOString()
-          })
-        });
-        record = await (await fetch(`/api/records/${record.id}`)).json();
-      }
-      
-      const allCompleted = record.schedules.every(s => s.status === 'completed');
-      if (allCompleted && record.status === 'in_service') {
-        await updateStatus('service_completed');
-      }
     }
   }
   
@@ -390,15 +356,18 @@
   async function processPayment() {
     if (!record) return;
     
-    const res = await fetch(`/api/records/${record.id}/payment`, {
+    const res = await fetch(`/api/records/${record.id}/confirm-payment`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ amount: record.totalAmount })
+      body: JSON.stringify({ 
+        amount: record.totalAmount,
+        operator: currentUser,
+        operatorRole: currentRole
+      })
     });
     
     if (res.ok) {
       record = await res.json();
-      await updateStatus('completed');
     }
   }
   

@@ -705,6 +705,65 @@ export function updateServiceRecord(recordId: string, serviceId: string, updates
   return record;
 }
 
+export function completeService(recordId: string, serviceId: string, scheduleId: string, endTime: Date, actualDuration: number | null, operator?: string, operatorRole?: UserRole): ConsumptionRecord | undefined {
+  const record = records.find(r => r.id === recordId);
+  if (!record) return undefined;
+
+  const service = record.serviceRecords.find(s => s.id === serviceId);
+  if (!service) return undefined;
+
+  service.endTime = endTime;
+  service.actualDuration = actualDuration;
+  service.completed = true;
+
+  const schedule = record.schedules.find(s => s.id === scheduleId);
+  if (schedule) {
+    schedule.status = 'completed';
+    schedule.endTime = endTime;
+  }
+
+  const allCompleted = record.schedules.every(s => s.status === 'completed');
+  if (allCompleted && record.status === 'in_service') {
+    record.status = 'service_completed';
+  }
+
+  if (operator && operatorRole) {
+    record.notes.push({
+      id: `note-${Date.now()}`,
+      type: 'service',
+      content: `服务结束：${schedule?.serviceItem || '未知项目'}，技师：${schedule?.technicianName || '未知'}，时长：${actualDuration || '未知'}分钟`,
+      createdBy: operator,
+      createdByRole: operatorRole,
+      createdAt: new Date()
+    });
+  }
+
+  record.updatedAt = new Date();
+  return record;
+}
+
+export function confirmPaymentAndComplete(recordId: string, amount: number, operator?: string, operatorRole?: UserRole): ConsumptionRecord | undefined {
+  const record = records.find(r => r.id === recordId);
+  if (!record) return undefined;
+
+  record.paidAmount = amount;
+  record.status = 'completed';
+
+  if (operator && operatorRole) {
+    record.notes.push({
+      id: `note-${Date.now()}`,
+      type: 'general',
+      content: `确认收款 ¥${amount}，订单完成`,
+      createdBy: operator,
+      createdByRole: operatorRole,
+      createdAt: new Date()
+    });
+  }
+
+  record.updatedAt = new Date();
+  return record;
+}
+
 export function updateHandTagStatus(
   recordId: string, 
   status: ConsumptionRecord['handTagStatus'], 
