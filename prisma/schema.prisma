@@ -1,0 +1,237 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  RECEPTIONIST
+  FLOOR_SUPERVISOR
+  FINANCE
+  ADMIN
+}
+
+enum HandTagStatus {
+  AVAILABLE
+  IN_USE
+  LOST
+  DAMAGED
+}
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  CHECKED_IN
+  IN_SERVICE
+  COMPLETED
+  CANCELLED
+  RESCHEDULED
+  REJECTED
+}
+
+enum DepositStatus {
+  PENDING
+  VERIFIED
+  REFUNDED
+  CONFISCATED
+}
+
+enum LockerStatus {
+  AVAILABLE
+  OCCUPIED
+  OUT_OF_ORDER
+  COMPLAINT
+}
+
+enum TechnicianStatus {
+  AVAILABLE
+  ON_DUTY
+  OFF_DUTY
+  ON_BREAK
+  BUSY
+}
+
+enum ExceptionType {
+  HANDTAG_LOST
+  SCHEDULE_CONFLICT
+  LOCKER_COMPLAINT
+  DEPOSIT_DISPUTE
+  OTHER
+}
+
+enum ExceptionStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+
+enum ActionType {
+  CREATE
+  UPDATE
+  VERIFY
+  APPROVE
+  REJECT
+  RESCHEDULE
+  SUPPLEMENT
+  COMPLETE
+}
+
+model User {
+  id        String   @id @default(cuid())
+  username  String   @unique
+  password  String
+  name      String
+  role      Role
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  createdBookings Booking[] @relation("BookingCreator")
+  verifiedBookings Booking[] @relation("BookingVerifier")
+  receivedDeposits Deposit[] @relation("DepositReceiver")
+  verifiedDeposits Deposit[] @relation("DepositVerifier")
+  reportedExceptions Exception[] @relation("ExceptionReporter")
+  assignedExceptions Exception[] @relation("ExceptionAssignee")
+  actionLogs ActionLog[]
+}
+
+model HandTag {
+  id        String        @id @default(cuid())
+  tagNumber String        @unique
+  status    HandTagStatus @default(AVAILABLE)
+  rfid      String?       @unique
+  notes     String?
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  bookings Booking[]
+}
+
+model Technician {
+  id          String           @id @default(cuid())
+  name        String
+  employeeId  String           @unique
+  status      TechnicianStatus @default(AVAILABLE)
+  skills      String[]
+  phone       String?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  bookings Booking[]
+}
+
+model Locker {
+  id        String       @id @default(cuid())
+  lockerNumber String    @unique
+  area      String
+  status    LockerStatus @default(AVAILABLE)
+  notes     String?
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  bookings Booking[]
+}
+
+model Customer {
+  id          String   @id @default(cuid())
+  name        String
+  phone       String?
+  idCard      String?
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  bookings Booking[]
+}
+
+model Booking {
+  id               String        @id @default(cuid())
+  bookingNumber    String        @unique
+  customerId       String
+  handTagId        String?
+  lockerId         String?
+  technicianId     String?
+  status           BookingStatus @default(PENDING)
+  serviceType      String
+  scheduledTime    DateTime
+  checkInTime      DateTime?
+  checkOutTime     DateTime?
+  amount           Decimal       @default(0)
+  depositAmount    Decimal       @default(0)
+  depositStatus    DepositStatus @default(PENDING)
+  notes            String?
+  isException      Boolean       @default(false)
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+  createdById      String
+  verifiedById     String?
+  verifiedAt       DateTime?
+
+  customer     Customer      @relation(fields: [customerId], references: [id])
+  handTag      HandTag?      @relation(fields: [handTagId], references: [id])
+  locker       Locker?       @relation(fields: [lockerId], references: [id])
+  technician   Technician?   @relation(fields: [technicianId], references: [id])
+  createdBy    User          @relation("BookingCreator", fields: [createdById], references: [id])
+  verifiedBy   User?         @relation("BookingVerifier", fields: [verifiedById], references: [id])
+  deposits     Deposit[]
+  exceptions   Exception[]
+  actionLogs   ActionLog[]
+
+  @@index([status])
+  @@index([scheduledTime])
+  @@index([customerId])
+}
+
+model Deposit {
+  id          String        @id @default(cuid())
+  bookingId   String
+  amount      Decimal
+  paymentMethod String
+  status      DepositStatus @default(PENDING)
+  receivedById String
+  verifiedById String?
+  verifiedAt  DateTime?
+  notes       String?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  booking    Booking @relation(fields: [bookingId], references: [id])
+  receivedBy User    @relation("DepositReceiver", fields: [receivedById], references: [id])
+  verifiedBy User?   @relation("DepositVerifier", fields: [verifiedById], references: [id])
+}
+
+model Exception {
+  id          String         @id @default(cuid())
+  bookingId   String
+  type        ExceptionType
+  status      ExceptionStatus @default(OPEN)
+  title       String
+  description String
+  reportedById String
+  assignedToId String?
+  resolution  String?
+  resolvedAt  DateTime?
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  booking    Booking @relation(fields: [bookingId], references: [id])
+  reportedBy User    @relation("ExceptionReporter", fields: [reportedById], references: [id])
+  assignedTo User?   @relation("ExceptionAssignee", fields: [assignedToId], references: [id])
+}
+
+model ActionLog {
+  id          String     @id @default(cuid())
+  bookingId   String
+  actionType  ActionType
+  description String
+  actorId     String
+  oldValues   Json?
+  newValues   Json?
+  createdAt   DateTime   @default(now())
+
+  booking Booking @relation(fields: [bookingId], references: [id])
+  actor   User    @relation(fields: [actorId], references: [id])
+}
