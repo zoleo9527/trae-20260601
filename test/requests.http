@@ -1,0 +1,198 @@
+### 乳品配送站-订奶变更与路线调整系统 API 请求示例
+### 服务地址: http://localhost:3000
+
+### 员工ID说明:
+### 站点文员: staff-clerk-1 (王文员)
+### 配送员1: staff-delivery-1 (李配送)
+### 配送员2: staff-delivery-2 (张配送)
+### 客服: staff-cs-1 (赵客服)
+
+### 客户ID说明:
+### cust-1 陈阿姨, cust-2 刘大爷, cust-3 张女士, cust-4 王先生, cust-5 李奶奶
+
+### ========================================
+### 1. 默认列表（今天要办 + 已拖延 + 刚退回）
+### ========================================
+GET http://localhost:3000/api/milk-changes/default
+
+### ========================================
+### 2. 我的待办 - 站点文员
+### ========================================
+GET http://localhost:3000/api/milk-changes/my-todo?staffId=staff-clerk-1&staffRole=station_clerk
+
+### ========================================
+### 3. 我的待办 - 配送员李配送
+### ========================================
+GET http://localhost:3000/api/milk-changes/my-todo?staffId=staff-delivery-1&staffRole=delivery_staff
+
+### ========================================
+### 4. 我的待办 - 配送员张配送
+### ========================================
+GET http://localhost:3000/api/milk-changes/my-todo?staffId=staff-delivery-2&staffRole=delivery_staff
+
+### ========================================
+### 5. 我的待办 - 客服
+### ========================================
+GET http://localhost:3000/api/milk-changes/my-todo?staffId=staff-cs-1&staffRole=customer_service
+
+### ========================================
+### 6. 查询所有订奶变更列表
+### ========================================
+GET http://localhost:3000/api/milk-changes
+
+### ========================================
+### 7. 获取订奶变更详情
+### ========================================
+GET http://localhost:3000/api/milk-changes/mc-2
+
+### ========================================
+### 8. 创建订奶变更 - 客户要求增加产品
+### ========================================
+POST http://localhost:3000/api/milk-changes
+Content-Type: application/json
+
+{
+  "customerId": "cust-3",
+  "changeType": "add_product",
+  "changeDetail": "孩子高考期间加订营养奶",
+  "oldProduct": "鲜牛奶",
+  "oldQuantity": 3,
+  "newProduct": "鲜牛奶+营养奶",
+  "newQuantity": 4,
+  "oldRouteId": "route-1",
+  "oldRouteName": "城东A线",
+  "assignedToId": "staff-clerk-1",
+  "remark": "孩子最近学习压力大，加订一瓶营养奶",
+  "effectiveDate": "2026-06-08",
+  "supplementRemark": "持续到6月20日高考结束"
+}
+
+### ========================================
+### 9. 处理订奶变更 - 文员受理 mc-3
+### 状态流转: pending_clerk -> clerk_processing
+### ========================================
+PUT http://localhost:3000/api/milk-changes/mc-3/process
+Content-Type: application/json
+
+{
+  "handlerId": "staff-clerk-1",
+  "targetStatus": "clerk_processing",
+  "remark": "已核实客户信息，正在联系城西路线"
+}
+
+### ========================================
+### 10. 处理订奶变更 - 文员转配送员确认 mc-3
+### 状态流转: clerk_processing -> pending_delivery
+### ========================================
+PUT http://localhost:3000/api/milk-changes/mc-3/process
+Content-Type: application/json
+
+{
+  "handlerId": "staff-clerk-1",
+  "targetStatus": "pending_delivery",
+  "assignedToId": "staff-delivery-1",
+  "newRouteId": "route-3",
+  "newRouteName": "城西线",
+  "routeAdjustReason": "跨区变更，从城东A线调整到城西线",
+  "remark": "已确认城西线可配送，请配送员核对"
+}
+
+### ========================================
+### 11. 处理订奶变更 - 配送员执行 mc-4
+### 状态流转: pending_delivery -> delivery_in_progress
+### ========================================
+PUT http://localhost:3000/api/milk-changes/mc-4/process
+Content-Type: application/json
+
+{
+  "handlerId": "staff-delivery-2",
+  "targetStatus": "delivery_in_progress",
+  "remark": "已确认库存，下周一开始暂停配送"
+}
+
+### ========================================
+### 12. 处理订奶变更 - 配送员完成 mc-5
+### 状态流转: delivery_in_progress -> completed
+### ========================================
+PUT http://localhost:3000/api/milk-changes/mc-5/process
+Content-Type: application/json
+
+{
+  "handlerId": "staff-delivery-2",
+  "targetStatus": "completed",
+  "remark": "已告知客户，今晚开始加送酸奶",
+  "supplementRemark": "客户表示满意"
+}
+
+### ========================================
+### 13. 处理订奶变更 - 配送员退回 mc-4
+### 状态流转: pending_delivery -> returned
+### ========================================
+PUT http://localhost:3000/api/milk-changes/mc-4/process
+Content-Type: application/json
+
+{
+  "handlerId": "staff-delivery-2",
+  "targetStatus": "returned",
+  "returnReason": "need_clerk_confirm",
+  "returnDetail": "暂停时间与库存盘点时间冲突，请文员确认具体日期",
+  "remark": "下周刚好是月度盘点，需要确认具体暂停起始日"
+}
+
+### ========================================
+### 14. 处理订奶变更 - 客服处理 mc-6
+### 状态流转: pending_customer_service -> customer_service_processing
+### ========================================
+PUT http://localhost:3000/api/milk-changes/mc-6/process
+Content-Type: application/json
+
+{
+  "handlerId": "staff-cs-1",
+  "targetStatus": "customer_service_processing",
+  "remark": "正在联系客户沟通可选时间"
+}
+
+### ========================================
+### 15. 处理订奶变更 - 客服转回文员 mc-6
+### 状态流转: customer_service_processing -> pending_clerk
+### ========================================
+PUT http://localhost:3000/api/milk-changes/mc-6/process
+Content-Type: application/json
+
+{
+  "handlerId": "staff-cs-1",
+  "targetStatus": "pending_clerk",
+  "assignedToId": "staff-clerk-1",
+  "remark": "客户同意改为6:45，请文员重新协调路线",
+  "newDeliveryTime": "06:45",
+  "supplementRemark": "客户表示6:45也可以，只要能在7点前送到"
+}
+
+### ========================================
+### 16. 单独分配/调整路线
+### ========================================
+PUT http://localhost:3000/api/milk-changes/mc-3/assign-route
+Content-Type: application/json
+
+{
+  "handlerId": "staff-clerk-1",
+  "newRouteId": "route-3",
+  "newRouteName": "城西线",
+  "routeAdjustReason": "客户搬到城西，调整到城西线",
+  "remark": "调整完成，已通知配送员"
+}
+
+### ========================================
+### 17. 获取操作日志
+### ========================================
+GET http://localhost:3000/api/milk-changes/mc-6/logs
+
+### ========================================
+### 18. 获取路线调整历史
+### ========================================
+GET http://localhost:3000/api/milk-changes/mc-3/route-histories
+
+### ========================================
+### 19. 订奶变更回看（详情 + 日志 + 路线历史）
+### ========================================
+GET http://localhost:3000/api/milk-changes/mc-6/review

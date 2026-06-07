@@ -1,0 +1,29 @@
+export enum ErrorCode {
+  SUCCESS = 0,
+  MILK_CHANGE_NOT_FOUND = 60001,
+  MILK_CHANGE_ALREADY_PROCESSED = 60002,
+  MILK_CHANGE_INVALID_STATUS = 60003,
+  MILK_CHANGE_NO_PERMISSION = 60004,
+  MILK_CHANGE_STATUS_TRANSITION_INVALID = 60005,
+  CUSTOMER_NOT_FOUND = 61001,
+  STAFF_NOT_FOUND = 61002,
+  ROUTE_NOT_FOUND = 61003,
+  ROUTE_ADJUST_HISTORY_NOT_FOUND = 61004,
+  PARAM_VALIDATION_ERROR = 40000,
+  INTERNAL_ERROR = 50000,
+}
+
+export const ErrorMessage: Record<ErrorCode, string> = {
+  [ErrorCode.SUCCESS]: '成功',
+  [ErrorCode.MILK_CHANGE_NOT_FOUND]: '订奶变更记录不存在',
+  [ErrorCode.MILK_CHANGE_ALREADY_PROCESSED]: '订奶变更已处理',
+  [ErrorCode.MILK_CHANGE_INVALID_STATUS]: '订奶变更状态无效',
+  [ErrorCode.MILK_CHANGE_NO_PERMISSION]: '无权限处理此订奶变更',
+  [ErrorCode.MILK_CHANGE_STATUS_TRANSITION_INVALID]: '状态流转不合法',
+  [ErrorCode.CUSTOMER_NOT_FOUND]: '客户不存在',
+  [ErrorCode.STAFF_NOT_FOUND]: '员工不存在',
+  [ErrorCode.ROUTE_NOT_FOUND]: '配送路线不存在',
+  [ErrorCode.ROUTE_ADJUST_HISTORY_NOT_FOUND]: '路线调整历史不存在',
+  [ErrorCode.PARAM_VALIDATION_ERROR]: '参数校验错误',
+  [ErrorCode.INTERNAL_ERROR]: '系统内部错误',
+};
