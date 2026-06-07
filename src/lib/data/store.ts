@@ -1081,14 +1081,18 @@ export function updateBooking(bookingId: string, updates: Partial<Booking>): Boo
   const booking = bookings.find(b => b.id === bookingId);
   if (!booking) return undefined;
 
-  const protectedFields: (keyof Booking)[] = [
-    'id', 'bookingNo', 'status', 'createdBy', 'createdAt',
-    'confirmedBy', 'confirmedAt', 'checkedInBy', 'checkedInAt',
-    'completedBy', 'completedAt', 'notes', 'issues'
+  if (booking.status === 'supplement_required') {
+    throw new Error('待补录状态下不可直接修改，请通过补录流程提交');
+  }
+
+  const allowedFields: (keyof Booking)[] = [
+    'customerName',
+    'customerPhone',
+    'numberOfPeople',
   ];
-  
+
   for (const [key, value] of Object.entries(updates)) {
-    if (protectedFields.includes(key as keyof Booking)) continue;
+    if (!allowedFields.includes(key as keyof Booking)) continue;
     (booking as any)[key] = value;
   }
   
