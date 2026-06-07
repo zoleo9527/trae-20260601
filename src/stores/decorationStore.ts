@@ -3,6 +3,7 @@ import { DecorationTask, DecorationStatus } from '../types';
 import { storage, generateId } from '../utils/storage';
 import { mockDecorationTasks } from '../data/mockData';
 import { useAuditStore } from './auditStore';
+import { useBookingStore } from './bookingStore';
 
 interface DecorationStore {
   tasks: DecorationTask[];
@@ -22,6 +23,9 @@ export const useDecorationStore = create<DecorationStore>((set, get) => ({
   tasks: initialTasks,
   
   addTask: (taskData) => {
+    const existingTask = get().tasks.find((t) => t.bookingId === taskData.bookingId);
+    if (existingTask) return existingTask.id;
+
     const task: DecorationTask = {
       ...taskData,
       id: generateId(),
@@ -31,7 +35,11 @@ export const useDecorationStore = create<DecorationStore>((set, get) => ({
     const tasks = [...get().tasks, task];
     set({ tasks });
     storage.set('decoration_tasks', tasks);
-    
+
+    if (taskData.bookingId) {
+      useBookingStore.getState().updateBooking(taskData.bookingId, { decorationTaskId: task.id });
+    }
+
     useAuditStore.getState().addLog(
       'decoration',
       task.id,
@@ -40,7 +48,7 @@ export const useDecorationStore = create<DecorationStore>((set, get) => ({
       task as unknown as Record<string, unknown>,
       '创建设置任务'
     );
-    
+
     return task.id;
   },
   

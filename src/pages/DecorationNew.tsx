@@ -14,7 +14,7 @@ const DecorationNew: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const bookingId = searchParams.get('bookingId') || '';
-  const { addTask } = useDecorationStore();
+  const { addTask, getTasksByBooking } = useDecorationStore();
   const { getBookingById, bookings } = useBookingStore();
   const { currentUser } = useAuthStore();
 
@@ -26,7 +26,14 @@ const DecorationNew: React.FC = () => {
   });
 
   const booking = formData.bookingId ? getBookingById(formData.bookingId) : undefined;
+  const existingTask = formData.bookingId ? getTasksByBooking(formData.bookingId) : undefined;
   const availableBookings = bookings.filter((b) => !b.decorationTaskId && b.status !== 'cancelled');
+
+  useEffect(() => {
+    if (existingTask && formData.bookingId) {
+      navigate(`/bookings/${formData.bookingId}`, { replace: true });
+    }
+  }, [existingTask, formData.bookingId, navigate]);
 
   const themes = [
     '浪漫粉色生日',

@@ -3,6 +3,7 @@ import { Package, PackageOrder, PackageOrderStatus, DrinkGift } from '../types';
 import { storage, generateId } from '../utils/storage';
 import { mockPackages, mockPackageOrders } from '../data/mockData';
 import { useAuditStore } from './auditStore';
+import { useBookingStore } from './bookingStore';
 
 interface PackageStore {
   packages: Package[];
@@ -66,6 +67,9 @@ export const usePackageStore = create<PackageStore>((set, get) => ({
   },
   
   addPackageOrder: (orderData) => {
+    const existingOrder = get().packageOrders.find((o) => o.bookingId === orderData.bookingId);
+    if (existingOrder) return existingOrder.id;
+
     const order: PackageOrder = {
       ...orderData,
       id: generateId(),
@@ -74,7 +78,11 @@ export const usePackageStore = create<PackageStore>((set, get) => ({
     const orders = [...get().packageOrders, order];
     set({ packageOrders: orders });
     storage.set('package_orders', orders);
-    
+
+    if (orderData.bookingId) {
+      useBookingStore.getState().updateBooking(orderData.bookingId, { packageOrderId: order.id });
+    }
+
     useAuditStore.getState().addLog(
       'package_order',
       order.id,
@@ -83,7 +91,7 @@ export const usePackageStore = create<PackageStore>((set, get) => ({
       order as unknown as Record<string, unknown>,
       '创建套餐订单'
     );
-    
+
     return order.id;
   },
   

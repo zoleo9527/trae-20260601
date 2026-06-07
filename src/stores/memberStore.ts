@@ -78,40 +78,53 @@ export const useMemberStore = create<MemberStore>((set, get) => ({
   addTransaction: (memberId, type, amount, relatedBookingId, note) => {
     const member = get().getMemberById(memberId);
     if (!member) throw new Error('会员不存在');
-    
-    const currentCalculated = get().calculateBalance(memberId);
-    const balanceAfter = type === 'recharge' 
-      ? currentCalculated + amount 
-      : currentCalculated + amount;
-    
+
+    const currentBalance = member.balance;
+    let balanceAfter: number;
+    let actualAmount = Math.abs(amount);
+
+    switch (type) {
+      case 'recharge':
+        balanceAfter = currentBalance + actualAmount;
+        break;
+      case 'consume':
+        balanceAfter = currentBalance - actualAmount;
+        break;
+      case 'refund':
+        balanceAfter = currentBalance + actualAmount;
+        break;
+      default:
+        balanceAfter = currentBalance;
+    }
+
     const transaction: Transaction = {
       id: generateId(),
       memberId,
       type,
-      amount,
+      amount: type === 'consume' ? -actualAmount : actualAmount,
       balanceAfter,
       relatedBookingId,
       operator: useAuthStore.getState().currentUser,
       note,
       createdAt: new Date().toISOString(),
     };
-    
+
     const transactions = [...get().transactions, transaction];
     set({ transactions });
     storage.set('transactions', transactions);
-    
-    const newTotalSpent = type === 'consume' ? member.totalSpent + Math.abs(amount) : member.totalSpent;
+
+    const newTotalSpent = type === 'consume' ? member.totalSpent + actualAmount : member.totalSpent;
     get().updateMember(memberId, { balance: balanceAfter, totalSpent: newTotalSpent });
-    
+
     useAuditStore.getState().addLog(
       'transaction',
       transaction.id,
       'create',
       undefined,
       transaction as unknown as Record<string, unknown>,
-      note || (type === 'recharge' ? '会员充值' : '会员消费')
+      note || (type === 'recharge' ? '会员充值' : type === 'consume' ? '会员消费' : '会员退款')
     );
-    
+
     return transaction.id;
   },
   

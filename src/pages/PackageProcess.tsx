@@ -18,7 +18,7 @@ const PackageProcess: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const bookingId = searchParams.get('bookingId') || '';
-  const { packages, addPackageOrder, validateDrinkGifts } = usePackageStore();
+  const { packages, addPackageOrder, validateDrinkGifts, getPackageOrdersByBooking } = usePackageStore();
   const { getBookingById } = useBookingStore();
   const { currentUser } = useAuthStore();
 
@@ -28,6 +28,14 @@ const PackageProcess: React.FC = () => {
 
   const booking = bookingId ? getBookingById(bookingId) : undefined;
   const pkg = selectedPackage ? packages.find((p) => p.id === selectedPackage) : undefined;
+
+  const existingOrder = bookingId ? getPackageOrdersByBooking(bookingId) : undefined;
+
+  useEffect(() => {
+    if (existingOrder && bookingId) {
+      navigate(`/bookings/${bookingId}`, { replace: true });
+    }
+  }, [existingOrder, bookingId, navigate]);
 
   useEffect(() => {
     if (pkg) {
