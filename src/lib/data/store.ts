@@ -671,25 +671,33 @@ export function resolveIssue(recordId: string, issueId: string, resolvedBy: stri
 
 export function addServiceRecord(recordId: string, service: Omit<ServiceRecord, 'id' | 'issues'>): ConsumptionRecord | undefined {
   const record = records.find(r => r.id === recordId);
-  if (record) {
-    record.serviceRecords.push({
-      ...service,
-      id: `srv-${Date.now()}`,
-      issues: []
-    });
-    
-    const schedule = record.schedules.find(s => s.id === service.scheduleId);
-    if (schedule) {
-      schedule.status = 'in_progress';
-      schedule.startTime = service.startTime;
-    }
-    
-    if (record.status === 'scheduling') {
-      record.status = 'in_service';
-    }
-    
-    record.updatedAt = new Date();
+  if (!record) return undefined;
+  
+  if (record.status !== 'scheduling' && record.status !== 'in_service') {
+    return undefined;
   }
+  
+  const schedule = record.schedules.find(s => s.id === service.scheduleId);
+  if (!schedule) return undefined;
+  
+  if (schedule.status !== 'pending' && schedule.status !== 'confirmed') {
+    return undefined;
+  }
+
+  record.serviceRecords.push({
+    ...service,
+    id: `srv-${Date.now()}`,
+    issues: []
+  });
+  
+  schedule.status = 'in_progress';
+  schedule.startTime = service.startTime;
+  
+  if (record.status === 'scheduling') {
+    record.status = 'in_service';
+  }
+  
+  record.updatedAt = new Date();
   return record;
 }
 
@@ -708,19 +716,35 @@ export function updateServiceRecord(recordId: string, serviceId: string, updates
 export function completeService(recordId: string, serviceId: string, scheduleId: string, endTime: Date, actualDuration: number | null, operator?: string, operatorRole?: UserRole): ConsumptionRecord | undefined {
   const record = records.find(r => r.id === recordId);
   if (!record) return undefined;
+  
+  if (record.status !== 'in_service') {
+    return undefined;
+  }
 
   const service = record.serviceRecords.find(s => s.id === serviceId);
   if (!service) return undefined;
+  
+  if (service.scheduleId !== scheduleId) {
+    return undefined;
+  }
+  
+  if (service.completed) {
+    return undefined;
+  }
+
+  const schedule = record.schedules.find(s => s.id === scheduleId);
+  if (!schedule) return undefined;
+  
+  if (schedule.status !== 'in_progress') {
+    return undefined;
+  }
 
   service.endTime = endTime;
   service.actualDuration = actualDuration;
   service.completed = true;
 
-  const schedule = record.schedules.find(s => s.id === scheduleId);
-  if (schedule) {
-    schedule.status = 'completed';
-    schedule.endTime = endTime;
-  }
+  schedule.status = 'completed';
+  schedule.endTime = endTime;
 
   const allCompleted = record.schedules.every(s => s.status === 'completed');
   if (allCompleted && record.status === 'in_service') {
@@ -731,7 +755,7 @@ export function completeService(recordId: string, serviceId: string, scheduleId:
     record.notes.push({
       id: `note-${Date.now()}`,
       type: 'service',
-      content: `服务结束：${schedule?.serviceItem || '未知项目'}，技师：${schedule?.technicianName || '未知'}，时长：${actualDuration || '未知'}分钟`,
+      content: `服务结束：${schedule.serviceItem}，技师：${schedule.technicianName}，时长：${actualDuration || '未知'}分钟`,
       createdBy: operator,
       createdByRole: operatorRole,
       createdAt: new Date()
@@ -745,9 +769,14 @@ export function completeService(recordId: string, serviceId: string, scheduleId:
 export function confirmPaymentAndComplete(recordId: string, amount: number, operator?: string, operatorRole?: UserRole): ConsumptionRecord | undefined {
   const record = records.find(r => r.id === recordId);
   if (!record) return undefined;
+  
+  if (record.status !== 'service_completed') {
+    return undefined;
+  }
 
   record.paidAmount = amount;
   record.status = 'completed';
+  record.checkoutTime = new Date();
 
   if (operator && operatorRole) {
     record.notes.push({

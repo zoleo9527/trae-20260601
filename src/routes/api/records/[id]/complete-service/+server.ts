@@ -20,7 +20,7 @@ export async function POST({ request, params }: { request: Request; params: { id
   );
   
   if (!record) {
-    throw error(404, '记录不存在');
+    throw error(400, '状态不合法或记录不存在，请确认订单处于服务中且服务未完成');
   }
   
   return json(record);

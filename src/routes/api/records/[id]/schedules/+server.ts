@@ -28,20 +28,8 @@ export async function POST({ request, params }: { request: Request; params: { id
   return json(record);
 }
 
-export async function PATCH({ request, params }: { request: Request; params: { id: string } }) {
-  const body = await request.json();
-  const { scheduleId, ...updates } = body;
-  
-  if (!scheduleId) {
-    throw error(400, '缺少排班ID');
-  }
-  
-  const record = updateSchedule(params.id, scheduleId, updates);
-  if (!record) {
-    throw error(404, '记录或排班不存在');
-  }
-  
-  return json(record);
+export async function PATCH() {
+  throw error(403, '该接口已停用，请使用 /complete-service 收口接口或 /reject 接口');
 }
 
 export function GET({ params }: { params: { id: string } }) {

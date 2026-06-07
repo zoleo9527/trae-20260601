@@ -12,7 +12,7 @@ export async function POST({ request, params }: { request: Request; params: { id
   const record = confirmPaymentAndComplete(params.id, amount, operator, operatorRole);
   
   if (!record) {
-    throw error(404, '记录不存在');
+    throw error(400, '状态不合法或记录不存在，请确认订单处于服务完成状态');
   }
   
   return json(record);

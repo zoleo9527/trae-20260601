@@ -25,20 +25,8 @@ export async function POST({ request, params }: { request: Request; params: { id
   return json(record);
 }
 
-export async function PATCH({ request, params }: { request: Request; params: { id: string } }) {
-  const body = await request.json();
-  const { serviceId, ...updates } = body;
-  
-  if (!serviceId) {
-    throw error(400, '缺少服务记录ID');
-  }
-  
-  const record = updateServiceRecord(params.id, serviceId, updates);
-  if (!record) {
-    throw error(404, '记录或服务记录不存在');
-  }
-  
-  return json(record);
+export async function PATCH() {
+  throw error(403, '该接口已停用，请使用 /complete-service 收口接口结束服务');
 }
 
 export function GET({ params }: { params: { id: string } }) {
