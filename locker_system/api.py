@@ -18,7 +18,8 @@ from .schemas import (
     AbnormalFilterQuery, DashboardStats, StaffSchema, WristbandSchema,
     TechnicianSchema, LockerAreaSchema,
     EvidenceChainSchema, LockerOccupancyInfo, WristbandIssuanceInfo,
-    TechnicianScheduleSchema,
+    TechnicianScheduleSchema, AbnormalSummarySchema,
+    CompensationStatusSummarySchema, UnifiedTimelineSchema,
 )
 from .error_codes import ErrorCode, ERROR_MESSAGES
 from .models import TechnicianSchedule
@@ -112,9 +113,105 @@ def build_abnormal_detail_response(abnormal: LockerAbnormal) -> dict:
 
 def build_compensation_detail_response(comp: Compensation) -> dict:
     evidence_chain = build_evidence_chain(comp.abnormal)
+    abnormal = comp.abnormal
+
+    abnormal_summary = {
+        "abnormal_id": abnormal.id,
+        "abnormal_type": abnormal.abnormal_type,
+        "abnormal_type_display": abnormal.get_abnormal_type_display(),
+        "description": abnormal.description,
+        "priority": abnormal.priority,
+        "customer_name": abnormal.customer_name,
+        "customer_phone": abnormal.customer_phone,
+        "reported_by_name": abnormal.reported_by.user.get_full_name() if abnormal.reported_by and abnormal.reported_by.user else "",
+        "reported_at": abnormal.reported_at,
+        "assigned_to_name": abnormal.assigned_to.user.get_full_name() if abnormal.assigned_to and abnormal.assigned_to.user else "",
+        "assigned_at": abnormal.assigned_at,
+        "processed_by_name": abnormal.processed_by.user.get_full_name() if abnormal.processed_by and abnormal.processed_by.user else "",
+        "processed_at": abnormal.processed_at,
+        "process_result": abnormal.process_result,
+        "returned_by_name": abnormal.returned_by.user.get_full_name() if abnormal.returned_by and abnormal.returned_by.user else "",
+        "returned_at": abnormal.returned_at,
+        "return_reason": abnormal.return_reason,
+        "abnormal_status": abnormal.status,
+        "abnormal_status_display": abnormal.get_status_display(),
+    }
+
+    status_summary = _build_compensation_status_summary(comp)
+    full_timeline = _build_unified_timeline(abnormal, comp)
+
     base_data = CompensationSchema.from_orm(comp).model_dump()
     base_data["evidence_chain"] = evidence_chain.model_dump()
+    base_data["abnormal_summary"] = abnormal_summary
+    base_data["status_summary"] = status_summary
+    base_data["full_timeline"] = full_timeline
     return base_data
+
+
+def _build_compensation_status_summary(comp: Compensation) -> dict:
+    status_map = {
+        "pending_review": {
+            "current_stage": "财务审核",
+            "next_action": "请财务审核赔付申请，可通过或拒绝",
+            "summary_text": f"赔付申请已提交，金额 ¥{comp.compensation_amount}，待财务审核"
+        },
+        "reviewed": {
+            "current_stage": "待支付",
+            "next_action": "请财务执行支付操作，并记录客人签收",
+            "summary_text": f"赔付已审核通过，金额 ¥{comp.compensation_amount}，待支付给客人"
+        },
+        "paid": {
+            "current_stage": "已完成",
+            "next_action": "赔付流程已结束",
+            "summary_text": f"赔付已完成，金额 ¥{comp.compensation_amount}，客人已签收" if comp.customer_signature else f"赔付已完成，金额 ¥{comp.compensation_amount}，待客人签收"
+        },
+        "rejected": {
+            "current_stage": "已拒绝",
+            "next_action": "已退回楼层主管重新处理",
+            "summary_text": f"赔付申请被拒绝，原因：{comp.reject_reason or '未填写'}"
+        },
+    }
+
+    info = status_map.get(comp.status, {
+        "current_stage": "未知",
+        "next_action": "请检查状态",
+        "summary_text": "状态未知"
+    })
+
+    return {
+        "current_stage": info["current_stage"],
+        "current_status": comp.status,
+        "current_status_display": comp.get_status_display(),
+        "next_action": info["next_action"],
+        "summary_text": info["summary_text"],
+    }
+
+
+def _build_unified_timeline(abnormal: LockerAbnormal, comp: Compensation) -> list:
+    timeline = []
+
+    for p in abnormal.progresses.all():
+        timeline.append({
+            "id": f"a_{p.id}",
+            "type": "abnormal",
+            "action": p.action,
+            "operator_name": p.operator.user.get_full_name() if p.operator and p.operator.user else "系统",
+            "detail": p.detail,
+            "created_at": p.created_at,
+        })
+
+    for p in comp.progresses.all():
+        timeline.append({
+            "id": f"c_{p.id}",
+            "type": "compensation",
+            "action": p.action,
+            "operator_name": p.operator.user.get_full_name() if p.operator and p.operator.user else "系统",
+            "detail": p.detail,
+            "created_at": p.created_at,
+        })
+
+    timeline.sort(key=lambda x: x["created_at"])
+    return timeline
 
 
 @router.get("/dashboard", response=SuccessResponse[DashboardStats], summary="仪表盘统计")

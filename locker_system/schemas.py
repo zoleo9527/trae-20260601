@@ -328,6 +328,45 @@ class CompensationProgressSchema(BaseModel):
         )
 
 
+class UnifiedTimelineSchema(BaseModel):
+    id: int
+    type: str
+    action: str
+    operator_name: str
+    detail: str
+    created_at: datetime
+
+
+class AbnormalSummarySchema(BaseModel):
+    abnormal_id: int
+    abnormal_type: str
+    abnormal_type_display: str
+    description: str
+    priority: int
+    customer_name: str
+    customer_phone: str
+    reported_by_name: str
+    reported_at: datetime
+    assigned_to_name: str
+    assigned_at: Optional[datetime] = None
+    processed_by_name: str
+    processed_at: Optional[datetime] = None
+    process_result: str
+    returned_by_name: str
+    returned_at: Optional[datetime] = None
+    return_reason: str
+    abnormal_status: str
+    abnormal_status_display: str
+
+
+class CompensationStatusSummarySchema(BaseModel):
+    current_stage: str
+    current_status: str
+    current_status_display: str
+    next_action: str
+    summary_text: str
+
+
 class CompensationSchema(BaseModel):
     id: int
     abnormal_id: int
@@ -354,6 +393,9 @@ class CompensationSchema(BaseModel):
     remark: str
     progresses: List[CompensationProgressSchema]
     evidence_chain: Optional[EvidenceChainSchema] = None
+    abnormal_summary: Optional[AbnormalSummarySchema] = None
+    status_summary: Optional[CompensationStatusSummarySchema] = None
+    full_timeline: Optional[List[UnifiedTimelineSchema]] = None
 
     @classmethod
     def from_orm(cls, comp):

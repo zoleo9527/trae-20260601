@@ -6,7 +6,7 @@ from decimal import Decimal
 
 from locker_system.models import (
     StaffProfile, LockerArea, Locker, Wristband, Technician, TechnicianSchedule,
-    LockerAbnormal, Compensation, RoleType
+    LockerAbnormal, Compensation, RoleType, AbnormalProgress, CompensationProgress
 )
 
 
@@ -218,6 +218,42 @@ class Command(BaseCommand):
             proposed_by=supervisor_staff,
         )
 
+        AbnormalProgress.objects.create(
+            abnormal=abnormal4, action="前台登记",
+            operator=reception_staff, detail="客人反映手机不见，要求查找",
+            created_at=now - timedelta(hours=10)
+        )
+        AbnormalProgress.objects.create(
+            abnormal=abnormal4, action="派单",
+            operator=reception_staff, detail="派单给李主管现场核实",
+            created_at=now - timedelta(hours=8)
+        )
+        AbnormalProgress.objects.create(
+            abnormal=abnormal4, action="现场核实",
+            operator=supervisor_staff, detail="已检查储物柜，无撬动痕迹，柜内确无手机",
+            created_at=now - timedelta(hours=6)
+        )
+        AbnormalProgress.objects.create(
+            abnormal=abnormal4, action="调阅监控",
+            operator=supervisor_staff, detail="监控显示期间无外人开启该柜门",
+            created_at=now - timedelta(hours=4)
+        )
+        AbnormalProgress.objects.create(
+            abnormal=abnormal4, action="与客人沟通",
+            operator=supervisor_staff, detail="客人同意接受3000元赔付方案",
+            created_at=now - timedelta(hours=3, minutes=30)
+        )
+        AbnormalProgress.objects.create(
+            abnormal=abnormal4, action="提交赔付申请",
+            operator=supervisor_staff, detail="已提交赔付申请，金额3000元",
+            created_at=now - timedelta(hours=3)
+        )
+        CompensationProgress.objects.create(
+            compensation=comp1, action="提交赔付申请",
+            operator=supervisor_staff, detail="申请金额：3000元，客人手机遗失",
+            created_at=now - timedelta(hours=3)
+        )
+
         Locker5 = Locker.objects.get(locker_no="F015")
         abnormal5 = LockerAbnormal.objects.create(
             locker=Locker5,
@@ -232,6 +268,17 @@ class Command(BaseCommand):
             processed_by=supervisor_staff,
             processed_at=now - timedelta(days=1, hours=2),
             process_result="已帮客人找到物品并归位",
+        )
+
+        AbnormalProgress.objects.create(
+            abnormal=abnormal5, action="前台登记",
+            operator=reception_staff, detail="客人反映物品不对",
+            created_at=now - timedelta(days=1, hours=4)
+        )
+        AbnormalProgress.objects.create(
+            abnormal=abnormal5, action="现场处理",
+            operator=supervisor_staff, detail="核对后发现物品放错柜子，已归位",
+            created_at=now - timedelta(days=1, hours=2)
         )
 
         Locker6 = Locker.objects.get(locker_no="M002")
