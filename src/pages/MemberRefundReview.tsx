@@ -19,11 +19,50 @@ const statusColors: Record<string, string> = {
 };
 
 export default function MemberRefundReview() {
-  const [selectedMemberId] = useState<string>(mockCurrentMemberId);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchType, setSearchType] = useState<'memberId' | 'phone' | 'wristband'>('memberId');
+  const [selectedMemberId, setSelectedMemberId] = useState<string>(mockCurrentMemberId);
+  const [selectedConsumeId, setSelectedConsumeId] = useState<string | null>(null);
   const [selectedRefundId, setSelectedRefundId] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'consumption' | 'refund'>('consumption');
 
-  const currentMember: Member | undefined = mockMembers.find(
+  const [refunds, setRefunds] = useState<RefundApplication[]>([...mockRefunds]);
+  const [histories, setHistories] = useState<ProcessingHistory[]>([...mockProcessingHistory]);
+  const [members, setMembers] = useState<Member[]>([...mockMembers]);
+
+  const [disputeText, setDisputeText] = useState('');
+  const [reviewResult, setReviewResult] = useState<'approve' | 'partial' | 'coupon' | 'reject' | 'return'>('approve');
+  const [reviewAmount, setReviewAmount] = useState('');
+  const [couponAmount, setCouponAmount] = useState('');
+  const [reviewComment, setReviewComment] = useState('');
+
+  const handleSearch = () => {
+    if (!searchQuery.trim()) return;
+
+    let foundMember: Member | undefined;
+
+    if (searchType === 'memberId') {
+      foundMember = members.find((m) =>
+        m.id.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+    } else if (searchType === 'phone') {
+      foundMember = members.find((m) => m.phone.includes(searchQuery));
+    } else if (searchType === 'wristband') {
+      const consume = mockConsumptions.find((c) =>
+        c.wristbandNo.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+      if (consume) {
+        foundMember = members.find((m) => m.id === consume.memberId);
+      }
+    }
+
+    if (foundMember) {
+      setSelectedMemberId(foundMember.id);
+      setSelectedConsumeId(null);
+      setSelectedRefundId(null);
+    }
+  };
+
+  const currentMember: Member | undefined = members.find(
     (m) => m.id === selectedMemberId
   );
 
@@ -31,21 +70,154 @@ export default function MemberRefundReview() {
     (c) => c.memberId === selectedMemberId
   );
 
-  const memberRefunds: RefundApplication[] = mockRefunds.filter(
+  const memberRefunds: RefundApplication[] = refunds.filter(
     (r) => r.memberId === selectedMemberId
   );
 
-  const selectedRefund: RefundApplication | undefined = mockRefunds.find(
+  const selectedConsume: ConsumptionItem | undefined = mockConsumptions.find(
+    (c) => c.id === selectedConsumeId
+  );
+
+  const relatedRefunds: RefundApplication[] = selectedConsumeId
+    ? refunds.filter((r) => r.consumeId === selectedConsumeId)
+    : [];
+
+  const selectedRefund: RefundApplication | undefined = refunds.find(
     (r) => r.id === selectedRefundId
   );
 
   const refundHistory: ProcessingHistory[] = selectedRefundId
-    ? mockProcessingHistory.filter((h) => h.refundId === selectedRefundId)
+    ? histories.filter((h) => h.refundId === selectedRefundId)
     : [];
+
+  const nowTime = () => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
+  };
+
+  const addHistory = (refundId: string, action: string, comment: string, role: string, operator: string) => {
+    const newHistory: ProcessingHistory = {
+      id: `H${Date.now()}`,
+      refundId,
+      operator,
+      role,
+      action,
+      comment,
+      operateTime: nowTime(),
+    };
+    setHistories((prev) => [newHistory, ...prev]);
+  };
+
+  const handleSaveDispute = () => {
+    if (!selectedRefundId || !disputeText.trim()) return;
+
+    setRefunds((prev) =>
+      prev.map((r) =>
+        r.id === selectedRefundId
+          ? {
+              ...r,
+              disputeSupplement: disputeText,
+              disputeOperator: '楼层主管陈经理',
+              disputeTime: nowTime(),
+            }
+          : r
+      )
+    );
+
+    addHistory(
+      selectedRefundId,
+      '补充服务争议说明',
+      disputeText,
+      '楼层主管',
+      '楼层主管陈经理'
+    );
+
+    setDisputeText('');
+  };
+
+  const handleSubmitReview = () => {
+    if (!selectedRefundId) return;
+
+    let status: RefundApplication['status'] = '已批准';
+    let finalRefundAmount: number | undefined;
+    let finalCouponAmount: number | undefined;
+    let action = '复查并批准全额退款';
+
+    switch (reviewResult) {
+      case 'approve':
+        status = '已批准';
+        finalRefundAmount = selectedRefund?.applyAmount;
+        action = '复查并批准全额退款';
+        break;
+      case 'partial':
+        status = '部分退款';
+        finalRefundAmount = parseFloat(reviewAmount) || 0;
+        action = '复查并批准部分退款';
+        break;
+      case 'coupon':
+        status = '补偿券替代';
+        finalRefundAmount = 0;
+        finalCouponAmount = parseFloat(couponAmount) || 0;
+        action = '复查并决定补偿券替代';
+        break;
+      case 'reject':
+        status = '已拒绝';
+        finalRefundAmount = 0;
+        action = '复查并拒绝退款申请';
+        break;
+      case 'return':
+        status = '已退回';
+        finalRefundAmount = 0;
+        action = '退回申请，要求补充资料';
+        break;
+    }
+
+    setRefunds((prev) =>
+      prev.map((r) =>
+        r.id === selectedRefundId
+          ? {
+              ...r,
+              status,
+              reviewComment: reviewComment || undefined,
+              reviewOperator: '财务李会计',
+              reviewTime: nowTime(),
+              finalRefundAmount,
+              couponAmount: finalCouponAmount,
+            }
+          : r
+      )
+    );
+
+    if (finalRefundAmount && finalRefundAmount > 0) {
+      setMembers((prev) =>
+        prev.map((m) =>
+          m.id === selectedMemberId
+            ? {
+                ...m,
+                balance: m.balance + finalRefundAmount,
+                totalConsume: m.totalConsume - finalRefundAmount,
+              }
+            : m
+        )
+      );
+    }
+
+    addHistory(
+      selectedRefundId,
+      action,
+      reviewComment || (finalRefundAmount ? `退款金额：¥${finalRefundAmount}` : '') +
+        (finalCouponAmount ? ` 补偿券：¥${finalCouponAmount}` : ''),
+      '财务',
+      '财务李会计'
+    );
+
+    setReviewComment('');
+    setReviewAmount('');
+    setCouponAmount('');
+  };
 
   return (
     <div className="min-h-screen bg-slate-100">
-      {/* 顶部标题栏 */}
       <header className="bg-white shadow-sm border-b border-slate-200">
         <div className="px-6 py-4">
           <div className="flex items-center justify-between">
@@ -70,7 +242,65 @@ export default function MemberRefundReview() {
       </header>
 
       <div className="p-6">
-        {/* 会员信息卡片 */}
+        <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-5 mb-5">
+          <div className="flex items-center gap-4">
+            <span className="text-sm font-medium text-slate-700 whitespace-nowrap">
+              查询会员：
+            </span>
+            <div className="flex items-center gap-2">
+              <select
+                value={searchType}
+                onChange={(e) => setSearchType(e.target.value as any)}
+                className="px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              >
+                <option value="memberId">会员编号</option>
+                <option value="phone">手机号</option>
+                <option value="wristband">手牌号</option>
+              </select>
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+                placeholder={
+                  searchType === 'memberId'
+                    ? '请输入会员编号，如 M001'
+                    : searchType === 'phone'
+                    ? '请输入手机号，如 138****1234'
+                    : '请输入手牌号，如 A001'
+                }
+                className="w-72 px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+              <button
+                onClick={handleSearch}
+                className="px-5 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                查询
+              </button>
+            </div>
+            <div className="ml-auto flex items-center gap-2 text-xs text-slate-500">
+              <span className="px-2 py-1 bg-slate-100 rounded">快速切换：</span>
+              {members.map((m) => (
+                <button
+                  key={m.id}
+                  onClick={() => {
+                    setSelectedMemberId(m.id);
+                    setSelectedConsumeId(null);
+                    setSelectedRefundId(null);
+                  }}
+                  className={`px-2 py-1 rounded transition-colors ${
+                    selectedMemberId === m.id
+                      ? 'bg-blue-100 text-blue-700 font-medium'
+                      : 'bg-slate-50 text-slate-600 hover:bg-slate-100'
+                  }`}
+                >
+                  {m.name}({m.id})
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
         {currentMember && (
           <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-5 mb-5">
             <div className="flex items-center justify-between">
@@ -93,9 +323,7 @@ export default function MemberRefundReview() {
                   <div className="flex items-center gap-6 mt-2 text-sm text-slate-500">
                     <span>会员编号：{currentMember.id}</span>
                     <span>注册日期：{currentMember.registerDate}</span>
-                    <span>
-                      最近消费：{currentMember.lastConsumeDate}
-                    </span>
+                    <span>最近消费：{currentMember.lastConsumeDate}</span>
                   </div>
                 </div>
               </div>
@@ -126,75 +354,51 @@ export default function MemberRefundReview() {
         )}
 
         <div className="grid grid-cols-12 gap-5">
-          {/* 左侧：消费明细 / 退款申请 列表 */}
-          <div className="col-span-7">
+          <div className="col-span-5">
             <div className="bg-white rounded-lg shadow-sm border border-slate-200 h-full">
-              {/* Tab 切换 */}
-              <div className="border-b border-slate-200">
-                <div className="flex">
-                  <button
-                    onClick={() => setActiveTab('consumption')}
-                    className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${
-                      activeTab === 'consumption'
-                        ? 'border-blue-600 text-blue-600'
-                        : 'border-transparent text-slate-500 hover:text-slate-700'
-                    }`}
-                  >
-                    消费明细
-                    <span className="ml-2 px-1.5 py-0.5 bg-slate-100 text-slate-600 text-xs rounded-full">
-                      {memberConsumptions.length}
-                    </span>
-                  </button>
-                  <button
-                    onClick={() => setActiveTab('refund')}
-                    className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${
-                      activeTab === 'refund'
-                        ? 'border-blue-600 text-blue-600'
-                        : 'border-transparent text-slate-500 hover:text-slate-700'
-                    }`}
-                  >
-                    退款申请
-                    <span className="ml-2 px-1.5 py-0.5 bg-slate-100 text-slate-600 text-xs rounded-full">
-                      {memberRefunds.length}
-                    </span>
-                  </button>
+              <div className="px-5 py-4 border-b border-slate-200">
+                <div className="flex items-center justify-between">
+                  <h3 className="font-semibold text-slate-800">消费流水</h3>
+                  <span className="text-xs text-slate-500">
+                    共 {memberConsumptions.length} 条记录
+                  </span>
                 </div>
+                <p className="text-xs text-slate-400 mt-1">
+                  点击选中后右侧自动联动显示关联退款申请
+                </p>
               </div>
-
-              {/* 消费明细列表 */}
-              {activeTab === 'consumption' && (
-                <div className="overflow-auto" style={{ maxHeight: '480px' }}>
-                  <table className="w-full">
-                    <thead className="bg-slate-50 sticky top-0">
-                      <tr>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
-                          手牌
-                        </th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
-                          消费项目
-                        </th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
-                          类型
-                        </th>
-                        <th className="px-4 py-3 text-right text-xs font-medium text-slate-500 uppercase tracking-wider">
-                          金额
-                        </th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
-                          支付方式
-                        </th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
-                          消费时间
-                        </th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
-                          操作员
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                      {memberConsumptions.map((item) => (
+              <div className="overflow-auto" style={{ maxHeight: '520px' }}>
+                <table className="w-full">
+                  <thead className="bg-slate-50 sticky top-0">
+                    <tr>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                        手牌
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                        消费项目
+                      </th>
+                      <th className="px-4 py-3 text-right text-xs font-medium text-slate-500 uppercase tracking-wider">
+                        金额
+                      </th>
+                      <th className="px-4 py-3 text-center text-xs font-medium text-slate-500 uppercase tracking-wider">
+                        退款
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {memberConsumptions.map((item) => {
+                      const hasRefund = refunds.some(
+                        (r) => r.consumeId === item.id
+                      );
+                      return (
                         <tr
                           key={item.id}
-                          className="hover:bg-slate-50 transition-colors"
+                          onClick={() => setSelectedConsumeId(item.id)}
+                          className={`cursor-pointer transition-colors ${
+                            selectedConsumeId === item.id
+                              ? 'bg-blue-50'
+                              : 'hover:bg-slate-50'
+                          }`}
                         >
                           <td className="px-4 py-3 whitespace-nowrap">
                             <span className="px-2 py-1 bg-blue-50 text-blue-700 text-sm font-medium rounded">
@@ -206,129 +410,107 @@ export default function MemberRefundReview() {
                               {item.itemName}
                             </div>
                             <div className="text-xs text-slate-500">
-                              {item.floor} · {item.quantity}份 × ¥{item.unitPrice}
+                              {item.consumeTime}
                             </div>
-                          </td>
-                          <td className="px-4 py-3 whitespace-nowrap">
-                            <span className="text-sm text-slate-600">
-                              {item.itemType}
-                            </span>
                           </td>
                           <td className="px-4 py-3 text-right whitespace-nowrap">
                             <span className="text-sm font-semibold text-slate-800">
                               ¥{item.amount.toFixed(2)}
                             </span>
                           </td>
-                          <td className="px-4 py-3 whitespace-nowrap">
-                            <span
-                              className={`px-2 py-0.5 text-xs rounded ${
-                                item.payMethod === '储值'
-                                  ? 'bg-emerald-50 text-emerald-700'
-                                  : 'bg-slate-100 text-slate-700'
-                              }`}
-                            >
-                              {item.payMethod}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3 whitespace-nowrap text-sm text-slate-600">
-                            {item.consumeTime}
-                          </td>
-                          <td className="px-4 py-3 whitespace-nowrap text-sm text-slate-600">
-                            {item.operator}
+                          <td className="px-4 py-3 text-center whitespace-nowrap">
+                            {hasRefund ? (
+                              <span className="px-2 py-0.5 bg-red-50 text-red-700 text-xs font-medium rounded">
+                                有退款
+                              </span>
+                            ) : (
+                              <span className="text-xs text-slate-400">-</span>
+                            )}
                           </td>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
 
-              {/* 退款申请列表 */}
-              {activeTab === 'refund' && (
-                <div className="overflow-auto" style={{ maxHeight: '480px' }}>
-                  <table className="w-full">
-                    <thead className="bg-slate-50 sticky top-0">
-                      <tr>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
-                          申请编号
-                        </th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
-                          关联消费项目
-                        </th>
-                        <th className="px-4 py-3 text-right text-xs font-medium text-slate-500 uppercase tracking-wider">
-                          申请金额
-                        </th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
-                          状态
-                        </th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
-                          申请时间
-                        </th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
-                          申请人
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                      {memberRefunds.map((refund) => (
-                        <tr
+          <div className="col-span-3">
+            <div className="bg-white rounded-lg shadow-sm border border-slate-200 h-full">
+              <div className="px-5 py-4 border-b border-slate-200">
+                <div className="flex items-center justify-between">
+                  <h3 className="font-semibold text-slate-800">退款申请</h3>
+                  <span className="text-xs text-slate-500">
+                    {selectedConsumeId
+                      ? `关联 ${relatedRefunds.length} 条`
+                      : `全部 ${memberRefunds.length} 条`}
+                  </span>
+                </div>
+                {selectedConsume && (
+                  <p className="text-xs text-blue-600 mt-1 bg-blue-50 px-2 py-1 rounded">
+                    已筛选：{selectedConsume.itemName}
+                  </p>
+                )}
+              </div>
+              <div className="overflow-auto" style={{ maxHeight: '520px' }}>
+                {(selectedConsumeId ? relatedRefunds : memberRefunds).length >
+                0 ? (
+                  <div className="divide-y divide-slate-100">
+                    {(selectedConsumeId ? relatedRefunds : memberRefunds).map(
+                      (refund) => (
+                        <div
                           key={refund.id}
                           onClick={() => setSelectedRefundId(refund.id)}
-                          className={`cursor-pointer transition-colors ${
+                          className={`p-4 cursor-pointer transition-colors ${
                             selectedRefundId === refund.id
-                              ? 'bg-blue-50'
-                              : 'hover:bg-slate-50'
+                              ? 'bg-blue-50 border-l-4 border-blue-500'
+                              : 'hover:bg-slate-50 border-l-4 border-transparent'
                           }`}
                         >
-                          <td className="px-4 py-3 whitespace-nowrap">
+                          <div className="flex items-center justify-between mb-2">
                             <span className="text-sm font-medium text-blue-600">
                               {refund.id}
                             </span>
-                          </td>
-                          <td className="px-4 py-3">
-                            <div className="text-sm font-medium text-slate-800">
-                              {refund.itemName}
-                            </div>
-                            <div className="text-xs text-slate-500">
-                              手牌：{refund.wristbandNo}
-                            </div>
-                          </td>
-                          <td className="px-4 py-3 text-right whitespace-nowrap">
-                            <span className="text-sm font-semibold text-red-600">
-                              ¥{refund.applyAmount.toFixed(2)}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3 whitespace-nowrap">
                             <span
                               className={`px-2 py-0.5 text-xs font-medium rounded ${statusColors[refund.status]}`}
                             >
                               {refund.status}
                             </span>
-                          </td>
-                          <td className="px-4 py-3 whitespace-nowrap text-sm text-slate-600">
-                            {refund.applyTime}
-                          </td>
-                          <td className="px-4 py-3 whitespace-nowrap text-sm text-slate-600">
-                            {refund.applicant}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
+                          </div>
+                          <p className="text-sm text-slate-800 mb-1">
+                            {refund.itemName}
+                          </p>
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm font-semibold text-red-600">
+                              ¥{refund.applyAmount.toFixed(2)}
+                            </span>
+                            <span className="text-xs text-slate-400">
+                              {refund.applyTime.slice(5, 16)}
+                            </span>
+                          </div>
+                        </div>
+                      )
+                    )}
+                  </div>
+                ) : (
+                  <div className="p-8 text-center text-slate-400 text-sm">
+                    {selectedConsumeId
+                      ? '该消费暂无退款申请'
+                      : '暂无退款申请'}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
-          {/* 右侧：退款详情 + 复查备注 + 处理历史 */}
-          <div className="col-span-5 space-y-5">
-            {/* 退款申请详情 */}
+          <div className="col-span-4 space-y-5">
             <div className="bg-white rounded-lg shadow-sm border border-slate-200">
               <div className="px-5 py-4 border-b border-slate-200">
-                <h3 className="font-semibold text-slate-800">退款详情</h3>
+                <h3 className="font-semibold text-slate-800">退款详情与处理</h3>
               </div>
               {selectedRefund ? (
-                <div className="p-5 space-y-4">
+                <div className="p-5 space-y-3 max-h-96 overflow-auto">
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-slate-500">申请编号</span>
                     <span className="text-sm font-medium text-slate-800">
@@ -372,29 +554,29 @@ export default function MemberRefundReview() {
                   {selectedRefund.couponAmount !== undefined &&
                     selectedRefund.couponAmount > 0 && (
                       <div className="flex items-center justify-between">
-                        <span className="text-sm text-slate-500">补偿券金额</span>
+                        <span className="text-sm text-slate-500">
+                          补偿券金额
+                        </span>
                         <span className="text-lg font-bold text-pink-600">
                           ¥{selectedRefund.couponAmount.toFixed(2)}
                         </span>
                       </div>
                     )}
-                  <div className="pt-3 border-t border-slate-100">
+                  <div className="pt-2 border-t border-slate-100">
                     <p className="text-sm text-slate-500 mb-1">申请原因</p>
                     <p className="text-sm text-slate-700 bg-slate-50 p-3 rounded">
                       {selectedRefund.applyReason}
                     </p>
                   </div>
 
-                  {/* 楼层主管补充 */}
                   {selectedRefund.disputeSupplement && (
-                    <div className="pt-3 border-t border-slate-100">
+                    <div className="pt-2 border-t border-slate-100">
                       <div className="flex items-center justify-between mb-1">
                         <p className="text-sm text-slate-500">
                           楼层主管补充说明
                         </p>
                         <span className="text-xs text-slate-400">
-                          {selectedRefund.disputeOperator} ·{' '}
-                          {selectedRefund.disputeTime}
+                          {selectedRefund.disputeOperator}
                         </span>
                       </div>
                       <p className="text-sm text-slate-700 bg-amber-50 p-3 rounded border border-amber-100">
@@ -403,14 +585,12 @@ export default function MemberRefundReview() {
                     </div>
                   )}
 
-                  {/* 财务复查备注 */}
                   {selectedRefund.reviewComment && (
-                    <div className="pt-3 border-t border-slate-100">
+                    <div className="pt-2 border-t border-slate-100">
                       <div className="flex items-center justify-between mb-1">
                         <p className="text-sm text-slate-500">财务复查备注</p>
                         <span className="text-xs text-slate-400">
-                          {selectedRefund.reviewOperator} ·{' '}
-                          {selectedRefund.reviewTime}
+                          {selectedRefund.reviewOperator}
                         </span>
                       </div>
                       <p className="text-sm text-slate-700 bg-emerald-50 p-3 rounded border border-emerald-100">
@@ -421,19 +601,135 @@ export default function MemberRefundReview() {
                 </div>
               ) : (
                 <div className="p-10 text-center text-slate-400">
-                  <p>请从左侧列表选择退款申请</p>
-                  <p className="text-xs mt-1">查看详情、复查备注和处理历史</p>
+                  <p>请从左侧选择退款申请</p>
+                  <p className="text-xs mt-1">查看详情并进行处理操作</p>
                 </div>
               )}
             </div>
 
-            {/* 处理历史 */}
+            {selectedRefund && !selectedRefund.disputeSupplement && (
+              <div className="bg-white rounded-lg shadow-sm border border-amber-200">
+                <div className="px-5 py-3 border-b border-amber-100 bg-amber-50">
+                  <h3 className="font-semibold text-amber-800 text-sm">
+                    楼层主管 - 服务争议补充
+                  </h3>
+                </div>
+                <div className="p-4">
+                  <textarea
+                    value={disputeText}
+                    onChange={(e) => setDisputeText(e.target.value)}
+                    placeholder="请输入争议核实情况和补充说明..."
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent resize-none"
+                    rows={3}
+                  />
+                  <button
+                    onClick={handleSaveDispute}
+                    disabled={!disputeText.trim()}
+                    className="mt-3 w-full px-4 py-2 bg-amber-600 text-white text-sm font-medium rounded-lg hover:bg-amber-700 transition-colors disabled:bg-slate-300 disabled:cursor-not-allowed"
+                  >
+                    保存补充说明
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {selectedRefund &&
+              !['已批准', '已拒绝', '部分退款', '补偿券替代'].includes(
+                selectedRefund.status
+              ) && (
+                <div className="bg-white rounded-lg shadow-sm border border-emerald-200">
+                  <div className="px-5 py-3 border-b border-emerald-100 bg-emerald-50">
+                    <h3 className="font-semibold text-emerald-800 text-sm">
+                      财务 - 复查处理
+                    </h3>
+                  </div>
+                  <div className="p-4 space-y-3">
+                    <div>
+                      <label className="text-sm text-slate-600 mb-1.5 block">
+                        处理结果
+                      </label>
+                      <div className="grid grid-cols-5 gap-1">
+                        {[
+                          { value: 'approve', label: '全额批准' },
+                          { value: 'partial', label: '部分退款' },
+                          { value: 'coupon', label: '补偿券' },
+                          { value: 'reject', label: '拒绝' },
+                          { value: 'return', label: '退回' },
+                        ].map((opt) => (
+                          <button
+                            key={opt.value}
+                            onClick={() => setReviewResult(opt.value as any)}
+                            className={`px-2 py-1.5 text-xs font-medium rounded transition-colors ${
+                              reviewResult === opt.value
+                                ? 'bg-emerald-600 text-white'
+                                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                            }`}
+                          >
+                            {opt.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {reviewResult === 'partial' && (
+                      <div>
+                        <label className="text-sm text-slate-600 mb-1.5 block">
+                          部分退款金额 (元)
+                        </label>
+                        <input
+                          type="number"
+                          value={reviewAmount}
+                          onChange={(e) => setReviewAmount(e.target.value)}
+                          placeholder={`最多 ${selectedRefund.applyAmount} 元`}
+                          className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                        />
+                      </div>
+                    )}
+
+                    {reviewResult === 'coupon' && (
+                      <div>
+                        <label className="text-sm text-slate-600 mb-1.5 block">
+                          补偿券金额 (元)
+                        </label>
+                        <input
+                          type="number"
+                          value={couponAmount}
+                          onChange={(e) => setCouponAmount(e.target.value)}
+                          placeholder={`建议 ${selectedRefund.applyAmount} 元`}
+                          className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                        />
+                      </div>
+                    )}
+
+                    <div>
+                      <label className="text-sm text-slate-600 mb-1.5 block">
+                        复查备注
+                      </label>
+                      <textarea
+                        value={reviewComment}
+                        onChange={(e) => setReviewComment(e.target.value)}
+                        placeholder="请输入复查意见..."
+                        className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent resize-none"
+                        rows={2}
+                      />
+                    </div>
+
+                    <button
+                      onClick={handleSubmitReview}
+                      className="w-full px-4 py-2 bg-emerald-600 text-white text-sm font-medium rounded-lg hover:bg-emerald-700 transition-colors"
+                    >
+                      提交复查结果
+                    </button>
+                  </div>
+                </div>
+              )}
+
             <div className="bg-white rounded-lg shadow-sm border border-slate-200">
               <div className="px-5 py-4 border-b border-slate-200">
                 <h3 className="font-semibold text-slate-800">处理历史</h3>
               </div>
               {refundHistory.length > 0 ? (
-                <div className="p-5">
+                <div className="p-5 max-h-64 overflow-auto">
                   <div className="relative">
                     <div className="absolute left-3 top-0 bottom-0 w-0.5 bg-slate-200"></div>
                     <div className="space-y-4">
@@ -474,15 +770,14 @@ export default function MemberRefundReview() {
                   </div>
                 </div>
               ) : (
-                <div className="p-8 text-center text-slate-400">
-                  <p>暂无处理历史</p>
+                <div className="p-8 text-center text-slate-400 text-sm">
+                  {selectedRefundId ? '暂无处理历史' : '请选择退款申请'}
                 </div>
               )}
             </div>
           </div>
         </div>
 
-        {/* Mock 数据说明 */}
         <div className="mt-5 bg-white rounded-lg shadow-sm border border-slate-200 p-5">
           <div className="flex items-start gap-3">
             <div className="w-8 h-8 bg-blue-100 rounded flex items-center justify-center flex-shrink-0">
@@ -507,20 +802,22 @@ export default function MemberRefundReview() {
                 <code className="mx-1 px-1.5 py-0.5 bg-slate-100 text-slate-700 rounded text-xs">
                   src/mock/data.ts
                 </code>
-                包含会员信息、消费流水、退款申请、处理历史等完整数据结构。
               </p>
               <div className="mt-2 flex flex-wrap gap-2 text-xs">
                 <span className="px-2 py-1 bg-slate-100 text-slate-600 rounded">
-                  会员数据：3 条
+                  可操作：按会员编号/手机号/手牌号查询
                 </span>
                 <span className="px-2 py-1 bg-slate-100 text-slate-600 rounded">
-                  消费流水：6 条
+                  可联动：选中消费显示关联退款
                 </span>
                 <span className="px-2 py-1 bg-slate-100 text-slate-600 rounded">
-                  退款申请：4 条（含处理中、部分退款、补偿券替代、已拒绝）
+                  可录入：楼层主管争议补充
                 </span>
                 <span className="px-2 py-1 bg-slate-100 text-slate-600 rounded">
-                  处理历史：8 条
+                  可处理：批准/部分退款/补偿券/拒绝/退回
+                </span>
+                <span className="px-2 py-1 bg-slate-100 text-slate-600 rounded">
+                  自动同步：余额、累计消费、处理历史
                 </span>
               </div>
             </div>
