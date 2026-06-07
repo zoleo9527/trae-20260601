@@ -513,53 +513,52 @@ export default function HandlerPage({ activeTab, onTabChange }: HandlerPageProps
           expandable={{
             expandedRowRender: (record) => (
               <div>
-                {(record.refundHistory || []).length > 0 ? (
-                  <Steps
-                    direction="vertical"
-                    size="small"
-                    items={[
-                      { 
-                        title: '前台上报', 
-                        description: record.abnormalRecord?.reportedAt, 
-                        icon: <UserOutlined />,
-                        status: 'finish'
-                      },
-                      { 
-                        title: '我处理', 
-                        description: record.handledAt, 
-                        icon: <MessageOutlined />,
-                        status: 'finish'
-                      },
-                      ...(record.refundHistory || []).map((r, idx) => ({
-                        title: `第${idx + 1}轮退款`,
-                        description: r.appliedAt,
-                        icon: r.reviewedAt 
-                          ? (r.status === 'approved' ? <CheckOutlined /> : r.returnToHandler ? <RollbackOutlined /> : <CloseOutlined />) 
-                          : <ClockCircleOutlined />,
-                        status: r.reviewedAt 
-                          ? (r.status === 'approved' ? 'finish' : r.returnToHandler ? 'error' : 'finish') 
-                          : 'process' as 'process' | 'finish' | 'error',
-                      })),
-                    ]}
-                  />
-                ) : (
-                  <Steps
-                    size="small"
-                    current={2}
-                    items={[
-                      { title: '前台上报', description: record.abnormalRecord?.reportedAt, icon: <UserOutlined /> },
-                      { title: '我处理', description: record.handledAt, icon: <MessageOutlined /> },
-                      { 
-                        title: record.refundRecord ? '店长审核' : '处理完成', 
-                        description: record.refundRecord?.reviewedAt || record.handledAt,
-                        icon: record.refundRecord ? 
-                          (record.refundRecord.status === 'approved' ? <CheckOutlined /> : 
-                           record.refundRecord.status === 'rejected' ? <CloseOutlined /> : <ClockCircleOutlined />) 
-                          : <CheckOutlined />
-                      },
-                    ]}
-                  />
-                )}
+                <Steps
+                  direction="vertical"
+                  size="small"
+                  items={[
+                    { 
+                      title: '前台上报', 
+                      description: record.abnormalRecord?.reportedAt, 
+                      icon: <UserOutlined />,
+                      status: 'finish'
+                    },
+                    { 
+                      title: '我处理', 
+                      description: record.handledAt, 
+                      icon: <MessageOutlined />,
+                      status: 'finish'
+                    },
+                    ...(record.refundHistory || []).length > 0
+                      ? (record.refundHistory || []).map((r, idx) => ({
+                          title: `第${idx + 1}轮退款`,
+                          description: r.appliedAt,
+                          icon: r.reviewedAt 
+                            ? (r.status === 'approved' ? <CheckOutlined /> : r.returnToHandler ? <RollbackOutlined /> : <CloseOutlined />) 
+                            : <ClockCircleOutlined />,
+                          status: r.reviewedAt 
+                            ? (r.status === 'approved' ? 'finish' : r.returnToHandler ? 'error' : 'finish') 
+                            : 'process' as 'process' | 'finish' | 'error',
+                        }))
+                      : record.refundRecord
+                        ? [{
+                            title: '第1轮退款',
+                            description: record.refundRecord.appliedAt,
+                            icon: record.refundRecord.reviewedAt 
+                              ? (record.refundRecord.status === 'approved' ? <CheckOutlined /> : record.refundRecord.returnToHandler ? <RollbackOutlined /> : <CloseOutlined />) 
+                              : <ClockCircleOutlined />,
+                            status: record.refundRecord.reviewedAt 
+                              ? (record.refundRecord.status === 'approved' ? 'finish' : record.refundRecord.returnToHandler ? 'error' : 'finish') 
+                              : 'process' as 'process' | 'finish' | 'error',
+                          }]
+                        : [{
+                            title: '处理完成',
+                            description: record.handledAt,
+                            icon: <CheckOutlined />,
+                            status: 'finish' as const,
+                          }],
+                  ]}
+                />
                 <Divider />
                 <Descriptions column={1} size="small">
                   {record.abnormalRecord && (
@@ -568,37 +567,42 @@ export default function HandlerPage({ activeTab, onTabChange }: HandlerPageProps
                   {record.handlerNote && (
                     <Descriptions.Item label="处理意见">{record.handlerNote}</Descriptions.Item>
                   )}
-                  {(record.refundHistory || []).map((r, idx) => (
-                    <Descriptions.Item key={r.id} label={`第${idx + 1}轮退款`}>
-                      申请 ¥{r.amount}：{r.reason}（{r.applicant}）
-                      {r.reviewedAt ? (
-                        <>
-                          <br />
-                          <Tag color={r.status === 'approved' ? 'green' : r.returnToHandler ? 'orange' : 'default'}>
-                            {r.status === 'approved' ? '通过' : r.returnToHandler ? '退回重提' : '拒绝'}
-                          </Tag>
-                          {r.managerNote && <span style={{ color: '#666', marginLeft: 4 }}>{r.managerNote}</span>}
-                        </>
-                      ) : (
-                        <Tag color="warning" style={{ marginLeft: 8 }}>待审核</Tag>
-                      )}
-                    </Descriptions.Item>
-                  ))}
-                  {(!record.refundHistory || record.refundHistory.length === 0) && record.refundRecord && (
-                    <>
-                      <Descriptions.Item label="退款申请">
-                        金额 ¥{record.refundRecord.amount}，原因：{record.refundRecord.reason}
-                      </Descriptions.Item>
-                      {record.refundRecord.managerNote && (
-                        <Descriptions.Item label="店长意见">
-                          <Tag color={record.refundRecord.status === 'approved' ? 'green' : record.refundRecord.returnToHandler ? 'orange' : 'default'}>
-                            {record.refundRecord.status === 'approved' ? '通过' : record.refundRecord.returnToHandler ? '退回重提' : '拒绝'}
-                          </Tag>
-                          ：{record.refundRecord.managerNote}
+                  {(record.refundHistory || []).length > 0
+                    ? (record.refundHistory || []).map((r, idx) => (
+                        <Descriptions.Item key={r.id} label={`第${idx + 1}轮退款`}>
+                          申请 ¥{r.amount}：{r.reason}（{r.applicant}）
+                          {r.reviewedAt ? (
+                            <>
+                              <br />
+                              <Tag color={r.status === 'approved' ? 'green' : r.returnToHandler ? 'orange' : 'default'}>
+                                {r.status === 'approved' ? '通过' : r.returnToHandler ? '退回重提' : '拒绝'}
+                              </Tag>
+                              {r.managerNote && <span style={{ color: '#666', marginLeft: 4 }}>{r.managerNote}</span>}
+                            </>
+                          ) : (
+                            <Tag color="warning" style={{ marginLeft: 8 }}>待审核</Tag>
+                          )}
                         </Descriptions.Item>
-                      )}
-                    </>
-                  )}
+                      ))
+                    : record.refundRecord
+                      ? [(
+                          <Descriptions.Item key={record.refundRecord.id} label="第1轮退款">
+                            申请 ¥{record.refundRecord.amount}：{record.refundRecord.reason}（{record.refundRecord.applicant}）
+                            {record.refundRecord.reviewedAt ? (
+                              <>
+                                <br />
+                                <Tag color={record.refundRecord.status === 'approved' ? 'green' : record.refundRecord.returnToHandler ? 'orange' : 'default'}>
+                                  {record.refundRecord.status === 'approved' ? '通过' : record.refundRecord.returnToHandler ? '退回重提' : '拒绝'}
+                                </Tag>
+                                {record.refundRecord.managerNote && <span style={{ color: '#666', marginLeft: 4 }}>{record.refundRecord.managerNote}</span>}
+                              </>
+                            ) : (
+                              <Tag color="warning" style={{ marginLeft: 8 }}>待审核</Tag>
+                            )}
+                          </Descriptions.Item>
+                        )]
+                      : null
+                  }
                 </Descriptions>
               </div>
             ),
