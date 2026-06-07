@@ -113,13 +113,15 @@ type CreateReleaseFromCertRequest struct {
 
 // CreateReleaseFromCertificate 从检疫证明创建关联放行单
 // @Summary 从已通过的检疫证明创建关联放行单
-// @Description 从检疫证明详情页创建关联的质检放行单，自动关联批次和产品信息，支持幂等提交
+// @Description 从检疫证明详情页创建关联的质检放行单，自动关联批次和产品信息。支持幂等提交：传入 X-Idempotency-Key 请求头，相同键重复提交返回首次创建结果（状态码201、JSON响应体、Content-Type完全一致）
 // @Tags 检疫证明
 // @Accept json
 // @Produce json
+// @Param X-Idempotency-Key header string false "幂等键，建议使用 UUID 或业务唯一标识，相同键重复提交返回首次结果"
 // @Param id path int true "检疫证明ID（必须是已通过状态）"
 // @Param request body CreateReleaseFromCertRequest true "放行单信息"
-// @Success 201 {object} models.QualityRelease "创建成功，返回放行单详情"
+// @Success 201 {object} models.QualityRelease "创建成功，返回放行单详情（含关联检疫证明）"
+// @Header 201 {string} X-Idempotency-Hit "幂等命中标记：仅重复提交时返回值为 true"
 // @Failure 400 {object} object "请求参数错误或证明状态不允许"
 // @Failure 404 {object} object "检疫证明不存在"
 // @Security BearerAuth
@@ -182,9 +184,10 @@ func CreateReleaseFromCertificate(c *fiber.Ctx) error {
 	database.DB.Preload("SubmittedBy").Preload("Certificate").First(&release, release.ID)
 
 	resp, _ := json.Marshal(release)
+	c.Status(201).Type("application/json")
 	middleware.SaveIdempotencyResponse(c, resp)
 
-	return c.Status(201).JSON(release)
+	return c.Send(resp)
 }
 
 type CreateCertificateRequest struct {
@@ -199,13 +202,14 @@ type CreateCertificateRequest struct {
 
 // CreateCertificate 创建检疫证明
 // @Summary 创建新的检疫证明
-// @Description 创建新的检疫证明，支持幂等提交（通过 X-Idempotency-Key 请求头）
+// @Description 创建新的检疫证明。支持幂等提交：传入 X-Idempotency-Key 请求头，相同键重复提交返回首次创建结果（状态码201、JSON响应体、Content-Type完全一致）
 // @Tags 检疫证明
 // @Accept json
 // @Produce json
-// @Param X-Idempotency-Key header string false "幂等键，相同键重复提交返回首次结果"
+// @Param X-Idempotency-Key header string false "幂等键，建议使用 UUID 或业务唯一标识，相同键重复提交返回首次结果"
 // @Param request body CreateCertificateRequest true "检疫证明信息"
 // @Success 201 {object} models.QuarantineCertificate "创建成功"
+// @Header 201 {string} X-Idempotency-Hit "幂等命中标记：仅重复提交时返回值为 true"
 // @Failure 400 {object} object "请求参数错误或编号已存在"
 // @Security BearerAuth
 // @Router /certificates [post]
@@ -252,9 +256,10 @@ func CreateCertificate(c *fiber.Ctx) error {
 	database.DB.Preload("SubmittedBy").First(&cert, cert.ID)
 
 	resp, _ := json.Marshal(cert)
+	c.Status(201).Type("application/json")
 	middleware.SaveIdempotencyResponse(c, resp)
 
-	return c.Status(201).JSON(cert)
+	return c.Send(resp)
 }
 
 type UpdateCertificateStatusRequest struct {
@@ -426,13 +431,14 @@ type CreateReleaseRequest struct {
 
 // CreateRelease 创建质检放行单
 // @Summary 创建新的质检放行单
-// @Description 创建新的质检放行单，可关联已通过的检疫证明，支持幂等提交
+// @Description 创建新的质检放行单，可关联已通过的检疫证明。支持幂等提交：传入 X-Idempotency-Key 请求头，相同键重复提交返回首次创建结果（状态码201、JSON响应体、Content-Type完全一致）
 // @Tags 质检放行
 // @Accept json
 // @Produce json
-// @Param X-Idempotency-Key header string false "幂等键，相同键重复提交返回首次结果"
+// @Param X-Idempotency-Key header string false "幂等键，建议使用 UUID 或业务唯一标识，相同键重复提交返回首次结果"
 // @Param request body CreateReleaseRequest true "放行单信息"
 // @Success 201 {object} models.QualityRelease "创建成功"
+// @Header 201 {string} X-Idempotency-Hit "幂等命中标记：仅重复提交时返回值为 true"
 // @Failure 400 {object} object "请求参数错误或编号已存在"
 // @Security BearerAuth
 // @Router /releases [post]
@@ -472,9 +478,10 @@ func CreateRelease(c *fiber.Ctx) error {
 	database.DB.Preload("SubmittedBy").First(&release, release.ID)
 
 	resp, _ := json.Marshal(release)
+	c.Status(201).Type("application/json")
 	middleware.SaveIdempotencyResponse(c, resp)
 
-	return c.Status(201).JSON(release)
+	return c.Send(resp)
 }
 
 type UpdateReleaseStatusRequest struct {

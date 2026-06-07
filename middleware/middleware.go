@@ -63,7 +63,8 @@ func IdempotencyCheck(c *fiber.Ctx) error {
 	var record models.IdempotencyRecord
 	if err := database.DB.Where("key = ?", key).First(&record).Error; err == nil {
 		c.Set("X-Idempotency-Hit", "true")
-		return c.Status(200).SendString(record.ResponseJSON)
+		c.Set("Content-Type", record.ContentType)
+		return c.Status(record.StatusCode).SendString(record.ResponseJSON)
 	}
 
 	c.Locals("idempotency_key", key)
@@ -76,8 +77,16 @@ func SaveIdempotencyResponse(c *fiber.Ctx, response []byte) {
 		return
 	}
 
+	statusCode := c.Response().StatusCode()
+	contentType := string(c.Response().Header.ContentType())
+	if contentType == "" {
+		contentType = "application/json"
+	}
+
 	record := models.IdempotencyRecord{
 		Key:          key,
+		StatusCode:   statusCode,
+		ContentType:  contentType,
 		ResponseJSON: string(response),
 	}
 	database.DB.Create(&record)

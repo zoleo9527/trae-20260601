@@ -87,7 +87,7 @@ const docTemplate = `{
             },
             "post": {
                 "security": [{"BearerAuth": []}],
-                "description": "创建新的检疫证明，支持幂等提交（通过 X-Idempotency-Key 请求头）",
+                "description": "创建新的检疫证明。支持幂等提交：传入 X-Idempotency-Key 请求头，相同键重复提交返回首次创建结果（状态码201、JSON响应体、Content-Type完全一致）",
                 "consumes": ["application/json"],
                 "produces": ["application/json"],
                 "tags": ["检疫证明"],
@@ -95,7 +95,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "幂等键，相同键重复提交返回首次结果",
+                        "description": "幂等键，建议使用 UUID 或业务唯一标识，相同键重复提交返回首次结果",
                         "name": "X-Idempotency-Key",
                         "in": "header"
                     },
@@ -118,7 +118,15 @@ const docTemplate = `{
                     }
                 ],
                 "responses": {
-                    "201": {"description": "创建成功"},
+                    "201": {
+                        "description": "创建成功",
+                        "headers": {
+                            "X-Idempotency-Hit": {
+                                "type": "string",
+                                "description": "幂等命中标记：仅重复提交时返回值为 true"
+                            }
+                        }
+                    },
                     "400": {"description": "请求参数错误或编号已存在"}
                 }
             }
@@ -222,12 +230,18 @@ const docTemplate = `{
         "/certificates/{id}/releases": {
             "post": {
                 "security": [{"BearerAuth": []}],
-                "description": "从检疫证明详情页创建关联的质检放行单，自动关联批次和产品信息，支持幂等提交",
+                "description": "从检疫证明详情页创建关联的质检放行单，自动关联批次和产品信息。支持幂等提交：传入 X-Idempotency-Key 请求头，相同键重复提交返回首次创建结果（状态码201、JSON响应体、Content-Type完全一致）",
                 "consumes": ["application/json"],
                 "produces": ["application/json"],
                 "tags": ["检疫证明"],
                 "summary": "从已通过的检疫证明创建关联放行单",
                 "parameters": [
+                    {
+                        "type": "string",
+                        "description": "幂等键，建议使用 UUID 或业务唯一标识，相同键重复提交返回首次结果",
+                        "name": "X-Idempotency-Key",
+                        "in": "header"
+                    },
                     {
                         "type": "integer",
                         "description": "检疫证明ID（必须是已通过状态）",
@@ -251,7 +265,15 @@ const docTemplate = `{
                     }
                 ],
                 "responses": {
-                    "201": {"description": "创建成功，返回放行单详情"},
+                    "201": {
+                        "description": "创建成功，返回放行单详情（含关联检疫证明）",
+                        "headers": {
+                            "X-Idempotency-Hit": {
+                                "type": "string",
+                                "description": "幂等命中标记：仅重复提交时返回值为 true"
+                            }
+                        }
+                    },
                     "400": {"description": "请求参数错误或证明状态不允许"},
                     "404": {"description": "检疫证明不存在"}
                 }
@@ -283,7 +305,7 @@ const docTemplate = `{
             },
             "post": {
                 "security": [{"BearerAuth": []}],
-                "description": "创建新的质检放行单，可关联已通过的检疫证明，支持幂等提交",
+                "description": "创建新的质检放行单，可关联已通过的检疫证明。支持幂等提交：传入 X-Idempotency-Key 请求头，相同键重复提交返回首次创建结果（状态码201、JSON响应体、Content-Type完全一致）",
                 "consumes": ["application/json"],
                 "produces": ["application/json"],
                 "tags": ["质检放行"],
@@ -291,7 +313,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "幂等键，相同键重复提交返回首次结果",
+                        "description": "幂等键，建议使用 UUID 或业务唯一标识，相同键重复提交返回首次结果",
                         "name": "X-Idempotency-Key",
                         "in": "header"
                     },
@@ -314,7 +336,15 @@ const docTemplate = `{
                     }
                 ],
                 "responses": {
-                    "201": {"description": "创建成功"},
+                    "201": {
+                        "description": "创建成功",
+                        "headers": {
+                            "X-Idempotency-Hit": {
+                                "type": "string",
+                                "description": "幂等命中标记：仅重复提交时返回值为 true"
+                            }
+                        }
+                    },
                     "400": {"description": "请求参数错误或编号已存在"}
                 }
             }

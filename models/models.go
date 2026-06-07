@@ -104,6 +104,8 @@ type ReleaseNote struct {
 type IdempotencyRecord struct {
 	ID           uint      `gorm:"primaryKey"`
 	Key          string    `gorm:"uniqueIndex;not null"`
+	StatusCode   int       `gorm:"not null;default:200"`
+	ContentType  string    `gorm:"not null;default:'application/json'"`
 	ResponseJSON string    `gorm:"type:text"`
 	CreatedAt    time.Time
 }
