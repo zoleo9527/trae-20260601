@@ -85,7 +85,7 @@
     admin: '管理员'
   };
   
-  function formatDateTime(date: string | Date | null) {
+  function formatDateTime(date: string | Date | null | undefined) {
     if (!date) return '-';
     const d = new Date(date);
     return d.toLocaleString('zh-CN', { 
@@ -96,7 +96,7 @@
     });
   }
   
-  function formatTime(date: string | Date | null) {
+  function formatTime(date: string | Date | null | undefined) {
     if (!date) return '-';
     const d = new Date(date);
     return d.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });

@@ -1,4 +1,4 @@
-import type { Booking, Room, Member, DrinkItem, User, TodoItem, IssueRecord, Note, RechargeRecord, RejectionType, UserRole, DrinkOrderItem, DrinkOrderStatus } from '../types';
+import type { Booking, Room, Member, DrinkItem, User, TodoItem, IssueRecord, Note, RechargeRecord, RejectionType, UserRole, DrinkOrderItem, DrinkOrderStatus, MemberLevel } from '../types';
 
 const currentUser: User = {
   id: 'user-001',
@@ -834,9 +834,9 @@ export function completeSupplement(
       changes.push(`关联会员：${supplementData.memberName} (${supplementData.memberLevel || '普通'})`);
     } else {
       const oldMember = booking.memberName || '原会员';
-      booking.memberId = null;
-      booking.memberName = null;
-      booking.memberLevel = null;
+      booking.memberId = undefined;
+      booking.memberName = undefined;
+      booking.memberLevel = undefined;
       changes.push(`取消会员关联，改为散客`);
     }
   }
@@ -1079,9 +1079,19 @@ export function updateBookingPayment(bookingId: string, paidAmount: number, useM
 
 export function updateBooking(bookingId: string, updates: Partial<Booking>): Booking | undefined {
   const booking = bookings.find(b => b.id === bookingId);
-  if (booking) {
-    Object.assign(booking, updates);
-    booking.updatedAt = new Date();
+  if (!booking) return undefined;
+
+  const protectedFields: (keyof Booking)[] = [
+    'id', 'bookingNo', 'status', 'createdBy', 'createdAt',
+    'confirmedBy', 'confirmedAt', 'checkedInBy', 'checkedInAt',
+    'completedBy', 'completedAt', 'notes', 'issues'
+  ];
+  
+  for (const [key, value] of Object.entries(updates)) {
+    if (protectedFields.includes(key as keyof Booking)) continue;
+    (booking as any)[key] = value;
   }
+  
+  booking.updatedAt = new Date();
   return booking;
 }

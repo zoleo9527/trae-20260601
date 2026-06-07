@@ -183,7 +183,7 @@
 
     {#if currentRole === 'admin'}
       <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {#each (['booking_clerk', 'floor_manager', 'bar_staff'] as UserRole[]).map(role => ({ role, todos: getRoleTodos(role) }))}
+        {#each (['booking_clerk', 'floor_manager', 'bar_staff'] as const).map(r => ({ role: r as UserRole, todos: getRoleTodos(r as UserRole) })) as { role, todos }}
           <div class="card">
             <div class="p-4 border-b border-gray-100 flex items-center justify-between">
               <h3 class="font-semibold text-gray-800">{roleNames[role]}</h3>
