@@ -1,4 +1,4 @@
-import { DollarSign, Droplets, Users, FileText } from 'lucide-react';
+import { DollarSign, Droplets, Users, FileText, Fuel } from 'lucide-react';
 import type { Discrepancy, DiscrepancyType } from '@/types';
 
 interface DiscrepancyTabsProps {
@@ -13,6 +13,7 @@ const typeConfig: Array<{ type: DiscrepancyType | 'all'; label: string; icon: Re
   { type: 'oil', label: '油品', icon: Droplets },
   { type: 'member', label: '会员', icon: Users },
   { type: 'invoice', label: '发票', icon: FileText },
+  { type: 'nozzle', label: '油枪', icon: Fuel },
 ];
 
 export default function DiscrepancyTabs({ discrepancies, activeType, onTypeChange }: DiscrepancyTabsProps) {

@@ -1,4 +1,4 @@
-import { DollarSign, Droplets, Users, FileText } from 'lucide-react';
+import { DollarSign, Droplets, Users, FileText, Fuel } from 'lucide-react';
 import type { DiscrepancySummary, DiscrepancyType } from '@/types';
 
 interface StatCardProps {
@@ -10,6 +10,7 @@ const iconMap: Record<DiscrepancyType, React.ReactNode> = {
   oil: <Droplets className="w-6 h-6" />,
   member: <Users className="w-6 h-6" />,
   invoice: <FileText className="w-6 h-6" />,
+  nozzle: <Fuel className="w-6 h-6" />,
 };
 
 const colorMap: Record<DiscrepancyType, { bg: string; text: string; ring: string }> = {
@@ -17,6 +18,7 @@ const colorMap: Record<DiscrepancyType, { bg: string; text: string; ring: string
   oil: { bg: 'bg-amber-50', text: 'text-amber-600', ring: 'ring-amber-100' },
   member: { bg: 'bg-blue-50', text: 'text-blue-600', ring: 'ring-blue-100' },
   invoice: { bg: 'bg-emerald-50', text: 'text-emerald-600', ring: 'ring-emerald-100' },
+  nozzle: { bg: 'bg-indigo-50', text: 'text-indigo-600', ring: 'ring-indigo-100' },
 };
 
 export default function StatCard({ summary }: StatCardProps) {

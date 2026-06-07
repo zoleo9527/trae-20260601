@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { UserCheck, Gauge, CheckCircle2 } from 'lucide-react';
+import { UserCheck, Gauge, CheckCircle2, AlertCircle } from 'lucide-react';
 import type { ShiftRecord } from '@/types';
 
 interface ReviewPanelProps {
@@ -28,7 +28,8 @@ export default function ReviewPanel({
   const allReviewed = shift.discrepancies.every(
     (d) => d.status === 'confirmed' || d.status === 'resolved' || d.status === 'reviewed'
   );
-  const canConfirm = allReviewed && shift.stationMasterOpinion && shift.meterOpinion;
+  const oilLossRecorded = shift.oilLossRecorded;
+  const canConfirm = allReviewed && oilLossRecorded && shift.stationMasterOpinion && shift.meterOpinion;
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
@@ -126,6 +127,47 @@ export default function ReviewPanel({
       </div>
 
       <div className="p-5 bg-gray-50 border-t border-gray-100">
+        <div className="space-y-2 mb-4">
+          <div className="flex items-center gap-2 text-sm">
+            {oilLossRecorded ? (
+              <>
+                <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                <span className="text-emerald-700">油品损耗已补录</span>
+              </>
+            ) : (
+              <>
+                <AlertCircle className="w-4 h-4 text-amber-500" />
+                <span className="text-amber-700">请先补录油品损耗数据</span>
+              </>
+            )}
+          </div>
+          <div className="flex items-center gap-2 text-sm">
+            {allReviewed ? (
+              <>
+                <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                <span className="text-emerald-700">所有差异项已处理</span>
+              </>
+            ) : (
+              <>
+                <AlertCircle className="w-4 h-4 text-amber-500" />
+                <span className="text-amber-700">还有未处理的差异项</span>
+              </>
+            )}
+          </div>
+          <div className="flex items-center gap-2 text-sm">
+            {shift.stationMasterOpinion && shift.meterOpinion ? (
+              <>
+                <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                <span className="text-emerald-700">复核意见已提交</span>
+              </>
+            ) : (
+              <>
+                <AlertCircle className="w-4 h-4 text-amber-500" />
+                <span className="text-amber-700">请提交站长和计量员复核意见</span>
+              </>
+            )}
+          </div>
+        </div>
         <div className="flex items-center justify-between">
           <div className="text-sm">
             {canConfirm ? (

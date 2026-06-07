@@ -15,11 +15,12 @@ const statusConfig = {
   resolved: { label: '已解决', icon: CheckCircle, color: 'text-emerald-600 bg-emerald-50 border-emerald-200' },
 };
 
-const typeColorMap = {
+const typeColorMap: Record<string, string> = {
   cash: 'from-rose-500 to-rose-600',
   oil: 'from-amber-500 to-amber-600',
   member: 'from-blue-500 to-blue-600',
   invoice: 'from-emerald-500 to-emerald-600',
+  nozzle: 'from-indigo-500 to-indigo-600',
 };
 
 export default function DiscrepancyCard({ discrepancy, onReview, disabled }: DiscrepancyCardProps) {

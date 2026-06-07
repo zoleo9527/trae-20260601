@@ -4,9 +4,11 @@ import ShiftHeader from '@/components/ShiftHeader';
 import DiscrepancyTabs from '@/components/DiscrepancyTabs';
 import DiscrepancyCard from '@/components/DiscrepancyCard';
 import OilDataPanel from '@/components/OilDataPanel';
+import NozzleDataPanel from '@/components/NozzleDataPanel';
+import OilLossRecordPanel from '@/components/OilLossRecordPanel';
 import ReviewPanel from '@/components/ReviewPanel';
 import { useShiftStore } from '@/store/shiftStore';
-import type { DiscrepancyType } from '@/types';
+import type { DiscrepancyType, OilLossRecordForm } from '@/types';
 
 export default function ShiftDetail() {
   const { id } = useParams<{ id: string }>();
@@ -17,6 +19,7 @@ export default function ShiftDetail() {
     updateStationMasterOpinion,
     updateMeterOpinion,
     confirmShift,
+    recordOilLoss,
   } = useShiftStore();
 
   const [activeType, setActiveType] = useState<DiscrepancyType | 'all'>('all');
@@ -55,6 +58,10 @@ export default function ShiftDetail() {
     confirmShift(shift.id);
   };
 
+  const handleRecordOilLoss = (formData: OilLossRecordForm[]) => {
+    recordOilLoss(shift.id, formData);
+  };
+
   return (
     <div className="space-y-6">
       <ShiftHeader shift={shift} />
@@ -64,6 +71,8 @@ export default function ShiftDetail() {
         activeType={activeType}
         onTypeChange={setActiveType}
       />
+
+      <NozzleDataPanel nozzleData={shift.nozzleData} />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-4">
@@ -78,6 +87,11 @@ export default function ShiftDetail() {
         </div>
 
         <div className="space-y-6">
+          <OilLossRecordPanel
+            oilData={shift.oilData}
+            isRecorded={shift.oilLossRecorded}
+            onRecord={handleRecordOilLoss}
+          />
           <OilDataPanel oilData={shift.oilData} />
           <ReviewPanel
             shift={shift}
