@@ -245,7 +245,9 @@ function initSeedData() {
           status = 'signed';
         }
       } else {
-        status = twoDaysAgoExceptionSubs.includes(idx) ? 'exception' : 'signed';
+        const twoDaysAgoRoute1ExceptionSubs = [2];
+        const twoDaysAgoRoute2ExceptionSubs = [5];
+        status = (twoDaysAgoRoute1ExceptionSubs.includes(idx) || twoDaysAgoRoute2ExceptionSubs.includes(idx)) ? 'exception' : 'signed';
       }
       const orderId = insertDailyOrder.run(
         date, subId, sub[0], sub[1], sub[2], customerRouteMap[sub[0]], status
@@ -268,31 +270,39 @@ function initSeedData() {
     const route1OrderIds = route1SubIdx.map(idx => createdOrderIds[date][idx]);
     const route2OrderIds = route2SubIdx.map(idx => createdOrderIds[date][idx]);
 
+    let route1ExceptionSubs = yesterdayRoute1ExceptionSubs;
+    let route2ExceptionCount = 1;
+
+    if (date === dateTwoDaysAgo) {
+      route1ExceptionSubs = [2];
+      route2ExceptionCount = 1;
+    }
+
+    const route1SignedCount = route1OrderIds.length - route1ExceptionSubs.length;
+    const route1ExceptionCount = route1ExceptionSubs.length;
+
     const route1CheckinId = insertCheckin.run(
       date, route1Id, courier1Id, clerkId, route1OrderIds.length,
-      route1OrderIds.length - yesterdayRoute1ExceptionSubs.length,
-      yesterdayRoute1ExceptionSubs.length,
+      route1SignedCount, route1ExceptionCount,
       'confirmed',
       dayjs(date).add(6, 'hour').toISOString(),
       dayjs(date).add(7, 'hour').toISOString()
     ).lastInsertRowid;
 
     route1OrderIds.forEach((orderId, i) => {
-      const isException = yesterdayRoute1ExceptionSubs.includes(route1SubIdx[i]);
-      if (date === dateYesterday) {
-        insertOpLog.run(
-          courier1Id, 'update_order_in_checkin', 'daily_order', orderId,
-          JSON.stringify({
-            checkinId: route1CheckinId,
-            oldStatus: 'pending',
-            newStatus: isException ? 'exception' : 'signed'
-          }),
-          dayjs(date).add(6, 'hour').add(5 + i * 2, 'minute').toISOString()
-        );
-      }
+      const subIdx = route1SubIdx[i];
+      const isException = route1ExceptionSubs.includes(subIdx);
+      insertOpLog.run(
+        courier1Id, 'update_order_in_checkin', 'daily_order', orderId,
+        JSON.stringify({
+          checkinId: route1CheckinId,
+          oldStatus: 'pending',
+          newStatus: isException ? 'exception' : 'signed'
+        }),
+        dayjs(date).add(6, 'hour').add(5 + i * 2, 'minute').toISOString()
+      );
     });
 
-    const route2ExceptionCount = date === dateYesterday ? 1 : 1;
     insertCheckin.run(
       date, route2Id, courier2Id, clerkId, route2OrderIds.length,
       route2OrderIds.length - route2ExceptionCount,

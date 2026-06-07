@@ -267,6 +267,12 @@ router.post('/:id/orders/:orderId/exception', authMiddleware, requireRoles('cour
 
   db.prepare('UPDATE daily_orders SET status = ? WHERE id = ?').run('exception', orderId);
 
+  logOperation(req.user.id, 'update_order_in_checkin', 'daily_order', orderId, {
+    checkinId,
+    oldStatus,
+    newStatus: 'exception'
+  });
+
   const signedCount = db.prepare(`
     SELECT COUNT(*) as count FROM daily_orders 
     WHERE delivery_date = ? AND route_id = ? AND status = 'signed'
@@ -284,7 +290,6 @@ router.post('/:id/orders/:orderId/exception', authMiddleware, requireRoles('cour
   logOperation(req.user.id, 'report_exception_in_checkin', 'exception', result.lastInsertRowid, {
     checkinId,
     daily_order_id: orderId,
-    oldStatus,
     type,
     description
   });
