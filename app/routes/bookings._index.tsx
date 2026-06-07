@@ -59,6 +59,12 @@ export default function BookingsIndex() {
   const { bookings, user, currentStatus } = useLoaderData<typeof loader>();
   const [searchParams, setSearchParams] = useSearchParams();
 
+  const isReceptionist = user.role === "RECEPTIONIST";
+  const isSupervisor = user.role === "FLOOR_SUPERVISOR";
+  const isFinance = user.role === "FINANCE";
+  const isAdmin = user.role === "ADMIN";
+  const canCreateBooking = isReceptionist || isSupervisor || isAdmin;
+
   const statusFilters = [
     { value: "ALL", label: "全部" },
     { value: "PENDING", label: "待确认" },
@@ -73,10 +79,14 @@ export default function BookingsIndex() {
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold text-gray-900">开台管理</h1>
-        <Link to="/bookings/new" className="btn-primary">
-          新开台
-        </Link>
+        <h1 className="text-2xl font-bold text-gray-900">
+          {isFinance ? "订单查询" : "开台管理"}
+        </h1>
+        {canCreateBooking && (
+          <Link to="/bookings/new" className="btn-primary">
+            新开台
+          </Link>
+        )}
       </div>
 
       <div className="card">

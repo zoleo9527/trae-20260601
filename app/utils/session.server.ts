@@ -79,10 +79,10 @@ export async function requireUser(request: Request) {
   return user;
 }
 
-export async function requireRole(request: Request, roles: Role[]) {
+export async function requireRole(request: Request, roles: Role[], redirectTo: string = "/") {
   const user = await requireUser(request);
   if (!roles.includes(user.role)) {
-    throw redirect("/");
+    throw redirect(redirectTo);
   }
   return user;
 }

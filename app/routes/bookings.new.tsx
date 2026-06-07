@@ -26,7 +26,7 @@ const CreateBookingSchema = z.object({
 });
 
 export const loader: LoaderFunction = async ({ request }) => {
-  const user = await requireUser(request);
+  const user = await requireRole(request, ["RECEPTIONIST", "FLOOR_SUPERVISOR", "ADMIN"], "/");
 
   const [availableHandTags, availableLockers, technicians] = await Promise.all([
     prisma.handTag.findMany({
