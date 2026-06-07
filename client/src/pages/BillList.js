@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { formatDate, getRoleLabel, formatMoney } from '../utils';
 import StatusModal from '../components/StatusModal';
 import CreateBillModal from '../components/CreateBillModal';
+import StatusStats from '../components/StatusStats';
 
 const DEFAULT_STATUS_LABELS = {
   pending: '待处理',
@@ -117,6 +118,16 @@ function BillList({ constants, loading: constantsLoading }) {
       </div>
 
       <div className="card">
+        {!loadError && (
+          <StatusStats
+            data={bills}
+            statusLabels={STATUS_LABELS}
+            activeStatus={filters.status}
+            onStatusClick={(status) => setFilters({ ...filters, status })}
+            onClearFilter={() => setFilters({ ...filters, status: '' })}
+          />
+        )}
+        
         <div className="filter-bar">
           <select 
             value={filters.status} 

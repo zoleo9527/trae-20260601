@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { formatDate, getRoleLabel } from '../utils';
 import StatusModal from '../components/StatusModal';
 import CreateComplaintModal from '../components/CreateComplaintModal';
+import StatusStats from '../components/StatusStats';
 
 const COMPLAINT_TYPES = {
   billing_quantity: '计费数量异议',
@@ -136,6 +137,16 @@ function ComplaintList({ constants, loading: constantsLoading }) {
       </div>
 
       <div className="card">
+        {!loadError && (
+          <StatusStats
+            data={complaints}
+            statusLabels={STATUS_LABELS}
+            activeStatus={filters.status}
+            onStatusClick={(status) => setFilters({ ...filters, status })}
+            onClearFilter={() => setFilters({ ...filters, status: '' })}
+          />
+        )}
+        
         <div className="filter-bar">
           <select 
             value={filters.status} 
