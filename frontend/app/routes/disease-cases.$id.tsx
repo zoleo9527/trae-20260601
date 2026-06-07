@@ -203,7 +203,7 @@ function DiseaseCaseDetail() {
                     <th>规格</th>
                     <th>生产厂家</th>
                     <th>建议用量</th>
-                    {caseData.medicines?.some((m: any) => m.actual_quantity !== null) && <th>实际用量</th>}
+                    {(caseData.medicines?.some((m: any) => m.actual_quantity !== null) || (caseData.status === 'SUBMITTED' && currentRole === 'WAREHOUSE_KEEPER' && canHandle)) && <th>实际用量</th>}
                     <th>用法用量</th>
                     <th>使用方法</th>
                   </tr>
@@ -215,7 +215,7 @@ function DiseaseCaseDetail() {
                       <td>{m.specification}</td>
                       <td>{m.manufacturer}</td>
                       <td>{m.suggested_quantity} {m.unit}</td>
-                      {caseData.medicines?.some((x: any) => x.actual_quantity !== null) && (
+                      {(caseData.medicines?.some((x: any) => x.actual_quantity !== null) || (caseData.status === 'SUBMITTED' && currentRole === 'WAREHOUSE_KEEPER' && canHandle)) && (
                         <td>
                           {caseData.status === 'SUBMITTED' && currentRole === 'WAREHOUSE_KEEPER' && canHandle ? (
                             <input
@@ -288,18 +288,15 @@ function DiseaseCaseDetail() {
                   </button>
                 )}
 
-                {currentRole === 'FIELD_MANAGER' && caseData.status === 'SUBMITTED' && (
+                {currentRole === 'FIELD_MANAGER' && canHandle && caseData.status === 'MEDICINE_ALLOCATED' && (
                   <>
+                    <button className="btn btn-primary" onClick={handleApprove} disabled={loading}>
+                      审批通过
+                    </button>
                     <button className="btn btn-danger" onClick={() => setShowRejectForm(!showRejectForm)} disabled={loading}>
                       驳回
                     </button>
                   </>
-                )}
-
-                {currentRole === 'FIELD_MANAGER' && canHandle && caseData.status === 'MEDICINE_ALLOCATED' && (
-                  <button className="btn btn-primary" onClick={handleApprove} disabled={loading}>
-                    审批通过
-                  </button>
                 )}
 
                 {currentRole === 'TECHNICIAN' && canHandle && caseData.status === 'APPROVED' && (
@@ -331,7 +328,7 @@ function DiseaseCaseDetail() {
                 )}
               </div>
 
-              {showRejectForm && currentRole === 'FIELD_MANAGER' && caseData.status === 'SUBMITTED' && (
+              {showRejectForm && currentRole === 'FIELD_MANAGER' && caseData.status === 'MEDICINE_ALLOCATED' && (
                 <div style={{ marginTop: '20px', padding: '16px', background: '#ffebee', borderRadius: '4px' }}>
                   <div className="form-group">
                     <label>驳回理由（必填，不少于5个字）</label>

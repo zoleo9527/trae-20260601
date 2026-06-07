@@ -137,8 +137,8 @@ export function submitDiseaseCase(caseId: string, operatorId: string) {
 export function rejectDiseaseCase(req: RejectRequest) {
   const caseData = db.prepare('SELECT * FROM disease_cases WHERE id = ?').get(req.caseId) as any;
   if (!caseData) throw new Error('病害单不存在');
-  if (caseData.status !== 'SUBMITTED') {
-    throw new Error(`当前状态 ${caseData.status} 不允许驳回`);
+  if (caseData.status !== 'MEDICINE_ALLOCATED') {
+    throw new Error(`当前状态 ${caseData.status} 不允许驳回，需等待仓管配药完成后再审批`);
   }
 
   const operatorRole = getUserRole(req.operatorId);
