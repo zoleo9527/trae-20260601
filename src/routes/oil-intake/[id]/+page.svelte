@@ -50,12 +50,34 @@
     handlingMeasures: ''
   };
   
+  let managerEditForm = {
+    oilType: '',
+    quantity: 0,
+    tankNo: '',
+    deliveryOrderNo: '',
+    tankerNo: '',
+    driverName: '',
+    sourceDepot: ''
+  };
+  
   $: if (record && record.cashierData) {
     cashierForm = { ...cashierForm, ...record.cashierData };
   }
   
   $: if (record && record.measurerData) {
     measurerForm = { ...measurerForm, ...record.measurerData };
+  }
+  
+  $: if (record) {
+    managerEditForm = {
+      oilType: record.oilType || '',
+      quantity: record.quantity || 0,
+      tankNo: record.tankNo || '',
+      deliveryOrderNo: record.deliveryOrderNo || '',
+      tankerNo: record.tankerNo || '',
+      driverName: record.driverName || '',
+      sourceDepot: record.sourceDepot || ''
+    };
   }
   
   $: if (measurerForm.beforeLevel && measurerForm.afterLevel && record) {
@@ -108,6 +130,9 @@
       }
       if ($currentRole === 'measurer') {
         data.measurerData = measurerForm;
+      }
+      if ($currentRole === 'manager') {
+        data.managerEditData = { ...managerEditForm };
       }
     }
     
@@ -311,6 +336,64 @@
           <div class="form-group">
             <label class="form-label">校验备注</label>
             <textarea class="form-textarea" bind:value={measurerForm.verificationComment} placeholder="请补充校验说明..."></textarea>
+          </div>
+        {:else if returnedRole === 'manager'}
+          <div class="row">
+            <div class="col">
+              <div class="form-group">
+                <label class="form-label">油品类型</label>
+                <select class="form-select" bind:value={managerEditForm.oilType}>
+                  <option value="92#汽油">92# 汽油</option>
+                  <option value="95#汽油">95# 汽油</option>
+                  <option value="98#汽油">98# 汽油</option>
+                  <option value="0#柴油">0# 柴油</option>
+                  <option value="-10#柴油">-10# 柴油</option>
+                </select>
+              </div>
+            </div>
+            <div class="col">
+              <div class="form-group">
+                <label class="form-label">入库数量 (升)</label>
+                <input type="number" class="form-input" bind:value={managerEditForm.quantity} />
+              </div>
+            </div>
+          </div>
+          <div class="row">
+            <div class="col">
+              <div class="form-group">
+                <label class="form-label">目标油罐</label>
+                <select class="form-select" bind:value={managerEditForm.tankNo}>
+                  <option value="1#罐">1# 罐</option>
+                  <option value="2#罐">2# 罐</option>
+                  <option value="3#罐">3# 罐</option>
+                  <option value="4#罐">4# 罐</option>
+                </select>
+              </div>
+            </div>
+            <div class="col">
+              <div class="form-group">
+                <label class="form-label">油库出库单号</label>
+                <input type="text" class="form-input" bind:value={managerEditForm.deliveryOrderNo} />
+              </div>
+            </div>
+          </div>
+          <div class="row">
+            <div class="col">
+              <div class="form-group">
+                <label class="form-label">罐车车牌号</label>
+                <input type="text" class="form-input" bind:value={managerEditForm.tankerNo} />
+              </div>
+            </div>
+            <div class="col">
+              <div class="form-group">
+                <label class="form-label">司机姓名</label>
+                <input type="text" class="form-input" bind:value={managerEditForm.driverName} />
+              </div>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">来源油库</label>
+            <input type="text" class="form-input" bind:value={managerEditForm.sourceDepot} />
           </div>
         {/if}
         
@@ -626,6 +709,17 @@
                     <div class="supplementary-content">
                       <strong>补充说明：</strong>
                       <p>{item.supplementaryData.supplementaryContent}</p>
+                    </div>
+                  {/if}
+                  {#if item.modifiedFields && item.modifiedFields.managerEditData}
+                    <div class="supplementary-content">
+                      <strong>修改的基础信息：</strong>
+                      <div class="modified-fields">
+                        <span>油品：{item.modifiedFields.managerEditData.oilType}</span>
+                        <span>数量：{item.modifiedFields.managerEditData.quantity} 升</span>
+                        <span>油罐：{item.modifiedFields.managerEditData.tankNo}</span>
+                        <span>出库单号：{item.modifiedFields.managerEditData.deliveryOrderNo}</span>
+                      </div>
                     </div>
                   {/if}
                   {#if item.comment}
@@ -1090,6 +1184,21 @@
   .supplementary-comment p {
     margin: 4px 0 0 0;
     color: var(--text-primary);
+  }
+  
+  .modified-fields {
+    margin-top: 6px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 16px;
+    font-size: 13px;
+  }
+  
+  .modified-fields span {
+    background: #F0F5FF;
+    padding: 2px 8px;
+    border-radius: 4px;
+    color: #1D39C4;
   }
   
   .liability-box {

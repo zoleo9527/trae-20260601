@@ -250,7 +250,12 @@ export function performAction(recordId, action, data = {}) {
       supplementaryBy: role,
       supplementaryAt: timestamp,
       supplementaryData: data.supplementaryData || {},
-      comment: data.comment || ''
+      comment: data.comment || '',
+      modifiedFields: {
+        ...(data.cashierData && role === 'cashier' ? { cashierData: data.cashierData } : {}),
+        ...(data.measurerData && role === 'measurer' ? { measurerData: data.measurerData } : {}),
+        ...(data.managerEditData && role === 'manager' ? { managerEditData: data.managerEditData } : {})
+      }
     });
     
     if (data.cashierData && role === 'cashier') {
@@ -263,6 +268,16 @@ export function performAction(recordId, action, data = {}) {
       updatedRecord.measurerData = data.measurerData;
       updatedRecord.measurerVerifiedAt = timestamp;
       updatedRecord.measurerVerifiedBy = role;
+    }
+    
+    if (data.managerEditData && role === 'manager') {
+      updatedRecord.oilType = data.managerEditData.oilType;
+      updatedRecord.quantity = data.managerEditData.quantity;
+      updatedRecord.tankNo = data.managerEditData.tankNo;
+      updatedRecord.deliveryOrderNo = data.managerEditData.deliveryOrderNo;
+      updatedRecord.tankerNo = data.managerEditData.tankerNo;
+      updatedRecord.driverName = data.managerEditData.driverName;
+      updatedRecord.sourceDepot = data.managerEditData.sourceDepot;
     }
   }
   
