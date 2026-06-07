@@ -138,7 +138,7 @@ DELIVERY_ALLOWED_ACTIONS = {
     DeliveryStatus.PENDING: ["start_picking"],
     DeliveryStatus.PICKING: ["pack", "ship"],
     DeliveryStatus.PACKED: ["ship"],
-    DeliveryStatus.SHIPPED: ["receive", "confirm"],
+    DeliveryStatus.SHIPPED: ["receive"],
     DeliveryStatus.RECEIVED: ["confirm"],
     DeliveryStatus.CONFIRMED: ["view"],
 }

@@ -394,8 +394,8 @@ async def confirm_delivery(delivery_id: str, request: DeliveryActionRequest):
     if not delivery:
         return error_response(ErrorCode.DELIVERY_NOT_FOUND)
     
-    if delivery["status"] not in [DeliveryStatus.RECEIVED.value, DeliveryStatus.SHIPPED.value]:
-        return error_response(ErrorCode.DELIVERY_STATUS_ERROR)
+    if delivery["status"] != DeliveryStatus.RECEIVED.value:
+        return error_response(ErrorCode.DELIVERY_STATUS_ERROR, "仅门店收货确认后可最终完结")
     
     operator = db.get_by_id("users", request.operator_id)
     if not operator:

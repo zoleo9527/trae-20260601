@@ -7,7 +7,8 @@ from app.constants import (
     ErrorCode, OrderStatus, ORDER_STATUS_NAMES, ORDER_ALLOWED_ACTIONS,
     ACTION_NAMES, NEXT_ACTION_GUIDE,
     UserRole, ROLE_NAMES, get_current_handler,
-    DeliveryStatus, DELIVERY_STATUS_NAMES
+    DeliveryStatus, DELIVERY_STATUS_NAMES,
+    DELIVERY_NEXT_ACTION_GUIDE, get_delivery_current_handler
 )
 from app.schemas import (
     CreateStoreOrderRequest, UpdateStoreOrderRequest, OrderActionRequest
@@ -54,11 +55,26 @@ def _build_order_detail(order: dict) -> dict:
     total_delivered_amount = 0
     for d in deliveries:
         d_status = DeliveryStatus(d["status"])
+        d_handler = get_delivery_current_handler(d_status)
+        d_next_guide = DELIVERY_NEXT_ACTION_GUIDE.get(d_status)
+        d_next_action = None
+        if d_next_guide:
+            target_role = d_next_guide.get("target_role")
+            d_next_action = {
+                "action": d_next_guide.get("action"),
+                "action_name": ACTION_NAMES.get(d_next_guide.get("action"), ""),
+                "target_role": target_role.value if target_role else None,
+                "target_role_name": ROLE_NAMES.get(target_role, "") if target_role else "",
+                "guide": d_next_guide.get("guide", "")
+            }
         deliveries_summary.append({
             "id": d["id"],
             "delivery_no": d["delivery_no"],
             "status": d["status"],
             "status_name": DELIVERY_STATUS_NAMES.get(d_status, ""),
+            "current_handler": d_handler.value if d_handler else None,
+            "current_handler_name": ROLE_NAMES.get(d_handler, "") if d_handler else "",
+            "next_action": d_next_action,
             "total_quantity": d["total_quantity"],
             "total_amount": d["total_amount"],
             "warehouse": d.get("warehouse", ""),

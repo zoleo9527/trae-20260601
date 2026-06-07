@@ -87,6 +87,16 @@ async def get_order_status_list():
         handler = get_current_handler(status)
         allowed_actions = ORDER_ALLOWED_ACTIONS.get(status, [])
         next_guide = NEXT_ACTION_GUIDE.get(status)
+        next_action_data = None
+        if next_guide:
+            target_role = next_guide.get("target_role")
+            next_action_data = {
+                "action": next_guide.get("action"),
+                "action_name": ACTION_NAMES.get(next_guide.get("action"), ""),
+                "target_role": target_role.value if target_role else None,
+                "target_role_name": ROLE_NAMES.get(target_role, "") if target_role else "",
+                "guide": next_guide.get("guide", "")
+            }
         status_list.append({
             "status": status.value,
             "status_name": ORDER_STATUS_NAMES.get(status, ""),
@@ -97,11 +107,7 @@ async def get_order_status_list():
             ],
             "current_handler": handler.value if handler else None,
             "current_handler_name": ROLE_NAMES.get(handler, "") if handler else "",
-            "next_action": {
-                "action": next_guide.get("action"),
-                "action_name": ACTION_NAMES.get(next_guide.get("action"), ""),
-                "guide": next_guide.get("guide", "")
-            } if next_guide else None
+            "next_action": next_action_data
         })
     return success_response({
         "total": len(status_list),
