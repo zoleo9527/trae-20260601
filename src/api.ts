@@ -15,9 +15,19 @@ async function request<T>(url: string, options?: RequestInit): Promise<T> {
   throw new Error(json.message || '请求失败')
 }
 
-export function fetchDetentions(status?: string): Promise<Detention[]> {
-  const params = status ? `?status=${status}` : ''
-  return request<Detention[]>(`/api/detentions${params}`)
+interface FetchDetentionsParams {
+  status?: string
+  keyword?: string
+  reason?: string
+}
+
+export function fetchDetentions(params?: FetchDetentionsParams): Promise<Detention[]> {
+  const searchParams = new URLSearchParams()
+  if (params?.status) searchParams.set('status', params.status)
+  if (params?.keyword) searchParams.set('keyword', params.keyword)
+  if (params?.reason) searchParams.set('reason', params.reason)
+  const qs = searchParams.toString()
+  return request<Detention[]>(`/api/detentions${qs ? `?${qs}` : ''}`)
 }
 
 export function fetchDetention(id: string): Promise<Detention> {

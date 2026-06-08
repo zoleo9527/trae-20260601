@@ -12,9 +12,23 @@ const router = Router()
 
 router.get('/detentions', (req, res) => {
   const status = req.query.status as string | undefined
+  const keyword = req.query.keyword as string | undefined
+  const reason = req.query.reason as string | undefined
   let list = getDetentions()
   if (status) {
     list = list.filter((d) => d.status === status)
+  }
+  if (keyword) {
+    const kw = keyword.toLowerCase()
+    list = list.filter(
+      (d) =>
+        d.waybillNo.toLowerCase().includes(kw) ||
+        d.goodsName.toLowerCase().includes(kw) ||
+        d.declaredGoodsName.toLowerCase().includes(kw),
+    )
+  }
+  if (reason) {
+    list = list.filter((d) => d.detainReason === reason)
   }
   res.json({ success: true, data: list })
 })
