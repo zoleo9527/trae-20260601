@@ -349,7 +349,107 @@ function seedComplaints(): Map<string, Complaint> {
     updatedAt: ts,
   };
 
-  [c1, c2, c3, c4, c5].forEach(c => m.set(c.id, c));
+  const c6: Complaint = {
+    id: 'comp-006',
+    title: '导游擅自变更行程路线',
+    description: '导游未经游客同意擅自将上午景点调至下午，且缩减自由活动时间，引发多名游客投诉。',
+    tourGroup: '西安5日游-6月F团',
+    complaintType: 'schedule',
+    severity: 'medium',
+    status: 'closed',
+    createdBy: 'op1',
+    createdByName: '王计调',
+    assignedTo: 'guide1',
+    assignedToName: '李导游',
+    assignedRole: 'guide',
+    assignmentHistory: [
+      {
+        assignedTo: 'guide1',
+        assignedToName: '李导游',
+        assignedRole: 'guide',
+        assignedBy: 'op1',
+        assignedByName: '王计调',
+        assignedAt: ts,
+      },
+    ],
+    compensation: {
+      id: uuidv4(),
+      type: 'apology_letter',
+      amount: 0,
+      description: '导游出具书面致歉信，并承诺后续行程严格遵守合同约定',
+      status: 'executed',
+      proposedBy: 'op1',
+      proposedByName: '王计调',
+      proposedAt: ts,
+      approvedBy: 'supervisor1',
+      approvedByName: '赵主管',
+      approvedAt: ts,
+      executedAt: ts,
+    },
+    timeline: [
+      {
+        id: uuidv4(),
+        type: 'created',
+        role: 'operator',
+        authorName: '王计调',
+        content: '创建投诉：导游擅自变更行程路线，严重等级为中',
+        createdAt: ts,
+      },
+      {
+        id: uuidv4(),
+        type: 'assigned',
+        role: 'operator',
+        authorName: '王计调',
+        content: '指派给导游 李导游 处理',
+        createdAt: ts,
+      },
+      {
+        id: uuidv4(),
+        type: 'note',
+        role: 'guide',
+        authorName: '李导游',
+        content: '已与游客沟通并致歉，后续将严格按合同执行。',
+        createdAt: ts,
+      },
+      {
+        id: uuidv4(),
+        type: 'compensation_proposed',
+        role: 'operator',
+        authorName: '王计调',
+        content: '提出补偿方案：导游出具书面致歉信',
+        createdAt: ts,
+      },
+      {
+        id: uuidv4(),
+        type: 'compensation_approved',
+        role: 'supervisor',
+        authorName: '赵主管',
+        content: '补偿方案已批准：导游出具书面致歉信，并承诺后续行程严格遵守合同约定',
+        createdAt: ts,
+      },
+      {
+        id: uuidv4(),
+        type: 'compensation_executed',
+        role: 'operator',
+        authorName: '王计调',
+        content: '补偿已执行完成：导游出具书面致歉信，并承诺后续行程严格遵守合同约定，金额 0 元',
+        createdAt: ts,
+      },
+      {
+        id: uuidv4(),
+        type: 'closed',
+        role: 'operator',
+        authorName: '王计调',
+        content: '投诉已关闭',
+        createdAt: ts,
+      },
+    ],
+    dueDate: hoursFromNow(-24),
+    createdAt: ts,
+    updatedAt: ts,
+  };
+
+  [c1, c2, c3, c4, c5, c6].forEach(c => m.set(c.id, c));
   return m;
 }
 

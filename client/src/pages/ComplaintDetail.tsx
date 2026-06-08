@@ -332,6 +332,13 @@ export default function ComplaintDetail({ id, user, onBack }: ComplaintDetailPro
         )}
       </div>
 
+      {complaint.status === 'closed' && !complaint.followUp && (
+        <div className="mb-4 flex items-center gap-2 px-4 py-3 bg-blue-50 border border-blue-200 rounded-lg text-blue-700">
+          <PhoneCall className="w-4 h-4 shrink-0" />
+          <span className="text-sm font-medium">该投诉已关闭但尚未完成客户回访，请尽快填写回访说明和满意度评分。</span>
+        </div>
+      )}
+
       <div className="bg-white rounded-lg border border-slate-200 p-4 mb-4">
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
           <div>
