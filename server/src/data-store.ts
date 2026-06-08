@@ -87,7 +87,7 @@ function seedComplaints(): Map<string, Complaint> {
         createdAt: ts,
       },
     ],
-    dueDate: hoursFromNow(48),
+    dueDate: hoursFromNow(1.5),
     createdAt: ts,
     updatedAt: ts,
   };
@@ -149,7 +149,7 @@ function seedComplaints(): Map<string, Complaint> {
         createdAt: ts,
       },
     ],
-    dueDate: hoursFromNow(24),
+    dueDate: hoursFromNow(-2),
     createdAt: ts,
     updatedAt: ts,
   };

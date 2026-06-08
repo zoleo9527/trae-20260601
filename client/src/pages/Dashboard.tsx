@@ -1,10 +1,10 @@
-import { useState, useEffect, useCallback } from 'react';
-import { Plus, RefreshCw, AlertTriangle, Clock, CheckCircle, Users, Truck, ArrowUpDown, UserCheck, ChevronRight } from 'lucide-react';
-import type { User, Complaint, ComplaintStatus, Role } from '../types';
-import { fetchComplaints, fetchUsers, createComplaint, resetData } from '../api';
-import StatusBadge from '../components/StatusBadge';
-import SeverityBadge from '../components/SeverityBadge';
+import { AlertTriangle, ArrowUpDown, CheckCircle, ChevronRight, Clock, Plus, RefreshCw, Timer, Truck, UserCheck, Users } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
+import { createComplaint, fetchComplaints, fetchUsers, resetData } from '../api';
 import CreateComplaintModal from '../components/CreateComplaintModal';
+import SeverityBadge from '../components/SeverityBadge';
+import StatusBadge from '../components/StatusBadge';
+import type { Complaint, ComplaintStatus, Role, User } from '../types';
 
 interface DashboardProps {
   user: User;
@@ -45,11 +45,41 @@ function isOverdue(complaint: Complaint): boolean {
   return new Date(complaint.dueDate) < new Date();
 }
 
+function isApproachingDue(complaint: Complaint): boolean {
+  if (!complaint.dueDate || complaint.status === 'closed') return false;
+  const diff = new Date(complaint.dueDate).getTime() - Date.now();
+  return diff > 0 && diff < 2 * 3600000;
+}
+
+function getSLALabel(dueDate?: string, status?: ComplaintStatus): { text: string; variant: 'normal' | 'warning' | 'overdue' | 'none' } {
+  if (!dueDate || status === 'closed') return { text: '', variant: 'none' };
+  const diff = new Date(dueDate).getTime() - Date.now();
+  if (diff <= 0) {
+    const overdueMs = -diff;
+    const hours = Math.floor(overdueMs / 3600000);
+    const minutes = Math.floor((overdueMs % 3600000) / 60000);
+    if (hours > 0) return { text: `已逾期 ${hours}h${minutes}m`, variant: 'overdue' };
+    return { text: `已逾期 ${minutes}m`, variant: 'overdue' };
+  }
+  const hours = Math.floor(diff / 3600000);
+  const minutes = Math.floor((diff % 3600000) / 60000);
+  if (diff < 2 * 3600000) {
+    if (hours > 0) return { text: `剩余 ${hours}h${minutes}m`, variant: 'warning' };
+    return { text: `剩余 ${minutes}m`, variant: 'warning' };
+  }
+  if (hours >= 24) {
+    const days = Math.floor(hours / 24);
+    return { text: `剩余 ${days}d${hours % 24}h`, variant: 'normal' };
+  }
+  return { text: `剩余 ${hours}h${minutes}m`, variant: 'normal' };
+}
+
 export default function Dashboard({ user, onSelectComplaint }: DashboardProps) {
   const [complaints, setComplaints] = useState<Complaint[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [overdueOnly, setOverdueOnly] = useState(false);
+  const [slaFilter, setSlaFilter] = useState(false);
   const [sortMode, setSortMode] = useState<SortMode>('newest');
   const [showCreate, setShowCreate] = useState(false);
   const [creating, setCreating] = useState(false);
@@ -121,16 +151,19 @@ export default function Dashboard({ user, onSelectComplaint }: DashboardProps) {
   const assigneeStats = assigneeUsers.map((u) => {
     const userComplaints = complaints.filter((c) => c.assignedTo === u.id && c.status !== 'closed');
     const overdueComplaints = userComplaints.filter(isOverdue);
+    const approachingComplaints = userComplaints.filter(isApproachingDue);
     return {
       user: u,
       activeCount: userComplaints.length,
       overdueCount: overdueComplaints.length,
+      approachingCount: approachingComplaints.length,
     };
   }).filter((s) => s.activeCount > 0);
 
-  const displayComplaints = drillDownUserId
+  const displayComplaints = (drillDownUserId
     ? sorted.filter((c) => c.assignedTo === drillDownUserId)
-    : sorted;
+    : sorted
+  ).filter((c) => !slaFilter || isApproachingDue(c));
 
   return (
     <div className="p-4 sm:p-6 max-w-6xl mx-auto">
@@ -219,6 +252,9 @@ export default function Dashboard({ user, onSelectComplaint }: DashboardProps) {
                 </div>
                 <div className="flex items-center gap-3 mt-2 text-sm">
                   <span className="text-slate-600">在办 <span className="font-bold text-slate-800">{s.activeCount}</span></span>
+                  {s.approachingCount > 0 && (
+                    <span className="text-amber-600">即将逾期 <span className="font-bold">{s.approachingCount}</span></span>
+                  )}
                   {s.overdueCount > 0 && (
                     <span className="text-red-600">逾期 <span className="font-bold">{s.overdueCount}</span></span>
                   )}
@@ -252,6 +288,16 @@ export default function Dashboard({ user, onSelectComplaint }: DashboardProps) {
           <AlertTriangle className="w-4 h-4 text-red-500" />
           仅看逾期
         </label>
+        <label className="flex items-center gap-1.5 text-sm text-slate-600 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={slaFilter}
+            onChange={(e) => setSlaFilter(e.target.checked)}
+            className="rounded border-slate-300 text-amber-600 focus:ring-amber-500"
+          />
+          <Timer className="w-4 h-4 text-amber-500" />
+          SLA&lt;2h
+        </label>
         <button
           onClick={() => setSortMode(sortMode === 'newest' ? 'severity' : 'newest')}
           className="flex items-center gap-1 text-sm text-slate-600 hover:text-slate-800 px-2 py-1 hover:bg-slate-100 rounded transition-colors"
@@ -269,12 +315,13 @@ export default function Dashboard({ user, onSelectComplaint }: DashboardProps) {
         <div className="space-y-3">
           {displayComplaints.map((c) => {
             const overdue = isOverdue(c);
+            const sla = getSLALabel(c.dueDate, c.status);
             return (
               <button
                 key={c.id}
                 onClick={() => onSelectComplaint(c.id)}
                 className={`w-full text-left bg-white rounded-lg border p-4 hover:shadow-md transition-all ${
-                  overdue ? 'border-red-300 hover:border-red-400' : 'border-slate-200 hover:border-slate-300'
+                  overdue ? 'border-red-300 hover:border-red-400' : sla.variant === 'warning' ? 'border-amber-300 hover:border-amber-400' : 'border-slate-200 hover:border-slate-300'
                 }`}
               >
                 <div className="flex items-start justify-between gap-3">
@@ -286,6 +333,11 @@ export default function Dashboard({ user, onSelectComplaint }: DashboardProps) {
                       {overdue && (
                         <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-red-100 text-red-700 font-medium">
                           <AlertTriangle className="w-3 h-3" />已逾期
+                        </span>
+                      )}
+                      {!overdue && sla.variant === 'warning' && (
+                        <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-medium">
+                          <Timer className="w-3 h-3" />{sla.text}
                         </span>
                       )}
                     </div>
@@ -303,6 +355,16 @@ export default function Dashboard({ user, onSelectComplaint }: DashboardProps) {
                       </span>
                     </div>
                   </div>
+                  {sla.variant === 'normal' && (
+                    <span className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full bg-slate-100 text-slate-600 shrink-0">
+                      <Clock className="w-3 h-3" />{sla.text}
+                    </span>
+                  )}
+                  {overdue && (
+                    <span className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full bg-red-100 text-red-700 font-bold shrink-0">
+                      <AlertTriangle className="w-3 h-3" />{sla.text}
+                    </span>
+                  )}
                 </div>
               </button>
             );

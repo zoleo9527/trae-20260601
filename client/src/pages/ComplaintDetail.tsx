@@ -14,6 +14,7 @@ import {
   RotateCcw,
   ArrowRightLeft,
   History,
+  Timer,
 } from 'lucide-react';
 import type { User, Complaint, AssignTarget, ComplaintStatus, CompensationType, Role } from '../types';
 import {
@@ -88,9 +89,27 @@ function formatTime(dateStr: string): string {
   return `${d.getMonth() + 1}/${d.getDate()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
-function isOverdue(complaint: Complaint): boolean {
-  if (!complaint.dueDate || complaint.status === 'closed') return false;
-  return new Date(complaint.dueDate) < new Date();
+function getSLALabel(dueDate?: string, status?: ComplaintStatus): { text: string; variant: 'normal' | 'warning' | 'overdue' | 'none' } {
+  if (!dueDate || status === 'closed') return { text: '', variant: 'none' };
+  const diff = new Date(dueDate).getTime() - Date.now();
+  if (diff <= 0) {
+    const overdueMs = -diff;
+    const hours = Math.floor(overdueMs / 3600000);
+    const minutes = Math.floor((overdueMs % 3600000) / 60000);
+    if (hours > 0) return { text: `已逾期 ${hours}h${minutes}m`, variant: 'overdue' };
+    return { text: `已逾期 ${minutes}m`, variant: 'overdue' };
+  }
+  const hours = Math.floor(diff / 3600000);
+  const minutes = Math.floor((diff % 3600000) / 60000);
+  if (diff < 2 * 3600000) {
+    if (hours > 0) return { text: `剩余 ${hours}h${minutes}m`, variant: 'warning' };
+    return { text: `剩余 ${minutes}m`, variant: 'warning' };
+  }
+  if (hours >= 24) {
+    const days = Math.floor(hours / 24);
+    return { text: `剩余 ${days}d${hours % 24}h`, variant: 'normal' };
+  }
+  return { text: `剩余 ${hours}h${minutes}m`, variant: 'normal' };
 }
 
 export default function ComplaintDetail({ id, user, onBack }: ComplaintDetailProps) {
@@ -241,7 +260,7 @@ export default function ComplaintDetail({ id, user, onBack }: ComplaintDetailPro
     );
   }
 
-  const overdue = isOverdue(complaint);
+  const sla = getSLALabel(complaint.dueDate, complaint.status);
   const assignableUsers = users.filter((u) =>
     assignRole === 'guide' ? u.role === 'guide' : u.role === 'fleet'
   );
@@ -271,9 +290,19 @@ export default function ComplaintDetail({ id, user, onBack }: ComplaintDetailPro
         <h2 className="text-lg font-bold text-slate-800 truncate">{complaint.title}</h2>
         <SeverityBadge severity={complaint.severity} size="md" />
         <StatusBadge status={complaint.status} size="md" />
-        {overdue && (
-          <span className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full bg-red-100 text-red-700 font-medium">
-            <AlertTriangle className="w-3 h-3" />已逾期
+        {sla.variant === 'overdue' && (
+          <span className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full bg-red-100 text-red-700 font-bold">
+            <AlertTriangle className="w-3 h-3" />{sla.text}
+          </span>
+        )}
+        {sla.variant === 'warning' && (
+          <span className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full bg-amber-100 text-amber-700 font-medium">
+            <Timer className="w-3 h-3" />{sla.text}
+          </span>
+        )}
+        {sla.variant === 'normal' && (
+          <span className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full bg-slate-100 text-slate-600">
+            <Clock className="w-3 h-3" />{sla.text}
           </span>
         )}
       </div>
