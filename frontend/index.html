@@ -48,7 +48,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC
 .tab-btn{flex:1;padding:14px 24px;background:transparent;border:none;font-size:15px;font-weight:500;cursor:pointer;color:var(--text-secondary);border-bottom:3px solid transparent;font-family:inherit;transition:all var(--transition)}
 .tab-btn:hover{color:var(--text);background:var(--gray-light)}
 .tab-btn.active{color:var(--primary);border-bottom-color:var(--primary);background:var(--primary-light)}
-.action-bar{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+.action-bar{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}.action-bar-right{display:flex;align-items:center;gap:10px}
 .action-bar h2{font-size:18px;font-weight:600}
 .card-list{display:flex;flex-direction:column;gap:12px}
 .card-item{background:var(--card-bg);border-radius:var(--radius);padding:16px 20px;box-shadow:var(--shadow);cursor:pointer;transition:all var(--transition);border-left:4px solid transparent}
@@ -136,20 +136,22 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC
 <button :class="['tab-btn',{active:activeTab==='requisitions'}]" @click="activeTab='requisitions'">📦 饲料领用</button>
 </div>
 <div v-if="activeTab==='plans'">
-<div class="action-bar"><h2>投喂计划列表</h2><button v-if="currentRole==='technician'" class="btn btn-primary" @click="showCreatePlan=true">+ 新建计划</button></div>
+<div class="action-bar"><h2>投喂计划列表</h2><div class="action-bar-right"><select class="role-select" v-model="planStatusFilter"><option value="">全部</option><option value="draft">草稿</option><option value="submitted">待审核</option><option value="approved">已批准</option><option value="rejected">已驳回</option></select><button v-if="currentRole==='technician'" class="btn btn-primary" @click="showCreatePlan=true">+ 新建计划</button></div></div>
 <div v-if="plansLoading" class="empty-state"><p>加载中...</p></div>
 <div v-else-if="plans.length===0" class="empty-state"><div class="icon">📋</div><p>暂无投喂计划</p></div>
+<div v-else-if="filteredPlans.length===0" class="empty-state"><div class="icon">📋</div><p>无匹配记录</p></div>
 <div v-else class="card-list">
-<div v-for="p in plans" :key="p.id" :class="['card-item','status-'+p.status]" @click="openPlanDetail(p)">
+<div v-for="p in filteredPlans" :key="p.id" :class="['card-item','status-'+p.status]" @click="openPlanDetail(p)">
 <div class="card-header"><span class="card-title">{{p.plan_no}}</span><span :class="['badge','badge-'+p.status]">{{statusLabel(p.status)}}</span></div>
 <div class="card-meta"><span>塘号: {{p.pond_no}}</span><span>品种: {{p.breed_type}}</span><span>饲料: {{p.feed_type}}</span><span>日投量: {{p.daily_amount}}kg</span><span>创建人: {{p.created_by}}</span></div>
 </div></div></div>
 <div v-if="activeTab==='requisitions'">
-<div class="action-bar"><h2>饲料领用列表</h2><button v-if="currentRole==='technician'" class="btn btn-primary" @click="showCreateReq=true">+ 申请领用</button></div>
+<div class="action-bar"><h2>饲料领用列表</h2><div class="action-bar-right"><select class="role-select" v-model="reqStatusFilter"><option value="">全部</option><option value="pending">待发料</option><option value="issued">已发料</option><option value="received">已收料</option></select><button v-if="currentRole==='technician'" class="btn btn-primary" @click="showCreateReq=true">+ 申请领用</button></div></div>
 <div v-if="reqsLoading" class="empty-state"><p>加载中...</p></div>
 <div v-else-if="requisitions.length===0" class="empty-state"><div class="icon">📦</div><p>暂无领用记录</p></div>
+<div v-else-if="filteredRequisitions.length===0" class="empty-state"><div class="icon">📦</div><p>无匹配记录</p></div>
 <div v-else class="card-list">
-<div v-for="r in requisitions" :key="r.id" :class="['card-item','status-'+r.status]" @click="openReqDetail(r)">
+<div v-for="r in filteredRequisitions" :key="r.id" :class="['card-item','status-'+r.status]" @click="openReqDetail(r)">
 <div class="card-header"><span class="card-title">{{r.req_no}}</span><span :class="['badge','badge-'+r.status]">{{reqStatusLabel(r.status)}}</span></div>
 <div class="card-meta"><span>塘号: {{r.pond_no}}</span><span>饲料: {{r.feed_type}}</span><span>数量: {{r.amount}}kg</span><span>申请人: {{r.requested_by}}</span></div>
 </div></div></div></div>
@@ -253,7 +255,10 @@ const loginForm=ref({username:"",password:""});const loginError=ref("")
 const planForm=ref({pond_no:"",breed_type:"",feed_type:"",daily_amount:"",frequency:"",start_date:"",end_date:"",remark:""})
 const reqForm=ref({feeding_plan_id:"",pond_no:"",feed_type:"",amount:"",remark:""})
 const toasts=ref([])
+const planStatusFilter=ref('');const reqStatusFilter=ref('')
 const approvedPlans=computed(()=>plans.value.filter(p=>p.status==='approved'))
+const filteredPlans=computed(()=>planStatusFilter.value?plans.value.filter(p=>p.status===planStatusFilter.value):plans.value)
+const filteredRequisitions=computed(()=>reqStatusFilter.value?requisitions.value.filter(r=>r.status===reqStatusFilter.value):requisitions.value)
 function toast(msg,type='info'){const id=Date.now();toasts.value.push({id,msg,type});setTimeout(()=>{toasts.value=toasts.value.filter(t=>t.id!==id)},3000)}
 function statusLabel(s){const m={draft:'草稿',submitted:'待审核',approved:'已批准',rejected:'已驳回'};return m[s]||s}
 function reqStatusLabel(s){const m={pending:'待发料',issued:'已发料',received:'已收料'};return m[s]||s}
@@ -273,7 +278,7 @@ async function issueReq(r){try{await apiFetch('/feed-requisitions/'+r.id+'/issue
 async function receiveReq(r){try{await apiFetch('/feed-requisitions/'+r.id+'/receive',{method:'PUT',body:JSON.stringify({status:user.value.username,remark:""})});toast('已收料','success');fetchRequisitions();openReqDetail(r)}catch(e){}}
 async function openPlanDetail(p){try{const d=await apiFetch('/feeding-plans/'+p.id);planDrawer.value=d}catch(e){planDrawer.value=p}}
 async function openReqDetail(r){try{const d=await apiFetch('/feed-requisitions/'+r.id);reqDrawer.value=d}catch(e){reqDrawer.value=r}}
-return{user,currentRole,activeTab,plans,requisitions,plansLoading,reqsLoading,planDrawer,reqDrawer,showCreatePlan,showCreateReq,showRejectPlan,rejectRemark,planForm,reqForm,loginForm,loginError,toasts,approvedPlans,login,logout,statusLabel,reqStatusLabel,roleLabel,fetchPlans,fetchRequisitions,createPlan,submitPlan,approvePlan,openRejectPlanModal,rejectPlan,createReq,issueReq,receiveReq,openPlanDetail,openReqDetail}
+return{user,currentRole,activeTab,plans,requisitions,plansLoading,reqsLoading,planDrawer,reqDrawer,showCreatePlan,showCreateReq,showRejectPlan,rejectRemark,planForm,reqForm,loginForm,loginError,toasts,approvedPlans,planStatusFilter,reqStatusFilter,filteredPlans,filteredRequisitions,login,logout,statusLabel,reqStatusLabel,roleLabel,fetchPlans,fetchRequisitions,createPlan,submitPlan,approvePlan,openRejectPlanModal,rejectPlan,createReq,issueReq,receiveReq,openPlanDetail,openReqDetail}
 }}).mount('#app')
 </script>
 </body></html>
