@@ -22,6 +22,28 @@ function buildSummary(batchId) {
   };
 }
 
+router.get('/abnormal', (req, res) => {
+  const batches = db.prepare('SELECT * FROM batches ORDER BY created_at DESC').all();
+  const result = [];
+  for (const b of batches) {
+    const latestInsp = getLatestInspection(b.id);
+    const hasRejectedInsp = latestInsp && latestInsp.result === 'rejected';
+    const hasRejections = db.prepare('SELECT COUNT(*) as c FROM rejections WHERE batch_id = ?').get(b.id).c > 0;
+    if (hasRejectedInsp || hasRejections) {
+      const latestRej = db.prepare('SELECT * FROM rejections WHERE batch_id = ? ORDER BY created_at DESC LIMIT 1').get(b.id);
+      result.push({
+        batch_number: b.batch_number,
+        supplier: b.supplier,
+        status: b.status,
+        latest_inspection_result: latestInsp ? latestInsp.result : null,
+        rejection_reason: latestRej ? latestRej.reason : null,
+        rejection_quantity: latestRej ? latestRej.quantity : null,
+      });
+    }
+  }
+  res.json(result);
+});
+
 router.get('/stats', (req, res) => {
   const batches = db.prepare('SELECT * FROM batches').all();
   const byStatus = {};
@@ -37,7 +59,9 @@ router.get('/stats', (req, res) => {
     const hasRejections = db.prepare('SELECT COUNT(*) as c FROM rejections WHERE batch_id = ?').get(b.id).c > 0;
     if (hasRejectedInsp || hasRejections) abnormalCount++;
   }
-  res.json({ total: batches.length, by_status: byStatus, by_inspection_result: byInspectionResult, abnormal_count: abnormalCount });
+  const allTasks = db.prepare("SELECT * FROM cutting_tasks WHERE status = 'pending'").all();
+  const pendingDispatchCount = allTasks.filter(t => { try { const p = JSON.parse(t.inspection_conclusion || '{}'); return p.result === 'passed' || p.result === 'conditional'; } catch(e) { return false; } }).length;
+  res.json({ total: batches.length, by_status: byStatus, by_inspection_result: byInspectionResult, abnormal_count: abnormalCount, pending_dispatch_count: pendingDispatchCount });
 });
 
 router.get('/', (req, res) => {

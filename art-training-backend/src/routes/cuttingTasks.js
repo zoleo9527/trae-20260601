@@ -19,6 +19,27 @@ router.get('/', (req, res) => {
   res.json(tasks);
 });
 
+router.get('/pending-dispatch', (req, res) => {
+  const tasks = db.prepare("SELECT * FROM cutting_tasks WHERE status = 'pending'").all();
+  const result = tasks.filter(t => {
+    try { const p = JSON.parse(t.inspection_conclusion || '{}'); return p.result === 'passed' || p.result === 'conditional'; } catch(e) { return false; }
+  }).map(t => {
+    let parsed = {};
+    try { parsed = JSON.parse(t.inspection_conclusion || '{}'); } catch(e) {}
+    const batch = db.prepare('SELECT * FROM batches WHERE id = ?').get(t.batch_id);
+    return {
+      task_number: t.task_number,
+      batch_number: batch ? batch.batch_number : null,
+      target_specification: t.target_specification,
+      target_quantity: t.target_quantity,
+      assignee: t.assignee,
+      inspection_storage_decision: parsed.storage_decision || null,
+      spec_adjustment: t.spec_adjustment || null,
+    };
+  });
+  res.json(result);
+});
+
 router.get('/:id', (req, res) => {
   const task = db.prepare('SELECT * FROM cutting_tasks WHERE id = ?').get(req.params.id);
   if (!task) return res.status(404).json({ error: '分割任务不存在' });

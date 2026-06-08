@@ -69,7 +69,21 @@ function seed() {
     const summaryStr = 'insp=' + inspResult + ' storage=' + storageDec + ' tasks=' + taskCount + ' adj=' + adjCount + ' ' + tags.join(',');
     console.log('  ' + b.batch_number + ' | ' + summaryStr);
   }
-  console.log('====================');
-}
+    console.log('====================');
 
-seed();
+    const abnormalBatches = batchList.filter(b => {
+      const latestInsp = db.prepare('SELECT * FROM inspections WHERE batch_id = ? ORDER BY created_at DESC LIMIT 1').get(b.id);
+      const hasRejectedInsp = latestInsp && latestInsp.result === 'rejected';
+      const hasRejections = db.prepare('SELECT COUNT(*) as c FROM rejections WHERE batch_id = ?').get(b.id).c > 0;
+      return hasRejectedInsp || hasRejections;
+    }).length;
+
+    const pendingDispatchTasks = db.prepare("SELECT * FROM cutting_tasks WHERE status = 'pending'").all().filter(t => {
+      try { const p = JSON.parse(t.inspection_conclusion || '{}'); return p.result === 'passed' || p.result === 'conditional'; } catch(e) { return false; }
+    }).length;
+
+    console.log('  异常批次数:', abnormalBatches);
+    console.log('  待派工任务数:', pendingDispatchTasks);
+  }
+
+  seed();
