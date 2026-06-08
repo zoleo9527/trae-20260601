@@ -1,0 +1,221 @@
+package handler
+
+import (
+	"time"
+
+	"github.com/gofiber/fiber/v2"
+	"github.com/google/uuid"
+	"tour-confirmation/model"
+	"tour-confirmation/store"
+)
+
+type ItineraryHandler struct {
+	store *store.Store
+}
+
+func NewItineraryHandler(s *store.Store) *ItineraryHandler {
+	return &ItineraryHandler{store: s}
+}
+
+type CreateItineraryReq struct {
+	TeamName     string              `json:"team_name"`
+	TeamCode     string              `json:"team_code"`
+	GuideName    string              `json:"guide_name"`
+	GuidePhone   string              `json:"guide_phone"`
+	Days         int                 `json:"days"`
+	StartDate    string              `json:"start_date"`
+	EndDate      string              `json:"end_date"`
+	RouteSummary string              `json:"route_summary"`
+	Items        []model.ItineraryItem `json:"items"`
+}
+
+func (h *ItineraryHandler) Create(c *fiber.Ctx) error {
+	var req CreateItineraryReq
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(400).JSON(model.FailMsg(model.ErrBadRequest, err.Error()))
+	}
+	now := time.Now()
+	itin := &model.Itinerary{
+		ID:           uuid.New().String(),
+		TeamName:     req.TeamName,
+		TeamCode:     req.TeamCode,
+		GuideName:    req.GuideName,
+		GuidePhone:   req.GuidePhone,
+		Days:         req.Days,
+		StartDate:    req.StartDate,
+		EndDate:      req.EndDate,
+		RouteSummary: req.RouteSummary,
+		Items:        req.Items,
+		Status:       model.ItineraryDraft,
+		CreatorID:    c.Get("X-User-ID", "anonymous"),
+		CreatorName:  c.Get("X-User-Name", "匿名"),
+		CreatedAt:    now,
+		UpdatedAt:    now,
+	}
+	h.store.SaveItinerary(itin)
+	h.store.AppendAudit(model.AuditLog{
+		ID:           uuid.New().String(),
+		EntityType:   "itinerary",
+		EntityID:     itin.ID,
+		Action:       model.ActionItinCreate,
+		OperatorID:   itin.CreatorID,
+		OperatorName: itin.CreatorName,
+		Detail:       "创建行程",
+		CreatedAt:    now,
+	})
+	return c.Status(201).JSON(model.OK(itin))
+}
+
+type UpdateItineraryReq struct {
+	TeamName     *string              `json:"team_name,omitempty"`
+	TeamCode     *string              `json:"team_code,omitempty"`
+	GuideName    *string              `json:"guide_name,omitempty"`
+	GuidePhone   *string              `json:"guide_phone,omitempty"`
+	Days         *int                 `json:"days,omitempty"`
+	StartDate    *string              `json:"start_date,omitempty"`
+	EndDate      *string              `json:"end_date,omitempty"`
+	RouteSummary *string              `json:"route_summary,omitempty"`
+	Items        *[]model.ItineraryItem `json:"items,omitempty"`
+}
+
+func (h *ItineraryHandler) Update(c *fiber.Ctx) error {
+	id := c.Params("id")
+	itin, ok := h.store.GetItinerary(id)
+	if !ok {
+		return c.Status(404).JSON(model.Fail(model.ErrItineraryNotFound))
+	}
+	if itin.Status != model.ItineraryDraft {
+		return c.Status(409).JSON(model.Fail(model.ErrItineraryNotDraft))
+	}
+	var req UpdateItineraryReq
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(400).JSON(model.FailMsg(model.ErrBadRequest, err.Error()))
+	}
+	if req.TeamName != nil {
+		itin.TeamName = *req.TeamName
+	}
+	if req.TeamCode != nil {
+		itin.TeamCode = *req.TeamCode
+	}
+	if req.GuideName != nil {
+		itin.GuideName = *req.GuideName
+	}
+	if req.GuidePhone != nil {
+		itin.GuidePhone = *req.GuidePhone
+	}
+	if req.Days != nil {
+		itin.Days = *req.Days
+	}
+	if req.StartDate != nil {
+		itin.StartDate = *req.StartDate
+	}
+	if req.EndDate != nil {
+		itin.EndDate = *req.EndDate
+	}
+	if req.RouteSummary != nil {
+		itin.RouteSummary = *req.RouteSummary
+	}
+	if req.Items != nil {
+		itin.Items = *req.Items
+	}
+	itin.UpdatedAt = time.Now()
+	h.store.SaveItinerary(itin)
+	h.store.AppendAudit(model.AuditLog{
+		ID:           uuid.New().String(),
+		EntityType:   "itinerary",
+		EntityID:     itin.ID,
+		Action:       model.ActionItinUpdate,
+		OperatorID:   c.Get("X-User-ID", "anonymous"),
+		OperatorName: c.Get("X-User-Name", "匿名"),
+		Detail:       "更新行程",
+		CreatedAt:    itin.UpdatedAt,
+	})
+	return c.JSON(model.OK(itin))
+}
+
+func (h *ItineraryHandler) Submit(c *fiber.Ctx) error {
+	id := c.Params("id")
+	itin, ok := h.store.GetItinerary(id)
+	if !ok {
+		return c.Status(404).JSON(model.Fail(model.ErrItineraryNotFound))
+	}
+	if itin.Status != model.ItineraryDraft {
+		return c.Status(409).JSON(model.Fail(model.ErrItineraryNotDraft))
+	}
+	now := time.Now()
+	itin.Status = model.ItinerarySubmitted
+	itin.UpdatedAt = now
+	h.store.SaveItinerary(itin)
+	h.store.AppendAudit(model.AuditLog{
+		ID:           uuid.New().String(),
+		EntityType:   "itinerary",
+		EntityID:     itin.ID,
+		Action:       model.ActionItinSubmit,
+		OperatorID:   c.Get("X-User-ID", "anonymous"),
+		OperatorName: c.Get("X-User-Name", "匿名"),
+		Detail:       "提交行程",
+		CreatedAt:    now,
+	})
+	return c.JSON(model.OK(itin))
+}
+
+func (h *ItineraryHandler) Withdraw(c *fiber.Ctx) error {
+	id := c.Params("id")
+	itin, ok := h.store.GetItinerary(id)
+	if !ok {
+		return c.Status(404).JSON(model.Fail(model.ErrItineraryNotFound))
+	}
+	if itin.Status != model.ItinerarySubmitted {
+		return c.Status(409).JSON(model.Fail(model.ErrItineraryNotSubmit))
+	}
+	now := time.Now()
+	itin.Status = model.ItineraryWithdrawn
+	itin.UpdatedAt = now
+	h.store.SaveItinerary(itin)
+	h.store.AppendAudit(model.AuditLog{
+		ID:           uuid.New().String(),
+		EntityType:   "itinerary",
+		EntityID:     itin.ID,
+		Action:       model.ActionItinWithdraw,
+		OperatorID:   c.Get("X-User-ID", "anonymous"),
+		OperatorName: c.Get("X-User-Name", "匿名"),
+		Detail:       "撤回行程",
+		CreatedAt:    now,
+	})
+	return c.JSON(model.OK(itin))
+}
+
+func (h *ItineraryHandler) Get(c *fiber.Ctx) error {
+	id := c.Params("id")
+	itin, ok := h.store.GetItinerary(id)
+	if !ok {
+		return c.Status(404).JSON(model.Fail(model.ErrItineraryNotFound))
+	}
+	return c.JSON(model.OK(itin))
+}
+
+type ListResult struct {
+	Items []*model.Itinerary `json:"items"`
+	Total int                `json:"total"`
+}
+
+func (h *ItineraryHandler) List(c *fiber.Ctx) error {
+	status := model.ItineraryStatus(c.Query("status"))
+	offset := c.QueryInt("offset", 0)
+	limit := c.QueryInt("limit", 20)
+	if limit > 100 {
+		limit = 100
+	}
+	items, total := h.store.ListItineraries(status, offset, limit)
+	return c.JSON(model.OK(ListResult{Items: items, Total: total}))
+}
+
+func (h *ItineraryHandler) AuditHistory(c *fiber.Ctx) error {
+	id := c.Params("id")
+	_, ok := h.store.GetItinerary(id)
+	if !ok {
+		return c.Status(404).JSON(model.Fail(model.ErrItineraryNotFound))
+	}
+	logs := h.store.ListAudit("itinerary", id)
+	return c.JSON(model.OK(logs))
+}
