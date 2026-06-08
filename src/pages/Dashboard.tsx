@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Bell, BellRing, Calendar, Package, AlertTriangle, CheckCircle2 } from "lucide-react";
+import { Bell, BellRing, Calendar, Package, AlertTriangle, CheckCircle2, CalendarPlus } from "lucide-react";
 import { useCargoStore } from "@/store/useCargoStore";
 import type { CargoStatus } from "@/types";
 
@@ -99,12 +99,14 @@ export default function Dashboard() {
                   </span>
                 </td>
                 <td className="px-4 py-3">
-                  <button
-                    onClick={() => navigate(targetPage[cargo.status])}
-                    className="text-amber-500 hover:text-amber-400 font-medium"
-                  >
-                    查看
-                  </button>
+                  {(cargo.status === "已通知" || cargo.status === "超期未提") ? (
+                    <div className="flex items-center gap-2">
+                      <button onClick={() => navigate(targetPage[cargo.status])} className="text-amber-500 hover:text-amber-400 font-medium">查看</button>
+                      <button onClick={() => navigate(`/arrival?openDrawer=${cargo.id}`)} className="text-cyan-400 hover:text-cyan-300 font-medium flex items-center gap-1"><CalendarPlus className="w-3.5 h-3.5" />发起预约</button>
+                    </div>
+                  ) : (
+                    <button onClick={() => navigate(targetPage[cargo.status])} className="text-amber-500 hover:text-amber-400 font-medium">查看</button>
+                  )}
                 </td>
               </tr>
             ))}

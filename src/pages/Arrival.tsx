@@ -1,5 +1,6 @@
-import { useState } from "react"
-import { Plus, Send, Phone, MessageSquare, X, Clock, ChevronRight } from "lucide-react"
+import { useState, useEffect } from "react"
+import { useSearchParams } from "react-router-dom"
+import { Plus, Send, Phone, MessageSquare, X, Clock, ChevronRight, CalendarPlus, User } from "lucide-react"
 import { useCargoStore } from "@/store/useCargoStore"
 import type { Cargo, CargoStatus } from "@/types"
 
@@ -15,13 +16,29 @@ const statusColors: Record<CargoStatus, string> = {
 const emptyForm = { trainNo: "", ticketNo: "", goodsName: "", weight: "", consignee: "", consigneePhone: "", arrivalTime: "" }
 
 export default function Arrival() {
-  const { cargos, addCargo, sendNotify, getNotifiesForCargo, getNotifyCount } = useCargoStore()
+  const { cargos, addCargo, sendNotify, makeAppointment, getNotifiesForCargo, getNotifyCount } = useCargoStore()
+  const [searchParams, setSearchParams] = useSearchParams()
   const [form, setForm] = useState(emptyForm)
   const [toast, setToast] = useState("")
   const [selected, setSelected] = useState<Cargo | null>(null)
   const [drawerOpen, setDrawerOpen] = useState(false)
+  const [showApptForm, setShowApptForm] = useState(false)
+  const [apptForm, setApptForm] = useState({ pickerName: "", pickerIdCard: "", relation: "本人", appointmentTime: "" })
 
   const recent = [...cargos].sort((a, b) => b.arrivalTime.localeCompare(a.arrivalTime))
+
+  useEffect(() => {
+    const cargoId = searchParams.get("openDrawer")
+    if (cargoId) {
+      const cargo = cargos.find((c) => c.id === cargoId)
+      if (cargo) {
+        setSelected(cargo)
+        setDrawerOpen(true)
+        setShowApptForm(true)
+      }
+      setSearchParams({}, { replace: true })
+    }
+  }, [searchParams, cargos, setSearchParams])
 
   const set = (k: string) => (e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, [k]: e.target.value })
 
@@ -47,12 +64,32 @@ export default function Arrival() {
   const openDrawer = (cargo: Cargo) => {
     setSelected(cargo)
     setDrawerOpen(true)
+    setShowApptForm(false)
+    setApptForm({ pickerName: "", pickerIdCard: "", relation: "本人", appointmentTime: "" })
   }
 
   const handleNotify = (method: "短信" | "电话") => {
     if (!selected) return
     sendNotify(selected.id, method, "客服-赵敏")
     setSelected({ ...selected, status: "已通知" })
+  }
+
+  const handleApptSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!selected) return
+    makeAppointment({
+      id: `a${Date.now()}`,
+      cargoId: selected.id,
+      pickerName: apptForm.pickerName,
+      pickerIdCard: apptForm.pickerIdCard,
+      relation: apptForm.relation,
+      appointmentTime: apptForm.appointmentTime.replace("T", " "),
+    })
+    setSelected({ ...selected, status: "已预约" })
+    setToast(`预约 ${selected.ticketNo} 提货成功`)
+    setTimeout(() => setToast(""), 2500)
+    setShowApptForm(false)
+    setApptForm({ pickerName: "", pickerIdCard: "", relation: "本人", appointmentTime: "" })
   }
 
   const selectedNotifies = selected ? getNotifiesForCargo(selected.id) : []
@@ -153,6 +190,44 @@ export default function Arrival() {
                 </button>
               </div>
             </div>
+
+            {(selected.status === "已通知" || selected.status === "超期未提") && (
+              <div className="mb-6 border border-slate-700 rounded-lg overflow-hidden">
+                <button onClick={() => setShowApptForm(!showApptForm)} className="w-full flex items-center justify-between px-4 py-3 bg-slate-800 hover:bg-slate-750 transition-colors">
+                  <span className="text-sm font-semibold text-cyan-400 flex items-center gap-2"><CalendarPlus className="w-4 h-4" />创建预约提货</span>
+                  <ChevronRight className={`w-4 h-4 text-slate-500 transition-transform ${showApptForm ? "rotate-90" : ""}`} />
+                </button>
+                {showApptForm && (
+                  <form onSubmit={handleApptSubmit} className="p-4 space-y-3 bg-slate-800/50">
+                    <div>
+                      <label className="text-xs text-slate-400 mb-1 block">预约人姓名</label>
+                      <input required value={apptForm.pickerName} onChange={(e) => setApptForm({ ...apptForm, pickerName: e.target.value })} className="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-cyan-500" placeholder="请输入预约人姓名" />
+                    </div>
+                    <div>
+                      <label className="text-xs text-slate-400 mb-1 block">身份证号</label>
+                      <input required value={apptForm.pickerIdCard} onChange={(e) => setApptForm({ ...apptForm, pickerIdCard: e.target.value })} className="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-white font-mono text-sm focus:outline-none focus:border-cyan-500" placeholder="请输入身份证号" />
+                    </div>
+                    <div>
+                      <label className="text-xs text-slate-400 mb-1 block">与收货人关系</label>
+                      <div className="flex gap-2">
+                        {["本人", "受委托人"].map((r) => (
+                          <button key={r} type="button" onClick={() => setApptForm({ ...apptForm, relation: r })} className={`flex-1 py-2 rounded-lg text-sm border transition-colors ${apptForm.relation === r ? "border-cyan-500 bg-cyan-500/15 text-cyan-400" : "border-slate-600 bg-slate-900 text-slate-400 hover:border-slate-500"}`}>
+                            <User className="w-3.5 h-3.5 inline mr-1" />{r}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div>
+                      <label className="text-xs text-slate-400 mb-1 block">预约时间</label>
+                      <input required type="datetime-local" value={apptForm.appointmentTime} onChange={(e) => setApptForm({ ...apptForm, appointmentTime: e.target.value })} className="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-cyan-500 [color-scheme:dark]" />
+                    </div>
+                    <button type="submit" className="w-full bg-cyan-600 hover:bg-cyan-500 text-white font-semibold py-2.5 rounded-lg transition-colors flex items-center justify-center gap-2">
+                      <CalendarPlus className="w-4 h-4" />确认预约
+                    </button>
+                  </form>
+                )}
+              </div>
+            )}
 
             <div className="flex-1 overflow-auto">
               <h4 className="text-sm font-semibold text-slate-300 mb-3">通知记录</h4>
