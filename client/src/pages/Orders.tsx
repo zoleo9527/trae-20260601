@@ -3,14 +3,14 @@ import {
   Package,
   RefreshCw,
   AlertTriangle,
-  ArrowRight,
   Eye,
   Search,
   XCircle,
+  Clock,
 } from 'lucide-react';
 import { api } from '../api';
 import type { CargoOrder } from '../types';
-import { STATUS_LABELS, STATUS_COLORS } from '../types';
+import { STATUS_LABELS } from '../types';
 import StatusBadge from '../components/StatusBadge';
 import OrderDrawer from '../components/OrderDrawer';
 
@@ -69,6 +69,36 @@ function matchKeyword(order: CargoOrder, keyword: string): boolean {
     order.consignee.toLowerCase().includes(kw) ||
     order.goods_name.toLowerCase().includes(kw)
   );
+}
+
+function HighlightText({ text, keyword }: { text: string; keyword: string }) {
+  if (!keyword) return <>{text}</>;
+  const idx = text.toLowerCase().indexOf(keyword.toLowerCase());
+  if (idx === -1) return <>{text}</>;
+  return (
+    <>
+      {text.slice(0, idx)}
+      <mark className="bg-amber-200/70 text-inherit rounded-sm px-0.5">
+        {text.slice(idx, idx + keyword.length)}
+      </mark>
+      {text.slice(idx + keyword.length)}
+    </>
+  );
+}
+
+function formatRelativeTime(dateStr: string): string {
+  const diffMs = Date.now() - new Date(dateStr).getTime();
+  if (diffMs < 0) return '刚刚';
+  const minutes = Math.floor(diffMs / 60000);
+  if (minutes < 1) return '刚刚';
+  if (minutes < 60) return `${minutes} 分钟前`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours} 小时前`;
+  const days = Math.floor(hours / 24);
+  if (days < 30) return `${days} 天前`;
+  const months = Math.floor(days / 30);
+  if (months < 12) return `${months} 个月前`;
+  return `${Math.floor(months / 12)} 年前`;
 }
 
 export default function Orders() {
@@ -236,33 +266,48 @@ export default function Orders() {
             const transitions = VALID_TRANSITIONS[order.status] || [];
 
             return (
-              <div key={order.id} className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+              <div
+                key={order.id}
+                className={`bg-white rounded-xl border overflow-hidden ${
+                  order.is_urgent ? 'border-rose-300 border-l-4 border-l-rose-500' : 'border-slate-200'
+                }`}
+              >
                 <div className="px-5 py-4">
                   <div className="flex items-center gap-4">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-3">
-                        <span className="font-semibold text-slate-800">{order.order_no}</span>
+                        <span className="font-semibold text-slate-800">
+                          <HighlightText text={order.order_no} keyword={keyword} />
+                        </span>
                         <StatusBadge status={order.status} />
                         {order.is_urgent && (
                           <span className="flex items-center gap-1 px-2 py-0.5 bg-rose-100 text-rose-600 rounded-full text-xs font-medium">
-                            <AlertTriangle className="w-3 h-3" /> 催办
+                            <AlertTriangle className="w-3 h-3" /> 紧急
                           </span>
                         )}
-                        <span className="text-sm text-slate-500">{order.flight_no}</span>
+                        <span className="text-sm text-slate-500">
+                          <HighlightText text={order.flight_no} keyword={keyword} />
+                        </span>
                       </div>
                       <div className="flex items-center gap-4 mt-1 text-sm text-slate-500">
-                        <span>{order.goods_name}</span>
+                        <span><HighlightText text={order.goods_name} keyword={keyword} /></span>
                         <span>{order.weight_kg}kg</span>
-                        <span>{order.consignee}</span>
+                        <span><HighlightText text={order.consignee} keyword={keyword} /></span>
                       </div>
                     </div>
-                    <div className="text-xs text-slate-400">
-                      {new Date(order.arrival_time).toLocaleString('zh-CN', {
-                        month: '2-digit',
-                        day: '2-digit',
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })}
+                    <div className="text-right shrink-0">
+                      <div className="text-xs text-slate-400">
+                        {new Date(order.arrival_time).toLocaleString('zh-CN', {
+                          month: '2-digit',
+                          day: '2-digit',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}
+                      </div>
+                      <div className="flex items-center justify-end gap-1 mt-0.5 text-[11px] text-slate-400">
+                        <Clock className="w-3 h-3" />
+                        {formatRelativeTime(order.updated_at)}
+                      </div>
                     </div>
                   </div>
 
