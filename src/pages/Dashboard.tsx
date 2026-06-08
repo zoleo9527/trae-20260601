@@ -13,7 +13,8 @@ import dayjs from 'dayjs'
 import { useDashboardStore } from '@/stores/dashboardStore'
 import { useSettlementStore } from '@/stores/settlementStore'
 import { useScheduleStore } from '@/stores/scheduleStore'
-import { SCHEDULE_STATUS_MAP, SETTLEMENT_STATUS_MAP, EXCEPTION_TYPE_MAP, ActionType, REJECTION_CATEGORY_MAP } from '@/types'
+import { useRoleStore } from '@/stores/roleStore'
+import { SCHEDULE_STATUS_MAP, SETTLEMENT_STATUS_MAP, EXCEPTION_TYPE_MAP, ActionType, REJECTION_CATEGORY_MAP, ROLE_CONFIGS } from '@/types'
 
 const ACTION_LABEL_MAP: Record<ActionType, string> = {
   create: '创建',
@@ -44,8 +45,14 @@ const SEVERITY_CONFIG: Record<string, { bg: string; border: string; text: string
 export default function Dashboard() {
   const navigate = useNavigate()
   const { getTodoCounts, getRiskItems, getUnreadRiskItems, markRiskRead, getRecentChanges, getRejectedSettlements } = useDashboardStore()
-  const { settlements, getOverdueRejectionCount } = useSettlementStore()
+  const { settlements, getOverdueRejectionCount, getRejectionSLAStats } = useSettlementStore()
   const { schedules } = useScheduleStore()
+  const { currentRole } = useRoleStore()
+
+  const currentRoleLabel = ROLE_CONFIGS.find((c) => c.name === currentRole)?.label || ''
+  const isDispatcher = currentRole === 'dispatcher'
+  const slaStats = getRejectionSLAStats(30, isDispatcher ? currentRoleLabel : undefined)
+  const isSLAUnhealthy = slaStats.complianceRate < 80 || slaStats.overdueCount > 0
 
   const todoCounts = getTodoCounts()
   const riskItems = getRiskItems()
@@ -108,6 +115,88 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-5">
+      {(slaStats.totalResolved > 0 || slaStats.overdueCount > 0) && (
+        <div className={`rounded-lg border p-4 transition-colors ${
+          isSLAUnhealthy
+            ? 'bg-red-50/70 border-red-200 shadow-sm'
+            : 'bg-white border-gray-100 shadow-sm'
+        }`}>
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <div className={`w-7 h-7 rounded-md flex items-center justify-center ${isSLAUnhealthy ? 'bg-red-100' : 'bg-emerald-50'}`}>
+                <Clock size={15} className={isSLAUnhealthy ? 'text-red-600' : 'text-emerald-600'} />
+              </div>
+              <span className="text-sm font-semibold text-[#1a2332]">驳回处理SLA健康度</span>
+              <span className="text-xs text-gray-400">近30天{isDispatcher ? '（我的结算）' : '（全量）'}</span>
+              {isSLAUnhealthy && (
+                <span className="text-xs bg-red-600 text-white px-1.5 py-0.5 rounded font-medium animate-pulse">
+                  需关注
+                </span>
+              )}
+            </div>
+            {isSLAUnhealthy && (
+              <button
+                onClick={() => navigate('/settlement?overdue=1')}
+                className="text-xs bg-red-600 text-white px-3 py-1.5 rounded-md hover:bg-red-700 font-medium transition-colors"
+              >
+                立即处理
+              </button>
+            )}
+          </div>
+          <div className="grid grid-cols-4 gap-4 mb-3">
+            <div>
+              <div className="text-xs text-gray-500 mb-1">平均处理耗时</div>
+              <div className={`text-xl font-bold ${isSLAUnhealthy && slaStats.avgProcessingHours > 72 ? 'text-red-600' : 'text-[#1a2332]'}`}>
+                {slaStats.avgProcessingHours}<span className="text-sm font-normal ml-0.5">h</span>
+              </div>
+            </div>
+            <div>
+              <div className="text-xs text-gray-500 mb-1">72h达标率</div>
+              <div className={`text-xl font-bold ${
+                slaStats.complianceRate < 80 ? 'text-red-600' :
+                slaStats.complianceRate < 95 ? 'text-amber-600' : 'text-emerald-600'
+              }`}>
+                {slaStats.complianceRate}<span className="text-sm font-normal ml-0.5">%</span>
+              </div>
+            </div>
+            <div>
+              <div className="text-xs text-gray-500 mb-1">逾期未处理</div>
+              <div className={`text-xl font-bold ${slaStats.overdueCount > 0 ? 'text-red-600' : 'text-[#1a2332]'}`}>
+                {slaStats.overdueCount}<span className="text-sm font-normal ml-0.5">笔</span>
+              </div>
+            </div>
+            <div>
+              <div className="text-xs text-gray-500 mb-1">已解决</div>
+              <div className="text-xl font-bold text-[#1a2332]">
+                {slaStats.totalResolved}<span className="text-sm font-normal ml-0.5">笔</span>
+              </div>
+            </div>
+          </div>
+          {slaStats.categoryBreakdown.length > 0 && (
+            <div className="pt-3 border-t border-gray-100">
+              <div className="flex items-center gap-3">
+                <span className="text-xs text-gray-400">重点关注：</span>
+                {slaStats.categoryBreakdown
+                  .sort((a, b) => b.avgHours - a.avgHours)
+                  .slice(0, 2)
+                  .map((cat) => {
+                    const catConfig = REJECTION_CATEGORY_MAP[cat.category]
+                    return catConfig ? (
+                      <span key={cat.category} className={`text-xs px-2 py-1 rounded-md ${
+                        cat.avgHours > 72
+                          ? 'bg-red-100 text-red-700 border border-red-200'
+                          : `${catConfig.bgColor} ${catConfig.color} border ${catConfig.borderColor}`
+                      }`}>
+                        {catConfig.label} {cat.avgHours}h
+                      </span>
+                    ) : null
+                  })}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       <div className="grid grid-cols-5 gap-3">
         {todoCards.map((card) => (
           <div

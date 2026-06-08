@@ -20,7 +20,7 @@ interface SettlementState {
   getRejectionCategoryStats: (days?: number) => { category: RejectionCategory; count: number; totalAmount: number }[]
   getOverdueRejections: () => { rejection: Rejection; settlement: Settlement | undefined; pendingDays: number; overdue: boolean }[]
   getOverdueRejectionCount: () => number
-  getRejectionSLAStats: (days?: number) => {
+  getRejectionSLAStats: (days?: number, createdBy?: string) => {
     avgProcessingHours: number
     complianceRate: number
     overdueCount: number
@@ -190,14 +190,19 @@ export const useSettlementStore = create<SettlementState>()(
           .length
       },
 
-      getRejectionSLAStats: (days = 30) => {
+      getRejectionSLAStats: (days = 30, createdBy?: string) => {
         const rejections = get().rejections
+        const settlements = get().settlements
         const cutoff = dayjs().subtract(days, 'day').toISOString()
+        const ownedSettlementIds = createdBy
+          ? settlements.filter((s) => s.createdBy.includes(createdBy)).map((s) => s.id)
+          : null
+        const filterOwned = (r: Rejection) => !ownedSettlementIds || ownedSettlementIds.includes(r.settlementId)
         const recentResolved = rejections.filter(
-          (r) => r.status === 'RESOLVED' && r.rejectedAt >= cutoff && r.resubmittedAt
+          (r) => r.status === 'RESOLVED' && r.rejectedAt >= cutoff && r.resubmittedAt && filterOwned(r)
         )
         const currentOverdue = rejections.filter(
-          (r) => r.status === 'PENDING' && dayjs().diff(dayjs(r.rejectedAt), 'day') > 3
+          (r) => r.status === 'PENDING' && dayjs().diff(dayjs(r.rejectedAt), 'day') > 3 && filterOwned(r)
         )
         const processingHoursList = recentResolved.map((r) =>
           dayjs(r.resubmittedAt).diff(dayjs(r.rejectedAt), 'minute') / 60
