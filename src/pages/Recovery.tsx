@@ -84,6 +84,7 @@ export default function Recovery() {
   const [flows, setFlows] = useState<Recovery[]>([])
   const [status, setStatus] = useState('')
   const [sort, setSort] = useState('wait')
+  const [waitChip, setWaitChip] = useState<'' | 'stuck' | 'warning'>('')
   const [loading, setLoading] = useState(true)
   const { user } = useAuthStore()
 
@@ -109,24 +110,59 @@ export default function Recovery() {
     fetchFlows()
   }, [fetchFlows])
 
+  const stuckCount = useMemo(
+    () => flows.filter((f) => (f.status === 'pending_clean' || f.status === 'pending_inspect') && getWaitHours(f) > 24).length,
+    [flows],
+  )
+  const warningCount = useMemo(
+    () => flows.filter((f) => (f.status === 'pending_clean' || f.status === 'pending_inspect') && getWaitHours(f) > 12 && getWaitHours(f) <= 24).length,
+    [flows],
+  )
+
   const sortedFlows = useMemo(() => {
+    const isActive = (f: Recovery) => f.status === 'pending_clean' || f.status === 'pending_inspect'
+    const isStuck = (f: Recovery) => isActive(f) && getWaitHours(f) > 24
+    const isWarning = (f: Recovery) => isActive(f) && getWaitHours(f) > 12 && getWaitHours(f) <= 24
+
+    let list = [...flows]
+
+    if (waitChip === 'stuck') {
+      list = list.filter(isStuck)
+    } else if (waitChip === 'warning') {
+      list = list.filter(isWarning)
+    }
+
     if (sort === 'wait') {
-      return [...flows].sort((a, b) => {
-        const aActive = a.status === 'pending_clean' || a.status === 'pending_inspect'
-        const bActive = b.status === 'pending_clean' || b.status === 'pending_inspect'
-        if (aActive && !bActive) return -1
-        if (!aActive && bActive) return 1
-        if (!aActive && !bActive) return 0
+      list.sort((a, b) => {
+        const aA = isActive(a), bA = isActive(b)
+        if (aA && !bA) return -1
+        if (!aA && bA) return 1
+        if (!aA && !bA) return 0
         return getWaitHours(b) - getWaitHours(a)
       })
+    } else {
+      list.sort((a, b) => {
+        const da = parseDate(a.created_at), db = parseDate(b.created_at)
+        if (!da || !db) return 0
+        return db.getTime() - da.getTime()
+      })
+      if (waitChip === 'stuck') {
+        list.sort((a, b) => {
+          const aS = isStuck(a) ? 0 : 1
+          const bS = isStuck(b) ? 0 : 1
+          return aS - bS
+        })
+      } else if (waitChip === 'warning') {
+        list.sort((a, b) => {
+          const aW = isWarning(a) ? 0 : 1
+          const bW = isWarning(b) ? 0 : 1
+          return aW - bW
+        })
+      }
     }
-    return [...flows].sort((a, b) => {
-      const da = parseDate(a.created_at)
-      const db = parseDate(b.created_at)
-      if (!da || !db) return 0
-      return db.getTime() - da.getTime()
-    })
-  }, [flows, sort])
+
+    return list
+  }, [flows, sort, waitChip])
 
   const openDialog = async () => {
     setShowDialog(true)
@@ -234,6 +270,41 @@ export default function Recovery() {
           <div className="w-1.5 h-1.5 rounded-full bg-orange-500 animate-pulse" />
           待检查 {pendingInspect}
         </div>
+      </div>
+
+      <div className="flex items-center gap-2 mb-4">
+        <button
+          onClick={() => setWaitChip(waitChip === 'stuck' ? '' : 'stuck')}
+          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium border transition-all ${
+            waitChip === 'stuck'
+              ? 'bg-red-500/20 text-red-300 border-red-500/50 shadow-[0_0_8px_rgba(239,68,68,0.15)]'
+              : 'bg-[#151822] text-[#6b7084] border-[#2a2f42] hover:border-red-500/30 hover:text-red-400'
+          }`}
+        >
+          <AlertTriangle size={11} />
+          卡点 &gt;24h
+          <span className={`px-1.5 py-0 rounded-full text-[10px] ${
+            waitChip === 'stuck' ? 'bg-red-500/30 text-red-200' : 'bg-[#1e2230] text-[#4a4e5e]'
+          }`}>
+            {stuckCount}
+          </span>
+        </button>
+        <button
+          onClick={() => setWaitChip(waitChip === 'warning' ? '' : 'warning')}
+          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium border transition-all ${
+            waitChip === 'warning'
+              ? 'bg-yellow-500/20 text-yellow-300 border-yellow-500/50 shadow-[0_0_8px_rgba(234,179,8,0.15)]'
+              : 'bg-[#151822] text-[#6b7084] border-[#2a2f42] hover:border-yellow-500/30 hover:text-yellow-400'
+          }`}
+        >
+          <Clock size={11} />
+          提醒 12-24h
+          <span className={`px-1.5 py-0 rounded-full text-[10px] ${
+            waitChip === 'warning' ? 'bg-yellow-500/30 text-yellow-200' : 'bg-[#1e2230] text-[#4a4e5e]'
+          }`}>
+            {warningCount}
+          </span>
+        </button>
       </div>
 
       {loading ? (
