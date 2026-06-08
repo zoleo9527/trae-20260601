@@ -1,10 +1,10 @@
-import { useEffect, useState, useCallback } from 'react'
-import { Link } from 'react-router-dom'
-import { api } from '@/lib/api'
-import { useAuthStore } from '@/stores/auth'
 import { StatusBadge } from '@/components/StatusBadge'
 import { formatTime } from '@/components/Timeline'
-import { RefreshCw, Filter, Plus, X, AlertTriangle } from 'lucide-react'
+import { api } from '@/lib/api'
+import { useAuthStore } from '@/stores/auth'
+import { AlertTriangle, ArrowUpDown, Clock, Filter, Plus, RefreshCw, X } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 
 interface Recovery {
   id: number
@@ -22,6 +22,8 @@ interface Recovery {
   last_reject_note: string | null
   last_reject_at: string | null
   last_reject_by: string | null
+  latest_log_at: string | null
+  latest_log_by: string | null
 }
 
 interface Room {
@@ -38,9 +40,50 @@ const statusOptions = [
   { value: 'recovered', label: '已恢复' },
 ]
 
+const sortOptions = [
+  { value: 'wait', label: '等待最久' },
+  { value: 'created', label: '创建时间' },
+]
+
+function getWaitSince(f: Recovery): Date | null {
+  if (f.status === 'recovered') return null
+  if (f.status === 'pending_inspect' && f.clean_completed_at) {
+    return parseDate(f.clean_completed_at)
+  }
+  if (f.status === 'pending_clean') {
+    return parseDate(f.created_at)
+  }
+  return parseDate(f.created_at)
+}
+
+function parseDate(s: string | null): Date | null {
+  if (!s) return null
+  try {
+    const d = new Date(s + 'Z')
+    return isNaN(d.getTime()) ? null : d
+  } catch {
+    return null
+  }
+}
+
+function getWaitHours(f: Recovery): number {
+  const since = getWaitSince(f)
+  if (!since) return 0
+  return (Date.now() - since.getTime()) / 3600000
+}
+
+function formatDuration(hours: number): string {
+  if (hours < 1) return `${Math.round(hours * 60)}分钟`
+  if (hours < 24) return `${Math.round(hours * 10) / 10}小时`
+  const d = Math.floor(hours / 24)
+  const h = Math.round(hours % 24)
+  return h > 0 ? `${d}天${h}小时` : `${d}天`
+}
+
 export default function Recovery() {
   const [flows, setFlows] = useState<Recovery[]>([])
   const [status, setStatus] = useState('')
+  const [sort, setSort] = useState('wait')
   const [loading, setLoading] = useState(true)
   const { user } = useAuthStore()
 
@@ -65,6 +108,25 @@ export default function Recovery() {
   useEffect(() => {
     fetchFlows()
   }, [fetchFlows])
+
+  const sortedFlows = useMemo(() => {
+    if (sort === 'wait') {
+      return [...flows].sort((a, b) => {
+        const aActive = a.status === 'pending_clean' || a.status === 'pending_inspect'
+        const bActive = b.status === 'pending_clean' || b.status === 'pending_inspect'
+        if (aActive && !bActive) return -1
+        if (!aActive && bActive) return 1
+        if (!aActive && !bActive) return 0
+        return getWaitHours(b) - getWaitHours(a)
+      })
+    }
+    return [...flows].sort((a, b) => {
+      const da = parseDate(a.created_at)
+      const db = parseDate(b.created_at)
+      if (!da || !db) return 0
+      return db.getTime() - da.getTime()
+    })
+  }, [flows, sort])
 
   const openDialog = async () => {
     setShowDialog(true)
@@ -109,7 +171,6 @@ export default function Recovery() {
   const pendingClean = flows.filter((f) => f.status === 'pending_clean').length
   const pendingInspect = flows.filter((f) => f.status === 'pending_inspect').length
   const canCreate = user?.role === 'cleaner'
-
   const availableRooms = dialogRooms.filter((r) => !dialogActiveRoomIds.has(r.id))
 
   return (
@@ -143,6 +204,18 @@ export default function Recovery() {
               ))}
             </select>
           </div>
+          <div className="flex items-center gap-1.5">
+            <ArrowUpDown size={13} className="text-[#6b7084]" />
+            <select
+              value={sort}
+              onChange={(e) => setSort(e.target.value)}
+              className="bg-[#151822] border border-[#2a2f42] rounded-md text-[12px] text-[#e4e6eb] px-2 py-1.5 focus:outline-none focus:border-[#e8723a]/50"
+            >
+              {sortOptions.map((o) => (
+                <option key={o.value} value={o.value}>{o.label}</option>
+              ))}
+            </select>
+          </div>
           <button
             onClick={fetchFlows}
             className="p-1.5 rounded-md bg-[#151822] border border-[#2a2f42] text-[#6b7084] hover:text-[#e4e6eb] transition-colors"
@@ -165,58 +238,87 @@ export default function Recovery() {
 
       {loading ? (
         <div className="text-[#6b7084] text-sm py-10 text-center">加载中...</div>
-      ) : flows.length === 0 ? (
+      ) : sortedFlows.length === 0 ? (
         <div className="text-[#4a4e5e] text-sm py-10 text-center">暂无恢复流程</div>
       ) : (
         <div className="space-y-2.5">
-          {flows.map((f) => (
-            <Link
-              key={f.id}
-              to={`/recovery/${f.id}`}
-              className={`flex items-center justify-between bg-[#151822] rounded-lg border p-4 hover:bg-[#1a1d28] transition-colors group ${
-                f.last_reject_note ? 'border-red-500/30 hover:border-red-500/50' : 'border-[#1e2230] hover:border-[#2a2f42]'
-              }`}
-            >
-              <div className="flex items-center gap-4 flex-1 min-w-0">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="text-[14px] font-mono font-semibold text-[#e4e6eb]">{f.room_number}</span>
-                    <StatusBadge status={f.status} type="recovery" />
-                    {f.last_reject_note && (
-                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] bg-red-500/15 text-red-400 border border-red-500/25">
-                        <AlertTriangle size={10} />
-                        驳回
-                      </span>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-2 text-[11px] text-[#6b7084]">
-                    {f.cleaner_name && <span>保洁: {f.cleaner_name}</span>}
-                    {f.supervisor_name && (
-                      <>
-                        <span>·</span>
-                        <span>主管: {f.supervisor_name}</span>
-                      </>
-                    )}
-                  </div>
-                  {f.last_reject_note && (
-                    <div className="flex items-center gap-1.5 mt-1.5 text-[11px]">
-                      <AlertTriangle size={10} className="text-red-400 flex-shrink-0" />
-                      <span className="text-red-400/80 truncate">
-                        {f.last_reject_by}驳回：{f.last_reject_note}
-                      </span>
-                      {f.last_reject_at && (
-                        <span className="text-red-400/50 flex-shrink-0">{formatTime(f.last_reject_at)}</span>
+          {sortedFlows.map((f) => {
+            const waitH = getWaitHours(f)
+            const isActive = f.status === 'pending_clean' || f.status === 'pending_inspect'
+            const isStuck = isActive && waitH > 24
+            const isWarning = isActive && waitH > 12 && waitH <= 24
+
+            return (
+              <Link
+                key={f.id}
+                to={`/recovery/${f.id}`}
+                className={`flex items-center justify-between bg-[#151822] rounded-lg border p-4 hover:bg-[#1a1d28] transition-colors group ${
+                  isStuck
+                    ? 'border-red-500/40 hover:border-red-500/60'
+                    : f.last_reject_note
+                      ? 'border-red-500/30 hover:border-red-500/50'
+                      : 'border-[#1e2230] hover:border-[#2a2f42]'
+                }`}
+              >
+                <div className="flex items-center gap-4 flex-1 min-w-0">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-[14px] font-mono font-semibold text-[#e4e6eb]">{f.room_number}</span>
+                      <StatusBadge status={f.status} type="recovery" />
+                      {isActive && (
+                        <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] border ${
+                          isStuck
+                            ? 'bg-red-500/15 text-red-400 border-red-500/30'
+                            : isWarning
+                              ? 'bg-yellow-500/15 text-yellow-400 border-yellow-500/30'
+                              : 'bg-[#1a1d28] text-[#6b7084] border-[#2a2f42]'
+                        }`}>
+                          {isStuck && <AlertTriangle size={10} />}
+                          <Clock size={10} />
+                          {formatDuration(waitH)}
+                        </span>
+                      )}
+                      {f.last_reject_note && (
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] bg-red-500/15 text-red-400 border border-red-500/25">
+                          <AlertTriangle size={10} />
+                          驳回
+                        </span>
                       )}
                     </div>
-                  )}
+                    <div className="flex items-center gap-2 text-[11px] text-[#6b7084]">
+                      {f.cleaner_name && <span>保洁: {f.cleaner_name}</span>}
+                      {f.supervisor_name && (
+                        <>
+                          <span>·</span>
+                          <span>主管: {f.supervisor_name}</span>
+                        </>
+                      )}
+                    </div>
+                    {f.last_reject_note && (
+                      <div className="flex items-center gap-1.5 mt-1.5 text-[11px]">
+                        <AlertTriangle size={10} className="text-red-400 flex-shrink-0" />
+                        <span className="text-red-400/80 truncate">
+                          {f.last_reject_by}驳回：{f.last_reject_note}
+                        </span>
+                        {f.last_reject_at && (
+                          <span className="text-red-400/50 flex-shrink-0">{formatTime(f.last_reject_at)}</span>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
-              <div className="flex items-center gap-3 flex-shrink-0 ml-3">
-                <div className="text-[11px] text-[#4a4e5e]">{formatTime(f.created_at)}</div>
-                <div className="text-[#4a4e5e] group-hover:text-[#e8723a] transition-colors">→</div>
-              </div>
-            </Link>
-          ))}
+                <div className="flex flex-col items-end gap-1.5 flex-shrink-0 ml-3">
+                  <div className="text-[11px] text-[#4a4e5e]">{formatTime(f.created_at)}</div>
+                  {f.latest_log_by && f.latest_log_at && (
+                    <div className="text-[10px] text-[#4a4e5e]">
+                      {f.latest_log_by} · {formatTime(f.latest_log_at)}
+                    </div>
+                  )}
+                  <div className="text-[#4a4e5e] group-hover:text-[#e8723a] transition-colors self-end">→</div>
+                </div>
+              </Link>
+            )
+          })}
         </div>
       )}
 

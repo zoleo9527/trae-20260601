@@ -11,9 +11,10 @@ router.use(authMiddleware)
 router.get('/', (req: Request, res: Response): void => {
   const { status } = req.query
 
-  let sql = `
+  const sql = `
     SELECT rf.*, r.room_number, u1.name as cleaner_name, u2.name as supervisor_name,
-      rj.note as last_reject_note, rj.created_at as last_reject_at, rj_op.name as last_reject_by
+      rj.note as last_reject_note, rj.created_at as last_reject_at, rj_op.name as last_reject_by,
+      ll.created_at as latest_log_at, ll_op.name as latest_log_by
     FROM recovery_flows rf
     JOIN rooms r ON rf.room_id = r.id
     LEFT JOIN users u1 ON rf.cleaner_id = u1.id
@@ -25,16 +26,17 @@ router.get('/', (req: Request, res: Response): void => {
       WHERE rl.action = 'rejected'
     ) rj ON rj.recovery_flow_id = rf.id AND rj.rn = 1
     LEFT JOIN users rj_op ON rj.operator_id = rj_op.id
+    LEFT JOIN (
+      SELECT rl2.recovery_flow_id, rl2.operator_id, rl2.created_at,
+        ROW_NUMBER() OVER (PARTITION BY rl2.recovery_flow_id ORDER BY rl2.created_at DESC) as rn
+      FROM recovery_logs rl2
+    ) ll ON ll.recovery_flow_id = rf.id AND ll.rn = 1
+    LEFT JOIN users ll_op ON ll.operator_id = ll_op.id
     WHERE 1=1
+    ${status ? ' AND rf.status = ?' : ''}
+    ORDER BY rf.created_at DESC
   `
-  const params: any[] = []
-
-  if (status) {
-    sql += ' AND rf.status = ?'
-    params.push(status)
-  }
-
-  sql += ' ORDER BY rf.created_at DESC'
+  const params: any[] = status ? [status] : []
 
   const flows = db.prepare(sql).all(...params)
   res.json({ success: true, data: flows })
