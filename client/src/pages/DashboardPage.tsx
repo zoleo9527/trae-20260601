@@ -14,6 +14,7 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState<string>('all')
   const [keyword, setKeyword] = useState('')
+  const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc')
 
   useEffect(() => {
     loadData()
@@ -80,6 +81,32 @@ export default function DashboardPage() {
     claimed: '暂无已认领记录',
     returned: '暂无已退回记录',
     disputed: '暂无争议记录',
+  }
+
+  const toggleSort = () => {
+    setSortOrder(prev => prev === 'desc' ? 'asc' : 'desc')
+  }
+
+  const sortedItems = [...filteredItems].sort((a, b) => {
+    const ta = dayjs(a.found_at).valueOf()
+    const tb = dayjs(b.found_at).valueOf()
+    return sortOrder === 'desc' ? tb - ta : ta - tb
+  })
+
+  const relativeTime = (iso: string) => {
+    const diffH = dayjs().diff(dayjs(iso), 'hour')
+    if (diffH < 1) return '刚刚'
+    if (diffH < 24) return `${diffH}h 前`
+    const diffD = dayjs().diff(dayjs(iso), 'day')
+    return `${diffD}d 前`
+  }
+
+  const summaryCounts = {
+    total: filteredItems.length,
+    registered: filteredItems.filter(i => i.status === 'registered').length,
+    claimed: filteredItems.filter(i => i.status === 'claimed').length,
+    returned: filteredItems.filter(i => i.status === 'returned').length,
+    disputed: filteredItems.filter(i => i.status === 'disputed').length,
   }
 
   return (
@@ -168,13 +195,15 @@ export default function DashboardPage() {
                 <th style={styles.th}>物品</th>
                 <th style={styles.th}>分类</th>
                 <th style={styles.th}>发现人</th>
-                <th style={styles.th}>发现时间</th>
+                <th onClick={toggleSort} style={styles.thSortable}>
+                  发现时间 {sortOrder === 'desc' ? '↓' : '↑'}
+                </th>
                 <th style={styles.th}>状态</th>
                 <th style={styles.th}>异常</th>
               </tr>
             </thead>
             <tbody>
-              {filteredItems.map(item => (
+              {sortedItems.map(item => (
                 <tr
                   key={item.id}
                   onClick={() => navigate(`/items/${item.id}`)}
@@ -198,7 +227,10 @@ export default function DashboardPage() {
                     </span>
                   </td>
                   <td style={styles.td}>{item.found_by}</td>
-                  <td style={styles.td}>{dayjs(item.found_at).format('MM-DD HH:mm')}</td>
+                  <td style={styles.td}>
+                    <span style={styles.timePrimary}>{dayjs(item.found_at).format('MM-DD HH:mm')}</span>
+                    <span style={styles.timeRelative}>{relativeTime(item.found_at)}</span>
+                  </td>
                   <td style={styles.td}>
                     <span style={{
                       ...styles.statusTag,
@@ -219,6 +251,13 @@ export default function DashboardPage() {
                 </tr>
               ))}
             </tbody>
+            <tfoot>
+              <tr>
+                <td colSpan={8} style={styles.summaryCell}>
+                  共 {summaryCounts.total} 条 · 待处理 {summaryCounts.registered} · 已认领 {summaryCounts.claimed} · 已退回 {summaryCounts.returned} · 争议 {summaryCounts.disputed}
+                </td>
+              </tr>
+            </tfoot>
           </table>
         </div>
       )}
@@ -391,6 +430,18 @@ const styles: Record<string, React.CSSProperties> = {
     textTransform: 'uppercase',
     letterSpacing: '0.05em',
   },
+  thSortable: {
+    textAlign: 'left',
+    padding: '10px 14px',
+    borderBottom: '2px solid var(--color-border)',
+    fontSize: 12,
+    fontWeight: 600,
+    color: 'var(--color-primary)',
+    textTransform: 'uppercase',
+    letterSpacing: '0.05em',
+    cursor: 'pointer',
+    userSelect: 'none',
+  },
   row: {
     cursor: 'pointer',
     transition: 'background 0.1s',
@@ -447,6 +498,22 @@ const styles: Record<string, React.CSSProperties> = {
     color: 'var(--color-danger)',
     marginLeft: 4,
     verticalAlign: 'middle',
+  },
+  timePrimary: {
+    display: 'block',
+  },
+  timeRelative: {
+    display: 'block',
+    fontSize: 11,
+    color: 'var(--color-text-secondary)',
+    marginTop: 1,
+  },
+  summaryCell: {
+    padding: '10px 14px',
+    borderTop: '2px solid var(--color-border)',
+    fontSize: 13,
+    color: 'var(--color-text-secondary)',
+    fontWeight: 500,
   },
   empty: {
     textAlign: 'center' as const,
