@@ -292,3 +292,78 @@
     {/if}
   </div>
 </div>
+
+{#if showBatchModal}
+  <div class="overlay" on:click|self={() => showBatchModal = false}>
+    <div class="modal">
+      <h3>{batchMode === "handover" ? "批量交接确认" : "批量验收确认"}</h3>
+
+      {#if batchMode === "handover"}
+        {#if batchHandoverable.length > 0}
+          <p style="font-size:14px;color:#059669;font-weight:500;margin:0 0 8px;">✅ 可交接（{batchHandoverable.length} 条）</p>
+          {#each batchHandoverable as s}
+            <div class="modal-item ok">
+              <span class="mi-id">{s.id} {s.pondNo}</span>
+              <span class="mi-status">{getStatusBadge(s.status).role} → {flowConfig[s.status].nextHandler}</span>
+            </div>
+          {/each}
+        {/if}
+        {#if batchHandoverBlocked.length > 0}
+          <p style="font-size:14px;color:#EF4444;font-weight:500;margin:12px 0 8px;">🚫 存在阻塞，无法交接（{batchHandoverBlocked.length} 条）</p>
+          {#each batchHandoverBlocked as s}
+            <div class="modal-item blocked">
+              <span class="mi-id">{s.id} {s.pondNo}</span>
+              <span class="mi-reason">异常未解除</span>
+            </div>
+          {/each}
+        {/if}
+        {#if batchHandoverSkipped.length > 0}
+          <p style="font-size:14px;color:#6B7280;font-weight:500;margin:12px 0 8px;">⏭ 不适用交接（{batchHandoverSkipped.length} 条）</p>
+          {#each batchHandoverSkipped as s}
+            <div class="modal-item skip">
+              <span class="mi-id">{s.id} {s.pondNo}</span>
+              <span class="mi-reason">{getStatusBadge(s.status).role}，无可执行交接动作</span>
+            </div>
+          {/each}
+        {/if}
+      {/if}
+
+      {#if batchMode === "accept"}
+        {#if batchAcceptable.length > 0}
+          <p style="font-size:14px;color:#059669;font-weight:500;margin:0 0 8px;">✅ 可验收（{batchAcceptable.length} 条）</p>
+          {#each batchAcceptable as s}
+            <div class="modal-item ok">
+              <span class="mi-id">{s.id} {s.pondNo}</span>
+              <span class="mi-status">待客户验收</span>
+            </div>
+          {/each}
+        {/if}
+        {#if batchAcceptBlocked.length > 0}
+          <p style="font-size:14px;color:#EF4444;font-weight:500;margin:12px 0 8px;">🚫 存在阻塞，无法验收（{batchAcceptBlocked.length} 条）</p>
+          {#each batchAcceptBlocked as s}
+            <div class="modal-item blocked">
+              <span class="mi-id">{s.id} {s.pondNo}</span>
+              <span class="mi-reason">异常未解除</span>
+            </div>
+          {/each}
+        {/if}
+        {#if batchAcceptSkipped.length > 0}
+          <p style="font-size:14px;color:#6B7280;font-weight:500;margin:12px 0 8px;">⏭ 不适用验收（{batchAcceptSkipped.length} 条）</p>
+          {#each batchAcceptSkipped as s}
+            <div class="modal-item skip">
+              <span class="mi-id">{s.id} {s.pondNo}</span>
+              <span class="mi-reason">{getStatusBadge(s.status).role}，无需验收</span>
+            </div>
+          {/each}
+        {/if}
+      {/if}
+
+      <div class="modal-actions">
+        <button class="btn btn-secondary" on:click={() => showBatchModal = false}>取消</button>
+        <button class="btn btn-primary" disabled={batchMode === "handover" ? batchHandoverable.length === 0 : batchAcceptable.length === 0} on:click={executeBatch}>
+          确认执行（{batchMode === "handover" ? batchHandoverable.length : batchAcceptable.length} 条）
+        </button>
+      </div>
+    </div>
+  </div>
+{/if}
