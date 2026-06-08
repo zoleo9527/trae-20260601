@@ -77,4 +77,22 @@ router.post('/pickup-request', (req, res) => {
   }
 });
 
+router.get('/pickup-records', (req, res) => {
+  try {
+    const result = containerService.listPickupRecords(req.query);
+    res.json({ success: true, data: result });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+router.post('/pickup-cancel', (req, res) => {
+  try {
+    const result = containerService.pickupCancel(req.body);
+    res.json({ success: true, data: result });
+  } catch (err) {
+    res.status(400).json({ success: false, error: err.message });
+  }
+});
+
 module.exports = router;

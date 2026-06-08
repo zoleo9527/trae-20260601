@@ -221,4 +221,78 @@ function pickupRequest(data) {
   return db.prepare('SELECT * FROM containers WHERE id = ?').get(data.container_id);
 }
 
-module.exports = { registerEntry, modifyEntry, listEntries, getEntry, listPickupContainers, pickupRequest };
+function listPickupRecords(filters = {}) {
+  const db = getDb();
+  let sql = `
+    SELECT c.id, c.container_no, c.type, c.owner, c.cargo_type, c.status,
+           c.slot_id, c.actual_departure,
+           s.slot_code,
+           latest_scl.changed_at as pickup_time,
+           latest_scl.detail as pickup_detail,
+           latest_scl.changed_by as requested_by
+    FROM containers c
+    LEFT JOIN slots s ON c.slot_id = s.id
+    LEFT JOIN (
+      SELECT scl.container_no, scl.changed_at, scl.detail, scl.changed_by
+      FROM status_change_logs scl
+      INNER JOIN (
+        SELECT container_no, MAX(id) as max_id
+        FROM status_change_logs
+        WHERE to_status = 'DEPARTING'
+        GROUP BY container_no
+      ) latest ON scl.id = latest.max_id
+    ) latest_scl ON latest_scl.container_no = c.container_no
+    WHERE c.status IN ('DEPARTING', 'DEPARTED')
+  `;
+  const params = [];
+
+  if (filters.status) {
+    sql += ' AND c.status = ?';
+    params.push(filters.status);
+  }
+
+  sql += ' ORDER BY latest_scl.changed_at DESC';
+
+  return db.prepare(sql).all(...params);
+}
+
+function pickupCancel(data) {
+  const db = getDb();
+  const now = dayjs().format('YYYY-MM-DD HH:mm:ss');
+
+  const container = db.prepare('SELECT * FROM containers WHERE id = ?').get(data.container_id);
+  if (!container) throw new Error('集装箱不存在');
+  if (container.status !== 'DEPARTING') {
+    throw new Error(`集装箱状态为 ${container.status}，非待离港状态，无法取消`);
+  }
+
+  const oldStatus = container.status;
+
+  const transaction = db.transaction(() => {
+    db.prepare('UPDATE containers SET status = ? WHERE id = ?').run('IN_YARD', data.container_id);
+
+    db.prepare(`
+      INSERT INTO status_change_logs (container_no, from_status, to_status, changed_by, changed_at, reason, detail)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      container.container_no, 'DEPARTING', 'IN_YARD',
+      data.cancelled_by || '客服', now, '取消提箱申请',
+      `取消原因: ${data.cancel_reason || '客户取消'}，堆位保留: ${container.slot_id ? '是' : '无'}`
+    );
+  });
+
+  transaction();
+
+  bus.emit(bus.CONTAINER_STATUS_CHANGED, {
+    container_no: container.container_no,
+    fromStatus: 'DEPARTING',
+    toStatus: 'IN_YARD',
+    changedBy: data.cancelled_by || '客服',
+    reason: '取消提箱申请',
+    detail: `堆位 ${container.slot_id || '无'} 保留`,
+  });
+
+  return db.prepare('SELECT * FROM containers WHERE id = ?').get(data.container_id);
+}
+
+module.exports = { registerEntry, modifyEntry, listEntries, getEntry, listPickupContainers, pickupRequest, listPickupRecords, pickupCancel };

@@ -41,6 +41,8 @@ export const customerApi = {
   getMissedNotifications: () => api.get('/customer/missed-notifications'),
   listPickupContainers: () => api.get('/customer/pickup-containers'),
   pickupRequest: (data: Record<string, unknown>) => api.post('/customer/pickup-request', data),
+  listPickupRecords: (params?: Record<string, unknown>) => api.get('/customer/pickup-records', { params }),
+  pickupCancel: (data: Record<string, unknown>) => api.post('/customer/pickup-cancel', data),
 };
 
 export const dashboardApi = {

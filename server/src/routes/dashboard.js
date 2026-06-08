@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { getDb } = require('../db');
+const dayjs = require('dayjs');
 
 router.get('/stats', (req, res) => {
   try {
@@ -27,6 +28,12 @@ router.get('/stats', (req, res) => {
     const departed = db.prepare("SELECT COUNT(*) as count FROM containers WHERE status = 'DEPARTED'").get().count;
     const disputedFees = db.prepare("SELECT COUNT(*) as count FROM fee_items WHERE status = 'DISPUTED'").get().count;
 
+    const todayStr = dayjs().format('YYYY-MM-DD');
+    const todayPickupCount = db.prepare(`
+      SELECT COUNT(*) as count FROM status_change_logs
+      WHERE to_status = 'DEPARTING' AND changed_at LIKE ?
+    `).get(`${todayStr}%`).count;
+
     const slotsEmpty = db.prepare("SELECT COUNT(*) as count FROM slots WHERE status = 'EMPTY'").get().count;
     const slotsOccupied = db.prepare("SELECT COUNT(*) as count FROM slots WHERE status = 'OCCUPIED'").get().count;
     const slotsTotal = db.prepare('SELECT COUNT(*) as count FROM slots').get().count;
@@ -34,7 +41,7 @@ router.get('/stats', (req, res) => {
     res.json({
       success: true,
       data: {
-        containers: { total: totalContainers, inYard, misplaced, entering, departing, departed },
+        containers: { total: totalContainers, inYard, misplaced, entering, departing, departed, todayPickupCount },
         fees: {
           overdueCount: overdueFees.count,
           overdueTotal: overdueFees.total || 0,

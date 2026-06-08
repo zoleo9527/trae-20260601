@@ -3,7 +3,7 @@ import dayjs from 'dayjs';
 import { customerApi, exportApi } from '../api';
 import './CustomerWorkstation.css';
 
-type TabKey = 'fees' | 'inspections' | 'pickup' | 'export';
+type TabKey = 'fees' | 'inspections' | 'pickup' | 'records' | 'export';
 
 interface FeeItem {
   id: number;
@@ -57,6 +57,21 @@ interface PickupContainer {
   entry_driver_phone: string;
 }
 
+interface PickupRecord {
+  id: number;
+  container_no: string;
+  type: string;
+  owner: string;
+  cargo_type: string;
+  status: string;
+  slot_id: number | null;
+  slot_code: string;
+  actual_departure: string | null;
+  pickup_time: string;
+  pickup_detail: string;
+  requested_by: string;
+}
+
 export default function CustomerWorkstation() {
   const [activeTab, setActiveTab] = useState<TabKey>('fees');
   const [fees, setFees] = useState<FeeItem[]>([]);
@@ -76,6 +91,11 @@ export default function CustomerWorkstation() {
   const [pickupContainers, setPickupContainers] = useState<PickupContainer[]>([]);
   const [pickupModal, setPickupModal] = useState<PickupContainer | null>(null);
   const [pickupForm, setPickupForm] = useState({ pickup_time: '', truck_no: '', driver_name: '', driver_phone: '', requested_by: '' });
+
+  const [pickupRecords, setPickupRecords] = useState<PickupRecord[]>([]);
+  const [recordsFilter, setRecordsFilter] = useState('');
+  const [cancelModal, setCancelModal] = useState<PickupRecord | null>(null);
+  const [cancelReason, setCancelReason] = useState('');
 
   const loadFees = useCallback(async () => {
     try {
@@ -117,13 +137,24 @@ export default function CustomerWorkstation() {
     } catch {}
   }, []);
 
+  const loadPickupRecords = useCallback(async () => {
+    try {
+      const params: Record<string, unknown> = {};
+      if (recordsFilter) params.status = recordsFilter;
+      const res: any = await customerApi.listPickupRecords(params);
+      const data = res?.data || res;
+      setPickupRecords(Array.isArray(data) ? data : []);
+    } catch {}
+  }, [recordsFilter]);
+
   useEffect(() => {
     loadFees();
     loadInspections();
     loadMissed();
     loadExportTasks();
     loadPickupContainers();
-  }, [loadFees, loadInspections, loadMissed, loadExportTasks, loadPickupContainers]);
+    loadPickupRecords();
+  }, [loadFees, loadInspections, loadMissed, loadExportTasks, loadPickupContainers, loadPickupRecords]);
 
   const totalFees = fees.reduce((sum, f) => sum + (f.total_fee || 0), 0);
   const disputedAmount = fees.filter((f) => f.status === 'DISPUTED').reduce((sum, f) => sum + (f.total_fee || 0), 0);
@@ -216,8 +247,31 @@ export default function CustomerWorkstation() {
       setPickupModal(null);
       setPickupForm({ pickup_time: '', truck_no: '', driver_name: '', driver_phone: '', requested_by: '' });
       loadPickupContainers();
+      loadPickupRecords();
     } catch (err: any) {
       setMessage({ type: 'error', text: err.message || '提交失败' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handlePickupCancel = async () => {
+    if (!cancelModal) return;
+    setLoading(true);
+    setMessage(null);
+    try {
+      await customerApi.pickupCancel({
+        container_id: cancelModal.id,
+        cancel_reason: cancelReason,
+        cancelled_by: '客服人员',
+      });
+      setMessage({ type: 'success', text: `提箱申请已取消，箱号 ${cancelModal.container_no} 状态已回退为在场，堆位 ${cancelModal.slot_code || '无'} 已保留` });
+      setCancelModal(null);
+      setCancelReason('');
+      loadPickupRecords();
+      loadPickupContainers();
+    } catch (err: any) {
+      setMessage({ type: 'error', text: err.message || '取消失败' });
     } finally {
       setLoading(false);
     }
@@ -275,6 +329,8 @@ export default function CustomerWorkstation() {
           onClick={() => setActiveTab('inspections')}>检验计划</button>
         <button className={`customer__tab ${activeTab === 'pickup' ? 'customer__tab--active' : ''}`}
           onClick={() => setActiveTab('pickup')}>提箱申请</button>
+        <button className={`customer__tab ${activeTab === 'records' ? 'customer__tab--active' : ''}`}
+          onClick={() => setActiveTab('records')}>提箱申请记录</button>
         <button className={`customer__tab ${activeTab === 'export' ? 'customer__tab--active' : ''}`}
           onClick={() => setActiveTab('export')}>数据导出</button>
       </div>
@@ -427,6 +483,55 @@ export default function CustomerWorkstation() {
         </div>
       )}
 
+      {activeTab === 'records' && (
+        <div className="customer__section">
+          <div className="customer__section-title">提箱申请记录</div>
+          <div style={{ display: 'flex', gap: 8, marginBottom: 12, alignItems: 'center' }}>
+            <span style={{ fontSize: 12, color: '#8ba4bc' }}>按状态筛选：</span>
+            <select className="customer__form-select" style={{ width: 150, marginBottom: 0 }}
+              value={recordsFilter} onChange={(e) => setRecordsFilter(e.target.value)}>
+              <option value="">全部</option>
+              <option value="DEPARTING">待离港 (DEPARTING)</option>
+              <option value="DEPARTED">已离港 (DEPARTED)</option>
+            </select>
+          </div>
+          <table className="customer__table">
+            <thead>
+              <tr><th>箱号</th><th>箱型</th><th>申请时间</th><th>车牌/司机</th><th>堆位编号</th><th>当前状态</th><th>实际离港时间</th><th>操作</th></tr>
+            </thead>
+            <tbody>
+              {pickupRecords.length === 0 ? (
+                <tr><td colSpan={8} style={{ textAlign: 'center', color: '#5a7a9a' }}>暂无提箱申请记录</td></tr>
+              ) : (
+                pickupRecords.map((r) => (
+                  <tr key={r.id}>
+                    <td style={{ fontWeight: 600 }}>{r.container_no}</td>
+                    <td>{r.type}</td>
+                    <td>{r.pickup_time ? dayjs(r.pickup_time).format('MM-DD HH:mm') : '-'}</td>
+                    <td style={{ fontSize: 12, color: '#8ba4bc' }}>{r.pickup_detail || '-'}</td>
+                    <td>{r.slot_code || '-'}</td>
+                    <td>
+                      <span className={`customer__badge ${r.status === 'DEPARTING' ? 'customer__badge--scheduled' : 'customer__badge--completed'}`}>
+                        {r.status === 'DEPARTING' ? '待离港' : '已离港'}
+                      </span>
+                    </td>
+                    <td>{r.actual_departure ? dayjs(r.actual_departure).format('MM-DD HH:mm') : '-'}</td>
+                    <td>
+                      {r.status === 'DEPARTING' && (
+                        <button className="customer__btn customer__btn--warning customer__btn--small"
+                          onClick={() => { setCancelModal(r); setCancelReason(''); }}>
+                          取消
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      )}
+
       {activeTab === 'export' && (
         <div className="customer__section">
           <div className="customer__section-title">数据导出</div>
@@ -518,6 +623,29 @@ export default function CustomerWorkstation() {
                 {loading ? '提交中...' : '确认提箱'}
               </button>
               <button className="customer__btn customer__btn--secondary" onClick={() => setPickupModal(null)}>取消</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {cancelModal && (
+        <div className="customer__overlay" onClick={() => setCancelModal(null)}>
+          <div className="customer__modal" onClick={(e) => e.stopPropagation()}>
+            <div className="customer__modal-title">取消提箱申请 - {cancelModal.container_no}</div>
+            <div style={{ fontSize: 13, color: '#8ba4bc', marginBottom: 12 }}>
+              当前状态: 待离港 | 堆位: {cancelModal.slot_code || '无'}
+              <br />取消后集装箱状态将回退为 IN_YARD（在场），堆位绑定保留不变
+            </div>
+            <div className="customer__form-group">
+              <label className="customer__form-label">取消原因</label>
+              <textarea className="customer__form-textarea" value={cancelReason}
+                onChange={(e) => setCancelReason(e.target.value)} placeholder="请说明取消原因" />
+            </div>
+            <div className="customer__modal-actions">
+              <button className="customer__btn customer__btn--warning" onClick={handlePickupCancel} disabled={loading}>
+                {loading ? '处理中...' : '确认取消'}
+              </button>
+              <button className="customer__btn customer__btn--secondary" onClick={() => setCancelModal(null)}>返回</button>
             </div>
           </div>
         </div>

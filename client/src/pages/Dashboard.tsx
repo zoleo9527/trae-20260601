@@ -87,6 +87,13 @@ export default function Dashboard() {
           level: 'green',
         },
         {
+          key: 'todayPickup',
+          label: '今日提箱申请',
+          value: containers.todayPickupCount ?? 0,
+          unit: '笔',
+          level: 'green',
+        },
+        {
           key: 'overdue',
           label: '逾期费用',
           value: fees.overdueCount ?? 0,
