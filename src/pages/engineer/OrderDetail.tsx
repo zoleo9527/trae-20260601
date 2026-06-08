@@ -1,12 +1,28 @@
+import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, ChevronRight, Clock, User, AlertTriangle, CheckCircle, Wrench, Wine } from 'lucide-react'
+import { ArrowLeft, ChevronRight, Clock, User, AlertTriangle, CheckCircle, Wrench, Wine, MessageSquare } from 'lucide-react'
 import { useAppStore } from '@/store'
 import StatusBadge from '@/components/StatusBadge'
+import type { MaintenanceCategory } from '@/types'
 
 const priorityConfig: Record<string, { label: string; className: string }> = {
   low: { label: '低优先级', className: 'bg-emerald-100 text-emerald-700' },
   medium: { label: '中优先级', className: 'bg-amber-100 text-amber-700' },
   high: { label: '高优先级', className: 'bg-red-100 text-red-700' },
+}
+
+const categoryOptions: { value: MaintenanceCategory; label: string; icon: string }[] = [
+  { value: 'leak', label: '漏水', icon: '💧' },
+  { value: 'electrical', label: '电器', icon: '⚡' },
+  { value: 'furniture', label: '家具', icon: '🪑' },
+  { value: 'other', label: '其他', icon: '🔧' },
+]
+
+const categoryLabel: Record<MaintenanceCategory, string> = {
+  leak: '漏水',
+  electrical: '电器',
+  furniture: '家具',
+  other: '其他',
 }
 
 function formatDateTime(isoString: string): string {
@@ -19,6 +35,10 @@ export default function OrderDetail() {
   const { orderId } = useParams<{ orderId: string }>()
   const navigate = useNavigate()
   const { maintenanceOrders, rooms, inspectionTasks, inspectionResults, users, minibarChecks, updateMaintenanceOrder, currentUserId, assignMaintenanceOrder } = useAppStore()
+
+  const [showCompleteForm, setShowCompleteForm] = useState(false)
+  const [selectedCategory, setSelectedCategory] = useState<MaintenanceCategory | ''>('')
+  const [completionRemarks, setCompletionRemarks] = useState('')
 
   const order = maintenanceOrders.find((o) => o.id === orderId)
   const room = order ? rooms.find((r) => r.id === order.roomId) : undefined
@@ -55,8 +75,17 @@ export default function OrderDetail() {
     assignMaintenanceOrder(order.id, currentUserId)
   }
 
-  const handleAction = (newStatus: 'in_progress' | 'completed') => {
-    updateMaintenanceOrder(order.id, newStatus)
+  const handleStart = () => {
+    updateMaintenanceOrder(order.id, 'in_progress')
+  }
+
+  const handleComplete = () => {
+    if (!selectedCategory) return
+    updateMaintenanceOrder(order.id, 'completed', {
+      category: selectedCategory as MaintenanceCategory,
+      completionRemarks: completionRemarks || undefined,
+    })
+    setShowCompleteForm(false)
   }
 
   const isUnassigned = !order.assignedTo
@@ -103,6 +132,18 @@ export default function OrderDetail() {
             </div>
           </div>
 
+          {order.category && (
+            <div className="flex items-center gap-3">
+              <Wrench size={16} className="shrink-0 text-gray-400" />
+              <div>
+                <p className="text-xs text-gray-400">问题分类</p>
+                <span className="rounded-full bg-[#1E3A5F]/10 px-2.5 py-0.5 text-xs font-medium text-[#1E3A5F]">
+                  {categoryLabel[order.category]}
+                </span>
+              </div>
+            </div>
+          )}
+
           <div className="flex items-center gap-3">
             <Clock size={16} className="shrink-0 text-gray-400" />
             <div>
@@ -117,6 +158,16 @@ export default function OrderDetail() {
               <div>
                 <p className="text-xs text-gray-400">完成时间</p>
                 <p className="text-sm text-gray-700">{formatDateTime(order.completedAt)}</p>
+              </div>
+            </div>
+          )}
+
+          {order.completionRemarks && (
+            <div className="flex items-start gap-3">
+              <MessageSquare size={16} className="mt-0.5 shrink-0 text-emerald-500" />
+              <div>
+                <p className="text-xs text-gray-400">完成备注</p>
+                <p className="text-sm text-gray-700">{order.completionRemarks}</p>
               </div>
             </div>
           )}
@@ -183,6 +234,63 @@ export default function OrderDetail() {
         </div>
       )}
 
+      {showCompleteForm && order.status === 'in_progress' && (
+        <div className="mt-4 rounded-lg border border-emerald-200 bg-emerald-50/30 p-6 shadow-sm">
+          <h3 className="mb-4 font-medium text-gray-800">完成维修</h3>
+
+          <div className="mb-4">
+            <label className="mb-2 block text-sm font-medium text-gray-700">问题分类 <span className="text-red-500">*</span></label>
+            <div className="grid grid-cols-2 gap-2">
+              {categoryOptions.map((opt) => (
+                <button
+                  key={opt.value}
+                  onClick={() => setSelectedCategory(opt.value)}
+                  className={`flex items-center gap-2 rounded-lg border-2 px-4 py-3 text-sm font-medium transition-colors ${
+                    selectedCategory === opt.value
+                      ? 'border-[#1E3A5F] bg-[#1E3A5F]/5 text-[#1E3A5F]'
+                      : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'
+                  }`}
+                >
+                  <span>{opt.icon}</span>
+                  <span>{opt.label}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="mb-4">
+            <div className="mb-2 flex items-center gap-1.5 text-sm font-medium text-gray-700">
+              <MessageSquare size={14} />
+              完成备注
+            </div>
+            <textarea
+              value={completionRemarks}
+              onChange={(e) => setCompletionRemarks(e.target.value)}
+              placeholder="描述维修处理情况（选填）..."
+              className="w-full rounded-lg border border-gray-200 p-3 text-sm focus:border-[#1E3A5F] focus:outline-none"
+              rows={3}
+            />
+          </div>
+
+          <div className="flex gap-3">
+            <button
+              onClick={handleComplete}
+              disabled={!selectedCategory}
+              className="flex items-center gap-2 rounded-lg bg-emerald-500 px-6 py-2.5 text-sm font-medium text-white transition-colors hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <CheckCircle size={16} />
+              确认完成
+            </button>
+            <button
+              onClick={() => setShowCompleteForm(false)}
+              className="rounded-lg border border-gray-300 px-6 py-2.5 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-50"
+            >
+              取消
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="mt-6 flex gap-3">
         {isUnassigned && order.status === 'pending' && (
           <button
@@ -195,16 +303,16 @@ export default function OrderDetail() {
         )}
         {!isUnassigned && order.status === 'pending' && (
           <button
-            onClick={() => handleAction('in_progress')}
+            onClick={handleStart}
             className="flex items-center gap-2 rounded-lg bg-amber-500 px-6 py-2.5 text-sm font-medium text-white transition-colors hover:bg-amber-600"
           >
             <Wrench size={16} />
             开始维修
           </button>
         )}
-        {order.status === 'in_progress' && (
+        {order.status === 'in_progress' && !showCompleteForm && (
           <button
-            onClick={() => handleAction('completed')}
+            onClick={() => setShowCompleteForm(true)}
             className="flex items-center gap-2 rounded-lg bg-emerald-500 px-6 py-2.5 text-sm font-medium text-white transition-colors hover:bg-emerald-600"
           >
             <CheckCircle size={16} />

@@ -281,6 +281,8 @@ export const mockData: AppState = {
     historyDateTo: '',
     reviewSearchRoom: '',
     reviewShowAll: false,
+    engineerStatus: 'all',
+    engineerSearchRoom: '',
   },
   currentUserId: undefined,
   currentRole: undefined,

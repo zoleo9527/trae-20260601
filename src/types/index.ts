@@ -49,6 +49,8 @@ export interface LinenRecord {
   action: 'none' | 'replace' | 'replenish'
 }
 
+export type MaintenanceCategory = 'leak' | 'electrical' | 'furniture' | 'other'
+
 export interface MaintenanceOrder {
   id: string
   roomId: string
@@ -59,6 +61,8 @@ export interface MaintenanceOrder {
   assignedTo?: string
   createdAt: string
   completedAt?: string
+  category?: MaintenanceCategory
+  completionRemarks?: string
 }
 
 export interface MinibarCheck {
@@ -114,6 +118,8 @@ export interface UiFilters {
   historyDateTo: string
   reviewSearchRoom: string
   reviewShowAll: boolean
+  engineerStatus: MaintenanceStatus | 'all'
+  engineerSearchRoom: string
 }
 
 export interface AppState {

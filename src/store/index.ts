@@ -11,6 +11,7 @@ import type {
   MinibarItem,
   UserRole,
   MaintenanceStatus,
+  MaintenanceCategory,
   UiFilters,
 } from '@/types'
 import { mockData } from './mockData'
@@ -72,7 +73,7 @@ interface AppActions {
   getInspectionDraft: (taskId: string) => InspectionDraft | undefined
   clearInspectionDraft: (taskId: string) => void
   submitMinibarCheck: (checkId: string, items: { id: string; actualCount: number }[]) => void
-  updateMaintenanceOrder: (orderId: string, status: MaintenanceStatus) => void
+  updateMaintenanceOrder: (orderId: string, status: MaintenanceStatus, extras?: { category?: MaintenanceCategory; completionRemarks?: string }) => void
   assignMaintenanceOrder: (orderId: string, engineerId: string) => void
   reviewMinibarAnomaly: (checkId: string, approved: boolean, remarks?: string) => void
   updateUiFilter: (key: keyof UiFilters, value: string | boolean) => void
@@ -95,6 +96,8 @@ export const useAppStore = create<AppStore>()(
         historyDateTo: '',
         reviewSearchRoom: '',
         reviewShowAll: false,
+        engineerStatus: 'all' as const,
+        engineerSearchRoom: '',
       },
 
       setCurrentUser(userId: string, role: UserRole) {
@@ -294,7 +297,7 @@ export const useAppStore = create<AppStore>()(
         })
       },
 
-      updateMaintenanceOrder(orderId: string, status: MaintenanceStatus) {
+      updateMaintenanceOrder(orderId: string, status: MaintenanceStatus, extras?: { category?: MaintenanceCategory; completionRemarks?: string }) {
         set((state) => {
           const now = new Date().toISOString()
           const order = state.maintenanceOrders.find((o) => o.id === orderId)
@@ -305,6 +308,8 @@ export const useAppStore = create<AppStore>()(
                   ...o,
                   status,
                   completedAt: status === 'completed' ? now : o.completedAt,
+                  category: extras?.category ?? o.category,
+                  completionRemarks: extras?.completionRemarks ?? o.completionRemarks,
                 }
               : o
           )
