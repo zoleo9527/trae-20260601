@@ -28,6 +28,7 @@ const STATUS_TAG_COLOR: Record<SettlementStatus, string> = {
 export default function SettlementPage() {
   const [activeTab, setActiveTab] = useState<FilterTab>('ALL')
   const [categoryFilter, setCategoryFilter] = useState<RejectionCategory | 'ALL'>('ALL')
+  const [overdueFilter, setOverdueFilter] = useState(false)
   const [detailVisible, setDetailVisible] = useState(false)
   const [approveVisible, setApproveVisible] = useState(false)
   const [rejectVisible, setRejectVisible] = useState(false)
@@ -36,7 +37,7 @@ export default function SettlementPage() {
   const [rejectForm] = Form.useForm()
   const [resubmitForm] = Form.useForm()
 
-  const { settlements, rejections, approveSettlement, rejectSettlement, resubmitSettlement, getRejectionsBySettlementId, getRejectionCategoryStats } = useSettlementStore()
+  const { settlements, rejections, approveSettlement, rejectSettlement, resubmitSettlement, getRejectionsBySettlementId, getRejectionCategoryStats, getOverdueRejections, getOverdueRejectionCount } = useSettlementStore()
   const { schedules, getScheduleById, getVehicleById } = useScheduleStore()
   const { getExceptionsByScheduleId } = useExceptionStore()
   const { currentRole, hasPermission } = useRoleStore()
@@ -55,10 +56,17 @@ export default function SettlementPage() {
         .map((r) => r.settlementId)
       result = result.filter((s) => settlementIds.includes(s.id))
     }
+    if (overdueFilter) {
+      const overdueSettlementIds = getOverdueRejections()
+        .filter((o) => o.overdue)
+        .map((o) => o.rejection.settlementId)
+      result = result.filter((s) => overdueSettlementIds.includes(s.id))
+    }
     return result
-  }, [settlements, rejections, activeTab, categoryFilter])
+  }, [settlements, rejections, activeTab, categoryFilter, overdueFilter])
 
   const categoryStats = useMemo(() => getRejectionCategoryStats(30), [rejections, settlements])
+  const overdueCount = useMemo(() => getOverdueRejectionCount(), [rejections])
 
   const pendingCount = settlements.filter((s) => s.status === 'PENDING_REVIEW').length
   const rejectedCount = settlements.filter((s) => s.status === 'REJECTED').length
@@ -223,6 +231,16 @@ export default function SettlementPage() {
               </span>
             ) : null
           })()}
+          {status === 'REJECTED' && (() => {
+            const rej = rejections.find((r) => r.settlementId === record.id && r.status === 'PENDING')
+            if (!rej) return null
+            const pendingDays = dayjs().diff(dayjs(rej.rejectedAt), 'day')
+            return pendingDays > 3 ? (
+              <span className="inline-block text-xs px-1.5 py-0.5 rounded mt-1 bg-red-600 text-white font-medium">
+                已逾期{pendingDays}天
+              </span>
+            ) : null
+          })()}
           {status === 'REJECTED' && (
             <div className="text-xs text-red-500 mt-1 max-w-[120px] truncate" title={getRejectionReason(record.id)}>
               {getRejectionReason(record.id)}
@@ -288,7 +306,7 @@ export default function SettlementPage() {
             {FILTER_TABS.map((tab) => (
               <button
                 key={tab.key}
-                onClick={() => { setActiveTab(tab.key); setCategoryFilter('ALL') }}
+                onClick={() => { setActiveTab(tab.key); setCategoryFilter('ALL'); setOverdueFilter(false) }}
                 className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
                   activeTab === tab.key && categoryFilter === 'ALL'
                     ? 'bg-[#1a2332] text-white'
@@ -314,9 +332,9 @@ export default function SettlementPage() {
             </div>
             <div className="flex items-center gap-2">
               <button
-                onClick={() => { setActiveTab('REJECTED'); setCategoryFilter('ALL') }}
+                onClick={() => { setActiveTab('REJECTED'); setCategoryFilter('ALL'); setOverdueFilter(false) }}
                 className={`px-2.5 py-1 text-xs rounded-md border transition-colors ${
-                  activeTab === 'REJECTED' && categoryFilter === 'ALL'
+                  activeTab === 'REJECTED' && categoryFilter === 'ALL' && !overdueFilter
                     ? 'bg-[#1a2332] text-white border-[#1a2332]'
                     : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300'
                 }`}
@@ -328,7 +346,7 @@ export default function SettlementPage() {
                 return (
                   <button
                     key={stat.category}
-                    onClick={() => { setActiveTab('REJECTED'); setCategoryFilter(stat.category) }}
+                    onClick={() => { setActiveTab('REJECTED'); setCategoryFilter(stat.category); setOverdueFilter(false) }}
                     className={`px-2.5 py-1 text-xs rounded-md border transition-colors ${
                       activeTab === 'REJECTED' && categoryFilter === stat.category
                         ? `${catConfig.bgColor} ${catConfig.color} ${catConfig.borderColor} font-medium`
@@ -341,6 +359,19 @@ export default function SettlementPage() {
                   </button>
                 )
               })}
+              {overdueCount > 0 && (
+                <button
+                  onClick={() => { setActiveTab('REJECTED'); setCategoryFilter('ALL'); setOverdueFilter(true) }}
+                  className={`px-2.5 py-1 text-xs rounded-md border transition-colors ${
+                    overdueFilter
+                      ? 'bg-red-600 text-white border-red-600 font-medium'
+                      : 'bg-white text-red-600 border-red-200 hover:border-red-300'
+                  }`}
+                >
+                  仅看逾期
+                  <span className="ml-1">{overdueCount}笔</span>
+                </button>
+              )}
             </div>
           </div>
         )}
@@ -352,9 +383,13 @@ export default function SettlementPage() {
           bordered
           size="middle"
           pagination={{ pageSize: 10, showSizeChanger: false }}
-          rowClassName={(record) =>
-            record.status === 'REJECTED' ? 'bg-red-50/30' : ''
-          }
+          rowClassName={(record) => {
+            if (record.status !== 'REJECTED') return ''
+            const rej = rejections.find((r) => r.settlementId === record.id && r.status === 'PENDING')
+            if (!rej) return 'bg-red-50/30'
+            const isOverdue = dayjs().diff(dayjs(rej.rejectedAt), 'day') > 3
+            return isOverdue ? 'bg-red-50/50' : 'bg-red-50/30'
+          }}
         />
       </div>
 
@@ -472,10 +507,19 @@ export default function SettlementPage() {
                   <span className="text-xs text-gray-400 font-normal ml-1">共{detailRejections.length}次驳回</span>
                 </h4>
                 <Timeline
-                  items={detailRejections.map((rej) => ({
+                  items={detailRejections.map((rej) => {
+                    const rejPendingDays = dayjs(rej.resubmittedAt || undefined).diff(dayjs(rej.rejectedAt), 'day')
+                    const rejOverdue = rejPendingDays > 3
+                    const processingHours = rej.status === 'RESOLVED' && rej.resubmittedAt
+                      ? Math.round(dayjs(rej.resubmittedAt).diff(dayjs(rej.rejectedAt), 'minute') / 60 * 10) / 10
+                      : 0
+                    const currentPendingDays = rej.status === 'PENDING'
+                      ? dayjs().diff(dayjs(rej.rejectedAt), 'day')
+                      : 0
+                    return {
                     color: rej.status === 'PENDING' ? 'red' : 'green',
                     children: (
-                      <div className={`rounded-lg p-3 text-sm ${rej.status === 'PENDING' ? 'bg-red-50 border border-red-100' : 'bg-green-50 border border-green-100'}`}>
+                      <div className={`rounded-lg p-3 text-sm ${rej.status === 'PENDING' ? (currentPendingDays > 3 ? 'bg-red-50 border border-red-200' : 'bg-red-50 border border-red-100') : 'bg-green-50 border border-green-100'}`}>
                         <div className="flex items-center gap-2 mb-1">
                           {rej.status === 'PENDING' ? (
                             <Tag color="red" icon={<XCircle size={12} />}>待处理</Tag>
@@ -490,6 +534,16 @@ export default function SettlementPage() {
                               </span>
                             ) : null
                           })()}
+                          {rej.status === 'PENDING' && currentPendingDays > 3 && (
+                            <span className="text-xs px-1.5 py-0.5 rounded bg-red-600 text-white font-medium">
+                              已逾期{currentPendingDays}天
+                            </span>
+                          )}
+                          {rej.status === 'PENDING' && currentPendingDays <= 3 && (
+                            <span className="text-xs text-gray-400">
+                              待处理{currentPendingDays}天
+                            </span>
+                          )}
                           <span className="text-gray-500 text-xs">{rej.rejectedBy} · {dayjs(rej.rejectedAt).format('YYYY-MM-DD HH:mm')}</span>
                         </div>
                         <div className="text-[#1a2332]">
@@ -497,13 +551,19 @@ export default function SettlementPage() {
                           {rej.reason}
                         </div>
                         {rej.status === 'RESOLVED' && rej.resubmittedBy && (
-                          <div className="mt-1 text-xs text-green-600">
-                            已重新提交：{rej.resubmittedBy} · {dayjs(rej.resubmittedAt).format('YYYY-MM-DD HH:mm')}
+                          <div className="mt-1.5 flex items-center gap-3">
+                            <span className="text-xs text-green-600">
+                              已重新提交：{rej.resubmittedBy} · {dayjs(rej.resubmittedAt).format('YYYY-MM-DD HH:mm')}
+                            </span>
+                            <span className={`text-xs px-1.5 py-0.5 rounded ${rejOverdue ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'}`}>
+                              处理耗时 {processingHours}小时
+                            </span>
                           </div>
                         )}
                       </div>
                     ),
-                  }))}
+                  }
+                  })}
                 />
               </div>
             )}
@@ -528,6 +588,13 @@ export default function SettlementPage() {
                         } className="text-xs">
                           {log.action === 'create' ? '创建' : log.action === 'approve' ? '审核通过' : log.action === 'reject' ? '驳回' : log.action === 'resubmit' ? '重新提交' : log.action}
                         </Tag>
+                        {log.action === 'resubmit' && log.afterValue?.processingHours != null && (
+                          <span className={`px-1.5 py-0.5 rounded text-xs ${
+                            Number(log.afterValue.processingHours) > 72 ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'
+                          }`}>
+                            处理耗时 {String(log.afterValue.processingHours)}小时
+                          </span>
+                        )}
                       </div>
                     ))}
                 </div>
@@ -619,9 +686,17 @@ export default function SettlementPage() {
       >
         {currentSettlement && (() => {
           const latestRejection = detailRejections.find((r) => r.status === 'PENDING')
-          return latestRejection ? (
-            <div className="bg-red-50 border border-red-100 rounded p-3 mb-4 text-sm">
+          if (!latestRejection) return null
+          const pendingDays = dayjs().diff(dayjs(latestRejection.rejectedAt), 'day')
+          const isOverdue = pendingDays > 3
+          return (
+            <div className={`rounded p-3 mb-4 text-sm ${isOverdue ? 'bg-red-100 border border-red-200' : 'bg-red-50 border border-red-100'}`}>
               <div className="font-medium text-red-700 mb-1">上次驳回：</div>
+              {isOverdue && (
+                <span className="inline-block text-xs px-1.5 py-0.5 rounded bg-red-600 text-white font-medium mb-2">
+                  已逾期{pendingDays}天，请尽快处理
+                </span>
+              )}
               {latestRejection.category && (() => {
                 const catConfig = REJECTION_CATEGORY_MAP[latestRejection.category]
                 return catConfig ? (
@@ -635,7 +710,7 @@ export default function SettlementPage() {
                 {latestRejection.rejectedBy} · {dayjs(latestRejection.rejectedAt).format('YYYY-MM-DD HH:mm')}
               </div>
             </div>
-          ) : null
+          )
         })()}
         <Form form={resubmitForm} layout="vertical">
           <Form.Item name="baseFee" label="基础车费" rules={[{ required: true, message: '请输入基础车费' }]}>

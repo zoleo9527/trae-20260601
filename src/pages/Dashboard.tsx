@@ -43,7 +43,7 @@ const SEVERITY_CONFIG: Record<string, { bg: string; border: string; text: string
 export default function Dashboard() {
   const navigate = useNavigate()
   const { getTodoCounts, getRiskItems, getUnreadRiskItems, markRiskRead, getRecentChanges, getRejectedSettlements } = useDashboardStore()
-  const { settlements } = useSettlementStore()
+  const { settlements, getOverdueRejectionCount } = useSettlementStore()
   const { schedules } = useScheduleStore()
 
   const todoCounts = getTodoCounts()
@@ -51,6 +51,7 @@ export default function Dashboard() {
   const unreadRiskCount = getUnreadRiskItems().length
   const recentChanges = getRecentChanges(10)
   const rejectedItems = getRejectedSettlements()
+  const overdueCount = getOverdueRejectionCount()
 
   const pendingSettlementTotal = settlements
     .filter((s) => s.status === 'PENDING_REVIEW')
@@ -157,6 +158,11 @@ export default function Dashboard() {
               <span className="text-xs bg-red-100 text-red-600 px-1.5 py-0.5 rounded font-medium">
                 {rejectedItems.length}
               </span>
+              {overdueCount > 0 && (
+                <span className="text-xs bg-red-600 text-white px-1.5 py-0.5 rounded font-medium animate-pulse">
+                  {overdueCount}笔逾期
+                </span>
+              )}
             </div>
             <button
               onClick={() => navigate('/settlement')}
@@ -198,6 +204,14 @@ export default function Dashboard() {
                 </div>
                 <div className="text-xs text-gray-400 mt-1">
                   {rejection.rejectedBy} · {dayjs(rejection.rejectedAt).format('MM-DD HH:mm')}
+                  {(() => {
+                    const pendingDays = dayjs().diff(dayjs(rejection.rejectedAt), 'day')
+                    return pendingDays > 3 ? (
+                      <span className="ml-2 text-red-600 font-medium">已逾期{pendingDays}天</span>
+                    ) : (
+                      <span className="ml-2">待处理{pendingDays}天</span>
+                    )
+                  })()}
                 </div>
               </div>
             ))}

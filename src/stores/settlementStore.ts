@@ -18,6 +18,8 @@ interface SettlementState {
   getRejectionsBySettlementId: (settlementId: string) => Rejection[]
   getSettlementByScheduleId: (scheduleId: string) => Settlement | undefined
   getRejectionCategoryStats: (days?: number) => { category: RejectionCategory; count: number; totalAmount: number }[]
+  getOverdueRejections: () => { rejection: Rejection; settlement: Settlement | undefined; pendingDays: number; overdue: boolean }[]
+  getOverdueRejectionCount: () => number
 }
 
 export const useSettlementStore = create<SettlementState>()(
@@ -102,6 +104,11 @@ export const useSettlementStore = create<SettlementState>()(
       },
 
       resubmitSettlement: (id, data, resubmittedBy, operatorRole) => {
+        const now = new Date().toISOString()
+        const pendingRejection = get().rejections.find((r) => r.settlementId === id && r.status === 'PENDING')
+        const processingHours = pendingRejection
+          ? Math.round(dayjs(now).diff(dayjs(pendingRejection.rejectedAt), 'minute') / 60 * 10) / 10
+          : 0
         set((state) => ({
           settlements: state.settlements.map((s) =>
             s.id === id
@@ -110,7 +117,7 @@ export const useSettlementStore = create<SettlementState>()(
           ),
           rejections: state.rejections.map((r) =>
             r.settlementId === id && r.status === 'PENDING'
-              ? { ...r, status: 'RESOLVED', resubmittedBy, resubmittedAt: new Date().toISOString() }
+              ? { ...r, status: 'RESOLVED', resubmittedBy, resubmittedAt: now }
               : r
           ),
         }))
@@ -121,7 +128,7 @@ export const useSettlementStore = create<SettlementState>()(
           operator: resubmittedBy,
           operatorRole,
           beforeValue: { status: 'REJECTED' },
-          afterValue: { status: 'PENDING_REVIEW' },
+          afterValue: { status: 'PENDING_REVIEW', processingHours },
         })
       },
 
@@ -155,6 +162,25 @@ export const useSettlementStore = create<SettlementState>()(
           }, 0)
           return { category, count: catRejections.length, totalAmount }
         }).filter((c) => c.count > 0)
+      },
+
+      getOverdueRejections: () => {
+        const rejections = get().rejections
+        const settlements = get().settlements
+        return rejections
+          .filter((r) => r.status === 'PENDING')
+          .map((r) => {
+            const pendingDays = dayjs().diff(dayjs(r.rejectedAt), 'day')
+            const settlement = settlements.find((s) => s.id === r.settlementId)
+            return { rejection: r, settlement, pendingDays, overdue: pendingDays > 3 }
+          })
+      },
+
+      getOverdueRejectionCount: () => {
+        return get().rejections
+          .filter((r) => r.status === 'PENDING')
+          .filter((r) => dayjs().diff(dayjs(r.rejectedAt), 'day') > 3)
+          .length
       },
     }),
     { name: 'vehicle-settlement-store' }
