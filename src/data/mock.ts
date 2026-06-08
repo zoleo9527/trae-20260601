@@ -128,7 +128,7 @@ export const evidenceData: EvidenceSource[] = [
   },
 ]
 
-export const damageRecords: DamageRecord[] = [
+export const initialDamageRecords: DamageRecord[] = [
   {
     id: 'DMG-20260607-001',
     awb: '784-12345678',
@@ -284,7 +284,7 @@ export const damageRecords: DamageRecord[] = [
   },
 ]
 
-export const liabilityRecords: LiabilityDetermination[] = [
+export const initialLiabilityRecords: LiabilityDetermination[] = [
   {
     id: 'LB-20260607-001',
     damageId: 'DMG-20260607-001',
@@ -374,101 +374,19 @@ export const liabilityRecords: LiabilityDetermination[] = [
   },
 ]
 
-export const dashboardItems: DashboardItem[] = [
-  {
-    id: 'DMG-20260608-006',
-    awb: '784-99887766',
-    flightNo: 'MU1357',
-    category: '温控异常',
-    severity: '严重',
-    flag: 'today',
-    summary: '冷链运输温度超标，峰值15°C（标准2-8°C），需紧急评估药品安全性',
-    status: '待处理',
-    time: `${today} 07:15`,
-    isUrgent: true,
-  },
-  {
-    id: 'DMG-20260608-005',
-    awb: '784-44332211',
-    flightNo: 'CA2468',
-    category: '包装破损',
-    severity: '一般',
-    flag: 'today',
-    summary: '到港卸货时发现外包装破损，内部货物待检查',
-    status: '待处理',
-    time: `${today} 08:30`,
-    isUrgent: false,
-  },
-  {
-    id: 'DMG-20260607-001',
-    awb: '784-12345678',
-    flightNo: 'CA1234',
-    category: '货物湿损',
-    severity: '严重',
-    flag: 'today',
-    summary: '冷链药品湿损，承运方与货站方通知义务存争议',
-    status: '待认定',
-    time: `${yesterday} 18:05`,
-    isUrgent: true,
-  },
-  {
-    id: 'DMG-20260607-004',
-    awb: '784-11223344',
-    flightNo: 'HU7890',
-    category: '标签脱落',
-    severity: '轻微',
-    flag: 'today',
-    summary: '分拣时标签脱落，无法确认货物归属',
-    status: '处理中',
-    time: `${yesterday} 11:30`,
-    isUrgent: false,
-  },
-  {
-    id: 'DMG-20260606-002',
-    awb: '784-98765432',
-    flightNo: 'MU5678',
-    category: '货物变形',
-    severity: '一般',
-    flag: 'overdue',
-    summary: '电子设备变形，发货方与承运方责任归属已认定但赔偿未落实',
-    status: '已认定',
-    time: `${threeDaysAgo} 15:00`,
-    isUrgent: false,
-  },
-  {
-    id: 'DMG-20260605-003',
-    awb: '784-55556666',
-    flightNo: 'CZ3456',
-    category: '货物丢失',
-    severity: '特重大',
-    flag: 'overdue',
-    summary: '2件高价值货物在库丢失，监控发现未授权人员，安保责任归属未定',
-    status: '待认定',
-    time: '2026-06-06 09:00',
-    isUrgent: true,
-  },
-  {
-    id: 'DMG-20260604-007',
-    awb: '784-11112222',
-    flightNo: 'CZ9999',
-    category: '货物湿损',
-    severity: '一般',
-    flag: 'returned',
-    summary: '雨天卸货湿损，货站方对责任认定提出异议，已被退回重新认定',
-    status: '已认定',
-    time: `${today} 09:00`,
-    isUrgent: false,
-  },
-  {
-    id: 'DMG-20260603-008',
-    awb: '784-33334444',
-    flightNo: 'HU5678',
-    category: '货物变形',
-    severity: '严重',
-    flag: 'returned',
-    summary: '堆码致货物变形，货站方称承运方交货时已存在堆码问题，要求退回重认',
-    status: '已认定',
-    time: `${today} 08:00`,
-    isUrgent: true,
-  },
-]
+export function buildDashboardItems(records: DamageRecord[]): DashboardItem[] {
+  return records
+    .filter(r => r.flag)
+    .map(d => ({
+      id: d.id,
+      awb: d.awb,
+      flightNo: d.flightNo,
+      category: d.category,
+      severity: d.severity,
+      flag: d.flag!,
+      summary: d.abnormalNote || d.description,
+      status: d.status,
+      time: d.updatedAt,
+      isUrgent: d.severity === '严重' || d.severity === '特重大',
+    }))
+}

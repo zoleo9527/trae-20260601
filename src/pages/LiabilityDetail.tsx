@@ -1,13 +1,22 @@
+import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { ArrowLeft, AlertCircle, Link2, CheckCircle2, RotateCcw, FileText, MessageSquare } from 'lucide-react'
 import clsx from 'clsx'
-import { liabilityRecords, evidenceData, damageRecords } from '@/data/mock'
+import { useAppState } from '@/context/AppContext'
+import { evidenceData } from '@/data/mock'
 import { SeverityBadge, CategoryBadge, LiabilityStatusBadge } from '@/components/Badges'
+import SubmitDeterminationModal from '@/components/SubmitDeterminationModal'
+import ReturnRedeterminationModal from '@/components/ReturnRedeterminationModal'
+import type { LiabilityParty } from '@/types'
 
 export default function LiabilityDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const record = liabilityRecords.find(r => r.id === id)
+  const { state, dispatch } = useAppState()
+  const [submitModalOpen, setSubmitModalOpen] = useState(false)
+  const [returnModalOpen, setReturnModalOpen] = useState(false)
+
+  const record = state.liabilityRecords.find(r => r.id === id)
 
   if (!record) {
     return (
@@ -18,8 +27,24 @@ export default function LiabilityDetail() {
     )
   }
 
-  const relatedDamage = damageRecords.find(d => d.id === record.damageId)
+  const relatedDamage = state.damageRecords.find(d => d.id === record.damageId)
   const relatedEvidence = evidenceData.filter(e => record.evidenceIds.includes(e.id))
+
+  function handleSubmitDetermination(data: { responsibleParty: LiabilityParty; responsibleDetail: string; basis: string }) {
+    dispatch({
+      type: 'SUBMIT_LIABILITY',
+      payload: { id: record!.id, ...data },
+    })
+    setSubmitModalOpen(false)
+  }
+
+  function handleReturnLiability(data: { returnReason: string }) {
+    dispatch({
+      type: 'RETURN_LIABILITY',
+      payload: { id: record!.id, ...data },
+    })
+    setReturnModalOpen(false)
+  }
 
   return (
     <div className="max-w-5xl mx-auto">
@@ -197,17 +222,39 @@ export default function LiabilityDetail() {
               <h2 className="text-sm font-semibold text-surface-800">认定操作</h2>
             </div>
             <div className="card-body space-y-2">
-              {record.status === '待认定' || record.status === '认定中' ? (
-                <button className="btn-primary w-full justify-center">提交认定结果</button>
-              ) : null}
+              {(record.status === '待认定' || record.status === '认定中') && (
+                <button
+                  className="btn-primary w-full justify-center"
+                  onClick={() => setSubmitModalOpen(true)}
+                >
+                  提交认定结果
+                </button>
+              )}
               {record.status === '已退回' && (
-                <button className="btn-primary w-full justify-center">重新认定</button>
+                <button
+                  className="btn-primary w-full justify-center"
+                  onClick={() => setSubmitModalOpen(true)}
+                >
+                  重新认定
+                </button>
               )}
               {record.status === '已认定' && (
-                <button className="btn-primary w-full justify-center">更新认定</button>
+                <button
+                  className="btn-primary w-full justify-center"
+                  onClick={() => setSubmitModalOpen(true)}
+                >
+                  更新认定
+                </button>
               )}
               <button className="btn-secondary w-full justify-center">补充证据</button>
-              <button className="btn-secondary w-full justify-center">退回重认</button>
+              {(record.status === '已认定' || record.status === '已退回') && (
+                <button
+                  className="btn-secondary w-full justify-center"
+                  onClick={() => setReturnModalOpen(true)}
+                >
+                  退回重认
+                </button>
+              )}
             </div>
           </div>
 
@@ -238,6 +285,21 @@ export default function LiabilityDetail() {
           </div>
         </div>
       </div>
+
+      <SubmitDeterminationModal
+        open={submitModalOpen}
+        onClose={() => setSubmitModalOpen(false)}
+        onSubmit={handleSubmitDetermination}
+        currentParty={record.responsibleParty}
+        currentDetail={record.responsibleDetail}
+        currentBasis={record.basis}
+      />
+
+      <ReturnRedeterminationModal
+        open={returnModalOpen}
+        onClose={() => setReturnModalOpen(false)}
+        onSubmit={handleReturnLiability}
+      />
     </div>
   )
 }

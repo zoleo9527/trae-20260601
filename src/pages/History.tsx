@@ -1,8 +1,8 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Search, Filter, ArrowRight } from 'lucide-react'
 import clsx from 'clsx'
-import { damageRecords, liabilityRecords } from '@/data/mock'
+import { useAppState } from '@/context/AppContext'
 import { SeverityBadge, StatusBadge, CategoryBadge, LiabilityStatusBadge } from '@/components/Badges'
 import EmptyState from '@/components/EmptyState'
 
@@ -22,42 +22,44 @@ interface UnifiedRecord {
   linkedId?: string
 }
 
-const unifiedRecords: UnifiedRecord[] = [
-  ...damageRecords.map(d => ({
-    id: d.id,
-    type: 'damage' as const,
-    awb: d.awb,
-    flightNo: d.flightNo,
-    category: d.category,
-    severity: d.severity,
-    status: d.status,
-    summary: d.description,
-    timestamp: d.updatedAt,
-    hasAbnormalNote: !!d.abnormalNote,
-    linkedId: d.liabilityId,
-  })),
-  ...liabilityRecords
-    .filter(l => !damageRecords.some(d => d.liabilityId === l.id))
-    .map(l => ({
-      id: l.id,
-      type: 'liability' as const,
-      awb: l.awb,
-      flightNo: l.flightNo,
-      category: l.category,
-      severity: l.severity,
-      status: l.status,
-      summary: l.responsibleDetail || l.basis || '待认定',
-      timestamp: l.updatedAt,
-      hasAbnormalNote: !!l.abnormalNote,
-      linkedId: l.damageId,
-    })),
-].sort((a, b) => b.timestamp.localeCompare(a.timestamp))
-
 export default function History() {
   const navigate = useNavigate()
+  const { state } = useAppState()
   const [search, setSearch] = useState('')
   const [typeFilter, setTypeFilter] = useState<RecordType>('all')
   const [showFilters, setShowFilters] = useState(false)
+
+  const unifiedRecords = useMemo<UnifiedRecord[]>(() => {
+    const damageItems: UnifiedRecord[] = state.damageRecords.map(d => ({
+      id: d.id,
+      type: 'damage' as const,
+      awb: d.awb,
+      flightNo: d.flightNo,
+      category: d.category,
+      severity: d.severity,
+      status: d.status,
+      summary: d.description,
+      timestamp: d.updatedAt,
+      hasAbnormalNote: !!d.abnormalNote,
+      linkedId: d.liabilityId,
+    }))
+    const liabilityItems: UnifiedRecord[] = state.liabilityRecords
+      .filter(l => !state.damageRecords.some(d => d.liabilityId === l.id))
+      .map(l => ({
+        id: l.id,
+        type: 'liability' as const,
+        awb: l.awb,
+        flightNo: l.flightNo,
+        category: l.category,
+        severity: l.severity,
+        status: l.status,
+        summary: l.responsibleDetail || l.basis || '待认定',
+        timestamp: l.updatedAt,
+        hasAbnormalNote: !!l.abnormalNote,
+        linkedId: l.damageId,
+      }))
+    return [...damageItems, ...liabilityItems].sort((a, b) => b.timestamp.localeCompare(a.timestamp))
+  }, [state.damageRecords, state.liabilityRecords])
 
   const filtered = unifiedRecords.filter(r => {
     if (typeFilter !== 'all' && r.type !== typeFilter) return false

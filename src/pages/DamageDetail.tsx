@@ -1,9 +1,12 @@
+import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { ArrowLeft, FileText, Camera, MessageSquare, Monitor, BookOpen, ClipboardList, AlertCircle, Link2 } from 'lucide-react'
 import clsx from 'clsx'
-import { damageRecords, evidenceData } from '@/data/mock'
+import { useAppState } from '@/context/AppContext'
+import { evidenceData } from '@/data/mock'
 import { SeverityBadge, StatusBadge, CategoryBadge } from '@/components/Badges'
-import type { EvidenceSource } from '@/types'
+import UpdateDamageStatusModal from '@/components/UpdateDamageStatusModal'
+import type { EvidenceSource, DamageStatus } from '@/types'
 
 const evidenceIcons: Record<EvidenceSource['type'], React.ReactNode> = {
   '台账记录': <BookOpen className="w-4 h-4" />,
@@ -26,7 +29,10 @@ const evidenceColor: Record<EvidenceSource['type'], { bg: string; text: string; 
 export default function DamageDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const record = damageRecords.find(r => r.id === id)
+  const { state, dispatch } = useAppState()
+  const [statusModalOpen, setStatusModalOpen] = useState(false)
+
+  const record = state.damageRecords.find(r => r.id === id)
 
   if (!record) {
     return (
@@ -35,6 +41,11 @@ export default function DamageDetail() {
         <button className="btn-primary mt-4" onClick={() => navigate('/damage')}>返回列表</button>
       </div>
     )
+  }
+
+  function handleStatusUpdate(newStatus: DamageStatus) {
+    dispatch({ type: 'UPDATE_DAMAGE_STATUS', payload: { id: record!.id, status: newStatus } })
+    setStatusModalOpen(false)
   }
 
   return (
@@ -199,7 +210,12 @@ export default function DamageDetail() {
               <h2 className="text-sm font-semibold text-surface-800">处理操作</h2>
             </div>
             <div className="card-body space-y-2">
-              <button className="btn-primary w-full justify-center">更新处理状态</button>
+              <button
+                className="btn-primary w-full justify-center"
+                onClick={() => setStatusModalOpen(true)}
+              >
+                更新处理状态
+              </button>
               {!record.liabilityId && (
                 <button className="btn-secondary w-full justify-center">发起责任认定</button>
               )}
@@ -232,6 +248,13 @@ export default function DamageDetail() {
           </div>
         </div>
       </div>
+
+      <UpdateDamageStatusModal
+        open={statusModalOpen}
+        onClose={() => setStatusModalOpen(false)}
+        onSubmit={handleStatusUpdate}
+        currentStatus={record.status}
+      />
     </div>
   )
 }

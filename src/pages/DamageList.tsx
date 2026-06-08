@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Search, Filter, Plus, ArrowRight } from 'lucide-react'
 import clsx from 'clsx'
-import { damageRecords } from '@/data/mock'
+import { useAppState } from '@/context/AppContext'
 import { SeverityBadge, StatusBadge, CategoryBadge } from '@/components/Badges'
 import EmptyState from '@/components/EmptyState'
 import type { DamageStatus, DamageCategory, DamageSeverity } from '@/types'
@@ -13,6 +13,8 @@ const severityFilters: (DamageSeverity | '全部')[] = ['全部', '轻微', '一
 
 export default function DamageList() {
   const navigate = useNavigate()
+  const { state } = useAppState()
+  const damageRecords = state.damageRecords
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<DamageStatus | '全部'>('全部')
   const [categoryFilter, setCategoryFilter] = useState<DamageCategory | '全部'>('全部')

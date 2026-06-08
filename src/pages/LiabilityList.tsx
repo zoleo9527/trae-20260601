@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Search, Filter, ArrowRight, RotateCcw } from 'lucide-react'
 import clsx from 'clsx'
-import { liabilityRecords } from '@/data/mock'
+import { useAppState } from '@/context/AppContext'
 import { SeverityBadge, CategoryBadge, LiabilityStatusBadge } from '@/components/Badges'
 import EmptyState from '@/components/EmptyState'
 import type { LiabilityParty } from '@/types'
@@ -12,6 +12,8 @@ const partyFilters: (LiabilityParty | '全部')[] = ['全部', '发货方', '承
 
 export default function LiabilityList() {
   const navigate = useNavigate()
+  const { state } = useAppState()
+  const liabilityRecords = state.liabilityRecords
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('全部')
   const [partyFilter, setPartyFilter] = useState<LiabilityParty | '全部'>('全部')

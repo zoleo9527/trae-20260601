@@ -1,24 +1,11 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { AlertTriangle, Clock, RotateCcw, TrendingUp, ArrowRight, Siren } from 'lucide-react'
 import clsx from 'clsx'
-import { dashboardItems } from '@/data/mock'
+import { useAppState } from '@/context/AppContext'
+import { buildDashboardItems } from '@/data/mock'
 import { SeverityBadge, StatusBadge, FlagBadge, CategoryBadge } from '@/components/Badges'
 import type { TaskFlag, DashboardItem } from '@/types'
-
-const flagTabs: { key: TaskFlag | 'all'; label: string; icon: React.ReactNode; count: number }[] = [
-  { key: 'all', label: '全部', icon: <TrendingUp className="w-4 h-4" />, count: dashboardItems.length },
-  { key: 'today', label: '今日待办', icon: <Clock className="w-4 h-4" />, count: dashboardItems.filter(d => d.flag === 'today').length },
-  { key: 'overdue', label: '已拖延', icon: <AlertTriangle className="w-4 h-4" />, count: dashboardItems.filter(d => d.flag === 'overdue').length },
-  { key: 'returned', label: '被退回', icon: <RotateCcw className="w-4 h-4" />, count: dashboardItems.filter(d => d.flag === 'returned').length },
-]
-
-const stats = {
-  today: dashboardItems.filter(d => d.flag === 'today').length,
-  overdue: dashboardItems.filter(d => d.flag === 'overdue').length,
-  returned: dashboardItems.filter(d => d.flag === 'returned').length,
-  urgent: dashboardItems.filter(d => d.isUrgent).length,
-}
 
 function ItemRow({ item, onAction }: { item: DashboardItem; onAction: (id: string) => void }) {
   return (
@@ -58,6 +45,23 @@ function ItemRow({ item, onAction }: { item: DashboardItem; onAction: (id: strin
 export default function Dashboard() {
   const [activeTab, setActiveTab] = useState<TaskFlag | 'all'>('all')
   const navigate = useNavigate()
+  const { state } = useAppState()
+
+  const dashboardItems = useMemo(() => buildDashboardItems(state.damageRecords), [state.damageRecords])
+
+  const flagTabs: { key: TaskFlag | 'all'; label: string; icon: React.ReactNode; count: number }[] = [
+    { key: 'all', label: '全部', icon: <TrendingUp className="w-4 h-4" />, count: dashboardItems.length },
+    { key: 'today', label: '今日待办', icon: <Clock className="w-4 h-4" />, count: dashboardItems.filter(d => d.flag === 'today').length },
+    { key: 'overdue', label: '已拖延', icon: <AlertTriangle className="w-4 h-4" />, count: dashboardItems.filter(d => d.flag === 'overdue').length },
+    { key: 'returned', label: '被退回', icon: <RotateCcw className="w-4 h-4" />, count: dashboardItems.filter(d => d.flag === 'returned').length },
+  ]
+
+  const stats = useMemo(() => ({
+    today: dashboardItems.filter(d => d.flag === 'today').length,
+    overdue: dashboardItems.filter(d => d.flag === 'overdue').length,
+    returned: dashboardItems.filter(d => d.flag === 'returned').length,
+    urgent: dashboardItems.filter(d => d.isUrgent).length,
+  }), [dashboardItems])
 
   const filteredItems = activeTab === 'all'
     ? dashboardItems
