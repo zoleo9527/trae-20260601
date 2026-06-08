@@ -565,6 +565,54 @@ table tr:hover td {
 	margin-top: 4px;
 }
 
+.stat-card-highlight {
+	border-color: var(--c-warning) !important;
+	background: linear-gradient(135deg, var(--c-surface) 0%, #fff8e1 100%) !important;
+}
+
+.stat-card-highlight .stat-value {
+	color: var(--c-warning) !important;
+}
+
+.stat-card-highlight .stat-label {
+	color: var(--c-warning) !important;
+	font-weight: 600;
+}
+
+.stat-value-empty {
+	color: var(--c-text-2) !important;
+	font-size: 14px !important;
+	font-weight: 400 !important;
+}
+
+.filter-dates {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+}
+
+.filter-dates input[type="date"] {
+	padding: 5px 8px;
+	border: 1px solid var(--c-border);
+	border-radius: var(--radius);
+	font-size: 12px;
+	background: var(--c-surface);
+	color: var(--c-text);
+	font-family: inherit;
+}
+
+.filter-dates input[type="date"]:focus {
+	outline: none;
+	border-color: var(--c-primary);
+	box-shadow: 0 0 0 3px rgba(59, 91, 219, 0.1);
+}
+
+.date-sep {
+	color: var(--c-text-2);
+	font-size: 13px;
+	font-weight: 500;
+}
+
 .action-grid {
 	display: grid;
 	grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));

@@ -17,6 +17,8 @@
 	];
 
 	let keyword = $state(data.currentKeyword || '');
+	let dateFrom = $state(data.dateFrom || '');
+	let dateTo = $state(data.dateTo || '');
 	let showRejectModal = $state(false);
 	let batchRejectNote = $state('');
 	let selectedIds = $state<number[]>([]);
@@ -31,9 +33,13 @@
 		const s = overrides.status !== undefined ? overrides.status : data.currentStatus;
 		const k = overrides.keyword !== undefined ? overrides.keyword : keyword;
 		const m = overrides.mine !== undefined ? overrides.mine : (data.currentMine ? '1' : '');
+		const df = overrides.date_from !== undefined ? overrides.date_from : dateFrom;
+		const dt = overrides.date_to !== undefined ? overrides.date_to : dateTo;
 		if (s) params.set('status', s);
 		if (k) params.set('keyword', k);
 		if (m) params.set('mine', m);
+		if (df) params.set('date_from', df);
+		if (dt) params.set('date_to', dt);
 		const qs = params.toString();
 		return '/time-gifts' + (qs ? '?' + qs : '');
 	}
@@ -72,7 +78,18 @@
 		window.location.href = buildUrl({ keyword: '' });
 	}
 
+	function onDateChange() {
+		window.location.href = buildUrl();
+	}
+
+	function onClearDates() {
+		dateFrom = '';
+		dateTo = '';
+		window.location.href = buildUrl({ date_from: '', date_to: '' });
+	}
+
 	const pendingGifts = $derived(data.timeGifts.filter((g: any) => g.status === 'pending'));
+	const stats = $derived(data.stats);
 </script>
 
 <svelte:head>
@@ -89,6 +106,31 @@
 	{/if}
 </div>
 
+<div class="stat-grid">
+	<div class="stat-card">
+		<div class="stat-value">{stats.todaySubmitCount > 0 ? stats.todaySubmitCount : '暂无'}</div>
+		<div class="stat-label">今日提交</div>
+	</div>
+	<div class="stat-card{data.user.role === 'admin' && stats.pendingCount > 0 ? ' stat-card-highlight' : ''}">
+		<div class="stat-value">{stats.pendingCount > 0 ? stats.pendingCount : '暂无'}</div>
+		<div class="stat-label">{data.user.role === 'admin' ? '⚠️ 待我审核' : '待审核'}</div>
+	</div>
+	<div class="stat-card">
+		<div class="stat-value">{stats.todayApprovedCount > 0 ? `${stats.todayApprovedMinutes}分钟` : '暂无'}</div>
+		<div class="stat-label">今日通过时长</div>
+		{#if stats.todayApprovedCount > 0}
+			<div class="stat-sub">{stats.todayApprovedCount} 笔</div>
+		{/if}
+	</div>
+	<div class="stat-card">
+		<div class="stat-value">{stats.monthApprovedCount > 0 ? `${stats.monthApprovedMinutes}分钟` : '暂无'}</div>
+		<div class="stat-label">本月通过时长</div>
+		{#if stats.monthApprovedCount > 0}
+			<div class="stat-sub">{stats.monthApprovedCount} 笔</div>
+		{/if}
+	</div>
+</div>
+
 <div class="filter-bar">
 	<div class="filter-pills">
 		{#each statusPills as pill}
@@ -101,6 +143,14 @@
 			<button type="button" class="search-clear" onclick={onClearSearch}>✕</button>
 		{/if}
 		<button type="button" class="btn btn-sm btn-primary" onclick={onSearchClick}>搜索</button>
+	</div>
+	<div class="filter-dates">
+		<input type="date" bind:value={dateFrom} onchange={onDateChange} />
+		<span class="date-sep">~</span>
+		<input type="date" bind:value={dateTo} onchange={onDateChange} />
+		{#if dateFrom || dateTo}
+			<button type="button" class="btn btn-sm" onclick={onClearDates}>清除</button>
+		{/if}
 	</div>
 	{#if data.user.role === 'operator' || data.user.role === 'tournament'}
 		<a href={buildUrl({ mine: data.currentMine ? '' : '1' })} class="filter-toggle" class:active={data.currentMine}>
@@ -183,25 +233,26 @@
 					</tr>
 				</thead>
 				<tbody>
-					{#each data.timeGifts as g}
+					{#each data.timeGifts as _g}
+					{@const g = _g as any}
 						<tr>
 							{#if data.user.role === 'admin' && pendingGifts.length > 0}
 								<td>
-									{#if (g as any).status === 'pending'}
-										<input type="checkbox" checked={selectedIds.includes((g as any).id)} onchange={() => toggleSelect((g as any).id)} />
+									{#if g.status === 'pending'}
+										<input type="checkbox" checked={selectedIds.includes(g.id)} onchange={() => toggleSelect(g.id)} />
 									{/if}
 								</td>
 							{/if}
-							<td>{(g as any).id}</td>
-							<td><a href="/members/{(g as any).member_id}" style="font-weight:500;">{(g as any).member_name}</a></td>
-							<td style="font-weight:500;">{(g as any).minutes}分钟</td>
-							<td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title={(g as any).reason}>{(g as any).reason}</td>
-							<td>{sourceLabels[(g as any).source_type] || (g as any).source_type}</td>
-							<td>{(g as any).operator_name}</td>
-							<td>{(g as any).reviewer_name || '-'}</td>
-							<td><span class="status-badge status-{(g as any).status}">{statusLabels[(g as any).status]}</span></td>
-							<td style="font-size:12px;color:var(--c-text-2);">{formatTime((g as any).created_at)}</td>
-							<td><a href="/time-gifts/{(g as any).id}" class="btn btn-sm">详情</a></td>
+							<td>{g.id}</td>
+							<td><a href="/members/{g.member_id}" style="font-weight:500;">{g.member_name}</a></td>
+							<td style="font-weight:500;">{g.minutes}分钟</td>
+							<td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title={g.reason}>{g.reason}</td>
+							<td>{sourceLabels[g.source_type] || g.source_type}</td>
+							<td>{g.operator_name}</td>
+							<td>{g.reviewer_name || '-'}</td>
+							<td><span class="status-badge status-{g.status}">{statusLabels[g.status]}</span></td>
+							<td style="font-size:12px;color:var(--c-text-2);">{formatTime(g.created_at)}</td>
+							<td><a href="/time-gifts/{g.id}" class="btn btn-sm">详情</a></td>
 						</tr>
 					{/each}
 				</tbody>

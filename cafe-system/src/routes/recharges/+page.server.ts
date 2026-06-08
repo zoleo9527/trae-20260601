@@ -9,6 +9,8 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 	const status = url.searchParams.get('status') || '';
 	const keyword = (url.searchParams.get('keyword') || '').trim();
 	const mine = url.searchParams.get('mine') === '1';
+	const dateFrom = url.searchParams.get('date_from') || '';
+	const dateTo = url.searchParams.get('date_to') || '';
 
 	let whereClauses: string[] = [];
 	let params: any[] = [];
@@ -28,6 +30,16 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 		params.push(locals.user.id);
 	}
 
+	if (dateFrom) {
+		whereClauses.push('date(r.created_at) >= date(?)');
+		params.push(dateFrom);
+	}
+
+	if (dateTo) {
+		whereClauses.push('date(r.created_at) <= date(?)');
+		params.push(dateTo);
+	}
+
 	const whereStr = whereClauses.length > 0 ? 'WHERE ' + whereClauses.join(' AND ') : '';
 
 	const recharges = db.prepare(`
@@ -40,7 +52,43 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 		ORDER BY r.created_at DESC
 	`).all(...params);
 
-	return { recharges, currentStatus: status, currentKeyword: keyword, currentMine: mine, user: locals.user };
+	const todaySubmitCount = (db.prepare(`
+		SELECT COUNT(*) as c FROM recharges WHERE date(created_at) = date('now', 'localtime')
+	`).get() as any).c;
+
+	const pendingCount = (db.prepare(`
+		SELECT COUNT(*) as c FROM recharges WHERE status = 'pending'
+	`).get() as any).c;
+
+	const todayApprovedStats = db.prepare(`
+		SELECT COUNT(*) as cnt, COALESCE(SUM(amount), 0) as total_amount
+		FROM recharges WHERE status = 'approved' AND date(reviewed_at) = date('now', 'localtime')
+	`).get() as any;
+
+	const monthApprovedStats = db.prepare(`
+		SELECT COUNT(*) as cnt, COALESCE(SUM(amount), 0) as total_amount
+		FROM recharges WHERE status = 'approved'
+		AND strftime('%Y-%m', reviewed_at) = strftime('%Y-%m', 'now', 'localtime')
+	`).get() as any;
+
+	let myPendingCount = 0;
+	if (locals.user.role === 'admin') {
+		myPendingCount = pendingCount;
+	}
+
+	return {
+		recharges, currentStatus: status, currentKeyword: keyword,
+		currentMine: mine, dateFrom, dateTo, user: locals.user,
+		stats: {
+			todaySubmitCount,
+			pendingCount,
+			todayApprovedCount: todayApprovedStats.cnt,
+			todayApprovedAmount: todayApprovedStats.total_amount,
+			monthApprovedCount: monthApprovedStats.cnt,
+			monthApprovedAmount: monthApprovedStats.total_amount,
+			myPendingCount
+		}
+	};
 };
 
 export const actions: Actions = {

@@ -17,6 +17,8 @@
 	];
 
 	let keyword = $state(data.currentKeyword || '');
+	let dateFrom = $state(data.dateFrom || '');
+	let dateTo = $state(data.dateTo || '');
 	let showRejectModal = $state(false);
 	let batchRejectNote = $state('');
 	let selectedIds = $state<number[]>([]);
@@ -26,14 +28,23 @@
 		return t.substring(0, 16).replace('T', ' ');
 	}
 
+	function statVal(v: number, unit?: string): string {
+		if (v === 0) return '暂无';
+		return unit ? `${v}${unit}` : String(v);
+	}
+
 	function buildUrl(overrides: Record<string, string> = {}) {
 		const params = new URLSearchParams();
 		const s = overrides.status !== undefined ? overrides.status : data.currentStatus;
 		const k = overrides.keyword !== undefined ? overrides.keyword : keyword;
 		const m = overrides.mine !== undefined ? overrides.mine : (data.currentMine ? '1' : '');
+		const df = overrides.date_from !== undefined ? overrides.date_from : dateFrom;
+		const dt = overrides.date_to !== undefined ? overrides.date_to : dateTo;
 		if (s) params.set('status', s);
 		if (k) params.set('keyword', k);
 		if (m) params.set('mine', m);
+		if (df) params.set('date_from', df);
+		if (dt) params.set('date_to', dt);
 		const qs = params.toString();
 		return '/recharges' + (qs ? '?' + qs : '');
 	}
@@ -72,7 +83,18 @@
 		window.location.href = buildUrl({ keyword: '' });
 	}
 
+	function onDateChange() {
+		window.location.href = buildUrl();
+	}
+
+	function onClearDates() {
+		dateFrom = '';
+		dateTo = '';
+		window.location.href = buildUrl({ date_from: '', date_to: '' });
+	}
+
 	const pendingRecharges = $derived(data.recharges.filter((r: any) => r.status === 'pending'));
+	const stats = $derived(data.stats);
 </script>
 
 <svelte:head>
@@ -89,6 +111,31 @@
 	{/if}
 </div>
 
+<div class="stat-grid">
+	<div class="stat-card">
+		<div class="stat-value">{stats.todaySubmitCount > 0 ? stats.todaySubmitCount : '暂无'}</div>
+		<div class="stat-label">今日提交</div>
+	</div>
+	<div class="stat-card{data.user.role === 'admin' && stats.pendingCount > 0 ? ' stat-card-highlight' : ''}">
+		<div class="stat-value">{stats.pendingCount > 0 ? stats.pendingCount : '暂无'}</div>
+		<div class="stat-label">{data.user.role === 'admin' ? '⚠️ 待我审核' : '待审核'}</div>
+	</div>
+	<div class="stat-card">
+		<div class="stat-value">{stats.todayApprovedCount > 0 ? `¥${stats.todayApprovedAmount.toFixed(0)}` : '暂无'}</div>
+		<div class="stat-label">今日通过金额</div>
+		{#if stats.todayApprovedCount > 0}
+			<div class="stat-sub">{stats.todayApprovedCount} 笔</div>
+		{/if}
+	</div>
+	<div class="stat-card">
+		<div class="stat-value">{stats.monthApprovedCount > 0 ? `¥${stats.monthApprovedAmount.toFixed(0)}` : '暂无'}</div>
+		<div class="stat-label">本月通过金额</div>
+		{#if stats.monthApprovedCount > 0}
+			<div class="stat-sub">{stats.monthApprovedCount} 笔</div>
+		{/if}
+	</div>
+</div>
+
 <div class="filter-bar">
 	<div class="filter-pills">
 		{#each statusPills as pill}
@@ -101,6 +148,14 @@
 			<button type="button" class="search-clear" onclick={onClearSearch}>✕</button>
 		{/if}
 		<button type="button" class="btn btn-sm btn-primary" onclick={onSearchClick}>搜索</button>
+	</div>
+	<div class="filter-dates">
+		<input type="date" bind:value={dateFrom} onchange={onDateChange} />
+		<span class="date-sep">~</span>
+		<input type="date" bind:value={dateTo} onchange={onDateChange} />
+		{#if dateFrom || dateTo}
+			<button type="button" class="btn btn-sm" onclick={onClearDates}>清除</button>
+		{/if}
 	</div>
 	{#if data.user.role === 'operator'}
 		<a href={buildUrl({ mine: data.currentMine ? '' : '1' })} class="filter-toggle" class:active={data.currentMine}>
@@ -183,25 +238,26 @@
 					</tr>
 				</thead>
 				<tbody>
-					{#each data.recharges as r}
+					{#each data.recharges as _r}
+					{@const r = _r as any}
 						<tr>
 							{#if data.user.role === 'admin' && pendingRecharges.length > 0}
 								<td>
-									{#if (r as any).status === 'pending'}
-										<input type="checkbox" checked={selectedIds.includes((r as any).id)} onchange={() => toggleSelect((r as any).id)} />
+									{#if r.status === 'pending'}
+										<input type="checkbox" checked={selectedIds.includes(r.id)} onchange={() => toggleSelect(r.id)} />
 									{/if}
 								</td>
 							{/if}
-							<td>{(r as any).id}</td>
-							<td><a href="/members/{(r as any).member_id}" style="font-weight:500;">{(r as any).member_name}</a></td>
-							<td style="font-weight:500;">¥{(r as any).amount.toFixed(2)}</td>
-							<td>{(r as any).bonus_minutes > 0 ? (r as any).bonus_minutes + '分钟' : '-'}</td>
-							<td>{paymentLabels[(r as any).payment_method] || (r as any).payment_method}</td>
-							<td>{(r as any).operator_name}</td>
-							<td>{(r as any).reviewer_name || '-'}</td>
-							<td><span class="status-badge status-{(r as any).status}">{statusLabels[(r as any).status]}</span></td>
-							<td style="font-size:12px;color:var(--c-text-2);">{formatTime((r as any).created_at)}</td>
-							<td><a href="/recharges/{(r as any).id}" class="btn btn-sm">详情</a></td>
+							<td>{r.id}</td>
+							<td><a href="/members/{r.member_id}" style="font-weight:500;">{r.member_name}</a></td>
+							<td style="font-weight:500;">¥{r.amount.toFixed(2)}</td>
+							<td>{r.bonus_minutes > 0 ? r.bonus_minutes + '分钟' : '-'}</td>
+							<td>{paymentLabels[r.payment_method] || r.payment_method}</td>
+							<td>{r.operator_name}</td>
+							<td>{r.reviewer_name || '-'}</td>
+							<td><span class="status-badge status-{r.status}">{statusLabels[r.status]}</span></td>
+							<td style="font-size:12px;color:var(--c-text-2);">{formatTime(r.created_at)}</td>
+							<td><a href="/recharges/{r.id}" class="btn btn-sm">详情</a></td>
 						</tr>
 					{/each}
 				</tbody>
