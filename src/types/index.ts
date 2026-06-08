@@ -191,6 +191,33 @@ export interface RecordDamageRequest {
   photoUrls?: string[];
 }
 
+export interface StuckFilterParams {
+  severity?: StuckSeverity;
+  stuckType?: StuckType;
+  entityType?: 'loading_plan' | 'wagon_allocation' | 'arrival_notice' | 'damage_record';
+  since?: string;
+  until?: string;
+}
+
+export interface StuckSummaryItem {
+  stuckType: StuckType;
+  severity: StuckSeverity;
+  count: number;
+  earliestDetectedAt: string;
+}
+
+export interface PendingTaskItem {
+  entityType: 'loading_plan' | 'wagon_allocation' | 'arrival_notice' | 'damage_record';
+  entityId: string;
+  entityDisplayId: string;
+  currentStatus: string;
+  waitingForRole: Role;
+  waitingSince: string;
+  dwellHours: number;
+  blockingReason: string | null;
+  relatedStuckOrders: StuckOrder[];
+}
+
 export interface ResolveStuckRequest {
   resolution: string;
 }

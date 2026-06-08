@@ -1,19 +1,78 @@
 import { Router, Request, Response } from 'express';
 import { stuckOrderService } from '../services/stuck-order';
+import { StuckSeverity, StuckType } from '../types';
 
 const router = Router();
+
+const VALID_SEVERITIES = Object.values(StuckSeverity);
+const VALID_STUCK_TYPES = Object.values(StuckType);
+const VALID_ENTITY_TYPES = ['loading_plan', 'wagon_allocation', 'arrival_notice', 'damage_record'];
+
+/**
+ * GET /api/stuck-orders/summary
+ *
+ * 按卡单类型和严重度聚合活跃卡单数量、最早未处理时间
+ * 结果按严重度(critical优先)和检测时间排序
+ *
+ * Response: StuckSummaryItem[]
+ */
+router.get('/summary', (_req: Request, res: Response) => {
+  const summary = stuckOrderService.summary();
+  res.json(summary);
+});
 
 /**
  * GET /api/stuck-orders
  *
- * 获取当前所有活跃卡单
- * 系统在每次请求时自动扫描，直接暴露卡住的流程
+ * 获取活跃卡单，支持查询参数过滤
+ * 按严重度(critical优先)和检测时间排序返回
+ *
+ * Query Params:
+ *   severity    string  可选，过滤严重度: warning | critical
+ *   stuckType   string  可选，过滤卡单类型: plan_change_timeout | plan_unallocated | allocation_unconfirmed | arrival_unclaimed | damage_no_photo
+ *   entityType  string  可选，过滤实体类型: loading_plan | wagon_allocation | arrival_notice | damage_record
+ *   since       string  可选，检测时间起始 (ISO 8601)
+ *   until       string  可选，检测时间截止 (ISO 8601)
  *
  * Response: StuckOrder[]
  */
-router.get('/', (_req: Request, res: Response) => {
-  const stuckOrders = stuckOrderService.getActive();
-  res.json(stuckOrders);
+router.get('/', (req: Request, res: Response) => {
+  const { severity, stuckType, entityType, since, until } = req.query;
+
+  if (severity && !VALID_SEVERITIES.includes(severity as StuckSeverity)) {
+    res.status(400).json({ error: `无效的 severity 值，可选: ${VALID_SEVERITIES.join(', ')}` });
+    return;
+  }
+
+  if (stuckType && !VALID_STUCK_TYPES.includes(stuckType as StuckType)) {
+    res.status(400).json({ error: `无效的 stuckType 值，可选: ${VALID_STUCK_TYPES.join(', ')}` });
+    return;
+  }
+
+  if (entityType && !VALID_ENTITY_TYPES.includes(entityType as string)) {
+    res.status(400).json({ error: `无效的 entityType 值，可选: ${VALID_ENTITY_TYPES.join(', ')}` });
+    return;
+  }
+
+  if (since && isNaN(Date.parse(since as string))) {
+    res.status(400).json({ error: '无效的 since 时间格式，需 ISO 8601' });
+    return;
+  }
+
+  if (until && isNaN(Date.parse(until as string))) {
+    res.status(400).json({ error: '无效的 until 时间格式，需 ISO 8601' });
+    return;
+  }
+
+  const results = stuckOrderService.filter({
+    severity: severity as StuckSeverity | undefined,
+    stuckType: stuckType as StuckType | undefined,
+    entityType: entityType as 'loading_plan' | 'wagon_allocation' | 'arrival_notice' | 'damage_record' | undefined,
+    since: since as string | undefined,
+    until: until as string | undefined,
+  });
+
+  res.json(results);
 });
 
 /**

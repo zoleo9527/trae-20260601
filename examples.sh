@@ -5,7 +5,7 @@
 # 使用前请先启动服务: npx ts-node src/app.ts
 #
 
-BASE="http://localhost:3000/api"
+BASE="http://localhost:3001/api"
 
 echo "============================================"
 echo "🚂  铁路货运站 - 装车计划与车皮分配 请求示例"
@@ -228,3 +228,64 @@ echo ""
 echo "============================================"
 echo "✅ 请求示例执行完毕"
 echo "============================================"
+echo ""
+
+# ============================================
+# 新增：卡单筛选、聚合摘要、角色待办视图
+# ============================================
+echo "============================================"
+echo "📊  卡单筛选 / 聚合摘要 / 角色待办视图"
+echo "============================================"
+echo ""
+
+# ============================================
+# 7. 卡单过滤查询
+# ============================================
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "【7】卡单过滤：仅查 critical 级别"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+curl -s "${BASE}/stuck-orders?severity=critical" | python3 -m json.tool 2>/dev/null || echo "(无 critical 卡单)"
+echo ""
+
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "【7a】卡单过滤：按 stuckType 过滤"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+curl -s "${BASE}/stuck-orders?stuckType=damage_no_photo" | python3 -m json.tool 2>/dev/null || echo "(无此类卡单)"
+echo ""
+
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "【7b】卡单过滤：按 entityType + 时间范围"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+SINCE=$(python3 -c "from datetime import datetime, timedelta; print((datetime.utcnow()-timedelta(days=7)).isoformat()+'Z')")
+curl -s "${BASE}/stuck-orders?entityType=damage_record&since=${SINCE}" | python3 -m json.tool 2>/dev/null || echo "(无匹配)"
+echo ""
+
+# ============================================
+# 8. 卡单聚合摘要
+# ============================================
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "【8】卡单聚合摘要（按 stuckType + severity）"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+curl -s "${BASE}/stuck-orders/summary" | python3 -m json.tool 2>/dev/null
+echo ""
+
+# ============================================
+# 9. 角色待办视图
+# ============================================
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "【9】装卸班长(loading_leader)待办视图"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+curl -s "${BASE}/pending-tasks?role=loading_leader" | python3 -m json.tool 2>/dev/null
+echo ""
+
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "【9a】货运员(freight_clerk)待办视图"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+curl -s "${BASE}/pending-tasks?role=freight_clerk" | python3 -m json.tool 2>/dev/null
+echo ""
+
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "【9b】客服(customer_service)待办视图"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+curl -s "${BASE}/pending-tasks?role=customer_service" | python3 -m json.tool 2>/dev/null
+echo ""

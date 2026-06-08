@@ -3,6 +3,8 @@ import {
   StuckOrder,
   StuckType,
   StuckSeverity,
+  StuckFilterParams,
+  StuckSummaryItem,
   STUCK_THRESHOLDS,
   LoadingPlanStatus,
   WagonAllocationStatus,
@@ -216,6 +218,89 @@ export class StuckOrderService {
 
   getByEntity(entityType: string, entityId: string): StuckOrder[] {
     return store.getStuckOrdersByEntity(entityType, entityId);
+  }
+
+  filter(params: StuckFilterParams): StuckOrder[] {
+    this.scanAll();
+
+    let results = store.getActiveStuckOrders();
+
+    if (params.severity) {
+      results = results.filter((s) => s.severity === params.severity);
+    }
+
+    if (params.stuckType) {
+      results = results.filter((s) => s.stuckType === params.stuckType);
+    }
+
+    if (params.entityType) {
+      results = results.filter((s) => s.entityType === params.entityType);
+    }
+
+    if (params.since) {
+      const since = new Date(params.since).getTime();
+      results = results.filter((s) => new Date(s.detectedAt).getTime() >= since);
+    }
+
+    if (params.until) {
+      const until = new Date(params.until).getTime();
+      results = results.filter((s) => new Date(s.detectedAt).getTime() <= until);
+    }
+
+    const severityOrder: Record<string, number> = {
+      [StuckSeverity.Critical]: 0,
+      [StuckSeverity.Warning]: 1,
+    };
+
+    results.sort((a, b) => {
+      const sevDiff = (severityOrder[a.severity] ?? 99) - (severityOrder[b.severity] ?? 99);
+      if (sevDiff !== 0) return sevDiff;
+      return new Date(a.detectedAt).getTime() - new Date(b.detectedAt).getTime();
+    });
+
+    return results;
+  }
+
+  summary(): StuckSummaryItem[] {
+    this.scanAll();
+
+    const active = store.getActiveStuckOrders();
+
+    const grouped = new Map<string, { items: StuckOrder[] }>();
+
+    for (const s of active) {
+      const key = `${s.stuckType}::${s.severity}`;
+      if (!grouped.has(key)) {
+        grouped.set(key, { items: [] });
+      }
+      grouped.get(key)!.items.push(s);
+    }
+
+    const summaryItems: StuckSummaryItem[] = [];
+
+    for (const [, group] of grouped) {
+      const items = group.items;
+      items.sort((a, b) => new Date(a.detectedAt).getTime() - new Date(b.detectedAt).getTime());
+      summaryItems.push({
+        stuckType: items[0].stuckType,
+        severity: items[0].severity,
+        count: items.length,
+        earliestDetectedAt: items[0].detectedAt,
+      });
+    }
+
+    const severityOrder: Record<string, number> = {
+      [StuckSeverity.Critical]: 0,
+      [StuckSeverity.Warning]: 1,
+    };
+
+    summaryItems.sort((a, b) => {
+      const sevDiff = (severityOrder[a.severity] ?? 99) - (severityOrder[b.severity] ?? 99);
+      if (sevDiff !== 0) return sevDiff;
+      return new Date(a.earliestDetectedAt).getTime() - new Date(b.earliestDetectedAt).getTime();
+    });
+
+    return summaryItems;
   }
 }
 
