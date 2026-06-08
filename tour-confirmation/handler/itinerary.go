@@ -187,29 +187,56 @@ func (h *ItineraryHandler) Withdraw(c *fiber.Ctx) error {
 
 func (h *ItineraryHandler) buildConfirmationSummary(itineraryID string) (*model.ConfirmationSummary, *model.ConfirmationProgress) {
 	allConfs := h.store.ListConfirmationsByItinerary(itineraryID)
-	summary := &model.ConfirmationSummary{}
+	summary := &model.ConfirmationSummary{
+		ByResourceType: map[string]*model.ResourceTypeCounts{},
+	}
 	progress := &model.ConfirmationProgress{
 		UnconfirmedList: []model.UnconfirmedResource{},
+		ByResourceType:  map[string]*model.ResourceTypeCounts{},
 	}
 	var latestRejectTime time.Time
 	var latestRejectReason string
 	var lastRemindedAt time.Time
 	for _, cf := range allConfs {
+		rt := cf.ResourceType
+		if rt == "" {
+			rt = "unknown"
+		}
+		rtCountsSummary, ok := summary.ByResourceType[rt]
+		if !ok {
+			rtCountsSummary = &model.ResourceTypeCounts{}
+			summary.ByResourceType[rt] = rtCountsSummary
+		}
+		rtCountsProgress, ok := progress.ByResourceType[rt]
+		if !ok {
+			rtCountsProgress = &model.ResourceTypeCounts{}
+			progress.ByResourceType[rt] = rtCountsProgress
+		}
 		switch cf.Status {
 		case model.ConfirmPending:
 			summary.PendingCount++
 			progress.PendingCount++
+			rtCountsSummary.PendingCount++
+			rtCountsProgress.PendingCount++
 		case model.ConfirmConfirmed:
 			summary.ConfirmedCount++
 			progress.ConfirmedCount++
+			rtCountsSummary.ConfirmedCount++
+			rtCountsProgress.ConfirmedCount++
 		case model.ConfirmRejected:
 			summary.RejectedCount++
 			progress.RejectedCount++
+			rtCountsSummary.RejectedCount++
+			rtCountsProgress.RejectedCount++
 		case model.ConfirmRevised:
 			summary.RevisedCount++
 			progress.RevisedCount++
+			rtCountsSummary.RevisedCount++
+			rtCountsProgress.RevisedCount++
 		}
 		summary.TotalCount++
+		rtCountsSummary.TotalCount++
+		rtCountsProgress.TotalCount++
 		if cf.Status == model.ConfirmPending || cf.Status == model.ConfirmRevised {
 			progress.UnconfirmedList = append(progress.UnconfirmedList, model.UnconfirmedResource{
 				ID:           cf.ID,

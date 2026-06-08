@@ -98,7 +98,11 @@ go run main.go
           "status": "pending"
         }
       ],
-      "latest_reject_reason": "确认驳回: 车辆年检过期"
+      "latest_reject_reason": "确认驳回: 车辆年检过期",
+      "by_resource_type": {
+        "hotel": { "pending_count": 1, "confirmed_count": 0, "rejected_count": 0, "revised_count": 0, "total_count": 1 },
+        "vehicle": { "pending_count": 1, "confirmed_count": 1, "rejected_count": 1, "revised_count": 0, "total_count": 3 }
+      }
     }
   }
 }
@@ -113,6 +117,7 @@ go run main.go
 | `confirmation_progress.unconfirmed_list` | array | 待确认 + 已修订的资源清单 |
 | `confirmation_progress.latest_reject_reason` | string | 最近一次驳回的审计摘要，无驳回时为空 |
 | `confirmation_progress.last_reminded_at` | string(RFC3339) | 该行程最近一次催办时间，从未催办时为空 |
+| `confirmation_progress.by_resource_type` | object | 按资源类型聚合的确认计数，键名为资源类型字符串，无数据时为 `{}` |
 
 ## 确认列表新增查询参数
 
@@ -144,7 +149,11 @@ go run main.go
           "rejected_count": 0,
           "revised_count": 1,
           "total_count": 4,
-          "last_reminded_at": "2026-06-08T10:30:00Z"
+          "last_reminded_at": "2026-06-08T10:30:00Z",
+          "by_resource_type": {
+            "hotel": { "pending_count": 1, "confirmed_count": 1, "rejected_count": 0, "revised_count": 0, "total_count": 2 },
+            "vehicle": { "pending_count": 1, "confirmed_count": 0, "rejected_count": 0, "revised_count": 1, "total_count": 2 }
+          }
         }
       }
     ],
@@ -161,6 +170,7 @@ go run main.go
 | `confirmation_summary.revised_count` | int | 已修订数量 |
 | `confirmation_summary.total_count` | int | 确认单总数 |
 | `confirmation_summary.last_reminded_at` | string(RFC3339) | 该行程最近一次催办时间，与详情页口径一致 |
+| `confirmation_summary.by_resource_type` | object | 按资源类型聚合的确认计数，与详情页口径一致，无数据时为 `{}` |
 
 ## 行程列表新增查询参数
 
@@ -175,6 +185,14 @@ go run main.go
 | `has_pending=true` | 只返回仍有 pending/revised 确认单的行程 |
 | `has_pending=false` | 只返回所有确认单均为 confirmed/rejected 的行程 |
 | 不传 `has_pending` | 不过滤，返回全部（与原有行为一致） |
+
+## by_resource_type 字段说明
+
+`by_resource_type` 出现在行程详情的 `confirmation_progress` 和行程列表的 `confirmation_summary` 中，口径完全一致。
+
+该字段用于**定位哪类资源积压最多**。地接社的实际场景中，酒店、车队、餐厅、导游等资源由不同供应商负责确认，整体 pending_count 高可能只是某一类资源拖了后腿。通过 `by_resource_type` 计调可以一眼看出「酒店都确认了但车辆全卡着」，从而精准催办对应供应商，而不是对所有人发催办。
+
+键名为创建确认单时填入的 `resource_type` 值（如 `hotel`、`vehicle`、`restaurant`、`guide`），值包含该类型下 pending/confirmed/rejected/revised/total 五项计数。每个类型的 total 之和与总计 total_count 一致。资源类型为空时归入 `unknown` 键；该行程无确认单时返回空对象 `{}`。
 
 ## 催办接口
 

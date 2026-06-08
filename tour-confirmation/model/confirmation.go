@@ -59,14 +59,23 @@ type UnconfirmedResource struct {
 	Status       ConfirmationStatus `json:"status"`
 }
 
+type ResourceTypeCounts struct {
+	PendingCount   int `json:"pending_count"`
+	ConfirmedCount int `json:"confirmed_count"`
+	RejectedCount  int `json:"rejected_count"`
+	RevisedCount   int `json:"revised_count"`
+	TotalCount     int `json:"total_count"`
+}
+
 type ConfirmationProgress struct {
-	PendingCount      int                   `json:"pending_count"`
-	ConfirmedCount    int                   `json:"confirmed_count"`
-	RejectedCount     int                   `json:"rejected_count"`
-	RevisedCount      int                   `json:"revised_count"`
-	UnconfirmedList   []UnconfirmedResource `json:"unconfirmed_list"`
-	LatestRejectReason string              `json:"latest_reject_reason,omitempty"`
-	LastRemindedAt    *time.Time           `json:"last_reminded_at,omitempty"`
+	PendingCount      int                              `json:"pending_count"`
+	ConfirmedCount    int                              `json:"confirmed_count"`
+	RejectedCount     int                              `json:"rejected_count"`
+	RevisedCount      int                              `json:"revised_count"`
+	UnconfirmedList   []UnconfirmedResource            `json:"unconfirmed_list"`
+	LatestRejectReason string                           `json:"latest_reject_reason,omitempty"`
+	LastRemindedAt    *time.Time                       `json:"last_reminded_at,omitempty"`
+	ByResourceType    map[string]*ResourceTypeCounts   `json:"by_resource_type"`
 }
 
 type ItinerarySummary struct {
@@ -78,10 +87,11 @@ type ItinerarySummary struct {
 }
 
 type ConfirmationSummary struct {
-	PendingCount   int        `json:"pending_count"`
-	ConfirmedCount int        `json:"confirmed_count"`
-	RejectedCount  int        `json:"rejected_count"`
-	RevisedCount   int        `json:"revised_count"`
-	TotalCount     int        `json:"total_count"`
-	LastRemindedAt *time.Time `json:"last_reminded_at,omitempty"`
+	PendingCount   int                            `json:"pending_count"`
+	ConfirmedCount int                            `json:"confirmed_count"`
+	RejectedCount  int                            `json:"rejected_count"`
+	RevisedCount   int                            `json:"revised_count"`
+	TotalCount     int                            `json:"total_count"`
+	LastRemindedAt *time.Time                     `json:"last_reminded_at,omitempty"`
+	ByResourceType map[string]*ResourceTypeCounts `json:"by_resource_type"`
 }
