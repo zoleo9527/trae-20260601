@@ -18,14 +18,14 @@ router.get('/:id', (req, res) => {
 router.post('/', (req, res) => {
   const { batch_id, inspector, temperature, weight, appearance, packaging, result, issues, quarantine_cert, storage_decision, remark } = req.body;
   const id = uuidv4();
-  db.prepare('INSERT INTO inspections (id, batch_id, inspector, temperature, weight, appearance, packaging, result, issues, quarantine_cert, storage_decision, remark) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)').run(id, batch_id, inspector, temperature, weight, appearance, packaging, result, issues, quarantine_cert, storage_decision, remark);
+  db.prepare('INSERT INTO inspections (id, batch_id, inspector, temperature, weight, appearance, packaging, result, issues, quarantine_cert, storage_decision, remark) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)').run(id, batch_id, inspector, temperature, weight, appearance, packaging, result, issues, quarantine_cert || null, storage_decision || null, remark);
   const inspection = db.prepare('SELECT * FROM inspections WHERE id = ?').get(id);
   res.status(201).json(inspection);
 });
 
 router.put('/:id', (req, res) => {
   const { batch_id, inspector, temperature, weight, appearance, packaging, result, issues, quarantine_cert, storage_decision, remark } = req.body;
-  const info = db.prepare('UPDATE inspections SET batch_id = ?, inspector = ?, temperature = ?, weight = ?, appearance = ?, packaging = ?, result = ?, issues = ?, quarantine_cert = ?, storage_decision = ?, remark = ? WHERE id = ?').run(batch_id, inspector, temperature, weight, appearance, packaging, result, issues, quarantine_cert, storage_decision, remark, req.params.id);
+  const info = db.prepare('UPDATE inspections SET batch_id = ?, inspector = ?, temperature = ?, weight = ?, appearance = ?, packaging = ?, result = ?, issues = ?, quarantine_cert = ?, storage_decision = ?, remark = ? WHERE id = ?').run(batch_id, inspector, temperature, weight, appearance, packaging, result, issues, quarantine_cert || null, storage_decision || null, remark, req.params.id);
   if (info.changes === 0) return res.status(404).json({ error: '验收记录不存在' });
   const inspection = db.prepare('SELECT * FROM inspections WHERE id = ?').get(req.params.id);
   res.json(inspection);
