@@ -15,6 +15,7 @@ const (
 	ActionConfirmRevise  AuditAction = "confirmation_revise"
 	ActionConfirmNote    AuditAction = "confirmation_note"
 	ActionConfirmMaterial AuditAction = "confirmation_material"
+	ActionConfirmRemind  AuditAction = "confirm_remind"
 	ActionExportCreate   AuditAction = "export_create"
 )
 

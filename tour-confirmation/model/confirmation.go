@@ -66,6 +66,7 @@ type ConfirmationProgress struct {
 	RevisedCount      int                   `json:"revised_count"`
 	UnconfirmedList   []UnconfirmedResource `json:"unconfirmed_list"`
 	LatestRejectReason string              `json:"latest_reject_reason,omitempty"`
+	LastRemindedAt    *time.Time           `json:"last_reminded_at,omitempty"`
 }
 
 type ItinerarySummary struct {

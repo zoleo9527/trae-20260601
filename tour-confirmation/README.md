@@ -29,6 +29,7 @@ go run main.go
 | PUT | `/:id` | 修改（仅草稿） |
 | POST | `/:id/submit` | 提交 |
 | POST | `/:id/withdraw` | 撤回（仅已提交） |
+| POST | `/:id/remind` | 催办（对 pending/revised 确认单追加审计日志） |
 | GET | `/:id/audit` | 操作历史 |
 
 ### 资源确认 `/api/v1/confirmations`
@@ -65,6 +66,7 @@ go run main.go
 | 40401 | 行程不存在 |
 | 40402 | 资源确认不存在 |
 | 40403 | 导出任务不存在 |
+| 40404 | 催办失败：行程不存在 |
 | 40900 | 状态冲突 |
 | 40901 | 行程非草稿，不可修改 |
 | 40902 | 行程非已提交，不可撤回 |
@@ -110,6 +112,7 @@ go run main.go
 | `confirmation_progress.revised_count` | int | 已修订数量 |
 | `confirmation_progress.unconfirmed_list` | array | 待确认 + 已修订的资源清单 |
 | `confirmation_progress.latest_reject_reason` | string | 最近一次驳回的审计摘要，无驳回时为空 |
+| `confirmation_progress.last_reminded_at` | string(RFC3339) | 该行程最近一次催办时间，从未催办时为空 |
 
 ## 确认列表新增查询参数
 
@@ -122,6 +125,38 @@ go run main.go
 | `created_to` | RFC3339 | 创建时间截止（含），如 `2026-06-30T23:59:59Z` |
 
 当 `created_from` / `created_to` 格式不符合 RFC3339 时返回 `40000` 错误码。
+
+## 催办接口
+
+`POST /api/v1/itineraries/:id/remind`
+
+对该行程下所有 `pending` 和 `revised` 状态的资源确认追加一条 `confirm_remind` 审计日志，并返回被催办的资源 ID 列表与本次催办时间。
+
+请求体（可选）：
+
+```json
+{ "remark": "请尽快确认车辆安排" }
+```
+
+响应示例：
+
+```json
+{
+  "code": 0,
+  "message": "success",
+  "data": {
+    "reminded_ids": ["cf-001", "cf-003"],
+    "reminded_at": "2026-06-08T10:30:00Z"
+  }
+}
+```
+
+| 场景 | 行为 |
+|------|------|
+| 行程不存在 | 返回 `40404` |
+| 无 pending/revised 确认单 | 返回空列表 `{"reminded_ids":[], "reminded_at":"..."}`，不报错 |
+
+审计日志中新增 `confirm_remind` 动作，`entity_type` 为 `confirmation`，`detail` 含催办人、可选 remark。
 
 ## 请求示例
 
@@ -226,6 +261,15 @@ curl "http://localhost:3000/api/v1/confirmations?resource_type=vehicle&created_f
 
 ```bash
 curl http://localhost:3000/api/v1/itineraries/{id}
+```
+
+### 催办待确认资源
+
+```bash
+curl -X POST http://localhost:3000/api/v1/itineraries/{id}/remind \
+  -H "Content-Type: application/json" \
+  -H "X-User-ID: u001" -H "X-User-Name: 张计调" \
+  -d '{"remark": "请尽快确认车辆安排"}'
 ```
 
 ## 被模拟的能力

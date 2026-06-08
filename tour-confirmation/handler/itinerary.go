@@ -197,6 +197,7 @@ func (h *ItineraryHandler) Get(c *fiber.Ctx) error {
 	}
 	var latestRejectTime time.Time
 	var latestRejectReason string
+	var lastRemindedAt time.Time
 	for _, cf := range allConfs {
 		switch cf.Status {
 		case model.ConfirmPending:
@@ -229,8 +230,20 @@ func (h *ItineraryHandler) Get(c *fiber.Ctx) error {
 				}
 			}
 		}
+		logs := h.store.ListAudit("confirmation", cf.ID)
+		for i := len(logs) - 1; i >= 0; i-- {
+			if logs[i].Action == model.ActionConfirmRemind {
+				if logs[i].CreatedAt.After(lastRemindedAt) {
+					lastRemindedAt = logs[i].CreatedAt
+				}
+				break
+			}
+		}
 	}
 	progress.LatestRejectReason = latestRejectReason
+	if !lastRemindedAt.IsZero() {
+		progress.LastRemindedAt = &lastRemindedAt
+	}
 	return c.JSON(model.OK(fiber.Map{
 		"itinerary":            itin,
 		"confirmation_progress": progress,
@@ -251,6 +264,57 @@ func (h *ItineraryHandler) List(c *fiber.Ctx) error {
 	}
 	items, total := h.store.ListItineraries(status, offset, limit)
 	return c.JSON(model.OK(ListResult{Items: items, Total: total}))
+}
+
+type RemindReq struct {
+	Remark string `json:"remark,omitempty"`
+}
+
+type RemindResult struct {
+	RemindedIDs []string  `json:"reminded_ids"`
+	RemindedAt  time.Time `json:"reminded_at"`
+}
+
+func (h *ItineraryHandler) Remind(c *fiber.Ctx) error {
+	id := c.Params("id")
+	_, ok := h.store.GetItinerary(id)
+	if !ok {
+		return c.Status(404).JSON(model.Fail(model.ErrItineraryRemind))
+	}
+	var req RemindReq
+	_ = c.BodyParser(&req)
+	now := time.Now()
+	uid := c.Get("X-User-ID", "anonymous")
+	uname := c.Get("X-User-Name", "匿名")
+	allConfs := h.store.ListConfirmationsByItinerary(id)
+	var remindedIDs []string
+	for _, cf := range allConfs {
+		if cf.Status != model.ConfirmPending && cf.Status != model.ConfirmRevised {
+			continue
+		}
+		detail := "催办确认"
+		if req.Remark != "" {
+			detail += ": " + req.Remark
+		}
+		h.store.AppendAudit(model.AuditLog{
+			ID:           uuid.New().String(),
+			EntityType:   "confirmation",
+			EntityID:     cf.ID,
+			Action:       model.ActionConfirmRemind,
+			OperatorID:   uid,
+			OperatorName: uname,
+			Detail:       detail,
+			CreatedAt:    now,
+		})
+		remindedIDs = append(remindedIDs, cf.ID)
+	}
+	if remindedIDs == nil {
+		remindedIDs = []string{}
+	}
+	return c.JSON(model.OK(RemindResult{
+		RemindedIDs: remindedIDs,
+		RemindedAt:  now,
+	}))
 }
 
 func (h *ItineraryHandler) AuditHistory(c *fiber.Ctx) error {

@@ -27,6 +27,7 @@ func main() {
 	itin.Put("/:id", itinH.Update)
 	itin.Post("/:id/submit", itinH.Submit)
 	itin.Post("/:id/withdraw", itinH.Withdraw)
+	itin.Post("/:id/remind", itinH.Remind)
 	itin.Get("/:id/audit", itinH.AuditHistory)
 
 	confirm := api.Group("/confirmations")

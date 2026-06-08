@@ -15,6 +15,7 @@ const (
 	ErrConfirmNotFound     ErrorCode = 40402
 	ErrConfirmNotPending   ErrorCode = 40903
 	ErrExportNotFound      ErrorCode = 40403
+	ErrItineraryRemind     ErrorCode = 40404
 	ErrExportFailed        ErrorCode = 50001
 	ErrInternal            ErrorCode = 50000
 )
@@ -32,6 +33,7 @@ var errorCodeMessages = map[ErrorCode]string{
 	ErrConfirmNotFound:    "资源确认不存在",
 	ErrConfirmNotPending:  "资源确认非待确认状态",
 	ErrExportNotFound:     "导出任务不存在",
+	ErrItineraryRemind:    "催办失败：行程不存在",
 	ErrExportFailed:       "导出失败",
 	ErrInternal:           "内部错误",
 }
