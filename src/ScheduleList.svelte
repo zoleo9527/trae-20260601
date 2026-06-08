@@ -5,6 +5,7 @@
   let statusFilter = "all";
   let handlerFilter = "all";
   let quickView = "all";
+  let sortKey = "planDateAsc";
 
   function viewDetail(id) {
     selectedScheduleId.set(id);
@@ -24,7 +25,16 @@
     { value: "completed", label: "已完成" }
   ];
 
+  const statusCounts = ["pending_tech", "pending_feed", "pending_manager", "pending_accept", "completed"];
+
   const handlerRoles = ["养殖技术员", "饲料仓管", "场长", "客户验收"];
+
+  const sortOptions = [
+    { value: "planDateAsc", label: "计划出塘日期 ↑" },
+    { value: "planDateDesc", label: "计划出塘日期 ↓" },
+    { value: "blockerDesc", label: "卡点天数 ↓" },
+    { value: "updatedDesc", label: "最近更新 ↓" }
+  ];
 
   function daysRemaining(planDate) {
     const today = new Date();
@@ -49,12 +59,36 @@
     return Math.ceil((today - earliest) / (1000 * 60 * 60 * 24));
   }
 
+  function truncate(str, len) {
+    if (!str) return "";
+    return str.length > len ? str.slice(0, len) + "…" : str;
+  }
+
+  function lastHistorySummary(history) {
+    if (!history || history.length === 0) return "";
+    const last = history[history.length - 1];
+    return `${last.actor} · ${last.action}：${truncate(last.remark, 20)}`;
+  }
+
+  function latestUpdateTime(history) {
+    if (!history || history.length === 0) return 0;
+    return new Date(history[history.length - 1].time.replace(/-/g, "/")).getTime();
+  }
+
   $: filtered = $schedules.filter(s => {
     if (quickView === "abnormal" && !s.isAbnormal) return false;
     if (quickView === "mine" && s.status === "completed") return false;
     if (statusFilter !== "all" && s.status !== statusFilter) return false;
     if (handlerFilter !== "all" && s.currentHandler !== handlerFilter) return false;
     return true;
+  });
+
+  $: sorted = [...filtered].sort((a, b) => {
+    if (sortKey === "planDateAsc") return new Date(a.planDate) - new Date(b.planDate);
+    if (sortKey === "planDateDesc") return new Date(b.planDate) - new Date(a.planDate);
+    if (sortKey === "blockerDesc") return blockerDays(b.history) - blockerDays(a.history);
+    if (sortKey === "updatedDesc") return latestUpdateTime(b.history) - latestUpdateTime(a.history);
+    return 0;
   });
 
   $: abnormalItems = $schedules.filter(s => s.isAbnormal);
@@ -65,6 +99,16 @@
   }, 0);
   $: abnormalHandlers = [...new Set(abnormalItems.map(s => s.currentHandler))];
   $: firstAbnormalId = abnormalItems.length > 0 ? abnormalItems[0].id : null;
+
+  $: mineItems = $schedules.filter(s => s.status !== "completed");
+  $: mineCount = mineItems.length;
+  $: mineAbnormalCount = mineItems.filter(s => s.isAbnormal).length;
+
+  $: statusDistribution = statusCounts.map(st => ({
+    status: st,
+    count: $schedules.filter(s => s.status === st).length,
+    ...getStatusBadge(st)
+  }));
 
   function setQuickView(view) {
     quickView = view;
@@ -96,7 +140,8 @@
   .quick-btn { padding: 7px 16px; border-radius: 20px; border: 1px solid #D1D5DB; background: white; font-size: 13px; cursor: pointer; color: #4B5563; transition: all 0.2s; }
   .quick-btn:hover { border-color: #0D9488; color: #0D9488; }
   .quick-btn.active { background: #0D9488; color: white; border-color: #0D9488; }
-  .status-tabs { display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 12px; }
+  .filter-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 12px; }
+  .status-tabs { display: flex; gap: 4px; flex-wrap: wrap; }
   .status-tab { padding: 6px 14px; border-radius: 6px; border: none; background: #F3F4F6; font-size: 13px; cursor: pointer; color: #4B5563; transition: all 0.2s; }
   .status-tab:hover { background: #E5E7EB; }
   .status-tab.active { color: white; }
@@ -104,6 +149,20 @@
   .handler-filter label { font-size: 13px; color: #6B7280; white-space: nowrap; }
   .handler-select { padding: 7px 12px; border: 1px solid #D1D5DB; border-radius: 8px; font-size: 13px; color: #374151; background: white; cursor: pointer; min-width: 140px; }
   .handler-select:focus { outline: none; border-color: #0D9488; }
+  .sort-filter { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+  .sort-filter label { font-size: 13px; color: #6B7280; white-space: nowrap; }
+  .sort-select { padding: 7px 12px; border: 1px solid #D1D5DB; border-radius: 8px; font-size: 13px; color: #374151; background: white; cursor: pointer; min-width: 160px; }
+  .sort-select:focus { outline: none; border-color: #0D9488; }
+  .distribution-bar { background: white; border-radius: 12px; padding: 14px 20px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .dist-badge { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 8px; font-size: 13px; cursor: pointer; border: 2px solid transparent; transition: all 0.2s; background: #F9FAFB; color: #4B5563; }
+  .dist-badge:hover { border-color: #D1D5DB; }
+  .dist-badge.active { border-color: currentColor; font-weight: 600; }
+  .dist-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+  .dist-count { font-weight: 700; font-size: 14px; }
+  .mine-tags { display: flex; gap: 8px; margin-left: auto; }
+  .mine-tag { padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 500; }
+  .mine-tag.total { background: #EFF6FF; color: #2563EB; }
+  .mine-tag.abn { background: #FEF2F2; color: #991B1B; }
   .list-item { background: white; border-radius: 12px; padding: 20px; margin-bottom: 12px; cursor: pointer; box-shadow: 0 1px 3px rgba(0,0,0,0.1); position: relative; transition: transform 0.15s, box-shadow 0.15s; }
   .list-item:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
   .list-item.abnormal { border-left: 4px solid #EF4444; background: #FEF2F2; }
@@ -112,6 +171,7 @@
   .item-meta { font-size: 13px; color: #6B7280; margin-top: 4px; }
   .item-handler { font-size: 13px; color: #374151; margin-top: 8px; }
   .item-blocker { font-size: 13px; color: #EF4444; margin-top: 6px; }
+  .item-latest { font-size: 12px; color: #9CA3AF; margin-top: 8px; padding-top: 8px; border-top: 1px dashed #E5E7EB; }
   .badge { padding: 6px 12px; border-radius: 20px; font-size: 13px; color: white; display: inline-block; }
   .days-badge { position: absolute; top: 12px; right: 12px; padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 600; }
   .days-badge.overdue { background: #FEE2E2; color: #991B1B; }
@@ -140,38 +200,66 @@
       </div>
     {/if}
 
+    <div class="distribution-bar">
+      {#each statusDistribution as sd}
+        <button class="dist-badge {statusFilter === sd.status ? 'active' : ''}" style={statusFilter === sd.status ? 'color:' + sd.color : ''} on:click={() => { statusFilter = statusFilter === sd.status ? 'all' : sd.status; quickView = 'all'; }}>
+          <span class="dist-dot" style="background:{sd.color}"></span>
+          <span>{sd.role}</span>
+          <span class="dist-count">{sd.count}</span>
+        </button>
+      {/each}
+      {#if quickView === "mine"}
+        <div class="mine-tags">
+          <span class="mine-tag total">我负责 {mineCount} 条</span>
+          <span class="mine-tag abn">异常 {mineAbnormalCount} 条</span>
+        </div>
+      {/if}
+    </div>
+
     <div class="filter-bar">
       <div class="quick-views">
         <button class="quick-btn {quickView === 'all' ? 'active' : ''}" on:click={() => setQuickView("all")}>全部</button>
         <button class="quick-btn {quickView === 'abnormal' ? 'active' : ''}" on:click={() => setQuickView("abnormal")}>异常</button>
         <button class="quick-btn {quickView === 'mine' ? 'active' : ''}" on:click={() => setQuickView("mine")}>我负责</button>
       </div>
-      <div class="status-tabs">
-        {#each statusOptions as opt}
-          <button class="status-tab {statusFilter === opt.value ? 'active' : ''}" style={statusFilter === opt.value ? 'background:' + (opt.value === 'all' ? '#0D9488' : getStatusBadge(opt.value).color) : ''} on:click={() => { statusFilter = opt.value; quickView = 'all'; }}>
-            {opt.label}
-          </button>
-        {/each}
-      </div>
-      <div class="handler-filter">
-        <label>按责任人角色：</label>
-        <select class="handler-select" bind:value={handlerFilter}>
-          <option value="all">全部角色</option>
-          {#each handlerRoles as role}
-            <option value={role}>{role}</option>
-          {/each}
-        </select>
+      <div class="filter-row">
+        <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
+          <div class="status-tabs">
+            {#each statusOptions as opt}
+              <button class="status-tab {statusFilter === opt.value ? 'active' : ''}" style={statusFilter === opt.value ? 'background:' + (opt.value === 'all' ? '#0D9488' : getStatusBadge(opt.value).color) : ''} on:click={() => { statusFilter = opt.value; quickView = 'all'; }}>
+                {opt.label}
+              </button>
+            {/each}
+          </div>
+          <div class="handler-filter">
+            <label>按责任人角色：</label>
+            <select class="handler-select" bind:value={handlerFilter}>
+              <option value="all">全部角色</option>
+              {#each handlerRoles as role}
+                <option value={role}>{role}</option>
+              {/each}
+            </select>
+          </div>
+        </div>
+        <div class="sort-filter">
+          <label>排序：</label>
+          <select class="sort-select" bind:value={sortKey}>
+            {#each sortOptions as so}
+              <option value={so.value}>{so.label}</option>
+            {/each}
+          </select>
+        </div>
       </div>
     </div>
 
-    {#if filtered.length === 0}
+    {#if sorted.length === 0}
       <div class="empty-state">
         <div class="empty-icon">📭</div>
         <h3>暂无匹配的排期记录</h3>
         <p>试试调整筛选条件或切换快捷视图</p>
       </div>
     {:else}
-      {#each filtered as s}
+      {#each sorted as s}
         {@const days = daysRemaining(s.planDate)}
         <div class="list-item {s.isAbnormal ? 'abnormal' : ''}" on:click={() => viewDetail(s.id)}>
           {#if s.status === "completed"}
@@ -195,6 +283,9 @@
           <div class="item-handler">当前处理: {s.handlerName}（{s.currentHandler}）</div>
           {#if s.blocker}
             <div class="item-blocker">⚠️ 卡点: {s.blocker}</div>
+          {/if}
+          {#if s.history && s.history.length > 0}
+            <div class="item-latest">📋 {lastHistorySummary(s.history)}</div>
           {/if}
         </div>
       {/each}
