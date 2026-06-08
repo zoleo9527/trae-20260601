@@ -8,6 +8,7 @@ import {
   ArrowRight,
   Package,
   AlertTriangle,
+  SearchX,
 } from 'lucide-react';
 import { api } from '../api';
 import type { TimelineResponse, TimelineEntry } from '../types';
@@ -34,6 +35,13 @@ const ROLE_FILTER_OPTIONS = [
   { value: 'warehouse_dispatcher', label: '库区调度' },
 ];
 
+const ENTITY_FILTER_OPTIONS = [
+  { value: '', label: '全部' },
+  { value: 'cargo_order', label: '货单' },
+  { value: 'location_allocation', label: '库位' },
+  { value: 'pickup_appointment', label: '预约' },
+];
+
 interface OrderDrawerProps {
   orderId: number | null;
   onClose: () => void;
@@ -43,11 +51,13 @@ export default function OrderDrawer({ orderId, onClose }: OrderDrawerProps) {
   const [data, setData] = useState<TimelineResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [roleFilter, setRoleFilter] = useState('');
+  const [entityFilter, setEntityFilter] = useState('');
 
   useEffect(() => {
     if (orderId === null) return;
     setLoading(true);
     setRoleFilter('');
+    setEntityFilter('');
     api.orders.timeline(orderId).then((res) => {
       setData(res);
       setLoading(false);
@@ -56,9 +66,11 @@ export default function OrderDrawer({ orderId, onClose }: OrderDrawerProps) {
 
   if (orderId === null) return null;
 
-  const filteredEntries: TimelineEntry[] = roleFilter
-    ? (data?.entries.filter((e) => e.role === roleFilter) ?? [])
-    : (data?.entries ?? []);
+  const filteredEntries: TimelineEntry[] = (data?.entries ?? []).filter((e) => {
+    if (roleFilter && e.role !== roleFilter) return false;
+    if (entityFilter && e.entity_type !== entityFilter) return false;
+    return true;
+  });
 
   const formatTime = (d: string) =>
     new Date(d).toLocaleString('zh-CN', {
@@ -141,34 +153,58 @@ export default function OrderDrawer({ orderId, onClose }: OrderDrawerProps) {
               </div>
             )}
 
-            <div className="px-6 py-3 border-b border-slate-100 flex items-center gap-3 shrink-0">
-              <Filter className="w-4 h-4 text-slate-400" />
-              <span className="text-xs text-slate-500">按角色筛选：</span>
-              {ROLE_FILTER_OPTIONS.map((opt) => (
-                <button
-                  key={opt.value}
-                  onClick={() => setRoleFilter(opt.value)}
-                  className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
-                    roleFilter === opt.value
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                  }`}
-                >
-                  {opt.label}
-                </button>
-              ))}
-              <span className="text-xs text-slate-400 ml-auto">{filteredEntries.length} 条</span>
+            <div className="px-6 py-3 border-b border-slate-100 space-y-2 shrink-0">
+              <div className="flex items-center gap-3">
+                <Filter className="w-4 h-4 text-slate-400" />
+                <span className="text-xs text-slate-500">角色</span>
+                {ROLE_FILTER_OPTIONS.map((opt) => (
+                  <button
+                    key={opt.value}
+                    onClick={() => setRoleFilter(opt.value)}
+                    className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
+                      roleFilter === opt.value
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+              <div className="flex items-center gap-3">
+                <span className="w-4" />
+                <span className="text-xs text-slate-500">类型</span>
+                {ENTITY_FILTER_OPTIONS.map((opt) => (
+                  <button
+                    key={opt.value}
+                    onClick={() => setEntityFilter(opt.value)}
+                    className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
+                      entityFilter === opt.value
+                        ? 'bg-violet-600 text-white'
+                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+                <span className="text-xs text-slate-400 ml-auto">{filteredEntries.length} 条</span>
+              </div>
             </div>
 
             <div className="flex-1 overflow-y-auto px-6 py-4">
               {filteredEntries.length === 0 ? (
-                <div className="text-center py-8 text-slate-400 text-sm">暂无记录</div>
+                <div className="text-center py-12">
+                  <SearchX className="w-10 h-10 text-slate-300 mx-auto mb-3" />
+                  <p className="text-slate-400 text-sm">无匹配记录</p>
+                  <p className="text-slate-300 text-xs mt-1">
+                    当前筛选条件下没有对应的时间轴条目
+                  </p>
+                </div>
               ) : (
                 <div className="relative">
                   <div className="absolute left-[9px] top-2 bottom-2 w-0.5 bg-slate-200" />
                   <div className="space-y-0">
                     {filteredEntries.map((entry, i) => {
-                      const isLast = i === filteredEntries.length - 1;
                       const dotColor = ENTITY_DOT_COLORS[entry.entity_type] || 'bg-slate-400';
                       const lineColor = ENTITY_COLORS[entry.entity_type] || 'border-slate-300 bg-slate-50';
 

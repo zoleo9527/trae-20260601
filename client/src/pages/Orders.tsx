@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import {
   Package,
   RefreshCw,
@@ -8,9 +8,20 @@ import {
 } from 'lucide-react';
 import { api } from '../api';
 import type { CargoOrder } from '../types';
-import { STATUS_LABELS } from '../types';
+import { STATUS_LABELS, STATUS_COLORS } from '../types';
 import StatusBadge from '../components/StatusBadge';
 import OrderDrawer from '../components/OrderDrawer';
+
+const STATUS_FILTER_OPTIONS = [
+  { value: '', label: '全部' },
+  { value: 'created', label: '新建' },
+  { value: 'accepting', label: '受理中' },
+  { value: 'supplementing', label: '补材料' },
+  { value: 'pending_security', label: '待安检' },
+  { value: 'allocated', label: '已分配' },
+  { value: 'appointed', label: '已预约' },
+  { value: 'picked_up', label: '已提货' },
+];
 
 const VALID_TRANSITIONS: Record<string, { to: string; label: string; role: string }[]> = {
   created: [{ to: 'accepting', label: '开始受理', role: 'cargo_acceptor' }],
@@ -54,6 +65,7 @@ export default function Orders() {
   const [drawerOrderId, setDrawerOrderId] = useState<number | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
   const [notes, setNotes] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
 
   useEffect(() => {
     loadOrders();
@@ -69,6 +81,19 @@ export default function Orders() {
     }
     setLoading(false);
   };
+
+  const filteredAndSortedOrders = useMemo(() => {
+    let result = orders;
+    if (statusFilter) {
+      result = result.filter((o) => o.status === statusFilter);
+    }
+    result = [...result].sort((a, b) => {
+      if (a.is_urgent && !b.is_urgent) return -1;
+      if (!a.is_urgent && b.is_urgent) return 1;
+      return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime();
+    });
+    return result;
+  }, [orders, statusFilter]);
 
   const handleTransition = async (orderId: number, to: string, role: string) => {
     const users = ROLE_USERS[role] || [];
@@ -107,13 +132,49 @@ export default function Orders() {
         </button>
       </div>
 
+      <div className="bg-white rounded-xl border border-slate-200 px-4 py-3 flex items-center gap-2 flex-wrap">
+        {STATUS_FILTER_OPTIONS.map((opt) => {
+          const isActive = statusFilter === opt.value;
+          const count = opt.value
+            ? orders.filter((o) => o.status === opt.value).length
+            : orders.length;
+          return (
+            <button
+              key={opt.value}
+              onClick={() => setStatusFilter(opt.value)}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                isActive
+                  ? 'bg-blue-600 text-white shadow-sm'
+                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+              }`}
+            >
+              {opt.label}
+              <span className={`inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full text-[10px] ${
+                isActive ? 'bg-blue-500 text-blue-100' : 'bg-slate-200 text-slate-500'
+              }`}>
+                {count}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
       {loading ? (
         <div className="flex justify-center py-12">
           <RefreshCw className="w-6 h-6 animate-spin text-blue-500" />
         </div>
+      ) : filteredAndSortedOrders.length === 0 ? (
+        <div className="bg-white rounded-xl border border-slate-200 p-12 text-center">
+          <Package className="w-10 h-10 text-slate-300 mx-auto mb-3" />
+          <p className="text-slate-400 text-sm">
+            {statusFilter
+              ? `没有状态为「${STATUS_LABELS[statusFilter] || statusFilter}」的货单`
+              : '暂无货单'}
+          </p>
+        </div>
       ) : (
         <div className="space-y-3">
-          {orders.map((order) => {
+          {filteredAndSortedOrders.map((order) => {
             const transitions = VALID_TRANSITIONS[order.status] || [];
 
             return (
