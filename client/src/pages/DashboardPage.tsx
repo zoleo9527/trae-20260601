@@ -13,6 +13,7 @@ export default function DashboardPage() {
   const [todos, setTodos] = useState<TodoItem[]>([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState<string>('all')
+  const [keyword, setKeyword] = useState('')
 
   useEffect(() => {
     loadData()
@@ -35,11 +36,51 @@ export default function DashboardPage() {
     }
   }
 
-  const filteredItems = filter === 'all'
-    ? items
-    : items.filter(i => i.status === filter)
+  const TODO_TYPE_TO_STATUS: Record<string, string> = {
+    review: 'registered',
+    dispute: 'disputed',
+    verify_claim: 'claimed',
+    handover: 'registered',
+    pickup: 'registered',
+    exception: 'disputed',
+  }
+
+  const handleTodoClick = (t: TodoItem) => {
+    const target = TODO_TYPE_TO_STATUS[t.type]
+    if (target) {
+      setFilter(target)
+      setKeyword('')
+    }
+  }
+
+  const isOverdue = (item: LostItem) => {
+    if (item.status !== 'registered') return false
+    return dayjs().diff(dayjs(item.found_at), 'hour') >= 24
+  }
+
+  const kw = keyword.trim().toLowerCase()
+
+  const filteredItems = items.filter(i => {
+    if (filter !== 'all' && i.status !== filter) return false
+    if (!kw) return true
+    return (
+      i.room_number.toLowerCase().includes(kw) ||
+      i.item_name.toLowerCase().includes(kw) ||
+      i.found_by.toLowerCase().includes(kw)
+    )
+  })
+
+  const overdueCount = items.filter(i => isOverdue(i)).length
 
   const statusOptions = ['all', 'registered', 'claimed', 'returned', 'disputed']
+
+  const emptyHint: Record<string, string> = {
+    all: '当前视角下暂无遗留物记录',
+    registered: '暂无待处理遗留物',
+    claimed: '暂无已认领记录',
+    returned: '暂无已退回记录',
+    disputed: '暂无争议记录',
+  }
 
   return (
     <div>
@@ -61,30 +102,62 @@ export default function DashboardPage() {
       {todos.length > 0 && (
         <div style={styles.todoGrid}>
           {todos.map(t => (
-            <div key={t.type} style={styles.todoCard}>
+            <div
+              key={t.type}
+              onClick={() => handleTodoClick(t)}
+              style={styles.todoCard}
+            >
               <div style={styles.todoCount}>{t.count}</div>
               <div style={styles.todoLabel}>{t.label}</div>
             </div>
           ))}
+          {overdueCount > 0 && (
+            <div
+              onClick={() => { setFilter('registered'); setKeyword('') }}
+              style={styles.todoCardOverdue}
+            >
+              <div style={styles.todoCountOverdue}>{overdueCount}</div>
+              <div style={styles.todoLabelOverdue}>超 24h 未处理</div>
+            </div>
+          )}
         </div>
       )}
 
-      <div style={styles.filterBar}>
-        {statusOptions.map(s => (
-          <button
-            key={s}
-            onClick={() => setFilter(s)}
-            style={filter === s ? styles.filterBtnActive : styles.filterBtn}
-          >
-            {s === 'all' ? '全部' : STATUS_LABELS[s as ItemStatus]}
-          </button>
-        ))}
+      <div style={styles.filterRow}>
+        <div style={styles.filterBar}>
+          {statusOptions.map(s => (
+            <button
+              key={s}
+              onClick={() => setFilter(s)}
+              style={filter === s ? styles.filterBtnActive : styles.filterBtn}
+            >
+              {s === 'all' ? '全部' : STATUS_LABELS[s as ItemStatus]}
+            </button>
+          ))}
+        </div>
+        <div style={styles.searchWrap}>
+          <input
+            type="text"
+            placeholder="搜索房间号 / 物品 / 发现人"
+            value={keyword}
+            onChange={e => setKeyword(e.target.value)}
+            style={styles.searchInput}
+          />
+          {keyword && (
+            <button onClick={() => setKeyword('')} style={styles.searchClear}>✕</button>
+          )}
+        </div>
       </div>
 
       {loading ? (
         <div style={styles.empty}>加载中…</div>
       ) : filteredItems.length === 0 ? (
-        <div style={styles.empty}>暂无记录</div>
+        <div style={styles.empty}>
+          <div>{kw ? `未找到与"${kw}"匹配的记录` : (emptyHint[filter] || '暂无记录')}</div>
+          {filter === 'registered' && !kw && overdueCount === 0 && (
+            <div style={styles.emptySub}>所有已登记遗留物均已在 24 小时内处理</div>
+          )}
+        </div>
       ) : (
         <div style={styles.tableWrap}>
           <table style={styles.table}>
@@ -134,6 +207,9 @@ export default function DashboardPage() {
                     }}>
                       {STATUS_LABELS[item.status]}
                     </span>
+                    {isOverdue(item) && (
+                      <span style={styles.overdueTag}>超时</span>
+                    )}
                   </td>
                   <td style={styles.td}>
                     {item.exception_type ? (
@@ -211,21 +287,71 @@ const styles: Record<string, React.CSSProperties> = {
     borderRadius: 'var(--radius)',
     padding: '16px 20px',
     boxShadow: 'var(--shadow)',
+    cursor: 'pointer',
+    transition: 'box-shadow 0.15s',
+  },
+  todoCardOverdue: {
+    background: '#fef2f2',
+    borderRadius: 'var(--radius)',
+    padding: '16px 20px',
+    boxShadow: 'var(--shadow)',
+    cursor: 'pointer',
+    border: '1px solid #fecaca',
   },
   todoCount: {
     fontSize: 28,
     fontWeight: 700,
     color: 'var(--color-primary)',
   },
+  todoCountOverdue: {
+    fontSize: 28,
+    fontWeight: 700,
+    color: 'var(--color-danger)',
+  },
   todoLabel: {
     fontSize: 13,
     color: 'var(--color-text-secondary)',
     marginTop: 4,
   },
+  todoLabelOverdue: {
+    fontSize: 13,
+    color: 'var(--color-danger)',
+    marginTop: 4,
+  },
   filterBar: {
     display: 'flex',
     gap: 6,
+  },
+  filterRow: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     marginBottom: 16,
+    gap: 12,
+  },
+  searchWrap: {
+    position: 'relative',
+    flexShrink: 0,
+  },
+  searchInput: {
+    padding: '6px 32px 6px 12px',
+    borderRadius: 20,
+    border: '1px solid var(--color-border)',
+    fontSize: 13,
+    width: 240,
+    outline: 'none',
+  },
+  searchClear: {
+    position: 'absolute',
+    right: 8,
+    top: '50%',
+    transform: 'translateY(-50%)',
+    border: 'none',
+    background: 'none',
+    color: 'var(--color-text-secondary)',
+    fontSize: 12,
+    padding: 0,
+    lineHeight: 1,
   },
   filterBtn: {
     padding: '5px 14px',
@@ -311,10 +437,26 @@ const styles: Record<string, React.CSSProperties> = {
     background: '#fffbeb',
     color: 'var(--color-warning)',
   },
+  overdueTag: {
+    display: 'inline-block',
+    padding: '1px 6px',
+    borderRadius: 3,
+    fontSize: 11,
+    fontWeight: 600,
+    background: '#fef2f2',
+    color: 'var(--color-danger)',
+    marginLeft: 4,
+    verticalAlign: 'middle',
+  },
   empty: {
     textAlign: 'center' as const,
     padding: 40,
     color: 'var(--color-text-secondary)',
     fontSize: 14,
+  },
+  emptySub: {
+    fontSize: 12,
+    color: 'var(--color-success)',
+    marginTop: 6,
   },
 }
