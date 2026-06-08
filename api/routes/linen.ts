@@ -12,7 +12,7 @@ function logStatusChange(targetType: string, targetId: string, oldStatus: string
 }
 
 router.get('/workstation', (req: Request, res: Response): void => {
-  const { floor, operatorId, dateFrom, dateTo, keyword, recapCategory, recapLossType, recapOperatorId } = req.query
+  const { floor, operatorId, dateFrom, dateTo, keyword, recapCategory, recapLossType, recapOperatorId, recapStatus } = req.query
 
   let reqSql = `
     SELECT lr.*, r.room_number, r.floor, u.name as operator_name
@@ -63,6 +63,7 @@ router.get('/workstation', (req: Request, res: Response): void => {
     if (recapCategory) { lossQuery += ' AND ll.category = ?'; lossQParams.push(String(recapCategory)) }
     if (recapLossType) { lossQuery += ' AND ll.loss_type = ?'; lossQParams.push(String(recapLossType)) }
     if (recapOperatorId) { lossQuery += ' AND ll.confirmed_by = ?'; lossQParams.push(String(recapOperatorId)) }
+    if (recapStatus) { lossQuery += ' AND ll.status = ?'; lossQParams.push(String(recapStatus)) }
     lossQuery += ' ORDER BY ll.loss_date DESC'
     const losses = db.prepare(lossQuery).all(...lossQParams as any[])
 
@@ -105,6 +106,7 @@ router.get('/workstation', (req: Request, res: Response): void => {
   if (recapCategory) { lossSql += ' AND ll.category = ?'; lossParams.push(String(recapCategory)) }
   if (recapLossType) { lossSql += ' AND ll.loss_type = ?'; lossParams.push(String(recapLossType)) }
   if (recapOperatorId) { lossSql += ' AND ll.confirmed_by = ?'; lossParams.push(String(recapOperatorId)) }
+  if (recapStatus) { lossSql += ' AND ll.status = ?'; lossParams.push(String(recapStatus)) }
 
   lossSql += ' ORDER BY ll.loss_date DESC'
   const standaloneLosses = db.prepare(lossSql).all(...lossParams as any[])

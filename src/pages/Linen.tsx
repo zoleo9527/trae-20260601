@@ -246,6 +246,7 @@ export default function Linen() {
     if (lossRecapFilter.dimension === 'category' && lossRecapFilter.value) filters.recapCategory = lossRecapFilter.value
     if (lossRecapFilter.dimension === 'lossType' && lossRecapFilter.value) filters.recapLossType = lossRecapFilter.value
     if (lossRecapFilter.dimension === 'operatorId' && lossRecapFilter.value) filters.recapOperatorId = lossRecapFilter.value
+    if (lossRecapFilter.status) filters.recapStatus = lossRecapFilter.status
     fetchLinenWorkstation(filters)
   }, [fetchLinenWorkstation, floorFilter, dateFrom, dateTo, keyword, lossRecapFilter])
 
@@ -352,8 +353,25 @@ export default function Linen() {
     setActiveTab('loss')
   }
 
+  const handleStatusDrilldown = (status: string) => {
+    if (lossRecapFilter.status === status) {
+      setLossRecapFilter({ status: null })
+    } else {
+      setLossRecapFilter({ status })
+    }
+    setActiveTab('loss')
+  }
+
   const clearRecapFilter = () => {
+    setLossRecapFilter({ dimension: null, value: null, label: null, status: null })
+  }
+
+  const clearRecapDimension = () => {
     setLossRecapFilter({ dimension: null, value: null, label: null })
+  }
+
+  const clearRecapStatus = () => {
+    setLossRecapFilter({ status: null })
   }
 
   const summary = workstationData?.summary ?? { pending: 0, fulfilled: 0, returned: 0, unconfirmedLoss: 0 }
@@ -480,25 +498,28 @@ export default function Linen() {
                   {Object.entries(lossRecapData.byCategory).map(([cat, bucket]) => {
                     const isActive = lossRecapFilter.dimension === 'category' && lossRecapFilter.value === cat
                     return (
-                      <button
+                      <div
                         key={cat}
-                        onClick={() => handleRecapDrilldown('category', cat, CATEGORY_MAP[cat] || cat)}
                         className="flex items-center justify-between text-xs w-full px-1.5 py-1 rounded transition-colors"
                         style={{
-                          cursor: 'pointer',
                           backgroundColor: isActive ? '#eff6ff' : 'transparent',
                           border: isActive ? '1px solid #bfdbfe' : '1px solid transparent',
                         }}
                       >
-                        <span style={{ color: isActive ? '#3b82f6' : 'var(--color-text)', fontWeight: isActive ? 600 : 400 }}>{CATEGORY_MAP[cat] || cat}</span>
+                        <button
+                          onClick={() => handleRecapDrilldown('category', cat, CATEGORY_MAP[cat] || cat)}
+                          style={{ cursor: 'pointer', color: isActive ? '#3b82f6' : 'var(--color-text)', fontWeight: isActive ? 600 : 400, background: 'none', border: 'none', padding: 0, font: 'inherit' }}
+                        >
+                          {CATEGORY_MAP[cat] || cat}
+                        </button>
                         <div className="flex items-center gap-1">
                           <span className="font-medium" style={{ color: 'var(--color-text)' }}>{bucket.total}</span>
-                          {bucket.registered > 0 && <span className="px-1 rounded" style={{ backgroundColor: '#fff7ed', color: '#f97316' }}>{bucket.registered}</span>}
-                          {bucket.confirmed > 0 && <span className="px-1 rounded" style={{ backgroundColor: '#eff6ff', color: '#3b82f6' }}>{bucket.confirmed}</span>}
-                          {bucket.dispatched > 0 && <span className="px-1 rounded" style={{ backgroundColor: '#f5f3ff', color: '#8b5cf6' }}>{bucket.dispatched}</span>}
-                          {bucket.replaced > 0 && <span className="px-1 rounded" style={{ backgroundColor: '#f0fdf4', color: '#22c55e' }}>{bucket.replaced}</span>}
+                          {bucket.registered > 0 && <button onClick={(e) => { e.stopPropagation(); handleStatusDrilldown('registered') }} className="px-1 rounded cursor-pointer" style={{ backgroundColor: lossRecapFilter.status === 'registered' ? '#f97316' : '#fff7ed', color: lossRecapFilter.status === 'registered' ? '#fff' : '#f97316', border: lossRecapFilter.status === 'registered' ? '1px solid #f97316' : '1px solid transparent', fontWeight: lossRecapFilter.status === 'registered' ? 700 : 400 }}>{bucket.registered}</button>}
+                          {bucket.confirmed > 0 && <button onClick={(e) => { e.stopPropagation(); handleStatusDrilldown('confirmed') }} className="px-1 rounded cursor-pointer" style={{ backgroundColor: lossRecapFilter.status === 'confirmed' ? '#3b82f6' : '#eff6ff', color: lossRecapFilter.status === 'confirmed' ? '#fff' : '#3b82f6', border: lossRecapFilter.status === 'confirmed' ? '1px solid #3b82f6' : '1px solid transparent', fontWeight: lossRecapFilter.status === 'confirmed' ? 700 : 400 }}>{bucket.confirmed}</button>}
+                          {bucket.dispatched > 0 && <button onClick={(e) => { e.stopPropagation(); handleStatusDrilldown('dispatched') }} className="px-1 rounded cursor-pointer" style={{ backgroundColor: lossRecapFilter.status === 'dispatched' ? '#8b5cf6' : '#f5f3ff', color: lossRecapFilter.status === 'dispatched' ? '#fff' : '#8b5cf6', border: lossRecapFilter.status === 'dispatched' ? '1px solid #8b5cf6' : '1px solid transparent', fontWeight: lossRecapFilter.status === 'dispatched' ? 700 : 400 }}>{bucket.dispatched}</button>}
+                          {bucket.replaced > 0 && <button onClick={(e) => { e.stopPropagation(); handleStatusDrilldown('replaced') }} className="px-1 rounded cursor-pointer" style={{ backgroundColor: lossRecapFilter.status === 'replaced' ? '#22c55e' : '#f0fdf4', color: lossRecapFilter.status === 'replaced' ? '#fff' : '#22c55e', border: lossRecapFilter.status === 'replaced' ? '1px solid #22c55e' : '1px solid transparent', fontWeight: lossRecapFilter.status === 'replaced' ? 700 : 400 }}>{bucket.replaced}</button>}
                         </div>
-                      </button>
+                      </div>
                     )
                   })}
                 </div>
@@ -514,25 +535,28 @@ export default function Linen() {
                     const lt = LOSS_TYPE_MAP[type]
                     const isActive = lossRecapFilter.dimension === 'lossType' && lossRecapFilter.value === type
                     return (
-                      <button
+                      <div
                         key={type}
-                        onClick={() => handleRecapDrilldown('lossType', type, lt?.label || type)}
                         className="flex items-center justify-between text-xs w-full px-1.5 py-1 rounded transition-colors"
                         style={{
-                          cursor: 'pointer',
                           backgroundColor: isActive ? '#eff6ff' : 'transparent',
                           border: isActive ? '1px solid #bfdbfe' : '1px solid transparent',
                         }}
                       >
-                        <span style={{ color: isActive ? '#3b82f6' : (lt?.color || 'var(--color-text)'), fontWeight: isActive ? 600 : 400 }}>{lt?.label || type}</span>
+                        <button
+                          onClick={() => handleRecapDrilldown('lossType', type, lt?.label || type)}
+                          style={{ cursor: 'pointer', color: isActive ? '#3b82f6' : (lt?.color || 'var(--color-text)'), fontWeight: isActive ? 600 : 400, background: 'none', border: 'none', padding: 0, font: 'inherit' }}
+                        >
+                          {lt?.label || type}
+                        </button>
                         <div className="flex items-center gap-1">
                           <span className="font-medium" style={{ color: 'var(--color-text)' }}>{bucket.total}</span>
-                          {bucket.registered > 0 && <span className="px-1 rounded" style={{ backgroundColor: '#fff7ed', color: '#f97316' }}>{bucket.registered}</span>}
-                          {bucket.confirmed > 0 && <span className="px-1 rounded" style={{ backgroundColor: '#eff6ff', color: '#3b82f6' }}>{bucket.confirmed}</span>}
-                          {bucket.dispatched > 0 && <span className="px-1 rounded" style={{ backgroundColor: '#f5f3ff', color: '#8b5cf6' }}>{bucket.dispatched}</span>}
-                          {bucket.replaced > 0 && <span className="px-1 rounded" style={{ backgroundColor: '#f0fdf4', color: '#22c55e' }}>{bucket.replaced}</span>}
+                          {bucket.registered > 0 && <button onClick={(e) => { e.stopPropagation(); handleStatusDrilldown('registered') }} className="px-1 rounded cursor-pointer" style={{ backgroundColor: lossRecapFilter.status === 'registered' ? '#f97316' : '#fff7ed', color: lossRecapFilter.status === 'registered' ? '#fff' : '#f97316', border: lossRecapFilter.status === 'registered' ? '1px solid #f97316' : '1px solid transparent', fontWeight: lossRecapFilter.status === 'registered' ? 700 : 400 }}>{bucket.registered}</button>}
+                          {bucket.confirmed > 0 && <button onClick={(e) => { e.stopPropagation(); handleStatusDrilldown('confirmed') }} className="px-1 rounded cursor-pointer" style={{ backgroundColor: lossRecapFilter.status === 'confirmed' ? '#3b82f6' : '#eff6ff', color: lossRecapFilter.status === 'confirmed' ? '#fff' : '#3b82f6', border: lossRecapFilter.status === 'confirmed' ? '1px solid #3b82f6' : '1px solid transparent', fontWeight: lossRecapFilter.status === 'confirmed' ? 700 : 400 }}>{bucket.confirmed}</button>}
+                          {bucket.dispatched > 0 && <button onClick={(e) => { e.stopPropagation(); handleStatusDrilldown('dispatched') }} className="px-1 rounded cursor-pointer" style={{ backgroundColor: lossRecapFilter.status === 'dispatched' ? '#8b5cf6' : '#f5f3ff', color: lossRecapFilter.status === 'dispatched' ? '#fff' : '#8b5cf6', border: lossRecapFilter.status === 'dispatched' ? '1px solid #8b5cf6' : '1px solid transparent', fontWeight: lossRecapFilter.status === 'dispatched' ? 700 : 400 }}>{bucket.dispatched}</button>}
+                          {bucket.replaced > 0 && <button onClick={(e) => { e.stopPropagation(); handleStatusDrilldown('replaced') }} className="px-1 rounded cursor-pointer" style={{ backgroundColor: lossRecapFilter.status === 'replaced' ? '#22c55e' : '#f0fdf4', color: lossRecapFilter.status === 'replaced' ? '#fff' : '#22c55e', border: lossRecapFilter.status === 'replaced' ? '1px solid #22c55e' : '1px solid transparent', fontWeight: lossRecapFilter.status === 'replaced' ? 700 : 400 }}>{bucket.replaced}</button>}
                         </div>
-                      </button>
+                      </div>
                     )
                   })}
                 </div>
@@ -548,25 +572,28 @@ export default function Linen() {
                     const isActive = lossRecapFilter.dimension === 'operatorId' && lossRecapFilter.label === op
                     const opUser = users.find((u: any) => u.name === op)
                     return (
-                      <button
+                      <div
                         key={op}
-                        onClick={() => handleRecapDrilldown('operatorId', opUser ? String(opUser.id) : op, op)}
                         className="flex items-center justify-between text-xs w-full px-1.5 py-1 rounded transition-colors"
                         style={{
-                          cursor: 'pointer',
                           backgroundColor: isActive ? '#eff6ff' : 'transparent',
                           border: isActive ? '1px solid #bfdbfe' : '1px solid transparent',
                         }}
                       >
-                        <span style={{ color: isActive ? '#3b82f6' : 'var(--color-text)', fontWeight: isActive ? 600 : 400 }}>{op}</span>
+                        <button
+                          onClick={() => handleRecapDrilldown('operatorId', opUser ? String(opUser.id) : op, op)}
+                          style={{ cursor: 'pointer', color: isActive ? '#3b82f6' : 'var(--color-text)', fontWeight: isActive ? 600 : 400, background: 'none', border: 'none', padding: 0, font: 'inherit' }}
+                        >
+                          {op}
+                        </button>
                         <div className="flex items-center gap-1">
                           <span className="font-medium" style={{ color: 'var(--color-text)' }}>{bucket.total}</span>
-                          {bucket.registered > 0 && <span className="px-1 rounded" style={{ backgroundColor: '#fff7ed', color: '#f97316' }}>{bucket.registered}</span>}
-                          {bucket.confirmed > 0 && <span className="px-1 rounded" style={{ backgroundColor: '#eff6ff', color: '#3b82f6' }}>{bucket.confirmed}</span>}
-                          {bucket.dispatched > 0 && <span className="px-1 rounded" style={{ backgroundColor: '#f5f3ff', color: '#8b5cf6' }}>{bucket.dispatched}</span>}
-                          {bucket.replaced > 0 && <span className="px-1 rounded" style={{ backgroundColor: '#f0fdf4', color: '#22c55e' }}>{bucket.replaced}</span>}
+                          {bucket.registered > 0 && <button onClick={(e) => { e.stopPropagation(); handleStatusDrilldown('registered') }} className="px-1 rounded cursor-pointer" style={{ backgroundColor: lossRecapFilter.status === 'registered' ? '#f97316' : '#fff7ed', color: lossRecapFilter.status === 'registered' ? '#fff' : '#f97316', border: lossRecapFilter.status === 'registered' ? '1px solid #f97316' : '1px solid transparent', fontWeight: lossRecapFilter.status === 'registered' ? 700 : 400 }}>{bucket.registered}</button>}
+                          {bucket.confirmed > 0 && <button onClick={(e) => { e.stopPropagation(); handleStatusDrilldown('confirmed') }} className="px-1 rounded cursor-pointer" style={{ backgroundColor: lossRecapFilter.status === 'confirmed' ? '#3b82f6' : '#eff6ff', color: lossRecapFilter.status === 'confirmed' ? '#fff' : '#3b82f6', border: lossRecapFilter.status === 'confirmed' ? '1px solid #3b82f6' : '1px solid transparent', fontWeight: lossRecapFilter.status === 'confirmed' ? 700 : 400 }}>{bucket.confirmed}</button>}
+                          {bucket.dispatched > 0 && <button onClick={(e) => { e.stopPropagation(); handleStatusDrilldown('dispatched') }} className="px-1 rounded cursor-pointer" style={{ backgroundColor: lossRecapFilter.status === 'dispatched' ? '#8b5cf6' : '#f5f3ff', color: lossRecapFilter.status === 'dispatched' ? '#fff' : '#8b5cf6', border: lossRecapFilter.status === 'dispatched' ? '1px solid #8b5cf6' : '1px solid transparent', fontWeight: lossRecapFilter.status === 'dispatched' ? 700 : 400 }}>{bucket.dispatched}</button>}
+                          {bucket.replaced > 0 && <button onClick={(e) => { e.stopPropagation(); handleStatusDrilldown('replaced') }} className="px-1 rounded cursor-pointer" style={{ backgroundColor: lossRecapFilter.status === 'replaced' ? '#22c55e' : '#f0fdf4', color: lossRecapFilter.status === 'replaced' ? '#fff' : '#22c55e', border: lossRecapFilter.status === 'replaced' ? '1px solid #22c55e' : '1px solid transparent', fontWeight: lossRecapFilter.status === 'replaced' ? 700 : 400 }}>{bucket.replaced}</button>}
                         </div>
-                      </button>
+                      </div>
                     )
                   })}
                 </div>
@@ -586,22 +613,54 @@ export default function Linen() {
         </div>
       </div>
 
-      {lossRecapFilter.dimension && lossRecapFilter.value && (
+      {(lossRecapFilter.dimension && lossRecapFilter.value) || lossRecapFilter.status ? (
         <div className="flex items-center gap-2 px-4 py-2.5 rounded-lg" style={{ backgroundColor: '#eff6ff', border: '1px solid #bfdbfe' }}>
           <span className="text-xs font-medium" style={{ color: '#3b82f6' }}>复盘筛选：</span>
-          <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-            {lossRecapFilter.dimension === 'category' ? '布草类目' : lossRecapFilter.dimension === 'lossType' ? '损耗类型' : '责任主管'}
-          </span>
-          <span className="text-xs font-semibold" style={{ color: 'var(--color-primary)' }}>{lossRecapFilter.label}</span>
+          {lossRecapFilter.dimension && lossRecapFilter.value && (
+            <>
+              <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+                {lossRecapFilter.dimension === 'category' ? '布草类目' : lossRecapFilter.dimension === 'lossType' ? '损耗类型' : '责任主管'}
+              </span>
+              <span className="text-xs font-semibold" style={{ color: 'var(--color-primary)' }}>{lossRecapFilter.label}</span>
+              <button
+                onClick={clearRecapDimension}
+                className="text-xs px-2 py-0.5 rounded-full font-medium hover:opacity-80"
+                style={{ backgroundColor: '#fff', color: '#ef4444', border: '1px solid #fecaca' }}
+              >
+                ×
+              </button>
+            </>
+          )}
+          {lossRecapFilter.status && (
+            <>
+              <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>状态</span>
+              <span
+                className="text-xs font-semibold px-1.5 py-0.5 rounded"
+                style={{
+                  backgroundColor: LOSS_STATUS_MAP[lossRecapFilter.status]?.bg || '#f3f4f6',
+                  color: LOSS_STATUS_MAP[lossRecapFilter.status]?.color || '#6b7280',
+                }}
+              >
+                {LOSS_STATUS_MAP[lossRecapFilter.status]?.label || lossRecapFilter.status}
+              </span>
+              <button
+                onClick={clearRecapStatus}
+                className="text-xs px-2 py-0.5 rounded-full font-medium hover:opacity-80"
+                style={{ backgroundColor: '#fff', color: '#ef4444', border: '1px solid #fecaca' }}
+              >
+                ×
+              </button>
+            </>
+          )}
           <button
             onClick={clearRecapFilter}
-            className="ml-1 text-xs px-2 py-0.5 rounded-full font-medium hover:opacity-80"
-            style={{ backgroundColor: '#fff', color: '#ef4444', border: '1px solid #fecaca' }}
+            className="ml-auto text-xs px-2 py-0.5 rounded-full font-medium hover:opacity-80"
+            style={{ backgroundColor: '#fff', color: '#6b7280', border: '1px solid #d1d5db' }}
           >
-            清除
+            全部清除
           </button>
         </div>
-      )}
+      ) : null}
 
       <div className="grid grid-cols-4 gap-4">
         {summaryCards.map((card) => (
