@@ -1,3 +1,4 @@
+from __future__ import annotations
 from pydantic import BaseModel
 from datetime import datetime
 from typing import Optional
@@ -155,3 +156,22 @@ class AppointmentAction(BaseModel):
     changed_by: str
     appointment_time: Optional[datetime] = None
     notes: str = ""
+
+
+class TimelineEntry(BaseModel):
+    entity_type: str
+    entity_id: int
+    action_label: str
+    from_status: Optional[str] = None
+    to_status: Optional[str] = None
+    changed_by: str
+    role: str
+    notes: str = ""
+    created_at: datetime
+
+
+class TimelineResponse(BaseModel):
+    order: CargoOrderOut
+    allocation: Optional[LocationAllocationOut] = None
+    appointments: list[PickupAppointmentOut] = []
+    entries: list[TimelineEntry] = []

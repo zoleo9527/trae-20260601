@@ -65,6 +65,25 @@ export interface DashboardStats {
   recent_logs: StatusChangeLog[];
 }
 
+export interface TimelineEntry {
+  entity_type: string;
+  entity_id: number;
+  action_label: string;
+  from_status: string | null;
+  to_status: string | null;
+  changed_by: string;
+  role: string;
+  notes: string;
+  created_at: string;
+}
+
+export interface TimelineResponse {
+  order: CargoOrder;
+  allocation: LocationAllocation | null;
+  appointments: PickupAppointment[];
+  entries: TimelineEntry[];
+}
+
 export const STATUS_LABELS: Record<string, string> = {
   created: '新建',
   accepting: '受理中',

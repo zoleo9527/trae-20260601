@@ -5,6 +5,7 @@ from models import CargoOrder, StatusChangeLog, LocationAllocation, PickupAppoin
 from schemas import (
     CargoOrderCreate, CargoOrderOut, CargoOrderUpdate,
     StatusTransition, StatusChangeLogOut,
+    TimelineEntry, TimelineResponse,
 )
 from database import get_db
 
@@ -126,4 +127,126 @@ def get_order_logs(order_id: int, db: Session = Depends(get_db)):
         .filter(StatusChangeLog.entity_type == "cargo_order", StatusChangeLog.entity_id == order_id)
         .order_by(StatusChangeLog.created_at)
         .all()
+    )
+
+
+ENTITY_TYPE_ACTION_LABELS = {
+    ("cargo_order", "created"): "创建货单",
+    ("cargo_order", "accepting"): "受理中",
+    ("cargo_order", "pending_security"): "移交安检",
+    ("cargo_order", "inspecting"): "安检中",
+    ("cargo_order", "pending_allocation"): "待分配库位",
+    ("cargo_order", "allocated"): "分配库位",
+    ("cargo_order", "allocation_changed"): "库位变动",
+    ("cargo_order", "appointed"): "已预约",
+    ("cargo_order", "picked_up"): "提货完成",
+    ("cargo_order", "supplementing"): "补材料中",
+    ("cargo_order", "security_rejected"): "安检退回",
+    ("location_allocation", "active"): "分配库位",
+    ("location_allocation", "reallocated"): "库位变更",
+    ("location_allocation", "released"): "释放库位",
+    ("location_allocation", "notes_update"): "更新库位备注",
+    ("pickup_appointment", "pending"): "创建提货预约",
+    ("pickup_appointment", "confirmed"): "确认预约",
+    ("pickup_appointment", "escalated"): "催办",
+    ("pickup_appointment", "rejected"): "退回预约",
+    ("pickup_appointment", "supplementing"): "补材料",
+    ("pickup_appointment", "completed"): "提货完成",
+}
+
+
+def _resolve_action_label(entity_type: str, to_status: str, from_status: Optional[str]) -> str:
+    key = (entity_type, to_status)
+    if key in ENTITY_TYPE_ACTION_LABELS:
+        return ENTITY_TYPE_ACTION_LABELS[key]
+    if from_status is None:
+        return "创建"
+    to_label = STATUS_LABELS.get(to_status, to_status)
+    return f"变更为「{to_label}」"
+
+
+STATUS_LABELS = {
+    "created": "新建",
+    "accepting": "受理中",
+    "supplementing": "补材料中",
+    "pending_security": "待安检",
+    "inspecting": "安检中",
+    "security_rejected": "安检退回",
+    "pending_allocation": "待分配库位",
+    "allocated": "已分配库位",
+    "allocation_changed": "库位变动",
+    "appointed": "已预约",
+    "pending_pickup": "待提货",
+    "picked_up": "已提货",
+    "active": "生效",
+    "reallocated": "重新分配",
+    "released": "已释放",
+    "confirmed": "已确认",
+    "escalated": "催办",
+    "rejected": "已退回",
+    "completed": "已完成",
+    "pending": "待处理",
+}
+
+
+@router.get("/{order_id}/timeline", response_model=TimelineResponse)
+def get_order_timeline(order_id: int, db: Session = Depends(get_db)):
+    order = db.query(CargoOrder).filter(CargoOrder.id == order_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+
+    allocation = (
+        db.query(LocationAllocation)
+        .filter(LocationAllocation.order_id == order_id)
+        .first()
+    )
+
+    appointments = (
+        db.query(PickupAppointment)
+        .filter(PickupAppointment.order_id == order_id)
+        .all()
+    )
+
+    log_q = db.query(StatusChangeLog).filter(
+        StatusChangeLog.entity_type == "cargo_order",
+        StatusChangeLog.entity_id == order_id,
+    )
+    if allocation:
+        alloc_logs = db.query(StatusChangeLog).filter(
+            StatusChangeLog.entity_type == "location_allocation",
+            StatusChangeLog.entity_id == allocation.id,
+        )
+        log_q = log_q.union(alloc_logs)
+
+    for appt in appointments:
+        appt_logs = db.query(StatusChangeLog).filter(
+            StatusChangeLog.entity_type == "pickup_appointment",
+            StatusChangeLog.entity_id == appt.id,
+        )
+        log_q = log_q.union(appt_logs)
+
+    all_logs = log_q.order_by(StatusChangeLog.created_at.desc()).all()
+
+    entries: list[TimelineEntry] = []
+    for log in all_logs:
+        action_label = _resolve_action_label(log.entity_type, log.to_status, log.from_status)
+        entries.append(
+            TimelineEntry(
+                entity_type=log.entity_type,
+                entity_id=log.entity_id,
+                action_label=action_label,
+                from_status=log.from_status,
+                to_status=log.to_status,
+                changed_by=log.changed_by,
+                role=log.role,
+                notes=log.notes,
+                created_at=log.created_at,
+            )
+        )
+
+    return TimelineResponse(
+        order=order,
+        allocation=allocation,
+        appointments=appointments,
+        entries=entries,
     )

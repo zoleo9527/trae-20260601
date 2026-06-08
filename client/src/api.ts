@@ -4,6 +4,7 @@ import type {
   PickupAppointment,
   StatusChangeLog,
   DashboardStats,
+  TimelineResponse,
 } from './types';
 
 const BASE = '/api';
@@ -37,6 +38,7 @@ export const api = {
       notes?: string;
     }) => request<CargoOrder>('/orders/transition', { method: 'POST', body: JSON.stringify(data) }),
     logs: (id: number) => request<StatusChangeLog[]>(`/orders/${id}/logs`),
+    timeline: (id: number) => request<TimelineResponse>(`/orders/${id}/timeline`),
   },
   allocations: {
     list: (params?: Record<string, string>) => {
