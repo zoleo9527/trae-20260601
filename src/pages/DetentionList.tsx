@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Table, Button, Tabs, Space, Input, Select, Card, message, Row, Col } from 'antd'
+import { Table, Button, Tabs, Space, Input, Select, Card, message, Row, Col, Switch, Tag } from 'antd'
 import { PlusOutlined, SearchOutlined } from '@ant-design/icons'
 import dayjs from 'dayjs'
 import { fetchDetentions } from '../api'
@@ -34,6 +34,20 @@ export default function DetentionList() {
   const [activeTab, setActiveTab] = useState('all')
   const [keyword, setKeyword] = useState('')
   const [reason, setReason] = useState<string | undefined>(undefined)
+  const [overdueOnly, setOverdueOnly] = useState(false)
+
+  const isOverdue = useCallback((d: Detention) => {
+    if (d.status === 'released' || d.status === 'returned') return false
+    const hours = dayjs().diff(dayjs(d.detainTime), 'hour', true)
+    return hours > 72
+  }, [])
+
+  const formatDuration = useCallback((d: Detention) => {
+    const minutes = dayjs().diff(dayjs(d.detainTime), 'minute')
+    const days = Math.floor(minutes / 1440)
+    const hours = Math.floor((minutes % 1440) / 60)
+    return `${days}天${hours}小时`
+  }, [])
 
   const loadAll = useCallback(async () => {
     setLoading(true)
@@ -59,6 +73,10 @@ export default function DetentionList() {
     return counts
   }, [allData])
 
+  const overdueCount = useMemo(() => {
+    return allData.filter((d) => isOverdue(d)).length
+  }, [allData, isOverdue])
+
   const filteredData = useMemo(() => {
     let list = allData
     if (activeTab !== 'all') {
@@ -76,8 +94,11 @@ export default function DetentionList() {
     if (reason) {
       list = list.filter((d) => d.detainReason === reason)
     }
+    if (overdueOnly) {
+      list = list.filter((d) => isOverdue(d))
+    }
     return list
-  }, [allData, activeTab, keyword, reason])
+  }, [allData, activeTab, keyword, reason, overdueOnly, isOverdue])
 
   const columns = [
     { title: '运单号', dataIndex: 'waybillNo', key: 'waybillNo' },
@@ -94,6 +115,21 @@ export default function DetentionList() {
       dataIndex: 'detainTime',
       key: 'detainTime',
       render: (v: string) => (v ? dayjs(v).format('YYYY-MM-DD HH:mm') : '-'),
+    },
+    {
+      title: '扣留时长',
+      key: 'duration',
+      render: (_: unknown, record: Detention) => {
+        const overdue = isOverdue(record)
+        const text = formatDuration(record)
+        return overdue ? (
+          <span style={{ color: '#ff4d4f', fontWeight: 500 }}>
+            {text} <Tag color="red">超期</Tag>
+          </span>
+        ) : (
+          text
+        )
+      },
     },
     {
       title: '状态',
@@ -135,6 +171,11 @@ export default function DetentionList() {
           </Col>
         ))}
       </Row>
+      {overdueCount > 0 && (
+        <div style={{ marginBottom: 12, fontSize: 13, color: '#ff4d4f' }}>
+          当前有 <strong>{overdueCount}</strong> 件扣留记录已超过 72 小时未处理
+        </div>
+      )}
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
         <Tabs
@@ -163,6 +204,9 @@ export default function DetentionList() {
             onChange={(v) => setReason(v)}
             options={Object.entries(DETAIN_REASON_LABELS).map(([value, label]) => ({ value, label }))}
           />
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 13 }}>
+            仅看超期 <Switch size="small" checked={overdueOnly} onChange={setOverdueOnly} />
+          </span>
           <Button type="primary" icon={<PlusOutlined />} onClick={() => navigate('/register')}>
             新建扣留登记
           </Button>
