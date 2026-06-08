@@ -29,9 +29,9 @@ router.post('/', (req: Request, res: Response) => {
 
   const id = genId('att')
   db.prepare(`
-    INSERT INTO attachments (id, registration_id, file_name, file_size, status, uploaded_at, uploaded_by)
-    VALUES (?, ?, ?, ?, 'placeholder', NULL, NULL)
-  `).run(id, registration_id, file_name, file_size || '0')
+    INSERT INTO attachments (id, registration_id, file_name, file_size, description, category, status, uploaded_at, uploaded_by)
+    VALUES (?, ?, ?, ?, ?, ?, 'placeholder', NULL, NULL)
+  `).run(id, registration_id, file_name, file_size || '0', req.body.description || null, req.body.category || null)
 
   const attachment = db.prepare('SELECT * FROM attachments WHERE id = ?').get(id)
   res.status(201).json({ success: true, data: attachment })

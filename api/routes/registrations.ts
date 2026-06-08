@@ -6,7 +6,8 @@ const router = Router()
 function enrichRegistration(reg: Record<string, unknown>) {
   const logs = db.prepare('SELECT * FROM handover_logs WHERE registration_id = ? ORDER BY created_at ASC').all(reg.id)
   const attachments = db.prepare('SELECT * FROM attachments WHERE registration_id = ? ORDER BY file_name ASC').all(reg.id)
-  const allocation = db.prepare('SELECT * FROM seat_allocations WHERE registration_id = ? ORDER BY allocated_at DESC LIMIT 1').get(reg.id) as Record<string, unknown> | undefined
+  const allAllocations = db.prepare('SELECT * FROM seat_allocations WHERE registration_id = ? ORDER BY allocated_at DESC').all(reg.id) as Record<string, unknown>[]
+  const allocation = allAllocations.length > 0 ? allAllocations[0] : undefined
 
   const availableSeats = db.prepare("SELECT COUNT(*) as cnt FROM seats WHERE status = 'available'").get() as { cnt: number }
   const byZone = db.prepare("SELECT zone, COUNT(*) as cnt FROM seats WHERE status = 'available' GROUP BY zone").all() as { zone: string; cnt: number }[]
@@ -22,6 +23,7 @@ function enrichRegistration(reg: Record<string, unknown>) {
     handover_logs: logs,
     attachments,
     seat_allocation: allocation || null,
+    all_allocations: allAllocations,
     available_seats: {
       total_available: availableSeats.cnt,
       by_zone: zoneMap,
@@ -151,6 +153,218 @@ router.post('/batch/release-seats', (req: Request, res: Response) => {
   transaction()
 
   res.json({ success: true, data: { processed, skipped } })
+})
+
+router.get('/siblings/:eventName', (req: Request, res: Response) => {
+  const eventName = decodeURIComponent(req.params.eventName)
+  const registrations = db.prepare('SELECT * FROM registrations WHERE event_name = ? ORDER BY submitted_at DESC').all(eventName) as Record<string, unknown>[]
+
+  const grouped: Record<string, Record<string, unknown>[]> = {}
+  const enriched = registrations.map(enrichRegistration)
+  for (const reg of enriched) {
+    const status = (reg as Record<string, unknown>).status as string
+    if (!grouped[status]) grouped[status] = []
+    grouped[status].push(reg)
+  }
+
+  res.json({ success: true, data: { event_name: eventName, total: enriched.length, by_status: grouped, registrations: enriched } })
+})
+
+router.post('/:id/arbitrate', (req: Request, res: Response) => {
+  const { action, operator_role, operator_name, note, seat_ids } = req.body
+  if (!action || !operator_role || !operator_name || !note) {
+    res.status(400).json({ success: false, error: 'action, operator_role, operator_name, and note are required' })
+    return
+  }
+
+  const validActions = ['confirm_ownership', 'reassign_seats', 'revoke_allocation', 'record_ruling']
+  if (!validActions.includes(action)) {
+    res.status(400).json({ success: false, error: `Invalid action. Must be one of: ${validActions.join(', ')}` })
+    return
+  }
+
+  const reg = db.prepare('SELECT * FROM registrations WHERE id = ?').get(req.params.id) as Record<string, unknown> | undefined
+  if (!reg) {
+    res.status(404).json({ success: false, error: 'Registration not found' })
+    return
+  }
+
+  const nowISO = new Date().toISOString()
+
+  const transaction = db.transaction(() => {
+    const insertLog = db.prepare(`
+      INSERT INTO handover_logs (id, registration_id, operator_role, operator_name, action, note_type, note, created_at, from_role, to_role)
+      VALUES (?, ?, ?, ?, '店长仲裁', 'arbitration', ?, ?, ?, ?)
+    `)
+
+    if (action === 'confirm_ownership') {
+      db.prepare("UPDATE registrations SET status = 'confirmed', current_owner_role = ?, owner_since = ? WHERE id = ?")
+        .run(operator_role, nowISO, req.params.id)
+      insertLog.run(genId('log'), req.params.id, operator_role, operator_name, note, nowISO, operator_role, operator_role)
+    }
+
+    if (action === 'reassign_seats') {
+      if (!seat_ids || !Array.isArray(seat_ids) || seat_ids.length === 0) {
+        throw new Error('seat_ids (non-empty array) is required for reassign_seats')
+      }
+
+      const currentAlloc = db.prepare("SELECT * FROM seat_allocations WHERE registration_id = ? AND status = 'pending' ORDER BY allocated_at DESC LIMIT 1")
+        .get(req.params.id) as Record<string, unknown> | undefined
+
+      if (currentAlloc) {
+        db.prepare("UPDATE seat_allocations SET status = 'released' WHERE id = ?").run(currentAlloc.id as string)
+        const oldSeatIds = (currentAlloc.seat_ids as string).split(',')
+        const updateSeat = db.prepare("UPDATE seats SET status = 'available', current_registration_id = NULL WHERE id = ?")
+        for (const sid of oldSeatIds) {
+          updateSeat.run(sid)
+        }
+      }
+
+      const allocId = genId('alloc')
+      const seatIdsStr = seat_ids.join(',')
+      db.prepare(`
+        INSERT INTO seat_allocations (id, registration_id, seat_ids, allocated_by, confirmed_by, allocated_at, confirmed_at, status, conflict_reason)
+        VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', NULL)
+      `).run(allocId, req.params.id, seatIdsStr, `${operator_role}/${operator_name}`, null, nowISO, null)
+
+      const updateSeatOccupied = db.prepare("UPDATE seats SET status = 'occupied', current_registration_id = ? WHERE id = ?")
+      for (const sid of seat_ids) {
+        updateSeatOccupied.run(req.params.id, sid)
+      }
+
+      db.prepare("UPDATE registrations SET status = 'seating', current_owner_role = '店长', owner_since = ? WHERE id = ?")
+        .run(nowISO, req.params.id)
+
+      insertLog.run(genId('log'), req.params.id, operator_role, operator_name, note, nowISO, operator_role, '店长')
+    }
+
+    if (action === 'revoke_allocation') {
+      const currentAlloc = db.prepare("SELECT * FROM seat_allocations WHERE registration_id = ? AND status = 'pending' ORDER BY allocated_at DESC LIMIT 1")
+        .get(req.params.id) as Record<string, unknown> | undefined
+
+      if (currentAlloc) {
+        db.prepare("UPDATE seat_allocations SET status = 'released' WHERE id = ?").run(currentAlloc.id as string)
+        const oldSeatIds = (currentAlloc.seat_ids as string).split(',')
+        const updateSeat = db.prepare("UPDATE seats SET status = 'available', current_registration_id = NULL WHERE id = ?")
+        for (const sid of oldSeatIds) {
+          updateSeat.run(sid)
+        }
+      }
+
+      db.prepare("UPDATE registrations SET status = 'confirmed', current_owner_role = '网管', owner_since = ? WHERE id = ?")
+        .run(nowISO, req.params.id)
+
+      insertLog.run(genId('log'), req.params.id, operator_role, operator_name, note, nowISO, operator_role, '网管')
+    }
+
+    if (action === 'record_ruling') {
+      insertLog.run(genId('log'), req.params.id, operator_role, operator_name, note, nowISO, null, null)
+    }
+  })
+
+  try {
+    transaction()
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : 'Arbitration failed'
+    res.status(400).json({ success: false, error: msg })
+    return
+  }
+
+  const updated = db.prepare('SELECT * FROM registrations WHERE id = ?').get(req.params.id)
+  res.json({ success: true, data: enrichRegistration(updated) })
+})
+
+router.get('/:id/allocation-timeline', (req: Request, res: Response) => {
+  const reg = db.prepare('SELECT * FROM registrations WHERE id = ?').get(req.params.id)
+  if (!reg) {
+    res.status(404).json({ success: false, error: 'Registration not found' })
+    return
+  }
+
+  const allocations = db.prepare('SELECT * FROM seat_allocations WHERE registration_id = ? ORDER BY allocated_at DESC').all(req.params.id) as Record<string, unknown>[]
+
+  const seatActions = ['分配座位', '确认座位分配', '释放座位分配', '批量释放座位']
+  const placeholders = seatActions.map(() => '?').join(',')
+  const logs = db.prepare(
+    `SELECT * FROM handover_logs WHERE registration_id = ? AND action IN (${placeholders}) ORDER BY created_at DESC`
+  ).all(req.params.id, ...seatActions) as Record<string, unknown>[]
+
+  const timeline = [
+    ...allocations.map(a => ({ type: 'allocation' as const, data: a, sort_key: a.allocated_at as string })),
+    ...logs.map(l => ({ type: 'log' as const, data: l, sort_key: l.created_at as string })),
+  ].sort((a, b) => b.sort_key.localeCompare(a.sort_key))
+
+  res.json({ success: true, data: timeline })
+})
+
+router.post('/:id/attachments', (req: Request, res: Response) => {
+  const { file_name, file_size, category, description } = req.body
+  if (!file_name || !file_size || !category) {
+    res.status(400).json({ success: false, error: 'file_name, file_size, and category are required' })
+    return
+  }
+
+  const validCategories = ['现场照片', '聊天记录']
+  if (!validCategories.includes(category)) {
+    res.status(400).json({ success: false, error: `Invalid category. Must be one of: ${validCategories.join(', ')}` })
+    return
+  }
+
+  const reg = db.prepare('SELECT * FROM registrations WHERE id = ?').get(req.params.id)
+  if (!reg) {
+    res.status(404).json({ success: false, error: 'Registration not found' })
+    return
+  }
+
+  const id = genId('att')
+  db.prepare(`
+    INSERT INTO attachments (id, registration_id, file_name, file_size, description, category, status, uploaded_at, uploaded_by)
+    VALUES (?, ?, ?, ?, ?, ?, 'placeholder', NULL, NULL)
+  `).run(id, req.params.id, file_name, file_size, description || null, category)
+
+  const attachment = db.prepare('SELECT * FROM attachments WHERE id = ?').get(id)
+  res.status(201).json({ success: true, data: attachment })
+})
+
+router.patch('/:id/attachments/:attId', (req: Request, res: Response) => {
+  const { status, description, uploaded_by } = req.body
+
+  const attachment = db.prepare('SELECT * FROM attachments WHERE id = ? AND registration_id = ?').get(req.params.attId, req.params.id) as Record<string, unknown> | undefined
+  if (!attachment) {
+    res.status(404).json({ success: false, error: 'Attachment not found' })
+    return
+  }
+
+  const updates: string[] = []
+  const values: unknown[] = []
+
+  if (status !== undefined) {
+    updates.push('status = ?')
+    values.push(status)
+    if (status === 'uploaded') {
+      updates.push('uploaded_at = ?')
+      values.push(new Date().toISOString())
+    }
+  }
+  if (description !== undefined) {
+    updates.push('description = ?')
+    values.push(description)
+  }
+  if (uploaded_by !== undefined) {
+    updates.push('uploaded_by = ?')
+    values.push(uploaded_by)
+  }
+
+  if (updates.length === 0) {
+    res.status(400).json({ success: false, error: 'At least one field to update is required' })
+    return
+  }
+
+  values.push(req.params.attId)
+  db.prepare(`UPDATE attachments SET ${updates.join(', ')} WHERE id = ?`).run(...values)
+
+  const updated = db.prepare('SELECT * FROM attachments WHERE id = ?').get(req.params.attId)
+  res.json({ success: true, data: updated })
 })
 
 router.get('/:id', (req: Request, res: Response) => {

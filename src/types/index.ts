@@ -16,6 +16,7 @@ export interface Registration {
   handover_logs?: HandoverLog[]
   attachments?: Attachment[]
   seat_allocation?: SeatAllocation
+  all_allocations?: SeatAllocation[]
   available_seats?: SeatAvailability
 }
 
@@ -47,7 +48,7 @@ export interface HandoverLog {
   operator_role: string
   operator_name: string
   action: string
-  note_type: 'normal' | 'urgent' | 'dispute' | 'supplement'
+  note_type: 'normal' | 'urgent' | 'dispute' | 'supplement' | 'arbitration'
   note: string
   created_at: string
   from_role: string | null
@@ -59,6 +60,8 @@ export interface Attachment {
   registration_id: string
   file_name: string
   file_size: string
+  description: string | null
+  category: string | null
   status: 'placeholder' | 'uploaded'
   uploaded_at: string | null
   uploaded_by: string | null
@@ -104,6 +107,7 @@ export const NOTE_TYPE_LABELS: Record<HandoverLog['note_type'], string> = {
   urgent: '紧急',
   dispute: '争议',
   supplement: '补充',
+  arbitration: '仲裁',
 }
 
 export const NOTE_TYPE_COLORS: Record<HandoverLog['note_type'], string> = {
@@ -111,6 +115,7 @@ export const NOTE_TYPE_COLORS: Record<HandoverLog['note_type'], string> = {
   urgent: '#FF3B30',
   dispute: '#FF9500',
   supplement: '#5AC8FA',
+  arbitration: '#BF5AF2',
 }
 
 export const ROLE_LABELS: Record<Role, string> = {

@@ -287,6 +287,89 @@ export const useAppStore = defineStore('app', () => {
     return false
   }
 
+  async function fetchSiblings(eventName: string) {
+    try {
+      const res = await fetch(`/api/registrations/siblings/${encodeURIComponent(eventName)}`)
+      const data = await res.json()
+      if (data.success) return data.data
+    } catch (e) {
+      console.error('Failed to fetch siblings:', e)
+    }
+    return null
+  }
+
+  async function fetchAllocationTimeline(registrationId: string) {
+    try {
+      const res = await fetch(`/api/registrations/${registrationId}/allocation-timeline`)
+      const data = await res.json()
+      if (data.success) return data.data
+    } catch (e) {
+      console.error('Failed to fetch allocation timeline:', e)
+    }
+    return []
+  }
+
+  async function arbitrateRegistration(registrationId: string, action: 'confirm_ownership' | 'reassign_seats' | 'revoke_allocation' | 'record_ruling', note: string, seatIds?: string[]) {
+    try {
+      const payload: Record<string, unknown> = {
+        action,
+        operator_role: currentRole.value,
+        operator_name: currentName.value,
+        note,
+      }
+      if (seatIds) payload.seat_ids = seatIds
+      const res = await fetch(`/api/registrations/${registrationId}/arbitrate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+      const data = await res.json()
+      if (data.success) {
+        await fetchRegistrations()
+        await fetchStats()
+        return data.data
+      }
+    } catch (e) {
+      console.error('Failed to arbitrate:', e)
+    }
+    return null
+  }
+
+  async function createAttachment(registrationId: string, fileName: string, fileSize: string, category: string, description?: string) {
+    try {
+      const res = await fetch(`/api/registrations/${registrationId}/attachments`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          file_name: fileName,
+          file_size: fileSize,
+          category,
+          description: description || null,
+        }),
+      })
+      const data = await res.json()
+      if (data.success) return data.data
+    } catch (e) {
+      console.error('Failed to create attachment:', e)
+    }
+    return null
+  }
+
+  async function updateRegistrationAttachment(registrationId: string, attId: string, payload: { status?: string; description?: string; uploaded_by?: string }) {
+    try {
+      const res = await fetch(`/api/registrations/${registrationId}/attachments/${attId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+      const data = await res.json()
+      if (data.success) return data.data
+    } catch (e) {
+      console.error('Failed to update attachment:', e)
+    }
+    return null
+  }
+
   return {
     currentRole,
     currentName,
@@ -313,5 +396,10 @@ export const useAppStore = defineStore('app', () => {
     fetchStats,
     fetchRecentLogs,
     resetData,
+    fetchSiblings,
+    fetchAllocationTimeline,
+    arbitrateRegistration,
+    createAttachment,
+    updateRegistrationAttachment,
   }
 })

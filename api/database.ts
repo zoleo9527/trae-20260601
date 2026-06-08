@@ -71,6 +71,8 @@ function createTables() {
       registration_id TEXT NOT NULL,
       file_name TEXT NOT NULL,
       file_size TEXT NOT NULL DEFAULT '0',
+      description TEXT,
+      category TEXT,
       status TEXT NOT NULL DEFAULT 'placeholder',
       uploaded_at TEXT,
       uploaded_by TEXT,
@@ -83,8 +85,18 @@ function createTables() {
     CREATE INDEX IF NOT EXISTS idx_seats_zone ON seats(zone);
     CREATE INDEX IF NOT EXISTS idx_seats_status ON seats(status);
     CREATE INDEX IF NOT EXISTS idx_handover_logs_reg ON handover_logs(registration_id);
+    CREATE INDEX IF NOT EXISTS idx_seat_allocations_reg ON seat_allocations(registration_id);
     CREATE INDEX IF NOT EXISTS idx_attachments_reg ON attachments(registration_id);
   `)
+
+  const attachCols = db.prepare("PRAGMA table_info(attachments)").all() as { name: string }[]
+  const colNames = attachCols.map(c => c.name)
+  if (!colNames.includes('description')) {
+    db.exec('ALTER TABLE attachments ADD COLUMN description TEXT')
+  }
+  if (!colNames.includes('category')) {
+    db.exec('ALTER TABLE attachments ADD COLUMN category TEXT')
+  }
 }
 
 let idCounter = 0
@@ -163,6 +175,7 @@ export function seedData() {
 
   insertAlloc.run('alloc-003', 'REG-003', 's-v1,s-v2,s-c1,s-c2,s-a7,s-a8,s-a9,s-a10,s-c3,s-c4', '网管/小王', null, t(45), null, 'pending', 'VIP区仅2台可用，散客占A区部分座位，需跨区调配')
   insertAlloc.run('alloc-004', 'REG-004', 's-a1,s-a2,s-a3,s-a4,s-a5,s-a6', '网管/小张', '店长/赵总', t(25), t(35), 'confirmed', null)
+  insertAlloc.run('alloc-006-rev', 'REG-006', 's-v1,s-v2,s-c1,s-c2,s-c3,s-c4', '网管/小王', null, t(42), null, 'released', 'VIP区维修中，C区不够6台连坐')
 
   const insertLog = db.prepare(`
     INSERT INTO handover_logs (id, registration_id, operator_role, operator_name, action, note_type, note, created_at, from_role, to_role)
@@ -208,21 +221,21 @@ export function seedData() {
   insertLog.run('log-007-1', 'REG-007', '网管', '小王', '提交报名', 'normal', '5人参赛，标准机即可', t(78), null, '赛事运营')
 
   const insertAttach = db.prepare(`
-    INSERT INTO attachments (id, registration_id, file_name, file_size, status, uploaded_at, uploaded_by)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO attachments (id, registration_id, file_name, file_size, description, category, status, uploaded_at, uploaded_by)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
   `)
 
-  insertAttach.run('att-001-1', 'REG-001', '报名表.pdf', '256KB', 'placeholder', null, null)
-  insertAttach.run('att-001-2', 'REG-001', '赛制说明.docx', '128KB', 'placeholder', null, null)
-  insertAttach.run('att-002-1', 'REG-002', '队伍名单.xlsx', '64KB', 'uploaded', t(15), '赛事运营/小李')
-  insertAttach.run('att-002-2', 'REG-002', '赛程安排.pdf', '320KB', 'placeholder', null, null)
-  insertAttach.run('att-003-1', 'REG-003', '赛事规则.pdf', '512KB', 'uploaded', t(18), '赛事运营/小李')
-  insertAttach.run('att-003-2', 'REG-003', '参赛名单.docx', '96KB', 'placeholder', null, null)
-  insertAttach.run('att-004-1', 'REG-004', '报名回执.pdf', '32KB', 'uploaded', t(8), '赛事运营/小李')
-  insertAttach.run('att-005-1', 'REG-005', '赛事方案.pdf', '384KB', 'placeholder', null, null)
-  insertAttach.run('att-006-1', 'REG-006', 'VIP区预定单.pdf', '180KB', 'uploaded', t(30), '赛事运营/小李')
-  insertAttach.run('att-006-2', 'REG-006', '客户沟通记录.docx', '88KB', 'placeholder', null, null)
-  insertAttach.run('att-007-1', 'REG-007', '参赛确认函.pdf', '45KB', 'placeholder', null, null)
+  insertAttach.run('att-001-1', 'REG-001', '报名表.pdf', '256KB', '队伍报名表扫描件', '聊天记录', 'placeholder', null, null)
+  insertAttach.run('att-001-2', 'REG-001', '赛制说明.docx', '128KB', '官方赛制规则文档', '聊天记录', 'placeholder', null, null)
+  insertAttach.run('att-002-1', 'REG-002', '队伍名单.xlsx', '64KB', '参赛队员信息', '聊天记录', 'uploaded', t(15), '赛事运营/小李')
+  insertAttach.run('att-002-2', 'REG-002', '赛程安排.pdf', '320KB', '赛程安排表', '聊天记录', 'placeholder', null, null)
+  insertAttach.run('att-003-1', 'REG-003', '赛事规则.pdf', '512KB', 'CS2赛事规则', '聊天记录', 'uploaded', t(18), '赛事运营/小李')
+  insertAttach.run('att-003-2', 'REG-003', '参赛名单.docx', '96KB', '参赛名单确认', '聊天记录', 'placeholder', null, null)
+  insertAttach.run('att-004-1', 'REG-004', '报名回执.pdf', '32KB', '报名回执单', '聊天记录', 'uploaded', t(8), '赛事运营/小李')
+  insertAttach.run('att-005-1', 'REG-005', '赛事方案.pdf', '384KB', '赛事方案', '聊天记录', 'placeholder', null, null)
+  insertAttach.run('att-006-1', 'REG-006', 'VIP区预定单.pdf', '180KB', 'VIP区预定确认', '聊天记录', 'uploaded', t(30), '赛事运营/小李')
+  insertAttach.run('att-006-2', 'REG-006', '客户沟通记录.docx', '88KB', '与客户的微信聊天记录', '聊天记录', 'placeholder', null, null)
+  insertAttach.run('att-007-1', 'REG-007', '参赛确认函.pdf', '45KB', '参赛确认函', '聊天记录', 'placeholder', null, null)
 }
 
 createTables()
