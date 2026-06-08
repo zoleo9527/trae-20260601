@@ -6,6 +6,7 @@ import { useScheduleStore } from '@/stores/scheduleStore'
 import { useSettlementStore } from '@/stores/settlementStore'
 import { useExceptionStore } from '@/stores/exceptionStore'
 import { useLogStore } from '@/stores/logStore'
+import dayjs from 'dayjs'
 
 interface DashboardState {
   riskItems: RiskItem[]
@@ -42,7 +43,18 @@ export const useDashboardStore = create<DashboardState>()(
       },
 
       getRiskItems: () => {
-        return get().riskItems
+        const staticItems = get().riskItems
+        const overdueRejections = useSettlementStore.getState().getOverdueRejections()
+          .filter((o) => o.overdue)
+        const dynamicItems: RiskItem[] = overdueRejections.map((o) => ({
+          id: `overdue_rej_${o.rejection.id}`,
+          type: 'rejection_overdue' as const,
+          severity: 'high' as const,
+          message: `结算单${o.rejection.settlementId}驳回已逾期${o.pendingDays}天未处理${o.rejection.category ? `（${o.rejection.category}）` : ''}`,
+          relatedId: o.rejection.settlementId,
+          read: staticItems.some((s) => s.id === `overdue_rej_${o.rejection.id}` && s.read),
+        }))
+        return [...dynamicItems, ...staticItems.filter((s) => !s.id.startsWith('overdue_rej_'))]
       },
 
       getUnreadRiskItems: () => {

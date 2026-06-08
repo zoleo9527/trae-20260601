@@ -100,7 +100,7 @@ export interface OperationLog {
 
 export interface RiskItem {
   id: string
-  type: 'settlement_anomaly' | 'schedule_conflict' | 'overdue_settlement'
+  type: 'settlement_anomaly' | 'schedule_conflict' | 'overdue_settlement' | 'rejection_overdue'
   severity: 'high' | 'medium' | 'low'
   message: string
   relatedId: string

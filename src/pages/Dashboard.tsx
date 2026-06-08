@@ -32,6 +32,7 @@ const RISK_TYPE_LABEL: Record<string, string> = {
   settlement_anomaly: '结算异常',
   schedule_conflict: '排班冲突',
   overdue_settlement: '超时未结',
+  rejection_overdue: '驳回逾期',
 }
 
 const SEVERITY_CONFIG: Record<string, { bg: string; border: string; text: string; dot: string }> = {
@@ -260,7 +261,11 @@ export default function Dashboard() {
                           <button
                             onClick={() => {
                               markRiskRead(item.id)
-                              navigate(item.type === 'schedule_conflict' ? '/schedule' : '/settlement')
+                              if (item.type === 'rejection_overdue') {
+                                navigate('/settlement?overdue=1')
+                              } else {
+                                navigate(item.type === 'schedule_conflict' ? '/schedule' : '/settlement')
+                              }
                             }}
                             className="text-xs text-[#e67e22] hover:text-[#d35400] font-medium"
                           >

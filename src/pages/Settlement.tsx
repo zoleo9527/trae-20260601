@@ -1,5 +1,6 @@
-import { useState, useMemo } from 'react'
-import { Receipt, AlertCircle, CheckCircle2, XCircle, RotateCcw } from 'lucide-react'
+import { useState, useMemo, useEffect } from 'react'
+import { useSearchParams } from 'react-router-dom'
+import { Receipt, AlertCircle, CheckCircle2, XCircle, RotateCcw, Clock } from 'lucide-react'
 import { Table, Button, Tag, Modal, Form, Input, InputNumber, Select, Descriptions, message, Timeline, Empty } from 'antd'
 import dayjs from 'dayjs'
 import { useSettlementStore } from '@/stores/settlementStore'
@@ -26,6 +27,7 @@ const STATUS_TAG_COLOR: Record<SettlementStatus, string> = {
 }
 
 export default function SettlementPage() {
+  const [searchParams] = useSearchParams()
   const [activeTab, setActiveTab] = useState<FilterTab>('ALL')
   const [categoryFilter, setCategoryFilter] = useState<RejectionCategory | 'ALL'>('ALL')
   const [overdueFilter, setOverdueFilter] = useState(false)
@@ -37,7 +39,15 @@ export default function SettlementPage() {
   const [rejectForm] = Form.useForm()
   const [resubmitForm] = Form.useForm()
 
-  const { settlements, rejections, approveSettlement, rejectSettlement, resubmitSettlement, getRejectionsBySettlementId, getRejectionCategoryStats, getOverdueRejections, getOverdueRejectionCount } = useSettlementStore()
+  useEffect(() => {
+    if (searchParams.get('overdue') === '1') {
+      setActiveTab('REJECTED')
+      setCategoryFilter('ALL')
+      setOverdueFilter(true)
+    }
+  }, [searchParams])
+
+  const { settlements, rejections, approveSettlement, rejectSettlement, resubmitSettlement, getRejectionsBySettlementId, getRejectionCategoryStats, getOverdueRejections, getOverdueRejectionCount, getRejectionSLAStats } = useSettlementStore()
   const { schedules, getScheduleById, getVehicleById } = useScheduleStore()
   const { getExceptionsByScheduleId } = useExceptionStore()
   const { currentRole, hasPermission } = useRoleStore()
@@ -67,6 +77,7 @@ export default function SettlementPage() {
 
   const categoryStats = useMemo(() => getRejectionCategoryStats(30), [rejections, settlements])
   const overdueCount = useMemo(() => getOverdueRejectionCount(), [rejections])
+  const slaStats = useMemo(() => getRejectionSLAStats(30), [rejections])
 
   const pendingCount = settlements.filter((s) => s.status === 'PENDING_REVIEW').length
   const rejectedCount = settlements.filter((s) => s.status === 'REJECTED').length
@@ -325,6 +336,48 @@ export default function SettlementPage() {
           </div>
         </div>
 
+        {(slaStats.totalResolved > 0 || slaStats.overdueCount > 0) && (
+          <div className="px-5 py-3 border-b border-gray-50 bg-gradient-to-r from-gray-50/80 to-white">
+            <div className="flex items-center gap-2 mb-2">
+              <Clock size={14} className="text-gray-500" />
+              <span className="text-xs text-gray-500 font-medium">驳回处理SLA（近30天）</span>
+            </div>
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs text-gray-500">平均处理</span>
+                <span className={`text-sm font-bold ${slaStats.avgProcessingHours > 72 ? 'text-red-600' : 'text-[#1a2332]'}`}>
+                  {slaStats.avgProcessingHours}h
+                </span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs text-gray-500">72h达标率</span>
+                <span className={`text-sm font-bold ${slaStats.complianceRate < 80 ? 'text-red-600' : slaStats.complianceRate < 95 ? 'text-amber-600' : 'text-emerald-600'}`}>
+                  {slaStats.complianceRate}%
+                </span>
+              </div>
+              {slaStats.overdueCount > 0 && (
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs text-gray-500">逾期未处理</span>
+                  <span className="text-sm font-bold text-red-600">{slaStats.overdueCount}笔</span>
+                </div>
+              )}
+              {slaStats.categoryBreakdown.length > 0 && (
+                <div className="flex items-center gap-2 ml-2 pl-3 border-l border-gray-200">
+                  <span className="text-xs text-gray-400">各分类平均</span>
+                  {slaStats.categoryBreakdown.map((cat) => {
+                    const catConfig = REJECTION_CATEGORY_MAP[cat.category]
+                    return catConfig ? (
+                      <span key={cat.category} className={`text-xs px-1.5 py-0.5 rounded ${cat.avgHours > 72 ? 'bg-red-50 text-red-600 border border-red-200' : `${catConfig.bgColor} ${catConfig.color}`}`}>
+                        {catConfig.label} {cat.avgHours}h
+                      </span>
+                    ) : null
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
         {categoryStats.length > 0 && (
           <div className="px-5 py-3 border-b border-gray-50 bg-gray-50/50">
             <div className="flex items-center gap-2 mb-2">
@@ -558,6 +611,11 @@ export default function SettlementPage() {
                             <span className={`text-xs px-1.5 py-0.5 rounded ${rejOverdue ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'}`}>
                               处理耗时 {processingHours}小时
                             </span>
+                            {processingHours > 72 && (
+                              <span className="text-xs px-1.5 py-0.5 rounded bg-red-600 text-white font-medium">
+                                SLA超标
+                              </span>
+                            )}
                           </div>
                         )}
                       </div>
@@ -594,6 +652,9 @@ export default function SettlementPage() {
                           }`}>
                             处理耗时 {String(log.afterValue.processingHours)}小时
                           </span>
+                        )}
+                        {log.action === 'resubmit' && log.afterValue?.processingHours != null && Number(log.afterValue.processingHours) > 72 && (
+                          <span className="px-1.5 py-0.5 rounded text-xs bg-red-600 text-white font-medium">SLA超标</span>
                         )}
                       </div>
                     ))}

@@ -20,6 +20,13 @@ interface SettlementState {
   getRejectionCategoryStats: (days?: number) => { category: RejectionCategory; count: number; totalAmount: number }[]
   getOverdueRejections: () => { rejection: Rejection; settlement: Settlement | undefined; pendingDays: number; overdue: boolean }[]
   getOverdueRejectionCount: () => number
+  getRejectionSLAStats: (days?: number) => {
+    avgProcessingHours: number
+    complianceRate: number
+    overdueCount: number
+    totalResolved: number
+    categoryBreakdown: { category: RejectionCategory; avgHours: number; count: number }[]
+  }
 }
 
 export const useSettlementStore = create<SettlementState>()(
@@ -181,6 +188,48 @@ export const useSettlementStore = create<SettlementState>()(
           .filter((r) => r.status === 'PENDING')
           .filter((r) => dayjs().diff(dayjs(r.rejectedAt), 'day') > 3)
           .length
+      },
+
+      getRejectionSLAStats: (days = 30) => {
+        const rejections = get().rejections
+        const cutoff = dayjs().subtract(days, 'day').toISOString()
+        const recentResolved = rejections.filter(
+          (r) => r.status === 'RESOLVED' && r.rejectedAt >= cutoff && r.resubmittedAt
+        )
+        const currentOverdue = rejections.filter(
+          (r) => r.status === 'PENDING' && dayjs().diff(dayjs(r.rejectedAt), 'day') > 3
+        )
+        const processingHoursList = recentResolved.map((r) =>
+          dayjs(r.resubmittedAt).diff(dayjs(r.rejectedAt), 'minute') / 60
+        )
+        const avgProcessingHours = processingHoursList.length > 0
+          ? Math.round(processingHoursList.reduce((a, b) => a + b, 0) / processingHoursList.length * 10) / 10
+          : 0
+        const withinSLA = processingHoursList.filter((h) => h <= 72).length
+        const complianceRate = processingHoursList.length > 0
+          ? Math.round(withinSLA / processingHoursList.length * 1000) / 10
+          : 100
+        const categories: RejectionCategory[] = ['amount_anomaly', 'voucher_missing', 'timeout_dispute', 'other']
+        const categoryBreakdown = categories.map((category) => {
+          const catResolved = recentResolved.filter((r) => r.category === category)
+          const catHours = catResolved.map((r) =>
+            dayjs(r.resubmittedAt).diff(dayjs(r.rejectedAt), 'minute') / 60
+          )
+          return {
+            category,
+            avgHours: catHours.length > 0
+              ? Math.round(catHours.reduce((a, b) => a + b, 0) / catHours.length * 10) / 10
+              : 0,
+            count: catResolved.length,
+          }
+        }).filter((c) => c.count > 0)
+        return {
+          avgProcessingHours,
+          complianceRate,
+          overdueCount: currentOverdue.length,
+          totalResolved: recentResolved.length,
+          categoryBreakdown,
+        }
       },
     }),
     { name: 'vehicle-settlement-store' }
