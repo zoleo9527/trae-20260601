@@ -233,6 +233,15 @@
               <p class="text-sm text-text-secondary">{{ reg.team_name }}</p>
             </div>
             <StatusBadge :status="reg.status" />
+            <button
+              v-if="reg.current_owner_role !== store.currentRole && reg.status !== 'completed' && reg.status !== 'rejected'"
+              class="flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-heading font-medium transition-all hover:scale-105"
+              :style="{ color: ROLE_COLORS[reg.current_owner_role], backgroundColor: ROLE_COLORS[reg.current_owner_role] + '15', border: `1px solid ${ROLE_COLORS[reg.current_owner_role]}30` }"
+              @click.stop="openListReminder(reg)"
+            >
+              <Bell class="w-3 h-3" />
+              催办
+            </button>
           </div>
 
           <div class="flex items-center gap-2 mb-2 flex-wrap">
@@ -361,13 +370,46 @@
         </div>
       </div>
     </div>
+
+    <div
+      v-if="showListReminderDialog"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
+      @click.self="showListReminderDialog = false"
+    >
+      <div class="card p-6 w-[420px]" style="border-color: rgba(48,209,88,0.3); box-shadow: 0 0 30px rgba(48,209,88,0.15)">
+        <h3 class="font-heading text-lg font-semibold mb-4 flex items-center gap-2" style="color: #30D158">
+          <Bell class="w-5 h-5" />
+          催办 {{ listReminderReg?.current_owner_role }}
+        </h3>
+        <p class="text-sm text-text-secondary mb-2">
+          {{ listReminderReg?.event_name }} — {{ listReminderReg?.team_name }}
+        </p>
+        <textarea
+          v-model="listReminderNote"
+          class="input-dark min-h-[80px] resize-none"
+          placeholder="请输入催办理由（必填）"
+        />
+        <p class="text-xs text-text-secondary mt-2">同一报名对同一角色5分钟内不可重复催办</p>
+        <div class="flex gap-3 justify-end mt-4">
+          <button class="px-4 py-2 rounded text-text-secondary hover:text-text-primary transition-colors" @click="showListReminderDialog = false">取消</button>
+          <button
+            class="px-4 py-2 rounded text-sm font-medium text-bg-primary transition-colors"
+            style="background-color: #30D158"
+            :disabled="listReminderLoading || !listReminderNote.trim()"
+            @click="submitListReminder"
+          >
+            {{ listReminderLoading ? '发送中...' : '发送催办' }}
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import { Clock, Filter, Activity, CheckSquare, ArrowUpCircle, MessageSquare, Unlock } from 'lucide-vue-next'
+import { Clock, Filter, Activity, CheckSquare, ArrowUpCircle, MessageSquare, Unlock, Bell } from 'lucide-vue-next'
 import { useAppStore } from '@/stores/app'
 import { STATUS_COLORS, ROLE_COLORS, getUrgencyLevel, urgencySortWeight } from '@/types'
 import StatusBadge from '@/components/StatusBadge.vue'
@@ -388,6 +430,31 @@ const batchLoading = ref(false)
 const showBatchNoteDialog = ref(false)
 const batchNoteType = ref<'normal' | 'urgent' | 'dispute' | 'supplement'>('supplement')
 const batchNoteContent = ref('')
+
+const showListReminderDialog = ref(false)
+const listReminderReg = ref<Registration | null>(null)
+const listReminderNote = ref('')
+const listReminderLoading = ref(false)
+
+function openListReminder(reg: Registration) {
+  listReminderReg.value = reg
+  listReminderNote.value = ''
+  showListReminderDialog.value = true
+}
+
+async function submitListReminder() {
+  if (!listReminderReg.value || !listReminderNote.value.trim()) return
+  listReminderLoading.value = true
+  const result = await store.sendReminder(listReminderReg.value.id, listReminderReg.value.current_owner_role, listReminderNote.value)
+  listReminderLoading.value = false
+  if (result.success) {
+    showListReminderDialog.value = false
+    listReminderNote.value = ''
+    await store.fetchRegistrations()
+  } else {
+    alert(result.error || '催办失败')
+  }
+}
 
 const roleFilter = ref<string>('all')
 const urgencyFilter = ref<string>('all')

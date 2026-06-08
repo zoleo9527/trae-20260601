@@ -259,6 +259,66 @@
       </div>
     </div>
 
+    <div class="card p-5 border-l-4 border-l-[#30D158]">
+      <div class="flex items-center gap-2 mb-4">
+        <div class="w-2 h-2 rounded-full bg-[#30D158]" />
+        <h2 class="font-heading text-xl font-bold text-text-primary">今日催办反馈</h2>
+        <span class="text-xs px-2 py-0.5 rounded-full bg-[#30D158]/10 text-[#30D158] border border-[#30D158]/30 font-heading">
+          {{ store.reminderFeedback.length }}
+        </span>
+      </div>
+      <div v-if="store.reminderFeedback.length === 0" class="text-text-secondary text-sm py-6 text-center">
+        今日暂无催办记录
+      </div>
+      <div v-else class="space-y-2 max-h-64 overflow-y-auto">
+        <div
+          v-for="rem in store.reminderFeedback"
+          :key="(rem as Record<string, unknown>).id as number"
+          class="flex gap-3 p-3 rounded cursor-pointer hover:bg-accent/5 transition-colors duration-200"
+          :class="(rem as Record<string, unknown>).responded ? 'bg-accent/5' : 'bg-[#30D158]/5 border border-[#30D158]/20'"
+          @click="$router.push(`/registrations/${(rem as Record<string, unknown>).registration_id}`)"
+        >
+          <div class="flex items-center justify-center w-6 h-6 rounded-full shrink-0 mt-0.5" :class="(rem as Record<string, unknown>).responded ? 'bg-accent/20' : 'bg-[#30D158]/20'">
+            <svg v-if="(rem as Record<string, unknown>).responded" class="w-3.5 h-3.5 text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" /></svg>
+            <svg v-else class="w-3.5 h-3.5 text-[#30D158]" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" /></svg>
+          </div>
+          <div class="min-w-0 flex-1">
+            <div class="flex items-center gap-2 mb-1 flex-wrap">
+              <span class="text-sm text-text-primary font-semibold truncate">
+                {{ (rem as Record<string, unknown>).event_name || (rem as Record<string, unknown>).registration_id }}
+              </span>
+              <span
+                class="text-xs font-semibold px-1.5 py-0.5 rounded"
+                :style="{ color: ROLE_COLORS[((rem as Record<string, unknown>).to_role as string) as Role] ?? '#8B949E', backgroundColor: (ROLE_COLORS[((rem as Record<string, unknown>).to_role as string) as Role] ?? '#8B949E') + '15' }"
+              >
+                → {{ (rem as Record<string, unknown>).to_role }}
+              </span>
+              <span v-if="(rem as Record<string, unknown>).responded" class="text-xs px-1.5 py-0.5 rounded bg-accent/10 text-accent border border-accent/30 font-heading font-semibold">
+                已响应
+              </span>
+              <span v-else class="text-xs px-1.5 py-0.5 rounded bg-[#30D158]/10 text-[#30D158] border border-[#30D158]/30 font-heading font-semibold">
+                未响应
+              </span>
+            </div>
+            <div class="flex items-center gap-2">
+              <span class="text-xs text-text-secondary">
+                {{ (rem as Record<string, unknown>).operator_role }} 催办 · {{ formatTime((rem as Record<string, unknown>).created_at as string) }}
+              </span>
+            </div>
+            <p v-if="(rem as Record<string, unknown>).note" class="text-xs text-text-secondary mt-1 truncate">{{ (rem as Record<string, unknown>).note }}</p>
+          </div>
+          <button
+            v-if="!(rem as Record<string, unknown>).responded"
+            class="flex items-center gap-1 px-2 py-1 rounded text-xs font-heading font-medium transition-all hover:scale-105 shrink-0"
+            style="color: #30D158; backgroundColor: rgba(48,209,88,0.1); border: 1px solid rgba(48,209,88,0.3)"
+            @click.stop="handleReRemind((rem as Record<string, unknown>).registration_id as string, (rem as Record<string, unknown>).to_role as string, (rem as Record<string, unknown>).event_name as string)"
+          >
+            再次催办
+          </button>
+        </div>
+      </div>
+    </div>
+
     <div class="card p-5">
       <h2 class="font-heading text-xl font-bold text-text-primary mb-4">角色责任压力榜</h2>
       <div class="grid grid-cols-3 gap-4">
@@ -295,6 +355,15 @@
               <span class="text-xs text-text-secondary">平均接手时长</span>
               <span class="font-heading text-sm font-bold text-text-primary">
                 {{ store.rolePressure[role]?.avg_handover_minutes != null ? store.rolePressure[role]!.avg_handover_minutes + '分' : '--' }}
+              </span>
+            </div>
+            <div class="flex justify-between items-center">
+              <span class="text-xs text-text-secondary">今日被催办</span>
+              <span
+                class="font-heading text-sm font-bold"
+                :class="(store.rolePressure[role]?.today_reminder_count ?? 0) >= 3 ? 'text-alert' : (store.rolePressure[role]?.today_reminder_count ?? 0) >= 1 ? 'text-[#30D158]' : 'text-text-primary'"
+              >
+                {{ store.rolePressure[role]?.today_reminder_count ?? 0 }}次
               </span>
             </div>
             <div v-if="store.rolePressure[role]?.longest_stall" class="pt-2 border-t" :style="{ borderColor: ROLE_COLORS[role] + '20' }">
@@ -459,7 +528,7 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useAppStore } from '@/stores/app'
-import { getUrgencyLevel, urgencySortWeight, ROLE_COLORS, STATUS_COLORS, NOTE_TYPE_COLORS } from '@/types'
+import { getUrgencyLevel, urgencySortWeight, ROLE_COLORS, STATUS_COLORS, NOTE_TYPE_COLORS, NOTE_TYPE_LABELS } from '@/types'
 import type { Registration, HandoverLog, Role } from '@/types'
 import StatusBadge from '@/components/StatusBadge.vue'
 import CountdownTimer from '@/components/CountdownTimer.vue'
@@ -478,6 +547,7 @@ onMounted(async () => {
     store.fetchAlertTimeline(),
     store.fetchRolePressure(),
     store.fetchOverdueTop(),
+    store.fetchReminderFeedback(),
   ])
   store.markRefreshed()
   store.loading = false
@@ -498,6 +568,7 @@ async function handleRefresh() {
     store.fetchAlertTimeline(),
     store.fetchRolePressure(),
     store.fetchOverdueTop(),
+    store.fetchReminderFeedback(),
   ])
   store.markRefreshed()
   store.loading = false
@@ -510,6 +581,16 @@ async function handleEscalate(regId: string, eventName: string) {
     await store.fetchOverdueTop()
     await store.fetchRolePressure()
     await store.fetchStats()
+  }
+}
+
+async function handleReRemind(regId: string, toRole: string, eventName: string) {
+  const result = await store.sendReminder(regId, toRole, `再次催办：${eventName}仍未处理`)
+  if (result.success) {
+    await store.fetchReminderFeedback()
+    await store.fetchRolePressure()
+  } else {
+    alert(result.error || '催办失败')
   }
 }
 

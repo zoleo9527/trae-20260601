@@ -53,6 +53,18 @@
           <div v-if="registration.current_owner_role === store.currentRole" class="flex items-center gap-2">
             <span class="font-heading text-lg font-bold text-accent pulse-slow">← 你</span>
           </div>
+          <div v-else class="flex items-center gap-2 ml-3">
+            <button
+              v-for="r in canRemindRoles"
+              :key="r"
+              class="flex items-center gap-1 px-2 py-1 rounded text-xs font-heading font-medium transition-all hover:scale-105"
+              :style="{ color: ROLE_COLORS[r], backgroundColor: ROLE_COLORS[r] + '15', border: `1px solid ${ROLE_COLORS[r]}30` }"
+              @click="openReminder(r)"
+            >
+              <Bell class="w-3 h-3" />
+              催办{{ r }}
+            </button>
+          </div>
         </div>
         <div class="text-right">
           <div class="text-xs text-text-secondary mb-1">责任计时</div>
@@ -583,6 +595,39 @@
         </div>
       </div>
     </div>
+
+    <div
+      v-if="showReminderDialog"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
+      @click.self="showReminderDialog = false"
+    >
+      <div class="card p-6 w-[420px] border-[#30D158]/30" style="box-shadow: 0 0 30px rgba(48,209,88,0.15)">
+        <h3 class="font-heading text-lg font-semibold mb-4 flex items-center gap-2" style="color: #30D158">
+          <Bell class="w-5 h-5" />
+          催办 {{ reminderToRole }}
+        </h3>
+        <p class="text-sm text-text-secondary mb-4">
+          向 <span class="font-semibold" :style="{ color: ROLE_COLORS[reminderToRole as Role] }">{{ reminderToRole }}</span> 发送催办提醒
+        </p>
+        <textarea
+          v-model="reminderNote"
+          class="input-dark min-h-[80px] resize-none"
+          placeholder="请输入催办理由（必填）"
+        />
+        <p class="text-xs text-text-secondary mt-2">同一报名对同一角色5分钟内不可重复催办</p>
+        <div class="flex gap-3 justify-end mt-4">
+          <button class="px-4 py-2 rounded text-text-secondary hover:text-text-primary transition-colors" @click="showReminderDialog = false">取消</button>
+          <button
+            class="px-4 py-2 rounded text-sm font-medium text-bg-primary transition-colors"
+            style="background-color: #30D158"
+            :disabled="reminderLoading || !reminderNote.trim()"
+            @click="submitReminder"
+          >
+            {{ reminderLoading ? '发送中...' : '发送催办' }}
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -591,10 +636,10 @@ import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
   ArrowLeft, FileText, AlertTriangle, Upload, Monitor, Clock,
-  Shield, ShieldCheck, RefreshCw, XCircle, Paperclip, Users, GitBranch,
+  Shield, ShieldCheck, RefreshCw, XCircle, Paperclip, Users, GitBranch, Bell,
 } from 'lucide-vue-next'
 import { useAppStore } from '@/stores/app'
-import type { Registration, HandoverLog, Seat } from '@/types'
+import type { Registration, HandoverLog, Seat, Role } from '@/types'
 import { ROLE_COLORS, STATUS_LABELS, STATUS_COLORS } from '@/types'
 import StatusBadge from '@/components/StatusBadge.vue'
 import CountdownTimer from '@/components/CountdownTimer.vue'
@@ -628,6 +673,43 @@ const showAddAttachment = ref(false)
 const newAttachmentCategory = ref('现场照片')
 const newAttachmentName = ref('')
 const newAttachmentDesc = ref('')
+
+const showReminderDialog = ref(false)
+const reminderToRole = ref('')
+const reminderNote = ref('')
+const reminderLoading = ref(false)
+
+const canRemindRoles = computed(() => {
+  if (!registration.value) return []
+  const ownerRole = registration.value.current_owner_role
+  const allRoles: Role[] = ['网管', '赛事运营', '店长']
+  return allRoles.filter(r => r !== ownerRole)
+})
+
+async function openReminder(role: string) {
+  reminderToRole.value = role
+  reminderNote.value = ''
+  showReminderDialog.value = true
+}
+
+async function submitReminder() {
+  if (!registration.value || !reminderToRole.value) return
+  if (!reminderNote.value.trim()) {
+    alert('请输入催办理由')
+    return
+  }
+  reminderLoading.value = true
+  const result = await store.sendReminder(registration.value.id, reminderToRole.value, reminderNote.value)
+  reminderLoading.value = false
+  if (result.success) {
+    showReminderDialog.value = false
+    reminderNote.value = ''
+    registration.value = await store.fetchRegistration(registration.value.id)
+    allocationTimeline.value = await store.fetchAllocationTimeline(registration.value.id)
+  } else {
+    alert(result.error || '催办失败')
+  }
+}
 
 onMounted(async () => {
   const id = route.params.id as string

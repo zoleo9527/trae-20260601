@@ -11,8 +11,9 @@ export const useAppStore = defineStore('app', () => {
   const stats = ref<DashboardStats>({ pending: 0, overdue: 0, conflicts: 0, my_pending: 0, escalated: 0 })
   const recentLogs = ref<HandoverLog[]>([])
   const alertTimeline = ref<HandoverLog[]>([])
-  const rolePressure = ref<Record<string, { pending_count: number; avg_handover_minutes: number | null; longest_stall: { registration_id: string; event_name: string; team_name: string; stall_minutes: number } | null }>>({})
+  const rolePressure = ref<Record<string, { pending_count: number; avg_handover_minutes: number | null; longest_stall: { registration_id: string; event_name: string; team_name: string; stall_minutes: number } | null; today_reminder_count: number }>>({})
   const overdueTop = ref<Registration[]>([])
+  const reminderFeedback = ref<Record<string, unknown>[]>([])
   const lastRefreshAt = ref<Date | null>(null)
   const refreshCooldown = ref(false)
   const loading = ref(false)
@@ -405,6 +406,40 @@ export const useAppStore = defineStore('app', () => {
     }
   }
 
+  async function sendReminder(registrationId: string, toRole: string, note: string) {
+    try {
+      const res = await fetch('/api/admin/send-reminder', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          registration_id: registrationId,
+          operator_role: currentRole.value,
+          operator_name: currentName.value,
+          to_role: toRole,
+          note,
+        }),
+      })
+      const data = await res.json()
+      if (data.success) {
+        return { success: true, data: data.data }
+      }
+      return { success: false, error: data.error, cooldown_remaining: data.cooldown_remaining }
+    } catch (e) {
+      console.error('Failed to send reminder:', e)
+    }
+    return { success: false, error: '网络错误' }
+  }
+
+  async function fetchReminderFeedback() {
+    try {
+      const res = await fetch('/api/admin/reminder-feedback')
+      const data = await res.json()
+      if (data.success) reminderFeedback.value = data.data
+    } catch (e) {
+      console.error('Failed to fetch reminder feedback:', e)
+    }
+  }
+
   function markRefreshed() {
     lastRefreshAt.value = new Date()
     refreshCooldown.value = true
@@ -422,6 +457,7 @@ export const useAppStore = defineStore('app', () => {
     alertTimeline,
     rolePressure,
     overdueTop,
+    reminderFeedback,
     lastRefreshAt,
     refreshCooldown,
     loading,
@@ -450,6 +486,8 @@ export const useAppStore = defineStore('app', () => {
     fetchAlertTimeline,
     fetchRolePressure,
     fetchOverdueTop,
+    sendReminder,
+    fetchReminderFeedback,
     markRefreshed,
   }
 })

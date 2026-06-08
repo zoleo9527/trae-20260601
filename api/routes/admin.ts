@@ -1,7 +1,84 @@
 import { Router, type Request, type Response } from 'express'
-import db, { seedData } from '../database.js'
+import db, { seedData, genId } from '../database.js'
 
 const router = Router()
+
+router.get('/reminder-feedback', (_req: Request, res: Response) => {
+  const todayStart = new Date()
+  todayStart.setHours(0, 0, 0, 0)
+  const reminders = db.prepare(`
+    SELECT hl.*, r.event_name, r.team_name, r.status as reg_status, r.current_owner_role, r.owner_since
+    FROM handover_logs hl
+    LEFT JOIN registrations r ON r.id = hl.registration_id
+    WHERE hl.note_type = 'reminder'
+      AND hl.created_at >= ?
+    ORDER BY hl.created_at DESC
+  `).all(todayStart.toISOString())
+
+  const nowMs = Date.now()
+  const enriched = reminders.map((rem: Record<string, unknown>) => {
+    let responded = false
+    if (rem.to_role && rem.reg_status && rem.owner_since) {
+      const ownerRole = rem.current_owner_role as string
+      const toRole = rem.to_role as string
+      if (ownerRole === toRole) {
+        const ownerSince = new Date(rem.owner_since as string).getTime()
+        const remTime = new Date(rem.created_at as string).getTime()
+        if (ownerSince >= remTime) {
+          responded = true
+        }
+      }
+      const logsAfter = db.prepare(
+        "SELECT * FROM handover_logs WHERE registration_id = ? AND created_at > ? AND operator_role = ? AND note_type != 'reminder'"
+      ).all(rem.registration_id, rem.created_at as string, toRole)
+      if (logsAfter.length > 0) responded = true
+    }
+    return { ...rem, responded }
+  })
+
+  res.json({ success: true, data: enriched })
+})
+
+router.post('/send-reminder', (req: Request, res: Response) => {
+  const { registration_id, operator_role, operator_name, to_role, note } = req.body
+  if (!registration_id || !operator_role || !operator_name || !to_role) {
+    res.json({ success: false, error: '缺少必填字段' })
+    return
+  }
+
+  const recent = db.prepare(
+    "SELECT created_at FROM handover_logs WHERE registration_id = ? AND note_type = 'reminder' AND to_role = ? ORDER BY created_at DESC LIMIT 1"
+  ).get(registration_id, to_role) as { created_at: string } | undefined
+
+  if (recent) {
+    const diffMs = Date.now() - new Date(recent.created_at).getTime()
+    if (diffMs < 5 * 60 * 1000) {
+      res.json({ success: false, error: '5分钟内不可重复催办同一角色', cooldown_remaining: Math.ceil((5 * 60 * 1000 - diffMs) / 1000) })
+      return
+    }
+  }
+
+  const id = genId('log')
+  const now = new Date().toISOString()
+  const insertLog = db.prepare(
+    "INSERT INTO handover_logs (id, registration_id, operator_role, operator_name, action, note_type, note, created_at, from_role, to_role) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+  )
+  const result = insertLog.run(
+    id,
+    registration_id,
+    operator_role,
+    operator_name,
+    `催办 ${to_role}`,
+    'reminder',
+    note || `${operator_role}催办${to_role}尽快处理`,
+    now,
+    operator_role,
+    to_role,
+  )
+
+  const log = db.prepare('SELECT * FROM handover_logs WHERE id = ?').get(id)
+  res.json({ success: true, data: log })
+})
 
 router.post('/reset', (req: Request, res: Response) => {
   const { confirmText } = req.body
@@ -25,7 +102,7 @@ router.get('/alert-timeline', (_req: Request, res: Response) => {
     SELECT hl.*, r.event_name, r.team_name, r.status as reg_status
     FROM handover_logs hl
     LEFT JOIN registrations r ON r.id = hl.registration_id
-    WHERE hl.note_type IN ('dispute', 'urgent', 'arbitration')
+    WHERE hl.note_type IN ('dispute', 'urgent', 'arbitration', 'reminder')
     ORDER BY hl.created_at DESC
     LIMIT 20
   `).all()
@@ -34,8 +111,10 @@ router.get('/alert-timeline', (_req: Request, res: Response) => {
 
 router.get('/role-pressure', (_req: Request, res: Response) => {
   const nowISO = new Date().toISOString()
+  const todayStart = new Date()
+  todayStart.setHours(0, 0, 0, 0)
   const roles = ['网管', '赛事运营', '店长'] as const
-  const result: Record<string, { pending_count: number; avg_handover_minutes: number | null; longest_stall: { registration_id: string; event_name: string; team_name: string; stall_minutes: number } | null }> = {}
+  const result: Record<string, { pending_count: number; avg_handover_minutes: number | null; longest_stall: { registration_id: string; event_name: string; team_name: string; stall_minutes: number } | null; today_reminder_count: number }> = {}
 
   for (const role of roles) {
     const pending = db.prepare(
@@ -63,10 +142,15 @@ router.get('/role-pressure', (_req: Request, res: Response) => {
       }
     }
 
+    const reminderCount = (db.prepare(
+      "SELECT COUNT(*) as cnt FROM handover_logs WHERE note_type = 'reminder' AND to_role = ? AND created_at >= ?"
+    ).get(role, todayStart.toISOString()) as { cnt: number }).cnt
+
     result[role] = {
       pending_count: pending.length,
       avg_handover_minutes: countWithOwnerSince > 0 ? Math.round(totalMinutes / countWithOwnerSince) : null,
       longest_stall: longestStall,
+      today_reminder_count: reminderCount,
     }
   }
 

@@ -48,7 +48,7 @@ export interface HandoverLog {
   operator_role: string
   operator_name: string
   action: string
-  note_type: 'normal' | 'urgent' | 'dispute' | 'supplement' | 'arbitration'
+  note_type: 'normal' | 'urgent' | 'dispute' | 'supplement' | 'arbitration' | 'reminder'
   note: string
   created_at: string
   from_role: string | null
@@ -108,6 +108,7 @@ export const NOTE_TYPE_LABELS: Record<HandoverLog['note_type'], string> = {
   dispute: '争议',
   supplement: '补充',
   arbitration: '仲裁',
+  reminder: '催办',
 }
 
 export const NOTE_TYPE_COLORS: Record<HandoverLog['note_type'], string> = {
@@ -116,6 +117,7 @@ export const NOTE_TYPE_COLORS: Record<HandoverLog['note_type'], string> = {
   dispute: '#FF9500',
   supplement: '#5AC8FA',
   arbitration: '#BF5AF2',
+  reminder: '#30D158',
 }
 
 export const ROLE_LABELS: Record<Role, string> = {
