@@ -17,6 +17,7 @@ export default function DashboardPage() {
   const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc')
   const [categoryFilter, setCategoryFilter] = useState<string>('all')
   const [myItemsOnly, setMyItemsOnly] = useState(false)
+  const [timeRange, setTimeRange] = useState<string>('all')
 
   useEffect(() => {
     loadData()
@@ -63,10 +64,20 @@ export default function DashboardPage() {
 
   const kw = keyword.trim().toLowerCase()
 
+  const isInTimeRange = (item: LostItem) => {
+    if (timeRange === 'all') return true
+    const diff = dayjs().diff(dayjs(item.found_at), 'day')
+    if (timeRange === 'today') return diff < 1
+    if (timeRange === '7d') return diff < 7
+    if (timeRange === '30d') return diff < 30
+    return true
+  }
+
   const filteredItems = items.filter(i => {
     if (filter !== 'all' && i.status !== filter) return false
     if (categoryFilter !== 'all' && i.category !== categoryFilter) return false
     if (myItemsOnly && staff?.name && i.found_by !== staff.name) return false
+    if (!isInTimeRange(i)) return false
     if (!kw) return true
     return (
       i.room_number.toLowerCase().includes(kw) ||
@@ -111,7 +122,17 @@ export default function DashboardPage() {
     claimed: filteredItems.filter(i => i.status === 'claimed').length,
     returned: filteredItems.filter(i => i.status === 'returned').length,
     disputed: filteredItems.filter(i => i.status === 'disputed').length,
+    valuable: filteredItems.filter(i => i.category === '贵重物品').length,
+    dangerous: filteredItems.filter(i => i.category === '危险品').length,
+    normal: filteredItems.filter(i => i.category === '普通物品').length,
   }
+
+  const timeRangeOptions: { key: string; label: string }[] = [
+    { key: 'all', label: '全部' },
+    { key: 'today', label: '今天' },
+    { key: '7d', label: '近 7 天' },
+    { key: '30d', label: '近 30 天' },
+  ]
 
   return (
     <div>
@@ -210,6 +231,20 @@ export default function DashboardPage() {
             仅看我经手
           </label>
         </div>
+        <div style={styles.filterRow}>
+          <div style={styles.filterBar}>
+            <span style={styles.filterLabel}>时间</span>
+            {timeRangeOptions.map(t => (
+              <button
+                key={t.key}
+                onClick={() => setTimeRange(t.key)}
+                style={timeRange === t.key ? styles.filterBtnActive : styles.filterBtn}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
 
       {loading ? (
@@ -290,7 +325,7 @@ export default function DashboardPage() {
             <tfoot>
               <tr>
                 <td colSpan={8} style={styles.summaryCell}>
-                  共 {summaryCounts.total} 条 · 待处理 {summaryCounts.registered} · 已认领 {summaryCounts.claimed} · 已退回 {summaryCounts.returned} · 争议 {summaryCounts.disputed}{myItemsOnly && ' · 仅看我经手'}{categoryFilter !== 'all' && ` · ${categoryFilter}`}
+                  共 {summaryCounts.total} 条 · 待处理 {summaryCounts.registered} · 已认领 {summaryCounts.claimed} · 已退回 {summaryCounts.returned} · 争议 {summaryCounts.disputed}{' · '}贵重 {summaryCounts.valuable} · 危险 {summaryCounts.dangerous} · 普通 {summaryCounts.normal}{myItemsOnly && ' · 仅看我经手'}{categoryFilter !== 'all' && ` · ${categoryFilter}`}{timeRange !== 'all' && ` · ${timeRangeOptions.find(t => t.key === timeRange)?.label}`}
                 </td>
               </tr>
             </tfoot>
