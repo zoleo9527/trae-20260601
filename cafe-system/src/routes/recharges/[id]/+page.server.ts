@@ -33,7 +33,23 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 		WHERE tg.recharge_id = ?
 	`).get(params.id) as any;
 
-	return { recharge, logs, linkedGift, user: locals.user };
+	const memberRecentRecords = db.prepare(`
+		SELECT * FROM (
+			SELECT r.id, 'recharge' as type, r.amount as value_num, '' as value_unit,
+				r.status, r.created_at, r.bonus_minutes
+			FROM recharges r
+			WHERE r.member_id = ? AND date(r.created_at) >= date('now', 'localtime', '-30 days')
+			UNION ALL
+			SELECT tg.id, 'time_gift' as type, tg.minutes as value_num, '分钟' as value_unit,
+				tg.status, tg.created_at, 0 as bonus_minutes
+			FROM time_gifts tg
+			WHERE tg.member_id = ? AND date(tg.created_at) >= date('now', 'localtime', '-30 days')
+		)
+		ORDER BY created_at DESC
+		LIMIT 10
+	`).all(recharge.member_id, recharge.member_id);
+
+	return { recharge, logs, linkedGift, memberRecentRecords, user: locals.user };
 };
 
 export const actions: Actions = {

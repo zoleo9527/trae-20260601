@@ -222,5 +222,65 @@
 				</div>
 			</div>
 		</div>
+
+		{#if data.memberRecentRecords && data.memberRecentRecords.length > 0}
+			<div class="card member-recent-section" style="margin-top:20px;">
+				<div class="card-header">该会员近 30 天单据</div>
+				<div class="card-body" style="padding:0;">
+					<table>
+						<thead>
+							<tr>
+								<th>类型</th>
+								<th>金额/时长</th>
+								<th>状态</th>
+								<th>提交时间</th>
+								<th></th>
+							</tr>
+						</thead>
+						<tbody>
+							{#each data.memberRecentRecords as rec}
+								<tr>
+									<td>
+										{#if (rec as any).type === 'recharge'}
+											<span class="record-type record-type-recharge">充值</span>
+										{:else}
+											<span class="record-type record-type-gift">赠送</span>
+										{/if}
+									</td>
+									<td style="font-weight:500;">
+										{#if (rec as any).type === 'recharge'}
+											¥{((rec as any).value_num as number).toFixed(2)}
+											{#if (rec as any).bonus_minutes > 0}
+												<span style="color:var(--c-success);font-size:11px;margin-left:4px;">+{(rec as any).bonus_minutes}分钟</span>
+											{/if}
+										{:else}
+											{(rec as any).value_num}{(rec as any).value_unit}
+										{/if}
+									</td>
+									<td><span class="status-badge status-{(rec as any).status}">{statusLabels[(rec as any).status] || (rec as any).status}</span></td>
+									<td style="font-size:12px;color:var(--c-text-2);">{formatTime((rec as any).created_at)}</td>
+									<td>
+										{#if (rec as any).type === 'recharge'}
+											<a href="/recharges/{(rec as any).id}" class="btn btn-sm">详情</a>
+										{:else}
+											<a href="/time-gifts/{(rec as any).id}" class="btn btn-sm">详情</a>
+										{/if}
+									</td>
+								</tr>
+							{/each}
+						</tbody>
+					</table>
+				</div>
+			</div>
+		{:else}
+			<div class="card member-recent-section" style="margin-top:20px;">
+				<div class="card-header">该会员近 30 天单据</div>
+				<div class="card-body">
+					<div class="empty-state-sm">
+						<p>该会员近 30 天暂无其他充值或赠送记录</p>
+					</div>
+				</div>
+			</div>
+		{/if}
 	</div>
 </div>

@@ -214,7 +214,7 @@ function seedData(db: Database.Database) {
 		};
 		const d = (offset: number) => {
 			const dt = new Date(now.getTime() + offset * 86400000);
-			return dt.toISOString().replace('T', ' ').replace('Z', '').substring(0, 19);
+			return dt.toISOString().substring(0, 10);
 		};
 
 		insertRecharge.run(1, 100, 60, 'wechat', 'approved', 1, 3, null, d(-5) + ' 10:00:00', d(-5) + ' 10:15:00');
