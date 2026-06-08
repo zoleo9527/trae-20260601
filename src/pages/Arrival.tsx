@@ -16,7 +16,7 @@ const statusColors: Record<CargoStatus, string> = {
 const emptyForm = { trainNo: "", ticketNo: "", goodsName: "", weight: "", consignee: "", consigneePhone: "", arrivalTime: "" }
 
 export default function Arrival() {
-  const { cargos, addCargo, sendNotify, makeAppointment, getNotifiesForCargo, getNotifyCount } = useCargoStore()
+  const { cargos, addCargo, sendNotify, makeAppointment, getNotifiesForCargo, getNotifyCount, getAppointmentForCargo } = useCargoStore()
   const [searchParams, setSearchParams] = useSearchParams()
   const [form, setForm] = useState(emptyForm)
   const [toast, setToast] = useState("")
@@ -190,6 +190,25 @@ export default function Arrival() {
                 </button>
               </div>
             </div>
+
+            {selected.status === "已预约" && (() => {
+              const appt = getAppointmentForCargo(selected.id)
+              return appt ? (
+                <div className="mb-6 border border-cyan-500/30 rounded-lg overflow-hidden">
+                  <div className="px-4 py-3 bg-cyan-500/10 flex items-center gap-2">
+                    <CalendarPlus className="w-4 h-4 text-cyan-400" />
+                    <span className="text-sm font-semibold text-cyan-400">预约信息</span>
+                    <span className="text-[10px] bg-cyan-500/20 text-cyan-300 px-1.5 py-0.5 rounded ml-auto">已预约</span>
+                  </div>
+                  <div className="p-4 bg-slate-800/50 space-y-2">
+                    <div className="flex justify-between text-sm"><span className="text-slate-500">预约人</span><span className="text-white">{appt.pickerName}</span></div>
+                    <div className="flex justify-between text-sm"><span className="text-slate-500">身份证号</span><span className="text-white font-mono">{appt.pickerIdCard}</span></div>
+                    <div className="flex justify-between text-sm"><span className="text-slate-500">与收货人关系</span><span className="text-white">{appt.relation}</span></div>
+                    <div className="flex justify-between text-sm"><span className="text-slate-500">预约时间</span><span className="text-white">{appt.appointmentTime}</span></div>
+                  </div>
+                </div>
+              ) : null
+            })()}
 
             {(selected.status === "已通知" || selected.status === "超期未提") && (
               <div className="mb-6 border border-slate-700 rounded-lg overflow-hidden">

@@ -1,13 +1,23 @@
-import { useState } from "react"
-import { ShieldCheck, AlertTriangle, CheckCircle2, X, Clock, User, FileCheck, Unlock } from "lucide-react"
+import { useState, useMemo } from "react"
+import { ShieldCheck, AlertTriangle, CheckCircle2, X, Clock, User, FileCheck, Unlock, Timer } from "lucide-react"
 import { useCargoStore } from "@/store/useCargoStore"
-import type { Cargo, VerifyItemName } from "@/types"
+import type { Cargo, CargoStatus, VerifyItemName } from "@/types"
+
+const PICKUP_STATUSES: CargoStatus[] = ["已预约", "提货中", "超期未提", "已完成"]
 
 const STATUS_COLORS: Record<string, string> = {
   已预约: "bg-cyan-500/20 text-cyan-400 border border-cyan-500/30",
   提货中: "bg-violet-500/20 text-violet-400 border border-violet-500/30",
   超期未提: "bg-amber-500/20 text-amber-400 border border-amber-500/30",
   已完成: "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30",
+}
+
+const TAB_COLORS: Record<string, string> = {
+  全部: "text-slate-300",
+  已预约: "text-cyan-400",
+  提货中: "text-violet-400",
+  超期未提: "text-amber-400",
+  已完成: "text-emerald-400",
 }
 
 const VERIFY_ITEMS: VerifyItemName[] = ["身份证", "提货单", "委托书", "单位证明"]
@@ -188,15 +198,50 @@ export default function Pickup() {
   const [selected, setSelected] = useState<Cargo | null>(null)
   const [panelOpen, setPanelOpen] = useState(false)
   const [signoffCargoId, setSignoffCargoId] = useState<string | null>(null)
+  const [filter, setFilter] = useState<CargoStatus | "全部">("全部")
 
-  const filtered = cargos.filter((c) => c.status === "已预约" || c.status === "提货中" || c.status === "超期未提" || c.status === "已完成")
+  const filtered = useMemo(() => {
+    const base = cargos.filter((c) => PICKUP_STATUSES.includes(c.status))
+    const byStatus = filter === "全部" ? base : base.filter((c) => c.status === filter)
+    return [...byStatus].sort((a, b) => {
+      const apptA = getAppointmentForCargo(a.id)
+      const apptB = getAppointmentForCargo(b.id)
+      const timeA = apptA?.appointmentTime ?? a.arrivalTime
+      const timeB = apptB?.appointmentTime ?? b.arrivalTime
+      return timeA.localeCompare(timeB)
+    })
+  }, [cargos, filter, getAppointmentForCargo])
 
   const openVerify = (cargo: Cargo) => { setSelected(cargo); setPanelOpen(true) }
   const openSignoff = (cargoId: string) => setSignoffCargoId(cargoId)
 
+  const getApptTiming = (cargo: Cargo) => {
+    if (cargo.status !== "已预约") return null
+    const appt = getAppointmentForCargo(cargo.id)
+    if (!appt) return null
+    const apptDate = new Date(appt.appointmentTime.replace(/(\d{4})-(\d{2})-(\d{2})/, "$1/$2/$3"))
+    const now = new Date()
+    const diffMs = apptDate.getTime() - now.getTime()
+    if (diffMs < 0) return "overdue" as const
+    if (diffMs < 3600000) return "soon" as const
+    return null
+  }
+
+  const tabs: (CargoStatus | "全部")[] = ["全部", ...PICKUP_STATUSES]
+
   return (
     <div className="min-h-screen bg-slate-950 p-6">
       <h1 className="text-xl font-bold text-slate-100 mb-5 flex items-center gap-2"><ShieldCheck className="w-6 h-6 text-emerald-500" /> 提货验证</h1>
+      <div className="flex gap-2 mb-4">
+        {tabs.map((t) => {
+          const count = t === "全部" ? cargos.filter((c) => PICKUP_STATUSES.includes(c.status)).length : cargos.filter((c) => c.status === t).length
+          return (
+            <button key={t} onClick={() => setFilter(t)} className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-1.5 ${filter === t ? "bg-slate-800 ring-1 ring-amber-500" : "bg-slate-900 hover:bg-slate-800"} ${TAB_COLORS[t]}`}>
+              {t !== "全部" && <span className="w-1.5 h-1.5 rounded-full bg-current" />}{t} <span className="text-xs opacity-60">{count}</span>
+            </button>
+          )
+        })}
+      </div>
       <div className="bg-slate-900 rounded-xl border border-slate-800 overflow-hidden">
         <table className="w-full text-sm">
           <thead>
@@ -213,12 +258,19 @@ export default function Pickup() {
           <tbody>
             {filtered.map((c) => {
               const appt = getAppointmentForCargo(c.id)
+              const timing = getApptTiming(c)
               return (
                 <tr key={c.id} className="border-b border-slate-800/60 hover:bg-slate-800/30 transition-colors">
                   <td className="px-4 py-3 font-mono text-slate-200">{c.ticketNo}</td>
                   <td className="px-4 py-3 text-slate-300">{c.goodsName}</td>
                   <td className="px-4 py-3 text-slate-300">{c.consignee}</td>
-                  <td className="px-4 py-3"><StatusBadge status={c.status} /></td>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-1.5">
+                      <StatusBadge status={c.status} />
+                      {timing === "overdue" && <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-red-500/20 text-red-400 border border-red-500/40 flex items-center gap-0.5"><Timer className="w-3 h-3" />已到期</span>}
+                      {timing === "soon" && <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-orange-500/20 text-orange-400 border border-orange-500/40 flex items-center gap-0.5"><Timer className="w-3 h-3" />即将到期</span>}
+                    </div>
+                  </td>
                   <td className="px-4 py-3 text-slate-300">{getNotifyCount(c.id)}</td>
                   <td className="px-4 py-3 text-slate-300">{appt?.pickerName ?? "—"}</td>
                   <td className="px-4 py-3">
