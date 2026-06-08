@@ -1,5 +1,33 @@
 <template>
   <div class="space-y-6">
+    <div class="card p-4">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <div class="w-2 h-2 rounded-full" :class="store.refreshCooldown ? 'bg-text-secondary' : 'bg-accent pulse-fast'" />
+          <span class="text-xs text-text-secondary">
+            数据时效：
+            <span v-if="store.lastRefreshAt" class="text-text-primary font-heading">
+              {{ formatRefreshTime(store.lastRefreshAt) }}
+            </span>
+            <span v-else class="text-text-secondary">加载中…</span>
+          </span>
+          <span
+            v-if="store.refreshCooldown"
+            class="text-xs px-2 py-0.5 rounded-full bg-text-secondary/10 text-text-secondary border border-text-secondary/20 font-heading"
+          >
+            冷却中 · 30s
+          </span>
+        </div>
+        <button
+          class="btn-primary !text-xs !py-1 !px-3"
+          :disabled="store.refreshCooldown"
+          @click="handleRefresh"
+        >
+          刷新数据
+        </button>
+      </div>
+    </div>
+
     <div class="card p-5">
       <div class="flex items-center gap-3 mb-4">
         <div class="w-2 h-2 rounded-full bg-accent pulse-fast" />
@@ -139,6 +167,156 @@
           <p class="text-text-secondary text-xs mt-2">需要店长介入</p>
         </div>
       </router-link>
+    </div>
+
+    <div class="grid grid-cols-3 gap-6">
+      <div class="card p-5 col-span-2">
+        <div class="flex items-center gap-2 mb-4">
+          <div class="w-2 h-2 rounded-full bg-alert" />
+          <h2 class="font-heading text-xl font-bold text-text-primary">今日告警时间线</h2>
+          <span class="text-xs px-2 py-0.5 rounded-full bg-alert/10 text-alert border border-alert/30 font-heading">
+            {{ store.alertTimeline.length }}
+          </span>
+        </div>
+        <div v-if="store.alertTimeline.length === 0" class="text-text-secondary text-sm py-8 text-center">
+          今日暂无告警
+        </div>
+        <div v-else class="space-y-2 max-h-80 overflow-y-auto">
+          <div
+            v-for="log in store.alertTimeline"
+            :key="log.id"
+            class="flex gap-3 p-3 rounded bg-bg-primary/50 cursor-pointer hover:bg-accent/5 transition-colors duration-200"
+            @click="$router.push(`/registrations/${log.registration_id}`)"
+          >
+            <div
+              class="w-1.5 rounded-full shrink-0 self-stretch"
+              :style="{ backgroundColor: NOTE_TYPE_COLORS[log.note_type] ?? '#8B949E' }"
+            />
+            <div class="min-w-0 flex-1">
+              <div class="flex items-center gap-2 mb-1 flex-wrap">
+                <span class="text-sm text-text-primary font-semibold truncate">
+                  {{ (log as Record<string, unknown>).event_name || log.registration_id }}
+                </span>
+                <NoteTypeTag :type="log.note_type" />
+              </div>
+              <div class="flex items-center gap-2">
+                <span
+                  class="text-xs font-semibold"
+                  :style="{ color: ROLE_COLORS[log.operator_role as Role] ?? '#8B949E' }"
+                >
+                  {{ log.operator_role }}/{{ log.operator_name }}
+                </span>
+                <span class="text-xs text-text-secondary">{{ formatTime(log.created_at) }}</span>
+              </div>
+              <p v-if="log.note" class="text-xs text-text-secondary mt-1 truncate">{{ log.note }}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card p-5">
+        <div class="flex items-center gap-2 mb-4">
+          <div class="w-2 h-2 rounded-full bg-[#FF9500]" />
+          <h2 class="font-heading text-xl font-bold text-text-primary">逾期红榜 Top5</h2>
+        </div>
+        <div v-if="store.overdueTop.length === 0" class="text-text-secondary text-sm py-8 text-center">
+          暂无逾期报名
+        </div>
+        <div v-else class="space-y-2 max-h-80 overflow-y-auto">
+          <div
+            v-for="(reg, idx) in store.overdueTop"
+            :key="reg.id"
+            class="flex items-center gap-3 p-3 rounded bg-bg-primary/50 cursor-pointer hover:bg-accent/5 transition-colors duration-200 group"
+            @click="$router.push(`/registrations/${reg.id}`)"
+          >
+            <span
+              class="font-heading text-lg font-bold w-6 text-center shrink-0"
+              :class="idx < 3 ? 'text-alert' : 'text-[#FF9500]'"
+            >
+              {{ idx + 1 }}
+            </span>
+            <div class="min-w-0 flex-1">
+              <p class="text-sm text-text-primary group-hover:text-accent transition-colors truncate">
+                {{ reg.event_name }}
+              </p>
+              <div class="flex items-center gap-2 mt-0.5">
+                <span class="text-xs text-text-secondary">{{ reg.team_name }}</span>
+                <span class="text-xs text-alert font-heading font-semibold">
+                  超{{ Math.round(((reg as Record<string, unknown>).overdue_minutes as number || 0) - reg.sla_minutes) }}分
+                </span>
+              </div>
+            </div>
+            <button
+              v-if="reg.current_owner_role !== '店长'"
+              class="btn-primary !text-[10px] !py-1 !px-2 shrink-0"
+              @click.stop="handleEscalate(reg.id, reg.event_name)"
+            >
+              升级店长
+            </button>
+            <StatusBadge v-else :status="reg.status" />
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card p-5">
+      <h2 class="font-heading text-xl font-bold text-text-primary mb-4">角色责任压力榜</h2>
+      <div class="grid grid-cols-3 gap-4">
+        <div
+          v-for="role in pressureRoles"
+          :key="role"
+          class="rounded-lg border p-4 cursor-pointer transition-all duration-200 hover:scale-[1.02]"
+          :style="{
+            borderColor: ROLE_COLORS[role] + '40',
+            backgroundColor: ROLE_COLORS[role] + '08',
+          }"
+          @click="$router.push(`/registrations?role=${encodeURIComponent(role)}`)"
+        >
+          <div class="flex items-center gap-2 mb-3">
+            <div
+              class="w-3 h-3 rounded-full"
+              :style="{ backgroundColor: ROLE_COLORS[role] }"
+            />
+            <span
+              class="font-heading text-base font-semibold"
+              :style="{ color: ROLE_COLORS[role] }"
+            >
+              {{ role }}
+            </span>
+          </div>
+          <div class="space-y-2">
+            <div class="flex justify-between items-center">
+              <span class="text-xs text-text-secondary">待接手</span>
+              <span class="font-heading text-xl font-bold text-text-primary">
+                {{ store.rolePressure[role]?.pending_count ?? 0 }}
+              </span>
+            </div>
+            <div class="flex justify-between items-center">
+              <span class="text-xs text-text-secondary">平均接手时长</span>
+              <span class="font-heading text-sm font-bold text-text-primary">
+                {{ store.rolePressure[role]?.avg_handover_minutes != null ? store.rolePressure[role]!.avg_handover_minutes + '分' : '--' }}
+              </span>
+            </div>
+            <div v-if="store.rolePressure[role]?.longest_stall" class="pt-2 border-t" :style="{ borderColor: ROLE_COLORS[role] + '20' }">
+              <div class="flex items-center gap-1 mb-1">
+                <span class="text-xs text-text-secondary">最长滞留</span>
+                <span class="text-xs text-alert font-heading font-semibold">
+                  {{ store.rolePressure[role]!.longest_stall!.stall_minutes }}分
+                </span>
+              </div>
+              <p class="text-xs text-text-primary truncate">
+                {{ store.rolePressure[role]!.longest_stall!.event_name }}
+              </p>
+              <p class="text-[10px] text-text-secondary">
+                {{ store.rolePressure[role]!.longest_stall!.team_name }}
+              </p>
+            </div>
+            <div v-else class="pt-2 border-t" :style="{ borderColor: ROLE_COLORS[role] + '20' }">
+              <span class="text-xs text-text-secondary">无滞留任务</span>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
 
     <div class="card p-5">
@@ -281,7 +459,7 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useAppStore } from '@/stores/app'
-import { getUrgencyLevel, urgencySortWeight, ROLE_COLORS, STATUS_COLORS } from '@/types'
+import { getUrgencyLevel, urgencySortWeight, ROLE_COLORS, STATUS_COLORS, NOTE_TYPE_COLORS } from '@/types'
 import type { Registration, HandoverLog, Role } from '@/types'
 import StatusBadge from '@/components/StatusBadge.vue'
 import CountdownTimer from '@/components/CountdownTimer.vue'
@@ -297,7 +475,11 @@ onMounted(async () => {
     store.fetchRegistrations(),
     store.fetchStats(),
     store.fetchRecentLogs(),
+    store.fetchAlertTimeline(),
+    store.fetchRolePressure(),
+    store.fetchOverdueTop(),
   ])
+  store.markRefreshed()
   store.loading = false
   timer = setInterval(() => { now.value = new Date() }, 1000)
 })
@@ -305,6 +487,31 @@ onMounted(async () => {
 onUnmounted(() => {
   clearInterval(timer)
 })
+
+async function handleRefresh() {
+  if (store.refreshCooldown) return
+  store.loading = true
+  await Promise.all([
+    store.fetchRegistrations(),
+    store.fetchStats(),
+    store.fetchRecentLogs(),
+    store.fetchAlertTimeline(),
+    store.fetchRolePressure(),
+    store.fetchOverdueTop(),
+  ])
+  store.markRefreshed()
+  store.loading = false
+}
+
+async function handleEscalate(regId: string, eventName: string) {
+  const reason = `${eventName} 逾期超时，需店长介入`
+  const ok = await store.escalateRegistration(regId, reason)
+  if (ok) {
+    await store.fetchOverdueTop()
+    await store.fetchRolePressure()
+    await store.fetchStats()
+  }
+}
 
 const myTodos = computed(() => {
   return store.registrations
@@ -332,6 +539,7 @@ const urgentItems = computed(() => {
 })
 
 const pipelineRoles: Role[] = ['赛事运营', '网管', '店长']
+const pressureRoles: Role[] = ['网管', '赛事运营', '店长']
 
 const pipelineByRole = computed(() => {
   const result: Record<string, { count: number; overdue: number; items: Registration[] }> = {}
@@ -418,5 +626,10 @@ const pressureTextClass = computed(() => {
 function formatTime(dateStr: string) {
   const d = new Date(dateStr)
   return `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`
+}
+
+function formatRefreshTime(date: Date) {
+  const d = new Date(date)
+  return `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}:${d.getSeconds().toString().padStart(2, '0')}`
 }
 </script>

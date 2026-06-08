@@ -10,6 +10,11 @@ export const useAppStore = defineStore('app', () => {
   const allocations = ref<SeatAllocation[]>([])
   const stats = ref<DashboardStats>({ pending: 0, overdue: 0, conflicts: 0, my_pending: 0, escalated: 0 })
   const recentLogs = ref<HandoverLog[]>([])
+  const alertTimeline = ref<HandoverLog[]>([])
+  const rolePressure = ref<Record<string, { pending_count: number; avg_handover_minutes: number | null; longest_stall: { registration_id: string; event_name: string; team_name: string; stall_minutes: number } | null }>>({})
+  const overdueTop = ref<Registration[]>([])
+  const lastRefreshAt = ref<Date | null>(null)
+  const refreshCooldown = ref(false)
   const loading = ref(false)
 
   function setRole(role: Role) {
@@ -370,6 +375,42 @@ export const useAppStore = defineStore('app', () => {
     return null
   }
 
+  async function fetchAlertTimeline() {
+    try {
+      const res = await fetch('/api/admin/alert-timeline')
+      const data = await res.json()
+      if (data.success) alertTimeline.value = data.data
+    } catch (e) {
+      console.error('Failed to fetch alert timeline:', e)
+    }
+  }
+
+  async function fetchRolePressure() {
+    try {
+      const res = await fetch('/api/admin/role-pressure')
+      const data = await res.json()
+      if (data.success) rolePressure.value = data.data
+    } catch (e) {
+      console.error('Failed to fetch role pressure:', e)
+    }
+  }
+
+  async function fetchOverdueTop() {
+    try {
+      const res = await fetch('/api/admin/overdue-top')
+      const data = await res.json()
+      if (data.success) overdueTop.value = data.data
+    } catch (e) {
+      console.error('Failed to fetch overdue top:', e)
+    }
+  }
+
+  function markRefreshed() {
+    lastRefreshAt.value = new Date()
+    refreshCooldown.value = true
+    setTimeout(() => { refreshCooldown.value = false }, 30000)
+  }
+
   return {
     currentRole,
     currentName,
@@ -378,6 +419,11 @@ export const useAppStore = defineStore('app', () => {
     allocations,
     stats,
     recentLogs,
+    alertTimeline,
+    rolePressure,
+    overdueTop,
+    lastRefreshAt,
+    refreshCooldown,
     loading,
     setRole,
     setName,
@@ -401,5 +447,9 @@ export const useAppStore = defineStore('app', () => {
     arbitrateRegistration,
     createAttachment,
     updateRegistrationAttachment,
+    fetchAlertTimeline,
+    fetchRolePressure,
+    fetchOverdueTop,
+    markRefreshed,
   }
 })
