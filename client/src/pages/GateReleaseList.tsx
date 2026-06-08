@@ -1,9 +1,9 @@
 import { useEffect, useState, useMemo, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import { api } from '@/lib/api'
-import type { GateRelease, GateReleaseListParams } from '@/lib/api'
+import type { GateRelease, GateReleaseListParams, Container, GateReleaseCreate } from '@/lib/api'
 import StatusBadge from '@/components/StatusBadge'
-import { Clock, CheckCircle, AlertTriangle, Activity, Search, RotateCcw, AlertCircle } from 'lucide-react'
+import { Clock, CheckCircle, AlertTriangle, Activity, Search, RotateCcw, AlertCircle, Plus, X } from 'lucide-react'
 
 export default function GateReleaseList() {
   const [releases, setReleases] = useState<GateRelease[]>([])
@@ -13,6 +13,55 @@ export default function GateReleaseList() {
   const [containerNoSearch, setContainerNoSearch] = useState('')
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
+
+  const [showCreateModal, setShowCreateModal] = useState(false)
+  const [createLoading, setCreateLoading] = useState(false)
+  const [containerSearch, setContainerSearch] = useState('')
+  const [containerResults, setContainerResults] = useState<Container[]>([])
+  const [selectedContainerId, setSelectedContainerId] = useState<number | null>(null)
+  const [createForm, setCreateForm] = useState({
+    release_type: '进港',
+    truck_company: '',
+    truck_plate: '',
+    driver_name: '',
+    driver_phone: '',
+    notes: '',
+    operator: '',
+  })
+
+  const searchContainers = useCallback(async (q: string) => {
+    if (!q) { setContainerResults([]); return }
+    try {
+      const data = await api.containers.list({ container_no: q })
+      setContainerResults(data)
+    } catch { setContainerResults([]) }
+  }, [])
+
+  const handleCreate = async () => {
+    if (!selectedContainerId || createLoading) return
+    setCreateLoading(true)
+    try {
+      const data: GateReleaseCreate = {
+        container_id: selectedContainerId,
+        release_type: createForm.release_type,
+        truck_company: createForm.truck_company || undefined,
+        truck_plate: createForm.truck_plate || undefined,
+        driver_name: createForm.driver_name || undefined,
+        driver_phone: createForm.driver_phone || undefined,
+        notes: createForm.notes || undefined,
+        operator: createForm.operator || undefined,
+      }
+      await api.gateReleases.create(data)
+      setShowCreateModal(false)
+      setSelectedContainerId(null)
+      setContainerSearch('')
+      setContainerResults([])
+      setCreateForm({ release_type: '进港', truck_company: '', truck_plate: '', driver_name: '', driver_phone: '', notes: '', operator: '' })
+      fetchReleases()
+    } finally {
+      setCreateLoading(false)
+    }
+  }
 
   const fetchReleases = useCallback((params?: GateReleaseListParams) => {
     setLoading(true)
@@ -64,6 +113,16 @@ export default function GateReleaseList() {
 
   return (
     <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <h2 className="text-xl font-bold text-gray-900">闸口放行</h2>
+        <button
+          onClick={() => setShowCreateModal(true)}
+          className="flex items-center gap-1.5 px-4 py-2 bg-primary-600 text-white rounded-lg text-sm font-medium hover:bg-primary-700"
+        >
+          <Plus size={16} /> 新建放行
+        </button>
+      </div>
+
       {exceptions.length > 0 && (
         <div className="bg-red-50 border border-red-200 rounded-lg p-4">
           <div className="flex items-center gap-2 mb-3">
@@ -249,6 +308,141 @@ export default function GateReleaseList() {
           </tbody>
         </table>
       </div>
+
+      {showCreateModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between px-6 py-4 border-b">
+              <h3 className="text-lg font-semibold text-gray-900">新建闸口放行</h3>
+              <button
+                onClick={() => { setShowCreateModal(false); setSelectedContainerId(null); setContainerSearch(''); setContainerResults([]) }}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            <div className="px-6 py-4 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">箱号 <span className="text-red-500">*</span></label>
+                <input
+                  type="text"
+                  value={containerSearch}
+                  onChange={e => { setContainerSearch(e.target.value); searchContainers(e.target.value) }}
+                  placeholder="输入箱号搜索..."
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                />
+                {containerResults.length > 0 && !selectedContainerId && (
+                  <div className="mt-1 border border-gray-200 rounded-lg max-h-32 overflow-y-auto">
+                    {containerResults.map(c => (
+                      <button
+                        key={c.id}
+                        onClick={() => { setSelectedContainerId(c.id); setContainerSearch(c.container_no); setContainerResults([]) }}
+                        className="w-full text-left px-3 py-2 text-sm hover:bg-primary-50 flex items-center justify-between"
+                      >
+                        <span className="font-medium text-gray-900">{c.container_no}</span>
+                        <span className="text-xs text-gray-400">{c.size}{c.type}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {selectedContainerId && (
+                  <p className="mt-1 text-xs text-green-600">已选择箱号</p>
+                )}
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">放行类型 <span className="text-red-500">*</span></label>
+                <select
+                  value={createForm.release_type}
+                  onChange={e => setCreateForm(f => ({ ...f, release_type: e.target.value }))}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary-500"
+                >
+                  <option value="进港">进港</option>
+                  <option value="出港">出港</option>
+                </select>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">车队</label>
+                  <input
+                    type="text"
+                    value={createForm.truck_company}
+                    onChange={e => setCreateForm(f => ({ ...f, truck_company: e.target.value }))}
+                    placeholder="车队名称"
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">车牌号</label>
+                  <input
+                    type="text"
+                    value={createForm.truck_plate}
+                    onChange={e => setCreateForm(f => ({ ...f, truck_plate: e.target.value }))}
+                    placeholder="车牌号"
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">司机姓名</label>
+                  <input
+                    type="text"
+                    value={createForm.driver_name}
+                    onChange={e => setCreateForm(f => ({ ...f, driver_name: e.target.value }))}
+                    placeholder="司机姓名"
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">司机电话</label>
+                  <input
+                    type="text"
+                    value={createForm.driver_phone}
+                    onChange={e => setCreateForm(f => ({ ...f, driver_phone: e.target.value }))}
+                    placeholder="司机电话"
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">备注</label>
+                <textarea
+                  value={createForm.notes}
+                  onChange={e => setCreateForm(f => ({ ...f, notes: e.target.value }))}
+                  placeholder="输入备注..."
+                  rows={2}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">操作人</label>
+                <input
+                  type="text"
+                  value={createForm.operator}
+                  onChange={e => setCreateForm(f => ({ ...f, operator: e.target.value }))}
+                  placeholder="操作人姓名"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                />
+              </div>
+            </div>
+            <div className="px-6 py-4 border-t flex justify-end gap-3">
+              <button
+                onClick={() => { setShowCreateModal(false); setSelectedContainerId(null); setContainerSearch(''); setContainerResults([]) }}
+                className="px-4 py-2 border border-gray-300 text-gray-600 rounded-lg text-sm hover:bg-gray-50"
+              >
+                取消
+              </button>
+              <button
+                onClick={handleCreate}
+                disabled={!selectedContainerId || createLoading}
+                className="px-4 py-2 bg-primary-600 text-white rounded-lg text-sm font-medium hover:bg-primary-700 disabled:opacity-50"
+              >
+                {createLoading ? '提交中...' : '确认创建'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

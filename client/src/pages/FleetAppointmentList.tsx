@@ -1,9 +1,9 @@
 import { useEffect, useState, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import { api } from '@/lib/api'
-import type { FleetAppointment, FleetAppointmentListParams } from '@/lib/api'
+import type { FleetAppointment, FleetAppointmentListParams, Container, FleetAppointmentCreate, GateRelease } from '@/lib/api'
 import StatusBadge from '@/components/StatusBadge'
-import { Clock, Calendar, MapPin, AlertTriangle, Search, RotateCcw } from 'lucide-react'
+import { Clock, Calendar, MapPin, AlertTriangle, Search, RotateCcw, Plus, X } from 'lucide-react'
 
 function todayStr() {
   const d = new Date()
@@ -19,6 +19,78 @@ export default function FleetAppointmentList() {
   const [searchDate, setSearchDate] = useState(todayStr())
   const [searchStatus, setSearchStatus] = useState('')
   const [searchTruckCompany, setSearchTruckCompany] = useState('')
+
+  const [showCreateModal, setShowCreateModal] = useState(false)
+  const [createLoading, setCreateLoading] = useState(false)
+  const [containerSearch, setContainerSearch] = useState('')
+  const [containerResults, setContainerResults] = useState<Container[]>([])
+  const [selectedContainerId, setSelectedContainerId] = useState<number | null>(null)
+  const [gateReleaseSearch, setGateReleaseSearch] = useState('')
+  const [gateReleaseResults, setGateReleaseResults] = useState<GateRelease[]>([])
+  const [selectedGateReleaseId, setSelectedGateReleaseId] = useState<number | null>(null)
+  const [createForm, setCreateForm] = useState({
+    truck_company: '',
+    truck_plate: '',
+    driver_name: '',
+    driver_phone: '',
+    appointment_date: todayStr(),
+    appointment_time: '',
+    notes: '',
+    operator: '',
+  })
+
+  const searchContainers = useCallback(async (q: string) => {
+    if (!q) { setContainerResults([]); return }
+    try {
+      const data = await api.containers.list({ container_no: q })
+      setContainerResults(data)
+    } catch { setContainerResults([]) }
+  }, [])
+
+  const searchGateReleases = useCallback(async (q: string) => {
+    if (!q) { setGateReleaseResults([]); return }
+    try {
+      const data = await api.gateReleases.list({ container_no: q })
+      setGateReleaseResults(data)
+    } catch { setGateReleaseResults([]) }
+  }, [])
+
+  const handleCreate = async () => {
+    if (createLoading) return
+    setCreateLoading(true)
+    try {
+      const data: FleetAppointmentCreate = {
+        container_id: selectedContainerId || undefined,
+        gate_release_id: selectedGateReleaseId || undefined,
+        truck_company: createForm.truck_company || undefined,
+        truck_plate: createForm.truck_plate || undefined,
+        driver_name: createForm.driver_name || undefined,
+        driver_phone: createForm.driver_phone || undefined,
+        appointment_date: createForm.appointment_date || undefined,
+        appointment_time: createForm.appointment_time || undefined,
+        notes: createForm.notes || undefined,
+        operator: createForm.operator || undefined,
+      }
+      await api.fleetAppointments.create(data)
+      setShowCreateModal(false)
+      setSelectedContainerId(null)
+      setSelectedGateReleaseId(null)
+      setContainerSearch('')
+      setContainerResults([])
+      setGateReleaseSearch('')
+      setGateReleaseResults([])
+      setCreateForm({ truck_company: '', truck_plate: '', driver_name: '', driver_phone: '', appointment_date: todayStr(), appointment_time: '', notes: '', operator: '' })
+      if (activeTab === 'today') {
+        fetchList({ appointment_date: todayStr() })
+      } else if (activeTab === 'exception') {
+        fetchList({ status: '异常' })
+      } else {
+        fetchList()
+      }
+    } finally {
+      setCreateLoading(false)
+    }
+  }
 
   const fetchList = useCallback(async (params?: FleetAppointmentListParams) => {
     setLoading(true)
@@ -95,6 +167,16 @@ export default function FleetAppointmentList() {
 
   return (
     <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <h2 className="text-xl font-bold text-gray-900">车队预约</h2>
+        <button
+          onClick={() => setShowCreateModal(true)}
+          className="flex items-center gap-1.5 px-4 py-2 bg-accent-600 text-white rounded-lg text-sm font-medium hover:bg-accent-700"
+        >
+          <Plus size={16} /> 新建预约
+        </button>
+      </div>
+
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 flex items-center gap-3">
           <div className="p-2 bg-yellow-100 rounded-lg"><Clock size={20} className="text-yellow-600" /></div>
@@ -265,6 +347,136 @@ export default function FleetAppointmentList() {
                 </div>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {showCreateModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between px-6 py-4 border-b">
+              <h3 className="text-lg font-semibold text-gray-900">新建车队预约</h3>
+              <button
+                onClick={() => { setShowCreateModal(false); setSelectedContainerId(null); setSelectedGateReleaseId(null); setContainerSearch(''); setContainerResults([]); setGateReleaseSearch(''); setGateReleaseResults([]) }}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            <div className="px-6 py-4 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">关联闸口放行（可选）</label>
+                <input
+                  type="text"
+                  value={gateReleaseSearch}
+                  onChange={e => { setGateReleaseSearch(e.target.value); searchGateReleases(e.target.value) }}
+                  placeholder="输入箱号搜索闸口放行..."
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                />
+                {gateReleaseResults.length > 0 && !selectedGateReleaseId && (
+                  <div className="mt-1 border border-gray-200 rounded-lg max-h-32 overflow-y-auto">
+                    {gateReleaseResults.map(gr => (
+                      <button
+                        key={gr.id}
+                        onClick={() => {
+                          setSelectedGateReleaseId(gr.id)
+                          setGateReleaseSearch(`闸口#${gr.id} - ${gr.container?.container_no || ''}`)
+                          setGateReleaseResults([])
+                          if (gr.container_id) setSelectedContainerId(gr.container_id)
+                          if (gr.truck_company) setCreateForm(f => ({ ...f, truck_company: gr.truck_company || f.truck_company }))
+                          if (gr.truck_plate) setCreateForm(f => ({ ...f, truck_plate: gr.truck_plate || f.truck_plate }))
+                          if (gr.driver_name) setCreateForm(f => ({ ...f, driver_name: gr.driver_name || f.driver_name }))
+                          if (gr.driver_phone) setCreateForm(f => ({ ...f, driver_phone: gr.driver_phone || f.driver_phone }))
+                        }}
+                        className="w-full text-left px-3 py-2 text-sm hover:bg-accent-50 flex items-center justify-between"
+                      >
+                        <span className="font-medium text-gray-900">闸口#{gr.id} - {gr.container?.container_no}</span>
+                        <span className="text-xs text-gray-400">{gr.status}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {selectedGateReleaseId && <p className="mt-1 text-xs text-green-600">已关联闸口放行记录</p>}
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">箱号（可选）</label>
+                <input
+                  type="text"
+                  value={containerSearch}
+                  onChange={e => { setContainerSearch(e.target.value); searchContainers(e.target.value) }}
+                  placeholder="输入箱号搜索..."
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                />
+                {containerResults.length > 0 && !selectedContainerId && (
+                  <div className="mt-1 border border-gray-200 rounded-lg max-h-32 overflow-y-auto">
+                    {containerResults.map(c => (
+                      <button
+                        key={c.id}
+                        onClick={() => { setSelectedContainerId(c.id); setContainerSearch(c.container_no); setContainerResults([]) }}
+                        className="w-full text-left px-3 py-2 text-sm hover:bg-accent-50 flex items-center justify-between"
+                      >
+                        <span className="font-medium text-gray-900">{c.container_no}</span>
+                        <span className="text-xs text-gray-400">{c.size}{c.type}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {selectedContainerId && <p className="mt-1 text-xs text-green-600">已选择箱号</p>}
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">车队</label>
+                  <input type="text" value={createForm.truck_company} onChange={e => setCreateForm(f => ({ ...f, truck_company: e.target.value }))} placeholder="车队名称" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">车牌号</label>
+                  <input type="text" value={createForm.truck_plate} onChange={e => setCreateForm(f => ({ ...f, truck_plate: e.target.value }))} placeholder="车牌号" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">司机姓名</label>
+                  <input type="text" value={createForm.driver_name} onChange={e => setCreateForm(f => ({ ...f, driver_name: e.target.value }))} placeholder="司机姓名" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">司机电话</label>
+                  <input type="text" value={createForm.driver_phone} onChange={e => setCreateForm(f => ({ ...f, driver_phone: e.target.value }))} placeholder="司机电话" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">预约日期</label>
+                  <input type="date" value={createForm.appointment_date} onChange={e => setCreateForm(f => ({ ...f, appointment_date: e.target.value }))} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">预约时间</label>
+                  <input type="time" value={createForm.appointment_time} onChange={e => setCreateForm(f => ({ ...f, appointment_time: e.target.value }))} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">备注</label>
+                <textarea value={createForm.notes} onChange={e => setCreateForm(f => ({ ...f, notes: e.target.value }))} placeholder="输入备注..." rows={2} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">操作人</label>
+                <input type="text" value={createForm.operator} onChange={e => setCreateForm(f => ({ ...f, operator: e.target.value }))} placeholder="操作人姓名" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
+              </div>
+            </div>
+            <div className="px-6 py-4 border-t flex justify-end gap-3">
+              <button
+                onClick={() => { setShowCreateModal(false); setSelectedContainerId(null); setSelectedGateReleaseId(null); setContainerSearch(''); setContainerResults([]); setGateReleaseSearch(''); setGateReleaseResults([]) }}
+                className="px-4 py-2 border border-gray-300 text-gray-600 rounded-lg text-sm hover:bg-gray-50"
+              >
+                取消
+              </button>
+              <button
+                onClick={handleCreate}
+                disabled={createLoading}
+                className="px-4 py-2 bg-accent-600 text-white rounded-lg text-sm font-medium hover:bg-accent-700 disabled:opacity-50"
+              >
+                {createLoading ? '提交中...' : '确认创建'}
+              </button>
+            </div>
           </div>
         </div>
       )}

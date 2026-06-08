@@ -3,7 +3,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from database import engine, SessionLocal, Base
 from seed import seed_data
-from routers import containers, gate_release, fleet_appointment
+from routers import containers, gate_release, fleet_appointment, exceptions
 
 
 @asynccontextmanager
@@ -30,6 +30,7 @@ app.add_middleware(
 app.include_router(containers.router)
 app.include_router(gate_release.router)
 app.include_router(fleet_appointment.router)
+app.include_router(exceptions.router)
 
 
 @app.get("/api/health")

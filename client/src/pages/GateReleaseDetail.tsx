@@ -1,13 +1,24 @@
-import { useEffect, useState, useCallback } from 'react'
-import { useParams, useNavigate, Link } from 'react-router-dom'
-import { api } from '@/lib/api'
-import type { GateReleaseDetail, FleetAppointment, AttachmentCreate } from '@/lib/api'
 import StatusBadge from '@/components/StatusBadge'
 import Timeline from '@/components/Timeline'
+import type { AttachmentCreate, FleetAppointment, GateReleaseDetail } from '@/lib/api'
+import { api } from '@/lib/api'
 import {
-  ArrowLeft, CheckCircle, XCircle, Paperclip, Plus, Package,
-  User, Phone, Truck, Calendar, Clock, MapPin, FileText,
+  ArrowLeft,
+  Calendar,
+  CheckCircle,
+  Clock,
+  FileText,
+  MapPin,
+  Package,
+  Paperclip,
+  Phone,
+  Plus,
+  Truck,
+  User,
+  XCircle,
 } from 'lucide-react'
+import { useCallback, useEffect, useState } from 'react'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 
 export default function GateReleaseDetail() {
   const { id } = useParams<{ id: string }>()
@@ -28,6 +39,11 @@ export default function GateReleaseDetail() {
   const [attachFileType, setAttachFileType] = useState('')
   const [attachFileSize, setAttachFileSize] = useState('')
   const [attachUploadedBy, setAttachUploadedBy] = useState('')
+
+  const [handlingExcId, setHandlingExcId] = useState<number | null>(null)
+  const [excHandler, setExcHandler] = useState('')
+  const [excResult, setExcResult] = useState('')
+  const [excLoading, setExcLoading] = useState(false)
 
   const fetchDetail = useCallback(() => {
     if (!id) return
@@ -108,6 +124,21 @@ export default function GateReleaseDetail() {
       setAttachUploadedBy('')
       refreshAfterAction()
     } catch {}
+  }
+
+  const handleException = async (excId: number) => {
+    if (!excHandler || excLoading) return
+    setExcLoading(true)
+    try {
+      const data: ExceptionHandle = { handler: excHandler, result: excResult || undefined }
+      await api.exceptions.handle(excId, data)
+      setHandlingExcId(null)
+      setExcHandler('')
+      setExcResult('')
+      refreshAfterAction()
+    } finally {
+      setExcLoading(false)
+    }
   }
 
   const formatFileSize = (bytes: number | null) => {
@@ -333,22 +364,70 @@ export default function GateReleaseDetail() {
           <h3 className="text-base font-semibold text-gray-800 mb-4">异常记录</h3>
           <div className="space-y-3">
             {detail.exception_records.map(exc => (
-              <div key={exc.id} className="border border-gray-200 rounded-lg p-4 flex items-center justify-between">
-                <div className="flex items-center gap-3 min-w-0">
-                  <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-700 shrink-0">
-                    {exc.exception_type}
-                  </span>
-                  <span className="text-sm text-gray-700 truncate">{exc.description || '-'}</span>
-                </div>
-                <div className="flex items-center gap-3 shrink-0 ml-3">
-                  <StatusBadge status={exc.status} />
-                  {exc.handler && <span className="text-xs text-gray-400">处理人：{exc.handler}</span>}
-                  {exc.status === '待处理' && (
-                    <span className="text-xs text-primary-600 hover:text-primary-800 font-medium cursor-pointer">
-                      处理
+              <div key={exc.id} className="border border-gray-200 rounded-lg p-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-700 shrink-0">
+                      {exc.exception_type}
                     </span>
-                  )}
+                    <span className="text-sm text-gray-700 truncate">{exc.description || '-'}</span>
+                  </div>
+                  <div className="flex items-center gap-3 shrink-0 ml-3">
+                    <StatusBadge status={exc.status} />
+                    {exc.handler && <span className="text-xs text-gray-400">处理人：{exc.handler}</span>}
+                  </div>
                 </div>
+                {exc.status === '待处理' && handlingExcId !== exc.id && (
+                  <div className="mt-2 flex justify-end">
+                    <button
+                      onClick={() => setHandlingExcId(exc.id)}
+                      className="px-3 py-1 bg-amber-600 text-white rounded text-xs font-medium hover:bg-amber-700"
+                    >
+                      处理
+                    </button>
+                  </div>
+                )}
+                {exc.status === '待处理' && handlingExcId === exc.id && (
+                  <div className="mt-3 pt-3 border-t border-gray-100 space-y-2">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-xs text-gray-500">处理人 <span className="text-red-500">*</span></label>
+                        <input
+                          type="text"
+                          value={excHandler}
+                          onChange={e => setExcHandler(e.target.value)}
+                          placeholder="输入处理人姓名"
+                          className="mt-1 block w-full border border-gray-300 rounded-lg px-3 py-1.5 text-sm"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs text-gray-500">处理结果</label>
+                        <input
+                          type="text"
+                          value={excResult}
+                          onChange={e => setExcResult(e.target.value)}
+                          placeholder="输入处理结果"
+                          className="mt-1 block w-full border border-gray-300 rounded-lg px-3 py-1.5 text-sm"
+                        />
+                      </div>
+                    </div>
+                    <div className="flex gap-2 justify-end">
+                      <button
+                        onClick={() => { setHandlingExcId(null); setExcHandler(''); setExcResult('') }}
+                        className="px-3 py-1 border border-gray-300 text-gray-600 rounded text-xs hover:bg-gray-50"
+                      >
+                        取消
+                      </button>
+                      <button
+                        onClick={() => handleException(exc.id)}
+                        disabled={!excHandler || excLoading}
+                        className="px-3 py-1 bg-amber-600 text-white rounded text-xs hover:bg-amber-700 disabled:opacity-50"
+                      >
+                        {excLoading ? '处理中...' : '确认处理'}
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             ))}
           </div>

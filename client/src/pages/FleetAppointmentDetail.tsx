@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { api } from '@/lib/api'
-import type { FleetAppointmentDetail, FleetAppointmentAction, FleetAppointmentException, AttachmentCreate } from '@/lib/api'
+import type { FleetAppointmentDetail, FleetAppointmentAction, FleetAppointmentException, AttachmentCreate, ExceptionHandle } from '@/lib/api'
 import StatusBadge from '@/components/StatusBadge'
 import Timeline from '@/components/Timeline'
 import { ArrowLeft, CheckCircle, MapPin, Flag, XCircle, AlertTriangle, Upload } from 'lucide-react'
@@ -19,6 +19,10 @@ export default function FleetAppointmentDetail() {
   const [actionForm, setActionForm] = useState<ActionForm>({ operator: '', notes: '' })
   const [exceptionType, setExceptionType] = useState('其他')
   const [attachmentForm, setAttachmentForm] = useState<AttachmentCreate>({ file_name: '', file_type: '', file_size: null, uploaded_by: '' })
+  const [handlingExcId, setHandlingExcId] = useState<number | null>(null)
+  const [excHandler, setExcHandler] = useState('')
+  const [excResult, setExcResult] = useState('')
+  const [excLoading, setExcLoading] = useState(false)
 
   const fetchDetail = async () => {
     if (!id) return
@@ -72,8 +76,18 @@ export default function FleetAppointmentDetail() {
   }
 
   const handleResolveException = async (excId: number) => {
-    if (!detail) return
-    await fetchDetail()
+    if (!excHandler || excLoading) return
+    setExcLoading(true)
+    try {
+      const data: ExceptionHandle = { handler: excHandler, result: excResult || undefined }
+      await api.exceptions.handle(excId, data)
+      setHandlingExcId(null)
+      setExcHandler('')
+      setExcResult('')
+      await fetchDetail()
+    } finally {
+      setExcLoading(false)
+    }
   }
 
   if (loading) return <p className="text-gray-400">加载中...</p>
@@ -244,25 +258,68 @@ export default function FleetAppointmentDetail() {
           <h3 className="text-base font-semibold text-gray-900 mb-4">异常记录</h3>
           <div className="space-y-3">
             {detail.exception_records.map(exc => (
-              <div key={exc.id} className="border rounded-lg p-4 flex items-start justify-between">
-                <div className="flex-1 space-y-1">
-                  <div className="flex items-center gap-2">
-                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800">{exc.exception_type}</span>
-                    <StatusBadge status={exc.status} />
+              <div key={exc.id} className="border rounded-lg p-4">
+                <div className="flex items-start justify-between">
+                  <div className="flex-1 space-y-1">
+                    <div className="flex items-center gap-2">
+                      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800">{exc.exception_type}</span>
+                      <StatusBadge status={exc.status} />
+                    </div>
+                    {exc.description && <p className="text-sm text-gray-700">{exc.description}</p>}
+                    <div className="flex items-center gap-3 text-xs text-gray-400">
+                      {exc.handler && <span>处理人：{exc.handler}</span>}
+                      <span>{new Date(exc.created_at).toLocaleString('zh-CN')}</span>
+                    </div>
                   </div>
-                  {exc.description && <p className="text-sm text-gray-700">{exc.description}</p>}
-                  <div className="flex items-center gap-3 text-xs text-gray-400">
-                    {exc.handler && <span>处理人：{exc.handler}</span>}
-                    <span>{new Date(exc.created_at).toLocaleString('zh-CN')}</span>
-                  </div>
+                  {exc.status === '待处理' && handlingExcId !== exc.id && (
+                    <button
+                      onClick={() => setHandlingExcId(exc.id)}
+                      className="px-3 py-1 bg-amber-600 text-white rounded text-xs font-medium hover:bg-amber-700 shrink-0 ml-3"
+                    >
+                      处理
+                    </button>
+                  )}
                 </div>
-                {exc.status === '待处理' && (
-                  <button
-                    onClick={() => handleResolveException(exc.id)}
-                    className="px-3 py-1 bg-amber-600 text-white rounded text-xs font-medium hover:bg-amber-700"
-                  >
-                    处理
-                  </button>
+                {exc.status === '待处理' && handlingExcId === exc.id && (
+                  <div className="mt-3 pt-3 border-t border-gray-100 space-y-2">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-xs text-gray-500">处理人 <span className="text-red-500">*</span></label>
+                        <input
+                          type="text"
+                          value={excHandler}
+                          onChange={e => setExcHandler(e.target.value)}
+                          placeholder="输入处理人姓名"
+                          className="mt-1 block w-full border border-gray-300 rounded-lg px-3 py-1.5 text-sm"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs text-gray-500">处理结果</label>
+                        <input
+                          type="text"
+                          value={excResult}
+                          onChange={e => setExcResult(e.target.value)}
+                          placeholder="输入处理结果"
+                          className="mt-1 block w-full border border-gray-300 rounded-lg px-3 py-1.5 text-sm"
+                        />
+                      </div>
+                    </div>
+                    <div className="flex gap-2 justify-end">
+                      <button
+                        onClick={() => { setHandlingExcId(null); setExcHandler(''); setExcResult('') }}
+                        className="px-3 py-1 border border-gray-300 text-gray-600 rounded text-xs hover:bg-gray-50"
+                      >
+                        取消
+                      </button>
+                      <button
+                        onClick={() => handleResolveException(exc.id)}
+                        disabled={!excHandler || excLoading}
+                        className="px-3 py-1 bg-amber-600 text-white rounded text-xs hover:bg-amber-700 disabled:opacity-50"
+                      >
+                        {excLoading ? '处理中...' : '确认处理'}
+                      </button>
+                    </div>
+                  </div>
                 )}
               </div>
             ))}

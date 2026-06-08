@@ -160,6 +160,11 @@ export interface FleetAppointmentException {
   operator?: string | null
 }
 
+export interface ExceptionHandle {
+  handler: string
+  result?: string | null
+}
+
 export interface AttachmentCreate {
   file_name: string
   file_type?: string | null
@@ -230,5 +235,9 @@ export const api = {
     timeline: (id: number) => request<TimelineEvent[]>(`/fleet-appointments/${id}/timeline`),
     exceptions: (id: number) => request<ExceptionRecord[]>(`/fleet-appointments/${id}/exceptions`),
     addAttachment: (id: number, data: AttachmentCreate) => request<Attachment>(`/fleet-appointments/${id}/attachments`, { method: 'POST', body: JSON.stringify(data) }),
+  },
+
+  exceptions: {
+    handle: (id: number, data: ExceptionHandle) => request<ExceptionRecord>(`/exceptions/${id}/handle`, { method: 'PUT', body: JSON.stringify(data) }),
   },
 }

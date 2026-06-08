@@ -179,6 +179,11 @@ class ExceptionRecordRead(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class ExceptionHandle(BaseModel):
+    handler: str
+    result: Optional[str] = None
+
+
 class AttachmentCreate(BaseModel):
     file_name: str
     file_type: Optional[str] = None
