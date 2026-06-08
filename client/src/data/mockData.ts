@@ -1,0 +1,123 @@
+import type { TourGroup, Dispatch, CheckIn, FleetAssignment, Guide } from '../types';
+
+export const guides: Guide[] = [
+  { id: 'g1', name: '张明', phone: '138-0001-1001', status: 'available' },
+  { id: 'g2', name: '李芳', phone: '138-0002-2002', status: 'on_tour' },
+  { id: 'g3', name: '王强', phone: '138-0003-3003', status: 'available' },
+  { id: 'g4', name: '赵丽', phone: '138-0004-4004', status: 'available' },
+  { id: 'g5', name: '陈伟', phone: '138-0005-5005', status: 'on_tour' },
+  { id: 'g6', name: '刘洋', phone: '138-0006-6006', status: 'off' },
+];
+
+export const tourGroups: TourGroup[] = [
+  {
+    id: 'tg1',
+    groupCode: 'GRP-20260608-001',
+    tourName: '九寨沟三日精华游',
+    route: '成都→九寨沟→黄龙→成都',
+    tourDate: '2026-06-08',
+    status: 'completed',
+    createdAt: '2026-06-05T09:00:00',
+  },
+  {
+    id: 'tg2',
+    groupCode: 'GRP-20260608-002',
+    tourName: '峨眉山两日朝圣之旅',
+    route: '成都→峨眉山→乐山→成都',
+    tourDate: '2026-06-08',
+    status: 'completed',
+    createdAt: '2026-06-04T14:30:00',
+  },
+  {
+    id: 'tg3',
+    groupCode: 'GRP-20260608-003',
+    tourName: '稻城亚丁五日深度游',
+    route: '成都→康定→稻城→亚丁→成都',
+    tourDate: '2026-06-08',
+    status: 'completed',
+    createdAt: '2026-06-03T10:15:00',
+  },
+  {
+    id: 'tg4',
+    groupCode: 'GRP-20260608-004',
+    tourName: '都江堰青城山一日游',
+    route: '成都→都江堰→青城山→成都',
+    tourDate: '2026-06-08',
+    status: 'stuck',
+    createdAt: '2026-06-06T08:00:00',
+  },
+  {
+    id: 'tg5',
+    groupCode: 'GRP-20260607-005',
+    tourName: '四姑娘山三日探险游',
+    route: '成都→四姑娘山→丹巴→成都',
+    tourDate: '2026-06-07',
+    status: 'stuck',
+    createdAt: '2026-06-04T16:45:00',
+  },
+  {
+    id: 'tg6',
+    groupCode: 'GRP-20260609-006',
+    tourName: '海螺沟冰川温泉两日游',
+    route: '成都→海螺沟→成都',
+    tourDate: '2026-06-09',
+    status: 'pending_dispatch',
+    createdAt: '2026-06-07T11:00:00',
+  },
+  {
+    id: 'tg7',
+    groupCode: 'GRP-20260609-007',
+    tourName: '蜀南竹海两日休闲游',
+    route: '成都→蜀南竹海→成都',
+    tourDate: '2026-06-09',
+    status: 'pending_dispatch',
+    createdAt: '2026-06-07T15:20:00',
+  },
+  {
+    id: 'tg8',
+    groupCode: 'GRP-20260608-008',
+    tourName: '色达五日朝圣之旅',
+    route: '成都→马尔康→色达→成都',
+    tourDate: '2026-06-08',
+    status: 'dispatched',
+    createdAt: '2026-06-05T10:00:00',
+  },
+  {
+    id: 'tg9',
+    groupCode: 'GRP-20260608-009',
+    tourName: '毕棚沟两日度假游',
+    route: '成都→毕棚沟→成都',
+    tourDate: '2026-06-08',
+    status: 'checked_in',
+    createdAt: '2026-06-06T09:30:00',
+  },
+];
+
+export const dispatches: Dispatch[] = [
+  { id: 'd1', tourGroupId: 'tg1', guideId: 'g1', dispatchedAt: '2026-06-05T10:00:00', dispatchStatus: 'confirmed' },
+  { id: 'd2', tourGroupId: 'tg2', guideId: 'g2', dispatchedAt: '2026-06-04T16:00:00', dispatchStatus: 'confirmed' },
+  { id: 'd3', tourGroupId: 'tg3', guideId: 'g3', dispatchedAt: '2026-06-03T11:00:00', dispatchStatus: 'confirmed' },
+  { id: 'd4', tourGroupId: 'tg4', guideId: 'g4', dispatchedAt: '2026-06-06T09:00:00', dispatchStatus: 'dispatched' },
+  { id: 'd5', tourGroupId: 'tg5', guideId: 'g5', dispatchedAt: '2026-06-04T18:00:00', dispatchStatus: 'confirmed' },
+  { id: 'd8', tourGroupId: 'tg8', guideId: 'g1', dispatchedAt: '2026-06-05T11:00:00', dispatchStatus: 'dispatched' },
+  { id: 'd9', tourGroupId: 'tg9', guideId: 'g4', dispatchedAt: '2026-06-06T10:30:00', dispatchStatus: 'confirmed' },
+];
+
+export const checkIns: CheckIn[] = [
+  { id: 'c1', tourGroupId: 'tg1', guideId: 'g1', checkedInAt: '2026-06-08T07:30:00', checkInStatus: 'checked_in', exception: null },
+  { id: 'c2', tourGroupId: 'tg2', guideId: 'g2', checkedInAt: '2026-06-08T06:45:00', checkInStatus: 'checked_in', exception: null },
+  { id: 'c3', tourGroupId: 'tg3', guideId: 'g3', checkedInAt: '2026-06-08T05:00:00', checkInStatus: 'checked_in', exception: null },
+  { id: 'c4', tourGroupId: 'tg4', guideId: 'g4', checkedInAt: null, checkInStatus: 'pending', exception: null },
+  { id: 'c5', tourGroupId: 'tg5', guideId: 'g5', checkedInAt: '2026-06-07T06:00:00', checkInStatus: 'exception', exception: '导游到达后游客未到，联系不上组团社' },
+  { id: 'c9', tourGroupId: 'tg9', guideId: 'g4', checkedInAt: '2026-06-08T07:15:00', checkInStatus: 'checked_in', exception: null },
+];
+
+export const fleetAssignments: FleetAssignment[] = [
+  { id: 'f1', tourGroupId: 'tg1', plateNumber: '川A·12345', driverName: '周师傅', fleetStatus: 'ready', confirmedAt: '2026-06-08T07:00:00' },
+  { id: 'f2', tourGroupId: 'tg2', plateNumber: '川A·23456', driverName: '吴师傅', fleetStatus: 'ready', confirmedAt: '2026-06-08T06:30:00' },
+  { id: 'f3', tourGroupId: 'tg3', plateNumber: '川A·34567', driverName: '郑师傅', fleetStatus: 'ready', confirmedAt: '2026-06-08T04:30:00' },
+  { id: 'f4', tourGroupId: 'tg4', plateNumber: '川A·45678', driverName: '孙师傅', fleetStatus: 'delayed', confirmedAt: null },
+  { id: 'f5', tourGroupId: 'tg5', plateNumber: '川A·56789', driverName: '钱师傅', fleetStatus: 'pending', confirmedAt: null },
+  { id: 'f8', tourGroupId: 'tg8', plateNumber: '川A·67890', driverName: '冯师傅', fleetStatus: 'ready', confirmedAt: '2026-06-08T07:45:00' },
+  { id: 'f9', tourGroupId: 'tg9', plateNumber: '川A·78901', driverName: '陈师傅', fleetStatus: 'pending', confirmedAt: null },
+];
