@@ -37,6 +37,122 @@ router.get('/', (_req: Request, res: Response) => {
   res.json({ success: true, data: result })
 })
 
+router.post('/batch/escalate', (req: Request, res: Response) => {
+  const { ids, operator_role, operator_name, reason } = req.body
+  if (!Array.isArray(ids) || ids.length === 0 || !operator_role || !operator_name || !reason) {
+    res.status(400).json({ success: false, error: 'ids (non-empty array), operator_role, operator_name, and reason are required' })
+    return
+  }
+
+  const nowISO = new Date().toISOString()
+  let processed = 0
+  let skipped = 0
+
+  const transaction = db.transaction(() => {
+    const findReg = db.prepare('SELECT * FROM registrations WHERE id = ?')
+    const updateReg = db.prepare("UPDATE registrations SET status = 'escalated', current_owner_role = '店长', owner_since = ?, sla_minutes = 10 WHERE id = ?")
+    const insertLog = db.prepare(`
+      INSERT INTO handover_logs (id, registration_id, operator_role, operator_name, action, note_type, note, created_at, from_role, to_role)
+      VALUES (?, ?, ?, ?, '批量升级处理', 'urgent', ?, ?, ?, '店长')
+    `)
+
+    for (const id of ids) {
+      const reg = findReg.get(id) as Record<string, unknown> | undefined
+      if (!reg || reg.status === 'completed' || reg.status === 'rejected') {
+        skipped++
+        continue
+      }
+      updateReg.run(nowISO, id)
+      insertLog.run(genId('log'), id, operator_role, operator_name, reason, nowISO, operator_role)
+      processed++
+    }
+  })
+
+  transaction()
+
+  res.json({ success: true, data: { processed, skipped } })
+})
+
+router.post('/batch/notes', (req: Request, res: Response) => {
+  const { ids, operator_role, operator_name, note_type, note } = req.body
+  if (!Array.isArray(ids) || ids.length === 0 || !operator_role || !operator_name || !note) {
+    res.status(400).json({ success: false, error: 'ids (non-empty array), operator_role, operator_name, and note are required' })
+    return
+  }
+
+  const nowISO = new Date().toISOString()
+  let processed = 0
+  let skipped = 0
+
+  const transaction = db.transaction(() => {
+    const findReg = db.prepare('SELECT id FROM registrations WHERE id = ?')
+    const insertLog = db.prepare(`
+      INSERT INTO handover_logs (id, registration_id, operator_role, operator_name, action, note_type, note, created_at, from_role, to_role)
+      VALUES (?, ?, ?, ?, '批量添加备注', ?, ?, ?, NULL, NULL)
+    `)
+
+    for (const id of ids) {
+      const reg = findReg.get(id) as { id: string } | undefined
+      if (!reg) {
+        skipped++
+        continue
+      }
+      insertLog.run(genId('log'), id, operator_role, operator_name, note_type || 'normal', note, nowISO)
+      processed++
+    }
+  })
+
+  transaction()
+
+  res.json({ success: true, data: { processed, skipped } })
+})
+
+router.post('/batch/release-seats', (req: Request, res: Response) => {
+  const { ids, operator_role, operator_name, note } = req.body
+  if (!Array.isArray(ids) || ids.length === 0 || !operator_role || !operator_name || !note) {
+    res.status(400).json({ success: false, error: 'ids (non-empty array), operator_role, operator_name, and note are required' })
+    return
+  }
+
+  const nowISO = new Date().toISOString()
+  let processed = 0
+  let skipped = 0
+
+  const transaction = db.transaction(() => {
+    const findAllocation = db.prepare("SELECT * FROM seat_allocations WHERE registration_id = ? AND status = 'pending' ORDER BY allocated_at DESC LIMIT 1")
+    const updateAllocation = db.prepare("UPDATE seat_allocations SET status = 'released' WHERE id = ?")
+    const updateSeat = db.prepare("UPDATE seats SET status = 'available', current_registration_id = NULL WHERE id = ?")
+    const updateReg = db.prepare("UPDATE registrations SET status = 'confirmed', current_owner_role = '网管', owner_since = ?, sla_minutes = 15 WHERE id = ?")
+    const insertLog = db.prepare(`
+      INSERT INTO handover_logs (id, registration_id, operator_role, operator_name, action, note_type, note, created_at, from_role, to_role)
+      VALUES (?, ?, ?, ?, '批量释放座位', 'dispute', ?, ?, ?, '网管')
+    `)
+
+    for (const id of ids) {
+      const allocation = findAllocation.get(id) as Record<string, unknown> | undefined
+      if (!allocation) {
+        skipped++
+        continue
+      }
+
+      updateAllocation.run(allocation.id as string)
+
+      const seatIds = (allocation.seat_ids as string).split(',')
+      for (const seatId of seatIds) {
+        updateSeat.run(seatId)
+      }
+
+      updateReg.run(nowISO, id)
+      insertLog.run(genId('log'), id, operator_role, operator_name, note, nowISO, operator_role)
+      processed++
+    }
+  })
+
+  transaction()
+
+  res.json({ success: true, data: { processed, skipped } })
+})
+
 router.get('/:id', (req: Request, res: Response) => {
   const reg = db.prepare('SELECT * FROM registrations WHERE id = ?').get(req.params.id)
   if (!reg) {

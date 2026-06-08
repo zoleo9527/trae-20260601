@@ -89,9 +89,9 @@
     </div>
 
     <div class="grid grid-cols-4 gap-4">
-      <div
+      <router-link
+        to="/registrations?status=pending"
         class="card p-5 relative overflow-hidden cursor-pointer transition-all duration-200 hover:border-warning/30"
-        @click="$router.push('/registrations')"
       >
         <div class="absolute top-0 left-0 w-1 h-full bg-warning" />
         <div class="pl-4">
@@ -99,12 +99,12 @@
           <p class="font-heading text-3xl font-bold text-warning">{{ store.stats.pending }}</p>
           <p class="text-accent text-xs mt-2">我的待办: {{ store.stats.my_pending }}</p>
         </div>
-      </div>
+      </router-link>
 
-      <div
+      <router-link
+        to="/registrations?urgency=overdue"
         class="card p-5 relative overflow-hidden cursor-pointer transition-all duration-200 hover:border-alert/30"
         :class="{ 'pulse-fast': store.stats.overdue > 0 }"
-        @click="$router.push('/registrations')"
       >
         <div class="absolute top-0 left-0 w-1 h-full bg-alert" />
         <div class="pl-4">
@@ -112,12 +112,12 @@
           <p class="font-heading text-3xl font-bold text-alert">{{ store.stats.overdue }}</p>
           <p class="text-text-secondary text-xs mt-2">已超过处理时限</p>
         </div>
-      </div>
+      </router-link>
 
-      <div
+      <router-link
+        to="/seats"
         class="card p-5 relative overflow-hidden cursor-pointer transition-all duration-200 hover:border-[#FF9500]/30"
         :class="{ 'pulse-slow': store.stats.conflicts > 0 }"
-        @click="$router.push('/seats')"
       >
         <div class="absolute top-0 left-0 w-1 h-full bg-[#FF9500]" />
         <div class="pl-4">
@@ -125,12 +125,12 @@
           <p class="font-heading text-3xl font-bold text-[#FF9500]">{{ store.stats.conflicts }}</p>
           <p class="text-text-secondary text-xs mt-2">需要介入解决的冲突</p>
         </div>
-      </div>
+      </router-link>
 
-      <div
+      <router-link
+        to="/registrations?status=escalated"
         class="card p-5 relative overflow-hidden cursor-pointer transition-all duration-200 hover:border-alert/30"
         :class="{ 'pulse-fast': store.stats.escalated > 0 }"
-        @click="$router.push('/registrations')"
       >
         <div class="absolute top-0 left-0 w-1 h-full bg-alert" />
         <div class="pl-4">
@@ -138,15 +138,16 @@
           <p class="font-heading text-3xl font-bold text-alert">{{ store.stats.escalated }}</p>
           <p class="text-text-secondary text-xs mt-2">需要店长介入</p>
         </div>
-      </div>
+      </router-link>
     </div>
 
     <div class="card p-5">
       <h2 class="font-heading text-xl font-bold text-text-primary mb-4">责任流水线</h2>
       <div class="flex items-center gap-2 overflow-x-auto pb-2">
         <template v-for="(role, idx) in pipelineRoles" :key="role">
-          <div
-            class="flex-shrink-0 flex flex-col items-center gap-2 px-6 py-4 rounded-lg border transition-all duration-200"
+          <router-link
+            :to="`/registrations?role=${encodeURIComponent(role)}`"
+            class="flex-shrink-0 flex flex-col items-center gap-2 px-6 py-4 rounded-lg border transition-all duration-200 cursor-pointer hover:scale-105"
             :style="{
               borderColor: pipelineByRole[role]?.count ? ROLE_COLORS[role as Role] + '40' : '#2A3A4E',
               backgroundColor: pipelineByRole[role]?.count ? ROLE_COLORS[role as Role] + '08' : 'transparent',
@@ -165,7 +166,8 @@
             <div v-if="pipelineByRole[role]?.overdue" class="text-xs text-alert font-heading font-semibold">
               {{ pipelineByRole[role]?.overdue }} 件超时
             </div>
-          </div>
+            <span class="text-[10px] text-text-secondary/50 mt-0.5">点击查看</span>
+          </router-link>
           <svg
             v-if="idx < pipelineRoles.length - 1"
             class="w-6 h-6 text-text-secondary shrink-0"
