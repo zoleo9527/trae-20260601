@@ -194,6 +194,12 @@ interface LossRecapData {
   byOperator: Record<string, LossRecapBucket>
 }
 
+interface LossRecapFilter {
+  dimension: 'category' | 'lossType' | 'operatorId' | null
+  value: string | null
+  label: string | null
+}
+
 interface Stats {
   [key: string]: unknown
 }
@@ -239,6 +245,8 @@ interface StoreState {
   verifyLinenReturn: (id: string, verifiedBy: string, notes?: string) => Promise<void>
   lossRecapData: LossRecapData | null
   fetchLinenLossRecap: (params?: Record<string, string>) => Promise<void>
+  lossRecapFilter: LossRecapFilter
+  setLossRecapFilter: (filter: LossRecapFilter) => void
 }
 
 const useStore = create<StoreState>((set, get) => ({
@@ -606,6 +614,8 @@ const useStore = create<StoreState>((set, get) => ({
     const json = await res.json()
     if (json.success) set({ lossRecapData: json.data })
   },
+  lossRecapFilter: { dimension: null, value: null, label: null },
+  setLossRecapFilter: (filter) => set({ lossRecapFilter: filter }),
 }))
 
 export default useStore

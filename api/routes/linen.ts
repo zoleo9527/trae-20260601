@@ -12,7 +12,7 @@ function logStatusChange(targetType: string, targetId: string, oldStatus: string
 }
 
 router.get('/workstation', (req: Request, res: Response): void => {
-  const { floor, operatorId, dateFrom, dateTo, keyword } = req.query
+  const { floor, operatorId, dateFrom, dateTo, keyword, recapCategory, recapLossType, recapOperatorId } = req.query
 
   let reqSql = `
     SELECT lr.*, r.room_number, r.floor, u.name as operator_name
@@ -48,7 +48,7 @@ router.get('/workstation', (req: Request, res: Response): void => {
       return { ...ret, items: retItems }
     })
 
-    const losses = db.prepare(`
+    let lossQuery = `
       SELECT ll.*, u.name as operator_name, u2.name as confirmer_name,
         mo.id as maintenance_order_id, mo.status as maintenance_status, mo.fault_type as maintenance_fault_type,
         u3.name as engineer_name
@@ -58,8 +58,13 @@ router.get('/workstation', (req: Request, res: Response): void => {
       LEFT JOIN maintenance_orders mo ON ll.maintenance_order_id = mo.id
       LEFT JOIN users u3 ON mo.assigned_to = u3.id
       WHERE ll.requisition_id = ?
-      ORDER BY ll.loss_date DESC
-    `).all(req.id)
+    `
+    const lossQParams: unknown[] = [req.id]
+    if (recapCategory) { lossQuery += ' AND ll.category = ?'; lossQParams.push(String(recapCategory)) }
+    if (recapLossType) { lossQuery += ' AND ll.loss_type = ?'; lossQParams.push(String(recapLossType)) }
+    if (recapOperatorId) { lossQuery += ' AND ll.confirmed_by = ?'; lossQParams.push(String(recapOperatorId)) }
+    lossQuery += ' ORDER BY ll.loss_date DESC'
+    const losses = db.prepare(lossQuery).all(...lossQParams as any[])
 
     const statusLogs = db.prepare(`
       SELECT lsl.*, u.name as operator_name
@@ -97,6 +102,9 @@ router.get('/workstation', (req: Request, res: Response): void => {
   if (dateFrom) { lossSql += ' AND ll.loss_date >= ?'; lossParams.push(String(dateFrom)) }
   if (dateTo) { lossSql += ' AND ll.loss_date <= ?'; lossParams.push(String(dateTo) + 'T23:59:59') }
   if (keyword) { lossSql += ' AND r.room_number LIKE ?'; lossParams.push(`%${keyword}%`) }
+  if (recapCategory) { lossSql += ' AND ll.category = ?'; lossParams.push(String(recapCategory)) }
+  if (recapLossType) { lossSql += ' AND ll.loss_type = ?'; lossParams.push(String(recapLossType)) }
+  if (recapOperatorId) { lossSql += ' AND ll.confirmed_by = ?'; lossParams.push(String(recapOperatorId)) }
 
   lossSql += ' ORDER BY ll.loss_date DESC'
   const standaloneLosses = db.prepare(lossSql).all(...lossParams as any[])

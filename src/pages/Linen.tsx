@@ -217,6 +217,8 @@ export default function Linen() {
     fetchUsers,
     lossRecapData,
     fetchLinenLossRecap,
+    lossRecapFilter,
+    setLossRecapFilter,
   } = useStore()
 
   const [activeTab, setActiveTab] = useState<TabKey>('pending')
@@ -241,8 +243,11 @@ export default function Linen() {
     if (dateFrom) filters.dateFrom = dateFrom
     if (dateTo) filters.dateTo = dateTo
     if (keyword.trim()) filters.keyword = keyword.trim()
+    if (lossRecapFilter.dimension === 'category' && lossRecapFilter.value) filters.recapCategory = lossRecapFilter.value
+    if (lossRecapFilter.dimension === 'lossType' && lossRecapFilter.value) filters.recapLossType = lossRecapFilter.value
+    if (lossRecapFilter.dimension === 'operatorId' && lossRecapFilter.value) filters.recapOperatorId = lossRecapFilter.value
     fetchLinenWorkstation(filters)
-  }, [fetchLinenWorkstation, floorFilter, dateFrom, dateTo, keyword])
+  }, [fetchLinenWorkstation, floorFilter, dateFrom, dateTo, keyword, lossRecapFilter])
 
   const loadRecap = useCallback(() => {
     const params: Record<string, string> = {}
@@ -338,6 +343,19 @@ export default function Linen() {
     }
   }
 
+  const handleRecapDrilldown = (dimension: 'category' | 'lossType' | 'operatorId', value: string, label: string) => {
+    if (lossRecapFilter.dimension === dimension && lossRecapFilter.value === value) {
+      setLossRecapFilter({ dimension: null, value: null, label: null })
+    } else {
+      setLossRecapFilter({ dimension, value, label })
+    }
+    setActiveTab('loss')
+  }
+
+  const clearRecapFilter = () => {
+    setLossRecapFilter({ dimension: null, value: null, label: null })
+  }
+
   const summary = workstationData?.summary ?? { pending: 0, fulfilled: 0, returned: 0, unconfirmedLoss: 0 }
   const requisitions = workstationData?.requisitions ?? []
   const standaloneLosses = workstationData?.standaloneLosses ?? []
@@ -348,7 +366,10 @@ export default function Linen() {
     else if (activeTab === 'fulfilled') list = list.filter((r) => r.status === 'fulfilled')
     else if (activeTab === 'returned') list = list.filter((r) => r.status === 'returned')
     else if (activeTab === 'loss') {
-      return list.filter((r) => r.losses?.length > 0)
+      return list.filter((r) => {
+        if (r.losses?.length > 0) return true
+        return false
+      })
     }
     return list
   }, [requisitions, activeTab])
@@ -456,18 +477,30 @@ export default function Linen() {
                 <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>暂无数据</p>
               ) : (
                 <div className="space-y-1.5">
-                  {Object.entries(lossRecapData.byCategory).map(([cat, bucket]) => (
-                    <div key={cat} className="flex items-center justify-between text-xs">
-                      <span style={{ color: 'var(--color-text)' }}>{CATEGORY_MAP[cat] || cat}</span>
-                      <div className="flex items-center gap-1">
-                        <span className="font-medium" style={{ color: 'var(--color-text)' }}>{bucket.total}</span>
-                        {bucket.registered > 0 && <span className="px-1 rounded" style={{ backgroundColor: '#fff7ed', color: '#f97316' }}>{bucket.registered}</span>}
-                        {bucket.confirmed > 0 && <span className="px-1 rounded" style={{ backgroundColor: '#eff6ff', color: '#3b82f6' }}>{bucket.confirmed}</span>}
-                        {bucket.dispatched > 0 && <span className="px-1 rounded" style={{ backgroundColor: '#f5f3ff', color: '#8b5cf6' }}>{bucket.dispatched}</span>}
-                        {bucket.replaced > 0 && <span className="px-1 rounded" style={{ backgroundColor: '#f0fdf4', color: '#22c55e' }}>{bucket.replaced}</span>}
-                      </div>
-                    </div>
-                  ))}
+                  {Object.entries(lossRecapData.byCategory).map(([cat, bucket]) => {
+                    const isActive = lossRecapFilter.dimension === 'category' && lossRecapFilter.value === cat
+                    return (
+                      <button
+                        key={cat}
+                        onClick={() => handleRecapDrilldown('category', cat, CATEGORY_MAP[cat] || cat)}
+                        className="flex items-center justify-between text-xs w-full px-1.5 py-1 rounded transition-colors"
+                        style={{
+                          cursor: 'pointer',
+                          backgroundColor: isActive ? '#eff6ff' : 'transparent',
+                          border: isActive ? '1px solid #bfdbfe' : '1px solid transparent',
+                        }}
+                      >
+                        <span style={{ color: isActive ? '#3b82f6' : 'var(--color-text)', fontWeight: isActive ? 600 : 400 }}>{CATEGORY_MAP[cat] || cat}</span>
+                        <div className="flex items-center gap-1">
+                          <span className="font-medium" style={{ color: 'var(--color-text)' }}>{bucket.total}</span>
+                          {bucket.registered > 0 && <span className="px-1 rounded" style={{ backgroundColor: '#fff7ed', color: '#f97316' }}>{bucket.registered}</span>}
+                          {bucket.confirmed > 0 && <span className="px-1 rounded" style={{ backgroundColor: '#eff6ff', color: '#3b82f6' }}>{bucket.confirmed}</span>}
+                          {bucket.dispatched > 0 && <span className="px-1 rounded" style={{ backgroundColor: '#f5f3ff', color: '#8b5cf6' }}>{bucket.dispatched}</span>}
+                          {bucket.replaced > 0 && <span className="px-1 rounded" style={{ backgroundColor: '#f0fdf4', color: '#22c55e' }}>{bucket.replaced}</span>}
+                        </div>
+                      </button>
+                    )
+                  })}
                 </div>
               )}
             </div>
@@ -479,9 +512,19 @@ export default function Linen() {
                 <div className="space-y-1.5">
                   {Object.entries(lossRecapData.byType).map(([type, bucket]) => {
                     const lt = LOSS_TYPE_MAP[type]
+                    const isActive = lossRecapFilter.dimension === 'lossType' && lossRecapFilter.value === type
                     return (
-                      <div key={type} className="flex items-center justify-between text-xs">
-                        <span style={{ color: lt?.color || 'var(--color-text)' }}>{lt?.label || type}</span>
+                      <button
+                        key={type}
+                        onClick={() => handleRecapDrilldown('lossType', type, lt?.label || type)}
+                        className="flex items-center justify-between text-xs w-full px-1.5 py-1 rounded transition-colors"
+                        style={{
+                          cursor: 'pointer',
+                          backgroundColor: isActive ? '#eff6ff' : 'transparent',
+                          border: isActive ? '1px solid #bfdbfe' : '1px solid transparent',
+                        }}
+                      >
+                        <span style={{ color: isActive ? '#3b82f6' : (lt?.color || 'var(--color-text)'), fontWeight: isActive ? 600 : 400 }}>{lt?.label || type}</span>
                         <div className="flex items-center gap-1">
                           <span className="font-medium" style={{ color: 'var(--color-text)' }}>{bucket.total}</span>
                           {bucket.registered > 0 && <span className="px-1 rounded" style={{ backgroundColor: '#fff7ed', color: '#f97316' }}>{bucket.registered}</span>}
@@ -489,7 +532,7 @@ export default function Linen() {
                           {bucket.dispatched > 0 && <span className="px-1 rounded" style={{ backgroundColor: '#f5f3ff', color: '#8b5cf6' }}>{bucket.dispatched}</span>}
                           {bucket.replaced > 0 && <span className="px-1 rounded" style={{ backgroundColor: '#f0fdf4', color: '#22c55e' }}>{bucket.replaced}</span>}
                         </div>
-                      </div>
+                      </button>
                     )
                   })}
                 </div>
@@ -501,18 +544,31 @@ export default function Linen() {
                 <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>暂无数据</p>
               ) : (
                 <div className="space-y-1.5">
-                  {Object.entries(lossRecapData.byOperator).map(([op, bucket]) => (
-                    <div key={op} className="flex items-center justify-between text-xs">
-                      <span style={{ color: 'var(--color-text)' }}>{op}</span>
-                      <div className="flex items-center gap-1">
-                        <span className="font-medium" style={{ color: 'var(--color-text)' }}>{bucket.total}</span>
-                        {bucket.registered > 0 && <span className="px-1 rounded" style={{ backgroundColor: '#fff7ed', color: '#f97316' }}>{bucket.registered}</span>}
-                        {bucket.confirmed > 0 && <span className="px-1 rounded" style={{ backgroundColor: '#eff6ff', color: '#3b82f6' }}>{bucket.confirmed}</span>}
-                        {bucket.dispatched > 0 && <span className="px-1 rounded" style={{ backgroundColor: '#f5f3ff', color: '#8b5cf6' }}>{bucket.dispatched}</span>}
-                        {bucket.replaced > 0 && <span className="px-1 rounded" style={{ backgroundColor: '#f0fdf4', color: '#22c55e' }}>{bucket.replaced}</span>}
-                      </div>
-                    </div>
-                  ))}
+                  {Object.entries(lossRecapData.byOperator).map(([op, bucket]) => {
+                    const isActive = lossRecapFilter.dimension === 'operatorId' && lossRecapFilter.label === op
+                    const opUser = users.find((u: any) => u.name === op)
+                    return (
+                      <button
+                        key={op}
+                        onClick={() => handleRecapDrilldown('operatorId', opUser ? String(opUser.id) : op, op)}
+                        className="flex items-center justify-between text-xs w-full px-1.5 py-1 rounded transition-colors"
+                        style={{
+                          cursor: 'pointer',
+                          backgroundColor: isActive ? '#eff6ff' : 'transparent',
+                          border: isActive ? '1px solid #bfdbfe' : '1px solid transparent',
+                        }}
+                      >
+                        <span style={{ color: isActive ? '#3b82f6' : 'var(--color-text)', fontWeight: isActive ? 600 : 400 }}>{op}</span>
+                        <div className="flex items-center gap-1">
+                          <span className="font-medium" style={{ color: 'var(--color-text)' }}>{bucket.total}</span>
+                          {bucket.registered > 0 && <span className="px-1 rounded" style={{ backgroundColor: '#fff7ed', color: '#f97316' }}>{bucket.registered}</span>}
+                          {bucket.confirmed > 0 && <span className="px-1 rounded" style={{ backgroundColor: '#eff6ff', color: '#3b82f6' }}>{bucket.confirmed}</span>}
+                          {bucket.dispatched > 0 && <span className="px-1 rounded" style={{ backgroundColor: '#f5f3ff', color: '#8b5cf6' }}>{bucket.dispatched}</span>}
+                          {bucket.replaced > 0 && <span className="px-1 rounded" style={{ backgroundColor: '#f0fdf4', color: '#22c55e' }}>{bucket.replaced}</span>}
+                        </div>
+                      </button>
+                    )
+                  })}
                 </div>
               )}
             </div>
@@ -529,6 +585,23 @@ export default function Linen() {
           <span className="text-xs px-1.5 py-0.5 rounded" style={{ backgroundColor: '#f0fdf4', color: '#22c55e' }}>已替换</span>
         </div>
       </div>
+
+      {lossRecapFilter.dimension && lossRecapFilter.value && (
+        <div className="flex items-center gap-2 px-4 py-2.5 rounded-lg" style={{ backgroundColor: '#eff6ff', border: '1px solid #bfdbfe' }}>
+          <span className="text-xs font-medium" style={{ color: '#3b82f6' }}>复盘筛选：</span>
+          <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+            {lossRecapFilter.dimension === 'category' ? '布草类目' : lossRecapFilter.dimension === 'lossType' ? '损耗类型' : '责任主管'}
+          </span>
+          <span className="text-xs font-semibold" style={{ color: 'var(--color-primary)' }}>{lossRecapFilter.label}</span>
+          <button
+            onClick={clearRecapFilter}
+            className="ml-1 text-xs px-2 py-0.5 rounded-full font-medium hover:opacity-80"
+            style={{ backgroundColor: '#fff', color: '#ef4444', border: '1px solid #fecaca' }}
+          >
+            清除
+          </button>
+        </div>
+      )}
 
       <div className="grid grid-cols-4 gap-4">
         {summaryCards.map((card) => (
