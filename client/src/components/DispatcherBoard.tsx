@@ -1,11 +1,11 @@
-import { AlertTriangle, ClipboardList, Send, Clock, Eye, Siren, MessageSquarePlus, CheckCircle2 } from 'lucide-react';
-import { useAppStore, calcStuckDuration, formatStuckDuration, isStuckOver24h } from '../store/useAppStore';
+import { AlertTriangle, ClipboardList, Send, Clock, Eye, Siren, MessageSquarePlus, CheckCircle2, Bell, AlertCircle } from 'lucide-react';
+import { useAppStore, calcStuckDuration, formatStuckDuration, isStuckOver24h, needsFollowUp, isFollowUpDelayed, formatFollowUpDuration, calcPendingFollowUpMs } from '../store/useAppStore';
 import StatCard from './StatCard';
 import TourGroupCard from './TourGroupCard';
 import FilterBar from './FilterBar';
 
 export default function DispatcherBoard() {
-  const { tourGroups, dispatches, checkIns, fleetAssignments, guides, filteredTourGroups, setSelectedTourGroupId, setDispatchPanelOpen, setTimelineModalOpen, setFollowUpModalOpen } =
+  const { tourGroups, dispatches, checkIns, fleetAssignments, guides, filteredTourGroups, filterNeedsFollowUp, setSelectedTourGroupId, setDispatchPanelOpen, setTimelineModalOpen, setFollowUpModalOpen } =
     useAppStore();
 
   const pendingCount = tourGroups.filter((tg) => tg.status === 'pending_dispatch').length;
@@ -14,6 +14,7 @@ export default function DispatcherBoard() {
 
   const stuckGroups = tourGroups
     .filter((tg) => tg.status === 'stuck')
+    .filter((tg) => !filterNeedsFollowUp || needsFollowUp(tg.followUps))
     .sort((a, b) => calcStuckDuration(b.stuckAt) - calcStuckDuration(a.stuckAt));
   const filtered = filteredTourGroups();
 
@@ -85,6 +86,18 @@ export default function DispatcherBoard() {
                         <Clock className="w-3 h-3 inline mr-1" />
                         卡住 {formatStuckDuration(durationMs)}
                       </span>
+                      {isFollowUpDelayed(tg.followUps) && (
+                        <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-orange-100 text-orange-700 border border-orange-300">
+                          <AlertCircle className="w-3 h-3 inline mr-1" />
+                          跟进延迟 {formatFollowUpDuration(calcPendingFollowUpMs(tg.followUps))}
+                        </span>
+                      )}
+                      {needsFollowUp(tg.followUps) && !isFollowUpDelayed(tg.followUps) && (
+                        <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-slate-100 text-slate-600 border border-slate-300">
+                          <Bell className="w-3 h-3 inline mr-1" />
+                          待跟进 {formatFollowUpDuration(calcPendingFollowUpMs(tg.followUps))}
+                        </span>
+                      )}
                     </div>
                   </div>
                   {latestFollowUp && (

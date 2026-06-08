@@ -52,9 +52,7 @@ export const tourGroups: TourGroup[] = [
     status: 'stuck',
     createdAt: '2026-06-06T08:00:00',
     stuckAt: '2026-06-07T01:00:00',
-    followUps: [
-      { id: 'fu1', content: '已联系导游赵丽确认，导游已到达接团点等待，车队孙师傅反馈路上堵车预计迟到30分钟', createdAt: '2026-06-07T02:15:00', isResolved: false },
-    ] as FollowUpRecord[],
+    followUps: [] as FollowUpRecord[],
   },
   {
     id: 'tg5',

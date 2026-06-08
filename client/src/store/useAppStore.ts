@@ -20,6 +20,32 @@ export function isStuckOver24h(stuckAt: string | null): boolean {
   return calcStuckDuration(stuckAt) >= 24 * 60 * 60 * 1000;
 }
 
+export function calcPendingFollowUpMs(followUps: FollowUpRecord[]): number {
+  const unresolved = followUps.filter((f) => !f.isResolved);
+  if (unresolved.length === 0) return followUps.length === 0 ? Infinity : 0;
+  const latest = unresolved[unresolved.length - 1];
+  return Date.now() - new Date(latest.createdAt).getTime();
+}
+
+export function needsFollowUp(followUps: FollowUpRecord[]): boolean {
+  if (followUps.length === 0) return true;
+  return calcPendingFollowUpMs(followUps) >= 4 * 60 * 60 * 1000;
+}
+
+export function isFollowUpDelayed(followUps: FollowUpRecord[]): boolean {
+  return calcPendingFollowUpMs(followUps) >= 12 * 60 * 60 * 1000;
+}
+
+export function formatFollowUpDuration(ms: number): string {
+  if (ms === Infinity) return '未跟进';
+  if (ms <= 0) return '刚刚';
+  const totalMinutes = Math.floor(ms / 60000);
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  if (hours > 0) return `${hours}小时${minutes}分钟未跟进`;
+  return `${minutes}分钟未跟进`;
+}
+
 interface AppState {
   role: Role;
   setRole: (role: Role) => void;
@@ -37,10 +63,12 @@ interface AppState {
   filterStatus: TourGroupStatus | '';
   filterGuideName: string;
   filterStuckDuration: StuckDurationThreshold;
+  filterNeedsFollowUp: boolean;
   setFilterKeyword: (v: string) => void;
   setFilterStatus: (v: TourGroupStatus | '') => void;
   setFilterGuideName: (v: string) => void;
   setFilterStuckDuration: (v: StuckDurationThreshold) => void;
+  setFilterNeedsFollowUp: (v: boolean) => void;
 
   dispatchPanelOpen: boolean;
   setDispatchPanelOpen: (v: boolean) => void;
@@ -77,10 +105,12 @@ export const useAppStore = create<AppState>((set, get) => ({
   filterStatus: '',
   filterGuideName: '',
   filterStuckDuration: '' as StuckDurationThreshold,
+  filterNeedsFollowUp: false,
   setFilterKeyword: (v) => set({ filterKeyword: v }),
   setFilterStatus: (v) => set({ filterStatus: v }),
   setFilterGuideName: (v) => set({ filterGuideName: v }),
   setFilterStuckDuration: (v) => set({ filterStuckDuration: v }),
+  setFilterNeedsFollowUp: (v) => set({ filterNeedsFollowUp: v }),
 
   dispatchPanelOpen: false,
   setDispatchPanelOpen: (v) => set({ dispatchPanelOpen: v }),
@@ -208,7 +238,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   filteredTourGroups: () => {
-    const { tourGroups, dispatches, checkIns, guides, filterKeyword, filterStatus, filterGuideName, filterStuckDuration } = get();
+    const { tourGroups, dispatches, checkIns, guides, filterKeyword, filterStatus, filterGuideName, filterStuckDuration, filterNeedsFollowUp } = get();
     return tourGroups.filter((tg) => {
       if (filterStatus && tg.status !== filterStatus) return false;
       if (filterKeyword) {
@@ -228,6 +258,9 @@ export const useAppStore = create<AppState>((set, get) => ({
         const dur = calcStuckDuration(tg.stuckAt);
         if (filterStuckDuration === 'over12h' && dur < 12 * 60 * 60 * 1000) return false;
         if (filterStuckDuration === 'over24h' && dur < 24 * 60 * 60 * 1000) return false;
+      }
+      if (filterNeedsFollowUp && tg.status === 'stuck') {
+        if (!needsFollowUp(tg.followUps)) return false;
       }
       return true;
     });

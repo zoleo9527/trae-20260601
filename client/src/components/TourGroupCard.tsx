@@ -1,6 +1,6 @@
-import { Clock, MapPin, Users, Siren, MessageSquarePlus, CheckCircle2 } from 'lucide-react';
+import { Clock, MapPin, Users, Siren, MessageSquarePlus, CheckCircle2, Bell, AlertCircle } from 'lucide-react';
 import StatusBadge from './StatusBadge';
-import { calcStuckDuration, formatStuckDuration, isStuckOver24h } from '../store/useAppStore';
+import { calcStuckDuration, formatStuckDuration, isStuckOver24h, needsFollowUp, isFollowUpDelayed, formatFollowUpDuration, calcPendingFollowUpMs } from '../store/useAppStore';
 import type { TourGroup, Dispatch, CheckIn, FleetAssignment, Guide } from '../types';
 
 interface TourGroupCardProps {
@@ -81,6 +81,18 @@ export default function TourGroupCard({
               }`}>
                 <Clock className="w-3 h-3 inline mr-1" />
                 卡住 {formatStuckDuration(durationMs)}
+              </span>
+            )}
+            {isStuck && isFollowUpDelayed(tourGroup.followUps) && (
+              <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-orange-100 text-orange-700 border border-orange-300">
+                <AlertCircle className="w-3 h-3 inline mr-1" />
+                跟进延迟 {formatFollowUpDuration(calcPendingFollowUpMs(tourGroup.followUps))}
+              </span>
+            )}
+            {isStuck && needsFollowUp(tourGroup.followUps) && !isFollowUpDelayed(tourGroup.followUps) && (
+              <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-slate-100 text-slate-600 border border-slate-300">
+                <Bell className="w-3 h-3 inline mr-1" />
+                待跟进 {formatFollowUpDuration(calcPendingFollowUpMs(tourGroup.followUps))}
               </span>
             )}
             {showActions && onAction && (

@@ -1,4 +1,4 @@
-import { Search, Filter, Timer } from 'lucide-react';
+import { Search, Filter, Timer, Bell } from 'lucide-react';
 import { useAppStore } from '../store/useAppStore';
 import { STATUS_LABELS } from '../types';
 import type { TourGroupStatus, StuckDurationThreshold } from '../types';
@@ -18,7 +18,7 @@ const stuckDurationOptions: { value: StuckDurationThreshold; label: string }[] =
 ];
 
 export default function FilterBar() {
-  const { filterKeyword, filterStatus, filterGuideName, filterStuckDuration, setFilterKeyword, setFilterStatus, setFilterGuideName, setFilterStuckDuration } =
+  const { filterKeyword, filterStatus, filterGuideName, filterStuckDuration, filterNeedsFollowUp, setFilterKeyword, setFilterStatus, setFilterGuideName, setFilterStuckDuration, setFilterNeedsFollowUp } =
     useAppStore();
 
   return (
@@ -71,6 +71,16 @@ export default function FilterBar() {
           ))}
         </select>
       </div>
+      <label className="flex items-center gap-2 cursor-pointer select-none px-3 py-2 text-sm border border-slate-200 rounded-lg bg-white hover:bg-slate-50 transition">
+        <input
+          type="checkbox"
+          checked={filterNeedsFollowUp}
+          onChange={(e) => setFilterNeedsFollowUp(e.target.checked)}
+          className="w-4 h-4 rounded border-slate-300 text-[#1e3a5f] focus:ring-[#1e3a5f]/20"
+        />
+        <Bell className="w-4 h-4 text-slate-400" />
+        <span className={filterNeedsFollowUp ? 'text-[#1e3a5f] font-medium' : 'text-slate-600'}>仅看待跟进</span>
+      </label>
     </div>
   );
 }
