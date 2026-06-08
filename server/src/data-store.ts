@@ -234,7 +234,122 @@ function seedComplaints(): Map<string, Complaint> {
     updatedAt: ts,
   };
 
-  [c1, c2, c3, c4].forEach(c => m.set(c.id, c));
+  const c5: Complaint = {
+    id: 'comp-005',
+    title: '景点安排与行程不符',
+    description: '合同承诺含5个景点，实际仅游览3个，且导游解释含糊，游客强烈不满。',
+    tourGroup: '桂林4日游-5月E团',
+    complaintType: 'schedule',
+    severity: 'high',
+    status: 'closed',
+    createdBy: 'op1',
+    createdByName: '王计调',
+    assignedTo: 'guide1',
+    assignedToName: '李导游',
+    assignedRole: 'guide',
+    assignmentHistory: [
+      {
+        assignedTo: 'guide1',
+        assignedToName: '李导游',
+        assignedRole: 'guide',
+        assignedBy: 'op1',
+        assignedByName: '王计调',
+        assignedAt: ts,
+      },
+    ],
+    compensation: {
+      id: uuidv4(),
+      type: 'refund',
+      amount: 800,
+      description: '退还未游览景点门票及导游服务费差价',
+      status: 'executed',
+      proposedBy: 'op1',
+      proposedByName: '王计调',
+      proposedAt: ts,
+      approvedBy: 'supervisor1',
+      approvedByName: '赵主管',
+      approvedAt: ts,
+      executedAt: ts,
+    },
+    followUp: {
+      note: '游客对退款速度表示认可，但对导游服务态度仍有不满，建议后续加强培训。',
+      satisfactionRating: 2,
+      followedUpBy: 'supervisor1',
+      followedUpByName: '赵主管',
+      followedUpAt: ts,
+    },
+    timeline: [
+      {
+        id: uuidv4(),
+        type: 'created',
+        role: 'operator',
+        authorName: '王计调',
+        content: '创建投诉：景点安排与行程不符，严重等级为高',
+        createdAt: ts,
+      },
+      {
+        id: uuidv4(),
+        type: 'assigned',
+        role: 'operator',
+        authorName: '王计调',
+        content: '指派给导游 李导游 处理',
+        createdAt: ts,
+      },
+      {
+        id: uuidv4(),
+        type: 'note',
+        role: 'guide',
+        authorName: '李导游',
+        content: '已确认景点缩减属实，原因为暴雨导致封路。',
+        createdAt: ts,
+      },
+      {
+        id: uuidv4(),
+        type: 'compensation_proposed',
+        role: 'operator',
+        authorName: '王计调',
+        content: '提出补偿方案：退还未游览景点门票800元',
+        createdAt: ts,
+      },
+      {
+        id: uuidv4(),
+        type: 'compensation_approved',
+        role: 'supervisor',
+        authorName: '赵主管',
+        content: '补偿方案已批准：退还未游览景点门票及导游服务费差价',
+        createdAt: ts,
+      },
+      {
+        id: uuidv4(),
+        type: 'compensation_executed',
+        role: 'operator',
+        authorName: '王计调',
+        content: '补偿已执行完成：退还未游览景点门票及导游服务费差价，金额 800 元',
+        createdAt: ts,
+      },
+      {
+        id: uuidv4(),
+        type: 'closed',
+        role: 'operator',
+        authorName: '王计调',
+        content: '投诉已关闭',
+        createdAt: ts,
+      },
+      {
+        id: uuidv4(),
+        type: 'follow_up',
+        role: 'supervisor',
+        authorName: '赵主管',
+        content: '客户回访：满意度 ★★☆☆☆（2/5）游客对退款速度表示认可，但对导游服务态度仍有不满，建议后续加强培训。',
+        createdAt: ts,
+      },
+    ],
+    dueDate: hoursFromNow(-72),
+    createdAt: ts,
+    updatedAt: ts,
+  };
+
+  [c1, c2, c3, c4, c5].forEach(c => m.set(c.id, c));
   return m;
 }
 
@@ -268,7 +383,7 @@ class DataStore {
     return this.complaints.get(id);
   }
 
-  createComplaint(data: Omit<Complaint, 'id' | 'timeline' | 'createdAt' | 'updatedAt' | 'status' | 'assignmentHistory'>): Complaint {
+  createComplaint(data: Omit<Complaint, 'id' | 'timeline' | 'createdAt' | 'updatedAt' | 'status' | 'assignmentHistory' | 'followUp'>): Complaint {
     const complaint: Complaint = {
       ...data,
       id: `comp-${String(this.complaints.size + 1).padStart(3, '0')}`,

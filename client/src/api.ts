@@ -120,6 +120,16 @@ export async function executeCompensation(id: string): Promise<Complaint> {
   return res.json();
 }
 
+export async function followUpComplaint(id: string, data: { note: string; satisfactionRating: number }): Promise<Complaint> {
+  const res = await fetch(`${BASE}/complaints/${id}/follow-up`, {
+    method: 'PATCH',
+    headers: headers(),
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) throw new Error(`提交回访失败: ${res.status}`);
+  return res.json();
+}
+
 export async function fetchUsers(): Promise<User[]> {
   const res = await fetch(`${BASE}/roles/users`, { headers: headers() });
   if (!res.ok) throw new Error(`获取用户列表失败: ${res.status}`);

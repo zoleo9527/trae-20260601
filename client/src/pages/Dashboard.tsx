@@ -1,4 +1,4 @@
-import { AlertTriangle, ArrowUpDown, CheckCircle, ChevronRight, Clock, Plus, RefreshCw, Timer, Truck, UserCheck, Users } from 'lucide-react';
+import { AlertTriangle, ArrowUpDown, CheckCircle, ChevronRight, Clock, Plus, RefreshCw, Star, ThumbsDown, Timer, Truck, UserCheck, Users } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { createComplaint, fetchComplaints, fetchUsers, resetData } from '../api';
 import CreateComplaintModal from '../components/CreateComplaintModal';
@@ -80,6 +80,7 @@ export default function Dashboard({ user, onSelectComplaint }: DashboardProps) {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [overdueOnly, setOverdueOnly] = useState(false);
   const [slaFilter, setSlaFilter] = useState(false);
+  const [lowScoreFilter, setLowScoreFilter] = useState(false);
   const [sortMode, setSortMode] = useState<SortMode>('newest');
   const [showCreate, setShowCreate] = useState(false);
   const [creating, setCreating] = useState(false);
@@ -147,6 +148,14 @@ export default function Dashboard({ user, onSelectComplaint }: DashboardProps) {
     count: complaints.filter((c) => c.status === s.status).length,
   }));
 
+  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 3600000);
+  const recentClosed = complaints.filter(
+    (c) => c.status === 'closed' && c.followUp && new Date(c.followUp.followedUpAt) >= sevenDaysAgo
+  );
+  const avgSatisfaction = recentClosed.length > 0
+    ? recentClosed.reduce((sum, c) => sum + c.followUp!.satisfactionRating, 0) / recentClosed.length
+    : null;
+
   const assigneeUsers = allUsers.filter((u) => u.role === 'guide' || u.role === 'fleet');
   const assigneeStats = assigneeUsers.map((u) => {
     const userComplaints = complaints.filter((c) => c.assignedTo === u.id && c.status !== 'closed');
@@ -163,7 +172,8 @@ export default function Dashboard({ user, onSelectComplaint }: DashboardProps) {
   const displayComplaints = (drillDownUserId
     ? sorted.filter((c) => c.assignedTo === drillDownUserId)
     : sorted
-  ).filter((c) => !slaFilter || isApproachingDue(c));
+  ).filter((c) => !slaFilter || isApproachingDue(c))
+   .filter((c) => !lowScoreFilter || (c.followUp && c.followUp.satisfactionRating <= 2));
 
   return (
     <div className="p-4 sm:p-6 max-w-6xl mx-auto">
@@ -208,6 +218,14 @@ export default function Dashboard({ user, onSelectComplaint }: DashboardProps) {
             <div className="text-2xl font-bold text-red-600">{overdueCount}</div>
             <div className="text-xs text-red-500 mt-1 flex items-center justify-center gap-1">
               <AlertTriangle className="w-3 h-3" />已逾期
+            </div>
+          </div>
+        )}
+        {avgSatisfaction !== null && (
+          <div className={`rounded-lg border p-3 text-center ${avgSatisfaction <= 2 ? 'bg-orange-50 border-orange-200' : 'bg-green-50 border-green-200'}`}>
+            <div className={`text-2xl font-bold ${avgSatisfaction <= 2 ? 'text-orange-600' : 'text-green-600'}`}>{avgSatisfaction.toFixed(1)}</div>
+            <div className={`text-xs mt-1 flex items-center justify-center gap-1 ${avgSatisfaction <= 2 ? 'text-orange-500' : 'text-green-500'}`}>
+              <Star className="w-3 h-3" />7日平均满意度
             </div>
           </div>
         )}
@@ -298,6 +316,16 @@ export default function Dashboard({ user, onSelectComplaint }: DashboardProps) {
           <Timer className="w-4 h-4 text-amber-500" />
           SLA&lt;2h
         </label>
+        <label className="flex items-center gap-1.5 text-sm text-slate-600 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={lowScoreFilter}
+            onChange={(e) => setLowScoreFilter(e.target.checked)}
+            className="rounded border-slate-300 text-orange-600 focus:ring-orange-500"
+          />
+          <ThumbsDown className="w-4 h-4 text-orange-500" />
+          低分回访
+        </label>
         <button
           onClick={() => setSortMode(sortMode === 'newest' ? 'severity' : 'newest')}
           className="flex items-center gap-1 text-sm text-slate-600 hover:text-slate-800 px-2 py-1 hover:bg-slate-100 rounded transition-colors"
@@ -338,6 +366,11 @@ export default function Dashboard({ user, onSelectComplaint }: DashboardProps) {
                       {!overdue && sla.variant === 'warning' && (
                         <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-medium">
                           <Timer className="w-3 h-3" />{sla.text}
+                        </span>
+                      )}
+                      {c.followUp && c.followUp.satisfactionRating <= 2 && (
+                        <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-orange-100 text-orange-700 font-medium">
+                          <Star className="w-3 h-3" />{c.followUp.satisfactionRating}星
                         </span>
                       )}
                     </div>

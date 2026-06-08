@@ -15,6 +15,8 @@ import {
   ArrowRightLeft,
   History,
   Timer,
+  Star,
+  PhoneCall,
 } from 'lucide-react';
 import type { User, Complaint, AssignTarget, ComplaintStatus, CompensationType, Role } from '../types';
 import {
@@ -26,6 +28,7 @@ import {
   proposeCompensation,
   reviewCompensation,
   executeCompensation,
+  followUpComplaint,
   fetchUsers,
 } from '../api';
 import StatusBadge from '../components/StatusBadge';
@@ -81,6 +84,7 @@ const TIMELINE_ICON_MAP: Record<string, { icon: React.ReactNode; color: string }
   compensation_executed: { icon: <CheckCircle className="w-4 h-4" />, color: 'bg-teal-500' },
   closed: { icon: <CheckCircle className="w-4 h-4" />, color: 'bg-slate-400' },
   reopened: { icon: <RotateCcw className="w-4 h-4" />, color: 'bg-orange-500' },
+  follow_up: { icon: <PhoneCall className="w-4 h-4" />, color: 'bg-pink-500' },
 };
 
 function formatTime(dateStr: string): string {
@@ -127,6 +131,8 @@ export default function ComplaintDetail({ id, user, onBack }: ComplaintDetailPro
   const [reassignRole, setReassignRole] = useState<AssignTarget>('guide');
   const [reassignTo, setReassignTo] = useState('');
   const [reassignReason, setReassignReason] = useState('');
+  const [followUpNote, setFollowUpNote] = useState('');
+  const [followUpRating, setFollowUpRating] = useState(0);
   const [submitting, setSubmitting] = useState(false);
 
   const load = useCallback(async () => {
@@ -252,6 +258,24 @@ export default function ComplaintDetail({ id, user, onBack }: ComplaintDetailPro
     }
   };
 
+  const handleFollowUp = async () => {
+    if (!followUpNote.trim() || followUpRating === 0) return;
+    try {
+      setSubmitting(true);
+      const updated = await followUpComplaint(id, {
+        note: followUpNote.trim(),
+        satisfactionRating: followUpRating,
+      });
+      setComplaint(updated);
+      setFollowUpNote('');
+      setFollowUpRating(0);
+    } catch (err) {
+      console.error('提交回访失败', err);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   if (loading || !complaint) {
     return (
       <div className="p-4 sm:p-6 max-w-6xl mx-auto">
@@ -277,6 +301,7 @@ export default function ComplaintDetail({ id, user, onBack }: ComplaintDetailPro
   const canReviewCompensation = user.role === 'supervisor' && complaint.status === 'compensating' && complaint.compensation?.status === 'proposed';
   const canExecuteCompensation = user.role === 'operator' && complaint.status === 'compensating' && complaint.compensation?.status === 'approved';
   const canReopen = user.role === 'supervisor' && complaint.status === 'closed';
+  const canFollowUp = user.role === 'supervisor' && complaint.status === 'closed' && !complaint.followUp;
 
   return (
     <div className="p-4 sm:p-6 max-w-6xl mx-auto">
@@ -358,6 +383,29 @@ export default function ComplaintDetail({ id, user, onBack }: ComplaintDetailPro
                   </div>
                 );
               })}
+            </div>
+          </div>
+        )}
+        {complaint.followUp && (
+          <div className="mt-3 pt-3 border-t border-slate-100">
+            <h4 className="text-sm font-medium text-slate-700 flex items-center gap-1.5 mb-2">
+              <PhoneCall className="w-3.5 h-3.5" />客户回访
+            </h4>
+            <div className={`text-xs p-3 rounded border ${complaint.followUp.satisfactionRating <= 2 ? 'bg-orange-50 border-orange-200' : 'bg-green-50 border-green-200'}`}>
+              <div className="flex items-center gap-3 mb-2">
+                <span className={`flex items-center gap-0.5 ${complaint.followUp.satisfactionRating <= 2 ? 'text-orange-500' : 'text-green-500'}`}>
+                  {[1, 2, 3, 4, 5].map((i) => (
+                    <Star key={i} className={`w-4 h-4 ${i <= complaint.followUp!.satisfactionRating ? 'fill-current' : ''}`} />
+                  ))}
+                </span>
+                <span className={`px-1.5 py-0.5 rounded text-xs font-medium ${complaint.followUp.satisfactionRating <= 2 ? 'bg-orange-100 text-orange-700' : 'bg-green-100 text-green-700'}`}>
+                  {complaint.followUp.satisfactionRating}/5
+                </span>
+              </div>
+              <p className="text-slate-700">{complaint.followUp.note}</p>
+              <div className="text-slate-500 mt-2">
+                回访人：{complaint.followUp.followedUpByName} · {formatTime(complaint.followUp.followedUpAt)}
+              </div>
             </div>
           </div>
         )}
@@ -690,6 +738,41 @@ export default function ComplaintDetail({ id, user, onBack }: ComplaintDetailPro
                 </div>
               )}
 
+              {canFollowUp && (
+                <div className="space-y-3">
+                  <h4 className="text-sm font-medium text-slate-700">客户回访与满意度</h4>
+                  <div className="flex items-center gap-1">
+                    {[1, 2, 3, 4, 5].map((i) => (
+                      <button
+                        key={i}
+                        type="button"
+                        onClick={() => setFollowUpRating(i)}
+                        className={`p-0.5 transition-colors ${i <= followUpRating ? 'text-amber-400' : 'text-slate-300 hover:text-amber-300'}`}
+                      >
+                        <Star className={`w-6 h-6 ${i <= followUpRating ? 'fill-current' : ''}`} />
+                      </button>
+                    ))}
+                    {followUpRating > 0 && (
+                      <span className="text-sm text-slate-600 ml-2">{followUpRating}/5</span>
+                    )}
+                  </div>
+                  <textarea
+                    value={followUpNote}
+                    onChange={(e) => setFollowUpNote(e.target.value)}
+                    rows={3}
+                    className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                    placeholder="回访说明（必填）..."
+                  />
+                  <button
+                    onClick={handleFollowUp}
+                    disabled={!followUpNote.trim() || followUpRating === 0 || submitting}
+                    className="w-full flex items-center justify-center gap-1.5 px-3 py-2 text-sm text-white bg-pink-600 hover:bg-pink-700 rounded-lg transition-colors disabled:opacity-50"
+                  >
+                    <PhoneCall className="w-4 h-4" />提交回访
+                  </button>
+                </div>
+              )}
+
               {user.role === 'supervisor' && complaint.status !== 'closed' && complaint.status !== 'registered' && (
                 <div className="pt-2 border-t border-slate-100">
                   <h4 className="text-sm font-medium text-slate-700 mb-2">主管操作</h4>
@@ -710,7 +793,7 @@ export default function ComplaintDetail({ id, user, onBack }: ComplaintDetailPro
                 </div>
               )}
 
-              {!canAssign && !canReassign && !canAddNoteOnAssigned && !canAddNoteProcessing && !canProposeCompensation && !canReviewCompensation && !canExecuteCompensation && !canReopen && !(user.role === 'supervisor' && complaint.status !== 'closed') && (
+              {!canAssign && !canReassign && !canAddNoteOnAssigned && !canAddNoteProcessing && !canProposeCompensation && !canReviewCompensation && !canExecuteCompensation && !canReopen && !canFollowUp && !(user.role === 'supervisor' && complaint.status !== 'closed') && (
                 <p className="text-sm text-slate-400 text-center py-2">当前无可执行操作</p>
               )}
             </div>

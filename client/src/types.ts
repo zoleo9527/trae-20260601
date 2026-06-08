@@ -3,7 +3,7 @@ export type ComplaintStatus = 'registered' | 'assigned' | 'processing' | 'compen
 export type ComplaintType = 'service' | 'transport' | 'accommodation' | 'food' | 'schedule' | 'other';
 export type Severity = 'low' | 'medium' | 'high' | 'urgent';
 export type AssignTarget = 'guide' | 'fleet';
-export type TimelineEventType = 'created' | 'assigned' | 'reassigned' | 'note' | 'status_change' | 'compensation_proposed' | 'compensation_approved' | 'compensation_rejected' | 'compensation_executed' | 'closed' | 'reopened';
+export type TimelineEventType = 'created' | 'assigned' | 'reassigned' | 'note' | 'status_change' | 'compensation_proposed' | 'compensation_approved' | 'compensation_rejected' | 'compensation_executed' | 'closed' | 'reopened' | 'follow_up';
 export type CompensationStatus = 'proposed' | 'approved' | 'rejected' | 'executed';
 export type CompensationType = 'refund' | 'discount' | 'gift' | 'upgrade' | 'apology_letter' | 'other';
 
@@ -51,6 +51,14 @@ export interface AssignmentHistoryEntry {
   reason?: string;
 }
 
+export interface FollowUp {
+  note: string;
+  satisfactionRating: number;
+  followedUpBy: string;
+  followedUpByName: string;
+  followedUpAt: string;
+}
+
 export interface Complaint {
   id: string;
   title: string;
@@ -67,6 +75,7 @@ export interface Complaint {
   assignmentHistory: AssignmentHistoryEntry[];
   timeline: TimelineEvent[];
   compensation?: Compensation;
+  followUp?: FollowUp;
   dueDate?: string;
   createdAt: string;
   updatedAt: string;

@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { v4 as uuidv4 } from 'uuid';
 import { store } from '../data-store.js';
 import { requireRole } from '../auth.js';
-import type { Complaint, AssignTarget, ComplaintType, Severity, CompensationType, ComplaintStatus, AssignmentHistoryEntry } from '../types.js';
+import type { Complaint, AssignTarget, ComplaintType, Severity, CompensationType, ComplaintStatus, AssignmentHistoryEntry, FollowUp } from '../types.js';
 
 const router = Router();
 
@@ -503,6 +503,56 @@ router.post('/:id/compensation/execute', requireRole('operator'), (req, res) => 
     role: user.role,
     authorName: user.name,
     content: '投诉已关闭',
+  });
+
+  const result = store.getComplaint(complaint.id);
+  res.json(result);
+});
+
+router.patch('/:id/follow-up', requireRole('supervisor'), (req, res) => {
+  const { note, satisfactionRating } = req.body;
+  if (!note || typeof note !== 'string' || note.trim().length === 0) {
+    res.status(400).json({ error: '缺少必填字段：note' });
+    return;
+  }
+  if (satisfactionRating === undefined || typeof satisfactionRating !== 'number' || satisfactionRating < 1 || satisfactionRating > 5) {
+    res.status(400).json({ error: 'satisfactionRating 必须为 1-5 的整数' });
+    return;
+  }
+
+  const complaint = store.getComplaint(req.params.id);
+  if (!complaint) {
+    res.status(404).json({ error: '投诉不存在' });
+    return;
+  }
+
+  if (complaint.status !== 'closed') {
+    res.status(400).json({ error: `当前状态为 ${complaint.status}，只有 closed 状态才能进行回访` });
+    return;
+  }
+
+  if (complaint.followUp) {
+    res.status(400).json({ error: '该投诉已完成回访，不可重复提交' });
+    return;
+  }
+
+  const user = req.currentUser!;
+  const followUp: FollowUp = {
+    note: note.trim(),
+    satisfactionRating: Math.round(satisfactionRating),
+    followedUpBy: user.id,
+    followedUpByName: user.name,
+    followedUpAt: new Date().toISOString(),
+  };
+
+  store.updateComplaint(complaint.id, { followUp });
+
+  const stars = '★'.repeat(followUp.satisfactionRating) + '☆'.repeat(5 - followUp.satisfactionRating);
+  store.addTimelineEvent(complaint.id, {
+    type: 'follow_up',
+    role: user.role,
+    authorName: user.name,
+    content: `客户回访：满意度 ${stars}（${followUp.satisfactionRating}/5）${followUp.note}`,
   });
 
   const result = store.getComplaint(complaint.id);
