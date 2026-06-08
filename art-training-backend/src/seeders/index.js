@@ -43,7 +43,6 @@ function seed() {
   db.prepare('INSERT INTO cutting_tasks (id, batch_id, task_number, target_specification, target_quantity, assignee, inspection_id, inspection_conclusion, spec_adjustment, status, remark) VALUES (?,?,?,?,?,?,?,?,?,?,?)').run(uuidv4(), b4, 'T202401003', '分割鸡块', 400, '分割三组', insp4, ic4, null, 'completed', '正常完成');
   db.prepare('INSERT INTO releases (id, batch_id, released_by, quantity, destination, remark) VALUES (?,?,?,?,?,?)').run(uuidv4(), b4, '仓库管理员', 400, '生鲜配送中心', '已放行');
   console.log('  - 正常完成批次');
-
   const bc = db.prepare('SELECT COUNT(*) as c FROM batches').get().c;
   const ic = db.prepare('SELECT COUNT(*) as c FROM inspections').get().c;
   const tc = db.prepare('SELECT COUNT(*) as c FROM cutting_tasks').get().c;
@@ -54,23 +53,23 @@ function seed() {
   console.log('种子数据插入完成！');
   console.log('  批次:', bc, '验收:', ic, '任务:', tc, '放行:', rc, '退回:', rjc);
   console.log('');
-  console.log('1. B202401001 - 温度异常，已退回');
-  console.log('2. B202401002 - 重量差异，分割中');
-  console.log('3. B202401003 - 临时改规格，待分割');
-  console.log('4. B202401004 - 正常完成，已放行');
-  console.log('===== 批次 Timeline 摘要 =====');
-  const batches = db.prepare('SELECT * FROM batches ORDER BY batch_number ASC').all();
-  for (const b of batches) {
-    const insps = db.prepare('SELECT * FROM inspections WHERE batch_id = ? ORDER BY created_at ASC').all(b.id);
-    const tasks = db.prepare('SELECT * FROM cutting_tasks WHERE batch_id = ? ORDER BY created_at ASC').all(b.id);
-    const rels = db.prepare('SELECT * FROM releases WHERE batch_id = ?').all(b.id);
-    const rejs = db.prepare('SELECT * FROM rejections WHERE batch_id = ?').all(b.id);
-    const inspSummary = insps.map(i => i.result).join(',') || '无';
-    const releaseTag = rels.length > 0 ? ' [已放行]' : '';
-    const rejectTag = rejs.length > 0 ? ' [已退回]' : '';
-    const taskSpecAdj = tasks.filter(t => t.spec_adjustment).map(t => t.spec_adjustment).join('; ') || '';
-    console.log('  ' + b.batch_number + ' | 验收: ' + inspSummary + ' | 任务: ' + tasks.length + releaseTag + rejectTag + (taskSpecAdj ? ' | 改规格: ' + taskSpecAdj : ''));
+  const batchList = db.prepare('SELECT * FROM batches ORDER BY batch_number').all();
+  console.log('===== 批次摘要 =====');
+  for (const b of batchList) {
+    const latestInsp = db.prepare('SELECT * FROM inspections WHERE batch_id = ? ORDER BY created_at DESC LIMIT 1').get(b.id);
+    const taskCount = db.prepare('SELECT COUNT(*) as c FROM cutting_tasks WHERE batch_id = ?').get(b.id).c;
+    const hasRelease = db.prepare('SELECT COUNT(*) as c FROM releases WHERE batch_id = ?').get(b.id).c > 0;
+    const hasRejection = db.prepare('SELECT COUNT(*) as c FROM rejections WHERE batch_id = ?').get(b.id).c > 0;
+    const adjCount = db.prepare("SELECT COUNT(*) as c FROM cutting_tasks WHERE batch_id = ? AND spec_adjustment IS NOT NULL AND spec_adjustment != ''").get(b.id).c;
+    const inspResult = latestInsp ? latestInsp.result : 'none';
+    const storageDec = latestInsp ? latestInsp.storage_decision : 'none';
+    const tags = [];
+    if (hasRelease) tags.push('已放行');
+    if (hasRejection) tags.push('已退回');
+    const summaryStr = 'insp=' + inspResult + ' storage=' + storageDec + ' tasks=' + taskCount + ' adj=' + adjCount + ' ' + tags.join(',');
+    console.log('  ' + b.batch_number + ' | ' + summaryStr);
   }
-  console.log('==============================');
+  console.log('====================');
 }
+
 seed();
