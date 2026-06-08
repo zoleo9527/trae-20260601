@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Table, Button, Tabs, Space, Input, Select, Card, message, Row, Col, Switch, Tag } from 'antd'
-import { PlusOutlined, SearchOutlined } from '@ant-design/icons'
+import { Table, Button, Tabs, Space, Input, Select, Card, message, Row, Col, Switch, Tag, Tooltip } from 'antd'
+import { PlusOutlined, SearchOutlined, DownloadOutlined } from '@ant-design/icons'
 import dayjs from 'dayjs'
 import { fetchDetentions } from '../api'
 import { DETAIN_REASON_LABELS, STATUS_LABELS, STATUS_COLORS } from '../types'
@@ -47,6 +47,10 @@ export default function DetentionList() {
     const days = Math.floor(minutes / 1440)
     const hours = Math.floor((minutes % 1440) / 60)
     return `${days}天${hours}小时`
+  }, [])
+
+  const getDurationMinutes = useCallback((d: Detention) => {
+    return dayjs().diff(dayjs(d.detainTime), 'minute')
   }, [])
 
   const loadAll = useCallback(async () => {
@@ -100,6 +104,36 @@ export default function DetentionList() {
     return list
   }, [allData, activeTab, keyword, reason, overdueOnly, isOverdue])
 
+  const handleExportCsv = useCallback(() => {
+    if (filteredData.length === 0) {
+      message.warning('无可导出数据')
+      return
+    }
+    const BOM = '\uFEFF'
+    const header = '运单号,货物品名,申报品名,扣留原因,扣留时间,扣留时长,状态'
+    const rows = filteredData.map((d) =>
+      [
+        d.waybillNo,
+        d.goodsName,
+        d.declaredGoodsName,
+        DETAIN_REASON_LABELS[d.detainReason] ?? d.detainReason,
+        d.detainTime ? dayjs(d.detainTime).format('YYYY-MM-DD HH:mm') : '',
+        formatDuration(d),
+        STATUS_LABELS[d.status] ?? d.status,
+      ]
+        .map((v) => `"${String(v).replace(/"/g, '""')}"`)
+        .join(','),
+    )
+    const csv = BOM + header + '\n' + rows.join('\n')
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'detention-list.csv'
+    a.click()
+    URL.revokeObjectURL(url)
+  }, [filteredData, formatDuration])
+
   const columns = [
     { title: '运单号', dataIndex: 'waybillNo', key: 'waybillNo' },
     { title: '货物品名', dataIndex: 'goodsName', key: 'goodsName' },
@@ -119,6 +153,8 @@ export default function DetentionList() {
     {
       title: '扣留时长',
       key: 'duration',
+      defaultSortOrder: 'descend' as const,
+      sorter: (a: Detention, b: Detention) => getDurationMinutes(a) - getDurationMinutes(b),
       render: (_: unknown, record: Detention) => {
         const overdue = isOverdue(record)
         const text = formatDuration(record)
@@ -207,6 +243,15 @@ export default function DetentionList() {
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 13 }}>
             仅看超期 <Switch size="small" checked={overdueOnly} onChange={setOverdueOnly} />
           </span>
+          <Tooltip title={filteredData.length === 0 ? '无可导出数据' : ''}>
+            <Button
+              icon={<DownloadOutlined />}
+              disabled={filteredData.length === 0}
+              onClick={handleExportCsv}
+            >
+              导出CSV
+            </Button>
+          </Tooltip>
           <Button type="primary" icon={<PlusOutlined />} onClick={() => navigate('/register')}>
             新建扣留登记
           </Button>
