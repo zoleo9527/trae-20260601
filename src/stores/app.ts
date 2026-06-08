@@ -1,0 +1,317 @@
+import { defineStore } from 'pinia'
+import { ref } from 'vue'
+import type { Registration, Seat, SeatAllocation, HandoverLog, Role, DashboardStats, SeatAvailability } from '@/types'
+
+export const useAppStore = defineStore('app', () => {
+  const currentRole = ref<Role>('网管')
+  const currentName = ref('操作员')
+  const registrations = ref<Registration[]>([])
+  const seats = ref<Seat[]>([])
+  const allocations = ref<SeatAllocation[]>([])
+  const stats = ref<DashboardStats>({ pending: 0, overdue: 0, conflicts: 0, my_pending: 0, escalated: 0 })
+  const recentLogs = ref<HandoverLog[]>([])
+  const loading = ref(false)
+
+  function setRole(role: Role) {
+    currentRole.value = role
+  }
+
+  function setName(name: string) {
+    currentName.value = name
+  }
+
+  async function fetchRegistrations() {
+    try {
+      const res = await fetch('/api/registrations')
+      const data = await res.json()
+      if (data.success) {
+        registrations.value = data.data
+      }
+    } catch (e) {
+      console.error('Failed to fetch registrations:', e)
+    }
+  }
+
+  async function fetchRegistration(id: string): Promise<Registration | null> {
+    try {
+      const res = await fetch(`/api/registrations/${id}`)
+      const data = await res.json()
+      if (data.success) {
+        return data.data
+      }
+    } catch (e) {
+      console.error('Failed to fetch registration:', e)
+    }
+    return null
+  }
+
+  async function updateRegistration(id: string, payload: { status: Registration['status']; confirmed_by?: string; note?: string; note_type?: string; conflict_acknowledged?: boolean }) {
+    try {
+      const res = await fetch(`/api/registrations/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          status: payload.status,
+          operator_role: currentRole.value,
+          operator_name: currentName.value,
+          note_type: payload.note_type || (payload.status === 'rejected' ? 'dispute' : 'normal'),
+          note: payload.note || `${currentRole.value}/${currentName.value} 执行了 ${payload.status} 操作`,
+          confirmed_by: payload.confirmed_by,
+          conflict_acknowledged: payload.conflict_acknowledged,
+        }),
+      })
+      const data = await res.json()
+      if (data.success) {
+        await fetchRegistrations()
+        await fetchStats()
+        return { success: true, data: data.data }
+      } else {
+        return { success: false, error: data.error, data: data.data }
+      }
+    } catch (e) {
+      console.error('Failed to update registration:', e)
+    }
+    return { success: false, error: '网络错误' }
+  }
+
+  async function escalateRegistration(id: string, reason: string) {
+    try {
+      const res = await fetch(`/api/registrations/${id}/escalate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          operator_role: currentRole.value,
+          operator_name: currentName.value,
+          reason,
+        }),
+      })
+      const data = await res.json()
+      if (data.success) {
+        await fetchRegistrations()
+        await fetchStats()
+        return true
+      }
+    } catch (e) {
+      console.error('Failed to escalate registration:', e)
+    }
+    return false
+  }
+
+  async function addNote(registrationId: string, noteType: string, note: string) {
+    try {
+      const res = await fetch(`/api/registrations/${registrationId}/notes`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          operator_role: currentRole.value,
+          operator_name: currentName.value,
+          note_type: noteType,
+          note,
+        }),
+      })
+      const data = await res.json()
+      return data.success
+    } catch (e) {
+      console.error('Failed to add note:', e)
+    }
+    return false
+  }
+
+  async function fetchSeats() {
+    try {
+      const res = await fetch('/api/seats')
+      const data = await res.json()
+      if (data.success) {
+        seats.value = data.data
+      }
+    } catch (e) {
+      console.error('Failed to fetch seats:', e)
+    }
+  }
+
+  async function fetchSeatAvailability(): Promise<SeatAvailability | null> {
+    try {
+      const res = await fetch('/api/seats/availability')
+      const data = await res.json()
+      if (data.success) {
+        return data.data
+      }
+    } catch (e) {
+      console.error('Failed to fetch seat availability:', e)
+    }
+    return null
+  }
+
+  async function fetchAllocations() {
+    try {
+      const res = await fetch('/api/seats/allocations')
+      const data = await res.json()
+      if (data.success) {
+        allocations.value = data.data
+      }
+    } catch (e) {
+      console.error('Failed to fetch allocations:', e)
+    }
+  }
+
+  async function fetchAllocation(id: string): Promise<SeatAllocation | null> {
+    try {
+      const res = await fetch(`/api/seats/allocations/${id}`)
+      const data = await res.json()
+      if (data.success) {
+        return data.data
+      }
+    } catch (e) {
+      console.error('Failed to fetch allocation:', e)
+    }
+    return null
+  }
+
+  async function createAllocation(registrationId: string, seatIds: string[], conflictReason?: string) {
+    try {
+      const res = await fetch('/api/seats/allocations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          registration_id: registrationId,
+          seat_ids: seatIds,
+          allocated_by: `${currentRole.value}/${currentName.value}`,
+          conflict_reason: conflictReason,
+        }),
+      })
+      const data = await res.json()
+      if (data.success) {
+        await fetchSeats()
+        await fetchAllocations()
+        await fetchStats()
+        return { success: true, has_conflict: data.has_conflict, conflict_description: data.conflict_description }
+      }
+    } catch (e) {
+      console.error('Failed to create allocation:', e)
+    }
+    return { success: false }
+  }
+
+  async function updateAllocation(id: string, payload: Partial<SeatAllocation> & { note?: string }) {
+    try {
+      const res = await fetch(`/api/seats/allocations/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          status: payload.status,
+          operator_role: currentRole.value,
+          operator_name: currentName.value,
+          note: payload.note || `${currentRole.value}/${currentName.value} 执行了 ${payload.status} 操作`,
+        }),
+      })
+      const data = await res.json()
+      if (data.success) {
+        await fetchAllocations()
+        await fetchStats()
+        return true
+      }
+    } catch (e) {
+      console.error('Failed to update allocation:', e)
+    }
+    return false
+  }
+
+  async function updateAttachment(id: string, status: 'placeholder' | 'uploaded') {
+    try {
+      const res = await fetch(`/api/attachments/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          status,
+          uploaded_by: status === 'uploaded' ? `${currentRole.value}/${currentName.value}` : undefined,
+        }),
+      })
+      const data = await res.json()
+      return data.success
+    } catch (e) {
+      console.error('Failed to update attachment:', e)
+    }
+    return false
+  }
+
+  async function fetchStats() {
+    try {
+      const res = await fetch(`/api/admin/stats?role=${encodeURIComponent(currentRole.value)}`)
+      const data = await res.json()
+      if (data.success) {
+        stats.value = {
+          pending: data.data.pending,
+          overdue: data.data.overdue,
+          conflicts: data.data.conflicts,
+          my_pending: data.data.my_pending,
+          escalated: data.data.escalated,
+        }
+      }
+    } catch (e) {
+      console.error('Failed to fetch stats:', e)
+    }
+  }
+
+  async function fetchRecentLogs() {
+    try {
+      const res = await fetch('/api/handover-logs/recent/all')
+      const data = await res.json()
+      if (data.success) {
+        recentLogs.value = data.data
+      }
+    } catch (e) {
+      console.error('Failed to fetch recent logs:', e)
+      recentLogs.value = []
+    }
+  }
+
+  async function resetData(confirmText: string) {
+    try {
+      const res = await fetch('/api/admin/reset', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ confirmText }),
+      })
+      const data = await res.json()
+      if (data.success) {
+        await fetchRegistrations()
+        await fetchSeats()
+        await fetchAllocations()
+        await fetchStats()
+        await fetchRecentLogs()
+        return true
+      }
+    } catch (e) {
+      console.error('Failed to reset data:', e)
+    }
+    return false
+  }
+
+  return {
+    currentRole,
+    currentName,
+    registrations,
+    seats,
+    allocations,
+    stats,
+    recentLogs,
+    loading,
+    setRole,
+    setName,
+    fetchRegistrations,
+    fetchRegistration,
+    updateRegistration,
+    escalateRegistration,
+    addNote,
+    fetchSeats,
+    fetchSeatAvailability,
+    fetchAllocations,
+    fetchAllocation,
+    createAllocation,
+    updateAllocation,
+    updateAttachment,
+    fetchStats,
+    fetchRecentLogs,
+    resetData,
+  }
+})
