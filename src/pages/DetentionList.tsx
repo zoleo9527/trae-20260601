@@ -1,7 +1,8 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Table, Button, Tabs, Space, Input, Select, Card, message, Row, Col, Switch, Tag, Tooltip } from 'antd'
-import { PlusOutlined, SearchOutlined, DownloadOutlined } from '@ant-design/icons'
+import { Table, Button, Tabs, Space, Input, Select, Card, message, Row, Col, Switch, Tag, Tooltip, DatePicker } from 'antd'
+import { PlusOutlined, SearchOutlined, DownloadOutlined, UndoOutlined } from '@ant-design/icons'
+import type { Dayjs } from 'dayjs'
 import dayjs from 'dayjs'
 import { fetchDetentions } from '../api'
 import { DETAIN_REASON_LABELS, STATUS_LABELS, STATUS_COLORS } from '../types'
@@ -35,6 +36,15 @@ export default function DetentionList() {
   const [keyword, setKeyword] = useState('')
   const [reason, setReason] = useState<string | undefined>(undefined)
   const [overdueOnly, setOverdueOnly] = useState(false)
+  const [dateRange, setDateRange] = useState<[Dayjs, Dayjs] | null>(null)
+
+  const handleReset = useCallback(() => {
+    setKeyword('')
+    setReason(undefined)
+    setDateRange(null)
+    setOverdueOnly(false)
+    setActiveTab('all')
+  }, [])
 
   const isOverdue = useCallback((d: Detention) => {
     if (d.status === 'released' || d.status === 'returned') return false
@@ -101,8 +111,17 @@ export default function DetentionList() {
     if (overdueOnly) {
       list = list.filter((d) => isOverdue(d))
     }
+    if (dateRange) {
+      const [start, end] = dateRange
+      const s = start.startOf('day').valueOf()
+      const e = end.endOf('day').valueOf()
+      list = list.filter((d) => {
+        const t = dayjs(d.detainTime).valueOf()
+        return t >= s && t <= e
+      })
+    }
     return list
-  }, [allData, activeTab, keyword, reason, overdueOnly, isOverdue])
+  }, [allData, activeTab, keyword, reason, overdueOnly, isOverdue, dateRange])
 
   const handleExportCsv = useCallback(() => {
     if (filteredData.length === 0) {
@@ -207,11 +226,12 @@ export default function DetentionList() {
           </Col>
         ))}
       </Row>
-      {overdueCount > 0 && (
-        <div style={{ marginBottom: 12, fontSize: 13, color: '#ff4d4f' }}>
-          当前有 <strong>{overdueCount}</strong> 件扣留记录已超过 72 小时未处理
-        </div>
-      )}
+      <div style={{ marginBottom: 12, fontSize: 13, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <span style={{ color: '#ff4d4f' }}>
+          {overdueCount > 0 && <>当前有 <strong>{overdueCount}</strong> 件扣留记录已超过 72 小时未处理</>}
+        </span>
+        <span style={{ color: '#666' }}>当前筛选命中 <strong>{filteredData.length}</strong> 条</span>
+      </div>
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
         <Tabs
@@ -240,6 +260,12 @@ export default function DetentionList() {
             onChange={(v) => setReason(v)}
             options={Object.entries(DETAIN_REASON_LABELS).map(([value, label]) => ({ value, label }))}
           />
+          <DatePicker.RangePicker
+            placeholder={['扣留起始', '扣留截止']}
+            style={{ width: 260 }}
+            value={dateRange}
+            onChange={(dates) => setDateRange(dates as [Dayjs, Dayjs] | null)}
+          />
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 13 }}>
             仅看超期 <Switch size="small" checked={overdueOnly} onChange={setOverdueOnly} />
           </span>
@@ -252,6 +278,7 @@ export default function DetentionList() {
               导出CSV
             </Button>
           </Tooltip>
+          <Button icon={<UndoOutlined />} onClick={handleReset}>重置</Button>
           <Button type="primary" icon={<PlusOutlined />} onClick={() => navigate('/register')}>
             新建扣留登记
           </Button>
