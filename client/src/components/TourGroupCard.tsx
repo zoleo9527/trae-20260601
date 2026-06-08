@@ -1,5 +1,6 @@
-import { Clock, MapPin, Users } from 'lucide-react';
+import { Clock, MapPin, Users, Siren } from 'lucide-react';
 import StatusBadge from './StatusBadge';
+import { calcStuckDuration, formatStuckDuration, isStuckOver24h } from '../store/useAppStore';
 import type { TourGroup, Dispatch, CheckIn, FleetAssignment, Guide } from '../types';
 
 interface TourGroupCardProps {
@@ -28,11 +29,17 @@ export default function TourGroupCard({
   compact,
 }: TourGroupCardProps) {
   const isStuck = tourGroup.status === 'stuck';
+  const over24h = isStuck && isStuckOver24h(tourGroup.stuckAt);
+  const durationMs = isStuck ? calcStuckDuration(tourGroup.stuckAt) : 0;
 
   return (
     <div
       className={`relative bg-white rounded-lg border shadow-sm hover:shadow-md transition-all cursor-pointer group ${
-        isStuck ? 'border-l-4 border-l-amber-500 border-amber-200' : 'border-slate-200'
+        over24h
+          ? 'border-l-4 border-l-red-500 border-2 border-red-400 shadow-red-100'
+          : isStuck
+          ? 'border-l-4 border-l-amber-500 border-amber-200'
+          : 'border-slate-200'
       }`}
       onClick={onClick}
     >
@@ -44,6 +51,7 @@ export default function TourGroupCard({
                 {tourGroup.groupCode}
               </span>
               <StatusBadge status={tourGroup.status} />
+              {over24h && <Siren className="w-4 h-4 text-red-500 shrink-0" />}
             </div>
             <h3 className="text-base font-semibold text-slate-800 truncate">{tourGroup.tourName}</h3>
             {!compact && (
@@ -59,17 +67,29 @@ export default function TourGroupCard({
               </div>
             )}
           </div>
-          {showActions && onAction && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onAction();
-              }}
-              className="shrink-0 px-3 py-1.5 text-sm font-medium rounded-lg bg-[#1e3a5f] text-white hover:bg-[#2a4f7f] transition-colors"
-            >
-              {actionLabel || '操作'}
-            </button>
-          )}
+          <div className="flex flex-col items-end gap-2 shrink-0">
+            {isStuck && (
+              <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${
+                over24h
+                  ? 'bg-red-100 text-red-700 border border-red-300'
+                  : 'bg-amber-100 text-amber-700 border border-amber-300'
+              }`}>
+                <Clock className="w-3 h-3 inline mr-1" />
+                卡住 {formatStuckDuration(durationMs)}
+              </span>
+            )}
+            {showActions && onAction && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onAction();
+                }}
+                className="px-3 py-1.5 text-sm font-medium rounded-lg bg-[#1e3a5f] text-white hover:bg-[#2a4f7f] transition-colors"
+              >
+                {actionLabel || '操作'}
+              </button>
+            )}
+          </div>
         </div>
 
         {!compact && (
@@ -90,7 +110,11 @@ export default function TourGroupCard({
         )}
 
         {isStuck && checkIn?.exception && (
-          <div className="mt-2 px-3 py-2 bg-amber-50 border border-amber-200 rounded-md text-sm text-amber-800">
+          <div className={`mt-2 px-3 py-2 rounded-md text-sm ${
+            over24h
+              ? 'bg-red-50 border border-red-200 text-red-800'
+              : 'bg-amber-50 border border-amber-200 text-amber-800'
+          }`}>
             ⚠ {checkIn.exception}
           </div>
         )}

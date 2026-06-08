@@ -1,5 +1,5 @@
-import { AlertTriangle, ClipboardList, Send, Clock, Eye } from 'lucide-react';
-import { useAppStore } from '../store/useAppStore';
+import { AlertTriangle, ClipboardList, Send, Clock, Eye, Siren } from 'lucide-react';
+import { useAppStore, calcStuckDuration, formatStuckDuration, isStuckOver24h } from '../store/useAppStore';
 import StatCard from './StatCard';
 import TourGroupCard from './TourGroupCard';
 import FilterBar from './FilterBar';
@@ -12,7 +12,9 @@ export default function DispatcherBoard() {
   const todayDispatchCount = tourGroups.filter((tg) => tg.status === 'dispatched').length;
   const stuckCount = tourGroups.filter((tg) => tg.status === 'stuck').length;
 
-  const stuckGroups = tourGroups.filter((tg) => tg.status === 'stuck');
+  const stuckGroups = tourGroups
+    .filter((tg) => tg.status === 'stuck')
+    .sort((a, b) => calcStuckDuration(b.stuckAt) - calcStuckDuration(a.stuckAt));
   const filtered = filteredTourGroups();
 
   return (
@@ -44,33 +46,57 @@ export default function DispatcherBoard() {
           <div className="flex items-center gap-2 mb-3">
             <AlertTriangle className="w-5 h-5 text-amber-600" />
             <h3 className="font-semibold text-amber-800">异常预警</h3>
+            <span className="text-xs text-amber-500 ml-auto">按卡住时长由长到短排列</span>
           </div>
           <div className="space-y-2">
             {stuckGroups.map((tg) => {
               const dispatch = dispatches.find((d) => d.tourGroupId === tg.id);
               const guide = dispatch ? guides.find((g) => g.id === dispatch.guideId) : undefined;
               const checkIn = checkIns.find((ci) => ci.tourGroupId === tg.id);
+              const over24h = isStuckOver24h(tg.stuckAt);
+              const durationMs = calcStuckDuration(tg.stuckAt);
               return (
                 <div
                   key={tg.id}
-                  className="bg-white rounded-lg border border-amber-200 px-4 py-3 flex items-center justify-between"
+                  className={`bg-white rounded-lg px-4 py-3 flex items-center justify-between ${
+                    over24h
+                      ? 'border-2 border-red-400 shadow-red-100 shadow-sm'
+                      : 'border border-amber-200'
+                  }`}
                 >
-                  <div>
-                    <div className="text-sm font-medium text-slate-800">{tg.tourName}</div>
-                    <div className="text-xs text-slate-500 mt-0.5">
-                      {tg.groupCode} · {guide?.name || '未指派'}
-                      {checkIn?.exception && <span className="text-amber-700 ml-2">⚠ {checkIn.exception}</span>}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      {over24h && <Siren className="w-4 h-4 text-red-500 shrink-0" />}
+                      <span className="text-sm font-medium text-slate-800 truncate">{tg.tourName}</span>
+                    </div>
+                    <div className="text-xs text-slate-500 mt-0.5 flex items-center gap-2 flex-wrap">
+                      <span>{tg.groupCode} · {guide?.name || '未指派'}</span>
+                      {checkIn?.exception && <span className="text-amber-700">⚠ {checkIn.exception}</span>}
                     </div>
                   </div>
-                  <button
-                    onClick={() => {
-                      setSelectedTourGroupId(tg.id);
-                      setTimelineModalOpen(true);
-                    }}
-                    className="px-3 py-1.5 text-xs font-medium rounded-lg bg-amber-100 text-amber-800 hover:bg-amber-200 transition"
-                  >
-                    查看详情
-                  </button>
+                  <div className="flex items-center gap-3 shrink-0 ml-3">
+                    <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${
+                      over24h
+                        ? 'bg-red-100 text-red-700 border border-red-300'
+                        : 'bg-amber-100 text-amber-700 border border-amber-300'
+                    }`}>
+                      <Clock className="w-3 h-3 inline mr-1" />
+                      卡住 {formatStuckDuration(durationMs)}
+                    </span>
+                    <button
+                      onClick={() => {
+                        setSelectedTourGroupId(tg.id);
+                        setTimelineModalOpen(true);
+                      }}
+                      className={`px-3 py-1.5 text-xs font-medium rounded-lg transition ${
+                        over24h
+                          ? 'bg-red-100 text-red-800 hover:bg-red-200'
+                          : 'bg-amber-100 text-amber-800 hover:bg-amber-200'
+                      }`}
+                    >
+                      查看详情
+                    </button>
+                  </div>
                 </div>
               );
             })}

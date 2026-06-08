@@ -18,6 +18,7 @@ export const tourGroups: TourGroup[] = [
     tourDate: '2026-06-08',
     status: 'completed',
     createdAt: '2026-06-05T09:00:00',
+    stuckAt: null,
   },
   {
     id: 'tg2',
@@ -27,6 +28,7 @@ export const tourGroups: TourGroup[] = [
     tourDate: '2026-06-08',
     status: 'completed',
     createdAt: '2026-06-04T14:30:00',
+    stuckAt: null,
   },
   {
     id: 'tg3',
@@ -36,6 +38,7 @@ export const tourGroups: TourGroup[] = [
     tourDate: '2026-06-08',
     status: 'completed',
     createdAt: '2026-06-03T10:15:00',
+    stuckAt: null,
   },
   {
     id: 'tg4',
@@ -45,6 +48,7 @@ export const tourGroups: TourGroup[] = [
     tourDate: '2026-06-08',
     status: 'stuck',
     createdAt: '2026-06-06T08:00:00',
+    stuckAt: '2026-06-07T01:00:00',
   },
   {
     id: 'tg5',
@@ -54,6 +58,7 @@ export const tourGroups: TourGroup[] = [
     tourDate: '2026-06-07',
     status: 'stuck',
     createdAt: '2026-06-04T16:45:00',
+    stuckAt: '2026-06-06T14:00:00',
   },
   {
     id: 'tg6',
@@ -63,6 +68,7 @@ export const tourGroups: TourGroup[] = [
     tourDate: '2026-06-09',
     status: 'pending_dispatch',
     createdAt: '2026-06-07T11:00:00',
+    stuckAt: null,
   },
   {
     id: 'tg7',
@@ -72,6 +78,7 @@ export const tourGroups: TourGroup[] = [
     tourDate: '2026-06-09',
     status: 'pending_dispatch',
     createdAt: '2026-06-07T15:20:00',
+    stuckAt: null,
   },
   {
     id: 'tg8',
@@ -81,6 +88,7 @@ export const tourGroups: TourGroup[] = [
     tourDate: '2026-06-08',
     status: 'dispatched',
     createdAt: '2026-06-05T10:00:00',
+    stuckAt: null,
   },
   {
     id: 'tg9',
@@ -90,6 +98,7 @@ export const tourGroups: TourGroup[] = [
     tourDate: '2026-06-08',
     status: 'checked_in',
     createdAt: '2026-06-06T09:30:00',
+    stuckAt: null,
   },
 ];
 

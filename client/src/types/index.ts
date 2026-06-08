@@ -22,6 +22,7 @@ export interface TourGroup {
   tourDate: string;
   status: TourGroupStatus;
   createdAt: string;
+  stuckAt: string | null;
 }
 
 export interface Dispatch {
@@ -63,6 +64,8 @@ export interface FilterState {
   dateRange: [string, string] | null;
   guideName: string;
 }
+
+export type StuckDurationThreshold = '' | 'over12h' | 'over24h';
 
 export const STATUS_LABELS: Record<TourGroupStatus, string> = {
   pending_dispatch: '待派遣',

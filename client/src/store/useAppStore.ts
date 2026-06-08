@@ -1,6 +1,24 @@
 import { create } from 'zustand';
-import type { Role, TourGroupStatus, TourGroup, Dispatch, CheckIn, FleetAssignment, Guide } from '../types';
+import type { Role, TourGroupStatus, StuckDurationThreshold, TourGroup, Dispatch, CheckIn, FleetAssignment, Guide } from '../types';
 import { tourGroups as initialTourGroups, dispatches as initialDispatches, checkIns as initialCheckIns, fleetAssignments as initialFleet, guides as initialGuides } from '../data/mockData';
+
+export function calcStuckDuration(stuckAt: string | null): number {
+  if (!stuckAt) return 0;
+  return Date.now() - new Date(stuckAt).getTime();
+}
+
+export function formatStuckDuration(ms: number): string {
+  if (ms <= 0) return '0分钟';
+  const totalMinutes = Math.floor(ms / 60000);
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  if (hours > 0) return `${hours}小时${minutes}分钟`;
+  return `${minutes}分钟`;
+}
+
+export function isStuckOver24h(stuckAt: string | null): boolean {
+  return calcStuckDuration(stuckAt) >= 24 * 60 * 60 * 1000;
+}
 
 interface AppState {
   role: Role;
@@ -18,9 +36,11 @@ interface AppState {
   filterKeyword: string;
   filterStatus: TourGroupStatus | '';
   filterGuideName: string;
+  filterStuckDuration: StuckDurationThreshold;
   setFilterKeyword: (v: string) => void;
   setFilterStatus: (v: TourGroupStatus | '') => void;
   setFilterGuideName: (v: string) => void;
+  setFilterStuckDuration: (v: StuckDurationThreshold) => void;
 
   dispatchPanelOpen: boolean;
   setDispatchPanelOpen: (v: boolean) => void;
@@ -52,9 +72,11 @@ export const useAppStore = create<AppState>((set, get) => ({
   filterKeyword: '',
   filterStatus: '',
   filterGuideName: '',
+  filterStuckDuration: '' as StuckDurationThreshold,
   setFilterKeyword: (v) => set({ filterKeyword: v }),
   setFilterStatus: (v) => set({ filterStatus: v }),
   setFilterGuideName: (v) => set({ filterGuideName: v }),
+  setFilterStuckDuration: (v) => set({ filterStuckDuration: v }),
 
   dispatchPanelOpen: false,
   setDispatchPanelOpen: (v) => set({ dispatchPanelOpen: v }),
@@ -104,7 +126,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       ),
       tourGroups: state.tourGroups.map((tg) =>
         tg.id === tourGroupId
-          ? { ...tg, status: (exception ? 'stuck' : 'checked_in') as TourGroupStatus }
+          ? { ...tg, status: (exception ? 'stuck' : 'checked_in') as TourGroupStatus, stuckAt: exception ? new Date().toISOString() : null }
           : tg
       ),
       checkInModalOpen: false,
@@ -134,7 +156,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   filteredTourGroups: () => {
-    const { tourGroups, dispatches, checkIns, guides, filterKeyword, filterStatus, filterGuideName } = get();
+    const { tourGroups, dispatches, checkIns, guides, filterKeyword, filterStatus, filterGuideName, filterStuckDuration } = get();
     return tourGroups.filter((tg) => {
       if (filterStatus && tg.status !== filterStatus) return false;
       if (filterKeyword) {
@@ -149,6 +171,11 @@ export const useAppStore = create<AppState>((set, get) => ({
         if (!dispatch) return false;
         const guide = guides.find((g) => g.id === dispatch.guideId);
         if (!guide || !guide.name.includes(filterGuideName)) return false;
+      }
+      if (filterStuckDuration && tg.status === 'stuck') {
+        const dur = calcStuckDuration(tg.stuckAt);
+        if (filterStuckDuration === 'over12h' && dur < 12 * 60 * 60 * 1000) return false;
+        if (filterStuckDuration === 'over24h' && dur < 24 * 60 * 60 * 1000) return false;
       }
       return true;
     });
