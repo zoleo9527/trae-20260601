@@ -180,6 +180,20 @@ interface WorkstationData {
   }
 }
 
+interface LossRecapBucket {
+  total: number
+  registered: number
+  confirmed: number
+  dispatched: number
+  replaced: number
+}
+
+interface LossRecapData {
+  byCategory: Record<string, LossRecapBucket>
+  byType: Record<string, LossRecapBucket>
+  byOperator: Record<string, LossRecapBucket>
+}
+
 interface Stats {
   [key: string]: unknown
 }
@@ -223,6 +237,8 @@ interface StoreState {
   replaceLinenLoss: (id: string, operatorId: string, note?: string) => Promise<void>
   dispatchLinenLoss: (id: string, operatorId: string, engineerId?: string, note?: string) => Promise<void>
   verifyLinenReturn: (id: string, verifiedBy: string, notes?: string) => Promise<void>
+  lossRecapData: LossRecapData | null
+  fetchLinenLossRecap: (params?: Record<string, string>) => Promise<void>
 }
 
 const useStore = create<StoreState>((set, get) => ({
@@ -582,6 +598,13 @@ const useStore = create<StoreState>((set, get) => ({
         }
       }
     }
+  },
+  lossRecapData: null,
+  fetchLinenLossRecap: async (params) => {
+    const query = params ? '?' + new URLSearchParams(params).toString() : ''
+    const res = await fetch(`/api/linen/losses/recap${query}`)
+    const json = await res.json()
+    if (json.success) set({ lossRecapData: json.data })
   },
 }))
 

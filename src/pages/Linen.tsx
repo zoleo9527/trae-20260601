@@ -215,6 +215,8 @@ export default function Linen() {
     currentUser,
     users,
     fetchUsers,
+    lossRecapData,
+    fetchLinenLossRecap,
   } = useStore()
 
   const [activeTab, setActiveTab] = useState<TabKey>('pending')
@@ -225,6 +227,9 @@ export default function Linen() {
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [toast, setToast] = useState<{ type: 'success' | 'error'; msg: string } | null>(null)
   const [actionLoading, setActionLoading] = useState<string | null>(null)
+  const [recapRange, setRecapRange] = useState<'week' | 'month' | 'custom'>('month')
+  const [recapFrom, setRecapFrom] = useState('')
+  const [recapTo, setRecapTo] = useState('')
 
   useEffect(() => {
     fetchUsers()
@@ -239,9 +244,29 @@ export default function Linen() {
     fetchLinenWorkstation(filters)
   }, [fetchLinenWorkstation, floorFilter, dateFrom, dateTo, keyword])
 
+  const loadRecap = useCallback(() => {
+    const params: Record<string, string> = {}
+    const now = new Date()
+    if (recapRange === 'week') {
+      const from = new Date(now.getTime() - 7 * 86400000)
+      params.from = from.toISOString().slice(0, 10)
+    } else if (recapRange === 'month') {
+      const from = new Date(now.getTime() - 30 * 86400000)
+      params.from = from.toISOString().slice(0, 10)
+    } else {
+      if (recapFrom) params.from = recapFrom
+      if (recapTo) params.to = recapTo
+    }
+    fetchLinenLossRecap(params)
+  }, [fetchLinenLossRecap, recapRange, recapFrom, recapTo])
+
   useEffect(() => {
     loadWorkstation()
   }, [loadWorkstation])
+
+  useEffect(() => {
+    loadRecap()
+  }, [loadRecap])
 
   const showToast = (type: 'success' | 'error', msg: string) => {
     setToast({ type, msg })
@@ -379,6 +404,131 @@ export default function Linen() {
           {toast.msg}
         </div>
       )}
+
+      <div className="bg-white rounded-xl shadow-sm p-4">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <AlertTriangle size={16} style={{ color: '#ef4444' }} />
+            <span className="text-sm font-semibold" style={{ color: 'var(--color-primary)' }}>损耗复盘</span>
+          </div>
+          <div className="flex items-center gap-2">
+            {(['week', 'month', 'custom'] as const).map((r) => (
+              <button
+                key={r}
+                onClick={() => setRecapRange(r)}
+                className="px-2.5 py-1 rounded-lg text-xs font-medium transition-all"
+                style={{
+                  backgroundColor: recapRange === r ? 'var(--color-primary)' : 'transparent',
+                  color: recapRange === r ? '#fff' : 'var(--color-text-muted)',
+                  border: recapRange === r ? 'none' : '1px solid var(--color-border)',
+                }}
+              >
+                {r === 'week' ? '本周' : r === 'month' ? '本月' : '自定义'}
+              </button>
+            ))}
+            {recapRange === 'custom' && (
+              <>
+                <input
+                  type="date"
+                  value={recapFrom}
+                  onChange={(e) => setRecapFrom(e.target.value)}
+                  className="px-2 py-1 rounded-lg border text-xs focus:outline-none"
+                  style={{ borderColor: 'var(--color-border)' }}
+                />
+                <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>至</span>
+                <input
+                  type="date"
+                  value={recapTo}
+                  onChange={(e) => setRecapTo(e.target.value)}
+                  className="px-2 py-1 rounded-lg border text-xs focus:outline-none"
+                  style={{ borderColor: 'var(--color-border)' }}
+                />
+              </>
+            )}
+          </div>
+        </div>
+
+        {lossRecapData ? (
+          <div className="grid grid-cols-3 gap-4">
+            <div>
+              <div className="text-xs font-medium mb-2" style={{ color: 'var(--color-text-muted)' }}>按布草类目</div>
+              {Object.keys(lossRecapData.byCategory).length === 0 ? (
+                <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>暂无数据</p>
+              ) : (
+                <div className="space-y-1.5">
+                  {Object.entries(lossRecapData.byCategory).map(([cat, bucket]) => (
+                    <div key={cat} className="flex items-center justify-between text-xs">
+                      <span style={{ color: 'var(--color-text)' }}>{CATEGORY_MAP[cat] || cat}</span>
+                      <div className="flex items-center gap-1">
+                        <span className="font-medium" style={{ color: 'var(--color-text)' }}>{bucket.total}</span>
+                        {bucket.registered > 0 && <span className="px-1 rounded" style={{ backgroundColor: '#fff7ed', color: '#f97316' }}>{bucket.registered}</span>}
+                        {bucket.confirmed > 0 && <span className="px-1 rounded" style={{ backgroundColor: '#eff6ff', color: '#3b82f6' }}>{bucket.confirmed}</span>}
+                        {bucket.dispatched > 0 && <span className="px-1 rounded" style={{ backgroundColor: '#f5f3ff', color: '#8b5cf6' }}>{bucket.dispatched}</span>}
+                        {bucket.replaced > 0 && <span className="px-1 rounded" style={{ backgroundColor: '#f0fdf4', color: '#22c55e' }}>{bucket.replaced}</span>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div>
+              <div className="text-xs font-medium mb-2" style={{ color: 'var(--color-text-muted)' }}>按损耗类型</div>
+              {Object.keys(lossRecapData.byType).length === 0 ? (
+                <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>暂无数据</p>
+              ) : (
+                <div className="space-y-1.5">
+                  {Object.entries(lossRecapData.byType).map(([type, bucket]) => {
+                    const lt = LOSS_TYPE_MAP[type]
+                    return (
+                      <div key={type} className="flex items-center justify-between text-xs">
+                        <span style={{ color: lt?.color || 'var(--color-text)' }}>{lt?.label || type}</span>
+                        <div className="flex items-center gap-1">
+                          <span className="font-medium" style={{ color: 'var(--color-text)' }}>{bucket.total}</span>
+                          {bucket.registered > 0 && <span className="px-1 rounded" style={{ backgroundColor: '#fff7ed', color: '#f97316' }}>{bucket.registered}</span>}
+                          {bucket.confirmed > 0 && <span className="px-1 rounded" style={{ backgroundColor: '#eff6ff', color: '#3b82f6' }}>{bucket.confirmed}</span>}
+                          {bucket.dispatched > 0 && <span className="px-1 rounded" style={{ backgroundColor: '#f5f3ff', color: '#8b5cf6' }}>{bucket.dispatched}</span>}
+                          {bucket.replaced > 0 && <span className="px-1 rounded" style={{ backgroundColor: '#f0fdf4', color: '#22c55e' }}>{bucket.replaced}</span>}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+            <div>
+              <div className="text-xs font-medium mb-2" style={{ color: 'var(--color-text-muted)' }}>按责任主管</div>
+              {Object.keys(lossRecapData.byOperator).length === 0 ? (
+                <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>暂无数据</p>
+              ) : (
+                <div className="space-y-1.5">
+                  {Object.entries(lossRecapData.byOperator).map(([op, bucket]) => (
+                    <div key={op} className="flex items-center justify-between text-xs">
+                      <span style={{ color: 'var(--color-text)' }}>{op}</span>
+                      <div className="flex items-center gap-1">
+                        <span className="font-medium" style={{ color: 'var(--color-text)' }}>{bucket.total}</span>
+                        {bucket.registered > 0 && <span className="px-1 rounded" style={{ backgroundColor: '#fff7ed', color: '#f97316' }}>{bucket.registered}</span>}
+                        {bucket.confirmed > 0 && <span className="px-1 rounded" style={{ backgroundColor: '#eff6ff', color: '#3b82f6' }}>{bucket.confirmed}</span>}
+                        {bucket.dispatched > 0 && <span className="px-1 rounded" style={{ backgroundColor: '#f5f3ff', color: '#8b5cf6' }}>{bucket.dispatched}</span>}
+                        {bucket.replaced > 0 && <span className="px-1 rounded" style={{ backgroundColor: '#f0fdf4', color: '#22c55e' }}>{bucket.replaced}</span>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        ) : (
+          <div className="text-xs text-center py-3" style={{ color: 'var(--color-text-muted)' }}>加载中...</div>
+        )}
+
+        <div className="flex items-center gap-3 mt-2 pt-2" style={{ borderTop: '1px solid var(--color-border)' }}>
+          <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>状态图例：</span>
+          <span className="text-xs px-1.5 py-0.5 rounded" style={{ backgroundColor: '#fff7ed', color: '#f97316' }}>待确认</span>
+          <span className="text-xs px-1.5 py-0.5 rounded" style={{ backgroundColor: '#eff6ff', color: '#3b82f6' }}>已确认</span>
+          <span className="text-xs px-1.5 py-0.5 rounded" style={{ backgroundColor: '#f5f3ff', color: '#8b5cf6' }}>已派单</span>
+          <span className="text-xs px-1.5 py-0.5 rounded" style={{ backgroundColor: '#f0fdf4', color: '#22c55e' }}>已替换</span>
+        </div>
+      </div>
 
       <div className="grid grid-cols-4 gap-4">
         {summaryCards.map((card) => (

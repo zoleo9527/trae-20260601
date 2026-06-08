@@ -650,6 +650,53 @@ router.patch('/losses/:id/dispatch', (req: Request, res: Response): void => {
   res.json({ success: true, data: updated })
 })
 
+router.get('/losses/recap', (req: Request, res: Response): void => {
+  const { from, to } = req.query
+
+  let dateFilter = ''
+  const params: unknown[] = []
+
+  if (from) {
+    dateFilter += ' AND ll.loss_date >= ?'
+    params.push(String(from))
+  }
+  if (to) {
+    dateFilter += ' AND ll.loss_date <= ?'
+    params.push(String(to) + 'T23:59:59')
+  }
+
+  const allLosses = db.prepare(`
+    SELECT ll.category, ll.loss_type, ll.status, ll.quantity, ll.confirmed_by,
+      u.name as confirmer_name
+    FROM linen_losses ll
+    LEFT JOIN users u ON ll.confirmed_by = u.id
+    WHERE 1=1${dateFilter}
+  `).all(...params as any[]) as any[]
+
+  const statusKeys = ['registered', 'confirmed', 'dispatched', 'replaced'] as const
+
+  const byCategory: Record<string, { total: number; registered: number; confirmed: number; dispatched: number; replaced: number }> = {}
+  const byType: Record<string, { total: number; registered: number; confirmed: number; dispatched: number; replaced: number }> = {}
+  const byOperator: Record<string, { total: number; registered: number; confirmed: number; dispatched: number; replaced: number }> = {}
+
+  for (const loss of allLosses) {
+    const statuses = { total: loss.quantity, registered: 0, confirmed: 0, dispatched: 0, replaced: 0 }
+    statuses[loss.status as keyof typeof statuses] = loss.quantity
+
+    if (!byCategory[loss.category]) byCategory[loss.category] = { total: 0, registered: 0, confirmed: 0, dispatched: 0, replaced: 0 }
+    for (const k of ['total', ...statusKeys] as const) byCategory[loss.category][k] += statuses[k]
+
+    if (!byType[loss.loss_type]) byType[loss.loss_type] = { total: 0, registered: 0, confirmed: 0, dispatched: 0, replaced: 0 }
+    for (const k of ['total', ...statusKeys] as const) byType[loss.loss_type][k] += statuses[k]
+
+    const opKey = loss.confirmer_name || '未确认'
+    if (!byOperator[opKey]) byOperator[opKey] = { total: 0, registered: 0, confirmed: 0, dispatched: 0, replaced: 0 }
+    for (const k of ['total', ...statusKeys] as const) byOperator[opKey][k] += statuses[k]
+  }
+
+  res.json({ success: true, data: { byCategory, byType, byOperator } })
+})
+
 router.get('/status-logs', (req: Request, res: Response): void => {
   const { targetType, targetId } = req.query
 
