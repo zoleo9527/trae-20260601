@@ -340,3 +340,55 @@ else
   echo "(当前无活跃卡单，跳过 trail 测试)"
 fi
 echo ""
+
+# ============================================
+# 新增：批量结案、交接记录查询、卡单摘要汇总扩展
+# ============================================
+echo "============================================"
+echo "🔧  批量结案 / 交接记录查询 / 摘要汇总扩展"
+echo "============================================"
+echo ""
+
+# ============================================
+# 13. 批量结案卡单
+# ============================================
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "【13】批量结案卡单（含不存在/已结案ID）"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+STUCK_LIST=$(curl -s "${BASE}/stuck-orders")
+REAL_STUCK_IDS=$(echo "$STUCK_LIST" | python3 -c "
+import sys, json
+items = json.load(sys.stdin)
+ids = [i['id'] for i in items[:2]]
+ids.append('00000000-0000-0000-0000-000000000000')
+print(json.dumps(ids))
+" 2>/dev/null)
+echo "提交卡单IDs: $REAL_STUCK_IDS"
+curl -s -X POST "${BASE}/stuck-orders/batch-resolve" \
+  -H "Content-Type: application/json" \
+  -d "{\"stuckIds\": ${REAL_STUCK_IDS}, \"resolution\": \"批量结案：运营人员统一确认处理\"}" | python3 -m json.tool 2>/dev/null
+echo ""
+
+# ============================================
+# 14. 交接记录查询（按角色和动作过滤）
+# ============================================
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "【14】交接记录查询（role=loading_leader, action=submit）"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+curl -s "${BASE}/handovers?role=loading_leader&action=submit" | python3 -m json.tool 2>/dev/null
+echo ""
+
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "【14a】交接记录查询（entityType=damage_record）"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+curl -s "${BASE}/handovers?entityType=damage_record" | python3 -m json.tool 2>/dev/null
+echo ""
+
+# ============================================
+# 15. 卡单摘要汇总（含 totalActive + oldestUnresolvedAt）
+# ============================================
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "【15】卡单摘要汇总（含顶层 totalActive 和 oldestUnresolvedAt）"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+curl -s "${BASE}/stuck-orders/summary" | python3 -m json.tool 2>/dev/null
+echo ""

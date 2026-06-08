@@ -231,6 +231,34 @@ export interface PendingTaskFilterParams {
   blockedOnly?: boolean;
 }
 
+export interface BatchResolveItem {
+  stuckId: string;
+  success: boolean;
+  reason?: string;
+  stuck?: StuckOrder;
+}
+
+export interface BatchResolveResult {
+  resolved: BatchResolveItem[];
+  totalRequested: number;
+  totalSucceeded: number;
+  totalFailed: number;
+}
+
+export interface HandoverFilterParams {
+  role?: Role;
+  action?: HandoverAction;
+  entityType?: 'loading_plan' | 'wagon_allocation' | 'arrival_notice' | 'damage_record';
+  since?: string;
+  until?: string;
+}
+
+export interface StuckSummaryResponse {
+  groups: StuckSummaryItem[];
+  totalActive: number;
+  oldestUnresolvedAt: string | null;
+}
+
 export interface ResolveStuckRequest {
   resolution: string;
 }

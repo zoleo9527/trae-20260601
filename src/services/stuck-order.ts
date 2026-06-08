@@ -6,6 +6,8 @@ import {
   StuckSeverity,
   StuckFilterParams,
   StuckSummaryItem,
+  StuckSummaryResponse,
+  BatchResolveItem,
   HandoverRecord,
   STUCK_THRESHOLDS,
   LoadingPlanStatus,
@@ -263,7 +265,7 @@ export class StuckOrderService {
     return results;
   }
 
-  summary(): StuckSummaryItem[] {
+  summary(): StuckSummaryResponse {
     this.scanAll();
 
     const active = store.getActiveStuckOrders();
@@ -302,7 +304,15 @@ export class StuckOrderService {
       return new Date(a.earliestDetectedAt).getTime() - new Date(b.earliestDetectedAt).getTime();
     });
 
-    return summaryItems;
+    const sortedByTime = [...active].sort(
+      (a, b) => new Date(a.detectedAt).getTime() - new Date(b.detectedAt).getTime()
+    );
+
+    return {
+      groups: summaryItems,
+      totalActive: active.length,
+      oldestUnresolvedAt: sortedByTime.length > 0 ? sortedByTime[0].detectedAt : null,
+    };
   }
 
   getTrail(stuckId: string): { stuck: StuckOrder; trail: HandoverRecord[] } | null {
@@ -316,6 +326,29 @@ export class StuckOrderService {
     );
 
     return { stuck, trail };
+  }
+
+  batchResolve(stuckIds: string[], resolution: string): BatchResolveItem[] {
+    const results: BatchResolveItem[] = [];
+
+    for (const stuckId of stuckIds) {
+      const stuck = store.stuckOrders.get(stuckId);
+
+      if (!stuck) {
+        results.push({ stuckId, success: false, reason: '卡单不存在' });
+        continue;
+      }
+
+      if (stuck.resolvedAt) {
+        results.push({ stuckId, success: false, reason: '卡单已结案', stuck });
+        continue;
+      }
+
+      const resolved = this.resolve(stuckId, resolution);
+      results.push({ stuckId, success: true, stuck: resolved! });
+    }
+
+    return results;
   }
 }
 

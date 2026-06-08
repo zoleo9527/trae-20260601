@@ -2,6 +2,7 @@ import { store } from '../store';
 import {
   HandoverRecord,
   HandoverAction,
+  HandoverFilterParams,
   Role,
   getNextRole,
 } from '../types';
@@ -69,6 +70,38 @@ export class HandoverService {
     const latest = this.getLatestAction(entityType, entityId);
     if (!latest) return false;
     return latest.toRole === expectedRole && latest.action === HandoverAction.Submit;
+  }
+
+  query(params: HandoverFilterParams): HandoverRecord[] {
+    let results = [...store.handoverRecords];
+
+    if (params.role) {
+      results = results.filter(
+        (r) => r.fromRole === params.role || r.toRole === params.role
+      );
+    }
+
+    if (params.action) {
+      results = results.filter((r) => r.action === params.action);
+    }
+
+    if (params.entityType) {
+      results = results.filter((r) => r.entityType === params.entityType);
+    }
+
+    if (params.since) {
+      const since = new Date(params.since).getTime();
+      results = results.filter((r) => new Date(r.timestamp).getTime() >= since);
+    }
+
+    if (params.until) {
+      const until = new Date(params.until).getTime();
+      results = results.filter((r) => new Date(r.timestamp).getTime() <= until);
+    }
+
+    results.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+
+    return results;
   }
 }
 

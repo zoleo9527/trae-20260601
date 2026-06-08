@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { stuckOrderService } from '../services/stuck-order';
-import { StuckSeverity, StuckType } from '../types';
+import { StuckSeverity, StuckType, BatchResolveResult } from '../types';
 
 const router = Router();
 
@@ -11,14 +11,53 @@ const VALID_ENTITY_TYPES = ['loading_plan', 'wagon_allocation', 'arrival_notice'
 /**
  * GET /api/stuck-orders/summary
  *
- * 按卡单类型和严重度聚合活跃卡单数量、最早未处理时间
+ * 按卡单类型和严重度聚合活跃卡单
  * 结果按严重度(critical优先)和检测时间排序
+ * 顶层附加 totalActive 和 oldestUnresolvedAt 汇总字段
  *
- * Response: StuckSummaryItem[]
+ * Response: StuckSummaryResponse { groups, totalActive, oldestUnresolvedAt }
  */
 router.get('/summary', (_req: Request, res: Response) => {
   const summary = stuckOrderService.summary();
   res.json(summary);
+});
+
+/**
+ * POST /api/stuck-orders/batch-resolve
+ *
+ * 批量结案卡单
+ * 对每个卡单复用现有结案逻辑，返回成功与失败明细
+ *
+ * Body:
+ *   stuckIds   string[]  卡单ID数组
+ *   resolution string    统一结案备注
+ *
+ * Response: BatchResolveResult { resolved, totalRequested, totalSucceeded, totalFailed }
+ */
+router.post('/batch-resolve', (req: Request, res: Response) => {
+  const { stuckIds, resolution } = req.body;
+
+  if (!Array.isArray(stuckIds) || stuckIds.length === 0) {
+    res.status(400).json({ error: '缺少必填字段：stuckIds (非空数组)' });
+    return;
+  }
+
+  if (!resolution || typeof resolution !== 'string') {
+    res.status(400).json({ error: '缺少必填字段：resolution (字符串)' });
+    return;
+  }
+
+  const resolved = stuckOrderService.batchResolve(stuckIds, resolution);
+
+  const totalSucceeded = resolved.filter((r) => r.success).length;
+  const result: BatchResolveResult = {
+    resolved,
+    totalRequested: stuckIds.length,
+    totalSucceeded,
+    totalFailed: stuckIds.length - totalSucceeded,
+  };
+
+  res.json(result);
 });
 
 /**
@@ -29,8 +68,8 @@ router.get('/summary', (_req: Request, res: Response) => {
  *
  * Query Params:
  *   severity    string  可选，过滤严重度: warning | critical
- *   stuckType   string  可选，过滤卡单类型: plan_change_timeout | plan_unallocated | allocation_unconfirmed | arrival_unclaimed | damage_no_photo
- *   entityType  string  可选，过滤实体类型: loading_plan | wagon_allocation | arrival_notice | damage_record
+ *   stuckType   string  可选，过滤卡单类型
+ *   entityType  string  可选，过滤实体类型
  *   since       string  可选，检测时间起始 (ISO 8601)
  *   until       string  可选，检测时间截止 (ISO 8601)
  *
@@ -111,7 +150,7 @@ router.get('/:entityType/:entityId', (req: Request, res: Response) => {
 /**
  * PUT /api/stuck-orders/:stuckId/resolve
  *
- * 解除卡单
+ * 解除单个卡单
  *
  * Body:
  *   resolution string 解决说明
@@ -140,7 +179,6 @@ router.put('/:stuckId/resolve', (req: Request, res: Response) => {
  * POST /api/stuck-orders/scan
  *
  * 手动触发全量扫描
- * 适用于定时任务或后台运维触发
  *
  * Response: StuckOrder[]
  */
