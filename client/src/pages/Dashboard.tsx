@@ -73,6 +73,20 @@ export default function Dashboard() {
           level: (containers.misplaced ?? 0) > 3 ? 'red' : (containers.misplaced ?? 0) > 0 ? 'orange' : 'green',
         },
         {
+          key: 'departing',
+          label: '待离港',
+          value: containers.departing ?? 0,
+          unit: '箱',
+          level: (containers.departing ?? 0) > 3 ? 'orange' : 'green',
+        },
+        {
+          key: 'departed',
+          label: '已离港',
+          value: containers.departed ?? 0,
+          unit: '箱',
+          level: 'green',
+        },
+        {
           key: 'overdue',
           label: '逾期费用',
           value: fees.overdueCount ?? 0,

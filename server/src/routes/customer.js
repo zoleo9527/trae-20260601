@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const feeService = require('../services/feeService');
 const inspectionService = require('../services/inspectionService');
+const containerService = require('../services/containerService');
 
 router.get('/overdue-fees', (req, res) => {
   try {
@@ -55,6 +56,24 @@ router.get('/missed-notifications', (req, res) => {
     res.json({ success: true, data: result });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+router.get('/pickup-containers', (req, res) => {
+  try {
+    const result = containerService.listPickupContainers();
+    res.json({ success: true, data: result });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+router.post('/pickup-request', (req, res) => {
+  try {
+    const result = containerService.pickupRequest(req.body);
+    res.json({ success: true, data: result });
+  } catch (err) {
+    res.status(400).json({ success: false, error: err.message });
   }
 });
 

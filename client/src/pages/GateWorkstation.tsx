@@ -3,6 +3,8 @@ import dayjs from 'dayjs';
 import { gateApi, yardApi } from '../api';
 import './GateWorkstation.css';
 
+type GateTabKey = 'entry' | 'depart';
+
 const EMPTY_FORM = {
   container_no: '',
   type: '20GP',
@@ -36,7 +38,21 @@ interface Entry {
   inspection_status: string;
 }
 
+interface DepartingContainer {
+  id: number;
+  container_no: string;
+  type: string;
+  owner: string;
+  cargo_type: string;
+  status: string;
+  slot_code: string;
+  entry_time: string;
+  entry_truck_no: string;
+  entry_driver_name: string;
+}
+
 export default function GateWorkstation() {
+  const [gateTab, setGateTab] = useState<GateTabKey>('entry');
   const [form, setForm] = useState(EMPTY_FORM);
   const [entries, setEntries] = useState<Entry[]>([]);
   const [loading, setLoading] = useState(false);
@@ -46,6 +62,9 @@ export default function GateWorkstation() {
   const [showModify, setShowModify] = useState(false);
   const [modifyForm, setModifyForm] = useState<Record<string, any>>({});
   const [recentModifications, setRecentModifications] = useState<any[]>([]);
+  const [departingContainers, setDepartingContainers] = useState<DepartingContainer[]>([]);
+  const [confirmModal, setConfirmModal] = useState<DepartingContainer | null>(null);
+  const [confirmedBy, setConfirmedBy] = useState('');
 
   const loadEntries = useCallback(async () => {
     try {
@@ -67,10 +86,19 @@ export default function GateWorkstation() {
     } catch {}
   }, []);
 
+  const loadDeparting = useCallback(async () => {
+    try {
+      const res: any = await gateApi.listDeparting();
+      const data = res?.data || res;
+      setDepartingContainers(Array.isArray(data) ? data : []);
+    } catch {}
+  }, []);
+
   useEffect(() => {
     loadEntries();
     loadRecentModifications();
-  }, [loadEntries, loadRecentModifications]);
+    loadDeparting();
+  }, [loadEntries, loadRecentModifications, loadDeparting]);
 
   const handleFormChange = (field: string, value: string) => {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -112,6 +140,27 @@ export default function GateWorkstation() {
       driver_phone: entry.driver_phone,
     });
     setShowModify(true);
+  };
+
+  const handleDepartConfirm = async () => {
+    if (!confirmModal) return;
+    setLoading(true);
+    setMessage(null);
+    try {
+      await gateApi.departConfirm({
+        container_id: confirmModal.id,
+        confirmed_by: confirmedBy || '闸口员',
+      });
+      setMessage({ type: 'success', text: `离港核验通过！箱号 ${confirmModal.container_no} 已离港，堆位 ${confirmModal.slot_code || '无'} 已释放` });
+      setConfirmModal(null);
+      setConfirmedBy('');
+      loadDeparting();
+      loadEntries();
+    } catch (err: any) {
+      setMessage({ type: 'error', text: err.message || '核验失败' });
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleModifySubmit = async (e: React.FormEvent) => {
@@ -161,6 +210,15 @@ export default function GateWorkstation() {
         </div>
       )}
 
+      <div className="customer__tabs" style={{ marginBottom: 16 }}>
+        <button className={`customer__tab ${gateTab === 'entry' ? 'customer__tab--active' : ''}`}
+          onClick={() => setGateTab('entry')}>进场登记</button>
+        <button className={`customer__tab ${gateTab === 'depart' ? 'customer__tab--active' : ''}`}
+          onClick={() => setGateTab('depart')}>离港核验</button>
+      </div>
+
+      {gateTab === 'entry' && (
+      <>
       <div className="gate__grid">
         <div className="gate__form-panel">
           <div className="gate__panel-title">集装箱进场登记</div>
@@ -309,6 +367,67 @@ export default function GateWorkstation() {
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+      </>
+      )}
+
+      {gateTab === 'depart' && (
+        <div className="customer__section">
+          <div className="customer__section-title">待离港核验集装箱</div>
+          <div style={{ fontSize: 12, color: '#8ba4bc', marginBottom: 12 }}>
+            以下集装箱已申请提箱（状态 DEPARTING），闸口员核验通过后集装箱状态推进为 DEPARTED，对应堆位自动释放
+          </div>
+          {departingContainers.length === 0 ? (
+            <div style={{ color: '#5a7a9a', fontSize: 13, padding: '12px 0' }}>暂无待离港集装箱</div>
+          ) : (
+            <table className="gate__table">
+              <thead>
+                <tr><th>箱号</th><th>箱型</th><th>持有人</th><th>货类</th><th>当前堆位</th><th>进场时间</th><th>操作</th></tr>
+              </thead>
+              <tbody>
+                {departingContainers.map((c) => (
+                  <tr key={c.id}>
+                    <td style={{ fontWeight: 600 }}>{c.container_no}</td>
+                    <td>{c.type}</td>
+                    <td>{c.owner}</td>
+                    <td>{c.cargo_type === 'GENERAL' ? '普通' : c.cargo_type === 'DANGEROUS' ? '危险品' : c.cargo_type}</td>
+                    <td>{c.slot_code || '-'}</td>
+                    <td>{dayjs(c.entry_time).format('MM-DD HH:mm')}</td>
+                    <td>
+                      <button className="gate__btn gate__btn--warning gate__btn--small"
+                        onClick={() => { setConfirmModal(c); setConfirmedBy(''); }}>
+                        核验通过
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      )}
+
+      {confirmModal && (
+        <div className="customer__overlay" onClick={() => setConfirmModal(null)}>
+          <div className="customer__modal" onClick={(e) => e.stopPropagation()}>
+            <div className="customer__modal-title">离港核验 - {confirmModal.container_no}</div>
+            <div style={{ fontSize: 13, color: '#8ba4bc', marginBottom: 12 }}>
+              箱型: {confirmModal.type} | 持有人: {confirmModal.owner} | 堆位: {confirmModal.slot_code || '无'}
+              <br />核验通过后，集装箱状态将变更为 DEPARTED，堆位 {confirmModal.slot_code || ''} 将自动释放
+            </div>
+            <div className="customer__form-group">
+              <label className="customer__form-label">核验人</label>
+              <input className="customer__form-input" value={confirmedBy}
+                onChange={(e) => setConfirmedBy(e.target.value)} placeholder="默认：闸口员" />
+            </div>
+            <div className="customer__modal-actions">
+              <button className="customer__btn customer__btn--warning" onClick={handleDepartConfirm} disabled={loading}>
+                {loading ? '核验中...' : '确认离港'}
+              </button>
+              <button className="customer__btn customer__btn--secondary" onClick={() => setConfirmModal(null)}>取消</button>
+            </div>
+          </div>
         </div>
       )}
 

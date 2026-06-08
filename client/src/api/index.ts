@@ -19,6 +19,8 @@ export const gateApi = {
   modifyEntry: (id: number, data: Record<string, unknown>) => api.put(`/gate/entry/${id}`, data),
   listEntries: (params?: Record<string, unknown>) => api.get('/gate/entries', { params }),
   getEntry: (id: number) => api.get(`/gate/entry/${id}`),
+  listDeparting: () => api.get('/gate/departing'),
+  departConfirm: (data: Record<string, unknown>) => api.post('/gate/depart-confirm', data),
 };
 
 export const yardApi = {
@@ -37,6 +39,8 @@ export const customerApi = {
   getInspectionPlans: (params?: Record<string, unknown>) => api.get('/customer/inspection-plans', { params }),
   notifyInspection: (id: number, data: Record<string, unknown>) => api.post(`/customer/notify-inspection/${id}`, data),
   getMissedNotifications: () => api.get('/customer/missed-notifications'),
+  listPickupContainers: () => api.get('/customer/pickup-containers'),
+  pickupRequest: (data: Record<string, unknown>) => api.post('/customer/pickup-request', data),
 };
 
 export const dashboardApi = {

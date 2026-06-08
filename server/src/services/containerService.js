@@ -170,4 +170,55 @@ function getEntry(id) {
   return { ...gateRecord, container };
 }
 
-module.exports = { registerEntry, modifyEntry, listEntries, getEntry };
+function listPickupContainers() {
+  const db = getDb();
+  return db.prepare(`
+    SELECT c.*, s.slot_code, gr.truck_no as entry_truck_no, gr.driver_name as entry_driver_name, gr.driver_phone as entry_driver_phone
+    FROM containers c
+    LEFT JOIN slots s ON c.slot_id = s.id
+    LEFT JOIN gate_records gr ON c.gate_record_id = gr.id
+    WHERE c.status IN ('IN_YARD', 'ALLOCATED')
+    ORDER BY c.entry_time DESC
+  `).all();
+}
+
+function pickupRequest(data) {
+  const db = getDb();
+  const now = dayjs().format('YYYY-MM-DD HH:mm:ss');
+
+  const container = db.prepare('SELECT * FROM containers WHERE id = ?').get(data.container_id);
+  if (!container) throw new Error('集装箱不存在');
+  if (!['IN_YARD', 'ALLOCATED'].includes(container.status)) {
+    throw new Error(`集装箱状态为 ${container.status}，不可提取`);
+  }
+
+  const oldStatus = container.status;
+
+  const transaction = db.transaction(() => {
+    db.prepare('UPDATE containers SET status = ? WHERE id = ?').run('DEPARTING', data.container_id);
+
+    db.prepare(`
+      INSERT INTO status_change_logs (container_no, from_status, to_status, changed_by, changed_at, reason, detail)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      container.container_no, oldStatus, 'DEPARTING',
+      data.requested_by || '客服', now, '提箱申请',
+      `提箱时间: ${data.pickup_time || now}, 车牌: ${data.truck_no || ''}, 司机: ${data.driver_name || ''} ${data.driver_phone || ''}`
+    );
+  });
+
+  transaction();
+
+  bus.emit(bus.CONTAINER_STATUS_CHANGED, {
+    container_no: container.container_no,
+    fromStatus: oldStatus,
+    toStatus: 'DEPARTING',
+    changedBy: data.requested_by || '客服',
+    reason: '提箱申请',
+    detail: `车牌: ${data.truck_no || ''}, 司机: ${data.driver_name || ''}`,
+  });
+
+  return db.prepare('SELECT * FROM containers WHERE id = ?').get(data.container_id);
+}
+
+module.exports = { registerEntry, modifyEntry, listEntries, getEntry, listPickupContainers, pickupRequest };

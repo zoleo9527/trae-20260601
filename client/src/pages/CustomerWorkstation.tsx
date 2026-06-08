@@ -3,7 +3,7 @@ import dayjs from 'dayjs';
 import { customerApi, exportApi } from '../api';
 import './CustomerWorkstation.css';
 
-type TabKey = 'fees' | 'inspections' | 'export';
+type TabKey = 'fees' | 'inspections' | 'pickup' | 'export';
 
 interface FeeItem {
   id: number;
@@ -42,6 +42,21 @@ interface ExportTask {
   completed_at: string;
 }
 
+interface PickupContainer {
+  id: number;
+  container_no: string;
+  type: string;
+  owner: string;
+  cargo_type: string;
+  weight_kg: number;
+  status: string;
+  entry_time: string;
+  slot_code: string;
+  entry_truck_no: string;
+  entry_driver_name: string;
+  entry_driver_phone: string;
+}
+
 export default function CustomerWorkstation() {
   const [activeTab, setActiveTab] = useState<TabKey>('fees');
   const [fees, setFees] = useState<FeeItem[]>([]);
@@ -57,6 +72,10 @@ export default function CustomerWorkstation() {
   const [resolveResult, setResolveResult] = useState('');
   const [exportType, setExportType] = useState('container_list');
   const [loading, setLoading] = useState(false);
+
+  const [pickupContainers, setPickupContainers] = useState<PickupContainer[]>([]);
+  const [pickupModal, setPickupModal] = useState<PickupContainer | null>(null);
+  const [pickupForm, setPickupForm] = useState({ pickup_time: '', truck_no: '', driver_name: '', driver_phone: '', requested_by: '' });
 
   const loadFees = useCallback(async () => {
     try {
@@ -90,12 +109,21 @@ export default function CustomerWorkstation() {
     } catch {}
   }, []);
 
+  const loadPickupContainers = useCallback(async () => {
+    try {
+      const res: any = await customerApi.listPickupContainers();
+      const data = res?.data || res;
+      setPickupContainers(Array.isArray(data) ? data : []);
+    } catch {}
+  }, []);
+
   useEffect(() => {
     loadFees();
     loadInspections();
     loadMissed();
     loadExportTasks();
-  }, [loadFees, loadInspections, loadMissed, loadExportTasks]);
+    loadPickupContainers();
+  }, [loadFees, loadInspections, loadMissed, loadExportTasks, loadPickupContainers]);
 
   const totalFees = fees.reduce((sum, f) => sum + (f.total_fee || 0), 0);
   const disputedAmount = fees.filter((f) => f.status === 'DISPUTED').reduce((sum, f) => sum + (f.total_fee || 0), 0);
@@ -171,6 +199,30 @@ export default function CustomerWorkstation() {
     }
   };
 
+  const handlePickupRequest = async () => {
+    if (!pickupModal) return;
+    setLoading(true);
+    setMessage(null);
+    try {
+      await customerApi.pickupRequest({
+        container_id: pickupModal.id,
+        pickup_time: pickupForm.pickup_time || dayjs().format('YYYY-MM-DD HH:mm'),
+        truck_no: pickupForm.truck_no,
+        driver_name: pickupForm.driver_name,
+        driver_phone: pickupForm.driver_phone,
+        requested_by: pickupForm.requested_by || '客服人员',
+      });
+      setMessage({ type: 'success', text: `提箱申请已提交，箱号 ${pickupModal.container_no} 状态已推进为待离港` });
+      setPickupModal(null);
+      setPickupForm({ pickup_time: '', truck_no: '', driver_name: '', driver_phone: '', requested_by: '' });
+      loadPickupContainers();
+    } catch (err: any) {
+      setMessage({ type: 'error', text: err.message || '提交失败' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const getFeeStatusBadge = (status: string) => {
     if (status === 'PAID') return 'customer__badge--paid';
     if (status === 'DISPUTED') return 'customer__badge--disputed';
@@ -221,6 +273,8 @@ export default function CustomerWorkstation() {
           onClick={() => setActiveTab('fees')}>逾期费用</button>
         <button className={`customer__tab ${activeTab === 'inspections' ? 'customer__tab--active' : ''}`}
           onClick={() => setActiveTab('inspections')}>检验计划</button>
+        <button className={`customer__tab ${activeTab === 'pickup' ? 'customer__tab--active' : ''}`}
+          onClick={() => setActiveTab('pickup')}>提箱申请</button>
         <button className={`customer__tab ${activeTab === 'export' ? 'customer__tab--active' : ''}`}
           onClick={() => setActiveTab('export')}>数据导出</button>
       </div>
@@ -327,6 +381,52 @@ export default function CustomerWorkstation() {
         </>
       )}
 
+      {activeTab === 'pickup' && (
+        <div className="customer__section">
+          <div className="customer__section-title">可提取集装箱列表</div>
+          <div style={{ fontSize: 12, color: '#8ba4bc', marginBottom: 12 }}>
+            仅显示 IN_YARD / ALLOCATED 状态的集装箱，提交后集装箱状态将推进为 DEPARTING（待离港）
+          </div>
+          <table className="customer__table">
+            <thead>
+              <tr><th>箱号</th><th>箱型</th><th>持有人</th><th>货类</th><th>堆位</th><th>进场时间</th><th>状态</th><th>操作</th></tr>
+            </thead>
+            <tbody>
+              {pickupContainers.length === 0 ? (
+                <tr><td colSpan={8} style={{ textAlign: 'center', color: '#5a7a9a' }}>暂无可提取集装箱</td></tr>
+              ) : (
+                pickupContainers.map((c) => (
+                  <tr key={c.id}>
+                    <td style={{ fontWeight: 600 }}>{c.container_no}</td>
+                    <td>{c.type}</td>
+                    <td>{c.owner}</td>
+                    <td>{c.cargo_type === 'GENERAL' ? '普通' : c.cargo_type === 'DANGEROUS' ? '危险品' : c.cargo_type}</td>
+                    <td>{c.slot_code || '-'}</td>
+                    <td>{dayjs(c.entry_time).format('MM-DD HH:mm')}</td>
+                    <td><span className="customer__badge customer__badge--notified">{c.status === 'ALLOCATED' ? '已分配' : '在场'}</span></td>
+                    <td>
+                      <button className="customer__btn customer__btn--warning customer__btn--small"
+                        onClick={() => {
+                          setPickupModal(c);
+                          setPickupForm({
+                            pickup_time: dayjs().add(1, 'hour').format('YYYY-MM-DD HH:mm'),
+                            truck_no: c.entry_truck_no || '',
+                            driver_name: c.entry_driver_name || '',
+                            driver_phone: c.entry_driver_phone || '',
+                            requested_by: '',
+                          });
+                        }}>
+                        提箱
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      )}
+
       {activeTab === 'export' && (
         <div className="customer__section">
           <div className="customer__section-title">数据导出</div>
@@ -373,6 +473,53 @@ export default function CustomerWorkstation() {
               )}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {pickupModal && (
+        <div className="customer__overlay" onClick={() => setPickupModal(null)}>
+          <div className="customer__modal" onClick={(e) => e.stopPropagation()}>
+            <div className="customer__modal-title">提箱申请 - {pickupModal.container_no}</div>
+            <div style={{ fontSize: 13, color: '#8ba4bc', marginBottom: 12 }}>
+              箱型: {pickupModal.type} | 持有人: {pickupModal.owner} | 当前堆位: {pickupModal.slot_code || '无'}
+            </div>
+            <div className="customer__form-group">
+              <label className="customer__form-label">提箱时间</label>
+              <input className="customer__form-input" type="datetime-local"
+                value={pickupForm.pickup_time}
+                onChange={(e) => setPickupForm({ ...pickupForm, pickup_time: e.target.value })} />
+            </div>
+            <div className="customer__form-group">
+              <label className="customer__form-label">运输车牌号</label>
+              <input className="customer__form-input" value={pickupForm.truck_no}
+                onChange={(e) => setPickupForm({ ...pickupForm, truck_no: e.target.value })}
+                placeholder="输入提箱车牌号" />
+            </div>
+            <div className="customer__form-group">
+              <label className="customer__form-label">司机姓名</label>
+              <input className="customer__form-input" value={pickupForm.driver_name}
+                onChange={(e) => setPickupForm({ ...pickupForm, driver_name: e.target.value })}
+                placeholder="输入司机姓名" />
+            </div>
+            <div className="customer__form-group">
+              <label className="customer__form-label">司机电话</label>
+              <input className="customer__form-input" value={pickupForm.driver_phone}
+                onChange={(e) => setPickupForm({ ...pickupForm, driver_phone: e.target.value })}
+                placeholder="输入司机电话" />
+            </div>
+            <div className="customer__form-group">
+              <label className="customer__form-label">申请人</label>
+              <input className="customer__form-input" value={pickupForm.requested_by}
+                onChange={(e) => setPickupForm({ ...pickupForm, requested_by: e.target.value })}
+                placeholder="默认：客服人员" />
+            </div>
+            <div className="customer__modal-actions">
+              <button className="customer__btn customer__btn--warning" onClick={handlePickupRequest} disabled={loading}>
+                {loading ? '提交中...' : '确认提箱'}
+              </button>
+              <button className="customer__btn customer__btn--secondary" onClick={() => setPickupModal(null)}>取消</button>
+            </div>
+          </div>
         </div>
       )}
 

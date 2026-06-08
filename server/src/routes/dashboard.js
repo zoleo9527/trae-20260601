@@ -24,6 +24,7 @@ router.get('/stats', (req, res) => {
 
     const entering = db.prepare("SELECT COUNT(*) as count FROM containers WHERE status = 'ENTERING'").get().count;
     const departing = db.prepare("SELECT COUNT(*) as count FROM containers WHERE status = 'DEPARTING'").get().count;
+    const departed = db.prepare("SELECT COUNT(*) as count FROM containers WHERE status = 'DEPARTED'").get().count;
     const disputedFees = db.prepare("SELECT COUNT(*) as count FROM fee_items WHERE status = 'DISPUTED'").get().count;
 
     const slotsEmpty = db.prepare("SELECT COUNT(*) as count FROM slots WHERE status = 'EMPTY'").get().count;
@@ -33,7 +34,7 @@ router.get('/stats', (req, res) => {
     res.json({
       success: true,
       data: {
-        containers: { total: totalContainers, inYard, misplaced, entering, departing },
+        containers: { total: totalContainers, inYard, misplaced, entering, departing, departed },
         fees: {
           overdueCount: overdueFees.count,
           overdueTotal: overdueFees.total || 0,
