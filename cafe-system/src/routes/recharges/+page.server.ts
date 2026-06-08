@@ -1,34 +1,140 @@
-import { getDb } from '$lib/server/db';
-import { redirect } from '@sveltejs/kit';
-import type { PageServerLoad } from './$types';
+import { addLog, getDb } from '$lib/server/db';
+import { fail, redirect } from '@sveltejs/kit';
+import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ locals, url }) => {
 	if (!locals.user) throw redirect(302, '/login');
 
 	const db = getDb();
 	const status = url.searchParams.get('status') || '';
+	const keyword = (url.searchParams.get('keyword') || '').trim();
+	const mine = url.searchParams.get('mine') === '1';
 
-	let recharges;
+	let whereClauses: string[] = [];
+	let params: any[] = [];
+
 	if (status) {
-		recharges = db.prepare(`
-			SELECT r.*, m.name as member_name, u.display_name as operator_name, rv.display_name as reviewer_name
-			FROM recharges r
-			JOIN members m ON r.member_id = m.id
-			JOIN users u ON r.operator_id = u.id
-			LEFT JOIN users rv ON r.reviewer_id = rv.id
-			WHERE r.status = ?
-			ORDER BY r.created_at DESC
-		`).all(status);
-	} else {
-		recharges = db.prepare(`
-			SELECT r.*, m.name as member_name, u.display_name as operator_name, rv.display_name as reviewer_name
-			FROM recharges r
-			JOIN members m ON r.member_id = m.id
-			JOIN users u ON r.operator_id = u.id
-			LEFT JOIN users rv ON r.reviewer_id = rv.id
-			ORDER BY r.created_at DESC
-		`).all();
+		whereClauses.push('r.status = ?');
+		params.push(status);
 	}
 
-	return { recharges, currentStatus: status, user: locals.user };
+	if (keyword) {
+		whereClauses.push('(m.name LIKE ? OR m.phone LIKE ?)');
+		params.push(`%${keyword}%`, `%${keyword}%`);
+	}
+
+	if (mine) {
+		whereClauses.push('r.operator_id = ?');
+		params.push(locals.user.id);
+	}
+
+	const whereStr = whereClauses.length > 0 ? 'WHERE ' + whereClauses.join(' AND ') : '';
+
+	const recharges = db.prepare(`
+		SELECT r.*, m.name as member_name, u.display_name as operator_name, rv.display_name as reviewer_name
+		FROM recharges r
+		JOIN members m ON r.member_id = m.id
+		JOIN users u ON r.operator_id = u.id
+		LEFT JOIN users rv ON r.reviewer_id = rv.id
+		${whereStr}
+		ORDER BY r.created_at DESC
+	`).all(...params);
+
+	return { recharges, currentStatus: status, currentKeyword: keyword, currentMine: mine, user: locals.user };
+};
+
+export const actions: Actions = {
+	batch_approve: async ({ locals, request }) => {
+		if (!locals.user || locals.user.role !== 'admin') throw redirect(302, '/dashboard');
+
+		const formData = await request.formData();
+		const ids = formData.getAll('ids') as string[];
+
+		if (!ids.length) return fail(400, { error: '请至少选择一条记录' });
+
+		const db = getDb();
+		const getRecharge = db.prepare('SELECT * FROM recharges WHERE id = ? AND status = ?');
+
+		db.transaction(() => {
+			for (const id of ids) {
+				const recharge = getRecharge.get(id, 'pending') as any;
+				if (!recharge) continue;
+
+				db.prepare(`
+					UPDATE recharges SET status = 'approved', reviewer_id = ?, reviewed_at = datetime('now', 'localtime')
+					WHERE id = ?
+				`).run(locals.user!.id, id);
+
+				db.prepare(`
+					UPDATE members SET balance = balance + ?
+					WHERE id = ?
+				`).run(recharge.amount, recharge.member_id);
+
+				addLog('recharge', Number(id), 'approve', locals.user!.id,
+					`批量审核通过，余额+${recharge.amount}元`);
+
+				if (recharge.bonus_minutes > 0) {
+					db.prepare(`
+						UPDATE time_gifts SET status = 'approved', reviewer_id = ?, reviewed_at = datetime('now', 'localtime')
+						WHERE recharge_id = ? AND status = 'pending'
+					`).run(locals.user!.id, id);
+
+					db.prepare(`
+						UPDATE members SET bonus_minutes = bonus_minutes + ?
+						WHERE id = ?
+					`).run(recharge.bonus_minutes, recharge.member_id);
+
+					const linkedGift = db.prepare('SELECT id FROM time_gifts WHERE recharge_id = ?').get(id) as any;
+					if (linkedGift) {
+						addLog('time_gift', linkedGift.id, 'approve', locals.user!.id,
+							`随充值单#${id}批量复核通过，赠送时长+${recharge.bonus_minutes}分钟`);
+					}
+				}
+			}
+		})();
+
+		throw redirect(302, '/recharges?status=pending');
+	},
+
+	batch_reject: async ({ locals, request }) => {
+		if (!locals.user || locals.user.role !== 'admin') throw redirect(302, '/dashboard');
+
+		const formData = await request.formData();
+		const ids = formData.getAll('ids') as string[];
+		const note = (formData.get('batch_reject_note') as string || '').trim();
+
+		if (!ids.length) return fail(400, { error: '请至少选择一条记录' });
+		if (!note) return fail(400, { error: '批量退回时必须填写原因' });
+
+		const db = getDb();
+		const getRecharge = db.prepare('SELECT * FROM recharges WHERE id = ? AND status = ?');
+
+		db.transaction(() => {
+			for (const id of ids) {
+				const recharge = getRecharge.get(id, 'pending') as any;
+				if (!recharge) continue;
+
+				db.prepare(`
+					UPDATE recharges SET status = 'rejected', reviewer_id = ?, review_note = ?, reviewed_at = datetime('now', 'localtime')
+					WHERE id = ?
+				`).run(locals.user.id, note, id);
+
+				addLog('recharge', Number(id), 'reject', locals.user.id,
+					`批量退回，原因：${note}`);
+
+				const linkedGift = db.prepare('SELECT id FROM time_gifts WHERE recharge_id = ? AND status = ?').get(id, 'pending') as any;
+				if (linkedGift) {
+					db.prepare(`
+						UPDATE time_gifts SET status = 'rejected', reviewer_id = ?, review_note = ?, reviewed_at = datetime('now', 'localtime')
+						WHERE id = ?
+					`).run(locals.user.id, `充值单已批量退回，关联赠送自动退回`, linkedGift.id);
+
+					addLog('time_gift', linkedGift.id, 'reject', locals.user.id,
+						`复核不通过：充值单已批量退回，关联赠送自动退回`);
+				}
+			}
+		})();
+
+		throw redirect(302, '/recharges?status=pending');
+	}
 };
