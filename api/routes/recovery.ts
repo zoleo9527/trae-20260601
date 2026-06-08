@@ -12,11 +12,19 @@ router.get('/', (req: Request, res: Response): void => {
   const { status } = req.query
 
   let sql = `
-    SELECT rf.*, r.room_number, u1.name as cleaner_name, u2.name as supervisor_name
+    SELECT rf.*, r.room_number, u1.name as cleaner_name, u2.name as supervisor_name,
+      rj.note as last_reject_note, rj.created_at as last_reject_at, rj_op.name as last_reject_by
     FROM recovery_flows rf
     JOIN rooms r ON rf.room_id = r.id
     LEFT JOIN users u1 ON rf.cleaner_id = u1.id
     LEFT JOIN users u2 ON rf.supervisor_id = u2.id
+    LEFT JOIN (
+      SELECT rl.recovery_flow_id, rl.note, rl.operator_id, rl.created_at,
+        ROW_NUMBER() OVER (PARTITION BY rl.recovery_flow_id ORDER BY rl.created_at DESC) as rn
+      FROM recovery_logs rl
+      WHERE rl.action = 'rejected'
+    ) rj ON rj.recovery_flow_id = rf.id AND rj.rn = 1
+    LEFT JOIN users rj_op ON rj.operator_id = rj_op.id
     WHERE 1=1
   `
   const params: any[] = []
@@ -178,11 +186,19 @@ router.get('/:id', (req: Request, res: Response): void => {
   const flowId = Number(req.params.id)
 
   const flow = db.prepare(`
-    SELECT rf.*, r.room_number, u1.name as cleaner_name, u2.name as supervisor_name
+    SELECT rf.*, r.room_number, u1.name as cleaner_name, u2.name as supervisor_name,
+      rj.note as last_reject_note, rj.created_at as last_reject_at, rj_op.name as last_reject_by
     FROM recovery_flows rf
     JOIN rooms r ON rf.room_id = r.id
     LEFT JOIN users u1 ON rf.cleaner_id = u1.id
     LEFT JOIN users u2 ON rf.supervisor_id = u2.id
+    LEFT JOIN (
+      SELECT rl.recovery_flow_id, rl.note, rl.operator_id, rl.created_at,
+        ROW_NUMBER() OVER (PARTITION BY rl.recovery_flow_id ORDER BY rl.created_at DESC) as rn
+      FROM recovery_logs rl
+      WHERE rl.action = 'rejected'
+    ) rj ON rj.recovery_flow_id = rf.id AND rj.rn = 1
+    LEFT JOIN users rj_op ON rj.operator_id = rj_op.id
     WHERE rf.id = ?
   `).get(flowId)
 

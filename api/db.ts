@@ -166,7 +166,7 @@ if (userCount.count === 0) {
   insertFlow.run(3, 'pending_clean', 2, null, hoursAgo(3), null, null, null)
   insertFlow.run(5, 'pending_inspect', 2, null, hoursAgo(6), hoursAgo(4), null, null)
   insertFlow.run(9, 'pending_clean', 2, null, hoursAgo(8), null, null, null)
-  insertFlow.run(15, 'pending_inspect', 2, null, hoursAgo(44), hoursAgo(42), null, null)
+  insertFlow.run(15, 'pending_clean', 2, 1, hoursAgo(44), hoursAgo(42), null, null)
   insertFlow.run(6, 'recovered', 2, 1, hoursAgo(44), hoursAgo(42), hoursAgo(40), hoursAgo(40))
 
   const insertRecoveryLog = db.prepare(
@@ -178,6 +178,8 @@ if (userCount.count === 0) {
   insertRecoveryLog.run(3, 'created', 2, '衣柜维修后需清洁', hoursAgo(8))
   insertRecoveryLog.run(4, 'created', 2, '门锁更换后需恢复房态', hoursAgo(44))
   insertRecoveryLog.run(4, 'clean_completed', 2, '深度保洁完成', hoursAgo(42))
+  insertRecoveryLog.run(4, 'rejected', 1, '浴帘有污渍，马桶圈未擦干净，需重新保洁', hoursAgo(41))
+  insertRecoveryLog.run(4, 'clean_completed', 2, '重新保洁完成，已重点处理卫生间', hoursAgo(38))
   insertRecoveryLog.run(5, 'created', 2, '创建恢复流程', hoursAgo(44))
   insertRecoveryLog.run(5, 'clean_completed', 2, '保洁完成', hoursAgo(42))
   insertRecoveryLog.run(5, 'approved', 1, '检查合格，房态恢复', hoursAgo(40))
@@ -197,6 +199,8 @@ if (userCount.count === 0) {
   insertAudit.run(2, 'recovery_create', '创建恢复流程 房间404', '192.168.1.100', hoursAgo(8))
   insertAudit.run(2, 'recovery_create', '创建恢复流程 房间505', '192.168.1.100', hoursAgo(44))
   insertAudit.run(2, 'recovery_clean_complete', '保洁完成 恢复流程#4', '192.168.1.100', hoursAgo(42))
+  insertAudit.run(1, 'recovery_reject', '审核驳回 恢复流程#4：浴帘有污渍', '192.168.1.99', hoursAgo(41))
+  insertAudit.run(2, 'recovery_clean_complete', '重新保洁完成 恢复流程#4', '192.168.1.100', hoursAgo(38))
   insertAudit.run(2, 'recovery_clean_complete', '保洁完成 恢复流程#5', '192.168.1.100', hoursAgo(42))
   insertAudit.run(1, 'recovery_approve', '审核通过 恢复流程#5', '192.168.1.99', hoursAgo(40))
   insertAudit.run(2, 'repair_create', '创建维修工单 房间402', '192.168.1.100', hoursAgo(48))

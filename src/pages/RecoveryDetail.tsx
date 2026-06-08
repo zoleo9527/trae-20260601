@@ -1,10 +1,10 @@
-import { useEffect, useState } from 'react'
-import { useParams, Link } from 'react-router-dom'
-import { api } from '@/lib/api'
-import { useAuthStore } from '@/stores/auth'
 import { StatusBadge } from '@/components/StatusBadge'
 import { Timeline, formatTime } from '@/components/Timeline'
-import { ArrowLeft, RotateCcw, CheckCircle, XCircle } from 'lucide-react'
+import { api } from '@/lib/api'
+import { useAuthStore } from '@/stores/auth'
+import { AlertTriangle, ArrowLeft, CheckCircle, RotateCcw, XCircle } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { Link, useParams } from 'react-router-dom'
 
 interface RecoveryFlow {
   id: number
@@ -19,6 +19,9 @@ interface RecoveryFlow {
   clean_completed_at: string | null
   inspected_at: string | null
   completed_at: string | null
+  last_reject_note: string | null
+  last_reject_at: string | null
+  last_reject_by: string | null
 }
 
 interface LogEntry {
@@ -165,6 +168,22 @@ export default function RecoveryDetail() {
             </div>
           ))}
         </div>
+
+        {flow.last_reject_note && (
+          <div className="mt-4 p-3 rounded-md bg-red-500/8 border border-red-500/20">
+            <div className="flex items-center gap-1.5 mb-1.5">
+              <AlertTriangle size={12} className="text-red-400" />
+              <span className="text-[12px] font-medium text-red-400">最近驳回</span>
+              {flow.last_reject_by && (
+                <span className="text-[11px] text-red-400/60 ml-1">— {flow.last_reject_by}</span>
+              )}
+              {flow.last_reject_at && (
+                <span className="text-[11px] text-red-400/40 ml-auto">{formatTime(flow.last_reject_at)}</span>
+              )}
+            </div>
+            <div className="text-[12px] text-red-400/80">{flow.last_reject_note}</div>
+          </div>
+        )}
 
         <div className="grid grid-cols-3 gap-3">
           <div className="bg-[#0d0f14] rounded-md p-3">
