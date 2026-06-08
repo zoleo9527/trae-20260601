@@ -49,6 +49,17 @@
 		return '/recharges' + (qs ? '?' + qs : '');
 	}
 
+	function exportUrl() {
+		const params = new URLSearchParams();
+		if (data.currentStatus) params.set('status', data.currentStatus);
+		if (keyword) params.set('keyword', keyword);
+		if (data.currentMine) params.set('mine', '1');
+		if (dateFrom) params.set('date_from', dateFrom);
+		if (dateTo) params.set('date_to', dateTo);
+		const qs = params.toString();
+		return '/recharges/export' + (qs ? '?' + qs : '');
+	}
+
 	function toggleSelect(id: number) {
 		if (selectedIds.includes(id)) {
 			selectedIds = selectedIds.filter(i => i !== id);
@@ -162,6 +173,13 @@
 			只看自己提交
 		</a>
 	{/if}
+	<div class="filter-export">
+		{#if data.recharges.length > 0}
+			<a href={exportUrl()} class="btn btn-sm" download>📥 导出CSV</a>
+		{:else}
+			<span class="btn btn-sm btn-disabled" title="当前筛选下无可导出数据">📥 导出CSV</span>
+		{/if}
+	</div>
 </div>
 
 {#if data.user.role === 'admin' && pendingRecharges.length > 0}

@@ -862,6 +862,17 @@ table tr:hover td {
 	border-color: var(--c-primary);
 }
 
+.filter-export {
+	margin-left: auto;
+	flex-shrink: 0;
+}
+
+.btn-disabled {
+	opacity: 0.45;
+	cursor: not-allowed;
+	pointer-events: none;
+}
+
 .batch-review-bar {
 	background: var(--c-surface);
 	border: 1px solid var(--c-border);
