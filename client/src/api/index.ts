@@ -1,5 +1,5 @@
 import axios from 'axios'
-import type { Patrol, Exception, Handover, DashboardData } from '../types'
+import type { Patrol, Exception, Handover, DashboardData, StatusLog } from '../types'
 
 const api = axios.create({ baseURL: '' })
 
@@ -51,4 +51,9 @@ export const handoverAPI = {
 
 export const dashboardAPI = {
   getData: () => api.get<DashboardData>('/api/dashboard'),
+}
+
+export const statusLogAPI = {
+  list: (params: { recordType: string; recordId: string | number }) =>
+    api.get<(StatusLog & { operatorName?: string })[]>('/api/status-logs', { params }),
 }

@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react'
-import { exceptionAPI } from '../api'
-import type { Exception } from '../types'
+import { useEffect, useState, useCallback } from 'react'
+import { exceptionAPI, statusLogAPI } from '../api'
+import type { Exception, StatusLog } from '../types'
 import dayjs from 'dayjs'
 
 const statusColors: Record<string, string> = {
@@ -24,7 +24,7 @@ const severityLabels: Record<string, string> = {
   high: '高', medium: '中', low: '低',
 }
 
-function Badge({ status, colors }: { status: string; colors?: Record<string, string> }) {
+function Badge({ status }: { status: string }) {
   return (
     <span style={{
       display: 'inline-block',
@@ -33,7 +33,7 @@ function Badge({ status, colors }: { status: string; colors?: Record<string, str
       fontSize: 12,
       fontWeight: 600,
       color: '#fff',
-      background: (colors || statusColors)[status] || '#718096',
+      background: statusColors[status] || '#718096',
     }}>{statusLabels[status] || status}</span>
   )
 }
@@ -43,6 +43,44 @@ const exceptionTypeMap: Record<string, string> = {
 }
 const exceptionTypeOptions = Object.entries(exceptionTypeMap)
 const severityOptions = ['high', 'medium', 'low']
+
+function Drawer({ open, onClose, children }: { open: boolean; onClose: () => void; children: React.ReactNode }) {
+  if (!open) return null
+  return (
+    <div style={{
+      position: 'fixed',
+      top: 0,
+      right: 0,
+      bottom: 0,
+      width: 520,
+      background: '#16213e',
+      boxShadow: '-4px 0 24px rgba(0,0,0,0.4)',
+      zIndex: 1001,
+      display: 'flex',
+      flexDirection: 'column',
+      transition: 'transform 0.25s ease',
+    }}>
+      <div style={{ flex: 1, overflowY: 'auto', padding: '28px 24px' }}>
+        {children}
+      </div>
+    </div>
+  )
+}
+
+function DrawerOverlay({ open, onClose }: { open: boolean; onClose: () => void }) {
+  if (!open) return null
+  return (
+    <div style={{
+      position: 'fixed',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      background: 'rgba(0,0,0,0.45)',
+      zIndex: 1000,
+    }} onClick={onClose} />
+  )
+}
 
 function Modal({ open, onClose, children }: { open: boolean; onClose: () => void; children: React.ReactNode }) {
   if (!open) return null
@@ -75,19 +113,75 @@ function Modal({ open, onClose, children }: { open: boolean; onClose: () => void
   )
 }
 
+function StatusTimeline({ logs }: { logs: (StatusLog & { operatorName?: string })[] }) {
+  if (logs.length === 0) {
+    return <div style={{ color: '#718096', fontSize: 13, padding: '8px 0' }}>暂无流转记录</div>
+  }
+
+  return (
+    <div style={{ position: 'relative', paddingLeft: 24, marginTop: 8 }}>
+      <div style={{
+        position: 'absolute',
+        left: 7,
+        top: 6,
+        bottom: 6,
+        width: 2,
+        background: '#0f3460',
+      }} />
+      {logs.map((log, idx) => {
+        const isLast = idx === logs.length - 1
+        const dotColor = statusColors[log.toStatus] || '#718096'
+        return (
+          <div key={log.id} style={{ position: 'relative', marginBottom: isLast ? 0 : 18, paddingLeft: 20 }}>
+            <div style={{
+              position: 'absolute',
+              left: -20,
+              top: 5,
+              width: 10,
+              height: 10,
+              borderRadius: '50%',
+              background: dotColor,
+              border: '2px solid #16213e',
+            }} />
+            <div style={{ color: '#e0e0e0', fontSize: 13, lineHeight: 1.5 }}>
+              <span style={{ color: dotColor, fontWeight: 600 }}>
+                {statusLabels[log.toStatus] || log.toStatus}
+              </span>
+              {log.fromStatus && log.fromStatus !== '' && (
+                <span style={{ color: '#718096' }}>
+                  {' '}← {statusLabels[log.fromStatus] || log.fromStatus}
+                </span>
+              )}
+            </div>
+            <div style={{ color: '#a0aec0', fontSize: 12, marginTop: 2 }}>
+              {log.operatorName || log.operator} · {dayjs(log.operateTime).format('YYYY-MM-DD HH:mm')}
+            </div>
+            {log.note && (
+              <div style={{ color: '#718096', fontSize: 12, marginTop: 2, fontStyle: 'italic' }}>{log.note}</div>
+            )}
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
 export default function ExceptionHandling() {
   const [exceptions, setExceptions] = useState<Exception[]>([])
   const [loading, setLoading] = useState(true)
   const [filterStatus, setFilterStatus] = useState('')
   const [filterType, setFilterType] = useState('')
 
-  const [showCreate, setShowCreate] = useState(false)
-  const [showAction, setShowAction] = useState(false)
+  const [showDrawer, setShowDrawer] = useState(false)
   const [selectedException, setSelectedException] = useState<Exception | null>(null)
+  const [statusLogs, setStatusLogs] = useState<(StatusLog & { operatorName?: string })[]>([])
+
+  const [showAction, setShowAction] = useState(false)
   const [actionType, setActionType] = useState('')
   const [actionNote, setActionNote] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
+  const [showCreate, setShowCreate] = useState(false)
   const [createForm, setCreateForm] = useState({
     title: '',
     exceptionType: '',
@@ -100,7 +194,7 @@ export default function ExceptionHandling() {
   const currentUser = userStr ? JSON.parse(userStr) : null
   const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'manager'
 
-  const fetchExceptions = () => {
+  const fetchExceptions = useCallback(() => {
     setLoading(true)
     const params: Record<string, string> = {}
     if (filterStatus) params.status = filterStatus
@@ -109,11 +203,34 @@ export default function ExceptionHandling() {
       .then((res) => setExceptions(res.data))
       .catch(() => setExceptions([]))
       .finally(() => setLoading(false))
-  }
+  }, [filterStatus, filterType])
 
   useEffect(() => {
     fetchExceptions()
-  }, [filterStatus, filterType])
+  }, [fetchExceptions])
+
+  const openDrawer = async (exception: Exception) => {
+    setSelectedException(exception)
+    setShowDrawer(true)
+    try {
+      const res = await statusLogAPI.list({ recordType: 'exception', recordId: String(exception.id) })
+      setStatusLogs(res.data)
+    } catch {
+      setStatusLogs([])
+    }
+  }
+
+  const closeDrawer = () => {
+    setShowDrawer(false)
+    setSelectedException(null)
+    setStatusLogs([])
+  }
+
+  const openAction = (exception: Exception, type: string) => {
+    setSelectedException(exception)
+    setActionType(type)
+    setShowAction(true)
+  }
 
   const handleCreate = async () => {
     setSubmitting(true)
@@ -149,26 +266,16 @@ export default function ExceptionHandling() {
       setActionType('')
       setSelectedException(null)
       fetchExceptions()
+      if (showDrawer && selectedException) {
+        const fresh = await exceptionAPI.get(String(selectedException.id))
+        setSelectedException(fresh.data)
+        const logs = await statusLogAPI.list({ recordType: 'exception', recordId: String(selectedException.id) })
+        setStatusLogs(logs.data)
+      }
     } catch {
       alert('操作失败')
     } finally {
       setSubmitting(false)
-    }
-  }
-
-  const openAction = (exception: Exception, type: string) => {
-    setSelectedException(exception)
-    setActionType(type)
-    setShowAction(true)
-  }
-
-  const getActionLabel = (status: string) => {
-    switch (status) {
-      case 'pending': return '开始处理'
-      case 'handling': return '处理完成'
-      case 'resolved': return isAdmin ? '确认处理' : ''
-      case 'confirmed': return '查看详情'
-      default: return ''
     }
   }
 
@@ -221,11 +328,43 @@ export default function ExceptionHandling() {
     fontSize: 14,
   }
 
+  const btnSmall: React.CSSProperties = {
+    ...btnPrimary,
+    padding: '4px 12px',
+    fontSize: 12,
+  }
+
+  const btnSmallSecondary: React.CSSProperties = {
+    ...btnSecondary,
+    padding: '4px 12px',
+    fontSize: 12,
+  }
+
   const labelStyle: React.CSSProperties = {
     display: 'block',
     color: '#a0aec0',
     marginBottom: 6,
     fontSize: 14,
+  }
+
+  const detailLabelStyle: React.CSSProperties = {
+    color: '#a0aec0',
+    fontSize: 12,
+    marginBottom: 2,
+  }
+
+  const detailValueStyle: React.CSSProperties = {
+    color: '#e0e0e0',
+    fontSize: 14,
+  }
+
+  const getActionInfo = (status: string): { label: string; action: string } | null => {
+    switch (status) {
+      case 'pending': return { label: '开始处理', action: 'handle' }
+      case 'handling': return { label: '处理完成', action: 'resolve' }
+      case 'resolved': return isAdmin ? { label: '确认处理', action: 'confirm' } : null
+      default: return null
+    }
   }
 
   return (
@@ -268,40 +407,35 @@ export default function ExceptionHandling() {
               </tr>
             </thead>
             <tbody>
-              {exceptions.map((e, idx) => (
-                <tr key={e.id} style={{ background: idx % 2 === 0 ? '#16213e' : '#1a2744' }}>
-                  <td style={tdStyle}>{exceptionTypeMap[e.exceptionType] || e.exceptionType}</td>
-                  <td style={tdStyle}>{e.title}</td>
-                  <td style={tdStyle}>
-                    <span style={{ color: severityColors[e.severity] || '#718096', fontWeight: 600 }}>{severityLabels[e.severity] || e.severity}</span>
-                  </td>
-                  <td style={tdStyle}>{e.submitter}</td>
-                  <td style={tdStyle}>{e.handler || '-'}</td>
-                  <td style={tdStyle}><Badge status={e.status} /></td>
-                  <td style={tdStyle}>
-                    {(() => {
-                      const label = getActionLabel(e.status)
-                      if (!label) return null
-                      let action = ''
-                      if (e.status === 'pending') action = 'handle'
-                      else if (e.status === 'handling') action = 'resolve'
-                      else if (e.status === 'resolved' && isAdmin) action = 'confirm'
-                      if (action) {
-                        return (
-                          <button style={{ ...btnPrimary, padding: '4px 12px', fontSize: 12 }} onClick={() => openAction(e, action)}>
-                            {label}
-                          </button>
-                        )
-                      }
-                      return (
-                        <button style={{ ...btnSecondary, padding: '4px 12px', fontSize: 12 }} onClick={() => openAction(e, 'view')}>
-                          {label}
+              {exceptions.map((e, idx) => {
+                const actionInfo = getActionInfo(e.status)
+                return (
+                  <tr
+                    key={e.id}
+                    style={{ background: idx % 2 === 0 ? '#16213e' : '#1a2744', cursor: 'pointer' }}
+                    onClick={() => openDrawer(e)}
+                  >
+                    <td style={tdStyle}>{exceptionTypeMap[e.exceptionType] || e.exceptionType}</td>
+                    <td style={tdStyle}>{e.title}</td>
+                    <td style={tdStyle}>
+                      <span style={{ color: severityColors[e.severity] || '#718096', fontWeight: 600 }}>{severityLabels[e.severity] || e.severity}</span>
+                    </td>
+                    <td style={tdStyle}>{e.submitter}</td>
+                    <td style={tdStyle}>{e.handler || '-'}</td>
+                    <td style={tdStyle}><Badge status={e.status} /></td>
+                    <td style={tdStyle} onClick={(ev) => ev.stopPropagation()}>
+                      {actionInfo ? (
+                        <button style={btnSmall} onClick={() => openAction(e, actionInfo.action)}>
+                          {actionInfo.label}
                         </button>
-                      )
-                    })()}
-                  </td>
-                </tr>
-              ))}
+                      ) : null}
+                      <button style={{ ...btnSmallSecondary, marginLeft: actionInfo ? 6 : 0 }} onClick={() => openDrawer(e)}>
+                        详情
+                      </button>
+                    </td>
+                  </tr>
+                )
+              })}
             </tbody>
           </table>
         </div>
@@ -349,53 +483,104 @@ export default function ExceptionHandling() {
 
       <Modal open={showAction} onClose={() => { setShowAction(false); setActionNote(''); setSelectedException(null) }}>
         <h3 style={{ color: '#e0e0e0', marginBottom: 20 }}>
-          {actionType === 'handle' ? '开始处理' : actionType === 'resolve' ? '处理完成' : actionType === 'confirm' ? '确认处理' : '异常详情'}
+          {actionType === 'handle' ? '开始处理' : actionType === 'resolve' ? '处理完成' : '确认处理'}
         </h3>
-        {selectedException && actionType === 'view' ? (
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
-            {[
-              ['标题', selectedException.title],
-              ['类型', exceptionTypeMap[selectedException.exceptionType] || selectedException.exceptionType],
-              ['严重程度', severityLabels[selectedException.severity] || selectedException.severity],
-              ['状态', selectedException.status],
-              ['提交人', selectedException.submitter],
-              ['处理人', selectedException.handler || '-'],
-              ['提交时间', dayjs(selectedException.submitTime).format('YYYY-MM-DD HH:mm')],
-              ['处理时间', selectedException.handleTime ? dayjs(selectedException.handleTime).format('YYYY-MM-DD HH:mm') : '-'],
-            ].map(([label, value]) => (
-              <div key={label}>
-                <div style={{ color: '#a0aec0', fontSize: 13, marginBottom: 2 }}>{label}</div>
-                <div style={{ color: '#e0e0e0', fontSize: 14 }}>{value}</div>
-              </div>
-            ))}
-            {selectedException.description && (
-              <div style={{ gridColumn: '1 / -1' }}>
-                <div style={{ color: '#a0aec0', fontSize: 13, marginBottom: 2 }}>描述</div>
-                <div style={{ color: '#e0e0e0', fontSize: 14 }}>{selectedException.description}</div>
-              </div>
-            )}
-            {selectedException.handleNote && (
-              <div style={{ gridColumn: '1 / -1' }}>
-                <div style={{ color: '#a0aec0', fontSize: 13, marginBottom: 2 }}>处理备注</div>
-                <div style={{ color: '#e0e0e0', fontSize: 14 }}>{selectedException.handleNote}</div>
-              </div>
-            )}
-          </div>
-        ) : (
+        <div style={{ marginBottom: 20 }}>
+          <label style={labelStyle}>处理备注</label>
+          <textarea value={actionNote} onChange={(e) => setActionNote(e.target.value)} style={{ ...inputStyle, minHeight: 80, resize: 'vertical' }} />
+        </div>
+        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+          <button style={btnSecondary} onClick={() => { setShowAction(false); setActionNote(''); setSelectedException(null) }}>取消</button>
+          <button style={btnPrimary} disabled={submitting} onClick={handleAction}>
+            {submitting ? '处理中...' : '确认'}
+          </button>
+        </div>
+      </Modal>
+
+      <DrawerOverlay open={showDrawer} onClose={closeDrawer} />
+      <Drawer open={showDrawer} onClose={closeDrawer}>
+        {selectedException && (
           <>
-            <div style={{ marginBottom: 20 }}>
-              <label style={labelStyle}>处理备注</label>
-              <textarea value={actionNote} onChange={(e) => setActionNote(e.target.value)} style={{ ...inputStyle, minHeight: 80, resize: 'vertical' }} />
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+              <h3 style={{ color: '#e0e0e0', fontSize: 18, margin: 0 }}>异常详情</h3>
+              <button onClick={closeDrawer} style={{ background: 'none', border: 'none', color: '#a0aec0', fontSize: 20, cursor: 'pointer', padding: '0 4px' }}>✕</button>
             </div>
-            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-              <button style={btnSecondary} onClick={() => { setShowAction(false); setActionNote(''); setSelectedException(null) }}>取消</button>
-              <button style={btnPrimary} disabled={submitting} onClick={handleAction}>
-                {submitting ? '处理中...' : '确认'}
-              </button>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 24 }}>
+              <div>
+                <div style={detailLabelStyle}>标题</div>
+                <div style={detailValueStyle}>{selectedException.title}</div>
+              </div>
+              <div>
+                <div style={detailLabelStyle}>类型</div>
+                <div style={detailValueStyle}>{exceptionTypeMap[selectedException.exceptionType] || selectedException.exceptionType}</div>
+              </div>
+              <div>
+                <div style={detailLabelStyle}>严重程度</div>
+                <div style={{ ...detailValueStyle, color: severityColors[selectedException.severity] || '#718096', fontWeight: 600 }}>
+                  {severityLabels[selectedException.severity] || selectedException.severity}
+                </div>
+              </div>
+              <div>
+                <div style={detailLabelStyle}>当前状态</div>
+                <div><Badge status={selectedException.status} /></div>
+              </div>
+              <div>
+                <div style={detailLabelStyle}>提交人</div>
+                <div style={detailValueStyle}>{selectedException.submitter}</div>
+              </div>
+              <div>
+                <div style={detailLabelStyle}>处理人</div>
+                <div style={detailValueStyle}>{selectedException.handler || '-'}</div>
+              </div>
+              <div>
+                <div style={detailLabelStyle}>提交时间</div>
+                <div style={detailValueStyle}>{dayjs(selectedException.submitTime).format('YYYY-MM-DD HH:mm')}</div>
+              </div>
+              <div>
+                <div style={detailLabelStyle}>处理时间</div>
+                <div style={detailValueStyle}>{selectedException.handleTime ? dayjs(selectedException.handleTime).format('YYYY-MM-DD HH:mm') : '-'}</div>
+              </div>
+              <div>
+                <div style={detailLabelStyle}>确认人</div>
+                <div style={detailValueStyle}>{selectedException.confirmer || '-'}</div>
+              </div>
+              <div>
+                <div style={detailLabelStyle}>确认时间</div>
+                <div style={detailValueStyle}>{selectedException.confirmTime ? dayjs(selectedException.confirmTime).format('YYYY-MM-DD HH:mm') : '-'}</div>
+              </div>
+            </div>
+
+            {selectedException.description && (
+              <div style={{ marginBottom: 20 }}>
+                <div style={detailLabelStyle}>描述</div>
+                <div style={{ ...detailValueStyle, lineHeight: 1.6 }}>{selectedException.description}</div>
+              </div>
+            )}
+
+            {selectedException.handleNote && (
+              <div style={{ marginBottom: 20 }}>
+                <div style={detailLabelStyle}>处理备注</div>
+                <div style={{ ...detailValueStyle, lineHeight: 1.6 }}>{selectedException.handleNote}</div>
+              </div>
+            )}
+
+            {selectedException.patrolId && (
+              <div style={{ marginBottom: 20 }}>
+                <div style={detailLabelStyle}>关联巡场</div>
+                <div style={{ ...detailValueStyle, color: '#4299e1' }}>巡场记录 #{selectedException.patrolId}</div>
+              </div>
+            )}
+
+            <div style={{ marginTop: 8, paddingTop: 20, borderTop: '1px solid #0f3460' }}>
+              <div style={{ color: '#e0e0e0', fontSize: 14, fontWeight: 600, marginBottom: 12 }}>
+                状态流转记录
+              </div>
+              <StatusTimeline logs={statusLogs} />
             </div>
           </>
         )}
-      </Modal>
+      </Drawer>
     </div>
   )
 }

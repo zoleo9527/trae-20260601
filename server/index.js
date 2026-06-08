@@ -9,6 +9,7 @@ const patrolRoutes = require('./routes/patrols');
 const exceptionRoutes = require('./routes/exceptions');
 const handoverRoutes = require('./routes/handovers');
 const dashboardRoutes = require('./routes/dashboard');
+const statusLogRoutes = require('./routes/statusLogs');
 
 const app = express();
 
@@ -20,6 +21,7 @@ app.use('/api/patrols', patrolRoutes);
 app.use('/api/exceptions', exceptionRoutes);
 app.use('/api/handovers', handoverRoutes);
 app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/status-logs', statusLogRoutes);
 
 app.use((err, req, res, next) => {
   console.error(err.stack);
