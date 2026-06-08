@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../AuthContext'
 import { fetchItems, fetchTodos } from '../api'
 import type { LostItem, TodoItem, ItemStatus } from '../types'
-import { STATUS_LABELS, ROLE_LABELS } from '../types'
+import { STATUS_LABELS, ROLE_LABELS, CATEGORY_OPTIONS } from '../types'
 import dayjs from 'dayjs'
 
 export default function DashboardPage() {
@@ -15,6 +15,8 @@ export default function DashboardPage() {
   const [filter, setFilter] = useState<string>('all')
   const [keyword, setKeyword] = useState('')
   const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc')
+  const [categoryFilter, setCategoryFilter] = useState<string>('all')
+  const [myItemsOnly, setMyItemsOnly] = useState(false)
 
   useEffect(() => {
     loadData()
@@ -63,6 +65,8 @@ export default function DashboardPage() {
 
   const filteredItems = items.filter(i => {
     if (filter !== 'all' && i.status !== filter) return false
+    if (categoryFilter !== 'all' && i.category !== categoryFilter) return false
+    if (myItemsOnly && staff?.name && i.found_by !== staff.name) return false
     if (!kw) return true
     return (
       i.room_number.toLowerCase().includes(kw) ||
@@ -150,29 +154,61 @@ export default function DashboardPage() {
         </div>
       )}
 
-      <div style={styles.filterRow}>
-        <div style={styles.filterBar}>
-          {statusOptions.map(s => (
-            <button
-              key={s}
-              onClick={() => setFilter(s)}
-              style={filter === s ? styles.filterBtnActive : styles.filterBtn}
-            >
-              {s === 'all' ? '全部' : STATUS_LABELS[s as ItemStatus]}
-            </button>
-          ))}
+      <div style={styles.filterSection}>
+        <div style={styles.filterRow}>
+          <div style={styles.filterBar}>
+            <span style={styles.filterLabel}>状态</span>
+            {statusOptions.map(s => (
+              <button
+                key={s}
+                onClick={() => setFilter(s)}
+                style={filter === s ? styles.filterBtnActive : styles.filterBtn}
+              >
+                {s === 'all' ? '全部' : STATUS_LABELS[s as ItemStatus]}
+              </button>
+            ))}
+          </div>
+          <div style={styles.searchWrap}>
+            <input
+              type="text"
+              placeholder="搜索房间号 / 物品 / 发现人"
+              value={keyword}
+              onChange={e => setKeyword(e.target.value)}
+              style={styles.searchInput}
+            />
+            {keyword && (
+              <button onClick={() => setKeyword('')} style={styles.searchClear}>✕</button>
+            )}
+          </div>
         </div>
-        <div style={styles.searchWrap}>
-          <input
-            type="text"
-            placeholder="搜索房间号 / 物品 / 发现人"
-            value={keyword}
-            onChange={e => setKeyword(e.target.value)}
-            style={styles.searchInput}
-          />
-          {keyword && (
-            <button onClick={() => setKeyword('')} style={styles.searchClear}>✕</button>
-          )}
+        <div style={styles.filterRow}>
+          <div style={styles.filterBar}>
+            <span style={styles.filterLabel}>分类</span>
+            <button
+              onClick={() => setCategoryFilter('all')}
+              style={categoryFilter === 'all' ? styles.filterBtnActive : styles.filterBtn}
+            >
+              全部
+            </button>
+            {CATEGORY_OPTIONS.map(c => (
+              <button
+                key={c}
+                onClick={() => setCategoryFilter(c)}
+                style={categoryFilter === c ? styles.filterBtnActive : styles.filterBtn}
+              >
+                {c}
+              </button>
+            ))}
+          </div>
+          <label style={styles.checkboxLabel}>
+            <input
+              type="checkbox"
+              checked={myItemsOnly}
+              onChange={e => setMyItemsOnly(e.target.checked)}
+              style={styles.checkbox}
+            />
+            仅看我经手
+          </label>
         </div>
       </div>
 
@@ -254,7 +290,7 @@ export default function DashboardPage() {
             <tfoot>
               <tr>
                 <td colSpan={8} style={styles.summaryCell}>
-                  共 {summaryCounts.total} 条 · 待处理 {summaryCounts.registered} · 已认领 {summaryCounts.claimed} · 已退回 {summaryCounts.returned} · 争议 {summaryCounts.disputed}
+                  共 {summaryCounts.total} 条 · 待处理 {summaryCounts.registered} · 已认领 {summaryCounts.claimed} · 已退回 {summaryCounts.returned} · 争议 {summaryCounts.disputed}{myItemsOnly && ' · 仅看我经手'}{categoryFilter !== 'all' && ` · ${categoryFilter}`}
                 </td>
               </tr>
             </tfoot>
@@ -360,13 +396,37 @@ const styles: Record<string, React.CSSProperties> = {
   filterBar: {
     display: 'flex',
     gap: 6,
+    alignItems: 'center',
+  },
+  filterSection: {
+    marginBottom: 16,
   },
   filterRow: {
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 8,
     gap: 12,
+  },
+  filterLabel: {
+    fontSize: 12,
+    fontWeight: 600,
+    color: 'var(--color-text-secondary)',
+    marginRight: 2,
+    whiteSpace: 'nowrap',
+  },
+  checkboxLabel: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 5,
+    fontSize: 13,
+    color: 'var(--color-text-secondary)',
+    cursor: 'pointer',
+    whiteSpace: 'nowrap',
+    userSelect: 'none',
+  },
+  checkbox: {
+    cursor: 'pointer',
   },
   searchWrap: {
     position: 'relative',
