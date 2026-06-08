@@ -19,7 +19,6 @@ const STATUS_FILTERS = [
 ]
 
 export default function VerificationReview({ role }) {
-  const [acceptances, setAcceptances] = useState([])
   const [allAcceptances, setAllAcceptances] = useState([])
   const [selected, setSelected] = useState(null)
   const [statusFilter, setStatusFilter] = useState('all')
@@ -30,21 +29,28 @@ export default function VerificationReview({ role }) {
   const [traceData, setTraceData] = useState(null)
   const [showTrace, setShowTrace] = useState(false)
 
-  const fetchData = useCallback(async () => {
+  const refreshData = useCallback(() => {
     const params = new URLSearchParams()
-    if (statusFilter !== 'all') params.set('status', statusFilter)
-    if (keyword) params.set('keyword', keyword)
     if (role === 'loading_supervisor') params.set('role', 'loading_supervisor')
-    const res = await fetch(`/api/acceptances?${params}`)
-    const data = await res.json()
-    setAcceptances(data)
-  }, [statusFilter, keyword, role])
+    fetch(`/api/acceptances?${params}`).then(r => r.json()).then(setAllAcceptances)
+  }, [role])
 
-  useEffect(() => { fetchData() }, [fetchData])
+  useEffect(() => { refreshData() }, [refreshData])
 
-  useEffect(() => {
-    fetch('/api/acceptances').then(r => r.json()).then(setAllAcceptances)
-  }, [acceptances])
+  const filteredByStatus = useMemo(() => {
+    if (statusFilter === 'all') return allAcceptances
+    return allAcceptances.filter(a => a.status === statusFilter)
+  }, [allAcceptances, statusFilter])
+
+  const acceptances = useMemo(() => {
+    if (!keyword.trim()) return filteredByStatus
+    const kw = keyword.toLowerCase().trim()
+    return filteredByStatus.filter(a =>
+      a.shipperName.toLowerCase().includes(kw) ||
+      a.destinationStation.toLowerCase().includes(kw) ||
+      a.items.some(i => i.name.toLowerCase().includes(kw))
+    )
+  }, [filteredByStatus, keyword])
 
   const fetchReviews = useCallback(async (id) => {
     const res = await fetch(`/api/reviews?acceptanceId=${id}`)
@@ -84,7 +90,7 @@ export default function VerificationReview({ role }) {
     })
     if (res.ok) {
       setReviewModal(null)
-      await fetchData()
+      await refreshData()
       const updated = await fetch(`/api/acceptances/${selected.id}`)
       setSelected(await updated.json())
       await fetchReviews(selected.id)
@@ -106,7 +112,7 @@ export default function VerificationReview({ role }) {
     })
     if (res.ok) {
       setSupplementModal(null)
-      await fetchData()
+      await refreshData()
       const updated = await fetch(`/api/acceptances/${selected.id}`)
       setSelected(await updated.json())
       await fetchReviews(selected.id)
@@ -121,7 +127,7 @@ export default function VerificationReview({ role }) {
       body: JSON.stringify({ reason, operator: '张审核' })
     })
     if (res.ok) {
-      await fetchData()
+      await refreshData()
       const updated = await fetch(`/api/acceptances/${selected.id}`)
       setSelected(await updated.json())
       await fetchReviews(selected.id)
@@ -241,13 +247,21 @@ export default function VerificationReview({ role }) {
               </button>
             ))}
           </div>
-          <div className="flex-1 min-w-[200px]">
+          <div className="flex-1 min-w-[200px] relative">
             <input
               value={keyword}
               onChange={e => setKeyword(e.target.value)}
               placeholder="搜索货主、到站、货品..."
-              className="!py-1.5"
+              className="!py-1.5 !pr-8 border border-slate-300 rounded-md text-sm"
             />
+            {keyword && (
+              <button
+                onClick={() => setKeyword('')}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-sm leading-none"
+              >
+                ✕
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -256,7 +270,9 @@ export default function VerificationReview({ role }) {
         <div className="lg:col-span-2">
           <div className="space-y-2">
             {acceptances.length === 0 && (
-              <div className="card text-center text-slate-400 py-8">暂无记录</div>
+              <div className="card text-center text-slate-400 py-8">
+                {keyword.trim() ? '没有匹配的受理单' : '暂无记录'}
+              </div>
             )}
             {acceptances.map(a => (
               <div
