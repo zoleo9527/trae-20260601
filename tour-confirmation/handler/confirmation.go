@@ -44,7 +44,7 @@ func (h *ConfirmationHandler) Create(c *fiber.Ctx) error {
 		RouteSummary: itin.RouteSummary,
 	}
 	var prevConfirmations []*model.ResourceConfirmation
-	allConfs, _ := h.store.ListConfirmations(req.ItineraryID, "", 0, 1000)
+	allConfs, _ := h.store.ListConfirmations(req.ItineraryID, "", "", nil, nil, 0, 1000)
 	prevConfirmations = allConfs
 	var prevConclusion string
 	for _, pc := range prevConfirmations {
@@ -115,12 +115,28 @@ type ConfirmListResult struct {
 func (h *ConfirmationHandler) List(c *fiber.Ctx) error {
 	itinID := c.Query("itinerary_id")
 	status := model.ConfirmationStatus(c.Query("status"))
+	resourceType := c.Query("resource_type")
+	var createdFrom, createdTo *time.Time
+	if v := c.Query("created_from"); v != "" {
+		t, err := time.Parse(time.RFC3339, v)
+		if err != nil {
+			return c.Status(400).JSON(model.FailMsg(model.ErrBadRequest, "created_from 格式错误，需 RFC3339"))
+		}
+		createdFrom = &t
+	}
+	if v := c.Query("created_to"); v != "" {
+		t, err := time.Parse(time.RFC3339, v)
+		if err != nil {
+			return c.Status(400).JSON(model.FailMsg(model.ErrBadRequest, "created_to 格式错误，需 RFC3339"))
+		}
+		createdTo = &t
+	}
 	offset := c.QueryInt("offset", 0)
 	limit := c.QueryInt("limit", 20)
 	if limit > 100 {
 		limit = 100
 	}
-	items, total := h.store.ListConfirmations(itinID, status, offset, limit)
+	items, total := h.store.ListConfirmations(itinID, status, resourceType, createdFrom, createdTo, offset, limit)
 	return c.JSON(model.OK(ConfirmListResult{Items: items, Total: total}))
 }
 

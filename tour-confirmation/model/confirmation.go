@@ -51,6 +51,23 @@ type ResourceConfirmation struct {
 	UpdatedAt        time.Time           `json:"updated_at"`
 }
 
+type UnconfirmedResource struct {
+	ID           string             `json:"id"`
+	ResourceType string             `json:"resource_type"`
+	ResourceName string             `json:"resource_name"`
+	ResourceRef  string             `json:"resource_ref"`
+	Status       ConfirmationStatus `json:"status"`
+}
+
+type ConfirmationProgress struct {
+	PendingCount      int                   `json:"pending_count"`
+	ConfirmedCount    int                   `json:"confirmed_count"`
+	RejectedCount     int                   `json:"rejected_count"`
+	RevisedCount      int                   `json:"revised_count"`
+	UnconfirmedList   []UnconfirmedResource `json:"unconfirmed_list"`
+	LatestRejectReason string              `json:"latest_reject_reason,omitempty"`
+}
+
 type ItinerarySummary struct {
 	TeamName     string `json:"team_name"`
 	TeamCode     string `json:"team_code"`

@@ -25,7 +25,7 @@ go run main.go
 |------|------|------|
 | POST | `/` | 创建行程（草稿） |
 | GET | `/` | 列表（?status=draft&offset=0&limit=20） |
-| GET | `/:id` | 详情 |
+| GET | `/:id` | 详情（含 confirmation_progress） |
 | PUT | `/:id` | 修改（仅草稿） |
 | POST | `/:id/submit` | 提交 |
 | POST | `/:id/withdraw` | 撤回（仅已提交） |
@@ -36,7 +36,7 @@ go run main.go
 | 方法 | 路径 | 说明 |
 |------|------|------|
 | POST | `/` | 创建确认单（自动带入行程摘要+上一环节结论） |
-| GET | `/` | 列表（?itinerary_id=&status=&offset=0&limit=20） |
+| GET | `/` | 列表（?itinerary_id=&status=&resource_type=&created_from=&created_to=&offset=0&limit=20） |
 | GET | `/:id` | 详情（含行程摘要、材料、备注、上一环节结论） |
 | POST | `/:id/confirm` | 确认通过 |
 | POST | `/:id/reject` | 确认驳回 |
@@ -71,6 +71,57 @@ go run main.go
 | 40903 | 资源确认非待确认状态 |
 | 50000 | 内部错误 |
 | 50001 | 导出失败 |
+
+## 行程详情新增字段
+
+`GET /api/v1/itineraries/:id` 响应体从直接返回行程对象改为包含 `confirmation_progress`：
+
+```json
+{
+  "code": 0,
+  "message": "success",
+  "data": {
+    "itinerary": { "id": "...", "team_name": "...", "..." : "..." },
+    "confirmation_progress": {
+      "pending_count": 2,
+      "confirmed_count": 1,
+      "rejected_count": 1,
+      "revised_count": 0,
+      "unconfirmed_list": [
+        {
+          "id": "cf-xxx",
+          "resource_type": "vehicle",
+          "resource_name": "45座大巴-川A12345",
+          "resource_ref": "FLEET-001",
+          "status": "pending"
+        }
+      ],
+      "latest_reject_reason": "确认驳回: 车辆年检过期"
+    }
+  }
+}
+```
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `confirmation_progress.pending_count` | int | 待确认数量 |
+| `confirmation_progress.confirmed_count` | int | 已确认数量 |
+| `confirmation_progress.rejected_count` | int | 已驳回数量 |
+| `confirmation_progress.revised_count` | int | 已修订数量 |
+| `confirmation_progress.unconfirmed_list` | array | 待确认 + 已修订的资源清单 |
+| `confirmation_progress.latest_reject_reason` | string | 最近一次驳回的审计摘要，无驳回时为空 |
+
+## 确认列表新增查询参数
+
+`GET /api/v1/confirmations` 新增以下查询参数（与原有 `itinerary_id`、`status`、`offset`、`limit` 兼容）：
+
+| 参数 | 类型 | 说明 |
+|------|------|------|
+| `resource_type` | string | 按资源类型过滤，如 `vehicle`、`hotel` |
+| `created_from` | RFC3339 | 创建时间起始（含），如 `2026-06-01T00:00:00Z` |
+| `created_to` | RFC3339 | 创建时间截止（含），如 `2026-06-30T23:59:59Z` |
+
+当 `created_from` / `created_to` 格式不符合 RFC3339 时返回 `40000` 错误码。
 
 ## 请求示例
 
@@ -163,6 +214,18 @@ curl -X POST http://localhost:3000/api/v1/exports \
 
 ```bash
 curl http://localhost:3000/api/v1/exports/{id}
+```
+
+### 按资源类型和时间区间查询确认单
+
+```bash
+curl "http://localhost:3000/api/v1/confirmations?resource_type=vehicle&created_from=2026-06-01T00:00:00Z&created_to=2026-06-30T23:59:59Z&offset=0&limit=10"
+```
+
+### 查看行程详情（含确认进度）
+
+```bash
+curl http://localhost:3000/api/v1/itineraries/{id}
 ```
 
 ## 被模拟的能力

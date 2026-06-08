@@ -191,7 +191,50 @@ func (h *ItineraryHandler) Get(c *fiber.Ctx) error {
 	if !ok {
 		return c.Status(404).JSON(model.Fail(model.ErrItineraryNotFound))
 	}
-	return c.JSON(model.OK(itin))
+	allConfs := h.store.ListConfirmationsByItinerary(id)
+	progress := &model.ConfirmationProgress{
+		UnconfirmedList: []model.UnconfirmedResource{},
+	}
+	var latestRejectTime time.Time
+	var latestRejectReason string
+	for _, cf := range allConfs {
+		switch cf.Status {
+		case model.ConfirmPending:
+			progress.PendingCount++
+		case model.ConfirmConfirmed:
+			progress.ConfirmedCount++
+		case model.ConfirmRejected:
+			progress.RejectedCount++
+		case model.ConfirmRevised:
+			progress.RevisedCount++
+		}
+		if cf.Status == model.ConfirmPending || cf.Status == model.ConfirmRevised {
+			progress.UnconfirmedList = append(progress.UnconfirmedList, model.UnconfirmedResource{
+				ID:           cf.ID,
+				ResourceType: cf.ResourceType,
+				ResourceName: cf.ResourceName,
+				ResourceRef:  cf.ResourceRef,
+				Status:       cf.Status,
+			})
+		}
+		if cf.Status == model.ConfirmRejected {
+			logs := h.store.ListAudit("confirmation", cf.ID)
+			for i := len(logs) - 1; i >= 0; i-- {
+				if logs[i].Action == model.ActionConfirmReject {
+					if logs[i].CreatedAt.After(latestRejectTime) {
+						latestRejectTime = logs[i].CreatedAt
+						latestRejectReason = logs[i].Detail
+					}
+					break
+				}
+			}
+		}
+	}
+	progress.LatestRejectReason = latestRejectReason
+	return c.JSON(model.OK(fiber.Map{
+		"itinerary":            itin,
+		"confirmation_progress": progress,
+	}))
 }
 
 type ListResult struct {

@@ -2,6 +2,7 @@ package store
 
 import (
 	"sync"
+	"time"
 	"tour-confirmation/model"
 )
 
@@ -68,7 +69,7 @@ func (s *Store) GetConfirmation(id string) (*model.ResourceConfirmation, bool) {
 	return c, ok
 }
 
-func (s *Store) ListConfirmations(itineraryID string, status model.ConfirmationStatus, offset, limit int) ([]*model.ResourceConfirmation, int) {
+func (s *Store) ListConfirmations(itineraryID string, status model.ConfirmationStatus, resourceType string, createdFrom, createdTo *time.Time, offset, limit int) ([]*model.ResourceConfirmation, int) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	var filtered []*model.ResourceConfirmation
@@ -77,6 +78,15 @@ func (s *Store) ListConfirmations(itineraryID string, status model.ConfirmationS
 			continue
 		}
 		if status != "" && c.Status != status {
+			continue
+		}
+		if resourceType != "" && c.ResourceType != resourceType {
+			continue
+		}
+		if createdFrom != nil && c.CreatedAt.Before(*createdFrom) {
+			continue
+		}
+		if createdTo != nil && c.CreatedAt.After(*createdTo) {
 			continue
 		}
 		filtered = append(filtered, c)
@@ -90,6 +100,18 @@ func (s *Store) ListConfirmations(itineraryID string, status model.ConfirmationS
 		end = total
 	}
 	return filtered[offset:end], total
+}
+
+func (s *Store) ListConfirmationsByItinerary(itineraryID string) []*model.ResourceConfirmation {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	var result []*model.ResourceConfirmation
+	for _, c := range s.confirmations {
+		if c.ItineraryID == itineraryID {
+			result = append(result, c)
+		}
+	}
+	return result
 }
 
 func (s *Store) AppendAudit(log model.AuditLog) {
