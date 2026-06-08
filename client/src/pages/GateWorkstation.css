@@ -1,0 +1,279 @@
+.gate {}
+
+.gate__grid {
+  display: grid;
+  grid-template-columns: 380px 1fr;
+  gap: 20px;
+}
+
+.gate__form-panel {
+  background: #152638;
+  border: 1px solid #1b3a5c;
+  border-radius: 8px;
+  padding: 20px;
+}
+
+.gate__list-panel {
+  background: #152638;
+  border: 1px solid #1b3a5c;
+  border-radius: 8px;
+  padding: 20px;
+}
+
+.gate__panel-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: #4fc3f7;
+  margin-bottom: 16px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #1b3a5c;
+}
+
+.gate__form-group {
+  margin-bottom: 12px;
+}
+
+.gate__form-label {
+  display: block;
+  font-size: 12px;
+  color: #6a8caa;
+  margin-bottom: 4px;
+  font-weight: 500;
+}
+
+.gate__form-input,
+.gate__form-select {
+  width: 100%;
+  padding: 8px 12px;
+  background: #0d1b2a;
+  border: 1px solid #1b3a5c;
+  border-radius: 4px;
+  color: #e0e6ed;
+  font-size: 13px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.gate__form-input:focus,
+.gate__form-select:focus {
+  border-color: #4fc3f7;
+}
+
+.gate__form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.gate__btn {
+  padding: 8px 20px;
+  border: none;
+  border-radius: 4px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.gate__btn--primary {
+  background: #1565c0;
+  color: #fff;
+}
+
+.gate__btn--primary:hover {
+  background: #1976d2;
+}
+
+.gate__btn--secondary {
+  background: #2e3a4a;
+  color: #c8d8e8;
+}
+
+.gate__btn--secondary:hover {
+  background: #3a4a5a;
+}
+
+.gate__btn--warning {
+  background: #e65100;
+  color: #fff;
+}
+
+.gate__btn--warning:hover {
+  background: #ef6c00;
+}
+
+.gate__btn--small {
+  padding: 4px 12px;
+  font-size: 12px;
+}
+
+.gate__form-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.gate__search-bar {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.gate__search-input {
+  flex: 1;
+  padding: 8px 12px;
+  background: #0d1b2a;
+  border: 1px solid #1b3a5c;
+  border-radius: 4px;
+  color: #e0e6ed;
+  font-size: 13px;
+  outline: none;
+}
+
+.gate__search-input:focus {
+  border-color: #4fc3f7;
+}
+
+.gate__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.gate__table th {
+  background: #0d1b2a;
+  color: #6a8caa;
+  font-weight: 600;
+  text-align: left;
+  padding: 10px 12px;
+  border-bottom: 1px solid #1b3a5c;
+  white-space: nowrap;
+}
+
+.gate__table td {
+  padding: 8px 12px;
+  border-bottom: 1px solid #1b3a5c;
+  color: #c8d8e8;
+}
+
+.gate__table tr:hover td {
+  background: #1a2e42;
+}
+
+.gate__detail-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.gate__detail-modal {
+  background: #152638;
+  border: 1px solid #1b3a5c;
+  border-radius: 8px;
+  padding: 24px;
+  min-width: 500px;
+  max-width: 700px;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+.gate__detail-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.gate__detail-close {
+  background: none;
+  border: none;
+  color: #6a8caa;
+  font-size: 20px;
+  cursor: pointer;
+}
+
+.gate__detail-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.gate__detail-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.gate__detail-label {
+  font-size: 11px;
+  color: #5a7a9a;
+  font-weight: 500;
+}
+
+.gate__detail-value {
+  font-size: 14px;
+  color: #e0e6ed;
+}
+
+.gate__success-msg {
+  background: #1b3a2a;
+  border: 1px solid #2e7d32;
+  border-radius: 4px;
+  padding: 10px 16px;
+  color: #66bb6a;
+  font-size: 13px;
+  margin-bottom: 12px;
+}
+
+.gate__modify-info {
+  background: #2a2510;
+  border: 1px solid #ef6c00;
+  border-radius: 4px;
+  padding: 10px 16px;
+  color: #ffa726;
+  font-size: 13px;
+  margin-bottom: 12px;
+}
+
+.gate__error-msg {
+  background: #2a1520;
+  border: 1px solid #c62828;
+  border-radius: 4px;
+  padding: 10px 16px;
+  color: #ef5350;
+  font-size: 13px;
+  margin-bottom: 12px;
+}
+
+.gate__modifications {
+  background: #152638;
+  border: 1px solid #1b3a5c;
+  border-radius: 8px;
+  padding: 20px;
+  margin-top: 20px;
+  grid-column: 1 / -1;
+}
+
+.gate__badge {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 3px;
+  font-weight: 600;
+}
+
+.gate__badge--import {
+  background: #1a2940;
+  color: #4fc3f7;
+}
+
+.gate__badge--export {
+  background: #2a2510;
+  color: #ffa726;
+}

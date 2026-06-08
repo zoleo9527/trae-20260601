@@ -1,0 +1,11 @@
+const { initDatabase, getDb } = require('./src/db');
+initDatabase();
+const db = getDb();
+console.log('Containers:', db.prepare('SELECT COUNT(*) as c FROM containers').get().c);
+console.log('Slots:', db.prepare('SELECT COUNT(*) as c FROM slots').get().c);
+console.log('Gate Records:', db.prepare('SELECT COUNT(*) as c FROM gate_records').get().c);
+console.log('Allocations:', db.prepare('SELECT COUNT(*) as c FROM slot_allocations').get().c);
+console.log('Status Logs:', db.prepare('SELECT COUNT(*) as c FROM status_change_logs').get().c);
+console.log('Fee Items:', db.prepare('SELECT COUNT(*) as c FROM fee_items').get().c);
+console.log('Inspection Plans:', db.prepare('SELECT COUNT(*) as c FROM inspection_plans').get().c);
+console.log('Staff:', db.prepare('SELECT COUNT(*) as c FROM staff').get().c);
