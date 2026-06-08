@@ -62,12 +62,12 @@ router.get('/', (req: Request, res: Response) => {
     blocked = blockedOnly === 'true';
   }
 
-  const tasks = pendingTaskService.getByRole(role as Role, {
+  const result = pendingTaskService.getByRole(role as Role, {
     minDwellHours: minDwell,
     blockedOnly: blocked,
   });
 
-  res.json(tasks);
+  res.json(result);
 });
 
 export default router;

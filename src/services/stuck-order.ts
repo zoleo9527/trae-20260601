@@ -9,6 +9,8 @@ import {
   StuckSummaryResponse,
   BatchResolveItem,
   HandoverRecord,
+  HandoverAction,
+  Role,
   STUCK_THRESHOLDS,
   LoadingPlanStatus,
   WagonAllocationStatus,
@@ -349,6 +351,34 @@ export class StuckOrderService {
     }
 
     return results;
+  }
+
+  reopen(stuckId: string, reason: string): { stuck: StuckOrder; error?: string } {
+    const stuck = store.stuckOrders.get(stuckId);
+
+    if (!stuck) {
+      return { stuck: null as unknown as StuckOrder, error: '卡单不存在' };
+    }
+
+    if (!stuck.resolvedAt) {
+      return { stuck, error: '卡单当前为活跃状态，无需重开' };
+    }
+
+    stuck.resolvedAt = null;
+    stuck.resolution = null;
+
+    handoverService.record({
+      entityType: stuck.entityType,
+      entityId: stuck.entityId,
+      fromRole: Role.CustomerService,
+      toRole: Role.LoadingLeader,
+      fromUserId: 'system',
+      toUserId: 'system',
+      action: HandoverAction.Alert,
+      comment: `卡单重开，原因：${reason}。原卡单类型：${stuck.stuckType}，严重度：${stuck.severity}`,
+    });
+
+    return { stuck };
   }
 }
 

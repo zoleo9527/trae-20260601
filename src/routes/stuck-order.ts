@@ -115,6 +115,41 @@ router.get('/', (req: Request, res: Response) => {
 });
 
 /**
+ * POST /api/stuck-orders/:id/reopen
+ *
+ * 重开已结案卡单
+ * 清除 resolvedAt/resolution，写入 action=alert 交接记录
+ * 已活跃或不存在的卡单返回 4xx 错误
+ *
+ * Body:
+ *   reason string 重开原因
+ *
+ * Response: { stuck: StuckOrder }
+ */
+router.post('/:id/reopen', (req: Request, res: Response) => {
+  const { id } = req.params;
+  const { reason } = req.body;
+
+  if (!reason) {
+    res.status(400).json({ error: '缺少必填字段：reason' });
+    return;
+  }
+
+  const result = stuckOrderService.reopen(id, reason);
+
+  if (result.error) {
+    if (result.error === '卡单不存在') {
+      res.status(404).json({ error: result.error });
+      return;
+    }
+    res.status(409).json({ error: result.error, stuck: result.stuck });
+    return;
+  }
+
+  res.json({ stuck: result.stuck });
+});
+
+/**
  * GET /api/stuck-orders/:id/trail
  *
  * 返回该卡单所关联实体的交接记录链

@@ -3,6 +3,8 @@ import {
   HandoverRecord,
   HandoverAction,
   HandoverFilterParams,
+  HandoverSummaryItem,
+  HandoverSummaryResponse,
   Role,
   getNextRole,
 } from '../types';
@@ -102,6 +104,45 @@ export class HandoverService {
     results.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
 
     return results;
+  }
+
+  summary(since?: string, until?: string): HandoverSummaryResponse {
+    let records = [...store.handoverRecords];
+
+    if (since) {
+      const sinceTs = new Date(since).getTime();
+      records = records.filter((r) => new Date(r.timestamp).getTime() >= sinceTs);
+    }
+
+    if (until) {
+      const untilTs = new Date(until).getTime();
+      records = records.filter((r) => new Date(r.timestamp).getTime() <= untilTs);
+    }
+
+    const grouped = new Map<string, { role: Role; action: HandoverAction; count: number }>();
+
+    for (const r of records) {
+      const key = `${r.fromRole}::${r.action}`;
+      if (!grouped.has(key)) {
+        grouped.set(key, { role: r.fromRole, action: r.action, count: 0 });
+      }
+      grouped.get(key)!.count++;
+    }
+
+    const groups: HandoverSummaryItem[] = [];
+    for (const item of grouped.values()) {
+      groups.push(item);
+    }
+
+    groups.sort((a, b) => {
+      if (a.role !== b.role) return a.role.localeCompare(b.role);
+      return a.action.localeCompare(b.action);
+    });
+
+    return {
+      groups,
+      totalRecords: records.length,
+    };
   }
 }
 

@@ -259,6 +259,22 @@ export interface StuckSummaryResponse {
   oldestUnresolvedAt: string | null;
 }
 
+export interface HandoverSummaryItem {
+  role: Role;
+  action: HandoverAction;
+  count: number;
+}
+
+export interface HandoverSummaryResponse {
+  groups: HandoverSummaryItem[];
+  totalRecords: number;
+}
+
+export interface PendingTaskListResult {
+  tasks: PendingTaskItem[];
+  reopenedCount: number;
+}
+
 export interface ResolveStuckRequest {
   resolution: string;
 }

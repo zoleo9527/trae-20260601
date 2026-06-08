@@ -392,3 +392,54 @@ echo "【15】卡单摘要汇总（含顶层 totalActive 和 oldestUnresolvedAt�
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 curl -s "${BASE}/stuck-orders/summary" | python3 -m json.tool 2>/dev/null
 echo ""
+
+# ============================================
+# 新增：卡单重开、交接聚合摘要、待办 reopenedCount
+# ============================================
+echo "============================================"
+echo "🔓  卡单重开 / 交接聚合摘要 / 待办 reopenedCount"
+echo "============================================"
+echo ""
+
+# ============================================
+# 16. 卡单重开（需先有一个已结案的卡单ID）
+# ============================================
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "【16】先创建并结案一个卡单，再重开"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+PLAN_R=$(curl -s -X POST "${BASE}/loading-plans" -H "Content-Type: application/json" -d '{"planNo":"ZC-REOPEN-001","freightTicketNo":"HP-REOPEN-001","cargoType":"矿石","cargoWeight":80,"cargoVolume":60,"plannedLoadDate":"2026-06-12","destinationStation":"株洲北","submittedBy":"clerk-wu"}')
+PLAN_R_ID=$(echo "$PLAN_R" | python3 -c "import sys,json; print(json.load(sys.stdin)['plan']['id'])" 2>/dev/null)
+ALLOC_R=$(curl -s -X POST "${BASE}/wagon-allocations" -H "Content-Type: application/json" -d "{\"loadingPlanId\":\"$PLAN_R_ID\",\"wagonNo\":\"C80-RE1\",\"wagonType\":\"C80\",\"loadCapacity\":80,\"allocatedBy\":\"leader-sun\"}")
+ALLOC_R_ID=$(echo "$ALLOC_R" | python3 -c "import sys,json; print(json.load(sys.stdin)['allocation']['id'])" 2>/dev/null)
+DAMAGE_R=$(curl -s -X POST "${BASE}/damage-records" -H "Content-Type: application/json" -d "{\"loadingPlanId\":\"$PLAN_R_ID\",\"wagonAllocationId\":\"$ALLOC_R_ID\",\"reportedBy\":\"leader-sun\",\"damageType\":\"散落\",\"damageDescription\":\"2件散落\"}")
+STUCK_R_ID=$(echo "$DAMAGE_R" | python3 -c "import sys,json; print(json.load(sys.stdin)['stuckOrders'][0]['id'])" 2>/dev/null)
+echo "卡单ID: $STUCK_R_ID"
+echo "--- 结案 ---"
+curl -s -X PUT "${BASE}/stuck-orders/${STUCK_R_ID}/resolve" -H "Content-Type: application/json" -d '{"resolution":"已补充照片，结案"}' | python3 -c "import sys,json; d=json.load(sys.stdin); print(f'已结案: resolvedAt={d.get(\"resolvedAt\",\"?\")}')" 2>/dev/null
+echo ""
+echo "--- 重开 ---"
+curl -s -X POST "${BASE}/stuck-orders/${STUCK_R_ID}/reopen" -H "Content-Type: application/json" -d '{"reason":"补充的照片不清晰，需重新拍照"}' | python3 -m json.tool 2>/dev/null
+echo ""
+
+# ============================================
+# 17. 交接聚合摘要
+# ============================================
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "【17】交接聚合摘要（按 role + action 双维度）"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+curl -s "${BASE}/handovers/summary" | python3 -m json.tool 2>/dev/null
+echo ""
+
+# ============================================
+# 18. 待办视图含 reopenedCount
+# ============================================
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "【18】装卸班长待办视图（含 reopenedCount）"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+curl -s "${BASE}/pending-tasks?role=loading_leader" | python3 -c "
+import sys, json
+d = json.load(sys.stdin)
+print(f'待办数: {len(d[\"tasks\"])}')
+print(f'重开卡单数: {d[\"reopenedCount\"]}')
+" 2>/dev/null
+echo ""

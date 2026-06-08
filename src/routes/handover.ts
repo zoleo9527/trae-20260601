@@ -9,6 +9,40 @@ const VALID_ACTIONS = Object.values(HandoverAction);
 const VALID_ENTITY_TYPES = ['loading_plan', 'wagon_allocation', 'arrival_notice', 'damage_record'];
 
 /**
+ * GET /api/handovers/summary
+ *
+ * 按 role 和 action 双维度聚合交接次数
+ * 支持 since、until 查询参数
+ * 附带 totalRecords 顶层字段
+ *
+ * Query Params:
+ *   since  string  可选，时间起始 (ISO 8601)
+ *   until  string  可选，时间截止 (ISO 8601)
+ *
+ * Response: HandoverSummaryResponse { groups, totalRecords }
+ */
+router.get('/summary', (req: Request, res: Response) => {
+  const { since, until } = req.query;
+
+  if (since && isNaN(Date.parse(since as string))) {
+    res.status(400).json({ error: '无效的 since 时间格式，需 ISO 8601' });
+    return;
+  }
+
+  if (until && isNaN(Date.parse(until as string))) {
+    res.status(400).json({ error: '无效的 until 时间格式，需 ISO 8601' });
+    return;
+  }
+
+  const summary = handoverService.summary(
+    since as string | undefined,
+    until as string | undefined
+  );
+
+  res.json(summary);
+});
+
+/**
  * GET /api/handovers
  *
  * 查询交接记录，支持多条件过滤

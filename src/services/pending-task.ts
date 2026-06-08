@@ -6,6 +6,7 @@ import {
   PendingTaskItem,
   PendingTaskSummaryItem,
   PendingTaskFilterParams,
+  PendingTaskListResult,
   HandoverAction,
   LoadingPlanStatus,
   WagonAllocationStatus,
@@ -13,7 +14,7 @@ import {
 } from '../types';
 
 export class PendingTaskService {
-  getByRole(role: Role, filter?: PendingTaskFilterParams): PendingTaskItem[] {
+  getByRole(role: Role, filter?: PendingTaskFilterParams): PendingTaskListResult {
     stuckOrderService.scanAll();
 
     const tasks: PendingTaskItem[] = [];
@@ -160,7 +161,24 @@ export class PendingTaskService {
       return a.dwellHours - b.dwellHours > 0 ? -1 : 1;
     });
 
-    return filtered;
+    const reopenedCount = this.countReopenedForRole(role);
+
+    return { tasks: filtered, reopenedCount };
+  }
+
+  private countReopenedForRole(role: Role): number {
+    let count = 0;
+    for (const record of store.handoverRecords) {
+      if (
+        record.action === HandoverAction.Alert &&
+        record.comment &&
+        record.comment.startsWith('卡单重开') &&
+        (record.fromRole === role || record.toRole === role)
+      ) {
+        count++;
+      }
+    }
+    return count;
   }
 
   summary(): PendingTaskSummaryItem[] {
@@ -177,7 +195,8 @@ export class PendingTaskService {
     const items: PendingTaskSummaryItem[] = [];
 
     for (const role of allRoles) {
-      const tasks = this.getByRole(role);
+      const result = this.getByRole(role);
+      const tasks = result.tasks;
 
       for (const et of entityTypes) {
         const group = tasks.filter((t) => t.entityType === et);
