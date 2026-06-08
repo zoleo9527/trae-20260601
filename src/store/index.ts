@@ -98,6 +98,8 @@ export const useAppStore = create<AppStore>()(
         reviewShowAll: false,
         engineerStatus: 'all' as const,
         engineerSearchRoom: '',
+        engineerCategory: 'all' as const,
+        engineerCompletedCategory: 'all' as const,
       },
 
       setCurrentUser(userId: string, role: UserRole) {

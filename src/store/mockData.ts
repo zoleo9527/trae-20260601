@@ -153,6 +153,7 @@ const maintenanceOrders: MaintenanceOrder[] = [
     status: 'pending',
     assignedTo: 'user-6',
     createdAt: '2026-06-08T08:30:00',
+    category: 'leak',
   },
   {
     id: 'order-2',
@@ -163,6 +164,7 @@ const maintenanceOrders: MaintenanceOrder[] = [
     status: 'in_progress',
     assignedTo: 'user-6',
     createdAt: '2026-06-07T14:00:00',
+    category: 'electrical',
   },
   {
     id: 'order-3',
@@ -172,6 +174,7 @@ const maintenanceOrders: MaintenanceOrder[] = [
     priority: 'medium',
     status: 'pending',
     createdAt: '2026-06-08T07:45:00',
+    category: 'other',
   },
   {
     id: 'order-4',
@@ -183,6 +186,7 @@ const maintenanceOrders: MaintenanceOrder[] = [
     assignedTo: 'user-6',
     createdAt: '2026-06-07T10:00:00',
     completedAt: '2026-06-07T15:30:00',
+    category: 'furniture',
   },
   {
     id: 'order-5',
@@ -192,6 +196,7 @@ const maintenanceOrders: MaintenanceOrder[] = [
     priority: 'low',
     status: 'pending',
     createdAt: '2026-06-08T07:50:00',
+    category: 'furniture',
   },
 ]
 
@@ -283,6 +288,8 @@ export const mockData: AppState = {
     reviewShowAll: false,
     engineerStatus: 'all',
     engineerSearchRoom: '',
+    engineerCategory: 'all',
+    engineerCompletedCategory: 'all',
   },
   currentUserId: undefined,
   currentRole: undefined,

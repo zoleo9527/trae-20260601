@@ -120,6 +120,8 @@ export interface UiFilters {
   reviewShowAll: boolean
   engineerStatus: MaintenanceStatus | 'all'
   engineerSearchRoom: string
+  engineerCategory: MaintenanceCategory | 'all'
+  engineerCompletedCategory: MaintenanceCategory | 'all'
 }
 
 export interface AppState {
