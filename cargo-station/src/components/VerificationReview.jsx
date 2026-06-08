@@ -30,23 +30,14 @@ function getLastOperator(verification) {
   let lastTime = ''
   for (const doc of verification.documents) {
     if (doc.verifiedBy && doc.verifiedAt) {
-      if (!lastTime || new Date(doc.verifiedAt) > new Date(lastTime)) {
-        lastOp = doc.verifiedBy
-        lastTime = doc.verifiedAt
-      }
+      if (!lastTime || new Date(doc.verifiedAt) > new Date(lastTime)) { lastOp = doc.verifiedBy; lastTime = doc.verifiedAt }
     }
     if (doc.submittedBy && doc.submittedAt) {
-      if (!lastTime || new Date(doc.submittedAt) > new Date(lastTime)) {
-        lastOp = doc.submittedBy
-        lastTime = doc.submittedAt
-      }
+      if (!lastTime || new Date(doc.submittedAt) > new Date(lastTime)) { lastOp = doc.submittedBy; lastTime = doc.submittedAt }
     }
   }
   if (verification.verifiedBy && verification.updatedAt) {
-    if (!lastTime || new Date(verification.updatedAt) > new Date(lastTime)) {
-      lastOp = verification.verifiedBy
-      lastTime = verification.updatedAt
-    }
+    if (!lastTime || new Date(verification.updatedAt) > new Date(lastTime)) { lastOp = verification.verifiedBy; lastTime = verification.updatedAt }
   }
   return { operator: lastOp, time: lastTime }
 }
@@ -54,10 +45,7 @@ function getLastOperator(verification) {
 function collectOperators(records) {
   const set = new Set()
   for (const v of records) {
-    for (const doc of v.documents) {
-      if (doc.submittedBy) set.add(doc.submittedBy)
-      if (doc.verifiedBy) set.add(doc.verifiedBy)
-    }
+    for (const doc of v.documents) { if (doc.submittedBy) set.add(doc.submittedBy); if (doc.verifiedBy) set.add(doc.verifiedBy) }
     if (v.verifiedBy) set.add(v.verifiedBy)
   }
   return [...set].sort()
@@ -65,29 +53,35 @@ function collectOperators(records) {
 
 function formatElapsed(ms) {
   const hours = Math.floor(ms / 3600000)
-  if (hours >= 24) {
-    const days = Math.floor(hours / 24)
-    const rem = hours % 24
-    return rem > 0 ? `${days}天${rem}时` : `${days}天`
-  }
+  if (hours >= 24) { const days = Math.floor(hours / 24); const rem = hours % 24; return rem > 0 ? `${days}天${rem}时` : `${days}天` }
   return `${hours}时`
 }
 
 function getElapsedBadge(updatedAt) {
   const diff = Date.now() - new Date(updatedAt).getTime()
-  if (diff >= OVERDUE_HOURS * 3600000) {
-    return { text: formatElapsed(diff), level: 'overdue' }
-  }
-  if (diff >= APPROACHING_HOURS * 3600000) {
-    return { text: formatElapsed(diff), level: 'approaching' }
-  }
-  return { text: formatElapsed(diff), level: 'normal' }
+  if (diff >= OVERDUE_HOURS * 3600000) return { text: formatElapsed(diff), level: 'overdue', diff }
+  if (diff >= APPROACHING_HOURS * 3600000) return { text: formatElapsed(diff), level: 'approaching', diff }
+  return { text: formatElapsed(diff), level: 'normal', diff }
 }
 
 const ELAPSED_STYLES = {
   overdue: { bg: 'var(--danger-bg)', color: 'var(--danger)', border: '1px solid rgba(239,68,68,0.4)' },
   approaching: { bg: 'rgba(245,158,11,0.1)', color: 'var(--warning)', border: '1px solid rgba(245,158,11,0.4)' },
   normal: { bg: 'rgba(100,116,139,0.08)', color: 'var(--text-dim)', border: '1px solid var(--border)' },
+}
+
+function sortRecords(records, mode) {
+  const sorted = [...records]
+  if (mode === 'elapsed_desc') {
+    sorted.sort((a, b) => {
+      const da = Date.now() - new Date(a.updatedAt).getTime()
+      const db = Date.now() - new Date(b.updatedAt).getTime()
+      return db - da
+    })
+  } else {
+    sorted.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
+  }
+  return sorted
 }
 
 export default function VerificationReview({ onNavigateToAcceptance }) {
@@ -98,6 +92,13 @@ export default function VerificationReview({ onNavigateToAcceptance }) {
   const [filterOperator, setFilterOperator] = useState('')
   const [filterDateFrom, setFilterDateFrom] = useState('')
   const [filterDateTo, setFilterDateTo] = useState('')
+  const [sortMode, setSortMode] = useState('updated_desc')
+  const [selectedIds, setSelectedIds] = useState(new Set())
+  const [batchRejectOpen, setBatchRejectOpen] = useState(false)
+  const [batchRejectCategory, setBatchRejectCategory] = useState('')
+  const [batchRejectReason, setBatchRejectReason] = useState('')
+  const [batchOperator, setBatchOperator] = useState('赵国安')
+  const [batchLoading, setBatchLoading] = useState(false)
   const [selectedRecord, setSelectedRecord] = useState(null)
   const [currentOperator, setCurrentOperator] = useState('赵国安')
   const [actionLoading, setActionLoading] = useState(false)
@@ -120,85 +121,79 @@ export default function VerificationReview({ onNavigateToAcceptance }) {
       if (filterDateFrom) params.dateFrom = filterDateFrom
       if (filterDateTo) params.dateTo = filterDateTo
       const res = await api.verification.list(params)
-      setRecords(res.data)
+      setRecords(sortRecords(res.data, sortMode))
     } catch (e) { console.error(e) }
     setLoading(false)
-  }, [filterResult, filterWaybill, filterOperator, filterDateFrom, filterDateTo])
+  }, [filterResult, filterWaybill, filterOperator, filterDateFrom, filterDateTo, sortMode])
 
   useEffect(() => { loadData() }, [])
+
+  const sortedRecords = useMemo(() => sortRecords(records, sortMode), [records, sortMode])
+
+  const selectableIds = useMemo(() => {
+    const ids = new Set()
+    for (const v of sortedRecords) {
+      if (v.overallResult === '待校验') ids.add(v.id)
+    }
+    return ids
+  }, [sortedRecords])
+
+  const selectedCount = useMemo(() => {
+    let count = 0
+    for (const id of selectedIds) { if (selectableIds.has(id)) count++ }
+    return count
+  }, [selectedIds, selectableIds])
+
+  const allSelected = selectableIds.size > 0 && selectedCount === selectableIds.size
 
   const summary = useMemo(() => {
     const total = allRecords.length
     const counts = { '待校验': 0, '通过': 0, '退回': 0, '有异常': 0 }
-    for (const v of allRecords) {
-      if (counts[v.overallResult] !== undefined) counts[v.overallResult]++
-    }
+    for (const v of allRecords) { if (counts[v.overallResult] !== undefined) counts[v.overallResult]++ }
     return { total, counts }
   }, [allRecords])
 
   const overdueInfo = useMemo(() => {
     const now = Date.now()
     const pending = allRecords.filter(v => v.overallResult === '待校验')
-    const overdue = pending.filter(v => {
-      const diff = now - new Date(v.updatedAt).getTime()
-      return diff >= OVERDUE_HOURS * 3600000
-    })
+    const overdue = pending.filter(v => (now - new Date(v.updatedAt).getTime()) >= OVERDUE_HOURS * 3600000)
     let earliestTime = null
-    for (const v of overdue) {
-      const t = new Date(v.updatedAt).getTime()
-      if (!earliestTime || t < earliestTime) earliestTime = t
-    }
+    for (const v of overdue) { const t = new Date(v.updatedAt).getTime(); if (!earliestTime || t < earliestTime) earliestTime = t }
     return { count: overdue.length, earliestTime, records: overdue }
   }, [allRecords])
 
   const hasActiveFilter = filterResult || filterWaybill || filterOperator || filterDateFrom || filterDateTo
 
   const resetFilters = useCallback(() => {
-    setFilterResult('')
-    setFilterWaybill('')
-    setFilterOperator('')
-    setFilterDateFrom('')
-    setFilterDateTo('')
-    setTimeout(() => {
-      api.verification.list().then(res => setRecords(res.data)).catch(() => {})
-    }, 0)
-  }, [])
+    setFilterResult(''); setFilterWaybill(''); setFilterOperator(''); setFilterDateFrom(''); setFilterDateTo('')
+    setTimeout(() => { api.verification.list().then(res => setRecords(sortRecords(res.data, sortMode))).catch(() => {}) }, 0)
+  }, [sortMode])
 
   const applyDashboardFilter = useCallback((result) => {
-    if (filterResult === result) {
-      setFilterResult('')
-    } else {
-      setFilterResult(result)
-    }
+    const nextResult = filterResult === result ? '' : result
+    setFilterResult(nextResult)
     setTimeout(() => {
       const params = {}
-      const nextResult = filterResult === result ? '' : result
       if (nextResult) params.result = nextResult
       if (filterWaybill) params.waybillNo = filterWaybill
       if (filterOperator) params.operator = filterOperator
       if (filterDateFrom) params.dateFrom = filterDateFrom
       if (filterDateTo) params.dateTo = filterDateTo
-      api.verification.list(params).then(res => setRecords(res.data)).catch(() => {})
+      api.verification.list(params).then(res => setRecords(sortRecords(res.data, sortMode))).catch(() => {})
     }, 0)
-  }, [filterResult, filterWaybill, filterOperator, filterDateFrom, filterDateTo])
+  }, [filterResult, filterWaybill, filterOperator, filterDateFrom, filterDateTo, sortMode])
 
   const handleOverdueClick = useCallback(() => {
     setFilterResult('待校验')
-    setTimeout(() => {
-      setRecords(overdueInfo.records)
-    }, 0)
-  }, [overdueInfo.records])
+    setTimeout(() => { setRecords(sortRecords(overdueInfo.records, sortMode)) }, 0)
+  }, [overdueInfo.records, sortMode])
 
   const handleExportCSV = useCallback(() => {
     const header = '运单号,校验结果,校验人,最近操作时间,异常单证数\n'
-    const rows = records.map(v => {
+    const rows = sortedRecords.map(v => {
       const { operator: lastOp, time: lastTime } = getLastOperator(v)
       const abnormalCount = v.documents.filter(d => d.hasIssue).length
-      const waybill = `"${v.waybillNo}"`
-      const result = `"${v.overallResult}"`
-      const op = `"${lastOp || ''}"`
-      const t = lastTime ? `"${new Date(lastTime).toLocaleString('zh-CN')}"` : '""'
-      return [waybill, result, op, t, abnormalCount].join(',')
+      return [`"${v.waybillNo}"`, `"${v.overallResult}"`, `"${lastOp || ''}"`, lastTime ? `"${new Date(lastTime).toLocaleString('zh-CN')}"` : '""', abnormalCount].join(',')
     }).join('\n')
     const csv = '\uFEFF' + header + rows
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
@@ -209,22 +204,52 @@ export default function VerificationReview({ onNavigateToAcceptance }) {
     if (filterOperator) parts.push(filterOperator)
     const tag = parts.length > 0 ? `_${parts.join('_')}` : '_全部'
     const dateStr = new Date().toISOString().slice(0, 10)
-    const filename = `校验记录${tag}_${dateStr}.csv`
-    const a = document.createElement('a')
-    a.href = url
-    a.download = filename
-    a.click()
+    const a = document.createElement('a'); a.href = url; a.download = `校验记录${tag}_${dateStr}.csv`; a.click()
     URL.revokeObjectURL(url)
-  }, [records, filterResult, filterWaybill, filterOperator])
+  }, [sortedRecords, filterResult, filterWaybill, filterOperator])
+
+  const toggleSelect = useCallback((id) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id); else next.add(id)
+      return next
+    })
+  }, [])
+
+  const handleSelectAll = useCallback(() => {
+    setSelectedIds(new Set(selectableIds))
+  }, [selectableIds])
+
+  const handleClearSelection = useCallback(() => { setSelectedIds(new Set()) }, [])
+
+  const handleBatchReject = useCallback(async () => {
+    if (!batchRejectCategory && !batchRejectReason.trim()) { alert('请选择退回分类或填写原因'); return }
+    const reason = [batchRejectCategory, batchRejectReason].filter(Boolean).join('：')
+    const idsToReject = [...selectedIds].filter(id => selectableIds.has(id))
+    if (idsToReject.length === 0) { alert('无可用记录'); return }
+    setBatchLoading(true)
+    let successCount = 0
+    let failCount = 0
+    for (const id of idsToReject) {
+      try {
+        await api.verification.complete(id, { result: '退回', rejectReason: reason, operator: batchOperator, operatorRole: 'security_inspector' })
+        successCount++
+      } catch (e) { failCount++; console.error(e) }
+    }
+    setBatchLoading(false)
+    setBatchRejectOpen(false)
+    setBatchRejectCategory('')
+    setBatchRejectReason('')
+    setSelectedIds(new Set())
+    await loadData()
+    alert(`批量退回完成: 成功${successCount}条${failCount > 0 ? `, 失败${failCount}条` : ''}`)
+  }, [batchRejectCategory, batchRejectReason, batchOperator, selectedIds, selectableIds, loadData])
 
   const operatorOptions = useMemo(() => collectOperators(allRecords), [allRecords])
 
   const refreshSelectedRecord = useCallback(async () => {
     if (!selectedRecord) return
-    try {
-      const fresh = await api.verification.get(selectedRecord.id)
-      setSelectedRecord(fresh)
-    } catch (e) { console.error(e) }
+    try { setSelectedRecord(await api.verification.get(selectedRecord.id)) } catch (e) { console.error(e) }
   }, [selectedRecord])
 
   const resultBadge = (result) => {
@@ -242,85 +267,35 @@ export default function VerificationReview({ onNavigateToAcceptance }) {
   const handleSubmitDoc = async (doc) => {
     if (doc.submitted) return
     setActionLoading(true)
-    try {
-      await api.verification.submitDoc(selectedRecord.id, {
-        docType: doc.docType,
-        operator: currentOperator,
-        operatorRole: 'security_inspector',
-      })
-      await refreshSelectedRecord()
-      await loadData()
-    } catch (e) { alert('提交失败: ' + e.message) }
+    try { await api.verification.submitDoc(selectedRecord.id, { docType: doc.docType, operator: currentOperator, operatorRole: 'security_inspector' }); await refreshSelectedRecord(); await loadData() }
+    catch (e) { alert('提交失败: ' + e.message) }
     setActionLoading(false)
   }
 
   const handleVerifyDoc = async (doc, passed) => {
-    if (!doc.submitted) {
-      alert('请先标记单证为已提交')
-      return
-    }
+    if (!doc.submitted) { alert('请先标记单证为已提交'); return }
     if (doc.verified) return
-
     let note = ''
     if (!passed) {
-      if (doc.docType !== issueDocType) {
-        setIssueDocType(doc.docType)
-        setIssueNote('')
-        setActionLoading(false)
-        return
-      }
+      if (doc.docType !== issueDocType) { setIssueDocType(doc.docType); setIssueNote(''); setActionLoading(false); return }
       note = issueNote
-      if (!note.trim()) {
-        alert('退回单证必须填写异常说明')
-        return
-      }
+      if (!note.trim()) { alert('退回单证必须填写异常说明'); return }
     }
-
     setActionLoading(true)
-    try {
-      await api.verification.verify(selectedRecord.id, {
-        docType: doc.docType,
-        passed,
-        issueNote: note,
-        operator: currentOperator,
-        operatorRole: 'security_inspector',
-      })
-      setIssueDocType('')
-      setIssueNote('')
-      await refreshSelectedRecord()
-      await loadData()
-    } catch (e) { alert('校验失败: ' + e.message) }
+    try { await api.verification.verify(selectedRecord.id, { docType: doc.docType, passed, issueNote: note, operator: currentOperator, operatorRole: 'security_inspector' }); setIssueDocType(''); setIssueNote(''); await refreshSelectedRecord(); await loadData() }
+    catch (e) { alert('校验失败: ' + e.message) }
     setActionLoading(false)
   }
 
   const handleComplete = async () => {
-    if (!completeResult) {
-      alert('请选择校验结论')
-      return
-    }
-    if (completeResult === '退回') {
-      if (!completeRejectCategory && !completeRejectReason.trim()) {
-        alert('退回时必须选择原因分类或填写具体原因')
-        return
-      }
-    }
-
+    if (!completeResult) { alert('请选择校验结论'); return }
+    if (completeResult === '退回' && !completeRejectCategory && !completeRejectReason.trim()) { alert('退回时必须选择原因分类或填写具体原因'); return }
     setActionLoading(true)
     try {
-      const reason = completeResult === '退回'
-        ? [completeRejectCategory, completeRejectReason].filter(Boolean).join('：')
-        : ''
-      await api.verification.complete(selectedRecord.id, {
-        result: completeResult,
-        rejectReason: reason,
-        operator: currentOperator,
-        operatorRole: 'security_inspector',
-      })
-      setCompleteResult('')
-      setCompleteRejectReason('')
-      setCompleteRejectCategory('')
-      await refreshSelectedRecord()
-      await loadData()
+      const reason = completeResult === '退回' ? [completeRejectCategory, completeRejectReason].filter(Boolean).join('：') : ''
+      await api.verification.complete(selectedRecord.id, { result: completeResult, rejectReason: reason, operator: currentOperator, operatorRole: 'security_inspector' })
+      setCompleteResult(''); setCompleteRejectReason(''); setCompleteRejectCategory('')
+      await refreshSelectedRecord(); await loadData()
     } catch (e) { alert('出结论失败: ' + e.message) }
     setActionLoading(false)
   }
@@ -329,19 +304,8 @@ export default function VerificationReview({ onNavigateToAcceptance }) {
 
   return (
     <div>
-      <div style={{
-        display: 'grid', gridTemplateColumns: `repeat(${RESULT_KEYS.length + 1}, 1fr)`,
-        gap: 10, marginBottom: 16,
-      }}>
-        <div
-          onClick={() => { setFilterResult(''); loadData() }}
-          style={{
-            padding: '12px 14px', borderRadius: 8, cursor: 'pointer',
-            background: 'var(--bg-card)', border: '1px solid var(--border)',
-            borderLeft: '4px solid var(--accent)',
-            transition: 'box-shadow 0.15s',
-          }}
-        >
+      <div style={{ display: 'grid', gridTemplateColumns: `repeat(${RESULT_KEYS.length + 1}, 1fr)`, gap: 10, marginBottom: 16 }}>
+        <div onClick={() => { setFilterResult(''); loadData() }} style={{ padding: '12px 14px', borderRadius: 8, cursor: 'pointer', background: 'var(--bg-card)', border: '1px solid var(--border)', borderLeft: '4px solid var(--accent)', transition: 'box-shadow 0.15s' }}>
           <div style={{ fontSize: 11, color: 'var(--text-dim)', marginBottom: 4 }}>总数</div>
           <div style={{ fontSize: 26, fontWeight: 700, color: 'var(--accent)' }}>{summary.total}</div>
           <div style={{ fontSize: 10, color: 'var(--text-dim)', marginTop: 2 }}>全部校验记录</div>
@@ -352,18 +316,7 @@ export default function VerificationReview({ onNavigateToAcceptance }) {
           const pct = summary.total > 0 ? Math.round((count / summary.total) * 100) : 0
           const active = filterResult === key
           return (
-            <div
-              key={key}
-              onClick={() => applyDashboardFilter(key)}
-              style={{
-                padding: '12px 14px', borderRadius: 8, cursor: 'pointer',
-                background: active ? c.bg : 'var(--bg-card)',
-                border: `1px solid ${active ? c.border : 'var(--border)'}`,
-                borderLeft: `4px solid ${c.accent}`,
-                boxShadow: active ? `0 0 0 1px ${c.accent}` : 'none',
-                transition: 'all 0.15s',
-              }}
-            >
+            <div key={key} onClick={() => applyDashboardFilter(key)} style={{ padding: '12px 14px', borderRadius: 8, cursor: 'pointer', background: active ? c.bg : 'var(--bg-card)', border: `1px solid ${active ? c.border : 'var(--border)'}`, borderLeft: `4px solid ${c.accent}`, boxShadow: active ? `0 0 0 1px ${c.accent}` : 'none', transition: 'all 0.15s' }}>
               <div style={{ fontSize: 11, color: c.text, marginBottom: 4 }}>{key}</div>
               <div style={{ fontSize: 26, fontWeight: 700, color: c.accent }}>{count}</div>
               <div style={{ fontSize: 10, color: 'var(--text-dim)', marginTop: 2 }}>{pct}%</div>
@@ -373,158 +326,114 @@ export default function VerificationReview({ onNavigateToAcceptance }) {
       </div>
 
       {overdueInfo.count > 0 && (
-        <div
-          onClick={handleOverdueClick}
-          style={{
-            marginBottom: 16, padding: '10px 16px', borderRadius: 8, cursor: 'pointer',
-            background: 'linear-gradient(90deg, rgba(239,68,68,0.1) 0%, rgba(245,158,11,0.06) 100%)',
-            border: '1px solid rgba(239,68,68,0.35)',
-            borderLeft: '4px solid var(--danger)',
-            display: 'flex', alignItems: 'center', gap: 12,
-            transition: 'all 0.15s',
-          }}
-        >
+        <div onClick={handleOverdueClick} style={{ marginBottom: 16, padding: '10px 16px', borderRadius: 8, cursor: 'pointer', background: 'linear-gradient(90deg, rgba(239,68,68,0.1) 0%, rgba(245,158,11,0.06) 100%)', border: '1px solid rgba(239,68,68,0.35)', borderLeft: '4px solid var(--danger)', display: 'flex', alignItems: 'center', gap: 12, transition: 'all 0.15s' }}>
           <span style={{ fontSize: 18 }}>⚠️</span>
           <div style={{ flex: 1 }}>
-            <span style={{ fontWeight: 600, color: 'var(--danger)', fontSize: 13 }}>
-              逾期待办: {overdueInfo.count} 条记录超{OVERDUE_HOURS}小时未处理
-            </span>
-            {overdueInfo.earliestTime && (
-              <span style={{ fontSize: 12, color: 'var(--text-muted)', marginLeft: 10 }}>
-                最早待处理: {new Date(overdueInfo.earliestTime).toLocaleString('zh-CN')}
-              </span>
-            )}
+            <span style={{ fontWeight: 600, color: 'var(--danger)', fontSize: 13 }}>逾期待办: {overdueInfo.count} 条记录超{OVERDUE_HOURS}小时未处理</span>
+            {overdueInfo.earliestTime && <span style={{ fontSize: 12, color: 'var(--text-muted)', marginLeft: 10 }}>最早待处理: {new Date(overdueInfo.earliestTime).toLocaleString('zh-CN')}</span>}
           </div>
-          <span style={{ fontSize: 12, color: 'var(--danger)', fontWeight: 500, whiteSpace: 'nowrap' }}>
-            点击查看 →
-          </span>
+          <span style={{ fontSize: 12, color: 'var(--danger)', fontWeight: 500, whiteSpace: 'nowrap' }}>点击查看 →</span>
         </div>
       )}
 
-      <div style={{ display: 'flex', gap: 10, marginBottom: 16, alignItems: 'end', flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', gap: 10, marginBottom: 10, alignItems: 'end', flexWrap: 'wrap' }}>
         <div>
           <label style={{ fontSize: 11, color: 'var(--text-dim)', display: 'block', marginBottom: 4 }}>运单号</label>
-          <input className="input" placeholder="运单号" value={filterWaybill}
-            onChange={e => setFilterWaybill(e.target.value)} style={{ width: 130 }} />
+          <input className="input" placeholder="运单号" value={filterWaybill} onChange={e => setFilterWaybill(e.target.value)} style={{ width: 130 }} />
         </div>
         <div>
           <label style={{ fontSize: 11, color: 'var(--text-dim)', display: 'block', marginBottom: 4 }}>校验结果</label>
-          <select className="input" value={filterResult}
-            onChange={e => setFilterResult(e.target.value)} style={{ width: 100 }}>
-            <option value="">全部</option>
-            <option value="待校验">待校验</option>
-            <option value="通过">通过</option>
-            <option value="退回">退回</option>
-            <option value="有异常">有异常</option>
+          <select className="input" value={filterResult} onChange={e => setFilterResult(e.target.value)} style={{ width: 100 }}>
+            <option value="">全部</option><option value="待校验">待校验</option><option value="通过">通过</option><option value="退回">退回</option><option value="有异常">有异常</option>
           </select>
         </div>
         <div>
           <label style={{ fontSize: 11, color: 'var(--text-dim)', display: 'block', marginBottom: 4 }}>校验人</label>
-          <select className="input" value={filterOperator}
-            onChange={e => setFilterOperator(e.target.value)} style={{ width: 110 }}>
-            <option value="">全部</option>
-            {operatorOptions.map(n => <option key={n} value={n}>{n}</option>)}
+          <select className="input" value={filterOperator} onChange={e => setFilterOperator(e.target.value)} style={{ width: 110 }}>
+            <option value="">全部</option>{operatorOptions.map(n => <option key={n} value={n}>{n}</option>)}
           </select>
         </div>
         <div>
           <label style={{ fontSize: 11, color: 'var(--text-dim)', display: 'block', marginBottom: 4 }}>开始日期</label>
-          <input type="date" className="input" value={filterDateFrom}
-            onChange={e => setFilterDateFrom(e.target.value)} style={{ width: 140 }} />
+          <input type="date" className="input" value={filterDateFrom} onChange={e => setFilterDateFrom(e.target.value)} style={{ width: 140 }} />
         </div>
         <div>
           <label style={{ fontSize: 11, color: 'var(--text-dim)', display: 'block', marginBottom: 4 }}>结束日期</label>
-          <input type="date" className="input" value={filterDateTo}
-            onChange={e => setFilterDateTo(e.target.value)} style={{ width: 140 }} />
+          <input type="date" className="input" value={filterDateTo} onChange={e => setFilterDateTo(e.target.value)} style={{ width: 140 }} />
+        </div>
+        <div>
+          <label style={{ fontSize: 11, color: 'var(--text-dim)', display: 'block', marginBottom: 4 }}>排序</label>
+          <select className="input" value={sortMode} onChange={e => setSortMode(e.target.value)} style={{ width: 150 }}>
+            <option value="updated_desc">更新时间 倒序</option>
+            <option value="elapsed_desc">距今时长 降序</option>
+          </select>
         </div>
         <button className="btn btn-primary" onClick={loadData}>筛选</button>
         <button className="btn btn-ghost" onClick={resetFilters}>重置</button>
-        {hasActiveFilter && (
-          <span style={{ fontSize: 12, color: 'var(--accent)', lineHeight: '36px' }}>
-            已筛选 {records.length} / {summary.total}
-          </span>
-        )}
-        <button className="btn btn-ghost" onClick={handleExportCSV}
-          disabled={records.length === 0}
-          style={{ marginLeft: 'auto', fontSize: 12 }}>
-          📥 导出CSV
-        </button>
+        {hasActiveFilter && <span style={{ fontSize: 12, color: 'var(--accent)', lineHeight: '36px' }}>已筛选 {sortedRecords.length} / {summary.total}</span>}
+        <button className="btn btn-ghost" onClick={handleExportCSV} disabled={sortedRecords.length === 0} style={{ marginLeft: 'auto', fontSize: 12 }}>📥 导出CSV</button>
       </div>
 
-      {loading ? (
-        <div style={{
-          textAlign: 'center', padding: 60, color: 'var(--text-dim)',
-          display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12,
-        }}>
-          <div style={{ fontSize: 28, opacity: 0.4 }}>⏳</div>
-          <div>正在加载校验记录...</div>
-        </div>
-      ) : records.length === 0 && summary.total === 0 ? (
-        <div style={{
-          textAlign: 'center', padding: 60, color: 'var(--text-dim)',
-          display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12,
-        }}>
-          <div style={{ fontSize: 28, opacity: 0.4 }}>📋</div>
-          <div>系统中暂无校验记录</div>
-          <div style={{ fontSize: 12 }}>请先在"入库受理处理"中提交受理记录</div>
-        </div>
-      ) : records.length === 0 ? (
-        <div style={{
-          textAlign: 'center', padding: 60, color: 'var(--text-dim)',
-          display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12,
-        }}>
-          <div style={{ fontSize: 28, opacity: 0.4 }}>🔍</div>
-          <div>当前筛选条件下无匹配记录</div>
-          <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-            共 {summary.total} 条记录，当前筛选结果为空
-          </div>
-          <button className="btn btn-ghost" onClick={resetFilters} style={{ marginTop: 6 }}>
-            重置筛选条件
+      {selectedCount > 0 && (
+        <div style={{ marginBottom: 12, padding: '8px 16px', borderRadius: 8, background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.25)', display: 'flex', alignItems: 'center', gap: 12 }}>
+          <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--accent)' }}>已选 {selectedCount} 条待校验记录</span>
+          <button className="btn btn-ghost btn-sm" onClick={handleSelectAll} style={{ fontSize: 11, padding: '2px 8px' }}>
+            {allSelected ? '✓ 全部已选' : '全选'}
           </button>
+          <button className="btn btn-ghost btn-sm" onClick={handleClearSelection} style={{ fontSize: 11, padding: '2px 8px' }}>清空</button>
+          <button className="btn btn-danger btn-sm" onClick={() => setBatchRejectOpen(true)} style={{ fontSize: 11, padding: '2px 10px' }}>
+            ✗ 批量退回
+          </button>
+        </div>
+      )}
+      {selectedCount === 0 && selectableIds.size > 0 && (
+        <div style={{ marginBottom: 12, padding: '6px 16px', borderRadius: 8, background: 'rgba(0,0,0,0.1)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 12 }}>
+          <span style={{ fontSize: 12, color: 'var(--text-dim)' }}>可勾选待校验记录进行批量操作</span>
+          <button className="btn btn-ghost btn-sm" disabled style={{ fontSize: 11, padding: '2px 10px', opacity: 0.4 }}>✗ 批量退回</button>
+        </div>
+      )}
+
+      {loading ? (
+        <div style={{ textAlign: 'center', padding: 60, color: 'var(--text-dim)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
+          <div style={{ fontSize: 28, opacity: 0.4 }}>⏳</div><div>正在加载校验记录...</div>
+        </div>
+      ) : sortedRecords.length === 0 && summary.total === 0 ? (
+        <div style={{ textAlign: 'center', padding: 60, color: 'var(--text-dim)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
+          <div style={{ fontSize: 28, opacity: 0.4 }}>📋</div><div>系统中暂无校验记录</div><div style={{ fontSize: 12 }}>请先在"入库受理处理"中提交受理记录</div>
+        </div>
+      ) : sortedRecords.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: 60, color: 'var(--text-dim)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
+          <div style={{ fontSize: 28, opacity: 0.4 }}>🔍</div><div>当前筛选条件下无匹配记录</div>
+          <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>共 {summary.total} 条记录，当前筛选结果为空</div>
+          <button className="btn btn-ghost" onClick={resetFilters} style={{ marginTop: 6 }}>重置筛选条件</button>
         </div>
       ) : (
         <div style={{ display: 'grid', gap: 12 }}>
-          {records.map(v => {
+          {sortedRecords.map(v => {
             const abnormalCount = v.documents.filter(d => d.hasIssue).length
             const { operator: lastOp, time: lastTime } = getLastOperator(v)
             const elapsed = getElapsedBadge(v.updatedAt)
             const elapsedStyle = ELAPSED_STYLES[elapsed.level]
+            const isSelectable = v.overallResult === '待校验'
+            const isChecked = selectedIds.has(v.id)
             return (
-              <div key={v.id} className="card" style={{ cursor: 'pointer' }} onClick={() => { setSelectedRecord(v); setCompleteResult(''); setCompleteRejectReason(''); setCompleteRejectCategory(''); setIssueDocType(''); setIssueNote('') }}>
+              <div key={v.id} className="card" style={{ cursor: 'pointer', borderLeft: isChecked ? '3px solid var(--accent)' : undefined }} onClick={() => { setSelectedRecord(v); setCompleteResult(''); setCompleteRejectReason(''); setCompleteRejectCategory(''); setIssueDocType(''); setIssueNote('') }}>
                 <div style={{ padding: '14px 18px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    {isSelectable && (
+                      <input type="checkbox" checked={isChecked} onClick={e => e.stopPropagation()} onChange={() => toggleSelect(v.id)} style={{ width: 16, height: 16, cursor: 'pointer', accentColor: 'var(--accent)' }} />
+                    )}
+                    {!isSelectable && <div style={{ width: 16, height: 16 }} />}
                     <span style={{ fontFamily: 'monospace', fontWeight: 600 }}>{v.waybillNo}</span>
                     <span className={`badge ${resultBadge(v.overallResult)}`}>{v.overallResult}</span>
-                    <span style={{
-                      padding: '2px 7px', borderRadius: 4, fontSize: 10, fontWeight: 600,
-                      background: elapsedStyle.bg, color: elapsedStyle.color,
-                      border: elapsedStyle.border,
-                    }}>
-                      {elapsed.text}
-                    </span>
-                    <span style={{ fontSize: 12, color: 'var(--text-dim)' }}>
-                      {v.documents.length} 份单证
-                    </span>
-                    {abnormalCount > 0 && (
-                      <span style={{
-                        padding: '2px 8px', borderRadius: 10, fontSize: 11, fontWeight: 600,
-                        background: 'var(--danger-bg)', color: 'var(--danger)',
-                        border: '1px solid rgba(239,68,68,0.3)',
-                      }}>
-                        {abnormalCount} 项异常
-                      </span>
-                    )}
+                    <span style={{ padding: '2px 7px', borderRadius: 4, fontSize: 10, fontWeight: 600, background: elapsedStyle.bg, color: elapsedStyle.color, border: elapsedStyle.border }}>{elapsed.text}</span>
+                    <span style={{ fontSize: 12, color: 'var(--text-dim)' }}>{v.documents.length} 份单证</span>
+                    {abnormalCount > 0 && <span style={{ padding: '2px 8px', borderRadius: 10, fontSize: 11, fontWeight: 600, background: 'var(--danger-bg)', color: 'var(--danger)', border: '1px solid rgba(239,68,68,0.3)' }}>{abnormalCount} 项异常</span>}
                   </div>
                   <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
                     {v.documents.map(doc => {
                       const s = docStatusIcon(doc)
-                      return (
-                        <span key={doc.docType} title={`${doc.docType}: ${doc.verified ? '已校验' : doc.submitted ? '已提交' : '未提交'}${doc.hasIssue ? ' (异常)' : ''}`}
-                          style={{
-                            width: 10, height: 10, borderRadius: '50%',
-                            background: s.color, display: 'inline-block',
-                            opacity: doc.submitted || doc.verified ? 1 : 0.3,
-                          }} />
-                      )
+                      return <span key={doc.docType} title={`${doc.docType}: ${doc.verified ? '已校验' : doc.submitted ? '已提交' : '未提交'}${doc.hasIssue ? ' (异常)' : ''}`} style={{ width: 10, height: 10, borderRadius: '50%', background: s.color, display: 'inline-block', opacity: doc.submitted || doc.verified ? 1 : 0.3 }} />
                     })}
                   </div>
                 </div>
@@ -533,14 +442,8 @@ export default function VerificationReview({ onNavigateToAcceptance }) {
                     {v.documents.map(doc => {
                       const s = docStatusIcon(doc)
                       return (
-                        <div key={doc.docType} style={{
-                          padding: '4px 10px', borderRadius: 4, fontSize: 11,
-                          border: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 5,
-                          borderColor: doc.hasIssue ? 'rgba(239,68,68,0.3)' : doc.verified ? 'rgba(34,197,94,0.3)' : 'var(--border)',
-                          background: doc.hasIssue ? 'var(--danger-bg)' : doc.verified ? 'var(--success-bg)' : 'transparent',
-                        }}>
-                          <span style={{ color: s.color, fontWeight: 700 }}>{s.icon}</span>
-                          {doc.docType}
+                        <div key={doc.docType} style={{ padding: '4px 10px', borderRadius: 4, fontSize: 11, border: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 5, borderColor: doc.hasIssue ? 'rgba(239,68,68,0.3)' : doc.verified ? 'rgba(34,197,94,0.3)' : 'var(--border)', background: doc.hasIssue ? 'var(--danger-bg)' : doc.verified ? 'var(--success-bg)' : 'transparent' }}>
+                          <span style={{ color: s.color, fontWeight: 700 }}>{s.icon}</span>{doc.docType}
                           {doc.hasIssue && <span style={{ color: 'var(--danger)', marginLeft: 4 }}>异常</span>}
                           {doc.verified && !doc.hasIssue && <span style={{ color: 'var(--success)', marginLeft: 4 }}>通过</span>}
                         </div>
@@ -548,28 +451,9 @@ export default function VerificationReview({ onNavigateToAcceptance }) {
                     })}
                   </div>
                   <div style={{ textAlign: 'right', minWidth: 130, marginLeft: 12, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
-                    {lastOp && (
-                      <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-                        最近: <span style={{ color: 'var(--accent)', fontWeight: 500 }}>{lastOp}</span>
-                      </div>
-                    )}
-                    {lastTime && (
-                      <div style={{ fontSize: 10, color: 'var(--text-dim)' }}>
-                        {new Date(lastTime).toLocaleString('zh-CN')}
-                      </div>
-                    )}
-                    {onNavigateToAcceptance && (
-                      <button
-                        className="btn btn-ghost btn-sm"
-                        style={{ fontSize: 10, padding: '2px 8px', marginTop: 2 }}
-                        onClick={e => {
-                          e.stopPropagation()
-                          onNavigateToAcceptance(v.acceptanceId, v.waybillNo)
-                        }}
-                      >
-                        → 受理记录
-                      </button>
-                    )}
+                    {lastOp && <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>最近: <span style={{ color: 'var(--accent)', fontWeight: 500 }}>{lastOp}</span></div>}
+                    {lastTime && <div style={{ fontSize: 10, color: 'var(--text-dim)' }}>{new Date(lastTime).toLocaleString('zh-CN')}</div>}
+                    {onNavigateToAcceptance && <button className="btn btn-ghost btn-sm" style={{ fontSize: 10, padding: '2px 8px', marginTop: 2 }} onClick={e => { e.stopPropagation(); onNavigateToAcceptance(v.acceptanceId, v.waybillNo) }}>→ 受理记录</button>}
                   </div>
                 </div>
               </div>
@@ -593,10 +477,7 @@ export default function VerificationReview({ onNavigateToAcceptance }) {
             </div>
             <div className="modal-body">
               {canOperate && (
-                <div style={{
-                  marginBottom: 18, padding: '14px 16px', borderRadius: 8,
-                  background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.2)',
-                }}>
+                <div style={{ marginBottom: 18, padding: '14px 16px', borderRadius: 8, background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.2)' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
                     <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--warning)' }}>整体出结论</span>
                     <select className="input" value={currentOperator} onChange={e => setCurrentOperator(e.target.value)} style={{ width: 100, fontSize: 12 }}>
@@ -604,133 +485,63 @@ export default function VerificationReview({ onNavigateToAcceptance }) {
                     </select>
                   </div>
                   <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-                    <button className={`btn btn-sm ${completeResult === '通过' ? 'btn-success' : 'btn-ghost'}`}
-                      onClick={() => { setCompleteResult('通过'); setCompleteRejectReason(''); setCompleteRejectCategory('') }}
-                      style={completeResult === '通过' ? { boxShadow: '0 0 0 2px var(--success)' } : {}}>
-                      ✓ 校验通过
-                    </button>
-                    <button className={`btn btn-sm ${completeResult === '退回' ? 'btn-danger' : 'btn-ghost'}`}
-                      onClick={() => setCompleteResult('退回')}
-                      style={completeResult === '退回' ? { boxShadow: '0 0 0 2px var(--danger)' } : {}}>
-                      ✗ 校验退回
-                    </button>
-                    {completeResult && (
-                      <button className="btn btn-primary btn-sm" onClick={handleComplete} disabled={actionLoading}>
-                        {actionLoading ? '提交中...' : '确认提交结论'}
-                      </button>
-                    )}
+                    <button className={`btn btn-sm ${completeResult === '通过' ? 'btn-success' : 'btn-ghost'}`} onClick={() => { setCompleteResult('通过'); setCompleteRejectReason(''); setCompleteRejectCategory('') }} style={completeResult === '通过' ? { boxShadow: '0 0 0 2px var(--success)' } : {}}>✓ 校验通过</button>
+                    <button className={`btn btn-sm ${completeResult === '退回' ? 'btn-danger' : 'btn-ghost'}`} onClick={() => setCompleteResult('退回')} style={completeResult === '退回' ? { boxShadow: '0 0 0 2px var(--danger)' } : {}}>✗ 校验退回</button>
+                    {completeResult && <button className="btn btn-primary btn-sm" onClick={handleComplete} disabled={actionLoading}>{actionLoading ? '提交中...' : '确认提交结论'}</button>}
                   </div>
                   {completeResult === '退回' && (
                     <div style={{ marginTop: 10, display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'start' }}>
                       <div>
                         <label style={{ fontSize: 11, color: 'var(--text-dim)', display: 'block', marginBottom: 3 }}>原因分类</label>
-                        <select className="input" value={completeRejectCategory}
-                          onChange={e => setCompleteRejectCategory(e.target.value)} style={{ fontSize: 12 }}>
-                          <option value="">请选择</option>
-                          {REJECT_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                        <select className="input" value={completeRejectCategory} onChange={e => setCompleteRejectCategory(e.target.value)} style={{ fontSize: 12 }}>
+                          <option value="">请选择</option>{REJECT_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
                         </select>
                       </div>
                       <div style={{ flex: 1, minWidth: 200 }}>
                         <label style={{ fontSize: 11, color: 'var(--text-dim)', display: 'block', marginBottom: 3 }}>具体原因</label>
-                        <input className="input" style={{ width: '100%', fontSize: 12 }}
-                          placeholder="退回必须填写具体原因" value={completeRejectReason}
-                          onChange={e => setCompleteRejectReason(e.target.value)} />
+                        <input className="input" style={{ width: '100%', fontSize: 12 }} placeholder="退回必须填写具体原因" value={completeRejectReason} onChange={e => setCompleteRejectReason(e.target.value)} />
                       </div>
                     </div>
                   )}
                 </div>
               )}
-
               <table style={{ fontSize: 13 }}>
-                <thead>
-                  <tr>
-                    <th>单证类型</th>
-                    <th>提交状态</th>
-                    <th>校验状态</th>
-                    <th>异常说明</th>
-                    <th>提交人</th>
-                    <th>校验人</th>
-                    <th>操作</th>
-                  </tr>
-                </thead>
+                <thead><tr><th>单证类型</th><th>提交状态</th><th>校验状态</th><th>异常说明</th><th>提交人</th><th>校验人</th><th>操作</th></tr></thead>
                 <tbody>
                   {selectedRecord.documents.map(doc => (
                     <tr key={doc.docType}>
                       <td style={{ fontWeight: 500, whiteSpace: 'nowrap' }}>{doc.docType}</td>
-                      <td>
-                        {doc.submitted
-                          ? <span style={{ color: 'var(--success)', fontSize: 12 }}>已提交</span>
-                          : canOperate
-                            ? <button className="btn btn-sm btn-ghost" disabled={actionLoading}
-                                onClick={() => handleSubmitDoc(doc)} style={{ fontSize: 11, padding: '2px 8px' }}>
-                                标记已提交
-                              </button>
-                            : <span style={{ color: 'var(--text-dim)', fontSize: 12 }}>未提交</span>}
-                      </td>
-                      <td>
-                        {doc.verified
-                          ? <span style={{ color: doc.hasIssue ? 'var(--danger)' : 'var(--success)', fontSize: 12 }}>
-                              {doc.hasIssue ? '退回' : '通过'}
-                            </span>
-                          : <span style={{ color: 'var(--text-dim)', fontSize: 12 }}>待校验</span>}
-                      </td>
+                      <td>{doc.submitted ? <span style={{ color: 'var(--success)', fontSize: 12 }}>已提交</span> : canOperate ? <button className="btn btn-sm btn-ghost" disabled={actionLoading} onClick={() => handleSubmitDoc(doc)} style={{ fontSize: 11, padding: '2px 8px' }}>标记已提交</button> : <span style={{ color: 'var(--text-dim)', fontSize: 12 }}>未提交</span>}</td>
+                      <td>{doc.verified ? <span style={{ color: doc.hasIssue ? 'var(--danger)' : 'var(--success)', fontSize: 12 }}>{doc.hasIssue ? '退回' : '通过'}</span> : <span style={{ color: 'var(--text-dim)', fontSize: 12 }}>待校验</span>}</td>
                       <td style={{ maxWidth: 180 }}>
-                        {doc.hasIssue
-                          ? <span style={{ color: 'var(--danger)', fontSize: 11, wordBreak: 'break-all' }}>{doc.issueNote}</span>
-                          : <span style={{ color: 'var(--text-dim)', fontSize: 11 }}>—</span>}
+                        {doc.hasIssue ? <span style={{ color: 'var(--danger)', fontSize: 11, wordBreak: 'break-all' }}>{doc.issueNote}</span> : <span style={{ color: 'var(--text-dim)', fontSize: 11 }}>—</span>}
                         {issueDocType === doc.docType && canOperate && (
                           <div style={{ marginTop: 4 }}>
-                            <input className="input" style={{ width: '100%', fontSize: 11, padding: '3px 6px' }}
-                              placeholder="填写异常说明" value={issueNote}
-                              onChange={e => setIssueNote(e.target.value)} />
+                            <input className="input" style={{ width: '100%', fontSize: 11, padding: '3px 6px' }} placeholder="填写异常说明" value={issueNote} onChange={e => setIssueNote(e.target.value)} />
                             <div style={{ display: 'flex', gap: 4, marginTop: 3 }}>
-                              <button className="btn btn-sm btn-danger" disabled={actionLoading || !issueNote.trim()}
-                                style={{ fontSize: 10, padding: '2px 6px' }}
-                                onClick={() => handleVerifyDoc(doc, false)}>
-                                确认退回
-                              </button>
-                              <button className="btn btn-sm btn-ghost"
-                                style={{ fontSize: 10, padding: '2px 6px' }}
-                                onClick={() => { setIssueDocType(''); setIssueNote('') }}>
-                                取消
-                              </button>
+                              <button className="btn btn-sm btn-danger" disabled={actionLoading || !issueNote.trim()} style={{ fontSize: 10, padding: '2px 6px' }} onClick={() => handleVerifyDoc(doc, false)}>确认退回</button>
+                              <button className="btn btn-sm btn-ghost" style={{ fontSize: 10, padding: '2px 6px' }} onClick={() => { setIssueDocType(''); setIssueNote('') }}>取消</button>
                             </div>
                           </div>
                         )}
                       </td>
                       <td style={{ fontSize: 11, whiteSpace: 'nowrap' }}>{doc.submittedBy || '—'}</td>
                       <td style={{ fontSize: 11, whiteSpace: 'nowrap' }}>{doc.verifiedBy || '—'}</td>
-                      <td>
-                        {canOperate && doc.submitted && !doc.verified && issueDocType !== doc.docType && (
-                          <div style={{ display: 'flex', gap: 4 }}>
-                            <button className="btn btn-sm btn-success" disabled={actionLoading}
-                              style={{ fontSize: 10, padding: '2px 6px' }}
-                              onClick={() => handleVerifyDoc(doc, true)}>
-                              ✓ 通过
-                            </button>
-                            <button className="btn btn-sm btn-danger" disabled={actionLoading}
-                              style={{ fontSize: 10, padding: '2px 6px' }}
-                              onClick={() => { setIssueDocType(doc.docType); setIssueNote('') }}>
-                              ✗ 退回
-                            </button>
-                          </div>
-                        )}
-                      </td>
+                      <td>{canOperate && doc.submitted && !doc.verified && issueDocType !== doc.docType && (
+                        <div style={{ display: 'flex', gap: 4 }}>
+                          <button className="btn btn-sm btn-success" disabled={actionLoading} style={{ fontSize: 10, padding: '2px 6px' }} onClick={() => handleVerifyDoc(doc, true)}>✓ 通过</button>
+                          <button className="btn btn-sm btn-danger" disabled={actionLoading} style={{ fontSize: 10, padding: '2px 6px' }} onClick={() => { setIssueDocType(doc.docType); setIssueNote('') }}>✗ 退回</button>
+                        </div>
+                      )}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
-
               {selectedRecord.rejectReason && (
-                <div style={{
-                  marginTop: 14, padding: '10px 14px', background: 'var(--danger-bg)',
-                  border: '1px solid rgba(239,68,68,0.3)', borderRadius: 6, fontSize: 13
-                }}>
-                  <span style={{ color: 'var(--danger)', fontWeight: 600 }}>退回原因: </span>
-                  <span style={{ color: 'var(--text)' }}>{selectedRecord.rejectReason}</span>
+                <div style={{ marginTop: 14, padding: '10px 14px', background: 'var(--danger-bg)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 6, fontSize: 13 }}>
+                  <span style={{ color: 'var(--danger)', fontWeight: 600 }}>退回原因: </span><span style={{ color: 'var(--text)' }}>{selectedRecord.rejectReason}</span>
                 </div>
               )}
-
               <div style={{ marginTop: 14, padding: '10px 14px', background: 'rgba(0,0,0,0.15)', borderRadius: 6, fontSize: 12, color: 'var(--text-muted)' }}>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
                   <div>创建时间: {new Date(selectedRecord.createdAt).toLocaleString('zh-CN')}</div>
@@ -738,6 +549,48 @@ export default function VerificationReview({ onNavigateToAcceptance }) {
                   <div>提交单证: {selectedRecord.documents.filter(d => d.submitted).length} / {selectedRecord.documents.length}</div>
                   <div>已校验: {selectedRecord.documents.filter(d => d.verified).length} / {selectedRecord.documents.length}</div>
                 </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {batchRejectOpen && (
+        <div className="modal-overlay" onClick={() => { if (!batchLoading) setBatchRejectOpen(false) }}>
+          <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 520, width: '90%' }}>
+            <div className="modal-header">
+              <div>
+                <div style={{ fontSize: 16, fontWeight: 600 }}>批量退回 · {selectedCount} 条记录</div>
+                <div style={{ fontSize: 12, color: 'var(--text-dim)', marginTop: 2 }}>将对选中的待校验记录统一执行退回操作</div>
+              </div>
+              <button className="btn btn-ghost btn-sm" onClick={() => setBatchRejectOpen(false)} disabled={batchLoading}>✕</button>
+            </div>
+            <div className="modal-body">
+              <div style={{ marginBottom: 14 }}>
+                <label style={{ fontSize: 12, color: 'var(--text-dim)', display: 'block', marginBottom: 4 }}>操作人</label>
+                <select className="input" value={batchOperator} onChange={e => setBatchOperator(e.target.value)} style={{ width: '100%' }}>
+                  {SECURITY_INSPECTORS.map(n => <option key={n} value={n}>{n}</option>)}
+                </select>
+              </div>
+              <div style={{ marginBottom: 14 }}>
+                <label style={{ fontSize: 12, color: 'var(--text-dim)', display: 'block', marginBottom: 4 }}>退回分类 <span style={{ color: 'var(--danger)' }}>*</span></label>
+                <select className="input" value={batchRejectCategory} onChange={e => setBatchRejectCategory(e.target.value)} style={{ width: '100%' }}>
+                  <option value="">请选择退回分类</option>
+                  {REJECT_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                </select>
+              </div>
+              <div style={{ marginBottom: 14 }}>
+                <label style={{ fontSize: 12, color: 'var(--text-dim)', display: 'block', marginBottom: 4 }}>具体原因 <span style={{ color: 'var(--danger)' }}>*</span></label>
+                <textarea className="input" style={{ width: '100%', minHeight: 80, resize: 'vertical' }} placeholder="请填写结构化退回原因（至少填写分类或原因之一）" value={batchRejectReason} onChange={e => setBatchRejectReason(e.target.value)} />
+              </div>
+              <div style={{ padding: '8px 12px', background: 'var(--danger-bg)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 6, fontSize: 12, color: 'var(--danger)', marginBottom: 14 }}>
+                ⚠ 将对 {selectedCount} 条待校验记录执行退回操作，退回后受理记录将回退至货站受理岗重新处理。
+              </div>
+              <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+                <button className="btn btn-ghost" onClick={() => setBatchRejectOpen(false)} disabled={batchLoading}>取消</button>
+                <button className="btn btn-danger" onClick={handleBatchReject} disabled={batchLoading || (!batchRejectCategory && !batchRejectReason.trim())}>
+                  {batchLoading ? '正在退回...' : `确认退回 ${selectedCount} 条`}
+                </button>
               </div>
             </div>
           </div>
