@@ -5,6 +5,8 @@ import {
   AlertTriangle,
   ArrowRight,
   Eye,
+  Search,
+  XCircle,
 } from 'lucide-react';
 import { api } from '../api';
 import type { CargoOrder } from '../types';
@@ -59,6 +61,16 @@ const ROLE_USERS: Record<string, { name: string; role: string }[]> = {
   ],
 };
 
+function matchKeyword(order: CargoOrder, keyword: string): boolean {
+  const kw = keyword.toLowerCase();
+  return (
+    order.order_no.toLowerCase().includes(kw) ||
+    order.flight_no.toLowerCase().includes(kw) ||
+    order.consignee.toLowerCase().includes(kw) ||
+    order.goods_name.toLowerCase().includes(kw)
+  );
+}
+
 export default function Orders() {
   const [orders, setOrders] = useState<CargoOrder[]>([]);
   const [loading, setLoading] = useState(true);
@@ -66,6 +78,7 @@ export default function Orders() {
   const [actionLoading, setActionLoading] = useState(false);
   const [notes, setNotes] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+  const [keyword, setKeyword] = useState('');
 
   useEffect(() => {
     loadOrders();
@@ -82,8 +95,18 @@ export default function Orders() {
     setLoading(false);
   };
 
+  const hasFilter = keyword !== '' || statusFilter !== '';
+
+  const handleReset = () => {
+    setKeyword('');
+    setStatusFilter('');
+  };
+
   const filteredAndSortedOrders = useMemo(() => {
     let result = orders;
+    if (keyword) {
+      result = result.filter((o) => matchKeyword(o, keyword));
+    }
     if (statusFilter) {
       result = result.filter((o) => o.status === statusFilter);
     }
@@ -93,7 +116,7 @@ export default function Orders() {
       return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime();
     });
     return result;
-  }, [orders, statusFilter]);
+  }, [orders, keyword, statusFilter]);
 
   const handleTransition = async (orderId: number, to: string, role: string) => {
     const users = ROLE_USERS[role] || [];
@@ -117,6 +140,14 @@ export default function Orders() {
     setActionLoading(false);
   };
 
+  const buildEmptyMessage = () => {
+    const parts: string[] = [];
+    if (keyword) parts.push(`关键字「${keyword}」`);
+    if (statusFilter) parts.push(`状态「${STATUS_LABELS[statusFilter] || statusFilter}」`);
+    if (parts.length > 0) return `没有匹配 ${parts.join(' + ')} 的货单`;
+    return '暂无货单';
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -132,31 +163,62 @@ export default function Orders() {
         </button>
       </div>
 
-      <div className="bg-white rounded-xl border border-slate-200 px-4 py-3 flex items-center gap-2 flex-wrap">
-        {STATUS_FILTER_OPTIONS.map((opt) => {
-          const isActive = statusFilter === opt.value;
-          const count = opt.value
-            ? orders.filter((o) => o.status === opt.value).length
-            : orders.length;
-          return (
+      <div className="bg-white rounded-xl border border-slate-200 px-4 py-3 space-y-3">
+        <div className="flex items-center gap-2">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+            <input
+              type="text"
+              placeholder="搜索货单号、航班号、收货方、货物名称..."
+              value={keyword}
+              onChange={(e) => setKeyword(e.target.value)}
+              className="w-full pl-9 pr-8 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400"
+            />
+            {keyword && (
+              <button
+                onClick={() => setKeyword('')}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 p-0.5 text-slate-400 hover:text-slate-600"
+              >
+                <XCircle className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 flex-wrap">
+          {STATUS_FILTER_OPTIONS.map((opt) => {
+            const isActive = statusFilter === opt.value;
+            const count = opt.value
+              ? orders.filter((o) => o.status === opt.value).length
+              : orders.length;
+            return (
+              <button
+                key={opt.value}
+                onClick={() => setStatusFilter(opt.value)}
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                  isActive
+                    ? 'bg-blue-600 text-white shadow-sm'
+                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                }`}
+              >
+                {opt.label}
+                <span className={`inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full text-[10px] ${
+                  isActive ? 'bg-blue-500 text-blue-100' : 'bg-slate-200 text-slate-500'
+                }`}>
+                  {count}
+                </span>
+              </button>
+            );
+          })}
+          {hasFilter && (
             <button
-              key={opt.value}
-              onClick={() => setStatusFilter(opt.value)}
-              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
-                isActive
-                  ? 'bg-blue-600 text-white shadow-sm'
-                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-              }`}
+              onClick={handleReset}
+              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-medium bg-rose-50 text-rose-600 border border-rose-200 hover:bg-rose-100 transition-colors ml-1"
             >
-              {opt.label}
-              <span className={`inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full text-[10px] ${
-                isActive ? 'bg-blue-500 text-blue-100' : 'bg-slate-200 text-slate-500'
-              }`}>
-                {count}
-              </span>
+              <XCircle className="w-3 h-3" /> 重置
             </button>
-          );
-        })}
+          )}
+        </div>
       </div>
 
       {loading ? (
@@ -166,11 +228,7 @@ export default function Orders() {
       ) : filteredAndSortedOrders.length === 0 ? (
         <div className="bg-white rounded-xl border border-slate-200 p-12 text-center">
           <Package className="w-10 h-10 text-slate-300 mx-auto mb-3" />
-          <p className="text-slate-400 text-sm">
-            {statusFilter
-              ? `没有状态为「${STATUS_LABELS[statusFilter] || statusFilter}」的货单`
-              : '暂无货单'}
-          </p>
+          <p className="text-slate-400 text-sm">{buildEmptyMessage()}</p>
         </div>
       ) : (
         <div className="space-y-3">
