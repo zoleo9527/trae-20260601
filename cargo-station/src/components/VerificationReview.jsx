@@ -22,6 +22,9 @@ const RESULT_COLORS = {
   '有异常': { bg: 'rgba(245,158,11,0.1)', border: 'rgba(245,158,11,0.3)', text: 'var(--warning)', accent: '#f59e0b' },
 }
 
+const OVERDUE_HOURS = 24
+const APPROACHING_HOURS = 18
+
 function getLastOperator(verification) {
   let lastOp = ''
   let lastTime = ''
@@ -58,6 +61,33 @@ function collectOperators(records) {
     if (v.verifiedBy) set.add(v.verifiedBy)
   }
   return [...set].sort()
+}
+
+function formatElapsed(ms) {
+  const hours = Math.floor(ms / 3600000)
+  if (hours >= 24) {
+    const days = Math.floor(hours / 24)
+    const rem = hours % 24
+    return rem > 0 ? `${days}天${rem}时` : `${days}天`
+  }
+  return `${hours}时`
+}
+
+function getElapsedBadge(updatedAt) {
+  const diff = Date.now() - new Date(updatedAt).getTime()
+  if (diff >= OVERDUE_HOURS * 3600000) {
+    return { text: formatElapsed(diff), level: 'overdue' }
+  }
+  if (diff >= APPROACHING_HOURS * 3600000) {
+    return { text: formatElapsed(diff), level: 'approaching' }
+  }
+  return { text: formatElapsed(diff), level: 'normal' }
+}
+
+const ELAPSED_STYLES = {
+  overdue: { bg: 'var(--danger-bg)', color: 'var(--danger)', border: '1px solid rgba(239,68,68,0.4)' },
+  approaching: { bg: 'rgba(245,158,11,0.1)', color: 'var(--warning)', border: '1px solid rgba(245,158,11,0.4)' },
+  normal: { bg: 'rgba(100,116,139,0.08)', color: 'var(--text-dim)', border: '1px solid var(--border)' },
 }
 
 export default function VerificationReview({ onNavigateToAcceptance }) {
@@ -106,6 +136,21 @@ export default function VerificationReview({ onNavigateToAcceptance }) {
     return { total, counts }
   }, [allRecords])
 
+  const overdueInfo = useMemo(() => {
+    const now = Date.now()
+    const pending = allRecords.filter(v => v.overallResult === '待校验')
+    const overdue = pending.filter(v => {
+      const diff = now - new Date(v.updatedAt).getTime()
+      return diff >= OVERDUE_HOURS * 3600000
+    })
+    let earliestTime = null
+    for (const v of overdue) {
+      const t = new Date(v.updatedAt).getTime()
+      if (!earliestTime || t < earliestTime) earliestTime = t
+    }
+    return { count: overdue.length, earliestTime, records: overdue }
+  }, [allRecords])
+
   const hasActiveFilter = filterResult || filterWaybill || filterOperator || filterDateFrom || filterDateTo
 
   const resetFilters = useCallback(() => {
@@ -136,6 +181,41 @@ export default function VerificationReview({ onNavigateToAcceptance }) {
       api.verification.list(params).then(res => setRecords(res.data)).catch(() => {})
     }, 0)
   }, [filterResult, filterWaybill, filterOperator, filterDateFrom, filterDateTo])
+
+  const handleOverdueClick = useCallback(() => {
+    setFilterResult('待校验')
+    setTimeout(() => {
+      setRecords(overdueInfo.records)
+    }, 0)
+  }, [overdueInfo.records])
+
+  const handleExportCSV = useCallback(() => {
+    const header = '运单号,校验结果,校验人,最近操作时间,异常单证数\n'
+    const rows = records.map(v => {
+      const { operator: lastOp, time: lastTime } = getLastOperator(v)
+      const abnormalCount = v.documents.filter(d => d.hasIssue).length
+      const waybill = `"${v.waybillNo}"`
+      const result = `"${v.overallResult}"`
+      const op = `"${lastOp || ''}"`
+      const t = lastTime ? `"${new Date(lastTime).toLocaleString('zh-CN')}"` : '""'
+      return [waybill, result, op, t, abnormalCount].join(',')
+    }).join('\n')
+    const csv = '\uFEFF' + header + rows
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const parts = []
+    if (filterResult) parts.push(filterResult)
+    if (filterWaybill) parts.push(filterWaybill)
+    if (filterOperator) parts.push(filterOperator)
+    const tag = parts.length > 0 ? `_${parts.join('_')}` : '_全部'
+    const dateStr = new Date().toISOString().slice(0, 10)
+    const filename = `校验记录${tag}_${dateStr}.csv`
+    const a = document.createElement('a')
+    a.href = url
+    a.download = filename
+    a.click()
+    URL.revokeObjectURL(url)
+  }, [records, filterResult, filterWaybill, filterOperator])
 
   const operatorOptions = useMemo(() => collectOperators(allRecords), [allRecords])
 
@@ -292,6 +372,35 @@ export default function VerificationReview({ onNavigateToAcceptance }) {
         })}
       </div>
 
+      {overdueInfo.count > 0 && (
+        <div
+          onClick={handleOverdueClick}
+          style={{
+            marginBottom: 16, padding: '10px 16px', borderRadius: 8, cursor: 'pointer',
+            background: 'linear-gradient(90deg, rgba(239,68,68,0.1) 0%, rgba(245,158,11,0.06) 100%)',
+            border: '1px solid rgba(239,68,68,0.35)',
+            borderLeft: '4px solid var(--danger)',
+            display: 'flex', alignItems: 'center', gap: 12,
+            transition: 'all 0.15s',
+          }}
+        >
+          <span style={{ fontSize: 18 }}>⚠️</span>
+          <div style={{ flex: 1 }}>
+            <span style={{ fontWeight: 600, color: 'var(--danger)', fontSize: 13 }}>
+              逾期待办: {overdueInfo.count} 条记录超{OVERDUE_HOURS}小时未处理
+            </span>
+            {overdueInfo.earliestTime && (
+              <span style={{ fontSize: 12, color: 'var(--text-muted)', marginLeft: 10 }}>
+                最早待处理: {new Date(overdueInfo.earliestTime).toLocaleString('zh-CN')}
+              </span>
+            )}
+          </div>
+          <span style={{ fontSize: 12, color: 'var(--danger)', fontWeight: 500, whiteSpace: 'nowrap' }}>
+            点击查看 →
+          </span>
+        </div>
+      )}
+
       <div style={{ display: 'flex', gap: 10, marginBottom: 16, alignItems: 'end', flexWrap: 'wrap' }}>
         <div>
           <label style={{ fontSize: 11, color: 'var(--text-dim)', display: 'block', marginBottom: 4 }}>运单号</label>
@@ -334,6 +443,11 @@ export default function VerificationReview({ onNavigateToAcceptance }) {
             已筛选 {records.length} / {summary.total}
           </span>
         )}
+        <button className="btn btn-ghost" onClick={handleExportCSV}
+          disabled={records.length === 0}
+          style={{ marginLeft: 'auto', fontSize: 12 }}>
+          📥 导出CSV
+        </button>
       </div>
 
       {loading ? (
@@ -372,12 +486,21 @@ export default function VerificationReview({ onNavigateToAcceptance }) {
           {records.map(v => {
             const abnormalCount = v.documents.filter(d => d.hasIssue).length
             const { operator: lastOp, time: lastTime } = getLastOperator(v)
+            const elapsed = getElapsedBadge(v.updatedAt)
+            const elapsedStyle = ELAPSED_STYLES[elapsed.level]
             return (
               <div key={v.id} className="card" style={{ cursor: 'pointer' }} onClick={() => { setSelectedRecord(v); setCompleteResult(''); setCompleteRejectReason(''); setCompleteRejectCategory(''); setIssueDocType(''); setIssueNote('') }}>
                 <div style={{ padding: '14px 18px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                     <span style={{ fontFamily: 'monospace', fontWeight: 600 }}>{v.waybillNo}</span>
                     <span className={`badge ${resultBadge(v.overallResult)}`}>{v.overallResult}</span>
+                    <span style={{
+                      padding: '2px 7px', borderRadius: 4, fontSize: 10, fontWeight: 600,
+                      background: elapsedStyle.bg, color: elapsedStyle.color,
+                      border: elapsedStyle.border,
+                    }}>
+                      {elapsed.text}
+                    </span>
                     <span style={{ fontSize: 12, color: 'var(--text-dim)' }}>
                       {v.documents.length} 份单证
                     </span>

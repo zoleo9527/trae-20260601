@@ -88,6 +88,9 @@ function generateSeedData() {
     const waybillNo = `${flightNo}-${padId(id)}`
     const shipper = ['上海捷运物流', '北京恒达贸易', '广州华南冷链', '深圳鹏程电子', '成都蜀通医药', '杭州丝绸集团'][idx % 6]
 
+    const isPendingVerification = scenario.status === '待单证校验' || scenario.status === '单证校验中'
+    const recordAge = isPendingVerification ? -(30 + idx * 3) : -8
+
     const record = {
       id,
       waybillNo,
@@ -100,7 +103,7 @@ function generateSeedData() {
       currentHandler: getCurrentHandler(scenario.status),
       currentHandlerRole: getCurrentHandlerRole(scenario.status),
       createdAt: new Date(baseTime.getTime() + idx * 15 * 60000).toISOString(),
-      updatedAt: new Date(baseTime.getTime() + idx * 15 * 60000 + 300000).toISOString()
+      updatedAt: new Date(baseTime.getTime() + idx * 15 * 60000 + recordAge * 3600000).toISOString()
     }
     acceptanceRecords.push(record)
 
