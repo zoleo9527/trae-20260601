@@ -11,6 +11,7 @@ import type {
   MinibarItem,
   UserRole,
   MaintenanceStatus,
+  UiFilters,
 } from '@/types'
 import { mockData } from './mockData'
 
@@ -73,7 +74,8 @@ interface AppActions {
   submitMinibarCheck: (checkId: string, items: { id: string; actualCount: number }[]) => void
   updateMaintenanceOrder: (orderId: string, status: MaintenanceStatus) => void
   assignMaintenanceOrder: (orderId: string, engineerId: string) => void
-  reviewMinibarAnomaly: (checkId: string, approved: boolean) => void
+  reviewMinibarAnomaly: (checkId: string, approved: boolean, remarks?: string) => void
+  updateUiFilter: (key: keyof UiFilters, value: string | boolean) => void
   getRoomsByFloor: (floor: string) => Room[]
   getTasksByAttendant: (attendantId: string) => InspectionTask[]
   getMaintenanceByEngineer: (engineerId: string) => MaintenanceOrder[]
@@ -86,6 +88,14 @@ export const useAppStore = create<AppStore>()(
     (set, get) => ({
       ...mockData,
       inspectionDrafts: {} as Record<string, InspectionDraft>,
+      uiFilters: {
+        historySearchRoom: '',
+        historyStatus: 'all' as const,
+        historyDateFrom: '',
+        historyDateTo: '',
+        reviewSearchRoom: '',
+        reviewShowAll: false,
+      },
 
       setCurrentUser(userId: string, role: UserRole) {
         set({ currentUserId: userId, currentRole: role })
@@ -339,13 +349,23 @@ export const useAppStore = create<AppStore>()(
         })
       },
 
-      reviewMinibarAnomaly(checkId: string, approved: boolean) {
+      reviewMinibarAnomaly(checkId: string, approved: boolean, remarks?: string) {
         set((state) => {
           const check = state.minibarChecks.find((c) => c.id === checkId)
           if (!check) return state
 
+          const now = new Date().toISOString()
+
           const updatedChecks = state.minibarChecks.map((c) =>
-            c.id === checkId ? { ...c, status: 'checked' as const } : c
+            c.id === checkId
+              ? {
+                  ...c,
+                  status: 'checked' as const,
+                  reviewedBy: state.currentUserId,
+                  reviewedAt: now,
+                  reviewRemarks: remarks,
+                }
+              : c
           )
 
           const roomOrders = state.maintenanceOrders.filter(
@@ -361,6 +381,12 @@ export const useAppStore = create<AppStore>()(
 
           return { minibarChecks: updatedChecks, rooms: updatedRooms }
         })
+      },
+
+      updateUiFilter(key: keyof UiFilters, value: string | boolean) {
+        set((state) => ({
+          uiFilters: { ...state.uiFilters, [key]: value },
+        }))
       },
 
       getRoomsByFloor(floor: string) {
@@ -391,6 +417,7 @@ export const useAppStore = create<AppStore>()(
         currentUserId: state.currentUserId,
         currentRole: state.currentRole,
         inspectionDrafts: state.inspectionDrafts,
+        uiFilters: state.uiFilters,
       }),
     }
   )

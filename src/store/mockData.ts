@@ -274,6 +274,14 @@ export const mockData: AppState = {
   minibarChecks,
   minibarProducts,
   inspectionDrafts: {},
+  uiFilters: {
+    historySearchRoom: '',
+    historyStatus: 'all',
+    historyDateFrom: '',
+    historyDateTo: '',
+    reviewSearchRoom: '',
+    reviewShowAll: false,
+  },
   currentUserId: undefined,
   currentRole: undefined,
 }

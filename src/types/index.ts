@@ -69,6 +69,9 @@ export interface MinibarCheck {
   status: MinibarCheckStatus
   checkedAt?: string
   items: MinibarItem[]
+  reviewedBy?: string
+  reviewedAt?: string
+  reviewRemarks?: string
 }
 
 export interface MinibarItem {
@@ -104,6 +107,15 @@ export interface InspectionDraft {
   savedAt: string
 }
 
+export interface UiFilters {
+  historySearchRoom: string
+  historyStatus: MinibarCheckStatus | 'all'
+  historyDateFrom: string
+  historyDateTo: string
+  reviewSearchRoom: string
+  reviewShowAll: boolean
+}
+
 export interface AppState {
   rooms: Room[]
   users: User[]
@@ -114,6 +126,7 @@ export interface AppState {
   minibarChecks: MinibarCheck[]
   minibarProducts: MinibarProduct[]
   inspectionDrafts: Record<string, InspectionDraft>
+  uiFilters: UiFilters
   currentUserId?: string
   currentRole?: UserRole
 }
