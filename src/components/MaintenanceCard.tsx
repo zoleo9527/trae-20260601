@@ -1,11 +1,15 @@
 import type { MaintenanceCategory, MaintenanceOrder, Room } from '@/types'
 import StatusBadge from './StatusBadge'
-import { Clock, AlertTriangle } from 'lucide-react'
+import { Clock, AlertTriangle, Timer } from 'lucide-react'
+
+const PENDING_OVERTIME_MS = 2 * 60 * 60 * 1000
+const IN_PROGRESS_OVERTIME_MS = 4 * 60 * 60 * 1000
 
 interface MaintenanceCardProps {
   order: MaintenanceOrder
   room: Room
   onClick: (orderId: string) => void
+  now?: number
 }
 
 const priorityMap: Record<string, { label: string; className: string }> = {
@@ -26,14 +30,40 @@ function formatTime(isoString: string): string {
   return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`
 }
 
-export default function MaintenanceCard({ order, room, onClick }: MaintenanceCardProps) {
+function formatElapsed(ms: number): string {
+  const totalMinutes = Math.floor(ms / 60000)
+  const h = Math.floor(totalMinutes / 60)
+  const m = totalMinutes % 60
+  if (h > 0) return m > 0 ? `${h}小时${m}分` : `${h}小时`
+  return `${m}分钟`
+}
+
+export function isOrderOvertime(order: MaintenanceOrder, now: number): boolean {
+  const elapsed = now - new Date(order.createdAt).getTime()
+  if (order.status === 'pending' && !order.assignedTo) return elapsed > PENDING_OVERTIME_MS
+  if (order.status === 'in_progress') return elapsed > IN_PROGRESS_OVERTIME_MS
+  if (order.status === 'pending' && order.assignedTo) return elapsed > IN_PROGRESS_OVERTIME_MS
+  return false
+}
+
+export { PENDING_OVERTIME_MS, IN_PROGRESS_OVERTIME_MS }
+
+export default function MaintenanceCard({ order, room, onClick, now: nowProp }: MaintenanceCardProps) {
   const priority = priorityMap[order.priority] ?? priorityMap.low
   const category = order.category ? categoryMap[order.category] : null
+  const now = nowProp ?? Date.now()
+  const elapsed = now - new Date(order.createdAt).getTime()
+  const isOvertime = isOrderOvertime(order, now)
+  const isInProgress = order.status === 'in_progress' || (order.status === 'pending' && order.assignedTo)
 
   return (
     <div
       onClick={() => onClick(order.id)}
-      className="cursor-pointer rounded-lg border border-gray-200 bg-white p-3 shadow-sm transition-shadow hover:shadow-md"
+      className={`cursor-pointer rounded-lg border p-3 shadow-sm transition-shadow hover:shadow-md ${
+        isOvertime
+          ? 'border-red-300 bg-red-50/40'
+          : 'border-gray-200 bg-white'
+      }`}
     >
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
@@ -47,13 +77,26 @@ export default function MaintenanceCard({ order, room, onClick }: MaintenanceCar
               {category.label}
             </span>
           )}
+          {isOvertime && (
+            <span className="inline-flex items-center rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-600">
+              超时
+            </span>
+          )}
         </div>
         <StatusBadge status={order.status} category="maintenance" />
       </div>
       <p className="mt-1 line-clamp-1 text-sm text-gray-600">{order.description}</p>
-      <div className="mt-2 flex items-center gap-1 text-xs text-gray-400">
-        <Clock size={12} />
-        <span>{formatTime(order.createdAt)}</span>
+      <div className="mt-2 flex items-center gap-3 text-xs">
+        <div className="flex items-center gap-1 text-gray-400">
+          <Clock size={12} />
+          <span>{formatTime(order.createdAt)}</span>
+        </div>
+        {isInProgress && (
+          <div className={`flex items-center gap-1 ${isOvertime ? 'font-medium text-red-500' : 'text-gray-400'}`}>
+            <Timer size={12} />
+            <span>已处理 {formatElapsed(elapsed)}</span>
+          </div>
+        )}
       </div>
     </div>
   )

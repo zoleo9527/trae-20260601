@@ -122,6 +122,7 @@ export interface UiFilters {
   engineerSearchRoom: string
   engineerCategory: MaintenanceCategory | 'all'
   engineerCompletedCategory: MaintenanceCategory | 'all'
+  engineerOvertimeOnly: boolean
 }
 
 export interface AppState {

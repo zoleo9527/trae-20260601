@@ -1,8 +1,8 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Wrench, Inbox, UserPlus, Search, Filter, BarChart3, Timer } from 'lucide-react'
+import { Wrench, Inbox, UserPlus, Search, Filter, BarChart3, Timer, AlertTriangle, Clock } from 'lucide-react'
 import { useAppStore } from '@/store'
-import MaintenanceCard from '@/components/MaintenanceCard'
+import MaintenanceCard, { isOrderOvertime, PENDING_OVERTIME_MS, IN_PROGRESS_OVERTIME_MS } from '@/components/MaintenanceCard'
 import type { MaintenanceCategory, MaintenanceStatus } from '@/types'
 
 const STATUS_OPTIONS: { value: MaintenanceStatus | 'all'; label: string }[] = [
@@ -39,11 +39,18 @@ export default function EngineerDashboard() {
   const navigate = useNavigate()
   const { maintenanceOrders, rooms, currentUserId, assignMaintenanceOrder, uiFilters, updateUiFilter } = useAppStore()
   const [completedExpanded, setCompletedExpanded] = useState(false)
+  const [now, setNow] = useState(Date.now())
+
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 60000)
+    return () => clearInterval(timer)
+  }, [])
 
   const statusFilter = uiFilters.engineerStatus
   const searchRoom = uiFilters.engineerSearchRoom
   const categoryFilter = uiFilters.engineerCategory
   const completedCategoryFilter = uiFilters.engineerCompletedCategory
+  const overtimeOnly = uiFilters.engineerOvertimeOnly
 
   const myOrders = maintenanceOrders.filter(
     (o) => o.assignedTo === currentUserId
@@ -54,6 +61,14 @@ export default function EngineerDashboard() {
 
   const allOrders = [...unassignedOrders, ...myOrders]
 
+  const overtimePendingCount = unassignedOrders.filter(
+    (o) => isOrderOvertime(o, now)
+  ).length
+  const overtimeInProgressCount = myOrders.filter(
+    (o) => o.status === 'in_progress' && isOrderOvertime(o, now)
+  ).length
+  const totalOvertime = overtimePendingCount + overtimeInProgressCount
+
   const filtered = allOrders.filter((order) => {
     if (statusFilter !== 'all' && order.status !== statusFilter) return false
     if (searchRoom) {
@@ -61,6 +76,7 @@ export default function EngineerDashboard() {
       if (!room || !room.number.includes(searchRoom)) return false
     }
     if (categoryFilter !== 'all' && order.category !== categoryFilter) return false
+    if (overtimeOnly && !isOrderOvertime(order, now)) return false
     return true
   })
 
@@ -108,7 +124,7 @@ export default function EngineerDashboard() {
     return { ...cfg, count, avgDuration }
   })
 
-  const hasActiveFilters = statusFilter !== 'all' || searchRoom || categoryFilter !== 'all'
+  const hasActiveFilters = statusFilter !== 'all' || !!searchRoom || categoryFilter !== 'all' || overtimeOnly
 
   const getRoom = (roomId: string) => rooms.find((r) => r.id === roomId)
 
@@ -117,16 +133,40 @@ export default function EngineerDashboard() {
     assignMaintenanceOrder(orderId, currentUserId)
   }
 
+  const overtimePendingThreshold = formatDuration(PENDING_OVERTIME_MS)
+  const overtimeInProgressThreshold = formatDuration(IN_PROGRESS_OVERTIME_MS)
+
   return (
     <div>
       <h1 className="font-serif text-2xl font-bold text-[#1E3A5F]">维修工单</h1>
 
-      <div className="mt-4 mb-4 rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
+      {totalOvertime > 0 && (
+        <div className="mt-4 mb-4 flex items-center gap-4 rounded-lg border border-red-200 bg-red-50 px-5 py-3 shadow-sm">
+          <AlertTriangle size={18} className="shrink-0 text-red-500" />
+          <div className="flex flex-wrap items-center gap-x-5 gap-y-1 text-sm">
+            <span className="font-medium text-red-700">超时工单提醒</span>
+            {overtimePendingCount > 0 && (
+              <span className="text-red-600">
+                待派工超{ overtimePendingThreshold }
+                <span className="ml-1 font-bold">{overtimePendingCount}</span> 单
+              </span>
+            )}
+            {overtimeInProgressCount > 0 && (
+              <span className="text-red-600">
+                处理中超{ overtimeInProgressThreshold }
+                <span className="ml-1 font-bold">{overtimeInProgressCount}</span> 单
+              </span>
+            )}
+          </div>
+        </div>
+      )}
+
+      <div className="mb-4 rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
         <div className="mb-3 flex items-center gap-2 text-sm font-medium text-gray-600">
           <Filter size={14} />
           筛选条件
         </div>
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
           <div>
             <label className="mb-1 block text-xs text-gray-400">工单状态</label>
             <select
@@ -168,6 +208,20 @@ export default function EngineerDashboard() {
               />
             </div>
           </div>
+          <div>
+            <label className="mb-1 block text-xs text-gray-400">仅看超时</label>
+            <button
+              onClick={() => updateUiFilter('engineerOvertimeOnly', !overtimeOnly)}
+              className={`flex w-full items-center justify-center gap-1.5 rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
+                overtimeOnly
+                  ? 'border-red-300 bg-red-50 text-red-600'
+                  : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
+              }`}
+            >
+              <Clock size={14} />
+              {overtimeOnly ? '超时工单' : '全部工单'}
+            </button>
+          </div>
         </div>
         {hasActiveFilters && (
           <button
@@ -175,6 +229,7 @@ export default function EngineerDashboard() {
               updateUiFilter('engineerStatus', 'all')
               updateUiFilter('engineerSearchRoom', '')
               updateUiFilter('engineerCategory', 'all')
+              updateUiFilter('engineerOvertimeOnly', false)
             }}
             className="mt-2 text-xs text-[#1E3A5F] hover:underline"
           >
@@ -220,10 +275,13 @@ export default function EngineerDashboard() {
             {filteredUnassigned.map((order) => {
               const room = getRoom(order.roomId)
               if (!room) return null
+              const isOv = isOrderOvertime(order, now)
               return (
                 <div
                   key={order.id}
-                  className="flex items-center justify-between rounded-lg border border-gray-200 bg-white p-4 shadow-sm"
+                  className={`flex items-center justify-between rounded-lg border p-4 shadow-sm ${
+                    isOv ? 'border-red-300 bg-red-50/40' : 'border-gray-200 bg-white'
+                  }`}
                 >
                   <div className="flex-1 cursor-pointer" onClick={() => navigate(`/engineer/order/${order.id}`)}>
                     <div className="flex items-center gap-2">
@@ -233,8 +291,17 @@ export default function EngineerDashboard() {
                       <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600">
                         未分配
                       </span>
+                      {isOv && (
+                        <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-600">
+                          超时
+                        </span>
+                      )}
                     </div>
                     <p className="mt-1 text-sm text-gray-600">{order.description}</p>
+                    <div className="mt-1 flex items-center gap-1 text-xs text-gray-400">
+                      <Clock size={12} />
+                      <span>创建于 {new Date(order.createdAt).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}</span>
+                    </div>
                   </div>
                   <button
                     onClick={() => handleClaim(order.id)}
@@ -277,6 +344,7 @@ export default function EngineerDashboard() {
                     order={order}
                     room={room}
                     onClick={(id) => navigate(`/engineer/order/${id}`)}
+                    now={now}
                   />
                 )
               })}
@@ -310,6 +378,7 @@ export default function EngineerDashboard() {
                     order={order}
                     room={room}
                     onClick={(id) => navigate(`/engineer/order/${id}`)}
+                    now={now}
                   />
                 )
               })}
@@ -395,6 +464,7 @@ export default function EngineerDashboard() {
                         order={order}
                         room={room}
                         onClick={(id) => navigate(`/engineer/order/${id}`)}
+                        now={now}
                       />
                     )
                   })}

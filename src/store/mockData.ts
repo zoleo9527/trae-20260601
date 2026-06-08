@@ -290,6 +290,7 @@ export const mockData: AppState = {
     engineerSearchRoom: '',
     engineerCategory: 'all',
     engineerCompletedCategory: 'all',
+    engineerOvertimeOnly: false,
   },
   currentUserId: undefined,
   currentRole: undefined,

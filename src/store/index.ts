@@ -100,6 +100,7 @@ export const useAppStore = create<AppStore>()(
         engineerSearchRoom: '',
         engineerCategory: 'all' as const,
         engineerCompletedCategory: 'all' as const,
+        engineerOvertimeOnly: false,
       },
 
       setCurrentUser(userId: string, role: UserRole) {
