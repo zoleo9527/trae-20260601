@@ -282,6 +282,22 @@ export default function VerificationReview({ role }) {
                         ⚠ {a.remark}
                       </div>
                     )}
+                    {a.status === 'rejected' && (() => {
+                      const lastReject = [...(a.reviewHistory || [])].reverse().find(r => r.result === 'rejected')
+                      if (!lastReject) return null
+                      const short = lastReject.opinion.length > 40 ? lastReject.opinion.slice(0, 40) + '…' : lastReject.opinion
+                      const dt = new Date(lastReject.reviewedAt)
+                      const mm = String(dt.getMonth() + 1).padStart(2, '0')
+                      const dd = String(dt.getDate()).padStart(2, '0')
+                      const hh = String(dt.getHours()).padStart(2, '0')
+                      const mi = String(dt.getMinutes()).padStart(2, '0')
+                      return (
+                        <div className="flex items-center justify-between mt-1.5 pt-1.5 border-t border-red-100 text-xs text-red-500">
+                          <span className="truncate mr-2" title={lastReject.opinion}>退回原因：{short}</span>
+                          <span className="shrink-0 text-red-400">{lastReject.reviewer} {mm}-{dd} {hh}:{mi}</span>
+                        </div>
+                      )
+                    })()}
                   </div>
                   <span className="text-xs text-slate-400 shrink-0 ml-2">
                     #{a.id}

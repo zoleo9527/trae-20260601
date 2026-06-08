@@ -266,6 +266,10 @@ app.get('/api/acceptances', (req, res) => {
   }
 
   result.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+  result = result.map(a => ({
+    ...a,
+    reviewHistory: reviews.filter(r => r.acceptanceId === a.id)
+  }))
   res.json(result)
 })
 
