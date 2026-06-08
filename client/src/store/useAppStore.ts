@@ -33,6 +33,7 @@ export function needsFollowUp(followUps: FollowUpRecord[]): boolean {
 }
 
 export function isFollowUpDelayed(followUps: FollowUpRecord[]): boolean {
+  if (followUps.length === 0) return false;
   return calcPendingFollowUpMs(followUps) >= 12 * 60 * 60 * 1000;
 }
 
