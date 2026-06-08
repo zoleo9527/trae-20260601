@@ -20,6 +20,7 @@ const STATUS_FILTERS = [
 
 export default function VerificationReview({ role }) {
   const [acceptances, setAcceptances] = useState([])
+  const [allAcceptances, setAllAcceptances] = useState([])
   const [selected, setSelected] = useState(null)
   const [statusFilter, setStatusFilter] = useState('all')
   const [keyword, setKeyword] = useState('')
@@ -40,6 +41,10 @@ export default function VerificationReview({ role }) {
   }, [statusFilter, keyword, role])
 
   useEffect(() => { fetchData() }, [fetchData])
+
+  useEffect(() => {
+    fetch('/api/acceptances').then(r => r.json()).then(setAllAcceptances)
+  }, [acceptances])
 
   const fetchReviews = useCallback(async (id) => {
     const res = await fetch(`/api/reviews?acceptanceId=${id}`)
@@ -134,8 +139,91 @@ export default function VerificationReview({ role }) {
     return selected.items.some(i => i.category?.includes('危险品'))
   }, [selected])
 
+  const todayStats = useMemo(() => {
+    const today = new Date().toISOString().slice(0, 10)
+    const todayList = allAcceptances.filter(a => a.createdAt?.slice(0, 10) === today)
+    if (todayList.length === 0) return null
+
+    const byStatus = {}
+    Object.keys(STATUS_MAP).forEach(k => { byStatus[k] = 0 })
+    todayList.forEach(a => { if (byStatus[a.status] !== undefined) byStatus[a.status]++ })
+
+    const dangerCount = todayList.filter(a => a.items.some(i => i.category?.includes('危险品'))).length
+    const totalTonnage = todayList.reduce((s, a) => s + a.items.reduce((s2, i) => s2 + (parseFloat(i.weight) || 0), 0), 0)
+
+    const destMap = {}
+    todayList.forEach(a => { destMap[a.destinationStation] = (destMap[a.destinationStation] || 0) + 1 })
+    const topDest = Object.entries(destMap).sort((a, b) => b[1] - a[1]).slice(0, 3)
+
+    return { total: todayList.length, byStatus, dangerCount, totalTonnage, topDest }
+  }, [allAcceptances])
+
   return (
     <div>
+      {role === 'clerk' && (
+        <div className="card mb-4">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-base font-semibold text-slate-800">今日受理概览</h2>
+            <span className="text-xs text-slate-400">{new Date().toLocaleDateString('zh-CN')}</span>
+          </div>
+
+          {!todayStats ? (
+            <div className="text-center text-slate-400 py-6 text-sm">今日暂无受理记录</div>
+          ) : (
+            <>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3 mb-4">
+                <div
+                  className={`rounded-lg p-3 cursor-pointer transition-all border-2 ${
+                    statusFilter === 'all' ? 'border-blue-900 bg-blue-50' : 'border-transparent bg-slate-50 hover:bg-slate-100'
+                  }`}
+                  onClick={() => setStatusFilter('all')}
+                >
+                  <div className="text-2xl font-bold text-blue-900">{todayStats.total}</div>
+                  <div className="text-xs text-slate-500 mt-0.5">受理总数</div>
+                </div>
+
+                {Object.entries(STATUS_MAP).map(([key, cfg]) => (
+                  <div
+                    key={key}
+                    className={`rounded-lg p-3 cursor-pointer transition-all border-2 ${
+                      statusFilter === key ? `border-blue-900 bg-blue-50` : 'border-transparent bg-slate-50 hover:bg-slate-100'
+                    }`}
+                    onClick={() => setStatusFilter(key)}
+                  >
+                    <div className="text-2xl font-bold">
+                      <span className={`badge ${cfg.className} text-base px-2`}>{todayStats.byStatus[key]}</span>
+                    </div>
+                    <div className="text-xs text-slate-500 mt-0.5">{cfg.label}</div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                <div className="rounded-lg bg-red-50 p-3">
+                  <div className="text-2xl font-bold text-red-700">{todayStats.dangerCount}</div>
+                  <div className="text-xs text-red-500 mt-0.5">危险品票数</div>
+                </div>
+                <div className="rounded-lg bg-blue-50 p-3">
+                  <div className="text-2xl font-bold text-blue-800">{todayStats.totalTonnage.toFixed(1)}</div>
+                  <div className="text-xs text-blue-500 mt-0.5">累计吨位</div>
+                </div>
+                <div className="rounded-lg bg-slate-50 p-3">
+                  <div className="text-sm font-semibold text-slate-700 mb-1">到站 Top3</div>
+                  {todayStats.topDest.length > 0 ? todayStats.topDest.map(([station, count], i) => (
+                    <div key={station} className="flex items-center justify-between text-xs">
+                      <span className="text-slate-600">{i + 1}. {station}</span>
+                      <span className="font-medium text-slate-800">{count}票</span>
+                    </div>
+                  )) : (
+                    <div className="text-xs text-slate-400">-</div>
+                  )}
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
       <div className="card mb-4">
         <div className="flex flex-wrap items-center gap-3">
           <div className="flex gap-1">
