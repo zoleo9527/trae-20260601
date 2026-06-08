@@ -13,7 +13,7 @@ import dayjs from 'dayjs'
 import { useDashboardStore } from '@/stores/dashboardStore'
 import { useSettlementStore } from '@/stores/settlementStore'
 import { useScheduleStore } from '@/stores/scheduleStore'
-import { SCHEDULE_STATUS_MAP, SETTLEMENT_STATUS_MAP, EXCEPTION_TYPE_MAP, ActionType } from '@/types'
+import { SCHEDULE_STATUS_MAP, SETTLEMENT_STATUS_MAP, EXCEPTION_TYPE_MAP, ActionType, REJECTION_CATEGORY_MAP } from '@/types'
 
 const ACTION_LABEL_MAP: Record<ActionType, string> = {
   create: '创建',
@@ -187,6 +187,14 @@ export default function Dashboard() {
                 <div className="flex items-center gap-2">
                   <span className="text-xs text-red-500 font-medium">驳回原因：</span>
                   <span className="text-xs text-gray-600">{rejection.reason}</span>
+                  {rejection.category && (() => {
+                    const catConfig = REJECTION_CATEGORY_MAP[rejection.category]
+                    return catConfig ? (
+                      <span className={`text-xs px-1.5 py-0.5 rounded ${catConfig.color} ${catConfig.bgColor} border ${catConfig.borderColor}`}>
+                        {catConfig.label}
+                      </span>
+                    ) : null
+                  })()}
                 </div>
                 <div className="text-xs text-gray-400 mt-1">
                   {rejection.rejectedBy} · {dayjs(rejection.rejectedAt).format('MM-DD HH:mm')}

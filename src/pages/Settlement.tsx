@@ -1,14 +1,14 @@
 import { useState, useMemo } from 'react'
 import { Receipt, AlertCircle, CheckCircle2, XCircle, RotateCcw } from 'lucide-react'
-import { Table, Button, Tag, Modal, Form, Input, InputNumber, Descriptions, message, Timeline, Empty } from 'antd'
+import { Table, Button, Tag, Modal, Form, Input, InputNumber, Select, Descriptions, message, Timeline, Empty } from 'antd'
 import dayjs from 'dayjs'
 import { useSettlementStore } from '@/stores/settlementStore'
 import { useScheduleStore } from '@/stores/scheduleStore'
 import { useExceptionStore } from '@/stores/exceptionStore'
 import { useRoleStore } from '@/stores/roleStore'
 import { useLogStore } from '@/stores/logStore'
-import type { Settlement, SettlementStatus } from '@/types'
-import { SETTLEMENT_STATUS_MAP, SCHEDULE_STATUS_MAP, EXCEPTION_TYPE_MAP, ROLE_CONFIGS } from '@/types'
+import type { Settlement, SettlementStatus, RejectionCategory } from '@/types'
+import { SETTLEMENT_STATUS_MAP, SCHEDULE_STATUS_MAP, EXCEPTION_TYPE_MAP, ROLE_CONFIGS, REJECTION_CATEGORY_MAP } from '@/types'
 
 type FilterTab = 'ALL' | SettlementStatus
 
@@ -27,6 +27,7 @@ const STATUS_TAG_COLOR: Record<SettlementStatus, string> = {
 
 export default function SettlementPage() {
   const [activeTab, setActiveTab] = useState<FilterTab>('ALL')
+  const [categoryFilter, setCategoryFilter] = useState<RejectionCategory | 'ALL'>('ALL')
   const [detailVisible, setDetailVisible] = useState(false)
   const [approveVisible, setApproveVisible] = useState(false)
   const [rejectVisible, setRejectVisible] = useState(false)
@@ -35,7 +36,7 @@ export default function SettlementPage() {
   const [rejectForm] = Form.useForm()
   const [resubmitForm] = Form.useForm()
 
-  const { settlements, rejections, approveSettlement, rejectSettlement, resubmitSettlement, getRejectionsBySettlementId } = useSettlementStore()
+  const { settlements, rejections, approveSettlement, rejectSettlement, resubmitSettlement, getRejectionsBySettlementId, getRejectionCategoryStats } = useSettlementStore()
   const { schedules, getScheduleById, getVehicleById } = useScheduleStore()
   const { getExceptionsByScheduleId } = useExceptionStore()
   const { currentRole, hasPermission } = useRoleStore()
@@ -44,9 +45,20 @@ export default function SettlementPage() {
   const currentRoleLabel = ROLE_CONFIGS.find((c) => c.name === currentRole)?.label ?? ''
 
   const filteredSettlements = useMemo(() => {
-    if (activeTab === 'ALL') return settlements
-    return settlements.filter((s) => s.status === activeTab)
-  }, [settlements, activeTab])
+    let result = settlements
+    if (activeTab !== 'ALL') {
+      result = result.filter((s) => s.status === activeTab)
+    }
+    if (categoryFilter !== 'ALL') {
+      const settlementIds = rejections
+        .filter((r) => r.category === categoryFilter)
+        .map((r) => r.settlementId)
+      result = result.filter((s) => settlementIds.includes(s.id))
+    }
+    return result
+  }, [settlements, rejections, activeTab, categoryFilter])
+
+  const categoryStats = useMemo(() => getRejectionCategoryStats(30), [rejections, settlements])
 
   const pendingCount = settlements.filter((s) => s.status === 'PENDING_REVIEW').length
   const rejectedCount = settlements.filter((s) => s.status === 'REJECTED').length
@@ -89,7 +101,7 @@ export default function SettlementPage() {
     try {
       const values = await rejectForm.validateFields()
       if (!currentSettlement) return
-      rejectSettlement(currentSettlement.id, values.reason, currentRoleLabel, currentRole)
+      rejectSettlement(currentSettlement.id, values.category, values.reason, currentRoleLabel, currentRole)
       message.success('已驳回，驳回记录已保存')
       setRejectVisible(false)
     } catch {}
@@ -120,6 +132,11 @@ export default function SettlementPage() {
   const getRejectionReason = (settlementId: string): string | undefined => {
     const rej = rejections.find((r) => r.settlementId === settlementId && r.status === 'PENDING')
     return rej?.reason
+  }
+
+  const getRejectionCategory = (settlementId: string): RejectionCategory | undefined => {
+    const rej = rejections.find((r) => r.settlementId === settlementId && r.status === 'PENDING')
+    return rej?.category
   }
 
   const columns = [
@@ -197,6 +214,15 @@ export default function SettlementPage() {
       render: (status: SettlementStatus, record: Settlement) => (
         <div>
           <Tag color={STATUS_TAG_COLOR[status]}>{SETTLEMENT_STATUS_MAP[status]}</Tag>
+          {status === 'REJECTED' && (() => {
+            const cat = getRejectionCategory(record.id)
+            const catConfig = cat ? REJECTION_CATEGORY_MAP[cat] : null
+            return catConfig ? (
+              <span className={`inline-block text-xs px-1.5 py-0.5 rounded mt-1 ${catConfig.color} ${catConfig.bgColor} border ${catConfig.borderColor}`}>
+                {catConfig.label}
+              </span>
+            ) : null
+          })()}
           {status === 'REJECTED' && (
             <div className="text-xs text-red-500 mt-1 max-w-[120px] truncate" title={getRejectionReason(record.id)}>
               {getRejectionReason(record.id)}
@@ -262,9 +288,9 @@ export default function SettlementPage() {
             {FILTER_TABS.map((tab) => (
               <button
                 key={tab.key}
-                onClick={() => setActiveTab(tab.key)}
+                onClick={() => { setActiveTab(tab.key); setCategoryFilter('ALL') }}
                 className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
-                  activeTab === tab.key
+                  activeTab === tab.key && categoryFilter === 'ALL'
                     ? 'bg-[#1a2332] text-white'
                     : 'text-gray-500 hover:bg-gray-100'
                 }`}
@@ -280,6 +306,44 @@ export default function SettlementPage() {
             ))}
           </div>
         </div>
+
+        {categoryStats.length > 0 && (
+          <div className="px-5 py-3 border-b border-gray-50 bg-gray-50/50">
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-xs text-gray-500 font-medium">近30天驳回分类</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => { setActiveTab('REJECTED'); setCategoryFilter('ALL') }}
+                className={`px-2.5 py-1 text-xs rounded-md border transition-colors ${
+                  activeTab === 'REJECTED' && categoryFilter === 'ALL'
+                    ? 'bg-[#1a2332] text-white border-[#1a2332]'
+                    : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300'
+                }`}
+              >
+                全部驳回
+              </button>
+              {categoryStats.map((stat) => {
+                const catConfig = REJECTION_CATEGORY_MAP[stat.category]
+                return (
+                  <button
+                    key={stat.category}
+                    onClick={() => { setActiveTab('REJECTED'); setCategoryFilter(stat.category) }}
+                    className={`px-2.5 py-1 text-xs rounded-md border transition-colors ${
+                      activeTab === 'REJECTED' && categoryFilter === stat.category
+                        ? `${catConfig.bgColor} ${catConfig.color} ${catConfig.borderColor} font-medium`
+                        : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300'
+                    }`}
+                  >
+                    {catConfig.label}
+                    <span className="ml-1 opacity-80">{stat.count}笔</span>
+                    <span className="ml-1 opacity-60">¥{stat.totalAmount.toFixed(0)}</span>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        )}
 
         <Table
           columns={columns}
@@ -418,10 +482,18 @@ export default function SettlementPage() {
                           ) : (
                             <Tag color="green" icon={<CheckCircle2 size={12} />}>已处理</Tag>
                           )}
+                          {rej.category && (() => {
+                            const catConfig = REJECTION_CATEGORY_MAP[rej.category]
+                            return catConfig ? (
+                              <span className={`text-xs px-1.5 py-0.5 rounded ${catConfig.color} ${catConfig.bgColor} border ${catConfig.borderColor}`}>
+                                {catConfig.label}
+                              </span>
+                            ) : null
+                          })()}
                           <span className="text-gray-500 text-xs">{rej.rejectedBy} · {dayjs(rej.rejectedAt).format('YYYY-MM-DD HH:mm')}</span>
                         </div>
                         <div className="text-[#1a2332]">
-                          <span className="text-red-500 font-medium">驳回原因：</span>
+                          <span className="text-red-500 font-medium">驳回说明：</span>
                           {rej.reason}
                         </div>
                         {rej.status === 'RESOLVED' && rej.resubmittedBy && (
@@ -507,11 +579,27 @@ export default function SettlementPage() {
         )}
         <Form form={rejectForm} layout="vertical">
           <Form.Item
-            name="reason"
-            label="驳回原因"
-            rules={[{ required: true, message: '请输入驳回原因' }]}
+            name="category"
+            label="驳回分类"
+            rules={[{ required: true, message: '请选择驳回分类' }]}
           >
-            <Input.TextArea rows={4} placeholder="请输入驳回原因，便于调度员修改" />
+            <Select placeholder="请选择驳回分类">
+              {Object.entries(REJECTION_CATEGORY_MAP).map(([key, config]) => (
+                <Select.Option key={key} value={key}>
+                  <div className="flex items-center gap-2">
+                    <span className={`inline-block w-2 h-2 rounded-full ${config.bgColor} ${config.borderColor} border`} />
+                    {config.label}
+                  </div>
+                </Select.Option>
+              ))}
+            </Select>
+          </Form.Item>
+          <Form.Item
+            name="reason"
+            label="补充说明"
+            rules={[{ required: true, message: '请输入驳回补充说明' }]}
+          >
+            <Input.TextArea rows={4} placeholder="请输入驳回补充说明，便于调度员修改" />
           </Form.Item>
         </Form>
       </Modal>
@@ -533,7 +621,15 @@ export default function SettlementPage() {
           const latestRejection = detailRejections.find((r) => r.status === 'PENDING')
           return latestRejection ? (
             <div className="bg-red-50 border border-red-100 rounded p-3 mb-4 text-sm">
-              <div className="font-medium text-red-700 mb-1">上次驳回原因：</div>
+              <div className="font-medium text-red-700 mb-1">上次驳回：</div>
+              {latestRejection.category && (() => {
+                const catConfig = REJECTION_CATEGORY_MAP[latestRejection.category]
+                return catConfig ? (
+                  <div className={`inline-flex items-center gap-1.5 px-2 py-1 rounded mb-2 ${catConfig.bgColor} ${catConfig.color} border ${catConfig.borderColor}`}>
+                    <span className="font-medium">{catConfig.label}</span>
+                  </div>
+                ) : null
+              })()}
               <div className="text-red-600">{latestRejection.reason}</div>
               <div className="text-xs text-gray-400 mt-1">
                 {latestRejection.rejectedBy} · {dayjs(latestRejection.rejectedAt).format('YYYY-MM-DD HH:mm')}

@@ -7,7 +7,7 @@ import { useSettlementStore } from '@/stores/settlementStore'
 import { useLogStore } from '@/stores/logStore'
 import { useNavigate } from 'react-router-dom'
 import type { Schedule, Vehicle, ScheduleStatus } from '@/types'
-import { SCHEDULE_STATUS_MAP, EXCEPTION_TYPE_MAP, ROLE_CONFIGS } from '@/types'
+import { SCHEDULE_STATUS_MAP, EXCEPTION_TYPE_MAP, ROLE_CONFIGS, REJECTION_CATEGORY_MAP } from '@/types'
 
 const STATUS_COLOR_MAP: Record<string, string> = {
   PENDING: 'blue',
@@ -471,9 +471,19 @@ export default function SchedulePage() {
                        detailSettlement.status === 'REJECTED' ? '已驳回' : '待审核'}
                     </Tag>
                     {detailRejections.length > 0 && detailRejections.map((rej) => (
-                      <span key={rej.id} className="text-xs text-red-500">
-                        驳回原因：{rej.reason}
-                      </span>
+                      <div key={rej.id} className="flex items-center gap-2">
+                        {rej.category && (() => {
+                          const catConfig = REJECTION_CATEGORY_MAP[rej.category]
+                          return catConfig ? (
+                            <span className={`text-xs px-1.5 py-0.5 rounded ${catConfig.color} ${catConfig.bgColor} border ${catConfig.borderColor}`}>
+                              {catConfig.label}
+                            </span>
+                          ) : null
+                        })()}
+                        <span className="text-xs text-red-500">
+                          {rej.reason}
+                        </span>
+                      </div>
                     ))}
                   </div>
                 </div>

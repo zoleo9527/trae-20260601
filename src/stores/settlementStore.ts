@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { Settlement, Rejection, SettlementStatus, RoleName } from '@/types'
+import dayjs from 'dayjs'
+import type { Settlement, Rejection, SettlementStatus, RoleName, RejectionCategory } from '@/types'
 import { mockSettlements, mockRejections } from '@/mock/data'
 import { useLogStore } from '@/stores/logStore'
 import { useScheduleStore } from '@/stores/scheduleStore'
@@ -10,12 +11,13 @@ interface SettlementState {
   rejections: Rejection[]
   createSettlement: (data: Omit<Settlement, 'id' | 'createdAt' | 'status' | 'reviewedBy' | 'reviewedAt'>) => void
   approveSettlement: (id: string, reviewer: string, operatorRole: RoleName) => void
-  rejectSettlement: (id: string, reason: string, rejectedBy: string, operatorRole: RoleName) => void
+  rejectSettlement: (id: string, category: RejectionCategory, reason: string, rejectedBy: string, operatorRole: RoleName) => void
   resubmitSettlement: (id: string, data: Partial<Settlement>, resubmittedBy: string, operatorRole: RoleName) => void
   getSettlementById: (id: string) => Settlement | undefined
   getSettlementsByStatus: (status: SettlementStatus) => Settlement[]
   getRejectionsBySettlementId: (settlementId: string) => Rejection[]
   getSettlementByScheduleId: (scheduleId: string) => Settlement | undefined
+  getRejectionCategoryStats: (days?: number) => { category: RejectionCategory; count: number; totalAmount: number }[]
 }
 
 export const useSettlementStore = create<SettlementState>()(
@@ -68,10 +70,11 @@ export const useSettlementStore = create<SettlementState>()(
         }
       },
 
-      rejectSettlement: (id, reason, rejectedBy, operatorRole) => {
+      rejectSettlement: (id, category, reason, rejectedBy, operatorRole) => {
         const newRejection: Rejection = {
           id: 'rej' + Date.now(),
           settlementId: id,
+          category,
           reason,
           rejectedBy,
           rejectedAt: new Date().toISOString(),
@@ -94,7 +97,7 @@ export const useSettlementStore = create<SettlementState>()(
           operator: rejectedBy,
           operatorRole,
           beforeValue: { status: 'PENDING_REVIEW' },
-          afterValue: { status: 'REJECTED', reason },
+          afterValue: { status: 'REJECTED', category, reason },
         })
       },
 
@@ -136,6 +139,22 @@ export const useSettlementStore = create<SettlementState>()(
 
       getSettlementByScheduleId: (scheduleId) => {
         return get().settlements.find((s) => s.scheduleId === scheduleId)
+      },
+
+      getRejectionCategoryStats: (days = 30) => {
+        const rejections = get().rejections
+        const settlements = get().settlements
+        const cutoff = dayjs().subtract(days, 'day').toISOString()
+        const recentRejections = rejections.filter((r) => r.rejectedAt >= cutoff)
+        const categories: RejectionCategory[] = ['amount_anomaly', 'voucher_missing', 'timeout_dispute', 'other']
+        return categories.map((category) => {
+          const catRejections = recentRejections.filter((r) => r.category === category)
+          const totalAmount = catRejections.reduce((sum, r) => {
+            const settlement = settlements.find((s) => s.id === r.settlementId)
+            return sum + (settlement?.totalFee ?? 0)
+          }, 0)
+          return { category, count: catRejections.length, totalAmount }
+        }).filter((c) => c.count > 0)
       },
     }),
     { name: 'vehicle-settlement-store' }

@@ -6,6 +6,8 @@ export type ExceptionType = 'DELAY' | 'VEHICLE_CHANGE' | 'EMPTY_TRIP' | 'OVERTIM
 
 export type RejectionStatus = 'PENDING' | 'RESOLVED'
 
+export type RejectionCategory = 'amount_anomaly' | 'voucher_missing' | 'timeout_dispute' | 'other'
+
 export type RoleName = 'dispatcher' | 'fleet_manager' | 'finance' | 'supervisor'
 
 export type EntityType = 'schedule' | 'settlement' | 'exception'
@@ -65,6 +67,7 @@ export interface Settlement {
 export interface Rejection {
   id: string
   settlementId: string
+  category: RejectionCategory
   reason: string
   rejectedBy: string
   rejectedAt: string
@@ -134,6 +137,13 @@ export const EXCEPTION_TYPE_MAP: Record<ExceptionType, string> = {
 export const REJECTION_STATUS_MAP: Record<RejectionStatus, string> = {
   PENDING: '待处理',
   RESOLVED: '已处理',
+}
+
+export const REJECTION_CATEGORY_MAP: Record<RejectionCategory, { label: string; color: string; bgColor: string; borderColor: string }> = {
+  amount_anomaly: { label: '金额异常', color: 'text-red-700', bgColor: 'bg-red-50', borderColor: 'border-red-200' },
+  voucher_missing: { label: '凭证缺失', color: 'text-amber-700', bgColor: 'bg-amber-50', borderColor: 'border-amber-200' },
+  timeout_dispute: { label: '超时争议', color: 'text-blue-700', bgColor: 'bg-blue-50', borderColor: 'border-blue-200' },
+  other: { label: '其他', color: 'text-gray-700', bgColor: 'bg-gray-50', borderColor: 'border-gray-200' },
 }
 
 export const ROLE_CONFIGS: RoleConfig[] = [

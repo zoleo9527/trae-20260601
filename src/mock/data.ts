@@ -42,7 +42,9 @@ export const mockSettlements = [
 ]
 
 export const mockRejections = [
-  { id: 'rej001', settlementId: 'set004', reason: '路桥费与实际路线不符，请核实后重新提交', rejectedBy: '财务张姐', rejectedAt: d(-3, 15, 0), resubmittedBy: '', resubmittedAt: '', status: 'PENDING' as const },
+  { id: 'rej001', settlementId: 'set004', category: 'amount_anomaly' as const, reason: '路桥费与实际路线不符，请核实后重新提交', rejectedBy: '财务张姐', rejectedAt: d(-3, 15, 0), resubmittedBy: '', resubmittedAt: '', status: 'PENDING' as const },
+  { id: 'rej002', settlementId: 'set002', category: 'voucher_missing' as const, reason: '超时费缺少导游签字确认单', rejectedBy: '财务张姐', rejectedAt: d(-20, 10, 0), resubmittedBy: '调度员小王', resubmittedAt: d(-18, 9, 0), status: 'RESOLVED' as const },
+  { id: 'rej003', settlementId: 'set003', category: 'timeout_dispute' as const, reason: '超时1.5小时但超时费按2小时计', rejectedBy: '财务张姐', rejectedAt: d(-15, 11, 0), resubmittedBy: '调度员小李', resubmittedAt: d(-13, 14, 0), status: 'RESOLVED' as const },
 ]
 
 export const mockExceptions = [
