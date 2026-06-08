@@ -1,4 +1,4 @@
-import type { TourGroup, Dispatch, CheckIn, FleetAssignment, Guide } from '../types';
+import type { TourGroup, Dispatch, CheckIn, FleetAssignment, Guide, FollowUpRecord } from '../types';
 
 export const guides: Guide[] = [
   { id: 'g1', name: '张明', phone: '138-0001-1001', status: 'available' },
@@ -19,6 +19,7 @@ export const tourGroups: TourGroup[] = [
     status: 'completed',
     createdAt: '2026-06-05T09:00:00',
     stuckAt: null,
+    followUps: [],
   },
   {
     id: 'tg2',
@@ -29,6 +30,7 @@ export const tourGroups: TourGroup[] = [
     status: 'completed',
     createdAt: '2026-06-04T14:30:00',
     stuckAt: null,
+    followUps: [],
   },
   {
     id: 'tg3',
@@ -39,6 +41,7 @@ export const tourGroups: TourGroup[] = [
     status: 'completed',
     createdAt: '2026-06-03T10:15:00',
     stuckAt: null,
+    followUps: [],
   },
   {
     id: 'tg4',
@@ -49,6 +52,9 @@ export const tourGroups: TourGroup[] = [
     status: 'stuck',
     createdAt: '2026-06-06T08:00:00',
     stuckAt: '2026-06-07T01:00:00',
+    followUps: [
+      { id: 'fu1', content: '已联系导游赵丽确认，导游已到达接团点等待，车队孙师傅反馈路上堵车预计迟到30分钟', createdAt: '2026-06-07T02:15:00', isResolved: false },
+    ] as FollowUpRecord[],
   },
   {
     id: 'tg5',
@@ -59,6 +65,12 @@ export const tourGroups: TourGroup[] = [
     status: 'stuck',
     createdAt: '2026-06-04T16:45:00',
     stuckAt: '2026-06-06T14:00:00',
+    followUps: [
+      { id: 'fu2', content: '导游陈伟反馈游客未到，已联系组团社确认发团情况', createdAt: '2026-06-06T15:30:00', isResolved: false },
+      { id: 'fu3', content: '组团社电话无人接听，已发送微信和邮件催促回复', createdAt: '2026-06-06T18:00:00', isResolved: false },
+      { id: 'fu4', content: '组团社回复游客因暴雨航班延误，预计明天下午到达，导游待命', createdAt: '2026-06-07T09:20:00', isResolved: false },
+      { id: 'fu5', content: '游客仍未到，导游已等待超24小时，建议安排替班导游或取消行程', createdAt: '2026-06-07T16:00:00', isResolved: false },
+    ] as FollowUpRecord[],
   },
   {
     id: 'tg6',
@@ -69,6 +81,7 @@ export const tourGroups: TourGroup[] = [
     status: 'pending_dispatch',
     createdAt: '2026-06-07T11:00:00',
     stuckAt: null,
+    followUps: [],
   },
   {
     id: 'tg7',
@@ -79,6 +92,7 @@ export const tourGroups: TourGroup[] = [
     status: 'pending_dispatch',
     createdAt: '2026-06-07T15:20:00',
     stuckAt: null,
+    followUps: [],
   },
   {
     id: 'tg8',
@@ -89,6 +103,7 @@ export const tourGroups: TourGroup[] = [
     status: 'dispatched',
     createdAt: '2026-06-05T10:00:00',
     stuckAt: null,
+    followUps: [],
   },
   {
     id: 'tg9',
@@ -99,6 +114,7 @@ export const tourGroups: TourGroup[] = [
     status: 'checked_in',
     createdAt: '2026-06-06T09:30:00',
     stuckAt: null,
+    followUps: [],
   },
 ];
 

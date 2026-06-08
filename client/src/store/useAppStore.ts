@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { Role, TourGroupStatus, StuckDurationThreshold, TourGroup, Dispatch, CheckIn, FleetAssignment, Guide } from '../types';
+import type { Role, TourGroupStatus, StuckDurationThreshold, TourGroup, Dispatch, CheckIn, FleetAssignment, Guide, FollowUpRecord } from '../types';
 import { tourGroups as initialTourGroups, dispatches as initialDispatches, checkIns as initialCheckIns, fleetAssignments as initialFleet, guides as initialGuides } from '../data/mockData';
 
 export function calcStuckDuration(stuckAt: string | null): number {
@@ -48,10 +48,14 @@ interface AppState {
   setCheckInModalOpen: (v: boolean) => void;
   timelineModalOpen: boolean;
   setTimelineModalOpen: (v: boolean) => void;
+  followUpModalOpen: boolean;
+  setFollowUpModalOpen: (v: boolean) => void;
 
   dispatchGuide: (tourGroupId: string, guideId: string) => void;
   confirmCheckIn: (tourGroupId: string, exception?: string) => void;
   confirmFleet: (tourGroupId: string) => void;
+  addFollowUp: (tourGroupId: string, content: string) => void;
+  resolveStuck: (tourGroupId: string, resolveNote: string) => void;
 
   filteredTourGroups: () => TourGroup[];
 }
@@ -84,6 +88,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   setCheckInModalOpen: (v) => set({ checkInModalOpen: v }),
   timelineModalOpen: false,
   setTimelineModalOpen: (v) => set({ timelineModalOpen: v }),
+  followUpModalOpen: false,
+  setFollowUpModalOpen: (v) => set({ followUpModalOpen: v }),
 
   dispatchGuide: (tourGroupId, guideId) => {
     const newDispatch: Dispatch = {
@@ -153,6 +159,52 @@ export const useAppStore = create<AppState>((set, get) => ({
         ),
       };
     });
+  },
+
+  addFollowUp: (tourGroupId, content) => {
+    const newFollowUp: FollowUpRecord = {
+      id: `fu_${Date.now()}`,
+      content,
+      createdAt: new Date().toISOString(),
+      isResolved: false,
+    };
+    set((state) => ({
+      tourGroups: state.tourGroups.map((tg) =>
+        tg.id === tourGroupId
+          ? { ...tg, followUps: [...tg.followUps, newFollowUp] }
+          : tg
+      ),
+      followUpModalOpen: false,
+      selectedTourGroupId: null,
+    }));
+  },
+
+  resolveStuck: (tourGroupId, resolveNote) => {
+    const resolveFollowUp: FollowUpRecord = {
+      id: `fu_${Date.now()}`,
+      content: `标记已处理：${resolveNote}`,
+      createdAt: new Date().toISOString(),
+      isResolved: true,
+    };
+    set((state) => ({
+      tourGroups: state.tourGroups.map((tg) =>
+        tg.id === tourGroupId
+          ? {
+              ...tg,
+              status: 'checked_in' as TourGroupStatus,
+              stuckAt: null,
+              followUps: [...tg.followUps, resolveFollowUp],
+            }
+          : tg
+      ),
+      checkIns: state.checkIns.map((ci) =>
+        ci.tourGroupId === tourGroupId
+          ? { ...ci, checkInStatus: 'checked_in' as const, checkedInAt: ci.checkedInAt || new Date().toISOString(), exception: null }
+          : ci
+      ),
+      followUpModalOpen: false,
+      selectedTourGroupId: null,
+    }));
   },
 
   filteredTourGroups: () => {

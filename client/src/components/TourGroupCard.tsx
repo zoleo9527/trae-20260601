@@ -1,4 +1,4 @@
-import { Clock, MapPin, Users, Siren } from 'lucide-react';
+import { Clock, MapPin, Users, Siren, MessageSquarePlus, CheckCircle2 } from 'lucide-react';
 import StatusBadge from './StatusBadge';
 import { calcStuckDuration, formatStuckDuration, isStuckOver24h } from '../store/useAppStore';
 import type { TourGroup, Dispatch, CheckIn, FleetAssignment, Guide } from '../types';
@@ -14,6 +14,8 @@ interface TourGroupCardProps {
   actionLabel?: string;
   onAction?: () => void;
   compact?: boolean;
+  onFollowUp?: () => void;
+  onResolve?: () => void;
 }
 
 export default function TourGroupCard({
@@ -27,10 +29,13 @@ export default function TourGroupCard({
   actionLabel,
   onAction,
   compact,
+  onFollowUp,
+  onResolve,
 }: TourGroupCardProps) {
   const isStuck = tourGroup.status === 'stuck';
   const over24h = isStuck && isStuckOver24h(tourGroup.stuckAt);
   const durationMs = isStuck ? calcStuckDuration(tourGroup.stuckAt) : 0;
+  const latestFollowUp = isStuck && tourGroup.followUps.length > 0 ? tourGroup.followUps[tourGroup.followUps.length - 1] : null;
 
   return (
     <div
@@ -92,6 +97,16 @@ export default function TourGroupCard({
           </div>
         </div>
 
+        {latestFollowUp && (
+          <div className={`mt-2 text-xs px-3 py-1.5 rounded-md flex items-center gap-1.5 ${
+            over24h ? 'bg-red-50 text-red-700' : 'bg-amber-50 text-amber-700'
+          }`}>
+            <MessageSquarePlus className="w-3 h-3 shrink-0" />
+            <span className="truncate">最近跟进：{latestFollowUp.content}</span>
+            <span className="shrink-0 text-slate-400 ml-1">{new Date(latestFollowUp.createdAt).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}</span>
+          </div>
+        )}
+
         {!compact && (
           <div className="flex items-center gap-4 mt-3 pt-3 border-t border-slate-100 text-sm">
             {guide && (
@@ -116,6 +131,36 @@ export default function TourGroupCard({
               : 'bg-amber-50 border border-amber-200 text-amber-800'
           }`}>
             ⚠ {checkIn.exception}
+          </div>
+        )}
+
+        {isStuck && (
+          <div className="flex items-center gap-2 mt-3 pt-2 border-t border-slate-100">
+            {onFollowUp && (
+              <button
+                onClick={(e) => { e.stopPropagation(); onFollowUp(); }}
+                className={`px-3 py-1.5 text-xs font-medium rounded-lg transition flex items-center gap-1 ${
+                  over24h
+                    ? 'bg-red-50 text-red-700 hover:bg-red-100 border border-red-200'
+                    : 'bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200'
+                }`}
+              >
+                <MessageSquarePlus className="w-3.5 h-3.5" />
+                添加跟进
+              </button>
+            )}
+            {onResolve && (
+              <button
+                onClick={(e) => { e.stopPropagation(); onResolve(); }}
+                className="px-3 py-1.5 text-xs font-medium rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 transition flex items-center gap-1"
+              >
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                标记已处理
+              </button>
+            )}
+            {tourGroup.followUps.length > 0 && (
+              <span className="text-xs text-slate-400 ml-auto">{tourGroup.followUps.length}条跟进</span>
+            )}
           </div>
         )}
       </div>

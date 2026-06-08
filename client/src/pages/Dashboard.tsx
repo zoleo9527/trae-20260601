@@ -6,6 +6,7 @@ import FleetBoard from '../components/FleetBoard';
 import DispatchPanel from '../components/DispatchPanel';
 import CheckInPanel from '../components/CheckInPanel';
 import TimelineView from '../components/TimelineView';
+import FollowUpModal from '../components/FollowUpModal';
 
 const ROLE_LABELS = {
   dispatcher: '计调看板',
@@ -56,6 +57,7 @@ export default function Dashboard() {
       <DispatchPanel />
       <CheckInPanel />
       <TimelineView />
+      <FollowUpModal />
     </div>
   );
 }

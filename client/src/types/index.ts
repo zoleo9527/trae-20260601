@@ -14,6 +14,13 @@ export type FleetStatus = 'pending' | 'ready' | 'delayed';
 
 export type Role = 'dispatcher' | 'guide' | 'fleet';
 
+export interface FollowUpRecord {
+  id: string;
+  content: string;
+  createdAt: string;
+  isResolved: boolean;
+}
+
 export interface TourGroup {
   id: string;
   groupCode: string;
@@ -23,6 +30,7 @@ export interface TourGroup {
   status: TourGroupStatus;
   createdAt: string;
   stuckAt: string | null;
+  followUps: FollowUpRecord[];
 }
 
 export interface Dispatch {
