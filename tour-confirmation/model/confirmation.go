@@ -76,3 +76,12 @@ type ItinerarySummary struct {
 	EndDate      string `json:"end_date"`
 	RouteSummary string `json:"route_summary"`
 }
+
+type ConfirmationSummary struct {
+	PendingCount   int        `json:"pending_count"`
+	ConfirmedCount int        `json:"confirmed_count"`
+	RejectedCount  int        `json:"rejected_count"`
+	RevisedCount   int        `json:"revised_count"`
+	TotalCount     int        `json:"total_count"`
+	LastRemindedAt *time.Time `json:"last_reminded_at,omitempty"`
+}

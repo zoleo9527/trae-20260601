@@ -36,14 +36,24 @@ func (s *Store) GetItinerary(id string) (*model.Itinerary, bool) {
 	return it, ok
 }
 
-func (s *Store) ListItineraries(status model.ItineraryStatus, offset, limit int) ([]*model.Itinerary, int) {
+func (s *Store) ListItineraries(status model.ItineraryStatus, hasPending *bool, offset, limit int) ([]*model.Itinerary, int) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	var filtered []*model.Itinerary
 	for _, it := range s.itineraries {
-		if status == "" || it.Status == status {
-			filtered = append(filtered, it)
+		if status != "" && it.Status != status {
+			continue
 		}
+		if hasPending != nil {
+			has := s.itineraryHasPendingLocked(it.ID)
+			if *hasPending && !has {
+				continue
+			}
+			if !*hasPending && has {
+				continue
+			}
+		}
+		filtered = append(filtered, it)
 	}
 	total := len(filtered)
 	if offset >= total {
@@ -54,6 +64,23 @@ func (s *Store) ListItineraries(status model.ItineraryStatus, offset, limit int)
 		end = total
 	}
 	return filtered[offset:end], total
+}
+
+func (s *Store) itineraryHasPendingLocked(itineraryID string) bool {
+	for _, c := range s.confirmations {
+		if c.ItineraryID == itineraryID {
+			if c.Status == model.ConfirmPending || c.Status == model.ConfirmRevised {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func (s *Store) ItineraryHasPendingConfirmations(itineraryID string) bool {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.itineraryHasPendingLocked(itineraryID)
 }
 
 func (s *Store) SaveConfirmation(c *model.ResourceConfirmation) {

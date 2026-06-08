@@ -185,13 +185,9 @@ func (h *ItineraryHandler) Withdraw(c *fiber.Ctx) error {
 	return c.JSON(model.OK(itin))
 }
 
-func (h *ItineraryHandler) Get(c *fiber.Ctx) error {
-	id := c.Params("id")
-	itin, ok := h.store.GetItinerary(id)
-	if !ok {
-		return c.Status(404).JSON(model.Fail(model.ErrItineraryNotFound))
-	}
-	allConfs := h.store.ListConfirmationsByItinerary(id)
+func (h *ItineraryHandler) buildConfirmationSummary(itineraryID string) (*model.ConfirmationSummary, *model.ConfirmationProgress) {
+	allConfs := h.store.ListConfirmationsByItinerary(itineraryID)
+	summary := &model.ConfirmationSummary{}
 	progress := &model.ConfirmationProgress{
 		UnconfirmedList: []model.UnconfirmedResource{},
 	}
@@ -201,14 +197,19 @@ func (h *ItineraryHandler) Get(c *fiber.Ctx) error {
 	for _, cf := range allConfs {
 		switch cf.Status {
 		case model.ConfirmPending:
+			summary.PendingCount++
 			progress.PendingCount++
 		case model.ConfirmConfirmed:
+			summary.ConfirmedCount++
 			progress.ConfirmedCount++
 		case model.ConfirmRejected:
+			summary.RejectedCount++
 			progress.RejectedCount++
 		case model.ConfirmRevised:
+			summary.RevisedCount++
 			progress.RevisedCount++
 		}
+		summary.TotalCount++
 		if cf.Status == model.ConfirmPending || cf.Status == model.ConfirmRevised {
 			progress.UnconfirmedList = append(progress.UnconfirmedList, model.UnconfirmedResource{
 				ID:           cf.ID,
@@ -243,26 +244,55 @@ func (h *ItineraryHandler) Get(c *fiber.Ctx) error {
 	progress.LatestRejectReason = latestRejectReason
 	if !lastRemindedAt.IsZero() {
 		progress.LastRemindedAt = &lastRemindedAt
+		summary.LastRemindedAt = &lastRemindedAt
 	}
+	return summary, progress
+}
+
+func (h *ItineraryHandler) Get(c *fiber.Ctx) error {
+	id := c.Params("id")
+	itin, ok := h.store.GetItinerary(id)
+	if !ok {
+		return c.Status(404).JSON(model.Fail(model.ErrItineraryNotFound))
+	}
+	_, progress := h.buildConfirmationSummary(id)
 	return c.JSON(model.OK(fiber.Map{
 		"itinerary":            itin,
 		"confirmation_progress": progress,
 	}))
 }
 
+type ItineraryListItem struct {
+	Itinerary           *model.Itinerary        `json:"itinerary"`
+	ConfirmationSummary *model.ConfirmationSummary `json:"confirmation_summary"`
+}
+
 type ListResult struct {
-	Items []*model.Itinerary `json:"items"`
-	Total int                `json:"total"`
+	Items []ItineraryListItem `json:"items"`
+	Total int                  `json:"total"`
 }
 
 func (h *ItineraryHandler) List(c *fiber.Ctx) error {
 	status := model.ItineraryStatus(c.Query("status"))
+	var hasPending *bool
+	if v := c.Query("has_pending"); v != "" {
+		val := v == "true"
+		hasPending = &val
+	}
 	offset := c.QueryInt("offset", 0)
 	limit := c.QueryInt("limit", 20)
 	if limit > 100 {
 		limit = 100
 	}
-	items, total := h.store.ListItineraries(status, offset, limit)
+	itins, total := h.store.ListItineraries(status, hasPending, offset, limit)
+	items := make([]ItineraryListItem, 0, len(itins))
+	for _, it := range itins {
+		summary, _ := h.buildConfirmationSummary(it.ID)
+		items = append(items, ItineraryListItem{
+			Itinerary:           it,
+			ConfirmationSummary: summary,
+		})
+	}
 	return c.JSON(model.OK(ListResult{Items: items, Total: total}))
 }
 

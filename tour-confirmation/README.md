@@ -24,7 +24,7 @@ go run main.go
 | 方法 | 路径 | 说明 |
 |------|------|------|
 | POST | `/` | 创建行程（草稿） |
-| GET | `/` | 列表（?status=draft&offset=0&limit=20） |
+| GET | `/` | 列表（?status=draft&has_pending=true&offset=0&limit=20，每项含 confirmation_summary） |
 | GET | `/:id` | 详情（含 confirmation_progress） |
 | PUT | `/:id` | 修改（仅草稿） |
 | POST | `/:id/submit` | 提交 |
@@ -125,6 +125,56 @@ go run main.go
 | `created_to` | RFC3339 | 创建时间截止（含），如 `2026-06-30T23:59:59Z` |
 
 当 `created_from` / `created_to` 格式不符合 RFC3339 时返回 `40000` 错误码。
+
+## 行程列表新增字段
+
+`GET /api/v1/itineraries` 响应体中每个 item 从直接返回行程对象改为包含 `itinerary` + `confirmation_summary`：
+
+```json
+{
+  "code": 0,
+  "message": "success",
+  "data": {
+    "items": [
+      {
+        "itinerary": { "id": "...", "team_name": "...", "status": "submitted", "..." : "..." },
+        "confirmation_summary": {
+          "pending_count": 2,
+          "confirmed_count": 1,
+          "rejected_count": 0,
+          "revised_count": 1,
+          "total_count": 4,
+          "last_reminded_at": "2026-06-08T10:30:00Z"
+        }
+      }
+    ],
+    "total": 1
+  }
+}
+```
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `confirmation_summary.pending_count` | int | 待确认数量 |
+| `confirmation_summary.confirmed_count` | int | 已确认数量 |
+| `confirmation_summary.rejected_count` | int | 已驳回数量 |
+| `confirmation_summary.revised_count` | int | 已修订数量 |
+| `confirmation_summary.total_count` | int | 确认单总数 |
+| `confirmation_summary.last_reminded_at` | string(RFC3339) | 该行程最近一次催办时间，与详情页口径一致 |
+
+## 行程列表新增查询参数
+
+`GET /api/v1/itineraries` 新增以下查询参数（与原有 `status`、`offset`、`limit` 兼容）：
+
+| 参数 | 类型 | 说明 |
+|------|------|------|
+| `has_pending` | bool | 按是否仍有 pending 或 revised 确认单过滤，`true`=仍有待确认、`false`=全部已确认或已驳回 |
+
+| 场景 | 行为 |
+|------|------|
+| `has_pending=true` | 只返回仍有 pending/revised 确认单的行程 |
+| `has_pending=false` | 只返回所有确认单均为 confirmed/rejected 的行程 |
+| 不传 `has_pending` | 不过滤，返回全部（与原有行为一致） |
 
 ## 催办接口
 
@@ -261,6 +311,12 @@ curl "http://localhost:3000/api/v1/confirmations?resource_type=vehicle&created_f
 
 ```bash
 curl http://localhost:3000/api/v1/itineraries/{id}
+```
+
+### 查询仍有待确认资源的行程
+
+```bash
+curl "http://localhost:3000/api/v1/itineraries?has_pending=true&offset=0&limit=10"
 ```
 
 ### 催办待确认资源
