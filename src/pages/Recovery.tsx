@@ -84,7 +84,7 @@ export default function Recovery() {
   const [flows, setFlows] = useState<Recovery[]>([])
   const [status, setStatus] = useState('')
   const [sort, setSort] = useState('wait')
-  const [waitChip, setWaitChip] = useState<'' | 'stuck' | 'warning'>('')
+  const [waitChip, setWaitChip] = useState<'' | 'stuck' | 'warning' | 'rejected'>('')
   const [loading, setLoading] = useState(true)
   const { user } = useAuthStore()
 
@@ -118,11 +118,16 @@ export default function Recovery() {
     () => flows.filter((f) => (f.status === 'pending_clean' || f.status === 'pending_inspect') && getWaitHours(f) > 12 && getWaitHours(f) <= 24).length,
     [flows],
   )
+  const rejectedCount = useMemo(
+    () => flows.filter((f) => (f.status === 'pending_clean' || f.status === 'pending_inspect') && f.last_reject_note).length,
+    [flows],
+  )
 
   const sortedFlows = useMemo(() => {
     const isActive = (f: Recovery) => f.status === 'pending_clean' || f.status === 'pending_inspect'
     const isStuck = (f: Recovery) => isActive(f) && getWaitHours(f) > 24
     const isWarning = (f: Recovery) => isActive(f) && getWaitHours(f) > 12 && getWaitHours(f) <= 24
+    const isRejected = (f: Recovery) => isActive(f) && !!f.last_reject_note
 
     let list = [...flows]
 
@@ -130,6 +135,8 @@ export default function Recovery() {
       list = list.filter(isStuck)
     } else if (waitChip === 'warning') {
       list = list.filter(isWarning)
+    } else if (waitChip === 'rejected') {
+      list = list.filter(isRejected)
     }
 
     if (sort === 'wait') {
@@ -157,6 +164,12 @@ export default function Recovery() {
           const aW = isWarning(a) ? 0 : 1
           const bW = isWarning(b) ? 0 : 1
           return aW - bW
+        })
+      } else if (waitChip === 'rejected') {
+        list.sort((a, b) => {
+          const aR = isRejected(a) ? 0 : 1
+          const bR = isRejected(b) ? 0 : 1
+          return aR - bR
         })
       }
     }
@@ -303,6 +316,22 @@ export default function Recovery() {
             waitChip === 'warning' ? 'bg-yellow-500/30 text-yellow-200' : 'bg-[#1e2230] text-[#4a4e5e]'
           }`}>
             {warningCount}
+          </span>
+        </button>
+        <button
+          onClick={() => setWaitChip(waitChip === 'rejected' ? '' : 'rejected')}
+          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium border transition-all ${
+            waitChip === 'rejected'
+              ? 'bg-red-500/20 text-red-300 border-red-500/50 shadow-[0_0_8px_rgba(239,68,68,0.15)]'
+              : 'bg-[#151822] text-[#6b7084] border-[#2a2f42] hover:border-red-500/30 hover:text-red-400'
+          }`}
+        >
+          <AlertTriangle size={11} />
+          被驳回
+          <span className={`px-1.5 py-0 rounded-full text-[10px] ${
+            waitChip === 'rejected' ? 'bg-red-500/30 text-red-200' : 'bg-[#1e2230] text-[#4a4e5e]'
+          }`}>
+            {rejectedCount}
           </span>
         </button>
       </div>
