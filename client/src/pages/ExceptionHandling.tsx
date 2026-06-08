@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react'
 import { exceptionAPI, statusLogAPI } from '../api'
-import type { Exception, StatusLog } from '../types'
+import type { Exception, StatusLog, Attachment } from '../types'
 import dayjs from 'dayjs'
 
 const statusColors: Record<string, string> = {
@@ -44,7 +44,7 @@ const exceptionTypeMap: Record<string, string> = {
 const exceptionTypeOptions = Object.entries(exceptionTypeMap)
 const severityOptions = ['high', 'medium', 'low']
 
-function Drawer({ open, onClose, children }: { open: boolean; onClose: () => void; children: React.ReactNode }) {
+function Drawer({ open, onClose: _onClose, children }: { open: boolean; onClose: () => void; children: React.ReactNode }) {
   if (!open) return null
   return (
     <div style={{
@@ -130,7 +130,8 @@ function StatusTimeline({ logs }: { logs: (StatusLog & { operatorName?: string }
       }} />
       {logs.map((log, idx) => {
         const isLast = idx === logs.length - 1
-        const dotColor = statusColors[log.toStatus] || '#718096'
+        const isStateChange = log.fromStatus !== log.toStatus && log.fromStatus !== ''
+        const dotColor = isStateChange ? (statusColors[log.toStatus] || '#718096') : '#4299e1'
         return (
           <div key={log.id} style={{ position: 'relative', marginBottom: isLast ? 0 : 18, paddingLeft: 20 }}>
             <div style={{
@@ -144,19 +145,25 @@ function StatusTimeline({ logs }: { logs: (StatusLog & { operatorName?: string }
               border: '2px solid #16213e',
             }} />
             <div style={{ color: '#e0e0e0', fontSize: 13, lineHeight: 1.5 }}>
-              <span style={{ color: dotColor, fontWeight: 600 }}>
-                {statusLabels[log.toStatus] || log.toStatus}
-              </span>
-              {log.fromStatus && log.fromStatus !== '' && (
-                <span style={{ color: '#718096' }}>
-                  {' '}← {statusLabels[log.fromStatus] || log.fromStatus}
+              {isStateChange ? (
+                <>
+                  <span style={{ color: dotColor, fontWeight: 600 }}>
+                    {statusLabels[log.toStatus] || log.toStatus}
+                  </span>
+                  <span style={{ color: '#718096' }}>
+                    {' '}← {statusLabels[log.fromStatus] || log.fromStatus}
+                  </span>
+                </>
+              ) : (
+                <span style={{ color: dotColor, fontWeight: 600 }}>
+                  {log.note || '状态更新'}
                 </span>
               )}
             </div>
             <div style={{ color: '#a0aec0', fontSize: 12, marginTop: 2 }}>
               {log.operatorName || log.operator} · {dayjs(log.operateTime).format('YYYY-MM-DD HH:mm')}
             </div>
-            {log.note && (
+            {isStateChange && log.note && (
               <div style={{ color: '#718096', fontSize: 12, marginTop: 2, fontStyle: 'italic' }}>{log.note}</div>
             )}
           </div>
@@ -176,6 +183,9 @@ export default function ExceptionHandling() {
   const [selectedException, setSelectedException] = useState<Exception | null>(null)
   const [statusLogs, setStatusLogs] = useState<(StatusLog & { operatorName?: string })[]>([])
 
+  const [showAttachInput, setShowAttachInput] = useState(false)
+  const [attachFilename, setAttachFilename] = useState('')
+
   const [showAction, setShowAction] = useState(false)
   const [actionType, setActionType] = useState('')
   const [actionNote, setActionNote] = useState('')
@@ -189,6 +199,8 @@ export default function ExceptionHandling() {
     severity: '',
     patrolId: '',
   })
+  const [createAttachments, setCreateAttachments] = useState<Attachment[]>([])
+  const [createAttachInput, setCreateAttachInput] = useState('')
 
   const userStr = localStorage.getItem('user')
   const currentUser = userStr ? JSON.parse(userStr) : null
@@ -232,6 +244,32 @@ export default function ExceptionHandling() {
     setShowAction(true)
   }
 
+  const refreshDrawerData = async (exceptionId: string) => {
+    const fresh = await exceptionAPI.get(exceptionId)
+    setSelectedException(fresh.data)
+    const logs = await statusLogAPI.list({ recordType: 'exception', recordId: exceptionId })
+    setStatusLogs(logs.data)
+  }
+
+  const handleAddAttachment = async () => {
+    if (!selectedException || !attachFilename.trim()) return
+    setSubmitting(true)
+    try {
+      await exceptionAPI.addAttachment(String(selectedException.id), {
+        filename: attachFilename.trim(),
+        uploader: currentUser?.username || '',
+      })
+      setAttachFilename('')
+      setShowAttachInput(false)
+      await refreshDrawerData(String(selectedException.id))
+      fetchExceptions()
+    } catch {
+      alert('添加附件失败')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
   const handleCreate = async () => {
     setSubmitting(true)
     try {
@@ -239,9 +277,12 @@ export default function ExceptionHandling() {
         ...createForm,
         submitter: currentUser?.username || '',
         patrolId: createForm.patrolId || undefined,
+        attachments: JSON.stringify(createAttachments),
       })
       setShowCreate(false)
       setCreateForm({ title: '', exceptionType: '', description: '', severity: '', patrolId: '' })
+      setCreateAttachments([])
+      setCreateAttachInput('')
       fetchExceptions()
     } catch {
       alert('提交失败')
@@ -264,14 +305,11 @@ export default function ExceptionHandling() {
       setShowAction(false)
       setActionNote('')
       setActionType('')
-      setSelectedException(null)
       fetchExceptions()
-      if (showDrawer && selectedException) {
-        const fresh = await exceptionAPI.get(String(selectedException.id))
-        setSelectedException(fresh.data)
-        const logs = await statusLogAPI.list({ recordType: 'exception', recordId: String(selectedException.id) })
-        setStatusLogs(logs.data)
+      if (showDrawer) {
+        await refreshDrawerData(String(selectedException.id))
       }
+      setSelectedException(null)
     } catch {
       alert('操作失败')
     } finally {
@@ -403,6 +441,7 @@ export default function ExceptionHandling() {
                 <th style={thStyle}>提交人</th>
                 <th style={thStyle}>处理人</th>
                 <th style={thStyle}>状态</th>
+                <th style={thStyle}>附件</th>
                 <th style={thStyle}>操作</th>
               </tr>
             </thead>
@@ -423,6 +462,24 @@ export default function ExceptionHandling() {
                     <td style={tdStyle}>{e.submitter}</td>
                     <td style={tdStyle}>{e.handler || '-'}</td>
                     <td style={tdStyle}><Badge status={e.status} /></td>
+                    <td style={tdStyle}>
+                      {(() => {
+                        const count = Array.isArray(e.attachments) ? e.attachments.length : 0
+                        if (count === 0) return <span style={{ color: '#718096' }}>-</span>
+                        return (
+                          <span style={{
+                            display: 'inline-block',
+                            padding: '2px 8px',
+                            borderRadius: 10,
+                            fontSize: 12,
+                            fontWeight: 600,
+                            color: '#fff',
+                            background: '#0f3460',
+                            border: '1px solid #1a3a6e',
+                          }}>{count}</span>
+                        )
+                      })()}
+                    </td>
                     <td style={tdStyle} onClick={(ev) => ev.stopPropagation()}>
                       {actionInfo ? (
                         <button style={btnSmall} onClick={() => openAction(e, actionInfo.action)}>
@@ -470,8 +527,61 @@ export default function ExceptionHandling() {
           <input type="text" value={createForm.patrolId} onChange={(e) => setCreateForm({ ...createForm, patrolId: e.target.value })} style={inputStyle} placeholder="选填" />
         </div>
         <div style={{ marginBottom: 20 }}>
-          <label style={labelStyle}>附件</label>
-          <div style={{ padding: '10px 14px', background: '#0f3460', borderRadius: 6, color: '#718096', fontSize: 14 }}>附件功能开发中</div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+            <label style={{ ...labelStyle, marginBottom: 0 }}>附件</label>
+            <button
+              style={{ ...btnSmall, background: '#0f3460', border: '1px solid #1a3a6e' }}
+              onClick={() => {
+                if (createAttachInput.trim()) {
+                  setCreateAttachments([...createAttachments, {
+                    filename: createAttachInput.trim(),
+                    uploader: currentUser?.username || '',
+                    uploadTime: dayjs().format('YYYY-MM-DD HH:mm:ss'),
+                    fileSize: Math.floor(Math.random() * 900 + 100) + 'KB',
+                  }])
+                  setCreateAttachInput('')
+                }
+              }}
+              disabled={!createAttachInput.trim()}
+            >+ 添加</button>
+          </div>
+          <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
+            <input
+              type="text"
+              value={createAttachInput}
+              onChange={(e) => setCreateAttachInput(e.target.value)}
+              placeholder="输入文件名，如：设备照片.jpg"
+              style={{ ...inputStyle, flex: 1 }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && createAttachInput.trim()) {
+                  setCreateAttachments([...createAttachments, {
+                    filename: createAttachInput.trim(),
+                    uploader: currentUser?.username || '',
+                    uploadTime: dayjs().format('YYYY-MM-DD HH:mm:ss'),
+                    fileSize: Math.floor(Math.random() * 900 + 100) + 'KB',
+                  }])
+                  setCreateAttachInput('')
+                }
+              }}
+            />
+          </div>
+          {createAttachments.length > 0 ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {createAttachments.map((att, idx) => (
+                <div key={idx} style={{
+                  display: 'flex', alignItems: 'center', gap: 8,
+                  padding: '6px 10px', background: '#0f3460', borderRadius: 6, border: '1px solid #1a3a6e',
+                }}>
+                  <span style={{ fontSize: 14 }}>📎</span>
+                  <span style={{ color: '#e0e0e0', fontSize: 13, flex: 1 }}>{att.filename}</span>
+                  <span style={{ color: '#718096', fontSize: 11 }}>{att.fileSize}</span>
+                  <button style={{ background: 'none', border: 'none', color: '#e94560', cursor: 'pointer', fontSize: 13 }} onClick={() => setCreateAttachments(createAttachments.filter((_, i) => i !== idx))}>✕</button>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div style={{ color: '#718096', fontSize: 13 }}>暂无附件，输入文件名即可添加占位记录</div>
+          )}
         </div>
         <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
           <button style={btnSecondary} onClick={() => setShowCreate(false)}>取消</button>
@@ -572,7 +682,67 @@ export default function ExceptionHandling() {
               </div>
             )}
 
-            <div style={{ marginTop: 8, paddingTop: 20, borderTop: '1px solid #0f3460' }}>
+            <div style={{ marginBottom: 20, paddingTop: 20, borderTop: '1px solid #0f3460' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                <div style={{ color: '#e0e0e0', fontSize: 14, fontWeight: 600 }}>
+                  附件 ({Array.isArray(selectedException.attachments) ? selectedException.attachments.length : 0})
+                </div>
+                <button
+                  style={{ ...btnSmall, background: '#0f3460', border: '1px solid #1a3a6e' }}
+                  onClick={() => setShowAttachInput(!showAttachInput)}
+                >
+                  {showAttachInput ? '取消' : '+ 添加附件'}
+                </button>
+              </div>
+
+              {showAttachInput && (
+                <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+                  <input
+                    type="text"
+                    value={attachFilename}
+                    onChange={(e) => setAttachFilename(e.target.value)}
+                    placeholder="输入文件名，如：设备照片.jpg"
+                    style={{ ...inputStyle, flex: 1 }}
+                    onKeyDown={(e) => { if (e.key === 'Enter' && attachFilename.trim()) handleAddAttachment() }}
+                  />
+                  <button
+                    style={btnPrimary}
+                    disabled={submitting || !attachFilename.trim()}
+                    onClick={handleAddAttachment}
+                  >
+                    {submitting ? '...' : '添加'}
+                  </button>
+                </div>
+              )}
+
+              {Array.isArray(selectedException.attachments) && selectedException.attachments.length > 0 ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {selectedException.attachments.map((att: Attachment, idx: number) => (
+                    <div key={idx} style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 10,
+                      padding: '8px 12px',
+                      background: '#0f3460',
+                      borderRadius: 6,
+                      border: '1px solid #1a3a6e',
+                    }}>
+                      <span style={{ fontSize: 16 }}>📎</span>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ color: '#e0e0e0', fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{att.filename}</div>
+                        <div style={{ color: '#718096', fontSize: 11, marginTop: 2 }}>
+                          {att.uploader} · {dayjs(att.uploadTime).format('YYYY-MM-DD HH:mm')} · {att.fileSize}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div style={{ color: '#718096', fontSize: 13 }}>暂无附件</div>
+              )}
+            </div>
+
+            <div style={{ paddingTop: 20, borderTop: '1px solid #0f3460' }}>
               <div style={{ color: '#e0e0e0', fontSize: 14, fontWeight: 600, marginBottom: 12 }}>
                 状态流转记录
               </div>

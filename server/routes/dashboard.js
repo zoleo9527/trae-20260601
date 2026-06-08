@@ -6,10 +6,19 @@ const auth = require('../middleware/auth');
 const router = express.Router();
 router.use(auth);
 
+function parseAttachments(row) {
+  if (!row) return row;
+  if (typeof row.attachments === 'string') {
+    try { row.attachments = JSON.parse(row.attachments); } catch { row.attachments = []; }
+  }
+  if (!Array.isArray(row.attachments)) row.attachments = [];
+  return row;
+}
+
 router.get('/', (req, res) => {
   const pendingPatrols = db.prepare("SELECT * FROM patrols WHERE status = 'pending' ORDER BY createdAt DESC").all();
 
-  const pendingExceptions = db.prepare("SELECT * FROM exceptions WHERE status IN ('pending', 'handling') ORDER BY createdAt DESC").all();
+  const pendingExceptions = db.prepare("SELECT * FROM exceptions WHERE status IN ('pending', 'handling') ORDER BY createdAt DESC").all().map(parseAttachments);
 
   const recentLogs = db.prepare(
     'SELECT sl.*, u.displayName as operatorName FROM status_logs sl LEFT JOIN users u ON sl.operator = u.username ORDER BY sl.operateTime DESC LIMIT 20'

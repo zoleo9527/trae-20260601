@@ -6,6 +6,15 @@ const auth = require('../middleware/auth');
 const router = express.Router();
 router.use(auth);
 
+function parseAttachments(row) {
+  if (!row) return row;
+  if (typeof row.attachments === 'string') {
+    try { row.attachments = JSON.parse(row.attachments); } catch { row.attachments = []; }
+  }
+  if (!Array.isArray(row.attachments)) row.attachments = [];
+  return row;
+}
+
 router.get('/', (req, res) => {
   const { status, type } = req.query;
   let sql = 'SELECT * FROM exceptions WHERE 1=1';
@@ -20,7 +29,7 @@ router.get('/', (req, res) => {
   }
   sql += ' ORDER BY createdAt DESC';
   const rows = db.prepare(sql).all(...params);
-  res.json(rows);
+  res.json(rows.map(parseAttachments));
 });
 
 router.get('/:id', (req, res) => {
@@ -28,7 +37,7 @@ router.get('/:id', (req, res) => {
   if (!row) {
     return res.status(404).json({ error: '异常记录不存在' });
   }
-  res.json(row);
+  res.json(parseAttachments(row));
 });
 
 router.post('/', (req, res) => {
@@ -45,7 +54,7 @@ router.post('/', (req, res) => {
   ).run('exception', result.lastInsertRowid, '', status, submitter, now, '提交异常记录');
 
   const row = db.prepare('SELECT * FROM exceptions WHERE id = ?').get(result.lastInsertRowid);
-  res.status(201).json(row);
+  res.status(201).json(parseAttachments(row));
 });
 
 router.put('/:id/handle', (req, res) => {
@@ -67,7 +76,7 @@ router.put('/:id/handle', (req, res) => {
   ).run('exception', req.params.id, fromStatus, 'handling', handler, now, '开始处理异常');
 
   const row = db.prepare('SELECT * FROM exceptions WHERE id = ?').get(req.params.id);
-  res.json(row);
+  res.json(parseAttachments(row));
 });
 
 router.put('/:id/resolve', (req, res) => {
@@ -89,7 +98,7 @@ router.put('/:id/resolve', (req, res) => {
   ).run('exception', req.params.id, fromStatus, 'resolved', exception.handler || req.user.username, now, '处理完成');
 
   const row = db.prepare('SELECT * FROM exceptions WHERE id = ?').get(req.params.id);
-  res.json(row);
+  res.json(parseAttachments(row));
 });
 
 router.put('/:id/confirm', (req, res) => {
@@ -111,7 +120,38 @@ router.put('/:id/confirm', (req, res) => {
   ).run('exception', req.params.id, fromStatus, 'confirmed', confirmer, now, '确认处理');
 
   const row = db.prepare('SELECT * FROM exceptions WHERE id = ?').get(req.params.id);
-  res.json(row);
+  res.json(parseAttachments(row));
+});
+
+router.post('/:id/attachments', (req, res) => {
+  const exception = db.prepare('SELECT * FROM exceptions WHERE id = ?').get(req.params.id);
+  if (!exception) {
+    return res.status(404).json({ error: '异常记录不存在' });
+  }
+
+  const { filename, uploader } = req.body;
+  if (!filename || !uploader) {
+    return res.status(400).json({ error: 'filename 和 uploader 为必填' });
+  }
+
+  const now = dayjs().format('YYYY-MM-DD HH:mm:ss');
+  const existing = JSON.parse(exception.attachments || '[]');
+  const newAttachment = {
+    filename,
+    uploader,
+    uploadTime: now,
+    fileSize: Math.floor(Math.random() * 900 + 100) + 'KB',
+  };
+  existing.push(newAttachment);
+
+  db.prepare('UPDATE exceptions SET attachments = ?, updatedAt = ? WHERE id = ?').run(JSON.stringify(existing), now, req.params.id);
+
+  db.prepare(
+    'INSERT INTO status_logs (recordType, recordId, fromStatus, toStatus, operator, operateTime, note) VALUES (?, ?, ?, ?, ?, ?, ?)'
+  ).run('exception', req.params.id, exception.status, exception.status, uploader, now, '添加附件: ' + filename);
+
+  const row = db.prepare('SELECT * FROM exceptions WHERE id = ?').get(req.params.id);
+  res.json(parseAttachments(row));
 });
 
 module.exports = router;

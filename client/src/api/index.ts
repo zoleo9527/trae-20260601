@@ -30,7 +30,7 @@ export const exceptionAPI = {
   list: (params?: Record<string, string>) =>
     api.get<Exception[]>('/api/exceptions', { params }),
   get: (id: string) => api.get<Exception>(`/api/exceptions/${id}`),
-  create: (data: Partial<Exception>) =>
+  create: (data: Record<string, unknown>) =>
     api.post<Exception>('/api/exceptions', data),
   handle: (id: string, data: Record<string, unknown>) =>
     api.put<Exception>(`/api/exceptions/${id}/handle`, data),
@@ -38,6 +38,8 @@ export const exceptionAPI = {
     api.put<Exception>(`/api/exceptions/${id}/resolve`, data),
   confirm: (id: string, data: Record<string, unknown>) =>
     api.put<Exception>(`/api/exceptions/${id}/confirm`, data),
+  addAttachment: (id: string, data: { filename: string; uploader: string }) =>
+    api.post<Exception>(`/api/exceptions/${id}/attachments`, data),
 }
 
 export const handoverAPI = {

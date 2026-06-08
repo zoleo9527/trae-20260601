@@ -19,6 +19,13 @@ export interface Patrol {
   updatedAt: string
 }
 
+export interface Attachment {
+  filename: string
+  uploader: string
+  uploadTime: string
+  fileSize: string
+}
+
 export interface Exception {
   id: string
   patrolId?: string
@@ -34,7 +41,7 @@ export interface Exception {
   confirmer?: string
   confirmTime?: string
   status: string
-  attachments: string[]
+  attachments: Attachment[]
   createdAt: string
   updatedAt: string
 }
