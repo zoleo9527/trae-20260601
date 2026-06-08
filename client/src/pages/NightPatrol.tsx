@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
-import { patrolAPI, exceptionAPI } from '../api'
-import type { Patrol } from '../types'
+import { patrolAPI, exceptionAPI, statusLogAPI } from '../api'
+import type { Patrol, StatusLog } from '../types'
 import dayjs from 'dayjs'
 
 const statusColors: Record<string, string> = {
@@ -28,6 +28,43 @@ function Badge({ status }: { status: string }) {
 }
 
 const areaOptions = ['A区大厅', 'B区包间', 'C区赛事区', 'D区外设区']
+
+function Drawer({ open, children }: { open: boolean; children: React.ReactNode }) {
+  if (!open) return null
+  return (
+    <div style={{
+      position: 'fixed',
+      top: 0,
+      right: 0,
+      bottom: 0,
+      width: 520,
+      background: '#16213e',
+      boxShadow: '-4px 0 24px rgba(0,0,0,0.4)',
+      zIndex: 1001,
+      display: 'flex',
+      flexDirection: 'column',
+    }}>
+      <div style={{ flex: 1, overflowY: 'auto', padding: '28px 24px' }}>
+        {children}
+      </div>
+    </div>
+  )
+}
+
+function DrawerOverlay({ open, onClose }: { open: boolean; onClose: () => void }) {
+  if (!open) return null
+  return (
+    <div style={{
+      position: 'fixed',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      background: 'rgba(0,0,0,0.45)',
+      zIndex: 1000,
+    }} onClick={onClose} />
+  )
+}
 
 function Modal({ open, onClose, children }: { open: boolean; onClose: () => void; children: React.ReactNode }) {
   if (!open) return null
@@ -58,21 +95,76 @@ function Modal({ open, onClose, children }: { open: boolean; onClose: () => void
   )
 }
 
+function StatusTimeline({ logs }: { logs: (StatusLog & { operatorName?: string })[] }) {
+  if (logs.length === 0) {
+    return <div style={{ color: '#718096', fontSize: 13, padding: '8px 0' }}>暂无流转记录</div>
+  }
+
+  return (
+    <div style={{ position: 'relative', paddingLeft: 24, marginTop: 8 }}>
+      <div style={{
+        position: 'absolute',
+        left: 7,
+        top: 6,
+        bottom: 6,
+        width: 2,
+        background: '#0f3460',
+      }} />
+      {logs.map((log, idx) => {
+        const isLast = idx === logs.length - 1
+        const dotColor = statusColors[log.toStatus] || '#718096'
+        return (
+          <div key={log.id} style={{ position: 'relative', marginBottom: isLast ? 0 : 18, paddingLeft: 20 }}>
+            <div style={{
+              position: 'absolute',
+              left: -20,
+              top: 5,
+              width: 10,
+              height: 10,
+              borderRadius: '50%',
+              background: dotColor,
+              border: '2px solid #16213e',
+            }} />
+            <div style={{ color: '#e0e0e0', fontSize: 13, lineHeight: 1.5 }}>
+              <span style={{ color: dotColor, fontWeight: 600 }}>
+                {statusLabels[log.toStatus] || log.toStatus}
+              </span>
+              {log.fromStatus && log.fromStatus !== '' && (
+                <span style={{ color: '#718096' }}>
+                  {' '}← {statusLabels[log.fromStatus] || log.fromStatus}
+                </span>
+              )}
+            </div>
+            <div style={{ color: '#a0aec0', fontSize: 12, marginTop: 2 }}>
+              {log.operatorName || log.operator} · {dayjs(log.operateTime).format('YYYY-MM-DD HH:mm')}
+            </div>
+            {log.note && (
+              <div style={{ color: '#718096', fontSize: 12, marginTop: 2, fontStyle: 'italic' }}>{log.note}</div>
+            )}
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
 export default function NightPatrol() {
   const [patrols, setPatrols] = useState<Patrol[]>([])
   const [loading, setLoading] = useState(true)
   const [filterStatus, setFilterStatus] = useState('')
   const [filterDate, setFilterDate] = useState('')
 
+  const [showDrawer, setShowDrawer] = useState(false)
+  const [selectedPatrol, setSelectedPatrol] = useState<Patrol | null>(null)
+  const [statusLogs, setStatusLogs] = useState<(StatusLog & { operatorName?: string })[]>([])
+
   const [showCreate, setShowCreate] = useState(false)
   const [showConfirm, setShowConfirm] = useState(false)
-  const [showDetail, setShowDetail] = useState(false)
-  const [selectedPatrol, setSelectedPatrol] = useState<Patrol | null>(null)
-
-  const [createForm, setCreateForm] = useState({ patrolDate: '', area: '', notes: '' })
   const [confirmResult, setConfirmResult] = useState('')
   const [confirmNote, setConfirmNote] = useState('')
   const [submitting, setSubmitting] = useState(false)
+
+  const [createForm, setCreateForm] = useState({ patrolDate: '', area: '', notes: '' })
 
   const fetchPatrols = () => {
     setLoading(true)
@@ -91,6 +183,23 @@ export default function NightPatrol() {
 
   const userStr = localStorage.getItem('user')
   const currentUser = userStr ? JSON.parse(userStr) : null
+
+  const openDrawer = async (patrol: Patrol) => {
+    setSelectedPatrol(patrol)
+    setShowDrawer(true)
+    try {
+      const res = await statusLogAPI.list({ recordType: 'patrol', recordId: String(patrol.id) })
+      setStatusLogs(res.data)
+    } catch {
+      setStatusLogs([])
+    }
+  }
+
+  const closeDrawer = () => {
+    setShowDrawer(false)
+    setSelectedPatrol(null)
+    setStatusLogs([])
+  }
 
   const handleCreate = async () => {
     setSubmitting(true)
@@ -129,8 +238,16 @@ export default function NightPatrol() {
       }
       setConfirmResult('')
       setConfirmNote('')
-      setSelectedPatrol(null)
       fetchPatrols()
+      if (showDrawer && selectedPatrol) {
+        const fresh = await patrolAPI.get(String(selectedPatrol.id))
+        setSelectedPatrol(fresh.data)
+        const logs = await statusLogAPI.list({ recordType: 'patrol', recordId: String(selectedPatrol.id) })
+        setStatusLogs(logs.data)
+      }
+      if (!showDrawer) {
+        setSelectedPatrol(null)
+      }
     } catch {
       alert('确认失败')
     } finally {
@@ -141,11 +258,6 @@ export default function NightPatrol() {
   const openConfirm = (patrol: Patrol) => {
     setSelectedPatrol(patrol)
     setShowConfirm(true)
-  }
-
-  const openDetail = (patrol: Patrol) => {
-    setSelectedPatrol(patrol)
-    setShowDetail(true)
   }
 
   const thStyle: React.CSSProperties = {
@@ -204,6 +316,17 @@ export default function NightPatrol() {
     fontSize: 14,
   }
 
+  const detailLabelStyle: React.CSSProperties = {
+    color: '#a0aec0',
+    fontSize: 12,
+    marginBottom: 2,
+  }
+
+  const detailValueStyle: React.CSSProperties = {
+    color: '#e0e0e0',
+    fontSize: 14,
+  }
+
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, flexWrap: 'wrap', gap: 12 }}>
@@ -241,20 +364,20 @@ export default function NightPatrol() {
             </thead>
             <tbody>
               {patrols.map((p, idx) => (
-                <tr key={p.id} style={{ background: idx % 2 === 0 ? '#16213e' : '#1a2744', cursor: 'pointer' }} onClick={() => openDetail(p)}>
+                <tr key={p.id} style={{ background: idx % 2 === 0 ? '#16213e' : '#1a2744', cursor: 'pointer' }} onClick={() => openDrawer(p)}>
                   <td style={tdStyle}>{dayjs(p.patrolDate).format('YYYY-MM-DD')}</td>
                   <td style={tdStyle}>{p.area}</td>
                   <td style={tdStyle}>{p.submitter}</td>
                   <td style={tdStyle}>{dayjs(p.submitTime).format('YYYY-MM-DD HH:mm')}</td>
                   <td style={tdStyle}><Badge status={p.status} /></td>
                   <td style={tdStyle}>{p.confirmer || '-'}</td>
-                  <td style={tdStyle}>
+                  <td style={tdStyle} onClick={(ev) => ev.stopPropagation()}>
                     {p.status === 'pending' && (
-                      <button style={{ ...btnPrimary, padding: '4px 12px', fontSize: 12 }} onClick={(e) => { e.stopPropagation(); openConfirm(p) }}>
+                      <button style={{ ...btnPrimary, padding: '4px 12px', fontSize: 12 }} onClick={() => openConfirm(p)}>
                         确认
                       </button>
                     )}
-                    <button style={{ ...btnSecondary, padding: '4px 12px', fontSize: 12, marginLeft: 6 }} onClick={(e) => { e.stopPropagation(); openDetail(p) }}>
+                    <button style={{ ...btnSecondary, padding: '4px 12px', fontSize: 12, marginLeft: p.status === 'pending' ? 6 : 0 }} onClick={() => openDrawer(p)}>
                       详情
                     </button>
                   </td>
@@ -312,35 +435,62 @@ export default function NightPatrol() {
         </div>
       </Modal>
 
-      <Modal open={showDetail && !!selectedPatrol} onClose={() => { setShowDetail(false); setSelectedPatrol(null) }}>
+      <DrawerOverlay open={showDrawer} onClose={closeDrawer} />
+      <Drawer open={showDrawer}>
         {selectedPatrol && (
           <>
-            <h3 style={{ color: '#e0e0e0', marginBottom: 20 }}>巡场详情</h3>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
-              {[
-                ['日期', dayjs(selectedPatrol.patrolDate).format('YYYY-MM-DD')],
-                ['区域', selectedPatrol.area],
-                ['提交人', selectedPatrol.submitter],
-                ['提交时间', dayjs(selectedPatrol.submitTime).format('YYYY-MM-DD HH:mm')],
-                ['状态', selectedPatrol.status],
-                ['确认人', selectedPatrol.confirmer || '-'],
-                ['确认时间', selectedPatrol.confirmTime ? dayjs(selectedPatrol.confirmTime).format('YYYY-MM-DD HH:mm') : '-'],
-              ].map(([label, value]) => (
-                <div key={label}>
-                  <div style={{ color: '#a0aec0', fontSize: 13, marginBottom: 2 }}>{label}</div>
-                  <div style={{ color: '#e0e0e0', fontSize: 14 }}>{value}</div>
-                </div>
-              ))}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+              <h3 style={{ color: '#e0e0e0', fontSize: 18, margin: 0 }}>巡场详情</h3>
+              <button onClick={closeDrawer} style={{ background: 'none', border: 'none', color: '#a0aec0', fontSize: 20, cursor: 'pointer', padding: '0 4px' }}>✕</button>
             </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 24 }}>
+              <div>
+                <div style={detailLabelStyle}>巡场日期</div>
+                <div style={detailValueStyle}>{dayjs(selectedPatrol.patrolDate).format('YYYY-MM-DD')}</div>
+              </div>
+              <div>
+                <div style={detailLabelStyle}>巡场区域</div>
+                <div style={detailValueStyle}>{selectedPatrol.area}</div>
+              </div>
+              <div>
+                <div style={detailLabelStyle}>提交人</div>
+                <div style={detailValueStyle}>{selectedPatrol.submitter}</div>
+              </div>
+              <div>
+                <div style={detailLabelStyle}>提交时间</div>
+                <div style={detailValueStyle}>{dayjs(selectedPatrol.submitTime).format('YYYY-MM-DD HH:mm')}</div>
+              </div>
+              <div>
+                <div style={detailLabelStyle}>当前状态</div>
+                <div><Badge status={selectedPatrol.status} /></div>
+              </div>
+              <div>
+                <div style={detailLabelStyle}>确认人</div>
+                <div style={detailValueStyle}>{selectedPatrol.confirmer || '-'}</div>
+              </div>
+              <div>
+                <div style={detailLabelStyle}>确认时间</div>
+                <div style={detailValueStyle}>{selectedPatrol.confirmTime ? dayjs(selectedPatrol.confirmTime).format('YYYY-MM-DD HH:mm') : '-'}</div>
+              </div>
+            </div>
+
             {selectedPatrol.notes && (
-              <div style={{ marginTop: 14 }}>
-                <div style={{ color: '#a0aec0', fontSize: 13, marginBottom: 2 }}>备注</div>
-                <div style={{ color: '#e0e0e0', fontSize: 14 }}>{selectedPatrol.notes}</div>
+              <div style={{ marginBottom: 20 }}>
+                <div style={detailLabelStyle}>备注</div>
+                <div style={{ ...detailValueStyle, lineHeight: 1.6 }}>{selectedPatrol.notes}</div>
               </div>
             )}
+
+            <div style={{ marginTop: 8, paddingTop: 20, borderTop: '1px solid #0f3460' }}>
+              <div style={{ color: '#e0e0e0', fontSize: 14, fontWeight: 600, marginBottom: 12 }}>
+                状态流转记录
+              </div>
+              <StatusTimeline logs={statusLogs} />
+            </div>
           </>
         )}
-      </Modal>
+      </Drawer>
     </div>
   )
 }
