@@ -7,7 +7,8 @@ import { evidenceData } from '@/data/mock'
 import { SeverityBadge, CategoryBadge, LiabilityStatusBadge } from '@/components/Badges'
 import SubmitDeterminationModal from '@/components/SubmitDeterminationModal'
 import ReturnRedeterminationModal from '@/components/ReturnRedeterminationModal'
-import type { LiabilityParty } from '@/types'
+import AddEvidenceModal from '@/components/AddEvidenceModal'
+import type { LiabilityParty, EvidenceSource } from '@/types'
 
 export default function LiabilityDetail() {
   const { id } = useParams()
@@ -15,6 +16,7 @@ export default function LiabilityDetail() {
   const { state, dispatch } = useAppState()
   const [submitModalOpen, setSubmitModalOpen] = useState(false)
   const [returnModalOpen, setReturnModalOpen] = useState(false)
+  const [addEvidenceModalOpen, setAddEvidenceModalOpen] = useState(false)
 
   const record = state.liabilityRecords.find(r => r.id === id)
 
@@ -28,7 +30,11 @@ export default function LiabilityDetail() {
   }
 
   const relatedDamage = state.damageRecords.find(d => d.id === record.damageId)
-  const relatedEvidence = evidenceData.filter(e => record.evidenceIds.includes(e.id))
+  const staticEvidence = evidenceData.filter(e => record.evidenceIds.includes(e.id))
+  const userEvidence = relatedDamage
+    ? relatedDamage.evidenceChain.filter(e => e.id.startsWith('ev-usr-'))
+    : []
+  const relatedEvidence = [...staticEvidence, ...userEvidence]
 
   function handleSubmitDetermination(data: { responsibleParty: LiabilityParty; responsibleDetail: string; basis: string }) {
     dispatch({
@@ -246,7 +252,12 @@ export default function LiabilityDetail() {
                   更新认定
                 </button>
               )}
-              <button className="btn-secondary w-full justify-center">补充证据</button>
+              <button
+                className="btn-secondary w-full justify-center"
+                onClick={() => setAddEvidenceModalOpen(true)}
+              >
+                补充证据
+              </button>
               {(record.status === '已认定' || record.status === '已退回') && (
                 <button
                   className="btn-secondary w-full justify-center"
@@ -299,6 +310,17 @@ export default function LiabilityDetail() {
         open={returnModalOpen}
         onClose={() => setReturnModalOpen(false)}
         onSubmit={handleReturnLiability}
+      />
+
+      <AddEvidenceModal
+        open={addEvidenceModalOpen}
+        onClose={() => setAddEvidenceModalOpen(false)}
+        onSubmit={(evidence: Omit<EvidenceSource, 'id'>) => {
+          dispatch({
+            type: 'ADD_EVIDENCE',
+            payload: { liabilityId: record!.id, evidence },
+          })
+        }}
       />
     </div>
   )

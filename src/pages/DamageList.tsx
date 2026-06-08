@@ -5,6 +5,7 @@ import clsx from 'clsx'
 import { useAppState } from '@/context/AppContext'
 import { SeverityBadge, StatusBadge, CategoryBadge } from '@/components/Badges'
 import EmptyState from '@/components/EmptyState'
+import NewDamageModal from '@/components/NewDamageModal'
 import type { DamageStatus, DamageCategory, DamageSeverity } from '@/types'
 
 const statusFilters: (DamageStatus | '全部')[] = ['全部', '待处理', '处理中', '待认定', '已认定', '已关闭']
@@ -13,13 +14,14 @@ const severityFilters: (DamageSeverity | '全部')[] = ['全部', '轻微', '一
 
 export default function DamageList() {
   const navigate = useNavigate()
-  const { state } = useAppState()
+  const { state, dispatch } = useAppState()
   const damageRecords = state.damageRecords
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<DamageStatus | '全部'>('全部')
   const [categoryFilter, setCategoryFilter] = useState<DamageCategory | '全部'>('全部')
   const [severityFilter, setSeverityFilter] = useState<DamageSeverity | '全部'>('全部')
   const [showFilters, setShowFilters] = useState(false)
+  const [newDamageModalOpen, setNewDamageModalOpen] = useState(false)
 
   const filtered = damageRecords.filter(r => {
     if (statusFilter !== '全部' && r.status !== statusFilter) return false
@@ -36,7 +38,7 @@ export default function DamageList() {
           <h1 className="text-xl font-bold text-surface-900">异常货损</h1>
           <p className="text-sm text-surface-500 mt-1">查看和处理所有异常货损记录，确保货损与责任认定之间信息可追溯</p>
         </div>
-        <button className="btn-primary">
+        <button className="btn-primary" onClick={() => setNewDamageModalOpen(true)}>
           <Plus className="w-4 h-4" />
           新增记录
         </button>
@@ -166,6 +168,14 @@ export default function DamageList() {
           </div>
         )}
       </div>
+
+      <NewDamageModal
+        open={newDamageModalOpen}
+        onClose={() => setNewDamageModalOpen(false)}
+        onSubmit={data => {
+          dispatch({ type: 'ADD_DAMAGE', payload: data })
+        }}
+      />
     </div>
   )
 }

@@ -6,6 +6,7 @@ import { useAppState } from '@/context/AppContext'
 import { evidenceData } from '@/data/mock'
 import { SeverityBadge, StatusBadge, CategoryBadge } from '@/components/Badges'
 import UpdateDamageStatusModal from '@/components/UpdateDamageStatusModal'
+import NewLiabilityModal from '@/components/NewLiabilityModal'
 import type { EvidenceSource, DamageStatus } from '@/types'
 
 const evidenceIcons: Record<EvidenceSource['type'], React.ReactNode> = {
@@ -31,6 +32,7 @@ export default function DamageDetail() {
   const navigate = useNavigate()
   const { state, dispatch } = useAppState()
   const [statusModalOpen, setStatusModalOpen] = useState(false)
+  const [newLiabilityModalOpen, setNewLiabilityModalOpen] = useState(false)
 
   const record = state.damageRecords.find(r => r.id === id)
 
@@ -217,7 +219,12 @@ export default function DamageDetail() {
                 更新处理状态
               </button>
               {!record.liabilityId && (
-                <button className="btn-secondary w-full justify-center">发起责任认定</button>
+                <button
+                  className="btn-secondary w-full justify-center"
+                  onClick={() => setNewLiabilityModalOpen(true)}
+                >
+                  发起责任认定
+                </button>
               )}
               <button className="btn-secondary w-full justify-center">补充证据</button>
             </div>
@@ -254,6 +261,28 @@ export default function DamageDetail() {
         onClose={() => setStatusModalOpen(false)}
         onSubmit={handleStatusUpdate}
         currentStatus={record.status}
+      />
+
+      <NewLiabilityModal
+        open={newLiabilityModalOpen}
+        onClose={() => setNewLiabilityModalOpen(false)}
+        onSubmit={() => {
+          dispatch({
+            type: 'ADD_LIABILITY',
+            payload: {
+              damageId: record!.id,
+              awb: record!.awb,
+              flightNo: record!.flightNo,
+              category: record!.category,
+              severity: record!.severity,
+            },
+          })
+          setNewLiabilityModalOpen(false)
+        }}
+        awb={record.awb}
+        flightNo={record.flightNo}
+        category={record.category}
+        severity={record.severity}
       />
     </div>
   )
