@@ -495,6 +495,13 @@ export default function VerificationReview({ role }) {
 
             <div className="mb-4">
               <label>复核意见</label>
+              {reviewModal.result === 'rejected' && (
+                <div className="flex flex-wrap gap-2 mb-2">
+                  <button className="btn btn-outline !py-1 !px-2.5 !text-xs" onClick={() => setReviewModal(p => ({ ...p, opinion: '危险品资料缺失，需补充《危险货物托运人资质证书》及安全技术说明书(MSDS)' }))}>危险品资料缺失需补充MSDS</button>
+                  <button className="btn btn-outline !py-1 !px-2.5 !text-xs" onClick={() => setReviewModal(p => ({ ...p, opinion: '重量与货品明细不一致，需重新过磅确认实际重量' }))}>重量不一致需重新过磅</button>
+                  <button className="btn btn-outline !py-1 !px-2.5 !text-xs" onClick={() => setReviewModal(p => ({ ...p, opinion: '到站信息变更，需重新核实路径及正确到站名称' }))}>到站信息变更需重新核实</button>
+                </div>
+              )}
               <textarea
                 rows={3}
                 value={reviewModal.opinion}
