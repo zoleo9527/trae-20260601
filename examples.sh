@@ -289,3 +289,54 @@ echo "【9b】客服(customer_service)待办视图"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 curl -s "${BASE}/pending-tasks?role=customer_service" | python3 -m json.tool 2>/dev/null
 echo ""
+
+# ============================================
+# 新增：待办聚合摘要、待办筛选、卡单交接链
+# ============================================
+echo "============================================"
+echo "📋  待办聚合 / 长期滞留筛选 / 卡单交接链"
+echo "============================================"
+echo ""
+
+# ============================================
+# 10. 待办聚合摘要
+# ============================================
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "【10】待办聚合摘要（按 role + entityType）"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+curl -s "${BASE}/pending-tasks/summary" | python3 -m json.tool 2>/dev/null
+echo ""
+
+# ============================================
+# 11. 待办筛选：仅被卡单阻断的待办
+# ============================================
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "【11】被卡单阻断的待办（blockedOnly=true）"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+curl -s "${BASE}/pending-tasks?role=customer_service&blockedOnly=true" | python3 -m json.tool 2>/dev/null
+echo ""
+
+# ============================================
+# 11a. 待办筛选：停留超过0小时的
+# ============================================
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "【11a】停留超过0小时的待办（minDwellHours=0）"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+curl -s "${BASE}/pending-tasks?role=loading_leader&minDwellHours=0" | python3 -m json.tool 2>/dev/null
+echo ""
+
+# ============================================
+# 12. 卡单交接链（需先获取一个卡单ID）
+# ============================================
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "【12】卡单交接链（获取卡单的完整交接留痕）"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+STUCK_LIST=$(curl -s "${BASE}/stuck-orders")
+STUCK_ID=$(echo "$STUCK_LIST" | python3 -c "import sys,json; items=json.load(sys.stdin); print(items[0]['id'] if items else '')" 2>/dev/null)
+if [ -n "$STUCK_ID" ]; then
+  echo "卡单ID: $STUCK_ID"
+  curl -s "${BASE}/stuck-orders/${STUCK_ID}/trail" | python3 -m json.tool 2>/dev/null
+else
+  echo "(当前无活跃卡单，跳过 trail 测试)"
+fi
+echo ""

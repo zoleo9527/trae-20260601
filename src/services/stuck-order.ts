@@ -1,10 +1,12 @@
 import { store } from '../store';
+import { handoverService } from './handover';
 import {
   StuckOrder,
   StuckType,
   StuckSeverity,
   StuckFilterParams,
   StuckSummaryItem,
+  HandoverRecord,
   STUCK_THRESHOLDS,
   LoadingPlanStatus,
   WagonAllocationStatus,
@@ -301,6 +303,19 @@ export class StuckOrderService {
     });
 
     return summaryItems;
+  }
+
+  getTrail(stuckId: string): { stuck: StuckOrder; trail: HandoverRecord[] } | null {
+    const stuck = store.stuckOrders.get(stuckId);
+    if (!stuck) return null;
+
+    const records = handoverService.getRecordsForEntity(stuck.entityType, stuck.entityId);
+
+    const trail = [...records].sort(
+      (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+    );
+
+    return { stuck, trail };
   }
 }
 

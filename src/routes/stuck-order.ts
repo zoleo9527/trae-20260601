@@ -76,6 +76,26 @@ router.get('/', (req: Request, res: Response) => {
 });
 
 /**
+ * GET /api/stuck-orders/:id/trail
+ *
+ * 返回该卡单所关联实体的交接记录链
+ * 按时间倒序展示谁在何时执行了哪种动作和角色流转
+ *
+ * Response: { stuck: StuckOrder, trail: HandoverRecord[] }
+ */
+router.get('/:id/trail', (req: Request, res: Response) => {
+  const { id } = req.params;
+  const result = stuckOrderService.getTrail(id);
+
+  if (!result) {
+    res.status(404).json({ error: '卡单不存在' });
+    return;
+  }
+
+  res.json(result);
+});
+
+/**
  * GET /api/stuck-orders/:entityType/:entityId
  *
  * 查询指定实体的卡单

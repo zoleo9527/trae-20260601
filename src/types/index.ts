@@ -218,6 +218,19 @@ export interface PendingTaskItem {
   relatedStuckOrders: StuckOrder[];
 }
 
+export interface PendingTaskSummaryItem {
+  role: Role;
+  entityType: 'loading_plan' | 'wagon_allocation' | 'arrival_notice' | 'damage_record';
+  count: number;
+  maxDwellHours: number;
+  blockedCount: number;
+}
+
+export interface PendingTaskFilterParams {
+  minDwellHours?: number;
+  blockedOnly?: boolean;
+}
+
 export interface ResolveStuckRequest {
   resolution: string;
 }

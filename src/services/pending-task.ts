@@ -4,6 +4,8 @@ import { stuckOrderService } from './stuck-order';
 import {
   Role,
   PendingTaskItem,
+  PendingTaskSummaryItem,
+  PendingTaskFilterParams,
   HandoverAction,
   LoadingPlanStatus,
   WagonAllocationStatus,
@@ -11,7 +13,7 @@ import {
 } from '../types';
 
 export class PendingTaskService {
-  getByRole(role: Role): PendingTaskItem[] {
+  getByRole(role: Role, filter?: PendingTaskFilterParams): PendingTaskItem[] {
     stuckOrderService.scanAll();
 
     const tasks: PendingTaskItem[] = [];
@@ -142,13 +144,61 @@ export class PendingTaskService {
       });
     }
 
-    tasks.sort((a, b) => {
+    let filtered = tasks;
+
+    if (filter?.minDwellHours !== undefined) {
+      filtered = filtered.filter((t) => t.dwellHours >= filter.minDwellHours!);
+    }
+
+    if (filter?.blockedOnly) {
+      filtered = filtered.filter((t) => t.blockingReason !== null);
+    }
+
+    filtered.sort((a, b) => {
       if (a.blockingReason && !b.blockingReason) return -1;
       if (!a.blockingReason && b.blockingReason) return 1;
       return a.dwellHours - b.dwellHours > 0 ? -1 : 1;
     });
 
-    return tasks;
+    return filtered;
+  }
+
+  summary(): PendingTaskSummaryItem[] {
+    stuckOrderService.scanAll();
+
+    const allRoles: Role[] = [Role.FreightClerk, Role.LoadingLeader, Role.CustomerService];
+    const entityTypes: Array<'loading_plan' | 'wagon_allocation' | 'arrival_notice' | 'damage_record'> = [
+      'loading_plan',
+      'wagon_allocation',
+      'arrival_notice',
+      'damage_record',
+    ];
+
+    const items: PendingTaskSummaryItem[] = [];
+
+    for (const role of allRoles) {
+      const tasks = this.getByRole(role);
+
+      for (const et of entityTypes) {
+        const group = tasks.filter((t) => t.entityType === et);
+        if (group.length === 0) continue;
+
+        items.push({
+          role,
+          entityType: et,
+          count: group.length,
+          maxDwellHours: Math.max(...group.map((t) => t.dwellHours)),
+          blockedCount: group.filter((t) => t.blockingReason !== null).length,
+        });
+      }
+    }
+
+    items.sort((a, b) => {
+      if (a.blockedCount !== b.blockedCount) return b.blockedCount - a.blockedCount;
+      return b.maxDwellHours - a.maxDwellHours;
+    });
+
+    return items;
   }
 }
 
