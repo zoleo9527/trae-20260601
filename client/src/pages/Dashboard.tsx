@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Plus, RefreshCw, AlertTriangle, Clock, CheckCircle, Users, Truck, ArrowUpDown } from 'lucide-react';
-import type { User, Complaint, ComplaintStatus } from '../types';
-import { fetchComplaints, createComplaint, resetData } from '../api';
+import { Plus, RefreshCw, AlertTriangle, Clock, CheckCircle, Users, Truck, ArrowUpDown, UserCheck, ChevronRight } from 'lucide-react';
+import type { User, Complaint, ComplaintStatus, Role } from '../types';
+import { fetchComplaints, fetchUsers, createComplaint, resetData } from '../api';
 import StatusBadge from '../components/StatusBadge';
 import SeverityBadge from '../components/SeverityBadge';
 import CreateComplaintModal from '../components/CreateComplaintModal';
@@ -14,6 +14,13 @@ interface DashboardProps {
 type SortMode = 'newest' | 'severity';
 
 const SEVERITY_ORDER: Record<string, number> = { urgent: 0, high: 1, medium: 2, low: 3 };
+
+const ROLE_LABELS: Record<Role, string> = {
+  operator: '计调',
+  guide: '导游',
+  fleet: '车队调度',
+  supervisor: '主管',
+};
 
 const STATUS_STATS: { status: ComplaintStatus; label: string; icon: React.ReactNode; color: string }[] = [
   { status: 'registered', label: '已登记', icon: <Clock className="w-4 h-4" />, color: 'text-blue-600' },
@@ -46,6 +53,8 @@ export default function Dashboard({ user, onSelectComplaint }: DashboardProps) {
   const [sortMode, setSortMode] = useState<SortMode>('newest');
   const [showCreate, setShowCreate] = useState(false);
   const [creating, setCreating] = useState(false);
+  const [drillDownUserId, setDrillDownUserId] = useState<string | null>(null);
+  const [allUsers, setAllUsers] = useState<User[]>([]);
 
   const loadComplaints = useCallback(async () => {
     try {
@@ -53,8 +62,9 @@ export default function Dashboard({ user, onSelectComplaint }: DashboardProps) {
       const filters: { status?: string; overdue?: boolean } = {};
       if (statusFilter !== 'all') filters.status = statusFilter;
       if (overdueOnly) filters.overdue = true;
-      const data = await fetchComplaints(filters);
+      const [data, users] = await Promise.all([fetchComplaints(filters), fetchUsers()]);
       setComplaints(data);
+      setAllUsers(users);
     } catch (err) {
       console.error('加载投诉列表失败', err);
     } finally {
@@ -107,6 +117,21 @@ export default function Dashboard({ user, onSelectComplaint }: DashboardProps) {
     count: complaints.filter((c) => c.status === s.status).length,
   }));
 
+  const assigneeUsers = allUsers.filter((u) => u.role === 'guide' || u.role === 'fleet');
+  const assigneeStats = assigneeUsers.map((u) => {
+    const userComplaints = complaints.filter((c) => c.assignedTo === u.id && c.status !== 'closed');
+    const overdueComplaints = userComplaints.filter(isOverdue);
+    return {
+      user: u,
+      activeCount: userComplaints.length,
+      overdueCount: overdueComplaints.length,
+    };
+  }).filter((s) => s.activeCount > 0);
+
+  const displayComplaints = drillDownUserId
+    ? sorted.filter((c) => c.assignedTo === drillDownUserId)
+    : sorted;
+
   return (
     <div className="p-4 sm:p-6 max-w-6xl mx-auto">
       <div className="flex items-center justify-between mb-6">
@@ -155,6 +180,55 @@ export default function Dashboard({ user, onSelectComplaint }: DashboardProps) {
         )}
       </div>
 
+      {drillDownUserId && (
+        <div className="mb-4 flex items-center gap-2">
+          <button
+            onClick={() => setDrillDownUserId(null)}
+            className="text-sm text-slate-600 hover:text-slate-800 flex items-center gap-1"
+          >
+            ← 返回全部投诉
+          </button>
+          <span className="text-sm text-slate-400">|</span>
+          <span className="text-sm text-slate-700 font-medium">
+            {allUsers.find((u) => u.id === drillDownUserId)?.name} 的在办投诉
+          </span>
+        </div>
+      )}
+
+      {assigneeStats.length > 0 && (user.role === 'supervisor' || user.role === 'operator') && !drillDownUserId && (
+        <div className="mb-6">
+          <h3 className="text-sm font-semibold text-slate-700 mb-3">处理人在办情况</h3>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+            {assigneeStats.map((s) => (
+              <button
+                key={s.user.id}
+                onClick={() => setDrillDownUserId(s.user.id)}
+                className={`text-left bg-white rounded-lg border p-3 hover:shadow-md transition-all ${
+                  s.overdueCount > 0 ? 'border-orange-200 hover:border-orange-300' : 'border-slate-200 hover:border-slate-300'
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <UserCheck className={`w-4 h-4 ${s.user.role === 'guide' ? 'text-purple-500' : 'text-blue-500'}`} />
+                    <span className="font-medium text-sm text-slate-800">{s.user.name}</span>
+                    <span className="text-xs px-1.5 py-0.5 rounded bg-slate-100 text-slate-600">
+                      {ROLE_LABELS[s.user.role]}
+                    </span>
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-slate-400" />
+                </div>
+                <div className="flex items-center gap-3 mt-2 text-sm">
+                  <span className="text-slate-600">在办 <span className="font-bold text-slate-800">{s.activeCount}</span></span>
+                  {s.overdueCount > 0 && (
+                    <span className="text-red-600">逾期 <span className="font-bold">{s.overdueCount}</span></span>
+                  )}
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="flex flex-wrap items-center gap-3 mb-4">
         <select
           value={statusFilter}
@@ -189,11 +263,11 @@ export default function Dashboard({ user, onSelectComplaint }: DashboardProps) {
 
       {loading ? (
         <div className="text-center py-12 text-slate-400">加载中...</div>
-      ) : sorted.length === 0 ? (
+      ) : displayComplaints.length === 0 ? (
         <div className="text-center py-12 text-slate-400">暂无投诉记录</div>
       ) : (
         <div className="space-y-3">
-          {sorted.map((c) => {
+          {displayComplaints.map((c) => {
             const overdue = isOverdue(c);
             return (
               <button

@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { v4 as uuidv4 } from 'uuid';
 import { store } from '../data-store.js';
 import { requireRole } from '../auth.js';
-import type { Complaint, AssignTarget, ComplaintType, Severity, CompensationType, ComplaintStatus } from '../types.js';
+import type { Complaint, AssignTarget, ComplaintType, Severity, CompensationType, ComplaintStatus, AssignmentHistoryEntry } from '../types.js';
 
 const router = Router();
 
@@ -128,6 +128,17 @@ router.patch('/:id/assign', requireRole('operator'), (req, res) => {
     assignedToName: assignee.name,
     assignedRole: assignedRole,
     status: 'assigned',
+    assignmentHistory: [
+      ...complaint.assignmentHistory,
+      {
+        assignedTo: assignedTo,
+        assignedToName: assignee.name,
+        assignedRole: assignedRole,
+        assignedBy: req.currentUser!.id,
+        assignedByName: req.currentUser!.name,
+        assignedAt: new Date().toISOString(),
+      },
+    ],
   });
 
   const roleLabel = assignedRole === 'guide' ? '导游' : '车队调度';
@@ -172,6 +183,92 @@ router.post('/:id/notes', (req, res) => {
     role: user.role,
     authorName: user.name,
     content: content.trim(),
+  });
+
+  const result = store.getComplaint(complaint.id);
+  res.json(result);
+});
+
+router.patch('/:id/reassign', requireRole('operator', 'supervisor'), (req, res) => {
+  const { assignedRole, assignedTo, reason } = req.body;
+  if (!assignedRole || !assignedTo || !reason || typeof reason !== 'string' || reason.trim().length === 0) {
+    res.status(400).json({ error: '缺少必填字段：assignedRole, assignedTo, reason' });
+    return;
+  }
+
+  const validRoles: AssignTarget[] = ['guide', 'fleet'];
+  if (!validRoles.includes(assignedRole)) {
+    res.status(400).json({ error: `assignedRole 必须为: ${validRoles.join(', ')}` });
+    return;
+  }
+
+  const newAssignee = store.getUser(assignedTo);
+  if (!newAssignee) {
+    res.status(400).json({ error: `用户 ${assignedTo} 不存在` });
+    return;
+  }
+  if (newAssignee.role !== assignedRole) {
+    res.status(400).json({ error: `用户 ${newAssignee.name} 的角色为 ${newAssignee.role}，与指派角色 ${assignedRole} 不匹配` });
+    return;
+  }
+
+  const complaint = store.getComplaint(req.params.id);
+  if (!complaint) {
+    res.status(404).json({ error: '投诉不存在' });
+    return;
+  }
+
+  if (complaint.status !== 'assigned' && complaint.status !== 'processing') {
+    res.status(400).json({ error: `当前状态为 ${complaint.status}，只有 assigned 或 processing 状态才能转派` });
+    return;
+  }
+
+  if (complaint.assignedTo === assignedTo) {
+    res.status(400).json({ error: '转派目标与当前处理人相同' });
+    return;
+  }
+
+  const user = req.currentUser!;
+  const prevAssignedTo = complaint.assignedTo;
+  const prevAssignedToName = complaint.assignedToName;
+  const prevAssignedRole = complaint.assignedRole;
+
+  const updatedHistory = [...complaint.assignmentHistory];
+
+  if (prevAssignedTo) {
+    const lastEntry = updatedHistory[updatedHistory.length - 1];
+    if (lastEntry && !lastEntry.removedAt) {
+      lastEntry.removedAt = new Date().toISOString();
+      lastEntry.removedBy = user.id;
+      lastEntry.removedByName = user.name;
+      lastEntry.reason = reason.trim();
+    }
+  }
+
+  updatedHistory.push({
+    assignedTo: assignedTo,
+    assignedToName: newAssignee.name,
+    assignedRole: assignedRole,
+    assignedBy: user.id,
+    assignedByName: user.name,
+    assignedAt: new Date().toISOString(),
+  });
+
+  store.updateComplaint(complaint.id, {
+    assignedTo: assignedTo,
+    assignedToName: newAssignee.name,
+    assignedRole: assignedRole,
+    status: 'assigned',
+    assignmentHistory: updatedHistory,
+  });
+
+  const prevRoleLabel = prevAssignedRole === 'guide' ? '导游' : prevAssignedRole === 'fleet' ? '车队调度' : '';
+  const newRoleLabel = assignedRole === 'guide' ? '导游' : '车队调度';
+  store.addTimelineEvent(complaint.id, {
+    type: 'reassigned',
+    role: user.role,
+    authorName: user.name,
+    content: `转派：${prevRoleLabel} ${prevAssignedToName || '—'} → ${newRoleLabel} ${newAssignee.name}，原因：${reason.trim()}`,
   });
 
   const result = store.getComplaint(complaint.id);

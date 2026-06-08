@@ -1,5 +1,5 @@
 import { v4 as uuidv4 } from 'uuid';
-import type { User, Complaint, TimelineEvent, Role, ComplaintStatus } from './types.js';
+import type { User, Complaint, TimelineEvent, Role, ComplaintStatus, AssignmentHistoryEntry } from './types.js';
 
 const now = () => new Date().toISOString();
 const hoursFromNow = (h: number) => new Date(Date.now() + h * 3600000).toISOString();
@@ -30,6 +30,7 @@ function seedComplaints(): Map<string, Complaint> {
     status: 'registered',
     createdBy: 'op1',
     createdByName: '王计调',
+    assignmentHistory: [],
     timeline: [
       {
         id: uuidv4(),
@@ -58,6 +59,16 @@ function seedComplaints(): Map<string, Complaint> {
     assignedTo: 'guide1',
     assignedToName: '李导游',
     assignedRole: 'guide',
+    assignmentHistory: [
+      {
+        assignedTo: 'guide1',
+        assignedToName: '李导游',
+        assignedRole: 'guide',
+        assignedBy: 'op1',
+        assignedByName: '王计调',
+        assignedAt: ts,
+      },
+    ],
     timeline: [
       {
         id: uuidv4(),
@@ -94,6 +105,16 @@ function seedComplaints(): Map<string, Complaint> {
     assignedTo: 'fleet1',
     assignedToName: '张调度',
     assignedRole: 'fleet',
+    assignmentHistory: [
+      {
+        assignedTo: 'fleet1',
+        assignedToName: '张调度',
+        assignedRole: 'fleet',
+        assignedBy: 'op1',
+        assignedByName: '王计调',
+        assignedAt: ts,
+      },
+    ],
     timeline: [
       {
         id: uuidv4(),
@@ -146,6 +167,16 @@ function seedComplaints(): Map<string, Complaint> {
     assignedTo: 'guide1',
     assignedToName: '李导游',
     assignedRole: 'guide',
+    assignmentHistory: [
+      {
+        assignedTo: 'guide1',
+        assignedToName: '李导游',
+        assignedRole: 'guide',
+        assignedBy: 'op1',
+        assignedByName: '王计调',
+        assignedAt: ts,
+      },
+    ],
     compensation: {
       id: uuidv4(),
       type: 'refund',
@@ -237,11 +268,12 @@ class DataStore {
     return this.complaints.get(id);
   }
 
-  createComplaint(data: Omit<Complaint, 'id' | 'timeline' | 'createdAt' | 'updatedAt' | 'status'>): Complaint {
+  createComplaint(data: Omit<Complaint, 'id' | 'timeline' | 'createdAt' | 'updatedAt' | 'status' | 'assignmentHistory'>): Complaint {
     const complaint: Complaint = {
       ...data,
       id: `comp-${String(this.complaints.size + 1).padStart(3, '0')}`,
       status: 'registered',
+      assignmentHistory: [],
       timeline: [],
       createdAt: now(),
       updatedAt: now(),

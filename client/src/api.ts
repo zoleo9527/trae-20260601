@@ -61,6 +61,16 @@ export async function assignComplaint(id: string, data: { assignedRole: AssignTa
   return res.json();
 }
 
+export async function reassignComplaint(id: string, data: { assignedRole: AssignTarget; assignedTo: string; reason: string }): Promise<Complaint> {
+  const res = await fetch(`${BASE}/complaints/${id}/reassign`, {
+    method: 'PATCH',
+    headers: headers(),
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) throw new Error(`转派投诉失败: ${res.status}`);
+  return res.json();
+}
+
 export async function addNote(id: string, content: string): Promise<Complaint> {
   const res = await fetch(`${BASE}/complaints/${id}/notes`, {
     method: 'POST',

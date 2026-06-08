@@ -12,11 +12,14 @@ import {
   Clock,
   DollarSign,
   RotateCcw,
+  ArrowRightLeft,
+  History,
 } from 'lucide-react';
 import type { User, Complaint, AssignTarget, ComplaintStatus, CompensationType, Role } from '../types';
 import {
   fetchComplaint,
   assignComplaint,
+  reassignComplaint,
   addNote,
   changeStatus,
   proposeCompensation,
@@ -68,6 +71,7 @@ const COMPENSATION_STATUS_CONFIG: Record<string, { label: string; color: string 
 const TIMELINE_ICON_MAP: Record<string, { icon: React.ReactNode; color: string }> = {
   created: { icon: <FileText className="w-4 h-4" />, color: 'bg-blue-500' },
   assigned: { icon: <UserCheck className="w-4 h-4" />, color: 'bg-purple-500' },
+  reassigned: { icon: <ArrowRightLeft className="w-4 h-4" />, color: 'bg-indigo-500' },
   note: { icon: <FileText className="w-4 h-4" />, color: 'bg-slate-400' },
   status_change: { icon: <RefreshCw className="w-4 h-4" />, color: 'bg-amber-500' },
   compensation_proposed: { icon: <DollarSign className="w-4 h-4" />, color: 'bg-emerald-500' },
@@ -101,6 +105,9 @@ export default function ComplaintDetail({ id, user, onBack }: ComplaintDetailPro
   const [compAmount, setCompAmount] = useState('');
   const [compDesc, setCompDesc] = useState('');
   const [rejectReason, setRejectReason] = useState('');
+  const [reassignRole, setReassignRole] = useState<AssignTarget>('guide');
+  const [reassignTo, setReassignTo] = useState('');
+  const [reassignReason, setReassignReason] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
   const load = useCallback(async () => {
@@ -129,6 +136,25 @@ export default function ComplaintDetail({ id, user, onBack }: ComplaintDetailPro
       setAssignTo('');
     } catch (err) {
       console.error('指派失败', err);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleReassign = async () => {
+    if (!reassignTo || !reassignReason.trim()) return;
+    try {
+      setSubmitting(true);
+      const updated = await reassignComplaint(id, {
+        assignedRole: reassignRole,
+        assignedTo: reassignTo,
+        reason: reassignReason.trim(),
+      });
+      setComplaint(updated);
+      setReassignTo('');
+      setReassignReason('');
+    } catch (err) {
+      console.error('转派失败', err);
     } finally {
       setSubmitting(false);
     }
@@ -219,9 +245,13 @@ export default function ComplaintDetail({ id, user, onBack }: ComplaintDetailPro
   const assignableUsers = users.filter((u) =>
     assignRole === 'guide' ? u.role === 'guide' : u.role === 'fleet'
   );
+  const reassignableUsers = users.filter((u) =>
+    reassignRole === 'guide' ? u.role === 'guide' : u.role === 'fleet'
+  );
   const isAssignedToMe =
     complaint.assignedTo === user.id;
   const canAssign = user.role === 'operator' && complaint.status === 'registered';
+  const canReassign = (user.role === 'operator' || user.role === 'supervisor') && (complaint.status === 'assigned' || complaint.status === 'processing');
   const canAddNoteOnAssigned = isAssignedToMe && complaint.status === 'assigned';
   const canAddNoteProcessing = (user.role === 'operator' || isAssignedToMe) && complaint.status === 'processing';
   const canProposeCompensation = user.role === 'operator' && complaint.status === 'processing';
@@ -271,6 +301,37 @@ export default function ComplaintDetail({ id, user, onBack }: ComplaintDetailPro
           <span className="text-slate-500">描述</span>
           <p className="text-slate-700 mt-0.5 whitespace-pre-wrap">{complaint.description}</p>
         </div>
+        {complaint.assignmentHistory && complaint.assignmentHistory.length > 1 && (
+          <div className="mt-3 pt-3 border-t border-slate-100">
+            <h4 className="text-sm font-medium text-slate-700 flex items-center gap-1.5 mb-2">
+              <History className="w-3.5 h-3.5" />指派历史
+            </h4>
+            <div className="space-y-2">
+              {complaint.assignmentHistory.map((entry, idx) => {
+                const roleLabel = entry.assignedRole === 'guide' ? '导游' : '车队调度';
+                const isCurrent = !entry.removedAt;
+                return (
+                  <div key={idx} className={`text-xs p-2 rounded ${isCurrent ? 'bg-indigo-50 border border-indigo-200' : 'bg-slate-50 border border-slate-200'}`}>
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium text-slate-700">{entry.assignedToName}</span>
+                      <span className="px-1.5 py-0.5 rounded bg-slate-100 text-slate-600">{roleLabel}</span>
+                      {isCurrent && <span className="px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-700 font-medium">当前</span>}
+                    </div>
+                    <div className="text-slate-500 mt-1">
+                      由 {entry.assignedByName} 指派 · {formatTime(entry.assignedAt)}
+                    </div>
+                    {entry.removedAt && (
+                      <div className="text-slate-500">
+                        由 {entry.removedByName} 转出 · {formatTime(entry.removedAt)}
+                        {entry.reason && <span className="ml-1 text-slate-600">原因：{entry.reason}</span>}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="flex flex-col lg:flex-row gap-4">
@@ -418,6 +479,48 @@ export default function ComplaintDetail({ id, user, onBack }: ComplaintDetailPro
                     className="w-full flex items-center justify-center gap-1.5 px-3 py-2 text-sm text-white bg-purple-600 hover:bg-purple-700 rounded-lg transition-colors disabled:opacity-50"
                   >
                     <UserCheck className="w-4 h-4" />指派
+                  </button>
+                </div>
+              )}
+
+              {canReassign && (
+                <div className="space-y-3">
+                  <h4 className="text-sm font-medium text-slate-700">转派处理人</h4>
+                  <p className="text-xs text-amber-600">转派后状态将回退为「已指派」，新处理人需重新添加备注</p>
+                  <select
+                    value={reassignRole}
+                    onChange={(e) => {
+                      setReassignRole(e.target.value as AssignTarget);
+                      setReassignTo('');
+                    }}
+                    className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="guide">导游</option>
+                    <option value="fleet">车队调度</option>
+                  </select>
+                  <select
+                    value={reassignTo}
+                    onChange={(e) => setReassignTo(e.target.value)}
+                    className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">选择新处理人</option>
+                    {reassignableUsers.map((u) => (
+                      <option key={u.id} value={u.id}>{u.name}</option>
+                    ))}
+                  </select>
+                  <textarea
+                    value={reassignReason}
+                    onChange={(e) => setReassignReason(e.target.value)}
+                    rows={2}
+                    className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                    placeholder="转派原因（必填）..."
+                  />
+                  <button
+                    onClick={handleReassign}
+                    disabled={!reassignTo || !reassignReason.trim() || submitting}
+                    className="w-full flex items-center justify-center gap-1.5 px-3 py-2 text-sm text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors disabled:opacity-50"
+                  >
+                    <ArrowRightLeft className="w-4 h-4" />确认转派
                   </button>
                 </div>
               )}
@@ -578,7 +681,7 @@ export default function ComplaintDetail({ id, user, onBack }: ComplaintDetailPro
                 </div>
               )}
 
-              {!canAssign && !canAddNoteOnAssigned && !canAddNoteProcessing && !canProposeCompensation && !canReviewCompensation && !canExecuteCompensation && !canReopen && !(user.role === 'supervisor' && complaint.status !== 'closed') && (
+              {!canAssign && !canReassign && !canAddNoteOnAssigned && !canAddNoteProcessing && !canProposeCompensation && !canReviewCompensation && !canExecuteCompensation && !canReopen && !(user.role === 'supervisor' && complaint.status !== 'closed') && (
                 <p className="text-sm text-slate-400 text-center py-2">当前无可执行操作</p>
               )}
             </div>
