@@ -49,10 +49,14 @@ router.get('/workstation', (req: Request, res: Response): void => {
     })
 
     const losses = db.prepare(`
-      SELECT ll.*, u.name as operator_name, u2.name as confirmer_name
+      SELECT ll.*, u.name as operator_name, u2.name as confirmer_name,
+        mo.id as maintenance_order_id, mo.status as maintenance_status, mo.fault_type as maintenance_fault_type,
+        u3.name as engineer_name
       FROM linen_losses ll
       JOIN users u ON ll.operator_id = u.id
       LEFT JOIN users u2 ON ll.confirmed_by = u2.id
+      LEFT JOIN maintenance_orders mo ON ll.maintenance_order_id = mo.id
+      LEFT JOIN users u3 ON mo.assigned_to = u3.id
       WHERE ll.requisition_id = ?
       ORDER BY ll.loss_date DESC
     `).all(req.id)
@@ -75,11 +79,15 @@ router.get('/workstation', (req: Request, res: Response): void => {
   }
 
   let lossSql = `
-    SELECT ll.*, r.room_number, r.floor, u.name as operator_name, u2.name as confirmer_name
+    SELECT ll.*, r.room_number, r.floor, u.name as operator_name, u2.name as confirmer_name,
+      mo.id as maintenance_order_id, mo.status as maintenance_status, mo.fault_type as maintenance_fault_type,
+      u3.name as engineer_name
     FROM linen_losses ll
     JOIN rooms r ON ll.room_id = r.id
     JOIN users u ON ll.operator_id = u.id
     LEFT JOIN users u2 ON ll.confirmed_by = u2.id
+    LEFT JOIN maintenance_orders mo ON ll.maintenance_order_id = mo.id
+    LEFT JOIN users u3 ON mo.assigned_to = u3.id
     WHERE ll.requisition_id IS NULL
   `
   const lossParams: unknown[] = []
@@ -572,6 +580,70 @@ router.patch('/losses/:id/replace', (req: Request, res: Response): void => {
     JOIN rooms r ON ll.room_id = r.id
     JOIN users u ON ll.operator_id = u.id
     LEFT JOIN users u2 ON ll.confirmed_by = u2.id
+    WHERE ll.id = ?
+  `).get(req.params.id)
+
+  res.json({ success: true, data: updated })
+})
+
+router.patch('/losses/:id/dispatch', (req: Request, res: Response): void => {
+  const { operatorId, engineerId, note } = req.body
+  const loss = db.prepare('SELECT * FROM linen_losses WHERE id = ?').get(req.params.id) as any
+
+  if (!loss) {
+    res.status(404).json({ success: false, error: 'Loss record not found' })
+    return
+  }
+
+  if (loss.status !== 'confirmed') {
+    res.status(400).json({ success: false, error: 'Only confirmed losses can be dispatched' })
+    return
+  }
+
+  if (!operatorId) {
+    res.status(400).json({ success: false, error: 'operatorId is required' })
+    return
+  }
+
+  const now = new Date().toISOString()
+  const orderId = uuidv4()
+  const faultType = loss.loss_type === 'wear' ? 'linen_wear' : loss.loss_type === 'stain' ? 'linen_stain' : 'linen_damage'
+  const description = note || `布草损耗派单：${loss.category || '布草'}${loss.loss_type === 'wear' ? '磨损' : loss.loss_type === 'stain' ? '污渍' : '损坏'}处理`
+
+  db.prepare(`
+    INSERT INTO maintenance_orders (id, room_id, reported_by, assigned_to, fault_type, description, priority, status, reported_at, completed_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(orderId, loss.room_id, operatorId, engineerId || null, faultType, description, 'normal', engineerId ? 'assigned' : 'reported', now, null)
+
+  db.prepare('UPDATE linen_losses SET status = ?, maintenance_order_id = ? WHERE id = ?')
+    .run('dispatched', orderId, req.params.id)
+
+  const oldStatus = loss.status
+  logStatusChange('loss', req.params.id, oldStatus, 'dispatched', operatorId, `派单工程师${engineerId ? '：' + (db.prepare('SELECT name FROM users WHERE id = ?').get(engineerId) as any)?.name : ''}`)
+
+  db.prepare(`
+    INSERT INTO timeline_events (id, room_id, event_type, description, operator_id, event_time, metadata)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    uuidv4(),
+    loss.room_id,
+    'linen_dispatched',
+    `布草损耗派单工程师：${description}`,
+    operatorId,
+    now,
+    JSON.stringify({ lossId: req.params.id, maintenanceOrderId: orderId, engineerId: engineerId || null })
+  )
+
+  const updated = db.prepare(`
+    SELECT ll.*, r.room_number, u.name as operator_name, u2.name as confirmer_name,
+      mo.id as maintenance_order_id, mo.status as maintenance_status, mo.fault_type as maintenance_fault_type,
+      u3.name as engineer_name
+    FROM linen_losses ll
+    JOIN rooms r ON ll.room_id = r.id
+    JOIN users u ON ll.operator_id = u.id
+    LEFT JOIN users u2 ON ll.confirmed_by = u2.id
+    LEFT JOIN maintenance_orders mo ON ll.maintenance_order_id = mo.id
+    LEFT JOIN users u3 ON mo.assigned_to = u3.id
     WHERE ll.id = ?
   `).get(req.params.id)
 

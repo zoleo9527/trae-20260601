@@ -15,6 +15,7 @@ import {
   Package,
   Inbox,
   Eye,
+  Wrench,
 } from 'lucide-react'
 import useStore from '@/store'
 
@@ -34,6 +35,7 @@ const LOSS_TYPE_MAP: Record<string, { label: string; color: string; bg: string }
 const LOSS_STATUS_MAP: Record<string, { label: string; color: string; bg: string }> = {
   registered: { label: '待确认', color: '#f97316', bg: '#fff7ed' },
   confirmed: { label: '已确认', color: '#3b82f6', bg: '#eff6ff' },
+  dispatched: { label: '已派单', color: '#8b5cf6', bg: '#f5f3ff' },
   replaced: { label: '已替换', color: '#22c55e', bg: '#f0fdf4' },
 }
 
@@ -41,6 +43,14 @@ const REQ_STATUS_MAP: Record<string, { label: string; color: string; bg: string 
   pending: { label: '待确认', color: '#f59e0b', bg: '#fffbeb' },
   fulfilled: { label: '使用中', color: '#3b82f6', bg: '#eff6ff' },
   returned: { label: '已归还', color: '#22c55e', bg: '#f0fdf4' },
+}
+
+const MAINTENANCE_STATUS_MAP: Record<string, { label: string; color: string }> = {
+  reported: { label: '已报修', color: '#f59e0b' },
+  assigned: { label: '已分配', color: '#3b82f6' },
+  in_progress: { label: '维修中', color: '#8b5cf6' },
+  completed: { label: '已完成', color: '#22c55e' },
+  verified: { label: '已验证', color: '#10b981' },
 }
 
 type TabKey = 'pending' | 'fulfilled' | 'returned' | 'loss'
@@ -97,6 +107,7 @@ function RelayChain({ req }: { req: any }) {
   ]
 
   if (req.losses?.length > 0) {
+    const hasEngineer = req.losses.some((l: any) => l.maintenance_order_id)
     steps.push({
       label: '损耗处理',
       person: req.losses[0].confirmer_name || '待确认',
@@ -104,6 +115,16 @@ function RelayChain({ req }: { req: any }) {
       done: req.losses.every((l: any) => l.status !== 'registered'),
       icon: AlertTriangle,
     })
+    if (hasEngineer) {
+      const dispatchedLoss = req.losses.find((l: any) => l.maintenance_order_id)
+      steps.push({
+        label: '工程师处理',
+        person: dispatchedLoss?.engineer_name || '待分配',
+        time: req.statusLogs?.find((l: any) => l.new_status === 'dispatched')?.created_at,
+        done: req.losses.every((l: any) => l.status === 'replaced'),
+        icon: Wrench,
+      })
+    }
   }
 
   return (
@@ -141,30 +162,42 @@ function StatusLogTimeline({ logs }: { logs: any[] }) {
   return (
     <div className="relative pl-5 mt-3">
       <div className="absolute left-2 top-0 bottom-0 w-0.5" style={{ backgroundColor: 'var(--color-border)' }} />
-      {logs.map((log, i) => (
-        <div key={log.id || i} className="relative mb-3 last:mb-0">
-          <div
-            className="absolute -left-3.5 top-1 w-2.5 h-2.5 rounded-full border-2 bg-white"
-            style={{ borderColor: 'var(--color-accent)' }}
-          />
-          <div className="ml-2">
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-medium" style={{ color: 'var(--color-primary)' }}>
-                {log.new_status}
-              </span>
-              <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-                {log.operator_name}
-              </span>
-              <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-                {formatTime(log.created_at)}
-              </span>
+      {logs.map((log, i) => {
+        const isDispatch = log.new_status === 'dispatched' || (log.note && log.note.includes('派单'))
+        const isReplace = log.new_status === 'replaced' && log.note && log.note.includes('维修完成')
+        return (
+          <div key={log.id || i} className="relative mb-3 last:mb-0">
+            <div
+              className="absolute -left-3.5 top-1 w-2.5 h-2.5 rounded-full border-2 bg-white flex items-center justify-center"
+              style={{
+                borderColor: isDispatch ? '#8b5cf6' : isReplace ? '#22c55e' : 'var(--color-accent)',
+              }}
+            >
+              {isDispatch && <Wrench size={8} style={{ color: '#8b5cf6' }} />}
             </div>
-            {log.note && (
-              <p className="text-xs mt-0.5" style={{ color: 'var(--color-text-muted)' }}>{log.note}</p>
-            )}
+            <div className="ml-2">
+              <div className="flex items-center gap-2">
+                {isDispatch && <Wrench size={12} style={{ color: '#8b5cf6' }} />}
+                <span
+                  className="text-xs font-medium"
+                  style={{ color: isDispatch ? '#8b5cf6' : isReplace ? '#22c55e' : 'var(--color-primary)' }}
+                >
+                  {log.new_status === 'dispatched' ? '派单工程师' : log.new_status === 'replaced' && log.note?.includes('维修完成') ? '维修完成' : log.new_status}
+                </span>
+                <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+                  {log.operator_name}
+                </span>
+                <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+                  {formatTime(log.created_at)}
+                </span>
+              </div>
+              {log.note && (
+                <p className="text-xs mt-0.5" style={{ color: 'var(--color-text-muted)' }}>{log.note}</p>
+              )}
+            </div>
           </div>
-        </div>
-      ))}
+        )
+      })}
     </div>
   )
 }
@@ -177,6 +210,7 @@ export default function Linen() {
     confirmLinenRequisition,
     confirmLinenLoss,
     replaceLinenLoss,
+    dispatchLinenLoss,
     verifyLinenReturn,
     currentUser,
     users,
@@ -246,6 +280,19 @@ export default function Linen() {
     try {
       await replaceLinenLoss(id, String(currentUser.id))
       showToast('success', '已标记为替换补发')
+    } catch {
+      showToast('error', '操作失败')
+    } finally {
+      setActionLoading(null)
+    }
+  }
+
+  const handleDispatchLoss = async (id: string, engineerId?: string) => {
+    if (!currentUser) return
+    setActionLoading(id)
+    try {
+      await dispatchLinenLoss(id, String(currentUser.id), engineerId)
+      showToast('success', '已派单工程师')
     } catch {
       showToast('error', '操作失败')
     } finally {
@@ -633,6 +680,7 @@ export default function Linen() {
                           {req.losses.map((loss: any) => {
                             const lt = LOSS_TYPE_MAP[loss.loss_type] ?? LOSS_TYPE_MAP.wear
                             const ls = LOSS_STATUS_MAP[loss.status] ?? LOSS_STATUS_MAP.registered
+                            const canDispatch = loss.status === 'confirmed' && (loss.loss_type === 'wear' || loss.loss_type === 'stain')
                             return (
                               <div key={loss.id} className="mb-2 p-3 rounded-lg bg-white border" style={{ borderColor: 'var(--color-border)' }}>
                                 <div className="flex items-center justify-between mb-1">
@@ -645,8 +693,8 @@ export default function Linen() {
                                       {ls.label}
                                     </span>
                                   </div>
-                                  {loss.status === 'registered' && (
-                                    <div className="flex gap-1">
+                                  <div className="flex items-center gap-1">
+                                    {loss.status === 'registered' && (
                                       <button
                                         onClick={() => handleConfirmLoss(loss.id)}
                                         disabled={actionLoading === loss.id}
@@ -655,18 +703,42 @@ export default function Linen() {
                                       >
                                         确认
                                       </button>
-                                    </div>
-                                  )}
-                                  {loss.status === 'confirmed' && (
-                                    <button
-                                      onClick={() => handleReplaceLoss(loss.id)}
-                                      disabled={actionLoading === loss.id}
-                                      className="text-xs px-2 py-1 rounded font-medium text-white disabled:opacity-50"
-                                      style={{ backgroundColor: '#22c55e' }}
-                                    >
-                                      补发替换
-                                    </button>
-                                  )}
+                                    )}
+                                    {canDispatch && (
+                                      <button
+                                        onClick={() => {
+                                          const eng = users.find((u: any) => u.role === 'engineer')
+                                          handleDispatchLoss(loss.id, eng ? String(eng.id) : undefined)
+                                        }}
+                                        disabled={actionLoading === loss.id}
+                                        className="text-xs px-2 py-1 rounded font-medium text-white disabled:opacity-50 flex items-center gap-1"
+                                        style={{ backgroundColor: '#8b5cf6' }}
+                                      >
+                                        <Wrench size={10} />
+                                        派单工程师
+                                      </button>
+                                    )}
+                                    {loss.status === 'confirmed' && !canDispatch && (
+                                      <button
+                                        onClick={() => handleReplaceLoss(loss.id)}
+                                        disabled={actionLoading === loss.id}
+                                        className="text-xs px-2 py-1 rounded font-medium text-white disabled:opacity-50"
+                                        style={{ backgroundColor: '#22c55e' }}
+                                      >
+                                        补发替换
+                                      </button>
+                                    )}
+                                    {loss.status === 'dispatched' && (
+                                      <button
+                                        onClick={() => handleReplaceLoss(loss.id)}
+                                        disabled={actionLoading === loss.id}
+                                        className="text-xs px-2 py-1 rounded font-medium text-white disabled:opacity-50"
+                                        style={{ backgroundColor: '#22c55e' }}
+                                      >
+                                        补发替换
+                                      </button>
+                                    )}
+                                  </div>
                                 </div>
                                 {loss.description && (
                                   <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>{loss.description}</p>
@@ -677,6 +749,27 @@ export default function Linen() {
                                     <span>确认: {loss.confirmer_name} {loss.confirmed_at ? formatTime(loss.confirmed_at) : ''}</span>
                                   )}
                                 </div>
+                                {loss.maintenance_order_id && (
+                                  <div className="mt-2 p-2 rounded-lg flex items-center gap-2 text-xs" style={{ backgroundColor: '#f5f3ff', border: '1px solid #e9e5ff' }}>
+                                    <Wrench size={12} style={{ color: '#8b5cf6' }} />
+                                    <span className="font-medium" style={{ color: '#8b5cf6' }}>工单</span>
+                                    <span style={{ color: 'var(--color-text-muted)' }}>{loss.maintenance_order_id.slice(0, 8)}</span>
+                                    {loss.engineer_name && (
+                                      <span style={{ color: 'var(--color-text)' }}>{loss.engineer_name}</span>
+                                    )}
+                                    {loss.maintenance_status && (
+                                      <span
+                                        className="px-1.5 py-0.5 rounded-full text-xs font-medium"
+                                        style={{
+                                          color: MAINTENANCE_STATUS_MAP[loss.maintenance_status]?.color || '#6b7280',
+                                          backgroundColor: '#fff',
+                                        }}
+                                      >
+                                        {MAINTENANCE_STATUS_MAP[loss.maintenance_status]?.label || loss.maintenance_status}
+                                      </span>
+                                    )}
+                                  </div>
+                                )}
                               </div>
                             )
                           })}
@@ -698,6 +791,7 @@ export default function Linen() {
             {filteredStandaloneLosses.map((loss) => {
               const lt = LOSS_TYPE_MAP[loss.loss_type] ?? LOSS_TYPE_MAP.wear
               const ls = LOSS_STATUS_MAP[loss.status] ?? LOSS_STATUS_MAP.registered
+              const canDispatch = loss.status === 'confirmed' && (loss.loss_type === 'wear' || loss.loss_type === 'stain')
               return (
                 <div key={loss.id} className="bg-white rounded-xl shadow-sm p-4 mb-3">
                   <div className="flex items-center justify-between">
@@ -725,6 +819,27 @@ export default function Linen() {
                             <span>确认: {loss.confirmer_name} {loss.confirmed_at ? formatTime(loss.confirmed_at) : ''}</span>
                           )}
                         </div>
+                        {loss.maintenance_order_id && (
+                          <div className="mt-2 p-2 rounded-lg flex items-center gap-2 text-xs" style={{ backgroundColor: '#f5f3ff', border: '1px solid #e9e5ff' }}>
+                            <Wrench size={12} style={{ color: '#8b5cf6' }} />
+                            <span className="font-medium" style={{ color: '#8b5cf6' }}>工单</span>
+                            <span style={{ color: 'var(--color-text-muted)' }}>{loss.maintenance_order_id.slice(0, 8)}</span>
+                            {loss.engineer_name && (
+                              <span style={{ color: 'var(--color-text)' }}>{loss.engineer_name}</span>
+                            )}
+                            {loss.maintenance_status && (
+                              <span
+                                className="px-1.5 py-0.5 rounded-full text-xs font-medium"
+                                style={{
+                                  color: MAINTENANCE_STATUS_MAP[loss.maintenance_status]?.color || '#6b7280',
+                                  backgroundColor: '#fff',
+                                }}
+                              >
+                                {MAINTENANCE_STATUS_MAP[loss.maintenance_status]?.label || loss.maintenance_status}
+                              </span>
+                            )}
+                          </div>
+                        )}
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
@@ -738,7 +853,31 @@ export default function Linen() {
                           确认
                         </button>
                       )}
-                      {loss.status === 'confirmed' && (
+                      {canDispatch && (
+                        <button
+                          onClick={() => {
+                            const eng = users.find((u: any) => u.role === 'engineer')
+                            handleDispatchLoss(loss.id, eng ? String(eng.id) : undefined)
+                          }}
+                          disabled={actionLoading === loss.id}
+                          className="px-3 py-1.5 rounded-lg text-xs font-medium text-white disabled:opacity-50 flex items-center gap-1"
+                          style={{ backgroundColor: '#8b5cf6' }}
+                        >
+                          <Wrench size={12} />
+                          派单工程师
+                        </button>
+                      )}
+                      {loss.status === 'confirmed' && !canDispatch && (
+                        <button
+                          onClick={() => handleReplaceLoss(loss.id)}
+                          disabled={actionLoading === loss.id}
+                          className="px-3 py-1.5 rounded-lg text-xs font-medium text-white disabled:opacity-50"
+                          style={{ backgroundColor: '#22c55e' }}
+                        >
+                          补发替换
+                        </button>
+                      )}
+                      {loss.status === 'dispatched' && (
                         <button
                           onClick={() => handleReplaceLoss(loss.id)}
                           disabled={actionLoading === loss.id}

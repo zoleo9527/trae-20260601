@@ -105,9 +105,10 @@ db.exec(`
     quantity INTEGER NOT NULL,
     loss_type TEXT NOT NULL CHECK(loss_type IN ('wear','stain','missing')),
     description TEXT,
-    status TEXT NOT NULL DEFAULT 'registered' CHECK(status IN ('registered','confirmed','replaced')),
+    status TEXT NOT NULL DEFAULT 'registered' CHECK(status IN ('registered','confirmed','dispatched','replaced')),
     confirmed_by TEXT REFERENCES users(id),
     confirmed_at TEXT,
+    maintenance_order_id TEXT REFERENCES maintenance_orders(id),
     loss_date TEXT DEFAULT (datetime('now'))
   );
 
@@ -354,21 +355,26 @@ if (userCount.count === 0) {
   }
 
   const insertLoss = db.prepare(`
-    INSERT INTO linen_losses (id, room_id, requisition_id, operator_id, category, quantity, loss_type, description, status, confirmed_by, confirmed_at, loss_date)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO linen_losses (id, room_id, requisition_id, operator_id, category, quantity, loss_type, description, status, confirmed_by, confirmed_at, maintenance_order_id, loss_date)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `)
 
-  insertLoss.run(uuidv4(), insertedRooms[10].id, req3Id, linenStaff.id, 'pillowcase', 1, 'missing', '归还时少一条枕套', 'confirmed', supervisor.id, hoursAgo(1), hoursAgo(2))
-  insertLoss.run(uuidv4(), insertedRooms[10].id, req3Id, linenStaff.id, 'bath_towel', 1, 'stain', '浴巾有顽固污渍无法清洗', 'registered', null, null, hoursAgo(2))
+  const dispatchedLossId = uuidv4()
+  insertLoss.run(uuidv4(), insertedRooms[10].id, req3Id, linenStaff.id, 'pillowcase', 1, 'missing', '归还时少一条枕套', 'confirmed', supervisor.id, hoursAgo(1), null, hoursAgo(2))
+  insertLoss.run(dispatchedLossId, insertedRooms[10].id, req3Id, linenStaff.id, 'bath_towel', 1, 'stain', '浴巾有顽固污渍无法清洗', 'dispatched', supervisor.id, hoursAgo(1), null, hoursAgo(2))
 
   const insertMaintenance = db.prepare(`
     INSERT INTO maintenance_orders (id, room_id, reported_by, assigned_to, fault_type, description, priority, status, reported_at, completed_at)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `)
 
+  const mntFromLinenId = uuidv4()
+  insertMaintenance.run(mntFromLinenId, insertedRooms[10].id, supervisor.id, engineer.id, 'linen_damage', '布草损耗派单：浴巾污渍处理', 'normal', 'assigned', hoursAgo(1), null)
   insertMaintenance.run(uuidv4(), insertedRooms[4].id, attendant2.id, engineer.id, 'air_conditioning', '空调制冷效果差，房间温度降不下来', 'high', 'assigned', hoursAgo(6), null)
   insertMaintenance.run(uuidv4(), insertedRooms[7].id, leader3.id, null, 'plumbing', '卫生间水龙头漏水', 'normal', 'reported', hoursAgo(3), null)
   insertMaintenance.run(uuidv4(), insertedRooms[29].id, attendant3.id, engineer.id, 'electrical', '房间灯泡损坏', 'low', 'completed', hoursAgo(48), hoursAgo(24))
+
+  db.prepare('UPDATE linen_losses SET maintenance_order_id = ? WHERE id = ?').run(mntFromLinenId, dispatchedLossId)
 
   const insertLeftover = db.prepare(`
     INSERT INTO leftover_items (id, room_id, found_by, description, category, storage_location, status, found_at, claimed_at, claimed_by_name)
@@ -390,8 +396,12 @@ if (userCount.count === 0) {
   insertStatusLog.run(uuidv4(), 'requisition', req3Id, null, 'pending', attendant3.id, '提交领用申请', hoursAgo(4))
   insertStatusLog.run(uuidv4(), 'requisition', req3Id, 'pending', 'fulfilled', linenStaff.id, '确认发放', hoursAgo(3))
   insertStatusLog.run(uuidv4(), 'requisition', req3Id, 'fulfilled', 'returned', linenStaff.id, '归还完成', hoursAgo(2))
-  insertStatusLog.run(uuidv4(), 'loss', 'manual-1', null, 'registered', linenStaff.id, '登记枕套缺失', hoursAgo(2))
-  insertStatusLog.run(uuidv4(), 'loss', 'manual-1', 'registered', 'confirmed', supervisor.id, '主管确认损耗', hoursAgo(1))
+  const pillowLossId = db.prepare('SELECT id FROM linen_losses WHERE category = ? AND requisition_id = ?').pluck().get('pillowcase', req3Id) as string
+  insertStatusLog.run(uuidv4(), 'loss', pillowLossId, null, 'registered', linenStaff.id, '登记枕套缺失', hoursAgo(2))
+  insertStatusLog.run(uuidv4(), 'loss', pillowLossId, 'registered', 'confirmed', supervisor.id, '主管确认损耗', hoursAgo(1))
+  insertStatusLog.run(uuidv4(), 'loss', dispatchedLossId, null, 'registered', linenStaff.id, '登记浴巾污渍', hoursAgo(2))
+  insertStatusLog.run(uuidv4(), 'loss', dispatchedLossId, 'registered', 'confirmed', supervisor.id, '主管确认损耗', hoursAgo(1))
+  insertStatusLog.run(uuidv4(), 'loss', dispatchedLossId, 'confirmed', 'dispatched', supervisor.id, '派单工程师：吴工程师', hoursAgo(1))
 
   console.log('Database seeded successfully')
 }

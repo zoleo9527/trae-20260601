@@ -128,6 +128,10 @@ interface WorkstationRequisition {
     confirmer_name: string | null
     confirmed_by: string | null
     confirmed_at: string | null
+    maintenance_order_id: string | null
+    maintenance_status: string | null
+    maintenance_fault_type: string | null
+    engineer_name: string | null
     loss_date: string
   }[]
   statusLogs: {
@@ -158,6 +162,10 @@ interface WorkstationStandaloneLoss {
   confirmer_name: string | null
   confirmed_by: string | null
   confirmed_at: string | null
+  maintenance_order_id: string | null
+  maintenance_status: string | null
+  maintenance_fault_type: string | null
+  engineer_name: string | null
   loss_date: string
 }
 
@@ -213,6 +221,7 @@ interface StoreState {
   confirmLinenRequisition: (id: string, operatorId: string, note?: string) => Promise<void>
   confirmLinenLoss: (id: string, confirmedBy: string, note?: string) => Promise<void>
   replaceLinenLoss: (id: string, operatorId: string, note?: string) => Promise<void>
+  dispatchLinenLoss: (id: string, operatorId: string, engineerId?: string, note?: string) => Promise<void>
   verifyLinenReturn: (id: string, verifiedBy: string, notes?: string) => Promise<void>
 }
 
@@ -502,6 +511,40 @@ const useStore = create<StoreState>((set, get) => ({
             standaloneLosses: wd.standaloneLosses.map((l) =>
               l.id === id ? { ...l, status: 'replaced' } : l
             ),
+          },
+        })
+      }
+    }
+  },
+  dispatchLinenLoss: async (id, operatorId, engineerId, note) => {
+    const res = await fetch(`/api/linen/losses/${id}/dispatch`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ operatorId, engineerId, note }),
+    })
+    const json = await res.json()
+    if (json.success) {
+      const wd = get().workstationData
+      if (wd) {
+        const patch = (l: any) =>
+          l.id === id
+            ? {
+                ...l,
+                status: 'dispatched',
+                maintenance_order_id: json.data.maintenance_order_id,
+                maintenance_status: json.data.maintenance_status,
+                maintenance_fault_type: json.data.maintenance_fault_type,
+                engineer_name: json.data.engineer_name,
+              }
+            : l
+        set({
+          workstationData: {
+            ...wd,
+            requisitions: wd.requisitions.map((r) => ({
+              ...r,
+              losses: r.losses.map(patch),
+            })),
+            standaloneLosses: wd.standaloneLosses.map(patch),
           },
         })
       }

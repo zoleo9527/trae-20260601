@@ -124,6 +124,28 @@ router.patch('/:id', (req: Request, res: Response): void => {
   db.prepare(`UPDATE maintenance_orders SET ${updates.join(', ')} WHERE id = ?`).run(...params as any[])
 
   const newStatus = status || (assignedTo ? 'assigned' : order.status)
+
+  if (newStatus === 'completed') {
+    const linkedLosses = db.prepare('SELECT id, status FROM linen_losses WHERE maintenance_order_id = ?').all(req.params.id) as any[]
+    for (const loss of linkedLosses) {
+      if (loss.status === 'dispatched') {
+        db.prepare('UPDATE linen_losses SET status = ? WHERE id = ?').run('replaced', loss.id)
+        db.prepare(`
+          INSERT INTO linen_status_logs (id, target_type, target_id, old_status, new_status, operator_id, note, created_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        `).run(
+          uuidv4(),
+          'loss',
+          loss.id,
+          'dispatched',
+          'replaced',
+          assignedTo || order.reported_by,
+          '维修完成，布草已替换',
+          now
+        )
+      }
+    }
+  }
   let eventType = 'maintenance_updated'
   let eventDesc = '维修工单已更新'
   if (newStatus === 'assigned') {
