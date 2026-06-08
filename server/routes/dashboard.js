@@ -16,7 +16,7 @@ function parseAttachments(row) {
 }
 
 router.get('/', (req, res) => {
-  const pendingPatrols = db.prepare("SELECT * FROM patrols WHERE status = 'pending' ORDER BY createdAt DESC").all();
+  const pendingPatrols = db.prepare("SELECT * FROM patrols WHERE status = 'pending' ORDER BY createdAt DESC").all().map(parseAttachments);
 
   const pendingExceptions = db.prepare("SELECT * FROM exceptions WHERE status IN ('pending', 'handling') ORDER BY createdAt DESC").all().map(parseAttachments);
 

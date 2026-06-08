@@ -33,6 +33,7 @@ db.exec(`
     confirmer TEXT,
     confirmTime TEXT,
     notes TEXT,
+    attachments TEXT DEFAULT '[]',
     createdAt TEXT,
     updatedAt TEXT
   );
@@ -92,5 +93,10 @@ insertUser.run(1, 'admin', 'admin123', 'admin', '店长-管理员');
 insertUser.run(2, 'manager1', '123456', 'manager', '张店长');
 insertUser.run(3, 'network1', '123456', 'network', '李网管');
 insertUser.run(4, 'ops1', '123456', 'ops', '王运营');
+
+const patrolCols = db.prepare("PRAGMA table_info(patrols)").all();
+if (!patrolCols.some((c: any) => c.name === 'attachments')) {
+  db.exec("ALTER TABLE patrols ADD COLUMN attachments TEXT DEFAULT '[]'");
+}
 
 module.exports = db;

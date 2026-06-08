@@ -24,6 +24,8 @@ export const patrolAPI = {
   create: (data: Partial<Patrol>) => api.post<Patrol>('/api/patrols', data),
   confirm: (id: string, data: Record<string, unknown>) =>
     api.put<Patrol>(`/api/patrols/${id}/confirm`, data),
+  addAttachment: (id: string, data: { filename: string; uploader: string }) =>
+    api.post<Patrol>(`/api/patrols/${id}/attachments`, data),
 }
 
 export const exceptionAPI = {

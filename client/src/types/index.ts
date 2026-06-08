@@ -15,6 +15,7 @@ export interface Patrol {
   confirmer?: string
   confirmTime?: string
   notes?: string
+  attachments: Attachment[]
   createdAt: string
   updatedAt: string
 }

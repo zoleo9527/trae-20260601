@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { patrolAPI, exceptionAPI, statusLogAPI } from '../api'
-import type { Patrol, StatusLog } from '../types'
+import type { Patrol, StatusLog, Attachment } from '../types'
 import dayjs from 'dayjs'
 
 const statusColors: Record<string, string> = {
@@ -166,6 +166,10 @@ export default function NightPatrol() {
 
   const [createForm, setCreateForm] = useState({ patrolDate: '', area: '', notes: '' })
 
+  const [showAttachInput, setShowAttachInput] = useState(false)
+  const [attachFilename, setAttachFilename] = useState('')
+  const [attachSubmitting, setAttachSubmitting] = useState(false)
+
   const fetchPatrols = () => {
     setLoading(true)
     const params: Record<string, string> = {}
@@ -199,6 +203,34 @@ export default function NightPatrol() {
     setShowDrawer(false)
     setSelectedPatrol(null)
     setStatusLogs([])
+    setShowAttachInput(false)
+    setAttachFilename('')
+  }
+
+  const refreshDrawerData = async (patrolId: string) => {
+    const fresh = await patrolAPI.get(patrolId)
+    setSelectedPatrol(fresh.data)
+    const logs = await statusLogAPI.list({ recordType: 'patrol', recordId: patrolId })
+    setStatusLogs(logs.data)
+  }
+
+  const handleAddAttachment = async () => {
+    if (!selectedPatrol || !attachFilename.trim()) return
+    setAttachSubmitting(true)
+    try {
+      await patrolAPI.addAttachment(String(selectedPatrol.id), {
+        filename: attachFilename.trim(),
+        uploader: currentUser?.username || '',
+      })
+      setAttachFilename('')
+      setShowAttachInput(false)
+      await refreshDrawerData(String(selectedPatrol.id))
+      fetchPatrols()
+    } catch {
+      alert('添加附件失败')
+    } finally {
+      setAttachSubmitting(false)
+    }
   }
 
   const handleCreate = async () => {
@@ -309,6 +341,12 @@ export default function NightPatrol() {
     fontSize: 14,
   }
 
+  const btnSmall: React.CSSProperties = {
+    ...btnPrimary,
+    padding: '4px 12px',
+    fontSize: 12,
+  }
+
   const labelStyle: React.CSSProperties = {
     display: 'block',
     color: '#a0aec0',
@@ -358,6 +396,7 @@ export default function NightPatrol() {
                 <th style={thStyle}>提交人</th>
                 <th style={thStyle}>提交时间</th>
                 <th style={thStyle}>状态</th>
+                <th style={thStyle}>附件</th>
                 <th style={thStyle}>确认人</th>
                 <th style={thStyle}>操作</th>
               </tr>
@@ -370,6 +409,24 @@ export default function NightPatrol() {
                   <td style={tdStyle}>{p.submitter}</td>
                   <td style={tdStyle}>{dayjs(p.submitTime).format('YYYY-MM-DD HH:mm')}</td>
                   <td style={tdStyle}><Badge status={p.status} /></td>
+                  <td style={tdStyle}>
+                    {(() => {
+                      const count = Array.isArray(p.attachments) ? p.attachments.length : 0
+                      if (count === 0) return <span style={{ color: '#718096' }}>-</span>
+                      return (
+                        <span style={{
+                          display: 'inline-block',
+                          padding: '2px 8px',
+                          borderRadius: 10,
+                          fontSize: 12,
+                          fontWeight: 600,
+                          color: '#fff',
+                          background: '#0f3460',
+                          border: '1px solid #1a3a6e',
+                        }}>{count}</span>
+                      )
+                    })()}
+                  </td>
                   <td style={tdStyle}>{p.confirmer || '-'}</td>
                   <td style={tdStyle} onClick={(ev) => ev.stopPropagation()}>
                     {p.status === 'pending' && (
@@ -482,7 +539,67 @@ export default function NightPatrol() {
               </div>
             )}
 
-            <div style={{ marginTop: 8, paddingTop: 20, borderTop: '1px solid #0f3460' }}>
+            <div style={{ marginBottom: 20, paddingTop: 20, borderTop: '1px solid #0f3460' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                <div style={{ color: '#e0e0e0', fontSize: 14, fontWeight: 600 }}>
+                  附件 ({Array.isArray(selectedPatrol.attachments) ? selectedPatrol.attachments.length : 0})
+                </div>
+                <button
+                  style={{ ...btnSmall, background: '#0f3460', border: '1px solid #1a3a6e' }}
+                  onClick={() => setShowAttachInput(!showAttachInput)}
+                >
+                  {showAttachInput ? '取消' : '+ 添加附件'}
+                </button>
+              </div>
+
+              {showAttachInput && (
+                <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+                  <input
+                    type="text"
+                    value={attachFilename}
+                    onChange={(e) => setAttachFilename(e.target.value)}
+                    placeholder="输入文件名，如：巡场照片.jpg"
+                    style={{ ...inputStyle, flex: 1 }}
+                    onKeyDown={(e) => { if (e.key === 'Enter' && attachFilename.trim()) handleAddAttachment() }}
+                  />
+                  <button
+                    style={btnPrimary}
+                    disabled={attachSubmitting || !attachFilename.trim()}
+                    onClick={handleAddAttachment}
+                  >
+                    {attachSubmitting ? '...' : '添加'}
+                  </button>
+                </div>
+              )}
+
+              {Array.isArray(selectedPatrol.attachments) && selectedPatrol.attachments.length > 0 ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {selectedPatrol.attachments.map((att: Attachment, idx: number) => (
+                    <div key={idx} style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 10,
+                      padding: '8px 12px',
+                      background: '#0f3460',
+                      borderRadius: 6,
+                      border: '1px solid #1a3a6e',
+                    }}>
+                      <span style={{ fontSize: 16 }}>📎</span>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ color: '#e0e0e0', fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{att.filename}</div>
+                        <div style={{ color: '#718096', fontSize: 11, marginTop: 2 }}>
+                          {att.uploader} · {dayjs(att.uploadTime).format('YYYY-MM-DD HH:mm')} · {att.fileSize}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div style={{ color: '#718096', fontSize: 13 }}>暂无附件</div>
+              )}
+            </div>
+
+            <div style={{ paddingTop: 20, borderTop: '1px solid #0f3460' }}>
               <div style={{ color: '#e0e0e0', fontSize: 14, fontWeight: 600, marginBottom: 12 }}>
                 状态流转记录
               </div>
