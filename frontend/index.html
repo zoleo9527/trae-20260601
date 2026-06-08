@@ -259,7 +259,7 @@ function statusLabel(s){const m={draft:'草稿',submitted:'待审核',approved:'
 function reqStatusLabel(s){const m={pending:'待发料',issued:'已发料',received:'已收料'};return m[s]||s}
 function roleLabel(r){const m={technician:'技术员',warehouse:'仓管',manager:'场长'};return m[r]||r}
 async function apiFetch(url,opts={}){try{const r=await fetch(API+url,{headers:{"Content-Type":"application/json"},...opts});if(!r.ok)throw new Error(r.statusText);return await r.json()}catch(e){toast(e.message,'error');throw e}}
-async function login(){try{const d=await apiFetch('/login',{method:'POST',body:JSON.stringify(loginForm.value)});user.value=d;currentRole.value=d.role||'technician';loginError.value="";fetchPlans();fetchRequisitions()}catch(e){loginError.value=“登录失败”}}
+async function login(){try{const d=await apiFetch('/login',{method:'POST',body:JSON.stringify(loginForm.value)});user.value=d;currentRole.value=d.role||'technician';loginError.value="";fetchPlans();fetchRequisitions()}catch(e){loginError.value='登录失败'}}
 function logout(){user.value=null;plans.value=[];requisitions.value=[]}
 async function fetchPlans(){plansLoading.value=true;try{const d=await apiFetch('/feeding-plans');plans.value=Array.isArray(d)?d:d.items||[]}finally{plansLoading.value=false}}
 async function fetchRequisitions(){reqsLoading.value=true;try{const d=await apiFetch('/feed-requisitions');requisitions.value=Array.isArray(d)?d:d.items||[]}finally{reqsLoading.value=false}}
