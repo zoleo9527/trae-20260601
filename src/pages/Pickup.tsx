@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react"
-import { ShieldCheck, AlertTriangle, CheckCircle2, X, Clock, User, FileCheck, Unlock, Timer } from "lucide-react"
+import { ShieldCheck, AlertTriangle, CheckCircle2, X, Clock, User, FileCheck, Unlock, Timer, Search, ClipboardCheck, Package, ClockAlert } from "lucide-react"
 import { useCargoStore } from "@/store/useCargoStore"
 import type { Cargo, CargoStatus, VerifyItemName } from "@/types"
 
@@ -19,6 +19,13 @@ const TAB_COLORS: Record<string, string> = {
   超期未提: "text-amber-400",
   已完成: "text-emerald-400",
 }
+
+const STAT_CARDS = [
+  { key: "已预约" as CargoStatus, label: "待复核", icon: ClipboardCheck, color: "text-cyan-400", bg: "bg-cyan-900/30 ring-1 ring-cyan-500/30", iconBg: "bg-cyan-500/15" },
+  { key: "提货中" as CargoStatus, label: "提货中", icon: Package, color: "text-violet-400", bg: "bg-violet-900/30 ring-1 ring-violet-500/30", iconBg: "bg-violet-500/15" },
+  { key: "超期未提" as CargoStatus, label: "超期未提", icon: ClockAlert, color: "text-amber-400", bg: "bg-amber-900/30 ring-1 ring-amber-500/30", iconBg: "bg-amber-500/15" },
+  { key: "今日签收" as const, label: "今日签收", icon: CheckCircle2, color: "text-emerald-400", bg: "bg-emerald-900/30 ring-1 ring-emerald-500/30", iconBg: "bg-emerald-500/15" },
+]
 
 const VERIFY_ITEMS: VerifyItemName[] = ["身份证", "提货单", "委托书", "单位证明"]
 const PORTS = ["1号口", "2号口", "3号口", "4号口"]
@@ -199,18 +206,39 @@ export default function Pickup() {
   const [panelOpen, setPanelOpen] = useState(false)
   const [signoffCargoId, setSignoffCargoId] = useState<string | null>(null)
   const [filter, setFilter] = useState<CargoStatus | "全部">("全部")
+  const [search, setSearch] = useState("")
+
+  const pickupCargos = useMemo(() => cargos.filter((c) => PICKUP_STATUSES.includes(c.status)), [cargos])
+
+  const todayStr = new Date().toLocaleDateString("zh-CN", { year: "numeric", month: "2-digit", day: "2-digit" }).replace(/\//g, "-")
+  const todaySignedCount = useMemo(() => pickupCargos.filter((c) => c.status === "已完成" && c.signTime?.startsWith(todayStr)).length, [pickupCargos, todayStr])
+
+  const statCounts = useMemo(() => ({
+    "已预约": pickupCargos.filter((c) => c.status === "已预约").length,
+    "提货中": pickupCargos.filter((c) => c.status === "提货中").length,
+    "超期未提": pickupCargos.filter((c) => c.status === "超期未提").length,
+    "今日签收": todaySignedCount,
+  }), [pickupCargos, todaySignedCount])
+
+  const activeCard = filter === "已完成" ? null : filter === "全部" ? null : filter
 
   const filtered = useMemo(() => {
-    const base = cargos.filter((c) => PICKUP_STATUSES.includes(c.status))
-    const byStatus = filter === "全部" ? base : base.filter((c) => c.status === filter)
-    return [...byStatus].sort((a, b) => {
+    const byStatus = filter === "全部" ? pickupCargos : filter === "已完成" ? pickupCargos : pickupCargos.filter((c) => c.status === filter)
+    const q = search.trim().toLowerCase()
+    const bySearch = q ? byStatus.filter((c) => c.ticketNo.toLowerCase().includes(q) || c.goodsName.toLowerCase().includes(q) || c.consignee.toLowerCase().includes(q)) : byStatus
+    return [...bySearch].sort((a, b) => {
       const apptA = getAppointmentForCargo(a.id)
       const apptB = getAppointmentForCargo(b.id)
       const timeA = apptA?.appointmentTime ?? a.arrivalTime
       const timeB = apptB?.appointmentTime ?? b.arrivalTime
       return timeA.localeCompare(timeB)
     })
-  }, [cargos, filter, getAppointmentForCargo])
+  }, [pickupCargos, filter, search, getAppointmentForCargo])
+
+  const statusBeforeSearch = useMemo(() => {
+    const byStatus = filter === "全部" ? pickupCargos : filter === "已完成" ? pickupCargos : pickupCargos.filter((c) => c.status === filter)
+    return byStatus.length
+  }, [pickupCargos, filter])
 
   const openVerify = (cargo: Cargo) => { setSelected(cargo); setPanelOpen(true) }
   const openSignoff = (cargoId: string) => setSignoffCargoId(cargoId)
@@ -229,19 +257,51 @@ export default function Pickup() {
 
   const tabs: (CargoStatus | "全部")[] = ["全部", ...PICKUP_STATUSES]
 
+  const emptyText = filtered.length === 0 && (search.trim() || filter !== "全部")
+    ? search.trim() && statusBeforeSearch > 0
+      ? `未找到与"${search.trim()}"匹配的记录`
+      : `当前${filter === "全部" ? "" : filter}状态下暂无任务`
+    : "暂无提货数据"
+
   return (
     <div className="min-h-screen bg-slate-950 p-6">
       <h1 className="text-xl font-bold text-slate-100 mb-5 flex items-center gap-2"><ShieldCheck className="w-6 h-6 text-emerald-500" /> 提货验证</h1>
-      <div className="flex gap-2 mb-4">
-        {tabs.map((t) => {
-          const count = t === "全部" ? cargos.filter((c) => PICKUP_STATUSES.includes(c.status)).length : cargos.filter((c) => c.status === t).length
+
+      <div className="grid grid-cols-4 gap-4 mb-5">
+        {STAT_CARDS.map((card) => {
+          const Icon = card.icon
+          const count = statCounts[card.key as keyof typeof statCounts] ?? 0
+          const isActive = activeCard === card.key
           return (
-            <button key={t} onClick={() => setFilter(t)} className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-1.5 ${filter === t ? "bg-slate-800 ring-1 ring-amber-500" : "bg-slate-900 hover:bg-slate-800"} ${TAB_COLORS[t]}`}>
-              {t !== "全部" && <span className="w-1.5 h-1.5 rounded-full bg-current" />}{t} <span className="text-xs opacity-60">{count}</span>
+            <button key={card.key} onClick={() => setFilter(card.key === "今日签收" ? "已完成" : card.key)} className={`rounded-xl p-4 text-left transition-all ${card.bg} ${isActive ? "ring-2 ring-amber-500 shadow-lg" : "hover:shadow-md"}`}>
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs text-slate-400">{card.label}</span>
+                <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${card.iconBg}`}><Icon className={`w-4 h-4 ${card.color}`} /></div>
+              </div>
+              <div className={`text-2xl font-bold ${card.color}`}>{count}</div>
             </button>
           )
         })}
       </div>
+
+      <div className="flex items-center gap-3 mb-4">
+        <div className="flex gap-2">
+          {tabs.map((t) => {
+            const count = t === "全部" ? pickupCargos.length : pickupCargos.filter((c) => c.status === t).length
+            return (
+              <button key={t} onClick={() => setFilter(t)} className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-1.5 ${filter === t ? "bg-slate-800 ring-1 ring-amber-500" : "bg-slate-900 hover:bg-slate-800"} ${TAB_COLORS[t]}`}>
+                {t !== "全部" && <span className="w-1.5 h-1.5 rounded-full bg-current" />}{t} <span className="text-xs opacity-60">{count}</span>
+              </button>
+            )
+          })}
+        </div>
+        <div className="ml-auto relative">
+          <Search className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
+          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="搜索货票号/品名/收货人" className="bg-slate-900 border border-slate-700 rounded-lg pl-9 pr-4 py-2 text-sm text-slate-200 placeholder:text-slate-600 w-64 focus:outline-none focus:border-amber-500 transition-colors" />
+          {search && <button onClick={() => setSearch("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300"><X className="w-3.5 h-3.5" /></button>}
+        </div>
+      </div>
+
       <div className="bg-slate-900 rounded-xl border border-slate-800 overflow-hidden">
         <table className="w-full text-sm">
           <thead>
@@ -288,7 +348,12 @@ export default function Pickup() {
               )
             })}
             {filtered.length === 0 && (
-              <tr><td colSpan={7} className="px-4 py-8 text-center text-slate-600">暂无提货数据</td></tr>
+              <tr><td colSpan={7} className="px-4 py-10 text-center">
+                <div className="flex flex-col items-center gap-1">
+                  <Search className="w-8 h-8 text-slate-700 mb-1" />
+                  <p className="text-slate-500 text-sm">{emptyText}</p>
+                </div>
+              </td></tr>
             )}
           </tbody>
         </table>
