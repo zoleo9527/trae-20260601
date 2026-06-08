@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { api } from '../api'
 
 const SECURITY_INSPECTORS = ['赵国安', '钱卫东', '孙磊']
@@ -12,6 +12,15 @@ const REJECT_CATEGORIES = [
   '温控记录不达标',
   '其他',
 ]
+
+const RESULT_KEYS = ['待校验', '通过', '退回', '有异常']
+
+const RESULT_COLORS = {
+  '待校验': { bg: 'rgba(100,116,139,0.12)', border: 'rgba(100,116,139,0.3)', text: 'var(--text-muted)', accent: '#64748b' },
+  '通过': { bg: 'var(--success-bg)', border: 'rgba(34,197,94,0.3)', text: 'var(--success)', accent: '#22c55e' },
+  '退回': { bg: 'var(--danger-bg)', border: 'rgba(239,68,68,0.3)', text: 'var(--danger)', accent: '#ef4444' },
+  '有异常': { bg: 'rgba(245,158,11,0.1)', border: 'rgba(245,158,11,0.3)', text: 'var(--warning)', accent: '#f59e0b' },
+}
 
 function getLastOperator(verification) {
   let lastOp = ''
@@ -39,11 +48,26 @@ function getLastOperator(verification) {
   return { operator: lastOp, time: lastTime }
 }
 
-export default function VerificationReview() {
+function collectOperators(records) {
+  const set = new Set()
+  for (const v of records) {
+    for (const doc of v.documents) {
+      if (doc.submittedBy) set.add(doc.submittedBy)
+      if (doc.verifiedBy) set.add(doc.verifiedBy)
+    }
+    if (v.verifiedBy) set.add(v.verifiedBy)
+  }
+  return [...set].sort()
+}
+
+export default function VerificationReview({ onNavigateToAcceptance }) {
   const [records, setRecords] = useState([])
   const [loading, setLoading] = useState(true)
   const [filterResult, setFilterResult] = useState('')
   const [filterWaybill, setFilterWaybill] = useState('')
+  const [filterOperator, setFilterOperator] = useState('')
+  const [filterDateFrom, setFilterDateFrom] = useState('')
+  const [filterDateTo, setFilterDateTo] = useState('')
   const [selectedRecord, setSelectedRecord] = useState(null)
   const [currentOperator, setCurrentOperator] = useState('赵国安')
   const [actionLoading, setActionLoading] = useState(false)
@@ -52,20 +76,68 @@ export default function VerificationReview() {
   const [completeRejectCategory, setCompleteRejectCategory] = useState('')
   const [issueDocType, setIssueDocType] = useState('')
   const [issueNote, setIssueNote] = useState('')
+  const [allRecords, setAllRecords] = useState([])
 
   const loadData = useCallback(async () => {
     setLoading(true)
     try {
+      const allRes = await api.verification.list()
+      setAllRecords(allRes.data)
       const params = {}
       if (filterResult) params.result = filterResult
       if (filterWaybill) params.waybillNo = filterWaybill
+      if (filterOperator) params.operator = filterOperator
+      if (filterDateFrom) params.dateFrom = filterDateFrom
+      if (filterDateTo) params.dateTo = filterDateTo
       const res = await api.verification.list(params)
       setRecords(res.data)
     } catch (e) { console.error(e) }
     setLoading(false)
-  }, [filterResult, filterWaybill])
+  }, [filterResult, filterWaybill, filterOperator, filterDateFrom, filterDateTo])
 
   useEffect(() => { loadData() }, [])
+
+  const summary = useMemo(() => {
+    const total = allRecords.length
+    const counts = { '待校验': 0, '通过': 0, '退回': 0, '有异常': 0 }
+    for (const v of allRecords) {
+      if (counts[v.overallResult] !== undefined) counts[v.overallResult]++
+    }
+    return { total, counts }
+  }, [allRecords])
+
+  const hasActiveFilter = filterResult || filterWaybill || filterOperator || filterDateFrom || filterDateTo
+
+  const resetFilters = useCallback(() => {
+    setFilterResult('')
+    setFilterWaybill('')
+    setFilterOperator('')
+    setFilterDateFrom('')
+    setFilterDateTo('')
+    setTimeout(() => {
+      api.verification.list().then(res => setRecords(res.data)).catch(() => {})
+    }, 0)
+  }, [])
+
+  const applyDashboardFilter = useCallback((result) => {
+    if (filterResult === result) {
+      setFilterResult('')
+    } else {
+      setFilterResult(result)
+    }
+    setTimeout(() => {
+      const params = {}
+      const nextResult = filterResult === result ? '' : result
+      if (nextResult) params.result = nextResult
+      if (filterWaybill) params.waybillNo = filterWaybill
+      if (filterOperator) params.operator = filterOperator
+      if (filterDateFrom) params.dateFrom = filterDateFrom
+      if (filterDateTo) params.dateTo = filterDateTo
+      api.verification.list(params).then(res => setRecords(res.data)).catch(() => {})
+    }, 0)
+  }, [filterResult, filterWaybill, filterOperator, filterDateFrom, filterDateTo])
+
+  const operatorOptions = useMemo(() => collectOperators(allRecords), [allRecords])
 
   const refreshSelectedRecord = useCallback(async () => {
     if (!selectedRecord) return
@@ -177,16 +249,59 @@ export default function VerificationReview() {
 
   return (
     <div>
+      <div style={{
+        display: 'grid', gridTemplateColumns: `repeat(${RESULT_KEYS.length + 1}, 1fr)`,
+        gap: 10, marginBottom: 16,
+      }}>
+        <div
+          onClick={() => { setFilterResult(''); loadData() }}
+          style={{
+            padding: '12px 14px', borderRadius: 8, cursor: 'pointer',
+            background: 'var(--bg-card)', border: '1px solid var(--border)',
+            borderLeft: '4px solid var(--accent)',
+            transition: 'box-shadow 0.15s',
+          }}
+        >
+          <div style={{ fontSize: 11, color: 'var(--text-dim)', marginBottom: 4 }}>总数</div>
+          <div style={{ fontSize: 26, fontWeight: 700, color: 'var(--accent)' }}>{summary.total}</div>
+          <div style={{ fontSize: 10, color: 'var(--text-dim)', marginTop: 2 }}>全部校验记录</div>
+        </div>
+        {RESULT_KEYS.map(key => {
+          const c = RESULT_COLORS[key]
+          const count = summary.counts[key]
+          const pct = summary.total > 0 ? Math.round((count / summary.total) * 100) : 0
+          const active = filterResult === key
+          return (
+            <div
+              key={key}
+              onClick={() => applyDashboardFilter(key)}
+              style={{
+                padding: '12px 14px', borderRadius: 8, cursor: 'pointer',
+                background: active ? c.bg : 'var(--bg-card)',
+                border: `1px solid ${active ? c.border : 'var(--border)'}`,
+                borderLeft: `4px solid ${c.accent}`,
+                boxShadow: active ? `0 0 0 1px ${c.accent}` : 'none',
+                transition: 'all 0.15s',
+              }}
+            >
+              <div style={{ fontSize: 11, color: c.text, marginBottom: 4 }}>{key}</div>
+              <div style={{ fontSize: 26, fontWeight: 700, color: c.accent }}>{count}</div>
+              <div style={{ fontSize: 10, color: 'var(--text-dim)', marginTop: 2 }}>{pct}%</div>
+            </div>
+          )
+        })}
+      </div>
+
       <div style={{ display: 'flex', gap: 10, marginBottom: 16, alignItems: 'end', flexWrap: 'wrap' }}>
         <div>
           <label style={{ fontSize: 11, color: 'var(--text-dim)', display: 'block', marginBottom: 4 }}>运单号</label>
           <input className="input" placeholder="运单号" value={filterWaybill}
-            onChange={e => setFilterWaybill(e.target.value)} />
+            onChange={e => setFilterWaybill(e.target.value)} style={{ width: 130 }} />
         </div>
         <div>
           <label style={{ fontSize: 11, color: 'var(--text-dim)', display: 'block', marginBottom: 4 }}>校验结果</label>
           <select className="input" value={filterResult}
-            onChange={e => setFilterResult(e.target.value)}>
+            onChange={e => setFilterResult(e.target.value)} style={{ width: 100 }}>
             <option value="">全部</option>
             <option value="待校验">待校验</option>
             <option value="通过">通过</option>
@@ -194,12 +309,64 @@ export default function VerificationReview() {
             <option value="有异常">有异常</option>
           </select>
         </div>
+        <div>
+          <label style={{ fontSize: 11, color: 'var(--text-dim)', display: 'block', marginBottom: 4 }}>校验人</label>
+          <select className="input" value={filterOperator}
+            onChange={e => setFilterOperator(e.target.value)} style={{ width: 110 }}>
+            <option value="">全部</option>
+            {operatorOptions.map(n => <option key={n} value={n}>{n}</option>)}
+          </select>
+        </div>
+        <div>
+          <label style={{ fontSize: 11, color: 'var(--text-dim)', display: 'block', marginBottom: 4 }}>开始日期</label>
+          <input type="date" className="input" value={filterDateFrom}
+            onChange={e => setFilterDateFrom(e.target.value)} style={{ width: 140 }} />
+        </div>
+        <div>
+          <label style={{ fontSize: 11, color: 'var(--text-dim)', display: 'block', marginBottom: 4 }}>结束日期</label>
+          <input type="date" className="input" value={filterDateTo}
+            onChange={e => setFilterDateTo(e.target.value)} style={{ width: 140 }} />
+        </div>
         <button className="btn btn-primary" onClick={loadData}>筛选</button>
-        <button className="btn btn-ghost" onClick={() => { setFilterResult(''); setFilterWaybill(''); setTimeout(loadData, 0) }}>重置</button>
+        <button className="btn btn-ghost" onClick={resetFilters}>重置</button>
+        {hasActiveFilter && (
+          <span style={{ fontSize: 12, color: 'var(--accent)', lineHeight: '36px' }}>
+            已筛选 {records.length} / {summary.total}
+          </span>
+        )}
       </div>
 
       {loading ? (
-        <div style={{ textAlign: 'center', padding: 40, color: 'var(--text-dim)' }}>加载中...</div>
+        <div style={{
+          textAlign: 'center', padding: 60, color: 'var(--text-dim)',
+          display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12,
+        }}>
+          <div style={{ fontSize: 28, opacity: 0.4 }}>⏳</div>
+          <div>正在加载校验记录...</div>
+        </div>
+      ) : records.length === 0 && summary.total === 0 ? (
+        <div style={{
+          textAlign: 'center', padding: 60, color: 'var(--text-dim)',
+          display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12,
+        }}>
+          <div style={{ fontSize: 28, opacity: 0.4 }}>📋</div>
+          <div>系统中暂无校验记录</div>
+          <div style={{ fontSize: 12 }}>请先在"入库受理处理"中提交受理记录</div>
+        </div>
+      ) : records.length === 0 ? (
+        <div style={{
+          textAlign: 'center', padding: 60, color: 'var(--text-dim)',
+          display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12,
+        }}>
+          <div style={{ fontSize: 28, opacity: 0.4 }}>🔍</div>
+          <div>当前筛选条件下无匹配记录</div>
+          <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+            共 {summary.total} 条记录，当前筛选结果为空
+          </div>
+          <button className="btn btn-ghost" onClick={resetFilters} style={{ marginTop: 6 }}>
+            重置筛选条件
+          </button>
+        </div>
       ) : (
         <div style={{ display: 'grid', gap: 12 }}>
           {records.map(v => {
@@ -257,7 +424,7 @@ export default function VerificationReview() {
                       )
                     })}
                   </div>
-                  <div style={{ textAlign: 'right', minWidth: 130, marginLeft: 12 }}>
+                  <div style={{ textAlign: 'right', minWidth: 130, marginLeft: 12, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
                     {lastOp && (
                       <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
                         最近: <span style={{ color: 'var(--accent)', fontWeight: 500 }}>{lastOp}</span>
@@ -268,14 +435,23 @@ export default function VerificationReview() {
                         {new Date(lastTime).toLocaleString('zh-CN')}
                       </div>
                     )}
+                    {onNavigateToAcceptance && (
+                      <button
+                        className="btn btn-ghost btn-sm"
+                        style={{ fontSize: 10, padding: '2px 8px', marginTop: 2 }}
+                        onClick={e => {
+                          e.stopPropagation()
+                          onNavigateToAcceptance(v.acceptanceId, v.waybillNo)
+                        }}
+                      >
+                        → 受理记录
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
             )
           })}
-          {records.length === 0 && (
-            <div style={{ textAlign: 'center', padding: 40, color: 'var(--text-dim)' }}>暂无校验记录</div>
-          )}
         </div>
       )}
 

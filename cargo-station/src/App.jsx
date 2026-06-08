@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { api } from './api'
 import AcceptanceList from './components/AcceptanceList'
 import AcceptanceProcess from './components/AcceptanceProcess'
@@ -16,6 +16,12 @@ export default function App() {
   const [activeTab, setActiveTab] = useState('list')
   const [stats, setStats] = useState(null)
   const [refreshKey, setRefreshKey] = useState(0)
+  const pendingWaybillRef = useRef('')
+
+  const handleNavigateToAcceptance = useCallback((acceptanceId, waybillNo) => {
+    pendingWaybillRef.current = waybillNo
+    setActiveTab('list')
+  }, [])
 
   const loadStats = useCallback(async () => {
     try {
@@ -115,8 +121,8 @@ export default function App() {
       )}
 
       <main style={{ flex: 1, padding: 20, overflow: 'auto' }}>
-        {activeTab === 'list' && <AcceptanceList key={refreshKey} />}
-        {activeTab === 'verification' && <VerificationReview key={refreshKey} />}
+        {activeTab === 'list' && <AcceptanceList key={refreshKey} pendingWaybillRef={pendingWaybillRef} />}
+        {activeTab === 'verification' && <VerificationReview key={refreshKey} onNavigateToAcceptance={handleNavigateToAcceptance} />}
         {activeTab === 'process' && <AcceptanceProcess key={refreshKey} onRefresh={handleRefresh} />}
         {activeTab === 'audit' && <AuditTrail key={refreshKey} />}
       </main>

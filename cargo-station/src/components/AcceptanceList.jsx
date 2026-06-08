@@ -4,7 +4,7 @@ import { api } from '../api'
 const STATUS_OPTIONS = ['待受理', '受理中', '待单证校验', '单证校验中', '校验退回', '校验通过', '待入库', '已入库']
 const CARGO_OPTIONS = ['普货', '锂电池', '危险化学品', '生鲜冷链', '药品', '精密仪器', '纺织品', '文件资料']
 
-export default function AcceptanceList() {
+export default function AcceptanceList({ pendingWaybillRef }) {
   const [records, setRecords] = useState([])
   const [loading, setLoading] = useState(true)
   const [filters, setFilters] = useState({ status: '', cargoType: '', waybillNo: '', flightNo: '', shipper: '' })
@@ -12,11 +12,12 @@ export default function AcceptanceList() {
   const [detailRecord, setDetailRecord] = useState(null)
   const [verification, setVerification] = useState(null)
 
-  const loadData = async () => {
+  const loadData = async (overrideFilters) => {
     setLoading(true)
     try {
       const params = {}
-      Object.entries(filters).forEach(([k, v]) => { if (v) params[k] = v })
+      const f = overrideFilters || filters
+      Object.entries(f).forEach(([k, v]) => { if (v) params[k] = v })
       const res = await api.acceptance.list(params)
       setRecords(res.data)
       setTotal(res.total)
@@ -24,7 +25,17 @@ export default function AcceptanceList() {
     setLoading(false)
   }
 
-  useEffect(() => { loadData() }, [])
+  useEffect(() => {
+    const pendingWaybill = pendingWaybillRef?.current
+    if (pendingWaybill) {
+      const overrideFilters = { status: '', cargoType: '', waybillNo: pendingWaybill, flightNo: '', shipper: '' }
+      setFilters(overrideFilters)
+      loadData(overrideFilters)
+      pendingWaybillRef.current = ''
+    } else {
+      loadData()
+    }
+  }, [])
 
   const handleFilter = () => { loadData() }
   const handleReset = () => {

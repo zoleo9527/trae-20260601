@@ -15,6 +15,26 @@ router.get('/', (req, res) => {
   if (req.query.result) {
     filtered = filtered.filter(v => v.overallResult === req.query.result)
   }
+  if (req.query.operator) {
+    filtered = filtered.filter(v => {
+      const names = new Set()
+      for (const doc of v.documents) {
+        if (doc.submittedBy) names.add(doc.submittedBy)
+        if (doc.verifiedBy) names.add(doc.verifiedBy)
+      }
+      if (v.verifiedBy) names.add(v.verifiedBy)
+      return names.has(req.query.operator)
+    })
+  }
+  if (req.query.dateFrom) {
+    const from = new Date(req.query.dateFrom)
+    filtered = filtered.filter(v => new Date(v.updatedAt) >= from)
+  }
+  if (req.query.dateTo) {
+    const to = new Date(req.query.dateTo)
+    to.setHours(23, 59, 59, 999)
+    filtered = filtered.filter(v => new Date(v.updatedAt) <= to)
+  }
   res.json({ total: filtered.length, data: filtered })
 })
 
