@@ -1,15 +1,40 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { useAppStore } from '@/hooks/useAppStore'
 import { ProblemStatusBadge } from '@/components/StatusBadge'
 import { Search, RefreshCw, ArrowRight, Plus } from 'lucide-react'
-import { PROBLEM_TYPE_LABELS, type ProblemStatus, type ProblemType } from '../../shared/types'
+import { PROBLEM_TYPE_LABELS, PROBLEM_STATUS_LABELS, type ProblemStatus, type ProblemType } from '../../shared/types'
 import { Link, useSearchParams } from 'react-router-dom'
+
+const FILTER_GROUPS: { key: string; statuses: ProblemStatus[]; label: string }[] = [
+  { key: 'pending_supplementing', statuses: ['pending', 'supplementing'], label: '待处理' },
+  { key: 'contacting', statuses: ['contacting'], label: '联系中' },
+  { key: 'reviewing', statuses: ['reviewing'], label: '复核中' },
+  { key: 'returned', statuses: ['returned'], label: '已退回' },
+  { key: 'resolved', statuses: ['resolved'], label: '已解决' },
+  { key: 'closed', statuses: ['closed'], label: '已关闭' },
+]
+
+function toUrlStatus(statuses: ProblemStatus[]): string {
+  return statuses.join(',')
+}
+
+function parseUrlStatus(urlStatus: string): ProblemStatus[] {
+  return urlStatus.split(',').map((s) => s.trim()).filter(Boolean) as ProblemStatus[]
+}
+
+function getFilterLabel(urlStatus: string): string {
+  const group = FILTER_GROUPS.find((g) => toUrlStatus(g.statuses) === urlStatus)
+  if (group) return group.label
+  const parsed = parseUrlStatus(urlStatus)
+  if (parsed.length === 1) return PROBLEM_STATUS_LABELS[parsed[0]] || parsed[0]
+  return parsed.map((s) => PROBLEM_STATUS_LABELS[s] || s).join(' + ')
+}
 
 export default function ProblemList() {
   const { problems, loadProblems } = useAppStore()
   const [searchParams, setSearchParams] = useSearchParams()
-  const initialStatus = (searchParams.get('status') as ProblemStatus) || ''
-  const [statusFilter, setStatusFilter] = useState<ProblemStatus | ''>(initialStatus)
+  const initialStatus = searchParams.get('status') || ''
+  const [statusFilter, setStatusFilter] = useState<string>(initialStatus)
   const [keyword, setKeyword] = useState('')
 
   useEffect(() => {
@@ -31,16 +56,20 @@ export default function ProblemList() {
     loadProblems(params)
   }
 
-  const statusTabs: { value: ProblemStatus | ''; label: string }[] = [
+  const statusTabs: { value: string; label: string }[] = [
     { value: '', label: '全部' },
-    { value: 'pending', label: '待处理' },
+    { value: toUrlStatus(['pending', 'supplementing']), label: '待处理' },
     { value: 'contacting', label: '联系中' },
-    { value: 'supplementing', label: '补录中' },
     { value: 'reviewing', label: '复核中' },
     { value: 'returned', label: '已退回' },
     { value: 'resolved', label: '已解决' },
     { value: 'closed', label: '已关闭' },
   ]
+
+  const filterLabel = useMemo(() => {
+    if (!statusFilter) return ''
+    return getFilterLabel(statusFilter)
+  }, [statusFilter])
 
   return (
     <div className="p-6">
@@ -50,7 +79,7 @@ export default function ProblemList() {
           <p className="text-sm text-slate-500 mt-1">登记、补录、退回、复核问题件，主流程一体化处理</p>
           {statusFilter && (
             <p className="text-xs text-blue-600 mt-1">
-              当前筛选：{statusFilter === 'pending' ? '待处理' : statusFilter === 'contacting' ? '联系中' : statusFilter === 'reviewing' ? '复核中' : statusFilter}
+              当前筛选：{filterLabel}
               <button onClick={() => setStatusFilter('')} className="ml-2 underline hover:text-blue-800">清除筛选</button>
             </p>
           )}

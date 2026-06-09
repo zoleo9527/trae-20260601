@@ -5,9 +5,28 @@ import { Package, AlertTriangle, Phone, Bell, ArrowRight, TrendingUp } from 'luc
 import { ProblemStatusBadge } from '@/components/StatusBadge'
 import { PROBLEM_TYPE_LABELS, PROBLEM_STATUS_LABELS, type ProblemStatus, type ProblemType } from '../../shared/types'
 
+const FILTER_GROUPS: { key: string; statuses: ProblemStatus[]; label: string }[] = [
+  { key: 'pending_supplementing', statuses: ['pending', 'supplementing'], label: '待处理' },
+  { key: 'contacting', statuses: ['contacting'], label: '联系中' },
+  { key: 'reviewing', statuses: ['reviewing'], label: '复核中' },
+  { key: 'returned', statuses: ['returned'], label: '已退回' },
+  { key: 'closed', statuses: ['closed', 'resolved'], label: '已关闭' },
+]
+
+function toUrlStatus(statuses: ProblemStatus[]): string {
+  return statuses.join(',')
+}
+
+function getFilterLabel(urlStatus: string): string {
+  const group = FILTER_GROUPS.find((g) => toUrlStatus(g.statuses) === urlStatus)
+  if (group) return group.label
+  const single = urlStatus.split(',')[0] as ProblemStatus
+  return PROBLEM_STATUS_LABELS[single] || single
+}
+
 export default function Dashboard() {
   const { problems, deliveries, notifications, unreadCount, loadProblems, loadDeliveries, loadNotifications } = useAppStore()
-  const [problemFilter, setProblemFilter] = useState<ProblemStatus | ''>('')
+  const [problemFilter, setProblemFilter] = useState<string>('')
 
   useEffect(() => {
     loadDeliveries()
@@ -18,18 +37,24 @@ export default function Dashboard() {
   const pendingProblems = problems.filter((p) => p.status === 'pending' || p.status === 'supplementing')
   const contactingProblems = problems.filter((p) => p.status === 'contacting')
   const reviewingProblems = problems.filter((p) => p.status === 'reviewing')
-  const returnedProblems = problems.filter((p) => p.status === 'returned')
-  const closedProblems = problems.filter((p) => p.status === 'closed' || p.status === 'resolved')
   const problemDeliveries = deliveries.filter((d) => d.status === 'problem')
   const recentNotifications = notifications.slice(0, 6)
 
-  const statusCounts: { status: ProblemStatus; count: number; label: string; color: string }[] = [
-    { status: 'pending', count: problems.filter((p) => p.status === 'pending').length, label: '待处理', color: 'text-yellow-600' },
-    { status: 'supplementing', count: problems.filter((p) => p.status === 'supplementing').length, label: '补录中', color: 'text-orange-600' },
-    { status: 'contacting', count: contactingProblems.length, label: '联系中', color: 'text-blue-600' },
-    { status: 'reviewing', count: reviewingProblems.length, label: '复核中', color: 'text-purple-600' },
-    { status: 'returned', count: returnedProblems.length, label: '已退回', color: 'text-gray-600' },
-    { status: 'closed', count: closedProblems.length, label: '已关闭', color: 'text-slate-500' },
+  const statusCounts = FILTER_GROUPS.map((g) => ({
+    key: g.key,
+    urlStatus: toUrlStatus(g.statuses),
+    count: problems.filter((p) => g.statuses.includes(p.status as ProblemStatus)).length,
+    label: g.label,
+    color: g.key === 'pending_supplementing' ? 'text-yellow-600'
+      : g.key === 'contacting' ? 'text-blue-600'
+      : g.key === 'reviewing' ? 'text-purple-600'
+      : g.key === 'returned' ? 'text-gray-600'
+      : 'text-slate-500',
+  }))
+
+  const filterButtons: { value: string; label: string }[] = [
+    { value: '', label: '全部' },
+    ...FILTER_GROUPS.map((g) => ({ value: toUrlStatus(g.statuses), label: g.label })),
   ]
 
   return (
@@ -40,7 +65,7 @@ export default function Dashboard() {
       </div>
 
       <div className="grid grid-cols-4 gap-4 mb-6">
-        <Link to="/problems?status=pending" className="bg-white rounded-lg border border-slate-200 p-4 hover:border-blue-300 transition-colors">
+        <Link to={`/problems?status=${toUrlStatus(['pending', 'supplementing'])}`} className="bg-white rounded-lg border border-slate-200 p-4 hover:border-blue-300 transition-colors">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-xs text-slate-500">待处理问题件</p>
@@ -51,7 +76,7 @@ export default function Dashboard() {
           <p className="text-xs text-blue-600 hover:underline mt-2">查看详情 →</p>
         </Link>
 
-        <Link to="/problems?status=contacting" className="bg-white rounded-lg border border-slate-200 p-4 hover:border-blue-300 transition-colors">
+        <Link to={`/problems?status=contacting`} className="bg-white rounded-lg border border-slate-200 p-4 hover:border-blue-300 transition-colors">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-xs text-slate-500">联系中</p>
@@ -62,7 +87,7 @@ export default function Dashboard() {
           <p className="text-xs text-blue-600 hover:underline mt-2">查看详情 →</p>
         </Link>
 
-        <Link to="/problems?status=reviewing" className="bg-white rounded-lg border border-slate-200 p-4 hover:border-blue-300 transition-colors">
+        <Link to={`/problems?status=reviewing`} className="bg-white rounded-lg border border-slate-200 p-4 hover:border-blue-300 transition-colors">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-xs text-slate-500">待复核</p>
@@ -93,13 +118,13 @@ export default function Dashboard() {
                 <TrendingUp className="w-4 h-4 text-blue-500" /> 问题件状态分布
               </h3>
               <div className="flex gap-1">
-                {(['', 'pending', 'contacting', 'supplementing', 'returned', 'reviewing', 'closed'] as const).map((s) => (
+                {filterButtons.map((fb) => (
                   <button
-                    key={s}
-                    onClick={() => setProblemFilter(s)}
-                    className={`text-xs px-2 py-1 rounded ${problemFilter === s ? 'bg-blue-100 text-blue-700' : 'text-slate-500 hover:bg-slate-50'}`}
+                    key={fb.value}
+                    onClick={() => setProblemFilter(fb.value)}
+                    className={`text-xs px-2 py-1 rounded ${problemFilter === fb.value ? 'bg-blue-100 text-blue-700' : 'text-slate-500 hover:bg-slate-50'}`}
                   >
-                    {s === '' ? '全部' : PROBLEM_STATUS_LABELS[s] || s}
+                    {fb.label}
                   </button>
                 ))}
               </div>
@@ -108,7 +133,7 @@ export default function Dashboard() {
             <div className="px-4 py-3 border-b border-slate-50">
               <div className="flex gap-3">
                 {statusCounts.map((sc) => (
-                  <div key={sc.status} className="flex-1 text-center">
+                  <div key={sc.key} className="flex-1 text-center">
                     <p className={`text-lg font-bold ${sc.color}`}>{sc.count}</p>
                     <p className="text-xs text-slate-400">{sc.label}</p>
                   </div>
@@ -216,8 +241,11 @@ export default function Dashboard() {
               <Link to="/problems/new" className="flex items-center gap-2 text-sm text-slate-700 hover:text-blue-600 py-1.5 px-2 rounded hover:bg-blue-50 transition-colors">
                 <AlertTriangle className="w-4 h-4 text-yellow-500" /> 新建问题件登记
               </Link>
-              <Link to="/problems?status=pending" className="flex items-center gap-2 text-sm text-slate-700 hover:text-blue-600 py-1.5 px-2 rounded hover:bg-blue-50 transition-colors">
-                <Phone className="w-4 h-4 text-blue-500" /> 待联系客户
+              <Link to={`/problems?status=${toUrlStatus(['pending', 'supplementing'])}`} className="flex items-center gap-2 text-sm text-slate-700 hover:text-blue-600 py-1.5 px-2 rounded hover:bg-blue-50 transition-colors">
+                <AlertTriangle className="w-4 h-4 text-yellow-600" /> 待处理问题件
+              </Link>
+              <Link to="/problems?status=contacting" className="flex items-center gap-2 text-sm text-slate-700 hover:text-blue-600 py-1.5 px-2 rounded hover:bg-blue-50 transition-colors">
+                <Phone className="w-4 h-4 text-blue-500" /> 联系中问题件
               </Link>
               <Link to="/problems?status=reviewing" className="flex items-center gap-2 text-sm text-slate-700 hover:text-blue-600 py-1.5 px-2 rounded hover:bg-blue-50 transition-colors">
                 <Package className="w-4 h-4 text-purple-500" /> 待复核问题件

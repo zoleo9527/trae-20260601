@@ -22,8 +22,15 @@ router.get('/', (_req: Request, res: Response): void => {
   const params: any[] = []
 
   if (status) {
-    sql += ' AND status = ?'
-    params.push(status)
+    const statuses = status.split(',').map((s) => s.trim()).filter(Boolean)
+    if (statuses.length === 1) {
+      sql += ' AND status = ?'
+      params.push(statuses[0])
+    } else if (statuses.length > 1) {
+      const placeholders = statuses.map(() => '?').join(', ')
+      sql += ` AND status IN (${placeholders})`
+      params.push(...statuses)
+    }
   }
   if (problemType) {
     sql += ' AND problem_type = ?'
