@@ -42,6 +42,8 @@ interface PriorityItem {
   pondName: string;
   action: string;
   person: string;
+  time?: string;
+  remarkSummary?: string;
   href: string;
   urgency: "danger" | "warning" | "info";
 }
@@ -94,14 +96,16 @@ function buildPriorityQueue(
         urgency: "info",
       });
     });
-    followUpMeds.forEach((m) => {
+    pendingFollowUpMeds.forEach((m) => {
       items.push({
         priority: idx++,
         pondName: m.pond.name,
         action: `跟进用药: ${m.medicationName} (${m.purpose})`,
         person: m.administrator.name,
+        time: m.administeredAt ? formatTime(m.administeredAt) : undefined,
+        remarkSummary: m.remarks || undefined,
         href: "/medications",
-        urgency: m.followUpStatus === "PENDING_CONFIRM" ? "warning" : "info",
+        urgency: "info",
       });
     });
   } else if (role === "FEED_MANAGER") {
@@ -178,16 +182,16 @@ function buildPriorityQueue(
         urgency: "warning",
       });
     });
-    followUpMeds.forEach((m) => {
+    pendingConfirmMeds.forEach((m) => {
       items.push({
         priority: idx++,
         pondName: m.pond.name,
-        action: m.followUpStatus === "PENDING_CONFIRM"
-          ? `确认用药跟进: ${m.medicationName} (${m.purpose}) — 技术员${m.followUpSubmitter?.name || ""}已提交`
-          : `待跟进用药: ${m.medicationName} (${m.purpose})`,
-        person: m.followUpStatus === "PENDING_CONFIRM" ? (m.followUpSubmitter?.name || m.administrator.name) : m.administrator.name,
+        action: `确认用药跟进: ${m.medicationName} (${m.purpose}) — 技术员${m.followUpSubmitter?.name || ""}已提交`,
+        person: m.followUpSubmitter?.name || m.administrator.name,
+        time: m.followUpSubmittedAt ? formatTime(m.followUpSubmittedAt) : undefined,
+        remarkSummary: m.followUpSubmittedRemarks || undefined,
         href: "/medications",
-        urgency: m.followUpStatus === "PENDING_CONFIRM" ? "warning" : "info",
+        urgency: "warning",
       });
     });
   }
@@ -248,8 +252,11 @@ export default function DashboardPage() {
   const dangerCount = dangerWarnings.length;
   const warnCount = warningWarnings.length;
   const pendingCount = pendingInspections.length;
-  const followUpMedCount = followUpMeds.length;
+  const pendingFollowUpCount = pendingFollowUpMeds.length;
   const pendingConfirmCount = pendingConfirmMeds.length;
+
+  const showFollowUpBadge = user.role === "TECHNICIAN" && pendingFollowUpCount > 0;
+  const showConfirmBadge = user.role === "FARM_DIRECTOR" && pendingConfirmCount > 0;
 
   const priorityItems = buildPriorityQueue(
     user.role,
@@ -360,7 +367,7 @@ export default function DashboardPage() {
               待巡检 {pendingCount}
             </span>
           )}
-          {followUpMedCount > 0 && (
+          {showFollowUpBadge && (
             <span
               style={{
                 background: "#ede9fe",
@@ -372,10 +379,10 @@ export default function DashboardPage() {
                 border: "1px solid #c4b5fd",
               }}
             >
-              药品跟进 {followUpMedCount}
+              待跟进 {pendingFollowUpCount}
             </span>
           )}
-          {pendingConfirmCount > 0 && (
+          {showConfirmBadge && (
             <span
               style={{
                 background: "#fef3c7",
@@ -440,9 +447,11 @@ export default function DashboardPage() {
                       <span style={{ fontWeight: 600, fontSize: 14 }}>{item.pondName}</span>
                     </div>
                     <div style={{ fontSize: 13, color: "#475569" }}>{item.action}</div>
+                    {item.remarkSummary && <div style={{ fontSize: 12, color: "#64748b", marginTop: 2 }}>{item.remarkSummary}</div>}
                   </div>
                   <div style={{ fontSize: 12, color: "#64748b", flexShrink: 0, textAlign: "right" }}>
-                    {item.person}
+                    <div>{item.person}</div>
+                    {item.time && <div style={{ color: "#94a3b8", fontSize: 11 }}>{item.time}</div>}
                   </div>
                 </a>
               );

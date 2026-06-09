@@ -10,12 +10,11 @@ async function main() {
   await prisma.pond.deleteMany();
   await prisma.user.deleteMany();
 
-  const users = await Promise.all([
-    prisma.user.create({ data: { name: "张海宁", role: "TECHNICIAN" } }),
-    prisma.user.create({ data: { name: "李波", role: "TECHNICIAN" } }),
-    prisma.user.create({ data: { name: "王仓管", role: "FEED_MANAGER" } }),
-    prisma.user.create({ data: { name: "赵场长", role: "FARM_DIRECTOR" } }),
-  ]);
+  const user1 = await prisma.user.create({ data: { name: "张海宁", role: "TECHNICIAN" } });
+  const user2 = await prisma.user.create({ data: { name: "李波", role: "TECHNICIAN" } });
+  const user3 = await prisma.user.create({ data: { name: "王仓管", role: "FEED_MANAGER" } });
+  const user4 = await prisma.user.create({ data: { name: "赵场长", role: "FARM_DIRECTOR" } });
+  const users = [user1, user2, user3, user4];
 
   const ponds = await Promise.all([
     prisma.pond.create({ data: { name: "1号塘", area: 5.2, species: "南美白虾", status: "danger" } }),
@@ -304,6 +303,29 @@ async function main() {
     }),
   ]);
 
+  const medWarningRemarks = await Promise.all([
+    prisma.warningRemark.create({
+      data: { warningId: warnings[3].id, sourceType: "MEDICATION", sourceId: medicationRecords[1].id,
+        content: "[药品跟进] 底质改良剂(改善底质) 技术员已跟进：已投放底质改良剂，溶解氧略有回升",
+        authorId: users[1].id, createdAt: new Date("2026-06-09T08:00:00.000Z") },
+    }),
+    prisma.warningRemark.create({
+      data: { warningId: warnings[6].id, sourceType: "MEDICATION", sourceId: medicationRecords[1].id,
+        content: "[药品跟进] 底质改良剂(改善底质) 技术员已跟进：已投放底质改良剂，溶解氧略有回升",
+        authorId: users[1].id, createdAt: new Date("2026-06-09T08:00:00.000Z") },
+    }),
+    prisma.warningRemark.create({
+      data: { warningId: warnings[7].id, sourceType: "MEDICATION", sourceId: medicationRecords[4].id,
+        content: "[药品跟进] 二氧化氯(水体消毒) 技术员已跟进：消毒完成，水质正常",
+        authorId: users[0].id, createdAt: new Date("2026-06-07T08:00:00.000Z") },
+    }),
+    prisma.warningRemark.create({
+      data: { warningId: warnings[7].id, sourceType: "MEDICATION", sourceId: medicationRecords[4].id,
+        content: "[药品跟进确认] 二氧化氯(水体消毒) 场长已确认：消毒效果良好，水质已恢复",
+        authorId: users[3].id, createdAt: new Date("2026-06-07T09:00:00.000Z") },
+    }),
+  ]);
+
   const statusLogs = await Promise.all([
     prisma.statusLog.create({
       data: { entityType: "Inspection", entityId: inspections[6].id,
@@ -385,7 +407,7 @@ async function main() {
   console.log({
     users: users.length, ponds: ponds.length,
     inspections: inspections.length, warnings: warnings.length,
-    warningRemarks: warningRemarks.length, feedRecords: feedRecords.length,
+    warningRemarks: warningRemarks.length + medWarningRemarks.length, feedRecords: feedRecords.length,
     medicationRecords: medicationRecords.length, statusLogs: statusLogs.length,
   });
 }

@@ -10,13 +10,13 @@ async function reseed() {
   await prisma.inspection.deleteMany();
   await prisma.pond.deleteMany();
   await prisma.user.deleteMany();
+  await prisma.$executeRawUnsafe("DELETE FROM sqlite_sequence");
 
-  const users = await Promise.all([
-    prisma.user.create({ data: { name: "张海宁", role: "TECHNICIAN" } }),
-    prisma.user.create({ data: { name: "李波", role: "TECHNICIAN" } }),
-    prisma.user.create({ data: { name: "王仓管", role: "FEED_MANAGER" } }),
-    prisma.user.create({ data: { name: "赵场长", role: "FARM_DIRECTOR" } }),
-  ]);
+  const user1 = await prisma.user.create({ data: { name: "张海宁", role: "TECHNICIAN" } });
+  const user2 = await prisma.user.create({ data: { name: "李波", role: "TECHNICIAN" } });
+  const user3 = await prisma.user.create({ data: { name: "王仓管", role: "FEED_MANAGER" } });
+  const user4 = await prisma.user.create({ data: { name: "赵场长", role: "FARM_DIRECTOR" } });
+  const users = [user1, user2, user3, user4];
 
   const ponds = await Promise.all([
     prisma.pond.create({ data: { name: "1号塘", area: 5.2, species: "南美白虾", status: "danger" } }),
@@ -80,6 +80,13 @@ async function reseed() {
     prisma.medicationRecord.create({ data: { pondId: ponds[3].id, medicationName: "维生素C", dosage: 200, unit: "g", purpose: "增强免疫力", administeredBy: users[1].id, administeredAt: new Date("2026-06-07T10:00:00.000Z"), needsFollowUp: true, followUpStatus: "PENDING_FOLLOW_UP" } }),
     prisma.medicationRecord.create({ data: { pondId: ponds[2].id, medicationName: "水质净化剂", dosage: 1.0, unit: "kg", purpose: "降低氨氮", administeredBy: users[1].id, administeredAt: new Date("2026-06-08T14:00:00.000Z"), remarks: "3号塘氨氮处理", needsFollowUp: true, followUpStatus: "PENDING_FOLLOW_UP" } }),
     prisma.medicationRecord.create({ data: { pondId: ponds[4].id, medicationName: "二氧化氯", dosage: 0.3, unit: "kg", purpose: "水体消毒", administeredBy: users[0].id, administeredAt: new Date("2026-06-06T09:00:00.000Z"), needsFollowUp: false, followUpStatus: "CONFIRMED", followUpSubmittedBy: users[0].id, followUpSubmittedAt: new Date("2026-06-07T08:00:00.000Z"), followUpSubmittedRemarks: "消毒完成，水质正常", followUpHandledBy: users[3].id, followUpHandledAt: new Date("2026-06-07T09:00:00.000Z"), followUpHandledRemarks: "消毒效果良好，水质已恢复" } }),
+  ]);
+
+  const medWarningRemarks = await Promise.all([
+    prisma.warningRemark.create({ data: { warningId: warnings[3].id, sourceType: "MEDICATION", sourceId: medicationRecords[1].id, content: "[药品跟进] 底质改良剂(改善底质) 技术员已跟进：已投放底质改良剂，溶解氧略有回升", authorId: users[1].id, createdAt: new Date("2026-06-09T08:00:00.000Z") } }),
+    prisma.warningRemark.create({ data: { warningId: warnings[6].id, sourceType: "MEDICATION", sourceId: medicationRecords[1].id, content: "[药品跟进] 底质改良剂(改善底质) 技术员已跟进：已投放底质改良剂，溶解氧略有回升", authorId: users[1].id, createdAt: new Date("2026-06-09T08:00:00.000Z") } }),
+    prisma.warningRemark.create({ data: { warningId: warnings[7].id, sourceType: "MEDICATION", sourceId: medicationRecords[4].id, content: "[药品跟进] 二氧化氯(水体消毒) 技术员已跟进：消毒完成，水质正常", authorId: users[0].id, createdAt: new Date("2026-06-07T08:00:00.000Z") } }),
+    prisma.warningRemark.create({ data: { warningId: warnings[7].id, sourceType: "MEDICATION", sourceId: medicationRecords[4].id, content: "[药品跟进确认] 二氧化氯(水体消毒) 场长已确认：消毒效果良好，水质已恢复", authorId: users[3].id, createdAt: new Date("2026-06-07T09:00:00.000Z") } }),
   ]);
 
   const statusLogs = await Promise.all([
