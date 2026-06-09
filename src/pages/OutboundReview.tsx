@@ -28,6 +28,7 @@ export default function OutboundReview() {
   const navigate = useNavigate()
   const { currentRole } = useAppStore()
   const [order, setOrder] = useState<OutboundOrder | null>(null)
+  const [items, setItems] = useState<OutboundItem[]>([])
   const [loading, setLoading] = useState(true)
   const [reviews, setReviews] = useState<Record<string, ItemReview>>({})
   const [submitting, setSubmitting] = useState(false)
@@ -40,11 +41,12 @@ export default function OutboundReview() {
     fetch(`/api/outbound-orders/${id}`)
       .then((res) => res.json())
       .then((data) => {
-        const ord = data.data || null
-        setOrder(ord)
-        if (ord) {
+        if (data.data) {
+          setOrder(data.data.order || null)
+          const fetchedItems = data.data.items || []
+          setItems(fetchedItems)
           const init: Record<string, ItemReview> = {}
-          ord.items.forEach((item: OutboundItem) => {
+          fetchedItems.forEach((item: OutboundItem) => {
             init[item.id] = {
               result: item.reviewStatus === 'normal' ? 'normal' : item.reviewStatus === 'abnormal' ? 'abnormal' : null,
               abnormalType: item.abnormalType || '',
@@ -52,6 +54,9 @@ export default function OutboundReview() {
             }
           })
           setReviews(init)
+        } else {
+          setOrder(null)
+          setItems([])
         }
         setLoading(false)
       })
@@ -59,7 +64,7 @@ export default function OutboundReview() {
   }, [id])
 
   const allReviewed = order
-    ? order.items.every((item) => {
+    ? items.every((item) => {
         const review = reviews[item.id]
         if (!review?.result) return false
         if (review.result === 'abnormal' && !review.abnormalType) return false
@@ -84,7 +89,7 @@ export default function OutboundReview() {
     setSubmitting(true)
     setError('')
     try {
-      const reviewItems = order.items.map((item) => {
+      const reviewItems = items.map((item) => {
         const r = reviews[item.id]
         return {
           itemId: item.id,
@@ -162,7 +167,7 @@ export default function OutboundReview() {
       )}
 
       <div className="space-y-4">
-        {order.items.map((item) => {
+        {items.map((item) => {
           const review = reviews[item.id]
           return (
             <div key={item.id} className="rounded-xl bg-white shadow-sm p-5">

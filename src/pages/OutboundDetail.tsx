@@ -37,6 +37,9 @@ export default function OutboundDetail() {
   const navigate = useNavigate()
   const { currentRole } = useAppStore()
   const [order, setOrder] = useState<OutboundOrder | null>(null)
+  const [items, setItems] = useState<any[]>([])
+  const [timeline, setTimeline] = useState<any[]>([])
+  const [reviewSnapshots, setReviewSnapshots] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [expandedSnapshots, setExpandedSnapshots] = useState<Record<string, boolean>>({})
   const [submitting, setSubmitting] = useState(false)
@@ -47,7 +50,14 @@ export default function OutboundDetail() {
     fetch(`/api/outbound-orders/${id}`)
       .then((res) => res.json())
       .then((data) => {
-        setOrder(data.data || null)
+        if (data.data) {
+          setOrder(data.data.order || null)
+          setItems(data.data.items || [])
+          setTimeline(data.data.timeline || [])
+          setReviewSnapshots(data.data.reviewSnapshots || [])
+        } else {
+          setOrder(null)
+        }
         setLoading(false)
       })
       .catch(() => setLoading(false))
@@ -195,7 +205,7 @@ export default function OutboundDetail() {
             </tr>
           </thead>
           <tbody>
-            {order.items.map((item) => (
+            {items.map((item) => (
               <tr
                 key={item.id}
                 className={cn(
@@ -247,16 +257,16 @@ export default function OutboundDetail() {
       <div className="grid grid-cols-2 gap-6">
         <div className="rounded-xl bg-white shadow-sm p-6">
           <h3 className="text-sm font-semibold text-gray-500 mb-4">操作记录</h3>
-          <Timeline entries={order.timeline} />
+          <Timeline entries={timeline} />
         </div>
 
         <div className="rounded-xl bg-white shadow-sm p-6">
           <h3 className="text-sm font-semibold text-gray-500 mb-4">复核快照</h3>
-          {order.reviewSnapshots.length === 0 ? (
+          {reviewSnapshots.length === 0 ? (
             <p className="text-sm text-gray-400">暂无复核记录</p>
           ) : (
             <div className="space-y-3">
-              {order.reviewSnapshots.map((snapshot) => (
+              {reviewSnapshots.map((snapshot) => (
                 <div key={snapshot.id} className="border rounded-lg overflow-hidden">
                   <button
                     onClick={() => toggleSnapshot(snapshot.id)}
