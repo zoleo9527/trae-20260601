@@ -78,7 +78,11 @@ router.put('/:id/review', (req: Request, res: Response): void => {
     const order = outboundService.reviewOrder(req.params.id, { reviewedBy, reviewItems, idempotencyKey })
     res.json({ success: true, data: order })
   } catch (error: any) {
-    if (error.message.includes('不允许复核') || error.message.includes('不存在')) {
+    if (
+      error.message.includes('不允许复核') || 
+      error.message.includes('不存在') || 
+      error.message.includes('缺少异常类型')
+    ) {
       res.status(400).json({ success: false, error: error.message })
       return
     }
