@@ -32,7 +32,7 @@ router.post('/upload', upload.single('file'), (req, res) => {
   ).run(entity_type, entity_id, req.file.originalname, req.file.filename, req.file.size, uploaded_by || null, now);
 
   const attachment = db.prepare('SELECT * FROM attachments WHERE id = ?').get(result.lastInsertRowid);
-  res.status(201).json(attachment);
+  res.status(201).json({ ...attachment, url: `/uploads/${attachment.file_path}` });
 });
 
 router.get('/:entityType/:entityId', (req, res) => {
@@ -40,7 +40,7 @@ router.get('/:entityType/:entityId', (req, res) => {
   const list = db.prepare(
     `SELECT * FROM attachments WHERE entity_type = ? AND entity_id = ? ORDER BY uploaded_at DESC`
   ).all(entityType, entityId);
-  res.json(list);
+  res.json(list.map(a => ({ ...a, url: `/uploads/${a.file_path}` })));
 });
 
 router.delete('/:id', (req, res) => {

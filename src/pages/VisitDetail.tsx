@@ -40,7 +40,7 @@ export default function VisitDetail() {
   const [transferReason, setTransferReason] = useState('')
   const [actionLoading, setActionLoading] = useState(false)
   const [linkedRecallId, setLinkedRecallId] = useState<number | null>(null)
-  const [attachments, setAttachments] = useState<{ id: number; file_name: string; file_path: string }[]>([])
+  const [attachments, setAttachments] = useState<{ id: number; file_name: string; file_path: string; url: string }[]>([])
   const [uploading, setUploading] = useState(false)
 
   useEffect(() => {
@@ -352,7 +352,7 @@ export default function VisitDetail() {
             {attachments.map((att) => (
               <div key={att.id} className="flex items-center gap-2 px-3 py-2 bg-gray-50 rounded-lg text-sm text-gray-700">
                 <FileText size={14} className="text-gray-400" />
-                <span className="flex-1 truncate">{att.file_name}</span>
+                <a href={att.url} target="_blank" rel="noopener noreferrer" download className="flex-1 truncate hover:text-orange-600 transition-colors">{att.file_name}</a>
                 <button
                   onClick={async () => {
                     if (!id) return

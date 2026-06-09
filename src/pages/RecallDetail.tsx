@@ -205,7 +205,7 @@ export default function RecallDetail() {
   const [modalType, setModalType] = useState<'recalled' | 'closed' | ''>('')
   const [resolution, setResolution] = useState('')
   const [transitioning, setTransitioning] = useState(false)
-  const [attachments, setAttachments] = useState<{ id: number; file_name: string; file_path: string; file_size?: number }[]>([])
+  const [attachments, setAttachments] = useState<{ id: number; file_name: string; file_path: string; url: string; file_size?: number }[]>([])
 
   useEffect(() => {
     if (id) fetchRecall(Number(id))
@@ -576,7 +576,7 @@ export default function RecallDetail() {
                 {attachments.map((att) => (
                   <div key={att.id} className="flex items-center gap-2 px-3 py-2 bg-gray-50 rounded-lg text-sm text-gray-700">
                     <FileText size={14} className="text-gray-400" />
-                    <span className="flex-1 truncate">{att.file_name}</span>
+                    <a href={att.url} target="_blank" rel="noopener noreferrer" download className="flex-1 truncate hover:text-orange-600 transition-colors">{att.file_name}</a>
                     {att.file_size && <span className="text-xs text-gray-400">{(att.file_size / 1024).toFixed(1)} KB</span>}
                     <button
                       onClick={async () => {

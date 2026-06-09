@@ -39,6 +39,7 @@ interface HandoverAttachment {
   id: number
   file_name: string
   file_path: string
+  url: string
   file_size?: number
   uploaded_at?: string
 }
@@ -439,7 +440,7 @@ export default function HandoverDetail() {
                 <div key={a.id} className="flex items-center gap-2 px-3 py-2 bg-gray-50 rounded-lg text-sm text-gray-700">
                   <FileText size={14} className="text-gray-400 flex-shrink-0" />
                   <a
-                    href={`/${a.file_path}`}
+                    href={a.url}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="flex-1 truncate hover:text-orange-600 transition-colors"
@@ -570,7 +571,7 @@ export default function HandoverDetail() {
                 {attachments.map((a) => (
                   <li key={a.id} className="text-sm text-gray-700 flex items-center gap-1.5">
                     <FileText size={12} className="text-gray-400 flex-shrink-0" />
-                    <a href={`/${a.file_path}`} target="_blank" rel="noopener noreferrer" className="hover:text-orange-600 transition-colors" download>
+                    <a href={a.url} target="_blank" rel="noopener noreferrer" className="hover:text-orange-600 transition-colors" download>
                       {a.file_name}
                     </a>
                   </li>

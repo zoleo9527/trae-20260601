@@ -57,6 +57,7 @@ interface Attachment {
   id: number
   file_name: string
   file_path: string
+  url: string
   file_size: number | null
   uploaded_at: string
 }
@@ -549,7 +550,7 @@ export default function RescueDetail() {
               <div key={att.id} className="flex items-center gap-3 p-3 border border-gray-100 rounded-lg">
                 <FileText size={16} className="text-gray-400 flex-shrink-0" />
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm text-gray-800 truncate">{att.file_name}</p>
+                  <a href={att.url} target="_blank" rel="noopener noreferrer" download className="text-sm text-gray-800 truncate hover:text-orange-600 transition-colors block">{att.file_name}</a>
                   <p className="text-xs text-gray-400">
                     {att.file_size ? `${(att.file_size / 1024).toFixed(1)} KB` : ''}
                     {att.uploaded_at ? ` · ${dayjs(att.uploaded_at).format('YYYY-MM-DD')}` : ''}

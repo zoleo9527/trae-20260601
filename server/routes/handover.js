@@ -97,7 +97,7 @@ function expandHandover(id) {
 
   const attachments = db.prepare(
     `SELECT id, file_name, file_path, file_size, uploaded_at FROM attachments WHERE entity_type = 'handover' AND entity_id = ?`
-  ).all(id);
+  ).all(id).map(a => ({ ...a, url: `/uploads/${a.file_path}` }));
 
   return {
     ...handover,
