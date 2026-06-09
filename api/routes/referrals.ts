@@ -308,15 +308,24 @@ router.patch('/:id/status', (req: Request, res: Response): void => {
   const referralId = Number(req.params.id)
   const { status, note } = req.body
 
+  const MANUAL_TRANSITION_STATUSES: Status[] = ['pending_review', 'approved', 'rejected', 'sent', 'closed']
+
   const targetStatus = status as Status
-  const rule = TRANSITION_RULES[targetStatus]
-  if (!rule) {
-    const validList = Object.keys(TRANSITION_RULES).filter(s => TRANSITION_RULES[s as Status].allowedRoles.length > 0).join('、')
-    res.status(400).json({ message: `无效的目标状态"${status}"，合法的手动流转目标为：${validList}` })
+  if (!MANUAL_TRANSITION_STATUSES.includes(targetStatus)) {
+    const autoStatuses: Status[] = ['result_returned', 'change_alerted', 'confirmed']
+    if (autoStatuses.includes(targetStatus)) {
+      res.status(400).json({
+        message: `"${targetStatus}"为系统自动流转状态，不可通过手动接口设置。结果回传状态由回传创建自动触发，变更提醒由申请修改自动触发，确认签收由回传确认自动触发`
+      })
+    } else {
+      res.status(400).json({ message: `无效的目标状态"${status}"，合法的手动流转目标为：${MANUAL_TRANSITION_STATUSES.join('、')}` })
+    }
     return
   }
 
-  if (rule.allowedRoles.length > 0 && !rule.allowedRoles.includes(auth.role)) {
+  const rule = TRANSITION_RULES[targetStatus]
+
+  if (!rule.allowedRoles.includes(auth.role)) {
     res.status(403).json({ message: `"${rule.label}"操作需要${rule.allowedRoles.map(roleLabel).join('或')}角色，当前角色为${roleLabel(auth.role)}` })
     return
   }

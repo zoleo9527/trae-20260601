@@ -20,6 +20,7 @@ export default function Returns() {
   const [mockDept, setMockDept] = useState("");
   const [mockDoctor, setMockDoctor] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [mockError, setMockError] = useState("");
 
   useEffect(() => {
     fetchReturns();
@@ -27,7 +28,7 @@ export default function Returns() {
   }, [fetchReturns, fetchReferrals]);
 
   const sentReferrals = referrals.filter((r) =>
-    ["sent", "result_returned", "change_alerted"].includes(r.status)
+    ["sent", "change_alerted"].includes(r.status)
   );
 
   const referralMap = new Map(referrals.map((r) => [r.id, r]));
@@ -35,6 +36,7 @@ export default function Returns() {
   const handleMockSubmit = async () => {
     if (!mockReferralId || !mockContent || !mockDept || !mockDoctor) return;
     setSubmitting(true);
+    setMockError("");
     try {
       await api.post<ResultReturn>("/returns", {
         referralId: mockReferralId,
@@ -49,8 +51,8 @@ export default function Returns() {
       setMockReferralId(null);
       fetchReturns();
       fetchReferrals();
-    } catch {
-      alert("模拟回传失败");
+    } catch (err: any) {
+      setMockError(err?.message || "模拟回传失败，请重试");
     } finally {
       setSubmitting(false);
     }
@@ -134,6 +136,11 @@ export default function Returns() {
         <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-6 space-y-4">
             <h3 className="text-sm font-bold text-zinc-800">模拟上级医院回传结果</h3>
+            {mockError && (
+              <div className="bg-red-50 border border-red-200 rounded-md p-3">
+                <p className="text-sm text-red-700">{mockError}</p>
+              </div>
+            )}
             <div>
               <label className="block text-xs text-zinc-500 mb-1">选择已发送转诊</label>
               <select
