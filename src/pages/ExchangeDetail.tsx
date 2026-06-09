@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
-import { ArrowLeft, AlertTriangle, AlertCircle, Info, CheckCircle, XCircle, RefreshCw, ExternalLink, FileText } from 'lucide-react'
+import { ArrowLeft, AlertTriangle, AlertCircle, Info, CheckCircle, XCircle, RefreshCw, ExternalLink, FileText, Edit3 } from 'lucide-react'
 import { useUserStore } from '@/stores/userStore'
 import { useExchangeStore } from '@/stores/exchangeStore'
 import { useWarningStore } from '@/stores/warningStore'
@@ -14,6 +14,8 @@ import {
   ROLE_LABELS,
 } from '@/types'
 import type { ExchangeStatus, ExchangeResult, Urgency } from '@/types'
+
+const UNITS = ['支', '盒', '瓶', '袋', '套', '包']
 
 const URGENCY_CONFIG: Record<Urgency, { label: string; color: string; bg: string; icon: React.ReactNode }> = {
   critical: {
@@ -98,7 +100,13 @@ export default function ExchangeDetail() {
   const [rejectReason, setRejectReason] = useState('')
   const [completeData, setCompleteData] = useState<{ result: ExchangeResult; resultNote: string }>({ result: 'return_supplier', resultNote: '' })
   const [supplementData, setSupplementData] = useState({ supplementNote: '', attachmentName: '', attachmentNote: '' })
-  const [resubmitData, setResubmitData] = useState({ reason: '', expectedHandling: '' })
+  const [resubmitData, setResubmitData] = useState({
+    reason: '',
+    expectedHandling: '',
+    quantity: 0,
+    supplierInfo: '',
+    handlingNote: '',
+  })
 
   useEffect(() => {
     if (exchange && currentUser) {
@@ -114,7 +122,13 @@ export default function ExchangeDetail() {
 
   useEffect(() => {
     if (exchange) {
-      setResubmitData({ reason: exchange.reason, expectedHandling: exchange.expectedHandling })
+      setResubmitData({
+        reason: exchange.reason,
+        expectedHandling: exchange.expectedHandling,
+        quantity: warning?.quantity || 0,
+        supplierInfo: exchange.supplierInfo || '',
+        handlingNote: exchange.handlingNote || '',
+      })
     }
   }, [exchange?.id])
 
@@ -215,7 +229,7 @@ export default function ExchangeDetail() {
       operatorName: currentUser.name,
       operatorRole: currentUser.role,
       operatedAt: new Date().toISOString(),
-      detail: `重新提交换货：${warning?.productName || ''}，原因：${resubmitData.reason}`,
+      detail: `重新提交换货：${warning?.productName || ''}，修改内容：数量${resubmitData.quantity}、供应商：${resubmitData.supplierInfo}、处理说明：${resubmitData.handlingNote}`,
       isSupplement: false,
     })
     setActiveForm(null)
@@ -259,6 +273,20 @@ export default function ExchangeDetail() {
               <p className="text-sm text-white">{exchange.expectedHandling}</p>
             </div>
             <div>
+              <span className="text-xs text-slate-500">换货数量</span>
+              <p className="text-sm text-white">{exchange.quantity} {warning?.unit || ''}</p>
+            </div>
+            <div>
+              <span className="text-xs text-slate-500">供应商信息</span>
+              <p className="text-sm text-white">{exchange.supplierInfo || '-'}</p>
+            </div>
+            {exchange.handlingNote && (
+              <div className="col-span-2">
+                <span className="text-xs text-slate-500">处理说明</span>
+                <p className="text-sm text-white">{exchange.handlingNote}</p>
+              </div>
+            )}
+            <div>
               <span className="text-xs text-slate-500">申请人</span>
               <p className="text-sm text-white">{exchange.appliedByName}</p>
             </div>
@@ -284,7 +312,7 @@ export default function ExchangeDetail() {
                 )}
               </>
             )}
-            {exchange.status === 'rejected' && (
+            {(exchange.status === 'rejected' || exchange.rejectReason) && (
               <>
                 <div>
                   <span className="text-xs text-slate-500">审核人</span>
@@ -318,20 +346,24 @@ export default function ExchangeDetail() {
                 </div>
               </>
             )}
-            {exchange.status === 'supplemented' && (
+            {(exchange.status === 'supplemented' || exchange.supplementNote) && (
               <>
                 <div className="col-span-2">
                   <span className="text-xs text-slate-500">补录内容</span>
                   <p className="text-sm text-white">{exchange.supplementNote}</p>
                 </div>
-                <div>
-                  <span className="text-xs text-slate-500">补录人</span>
-                  <p className="text-sm text-white">{exchange.supplementByName}</p>
-                </div>
-                <div>
-                  <span className="text-xs text-slate-500">补录时间</span>
-                  <p className="text-sm text-white">{formatTime(exchange.supplementedAt)}</p>
-                </div>
+                {exchange.supplementByName && (
+                  <>
+                    <div>
+                      <span className="text-xs text-slate-500">补录人</span>
+                      <p className="text-sm text-white">{exchange.supplementByName}</p>
+                    </div>
+                    <div>
+                      <span className="text-xs text-slate-500">补录时间</span>
+                      <p className="text-sm text-white">{formatTime(exchange.supplementedAt)}</p>
+                    </div>
+                  </>
+                )}
               </>
             )}
             {exchange.attachmentName && (
@@ -420,8 +452,8 @@ export default function ExchangeDetail() {
               onClick={() => setActiveForm(activeForm === 'resubmit' ? null : 'resubmit')}
               className="flex items-center gap-2 px-4 py-2 bg-amber-600 hover:bg-amber-500 text-white text-sm font-medium rounded-lg transition-colors"
             >
-              <RefreshCw className="w-4 h-4" />
-              重新提交
+              <Edit3 className="w-4 h-4" />
+              修改并重新提交
             </button>
           )}
         </div>
@@ -579,9 +611,61 @@ export default function ExchangeDetail() {
         )}
 
         {activeForm === 'resubmit' && (
-          <div className="mt-4 bg-slate-800 rounded-xl border border-slate-700 p-5">
-            <h3 className="text-sm font-semibold text-white mb-3">重新提交换货</h3>
-            <div className="space-y-3">
+          <div className="mt-4 bg-slate-800 rounded-xl border border-amber-500/50 p-5">
+            <h3 className="text-sm font-semibold text-white mb-3">修改换货信息并重新提交</h3>
+            <div className="space-y-4">
+              {exchange.rejectReason && (
+                <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3">
+                  <div className="text-xs text-slate-500 mb-1">原驳回原因</div>
+                  <p className="text-sm text-red-400">{exchange.rejectReason}</p>
+                </div>
+              )}
+              {exchange.supplementNote && (
+                <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-3">
+                  <div className="text-xs text-slate-500 mb-1">补录记录</div>
+                  <p className="text-sm text-amber-400">{exchange.supplementNote}</p>
+                  {exchange.supplementByName && (
+                    <p className="text-xs text-slate-500 mt-1">
+                      补录人：{exchange.supplementByName} · {formatTime(exchange.supplementedAt)}
+                    </p>
+                  )}
+                </div>
+              )}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs text-slate-500">换货数量 *</label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={resubmitData.quantity}
+                    onChange={(e) => setResubmitData({ ...resubmitData, quantity: Number(e.target.value) })}
+                    className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:ring-1 focus:ring-amber-500"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-slate-500">单位</label>
+                  <p className="text-sm text-white py-1.5">{warning?.unit || ''}</p>
+                </div>
+              </div>
+              <div>
+                <label className="text-xs text-slate-500">供应商信息 *</label>
+                <input
+                  value={resubmitData.supplierInfo}
+                  onChange={(e) => setResubmitData({ ...resubmitData, supplierInfo: e.target.value })}
+                  placeholder="输入供应商名称和联系方式"
+                  className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-1.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-slate-500">处理说明 *</label>
+                <textarea
+                  value={resubmitData.handlingNote}
+                  onChange={(e) => setResubmitData({ ...resubmitData, handlingNote: e.target.value })}
+                  placeholder="输入处理说明"
+                  className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-amber-500 resize-none"
+                  rows={2}
+                />
+              </div>
               <div>
                 <label className="text-xs text-slate-500">换货原因</label>
                 <textarea
@@ -589,7 +673,7 @@ export default function ExchangeDetail() {
                   onChange={(e) => setResubmitData({ ...resubmitData, reason: e.target.value })}
                   placeholder="输入换货原因"
                   className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-amber-500 resize-none"
-                  rows={3}
+                  rows={2}
                 />
               </div>
               <div>
@@ -599,17 +683,17 @@ export default function ExchangeDetail() {
                   onChange={(e) => setResubmitData({ ...resubmitData, expectedHandling: e.target.value })}
                   placeholder="输入期望处理方式"
                   className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-amber-500 resize-none"
-                  rows={3}
+                  rows={2}
                 />
               </div>
             </div>
             <div className="flex gap-2 mt-4">
               <button
                 onClick={handleResubmit}
-                disabled={!resubmitData.reason.trim() || !resubmitData.expectedHandling.trim()}
+                disabled={!resubmitData.quantity || !resubmitData.supplierInfo.trim() || !resubmitData.handlingNote.trim() || !resubmitData.reason.trim() || !resubmitData.expectedHandling.trim()}
                 className="px-4 py-1.5 bg-amber-600 hover:bg-amber-500 text-white text-sm rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                重新提交
+                确认重新提交
               </button>
               <button
                 onClick={() => setActiveForm(null)}

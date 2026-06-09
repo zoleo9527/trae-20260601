@@ -81,6 +81,9 @@ export interface Exchange {
   warningId: string
   reason: string
   expectedHandling: string
+  quantity: number
+  supplierInfo: string
+  handlingNote: string
   status: ExchangeStatus
   appliedById: string
   appliedByName: string

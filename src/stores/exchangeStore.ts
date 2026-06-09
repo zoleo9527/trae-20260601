@@ -10,7 +10,7 @@ interface ExchangeState {
   rejectExchange: (id: string, reason: string, user: User) => void
   completeExchange: (id: string, result: ExchangeResult, resultNote: string, user: User) => void
   supplementExchange: (id: string, supplementNote: string, user: User) => void
-  resubmitExchange: (id: string, data: Partial<Pick<Exchange, 'reason' | 'expectedHandling'>>) => void
+  resubmitExchange: (id: string, data: { quantity: number; supplierInfo: string; handlingNote: string; reason: string; expectedHandling: string }) => void
 }
 
 export const useExchangeStore = create<ExchangeState>()(
@@ -123,14 +123,14 @@ export const useExchangeStore = create<ExchangeState>()(
                   reviewedByName: '',
                   reviewedAt: '',
                   reviewNote: '',
-                  rejectReason: '',
-                  result: '' as ExchangeResult,
-                  resultNote: '',
-                  completedAt: '',
-                  supplementNote: '',
-                  supplementedAt: '',
-                  supplementById: '',
-                  supplementByName: '',
+                  // 保留驳回原因和补录记录
+                  // rejectReason: '',
+                  // supplementNote: '',
+                  // supplementedAt: '',
+                  // supplementById: '',
+                  // supplementByName: '',
+                  // attachmentName: '',
+                  // attachmentNote: '',
                   updatedAt: new Date().toISOString(),
                 }
               : e

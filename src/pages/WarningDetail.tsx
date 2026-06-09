@@ -202,6 +202,9 @@ export default function WarningDetail() {
       warningId: warning.id,
       reason: exchangeData.reason,
       expectedHandling: exchangeData.expectedHandling,
+      quantity: warning.quantity,
+      supplierInfo: '',
+      handlingNote: '',
       appliedById: currentUser.id,
       appliedByName: currentUser.name,
     })

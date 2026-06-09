@@ -69,6 +69,9 @@ function ExchangeCard({ exchange }: { exchange: Exchange }) {
     resubmitExchange(exchange.id, {
       reason: exchange.reason,
       expectedHandling: exchange.expectedHandling,
+      quantity: warning?.quantity || 0,
+      supplierInfo: exchange.supplierInfo || '',
+      handlingNote: exchange.handlingNote || '',
     })
     addLog({
       type: 'resubmit_exchange',
@@ -78,7 +81,7 @@ function ExchangeCard({ exchange }: { exchange: Exchange }) {
       operatorName: currentUser.name,
       operatorRole: currentUser.role,
       operatedAt: new Date().toISOString(),
-      detail: `重新提交换货：${productName}，原因：${exchange.reason}`,
+      detail: `修改换货信息：数量${warning?.quantity || 0}、供应商：${exchange.supplierInfo || '未填写'}、处理说明：${exchange.handlingNote || '未填写'}`,
       isSupplement: false,
     })
   }
@@ -91,12 +94,32 @@ function ExchangeCard({ exchange }: { exchange: Exchange }) {
           <span className="text-slate-100 font-medium truncate">{productName}</span>
           <StatusBadge status={exchange.status} />
         </div>
-        <div className="text-sm text-slate-400 mb-1 truncate">
+        <div className="text-sm text-slate-400 mb-1">
           换货原因：{exchange.reason || '-'}
         </div>
-        <div className="text-sm text-slate-400 mb-3 truncate">
+        <div className="text-sm text-slate-400 mb-2">
           期望处理方式：{exchange.expectedHandling || '-'}
         </div>
+        {exchange.quantity > 0 && (
+          <div className="text-xs text-slate-500 mb-1">
+            换货数量：{exchange.quantity} {warning?.unit || ''}
+          </div>
+        )}
+        {exchange.supplierInfo && (
+          <div className="text-xs text-slate-500 mb-2">
+            供应商：{exchange.supplierInfo}
+          </div>
+        )}
+        {exchange.status === 'rejected' && exchange.rejectReason && (
+          <div className="text-xs text-red-400 mb-2 bg-red-500/10 border border-red-500/30 rounded p-2">
+            驳回原因：{exchange.rejectReason}
+          </div>
+        )}
+        {exchange.supplementNote && (
+          <div className="text-xs text-amber-400 mb-2 bg-amber-500/10 border border-amber-500/30 rounded p-2">
+            补录记录：{exchange.supplementNote}
+          </div>
+        )}
         <div className="flex items-center justify-between">
           <div className="text-xs text-slate-500 flex items-center gap-3 flex-wrap">
             <span>申请人：{exchange.appliedByName || '-'}</span>
@@ -111,8 +134,7 @@ function ExchangeCard({ exchange }: { exchange: Exchange }) {
                 onClick={handleResubmit}
                 className="flex items-center gap-1 text-amber-400 hover:text-amber-300 text-sm transition-colors"
               >
-                <RefreshCw className="w-3.5 h-3.5" />
-                重新提交
+                修改并重新提交
               </button>
             )}
             <Link
