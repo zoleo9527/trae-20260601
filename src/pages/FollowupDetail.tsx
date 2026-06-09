@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { Calendar, CreditCard, MessageSquare, Plus, ArrowRight, Phone } from 'lucide-react';
-import { useStore } from '@/store/useStore';
+import { useStore, getLatestApproval } from '@/store/useStore';
 import type { CommunicationResult } from '@/types';
 
 const resultConfig: Record<CommunicationResult, { bg: string; text: string; icon: typeof Phone }> = {
@@ -31,7 +31,7 @@ export default function FollowupDetail() {
   if (!reassessment) return <div className="text-center py-12 text-slate-400">未找到复评记录</div>;
 
   const patient = patients.find(p => p.id === reassessment.patientId)!;
-  const approval = approvals.filter(a => a.reassessmentId === reassessment.id).pop();
+  const approval = getLatestApproval(approvals, reassessment.id);
   const plan = followupPlans.find(f => f.reassessmentId === reassessment.id);
 
   const handleAddCommunication = () => {

@@ -9,6 +9,22 @@ import type {
   CommunicationResult,
 } from '@/types';
 
+export function getLatestApproval(
+  approvals: ApprovalRecord[],
+  reassessmentId: string
+): ApprovalRecord | undefined {
+  const matched = approvals.filter((a) => a.reassessmentId === reassessmentId);
+  if (matched.length === 0) return undefined;
+  return matched.reduce((latest, cur) => {
+    const tLatest = new Date(latest.approvedAt).getTime();
+    const tCur = new Date(cur.approvedAt).getTime();
+    if (Number.isNaN(tLatest) && Number.isNaN(tCur)) return cur;
+    if (Number.isNaN(tLatest)) return cur;
+    if (Number.isNaN(tCur)) return latest;
+    return tCur > tLatest ? cur : latest;
+  });
+}
+
 interface AppState {
   patients: Patient[];
   courses: Course[];

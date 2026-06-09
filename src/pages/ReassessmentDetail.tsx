@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { Activity, TrendingDown, AlertTriangle, CheckCircle2, ArrowRight, Save } from 'lucide-react';
-import { useStore } from '@/store/useStore';
+import { useStore, getLatestApproval } from '@/store/useStore';
 import PainChart from '@/components/PainChart';
 import type { ReassessmentConclusion } from '@/types';
 
@@ -30,7 +30,7 @@ export default function ReassessmentDetail() {
 
   const patient = patients.find(p => p.id === reassessment.patientId)!;
   const course = courses.find(c => c.id === reassessment.courseId)!;
-  const approval = approvals.filter(a => a.reassessmentId === reassessment.id).pop();
+  const approval = getLatestApproval(approvals, reassessment.id);
   const config = conclusionConfig[reassessment.conclusion] || conclusionConfig['结案'];
   const completionRate = Math.round((course.completedSessions / course.totalSessions) * 100);
 
