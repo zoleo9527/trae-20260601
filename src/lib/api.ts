@@ -20,6 +20,7 @@ export const api = {
     updateStatus: (id: string, status: string, extra?: Record<string, string>) => request<any>(`/containers/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status, ...extra }) }),
     batchStatus: (ids: string[], status: string, extra?: Record<string, string>) => request<any>('/containers/batch-status', { method: 'POST', body: JSON.stringify({ ids, status, ...extra }) }),
     misplacedList: () => request<any[]>('/containers/misplaced'),
+    relocateHistory: () => request<any[]>('/containers/relocate-history'),
     relocateMisplaced: (id: string, data: any) => request<any>(`/containers/${id}/relocate-misplaced`, { method: 'POST', body: JSON.stringify(data) }),
   },
   gateRecords: {

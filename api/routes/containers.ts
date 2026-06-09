@@ -4,6 +4,48 @@ import db from '../db.js'
 
 const router = Router()
 
+router.get('/relocate-history', (_req: Request, res: Response): void => {
+  try {
+    const rows = db.prepare(`
+      SELECT
+        te.id,
+        te.container_id,
+        te.operator_name,
+        te.role,
+        te.description,
+        te.metadata,
+        te.created_at,
+        c.container_no,
+        c.customer_name
+      FROM timeline_events te
+      LEFT JOIN containers c ON c.id = te.container_id
+      WHERE te.event_type = 'misplace_relocate'
+      ORDER BY te.created_at DESC
+    `).all() as any[]
+
+    const data = rows.map((r) => {
+      let meta: any = {}
+      try { meta = JSON.parse(r.metadata || '{}') } catch {}
+      return {
+        id: r.id,
+        container_id: r.container_id,
+        container_no: r.container_no,
+        customer_name: r.customer_name,
+        from_position: meta.from || null,
+        to_position: meta.to || null,
+        note: meta.note || null,
+        operator_name: r.operator_name,
+        role: r.role,
+        created_at: r.created_at,
+      }
+    })
+
+    res.json({ success: true, data })
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message })
+  }
+})
+
 router.get('/misplaced', (_req: Request, res: Response): void => {
   try {
     const rows = db.prepare(`
