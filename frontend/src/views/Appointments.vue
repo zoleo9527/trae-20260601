@@ -169,17 +169,28 @@ const highlightId = ref(null)
 
 async function applyHighlight() {
   const hid = route.query.highlight
-  if (!hid) return
-  highlightId.value = hid
-  if (appointments.value.find((a) => a.id === hid)) {
-    expandedId.value = hid
-    await nextTick()
-    const el = document.getElementById('apt-' + hid)
-    if (el) {
-      el.scrollIntoView({ behavior: 'smooth', block: 'center' })
-      el.classList.add('highlight-flash')
-      setTimeout(() => el.classList.remove('highlight-flash'), 2500)
-    }
+  if (!hid) {
+    highlightId.value = null
+    expandedId.value = null
+    return
+  }
+  let target = appointments.value.find((a) => a.id === hid)
+  if (!target) {
+    target = appointments.value.find((a) => a.observationId === hid)
+  }
+  if (!target) {
+    highlightId.value = null
+    expandedId.value = null
+    return
+  }
+  highlightId.value = target.id
+  expandedId.value = target.id
+  await nextTick()
+  const el = document.getElementById('apt-' + target.id)
+  if (el) {
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    el.classList.add('highlight-flash')
+    setTimeout(() => el.classList.remove('highlight-flash'), 2500)
   }
 }
 
