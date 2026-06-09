@@ -19,36 +19,47 @@ export const useRecentStore = create<RecentState>()(
           const { userId, itemType, itemId } = item
           const now = new Date().toISOString()
           
-          const existingIndex = state.recentItems.findIndex(
-            (ri) => ri.userId === userId && ri.itemType === itemType && ri.itemId === itemId
+          const otherUsersItems = state.recentItems.filter((ri) => ri.userId !== userId)
+          
+          const currentUserItems = state.recentItems.filter((ri) => ri.userId === userId)
+          
+          const seen = new Set<string>()
+          const deduplicatedUserItems = currentUserItems.filter((ri) => {
+            const key = `${ri.itemType}-${ri.itemId}`
+            if (seen.has(key)) {
+              return false
+            }
+            seen.add(key)
+            return true
+          })
+          
+          const existingIndex = deduplicatedUserItems.findIndex(
+            (ri) => ri.itemType === itemType && ri.itemId === itemId
           )
           
-          let updatedItems: RecentItem[]
+          let finalUserItems: RecentItem[]
           
           if (existingIndex >= 0) {
-            updatedItems = [...state.recentItems]
-            updatedItems[existingIndex] = {
-              ...updatedItems[existingIndex],
+            const updated = [...deduplicatedUserItems]
+            updated[existingIndex] = {
+              ...updated[existingIndex],
               accessedAt: now,
               itemTitle: item.itemTitle,
             }
+            finalUserItems = updated
           } else {
             const newEntry: RecentItem = {
               ...item,
               id: Date.now().toString(),
               accessedAt: now,
             }
-            updatedItems = [newEntry, ...state.recentItems]
+            finalUserItems = [newEntry, ...deduplicatedUserItems]
           }
           
-          const userItems = updatedItems
-            .filter((ri) => ri.userId === userId)
-            .sort((a, b) => b.accessedAt.localeCompare(a.accessedAt))
-            .slice(0, MAX_ITEMS_PER_USER)
+          finalUserItems.sort((a, b) => b.accessedAt.localeCompare(a.accessedAt))
+          finalUserItems = finalUserItems.slice(0, MAX_ITEMS_PER_USER)
           
-          const otherItems = updatedItems.filter((ri) => ri.userId !== userId)
-          
-          return { recentItems: [...otherItems, ...userItems] }
+          return { recentItems: [...otherUsersItems, ...finalUserItems] }
         }),
       getByUser: (userId) =>
         get()
