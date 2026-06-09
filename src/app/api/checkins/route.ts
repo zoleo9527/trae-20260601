@@ -1,5 +1,5 @@
-import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { NextResponse } from 'next/server'
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
@@ -24,8 +24,8 @@ export async function GET(request: Request) {
         },
       },
       patient: true,
-      checkinLogs: { orderBy: { createdAt: 'asc' } },
-      attachments: true,
+      checkinLogs: { include: { operator: true }, orderBy: { createdAt: 'asc' } },
+      attachments: { include: { uploader: true } },
     },
     orderBy: { createdAt: 'desc' },
   })

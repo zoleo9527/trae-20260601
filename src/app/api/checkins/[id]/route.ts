@@ -1,5 +1,5 @@
-import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { NextResponse } from 'next/server'
 
 export async function GET(
   _request: Request,
@@ -14,11 +14,11 @@ export async function GET(
           therapist: { include: { user: true } },
           equipment: true,
           assessment: true,
-          statusLogs: { orderBy: { createdAt: 'asc' } },
+          statusLogs: { include: { operator: true }, orderBy: { createdAt: 'asc' } },
         },
       },
       patient: true,
-      checkinLogs: { orderBy: { createdAt: 'asc' } },
+      checkinLogs: { include: { operator: true }, orderBy: { createdAt: 'asc' } },
       attachments: { include: { uploader: true } },
     },
   })

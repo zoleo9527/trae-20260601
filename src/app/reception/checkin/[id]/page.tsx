@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { useAuthStore } from '@/lib/auth-store'
 import { useToastStore } from '@/lib/toast-store'
+import { CheckinStatus, ScheduleStatus, CHECKIN_STATUS_LABELS, SCHEDULE_STATUS_LABELS, ROLE_LABELS, UserRole } from '@/lib/types'
 import CheckinStatusBadge from '@/components/CheckinStatusBadge'
 import {
   ArrowLeft,
@@ -35,13 +36,13 @@ interface CheckinDetail {
     scheduledTime: string
     duration: number
     status: string
-    therapist: { id: string; user: { name: string }; specialty: string | null }
+    therapist: { id: string; user?: { name: string } | null; specialty: string | null }
     equipment: { id: string; name: string; location: string | null } | null
     assessment: { id: string; content: string; result: string | null } | null
-    statusLogs: { fromStatus: string | null; toStatus: string; operatorId: string; operatorRole: string; remark: string | null; createdAt: string }[]
+    statusLogs: { fromStatus: string | null; toStatus: string; operatorId: string; operatorRole: string; remark: string | null; createdAt: string; operator?: { name: string } | null }[]
   }
-  checkinLogs: { fromStatus: string | null; toStatus: string; operatorId: string; remark: string | null; createdAt: string }[]
-  attachments: { id: string; fileName: string; fileType: string; uploader: { name: string }; uploadedAt: string }[]
+  checkinLogs: { fromStatus: string | null; toStatus: string; operatorId: string; remark: string | null; createdAt: string; operator?: { name: string } | null }[]
+  attachments: { id: string; fileName: string; fileType: string; uploader?: { name: string } | null; uploadedAt: string }[]
 }
 
 export default function CheckinDetailPage() {
@@ -124,7 +125,7 @@ export default function CheckinDetailPage() {
               </div>
               <div className="flex items-center gap-2 text-gray-600">
                 <Activity size={14} className="text-gray-400" />
-                治疗师：{detail.schedule.therapist.user.name}
+                治疗师：{detail.schedule.therapist.user?.name || '未知'}
               </div>
               {detail.equipmentUsed && (
                 <div className="flex items-center gap-2 text-gray-600">
@@ -166,12 +167,13 @@ export default function CheckinDetailPage() {
                   )}
                   <div className="ml-2">
                     <div className="flex items-center gap-2 text-sm">
-                      <span className="font-medium text-navy-700">{log.fromStatus || '初始'}</span>
+                      <span className="font-medium text-navy-700">{CHECKIN_STATUS_LABELS[log.fromStatus as CheckinStatus] || log.fromStatus || '初始'}</span>
                       <ChevronDown size={12} className="text-gray-400 -rotate-90" />
-                      <span className="font-medium text-navy-700">{log.toStatus}</span>
+                      <span className="font-medium text-navy-700">{CHECKIN_STATUS_LABELS[log.toStatus as CheckinStatus] || log.toStatus}</span>
                     </div>
-                    <div className="text-xs text-gray-400 mt-1">
-                      {new Date(log.createdAt).toLocaleString('zh-CN')}
+                    <div className="flex items-center gap-2 text-xs text-gray-400 mt-1">
+                      <span>{new Date(log.createdAt).toLocaleString('zh-CN')}</span>
+                      <span>操作人：{log.operator?.name || '系统'}</span>
                     </div>
                     {log.remark && (
                       <p className="text-xs text-gray-500 mt-1">{log.remark}</p>
@@ -197,12 +199,15 @@ export default function CheckinDetailPage() {
                     )}
                     <div className="ml-2">
                       <div className="flex items-center gap-2 text-sm">
-                        <span className="font-medium text-navy-700">{log.fromStatus || '初始'}</span>
+                        <span className="font-medium text-navy-700">{SCHEDULE_STATUS_LABELS[log.fromStatus as ScheduleStatus] || log.fromStatus || '初始'}</span>
                         <ChevronDown size={12} className="text-gray-400 -rotate-90" />
-                        <span className="font-medium text-navy-700">{log.toStatus}</span>
-                        <span className="text-xs text-gray-400">({log.operatorRole === 'THERAPIST' ? '治疗师' : log.operatorRole === 'RECEPTION' ? '前台' : '主任'})</span>
+                        <span className="font-medium text-navy-700">{SCHEDULE_STATUS_LABELS[log.toStatus as ScheduleStatus] || log.toStatus}</span>
+                        <span className="text-xs text-gray-400">({ROLE_LABELS[log.operatorRole as UserRole] || log.operatorRole})</span>
                       </div>
-                      <div className="text-xs text-gray-400 mt-1">{new Date(log.createdAt).toLocaleString('zh-CN')}</div>
+                      <div className="flex items-center gap-2 text-xs text-gray-400 mt-1">
+                        <span>{new Date(log.createdAt).toLocaleString('zh-CN')}</span>
+                        <span>操作人：{log.operator?.name || '系统'}</span>
+                      </div>
                       {log.remark && <p className="text-xs text-gray-500 mt-1">{log.remark}</p>}
                     </div>
                   </div>
@@ -233,7 +238,7 @@ export default function CheckinDetailPage() {
                   <div key={att.id} className="flex items-center gap-3 px-3 py-2 bg-gray-50 rounded-lg text-sm">
                     <FileText size={14} className="text-gray-400" />
                     <span className="flex-1 text-gray-700">{att.fileName}</span>
-                    <span className="text-xs text-gray-400">{att.uploader.name} · {new Date(att.uploadedAt).toLocaleDateString('zh-CN')}</span>
+                    <span className="text-xs text-gray-400">{att.uploader?.name || '未知'} · {new Date(att.uploadedAt).toLocaleDateString('zh-CN')}</span>
                     <span className="text-xs text-blue-500 bg-blue-50 px-2 py-0.5 rounded">查看（占位）</span>
                   </div>
                 ))}
@@ -274,7 +279,7 @@ export default function CheckinDetailPage() {
                 通知患者（占位）
               </button>
               <button
-                onClick={() => handleNotify(detail.schedule.therapist.user.name)}
+                onClick={() => handleNotify(detail.schedule.therapist.user?.name || '治疗师')}
                 className="w-full flex items-center gap-2 px-4 py-2.5 text-sm bg-purple-50 text-purple-700 rounded-lg hover:bg-purple-100 transition-colors"
               >
                 <Send size={14} />

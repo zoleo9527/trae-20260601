@@ -1,26 +1,26 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { useRouter, useParams } from 'next/navigation'
+import AlertBadge from '@/components/AlertBadge'
+import StatusBadge from '@/components/StatusBadge'
 import { useAuthStore } from '@/lib/auth-store'
 import { useToastStore } from '@/lib/toast-store'
-import { ScheduleStatus, SCHEDULE_STATUS_LABELS } from '@/lib/types'
-import StatusBadge from '@/components/StatusBadge'
-import AlertBadge from '@/components/AlertBadge'
+import { CHECKIN_STATUS_LABELS, CheckinStatus, ROLE_LABELS, SCHEDULE_STATUS_LABELS, ScheduleStatus, UserRole } from '@/lib/types'
 import {
+  Activity,
+  AlertTriangle,
   ArrowLeft,
-  Clock,
-  User,
-  FileText,
   Bell,
+  ChevronDown,
+  Clock,
+  FileText,
+  Paperclip,
   Send,
   Upload,
-  Paperclip,
-  ChevronDown,
-  Activity,
+  User,
   Wrench,
-  AlertTriangle,
 } from 'lucide-react'
+import { useParams, useRouter } from 'next/navigation'
+import { useEffect, useState } from 'react'
 
 interface StatusLogItem {
   id: string
@@ -30,7 +30,7 @@ interface StatusLogItem {
   operatorRole: string
   remark: string | null
   createdAt: string
-  operator: { name: string }
+  operator?: { name: string } | null
 }
 
 interface AttachmentItem {
@@ -39,7 +39,7 @@ interface AttachmentItem {
   fileType: string
   fileUrl: string
   uploadedAt: string
-  uploader: { name: string }
+  uploader?: { name: string } | null
 }
 
 interface ScheduleDetail {
@@ -51,11 +51,11 @@ interface ScheduleDetail {
   status: ScheduleStatus
   remark: string | null
   patient: { id: string; name: string; phone: string; age: number; diagnosis: string | null }
-  therapist: { id: string; user: { name: string }; specialty: string | null }
+  therapist: { id: string; user?: { name: string } | null; specialty: string | null }
   equipment: { id: string; name: string; location: string | null; status: string } | null
   assessment: { id: string; content: string; result: string | null; status: string; assessedAt: string } | null
   statusLogs: StatusLogItem[]
-  checkins: { id: string; status: string; checkinTime: string | null; completeTime: string | null; checkinLogs: { fromStatus: string | null; toStatus: string; remark: string | null; createdAt: string }[]; attachments: AttachmentItem[] }[]
+  checkins: { id: string; status: string; checkinTime: string | null; completeTime: string | null; checkinLogs: { fromStatus: string | null; toStatus: string; remark: string | null; createdAt: string; operator?: { name: string } | null }[]; attachments: AttachmentItem[] }[]
   attachments: AttachmentItem[]
   alerts: { id: string; type: string; level: string; message: string; resolved: boolean }[]
 }
@@ -182,7 +182,7 @@ export default function ScheduleDetailPage() {
               </div>
               <div className="flex items-center gap-2 text-gray-600">
                 <Activity size={14} className="text-gray-400" />
-                <span>治疗师：{detail.therapist.user.name}{detail.therapist.specialty ? `（${detail.therapist.specialty}）` : ''}</span>
+                <span>治疗师：{detail.therapist.user?.name || '未知'}{detail.therapist.specialty ? `（${detail.therapist.specialty}）` : ''}</span>
               </div>
               {detail.equipment && (
                 <div className="flex items-center gap-2 text-gray-600">
@@ -222,7 +222,7 @@ export default function ScheduleDetailPage() {
                     </div>
                     <div className="flex items-center gap-3 text-xs text-gray-400 mt-1">
                       <span>{new Date(log.createdAt).toLocaleString('zh-CN')}</span>
-                      <span>操作人：{log.operator.name}（{log.operatorRole === 'THERAPIST' ? '治疗师' : log.operatorRole === 'RECEPTION' ? '前台' : '主任'}）</span>
+                      <span>操作人：{log.operator?.name || '系统'}（{ROLE_LABELS[log.operatorRole as UserRole] || log.operatorRole}）</span>
                     </div>
                     {log.remark && (
                       <p className="text-xs text-gray-500 mt-1">{log.remark}</p>
@@ -255,7 +255,7 @@ export default function ScheduleDetailPage() {
                   <div key={att.id} className="flex items-center gap-3 px-3 py-2 bg-gray-50 rounded-lg text-sm">
                     <FileText size={14} className="text-gray-400" />
                     <span className="flex-1 text-gray-700">{att.fileName}</span>
-                    <span className="text-xs text-gray-400">{att.uploader.name} · {new Date(att.uploadedAt).toLocaleDateString('zh-CN')}</span>
+                    <span className="text-xs text-gray-400">{att.uploader?.name || '未知'} · {new Date(att.uploadedAt).toLocaleDateString('zh-CN')}</span>
                     <span className="text-xs text-blue-500 bg-blue-50 px-2 py-0.5 rounded">查看（占位）</span>
                   </div>
                 ))}
@@ -273,7 +273,7 @@ export default function ScheduleDetailPage() {
                 {detail.checkins.map((checkin) => (
                   <div key={checkin.id} className="bg-gray-50 rounded-lg p-4">
                     <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm font-medium">签到状态：{checkin.status === 'WAITING' ? '待签到' : checkin.status === 'CHECKED_IN' ? '已签到' : checkin.status === 'IN_TREATMENT' ? '治疗中' : checkin.status === 'COMPLETED' ? '已完成' : '已取消'}</span>
+                      <span className="text-sm font-medium">签到状态：{CHECKIN_STATUS_LABELS[checkin.status as CheckinStatus] || checkin.status}</span>
                       {checkin.checkinTime && (
                         <span className="text-xs text-gray-400">签到时间：{new Date(checkin.checkinTime).toLocaleString('zh-CN')}</span>
                       )}
@@ -282,9 +282,9 @@ export default function ScheduleDetailPage() {
                       <div className="pl-4 border-l-2 border-gray-200 mt-2 space-y-2">
                         {checkin.checkinLogs.map((log, idx) => (
                           <div key={idx} className="text-xs text-gray-500">
-                            <span className="text-gray-700">{log.fromStatus || '初始'} → {log.toStatus}</span>
+                            <span className="text-gray-700">{CHECKIN_STATUS_LABELS[log.fromStatus as CheckinStatus] || log.fromStatus || '初始'} → {CHECKIN_STATUS_LABELS[log.toStatus as CheckinStatus] || log.toStatus}</span>
                             {log.remark && <span className="ml-2">{log.remark}</span>}
-                            <span className="ml-2 text-gray-400">{new Date(log.createdAt).toLocaleString('zh-CN')}</span>
+                            <span className="ml-2 text-gray-400">{log.operator?.name || '系统'} · {new Date(log.createdAt).toLocaleString('zh-CN')}</span>
                           </div>
                         ))}
                       </div>
