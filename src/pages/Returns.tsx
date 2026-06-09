@@ -161,7 +161,7 @@ export default function Returns() {
               <label className="block text-xs text-zinc-500 mb-1">回传内容</label>
               <textarea
                 value={mockContent}
-                onChange={(e) => setMockContent(e.target.value)}
+                onChange={(e) => { setMockContent(e.target.value); setMockError(""); }}
                 rows={3}
                 className="w-full border border-zinc-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 resize-none"
                 placeholder="填写回传的诊断结果或处理意见"
@@ -173,7 +173,7 @@ export default function Returns() {
                 <input
                   type="text"
                   value={mockDept}
-                  onChange={(e) => setMockDept(e.target.value)}
+                  onChange={(e) => { setMockDept(e.target.value); setMockError(""); }}
                   className="w-full border border-zinc-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
                   placeholder="如: 心血管科"
                 />
@@ -183,7 +183,7 @@ export default function Returns() {
                 <input
                   type="text"
                   value={mockDoctor}
-                  onChange={(e) => setMockDoctor(e.target.value)}
+                  onChange={(e) => { setMockDoctor(e.target.value); setMockError(""); }}
                   className="w-full border border-zinc-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
                   placeholder="如: 张主任"
                 />
