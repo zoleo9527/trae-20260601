@@ -30,36 +30,42 @@ export function getDb(): Database.Database {
 
 function initSchema(db: Database.Database) {
   const tableExists = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='packages'").get()
-  if (tableExists) return
+  if (!tableExists) {
+    db.exec(`
+      CREATE TABLE packages (
+        id TEXT PRIMARY KEY,
+        tracking_no TEXT NOT NULL UNIQUE,
+        status TEXT NOT NULL DEFAULT 'arrived',
+        type TEXT NOT NULL DEFAULT 'normal',
+        arrived_at TEXT NOT NULL,
+        current_handler TEXT NOT NULL,
+        current_role TEXT NOT NULL,
+        problem_type TEXT,
+        problem_description TEXT
+      );
 
-  db.exec(`
-    CREATE TABLE packages (
-      id TEXT PRIMARY KEY,
-      tracking_no TEXT NOT NULL UNIQUE,
-      status TEXT NOT NULL DEFAULT 'arrived',
-      type TEXT NOT NULL DEFAULT 'normal',
-      arrived_at TEXT NOT NULL,
-      current_handler TEXT NOT NULL,
-      current_role TEXT NOT NULL,
-      problem_type TEXT,
-      problem_description TEXT
-    );
+      CREATE TABLE timeline_events (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        package_id TEXT NOT NULL,
+        status TEXT NOT NULL,
+        operator TEXT NOT NULL,
+        role TEXT NOT NULL,
+        timestamp TEXT NOT NULL,
+        note TEXT NOT NULL DEFAULT '',
+        pickup_person TEXT DEFAULT NULL,
+        FOREIGN KEY (package_id) REFERENCES packages(id)
+      );
 
-    CREATE TABLE timeline_events (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      package_id TEXT NOT NULL,
-      status TEXT NOT NULL,
-      operator TEXT NOT NULL,
-      role TEXT NOT NULL,
-      timestamp TEXT NOT NULL,
-      note TEXT NOT NULL DEFAULT '',
-      FOREIGN KEY (package_id) REFERENCES packages(id)
-    );
+      CREATE INDEX idx_packages_status ON packages(status);
+      CREATE INDEX idx_timeline_package ON timeline_events(package_id);
+      CREATE INDEX idx_timeline_timestamp ON timeline_events(timestamp);
+    `)
+  }
 
-    CREATE INDEX idx_packages_status ON packages(status);
-    CREATE INDEX idx_timeline_package ON timeline_events(package_id);
-    CREATE INDEX idx_timeline_timestamp ON timeline_events(timestamp);
-  `)
+  const colCheck = db.prepare("PRAGMA table_info(timeline_events)").all() as { name: string }[]
+  if (!colCheck.some(c => c.name === 'pickup_person')) {
+    db.exec("ALTER TABLE timeline_events ADD COLUMN pickup_person TEXT DEFAULT NULL")
+  }
 }
 
 function seedData(db: Database.Database) {

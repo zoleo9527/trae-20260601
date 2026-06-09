@@ -2,7 +2,7 @@ import { useAppStore } from '@/hooks/useAppStore'
 import { AlertTriangle, ArrowLeft, CheckCircle2, Clock, Flag, Inbox, MessageSquare, Package, RotateCcw, Send, User, XCircle } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { ROLE_LABELS, STATUS_COLORS, STATUS_LABELS, TYPE_LABELS, type PackageItem, type PackageStatus } from '../../shared/types'
+import { OPERATOR_NAMES, ROLE_LABELS, STATUS_COLORS, STATUS_LABELS, TYPE_LABELS, type PackageItem, type PackageStatus } from '../../shared/types'
 
 const STATUS_ICONS: Record<PackageStatus, React.ElementType> = {
   arrived: Inbox,

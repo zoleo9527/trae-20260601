@@ -21,6 +21,7 @@ export interface TimelineEvent {
   role: UserRole
   timestamp: string
   note: string
+  pickupPerson?: string | null
 }
 
 export interface PackageItem {

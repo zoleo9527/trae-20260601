@@ -3,7 +3,7 @@ import { CheckCircle, Clock, Eye, LogIn, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import type { PackageItem } from '../../shared/types'
-import { ROLE_LABELS, STATUS_COLORS, STATUS_LABELS, TYPE_LABELS } from '../../shared/types'
+import { OPERATOR_NAMES, ROLE_LABELS, STATUS_COLORS, STATUS_LABELS, TYPE_LABELS } from '../../shared/types'
 
 const TYPE_BADGE_COLORS: Record<string, string> = {
   normal: 'bg-blue-100 text-blue-800',

@@ -11,11 +11,12 @@ import {
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
+  OPERATOR_NAMES,
   STATUS_COLORS,
   STATUS_LABELS,
   TYPE_LABELS,
   type PackageItem,
-  type TimelineEvent
+  type TimelineEvent,
 } from '../../shared/types'
 
 function isOverdue(arrivedAt: string): boolean {
@@ -37,8 +38,7 @@ function extractVerificationInfo(pkg: PackageItem) {
     time: event?.timestamp ?? '',
     operator: event?.operator ?? '',
     note: event?.note ?? '',
-    pickupPerson: (event as TimelineEvent & { pickupPerson?: string })
-      ?.pickupPerson ?? '',
+    pickupPerson: event?.pickupPerson ?? '',
   }
 }
 

@@ -26,6 +26,7 @@ function mapEvent(evt: any) {
     role: evt.role,
     timestamp: evt.timestamp,
     note: evt.note,
+    pickupPerson: evt.pickup_person,
   }
 }
 
@@ -116,9 +117,9 @@ router.post('/:id/verify', (req: Request, res: Response) => {
     'verified', operator, role, req.params.id
   )
 
-  const verifyNote = pickupPerson ? `取件人：${pickupPerson}。${note || ''}` : note || ''
-  db.prepare('INSERT INTO timeline_events (package_id, status, operator, role, timestamp, note) VALUES (?, ?, ?, ?, ?, ?)').run(
-    req.params.id, 'verified', operator, role, now, verifyNote
+  const verifyNote = note || ''
+  db.prepare('INSERT INTO timeline_events (package_id, status, operator, role, timestamp, note, pickup_person) VALUES (?, ?, ?, ?, ?, ?, ?)').run(
+    req.params.id, 'verified', operator, role, now, verifyNote, pickupPerson || null
   )
 
   const updated = db.prepare('SELECT * FROM packages WHERE id = ?').get(req.params.id) as any
