@@ -1,9 +1,10 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, computed, onMounted, nextTick, watch } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import api from '../api'
 
 const router = useRouter()
+const route = useRoute()
 const appointments = ref([])
 const loading = ref(true)
 const error = ref('')
@@ -85,6 +86,8 @@ async function loadAppointments() {
     error.value = e?.error?.message || '加载失败'
   } finally {
     loading.value = false
+    await nextTick()
+    applyHighlight()
   }
 }
 
@@ -153,14 +156,34 @@ function needsObservation(a) {
   return a.status === 'inoculated'
 }
 
-function goToObservations() {
-  router.push('/observations')
+function goToObservations(observationId) {
+  router.push({ path: '/observations', query: observationId ? { highlight: observationId } : {} })
 }
 
 const expandedId = ref(null)
 function toggleDetail(id) {
   expandedId.value = expandedId.value === id ? null : id
 }
+
+const highlightId = ref(null)
+
+async function applyHighlight() {
+  const hid = route.query.highlight
+  if (!hid) return
+  highlightId.value = hid
+  if (appointments.value.find((a) => a.id === hid)) {
+    expandedId.value = hid
+    await nextTick()
+    const el = document.getElementById('apt-' + hid)
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      el.classList.add('highlight-flash')
+      setTimeout(() => el.classList.remove('highlight-flash'), 2500)
+    }
+  }
+}
+
+watch(() => route.query.highlight, () => { if (!loading.value) applyHighlight() })
 
 function formatTime(t) {
   if (!t) return '-'
@@ -181,7 +204,7 @@ function formatTime(t) {
       <div class="banner-content">
         <span class="banner-icon">✅</span>
         <span>接种完成，已自动创建留观记录 <strong>{{ lastCompletedObs.id }}</strong>，留观负责人：<strong>{{ lastCompletedObs.responsiblePerson }}</strong></span>
-        <button class="btn btn-primary banner-btn" @click="goToObservations">前往留观记录 →</button>
+        <button class="btn btn-primary banner-btn" @click="goToObservations(lastCompletedObs?.id)">前往留观记录 →</button>
       </div>
     </div>
 
@@ -236,7 +259,7 @@ function formatTime(t) {
             </tr>
           </thead>
           <tbody>
-            <tr v-for="a in appointments" :key="a.id" :class="{ 'row-alert': needsObservation(a) }">
+            <tr v-for="a in appointments" :key="a.id" :id="'apt-' + a.id" :class="{ 'row-alert': needsObservation(a), 'row-highlight': highlightId === a.id }">
               <td>{{ a.id }}</td>
               <td>{{ a.residentName }}</td>
               <td>{{ a.vaccineName }}</td>
@@ -277,8 +300,8 @@ function formatTime(t) {
                 <button v-if="canCompleteInoculation(a)" class="btn-action complete" :disabled="actionLoading[a.id]" @click="doAction(a.id, 'complete-inoculation')">完成接种</button>
                 <button v-if="canCancel(a)" class="btn-action cancel" :disabled="actionLoading[a.id]" @click="showCancelDialog = a.id">取消</button>
                 <button class="btn-link" @click="toggleDetail(a.id)">{{ expandedId === a.id ? '收起' : '详情' }}</button>
-                <router-link v-if="needsObservation(a)" to="/observations" class="obs-nav-link">→ 前往留观</router-link>
-                <router-link v-else-if="a.observationId" :to="'/observations'" class="obs-view-link">查看留观</router-link>
+                <router-link v-if="needsObservation(a)" :to="{ path: '/observations', query: { highlight: a.observationId } }" class="obs-nav-link">→ 前往留观</router-link>
+                <router-link v-else-if="a.observationId" :to="{ path: '/observations', query: { highlight: a.observationId } }" class="obs-view-link">查看留观</router-link>
               </td>
             </tr>
           </tbody>
@@ -323,7 +346,7 @@ function formatTime(t) {
               居民 <strong>{{ a.residentName }}</strong> 已完成 {{ a.vaccineName }} 接种（护士：{{ a.nurseName }}），当前处于「已接种」状态，需立即进入30分钟留观观察。
               接种护士 <strong>{{ a.nurseName }}</strong> 为留观初始负责人。请前往「留观记录」开始留观，确保接种后观察不出现责任空档。
             </div>
-            <router-link to="/observations" class="gap-warning-link">立即前往留观记录 →</router-link>
+            <router-link :to="{ path: '/observations', query: { highlight: a.observationId } }" class="gap-warning-link">立即前往留观记录 →</router-link>
           </div>
 
           <div v-else-if="a.observationId" class="obs-info-section">
@@ -331,7 +354,7 @@ function formatTime(t) {
             <div class="obs-info-grid">
               <div class="obs-info-item">
                 <span class="label">留观编号</span>
-                <router-link to="/observations" class="obs-info-link">{{ a.observationId }}</router-link>
+                <router-link :to="{ path: '/observations', query: { highlight: a.observationId } }" class="obs-info-link">{{ a.observationId }}</router-link>
               </div>
               <div class="obs-info-item">
                 <span class="label">留观状态</span>
@@ -358,7 +381,7 @@ function formatTime(t) {
               <div class="gap-warning-body">
                 ⚠ 留观尚未开始，当前负责人 <strong>{{ a.observationResponsible }}</strong> 需立即开始留观观察，避免责任空档。
               </div>
-              <router-link to="/observations" class="gap-warning-link">立即前往留观记录 →</router-link>
+              <router-link :to="{ path: '/observations', query: { highlight: a.observationId } }" class="gap-warning-link">立即前往留观记录 →</router-link>
             </div>
           </div>
         </div>
@@ -709,5 +732,18 @@ tr.row-alert { background: #fdf6ec; }
 .gap-warning.compact {
   margin-top: 10px;
   padding: 10px;
+}
+
+.row-highlight {
+  background: #ecf5ff !important;
+}
+
+.highlight-flash {
+  animation: flash-row 0.6s ease 3;
+}
+
+@keyframes flash-row {
+  0%, 100% { background: #ecf5ff; }
+  50% { background: #d9ecff; box-shadow: inset 0 0 0 2px #409eff; }
 }
 </style>

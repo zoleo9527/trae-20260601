@@ -1,9 +1,10 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, computed, onMounted, nextTick, watch } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import api from '../api'
 
 const router = useRouter()
+const route = useRoute()
 const observations = ref([])
 const loading = ref(true)
 const error = ref('')
@@ -49,6 +50,8 @@ async function loadObservations() {
     error.value = e?.error?.message || '加载失败'
   } finally {
     loading.value = false
+    await nextTick()
+    applyHighlight()
   }
 }
 
@@ -151,11 +154,31 @@ function toggleDetail(id) {
   expandedId.value = expandedId.value === id ? null : id
 }
 
-function goToAppointments() {
-  router.push('/appointments')
+function goToAppointments(appointmentId) {
+  router.push({ path: '/appointments', query: appointmentId ? { highlight: appointmentId } : {} })
 }
 
 const nurseOptions = ['周小燕', '吴丽萍']
+
+const highlightId = ref(null)
+
+async function applyHighlight() {
+  const hid = route.query.highlight
+  if (!hid) return
+  highlightId.value = hid
+  if (observations.value.find((o) => o.id === hid)) {
+    expandedId.value = hid
+    await nextTick()
+    const el = document.getElementById('obs-' + hid)
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      el.classList.add('highlight-flash')
+      setTimeout(() => el.classList.remove('highlight-flash'), 2500)
+    }
+  }
+}
+
+watch(() => route.query.highlight, () => { if (!loading.value) applyHighlight() })
 </script>
 
 <template>
@@ -186,12 +209,14 @@ const nurseOptions = ['周小燕', '吴丽萍']
         <div
           v-for="o in observations"
           :key="o.id"
+          :id="'obs-' + o.id"
           class="obs-card"
           :class="{
             'card-alert': o.alertTriggered,
             'card-stuck': isStuck(o),
             'card-abnormal': o.status === 'abnormal',
             'card-completed': o.status === 'completed',
+            'card-highlight': highlightId === o.id,
           }"
         >
           <div class="obs-head">
@@ -226,7 +251,7 @@ const nurseOptions = ['周小燕', '吴丽萍']
             </div>
           </div>
 
-          <div v-if="o.appointmentId" class="appointment-link" @click="goToAppointments">
+          <div v-if="o.appointmentId" class="appointment-link" @click="goToAppointments(o.appointmentId)">
             📎 关联预约: {{ o.appointmentId }}
             <span v-if="o.appointmentStatus" class="appt-status">
               （预约状态: {{ appointmentStatusLabels[o.appointmentStatus] || o.appointmentStatus }}）
@@ -623,4 +648,19 @@ const nurseOptions = ['周小燕', '吴丽萍']
 .checkbox-label input { width: auto; }
 
 .dialog-actions { margin-top: 16px; display: flex; gap: 8px; justify-content: flex-end; }
+
+.card-highlight {
+  box-shadow: 0 0 0 2px #409eff, 0 2px 12px rgba(64,158,255,0.25);
+}
+
+.highlight-flash {
+  animation: flash-border 0.6s ease 3;
+}
+
+@keyframes flash-border {
+  0%, 100% { box-shadow: 0 0 0 2px #409eff, 0 2px 12px rgba(64,158,255,0.25); }
+  50% { box-shadow: 0 0 0 4px #66b1ff, 0 2px 20px rgba(64,158,255,0.45); }
+}
+
+.appt-doctor { color: #909399; font-size: 12px; }
 </style>
