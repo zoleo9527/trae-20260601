@@ -250,8 +250,11 @@ export default function Dashboard() {
               <Link to="/problems?status=reviewing" className="flex items-center gap-2 text-sm text-slate-700 hover:text-blue-600 py-1.5 px-2 rounded hover:bg-blue-50 transition-colors">
                 <Package className="w-4 h-4 text-purple-500" /> 待复核问题件
               </Link>
-              <Link to="/contacts" className="flex items-center gap-2 text-sm text-slate-700 hover:text-blue-600 py-1.5 px-2 rounded hover:bg-blue-50 transition-colors">
-                <Phone className="w-4 h-4 text-green-500" /> 客户联系回看
+              <Link to="/contacts?status=pending,supplementing" className="flex items-center gap-2 text-sm text-slate-700 hover:text-blue-600 py-1.5 px-2 rounded hover:bg-blue-50 transition-colors">
+                <Phone className="w-4 h-4 text-green-500" /> 待联系问题件
+              </Link>
+              <Link to="/contacts?status=contacting" className="flex items-center gap-2 text-sm text-slate-700 hover:text-blue-600 py-1.5 px-2 rounded hover:bg-blue-50 transition-colors">
+                <Phone className="w-4 h-4 text-blue-500" /> 联系中跟进
               </Link>
             </div>
           </div>

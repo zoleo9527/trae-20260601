@@ -41,6 +41,7 @@ interface AppState {
 
   problemDetailsMap: Record<string, ProblemDetail>
   loadContactsWithDetails: () => Promise<void>
+  loadContactWorkbench: () => Promise<void>
 
   notifications: Notification[]
   unreadCount: number
@@ -220,6 +221,33 @@ export const useAppStore = create<AppState>((set, get) => ({
     const problemIds = [...new Set(contacts.map((c) => c.problemRecordId))]
     const existingMap = { ...get().problemDetailsMap }
     const idsToLoad = problemIds.filter((id) => !existingMap[id])
+
+    const detailsMap = { ...existingMap }
+    await Promise.all(
+      idsToLoad.map(async (id) => {
+        const result = await apiFetch<ProblemDetail>(`/problems/${id}`)
+        if (result.success) detailsMap[id] = result.data
+      })
+    )
+    set({ problemDetailsMap: detailsMap })
+  },
+
+  loadContactWorkbench: async () => {
+    const [contactsResult, problemsResult] = await Promise.all([
+      apiFetch<CustomerContact[]>('/contacts'),
+      apiFetch<ProblemRecord[]>('/problems'),
+    ])
+    if (!contactsResult.success || !problemsResult.success) return
+
+    const contacts = contactsResult.data
+    const problems = problemsResult.data
+    set({ contacts, problems })
+
+    const contactProblemIds = new Set(contacts.map((c) => c.problemRecordId))
+    const allProblemIds = [...new Set([...contactProblemIds, ...problems.map((p) => p.id)])]
+
+    const existingMap = { ...get().problemDetailsMap }
+    const idsToLoad = allProblemIds.filter((id) => !existingMap[id])
 
     const detailsMap = { ...existingMap }
     await Promise.all(
