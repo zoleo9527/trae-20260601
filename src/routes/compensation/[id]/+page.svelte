@@ -2,13 +2,17 @@
   import { page } from '$app/stores'
   import { getStore } from '$lib/store.svelte'
   import { COMPENSATION_STATUS_LABELS, DAMAGE_STATUS_LABELS, ROLE_LABELS, MATERIAL_STATUS_LABELS } from '$lib/types'
-  import { ArrowLeft, AlertCircle, FileText, Upload, Link as LinkIcon, Clock } from 'lucide-svelte'
+  import { ArrowLeft, AlertCircle, FileText, Upload, Link as LinkIcon, Clock, CheckCircle, Send, Gavel } from 'lucide-svelte'
 
   const store = getStore()
   const id = $derived($page.params.id)
 
   let comp = $derived(store.compensations.find(c => c.id === id) ?? null)
   let linkedDamage = $derived(comp ? store.damages.find(d => d.id === comp.damageRecordId) ?? null : null)
+
+  let showAcceptConfirm = $state(false)
+  let showReviewConfirm = $state(false)
+  let showCompleteConfirm = $state(false)
 
   function formatDate(iso: string | null) {
     if (!iso) return '—'
@@ -46,6 +50,36 @@
   let canSubmitMaterial = $derived(
     comp && (comp.status === 'pending' || comp.status === 'material_incomplete' || comp.status === 'accepted')
   )
+
+  let canAccept = $derived(
+    comp && (comp.status === 'pending' || comp.status === 'material_incomplete')
+  )
+
+  let canSubmitForReview = $derived(
+    comp && comp.status === 'accepted' && !comp.materials.some(m => m.status === 'missing')
+  )
+
+  let canApprove = $derived(
+    comp && comp.status === 'reviewing'
+  )
+
+  let allMaterialsSubmitted = $derived(
+    comp ? !comp.materials.some(m => m.status === 'missing') : false
+  )
+
+  let missingCount = $derived(
+    comp ? comp.materials.filter(m => m.status === 'missing').length : 0
+  )
+
+  let nextAction = $derived(() => {
+    if (!comp) return ''
+    if (comp.status === 'pending' || comp.status === 'material_incomplete') {
+      return allMaterialsSubmitted ? '所有材料已齐全，可受理赔付' : `还缺 ${missingCount} 份材料，补齐后可受理`
+    }
+    if (comp.status === 'accepted') return '材料齐全，可提交站段管理员审核'
+    if (comp.status === 'reviewing') return '等待站段管理员审核通过'
+    return ''
+  })
 </script>
 
 {#if comp}
@@ -68,7 +102,50 @@
         </div>
         <p class="text-sm text-iron-500 mt-0.5">索赔人：{comp.claimant} · 联系方式：{comp.claimantContact}</p>
       </div>
+
+      {#if canAccept}
+        <button
+          onclick={() => showAcceptConfirm = true}
+          class="flex items-center gap-2 px-4 py-2 bg-rail-blue text-white rounded-lg text-sm font-medium hover:bg-rail-blue-dark transition-colors"
+          disabled={missingCount > 0}
+        >
+          <CheckCircle size={16} />
+          受理赔付
+        </button>
+      {/if}
+      {#if canSubmitForReview}
+        <button
+          onclick={() => showReviewConfirm = true}
+          class="flex items-center gap-2 px-4 py-2 bg-rail-blue text-white rounded-lg text-sm font-medium hover:bg-rail-blue-dark transition-colors"
+        >
+          <Send size={16} />
+          提交审核
+        </button>
+      {/if}
+      {#if canApprove}
+        <button
+          onclick={() => showCompleteConfirm = true}
+          class="flex items-center gap-2 px-4 py-2 bg-success text-white rounded-lg text-sm font-medium hover:bg-success/80 transition-colors"
+        >
+          <Gavel size={16} />
+          审核通过
+        </button>
+      {/if}
     </div>
+
+    {#if nextAction}
+      <div class="mb-6 p-3 rounded-lg border {canSubmitForReview || canApprove
+        ? 'bg-success-light border-success/30'
+        : 'bg-warning-light border-warning/30'}">
+        <p class="text-sm font-medium {canSubmitForReview || canApprove ? 'text-success' : 'text-warning'}">
+          {#if canAccept && missingCount > 0}
+            ⚠ {nextAction()}
+          {:else}
+            ✓ {nextAction()}
+          {/if}
+        </p>
+      </div>
+    {/if}
 
     <div class="flex gap-6">
       <div class="flex-1 min-w-0">
@@ -122,8 +199,12 @@
           {#if comp.materials.some(m => m.status === 'missing')}
             <div class="mt-4 p-3 bg-danger-light/60 rounded-lg border border-danger/30">
               <p class="text-sm text-danger font-medium">
-                ⚠ 尚有 {comp.materials.filter(m => m.status === 'missing').length} 份材料缺失，请及时补交
+                ⚠ 尚有 {missingCount} 份材料缺失，请及时补交
               </p>
+            </div>
+          {:else}
+            <div class="mt-4 p-3 bg-success-light rounded-lg border border-success/30">
+              <p class="text-sm text-success font-medium">✓ 所有赔付材料已齐全</p>
             </div>
           {/if}
         </section>
@@ -202,6 +283,10 @@
                   责任链存在空档，赔付责任无法完整追溯
                 </p>
               </div>
+            {:else}
+              <div class="mt-4 p-3 bg-success-light rounded-lg border border-success/30">
+                <p class="text-sm text-success font-medium">✓ 责任链完整</p>
+              </div>
             {/if}
           </section>
         {/if}
@@ -239,11 +324,41 @@
               <span class="text-iron-400 text-xs">联系方式</span>
               <p class="text-iron-700 text-xs">{comp.claimantContact}</p>
             </div>
+            <div>
+              <span class="text-iron-400 text-xs">责任链</span>
+              <p class="font-medium {comp.hasGap ? 'text-danger' : 'text-success'}">
+                {comp.hasGap ? '存在空档' : '完整'}
+              </p>
+            </div>
+          </div>
+
+          <div class="mt-4 pt-4 border-t border-iron-100">
+            <p class="text-xs text-iron-500 mb-2 font-semibold">流程进度</p>
+            <div class="space-y-2">
+              <div class="flex items-center gap-2 text-xs">
+                <span class="w-5 h-5 rounded-full flex items-center justify-center text-white {comp.status !== 'pending' ? 'bg-success' : 'bg-safety-orange'}">
+                  {comp.status !== 'pending' ? '✓' : '1'}
+                </span>
+                <span class="{comp.status !== 'pending' ? 'text-success font-medium' : 'text-iron-600'}">受理</span>
+              </div>
+              <div class="flex items-center gap-2 text-xs">
+                <span class="w-5 h-5 rounded-full flex items-center justify-center text-white {['reviewing','completed'].includes(comp.status) ? 'bg-success' : 'bg-iron-300'}">
+                  {['reviewing','completed'].includes(comp.status) ? '✓' : '2'}
+                </span>
+                <span class="{['reviewing','completed'].includes(comp.status) ? 'text-success font-medium' : 'text-iron-400'}">审核</span>
+              </div>
+              <div class="flex items-center gap-2 text-xs">
+                <span class="w-5 h-5 rounded-full flex items-center justify-center text-white {comp.status === 'completed' ? 'bg-success' : 'bg-iron-300'}">
+                  {comp.status === 'completed' ? '✓' : '3'}
+                </span>
+                <span class="{comp.status === 'completed' ? 'text-success font-medium' : 'text-iron-400'}">赔付完成</span>
+              </div>
+            </div>
           </div>
         </div>
 
         {#if linkedDamage}
-          <div class="bg-white rounded-lg shadow p-5 sticky top-[22rem]">
+          <div class="bg-white rounded-lg shadow p-5 sticky top-[28rem]">
             <h3 class="text-sm font-bold text-iron-700 mb-3 flex items-center gap-2">
               <LinkIcon size={14} /> 关联货损
             </h3>
@@ -277,6 +392,67 @@
       </aside>
     </div>
   </div>
+
+  {#if showAcceptConfirm}
+    <!-- svelte-ignore a11y_no_static_element_interactions -->
+    <div class="fixed inset-0 bg-black/40 flex items-center justify-center z-50" onclick={() => showAcceptConfirm = false}>
+      <div role="dialog" aria-label="受理赔付" class="bg-white rounded-xl p-6 w-96 shadow-2xl" onclick={(e) => e.stopPropagation()}>
+        <h2 class="text-lg font-bold text-iron-900 mb-2">受理赔付</h2>
+        <p class="text-sm text-iron-600 mb-4">
+          确认受理赔付申请 <span class="font-mono text-rail-blue">{comp?.compNo}</span>，赔付金额 <span class="font-bold">¥{comp?.amount.toLocaleString()}</span>？
+        </p>
+        {#if missingCount > 0}
+          <p class="text-xs text-danger mb-3">⚠ 仍有 {missingCount} 份材料缺失，受理后将标记为"材料不全"状态</p>
+        {:else}
+          <p class="text-xs text-success mb-3">✓ 所有材料已齐全，受理后可提交审核</p>
+        {/if}
+        <div class="flex justify-end gap-3">
+          <button onclick={() => showAcceptConfirm = false} class="px-4 py-2 text-sm text-iron-600 hover:bg-iron-100 rounded-lg">取消</button>
+          <button onclick={() => { if (comp) store.acceptCompensation(comp.id); showAcceptConfirm = false }} class="px-4 py-2 text-sm bg-rail-blue text-white rounded-lg hover:bg-rail-blue-dark">
+            确认受理
+          </button>
+        </div>
+      </div>
+    </div>
+  {/if}
+
+  {#if showReviewConfirm}
+    <!-- svelte-ignore a11y_no_static_element_interactions -->
+    <div class="fixed inset-0 bg-black/40 flex items-center justify-center z-50" onclick={() => showReviewConfirm = false}>
+      <div role="dialog" aria-label="提交审核" class="bg-white rounded-xl p-6 w-96 shadow-2xl" onclick={(e) => e.stopPropagation()}>
+        <h2 class="text-lg font-bold text-iron-900 mb-2">提交审核</h2>
+        <p class="text-sm text-iron-600 mb-4">
+          确认将赔付 <span class="font-mono text-rail-blue">{comp?.compNo}</span> 提交站段管理员审核？
+        </p>
+        <p class="text-xs text-success mb-3">✓ 材料齐全，提交后将进入审核流程</p>
+        <div class="flex justify-end gap-3">
+          <button onclick={() => showReviewConfirm = false} class="px-4 py-2 text-sm text-iron-600 hover:bg-iron-100 rounded-lg">取消</button>
+          <button onclick={() => { if (comp) store.submitCompensationForReview(comp.id); showReviewConfirm = false }} class="px-4 py-2 text-sm bg-rail-blue text-white rounded-lg hover:bg-rail-blue-dark">
+            提交审核
+          </button>
+        </div>
+      </div>
+    </div>
+  {/if}
+
+  {#if showCompleteConfirm}
+    <!-- svelte-ignore a11y_no_static_element_interactions -->
+    <div class="fixed inset-0 bg-black/40 flex items-center justify-center z-50" onclick={() => showCompleteConfirm = false}>
+      <div role="dialog" aria-label="审核通过" class="bg-white rounded-xl p-6 w-96 shadow-2xl" onclick={(e) => e.stopPropagation()}>
+        <h2 class="text-lg font-bold text-iron-900 mb-2">审核通过</h2>
+        <p class="text-sm text-iron-600 mb-4">
+          确认审核通过赔付 <span class="font-mono text-rail-blue">{comp?.compNo}</span>，赔付金额 <span class="font-bold">¥{comp?.amount.toLocaleString()}</span>？
+        </p>
+        <p class="text-xs text-success mb-3">✓ 审核通过后赔付完成，可在货损详情页结案</p>
+        <div class="flex justify-end gap-3">
+          <button onclick={() => showCompleteConfirm = false} class="px-4 py-2 text-sm text-iron-600 hover:bg-iron-100 rounded-lg">取消</button>
+          <button onclick={() => { if (comp) store.completeCompensation(comp.id); showCompleteConfirm = false }} class="px-4 py-2 text-sm bg-success text-white rounded-lg hover:bg-success/80">
+            确认通过
+          </button>
+        </div>
+      </div>
+    </div>
+  {/if}
 {:else}
   <div class="max-w-7xl mx-auto p-6 text-center">
     <p class="text-iron-400 text-lg">未找到该赔付记录</p>

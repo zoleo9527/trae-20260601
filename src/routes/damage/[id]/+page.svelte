@@ -3,7 +3,7 @@
   import { getStore } from '$lib/store.svelte'
   import { DAMAGE_STATUS_LABELS, COMPENSATION_STATUS_LABELS, ROLE_LABELS, MATERIAL_STATUS_LABELS } from '$lib/types'
   import type { UserRole } from '$lib/types'
-  import { ArrowLeft, AlertCircle, UserCheck, FileText, Clock, Link as LinkIcon } from 'lucide-svelte'
+  import { ArrowLeft, AlertCircle, UserCheck, FileText, Clock, Link as LinkIcon, Archive } from 'lucide-svelte'
 
   const store = getStore()
   const id = $derived($page.params.id)
@@ -18,6 +18,8 @@
   let fillGapTargetId = $state<string | null>(null)
   let fillGapName = $state('')
   let fillGapRole = $state<UserRole>('freight_clerk')
+
+  let showCloseConfirm = $state(false)
 
   function formatDate(iso: string) {
     return new Date(iso).toLocaleString('zh-CN', {
@@ -67,6 +69,12 @@
   }
 
   let gapChainNodes = $derived(damage ? damage.responsibilityChain.filter(n => n.isGap) : [])
+
+  let canClose = $derived(() => {
+    if (!damage || damage.status === 'completed' || damage.status === 'pending') return false
+    if (!linkedCompensation) return damage.status === 'processing' && !damage.hasGap
+    return linkedCompensation.status === 'completed'
+  })
 </script>
 
 {#if damage}
@@ -100,6 +108,15 @@
         >
           <UserCheck size={16} />
           指派责任人
+        </button>
+      {/if}
+      {#if canClose()}
+        <button
+          onclick={() => showCloseConfirm = true}
+          class="flex items-center gap-2 px-4 py-2 bg-success text-white rounded-lg text-sm font-medium hover:bg-success/80 transition-colors"
+        >
+          <Archive size={16} />
+          结案
         </button>
       {/if}
     </div>
@@ -389,6 +406,29 @@
           <button onclick={() => fillGapTargetId = null} class="px-4 py-2 text-sm text-iron-600 hover:bg-iron-100 rounded-lg">取消</button>
           <button onclick={handleFillGap} class="px-4 py-2 text-sm bg-danger text-white rounded-lg hover:bg-danger/80 disabled:opacity-50" disabled={!fillGapName.trim()}>
             补全空档
+          </button>
+        </div>
+      </div>
+    </div>
+  {/if}
+
+  {#if showCloseConfirm}
+    <!-- svelte-ignore a11y_no_static_element_interactions -->
+    <div class="fixed inset-0 bg-black/40 flex items-center justify-center z-50" onclick={() => showCloseConfirm = false}>
+      <div role="dialog" aria-label="结案" class="bg-white rounded-xl p-6 w-96 shadow-2xl" onclick={(e) => e.stopPropagation()}>
+        <h2 class="text-lg font-bold text-iron-900 mb-2">确认结案</h2>
+        <p class="text-sm text-iron-600 mb-4">
+          确认对货损记录 <span class="font-mono text-rail-blue">{damage?.ticketNo}</span> 结案？
+        </p>
+        {#if linkedCompensation?.status === 'completed'}
+          <p class="text-xs text-success mb-3">✓ 关联赔付已完成，可以结案</p>
+        {:else if !linkedCompensation}
+          <p class="text-xs text-success mb-3">✓ 责任链完整，无关联赔付，可以结案</p>
+        {/if}
+        <div class="flex justify-end gap-3">
+          <button onclick={() => showCloseConfirm = false} class="px-4 py-2 text-sm text-iron-600 hover:bg-iron-100 rounded-lg">取消</button>
+          <button onclick={() => { if (damage) store.completeDamage(damage.id); showCloseConfirm = false }} class="px-4 py-2 text-sm bg-success text-white rounded-lg hover:bg-success/80">
+            确认结案
           </button>
         </div>
       </div>

@@ -194,41 +194,128 @@ export function getStore() {
 
     submitCompensationMaterial(compId: string, materialId: string) {
       const c = compensations.find(c => c.id === compId)
-      if (c) {
-        const m = c.materials.find(m => m.id === materialId)
-        if (m) {
-          m.status = 'submitted'
-          m.submittedAt = new Date().toISOString()
-          m.submittedBy = ROLE_LABELS[currentRole]
-          c.updatedAt = new Date().toISOString()
-        }
-        const hasMissing = c.materials.some(m => m.status === 'missing')
-        if (!hasMissing && c.status === 'material_incomplete') {
-          c.status = 'accepted'
-        }
-        if (c.status === 'pending' && c.materials.some(m => m.status === 'submitted' || m.status === 'verified')) {
-          c.status = 'accepted'
-        }
+      if (!c) return
+      const m = c.materials.find(m => m.id === materialId)
+      if (!m) return
+
+      const now = new Date().toISOString()
+      m.status = 'submitted'
+      m.submittedAt = now
+      m.submittedBy = ROLE_LABELS[currentRole]
+      c.updatedAt = now
+
+      const hasMissing = c.materials.some(m => m.status === 'missing')
+      if (!hasMissing && c.status === 'material_incomplete') {
+        c.status = 'accepted'
+      }
+      if (c.status === 'pending' && c.materials.some(m => m.status === 'submitted' || m.status === 'verified')) {
+        c.status = 'accepted'
       }
     },
 
-    advanceCompensationStatus(compId: string) {
+    acceptCompensation(compId: string) {
       const c = compensations.find(c => c.id === compId)
       if (!c) return
-      if (c.status === 'accepted') {
-        c.status = 'reviewing'
-        c.updatedAt = new Date().toISOString()
-      } else if (c.status === 'reviewing') {
-        c.status = 'completed'
-        c.updatedAt = new Date().toISOString()
+      if (c.status !== 'pending' && c.status !== 'material_incomplete') return
+
+      const now = new Date().toISOString()
+      const hasMissing = c.materials.some(m => m.status === 'missing')
+      if (hasMissing) {
+        c.status = 'material_incomplete'
+      } else {
+        c.status = 'accepted'
+      }
+      c.updatedAt = now
+
+      const d = damages.find(d => d.id === c.damageRecordId)
+      if (d) {
+        d.timeline.push({
+          id: 'tn-comp-accept-' + Date.now(),
+          event: '赔付受理',
+          timestamp: now,
+          responsible: { name: ROLE_LABELS[currentRole], role: currentRole },
+          description: `客服受理赔付申请 ${c.compNo}，赔付金额 ¥${c.amount.toLocaleString()}`,
+          isGap: false
+        })
+        d.updatedAt = now
+      }
+    },
+
+    submitCompensationForReview(compId: string) {
+      const c = compensations.find(c => c.id === compId)
+      if (!c || c.status !== 'accepted') return
+
+      const now = new Date().toISOString()
+      c.status = 'reviewing'
+      c.updatedAt = now
+
+      const d = damages.find(d => d.id === c.damageRecordId)
+      if (d) {
+        d.timeline.push({
+          id: 'tn-comp-review-' + Date.now(),
+          event: '提交审核',
+          timestamp: now,
+          responsible: { name: ROLE_LABELS[currentRole], role: currentRole },
+          description: `赔付 ${c.compNo} 材料齐全，提交站段管理员审核`,
+          isGap: false
+        })
+        d.updatedAt = now
+      }
+    },
+
+    completeCompensation(compId: string) {
+      const c = compensations.find(c => c.id === compId)
+      if (!c || c.status !== 'reviewing') return
+
+      const now = new Date().toISOString()
+      c.status = 'completed'
+      c.updatedAt = now
+
+      for (const m of c.materials) {
+        if (m.status === 'submitted') {
+          m.status = 'verified'
+        }
+      }
+
+      const d = damages.find(d => d.id === c.damageRecordId)
+      if (d) {
+        d.timeline.push({
+          id: 'tn-comp-done-' + Date.now(),
+          event: '赔付完成',
+          timestamp: now,
+          responsible: { name: ROLE_LABELS[currentRole], role: currentRole },
+          description: `站段管理员审核通过，赔付 ${c.compNo} 完成，金额 ¥${c.amount.toLocaleString()}`,
+          isGap: false
+        })
+        d.updatedAt = now
       }
     },
 
     completeDamage(damageId: string) {
       const d = damages.find(d => d.id === damageId)
-      if (d) {
-        d.status = 'completed'
-        d.updatedAt = new Date().toISOString()
+      if (!d) return
+      if (d.status !== 'processing' && d.status !== 'anomaly') return
+
+      const now = new Date().toISOString()
+      d.status = 'completed'
+      d.updatedAt = now
+
+      d.timeline.push({
+        id: 'tn-close-' + Date.now(),
+        event: '结案',
+        timestamp: now,
+        responsible: { name: ROLE_LABELS[currentRole], role: currentRole },
+        description: `货损记录 ${d.ticketNo} 已结案`,
+        isGap: false
+      })
+
+      const comp = compensations.find(c => c.damageRecordId === damageId)
+      if (comp && comp.status === 'reviewing') {
+        comp.status = 'completed'
+        comp.updatedAt = now
+        for (const m of comp.materials) {
+          if (m.status === 'submitted') m.status = 'verified'
+        }
       }
     }
   }
