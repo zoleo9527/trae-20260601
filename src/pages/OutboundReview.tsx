@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, CheckCircle, AlertTriangle } from 'lucide-react'
+import { ArrowLeft, CheckCircle, AlertTriangle, AlertCircle } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAppStore, abnormalTypeLabels, type OutboundOrder, type OutboundItem } from '@/store'
 
@@ -32,6 +32,7 @@ export default function OutboundReview() {
   const [reviews, setReviews] = useState<Record<string, ItemReview>>({})
   const [submitting, setSubmitting] = useState(false)
   const [expandedAbnormal, setExpandedAbnormal] = useState<Record<string, boolean>>({})
+  const [error, setError] = useState<string>('')
 
   useEffect(() => {
     if (!id) return
@@ -81,6 +82,7 @@ export default function OutboundReview() {
   const handleSubmit = async () => {
     if (!id || !order || !allReviewed) return
     setSubmitting(true)
+    setError('')
     try {
       const reviewItems = order.items.map((item) => {
         const r = reviews[item.id]
@@ -91,7 +93,7 @@ export default function OutboundReview() {
           abnormalNote: r.result === 'abnormal' ? r.abnormalNote : undefined,
         }
       })
-      await fetch(`/api/outbound-orders/${id}/review`, {
+      const response = await fetch(`/api/outbound-orders/${id}/review`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -100,7 +102,13 @@ export default function OutboundReview() {
           idempotencyKey: `review-${id}-${Date.now()}`,
         }),
       })
+      const data = await response.json()
+      if (!data.success) {
+        throw new Error(data.error || '提交复核失败')
+      }
       navigate(`/outbound/${id}`)
+    } catch (err: any) {
+      setError(err.message || '提交复核失败，请重试')
     } finally {
       setSubmitting(false)
     }
@@ -142,6 +150,16 @@ export default function OutboundReview() {
           </div>
         </div>
       </div>
+
+      {error && (
+        <div className="rounded-xl bg-red-50 border border-red-200 p-4 flex items-start gap-3">
+          <AlertCircle className="h-5 w-5 text-red-500 shrink-0 mt-0.5" />
+          <div>
+            <p className="text-sm font-medium text-red-800">提交失败</p>
+            <p className="text-sm text-red-700 mt-1">{error}</p>
+          </div>
+        </div>
+      )}
 
       <div className="space-y-4">
         {order.items.map((item) => {
@@ -198,7 +216,12 @@ export default function OutboundReview() {
                           [item.id]: { ...prev[item.id], abnormalType: e.target.value },
                         }))
                       }
-                      className="w-full rounded-lg border border-gray-200 bg-white py-2 px-3 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                      className={cn(
+                        'w-full rounded-lg border bg-white py-2 px-3 text-sm focus:outline-none focus:ring-1',
+                        review.abnormalType
+                          ? 'border-gray-200 focus:border-indigo-500 focus:ring-indigo-500'
+                          : 'border-red-200 focus:border-red-500 focus:ring-red-500'
+                      )}
                     >
                       <option value="">请选择异常类型</option>
                       {abnormalTypeOptions.map((t) => (

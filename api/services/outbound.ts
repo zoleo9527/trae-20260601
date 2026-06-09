@@ -320,6 +320,13 @@ export function reviewOrder(id: string, req: ReviewOutboundOrderRequest): Outbou
     }
   }
 
+  const incompleteItems = req.reviewItems.filter(
+    (item) => item.result === 'abnormal' && !item.abnormalType
+  )
+  if (incompleteItems.length > 0) {
+    throw new Error(`异常项缺少异常类型：${incompleteItems.map((i) => i.itemId).join(', ')}`)
+  }
+
   const now = new Date().toISOString()
   const hasAbnormal = req.reviewItems.some((item) => item.result === 'abnormal')
 
