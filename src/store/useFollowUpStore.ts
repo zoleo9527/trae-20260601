@@ -89,7 +89,6 @@ export const useFollowUpStore = create<FollowUpState>((set, get) => ({
     set((state) => {
       const followUp = state.followUps.find((fu) => fu.id === followUpId)
       if (!followUp) return state
-      if (followUp.assigneeRole === newRole && followUp.assigneeName === newName) return state
       success = true
       const log: StatusLog = {
         id: `sl-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,

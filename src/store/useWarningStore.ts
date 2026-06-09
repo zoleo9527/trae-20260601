@@ -82,11 +82,14 @@ function syncAssigneeToActiveWarning(followUpId: string, role: Role) {
   if (!fu) return
 
   const relatedWarnings = warningStore.warnings.filter((w) => w.followUpId === followUpId)
+  const activeWarnings = relatedWarnings.filter((w) => w.status === 'active' || w.status === 'processing')
   const derived = deriveAssigneeFromActiveWarnings(relatedWarnings)
   if (!derived) return
-  if (fu.assigneeRole === derived.role && fu.assigneeName === derived.name) return
 
-  fuStore.updateAssignee(followUpId, derived.role, derived.name, role, `负责人同步至活跃预警负责人（${derived.name}）`)
+  const warningNames = activeWarnings.map((w) => w.ruleName).join('、')
+  const remark = `责任对账：剩余活跃预警${activeWarnings.length}条（${warningNames}），负责人${derived.name}`
+
+  fuStore.updateAssignee(followUpId, derived.role, derived.name, role, remark)
 }
 
 function reconcileAffectedFollowUps(warningIds: string[], role: Role) {
