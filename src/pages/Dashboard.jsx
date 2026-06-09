@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { useStore } from '../stores/appStore';
 import { Link } from 'react-router-dom';
-import { Package, ShoppingCart, ClipboardCheck, Warehouse, AlertTriangle, CreditCard, ArrowRight } from 'lucide-react';
+import { Package, ShoppingCart, ClipboardCheck, Warehouse, AlertTriangle, CreditCard, ArrowRight, CheckCircle } from 'lucide-react';
 
 export default function Dashboard() {
   const { currentUser, sales, fetchSales, inventory, fetchInventory, credits, fetchCredits } = useStore();

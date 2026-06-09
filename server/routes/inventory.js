@@ -14,6 +14,26 @@ router.get('/', (req, res) => {
   }
 });
 
+// 获取库存预警（放在 /:id 之前，避免被拦截）
+router.get('/warnings/list', (req, res) => {
+  try {
+    const warnings = inventoryRepo.getInventoryWarnings();
+    res.json({ success: true, data: warnings });
+  } catch (error) {
+    res.status(500).json({ success: false, error: { message: error.message } });
+  }
+});
+
+// 获取季节备货建议（放在 /:id 之前，避免被拦截）
+router.get('/seasonal-suggestion', (req, res) => {
+  try {
+    const suggestion = inventoryRepo.getSeasonalSuggestion();
+    res.json({ success: true, data: suggestion });
+  } catch (error) {
+    res.status(500).json({ success: false, error: { message: error.message } });
+  }
+});
+
 // 获取单个库存
 router.get('/:id', (req, res) => {
   try {
@@ -34,26 +54,6 @@ router.put('/:id', (req, res) => {
     res.json({ success: true, data: inventory });
   } catch (error) {
     res.status(400).json({ success: false, error: { message: error.message } });
-  }
-});
-
-// 获取库存预警
-router.get('/warnings/list', (req, res) => {
-  try {
-    const warnings = inventoryRepo.getInventoryWarnings();
-    res.json({ success: true, data: warnings });
-  } catch (error) {
-    res.status(500).json({ success: false, error: { message: error.message } });
-  }
-});
-
-// 获取季节备货建议
-router.get('/seasonal-suggestion', (req, res) => {
-  try {
-    const suggestion = inventoryRepo.getSeasonalSuggestion();
-    res.json({ success: true, data: suggestion });
-  } catch (error) {
-    res.status(500).json({ success: false, error: { message: error.message } });
   }
 });
 

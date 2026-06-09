@@ -56,6 +56,14 @@ export default function ConfirmationList() {
   };
 
   const hasProhibited = (items) => items.some(item => item.pesticide_type === '禁用');
+  const hasRestricted = (items) => items.some(item => item.pesticide_type === '限用');
+
+  // 根据农药类型自动设置默认判断结果
+  const getDefaultResult = (items) => {
+    if (hasProhibited(items)) return 'prohibited';
+    if (hasRestricted(items)) return 'caution';
+    return 'available';
+  };
 
   return (
     <div className="p-8">
@@ -76,12 +84,14 @@ export default function ConfirmationList() {
         <div className="space-y-4">
           {pendingSales.map((sale) => {
             const hasProhibitedPesticide = hasProhibited(sale.items);
+            const hasRestrictedPesticide = hasRestricted(sale.items);
 
             return (
               <div
                 key={sale.id}
                 className={`bg-white rounded-xl p-6 shadow-sm ${
-                  hasProhibitedPesticide ? 'ring-2 ring-red-300' : ''
+                  hasProhibitedPesticide ? 'ring-2 ring-red-300' :
+                  hasRestrictedPesticide ? 'ring-2 ring-yellow-300' : ''
                 }`}
               >
                 {/* Header */}
@@ -93,6 +103,12 @@ export default function ConfirmationList() {
                         <span className="px-2 py-1 bg-red-100 text-red-800 rounded text-xs font-medium flex items-center gap-1">
                           <AlertTriangle size={12} />
                           含禁用农药
+                        </span>
+                      )}
+                      {hasRestrictedPesticide && !hasProhibitedPesticide && (
+                        <span className="px-2 py-1 bg-yellow-100 text-yellow-800 rounded text-xs font-medium flex items-center gap-1">
+                          <AlertTriangle size={12} />
+                          含限用农药
                         </span>
                       )}
                     </div>
@@ -146,6 +162,7 @@ export default function ConfirmationList() {
                     </Link>
 
                     {hasProhibitedPesticide ? (
+                      // 禁用农药：只能退回
                       <button
                         onClick={() => {
                           setRejectModal(sale);
@@ -156,7 +173,36 @@ export default function ConfirmationList() {
                         <XCircle size={18} />
                         退回
                       </button>
+                    ) : hasRestrictedPesticide ? (
+                      // 限用农药：自动设为慎用，可确认或退回
+                      <>
+                        <button
+                          onClick={() => {
+                            setConfirmModal(sale);
+                            setFormData({
+                              result: 'caution', // 自动设为慎用
+                              reminder: '该销售单含限用农药，请严格按照规定使用范围和剂量，注意安全间隔期。',
+                              comments: ''
+                            });
+                          }}
+                          className="flex items-center gap-2 px-4 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition-colors"
+                        >
+                          <CheckCircle size={18} />
+                          确认（慎用）
+                        </button>
+                        <button
+                          onClick={() => {
+                            setRejectModal(sale);
+                            setFormData(prev => ({ ...prev, comments: '' }));
+                          }}
+                          className="flex items-center gap-2 px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors"
+                        >
+                          <XCircle size={18} />
+                          退回
+                        </button>
+                      </>
                     ) : (
+                      // 常规农药：正常确认或退回
                       <>
                         <button
                           onClick={() => {

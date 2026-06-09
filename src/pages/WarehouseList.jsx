@@ -12,8 +12,8 @@ export default function WarehouseList() {
   const [comments, setComments] = useState('');
 
   useEffect(() => {
-    fetchSales({ status: 'pending_warehouse' });
-    fetchSales({ status: 'stock_insufficient' });
+    // 不传状态参数，获取所有数据后前端过滤
+    fetchSales();
   }, []);
 
   const pendingSales = sales.filter(
