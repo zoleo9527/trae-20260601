@@ -1,7 +1,7 @@
 import { useParcelStore } from '@/store/parcelStore'
 import { ROLE_LABELS, STATUS_LABELS, type ParcelStatus } from '@shared/types'
-import { AlertCircle, AlertTriangle, Clock, Filter, History, LayoutDashboard, Loader2, RefreshCw, User, X } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
+import { AlertCircle, AlertTriangle, Clock, Filter, History, LayoutDashboard, Loader2, RefreshCw, Star, Trash2, User, X } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 
 const TIMEOUT_THRESHOLDS_MS: Record<string, number> = {
   arrived_pending: 2 * 60 * 60 * 1000,
@@ -22,6 +22,27 @@ const STATUS_ICONS: Record<string, string> = {
   problem_pending: '⚠️',
 }
 
+const STAR_KEY = 'parcel_focus_stars'
+
+function loadStars(): Record<string, number[]> {
+  try {
+    const raw = sessionStorage.getItem(STAR_KEY)
+    return raw ? JSON.parse(raw) : {}
+  } catch {
+    return {}
+  }
+}
+
+function saveStars(data: Record<string, number[]>) {
+  sessionStorage.setItem(STAR_KEY, JSON.stringify(data))
+}
+
+function getStarKey(staffId: number | '', role: string): string {
+  if (staffId) return `staff:${staffId}`
+  if (role) return `role:${role}`
+  return ''
+}
+
 function getArrivalMs(arrivedAt: string | null | undefined): number {
   if (!arrivedAt) return 0
   const arrived = new Date(arrivedAt.replace(' ', 'T'))
@@ -32,6 +53,16 @@ function formatDuration(arrivedAt: string): string {
   const diffMs = getArrivalMs(arrivedAt)
   if (diffMs < 0) return '刚刚'
   const minutes = Math.floor(diffMs / 60000)
+  if (minutes < 60) return `${minutes}分钟`
+  const hours = Math.floor(minutes / 60)
+  if (hours < 24) return `${hours}小时${minutes % 60}分钟`
+  const days = Math.floor(hours / 24)
+  return `${days}天${hours % 24}小时`
+}
+
+function formatMs(ms: number): string {
+  if (ms <= 0) return '-'
+  const minutes = Math.floor(ms / 60000)
   if (minutes < 60) return `${minutes}分钟`
   const hours = Math.floor(minutes / 60)
   if (hours < 24) return `${hours}小时${minutes % 60}分钟`
@@ -54,6 +85,8 @@ export default function WorkspacePage() {
   const [selectedStaffId, setSelectedStaffId] = useState<number | ''>('')
   const [selectedRole, setSelectedRole] = useState<string>('')
   const [onlyOverdue, setOnlyOverdue] = useState(false)
+  const [onlyStarred, setOnlyStarred] = useState(false)
+  const [starredIds, setStarredIds] = useState<Record<string, number[]>>(loadStars)
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [drawerParcelId, setDrawerParcelId] = useState<number | null>(null)
   const [drawerTrackingNo, setDrawerTrackingNo] = useState('')
@@ -79,6 +112,41 @@ export default function WorkspacePage() {
       selectedRole || undefined
     )
   }, [selectedStaffId, selectedRole])
+
+  const currentStarKey = getStarKey(selectedStaffId, selectedRole)
+
+  const currentStarredSet = useMemo(() => {
+    if (!currentStarKey) return new Set<number>()
+    return new Set(starredIds[currentStarKey] ?? [])
+  }, [starredIds, currentStarKey])
+
+  const toggleStar = useCallback((parcelId: number, e: React.MouseEvent) => {
+    e.stopPropagation()
+    setStarredIds(prev => {
+      const next = { ...prev }
+      const key = currentStarKey
+      if (!key) return prev
+      const list = next[key] ?? []
+      if (list.includes(parcelId)) {
+        next[key] = list.filter(id => id !== parcelId)
+      } else {
+        next[key] = [...list, parcelId]
+      }
+      saveStars(next)
+      return next
+    })
+  }, [currentStarKey])
+
+  const clearAllStars = useCallback(() => {
+    if (!currentStarKey) return
+    setStarredIds(prev => {
+      const next = { ...prev }
+      delete next[currentStarKey]
+      saveStars(next)
+      return next
+    })
+    setOnlyStarred(false)
+  }, [currentStarKey])
 
   const handleStaffChange = (id: string) => {
     if (id) {
@@ -154,6 +222,10 @@ export default function WorkspacePage() {
 
   const overdueTotalCount = Object.values(overdueStats).reduce((s, v) => s + v.count, 0)
 
+  const starredCount = useMemo(() => {
+    return activeParcels.filter((p: any) => currentStarredSet.has(p.id)).length
+  }, [activeParcels, currentStarredSet])
+
   const grouped = useMemo(() => {
     const map: Record<string, any[]> = {}
     for (const status of GROUP_ORDER) {
@@ -169,13 +241,19 @@ export default function WorkspacePage() {
       if (onlyOverdue) {
         items = items.filter((p: any) => isOverdue(p))
       }
+      if (onlyStarred) {
+        items = items.filter((p: any) => currentStarredSet.has(p.id))
+      }
       items.sort((a: any, b: any) => {
+        const aStarred = currentStarredSet.has(a.id) ? 0 : 1
+        const bStarred = currentStarredSet.has(b.id) ? 0 : 1
+        if (aStarred !== bStarred) return aStarred - bStarred
         return getArrivalMs(b.arrived_at) - getArrivalMs(a.arrived_at)
       })
       map[status] = items
     }
     return map
-  }, [activeParcels, onlyOverdue])
+  }, [activeParcels, onlyOverdue, onlyStarred, currentStarredSet])
 
   const selectedLabel = useMemo(() => {
     if (selectedStaffId) {
@@ -193,16 +271,6 @@ export default function WorkspacePage() {
     : 0
 
   const hasAnyVisibleItem = GROUP_ORDER.some((s) => grouped[s]?.length > 0)
-
-  function formatMs(ms: number): string {
-    if (ms <= 0) return '-'
-    const minutes = Math.floor(ms / 60000)
-    if (minutes < 60) return `${minutes}分钟`
-    const hours = Math.floor(minutes / 60)
-    if (hours < 24) return `${hours}小时${minutes % 60}分钟`
-    const days = Math.floor(hours / 24)
-    return `${days}天${hours % 24}小时`
-  }
 
   return (
     <div className="space-y-6">
@@ -354,9 +422,33 @@ export default function WorkspacePage() {
             </div>
           )}
 
+          {starredCount > 0 && (
+            <button
+              onClick={() => { setOnlyStarred(!onlyStarred); if (!onlyStarred) setOnlyOverdue(false) }}
+              className={`w-full rounded-lg border p-4 text-left shadow-sm transition-colors ${
+                onlyStarred
+                  ? 'border-orange-300 bg-gradient-to-r from-orange-50 to-amber-50'
+                  : 'border-amber-200 bg-gradient-to-r from-amber-50 to-yellow-50 hover:border-orange-300'
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Star className={`h-5 w-5 ${onlyStarred ? 'fill-orange-500 text-orange-500' : 'fill-amber-400 text-amber-400'}`} />
+                  <span className={`text-sm font-medium ${onlyStarred ? 'text-orange-700' : 'text-amber-700'}`}>
+                    重点跟进{onlyStarred ? '（筛选中）' : ''}
+                  </span>
+                </div>
+                <span className={`text-2xl font-bold ${onlyStarred ? 'text-orange-600' : 'text-amber-600'}`}>
+                  {starredCount}
+                  <span className="ml-1 text-xs font-normal text-amber-400">件</span>
+                </span>
+              </div>
+            </button>
+          )}
+
           <div className="flex items-center gap-3 rounded-lg bg-white px-5 py-3 shadow-sm">
             <button
-              onClick={() => setOnlyOverdue(!onlyOverdue)}
+              onClick={() => { const next = !onlyOverdue; setOnlyOverdue(next); if (next) setOnlyStarred(false) }}
               className={`inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
                 onlyOverdue
                   ? 'bg-red-100 text-red-700 hover:bg-red-200'
@@ -371,8 +463,28 @@ export default function WorkspacePage() {
                 </span>
               )}
             </button>
+            <span className="text-slate-300">|</span>
+            <button
+              onClick={() => { const next = !onlyStarred; setOnlyStarred(next); if (next) setOnlyOverdue(false) }}
+              className={`inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
+                onlyStarred
+                  ? 'bg-orange-100 text-orange-700 hover:bg-orange-200'
+                  : starredCount > 0
+                    ? 'bg-amber-50 text-amber-600 hover:bg-amber-100'
+                    : 'bg-slate-100 text-slate-400 cursor-not-allowed'
+              }`}
+              disabled={starredCount === 0 && !onlyStarred}
+            >
+              <Star className={`h-4 w-4 ${onlyStarred ? 'fill-orange-500' : ''}`} />
+              只看重点
+              {onlyStarred && (
+                <span className="rounded-full bg-orange-500 px-1.5 py-0.5 text-xs text-white">
+                  {starredCount}
+                </span>
+              )}
+            </button>
             <span className="text-xs text-slate-400">
-              显示触发超时阈值的快件（arrived_pending &gt; 2h, dispatched_pending &gt; 4h）
+              两种筛选互斥
             </span>
           </div>
 
@@ -386,6 +498,26 @@ export default function WorkspacePage() {
               >
                 查看全部快件
               </button>
+            </div>
+          ) : !hasAnyVisibleItem && onlyStarred ? (
+            <div className="flex flex-col items-center justify-center rounded-lg bg-white py-16 shadow-sm">
+              <Star className="h-10 w-10 text-slate-300" />
+              <p className="mt-4 text-sm text-slate-400">无重点跟进快件</p>
+              <button
+                onClick={() => setOnlyStarred(false)}
+                className="mt-3 text-sm font-medium text-orange-500 hover:text-orange-600"
+              >
+                查看全部快件
+              </button>
+              {currentStarredSet.size > 0 && (
+                <button
+                  onClick={clearAllStars}
+                  className="mt-2 inline-flex items-center gap-1 text-sm text-red-400 hover:text-red-600"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                  清空当前责任人全部标记
+                </button>
+              )}
             </div>
           ) : activeParcels.length === 0 ? (
             <div className="flex flex-col items-center justify-center rounded-lg bg-white py-16 shadow-sm">
@@ -414,6 +546,7 @@ export default function WorkspacePage() {
                       <table className="w-full text-sm">
                         <thead>
                           <tr className="border-b bg-slate-50 text-left text-slate-500">
+                            <th className="w-10 px-3 py-2.5"></th>
                             <th className="px-6 py-2.5 font-medium">运单号</th>
                             <th className="px-6 py-2.5 font-medium">到件时间</th>
                             <th className="px-6 py-2.5 font-medium">到件时长</th>
@@ -424,19 +557,40 @@ export default function WorkspacePage() {
                         <tbody>
                           {items.map((parcel: any) => {
                             const overdue = isOverdue(parcel)
+                            const starred = currentStarredSet.has(parcel.id)
                             return (
                               <tr
                                 key={parcel.id}
                                 onClick={() => openDrawer(parcel.id, parcel.tracking_no)}
-                                className={`cursor-pointer border-b last:border-0 hover:bg-slate-50 ${overdue ? 'bg-red-50/40' : ''}`}
+                                className={`cursor-pointer border-b last:border-0 hover:bg-slate-50 ${overdue ? 'bg-red-50/40' : starred ? 'bg-orange-50/30' : ''}`}
                               >
+                                <td className="px-3 py-3">
+                                  <button
+                                    onClick={(e) => toggleStar(parcel.id, e)}
+                                    className={`rounded p-0.5 transition-colors ${
+                                      starred
+                                        ? 'text-orange-500 hover:text-orange-600'
+                                        : 'text-slate-300 hover:text-amber-400'
+                                    }`}
+                                    title={starred ? '取消重点跟进' : '标记为重点跟进'}
+                                  >
+                                    <Star className={`h-4 w-4 ${starred ? 'fill-orange-500' : ''}`} />
+                                  </button>
+                                </td>
                                 <td className="px-6 py-3">
-                                  <span className="font-mono text-slate-800">{parcel.tracking_no}</span>
-                                  {overdue && (
-                                    <span className="ml-2 inline-flex items-center rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-600">
-                                      超时
-                                    </span>
-                                  )}
+                                  <div className="flex items-center gap-2">
+                                    <span className="font-mono text-slate-800">{parcel.tracking_no}</span>
+                                    {starred && (
+                                      <span className="inline-flex items-center rounded-full bg-orange-100 px-2 py-0.5 text-xs font-semibold text-orange-600">
+                                        重点
+                                      </span>
+                                    )}
+                                    {overdue && (
+                                      <span className="inline-flex items-center rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-600">
+                                        超时
+                                      </span>
+                                    )}
+                                  </div>
                                 </td>
                                 <td className="px-6 py-3 text-slate-600">{parcel.arrived_at ?? parcel.created_at}</td>
                                 <td className="px-6 py-3">
