@@ -1,0 +1,13 @@
+{
+  "name": "community-health-station",
+  "version": "1.0.0",
+  "description": "社区卫生站 - 家庭签约与档案建档系统",
+  "scripts": {
+    "dev": "neu run",
+    "build": "neu build",
+    "serve": "cd resources && python3 -m http.server 8090"
+  },
+  "devDependencies": {
+    "@neutralinojs/neu": "^11.1.0"
+  }
+}
