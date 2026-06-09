@@ -20,6 +20,8 @@ import {
   Activity,
   Wrench,
   AlertTriangle,
+  Filter,
+  AlertCircle,
 } from 'lucide-react'
 
 interface StatusLogItem {
@@ -74,6 +76,8 @@ export default function DirectorScheduleDetailPage() {
     defaultRemark: string
   } | null>(null)
   const [actionRemark, setActionRemark] = useState('')
+  const [timelineRoleFilter, setTimelineRoleFilter] = useState<string>('ALL')
+  const [timelineStatusFilter, setTimelineStatusFilter] = useState<string>('ALL')
 
   useEffect(() => {
     if (!hydrated) return
@@ -123,6 +127,25 @@ export default function DirectorScheduleDetailPage() {
     if (!pendingAction) return
     handleStatusChange(pendingAction.toStatus, actionRemark.trim() || pendingAction.defaultRemark)
   }
+
+  const ATTENTION_STATUSES: ScheduleStatus[] = ['URGED', 'RETURNED', 'SUPPLEMENTING']
+
+  const getAttentionTag = (toStatus: string) => {
+    if (toStatus === 'URGED') return { label: '催促', cls: 'bg-amber-100 text-amber-700' }
+    if (toStatus === 'RETURNED') return { label: '退回', cls: 'bg-red-100 text-red-700' }
+    if (toStatus === 'SUPPLEMENTING') return { label: '补材料', cls: 'bg-blue-100 text-blue-700' }
+    return null
+  }
+
+  const filteredLogs = detail?.statusLogs.filter((log) => {
+    if (timelineRoleFilter !== 'ALL' && log.operatorRole !== timelineRoleFilter) return false
+    if (timelineStatusFilter !== 'ALL') {
+      if (timelineStatusFilter === 'ATTENTION') {
+        if (!ATTENTION_STATUSES.includes(log.toStatus as ScheduleStatus)) return false
+      } else if (log.toStatus !== timelineStatusFilter && log.fromStatus !== timelineStatusFilter) return false
+    }
+    return true
+  }) ?? []
 
   const handleUpload = () => {
     setShowUploadModal(true)
@@ -235,40 +258,97 @@ export default function DirectorScheduleDetailPage() {
           </div>
 
           <div className="bg-white rounded-xl p-6 border border-gray-100">
-            <h3 className="font-semibold text-navy-700 mb-4 flex items-center gap-2">
-              <Clock size={16} />
-              状态变更历史
-            </h3>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="font-semibold text-navy-700 flex items-center gap-2">
+                <Clock size={16} />
+                状态变更历史
+              </h3>
+              <span className="text-xs text-gray-400">
+                {filteredLogs.length}/{detail.statusLogs.length} 条记录
+              </span>
+            </div>
+            <div className="flex items-center gap-2 mb-4">
+              <Filter size={12} className="text-gray-400" />
+              <select
+                value={timelineRoleFilter}
+                onChange={(e) => setTimelineRoleFilter(e.target.value)}
+                className="px-2 py-1 border border-gray-200 rounded text-xs focus:outline-none focus:ring-1 focus:ring-navy-300"
+              >
+                <option value="ALL">全部角色</option>
+                <option value="THERAPIST">康复治疗师</option>
+                <option value="RECEPTION">前台</option>
+                <option value="DIRECTOR">科室主任</option>
+              </select>
+              <select
+                value={timelineStatusFilter}
+                onChange={(e) => setTimelineStatusFilter(e.target.value)}
+                className="px-2 py-1 border border-gray-200 rounded text-xs focus:outline-none focus:ring-1 focus:ring-navy-300"
+              >
+                <option value="ALL">全部状态</option>
+                <option value="ATTENTION">⚡ 催促/退回/补材料</option>
+                <option value="PENDING">待确认</option>
+                <option value="URGED">已催促</option>
+                <option value="CONFIRMED">已确认</option>
+                <option value="RETURNED">已退回</option>
+                <option value="SUPPLEMENTING">补材料中</option>
+                <option value="IN_TREATMENT">治疗中</option>
+                <option value="COMPLETED">已完成</option>
+              </select>
+              {(timelineRoleFilter !== 'ALL' || timelineStatusFilter !== 'ALL') && (
+                <button
+                  onClick={() => { setTimelineRoleFilter('ALL'); setTimelineStatusFilter('ALL') }}
+                  className="text-xs text-blue-500 hover:text-blue-700"
+                >
+                  重置
+                </button>
+              )}
+            </div>
             {detail.statusLogs.length === 0 ? (
               <p className="text-sm text-gray-400 text-center py-4">暂无状态变更记录</p>
+            ) : filteredLogs.length === 0 ? (
+              <div className="text-center py-6">
+                <AlertCircle size={24} className="mx-auto text-gray-300 mb-2" />
+                <p className="text-sm text-gray-400">无匹配的状态变更记录</p>
+                <p className="text-xs text-gray-300 mt-1">请调整筛选条件</p>
+              </div>
             ) : (
               <div className="relative pl-6">
-                {detail.statusLogs.map((log, index) => (
-                  <div key={log.id} className="relative pb-6 last:pb-0">
-                    <div className="absolute left-[-20px] top-1 w-3 h-3 rounded-full bg-navy-400 border-2 border-white shadow-sm" />
-                    {index < detail.statusLogs.length - 1 && (
-                      <div className="absolute left-[-16px] top-4 bottom-0 w-0.5 bg-gray-200" />
-                    )}
-                    <div className="ml-2">
-                      <div className="flex items-center gap-2 text-sm">
-                        <span className="font-medium text-navy-700">
-                          {log.fromStatus ? SCHEDULE_STATUS_LABELS[log.fromStatus as ScheduleStatus] : '初始'}
-                        </span>
-                        <ChevronDown size={12} className="text-gray-400 -rotate-90" />
-                        <span className="font-medium text-navy-700">
-                          {SCHEDULE_STATUS_LABELS[log.toStatus as ScheduleStatus]}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-3 text-xs text-gray-400 mt-1">
-                        <span>{new Date(log.createdAt).toLocaleString('zh-CN')}</span>
-                        <span>操作人：{log.operator?.name || '系统'}（{ROLE_LABELS[log.operatorRole as UserRole] || log.operatorRole}）</span>
-                      </div>
-                      {log.remark && (
-                        <p className="text-xs text-gray-500 mt-1">{log.remark}</p>
+                {filteredLogs.map((log, index) => {
+                  const tag = getAttentionTag(log.toStatus)
+                  return (
+                    <div key={log.id} className="relative pb-6 last:pb-0">
+                      <div className={`absolute left-[-20px] top-1 w-3 h-3 rounded-full border-2 border-white shadow-sm ${
+                        tag ? (log.toStatus === 'URGED' ? 'bg-amber-400' : log.toStatus === 'RETURNED' ? 'bg-red-400' : 'bg-blue-400') : 'bg-navy-400'
+                      }`} />
+                      {index < filteredLogs.length - 1 && (
+                        <div className="absolute left-[-16px] top-4 bottom-0 w-0.5 bg-gray-200" />
                       )}
+                      <div className="ml-2">
+                        <div className="flex items-center gap-2 text-sm flex-wrap">
+                          <span className="font-medium text-navy-700">
+                            {log.fromStatus ? SCHEDULE_STATUS_LABELS[log.fromStatus as ScheduleStatus] : '初始'}
+                          </span>
+                          <ChevronDown size={12} className="text-gray-400 -rotate-90" />
+                          <span className="font-medium text-navy-700">
+                            {SCHEDULE_STATUS_LABELS[log.toStatus as ScheduleStatus]}
+                          </span>
+                          {tag && (
+                            <span className={`px-1.5 py-0.5 text-xs font-bold rounded ${tag.cls}`}>
+                              {tag.label}
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-3 text-xs text-gray-400 mt-1">
+                          <span>{new Date(log.createdAt).toLocaleString('zh-CN')}</span>
+                          <span>操作人：{log.operator?.name || '系统'}（{ROLE_LABELS[log.operatorRole as UserRole] || log.operatorRole}）</span>
+                        </div>
+                        {log.remark && (
+                          <p className={`text-xs mt-1 ${tag ? 'text-gray-700 font-medium' : 'text-gray-500'}`}>{log.remark}</p>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
             )}
           </div>
