@@ -45,6 +45,7 @@ export default function Returns() {
         resultDoctor: mockDoctor,
       });
       setShowMockDialog(false);
+      setMockError("");
       setMockContent("");
       setMockDept("");
       setMockDoctor("");
@@ -63,7 +64,7 @@ export default function Returns() {
       <div className="flex items-center justify-between">
         <h1 className="text-lg font-bold text-zinc-800">结果回传</h1>
         <button
-          onClick={() => setShowMockDialog(true)}
+          onClick={() => { setShowMockDialog(true); setMockError(""); }}
           className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-teal-700 bg-teal-50 border border-teal-200 rounded-md hover:bg-teal-100"
         >
           <Plus className="w-3.5 h-3.5" /> 模拟回传
@@ -145,7 +146,7 @@ export default function Returns() {
               <label className="block text-xs text-zinc-500 mb-1">选择已发送转诊</label>
               <select
                 value={mockReferralId || ""}
-                onChange={(e) => setMockReferralId(Number(e.target.value) || null)}
+                onChange={(e) => { setMockReferralId(Number(e.target.value) || null); setMockError(""); }}
                 className="w-full border border-zinc-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
               >
                 <option value="">请选择</option>
@@ -190,7 +191,7 @@ export default function Returns() {
             </div>
             <div className="flex justify-end gap-2">
               <button
-                onClick={() => setShowMockDialog(false)}
+                onClick={() => { setShowMockDialog(false); setMockError(""); }}
                 className="px-4 py-2 text-sm text-zinc-600 border border-zinc-300 rounded-md hover:bg-zinc-50"
               >
                 取消
