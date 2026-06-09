@@ -39,6 +39,9 @@ interface AppState {
   createContact: (data: any) => Promise<void>
   updateContact: (id: string, data: any) => Promise<void>
 
+  problemDetailsMap: Record<string, ProblemDetail>
+  loadContactsWithDetails: () => Promise<void>
+
   notifications: Notification[]
   unreadCount: number
   loadNotifications: () => Promise<void>
@@ -89,7 +92,12 @@ export const useAppStore = create<AppState>((set, get) => ({
   problemDetail: null,
   loadProblemDetail: async (id) => {
     const result = await apiFetch<ProblemDetail>(`/problems/${id}`)
-    if (result.success) set({ problemDetail: result.data })
+    if (result.success) {
+      set((state) => ({
+        problemDetail: result.data,
+        problemDetailsMap: { ...state.problemDetailsMap, [id]: result.data },
+      }))
+    }
   },
 
   createProblem: async (data) => {
@@ -200,6 +208,27 @@ export const useAppStore = create<AppState>((set, get) => ({
     if (result.success) {
       get().addLocalLog(`[客户联系] 联系记录 ${id.substring(0, 8)} 已更新`)
     }
+  },
+
+  problemDetailsMap: {},
+  loadContactsWithDetails: async () => {
+    const contactsResult = await apiFetch<CustomerContact[]>('/contacts')
+    if (!contactsResult.success) return
+    const contacts = contactsResult.data
+    set({ contacts })
+
+    const problemIds = [...new Set(contacts.map((c) => c.problemRecordId))]
+    const existingMap = { ...get().problemDetailsMap }
+    const idsToLoad = problemIds.filter((id) => !existingMap[id])
+
+    const detailsMap = { ...existingMap }
+    await Promise.all(
+      idsToLoad.map(async (id) => {
+        const result = await apiFetch<ProblemDetail>(`/problems/${id}`)
+        if (result.success) detailsMap[id] = result.data
+      })
+    )
+    set({ problemDetailsMap: detailsMap })
   },
 
   notifications: [],

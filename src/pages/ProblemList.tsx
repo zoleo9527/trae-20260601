@@ -3,11 +3,13 @@ import { useAppStore } from '@/hooks/useAppStore'
 import { ProblemStatusBadge } from '@/components/StatusBadge'
 import { Search, RefreshCw, ArrowRight, Plus } from 'lucide-react'
 import { PROBLEM_TYPE_LABELS, type ProblemStatus, type ProblemType } from '../../shared/types'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 
 export default function ProblemList() {
   const { problems, loadProblems } = useAppStore()
-  const [statusFilter, setStatusFilter] = useState<ProblemStatus | ''>('')
+  const [searchParams, setSearchParams] = useSearchParams()
+  const initialStatus = (searchParams.get('status') as ProblemStatus) || ''
+  const [statusFilter, setStatusFilter] = useState<ProblemStatus | ''>(initialStatus)
   const [keyword, setKeyword] = useState('')
 
   useEffect(() => {
@@ -15,6 +17,11 @@ export default function ProblemList() {
     if (statusFilter) params.status = statusFilter
     if (keyword) params.keyword = keyword
     loadProblems(params)
+    if (statusFilter) {
+      setSearchParams({ status: statusFilter }, { replace: true })
+    } else {
+      setSearchParams({}, { replace: true })
+    }
   }, [statusFilter])
 
   const handleSearch = () => {
@@ -41,6 +48,12 @@ export default function ProblemList() {
         <div>
           <h2 className="text-xl font-bold text-slate-800">问题件登记</h2>
           <p className="text-sm text-slate-500 mt-1">登记、补录、退回、复核问题件，主流程一体化处理</p>
+          {statusFilter && (
+            <p className="text-xs text-blue-600 mt-1">
+              当前筛选：{statusFilter === 'pending' ? '待处理' : statusFilter === 'contacting' ? '联系中' : statusFilter === 'reviewing' ? '复核中' : statusFilter}
+              <button onClick={() => setStatusFilter('')} className="ml-2 underline hover:text-blue-800">清除筛选</button>
+            </p>
+          )}
         </div>
         <div className="flex gap-2">
           <Link
