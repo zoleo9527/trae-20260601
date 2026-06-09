@@ -58,7 +58,12 @@ export default function OutboundReview() {
   }, [id])
 
   const allReviewed = order
-    ? order.items.every((item) => reviews[item.id]?.result !== null)
+    ? order.items.every((item) => {
+        const review = reviews[item.id]
+        if (!review?.result) return false
+        if (review.result === 'abnormal' && !review.abnormalType) return false
+        return true
+      })
     : false
 
   const handleReview = (itemId: string, result: 'normal' | 'abnormal') => {

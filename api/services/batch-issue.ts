@@ -84,7 +84,7 @@ export function getBatchIssueDetail(id: string): {
   }
 }
 
-export function processBatchIssue(issueId: string, req: ProcessBatchIssueRequest): BatchIssue {
+export function processBatchIssue(itemId: string, req: ProcessBatchIssueRequest): BatchIssue {
   const db = getDB()
 
   const cached = checkIdempotency(req.idempotencyKey)
@@ -93,10 +93,10 @@ export function processBatchIssue(issueId: string, req: ProcessBatchIssueRequest
   }
 
   const issueRow = db.prepare(
-    'SELECT bi.*, o.order_no, (SELECT consumable_name FROM outbound_items WHERE id = bi.item_id) as consumableName, (SELECT batch_no FROM outbound_items WHERE id = bi.item_id) as batchNo FROM batch_issues bi JOIN outbound_orders o ON bi.order_id = o.id WHERE bi.id = ?'
-  ).get(issueId) as BatchIssueRow | undefined
+    'SELECT bi.*, o.order_no, (SELECT consumable_name FROM outbound_items WHERE id = bi.item_id) as consumableName, (SELECT batch_no FROM outbound_items WHERE id = bi.item_id) as batchNo FROM batch_issues bi JOIN outbound_orders o ON bi.order_id = o.id WHERE bi.item_id = ? AND bi.process_status = ?'
+  ).get(itemId, 'pending') as BatchIssueRow | undefined
 
-  if (!issueRow) throw new Error('批号异常工单不存在')
+  if (!issueRow) throw new Error('未找到待处理的批号异常工单')
   if (issueRow.process_status === 'processed') throw new Error('该异常工单已处理，不可重复处理')
 
   const issue = mapBatchIssue(issueRow)
@@ -105,14 +105,14 @@ export function processBatchIssue(issueId: string, req: ProcessBatchIssueRequest
   const transaction = db.transaction(() => {
     db.prepare(
       'UPDATE batch_issues SET process_status = ?, process_result = ?, process_note = ?, processed_by = ?, processed_at = ? WHERE id = ?'
-    ).run('processed', req.processResult, req.processNote, req.processedBy, now, issueId)
+    ).run('processed', req.processResult, req.processNote, req.processedBy, now, issue.id)
 
     if (req.processResult === 'exchange') {
-      const itemRow = db.prepare('SELECT * FROM outbound_items WHERE id = ?').get(issue.itemId) as ItemRow | undefined
+      const itemRow = db.prepare('SELECT * FROM outbound_items WHERE id = ?').get(itemId) as ItemRow | undefined
       if (itemRow) {
         db.prepare(
           'UPDATE outbound_items SET review_status = ?, abnormal_type = ?, abnormal_note = ?, batch_no = ?, expiry_date = ? WHERE id = ?'
-        ).run('pending', null, null, req.newBatchNo ?? itemRow.batch_no, req.newExpiryDate ?? '', issue.itemId)
+        ).run('pending', null, null, req.newBatchNo ?? itemRow.batch_no, req.newExpiryDate ?? '', itemId)
       }
     }
 
@@ -173,7 +173,7 @@ export function processBatchIssue(issueId: string, req: ProcessBatchIssueRequest
 
   const updatedRow = db.prepare(
     'SELECT bi.*, o.order_no, (SELECT consumable_name FROM outbound_items WHERE id = bi.item_id) as consumableName, (SELECT batch_no FROM outbound_items WHERE id = bi.item_id) as batchNo FROM batch_issues bi JOIN outbound_orders o ON bi.order_id = o.id WHERE bi.id = ?'
-  ).get(issueId) as BatchIssueRow
+  ).get(issue.id) as BatchIssueRow
 
   const result = mapBatchIssue(updatedRow)
   storeIdempotency(req.idempotencyKey, 200, JSON.stringify(result))
