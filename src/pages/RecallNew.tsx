@@ -21,7 +21,7 @@ export default function RecallNew() {
   const [submitting, setSubmitting] = useState(false)
 
   useEffect(() => {
-    fetchAnimals()
+    fetchAnimals({ limit: 100 })
   }, [fetchAnimals])
 
   useEffect(() => {

@@ -40,10 +40,21 @@ export default function VisitDetail() {
   const [transferReason, setTransferReason] = useState('')
   const [actionLoading, setActionLoading] = useState(false)
   const [linkedRecallId, setLinkedRecallId] = useState<number | null>(null)
+  const [attachments, setAttachments] = useState<{ id: number; file_name: string; file_path: string }[]>([])
+  const [uploading, setUploading] = useState(false)
 
   useEffect(() => {
     if (id) fetchVisit(Number(id))
   }, [id, fetchVisit])
+
+  useEffect(() => {
+    if (id) {
+      fetch(`/api/attachments/visit/${id}`)
+        .then((r) => r.json())
+        .then((data) => setAttachments(Array.isArray(data) ? data : []))
+        .catch(() => setAttachments([]))
+    }
+  }, [id])
 
   useEffect(() => {
     if (currentVisit?.animal_id) {
@@ -305,13 +316,61 @@ export default function VisitDetail() {
 
       <div className="bg-white rounded-xl border border-gray-200 p-6">
         <h2 className="text-sm font-semibold text-gray-500 mb-4">附件</h2>
-        <div className="flex items-center gap-3">
-          <button className="flex items-center gap-1.5 px-3 py-2 border border-dashed border-gray-300 rounded-lg text-sm text-gray-500 hover:text-gray-700 hover:border-gray-400 transition-colors">
+        <div className="flex items-center gap-3 flex-wrap">
+          <label className="flex items-center gap-1.5 px-3 py-2 border border-dashed border-gray-300 rounded-lg text-sm text-gray-500 hover:text-gray-700 hover:border-gray-400 transition-colors cursor-pointer">
             <Upload size={14} />
             上传附件
-          </button>
-          <span className="text-xs text-gray-400">暂无附件</span>
+            <input
+              type="file"
+              className="hidden"
+              disabled={uploading}
+              onChange={async (e) => {
+                const file = e.target.files?.[0]
+                if (!file || !id) return
+                setUploading(true)
+                try {
+                  const form = new FormData()
+                  form.append('file', file)
+                  form.append('entity_type', 'visit')
+                  form.append('entity_id', id)
+                  const res = await fetch('/api/attachments/upload', { method: 'POST', body: form })
+                  if (res.ok) {
+                    const list = await fetch(`/api/attachments/visit/${id}`).then((r) => r.json())
+                    setAttachments(Array.isArray(list) ? list : [])
+                  }
+                } finally {
+                  setUploading(false)
+                  e.target.value = ''
+                }
+              }}
+            />
+          </label>
+          {uploading && <span className="text-xs text-gray-400">上传中...</span>}
         </div>
+        {attachments.length > 0 && (
+          <div className="mt-3 space-y-2">
+            {attachments.map((att) => (
+              <div key={att.id} className="flex items-center gap-2 px-3 py-2 bg-gray-50 rounded-lg text-sm text-gray-700">
+                <FileText size={14} className="text-gray-400" />
+                <span className="flex-1 truncate">{att.file_name}</span>
+                <button
+                  onClick={async () => {
+                    if (!id) return
+                    await fetch(`/api/attachments/${att.id}`, { method: 'DELETE' })
+                    const list = await fetch(`/api/attachments/visit/${id}`).then((r) => r.json())
+                    setAttachments(Array.isArray(list) ? list : [])
+                  }}
+                  className="text-xs text-red-500 hover:text-red-700"
+                >
+                  删除
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+        {attachments.length === 0 && !uploading && (
+          <p className="mt-2 text-xs text-gray-400">暂无附件</p>
+        )}
       </div>
 
       <div className="bg-white rounded-xl border border-gray-200 p-6">

@@ -67,6 +67,8 @@ export const useVisitStore = create<VisitState>((set) => ({
       body: JSON.stringify(data),
     })
     if (!res.ok) throw new Error('创建回访记录失败')
+    const created = await res.json()
+    set({ currentVisit: created })
   },
 
   updateVisit: async (id, data) => {

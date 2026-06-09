@@ -50,15 +50,16 @@ export const useAnimalStore = create<AnimalState>((set) => ({
       if (params.status) query.set('status', params.status)
       if (params.species) query.set('species', params.species)
       if (params.search) query.set('search', params.search)
-      if (params.page) query.set('page', String(params.page))
-      if (params.limit) query.set('limit', String(params.limit))
+      query.set('page', String(params.page ?? 1))
+      query.set('pageSize', String(params.limit ?? 20))
       const res = await fetch(`/api/animals?${query.toString()}`)
       if (!res.ok) throw new Error('获取救助档案失败')
       const data = await res.json()
-      set({
-        animals: data.data ?? data,
-        pagination: data.pagination ?? { page: 1, limit: 10, total: 0 },
-      })
+      const list = data.list ?? data.data ?? (Array.isArray(data) ? data : [])
+      const pagination = data.total != null
+        ? { page: data.page ?? 1, limit: data.pageSize ?? 20, total: data.total }
+        : { page: 1, limit: 20, total: list.length }
+      set({ animals: list, pagination })
     } finally {
       set({ loading: false })
     }

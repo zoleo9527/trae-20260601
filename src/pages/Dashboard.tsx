@@ -170,13 +170,17 @@ export default function Dashboard() {
           recallsRes.json(),
           recalledRes.json(),
         ])
+        const animalList = animalsData.list ?? animalsData.data ?? (Array.isArray(animalsData) ? animalsData : [])
+        const pendingList = pendingData.list ?? pendingData.data ?? (Array.isArray(pendingData) ? pendingData : [])
+        const recallList = recallsData.list ?? recallsData.data ?? (Array.isArray(recallsData) ? recallsData : [])
+        const recalledList = recalledData.list ?? recalledData.data ?? (Array.isArray(recalledData) ? recalledData : [])
         setStats({
-          totalAnimals: animalsData.pagination?.total ?? (animalsData.data ?? animalsData)?.length ?? 0,
-          pendingVisits: (pendingData.data ?? pendingData)?.length ?? 0,
-          activeRecalls: (recallsData.data ?? recallsData)?.filter(
+          totalAnimals: animalsData.total ?? animalList.length,
+          pendingVisits: pendingList.length,
+          activeRecalls: recallList.filter(
             (r: Record<string, unknown>) => !['recalled', 'closed'].includes(r.status as string)
-          )?.length ?? 0,
-          recalledCount: (recalledData.data ?? recalledData)?.length ?? 0,
+          ).length,
+          recalledCount: recalledList.length,
         })
       } catch {
         // silently fail
@@ -205,7 +209,7 @@ export default function Dashboard() {
     (v) => v.status === 'pending'
   )
   const volunteerPendingVisits = pendingVisits.filter(
-    (v) => (v as Record<string, unknown>).assigned_user_id === user?.id
+    (v) => v.visitor_id === user?.id || v.visitor_id == null
   )
   const needFollowupVisits = visits.filter(
     (v) => v.status === 'need_followup'

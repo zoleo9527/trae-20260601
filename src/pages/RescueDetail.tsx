@@ -518,10 +518,28 @@ export default function RescueDetail() {
       {/* Attachments Section */}
       <SectionCard title="附件" icon={<Paperclip size={18} className="text-gray-600" />}>
         <div className="mb-4">
-          <button className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-dashed border-gray-300 rounded-lg text-sm text-gray-500 hover:border-orange-400 hover:text-orange-600 transition-colors">
+          <label className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-dashed border-gray-300 rounded-lg text-sm text-gray-500 hover:border-orange-400 hover:text-orange-600 transition-colors cursor-pointer">
             <Upload size={14} />
             上传附件
-          </button>
+            <input
+              type="file"
+              className="hidden"
+              onChange={async (e) => {
+                const file = e.target.files?.[0]
+                if (!file || !id) return
+                const form = new FormData()
+                form.append('file', file)
+                form.append('entity_type', 'animal')
+                form.append('entity_id', id)
+                const res = await fetch('/api/attachments/upload', { method: 'POST', body: form })
+                if (res.ok) {
+                  const list = await fetch(`/api/attachments/animal/${id}`).then((r) => r.json())
+                  setAttachments(Array.isArray(list) ? list : [])
+                }
+                e.target.value = ''
+              }}
+            />
+          </label>
         </div>
         {attachments.length === 0 ? (
           <p className="text-sm text-gray-400 text-center py-4">暂无附件</p>

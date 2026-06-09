@@ -61,6 +61,8 @@ export const useRecallStore = create<RecallState>((set) => ({
       body: JSON.stringify(data),
     })
     if (!res.ok) throw new Error('创建异常收回失败')
+    const created = await res.json()
+    set({ currentRecall: created })
   },
 
   updateRecall: async (id, data) => {

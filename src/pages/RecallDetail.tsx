@@ -16,6 +16,8 @@ import {
   Home,
   StickyNote,
   ChevronRight,
+  Upload,
+  Paperclip,
 } from 'lucide-react'
 import dayjs from 'dayjs'
 import { useRecallStore } from '@/stores/recallStore'
@@ -203,10 +205,20 @@ export default function RecallDetail() {
   const [modalType, setModalType] = useState<'recalled' | 'closed' | ''>('')
   const [resolution, setResolution] = useState('')
   const [transitioning, setTransitioning] = useState(false)
+  const [attachments, setAttachments] = useState<{ id: number; file_name: string; file_path: string; file_size?: number }[]>([])
 
   useEffect(() => {
     if (id) fetchRecall(Number(id))
   }, [id, fetchRecall])
+
+  useEffect(() => {
+    if (id) {
+      fetch(`/api/attachments/recall/${id}`)
+        .then((r) => r.json())
+        .then((data) => setAttachments(Array.isArray(data) ? data : []))
+        .catch(() => setAttachments([]))
+    }
+  }, [id])
 
   if (loading || !currentRecall) {
     return (
@@ -531,10 +543,58 @@ export default function RecallDetail() {
           )}
 
           <div className="bg-white rounded-xl shadow-sm p-6">
-            <h2 className="text-base font-semibold text-gray-800 mb-4">附件</h2>
-            <div className="flex items-center justify-center h-20 text-gray-400 text-sm">
-              暂无附件
+            <h2 className="text-base font-semibold text-gray-800 mb-4 flex items-center gap-2">
+              <Paperclip size={16} className="text-gray-500" />
+              附件
+            </h2>
+            <div className="mb-3">
+              <label className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-dashed border-gray-300 rounded-lg text-sm text-gray-500 hover:border-orange-400 hover:text-orange-600 transition-colors cursor-pointer">
+                <Upload size={14} />
+                上传附件
+                <input
+                  type="file"
+                  className="hidden"
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0]
+                    if (!file || !id) return
+                    const form = new FormData()
+                    form.append('file', file)
+                    form.append('entity_type', 'recall')
+                    form.append('entity_id', id)
+                    const res = await fetch('/api/attachments/upload', { method: 'POST', body: form })
+                    if (res.ok) {
+                      const list = await fetch(`/api/attachments/recall/${id}`).then((r) => r.json())
+                      setAttachments(Array.isArray(list) ? list : [])
+                    }
+                    e.target.value = ''
+                  }}
+                />
+              </label>
             </div>
+            {attachments.length > 0 ? (
+              <div className="space-y-2">
+                {attachments.map((att) => (
+                  <div key={att.id} className="flex items-center gap-2 px-3 py-2 bg-gray-50 rounded-lg text-sm text-gray-700">
+                    <FileText size={14} className="text-gray-400" />
+                    <span className="flex-1 truncate">{att.file_name}</span>
+                    {att.file_size && <span className="text-xs text-gray-400">{(att.file_size / 1024).toFixed(1)} KB</span>}
+                    <button
+                      onClick={async () => {
+                        if (!id) return
+                        await fetch(`/api/attachments/${att.id}`, { method: 'DELETE' })
+                        const list = await fetch(`/api/attachments/recall/${id}`).then((r) => r.json())
+                        setAttachments(Array.isArray(list) ? list : [])
+                      }}
+                      className="text-xs text-red-500 hover:text-red-700"
+                    >
+                      删除
+                    </button>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-gray-400 text-center py-3">暂无附件</p>
+            )}
           </div>
         </div>
       </div>
