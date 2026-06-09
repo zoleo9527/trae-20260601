@@ -1,10 +1,9 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { RefreshCw, ArrowRight, AlertTriangle } from 'lucide-react'
+import { ArrowRight, AlertTriangle } from 'lucide-react'
 import { useExchangeStore } from '@/stores/exchangeStore'
 import { useWarningStore } from '@/stores/warningStore'
 import { useUserStore } from '@/stores/userStore'
-import { useOperationLogStore } from '@/stores/operationLogStore'
 import { EXCHANGE_STATUS_LABELS } from '@/types'
 import type { ExchangeStatus, Exchange } from '@/types'
 
@@ -50,8 +49,6 @@ function ExchangeCard({ exchange }: { exchange: Exchange }) {
   const navigate = useNavigate()
   const { currentUser } = useUserStore()
   const { warnings } = useWarningStore()
-  const { resubmitExchange } = useExchangeStore()
-  const addLog = useOperationLogStore((s) => s.addLog)
 
   const warning = warnings.find((w) => w.id === exchange.warningId)
   const productName = warning?.productName ?? '未知产品'
@@ -63,28 +60,6 @@ function ExchangeCard({ exchange }: { exchange: Exchange }) {
     completed: 'bg-blue-500',
     supplemented: 'bg-purple-500',
   }[exchange.status]
-
-  const handleResubmit = () => {
-    if (!currentUser) return
-    resubmitExchange(exchange.id, {
-      reason: exchange.reason,
-      expectedHandling: exchange.expectedHandling,
-      quantity: warning?.quantity || 0,
-      supplierInfo: exchange.supplierInfo || '',
-      handlingNote: exchange.handlingNote || '',
-    })
-    addLog({
-      type: 'resubmit_exchange',
-      relatedId: exchange.id,
-      relatedType: 'exchange',
-      operatorId: currentUser.id,
-      operatorName: currentUser.name,
-      operatorRole: currentUser.role,
-      operatedAt: new Date().toISOString(),
-      detail: `修改换货信息：数量${warning?.quantity || 0}、供应商：${exchange.supplierInfo || '未填写'}、处理说明：${exchange.handlingNote || '未填写'}`,
-      isSupplement: false,
-    })
-  }
 
   return (
     <div className="bg-slate-800 rounded-xl border border-slate-700 p-4 hover:border-slate-600 transition-colors flex gap-3">
@@ -130,20 +105,22 @@ function ExchangeCard({ exchange }: { exchange: Exchange }) {
           </div>
           <div className="flex items-center gap-2 shrink-0">
             {currentUser?.role === 'warehouse' && exchange.status === 'rejected' && (
-              <button
-                onClick={handleResubmit}
+              <Link
+                to={`/exchanges/${exchange.id}`}
                 className="flex items-center gap-1 text-amber-400 hover:text-amber-300 text-sm transition-colors"
               >
                 修改并重新提交
-              </button>
+              </Link>
             )}
-            <Link
-              to={`/exchanges/${exchange.id}`}
-              className="flex items-center gap-1 text-blue-400 hover:text-blue-300 text-sm transition-colors"
-            >
-              查看详情
-              <ArrowRight className="w-3.5 h-3.5" />
-            </Link>
+            {!(currentUser?.role === 'warehouse' && exchange.status === 'rejected') && (
+              <Link
+                to={`/exchanges/${exchange.id}`}
+                className="flex items-center gap-1 text-blue-400 hover:text-blue-300 text-sm transition-colors"
+              >
+                查看详情
+                <ArrowRight className="w-3.5 h-3.5" />
+              </Link>
+            )}
           </div>
         </div>
       </div>
