@@ -11,6 +11,10 @@ export default function Trace() {
 
   useEffect(() => {
     fetchSaleById(id);
+    // 组件卸载时清理详情缓存，避免显示旧数据
+    return () => {
+      useStore.setState({ currentSale: null });
+    };
   }, [id]);
 
   if (!currentSale) {

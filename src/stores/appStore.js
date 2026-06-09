@@ -141,7 +141,15 @@ export const useStore = create((set, get) => ({
         method: 'POST',
         body: JSON.stringify({ operatorId }),
       });
-      set({ currentSale: sale, loading: false });
+      // 只有当前详情页显示的是该单据时才更新缓存
+      const currentId = get().currentSale?.id;
+      if (currentId === id) {
+        set({ currentSale: sale, loading: false });
+      } else {
+        set({ loading: false });
+      }
+      // 刷新列表以同步状态
+      await get().fetchSales();
       return sale;
     } catch (error) {
       set({ error: error.message, loading: false });
@@ -156,7 +164,15 @@ export const useStore = create((set, get) => ({
         method: 'POST',
         body: JSON.stringify({ operatorId }),
       });
-      set({ currentSale: sale, loading: false });
+      // 只有当前详情页显示的是该单据时才更新缓存
+      const currentId = get().currentSale?.id;
+      if (currentId === id) {
+        set({ currentSale: sale, loading: false });
+      } else {
+        set({ loading: false });
+      }
+      // 刷新列表以同步状态
+      await get().fetchSales();
       return sale;
     } catch (error) {
       set({ error: error.message, loading: false });

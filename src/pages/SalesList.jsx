@@ -22,7 +22,9 @@ export default function SalesList() {
     if (!confirm('确定要重置此单据吗？')) return;
     try {
       await resetSale(id, currentUser.id);
-      alert('单据已重置');
+      // 刷新列表以更新状态
+      await fetchSales(filters);
+      alert('单据已重置为草稿');
     } catch (err) {
       alert(err.message);
     }
@@ -32,6 +34,8 @@ export default function SalesList() {
     if (!confirm('确定要取消此销售单吗？')) return;
     try {
       await cancelSale(id, currentUser.id);
+      // 刷新列表以更新状态
+      await fetchSales(filters);
       alert('销售单已取消');
     } catch (err) {
       alert(err.message);
