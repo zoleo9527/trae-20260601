@@ -1,0 +1,170 @@
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id        String   @id @default(cuid())
+  name      String
+  role      String
+  avatar    String?
+  createdAt DateTime @default(now())
+
+  statusLogs  StatusLog[]
+  checkinLogs CheckinLog[]
+  attachments Attachment[]
+  therapist   Therapist?
+}
+
+model Patient {
+  id        String   @id @default(cuid())
+  name      String
+  phone     String
+  age       Int
+  diagnosis String?
+  createdAt DateTime @default(now())
+
+  schedules   Schedule[]
+  assessments Assessment[]
+  checkins    Checkin[]
+}
+
+model Therapist {
+  id       String  @id @default(cuid())
+  userId   String  @unique
+  specialty String?
+  user     User    @relation(fields: [userId], references: [id])
+
+  schedules   Schedule[]
+  assessments Assessment[]
+}
+
+model Assessment {
+  id          String   @id @default(cuid())
+  patientId   String
+  therapistId String
+  content     String
+  result      String?
+  status      String   @default("COMPLETED")
+  assessedAt  DateTime @default(now())
+
+  patient   Patient   @relation(fields: [patientId], references: [id])
+  therapist Therapist @relation(fields: [therapistId], references: [id])
+  schedules Schedule[]
+  alerts    Alert[]
+}
+
+model Equipment {
+  id       String @id @default(cuid())
+  name     String
+  location String?
+  status   String @default("AVAILABLE")
+
+  schedules Schedule[]
+  alerts    Alert[]
+}
+
+model Schedule {
+  id            String   @id @default(cuid())
+  patientId     String
+  therapistId   String
+  treatmentType String
+  scheduledDate String
+  scheduledTime String
+  duration      Int      @default(30)
+  status        String   @default("PENDING")
+  equipmentId   String?
+  assessmentId  String?
+  remark        String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  patient    Patient     @relation(fields: [patientId], references: [id])
+  therapist  Therapist   @relation(fields: [therapistId], references: [id])
+  equipment  Equipment?  @relation(fields: [equipmentId], references: [id])
+  assessment Assessment? @relation(fields: [assessmentId], references: [id])
+  statusLogs StatusLog[]
+  checkins   Checkin[]
+  attachments Attachment[]
+  alerts     Alert[]
+}
+
+model StatusLog {
+  id           String   @id @default(cuid())
+  scheduleId   String
+  fromStatus   String?
+  toStatus     String
+  operatorId   String
+  operatorRole String
+  remark       String?
+  createdAt    DateTime @default(now())
+
+  schedule Schedule @relation(fields: [scheduleId], references: [id])
+  operator User     @relation(fields: [operatorId], references: [id])
+}
+
+model Checkin {
+  id            String    @id @default(cuid())
+  scheduleId    String
+  patientId     String
+  checkinTime   DateTime?
+  completeTime  DateTime?
+  status        String    @default("WAITING")
+  equipmentUsed String?
+  remark        String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  schedule    Schedule     @relation(fields: [scheduleId], references: [id])
+  patient     Patient      @relation(fields: [patientId], references: [id])
+  checkinLogs CheckinLog[]
+  attachments Attachment[]
+}
+
+model CheckinLog {
+  id         String   @id @default(cuid())
+  checkinId  String
+  fromStatus String?
+  toStatus   String
+  operatorId String
+  remark     String?
+  createdAt  DateTime @default(now())
+
+  checkin  Checkin @relation(fields: [checkinId], references: [id])
+  operator User    @relation(fields: [operatorId], references: [id])
+}
+
+model Attachment {
+  id         String   @id @default(cuid())
+  scheduleId String?
+  checkinId  String?
+  fileName   String
+  fileType   String
+  fileUrl    String
+  uploadedAt DateTime @default(now())
+  uploaderId String
+
+  schedule Schedule? @relation(fields: [scheduleId], references: [id])
+  checkin  Checkin?  @relation(fields: [checkinId], references: [id])
+  uploader User      @relation(fields: [uploaderId], references: [id])
+}
+
+model Alert {
+  id                  String   @id @default(cuid())
+  type                String
+  level               String
+  relatedScheduleId   String?
+  relatedEquipmentId  String?
+  relatedAssessmentId String?
+  message             String
+  resolved            Boolean  @default(false)
+  createdAt           DateTime @default(now())
+
+  schedule   Schedule?   @relation(fields: [relatedScheduleId], references: [id])
+  equipment  Equipment?  @relation(fields: [relatedEquipmentId], references: [id])
+  assessment Assessment? @relation(fields: [relatedAssessmentId], references: [id])
+}
