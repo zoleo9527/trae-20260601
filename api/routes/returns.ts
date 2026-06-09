@@ -164,9 +164,8 @@ router.get('/', (req: RequestWithUser, res: Response): void => {
      LIMIT ? OFFSET ?`
   ).all(...whereParams, pageSize, offset) as any[]
 
-  const statsWhereStr = whereClauses.length > 0 ? 'WHERE ' + whereClauses.map(c => c.replace(/^r\./, '')).join(' AND ') : ''
   const statsRows = db.prepare(
-    `SELECT status, COUNT(*) as count FROM returns ${statsWhereStr} GROUP BY status`
+    `SELECT status, COUNT(*) as count FROM returns r ${whereStr} GROUP BY r.status`
   ).all(...whereParams) as { status: string; count: number }[]
 
   const statusStats: Record<string, number> = {}
