@@ -7,25 +7,24 @@ const route = useRoute()
 
 const auth = computed(() => JSON.parse(localStorage.getItem('auth') || 'null'))
 
+const allNavItems = [
+  { path: '/', label: '工作台', icon: '📊', roles: null },
+  { path: '/contracts', label: '签约管理', icon: '📋', roles: ['全科医生', '公共卫生专员'] },
+  { path: '/followups', label: '随访记录', icon: '📝', roles: ['全科医生', '公共卫生专员'] },
+  { path: '/appointments', label: '疫苗预约', icon: '💉', roles: null },
+  { path: '/observations', label: '留观记录', icon: '🏥', roles: ['护士', '公共卫生专员'] },
+  { path: '/export', label: '数据导出', icon: '📁', roles: ['公共卫生专员'] },
+]
+
 const navItems = computed(() => {
   const role = auth.value?.role
-  const items = [
-    { path: '/', label: '工作台', icon: '📊' },
-    { path: '/appointments', label: '疫苗预约', icon: '💉' },
-  ]
-  if (role === '全科医生' || role === '公共卫生专员') {
-    items.splice(1, 0,
-      { path: '/contracts', label: '签约管理', icon: '📋' },
-      { path: '/followups', label: '随访记录', icon: '📝' }
-    )
-  }
-  if (role === '护士' || role === '公共卫生专员') {
-    items.push({ path: '/observations', label: '留观记录', icon: '🏥' })
-  }
-  if (role === '公共卫生专员') {
-    items.push({ path: '/export', label: '数据导出', icon: '📁' })
-  }
-  return items
+  if (!role) return []
+  return allNavItems.filter(item => !item.roles || item.roles.includes(role))
+})
+
+const pageTitle = computed(() => {
+  const item = allNavItems.find(i => i.path === route.path)
+  return item?.label || '工作台'
 })
 
 function logout() {
@@ -39,7 +38,7 @@ function logout() {
     <aside class="sidebar">
       <div class="sidebar-header">
         <h2>社区卫生站</h2>
-        <p>疫苗预约与留观</p>
+        <p>疫苗预约与留观记录</p>
       </div>
       <nav class="sidebar-nav">
         <router-link
@@ -57,7 +56,7 @@ function logout() {
     <div class="main-area">
       <header class="topbar">
         <div class="topbar-left">
-          <h3>{{ route.meta.title || '工作台' }}</h3>
+          <h3>{{ pageTitle }}</h3>
         </div>
         <div class="topbar-right">
           <span class="role-badge">{{ auth.role }}</span>

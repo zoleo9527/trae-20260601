@@ -1,7 +1,9 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import api from '../api'
 
+const router = useRouter()
 const appointments = ref([])
 const loading = ref(true)
 const error = ref('')
@@ -51,7 +53,8 @@ const actionLoading = ref({})
 const actionError = ref('')
 const cancelReason = ref('')
 const showCancelDialog = ref(null)
-const nurseNameInput = ref('')
+
+const lastCompletedObs = ref(null)
 
 async function loadAppointments() {
   loading.value = true
@@ -92,6 +95,7 @@ async function createAppointment() {
 async function doAction(id, action) {
   actionLoading.value[id] = true
   actionError.value = ''
+  lastCompletedObs.value = null
   try {
     if (action === 'confirm') {
       await api.updateAppointmentStatus(id, 'confirmed')
@@ -100,9 +104,12 @@ async function doAction(id, action) {
       showCancelDialog.value = null
       cancelReason.value = ''
     } else if (action === 'start-inoculation') {
-      await api.startInoculation(id, nurseNameInput.value || auth.value?.name)
+      await api.startInoculation(id, auth.value?.name)
     } else if (action === 'complete-inoculation') {
-      await api.completeInoculation(id)
+      const res = await api.completeInoculation(id)
+      if (res.data?.observation) {
+        lastCompletedObs.value = res.data.observation
+      }
     }
     loadAppointments()
   } catch (e) {
@@ -132,6 +139,10 @@ function needsObservation(a) {
   return a.status === 'inoculated'
 }
 
+function goToObservations() {
+  router.push('/observations')
+}
+
 const expandedId = ref(null)
 function toggleDetail(id) {
   expandedId.value = expandedId.value === id ? null : id
@@ -150,6 +161,14 @@ function formatTime(t) {
       <button v-if="auth?.role === '公共卫生专员'" class="btn btn-primary" @click="showCreateForm = !showCreateForm">
         {{ showCreateForm ? '取消新建' : '+ 新建预约' }}
       </button>
+    </div>
+
+    <div v-if="lastCompletedObs" class="obs-created-banner">
+      <div class="banner-content">
+        <span class="banner-icon">✅</span>
+        <span>接种完成，已自动创建留观记录 <strong>{{ lastCompletedObs.id }}</strong>，留观负责人：<strong>{{ lastCompletedObs.responsiblePerson }}</strong></span>
+        <button class="btn btn-primary banner-btn" @click="goToObservations">前往留观记录 →</button>
+      </div>
     </div>
 
     <div v-if="showCreateForm" class="create-form">
@@ -233,7 +252,7 @@ function formatTime(t) {
                 <button v-if="canCompleteInoculation(a)" class="btn-action complete" :disabled="actionLoading[a.id]" @click="doAction(a.id, 'complete-inoculation')">完成接种</button>
                 <button v-if="canCancel(a)" class="btn-action cancel" :disabled="actionLoading[a.id]" @click="showCancelDialog = a.id">取消</button>
                 <button class="btn-link" @click="toggleDetail(a.id)">{{ expandedId === a.id ? '收起' : '详情' }}</button>
-                <span v-if="needsObservation(a)" class="obs-hint">→ 需开始留观</span>
+                <router-link v-if="needsObservation(a)" to="/observations" class="obs-nav-link">→ 前往留观</router-link>
               </td>
             </tr>
           </tbody>
@@ -273,7 +292,12 @@ function formatTime(t) {
           </div>
 
           <div v-if="needsObservation(a)" class="gap-warning">
-            ⚠ 此预约已完成接种，但留观尚未开始。请前往「留观记录」立即开始留观，确保接种后30分钟观察不出现责任空档。
+            <div class="gap-warning-title">⚠ 责任提示：接种已完成，留观尚未开始</div>
+            <div class="gap-warning-body">
+              居民 <strong>{{ a.residentName }}</strong> 已完成 {{ a.vaccineName }} 接种（护士：{{ a.nurseName }}），当前处于「已接种」状态，需立即进入30分钟留观观察。
+              接种护士 <strong>{{ a.nurseName }}</strong> 为留观初始负责人。请前往「留观记录」开始留观，确保接种后观察不出现责任空档。
+            </div>
+            <router-link to="/observations" class="gap-warning-link">立即前往留观记录 →</router-link>
           </div>
         </div>
       </div>
@@ -285,6 +309,25 @@ function formatTime(t) {
 .page { max-width: 1200px; }
 .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
 .page-header h3 { margin: 0; font-size: 18px; color: #303133; }
+
+.obs-created-banner {
+  background: #f0f9eb;
+  border: 1px solid #c2e7b0;
+  border-radius: 8px;
+  padding: 12px 16px;
+  margin-bottom: 16px;
+}
+
+.banner-content {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.banner-icon { font-size: 16px; }
+.banner-content span { font-size: 13px; color: #303133; }
+.banner-btn { margin-left: auto; padding: 4px 12px; font-size: 12px; }
 
 .create-form {
   background: #fff;
@@ -335,6 +378,8 @@ function formatTime(t) {
   border-radius: 4px;
   cursor: pointer;
   font-size: 13px;
+  text-decoration: none;
+  display: inline-block;
 }
 
 .btn-primary { background: #409eff; color: #fff; }
@@ -423,10 +468,11 @@ tr.row-alert { background: #fdf6ec; }
 .btn-link { background: none; border: none; color: #409eff; cursor: pointer; font-size: 13px; }
 .btn-link:hover { text-decoration: underline; }
 
-.obs-hint {
+.obs-nav-link {
   font-size: 12px;
   color: #e6a23c;
   font-weight: 600;
+  text-decoration: none;
   animation: blink 1.5s infinite;
 }
 
@@ -485,12 +531,33 @@ tr.row-alert { background: #fdf6ec; }
 
 .gap-warning {
   margin-top: 16px;
-  padding: 12px 16px;
+  padding: 16px;
   background: #fdf6ec;
   border-left: 4px solid #e6a23c;
   border-radius: 4px;
+}
+
+.gap-warning-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #8a6d3b;
+  margin-bottom: 8px;
+}
+
+.gap-warning-body {
   font-size: 13px;
   color: #8a6d3b;
-  line-height: 1.6;
+  line-height: 1.8;
 }
+
+.gap-warning-link {
+  display: inline-block;
+  margin-top: 10px;
+  color: #409eff;
+  font-weight: 600;
+  text-decoration: none;
+  font-size: 13px;
+}
+
+.gap-warning-link:hover { text-decoration: underline; }
 </style>

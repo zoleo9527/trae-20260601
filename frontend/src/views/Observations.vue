@@ -1,7 +1,9 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import api from '../api'
 
+const router = useRouter()
 const observations = ref([])
 const loading = ref(true)
 const error = ref('')
@@ -19,6 +21,16 @@ const statusColors = {
   observing: '#409eff',
   completed: '#67c23a',
   abnormal: '#f56c6c',
+}
+
+const appointmentStatusLabels = {
+  pending: '待确认',
+  confirmed: '已确认',
+  inoculating: '接种中',
+  inoculated: '已接种',
+  observing: '留观中',
+  completed: '已完成',
+  cancelled: '已取消',
 }
 
 const auth = computed(() => JSON.parse(localStorage.getItem('auth') || 'null'))
@@ -124,9 +136,23 @@ function formatTime(t) {
   return new Date(t).toLocaleString('zh-CN')
 }
 
+function getResponsibilityChain(o) {
+  const chain = [{ person: o.nurseName, role: '接种护士（初始负责人）' }]
+  if (o.handovers?.length) {
+    for (const h of o.handovers) {
+      chain.push({ person: h.to, role: `接手人（${h.reason || '交接'}）`, from: h.from, time: h.time })
+    }
+  }
+  return chain
+}
+
 const expandedId = ref(null)
 function toggleDetail(id) {
   expandedId.value = expandedId.value === id ? null : id
+}
+
+function goToAppointments() {
+  router.push('/appointments')
 }
 
 const nurseOptions = ['周小燕', '吴丽萍']
@@ -183,7 +209,7 @@ const nurseOptions = ['周小燕', '吴丽萍']
           </div>
 
           <div class="obs-meta">
-            <span>负责人: <strong>{{ o.responsiblePerson }}</strong></span>
+            <span>当前负责人: <strong>{{ o.responsiblePerson }}</strong></span>
             <span v-if="o.startedAt">开始: {{ formatTime(o.startedAt) }}</span>
             <span v-if="o.completedAt">完成: {{ formatTime(o.completedAt) }}</span>
             <span v-if="o.durationMinutes">时长: {{ o.durationMinutes }}分钟</span>
@@ -193,7 +219,18 @@ const nurseOptions = ['周小燕', '吴丽萍']
           <div v-if="o.alertReason" class="alert-reason">⚠ {{ o.alertReason }}</div>
 
           <div v-if="o.status === 'waiting'" class="gap-indicator">
-            ⏳ 等待开始留观 — 接种已完成，需要立即开始30分钟留观观察，避免责任空档
+            <div class="gap-title">⏳ 等待开始留观 — 避免责任空档</div>
+            <div class="gap-body">
+              接种已完成（接种护士：<strong>{{ o.nurseName }}</strong>），留观初始负责人为 <strong>{{ o.responsiblePerson }}</strong>。
+              请立即点击「开始留观」，确保接种后30分钟观察不出现无人负责的空档。
+            </div>
+          </div>
+
+          <div v-if="o.appointmentId" class="appointment-link" @click="goToAppointments">
+            📎 关联预约: {{ o.appointmentId }}
+            <span v-if="o.appointment?.status" class="appt-status">
+              （预约状态: {{ appointmentStatusLabels[o.appointment.status] || o.appointment.status }}）
+            </span>
           </div>
 
           <div class="obs-actions">
@@ -204,8 +241,14 @@ const nurseOptions = ['周小燕', '吴丽萍']
           </div>
 
           <div v-if="expandedId === o.id" class="obs-detail">
-            <div v-if="o.appointmentId" class="detail-link">
-              关联预约: <strong>{{ o.appointmentId }}</strong>
+            <h5>责任链</h5>
+            <div class="responsibility-chain">
+              <div v-for="(node, i) in getResponsibilityChain(o)" :key="i" class="chain-node">
+                <span class="chain-person">{{ node.person }}</span>
+                <span class="chain-role">{{ node.role }}</span>
+                <span v-if="node.from" class="chain-from">（{{ node.from }} 交接 · {{ formatTime(node.time) }}）</span>
+                <span v-if="i < getResponsibilityChain(o).length - 1" class="chain-arrow">→</span>
+              </div>
             </div>
 
             <h5>观察记录</h5>
@@ -385,13 +428,35 @@ const nurseOptions = ['周小燕', '吴丽萍']
 
 .gap-indicator {
   margin-top: 8px;
-  padding: 8px 12px;
+  padding: 12px;
   background: #ecf5ff;
   border-left: 3px solid #409eff;
   border-radius: 4px;
+}
+
+.gap-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #409eff;
+  margin-bottom: 4px;
+}
+
+.gap-body {
   font-size: 13px;
   color: #409eff;
+  line-height: 1.6;
 }
+
+.appointment-link {
+  margin-top: 8px;
+  font-size: 13px;
+  color: #409eff;
+  cursor: pointer;
+}
+
+.appointment-link:hover { text-decoration: underline; }
+
+.appt-status { color: #909399; font-size: 12px; }
 
 .obs-actions {
   display: flex;
@@ -423,16 +488,55 @@ const nurseOptions = ['周小燕', '吴丽萍']
   padding-top: 12px;
 }
 
-.detail-link {
-  font-size: 13px;
-  color: #606266;
-  margin-bottom: 8px;
-}
-
 .obs-detail h5 {
   margin: 12px 0 8px;
   font-size: 14px;
   color: #303133;
+}
+
+.obs-detail h5:first-child { margin-top: 0; }
+
+.responsibility-chain {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  padding: 10px 12px;
+  background: #f5f7fa;
+  border-radius: 6px;
+  margin-bottom: 4px;
+}
+
+.chain-node {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+}
+
+.chain-person {
+  font-weight: 600;
+  color: #303133;
+  background: #fff;
+  padding: 2px 8px;
+  border-radius: 4px;
+  border: 1px solid #dcdfe6;
+}
+
+.chain-role {
+  font-size: 12px;
+  color: #909399;
+}
+
+.chain-from {
+  font-size: 11px;
+  color: #c0c4cc;
+}
+
+.chain-arrow {
+  color: #409eff;
+  font-weight: 700;
+  font-size: 14px;
 }
 
 .obs-timeline {
