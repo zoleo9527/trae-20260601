@@ -2,8 +2,9 @@ import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
 import { useReferralStore } from "@/stores/referralStore";
+import { useAuthStore } from "@/stores/authStore";
 import { URGENCY_LABELS } from "@/types";
-import type { Urgency } from "@/types";
+import type { Urgency, ReferralStatus } from "@/types";
 
 const departments = [
   "内科", "外科", "妇产科", "儿科", "骨科", "心血管科", "呼吸科",
@@ -14,7 +15,9 @@ export default function ReferralEdit() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { current, fetchReferral, updateReferral } = useReferralStore();
+  const { user } = useAuthStore();
   const [submitting, setSubmitting] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
   const [changeNote, setChangeNote] = useState("");
 
   const [form, setForm] = useState({
@@ -50,21 +53,47 @@ export default function ReferralEdit() {
     e.preventDefault();
     if (!current || !changeNote.trim()) return;
     setSubmitting(true);
+    setErrorMsg("");
     try {
       await updateReferral(current.id, { ...form, changeNote });
       await fetchReferral(current.id);
       navigate(`/referral/${current.id}`);
-    } catch {
-      alert("保存失败");
+    } catch (err: any) {
+      setErrorMsg(err?.message || "保存失败");
     } finally {
       setSubmitting(false);
     }
   };
 
+  const EDIT_ALLOWED: ReferralStatus[] = ["draft", "rejected", "pending_review", "sent", "change_alerted"];
+  const canEditThis = current && user
+    && user.role === "gp"
+    && current.createdBy === user.id
+    && EDIT_ALLOWED.includes(current.status);
+
   if (!current) {
     return (
       <div className="flex items-center justify-center h-64 text-sm text-zinc-400">
         加载中...
+      </div>
+    );
+  }
+
+  if (!canEditThis) {
+    return (
+      <div className="max-w-2xl mx-auto">
+        <button
+          onClick={() => navigate(-1)}
+          className="flex items-center gap-1 text-sm text-zinc-500 hover:text-zinc-700 mb-4"
+        >
+          <ArrowLeft className="w-4 h-4" /> 返回
+        </button>
+        <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
+          <p className="text-sm text-red-700 font-medium">无法编辑此转诊申请</p>
+          <p className="text-xs text-red-500 mt-2">
+            仅全科医生且为申请创建者，在草稿/被驳回/待审核/已发送/变更提醒状态下可编辑
+          </p>
+        </div>
       </div>
     );
   }
@@ -81,6 +110,12 @@ export default function ReferralEdit() {
       <h1 className="text-lg font-bold text-zinc-800 mb-6">
         编辑转诊申请 - {current.patientName}
       </h1>
+
+      {errorMsg && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
+          <p className="text-sm text-red-700">{errorMsg}</p>
+        </div>
+      )}
 
       <form onSubmit={handleSubmit} className="space-y-6">
         <fieldset className="bg-white rounded-lg border border-zinc-200 p-5 space-y-4">

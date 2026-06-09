@@ -59,10 +59,17 @@ export default function Dashboard() {
         if (role === "gp")
           return (
             (r.status === "draft" && r.createdBy === user.id) ||
-            (r.status === "rejected" && r.createdBy === user.id)
+            (r.status === "rejected" && r.createdBy === user.id) ||
+            (r.status === "pending_review" && r.createdBy === user.id) ||
+            (r.status === "change_alerted" && r.createdBy === user.id)
           );
         if (role === "nurse")
-          return r.status === "pending_review" || r.status === "approved";
+          return (
+            r.status === "pending_review" ||
+            r.status === "approved" ||
+            r.status === "result_returned" ||
+            r.status === "change_alerted"
+          );
         if (role === "pho")
           return (
             r.status === "result_returned" ||

@@ -26,6 +26,7 @@ export default function ReferralNew() {
   const navigate = useNavigate();
   const { createReferral } = useReferralStore();
   const [submitting, setSubmitting] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
 
   const [form, setForm] = useState({
     patientName: "",
@@ -49,6 +50,7 @@ export default function ReferralNew() {
     e.preventDefault();
     if (!form.patientName || !form.reason || !form.targetDept) return;
     setSubmitting(true);
+    setErrorMsg("");
     try {
       await createReferral({
         patientName: form.patientName,
@@ -61,8 +63,8 @@ export default function ReferralNew() {
         notes: form.notes,
       });
       navigate("/");
-    } catch {
-      alert("创建失败");
+    } catch (err: any) {
+      setErrorMsg(err?.message || "创建失败");
     } finally {
       setSubmitting(false);
     }
@@ -71,6 +73,12 @@ export default function ReferralNew() {
   return (
     <div className="max-w-2xl mx-auto">
       <h1 className="text-lg font-bold text-zinc-800 mb-6">新建转诊申请</h1>
+
+      {errorMsg && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
+          <p className="text-sm text-red-700">{errorMsg}</p>
+        </div>
+      )}
 
       <form onSubmit={handleSubmit} className="space-y-6">
         <fieldset className="bg-white rounded-lg border border-zinc-200 p-5 space-y-4">

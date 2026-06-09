@@ -14,9 +14,11 @@ const genderLabel = { male: "男", female: "女" };
 
 function canAct(
   role: string,
-  status: ReferralStatus
+  status: ReferralStatus,
+  createdBy: number,
+  userId: number
 ): { action: string; targetStatus: ReferralStatus; icon: typeof Edit3 }[] {
-  if (role === "gp") {
+  if (role === "gp" && createdBy === userId) {
     if (status === "draft" || status === "rejected")
       return [{ action: "提交审核", targetStatus: "pending_review", icon: Send }];
   }
@@ -34,6 +36,16 @@ function canAct(
       return [{ action: "标记闭环", targetStatus: "closed", icon: Archive }];
   }
   return [];
+}
+
+function canEdit(
+  role: string,
+  status: ReferralStatus,
+  createdBy: number,
+  userId: number
+): boolean {
+  if (role !== "gp" || createdBy !== userId) return false;
+  return ["draft", "rejected", "pending_review", "sent", "change_alerted"].includes(status);
 }
 
 export default function ReferralDetail() {
@@ -56,6 +68,7 @@ export default function ReferralDetail() {
   const [dialogTarget, setDialogTarget] = useState<ReferralStatus>("draft");
   const [dialogNote, setDialogNote] = useState("");
   const [acting, setActing] = useState(false);
+  const [actionError, setActionError] = useState("");
 
   useEffect(() => {
     if (!id) return;
@@ -71,19 +84,21 @@ export default function ReferralDetail() {
   const openDialog = (target: ReferralStatus) => {
     setDialogTarget(target);
     setDialogNote("");
+    setActionError("");
     setDialogOpen(true);
   };
 
   const handleAction = async () => {
     if (!current) return;
     setActing(true);
+    setActionError("");
     try {
       await changeStatus(current.id, dialogTarget, dialogNote || undefined);
       setDialogOpen(false);
       await fetchReferral(current.id);
       await fetchStatusChanges(current.id);
-    } catch {
-      alert("操作失败");
+    } catch (err: any) {
+      setActionError(err?.message || "操作失败，请重试");
     } finally {
       setActing(false);
     }
@@ -97,8 +112,8 @@ export default function ReferralDetail() {
     );
   }
 
-  const actions = user ? canAct(user.role, current.status) : [];
-  const canEdit = user?.role === "gp" && (current.status === "draft" || current.status === "rejected" || current.status === "sent" || current.status === "change_alerted" || current.status === "pending_review");
+  const actions = user && current ? canAct(user.role, current.status, current.createdBy, user.id) : [];
+  const showEdit = user && current ? canEdit(user.role, current.status, current.createdBy, user.id) : false;
 
   const timelineItems = [
     ...statusChanges.map(
@@ -176,9 +191,9 @@ export default function ReferralDetail() {
         </div>
       </div>
 
-      {(actions.length > 0 || canEdit) && (
+      {(actions.length > 0 || showEdit) && (
         <div className="flex items-center gap-3">
-          {canEdit && (
+          {showEdit && (
             <button
               onClick={() => navigate(`/referral/${current.id}/edit`)}
               className="flex items-center gap-1.5 px-4 py-2 text-sm border border-zinc-300 rounded-md hover:bg-zinc-50 text-zinc-700"
@@ -212,6 +227,11 @@ export default function ReferralDetail() {
         <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-6 space-y-4">
             <h3 className="text-sm font-bold text-zinc-800">确认操作</h3>
+            {actionError && (
+              <div className="bg-red-50 border border-red-200 rounded-md p-3">
+                <p className="text-sm text-red-700">{actionError}</p>
+              </div>
+            )}
             <div>
               <label className="block text-xs text-zinc-500 mb-1">备注</label>
               <textarea

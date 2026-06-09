@@ -18,6 +18,7 @@ export default function ReturnDetail() {
 
   const [acknowledged, setAcknowledged] = useState(false);
   const [confirming, setConfirming] = useState(false);
+  const [confirmError, setConfirmError] = useState("");
 
   useEffect(() => {
     if (!id) return;
@@ -41,6 +42,7 @@ export default function ReturnDetail() {
   const handleConfirm = async () => {
     if (!ret) return;
     setConfirming(true);
+    setConfirmError("");
     try {
       await confirmReturn(ret.id, {
         changeAcknowledged: ret.referralModifiedAfterSent ? true : undefined,
@@ -49,8 +51,8 @@ export default function ReturnDetail() {
       if (referral) {
         await fetchReferral(referral.id);
       }
-    } catch {
-      alert("确认失败");
+    } catch (err: any) {
+      setConfirmError(err?.message || "确认失败，请重试");
     } finally {
       setConfirming(false);
     }
@@ -64,7 +66,9 @@ export default function ReturnDetail() {
     );
   }
 
-  const canConfirm = !ret.confirmedAt && (user?.role === "nurse" || user?.role === "pho");
+  const canConfirm = !ret.confirmedAt && (user?.role === "nurse" || user?.role === "pho")
+    && referral !== null
+    && (referral?.status === "result_returned" || referral?.status === "change_alerted");
   const needsAck = ret.referralModifiedAfterSent && !ret.changeAcknowledged;
   const confirmDisabled = needsAck && !acknowledged;
 
@@ -173,7 +177,13 @@ export default function ReturnDetail() {
       )}
 
       {canConfirm && (
-        <div className="flex justify-end">
+        <div className="space-y-3">
+          {confirmError && (
+            <div className="bg-red-50 border border-red-200 rounded-md p-3">
+              <p className="text-sm text-red-700">{confirmError}</p>
+            </div>
+          )}
+          <div className="flex justify-end">
           <button
             onClick={handleConfirm}
             disabled={confirming || confirmDisabled}
@@ -187,6 +197,7 @@ export default function ReturnDetail() {
             <CheckCircle className="w-4 h-4" />
             {confirming ? "确认中..." : "确认签收"}
           </button>
+          </div>
         </div>
       )}
     </div>

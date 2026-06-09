@@ -11,6 +11,66 @@ function authGuard(req: Request, res: Response): { userId: number; role: string 
   return verifyToken(token)
 }
 
+type Status = 'draft' | 'pending_review' | 'approved' | 'rejected' | 'sent' | 'result_returned' | 'change_alerted' | 'confirmed' | 'closed'
+
+interface TransitionRule {
+  allowedRoles: string[]
+  fromStatuses: Status[]
+  label: string
+}
+
+const TRANSITION_RULES: Record<Status, TransitionRule> = {
+  pending_review: {
+    allowedRoles: ['gp'],
+    fromStatuses: ['draft', 'rejected'],
+    label: '提交审核',
+  },
+  approved: {
+    allowedRoles: ['nurse'],
+    fromStatuses: ['pending_review'],
+    label: '审核通过',
+  },
+  rejected: {
+    allowedRoles: ['nurse'],
+    fromStatuses: ['pending_review'],
+    label: '驳回',
+  },
+  sent: {
+    allowedRoles: ['nurse'],
+    fromStatuses: ['approved'],
+    label: '发送至上级医院',
+  },
+  result_returned: {
+    allowedRoles: [],
+    fromStatuses: ['sent'],
+    label: '结果回传',
+  },
+  change_alerted: {
+    allowedRoles: [],
+    fromStatuses: ['sent', 'result_returned', 'change_alerted'],
+    label: '变更提醒',
+  },
+  confirmed: {
+    allowedRoles: [],
+    fromStatuses: ['result_returned', 'change_alerted'],
+    label: '确认签收',
+  },
+  closed: {
+    allowedRoles: ['pho'],
+    fromStatuses: ['confirmed'],
+    label: '标记闭环',
+  },
+  draft: {
+    allowedRoles: [],
+    fromStatuses: [],
+    label: '创建草稿',
+  },
+}
+
+const EDIT_ALLOWED_STATUSES: Status[] = ['draft', 'rejected', 'pending_review', 'sent', 'change_alerted']
+const EDIT_ALLOWED_ROLES: string[] = ['gp']
+const EDIT_TRIGGER_CHANGE_STATUSES: Status[] = ['sent', 'change_alerted']
+
 const FIELD_LABELS: Record<string, string> = {
   reason: '转诊原因',
   targetDept: '拟转科室',
@@ -64,6 +124,11 @@ function mapSnapshot(row: any) {
   }
 }
 
+function roleLabel(role: string): string {
+  const map: Record<string, string> = { gp: '全科医生', nurse: '护士', pho: '公共卫生专员' }
+  return map[role] || role
+}
+
 router.get('/', (req: Request, res: Response): void => {
   const auth = authGuard(req, res)
   if (!auth) { res.status(401).json({ message: '未登录' }); return }
@@ -96,6 +161,11 @@ router.post('/', (req: Request, res: Response): void => {
   const auth = authGuard(req, res)
   if (!auth) { res.status(401).json({ message: '未登录' }); return }
 
+  if (auth.role !== 'gp') {
+    res.status(403).json({ message: `仅全科医生可创建转诊申请，当前角色为${roleLabel(auth.role)}` })
+    return
+  }
+
   const { patientName, patientAge, patientGender, reason, targetDept, urgency, expectedReturnDays, notes } = req.body
   if (!patientName || !reason || !targetDept) {
     res.status(400).json({ message: '患者姓名、转诊原因、拟转科室为必填' })
@@ -112,13 +182,11 @@ router.post('/', (req: Request, res: Response): void => {
 
   const referralId = result.lastInsertRowid
 
-  const insertChange = db.prepare(`
+  const user = db.prepare('SELECT * FROM users WHERE id = ?').get(auth.userId) as any
+  db.prepare(`
     INSERT INTO referral_status_changes (referral_id, from_status, to_status, operator_id, operator_role, operator_name, note)
     VALUES (?, NULL, 'draft', ?, ?, ?, ?)
-  `)
-  const db2 = getDb()
-  const user = db2.prepare('SELECT * FROM users WHERE id = ?').get(auth.userId) as any
-  insertChange.run(referralId, auth.userId, user.role_label, user.display_name, notes || null)
+  `).run(referralId, auth.userId, user.role_label, user.display_name, notes || null)
 
   const row = db.prepare('SELECT * FROM referrals WHERE id = ?').get(referralId) as any
   res.status(201).json(mapReferral(row))
@@ -138,20 +206,33 @@ router.put('/:id', (req: Request, res: Response): void => {
   const auth = authGuard(req, res)
   if (!auth) { res.status(401).json({ message: '未登录' }); return }
 
+  if (!EDIT_ALLOWED_ROLES.includes(auth.role)) {
+    res.status(403).json({ message: `仅全科医生可修改转诊申请，当前角色为${roleLabel(auth.role)}` })
+    return
+  }
+
   const db = getDb()
   const referralId = Number(req.params.id)
   const row = db.prepare('SELECT * FROM referrals WHERE id = ?').get(referralId) as any
   if (!row) { res.status(404).json({ message: '转诊记录不存在' }); return }
 
-  const allowedStatuses = ['draft', 'rejected', 'pending_review', 'approved', 'sent']
-  if (!allowedStatuses.includes(row.status)) {
-    res.status(400).json({ message: '当前状态不允许修改' })
+  if (row.created_by !== auth.userId) {
+    res.status(403).json({ message: '仅申请创建者可修改此转诊申请' })
+    return
+  }
+
+  if (!EDIT_ALLOWED_STATUSES.includes(row.status)) {
+    const statusLabel: Record<string, string> = {
+      approved: '已审核', sent: '已发送', result_returned: '结果回传',
+      change_alerted: '变更提醒', confirmed: '已确认', closed: '已闭环',
+    }
+    res.status(400).json({ message: `当前状态为"${statusLabel[row.status] || row.status}"，不可修改。仅草稿、被驳回、待审核、已发送、变更提醒状态可修改` })
     return
   }
 
   const { reason, targetDept, urgency, expectedReturnDays, changeNote } = req.body
   if (!changeNote || !changeNote.trim()) {
-    res.status(400).json({ message: '变更说明不能为空' })
+    res.status(400).json({ message: '变更说明不能为空，必须填写修改原因' })
     return
   }
 
@@ -191,7 +272,7 @@ router.put('/:id', (req: Request, res: Response): void => {
     return
   }
 
-  const wasSentOrLater = ['sent', 'result_returned', 'change_alerted', 'confirmed'].includes(row.status)
+  const shouldTriggerChange = EDIT_TRIGGER_CHANGE_STATUSES.includes(row.status)
 
   updates.push('version = version + 1')
   updates.push("updated_at = datetime('now')")
@@ -204,7 +285,7 @@ router.put('/:id', (req: Request, res: Response): void => {
     insertSnapshot.run(referralId, label, f.oldVal, f.newVal, auth.userId, user.display_name, changeNote)
   }
 
-  if (wasSentOrLater) {
+  if (shouldTriggerChange) {
     db.prepare("UPDATE referrals SET status = 'change_alerted', updated_at = datetime('now') WHERE id = ?").run(referralId)
 
     db.prepare(`
@@ -227,27 +308,46 @@ router.patch('/:id/status', (req: Request, res: Response): void => {
   const referralId = Number(req.params.id)
   const { status, note } = req.body
 
-  const validStatuses = ['pending_review', 'approved', 'rejected', 'sent', 'result_returned', 'confirmed', 'closed']
-  if (!validStatuses.includes(status)) {
-    res.status(400).json({ message: '无效的状态' })
+  const targetStatus = status as Status
+  const rule = TRANSITION_RULES[targetStatus]
+  if (!rule) {
+    const validList = Object.keys(TRANSITION_RULES).filter(s => TRANSITION_RULES[s as Status].allowedRoles.length > 0).join('、')
+    res.status(400).json({ message: `无效的目标状态"${status}"，合法的手动流转目标为：${validList}` })
+    return
+  }
+
+  if (rule.allowedRoles.length > 0 && !rule.allowedRoles.includes(auth.role)) {
+    res.status(403).json({ message: `"${rule.label}"操作需要${rule.allowedRoles.map(roleLabel).join('或')}角色，当前角色为${roleLabel(auth.role)}` })
     return
   }
 
   const row = db.prepare('SELECT * FROM referrals WHERE id = ?').get(referralId) as any
   if (!row) { res.status(404).json({ message: '转诊记录不存在' }); return }
 
+  if (!rule.fromStatuses.includes(row.status)) {
+    const statusLabel: Record<string, string> = {
+      draft: '草稿', pending_review: '待审核', approved: '已审核', rejected: '已驳回',
+      sent: '已发送', result_returned: '结果回传', change_alerted: '变更提醒',
+      confirmed: '已确认', closed: '已闭环',
+    }
+    const expected = rule.fromStatuses.map(s => `"${statusLabel[s]}"`).join('、')
+    res.status(400).json({ message: `"${rule.label}"操作要求当前状态为${expected}，实际为"${statusLabel[row.status] || row.status}"` })
+    return
+  }
+
+  if (targetStatus === 'pending_review' && row.created_by !== auth.userId) {
+    res.status(403).json({ message: '仅申请创建者可提交审核' })
+    return
+  }
+
   const user = db.prepare('SELECT * FROM users WHERE id = ?').get(auth.userId) as any
 
-  db.prepare("UPDATE referrals SET status = ?, updated_at = datetime('now') WHERE id = ?").run(status, referralId)
+  db.prepare("UPDATE referrals SET status = ?, updated_at = datetime('now') WHERE id = ?").run(targetStatus, referralId)
 
   db.prepare(`
     INSERT INTO referral_status_changes (referral_id, from_status, to_status, operator_id, operator_role, operator_name, note)
     VALUES (?, ?, ?, ?, ?, ?, ?)
-  `).run(referralId, row.status, status, auth.userId, user.role_label, user.display_name, note || null)
-
-  if (status === 'sent') {
-    db.prepare("UPDATE referrals SET version = 1 WHERE id = ? AND version = 1").run(referralId)
-  }
+  `).run(referralId, row.status, targetStatus, auth.userId, user.role_label, user.display_name, note || null)
 
   const updated = db.prepare('SELECT * FROM referrals WHERE id = ?').get(referralId) as any
   res.json(mapReferral(updated))
