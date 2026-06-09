@@ -12,6 +12,55 @@ interface DetectedProblem {
   isNew: boolean
 }
 
+interface ExistingProblem {
+  id: number
+  status: string
+}
+
+/**
+ * 检查已存在问题单的状态，决定是否需要创建新的问题单
+ * - rejected: 不重开（同一业务事实已确认不需要处理）
+ * - open: 不重复（避免重复待处理）
+ * - rescheduled/supplemented: 风险再次暴露，创建新的 open 问题单
+ * 
+ * 需要查询所有相关问题单，综合判断：
+ * - 如果存在任何 rejected 状态的问题单，不创建新的
+ * - 如果存在任何 open 状态的问题单，不创建新的
+ * - 如果存在 rescheduled/supplemented 状态的问题单，创建新的
+ */
+function shouldCreateNewProblem(existingList: ExistingProblem[]): { create: boolean; latestId: number | null } {
+  if (existingList.length === 0) {
+    return { create: true, latestId: null }
+  }
+  
+  // 检查是否存在 rejected 状态的问题单
+  const hasRejected = existingList.some(p => p.status === 'rejected')
+  if (hasRejected) {
+    return { create: false, latestId: existingList[existingList.length - 1].id }
+  }
+  
+  // 检查是否存在 open 状态的问题单
+  const hasOpen = existingList.some(p => p.status === 'open')
+  if (hasOpen) {
+    return { create: false, latestId: existingList.find(p => p.status === 'open')?.id || existingList[0].id }
+  }
+  
+  // 检查是否存在 resolved 状态的问题单（风险已解决，可以重新检测）
+  const hasResolved = existingList.some(p => p.status === 'resolved')
+  if (hasResolved && !hasRejected && !hasOpen) {
+    return { create: true, latestId: null }
+  }
+  
+  // 检查是否存在 rescheduled/supplemented 状态的问题单（风险再次暴露）
+  const hasRescheduledOrSupplemented = existingList.some(p => p.status === 'rescheduled' || p.status === 'supplemented')
+  if (hasRescheduledOrSupplemented && !hasRejected && !hasOpen) {
+    return { create: true, latestId: existingList[existingList.length - 1].id }
+  }
+  
+  // 其他状态：不创建新的
+  return { create: false, latestId: existingList[existingList.length - 1].id }
+}
+
 export function detectProblems(containerId?: number): DetectedProblem[] {
   const db = getDb()
   const now = new Date()
@@ -25,11 +74,14 @@ export function detectProblems(containerId?: number): DetectedProblem[] {
   ).all() as any[]
 
   for (const c of misplacedContainers) {
-    const existing = db.prepare(
-      `SELECT id, status FROM problem_orders WHERE container_id = ? AND type = 'misplaced'`
-    ).get(c.id) as any
-    if (existing) {
-      detected.push({ id: existing.id, type: 'misplaced', isNew: false })
+    const existingList = db.prepare(
+      `SELECT id, status FROM problem_orders WHERE container_id = ? AND type = 'misplaced' ORDER BY id`
+    ).all(c.id) as ExistingProblem[]
+    const decision = shouldCreateNewProblem(existingList)
+    if (!decision.create) {
+      if (decision.latestId) {
+        detected.push({ id: decision.latestId, type: 'misplaced', isNew: false })
+      }
       continue
     }
 
@@ -67,11 +119,14 @@ export function detectProblems(containerId?: number): DetectedProblem[] {
   ).all(nowStr) as any[]
 
   for (const c of overdueContainers) {
-    const existing = db.prepare(
-      `SELECT id, status FROM problem_orders WHERE container_id = ? AND type = 'overdue'`
-    ).get(c.id) as any
-    if (existing) {
-      detected.push({ id: existing.id, type: 'overdue', isNew: false })
+    const existingList = db.prepare(
+      `SELECT id, status FROM problem_orders WHERE container_id = ? AND type = 'overdue' ORDER BY id`
+    ).all(c.id) as ExistingProblem[]
+    const decision = shouldCreateNewProblem(existingList)
+    if (!decision.create) {
+      if (decision.latestId) {
+        detected.push({ id: decision.latestId, type: 'overdue', isNew: false })
+      }
       continue
     }
 
@@ -102,11 +157,14 @@ export function detectProblems(containerId?: number): DetectedProblem[] {
   ).all(nowStr, expiringSoon) as any[]
 
   for (const c of expiringContainers) {
-    const existing = db.prepare(
-      `SELECT id, status FROM problem_orders WHERE container_id = ? AND type = 'expiring_soon'`
-    ).get(c.id) as any
-    if (existing) {
-      detected.push({ id: existing.id, type: 'expiring_soon', isNew: false })
+    const existingList = db.prepare(
+      `SELECT id, status FROM problem_orders WHERE container_id = ? AND type = 'expiring_soon' ORDER BY id`
+    ).all(c.id) as ExistingProblem[]
+    const decision = shouldCreateNewProblem(existingList)
+    if (!decision.create) {
+      if (decision.latestId) {
+        detected.push({ id: decision.latestId, type: 'expiring_soon', isNew: false })
+      }
       continue
     }
 
@@ -136,11 +194,14 @@ export function detectProblems(containerId?: number): DetectedProblem[] {
   ).all(soonThreshold) as any[]
 
   for (const insp of missedInspections) {
-    const existing = db.prepare(
-      `SELECT id, status FROM problem_orders WHERE inspection_id = ? AND type = 'missed_notify'`
-    ).get(insp.id) as any
-    if (existing) {
-      detected.push({ id: existing.id, type: 'missed_notify', isNew: false })
+    const existingList = db.prepare(
+      `SELECT id, status FROM problem_orders WHERE inspection_id = ? AND type = 'missed_notify' ORDER BY id`
+    ).all(insp.id) as ExistingProblem[]
+    const decision = shouldCreateNewProblem(existingList)
+    if (!decision.create) {
+      if (decision.latestId) {
+        detected.push({ id: decision.latestId, type: 'missed_notify', isNew: false })
+      }
       continue
     }
 
@@ -168,11 +229,14 @@ export function detectProblems(containerId?: number): DetectedProblem[] {
   ).all() as any[]
 
   for (const insp of detainedInspections) {
-    const existing = db.prepare(
-      `SELECT id, status FROM problem_orders WHERE inspection_id = ? AND type = 'detained'`
-    ).get(insp.id) as any
-    if (existing) {
-      detected.push({ id: existing.id, type: 'detained', isNew: false })
+    const existingList = db.prepare(
+      `SELECT id, status FROM problem_orders WHERE inspection_id = ? AND type = 'detained' ORDER BY id`
+    ).all(insp.id) as ExistingProblem[]
+    const decision = shouldCreateNewProblem(existingList)
+    if (!decision.create) {
+      if (decision.latestId) {
+        detected.push({ id: decision.latestId, type: 'detained', isNew: false })
+      }
       continue
     }
 
@@ -198,11 +262,14 @@ export function detectProblems(containerId?: number): DetectedProblem[] {
   ).all(twentyFourHoursAgo) as any[]
 
   for (const c of stuckInspecting) {
-    const existing = db.prepare(
-      `SELECT id, status FROM problem_orders WHERE container_id = ? AND type = 'stuck_inspecting'`
-    ).get(c.id) as any
-    if (existing) {
-      detected.push({ id: existing.id, type: 'stuck_inspecting', isNew: false })
+    const existingList = db.prepare(
+      `SELECT id, status FROM problem_orders WHERE container_id = ? AND type = 'stuck_inspecting' ORDER BY id`
+    ).all(c.id) as ExistingProblem[]
+    const decision = shouldCreateNewProblem(existingList)
+    if (!decision.create) {
+      if (decision.latestId) {
+        detected.push({ id: decision.latestId, type: 'stuck_inspecting', isNew: false })
+      }
       continue
     }
 
@@ -232,11 +299,14 @@ export function detectProblems(containerId?: number): DetectedProblem[] {
   ).all(twelveHoursAgo) as any[]
 
   for (const mt of stuckMoveTasks) {
-    const existing = db.prepare(
-      `SELECT id, status FROM problem_orders WHERE move_task_id = ? AND type = 'stuck_move'`
-    ).get(mt.id) as any
-    if (existing) {
-      detected.push({ id: existing.id, type: 'stuck_move', isNew: false })
+    const existingList = db.prepare(
+      `SELECT id, status FROM problem_orders WHERE move_task_id = ? AND type = 'stuck_move' ORDER BY id`
+    ).all(mt.id) as ExistingProblem[]
+    const decision = shouldCreateNewProblem(existingList)
+    if (!decision.create) {
+      if (decision.latestId) {
+        detected.push({ id: decision.latestId, type: 'stuck_move', isNew: false })
+      }
       continue
     }
 
@@ -269,11 +339,14 @@ export function detectProblems(containerId?: number): DetectedProblem[] {
   ).all(sixHoursAgo) as any[]
 
   for (const c of noInspectionContainers) {
-    const existing = db.prepare(
-      `SELECT id, status FROM problem_orders WHERE container_id = ? AND type = 'no_inspection'`
-    ).get(c.id) as any
-    if (existing) {
-      detected.push({ id: existing.id, type: 'no_inspection', isNew: false })
+    const existingList = db.prepare(
+      `SELECT id, status FROM problem_orders WHERE container_id = ? AND type = 'no_inspection' ORDER BY id`
+    ).all(c.id) as ExistingProblem[]
+    const decision = shouldCreateNewProblem(existingList)
+    if (!decision.create) {
+      if (decision.latestId) {
+        detected.push({ id: decision.latestId, type: 'no_inspection', isNew: false })
+      }
       continue
     }
 
@@ -306,11 +379,14 @@ export function detectProblems(containerId?: number): DetectedProblem[] {
   ).all(eightHoursAgo) as any[]
 
   for (const c of stagnantContainers) {
-    const existing = db.prepare(
-      `SELECT id, status FROM problem_orders WHERE container_id = ? AND type = 'yard_stagnation'`
-    ).get(c.id) as any
-    if (existing) {
-      detected.push({ id: existing.id, type: 'yard_stagnation', isNew: false })
+    const existingList = db.prepare(
+      `SELECT id, status FROM problem_orders WHERE container_id = ? AND type = 'yard_stagnation' ORDER BY id`
+    ).all(c.id) as ExistingProblem[]
+    const decision = shouldCreateNewProblem(existingList)
+    if (!decision.create) {
+      if (decision.latestId) {
+        detected.push({ id: decision.latestId, type: 'yard_stagnation', isNew: false })
+      }
       continue
     }
 
