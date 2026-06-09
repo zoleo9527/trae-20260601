@@ -130,6 +130,7 @@ export default function PackageDetail() {
             const Icon = STATUS_ICONS[event.status] || Inbox
             const isLast = idx === pkg.timeline.length - 1
             const isProblem = event.status === 'problem'
+            const isVerified = event.status === 'verified'
 
             return (
               <div key={event.id} className="relative flex gap-4 pb-6 last:pb-0">
@@ -155,25 +156,57 @@ export default function PackageDetail() {
                     )}
                   </div>
 
-                  <div className="flex items-center gap-3 text-xs text-zinc-500">
-                    <span className="flex items-center gap-1">
-                      <User size={12} />
-                      {event.operator}
-                    </span>
-                    <span className="px-1.5 py-0.5 bg-zinc-100 rounded text-[10px]">
-                      {ROLE_LABELS[event.role]}
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <Clock size={12} />
-                      {new Date(event.timestamp).toLocaleString('zh-CN')}
-                    </span>
-                  </div>
-
-                  {event.note && (
-                    <div className="mt-2 flex items-start gap-1.5 text-xs text-zinc-600 bg-zinc-50 rounded-lg p-2.5">
-                      <MessageSquare size={12} className="shrink-0 mt-0.5 text-zinc-400" />
-                      {event.note}
+                  {isVerified ? (
+                    <div className="mt-2 bg-emerald-50 border border-emerald-200 rounded-lg p-3 space-y-2">
+                      <div className="flex items-center gap-4 text-xs">
+                        <span className="flex items-center gap-1.5 text-emerald-800 font-medium">
+                          <User size={13} className="text-emerald-600" />
+                          取件人：{event.pickupPerson || '未记录'}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-3 text-xs text-emerald-700">
+                        <span className="flex items-center gap-1">
+                          <User size={12} />
+                          核销确认：{event.operator}
+                        </span>
+                        <span className="px-1.5 py-0.5 bg-emerald-100 rounded text-[10px] font-medium">
+                          {ROLE_LABELS[event.role]}
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <Clock size={12} />
+                          {new Date(event.timestamp).toLocaleString('zh-CN')}
+                        </span>
+                      </div>
+                      {event.note && (
+                        <div className="flex items-start gap-1.5 text-xs text-emerald-700">
+                          <MessageSquare size={12} className="shrink-0 mt-0.5 text-emerald-500" />
+                          {event.note}
+                        </div>
+                      )}
                     </div>
+                  ) : (
+                    <>
+                      <div className="flex items-center gap-3 text-xs text-zinc-500">
+                        <span className="flex items-center gap-1">
+                          <User size={12} />
+                          {event.operator}
+                        </span>
+                        <span className="px-1.5 py-0.5 bg-zinc-100 rounded text-[10px]">
+                          {ROLE_LABELS[event.role]}
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <Clock size={12} />
+                          {new Date(event.timestamp).toLocaleString('zh-CN')}
+                        </span>
+                      </div>
+
+                      {event.note && (
+                        <div className="mt-2 flex items-start gap-1.5 text-xs text-zinc-600 bg-zinc-50 rounded-lg p-2.5">
+                          <MessageSquare size={12} className="shrink-0 mt-0.5 text-zinc-400" />
+                          {event.note}
+                        </div>
+                      )}
+                    </>
                   )}
                 </div>
               </div>
