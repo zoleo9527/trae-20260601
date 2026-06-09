@@ -382,7 +382,7 @@ export default function PurchaseDetail() {
 
       {showEdit && data && (
         <EditPurchaseModal
-          purchase={data}
+          purchaseId={data.id}
           onClose={() => setShowEdit(false)}
           onSaved={() => { setShowEdit(false); fetchData() }}
         />

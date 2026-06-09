@@ -255,7 +255,7 @@ export default function PurchaseList() {
 
       {editPurchase && (
         <EditPurchaseModal
-          purchase={editPurchase}
+          purchaseId={editPurchase.id}
           onClose={() => setEditPurchase(null)}
           onSaved={() => { setEditPurchase(null); fetchData() }}
         />
