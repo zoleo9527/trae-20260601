@@ -146,6 +146,9 @@ const Store = {
             type: 'note_synced',
             title: '签约新增备注',
             detail: '刘芳(护士)添加签约备注',
+            priority: 'medium',
+            priorityReason: '备注同步默认中优先级',
+            lastChangedAt: '2026-06-01 10:15',
             createdAt: '2026-06-01 10:15',
             confirmed: false,
             confirmedBy: '',
@@ -242,20 +245,47 @@ const Store = {
     return this._cache.archives.filter(a => a.changeAlerts && a.changeAlerts.some(ca => !ca.confirmed));
   },
 
+  _priorityForType(type) {
+    const map = {
+      'contract_returned': 'high',
+      'contract_modified': 'high',
+      'note_synced': 'medium',
+      'contract_supplemented': 'medium',
+      'contract_reopened': 'low'
+    };
+    return map[type] || 'medium';
+  },
+
+  _priorityReasonForType(type) {
+    const map = {
+      'contract_returned': '签约退回影响建档流程，需优先确认',
+      'contract_modified': '签约内容变更可能影响健康记录，需优先确认',
+      'note_synced': '备注同步为信息性通知，中优先级',
+      'contract_supplemented': '签约补充信息后需跟进建档，中优先级',
+      'contract_reopened': '签约恢复处理为状态通知，低优先级'
+    };
+    return map[type] || '默认中优先级';
+  },
+
   _addChangeAlertToArchive(archive, type, title, detail) {
     if (!archive.changeAlerts) archive.changeAlerts = [];
+    const now = this._now();
+    const priority = this._priorityForType(type);
     const alert = {
       id: `ca-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
       type,
       title,
       detail,
-      createdAt: this._now(),
+      priority,
+      priorityReason: this._priorityReasonForType(type),
+      lastChangedAt: now,
+      createdAt: now,
       confirmed: false,
       confirmedBy: '',
       confirmedAt: ''
     };
     archive.changeAlerts.push(alert);
-    archive.updatedAt = this._now();
+    archive.updatedAt = now;
     return alert;
   },
 

@@ -25,12 +25,18 @@ const RecentModule = {
           </div>
           ${archivesWithUnconfirmed.map(a => {
             const unconfirmed = (a.changeAlerts || []).filter(ca => !ca.confirmed);
+            const hasHigh = unconfirmed.some(ca => ca.priority === 'high');
+            const lastChangedAt = ArchiveModule._getLastChangedAt(a);
+            const responsible = ArchiveModule._getResponsiblePerson(a);
             return `
-              <div class="recent-item" style="border-color:#fbbf24;background:#fff" onclick="ArchiveModule.showDetail('${a.id}')">
-                <span class="recent-type recent-type-archive">变更</span>
+              <div class="recent-item" style="border-color:${hasHigh ? '#dc2626' : '#fbbf24'};background:${hasHigh ? '#fef2f2' : '#fff'}" onclick="ArchiveModule.showDetail('${a.id}')">
+                <span class="recent-type ${hasHigh ? 'recent-type-high' : 'recent-type-archive'}">${hasHigh ? '高' : '变更'}</span>
                 <div style="flex:1">
-                  <div class="recent-label">${a.familyHeadName} · ${a.id}</div>
+                  <div class="recent-label">${a.familyHeadName} · ${a.id}${hasHigh ? ' <span class="priority-badge priority-high" style="font-size:10px">高优先级</span>' : ''}</div>
                   <div style="font-size:12px;color:#92400e">${unconfirmed.length}条未确认：${unconfirmed.map(ca => ca.title).join('、')}</div>
+                  <div style="font-size:11px;color:var(--text-light);margin-top:2px">
+                    负责人：${responsible} | 最后变更：${lastChangedAt}
+                  </div>
                 </div>
                 <span class="contract-change-flag">${unconfirmed.length}条待确认</span>
               </div>

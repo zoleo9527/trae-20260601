@@ -1,5 +1,7 @@
 const ArchiveModule = {
   _currentFilter: 'all',
+  _priorityFilter: 'all',
+  _typeFilter: 'all',
   _searchTerm: '',
 
   init() {},
@@ -9,14 +11,67 @@ const ArchiveModule = {
     return archive.changeAlerts.filter(ca => !ca.confirmed).length;
   },
 
+  _getHighestPriority(archive) {
+    if (!archive.changeAlerts) return null;
+    const unconfirmed = archive.changeAlerts.filter(ca => !ca.confirmed);
+    if (unconfirmed.length === 0) return null;
+    const order = { high: 0, medium: 1, low: 2 };
+    return unconfirmed.sort((a, b) => (order[a.priority] || 1) - (order[b.priority] || 1))[0].priority;
+  },
+
+  _getLastChangedAt(archive) {
+    if (!archive.changeAlerts) return '';
+    const unconfirmed = archive.changeAlerts.filter(ca => !ca.confirmed);
+    if (unconfirmed.length === 0) return archive.updatedAt;
+    return unconfirmed.sort((a, b) => b.lastChangedAt.localeCompare(a.lastChangedAt))[0].lastChangedAt;
+  },
+
+  _getResponsiblePerson(archive) {
+    const contract = Store.getContract(archive.contractId);
+    return contract ? contract.assignedPHS : archive.createdBy;
+  },
+
+  _priorityBadge(priority) {
+    const cls = { high: 'priority-high', medium: 'priority-medium', low: 'priority-low' };
+    const labels = { high: '高', medium: '中', low: '低' };
+    return `<span class="priority-badge ${cls[priority] || ''}">${labels[priority] || priority}</span>`;
+  },
+
+  _typeLabel(type) {
+    const labels = {
+      'note_synced': '备注同步',
+      'contract_returned': '签约退回',
+      'contract_supplemented': '签约补充',
+      'contract_modified': '签约修改',
+      'contract_reopened': '签约恢复'
+    };
+    return labels[type] || type;
+  },
+
   render() {
     const archives = Store.getArchives();
     const unconfirmedTotal = archives.filter(a => this._getUnconfirmedCount(a) > 0).length;
+
+    const highCount = archives.filter(a => this._getHighestPriority(a) === 'high').length;
+
     const filtered = archives.filter(a => {
       if (this._currentFilter === '__unconfirmed__') {
-        return this._getUnconfirmedCount(a) > 0;
+        if (this._getUnconfirmedCount(a) === 0) return false;
+      } else if (this._currentFilter !== 'all' && a.status !== this._currentFilter) {
+        return false;
       }
-      if (this._currentFilter !== 'all' && a.status !== this._currentFilter) return false;
+
+      if (this._priorityFilter !== 'all') {
+        const hp = this._getHighestPriority(a);
+        const hasMatchingPriority = (a.changeAlerts || []).filter(ca => !ca.confirmed).some(ca => ca.priority === this._priorityFilter);
+        if (!hasMatchingPriority && hp !== this._priorityFilter) return false;
+      }
+
+      if (this._typeFilter !== 'all') {
+        const hasMatchingType = (a.changeAlerts || []).filter(ca => !ca.confirmed).some(ca => ca.type === this._typeFilter);
+        if (!hasMatchingType) return false;
+      }
+
       if (this._searchTerm) {
         const s = this._searchTerm.toLowerCase();
         return a.familyHeadName.toLowerCase().includes(s) || a.id.toLowerCase().includes(s) || a.contractId.toLowerCase().includes(s);
@@ -44,8 +99,22 @@ const ArchiveModule = {
             <option value="已补充" ${this._currentFilter==='已补充'?'selected':''}>已补充 (${statusCounts['已补充']})</option>
             <option value="已关闭" ${this._currentFilter==='已关闭'?'selected':''}>已关闭 (${statusCounts['已关闭']})</option>
           </select>
+          <select onchange="ArchiveModule._priorityFilter=this.value;App.refreshPage()">
+            <option value="all" ${this._priorityFilter==='all'?'selected':''}>全部优先级</option>
+            <option value="high" ${this._priorityFilter==='high'?'selected':''}>高优先级 (${highCount})</option>
+            <option value="medium" ${this._priorityFilter==='medium'?'selected':''}>中优先级</option>
+            <option value="low" ${this._priorityFilter==='low'?'selected':''}>低优先级</option>
+          </select>
+          <select onchange="ArchiveModule._typeFilter=this.value;App.refreshPage()">
+            <option value="all" ${this._typeFilter==='all'?'selected':''}>全部变更类型</option>
+            <option value="contract_returned" ${this._typeFilter==='contract_returned'?'selected':''}>签约退回</option>
+            <option value="contract_modified" ${this._typeFilter==='contract_modified'?'selected':''}>签约修改</option>
+            <option value="note_synced" ${this._typeFilter==='note_synced'?'selected':''}>备注同步</option>
+            <option value="contract_supplemented" ${this._typeFilter==='contract_supplemented'?'selected':''}>签约补充</option>
+            <option value="contract_reopened" ${this._typeFilter==='contract_reopened'?'selected':''}>签约恢复</option>
+          </select>
         </div>
-        ${filtered.length === 0 ? '<div class="empty-state"><div class="empty-state-icon">📁</div><div class="empty-state-text">暂无建档记录</div></div>' : `
+        ${filtered.length === 0 ? '<div class="empty-state"><div class="empty-state-icon">📁</div><div class="empty-state-text">暂无匹配的建档记录</div></div>' : `
         <table>
           <thead>
             <tr>
@@ -53,22 +122,27 @@ const ArchiveModule = {
               <th>关联签约</th>
               <th>户主</th>
               <th>状态</th>
+              <th>最高优先级</th>
               <th>签约变更</th>
-              <th>更新时间</th>
+              <th>最后变更</th>
               <th>建档人</th>
             </tr>
           </thead>
           <tbody>
             ${filtered.map(a => {
               const unconfirmedCount = this._getUnconfirmedCount(a);
+              const highestPriority = this._getHighestPriority(a);
+              const lastChangedAt = this._getLastChangedAt(a);
+              const unconfirmedTypes = [...new Set((a.changeAlerts || []).filter(ca => !ca.confirmed).map(ca => ca.type))];
               return `
-                <tr onclick="ArchiveModule.showDetail('${a.id}')">
+                <tr onclick="ArchiveModule.showDetail('${a.id}')" ${highestPriority === 'high' ? 'style="background:#fffbeb"' : ''}>
                   <td><strong>${a.id}</strong></td>
                   <td><a class="archive-linked" onclick="event.stopPropagation();App.navigateTo('contract-detail','${a.contractId}')">${a.contractId}</a></td>
                   <td>${a.familyHeadName}</td>
                   <td>${this._statusBadge(a.status)}</td>
-                  <td>${unconfirmedCount > 0 ? `<span class="contract-change-flag">⚡ ${unconfirmedCount}条未确认</span>` : '<span style="color:var(--text-light);font-size:12px">-</span>'}</td>
-                  <td>${a.updatedAt}</td>
+                  <td>${highestPriority ? this._priorityBadge(highestPriority) : '<span style="color:var(--text-light);font-size:12px">-</span>'}</td>
+                  <td>${unconfirmedCount > 0 ? `<span class="contract-change-flag">⚡ ${unconfirmedCount}条未确认</span><br><span style="font-size:11px;color:var(--text-secondary)">${unconfirmedTypes.map(t => this._typeLabel(t)).join('、')}</span>` : '<span style="color:var(--text-light);font-size:12px">-</span>'}</td>
+                  <td style="font-size:12px">${lastChangedAt || '-'}</td>
                   <td>${a.createdBy}</td>
                 </tr>
               `;
@@ -77,18 +151,6 @@ const ArchiveModule = {
         </table>`}
       </div>
     `;
-  },
-
-  _changeLabel(action) {
-    const labels = {
-      'note_synced': '新备注同步',
-      'contract_returned': '签约被退回',
-      'contract_supplemented': '签约已补充',
-      'contract_modified': '签约已修改',
-      'contract_reopened': '签约恢复处理',
-      'updated': '已更新'
-    };
-    return labels[action] || action;
   },
 
   _statusBadge(status) {
@@ -124,25 +186,39 @@ const ArchiveModule = {
 
     const unconfirmedAlerts = (archive.changeAlerts || []).filter(ca => !ca.confirmed);
     const confirmedAlerts = (archive.changeAlerts || []).filter(ca => ca.confirmed);
+    const hasHighPriority = unconfirmedAlerts.some(ca => ca.priority === 'high');
+    const sortedUnconfirmed = [...unconfirmedAlerts].sort((a, b) => {
+      const order = { high: 0, medium: 1, low: 2 };
+      return (order[a.priority] || 1) - (order[b.priority] || 1);
+    });
 
     return `
       <div class="split-view">
         <div>
-          ${unconfirmedAlerts.length > 0 ? `
-            <div class="card" style="border:2px solid #f59e0b;background:#fffbeb">
+          ${sortedUnconfirmed.length > 0 ? `
+            <div class="card" style="border:2px solid ${hasHighPriority ? '#dc2626' : '#f59e0b'};background:${hasHighPriority ? '#fef2f2' : '#fffbeb'}">
               <div class="card-header">
-                <div class="card-title" style="color:#92400e">⚡ 签约变更提醒（${unconfirmedAlerts.length}条未确认）</div>
-                <button class="btn btn-warning btn-sm" onclick="ArchiveModule.doConfirmAllAlerts('${archiveId}')">全部已知悉</button>
+                <div class="card-title" style="color:${hasHighPriority ? '#991b1b' : '#92400e'}">
+                  ${hasHighPriority ? '🔴' : '⚡'} 签约变更提醒（${sortedUnconfirmed.length}条未确认${hasHighPriority ? '，含高优先级' : ''}）
+                </div>
+                <button class="btn ${hasHighPriority ? 'btn-danger' : 'btn-warning'} btn-sm" onclick="ArchiveModule.doConfirmAllAlerts('${archiveId}')">全部已知悉</button>
               </div>
-              ${unconfirmedAlerts.map(ca => `
-                <div class="change-alert" style="margin-bottom:8px">
-                  <span class="change-alert-icon">⚡</span>
-                  <div style="flex:1">
-                    <div class="change-alert-text"><strong>${ca.title}</strong></div>
-                    <div style="font-size:12px;color:#78350f">${ca.detail}</div>
-                    <div class="change-alert-time">${ca.createdAt}</div>
+              ${sortedUnconfirmed.map(ca => `
+                <div class="change-alert" style="margin-bottom:8px;${ca.priority === 'high' ? 'border-left:3px solid #dc2626;' : ''}">
+                  <div style="display:flex;align-items:flex-start;gap:8px">
+                    <div style="flex-shrink:0;margin-top:2px">${this._priorityBadge(ca.priority)}</div>
+                    <div style="flex:1">
+                      <div style="display:flex;justify-content:space-between;align-items:center">
+                        <div class="change-alert-text"><strong>${ca.title}</strong> <span style="font-size:11px;color:var(--text-light)">${this._typeLabel(ca.type)}</span></div>
+                      </div>
+                      <div style="font-size:12px;color:${ca.priority === 'high' ? '#7f1d1d' : '#78350f'}">${ca.detail}</div>
+                      <div style="font-size:11px;color:${ca.priority === 'high' ? '#991b1b' : '#92400e'};margin-top:2px">
+                        优先级来源：${ca.priorityReason || '-'}
+                      </div>
+                      <div class="change-alert-time">变更时间：${ca.lastChangedAt || ca.createdAt}</div>
+                    </div>
+                    <button class="btn btn-outline btn-sm" onclick="ArchiveModule.doConfirmAlert('${archiveId}','${ca.id}')" style="flex-shrink:0">已知悉</button>
                   </div>
-                  <button class="btn btn-outline btn-sm" onclick="ArchiveModule.doConfirmAlert('${archiveId}','${ca.id}')">已知悉</button>
                 </div>
               `).join('')}
             </div>
@@ -244,14 +320,17 @@ const ArchiveModule = {
             <div class="card">
               <div class="card-header"><div class="card-title">已确认变更记录</div></div>
               ${confirmedAlerts.map(ca => `
-                <div style="padding:8px 12px;border-left:3px solid var(--success);background:#f0fdf4;border-radius:0 6px 6px 0;margin-bottom:6px">
+                <div style="padding:8px 12px;border-left:3px solid ${ca.priority === 'high' ? '#dc2626' : ca.priority === 'medium' ? '#d97706' : '#6b7280'};background:#f8fafc;border-radius:0 6px 6px 0;margin-bottom:6px">
                   <div style="display:flex;justify-content:space-between;align-items:center">
-                    <span style="font-size:13px;font-weight:500">${ca.title}</span>
+                    <span style="font-size:13px;font-weight:500">${ca.title} ${this._priorityBadge(ca.priority)}</span>
                     <span class="status-badge status-closed">已确认</span>
                   </div>
                   <div style="font-size:12px;color:var(--text-secondary);margin-top:2px">${ca.detail}</div>
                   <div style="font-size:11px;color:var(--text-light);margin-top:2px">
-                    变更时间：${ca.createdAt} → 确认人：${ca.confirmedBy}（${ca.confirmedAt}）
+                    变更时间：${ca.lastChangedAt || ca.createdAt} → 确认人：${ca.confirmedBy}（${ca.confirmedAt}）
+                  </div>
+                  <div style="font-size:11px;color:var(--text-light)">
+                    优先级：${ca.priority === 'high' ? '高' : ca.priority === 'medium' ? '中' : '低'} | 来源：${ca.priorityReason || '-'}
                   </div>
                 </div>
               `).join('')}
@@ -467,7 +546,7 @@ const ArchiveModule = {
   doConfirmAlert(archiveId, alertId) {
     const result = Store.confirmChangeAlert(archiveId, alertId);
     if (result) {
-      App.toast(`变更已确认：${result.title}（确认人：${result.confirmedBy}）`);
+      App.toast(`变更已确认：${result.title}（${result.priority === 'high' ? '高' : result.priority === 'medium' ? '中' : '低'}优先级，确认人：${result.confirmedBy}）`);
     } else {
       App.toast('确认失败，变更可能已确认或不存在');
     }
