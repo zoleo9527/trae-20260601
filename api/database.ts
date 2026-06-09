@@ -117,6 +117,11 @@ function initTables() {
   if (!cols.some(c => c.name === 'expected_slot')) {
     db.exec('ALTER TABLE containers ADD COLUMN expected_slot TEXT')
   }
+
+  const problemCols = db.prepare("PRAGMA table_info(problem_orders)").all() as any[]
+  if (!problemCols.some(c => c.name === 'fingerprint')) {
+    db.exec('ALTER TABLE problem_orders ADD COLUMN fingerprint TEXT')
+  }
 }
 
 function seedData() {

@@ -15,50 +15,82 @@ interface DetectedProblem {
 interface ExistingProblem {
   id: number
   status: string
+  fingerprint: string | null
+}
+
+/**
+ * 生成问题单的业务事实指纹
+ * 指纹是稳定的，相同业务事实会生成相同指纹
+ */
+function generateFingerprint(type: string, params: Record<string, string | number>): string {
+  const parts: string[] = [type]
+  
+  switch (type) {
+    case 'misplaced':
+      parts.push(String(params.container_id), String(params.expected_slot || ''), String(params.yard_slot || ''))
+      break
+    case 'overdue':
+    case 'expiring_soon':
+    case 'stuck_inspecting':
+    case 'no_inspection':
+    case 'yard_stagnation':
+      parts.push(String(params.container_id))
+      break
+    case 'missed_notify':
+    case 'detained':
+      parts.push(String(params.inspection_id))
+      break
+    case 'stuck_move':
+      parts.push(String(params.move_task_id))
+      break
+    default:
+      parts.push(String(params.container_id || params.inspection_id || params.move_task_id || 'unknown'))
+  }
+  
+  return parts.join('_')
 }
 
 /**
  * 检查已存在问题单的状态，决定是否需要创建新的问题单
- * - rejected: 不重开（同一业务事实已确认不需要处理）
- * - open: 不重复（避免重复待处理）
- * - rescheduled/supplemented: 风险再次暴露，创建新的 open 问题单
- * 
- * 需要查询所有相关问题单，综合判断：
- * - 如果存在任何 rejected 状态的问题单，不创建新的
- * - 如果存在任何 open 状态的问题单，不创建新的
- * - 如果存在 rescheduled/supplemented 状态的问题单，创建新的
+ * 基于业务事实指纹进行匹配：
+ * - 如果存在同指纹的 rejected 状态问题单，不创建新的（同一业务事实已确认不需要处理）
+ * - 如果存在同指纹的 open 状态问题单，不创建新的（避免重复待处理）
+ * - 如果存在同指纹的 rescheduled/supplemented 状态问题单，创建新的（风险再次暴露）
  */
-function shouldCreateNewProblem(existingList: ExistingProblem[]): { create: boolean; latestId: number | null } {
-  if (existingList.length === 0) {
+function shouldCreateNewProblem(existingList: ExistingProblem[], fingerprint: string): { create: boolean; latestId: number | null } {
+  const sameFingerprintList = existingList.filter(p => p.fingerprint === fingerprint)
+  
+  if (sameFingerprintList.length === 0) {
     return { create: true, latestId: null }
   }
   
-  // 检查是否存在 rejected 状态的问题单
-  const hasRejected = existingList.some(p => p.status === 'rejected')
+  // 检查是否存在同指纹的 rejected 状态问题单
+  const hasRejected = sameFingerprintList.some(p => p.status === 'rejected')
   if (hasRejected) {
-    return { create: false, latestId: existingList[existingList.length - 1].id }
+    return { create: false, latestId: sameFingerprintList[sameFingerprintList.length - 1].id }
   }
   
-  // 检查是否存在 open 状态的问题单
-  const hasOpen = existingList.some(p => p.status === 'open')
+  // 检查是否存在同指纹的 open 状态问题单
+  const hasOpen = sameFingerprintList.some(p => p.status === 'open')
   if (hasOpen) {
-    return { create: false, latestId: existingList.find(p => p.status === 'open')?.id || existingList[0].id }
+    const openProblem = sameFingerprintList.find(p => p.status === 'open')
+    return { create: false, latestId: openProblem?.id || sameFingerprintList[0].id }
   }
   
-  // 检查是否存在 resolved 状态的问题单（风险已解决，可以重新检测）
-  const hasResolved = existingList.some(p => p.status === 'resolved')
-  if (hasResolved && !hasRejected && !hasOpen) {
+  // 检查是否存在同指纹的 resolved 状态问题单（风险已解决，可以重新检测）
+  const hasResolved = sameFingerprintList.some(p => p.status === 'resolved')
+  if (hasResolved) {
     return { create: true, latestId: null }
   }
   
-  // 检查是否存在 rescheduled/supplemented 状态的问题单（风险再次暴露）
-  const hasRescheduledOrSupplemented = existingList.some(p => p.status === 'rescheduled' || p.status === 'supplemented')
-  if (hasRescheduledOrSupplemented && !hasRejected && !hasOpen) {
-    return { create: true, latestId: existingList[existingList.length - 1].id }
+  // 检查是否存在同指纹的 rescheduled/supplemented 状态问题单（风险再次暴露）
+  const hasRescheduledOrSupplemented = sameFingerprintList.some(p => p.status === 'rescheduled' || p.status === 'supplemented')
+  if (hasRescheduledOrSupplemented) {
+    return { create: true, latestId: sameFingerprintList[sameFingerprintList.length - 1].id }
   }
   
   // 其他状态：不创建新的
-  return { create: false, latestId: existingList[existingList.length - 1].id }
+  return { create: false, latestId: sameFingerprintList[sameFingerprintList.length - 1].id }
 }
 
 export function detectProblems(containerId?: number): DetectedProblem[] {
@@ -74,10 +106,16 @@ export function detectProblems(containerId?: number): DetectedProblem[] {
   ).all() as any[]
 
   for (const c of misplacedContainers) {
+    const fingerprint = generateFingerprint('misplaced', { 
+      container_id: c.id, 
+      expected_slot: c.expected_slot, 
+      yard_slot: c.yard_slot 
+    })
+    
     const existingList = db.prepare(
-      `SELECT id, status FROM problem_orders WHERE container_id = ? AND type = 'misplaced' ORDER BY id`
+      `SELECT id, status, fingerprint FROM problem_orders WHERE container_id = ? AND type = 'misplaced' ORDER BY id`
     ).all(c.id) as ExistingProblem[]
-    const decision = shouldCreateNewProblem(existingList)
+    const decision = shouldCreateNewProblem(existingList, fingerprint)
     if (!decision.create) {
       if (decision.latestId) {
         detected.push({ id: decision.latestId, type: 'misplaced', isNew: false })
@@ -109,8 +147,8 @@ export function detectProblems(containerId?: number): DetectedProblem[] {
 
     const actionData = JSON.stringify({ expected: c.expected_slot, actual: c.yard_slot })
     const result = db.prepare(
-      `INSERT INTO problem_orders (container_id, type, severity, status, description, cause, cause_chain, action_data, detected_at, updated_at) VALUES (?, 'misplaced', 'critical', 'open', ?, ?, ?, ?, ?, ?)`
-    ).run(c.id, `错放箱: 登记${c.expected_slot}实际${c.yard_slot}`, cause, JSON.stringify(chain), actionData, nowStr, nowStr)
+      `INSERT INTO problem_orders (container_id, type, severity, status, description, cause, cause_chain, action_data, fingerprint, detected_at, updated_at) VALUES (?, 'misplaced', 'critical', 'open', ?, ?, ?, ?, ?, ?, ?)`
+    ).run(c.id, `错放箱: 登记${c.expected_slot}实际${c.yard_slot}`, cause, JSON.stringify(chain), actionData, fingerprint, nowStr, nowStr)
     detected.push({ id: Number(result.lastInsertRowid), type: 'misplaced', isNew: true })
   }
 
@@ -119,10 +157,12 @@ export function detectProblems(containerId?: number): DetectedProblem[] {
   ).all(nowStr) as any[]
 
   for (const c of overdueContainers) {
+    const fingerprint = generateFingerprint('overdue', { container_id: c.id })
+    
     const existingList = db.prepare(
-      `SELECT id, status FROM problem_orders WHERE container_id = ? AND type = 'overdue' ORDER BY id`
+      `SELECT id, status, fingerprint FROM problem_orders WHERE container_id = ? AND type = 'overdue' ORDER BY id`
     ).all(c.id) as ExistingProblem[]
-    const decision = shouldCreateNewProblem(existingList)
+    const decision = shouldCreateNewProblem(existingList, fingerprint)
     if (!decision.create) {
       if (decision.latestId) {
         detected.push({ id: decision.latestId, type: 'overdue', isNew: false })
@@ -146,8 +186,8 @@ export function detectProblems(containerId?: number): DetectedProblem[] {
     chain.push({ event: 'free_storage_expired', time: nowStr, detail: `免堆期已过期${diffDays}天，超期堆存费争议风险` })
 
     const result = db.prepare(
-      `INSERT INTO problem_orders (container_id, type, severity, status, description, cause, cause_chain, action_data, detected_at, updated_at) VALUES (?, 'overdue', 'critical', 'open', ?, ?, ?, '{}', ?, ?)`
-    ).run(c.id, `免堆期已过期，超期${diffDays}天未提箱`, cause, JSON.stringify(chain), nowStr, nowStr)
+      `INSERT INTO problem_orders (container_id, type, severity, status, description, cause, cause_chain, action_data, fingerprint, detected_at, updated_at) VALUES (?, 'overdue', 'critical', 'open', ?, ?, ?, '{}', ?, ?, ?)`
+    ).run(c.id, `免堆期已过期，超期${diffDays}天未提箱`, cause, JSON.stringify(chain), fingerprint, nowStr, nowStr)
     detected.push({ id: Number(result.lastInsertRowid), type: 'overdue', isNew: true })
   }
 
@@ -157,10 +197,12 @@ export function detectProblems(containerId?: number): DetectedProblem[] {
   ).all(nowStr, expiringSoon) as any[]
 
   for (const c of expiringContainers) {
+    const fingerprint = generateFingerprint('expiring_soon', { container_id: c.id })
+    
     const existingList = db.prepare(
-      `SELECT id, status FROM problem_orders WHERE container_id = ? AND type = 'expiring_soon' ORDER BY id`
+      `SELECT id, status, fingerprint FROM problem_orders WHERE container_id = ? AND type = 'expiring_soon' ORDER BY id`
     ).all(c.id) as ExistingProblem[]
-    const decision = shouldCreateNewProblem(existingList)
+    const decision = shouldCreateNewProblem(existingList, fingerprint)
     if (!decision.create) {
       if (decision.latestId) {
         detected.push({ id: decision.latestId, type: 'expiring_soon', isNew: false })
@@ -183,8 +225,8 @@ export function detectProblems(containerId?: number): DetectedProblem[] {
     }
 
     const result = db.prepare(
-      `INSERT INTO problem_orders (container_id, type, severity, status, description, cause, cause_chain, action_data, detected_at, updated_at) VALUES (?, 'expiring_soon', 'warning', 'open', ?, ?, ?, '{}', ?, ?)`
-    ).run(c.id, `免堆期即将到期，剩余${diffHours}小时`, cause, JSON.stringify(chain), nowStr, nowStr)
+      `INSERT INTO problem_orders (container_id, type, severity, status, description, cause, cause_chain, action_data, fingerprint, detected_at, updated_at) VALUES (?, 'expiring_soon', 'warning', 'open', ?, ?, ?, '{}', ?, ?, ?)`
+    ).run(c.id, `免堆期即将到期，剩余${diffHours}小时`, cause, JSON.stringify(chain), fingerprint, nowStr, nowStr)
     detected.push({ id: Number(result.lastInsertRowid), type: 'expiring_soon', isNew: true })
   }
 
@@ -194,10 +236,12 @@ export function detectProblems(containerId?: number): DetectedProblem[] {
   ).all(soonThreshold) as any[]
 
   for (const insp of missedInspections) {
+    const fingerprint = generateFingerprint('missed_notify', { inspection_id: insp.id })
+    
     const existingList = db.prepare(
-      `SELECT id, status FROM problem_orders WHERE inspection_id = ? AND type = 'missed_notify' ORDER BY id`
+      `SELECT id, status, fingerprint FROM problem_orders WHERE inspection_id = ? AND type = 'missed_notify' ORDER BY id`
     ).all(insp.id) as ExistingProblem[]
-    const decision = shouldCreateNewProblem(existingList)
+    const decision = shouldCreateNewProblem(existingList, fingerprint)
     if (!decision.create) {
       if (decision.latestId) {
         detected.push({ id: decision.latestId, type: 'missed_notify', isNew: false })
@@ -219,8 +263,8 @@ export function detectProblems(containerId?: number): DetectedProblem[] {
     }
 
     const result = db.prepare(
-      `INSERT INTO problem_orders (container_id, inspection_id, type, severity, status, description, cause, cause_chain, action_data, detected_at, updated_at) VALUES (?, ?, 'missed_notify', 'critical', 'open', ?, ?, ?, '{}', ?, ?)`
-    ).run(insp.container_id, insp.id, '查验计划已生成但未通知客户', cause, JSON.stringify(chain), nowStr, nowStr)
+      `INSERT INTO problem_orders (container_id, inspection_id, type, severity, status, description, cause, cause_chain, action_data, fingerprint, detected_at, updated_at) VALUES (?, ?, 'missed_notify', 'critical', 'open', ?, ?, ?, '{}', ?, ?, ?)`
+    ).run(insp.container_id, insp.id, '查验计划已生成但未通知客户', cause, JSON.stringify(chain), fingerprint, nowStr, nowStr)
     detected.push({ id: Number(result.lastInsertRowid), type: 'missed_notify', isNew: true })
   }
 
@@ -229,10 +273,12 @@ export function detectProblems(containerId?: number): DetectedProblem[] {
   ).all() as any[]
 
   for (const insp of detainedInspections) {
+    const fingerprint = generateFingerprint('detained', { inspection_id: insp.id })
+    
     const existingList = db.prepare(
-      `SELECT id, status FROM problem_orders WHERE inspection_id = ? AND type = 'detained' ORDER BY id`
+      `SELECT id, status, fingerprint FROM problem_orders WHERE inspection_id = ? AND type = 'detained' ORDER BY id`
     ).all(insp.id) as ExistingProblem[]
-    const decision = shouldCreateNewProblem(existingList)
+    const decision = shouldCreateNewProblem(existingList, fingerprint)
     if (!decision.create) {
       if (decision.latestId) {
         detected.push({ id: decision.latestId, type: 'detained', isNew: false })
@@ -251,8 +297,8 @@ export function detectProblems(containerId?: number): DetectedProblem[] {
     ]
 
     const result = db.prepare(
-      `INSERT INTO problem_orders (container_id, inspection_id, type, severity, status, description, cause, cause_chain, action_data, detected_at, updated_at) VALUES (?, ?, 'detained', 'critical', 'open', ?, ?, ?, '{}', ?, ?)`
-    ).run(insp.container_id, insp.id, '海关扣留，需等待补证材料', cause, JSON.stringify(chain), nowStr, nowStr)
+      `INSERT INTO problem_orders (container_id, inspection_id, type, severity, status, description, cause, cause_chain, action_data, fingerprint, detected_at, updated_at) VALUES (?, ?, 'detained', 'critical', 'open', ?, ?, ?, '{}', ?, ?, ?)`
+    ).run(insp.container_id, insp.id, '海关扣留，需等待补证材料', cause, JSON.stringify(chain), fingerprint, nowStr, nowStr)
     detected.push({ id: Number(result.lastInsertRowid), type: 'detained', isNew: true })
   }
 
@@ -262,10 +308,12 @@ export function detectProblems(containerId?: number): DetectedProblem[] {
   ).all(twentyFourHoursAgo) as any[]
 
   for (const c of stuckInspecting) {
+    const fingerprint = generateFingerprint('stuck_inspecting', { container_id: c.id })
+    
     const existingList = db.prepare(
-      `SELECT id, status FROM problem_orders WHERE container_id = ? AND type = 'stuck_inspecting' ORDER BY id`
+      `SELECT id, status, fingerprint FROM problem_orders WHERE container_id = ? AND type = 'stuck_inspecting' ORDER BY id`
     ).all(c.id) as ExistingProblem[]
-    const decision = shouldCreateNewProblem(existingList)
+    const decision = shouldCreateNewProblem(existingList, fingerprint)
     if (!decision.create) {
       if (decision.latestId) {
         detected.push({ id: decision.latestId, type: 'stuck_inspecting', isNew: false })
@@ -288,8 +336,8 @@ export function detectProblems(containerId?: number): DetectedProblem[] {
     chain.push({ event: 'stuck', time: nowStr, detail: `查验中状态停滞${stuckHours}小时，无法流转` })
 
     const result = db.prepare(
-      `INSERT INTO problem_orders (container_id, type, severity, status, description, cause, cause_chain, action_data, detected_at, updated_at) VALUES (?, 'stuck_inspecting', 'warning', 'open', ?, ?, ?, '{}', ?, ?)`
-    ).run(c.id, `查验停滞，进场${stuckHours}小时仍在查验中`, cause, JSON.stringify(chain), nowStr, nowStr)
+      `INSERT INTO problem_orders (container_id, type, severity, status, description, cause, cause_chain, action_data, fingerprint, detected_at, updated_at) VALUES (?, 'stuck_inspecting', 'warning', 'open', ?, ?, ?, '{}', ?, ?, ?)`
+    ).run(c.id, `查验停滞，进场${stuckHours}小时仍在查验中`, cause, JSON.stringify(chain), fingerprint, nowStr, nowStr)
     detected.push({ id: Number(result.lastInsertRowid), type: 'stuck_inspecting', isNew: true })
   }
 
@@ -299,10 +347,12 @@ export function detectProblems(containerId?: number): DetectedProblem[] {
   ).all(twelveHoursAgo) as any[]
 
   for (const mt of stuckMoveTasks) {
+    const fingerprint = generateFingerprint('stuck_move', { move_task_id: mt.id })
+    
     const existingList = db.prepare(
-      `SELECT id, status FROM problem_orders WHERE move_task_id = ? AND type = 'stuck_move' ORDER BY id`
+      `SELECT id, status, fingerprint FROM problem_orders WHERE move_task_id = ? AND type = 'stuck_move' ORDER BY id`
     ).all(mt.id) as ExistingProblem[]
-    const decision = shouldCreateNewProblem(existingList)
+    const decision = shouldCreateNewProblem(existingList, fingerprint)
     if (!decision.create) {
       if (decision.latestId) {
         detected.push({ id: decision.latestId, type: 'stuck_move', isNew: false })
@@ -328,8 +378,8 @@ export function detectProblems(containerId?: number): DetectedProblem[] {
     }
 
     const result = db.prepare(
-      `INSERT INTO problem_orders (container_id, move_task_id, type, severity, status, description, cause, cause_chain, action_data, detected_at, updated_at) VALUES (?, ?, 'stuck_move', 'warning', 'open', ?, ?, ?, '{}', ?, ?)`
-    ).run(mt.container_id, mt.id, `移箱任务超12小时未执行: ${mt.from_slot}→${mt.to_slot}`, cause, JSON.stringify(chain), nowStr, nowStr)
+      `INSERT INTO problem_orders (container_id, move_task_id, type, severity, status, description, cause, cause_chain, action_data, fingerprint, detected_at, updated_at) VALUES (?, ?, 'stuck_move', 'warning', 'open', ?, ?, ?, '{}', ?, ?, ?)`
+    ).run(mt.container_id, mt.id, `移箱任务超12小时未执行: ${mt.from_slot}→${mt.to_slot}`, cause, JSON.stringify(chain), fingerprint, nowStr, nowStr)
     detected.push({ id: Number(result.lastInsertRowid), type: 'stuck_move', isNew: true })
   }
 
@@ -339,10 +389,12 @@ export function detectProblems(containerId?: number): DetectedProblem[] {
   ).all(sixHoursAgo) as any[]
 
   for (const c of noInspectionContainers) {
+    const fingerprint = generateFingerprint('no_inspection', { container_id: c.id })
+    
     const existingList = db.prepare(
-      `SELECT id, status FROM problem_orders WHERE container_id = ? AND type = 'no_inspection' ORDER BY id`
+      `SELECT id, status, fingerprint FROM problem_orders WHERE container_id = ? AND type = 'no_inspection' ORDER BY id`
     ).all(c.id) as ExistingProblem[]
-    const decision = shouldCreateNewProblem(existingList)
+    const decision = shouldCreateNewProblem(existingList, fingerprint)
     if (!decision.create) {
       if (decision.latestId) {
         detected.push({ id: decision.latestId, type: 'no_inspection', isNew: false })
@@ -368,8 +420,8 @@ export function detectProblems(containerId?: number): DetectedProblem[] {
     }
 
     const result = db.prepare(
-      `INSERT INTO problem_orders (container_id, type, severity, status, description, cause, cause_chain, action_data, detected_at, updated_at) VALUES (?, 'no_inspection', 'warning', 'open', ?, ?, ?, '{}', ?, ?)`
-    ).run(c.id, `进场${waitHours}小时无查验计划`, cause, JSON.stringify(chain), nowStr, nowStr)
+      `INSERT INTO problem_orders (container_id, type, severity, status, description, cause, cause_chain, action_data, fingerprint, detected_at, updated_at) VALUES (?, 'no_inspection', 'warning', 'open', ?, ?, ?, '{}', ?, ?, ?)`
+    ).run(c.id, `进场${waitHours}小时无查验计划`, cause, JSON.stringify(chain), fingerprint, nowStr, nowStr)
     detected.push({ id: Number(result.lastInsertRowid), type: 'no_inspection', isNew: true })
   }
 
@@ -379,10 +431,12 @@ export function detectProblems(containerId?: number): DetectedProblem[] {
   ).all(eightHoursAgo) as any[]
 
   for (const c of stagnantContainers) {
+    const fingerprint = generateFingerprint('yard_stagnation', { container_id: c.id })
+    
     const existingList = db.prepare(
-      `SELECT id, status FROM problem_orders WHERE container_id = ? AND type = 'yard_stagnation' ORDER BY id`
+      `SELECT id, status, fingerprint FROM problem_orders WHERE container_id = ? AND type = 'yard_stagnation' ORDER BY id`
     ).all(c.id) as ExistingProblem[]
-    const decision = shouldCreateNewProblem(existingList)
+    const decision = shouldCreateNewProblem(existingList, fingerprint)
     if (!decision.create) {
       if (decision.latestId) {
         detected.push({ id: decision.latestId, type: 'yard_stagnation', isNew: false })
@@ -416,8 +470,8 @@ export function detectProblems(containerId?: number): DetectedProblem[] {
     }
 
     const result = db.prepare(
-      `INSERT INTO problem_orders (container_id, type, severity, status, description, cause, cause_chain, action_data, detected_at, updated_at) VALUES (?, 'yard_stagnation', 'warning', 'open', ?, ?, ?, '{}', ?, ?)`
-    ).run(c.id, `查验完成未移箱出场，滞留${stagnantHours}小时`, cause, JSON.stringify(chain), nowStr, nowStr)
+      `INSERT INTO problem_orders (container_id, type, severity, status, description, cause, cause_chain, action_data, fingerprint, detected_at, updated_at) VALUES (?, 'yard_stagnation', 'warning', 'open', ?, ?, ?, '{}', ?, ?, ?)`
+    ).run(c.id, `查验完成未移箱出场，滞留${stagnantHours}小时`, cause, JSON.stringify(chain), fingerprint, nowStr, nowStr)
     detected.push({ id: Number(result.lastInsertRowid), type: 'yard_stagnation', isNew: true })
   }
 
