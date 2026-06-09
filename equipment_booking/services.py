@@ -4,14 +4,13 @@ from typing import Optional
 from uuid import UUID
 
 from django.db import transaction
-from django.db.models import F
 from django.utils import timezone
 
 from equipment_booking.exceptions import BizError, ErrorCode
 from equipment_booking.idempotency import make_idempotency_key, check_idempotency, record_idempotency
 from equipment_booking.models import (
     AppointmentOrder, Assessment, UsageRecord, AlertLog, Equipment, Patient,
-    VALID_TRANSITIONS, STATUS_TIMEOUT_HOURS,
+    StaffProfile, VALID_TRANSITIONS, STATUS_TIMEOUT_HOURS,
 )
 
 
@@ -31,6 +30,35 @@ def _validate_transition(order: AppointmentOrder, target_status: str):
         )
 
 
+def _get_user_role(user) -> str:
+    try:
+        return user.staff_profile.role
+    except StaffProfile.DoesNotExist:
+        raise BizError(ErrorCode.ROLE_MISMATCH, f'用户 {user.username} 未分配角色，无法操作')
+
+
+def _validate_role(user, expected_role: str, action_desc: str):
+    role = _get_user_role(user)
+    if role != expected_role:
+        raise BizError(
+            ErrorCode.ROLE_MISMATCH,
+            f'当前角色 [{role}] 无权执行 [{action_desc}]，需要角色 [{expected_role}]',
+            {'required_role': expected_role, 'actual_role': role},
+        )
+
+
+def _release_equipment(order: AppointmentOrder):
+    if order.equipment and order.equipment.status == 'in_use':
+        order.equipment.status = 'available'
+        order.equipment.save(update_fields=['status', 'updated_at'])
+
+
+def _close_pending_alerts(order: AppointmentOrder, handler, action: str = 'returned'):
+    pending = AlertLog.objects.filter(order=order, handled='pending')
+    now = timezone.now()
+    pending.update(handled=action, handler=handler, handled_at=now)
+
+
 def _generate_order_no() -> str:
     today = timezone.now().strftime('%Y%m%d')
     prefix = f'RC{today}'
@@ -45,6 +73,8 @@ def _generate_order_no() -> str:
 
 
 def create_order_with_assessment(user, patient_id: UUID, assessment_data: dict) -> AppointmentOrder:
+    _validate_role(user, 'therapist', '创建预约单')
+
     idem_key = make_idempotency_key(user.id, 'create_order', {'patient_id': str(patient_id), **assessment_data})
     existing = check_idempotency(idem_key)
     if existing:
@@ -69,6 +99,8 @@ def create_order_with_assessment(user, patient_id: UUID, assessment_data: dict) 
 
 
 def submit_assessment(user, order_id: UUID) -> AppointmentOrder:
+    _validate_role(user, 'therapist', '提交评估')
+
     order = _get_order_or_404(order_id)
     if order.therapist_id != user.id:
         raise BizError(ErrorCode.PERMISSION_DENIED, '仅本单治疗师可提交评估')
@@ -82,6 +114,8 @@ def submit_assessment(user, order_id: UUID) -> AppointmentOrder:
 
 
 def assign_equipment(user, order_id: UUID, equipment_id: UUID, scheduled_date, time_start, time_end) -> AppointmentOrder:
+    _validate_role(user, 'receptionist', '分配器械')
+
     order = _get_order_or_404(order_id)
     _validate_transition(order, 'assigned')
 
@@ -109,6 +143,8 @@ def assign_equipment(user, order_id: UUID, equipment_id: UUID, scheduled_date, t
 
 
 def confirm_schedule(user, order_id: UUID) -> AppointmentOrder:
+    _validate_role(user, 'receptionist', '确认排班')
+
     order = _get_order_or_404(order_id)
     _validate_transition(order, 'in_use')
     if not order.equipment_id:
@@ -122,7 +158,12 @@ def confirm_schedule(user, order_id: UUID) -> AppointmentOrder:
 
 
 def add_usage_record(user, order_id: UUID, record_data: dict) -> UsageRecord:
+    _validate_role(user, 'therapist', '添加使用记录')
+
     order = _get_order_or_404(order_id)
+    if order.therapist_id != user.id:
+        raise BizError(ErrorCode.PERMISSION_DENIED, '仅本单治疗师可添加使用记录')
+
     if order.status != 'in_use':
         raise BizError(ErrorCode.INVALID_STATUS_TRANSITION, f'仅 [使用中] 状态可添加使用记录，当前: [{order.status}]')
 
@@ -138,12 +179,18 @@ def add_usage_record(user, order_id: UUID, record_data: dict) -> UsageRecord:
             order.status = 'exception'
             order.exception_reason = f'使用异常: {record_data.get("abnormal_note", "")}'
             order.save(update_fields=['status', 'exception_reason', 'updated_at'])
+            _release_equipment(order)
 
     return record
 
 
 def finish_usage(user, order_id: UUID) -> AppointmentOrder:
+    _validate_role(user, 'therapist', '结束使用')
+
     order = _get_order_or_404(order_id)
+    if order.therapist_id != user.id:
+        raise BizError(ErrorCode.PERMISSION_DENIED, '仅本单治疗师可结束使用')
+
     _validate_transition(order, 'pending_review')
 
     if not order.usage_records.exists():
@@ -155,61 +202,80 @@ def finish_usage(user, order_id: UUID) -> AppointmentOrder:
 
 
 def review_order(user, order_id: UUID, action: str) -> AppointmentOrder:
+    _validate_role(user, 'director', '审核预约单')
+
     order = _get_order_or_404(order_id)
     _validate_transition(order, 'completed')
 
     if action == 'approve':
-        order.status = 'completed'
-        order.reviewer = user
-        order.save(update_fields=['status', 'reviewer_id', 'updated_at'])
-        if order.equipment:
-            order.equipment.status = 'available'
-            order.equipment.save(update_fields=['status', 'updated_at'])
+        with transaction.atomic():
+            order.status = 'completed'
+            order.reviewer = user
+            order.save(update_fields=['status', 'reviewer_id', 'updated_at'])
+            _release_equipment(order)
+            _close_pending_alerts(order, handler=user, action='resolved')
     else:
         raise BizError(ErrorCode.INVALID_PARAMS, f'不支持的操作: {action}')
 
     return order
 
 
-def mark_exception(order_id: UUID, reason: str) -> AppointmentOrder:
+def mark_exception(user, order_id: UUID, reason: str) -> AppointmentOrder:
+    _validate_role(user, 'director', '标记异常')
+
     order = _get_order_or_404(order_id)
     _validate_transition(order, 'exception')
 
-    order.status = 'exception'
-    order.exception_reason = reason
-    order.save(update_fields=['status', 'exception_reason', 'updated_at'])
+    with transaction.atomic():
+        order.status = 'exception'
+        order.exception_reason = reason
+        order.save(update_fields=['status', 'exception_reason', 'updated_at'])
 
-    AlertLog.objects.create(
-        order=order,
-        level='error',
-        message=f'异常标记: {reason}',
-    )
+        AlertLog.objects.create(
+            order=order,
+            level='error',
+            message=f'异常标记: {reason}',
+        )
+        _release_equipment(order)
+
     return order
 
 
 def return_order(user, order_id: UUID, target_status: str, reason: str) -> AppointmentOrder:
+    _validate_role(user, 'director', '退回预约单')
+
     order = _get_order_or_404(order_id)
     if order.status != 'exception':
         raise BizError(ErrorCode.INVALID_STATUS_TRANSITION, '仅异常单可退回')
     if target_status not in VALID_TRANSITIONS.get('exception', []):
         raise BizError(ErrorCode.INVALID_STATUS_TRANSITION, f'不可退回至 [{target_status}]')
 
-    order.status = target_status
-    order.return_reason = reason
-    order.return_target_status = target_status
-    order.exception_reason = ''
-    order.reviewer = user
-    order.save(update_fields=['status', 'return_reason', 'return_target_status', 'exception_reason',
-                              'reviewer_id', 'updated_at'])
+    with transaction.atomic():
+        order.status = target_status
+        order.return_reason = reason
+        order.return_target_status = target_status
+        order.exception_reason = ''
+        order.reviewer = user
+        order.save(update_fields=['status', 'return_reason', 'return_target_status', 'exception_reason',
+                                  'reviewer_id', 'updated_at'])
 
-    AlertLog.objects.create(
-        order=order,
-        level='info',
-        message=f'退回至 [{target_status}]: {reason}',
-        handled='returned',
-        handler=user,
-        handled_at=timezone.now(),
-    )
+        if target_status in ('assigned', 'in_use') and order.equipment:
+            order.equipment.status = 'in_use'
+            order.equipment.save(update_fields=['status', 'updated_at'])
+        elif target_status in ('draft', 'pending_assign'):
+            pass
+
+        AlertLog.objects.create(
+            order=order,
+            level='info',
+            message=f'退回至 [{target_status}]: {reason}',
+            handled='returned',
+            handler=user,
+            handled_at=timezone.now(),
+        )
+
+        _close_pending_alerts(order, handler=user, action='returned')
+
     return order
 
 
@@ -226,14 +292,17 @@ def detect_stuck_orders() -> list[dict]:
 
         for order in orders:
             stuck_hours = (now - order.updated_at).total_seconds() / 3600
-            alert = AlertLog.objects.create(
-                order=order,
-                level='warning',
-                message=f'预约单在 [{order.get_status_display()}] 状态已滞留 {stuck_hours:.1f} 小时，超时阈值 {hours} 小时',
-            )
-            order.status = 'exception'
-            order.exception_reason = f'超时滞留: 在 [{status}] 状态超过 {hours} 小时'
-            order.save(update_fields=['status', 'exception_reason', 'updated_at'])
+
+            with transaction.atomic():
+                alert = AlertLog.objects.create(
+                    order=order,
+                    level='warning',
+                    message=f'预约单在 [{order.get_status_display()}] 状态已滞留 {stuck_hours:.1f} 小时，超时阈值 {hours} 小时',
+                )
+                order.status = 'exception'
+                order.exception_reason = f'超时滞留: 在 [{status}] 状态超过 {hours} 小时'
+                order.save(update_fields=['status', 'exception_reason', 'updated_at'])
+                _release_equipment(order)
 
             stuck.append({
                 'order': order,

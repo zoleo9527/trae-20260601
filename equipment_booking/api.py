@@ -118,7 +118,7 @@ def review_order_api(request, order_id: UUID, payload: ReviewOrderIn):
 
 @router.post('/orders/{order_id}/exception', response={200: OrderOut})
 def mark_exception_api(request, order_id: UUID, payload: ExceptionIn):
-    order = mark_exception(order_id=order_id, reason=payload.reason)
+    order = mark_exception(user=request.user, order_id=order_id, reason=payload.reason)
     return _order_to_out(order)
 
 

@@ -3,6 +3,25 @@ from django.db import models
 from django.conf import settings
 
 
+ROLE_CHOICES = [
+    ('therapist', '康复治疗师'),
+    ('receptionist', '前台'),
+    ('director', '主任'),
+]
+
+
+class StaffProfile(models.Model):
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='staff_profile')
+    role = models.CharField(max_length=16, choices=ROLE_CHOICES, db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'staff_profile'
+
+    def __str__(self):
+        return f'{self.user.username}({self.get_role_display()})'
+
+
 class Patient(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     name = models.CharField(max_length=64)
