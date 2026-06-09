@@ -1,0 +1,62 @@
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  font-family: "Noto Sans SC", -apple-system, BlinkMacSystemFont, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  margin: 0;
+  background: #F1F5F9;
+}
+
+@layer components {
+  .btn-primary {
+    @apply bg-port-orange hover:bg-port-orange-dark text-white px-4 py-2 rounded-lg font-medium transition-all duration-200 shadow-sm hover:shadow-md active:scale-[0.98];
+  }
+  .btn-secondary {
+    @apply border border-port-navy/20 text-port-navy hover:bg-port-navy/5 px-4 py-2 rounded-lg font-medium transition-all duration-200;
+  }
+  .btn-danger {
+    @apply bg-status-overstay hover:bg-red-700 text-white px-4 py-2 rounded-lg font-medium transition-all duration-200 shadow-sm;
+  }
+  .card {
+    @apply bg-white rounded-xl shadow-sm border border-gray-100;
+  }
+  .status-badge {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+  }
+  .sidebar-link {
+    @apply flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 text-gray-400 hover:text-white hover:bg-white/5;
+  }
+  .sidebar-link-active {
+    @apply flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium bg-port-orange/15 text-port-orange;
+  }
+}
+
+@keyframes pulse-misplaced {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); }
+  50% { box-shadow: 0 0 0 8px rgba(239, 68, 68, 0); }
+}
+
+.animate-pulse-misplaced {
+  animation: pulse-misplaced 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes blink-warning {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+.animate-blink-warning {
+  animation: blink-warning 1.5s ease-in-out infinite;
+}
