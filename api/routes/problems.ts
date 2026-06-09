@@ -222,6 +222,47 @@ router.post('/:id/supplement', (req: Request, res: Response): void => {
   }
 })
 
+router.post('/:id/change-responsible', (req: Request, res: Response): void => {
+  const db = getDb()
+  const now = new Date().toISOString().replace('T', ' ').substring(0, 19)
+  const existing = db.prepare('SELECT * FROM problem_records WHERE id = ?').get(req.params.id) as any
+  if (!existing) {
+    res.status(404).json({ success: false, error: 'Problem record not found' })
+    return
+  }
+
+  const { operatorId, operatorName, operatorRole, newResponsibleId, newResponsibleName, reason } = req.body
+
+  if (!newResponsibleId || !newResponsibleName) {
+    res.status(400).json({ success: false, error: 'newResponsibleId and newResponsibleName are required' })
+    return
+  }
+
+  const transaction = db.transaction(() => {
+    db.prepare('UPDATE problem_records SET responsible_person_id = ?, responsible_person_name = ?, updated_at = ? WHERE id = ?')
+      .run(newResponsibleId, newResponsibleName, now, req.params.id)
+
+    addHistory(db, req.params.id, 'responsible_change', operatorId, operatorName, operatorRole,
+      `责任人从 ${existing.responsible_person_name} 变更为 ${newResponsibleName}，原因：${reason || '未说明'}`)
+
+    addNotification(db, 'responsible_change', '责任人变更',
+      `问题件 ${existing.tracking_number} 责任人从 ${existing.responsible_person_name} 变更为 ${newResponsibleName}`,
+      'problem', req.params.id)
+
+    addNotification(db, 'problem_updated', '问题件变更',
+      `问题件 ${existing.tracking_number} 责任人已变更`,
+      'problem', req.params.id)
+  })
+
+  try {
+    transaction()
+    const row = db.prepare('SELECT * FROM problem_records WHERE id = ?').get(req.params.id)
+    res.json({ success: true, data: row })
+  } catch (err: any) {
+    res.status(400).json({ success: false, error: err.message })
+  }
+})
+
 router.post('/:id/review', (req: Request, res: Response): void => {
   const db = getDb()
   const now = new Date().toISOString().replace('T', ' ').substring(0, 19)

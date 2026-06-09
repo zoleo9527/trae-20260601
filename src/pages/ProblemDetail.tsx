@@ -1,18 +1,27 @@
 import { useEffect, useState } from 'react'
 import { useAppStore } from '@/hooks/useAppStore'
 import { ProblemStatusBadge, RoleBadge } from '@/components/StatusBadge'
-import { PROBLEM_TYPE_LABELS, CONTACT_TYPE_LABELS, type ProblemStatus, type ContactType, type Role, type ProblemType } from '../../shared/types'
-import { ArrowLeft, RotateCcw, FileEdit, ClipboardCheck, Phone } from 'lucide-react'
+import { PROBLEM_TYPE_LABELS, CONTACT_TYPE_LABELS, ROLE_LABELS, type ProblemStatus, type ContactType, type Role, type ProblemType } from '../../shared/types'
+import { ArrowLeft, RotateCcw, FileEdit, ClipboardCheck, Phone, UserCog } from 'lucide-react'
 import { Link, useParams } from 'react-router-dom'
 
+const responsiblePersons = [
+  { id: 'CS001', name: '王丽娟', role: 'station_cs' as Role },
+  { id: 'C001', name: '张建国', role: 'courier' as Role },
+  { id: 'C002', name: '李明辉', role: 'courier' as Role },
+  { id: 'C003', name: '王大勇', role: 'courier' as Role },
+  { id: 'M001', name: '陈国强', role: 'station_manager' as Role },
+]
+
 export default function ProblemDetail() {
-  const { problemDetail, loadProblemDetail, returnProblem, supplementProblem, reviewProblem, createContact, currentUser } = useAppStore()
+  const { problemDetail, loadProblemDetail, returnProblem, supplementProblem, reviewProblem, changeResponsible, createContact, currentUser } = useAppStore()
   const { id } = useParams<{ id: string }>()
 
   const [showReturnDialog, setShowReturnDialog] = useState(false)
   const [showSupplementDialog, setShowSupplementDialog] = useState(false)
   const [showReviewDialog, setShowReviewDialog] = useState(false)
   const [showContactDialog, setShowContactDialog] = useState(false)
+  const [showResponsibleDialog, setShowResponsibleDialog] = useState(false)
 
   const [returnResolution, setReturnResolution] = useState('')
   const [supplementDesc, setSupplementDesc] = useState('')
@@ -23,6 +32,9 @@ export default function ProblemDetail() {
   const [contactResponse, setContactResponse] = useState('')
   const [contactFollowUp, setContactFollowUp] = useState(false)
   const [contactNotes, setContactNotes] = useState('')
+  const [newResponsibleId, setNewResponsibleId] = useState('')
+  const [newResponsibleName, setNewResponsibleName] = useState('')
+  const [changeReason, setChangeReason] = useState('')
 
   useEffect(() => {
     if (id) loadProblemDetail(id)
@@ -45,6 +57,9 @@ export default function ProblemDetail() {
   const canReview = p.status === 'reviewing' && currentUser.role === 'station_manager'
   const canSubmitReview = ['pending', 'contacting', 'supplementing'].includes(p.status) && currentUser.role === 'station_cs'
   const canContact = ['pending', 'contacting', 'supplementing'].includes(p.status) && (currentUser.role === 'station_cs' || currentUser.role === 'courier')
+  const canChangeResponsible = ['pending', 'contacting', 'supplementing', 'reviewing'].includes(p.status) && (currentUser.role === 'station_cs' || currentUser.role === 'station_manager')
+
+  const responsibleHistory = (p.history || []).filter((h) => h.action === 'responsible_change')
 
   return (
     <div className="p-6">
@@ -74,9 +89,12 @@ export default function ProblemDetail() {
                 <span className="text-slate-700">{p.reporterName}</span>
                 <RoleBadge role={p.reporterRole as Role} />
               </div>
-              <div>
+              <div className="flex items-center gap-2">
                 <span className="text-slate-400">责任人：</span>
                 <span className="text-slate-700">{p.responsiblePersonName}</span>
+                {responsibleHistory.length > 0 && (
+                  <span className="text-xs bg-orange-100 text-orange-700 rounded px-1.5 py-0.5">已变更{responsibleHistory.length}次</span>
+                )}
               </div>
               <div>
                 <span className="text-slate-400">登记时间：</span>
@@ -102,6 +120,14 @@ export default function ProblemDetail() {
                   <div><span className="text-slate-400">电话：</span>{p.delivery.recipientPhone}</div>
                   <div className="col-span-2"><span className="text-slate-400">地址：</span>{p.delivery.deliveryAddress}</div>
                   <div><span className="text-slate-400">派件员：</span>{p.delivery.courierName}</div>
+                  <div>
+                    <span className="text-slate-400">驿站签收图：</span>
+                    {p.delivery.stationSignImage ? (
+                      <span className="text-xs bg-green-100 text-green-700 rounded px-2 py-0.5 ml-1">有签收图</span>
+                    ) : (
+                      <span className="text-xs bg-slate-200 text-slate-500 rounded px-2 py-0.5 ml-1">无签收图</span>
+                    )}
+                  </div>
                 </div>
               </div>
             )}
@@ -125,6 +151,11 @@ export default function ProblemDetail() {
               {canReview && (
                 <button onClick={() => setShowReviewDialog(true)} className="flex items-center gap-1.5 text-xs bg-purple-600 text-white px-3 py-2 rounded hover:bg-purple-700">
                   <ClipboardCheck className="w-3.5 h-3.5" /> 复核处理
+                </button>
+              )}
+              {canChangeResponsible && (
+                <button onClick={() => setShowResponsibleDialog(true)} className="flex items-center gap-1.5 text-xs bg-teal-600 text-white px-3 py-2 rounded hover:bg-teal-700">
+                  <UserCog className="w-3.5 h-3.5" /> 变更责任人
                 </button>
               )}
               {canContact && (
@@ -171,7 +202,7 @@ export default function ProblemDetail() {
                 {p.history.map((h) => (
                   <div key={h.id} className="flex gap-3">
                     <div className="flex flex-col items-center">
-                      <div className="w-2 h-2 rounded-full bg-blue-500 mt-1.5"></div>
+                      <div className={`w-2 h-2 rounded-full mt-1.5 ${h.action === 'responsible_change' ? 'bg-orange-500' : 'bg-blue-500'}`}></div>
                       <div className="w-px flex-1 bg-slate-200"></div>
                     </div>
                     <div className="pb-3">
@@ -189,6 +220,20 @@ export default function ProblemDetail() {
               <p className="text-sm text-slate-400 text-center py-4">暂无历史</p>
             )}
           </div>
+
+          {responsibleHistory.length > 0 && (
+            <div className="bg-white rounded-lg border border-orange-200 p-5">
+              <h4 className="text-sm font-semibold text-orange-700 mb-3">责任人变更链</h4>
+              <div className="space-y-2">
+                {responsibleHistory.map((h) => (
+                  <div key={h.id} className="text-xs bg-orange-50 rounded p-2">
+                    <p className="text-slate-700">{h.description}</p>
+                    <p className="text-slate-400 mt-0.5">{h.operatorName} · {h.createdAt}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -236,9 +281,47 @@ export default function ProblemDetail() {
         </Dialog>
       )}
 
+      {showResponsibleDialog && (
+        <Dialog title="变更责任人" onClose={() => setShowResponsibleDialog(false)}>
+          <p className="text-sm text-slate-600 mb-2">问题件 <strong>{p.trackingNumber}</strong></p>
+          <p className="text-xs text-slate-500 mb-3">当前责任人：<strong>{p.responsiblePersonName}</strong></p>
+          <div className="mb-3">
+            <label className="text-xs text-slate-500 block mb-1">新责任人</label>
+            <select
+              value={newResponsibleId}
+              onChange={(e) => {
+                const rp = responsiblePersons.find((r) => r.id === e.target.value)
+                if (rp) { setNewResponsibleId(rp.id); setNewResponsibleName(rp.name) }
+              }}
+              className="w-full border border-slate-200 rounded px-3 py-2 text-sm"
+            >
+              <option value="">选择新责任人</option>
+              {responsiblePersons.filter((r) => r.id !== p.responsiblePersonId).map((r) => (
+                <option key={r.id} value={r.id}>{r.name}（{ROLE_LABELS[r.role]}）</option>
+              ))}
+            </select>
+          </div>
+          <div className="mb-3">
+            <label className="text-xs text-slate-500 block mb-1">变更原因 <span className="text-red-500">*</span></label>
+            <textarea value={changeReason} onChange={(e) => setChangeReason(e.target.value)} placeholder="说明变更原因" className="w-full border border-slate-200 rounded px-3 py-2 text-sm" rows={3} />
+          </div>
+          <div className="flex gap-2 justify-end">
+            <button onClick={() => setShowResponsibleDialog(false)} className="text-sm px-4 py-2 text-slate-600 border border-slate-200 rounded hover:bg-slate-50">取消</button>
+            <button
+              onClick={async () => { if (newResponsibleId && changeReason) { await changeResponsible(p.id, { newResponsibleId, newResponsibleName, reason: changeReason }); setShowResponsibleDialog(false); setNewResponsibleId(''); setNewResponsibleName(''); setChangeReason(''); } }}
+              className="text-sm px-4 py-2 bg-teal-600 text-white rounded hover:bg-teal-700"
+              disabled={!newResponsibleId || !changeReason}
+            >确认变更</button>
+          </div>
+        </Dialog>
+      )}
+
       {showContactDialog && (
         <Dialog title="添加客户联系" onClose={() => setShowContactDialog(false)}>
           <p className="text-sm text-slate-600 mb-2">问题件 <strong>{p.trackingNumber}</strong> | 责任人：<strong>{p.responsiblePersonName}</strong></p>
+          {responsibleHistory.length > 0 && (
+            <p className="text-xs text-orange-600 mb-2">注意：此问题件责任人已变更，历史责任人见处理历史</p>
+          )}
           <div className="mb-3">
             <label className="text-xs text-slate-500 block mb-1">联系方式</label>
             <select value={contactType} onChange={(e) => setContactType(e.target.value as ContactType)} className="w-full border border-slate-200 rounded px-3 py-2 text-sm">

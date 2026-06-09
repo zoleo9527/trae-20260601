@@ -32,6 +32,7 @@ interface AppState {
   returnProblem: (id: string, data: any) => Promise<void>
   supplementProblem: (id: string, data: any) => Promise<void>
   reviewProblem: (id: string, data: any) => Promise<void>
+  changeResponsible: (id: string, data: any) => Promise<void>
 
   contacts: CustomerContact[]
   loadContacts: (params?: { problemRecordId?: string; trackingNumber?: string }) => Promise<void>
@@ -149,6 +150,19 @@ export const useAppStore = create<AppState>((set, get) => ({
     })
     if (result.success) {
       get().addLocalLog(`[复核] 问题件 ${id.substring(0, 8)} 复核${data.action === 'approve' ? '通过' : data.action === 'reject' ? '退回' : '提交'}`)
+      await get().loadProblems()
+      if (get().problemDetail?.id === id) await get().loadProblemDetail(id)
+      await get().loadNotifications()
+    }
+  },
+
+  changeResponsible: async (id, data) => {
+    const result = await apiFetch<ProblemRecord>(`/problems/${id}/change-responsible`, {
+      method: 'POST',
+      body: JSON.stringify({ ...data, ...get().currentUser }),
+    })
+    if (result.success) {
+      get().addLocalLog(`[责任人变更] 问题件 ${id.substring(0, 8)} 责任人变更为 ${data.newResponsibleName}`)
       await get().loadProblems()
       if (get().problemDetail?.id === id) await get().loadProblemDetail(id)
       await get().loadNotifications()

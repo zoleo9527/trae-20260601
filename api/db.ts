@@ -135,8 +135,8 @@ function seedIfEmpty(db: Database.Database) {
   `)
 
   const insertProblem = db.prepare(`
-    INSERT INTO problem_records (id, delivery_id, tracking_number, problem_type, description, reporter_id, reporter_name, reporter_role, responsible_person_id, responsible_person_name, status, created_at, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO problem_records (id, delivery_id, tracking_number, problem_type, description, reporter_id, reporter_name, reporter_role, responsible_person_id, responsible_person_name, status, resolution, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `)
 
   const insertContact = db.prepare(`

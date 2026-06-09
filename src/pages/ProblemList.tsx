@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useAppStore } from '@/hooks/useAppStore'
 import { ProblemStatusBadge } from '@/components/StatusBadge'
-import { Search, RefreshCw, ArrowRight } from 'lucide-react'
+import { Search, RefreshCw, ArrowRight, Plus } from 'lucide-react'
 import { PROBLEM_TYPE_LABELS, type ProblemStatus, type ProblemType } from '../../shared/types'
 import { Link } from 'react-router-dom'
 
@@ -43,6 +43,12 @@ export default function ProblemList() {
           <p className="text-sm text-slate-500 mt-1">登记、补录、退回、复核问题件，主流程一体化处理</p>
         </div>
         <div className="flex gap-2">
+          <Link
+            to="/problems/new"
+            className="flex items-center gap-1.5 text-sm bg-blue-600 text-white rounded px-3 py-1.5 hover:bg-blue-700"
+          >
+            <Plus className="w-3.5 h-3.5" /> 新建登记
+          </Link>
           <button
             onClick={() => loadProblems(statusFilter ? { status: statusFilter } : undefined)}
             className="flex items-center gap-1.5 text-sm text-slate-600 hover:text-slate-800 bg-white border border-slate-200 rounded px-3 py-1.5"

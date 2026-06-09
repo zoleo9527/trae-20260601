@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
 import { useAppStore } from '@/hooks/useAppStore'
 import { DeliveryStatusBadge } from '@/components/StatusBadge'
-import { Search, RefreshCw } from 'lucide-react'
+import { Search, RefreshCw, AlertTriangle } from 'lucide-react'
 import type { DeliveryStatus } from '../../shared/types'
+import { Link } from 'react-router-dom'
 
 export default function DeliveryList() {
   const { deliveries, loadDeliveries } = useAppStore()
@@ -22,14 +23,22 @@ export default function DeliveryList() {
       <div className="mb-4 flex items-center justify-between">
         <div>
           <h2 className="text-xl font-bold text-slate-800">派件清单</h2>
-          <p className="text-sm text-slate-500 mt-1">查看所有派件记录，标记问题件</p>
+          <p className="text-sm text-slate-500 mt-1">查看所有派件记录，可快速登记问题件并查看驿站签收图</p>
         </div>
-        <button
-          onClick={() => loadDeliveries({ status: statusFilter || undefined, keyword: keyword || undefined })}
-          className="flex items-center gap-1.5 text-sm text-slate-600 hover:text-slate-800 bg-white border border-slate-200 rounded px-3 py-1.5"
-        >
-          <RefreshCw className="w-3.5 h-3.5" /> 刷新
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={() => loadDeliveries({ status: statusFilter || undefined, keyword: keyword || undefined })}
+            className="flex items-center gap-1.5 text-sm text-slate-600 hover:text-slate-800 bg-white border border-slate-200 rounded px-3 py-1.5"
+          >
+            <RefreshCw className="w-3.5 h-3.5" /> 刷新
+          </button>
+          <Link
+            to="/problems/new"
+            className="flex items-center gap-1.5 text-sm bg-blue-600 text-white rounded px-3 py-1.5 hover:bg-blue-700"
+          >
+            <AlertTriangle className="w-3.5 h-3.5" /> 新建问题件
+          </Link>
+        </div>
       </div>
 
       <div className="bg-white rounded-lg border border-slate-200">
@@ -67,8 +76,10 @@ export default function DeliveryList() {
                 <th className="text-left px-4 py-2.5 text-xs font-medium text-slate-500">电话</th>
                 <th className="text-left px-4 py-2.5 text-xs font-medium text-slate-500">地址</th>
                 <th className="text-left px-4 py-2.5 text-xs font-medium text-slate-500">派件员</th>
+                <th className="text-left px-4 py-2.5 text-xs font-medium text-slate-500">签收图</th>
                 <th className="text-left px-4 py-2.5 text-xs font-medium text-slate-500">状态</th>
                 <th className="text-left px-4 py-2.5 text-xs font-medium text-slate-500">登记时间</th>
+                <th className="text-left px-4 py-2.5 text-xs font-medium text-slate-500">操作</th>
               </tr>
             </thead>
             <tbody>
@@ -79,13 +90,32 @@ export default function DeliveryList() {
                   <td className="px-4 py-2.5 text-slate-600">{d.recipientPhone}</td>
                   <td className="px-4 py-2.5 text-slate-600 max-w-[200px] truncate">{d.deliveryAddress}</td>
                   <td className="px-4 py-2.5 text-slate-600">{d.courierName}</td>
+                  <td className="px-4 py-2.5">
+                    {d.stationSignImage ? (
+                      <span className="text-xs bg-green-100 text-green-700 rounded px-2 py-0.5">有签收图</span>
+                    ) : (
+                      <span className="text-xs bg-slate-100 text-slate-400 rounded px-2 py-0.5">无</span>
+                    )}
+                  </td>
                   <td className="px-4 py-2.5"><DeliveryStatusBadge status={d.status as DeliveryStatus} /></td>
                   <td className="px-4 py-2.5 text-xs text-slate-400">{d.createdAt}</td>
+                  <td className="px-4 py-2.5">
+                    {d.status !== 'problem' && d.status !== 'returned' ? (
+                      <Link
+                        to={`/problems/new?deliveryId=${d.id}`}
+                        className="text-xs text-blue-600 hover:underline flex items-center gap-1"
+                      >
+                        <AlertTriangle className="w-3 h-3" /> 登记问题件
+                      </Link>
+                    ) : d.status === 'problem' ? (
+                      <span className="text-xs text-orange-600">已登记问题件</span>
+                    ) : null}
+                  </td>
                 </tr>
               ))}
               {deliveries.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="text-center py-8 text-slate-400">暂无数据</td>
+                  <td colSpan={9} className="text-center py-8 text-slate-400">暂无数据</td>
                 </tr>
               )}
             </tbody>

@@ -8,7 +8,7 @@ export type ProblemStatus = 'pending' | 'contacting' | 'resolved' | 'returned' |
 
 export type ContactType = 'phone' | 'sms' | 'wechat' | 'in_person'
 
-export type NotificationType = 'problem_created' | 'problem_updated' | 'contact_required' | 'review_required' | 'return_confirmed' | 'exception'
+export type NotificationType = 'problem_created' | 'problem_updated' | 'contact_required' | 'review_required' | 'return_confirmed' | 'exception' | 'responsible_change'
 
 export interface Delivery {
   id: string
@@ -133,4 +133,5 @@ export const NOTIFICATION_TYPE_LABELS: Record<NotificationType, string> = {
   review_required: '待复核',
   return_confirmed: '退回确认',
   exception: '异常提醒',
+  responsible_change: '责任人变更',
 }
