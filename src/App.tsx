@@ -8,6 +8,7 @@ import Overstay from "@/pages/Overstay"
 import FeeReview from "@/pages/FeeReview"
 import ContainerDetail from "@/pages/ContainerDetail"
 import Inspection from "@/pages/Inspection"
+import Misplaced from "@/pages/Misplaced"
 
 export default function App() {
   return (
@@ -22,6 +23,7 @@ export default function App() {
           <Route path="/fee-review" element={<FeeReview />} />
           <Route path="/containers/:id" element={<ContainerDetail />} />
           <Route path="/inspection" element={<Inspection />} />
+          <Route path="/misplaced" element={<Misplaced />} />
         </Route>
       </Routes>
     </Router>

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Link } from 'react-router-dom'
-import { Truck, AlertTriangle, ClipboardCheck, Package, MapPin, Search, DollarSign, Bell, ArrowRight, DoorOpen, Grid3x3, Clock, Receipt, AlertOctagon } from 'lucide-react'
+import { Truck, AlertTriangle, ClipboardCheck, Package, MapPin, Search, DollarSign, Bell, ArrowRight, DoorOpen, Grid3x3, Clock, Receipt, AlertOctagon, FileWarning } from 'lucide-react'
 import { api } from '@/lib/api'
 import { useAppStore } from '@/hooks/useStore'
 import StatusBadge from '@/components/StatusBadge'
@@ -9,7 +9,7 @@ import type { Container, OverstayRecord, FeeRecord, InspectionPlan, DashboardSta
 const roleKpiMap: Record<string, { key: keyof DashboardStats; label: string; icon: any; color: string }[]> = {
   gate_operator: [
     { key: 'totalContainers', label: '今日进闸数', icon: Truck, color: 'border-blue-500' },
-    { key: 'misplacedCount', label: '异常箱数', icon: AlertTriangle, color: 'border-red-500' },
+    { key: 'misplacedCount', label: '错放箱待处理', icon: FileWarning, color: 'border-red-500' },
     { key: 'inspectingCount', label: '待处理异常', icon: ClipboardCheck, color: 'border-amber-500' },
   ],
   dispatcher: [
@@ -30,28 +30,28 @@ const roleActions: Record<string, { label: string; to: string; icon: any; desc: 
   gate_operator: [
     { label: '闸口登记', to: '/gate-records', icon: DoorOpen, desc: '登记进出闸记录' },
     { label: '标记异常', to: '/containers', icon: AlertTriangle, desc: '标记错放/异常箱' },
-    { label: '箱号查询', to: '/containers', icon: Package, desc: '查看在场箱号' },
+    { label: '错放箱查看', to: '/misplaced', icon: FileWarning, desc: '查看错放箱信息' },
   ],
   dispatcher: [
     { label: '堆位调度', to: '/yard-map', icon: Grid3x3, desc: '管理堆位和移位' },
-    { label: '查验安排', to: '/inspection', icon: Search, desc: '创建查验计划' },
+    { label: '错放箱复位', to: '/misplaced', icon: MapPin, desc: '处理错放箱复位' },
     { label: '超期处理', to: '/overstay', icon: Clock, desc: '处理超期堆存' },
   ],
   customer_service: [
     { label: '费用复核', to: '/fee-review', icon: Receipt, desc: '审核超期费用' },
     { label: '超期通知', to: '/overstay', icon: Bell, desc: '发送超期通知' },
-    { label: '争议处理', to: '/fee-review', icon: DollarSign, desc: '处理费用争议' },
+    { label: '错放箱工单', to: '/misplaced', icon: FileWarning, desc: '发起错放箱工单' },
   ],
 }
 
 const roleTodoMap: Record<string, (stats: DashboardStats) => { text: string; to: string; urgent: boolean }[]> = {
   gate_operator: (stats) => [
-    ...(stats.misplacedCount > 0 ? [{ text: `${stats.misplacedCount} 个错放箱待处理`, to: '/containers', urgent: true }] : []),
+    ...(stats.misplacedCount > 0 ? [{ text: `${stats.misplacedCount} 个错放箱待处理`, to: '/misplaced', urgent: true }] : []),
     ...(stats.inspectingCount > 0 ? [{ text: `${stats.inspectingCount} 个箱号查验中`, to: '/containers', urgent: false }] : []),
   ],
   dispatcher: (stats) => [
     ...(stats.overstayCount > 0 ? [{ text: `${stats.overstayCount} 个超期箱待处理`, to: '/overstay', urgent: true }] : []),
-    ...(stats.misplacedCount > 0 ? [{ text: `${stats.misplacedCount} 个错放箱需移位`, to: '/yard-map', urgent: true }] : []),
+    ...(stats.misplacedCount > 0 ? [{ text: `${stats.misplacedCount} 个错放箱需移位`, to: '/misplaced', urgent: true }] : []),
     ...(stats.missedNotificationCount > 0 ? [{ text: `${stats.missedNotificationCount} 个查验漏通知`, to: '/inspection', urgent: true }] : []),
   ],
   customer_service: (stats) => [

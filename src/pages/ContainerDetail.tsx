@@ -21,6 +21,7 @@ const eventIconMap: Record<string, any> = {
   fee_dispute: Zap,
   status_change: RefreshCw,
   anomaly_marked: Flag,
+  misplace_relocate: MapPin,
 }
 
 const eventColorMap: Record<string, string> = {
@@ -39,6 +40,7 @@ const eventColorMap: Record<string, string> = {
   fee_dispute: 'bg-red-400 text-white',
   status_change: 'bg-gray-500 text-white',
   anomaly_marked: 'bg-red-500 text-white',
+  misplace_relocate: 'bg-emerald-500 text-white',
 }
 
 export default function ContainerDetail() {

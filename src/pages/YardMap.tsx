@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { api } from '@/lib/api'
 import { useAppStore } from '@/hooks/useStore'
 import StatusBadge from '@/components/StatusBadge'
-import { MapPin, X, ArrowRight, Warehouse } from 'lucide-react'
+import { MapPin, X, ArrowRight, Warehouse, Camera, AlertTriangle } from 'lucide-react'
 import type { YardSlot } from '@/shared/types'
 
 const statusStyles: Record<string, string> = {
@@ -33,6 +33,11 @@ export default function YardMap() {
   const [relocating, setRelocating] = useState(false)
   const [targetSlotId, setTargetSlotId] = useState<string | null>(null)
   const [activeZone, setActiveZone] = useState<string>('all')
+  const [misplacedMode, setMisplacedMode] = useState(false)
+  const [misplacedNote, setMisplacedNote] = useState('')
+  const [misplacedPhoto, setMisplacedPhoto] = useState<string | null>(null)
+  const [misplacedPhotoName, setMisplacedPhotoName] = useState('')
+  const [misplacedSubmitting, setMisplacedSubmitting] = useState(false)
   const { currentRole } = useAppStore()
 
   const fetchSlots = async () => {
@@ -78,11 +83,50 @@ export default function YardMap() {
     fetchSlots()
   }
 
+  const handleMisplacedRelocate = async () => {
+    if (!selectedSlot?.container_id || !targetSlotId || misplacedSubmitting) return
+    setMisplacedSubmitting(true)
+    try {
+      await api.containers.relocateMisplaced(selectedSlot.container_id, {
+        target_slot_id: targetSlotId,
+        operator_name: currentRole === 'dispatcher' ? '调度员' : '客服专员',
+        role: currentRole,
+        note: misplacedNote,
+        photo_base64: misplacedPhoto,
+      })
+      setSelectedSlot(null)
+      setMisplacedMode(false)
+      setTargetSlotId(null)
+      setMisplacedNote('')
+      setMisplacedPhoto(null)
+      setMisplacedPhotoName('')
+      fetchSlots()
+    } finally {
+      setMisplacedSubmitting(false)
+    }
+  }
+
+  const handleMisplacedPhoto = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setMisplacedPhotoName(file.name)
+    const reader = new FileReader()
+    reader.onload = () => {
+      const result = reader.result as string
+      setMisplacedPhoto(result.split(',')[1] || result)
+    }
+    reader.readAsDataURL(file)
+  }
+
   const openDetail = (slot: YardSlot) => {
     if (slot.status === 'empty') return
     setSelectedSlot(slot)
     setRelocating(false)
     setTargetSlotId(null)
+    setMisplacedMode(slot.status === 'misplaced')
+    setMisplacedNote('')
+    setMisplacedPhoto(null)
+    setMisplacedPhotoName('')
   }
 
   if (loading) {
@@ -198,7 +242,7 @@ export default function YardMap() {
 
       {selectedSlot && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setSelectedSlot(null)}>
-          <div className="card p-5 w-80 shadow-xl" onClick={(e) => e.stopPropagation()}>
+          <div className="card p-5 w-96 shadow-xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-3">
               <h3 className="font-semibold text-port-navy">槽位详情</h3>
               <button onClick={() => setSelectedSlot(null)}><X className="w-4 h-4 text-gray-400" /></button>
@@ -208,7 +252,93 @@ export default function YardMap() {
               <p><span className="text-gray-500">箱号：</span>{selectedSlot.container_no || '-'}</p>
               <p><span className="text-gray-500">状态：</span><StatusBadge status={selectedSlot.status} /></p>
             </div>
-            {currentRole === 'dispatcher' && selectedSlot.status !== 'empty' && (
+
+            {selectedSlot.status === 'misplaced' && (currentRole === 'dispatcher' || currentRole === 'customer_service') && misplacedMode && (
+              <div className="mt-4 pt-4 border-t border-gray-100">
+                <div className="flex items-center gap-2 mb-3">
+                  <AlertTriangle className="w-4 h-4 text-red-500" />
+                  <h4 className="font-medium text-sm">错放箱复位</h4>
+                </div>
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">目标槽位 *</label>
+                    <select
+                      className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-port-orange/30 focus:border-port-orange"
+                      value={targetSlotId || ''}
+                      onChange={(e) => setTargetSlotId(e.target.value)}
+                    >
+                      <option value="">请选择</option>
+                      {emptySlots.map((s) => (
+                        <option key={s.id} value={s.id}>{s.position}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">备注</label>
+                    <textarea
+                      rows={2}
+                      placeholder="输入备注..."
+                      value={misplacedNote}
+                      onChange={(e) => setMisplacedNote(e.target.value)}
+                      className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-port-orange/30 focus:border-port-orange"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">
+                      <Camera className="w-3 h-3 inline mr-1" />现场照片
+                    </label>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleMisplacedPhoto}
+                      className="w-full text-xs text-gray-500 file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:text-xs file:bg-port-orange/10 file:text-port-orange"
+                    />
+                    {misplacedPhotoName && (
+                      <div className="flex items-center gap-1 mt-1 text-xs text-gray-400">
+                        <span>{misplacedPhotoName}</span>
+                        <button onClick={() => { setMisplacedPhoto(null); setMisplacedPhotoName('') }}>
+                          <X className="w-3 h-3 text-red-400" />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      className="btn-secondary text-sm flex-1"
+                      onClick={() => { setMisplacedMode(false); setTargetSlotId(null); setMisplacedNote(''); setMisplacedPhoto(null); setMisplacedPhotoName('') }}
+                    >
+                      取消
+                    </button>
+                    <button
+                      className="btn-primary text-sm flex-1"
+                      disabled={!targetSlotId || misplacedSubmitting}
+                      onClick={handleMisplacedRelocate}
+                    >
+                      {misplacedSubmitting ? '处理中...' : '确认复位'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {selectedSlot.status === 'misplaced' && !misplacedMode && (currentRole === 'dispatcher' || currentRole === 'customer_service') && (
+              <div className="mt-4">
+                <button
+                  className="w-full bg-red-500 hover:bg-red-600 text-white text-sm px-3 py-2 rounded-lg font-medium flex items-center justify-center gap-1"
+                  onClick={() => setMisplacedMode(true)}
+                >
+                  <AlertTriangle className="w-4 h-4" />错放箱复位处理
+                </button>
+              </div>
+            )}
+
+            {selectedSlot.status === 'misplaced' && currentRole === 'gate_operator' && (
+              <div className="mt-4 p-3 bg-gray-50 rounded-lg text-center text-sm text-gray-400">
+                闸口操作员仅可查看，无法执行复位操作
+              </div>
+            )}
+
+            {selectedSlot.status !== 'misplaced' && currentRole === 'dispatcher' && selectedSlot.status !== 'empty' && (
               <div className="mt-4">
                 {!relocating ? (
                   <button className="btn-primary text-sm w-full" onClick={() => setRelocating(true)}>

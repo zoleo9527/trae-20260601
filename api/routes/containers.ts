@@ -4,6 +4,21 @@ import db from '../db.js'
 
 const router = Router()
 
+router.get('/misplaced', (_req: Request, res: Response): void => {
+  try {
+    const rows = db.prepare(`
+      SELECT c.*, ys.position as current_slot_position, ys.id as slot_id
+      FROM containers c
+      LEFT JOIN yard_slots ys ON ys.container_id = c.id
+      WHERE c.status = 'misplaced'
+      ORDER BY c.updated_at DESC
+    `).all()
+    res.json({ success: true, data: rows })
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message })
+  }
+})
+
 router.get('/stats', (_req: Request, res: Response): void => {
   try {
     const totalContainers = (db.prepare("SELECT COUNT(*) as cnt FROM containers WHERE status != 'departed'").get() as any).cnt
@@ -124,6 +139,78 @@ router.patch('/:id/status', (req: Request, res: Response): void => {
 
     const row = db.prepare('SELECT * FROM containers WHERE id = ?').get(req.params.id)
     res.json({ success: true, data: row })
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message })
+  }
+})
+
+router.post('/:id/relocate-misplaced', (req: Request, res: Response): void => {
+  try {
+    const { target_slot_id, actual_position, operator_name, role, note, photo_base64 } = req.body
+    const container = db.prepare('SELECT * FROM containers WHERE id = ?').get(req.params.id) as any
+    if (!container) {
+      res.status(404).json({ success: false, error: 'Container not found' })
+      return
+    }
+    if (container.status !== 'misplaced') {
+      res.status(400).json({ success: false, error: 'Container is not misplaced' })
+      return
+    }
+
+    const targetSlot = target_slot_id
+      ? db.prepare('SELECT * FROM yard_slots WHERE id = ?').get(target_slot_id) as any
+      : actual_position
+        ? db.prepare('SELECT * FROM yard_slots WHERE position = ?').get(actual_position) as any
+        : null
+
+    if (!targetSlot) {
+      res.status(400).json({ success: false, error: 'Target slot not found' })
+      return
+    }
+    if (targetSlot.status !== 'empty') {
+      res.status(400).json({ success: false, error: 'Target slot is not empty' })
+      return
+    }
+
+    const currentSlot = db.prepare('SELECT * FROM yard_slots WHERE container_id = ?').get(req.params.id) as any
+
+    const transaction = db.transaction(() => {
+      if (currentSlot) {
+        db.prepare("UPDATE yard_slots SET container_id = NULL, status = 'empty' WHERE id = ?").run(currentSlot.id)
+      }
+
+      db.prepare('UPDATE yard_slots SET container_id = ?, status = ? WHERE id = ?').run(req.params.id, 'occupied', targetSlot.id)
+      db.prepare("UPDATE containers SET status = 'normal', yard_position = ?, updated_at = datetime('now') WHERE id = ?").run(targetSlot.position, req.params.id)
+
+      const metadata: any = {
+        from: currentSlot?.position || null,
+        to: targetSlot.position,
+        note: note || null,
+      }
+
+      db.prepare(`
+        INSERT INTO timeline_events (id, container_id, event_type, operator_name, role, description, metadata)
+        VALUES (?, ?, 'misplace_relocate', ?, ?, ?, ?)
+      `).run(
+        uuidv4(),
+        req.params.id,
+        operator_name || 'system',
+        role || 'dispatcher',
+        `错放箱 ${container.container_no} 复位：${currentSlot?.position || '未知'} → ${targetSlot.position}${note ? '，备注：' + note : ''}`,
+        JSON.stringify(metadata),
+      )
+
+      if (photo_base64) {
+        db.prepare(`
+          INSERT INTO attachments (id, container_id, file_name, file_size, mime_type, base64_data, uploaded_by)
+          VALUES (?, ?, ?, ?, ?, ?, ?)
+        `).run(uuidv4(), req.params.id, `复位照片-${container.container_no}.jpg`, photo_base64.length, 'image/jpeg', photo_base64, operator_name || 'system')
+      }
+    })
+
+    transaction()
+    const updated = db.prepare('SELECT * FROM containers WHERE id = ?').get(req.params.id)
+    res.json({ success: true, data: updated })
   } catch (error: any) {
     res.status(500).json({ success: false, error: error.message })
   }

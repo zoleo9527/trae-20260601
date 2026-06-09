@@ -10,6 +10,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Anchor,
+  AlertTriangle,
 } from 'lucide-react'
 import { useAppStore } from '@/hooks/useStore'
 
@@ -21,6 +22,7 @@ const navItems = [
   { path: '/overstay', label: '超期堆存', icon: Clock },
   { path: '/fee-review', label: '费用复核', icon: Receipt },
   { path: '/inspection', label: '查验计划', icon: Search },
+  { path: '/misplaced', label: '错放箱', icon: AlertTriangle },
 ]
 
 export default function Sidebar() {

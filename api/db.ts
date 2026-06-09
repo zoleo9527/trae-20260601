@@ -207,7 +207,7 @@ export function seedDatabase() {
     { id: uuidv4(), no: 'CSLU6677889', type: '20RF', status: 'inspecting', custId: 'C003', custName: '马士基物流', gateIn: daysAgo(10), gateOut: null, pos: 'C-1-1', freeDays: 7, overDays: 0 },
     { id: uuidv4(), no: 'BMOU5566778', type: '40HC', status: 'inspecting', custId: 'C001', custName: '远东航运', gateIn: daysAgo(8), gateOut: null, pos: 'C-1-2', freeDays: 7, overDays: 0 },
     { id: uuidv4(), no: 'KKLU9900112', type: '20GP', status: 'disputed', custId: 'C002', custName: '中海集运', gateIn: daysAgo(15), gateOut: null, pos: 'C-2-1', freeDays: 7, overDays: 8 },
-    { id: uuidv4(), no: 'TGHU3322110', type: '40GP', status: 'misplaced', custId: 'C003', custName: '马士基物流', gateIn: daysAgo(12), gateOut: null, pos: null, freeDays: 7, overDays: 5 },
+    { id: uuidv4(), no: 'TGHU3322110', type: '40GP', status: 'misplaced', custId: 'C003', custName: '马士基物流', gateIn: daysAgo(12), gateOut: null, pos: 'C-2-2', freeDays: 7, overDays: 5 },
     { id: uuidv4(), no: 'ZIMU4433221', type: '20GP', status: 'departed', custId: 'C001', custName: '远东航运', gateIn: daysAgo(30), gateOut: daysAgo(28), pos: null, freeDays: 7, overDays: 0 },
     { id: uuidv4(), no: 'ONEU6655443', type: '40HC', status: 'departed', custId: 'C002', custName: '中海集运', gateIn: daysAgo(25), gateOut: daysAgo(22), pos: null, freeDays: 7, overDays: 0 },
     { id: uuidv4(), no: 'HMMU7788990', type: '20RF', status: 'departed', custId: 'C003', custName: '马士基物流', gateIn: daysAgo(20), gateOut: daysAgo(17), pos: null, freeDays: 7, overDays: 0 },
