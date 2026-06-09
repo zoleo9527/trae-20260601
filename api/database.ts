@@ -122,6 +122,50 @@ function initTables() {
   if (!problemCols.some(c => c.name === 'fingerprint')) {
     db.exec('ALTER TABLE problem_orders ADD COLUMN fingerprint TEXT')
   }
+
+  // 为已有旧记录补充 fingerprint
+  backfillFingerprints()
+}
+
+/**
+ * 为已有旧记录补充 fingerprint（向后兼容）
+ */
+function backfillFingerprints() {
+  // 只处理 fingerprint 为 NULL 的记录
+  const recordsToUpdate = db.prepare(
+    `SELECT id, container_id, inspection_id, move_task_id, type FROM problem_orders WHERE fingerprint IS NULL`
+  ).all() as any[]
+
+  if (recordsToUpdate.length === 0) return
+
+  const updateStmt = db.prepare(`UPDATE problem_orders SET fingerprint = ? WHERE id = ?`)
+
+  for (const record of recordsToUpdate) {
+    let fingerprint: string
+    switch (record.type) {
+      case 'misplaced':
+        const container = db.prepare('SELECT expected_slot, yard_slot FROM containers WHERE id = ?').get(record.container_id) as any
+        fingerprint = `misplaced_${record.container_id}_${container?.expected_slot || ''}_${container?.yard_slot || ''}`
+        break
+      case 'overdue':
+      case 'expiring_soon':
+      case 'stuck_inspecting':
+      case 'no_inspection':
+      case 'yard_stagnation':
+        fingerprint = `${record.type}_${record.container_id}`
+        break
+      case 'missed_notify':
+      case 'detained':
+        fingerprint = `${record.type}_${record.inspection_id}`
+        break
+      case 'stuck_move':
+        fingerprint = `stuck_move_${record.move_task_id}`
+        break
+      default:
+        fingerprint = `${record.type}_${record.container_id || record.inspection_id || record.move_task_id || 'unknown'}`
+    }
+    updateStmt.run(fingerprint, record.id)
+  }
 }
 
 function seedData() {
@@ -169,8 +213,9 @@ function seedData() {
 
   const now = new Date().toISOString().replace('T', ' ').slice(0, 19)
   const insertProblem = db.prepare(
-    `INSERT INTO problem_orders (container_id, inspection_id, move_task_id, type, severity, status, description, cause, cause_chain, action_data, detected_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    `INSERT INTO problem_orders (container_id, inspection_id, move_task_id, type, severity, status, description, cause, cause_chain, action_data, fingerprint, detected_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   )
+  // overdue: container_id=4, fingerprint=overdue_4
   insertProblem.run(4, null, null, 'overdue', 'critical', 'open', '免堆期已过10天未提箱', '免堆期至2026-05-30已过期，超期10天未提箱',
     JSON.stringify([
       { event: 'container_entered', time: '2026-05-20 10:00:00', detail: '闸口进场登记，堆位C-03-01' },
@@ -178,21 +223,24 @@ function seedData() {
       { event: 'no_inspection', time: '2026-06-09', detail: '进场20天无查验计划，无出场记录' },
       { event: 'free_storage_expired', time: '2026-06-09', detail: '免堆期已过期10天，超期堆存费争议风险' },
     ]),
-    '{}', '2026-05-30 10:00:00', now)
+    '{}', 'overdue_4', '2026-05-30 10:00:00', now)
+  // misplaced: container_id=5, expected_slot=A-03-02, yard_slot=B-02-04, fingerprint=misplaced_5_A-03-02_B-02-04
   insertProblem.run(5, null, null, 'misplaced', 'critical', 'open', '系统分配A-03-02，实际在B-02-04', '闸口登记堆位A-03-02，实际堆放B-02-04，疑似吊装错位',
     JSON.stringify([
       { event: 'gate_register', time: '2026-06-08 11:00:00', detail: '闸口登记堆位A-03-02' },
       { event: 'no_move_task', time: '2026-06-08 12:00:00', detail: '无A-03-02→B-02-04移箱任务记录' },
       { event: 'position_mismatch', time: '2026-06-08 12:00:00', detail: '实际堆位B-02-04与登记堆位不一致，吊装错位' },
     ]),
-    '{"expected":"A-03-02","actual":"B-02-04"}', '2026-06-08 12:00:00', now)
+    '{"expected":"A-03-02","actual":"B-02-04"}', 'misplaced_5_A-03-02_B-02-04', '2026-06-08 12:00:00', now)
+  // missed_notify: container_id=6, inspection_id=3, fingerprint=missed_notify_3
   insertProblem.run(6, 3, null, 'missed_notify', 'critical', 'open', '查验计划已生成但未通知客户', '查验计划6月10日执行，但截至6月9日仍未通知客户',
     JSON.stringify([
       { event: 'inspection_planned', time: '2026-06-07 16:00:00', detail: '创建全掏查验计划，计划时间2026-06-10 09:00' },
       { event: 'no_notify', time: '2026-06-09', detail: '距计划执行不足24小时，仍未通知客户到场' },
       { event: 'risk', time: '2026-06-09', detail: '客户不知情将导致查验无法按时执行' },
     ]),
-    '{}', '2026-06-09 08:00:00', now)
+    '{}', 'missed_notify_3', '2026-06-09 08:00:00', now)
+  // detained: container_id=7, inspection_id=4, fingerprint=detained_4
   insertProblem.run(7, 4, null, 'detained', 'critical', 'open', '海关扣留，需等待补证材料', '查验结果为扣留，客户未提供完整报关材料',
     JSON.stringify([
       { event: 'inspection_planned', time: '2026-06-06 09:00:00', detail: '创建全掏查验计划' },
@@ -200,12 +248,13 @@ function seedData() {
       { event: 'inspection_result', time: '2026-06-06 11:00:00', detail: '查验结果：扣留，报关材料不完整' },
       { event: 'no_supplement', time: '2026-06-06 11:00:00', detail: '客户3天未补证，箱体持续占用堆位' },
     ]),
-    '{}', '2026-06-06 11:00:00', now)
+    '{}', 'detained_4', '2026-06-06 11:00:00', now)
+  // stuck_move: container_id=3, move_task_id=1, fingerprint=stuck_move_1
   insertProblem.run(3, null, 1, 'stuck_move', 'warning', 'open', '移箱任务创建后超12小时未执行', '移箱任务待执行超12小时，查验放行箱仍占原堆位',
     JSON.stringify([
       { event: 'inspection_released', time: '2026-06-08 11:30:00', detail: '查验放行，生成移箱任务B-01-02→D-01-01' },
       { event: 'move_pending', time: '2026-06-08 11:30:00', detail: '移箱任务创建，状态pending' },
       { event: 'timeout', time: '2026-06-09', detail: '任务pending超12小时，放行箱仍占查验区堆位' },
     ]),
-    '{}', '2026-06-09 08:00:00', now)
+    '{}', 'stuck_move_1', '2026-06-09 08:00:00', now)
 }

@@ -56,34 +56,51 @@ function generateFingerprint(type: string, params: Record<string, string | numbe
  * - 如果存在同指纹的 rejected 状态问题单，不创建新的（同一业务事实已确认不需要处理）
  * - 如果存在同指纹的 open 状态问题单，不创建新的（避免重复待处理）
  * - 如果存在同指纹的 rescheduled/supplemented 状态问题单，创建新的（风险再次暴露）
+ * - 向后兼容：fingerprint 为 NULL 的旧记录参与同类型去重（基于 container_id/inspection_id/move_task_id）
  */
 function shouldCreateNewProblem(existingList: ExistingProblem[], fingerprint: string): { create: boolean; latestId: number | null } {
+  // 优先查找完全同指纹的记录
   const sameFingerprintList = existingList.filter(p => p.fingerprint === fingerprint)
   
+  // 向后兼容：如果没有找到同指纹的记录，检查 fingerprint 为 NULL 的旧记录
+  // 这些旧记录的指纹需要根据其 container_id/inspection_id/move_task_id 来匹配
   if (sameFingerprintList.length === 0) {
+    const nullFingerprintList = existingList.filter(p => p.fingerprint === null)
+    if (nullFingerprintList.length > 0) {
+      // 旧记录存在，使用旧记录的状态判断
+      return determineByStatus(nullFingerprintList)
+    }
+    // 没有任何记录，创建新的
     return { create: true, latestId: null }
   }
   
-  // 检查是否存在同指纹的 rejected 状态问题单
+  return determineByStatus(sameFingerprintList)
+}
+
+/**
+ * 根据问题单状态列表决定是否创建新问题单
+ */
+function determineByStatus(sameFingerprintList: ExistingProblem[]): { create: boolean; latestId: number | null } {
+  // 检查是否存在 rejected 状态问题单
   const hasRejected = sameFingerprintList.some(p => p.status === 'rejected')
   if (hasRejected) {
     return { create: false, latestId: sameFingerprintList[sameFingerprintList.length - 1].id }
   }
   
-  // 检查是否存在同指纹的 open 状态问题单
+  // 检查是否存在 open 状态问题单
   const hasOpen = sameFingerprintList.some(p => p.status === 'open')
   if (hasOpen) {
     const openProblem = sameFingerprintList.find(p => p.status === 'open')
     return { create: false, latestId: openProblem?.id || sameFingerprintList[0].id }
   }
   
-  // 检查是否存在同指纹的 resolved 状态问题单（风险已解决，可以重新检测）
+  // 检查是否存在 resolved 状态问题单（风险已解决，可以重新检测）
   const hasResolved = sameFingerprintList.some(p => p.status === 'resolved')
   if (hasResolved) {
     return { create: true, latestId: null }
   }
   
-  // 检查是否存在同指纹的 rescheduled/supplemented 状态问题单（风险再次暴露）
+  // 检查是否存在 rescheduled/supplemented 状态问题单（风险再次暴露）
   const hasRescheduledOrSupplemented = sameFingerprintList.some(p => p.status === 'rescheduled' || p.status === 'supplemented')
   if (hasRescheduledOrSupplemented) {
     return { create: true, latestId: sameFingerprintList[sameFingerprintList.length - 1].id }
