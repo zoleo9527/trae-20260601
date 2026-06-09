@@ -68,6 +68,12 @@ export default function DirectorScheduleDetailPage() {
   const [detail, setDetail] = useState<ScheduleDetail | null>(null)
   const [loading, setLoading] = useState(true)
   const [showUploadModal, setShowUploadModal] = useState(false)
+  const [pendingAction, setPendingAction] = useState<{
+    toStatus: ScheduleStatus
+    label: string
+    defaultRemark: string
+  } | null>(null)
+  const [actionRemark, setActionRemark] = useState('')
 
   useEffect(() => {
     if (!hydrated) return
@@ -99,11 +105,23 @@ export default function DirectorScheduleDetailPage() {
       })
       if (res.ok) {
         addToast('状态已更新', 'success')
+        setPendingAction(null)
+        setActionRemark('')
         fetchDetail()
       }
     } catch {
       addToast('操作失败', 'error')
     }
+  }
+
+  const openRemarkModal = (toStatus: ScheduleStatus, label: string, defaultRemark: string) => {
+    setPendingAction({ toStatus, label, defaultRemark })
+    setActionRemark(defaultRemark)
+  }
+
+  const confirmAction = () => {
+    if (!pendingAction) return
+    handleStatusChange(pendingAction.toStatus, actionRemark.trim() || pendingAction.defaultRemark)
   }
 
   const handleUpload = () => {
@@ -167,24 +185,24 @@ export default function DirectorScheduleDetailPage() {
               <div className="flex items-center gap-2">
                 {detail.status === 'PENDING' && (
                   <>
-                    <button onClick={() => handleStatusChange('CONFIRMED', '主任确认')} className="px-4 py-2 bg-emerald-500 text-white text-sm rounded-lg hover:bg-emerald-600">确认排班</button>
-                    <button onClick={() => handleStatusChange('RETURNED', '主任退回')} className="px-4 py-2 bg-red-50 text-red-600 text-sm rounded-lg hover:bg-red-100">退回</button>
+                    <button onClick={() => openRemarkModal('CONFIRMED', '确认排班', '主任确认排班')} className="px-4 py-2 bg-emerald-500 text-white text-sm rounded-lg hover:bg-emerald-600">确认排班</button>
+                    <button onClick={() => openRemarkModal('RETURNED', '退回', '主任退回')} className="px-4 py-2 bg-red-50 text-red-600 text-sm rounded-lg hover:bg-red-100">退回</button>
                   </>
                 )}
                 {detail.status === 'URGED' && (
-                  <button onClick={() => handleStatusChange('CONFIRMED', '催促后确认')} className="px-4 py-2 bg-emerald-500 text-white text-sm rounded-lg hover:bg-emerald-600">确认排班</button>
+                  <button onClick={() => openRemarkModal('CONFIRMED', '确认排班', '催促后确认')} className="px-4 py-2 bg-emerald-500 text-white text-sm rounded-lg hover:bg-emerald-600">确认排班</button>
                 )}
                 {detail.status === 'RETURNED' && (
-                  <button onClick={() => handleStatusChange('SUPPLEMENTING', '主任要求补材料')} className="px-4 py-2 bg-blue-500 text-white text-sm rounded-lg hover:bg-blue-600">要求补材料</button>
+                  <button onClick={() => openRemarkModal('SUPPLEMENTING', '要求补材料', '主任要求补材料')} className="px-4 py-2 bg-blue-500 text-white text-sm rounded-lg hover:bg-blue-600">要求补材料</button>
                 )}
                 {detail.status === 'SUPPLEMENTING' && (
-                  <button onClick={() => handleStatusChange('PENDING', '材料已补齐')} className="px-4 py-2 bg-navy-500 text-white text-sm rounded-lg hover:bg-navy-600">材料已补齐</button>
+                  <button onClick={() => openRemarkModal('PENDING', '材料已补齐', '材料已补齐，重新待确认')} className="px-4 py-2 bg-navy-500 text-white text-sm rounded-lg hover:bg-navy-600">材料已补齐</button>
                 )}
                 {detail.status === 'CONFIRMED' && (
-                  <button onClick={() => handleStatusChange('IN_TREATMENT')} className="px-4 py-2 bg-purple-500 text-white text-sm rounded-lg hover:bg-purple-600">开始治疗</button>
+                  <button onClick={() => openRemarkModal('IN_TREATMENT', '开始治疗', '开始治疗')} className="px-4 py-2 bg-purple-500 text-white text-sm rounded-lg hover:bg-purple-600">开始治疗</button>
                 )}
                 {detail.status === 'IN_TREATMENT' && (
-                  <button onClick={() => handleStatusChange('COMPLETED')} className="px-4 py-2 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700">完成治疗</button>
+                  <button onClick={() => openRemarkModal('COMPLETED', '完成治疗', '治疗已完成')} className="px-4 py-2 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700">完成治疗</button>
                 )}
               </div>
             </div>
@@ -415,6 +433,41 @@ export default function DirectorScheduleDetailPage() {
             <div className="flex justify-end gap-3">
               <button onClick={() => setShowUploadModal(false)} className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-50 rounded-lg">取消</button>
               <button onClick={handleUploadConfirm} className="px-4 py-2 text-sm bg-navy-500 text-white rounded-lg hover:bg-navy-600">确认上传</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {pendingAction && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-lg shadow-2xl">
+            <h3 className="text-lg font-bold text-navy-700 mb-1">{pendingAction.label}</h3>
+            <p className="text-sm text-gray-500 mb-4">
+              将排班状态从 <span className="font-medium text-navy-700">{SCHEDULE_STATUS_LABELS[detail.status]}</span> 变更为 <span className="font-medium text-emerald-600">{SCHEDULE_STATUS_LABELS[pendingAction.toStatus]}</span>
+            </p>
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">操作备注（选填）</label>
+              <textarea
+                value={actionRemark}
+                onChange={(e) => setActionRemark(e.target.value)}
+                placeholder="请填写原因或备注信息…"
+                rows={3}
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-navy-300 resize-none"
+              />
+            </div>
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => { setPendingAction(null); setActionRemark('') }}
+                className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-50 rounded-lg"
+              >
+                取消
+              </button>
+              <button
+                onClick={confirmAction}
+                className="px-4 py-2 text-sm bg-navy-500 text-white rounded-lg hover:bg-navy-600"
+              >
+                确认{pendingAction.label}
+              </button>
             </div>
           </div>
         </div>
