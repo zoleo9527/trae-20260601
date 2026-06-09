@@ -7,6 +7,7 @@ interface AppState {
   packages: PackageItem[]
   stats: TodayStats | null
   activities: Activity[]
+  priorityItems: PriorityItem[]
   fetchPackages: (status?: string) => Promise<void>
   fetchPackage: (id: string) => Promise<PackageItem | null>
   checkin: (id: string, operator: string, role: UserRole, note?: string) => Promise<void>
@@ -16,6 +17,7 @@ interface AppState {
   resetPackageStatus: (id: string, operator: string, role: UserRole, targetStatus: string, note?: string) => Promise<void>
   fetchStats: () => Promise<void>
   fetchActivities: (limit?: number) => Promise<void>
+  fetchPriorityItems: (limit?: number) => Promise<void>
   resetAllData: () => Promise<void>
 }
 
@@ -26,6 +28,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   packages: [],
   stats: null,
   activities: [],
+  priorityItems: [],
 
   fetchPackages: async (status?: string) => {
     const url = status ? `/api/packages?status=${status}` : '/api/packages'
@@ -128,10 +131,17 @@ export const useAppStore = create<AppState>((set, get) => ({
     if (json.success) set({ activities: json.data })
   },
 
+  fetchPriorityItems: async (limit = 10) => {
+    const res = await fetch(`/api/stats/priority?limit=${limit}`)
+    const json = await res.json()
+    if (json.success) set({ priorityItems: json.data })
+  },
+
   resetAllData: async () => {
     await fetch('/api/reset', { method: 'POST' })
     await get().fetchPackages()
     await get().fetchStats()
     await get().fetchActivities()
+    await get().fetchPriorityItems()
   },
 }))

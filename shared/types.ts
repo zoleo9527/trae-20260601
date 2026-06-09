@@ -56,6 +56,20 @@ export interface Activity {
   timestamp: string
 }
 
+export interface PriorityItem {
+  id: string
+  trackingNo: string
+  status: PackageStatus
+  type: PackageType
+  arrivedAt: string
+  currentHandler: string
+  currentRole: UserRole
+  problemType?: string
+  problemDescription?: string
+  priority: number
+  reason: string
+}
+
 export const STATUS_LABELS: Record<PackageStatus, string> = {
   arrived: '到站待入库',
   checked_in: '已入库待核销',

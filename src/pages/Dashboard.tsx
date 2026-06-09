@@ -1,17 +1,25 @@
 import { useAppStore } from '@/hooks/useAppStore'
+import { cn } from '@/lib/utils'
 import {
-    AlertCircle,
     AlertTriangle,
     ArrowRight,
     CheckCircle,
     Clock,
     Inbox,
+    LogIn,
     Package,
     RotateCcw,
+    ShieldAlert,
 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ROLE_LABELS, STATUS_LABELS, type UserRole } from '../../shared/types'
+import {
+    ROLE_LABELS,
+    STATUS_LABELS,
+    TYPE_LABELS,
+    type PriorityItem,
+    type UserRole
+} from '../../shared/types'
 
 function formatRelativeTime(timestamp: string): string {
   const now = Date.now()
@@ -33,9 +41,31 @@ const roleBadgeClass: Record<UserRole, string> = {
   customer_service: 'bg-purple-100 text-purple-700',
 }
 
+const PRIORITY_STYLES: Record<number, { bg: string; border: string; icon: React.ElementType; iconBg: string; iconColor: string; text: string; badge: string }> = {
+  1: { bg: 'bg-red-50', border: 'border-red-200', icon: AlertTriangle, iconBg: 'bg-red-600', iconColor: 'text-white', text: 'text-red-800', badge: 'bg-red-100 text-red-700' },
+  2: { bg: 'bg-orange-50', border: 'border-orange-200', icon: Clock, iconBg: 'bg-orange-600', iconColor: 'text-white', text: 'text-orange-800', badge: 'bg-orange-100 text-orange-700' },
+  3: { bg: 'bg-amber-50', border: 'border-amber-200', icon: ShieldAlert, iconBg: 'bg-amber-600', iconColor: 'text-white', text: 'text-amber-800', badge: 'bg-amber-100 text-amber-700' },
+  4: { bg: 'bg-blue-50', border: 'border-blue-200', icon: Inbox, iconBg: 'bg-blue-600', iconColor: 'text-white', text: 'text-blue-800', badge: 'bg-blue-100 text-blue-700' },
+  5: { bg: 'bg-teal-50', border: 'border-teal-200', icon: LogIn, iconBg: 'bg-teal-600', iconColor: 'text-white', text: 'text-teal-800', badge: 'bg-teal-100 text-teal-700' },
+}
+
+function getActionRoute(item: PriorityItem): string {
+  if (item.status === 'arrived') return '/dispatch'
+  if (item.status === 'checked_in' || item.status === 'notified') return '/pickup'
+  if (item.status === 'problem') return '/problems'
+  return `/package/${item.id}`
+}
+
+function getActionLabel(item: PriorityItem): string {
+  if (item.status === 'arrived') return '去入库'
+  if (item.status === 'checked_in' || item.status === 'notified') return '去核销'
+  if (item.status === 'problem') return '去处理'
+  return '查看'
+}
+
 export default function Dashboard() {
   const navigate = useNavigate()
-  const { stats, activities, currentRole, fetchStats, fetchActivities, resetAllData } =
+  const { stats, activities, priorityItems, currentRole, fetchStats, fetchActivities, fetchPriorityItems, resetAllData } =
     useAppStore()
   const [showResetDialog, setShowResetDialog] = useState(false)
   const [resetting, setResetting] = useState(false)
@@ -43,12 +73,8 @@ export default function Dashboard() {
   useEffect(() => {
     fetchStats()
     fetchActivities(20)
-  }, [fetchStats, fetchActivities])
-
-  const hasOverdueCheckin = stats && stats.overdueCheckin > 0
-  const hasOverdueVerify = stats && stats.overdueVerify > 0
-  const hasProblems = stats && stats.problemCount > 0
-  const hasPriority = hasOverdueCheckin || hasOverdueVerify || hasProblems
+    fetchPriorityItems(10)
+  }, [fetchStats, fetchActivities, fetchPriorityItems])
 
   const handleReset = async () => {
     setResetting(true)
@@ -66,65 +92,75 @@ export default function Dashboard() {
         </p>
       </div>
 
-      {hasPriority && (
+      {priorityItems.length > 0 && (
         <section>
           <h2 className="text-sm font-semibold text-zinc-500 uppercase tracking-wider mb-3">
-            今日优先事项
+            今日优先处理
           </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            {hasOverdueCheckin && (
-              <button
-                onClick={() => navigate('/dispatch')}
-                className="flex items-center gap-3 bg-red-50 border border-red-200 rounded-xl p-4 hover:bg-red-100 transition-colors text-left"
-              >
-                <div className="w-10 h-10 rounded-lg bg-red-600 flex items-center justify-center shrink-0">
-                  <AlertTriangle size={20} className="text-white" />
-                </div>
-                <div>
-                  <p className="text-sm text-red-800 font-medium">超时未入库</p>
-                  <p className="text-2xl font-bold text-red-600">
-                    {stats.overdueCheckin}
-                  </p>
-                </div>
-                <ArrowRight size={16} className="text-red-400 ml-auto shrink-0" />
-              </button>
-            )}
+          <div className="space-y-2">
+            {priorityItems.map((item) => {
+              const style = PRIORITY_STYLES[item.priority] ?? PRIORITY_STYLES[5]
+              const Icon = style.icon
+              return (
+                <div
+                  key={item.id}
+                  className={cn(
+                    'flex items-center gap-3 rounded-xl border p-3.5 transition-colors',
+                    style.bg,
+                    style.border,
+                  )}
+                >
+                  <div className={cn('w-9 h-9 rounded-lg flex items-center justify-center shrink-0', style.iconBg)}>
+                    <Icon size={18} className={style.iconColor} />
+                  </div>
 
-            {hasOverdueVerify && (
-              <button
-                onClick={() => navigate('/pickup')}
-                className="flex items-center gap-3 bg-orange-50 border border-orange-200 rounded-xl p-4 hover:bg-orange-100 transition-colors text-left"
-              >
-                <div className="w-10 h-10 rounded-lg bg-orange-600 flex items-center justify-center shrink-0">
-                  <Clock size={20} className="text-white" />
-                </div>
-                <div>
-                  <p className="text-sm text-orange-800 font-medium">超时未核销</p>
-                  <p className="text-2xl font-bold text-orange-600">
-                    {stats.overdueVerify}
-                  </p>
-                </div>
-                <ArrowRight size={16} className="text-orange-400 ml-auto shrink-0" />
-              </button>
-            )}
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 mb-0.5">
+                      <span className={cn('inline-block px-1.5 py-0.5 rounded text-[10px] font-medium', style.badge)}>
+                        {item.reason}
+                      </span>
+                      <span className="text-xs tracking-no text-zinc-500 font-medium">
+                        {item.trackingNo}
+                      </span>
+                      {item.type !== 'normal' && (
+                        <span className="text-[10px] text-zinc-400">
+                          {TYPE_LABELS[item.type]}
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-1.5 text-xs text-zinc-500">
+                      <span>{item.currentHandler}</span>
+                      <span className={cn('inline-block px-1 py-0 rounded text-[9px] font-medium', roleBadgeClass[item.currentRole])}>
+                        {ROLE_LABELS[item.currentRole]}
+                      </span>
+                      <span className="text-zinc-300">·</span>
+                      <span>{formatRelativeTime(item.arrivedAt)}</span>
+                    </div>
+                  </div>
 
-            {hasProblems && (
-              <button
-                onClick={() => navigate('/problems')}
-                className="flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-xl p-4 hover:bg-amber-100 transition-colors text-left"
-              >
-                <div className="w-10 h-10 rounded-lg bg-amber-600 flex items-center justify-center shrink-0">
-                  <AlertCircle size={20} className="text-white" />
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button
+                      onClick={() => navigate(`/package/${item.id}`)}
+                      className="text-xs text-zinc-400 hover:text-zinc-600 transition-colors"
+                    >
+                      详情
+                    </button>
+                    <button
+                      onClick={() => navigate(getActionRoute(item))}
+                      className={cn(
+                        'flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors',
+                        style.iconBg,
+                        style.iconColor,
+                        'hover:opacity-90',
+                      )}
+                    >
+                      {getActionLabel(item)}
+                      <ArrowRight size={12} />
+                    </button>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-sm text-amber-800 font-medium">待处理问题件</p>
-                  <p className="text-2xl font-bold text-amber-600">
-                    {stats.problemCount}
-                  </p>
-                </div>
-                <ArrowRight size={16} className="text-amber-400 ml-auto shrink-0" />
-              </button>
-            )}
+              )
+            })}
           </div>
         </section>
       )}
