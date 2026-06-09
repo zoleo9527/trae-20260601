@@ -45,10 +45,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC
 .btn-logout:hover{border-color:var(--danger);color:var(--danger)}
 .main-container{max-width:1200px;margin:0 auto;padding:24px}
 .tabs{display:flex;gap:0;margin-bottom:24px;background:var(--card-bg);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden}
-.tab-btn{flex:1;padding:14px 24px;background:transparent;border:none;font-size:15px;font-weight:500;cursor:pointer;color:var(--text-secondary);border-bottom:3px solid transparent;font-family:inherit;transition:all var(--transition)}
+.tab-btn{flex:1;padding:14px 24px;background:transparent;border:none;font-size:15px;font-weight:500;cursor:pointer;color:var(--text-secondary);border-bottom:3px solid transparent;font-family:inherit;transition:all var(--transition)}.chip:hover{background:var(--primary-light);color:var(--primary)}.chip.active{background:var(--primary);color:#fff;border-color:var(--primary)}.chip-draft.active{background:var(--gray);border-color:var(--gray)}.chip-submitted.active{background:var(--primary);border-color:var(--primary)}.chip-approved.active{background:var(--success);border-color:var(--success)}.chip-rejected.active{background:var(--danger);border-color:var(--danger)}.chip-pending.active{background:var(--warning);border-color:var(--warning)}.chip-issued.active{background:var(--primary);border-color:var(--primary)}.chip-received.active{background:var(--success);border-color:var(--success)}
 .tab-btn:hover{color:var(--text);background:var(--gray-light)}
 .tab-btn.active{color:var(--primary);border-bottom-color:var(--primary);background:var(--primary-light)}
-.action-bar{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}.action-bar-right{display:flex;align-items:center;gap:10px}
+.action-bar{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}.action-bar-right{display:flex;align-items:center;gap:10px}.status-chips{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap}.chip{display:inline-flex;align-items:center;gap:4px;padding:4px 12px;border-radius:16px;font-size:13px;cursor:pointer;background:var(--gray-light);color:var(--text-secondary);border:1px solid transparent;transition:all var(--transition)}
 .action-bar h2{font-size:18px;font-weight:600}
 .card-list{display:flex;flex-direction:column;gap:12px}
 .card-item{background:var(--card-bg);border-radius:var(--radius);padding:16px 20px;box-shadow:var(--shadow);cursor:pointer;transition:all var(--transition);border-left:4px solid transparent}
@@ -137,6 +137,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC
 </div>
 <div v-if="activeTab==='plans'">
 <div class="action-bar"><h2>投喂计划列表</h2><div class="action-bar-right"><select class="role-select" v-model="planStatusFilter"><option value="">全部</option><option value="draft">草稿</option><option value="submitted">待审核</option><option value="approved">已批准</option><option value="rejected">已驳回</option></select><button v-if="currentRole==='technician'" class="btn btn-primary" @click="showCreatePlan=true">+ 新建计划</button></div></div>
+<div class="status-chips"><span :class="['chip',{active:planStatusFilter===''}]" @click="planStatusFilter=''">全部 {{plans.length}}</span><span :class="['chip','chip-draft',{active:planStatusFilter==='draft'}]" @click="planStatusFilter='draft'">草稿 {{planCounts.draft}}</span><span :class="['chip','chip-submitted',{active:planStatusFilter==='submitted'}]" @click="planStatusFilter='submitted'">待审核 {{planCounts.submitted}}</span><span :class="['chip','chip-approved',{active:planStatusFilter==='approved'}]" @click="planStatusFilter='approved'">已批准 {{planCounts.approved}}</span><span :class="['chip','chip-rejected',{active:planStatusFilter==='rejected'}]" @click="planStatusFilter='rejected'">已驳回 {{planCounts.rejected}}</span></div>
 <div v-if="plansLoading" class="empty-state"><p>加载中...</p></div>
 <div v-else-if="plans.length===0" class="empty-state"><div class="icon">📋</div><p>暂无投喂计划</p></div>
 <div v-else-if="filteredPlans.length===0" class="empty-state"><div class="icon">📋</div><p>无匹配记录</p></div>
@@ -147,6 +148,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC
 </div></div></div>
 <div v-if="activeTab==='requisitions'">
 <div class="action-bar"><h2>饲料领用列表</h2><div class="action-bar-right"><select class="role-select" v-model="reqStatusFilter"><option value="">全部</option><option value="pending">待发料</option><option value="issued">已发料</option><option value="received">已收料</option></select><button v-if="currentRole==='technician'" class="btn btn-primary" @click="showCreateReq=true">+ 申请领用</button></div></div>
+<div class="status-chips"><span :class="['chip',{active:reqStatusFilter===''}]" @click="reqStatusFilter=''">全部 {{requisitions.length}}</span><span :class="['chip','chip-pending',{active:reqStatusFilter==='pending'}]" @click="reqStatusFilter='pending'">待发料 {{reqCounts.pending}}</span><span :class="['chip','chip-issued',{active:reqStatusFilter==='issued'}]" @click="reqStatusFilter='issued'">已发料 {{reqCounts.issued}}</span><span :class="['chip','chip-received',{active:reqStatusFilter==='received'}]" @click="reqStatusFilter='received'">已收料 {{reqCounts.received}}</span></div>
 <div v-if="reqsLoading" class="empty-state"><p>加载中...</p></div>
 <div v-else-if="requisitions.length===0" class="empty-state"><div class="icon">📦</div><p>暂无领用记录</p></div>
 <div v-else-if="filteredRequisitions.length===0" class="empty-state"><div class="icon">📦</div><p>无匹配记录</p></div>
@@ -259,6 +261,8 @@ const planStatusFilter=ref('');const reqStatusFilter=ref('')
 const approvedPlans=computed(()=>plans.value.filter(p=>p.status==='approved'))
 const filteredPlans=computed(()=>planStatusFilter.value?plans.value.filter(p=>p.status===planStatusFilter.value):plans.value)
 const filteredRequisitions=computed(()=>reqStatusFilter.value?requisitions.value.filter(r=>r.status===reqStatusFilter.value):requisitions.value)
+const planCounts=computed(()=>{const c={draft:0,submitted:0,approved:0,rejected:0};plans.value.forEach(p=>{if(c[p.status]!==undefined)c[p.status]++});return c})
+const reqCounts=computed(()=>{const c={pending:0,issued:0,received:0};requisitions.value.forEach(r=>{if(c[r.status]!==undefined)c[r.status]++});return c})
 function toast(msg,type='info'){const id=Date.now();toasts.value.push({id,msg,type});setTimeout(()=>{toasts.value=toasts.value.filter(t=>t.id!==id)},3000)}
 function statusLabel(s){const m={draft:'草稿',submitted:'待审核',approved:'已批准',rejected:'已驳回'};return m[s]||s}
 function reqStatusLabel(s){const m={pending:'待发料',issued:'已发料',received:'已收料'};return m[s]||s}
@@ -278,7 +282,7 @@ async function issueReq(r){try{await apiFetch('/feed-requisitions/'+r.id+'/issue
 async function receiveReq(r){try{await apiFetch('/feed-requisitions/'+r.id+'/receive',{method:'PUT',body:JSON.stringify({status:user.value.username,remark:""})});toast('已收料','success');fetchRequisitions();openReqDetail(r)}catch(e){}}
 async function openPlanDetail(p){try{const d=await apiFetch('/feeding-plans/'+p.id);planDrawer.value=d}catch(e){planDrawer.value=p}}
 async function openReqDetail(r){try{const d=await apiFetch('/feed-requisitions/'+r.id);reqDrawer.value=d}catch(e){reqDrawer.value=r}}
-return{user,currentRole,activeTab,plans,requisitions,plansLoading,reqsLoading,planDrawer,reqDrawer,showCreatePlan,showCreateReq,showRejectPlan,rejectRemark,planForm,reqForm,loginForm,loginError,toasts,approvedPlans,planStatusFilter,reqStatusFilter,filteredPlans,filteredRequisitions,login,logout,statusLabel,reqStatusLabel,roleLabel,fetchPlans,fetchRequisitions,createPlan,submitPlan,approvePlan,openRejectPlanModal,rejectPlan,createReq,issueReq,receiveReq,openPlanDetail,openReqDetail}
+return{user,currentRole,activeTab,plans,requisitions,plansLoading,reqsLoading,planDrawer,reqDrawer,showCreatePlan,showCreateReq,showRejectPlan,rejectRemark,planForm,reqForm,loginForm,loginError,toasts,approvedPlans,planStatusFilter,reqStatusFilter,filteredPlans,filteredRequisitions,planCounts,reqCounts,login,logout,statusLabel,reqStatusLabel,roleLabel,fetchPlans,fetchRequisitions,createPlan,submitPlan,approvePlan,openRejectPlanModal,rejectPlan,createReq,issueReq,receiveReq,openPlanDetail,openReqDetail}
 }}).mount('#app')
 </script>
 </body></html>
