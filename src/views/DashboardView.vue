@@ -187,7 +187,7 @@ const roleActionMap: Record<UserRole, Record<string, string>> = {
   after_sales: {
     pending_review: '审核退换申请',
     approved: '发起费用调整',
-    fee_adjusting: '重新发起费用调整',
+    fee_adjusting: '修正费用调整',
   },
 }
 

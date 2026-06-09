@@ -45,6 +45,9 @@ const showReject = computed(() =>
 const showSubmit = computed(() =>
   roleStore.currentRole === 'sales_clerk' && is('pending_review')
 )
+const showResubmit = computed(() =>
+  roleStore.currentRole === 'sales_clerk' && is('rejected')
+)
 const showFeeAdjust = computed(() =>
   roleStore.currentRole === 'after_sales' && is('approved') && !order.value?.feeAdjustment
 )
@@ -59,6 +62,12 @@ const showConfirmReturn = computed(() =>
 )
 const showApproveFee = computed(() =>
   roleStore.currentRole === 'sales_clerk' && is('fee_adjusting') && order.value?.feeAdjustment?.status === 'pending'
+)
+const showRejectFee = computed(() =>
+  roleStore.currentRole === 'sales_clerk' && is('fee_adjusting') && order.value?.feeAdjustment?.status === 'pending'
+)
+const showReEditFee = computed(() =>
+  roleStore.currentRole === 'after_sales' && is('fee_adjusting') && order.value?.feeAdjustment?.status === 'rejected'
 )
 
 function handleApprove() {
@@ -77,6 +86,14 @@ function handleSubmit() {
 }
 
 function handleFeeAdjust() {
+  if (order.value?.feeAdjustment && order.value.feeAdjustment.status === 'rejected') {
+    feeForm.value = {
+      adjustAmount: order.value.feeAdjustment.adjustAmount,
+      adjustReason: order.value.feeAdjustment.adjustReason,
+      evidenceSummary: order.value.feeAdjustment.evidenceSummary,
+      screenshotThumbnails: order.value.feeAdjustment.screenshotThumbnails,
+    }
+  }
   showFeeForm.value = true
 }
 
@@ -382,6 +399,13 @@ function focusRemark() {
             提交申请
           </button>
           <button
+            v-if="showResubmit"
+            class="px-3 py-1.5 bg-[#E8871E] text-white text-sm rounded-lg hover:bg-[#c97418] transition-colors"
+            @click="handleSubmit"
+          >
+            重新提交
+          </button>
+          <button
             v-if="showApprove"
             class="px-3 py-1.5 bg-[#2D936C] text-white text-sm rounded-lg hover:bg-[#247a59] transition-colors"
             @click="handleApprove"
@@ -403,6 +427,13 @@ function focusRemark() {
             发起费用调整
           </button>
           <button
+            v-if="showReEditFee"
+            class="px-3 py-1.5 bg-[#E8871E] text-white text-sm rounded-lg hover:bg-[#c97418] transition-colors"
+            @click="handleFeeAdjust"
+          >
+            重新编辑费用调整
+          </button>
+          <button
             v-if="showApproveFee"
             class="px-3 py-1.5 bg-[#2D936C] text-white text-sm rounded-lg hover:bg-[#247a59] transition-colors"
             @click="handleApproveFee"
@@ -410,7 +441,7 @@ function focusRemark() {
             批准费用调整
           </button>
           <button
-            v-if="showApproveFee"
+            v-if="showRejectFee"
             class="px-3 py-1.5 bg-red-500 text-white text-sm rounded-lg hover:bg-red-600 transition-colors"
             @click="handleRejectFee"
           >

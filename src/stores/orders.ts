@@ -108,8 +108,9 @@ export const useOrdersStore = defineStore('orders', () => {
     if (order?.feeAdjustment) {
       order.feeAdjustment.status = 'rejected'
       order.status = 'fee_adjusting'
+      order.assignedRole = 'after_sales'
       order.isStuck = true
-      order.stuckReason = '费用调整被驳回，需要重新发起'
+      order.stuckReason = '费用调整被销售内勤驳回，需要重新发起或修正'
       order.stuckStep = '售后专员重新发起费用调整'
       order.updatedAt = new Date().toLocaleString('zh-CN')
     }

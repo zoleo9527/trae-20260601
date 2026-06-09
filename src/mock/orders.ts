@@ -165,18 +165,20 @@ export const orders: Order[] = [
     returnReason: '功能故障',
     responsibleParty: '供应商',
     returnType: 'return',
-    status: 'pending_review',
+    status: 'rejected',
     isStuck: false,
-    assignedRole: 'after_sales',
+    assignedRole: 'sales_clerk',
     remarks: [
       { id: 'r9', author: '王芳', role: 'sales_clerk', content: '客户报修后确认无法修复，申请退货退款', createdAt: '2026-06-08 14:00' },
+      { id: 'r10', author: '张敏', role: 'after_sales', content: '申请被驳回，请补充产品序列号和购买凭证后重新提交', createdAt: '2026-06-08 15:00' },
     ],
     chatMessages: [
       { role: '华美齿科-马主任', content: '治疗台配件开机就报错，维修人员来看过说无法修复。' },
       { role: '销售内勤-王芳', content: '马主任，已为您提交退货申请，请等待售后审核。' },
+      { role: '售后专员-张敏', content: '请补充产品序列号和购买凭证后重新提交申请。' },
     ],
     createdAt: '2026-06-08 13:00',
-    updatedAt: '2026-06-08 14:00',
+    updatedAt: '2026-06-08 15:00',
   },
   {
     id: 'o7',
@@ -191,7 +193,7 @@ export const orders: Order[] = [
     isStuck: false,
     assignedRole: 'warehouse',
     remarks: [
-      { id: 'r10', author: '张敏', role: 'after_sales', content: '审核通过，确认为出库数量短缺，安排补发', createdAt: '2026-06-08 16:30' },
+      { id: 'r11', author: '张敏', role: 'after_sales', content: '审核通过，确认为出库数量短缺，安排补发', createdAt: '2026-06-08 16:30' },
     ],
     chatMessages: [
       { role: '仁爱口腔-林护士长', content: '订单50个器械盘只收到38个，差了12个。' },
@@ -214,7 +216,7 @@ export const orders: Order[] = [
     isStuck: false,
     assignedRole: 'warehouse',
     remarks: [
-      { id: 'r11', author: '张敏', role: 'after_sales', content: '审核通过，确认产品质量问题，安排退货', createdAt: '2026-06-08 15:00' },
+      { id: 'r12', author: '张敏', role: 'after_sales', content: '审核通过，确认产品质量问题，安排退货', createdAt: '2026-06-08 15:00' },
     ],
     chatMessages: [
       { role: '阳光牙科-李医生', content: '洁牙机头用了3次就不转了。' },
@@ -233,8 +235,10 @@ export const orders: Order[] = [
     responsibleParty: '供应商',
     returnType: 'exchange',
     status: 'fee_adjusting',
-    isStuck: false,
-    assignedRole: 'sales_clerk',
+    isStuck: true,
+    stuckReason: '费用调整被销售内勤驳回，需要重新发起或修正',
+    stuckStep: '售后专员重新发起费用调整',
+    assignedRole: 'after_sales',
     feeAdjustment: {
       id: 'f4',
       orderId: 'o9',
@@ -242,20 +246,22 @@ export const orders: Order[] = [
       adjustReason: '产品噪音超标，供应商同意补偿部分差价',
       evidenceSummary: '视频记录2段，供应商检测报告1份',
       screenshotThumbnails: ['噪音测试视频1.mp4', '检测报告.jpg'],
-      status: 'pending',
+      status: 'rejected',
       approvedBy: '',
       createdAt: '2026-06-08 17:00',
     },
     remarks: [
-      { id: 'r12', author: '王芳', role: 'sales_clerk', content: '客户反馈手机噪音过大，已申请换货', createdAt: '2026-06-08 10:00' },
-      { id: 'r13', author: '张敏', role: 'after_sales', content: '供应商同意补偿差价，已提交费用调整', createdAt: '2026-06-08 17:00' },
+      { id: 'r13', author: '王芳', role: 'sales_clerk', content: '客户反馈手机噪音过大，已申请换货', createdAt: '2026-06-08 10:00' },
+      { id: 'r14', author: '张敏', role: 'after_sales', content: '供应商同意补偿差价，已提交费用调整', createdAt: '2026-06-08 17:00' },
+      { id: 'r15', author: '王芳', role: 'sales_clerk', content: '费用调整被驳回，请补充供应商正式确认函', createdAt: '2026-06-09 09:00' },
     ],
     chatMessages: [
       { role: '新华口腔-王主任', content: '新到的牙科手机噪音太大，患者投诉了。' },
       { role: '销售内勤-王芳', content: '王主任，我们联系供应商检测一下。' },
       { role: '售后专员-张敏', content: '供应商确认噪音超标，同意补偿部分差价。' },
+      { role: '销售内勤-王芳', content: '请提供供应商正式确认函作为费用调整依据。' },
     ],
     createdAt: '2026-06-08 09:00',
-    updatedAt: '2026-06-08 17:00',
+    updatedAt: '2026-06-09 09:00',
   },
 ]
