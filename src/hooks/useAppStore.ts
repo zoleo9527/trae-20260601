@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { Activity, PackageItem, TodayStats, UserRole } from '../../shared/types'
+import type { Activity, PackageItem, PriorityItem, TodayStats, UserRole } from '../../shared/types'
 
 interface AppState {
   currentRole: UserRole
