@@ -18,6 +18,7 @@ model User {
   statusLogs        StatusLog[]
   medicationRecords MedicationRecord[]
   warningRemarks    WarningRemark[]
+  followUpHandled   MedicationRecord[] @relation("MedicationFollowUpHandler")
 
   @@index([role])
 }
@@ -140,16 +141,21 @@ model MedicationRecord {
   purpose        String
   administeredBy Int
   administeredAt DateTime
-  remarks        String?
-  needsFollowUp  Boolean  @default(false)
+  remarks           String?
+  needsFollowUp     Boolean   @default(false)
+  followUpHandledBy Int?
+  followUpHandledAt DateTime?
+  followUpRemarks   String?
 
-  pond          Pond @relation(fields: [pondId], references: [id])
-  administrator User @relation(fields: [administeredBy], references: [id])
+  pond              Pond @relation(fields: [pondId], references: [id])
+  administrator     User @relation(fields: [administeredBy], references: [id])
+  followUpHandler   User? @relation("MedicationFollowUpHandler", fields: [followUpHandledBy], references: [id])
 
   @@index([pondId])
   @@index([administeredBy])
   @@index([administeredAt])
   @@index([needsFollowUp])
+  @@index([followUpHandledBy])
 }
 
 model StatusLog {

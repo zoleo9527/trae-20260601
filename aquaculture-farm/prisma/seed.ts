@@ -294,7 +294,10 @@ async function main() {
       data: { pondId: ponds[4].id, medicationName: "二氧化氯", dosage: 0.3, unit: "kg",
         purpose: "水体消毒", administeredBy: users[0].id,
         administeredAt: new Date("2026-06-06T09:00:00.000Z"),
-        needsFollowUp: false },
+        needsFollowUp: false,
+        followUpHandledBy: users[3].id,
+        followUpHandledAt: new Date("2026-06-07T09:00:00.000Z"),
+        followUpRemarks: "消毒效果良好，水质已恢复" },
     }),
   ]);
 
@@ -358,6 +361,11 @@ async function main() {
       data: { entityType: "Pond", entityId: ponds[2].id,
         fromStatus: "normal", toStatus: "warning", operatorId: users[1].id,
         remarks: "氨氮偏高标记预警" },
+    }),
+    prisma.statusLog.create({
+      data: { entityType: "MedicationRecord", entityId: medicationRecords[4].id,
+        fromStatus: "FOLLOW_UP_NEEDED", toStatus: "FOLLOW_UP_COMPLETED", operatorId: users[3].id,
+        remarks: "消毒效果良好，水质已恢复" },
     }),
   ]);
 

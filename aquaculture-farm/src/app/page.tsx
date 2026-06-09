@@ -18,11 +18,15 @@ const allStatusLabels: Record<string, string> = {
   IN_PROGRESS: "处理中",
   COMPLETED: "已完成",
   ABNORMAL: "异常",
+  FOLLOW_UP_NEEDED: "需跟进",
+  FOLLOW_UP_COMPLETED: "跟进完成",
 };
 
 const entityTypeLabels: Record<string, string> = {
   WARNING: "预警",
   INSPECTION: "巡检",
+  MedicationRecord: "药品",
+  Pond: "塘口",
 };
 
 function formatTime(iso: string) {
@@ -169,6 +173,16 @@ function buildPriorityQueue(
         urgency: "warning",
       });
     });
+    followUpMeds.forEach((m) => {
+      items.push({
+        priority: idx++,
+        pondName: m.pond.name,
+        action: `确认用药跟进: ${m.medicationName} (${m.purpose})`,
+        person: m.administrator.name,
+        href: "/medications",
+        urgency: "warning",
+      });
+    });
   }
 
   return items;
@@ -225,6 +239,7 @@ export default function DashboardPage() {
   const dangerCount = dangerWarnings.length;
   const warnCount = warningWarnings.length;
   const pendingCount = pendingInspections.length;
+  const followUpMedCount = followUpMeds.length;
 
   const priorityItems = buildPriorityQueue(
     user.role,
@@ -331,6 +346,21 @@ export default function DashboardPage() {
               }}
             >
               待巡检 {pendingCount}
+            </span>
+          )}
+          {followUpMedCount > 0 && (
+            <span
+              style={{
+                background: "#ede9fe",
+                color: "#5b21b6",
+                padding: "4px 12px",
+                borderRadius: 9999,
+                fontSize: 13,
+                fontWeight: 600,
+                border: "1px solid #c4b5fd",
+              }}
+            >
+              药品跟进 {followUpMedCount}
             </span>
           )}
         </div>
