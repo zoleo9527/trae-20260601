@@ -6,24 +6,42 @@ const ArchiveModule = {
 
   init() {},
 
+  _normalizeAlert(ca) {
+    if (!ca) return ca;
+    if (ca.priority === undefined) ca.priority = Store._priorityForType(ca.type);
+    if (!ca.priorityReason) ca.priorityReason = Store._priorityReasonForType(ca.type);
+    if (!ca.lastChangedAt) ca.lastChangedAt = ca.createdAt || '';
+    return ca;
+  },
+
   _getUnconfirmedCount(archive) {
     if (!archive.changeAlerts) return 0;
     return archive.changeAlerts.filter(ca => !ca.confirmed).length;
+  },
+
+  _priorityOrder(p) {
+    return { high: 0, medium: 1, low: 2 }[p] ?? 1;
   },
 
   _getHighestPriority(archive) {
     if (!archive.changeAlerts) return null;
     const unconfirmed = archive.changeAlerts.filter(ca => !ca.confirmed);
     if (unconfirmed.length === 0) return null;
-    const order = { high: 0, medium: 1, low: 2 };
-    return unconfirmed.sort((a, b) => (order[a.priority] || 1) - (order[b.priority] || 1))[0].priority;
+    return unconfirmed.reduce((best, ca) => {
+      this._normalizeAlert(ca);
+      return this._priorityOrder(ca.priority) < this._priorityOrder(best.priority) ? ca : best;
+    }).priority;
   },
 
   _getLastChangedAt(archive) {
     if (!archive.changeAlerts) return '';
     const unconfirmed = archive.changeAlerts.filter(ca => !ca.confirmed);
-    if (unconfirmed.length === 0) return archive.updatedAt;
-    return unconfirmed.sort((a, b) => b.lastChangedAt.localeCompare(a.lastChangedAt))[0].lastChangedAt;
+    if (unconfirmed.length === 0) return archive.updatedAt || '';
+    return unconfirmed.reduce((latest, ca) => {
+      this._normalizeAlert(ca);
+      const a = ca.lastChangedAt || '';
+      return a > latest ? a : latest;
+    }, '');
   },
 
   _getResponsiblePerson(archive) {
@@ -63,7 +81,10 @@ const ArchiveModule = {
 
       if (this._priorityFilter !== 'all') {
         const hp = this._getHighestPriority(a);
-        const hasMatchingPriority = (a.changeAlerts || []).filter(ca => !ca.confirmed).some(ca => ca.priority === this._priorityFilter);
+        const hasMatchingPriority = (a.changeAlerts || []).filter(ca => !ca.confirmed).some(ca => {
+          this._normalizeAlert(ca);
+          return ca.priority === this._priorityFilter;
+        });
         if (!hasMatchingPriority && hp !== this._priorityFilter) return false;
       }
 
@@ -184,12 +205,11 @@ const ArchiveModule = {
     const canAddNote = (role === '公共卫生专员' || role === '护士') && archive.status !== '已关闭';
     const canAddHealthRecord = (role === '公共卫生专员') && archive.status === '建档中';
 
-    const unconfirmedAlerts = (archive.changeAlerts || []).filter(ca => !ca.confirmed);
-    const confirmedAlerts = (archive.changeAlerts || []).filter(ca => ca.confirmed);
+    const unconfirmedAlerts = (archive.changeAlerts || []).filter(ca => !ca.confirmed).map(ca => this._normalizeAlert(ca));
+    const confirmedAlerts = (archive.changeAlerts || []).filter(ca => ca.confirmed).map(ca => this._normalizeAlert(ca));
     const hasHighPriority = unconfirmedAlerts.some(ca => ca.priority === 'high');
     const sortedUnconfirmed = [...unconfirmedAlerts].sort((a, b) => {
-      const order = { high: 0, medium: 1, low: 2 };
-      return (order[a.priority] || 1) - (order[b.priority] || 1);
+      return this._priorityOrder(a.priority) - this._priorityOrder(b.priority);
     });
 
     return `
