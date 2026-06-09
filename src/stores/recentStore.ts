@@ -16,16 +16,39 @@ export const useRecentStore = create<RecentState>()(
       recentItems: [],
       addRecent: (item) =>
         set((state) => {
-          const userItems = state.recentItems
-            .filter((ri) => ri.userId === item.userId)
-            .sort((a, b) => b.accessedAt.localeCompare(a.accessedAt))
-          const otherItems = state.recentItems.filter((ri) => ri.userId !== item.userId)
-          const newEntry: RecentItem = {
-            ...item,
-            id: Date.now().toString(),
+          const { userId, itemType, itemId } = item
+          const now = new Date().toISOString()
+          
+          const existingIndex = state.recentItems.findIndex(
+            (ri) => ri.userId === userId && ri.itemType === itemType && ri.itemId === itemId
+          )
+          
+          let updatedItems: RecentItem[]
+          
+          if (existingIndex >= 0) {
+            updatedItems = [...state.recentItems]
+            updatedItems[existingIndex] = {
+              ...updatedItems[existingIndex],
+              accessedAt: now,
+              itemTitle: item.itemTitle,
+            }
+          } else {
+            const newEntry: RecentItem = {
+              ...item,
+              id: Date.now().toString(),
+              accessedAt: now,
+            }
+            updatedItems = [newEntry, ...state.recentItems]
           }
-          const updatedUserItems = [newEntry, ...userItems].slice(0, MAX_ITEMS_PER_USER)
-          return { recentItems: [...otherItems, ...updatedUserItems] }
+          
+          const userItems = updatedItems
+            .filter((ri) => ri.userId === userId)
+            .sort((a, b) => b.accessedAt.localeCompare(a.accessedAt))
+            .slice(0, MAX_ITEMS_PER_USER)
+          
+          const otherItems = updatedItems.filter((ri) => ri.userId !== userId)
+          
+          return { recentItems: [...otherItems, ...userItems] }
         }),
       getByUser: (userId) =>
         get()
