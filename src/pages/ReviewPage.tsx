@@ -136,11 +136,11 @@ export default function ReviewPage() {
       }))
 
       if (goals.length === 0) {
-        message.error('康复目标不能为空，请至少保留1项目标')
+        adjustForm.setFields([{ name: 'goals', errors: ['至少保留1项康复目标'] }])
         return
       }
       if (treatmentPlan.length === 0) {
-        message.error('治疗计划不能为空，请至少保留1项治疗')
+        adjustForm.setFields([{ name: 'treatmentPlan', errors: ['至少保留1项治疗项目'] }])
         return
       }
 
@@ -149,7 +149,7 @@ export default function ReviewPage() {
       setAdjustComment('')
       adjustForm.resetFields()
       message.success(`处方已调整为 V${adjustRx.version + 1}，旧版本 V${adjustRx.version} 已归档`)
-    })
+    }).catch(() => {})
   }
 
   const renderReviewCard = (rx: Prescription) => {
@@ -284,8 +284,9 @@ export default function ReviewPage() {
               <Form form={adjustForm} layout="vertical">
                 <Divider orientation="left" style={{ margin: '8px 0' }}>康复目标（可修改/增删，至少1项）</Divider>
                 <Form.List name="goals" rules={[{ validator: async (_, value) => { if (!value || value.length < 1) return Promise.reject(new Error('至少保留1项康复目标')) } }]}>
-                  {(fields, { add, remove }) => (
+                  {(fields, { add, remove }, { errors }) => (
                     <>
+                      {errors.length > 0 && <div style={{ color: '#ff4d4f', fontSize: 14, marginBottom: 8, padding: '4px 0' }}>{errors[0]}</div>}
                       {fields.map(({ key, name, ...restField }) => (
                         <Space key={key} style={{ display: 'flex', marginBottom: 8, flexWrap: 'wrap' }} align="baseline">
                           <Form.Item {...restField} name={[name, 'description']} rules={[{ required: true, message: '目标描述' }]}>
@@ -312,8 +313,9 @@ export default function ReviewPage() {
 
                 <Divider orientation="left" style={{ margin: '8px 0' }}>治疗计划（可修改/增删，至少1项）</Divider>
                 <Form.List name="treatmentPlan" rules={[{ validator: async (_, value) => { if (!value || value.length < 1) return Promise.reject(new Error('至少保留1项治疗项目')) } }]}>
-                  {(fields, { add, remove }) => (
+                  {(fields, { add, remove }, { errors }) => (
                     <>
+                      {errors.length > 0 && <div style={{ color: '#ff4d4f', fontSize: 14, marginBottom: 8, padding: '4px 0' }}>{errors[0]}</div>}
                       {fields.map(({ key, name, ...restField }) => (
                         <Space key={key} style={{ display: 'flex', marginBottom: 8, flexWrap: 'wrap' }} align="baseline">
                           <Form.Item {...restField} name={[name, 'type']} rules={[{ required: true, message: '类型' }]}>

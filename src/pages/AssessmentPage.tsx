@@ -79,6 +79,12 @@ export default function AssessmentPage() {
         maxScore: s.maxScore,
         interpretation: s.interpretation,
       }))
+
+      if (scales.length === 0) {
+        form.setFields([{ name: 'scales', errors: ['至少添加1项评估量表'] }])
+        return
+      }
+
       const painPoints: PainPoint[] = (values.painPoints ?? []).map((p: { region: string; side: string; severity: number; nature: string; notes: string }) => ({
         id: `pp${uuid().slice(0, 6)}`,
         region: p.region,
@@ -93,11 +99,6 @@ export default function AssessmentPage() {
         description: c.description,
         reason: c.reason,
       }))
-
-      if (scales.length === 0) {
-        message.error('评估量表不能为空，请至少添加1项量表')
-        return
-      }
 
       const therapist = therapists.find((t) => t.id === values.therapistId)
       addAssessment({
@@ -115,7 +116,7 @@ export default function AssessmentPage() {
       form.resetFields()
       setCreateOpen(false)
       message.success('评估记录创建成功')
-    })
+    }).catch(() => {})
   }
 
   return (
@@ -303,8 +304,9 @@ export default function AssessmentPage() {
 
           <Divider orientation="left" style={{ margin: '12px 0 8px' }}>评估量表 <Text type="danger" style={{ fontSize: 12 }}>（至少1项，必填）</Text></Divider>
           <Form.List name="scales" rules={[{ validator: async (_, value) => { if (!value || value.length < 1) return Promise.reject(new Error('至少添加1项评估量表')) } }]}>
-            {(fields, { add, remove }) => (
+            {(fields, { add, remove }, { errors }) => (
               <>
+                {errors.length > 0 && <div style={{ color: '#ff4d4f', fontSize: 14, marginBottom: 8, padding: '4px 0' }}>{errors[0]}</div>}
                 {fields.map(({ key, name, ...restField }) => (
                   <Space key={key} style={{ display: 'flex', marginBottom: 8 }} align="baseline">
                     <Form.Item {...restField} name={[name, 'name']} rules={[{ required: true, message: '量表名' }]}>

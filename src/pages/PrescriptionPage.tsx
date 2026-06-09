@@ -151,11 +151,11 @@ export default function PrescriptionPage() {
       }))
 
       if (goals.length === 0) {
-        message.error('康复目标不能为空，请至少添加1项目标')
+        form.setFields([{ name: 'goals', errors: ['至少添加1项康复目标'] }])
         return
       }
       if (treatmentPlan.length === 0) {
-        message.error('治疗计划不能为空，请至少添加1项治疗')
+        form.setFields([{ name: 'treatmentPlan', errors: ['至少添加1项治疗项目'] }])
         return
       }
 
@@ -174,7 +174,7 @@ export default function PrescriptionPage() {
       setSelectedPatientId(undefined)
       setCreateOpen(false)
       message.success('康复处方开具成功，已提交审核')
-    })
+    }).catch(() => {})
   }
 
   return (
@@ -368,8 +368,9 @@ export default function PrescriptionPage() {
 
           <Divider orientation="left" style={{ margin: '12px 0 8px' }}>康复目标 <Text type="danger" style={{ fontSize: 12 }}>（至少1项）</Text></Divider>
           <Form.List name="goals" rules={[{ validator: async (_, value) => { if (!value || value.length < 1) return Promise.reject(new Error('至少添加1项康复目标')) } }]}>
-            {(fields, { add, remove }) => (
+            {(fields, { add, remove }, { errors }) => (
               <>
+                {errors.length > 0 && <div style={{ color: '#ff4d4f', fontSize: 14, marginBottom: 8, padding: '4px 0' }}>{errors[0]}</div>}
                 {fields.map(({ key, name, ...restField }) => (
                   <Space key={key} style={{ display: 'flex', marginBottom: 8, flexWrap: 'wrap' }} align="baseline">
                     <Form.Item {...restField} name={[name, 'description']} rules={[{ required: true, message: '目标描述' }]}>
@@ -396,8 +397,9 @@ export default function PrescriptionPage() {
 
           <Divider orientation="left" style={{ margin: '12px 0 8px' }}>治疗计划 <Text type="danger" style={{ fontSize: 12 }}>（至少1项）</Text></Divider>
           <Form.List name="treatmentPlan" rules={[{ validator: async (_, value) => { if (!value || value.length < 1) return Promise.reject(new Error('至少添加1项治疗项目')) } }]}>
-            {(fields, { add, remove }) => (
+            {(fields, { add, remove }, { errors }) => (
               <>
+                {errors.length > 0 && <div style={{ color: '#ff4d4f', fontSize: 14, marginBottom: 8, padding: '4px 0' }}>{errors[0]}</div>}
                 {fields.map(({ key, name, ...restField }) => (
                   <Space key={key} style={{ display: 'flex', marginBottom: 8, flexWrap: 'wrap' }} align="baseline">
                     <Form.Item {...restField} name={[name, 'type']} rules={[{ required: true, message: '类型' }]}>
