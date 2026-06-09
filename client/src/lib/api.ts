@@ -165,6 +165,17 @@ export interface ExceptionHandle {
   result?: string | null
 }
 
+export interface BatchAction {
+  ids: number[]
+  operator?: string | null
+  notes?: string | null
+}
+
+export interface BatchResult {
+  success: number[]
+  failed: { id: number; reason: string }[]
+}
+
 export interface AttachmentCreate {
   file_name: string
   file_type?: string | null
@@ -216,6 +227,8 @@ export const api = {
     create: (data: GateReleaseCreate) => request<GateRelease>('/gate-releases/', { method: 'POST', body: JSON.stringify(data) }),
     release: (id: number, data: GateReleaseAction) => request<GateRelease>(`/gate-releases/${id}/release`, { method: 'PUT', body: JSON.stringify(data) }),
     reject: (id: number, data: GateReleaseAction) => request<GateRelease>(`/gate-releases/${id}/reject`, { method: 'PUT', body: JSON.stringify(data) }),
+    batchRelease: (data: BatchAction) => request<BatchResult>('/gate-releases/batch/release', { method: 'PUT', body: JSON.stringify(data) }),
+    batchReject: (data: BatchAction) => request<BatchResult>('/gate-releases/batch/reject', { method: 'PUT', body: JSON.stringify(data) }),
     timeline: (id: number) => request<TimelineEvent[]>(`/gate-releases/${id}/timeline`),
     exceptions: (id: number) => request<ExceptionRecord[]>(`/gate-releases/${id}/exceptions`),
     addAttachment: (id: number, data: AttachmentCreate) => request<Attachment>(`/gate-releases/${id}/attachments`, { method: 'POST', body: JSON.stringify(data) }),
@@ -233,6 +246,8 @@ export const api = {
     arrive: (id: number, data: FleetAppointmentAction) => request<FleetAppointment>(`/fleet-appointments/${id}/arrive`, { method: 'PUT', body: JSON.stringify(data) }),
     complete: (id: number, data: FleetAppointmentAction) => request<FleetAppointment>(`/fleet-appointments/${id}/complete`, { method: 'PUT', body: JSON.stringify(data) }),
     cancel: (id: number, data: FleetAppointmentAction) => request<FleetAppointment>(`/fleet-appointments/${id}/cancel`, { method: 'PUT', body: JSON.stringify(data) }),
+    batchConfirm: (data: BatchAction) => request<BatchResult>('/fleet-appointments/batch/confirm', { method: 'PUT', body: JSON.stringify(data) }),
+    batchCancel: (data: BatchAction) => request<BatchResult>('/fleet-appointments/batch/cancel', { method: 'PUT', body: JSON.stringify(data) }),
     exception: (id: number, data: FleetAppointmentException) => request<FleetAppointment>(`/fleet-appointments/${id}/exception`, { method: 'PUT', body: JSON.stringify(data) }),
     timeline: (id: number) => request<TimelineEvent[]>(`/fleet-appointments/${id}/timeline`),
     exceptions: (id: number) => request<ExceptionRecord[]>(`/fleet-appointments/${id}/exceptions`),

@@ -3,7 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom'
 import { api } from '@/lib/api'
 import type { GateRelease, GateReleaseListParams, Container, GateReleaseCreate } from '@/lib/api'
 import StatusBadge from '@/components/StatusBadge'
-import { Clock, CheckCircle, AlertTriangle, Activity, Search, RotateCcw, AlertCircle, Plus, X } from 'lucide-react'
+import { Clock, CheckCircle, AlertTriangle, Activity, Search, RotateCcw, AlertCircle, Plus, X, CheckSquare } from 'lucide-react'
 
 const STATUS_OPTIONS = [
   { value: '', label: '全部' },
@@ -16,6 +16,8 @@ export default function GateReleaseList() {
   const [searchParams, setSearchParams] = useSearchParams()
   const [releases, setReleases] = useState<GateRelease[]>([])
   const [loading, setLoading] = useState(true)
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
+  const [batchLoading, setBatchLoading] = useState(false)
 
   const statusFilter = searchParams.get('status') || ''
   const releaseTypeFilter = searchParams.get('release_type') || ''
@@ -80,6 +82,43 @@ export default function GateReleaseList() {
     }
   }
 
+  const toggleSelect = (id: number) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  const toggleSelectAll = () => {
+    if (selectedIds.size === releases.length) {
+      setSelectedIds(new Set())
+    } else {
+      setSelectedIds(new Set(releases.map(r => r.id)))
+    }
+  }
+
+  const handleBatchAction = async (action: 'release' | 'reject') => {
+    if (selectedIds.size === 0 || batchLoading) return
+    setBatchLoading(true)
+    try {
+      const data = { ids: Array.from(selectedIds), operator: '操作员' }
+      const result = action === 'release'
+        ? await api.gateReleases.batchRelease(data)
+        : await api.gateReleases.batchReject(data)
+      setSelectedIds(new Set())
+      fetchReleases(buildParams())
+      if (result.failed.length > 0) {
+        alert(`${result.success.length} 条成功，${result.failed.length} 条失败：\n${result.failed.map(f => `#${f.id}: ${f.reason}`).join('\n')}`)
+      }
+    } catch (err) {
+      alert('批量操作失败：' + (err instanceof Error ? err.message : '未知错误'))
+    } finally {
+      setBatchLoading(false)
+    }
+  }
+
   const buildParams = useCallback((): GateReleaseListParams => {
     const params: GateReleaseListParams = {}
     if (statusFilter) params.status = statusFilter
@@ -92,6 +131,7 @@ export default function GateReleaseList() {
 
   const fetchReleases = useCallback((params?: GateReleaseListParams) => {
     setLoading(true)
+    setSelectedIds(new Set())
     api.gateReleases.list(params)
       .then(setReleases)
       .finally(() => setLoading(false))
@@ -260,10 +300,49 @@ export default function GateReleaseList() {
         </button>
       </div>
 
+      {selectedIds.size > 0 && (
+        <div className="bg-primary-50 border border-primary-200 rounded-lg px-4 py-3 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <CheckSquare className="text-primary-600" size={18} />
+            <span className="text-sm font-medium text-primary-800">已选择 {selectedIds.size} 条记录</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => handleBatchAction('release')}
+              disabled={batchLoading}
+              className="px-3 py-1.5 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 disabled:opacity-50"
+            >
+              批量放行
+            </button>
+            <button
+              onClick={() => handleBatchAction('reject')}
+              disabled={batchLoading}
+              className="px-3 py-1.5 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 disabled:opacity-50"
+            >
+              批量异常退回
+            </button>
+            <button
+              onClick={() => setSelectedIds(new Set())}
+              className="px-3 py-1.5 border border-gray-300 text-gray-600 rounded-lg text-sm hover:bg-gray-50"
+            >
+              取消选择
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="bg-white rounded-lg shadow overflow-hidden">
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>
+              <th className="px-4 py-3 w-10">
+                <input
+                  type="checkbox"
+                  checked={releases.length > 0 && selectedIds.size === releases.length}
+                  onChange={toggleSelectAll}
+                  className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                />
+              </th>
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">箱号</th>
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">放行类型</th>
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">车队</th>
@@ -277,7 +356,15 @@ export default function GateReleaseList() {
           </thead>
           <tbody className="divide-y divide-gray-200">
             {releases.map(r => (
-              <tr key={r.id} className="hover:bg-gray-50">
+              <tr key={r.id} className={`hover:bg-gray-50 ${selectedIds.has(r.id) ? 'bg-primary-50' : ''}`}>
+                <td className="px-4 py-3 w-10">
+                  <input
+                    type="checkbox"
+                    checked={selectedIds.has(r.id)}
+                    onChange={() => toggleSelect(r.id)}
+                    className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                  />
+                </td>
                 <td className={`px-4 py-3 text-sm ${r.status === '异常退回' ? 'border-l-4 border-l-red-400' : ''}`}>
                   <Link to={`/gate-releases/${r.id}`} className="text-primary-600 hover:underline">
                     {r.container?.container_no || '-'}
@@ -306,7 +393,7 @@ export default function GateReleaseList() {
             ))}
             {releases.length === 0 && (
               <tr>
-                <td colSpan={9} className="px-6 py-8 text-center text-gray-400">暂无数据</td>
+                <td colSpan={10} className="px-6 py-8 text-center text-gray-400">暂无数据</td>
               </tr>
             )}
           </tbody>

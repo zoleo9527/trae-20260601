@@ -10,6 +10,7 @@ from models import (
 from schemas import (
     FleetAppointmentCreate, FleetAppointmentRead, FleetAppointmentDetail,
     FleetAppointmentAction, FleetAppointmentException,
+    BatchAction, BatchResult,
     TimelineEventRead, ExceptionRecordRead, AttachmentRead, AttachmentCreate,
 )
 
@@ -40,6 +41,67 @@ def list_fleet_appointments(
     if truck_company:
         query = query.filter(FleetAppointment.truck_company.contains(truck_company))
     return query.order_by(FleetAppointment.id.desc()).all()
+
+
+@router.put("/batch/confirm", response_model=BatchResult)
+def batch_confirm(data: BatchAction, db: Session = Depends(get_db)):
+    success = []
+    failed = []
+    for aid in data.ids:
+        appointment = db.query(FleetAppointment).filter(FleetAppointment.id == aid).first()
+        if not appointment:
+            failed.append({"id": aid, "reason": "未找到记录"})
+            continue
+        if appointment.status != "待确认":
+            failed.append({"id": aid, "reason": f"当前状态为{appointment.status}，无法确认"})
+            continue
+        appointment.status = "已确认"
+        appointment.confirmed_at = datetime.utcnow()
+        if data.operator:
+            appointment.operator = data.operator
+        if data.notes:
+            appointment.notes = data.notes
+        timeline = TimelineEvent(
+            entity_type="fleet_appointment",
+            entity_id=aid,
+            event_type="确认",
+            description="批量确认预约",
+            operator=data.operator or appointment.operator,
+        )
+        db.add(timeline)
+        success.append(aid)
+    db.commit()
+    return BatchResult(success=success, failed=failed)
+
+
+@router.put("/batch/cancel", response_model=BatchResult)
+def batch_cancel(data: BatchAction, db: Session = Depends(get_db)):
+    success = []
+    failed = []
+    for aid in data.ids:
+        appointment = db.query(FleetAppointment).filter(FleetAppointment.id == aid).first()
+        if not appointment:
+            failed.append({"id": aid, "reason": "未找到记录"})
+            continue
+        if appointment.status in ("已完成", "已取消"):
+            failed.append({"id": aid, "reason": f"当前状态为{appointment.status}，无法取消"})
+            continue
+        appointment.status = "已取消"
+        if data.operator:
+            appointment.operator = data.operator
+        if data.notes:
+            appointment.notes = data.notes
+        timeline = TimelineEvent(
+            entity_type="fleet_appointment",
+            entity_id=aid,
+            event_type="取消",
+            description=f"批量取消预约，原因：{data.notes or '未说明'}",
+            operator=data.operator or appointment.operator,
+        )
+        db.add(timeline)
+        success.append(aid)
+    db.commit()
+    return BatchResult(success=success, failed=failed)
 
 
 @router.get("/{appointment_id}", response_model=FleetAppointmentDetail)

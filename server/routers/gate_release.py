@@ -6,6 +6,7 @@ from database import get_db
 from models import GateRelease, Container, TimelineEvent, ExceptionRecord, Attachment, FleetAppointment
 from schemas import (
     GateReleaseCreate, GateReleaseRead, GateReleaseDetail, GateReleaseAction,
+    BatchAction, BatchResult,
     TimelineEventRead, ExceptionRecordRead, AttachmentRead, AttachmentCreate,
 )
 
@@ -33,6 +34,76 @@ def list_gate_releases(
     if container_no:
         query = query.join(Container).filter(Container.container_no.contains(container_no))
     return query.order_by(GateRelease.id.desc()).all()
+
+
+@router.put("/batch/release", response_model=BatchResult)
+def batch_release(data: BatchAction, db: Session = Depends(get_db)):
+    success = []
+    failed = []
+    for rid in data.ids:
+        release = db.query(GateRelease).options(joinedload(GateRelease.container)).filter(GateRelease.id == rid).first()
+        if not release:
+            failed.append({"id": rid, "reason": "未找到记录"})
+            continue
+        if release.status != "待处理":
+            failed.append({"id": rid, "reason": f"当前状态为{release.status}，无法放行"})
+            continue
+        release.status = "已放行"
+        release.released_at = datetime.utcnow()
+        if data.operator:
+            release.operator = data.operator
+        if data.notes:
+            release.notes = data.notes
+        container_no = release.container.container_no if release.container else ""
+        timeline = TimelineEvent(
+            entity_type="gate_release",
+            entity_id=rid,
+            event_type="放行",
+            description=f"批量放行{release.release_type}，箱号：{container_no}",
+            operator=data.operator or release.operator,
+        )
+        db.add(timeline)
+        success.append(rid)
+    db.commit()
+    return BatchResult(success=success, failed=failed)
+
+
+@router.put("/batch/reject", response_model=BatchResult)
+def batch_reject(data: BatchAction, db: Session = Depends(get_db)):
+    success = []
+    failed = []
+    for rid in data.ids:
+        release = db.query(GateRelease).filter(GateRelease.id == rid).first()
+        if not release:
+            failed.append({"id": rid, "reason": "未找到记录"})
+            continue
+        if release.status != "待处理":
+            failed.append({"id": rid, "reason": f"当前状态为{release.status}，无法退回"})
+            continue
+        release.status = "异常退回"
+        if data.operator:
+            release.operator = data.operator
+        if data.notes:
+            release.notes = data.notes
+        timeline = TimelineEvent(
+            entity_type="gate_release",
+            entity_id=rid,
+            event_type="退回",
+            description=f"批量异常退回，原因：{data.notes or '未说明'}",
+            operator=data.operator or release.operator,
+        )
+        db.add(timeline)
+        exception = ExceptionRecord(
+            entity_type="gate_release",
+            entity_id=rid,
+            exception_type="其他",
+            description=data.notes or "批量异常退回",
+            status="待处理",
+        )
+        db.add(exception)
+        success.append(rid)
+    db.commit()
+    return BatchResult(success=success, failed=failed)
 
 
 @router.get("/{release_id}", response_model=GateReleaseDetail)

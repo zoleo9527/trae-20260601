@@ -3,7 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom'
 import { api } from '@/lib/api'
 import type { FleetAppointment, FleetAppointmentListParams, Container, FleetAppointmentCreate, GateRelease } from '@/lib/api'
 import StatusBadge from '@/components/StatusBadge'
-import { Clock, Calendar, MapPin, AlertTriangle, RotateCcw, Plus, X } from 'lucide-react'
+import { Clock, Calendar, MapPin, AlertTriangle, RotateCcw, Plus, X, CheckSquare } from 'lucide-react'
 
 const STATUS_OPTIONS = [
   { value: '', label: '全部' },
@@ -19,6 +19,8 @@ export default function FleetAppointmentList() {
   const [searchParams, setSearchParams] = useSearchParams()
   const [appointments, setAppointments] = useState<FleetAppointment[]>([])
   const [loading, setLoading] = useState(true)
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
+  const [batchLoading, setBatchLoading] = useState(false)
 
   const statusFilter = searchParams.get('status') || ''
   const dateFrom = searchParams.get('date_from') || ''
@@ -99,6 +101,43 @@ export default function FleetAppointmentList() {
     }
   }
 
+  const toggleSelect = (id: number) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  const toggleSelectAll = () => {
+    if (selectedIds.size === appointments.length) {
+      setSelectedIds(new Set())
+    } else {
+      setSelectedIds(new Set(appointments.map(a => a.id)))
+    }
+  }
+
+  const handleBatchAction = async (action: 'confirm' | 'cancel') => {
+    if (selectedIds.size === 0 || batchLoading) return
+    setBatchLoading(true)
+    try {
+      const data = { ids: Array.from(selectedIds), operator: '操作员' }
+      const result = action === 'confirm'
+        ? await api.fleetAppointments.batchConfirm(data)
+        : await api.fleetAppointments.batchCancel(data)
+      setSelectedIds(new Set())
+      fetchList(buildParams())
+      if (result.failed.length > 0) {
+        alert(`${result.success.length} 条成功，${result.failed.length} 条失败：\n${result.failed.map(f => `#${f.id}: ${f.reason}`).join('\n')}`)
+      }
+    } catch (err) {
+      alert('批量操作失败：' + (err instanceof Error ? err.message : '未知错误'))
+    } finally {
+      setBatchLoading(false)
+    }
+  }
+
   const buildParams = useCallback((): FleetAppointmentListParams => {
     const params: FleetAppointmentListParams = {}
     if (statusFilter) params.status = statusFilter
@@ -110,6 +149,7 @@ export default function FleetAppointmentList() {
 
   const fetchList = useCallback(async (params?: FleetAppointmentListParams) => {
     setLoading(true)
+    setSelectedIds(new Set())
     try {
       const data = await api.fleetAppointments.list(params)
       setAppointments(data)
@@ -227,6 +267,37 @@ export default function FleetAppointmentList() {
         </div>
       </div>
 
+      {selectedIds.size > 0 && (
+        <div className="bg-accent-50 border border-accent-200 rounded-lg px-4 py-3 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <CheckSquare className="text-accent-600" size={18} />
+            <span className="text-sm font-medium text-accent-800">已选择 {selectedIds.size} 条记录</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => handleBatchAction('confirm')}
+              disabled={batchLoading}
+              className="px-3 py-1.5 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
+            >
+              批量确认
+            </button>
+            <button
+              onClick={() => handleBatchAction('cancel')}
+              disabled={batchLoading}
+              className="px-3 py-1.5 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 disabled:opacity-50"
+            >
+              批量取消
+            </button>
+            <button
+              onClick={() => setSelectedIds(new Set())}
+              className="px-3 py-1.5 border border-gray-300 text-gray-600 rounded-lg text-sm hover:bg-gray-50"
+            >
+              取消选择
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="bg-white rounded-lg shadow overflow-hidden">
         {loading ? (
           <p className="text-gray-400 p-8 text-center">加载中...</p>
@@ -235,6 +306,14 @@ export default function FleetAppointmentList() {
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
+                  <th className="px-4 py-3 w-10">
+                    <input
+                      type="checkbox"
+                      checked={appointments.length > 0 && selectedIds.size === appointments.length}
+                      onChange={toggleSelectAll}
+                      className="rounded border-gray-300 text-accent-600 focus:ring-accent-500"
+                    />
+                  </th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">箱号</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">车队</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">车牌号</th>
@@ -248,7 +327,15 @@ export default function FleetAppointmentList() {
               </thead>
               <tbody className="divide-y divide-gray-200">
                 {appointments.map(a => (
-                  <tr key={a.id} className={`hover:bg-gray-50 ${a.status === '异常' ? 'border-l-4 border-l-red-500' : ''}`}>
+                  <tr key={a.id} className={`hover:bg-gray-50 ${selectedIds.has(a.id) ? 'bg-accent-50' : ''} ${a.status === '异常' ? 'border-l-4 border-l-red-500' : ''}`}>
+                    <td className="px-4 py-3 w-10">
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.has(a.id)}
+                        onChange={() => toggleSelect(a.id)}
+                        className="rounded border-gray-300 text-accent-600 focus:ring-accent-500"
+                      />
+                    </td>
                     <td className="px-4 py-3 text-sm text-gray-900">{a.container?.container_no || '-'}</td>
                     <td className="px-4 py-3 text-sm text-gray-600">{a.truck_company || '-'}</td>
                     <td className="px-4 py-3 text-sm text-gray-600">{a.truck_plate || '-'}</td>
@@ -289,7 +376,7 @@ export default function FleetAppointmentList() {
                   </tr>
                 ))}
                 {appointments.length === 0 && (
-                  <tr><td colSpan={9} className="px-6 py-8 text-center text-gray-400">暂无数据</td></tr>
+                  <tr><td colSpan={10} className="px-6 py-8 text-center text-gray-400">暂无数据</td></tr>
                 )}
               </tbody>
             </table>

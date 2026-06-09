@@ -78,6 +78,17 @@ class GateReleaseDetail(GateReleaseRead):
     model_config = {"from_attributes": True}
 
 
+class BatchAction(BaseModel):
+    ids: list[int]
+    operator: Optional[str] = None
+    notes: Optional[str] = None
+
+
+class BatchResult(BaseModel):
+    success: list[int]
+    failed: list[dict]
+
+
 class GateReleaseAction(BaseModel):
     notes: Optional[str] = None
     operator: Optional[str] = None
