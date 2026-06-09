@@ -111,65 +111,63 @@ router.get('/', (req: RequestWithUser, res: Response): void => {
   const endDate = req.query.endDate as string | undefined
   const offset = (page - 1) * pageSize
 
-  let baseClauses: string[] = []
-  let baseParams: any[] = []
+  let whereClauses: string[] = []
+  let whereParams: any[] = []
 
   if (keyword) {
-    baseClauses.push('r.tracking_no LIKE ?')
-    baseParams.push(`%${keyword}%`)
+    whereClauses.push('r.tracking_no LIKE ?')
+    whereParams.push(`%${keyword}%`)
+  }
+
+  if (status) {
+    whereClauses.push('r.status = ?')
+    whereParams.push(status)
   }
 
   if (assigneeId) {
     const aid = parseInt(assigneeId)
     if (!isNaN(aid)) {
-      baseClauses.push('r.assigned_to = ?')
-      baseParams.push(aid)
+      whereClauses.push('r.assigned_to = ?')
+      whereParams.push(aid)
     }
   }
 
   if (startDate) {
-    baseClauses.push('r.updated_at >= ?')
-    baseParams.push(startDate)
+    whereClauses.push('r.updated_at >= ?')
+    whereParams.push(startDate)
   }
 
   if (endDate) {
-    baseClauses.push('r.updated_at <= ?')
-    baseParams.push(endDate + ' 23:59:59')
+    whereClauses.push('r.updated_at <= ?')
+    whereParams.push(endDate + ' 23:59:59')
   }
 
   if (req.user.role === '客服') {
-    baseClauses.push('r.created_by = ?')
-    baseParams.push(req.user.id)
+    whereClauses.push('r.created_by = ?')
+    whereParams.push(req.user.id)
   } else if (req.user.role === '派件员') {
-    baseClauses.push('(r.assigned_to = ? OR r.status = ?)')
-    baseParams.push(req.user.id, '待派件员确认')
+    whereClauses.push('(r.assigned_to = ? OR r.status = ?)')
+    whereParams.push(req.user.id, '待派件员确认')
   }
 
-  const listClauses = [...baseClauses]
-  const listParams = [...baseParams]
-  if (status) {
-    listClauses.push('r.status = ?')
-    listParams.push(status)
-  }
+  const whereStr = whereClauses.length > 0 ? 'WHERE ' + whereClauses.join(' AND ') : ''
 
-  const listWhereStr = listClauses.length > 0 ? 'WHERE ' + listClauses.join(' AND ') : ''
-
-  const countRow = db.prepare(`SELECT COUNT(*) as total FROM returns r ${listWhereStr}`).get(...listParams) as { total: number }
+  const countRow = db.prepare(`SELECT COUNT(*) as total FROM returns r ${whereStr}`).get(...whereParams) as { total: number }
 
   const list = db.prepare(
     `SELECT r.*, u.display_name as created_by_name, a.display_name as assigned_to_name
      FROM returns r
      LEFT JOIN users u ON r.created_by = u.id
      LEFT JOIN users a ON r.assigned_to = a.id
-     ${listWhereStr}
+     ${whereStr}
      ORDER BY r.updated_at DESC
      LIMIT ? OFFSET ?`
-  ).all(...listParams, pageSize, offset) as any[]
+  ).all(...whereParams, pageSize, offset) as any[]
 
-  const statsWhereStr = baseClauses.length > 0 ? 'WHERE ' + baseClauses.map(c => c.replace(/^r\./, '')).join(' AND ') : ''
+  const statsWhereStr = whereClauses.length > 0 ? 'WHERE ' + whereClauses.map(c => c.replace(/^r\./, '')).join(' AND ') : ''
   const statsRows = db.prepare(
     `SELECT status, COUNT(*) as count FROM returns ${statsWhereStr} GROUP BY status`
-  ).all(...baseParams) as { status: string; count: number }[]
+  ).all(...whereParams) as { status: string; count: number }[]
 
   const statusStats: Record<string, number> = {}
   for (const row of statsRows) {

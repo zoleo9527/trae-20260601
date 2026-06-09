@@ -28,11 +28,11 @@ const allStatuses = [
   '复盘完成',
 ]
 
-const quickFilters = [
-  { value: '', label: '全部' },
-  { value: '__pending', label: '待处理' },
-  { value: '__rejected', label: '被驳回' },
-  { value: '__review', label: '复盘' },
+const quickFilters: { value: string; label: string; statuses: string[] }[] = [
+  { value: '', label: '全部', statuses: [] },
+  { value: '__pending', label: '待处理', statuses: ['待派件员确认', '待驿站认定'] },
+  { value: '__rejected', label: '被驳回', statuses: ['已驳回-待补录', '已驳回-待客服补录'] },
+  { value: '__review', label: '复盘', statuses: ['退回处理完成', '复盘进行中', '复盘完成'] },
 ]
 
 const statColors: Record<string, { bg: string; text: string; border: string }> = {
@@ -52,9 +52,12 @@ export default function Workbench() {
     fetchReturns, setFilters, setPage, fetchUsers,
   } = useReturnStore()
   const [drawerOpen, setDrawerOpen] = useState(false)
-  const [quickFilter, setQuickFilter] = useState('')
   const [showMoreFilters, setShowMoreFilters] = useState(false)
   const navigate = useNavigate()
+
+  const activeQuickFilter = quickFilters.find(qf =>
+    qf.value !== '' && qf.statuses.includes(filters.status)
+  )?.value || (filters.status === '' ? '' : '__custom')
 
   useEffect(() => {
     fetchReturns()
@@ -66,30 +69,14 @@ export default function Workbench() {
   }, [pagination.page, filters.status, filters.keyword, filters.assigneeId, filters.startDate, filters.endDate])
 
   const handleQuickFilter = (value: string) => {
-    setQuickFilter(value)
-    if (value === '') {
-      setFilters({ status: '' })
-    } else if (value === '__pending') {
-      setFilters({ status: '' })
-    } else if (value === '__rejected') {
-      setFilters({ status: '' })
-    } else if (value === '__review') {
+    const qf = quickFilters.find(q => q.value === value)
+    if (!qf) return
+    if (qf.statuses.length > 0) {
+      setFilters({ status: qf.statuses[0] })
+    } else {
       setFilters({ status: '' })
     }
   }
-
-  const filteredReturns = returns.filter((item) => {
-    if (quickFilter === '__pending') {
-      return ['待派件员确认', '待驿站认定'].includes(item.status)
-    }
-    if (quickFilter === '__rejected') {
-      return ['已驳回-待补录', '已驳回-待客服补录'].includes(item.status)
-    }
-    if (quickFilter === '__review') {
-      return ['退回处理完成', '复盘进行中', '复盘完成'].includes(item.status)
-    }
-    return true
-  })
 
   const hasActiveExtraFilters = filters.assigneeId || filters.startDate || filters.endDate
   const clearExtraFilters = () => setFilters({ assigneeId: '', startDate: '', endDate: '' })
@@ -186,7 +173,7 @@ export default function Workbench() {
                     key={qf.value}
                     onClick={() => handleQuickFilter(qf.value)}
                     className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
-                      quickFilter === qf.value
+                      activeQuickFilter === qf.value
                         ? 'bg-orange-500 text-white'
                         : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                     }`}
@@ -261,7 +248,7 @@ export default function Workbench() {
               <div className="flex items-center justify-center py-20">
                 <div className="w-8 h-8 border-4 border-orange-500 border-t-transparent rounded-full animate-spin" />
               </div>
-            ) : filteredReturns.length === 0 ? (
+            ) : returns.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-20 text-slate-400">
                 <Package className="w-12 h-12 mb-3" />
                 <p className="text-sm">暂无退回件记录</p>
@@ -282,7 +269,7 @@ export default function Workbench() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
-                      {filteredReturns.map((item) => (
+                      {returns.map((item) => (
                         <tr
                           key={item.id}
                           className="hover:bg-slate-50 cursor-pointer transition-colors"
