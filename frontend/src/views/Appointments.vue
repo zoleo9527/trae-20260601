@@ -29,6 +29,20 @@ const statusColors = {
   cancelled: '#909399',
 }
 
+const obsStatusLabels = {
+  waiting: '等待留观',
+  observing: '留观中',
+  completed: '正常关闭',
+  abnormal: '异常关闭',
+}
+
+const obsStatusColors = {
+  waiting: '#909399',
+  observing: '#409eff',
+  completed: '#67c23a',
+  abnormal: '#f56c6c',
+}
+
 const auth = computed(() => JSON.parse(localStorage.getItem('auth') || 'null'))
 
 const statusOrder = ['pending', 'confirmed', 'inoculating', 'inoculated', 'observing', 'completed', 'cancelled']
@@ -213,10 +227,10 @@ function formatTime(t) {
               <th>居民姓名</th>
               <th>疫苗名称</th>
               <th>预约日期</th>
-              <th>预约时间</th>
               <th>医生</th>
-              <th>护士</th>
               <th>状态</th>
+              <th>留观状态</th>
+              <th>留观负责人</th>
               <th>流程</th>
               <th>操作</th>
             </tr>
@@ -227,13 +241,24 @@ function formatTime(t) {
               <td>{{ a.residentName }}</td>
               <td>{{ a.vaccineName }}</td>
               <td>{{ a.appointmentDate }}</td>
-              <td>{{ a.appointmentTime }}</td>
               <td>{{ a.doctorName || '-' }}</td>
-              <td>{{ a.nurseName || '-' }}</td>
               <td>
                 <span class="status-tag" :style="{ background: statusColors[a.status] + '1a', color: statusColors[a.status] }">
                   {{ statusLabels[a.status] }}
                 </span>
+              </td>
+              <td>
+                <span v-if="a.observationStatus" class="status-tag" :style="{ background: obsStatusColors[a.observationStatus] + '1a', color: obsStatusColors[a.observationStatus] }">
+                  {{ obsStatusLabels[a.observationStatus] }}
+                </span>
+                <span v-else class="no-obs">-</span>
+              </td>
+              <td>
+                <span v-if="a.observationResponsible" class="responsible-person">
+                  {{ a.observationResponsible }}
+                  <span v-if="a.observationHandoverCount" class="handover-count" title="已交接次数">🔄{{ a.observationHandoverCount }}</span>
+                </span>
+                <span v-else class="no-obs">-</span>
               </td>
               <td>
                 <div class="step-bar">
@@ -253,6 +278,7 @@ function formatTime(t) {
                 <button v-if="canCancel(a)" class="btn-action cancel" :disabled="actionLoading[a.id]" @click="showCancelDialog = a.id">取消</button>
                 <button class="btn-link" @click="toggleDetail(a.id)">{{ expandedId === a.id ? '收起' : '详情' }}</button>
                 <router-link v-if="needsObservation(a)" to="/observations" class="obs-nav-link">→ 前往留观</router-link>
+                <router-link v-else-if="a.observationId" :to="'/observations'" class="obs-view-link">查看留观</router-link>
               </td>
             </tr>
           </tbody>
@@ -298,6 +324,42 @@ function formatTime(t) {
               接种护士 <strong>{{ a.nurseName }}</strong> 为留观初始负责人。请前往「留观记录」开始留观，确保接种后观察不出现责任空档。
             </div>
             <router-link to="/observations" class="gap-warning-link">立即前往留观记录 →</router-link>
+          </div>
+
+          <div v-else-if="a.observationId" class="obs-info-section">
+            <div class="obs-info-title">📋 关联留观记录</div>
+            <div class="obs-info-grid">
+              <div class="obs-info-item">
+                <span class="label">留观编号</span>
+                <router-link to="/observations" class="obs-info-link">{{ a.observationId }}</router-link>
+              </div>
+              <div class="obs-info-item">
+                <span class="label">留观状态</span>
+                <span class="status-tag" :style="{ background: obsStatusColors[a.observationStatus] + '1a', color: obsStatusColors[a.observationStatus] }">
+                  {{ obsStatusLabels[a.observationStatus] }}
+                </span>
+              </div>
+              <div class="obs-info-item">
+                <span class="label">当前负责人</span>
+                <strong>{{ a.observationResponsible }}</strong>
+              </div>
+              <div class="obs-info-item">
+                <span class="label">交接次数</span>
+                <span>{{ a.observationHandoverCount || 0 }}次</span>
+              </div>
+            </div>
+            <div v-if="a.observationLastHandover" class="obs-handover-info">
+              <span class="handover-label">最近交接:</span>
+              <span class="handover-detail">{{ a.observationLastHandover.from }} → {{ a.observationLastHandover.to }}</span>
+              <span class="handover-reason">（{{ a.observationLastHandover.reason }}）</span>
+              <span class="handover-time">{{ formatTime(a.observationLastHandover.time) }}</span>
+            </div>
+            <div v-if="a.observationStatus === 'waiting'" class="gap-warning compact">
+              <div class="gap-warning-body">
+                ⚠ 留观尚未开始，当前负责人 <strong>{{ a.observationResponsible }}</strong> 需立即开始留观观察，避免责任空档。
+              </div>
+              <router-link to="/observations" class="gap-warning-link">立即前往留观记录 →</router-link>
+            </div>
           </div>
         </div>
       </div>
@@ -560,4 +622,92 @@ tr.row-alert { background: #fdf6ec; }
 }
 
 .gap-warning-link:hover { text-decoration: underline; }
+
+.no-obs { color: #c0c4cc; font-size: 13px; }
+
+.responsible-person {
+  font-size: 13px;
+  color: #303133;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.handover-count {
+  font-size: 11px;
+  background: #ecf5ff;
+  color: #409eff;
+  padding: 1px 5px;
+  border-radius: 3px;
+}
+
+.obs-view-link {
+  font-size: 12px;
+  color: #409eff;
+  text-decoration: none;
+}
+
+.obs-view-link:hover { text-decoration: underline; }
+
+.obs-info-section {
+  margin-top: 16px;
+  padding: 16px;
+  background: #f5f7fa;
+  border-radius: 8px;
+  border: 1px solid #ebeef5;
+}
+
+.obs-info-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #303133;
+  margin-bottom: 12px;
+}
+
+.obs-info-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 10px;
+}
+
+.obs-info-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.obs-info-item .label {
+  font-size: 12px;
+  color: #909399;
+}
+
+.obs-info-link {
+  color: #409eff;
+  text-decoration: none;
+  font-size: 14px;
+}
+
+.obs-info-link:hover { text-decoration: underline; }
+
+.obs-handover-info {
+  margin-top: 10px;
+  padding: 8px 12px;
+  background: #fff;
+  border-radius: 4px;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.handover-label { color: #909399; }
+.handover-detail { font-weight: 600; color: #303133; }
+.handover-reason { color: #606266; }
+.handover-time { color: #c0c4cc; margin-left: auto; }
+
+.gap-warning.compact {
+  margin-top: 10px;
+  padding: 10px;
+}
 </style>

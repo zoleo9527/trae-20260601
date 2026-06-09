@@ -653,6 +653,22 @@ app.get('/api/appointments', (req, res) => {
     );
   }
 
+  appointments = appointments.map((a) => {
+    const result = { ...a };
+    const obs = store.observations.find((o) => o.appointmentId === a.id);
+    if (obs) {
+      result.observationId = obs.id;
+      result.observationStatus = obs.status;
+      result.observationResponsible = obs.responsiblePerson;
+      result.observationHandoverCount = obs.handovers.length;
+      if (obs.handovers.length) {
+        const last = obs.handovers[obs.handovers.length - 1];
+        result.observationLastHandover = { from: last.from, to: last.to, reason: last.reason, time: last.time };
+      }
+    }
+    return result;
+  });
+
   res.json({ data: appointments, total: appointments.length });
 });
 
@@ -811,6 +827,13 @@ app.get('/api/observations', requireRole(ROLES.NURSE, ROLES.PH_SPECIALIST), (req
       if (elapsed > 30 && !result.alertTriggered) {
         result.alertTriggered = true;
         result.alertReason = `留观已超过30分钟（当前${elapsed}分钟）仍未完成`;
+      }
+    }
+    if (result.appointmentId) {
+      const appointment = store.appointments.find((a) => a.id === result.appointmentId);
+      if (appointment) {
+        result.appointmentStatus = appointment.status;
+        result.appointmentDoctor = appointment.doctorName;
       }
     }
     return result;

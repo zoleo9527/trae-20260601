@@ -228,9 +228,10 @@ const nurseOptions = ['周小燕', '吴丽萍']
 
           <div v-if="o.appointmentId" class="appointment-link" @click="goToAppointments">
             📎 关联预约: {{ o.appointmentId }}
-            <span v-if="o.appointment?.status" class="appt-status">
-              （预约状态: {{ appointmentStatusLabels[o.appointment.status] || o.appointment.status }}）
+            <span v-if="o.appointmentStatus" class="appt-status">
+              （预约状态: {{ appointmentStatusLabels[o.appointmentStatus] || o.appointmentStatus }}）
             </span>
+            <span v-if="o.appointmentDoctor" class="appt-doctor">· 签约医生: {{ o.appointmentDoctor }}</span>
           </div>
 
           <div class="obs-actions">
