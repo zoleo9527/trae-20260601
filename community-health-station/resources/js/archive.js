@@ -1,22 +1,21 @@
 const ArchiveModule = {
   _currentFilter: 'all',
   _searchTerm: '',
-  _contractChanges: {},
 
-  init() {
-    EventBus.on('archive:changed', (data) => {
-      if (data.contractId) {
-        this._contractChanges[data.contractId] = {
-          action: data.action,
-          time: Store._now()
-        };
-      }
-    });
+  init() {},
+
+  _getUnconfirmedCount(archive) {
+    if (!archive.changeAlerts) return 0;
+    return archive.changeAlerts.filter(ca => !ca.confirmed).length;
   },
 
   render() {
     const archives = Store.getArchives();
+    const unconfirmedTotal = archives.filter(a => this._getUnconfirmedCount(a) > 0).length;
     const filtered = archives.filter(a => {
+      if (this._currentFilter === '__unconfirmed__') {
+        return this._getUnconfirmedCount(a) > 0;
+      }
       if (this._currentFilter !== 'all' && a.status !== this._currentFilter) return false;
       if (this._searchTerm) {
         const s = this._searchTerm.toLowerCase();
@@ -27,7 +26,7 @@ const ArchiveModule = {
 
     const statusCounts = { all: archives.length, '待建档': 0, '建档中': 0, '退回补录': 0, '已补充': 0, '已关闭': 0 };
     archives.forEach(a => { if (statusCounts[a.status] !== undefined) statusCounts[a.status]++; });
-    document.getElementById('archiveBadge').textContent = statusCounts['待建档'] + statusCounts['退回补录'];
+    document.getElementById('archiveBadge').textContent = statusCounts['待建档'] + statusCounts['退回补录'] + unconfirmedTotal;
 
     return `
       <div class="card">
@@ -38,6 +37,7 @@ const ArchiveModule = {
           <input type="text" placeholder="搜索户主姓名、档案编号或签约编号..." value="${this._searchTerm}" oninput="ArchiveModule._searchTerm=this.value;App.refreshPage()">
           <select onchange="ArchiveModule._currentFilter=this.value;App.refreshPage()">
             <option value="all" ${this._currentFilter==='all'?'selected':''}>全部 (${statusCounts.all})</option>
+            <option value="__unconfirmed__" ${this._currentFilter==='__unconfirmed__'?'selected':''}>未确认变更 (${unconfirmedTotal})</option>
             <option value="待建档" ${this._currentFilter==='待建档'?'selected':''}>待建档 (${statusCounts['待建档']})</option>
             <option value="建档中" ${this._currentFilter==='建档中'?'selected':''}>建档中 (${statusCounts['建档中']})</option>
             <option value="退回补录" ${this._currentFilter==='退回补录'?'selected':''}>退回补录 (${statusCounts['退回补录']})</option>
@@ -53,21 +53,21 @@ const ArchiveModule = {
               <th>关联签约</th>
               <th>户主</th>
               <th>状态</th>
-              <th>签约变动</th>
+              <th>签约变更</th>
               <th>更新时间</th>
               <th>建档人</th>
             </tr>
           </thead>
           <tbody>
             ${filtered.map(a => {
-              const change = this._contractChanges[a.contractId];
+              const unconfirmedCount = this._getUnconfirmedCount(a);
               return `
                 <tr onclick="ArchiveModule.showDetail('${a.id}')">
                   <td><strong>${a.id}</strong></td>
                   <td><a class="archive-linked" onclick="event.stopPropagation();App.navigateTo('contract-detail','${a.contractId}')">${a.contractId}</a></td>
                   <td>${a.familyHeadName}</td>
                   <td>${this._statusBadge(a.status)}</td>
-                  <td>${change ? `<span class="contract-change-flag">⚡ ${this._changeLabel(change.action)}</span>` : '<span style="color:var(--text-light);font-size:12px">-</span>'}</td>
+                  <td>${unconfirmedCount > 0 ? `<span class="contract-change-flag">⚡ ${unconfirmedCount}条未确认</span>` : '<span style="color:var(--text-light);font-size:12px">-</span>'}</td>
                   <td>${a.updatedAt}</td>
                   <td>${a.createdBy}</td>
                 </tr>
@@ -122,19 +122,29 @@ const ArchiveModule = {
     const canAddNote = (role === '公共卫生专员' || role === '护士') && archive.status !== '已关闭';
     const canAddHealthRecord = (role === '公共卫生专员') && archive.status === '建档中';
 
-    const contractChange = this._contractChanges[archive.contractId];
+    const unconfirmedAlerts = (archive.changeAlerts || []).filter(ca => !ca.confirmed);
+    const confirmedAlerts = (archive.changeAlerts || []).filter(ca => ca.confirmed);
 
     return `
       <div class="split-view">
         <div>
-          ${contractChange ? `
-            <div class="change-alert">
-              <span class="change-alert-icon">⚡</span>
-              <div>
-                <div class="change-alert-text">关联签约 ${archive.contractId} 有变动：${this._changeLabel(contractChange.action)}</div>
-                <div class="change-alert-time">${contractChange.time}</div>
+          ${unconfirmedAlerts.length > 0 ? `
+            <div class="card" style="border:2px solid #f59e0b;background:#fffbeb">
+              <div class="card-header">
+                <div class="card-title" style="color:#92400e">⚡ 签约变更提醒（${unconfirmedAlerts.length}条未确认）</div>
+                <button class="btn btn-warning btn-sm" onclick="ArchiveModule.doConfirmAllAlerts('${archiveId}')">全部已知悉</button>
               </div>
-              <button class="btn btn-outline btn-sm" onclick="delete ArchiveModule._contractChanges['${archive.contractId}'];App.refreshPage()" style="margin-left:auto">已知悉</button>
+              ${unconfirmedAlerts.map(ca => `
+                <div class="change-alert" style="margin-bottom:8px">
+                  <span class="change-alert-icon">⚡</span>
+                  <div style="flex:1">
+                    <div class="change-alert-text"><strong>${ca.title}</strong></div>
+                    <div style="font-size:12px;color:#78350f">${ca.detail}</div>
+                    <div class="change-alert-time">${ca.createdAt}</div>
+                  </div>
+                  <button class="btn btn-outline btn-sm" onclick="ArchiveModule.doConfirmAlert('${archiveId}','${ca.id}')">已知悉</button>
+                </div>
+              `).join('')}
             </div>
           ` : ''}
 
@@ -229,6 +239,24 @@ const ArchiveModule = {
               </div>
             ` : ''}
           </div>
+
+          ${confirmedAlerts.length > 0 ? `
+            <div class="card">
+              <div class="card-header"><div class="card-title">已确认变更记录</div></div>
+              ${confirmedAlerts.map(ca => `
+                <div style="padding:8px 12px;border-left:3px solid var(--success);background:#f0fdf4;border-radius:0 6px 6px 0;margin-bottom:6px">
+                  <div style="display:flex;justify-content:space-between;align-items:center">
+                    <span style="font-size:13px;font-weight:500">${ca.title}</span>
+                    <span class="status-badge status-closed">已确认</span>
+                  </div>
+                  <div style="font-size:12px;color:var(--text-secondary);margin-top:2px">${ca.detail}</div>
+                  <div style="font-size:11px;color:var(--text-light);margin-top:2px">
+                    变更时间：${ca.createdAt} → 确认人：${ca.confirmedBy}（${ca.confirmedAt}）
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+          ` : ''}
 
           ${contract ? `
             <div class="card" style="cursor:pointer" onclick="App.navigateTo('contract-detail','${contract.id}')">
@@ -433,6 +461,26 @@ const ArchiveModule = {
     Store.updateArchive(archiveId, { healthRecords: archive.healthRecords });
     App.closeModal();
     App.toast('健康记录已添加');
+    App.refreshPage();
+  },
+
+  doConfirmAlert(archiveId, alertId) {
+    const result = Store.confirmChangeAlert(archiveId, alertId);
+    if (result) {
+      App.toast(`变更已确认：${result.title}（确认人：${result.confirmedBy}）`);
+    } else {
+      App.toast('确认失败，变更可能已确认或不存在');
+    }
+    App.refreshPage();
+  },
+
+  doConfirmAllAlerts(archiveId) {
+    const count = Store.confirmAllChangeAlerts(archiveId);
+    if (count > 0) {
+      App.toast(`已确认 ${count} 条变更提醒`);
+    } else {
+      App.toast('无需确认的变更');
+    }
     App.refreshPage();
   },
 

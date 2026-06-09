@@ -14,7 +14,31 @@ const RecentModule = {
       archive: archives.find(a => a.id === i.id)
     })).filter(i => i.archive);
 
+    const archivesWithUnconfirmed = Store.getArchivesWithUnconfirmedChanges();
+
     return `
+      ${archivesWithUnconfirmed.length > 0 ? `
+        <div class="card" style="border:2px solid #f59e0b;background:#fffbeb;margin-bottom:16px">
+          <div class="card-header">
+            <div class="card-title" style="color:#92400e">⚡ 待处理签约变更（${archivesWithUnconfirmed.length}条档案有未确认变更）</div>
+            <button class="btn btn-outline btn-sm" onclick="App.navigateTo('archive-list');ArchiveModule._currentFilter='__unconfirmed__';App.refreshPage()">查看全部</button>
+          </div>
+          ${archivesWithUnconfirmed.map(a => {
+            const unconfirmed = (a.changeAlerts || []).filter(ca => !ca.confirmed);
+            return `
+              <div class="recent-item" style="border-color:#fbbf24;background:#fff" onclick="ArchiveModule.showDetail('${a.id}')">
+                <span class="recent-type recent-type-archive">变更</span>
+                <div style="flex:1">
+                  <div class="recent-label">${a.familyHeadName} · ${a.id}</div>
+                  <div style="font-size:12px;color:#92400e">${unconfirmed.length}条未确认：${unconfirmed.map(ca => ca.title).join('、')}</div>
+                </div>
+                <span class="contract-change-flag">${unconfirmed.length}条待确认</span>
+              </div>
+            `;
+          }).join('')}
+        </div>
+      ` : ''}
+
       <div class="split-view">
         <div>
           <div class="section-title">最近打开的签约</div>
@@ -34,16 +58,19 @@ const RecentModule = {
         <div>
           <div class="section-title">最近打开的档案</div>
           ${recentArchives.length === 0 ? '<div class="card" style="text-align:center;color:var(--text-light);padding:20px">暂无记录</div>' :
-            recentArchives.map(item => `
-              <div class="recent-item" onclick="ArchiveModule.showDetail('${item.id}')">
-                <span class="recent-type recent-type-archive">档案</span>
-                <div style="flex:1">
-                  <div class="recent-label">${item.archive.familyHeadName} · 建档</div>
-                  <div style="font-size:12px;color:var(--text-secondary)">${item.id} · ${ArchiveModule._statusBadge(item.archive.status)}</div>
+            recentArchives.map(item => {
+              const unconfirmedCount = (item.archive.changeAlerts || []).filter(ca => !ca.confirmed).length;
+              return `
+                <div class="recent-item" onclick="ArchiveModule.showDetail('${item.id}')">
+                  <span class="recent-type recent-type-archive">档案</span>
+                  <div style="flex:1">
+                    <div class="recent-label">${item.archive.familyHeadName} · 建档${unconfirmedCount > 0 ? ` <span class="contract-change-flag" style="font-size:10px">${unconfirmedCount}条未确认</span>` : ''}</div>
+                    <div style="font-size:12px;color:var(--text-secondary)">${item.id} · ${ArchiveModule._statusBadge(item.archive.status)}</div>
+                  </div>
+                  <span class="recent-time">${item.openedAt}</span>
                 </div>
-                <span class="recent-time">${item.openedAt}</span>
-              </div>
-            `).join('')
+              `;
+            }).join('')
           }
         </div>
       </div>
@@ -69,6 +96,7 @@ const RecentModule = {
             <div><strong>自动记录：</strong>每次点击签约或档案查看详情时，自动记录到"最近打开"列表，按时间倒序排列。</div>
             <div><strong>快速定位：</strong>显示签约编号、户主姓名、签约类型及当前状态，点击可直接跳转详情页。</div>
             <div><strong>容量限制：</strong>最多保留 20 条最近记录，重复访问同一记录会更新时间并置顶。</div>
+            <div><strong>待处理变更入口：</strong>页面顶部展示有未确认签约变更的档案列表，点击可直达档案详情页进行确认。每个档案显示未确认变更条数和变更类型摘要。</div>
           </div>
         </div>
 
@@ -87,11 +115,13 @@ const RecentModule = {
             <div><strong>1. 备注继承：</strong>家庭签约处理时添加的备注，在创建档案建档时会自动继承为"签约备注（继承）"，建档人员可直接查阅，无需翻签约表。</div>
             <div><strong>2. 实时同步：</strong>签约侧新增备注后，关联档案的"签约备注（继承）"区域自动追加；如果签约被修改，档案列表页会显示 ⚡ 变动标记。</div>
             <div><strong>3. 退回联动：</strong>签约被退回时，关联档案自动标记为"退回补录"；签约补充信息后，档案也联动更新。</div>
-            <div><strong>4. 修改感知：</strong>签约内容变更后，档案建档详情页顶部会出现黄色提示条，提醒"关联签约有变动"，点击"已知悉"可关闭。</div>
-            <div><strong>5. 手动同步：</strong>若签约备注与档案继承备注不一致，档案详情页会提示"签约侧有新备注尚未同步"，点击"同步签约备注"即可。</div>
-            <div><strong>6. 健康记录：</strong>档案建档中可添加家庭成员的健康记录（慢性病、预防接种、随访、体检等），所有记录均可追溯操作历史。</div>
-            <div><strong>7. 退回补录：</strong>公卫专员可将建档退回要求补录信息，护士可补充信息后重新提交。</div>
-            <div><strong>8. 操作历史：</strong>每次状态变更、备注添加、记录修改都会记录在操作历史中，含操作人、角色、时间和详情。</div>
+            <div><strong>4. 修改感知：</strong>签约内容变更后，档案建档详情页顶部会出现黄色变更提醒卡片，列出每条变更的标题、详情和时间。</div>
+            <div><strong>5. 持久化变更确认：</strong>签约备注新增、退回、补充、修改产生的变更提醒会写入本地数据持久保存，刷新页面不丢失。档案列表支持"未确认变更"筛选。</div>
+            <div><strong>6. 已知悉操作：</strong>档案详情页可逐条点击"已知悉"确认变更，或点击"全部已知悉"批量确认。确认后记录确认人和确认时间，已确认变更移至"已确认变更记录"区域。</div>
+            <div><strong>7. 手动同步：</strong>若签约备注与档案继承备注不一致，档案详情页会提示"签约侧有新备注尚未同步"，点击"同步签约备注"即可。</div>
+            <div><strong>8. 健康记录：</strong>档案建档中可添加家庭成员的健康记录（慢性病、预防接种、随访、体检等），所有记录均可追溯操作历史。</div>
+            <div><strong>9. 退回补录：</strong>公卫专员可将建档退回要求补录信息，护士可补充信息后重新提交。</div>
+            <div><strong>10. 操作历史：</strong>每次状态变更、备注添加、变更确认都会记录在操作历史中，含操作人、角色、时间和详情。</div>
           </div>
         </div>
 

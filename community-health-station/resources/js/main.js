@@ -45,7 +45,6 @@ const App = {
     document.getElementById('btnResetData').addEventListener('click', () => {
       if (confirm('确认重置所有数据？将恢复初始演示数据。')) {
         Store.clearAllData();
-        ArchiveModule._contractChanges = {};
         this.refreshPage();
         this.toast('数据已重置');
       }

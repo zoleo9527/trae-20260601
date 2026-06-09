@@ -140,6 +140,18 @@ const Store = {
         ownNotes: [
           { id: 1, author: '孙丽华', role: '公共卫生专员', content: '首次随访定于6月15日，已通知家属', createdAt: '2026-06-01 14:00' }
         ],
+        changeAlerts: [
+          {
+            id: 'ca-1',
+            type: 'note_synced',
+            title: '签约新增备注',
+            detail: '刘芳(护士)添加签约备注',
+            createdAt: '2026-06-01 10:15',
+            confirmed: false,
+            confirmedBy: '',
+            confirmedAt: ''
+          }
+        ],
         returnReason: '',
         supplementInfo: '',
         createdBy: '孙丽华',
@@ -167,6 +179,7 @@ const Store = {
         ownNotes: [
           { id: 1, author: '孙丽华', role: '公共卫生专员', content: '已建档，儿童预防接种已录入', createdAt: '2026-06-05 15:30' }
         ],
+        changeAlerts: [],
         returnReason: '',
         supplementInfo: '',
         createdBy: '孙丽华',
@@ -225,6 +238,75 @@ const Store = {
 
   getRecentItems() { return [...this._cache.recentItems]; },
 
+  getArchivesWithUnconfirmedChanges() {
+    return this._cache.archives.filter(a => a.changeAlerts && a.changeAlerts.some(ca => !ca.confirmed));
+  },
+
+  _addChangeAlertToArchive(archive, type, title, detail) {
+    if (!archive.changeAlerts) archive.changeAlerts = [];
+    const alert = {
+      id: `ca-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      type,
+      title,
+      detail,
+      createdAt: this._now(),
+      confirmed: false,
+      confirmedBy: '',
+      confirmedAt: ''
+    };
+    archive.changeAlerts.push(alert);
+    archive.updatedAt = this._now();
+    return alert;
+  },
+
+  confirmChangeAlert(archiveId, alertId) {
+    const archive = this._cache.archives.find(a => a.id === archiveId);
+    if (!archive || !archive.changeAlerts) return null;
+    const alert = archive.changeAlerts.find(ca => ca.id === alertId);
+    if (!alert || alert.confirmed) return null;
+    const operator = window.App ? App.getOperatorName() : '';
+    const role = window.App ? App.getCurrentRole() : '';
+    alert.confirmed = true;
+    alert.confirmedBy = operator;
+    alert.confirmedAt = this._now();
+    archive.history.push({
+      action: '确认变更',
+      by: operator,
+      role,
+      at: this._now(),
+      detail: `确认：${alert.title}`
+    });
+    this._persist();
+    EventBus.emit('archive:changed', { archiveId, action: 'alert_confirmed' });
+    return alert;
+  },
+
+  confirmAllChangeAlerts(archiveId) {
+    const archive = this._cache.archives.find(a => a.id === archiveId);
+    if (!archive || !archive.changeAlerts) return 0;
+    const operator = window.App ? App.getOperatorName() : '';
+    const role = window.App ? App.getCurrentRole() : '';
+    let count = 0;
+    archive.changeAlerts.filter(ca => !ca.confirmed).forEach(ca => {
+      ca.confirmed = true;
+      ca.confirmedBy = operator;
+      ca.confirmedAt = this._now();
+      count++;
+    });
+    if (count > 0) {
+      archive.history.push({
+        action: '批量确认变更',
+        by: operator,
+        role,
+        at: this._now(),
+        detail: `确认 ${count} 条变更`
+      });
+      this._persist();
+      EventBus.emit('archive:changed', { archiveId, action: 'alerts_confirmed' });
+    }
+    return count;
+  },
+
   addContract(data) {
     const contract = {
       id: this._genId('CT'),
@@ -272,6 +354,7 @@ const Store = {
       });
       archive.updatedAt = this._now();
       archive.history.push({ action: '签约备注同步', by: '系统', role: '系统', at: this._now(), detail: `${note.author}(${note.role})添加签约备注` });
+      this._addChangeAlertToArchive(archive, 'note_synced', '签约新增备注', `${note.author}(${note.role})添加了签约备注`);
     });
 
     this._addNotification(contractId, 'contract', `签约 ${contractId} 新增备注`, note.content);
@@ -311,6 +394,7 @@ const Store = {
       archive.returnReason = `关联签约被退回：${reason}`;
       archive.updatedAt = this._now();
       archive.history.push({ action: '签约退回联动', by: '系统', role: '系统', at: this._now(), detail: `关联签约 ${contractId} 被退回` });
+      this._addChangeAlertToArchive(archive, 'contract_returned', '签约被退回', `签约 ${contractId} 被退回，原因：${reason}`);
     });
     this._persist();
     EventBus.emit('contract:changed', { contractId, action: 'returned', from: prev, to: '已退回' });
@@ -334,6 +418,7 @@ const Store = {
       archive.supplementInfo = `签约补充：${info}`;
       archive.updatedAt = this._now();
       archive.history.push({ action: '签约补充联动', by: '系统', role: '系统', at: this._now(), detail: `关联签约 ${contractId} 补充信息` });
+      this._addChangeAlertToArchive(archive, 'contract_supplemented', '签约已补充信息', `签约 ${contractId} 补充：${info.slice(0, 50)}`);
     });
     this._persist();
     EventBus.emit('contract:changed', { contractId, action: 'supplemented', from: prev, to: '已补充' });
@@ -369,6 +454,7 @@ const Store = {
         archive.status = '建档中';
         archive.updatedAt = this._now();
         archive.history.push({ action: '签约恢复联动', by: '系统', role: '系统', at: this._now(), detail: `关联签约 ${contractId} 恢复处理` });
+        this._addChangeAlertToArchive(archive, 'contract_reopened', '签约恢复处理', `签约 ${contractId} 从 ${prev} 恢复处理`);
       }
     });
     this._persist();
@@ -400,6 +486,7 @@ const Store = {
       }
       archive.updatedAt = this._now();
       archive.history.push({ action: '签约变更通知', by: '系统', role: '系统', at: this._now(), detail: `关联签约 ${contractId} 内容变更` });
+      this._addChangeAlertToArchive(archive, 'contract_modified', '签约内容已修改', `签约 ${contractId} 被 ${operator}(${role}) 修改`);
     });
     this._persist();
     EventBus.emit('contract:changed', { contractId, action: 'modified', updates });
@@ -423,6 +510,7 @@ const Store = {
         fromContractAt: n.createdAt
       })),
       ownNotes: [],
+      changeAlerts: [],
       returnReason: '',
       supplementInfo: '',
       createdBy: operator,
