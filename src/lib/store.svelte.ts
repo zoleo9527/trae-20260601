@@ -74,6 +74,27 @@ function syncCompensationFromDamage(damageId: string) {
   comp.updatedAt = new Date().toISOString()
 }
 
+function clearTimelineGapsForSegment(d: typeof damages[0], segment: string, name: string, role: UserRole) {
+  for (const node of d.timeline) {
+    if (node.isGap && node.event.includes(segment)) {
+      node.responsible = { name, role }
+      node.isGap = false
+    }
+  }
+}
+
+function clearOrphanTimelineGaps(d: typeof damages[0], name: string, role: UserRole) {
+  const chainHasGap = d.responsibilityChain.some(n => n.isGap)
+  if (!chainHasGap) {
+    for (const node of d.timeline) {
+      if (node.isGap && !node.responsible) {
+        node.responsible = { name, role }
+        node.isGap = false
+      }
+    }
+  }
+}
+
 export function getStore() {
   return {
     get currentRole() { return currentRole },
@@ -110,31 +131,22 @@ export function getStore() {
       const now = new Date().toISOString()
       d.currentResponsible = { name, role }
       if (d.status === 'pending') d.status = 'processing'
-      if (d.status === 'anomaly' && d.currentResponsible) d.status = 'processing'
+      if (d.status === 'anomaly') d.status = 'processing'
       d.updatedAt = now
 
       d.responsibilityChain = d.responsibilityChain.map(node => {
         if (node.isGap) {
-          return {
-            ...node,
-            name,
-            role,
-            isGap: false
-          }
+          return { ...node, name, role, isGap: false }
         }
         return node
       })
 
-      d.timeline = d.timeline.map(node => {
+      for (const node of d.timeline) {
         if (node.isGap && !node.responsible) {
-          return {
-            ...node,
-            responsible: { name, role },
-            isGap: false
-          }
+          node.responsible = { name, role }
+          node.isGap = false
         }
-        return node
-      })
+      }
 
       recalcDamageHasGap(damageId)
       syncCompensationFromDamage(damageId)
@@ -157,17 +169,14 @@ export function getStore() {
       const chainNode = d.responsibilityChain.find(n => n.id === chainNodeId)
       if (!chainNode || !chainNode.isGap) return
 
+      const segment = chainNode.segment
+
       chainNode.name = name
       chainNode.role = role
       chainNode.isGap = false
 
-      const matchingTimeline = d.timeline.find(
-        t => t.isGap && t.event.includes(chainNode.segment)
-      )
-      if (matchingTimeline) {
-        matchingTimeline.responsible = { name, role }
-        matchingTimeline.isGap = false
-      }
+      clearTimelineGapsForSegment(d, segment, name, role)
+      clearOrphanTimelineGaps(d, name, role)
 
       recalcDamageHasGap(damageId)
       syncCompensationFromDamage(damageId)
@@ -178,7 +187,7 @@ export function getStore() {
         event: '补全责任链',
         timestamp: now,
         responsible: { name, role },
-        description: `${chainNode.segment} 环节指派 ${ROLE_LABELS[role]} ${name}，空档已补全`,
+        description: `${segment} 环节指派 ${ROLE_LABELS[role]} ${name}，空档已补全`,
         isGap: false
       })
     },
