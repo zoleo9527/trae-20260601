@@ -292,7 +292,18 @@ export const useStore = create<AppState>((set) => ({
         ),
         approvals: [...state.approvals, approval],
         followupPlans: existingPlan
-          ? state.followupPlans
+          ? state.followupPlans.map((p) =>
+              p.id === existingPlan.id
+                ? {
+                    ...p,
+                    planType: newPlan.planType,
+                    planDetails: newPlan.planDetails,
+                    totalFee: newPlan.totalFee,
+                    paymentStatus: newPlan.paymentStatus,
+                    scheduleItems: newPlan.scheduleItems,
+                  }
+                : p
+            )
           : [...state.followupPlans, newPlan],
       };
     }),
