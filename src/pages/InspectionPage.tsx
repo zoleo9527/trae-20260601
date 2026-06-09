@@ -415,19 +415,59 @@ export default function InspectionPage() {
                     </div>
                   )}
 
+                  {selected.status === 'notified' && (
+                    <div className="p-4 rounded-lg bg-blue-50 border border-blue-200">
+                      <div className="flex items-center gap-2 text-blue-700 font-medium text-sm mb-3">
+                        <CheckCircle size={16} />
+                        已通知客户，可以开始执行查验
+                      </div>
+                      <button
+                        onClick={() => handleStep(selected.id, 'open_box')}
+                        className="px-4 py-2 bg-portOrange text-white rounded-lg text-sm font-medium hover:bg-portOrange/90"
+                      >
+                        开始查验（开箱）
+                      </button>
+                    </div>
+                  )}
+
                   {selected.status === 'executing' && (
                     <div className="p-4 rounded-lg bg-blue-50 border border-blue-200">
                       <div className="text-sm text-blue-700 font-medium mb-3">
                         当前步骤: {STEP_LABELS[selected.step]}
                       </div>
-                      {selected.step !== 'result' ? (
+                      {selected.step === 'open_box' && (
                         <button
-                          onClick={() => handleStep(selected.id, STEP_ORDER[getStepIndex(selected.step)])}
+                          onClick={() => handleStep(selected.id, 'unpack')}
                           className="px-4 py-2 bg-portOrange text-white rounded-lg text-sm font-medium hover:bg-portOrange/90"
                         >
-                          完成{STEP_LABELS[selected.step]}
+                          完成开箱，进入掏箱
                         </button>
-                      ) : (
+                      )}
+                      {selected.step === 'unpack' && (
+                        <button
+                          onClick={() => handleStep(selected.id, 'repack')}
+                          className="px-4 py-2 bg-portOrange text-white rounded-lg text-sm font-medium hover:bg-portOrange/90"
+                        >
+                          完成掏箱，进入复箱
+                        </button>
+                      )}
+                      {selected.step === 'repack' && (
+                        <div className="space-y-2">
+                          <div className="text-sm text-blue-600 mb-2">复箱完成，录入查验结果:</div>
+                          <div className="flex gap-2">
+                            <button onClick={() => handleStep(selected.id, 'result', 'released')} className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700">
+                              放行
+                            </button>
+                            <button onClick={() => handleStep(selected.id, 'result', 'abnormal')} className="px-4 py-2 bg-orange-500 text-white rounded-lg text-sm font-medium hover:bg-orange-600">
+                              查验异常
+                            </button>
+                            <button onClick={() => handleStep(selected.id, 'result', 'detained')} className="px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700">
+                              扣留
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                      {selected.step === 'result' && (
                         <div className="space-y-2">
                           <div className="text-sm text-blue-600 mb-2">录入查验结果:</div>
                           <div className="flex gap-2">
@@ -446,7 +486,7 @@ export default function InspectionPage() {
                     </div>
                   )}
 
-                  {selected.notified_at && (
+                  {selected.notified_at && selected.status !== 'notified' && selected.status !== 'executing' && (
                     <div className="p-3 rounded-lg bg-green-50 border border-green-200 text-sm">
                       <div className="flex items-center gap-2 text-green-700">
                         <CheckCircle size={14} />
