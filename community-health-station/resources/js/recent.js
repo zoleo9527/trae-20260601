@@ -15,6 +15,9 @@ const RecentModule = {
     })).filter(i => i.archive);
 
     const archivesWithUnconfirmed = Store.getArchivesWithUnconfirmedChanges();
+    archivesWithUnconfirmed.forEach(a => {
+      if (a.changeAlerts) a.changeAlerts.forEach(ca => ArchiveModule._normalizeAlert(ca));
+    });
 
     return `
       ${archivesWithUnconfirmed.length > 0 ? `
@@ -24,7 +27,7 @@ const RecentModule = {
             <button class="btn btn-outline btn-sm" onclick="App.navigateTo('archive-list');ArchiveModule._currentFilter='__unconfirmed__';App.refreshPage()">查看全部</button>
           </div>
           ${archivesWithUnconfirmed.map(a => {
-            const unconfirmed = (a.changeAlerts || []).filter(ca => !ca.confirmed).map(ca => ArchiveModule._normalizeAlert(ca));
+            const unconfirmed = (a.changeAlerts || []).filter(ca => !ca.confirmed);
             const hasHigh = unconfirmed.some(ca => ca.priority === 'high');
             const lastChangedAt = ArchiveModule._getLastChangedAt(a);
             const responsible = ArchiveModule._getResponsiblePerson(a);

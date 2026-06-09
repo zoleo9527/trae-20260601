@@ -27,18 +27,18 @@ const ArchiveModule = {
     if (!archive.changeAlerts) return null;
     const unconfirmed = archive.changeAlerts.filter(ca => !ca.confirmed);
     if (unconfirmed.length === 0) return null;
-    return unconfirmed.reduce((best, ca) => {
-      this._normalizeAlert(ca);
-      return this._priorityOrder(ca.priority) < this._priorityOrder(best.priority) ? ca : best;
-    }).priority;
+    unconfirmed.forEach(ca => this._normalizeAlert(ca));
+    return unconfirmed.reduce((best, ca) =>
+      this._priorityOrder(ca.priority) < this._priorityOrder(best.priority) ? ca : best
+    ).priority;
   },
 
   _getLastChangedAt(archive) {
     if (!archive.changeAlerts) return '';
     const unconfirmed = archive.changeAlerts.filter(ca => !ca.confirmed);
     if (unconfirmed.length === 0) return archive.updatedAt || '';
+    unconfirmed.forEach(ca => this._normalizeAlert(ca));
     return unconfirmed.reduce((latest, ca) => {
-      this._normalizeAlert(ca);
       const a = ca.lastChangedAt || '';
       return a > latest ? a : latest;
     }, '');
@@ -73,6 +73,8 @@ const ArchiveModule = {
     const highCount = archives.filter(a => this._getHighestPriority(a) === 'high').length;
 
     const filtered = archives.filter(a => {
+      if (a.changeAlerts) a.changeAlerts.forEach(ca => this._normalizeAlert(ca));
+
       if (this._currentFilter === '__unconfirmed__') {
         if (this._getUnconfirmedCount(a) === 0) return false;
       } else if (this._currentFilter !== 'all' && a.status !== this._currentFilter) {
@@ -81,10 +83,7 @@ const ArchiveModule = {
 
       if (this._priorityFilter !== 'all') {
         const hp = this._getHighestPriority(a);
-        const hasMatchingPriority = (a.changeAlerts || []).filter(ca => !ca.confirmed).some(ca => {
-          this._normalizeAlert(ca);
-          return ca.priority === this._priorityFilter;
-        });
+        const hasMatchingPriority = (a.changeAlerts || []).filter(ca => !ca.confirmed).some(ca => ca.priority === this._priorityFilter);
         if (!hasMatchingPriority && hp !== this._priorityFilter) return false;
       }
 
