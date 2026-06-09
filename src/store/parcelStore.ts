@@ -14,11 +14,13 @@ interface ParcelState {
   totalParcels: number
   auditLogs: any[]
   problems: any[]
+  workspaceSummary: Record<string, number> | null
   staff: any[]
   stations: any[]
   couriers: any[]
   stationManagers: any[]
   loading: boolean
+  error: string | null
 
   setCurrentRole: (roleKey: string) => void
   fetchParcels: (filters?: Record<string, any>) => Promise<void>
@@ -32,6 +34,7 @@ interface ParcelState {
   resolveProblem: (parcelId: number, resolution: string, note?: string) => Promise<void>
   fetchAuditLog: (parcelId: number) => Promise<void>
   fetchProblems: () => Promise<void>
+  fetchWorkspaceSummary: (responsibleId?: number, responsibleType?: string) => Promise<void>
   fetchStaff: () => Promise<void>
   fetchCouriers: () => Promise<void>
   fetchStationManagers: () => Promise<void>
@@ -46,11 +49,13 @@ export const useParcelStore = create<ParcelState>((set, get) => ({
   totalParcels: 0,
   auditLogs: [],
   problems: [],
+  workspaceSummary: null,
   staff: [],
   stations: [],
   couriers: [],
   stationManagers: [],
   loading: false,
+  error: null,
 
   setCurrentRole: (roleKey: string) => {
     const info = ROLE_MAP[roleKey]
@@ -60,7 +65,7 @@ export const useParcelStore = create<ParcelState>((set, get) => ({
   },
 
   fetchParcels: async (filters?: Record<string, any>) => {
-    set({ loading: true })
+    set({ loading: true, error: null })
     try {
       const params = new URLSearchParams()
       if (filters) {
@@ -72,7 +77,11 @@ export const useParcelStore = create<ParcelState>((set, get) => ({
       const json = await res.json()
       if (json.success) {
         set({ parcels: json.data.data, totalParcels: json.data.total })
+      } else {
+        set({ error: json.error || '请求失败' })
       }
+    } catch {
+      set({ error: '网络请求失败' })
     } finally {
       set({ loading: false })
     }
@@ -198,6 +207,21 @@ export const useParcelStore = create<ParcelState>((set, get) => ({
       }
     } finally {
       set({ loading: false })
+    }
+  },
+
+  fetchWorkspaceSummary: async (responsibleId?: number, responsibleType?: string) => {
+    try {
+      const params = new URLSearchParams()
+      if (responsibleId) params.set('responsibleId', String(responsibleId))
+      if (responsibleType) params.set('responsibleType', responsibleType)
+      const res = await fetch(`/api/parcels/workspace/summary?${params}`)
+      const json = await res.json()
+      if (json.success) {
+        set({ workspaceSummary: json.data })
+      }
+    } catch {
+      // silent
     }
   },
 

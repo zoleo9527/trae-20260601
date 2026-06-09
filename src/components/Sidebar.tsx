@@ -1,8 +1,9 @@
 import { useParcelStore } from '@/store/parcelStore'
-import { AlertTriangle, ClipboardList, History, ScanLine, Truck } from 'lucide-react'
+import { AlertTriangle, ClipboardList, History, LayoutDashboard, ScanLine, Truck } from 'lucide-react'
 import { NavLink } from 'react-router-dom'
 
 const navItems = [
+  { path: '/workspace', label: '我的工作台', Icon: LayoutDashboard },
   { path: '/scan', label: '到件扫描', Icon: ScanLine },
   { path: '/dispatch', label: '派件分配', Icon: ClipboardList },
   { path: '/review', label: '派件回看', Icon: History },

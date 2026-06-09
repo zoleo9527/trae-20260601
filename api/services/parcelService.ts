@@ -359,6 +359,7 @@ export function getParcels(filters: {
   status?: string;
   assigneeId?: number;
   responsibleId?: number;
+  responsibleType?: string;
   trackingNo?: string;
   startDate?: string;
   endDate?: string;
@@ -381,6 +382,10 @@ export function getParcels(filters: {
   if (filters.responsibleId) {
     conditions.push("p.responsible_id = ?");
     params.push(filters.responsibleId);
+  }
+  if (filters.responsibleType) {
+    conditions.push("p.responsible_type = ?");
+    params.push(filters.responsibleType);
   }
   if (filters.trackingNo) {
     conditions.push("p.tracking_no LIKE ?");
@@ -472,4 +477,43 @@ export function getProblems(): Record<string, unknown>[] {
       ORDER BY pp.reported_at DESC`
     )
     .all() as Record<string, unknown>[];
+}
+
+export function getWorkspaceSummary(responsibleId?: number, responsibleType?: string): Record<string, number> {
+  const db = getDb();
+
+  const conditions: string[] = [];
+  const params: unknown[] = [];
+
+  if (responsibleId) {
+    conditions.push("responsible_id = ?");
+    params.push(responsibleId);
+  }
+  if (responsibleType) {
+    conditions.push("responsible_type = ?");
+    params.push(responsibleType);
+  }
+
+  const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
+
+  const rows = db
+    .prepare(
+      `SELECT status, COUNT(*) as count FROM parcels ${whereClause} GROUP BY status`
+    )
+    .all(...params) as Array<{ status: string; count: number }>;
+
+  const result: Record<string, number> = {
+    arrived_pending: 0,
+    dispatched_pending: 0,
+    delivering: 0,
+    signed: 0,
+    problem_pending: 0,
+    closed: 0,
+  };
+
+  for (const row of rows) {
+    result[row.status] = row.count;
+  }
+
+  return result;
 }

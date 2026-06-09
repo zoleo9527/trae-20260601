@@ -5,6 +5,7 @@ import {
     getParcelAuditLog,
     getParcels,
     getProblems,
+    getWorkspaceSummary,
     reportProblem,
     resolveProblem,
     scanAndDispatch,
@@ -149,6 +150,19 @@ router.get('/problems', (_req: Request, res: Response): void => {
   }
 })
 
+router.get('/workspace/summary', (req: Request, res: Response): void => {
+  try {
+    const { responsibleId, responsibleType } = req.query as Record<string, string | undefined>
+    const summary = getWorkspaceSummary(
+      responsibleId ? Number(responsibleId) : undefined,
+      responsibleType
+    )
+    res.json({ success: true, data: summary })
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message })
+  }
+})
+
 router.get('/:id/audit-log', (req: Request, res: Response): void => {
   try {
     const parcelId = Number(req.params.id)
@@ -161,11 +175,12 @@ router.get('/:id/audit-log', (req: Request, res: Response): void => {
 
 router.get('/', (req: Request, res: Response): void => {
   try {
-    const { status, assigneeId, responsibleId, trackingNo, startDate, endDate, page, pageSize } = req.query as Record<string, string | undefined>
+    const { status, assigneeId, responsibleId, responsibleType, trackingNo, startDate, endDate, page, pageSize } = req.query as Record<string, string | undefined>
     const result = getParcels({
       status,
       assigneeId: assigneeId ? Number(assigneeId) : undefined,
       responsibleId: responsibleId ? Number(responsibleId) : undefined,
+      responsibleType,
       trackingNo,
       startDate,
       endDate,

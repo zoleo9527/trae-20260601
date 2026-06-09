@@ -25,5 +25,5 @@
     },
     "types": ["node", "express"]
   },
-  "include": ["src", "api"]
+  "include": ["src", "api", "shared"]
 }
