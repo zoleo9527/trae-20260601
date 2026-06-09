@@ -1,4 +1,5 @@
 import type { UserRole, DamageStatus, CompensationStatus } from '$lib/types'
+import { ROLE_LABELS } from '$lib/types'
 import { damageRecords, compensationRecords } from '$lib/mock-data'
 
 let currentRole = $state<UserRole>('freight_clerk')
@@ -68,14 +69,25 @@ export function getStore() {
     get selectedDamage() { return selectedDamage },
     get selectedCompensation() { return selectedCompensation },
     get linkedDamageForCompensation() { return linkedDamageForCompensation },
+
     assignResponsible(damageId: string, name: string, role: UserRole) {
       const d = damages.find(d => d.id === damageId)
       if (d) {
         d.currentResponsible = { name, role }
         if (d.status === 'pending') d.status = 'processing'
+        if (d.status === 'anomaly' && d.currentResponsible) d.status = 'processing'
         d.updatedAt = new Date().toISOString()
+        d.timeline.push({
+          id: 'tn-assign-' + Date.now(),
+          event: '指派责任人',
+          timestamp: new Date().toISOString(),
+          responsible: { name, role },
+          description: `${ROLE_LABELS[role]} ${name} 被指派为当前责任人`,
+          isGap: false
+        })
       }
     },
+
     submitCompensationMaterial(compId: string, materialId: string) {
       const c = compensations.find(c => c.id === compId)
       if (c) {
@@ -83,9 +95,36 @@ export function getStore() {
         if (m) {
           m.status = 'submitted'
           m.submittedAt = new Date().toISOString()
-          m.submittedBy = '当分用户'
+          m.submittedBy = ROLE_LABELS[currentRole]
           c.updatedAt = new Date().toISOString()
         }
+        const hasMissing = c.materials.some(m => m.status === 'missing')
+        if (!hasMissing && c.status === 'material_incomplete') {
+          c.status = 'accepted'
+        }
+        if (c.status === 'pending' && c.materials.some(m => m.status === 'submitted' || m.status === 'verified')) {
+          c.status = 'accepted'
+        }
+      }
+    },
+
+    advanceCompensationStatus(compId: string) {
+      const c = compensations.find(c => c.id === compId)
+      if (!c) return
+      if (c.status === 'accepted') {
+        c.status = 'reviewing'
+        c.updatedAt = new Date().toISOString()
+      } else if (c.status === 'reviewing') {
+        c.status = 'completed'
+        c.updatedAt = new Date().toISOString()
+      }
+    },
+
+    completeDamage(damageId: string) {
+      const d = damages.find(d => d.id === damageId)
+      if (d) {
+        d.status = 'completed'
+        d.updatedAt = new Date().toISOString()
       }
     }
   }
