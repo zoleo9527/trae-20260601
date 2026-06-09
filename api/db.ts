@@ -279,6 +279,31 @@ export function seedDatabase() {
       insertTimeline.run(uuidv4(), insp.c.id, 'inspection_planned', '张伟', 'dispatcher', `集装箱 ${insp.c.no} 安排查验`, JSON.stringify({ plan_id: inspId, planned_time: insp.planned }))
     }
 
+    const relocateHistory = [
+      { c: containers[0], from: 'D-1-3', to: 'A-1-1', op: '张伟', role: 'dispatcher', note: '客户报错堆位，调度核实后复位', daysAgo: 2 },
+      { c: containers[4], from: 'D-2-1', to: 'B-1-1', op: '李娜', role: 'customer_service', note: '冷冻箱误放普通区，紧急复位', daysAgo: 5 },
+      { c: containers[3], from: 'C-3-2', to: 'A-2-2', op: '张伟', role: 'dispatcher', note: null, daysAgo: 8 },
+      { c: containers[1], from: 'B-3-4', to: 'A-1-2', op: '陈静', role: 'customer_service', note: '批量卸货时错放，客户投诉后处理', daysAgo: 12 },
+      { c: containers[2], from: 'D-1-1', to: 'A-2-1', op: '张伟', role: 'dispatcher', note: '40HC箱误入20GP区', daysAgo: 15 },
+    ]
+
+    for (const r of relocateHistory) {
+      insertTimeline.run(
+        uuidv4(),
+        r.c.id,
+        'misplace_relocate',
+        r.op,
+        r.role,
+        `错放箱 ${r.c.no} 复位：${r.from} → ${r.to}${r.note ? '，备注：' + r.note : ''}`,
+        JSON.stringify({ from: r.from, to: r.to, note: r.note }),
+      )
+      db.prepare("UPDATE timeline_events SET created_at = ? WHERE container_id = ? AND event_type = 'misplace_relocate' AND description = ?").run(
+        daysAgo(r.daysAgo),
+        r.c.id,
+        `错放箱 ${r.c.no} 复位：${r.from} → ${r.to}${r.note ? '，备注：' + r.note : ''}`,
+      )
+    }
+
     const zones = ['A', 'B', 'C']
     const occupiedMap: Record<string, string> = {}
     for (const c of containers) {

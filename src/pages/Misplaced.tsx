@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { api } from '@/lib/api'
 import { useAppStore } from '@/hooks/useStore'
 import StatusBadge from '@/components/StatusBadge'
-import { AlertTriangle, MapPin, Camera, ArrowRight, CheckCircle, FileText, X, Filter, Clock, History } from 'lucide-react'
+import { AlertTriangle, MapPin, Camera, ArrowRight, CheckCircle, FileText, X, Filter, Clock, History, Search, Download } from 'lucide-react'
 
 const ROLE_LABELS: Record<string, string> = {
   gate_operator: '闸口操作员',
@@ -21,6 +21,7 @@ export default function Misplaced() {
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState<TabKey>('pending')
 
+  const [filterKeyword, setFilterKeyword] = useState('')
   const [filterCustomer, setFilterCustomer] = useState('')
   const [filterZone, setFilterZone] = useState('')
   const [filterDateFrom, setFilterDateFrom] = useState('')
@@ -55,8 +56,9 @@ export default function Misplaced() {
   const customerOptions = useMemo(() => {
     const set = new Set<string>()
     containers.forEach((c) => { if (c.customer_name) set.add(c.customer_name) })
+    historyRecords.forEach((r) => { if (r.customer_name) set.add(r.customer_name) })
     return Array.from(set).sort()
-  }, [containers])
+  }, [containers, historyRecords])
 
   const zoneOptions = useMemo(() => {
     const set = new Set<string>()
@@ -65,11 +67,22 @@ export default function Misplaced() {
       const zone = pos.split('-')[0]
       if (zone) set.add(zone)
     })
+    historyRecords.forEach((r) => {
+      for (const p of [r.from_position, r.to_position]) {
+        if (p) {
+          const zone = p.split('-')[0]
+          if (zone) set.add(zone)
+        }
+      }
+    })
     return Array.from(set).sort()
-  }, [containers])
+  }, [containers, historyRecords])
+
+  const kw = filterKeyword.trim().toLowerCase()
 
   const filteredContainers = useMemo(() => {
     return containers.filter((c) => {
+      if (kw && !c.container_no.toLowerCase().includes(kw)) return false
       if (filterCustomer && c.customer_name !== filterCustomer) return false
       if (filterZone) {
         const pos = c.current_slot_position || c.yard_position || ''
@@ -89,15 +102,16 @@ export default function Misplaced() {
       }
       return true
     })
-  }, [containers, filterCustomer, filterZone, filterDateFrom, filterDateTo])
+  }, [containers, kw, filterCustomer, filterZone, filterDateFrom, filterDateTo])
 
   const filteredHistory = useMemo(() => {
     return historyRecords.filter((r) => {
+      if (kw && !r.container_no.toLowerCase().includes(kw)) return false
       if (filterCustomer && r.customer_name !== filterCustomer) return false
       if (filterZone) {
-        const pos = r.from_position || ''
-        const zone = pos.split('-')[0]
-        if (zone !== filterZone) return false
+        const fromZone = (r.from_position || '').split('-')[0]
+        const toZone = (r.to_position || '').split('-')[0]
+        if (fromZone !== filterZone && toZone !== filterZone) return false
       }
       if (filterDateFrom) {
         const d = new Date(r.created_at)
@@ -112,7 +126,7 @@ export default function Misplaced() {
       }
       return true
     })
-  }, [historyRecords, filterCustomer, filterZone, filterDateFrom, filterDateTo])
+  }, [historyRecords, kw, filterCustomer, filterZone, filterDateFrom, filterDateTo])
 
   const selected = useMemo(
     () => containers.find((c) => c.id === selectedId) || null,
@@ -154,11 +168,31 @@ export default function Misplaced() {
     reader.readAsDataURL(file)
   }
 
+  const handleExportCSV = () => {
+    const BOM = '\uFEFF'
+    const header = '箱号,客户,原堆位,新堆位,操作人,角色,备注,处理时间'
+    const rows = filteredHistory.map((r) => {
+      const roleLabel = r.role === 'dispatcher' ? '调度' : r.role === 'customer_service' ? '客服' : r.role
+      const time = new Date(r.created_at).toLocaleString('zh-CN')
+      const noteVal = (r.note || '').replace(/"/g, '""')
+      return `"${r.container_no}","${r.customer_name}","${r.from_position || ''}","${r.to_position || ''}","${r.operator_name}","${roleLabel}","${noteVal}","${time}"`
+    })
+    const csv = BOM + header + '\n' + rows.join('\n')
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `错放箱复位历史_${new Date().toISOString().slice(0, 10)}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
   const canOperate = currentRole === 'dispatcher' || currentRole === 'customer_service'
 
-  const hasActiveFilter = filterCustomer || filterZone || filterDateFrom || filterDateTo
+  const hasActiveFilter = filterKeyword || filterCustomer || filterZone || filterDateFrom || filterDateTo
 
   const clearFilters = () => {
+    setFilterKeyword('')
     setFilterCustomer('')
     setFilterZone('')
     setFilterDateFrom('')
@@ -215,7 +249,17 @@ export default function Misplaced() {
             </button>
           )}
         </div>
-        <div className="grid grid-cols-4 gap-3">
+        <div className="grid grid-cols-5 gap-3">
+          <div className="relative">
+            <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
+            <input
+              type="text"
+              placeholder="箱号搜索..."
+              value={filterKeyword}
+              onChange={(e) => setFilterKeyword(e.target.value)}
+              className="w-full border border-gray-200 rounded-lg pl-8 pr-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-port-orange/30 focus:border-port-orange"
+            />
+          </div>
           <div>
             <select
               className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-port-orange/30 focus:border-port-orange"
@@ -246,7 +290,6 @@ export default function Misplaced() {
               className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-port-orange/30 focus:border-port-orange"
               value={filterDateFrom}
               onChange={(e) => setFilterDateFrom(e.target.value)}
-              placeholder="进闸起始"
             />
           </div>
           <div>
@@ -255,7 +298,6 @@ export default function Misplaced() {
               className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-port-orange/30 focus:border-port-orange"
               value={filterDateTo}
               onChange={(e) => setFilterDateTo(e.target.value)}
-              placeholder="进闸截止"
             />
           </div>
         </div>
@@ -281,9 +323,9 @@ export default function Misplaced() {
           }`}
           onClick={() => { setActiveTab('history'); setSelectedId(null); setShowRelocate(false) }}
         >
-            <History className="w-4 h-4 inline mr-1" />
-            已复位历史 {filteredHistory.length > 0 && `(${filteredHistory.length})`}
-          </button>
+          <History className="w-4 h-4 inline mr-1" />
+          已复位历史 {filteredHistory.length > 0 && `(${filteredHistory.length})`}
+        </button>
       </div>
 
       {activeTab === 'pending' && (
@@ -502,6 +544,16 @@ export default function Misplaced() {
 
       {activeTab === 'history' && (
         <div className="card overflow-hidden">
+          <div className="flex items-center justify-end px-4 py-2 bg-gray-50 border-b border-gray-100">
+            <button
+              className="flex items-center gap-1.5 text-sm text-gray-600 hover:text-port-navy transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              disabled={filteredHistory.length === 0}
+              onClick={handleExportCSV}
+            >
+              <Download className="w-4 h-4" />
+              导出 CSV
+            </button>
+          </div>
           <table className="w-full text-sm">
             <thead className="sticky top-0 bg-gray-50">
               <tr className="text-gray-600">
