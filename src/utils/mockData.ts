@@ -68,11 +68,11 @@ export const initialFollowUps: FollowUp[] = [
   {
     id: 'f1',
     patientId: 'p1',
-    status: 'in_progress',
-    assigneeRole: 'nurse',
-    assigneeName: '林护士',
+    status: 'warned',
+    assigneeRole: 'ph_specialist',
+    assigneeName: '杨专员',
     createdAt: hoursAgo(24),
-    updatedAt: hoursAgo(4),
+    updatedAt: hoursAgo(3),
     deadlineHours: 48,
     indicators: [
       makeIndicator('i1-1', 'f1', '空腹血糖', 8.3, 'mmol/L', 3.9, 6.1, 4, 'nurse'),
@@ -82,16 +82,18 @@ export const initialFollowUps: FollowUp[] = [
     statusLogs: [
       makeStatusLog('sl1-1', 'f1', null, 'pending', 'ph_specialist', '杨专员', 24, '系统自动创建随访任务'),
       makeStatusLog('sl1-2', 'f1', 'pending', 'in_progress', 'nurse', '林护士', 4, '开始执行随访'),
+      makeStatusLog('sl1-3', 'f1', 'in_progress', 'pending_review', 'nurse', '林护士', 3.5, '指标录入完成，提交审核'),
+      makeStatusLog('sl1-4', 'f1', 'pending_review', 'warned', 'doctor', '陈医生', 3, '审核发现异常指标，转出预警'),
     ],
   },
   {
     id: 'f2',
     patientId: 'p2',
-    status: 'pending_review',
-    assigneeRole: 'doctor',
-    assigneeName: '陈医生',
+    status: 'warned',
+    assigneeRole: 'ph_specialist',
+    assigneeName: '杨专员',
     createdAt: hoursAgo(36),
-    updatedAt: hoursAgo(2),
+    updatedAt: hoursAgo(1.5),
     deadlineHours: 48,
     indicators: [
       makeIndicator('i2-1', 'f2', '收缩压', 185, 'mmHg', 90, 140, 2, 'nurse'),
@@ -102,6 +104,7 @@ export const initialFollowUps: FollowUp[] = [
       makeStatusLog('sl2-1', 'f2', null, 'pending', 'ph_specialist', '杨专员', 36, '系统自动创建随访任务'),
       makeStatusLog('sl2-2', 'f2', 'pending', 'in_progress', 'nurse', '林护士', 4, '开始执行随访'),
       makeStatusLog('sl2-3', 'f2', 'in_progress', 'pending_review', 'nurse', '林护士', 2, '指标录入完成，提交审核'),
+      makeStatusLog('sl2-4', 'f2', 'pending_review', 'warned', 'doctor', '陈医生', 1.5, '审核发现异常指标，转出预警'),
     ],
   },
   {
@@ -180,11 +183,11 @@ export const initialFollowUps: FollowUp[] = [
   {
     id: 'f7',
     patientId: 'p7',
-    status: 'pending_review',
-    assigneeRole: 'doctor',
-    assigneeName: '陈医生',
+    status: 'warned',
+    assigneeRole: 'ph_specialist',
+    assigneeName: '杨专员',
     createdAt: hoursAgo(30),
-    updatedAt: hoursAgo(1),
+    updatedAt: hoursAgo(0.5),
     deadlineHours: 48,
     indicators: [
       makeIndicator('i7-1', 'f7', '血肌酐', 180, 'μmol/L', 44, 133, 1, 'nurse'),
@@ -195,6 +198,7 @@ export const initialFollowUps: FollowUp[] = [
       makeStatusLog('sl7-1', 'f7', null, 'pending', 'ph_specialist', '杨专员', 30, '系统自动创建随访任务'),
       makeStatusLog('sl7-2', 'f7', 'pending', 'in_progress', 'nurse', '林护士', 3, '开始执行随访'),
       makeStatusLog('sl7-3', 'f7', 'in_progress', 'pending_review', 'nurse', '林护士', 1, '指标录入完成，提交审核'),
+      makeStatusLog('sl7-4', 'f7', 'pending_review', 'warned', 'doctor', '陈医生', 0.5, '审核发现异常指标，转出预警'),
     ],
   },
   {
@@ -250,7 +254,7 @@ export const initialWarnings: Warning[] = [
     status: 'active',
     assigneeRole: 'ph_specialist',
     assigneeName: '杨专员',
-    triggeredAt: hoursAgo(2),
+    triggeredAt: hoursAgo(1.5),
     actions: [],
   },
   {
@@ -263,7 +267,7 @@ export const initialWarnings: Warning[] = [
     status: 'active',
     assigneeRole: 'doctor',
     assigneeName: '陈医生',
-    triggeredAt: hoursAgo(1),
+    triggeredAt: hoursAgo(0.5),
     actions: [],
   },
   {

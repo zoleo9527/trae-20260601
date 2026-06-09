@@ -34,14 +34,14 @@ export default function BatchActionBar({
             批量提醒
           </button>
           <button
-            onClick={() => onBatchAction('confirm')}
+            onClick={() => onBatchAction('batch_confirm')}
             className="inline-flex items-center gap-1.5 rounded-md bg-blue-50 px-3 py-1.5 text-sm font-medium text-blue-700 hover:bg-blue-100 transition-colors"
           >
             <CheckCircle className="h-4 w-4" />
             批量确认
           </button>
           <button
-            onClick={() => onBatchAction('return')}
+            onClick={() => onBatchAction('batch_return')}
             className="inline-flex items-center gap-1.5 rounded-md bg-orange-50 px-3 py-1.5 text-sm font-medium text-orange-700 hover:bg-orange-100 transition-colors"
           >
             <RotateCcw className="h-4 w-4" />

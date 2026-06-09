@@ -21,11 +21,19 @@ const ROLE_NAMES: Record<Role, string> = {
   ph_specialist: '杨专员',
 }
 
-function syncFollowUpOnReturn(followUpId: string, role: Role) {
+function syncFollowUpOnReturn(followUpId: string, ruleName: string, role: Role) {
   const store = useFollowUpStore.getState()
   const fu = store.followUps.find((f) => f.id === followUpId)
-  if (fu && fu.status === 'warned') {
-    store.transitionStatus(followUpId, 'in_progress', role, '预警退回，重新执行随访')
+  if (!fu) return
+
+  if (fu.status === 'warned') {
+    store.transitionStatus(followUpId, 'in_progress', role, `预警「${ruleName}」退回，重新执行随访`)
+    return
+  }
+
+  if (fu.status === 'pending_review') {
+    store.transitionStatus(followUpId, 'in_progress', role, `预警「${ruleName}」退回，重新执行随访`)
+    return
   }
 }
 
@@ -43,6 +51,54 @@ function syncFollowUpOnConfirm(warningId: string, followUpId: string, role: Role
   )
   if (!hasActiveWarnings) {
     fuStore.transitionStatus(followUpId, 'confirmed', role, '预警全部处理完成，随访闭环')
+  }
+}
+
+function syncFollowUpOnBatchReturn(warningIds: string[], role: Role) {
+  const warningStore = useWarningStore.getState()
+  const fuStore = useFollowUpStore.getState()
+
+  const affectedFollowUpIds = new Set<string>()
+  for (const wid of warningIds) {
+    const w = warningStore.warnings.find((w) => w.id === wid)
+    if (w) affectedFollowUpIds.add(w.followUpId)
+  }
+
+  for (const followUpId of affectedFollowUpIds) {
+    const fu = fuStore.followUps.find((f) => f.id === followUpId)
+    if (!fu || fu.status !== 'warned') continue
+
+    const relatedWarnings = warningStore.warnings.filter((w) => w.followUpId === followUpId)
+    const allReturned = relatedWarnings.every(
+      (w) => w.status === 'returned' || w.status === 'resolved'
+    )
+    if (allReturned) {
+      fuStore.transitionStatus(followUpId, 'in_progress', role, '全部预警退回，重新执行随访')
+    }
+  }
+}
+
+function syncFollowUpOnBatchConfirm(warningIds: string[], role: Role) {
+  const warningStore = useWarningStore.getState()
+  const fuStore = useFollowUpStore.getState()
+
+  const affectedFollowUpIds = new Set<string>()
+  for (const wid of warningIds) {
+    const w = warningStore.warnings.find((w) => w.id === wid)
+    if (w) affectedFollowUpIds.add(w.followUpId)
+  }
+
+  for (const followUpId of affectedFollowUpIds) {
+    const fu = fuStore.followUps.find((f) => f.id === followUpId)
+    if (!fu || fu.status !== 'warned') continue
+
+    const relatedWarnings = warningStore.warnings.filter((w) => w.followUpId === followUpId)
+    const hasActiveWarnings = relatedWarnings.some(
+      (w) => w.status === 'active' || w.status === 'processing'
+    )
+    if (!hasActiveWarnings) {
+      fuStore.transitionStatus(followUpId, 'confirmed', role, '预警全部处理完成，随访闭环')
+    }
   }
 }
 
@@ -79,12 +135,15 @@ export const useWarningStore = create<WarningState>((set, get) => ({
         case 'remind':
           break
         case 'confirm':
+        case 'batch_confirm':
           newStatus = 'resolved'
           break
         case 'return':
+        case 'batch_return':
           newStatus = 'returned'
           break
         case 'assign':
+        case 'batch_assign':
           newStatus = 'processing'
           break
         default:
@@ -100,7 +159,7 @@ export const useWarningStore = create<WarningState>((set, get) => ({
 
     if (success && currentWarning) {
       if (actionType === 'return') {
-        syncFollowUpOnReturn(currentWarning.followUpId, role)
+        syncFollowUpOnReturn(currentWarning.followUpId, currentWarning.ruleName, role)
       }
       if (actionType === 'confirm') {
         syncFollowUpOnConfirm(warningId, currentWarning.followUpId, role)
@@ -111,10 +170,21 @@ export const useWarningStore = create<WarningState>((set, get) => ({
   },
   batchAction: (actionType, role, remark) => {
     const { selectedWarningIds } = get()
+    const ids = [...selectedWarningIds]
     let count = 0
-    for (const id of selectedWarningIds) {
+    for (const id of ids) {
       if (get().executeAction(id, actionType, role, remark)) count++
     }
+
+    if (count > 0) {
+      if (actionType === 'batch_return' || actionType === 'return') {
+        syncFollowUpOnBatchReturn(ids, role)
+      }
+      if (actionType === 'batch_confirm' || actionType === 'confirm') {
+        syncFollowUpOnBatchConfirm(ids, role)
+      }
+    }
+
     set({ selectedWarningIds: [] })
     return count
   },

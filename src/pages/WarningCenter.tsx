@@ -85,6 +85,8 @@ export default function WarningCenter() {
     const count = batchAction(actionType, currentRole)
     const labels: Record<string, string> = {
       remind: '提醒',
+      batch_confirm: '确认',
+      batch_return: '退回',
       confirm: '确认',
       return: '退回',
     }

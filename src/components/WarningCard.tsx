@@ -1,10 +1,19 @@
-import type { Warning, WarningActionType } from '@/types'
-import { WARNING_LEVEL_LABELS, WARNING_STATUS_LABELS } from '@/types'
+import type { Warning, WarningActionType, FollowUpStatus } from '@/types'
+import { WARNING_LEVEL_LABELS, WARNING_STATUS_LABELS, STATUS_LABELS } from '@/types'
 import { formatTimeAgo } from '@/utils/statusEngine'
 import { useFollowUpStore } from '@/store/useFollowUpStore'
 import { WarningTimeline } from '@/components/WarningTimeline'
-import { Bell, RotateCcw, ChevronDown, ChevronUp, ExternalLink } from 'lucide-react'
+import { Bell, RotateCcw, ChevronDown, ChevronUp, ExternalLink, Link2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+
+const FOLLOWUP_STATUS_BADGE: Record<FollowUpStatus, string> = {
+  pending: 'bg-gray-50 text-gray-600 border-gray-200',
+  in_progress: 'bg-blue-50 text-blue-600 border-blue-200',
+  pending_review: 'bg-amber-50 text-amber-600 border-amber-200',
+  completed: 'bg-emerald-50 text-emerald-600 border-emerald-200',
+  warned: 'bg-red-50 text-red-600 border-red-200',
+  confirmed: 'bg-teal-50 text-teal-600 border-teal-200',
+}
 
 const LEVEL_BAR: Record<Warning['level'], string> = {
   red: 'bg-red-500',
@@ -113,6 +122,18 @@ export default function WarningCard({
           <div className="flex items-center gap-3 text-xs text-gray-400 mb-2">
             <span>负责人: {warning.assigneeName}</span>
             <span>{formatTimeAgo(warning.triggeredAt)}</span>
+            {followUp && (
+              <span className="inline-flex items-center gap-1">
+                <Link2 className="h-3 w-3" />
+                随访:
+                <span className={cn(
+                  'inline-flex items-center rounded-full border px-1.5 py-0.5 text-xs font-medium',
+                  FOLLOWUP_STATUS_BADGE[followUp.status]
+                )}>
+                  {STATUS_LABELS[followUp.status]}
+                </span>
+              </span>
+            )}
           </div>
 
           <div className="flex items-center justify-between">

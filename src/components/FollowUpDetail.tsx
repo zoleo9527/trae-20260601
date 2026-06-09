@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import type { FollowUp, FollowUpStatus } from '@/types'
-import { ROLE_LABELS, STATUS_LABELS } from '@/types'
+import { ROLE_LABELS, STATUS_LABELS, WARNING_STATUS_LABELS, WARNING_LEVEL_LABELS } from '@/types'
 import { getAvailableActions } from '@/utils/statusEngine'
 import { isIndicatorAbnormal } from '@/utils/warningEngine'
 import { getTemplatesForDisease } from '@/utils/indicatorTemplates'
@@ -9,7 +9,8 @@ import { useFollowUpStore } from '@/store/useFollowUpStore'
 import { useWarningStore } from '@/store/useWarningStore'
 import IndicatorChart from '@/components/IndicatorChart'
 import StatusTimeline from '@/components/StatusTimeline'
-import { X, ChevronRight, Plus, Minus } from 'lucide-react'
+import { X, ChevronRight, Plus, AlertTriangle, ExternalLink } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 
 interface FollowUpDetailProps {
   followUp: FollowUp
@@ -28,11 +29,15 @@ export default function FollowUpDetail({
   diseaseType,
   onClose,
 }: FollowUpDetailProps) {
+  const navigate = useNavigate()
   const currentRole = useRoleStore((s) => s.currentRole)
   const addToast = useRoleStore((s) => s.addToast)
   const transitionStatus = useFollowUpStore((s) => s.transitionStatus)
   const addIndicator = useFollowUpStore((s) => s.addIndicator)
   const ingestPendingWarnings = useWarningStore((s) => s.ingestPendingWarnings)
+  const relatedWarnings = useWarningStore((s) =>
+    s.warnings.filter((w) => w.followUpId === followUp.id)
+  )
 
   const templates = getTemplatesForDisease(diseaseType)
   const existingIndicatorNames = new Set(followUp.indicators.map((i) => i.name))
@@ -176,6 +181,50 @@ export default function FollowUpDetail({
             <StatusTimeline logs={followUp.statusLogs} />
           </div>
         </div>
+
+        {relatedWarnings.length > 0 && (
+          <div className="border-b px-6 py-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1 text-sm font-medium text-gray-700">
+                <AlertTriangle className="h-4 w-4 text-orange-500" />
+                <span>关联预警</span>
+                <span className="text-xs text-gray-400">({relatedWarnings.length})</span>
+              </div>
+              <button
+                onClick={() => navigate('/warning')}
+                className="inline-flex items-center gap-0.5 text-xs text-blue-500 hover:text-blue-700 transition-colors"
+              >
+                前往预警中心
+                <ExternalLink className="h-3 w-3" />
+              </button>
+            </div>
+            <div className="mt-3 space-y-2">
+              {relatedWarnings.map((w) => {
+                const isActive = w.status === 'active' || w.status === 'processing'
+                const levelColor = w.level === 'red' ? 'text-red-600 bg-red-50' : w.level === 'orange' ? 'text-orange-600 bg-orange-50' : 'text-yellow-600 bg-yellow-50'
+                const statusColor = isActive ? 'text-red-600' : w.status === 'resolved' ? 'text-emerald-600' : 'text-orange-600'
+                return (
+                  <div key={w.id} className={`rounded-md border p-2.5 ${isActive ? 'border-red-200 bg-red-50/30' : 'border-gray-100 bg-gray-50/30'}`}>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-xs font-medium ${levelColor}`}>
+                          {WARNING_LEVEL_LABELS[w.level]}
+                        </span>
+                        <span className="text-sm text-gray-800">{w.ruleName}</span>
+                      </div>
+                      <span className={`text-xs font-medium ${statusColor}`}>
+                        {WARNING_STATUS_LABELS[w.status]}
+                      </span>
+                    </div>
+                    <div className="mt-1 text-xs text-gray-400">
+                      负责人: {w.assigneeName}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )}
 
         <div className="px-6 py-4">
           <div className="flex items-center gap-1 text-sm font-medium text-gray-700">
