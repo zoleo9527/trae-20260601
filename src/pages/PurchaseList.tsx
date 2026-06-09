@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { Search, Plus, Calendar, User, ChevronDown, ChevronUp, X } from 'lucide-react'
+import { Search, Plus, Calendar, User, ChevronDown, ChevronUp, X, Pencil } from 'lucide-react'
 import { apiGet } from '@/lib/api'
 import { cn } from '@/lib/utils'
 import { PurchaseBadge, QualificationBadge } from '@/components/StatusBadge'
 import CreatePurchaseModal from '@/components/CreatePurchaseModal'
+import EditPurchaseModal from '@/components/EditPurchaseModal'
 import { useStore } from '@/store'
 import type { Purchase, PurchaseStatus, PaginatedResponse } from '@/types'
 
@@ -47,6 +48,7 @@ export default function PurchaseList() {
   const [data, setData] = useState<PaginatedResponse<Purchase>>({ list: [], total: 0, page: 1, page_size: 10 })
   const [loading, setLoading] = useState(false)
   const [showCreate, setShowCreate] = useState(false)
+  const [editPurchase, setEditPurchase] = useState<Purchase | null>(null)
 
   const totalPages = Math.ceil(data.total / data.page_size)
 
@@ -210,6 +212,15 @@ export default function PurchaseList() {
                     <span>{p.created_at?.slice(0, 10)}</span>
                   </div>
                 </div>
+                {session?.role === 'sales_clerk' && p.status === 'draft' && (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setEditPurchase(p) }}
+                    className="flex items-center gap-1 rounded-lg border border-gray-200 px-2.5 py-1 text-xs text-gray-500 hover:bg-gray-50"
+                  >
+                    <Pencil className="h-3 w-3" />
+                    编辑
+                  </button>
+                )}
                 <PurchaseBadge status={p.status} />
                 <span className="text-sm font-semibold text-gray-900">{formatAmount(p.total_amount)}</span>
               </div>
@@ -241,6 +252,14 @@ export default function PurchaseList() {
       )}
 
       {showCreate && <CreatePurchaseModal onClose={() => setShowCreate(false)} onCreated={() => fetchData()} />}
+
+      {editPurchase && (
+        <EditPurchaseModal
+          purchase={editPurchase}
+          onClose={() => setEditPurchase(null)}
+          onSaved={() => { setEditPurchase(null); fetchData() }}
+        />
+      )}
     </div>
   )
 }

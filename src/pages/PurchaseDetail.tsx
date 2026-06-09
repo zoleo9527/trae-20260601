@@ -2,12 +2,13 @@ import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import {
   ArrowLeft, Send, Package, Truck, CheckCircle, AlertTriangle, X as XIcon,
-  User, Clock, FileCheck, Link2,
+  User, Clock, FileCheck, Link2, Pencil,
 } from 'lucide-react'
 import { apiGet, apiPost } from '@/lib/api'
 import { cn } from '@/lib/utils'
 import { PurchaseBadge, QualificationBadge } from '@/components/StatusBadge'
 import Timeline from '@/components/Timeline'
+import EditPurchaseModal from '@/components/EditPurchaseModal'
 import { useStore, roleConfig } from '@/store'
 import type { Purchase, QualificationStatus, PurchaseStatus } from '@/types'
 
@@ -61,6 +62,7 @@ export default function PurchaseDetail() {
   const [loading, setLoading] = useState(true)
   const [note, setNote] = useState('')
   const [actionLoading, setActionLoading] = useState(false)
+  const [showEdit, setShowEdit] = useState(false)
 
   const fetchData = async () => {
     setLoading(true)
@@ -109,6 +111,7 @@ export default function PurchaseDetail() {
   const showQualWarning = data.qualification_status !== 'approved'
 
   const canSubmit = role === 'sales_clerk' && data.status === 'draft'
+  const canEdit = role === 'sales_clerk' && data.status === 'draft'
   const canApprove = role === 'director' && data.status === 'pending_review'
   const canConfirmOut = role === 'warehouse' && data.status === 'approved'
   const canShip = role === 'warehouse' && data.status === 'confirmed_out'
@@ -135,6 +138,15 @@ export default function PurchaseDetail() {
             <div className="flex items-center gap-3">
               <h1 className="font-mono text-xl font-bold text-gray-900">{data.request_no}</h1>
               <PurchaseBadge status={data.status} />
+              {canEdit && (
+                <button
+                  onClick={() => setShowEdit(true)}
+                  className="flex items-center gap-1 rounded-lg border border-gray-200 px-3 py-1 text-sm text-gray-600 hover:bg-gray-50"
+                >
+                  <Pencil className="h-3.5 w-3.5" />
+                  编辑
+                </button>
+              )}
             </div>
             <p className="mt-1 text-sm text-gray-600">{data.customer_name}</p>
           </div>
@@ -366,6 +378,14 @@ export default function PurchaseDetail() {
           <h3 className="mb-4 text-sm font-semibold text-gray-900">操作记录</h3>
           <Timeline entries={data.logs} />
         </div>
+      )}
+
+      {showEdit && data && (
+        <EditPurchaseModal
+          purchase={data}
+          onClose={() => setShowEdit(false)}
+          onSaved={() => { setShowEdit(false); fetchData() }}
+        />
       )}
     </div>
   )
