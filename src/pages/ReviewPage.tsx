@@ -74,7 +74,6 @@ export default function ReviewPage() {
   const { prescriptions, prescriptionHistory, getPatientById, assessments, approvePrescription, adjustPrescription } = useAppStore()
   const [reviewRx, setReviewRx] = useState<Prescription | null>(null)
   const [adjustRx, setAdjustRx] = useState<Prescription | null>(null)
-  const [adjustComment, setAdjustComment] = useState('')
   const [approveComment, setApproveComment] = useState('')
   const [detailRx, setDetailRx] = useState<Prescription | null>(null)
   const [adjustForm] = Form.useForm()
@@ -114,10 +113,6 @@ export default function ReviewPage() {
 
   const handleAdjust = () => {
     if (!adjustRx) return
-    if (!adjustComment.trim()) {
-      message.warning('请填写调整意见')
-      return
-    }
     adjustForm.validateFields().then((values) => {
       const goals: RehabGoal[] = (values.goals ?? []).map((g: { description: string; targetDate: any; measurable: string; priority: string }) => ({
         id: `g${uuid().slice(0, 6)}`,
@@ -144,9 +139,8 @@ export default function ReviewPage() {
         return
       }
 
-      adjustPrescription(adjustRx.id, { goals, treatmentPlan, rationale: values.rationale }, adjustComment)
+      adjustPrescription(adjustRx.id, { goals, treatmentPlan, rationale: values.rationale }, values.adjustComment)
       setAdjustRx(null)
-      setAdjustComment('')
       adjustForm.resetFields()
       message.success(`处方已调整为 V${adjustRx.version + 1}，旧版本 V${adjustRx.version} 已归档`)
     }).catch(() => {})
@@ -173,7 +167,7 @@ export default function ReviewPage() {
             <Space>
               <Button size="small" icon={<EyeOutlined />} onClick={() => setDetailRx(rx)}>查看</Button>
               <Button size="small" type="primary" icon={<CheckCircleOutlined />} onClick={() => { setReviewRx(rx); setApproveComment('') }}>批准</Button>
-              <Button size="small" danger icon={<EditOutlined />} onClick={() => { setAdjustRx(rx); setAdjustComment('') }}>调整</Button>
+              <Button size="small" danger icon={<EditOutlined />} onClick={() => { setAdjustRx(rx) }}>调整</Button>
             </Space>
           ) : (
             <Button size="small" icon={<EyeOutlined />} onClick={() => setDetailRx(rx)}>查看</Button>
@@ -347,10 +341,12 @@ export default function ReviewPage() {
                 <Form.Item name="rationale" rules={[{ required: true, message: '请输入处方依据' }]}>
                   <Input.TextArea rows={2} />
                 </Form.Item>
-              </Form>
 
-              <Divider orientation="left" style={{ margin: '8px 0' }}>调整意见 (必填)</Divider>
-              <Input.TextArea rows={2} value={adjustComment} onChange={(e) => setAdjustComment(e.target.value)} placeholder="请说明调整原因和调整内容" />
+                <Divider orientation="left" style={{ margin: '8px 0' }}>调整意见 <Text type="danger" style={{ fontSize: 12 }}>（必填）</Text></Divider>
+                <Form.Item name="adjustComment" rules={[{ required: true, message: '请填写调整意见' }]}>
+                  <Input.TextArea rows={2} placeholder="请说明调整原因和调整内容" />
+                </Form.Item>
+              </Form>
             </>
           )
         })()}
