@@ -3,6 +3,7 @@ import type {
   Patient,
   Course,
   ReassessmentRecord,
+  ReassessmentConclusion,
   ApprovalRecord,
   FollowupPlan,
   CommunicationResult,
@@ -17,10 +18,12 @@ interface AppState {
   currentRole: '治疗师' | '主任' | '前台';
 
   setRole: (role: '治疗师' | '主任' | '前台') => void;
+  updateReassessment: (id: string, patch: Partial<Pick<ReassessmentRecord, 'functionalScore' | 'painVAS' | 'romMeasurement' | 'subjectiveEvaluation' | 'conclusion' | 'conclusionReason'>>) => void;
   submitReassessment: (id: string) => void;
   approveReassessment: (id: string, approval: ApprovalRecord) => void;
   rejectReassessment: (id: string, approval: ApprovalRecord) => void;
   addCommunication: (planId: string, record: { communicator: string; result: CommunicationResult; reason: string }) => void;
+  updatePaymentStatus: (planId: string, status: string) => void;
 }
 
 const mockPatients: Patient[] = [
@@ -122,12 +125,12 @@ const mockReassessments: ReassessmentRecord[] = [
     therapistName: '陈晓明',
     conclusion: '结案',
     conclusionReason: '功能恢复达预期目标，上肢Fugl-Meyer评分从32分提升至58分，日常生活活动能力Barthel指数从45分提升至85分，可独立完成穿脱衣物、进食等日常活动。',
-    status: '已审批',
+    status: '草稿',
     functionalScore: 85,
     painVAS: 2,
     romMeasurement: '右肩屈曲150°，右肘屈曲145°，右腕背伸40°',
     subjectiveEvaluation: '患者对康复效果满意，可独立完成大部分日常活动，疼痛明显缓解。',
-    submittedAt: '2026-06-02 09:30',
+    submittedAt: null,
   },
   {
     id: 'r2',
@@ -137,7 +140,7 @@ const mockReassessments: ReassessmentRecord[] = [
     therapistName: '林雨薇',
     conclusion: '换方案',
     conclusionReason: '当前方案疼痛缓解不明显，VAS从7分降至5分，核心稳定性训练3项未达标。建议调整为麦肯基疗法配合核心激活训练，加强椎间盘回纳和脊柱稳定性。',
-    status: '已审批',
+    status: '已提交',
     functionalScore: 45,
     painVAS: 5,
     romMeasurement: '腰椎前屈40°，后伸20°，左侧屈15°，右侧屈18°',
@@ -163,28 +166,6 @@ const mockReassessments: ReassessmentRecord[] = [
 
 const mockApprovals: ApprovalRecord[] = [
   {
-    id: 'a1',
-    reassessmentId: 'r1',
-    directorId: 'd1',
-    directorName: '赵德明',
-    action: '通过',
-    suggestion: '同意结案。患者功能恢复良好，建议出院后继续居家训练方案：每日上肢主动活动30分钟、手功能训练20分钟。3个月后门诊复查。',
-    suggestedSessions: null,
-    notes: '恢复良好，符合结案标准',
-    approvedAt: '2026-06-02 16:45',
-  },
-  {
-    id: 'a2',
-    reassessmentId: 'r2',
-    directorId: 'd1',
-    directorName: '赵德明',
-    action: '通过',
-    suggestion: '同意换方案。新方案以麦肯基疗法为核心，配合核心激活训练。建议新疗程12次，每周3次，4周完成。重点关注椎间盘回纳效果及核心肌群激活程度。',
-    suggestedSessions: 12,
-    notes: '当前方案效果不佳需调整，新方案要定期评估',
-    approvedAt: '2026-06-03 17:30',
-  },
-  {
     id: 'a3',
     reassessmentId: 'r3',
     directorId: 'd1',
@@ -198,59 +179,6 @@ const mockApprovals: ApprovalRecord[] = [
 ];
 
 const mockFollowupPlans: FollowupPlan[] = [
-  {
-    id: 'f1',
-    reassessmentId: 'r1',
-    patientId: 'p1',
-    planType: '结案',
-    planDetails: '出院居家训练方案：每日上肢主动活动30分钟、手功能训练20分钟、步行训练30分钟。3个月后门诊复查评估。',
-    totalFee: 0,
-    paymentStatus: '无需缴费',
-    scheduleItems: [],
-    communicationRecords: [
-      {
-        id: 'cr1',
-        followupPlanId: 'f1',
-        communicator: '前台-张小燕',
-        result: '已同意',
-        reason: '患者对康复效果满意，同意结案并按医嘱进行居家训练',
-        communicatedAt: '2026-06-05 09:00',
-      },
-    ],
-  },
-  {
-    id: 'f2',
-    reassessmentId: 'r2',
-    patientId: 'p2',
-    planType: '换方案',
-    planDetails: '新方案：麦肯基疗法配合核心激活训练，每周3次，共12次。重点：椎间盘回纳手法、核心肌群激活、腰椎稳定性训练。',
-    totalFee: 3600,
-    paymentStatus: '待缴费',
-    scheduleItems: [
-      { date: '06-09', session: '麦肯基疗法+核心激活' },
-      { date: '06-11', session: '麦肯基疗法+腰椎稳定' },
-      { date: '06-13', session: '麦肯基疗法+核心激活' },
-      { date: '06-16', session: '椎间盘回纳+核心激活' },
-      { date: '06-18', session: '麦肯基疗法+腰椎稳定' },
-      { date: '06-20', session: '麦肯基疗法+核心激活' },
-      { date: '06-23', session: '椎间盘回纳+核心激活' },
-      { date: '06-25', session: '麦肯基疗法+腰椎稳定' },
-      { date: '06-27', session: '麦肯基疗法+核心激活' },
-      { date: '06-30', session: '综合训练+中期评估' },
-      { date: '07-02', session: '麦肯基疗法+核心激活' },
-      { date: '07-04', session: '综合训练+末期评估' },
-    ],
-    communicationRecords: [
-      {
-        id: 'cr2',
-        followupPlanId: 'f2',
-        communicator: '前台-张小燕',
-        result: '已同意',
-        reason: '患者同意换方案，对麦肯基疗法有信心，待确认新疗程费用',
-        communicatedAt: '2026-06-05 10:30',
-      },
-    ],
-  },
   {
     id: 'f3',
     reassessmentId: 'r3',
@@ -280,6 +208,52 @@ const mockFollowupPlans: FollowupPlan[] = [
   },
 ];
 
+function generateFollowupPlan(
+  reassessment: ReassessmentRecord,
+  approval: ApprovalRecord,
+): FollowupPlan {
+  const feePerSession = 300;
+  const sessions = approval.suggestedSessions ?? 6;
+  const isCase = reassessment.conclusion === '结案';
+
+  const planTypeMap: Record<ReassessmentConclusion, string> = {
+    '结案': '结案',
+    '续疗': '续疗',
+    '转诊': '转诊',
+    '换方案': '换方案',
+  };
+
+  const planDetailsMap: Record<ReassessmentConclusion, string> = {
+    '结案': '出院居家训练方案：按医嘱进行居家康复训练，定期门诊复查评估。',
+    '续疗': `继续当前方案延长${sessions}次训练。${approval.suggestion}`,
+    '转诊': `转诊至上级医院进一步诊疗。${approval.suggestion}`,
+    '换方案': `调整治疗方案，新疗程${sessions}次。${approval.suggestion}`,
+  };
+
+  const scheduleItems: { date: string; session: string }[] = [];
+  if (!isCase && sessions > 0) {
+    const startDate = new Date();
+    for (let i = 0; i < sessions; i++) {
+      const d = new Date(startDate);
+      d.setDate(d.getDate() + Math.floor(i / 3) * 7 + (i % 3) * 2);
+      const dateStr = `${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      scheduleItems.push({ date: dateStr, session: `第${i + 1}次训练` });
+    }
+  }
+
+  return {
+    id: `f-${Date.now()}`,
+    reassessmentId: reassessment.id,
+    patientId: reassessment.patientId,
+    planType: planTypeMap[reassessment.conclusion],
+    planDetails: planDetailsMap[reassessment.conclusion],
+    totalFee: isCase ? 0 : feePerSession * sessions,
+    paymentStatus: isCase ? '无需缴费' : '待缴费',
+    scheduleItems,
+    communicationRecords: [],
+  };
+}
+
 export const useStore = create<AppState>((set) => ({
   patients: mockPatients,
   courses: mockCourses,
@@ -290,6 +264,13 @@ export const useStore = create<AppState>((set) => ({
 
   setRole: (role) => set({ currentRole: role }),
 
+  updateReassessment: (id, patch) =>
+    set((state) => ({
+      reassessments: state.reassessments.map((r) =>
+        r.id === id ? { ...r, ...patch } : r
+      ),
+    })),
+
   submitReassessment: (id) =>
     set((state) => ({
       reassessments: state.reassessments.map((r) =>
@@ -298,12 +279,23 @@ export const useStore = create<AppState>((set) => ({
     })),
 
   approveReassessment: (id, approval) =>
-    set((state) => ({
-      reassessments: state.reassessments.map((r) =>
-        r.id === id ? { ...r, status: '已审批' as const } : r
-      ),
-      approvals: [...state.approvals, approval],
-    })),
+    set((state) => {
+      const reassessment = state.reassessments.find((r) => r.id === id);
+      if (!reassessment) return state;
+
+      const newPlan = generateFollowupPlan(reassessment, approval);
+      const existingPlan = state.followupPlans.find((p) => p.reassessmentId === id);
+
+      return {
+        reassessments: state.reassessments.map((r) =>
+          r.id === id ? { ...r, status: '已审批' as const } : r
+        ),
+        approvals: [...state.approvals, approval],
+        followupPlans: existingPlan
+          ? state.followupPlans
+          : [...state.followupPlans, newPlan],
+      };
+    }),
 
   rejectReassessment: (id, approval) =>
     set((state) => ({
@@ -330,6 +322,13 @@ export const useStore = create<AppState>((set) => ({
               ],
             }
           : plan
+      ),
+    })),
+
+  updatePaymentStatus: (planId, status) =>
+    set((state) => ({
+      followupPlans: state.followupPlans.map((plan) =>
+        plan.id === planId ? { ...plan, paymentStatus: status } : plan
       ),
     })),
 }));

@@ -1,11 +1,12 @@
 import { Link } from 'react-router-dom';
-import { FileText, Clock, MessageCircle, CheckCircle2 } from 'lucide-react';
+import { FileText, Clock, MessageCircle, CheckCircle2, Pause } from 'lucide-react';
 import { useStore } from '@/store/useStore';
 
 const statusCards = [
   { key: '待复评', icon: FileText, color: 'bg-amber-50 border-amber-200', iconColor: 'text-amber-600', numColor: 'text-amber-700' },
   { key: '待审批', icon: Clock, color: 'bg-sky-50 border-sky-200', iconColor: 'text-sky-600', numColor: 'text-sky-700' },
   { key: '待沟通', icon: MessageCircle, color: 'bg-violet-50 border-violet-200', iconColor: 'text-violet-600', numColor: 'text-violet-700' },
+  { key: '已暂停', icon: Pause, color: 'bg-orange-50 border-orange-200', iconColor: 'text-orange-600', numColor: 'text-orange-700' },
   { key: '已结案', icon: CheckCircle2, color: 'bg-emerald-50 border-emerald-200', iconColor: 'text-emerald-600', numColor: 'text-emerald-700' },
 ] as const;
 
@@ -23,18 +24,68 @@ const statusColors: Record<string, string> = {
   '已退回': 'bg-red-100 text-red-700',
 };
 
+type FlowStatus = '待复评' | '待审批' | '待沟通' | '已暂停' | '已同意' | '已拒绝' | '已结案';
+
+function getFlowStatus(
+  reassessment: { status: string; conclusion: string },
+  plan: { communicationRecords: { result: string }[] } | undefined,
+): FlowStatus {
+  if (reassessment.status === '草稿' || reassessment.status === '已退回') return '待复评';
+  if (reassessment.status === '已提交') return '待审批';
+
+  if (reassessment.status === '已审批') {
+    if (reassessment.conclusion === '结案') {
+      if (!plan || plan.communicationRecords.length === 0) return '待沟通';
+      const lastResult = plan.communicationRecords[plan.communicationRecords.length - 1].result;
+      if (lastResult === '已同意') return '已结案';
+      if (lastResult === '已暂停') return '已暂停';
+      if (lastResult === '已拒绝') return '已拒绝';
+      return '待沟通';
+    }
+    if (!plan || plan.communicationRecords.length === 0) return '待沟通';
+    const lastResult = plan.communicationRecords[plan.communicationRecords.length - 1].result;
+    if (lastResult === '已同意') return '已同意';
+    if (lastResult === '已暂停') return '已暂停';
+    if (lastResult === '已拒绝') return '已拒绝';
+    return '待沟通';
+  }
+
+  return '待复评';
+}
+
+const flowStatusLabel: Record<FlowStatus, string> = {
+  '待复评': '待复评',
+  '待审批': '待审批',
+  '待沟通': '待沟通',
+  '已暂停': '已暂停',
+  '已同意': '进行中',
+  '已拒绝': '已拒绝',
+  '已结案': '已结案',
+};
+
+const flowStatusBadge: Record<FlowStatus, string> = {
+  '待复评': 'bg-slate-100 text-slate-600',
+  '待审批': 'bg-sky-100 text-sky-700',
+  '待沟通': 'bg-violet-100 text-violet-700',
+  '已暂停': 'bg-orange-100 text-orange-700',
+  '已同意': 'bg-teal-100 text-teal-700',
+  '已拒绝': 'bg-red-100 text-red-700',
+  '已结案': 'bg-emerald-100 text-emerald-700',
+};
+
 export default function Overview() {
   const { patients, courses, reassessments, followupPlans } = useStore();
 
   const getStatusCounts = () => {
-    const counts = { '待复评': 0, '待审批': 0, '待沟通': 0, '已结案': 0 };
+    const counts = { '待复评': 0, '待审批': 0, '待沟通': 0, '已暂停': 0, '已结案': 0 };
     reassessments.forEach((r) => {
-      if (r.status === '草稿' || r.status === '已退回') counts['待复评']++;
-      else if (r.status === '已提交') counts['待审批']++;
-      else if (r.status === '已审批') {
-        if (r.conclusion === '结案') counts['已结案']++;
-        else counts['待沟通']++;
-      }
+      const plan = followupPlans.find(f => f.reassessmentId === r.id);
+      const flow = getFlowStatus(r, plan);
+      if (flow === '待复评') counts['待复评']++;
+      else if (flow === '待审批') counts['待审批']++;
+      else if (flow === '待沟通') counts['待沟通']++;
+      else if (flow === '已暂停') counts['已暂停']++;
+      else if (flow === '已结案') counts['已结案']++;
     });
     return counts;
   };
@@ -47,30 +98,46 @@ export default function Overview() {
     return 'bg-amber-500';
   };
 
-  const getAction = (reassessment: typeof reassessments[0]) => {
-    if (reassessment.status === '已审批' && reassessment.conclusion === '结案') {
-      const plan = followupPlans.find(f => f.reassessmentId === reassessment.id);
-      return plan ? (
-        <Link to={`/followup/${reassessment.id}`} className="text-xs font-medium text-slate-500 hover:text-teal-600 transition-colors px-2 py-1 rounded hover:bg-teal-50">
-          已结案
+  const getAction = (reassessment: typeof reassessments[0], flow: FlowStatus) => {
+    if (flow === '待复评') {
+      return (
+        <Link to={`/reassessment/${reassessment.id}`} className="text-xs font-medium text-teal-600 hover:text-teal-700 transition-colors px-2.5 py-1 rounded-md hover:bg-teal-50 border border-teal-200">
+          填写复评
         </Link>
-      ) : <span className="text-xs text-slate-400 px-2 py-1">已结案</span>;
+      );
     }
-    if (reassessment.status === '已审批') {
+    if (flow === '待审批') {
+      return <span className="text-xs text-slate-400 px-2 py-1">待审批</span>;
+    }
+    if (flow === '待沟通' || flow === '已暂停') {
       return (
         <Link to={`/followup/${reassessment.id}`} className="text-xs font-medium text-teal-600 hover:text-teal-700 transition-colors px-2.5 py-1 rounded-md hover:bg-teal-50 border border-teal-200">
           跟进
         </Link>
       );
     }
-    if (reassessment.status === '已提交') {
-      return <span className="text-xs text-slate-400 px-2 py-1">待审批</span>;
+    if (flow === '已同意') {
+      return (
+        <Link to={`/followup/${reassessment.id}`} className="text-xs font-medium text-teal-600 hover:text-teal-700 transition-colors px-2.5 py-1 rounded-md hover:bg-teal-50 border border-teal-200">
+          查看
+        </Link>
+      );
     }
-    return (
-      <Link to={`/reassessment/${reassessment.id}`} className="text-xs font-medium text-teal-600 hover:text-teal-700 transition-colors px-2.5 py-1 rounded-md hover:bg-teal-50 border border-teal-200">
-        填写复评
-      </Link>
-    );
+    if (flow === '已拒绝') {
+      return (
+        <Link to={`/followup/${reassessment.id}`} className="text-xs font-medium text-red-600 hover:text-red-700 transition-colors px-2.5 py-1 rounded-md hover:bg-red-50 border border-red-200">
+          查看
+        </Link>
+      );
+    }
+    if (flow === '已结案') {
+      return (
+        <Link to={`/followup/${reassessment.id}`} className="text-xs font-medium text-slate-500 hover:text-teal-600 transition-colors px-2 py-1 rounded hover:bg-teal-50">
+          已结案
+        </Link>
+      );
+    }
+    return null;
   };
 
   return (
@@ -80,7 +147,7 @@ export default function Overview() {
         <p className="text-sm text-slate-500 mt-0.5">疗程复评与续疗判断工作台</p>
       </div>
 
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-5 gap-4">
         {statusCards.map((card) => {
           const Icon = card.icon;
           return (
@@ -110,7 +177,7 @@ export default function Overview() {
               <th className="text-left text-xs font-medium text-slate-500 px-5 py-2.5">疗程进度</th>
               <th className="text-left text-xs font-medium text-slate-500 px-5 py-2.5">疼痛变化</th>
               <th className="text-left text-xs font-medium text-slate-500 px-5 py-2.5">复评结论</th>
-              <th className="text-left text-xs font-medium text-slate-500 px-5 py-2.5">状态</th>
+              <th className="text-left text-xs font-medium text-slate-500 px-5 py-2.5">流转状态</th>
               <th className="text-right text-xs font-medium text-slate-500 px-5 py-2.5">操作</th>
             </tr>
           </thead>
@@ -118,6 +185,8 @@ export default function Overview() {
             {patients.map((patient) => {
               const course = courses.find(c => c.patientId === patient.id)!;
               const reassessment = reassessments.find(r => r.patientId === patient.id)!;
+              const plan = followupPlans.find(f => f.reassessmentId === reassessment.id);
+              const flow = getFlowStatus(reassessment, plan);
               const pct = Math.round((course.completedSessions / course.totalSessions) * 100);
               return (
                 <tr key={patient.id} className="hover:bg-slate-50/50 transition-colors">
@@ -154,11 +223,11 @@ export default function Overview() {
                     </span>
                   </td>
                   <td className="px-5 py-3.5">
-                    <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${statusColors[reassessment.status] || 'bg-slate-100 text-slate-600'}`}>
-                      {reassessment.status}
+                    <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${flowStatusBadge[flow]}`}>
+                      {flowStatusLabel[flow]}
                     </span>
                   </td>
-                  <td className="px-5 py-3.5 text-right">{getAction(reassessment)}</td>
+                  <td className="px-5 py-3.5 text-right">{getAction(reassessment, flow)}</td>
                 </tr>
               );
             })}

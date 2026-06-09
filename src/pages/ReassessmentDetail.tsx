@@ -1,7 +1,9 @@
+import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { Activity, TrendingDown, AlertTriangle, CheckCircle2, ArrowRight } from 'lucide-react';
+import { Activity, TrendingDown, AlertTriangle, CheckCircle2, ArrowRight, Save } from 'lucide-react';
 import { useStore } from '@/store/useStore';
 import PainChart from '@/components/PainChart';
+import type { ReassessmentConclusion } from '@/types';
 
 const conclusionConfig: Record<string, { bg: string; text: string; border: string }> = {
   '结案': { bg: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-emerald-200' },
@@ -10,9 +12,18 @@ const conclusionConfig: Record<string, { bg: string; text: string; border: strin
   '换方案': { bg: 'bg-amber-50', text: 'text-amber-700', border: 'border-amber-200' },
 };
 
+const conclusions: ReassessmentConclusion[] = ['结案', '续疗', '转诊', '换方案'];
+
 export default function ReassessmentDetail() {
   const { id } = useParams<{ id: string }>();
-  const { patients, courses, reassessments, approvals, submitReassessment } = useStore();
+  const {
+    patients,
+    courses,
+    reassessments,
+    approvals,
+    updateReassessment,
+    submitReassessment,
+  } = useStore();
 
   const reassessment = reassessments.find(r => r.id === id);
   if (!reassessment) return <div className="text-center py-12 text-slate-400">未找到复评记录</div>;
@@ -23,9 +34,52 @@ export default function ReassessmentDetail() {
   const config = conclusionConfig[reassessment.conclusion] || conclusionConfig['结案'];
   const completionRate = Math.round((course.completedSessions / course.totalSessions) * 100);
 
+  const isEditable = reassessment.status === '草稿' || reassessment.status === '已退回';
+
+  const [functionalScore, setFunctionalScore] = useState(String(reassessment.functionalScore));
+  const [painVAS, setPainVAS] = useState(String(reassessment.painVAS));
+  const [romMeasurement, setRomMeasurement] = useState(reassessment.romMeasurement);
+  const [subjectiveEvaluation, setSubjectiveEvaluation] = useState(reassessment.subjectiveEvaluation);
+  const [conclusion, setConclusion] = useState<ReassessmentConclusion>(reassessment.conclusion);
+  const [conclusionReason, setConclusionReason] = useState(reassessment.conclusionReason);
+  const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    setFunctionalScore(String(reassessment.functionalScore));
+    setPainVAS(String(reassessment.painVAS));
+    setRomMeasurement(reassessment.romMeasurement);
+    setSubjectiveEvaluation(reassessment.subjectiveEvaluation);
+    setConclusion(reassessment.conclusion);
+    setConclusionReason(reassessment.conclusionReason);
+    setSaved(false);
+  }, [reassessment.functionalScore, reassessment.painVAS, reassessment.romMeasurement, reassessment.subjectiveEvaluation, reassessment.conclusion, reassessment.conclusionReason]);
+
+  const handleSave = () => {
+    updateReassessment(reassessment.id, {
+      functionalScore: Number(functionalScore) || 0,
+      painVAS: Number(painVAS) || 0,
+      romMeasurement,
+      subjectiveEvaluation,
+      conclusion,
+      conclusionReason,
+    });
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2000);
+  };
+
   const handleSubmit = () => {
+    updateReassessment(reassessment.id, {
+      functionalScore: Number(functionalScore) || 0,
+      painVAS: Number(painVAS) || 0,
+      romMeasurement,
+      subjectiveEvaluation,
+      conclusion,
+      conclusionReason,
+    });
     submitReassessment(reassessment.id);
   };
+
+  const canSubmit = conclusion && conclusionReason.trim() && romMeasurement.trim() && subjectiveEvaluation.trim();
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
@@ -34,9 +88,14 @@ export default function ReassessmentDetail() {
           <h2 className="text-lg font-semibold text-slate-800">复评记录详情</h2>
           <p className="text-sm text-slate-500 mt-0.5">{patient.name} · {patient.diagnosis}</p>
         </div>
-        <Link to="/" className="text-sm text-slate-500 hover:text-teal-600 transition-colors">
-          返回总览
-        </Link>
+        <div className="flex items-center gap-3">
+          {isEditable && saved && (
+            <span className="text-xs text-emerald-600 font-medium">已保存</span>
+          )}
+          <Link to="/" className="text-sm text-slate-500 hover:text-teal-600 transition-colors">
+            返回总览
+          </Link>
+        </div>
       </div>
 
       <div className="grid grid-cols-3 gap-4">
@@ -100,37 +159,117 @@ export default function ReassessmentDetail() {
       </div>
 
       <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
-        <div className="px-5 py-3.5 border-b border-slate-100 bg-slate-50/50">
+        <div className="px-5 py-3.5 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
           <h3 className="text-sm font-semibold text-slate-700">复评数据</h3>
+          {isEditable && (
+            <span className="text-xs text-teal-600 font-medium">可编辑</span>
+          )}
         </div>
         <div className="p-5 grid grid-cols-2 gap-x-8 gap-y-5">
           <div>
-            <label className="text-xs text-slate-500 mb-1 block">功能评分</label>
-            <div className="text-lg font-bold font-mono text-slate-800">{reassessment.functionalScore}<span className="text-sm font-normal text-slate-400 ml-1">分</span></div>
+            <label className="text-xs text-slate-500 mb-1.5 block">功能评分</label>
+            {isEditable ? (
+              <input
+                type="number"
+                value={functionalScore}
+                onChange={(e) => setFunctionalScore(e.target.value)}
+                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm font-mono text-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-400 transition-colors"
+                min={0}
+                max={100}
+              />
+            ) : (
+              <div className="text-lg font-bold font-mono text-slate-800">{reassessment.functionalScore}<span className="text-sm font-normal text-slate-400 ml-1">分</span></div>
+            )}
           </div>
           <div>
-            <label className="text-xs text-slate-500 mb-1 block">疼痛VAS评分</label>
-            <div className="text-lg font-bold font-mono text-slate-800">{reassessment.painVAS}<span className="text-sm font-normal text-slate-400 ml-1">分</span></div>
+            <label className="text-xs text-slate-500 mb-1.5 block">疼痛VAS评分</label>
+            {isEditable ? (
+              <input
+                type="number"
+                value={painVAS}
+                onChange={(e) => setPainVAS(e.target.value)}
+                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm font-mono text-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-400 transition-colors"
+                min={0}
+                max={10}
+                step={0.5}
+              />
+            ) : (
+              <div className="text-lg font-bold font-mono text-slate-800">{reassessment.painVAS}<span className="text-sm font-normal text-slate-400 ml-1">分</span></div>
+            )}
           </div>
           <div>
-            <label className="text-xs text-slate-500 mb-1 block">关节活动度 (ROM)</label>
-            <p className="text-sm text-slate-700">{reassessment.romMeasurement}</p>
+            <label className="text-xs text-slate-500 mb-1.5 block">关节活动度 (ROM)</label>
+            {isEditable ? (
+              <textarea
+                value={romMeasurement}
+                onChange={(e) => setRomMeasurement(e.target.value)}
+                rows={2}
+                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700 resize-none focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-400 transition-colors"
+                placeholder="如：右肩屈曲150°，右肘屈曲145°"
+              />
+            ) : (
+              <p className="text-sm text-slate-700">{reassessment.romMeasurement}</p>
+            )}
           </div>
           <div>
-            <label className="text-xs text-slate-500 mb-1 block">主观评价</label>
-            <p className="text-sm text-slate-700">{reassessment.subjectiveEvaluation}</p>
+            <label className="text-xs text-slate-500 mb-1.5 block">主观评价</label>
+            {isEditable ? (
+              <textarea
+                value={subjectiveEvaluation}
+                onChange={(e) => setSubjectiveEvaluation(e.target.value)}
+                rows={2}
+                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700 resize-none focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-400 transition-colors"
+                placeholder="患者主观感受与反馈..."
+              />
+            ) : (
+              <p className="text-sm text-slate-700">{reassessment.subjectiveEvaluation}</p>
+            )}
           </div>
         </div>
       </div>
 
       <div className={`${config.bg} border ${config.border} rounded-xl p-5`}>
-        <div className="flex items-center gap-3 mb-3">
-          <span className={`px-3 py-1 rounded-lg text-sm font-semibold ${config.text} bg-white/60`}>
-            {reassessment.conclusion}
-          </span>
-          <span className="text-xs text-slate-400">复评结论</span>
+        <div className="flex items-center gap-3 mb-4">
+          <span className="text-xs text-slate-500 shrink-0">复评结论</span>
+          {isEditable ? (
+            <div className="flex gap-2">
+              {conclusions.map((c) => {
+                const cfg = conclusionConfig[c];
+                return (
+                  <button
+                    key={c}
+                    onClick={() => setConclusion(c)}
+                    className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                      conclusion === c
+                        ? `${cfg.bg} ${cfg.text} ring-2 ring-current ring-offset-1`
+                        : 'bg-white text-slate-500 border border-slate-200 hover:border-slate-300'
+                    }`}
+                  >
+                    {c}
+                  </button>
+                );
+              })}
+            </div>
+          ) : (
+            <span className={`px-3 py-1 rounded-lg text-sm font-semibold ${config.text} bg-white/60`}>
+              {reassessment.conclusion}
+            </span>
+          )}
         </div>
-        <p className="text-sm text-slate-700 leading-relaxed">{reassessment.conclusionReason}</p>
+        <div>
+          <label className="text-xs text-slate-500 mb-1.5 block">结论依据</label>
+          {isEditable ? (
+            <textarea
+              value={conclusionReason}
+              onChange={(e) => setConclusionReason(e.target.value)}
+              rows={3}
+              className="w-full border border-slate-200/60 rounded-lg px-3 py-2 text-sm text-slate-700 resize-none focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-400 transition-colors bg-white/70"
+              placeholder="请详细填写复评结论的评估依据..."
+            />
+          ) : (
+            <p className="text-sm text-slate-700 leading-relaxed">{reassessment.conclusionReason}</p>
+          )}
+        </div>
       </div>
 
       {approval && (
@@ -164,13 +303,30 @@ export default function ReassessmentDetail() {
       )}
 
       <div className="flex justify-end gap-3 pt-2">
-        {(reassessment.status === '草稿' || reassessment.status === '已退回') && (
-          <button
-            onClick={handleSubmit}
-            className="px-5 py-2.5 bg-teal-600 text-white text-sm font-medium rounded-lg hover:bg-teal-700 transition-colors shadow-sm"
-          >
-            提交复评
-          </button>
+        {isEditable && (
+          <>
+            <button
+              onClick={handleSave}
+              className="px-5 py-2.5 bg-white text-slate-700 text-sm font-medium rounded-lg hover:bg-slate-50 transition-colors border border-slate-200 inline-flex items-center gap-2"
+            >
+              <Save className="w-4 h-4" />
+              保存草稿
+            </button>
+            <button
+              onClick={handleSubmit}
+              disabled={!canSubmit}
+              className="px-5 py-2.5 bg-teal-600 text-white text-sm font-medium rounded-lg hover:bg-teal-700 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-2"
+            >
+              提交复评
+              <ArrowRight className="w-4 h-4" />
+            </button>
+          </>
+        )}
+        {reassessment.status === '已提交' && (
+          <div className="px-5 py-2.5 bg-sky-50 text-sky-700 text-sm font-medium rounded-lg border border-sky-200 inline-flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4" />
+            已提交，等待主任审批
+          </div>
         )}
         {reassessment.status === '已审批' && reassessment.conclusion === '结案' && (
           <Link
