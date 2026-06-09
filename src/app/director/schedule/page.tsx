@@ -1,21 +1,19 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import StatusBadge from '@/components/StatusBadge'
 import { useAuthStore } from '@/lib/auth-store'
 import { useToastStore } from '@/lib/toast-store'
-import { ScheduleStatus, SCHEDULE_STATUS_LABELS } from '@/lib/types'
-import StatusBadge from '@/components/StatusBadge'
+import { ScheduleStatus } from '@/lib/types'
 import {
-  Calendar,
-  Clock,
-  User,
-  RefreshCw,
-  Wrench,
   AlertTriangle,
+  Clock,
+  RefreshCw,
   Send,
-  ChevronRight,
+  User,
+  Wrench
 } from 'lucide-react'
+import { useRouter } from 'next/navigation'
+import { useEffect, useState } from 'react'
 
 interface ScheduleItem {
   id: string
@@ -185,7 +183,7 @@ export default function DirectorSchedule() {
                         <div
                           key={schedule.id}
                           className={`min-w-[200px] rounded-lg border p-3 cursor-pointer transition-all hover:shadow-md ${timeColors[schedule.status]}`}
-                          onClick={() => router.push(`/director/schedule`)}
+                          onClick={() => router.push(`/director/schedule/${schedule.id}`)}
                         >
                           <div className="flex items-center gap-2 mb-2">
                             <span className="text-xs font-bold text-navy-700">{schedule.scheduledTime}</span>
@@ -217,11 +215,12 @@ export default function DirectorSchedule() {
             .map((schedule) => (
               <div
                 key={schedule.id}
-                className={`bg-white rounded-xl p-5 border transition-all hover:shadow-md ${
+                className={`bg-white rounded-xl p-5 border transition-all hover:shadow-md cursor-pointer ${
                   schedule.alerts.length > 0 && schedule.alerts.some((a) => !a.resolved)
                     ? 'border-amber-300'
                     : 'border-gray-100'
                 }`}
+                onClick={() => router.push(`/director/schedule/${schedule.id}`)}
               >
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
@@ -241,7 +240,7 @@ export default function DirectorSchedule() {
                     </div>
                     {schedule.remark && <p className="text-xs text-amber-600 mt-1">备注：{schedule.remark}</p>}
                   </div>
-                  <div className="flex items-center gap-2 ml-4">
+                  <div className="flex items-center gap-2 ml-4" onClick={(e) => e.stopPropagation()}>
                     {schedule.status === 'PENDING' && (
                       <>
                         <button onClick={() => handleStatusChange(schedule.id, 'CONFIRMED', '主任确认')} className="px-3 py-1.5 text-xs bg-emerald-500 text-white rounded-lg hover:bg-emerald-600">确认</button>
@@ -287,7 +286,8 @@ export default function DirectorSchedule() {
                     {items.map((s) => (
                       <span
                         key={s.id}
-                        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs ${timeColors[s.status]}`}
+                        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs cursor-pointer hover:opacity-80 ${timeColors[s.status]}`}
+                        onClick={() => router.push(`/director/schedule/${s.id}`)}
                       >
                         <span className="font-medium">{s.therapist.user.name}</span>
                         <span className="text-gray-400">·</span>

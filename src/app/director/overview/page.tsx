@@ -196,7 +196,7 @@ export default function DirectorOverview() {
                         <span>{alert.schedule.treatmentType}</span>
                         <span>治疗师：{alert.schedule.therapist.user.name}</span>
                         <button
-                          onClick={() => router.push(`/director/schedule`)}
+                          onClick={() => router.push(`/director/schedule/${alert.schedule.id}`)}
                           className="text-blue-500 hover:text-blue-700 text-xs"
                         >
                           查看排班 →
