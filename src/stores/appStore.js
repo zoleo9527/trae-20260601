@@ -25,6 +25,7 @@ export const useStore = create((set, get) => ({
   // Data
   sales: [],
   currentSale: null,
+  salesFilters: {}, // 统一保存当前筛选条件
   pesticides: [],
   customers: [],
   inventory: [],
@@ -54,9 +55,11 @@ export const useStore = create((set, get) => ({
   fetchSales: async (filters = {}) => {
     set({ loading: true });
     try {
-      const query = new URLSearchParams(filters).toString();
+      // 保存当前筛选条件
+      const activeFilters = Object.keys(filters).length > 0 ? filters : get().salesFilters;
+      const query = new URLSearchParams(activeFilters).toString();
       const sales = await fetchApi(`/sales${query ? `?${query}` : ''}`);
-      set({ sales, loading: false });
+      set({ sales, salesFilters: activeFilters, loading: false });
     } catch (error) {
       set({ error: error.message, loading: false });
     }
@@ -141,14 +144,13 @@ export const useStore = create((set, get) => ({
         method: 'POST',
         body: JSON.stringify({ operatorId }),
       });
-      // 只有当前详情页显示的是该单据时才更新缓存
+      // 同步 currentSale：只有当前详情页显示的是该单据时才更新
       const currentId = get().currentSale?.id;
-      if (currentId === id) {
-        set({ currentSale: sale, loading: false });
-      } else {
-        set({ loading: false });
-      }
-      // 刷新列表以同步状态
+      set({
+        ...(currentId === id ? { currentSale: sale } : {}),
+        loading: false
+      });
+      // 按当前筛选条件刷新列表
       await get().fetchSales();
       return sale;
     } catch (error) {
@@ -164,14 +166,13 @@ export const useStore = create((set, get) => ({
         method: 'POST',
         body: JSON.stringify({ operatorId }),
       });
-      // 只有当前详情页显示的是该单据时才更新缓存
+      // 同步 currentSale：只有当前详情页显示的是该单据时才更新
       const currentId = get().currentSale?.id;
-      if (currentId === id) {
-        set({ currentSale: sale, loading: false });
-      } else {
-        set({ loading: false });
-      }
-      // 刷新列表以同步状态
+      set({
+        ...(currentId === id ? { currentSale: sale } : {}),
+        loading: false
+      });
+      // 按当前筛选条件刷新列表
       await get().fetchSales();
       return sale;
     } catch (error) {
