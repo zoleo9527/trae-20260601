@@ -1,0 +1,170 @@
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id   Int    @id @default(autoincrement())
+  name String
+  role String @default("TECHNICIAN")
+
+  inspections       Inspection[]
+  feedRecords       FeedRecord[]
+  handledWarnings   Warning[]       @relation("WarningHandler")
+  statusLogs        StatusLog[]
+  medicationRecords MedicationRecord[]
+  warningRemarks    WarningRemark[]
+
+  @@index([role])
+}
+
+model Pond {
+  id      Int    @id @default(autoincrement())
+  name    String
+  area    Float
+  species String
+  status  String @default("normal")
+
+  inspections       Inspection[]
+  warnings          Warning[]
+  feedRecords       FeedRecord[]
+  medicationRecords MedicationRecord[]
+
+  @@index([status])
+  @@index([species])
+}
+
+model Inspection {
+  id          Int      @id @default(autoincrement())
+  pondId      Int
+  inspectorId Int
+  status      String   @default("PENDING")
+  waterTemp   Float?
+  dissolvedOx Float?
+  pH          Float?
+  ammonia     Float?
+  appearance  String?
+  remarks     String?
+  scheduledAt DateTime
+  completedAt DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  pond       Pond           @relation(fields: [pondId], references: [id])
+  inspector  User           @relation(fields: [inspectorId], references: [id])
+  warnings   Warning[]
+  warningRemarks WarningRemark[] @relation("InspectionRemarks")
+
+  @@index([pondId])
+  @@index([inspectorId])
+  @@index([status])
+  @@index([scheduledAt])
+}
+
+model Warning {
+  id            Int      @id @default(autoincrement())
+  pondId        Int
+  inspectionId  Int?
+  level         String   @default("INFO")
+  status        String   @default("ACTIVE")
+  metric        String
+  value         Float
+  threshold     Float
+  message       String
+  handlerId     Int?
+  handledAt     DateTime?
+  handleRemarks String?
+  sourceType    String?
+  sourceId      Int?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  pond       Pond        @relation(fields: [pondId], references: [id])
+  inspection Inspection? @relation(fields: [inspectionId], references: [id])
+  handler    User?       @relation("WarningHandler", fields: [handlerId], references: [id])
+  remarks    WarningRemark[]
+
+  @@index([pondId])
+  @@index([inspectionId])
+  @@index([level])
+  @@index([status])
+  @@index([handlerId])
+}
+
+model WarningRemark {
+  id          Int      @id @default(autoincrement())
+  warningId   Int
+  sourceType  String
+  sourceId    Int?
+  content     String
+  authorId    Int
+  createdAt   DateTime @default(now())
+
+  warning    Warning    @relation(fields: [warningId], references: [id], onDelete: Cascade)
+  author     User       @relation(fields: [authorId], references: [id])
+  inspection Inspection? @relation("InspectionRemarks", fields: [sourceId], references: [id])
+
+  @@index([warningId])
+  @@index([sourceType, sourceId])
+  @@index([createdAt])
+}
+
+model FeedRecord {
+  id         Int      @id @default(autoincrement())
+  pondId     Int
+  operatorId Int
+  feedType   String
+  amount     Float
+  unit       String
+  remarks    String?
+  fedAt      DateTime
+
+  pond     Pond @relation(fields: [pondId], references: [id])
+  operator User @relation(fields: [operatorId], references: [id])
+
+  @@index([pondId])
+  @@index([operatorId])
+  @@index([fedAt])
+}
+
+model MedicationRecord {
+  id             Int      @id @default(autoincrement())
+  pondId         Int
+  medicationName String
+  dosage         Float
+  unit           String
+  purpose        String
+  administeredBy Int
+  administeredAt DateTime
+  remarks        String?
+  needsFollowUp  Boolean  @default(false)
+
+  pond          Pond @relation(fields: [pondId], references: [id])
+  administrator User @relation(fields: [administeredBy], references: [id])
+
+  @@index([pondId])
+  @@index([administeredBy])
+  @@index([administeredAt])
+  @@index([needsFollowUp])
+}
+
+model StatusLog {
+  id         Int      @id @default(autoincrement())
+  entityType String
+  entityId   Int
+  fromStatus String
+  toStatus   String
+  operatorId Int
+  remarks    String?
+  createdAt  DateTime @default(now())
+
+  operator   User @relation(fields: [operatorId], references: [id])
+
+  @@index([entityType, entityId])
+  @@index([operatorId])
+  @@index([createdAt])
+}

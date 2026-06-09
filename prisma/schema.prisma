@@ -1,0 +1,151 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model User {
+  id       Int    @id @default(autoincrement())
+  name     String
+  role     String
+  inspections     Inspection[]
+  warnings        Warning[]       @relation("AssignedWarnings")
+  warningRemarks  WarningRemark[]
+  feedings        Feeding[]       @relation("FeedingOperator")
+  feedingConfirms Feeding[]       @relation("FeedingConfirmer")
+  medicineLogs    MedicineLog[]
+  statusLogs      StatusLog[]
+  @@map("users")
+}
+
+model Pond {
+  id      Int    @id @default(autoincrement())
+  name    String
+  area    Float
+  species String
+  inspections  Inspection[]
+  warnings     Warning[]
+  feedings     Feeding[]
+  medicineLogs MedicineLog[]
+  @@map("ponds")
+}
+
+model Inspection {
+  id              Int    @id @default(autoincrement())
+  pondId          Int
+  inspectorId     Int
+  status          String @default("pending")
+  dissolvedOxygen Float?
+  phValue         Float?
+  ammoniaNitrogen Float?
+  waterTemp       Float?
+  remarks         String @default("")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  pond      Pond @relation(fields: [pondId], references: [id])
+  inspector User @relation(fields: [inspectorId], references: [id])
+  warnings  Warning[]
+  @@index([pondId])
+  @@index([status])
+  @@map("inspections")
+}
+
+model Warning {
+  id           Int    @id @default(autoincrement())
+  pondId       Int
+  inspectionId Int?
+  level       String
+  status      String @default("active")
+  metric       String
+  value        Float
+  threshold   Float
+  remarks      String @default("")
+  assignedTo   Int?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  closedAt    DateTime?
+  pond       Pond       @relation(fields: [pondId], references: [id])
+  inspection Inspection? @relation(fields: [inspectionId], references: [id])
+  assignee   User?      @relation("AssignedWarnings", fields: [assignedTo], references: [id])
+  remarks2   WarningRemark[]
+  @@index([pondId])
+  @@index([status])
+  @@index([inspectionId])
+  @@map("warnings")
+}
+
+model WarningRemark {
+  id         Int    @id @default(autoincrement())
+  warningId  Int
+  authorId   Int
+  content    String
+  sourceType String @default("manual")
+  sourceId   Int?
+  createdAt  DateTime @default(now())
+  warning Warning @relation(fields: [warningId], references: [id], onDelete: Cascade)
+  author  User    @relation(fields: [authorId], references: [id])
+  @@index([warningId])
+  @@map("warning_remarks")
+}
+
+model Feeding {
+  id            Int    @id @default(autoincrement())
+  pondId        Int
+  feedType      String
+  plannedAmount Float
+  actualAmount  Float?
+  operatorId    Int
+  confirmedBy   Int?
+  feedingDate   DateTime
+  createdAt     DateTime @default(now())
+  pond      Pond  @relation(fields: [pondId], references: [id])
+  operator  User  @relation("FeedingOperator", fields: [operatorId], references: [id])
+  confirmer User? @relation("FeedingConfirmer", fields: [confirmedBy], references: [id])
+  @@index([pondId])
+  @@index([feedingDate])
+  @@map("feedings")
+}
+
+model Medicine {
+  id            Int    @id @default(autoincrement())
+  name          String
+  specification String
+  unit          String
+  stock         Float  @default(0)
+  minStock      Float  @default(0)
+  logs MedicineLog[]
+  @@map("medicines")
+}
+
+model MedicineLog {
+  id            Int    @id @default(autoincrement())
+  medicineId    Int
+  operationType String
+  quantity      Float
+  operatorId    Int
+  reason        String @default("")
+  relatedPondId Int?
+  createdAt     DateTime @default(now())
+  medicine Medicine @relation(fields: [medicineId], references: [id])
+  operator User    @relation(fields: [operatorId], references: [id])
+  pond     Pond?   @relation(fields: [relatedPondId], references: [id])
+  @@index([medicineId])
+  @@map("medicine_logs")
+}
+
+model StatusLog {
+  id         Int    @id @default(autoincrement())
+  entityType String
+  entityId   Int
+  fromStatus String
+  toStatus   String
+  operatorId Int
+  remarks    String @default("")
+  createdAt  DateTime @default(now())
+  operator User @relation(fields: [operatorId], references: [id])
+  @@index([entityType, entityId])
+  @@map("status_logs")
+}

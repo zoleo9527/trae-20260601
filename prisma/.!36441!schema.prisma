@@ -1,0 +1,28 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model User {
+  id       Int    @id @default(autoincrement())
+  name     String
+  role     String
+  inspections     Inspection[]
+  warnings        Warning[]       @relation("AssignedWarnings")
+  warningRemarks  WarningRemark[]
+  feedings        Feeding[]       @relation("FeedingOperator")
+  feedingConfirms Feeding[]       @relation("FeedingConfirmer")
+  medicineLogs    MedicineLog[]
+  statusLogs      StatusLog[]
+  @@map("users")
+}
+
+model Pond {
+  id      Int    @id @default(autoincrement())
+  name    String
+  area    Float
+  species String
