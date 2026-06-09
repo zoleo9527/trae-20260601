@@ -1,0 +1,42 @@
+@import "tailwindcss";
+
+@theme {
+	--color-iron-950: #1a1a1a;
+	--color-iron-900: #2d2d2d;
+	--color-iron-800: #3d3d3d;
+	--color-iron-700: #555555;
+	--color-iron-600: #6b6b6b;
+	--color-iron-500: #888888;
+	--color-iron-400: #a3a3a3;
+	--color-iron-300: #c4c4c4;
+	--color-iron-200: #e0e0e0;
+	--color-iron-100: #f0f0f0;
+	--color-iron-50: #f8f8f8;
+	--color-safety-orange: #E8722A;
+	--color-safety-orange-light: #F5A623;
+	--color-safety-orange-dark: #C45A1A;
+	--color-rail-blue: #3B6FA0;
+	--color-rail-blue-light: #5A8FBE;
+	--color-rail-blue-dark: #2A5280;
+	--color-danger: #DC3545;
+	--color-danger-light: #FFE5E5;
+	--color-success: #28A745;
+	--color-success-light: #E6F9ED;
+	--color-warning: #FFC107;
+	--color-warning-light: #FFF8E1;
+	--font-sans: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+}
+
+body {
+	font-family: var(--font-sans);
+	background-color: var(--color-iron-50);
+	color: var(--color-iron-900);
+}
+
+@keyframes pulse-danger {
+	0%, 100% { opacity: 1; }
+	50% { opacity: 0.6; }
+}
+.animate-pulse-danger {
+	animation: pulse-danger 2s ease-in-out infinite;
+}
