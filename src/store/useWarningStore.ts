@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { Warning, WarningAction, WarningActionType, Role } from '@/types'
+import type { Warning, WarningAction, WarningActionType, Role, WarningLevel } from '@/types'
 import { initialWarnings } from '@/utils/mockData'
 import { consumePendingWarnings } from './useFollowUpStore'
 import { useFollowUpStore } from './useFollowUpStore'
@@ -21,6 +21,27 @@ const ROLE_NAMES: Record<Role, string> = {
   ph_specialist: '杨专员',
 }
 
+const LEVEL_PRIORITY: Record<WarningLevel, number> = {
+  red: 3,
+  orange: 2,
+  yellow: 1,
+}
+
+function deriveAssigneeFromActiveWarnings(warnings: Warning[]): { role: Role; name: string } | null {
+  const active = warnings
+    .filter((w) => w.status === 'active' || w.status === 'processing')
+    .sort((a, b) => LEVEL_PRIORITY[b.level] - LEVEL_PRIORITY[a.level])
+
+  if (active.length === 0) return null
+
+  const highest = active[0]
+  const sameLevel = active.filter((w) => w.level === highest.level)
+  const firstProcessing = sameLevel.find((w) => w.status === 'processing')
+  const picked = firstProcessing || sameLevel[0]
+
+  return { role: picked.assigneeRole, name: picked.assigneeName }
+}
+
 function reconcileFollowUpStatus(followUpId: string, role: Role) {
   const warningStore = useWarningStore.getState()
   const fuStore = useFollowUpStore.getState()
@@ -35,6 +56,12 @@ function reconcileFollowUpStatus(followUpId: string, role: Role) {
 
   if (hasActive && fu.status !== 'warned') {
     fuStore.transitionStatus(followUpId, 'warned', role, '存在活跃预警，随访转入预警状态')
+    syncAssigneeToActiveWarning(followUpId, role)
+    return
+  }
+
+  if (hasActive && fu.status === 'warned') {
+    syncAssigneeToActiveWarning(followUpId, role)
     return
   }
 
@@ -46,6 +73,20 @@ function reconcileFollowUpStatus(followUpId: string, role: Role) {
     }
     return
   }
+}
+
+function syncAssigneeToActiveWarning(followUpId: string, role: Role) {
+  const warningStore = useWarningStore.getState()
+  const fuStore = useFollowUpStore.getState()
+  const fu = fuStore.followUps.find((f) => f.id === followUpId)
+  if (!fu) return
+
+  const relatedWarnings = warningStore.warnings.filter((w) => w.followUpId === followUpId)
+  const derived = deriveAssigneeFromActiveWarnings(relatedWarnings)
+  if (!derived) return
+  if (fu.assigneeRole === derived.role && fu.assigneeName === derived.name) return
+
+  fuStore.updateAssignee(followUpId, derived.role, derived.name, role, `负责人同步至活跃预警负责人（${derived.name}）`)
 }
 
 function reconcileAffectedFollowUps(warningIds: string[], role: Role) {

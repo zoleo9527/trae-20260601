@@ -33,26 +33,38 @@ export default function StatusTimeline({ logs }: StatusTimelineProps) {
               <div className="absolute left-[-0.875rem] top-4 bottom-0 w-px bg-slate-200" />
             )}
             <div className="ml-2">
-              <div className="flex items-center gap-2 text-sm">
-                <span className="text-slate-500">
-                  {log.fromStatus ? STATUS_LABELS[log.fromStatus] : '—'}
-                </span>
-                <span className="text-slate-400">→</span>
-                <span
-                  className={`inline-flex items-center gap-1.5 font-medium ${
-                    log.toStatus === 'warned'
-                      ? 'text-red-600'
-                      : log.toStatus === 'completed'
-                      ? 'text-emerald-600'
-                      : log.toStatus === 'confirmed'
-                      ? 'text-teal-600'
-                      : 'text-slate-800'
-                  }`}
-                >
-                  <span className={`inline-block h-1.5 w-1.5 rounded-full ${getStatusColor(log.toStatus)}`} />
-                  {STATUS_LABELS[log.toStatus]}
-                </span>
-              </div>
+              {log.fromStatus && log.fromStatus === log.toStatus ? (
+                <div className="flex items-center gap-2 text-sm">
+                  <span
+                    className="inline-flex items-center gap-1.5 font-medium text-blue-600"
+                  >
+                    <span className={`inline-block h-1.5 w-1.5 rounded-full ${getStatusColor(log.toStatus)}`} />
+                    {STATUS_LABELS[log.toStatus]}
+                  </span>
+                  <span className="text-slate-400 text-xs">· 负责人变更</span>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 text-sm">
+                  <span className="text-slate-500">
+                    {log.fromStatus ? STATUS_LABELS[log.fromStatus] : '—'}
+                  </span>
+                  <span className="text-slate-400">→</span>
+                  <span
+                    className={`inline-flex items-center gap-1.5 font-medium ${
+                      log.toStatus === 'warned'
+                        ? 'text-red-600'
+                        : log.toStatus === 'completed'
+                        ? 'text-emerald-600'
+                        : log.toStatus === 'confirmed'
+                        ? 'text-teal-600'
+                        : 'text-slate-800'
+                    }`}
+                  >
+                    <span className={`inline-block h-1.5 w-1.5 rounded-full ${getStatusColor(log.toStatus)}`} />
+                    {STATUS_LABELS[log.toStatus]}
+                  </span>
+                </div>
+              )}
               <div className="mt-1 flex items-center gap-2 text-xs text-slate-400">
                 <span>
                   {log.operatorName}（{ROLE_LABELS[log.operatorRole]}）

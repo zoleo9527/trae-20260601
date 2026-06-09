@@ -1,8 +1,14 @@
 import { create } from 'zustand'
-import type { FollowUp, Indicator, Role } from '@/types'
+import type { FollowUp, Indicator, Role, StatusLog } from '@/types'
 import { initialFollowUps, initialPatients } from '@/utils/mockData'
 import { transitionFollowUp } from '@/utils/statusEngine'
 import { detectWarnings } from '@/utils/warningEngine'
+
+const ROLE_NAMES: Record<Role, string> = {
+  doctor: '陈医生',
+  nurse: '林护士',
+  ph_specialist: '杨专员',
+}
 
 interface FollowUpState {
   patients: typeof initialPatients
@@ -11,6 +17,7 @@ interface FollowUpState {
   selectFollowUp: (id: string | null) => void
   addIndicator: (followUpId: string, indicator: Omit<Indicator, 'id' | 'followUpId' | 'recordedAt' | 'recorderRole'>, role: Role) => { hasWarning: boolean; warningCount: number }
   transitionStatus: (followUpId: string, targetStatus: FollowUp['status'], role: Role, remark?: string) => boolean
+  updateAssignee: (followUpId: string, newRole: Role, newName: string, operatorRole: Role, remark: string) => boolean
   getPatientById: (id: string) => typeof initialPatients[0] | undefined
   getFollowUpsByStatus: (status?: FollowUp['status']) => FollowUp[]
 }
@@ -71,6 +78,37 @@ export const useFollowUpStore = create<FollowUpState>((set, get) => ({
           assigneeName: result.newAssigneeName,
           updatedAt: new Date().toISOString(),
           statusLogs: [...fu.statusLogs, result.statusLog],
+        }
+      })
+      return { followUps }
+    })
+    return success
+  },
+  updateAssignee: (followUpId, newRole, newName, operatorRole, remark) => {
+    let success = false
+    set((state) => {
+      const followUp = state.followUps.find((fu) => fu.id === followUpId)
+      if (!followUp) return state
+      if (followUp.assigneeRole === newRole && followUp.assigneeName === newName) return state
+      success = true
+      const log: StatusLog = {
+        id: `sl-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+        followUpId,
+        fromStatus: followUp.status,
+        toStatus: followUp.status,
+        operatorRole,
+        operatorName: ROLE_NAMES[operatorRole],
+        operatedAt: new Date().toISOString(),
+        remark,
+      }
+      const followUps = state.followUps.map((fu) => {
+        if (fu.id !== followUpId) return fu
+        return {
+          ...fu,
+          assigneeRole: newRole,
+          assigneeName: newName,
+          updatedAt: new Date().toISOString(),
+          statusLogs: [...fu.statusLogs, log],
         }
       })
       return { followUps }
