@@ -8,37 +8,85 @@ export async function PUT(
   const parsedId = parseInt(params.id);
   const data = await request.json();
 
-  const old = await prisma.medicationRecord.findUnique({ where: { id: parsedId } });
+  const old = await prisma.medicationRecord.findUnique({ where: { id: parsedId }, include: { pond: true } });
   if (!old) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
-  if (old.needsFollowUp && data.needsFollowUp === false) {
+  const updateData: any = {};
+  if (data.remarks !== undefined) updateData.remarks = data.remarks;
+
+  if (data.action === "SUBMIT_FOLLOW_UP" && old.followUpStatus === "PENDING_FOLLOW_UP") {
+    updateData.followUpStatus = "PENDING_CONFIRM";
+    updateData.followUpSubmitter = { connect: { id: data.operatorId } };
+    updateData.followUpSubmittedAt = new Date().toISOString();
+    updateData.followUpSubmittedRemarks = data.followUpRemarks || null;
+
     await prisma.statusLog.create({
       data: {
         entityType: "MedicationRecord",
         entityId: parsedId,
-        fromStatus: "FOLLOW_UP_NEEDED",
-        toStatus: "FOLLOW_UP_COMPLETED",
-        operatorId: data.followUpHandledBy || data.operatorId || 1,
-        remarks: data.followUpRemarks || null,
+        fromStatus: "PENDING_FOLLOW_UP",
+        toStatus: "PENDING_CONFIRM",
+        operatorId: data.operatorId,
+        remarks: data.followUpRemarks || "技术员提交跟进",
       },
     });
+
+    const pondWarnings = await prisma.warning.findMany({
+      where: { pondId: old.pondId, status: { in: ["ACTIVE", "ACKNOWLEDGED"] } },
+    });
+    for (const w of pondWarnings) {
+      await prisma.warningRemark.create({
+        data: {
+          warningId: w.id,
+          sourceType: "MEDICATION",
+          sourceId: parsedId,
+          content: `[药品跟进] ${old.medicationName}(${old.purpose}) 技术员已跟进：${data.followUpRemarks || "无备注"}`,
+          authorId: data.operatorId,
+        },
+      });
+    }
   }
 
-  const updateData: any = {};
-  if (data.needsFollowUp !== undefined) updateData.needsFollowUp = data.needsFollowUp;
-  if (data.followUpHandledBy !== undefined) {
-    updateData.followUpHandler = { connect: { id: data.followUpHandledBy } };
+  if (data.action === "CONFIRM_FOLLOW_UP" && old.followUpStatus === "PENDING_CONFIRM") {
+    updateData.followUpStatus = "CONFIRMED";
+    updateData.needsFollowUp = false;
+    updateData.followUpHandler = { connect: { id: data.operatorId } };
+    updateData.followUpHandledAt = new Date().toISOString();
+    updateData.followUpHandledRemarks = data.followUpRemarks || null;
+
+    await prisma.statusLog.create({
+      data: {
+        entityType: "MedicationRecord",
+        entityId: parsedId,
+        fromStatus: "PENDING_CONFIRM",
+        toStatus: "CONFIRMED",
+        operatorId: data.operatorId,
+        remarks: data.followUpRemarks || "场长确认跟进",
+      },
+    });
+
+    const pondWarnings = await prisma.warning.findMany({
+      where: { pondId: old.pondId, status: { in: ["ACTIVE", "ACKNOWLEDGED"] } },
+    });
+    for (const w of pondWarnings) {
+      await prisma.warningRemark.create({
+        data: {
+          warningId: w.id,
+          sourceType: "MEDICATION",
+          sourceId: parsedId,
+          content: `[药品跟进确认] ${old.medicationName}(${old.purpose}) 场长已确认：${data.followUpRemarks || "无备注"}`,
+          authorId: data.operatorId,
+        },
+      });
+    }
   }
-  if (data.followUpHandledAt !== undefined) updateData.followUpHandledAt = data.followUpHandledAt;
-  if (data.followUpRemarks !== undefined) updateData.followUpRemarks = data.followUpRemarks;
-  if (data.remarks !== undefined) updateData.remarks = data.remarks;
 
   const record = await prisma.medicationRecord.update({
     where: { id: parsedId },
     data: updateData,
-    include: { pond: true, administrator: true, followUpHandler: true },
+    include: { pond: true, administrator: true, followUpHandler: true, followUpSubmitter: true },
   });
 
   return NextResponse.json(record);

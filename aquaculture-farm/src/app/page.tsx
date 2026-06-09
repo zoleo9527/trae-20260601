@@ -19,7 +19,10 @@ const allStatusLabels: Record<string, string> = {
   COMPLETED: "已完成",
   ABNORMAL: "异常",
   FOLLOW_UP_NEEDED: "需跟进",
+  PENDING_FOLLOW_UP: "待跟进",
+  PENDING_CONFIRM: "待确认",
   FOLLOW_UP_COMPLETED: "跟进完成",
+  CONFIRMED: "已确认",
 };
 
 const entityTypeLabels: Record<string, string> = {
@@ -53,7 +56,9 @@ function buildPriorityQueue(
   todayFeed: any[],
   escalatedWarnings: any[],
   activeWarnings: any[],
-  abnormalInspections: any[]
+  abnormalInspections: any[],
+  pendingFollowUpMeds: any[],
+  pendingConfirmMeds: any[]
 ): PriorityItem[] {
   const items: PriorityItem[] = [];
   let idx = 1;
@@ -96,7 +101,7 @@ function buildPriorityQueue(
         action: `跟进用药: ${m.medicationName} (${m.purpose})`,
         person: m.administrator.name,
         href: "/medications",
-        urgency: "warning",
+        urgency: m.followUpStatus === "PENDING_CONFIRM" ? "warning" : "info",
       });
     });
   } else if (role === "FEED_MANAGER") {
@@ -177,10 +182,12 @@ function buildPriorityQueue(
       items.push({
         priority: idx++,
         pondName: m.pond.name,
-        action: `确认用药跟进: ${m.medicationName} (${m.purpose})`,
-        person: m.administrator.name,
+        action: m.followUpStatus === "PENDING_CONFIRM"
+          ? `确认用药跟进: ${m.medicationName} (${m.purpose}) — 技术员${m.followUpSubmitter?.name || ""}已提交`
+          : `待跟进用药: ${m.medicationName} (${m.purpose})`,
+        person: m.followUpStatus === "PENDING_CONFIRM" ? (m.followUpSubmitter?.name || m.administrator.name) : m.administrator.name,
         href: "/medications",
-        urgency: "warning",
+        urgency: m.followUpStatus === "PENDING_CONFIRM" ? "warning" : "info",
       });
     });
   }
@@ -230,7 +237,9 @@ export default function DashboardPage() {
   const inProgressInspections = inspections.filter((i) => i.status === "IN_PROGRESS");
   const todayStr = new Date().toISOString().slice(0, 10);
   const pendingToday = pendingInspections.filter((i) => i.scheduledAt?.slice(0, 10) === todayStr);
-  const followUpMeds = medications.filter((m) => m.needsFollowUp);
+  const followUpMeds = medications.filter((m) => m.followUpStatus === "PENDING_FOLLOW_UP" || m.followUpStatus === "PENDING_CONFIRM");
+  const pendingFollowUpMeds = medications.filter((m) => m.followUpStatus === "PENDING_FOLLOW_UP");
+  const pendingConfirmMeds = medications.filter((m) => m.followUpStatus === "PENDING_CONFIRM");
   const escalatedWarnings = warnings.filter((w) => w.status === "ESCALATED");
   const activeWarnings = warnings.filter((w) => w.status === "ACTIVE");
   const abnormalInspections = inspections.filter((i) => i.status === "ABNORMAL");
@@ -240,6 +249,7 @@ export default function DashboardPage() {
   const warnCount = warningWarnings.length;
   const pendingCount = pendingInspections.length;
   const followUpMedCount = followUpMeds.length;
+  const pendingConfirmCount = pendingConfirmMeds.length;
 
   const priorityItems = buildPriorityQueue(
     user.role,
@@ -251,7 +261,9 @@ export default function DashboardPage() {
     todayFeed,
     escalatedWarnings,
     activeWarnings,
-    abnormalInspections
+    abnormalInspections,
+    pendingFollowUpMeds,
+    pendingConfirmMeds
   );
 
   const pondGrid = ponds.map((p) => {
@@ -361,6 +373,21 @@ export default function DashboardPage() {
               }}
             >
               药品跟进 {followUpMedCount}
+            </span>
+          )}
+          {pendingConfirmCount > 0 && (
+            <span
+              style={{
+                background: "#fef3c7",
+                color: "#92400e",
+                padding: "4px 12px",
+                borderRadius: 9999,
+                fontSize: 13,
+                fontWeight: 600,
+                border: "1px solid #fde68a",
+              }}
+            >
+              待确认 {pendingConfirmCount}
             </span>
           )}
         </div>

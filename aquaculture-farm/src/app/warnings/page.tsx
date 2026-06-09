@@ -33,12 +33,14 @@ const HANDLE_STATUS_OPTIONS = [
 const sourceTypeLabels: Record<string, string> = {
   INSPECTION: "巡检",
   SENSOR: "传感器",
+  MEDICATION: "药品",
 };
 
 const remarkSourceLabels: Record<string, { label: string; bg: string }> = {
   INSPECTION: { label: "巡检", bg: "#fef3c7" },
   HANDLER: { label: "处理", bg: "#dbeafe" },
   SYSTEM: { label: "系统", bg: "#f1f5f9" },
+  MEDICATION: { label: "药品", bg: "#ede9fe" },
 };
 
 function formatTime(iso: string) {

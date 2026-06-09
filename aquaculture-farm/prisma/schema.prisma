@@ -19,6 +19,7 @@ model User {
   medicationRecords MedicationRecord[]
   warningRemarks    WarningRemark[]
   followUpHandled   MedicationRecord[] @relation("MedicationFollowUpHandler")
+  followUpSubmitted MedicationRecord[] @relation("MedicationFollowUpSubmitter")
 
   @@index([role])
 }
@@ -141,21 +142,28 @@ model MedicationRecord {
   purpose        String
   administeredBy Int
   administeredAt DateTime
-  remarks           String?
-  needsFollowUp     Boolean   @default(false)
-  followUpHandledBy Int?
-  followUpHandledAt DateTime?
-  followUpRemarks   String?
+  remarks                  String?
+  needsFollowUp            Boolean   @default(false)
+  followUpStatus           String    @default("NONE")
+  followUpSubmittedBy      Int?
+  followUpSubmittedAt      DateTime?
+  followUpSubmittedRemarks String?
+  followUpHandledBy        Int?
+  followUpHandledAt        DateTime?
+  followUpHandledRemarks   String?
 
-  pond              Pond @relation(fields: [pondId], references: [id])
-  administrator     User @relation(fields: [administeredBy], references: [id])
-  followUpHandler   User? @relation("MedicationFollowUpHandler", fields: [followUpHandledBy], references: [id])
+  pond               Pond @relation(fields: [pondId], references: [id])
+  administrator      User @relation(fields: [administeredBy], references: [id])
+  followUpHandler    User? @relation("MedicationFollowUpHandler", fields: [followUpHandledBy], references: [id])
+  followUpSubmitter  User? @relation("MedicationFollowUpSubmitter", fields: [followUpSubmittedBy], references: [id])
 
   @@index([pondId])
   @@index([administeredBy])
   @@index([administeredAt])
   @@index([needsFollowUp])
+  @@index([followUpStatus])
   @@index([followUpHandledBy])
+  @@index([followUpSubmittedBy])
 }
 
 model StatusLog {

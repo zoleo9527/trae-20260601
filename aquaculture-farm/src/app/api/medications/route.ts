@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 
 export async function GET() {
   const records = await prisma.medicationRecord.findMany({
-    include: { pond: true, administrator: true, followUpHandler: true },
+    include: { pond: true, administrator: true, followUpHandler: true, followUpSubmitter: true },
     orderBy: { administeredAt: "desc" },
   });
   return NextResponse.json(records);
@@ -13,7 +13,7 @@ export async function POST(req: Request) {
   const data = await req.json();
   const record = await prisma.medicationRecord.create({
     data,
-    include: { pond: true, administrator: true, followUpHandler: true },
+    include: { pond: true, administrator: true, followUpHandler: true, followUpSubmitter: true },
   });
   return NextResponse.json(record);
 }

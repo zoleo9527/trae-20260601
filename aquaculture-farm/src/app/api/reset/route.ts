@@ -75,11 +75,11 @@ async function reseed() {
   ]);
 
   const medicationRecords = await Promise.all([
-    prisma.medicationRecord.create({ data: { pondId: ponds[0].id, medicationName: "二氧化氯", dosage: 0.5, unit: "kg", purpose: "水体消毒", administeredBy: users[0].id, administeredAt: new Date("2026-06-08T09:00:00.000Z"), remarks: "1号塘紧急消毒", needsFollowUp: true } }),
-    prisma.medicationRecord.create({ data: { pondId: ponds[3].id, medicationName: "底质改良剂", dosage: 2.0, unit: "kg", purpose: "改善底质", administeredBy: users[1].id, administeredAt: new Date("2026-06-08T10:00:00.000Z"), remarks: "4号塘底质恶化处理", needsFollowUp: true } }),
-    prisma.medicationRecord.create({ data: { pondId: ponds[3].id, medicationName: "维生素C", dosage: 200, unit: "g", purpose: "增强免疫力", administeredBy: users[1].id, administeredAt: new Date("2026-06-07T10:00:00.000Z"), needsFollowUp: true } }),
-    prisma.medicationRecord.create({ data: { pondId: ponds[2].id, medicationName: "水质净化剂", dosage: 1.0, unit: "kg", purpose: "降低氨氮", administeredBy: users[1].id, administeredAt: new Date("2026-06-08T14:00:00.000Z"), remarks: "3号塘氨氮处理", needsFollowUp: true } }),
-    prisma.medicationRecord.create({ data: { pondId: ponds[4].id, medicationName: "二氧化氯", dosage: 0.3, unit: "kg", purpose: "水体消毒", administeredBy: users[0].id, administeredAt: new Date("2026-06-06T09:00:00.000Z"), needsFollowUp: false, followUpHandledBy: users[3].id, followUpHandledAt: new Date("2026-06-07T09:00:00.000Z"), followUpRemarks: "消毒效果良好，水质已恢复" } }),
+    prisma.medicationRecord.create({ data: { pondId: ponds[0].id, medicationName: "二氧化氯", dosage: 0.5, unit: "kg", purpose: "水体消毒", administeredBy: users[0].id, administeredAt: new Date("2026-06-08T09:00:00.000Z"), remarks: "1号塘紧急消毒", needsFollowUp: true, followUpStatus: "PENDING_FOLLOW_UP" } }),
+    prisma.medicationRecord.create({ data: { pondId: ponds[3].id, medicationName: "底质改良剂", dosage: 2.0, unit: "kg", purpose: "改善底质", administeredBy: users[1].id, administeredAt: new Date("2026-06-08T10:00:00.000Z"), remarks: "4号塘底质恶化处理", needsFollowUp: true, followUpStatus: "PENDING_CONFIRM", followUpSubmittedBy: users[1].id, followUpSubmittedAt: new Date("2026-06-09T08:00:00.000Z"), followUpSubmittedRemarks: "已投放底质改良剂，溶解氧略有回升" } }),
+    prisma.medicationRecord.create({ data: { pondId: ponds[3].id, medicationName: "维生素C", dosage: 200, unit: "g", purpose: "增强免疫力", administeredBy: users[1].id, administeredAt: new Date("2026-06-07T10:00:00.000Z"), needsFollowUp: true, followUpStatus: "PENDING_FOLLOW_UP" } }),
+    prisma.medicationRecord.create({ data: { pondId: ponds[2].id, medicationName: "水质净化剂", dosage: 1.0, unit: "kg", purpose: "降低氨氮", administeredBy: users[1].id, administeredAt: new Date("2026-06-08T14:00:00.000Z"), remarks: "3号塘氨氮处理", needsFollowUp: true, followUpStatus: "PENDING_FOLLOW_UP" } }),
+    prisma.medicationRecord.create({ data: { pondId: ponds[4].id, medicationName: "二氧化氯", dosage: 0.3, unit: "kg", purpose: "水体消毒", administeredBy: users[0].id, administeredAt: new Date("2026-06-06T09:00:00.000Z"), needsFollowUp: false, followUpStatus: "CONFIRMED", followUpSubmittedBy: users[0].id, followUpSubmittedAt: new Date("2026-06-07T08:00:00.000Z"), followUpSubmittedRemarks: "消毒完成，水质正常", followUpHandledBy: users[3].id, followUpHandledAt: new Date("2026-06-07T09:00:00.000Z"), followUpHandledRemarks: "消毒效果良好，水质已恢复" } }),
   ]);
 
   const statusLogs = await Promise.all([
@@ -95,7 +95,9 @@ async function reseed() {
     prisma.statusLog.create({ data: { entityType: "Pond", entityId: ponds[0].id, fromStatus: "warning", toStatus: "danger", operatorId: users[0].id, remarks: "溶解氧持续下降，升级为危险" } }),
     prisma.statusLog.create({ data: { entityType: "Pond", entityId: ponds[3].id, fromStatus: "normal", toStatus: "danger", operatorId: users[1].id, remarks: "溶解氧极低标记危险" } }),
     prisma.statusLog.create({ data: { entityType: "Pond", entityId: ponds[2].id, fromStatus: "normal", toStatus: "warning", operatorId: users[1].id, remarks: "氨氮偏高标记预警" } }),
-    prisma.statusLog.create({ data: { entityType: "MedicationRecord", entityId: medicationRecords[4].id, fromStatus: "FOLLOW_UP_NEEDED", toStatus: "FOLLOW_UP_COMPLETED", operatorId: users[3].id, remarks: "消毒效果良好，水质已恢复" } }),
+    prisma.statusLog.create({ data: { entityType: "MedicationRecord", entityId: medicationRecords[1].id, fromStatus: "PENDING_FOLLOW_UP", toStatus: "PENDING_CONFIRM", operatorId: users[1].id, remarks: "已投放底质改良剂，溶解氧略有回升" } }),
+    prisma.statusLog.create({ data: { entityType: "MedicationRecord", entityId: medicationRecords[4].id, fromStatus: "PENDING_FOLLOW_UP", toStatus: "PENDING_CONFIRM", operatorId: users[0].id, remarks: "消毒完成，水质正常" } }),
+    prisma.statusLog.create({ data: { entityType: "MedicationRecord", entityId: medicationRecords[4].id, fromStatus: "PENDING_CONFIRM", toStatus: "CONFIRMED", operatorId: users[3].id, remarks: "消毒效果良好，水质已恢复" } }),
   ]);
 
   return { users, ponds, inspections, warnings, warningRemarks, feedRecords, medicationRecords, statusLogs };
