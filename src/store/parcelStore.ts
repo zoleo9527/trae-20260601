@@ -185,12 +185,14 @@ export const useParcelStore = create<ParcelState>((set, get) => ({
   },
 
   fetchAuditLog: async (parcelId: number) => {
-    set({ loading: true })
+    set({ loading: true, auditLogs: [] })
     try {
       const res = await fetch(`/api/parcels/${parcelId}/audit-log`)
       const json = await res.json()
       if (json.success) {
         set({ auditLogs: json.data.logs })
+      } else {
+        throw new Error(json.error || '加载日志失败')
       }
     } finally {
       set({ loading: false })

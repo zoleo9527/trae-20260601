@@ -1,7 +1,12 @@
 import { useParcelStore } from '@/store/parcelStore'
 import { ROLE_LABELS, STATUS_LABELS, type ParcelStatus } from '@shared/types'
-import { AlertCircle, Clock, LayoutDashboard, Loader2, RefreshCw, User } from 'lucide-react'
+import { AlertCircle, Clock, History, LayoutDashboard, Loader2, RefreshCw, User, X } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
+
+const TIMEOUT_THRESHOLDS_MS: Record<string, number> = {
+  arrived_pending: 2 * 60 * 60 * 1000,
+  dispatched_pending: 4 * 60 * 60 * 1000,
+}
 
 const GROUP_ORDER: ParcelStatus[] = [
   'arrived_pending',
@@ -17,10 +22,14 @@ const STATUS_ICONS: Record<string, string> = {
   problem_pending: '⚠️',
 }
 
-function formatDuration(arrivedAt: string): string {
-  const now = new Date()
+function getArrivalMs(arrivedAt: string | null | undefined): number {
+  if (!arrivedAt) return 0
   const arrived = new Date(arrivedAt.replace(' ', 'T'))
-  const diffMs = now.getTime() - arrived.getTime()
+  return Date.now() - arrived.getTime()
+}
+
+function formatDuration(arrivedAt: string): string {
+  const diffMs = getArrivalMs(arrivedAt)
   if (diffMs < 0) return '刚刚'
   const minutes = Math.floor(diffMs / 60000)
   if (minutes < 60) return `${minutes}分钟`
@@ -30,14 +39,25 @@ function formatDuration(arrivedAt: string): string {
   return `${days}天${hours % 24}小时`
 }
 
+function isOverdue(parcel: any): boolean {
+  const threshold = TIMEOUT_THRESHOLDS_MS[parcel.status]
+  if (!threshold) return false
+  return getArrivalMs(parcel.arrived_at) > threshold
+}
+
 export default function WorkspacePage() {
   const {
-    parcels, staff, loading, error, workspaceSummary,
-    fetchParcels, fetchStaff, fetchWorkspaceSummary,
+    parcels, staff, loading, error, workspaceSummary, auditLogs,
+    fetchParcels, fetchStaff, fetchWorkspaceSummary, fetchAuditLog,
   } = useParcelStore()
 
   const [selectedStaffId, setSelectedStaffId] = useState<number | ''>('')
   const [selectedRole, setSelectedRole] = useState<string>('')
+  const [drawerOpen, setDrawerOpen] = useState(false)
+  const [drawerParcelId, setDrawerParcelId] = useState<number | null>(null)
+  const [drawerTrackingNo, setDrawerTrackingNo] = useState('')
+  const [drawerLoading, setDrawerLoading] = useState(false)
+  const [drawerError, setDrawerError] = useState<string | null>(null)
 
   useEffect(() => {
     fetchStaff()
@@ -73,6 +93,39 @@ export default function WorkspacePage() {
     setSelectedStaffId('')
   }
 
+  const openDrawer = (parcelId: number, trackingNo: string) => {
+    setDrawerParcelId(parcelId)
+    setDrawerTrackingNo(trackingNo)
+    setDrawerOpen(true)
+    setDrawerLoading(true)
+    setDrawerError(null)
+    fetchAuditLog(parcelId)
+      .then(() => setDrawerLoading(false))
+      .catch(() => {
+        setDrawerError('加载日志失败')
+        setDrawerLoading(false)
+      })
+  }
+
+  const closeDrawer = () => {
+    setDrawerOpen(false)
+    setDrawerParcelId(null)
+    setDrawerTrackingNo('')
+    setDrawerError(null)
+  }
+
+  const retryDrawer = () => {
+    if (!drawerParcelId) return
+    setDrawerLoading(true)
+    setDrawerError(null)
+    fetchAuditLog(drawerParcelId)
+      .then(() => setDrawerLoading(false))
+      .catch(() => {
+        setDrawerError('加载日志失败')
+        setDrawerLoading(false)
+      })
+  }
+
   const activeParcels = useMemo(() => {
     return parcels.filter((p: any) =>
       GROUP_ORDER.includes(p.status as ParcelStatus)
@@ -88,6 +141,11 @@ export default function WorkspacePage() {
       if (map[p.status]) {
         map[p.status].push(p)
       }
+    }
+    for (const status of GROUP_ORDER) {
+      map[status].sort((a: any, b: any) => {
+        return getArrivalMs(b.arrived_at) - getArrivalMs(a.arrived_at)
+      })
     }
     return map
   }, [activeParcels])
@@ -260,20 +318,34 @@ export default function WorkspacePage() {
                           </tr>
                         </thead>
                         <tbody>
-                          {items.map((parcel: any) => (
-                            <tr key={parcel.id} className="border-b last:border-0 hover:bg-slate-50">
-                              <td className="px-6 py-3 font-mono text-slate-800">{parcel.tracking_no}</td>
-                              <td className="px-6 py-3 text-slate-600">{parcel.arrived_at ?? parcel.created_at}</td>
-                              <td className="px-6 py-3">
-                                <span className="inline-flex items-center gap-1 text-slate-600">
-                                  <Clock className="h-3.5 w-3.5 text-slate-400" />
-                                  {parcel.arrived_at ? formatDuration(parcel.arrived_at) : '-'}
-                                </span>
-                              </td>
-                              <td className="px-6 py-3 text-slate-600">{parcel.updated_at}</td>
-                              <td className="px-6 py-3 text-slate-600">{parcel.assignee_name ?? '-'}</td>
-                            </tr>
-                          ))}
+                          {items.map((parcel: any) => {
+                            const overdue = isOverdue(parcel)
+                            return (
+                              <tr
+                                key={parcel.id}
+                                onClick={() => openDrawer(parcel.id, parcel.tracking_no)}
+                                className={`cursor-pointer border-b last:border-0 hover:bg-slate-50 ${overdue ? 'bg-red-50/40' : ''}`}
+                              >
+                                <td className="px-6 py-3">
+                                  <span className="font-mono text-slate-800">{parcel.tracking_no}</span>
+                                  {overdue && (
+                                    <span className="ml-2 inline-flex items-center rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-600">
+                                      超时
+                                    </span>
+                                  )}
+                                </td>
+                                <td className="px-6 py-3 text-slate-600">{parcel.arrived_at ?? parcel.created_at}</td>
+                                <td className="px-6 py-3">
+                                  <span className={`inline-flex items-center gap-1 ${overdue ? 'text-red-600 font-medium' : 'text-slate-600'}`}>
+                                    <Clock className={`h-3.5 w-3.5 ${overdue ? 'text-red-500' : 'text-slate-400'}`} />
+                                    {parcel.arrived_at ? formatDuration(parcel.arrived_at) : '-'}
+                                  </span>
+                                </td>
+                                <td className="px-6 py-3 text-slate-600">{parcel.updated_at}</td>
+                                <td className="px-6 py-3 text-slate-600">{parcel.assignee_name ?? '-'}</td>
+                              </tr>
+                            )
+                          })}
                         </tbody>
                       </table>
                     </div>
@@ -283,6 +355,82 @@ export default function WorkspacePage() {
             </div>
           )}
         </>
+      )}
+
+      {drawerOpen && (
+        <div className="fixed inset-0 z-50 flex justify-end">
+          <div className="absolute inset-0 bg-black/30" onClick={closeDrawer} />
+          <div className="relative w-full max-w-md bg-white shadow-xl">
+            <div className="flex items-center justify-between border-b px-4 py-3">
+              <div className="flex items-center gap-2">
+                <History className="h-5 w-5 text-orange-500" />
+                <h2 className="text-lg font-semibold text-slate-800">状态变更历史</h2>
+              </div>
+              <button onClick={closeDrawer} className="text-slate-400 hover:text-slate-600">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="border-b px-4 py-2">
+              <span className="text-xs text-slate-400">运单号</span>
+              <p className="font-mono text-sm font-medium text-slate-700">{drawerTrackingNo}</p>
+            </div>
+            <div className="overflow-y-auto p-4" style={{ maxHeight: 'calc(100vh - 120px)' }}>
+              {drawerLoading && (
+                <div className="flex flex-col items-center justify-center py-16">
+                  <Loader2 className="h-8 w-8 animate-spin text-orange-500" />
+                  <p className="mt-4 text-sm text-slate-400">加载中...</p>
+                </div>
+              )}
+
+              {drawerError && !drawerLoading && (
+                <div className="flex flex-col items-center justify-center py-16">
+                  <AlertCircle className="h-8 w-8 text-red-400" />
+                  <p className="mt-3 text-sm font-medium text-red-600">{drawerError}</p>
+                  <button
+                    onClick={retryDrawer}
+                    className="mt-3 inline-flex items-center gap-1 rounded-lg bg-red-500 px-3 py-1.5 text-sm text-white hover:bg-red-600"
+                  >
+                    <RefreshCw className="h-3.5 w-3.5" />
+                    重试
+                  </button>
+                </div>
+              )}
+
+              {!drawerLoading && !drawerError && auditLogs.length === 0 && (
+                <div className="flex flex-col items-center justify-center py-16">
+                  <History className="h-8 w-8 text-slate-300" />
+                  <p className="mt-4 text-sm text-slate-400">暂无操作记录</p>
+                </div>
+              )}
+
+              {!drawerLoading && !drawerError && auditLogs.length > 0 && (
+                <div className="relative ml-3">
+                  <div className="absolute left-0 top-0 bottom-0 w-px bg-slate-200" />
+                  {auditLogs.map((log: any, idx: number) => (
+                    <div key={idx} className="relative pb-6 pl-6">
+                      <div className="absolute left-0 top-1 h-2.5 w-2.5 -translate-x-[4.5px] rounded-full bg-orange-400" />
+                      <div className="space-y-1">
+                        <div className="text-sm font-medium text-slate-800">
+                          {STATUS_LABELS[log.from_status as ParcelStatus] ?? log.from_status ?? '—'} → {STATUS_LABELS[log.to_status as ParcelStatus] ?? log.to_status}
+                        </div>
+                        <div className="text-xs text-slate-500">
+                          操作人：{log.operator_name}（{ROLE_LABELS[log.operator_role] ?? log.operator_role}）
+                        </div>
+                        <div className="text-xs text-slate-500">
+                          责任人：{log.responsible_name}（{ROLE_LABELS[log.responsible_type] ?? log.responsible_type}）
+                        </div>
+                        <div className="text-xs text-slate-400">{log.created_at}</div>
+                        {log.note && (
+                          <div className="text-xs text-slate-500 italic">备注：{log.note}</div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )
