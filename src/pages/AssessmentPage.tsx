@@ -72,7 +72,6 @@ export default function AssessmentPage() {
 
   const handleCreate = () => {
     form.validateFields().then((values) => {
-      const therapist = therapists.find((t) => t.id === values.therapistId)
       const scales: ScaleItem[] = (values.scales ?? []).map((s: { name: string; score: number; maxScore: number; interpretation: string }) => ({
         id: `s${uuid().slice(0, 6)}`,
         name: s.name,
@@ -95,6 +94,12 @@ export default function AssessmentPage() {
         reason: c.reason,
       }))
 
+      if (scales.length === 0) {
+        message.error('评估量表不能为空，请至少添加1项量表')
+        return
+      }
+
+      const therapist = therapists.find((t) => t.id === values.therapistId)
       addAssessment({
         patientId: values.patientId,
         therapistId: values.therapistId,
@@ -296,8 +301,8 @@ export default function AssessmentPage() {
             <Input.TextArea rows={3} placeholder="详细病史描述" />
           </Form.Item>
 
-          <Divider orientation="left" style={{ margin: '12px 0 8px' }}>评估量表</Divider>
-          <Form.List name="scales">
+          <Divider orientation="left" style={{ margin: '12px 0 8px' }}>评估量表 <Text type="danger" style={{ fontSize: 12 }}>（至少1项，必填）</Text></Divider>
+          <Form.List name="scales" rules={[{ validator: async (_, value) => { if (!value || value.length < 1) return Promise.reject(new Error('至少添加1项评估量表')) } }]}>
             {(fields, { add, remove }) => (
               <>
                 {fields.map(({ key, name, ...restField }) => (
@@ -314,7 +319,7 @@ export default function AssessmentPage() {
                     <Form.Item {...restField} name={[name, 'interpretation']} rules={[{ required: true, message: '解读' }]}>
                       <Input placeholder="评分解读" style={{ width: 200 }} />
                     </Form.Item>
-                    <MinusCircleOutlined onClick={() => remove(name)} style={{ color: '#ff4d4f' }} />
+                    {fields.length > 1 && <MinusCircleOutlined onClick={() => remove(name)} style={{ color: '#ff4d4f' }} />}
                   </Space>
                 ))}
                 <Button type="dashed" onClick={() => add()} block icon={<PlusOutlined />}>添加量表</Button>

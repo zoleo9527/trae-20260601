@@ -1,11 +1,12 @@
 import { useState } from 'react'
 import {
-  Table, Button, Modal, Descriptions, Tag, Tabs, Card, Space, Select, Timeline, Typography, Divider, List, Form, Input, InputNumber, DatePicker, message,
+  Table, Button, Modal, Descriptions, Tag, Tabs, Card, Space, Select, Timeline, Typography, Divider, List, Form, Input, DatePicker, message, Alert,
 } from 'antd'
 import { HistoryOutlined, EyeOutlined, LinkOutlined, PlusOutlined, MinusCircleOutlined } from '@ant-design/icons'
 import dayjs from 'dayjs'
 import { v4 as uuid } from 'uuid'
 import { useAppStore } from '@/store/useAppStore'
+import AssessmentEvidence from '@/components/AssessmentEvidence'
 import type { Prescription, RehabGoal, TreatmentPlanItem } from '@/types'
 
 const { Paragraph, Text } = Typography
@@ -20,6 +21,62 @@ const STATUS_MAP: Record<string, { label: string; color: string }> = {
 
 const PRIORITY_COLOR: Record<string, string> = { high: 'red', medium: 'orange', low: 'blue' }
 const PRIORITY_LABEL: Record<string, string> = { high: '高', medium: '中', low: '低' }
+
+const TREATMENT_TYPES = [
+  '关节活动度训练', '肌力训练', '本体感觉训练', '平衡训练',
+  '步态训练', '力量训练', '功能训练', '物理因子',
+  '核心稳定训练', '姿势管理', '牵伸训练', '特异性侧弯体操(SSE)', '安全策略', '其他',
+]
+
+function GoalsPlanChain({ goals, treatmentPlan }: { goals: RehabGoal[]; treatmentPlan: TreatmentPlanItem[] }) {
+  return (
+    <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start' }}>
+      <Card size="small" title="🎯 康复目标" style={{ flex: 1, borderLeft: '4px solid #52c41a', minWidth: 0 }}>
+        <List
+          size="small"
+          dataSource={goals}
+          renderItem={(g, idx) => (
+            <List.Item style={{ padding: '6px 0', alignItems: 'flex-start' }}>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start', width: '100%' }}>
+                <Tag color={PRIORITY_COLOR[g.priority]} style={{ marginTop: 2 }}>{PRIORITY_LABEL[g.priority]}</Tag>
+                <div style={{ flex: 1 }}>
+                  <div><Text strong>{g.description}</Text></div>
+                  <div style={{ fontSize: 12, color: '#999', marginTop: 2 }}>
+                    指标: {g.measurable} | 目标: {g.targetDate}
+                  </div>
+                  {treatmentPlan.length > 0 && idx < treatmentPlan.length && (
+                    <div style={{ marginTop: 4, paddingLeft: 8, borderLeft: '2px solid #d9d9d9' }}>
+                      <Text type="secondary" style={{ fontSize: 11 }}>→ 对应治疗:</Text>
+                      <Tag color="purple" style={{ marginLeft: 4, fontSize: 11 }}>{treatmentPlan[idx].type} - {treatmentPlan[idx].name}</Tag>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </List.Item>
+          )}
+        />
+      </Card>
+
+      <div style={{ display: 'flex', alignItems: 'center', fontSize: 24, color: '#52c41a', padding: '20px 0' }}>
+        →
+      </div>
+
+      <Card size="small" title="💊 治疗计划" style={{ flex: 1, borderLeft: '4px solid #722ed1', minWidth: 0 }}>
+        {treatmentPlan.map((tp) => (
+          <div key={tp.id} style={{ marginBottom: 8, paddingBottom: 8, borderBottom: '1px dashed #eee' }}>
+            <div>
+              <Tag color="purple">{tp.type}</Tag>
+              <Text strong>{tp.name}</Text>
+            </div>
+            <div style={{ fontSize: 12, color: '#666', marginTop: 2 }}>
+              {tp.frequency} | {tp.duration} {tp.notes && `| ${tp.notes}`}
+            </div>
+          </div>
+        ))}
+      </Card>
+    </div>
+  )
+}
 
 export default function PrescriptionPage() {
   const { prescriptions, prescriptionHistory, patients, assessments, getPatientById, getAppointmentsByPrescription, therapists, addPrescription } = useAppStore()
@@ -77,7 +134,6 @@ export default function PrescriptionPage() {
 
   const handleCreate = () => {
     form.validateFields().then((values) => {
-      const therapist = therapists.find((t) => t.id === values.therapistId)
       const goals: RehabGoal[] = (values.goals ?? []).map((g: { description: string; targetDate: any; measurable: string; priority: string }) => ({
         id: `g${uuid().slice(0, 6)}`,
         description: g.description,
@@ -94,6 +150,16 @@ export default function PrescriptionPage() {
         notes: tp.notes ?? '',
       }))
 
+      if (goals.length === 0) {
+        message.error('康复目标不能为空，请至少添加1项目标')
+        return
+      }
+      if (treatmentPlan.length === 0) {
+        message.error('治疗计划不能为空，请至少添加1项治疗')
+        return
+      }
+
+      const therapist = therapists.find((t) => t.id === values.therapistId)
       addPrescription({
         patientId: values.patientId,
         assessmentId: values.assessmentId,
@@ -135,7 +201,7 @@ export default function PrescriptionPage() {
         open={!!selectedRx}
         onCancel={() => setSelectedRx(null)}
         footer={null}
-        width={1000}
+        width={1100}
       >
         {selectedRx && (() => {
           const patient = getPatientById(selectedRx.patientId)
@@ -148,71 +214,21 @@ export default function PrescriptionPage() {
               items={[
                 {
                   key: 'chain',
-                  label: '评估→目标→治疗',
+                  label: '评估→目标→治疗 证据链',
                   children: (
                     <div>
-                      <div style={{ display: 'flex', gap: 16, alignItems: 'stretch' }}>
-                        <Card size="small" title="📋 评估结论" style={{ flex: 1, borderLeft: '4px solid #1890ff' }}>
-                          {assessment ? (
-                            <>
-                              <Paragraph style={{ margin: 0 }}>
-                                <Text type="secondary">{assessment.therapistName} | {dayjs(assessment.date).format('YYYY-MM-DD')}</Text>
-                              </Paragraph>
-                              <Paragraph style={{ marginTop: 8 }}>{assessment.conclusion}</Paragraph>
-                              {assessment.contraindications.length > 0 && (
-                                <div>
-                                  <Text type="secondary">训练禁忌:</Text>
-                                  <div style={{ marginTop: 4 }}>
-                                    {assessment.contraindications.map((ci) => (
-                                      <Tag key={ci.id} color={ci.type === 'absolute' ? 'red' : 'orange'} style={{ marginBottom: 4 }}>
-                                        {ci.type === 'absolute' ? '绝对' : '相对'}: {ci.description}
-                                      </Tag>
-                                    ))}
-                                  </div>
-                                </div>
-                              )}
-                            </>
-                          ) : <Text type="secondary">未找到关联评估</Text>}
-                        </Card>
+                      <Alert
+                        type="info"
+                        message="证据链回看：评估量表评分 → 疼痛点 → 训练禁忌 → 康复目标 → 治疗计划，所有安排均有据可查"
+                        style={{ marginBottom: 12 }}
+                        showIcon
+                      />
 
-                        <div style={{ display: 'flex', alignItems: 'center', fontSize: 24, color: '#1890ff' }}>
-                          →
-                        </div>
+                      {assessment && <AssessmentEvidence assessment={assessment} />}
 
-                        <Card size="small" title="🎯 康复目标" style={{ flex: 1, borderLeft: '4px solid #52c41a' }}>
-                          <List
-                            size="small"
-                            dataSource={selectedRx.goals}
-                            renderItem={(g) => (
-                              <List.Item style={{ padding: '4px 0' }}>
-                                <Space>
-                                  <Tag color={PRIORITY_COLOR[g.priority]}>{PRIORITY_LABEL[g.priority]}</Tag>
-                                  <Text>{g.description}</Text>
-                                </Space>
-                                <div style={{ fontSize: 12, color: '#999' }}>{g.measurable} | {g.targetDate}</div>
-                              </List.Item>
-                            )}
-                          />
-                        </Card>
+                      <Divider orientation="left" style={{ margin: '12px 0 8px' }}>评估 → 目标 → 治疗 串联</Divider>
 
-                        <div style={{ display: 'flex', alignItems: 'center', fontSize: 24, color: '#52c41a' }}>
-                          →
-                        </div>
-
-                        <Card size="small" title="💊 治疗计划" style={{ flex: 1, borderLeft: '4px solid #722ed1' }}>
-                          {selectedRx.treatmentPlan.map((tp) => (
-                            <div key={tp.id} style={{ marginBottom: 8, paddingBottom: 8, borderBottom: '1px dashed #eee' }}>
-                              <div>
-                                <Tag color="purple">{tp.type}</Tag>
-                                <Text strong>{tp.name}</Text>
-                              </div>
-                              <div style={{ fontSize: 12, color: '#666', marginTop: 2 }}>
-                                {tp.frequency} | {tp.duration} {tp.notes && `| ${tp.notes}`}
-                              </div>
-                            </div>
-                          ))}
-                        </Card>
-                      </div>
+                      <GoalsPlanChain goals={selectedRx.goals} treatmentPlan={selectedRx.treatmentPlan} />
 
                       <Divider orientation="left">处方依据（为什么这样安排）</Divider>
                       <Paragraph style={{ background: '#e6f7ff', padding: 12, borderRadius: 6, borderLeft: '4px solid #1890ff' }}>
@@ -346,26 +362,12 @@ export default function PrescriptionPage() {
               const aId = getFieldValue('assessmentId')
               const assessment = assessments.find((a) => a.id === aId)
               if (!assessment) return null
-              return (
-                <Card size="small" style={{ marginBottom: 12, background: '#f6ffed', borderLeft: '4px solid #52c41a' }}>
-                  <Text strong>评估结论: </Text><Text>{assessment.conclusion}</Text>
-                  {assessment.contraindications.length > 0 && (
-                    <div style={{ marginTop: 4 }}>
-                      <Text type="secondary">训练禁忌: </Text>
-                      {assessment.contraindications.map((ci) => (
-                        <Tag key={ci.id} color={ci.type === 'absolute' ? 'red' : 'orange'} style={{ marginBottom: 2 }}>
-                          {ci.type === 'absolute' ? '绝对' : '相对'}: {ci.description}
-                        </Tag>
-                      ))}
-                    </div>
-                  )}
-                </Card>
-              )
+              return <AssessmentEvidence assessment={assessment} compact />
             }}
           </Form.Item>
 
-          <Divider orientation="left" style={{ margin: '12px 0 8px' }}>康复目标</Divider>
-          <Form.List name="goals">
+          <Divider orientation="left" style={{ margin: '12px 0 8px' }}>康复目标 <Text type="danger" style={{ fontSize: 12 }}>（至少1项）</Text></Divider>
+          <Form.List name="goals" rules={[{ validator: async (_, value) => { if (!value || value.length < 1) return Promise.reject(new Error('至少添加1项康复目标')) } }]}>
             {(fields, { add, remove }) => (
               <>
                 {fields.map(({ key, name, ...restField }) => (
@@ -384,7 +386,7 @@ export default function PrescriptionPage() {
                         options={[{ value: 'high', label: '高' }, { value: 'medium', label: '中' }, { value: 'low', label: '低' }]}
                       />
                     </Form.Item>
-                    <MinusCircleOutlined onClick={() => remove(name)} style={{ color: '#ff4d4f' }} />
+                    {fields.length > 1 && <MinusCircleOutlined onClick={() => remove(name)} style={{ color: '#ff4d4f' }} />}
                   </Space>
                 ))}
                 <Button type="dashed" onClick={() => add()} block icon={<PlusOutlined />}>添加康复目标</Button>
@@ -392,30 +394,15 @@ export default function PrescriptionPage() {
             )}
           </Form.List>
 
-          <Divider orientation="left" style={{ margin: '12px 0 8px' }}>治疗计划</Divider>
-          <Form.List name="treatmentPlan">
+          <Divider orientation="left" style={{ margin: '12px 0 8px' }}>治疗计划 <Text type="danger" style={{ fontSize: 12 }}>（至少1项）</Text></Divider>
+          <Form.List name="treatmentPlan" rules={[{ validator: async (_, value) => { if (!value || value.length < 1) return Promise.reject(new Error('至少添加1项治疗项目')) } }]}>
             {(fields, { add, remove }) => (
               <>
                 {fields.map(({ key, name, ...restField }) => (
                   <Space key={key} style={{ display: 'flex', marginBottom: 8, flexWrap: 'wrap' }} align="baseline">
                     <Form.Item {...restField} name={[name, 'type']} rules={[{ required: true, message: '类型' }]}>
                       <Select placeholder="治疗类型" style={{ width: 130 }}
-                        options={[
-                          { value: '关节活动度训练', label: '关节活动度训练' },
-                          { value: '肌力训练', label: '肌力训练' },
-                          { value: '本体感觉训练', label: '本体感觉训练' },
-                          { value: '平衡训练', label: '平衡训练' },
-                          { value: '步态训练', label: '步态训练' },
-                          { value: '力量训练', label: '力量训练' },
-                          { value: '功能训练', label: '功能训练' },
-                          { value: '物理因子', label: '物理因子' },
-                          { value: '核心稳定训练', label: '核心稳定训练' },
-                          { value: '姿势管理', label: '姿势管理' },
-                          { value: '牵伸训练', label: '牵伸训练' },
-                          { value: '特异性侧弯体操(SSE)', label: '特异性侧弯体操(SSE)' },
-                          { value: '安全策略', label: '安全策略' },
-                          { value: '其他', label: '其他' },
-                        ]}
+                        options={TREATMENT_TYPES.map((t) => ({ value: t, label: t }))}
                       />
                     </Form.Item>
                     <Form.Item {...restField} name={[name, 'name']} rules={[{ required: true, message: '名称' }]}>
@@ -430,7 +417,7 @@ export default function PrescriptionPage() {
                     <Form.Item {...restField} name={[name, 'notes']}>
                       <Input placeholder="备注" style={{ width: 120 }} />
                     </Form.Item>
-                    <MinusCircleOutlined onClick={() => remove(name)} style={{ color: '#ff4d4f' }} />
+                    {fields.length > 1 && <MinusCircleOutlined onClick={() => remove(name)} style={{ color: '#ff4d4f' }} />}
                   </Space>
                 ))}
                 <Button type="dashed" onClick={() => add()} block icon={<PlusOutlined />}>添加治疗项目</Button>

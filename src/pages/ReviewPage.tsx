@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react'
 import {
-  Table, Button, Modal, Descriptions, Tag, Space, Input, Typography, Card, Divider, message, Form, Select, DatePicker,
+  Table, Button, Modal, Descriptions, Tag, Space, Input, Typography, Card, Divider, message, Form, Select, DatePicker, Alert,
 } from 'antd'
 import { CheckCircleOutlined, EditOutlined, EyeOutlined, PlusOutlined, MinusCircleOutlined } from '@ant-design/icons'
 import dayjs from 'dayjs'
 import { v4 as uuid } from 'uuid'
 import { useAppStore } from '@/store/useAppStore'
+import AssessmentEvidence from '@/components/AssessmentEvidence'
 import type { Prescription, RehabGoal, TreatmentPlanItem } from '@/types'
 
 const { Paragraph, Text } = Typography
@@ -18,11 +19,56 @@ const STATUS_MAP: Record<string, { label: string; color: string }> = {
   archived: { label: '已归档', color: 'default' },
 }
 
+const PRIORITY_COLOR: Record<string, string> = { high: 'red', medium: 'orange', low: 'blue' }
+const PRIORITY_LABEL: Record<string, string> = { high: '高', medium: '中', low: '低' }
+
 const TREATMENT_TYPES = [
   '关节活动度训练', '肌力训练', '本体感觉训练', '平衡训练',
   '步态训练', '力量训练', '功能训练', '物理因子',
   '核心稳定训练', '姿势管理', '牵伸训练', '特异性侧弯体操(SSE)', '安全策略', '其他',
 ]
+
+function GoalsPlanChain({ goals, treatmentPlan }: { goals: RehabGoal[]; treatmentPlan: TreatmentPlanItem[] }) {
+  return (
+    <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start' }}>
+      <Card size="small" title="🎯 康复目标" style={{ flex: 1, borderLeft: '4px solid #52c41a', minWidth: 0 }}>
+        {goals.map((g, idx) => (
+          <div key={g.id} style={{ marginBottom: 8, paddingBottom: 8, borderBottom: idx < goals.length - 1 ? '1px dashed #eee' : 'none' }}>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+              <Tag color={PRIORITY_COLOR[g.priority]}>{PRIORITY_LABEL[g.priority]}</Tag>
+              <div style={{ flex: 1 }}>
+                <div><Text strong>{g.description}</Text></div>
+                <div style={{ fontSize: 12, color: '#999', marginTop: 2 }}>指标: {g.measurable} | 目标: {g.targetDate}</div>
+                {treatmentPlan.length > 0 && idx < treatmentPlan.length && (
+                  <div style={{ marginTop: 4, paddingLeft: 8, borderLeft: '2px solid #d9d9d9' }}>
+                    <Text type="secondary" style={{ fontSize: 11 }}>→ 对应治疗:</Text>
+                    <Tag color="purple" style={{ marginLeft: 4, fontSize: 11 }}>{treatmentPlan[idx].type} - {treatmentPlan[idx].name}</Tag>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        ))}
+      </Card>
+
+      <div style={{ display: 'flex', alignItems: 'center', fontSize: 24, color: '#52c41a', padding: '20px 0' }}>→</div>
+
+      <Card size="small" title="💊 治疗计划" style={{ flex: 1, borderLeft: '4px solid #722ed1', minWidth: 0 }}>
+        {treatmentPlan.map((tp) => (
+          <div key={tp.id} style={{ marginBottom: 8, paddingBottom: 8, borderBottom: '1px dashed #eee' }}>
+            <div>
+              <Tag color="purple">{tp.type}</Tag>
+              <Text strong>{tp.name}</Text>
+            </div>
+            <div style={{ fontSize: 12, color: '#666', marginTop: 2 }}>
+              {tp.frequency} | {tp.duration} {tp.notes && `| ${tp.notes}`}
+            </div>
+          </div>
+        ))}
+      </Card>
+    </div>
+  )
+}
 
 export default function ReviewPage() {
   const { prescriptions, prescriptionHistory, getPatientById, assessments, approvePrescription, adjustPrescription } = useAppStore()
@@ -89,6 +135,15 @@ export default function ReviewPage() {
         notes: tp.notes ?? '',
       }))
 
+      if (goals.length === 0) {
+        message.error('康复目标不能为空，请至少保留1项目标')
+        return
+      }
+      if (treatmentPlan.length === 0) {
+        message.error('治疗计划不能为空，请至少保留1项治疗')
+        return
+      }
+
       adjustPrescription(adjustRx.id, { goals, treatmentPlan, rationale: values.rationale }, adjustComment)
       setAdjustRx(null)
       setAdjustComment('')
@@ -129,16 +184,22 @@ export default function ReviewPage() {
           <div style={{ marginBottom: 8 }}>
             <Text type="secondary">评估结论: </Text>
             <Text>{assessment.conclusion}</Text>
+            {assessment.scales.length > 0 && (
+              <div style={{ marginTop: 4 }}>
+                <Text type="secondary">量表: </Text>
+                {assessment.scales.map((s) => (
+                  <Tag key={s.id} style={{ marginBottom: 2, fontSize: 11 }}>
+                    {s.name}: <Text strong style={{ color: s.score / s.maxScore < 0.4 ? '#52c41a' : s.score / s.maxScore < 0.7 ? '#faad14' : '#ff4d4f' }}>{s.score}/{s.maxScore}</Text>
+                  </Tag>
+                ))}
+              </div>
+            )}
           </div>
         )}
-        <div style={{ marginBottom: 8 }}>
-          <Text type="secondary">处方依据: </Text>
-          <Text>{rx.rationale}</Text>
-        </div>
         <div style={{ marginBottom: 4 }}>
           <Text type="secondary">康复目标: </Text>
           {rx.goals.map((g) => (
-            <Tag key={g.id} color={g.priority === 'high' ? 'red' : g.priority === 'medium' ? 'orange' : 'blue'} style={{ marginBottom: 4 }}>
+            <Tag key={g.id} color={PRIORITY_COLOR[g.priority]} style={{ marginBottom: 4 }}>
               {g.description}
             </Tag>
           ))}
@@ -169,27 +230,29 @@ export default function ReviewPage() {
         onOk={() => reviewRx && handleApprove(reviewRx)}
         onCancel={() => setReviewRx(null)}
         okText="确认批准"
+        width={700}
       >
-        {reviewRx && (
-          <>
-            <Descriptions column={2} size="small">
-              <Descriptions.Item label="患者">{getPatientById(reviewRx.patientId)?.name}</Descriptions.Item>
-              <Descriptions.Item label="版本">V{reviewRx.version}</Descriptions.Item>
-            </Descriptions>
-            <div style={{ marginTop: 8, marginBottom: 4 }}>
-              <Text type="secondary">康复目标: </Text>
-              {reviewRx.goals.map((g) => (
-                <Tag key={g.id} color={g.priority === 'high' ? 'red' : g.priority === 'medium' ? 'orange' : 'blue'}>
-                  {g.description}
-                </Tag>
-              ))}
-            </div>
-            <div style={{ marginTop: 12 }}>
-              <Text>审核意见:</Text>
-              <Input.TextArea rows={3} value={approveComment} onChange={(e) => setApproveComment(e.target.value)} placeholder="填写审核意见（可选）" />
-            </div>
-          </>
-        )}
+        {reviewRx && (() => {
+          const assessment = getAssessment(reviewRx.assessmentId)
+          return (
+            <>
+              <Descriptions column={2} size="small">
+                <Descriptions.Item label="患者">{getPatientById(reviewRx.patientId)?.name}</Descriptions.Item>
+                <Descriptions.Item label="版本">V{reviewRx.version}</Descriptions.Item>
+              </Descriptions>
+
+              {assessment && <AssessmentEvidence assessment={assessment} compact />}
+
+              <Divider orientation="left" style={{ margin: '8px 0' }}>目标 → 治疗</Divider>
+              <GoalsPlanChain goals={reviewRx.goals} treatmentPlan={reviewRx.treatmentPlan} />
+
+              <div style={{ marginTop: 12 }}>
+                <Text>审核意见:</Text>
+                <Input.TextArea rows={3} value={approveComment} onChange={(e) => setApproveComment(e.target.value)} placeholder="填写审核意见（可选）" />
+              </div>
+            </>
+          )
+        })()}
       </Modal>
 
       <Modal
@@ -212,29 +275,15 @@ export default function ReviewPage() {
                 <Descriptions.Item label="调整后版本">V{adjustRx.version + 1}</Descriptions.Item>
               </Descriptions>
 
-              {assessment && (
-                <Card size="small" style={{ marginBottom: 8, background: '#f6ffed', borderLeft: '4px solid #52c41a' }}>
-                  <Text strong>评估结论: </Text><Text>{assessment.conclusion}</Text>
-                  {assessment.contraindications.length > 0 && (
-                    <div style={{ marginTop: 4 }}>
-                      <Text type="secondary">训练禁忌: </Text>
-                      {assessment.contraindications.map((ci) => (
-                        <Tag key={ci.id} color={ci.type === 'absolute' ? 'red' : 'orange'}>
-                          {ci.type === 'absolute' ? '绝对' : '相对'}: {ci.description}
-                        </Tag>
-                      ))}
-                    </div>
-                  )}
-                </Card>
-              )}
+              {assessment && <AssessmentEvidence assessment={assessment} compact />}
 
               <Paragraph type="secondary" style={{ margin: '8px 0' }}>
                 修改下方目标和治疗项目，确认后当前 V{adjustRx.version} 将归档，生成新版本 V{adjustRx.version + 1}。
               </Paragraph>
 
               <Form form={adjustForm} layout="vertical">
-                <Divider orientation="left" style={{ margin: '8px 0' }}>康复目标（可修改/增删）</Divider>
-                <Form.List name="goals">
+                <Divider orientation="left" style={{ margin: '8px 0' }}>康复目标（可修改/增删，至少1项）</Divider>
+                <Form.List name="goals" rules={[{ validator: async (_, value) => { if (!value || value.length < 1) return Promise.reject(new Error('至少保留1项康复目标')) } }]}>
                   {(fields, { add, remove }) => (
                     <>
                       {fields.map(({ key, name, ...restField }) => (
@@ -253,7 +302,7 @@ export default function ReviewPage() {
                               options={[{ value: 'high', label: '高' }, { value: 'medium', label: '中' }, { value: 'low', label: '低' }]}
                             />
                           </Form.Item>
-                          <MinusCircleOutlined onClick={() => remove(name)} style={{ color: '#ff4d4f' }} />
+                          {fields.length > 1 && <MinusCircleOutlined onClick={() => remove(name)} style={{ color: '#ff4d4f' }} />}
                         </Space>
                       ))}
                       <Button type="dashed" onClick={() => add()} block icon={<PlusOutlined />} style={{ marginBottom: 8 }}>添加目标</Button>
@@ -261,8 +310,8 @@ export default function ReviewPage() {
                   )}
                 </Form.List>
 
-                <Divider orientation="left" style={{ margin: '8px 0' }}>治疗计划（可修改/增删）</Divider>
-                <Form.List name="treatmentPlan">
+                <Divider orientation="left" style={{ margin: '8px 0' }}>治疗计划（可修改/增删，至少1项）</Divider>
+                <Form.List name="treatmentPlan" rules={[{ validator: async (_, value) => { if (!value || value.length < 1) return Promise.reject(new Error('至少保留1项治疗项目')) } }]}>
                   {(fields, { add, remove }) => (
                     <>
                       {fields.map(({ key, name, ...restField }) => (
@@ -284,7 +333,7 @@ export default function ReviewPage() {
                           <Form.Item {...restField} name={[name, 'notes']}>
                             <Input placeholder="备注" style={{ width: 100 }} />
                           </Form.Item>
-                          <MinusCircleOutlined onClick={() => remove(name)} style={{ color: '#ff4d4f' }} />
+                          {fields.length > 1 && <MinusCircleOutlined onClick={() => remove(name)} style={{ color: '#ff4d4f' }} />}
                         </Space>
                       ))}
                       <Button type="dashed" onClick={() => add()} block icon={<PlusOutlined />} style={{ marginBottom: 8 }}>添加治疗项目</Button>
@@ -310,7 +359,7 @@ export default function ReviewPage() {
         open={!!detailRx}
         onCancel={() => setDetailRx(null)}
         footer={null}
-        width={800}
+        width={1100}
       >
         {detailRx && (() => {
           const patient = getPatientById(detailRx.patientId)
@@ -326,51 +375,20 @@ export default function ReviewPage() {
                 <Descriptions.Item label="状态"><Tag color={STATUS_MAP[detailRx.status]?.color}>{STATUS_MAP[detailRx.status]?.label}</Tag></Descriptions.Item>
               </Descriptions>
 
-              {assessment && (
-                <>
-                  <Divider orientation="left">关联评估</Divider>
-                  <Paragraph style={{ background: '#f6ffed', padding: 12, borderRadius: 6, borderLeft: '4px solid #52c41a' }}>
-                    {assessment.conclusion}
-                  </Paragraph>
-                  {assessment.contraindications.length > 0 && (
-                    <div style={{ marginTop: 8 }}>
-                      <Text type="secondary">训练禁忌: </Text>
-                      {assessment.contraindications.map((ci) => (
-                        <Tag key={ci.id} color={ci.type === 'absolute' ? 'red' : 'orange'}>
-                          {ci.type === 'absolute' ? '绝对' : '相对'}: {ci.description}
-                        </Tag>
-                      ))}
-                    </div>
-                  )}
-                </>
-              )}
+              <Divider orientation="left" style={{ marginTop: 16 }}>评估证据链回看</Divider>
+              <Alert
+                type="info"
+                message="证据链：评估量表评分 → 疼痛点 → 训练禁忌 → 康复目标 → 治疗计划"
+                style={{ marginBottom: 8 }}
+                showIcon
+              />
+              {assessment && <AssessmentEvidence assessment={assessment} />}
+
+              <Divider orientation="left">目标 → 治疗 串联</Divider>
+              <GoalsPlanChain goals={detailRx.goals} treatmentPlan={detailRx.treatmentPlan} />
 
               <Divider orientation="left">处方依据</Divider>
               <Paragraph>{detailRx.rationale}</Paragraph>
-
-              <Divider orientation="left">康复目标</Divider>
-              {detailRx.goals.map((g) => (
-                <div key={g.id} style={{ marginBottom: 4 }}>
-                  <Tag color={g.priority === 'high' ? 'red' : g.priority === 'medium' ? 'orange' : 'blue'}>{g.priority === 'high' ? '高' : g.priority === 'medium' ? '中' : '低'}</Tag>
-                  <Text>{g.description}</Text>
-                  <Text type="secondary" style={{ marginLeft: 8 }}>指标: {g.measurable} | 目标日期: {g.targetDate}</Text>
-                </div>
-              ))}
-
-              <Divider orientation="left">治疗计划</Divider>
-              <Table
-                dataSource={detailRx.treatmentPlan}
-                rowKey="id"
-                size="small"
-                pagination={false}
-                columns={[
-                  { title: '类型', dataIndex: 'type', key: 'type', render: (v: string) => <Tag color="purple">{v}</Tag> },
-                  { title: '名称', dataIndex: 'name', key: 'name' },
-                  { title: '频率', dataIndex: 'frequency', key: 'frequency' },
-                  { title: '时长', dataIndex: 'duration', key: 'duration' },
-                  { title: '备注', dataIndex: 'notes', key: 'notes' },
-                ]}
-              />
 
               {detailRx.reviewComment && (
                 <>
