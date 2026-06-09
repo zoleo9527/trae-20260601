@@ -12,7 +12,7 @@ export const orders: Order[] = [
     returnType: 'exchange',
     status: 'pending_review',
     isStuck: false,
-    assignedRole: 'sales_clerk',
+    assignedRole: 'after_sales',
     remarks: [
       { id: 'r1', author: '王芳', role: 'sales_clerk', content: '客户反映批次号与下单时不一致，要求换货', createdAt: '2026-06-07 09:30' },
     ],
@@ -72,9 +72,9 @@ export const orders: Order[] = [
     returnType: 'exchange',
     status: 'fee_adjusting',
     isStuck: true,
-    stuckReason: '费用调整方案已提交48小时但售后专员未审批',
-    stuckStep: '售后专员审批费用调整',
-    assignedRole: 'after_sales',
+    stuckReason: '费用调整方案已提交48小时但销售内勤未确认',
+    stuckStep: '销售内勤确认费用调整',
+    assignedRole: 'sales_clerk',
     feeAdjustment: {
       id: 'f2',
       orderId: 'o3',
@@ -145,7 +145,7 @@ export const orders: Order[] = [
     returnType: 'exchange',
     status: 'approved',
     isStuck: false,
-    assignedRole: 'after_sales',
+    assignedRole: 'warehouse',
     remarks: [
       { id: 'r8', author: '张敏', role: 'after_sales', content: '审核通过，确认为物流运输损坏，安排换货', createdAt: '2026-06-08 10:30' },
     ],
@@ -167,7 +167,7 @@ export const orders: Order[] = [
     returnType: 'return',
     status: 'pending_review',
     isStuck: false,
-    assignedRole: 'sales_clerk',
+    assignedRole: 'after_sales',
     remarks: [
       { id: 'r9', author: '王芳', role: 'sales_clerk', content: '客户报修后确认无法修复，申请退货退款', createdAt: '2026-06-08 14:00' },
     ],
@@ -189,7 +189,7 @@ export const orders: Order[] = [
     returnType: 'exchange',
     status: 'approved',
     isStuck: false,
-    assignedRole: 'after_sales',
+    assignedRole: 'warehouse',
     remarks: [
       { id: 'r10', author: '张敏', role: 'after_sales', content: '审核通过，确认为出库数量短缺，安排补发', createdAt: '2026-06-08 16:30' },
     ],
@@ -234,7 +234,7 @@ export const orders: Order[] = [
     returnType: 'exchange',
     status: 'fee_adjusting',
     isStuck: false,
-    assignedRole: 'after_sales',
+    assignedRole: 'sales_clerk',
     feeAdjustment: {
       id: 'f4',
       orderId: 'o9',

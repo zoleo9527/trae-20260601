@@ -59,11 +59,11 @@ export interface Order {
 }
 
 export const STATUS_ROLE_MAP: Record<OrderStatus, UserRole> = {
-  pending_review: 'sales_clerk',
-  approved: 'after_sales',
+  pending_review: 'after_sales',
+  approved: 'warehouse',
   rejected: 'sales_clerk',
   warehousing: 'warehouse',
-  fee_adjusting: 'after_sales',
+  fee_adjusting: 'sales_clerk',
   completed: 'sales_clerk',
 }
 

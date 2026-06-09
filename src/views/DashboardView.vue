@@ -178,6 +178,7 @@ const roleActionMap: Record<UserRole, Record<string, string>> = {
     pending_review: '提交退换申请',
     rejected: '重新提交申请',
     completed: '归档处理',
+    fee_adjusting: '确认费用调整',
   },
   warehouse: {
     approved: '确认换发出库',
@@ -186,7 +187,7 @@ const roleActionMap: Record<UserRole, Record<string, string>> = {
   after_sales: {
     pending_review: '审核退换申请',
     approved: '发起费用调整',
-    fee_adjusting: '审批费用调整',
+    fee_adjusting: '重新发起费用调整',
   },
 }
 

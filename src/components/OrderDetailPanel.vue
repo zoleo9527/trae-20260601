@@ -58,11 +58,14 @@ const showConfirmReturn = computed(() =>
   roleStore.currentRole === 'warehouse' && is('approved') && order.value?.returnType === 'return' && !order.value?.feeAdjustment
 )
 const showApproveFee = computed(() =>
-  (roleStore.currentRole === 'after_sales' || roleStore.currentRole === 'sales_clerk') && is('fee_adjusting') && order.value?.feeAdjustment?.status === 'pending'
+  roleStore.currentRole === 'sales_clerk' && is('fee_adjusting') && order.value?.feeAdjustment?.status === 'pending'
 )
 
 function handleApprove() {
-  if (order.value) ordersStore.updateOrderStatus(order.value.id, 'approved')
+  if (order.value) {
+    const nextStatus: OrderStatus = order.value.returnType === 'exchange' ? 'approved' : 'warehousing'
+    ordersStore.updateOrderStatus(order.value.id, nextStatus)
+  }
 }
 
 function handleReject() {
@@ -70,7 +73,7 @@ function handleReject() {
 }
 
 function handleSubmit() {
-  if (order.value) ordersStore.updateOrderStatus(order.value.id, 'approved')
+  if (order.value) ordersStore.updateOrderStatus(order.value.id, 'pending_review')
 }
 
 function handleFeeAdjust() {
