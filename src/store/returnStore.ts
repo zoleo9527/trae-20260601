@@ -51,6 +51,9 @@ interface ReturnItemDetail extends ReturnItem {
 interface ReturnFilters {
   status: string
   keyword: string
+  assigneeId: string
+  startDate: string
+  endDate: string
 }
 
 interface ReturnState {
@@ -58,9 +61,12 @@ interface ReturnState {
   currentReturn: ReturnItemDetail | null
   pagination: { page: number; pageSize: number; total: number }
   filters: ReturnFilters
+  statusStats: Record<string, number>
+  users: { id: number; displayName: string; role: string }[]
   loading: boolean
   fetchReturns: () => Promise<void>
   fetchReturnDetail: (id: number) => Promise<void>
+  fetchUsers: () => Promise<void>
   createReturn: (data: { trackingNo: string; reason: string; remark?: string }) => Promise<void>
   processReturn: (id: number, action: string, remark?: string) => Promise<void>
   createReview: (id: number, data: { conclusion: string; improvement?: string }) => Promise<void>
@@ -80,7 +86,9 @@ export const useReturnStore = create<ReturnState>()((set, get) => ({
   returns: [],
   currentReturn: null,
   pagination: { page: 1, pageSize: 20, total: 0 },
-  filters: { status: '', keyword: '' },
+  filters: { status: '', keyword: '', assigneeId: '', startDate: '', endDate: '' },
+  statusStats: {},
+  users: [],
   loading: false,
 
   fetchReturns: async () => {
@@ -93,6 +101,9 @@ export const useReturnStore = create<ReturnState>()((set, get) => ({
       })
       if (filters.status) params.set('status', filters.status)
       if (filters.keyword) params.set('keyword', filters.keyword)
+      if (filters.assigneeId) params.set('assigneeId', filters.assigneeId)
+      if (filters.startDate) params.set('startDate', filters.startDate)
+      if (filters.endDate) params.set('endDate', filters.endDate)
 
       const res = await fetch(`/api/returns?${params}`, {
         headers: getHeaders(),
@@ -102,6 +113,7 @@ export const useReturnStore = create<ReturnState>()((set, get) => ({
       set({
         returns: json.data.list,
         pagination: { ...pagination, total: json.data.total },
+        statusStats: json.data.statusStats || {},
       })
     } catch (e) {
       console.error(e)
@@ -123,6 +135,19 @@ export const useReturnStore = create<ReturnState>()((set, get) => ({
       console.error(e)
     } finally {
       set({ loading: false })
+    }
+  },
+
+  fetchUsers: async () => {
+    try {
+      const res = await fetch('/api/auth/users', {
+        headers: getHeaders(),
+      })
+      if (!res.ok) throw new Error('获取用户列表失败')
+      const json = await res.json()
+      set({ users: json.data })
+    } catch (e) {
+      console.error(e)
     }
   },
 

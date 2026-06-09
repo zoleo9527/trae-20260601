@@ -60,6 +60,8 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_returns_status ON returns(status);
   CREATE INDEX IF NOT EXISTS idx_returns_created_by ON returns(created_by);
   CREATE INDEX IF NOT EXISTS idx_returns_tracking_no ON returns(tracking_no);
+  CREATE INDEX IF NOT EXISTS idx_returns_assigned_to ON returns(assigned_to);
+  CREATE INDEX IF NOT EXISTS idx_returns_updated_at ON returns(updated_at);
   CREATE INDEX IF NOT EXISTS idx_return_logs_return_id ON return_logs(return_id);
   CREATE INDEX IF NOT EXISTS idx_reviews_return_id ON reviews(return_id);
 `)

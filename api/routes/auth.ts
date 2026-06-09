@@ -72,4 +72,21 @@ router.get('/me', verifyToken, (req: RequestWithUser, res: Response): void => {
   })
 })
 
+router.get('/users', verifyToken, (_req: RequestWithUser, res: Response): void => {
+  const users = db.prepare('SELECT id, display_name, role FROM users ORDER BY role, id').all() as {
+    id: number
+    display_name: string
+    role: string
+  }[]
+
+  res.status(200).json({
+    success: true,
+    data: users.map(u => ({
+      id: u.id,
+      displayName: u.display_name,
+      role: u.role,
+    })),
+  })
+})
+
 export default router

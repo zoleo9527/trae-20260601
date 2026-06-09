@@ -106,6 +106,9 @@ router.get('/', (req: RequestWithUser, res: Response): void => {
   const pageSize = Math.min(100, Math.max(1, parseInt(req.query.pageSize as string) || 20))
   const status = req.query.status as string | undefined
   const keyword = req.query.keyword as string | undefined
+  const assigneeId = req.query.assigneeId as string | undefined
+  const startDate = req.query.startDate as string | undefined
+  const endDate = req.query.endDate as string | undefined
   const offset = (page - 1) * pageSize
 
   let whereClauses: string[] = []
@@ -119,6 +122,24 @@ router.get('/', (req: RequestWithUser, res: Response): void => {
   if (keyword) {
     whereClauses.push('r.tracking_no LIKE ?')
     params.push(`%${keyword}%`)
+  }
+
+  if (assigneeId) {
+    const aid = parseInt(assigneeId)
+    if (!isNaN(aid)) {
+      whereClauses.push('r.assigned_to = ?')
+      params.push(aid)
+    }
+  }
+
+  if (startDate) {
+    whereClauses.push('r.updated_at >= ?')
+    params.push(startDate)
+  }
+
+  if (endDate) {
+    whereClauses.push('r.updated_at <= ?')
+    params.push(endDate + ' 23:59:59')
   }
 
   if (req.user.role === '客服') {
@@ -143,6 +164,42 @@ router.get('/', (req: RequestWithUser, res: Response): void => {
      LIMIT ? OFFSET ?`
   ).all(...params, pageSize, offset) as any[]
 
+  let statsWhereClauses: string[] = []
+  let statsParams: any[] = []
+
+  if (assigneeId) {
+    const aid = parseInt(assigneeId)
+    if (!isNaN(aid)) {
+      statsWhereClauses.push('assigned_to = ?')
+      statsParams.push(aid)
+    }
+  }
+  if (startDate) {
+    statsWhereClauses.push('updated_at >= ?')
+    statsParams.push(startDate)
+  }
+  if (endDate) {
+    statsWhereClauses.push('updated_at <= ?')
+    statsParams.push(endDate + ' 23:59:59')
+  }
+  if (req.user.role === '客服') {
+    statsWhereClauses.push('created_by = ?')
+    statsParams.push(req.user.id)
+  } else if (req.user.role === '派件员') {
+    statsWhereClauses.push('(assigned_to = ? OR status = ?)')
+    statsParams.push(req.user.id, '待派件员确认')
+  }
+
+  const statsWhereStr = statsWhereClauses.length > 0 ? 'WHERE ' + statsWhereClauses.join(' AND ') : ''
+  const statsRows = db.prepare(
+    `SELECT status, COUNT(*) as count FROM returns ${statsWhereStr} GROUP BY status`
+  ).all(...statsParams) as { status: string; count: number }[]
+
+  const statusStats: Record<string, number> = {}
+  for (const row of statsRows) {
+    statusStats[row.status] = row.count
+  }
+
   res.status(200).json({
     success: true,
     data: {
@@ -161,6 +218,7 @@ router.get('/', (req: RequestWithUser, res: Response): void => {
       total: countRow.total,
       page,
       pageSize,
+      statusStats,
     },
   })
 })
