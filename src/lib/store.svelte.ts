@@ -41,6 +41,39 @@ let linkedDamageForCompensation = $derived(
   selectedCompensation ? damages.find(d => d.id === selectedCompensation.damageRecordId) ?? null : null
 )
 
+function recalcDamageHasGap(damageId: string) {
+  const d = damages.find(d => d.id === damageId)
+  if (!d) return
+  const chainHasGap = d.responsibilityChain.some(n => n.isGap)
+  const timelineHasGap = d.timeline.some(n => n.isGap)
+  d.hasGap = chainHasGap || timelineHasGap
+}
+
+function recalcCompensationHasGap(compId: string) {
+  const c = compensations.find(c => c.id === compId)
+  if (!c) return
+  c.hasGap = c.responsibilityLinks.some(l => l.isGap)
+}
+
+function syncCompensationFromDamage(damageId: string) {
+  const d = damages.find(d => d.id === damageId)
+  if (!d) return
+  const comp = compensations.find(c => c.damageRecordId === damageId)
+  if (!comp) return
+
+  comp.responsibilityLinks = d.responsibilityChain.slice(0, -1).map((node, i) => {
+    const next = d.responsibilityChain[i + 1]
+    return {
+      from: { name: node.name, role: node.role, segment: node.segment },
+      to: { name: next.name, role: next.role, segment: next.segment },
+      isGap: node.isGap || next.isGap
+    }
+  })
+
+  recalcCompensationHasGap(comp.id)
+  comp.updatedAt = new Date().toISOString()
+}
+
 export function getStore() {
   return {
     get currentRole() { return currentRole },
@@ -72,20 +105,82 @@ export function getStore() {
 
     assignResponsible(damageId: string, name: string, role: UserRole) {
       const d = damages.find(d => d.id === damageId)
-      if (d) {
-        d.currentResponsible = { name, role }
-        if (d.status === 'pending') d.status = 'processing'
-        if (d.status === 'anomaly' && d.currentResponsible) d.status = 'processing'
-        d.updatedAt = new Date().toISOString()
-        d.timeline.push({
-          id: 'tn-assign-' + Date.now(),
-          event: '指派责任人',
-          timestamp: new Date().toISOString(),
-          responsible: { name, role },
-          description: `${ROLE_LABELS[role]} ${name} 被指派为当前责任人`,
-          isGap: false
-        })
+      if (!d) return
+
+      const now = new Date().toISOString()
+      d.currentResponsible = { name, role }
+      if (d.status === 'pending') d.status = 'processing'
+      if (d.status === 'anomaly' && d.currentResponsible) d.status = 'processing'
+      d.updatedAt = now
+
+      d.responsibilityChain = d.responsibilityChain.map(node => {
+        if (node.isGap) {
+          return {
+            ...node,
+            name,
+            role,
+            isGap: false
+          }
+        }
+        return node
+      })
+
+      d.timeline = d.timeline.map(node => {
+        if (node.isGap && !node.responsible) {
+          return {
+            ...node,
+            responsible: { name, role },
+            isGap: false
+          }
+        }
+        return node
+      })
+
+      recalcDamageHasGap(damageId)
+      syncCompensationFromDamage(damageId)
+
+      d.timeline.push({
+        id: 'tn-assign-' + Date.now(),
+        event: '指派责任人',
+        timestamp: now,
+        responsible: { name, role },
+        description: `${ROLE_LABELS[role]} ${name} 被指派为当前责任人，责任链空档已补全`,
+        isGap: false
+      })
+    },
+
+    fillGapNode(damageId: string, chainNodeId: string, name: string, role: UserRole) {
+      const d = damages.find(d => d.id === damageId)
+      if (!d) return
+
+      const now = new Date().toISOString()
+      const chainNode = d.responsibilityChain.find(n => n.id === chainNodeId)
+      if (!chainNode || !chainNode.isGap) return
+
+      chainNode.name = name
+      chainNode.role = role
+      chainNode.isGap = false
+
+      const matchingTimeline = d.timeline.find(
+        t => t.isGap && t.event.includes(chainNode.segment)
+      )
+      if (matchingTimeline) {
+        matchingTimeline.responsible = { name, role }
+        matchingTimeline.isGap = false
       }
+
+      recalcDamageHasGap(damageId)
+      syncCompensationFromDamage(damageId)
+      d.updatedAt = now
+
+      d.timeline.push({
+        id: 'tn-fill-' + Date.now(),
+        event: '补全责任链',
+        timestamp: now,
+        responsible: { name, role },
+        description: `${chainNode.segment} 环节指派 ${ROLE_LABELS[role]} ${name}，空档已补全`,
+        isGap: false
+      })
     },
 
     submitCompensationMaterial(compId: string, materialId: string) {

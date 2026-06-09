@@ -1,4 +1,5 @@
 <script lang="ts">
+	import '../app.css';
 	import favicon from '$lib/assets/favicon.svg';
 	import { getStore } from '$lib/store.svelte';
 	import { ROLE_LABELS } from '$lib/types';

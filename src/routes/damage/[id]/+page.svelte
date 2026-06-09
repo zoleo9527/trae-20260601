@@ -15,6 +15,10 @@
   let assignName = $state('')
   let assignRole = $state<UserRole>('freight_clerk')
 
+  let fillGapTargetId = $state<string | null>(null)
+  let fillGapName = $state('')
+  let fillGapRole = $state<UserRole>('freight_clerk')
+
   function formatDate(iso: string) {
     return new Date(iso).toLocaleString('zh-CN', {
       month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit'
@@ -48,6 +52,21 @@
     showAssignModal = false
     assignName = ''
   }
+
+  function openFillGap(chainNodeId: string) {
+    fillGapTargetId = chainNodeId
+    fillGapName = ''
+    fillGapRole = 'freight_clerk'
+  }
+
+  function handleFillGap() {
+    if (!fillGapName.trim() || !damage || !fillGapTargetId) return
+    store.fillGapNode(damage.id, fillGapTargetId, fillGapName.trim(), fillGapRole)
+    fillGapTargetId = null
+    fillGapName = ''
+  }
+
+  let gapChainNodes = $derived(damage ? damage.responsibilityChain.filter(n => n.isGap) : [])
 </script>
 
 {#if damage}
@@ -65,6 +84,10 @@
           {#if damage.hasGap}
             <span class="flex items-center gap-1 text-xs text-danger animate-pulse-danger">
               <AlertCircle size={14} /> 责任链空档
+            </span>
+          {:else}
+            <span class="flex items-center gap-1 text-xs text-success">
+              ✓ 责任链完整
             </span>
           {/if}
         </div>
@@ -184,7 +207,14 @@
                 <p class="text-xs font-bold {node.isGap ? 'text-danger' : 'text-rail-blue'}">{node.segment}</p>
                 <p class="text-xs {node.isGap ? 'text-danger' : 'text-iron-700'}">{node.name}</p>
                 {#if node.isGap}
-                  <p class="text-xs text-danger mt-0.5">⚠ 空档</p>
+                  <button
+                    onclick={() => openFillGap(node.id)}
+                    class="mt-1 px-2 py-0.5 text-xs bg-danger text-white rounded hover:bg-danger/80 transition-colors"
+                  >
+                    补全
+                  </button>
+                {:else}
+                  <p class="text-xs text-iron-400 mt-0.5">{ROLE_LABELS[node.role]}</p>
                 {/if}
               </div>
             {/each}
@@ -193,8 +223,12 @@
             <div class="mt-4 p-3 bg-danger-light/60 rounded-lg border border-danger/30">
               <p class="text-sm text-danger font-medium flex items-center gap-2">
                 <AlertCircle size={16} />
-                责任链存在空档环节，需指派责任人补全责任链
+                责任链存在 {gapChainNodes.length} 处空档，点击"补全"按钮指派责任人
               </p>
+            </div>
+          {:else}
+            <div class="mt-4 p-3 bg-success-light rounded-lg border border-success/30">
+              <p class="text-sm text-success font-medium">✓ 责任链完整，所有环节已指派责任人</p>
             </div>
           {/if}
         </section>
@@ -219,6 +253,12 @@
               <p class="font-medium text-iron-900">{damage.currentResponsible?.name ?? '未指派'}</p>
             </div>
             <div>
+              <span class="text-iron-400 text-xs">责任链</span>
+              <p class="font-medium {damage.hasGap ? 'text-danger' : 'text-success'}">
+                {damage.hasGap ? `${gapChainNodes.length} 处空档` : '完整'}
+              </p>
+            </div>
+            <div>
               <span class="text-iron-400 text-xs">最后更新</span>
               <p class="text-iron-700">{formatDate(damage.updatedAt)}</p>
             </div>
@@ -226,7 +266,7 @@
         </div>
 
         {#if linkedCompensation}
-          <div class="bg-white rounded-lg shadow p-5 sticky top-64">
+          <div class="bg-white rounded-lg shadow p-5 sticky top-80">
             <h3 class="text-sm font-bold text-iron-700 mb-3 flex items-center gap-2">
               <FileText size={14} /> 关联赔付
             </h3>
@@ -247,6 +287,12 @@
                 <div>
                   <span class="text-iron-400 text-xs">索赔人</span>
                   <p class="text-iron-700">{linkedCompensation.claimant}</p>
+                </div>
+                <div>
+                  <span class="text-iron-400 text-xs">责任链</span>
+                  <p class="font-medium {linkedCompensation.hasGap ? 'text-danger' : 'text-success'}">
+                    {linkedCompensation.hasGap ? '存在空档' : '完整'}
+                  </p>
                 </div>
               </div>
               <div class="mt-3 pt-3 border-t border-iron-100">
@@ -278,6 +324,7 @@
     <div class="fixed inset-0 bg-black/40 flex items-center justify-center z-50" onclick={() => showAssignModal = false}>
       <div role="dialog" aria-label="指派责任人" class="bg-white rounded-xl p-6 w-96 shadow-2xl" onclick={(e) => e.stopPropagation()}>
         <h2 class="text-lg font-bold text-iron-900 mb-4">指派责任人</h2>
+        <p class="text-xs text-iron-500 mb-3">将同时补全责任链中所有空档节点</p>
         <div class="space-y-4">
           <div>
             <label for="assign-name" class="block text-sm text-iron-600 mb-1">责任人姓名</label>
@@ -303,6 +350,45 @@
           <button onclick={() => showAssignModal = false} class="px-4 py-2 text-sm text-iron-600 hover:bg-iron-100 rounded-lg">取消</button>
           <button onclick={handleAssign} class="px-4 py-2 text-sm bg-rail-blue text-white rounded-lg hover:bg-rail-blue-dark disabled:opacity-50" disabled={!assignName.trim()}>
             确认指派
+          </button>
+        </div>
+      </div>
+    </div>
+  {/if}
+
+  {#if fillGapTargetId}
+    <!-- svelte-ignore a11y_no_static_element_interactions -->
+    <div class="fixed inset-0 bg-black/40 flex items-center justify-center z-50" onclick={() => fillGapTargetId = null}>
+      <div role="dialog" aria-label="补全责任链空档" class="bg-white rounded-xl p-6 w-96 shadow-2xl" onclick={(e) => e.stopPropagation()}>
+        <h2 class="text-lg font-bold text-iron-900 mb-2">补全责任链空档</h2>
+        <p class="text-xs text-danger mb-4">
+          为 {damage?.responsibilityChain.find(n => n.id === fillGapTargetId)?.segment ?? '该环节'} 指派责任人
+        </p>
+        <div class="space-y-4">
+          <div>
+            <label for="fill-name" class="block text-sm text-iron-600 mb-1">责任人姓名</label>
+            <input
+              id="fill-name"
+              type="text"
+              bind:value={fillGapName}
+              placeholder="输入姓名"
+              class="w-full px-3 py-2 rounded-lg border border-iron-300 text-sm focus:outline-none focus:ring-2 focus:ring-rail-blue/30"
+            />
+          </div>
+          <div>
+            <label for="fill-role" class="block text-sm text-iron-600 mb-1">角色</label>
+            <select id="fill-role" bind:value={fillGapRole} class="w-full px-3 py-2 rounded-lg border border-iron-300 text-sm focus:outline-none focus:ring-2 focus:ring-rail-blue/30">
+              <option value="freight_clerk">货运员</option>
+              <option value="loading_leader">装卸班长</option>
+              <option value="customer_service">客服</option>
+              <option value="station_manager">站段管理员</option>
+            </select>
+          </div>
+        </div>
+        <div class="flex justify-end gap-3 mt-6">
+          <button onclick={() => fillGapTargetId = null} class="px-4 py-2 text-sm text-iron-600 hover:bg-iron-100 rounded-lg">取消</button>
+          <button onclick={handleFillGap} class="px-4 py-2 text-sm bg-danger text-white rounded-lg hover:bg-danger/80 disabled:opacity-50" disabled={!fillGapName.trim()}>
+            补全空档
           </button>
         </div>
       </div>
