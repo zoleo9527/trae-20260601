@@ -176,7 +176,8 @@ interface TodoItem {
 const roleActionMap: Record<UserRole, Record<string, string>> = {
   sales_clerk: {
     pending_review: '提交退换申请',
-    fee_adjusting: '确认费用调整',
+    rejected: '重新提交申请',
+    completed: '归档处理',
   },
   warehouse: {
     approved: '确认换发出库',

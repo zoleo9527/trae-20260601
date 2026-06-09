@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import type { Order, Remark, OrderStatus, FeeAdjustment } from '@/types'
+import { STATUS_ROLE_MAP } from '@/types'
 import { orders as mockOrders } from '@/mock/orders'
 import { timeline as mockTimeline } from '@/mock/timeline'
 
@@ -49,10 +50,23 @@ export const useOrdersStore = defineStore('orders', () => {
     }
   }
 
+  function clearStuck(orderId: string) {
+    const order = orders.value.find((o) => o.id === orderId)
+    if (order) {
+      order.isStuck = false
+      order.stuckReason = undefined
+      order.stuckStep = undefined
+    }
+  }
+
   function updateOrderStatus(orderId: string, status: OrderStatus) {
     const order = orders.value.find((o) => o.id === orderId)
     if (order) {
       order.status = status
+      order.assignedRole = STATUS_ROLE_MAP[status]
+      order.isStuck = false
+      order.stuckReason = undefined
+      order.stuckStep = undefined
       order.updatedAt = new Date().toLocaleString('zh-CN')
     }
   }
@@ -67,6 +81,10 @@ export const useOrdersStore = defineStore('orders', () => {
         ...data,
       }
       order.status = 'fee_adjusting'
+      order.assignedRole = STATUS_ROLE_MAP['fee_adjusting']
+      order.isStuck = false
+      order.stuckReason = undefined
+      order.stuckStep = undefined
       order.updatedAt = new Date().toLocaleString('zh-CN')
     }
   }
@@ -77,6 +95,10 @@ export const useOrdersStore = defineStore('orders', () => {
       order.feeAdjustment.status = 'approved'
       order.feeAdjustment.approvedBy = '当前用户'
       order.status = 'completed'
+      order.assignedRole = STATUS_ROLE_MAP['completed']
+      order.isStuck = false
+      order.stuckReason = undefined
+      order.stuckStep = undefined
       order.updatedAt = new Date().toLocaleString('zh-CN')
     }
   }
@@ -85,6 +107,10 @@ export const useOrdersStore = defineStore('orders', () => {
     const order = orders.value.find((o) => o.id === orderId)
     if (order?.feeAdjustment) {
       order.feeAdjustment.status = 'rejected'
+      order.status = 'fee_adjusting'
+      order.isStuck = true
+      order.stuckReason = '费用调整被驳回，需要重新发起'
+      order.stuckStep = '售后专员重新发起费用调整'
       order.updatedAt = new Date().toLocaleString('zh-CN')
     }
   }
@@ -106,5 +132,6 @@ export const useOrdersStore = defineStore('orders', () => {
     createFeeAdjustment,
     approveFeeAdjustment,
     rejectFeeAdjustment,
+    clearStuck,
   }
 })

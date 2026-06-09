@@ -42,6 +42,9 @@ const showApprove = computed(() =>
 const showReject = computed(() =>
   roleStore.currentRole === 'after_sales' && is('pending_review')
 )
+const showSubmit = computed(() =>
+  roleStore.currentRole === 'sales_clerk' && is('pending_review')
+)
 const showFeeAdjust = computed(() =>
   roleStore.currentRole === 'after_sales' && is('approved') && !order.value?.feeAdjustment
 )
@@ -50,6 +53,9 @@ const showConfirmInbound = computed(() =>
 )
 const showConfirmOutbound = computed(() =>
   roleStore.currentRole === 'warehouse' && is('approved') && order.value?.returnType === 'exchange'
+)
+const showConfirmReturn = computed(() =>
+  roleStore.currentRole === 'warehouse' && is('approved') && order.value?.returnType === 'return' && !order.value?.feeAdjustment
 )
 const showApproveFee = computed(() =>
   (roleStore.currentRole === 'after_sales' || roleStore.currentRole === 'sales_clerk') && is('fee_adjusting') && order.value?.feeAdjustment?.status === 'pending'
@@ -61,6 +67,10 @@ function handleApprove() {
 
 function handleReject() {
   if (order.value) ordersStore.updateOrderStatus(order.value.id, 'rejected')
+}
+
+function handleSubmit() {
+  if (order.value) ordersStore.updateOrderStatus(order.value.id, 'approved')
 }
 
 function handleFeeAdjust() {
@@ -362,6 +372,13 @@ function focusRemark() {
             补充备注
           </button>
           <button
+            v-if="showSubmit"
+            class="px-3 py-1.5 bg-[#E8871E] text-white text-sm rounded-lg hover:bg-[#c97418] transition-colors"
+            @click="handleSubmit"
+          >
+            提交申请
+          </button>
+          <button
             v-if="showApprove"
             class="px-3 py-1.5 bg-[#2D936C] text-white text-sm rounded-lg hover:bg-[#247a59] transition-colors"
             @click="handleApprove"
@@ -409,6 +426,13 @@ function focusRemark() {
             @click="handleOutbound"
           >
             确认出库
+          </button>
+          <button
+            v-if="showConfirmReturn"
+            class="px-3 py-1.5 bg-[#2D936C] text-white text-sm rounded-lg hover:bg-[#247a59] transition-colors"
+            @click="handleInbound"
+          >
+            确认退货入库
           </button>
         </div>
         <div ref="remarkInputRef">

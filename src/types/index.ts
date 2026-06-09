@@ -58,6 +58,15 @@ export interface Order {
   updatedAt: string
 }
 
+export const STATUS_ROLE_MAP: Record<OrderStatus, UserRole> = {
+  pending_review: 'sales_clerk',
+  approved: 'after_sales',
+  rejected: 'sales_clerk',
+  warehousing: 'warehouse',
+  fee_adjusting: 'after_sales',
+  completed: 'sales_clerk',
+}
+
 export interface TimelineEvent {
   id: string
   orderId: string
