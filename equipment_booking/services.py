@@ -231,7 +231,8 @@ def mark_exception(user, order_id: UUID, reason: str) -> AppointmentOrder:
         order.previous_status = order.status
         order.status = 'exception'
         order.exception_reason = reason
-        order.save(update_fields=['status', 'previous_status', 'exception_reason', 'updated_at'])
+        order.reviewer = user
+        order.save(update_fields=['status', 'previous_status', 'exception_reason', 'reviewer_id', 'updated_at'])
 
         AlertLog.objects.create(
             order=order,
@@ -575,7 +576,8 @@ def _get_responsible_user(order: AppointmentOrder, responsible_role: str) -> dic
     elif responsible_role == 'director':
         if order.reviewer_id:
             return {'user_id': order.reviewer_id, 'username': order.reviewer.username}
-        return {'user_id': 0, 'username': '（待分配主任）'}
+        user = order.therapist
+        return {'user_id': user.id, 'username': user.username}
     return {'user_id': 0, 'username': ''}
 
 

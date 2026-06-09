@@ -885,6 +885,48 @@ class DirectorTodoTest(BaseTestCase):
         self.assertEqual(item['responsible_role'], 'receptionist')
         self.assertIn('退回', item['suggested_action'])
 
+    def test_mark_exception_writes_reviewer(self):
+        order = self._advance_to_pending_review()
+        mark_exception(self.director, order.id, reason='审核异常')
+        order.refresh_from_db()
+        self.assertEqual(order.reviewer_id, self.director.id)
+
+    def test_pending_review_exception_shows_director_as_responsible_user(self):
+        order = self._advance_to_pending_review()
+        mark_exception(self.director, order.id, reason='审核发现异常')
+        todos = get_my_todos(self.director)
+        item = next(i for i in todos['items'] if i['status'] == 'exception')
+        self.assertEqual(item['responsible_user_id'], self.director.id)
+        self.assertEqual(item['responsible_username'], self.director.username)
+
+    def test_in_use_abnormal_exception_stable_therapist_responsible(self):
+        order = self._advance_to_in_use()
+        add_usage_record(
+            user=self.therapist,
+            order_id=order.id,
+            record_data={
+                'start_time': timezone.now(),
+                'duration_minutes': 5,
+                'abnormal': True,
+                'abnormal_note': '患者疼痛',
+            },
+        )
+        order.refresh_from_db()
+        self.assertEqual(order.previous_status, 'in_use')
+        self.assertEqual(order.status, 'exception')
+
+        therapist_todos = get_my_todos(self.therapist)
+        therapist_item = next(i for i in therapist_todos['items'] if i['status'] == 'exception')
+        self.assertEqual(therapist_item['responsible_role'], 'therapist')
+        self.assertEqual(therapist_item['responsible_user_id'], self.therapist.id)
+        self.assertIn('继续记录使用', therapist_item['suggested_action'])
+
+        director_todos = get_my_todos(self.director)
+        director_item = next(i for i in director_todos['items'] if i['status'] == 'exception')
+        self.assertEqual(director_item['responsible_role'], 'therapist')
+        self.assertEqual(director_item['responsible_user_id'], self.therapist.id)
+        self.assertIn('退回', director_item['suggested_action'])
+
     def test_director_does_not_see_returned_orders_as_exception(self):
         order = self._advance_to_in_use()
         mark_exception(self.director, order.id, reason='需要重新分配')
