@@ -118,9 +118,14 @@ router.post('/', (req: Request, res: Response): void => {
     return
   }
 
-  const qual = db.prepare('SELECT * FROM qualifications WHERE id = ?').get(qualification_id) as { status: QualificationStatus } | undefined
+  const qual = db.prepare('SELECT * FROM qualifications WHERE id = ?').get(qualification_id) as { status: QualificationStatus; customer_name: string } | undefined
   if (!qual) {
     res.status(400).json({ success: false, error: '关联资质不存在' })
+    return
+  }
+
+  if (customer_name !== qual.customer_name) {
+    res.status(400).json({ success: false, error: `客户名称与资质记录不一致，应为「${qual.customer_name}」` })
     return
   }
 
@@ -209,11 +214,18 @@ router.put('/:id', (req: Request, res: Response): void => {
   }
 
   const qid = qualification_id ?? purchase.qualification_id
-  const qual = db.prepare('SELECT * FROM qualifications WHERE id = ?').get(qid) as { status: QualificationStatus } | undefined
+  const qual = db.prepare('SELECT * FROM qualifications WHERE id = ?').get(qid) as { status: QualificationStatus; customer_name: string } | undefined
   if (!qual) {
     res.status(400).json({ success: false, error: '关联资质不存在' })
     return
   }
+
+  const cname = customer_name ?? purchase.customer_name
+  if (cname !== qual.customer_name) {
+    res.status(400).json({ success: false, error: `客户名称与资质记录不一致，应为「${qual.customer_name}」` })
+    return
+  }
+
   if (qual.status === 'expired' || qual.status === 'rejected') {
     res.status(400).json({ success: false, error: '客户资质异常，请先处理资质' })
     return
@@ -236,7 +248,6 @@ router.put('/:id', (req: Request, res: Response): void => {
       }
     }
 
-    const cname = customer_name ?? purchase.customer_name
     db.prepare(`
       UPDATE purchases
       SET customer_name = ?, qualification_id = ?, qualification_status = ?, total_amount = ?, updated_at = ?

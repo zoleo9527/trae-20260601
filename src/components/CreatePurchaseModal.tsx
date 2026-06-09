@@ -38,7 +38,16 @@ export default function CreatePurchaseModal({
       .catch(() => {})
   }, [])
 
+  const handleQualChange = (qualId: string) => {
+    setFormQualId(qualId)
+    const q = qualifications.find((q) => q.id === qualId)
+    if (q) {
+      setFormCustomer(q.customer_name)
+    }
+  }
+
   const selectedQual = qualifications.find((q) => q.id === formQualId)
+  const customerLocked = !!selectedQual
   const totalAmount = formItems.reduce((sum, item) => sum + item.quantity * item.unit_price, 0)
 
   const canSubmit =
@@ -85,18 +94,25 @@ export default function CreatePurchaseModal({
         </div>
         <div className="max-h-[60vh] space-y-3 overflow-y-auto">
           <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">客户名称</label>
+            <label className="mb-1 block text-sm font-medium text-gray-700">
+              客户名称
+              {customerLocked && <span className="ml-2 text-xs font-normal text-gray-400">由关联资质自动带出</span>}
+            </label>
             <input
               value={formCustomer}
-              onChange={(e) => setFormCustomer(e.target.value)}
-              className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
+              onChange={(e) => { if (!customerLocked) setFormCustomer(e.target.value) }}
+              readOnly={customerLocked}
+              className={cn(
+                'w-full rounded-lg border px-3 py-2 text-sm',
+                customerLocked ? 'border-gray-100 bg-gray-50 text-gray-500' : 'border-gray-200',
+              )}
             />
           </div>
           <div>
             <label className="mb-1 block text-sm font-medium text-gray-700">关联资质</label>
             <select
               value={formQualId}
-              onChange={(e) => setFormQualId(e.target.value)}
+              onChange={(e) => handleQualChange(e.target.value)}
               className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
             >
               <option value="">请选择资质</option>
