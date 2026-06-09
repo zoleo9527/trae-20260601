@@ -166,11 +166,11 @@ export const initialFollowUps: FollowUp[] = [
   {
     id: 'f6',
     patientId: 'p6',
-    status: 'in_progress',
-    assigneeRole: 'nurse',
-    assigneeName: '林护士',
+    status: 'warned',
+    assigneeRole: 'ph_specialist',
+    assigneeName: '杨专员',
     createdAt: hoursAgo(52),
-    updatedAt: hoursAgo(6),
+    updatedAt: hoursAgo(4),
     deadlineHours: 48,
     indicators: [
       makeIndicator('i6-1', 'f6', '空腹血糖', 7.8, 'mmol/L', 3.9, 6.1, 6, 'nurse'),
@@ -178,6 +178,7 @@ export const initialFollowUps: FollowUp[] = [
     statusLogs: [
       makeStatusLog('sl6-1', 'f6', null, 'pending', 'ph_specialist', '杨专员', 52, '系统自动创建随访任务'),
       makeStatusLog('sl6-2', 'f6', 'pending', 'in_progress', 'nurse', '林护士', 6, '开始执行随访'),
+      makeStatusLog('sl6-3', 'f6', 'in_progress', 'warned', 'ph_specialist', '杨专员', 4, '随访超时未处理，系统自动转出预警'),
     ],
   },
   {
@@ -204,15 +205,16 @@ export const initialFollowUps: FollowUp[] = [
   {
     id: 'f8',
     patientId: 'p8',
-    status: 'pending',
-    assigneeRole: 'nurse',
-    assigneeName: '林护士',
+    status: 'warned',
+    assigneeRole: 'ph_specialist',
+    assigneeName: '杨专员',
     createdAt: hoursAgo(55),
-    updatedAt: hoursAgo(55),
+    updatedAt: hoursAgo(7),
     deadlineHours: 48,
     indicators: [],
     statusLogs: [
       makeStatusLog('sl8-1', 'f8', null, 'pending', 'ph_specialist', '杨专员', 55, '系统自动创建随访任务'),
+      makeStatusLog('sl8-2', 'f8', 'pending', 'warned', 'ph_specialist', '杨专员', 7, '随访超时未处理，系统自动转出预警'),
     ],
   },
 ]

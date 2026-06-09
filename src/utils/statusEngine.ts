@@ -44,8 +44,8 @@ export function transitionFollowUp(
   if (targetStatus === status) return null
 
   const transitions: Record<FollowUpStatus, FollowUpStatus[]> = {
-    pending: ['in_progress'],
-    in_progress: ['pending_review', 'pending'],
+    pending: ['in_progress', 'warned'],
+    in_progress: ['pending_review', 'pending', 'warned'],
     pending_review: ['completed', 'warned', 'in_progress'],
     completed: [],
     warned: ['in_progress', 'confirmed'],
