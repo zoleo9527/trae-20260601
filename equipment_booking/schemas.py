@@ -163,6 +163,32 @@ class ReviewOrderIn(Schema):
     pass_type: str = 'approve'
 
 
+class TodoItemOut(Schema):
+    order_id: UUID
+    order_no: str
+    patient_name: str
+    status: str
+    status_display: str
+    stuck_reason: str
+    responsible_role: str
+    responsible_user_id: int
+    responsible_username: str
+    over_hours: float
+    timeout_threshold: int
+    suggested_action: str
+    exception_reason: str
+    return_reason: str
+    return_target_status: str
+    created_at: datetime
+    updated_at: datetime
+
+
+class TodoGroupOut(Schema):
+    role: str
+    total: int
+    items: List[TodoItemOut]
+
+
 class StuckOrderOut(Schema):
     order: OrderOut
     stuck_hours: float

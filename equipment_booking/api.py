@@ -8,12 +8,13 @@ from equipment_booking.schemas import (
     CreateOrderIn, AssignEquipmentIn, UsageRecordIn, ReviewOrderIn,
     ReturnOrderIn, ExceptionIn, HandleAlertIn,
     OrderOut, OrderDetailOut, UsageRecordOut, AlertOut, StuckOrderOut,
-    ErrorResponse, SuccessResponse,
+    TodoGroupOut, ErrorResponse, SuccessResponse,
 )
 from equipment_booking.services import (
     create_order_with_assessment, submit_assessment, assign_equipment,
     confirm_schedule, add_usage_record, finish_usage, review_order,
     mark_exception, return_order, detect_stuck_orders, get_order_trace,
+    get_my_todos,
 )
 from equipment_booking.exceptions import BizError, ErrorCode
 
@@ -144,6 +145,11 @@ def list_orders(request, status: str = ''):
     if status:
         qs = qs.filter(status=status)
     return [_order_to_out(o) for o in qs]
+
+
+@router.get('/my-todo', response=TodoGroupOut)
+def my_todo_api(request):
+    return get_my_todos(user=request.user)
 
 
 @router.get('/stuck-orders', response=list[StuckOrderOut])
