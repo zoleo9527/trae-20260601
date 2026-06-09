@@ -1,21 +1,21 @@
 import StatusBadge from '@/components/StatusBadge'
 import Timeline from '@/components/Timeline'
-import type { AttachmentCreate, FleetAppointment, GateReleaseDetail } from '@/lib/api'
+import type { AttachmentCreate, ExceptionHandle, FleetAppointment, GateReleaseDetail } from '@/lib/api'
 import { api } from '@/lib/api'
 import {
-  ArrowLeft,
-  Calendar,
-  CheckCircle,
-  Clock,
-  FileText,
-  MapPin,
-  Package,
-  Paperclip,
-  Phone,
-  Plus,
-  Truck,
-  User,
-  XCircle,
+    ArrowLeft,
+    Calendar,
+    CheckCircle,
+    Clock,
+    FileText,
+    MapPin,
+    Package,
+    Paperclip,
+    Phone,
+    Plus,
+    Truck,
+    User,
+    XCircle,
 } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
@@ -131,11 +131,33 @@ export default function GateReleaseDetail() {
     setExcLoading(true)
     try {
       const data: ExceptionHandle = { handler: excHandler, result: excResult || undefined }
-      await api.exceptions.handle(excId, data)
+      const updated = await api.exceptions.handle(excId, data)
       setHandlingExcId(null)
       setExcHandler('')
       setExcResult('')
-      refreshAfterAction()
+      setDetail(prev => {
+        if (!prev) return prev
+        return {
+          ...prev,
+          exception_records: prev.exception_records.map(exc =>
+            exc.id === excId
+              ? { ...exc, status: updated.status, handler: updated.handler, handled_at: updated.handled_at }
+              : exc
+          ),
+          timeline_events: [
+            {
+              id: -(Date.now()),
+              entity_type: updated.entity_type,
+              entity_id: updated.entity_id,
+              event_type: '异常处理',
+              description: `异常已处理，处理人：${updated.handler}` + (excResult ? `，结果：${excResult}` : ''),
+              operator: updated.handler,
+              created_at: updated.handled_at || new Date().toISOString(),
+            },
+            ...prev.timeline_events,
+          ],
+        }
+      })
     } finally {
       setExcLoading(false)
     }
