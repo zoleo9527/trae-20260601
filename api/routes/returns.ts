@@ -111,89 +111,65 @@ router.get('/', (req: RequestWithUser, res: Response): void => {
   const endDate = req.query.endDate as string | undefined
   const offset = (page - 1) * pageSize
 
-  let whereClauses: string[] = []
-  let params: any[] = []
-
-  if (status) {
-    whereClauses.push('r.status = ?')
-    params.push(status)
-  }
+  let baseClauses: string[] = []
+  let baseParams: any[] = []
 
   if (keyword) {
-    whereClauses.push('r.tracking_no LIKE ?')
-    params.push(`%${keyword}%`)
+    baseClauses.push('r.tracking_no LIKE ?')
+    baseParams.push(`%${keyword}%`)
   }
 
   if (assigneeId) {
     const aid = parseInt(assigneeId)
     if (!isNaN(aid)) {
-      whereClauses.push('r.assigned_to = ?')
-      params.push(aid)
+      baseClauses.push('r.assigned_to = ?')
+      baseParams.push(aid)
     }
   }
 
   if (startDate) {
-    whereClauses.push('r.updated_at >= ?')
-    params.push(startDate)
+    baseClauses.push('r.updated_at >= ?')
+    baseParams.push(startDate)
   }
 
   if (endDate) {
-    whereClauses.push('r.updated_at <= ?')
-    params.push(endDate + ' 23:59:59')
+    baseClauses.push('r.updated_at <= ?')
+    baseParams.push(endDate + ' 23:59:59')
   }
 
   if (req.user.role === '客服') {
-    whereClauses.push('r.created_by = ?')
-    params.push(req.user.id)
+    baseClauses.push('r.created_by = ?')
+    baseParams.push(req.user.id)
   } else if (req.user.role === '派件员') {
-    whereClauses.push('(r.assigned_to = ? OR r.status = ?)')
-    params.push(req.user.id, '待派件员确认')
+    baseClauses.push('(r.assigned_to = ? OR r.status = ?)')
+    baseParams.push(req.user.id, '待派件员确认')
   }
 
-  const whereStr = whereClauses.length > 0 ? 'WHERE ' + whereClauses.join(' AND ') : ''
+  const listClauses = [...baseClauses]
+  const listParams = [...baseParams]
+  if (status) {
+    listClauses.push('r.status = ?')
+    listParams.push(status)
+  }
 
-  const countRow = db.prepare(`SELECT COUNT(*) as total FROM returns r ${whereStr}`).get(...params) as { total: number }
+  const listWhereStr = listClauses.length > 0 ? 'WHERE ' + listClauses.join(' AND ') : ''
+
+  const countRow = db.prepare(`SELECT COUNT(*) as total FROM returns r ${listWhereStr}`).get(...listParams) as { total: number }
 
   const list = db.prepare(
     `SELECT r.*, u.display_name as created_by_name, a.display_name as assigned_to_name
      FROM returns r
      LEFT JOIN users u ON r.created_by = u.id
      LEFT JOIN users a ON r.assigned_to = a.id
-     ${whereStr}
+     ${listWhereStr}
      ORDER BY r.updated_at DESC
      LIMIT ? OFFSET ?`
-  ).all(...params, pageSize, offset) as any[]
+  ).all(...listParams, pageSize, offset) as any[]
 
-  let statsWhereClauses: string[] = []
-  let statsParams: any[] = []
-
-  if (assigneeId) {
-    const aid = parseInt(assigneeId)
-    if (!isNaN(aid)) {
-      statsWhereClauses.push('assigned_to = ?')
-      statsParams.push(aid)
-    }
-  }
-  if (startDate) {
-    statsWhereClauses.push('updated_at >= ?')
-    statsParams.push(startDate)
-  }
-  if (endDate) {
-    statsWhereClauses.push('updated_at <= ?')
-    statsParams.push(endDate + ' 23:59:59')
-  }
-  if (req.user.role === '客服') {
-    statsWhereClauses.push('created_by = ?')
-    statsParams.push(req.user.id)
-  } else if (req.user.role === '派件员') {
-    statsWhereClauses.push('(assigned_to = ? OR status = ?)')
-    statsParams.push(req.user.id, '待派件员确认')
-  }
-
-  const statsWhereStr = statsWhereClauses.length > 0 ? 'WHERE ' + statsWhereClauses.join(' AND ') : ''
+  const statsWhereStr = baseClauses.length > 0 ? 'WHERE ' + baseClauses.map(c => c.replace(/^r\./, '')).join(' AND ') : ''
   const statsRows = db.prepare(
     `SELECT status, COUNT(*) as count FROM returns ${statsWhereStr} GROUP BY status`
-  ).all(...statsParams) as { status: string; count: number }[]
+  ).all(...baseParams) as { status: string; count: number }[]
 
   const statusStats: Record<string, number> = {}
   for (const row of statsRows) {

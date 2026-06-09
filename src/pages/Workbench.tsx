@@ -18,6 +18,16 @@ const statusOptions = [
   { value: '复盘完成', label: '复盘完成' },
 ]
 
+const allStatuses = [
+  '待派件员确认',
+  '待驿站认定',
+  '已驳回-待补录',
+  '已驳回-待客服补录',
+  '退回处理完成',
+  '复盘进行中',
+  '复盘完成',
+]
+
 const quickFilters = [
   { value: '', label: '全部' },
   { value: '__pending', label: '待处理' },
@@ -82,14 +92,9 @@ export default function Workbench() {
   })
 
   const hasActiveExtraFilters = filters.assigneeId || filters.startDate || filters.endDate
-
-  const clearExtraFilters = () => {
-    setFilters({ assigneeId: '', startDate: '', endDate: '' })
-  }
+  const clearExtraFilters = () => setFilters({ assigneeId: '', startDate: '', endDate: '' })
 
   const totalPages = Math.ceil(pagination.total / pagination.pageSize)
-
-  const statEntries = Object.entries(statusStats)
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -101,27 +106,26 @@ export default function Workbench() {
             <p className="text-sm text-slate-500 mt-1">管理退回件全流程，从处理到复盘一站式完成</p>
           </div>
 
-          {statEntries.length > 0 && (
-            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3 mb-5">
-              {statEntries.map(([status, count]) => {
-                const colors = statColors[status] || { bg: 'bg-slate-50', text: 'text-slate-700', border: 'border-slate-200' }
-                return (
-                  <button
-                    key={status}
-                    onClick={() => setFilters({ status: filters.status === status ? '' : status })}
-                    className={`rounded-lg border p-3 text-left transition-all ${
-                      filters.status === status
-                        ? `${colors.bg} ${colors.border} ring-2 ring-offset-1 ring-orange-400`
-                        : `${colors.bg} ${colors.border} hover:shadow-sm`
-                    }`}
-                  >
-                    <p className={`text-lg font-bold ${colors.text}`}>{count}</p>
-                    <p className="text-xs text-slate-500 mt-0.5 truncate" title={status}>{status}</p>
-                  </button>
-                )
-              })}
-            </div>
-          )}
+          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3 mb-5">
+            {allStatuses.map((s) => {
+              const count = statusStats[s] || 0
+              const colors = statColors[s] || { bg: 'bg-slate-50', text: 'text-slate-700', border: 'border-slate-200' }
+              return (
+                <button
+                  key={s}
+                  onClick={() => setFilters({ status: filters.status === s ? '' : s })}
+                  className={`rounded-lg border p-3 text-left transition-all ${
+                    filters.status === s
+                      ? `${colors.bg} ${colors.border} ring-2 ring-offset-1 ring-orange-400`
+                      : `${colors.bg} ${colors.border} hover:shadow-sm`
+                  }`}
+                >
+                  <p className={`text-lg font-bold ${count === 0 ? 'text-slate-300' : colors.text}`}>{count}</p>
+                  <p className="text-xs text-slate-500 mt-0.5 truncate" title={s}>{s}</p>
+                </button>
+              )
+            })}
+          </div>
 
           <div className="bg-white rounded-xl border border-slate-200 shadow-sm">
             <div className="p-4 border-b border-slate-200 space-y-3">
