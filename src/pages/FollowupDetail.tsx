@@ -31,7 +31,7 @@ export default function FollowupDetail() {
   if (!reassessment) return <div className="text-center py-12 text-slate-400">未找到复评记录</div>;
 
   const patient = patients.find(p => p.id === reassessment.patientId)!;
-  const approval = approvals.find(a => a.reassessmentId === reassessment.id);
+  const approval = approvals.filter(a => a.reassessmentId === reassessment.id).pop();
   const plan = followupPlans.find(f => f.reassessmentId === reassessment.id);
 
   const handleAddCommunication = () => {

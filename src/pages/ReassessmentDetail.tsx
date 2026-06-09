@@ -30,7 +30,7 @@ export default function ReassessmentDetail() {
 
   const patient = patients.find(p => p.id === reassessment.patientId)!;
   const course = courses.find(c => c.id === reassessment.courseId)!;
-  const approval = approvals.find(a => a.reassessmentId === reassessment.id);
+  const approval = approvals.filter(a => a.reassessmentId === reassessment.id).pop();
   const config = conclusionConfig[reassessment.conclusion] || conclusionConfig['结案'];
   const completionRate = Math.round((course.completedSessions / course.totalSessions) * 100);
 
