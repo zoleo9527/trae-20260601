@@ -1,24 +1,37 @@
-import { useEffect, useState, useCallback } from 'react'
-import { Link } from 'react-router-dom'
+import { useEffect, useState, useMemo, useCallback } from 'react'
+import { Link, useSearchParams } from 'react-router-dom'
 import { api } from '@/lib/api'
 import type { FleetAppointment, FleetAppointmentListParams, Container, FleetAppointmentCreate, GateRelease } from '@/lib/api'
 import StatusBadge from '@/components/StatusBadge'
-import { Clock, Calendar, MapPin, AlertTriangle, Search, RotateCcw, Plus, X } from 'lucide-react'
+import { Clock, Calendar, MapPin, AlertTriangle, RotateCcw, Plus, X } from 'lucide-react'
 
-function todayStr() {
-  const d = new Date()
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-}
-
-type TabKey = 'today' | 'all' | 'exception'
+const STATUS_OPTIONS = [
+  { value: '', label: '全部' },
+  { value: '待确认', label: '待确认' },
+  { value: '已确认', label: '已确认' },
+  { value: '已到场', label: '已到场' },
+  { value: '已完成', label: '已完成' },
+  { value: '已取消', label: '已取消' },
+  { value: '异常', label: '异常' },
+]
 
 export default function FleetAppointmentList() {
+  const [searchParams, setSearchParams] = useSearchParams()
   const [appointments, setAppointments] = useState<FleetAppointment[]>([])
   const [loading, setLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState<TabKey>('today')
-  const [searchDate, setSearchDate] = useState(todayStr())
-  const [searchStatus, setSearchStatus] = useState('')
-  const [searchTruckCompany, setSearchTruckCompany] = useState('')
+
+  const statusFilter = searchParams.get('status') || ''
+  const dateFrom = searchParams.get('date_from') || ''
+  const dateTo = searchParams.get('date_to') || ''
+  const truckCompanySearch = searchParams.get('truck_company') || ''
+
+  const setFilter = (key: string, value: string) => {
+    setSearchParams(prev => {
+      if (value) prev.set(key, value)
+      else prev.delete(key)
+      return prev
+    }, { replace: true })
+  }
 
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [createLoading, setCreateLoading] = useState(false)
@@ -33,7 +46,7 @@ export default function FleetAppointmentList() {
     truck_plate: '',
     driver_name: '',
     driver_phone: '',
-    appointment_date: todayStr(),
+    appointment_date: '',
     appointment_time: '',
     notes: '',
     operator: '',
@@ -79,18 +92,21 @@ export default function FleetAppointmentList() {
       setContainerResults([])
       setGateReleaseSearch('')
       setGateReleaseResults([])
-      setCreateForm({ truck_company: '', truck_plate: '', driver_name: '', driver_phone: '', appointment_date: todayStr(), appointment_time: '', notes: '', operator: '' })
-      if (activeTab === 'today') {
-        fetchList({ appointment_date: todayStr() })
-      } else if (activeTab === 'exception') {
-        fetchList({ status: '异常' })
-      } else {
-        fetchList()
-      }
+      setCreateForm({ truck_company: '', truck_plate: '', driver_name: '', driver_phone: '', appointment_date: '', appointment_time: '', notes: '', operator: '' })
+      fetchList()
     } finally {
       setCreateLoading(false)
     }
   }
+
+  const buildParams = useCallback((): FleetAppointmentListParams => {
+    const params: FleetAppointmentListParams = {}
+    if (statusFilter) params.status = statusFilter
+    if (dateFrom) params.date_from = dateFrom
+    if (dateTo) params.date_to = dateTo
+    if (truckCompanySearch) params.truck_company = truckCompanySearch
+    return params
+  }, [statusFilter, dateFrom, dateTo, truckCompanySearch])
 
   const fetchList = useCallback(async (params?: FleetAppointmentListParams) => {
     setLoading(true)
@@ -103,31 +119,8 @@ export default function FleetAppointmentList() {
   }, [])
 
   useEffect(() => {
-    if (activeTab === 'today') {
-      fetchList({ appointment_date: todayStr() })
-    } else if (activeTab === 'exception') {
-      fetchList({ status: '异常' })
-    } else {
-      fetchList()
-    }
-  }, [activeTab, fetchList])
-
-  const handleSearch = () => {
-    const params: FleetAppointmentListParams = {}
-    if (searchDate) params.appointment_date = searchDate
-    if (searchStatus) params.status = searchStatus
-    if (searchTruckCompany) params.truck_company = searchTruckCompany
-    setActiveTab('all')
-    fetchList(params)
-  }
-
-  const handleReset = () => {
-    setSearchDate(todayStr())
-    setSearchStatus('')
-    setSearchTruckCompany('')
-    setActiveTab('today')
-    fetchList({ appointment_date: todayStr() })
-  }
+    fetchList(buildParams())
+  }, [buildParams, fetchList])
 
   const handleQuickAction = async (id: number, action: 'confirm' | 'arrive') => {
     if (action === 'confirm') {
@@ -135,35 +128,20 @@ export default function FleetAppointmentList() {
     } else {
       await api.fleetAppointments.arrive(id, { operator: '操作员' })
     }
-    if (activeTab === 'today') {
-      fetchList({ appointment_date: todayStr() })
-    } else if (activeTab === 'exception') {
-      fetchList({ status: '异常' })
-    } else {
-      const params: FleetAppointmentListParams = {}
-      if (searchDate) params.appointment_date = searchDate
-      if (searchStatus) params.status = searchStatus
-      if (searchTruckCompany) params.truck_company = searchTruckCompany
-      fetchList(params)
-    }
+    fetchList(buildParams())
   }
 
-  const stats = {
+  const stats = useMemo(() => ({
     pending: appointments.filter(a => a.status === '待确认').length,
-    today: appointments.filter(a => a.appointment_date === todayStr()).length,
+    confirmed: appointments.filter(a => a.status === '已确认').length,
     arrived: appointments.filter(a => a.status === '已到场').length,
+    completed: appointments.filter(a => a.status === '已完成').length,
     exception: appointments.filter(a => a.status === '异常').length,
+  }), [appointments])
+
+  const resetFilters = () => {
+    setSearchParams({}, { replace: true })
   }
-
-  const completedRecent = appointments
-    .filter(a => a.status === '已完成')
-    .slice(0, 5)
-
-  const tabItems: { key: TabKey; label: string }[] = [
-    { key: 'today', label: '今日预约' },
-    { key: 'all', label: '全部记录' },
-    { key: 'exception', label: '异常记录' },
-  ]
 
   return (
     <div className="space-y-6">
@@ -177,18 +155,22 @@ export default function FleetAppointmentList() {
         </button>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 flex items-center gap-3">
           <div className="p-2 bg-yellow-100 rounded-lg"><Clock size={20} className="text-yellow-600" /></div>
           <div><p className="text-sm text-yellow-700">待确认</p><p className="text-2xl font-bold text-yellow-800">{stats.pending}</p></div>
         </div>
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 flex items-center gap-3">
           <div className="p-2 bg-blue-100 rounded-lg"><Calendar size={20} className="text-blue-600" /></div>
-          <div><p className="text-sm text-blue-700">今日预约</p><p className="text-2xl font-bold text-blue-800">{stats.today}</p></div>
+          <div><p className="text-sm text-blue-700">已确认</p><p className="text-2xl font-bold text-blue-800">{stats.confirmed}</p></div>
         </div>
         <div className="bg-purple-50 border border-purple-200 rounded-lg p-4 flex items-center gap-3">
           <div className="p-2 bg-purple-100 rounded-lg"><MapPin size={20} className="text-purple-600" /></div>
           <div><p className="text-sm text-purple-700">已到场</p><p className="text-2xl font-bold text-purple-800">{stats.arrived}</p></div>
+        </div>
+        <div className="bg-green-50 border border-green-200 rounded-lg p-4 flex items-center gap-3">
+          <div className="p-2 bg-green-100 rounded-lg"><Calendar size={20} className="text-green-600" /></div>
+          <div><p className="text-sm text-green-700">已完成</p><p className="text-2xl font-bold text-green-800">{stats.completed}</p></div>
         </div>
         <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-center gap-3">
           <div className="p-2 bg-red-100 rounded-lg"><AlertTriangle size={20} className="text-red-600" /></div>
@@ -199,65 +181,50 @@ export default function FleetAppointmentList() {
       <div className="bg-white rounded-lg shadow p-4">
         <div className="flex flex-wrap items-end gap-3">
           <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">预约日期</label>
+            <label className="block text-xs font-medium text-gray-500 mb-1">状态</label>
+            <select
+              value={statusFilter}
+              onChange={e => setFilter('status', e.target.value)}
+              className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            >
+              {STATUS_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1">预约日期起</label>
             <input
               type="date"
-              value={searchDate}
-              onChange={e => setSearchDate(e.target.value)}
+              value={dateFrom}
+              onChange={e => setFilter('date_from', e.target.value)}
               className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             />
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">状态</label>
-            <select
-              value={searchStatus}
-              onChange={e => setSearchStatus(e.target.value)}
+            <label className="block text-xs font-medium text-gray-500 mb-1">预约日期止</label>
+            <input
+              type="date"
+              value={dateTo}
+              onChange={e => setFilter('date_to', e.target.value)}
               className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            >
-              <option value="">全部</option>
-              <option value="待确认">待确认</option>
-              <option value="已确认">已确认</option>
-              <option value="已到场">已到场</option>
-              <option value="已完成">已完成</option>
-              <option value="已取消">已取消</option>
-              <option value="异常">异常</option>
-            </select>
+            />
           </div>
           <div>
             <label className="block text-xs font-medium text-gray-500 mb-1">车队搜索</label>
             <input
               type="text"
-              value={searchTruckCompany}
-              onChange={e => setSearchTruckCompany(e.target.value)}
+              value={truckCompanySearch}
+              onChange={e => setFilter('truck_company', e.target.value)}
               placeholder="输入车队名称"
               className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             />
           </div>
           <button
-            onClick={handleSearch}
-            className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700"
-          >
-            <Search size={16} /> 搜索
-          </button>
-          <button
-            onClick={handleReset}
+            onClick={resetFilters}
             className="flex items-center gap-1.5 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-200"
           >
             <RotateCcw size={16} /> 重置
           </button>
         </div>
-      </div>
-
-      <div className="flex gap-1 bg-gray-100 rounded-lg p-1 w-fit">
-        {tabItems.map(tab => (
-          <button
-            key={tab.key}
-            onClick={() => setActiveTab(tab.key)}
-            className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${activeTab === tab.key ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
-          >
-            {tab.label}
-          </button>
-        ))}
       </div>
 
       <div className="bg-white rounded-lg shadow overflow-hidden">
@@ -329,27 +296,6 @@ export default function FleetAppointmentList() {
           </div>
         )}
       </div>
-
-      {completedRecent.length > 0 && (
-        <div className="bg-white rounded-lg shadow p-6">
-          <h3 className="text-base font-semibold text-gray-900 mb-4">最近完成</h3>
-          <div className="space-y-3">
-            {completedRecent.map(a => (
-              <div key={a.id} className="flex items-center justify-between bg-green-50 rounded-lg px-4 py-3">
-                <div className="flex items-center gap-4">
-                  <span className="text-sm font-medium text-gray-900">{a.container?.container_no || '-'}</span>
-                  <span className="text-sm text-gray-500">{a.truck_company || '-'}</span>
-                  <span className="text-sm text-gray-500">{a.truck_plate || '-'}</span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <span className="text-xs text-gray-400">{a.appointment_date}</span>
-                  <StatusBadge status={a.status} />
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
 
       {showCreateModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">

@@ -1,18 +1,35 @@
 import { useEffect, useState, useMemo, useCallback } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { api } from '@/lib/api'
 import type { GateRelease, GateReleaseListParams, Container, GateReleaseCreate } from '@/lib/api'
 import StatusBadge from '@/components/StatusBadge'
 import { Clock, CheckCircle, AlertTriangle, Activity, Search, RotateCcw, AlertCircle, Plus, X } from 'lucide-react'
 
+const STATUS_OPTIONS = [
+  { value: '', label: '全部' },
+  { value: '待处理', label: '待处理' },
+  { value: '已放行', label: '已放行' },
+  { value: '异常退回', label: '异常' },
+]
+
 export default function GateReleaseList() {
+  const [searchParams, setSearchParams] = useSearchParams()
   const [releases, setReleases] = useState<GateRelease[]>([])
   const [loading, setLoading] = useState(true)
-  const [statusFilter, setStatusFilter] = useState('')
-  const [releaseTypeFilter, setReleaseTypeFilter] = useState('')
-  const [containerNoSearch, setContainerNoSearch] = useState('')
-  const [dateFrom, setDateFrom] = useState('')
-  const [dateTo, setDateTo] = useState('')
+
+  const statusFilter = searchParams.get('status') || ''
+  const releaseTypeFilter = searchParams.get('release_type') || ''
+  const containerNoSearch = searchParams.get('container_no') || ''
+  const dateFrom = searchParams.get('date_from') || ''
+  const dateTo = searchParams.get('date_to') || ''
+
+  const setFilter = (key: string, value: string) => {
+    setSearchParams(prev => {
+      if (value) prev.set(key, value)
+      else prev.delete(key)
+      return prev
+    }, { replace: true })
+  }
 
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [createLoading, setCreateLoading] = useState(false)
@@ -63,6 +80,16 @@ export default function GateReleaseList() {
     }
   }
 
+  const buildParams = useCallback((): GateReleaseListParams => {
+    const params: GateReleaseListParams = {}
+    if (statusFilter) params.status = statusFilter
+    if (releaseTypeFilter) params.release_type = releaseTypeFilter
+    if (containerNoSearch) params.container_no = containerNoSearch
+    if (dateFrom) params.date_from = dateFrom
+    if (dateTo) params.date_to = dateTo
+    return params
+  }, [statusFilter, releaseTypeFilter, containerNoSearch, dateFrom, dateTo])
+
   const fetchReleases = useCallback((params?: GateReleaseListParams) => {
     setLoading(true)
     api.gateReleases.list(params)
@@ -70,7 +97,9 @@ export default function GateReleaseList() {
       .finally(() => setLoading(false))
   }, [])
 
-  useEffect(() => { fetchReleases() }, [fetchReleases])
+  useEffect(() => {
+    fetchReleases(buildParams())
+  }, [buildParams, fetchReleases])
 
   const stats = useMemo(() => ({
     pending: releases.filter(r => r.status === '待处理').length,
@@ -85,23 +114,8 @@ export default function GateReleaseList() {
 
   const exceptions = useMemo(() => releases.filter(r => r.status === '异常退回'), [releases])
 
-  const applyFilters = () => {
-    const params: GateReleaseListParams = {}
-    if (statusFilter) params.status = statusFilter
-    if (releaseTypeFilter) params.release_type = releaseTypeFilter
-    if (containerNoSearch) params.container_no = containerNoSearch
-    if (dateFrom) params.date_from = dateFrom
-    if (dateTo) params.date_to = dateTo
-    fetchReleases(params)
-  }
-
   const resetFilters = () => {
-    setStatusFilter('')
-    setReleaseTypeFilter('')
-    setContainerNoSearch('')
-    setDateFrom('')
-    setDateTo('')
-    fetchReleases()
+    setSearchParams({}, { replace: true })
   }
 
   const truncateNotes = (notes: string | null) => {
@@ -192,20 +206,17 @@ export default function GateReleaseList() {
           <label className="text-xs text-gray-500">状态</label>
           <select
             value={statusFilter}
-            onChange={e => setStatusFilter(e.target.value)}
+            onChange={e => setFilter('status', e.target.value)}
             className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary-500"
           >
-            <option value="">全部</option>
-            <option value="待处理">待处理</option>
-            <option value="已放行">已放行</option>
-            <option value="异常退回">异常退回</option>
+            {STATUS_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
           </select>
         </div>
         <div className="flex flex-col gap-1">
           <label className="text-xs text-gray-500">放行类型</label>
           <select
             value={releaseTypeFilter}
-            onChange={e => setReleaseTypeFilter(e.target.value)}
+            onChange={e => setFilter('release_type', e.target.value)}
             className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary-500"
           >
             <option value="">全部</option>
@@ -218,8 +229,7 @@ export default function GateReleaseList() {
           <input
             type="text"
             value={containerNoSearch}
-            onChange={e => setContainerNoSearch(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && applyFilters()}
+            onChange={e => setFilter('container_no', e.target.value)}
             placeholder="输入箱号..."
             className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary-500 w-40"
           />
@@ -229,7 +239,7 @@ export default function GateReleaseList() {
           <input
             type="date"
             value={dateFrom}
-            onChange={e => setDateFrom(e.target.value)}
+            onChange={e => setFilter('date_from', e.target.value)}
             className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary-500"
           />
         </div>
@@ -238,16 +248,10 @@ export default function GateReleaseList() {
           <input
             type="date"
             value={dateTo}
-            onChange={e => setDateTo(e.target.value)}
+            onChange={e => setFilter('date_to', e.target.value)}
             className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary-500"
           />
         </div>
-        <button
-          onClick={applyFilters}
-          className="flex items-center gap-1.5 px-4 py-1.5 bg-primary-600 text-white rounded-lg text-sm hover:bg-primary-700"
-        >
-          <Search size={14} /> 搜索
-        </button>
         <button
           onClick={resetFilters}
           className="flex items-center gap-1.5 px-4 py-1.5 border border-gray-300 text-gray-600 rounded-lg text-sm hover:bg-gray-50"

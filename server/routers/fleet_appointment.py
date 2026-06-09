@@ -20,6 +20,8 @@ router = APIRouter(prefix="/api/fleet-appointments", tags=["fleet-appointments"]
 def list_fleet_appointments(
     status: Optional[str] = None,
     appointment_date: Optional[str] = None,
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
     truck_company: Optional[str] = None,
     db: Session = Depends(get_db),
 ):
@@ -31,6 +33,10 @@ def list_fleet_appointments(
         query = query.filter(FleetAppointment.status == status)
     if appointment_date:
         query = query.filter(FleetAppointment.appointment_date == appointment_date)
+    if date_from:
+        query = query.filter(FleetAppointment.appointment_date >= date_from)
+    if date_to:
+        query = query.filter(FleetAppointment.appointment_date <= date_to)
     if truck_company:
         query = query.filter(FleetAppointment.truck_company.contains(truck_company))
     return query.order_by(FleetAppointment.id.desc()).all()

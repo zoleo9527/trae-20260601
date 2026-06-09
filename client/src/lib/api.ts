@@ -183,6 +183,8 @@ export interface GateReleaseListParams {
 export interface FleetAppointmentListParams {
   status?: string
   appointment_date?: string
+  date_from?: string
+  date_to?: string
   truck_company?: string
 }
 
