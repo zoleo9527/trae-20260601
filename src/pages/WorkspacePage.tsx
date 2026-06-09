@@ -1,6 +1,6 @@
 import { useParcelStore } from '@/store/parcelStore'
 import { ROLE_LABELS, STATUS_LABELS, type ParcelStatus } from '@shared/types'
-import { AlertCircle, Clock, History, LayoutDashboard, Loader2, RefreshCw, User, X } from 'lucide-react'
+import { AlertCircle, AlertTriangle, Clock, Filter, History, LayoutDashboard, Loader2, RefreshCw, User, X } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 
 const TIMEOUT_THRESHOLDS_MS: Record<string, number> = {
@@ -53,6 +53,7 @@ export default function WorkspacePage() {
 
   const [selectedStaffId, setSelectedStaffId] = useState<number | ''>('')
   const [selectedRole, setSelectedRole] = useState<string>('')
+  const [onlyOverdue, setOnlyOverdue] = useState(false)
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [drawerParcelId, setDrawerParcelId] = useState<number | null>(null)
   const [drawerTrackingNo, setDrawerTrackingNo] = useState('')
@@ -132,6 +133,27 @@ export default function WorkspacePage() {
     )
   }, [parcels])
 
+  const overdueStats = useMemo(() => {
+    const stats: Record<string, { count: number; maxMs: number }> = {}
+    for (const status of Object.keys(TIMEOUT_THRESHOLDS_MS)) {
+      stats[status] = { count: 0, maxMs: 0 }
+    }
+    for (const p of activeParcels) {
+      const threshold = TIMEOUT_THRESHOLDS_MS[p.status]
+      if (!threshold) continue
+      const ms = getArrivalMs(p.arrived_at)
+      if (ms > threshold) {
+        stats[p.status].count++
+        if (ms > stats[p.status].maxMs) {
+          stats[p.status].maxMs = ms
+        }
+      }
+    }
+    return stats
+  }, [activeParcels])
+
+  const overdueTotalCount = Object.values(overdueStats).reduce((s, v) => s + v.count, 0)
+
   const grouped = useMemo(() => {
     const map: Record<string, any[]> = {}
     for (const status of GROUP_ORDER) {
@@ -143,12 +165,17 @@ export default function WorkspacePage() {
       }
     }
     for (const status of GROUP_ORDER) {
-      map[status].sort((a: any, b: any) => {
+      let items = map[status]
+      if (onlyOverdue) {
+        items = items.filter((p: any) => isOverdue(p))
+      }
+      items.sort((a: any, b: any) => {
         return getArrivalMs(b.arrived_at) - getArrivalMs(a.arrived_at)
       })
+      map[status] = items
     }
     return map
-  }, [activeParcels])
+  }, [activeParcels, onlyOverdue])
 
   const selectedLabel = useMemo(() => {
     if (selectedStaffId) {
@@ -164,6 +191,18 @@ export default function WorkspacePage() {
   const summaryTotal = workspaceSummary
     ? GROUP_ORDER.reduce((sum, s) => sum + (workspaceSummary[s] || 0), 0)
     : 0
+
+  const hasAnyVisibleItem = GROUP_ORDER.some((s) => grouped[s]?.length > 0)
+
+  function formatMs(ms: number): string {
+    if (ms <= 0) return '-'
+    const minutes = Math.floor(ms / 60000)
+    if (minutes < 60) return `${minutes}分钟`
+    const hours = Math.floor(minutes / 60)
+    if (hours < 24) return `${hours}小时${minutes % 60}分钟`
+    const days = Math.floor(hours / 24)
+    return `${days}天${hours % 24}小时`
+  }
 
   return (
     <div className="space-y-6">
@@ -283,7 +322,72 @@ export default function WorkspacePage() {
             </div>
           )}
 
-          {activeParcels.length === 0 ? (
+          {overdueTotalCount > 0 && (
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              {Object.entries(TIMEOUT_THRESHOLDS_MS).map(([status, threshold]) => {
+                const stat = overdueStats[status]
+                if (!stat || stat.count === 0) return null
+                return (
+                  <div
+                    key={status}
+                    className="rounded-lg border border-red-200 bg-gradient-to-br from-red-50 to-orange-50 p-4 shadow-sm"
+                  >
+                    <div className="flex items-center gap-2">
+                      <AlertTriangle className="h-4 w-4 text-red-500" />
+                      <span className="text-xs font-medium text-red-600">
+                        {STATUS_LABELS[status as ParcelStatus]}超时
+                      </span>
+                      <span className="text-xs text-red-400">
+                        （阈值 {formatMs(threshold)}）
+                      </span>
+                    </div>
+                    <div className="mt-2 flex items-baseline gap-3">
+                      <span className="text-3xl font-bold text-red-600">{stat.count}</span>
+                      <span className="text-xs text-red-400">件</span>
+                    </div>
+                    <div className="mt-1 text-xs text-red-500">
+                      最长停留：{stat.maxMs > 0 ? formatMs(stat.maxMs) : '-'}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+
+          <div className="flex items-center gap-3 rounded-lg bg-white px-5 py-3 shadow-sm">
+            <button
+              onClick={() => setOnlyOverdue(!onlyOverdue)}
+              className={`inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
+                onlyOverdue
+                  ? 'bg-red-100 text-red-700 hover:bg-red-200'
+                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+              }`}
+            >
+              <Filter className="h-4 w-4" />
+              只看超时
+              {onlyOverdue && (
+                <span className="rounded-full bg-red-500 px-1.5 py-0.5 text-xs text-white">
+                  {overdueTotalCount}
+                </span>
+              )}
+            </button>
+            <span className="text-xs text-slate-400">
+              显示触发超时阈值的快件（arrived_pending &gt; 2h, dispatched_pending &gt; 4h）
+            </span>
+          </div>
+
+          {!hasAnyVisibleItem && onlyOverdue ? (
+            <div className="flex flex-col items-center justify-center rounded-lg bg-white py-16 shadow-sm">
+              <AlertTriangle className="h-10 w-10 text-slate-300" />
+              <p className="mt-4 text-sm text-slate-400">当前筛选下没有超时快件</p>
+              <button
+                onClick={() => setOnlyOverdue(false)}
+                className="mt-3 text-sm font-medium text-orange-500 hover:text-orange-600"
+              >
+                查看全部快件
+              </button>
+            </div>
+          ) : activeParcels.length === 0 ? (
             <div className="flex flex-col items-center justify-center rounded-lg bg-white py-16 shadow-sm">
               <Clock className="h-10 w-10 text-slate-300" />
               <p className="mt-4 text-sm text-slate-400">该责任人当前没有活跃快件</p>
