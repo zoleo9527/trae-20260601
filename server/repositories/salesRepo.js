@@ -171,11 +171,17 @@ export function confirmSales(id, operatorId, data) {
   if (!sale) throw new Error('Sales not found');
   if (sale.status !== SalesStatus.PENDING_CONFIRMATION) throw new Error('Invalid status transition');
 
+  // 检查是否含限用农药，如果是则强制 result 为 'caution'
+  const hasRestricted = sale.items.some(item => item.pesticide_type === '限用');
+  if (hasRestricted && data.result === 'available') {
+    throw new Error('含限用农药的销售单不可保存为"可用"，必须设为"慎用"或退回');
+  }
+
   const confirmationId = uuidv4();
   db.prepare(`
     INSERT INTO confirmations (id, sales_id, confirmed_by, result, reminder, comments)
     VALUES (?, ?, ?, ?, ?, ?)
-  `).run(confirmationId, id, operatorId, data.result, data.reminder, data.comments);
+  `).run(confirmationId, id, operatorId, data.result, data.reminder || '', data.comments || '');
 
   const newStatus = data.result === 'prohibited' ? SalesStatus.REJECTED : SalesStatus.PENDING_WAREHOUSE;
   db.prepare(`UPDATE sales SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`)
@@ -183,7 +189,8 @@ export function confirmSales(id, operatorId, data) {
 
   logOperation('sales', id, data.result === 'prohibited' ? 'reject' : 'confirm', operatorId, {
     result: data.result,
-    reminder: data.reminder
+    reminder: data.reminder,
+    hasRestricted: hasRestricted
   });
 
   return getSalesById(id);

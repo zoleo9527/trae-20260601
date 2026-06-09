@@ -30,6 +30,8 @@ export default function ConfirmationList() {
       const result = await confirmSale(confirmModal.id, currentUser.id, formData);
       setConfirmModal(null);
       setFormData({ result: 'available', reminder: '', comments: '' });
+      // 刷新列表以更新状态
+      await fetchSales({ status: 'pending_confirmation' });
       alert(formData.result === 'prohibited' ? '已退回该销售单' : '已确认用药提醒');
     } catch (err) {
       alert(err.message);
@@ -44,11 +46,14 @@ export default function ConfirmationList() {
 
     try {
       await confirmSale(rejectModal.id, currentUser.id, {
-        ...formData,
         result: 'prohibited',
+        reminder: '', // 退回时清理残留提醒内容
+        comments: formData.comments,
       });
       setRejectModal(null);
       setFormData({ result: 'available', reminder: '', comments: '' });
+      // 刷新列表以更新状态
+      await fetchSales({ status: 'pending_confirmation' });
       alert('已退回该销售单');
     } catch (err) {
       alert(err.message);
@@ -238,7 +243,19 @@ export default function ConfirmationList() {
       {confirmModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl p-6 w-full max-w-lg mx-4 animate-fadeIn">
-            <h3 className="text-lg font-bold text-gray-800 mb-4">确认用药提醒</h3>
+            <h3 className="text-lg font-bold text-gray-800 mb-4">
+              {hasRestricted(confirmModal.items) ? '确认用药提醒（限用农药）' : '确认用药提醒'}
+            </h3>
+
+            {/* 限用农药警示 */}
+            {hasRestricted(confirmModal.items) && (
+              <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                <p className="text-sm text-yellow-800 flex items-center gap-2">
+                  <AlertTriangle size={16} />
+                  该销售单含限用农药，判断结果已自动设为"慎用"，不可切换为"可用"
+                </p>
+              </div>
+            )}
 
             <div className="space-y-4">
               <div>
@@ -247,21 +264,34 @@ export default function ConfirmationList() {
                   {[
                     { value: 'available', label: '可用', color: 'bg-green-500' },
                     { value: 'caution', label: '慎用', color: 'bg-yellow-500' },
-                  ].map((opt) => (
-                    <label key={opt.value} className="flex items-center gap-2 cursor-pointer">
-                      <input
-                        type="radio"
-                        name="result"
-                        value={opt.value}
-                        checked={formData.result === opt.value}
-                        onChange={(e) => setFormData(prev => ({ ...prev, result: e.target.value }))}
-                        className="w-4 h-4"
-                      />
-                      <span className={`px-3 py-1 ${opt.color} text-white rounded-full text-sm`}>
-                        {opt.label}
-                      </span>
-                    </label>
-                  ))}
+                  ].map((opt) => {
+                    // 限用农药禁用"可用"选项
+                    const isDisabled = hasRestricted(confirmModal.items) && opt.value === 'available';
+                    return (
+                      <label
+                        key={opt.value}
+                        className={`flex items-center gap-2 ${isDisabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}
+                      >
+                        <input
+                          type="radio"
+                          name="result"
+                          value={opt.value}
+                          checked={formData.result === opt.value}
+                          onChange={(e) => {
+                            if (!isDisabled) {
+                              setFormData(prev => ({ ...prev, result: e.target.value }));
+                            }
+                          }}
+                          disabled={isDisabled}
+                          className="w-4 h-4"
+                        />
+                        <span className={`px-3 py-1 ${opt.color} text-white rounded-full text-sm ${isDisabled ? 'bg-gray-400' : opt.color}`}>
+                          {opt.label}
+                        </span>
+                        {isDisabled && <span className="text-xs text-gray-400">(限用农药不可选)</span>}
+                      </label>
+                    );
+                  })}
                 </div>
               </div>
 
@@ -296,7 +326,7 @@ export default function ConfirmationList() {
               </button>
               <button
                 onClick={handleConfirm}
-                className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors"
+                className={`px-4 py-2 ${hasRestricted(confirmModal.items) ? 'bg-yellow-500 hover:bg-yellow-600' : 'bg-green-500 hover:bg-green-600'} text-white rounded-lg transition-colors`}
               >
                 确认
               </button>
