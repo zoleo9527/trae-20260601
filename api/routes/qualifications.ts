@@ -166,17 +166,25 @@ router.post('/:id/review', (req: Request, res: Response): void => {
     VALUES (?, ?, ?, ?, 'director', ?, ?)
   `).run(uuid(), req.params.id, action, session.name, note ?? null, now)
 
-  if (action === 'approve') {
-    const relatedPurchases = db.prepare(
-      'SELECT id FROM purchases WHERE qualification_id = ?'
-    ).all(req.params.id) as Array<{ id: string }>
+  const relatedPurchases = db.prepare(
+    'SELECT id FROM purchases WHERE qualification_id = ?'
+  ).all(req.params.id) as Array<{ id: string }>
 
-    const updateQStatus = db.prepare(
-      'UPDATE purchases SET qualification_status = ?, updated_at = ? WHERE id = ?'
-    )
-    for (const p of relatedPurchases) {
-      updateQStatus.run(newStatus, now, p.id)
-    }
+  const updateQStatus = db.prepare(
+    'UPDATE purchases SET qualification_status = ?, updated_at = ? WHERE id = ?'
+  )
+  const insertLog = db.prepare(
+    `INSERT INTO purchase_flow_logs (id, purchase_id, action, operator, role, note, created_at)
+     VALUES (?, ?, 'qualification_status_change', ?, 'director', ?, ?)`
+  )
+
+  const logNote = action === 'approve'
+    ? `关联客户资质已审核通过，资质状态更新为 ${newStatus}`
+    : `关联客户资质已驳回，资质状态更新为 ${newStatus}`
+
+  for (const p of relatedPurchases) {
+    updateQStatus.run(newStatus, now, p.id)
+    insertLog.run(uuid(), p.id, session.name, logNote, now)
   }
 
   const updated = db.prepare('SELECT * FROM qualifications WHERE id = ?').get(req.params.id) as Qualification

@@ -31,7 +31,7 @@ export interface QualificationReviewLog {
   created_at: string
 }
 
-export type PurchaseStatus = 'draft' | 'pending_review' | 'approved' | 'confirmed_out' | 'shipped' | 'completed'
+export type PurchaseStatus = 'draft' | 'pending_review' | 'approved' | 'rejected' | 'confirmed_out' | 'shipped' | 'completed'
 
 export interface Purchase {
   id: string

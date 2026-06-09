@@ -24,9 +24,10 @@ function generateRequestNo(): string {
 const router = Router()
 
 router.get('/', (req: Request, res: Response): void => {
-  const { status, customer_name, created_by, date_from, date_to, page = '1', page_size = '20' } = req.query as {
+  const { status, customer_name, qualification_id, created_by, date_from, date_to, page = '1', page_size = '20' } = req.query as {
     status?: string
     customer_name?: string
+    qualification_id?: string
     created_by?: string
     date_from?: string
     date_to?: string
@@ -44,6 +45,10 @@ router.get('/', (req: Request, res: Response): void => {
   if (customer_name) {
     conditions.push('p.customer_name LIKE @customer_name')
     params.customer_name = `%${customer_name}%`
+  }
+  if (qualification_id) {
+    conditions.push('p.qualification_id = @qualification_id')
+    params.qualification_id = qualification_id
   }
   if (created_by) {
     conditions.push('p.created_by LIKE @created_by')

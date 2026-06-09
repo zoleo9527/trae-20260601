@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { Plus, Trash2, AlertTriangle, AlertCircle, Info, CheckCircle, X } from 'lucide-react'
 import { apiGet, apiPost } from '@/lib/api'
 import { cn } from '@/lib/utils'
-import type { Qualification } from '@/types'
+import type { Qualification, PaginatedResponse } from '@/types'
 
 interface FormItem {
   product_name: string
@@ -31,9 +31,9 @@ export default function CreatePurchaseModal({
   const [submitting, setSubmitting] = useState(false)
 
   useEffect(() => {
-    apiGet<Qualification[]>('/qualifications')
-      .then((quals) => {
-        setQualifications(quals.filter((q) => ['approved', 'expiring_soon', 'pending'].includes(q.status)))
+    apiGet<PaginatedResponse<Qualification>>('/qualifications', { page_size: '200' })
+      .then((res) => {
+        setQualifications(res.list.filter((q) => ['approved', 'expiring_soon', 'pending'].includes(q.status)))
       })
       .catch(() => {})
   }, [])
