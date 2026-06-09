@@ -4,10 +4,10 @@ import {
   Heart,
   ClipboardCheck,
   AlertTriangle,
-  CheckCircle,
   Plus,
   FileText,
   ArrowRight,
+  ArrowRightLeft,
 } from 'lucide-react'
 import dayjs from 'dayjs'
 import { useAuthStore } from '@/stores/authStore'
@@ -74,11 +74,15 @@ interface StatCardProps {
   label: string
   borderColor: string
   iconBg: string
+  onClick?: () => void
 }
 
-function StatCard({ icon, value, label, borderColor, iconBg }: StatCardProps) {
+function StatCard({ icon, value, label, borderColor, iconBg, onClick }: StatCardProps) {
   return (
-    <div className={`bg-white rounded-xl shadow-sm border-l-4 ${borderColor} p-5 flex items-center gap-4`}>
+    <div
+      onClick={onClick}
+      className={`bg-white rounded-xl shadow-sm border-l-4 ${borderColor} p-5 flex items-center gap-4 ${onClick ? 'cursor-pointer hover:shadow-md transition-shadow' : ''}`}
+    >
       <div className={`w-12 h-12 rounded-lg ${iconBg} flex items-center justify-center`}>
         {icon}
       </div>
@@ -92,14 +96,18 @@ function StatCard({ icon, value, label, borderColor, iconBg }: StatCardProps) {
 
 interface CardListProps {
   title: string
+  badge?: number
   children: React.ReactNode
 }
 
-function CardList({ title, children }: CardListProps) {
+function CardList({ title, badge, children }: CardListProps) {
   return (
     <div className="bg-white rounded-xl shadow-sm">
-      <div className="px-5 py-4 border-b border-gray-100">
+      <div className="px-5 py-4 border-b border-gray-100 flex items-center gap-2">
         <h3 className="text-base font-semibold text-gray-800">{title}</h3>
+        {badge != null && badge > 0 && (
+          <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-amber-100 text-amber-700">{badge}</span>
+        )}
       </div>
       <div className="divide-y divide-gray-100">
         {children}
@@ -141,12 +149,23 @@ function ActionButton({ label, to, primary }: { label: string; to: string; prima
   )
 }
 
+interface PendingHandover {
+  id: number
+  from_user_name?: string
+  to_user_id: number
+  to_user_name?: string
+  status: string
+  handover_date?: string
+  pending_visits_count?: number
+  active_recalls_count?: number
+}
+
 export default function Dashboard() {
   const navigate = useNavigate()
   const user = useAuthStore((s) => s.user)
   const { visits, fetchVisits } = useVisitStore()
   const { recalls, fetchRecalls } = useRecallStore()
-  const { handovers, fetchHandovers } = useHandoverStore()
+  const fetchHandovers = useHandoverStore((s) => s.fetchHandovers)
 
   const [stats, setStats] = useState({
     totalAnimals: 0,
@@ -154,6 +173,8 @@ export default function Dashboard() {
     activeRecalls: 0,
     recalledCount: 0,
   })
+
+  const [pendingHandovers, setPendingHandovers] = useState<PendingHandover[]>([])
 
   useEffect(() => {
     async function loadStats() {
@@ -183,7 +204,6 @@ export default function Dashboard() {
           recalledCount: recalledList.length,
         })
       } catch {
-        // silently fail
       }
     }
     loadStats()
@@ -198,22 +218,31 @@ export default function Dashboard() {
   }, [fetchRecalls])
 
   useEffect(() => {
-    if (user?.role === 'admin') {
-      fetchHandovers()
+    fetchHandovers()
+  }, [fetchHandovers])
+
+  useEffect(() => {
+    if (user?.id) {
+      fetch(`/api/handover`)
+        .then((r) => r.json())
+        .then((data) => {
+          const list = data.data ?? data
+          const mine = (Array.isArray(list) ? list : []).filter(
+            (h: PendingHandover) => h.to_user_id === user.id && h.status === 'pending'
+          )
+          setPendingHandovers(mine)
+        })
+        .catch(() => setPendingHandovers([]))
     }
-  }, [user, fetchHandovers])
+  }, [user])
 
   const role = user?.role
 
-  const pendingVisits = visits.filter(
-    (v) => v.status === 'pending'
-  )
+  const pendingVisits = visits.filter((v) => v.status === 'pending')
   const volunteerPendingVisits = pendingVisits.filter(
     (v) => v.visitor_id === user?.id || v.visitor_id == null
   )
-  const needFollowupVisits = visits.filter(
-    (v) => v.status === 'need_followup'
-  )
+  const needFollowupVisits = visits.filter((v) => v.status === 'need_followup')
 
   const volunteerRecalls = recalls.filter(
     (r) => (r as Record<string, unknown>).reporter_id === user?.id
@@ -224,9 +253,33 @@ export default function Dashboard() {
   const officerRecalls = recalls.filter(
     (r) => ['initiated', 'reviewing'].includes(r.status)
   )
-  const pendingHandovers = handovers.filter(
-    (h) => h.status === 'pending'
-  )
+
+  function renderPendingHandovers() {
+    if (pendingHandovers.length === 0) return null
+    return (
+      <CardList title="待接收交班" badge={pendingHandovers.length}>
+        {pendingHandovers.map((h) => (
+          <CardItem key={h.id} onClick={() => navigate(`/handovers/${h.id}`)}>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-gray-800">
+                {h.from_user_name ?? `用户`} → {h.to_user_name ?? '我'}
+              </p>
+              <div className="flex items-center gap-3 mt-0.5 text-xs text-gray-500">
+                {h.handover_date && <span>{dayjs(h.handover_date).format('YYYY-MM-DD')}</span>}
+                {h.pending_visits_count != null && <span>待回访 {h.pending_visits_count} 条</span>}
+                {h.active_recalls_count != null && <span>异常收回 {h.active_recalls_count} 条</span>}
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+              <span className="text-xs text-amber-600 font-medium">待确认</span>
+              <ArrowRight size={14} className="text-gray-400" />
+            </div>
+          </CardItem>
+        ))}
+      </CardList>
+    )
+  }
 
   return (
     <div className="space-y-6">
@@ -244,6 +297,7 @@ export default function Dashboard() {
           label="救助总数"
           borderColor="border-l-orange-500"
           iconBg="bg-orange-50"
+          onClick={() => navigate('/rescues')}
         />
         <StatCard
           icon={<ClipboardCheck size={24} className="text-blue-500" />}
@@ -251,6 +305,7 @@ export default function Dashboard() {
           label="待回访"
           borderColor="border-l-blue-500"
           iconBg="bg-blue-50"
+          onClick={() => navigate('/visits')}
         />
         <StatCard
           icon={<AlertTriangle size={24} className="text-red-500" />}
@@ -258,18 +313,21 @@ export default function Dashboard() {
           label="异常进行中"
           borderColor="border-l-red-500"
           iconBg="bg-red-50"
+          onClick={() => navigate('/recalls')}
         />
         <StatCard
-          icon={<CheckCircle size={24} className="text-green-500" />}
-          value={stats.recalledCount}
-          label="已收回"
-          borderColor="border-l-green-500"
-          iconBg="bg-green-50"
+          icon={<ArrowRightLeft size={24} className="text-amber-500" />}
+          value={pendingHandovers.length}
+          label="待接收交班"
+          borderColor="border-l-amber-500"
+          iconBg="bg-amber-50"
+          onClick={() => navigate('/handovers')}
         />
       </div>
 
       {role === 'volunteer' && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {renderPendingHandovers()}
           <CardList title="待处理回访">
             {volunteerPendingVisits.length === 0 ? (
               <EmptyItem text="暂无待处理回访" />
@@ -317,6 +375,7 @@ export default function Dashboard() {
             <div className="flex items-center gap-3">
               <ActionButton label="新建救助档案" to="/rescues" primary />
               <ActionButton label="新建回访" to="/visits/new" />
+              <ActionButton label="创建交班" to="/handovers/new" />
             </div>
           </div>
         </div>
@@ -324,6 +383,7 @@ export default function Dashboard() {
 
       {role === 'vet' && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {renderPendingHandovers()}
           <CardList title="健康复查提醒">
             {needFollowupVisits.length === 0 ? (
               <EmptyItem text="暂无复查提醒" />
@@ -377,13 +437,17 @@ export default function Dashboard() {
           </CardList>
 
           <div className="lg:col-span-2">
-            <ActionButton label="新建回访" to="/visits/new" primary />
+            <div className="flex items-center gap-3">
+              <ActionButton label="新建回访" to="/visits/new" primary />
+              <ActionButton label="创建交班" to="/handovers/new" />
+            </div>
           </div>
         </div>
       )}
 
       {role === 'adoption_officer' && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {renderPendingHandovers()}
           <CardList title="待审核异常收回">
             {officerRecalls.length === 0 ? (
               <EmptyItem text="暂无待审核记录" />
@@ -420,6 +484,7 @@ export default function Dashboard() {
             <div className="flex items-center gap-3">
               <ActionButton label="新建回访" to="/visits/new" primary />
               <ActionButton label="发起异常收回" to="/recalls/new" />
+              <ActionButton label="创建交班" to="/handovers/new" />
             </div>
           </div>
         </div>
@@ -428,6 +493,7 @@ export default function Dashboard() {
       {role === 'admin' && (
         <div className="space-y-6">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {renderPendingHandovers()}
             <CardList title="待处理回访">
               {pendingVisits.length === 0 ? (
                 <EmptyItem text="暂无待处理回访" />
@@ -485,44 +551,13 @@ export default function Dashboard() {
                 ))
               )}
             </CardList>
-
-            <CardList title="待确认交班">
-              {pendingHandovers.length === 0 ? (
-                <EmptyItem text="暂无待确认交班" />
-              ) : (
-                pendingHandovers.map((h) => (
-                  <CardItem key={h.id}>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-800">
-                        {((h as Record<string, unknown>).from_user_name as string) ?? `用户#${h.from_user_id}`}
-                        {' → '}
-                        {((h as Record<string, unknown>).to_user_name as string) ?? `用户#${h.to_user_id}`}
-                      </p>
-                      <p className="text-xs text-gray-500 mt-0.5">
-                        {((h as Record<string, unknown>).created_at as string)
-                          ? dayjs((h as Record<string, unknown>).created_at as string).format('YYYY-MM-DD HH:mm')
-                          : '-'}
-                      </p>
-                    </div>
-                    <button
-                      onClick={async () => {
-                        await useHandoverStore.getState().confirmHandover(h.id)
-                        fetchHandovers()
-                      }}
-                      className="px-3 py-1 text-sm text-orange-600 border border-orange-300 rounded-lg hover:bg-orange-50 transition-colors"
-                    >
-                      确认
-                    </button>
-                  </CardItem>
-                ))
-              )}
-            </CardList>
           </div>
 
           <div className="flex items-center gap-3 flex-wrap">
             <ActionButton label="新建救助档案" to="/rescues" primary />
             <ActionButton label="新建回访" to="/visits/new" />
             <ActionButton label="发起异常收回" to="/recalls/new" />
+            <ActionButton label="创建交班" to="/handovers/new" />
           </div>
         </div>
       )}

@@ -56,7 +56,7 @@ const NAV_ITEMS: NavItem[] = [
     label: '交班中心',
     icon: <ArrowRightLeft size={20} />,
     path: '/handovers',
-    roles: ['admin'],
+    roles: ['volunteer', 'vet', 'adoption_officer', 'admin'],
   },
 ]
 
