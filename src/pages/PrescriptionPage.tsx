@@ -1,11 +1,12 @@
 import { useState } from 'react'
 import {
-  Table, Button, Modal, Descriptions, Tag, Tabs, Card, Space, Select, Timeline, Typography, Divider, List,
+  Table, Button, Modal, Descriptions, Tag, Tabs, Card, Space, Select, Timeline, Typography, Divider, List, Form, Input, InputNumber, DatePicker, message,
 } from 'antd'
-import { HistoryOutlined, EyeOutlined, LinkOutlined } from '@ant-design/icons'
+import { HistoryOutlined, EyeOutlined, LinkOutlined, PlusOutlined, MinusCircleOutlined } from '@ant-design/icons'
 import dayjs from 'dayjs'
+import { v4 as uuid } from 'uuid'
 import { useAppStore } from '@/store/useAppStore'
-import type { Prescription } from '@/types'
+import type { Prescription, RehabGoal, TreatmentPlanItem } from '@/types'
 
 const { Paragraph, Text } = Typography
 
@@ -21,15 +22,22 @@ const PRIORITY_COLOR: Record<string, string> = { high: 'red', medium: 'orange', 
 const PRIORITY_LABEL: Record<string, string> = { high: '高', medium: '中', low: '低' }
 
 export default function PrescriptionPage() {
-  const { prescriptions, prescriptionHistory, patients, assessments, getPatientById, getAppointmentsByPrescription } = useAppStore()
+  const { prescriptions, prescriptionHistory, patients, assessments, getPatientById, getAppointmentsByPrescription, therapists, addPrescription } = useAppStore()
   const [selectedRx, setSelectedRx] = useState<Prescription | null>(null)
   const [filterPatient, setFilterPatient] = useState<string | undefined>(undefined)
+  const [createOpen, setCreateOpen] = useState(false)
+  const [form] = Form.useForm()
+  const [selectedPatientId, setSelectedPatientId] = useState<string | undefined>(undefined)
 
   const filtered = filterPatient
     ? prescriptions.filter((p) => p.patientId === filterPatient)
     : prescriptions
 
   const getAssessment = (id: string) => assessments.find((a) => a.id === id)
+
+  const patientAssessments = selectedPatientId
+    ? assessments.filter((a) => a.patientId === selectedPatientId)
+    : []
 
   const columns = [
     {
@@ -67,18 +75,57 @@ export default function PrescriptionPage() {
     },
   ]
 
+  const handleCreate = () => {
+    form.validateFields().then((values) => {
+      const therapist = therapists.find((t) => t.id === values.therapistId)
+      const goals: RehabGoal[] = (values.goals ?? []).map((g: { description: string; targetDate: any; measurable: string; priority: string }) => ({
+        id: `g${uuid().slice(0, 6)}`,
+        description: g.description,
+        targetDate: g.targetDate ? g.targetDate.format('YYYY-MM-DD') : '',
+        measurable: g.measurable,
+        priority: g.priority,
+      }))
+      const treatmentPlan: TreatmentPlanItem[] = (values.treatmentPlan ?? []).map((tp: { type: string; name: string; frequency: string; duration: string; notes: string }) => ({
+        id: `tp${uuid().slice(0, 6)}`,
+        type: tp.type,
+        name: tp.name,
+        frequency: tp.frequency,
+        duration: tp.duration,
+        notes: tp.notes ?? '',
+      }))
+
+      addPrescription({
+        patientId: values.patientId,
+        assessmentId: values.assessmentId,
+        status: 'pending_review',
+        therapistId: values.therapistId,
+        therapistName: therapist?.name ?? '',
+        goals,
+        treatmentPlan,
+        rationale: values.rationale,
+      })
+      form.resetFields()
+      setSelectedPatientId(undefined)
+      setCreateOpen(false)
+      message.success('康复处方开具成功，已提交审核')
+    })
+  }
+
   return (
     <div>
-      <div style={{ marginBottom: 16, display: 'flex', gap: 12, alignItems: 'center' }}>
-        <span>按患者筛选:</span>
-        <Select
-          allowClear
-          placeholder="全部患者"
-          style={{ width: 200 }}
-          value={filterPatient}
-          onChange={setFilterPatient}
-          options={patients.map((p) => ({ value: p.id, label: p.name }))}
-        />
+      <div style={{ marginBottom: 16, display: 'flex', gap: 12, alignItems: 'center', justifyContent: 'space-between' }}>
+        <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+          <span>按患者筛选:</span>
+          <Select
+            allowClear
+            placeholder="全部患者"
+            style={{ width: 200 }}
+            value={filterPatient}
+            onChange={setFilterPatient}
+            options={patients.map((p) => ({ value: p.id, label: p.name }))}
+          />
+        </div>
+        <Button type="primary" icon={<PlusOutlined />} onClick={() => setCreateOpen(true)}>开具处方</Button>
       </div>
 
       <Table columns={columns} dataSource={filtered} rowKey={(r) => `${r.id}-v${r.version}`} pagination={false} size="middle" />
@@ -257,6 +304,145 @@ export default function PrescriptionPage() {
             />
           )
         })()}
+      </Modal>
+
+      <Modal
+        title="开具康复处方"
+        open={createOpen}
+        onOk={handleCreate}
+        onCancel={() => { setCreateOpen(false); form.resetFields(); setSelectedPatientId(undefined) }}
+        okText="提交处方"
+        width={800}
+        style={{ top: 20 }}
+      >
+        <Form form={form} layout="vertical">
+          <Space style={{ width: '100%' }} size="middle">
+            <Form.Item name="patientId" label="患者" rules={[{ required: true, message: '请选择患者' }]} style={{ width: 240 }}>
+              <Select
+                showSearch placeholder="选择患者" optionFilterProp="label"
+                onChange={(v: string) => { setSelectedPatientId(v); form.setFieldsValue({ assessmentId: undefined }) }}
+                options={patients.map((p) => ({ value: p.id, label: `${p.name} - ${p.categoryLabel}` }))}
+              />
+            </Form.Item>
+            <Form.Item name="assessmentId" label="关联评估" rules={[{ required: true, message: '请选择评估记录' }]} style={{ width: 320 }}>
+              <Select
+                placeholder={selectedPatientId ? '选择评估记录' : '请先选择患者'}
+                disabled={!selectedPatientId}
+                options={patientAssessments.map((a) => ({
+                  value: a.id,
+                  label: `${dayjs(a.date).format('YYYY-MM-DD')} ${a.therapistName} - ${a.chiefComplaint.slice(0, 20)}`,
+                }))}
+              />
+            </Form.Item>
+            <Form.Item name="therapistId" label="处方治疗师" rules={[{ required: true, message: '请选择治疗师' }]} style={{ width: 200 }}>
+              <Select showSearch placeholder="选择治疗师" optionFilterProp="label"
+                options={therapists.map((t) => ({ value: t.id, label: `${t.name}(${t.specialty})` }))}
+              />
+            </Form.Item>
+          </Space>
+
+          <Form.Item noStyle shouldUpdate={(prev, cur) => prev.assessmentId !== cur.assessmentId}>
+            {({ getFieldValue }) => {
+              const aId = getFieldValue('assessmentId')
+              const assessment = assessments.find((a) => a.id === aId)
+              if (!assessment) return null
+              return (
+                <Card size="small" style={{ marginBottom: 12, background: '#f6ffed', borderLeft: '4px solid #52c41a' }}>
+                  <Text strong>评估结论: </Text><Text>{assessment.conclusion}</Text>
+                  {assessment.contraindications.length > 0 && (
+                    <div style={{ marginTop: 4 }}>
+                      <Text type="secondary">训练禁忌: </Text>
+                      {assessment.contraindications.map((ci) => (
+                        <Tag key={ci.id} color={ci.type === 'absolute' ? 'red' : 'orange'} style={{ marginBottom: 2 }}>
+                          {ci.type === 'absolute' ? '绝对' : '相对'}: {ci.description}
+                        </Tag>
+                      ))}
+                    </div>
+                  )}
+                </Card>
+              )
+            }}
+          </Form.Item>
+
+          <Divider orientation="left" style={{ margin: '12px 0 8px' }}>康复目标</Divider>
+          <Form.List name="goals">
+            {(fields, { add, remove }) => (
+              <>
+                {fields.map(({ key, name, ...restField }) => (
+                  <Space key={key} style={{ display: 'flex', marginBottom: 8, flexWrap: 'wrap' }} align="baseline">
+                    <Form.Item {...restField} name={[name, 'description']} rules={[{ required: true, message: '目标描述' }]}>
+                      <Input placeholder="目标描述" style={{ width: 200 }} />
+                    </Form.Item>
+                    <Form.Item {...restField} name={[name, 'measurable']} rules={[{ required: true, message: '测量指标' }]}>
+                      <Input placeholder="可测量指标" style={{ width: 140 }} />
+                    </Form.Item>
+                    <Form.Item {...restField} name={[name, 'targetDate']} rules={[{ required: true, message: '目标日期' }]}>
+                      <DatePicker placeholder="目标日期" style={{ width: 140 }} />
+                    </Form.Item>
+                    <Form.Item {...restField} name={[name, 'priority']} rules={[{ required: true, message: '优先级' }]}>
+                      <Select placeholder="优先级" style={{ width: 90 }}
+                        options={[{ value: 'high', label: '高' }, { value: 'medium', label: '中' }, { value: 'low', label: '低' }]}
+                      />
+                    </Form.Item>
+                    <MinusCircleOutlined onClick={() => remove(name)} style={{ color: '#ff4d4f' }} />
+                  </Space>
+                ))}
+                <Button type="dashed" onClick={() => add()} block icon={<PlusOutlined />}>添加康复目标</Button>
+              </>
+            )}
+          </Form.List>
+
+          <Divider orientation="left" style={{ margin: '12px 0 8px' }}>治疗计划</Divider>
+          <Form.List name="treatmentPlan">
+            {(fields, { add, remove }) => (
+              <>
+                {fields.map(({ key, name, ...restField }) => (
+                  <Space key={key} style={{ display: 'flex', marginBottom: 8, flexWrap: 'wrap' }} align="baseline">
+                    <Form.Item {...restField} name={[name, 'type']} rules={[{ required: true, message: '类型' }]}>
+                      <Select placeholder="治疗类型" style={{ width: 130 }}
+                        options={[
+                          { value: '关节活动度训练', label: '关节活动度训练' },
+                          { value: '肌力训练', label: '肌力训练' },
+                          { value: '本体感觉训练', label: '本体感觉训练' },
+                          { value: '平衡训练', label: '平衡训练' },
+                          { value: '步态训练', label: '步态训练' },
+                          { value: '力量训练', label: '力量训练' },
+                          { value: '功能训练', label: '功能训练' },
+                          { value: '物理因子', label: '物理因子' },
+                          { value: '核心稳定训练', label: '核心稳定训练' },
+                          { value: '姿势管理', label: '姿势管理' },
+                          { value: '牵伸训练', label: '牵伸训练' },
+                          { value: '特异性侧弯体操(SSE)', label: '特异性侧弯体操(SSE)' },
+                          { value: '安全策略', label: '安全策略' },
+                          { value: '其他', label: '其他' },
+                        ]}
+                      />
+                    </Form.Item>
+                    <Form.Item {...restField} name={[name, 'name']} rules={[{ required: true, message: '名称' }]}>
+                      <Input placeholder="治疗名称" style={{ width: 180 }} />
+                    </Form.Item>
+                    <Form.Item {...restField} name={[name, 'frequency']} rules={[{ required: true, message: '频率' }]}>
+                      <Input placeholder="频率" style={{ width: 100 }} />
+                    </Form.Item>
+                    <Form.Item {...restField} name={[name, 'duration']} rules={[{ required: true, message: '时长' }]}>
+                      <Input placeholder="时长" style={{ width: 80 }} />
+                    </Form.Item>
+                    <Form.Item {...restField} name={[name, 'notes']}>
+                      <Input placeholder="备注" style={{ width: 120 }} />
+                    </Form.Item>
+                    <MinusCircleOutlined onClick={() => remove(name)} style={{ color: '#ff4d4f' }} />
+                  </Space>
+                ))}
+                <Button type="dashed" onClick={() => add()} block icon={<PlusOutlined />}>添加治疗项目</Button>
+              </>
+            )}
+          </Form.List>
+
+          <Divider orientation="left" style={{ margin: '12px 0 8px' }}>处方依据</Divider>
+          <Form.Item name="rationale" rules={[{ required: true, message: '请输入处方依据' }]}>
+            <Input.TextArea rows={3} placeholder="基于评估结论，说明为什么这样设定目标和治疗计划" />
+          </Form.Item>
+        </Form>
       </Modal>
     </div>
   )

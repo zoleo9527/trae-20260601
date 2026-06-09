@@ -1,11 +1,12 @@
 import { useState } from 'react'
 import {
-  Table, Button, Modal, Descriptions, Tag, Tabs, Space, Select, Card, Typography, Divider, Progress,
+  Table, Button, Modal, Descriptions, Tag, Tabs, Space, Select, Card, Typography, Divider, Progress, Form, Input, InputNumber, DatePicker, message,
 } from 'antd'
-import { EyeOutlined } from '@ant-design/icons'
+import { PlusOutlined, MinusCircleOutlined, EyeOutlined } from '@ant-design/icons'
 import dayjs from 'dayjs'
+import { v4 as uuid } from 'uuid'
 import { useAppStore } from '@/store/useAppStore'
-import type { Assessment, PainPoint, Contraindication } from '@/types'
+import type { Assessment, PainPoint, Contraindication, ScaleItem } from '@/types'
 
 const { Text, Paragraph } = Typography
 
@@ -16,9 +17,11 @@ const SEVERITY_COLOR = (s: number) => {
 }
 
 export default function AssessmentPage() {
-  const { assessments, patients, getPatientById, prescriptions, getAppointmentsByPrescription } = useAppStore()
+  const { assessments, patients, getPatientById, prescriptions, getAppointmentsByPrescription, therapists, addAssessment } = useAppStore()
   const [selectedAssessment, setSelectedAssessment] = useState<Assessment | null>(null)
   const [filterPatient, setFilterPatient] = useState<string | undefined>(undefined)
+  const [createOpen, setCreateOpen] = useState(false)
+  const [form] = Form.useForm()
 
   const filteredAssessments = filterPatient
     ? assessments.filter((a) => a.patientId === filterPatient)
@@ -67,18 +70,64 @@ export default function AssessmentPage() {
     },
   ]
 
+  const handleCreate = () => {
+    form.validateFields().then((values) => {
+      const therapist = therapists.find((t) => t.id === values.therapistId)
+      const scales: ScaleItem[] = (values.scales ?? []).map((s: { name: string; score: number; maxScore: number; interpretation: string }) => ({
+        id: `s${uuid().slice(0, 6)}`,
+        name: s.name,
+        score: s.score,
+        maxScore: s.maxScore,
+        interpretation: s.interpretation,
+      }))
+      const painPoints: PainPoint[] = (values.painPoints ?? []).map((p: { region: string; side: string; severity: number; nature: string; notes: string }) => ({
+        id: `pp${uuid().slice(0, 6)}`,
+        region: p.region,
+        side: p.side,
+        severity: p.severity,
+        nature: p.nature,
+        notes: p.notes ?? '',
+      }))
+      const contraindications: Contraindication[] = (values.contraindications ?? []).map((c: { type: string; description: string; reason: string }) => ({
+        id: `ci${uuid().slice(0, 6)}`,
+        type: c.type,
+        description: c.description,
+        reason: c.reason,
+      }))
+
+      addAssessment({
+        patientId: values.patientId,
+        therapistId: values.therapistId,
+        therapistName: therapist?.name ?? '',
+        date: values.date.format('YYYY-MM-DD'),
+        chiefComplaint: values.chiefComplaint,
+        presentIllness: values.presentIllness ?? '',
+        scales,
+        painPoints,
+        contraindications,
+        conclusion: values.conclusion,
+      })
+      form.resetFields()
+      setCreateOpen(false)
+      message.success('评估记录创建成功')
+    })
+  }
+
   return (
     <div>
-      <div style={{ marginBottom: 16, display: 'flex', gap: 12, alignItems: 'center' }}>
-        <span>按患者筛选:</span>
-        <Select
-          allowClear
-          placeholder="全部患者"
-          style={{ width: 200 }}
-          value={filterPatient}
-          onChange={setFilterPatient}
-          options={patients.map((p) => ({ value: p.id, label: p.name }))}
-        />
+      <div style={{ marginBottom: 16, display: 'flex', gap: 12, alignItems: 'center', justifyContent: 'space-between' }}>
+        <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+          <span>按患者筛选:</span>
+          <Select
+            allowClear
+            placeholder="全部患者"
+            style={{ width: 200 }}
+            value={filterPatient}
+            onChange={setFilterPatient}
+            options={patients.map((p) => ({ value: p.id, label: p.name }))}
+          />
+        </div>
+        <Button type="primary" icon={<PlusOutlined />} onClick={() => setCreateOpen(true)}>新建评估</Button>
       </div>
 
       <Table columns={columns} dataSource={filteredAssessments} rowKey="id" pagination={false} size="middle" />
@@ -212,6 +261,130 @@ export default function AssessmentPage() {
             />
           )
         })()}
+      </Modal>
+
+      <Modal
+        title="新建评估记录"
+        open={createOpen}
+        onOk={handleCreate}
+        onCancel={() => { setCreateOpen(false); form.resetFields() }}
+        okText="提交评估"
+        width={800}
+        style={{ top: 20 }}
+      >
+        <Form form={form} layout="vertical">
+          <Space style={{ width: '100%' }} size="middle">
+            <Form.Item name="patientId" label="患者" rules={[{ required: true, message: '请选择患者' }]} style={{ width: 280 }}>
+              <Select showSearch placeholder="选择患者" optionFilterProp="label"
+                options={patients.map((p) => ({ value: p.id, label: `${p.name} - ${p.categoryLabel}` }))}
+              />
+            </Form.Item>
+            <Form.Item name="therapistId" label="评估治疗师" rules={[{ required: true, message: '请选择治疗师' }]} style={{ width: 240 }}>
+              <Select showSearch placeholder="选择治疗师" optionFilterProp="label"
+                options={therapists.map((t) => ({ value: t.id, label: `${t.name}(${t.specialty})` }))}
+              />
+            </Form.Item>
+            <Form.Item name="date" label="评估日期" rules={[{ required: true, message: '请选择日期' }]} style={{ width: 180 }}>
+              <DatePicker style={{ width: '100%' }} />
+            </Form.Item>
+          </Space>
+
+          <Form.Item name="chiefComplaint" label="主诉" rules={[{ required: true, message: '请输入主诉' }]}>
+            <Input placeholder="患者主要症状和诉求" />
+          </Form.Item>
+          <Form.Item name="presentIllness" label="现病史">
+            <Input.TextArea rows={3} placeholder="详细病史描述" />
+          </Form.Item>
+
+          <Divider orientation="left" style={{ margin: '12px 0 8px' }}>评估量表</Divider>
+          <Form.List name="scales">
+            {(fields, { add, remove }) => (
+              <>
+                {fields.map(({ key, name, ...restField }) => (
+                  <Space key={key} style={{ display: 'flex', marginBottom: 8 }} align="baseline">
+                    <Form.Item {...restField} name={[name, 'name']} rules={[{ required: true, message: '量表名' }]}>
+                      <Input placeholder="量表名称" style={{ width: 160 }} />
+                    </Form.Item>
+                    <Form.Item {...restField} name={[name, 'score']} rules={[{ required: true, message: '得分' }]}>
+                      <InputNumber placeholder="得分" min={0} style={{ width: 80 }} />
+                    </Form.Item>
+                    <Form.Item {...restField} name={[name, 'maxScore']} rules={[{ required: true, message: '满分' }]}>
+                      <InputNumber placeholder="满分" min={1} style={{ width: 80 }} />
+                    </Form.Item>
+                    <Form.Item {...restField} name={[name, 'interpretation']} rules={[{ required: true, message: '解读' }]}>
+                      <Input placeholder="评分解读" style={{ width: 200 }} />
+                    </Form.Item>
+                    <MinusCircleOutlined onClick={() => remove(name)} style={{ color: '#ff4d4f' }} />
+                  </Space>
+                ))}
+                <Button type="dashed" onClick={() => add()} block icon={<PlusOutlined />}>添加量表</Button>
+              </>
+            )}
+          </Form.List>
+
+          <Divider orientation="left" style={{ margin: '12px 0 8px' }}>疼痛点</Divider>
+          <Form.List name="painPoints">
+            {(fields, { add, remove }) => (
+              <>
+                {fields.map(({ key, name, ...restField }) => (
+                  <Space key={key} style={{ display: 'flex', marginBottom: 8 }} align="baseline">
+                    <Form.Item {...restField} name={[name, 'region']} rules={[{ required: true, message: '部位' }]}>
+                      <Input placeholder="疼痛部位" style={{ width: 120 }} />
+                    </Form.Item>
+                    <Form.Item {...restField} name={[name, 'side']} rules={[{ required: true, message: '侧别' }]}>
+                      <Select placeholder="侧别" style={{ width: 90 }}
+                        options={[{ value: 'left', label: '左侧' }, { value: 'right', label: '右侧' }, { value: 'bilateral', label: '双侧' }, { value: 'center', label: '中央' }]}
+                      />
+                    </Form.Item>
+                    <Form.Item {...restField} name={[name, 'severity']} rules={[{ required: true, message: '程度' }]}>
+                      <InputNumber placeholder="1-10" min={1} max={10} style={{ width: 70 }} />
+                    </Form.Item>
+                    <Form.Item {...restField} name={[name, 'nature']} rules={[{ required: true, message: '性质' }]}>
+                      <Select placeholder="性质" style={{ width: 100 }}
+                        options={[{ value: '酸痛', label: '酸痛' }, { value: '刺痛', label: '刺痛' }, { value: '钝痛', label: '钝痛' }, { value: '牵拉痛', label: '牵拉痛' }, { value: '烧灼痛', label: '烧灼痛' }]}
+                      />
+                    </Form.Item>
+                    <Form.Item {...restField} name={[name, 'notes']}>
+                      <Input placeholder="备注" style={{ width: 120 }} />
+                    </Form.Item>
+                    <MinusCircleOutlined onClick={() => remove(name)} style={{ color: '#ff4d4f' }} />
+                  </Space>
+                ))}
+                <Button type="dashed" onClick={() => add()} block icon={<PlusOutlined />}>添加疼痛点</Button>
+              </>
+            )}
+          </Form.List>
+
+          <Divider orientation="left" style={{ margin: '12px 0 8px' }}>训练禁忌</Divider>
+          <Form.List name="contraindications">
+            {(fields, { add, remove }) => (
+              <>
+                {fields.map(({ key, name, ...restField }) => (
+                  <Space key={key} style={{ display: 'flex', marginBottom: 8 }} align="baseline">
+                    <Form.Item {...restField} name={[name, 'type']} rules={[{ required: true, message: '类型' }]}>
+                      <Select placeholder="类型" style={{ width: 100 }}
+                        options={[{ value: 'absolute', label: '绝对禁忌' }, { value: 'relative', label: '相对禁忌' }]}
+                      />
+                    </Form.Item>
+                    <Form.Item {...restField} name={[name, 'description']} rules={[{ required: true, message: '描述' }]}>
+                      <Input placeholder="禁忌描述" style={{ width: 200 }} />
+                    </Form.Item>
+                    <Form.Item {...restField} name={[name, 'reason']} rules={[{ required: true, message: '原因' }]}>
+                      <Input placeholder="禁忌原因" style={{ width: 200 }} />
+                    </Form.Item>
+                    <MinusCircleOutlined onClick={() => remove(name)} style={{ color: '#ff4d4f' }} />
+                  </Space>
+                ))}
+                <Button type="dashed" onClick={() => add()} block icon={<PlusOutlined />}>添加训练禁忌</Button>
+              </>
+            )}
+          </Form.List>
+
+          <Divider orientation="left" style={{ margin: '12px 0 8px' }}>评估结论</Divider>
+          <Form.Item name="conclusion" rules={[{ required: true, message: '请输入评估结论' }]}>
+            <Input.TextArea rows={3} placeholder="综合评估结论，将作为康复处方的依据" />
+          </Form.Item>
+        </Form>
       </Modal>
     </div>
   )
