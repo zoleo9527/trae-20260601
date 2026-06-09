@@ -7,10 +7,41 @@ import {
   CheckCircle,
   FileText,
   Paperclip,
+  Upload,
 } from 'lucide-react'
 import dayjs from 'dayjs'
 import { useHandoverStore } from '@/stores/handoverStore'
 import { useAuthStore } from '@/stores/authStore'
+
+interface HandoverVisit {
+  id: number
+  animal_id: number
+  animal_name?: string
+  status: string
+  visit_date?: string
+  next_visit_date?: string | null
+  health_status?: string | null
+  visitor_name?: string | null
+}
+
+interface HandoverRecall {
+  id: number
+  animal_id: number
+  animal_name?: string
+  status: string
+  reason?: string
+  report_date?: string
+  reporter_name?: string | null
+  handler_name?: string | null
+}
+
+interface HandoverAttachment {
+  id: number
+  file_name: string
+  file_path: string
+  file_size?: number
+  uploaded_at?: string
+}
 
 interface HandoverDetail {
   id: number
@@ -24,15 +55,30 @@ interface HandoverDetail {
   key_notes?: string
   pending_visits_count?: number
   active_recalls_count?: number
-  pending_visits?: { id: number; animal_name?: string; status: string }[]
-  active_recalls?: { id: number; animal_name?: string; status: string }[]
-  attachments?: { id: number; name: string; url: string }[]
+  pending_visits?: HandoverVisit[]
+  active_recalls?: HandoverRecall[]
+  attachments?: HandoverAttachment[]
   confirmed_at?: string
 }
 
 const STATUS_CONFIG: Record<string, { label: string; className: string }> = {
   pending: { label: '待确认', className: 'bg-amber-100 text-amber-700' },
   confirmed: { label: '已确认', className: 'bg-green-100 text-green-700' },
+}
+
+const VISIT_STATUS: Record<string, { label: string; cls: string }> = {
+  pending: { label: '待处理', cls: 'bg-amber-100 text-amber-700' },
+  need_followup: { label: '需跟进', cls: 'bg-orange-100 text-orange-700' },
+  completed: { label: '已完成', cls: 'bg-green-100 text-green-700' },
+  transferred_to_recall: { label: '已转异常收回', cls: 'bg-red-100 text-red-700' },
+}
+
+const RECALL_STATUS: Record<string, { label: string; cls: string }> = {
+  initiated: { label: '已发起', cls: 'bg-blue-100 text-blue-700' },
+  reviewing: { label: '审核中', cls: 'bg-purple-100 text-purple-700' },
+  executing: { label: '执行收回', cls: 'bg-amber-100 text-amber-700' },
+  recalled: { label: '已收回', cls: 'bg-red-100 text-red-700' },
+  closed: { label: '已关闭', cls: 'bg-gray-100 text-gray-600' },
 }
 
 export default function HandoverDetail() {
@@ -49,6 +95,7 @@ export default function HandoverDetail() {
   const [editingKeyNotes, setEditingKeyNotes] = useState(false)
   const [summary, setSummary] = useState('')
   const [keyNotes, setKeyNotes] = useState('')
+  const [uploading, setUploading] = useState(false)
 
   useEffect(() => {
     if (id) fetchHandover(Number(id))
@@ -105,6 +152,11 @@ export default function HandoverDetail() {
     }
   }
 
+  async function refreshAttachments() {
+    if (!id) return
+    await fetchHandover(Number(id))
+  }
+
   if (loading && !h) {
     return (
       <div className="flex items-center justify-center h-48 text-gray-400">
@@ -126,6 +178,8 @@ export default function HandoverDetail() {
     label: h.status,
     className: 'bg-gray-100 text-gray-700',
   }
+
+  const attachments = h.attachments ?? []
 
   return (
     <div className="flex gap-6 min-h-[calc(100vh-8rem)]">
@@ -281,22 +335,27 @@ export default function HandoverDetail() {
           </h3>
           {h.pending_visits && h.pending_visits.length > 0 ? (
             <div className="space-y-2">
-              {h.pending_visits.map((v) => (
-                <div
-                  key={v.id}
-                  className="flex items-center justify-between px-3 py-2 bg-gray-50 rounded-lg text-sm"
-                >
-                  <span className="text-gray-700">
-                    回访 #{v.id}
-                    {v.animal_name && (
-                      <span className="text-gray-400 ml-1">- {v.animal_name}</span>
-                    )}
-                  </span>
-                  <span className="text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">
-                    {v.status}
-                  </span>
-                </div>
-              ))}
+              {h.pending_visits.map((v) => {
+                const cfg = VISIT_STATUS[v.status] ?? { label: v.status, cls: 'bg-gray-100 text-gray-600' }
+                return (
+                  <div key={v.id} className="flex items-center justify-between px-3 py-2 bg-gray-50 rounded-lg text-sm">
+                    <div className="min-w-0 flex-1">
+                      <span className="text-gray-700">
+                        回访 #{v.id}
+                        {v.animal_name && <span className="text-gray-400 ml-1">- {v.animal_name}</span>}
+                      </span>
+                      {v.next_visit_date && (
+                        <span className="text-xs text-gray-400 ml-2">
+                          下次 {dayjs(v.next_visit_date).format('MM-DD')}
+                        </span>
+                      )}
+                    </div>
+                    <span className={`text-xs px-2 py-0.5 rounded-full flex-shrink-0 ml-2 ${cfg.cls}`}>
+                      {cfg.label}
+                    </span>
+                  </div>
+                )
+              })}
             </div>
           ) : (
             <p className="text-sm text-gray-400">无待处理回访</p>
@@ -313,22 +372,28 @@ export default function HandoverDetail() {
           </h3>
           {h.active_recalls && h.active_recalls.length > 0 ? (
             <div className="space-y-2">
-              {h.active_recalls.map((r) => (
-                <div
-                  key={r.id}
-                  className="flex items-center justify-between px-3 py-2 bg-gray-50 rounded-lg text-sm"
-                >
-                  <span className="text-gray-700">
-                    收回 #{r.id}
-                    {r.animal_name && (
-                      <span className="text-gray-400 ml-1">- {r.animal_name}</span>
-                    )}
-                  </span>
-                  <span className="text-xs px-2 py-0.5 rounded-full bg-red-100 text-red-700">
-                    {r.status}
-                  </span>
-                </div>
-              ))}
+              {h.active_recalls.map((r) => {
+                const cfg = RECALL_STATUS[r.status] ?? { label: r.status, cls: 'bg-gray-100 text-gray-600' }
+                return (
+                  <div key={r.id} className="flex items-start justify-between px-3 py-2 bg-gray-50 rounded-lg text-sm">
+                    <div className="min-w-0 flex-1">
+                      <div className="text-gray-700">
+                        收回 #{r.id}
+                        {r.animal_name && <span className="text-gray-400 ml-1">- {r.animal_name}</span>}
+                      </div>
+                      {r.reason && (
+                        <div className="text-xs text-gray-500 mt-0.5 line-clamp-1">{r.reason}</div>
+                      )}
+                      {r.handler_name && (
+                        <div className="text-xs text-gray-400 mt-0.5">处理人: {r.handler_name}</div>
+                      )}
+                    </div>
+                    <span className={`text-xs px-2 py-0.5 rounded-full flex-shrink-0 ml-2 ${cfg.cls}`}>
+                      {cfg.label}
+                    </span>
+                  </div>
+                )
+              })}
             </div>
           ) : (
             <p className="text-sm text-gray-400">无进行中异常收回</p>
@@ -340,19 +405,63 @@ export default function HandoverDetail() {
             <Paperclip size={16} className="text-gray-500" />
             附件
           </h3>
-          {h.attachments && h.attachments.length > 0 ? (
+          <div className="mb-3">
+            <label className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-dashed border-gray-300 rounded-lg text-sm text-gray-500 hover:border-orange-400 hover:text-orange-600 transition-colors cursor-pointer">
+              <Upload size={14} />
+              上传附件
+              <input
+                type="file"
+                className="hidden"
+                disabled={uploading}
+                onChange={async (e) => {
+                  const file = e.target.files?.[0]
+                  if (!file || !id) return
+                  setUploading(true)
+                  try {
+                    const form = new FormData()
+                    form.append('file', file)
+                    form.append('entity_type', 'handover')
+                    form.append('entity_id', id)
+                    const res = await fetch('/api/attachments/upload', { method: 'POST', body: form })
+                    if (res.ok) await refreshAttachments()
+                  } finally {
+                    setUploading(false)
+                    e.target.value = ''
+                  }
+                }}
+              />
+            </label>
+            {uploading && <span className="ml-2 text-xs text-gray-400">上传中...</span>}
+          </div>
+          {attachments.length > 0 ? (
             <div className="space-y-2">
-              {h.attachments.map((a) => (
-                <a
-                  key={a.id}
-                  href={a.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-2 px-3 py-2 bg-gray-50 rounded-lg text-sm text-gray-700 hover:bg-gray-100 transition-colors"
-                >
-                  <FileText size={14} className="text-gray-400" />
-                  {a.name}
-                </a>
+              {attachments.map((a) => (
+                <div key={a.id} className="flex items-center gap-2 px-3 py-2 bg-gray-50 rounded-lg text-sm text-gray-700">
+                  <FileText size={14} className="text-gray-400 flex-shrink-0" />
+                  <a
+                    href={`/${a.file_path}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex-1 truncate hover:text-orange-600 transition-colors"
+                    download
+                  >
+                    {a.file_name}
+                  </a>
+                  {a.file_size != null && (
+                    <span className="text-xs text-gray-400 flex-shrink-0">
+                      {(a.file_size / 1024).toFixed(1)} KB
+                    </span>
+                  )}
+                  <button
+                    onClick={async () => {
+                      await fetch(`/api/attachments/${a.id}`, { method: 'DELETE' })
+                      await refreshAttachments()
+                    }}
+                    className="text-xs text-red-500 hover:text-red-700 flex-shrink-0"
+                  >
+                    删除
+                  </button>
+                </div>
               ))}
             </div>
           ) : (
@@ -418,12 +527,18 @@ export default function HandoverDetail() {
             <div>
               <h4 className="text-xs font-semibold text-gray-500 mb-1.5">待处理回访</h4>
               <ul className="space-y-1">
-                {h.pending_visits.map((v) => (
-                  <li key={v.id} className="text-sm text-gray-700 flex items-center gap-1.5">
-                    <span className="w-1.5 h-1.5 rounded-full bg-amber-400 flex-shrink-0" />
-                    回访 #{v.id}{v.animal_name ? ` - ${v.animal_name}` : ''}
-                  </li>
-                ))}
+                {h.pending_visits.map((v) => {
+                  const cfg = VISIT_STATUS[v.status] ?? { label: v.status, cls: '' }
+                  return (
+                    <li key={v.id} className="text-sm text-gray-700 flex items-center gap-1.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-amber-400 flex-shrink-0" />
+                      回访 #{v.id}{v.animal_name ? ` - ${v.animal_name}` : ''}
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${cfg.cls}`}>
+                        {cfg.label}
+                      </span>
+                    </li>
+                  )
+                })}
               </ul>
             </div>
           )}
@@ -432,10 +547,32 @@ export default function HandoverDetail() {
             <div>
               <h4 className="text-xs font-semibold text-gray-500 mb-1.5">进行中异常收回</h4>
               <ul className="space-y-1">
-                {h.active_recalls.map((r) => (
-                  <li key={r.id} className="text-sm text-gray-700 flex items-center gap-1.5">
-                    <span className="w-1.5 h-1.5 rounded-full bg-red-400 flex-shrink-0" />
-                    收回 #{r.id}{r.animal_name ? ` - ${r.animal_name}` : ''}
+                {h.active_recalls.map((r) => {
+                  const cfg = RECALL_STATUS[r.status] ?? { label: r.status, cls: '' }
+                  return (
+                    <li key={r.id} className="text-sm text-gray-700 flex items-center gap-1.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-red-400 flex-shrink-0" />
+                      收回 #{r.id}{r.animal_name ? ` - ${r.animal_name}` : ''}
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${cfg.cls}`}>
+                        {cfg.label}
+                      </span>
+                    </li>
+                  )
+                })}
+              </ul>
+            </div>
+          )}
+
+          {attachments.length > 0 && (
+            <div>
+              <h4 className="text-xs font-semibold text-gray-500 mb-1.5">附件</h4>
+              <ul className="space-y-1">
+                {attachments.map((a) => (
+                  <li key={a.id} className="text-sm text-gray-700 flex items-center gap-1.5">
+                    <FileText size={12} className="text-gray-400 flex-shrink-0" />
+                    <a href={`/${a.file_path}`} target="_blank" rel="noopener noreferrer" className="hover:text-orange-600 transition-colors" download>
+                      {a.file_name}
+                    </a>
                   </li>
                 ))}
               </ul>

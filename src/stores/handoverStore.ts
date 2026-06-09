@@ -55,6 +55,9 @@ export const useHandoverStore = create<HandoverState>((set) => ({
       body: JSON.stringify(data),
     })
     if (!res.ok) throw new Error('创建交班记录失败')
+    const created = await res.json()
+    set({ currentHandover: created })
+    return created
   },
 
   confirmHandover: async (id) => {
