@@ -648,6 +648,7 @@ class TherapistTodoTest(BaseTestCase):
         self.assertIn('评估', item['stuck_reason'])
         self.assertEqual(item['responsible_role'], 'therapist')
         self.assertEqual(item['responsible_user_id'], self.therapist.id)
+        self.assertEqual(item['responsible_username'], self.therapist.username)
         self.assertIn('提交评估', item['suggested_action'])
 
     def test_therapist_sees_in_use_orders(self):
@@ -657,6 +658,72 @@ class TherapistTodoTest(BaseTestCase):
         self.assertIn('in_use', statuses)
         in_use_item = next(i for i in todos['items'] if i['status'] == 'in_use')
         self.assertIn('使用', in_use_item['suggested_action'])
+        self.assertEqual(in_use_item['responsible_role'], 'therapist')
+
+    def test_therapist_sees_in_use_exception_as_own(self):
+        order = self._advance_to_in_use()
+        add_usage_record(
+            user=self.therapist,
+            order_id=order.id,
+            record_data={
+                'start_time': timezone.now(),
+                'duration_minutes': 10,
+                'actual_usage': '中断',
+                'abnormal': True,
+                'abnormal_note': '患者疼痛',
+            },
+        )
+        order.refresh_from_db()
+        self.assertEqual(order.previous_status, 'in_use')
+
+        todos = get_my_todos(self.therapist)
+        exception_items = [i for i in todos['items'] if i['status'] == 'exception']
+        self.assertEqual(len(exception_items), 1)
+        self.assertEqual(exception_items[0]['responsible_role'], 'therapist')
+        self.assertEqual(exception_items[0]['responsible_user_id'], self.therapist.id)
+        self.assertIn('使用中', exception_items[0]['stuck_reason'])
+
+    def test_therapist_does_not_see_pending_review_exception(self):
+        order = self._advance_to_pending_review()
+        mark_exception(self.director, order.id, reason='审核异常')
+        order.refresh_from_db()
+        self.assertEqual(order.previous_status, 'pending_review')
+
+        todos = get_my_todos(self.therapist)
+        exception_items = [i for i in todos['items'] if i['status'] == 'exception']
+        self.assertEqual(len(exception_items), 0)
+
+    def test_therapist_does_not_see_other_therapist_exception(self):
+        other_therapist = _create_user_with_role('therapist2', 'therapist')
+        patient2 = Patient.objects.create(name='李四', gender='女', age=30)
+        order = create_order_with_assessment(
+            user=other_therapist,
+            patient_id=patient2.id,
+            assessment_data={'motor_function': '测试', 'pain_level': 2},
+        )
+        submit_assessment(other_therapist, order.id)
+        assign_equipment(
+            user=self.receptionist, order_id=order.id, equipment_id=self.equipment.id,
+            scheduled_date=timezone.now().date(),
+            time_start=timezone.now().time(),
+            time_end=(timezone.now() + timedelta(hours=1)).time(),
+        )
+        confirm_schedule(self.receptionist, order.id)
+        add_usage_record(
+            user=other_therapist,
+            order_id=order.id,
+            record_data={
+                'start_time': timezone.now(),
+                'duration_minutes': 10,
+                'actual_usage': '中断',
+                'abnormal': True,
+                'abnormal_note': '异常',
+            },
+        )
+
+        todos = get_my_todos(self.therapist)
+        exception_items = [i for i in todos['items'] if i['status'] == 'exception']
+        self.assertEqual(len(exception_items), 0)
 
     def test_therapist_sees_returned_draft_as_draft(self):
         order = self._advance_to_in_use()
@@ -689,6 +756,22 @@ class TherapistTodoTest(BaseTestCase):
         in_use_items = [i for i in todos['items'] if i['status'] == 'in_use']
         self.assertEqual(len(in_use_items), 1)
         self.assertIn('退回', in_use_items[0]['stuck_reason'])
+
+    def test_therapist_exception_suggested_action_reflects_therapist_view(self):
+        order = self._advance_to_in_use()
+        add_usage_record(
+            user=self.therapist,
+            order_id=order.id,
+            record_data={
+                'start_time': timezone.now(),
+                'duration_minutes': 5,
+                'abnormal': True,
+                'abnormal_note': '设备故障',
+            },
+        )
+        todos = get_my_todos(self.therapist)
+        item = next(i for i in todos['items'] if i['status'] == 'exception')
+        self.assertIn('继续记录使用', item['suggested_action'])
 
 
 class ReceptionistTodoTest(BaseTestCase):
@@ -742,22 +825,65 @@ class DirectorTodoTest(BaseTestCase):
         item = next(i for i in todos['items'] if i['status'] == 'pending_review')
         self.assertIn('审核', item['stuck_reason'])
         self.assertIn('审核', item['suggested_action'])
+        self.assertEqual(item['responsible_role'], 'director')
 
-    def test_director_sees_exception_orders(self):
+    def test_director_sees_all_exception_orders(self):
         order = self._create_full_order()
         mark_exception(self.director, order.id, reason='测试')
         todos = get_my_todos(self.director)
         exception_items = [i for i in todos['items'] if i['status'] == 'exception']
         self.assertEqual(len(exception_items), 1)
         self.assertIn('异常', exception_items[0]['stuck_reason'])
-        self.assertIn('退回', exception_items[0]['suggested_action'])
 
-    def test_director_sees_exception_with_pending_review_stage(self):
+    def test_director_exception_from_pending_review_shows_director_responsible(self):
         order = self._advance_to_pending_review()
         mark_exception(self.director, order.id, reason='审核发现异常')
         todos = get_my_todos(self.director)
-        exception_items = [i for i in todos['items'] if i['status'] == 'exception']
-        self.assertEqual(len(exception_items), 1)
+        item = next(i for i in todos['items'] if i['status'] == 'exception')
+        self.assertEqual(item['responsible_role'], 'director')
+        self.assertIn('审核', item['suggested_action'])
+
+    def test_director_exception_from_in_use_shows_therapist_responsible(self):
+        order = self._advance_to_in_use()
+        add_usage_record(
+            user=self.therapist,
+            order_id=order.id,
+            record_data={
+                'start_time': timezone.now(),
+                'duration_minutes': 5,
+                'abnormal': True,
+                'abnormal_note': '患者不适',
+            },
+        )
+        todos = get_my_todos(self.director)
+        item = next(i for i in todos['items'] if i['status'] == 'exception')
+        self.assertEqual(item['responsible_role'], 'therapist')
+        self.assertIn('退回', item['suggested_action'])
+
+    def test_director_exception_from_in_use_shows_therapist_as_responsible_user(self):
+        order = self._advance_to_in_use()
+        add_usage_record(
+            user=self.therapist,
+            order_id=order.id,
+            record_data={
+                'start_time': timezone.now(),
+                'duration_minutes': 5,
+                'abnormal': True,
+                'abnormal_note': '患者不适',
+            },
+        )
+        todos = get_my_todos(self.director)
+        item = next(i for i in todos['items'] if i['status'] == 'exception')
+        self.assertEqual(item['responsible_user_id'], self.therapist.id)
+        self.assertEqual(item['responsible_username'], self.therapist.username)
+
+    def test_director_exception_from_pending_assign_shows_receptionist_responsible(self):
+        order = self._advance_to_pending_assign()
+        mark_exception(self.director, order.id, reason='需要更换器械')
+        todos = get_my_todos(self.director)
+        item = next(i for i in todos['items'] if i['status'] == 'exception')
+        self.assertEqual(item['responsible_role'], 'receptionist')
+        self.assertIn('退回', item['suggested_action'])
 
     def test_director_does_not_see_returned_orders_as_exception(self):
         order = self._advance_to_in_use()

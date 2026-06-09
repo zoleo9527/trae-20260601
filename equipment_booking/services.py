@@ -176,9 +176,10 @@ def add_usage_record(user, order_id: UUID, record_data: dict) -> UsageRecord:
                 level='error',
                 message=f'使用异常: {record_data.get("abnormal_note", "未填写异常说明")}',
             )
+            order.previous_status = order.status
             order.status = 'exception'
             order.exception_reason = f'使用异常: {record_data.get("abnormal_note", "")}'
-            order.save(update_fields=['status', 'exception_reason', 'updated_at'])
+            order.save(update_fields=['status', 'previous_status', 'exception_reason', 'updated_at'])
             _release_equipment(order)
 
     return record
@@ -227,9 +228,10 @@ def mark_exception(user, order_id: UUID, reason: str) -> AppointmentOrder:
     _validate_transition(order, 'exception')
 
     with transaction.atomic():
+        order.previous_status = order.status
         order.status = 'exception'
         order.exception_reason = reason
-        order.save(update_fields=['status', 'exception_reason', 'updated_at'])
+        order.save(update_fields=['status', 'previous_status', 'exception_reason', 'updated_at'])
 
         AlertLog.objects.create(
             order=order,
@@ -299,9 +301,10 @@ def detect_stuck_orders() -> list[dict]:
                     level='warning',
                     message=f'预约单在 [{order.get_status_display()}] 状态已滞留 {stuck_hours:.1f} 小时，超时阈值 {hours} 小时',
                 )
+                order.previous_status = order.status
                 order.status = 'exception'
                 order.exception_reason = f'超时滞留: 在 [{status}] 状态超过 {hours} 小时'
-                order.save(update_fields=['status', 'exception_reason', 'updated_at'])
+                order.save(update_fields=['status', 'previous_status', 'exception_reason', 'updated_at'])
                 _release_equipment(order)
 
             stuck.append({
@@ -482,16 +485,35 @@ _STATUS_META = {
     },
 }
 
-_EXCEPTION_STATUS_META_MAP = {
-    'therapist': {
-        'stuck_reason': '预约单异常，可能已退回给治疗师处理',
-        'suggested_action': '查看异常原因，等待主任退回后重新操作',
-    },
-    'director': {
-        'stuck_reason': '预约单异常，等待主任审核处理',
-        'suggested_action': '审核异常原因，退回至合适阶段或关闭',
-    },
+_EXCEPTION_RESPONSIBLE_MAP = {
+    'draft': 'therapist',
+    'pending_assign': 'receptionist',
+    'assigned': 'receptionist',
+    'in_use': 'therapist',
+    'pending_review': 'director',
 }
+
+
+def _exception_stuck_reason(previous_status: str, exception_reason: str) -> str:
+    status_label = dict(AppointmentOrder.STATUS_CHOICES).get(previous_status, previous_status)
+    base = f'预约单在[{status_label}]阶段发生异常'
+    if exception_reason:
+        base += f'（原因: {exception_reason}）'
+    return base
+
+
+def _exception_suggested_action(responsible_role: str, viewer_role: str) -> str:
+    if viewer_role == responsible_role:
+        if responsible_role == 'therapist':
+            return '确认异常原因，可继续记录使用或等待主任处理'
+        elif responsible_role == 'receptionist':
+            return '确认异常原因，等待主任退回后重新分配'
+        return '审核异常原因，退回至合适阶段或关闭'
+    if viewer_role == 'director':
+        return '审核异常原因，退回至合适阶段或关闭'
+    if viewer_role == 'therapist':
+        return '确认异常原因，可继续记录使用或等待主任处理'
+    return '查看异常原因'
 
 
 def _order_to_todo_item(order: AppointmentOrder, role: str) -> dict:
@@ -499,16 +521,16 @@ def _order_to_todo_item(order: AppointmentOrder, role: str) -> dict:
     threshold = STATUS_TIMEOUT_HOURS.get(order.status, 0)
     over_hours = max((now - order.updated_at).total_seconds() / 3600 - threshold, 0)
 
-    if order.status == 'exception' and role in _EXCEPTION_STATUS_META_MAP:
-        meta = _EXCEPTION_STATUS_META_MAP[role]
-        stuck_reason = meta['stuck_reason']
-        suggested_action = meta['suggested_action']
-        if order.exception_reason:
-            stuck_reason = f'{stuck_reason}（原因: {order.exception_reason}）'
+    if order.status == 'exception':
+        previous = order.previous_status or 'pending_review'
+        responsible = _EXCEPTION_RESPONSIBLE_MAP.get(previous, 'director')
+        stuck_reason = _exception_stuck_reason(previous, order.exception_reason)
+        suggested_action = _exception_suggested_action(responsible, role)
     else:
         base = _STATUS_META.get(order.status, {})
         stuck_reason = base.get('stuck_reason', '未知状态')
         suggested_action = base.get('suggested_action', '请联系管理员')
+        responsible = base.get('responsible_role', role)
 
     if order.return_reason and order.status != 'exception':
         stuck_reason = f'主任退回（{order.return_reason}），需重新操作'
@@ -516,8 +538,10 @@ def _order_to_todo_item(order: AppointmentOrder, role: str) -> dict:
             suggested_action = '主任已退回，请重新提交评估'
         elif order.return_target_status == 'in_use':
             suggested_action = '主任已退回，请继续记录使用'
+        elif order.return_target_status == 'pending_assign':
+            suggested_action = '主任已退回，请重新分配器械'
 
-    resp_user = _get_responsible_user(order, role)
+    resp_user = _get_responsible_user(order, responsible)
 
     return {
         'order_id': order.id,
@@ -526,7 +550,7 @@ def _order_to_todo_item(order: AppointmentOrder, role: str) -> dict:
         'status': order.status,
         'status_display': order.get_status_display(),
         'stuck_reason': stuck_reason,
-        'responsible_role': role,
+        'responsible_role': responsible,
         'responsible_user_id': resp_user['user_id'],
         'responsible_username': resp_user['username'],
         'over_hours': round(over_hours, 1),
@@ -540,15 +564,15 @@ def _order_to_todo_item(order: AppointmentOrder, role: str) -> dict:
     }
 
 
-def _get_responsible_user(order: AppointmentOrder, role: str) -> dict:
-    if role == 'therapist':
+def _get_responsible_user(order: AppointmentOrder, responsible_role: str) -> dict:
+    if responsible_role == 'therapist':
         user = order.therapist
         return {'user_id': user.id, 'username': user.username}
-    elif role == 'receptionist':
+    elif responsible_role == 'receptionist':
         if order.receptionist_id:
             return {'user_id': order.receptionist_id, 'username': order.receptionist.username}
         return {'user_id': 0, 'username': '（待分配前台）'}
-    elif role == 'director':
+    elif responsible_role == 'director':
         if order.reviewer_id:
             return {'user_id': order.reviewer_id, 'username': order.reviewer.username}
         return {'user_id': 0, 'username': '（待分配主任）'}
@@ -569,7 +593,10 @@ def get_my_todos(user) -> dict:
             if status in ('draft', 'in_use'):
                 qs = qs.filter(therapist_id=user.id)
             elif status == 'exception':
-                pass
+                qs = qs.filter(
+                    therapist_id=user.id,
+                    previous_status__in=['draft', 'in_use'],
+                )
 
         elif role == 'receptionist':
             if status == 'pending_assign':

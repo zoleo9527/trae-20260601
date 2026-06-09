@@ -93,6 +93,7 @@ class AppointmentOrder(models.Model):
     exception_reason = models.TextField(blank=True, default='')
     return_reason = models.TextField(blank=True, default='')
     return_target_status = models.CharField(max_length=16, blank=True, default='')
+    previous_status = models.CharField(max_length=16, blank=True, default='', db_index=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
