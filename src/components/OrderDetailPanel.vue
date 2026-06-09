@@ -302,7 +302,7 @@ function focusRemark() {
         <div v-if="showFeeForm" class="space-y-2">
           <div class="flex items-center gap-2 text-sm font-semibold text-[#1B4965]">
             <DollarSign :size="16" />
-            新建费用调整
+            {{ order?.feeAdjustment?.status === 'rejected' ? '修正费用调整' : '新建费用调整' }}
           </div>
           <div class="bg-[#F7F9FC] rounded-lg p-3 text-sm space-y-3">
             <div>
@@ -344,7 +344,7 @@ function focusRemark() {
                 class="px-3 py-1.5 bg-[#E8871E] text-white text-sm rounded-lg hover:bg-[#c97418] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                 @click="submitFeeForm"
               >
-                提交费用调整
+                {{ order?.feeAdjustment?.status === 'rejected' ? '修正提交' : '提交费用调整' }}
               </button>
             </div>
           </div>

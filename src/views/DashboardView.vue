@@ -213,7 +213,7 @@ const myTodoItems = computed<TodoItem[]>(() => {
 
 function getPendingCount(role: UserRole) {
   return ordersStore.getOrdersByRole(role).filter(
-    (o) => !['completed', 'rejected'].includes(o.status)
+    (o) => o.status !== 'completed'
   ).length
 }
 

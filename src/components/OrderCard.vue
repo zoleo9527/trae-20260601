@@ -28,7 +28,8 @@ const returnTypeLabel: Record<string, string> = {
 
 const rolePendingAction: Record<UserRole, Record<string, string>> = {
   sales_clerk: {
-    pending_review: '等待提交',
+    pending_review: '待提交申请',
+    rejected: '重新提交申请',
     fee_adjusting: '待确认费用调整',
     completed: '已完结',
   },
@@ -41,7 +42,7 @@ const rolePendingAction: Record<UserRole, Record<string, string>> = {
   after_sales: {
     pending_review: '待审核',
     approved: '待发起费用调整',
-    fee_adjusting: '费用调整待审批',
+    fee_adjusting: '修正费用调整',
     completed: '已完结',
   },
 }
