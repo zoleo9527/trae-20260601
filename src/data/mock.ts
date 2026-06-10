@@ -136,6 +136,8 @@ export const mockSamples: QualitySample[] = [
     tester: '李质检',
     testedAt: '2026-06-10T11:30:00',
     createdAt: '2026-06-10T10:30:00',
+    updatedAt: '2026-06-10T11:30:00',
+    lastModifiedBy: '李质检',
     retentionExpiry: '2026-09-10',
     history: [
       { id: 'sh1-1', sampleId: 's1', fromStatus: null, toStatus: 'pending_sample', operator: '李质检', operatorRole: 'qc_inspector', remark: '创建取样任务', timestamp: '2026-06-10T10:30:00' },
@@ -153,6 +155,8 @@ export const mockSamples: QualitySample[] = [
     tester: '李质检',
     testedAt: null,
     createdAt: '2026-06-10T11:00:00',
+    updatedAt: '2026-06-10T11:00:00',
+    lastModifiedBy: '李质检',
     retentionExpiry: null,
     history: [
       { id: 'sh2-1', sampleId: 's2', fromStatus: null, toStatus: 'pending_sample', operator: '李质检', operatorRole: 'qc_inspector', remark: '批次待质检，创建取样任务', timestamp: '2026-06-10T11:00:00' },
@@ -168,6 +172,8 @@ export const mockSamples: QualitySample[] = [
     tester: '李质检',
     testedAt: '2026-06-08T16:00:00',
     createdAt: '2026-06-08T12:30:00',
+    updatedAt: '2026-06-08T16:30:00',
+    lastModifiedBy: '李质检',
     retentionExpiry: '2026-09-08',
     history: [
       { id: 'sh3-1', sampleId: 's3', fromStatus: null, toStatus: 'pending_sample', operator: '李质检', operatorRole: 'qc_inspector', remark: '创建取样任务', timestamp: '2026-06-08T12:30:00' },
@@ -186,6 +192,8 @@ export const mockSamples: QualitySample[] = [
     tester: '李质检',
     testedAt: '2026-06-07T14:30:00',
     createdAt: '2026-06-07T12:00:00',
+    updatedAt: '2026-06-07T15:00:00',
+    lastModifiedBy: '李质检',
     retentionExpiry: '2026-09-07',
     history: [
       { id: 'sh4-1', sampleId: 's4', fromStatus: null, toStatus: 'pending_sample', operator: '李质检', operatorRole: 'qc_inspector', remark: '创建取样任务', timestamp: '2026-06-07T12:00:00' },
@@ -204,6 +212,8 @@ export const mockSamples: QualitySample[] = [
     tester: '李质检',
     testedAt: '2026-06-06T15:00:00',
     createdAt: '2026-06-06T12:00:00',
+    updatedAt: '2026-06-06T16:00:00',
+    lastModifiedBy: '李质检',
     retentionExpiry: '2026-06-06',
     history: [
       { id: 'sh5-1', sampleId: 's5', fromStatus: null, toStatus: 'pending_sample', operator: '李质检', operatorRole: 'qc_inspector', remark: '创建取样任务', timestamp: '2026-06-06T12:00:00' },

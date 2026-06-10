@@ -63,11 +63,11 @@ export default function SampleCard({ sample, onClick }: SampleCardProps) {
       <div className="flex items-center gap-3 text-xs text-slate-400">
         <span className="flex items-center gap-1">
           <User size={12} />
-          {sample.tester}
+          {sample.lastModifiedBy || sample.tester}
         </span>
         <span className="flex items-center gap-1">
           <Clock size={12} />
-          {getRelativeTime(sample.testedAt || sample.createdAt)}
+          {getRelativeTime(sample.updatedAt || sample.testedAt || sample.createdAt)}
         </span>
       </div>
     </div>

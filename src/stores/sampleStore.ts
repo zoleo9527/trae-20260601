@@ -41,6 +41,8 @@ export const useSampleStore = create<SampleState>((set, get) => ({
           status: toStatus,
           tester: operator,
           testedAt: now,
+          updatedAt: now,
+          lastModifiedBy: operator,
           history: [...sample.history, historyEntry],
         }
       }),

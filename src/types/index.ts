@@ -30,6 +30,8 @@ export interface QualitySample {
   tester: string
   testedAt: string | null
   createdAt: string
+  updatedAt: string
+  lastModifiedBy: string
   history: SampleHistoryEntry[]
   retentionExpiry: string | null
 }
@@ -102,11 +104,11 @@ export const SAMPLE_STATUS_MAP: Record<SampleStatus, { label: string; color: str
   destroyed: { label: '已销毁', color: 'text-zinc-500', bg: 'bg-zinc-100' },
 }
 
-export const ROLE_MAP: Record<UserRole, { label: string; color: string }> = {
-  formulator: { label: '配方师', color: 'text-violet-600' },
-  production_lead: { label: '生产班长', color: 'text-blue-600' },
-  qc_inspector: { label: '质检员', color: 'text-orange-600' },
-  manager: { label: '厂长', color: 'text-emerald-600' },
+export const ROLE_MAP: Record<UserRole, { label: string; color: string; defaultOperator: string }> = {
+  formulator: { label: '配方师', color: 'text-violet-600', defaultOperator: '张配方' },
+  production_lead: { label: '生产班长', color: 'text-blue-600', defaultOperator: '王建国' },
+  qc_inspector: { label: '质检员', color: 'text-orange-600', defaultOperator: '李质检' },
+  manager: { label: '厂长', color: 'text-emerald-600', defaultOperator: '厂长' },
 }
 
 export const BATCH_STATUS_ORDER: BatchStatus[] = ['abnormal', 'pending_qc', 'pending_feed', 'in_production', 'completed']

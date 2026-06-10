@@ -1,5 +1,6 @@
 import { useSampleStore } from '@/stores/sampleStore'
 import { useUIStore } from '@/stores/uiStore'
+import { useActivityStore } from '@/stores/activityStore'
 import { ROLE_MAP, SAMPLE_STATUS_MAP } from '@/types'
 import type { SampleStatus, UserRole } from '@/types'
 import SampleStatusBadge from './SampleStatusBadge'
@@ -64,6 +65,7 @@ export default function SampleDetail({ sampleId }: { sampleId: string }) {
   const transitionStatus = useSampleStore((s) => s.transitionStatus)
   const currentRole = useUIStore((s) => s.currentRole)
   const openDetailPanel = useUIStore((s) => s.openDetailPanel)
+  const addActivity = useActivityStore((s) => s.addActivity)
 
   if (!sample) {
     return <p className="text-sm text-slate-400">留样不存在</p>
@@ -108,8 +110,18 @@ export default function SampleDetail({ sampleId }: { sampleId: string }) {
           </p>
         </div>
         <div>
+          <span className="text-slate-400 text-xs">最后操作</span>
+          <p className="text-slate-700 text-xs">{sample.lastModifiedBy}</p>
+        </div>
+        <div>
           <span className="text-slate-400 text-xs">留样到期</span>
           <p className="text-slate-700 text-xs">{sample.retentionExpiry ?? '-'}</p>
+        </div>
+        <div>
+          <span className="text-slate-400 text-xs">最近修改</span>
+          <p className="text-slate-700 text-xs">
+            {sample.updatedAt ? new Date(sample.updatedAt).toLocaleString('zh-CN') : '-'}
+          </p>
         </div>
       </div>
 
@@ -132,7 +144,21 @@ export default function SampleDetail({ sampleId }: { sampleId: string }) {
           {options.map((opt) => (
             <button
               key={opt.toStatus}
-              onClick={() => transitionStatus(sample.id, opt.toStatus, ROLE_MAP[currentRole].label, currentRole, opt.label)}
+              onClick={() => {
+                const operator = ROLE_MAP[currentRole].defaultOperator
+                transitionStatus(sample.id, opt.toStatus, operator, currentRole, opt.label)
+                addActivity({
+                  id: `act-${Date.now()}`,
+                  type: 'sample',
+                  action: opt.label,
+                  operator,
+                  operatorRole: currentRole,
+                  targetId: sample.id,
+                  targetName: sample.sampleNo,
+                  timestamp: new Date().toISOString(),
+                  priority: opt.variant === 'danger' ? 'urgent' : 'normal',
+                })
+              }}
               className={`px-4 py-2 text-xs font-medium rounded-lg transition-colors ${
                 opt.variant === 'danger'
                   ? 'bg-red-50 text-red-600 hover:bg-red-100'

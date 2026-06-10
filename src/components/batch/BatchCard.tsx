@@ -14,7 +14,7 @@ const STATUS_BORDER_COLORS: Record<BatchStatus, string> = {
 const STATUS_ACTIONS: Record<BatchStatus, { label: string; icon: React.ElementType; action: string } | null> = {
   pending_feed: { label: '开始投料', icon: Play, action: 'start_feed' },
   in_production: { label: '提交质检', icon: CheckCircle, action: 'submit_qc' },
-  pending_qc: { label: '查看质检', icon: Eye, action: 'view_qc' },
+  pending_qc: { label: '查看质检', icon: Eye, action: 'view_sample' },
   abnormal: { label: '重新质检', icon: RefreshCw, action: 're_qc' },
   completed: null,
 }

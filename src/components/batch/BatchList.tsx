@@ -1,8 +1,9 @@
 import { useState } from 'react'
 import type { BatchStatus } from '@/types'
-import { BATCH_STATUS_MAP, BATCH_STATUS_ORDER } from '@/types'
+import { BATCH_STATUS_MAP, BATCH_STATUS_ORDER, ROLE_MAP } from '@/types'
 import { cn } from '@/lib/utils'
 import { useBatchStore } from '@/stores/batchStore'
+import { useSampleStore } from '@/stores/sampleStore'
 import { useUIStore } from '@/stores/uiStore'
 import { useActivityStore } from '@/stores/activityStore'
 import BatchCard from './BatchCard'
@@ -17,6 +18,7 @@ export default function BatchList() {
   const openDetailPanel = useUIStore((s) => s.openDetailPanel)
   const currentRole = useUIStore((s) => s.currentRole)
   const addActivity = useActivityStore((s) => s.addActivity)
+  const samples = useSampleStore((s) => s.samples)
 
   const filteredBatches = filter === 'all' ? batches : getBatchesByStatus(filter)
 
@@ -31,17 +33,23 @@ export default function BatchList() {
     const batch = batches.find((b) => b.id === batchId)
     if (!batch) return
 
+    if (action === 'view_sample') {
+      const sample = samples.find((s) => s.batchId === batchId)
+      if (sample) {
+        openDetailPanel('sample', sample.id)
+      }
+      return
+    }
+
     const statusMap: Record<string, BatchStatus> = {
       start_feed: 'in_production',
       submit_qc: 'pending_qc',
-      view_qc: 'pending_qc',
       re_qc: 'pending_qc',
     }
 
     const remarkMap: Record<string, string> = {
       start_feed: '开始投料',
       submit_qc: '提交质检',
-      view_qc: '查看质检',
       re_qc: '重新质检',
     }
 
@@ -49,7 +57,7 @@ export default function BatchList() {
     const remark = remarkMap[action]
     if (!toStatus) return
 
-    const operator = '当前用户'
+    const operator = ROLE_MAP[currentRole].defaultOperator
     transitionStatus(batchId, toStatus, operator, currentRole, remark)
     addActivity({
       id: `act-${Date.now()}`,

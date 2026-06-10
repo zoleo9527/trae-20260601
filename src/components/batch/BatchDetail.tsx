@@ -1,6 +1,7 @@
 import { useBatchStore } from '@/stores/batchStore'
 import { useSampleStore } from '@/stores/sampleStore'
 import { useUIStore } from '@/stores/uiStore'
+import { useActivityStore } from '@/stores/activityStore'
 import { ROLE_MAP, BATCH_STATUS_MAP } from '@/types'
 import type { BatchStatus, UserRole } from '@/types'
 import BatchStatusBadge from './BatchStatusBadge'
@@ -32,6 +33,7 @@ export default function BatchDetail({ batchId }: { batchId: string }) {
   const transitionStatus = useBatchStore((s) => s.transitionStatus)
   const currentRole = useUIStore((s) => s.currentRole)
   const openDetailPanel = useUIStore((s) => s.openDetailPanel)
+  const addActivity = useActivityStore((s) => s.addActivity)
   const samples = useSampleStore((s) => s.samples.filter((s) => s.batchId === batchId))
 
   if (!batch) {
@@ -75,6 +77,14 @@ export default function BatchDetail({ batchId }: { batchId: string }) {
           <span className="text-slate-400 text-xs">最后操作</span>
           <p className="text-slate-700">{batch.lastModifiedBy}</p>
         </div>
+        <div>
+          <span className="text-slate-400 text-xs">创建时间</span>
+          <p className="text-slate-700 text-xs">{new Date(batch.createdAt).toLocaleString('zh-CN')}</p>
+        </div>
+        <div>
+          <span className="text-slate-400 text-xs">最近修改</span>
+          <p className="text-slate-700 text-xs">{new Date(batch.updatedAt).toLocaleString('zh-CN')}</p>
+        </div>
       </div>
 
       <div className="space-y-1.5">
@@ -97,7 +107,21 @@ export default function BatchDetail({ batchId }: { batchId: string }) {
           {options.map((opt) => (
             <button
               key={opt.toStatus}
-              onClick={() => transitionStatus(batch.id, opt.toStatus, ROLE_MAP[currentRole].label, currentRole, opt.label)}
+              onClick={() => {
+                const operator = ROLE_MAP[currentRole].defaultOperator
+                transitionStatus(batch.id, opt.toStatus, operator, currentRole, opt.label)
+                addActivity({
+                  id: `act-${Date.now()}`,
+                  type: 'batch',
+                  action: opt.label,
+                  operator,
+                  operatorRole: currentRole,
+                  targetId: batch.id,
+                  targetName: batch.batchNo,
+                  timestamp: new Date().toISOString(),
+                  priority: batch.status === 'abnormal' ? 'urgent' : 'normal',
+                })
+              }}
               className={`px-4 py-2 text-xs font-medium rounded-lg transition-colors ${
                 opt.variant === 'danger'
                   ? 'bg-red-50 text-red-600 hover:bg-red-100'
