@@ -8,6 +8,8 @@ export const ROLE_LABELS: Record<Role, string> = {
 
 export type FeedStatus = 'pending' | 'delivered' | 'abnormal'
 export type AnalysisStatus = 'pending' | 'done' | 'issue'
+export type ReviewStatus = 'pending' | 'approved' | 'rejected' | 'followup'
+export type ReviewType = 'feed_deviation' | 'consumption_issue'
 
 export const FEED_STATUS_LABELS: Record<FeedStatus, string> = {
   pending: '待投喂',
@@ -19,6 +21,18 @@ export const ANALYSIS_STATUS_LABELS: Record<AnalysisStatus, string> = {
   pending: '待分析',
   done: '已完成',
   issue: '有异常'
+}
+
+export const REVIEW_STATUS_LABELS: Record<ReviewStatus, string> = {
+  pending: '待处理',
+  approved: '已审批',
+  rejected: '已驳回',
+  followup: '跟进中'
+}
+
+export const REVIEW_TYPE_LABELS: Record<ReviewType, string> = {
+  feed_deviation: '投喂偏差',
+  consumption_issue: '耗用异常'
 }
 
 export interface Attachment {
@@ -81,7 +95,21 @@ export interface ActivityItem {
   timestamp: string
 }
 
+export interface ManagerReview {
+  id: string
+  feedRecordId: string
+  reviewType: ReviewType
+  decision: 'approved' | 'rejected' | null
+  decisionDetail: string | null
+  followUpActions: string | null
+  reviewer: string | null
+  reviewedAt: string | null
+  status: ReviewStatus
+  attachments: Attachment[]
+}
+
 export interface FarmRecord {
   feed: FeedRecord
   analysis: ConsumptionAnalysis | null
+  review: ManagerReview | null
 }

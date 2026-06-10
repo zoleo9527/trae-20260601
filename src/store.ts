@@ -1,5 +1,5 @@
 import { reactive } from 'vue'
-import type { FeedRecord, ConsumptionAnalysis, TodoItem, ActivityItem, FarmRecord, Role } from './types'
+import type { FeedRecord, ConsumptionAnalysis, TodoItem, ActivityItem, FarmRecord, Role, ManagerReview, ReviewType, Attachment } from './types'
 import { getInitialData } from './data/mock'
 
 interface StoreState {
@@ -8,6 +8,7 @@ interface StoreState {
   analyses: ConsumptionAnalysis[]
   todos: TodoItem[]
   activities: ActivityItem[]
+  reviews: ManagerReview[]
   farmRecords: FarmRecord[]
   selectedRecordId: string | null
 }
@@ -20,6 +21,7 @@ function createStore(): StoreState {
     analyses: data.analyses,
     todos: data.todos,
     activities: data.activities,
+    reviews: data.reviews,
     farmRecords: data.farmRecords,
     selectedRecordId: null
   })
@@ -41,7 +43,7 @@ export function useStore() {
     return store.farmRecords.find(r => r.feed.id === store.selectedRecordId) || null
   }
 
-  function submitFeed(recordId: string, actualAmount: number, keyJudgment: string, attachments: File[]) {
+  function submitFeed(recordId: string, actualAmount: number, keyJudgment: string, attachmentNames: string[]) {
     const fr = store.feedRecords.find(r => r.id === recordId)
     if (!fr) return
 
@@ -50,6 +52,14 @@ export function useStore() {
     fr.status = 'delivered'
     fr.keyJudgment = keyJudgment || null
     fr.updatedAt = new Date().toISOString().replace('T', ' ').slice(0, 16)
+
+    const newAttachments: Attachment[] = attachmentNames.map((name, i) => ({
+      id: `ATT-${Date.now()}-${i}`,
+      name,
+      size: '占位',
+      placeholder: true
+    }))
+    fr.attachments = [...fr.attachments, ...newAttachments]
 
     if (Math.abs(actualAmount - fr.plannedAmount) / fr.plannedAmount > 0.03) {
       fr.riskFlag = true
@@ -82,7 +92,7 @@ export function useStore() {
     store.activities.unshift({
       id: `ACT-${Date.now() + 1}`,
       action: '投喂完成',
-      detail: `${fr.houseName}${fr.feedType}投喂${actualAmount}kg`,
+      detail: `${fr.houseName}${fr.feedType}投喂${actualAmount}kg${newAttachments.length ? `，附件${newAttachments.length}份` : ''}`,
       operator: fr.feeder,
       role: 'feeder',
       timestamp: fr.updatedAt
@@ -155,12 +165,75 @@ export function useStore() {
     rebuildFarmRecords()
   }
 
+  function submitManagerReview(
+    recordId: string,
+    reviewType: ReviewType,
+    decision: 'approved' | 'rejected',
+    decisionDetail: string,
+    followUpActions: string,
+    attachmentNames: string[]
+  ) {
+    const fr = store.feedRecords.find(r => r.id === recordId)
+    if (!fr) return
+
+    const now = new Date().toISOString().replace('T', ' ').slice(0, 16)
+    const newAttachments: Attachment[] = attachmentNames.map((name, i) => ({
+      id: `ATT-MR-${Date.now()}-${i}`,
+      name,
+      size: '占位',
+      placeholder: true
+    }))
+
+    const review: ManagerReview = {
+      id: `MR-${Date.now()}`,
+      feedRecordId: recordId,
+      reviewType,
+      decision,
+      decisionDetail: decisionDetail || null,
+      followUpActions: followUpActions || null,
+      reviewer: '当前场长',
+      reviewedAt: now,
+      status: followUpActions ? 'followup' : decision,
+      attachments: newAttachments
+    }
+
+    const existingIdx = store.reviews.findIndex(r => r.feedRecordId === recordId)
+    if (existingIdx >= 0) {
+      store.reviews[existingIdx] = review
+    } else {
+      store.reviews.push(review)
+    }
+
+    if (decision === 'approved') {
+      fr.riskFlag = false
+      fr.riskReason = null
+    }
+
+    fr.updatedAt = now
+
+    const managerTodos = store.todos.filter(t => t.relatedRecordId === recordId && t.role === 'manager' && !t.done)
+    managerTodos.forEach(t => { t.done = true })
+
+    const reviewTypeLabel = reviewType === 'feed_deviation' ? '投喂偏差' : '耗用异常'
+    store.activities.unshift({
+      id: `ACT-${Date.now()}`,
+      action: decision === 'approved' ? '审批通过' : '审批驳回',
+      detail: `${fr.houseName}${reviewTypeLabel}：${decisionDetail}${followUpActions ? '；跟进：' + followUpActions : ''}`,
+      operator: '当前场长',
+      role: 'manager',
+      timestamp: now
+    })
+
+    rebuildFarmRecords()
+  }
+
   function resetData() {
     const data = getInitialData()
     store.feedRecords = data.feedRecords
     store.analyses = data.analyses
     store.todos = data.todos
     store.activities = data.activities
+    store.reviews = data.reviews
     store.farmRecords = data.farmRecords
     store.selectedRecordId = null
   }
@@ -168,7 +241,8 @@ export function useStore() {
   function rebuildFarmRecords() {
     store.farmRecords = store.feedRecords.map(fr => {
       const analysis = store.analyses.find(a => a.feedRecordId === fr.id) || null
-      return { feed: fr, analysis }
+      const review = store.reviews.find(r => r.feedRecordId === fr.id) || null
+      return { feed: fr, analysis, review }
     })
   }
 
@@ -183,6 +257,7 @@ export function useStore() {
     getSelectedRecord,
     submitFeed,
     submitAnalysis,
+    submitManagerReview,
     resetData,
     pendingCount,
     riskCount,

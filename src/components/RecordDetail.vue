@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { useStore } from '../store'
-import { FEED_STATUS_LABELS, ANALYSIS_STATUS_LABELS } from '../types'
-import type { FarmRecord } from '../types'
+import { FEED_STATUS_LABELS, ANALYSIS_STATUS_LABELS, REVIEW_STATUS_LABELS, REVIEW_TYPE_LABELS } from '../types'
+import type { FarmRecord, ReviewType } from '../types'
 
 const props = defineProps<{
   record: FarmRecord
@@ -12,21 +12,36 @@ const emit = defineEmits<{
   close: []
 }>()
 
-const { state, submitFeed, submitAnalysis } = useStore()
+const { state, submitFeed, submitAnalysis, submitManagerReview } = useStore()
 
 const showFeedForm = ref(false)
 const showAnalysisForm = ref(false)
+const showReviewForm = ref(false)
 
 const feedForm = ref({
   actualAmount: props.record.feed.plannedAmount,
   keyJudgment: '',
-  hasAttachment: false
+  attachmentNames: '' as string
 })
 
 const analysisForm = ref({
   actualConsumption: props.record.analysis?.expectedConsumption || props.record.feed.actualAmount || props.record.feed.plannedAmount,
   returnReason: '',
   supplementaryNotes: ''
+})
+
+const reviewForm = ref<{
+  reviewType: ReviewType
+  decision: 'approved' | 'rejected'
+  decisionDetail: string
+  followUpActions: string
+  attachmentNames: string
+}>({
+  reviewType: props.record.feed.riskFlag ? 'feed_deviation' : 'consumption_issue',
+  decision: 'approved',
+  decisionDetail: '',
+  followUpActions: '',
+  attachmentNames: ''
 })
 
 const canFeed = computed(() => props.record.feed.status === 'pending' && state.currentRole === 'feeder')
@@ -36,16 +51,29 @@ const canAnalyze = computed(() =>
   state.currentRole === 'sorter'
 )
 
+const needsReview = computed(() => {
+  if (state.currentRole !== 'manager') return false
+  const hasFeedRisk = props.record.feed.riskFlag
+  const hasAnalysisIssue = props.record.analysis?.status === 'issue'
+  const notReviewed = !props.record.review || props.record.review.status === 'pending'
+  return (hasFeedRisk || hasAnalysisIssue) && notReviewed
+})
+
 const feedJudgmentVisible = computed(() =>
   props.record.feed.keyJudgment && (showAnalysisForm.value || (props.record.analysis && props.record.analysis.status !== 'pending'))
 )
 
+function parseAttachmentNames(raw: string): string[] {
+  return raw.split(/[,，]/).map(s => s.trim()).filter(Boolean)
+}
+
 function onSubmitFeed() {
+  const attachments = parseAttachmentNames(feedForm.value.attachmentNames)
   submitFeed(
     props.record.feed.id,
     feedForm.value.actualAmount,
     feedForm.value.keyJudgment,
-    []
+    attachments
   )
   showFeedForm.value = false
 }
@@ -58,6 +86,19 @@ function onSubmitAnalysis() {
     analysisForm.value.supplementaryNotes
   )
   showAnalysisForm.value = false
+}
+
+function onSubmitReview() {
+  const attachments = parseAttachmentNames(reviewForm.value.attachmentNames)
+  submitManagerReview(
+    props.record.feed.id,
+    reviewForm.value.reviewType,
+    reviewForm.value.decision,
+    reviewForm.value.decisionDetail,
+    reviewForm.value.followUpActions,
+    attachments
+  )
+  showReviewForm.value = false
 }
 
 function varianceDisplay(rate: number | null) {
@@ -75,6 +116,12 @@ function feedAmtDisplay() {
   const sign = diff > 0 ? '+' : ''
   return `${f.actualAmount}kg (计划${f.plannedAmount}kg, ${sign}${pct}%)`
 }
+
+function allAttachments() {
+  const feedAtts = props.record.feed.attachments
+  const reviewAtts = props.record.review?.attachments || []
+  return [...feedAtts, ...reviewAtts]
+}
 </script>
 
 <template>
@@ -87,11 +134,14 @@ function feedAmtDisplay() {
           {{ FEED_STATUS_LABELS[record.feed.status] }}
         </span>
         <span v-if="record.feed.riskFlag" class="risk-badge">⚠ 风险</span>
+        <span v-if="record.review" :class="['status-badge', `review-${record.review.status}`]">
+          场长: {{ REVIEW_STATUS_LABELS[record.review.status] }}
+        </span>
       </div>
       <button class="close-btn" @click="emit('close')">✕</button>
     </div>
 
-    <div v-if="record.feed.riskFlag && record.feed.riskReason" class="risk-alert">
+    <div v-if="record.feed.riskFlag && record.feed.riskReason && (!record.review || record.review.status === 'pending')" class="risk-alert">
       <div class="alert-icon">⚠</div>
       <div class="alert-content">
         <div class="alert-title">风险提示</div>
@@ -134,7 +184,7 @@ function feedAmtDisplay() {
         </div>
 
         <div v-if="record.feed.attachments.length" class="attachment-box">
-          <div class="attach-label">📎 附件</div>
+          <div class="attach-label">📎 投喂附件</div>
           <div class="attach-list">
             <div v-for="att in record.feed.attachments" :key="att.id" class="attach-item">
               <span class="attach-name">{{ att.name }}</span>
@@ -158,7 +208,11 @@ function feedAmtDisplay() {
             <textarea v-model="feedForm.keyJudgment" class="form-textarea" rows="2" placeholder="记录投喂时的重要观察，如鸡群状态、料槽情况等"></textarea>
           </div>
           <div class="form-row">
-            <label>附件</label>
+            <label>附件（多个用逗号分隔，如：投喂现场.jpg,料槽余料.jpg）</label>
+            <input v-model="feedForm.attachmentNames" class="form-input" placeholder="输入附件文件名，逗号分隔" />
+          </div>
+          <div class="form-row">
+            <label>文件上传</label>
             <div class="attach-placeholder-input">
               <span class="placeholder-text">[附件上传占位 - 现场照片/视频]</span>
             </div>
@@ -250,6 +304,155 @@ function feedAmtDisplay() {
         </div>
       </section>
 
+      <div class="section-divider"></div>
+
+      <section class="section">
+        <h3 class="section-title">
+          <span class="section-icon">📋</span>
+          场长后续跟进
+          <span v-if="record.review" :class="['analysis-badge', `review-${record.review.status}`]">
+            {{ REVIEW_STATUS_LABELS[record.review.status] }}
+          </span>
+          <span v-else-if="record.feed.riskFlag || record.analysis?.status === 'issue'" class="analysis-badge review-pending">
+            待处理
+          </span>
+          <span v-else class="analysis-badge review-none">无需处理</span>
+        </h3>
+
+        <div v-if="needsReview" class="review-context">
+          <div class="context-item" v-if="record.feed.riskFlag && record.feed.riskReason">
+            <span class="context-tag tag-risk">投喂风险</span>
+            <span class="context-text">{{ record.feed.riskReason }}</span>
+          </div>
+          <div class="context-item" v-if="record.feed.keyJudgment">
+            <span class="context-tag tag-judgment">饲养员判断</span>
+            <span class="context-text">{{ record.feed.keyJudgment }}</span>
+          </div>
+          <div class="context-item" v-if="record.analysis?.status === 'issue' && record.analysis.returnReason">
+            <span class="context-tag tag-return">退回原因</span>
+            <span class="context-text">{{ record.analysis.returnReason }}</span>
+          </div>
+          <div class="context-item" v-if="record.analysis?.status === 'issue' && record.analysis.supplementaryNotes">
+            <span class="context-tag tag-notes">分拣备注</span>
+            <span class="context-text">{{ record.analysis.supplementaryNotes }}</span>
+          </div>
+        </div>
+
+        <div v-if="record.review && record.review.status !== 'pending'" class="review-result">
+          <div class="info-grid">
+            <div class="info-item">
+              <span class="info-label">审核类型</span>
+              <span class="info-value">{{ REVIEW_TYPE_LABELS[record.review.reviewType] }}</span>
+            </div>
+            <div class="info-item">
+              <span class="info-label">审批决定</span>
+              <span :class="['info-value', record.review.decision === 'approved' ? 'decision-approved' : 'decision-rejected']">
+                {{ record.review.decision === 'approved' ? '✓ 通过' : '✕ 驳回' }}
+              </span>
+            </div>
+            <div class="info-item">
+              <span class="info-label">处理人</span>
+              <span class="info-value">{{ record.review.reviewer }}</span>
+            </div>
+            <div class="info-item">
+              <span class="info-label">处理时间</span>
+              <span class="info-value">{{ record.review.reviewedAt }}</span>
+            </div>
+          </div>
+
+          <div v-if="record.review.decisionDetail" class="decision-box">
+            <div class="decision-label">审批意见</div>
+            <div class="decision-content">{{ record.review.decisionDetail }}</div>
+          </div>
+
+          <div v-if="record.review.followUpActions" class="followup-box">
+            <div class="followup-label">跟进事项</div>
+            <div class="followup-content">{{ record.review.followUpActions }}</div>
+          </div>
+
+          <div v-if="record.review.attachments.length" class="attachment-box">
+            <div class="attach-label">📎 审核附件</div>
+            <div class="attach-list">
+              <div v-for="att in record.review.attachments" :key="att.id" class="attach-item">
+                <span class="attach-name">{{ att.name }}</span>
+                <span class="attach-size">{{ att.size }}</span>
+                <span class="attach-placeholder">[占位]</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div v-if="!record.review && !needsReview && !record.feed.riskFlag && record.analysis?.status !== 'issue'" class="no-analysis">
+          <p>该记录无需场长审核处理。</p>
+        </div>
+
+        <div v-if="needsReview && !showReviewForm" class="action-bar">
+          <button class="action-btn review-action" @click="showReviewForm = true">审核处理</button>
+        </div>
+
+        <div v-if="showReviewForm" class="form-box">
+          <div class="form-row">
+            <label>审核类型</label>
+            <div class="radio-group">
+              <label class="radio-item">
+                <input v-model="reviewForm.reviewType" type="radio" value="feed_deviation" />
+                <span>投喂偏差</span>
+              </label>
+              <label class="radio-item">
+                <input v-model="reviewForm.reviewType" type="radio" value="consumption_issue" />
+                <span>耗用异常</span>
+              </label>
+            </div>
+          </div>
+          <div class="form-row">
+            <label>审批决定</label>
+            <div class="radio-group">
+              <label class="radio-item">
+                <input v-model="reviewForm.decision" type="radio" value="approved" />
+                <span class="decision-radio-approve">通过（解除风险标记）</span>
+              </label>
+              <label class="radio-item">
+                <input v-model="reviewForm.decision" type="radio" value="rejected" />
+                <span class="decision-radio-reject">驳回（需整改）</span>
+              </label>
+            </div>
+          </div>
+          <div class="form-row">
+            <label>审批意见</label>
+            <textarea v-model="reviewForm.decisionDetail" class="form-textarea" rows="2" placeholder="审批决定的具体说明"></textarea>
+          </div>
+          <div class="form-row">
+            <label>跟进事项</label>
+            <textarea v-model="reviewForm.followUpActions" class="form-textarea" rows="3" placeholder="如需后续跟进，填写具体行动项；留空则状态为已审批，填写则状态为跟进中"></textarea>
+          </div>
+          <div class="form-row">
+            <label>附件（多个用逗号分隔，如：检修记录.pdf,现场照片.jpg）</label>
+            <input v-model="reviewForm.attachmentNames" class="form-input" placeholder="输入附件文件名，逗号分隔" />
+          </div>
+          <div class="form-actions">
+            <button class="btn-secondary" @click="showReviewForm = false">取消</button>
+            <button class="btn-primary" @click="onSubmitReview">提交审核</button>
+          </div>
+        </div>
+      </section>
+
+      <div v-if="allAttachments().length" class="section-divider"></div>
+
+      <section v-if="allAttachments().length" class="section">
+        <h3 class="section-title">
+          <span class="section-icon">📎</span>
+          全部附件 ({{ allAttachments().length }})
+        </h3>
+        <div class="attach-list">
+          <div v-for="att in allAttachments()" :key="att.id" class="attach-item attach-item-full">
+            <span class="attach-icon">📄</span>
+            <span class="attach-name">{{ att.name }}</span>
+            <span class="attach-size">{{ att.size }}</span>
+            <span class="attach-placeholder">[占位]</span>
+          </div>
+        </div>
+      </section>
+
       <div class="detail-meta">
         <span>创建：{{ record.feed.createdAt }}</span>
         <span>更新：{{ record.feed.updatedAt }}</span>
@@ -282,6 +485,7 @@ function feedAmtDisplay() {
   display: flex;
   align-items: center;
   gap: 10px;
+  flex-wrap: wrap;
 }
 
 .house-badge {
@@ -324,6 +528,31 @@ function feedAmtDisplay() {
   font-size: 12px;
   color: #e74c3c;
   font-weight: 700;
+}
+
+.review-approved {
+  background: #e8f8f0;
+  color: #27ae60;
+}
+
+.review-rejected {
+  background: #fde8e8;
+  color: #e74c3c;
+}
+
+.review-followup {
+  background: #fef3e2;
+  color: #e67e22;
+}
+
+.review-pending {
+  background: #fef3e2;
+  color: #e67e22;
+}
+
+.review-none {
+  background: #f0f0f0;
+  color: #999;
 }
 
 .close-btn {
@@ -426,7 +655,7 @@ function feedAmtDisplay() {
 
 .info-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
+  grid-template-columns: 1fr 1fr 1fr 1fr;
   gap: 10px;
   margin-bottom: 14px;
 }
@@ -514,6 +743,7 @@ function feedAmtDisplay() {
   font-size: 12px;
   color: #666;
   margin-bottom: 6px;
+  font-weight: 600;
 }
 
 .attach-list {
@@ -532,6 +762,15 @@ function feedAmtDisplay() {
   border: 1px dashed #ddd;
 }
 
+.attach-item-full {
+  padding: 8px 12px;
+}
+
+.attach-icon {
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
 .attach-name {
   font-size: 12px;
   color: #333;
@@ -548,6 +787,118 @@ function feedAmtDisplay() {
   background: #fef3e2;
   padding: 1px 6px;
   border-radius: 3px;
+}
+
+.review-context {
+  background: #fef9f9;
+  border: 1px solid #fde8e8;
+  border-radius: 6px;
+  padding: 12px 14px;
+  margin-bottom: 14px;
+}
+
+.context-item {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  padding: 6px 0;
+  border-bottom: 1px solid #f5e8e8;
+}
+
+.context-item:last-child {
+  border-bottom: none;
+}
+
+.context-tag {
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-weight: 700;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.tag-risk {
+  background: #fde8e8;
+  color: #e74c3c;
+}
+
+.tag-judgment {
+  background: #e0f0ff;
+  color: #2980b9;
+}
+
+.tag-return {
+  background: #fef3e2;
+  color: #e67e22;
+}
+
+.tag-notes {
+  background: #e8f8f0;
+  color: #27ae60;
+}
+
+.context-text {
+  font-size: 12px;
+  color: #555;
+  line-height: 1.5;
+}
+
+.review-result {
+  margin-bottom: 12px;
+}
+
+.decision-approved {
+  color: #27ae60;
+  font-weight: 700;
+}
+
+.decision-rejected {
+  color: #e74c3c;
+  font-weight: 700;
+}
+
+.decision-box {
+  background: #f8f9fb;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  padding: 12px 14px;
+  margin-bottom: 12px;
+}
+
+.decision-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: #555;
+  margin-bottom: 4px;
+}
+
+.decision-content {
+  font-size: 13px;
+  color: #333;
+  line-height: 1.6;
+}
+
+.followup-box {
+  background: #fff8e1;
+  border: 1px solid #f5deb3;
+  border-radius: 6px;
+  padding: 12px 14px;
+  margin-bottom: 12px;
+}
+
+.followup-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: #e67e22;
+  margin-bottom: 4px;
+}
+
+.followup-content {
+  font-size: 13px;
+  color: #2c3e50;
+  line-height: 1.6;
+  white-space: pre-line;
 }
 
 .return-box {
@@ -637,6 +988,15 @@ function feedAmtDisplay() {
   background: #2471a3;
 }
 
+.review-action {
+  background: #8e44ad;
+  color: #fff;
+}
+
+.review-action:hover {
+  background: #7d3c98;
+}
+
 .form-box {
   background: #f8f9fb;
   border: 1px solid #e0e0e0;
@@ -698,6 +1058,31 @@ function feedAmtDisplay() {
 .placeholder-text {
   font-size: 12px;
   color: #bbb;
+}
+
+.radio-group {
+  display: flex;
+  gap: 16px;
+  margin-top: 4px;
+}
+
+.radio-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  color: #333;
+}
+
+.decision-radio-approve {
+  color: #27ae60;
+  font-weight: 600;
+}
+
+.decision-radio-reject {
+  color: #e74c3c;
+  font-weight: 600;
 }
 
 .form-context {

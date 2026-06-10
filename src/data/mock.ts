@@ -1,4 +1,4 @@
-import type { FeedRecord, ConsumptionAnalysis, TodoItem, ActivityItem, FarmRecord } from '../types'
+import type { FeedRecord, ConsumptionAnalysis, TodoItem, ActivityItem, FarmRecord, ManagerReview } from '../types'
 import dayjs from 'dayjs'
 
 const today = dayjs().format('YYYY-MM-DD')
@@ -530,16 +530,47 @@ const ACTIVITIES: ActivityItem[] = [
   }
 ]
 
+const REVIEWS: ManagerReview[] = [
+  {
+    id: 'MR-004',
+    feedRecordId: 'FR-20260609-004',
+    reviewType: 'consumption_issue',
+    decision: 'approved',
+    decisionDetail: '受潮结块情况属实，同意退回20kg并安排料仓检修',
+    followUpActions: '1. 料仓底部已加铺防潮垫；2. 剩余饲料抽样已送检，3日内出结果；3. 仓库温湿度监控增加报警阈值',
+    reviewer: '陈场长',
+    reviewedAt: `${yesterday} 17:20`,
+    status: 'followup',
+    attachments: [
+      { id: 'ATT-MR-001', name: '料仓检修记录.pdf', size: '0.3MB', placeholder: true }
+    ]
+  },
+  {
+    id: 'MR-009',
+    feedRecordId: 'FR-20260609-009',
+    reviewType: 'consumption_issue',
+    decision: 'approved',
+    decisionDetail: '水线故障已修复，耗用偏差属外部因素，同意记录',
+    followUpActions: '1. 水线维修已完成并验收；2. 3号舍未来3日重点观察采食恢复情况',
+    reviewer: '陈场长',
+    reviewedAt: `${yesterday} 17:45`,
+    status: 'approved',
+    attachments: []
+  }
+]
+
 export function getInitialData() {
   const feedRecords = JSON.parse(JSON.stringify(FEED_RECORDS)) as FeedRecord[]
   const analyses = JSON.parse(JSON.stringify(ANALYSES)) as ConsumptionAnalysis[]
   const todos = JSON.parse(JSON.stringify(TODOS)) as TodoItem[]
   const activities = JSON.parse(JSON.stringify(ACTIVITIES)) as ActivityItem[]
+  const reviews = JSON.parse(JSON.stringify(REVIEWS)) as ManagerReview[]
 
   const farmRecords: FarmRecord[] = feedRecords.map(fr => {
     const analysis = analyses.find(a => a.feedRecordId === fr.id) || null
-    return { feed: fr, analysis }
+    const review = reviews.find(r => r.feedRecordId === fr.id) || null
+    return { feed: fr, analysis, review }
   })
 
-  return { feedRecords, analyses, todos, activities, farmRecords }
+  return { feedRecords, analyses, todos, activities, reviews, farmRecords }
 }
