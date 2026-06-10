@@ -1,6 +1,6 @@
 <template>
   <div class="fixed inset-0 z-50 flex items-center justify-center p-4">
-    <div class="absolute inset-0 bg-neutral-900/50 backdrop-blur-sm" @click="$emit('close')"></div>
+    <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" @click="$emit('close')"></div>
     <div class="relative w-full max-w-5xl max-h-[90vh] bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col">
       <div class="px-6 py-4 border-b border-neutral-200 flex items-start justify-between gap-4 bg-gradient-to-r from-neutral-50 to-white">
         <div class="flex-1 min-w-0">
@@ -111,11 +111,11 @@
                     </div>
 
                     <div class="mt-2 grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-2 text-xs">
-                      <div class="rounded-md bg-white/80 p-2.5 border border-neutral-200/70">
+                      <div class="rounded-md bg-white p-2.5 border border-gray-200">
                         <div class="text-[10px] font-semibold text-neutral-500 uppercase tracking-wider mb-1">📋 判断标准（依据）</div>
                         <div class="text-neutral-700 leading-relaxed">{{ item.criterion.standard }}</div>
                       </div>
-                      <div class="rounded-md bg-white/80 p-2.5 border border-neutral-200/70">
+                      <div class="rounded-md bg-white p-2.5 border border-gray-200">
                         <div class="text-[10px] font-semibold text-neutral-500 uppercase tracking-wider mb-1">🔍 检测方法</div>
                         <div class="text-neutral-700 leading-relaxed">{{ item.criterion.method }}</div>
                       </div>
@@ -137,7 +137,7 @@
                     </div>
 
                     <div v-else-if="item.result.result === 'na' && item.result.note" class="mt-2">
-                      <div class="rounded-md bg-white/80 p-2 border border-neutral-200 text-xs text-neutral-600">
+                      <div class="rounded-md bg-white p-2 border border-gray-200 text-xs text-neutral-600">
                         <span class="font-medium">不适用说明：</span>{{ item.result.note }}
                       </div>
                     </div>
@@ -237,7 +237,7 @@
               </div>
               <div v-for="n in 3" :key="n" class="aspect-square rounded-lg bg-gradient-to-br from-neutral-200 to-neutral-300 flex items-center justify-center text-neutral-500 overflow-hidden relative">
                 <div class="absolute inset-0 bg-[radial-gradient(circle_at_30%_30%,rgba(255,255,255,0.4),transparent)]"></div>
-                <span class="text-xs font-medium relative z-10 bg-white/90 px-2 py-1 rounded">现场照片 {{ n }}</span>
+                <span class="text-xs font-medium relative z-10 bg-white px-2 py-1 rounded">现场照片 {{ n }}</span>
               </div>
             </div>
             <div class="mt-4 space-y-2">

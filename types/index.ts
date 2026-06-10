@@ -135,11 +135,19 @@ export interface Alert {
   type: AlertType
   title: string
   message: string
+  description: string
   relatedId?: string
   relatedType?: string
+  linkId?: string
+  linkType?: 'inspection' | 'rectification'
   priority: PriorityLevel
   isRead: boolean
   createdAt: string
+  meta?: {
+    elevator?: string
+    deadline?: string
+    relatedId?: string
+  }
 }
 
 export interface TimelineEvent {

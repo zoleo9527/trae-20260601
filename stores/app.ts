@@ -109,6 +109,29 @@ export const useAppStore = defineStore('app', {
         rect.status = status
         rect.updatedAt = new Date().toISOString()
       }
+    },
+    addInspection(inspection: InspectionRecord) {
+      this.inspections.unshift(inspection)
+    },
+    addRectification(rectification: RectificationRecord) {
+      this.rectifications.unshift(rectification)
+    },
+    addAlert(alert: Alert) {
+      this.alerts.unshift(alert)
+    },
+    updateRectification(rectId: string, updates: Partial<RectificationRecord>) {
+      const rect = this.rectifications.find(r => r.id === rectId)
+      if (rect) {
+        Object.assign(rect, updates, { updatedAt: new Date().toISOString() })
+      }
+    },
+    addRecheckResult(rectId: string, result: any) {
+      const rect = this.rectifications.find(r => r.id === rectId)
+      if (rect) {
+        if (!rect.recheckResults) rect.recheckResults = []
+        rect.recheckResults.push(result)
+        rect.updatedAt = new Date().toISOString()
+      }
     }
   }
 })

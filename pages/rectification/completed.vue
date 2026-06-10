@@ -103,7 +103,7 @@
                   </span>
                   <span class="flex items-center gap-1">
                     <AppIcon name="IconPaperclip" class="w-3.5 h-3.5 text-primary-500" />
-                    {{ rect.rectificationMeasures.filter(m => m.photoEvidence).length }} 张整改照片
+                    {{ rect.rectificationMeasures.filter(m => m.photos && m.photos.length > 0).length }} 张整改照片
                   </span>
                 </div>
                 <div class="flex items-center gap-2" @click.stop>
@@ -227,12 +227,75 @@ function closeDetail() {
 }
 
 function handleRecheck(rect: RectificationRecord, result: 'pass' | 'fail') {
+  const recheckResult = {
+    id: 'rc' + Date.now(),
+    rechecker: appStore.currentUser.name,
+    recheckerRole: appStore.currentRole,
+    recheckDate: new Date().toISOString().split('T')[0],
+    result: result,
+    items: rect.failItems.map((name, idx) => ({
+      itemId: rect.rectificationMeasures[idx]?.itemId || 'c0' + (idx + 1),
+      itemName: name,
+      result: result
+    })),
+    overallConclusion: result === 'pass'
+      ? `现场复查通过，${rect.failItems.length}项整改措施全部落实，${rect.priority === 'high' ? '关键项' : '一般项'}功能测试正常。`
+      : '复查发现部分整改措施未落实到位，需重新整改后再次申请复查。'
+  }
+  appStore.addRecheckResult(rect.id, recheckResult)
   appStore.updateRectificationStatus(rect.id, result === 'pass' ? 'passed' : 'in_progress')
+
+  const newAlert = {
+    id: 'al' + Date.now(),
+    type: result === 'pass' ? 'system' as const : 'rectification' as const,
+    title: result === 'pass' ? `整改复查通过：${rect.id}` : `整改复查不通过：${rect.id}`,
+    message: `${rect.elevatorName}${result === 'pass' ? '整改复查通过，可进入闭环' : '整改复查不通过，需重新整改'}。`,
+    description: `${appStore.currentUser.name}于今日对${rect.elevatorName}进行现场复查，${result === 'pass' ? `${rect.failItems.length}项全部通过，整改质量合格。` : '发现部分项目整改不彻底，已退回维保组重新处理。'}`,
+    relatedId: rect.id,
+    relatedType: 'rectification',
+    linkId: rect.id,
+    linkType: 'rectification' as const,
+    priority: result === 'pass' ? 'medium' as const : 'high' as const,
+    isRead: false,
+    createdAt: new Date().toISOString(),
+    meta: {
+      elevator: rect.elevatorName,
+      relatedId: rect.id
+    }
+  }
+  appStore.addAlert(newAlert)
   closeDetail()
 }
 
 function handleCloseLoop(rect: RectificationRecord) {
-  appStore.updateRectificationStatus(rect.id, 'closed')
+  appStore.updateRectification(rect.id, {
+    status: 'closed',
+    closedAt: new Date().toISOString(),
+    closedBy: appStore.currentUser.name
+  })
+  const insp = appStore.inspections.find(i => i.id === rect.inspectionId)
+  if (insp) {
+    appStore.updateInspectionStatus(insp.id, 'closed')
+  }
+  const newAlert = {
+    id: 'al' + Date.now(),
+    type: 'system' as const,
+    title: `整改已闭环归档：${rect.id}`,
+    message: `${rect.elevatorName}整改闭环完成，所有文档已归档。`,
+    description: `${appStore.currentUser.name}已签署闭环意见，${rect.elevatorName}的${rect.failItems.length}项问题全部解决，责任链条完整，进入归档状态。`,
+    relatedId: rect.id,
+    relatedType: 'rectification',
+    linkId: rect.id,
+    linkType: 'rectification' as const,
+    priority: 'medium' as const,
+    isRead: false,
+    createdAt: new Date().toISOString(),
+    meta: {
+      elevator: rect.elevatorName,
+      relatedId: rect.id
+    }
+  }
+  appStore.addAlert(newAlert)
   closeDetail()
 }
 </script>

@@ -1,6 +1,6 @@
 <template>
   <div class="fixed inset-0 z-50 flex items-center justify-center p-4">
-    <div class="absolute inset-0 bg-neutral-900/50 backdrop-blur-sm" @click="$emit('close')"></div>
+    <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" @click="$emit('close')"></div>
     <div class="relative w-full max-w-5xl max-h-[92vh] bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col">
       <div class="px-6 py-4 border-b border-neutral-200 bg-gradient-to-r from-neutral-50 to-white flex items-start justify-between gap-4">
         <div class="flex-1 min-w-0">
@@ -98,14 +98,14 @@
                   </span>
                 </div>
                 <div class="mt-2 grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
-                  <div class="rounded-md bg-white p-3 border border-danger-200/70">
+                  <div class="rounded-md bg-white p-3 border border-red-200">
                     <div class="text-[10px] font-bold text-danger-600 uppercase tracking-wider mb-1 flex items-center gap-1">
                       <AppIcon name="IconAlertTriangle" class="w-3 h-3" />
                       原始问题（年检不合格原因）
                     </div>
                     <div class="text-neutral-700 leading-relaxed">{{ measure.originalProblem }}</div>
                   </div>
-                  <div class="rounded-md bg-white p-3 border border-primary-200/70">
+                  <div class="rounded-md bg-white p-3 border border-blue-200">
                     <div class="text-[10px] font-bold text-primary-600 uppercase tracking-wider mb-1 flex items-center gap-1">
                       <AppIcon name="IconWrench" class="w-3 h-3" />
                       整改措施（怎么做的）
@@ -133,7 +133,7 @@
             </div>
           </div>
 
-          <div v-if="record && getCompletedCount(record) === record.failItems.length && record.status !== 'closed' && record.status !== 'passed'" class="rounded-xl border-2 border-dashed border-success-300 bg-success-50/40 p-5 text-center">
+          <div v-if="record && getCompletedCount(record) === record.failItems.length && record.status !== 'closed' && record.status !== 'passed'" class="rounded-xl border-2 border-dashed border-success-300 bg-green-50 p-5 text-center">
             <AppIcon name="IconCheckCircle" class="w-10 h-10 mx-auto text-success-500" />
             <p class="text-sm font-semibold text-success-800 mt-2">所有整改措施已完成</p>
             <p class="text-xs text-success-700 mt-1">请{{ appStore.currentRole === 'technician' ? '先自测再提交主管复查' : '安排现场复查并签署结论' }}</p>
@@ -374,6 +374,25 @@ function canSubmitRecheck(r: RectificationRecord | null | undefined) {
 function submitRecheckRequest() {
   if (!props.record) return
   appStore.updateRectificationStatus(props.record.id, 'recheck')
+  const newAlert = {
+    id: 'al' + Date.now(),
+    type: 'recheck' as const,
+    title: '整改完成待复查',
+    message: `${props.record.elevatorName}整改措施已全部完成，请主管安排现场复查。`,
+    description: `${props.record.assignedTo}已完成${props.record.id}的全部${props.record.failItems.length}项整改措施并提交自测，请王主管尽快安排现场复查。`,
+    relatedId: props.record.id,
+    relatedType: 'rectification',
+    linkId: props.record.id,
+    linkType: 'rectification' as const,
+    priority: 'high' as const,
+    isRead: false,
+    createdAt: new Date().toISOString(),
+    meta: {
+      elevator: props.record.elevatorName,
+      relatedId: props.record.id
+    }
+  }
+  appStore.addAlert(newAlert)
   emit('close')
 }
 

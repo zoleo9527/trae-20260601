@@ -413,64 +413,111 @@ export const mockAlerts: Alert[] = [
     type: 'rectification',
     title: '新增整改派单：紧急救援装置',
     message: '年检发现1号楼A座-1号梯松闸扳手遗失（关键项），请立即启动整改流程。',
+    description: '年检INSP-2026-0015发现关键项不合格，已派发整改单RECT-2026-0015，请维保技师在2026-06-18前完成整改。',
     relatedId: 'RECT-2026-0015',
     relatedType: 'rectification',
+    linkId: 'RECT-2026-0015',
+    linkType: 'rectification',
     priority: 'high',
     isRead: false,
-    createdAt: '2026-06-08T16:50:00'
+    createdAt: '2026-06-08T16:50:00',
+    meta: {
+      elevator: '1号楼A座-1号梯',
+      deadline: '2026-06-18',
+      relatedId: 'RECT-2026-0015'
+    }
   },
   {
     id: 'al002',
     type: 'deadline',
     title: '整改期限临近预警',
     message: 'RECT-2026-0009（CBD-T3货梯）整改将于2026-06-10到期，当前状态：待复查。',
+    description: '整改单RECT-2026-0009已于今日完成整改并提交自测，请王主管尽快安排现场复查，避免超期。',
     relatedId: 'RECT-2026-0009',
     relatedType: 'rectification',
+    linkId: 'RECT-2026-0009',
+    linkType: 'rectification',
     priority: 'critical',
     isRead: false,
-    createdAt: '2026-06-09T08:00:00'
+    createdAt: '2026-06-09T08:00:00',
+    meta: {
+      elevator: 'CBD中心-T3货梯',
+      deadline: '2026-06-10',
+      relatedId: 'RECT-2026-0009'
+    }
   },
   {
     id: 'al003',
     type: 'non_compliant',
     title: '年检不合格：3项问题',
     message: '1号楼A座-1号梯年检发现3项不合格（含1项关键项），已生成整改单。',
+    description: '年检INSP-2026-0015结论为不合格，不合格项：紧急救援装置、对讲系统、平层精度，已自动关联整改单RECT-2026-0015。',
     relatedId: 'INSP-2026-0015',
     relatedType: 'inspection',
+    linkId: 'INSP-2026-0015',
+    linkType: 'inspection',
     priority: 'high',
     isRead: true,
-    createdAt: '2026-06-08T16:45:00'
+    createdAt: '2026-06-08T16:45:00',
+    meta: {
+      elevator: '1号楼A座-1号梯',
+      relatedId: 'INSP-2026-0015'
+    }
   },
   {
     id: 'al004',
     type: 'recheck',
     title: '整改完成待复查',
     message: 'CBD-T3货梯整改措施已提交，请安排现场复查。',
+    description: '陈师傅已完成RECT-2026-0009的整改（光幕清洁、更换极限开关）并提交自测，待主管现场复查。',
     relatedId: 'RECT-2026-0009',
     relatedType: 'rectification',
+    linkId: 'RECT-2026-0009',
+    linkType: 'rectification',
     priority: 'high',
     isRead: true,
-    createdAt: '2026-06-08T16:05:00'
+    createdAt: '2026-06-08T16:05:00',
+    meta: {
+      elevator: 'CBD中心-T3货梯',
+      relatedId: 'RECT-2026-0009'
+    }
   },
   {
     id: 'al005',
     type: 'system',
     title: '年检资料待审核',
     message: 'INSP-2026-0018（2号楼1号梯）年检资料已提交，请及时审核。',
+    description: '张师傅已提交2号楼1号梯的年检资料，共15项全部合格，请王主管审核确认。',
     relatedId: 'INSP-2026-0018',
     relatedType: 'inspection',
+    linkId: 'INSP-2026-0018',
+    linkType: 'inspection',
     priority: 'medium',
     isRead: true,
-    createdAt: '2026-06-09T15:20:00'
+    createdAt: '2026-06-09T15:20:00',
+    meta: {
+      elevator: '2号楼-1号梯',
+      relatedId: 'INSP-2026-0018'
+    }
   },
   {
     id: 'al006',
     type: 'deadline',
-    title: '整改期限超期预警（测试）',
-    message: 'RECT-2026-XXXX整改已超期2天，请立即处理并说明原因。',
+    title: '整改超期红色告警',
+    message: 'RECT-2026-0015整改超期风险：当前仅完成2/3项，距截止还有8天。',
+    description: '整改单RECT-2026-0015共3项不合格，目前对讲系统主机仍在采购中，预计6月12日到货，请抓紧跟进。',
+    relatedId: 'RECT-2026-0015',
+    relatedType: 'rectification',
+    linkId: 'RECT-2026-0015',
+    linkType: 'rectification',
     priority: 'critical',
     isRead: false,
-    createdAt: '2026-06-07T09:00:00'
+    createdAt: '2026-06-10T09:00:00',
+    meta: {
+      elevator: '1号楼A座-1号梯',
+      deadline: '2026-06-18',
+      relatedId: 'RECT-2026-0015'
+    }
   }
 ]
 

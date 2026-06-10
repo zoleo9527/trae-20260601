@@ -193,7 +193,7 @@ const filteredInspections = computed<InspectionRecord[]>(() => {
   if (activeFilter.value === 'non_compliant') {
     return appStore.inspections.filter(i => i.status === 'non_compliant' || i.status === 'rectifying')
   }
-  return appStore.inspections.filter(i => i.status === activeFilter.value || (activeFilter.value === 'compliant' && (i.status === 'compliant' || i.status === 'closed'))
+  return appStore.inspections.filter(i => i.status === activeFilter.value || (activeFilter.value === 'compliant' && (i.status === 'compliant' || i.status === 'closed')))
 })
 
 function getPassCount(insp: InspectionRecord) {
