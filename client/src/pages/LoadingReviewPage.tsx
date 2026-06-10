@@ -506,6 +506,16 @@ const LoadingReviewPage: React.FC = () => {
                     <Form.Item label="联系电话" name="driverPhone" rules={[{ required: true, message: '请输入联系电话' }]}>
                       <Input placeholder="请输入联系电话" />
                     </Form.Item>
+
+                    {(currentRole === 'QUALITY' || currentRole === 'MANAGER') && loadingRecord?.status === 'CHECKING' && (
+                      <Form.Item
+                        label="复核备注"
+                        name="remarks"
+                        style={{ marginBottom: 0 }}
+                      >
+                        <TextArea rows={3} placeholder="请输入复核备注" />
+                      </Form.Item>
+                    )}
                   </Form>
                 </Card>
               </Col>
@@ -738,33 +748,23 @@ const LoadingReviewPage: React.FC = () => {
             )}
 
             {(currentRole === 'QUALITY' || currentRole === 'MANAGER') && loadingRecord?.status === 'CHECKING' && (
-              <>
-                <Form.Item
-                  label="复核备注"
-                  name="remarks"
-                  style={{ marginBottom: 16 }}
-                >
-                  <TextArea rows={3} placeholder="请输入复核备注" />
-                </Form.Item>
-
-                <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                  <Space>
-                    <Button onClick={() => {
-                      setReviewModalVisible(false);
-                      setSelectedOrder(null);
-                      setLoadingRecord(null);
-                      setOrderExceptions([]);
-                      form.resetFields();
-                    }}>取消</Button>
-                    <Button
-                      type="primary"
-                      onClick={() => form.validateFields().then(handleSubmitReview)}
-                    >
-                      提交复核
-                    </Button>
-                  </Space>
-                </div>
-              </>
+              <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                <Space>
+                  <Button onClick={() => {
+                    setReviewModalVisible(false);
+                    setSelectedOrder(null);
+                    setLoadingRecord(null);
+                    setOrderExceptions([]);
+                    form.resetFields();
+                  }}>取消</Button>
+                  <Button
+                    type="primary"
+                    onClick={() => form.validateFields().then(handleSubmitReview)}
+                  >
+                    提交复核
+                  </Button>
+                </Space>
+              </div>
             )}
           </>
         )}
