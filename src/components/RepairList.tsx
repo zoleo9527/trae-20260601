@@ -192,7 +192,7 @@ const RepairList: React.FC<RepairListProps> = ({
       vals.action,
       vals.remark,
       vals.currentStep || undefined,
-      vals.blockerReason || undefined
+      typeof vals.blockerReason === 'string' ? vals.blockerReason : ''
     );
     message.success('处理步骤已记录');
     stepForm.resetFields();
@@ -209,7 +209,7 @@ const RepairList: React.FC<RepairListProps> = ({
       `推进至 ${REPAIR_STATUS_LABEL[vals.toStatus]}`,
       vals.remark,
       vals.currentStep || undefined,
-      vals.blockerReason || undefined
+      typeof vals.blockerReason === 'string' ? vals.blockerReason : ''
     );
     message.success('补缴状态已更新');
     statusForm.resetFields();

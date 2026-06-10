@@ -279,13 +279,16 @@ const OrderList: React.FC<OrderListProps> = ({
           ) : (
             <Text type="secondary">—</Text>
           )}
-          {selectedRepair && selectedRepair?.blockerReason ? (
-            <Tooltip title={selectedRepair.blockerReason}>
-              <Tag color="red" icon={<AlertOutlined />}>
-                阻塞原因
-              </Tag>
-            </Tooltip>
-          ) : null}
+          {(() => {
+            const rowRepair = repairs.find((r) => r.orderId === rec.id);
+            return rowRepair?.blockerReason ? (
+              <Tooltip title={rowRepair.blockerReason}>
+                <Tag color="red" icon={<AlertOutlined />}>
+                  阻塞原因
+                </Tag>
+              </Tooltip>
+            ) : null;
+          })()}
         </Space>
       ),
     },
