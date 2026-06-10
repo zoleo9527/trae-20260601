@@ -253,7 +253,6 @@ public class FaultReportService {
 
         rescue = entrapmentRescueRepository.save(rescue);
 
-        FaultStatus oldStatus = report.getStatus();
         report.setStatus(FaultStatus.TRANSFERRED_TO_RESCUE);
         report.setTransferRescueId(rescue.getId());
         report = faultReportRepository.save(report);

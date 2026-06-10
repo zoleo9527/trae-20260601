@@ -173,4 +173,18 @@ public class WorkspaceController {
             case CANCELLED -> "已取消";
         };
     }
+
+    private boolean filterMyFault(FaultReport f, UserRole role, Long userId) {
+        return switch (role) {
+            case MAINTENANCE_TECHNICIAN -> userId != null && userId.equals(f.getHandlerId());
+            case CUSTOMER_SERVICE, PROJECT_MANAGER -> true;
+        };
+    }
+
+    private boolean filterMyRescue(EntrapmentRescue r, UserRole role, Long userId) {
+        return switch (role) {
+            case MAINTENANCE_TECHNICIAN -> userId != null && userId.equals(r.getRescuerId());
+            case CUSTOMER_SERVICE, PROJECT_MANAGER -> true;
+        };
+    }
 }
