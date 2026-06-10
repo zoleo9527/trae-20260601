@@ -208,6 +208,41 @@ INSERT INTO collection_records (credit_sale_id, collector_id, visit_date, visit_
   (6, 2, '2025-08-20', 'visit', '上门沟通争议账目', '大豆种只拿了5斤不是10斤，草甘膦只拿了3瓶', '调取仓库出库记录对比');
 `;
 
+const TABLES = [
+  'reconciliations',
+  'partial_payments',
+  'collection_records',
+  'payment_plans',
+  'sale_items',
+  'credit_sales',
+  'crop_seasons',
+  'farmers',
+  'users'
+];
+
+function rebuildDatabase() {
+  const db = getDb();
+  db.pragma('foreign_keys = OFF');
+
+  const dropAndRebuild = db.transaction(() => {
+    for (const t of TABLES) {
+      db.exec(`DROP TABLE IF EXISTS ${t}`);
+    }
+    db.exec(SCHEMA_SQL);
+    db.exec(SEED_SQL);
+  });
+
+  try {
+    dropAndRebuild();
+    console.log('数据库已重建：清除脏数据，重新建表并插入种子数据');
+  } catch (e) {
+    console.error('数据库重建失败:', e.message);
+    throw e;
+  } finally {
+    db.pragma('foreign_keys = ON');
+  }
+}
+
 function initDatabase() {
   const db = getDb();
   db.exec(SCHEMA_SQL);
@@ -237,4 +272,4 @@ if (require.main === module) {
   console.log('数据库初始化完成');
 }
 
-module.exports = { initDatabase, SCHEMA_SQL, SEED_SQL };
+module.exports = { initDatabase, rebuildDatabase, SCHEMA_SQL, SEED_SQL };
