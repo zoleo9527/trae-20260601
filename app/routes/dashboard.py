@@ -1,6 +1,6 @@
 from datetime import date
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
@@ -25,9 +25,8 @@ from app.schemas.schemas import (
 from app.services.business import (
     check_withdrawal_block,
     compute_truly_overdue,
-    detect_overdue_plans,
     get_batch_timeline,
-    reconcile_plan_statuses,
+    reconcile_and_sync,
 )
 
 router = APIRouter(prefix="/api/dashboard", tags=["场长看板"])
@@ -35,7 +34,7 @@ router = APIRouter(prefix="/api/dashboard", tags=["场长看板"])
 
 @router.get("/overview", summary="场长-总览统计")
 def dashboard_overview(db: Session = Depends(get_db)):
-    reconcile_plan_statuses(db, date.today())
+    reconcile_and_sync(db)
 
     active_batches = db.query(func.count(PigBatch.id)).filter(
         PigBatch.batch_status == BatchStatus.ACTIVE
@@ -128,17 +127,8 @@ def batch_timeline(batch_id: int, db: Session = Depends(get_db)):
     summary="主动检测逾期免疫计划并生成异常提醒",
 )
 def run_overdue_detection(db: Session = Depends(get_db)):
-    reconcile_plan_statuses(db, date.today())
-    alerts = detect_overdue_plans(db, date.today())
+    result = reconcile_and_sync(db)
     return {
-        "detected": len(alerts),
-        "alerts": [
-            {
-                "id": a.id,
-                "title": a.title,
-                "severity": a.severity.value,
-                "detail": a.detail,
-            }
-            for a in alerts
-        ],
+        "status_changes": result["status_changes"],
+        "alerts_created": result["alerts_created"],
     }

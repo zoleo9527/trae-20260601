@@ -3,7 +3,6 @@ from sqlalchemy.orm import Session, joinedload
 
 from app.database import get_db
 from app.models.models import (
-    ExecutionResult,
     ImmunizationExecution,
     ImmunizationPlan,
     PigBatch,
@@ -17,7 +16,7 @@ from app.schemas.schemas import (
     ImmunizationPlanDetail,
     ImmunizationPlanRead,
 )
-from app.services.business import sync_execution_alerts
+from app.services.business import reconcile_and_sync
 
 router = APIRouter(prefix="/api/immunization", tags=["免疫管理"])
 
@@ -125,12 +124,7 @@ def create_execution(data: ImmunizationExecutionCreate, db: Session = Depends(ge
     db.add(ex)
     db.flush()
 
-    if data.result in (ExecutionResult.COMPLETED, ExecutionResult.MAKEUP, ExecutionResult.DELAYED):
-        plan.plan_status = PlanStatus.COMPLETED
-    elif data.result == ExecutionResult.MISSED:
-        plan.plan_status = PlanStatus.OVERDUE
-
-    sync_execution_alerts(ex, plan, batch, db)
+    reconcile_and_sync(db, plan_ids=[plan.id])
 
     db.commit()
     db.refresh(ex)

@@ -4,6 +4,7 @@ from fastapi import FastAPI
 
 from app.database import SessionLocal, create_tables
 from app.seed import seed_sample_data
+from app.services.business import reconcile_and_sync
 
 
 @asynccontextmanager
@@ -12,6 +13,8 @@ async def lifespan(app: FastAPI):
     db = SessionLocal()
     try:
         seed_sample_data(db)
+        reconcile_and_sync(db)
+        db.commit()
     finally:
         db.close()
     yield
