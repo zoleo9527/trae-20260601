@@ -3,6 +3,14 @@ import { getDb, getSlaHours, STATUS_FLOW } from '../db.js'
 
 const router = Router()
 
+function getRole(req: Request): string {
+  return (req as any).decodedRole || req.headers['x-user-role'] as string || ''
+}
+
+function getName(req: Request): string {
+  return (req as any).decodedName || req.headers['x-user-name'] as string || '未知'
+}
+
 router.get('/', (req: Request, res: Response): void => {
   const db = getDb()
   const { status, search, page = '1', pageSize = '10' } = req.query
@@ -86,10 +94,16 @@ router.get('/:id', (req: Request, res: Response): void => {
 })
 
 router.patch('/:id/approve', (req: Request, res: Response): void => {
+  const role = getRole(req)
+  if (role !== '场长') {
+    res.status(403).json({ success: false, error: '仅场长可审批淘汰决定' })
+    return
+  }
+
   const db = getDb()
   const id = Number(req.params.id)
   const { approved, remark } = req.body
-  const approverName = (req as any).decodedName || req.headers['x-user-name'] as string || '未知'
+  const approverName = getName(req)
 
   const assessment = db.prepare('SELECT * FROM assessments WHERE id = ?').get(id) as any
   if (!assessment) {
@@ -98,7 +112,8 @@ router.patch('/:id/approve', (req: Request, res: Response): void => {
   }
 
   if (assessment.status !== 'pending_approval') {
-    res.status(400).json({ success: false, error: '当前状态不允许审批' })
+    const flow = STATUS_FLOW[assessment.status]
+    res.status(400).json({ success: false, error: `当前状态为"${flow?.label || assessment.status}"，无法审批，需在"待审批"状态下操作` })
     return
   }
 

@@ -5,6 +5,7 @@ import { useApi } from '@/composables/useApi'
 import { useAuthStore } from '@/stores/auth'
 import { ArrowLeft } from 'lucide-vue-next'
 import StatusBadge from '@/components/StatusBadge.vue'
+import RoleBadge from '@/components/RoleBadge.vue'
 import StatusFlow from '@/components/StatusFlow.vue'
 import Timeline from '@/components/Timeline.vue'
 
@@ -22,6 +23,27 @@ const errorMsg = ref('')
 
 const canConfirmTransfer = computed(() => auth.role === '繁育员' && transfer.value?.status === 'pending_transfer')
 const canSubmitAssessment = computed(() => auth.role === '繁育员' && transfer.value?.status === 'transferred')
+const hasAction = computed(() => canConfirmTransfer.value || canSubmitAssessment.value)
+
+const responsibilityHint = computed(() => {
+  const t = transfer.value
+  if (!t) return null
+  const s = t.status
+  const r = auth.role
+  if (s === 'pending_transfer' && r !== '繁育员') {
+    return { text: '当前步骤需由繁育员确认转栏', role: '繁育员' }
+  }
+  if (s === 'transferred' && r !== '繁育员') {
+    return { text: '当前步骤需由繁育员提交评估申请', role: '繁育员' }
+  }
+  if (s === 'pending_assessment' && r !== '兽医') {
+    return { text: '当前步骤需由兽医进行健康评估', role: '兽医' }
+  }
+  if (s === 'pending_approval' && r !== '场长') {
+    return { text: '当前步骤需由场长审批淘汰决定', role: '场长' }
+  }
+  return null
+})
 
 async function fetchDetail() {
   loading.value = true
@@ -159,7 +181,7 @@ onMounted(fetchDetail)
         <div v-if="!transfer.timeline?.length" class="text-sm text-slate-500 py-4 text-center">暂无操作记录</div>
       </div>
 
-      <div v-if="canConfirmTransfer || canSubmitAssessment" class="card space-y-4">
+      <div v-if="hasAction" class="card space-y-4">
         <h3 class="text-sm font-medium text-slate-300">操作</h3>
         <div v-if="errorMsg" class="text-xs text-red-400 bg-red-500/10 border border-red-500/30 rounded-lg px-3 py-2">
           {{ errorMsg }}
@@ -192,6 +214,21 @@ onMounted(fetchDetail)
           >
             {{ acting ? '处理中...' : '提交评估' }}
           </button>
+        </div>
+      </div>
+
+      <div v-else-if="responsibilityHint" class="card">
+        <div class="flex items-center gap-3">
+          <div class="flex-1">
+            <div class="text-sm text-slate-400">{{ responsibilityHint.text }}</div>
+            <div class="flex items-center gap-2 mt-1.5">
+              <span class="text-xs text-slate-500">责任人:</span>
+              <RoleBadge :role="responsibilityHint.role" />
+            </div>
+          </div>
+          <div v-if="transfer.isOverdue" class="text-xs text-red-400 bg-red-500/10 px-2 py-1 rounded-lg">
+            已超时
+          </div>
         </div>
       </div>
     </template>

@@ -3,6 +3,20 @@ import { getDb, getSlaHours, STATUS_FLOW } from '../db.js'
 
 const router = Router()
 
+const ROLE_REQUIREMENTS: Record<string, { action: string; status: string; requiredRole: string; errorMsg: string }> = {
+  create: { action: '新建转栏', status: '', requiredRole: '繁育员', errorMsg: '仅繁育员可创建转栏记录' },
+  confirm: { action: '确认转栏', status: 'pending_transfer', requiredRole: '繁育员', errorMsg: '仅繁育员可确认转栏' },
+  submit: { action: '提交评估', status: 'transferred', requiredRole: '繁育员', errorMsg: '仅繁育员可提交评估申请' },
+}
+
+function getRole(req: Request): string {
+  return (req as any).decodedRole || req.headers['x-user-role'] as string || ''
+}
+
+function getName(req: Request): string {
+  return (req as any).decodedName || req.headers['x-user-name'] as string || '未知'
+}
+
 router.get('/', (req: Request, res: Response): void => {
   const db = getDb()
   const { status, search, page = '1', pageSize = '10' } = req.query
@@ -49,10 +63,16 @@ router.get('/', (req: Request, res: Response): void => {
 })
 
 router.post('/', (req: Request, res: Response): void => {
+  const role = getRole(req)
+  if (role !== '繁育员') {
+    res.status(403).json({ success: false, error: ROLE_REQUIREMENTS.create.errorMsg })
+    return
+  }
+
   const db = getDb()
   const { earTag, breed, ageDays, fromPen, toPen, reason, remark } = req.body
-  const operator = (req as any).decodedName || req.headers['x-user-name'] as string || '未知'
-  const operatorRole = (req as any).decodedRole || req.headers['x-user-role'] as string || '繁育员'
+  const operator = getName(req)
+  const operatorRole = role
 
   const sla = getSlaHours('pending_transfer')
   const deadlineAt = new Date(Date.now() + sla * 3600000)
@@ -114,8 +134,8 @@ router.patch('/:id/status', (req: Request, res: Response): void => {
   const db = getDb()
   const id = Number(req.params.id)
   const { action, remark } = req.body
-  const operator = (req as any).decodedName || req.headers['x-user-name'] as string || '未知'
-  const operatorRole = (req as any).decodedRole || req.headers['x-user-role'] as string || '未知'
+  const operator = getName(req)
+  const operatorRole = getRole(req)
 
   const transfer = db.prepare('SELECT * FROM transfers WHERE id = ?').get(id) as any
   if (!transfer) {
@@ -123,22 +143,36 @@ router.patch('/:id/status', (req: Request, res: Response): void => {
     return
   }
 
-  const p = (n: number) => String(n).padStart(2, '0')
-  const nowStr = () => {
-    const d = new Date()
-    return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`
-  }
+  if (action === 'confirm') {
+    if (operatorRole !== '繁育员') {
+      res.status(403).json({ success: false, error: '仅繁育员可确认转栏' })
+      return
+    }
+    if (transfer.status !== 'pending_transfer') {
+      res.status(400).json({ success: false, error: `当前状态为"${STATUS_FLOW[transfer.status]?.label || transfer.status}"，无法确认转栏，需在"待转栏"状态下操作` })
+      return
+    }
 
-  if (action === 'confirm' && transfer.status === 'pending_transfer') {
     const sla = getSlaHours('transferred')
     const deadlineAt = new Date(Date.now() + sla * 3600000)
+    const p = (n: number) => String(n).padStart(2, '0')
     const deadlineStr = `${deadlineAt.getFullYear()}-${p(deadlineAt.getMonth() + 1)}-${p(deadlineAt.getDate())} ${p(deadlineAt.getHours())}:${p(deadlineAt.getMinutes())}`
 
     db.prepare("UPDATE transfers SET status = 'transferred', confirmed_at = datetime('now','localtime'), updated_at = datetime('now','localtime'), deadline_at = ? WHERE id = ?").run(deadlineStr, id)
     db.prepare('INSERT INTO operation_logs (transfer_id, operator, operator_role, action, detail, remark) VALUES (?, ?, ?, \'confirm\', ?, ?)').run(id, operator, operatorRole, `确认转栏 ${transfer.ear_tag}`, remark || '')
-  } else if (action === 'submit' && transfer.status === 'transferred') {
+  } else if (action === 'submit') {
+    if (operatorRole !== '繁育员') {
+      res.status(403).json({ success: false, error: '仅繁育员可提交评估申请' })
+      return
+    }
+    if (transfer.status !== 'transferred') {
+      res.status(400).json({ success: false, error: `当前状态为"${STATUS_FLOW[transfer.status]?.label || transfer.status}"，无法提交评估，需在"已转栏"状态下操作` })
+      return
+    }
+
     const sla = getSlaHours('pending_assessment')
     const deadlineAt = new Date(Date.now() + sla * 3600000)
+    const p = (n: number) => String(n).padStart(2, '0')
     const deadlineStr = `${deadlineAt.getFullYear()}-${p(deadlineAt.getMonth() + 1)}-${p(deadlineAt.getDate())} ${p(deadlineAt.getHours())}:${p(deadlineAt.getMinutes())}`
 
     db.prepare("UPDATE transfers SET status = 'pending_assessment', submitted_at = datetime('now','localtime'), updated_at = datetime('now','localtime'), deadline_at = ? WHERE id = ?").run(deadlineStr, id)
@@ -152,7 +186,7 @@ router.patch('/:id/status', (req: Request, res: Response): void => {
 
     db.prepare('INSERT INTO operation_logs (transfer_id, assessment_id, operator, operator_role, action, detail, remark) VALUES (?, ?, ?, ?, \'submit\', ?, ?)').run(id, assessment.id, operator, operatorRole, `提交评估申请 ${transfer.ear_tag}`, remark || '')
   } else {
-    res.status(400).json({ success: false, error: `无法在状态 ${transfer.status} 下执行 ${action}` })
+    res.status(400).json({ success: false, error: `不支持的操作: ${action}` })
     return
   }
 
@@ -161,10 +195,16 @@ router.patch('/:id/status', (req: Request, res: Response): void => {
 })
 
 router.post('/:transferId/assessments', (req: Request, res: Response): void => {
+  const role = getRole(req)
+  if (role !== '兽医') {
+    res.status(403).json({ success: false, error: '仅兽医可进行健康评估' })
+    return
+  }
+
   const db = getDb()
   const transferId = Number(req.params.transferId)
   const { healthScore, cullRecommend, remark } = req.body
-  const vetName = (req as any).decodedName || req.headers['x-user-name'] as string || '未知'
+  const vetName = getName(req)
 
   const transfer = db.prepare('SELECT * FROM transfers WHERE id = ?').get(transferId) as any
   if (!transfer) {
@@ -179,7 +219,8 @@ router.post('/:transferId/assessments', (req: Request, res: Response): void => {
   }
 
   if (assessment.status !== 'pending_assessment') {
-    res.status(400).json({ success: false, error: '当前状态不允许评估' })
+    const flow = STATUS_FLOW[assessment.status]
+    res.status(400).json({ success: false, error: `当前状态为"${flow?.label || assessment.status}"，无法进行评估，需在"待评估"状态下操作` })
     return
   }
 

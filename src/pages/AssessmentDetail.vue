@@ -25,10 +25,23 @@ const actionRemark = ref('')
 const acting = ref(false)
 const errorMsg = ref('')
 
-const isVet = computed(() => auth.role === '兽医')
-const isManager = computed(() => auth.role === '场长')
-const canAssess = computed(() => isVet.value && assessment.value?.status === 'pending_assessment')
-const canApprove = computed(() => isManager.value && assessment.value?.status === 'pending_approval')
+const canAssess = computed(() => auth.role === '兽医' && assessment.value?.status === 'pending_assessment')
+const canApprove = computed(() => auth.role === '场长' && assessment.value?.status === 'pending_approval')
+const hasAction = computed(() => canAssess.value || canApprove.value)
+
+const responsibilityHint = computed(() => {
+  const a = assessment.value
+  if (!a) return null
+  const s = a.status
+  const r = auth.role
+  if (s === 'pending_assessment' && r !== '兽医') {
+    return { text: '当前步骤需由兽医进行健康评估', role: '兽医' }
+  }
+  if (s === 'pending_approval' && r !== '场长') {
+    return { text: '当前步骤需由场长审批淘汰决定', role: '场长' }
+  }
+  return null
+})
 
 async function fetchDetail() {
   loading.value = true
@@ -224,31 +237,6 @@ onMounted(fetchDetail)
         </div>
       </div>
 
-      <div v-if="remarks.length" class="card">
-        <h3 class="text-sm font-medium text-slate-300 mb-4">历史备注链</h3>
-        <div class="space-y-3">
-          <div
-            v-for="(r, idx) in remarks"
-            :key="idx"
-            class="bg-slate-800/50 rounded-lg px-4 py-3"
-          >
-            <div class="flex items-center gap-2 mb-1">
-              <span class="text-xs text-slate-500 bg-slate-700 px-2 py-0.5 rounded">{{ r.phase }}</span>
-              <span class="text-sm text-slate-300">{{ r.author }}</span>
-              <RoleBadge :role="r.role" />
-              <span class="text-xs text-slate-600 ml-auto">{{ r.time }}</span>
-            </div>
-            <div class="text-sm text-slate-400">{{ r.content }}</div>
-          </div>
-        </div>
-      </div>
-
-      <div class="card">
-        <h3 class="text-sm font-medium text-slate-300 mb-4">操作记录</h3>
-        <Timeline :events="assessment.timeline || []" />
-        <div v-if="!assessment.timeline?.length" class="text-sm text-slate-500 py-4 text-center">暂无操作记录</div>
-      </div>
-
       <div v-if="canApprove" class="card space-y-4">
         <h3 class="text-sm font-medium text-slate-300">审批操作</h3>
         <div v-if="errorMsg" class="text-xs text-red-400 bg-red-500/10 border border-red-500/30 rounded-lg px-3 py-2">
@@ -277,6 +265,46 @@ onMounted(fetchDetail)
             {{ acting ? '处理中...' : '驳回' }}
           </button>
         </div>
+      </div>
+
+      <div v-else-if="responsibilityHint && !canAssess" class="card">
+        <div class="flex items-center gap-3">
+          <div class="flex-1">
+            <div class="text-sm text-slate-400">{{ responsibilityHint.text }}</div>
+            <div class="flex items-center gap-2 mt-1.5">
+              <span class="text-xs text-slate-500">责任人:</span>
+              <RoleBadge :role="responsibilityHint.role" />
+            </div>
+          </div>
+          <div v-if="assessment.isOverdue" class="text-xs text-red-400 bg-red-500/10 px-2 py-1 rounded-lg">
+            已超时
+          </div>
+        </div>
+      </div>
+
+      <div v-if="remarks.length" class="card">
+        <h3 class="text-sm font-medium text-slate-300 mb-4">历史备注链</h3>
+        <div class="space-y-3">
+          <div
+            v-for="(r, idx) in remarks"
+            :key="idx"
+            class="bg-slate-800/50 rounded-lg px-4 py-3"
+          >
+            <div class="flex items-center gap-2 mb-1">
+              <span class="text-xs text-slate-500 bg-slate-700 px-2 py-0.5 rounded">{{ r.phase }}</span>
+              <span class="text-sm text-slate-300">{{ r.author }}</span>
+              <RoleBadge :role="r.role" />
+              <span class="text-xs text-slate-600 ml-auto">{{ r.time }}</span>
+            </div>
+            <div class="text-sm text-slate-400">{{ r.content }}</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3 class="text-sm font-medium text-slate-300 mb-4">操作记录</h3>
+        <Timeline :events="assessment.timeline || []" />
+        <div v-if="!assessment.timeline?.length" class="text-sm text-slate-500 py-4 text-center">暂无操作记录</div>
       </div>
     </template>
   </div>
