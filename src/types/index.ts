@@ -111,5 +111,5 @@ export interface ManagerReview {
 export interface FarmRecord {
   feed: FeedRecord
   analysis: ConsumptionAnalysis | null
-  review: ManagerReview | null
+  reviews: ManagerReview[]
 }

@@ -197,24 +197,31 @@ export function useStore() {
       attachments: newAttachments
     }
 
-    const existingIdx = store.reviews.findIndex(r => r.feedRecordId === recordId)
+    const existingIdx = store.reviews.findIndex(
+      r => r.feedRecordId === recordId && r.reviewType === reviewType
+    )
     if (existingIdx >= 0) {
       store.reviews[existingIdx] = review
     } else {
       store.reviews.push(review)
     }
 
-    if (decision === 'approved') {
+    if (reviewType === 'feed_deviation' && decision === 'approved') {
       fr.riskFlag = false
       fr.riskReason = null
     }
 
     fr.updatedAt = now
 
-    const managerTodos = store.todos.filter(t => t.relatedRecordId === recordId && t.role === 'manager' && !t.done)
-    managerTodos.forEach(t => { t.done = true })
-
     const reviewTypeLabel = reviewType === 'feed_deviation' ? '投喂偏差' : '耗用异常'
+    const matchedTodos = store.todos.filter(t =>
+      t.relatedRecordId === recordId &&
+      t.role === 'manager' &&
+      !t.done &&
+      t.title.includes(reviewTypeLabel)
+    )
+    matchedTodos.forEach(t => { t.done = true })
+
     store.activities.unshift({
       id: `ACT-${Date.now()}`,
       action: decision === 'approved' ? '审批通过' : '审批驳回',
@@ -241,8 +248,8 @@ export function useStore() {
   function rebuildFarmRecords() {
     store.farmRecords = store.feedRecords.map(fr => {
       const analysis = store.analyses.find(a => a.feedRecordId === fr.id) || null
-      const review = store.reviews.find(r => r.feedRecordId === fr.id) || null
-      return { feed: fr, analysis, review }
+      const reviews = store.reviews.filter(r => r.feedRecordId === fr.id)
+      return { feed: fr, analysis, reviews }
     })
   }
 

@@ -532,7 +532,31 @@ const ACTIVITIES: ActivityItem[] = [
 
 const REVIEWS: ManagerReview[] = [
   {
-    id: 'MR-004',
+    id: 'MR-003-feed',
+    feedRecordId: 'FR-20260610-003',
+    reviewType: 'feed_deviation',
+    decision: 'approved',
+    decisionDetail: '钙磷比失调属饲养调整需要，同意加料，但后续需正式提交配方变更申请',
+    followUpActions: '1. 营养师3日内提交新配方方案；2. 3号舍蛋壳质量连续监测7日',
+    reviewer: '陈场长',
+    reviewedAt: `${today} 08:30`,
+    status: 'followup',
+    attachments: []
+  },
+  {
+    id: 'MR-009-feed',
+    feedRecordId: 'FR-20260609-009',
+    reviewType: 'feed_deviation',
+    decision: 'approved',
+    decisionDetail: '3号舍昨日投喂量510kg属正常范围，偏差在容许区间内',
+    followUpActions: null,
+    reviewer: '陈场长',
+    reviewedAt: `${yesterday} 17:50`,
+    status: 'approved',
+    attachments: []
+  },
+  {
+    id: 'MR-004-consumption',
     feedRecordId: 'FR-20260609-004',
     reviewType: 'consumption_issue',
     decision: 'approved',
@@ -546,7 +570,7 @@ const REVIEWS: ManagerReview[] = [
     ]
   },
   {
-    id: 'MR-009',
+    id: 'MR-009-consumption',
     feedRecordId: 'FR-20260609-009',
     reviewType: 'consumption_issue',
     decision: 'approved',
@@ -568,8 +592,8 @@ export function getInitialData() {
 
   const farmRecords: FarmRecord[] = feedRecords.map(fr => {
     const analysis = analyses.find(a => a.feedRecordId === fr.id) || null
-    const review = reviews.find(r => r.feedRecordId === fr.id) || null
-    return { feed: fr, analysis, review }
+    const recReviews = reviews.filter(r => r.feedRecordId === fr.id)
+    return { feed: fr, analysis, reviews: recReviews }
   })
 
   return { feedRecords, analyses, todos, activities, reviews, farmRecords }

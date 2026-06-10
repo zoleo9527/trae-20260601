@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { useStore } from '../store'
-import { FEED_STATUS_LABELS, ANALYSIS_STATUS_LABELS, REVIEW_STATUS_LABELS } from '../types'
+import { FEED_STATUS_LABELS, ANALYSIS_STATUS_LABELS, REVIEW_STATUS_LABELS, REVIEW_TYPE_LABELS } from '../types'
+import type { FarmRecord } from '../types'
 
 const emit = defineEmits<{
   'select-record': [id: string]
@@ -43,10 +44,6 @@ function analysisStatusClass(status: string) {
   return `analysis-${status}`
 }
 
-function reviewStatusClass(status: string) {
-  return `review-${status}`
-}
-
 function varianceDisplay(rate: number | null) {
   if (rate === null) return '-'
   const sign = rate > 0 ? '+' : ''
@@ -54,8 +51,43 @@ function varianceDisplay(rate: number | null) {
   return { text: `${sign}${rate}%`, cls }
 }
 
-function totalAttachmentCount(rec: { feed: { attachments: { length: number } }; review?: { attachments: { length: number } } | null }) {
-  return rec.feed.attachments.length + (rec.review?.attachments?.length || 0)
+function totalAttachmentCount(rec: FarmRecord) {
+  return rec.feed.attachments.length + rec.reviews.reduce((sum, r) => sum + r.attachments.length, 0)
+}
+
+function reviewSummary(rec: FarmRecord) {
+  const parts: { label: string; status: string }[] = []
+  const feedReview = rec.reviews.find(r => r.reviewType === 'feed_deviation')
+  const consumptionReview = rec.reviews.find(r => r.reviewType === 'consumption_issue')
+
+  const hasFeedRisk = rec.feed.riskFlag
+  const hasConsumptionIssue = rec.analysis?.status === 'issue'
+
+  if (hasFeedRisk || feedReview) {
+    if (feedReview && feedReview.status !== 'pending') {
+      parts.push({ label: '投喂', status: feedReview.status })
+    } else {
+      parts.push({ label: '投喂', status: 'pending' })
+    }
+  }
+
+  if (hasConsumptionIssue || consumptionReview) {
+    if (consumptionReview && consumptionReview.status !== 'pending') {
+      parts.push({ label: '耗用', status: consumptionReview.status })
+    } else {
+      parts.push({ label: '耗用', status: 'pending' })
+    }
+  }
+
+  return parts
+}
+
+function reviewSummaryClass(status: string) {
+  return `review-${status}`
+}
+
+function hasAnyPendingReview(rec: FarmRecord) {
+  return reviewSummary(rec).some(p => p.status === 'pending')
 }
 </script>
 
@@ -93,7 +125,7 @@ function totalAttachmentCount(rec: { feed: { attachments: { length: number } }; 
         <span class="col-feed-status">投喂</span>
         <span class="col-analysis">耗用</span>
         <span class="col-variance">偏差</span>
-        <span class="col-review">场长</span>
+        <span class="col-review">场长处理</span>
         <span class="col-attach">📎</span>
         <span class="col-judgment">关键判断</span>
       </div>
@@ -103,9 +135,9 @@ function totalAttachmentCount(rec: { feed: { attachments: { length: number } }; 
         :key="rec.feed.id"
         class="list-row"
         :class="{
-          'row-risk': rec.feed.riskFlag && (!rec.review || rec.review.status === 'pending'),
+          'row-risk': hasAnyPendingReview(rec),
           'row-pending': rec.feed.status === 'pending',
-          'row-resolved': rec.review && rec.review.status !== 'pending' && rec.review.decision === 'approved'
+          'row-resolved': rec.reviews.length > 0 && rec.reviews.every(r => r.status !== 'pending' && r.decision === 'approved') && !rec.feed.riskFlag
         }"
         @click="emit('select-record', rec.feed.id)"
       >
@@ -140,12 +172,15 @@ function totalAttachmentCount(rec: { feed: { attachments: { length: number } }; 
           <template v-else>-</template>
         </span>
         <span class="col-review">
-          <span v-if="rec.review && rec.review.status !== 'pending'" :class="['status-tag', reviewStatusClass(rec.review.status)]">
-            {{ REVIEW_STATUS_LABELS[rec.review.status] }}
-          </span>
-          <span v-else-if="rec.feed.riskFlag || rec.analysis?.status === 'issue'" class="status-tag review-pending">
-            待处理
-          </span>
+          <template v-if="reviewSummary(rec).length">
+            <span
+              v-for="(part, idx) in reviewSummary(rec)"
+              :key="idx"
+              :class="['status-tag', 'review-tag', reviewSummaryClass(part.status)]"
+            >
+              {{ part.label }}:{{ REVIEW_STATUS_LABELS[part.status as keyof typeof REVIEW_STATUS_LABELS] }}
+            </span>
+          </template>
           <span v-else class="status-tag review-none">-</span>
         </span>
         <span class="col-attach">
@@ -211,13 +246,12 @@ function totalAttachmentCount(rec: { feed: { attachments: { length: number } }; 
 
 .list-header {
   display: grid;
-  grid-template-columns: 65px 65px 85px 110px 65px 65px 60px 65px 45px 1fr;
-  gap: 6px;
+  grid-template-columns: 60px 60px 80px 105px 60px 60px 55px 100px 40px 1fr;
+  gap: 5px;
   padding: 10px 14px;
   font-size: 11px;
   font-weight: 600;
   color: #999;
-  text-transform: uppercase;
   letter-spacing: 0.5px;
   border-bottom: 1px solid #eee;
   background: #fafbfc;
@@ -225,8 +259,8 @@ function totalAttachmentCount(rec: { feed: { attachments: { length: number } }; 
 
 .list-row {
   display: grid;
-  grid-template-columns: 65px 65px 85px 110px 65px 65px 60px 65px 45px 1fr;
-  gap: 6px;
+  grid-template-columns: 60px 60px 80px 105px 60px 60px 55px 100px 40px 1fr;
+  gap: 5px;
   padding: 12px 14px;
   font-size: 13px;
   border-bottom: 1px solid #f5f5f5;
@@ -270,94 +304,32 @@ function totalAttachmentCount(rec: { feed: { attachments: { length: number } }; 
   white-space: nowrap;
 }
 
-.status-pending {
-  background: #fef3e2;
-  color: #e67e22;
+.review-tag {
+  margin-right: 2px;
 }
 
-.status-delivered {
-  background: #e8f8f0;
-  color: #27ae60;
-}
+.status-pending { background: #fef3e2; color: #e67e22; }
+.status-delivered { background: #e8f8f0; color: #27ae60; }
+.status-abnormal { background: #fde8e8; color: #e74c3c; }
+.analysis-done { background: #e8f8f0; color: #27ae60; }
+.analysis-pending { background: #fef3e2; color: #e67e22; }
+.analysis-issue { background: #fde8e8; color: #e74c3c; }
+.analysis-none { background: #f0f0f0; color: #999; }
+.review-approved { background: #e8f8f0; color: #27ae60; }
+.review-rejected { background: #fde8e8; color: #e74c3c; }
+.review-followup { background: #fef3e2; color: #e67e22; }
+.review-pending { background: #fef3e2; color: #e67e22; }
+.review-none { background: #f0f0f0; color: #aaa; }
 
-.status-abnormal {
-  background: #fde8e8;
-  color: #e74c3c;
-}
+.variance-ok { color: #27ae60; font-weight: 600; font-size: 12px; }
+.variance-warn { color: #e74c3c; font-weight: 700; font-size: 12px; }
 
-.analysis-done {
-  background: #e8f8f0;
-  color: #27ae60;
-}
-
-.analysis-pending {
-  background: #fef3e2;
-  color: #e67e22;
-}
-
-.analysis-issue {
-  background: #fde8e8;
-  color: #e74c3c;
-}
-
-.analysis-none {
-  background: #f0f0f0;
-  color: #999;
-}
-
-.review-approved {
-  background: #e8f8f0;
-  color: #27ae60;
-}
-
-.review-rejected {
-  background: #fde8e8;
-  color: #e74c3c;
-}
-
-.review-followup {
-  background: #fef3e2;
-  color: #e67e22;
-}
-
-.review-pending {
-  background: #fef3e2;
-  color: #e67e22;
-}
-
-.review-none {
-  background: #f0f0f0;
-  color: #aaa;
-}
-
-.variance-ok {
-  color: #27ae60;
-  font-weight: 600;
-  font-size: 12px;
-}
-
-.variance-warn {
-  color: #e74c3c;
-  font-weight: 700;
-  font-size: 12px;
-}
-
-.attach-indicator {
-  font-size: 11px;
-  color: #2980b9;
-  font-weight: 600;
-}
+.attach-indicator { font-size: 11px; color: #2980b9; font-weight: 600; }
 
 .judgment-text {
-  font-size: 11px;
-  color: #555;
-  display: -webkit-box;
-  -webkit-line-clamp: 1;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
+  font-size: 11px; color: #555;
+  display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden;
 }
 
-.no-judgment {
-  color: #ccc;
-}
+.no-judgment { color: #ccc; }
 </style>
