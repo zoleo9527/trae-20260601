@@ -1,5 +1,5 @@
 const express = require('express');
-const { initDatabase, rebuildDatabase } = require('./db/init');
+const { initDatabase } = require('./db/init');
 const { closeDb } = require('./db/connection');
 
 const creditSalesRouter = require('./routes/credit-sales');
@@ -56,23 +56,6 @@ app.use('/api/farmers', farmersRouter);
 app.use('/api/crop-seasons', cropSeasonsRouter);
 app.use('/api/sale-items', saleItemsRouter);
 app.use('/api/users', usersRouter);
-
-app.post('/api/admin/reset-db', (req, res) => {
-  try {
-    rebuildDatabase();
-    const db = require('./db/connection').getDb();
-    const farmers = db.prepare('SELECT id, name FROM farmers ORDER BY id').all();
-    const sales = db.prepare('SELECT id, farmer_id, status, total_amount, paid_amount FROM credit_sales ORDER BY id').all();
-    const payments = db.prepare('SELECT COUNT(*) as cnt FROM partial_payments').get();
-    res.json({
-      code: 0,
-      message: '数据库已重建，脏数据已清除，恢复初始种子状态',
-      data: { farmers, credit_sales: sales, partial_payment_count: payments.cnt }
-    });
-  } catch (e) {
-    res.status(500).json({ code: 1, message: '数据库重建失败', detail: e.message });
-  }
-});
 
 app.use((err, req, res, _next) => {
   console.error(err.stack);

@@ -1,6 +1,12 @@
 const { getDb } = require('./connection');
+const crypto = require('crypto');
 
 const SCHEMA_SQL = `
+CREATE TABLE IF NOT EXISTS _meta (
+  key TEXT PRIMARY KEY,
+  value TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS users (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   name TEXT NOT NULL,
@@ -217,8 +223,13 @@ const TABLES = [
   'credit_sales',
   'crop_seasons',
   'farmers',
-  'users'
+  'users',
+  '_meta'
 ];
+
+function computeSeedHash() {
+  return crypto.createHash('sha256').update(SEED_SQL).digest('hex').slice(0, 16);
+}
 
 function rebuildDatabase() {
   const db = getDb();
@@ -230,6 +241,7 @@ function rebuildDatabase() {
     }
     db.exec(SCHEMA_SQL);
     db.exec(SEED_SQL);
+    db.prepare("INSERT INTO _meta (key, value) VALUES ('seed_hash', ?)").run(computeSeedHash());
   });
 
   try {
@@ -243,28 +255,58 @@ function rebuildDatabase() {
   }
 }
 
+function verifySeedIntegrity(db) {
+  const EXPECTED = {
+    1: { farmer: '赵秋收', sales: [{ status: 'pending', paid: 0 }, { status: 'pending', paid: 0 }] },
+    2: { farmer: '钱老赖', sales: [{ status: 'overdue', paid: 500 }, { status: 'overdue', paid: 0 }, { status: 'overdue', paid: 0 }] },
+    3: { farmer: '孙争议', sales: [{ status: 'disputed', paid: 0 }, { status: 'disputed', paid: 0 }] }
+  };
+
+  for (const [farmerId, expected] of Object.entries(EXPECTED)) {
+    const farmer = db.prepare('SELECT name FROM farmers WHERE id = ?').get(farmerId);
+    if (!farmer || farmer.name !== expected.farmer) return false;
+
+    const sales = db.prepare(
+      'SELECT status, paid_amount FROM credit_sales WHERE farmer_id = ? ORDER BY id'
+    ).all(farmerId);
+
+    if (sales.length !== expected.sales.length) return false;
+    for (let i = 0; i < sales.length; i++) {
+      if (sales[i].status !== expected.sales[i].status) return false;
+      if (sales[i].paid_amount !== expected.sales[i].paid) return false;
+    }
+  }
+
+  const paymentCount = db.prepare('SELECT COUNT(*) as cnt FROM partial_payments').get().cnt;
+  if (paymentCount !== 1) return false;
+
+  return true;
+}
+
 function initDatabase() {
   const db = getDb();
   db.exec(SCHEMA_SQL);
 
-  const count = db.prepare('SELECT COUNT(*) as cnt FROM farmers').get();
-  if (count.cnt === 0) {
-    db.pragma('foreign_keys = OFF');
-    const insertSeed = db.transaction(() => {
-      db.exec(SEED_SQL);
-    });
-    try {
-      insertSeed();
-      console.log('种子数据已插入');
-    } catch (e) {
-      console.error('种子数据插入失败:', e.message);
-      throw e;
-    } finally {
-      db.pragma('foreign_keys = ON');
+  const storedHash = db.prepare("SELECT value FROM _meta WHERE key = 'seed_hash'").get();
+  const currentHash = computeSeedHash();
+
+  if (storedHash && storedHash.value === currentHash) {
+    if (verifySeedIntegrity(db)) {
+      console.log('种子数据完整，跳过初始化');
+      return;
     }
-  } else {
-    console.log('数据库已有数据，跳过种子数据插入');
+    console.warn('种子数据被篡改，自动重建数据库');
+    rebuildDatabase();
+    return;
   }
+
+  if (storedHash && storedHash.value !== currentHash) {
+    console.warn('种子数据版本变更，自动重建数据库');
+    rebuildDatabase();
+    return;
+  }
+
+  rebuildDatabase();
 }
 
 if (require.main === module) {
