@@ -54,6 +54,9 @@ export const useReplacementsStore = defineStore('replacements', () => {
         const parsed = JSON.parse(stored)
         replacements.value = (parsed.replacements || []).map((r: Replacement) => ({
           ...r,
+          replaceReason: r.replaceReason || '',
+          sceneDescription: r.sceneDescription || '',
+          supplementNotes: r.supplementNotes || [],
           costConfirmations: r.costConfirmations || [],
           rejectRecords: r.rejectRecords || [],
           attachments: r.attachments || [],
@@ -91,15 +94,17 @@ export const useReplacementsStore = defineStore('replacements', () => {
       phone: data.phone || '',
       deviceModel: data.deviceModel || '',
       faultDescription: data.faultDescription || '',
+      replaceReason: data.replaceReason || '',
+      sceneDescription: data.sceneDescription || '',
       items: data.items || [],
       estimatedAmount: data.estimatedAmount || 0,
       status: 'draft',
       technicianId: userStore.currentUser?.id || '',
       technicianName: userStore.currentUser?.name || '',
-      supplementNotes: [],
+      supplementNotes: data.supplementNotes || [],
       costConfirmations: [],
       rejectRecords: [],
-      attachments: [],
+      attachments: data.attachments || [],
       createdAt: now,
       updatedAt: now,
     }
@@ -117,6 +122,50 @@ export const useReplacementsStore = defineStore('replacements', () => {
     })
 
     return newReplacement
+  }
+
+  function updateReplacement(id: string, data: Partial<Replacement>) {
+    const operationsStore = useOperationsStore()
+    const replacement = replacements.value.find((r) => r.id === id)
+    if (!replacement) return
+
+    const allowedFields: (keyof Replacement)[] = [
+      'customerName',
+      'phone',
+      'deviceModel',
+      'faultDescription',
+      'replaceReason',
+      'sceneDescription',
+      'items',
+      'estimatedAmount',
+      'supplementNotes',
+      'attachments',
+    ]
+
+    const changes: Record<string, unknown> = {}
+    allowedFields.forEach((field) => {
+      if (data[field] !== undefined) {
+        const oldValue = (replacement as Record<string, unknown>)[field]
+        const newValue = (data as Record<string, unknown>)[field]
+        if (JSON.stringify(oldValue) !== JSON.stringify(newValue)) {
+          ;(replacement as Record<string, unknown>)[field] = newValue
+          changes[field] = newValue
+        }
+      }
+    })
+
+    replacement.updatedAt = new Date().toISOString()
+    saveToStorage()
+
+    if (Object.keys(changes).length > 0) {
+      operationsStore.addLog({
+        replacementId: id,
+        action: 'update',
+        details: { changedFields: Object.keys(changes) },
+      })
+    }
+
+    return replacement
   }
 
   function submitReplacement(id: string) {
@@ -483,6 +532,7 @@ export const useReplacementsStore = defineStore('replacements', () => {
     initReplacements,
     getById,
     createReplacement,
+    updateReplacement,
     submitReplacement,
     confirmCost,
     rejectReplacement,

@@ -16,6 +16,8 @@ export const mockReplacements: Replacement[] = [
     phone: '010-88886001',
     deviceModel: '迅达 Schindler 7000 / DT-A-001',
     faultDescription: '电梯运行中突然停机，主控板通讯故障，显示故障代码E41',
+    replaceReason: '主控板老化通讯失效，已无法通过软件复位恢复',
+    sceneDescription: '万达广场A座1号客梯，26层，电梯运行中停机，轿厢内有人被困5分钟，已安抚乘客并解救',
     items: [
       { partName: '主控板', partCode: 'SCH-MCB-7000', quantity: 1, unitPrice: 12500 },
     ],
@@ -43,6 +45,8 @@ export const mockReplacements: Replacement[] = [
     phone: '010-88886002',
     deviceModel: '奥的斯 Otis Gen360 / DT-B-001',
     faultDescription: '电梯开关门异常，门机变频器报错，无法正常开关门',
+    replaceReason: '门机变频器损坏导致开关门异常，存在夹人风险',
+    sceneDescription: '盛景国际B座1号梯，地下室-1层，门无法关闭，轿厢停在-1层，未困人',
     items: [
       { partName: '门机变频器', partCode: 'OTIS-DRV-G360', quantity: 1, unitPrice: 3800 },
       { partName: '门机编码器', partCode: 'OTIS-ENC-002', quantity: 1, unitPrice: 680 },
@@ -66,6 +70,8 @@ export const mockReplacements: Replacement[] = [
     phone: '010-88886004',
     deviceModel: '通力 KONE MonoSpace / DT-D-001',
     faultDescription: '限速器钢丝绳锈蚀有断丝，平层精度异常，需更换整根钢丝绳',
+    replaceReason: '限速器钢丝绳锈蚀严重且存在断丝，年检要求强制更换',
+    sceneDescription: '市第一人民医院住院部1号梯，8层/8站医用电梯，限速器检测报告显示钢丝绳不合格',
     items: [
       { partName: '曳引钢丝绳', partCode: 'KN-WR-8MM', quantity: 30, unitPrice: 25 },
     ],
@@ -90,6 +96,8 @@ export const mockReplacements: Replacement[] = [
     phone: '010-88886001',
     deviceModel: '迅达 Schindler 5500 / DT-A-003',
     faultDescription: '限速器动作异常，安全钳误触发导致电梯急停',
+    replaceReason: '限速器机械部件卡滞导致安全钳误触发，已清洗润滑但效果不佳',
+    sceneDescription: '万达广场A座3号货梯，15层，运行中急停，轿厢内2名物流人员被困约10分钟',
     items: [
       { partName: '限速器', partCode: 'SCH-GOV-5500', quantity: 1, unitPrice: 4200 },
     ],
@@ -113,6 +121,8 @@ export const mockReplacements: Replacement[] = [
     phone: '010-88886003',
     deviceModel: '三菱 LEHY-III / DT-C-001',
     faultDescription: '安全钳楔块磨损严重，需整套更换以确保制动性能',
+    replaceReason: '安全钳楔块磨损超标，制动力不足，存在溜车隐患',
+    sceneDescription: '鸿基科技园C栋1号客梯，12层，紧急制动试验未通过，年检不合格项',
     items: [
       { partName: '安全钳', partCode: 'MLE-SG-III', quantity: 1, unitPrice: 3500 },
     ],
@@ -140,6 +150,8 @@ export const mockReplacements: Replacement[] = [
     phone: '010-88886005',
     deviceModel: '西子奥的斯 Xizi Otis OH6000 / DT-E-001',
     faultDescription: '底坑缓冲器开关进水损坏，电梯无法正常运行',
+    replaceReason: '编码器信号线老化接触不良，偶发楼层丢失',
+    sceneDescription: '翠湖天地小区5号楼2号梯，22层，运行中偶发急停后自动找平层，暂未困人',
     items: [
       { partName: '缓冲器', partCode: 'XZOT-BUF-OH6', quantity: 2, unitPrice: 320 },
     ],
@@ -161,6 +173,8 @@ export const mockReplacements: Replacement[] = [
     phone: '010-88886001',
     deviceModel: '迅达 Schindler 7000 / DT-A-002',
     faultDescription: '多个楼层层门锁触点接触不良，电梯频繁报门锁故障',
+    replaceReason: '对重缓冲器橡胶垫开裂，缓冲功能失效',
+    sceneDescription: '翠湖天地小区7号楼1号梯，地坑检查时发现缓冲器严重老化',
     items: [
       { partName: '层门锁', partCode: 'SCH-DL-7000', quantity: 6, unitPrice: 280 },
     ],
@@ -185,6 +199,8 @@ export const mockReplacements: Replacement[] = [
     phone: '010-88886003',
     deviceModel: '三菱 LEHY-III / DT-C-002',
     faultDescription: '轿顶检修盒按钮失灵，无法进入检修模式',
+    replaceReason: '门机皮带断裂，轿门无法正常开闭',
+    sceneDescription: '阳光100小区3号楼1号梯，18层，门完全失效无法使用，业主投诉较多',
     items: [
       { partName: '轿顶检修盒', partCode: 'MLE-JXH-III', quantity: 1, unitPrice: 850 },
     ],
@@ -208,6 +224,8 @@ export const mockReplacements: Replacement[] = [
     phone: '010-88886002',
     deviceModel: '奥的斯 Otis Gen360 / DT-B-002',
     faultDescription: '轿厢导靴磨损严重，运行中抖动异响',
+    replaceReason: '变频器模块烧毁，电梯无法启动',
+    sceneDescription: '国贸中心写字楼B座2号客梯，32层，早上高峰时段电梯停机，影响较大',
     items: [
       { partName: '导靴', partCode: 'OTIS-GS-G360', quantity: 4, unitPrice: 180 },
     ],
@@ -235,6 +253,8 @@ export const mockReplacements: Replacement[] = [
     phone: '010-88886004',
     deviceModel: '通力 KONE MonoSpace / DT-D-002',
     faultDescription: '曳引轮轴承异响，温度过高，需紧急更换',
+    replaceReason: '层门门锁触点氧化严重，频繁误报门锁故障',
+    sceneDescription: '福海国际公寓2号楼1号梯，24层，平均每天报门锁故障3-5次',
     items: [
       { partName: '曳引轮轴承', partCode: 'KN-BR-MSP', quantity: 2, unitPrice: 650 },
     ],
@@ -257,6 +277,8 @@ export const mockReplacements: Replacement[] = [
     phone: '010-88886005',
     deviceModel: '西子奥的斯 Xizi Otis OH6000 / DT-E-002',
     faultDescription: '对重轮轴承损坏，运行中有明显异响',
+    replaceReason: '主机曳引轮槽磨损超标，钢丝绳打滑，平层精度差',
+    sceneDescription: '金源购物中心1号货梯，地上5层，货物运输繁忙，平层偏差经常超过15mm',
     items: [
       { partName: '对重轮', partCode: 'XZOT-CWL-OH6', quantity: 1, unitPrice: 1200 },
     ],
@@ -280,6 +302,8 @@ export const mockReplacements: Replacement[] = [
     phone: '010-88886002',
     deviceModel: '奥的斯 Otis Gen360 / DT-B-003',
     faultDescription: '补偿链导向装置磨损，补偿链运行异响',
+    replaceReason: '补偿链导向装置损坏，补偿链晃动异响严重',
+    sceneDescription: '华润大厦A座3号客梯，28层，运行时补偿链拍打井道壁，噪声扰民',
     items: [
       { partName: '补偿链', partCode: 'OTIS-CL-G360', quantity: 25, unitPrice: 45 },
     ],

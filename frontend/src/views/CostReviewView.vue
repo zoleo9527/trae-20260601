@@ -325,6 +325,7 @@ onMounted(() => {
                 <th class="px-3 py-2.5 text-left font-medium text-gray-600">记录编号</th>
                 <th class="px-3 py-2.5 text-left font-medium text-gray-600">电梯编号</th>
                 <th class="px-3 py-2.5 text-left font-medium text-gray-600">客户名称</th>
+                <th class="px-3 py-2.5 text-left font-medium text-gray-600">更换原因</th>
                 <th class="px-3 py-2.5 text-right font-medium text-gray-600">申请金额</th>
                 <th class="px-3 py-2.5 text-right font-medium text-gray-600">确认金额</th>
                 <th class="px-3 py-2.5 text-right font-medium text-gray-600">差异</th>
@@ -350,6 +351,9 @@ onMounted(() => {
                 <td class="px-3 py-2.5 font-mono text-gray-900">{{ r.orderNo }}</td>
                 <td class="px-3 py-2.5 text-gray-700">{{ r.deviceModel }}</td>
                 <td class="px-3 py-2.5 text-gray-700">{{ r.customerName }}</td>
+                <td class="px-3 py-2.5 text-gray-700 max-w-[180px] truncate" :title="r.replaceReason">
+                  {{ r.replaceReason || '-' }}
+                </td>
                 <td class="px-3 py-2.5 text-right text-gray-900">
                   {{ formatMoney(r.estimatedAmount) }}
                 </td>
@@ -397,7 +401,7 @@ onMounted(() => {
                 </td>
               </tr>
               <tr v-if="filteredList.length === 0">
-                <td colspan="15" class="px-4 py-12 text-center text-gray-500">
+                <td colspan="16" class="px-4 py-12 text-center text-gray-500">
                   暂无符合条件的记录
                 </td>
               </tr>

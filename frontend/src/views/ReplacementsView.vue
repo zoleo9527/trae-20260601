@@ -54,9 +54,10 @@ const form = ref({
   phone: '',
   deviceModel: '',
   faultDescription: '',
-  items: [] as ReplacementItem[],
   replaceReason: '',
   sceneDescription: '',
+  items: [] as ReplacementItem[],
+  supplementNoteDraft: '',
 })
 
 function resetForm() {
@@ -65,9 +66,10 @@ function resetForm() {
     phone: '',
     deviceModel: '',
     faultDescription: '',
-    items: [],
     replaceReason: '',
     sceneDescription: '',
+    items: [],
+    supplementNoteDraft: '',
   }
   editingReplacement.value = null
 }
@@ -143,24 +145,36 @@ function openEditForm(r: Replacement) {
     phone: r.phone,
     deviceModel: r.deviceModel,
     faultDescription: r.faultDescription,
+    replaceReason: r.replaceReason || '',
+    sceneDescription: r.sceneDescription || '',
     items: JSON.parse(JSON.stringify(r.items || [])),
-    replaceReason: '',
-    sceneDescription: '',
+    supplementNoteDraft: '',
   }
   formDrawerVisible.value = true
 }
 
 function handleSaveDraft() {
+  const payload = {
+    customerName: form.value.customerName,
+    phone: form.value.phone,
+    deviceModel: form.value.deviceModel,
+    faultDescription: form.value.faultDescription,
+    replaceReason: form.value.replaceReason,
+    sceneDescription: form.value.sceneDescription,
+    items: form.value.items,
+    estimatedAmount: formTotalAmount.value,
+  }
+
   if (editingReplacement.value) {
-    alert('编辑草稿功能（模拟）')
+    const updated = replacementsStore.updateReplacement(editingReplacement.value.id, payload)
+    if (updated && form.value.supplementNoteDraft.trim()) {
+      replacementsStore.addSupplementNote(editingReplacement.value.id, form.value.supplementNoteDraft.trim())
+    }
   } else {
+    const notes = form.value.supplementNoteDraft.trim() ? [form.value.supplementNoteDraft.trim()] : []
     replacementsStore.createReplacement({
-      customerName: form.value.customerName,
-      phone: form.value.phone,
-      deviceModel: form.value.deviceModel,
-      faultDescription: form.value.faultDescription,
-      items: form.value.items,
-      estimatedAmount: formTotalAmount.value,
+      ...payload,
+      supplementNotes: notes,
     })
   }
   formDrawerVisible.value = false
@@ -168,20 +182,32 @@ function handleSaveDraft() {
 }
 
 function handleSubmitForm() {
+  const payload = {
+    customerName: form.value.customerName,
+    phone: form.value.phone,
+    deviceModel: form.value.deviceModel,
+    faultDescription: form.value.faultDescription,
+    replaceReason: form.value.replaceReason,
+    sceneDescription: form.value.sceneDescription,
+    items: form.value.items,
+    estimatedAmount: formTotalAmount.value,
+  }
+
   if (editingReplacement.value) {
+    replacementsStore.updateReplacement(editingReplacement.value.id, payload)
+    if (form.value.supplementNoteDraft.trim()) {
+      replacementsStore.addSupplementNote(editingReplacement.value.id, form.value.supplementNoteDraft.trim())
+    }
     if (editingReplacement.value.status === 'rejected') {
       replacementsStore.resubmitReplacement(editingReplacement.value.id)
     } else {
       replacementsStore.submitReplacement(editingReplacement.value.id)
     }
   } else {
+    const notes = form.value.supplementNoteDraft.trim() ? [form.value.supplementNoteDraft.trim()] : []
     const newR = replacementsStore.createReplacement({
-      customerName: form.value.customerName,
-      phone: form.value.phone,
-      deviceModel: form.value.deviceModel,
-      faultDescription: form.value.faultDescription,
-      items: form.value.items,
-      estimatedAmount: formTotalAmount.value,
+      ...payload,
+      supplementNotes: notes,
     })
     replacementsStore.submitReplacement(newR.id)
   }
@@ -535,6 +561,14 @@ watch(
             <div class="col-span-2">
               <span class="text-gray-500">故障描述：</span>
               <span class="text-gray-900">{{ selectedReplacement.faultDescription || '-' }}</span>
+            </div>
+            <div class="col-span-2">
+              <span class="text-gray-500">更换原因：</span>
+              <span class="text-gray-900">{{ selectedReplacement.replaceReason || '-' }}</span>
+            </div>
+            <div class="col-span-2">
+              <span class="text-gray-500">现场情况：</span>
+              <span class="text-gray-900">{{ selectedReplacement.sceneDescription || '-' }}</span>
             </div>
           </div>
         </div>
@@ -975,8 +1009,31 @@ watch(
           ></textarea>
         </div>
 
+        <div v-if="editingReplacement && editingReplacement.status === 'rejected'" class="p-2.5 bg-red-50 border border-red-300 text-xs space-y-1">
+          <div class="font-semibold text-red-800 flex items-center gap-1">
+            <AlertTriangle :size="12" />
+            申请被退回，请根据以下原因修改后重新提交：
+          </div>
+          <div v-for="rr in editingReplacement.rejectRecords" :key="rr.id" class="text-red-700 pl-4">
+            <span class="text-red-500">{{ rr.rejecterName }}（{{ rr.role === 'customer_service' ? '客服' : rr.role === 'supervisor' ? '主管' : '技术员' }}） · {{ formatDateTime(rr.rejectTime) }}：</span>
+            {{ rr.reason }}
+          </div>
+        </div>
+
         <div>
           <label class="block text-gray-600 mb-1.5 font-medium">附件上传</label>
+          <div v-if="editingReplacement && editingReplacement.attachments && editingReplacement.attachments.length > 0" class="mb-2 space-y-1">
+            <div
+              v-for="att in editingReplacement.attachments"
+              :key="att.id"
+              class="flex items-center gap-2 p-1.5 bg-gray-50 border border-gray-200 text-[11px]"
+            >
+              <FileText :size="11" class="text-gray-400 shrink-0" />
+              <span class="text-gray-800 truncate">{{ att.name }}</span>
+              <span class="text-gray-400 shrink-0">{{ formatFileSize(att.size) }}</span>
+              <span class="text-gray-400 shrink-0 ml-auto">{{ formatDateTime(att.uploadTime) }}</span>
+            </div>
+          </div>
           <div class="flex items-center gap-3">
             <button
               type="button"
@@ -985,7 +1042,27 @@ watch(
               <Upload :size="12" />
               上传附件
             </button>
+            <span class="text-[11px] text-gray-400">支持现场照片、检测报告、旧件回收单等（占位入口）</span>
           </div>
+        </div>
+
+        <div>
+          <label class="block text-gray-600 mb-1.5 font-medium">补充备注</label>
+          <div v-if="editingReplacement && editingReplacement.supplementNotes && editingReplacement.supplementNotes.length > 0" class="mb-2 space-y-1">
+            <div
+              v-for="(note, i) in editingReplacement.supplementNotes"
+              :key="i"
+              class="p-1.5 bg-blue-50 border border-blue-200 text-[11px] text-blue-800"
+            >
+              {{ note }}
+            </div>
+          </div>
+          <textarea
+            v-model="form.supplementNoteDraft"
+            rows="2"
+            placeholder="添加补充备注（保存或提交时写入记录，可用于说明修改内容或补充信息）"
+            class="w-full px-3 py-2 border border-gray-300 bg-white text-gray-900 focus:outline-none focus:border-blue-500 resize-none"
+          ></textarea>
         </div>
 
         <div class="flex items-center gap-2 pt-4 border-t border-gray-200">

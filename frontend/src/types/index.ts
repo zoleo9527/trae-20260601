@@ -29,6 +29,8 @@ export interface Replacement {
   phone: string
   deviceModel: string
   faultDescription: string
+  replaceReason: string
+  sceneDescription: string
   items: ReplacementItem[]
   estimatedAmount: number
   confirmedAmount?: number
