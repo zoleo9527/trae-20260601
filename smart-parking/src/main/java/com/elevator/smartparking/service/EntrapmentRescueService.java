@@ -57,6 +57,9 @@ public class EntrapmentRescueService {
         rescue.setRescuerId(dto.getRescuerId());
         rescue.setInitialRemark(dto.getInitialRemark());
         rescue.setRemark(dto.getInitialRemark());
+        rescue.setExportStatus(ExportStatus.NOT_EXPORTED);
+        rescue.setAttachmentCount(0);
+        rescue.setNotificationStatus(NotificationStatus.NOT_NOTIFIED);
 
         rescue = entrapmentRescueRepository.save(rescue);
 
@@ -295,6 +298,15 @@ public class EntrapmentRescueService {
         vo.setSolution(rescue.getSolution());
         vo.setRemark(rescue.getRemark());
         vo.setInitialRemark(rescue.getInitialRemark());
+        if (rescue.getExportStatus() != null) {
+            vo.setExportStatus(rescue.getExportStatus().name());
+            vo.setExportStatusText(getExportStatusText(rescue.getExportStatus()));
+        }
+        vo.setAttachmentCount(rescue.getAttachmentCount());
+        if (rescue.getNotificationStatus() != null) {
+            vo.setNotificationStatus(rescue.getNotificationStatus().name());
+            vo.setNotificationStatusText(getNotificationStatusText(rescue.getNotificationStatus()));
+        }
         vo.setCreateTime(rescue.getCreateTime());
         vo.setUpdateTime(rescue.getUpdateTime());
 
@@ -308,7 +320,26 @@ public class EntrapmentRescueService {
 
         if (rescue.getFaultReportId() != null) {
             faultReportRepository.findById(rescue.getFaultReportId())
-                    .ifPresent(f -> vo.setFaultReportNo(f.getReportNo()));
+                    .ifPresent(f -> {
+                        vo.setFaultReportNo(f.getReportNo());
+                        vo.setFaultType(f.getFaultType());
+                        vo.setFaultDescription(f.getFaultDescription());
+                        vo.setFaultRemark(f.getRemark());
+                        vo.setFaultSolution(f.getSolution());
+                        if (f.getHandlerId() != null) {
+                            sysUserRepository.findById(f.getHandlerId())
+                                    .ifPresent(u -> vo.setFaultHandlerName(u.getName()));
+                        }
+                        List<HandleRecord> faultRecords = handleRecordService.getRecords(RecordType.FAULT_REPORT, f.getId());
+                        for (HandleRecord rec : faultRecords) {
+                            if ("转困人处置".equals(rec.getAction())) {
+                                vo.setFaultTransferRemark(rec.getContent());
+                                vo.setFaultTransferOperatorName(rec.getOperatorName());
+                                vo.setFaultTransferTime(rec.getOperateTime());
+                                break;
+                            }
+                        }
+                    });
         }
 
         vo.setRecords(handleRecordService.getRecords(RecordType.ENTRAPMENT_RESCUE, id));
@@ -332,6 +363,23 @@ public class EntrapmentRescueService {
         String date = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
         String uuid = UUID.randomUUID().toString().replace("-", "").substring(0, 6).toUpperCase();
         return "ER" + date + uuid;
+    }
+
+    private String getExportStatusText(ExportStatus status) {
+        return switch (status) {
+            case NOT_EXPORTED -> "未导出";
+            case EXPORTING -> "导出中";
+            case EXPORTED -> "已导出";
+            case FAILED -> "导出失败";
+        };
+    }
+
+    private String getNotificationStatusText(NotificationStatus status) {
+        return switch (status) {
+            case NOT_NOTIFIED -> "未通知";
+            case NOTIFIED -> "已通知";
+            case FAILED -> "通知失败";
+        };
     }
 
     private String buildCreateContent(RescueCreateDTO dto) {

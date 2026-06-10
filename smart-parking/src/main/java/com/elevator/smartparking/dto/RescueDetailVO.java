@@ -14,6 +14,14 @@ public class RescueDetailVO {
     private String elevatorNo;
     private Long faultReportId;
     private String faultReportNo;
+    private String faultType;
+    private String faultDescription;
+    private String faultHandlerName;
+    private String faultRemark;
+    private String faultSolution;
+    private String faultTransferRemark;
+    private String faultTransferOperatorName;
+    private java.time.LocalDateTime faultTransferTime;
     private Integer trappedCount;
     private String trappedFloor;
     private String reporterName;
@@ -33,6 +41,11 @@ public class RescueDetailVO {
     private String solution;
     private String remark;
     private String initialRemark;
+    private String exportStatus;
+    private String exportStatusText;
+    private Integer attachmentCount;
+    private String notificationStatus;
+    private String notificationStatusText;
     private java.time.LocalDateTime createTime;
     private java.time.LocalDateTime updateTime;
     private List<HandleRecord> records;

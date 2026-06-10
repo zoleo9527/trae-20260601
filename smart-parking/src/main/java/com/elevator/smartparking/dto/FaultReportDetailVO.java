@@ -29,7 +29,17 @@ public class FaultReportDetailVO {
     private Integer entrapmentCount;
     private Long transferRescueId;
     private String transferRescueNo;
+    private String transferRemark;
+    private String transferOperatorName;
+    private java.time.LocalDateTime transferTime;
+    private String rescueInitialRemark;
+    private String rescueLatestProgress;
     private String remark;
+    private String exportStatus;
+    private String exportStatusText;
+    private Integer attachmentCount;
+    private String notificationStatus;
+    private String notificationStatusText;
     private java.time.LocalDateTime createTime;
     private java.time.LocalDateTime updateTime;
     private List<HandleRecord> records;

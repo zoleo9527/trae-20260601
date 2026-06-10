@@ -68,6 +68,17 @@ public class FaultReport {
     @Column(name = "remark", length = 500)
     private String remark;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "export_status", length = 20)
+    private ExportStatus exportStatus;
+
+    @Column(name = "attachment_count")
+    private Integer attachmentCount;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "notification_status", length = 20)
+    private NotificationStatus notificationStatus;
+
     @CreationTimestamp
     @Column(name = "create_time", updatable = false)
     private LocalDateTime createTime;

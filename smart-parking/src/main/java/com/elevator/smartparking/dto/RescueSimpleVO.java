@@ -9,5 +9,9 @@ public class RescueSimpleVO {
     private String status;
     private String statusText;
     private Integer trappedCount;
+    private String initialRemark;
+    private String rescueProcess;
+    private String solution;
     private java.time.LocalDateTime createTime;
+    private java.time.LocalDateTime rescuedTime;
 }

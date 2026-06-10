@@ -80,6 +80,17 @@ public class EntrapmentRescue {
     @Column(name = "initial_remark", length = 1000)
     private String initialRemark;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "export_status", length = 20)
+    private ExportStatus exportStatus;
+
+    @Column(name = "attachment_count")
+    private Integer attachmentCount;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "notification_status", length = 20)
+    private NotificationStatus notificationStatus;
+
     @CreationTimestamp
     @Column(name = "create_time", updatable = false)
     private LocalDateTime createTime;

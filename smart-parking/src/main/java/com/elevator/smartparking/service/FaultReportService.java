@@ -53,6 +53,9 @@ public class FaultReportService {
         report.setHasEntrapment(dto.getHasEntrapment() != null ? dto.getHasEntrapment() : false);
         report.setEntrapmentCount(dto.getEntrapmentCount() != null ? dto.getEntrapmentCount() : 0);
         report.setRemark(dto.getRemark());
+        report.setExportStatus(ExportStatus.NOT_EXPORTED);
+        report.setAttachmentCount(0);
+        report.setNotificationStatus(NotificationStatus.NOT_NOTIFIED);
 
         report = faultReportRepository.save(report);
 
@@ -300,6 +303,15 @@ public class FaultReportService {
         vo.setEntrapmentCount(report.getEntrapmentCount());
         vo.setTransferRescueId(report.getTransferRescueId());
         vo.setRemark(report.getRemark());
+        if (report.getExportStatus() != null) {
+            vo.setExportStatus(report.getExportStatus().name());
+            vo.setExportStatusText(getExportStatusText(report.getExportStatus()));
+        }
+        vo.setAttachmentCount(report.getAttachmentCount());
+        if (report.getNotificationStatus() != null) {
+            vo.setNotificationStatus(report.getNotificationStatus().name());
+            vo.setNotificationStatusText(getNotificationStatusText(report.getNotificationStatus()));
+        }
         vo.setCreateTime(report.getCreateTime());
         vo.setUpdateTime(report.getUpdateTime());
 
@@ -313,10 +325,24 @@ public class FaultReportService {
 
         if (report.getTransferRescueId() != null) {
             entrapmentRescueRepository.findById(report.getTransferRescueId())
-                    .ifPresent(r -> vo.setTransferRescueNo(r.getRescueNo()));
+                    .ifPresent(r -> {
+                        vo.setTransferRescueNo(r.getRescueNo());
+                        vo.setRescueInitialRemark(r.getInitialRemark());
+                        vo.setRescueLatestProgress(r.getRescueProcess());
+                    });
         }
 
-        vo.setRecords(handleRecordService.getRecords(RecordType.FAULT_REPORT, id));
+        List<HandleRecord> faultRecords = handleRecordService.getRecords(RecordType.FAULT_REPORT, id);
+        vo.setRecords(faultRecords);
+
+        for (HandleRecord rec : faultRecords) {
+            if ("转困人处置".equals(rec.getAction())) {
+                vo.setTransferRemark(rec.getContent());
+                vo.setTransferOperatorName(rec.getOperatorName());
+                vo.setTransferTime(rec.getOperateTime());
+                break;
+            }
+        }
 
         List<EntrapmentRescue> relatedRescues = entrapmentRescueRepository.findByFaultReportIdOrderByCreateTimeDesc(id);
         List<RescueSimpleVO> rescueVOs = new ArrayList<>();
@@ -327,7 +353,11 @@ public class FaultReportService {
             rvo.setStatus(r.getStatus().name());
             rvo.setStatusText(getRescueStatusText(r.getStatus()));
             rvo.setTrappedCount(r.getTrappedCount());
+            rvo.setInitialRemark(r.getInitialRemark());
+            rvo.setRescueProcess(r.getRescueProcess());
+            rvo.setSolution(r.getSolution());
             rvo.setCreateTime(r.getCreateTime());
+            rvo.setRescuedTime(r.getRescuedTime());
             rescueVOs.add(rvo);
         }
         vo.setRelatedRescues(rescueVOs);
@@ -342,6 +372,23 @@ public class FaultReportService {
             case RESCUED -> "已解救";
             case COMPLETED -> "已完成";
             case CANCELLED -> "已取消";
+        };
+    }
+
+    private String getExportStatusText(ExportStatus status) {
+        return switch (status) {
+            case NOT_EXPORTED -> "未导出";
+            case EXPORTING -> "导出中";
+            case EXPORTED -> "已导出";
+            case FAILED -> "导出失败";
+        };
+    }
+
+    private String getNotificationStatusText(NotificationStatus status) {
+        return switch (status) {
+            case NOT_NOTIFIED -> "未通知";
+            case NOTIFIED -> "已通知";
+            case FAILED -> "通知失败";
         };
     }
 
