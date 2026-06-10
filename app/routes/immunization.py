@@ -1,10 +1,14 @@
-from datetime import date
-
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session, joinedload
 
 from app.database import get_db
-from app.models.models import ImmunizationExecution, ImmunizationPlan, PlanStatus
+from app.models.models import (
+    ExecutionResult,
+    ImmunizationExecution,
+    ImmunizationPlan,
+    PigBatch,
+    PlanStatus,
+)
 from app.schemas.schemas import (
     ImmunizationExecutionCreate,
     ImmunizationExecutionDetail,
@@ -13,6 +17,7 @@ from app.schemas.schemas import (
     ImmunizationPlanDetail,
     ImmunizationPlanRead,
 )
+from app.services.business import sync_execution_alerts
 
 router = APIRouter(prefix="/api/immunization", tags=["免疫管理"])
 
@@ -113,14 +118,19 @@ def create_execution(data: ImmunizationExecutionCreate, db: Session = Depends(ge
     batch = db.get(PigBatch, data.batch_id)
     if not batch:
         raise HTTPException(status_code=400, detail="批次不存在")
+    if plan.batch_id != data.batch_id:
+        raise HTTPException(status_code=400, detail="执行批次与计划批次不匹配")
 
     ex = ImmunizationExecution(**data.model_dump())
     db.add(ex)
+    db.flush()
 
-    if data.result in ("正常完成", "补打", "延迟执行"):
+    if data.result in (ExecutionResult.COMPLETED, ExecutionResult.MAKEUP, ExecutionResult.DELAYED):
         plan.plan_status = PlanStatus.COMPLETED
-    elif data.result == "漏打":
+    elif data.result == ExecutionResult.MISSED:
         plan.plan_status = PlanStatus.OVERDUE
+
+    sync_execution_alerts(ex, plan, batch, db)
 
     db.commit()
     db.refresh(ex)

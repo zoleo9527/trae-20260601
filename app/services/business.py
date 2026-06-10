@@ -6,6 +6,7 @@ from app.models.models import (
     AbnormalAlert,
     AlertSeverity,
     AlertStatus,
+    ExecutionResult,
     ImmunizationExecution,
     ImmunizationPlan,
     MedicationRecord,
@@ -108,17 +109,23 @@ def detect_overdue_plans(db: Session, reference_date: date | None = None) -> lis
 
 
 def detect_duplicate_medication(
-    batch_id: int, drug_name: str, start_date: date, db: Session
+    batch_id: int,
+    drug_name: str,
+    start_date: date,
+    db: Session,
+    exclude_id: int | None = None,
 ) -> AbnormalAlert | None:
-    overlapping = (
+    q = (
         db.query(MedicationRecord)
         .filter(
             MedicationRecord.batch_id == batch_id,
             MedicationRecord.drug_name == drug_name,
             MedicationRecord.end_date >= start_date,
         )
-        .first()
     )
+    if exclude_id is not None:
+        q = q.filter(MedicationRecord.id != exclude_id)
+    overlapping = q.first()
     if not overlapping:
         return None
     batch = db.get(PigBatch, batch_id)
@@ -190,6 +197,162 @@ def generate_withdrawal_alerts_for_batch(
     if new_alerts:
         db.add_all(new_alerts)
         db.commit()
+    return new_alerts
+
+
+def sync_execution_alerts(
+    execution: ImmunizationExecution,
+    plan: ImmunizationPlan,
+    batch: PigBatch,
+    db: Session,
+) -> list[AbnormalAlert]:
+    new_alerts: list[AbnormalAlert] = []
+    batch_code = batch.batch_code
+    pen_id = batch.pen_id
+
+    if execution.result == ExecutionResult.MISSED:
+        missed_count = batch.head_count - execution.head_count_executed
+        alert = AbnormalAlert(
+            batch_id=batch.id,
+            pen_id=pen_id,
+            alert_type="漏打疫苗",
+            severity=AlertSeverity.WARNING,
+            title=f"{plan.vaccine_name}漏打{missed_count}头",
+            detail=(
+                f"{batch_code}批次{execution.head_count_executed}头已接种"
+                f"{plan.vaccine_name}，{missed_count}头漏打"
+                + (f"，原因: {execution.reason}" if execution.reason else "")
+            ),
+            alert_status=AlertStatus.ACTIVE,
+            related_record_id=execution.id,
+            related_record_type="immunization_execution",
+        )
+        new_alerts.append(alert)
+
+        existing_overdue = (
+            db.query(AbnormalAlert)
+            .filter(
+                AbnormalAlert.alert_type == "逾期未执行",
+                AbnormalAlert.related_record_id == plan.id,
+                AbnormalAlert.related_record_type == "immunization_plan",
+                AbnormalAlert.alert_status != AlertStatus.RESOLVED,
+            )
+            .first()
+        )
+        if existing_overdue:
+            existing_overdue.detail += f"（部分执行:{execution.head_count_executed}头已打，{missed_count}头漏打）"
+
+    elif execution.result == ExecutionResult.MAKEUP:
+        missed_exec_ids = [
+            ex.id
+            for ex in db.query(ImmunizationExecution)
+            .filter(
+                ImmunizationExecution.plan_id == plan.id,
+                ImmunizationExecution.result == ExecutionResult.MISSED,
+            )
+            .all()
+        ]
+        if missed_exec_ids:
+            missed_alerts = (
+                db.query(AbnormalAlert)
+                .filter(
+                    AbnormalAlert.batch_id == batch.id,
+                    AbnormalAlert.alert_type == "漏打疫苗",
+                    AbnormalAlert.related_record_id.in_(missed_exec_ids),
+                    AbnormalAlert.related_record_type == "immunization_execution",
+                    AbnormalAlert.alert_status != AlertStatus.RESOLVED,
+                )
+                .all()
+            )
+            for ma in missed_alerts:
+                ma.alert_status = AlertStatus.RESOLVED
+
+        overdue_alerts = (
+            db.query(AbnormalAlert)
+            .filter(
+                AbnormalAlert.alert_type == "逾期未执行",
+                AbnormalAlert.related_record_id == plan.id,
+                AbnormalAlert.related_record_type == "immunization_plan",
+                AbnormalAlert.alert_status != AlertStatus.RESOLVED,
+            )
+            .all()
+        )
+        for oa in overdue_alerts:
+            oa.alert_status = AlertStatus.RESOLVED
+
+        alert = AbnormalAlert(
+            batch_id=batch.id,
+            pen_id=pen_id,
+            alert_type="补打疫苗",
+            severity=AlertSeverity.INFO,
+            title=f"{plan.vaccine_name}补打完成",
+            detail=(
+                f"{batch_code}批次{execution.head_count_executed}头补打{plan.vaccine_name}"
+                + (f"，原因: {execution.reason}" if execution.reason else "")
+            ),
+            alert_status=AlertStatus.ACTIVE,
+            related_record_id=execution.id,
+            related_record_type="immunization_execution",
+        )
+        new_alerts.append(alert)
+
+    elif execution.result in (ExecutionResult.COMPLETED, ExecutionResult.DELAYED):
+        overdue_alerts = (
+            db.query(AbnormalAlert)
+            .filter(
+                AbnormalAlert.alert_type == "逾期未执行",
+                AbnormalAlert.related_record_id == plan.id,
+                AbnormalAlert.related_record_type == "immunization_plan",
+                AbnormalAlert.alert_status != AlertStatus.RESOLVED,
+            )
+            .all()
+        )
+        for oa in overdue_alerts:
+            oa.alert_status = AlertStatus.RESOLVED
+
+        missed_exec_ids = [
+            ex.id
+            for ex in db.query(ImmunizationExecution)
+            .filter(
+                ImmunizationExecution.plan_id == plan.id,
+                ImmunizationExecution.result == ExecutionResult.MISSED,
+            )
+            .all()
+        ]
+        if missed_exec_ids:
+            missed_alerts = (
+                db.query(AbnormalAlert)
+                .filter(
+                    AbnormalAlert.batch_id == batch.id,
+                    AbnormalAlert.alert_type == "漏打疫苗",
+                    AbnormalAlert.related_record_id.in_(missed_exec_ids),
+                    AbnormalAlert.related_record_type == "immunization_execution",
+                    AbnormalAlert.alert_status != AlertStatus.RESOLVED,
+                )
+                .all()
+            )
+            for ma in missed_alerts:
+                ma.alert_status = AlertStatus.RESOLVED
+
+        if execution.result == ExecutionResult.DELAYED:
+            alert = AbnormalAlert(
+                batch_id=batch.id,
+                pen_id=pen_id,
+                alert_type="延迟执行",
+                severity=AlertSeverity.WARNING,
+                title=f"{plan.vaccine_name}延迟执行",
+                detail=(
+                    f"{batch_code}批次{plan.vaccine_name}延迟至{execution.execution_date}执行"
+                    + (f"，原因: {execution.reason}" if execution.reason else "")
+                ),
+                alert_status=AlertStatus.ACTIVE,
+                related_record_id=execution.id,
+                related_record_type="immunization_execution",
+            )
+            new_alerts.append(alert)
+
+    if new_alerts:
+        db.add_all(new_alerts)
     return new_alerts
 
 

@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session, joinedload
 
 from app.database import get_db
-from app.models.models import BatchStatus, PigBatch
+from app.models.models import BatchStatus, Pen, PigBatch
 from app.schemas.schemas import PigBatchCreate, PigBatchDetail, PigBatchRead
 
 router = APIRouter(prefix="/api/batches", tags=["猪只批次管理"])
@@ -40,9 +40,13 @@ def create_batch(data: PigBatchCreate, db: Session = Depends(get_db)):
     existing = db.query(PigBatch).filter(PigBatch.batch_code == data.batch_code).first()
     if existing:
         raise HTTPException(status_code=400, detail="批次编号已存在")
-    pen = db.get(PigBatch, data.pen_id)
+    pen = db.get(Pen, data.pen_id)
     if not pen:
         raise HTTPException(status_code=400, detail="目标栏位不存在")
+    if data.source_pen_id is not None:
+        source_pen = db.get(Pen, data.source_pen_id)
+        if not source_pen:
+            raise HTTPException(status_code=400, detail="来源栏位不存在")
     batch = PigBatch(**data.model_dump())
     db.add(batch)
     db.commit()

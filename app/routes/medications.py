@@ -2,11 +2,15 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session, joinedload
 
 from app.database import get_db
-from app.models.models import MedicationRecord, PigBatch
+from app.models.models import MedicationRecord, Pen, PigBatch
 from app.schemas.schemas import (
     MedicationRecordCreate,
     MedicationRecordDetail,
     MedicationRecordRead,
+)
+from app.services.business import (
+    detect_duplicate_medication,
+    generate_withdrawal_alerts_for_batch,
 )
 
 router = APIRouter(prefix="/api/medications", tags=["用药记录管理"])
@@ -59,15 +63,25 @@ def create_medication(data: MedicationRecordCreate, db: Session = Depends(get_db
     batch = db.get(PigBatch, data.batch_id)
     if not batch:
         raise HTTPException(status_code=400, detail="批次不存在")
-
-    from app.models.models import Pen
-
     pen = db.get(Pen, data.pen_id)
     if not pen:
         raise HTTPException(status_code=400, detail="栏位不存在")
 
+    dup_alert = detect_duplicate_medication(
+        batch_id=data.batch_id,
+        drug_name=data.drug_name,
+        start_date=data.start_date,
+        db=db,
+    )
+    if dup_alert:
+        db.add(dup_alert)
+
     rec = MedicationRecord(**data.model_dump())
     db.add(rec)
+    db.flush()
+
+    generate_withdrawal_alerts_for_batch(batch_id=data.batch_id, db=db)
+
     db.commit()
     db.refresh(rec)
     return rec
