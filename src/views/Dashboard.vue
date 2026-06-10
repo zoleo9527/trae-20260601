@@ -107,8 +107,12 @@ function handleTaskAction(task: { id: string; type: string }) {
 }
 
 function handleVaccineException(task: { id: string }) {
-  store.handleVaccineException(task.id, 'resolve')
-  ElMessage.success('疫苗异常已处理，档案已更新')
+  const result = store.handleVaccineException(task.id, 'resolve')
+  if (result.success) {
+    ElMessage.success(result.message)
+  } else {
+    ElMessage.error(result.message)
+  }
 }
 
 function handleHealthMonitoring(task: { id: string }) {

@@ -264,27 +264,40 @@ export const useFarmStore = defineStore('farm', () => {
     }
   }
 
-  function handleVaccineException(vaccineId: string, action: 'resolve' | 'monitor') {
+  function handleVaccineException(vaccineId: string, action: 'resolve' | 'monitor'): { success: boolean; message: string } {
     const record = vaccineRecords.value.find(r => r.id === vaccineId)
-    if (record) {
-      const sow = getSowById(record.animalId)
-      if (sow && action === 'resolve') {
-        record.notes = record.notes?.replace('异常', '已处理')
-        updateSow(sow.id, {
-          healthStatus: 'healthy',
-          changeReason: '疫苗异常已处理完成',
-          changeSource: 'vaccine',
-          updatedBy: currentUser.value.id
-        })
-        addNotification({
-          type: 'success',
-          title: '疫苗异常已处理',
-          message: `${sow.earTag} 疫苗异常已解决`,
-          targetRole: 'veterinarian',
-          relatedId: vaccineId
-        })
-      }
+    if (!record) {
+      return { success: false, message: '未找到疫苗记录' }
     }
+    
+    if (record.animalType !== 'sow') {
+      return { success: false, message: '仅支持处理母猪的疫苗异常' }
+    }
+    
+    const sow = getSowById(record.animalId)
+    if (!sow) {
+      return { success: false, message: '未找到对应的母猪档案' }
+    }
+    
+    if (action === 'resolve') {
+      record.notes = record.notes?.replace('异常', '已处理')
+      updateSow(sow.id, {
+        healthStatus: 'healthy',
+        changeReason: '疫苗异常已处理完成',
+        changeSource: 'vaccine',
+        updatedBy: currentUser.value.id
+      })
+      addNotification({
+        type: 'success',
+        title: '疫苗异常已处理',
+        message: `${sow.earTag} 疫苗异常已解决`,
+        targetRole: 'veterinarian',
+        relatedId: vaccineId
+      })
+      return { success: true, message: `${sow.earTag} 疫苗异常已处理完成` }
+    }
+    
+    return { success: false, message: '不支持的操作类型' }
   }
 
   function handleHealthMonitoring(sowId: string, action: 'recover' | 'continue') {
@@ -373,13 +386,13 @@ export const useFarmStore = defineStore('farm', () => {
         })
       })
       
-      const vaccineExceptions = vaccineRecords.value.filter(r => r.notes && r.notes.includes('异常'))
+      const vaccineExceptions = vaccineRecords.value.filter(r => r.animalType === 'sow' && r.notes && r.notes.includes('异常'))
       vaccineExceptions.forEach(record => {
-        const animal = record.animalType === 'sow' ? getSowById(record.animalId) : getBoarById(record.animalId)
+        const sow = getSowById(record.animalId)
         tasks.push({
           id: record.id,
           title: '疫苗异常处理',
-          description: `${animal?.earTag || record.animalId} 的${record.vaccineName}接种异常: ${record.notes}`,
+          description: `${sow?.earTag || record.animalId} 的${record.vaccineName}接种异常: ${record.notes}`,
           type: 'vaccine_exception',
           priority: 'high'
         })
