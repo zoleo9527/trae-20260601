@@ -20,6 +20,7 @@ import {
   ChevronDown,
   ChevronUp,
   History,
+  CheckCircle,
 } from 'lucide-react';
 
 const statusOptions = [
@@ -41,10 +42,11 @@ const inspectionVariants: Record<string, 'default' | 'success' | 'warning' | 'da
   rework: 'danger',
 };
 
-export default function LoadingPage() {
-  const [batches, setBatches] = useState<LoadingBatch[]>([]);
+  const [allBatches, setAllBatches] = useState<LoadingBatch[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState('all');
+  const [onlyShowChanged, setOnlyShowChanged] = useState(false);
+  const [acknowledging, setAcknowledging] = useState(false);
   const [selectedBatch, setSelectedBatch] = useState<LoadingBatch | null>(null);
   const [showDetail, setShowDetail] = useState(false);
   const [showChangeHistory, setShowChangeHistory] = useState(false);
@@ -58,7 +60,7 @@ export default function LoadingPage() {
     try {
       setLoading(true);
       const result = await loadingApi.getBatches(statusFilter === 'all' ? undefined : statusFilter);
-      setBatches(result);
+      setAllBatches(result);
     } catch (error) {
       showToastMessage('加载批次失败', 'error');
     } finally {
@@ -107,6 +109,31 @@ export default function LoadingPage() {
     return `${days}天前`;
   };
 
+  const changedCount = allBatches.filter(b => b.inspectionChanged).length;
+  const batches = onlyShowChanged
+    ? allBatches.filter(b => b.inspectionChanged && (!statusFilter || statusFilter === "all" || b.status === statusFilter))
+    : allBatches.filter(b => !statusFilter || statusFilter === "all" || b.status === statusFilter);
+
+  const handleAcknowledgeChange = async () => {
+    if (!selectedBatch) return;
+    setAcknowledging(true);
+    try {
+      const { currentUser } = useAppStore.getState();
+      await loadingApi.acknowledgeChange(selectedBatch.id, currentUser?.name);
+      showToastMessage("已确认质检变更，高亮已清除", "success");
+      setShowChangeHistory(false);
+      if (selectedBatch) {
+        selectedBatch.inspectionChanged = false;
+      }
+      await loadBatches();
+    } catch (e) {
+      showToastMessage("操作失败", "error");
+    } finally {
+      setAcknowledging(false);
+    }
+  };
+
+
   return (
     <div className="p-6 animate-fade-in">
       <div className="flex items-center justify-between mb-6">
@@ -129,6 +156,25 @@ export default function LoadingPage() {
                 <option key={opt.value} value={opt.value}>{opt.label}</option>
               ))}
             </select>
+          </div>
+
+          <div className="flex items-center gap-3 ml-auto">
+            <button
+              onClick={() => setOnlyShowChanged(!onlyShowChanged)}
+              className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                onlyShowChanged
+                  ? "bg-amber-100 text-amber-800 border border-amber-300 shadow-sm"
+                  : "bg-white text-forest-600 border border-forest-200 hover:bg-forest-50"
+              }`}
+            >
+              <AlertTriangle className="w-4 h-4" />
+              仅看已变更
+              {changedCount > 0 && (
+                <span className="ml-1 inline-flex items-center justify-center w-5 h-5 rounded-full bg-amber-500 text-white text-xs font-bold">
+                  {changedCount}
+                </span>
+              )}
+            </button>
           </div>
           <span className="text-sm text-forest-500">共 {batches.length} 个批次</span>
         </div>
@@ -360,22 +406,31 @@ export default function LoadingPage() {
 
             {selectedBatch.previousInspection && (
               <div className="mb-6">
-                <button
-                  onClick={() => setShowChangeHistory(!showChangeHistory)}
-                  className="w-full flex items-center justify-between p-4 bg-forest-50 border border-forest-200 rounded-xl hover:bg-forest-100 transition-colors"
-                >
-                  <div className="flex items-center gap-2">
+                <div className="flex items-center justify-between p-4 bg-forest-50 border border-forest-200 rounded-xl">
+                  <button
+                    onClick={() => setShowChangeHistory(!showChangeHistory)}
+                    className="flex items-center gap-2 hover:opacity-80 transition-opacity"
+                  >
                     <History className="w-4 h-4 text-forest-600" />
                     <span className="text-sm font-medium text-forest-800">质检变更前后对比</span>
                     <span className="text-xs text-forest-500">（v{selectedBatch.previousInspection.version} → v{selectedBatch.inspectionVersion}）</span>
-                  </div>
-                  {showChangeHistory ? (
-                    <ChevronUp className="w-4 h-4 text-forest-500" />
-                  ) : (
-                    <ChevronDown className="w-4 h-4 text-forest-500" />
+                    {showChangeHistory ? (
+                      <ChevronUp className="w-4 h-4 text-forest-500" />
+                    ) : (
+                      <ChevronDown className="w-4 h-4 text-forest-500" />
+                    )}
+                  </button>
+                  {selectedBatch.inspectionChanged && (
+                    <button
+                      onClick={handleAcknowledgeChange}
+                      disabled={acknowledging}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-forest-500 text-white hover:bg-forest-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    >
+                      <CheckCircle className="w-3.5 h-3.5" />
+                      {acknowledging ? "处理中..." : "确认已读"}
+                    </button>
                   )}
-                </button>
-
+                </div>
                 {showChangeHistory && (
                   <div className="mt-3 bg-white border border-forest-200 rounded-xl overflow-hidden animate-slide-up">
                     <table className="w-full text-sm">

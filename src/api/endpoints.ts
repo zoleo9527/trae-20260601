@@ -71,6 +71,8 @@ export const loadingApi = {
   getBatch: (id: string) => api.get<LoadingBatch>(`/loading/batches/${id}`),
   confirm: (id: string, confirmer?: string, confirmed: boolean = true) =>
     api.post<LoadingBatch>(`/loading/batches/${id}/confirm`, { confirmer, confirmed }),
+  acknowledgeChange: (id: string, operator?: string) =>
+    api.post<LoadingBatch>(`/loading/batches/${id}/acknowledge-change`, { operator }),
 };
 
 export const logsApi = {
