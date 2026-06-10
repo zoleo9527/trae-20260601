@@ -1,0 +1,116 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --primary: #1e3a5f;
+  --warning: #dd6b20;
+  --success: #2f855a;
+  --danger: #c53030;
+  --info: #2b6cb0;
+
+  font-family:
+    -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei',
+    'Hiragino Sans GB', 'Heiti SC', 'SimHei', 'Segoe UI', 'Noto Sans',
+    Helvetica, Arial, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji';
+  line-height: 1.5;
+  font-weight: 400;
+
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+}
+
+body {
+  font-family: inherit;
+}
+
+table {
+  border-collapse: collapse;
+}
+
+.font-mono,
+code,
+kbd,
+samp,
+pre,
+.order-no,
+.record-no,
+.id-number {
+  font-family: 'SF Mono', 'Menlo', 'Monaco', 'Consolas',
+    'Liberation Mono', 'Courier New', ui-monospace, monospace;
+}
+
+@layer components {
+  .status-warning {
+    @apply inline-flex items-center px-2 py-0.5 text-xs font-medium border;
+    background-color: #fff4e5;
+    color: #dd6b20;
+    border-color: #fbd38d;
+  }
+
+  .status-success {
+    @apply inline-flex items-center px-2 py-0.5 text-xs font-medium border;
+    background-color: #e6f4ea;
+    color: #2f855a;
+    border-color: #9ae6b4;
+  }
+
+  .status-danger {
+    @apply inline-flex items-center px-2 py-0.5 text-xs font-medium border;
+    background-color: #fed7d7;
+    color: #c53030;
+    border-color: #fc8181;
+  }
+
+  .status-default {
+    @apply inline-flex items-center px-2 py-0.5 text-xs font-medium border;
+    background-color: #edf2f7;
+    color: #4a5568;
+    border-color: #cbd5e0;
+  }
+
+  .status-info {
+    @apply inline-flex items-center px-2 py-0.5 text-xs font-medium border;
+    background-color: #e6f0fa;
+    color: #2b6cb0;
+    border-color: #90cdf4;
+  }
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #c1c1c1 #f1f1f1;
+}

@@ -1,0 +1,61 @@
+import type { Customer } from '../types/index';
+
+export const customers: Customer[] = [
+  {
+    id: 'c1',
+    name: '万达广场商业管理有限公司',
+    contact: '陈经理',
+    phone: '010-88886001',
+    address: '北京市朝阳区建国路88号万达广场',
+    contractNo: 'DT-HT-2025-001',
+    contractStartDate: '2025-01-01',
+    contractEndDate: '2026-12-31',
+    level: 'A',
+  },
+  {
+    id: 'c2',
+    name: '盛景国际写字楼物业',
+    contact: '刘总',
+    phone: '010-88886002',
+    address: '北京市海淀区中关村大街1号盛景国际大厦',
+    contractNo: 'DT-HT-2025-002',
+    contractStartDate: '2025-03-15',
+    contractEndDate: '2027-03-14',
+    level: 'A',
+  },
+  {
+    id: 'c3',
+    name: '鸿基科技园区',
+    contact: '王主任',
+    phone: '010-88886003',
+    address: '北京市海淀区上地信息路28号鸿基科技园',
+    contractNo: 'DT-HT-2025-003',
+    contractStartDate: '2025-02-01',
+    contractEndDate: '2026-01-31',
+    level: 'B',
+  },
+  {
+    id: 'c4',
+    name: '市第一人民医院',
+    contact: '赵处长',
+    phone: '010-88886004',
+    address: '北京市西城区西直门外大街1号',
+    contractNo: 'DT-HT-2025-004',
+    contractStartDate: '2025-04-01',
+    contractEndDate: '2026-03-31',
+    level: 'A',
+  },
+  {
+    id: 'c5',
+    name: '翠湖花园小区',
+    contact: '孙师傅',
+    phone: '010-88886005',
+    address: '北京市丰台区南四环西路16号翠湖花园',
+    contractNo: 'DT-HT-2025-005',
+    contractStartDate: '2025-06-01',
+    contractEndDate: '2026-05-31',
+    level: 'C',
+  },
+];
+
+export default customers;
