@@ -46,9 +46,11 @@ const ExceptionPage: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [detailVisible, setDetailVisible] = useState(false);
   const [createVisible, setCreateVisible] = useState(false);
+  const [resolveVisible, setResolveVisible] = useState(false);
   const [selectedException, setSelectedException] = useState<ExceptionRecord | null>(null);
   const [relatedOrders, setRelatedOrders] = useState<CustomerOrder[]>([]);
   const [form] = Form.useForm();
+  const [resolveForm] = Form.useForm();
 
   const fetchData = async () => {
     setLoading(true);
@@ -103,30 +105,37 @@ const ExceptionPage: React.FC = () => {
     }
   };
 
-  const handleResolve = async (exception: ExceptionRecord) => {
-    Modal.confirm({
-      title: '处理异常',
-      content: (
-        <Form layout="vertical">
-          <Form.Item label="处理方案">
-            <TextArea rows={4} placeholder="请输入处理方案" />
-          </Form.Item>
-        </Form>
-      ),
-      okText: '确认处理',
-      onOk: async (values) => {
-        try {
-          await exceptionApi.handle(exception.exceptionId, {
-            handledBy: currentUser,
-            resolution: values.resolution || '已处理'
-          });
-          message.success('异常已处理');
-          fetchData();
-        } catch (error) {
-          message.error('操作失败');
+  const handleResolve = (exception: ExceptionRecord) => {
+    setSelectedException(exception);
+    resolveForm.resetFields();
+    setResolveVisible(true);
+  };
+
+  const handleResolveSubmit = async (values: any) => {
+    if (!selectedException) return;
+
+    try {
+      await exceptionApi.handle(selectedException.exceptionId, {
+        handledBy: currentUser,
+        resolution: values.resolution
+      });
+
+      message.success('异常已处理');
+      setResolveVisible(false);
+      resolveForm.resetFields();
+      
+      const exceptionsData = await exceptionApi.getAll();
+      setExceptions(exceptionsData);
+      
+      if (selectedException) {
+        const updatedException = exceptionsData.find(e => e.exceptionId === selectedException.exceptionId);
+        if (updatedException) {
+          setSelectedException(updatedException);
         }
       }
-    });
+    } catch (error) {
+      message.error('操作失败');
+    }
   };
 
   const pendingExceptions = exceptions.filter(e => e.status === 'REPORTED' || e.status === 'PROCESSING');
@@ -477,6 +486,34 @@ const ExceptionPage: React.FC = () => {
             )}
           </>
         )}
+      </Modal>
+
+      <Modal
+        title="处理异常"
+        open={resolveVisible}
+        onCancel={() => {
+          setResolveVisible(false);
+          resolveForm.resetFields();
+        }}
+        footer={null}
+        width={600}
+      >
+        <Form form={resolveForm} layout="vertical" onFinish={handleResolveSubmit}>
+          <Form.Item
+            label="处理方案"
+            name="resolution"
+            rules={[{ required: true, message: '请输入处理方案' }]}
+          >
+            <TextArea rows={5} placeholder="请详细描述处理方案，包括采取的措施、责任人、预计完成时间等" />
+          </Form.Item>
+
+          <Form.Item style={{ marginBottom: 0, textAlign: 'right' }}>
+            <Space>
+              <Button onClick={() => setResolveVisible(false)}>取消</Button>
+              <Button type="primary" htmlType="submit">确认处理</Button>
+            </Space>
+          </Form.Item>
+        </Form>
       </Modal>
     </div>
   );
