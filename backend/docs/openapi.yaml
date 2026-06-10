@@ -1,0 +1,671 @@
+openapi: 3.0.3
+info:
+  title: 饲料厂配方审批与投料计划 API
+  description: |
+    围绕配方审批和投料计划两条主线，按角色（配方师、生产班长、质检员）分别提供操作入口。
+    配方审批覆盖草稿→提交→审核（通过/驳回）全流程；
+    投料计划覆盖创建→开工→投料记录→完工→质检全流程；
+    客户投诉覆盖登记→处理→结案。
+  version: 1.0.0
+
+servers:
+  - url: http://localhost:3000
+    description: 本地开发
+
+security: []
+
+tags:
+  - name: 配方审批
+    description: 配方师创建/提交配方，配方师之间交叉审核
+  - name: 投料计划
+    description: 生产班长基于已审批配方创建计划、记录投料、回看历史
+  - name: 质检与投诉
+    description: 质检员执行检查、管理养殖户投诉
+  - name: 系统
+    description: 健康检查等
+
+paths:
+  /api/health:
+    get:
+      tags: [系统]
+      summary: 健康检查
+      responses:
+        '200':
+          description: 服务正常
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+
+  /api/formulas:
+    get:
+      tags: [配方审批]
+      summary: 配方列表
+      description: 所有角色可查看，支持按状态/品种/阶段/提交人筛选
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [draft, pending_review, approved, rejected]
+        - name: species
+          in: query
+          schema:
+            type: string
+        - name: stage
+          in: query
+          schema:
+            type: string
+        - name: submitterId
+          in: query
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessWrapper'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Formula'
+    post:
+      tags: [配方审批]
+      summary: 创建配方（配方师）
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FormulaCreateInput'
+      responses:
+        '201':
+          description: 创建成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessWrapper'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Formula'
+
+  /api/formulas/{id}:
+    get:
+      tags: [配方审批]
+      summary: 配方详情（含提交人/审核人）
+      parameters:
+        - $ref: '#/components/parameters/FormulaId'
+      responses:
+        '200':
+          description: 成功
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/formulas/{id}/submit:
+    patch:
+      tags: [配方审批]
+      summary: 提交审批（配方师，仅草稿可提交）
+      parameters:
+        - $ref: '#/components/parameters/FormulaId'
+      responses:
+        '200':
+          description: 提交成功
+        '409':
+          $ref: '#/components/responses/ConflictDraftOnly'
+
+  /api/formulas/{id}/review:
+    patch:
+      tags: [配方审批]
+      summary: 审核配方（配方师交叉审核）
+      parameters:
+        - $ref: '#/components/parameters/FormulaId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [action]
+              properties:
+                action:
+                  type: string
+                  enum: [approve, reject]
+                comment:
+                  type: string
+      responses:
+        '200':
+          description: 审核完成
+        '409':
+          $ref: '#/components/responses/ConflictPendingOnly'
+
+  /api/formulas/history/{code}:
+    get:
+      tags: [配方审批]
+      summary: 配方版本历史回看
+      parameters:
+        - name: code
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 版本列表
+
+  /api/batching-plans:
+    get:
+      tags: [投料计划]
+      summary: 投料计划列表
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [pending, in_progress, completed]
+        - name: shift
+          in: query
+          schema:
+            type: string
+        - name: formulaId
+          in: query
+          schema:
+            type: integer
+        - name: creatorId
+          in: query
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: 成功
+    post:
+      tags: [投料计划]
+      summary: 创建投料计划（生产班长，配方须已审批）
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PlanCreateInput'
+      responses:
+        '201':
+          description: 创建成功
+        '409':
+          $ref: '#/components/responses/ConflictFormulaApprovedOnly'
+
+  /api/batching-plans/{id}:
+    get:
+      tags: [投料计划]
+      summary: 计划详情（含配方、投料记录、质检）
+      parameters:
+        - $ref: '#/components/parameters/PlanId'
+      responses:
+        '200':
+          description: 成功
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/batching-plans/{id}/start:
+    patch:
+      tags: [投料计划]
+      summary: 开工（仅 pending 可开工）
+      parameters:
+        - $ref: '#/components/parameters/PlanId'
+      responses:
+        '200':
+          description: 开工成功
+        '409':
+          $ref: '#/components/responses/ConflictPlanStatus'
+
+  /api/batching-plans/{id}/complete:
+    patch:
+      tags: [投料计划]
+      summary: 完工
+      parameters:
+        - $ref: '#/components/parameters/PlanId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [actualQty]
+              properties:
+                actualQty:
+                  type: number
+      responses:
+        '200':
+          description: 完工成功
+        '409':
+          $ref: '#/components/responses/ConflictPlanStatus'
+
+  /api/batching-plans/{planId}/records:
+    get:
+      tags: [投料计划]
+      summary: 查看投料记录
+      parameters:
+        - name: planId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: 成功
+    post:
+      tags: [投料计划]
+      summary: 添加投料记录（自动计算偏差）
+      parameters:
+        - name: planId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BatchingRecordInput'
+      responses:
+        '201':
+          description: 记录成功
+
+  /api/batching-plans/history/formula/{formulaId}:
+    get:
+      tags: [投料计划]
+      summary: 按配方回看投料历史
+      parameters:
+        - name: formulaId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: 历史计划列表
+
+  /api/quality/inspections:
+    post:
+      tags: [质检与投诉]
+      summary: 创建质检记录（质检员）
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InspectionInput'
+      responses:
+        '201':
+          description: 创建成功
+
+  /api/quality/inspections/plan/{planId}:
+    get:
+      tags: [质检与投诉]
+      summary: 查看计划质检记录
+      parameters:
+        - name: planId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: 成功
+
+  /api/quality/inspections/{id}:
+    get:
+      tags: [质检与投诉]
+      summary: 质检记录详情
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: 成功
+
+  /api/quality/complaints:
+    get:
+      tags: [质检与投诉]
+      summary: 投诉列表
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [open, handling, resolved]
+        - name: category
+          in: query
+          schema:
+            type: string
+        - name: handlerId
+          in: query
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: 成功
+    post:
+      tags: [质检与投诉]
+      summary: 登记投诉
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ComplaintCreateInput'
+      responses:
+        '201':
+          description: 登记成功
+
+  /api/quality/complaints/stats:
+    get:
+      tags: [质检与投诉]
+      summary: 投诉统计（按类别/状态分组）
+      responses:
+        '200':
+          description: 统计数据
+
+  /api/quality/complaints/{id}:
+    get:
+      tags: [质检与投诉]
+      summary: 投诉详情
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: 成功
+
+  /api/quality/complaints/{id}/handle:
+    patch:
+      tags: [质检与投诉]
+      summary: 开始处理投诉
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [result]
+              properties:
+                result:
+                  type: string
+      responses:
+        '200':
+          description: 处理中
+
+  /api/quality/complaints/{id}/resolve:
+    patch:
+      tags: [质检与投诉]
+      summary: 结案投诉
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                result:
+                  type: string
+      responses:
+        '200':
+          description: 已结案
+
+components:
+  parameters:
+    FormulaId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: integer
+    PlanId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: integer
+
+  schemas:
+    SuccessWrapper:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+
+    ErrorResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+            message:
+              type: string
+
+    HealthResponse:
+      allOf:
+        - $ref: '#/components/schemas/SuccessWrapper'
+        - type: object
+          properties:
+            data:
+              type: object
+              properties:
+                status:
+                  type: string
+                  example: ok
+                time:
+                  type: string
+                  format: date-time
+
+    Formula:
+      type: object
+      properties:
+        id:
+          type: integer
+        code:
+          type: string
+          example: FP-2026-001
+        name:
+          type: string
+        version:
+          type: integer
+        species:
+          type: string
+        stage:
+          type: string
+        ingredients:
+          type: array
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+              weight:
+                type: number
+        status:
+          type: string
+          enum: [draft, pending_review, approved, rejected]
+        submitterId:
+          type: integer
+        reviewerId:
+          type: integer
+          nullable: true
+        reviewComment:
+          type: string
+          nullable: true
+        reviewedAt:
+          type: string
+          format: date-time
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+
+    FormulaCreateInput:
+      type: object
+      required: [name, species, stage, ingredients]
+      properties:
+        name:
+          type: string
+        species:
+          type: string
+        stage:
+          type: string
+        ingredients:
+          type: array
+          items:
+            type: object
+            required: [name, weight]
+            properties:
+              name:
+                type: string
+              weight:
+                type: number
+
+    PlanCreateInput:
+      type: object
+      required: [formulaId, plannedQty, shift]
+      properties:
+        formulaId:
+          type: integer
+        plannedQty:
+          type: number
+        shift:
+          type: string
+        plannedAt:
+          type: string
+          format: date-time
+
+    BatchingRecordInput:
+      type: object
+      required: [materialName, plannedWeight]
+      properties:
+        materialName:
+          type: string
+        plannedWeight:
+          type: number
+        actualWeight:
+          type: number
+          nullable: true
+        operator:
+          type: string
+
+    InspectionInput:
+      type: object
+      required: [planId, batchLabelOk, deviationOk]
+      properties:
+        planId:
+          type: integer
+        batchLabelOk:
+          type: boolean
+        deviationOk:
+          type: boolean
+        remarks:
+          type: string
+
+    ComplaintCreateInput:
+      type: object
+      required: [farmerName, category, description]
+      properties:
+        farmerName:
+          type: string
+        farmerPhone:
+          type: string
+        batchCode:
+          type: string
+          nullable: true
+        category:
+          type: string
+        description:
+          type: string
+
+  responses:
+    NotFound:
+      description: 资源不存在
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            error:
+              code: NOT_FOUND
+              message: 资源不存在
+
+    ConflictDraftOnly:
+      description: 仅草稿状态可提交审批
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            error:
+              code: FORMULA_DRAFT_ONLY
+              message: 只有草稿状态的配方才能提交审核
+
+    ConflictPendingOnly:
+      description: 仅待审核状态可操作
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            error:
+              code: FORMULA_PENDING_ONLY
+              message: 只有待审核状态的配方才能审核
+
+    ConflictFormulaApprovedOnly:
+      description: 仅已审批配方可创建投料计划
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            error:
+              code: FORMULA_APPROVED_ONLY
+              message: 仅已审批配方可创建投料计划
+
+    ConflictPlanStatus:
+      description: 投料计划状态不允许此操作
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            error:
+              code: PLAN_STATUS_ERROR
+              message: 投料计划状态不允许此操作

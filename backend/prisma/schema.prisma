@@ -1,0 +1,108 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        Int      @id @default(autoincrement())
+  name      String
+  role      String   @default("formulation_engineer")
+  phone     String?
+  createdAt DateTime @default(now())
+
+  submittedFormulas  Formula[]
+  reviewedFormulas   Formula[]     @relation("FormulaReviewer")
+  createdPlans       BatchingPlan[]
+  inspectionRecords  InspectionRecord[]
+  handledComplaints  Complaint[]   @relation("ComplaintHandler")
+}
+
+model Formula {
+  id            Int      @id @default(autoincrement())
+  code          String   @unique
+  name          String
+  version       Int      @default(1)
+  species       String
+  stage         String
+  ingredients   String
+  status        String   @default("draft")
+  submitterId   Int
+  submitter     User     @relation(fields: [submitterId], references: [id])
+  reviewerId    Int?
+  reviewer      User?    @relation("FormulaReviewer", fields: [reviewerId], references: [id])
+  reviewComment String?
+  reviewedAt    DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  batchingPlans BatchingPlan[]
+}
+
+model BatchingPlan {
+  id            Int      @id @default(autoincrement())
+  code          String   @unique
+  formulaId     Int
+  formula       Formula  @relation(fields: [formulaId], references: [id])
+  plannedQty    Float
+  actualQty     Float?
+  status        String   @default("pending")
+  shift         String
+  plannedAt     DateTime @default(now())
+  startedAt     DateTime?
+  completedAt   DateTime?
+  creatorId     Int
+  creator       User     @relation(fields: [creatorId], references: [id])
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  records       BatchingRecord[]
+  inspections   InspectionRecord[]
+}
+
+model BatchingRecord {
+  id            Int      @id @default(autoincrement())
+  planId        Int
+  plan          BatchingPlan @relation(fields: [planId], references: [id])
+  materialName  String
+  plannedWeight Float
+  actualWeight  Float?
+  deviation     Float?
+  deviationRate Float?
+  operator      String?
+  recordedAt    DateTime @default(now())
+  createdAt     DateTime @default(now())
+}
+
+model InspectionRecord {
+  id            Int      @id @default(autoincrement())
+  planId        Int
+  plan          BatchingPlan @relation(fields: [planId], references: [id])
+  inspectorId   Int
+  inspector     User     @relation(fields: [inspectorId], references: [id])
+  batchLabelOk  Boolean  @default(true)
+  deviationOk   Boolean  @default(true)
+  remarks       String?
+  inspectedAt   DateTime @default(now())
+  createdAt     DateTime @default(now())
+}
+
+model Complaint {
+  id            Int      @id @default(autoincrement())
+  code          String   @unique
+  farmerName    String
+  farmerPhone   String?
+  batchCode     String?
+  category      String
+  description   String
+  status        String   @default("open")
+  handlerId     Int?
+  handler       User?    @relation("ComplaintHandler", fields: [handlerId], references: [id])
+  handleResult  String?
+  handledAt     DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
