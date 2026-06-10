@@ -202,14 +202,14 @@ function handleBatchDelete() {
         <ElTableColumn prop="birthDate" label="出生日期" />
         <ElTableColumn prop="parity" label="胎次" />
         <ElTableColumn prop="litterCount" label="产仔次数" />
-        <ElTableColumn prop="status" label="status">
+        <ElTableColumn prop="status" label="状态">
           <template #default="scope">
             <ElTag :type="sowStatusMap[scope.row.status].type">
               {{ sowStatusMap[scope.row.status].label }}
             </ElTag>
           </template>
         </ElTableColumn>
-        <ElTableColumn prop="healthStatus" label="healthStatus">
+        <ElTableColumn prop="healthStatus" label="健康状态">
           <template #default="scope">
             <ElTag :type="healthStatusMap[scope.row.healthStatus].type">
               {{ healthStatusMap[scope.row.healthStatus].label }}
@@ -217,6 +217,20 @@ function handleBatchDelete() {
           </template>
         </ElTableColumn>
         <ElTableColumn prop="expectedFarrowingDate" label="预产期" />
+        <ElTableColumn label="变更来源">
+          <template #default="scope">
+            <ElTag v-if="scope.row.changeSource" type="info" size="small">
+              {{ scope.row.changeSource === 'breeding' ? '配种' : scope.row.changeSource === 'farrowing' ? '分娩' : scope.row.changeSource === 'vaccine' ? '疫苗' : '手动' }}
+            </ElTag>
+            <span v-else class="text-gray-400">-</span>
+          </template>
+        </ElTableColumn>
+        <ElTableColumn label="变更原因">
+          <template #default="scope">
+            <span v-if="scope.row.changeReason" class="text-sm text-gray-600">{{ scope.row.changeReason }}</span>
+            <span v-else class="text-gray-400">-</span>
+          </template>
+        </ElTableColumn>
         <ElTableColumn prop="updatedAt" label="更新时间" />
         <ElTableColumn label="操作">
           <template #default="scope">

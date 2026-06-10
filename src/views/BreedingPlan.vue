@@ -2,7 +2,7 @@
 import { ref, computed } from 'vue'
 import { useFarmStore } from '@/stores/farm'
 import type { BreedingPlan } from '@/types'
-import { ElCard, ElTable, ElTableColumn, ElTag, ElButton, ElDialog, ElForm, ElFormItem, ElSelect, ElOption, ElDatePicker, ElInput, ElPopconfirm } from 'element-plus'
+import { ElCard, ElTable, ElTableColumn, ElTag, ElButton, ElDialog, ElForm, ElFormItem, ElSelect, ElOption, ElDatePicker, ElInput, ElPopconfirm, ElTooltip } from 'element-plus'
 import { ElMessage } from 'element-plus'
 
 const store = useFarmStore()
@@ -24,6 +24,13 @@ const planStatusMap: Record<string, { label: string; type: 'primary' | 'success'
 const breedingTypeMap: Record<string, string> = {
   natural: '自然配种',
   artificial: '人工授精'
+}
+
+const affectedStatusMap: Record<string, string> = {
+  culled: '已淘汰',
+  sick: '患病',
+  pregnant: '怀孕中',
+  lactating: '泌乳中'
 }
 
 const form = ref({
@@ -53,6 +60,7 @@ const filteredPlans = computed(() => {
 
 const pendingCount = computed(() => store.breedingPlans.filter(p => p.status === 'pending').length)
 const completedCount = computed(() => store.breedingPlans.filter(p => p.status === 'completed').length)
+const cancelledCount = computed(() => store.breedingPlans.filter(p => p.status === 'cancelled').length)
 
 function openAddDialog() {
   form.value = {
@@ -103,6 +111,8 @@ function handleExecute() {
 function handleCancel(plan: BreedingPlan) {
   plan.status = 'cancelled'
   plan.updatedAt = new Date().toISOString().split('T')[0]
+  plan.cancelledBy = store.currentUser.id
+  plan.cancelledReason = '手动取消'
   ElMessage.success('配种计划已取消')
 }
 
@@ -116,7 +126,7 @@ function isPlanOverdue(plan: BreedingPlan): boolean {
     <div class="flex items-center justify-between">
       <div>
         <h2 class="text-xl font-bold text-gray-800">配种计划</h2>
-        <p class="text-gray-500">待执行 {{ pendingCount }} | 已完成 {{ completedCount }}</p>
+        <p class="text-gray-500">待执行 {{ pendingCount }} | 已完成 {{ completedCount }} | 已取消 {{ cancelledCount }}</p>
       </div>
       <ElButton type="primary" icon="Plus" @click="openAddDialog">新建配种计划</ElButton>
     </div>
@@ -178,6 +188,29 @@ function isPlanOverdue(plan: BreedingPlan): boolean {
           </template>
         </ElTableColumn>
         <ElTableColumn prop="actualDate" label="实际执行日期" />
+        <ElTableColumn label="取消原因" v-if="statusFilter === 'cancelled'">
+          <template #default="scope">
+            <ElTooltip v-if="scope.row.cancelledReason" :content="scope.row.cancelledReason" placement="top">
+              <span class="text-warning cursor-help">{{ scope.row.cancelledReason }}</span>
+            </ElTooltip>
+            <span v-else class="text-gray-400">-</span>
+          </template>
+        </ElTableColumn>
+        <ElTableColumn label="取消人" v-if="statusFilter === 'cancelled'">
+          <template #default="scope">
+            <span v-if="scope.row.cancelledBy">{{ scope.row.cancelledBy }}</span>
+            <span v-else class="text-gray-400">-</span>
+          </template>
+        </ElTableColumn>
+        <ElTableColumn label="影响提示">
+          <template #default="scope">
+            <ElTag v-if="scope.row.affectedSowStatus" type="danger" size="small">
+              母猪{{ affectedStatusMap[scope.row.affectedSowStatus] || scope.row.affectedSowStatus }}
+            </ElTag>
+            <span v-else-if="isPlanOverdue(scope.row as BreedingPlan)" class="text-danger text-sm">计划已过期</span>
+            <span v-else class="text-gray-400 text-sm">-</span>
+          </template>
+        </ElTableColumn>
         <ElTableColumn label="操作">
           <template #default="scope">
             <ElButton

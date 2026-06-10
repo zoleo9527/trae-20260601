@@ -12,6 +12,8 @@ export interface Sow {
   createdBy: string
   updatedBy: string
   updatedAt: string
+  changeReason?: string
+  changeSource?: 'breeding' | 'farrowing' | 'vaccine' | 'manual'
 }
 
 export interface Boar {
@@ -40,6 +42,9 @@ export interface BreedingPlan {
   operator?: string
   createdAt: string
   updatedAt: string
+  cancelledBy?: string
+  cancelledReason?: string
+  affectedSowStatus?: string
 }
 
 export interface BreedingRecord {

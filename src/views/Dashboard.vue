@@ -60,6 +60,16 @@ const sowStatusStats = computed(() => {
   }
 })
 
+const currentUserTasks = computed(() => {
+  return store.getTasksForRole(store.currentUser.role)
+})
+
+const roleLabels: Record<string, string> = {
+  breeder: '繁育员',
+  veterinarian: '兽医',
+  manager: '场长'
+}
+
 const planStatusMap: Record<string, { label: string; type: 'primary' | 'success' | 'warning' | 'info' | 'danger' }> = {
   pending: { label: '待执行', type: 'warning' },
   completed: { label: '已完成', type: 'success' },
@@ -71,13 +81,34 @@ const breedingTypeMap: Record<string, string> = {
   natural: '自然配种',
   artificial: '人工授精'
 }
+
+function handleTaskAction(task: { id: string; type: string }) {
+  switch (task.type) {
+    case 'breeding':
+      router.push('/breeding-plan')
+      break
+    case 'conception':
+      router.push('/breeding-record')
+      break
+    case 'vaccine':
+      router.push('/vaccine')
+      break
+    case 'health':
+      router.push('/sow-archive')
+      break
+    case 'exception':
+    case 'overdue':
+      router.push('/breeding-plan')
+      break
+  }
+}
 </script>
 
 <template>
   <div class="space-y-6">
     <div>
       <h2 class="text-xl font-bold text-gray-800">欢迎回来，{{ store.currentUser.name }}</h2>
-      <p class="text-gray-500">今天是 {{ new Date().toLocaleDateString('zh-CN') }}</p>
+      <p class="text-gray-500">今天是 {{ new Date().toLocaleDateString('zh-CN') }} · 当前角色：{{ roleLabels[store.currentUser.role] }}</p>
     </div>
 
     <ElRow :gutter="16">
@@ -96,6 +127,29 @@ const breedingTypeMap: Record<string, string> = {
         </ElCard>
       </ElCol>
     </ElRow>
+
+    <ElCard title="我的待办任务" v-if="currentUserTasks.length > 0">
+      <div class="max-h-64 overflow-y-auto">
+        <div class="space-y-2">
+          <div
+            v-for="task in currentUserTasks"
+            :key="task.id"
+            class="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition"
+          >
+            <div>
+              <div class="flex items-center gap-2">
+                <ElTag :type="task.priority === 'high' ? 'danger' : task.priority === 'medium' ? 'warning' : 'info'" size="small">
+                  {{ task.priority === 'high' ? '紧急' : task.priority === 'medium' ? '中等' : '低' }}
+                </ElTag>
+                <span class="font-medium">{{ task.title }}</span>
+              </div>
+              <p class="text-sm text-gray-500 mt-1">{{ task.description }}</p>
+            </div>
+            <ElButton size="small" @click="handleTaskAction(task)">处理</ElButton>
+          </div>
+        </div>
+      </div>
+    </ElCard>
 
     <ElRow :gutter="16">
       <ElCol :span="14">

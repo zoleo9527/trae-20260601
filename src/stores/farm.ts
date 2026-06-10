@@ -37,14 +37,18 @@ export const useFarmStore = defineStore('farm', () => {
       sows.value[index] = { ...sows.value[index], ...updates, updatedBy: currentUser.value.id, updatedAt: new Date().toISOString().split('T')[0] }
       
       if (updates.status === 'culled' || updates.healthStatus === 'sick') {
+        const statusText = updates.status === 'culled' ? '淘汰' : '患病'
         breedingPlans.value.forEach(plan => {
           if (plan.sowId === id && plan.status === 'pending') {
             plan.status = 'cancelled'
             plan.updatedAt = new Date().toISOString().split('T')[0]
+            plan.cancelledBy = currentUser.value.id
+            plan.cancelledReason = `母猪${statusText}`
+            plan.affectedSowStatus = updates.status === 'culled' ? 'culled' : 'sick'
             addNotification({
               type: 'warning',
               title: '配种计划取消',
-              message: `${oldSow.earTag} 母猪状态变更，相关配种计划已取消`,
+              message: `${oldSow.earTag} 母猪${statusText}，相关配种计划已取消`,
               targetRole: 'all',
               relatedId: plan.id
             })
@@ -55,7 +59,7 @@ export const useFarmStore = defineStore('farm', () => {
       addNotification({
         type: 'info',
         title: '种群档案更新',
-        message: `${updates.earTag || oldSow.earTag} 母猪信息已更新`,
+        message: `${updates.earTag || oldSow.earTag} 母猪信息已更新${updates.changeReason ? `（${updates.changeReason}）` : ''}`,
         targetRole: 'all',
         relatedId: id
       })
@@ -159,7 +163,9 @@ export const useFarmStore = defineStore('farm', () => {
           updateSow(sow.id, { 
             status: 'pregnant', 
             lastBreedingDate: plan.actualDate,
-            expectedFarrowingDate: calculateFarrowingDate(plan.actualDate)
+            expectedFarrowingDate: calculateFarrowingDate(plan.actualDate),
+            changeReason: '配种成功确认受孕',
+            changeSource: 'breeding'
           })
         }
         const boar = getBoarById(plan.boarId)
@@ -191,7 +197,9 @@ export const useFarmStore = defineStore('farm', () => {
       updateSow(sow.id, { 
         status: 'lactating',
         parity: sow.parity + 1,
-        litterCount: sow.litterCount + 1
+        litterCount: sow.litterCount + 1,
+        changeReason: `分娩${record.livePigs}头仔猪`,
+        changeSource: 'farrowing'
       })
     }
 
@@ -211,6 +219,117 @@ export const useFarmStore = defineStore('farm', () => {
       createdAt: new Date().toISOString().split('T')[0]
     }
     vaccineRecords.value.push(newRecord)
+
+    if (record.animalType === 'sow') {
+      const sow = getSowById(record.animalId)
+      if (sow && record.notes && record.notes.includes('异常')) {
+        updateSow(sow.id, {
+          healthStatus: 'monitoring',
+          changeReason: `疫苗接种异常: ${record.notes}`,
+          changeSource: 'vaccine'
+        })
+        addNotification({
+          type: 'warning',
+          title: '疫苗异常',
+          message: `${sow.earTag} 疫苗接种记录异常，已标记监测`,
+          targetRole: 'veterinarian',
+          relatedId: newRecord.id
+        })
+      }
+    }
+  }
+
+  function getTasksForRole(role: string) {
+    const tasks: { id: string; title: string; description: string; type: string; priority: 'high' | 'medium' | 'low' }[] = []
+    
+    if (role === 'breeder') {
+      const pendingPlans = breedingPlans.value.filter(p => p.status === 'pending')
+      pendingPlans.forEach(plan => {
+        const sow = getSowById(plan.sowId)
+        const boar = getBoarById(plan.boarId)
+        tasks.push({
+          id: plan.id,
+          title: '待执行配种',
+          description: `${sow?.earTag || plan.sowId} × ${boar?.earTag || plan.boarId}`,
+          type: 'breeding',
+          priority: plan.plannedDate < new Date().toISOString().split('T')[0] ? 'high' : 'medium'
+        })
+      })
+      
+      const pendingRecords = breedingRecords.value.filter(r => r.result === 'success' && !r.conceptionConfirmed)
+      pendingRecords.forEach(record => {
+        const sow = getSowById(record.sowId)
+        tasks.push({
+          id: record.id,
+          title: '待确认受孕',
+          description: `${sow?.earTag || record.sowId} 配种成功，待确认受孕`,
+          type: 'conception',
+          priority: 'medium'
+        })
+      })
+    }
+    
+    if (role === 'veterinarian') {
+      const upcomingVaccinations = vaccineRecords.value.filter(r => {
+        if (!r.nextDueDate) return false
+        const dueDate = new Date(r.nextDueDate)
+        const nextWeek = new Date()
+        nextWeek.setDate(nextWeek.getDate() + 7)
+        return dueDate <= nextWeek
+      })
+      upcomingVaccinations.forEach(record => {
+        const animal = record.animalType === 'sow' ? getSowById(record.animalId) : getBoarById(record.animalId)
+        tasks.push({
+          id: record.id,
+          title: '疫苗即将到期',
+          description: `${animal?.earTag || record.animalId} 的${record.vaccineName}即将到期`,
+          type: 'vaccine',
+          priority: 'high'
+        })
+      })
+      
+      const sickAnimals = sows.value.filter(s => s.healthStatus === 'sick' || s.healthStatus === 'monitoring')
+      sickAnimals.forEach(sow => {
+        tasks.push({
+          id: sow.id,
+          title: '健康监测',
+          description: `${sow.earTag} ${sow.healthStatus === 'sick' ? '患病' : '监测中'}`,
+          type: 'health',
+          priority: sow.healthStatus === 'sick' ? 'high' : 'medium'
+        })
+      })
+    }
+    
+    if (role === 'manager') {
+      const cancelledPlans = breedingPlans.value.filter(p => p.status === 'cancelled' && !p.cancelledReason?.includes('已处理'))
+      cancelledPlans.forEach(plan => {
+        const sow = getSowById(plan.sowId)
+        tasks.push({
+          id: plan.id,
+          title: '配种计划异常',
+          description: `${sow?.earTag || plan.sowId} 的配种计划被取消: ${plan.cancelledReason}`,
+          type: 'exception',
+          priority: 'high'
+        })
+      })
+      
+      const overduePlans = breedingPlans.value.filter(p => p.status === 'pending' && p.plannedDate < new Date().toISOString().split('T')[0])
+      overduePlans.forEach(plan => {
+        const sow = getSowById(plan.sowId)
+        tasks.push({
+          id: plan.id,
+          title: '配种计划逾期',
+          description: `${sow?.earTag || plan.sowId} 的配种计划已逾期`,
+          type: 'overdue',
+          priority: 'high'
+        })
+      })
+    }
+    
+    return tasks.sort((a, b) => {
+      const priorityOrder = { high: 0, medium: 1, low: 2 }
+      return priorityOrder[a.priority] - priorityOrder[b.priority]
+    })
   }
 
   function addNotification(notification: Omit<Notification, 'id' | 'read' | 'createdAt'>) {
@@ -260,6 +379,7 @@ export const useFarmStore = defineStore('farm', () => {
     addFarrowingRecord,
     addVaccineRecord,
     addNotification,
-    markNotificationAsRead
+    markNotificationAsRead,
+    getTasksForRole
   }
 })
