@@ -1,5 +1,5 @@
 import { Layout as AntLayout, Menu, Button, Dropdown, Avatar } from 'antd'
-import { UserOutlined, FileTextOutlined, CalendarOutlined, LogoutOutlined, UserSwitchOutlined } from '@ant-design/icons'
+import { UserOutlined, FileTextOutlined, CalendarOutlined, LogoutOutlined, MenuFoldOutlined, MenuUnfoldOutlined } from '@ant-design/icons'
 import { useUserStore } from '../store/userStore'
 import { getRoleText } from '../utils/format'
 import { useState } from 'react'
@@ -45,7 +45,7 @@ export default function Layout({ children, currentPage, onPageChange }: LayoutPr
           
           <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
             <Dropdown overlay={userMenu}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', padding: '8px 16px', borderRadius: '8px', hover: { background: '#f5f5f5' } }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', padding: '8px 16px', borderRadius: '8px' }} className="layout-user-dropdown">
                 <Avatar icon={<UserOutlined />} style={{ backgroundColor: '#1890ff' }} />
                 <span style={{ fontSize: '14px', fontWeight: 500 }}>{user?.name}</span>
                 <span style={{ fontSize: '12px', color: '#999', background: '#f5f5f5', padding: '2px 8px', borderRadius: '4px' }}>
@@ -66,7 +66,7 @@ export default function Layout({ children, currentPage, onPageChange }: LayoutPr
         >
           <Button
             type="text"
-            icon={collapsed ? <UserSwitchOutlined /> : <UserSwitchOutlined />}
+            icon={collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
             onClick={() => setCollapsed(!collapsed)}
             style={{
               color: '#fff',

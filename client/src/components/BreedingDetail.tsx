@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { Card, Tag, Button, Form, Input, Select, DatePicker, Modal, message, Table, Space } from 'antd'
 import { ArrowLeftOutlined, PlusOutlined, CheckOutlined, CloseOutlined, AlertCircleOutlined } from '@ant-design/icons'
 import { BreedingRecord, BreedingNote, NoteStatus, UserRole, CattleNote } from '../types'
-import { breedingNotesApi, cattleNotesApi, authApi } from '../api'
+import { breedingNotesApi, cattleNotesApi, authApi, breedingApi } from '../api'
 import { getStatusText, getBreedingTypeText, formatDate, formatDateTime } from '../utils/format'
 import { useUserStore } from '../store/userStore'
 
@@ -94,9 +94,10 @@ export default function BreedingDetail({ record, onBack }: BreedingDetailProps) 
     }
   }
 
-  const handleUpdateStatus = async (status: string) => {
+  const handleUpdateStatus = async (values: { status: string }) => {
     try {
-      message.success(`状态已更新为${getStatusText(status, 'breeding')}`)
+      await breedingApi.updateRecord(record.id, { status: values.status })
+      message.success(`状态已更新为${getStatusText(values.status, 'breeding')}`)
       setShowStatusModal(false)
     } catch (error) {
       message.error('更新状态失败')
@@ -179,7 +180,8 @@ export default function BreedingDetail({ record, onBack }: BreedingDetailProps) 
             <Button
               size="small"
               type="primary"
-              icon={<CheckOutlined onClick={() => handleUpdateNoteStatus(record.id, 'processing')} />}
+              icon={<CheckOutlined />}
+              onClick={() => handleUpdateNoteStatus(record.id, 'processing')}
             >
               接单
             </Button>
@@ -189,14 +191,16 @@ export default function BreedingDetail({ record, onBack }: BreedingDetailProps) 
               <Button
                 size="small"
                 type="primary"
-                icon={<CheckOutlined onClick={() => handleUpdateNoteStatus(record.id, 'resolved')} />}
+                icon={<CheckOutlined />}
+                onClick={() => handleUpdateNoteStatus(record.id, 'resolved')}
               >
                 完成
               </Button>
               <Button
                 size="small"
                 danger
-                icon={<CloseOutlined onClick={() => handleUpdateNoteStatus(record.id, 'rejected')} />}
+                icon={<CloseOutlined />}
+                onClick={() => handleUpdateNoteStatus(record.id, 'rejected')}
               >
                 退回
               </Button>

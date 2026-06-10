@@ -4,6 +4,7 @@ import { SearchOutlined, PlusOutlined, EyeOutlined, EditOutlined, DeleteOutlined
 import { breedingApi, cattleApi } from '../api'
 import { BreedingRecord, Cattle } from '../types'
 import { getStatusText, getBreedingTypeText, formatDate } from '../utils/format'
+import dayjs, { Dayjs } from 'dayjs'
 
 interface BreedingListProps {
   onSelectRecord: (record: BreedingRecord) => void
@@ -15,7 +16,7 @@ export default function BreedingList({ onSelectRecord }: BreedingListProps) {
   const [loading, setLoading] = useState(false)
   const [searchKeyword, setSearchKeyword] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('')
-  const [dateRange, setDateRange] = useState<[string, string] | null>(null)
+  const [dateRange, setDateRange] = useState<[Dayjs, Dayjs] | null>(null)
 
   useEffect(() => {
     loadRecords()
@@ -27,8 +28,8 @@ export default function BreedingList({ onSelectRecord }: BreedingListProps) {
     try {
       const params: Record<string, string> = {}
       if (statusFilter) params.status = statusFilter
-      if (dateRange && dateRange[0]) params.startDate = dateRange[0]
-      if (dateRange && dateRange[1]) params.endDate = dateRange[1]
+      if (dateRange && dateRange[0]) params.startDate = dateRange[0].format('YYYY-MM-DD')
+      if (dateRange && dateRange[1]) params.endDate = dateRange[1].format('YYYY-MM-DD')
 
       const response = await breedingApi.getRecords(params)
       

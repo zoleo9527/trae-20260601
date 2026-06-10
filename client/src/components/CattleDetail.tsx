@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Card, Tag, Button, Form, Input, Select, DatePicker, Modal, message, Table, Space } from 'antd';
 import { ArrowLeftOutlined, PlusOutlined, CheckOutlined, CloseOutlined, AlertCircleOutlined } from '@ant-design/icons';
 import { Cattle, CattleNote, NoteType, NoteStatus, UserRole } from '../types';
-import { cattleNotesApi, authApi } from '../api';
+import { cattleNotesApi, authApi, cattleApi } from '../api';
 import { getStatusText, getNoteTypeText, formatDate, formatDateTime } from '../utils/format';
 import { useUserStore } from '../store/userStore';
 const { TextArea } = Input;
@@ -84,15 +84,16 @@ export default function CattleDetail({ cattle, onBack }: CattleDetailProps) {
  message.error('更新备注状态失败');
  }
  };
- const handleUpdateCattleStatus = async (status: string) => {
- try {
- message.success(`牛只状态已更新为${getStatusText(status, 'cattle')}`);
- setShowStatusModal(false);
- }
- catch (error) {
- message.error('更新状态失败');
- }
- };
+ const handleUpdateCattleStatus = async (values: { status: string }) => {
+  try {
+    await cattleApi.updateCattle(cattle.id, { status: values.status });
+    message.success(`牛只状态已更新为${getStatusText(values.status, 'cattle')}`);
+    setShowStatusModal(false);
+  }
+  catch (error) {
+    message.error('更新状态失败');
+  }
+};
  const statusColors: Record<string, string> = {
  healthy: 'green',
  sick: 'red',
@@ -164,14 +165,14 @@ export default function CattleDetail({ cattle, onBack }: CattleDetailProps) {
  key: 'actions',
  width: 150,
  render: (_, record: CattleNote) => (<Space>
- {record.status === 'pending' && (<Button size="small" type="primary" icon={<CheckOutlined onClick={() => handleUpdateNoteStatus(record.id, 'processing')}/>}>
+ {record.status === 'pending' && (<Button size="small" type="primary" icon={<CheckOutlined />} onClick={() => handleUpdateNoteStatus(record.id, 'processing')}>
  接单
  </Button>)}
  {record.status === 'processing' && (<>
- <Button size="small" type="primary" icon={<CheckOutlined onClick={() => handleUpdateNoteStatus(record.id, 'resolved')}/>}>
+ <Button size="small" type="primary" icon={<CheckOutlined />} onClick={() => handleUpdateNoteStatus(record.id, 'resolved')}>
  完成
  </Button>
- <Button size="small" danger icon={<CloseOutlined onClick={() => handleUpdateNoteStatus(record.id, 'rejected')}/>}>
+ <Button size="small" danger icon={<CloseOutlined />} onClick={() => handleUpdateNoteStatus(record.id, 'rejected')}>
  退回
  </Button>
  </>)}
