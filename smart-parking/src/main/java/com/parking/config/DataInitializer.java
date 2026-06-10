@@ -54,6 +54,7 @@ public class DataInitializer implements CommandLineRunner {
         initFrequencyAlertSample(gates);
         initHandedOverWithInheritedRemark(gates);
         initRejectedReleaseSample(gates);
+        initSupplementSample(gates);
 
         log.info("===== 种子数据初始化完成 =====");
     }
@@ -268,5 +269,36 @@ public class DataInitializer implements CommandLineRunner {
         rejectReq.setAction("REJECT");
         rejectReq.setReviewRemark("车牌京G55555不在月租名单中，且无入场记录，无法确认是否为该车场车辆，请现场核实");
         remoteReleaseService.reviewRelease(rejectReq);
+    }
+
+    private void initSupplementSample(List<Gate> gates) {
+        GateFault fault = new GateFault();
+        fault.setGate(gates.get(2));
+        fault.setFaultType("SYSTEM_ERROR");
+        fault.setFaultDescription("万达出口2号道闸系统异常，车牌识别后抬杆失败，需重启控制器");
+        fault.setReportedBy("巡检员-小王");
+        fault.setReportedAt(LocalDateTime.now().minusMinutes(75));
+        fault.setStatus(FaultStatus.PENDING);
+        gateFaultRepository.save(fault);
+
+        GateFaultHandleRequest handleReq = new GateFaultHandleRequest();
+        handleReq.setFaultId(fault.getId());
+        handleReq.setHandlerName("维护员-赵工");
+        handleReq.setHandlingRemark("重启控制器后恢复，监控室已确认。但此期间有一辆京H77777出场记录缺失，需要客服补录入场核查");
+        handleReq.setNeedRemoteRelease(true);
+        handleReq.setPlateNumber("京H77777");
+        gateFaultService.handleFault(handleReq);
+
+        RemoteRelease release = remoteReleaseRepository.findByGateFaultId(fault.getId(),
+                org.springframework.data.domain.PageRequest.of(0, 1))
+                .getContent().get(0);
+
+        RemoteReleaseReviewRequest supplementReq = new RemoteReleaseReviewRequest();
+        supplementReq.setReleaseId(release.getId());
+        supplementReq.setReviewerName("客服-小吴");
+        supplementReq.setAction("SUPPLEMENT");
+        supplementReq.setReviewRemark("经核查京H77777于2小时前从万达入口1号道闸入场（系统有记录），因系统异常导致出场识别失败");
+        supplementReq.setSupplementInfo("入场时间：2026-06-10 08:32:15，道闸：WJ-ENT-01，现场照已留存（编号IMG_20260610_083215），放行后将产生临停费用由出口补收");
+        remoteReleaseService.reviewRelease(supplementReq);
     }
 }
