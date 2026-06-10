@@ -115,10 +115,12 @@ export interface AuditLog {
 
 export interface Notification {
   id: number
+  user_id?: number
   title: string
   content?: string
   biz_type?: string
   biz_id?: number
+  reception_id?: number
   type: string
   is_read: number
   read_time?: string

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { receptionApi, attachmentApi, guideTaskApi, warehouseTransferApi, fruitApi } from '@/api'
 import { receptionStatusLabels, receptionStatusColors, formatFileSize, guideTaskStatusLabels, guideTaskStatusColors, warehouseTransferStatusLabels, warehouseTransferStatusColors } from '@/utils/constants'
@@ -13,8 +13,24 @@ const router = useRouter()
 
 const reception = ref<Reception | null>(null)
 const loading = ref(false)
-const activeTab = ref('base')
+const validTabs = ['base', 'tasks', 'attachments', 'logs'] as const
+const activeTab = ref<typeof validTabs[number]>('base')
 const showAssignDialog = ref(false)
+
+function setTab(tab: string) {
+  if (!validTabs.includes(tab as any)) tab = 'base'
+  activeTab.value = tab as typeof validTabs[number]
+  router.replace({
+    path: route.path,
+    query: { ...route.query, tab }
+  })
+}
+
+watch(() => route.query.tab, (newTab) => {
+  if (typeof newTab === 'string' && validTabs.includes(newTab as any)) {
+    activeTab.value = newTab as typeof validTabs[number]
+  }
+}, { immediate: true })
 
 const showCompleteDialog = ref(false)
 const showReceiveDialog = ref(false)
@@ -256,20 +272,20 @@ onMounted(() => {
 
       <div class="card">
         <div class="tabs">
-          <div class="tab-item" :class="{ active: activeTab === 'base' }" @click="activeTab = 'base'">基本信息</div>
-          <div class="tab-item" :class="{ active: activeTab === 'tasks' }" @click="activeTab = 'tasks'">
+          <div class="tab-item" :class="{ active: activeTab === 'base' }" @click="setTab('base')">基本信息</div>
+          <div class="tab-item" :class="{ active: activeTab === 'tasks' }" @click="setTab('tasks')">
             向导任务与交接
             <span v-if="reception.guideTasks && reception.guideTasks.length > 0" class="tag" style="margin-left: 4px;">
               {{ reception.guideTasks.length }}
             </span>
           </div>
-          <div class="tab-item" :class="{ active: activeTab === 'attachments' }" @click="activeTab = 'attachments'">
+          <div class="tab-item" :class="{ active: activeTab === 'attachments' }" @click="setTab('attachments')">
             附件
             <span v-if="reception.attachments && reception.attachments.length > 0" class="tag" style="margin-left: 4px;">
               {{ reception.attachments.length }}
             </span>
           </div>
-          <div class="tab-item" :class="{ active: activeTab === 'logs' }" @click="activeTab = 'logs'">操作日志</div>
+          <div class="tab-item" :class="{ active: activeTab === 'logs' }" @click="setTab('logs')">操作日志</div>
         </div>
 
         <div v-if="activeTab === 'base'">

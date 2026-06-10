@@ -113,11 +113,13 @@ db.exec(`
     content TEXT,
     biz_type TEXT,
     biz_id INTEGER,
+    reception_id INTEGER,
     type TEXT DEFAULT 'system',
     is_read INTEGER DEFAULT 0,
     read_time TEXT,
     created_at TEXT DEFAULT (datetime('now', 'localtime')),
-    FOREIGN KEY (user_id) REFERENCES users(id)
+    FOREIGN KEY (user_id) REFERENCES users(id),
+    FOREIGN KEY (reception_id) REFERENCES receptions(id)
   );
 
   CREATE INDEX IF NOT EXISTS idx_receptions_status ON receptions(status);
@@ -128,6 +130,7 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_attachments_biz ON attachments(biz_type, biz_id);
   CREATE INDEX IF NOT EXISTS idx_audit_logs_biz ON audit_logs(biz_type, biz_id);
   CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications(user_id, is_read);
+  CREATE INDEX IF NOT EXISTS idx_notifications_reception ON notifications(reception_id);
 `);
 
 const userCount = db.prepare('SELECT COUNT(*) as count FROM users').get().count;

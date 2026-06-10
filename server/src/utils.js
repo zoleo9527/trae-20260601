@@ -19,12 +19,12 @@ function logAudit(bizType, bizId, action, operator, detail = '') {
   }
 }
 
-function createNotification({ userId, title, content, bizType, bizId, type = 'system' }) {
+function createNotification({ userId, title, content, bizType, bizId, receptionId, type = 'system' }) {
   try {
     if (!userId) return null;
     const stmt = db.prepare(`
-      INSERT INTO notifications (user_id, title, content, biz_type, biz_id, type, is_read)
-      VALUES (?, ?, ?, ?, ?, ?, 0)
+      INSERT INTO notifications (user_id, title, content, biz_type, biz_id, reception_id, type, is_read)
+      VALUES (?, ?, ?, ?, ?, ?, ?, 0)
     `);
     const result = stmt.run(
       userId,
@@ -32,6 +32,7 @@ function createNotification({ userId, title, content, bizType, bizId, type = 'sy
       content || '',
       bizType || null,
       bizId || null,
+      receptionId || null,
       type
     );
     return result.lastInsertRowid;
@@ -41,12 +42,14 @@ function createNotification({ userId, title, content, bizType, bizId, type = 'sy
   }
 }
 
-function createNotificationForRole({ role, title, content, bizType, bizId, type = 'system' }) {
+function createNotificationForRole({ role, title, content, bizType, bizId, receptionId, type = 'system' }) {
   try {
     const users = db.prepare("SELECT id FROM users WHERE role = ?").all(role);
     const ids = [];
     users.forEach(u => {
-      const id = createNotification({ userId: u.id, title, content, bizType, bizId, type });
+      const id = createNotification({
+        userId: u.id, title, content, bizType, bizId, receptionId, type
+      });
       if (id) ids.push(id);
     });
     return ids;

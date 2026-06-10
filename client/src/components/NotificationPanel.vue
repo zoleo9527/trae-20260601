@@ -1,20 +1,26 @@
 <script setup lang="ts">
-import { ref, onMounted, watch, computed } from 'vue'
+import { ref, onMounted, watch, computed, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
 import { notificationApi } from '@/api'
 import type { Notification } from '@/types'
 
-const router = useRouter()
 const props = defineProps<{ visible: boolean }>()
-const emit = defineEmits<{ (e: 'update:visible', v: boolean): void; (e: 'close'): void; (e: 'count-changed', n: number): void }>()
+const emit = defineEmits<{
+  (e: 'update:visible', v: boolean): void
+  (e: 'close'): void
+  (e: 'count-changed', n: number): void
+}>()
+
+const router = useRouter()
 
 const list = ref<Notification[]>([])
 const loading = ref(false)
 const total = ref(0)
 const page = ref(1)
 const pageSize = ref(10)
-
 const unreadCount = ref(0)
+
+let unreadTimer: ReturnType<typeof setInterval> | null = null
 
 async function loadUnreadCount() {
   try {
@@ -68,19 +74,15 @@ async function markAllRead() {
 function jumpTo(item: Notification) {
   markRead(item)
   closePanel()
-  if (!item.biz_type || !item.biz_id) return
-  switch (item.biz_type) {
-    case 'reception':
-      router.push(`/receptions/${item.biz_id}`)
-      break
-    case 'guide_task':
-      // 向导任务也从接待详情进入，先查接待单 ID
-      // 这里直接导航到接待列表，由详情 Tab 展示
-      router.push(`/receptions`)
-      break
-    case 'warehouse_transfer':
-      router.push(`/warehouse/${item.biz_id}`)
-      break
+
+  const rid = item.reception_id || (item.biz_type === 'reception' ? item.biz_id : null)
+  if (rid) {
+    router.push({ path: `/receptions/${rid}`, query: { tab: 'tasks' } })
+    return
+  }
+
+  if (item.biz_type === 'warehouse_transfer' && item.biz_id) {
+    router.push(`/warehouse/${item.biz_id}`)
   }
 }
 
@@ -125,11 +127,23 @@ watch(() => props.visible, v => {
   if (v) {
     loadUnreadCount()
     loadList()
+    if (!unreadTimer) {
+      unreadTimer = setInterval(loadUnreadCount, 30000)
+    }
+  } else {
+    if (unreadTimer) {
+      clearInterval(unreadTimer)
+      unreadTimer = null
+    }
   }
 })
 
 onMounted(() => {
   loadUnreadCount()
+})
+
+onBeforeUnmount(() => {
+  if (unreadTimer) clearInterval(unreadTimer)
 })
 
 defineExpose({ loadUnreadCount })

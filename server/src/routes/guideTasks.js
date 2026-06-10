@@ -175,6 +175,7 @@ router.post('/:id/complete', (req, res) => {
     content: `${transferNo}：${task.task_no} 向导已完成采摘，总重量 ${total_weight || 0} 斤，请及时接收`,
     bizType: 'warehouse_transfer',
     bizId: transferResult.lastInsertRowid,
+    receptionId: task.reception_id,
     type: 'warehouse'
   });
 

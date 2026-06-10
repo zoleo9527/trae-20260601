@@ -116,6 +116,7 @@ router.post('/:id/receive', (req, res) => {
         content: `${reception.reception_no} ${reception.group_name}：${transfer.transfer_no} 已由仓库接收，等待入库`,
         bizType: 'reception',
         bizId: reception.id,
+        receptionId: reception.id,
         type: 'reception'
       });
     }
@@ -173,6 +174,7 @@ router.post('/:id/store', (req, res) => {
         content: `${reception.reception_no} ${reception.group_name}：果品已全部入库，接待流程结束`,
         bizType: 'reception',
         bizId: reception.id,
+        receptionId: reception.id,
         type: 'reception'
       });
     }

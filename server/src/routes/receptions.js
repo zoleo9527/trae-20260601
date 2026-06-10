@@ -300,6 +300,7 @@ router.post('/:id/assign-guide', (req, res) => {
     content: `${reception.reception_no} ${reception.group_name} 已分配给您，采摘区域：${picking_area || '未指定'}`,
     bizType: 'guide_task',
     bizId: taskId,
+    receptionId: id,
     type: 'task'
   });
 
