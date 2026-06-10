@@ -96,7 +96,7 @@ def auto_block_feeding_plans(req, operator_name, operator_role, session):
     return blocked
 
 
-def auto_unblock_feeding_plan(req, operator_name, operator_role, session):
+def auto_unblock_feeding_plan(req, operator_name, operator_role, session, operator_id=None):
     plans = session.query(FeedingPlan).filter(
         FeedingPlan.blocking_requisition_id == req.id,
         FeedingPlan.status == FeedingPlanStatus.blocked.value,
@@ -110,6 +110,8 @@ def auto_unblock_feeding_plan(req, operator_name, operator_role, session):
         plan.blocked_reason = None
         plan.blocked_at = None
         plan.updated_at = datetime.now(timezone.utc)
+        if operator_id:
+            plan.assigned_to = operator_id
         _log_action(
             session, "feeding_plan", plan.id,
             "自动解除卡点: 已卡住→执行中",
@@ -142,6 +144,16 @@ def transition_feeding(plan, new_status, operator_name, operator_role, reason=No
 
     if new_status == FeedingPlanStatus.approved.value:
         plan.approved_by = operator_id
+        if operator_id:
+            plan.assigned_to = operator_id
+
+    if new_status == FeedingPlanStatus.in_progress.value:
+        if operator_id:
+            plan.assigned_to = operator_id
+
+    if old_status == FeedingPlanStatus.blocked.value and new_status == FeedingPlanStatus.in_progress.value:
+        if operator_id:
+            plan.assigned_to = operator_id
 
     if new_status == FeedingPlanStatus.blocked.value:
         plan.blocked_reason = reason.strip()
@@ -196,7 +208,7 @@ def transition_requisition(req, new_status, operator_name, operator_role, reason
         req.delay_reason = None
         req.delayed_at = None
         if new_status in [RequisitionStatus.issuing.value, RequisitionStatus.completed.value]:
-            auto_unblocked_plans = auto_unblock_feeding_plan(req, operator_name, operator_role, session)
+            auto_unblocked_plans = auto_unblock_feeding_plan(req, operator_name, operator_role, session, operator_id=operator_id)
 
     detail = f"库存领用 #{req.id} 状态变更: {old_status} → {new_status}"
     if reason:

@@ -42,7 +42,7 @@ class BatchEntryWidget(QWidget):
         batch_type_layout.addStretch()
         layout.addLayout(batch_type_layout)
 
-        self.entry_table = QTableWidget(5, 6)
+        self.entry_table = QTableWidget(5, 5)
         self._setup_feeding_columns()
         self.entry_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         layout.addWidget(self.entry_table)
@@ -66,9 +66,9 @@ class BatchEntryWidget(QWidget):
         layout.addWidget(self.result_label)
 
     def _setup_feeding_columns(self):
-        self.entry_table.setColumnCount(6)
+        self.entry_table.setColumnCount(5)
         self.entry_table.setHorizontalHeaderLabels([
-            "计划日期", "牛群", "饲料配方", "数量", "单位", "指派给",
+            "计划日期", "牛群", "饲料配方", "数量", "单位",
         ])
         for row in range(self.entry_table.rowCount()):
             self._set_feeding_row_widgets(row)
@@ -111,15 +111,6 @@ class BatchEntryWidget(QWidget):
         unit.setEditable(True)
         unit.addItems(["kg", "吨", "包", "桶"])
         self.entry_table.setCellWidget(row, 4, unit)
-
-        session = get_session()
-        staff_list = session.query(Staff).all()
-        session.close()
-        assign = QComboBox()
-        assign.addItem("未指派", None)
-        for s in staff_list:
-            assign.addItem(f"{s.name}({s.role})", s.id)
-        self.entry_table.setCellWidget(row, 5, assign)
 
     def _set_requisition_row_widgets(self, row):
         fp_id = QComboBox()
@@ -194,7 +185,6 @@ class BatchEntryWidget(QWidget):
             formula_widget = self.entry_table.cellWidget(row, 2)
             qty_widget = self.entry_table.cellWidget(row, 3)
             unit_widget = self.entry_table.cellWidget(row, 4)
-            assign_widget = self.entry_table.cellWidget(row, 5)
 
             if not date_widget or not cattle_widget:
                 continue
@@ -207,7 +197,6 @@ class BatchEntryWidget(QWidget):
                 unit=unit_widget.currentText(),
                 status=FeedingPlanStatus.draft.value,
                 created_by=self._current_operator_id,
-                assigned_to=assign_widget.currentData(),
             )
             if not plan.cattle_group.strip():
                 errors.append(f"第{row+1}行: 牛群不能为空")

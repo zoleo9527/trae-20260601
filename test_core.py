@@ -130,6 +130,72 @@ r3 = session.query(InventoryRequisition).get(r3.id)
 assert r3.issued_by == s1.id, f'9a: issued_by should be {s1.id}, got {r3.issued_by}'
 print('9. req-issued-by-auto-set PASS')
 
+p10 = FeedingPlan(
+    plan_date='2026-06-10', cattle_group='test10', feed_formula='TMR',
+    quantity=50, unit='kg', status=FeedingPlanStatus.pending_approval.value,
+    created_by=s2.id,
+)
+session.add(p10)
+session.commit()
+ok, msg = transition_feeding(p10, FeedingPlanStatus.approved.value, 'sup', '牧场主管', operator_id=s1.id)
+session = get_session()
+p10 = session.query(FeedingPlan).get(p10.id)
+assert p10.approved_by == s1.id, f'10a: approved_by should be {s1.id}, got {p10.approved_by}'
+assert p10.assigned_to == s1.id, f'10b: assigned_to should be {s1.id}, got {p10.assigned_to}'
+print('10. approved-auto-set-assigned_to PASS')
+
+p11 = FeedingPlan(
+    plan_date='2026-06-10', cattle_group='test11', feed_formula='TMR',
+    quantity=50, unit='kg', status=FeedingPlanStatus.approved.value,
+    created_by=s2.id, approved_by=s1.id,
+)
+session.add(p11)
+session.commit()
+ok, msg = transition_feeding(p11, FeedingPlanStatus.in_progress.value, 'mlk', '挤奶员', operator_id=s2.id)
+session = get_session()
+p11 = session.query(FeedingPlan).get(p11.id)
+assert p11.assigned_to == s2.id, f'11a: assigned_to should be {s2.id}, got {p11.assigned_to}'
+print('11. in-progress-auto-set-assigned_to PASS')
+
+p12 = FeedingPlan(
+    plan_date='2026-06-10', cattle_group='test12', feed_formula='TMR',
+    quantity=50, unit='kg', status=FeedingPlanStatus.blocked.value,
+    created_by=s2.id, approved_by=s1.id, assigned_to=s2.id,
+    blocked_reason='test block',
+)
+session.add(p12)
+session.commit()
+ok, msg = transition_feeding(p12, FeedingPlanStatus.in_progress.value, 'sup', '牧场主管', reason='解除卡点', operator_id=s1.id)
+session = get_session()
+p12 = session.query(FeedingPlan).get(p12.id)
+assert p12.assigned_to == s1.id, f'12a: assigned_to should be {s1.id}, got {p12.assigned_to}'
+print('12. unblock-auto-set-assigned_to PASS')
+
+p13 = FeedingPlan(
+    plan_date='2026-06-10', cattle_group='test13', feed_formula='TMR',
+    quantity=100, unit='kg', status=FeedingPlanStatus.in_progress.value,
+    created_by=s2.id, approved_by=s1.id, assigned_to=s2.id,
+)
+session.add(p13)
+session.commit()
+r13 = InventoryRequisition(
+    feeding_plan_id=p13.id, item_name='grain', quantity_requested=50,
+    unit='kg', status=RequisitionStatus.issuing.value,
+    requested_by=s2.id, issued_by=s2.id,
+)
+session.add(r13)
+session.commit()
+ok, msg = transition_requisition(r13, RequisitionStatus.delayed.value, 'mlk', '挤奶员', 'out of stock', operator_id=s2.id)
+session = get_session()
+p13 = session.query(FeedingPlan).get(p13.id)
+assert p13.status == FeedingPlanStatus.blocked.value, f'13a: expected blocked, got {p13.status}'
+ok, msg = transition_requisition(r13, RequisitionStatus.issuing.value, 'sup', '牧场主管', operator_id=s1.id)
+session = get_session()
+p13 = session.query(FeedingPlan).get(p13.id)
+assert p13.status == FeedingPlanStatus.in_progress.value, f'13b: expected in_progress, got {p13.status}'
+assert p13.assigned_to == s1.id, f'13c: assigned_to should be {s1.id}, got {p13.assigned_to}'
+print('13. auto-unblock-auto-set-assigned_to PASS')
+
 print('ALL TESTS PASSED')
 close_session()
 if os.path.exists(test_db):

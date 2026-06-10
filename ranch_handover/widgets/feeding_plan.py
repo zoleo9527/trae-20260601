@@ -18,7 +18,11 @@ def _feeding_handler(plan, session):
     if plan.status in [FeedingPlanStatus.approved.value, FeedingPlanStatus.in_progress.value, FeedingPlanStatus.blocked.value]:
         if plan.assignee:
             return plan.assignee.name, plan.assignee.role
-        return "未指派", "-"
+        if plan.approver:
+            return plan.approver.name, plan.approver.role
+        if plan.creator:
+            return plan.creator.name, plan.creator.role
+        return "未知", "-"
     return "-", "-"
 
 
@@ -142,8 +146,7 @@ class FeedingPlanWidget(QWidget):
 
     def _create_plan(self):
         session = get_session()
-        staff_list = session.query(Staff).all()
-        dialog = _FeedingPlanDialog(staff_list, parent=self)
+        dialog = _FeedingPlanDialog(parent=self)
         if dialog.exec() == QDialog.DialogCode.Accepted:
             data = dialog.get_data()
             plan = FeedingPlan(
@@ -154,7 +157,6 @@ class FeedingPlanWidget(QWidget):
                 unit=data["unit"],
                 status=FeedingPlanStatus.draft.value,
                 created_by=self._current_operator_id,
-                assigned_to=data.get("assigned_to"),
             )
             session.add(plan)
             session.commit()
@@ -235,11 +237,10 @@ class FeedingPlanWidget(QWidget):
 
 
 class _FeedingPlanDialog(QDialog):
-    def __init__(self, staff_list, parent=None):
+    def __init__(self, parent=None):
         super().__init__(parent)
         self.setWindowTitle("新建饲喂计划")
         self.setMinimumWidth(400)
-        self._staff_list = staff_list
         layout = QFormLayout(self)
 
         self.plan_date = QDateEdit()
@@ -269,12 +270,6 @@ class _FeedingPlanDialog(QDialog):
         self.unit.addItems(["kg", "吨", "包", "桶"])
         layout.addRow("单位:", self.unit)
 
-        self.assigned_to = QComboBox()
-        self.assigned_to.addItem("未指派", None)
-        for s in staff_list:
-            self.assigned_to.addItem(f"{s.name}({s.role})", s.id)
-        layout.addRow("指派给:", self.assigned_to)
-
         btn_layout = QHBoxLayout()
         btn_ok = QPushButton("确定")
         btn_ok.clicked.connect(self.accept)
@@ -291,7 +286,6 @@ class _FeedingPlanDialog(QDialog):
             "feed_formula": self.feed_formula.currentText(),
             "quantity": self.quantity.value(),
             "unit": self.unit.currentText(),
-            "assigned_to": self.assigned_to.currentData(),
         }
 
 

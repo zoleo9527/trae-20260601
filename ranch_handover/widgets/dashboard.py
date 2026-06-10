@@ -45,7 +45,11 @@ def _feeding_handler(plan):
     if plan.status in [FeedingPlanStatus.approved.value, FeedingPlanStatus.in_progress.value, FeedingPlanStatus.blocked.value]:
         if plan.assignee:
             return plan.assignee.name, plan.assignee.role
-        return "未指派", "-"
+        if plan.approver:
+            return plan.approver.name, plan.approver.role
+        if plan.creator:
+            return plan.creator.name, plan.creator.role
+        return "未知", "-"
     return "-", "-"
 
 
@@ -362,8 +366,18 @@ class DashboardWidget(QWidget):
         lines.append("【责任链追溯】")
         for p in active_feeding:
             creator = p.creator.name if p.creator else "未知"
-            assignee = p.assignee.name if p.assignee else "未指派"
             approver = p.approver.name if p.approver else "未审批"
+            if p.status in [FeedingPlanStatus.draft.value, FeedingPlanStatus.pending_approval.value]:
+                assignee = creator
+            else:
+                if p.assignee:
+                    assignee = p.assignee.name
+                elif p.approver:
+                    assignee = p.approver.name
+                elif p.creator:
+                    assignee = p.creator.name
+                else:
+                    assignee = "未知"
             chain = f"创建:{creator} → 审批:{approver} → 执行:{assignee}"
             reqs = session.query(InventoryRequisition).filter(
                 InventoryRequisition.feeding_plan_id == p.id
