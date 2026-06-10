@@ -96,6 +96,13 @@ class DashboardStatsSchema(Schema):
     risk_items: int
     recent_changes: int
 
+class StuckItemSchema(Schema):
+    object_code: str
+    batch_number: str
+    responsible_role: str
+    status: str
+    risk_reason: str
+
 def generate_complaint_code():
     count = Complaint.objects.count() + 1
     return f'COMP-{timezone.now().strftime("%Y%m%d")}-{count:04d}'
@@ -404,3 +411,54 @@ def get_risk_complaints(request):
 @api.get('/dashboard/recent', response=list[AuditLogSchema])
 def get_recent_changes(request):
     return AuditLog.objects.order_by('-timestamp')[:20]
+
+@api.get('/dashboard/stuck', response=list[StuckItemSchema])
+def get_stuck_items(request):
+    stuck_items = []
+    
+    for complaint in Complaint.objects.filter(status=Complaint.STATUS_PENDING):
+        severity_map = {
+            'low': '低',
+            'medium': '中',
+            'high': '高',
+            'critical': '严重'
+        }
+        type_map = {
+            'weight_gain': '增重缓慢',
+            'label_error': '标签错误',
+            'ingredient_deviation': '投料偏差',
+            'other': '其他'
+        }
+        stuck_items.append({
+            'object_code': complaint.complaint_code,
+            'batch_number': complaint.batch_number,
+            'responsible_role': '质检员',
+            'status': '待处理',
+            'risk_reason': f'{type_map.get(complaint.complaint_type, complaint.complaint_type)} - {severity_map.get(complaint.severity, complaint.severity)}风险'
+        })
+    
+    for record in FeedingRecord.objects.filter(status=FeedingRecord.STATUS_PENDING):
+        risk_reason = '投料偏差超限，需确认' if record.is_deviation_exceeded else '待确认投料记录'
+        stuck_items.append({
+            'object_code': record.batch_number,
+            'batch_number': record.batch_number,
+            'responsible_role': '生产班长',
+            'status': '待确认',
+            'risk_reason': risk_reason
+        })
+    
+    for analysis in BatchAnalysis.objects.filter(status=BatchAnalysis.STATUS_COMPLETED):
+        result_map = {
+            'normal': '正常',
+            'warning': '警告',
+            'abnormal': '异常'
+        }
+        stuck_items.append({
+            'object_code': analysis.analysis_code,
+            'batch_number': analysis.batch_number,
+            'responsible_role': '配方师',
+            'status': '待复核',
+            'risk_reason': f'批次分析完成，分析结果: {result_map.get(analysis.result, analysis.result)}'
+        })
+    
+    return sorted(stuck_items, key=lambda x: x['status'])

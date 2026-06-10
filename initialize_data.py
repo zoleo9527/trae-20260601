@@ -348,10 +348,51 @@ def create_sample_analysis():
         )
     print("Created 1 batch analysis")
 
+def create_pending_review_analysis():
+    complaint = Complaint.objects.get(complaint_code='COMP-20240117-0003')
+    recipe = Recipe.objects.get(recipe_code='RC-002')
+    record = FeedingRecord.objects.get(batch_number='B20240117001')
+    
+    analysis = {
+        'analysis_code': 'ANA-20240117-0002',
+        'complaint': complaint,
+        'batch_number': 'B20240117001',
+        'recipe': recipe,
+        'feeding_record': record,
+        'analysis_data': {
+            'protein_content': 17.5,
+            'energy_content': 3100,
+            'ingredient_check': {
+                '玉米': '合格',
+                '豆粕': '合格'
+            },
+            'deviation_analysis': '蛋白含量略低于标准值'
+        },
+        'conclusion': '该批次饲料蛋白含量略低于标准值，建议调整配方比例',
+        'result': 'warning',
+        'recommendations': '1. 调整豆粕比例\n2. 检查原料质量\n3. 加强质量监控',
+        'status': 'completed',
+        'created_by': '分析员小陈'
+    }
+    
+    batch_analysis, created = BatchAnalysis.objects.get_or_create(analysis_code=analysis['analysis_code'], defaults=analysis)
+    if created:
+        AuditLog.objects.create(
+            module=AuditLog.MODULE_ANALYSIS,
+            action=AuditLog.ACTION_CREATE,
+            object_id=batch_analysis.id,
+            object_code=batch_analysis.analysis_code,
+            operator=batch_analysis.created_by,
+            timestamp=datetime.now(timezone.utc) - timedelta(hours=2),
+            details={'batch_number': batch_analysis.batch_number, 'result': batch_analysis.result}
+        )
+    print("Created 1 pending review batch analysis")
+
 if __name__ == '__main__':
     create_error_codes()
     create_sample_recipes()
     create_sample_feeding_records()
     create_sample_complaints()
     create_sample_analysis()
+    create_pending_review_analysis()
     print("Data initialization complete!")
