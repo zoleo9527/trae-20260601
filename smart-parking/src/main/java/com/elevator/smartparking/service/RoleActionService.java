@@ -21,25 +21,26 @@ public class RoleActionService {
     public List<ActionItemVO> getFaultNextActions(FaultStatus status, UserRole role) {
         List<ActionItemVO> actions = new ArrayList<>();
 
-        ActionItemVO accept = buildAction("accept", "受理", "受理并派单给处理人",
-                canAccept(status, role), status == FaultStatus.PENDING ? null : "当前状态不支持受理");
-        actions.add(accept);
+        actions.add(buildFaultAction("accept", "受理", "受理并派单给处理人",
+                status, FaultStatus.PENDING, role, List.of(UserRole.CUSTOMER_SERVICE, UserRole.PROJECT_MANAGER),
+                "当前状态不支持受理", "当前角色无受理权限"));
 
-        ActionItemVO process = buildAction("process", "处理", "更新处理进度和备注",
-                canProcess(status, role), status == FaultStatus.PROCESSING ? null : "当前状态不支持处理");
-        actions.add(process);
+        actions.add(buildFaultAction("process", "处理", "更新处理进度和备注",
+                status, FaultStatus.PROCESSING, role, List.of(UserRole.MAINTENANCE_TECHNICIAN, UserRole.PROJECT_MANAGER),
+                "当前状态不支持处理", "当前角色无处理权限"));
 
-        ActionItemVO transfer = buildAction("transfer_rescue", "转困人处置", "发现有人被困，转困人处置工单",
-                canTransferRescue(status, role), status == FaultStatus.PROCESSING ? null : "仅处理中可转困人");
-        actions.add(transfer);
+        actions.add(buildFaultAction("transfer_rescue", "转困人处置", "发现有人被困，转困人处置工单",
+                status, FaultStatus.PROCESSING, role, List.of(UserRole.CUSTOMER_SERVICE, UserRole.MAINTENANCE_TECHNICIAN, UserRole.PROJECT_MANAGER),
+                "仅处理中可转困人", "当前角色无转单权限"));
 
-        ActionItemVO complete = buildAction("complete", "完成", "处理完成，关闭工单",
-                canComplete(status, role), status == FaultStatus.PROCESSING ? null : "仅处理中可完成");
-        actions.add(complete);
+        actions.add(buildFaultAction("complete", "完成", "处理完成，关闭工单",
+                status, FaultStatus.PROCESSING, role, List.of(UserRole.MAINTENANCE_TECHNICIAN, UserRole.PROJECT_MANAGER),
+                "仅处理中可完成", "当前角色无完成权限"));
 
-        ActionItemVO cancel = buildAction("cancel", "取消", "取消工单",
-                canCancel(status, role), (status == FaultStatus.PENDING || status == FaultStatus.PROCESSING) ? null : "当前状态不支持取消");
-        actions.add(cancel);
+        actions.add(buildFaultAction("cancel", "取消", "取消工单",
+                status, null, role, List.of(UserRole.CUSTOMER_SERVICE, UserRole.PROJECT_MANAGER),
+                "当前状态不支持取消", "当前角色无取消权限",
+                List.of(FaultStatus.PENDING, FaultStatus.PROCESSING)));
 
         return actions;
     }
@@ -47,25 +48,27 @@ public class RoleActionService {
     public List<ActionItemVO> getRescueNextActions(RescueStatus status, UserRole role) {
         List<ActionItemVO> actions = new ArrayList<>();
 
-        ActionItemVO start = buildAction("start", "开始救援", "救援人员到场，开始救援",
-                canStartRescue(status, role), status == RescueStatus.PENDING_RESCUE ? null : "当前状态不支持开始救援");
-        actions.add(start);
+        actions.add(buildRescueAction("start", "开始救援", "救援人员到场，开始救援",
+                status, RescueStatus.PENDING_RESCUE, role, List.of(UserRole.MAINTENANCE_TECHNICIAN, UserRole.PROJECT_MANAGER),
+                "当前状态不支持开始救援", "当前角色无救援权限"));
 
-        ActionItemVO progress = buildAction("progress", "更新进度", "更新救援进度和备注",
-                canUpdateProgress(status, role), (status == RescueStatus.RESCUING || status == RescueStatus.RESCUED) ? null : "当前状态不支持更新进度");
-        actions.add(progress);
+        actions.add(buildRescueAction("progress", "更新进度", "更新救援进度和备注",
+                status, null, role, List.of(UserRole.MAINTENANCE_TECHNICIAN, UserRole.PROJECT_MANAGER),
+                "当前状态不支持更新进度", "当前角色无更新权限",
+                List.of(RescueStatus.RESCUING, RescueStatus.RESCUED)));
 
-        ActionItemVO rescueSuccess = buildAction("rescue_success", "解救成功", "被困人员成功救出",
-                canRescueSuccess(status, role), status == RescueStatus.RESCUING ? null : "仅救援中可标记解救成功");
-        actions.add(rescueSuccess);
+        actions.add(buildRescueAction("rescue_success", "解救成功", "被困人员成功救出",
+                status, RescueStatus.RESCUING, role, List.of(UserRole.MAINTENANCE_TECHNICIAN, UserRole.PROJECT_MANAGER),
+                "仅救援中可标记解救成功", "当前角色无操作权限"));
 
-        ActionItemVO complete = buildAction("complete", "完成处置", "后续处理完成，关闭工单",
-                canCompleteRescue(status, role), status == RescueStatus.RESCUED ? null : "仅已解救状态可完成");
-        actions.add(complete);
+        actions.add(buildRescueAction("complete", "完成处置", "后续处理完成，关闭工单",
+                status, RescueStatus.RESCUED, role, List.of(UserRole.MAINTENANCE_TECHNICIAN, UserRole.PROJECT_MANAGER),
+                "仅已解救状态可完成", "当前角色无完成权限"));
 
-        ActionItemVO cancel = buildAction("cancel", "取消", "取消工单",
-                canCancelRescue(status, role), (status == RescueStatus.PENDING_RESCUE || status == RescueStatus.RESCUING) ? null : "当前状态不支持取消");
-        actions.add(cancel);
+        actions.add(buildRescueAction("cancel", "取消", "取消工单",
+                status, null, role, List.of(UserRole.CUSTOMER_SERVICE, UserRole.PROJECT_MANAGER),
+                "当前状态不支持取消", "当前角色无取消权限",
+                List.of(RescueStatus.PENDING_RESCUE, RescueStatus.RESCUING)));
 
         return actions;
     }
@@ -142,6 +145,84 @@ public class RoleActionService {
             case MAINTENANCE_TECHNICIAN -> List.of(RescueStatus.PENDING_RESCUE, RescueStatus.RESCUING, RescueStatus.RESCUED);
             case PROJECT_MANAGER -> List.of(RescueStatus.PENDING_RESCUE, RescueStatus.RESCUING, RescueStatus.RESCUED);
         };
+    }
+
+    private ActionItemVO buildFaultAction(String action, String name, String description,
+                                     FaultStatus currentStatus, FaultStatus requiredStatus,
+                                     UserRole role, List<UserRole> allowedRoles,
+                                     String statusDisabledReason, String roleDisabledReason) {
+
+        boolean statusOk = requiredStatus == null || currentStatus == requiredStatus;
+        boolean roleOk = allowedRoles.contains(role);
+        boolean available = statusOk && roleOk;
+
+        String disabledReason = null;
+        if (!statusOk) {
+            disabledReason = statusDisabledReason;
+        } else if (!roleOk) {
+            disabledReason = roleDisabledReason;
+        }
+
+        return buildAction(action, name, description, available, disabledReason);
+    }
+
+    private ActionItemVO buildFaultAction(String action, String name, String description,
+                                     FaultStatus currentStatus, FaultStatus requiredStatus,
+                                     UserRole role, List<UserRole> allowedRoles,
+                                     String statusDisabledReason, String roleDisabledReason,
+                                     List<FaultStatus> allowedStatuses) {
+
+        boolean statusOk = allowedStatuses.contains(currentStatus);
+        boolean roleOk = allowedRoles.contains(role);
+        boolean available = statusOk && roleOk;
+
+        String disabledReason = null;
+        if (!statusOk) {
+            disabledReason = statusDisabledReason;
+        } else if (!roleOk) {
+            disabledReason = roleDisabledReason;
+        }
+
+        return buildAction(action, name, description, available, disabledReason);
+    }
+
+    private ActionItemVO buildRescueAction(String action, String name, String description,
+                                      RescueStatus currentStatus, RescueStatus requiredStatus,
+                                      UserRole role, List<UserRole> allowedRoles,
+                                      String statusDisabledReason, String roleDisabledReason) {
+
+        boolean statusOk = requiredStatus == null || currentStatus == requiredStatus;
+        boolean roleOk = allowedRoles.contains(role);
+        boolean available = statusOk && roleOk;
+
+        String disabledReason = null;
+        if (!statusOk) {
+            disabledReason = statusDisabledReason;
+        } else if (!roleOk) {
+            disabledReason = roleDisabledReason;
+        }
+
+        return buildAction(action, name, description, available, disabledReason);
+    }
+
+    private ActionItemVO buildRescueAction(String action, String name, String description,
+                                      RescueStatus currentStatus, RescueStatus requiredStatus,
+                                      UserRole role, List<UserRole> allowedRoles,
+                                      String statusDisabledReason, String roleDisabledReason,
+                                      List<RescueStatus> allowedStatuses) {
+
+        boolean statusOk = allowedStatuses.contains(currentStatus);
+        boolean roleOk = allowedRoles.contains(role);
+        boolean available = statusOk && roleOk;
+
+        String disabledReason = null;
+        if (!statusOk) {
+            disabledReason = statusDisabledReason;
+        } else if (!roleOk) {
+            disabledReason = roleDisabledReason;
+        }
+
+        return buildAction(action, name, description, available, disabledReason);
     }
 
     private ActionItemVO buildAction(String action, String name, String description, boolean available, String disabledReason) {

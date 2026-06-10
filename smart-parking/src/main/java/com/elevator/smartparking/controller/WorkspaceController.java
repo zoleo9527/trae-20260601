@@ -45,6 +45,7 @@ public class WorkspaceController {
         List<FaultReport> allFaults = faultReportRepository.findAll();
         List<FaultReport> faultTodos = allFaults.stream()
                 .filter(f -> faultTodoStatuses.contains(f.getStatus()))
+                .filter(f -> filterMyFault(f, role, userId))
                 .sorted((a, b) -> b.getCreateTime().compareTo(a.getCreateTime()))
                 .toList();
 
@@ -88,6 +89,7 @@ public class WorkspaceController {
         List<EntrapmentRescue> allRescues = entrapmentRescueRepository.findAll();
         List<EntrapmentRescue> rescueTodos = allRescues.stream()
                 .filter(r -> rescueTodoStatuses.contains(r.getStatus()))
+                .filter(r -> filterMyRescue(r, role, userId))
                 .sorted((a, b) -> b.getCreateTime().compareTo(a.getCreateTime()))
                 .toList();
 

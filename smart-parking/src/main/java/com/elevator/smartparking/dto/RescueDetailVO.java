@@ -4,6 +4,7 @@ import com.elevator.smartparking.entity.HandleRecord;
 import lombok.Data;
 
 import java.util.List;
+import java.util.Map;
 
 @Data
 public class RescueDetailVO {
@@ -49,4 +50,8 @@ public class RescueDetailVO {
     private java.time.LocalDateTime createTime;
     private java.time.LocalDateTime updateTime;
     private List<HandleRecord> records;
+
+    private List<TimelineEventVO> timeline;
+    private List<Map<String, Object>> remarkChain;
+    private List<HandleRecord> faultRecords;
 }

@@ -4,6 +4,7 @@ import com.elevator.smartparking.dto.FaultReportCreateDTO;
 import com.elevator.smartparking.dto.FaultReportDetailVO;
 import com.elevator.smartparking.dto.FaultReportHandleDTO;
 import com.elevator.smartparking.dto.RescueSimpleVO;
+import com.elevator.smartparking.dto.TimelineEventVO;
 import com.elevator.smartparking.entity.*;
 import com.elevator.smartparking.repository.*;
 import lombok.RequiredArgsConstructor;
@@ -12,8 +13,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
 import java.util.UUID;
 
 @Service
@@ -25,6 +25,7 @@ public class FaultReportService {
     private final SysUserRepository sysUserRepository;
     private final HandleRecordService handleRecordService;
     private final EntrapmentRescueRepository entrapmentRescueRepository;
+    private final StatusConstraintService statusConstraintService;
 
     public String getStatusText(FaultStatus status) {
         return switch (status) {
@@ -78,14 +79,14 @@ public class FaultReportService {
         FaultReport report = faultReportRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("故障报修不存在"));
 
-        if (report.getStatus() != FaultStatus.PENDING) {
-            throw new IllegalStateException("当前状态不允许受理");
+        FaultStatus oldStatus = report.getStatus();
+        if (!statusConstraintService.canTransitionFault(oldStatus, FaultStatus.PROCESSING)) {
+            throw new IllegalStateException("当前状态 [" + statusConstraintService.getFaultStatusText(oldStatus) + "] 不允许受理,合法流转仅: " + statusConstraintService.getFaultNextStates(oldStatus));
         }
 
         SysUser handler = sysUserRepository.findById(handlerId)
                 .orElseThrow(() -> new IllegalArgumentException("处理人不存在"));
 
-        FaultStatus oldStatus = report.getStatus();
         report.setStatus(FaultStatus.PROCESSING);
         report.setHandlerId(handlerId);
         report.setAcceptTime(LocalDateTime.now());
@@ -111,7 +112,7 @@ public class FaultReportService {
                 .orElseThrow(() -> new IllegalArgumentException("故障报修不存在"));
 
         if (report.getStatus() != FaultStatus.PROCESSING) {
-            throw new IllegalStateException("当前状态不允许处理");
+            throw new IllegalStateException("当前状态 [" + statusConstraintService.getFaultStatusText(report.getStatus()) + "] 不允许处理,仅 PROCESSING 状态下可更新处理进度");
         }
 
         String operatorName = "系统";
@@ -149,11 +150,10 @@ public class FaultReportService {
         FaultReport report = faultReportRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("故障报修不存在"));
 
-        if (report.getStatus() != FaultStatus.PROCESSING) {
-            throw new IllegalStateException("当前状态不允许完成");
-        }
-
         FaultStatus oldStatus = report.getStatus();
+        if (!statusConstraintService.canTransitionFault(oldStatus, FaultStatus.COMPLETED)) {
+            throw new IllegalStateException("当前状态 [" + statusConstraintService.getFaultStatusText(oldStatus) + "] 不允许完成,合法流转仅: " + statusConstraintService.getFaultNextStates(oldStatus));
+        }
 
         String operatorName = "系统";
         if (dto.getHandlerId() != null) {
@@ -191,11 +191,10 @@ public class FaultReportService {
         FaultReport report = faultReportRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("故障报修不存在"));
 
-        if (report.getStatus() != FaultStatus.PENDING && report.getStatus() != FaultStatus.PROCESSING) {
-            throw new IllegalStateException("当前状态不允许取消");
-        }
-
         FaultStatus oldStatus = report.getStatus();
+        if (!statusConstraintService.canTransitionFault(oldStatus, FaultStatus.CANCELLED)) {
+            throw new IllegalStateException("当前状态 [" + statusConstraintService.getFaultStatusText(oldStatus) + "] 不允许取消,合法流转仅: " + statusConstraintService.getFaultNextStates(oldStatus));
+        }
 
         String operatorName = sysUserRepository.findById(operatorId)
                 .map(SysUser::getName)
@@ -224,12 +223,13 @@ public class FaultReportService {
         FaultReport report = faultReportRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("故障报修不存在"));
 
-        if (report.getStatus() != FaultStatus.PROCESSING) {
-            throw new IllegalStateException("当前状态不允许转困人处置");
+        FaultStatus oldStatus = report.getStatus();
+        if (!statusConstraintService.canTransitionFault(oldStatus, FaultStatus.TRANSFERRED_TO_RESCUE)) {
+            throw new IllegalStateException("当前状态 [" + statusConstraintService.getFaultStatusText(oldStatus) + "] 不允许转困人处置,合法流转仅: " + statusConstraintService.getFaultNextStates(oldStatus));
         }
 
         if (report.getTransferRescueId() != null) {
-            throw new IllegalStateException("已存在关联的困人处置工单");
+            throw new IllegalStateException("已存在关联的困人处置工单,无需重复转单(transferRescueId=" + report.getTransferRescueId() + ")");
         }
 
         String operatorName = sysUserRepository.findById(operatorId)
@@ -247,6 +247,9 @@ public class FaultReportService {
         rescue.setReportTime(LocalDateTime.now());
         rescue.setInitialRemark(report.getRemark());
         rescue.setRemark("由故障报修转入，原报修单号：" + report.getReportNo());
+        rescue.setExportStatus(ExportStatus.NOT_EXPORTED);
+        rescue.setAttachmentCount(0);
+        rescue.setNotificationStatus(NotificationStatus.NOT_NOTIFIED);
 
         rescue = entrapmentRescueRepository.save(rescue);
 
@@ -346,6 +349,7 @@ public class FaultReportService {
 
         List<EntrapmentRescue> relatedRescues = entrapmentRescueRepository.findByFaultReportIdOrderByCreateTimeDesc(id);
         List<RescueSimpleVO> rescueVOs = new ArrayList<>();
+        List<HandleRecord> allRescueRecords = new ArrayList<>();
         for (EntrapmentRescue r : relatedRescues) {
             RescueSimpleVO rvo = new RescueSimpleVO();
             rvo.setId(r.getId());
@@ -359,10 +363,141 @@ public class FaultReportService {
             rvo.setCreateTime(r.getCreateTime());
             rvo.setRescuedTime(r.getRescuedTime());
             rescueVOs.add(rvo);
+            allRescueRecords.addAll(handleRecordService.getRecords(RecordType.ENTRAPMENT_RESCUE, r.getId()));
         }
         vo.setRelatedRescues(rescueVOs);
+        vo.setRescueRecords(allRescueRecords);
+
+        vo.setTimeline(buildFaultTimeline(report, vo));
+        vo.setRemarkChain(buildFaultRemarkChain(report, vo, relatedRescues));
 
         return vo;
+    }
+
+    private List<TimelineEventVO> buildFaultTimeline(FaultReport report, FaultReportDetailVO detail) {
+        List<TimelineEventVO> timeline = new ArrayList<>();
+
+        for (HandleRecord fr : detail.getRecords()) {
+            TimelineEventVO ev = new TimelineEventVO();
+            ev.setEventType("FAULT_HANDLE");
+            ev.setEventTypeText("[故障报修] " + fr.getAction());
+            ev.setSource("FAULT_REPORT");
+            ev.setEventTime(fr.getOperateTime());
+            ev.setFromStatus(fr.getFromStatus());
+            ev.setFromStatusText(fr.getFromStatus() != null ? safeFaultText(fr.getFromStatus()) : null);
+            ev.setToStatus(fr.getToStatus());
+            ev.setToStatusText(fr.getToStatus() != null ? safeFaultText(fr.getToStatus()) : null);
+            ev.setTitle(fr.getAction());
+            ev.setContent(fr.getContent());
+            ev.setOperatorId(fr.getOperatorId());
+            ev.setOperatorName(fr.getOperatorName());
+            ev.setRelatedRecordId(report.getId());
+            ev.setRelatedRecordNo(report.getReportNo());
+            timeline.add(ev);
+        }
+
+        if (detail.getRescueRecords() != null) {
+            for (HandleRecord rr : detail.getRescueRecords()) {
+                TimelineEventVO ev = new TimelineEventVO();
+                ev.setEventType("RESCUE_HANDLE");
+                ev.setEventTypeText("[关联困人处置] " + rr.getAction());
+                ev.setSource("ENTRAPMENT_RESCUE");
+                ev.setEventTime(rr.getOperateTime());
+                ev.setFromStatus(rr.getFromStatus());
+                ev.setFromStatusText(rr.getFromStatus() != null ? safeRescueText(rr.getFromStatus()) : null);
+                ev.setToStatus(rr.getToStatus());
+                ev.setToStatusText(rr.getToStatus() != null ? safeRescueText(rr.getToStatus()) : null);
+                ev.setTitle(rr.getAction());
+                ev.setContent(rr.getContent());
+                ev.setOperatorId(rr.getOperatorId());
+                ev.setOperatorName(rr.getOperatorName());
+                ev.setRelatedRecordId(rr.getRecordId());
+                entrapmentRescueRepository.findById(rr.getRecordId())
+                        .ifPresent(r -> ev.setRelatedRecordNo(r.getRescueNo()));
+                timeline.add(ev);
+            }
+        }
+
+        timeline.sort(Comparator.comparing(TimelineEventVO::getEventTime, Comparator.nullsLast(Comparator.naturalOrder())));
+        return timeline;
+    }
+
+    private List<Map<String, Object>> buildFaultRemarkChain(FaultReport report, FaultReportDetailVO detail, List<EntrapmentRescue> relatedRescues) {
+        List<Map<String, Object>> chain = new ArrayList<>();
+
+        for (HandleRecord fr : detail.getRecords()) {
+            if (fr.getContent() == null || fr.getContent().isEmpty()) continue;
+            Map<String, Object> m = new LinkedHashMap<>();
+            m.put("seq", chain.size());
+            m.put("source", "FAULT_RECORD");
+            m.put("sourceText", "故障报修记录-" + fr.getAction());
+            m.put("recordNo", report.getReportNo());
+            m.put("content", fr.getContent());
+            m.put("operatorName", fr.getOperatorName());
+            m.put("time", fr.getOperateTime());
+            m.put("fromStatus", fr.getFromStatus());
+            m.put("toStatus", fr.getToStatus());
+            chain.add(m);
+        }
+
+        if (report.getRemark() != null && !report.getRemark().isEmpty()) {
+            Map<String, Object> m = new LinkedHashMap<>();
+            m.put("seq", chain.size());
+            m.put("source", "FAULT_LATEST_REMARK");
+            m.put("sourceText", "故障报修-最新备注");
+            m.put("recordNo", report.getReportNo());
+            m.put("content", report.getRemark());
+            m.put("capturedAt", report.getUpdateTime());
+            chain.add(m);
+        }
+
+        if (relatedRescues != null && !relatedRescues.isEmpty()) {
+            for (EntrapmentRescue r : relatedRescues) {
+                if (r.getInitialRemark() != null && !r.getInitialRemark().isEmpty()) {
+                    Map<String, Object> m = new LinkedHashMap<>();
+                    m.put("seq", chain.size());
+                    m.put("source", "INITIAL_REMARK_SNAPSHOT");
+                    m.put("sourceText", "转单时备注快照(困人处置 initialRemark)");
+                    m.put("recordNo", r.getRescueNo());
+                    m.put("content", r.getInitialRemark());
+                    m.put("capturedAt", r.getCreateTime());
+                    m.put("autoInherited", true);
+                    m.put("note", "转困人处置时从故障报修 remark 快照复制");
+                    chain.add(m);
+                }
+            }
+
+            if (detail.getRescueRecords() != null) {
+                for (HandleRecord rr : detail.getRescueRecords()) {
+                    if (rr.getContent() == null || rr.getContent().isEmpty()) continue;
+                    if ("创建".equals(rr.getAction()) || "创建困人处置".equals(rr.getAction())) continue;
+                    Map<String, Object> m = new LinkedHashMap<>();
+                    m.put("seq", chain.size());
+                    m.put("source", "RESCUE_RECORD");
+                    m.put("sourceText", "困人处置记录-" + rr.getAction());
+                    String rescueNo = relatedRescues.stream()
+                            .filter(r -> r.getId().equals(rr.getRecordId()))
+                            .map(EntrapmentRescue::getRescueNo)
+                            .findFirst().orElse(null);
+                    m.put("recordNo", rescueNo);
+                    m.put("content", rr.getContent());
+                    m.put("operatorName", rr.getOperatorName());
+                    m.put("time", rr.getOperateTime());
+                    chain.add(m);
+                }
+            }
+        }
+        return chain;
+    }
+
+    private String safeFaultText(String code) {
+        try { return statusConstraintService.getFaultStatusText(FaultStatus.valueOf(code)); }
+        catch (Exception e) { return code; }
+    }
+
+    private String safeRescueText(String code) {
+        try { return statusConstraintService.getRescueStatusText(RescueStatus.valueOf(code)); }
+        catch (Exception e) { return code; }
     }
 
     private String getRescueStatusText(RescueStatus status) {
