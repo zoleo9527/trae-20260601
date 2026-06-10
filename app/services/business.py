@@ -222,6 +222,70 @@ def _resolve_plan_alerts(plan_id: int, alert_type: str | None, db: Session) -> i
     return len(alerts)
 
 
+def compute_truly_overdue(db: Session, reference_date: date | None = None) -> list[ImmunizationPlan]:
+    ref = reference_date or date.today()
+    plans_past_due = (
+        db.query(ImmunizationPlan)
+        .filter(ImmunizationPlan.planned_date < ref)
+        .all()
+    )
+    truly_overdue = []
+    for plan in plans_past_due:
+        has_successful = (
+            db.query(ImmunizationExecution)
+            .filter(
+                ImmunizationExecution.plan_id == plan.id,
+                ImmunizationExecution.result.in_([
+                    ExecutionResult.COMPLETED,
+                    ExecutionResult.MAKEUP,
+                    ExecutionResult.DELAYED,
+                ]),
+            )
+            .first()
+        )
+        if not has_successful:
+            truly_overdue.append(plan)
+    return truly_overdue
+
+
+def reconcile_plan_statuses(db: Session, reference_date: date | None = None) -> dict:
+    ref = reference_date or date.today()
+    corrections = {"completed": 0, "overdue": 0}
+
+    all_plans = db.query(ImmunizationPlan).all()
+    for plan in all_plans:
+        has_successful = (
+            db.query(ImmunizationExecution)
+            .filter(
+                ImmunizationExecution.plan_id == plan.id,
+                ImmunizationExecution.result.in_([
+                    ExecutionResult.COMPLETED,
+                    ExecutionResult.MAKEUP,
+                    ExecutionResult.DELAYED,
+                ]),
+            )
+            .first()
+        )
+        if has_successful and plan.plan_status != PlanStatus.COMPLETED:
+            plan.plan_status = PlanStatus.COMPLETED
+            corrections["completed"] += 1
+            continue
+
+        if not has_successful and plan.planned_date < ref:
+            if plan.plan_status != PlanStatus.OVERDUE:
+                plan.plan_status = PlanStatus.OVERDUE
+                corrections["overdue"] += 1
+            continue
+
+        if not has_successful and plan.planned_date >= ref:
+            if plan.plan_status != PlanStatus.PENDING:
+                plan.plan_status = PlanStatus.PENDING
+                corrections["pending"] = corrections.get("pending", 0) + 1
+
+    db.commit()
+    return corrections
+
+
 def sync_execution_alerts(
     execution: ImmunizationExecution,
     plan: ImmunizationPlan,

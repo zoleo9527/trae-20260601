@@ -9,10 +9,11 @@ from app.models.models import (
     AbnormalAlert,
     AlertSeverity,
     AlertStatus,
+    BatchStatus,
+    ExecutionResult,
     ImmunizationExecution,
     ImmunizationPlan,
     MedicationRecord,
-    Pen,
     PigBatch,
     PlanStatus,
 )
@@ -23,8 +24,10 @@ from app.schemas.schemas import (
 )
 from app.services.business import (
     check_withdrawal_block,
+    compute_truly_overdue,
     detect_overdue_plans,
     get_batch_timeline,
+    reconcile_plan_statuses,
 )
 
 router = APIRouter(prefix="/api/dashboard", tags=["场长看板"])
@@ -32,26 +35,33 @@ router = APIRouter(prefix="/api/dashboard", tags=["场长看板"])
 
 @router.get("/overview", summary="场长-总览统计")
 def dashboard_overview(db: Session = Depends(get_db)):
-    total_batches = db.query(func.count(PigBatch.id)).scalar()
+    reconcile_plan_statuses(db, date.today())
+
     active_batches = db.query(func.count(PigBatch.id)).filter(
-        PigBatch.batch_status == "在群"
+        PigBatch.batch_status == BatchStatus.ACTIVE
     ).scalar()
     isolated_batches = db.query(func.count(PigBatch.id)).filter(
-        PigBatch.batch_status == "隔离中"
+        PigBatch.batch_status == BatchStatus.ISOLATED
     ).scalar()
+    total_batches = active_batches + isolated_batches
 
-    overdue_plans = db.query(func.count(ImmunizationPlan.id)).filter(
-        ImmunizationPlan.plan_status == PlanStatus.OVERDUE
+    completed_plans = db.query(func.count(ImmunizationPlan.id)).filter(
+        ImmunizationPlan.plan_status == PlanStatus.COMPLETED
     ).scalar()
     pending_plans = db.query(func.count(ImmunizationPlan.id)).filter(
         ImmunizationPlan.plan_status == PlanStatus.PENDING
     ).scalar()
 
+    truly_overdue_plans = compute_truly_overdue(db, date.today())
+
     missed_executions = db.query(func.count(ImmunizationExecution.id)).filter(
-        ImmunizationExecution.result == "漏打"
+        ImmunizationExecution.result == ExecutionResult.MISSED
     ).scalar()
     makeup_executions = db.query(func.count(ImmunizationExecution.id)).filter(
-        ImmunizationExecution.result == "补打"
+        ImmunizationExecution.result == ExecutionResult.MAKEUP
+    ).scalar()
+    delayed_executions = db.query(func.count(ImmunizationExecution.id)).filter(
+        ImmunizationExecution.result == ExecutionResult.DELAYED
     ).scalar()
 
     active_alerts = db.query(func.count(AbnormalAlert.id)).filter(
@@ -60,6 +70,10 @@ def dashboard_overview(db: Session = Depends(get_db)):
     critical_alerts = db.query(func.count(AbnormalAlert.id)).filter(
         AbnormalAlert.alert_status == AlertStatus.ACTIVE,
         AbnormalAlert.severity == AlertSeverity.CRITICAL,
+    ).scalar()
+    warning_alerts = db.query(func.count(AbnormalAlert.id)).filter(
+        AbnormalAlert.alert_status == AlertStatus.ACTIVE,
+        AbnormalAlert.severity == AlertSeverity.WARNING,
     ).scalar()
 
     in_withdrawal = db.query(func.count(MedicationRecord.id)).filter(
@@ -73,14 +87,17 @@ def dashboard_overview(db: Session = Depends(get_db)):
             "isolated": isolated_batches,
         },
         "immunization": {
-            "overdue_plans": overdue_plans,
+            "completed_plans": completed_plans,
             "pending_plans": pending_plans,
+            "truly_overdue_plans": len(truly_overdue_plans),
             "missed_executions": missed_executions,
             "makeup_executions": makeup_executions,
+            "delayed_executions": delayed_executions,
         },
         "alerts": {
             "active": active_alerts,
             "critical": critical_alerts,
+            "warning": warning_alerts,
         },
         "medication": {
             "in_withdrawal": in_withdrawal,
@@ -111,6 +128,7 @@ def batch_timeline(batch_id: int, db: Session = Depends(get_db)):
     summary="主动检测逾期免疫计划并生成异常提醒",
 )
 def run_overdue_detection(db: Session = Depends(get_db)):
+    reconcile_plan_statuses(db, date.today())
     alerts = detect_overdue_plans(db, date.today())
     return {
         "detected": len(alerts),
