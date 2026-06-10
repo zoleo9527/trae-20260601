@@ -211,11 +211,29 @@ app.get('/api/faults/:id', (req, res) => {
   });
 });
 
+const invalidDescriptionKeywords = ['坏了', '坏', '不行了', '不能用', '用不了', '坏的', '坏掉', '损坏', '故障'];
+
+function validateDescription(desc) {
+  if (!desc || desc.trim().length < 5) return '故障描述至少5个字符，请详细描述故障情况';
+  const trimmed = desc.trim();
+  for (const kw of invalidDescriptionKeywords) {
+    if (trimmed === kw || trimmed === kw + '了' || trimmed === '车' + kw || trimmed === kw + '了！' || trimmed === kw + '!') {
+      return '故障描述过于简单，请详细说明具体故障现象，不能只写"坏了"';
+    }
+  }
+  return null;
+}
+
 app.post('/api/faults', (req, res) => {
   const { bike_no, fault_type, fault_level, description, location, lat, lng, reporter, task_id } = req.body;
 
   if (!bike_no || !fault_type || !fault_level || !location || !lat || !lng || !reporter) {
     return res.json({ success: false, message: '参数不完整' });
+  }
+
+  const descError = validateDescription(description);
+  if (descError) {
+    return res.json({ success: false, message: descError });
   }
 
   const bike = data.bikes.find(b => b.bike_no === bike_no);
@@ -376,6 +394,32 @@ app.put('/api/repairs/:id/complete', (req, res) => {
   update('bikes', repair.bike_id, { status: 'normal' });
 
   res.json({ success: true, message: '维修完成' });
+});
+
+app.put('/api/repairs/:id/start', (req, res) => {
+  const { repairer } = req.body;
+  const repairId = req.params.id;
+
+  const repair = getById('repair_records', repairId);
+  if (!repair) {
+    return res.json({ success: false, message: '维修记录不存在' });
+  }
+
+  if (repair.status !== 'pending') {
+    return res.json({ success: false, message: '当前状态不可开始维修' });
+  }
+
+  const start_time = new Date().toISOString().replace('T', ' ').substring(0, 19);
+
+  update('repair_records', repairId, {
+    status: 'in_progress',
+    repairer: repairer || repair.repairer || '',
+    start_time
+  });
+
+  update('fault_reports', repair.fault_id, { status: 'repairing' });
+
+  res.json({ success: true, message: '开始维修' });
 });
 
 app.get('/api/areas', (req, res) => {

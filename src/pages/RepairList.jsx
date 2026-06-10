@@ -23,6 +23,18 @@ function RepairList() {
   const [statusFilter, setStatusFilter] = useState('all')
   const [repairTypeFilter, setRepairTypeFilter] = useState('all')
 
+  const handleQuickStart = async (id) => {
+    const repairer = prompt('请输入维修员姓名：')
+    if (!repairer) return
+    const res = await api.startRepair(id, { repairer })
+    if (res.success) {
+      alert('已开始维修')
+      loadRepairs()
+    } else {
+      alert(res.message || '操作失败')
+    }
+  }
+
   useEffect(() => {
     loadRepairs()
   }, [page, statusFilter, repairTypeFilter])
@@ -98,7 +110,8 @@ function RepairList() {
                   <th>维修员</th>
                   <th>状态</th>
                   <th>费用</th>
-                  <th>操作</th>
+                  <th>流转</th>
+                  <th>详情</th>
                 </tr>
               </thead>
               <tbody>
@@ -119,15 +132,33 @@ function RepairList() {
                     </td>
                     <td>{repair.cost > 0 ? `¥${repair.cost}` : '-'}</td>
                     <td>
+                      {repair.status === 'pending' && (
+                        <button
+                          className="btn btn-primary btn-sm"
+                          onClick={() => handleQuickStart(repair.id)}
+                        >
+                          ▶ 开始
+                        </button>
+                      )}
+                      {repair.status === 'in_progress' && (
+                        <Link to={`/repairs/${repair.id}`} className="btn btn-success btn-sm">
+                          ✔ 完成
+                        </Link>
+                      )}
+                      {repair.status === 'completed' && (
+                        <span className="badge badge-completed">✓ 已完成</span>
+                      )}
+                    </td>
+                    <td>
                       <Link to={`/repairs/${repair.id}`} className="link">
-                        详情
+                        查看
                       </Link>
                     </td>
                   </tr>
                 ))}
                 {repairs.length === 0 && (
                   <tr>
-                    <td colSpan="9" className="empty">暂无数据</td>
+                    <td colSpan="10" className="empty">暂无数据</td>
                   </tr>
                 )}
               </tbody>

@@ -6,7 +6,11 @@ function RepairDetail() {
   const { id } = useParams()
   const [repair, setRepair] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [showStartModal, setShowStartModal] = useState(false)
   const [showCompleteModal, setShowCompleteModal] = useState(false)
+  const [startData, setStartData] = useState({
+    repairer: ''
+  })
   const [completeData, setCompleteData] = useState({
     repairer: '',
     parts_used: '',
@@ -25,6 +29,22 @@ function RepairDetail() {
       setRepair(res.data)
     }
     setLoading(false)
+  }
+
+  const handleStart = async (e) => {
+    e.preventDefault()
+    if (!startData.repairer) {
+      alert('请填写维修员姓名')
+      return
+    }
+    const res = await api.startRepair(id, startData)
+    if (res.success) {
+      alert('已开始维修')
+      setShowStartModal(false)
+      loadRepair()
+    } else {
+      alert(res.message || '操作失败')
+    }
   }
 
   const handleComplete = async (e) => {
@@ -72,19 +92,27 @@ function RepairDetail() {
       </div>
 
       <div className="page-header">
-        <h2>🔧 维修详情 - {repair.repair_no}</h2>
+        <div>
+          <h2>🔧 维修详情 - {repair.repair_no}</h2>
+          <div style={{ marginTop: '6px', fontSize: '13px', color: '#666' }}>
+            <span style={{ marginRight: '12px' }}>
+              <span style={{ display: 'inline-block', width: '70px' }}>待处理</span>
+              <span style={{ color: repair.status !== 'pending' ? '#43a047' : '#ccc' }}>→</span>
+            </span>
+            <span style={{ marginRight: '12px' }}>
+              <span style={{ display: 'inline-block', width: '70px' }}>进行中</span>
+              <span style={{ color: repair.status === 'completed' ? '#43a047' : '#ccc' }}>→</span>
+            </span>
+            <span>已完成</span>
+          </div>
+        </div>
         <div>
           {repair.status === 'pending' && (
             <button className="btn btn-primary" onClick={() => {
-              setCompleteData({
-                repairer: '',
-                parts_used: repair.parts_used || '',
-                cost: repair.cost || '',
-                result: ''
-              })
-              setShowCompleteModal(true)
+              setStartData({ repairer: '' })
+              setShowStartModal(true)
             }}>
-              开始维修
+              ▶ 开始维修
             </button>
           )}
           {repair.status === 'in_progress' && (
@@ -97,8 +125,13 @@ function RepairDetail() {
               })
               setShowCompleteModal(true)
             }}>
-              完成维修
+              ✔ 完成维修
             </button>
+          )}
+          {repair.status === 'completed' && (
+            <span className="badge badge-completed" style={{ fontSize: '14px', padding: '8px 14px' }}>
+              ✅ 已完成
+            </span>
           )}
         </div>
       </div>
@@ -228,6 +261,41 @@ function RepairDetail() {
       <div style={{ marginBottom: '20px' }}>
         <Link to="/repairs" className="btn btn-default">← 返回列表</Link>
       </div>
+
+      {showStartModal && (
+        <div className="modal-mask" onClick={() => setShowStartModal(false)}>
+          <div className="modal" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>开始维修</h3>
+              <button className="modal-close" onClick={() => setShowStartModal(false)}>×</button>
+            </div>
+            <form onSubmit={handleStart}>
+              <div className="modal-body">
+                <div style={{ padding: '12px', background: '#e3f2fd', borderRadius: '4px', fontSize: '13px', marginBottom: '16px' }}>
+                  <div style={{ color: '#1565c0', fontWeight: '500', marginBottom: '4px' }}>📋 维修信息</div>
+                  <div>维修单号：{repair.repair_no}</div>
+                  <div>车辆编号：{repair.bike_no} | 故障类型：{repair.fault_type}</div>
+                  <div>维修方式：{repair.repair_type_text} | 维修地点：{repair.repair_location || '待指定'}</div>
+                </div>
+                <div className="form-group">
+                  <label>维修员 *</label>
+                  <input
+                    type="text"
+                    value={startData.repairer}
+                    onChange={e => setStartData({ ...startData, repairer: e.target.value })}
+                    placeholder="请输入维修员姓名"
+                    autoFocus
+                  />
+                </div>
+              </div>
+              <div className="modal-footer">
+                <button type="button" className="btn btn-default" onClick={() => setShowStartModal(false)}>取消</button>
+                <button type="submit" className="btn btn-primary">确认开始</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {showCompleteModal && (
         <div className="modal-mask" onClick={() => setShowCompleteModal(false)}>

@@ -61,6 +61,11 @@ export const api = {
     body: JSON.stringify(data)
   }),
 
+  startRepair: (id, data) => request(`/repairs/${id}/start`, {
+    method: 'PUT',
+    body: JSON.stringify(data)
+  }),
+
   getAreas: () => request('/areas'),
 
   getOverview: () => request('/statistics/overview'),

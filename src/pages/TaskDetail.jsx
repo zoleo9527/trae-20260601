@@ -2,14 +2,45 @@ import React, { useState, useEffect } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { api } from '../utils/api.js'
 
+const invalidDescriptionKeywords = ['坏了', '坏', '不行了', '不能用', '用不了', '坏的', '坏掉', '损坏', '故障']
+
+function validateDescription(desc) {
+  if (!desc || desc.trim().length < 5) return '故障描述至少5个字符，请详细描述故障情况'
+  const trimmed = desc.trim()
+  for (const kw of invalidDescriptionKeywords) {
+    if (trimmed === kw || trimmed === kw + '了' || trimmed === '车' + kw || trimmed === kw + '了！' || trimmed === kw + '!') {
+      return '故障描述过于简单，请详细说明具体故障现象，不能只写"坏了"'
+    }
+  }
+  return null
+}
+
 function TaskDetail() {
   const { id } = useParams()
   const [task, setTask] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [showReportModal, setShowReportModal] = useState(false)
+  const [faultTypes, setFaultTypes] = useState([])
+  const [formData, setFormData] = useState({
+    bike_no: '',
+    fault_type: '',
+    fault_level: '',
+    description: '',
+    location: '',
+    lat: '',
+    lng: '',
+    reporter: ''
+  })
 
   useEffect(() => {
+    loadDicts()
     loadTask()
   }, [id])
+
+  const loadDicts = async () => {
+    const res = await api.getFaultTypes()
+    if (res.success) setFaultTypes(res.data)
+  }
 
   const loadTask = async () => {
     setLoading(true)
@@ -18,6 +49,44 @@ function TaskDetail() {
       setTask(res.data)
     }
     setLoading(false)
+  }
+
+  const openReportModal = () => {
+    setFormData({
+      bike_no: '',
+      fault_type: '',
+      fault_level: '',
+      description: '',
+      location: '',
+      lat: '',
+      lng: '',
+      reporter: task?.inspector || ''
+    })
+    setShowReportModal(true)
+  }
+
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    if (!formData.bike_no || !formData.fault_type || !formData.fault_level || !formData.location || !formData.lat || !formData.lng) {
+      alert('请填写完整信息')
+      return
+    }
+    const descError = validateDescription(formData.description)
+    if (descError) {
+      alert(descError)
+      return
+    }
+    const res = await api.createFault({
+      ...formData,
+      task_id: parseInt(id)
+    })
+    if (res.success) {
+      alert('上报成功')
+      setShowReportModal(false)
+      loadTask()
+    } else {
+      alert(res.message || '上报失败')
+    }
   }
 
   if (loading) {
@@ -37,10 +106,22 @@ function TaskDetail() {
       </div>
 
       <div className="page-header">
-        <h2>📋 巡检任务详情 - {task.task_no}</h2>
-        <span className={`badge badge-${task.status}`} style={{ fontSize: '14px', padding: '6px 12px' }}>
-          {task.status_text}
-        </span>
+        <div>
+          <h2>📋 巡检任务详情 - {task.task_no}</h2>
+          <div style={{ marginTop: '6px', fontSize: '13px', color: '#666' }}>
+            负责区域：{task.area} | 巡检员：{task.inspector} | 路线：{task.route}
+          </div>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          {task.status === 'in_progress' && (
+            <button className="btn btn-primary" onClick={openReportModal}>
+              ⚠️ 现场上报故障
+            </button>
+          )}
+          <span className={`badge badge-${task.status}`} style={{ fontSize: '14px', padding: '6px 12px' }}>
+            {task.status_text}
+          </span>
+        </div>
       </div>
 
       <div className="card">
@@ -144,6 +225,118 @@ function TaskDetail() {
       <div style={{ marginBottom: '20px' }}>
         <Link to="/inspection-tasks" className="btn btn-default">← 返回列表</Link>
       </div>
+
+      {showReportModal && (
+        <div className="modal-mask" onClick={() => setShowReportModal(false)}>
+          <div className="modal" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>现场上报故障</h3>
+              <button className="modal-close" onClick={() => setShowReportModal(false)}>×</button>
+            </div>
+            <form onSubmit={handleSubmit}>
+              <div className="modal-body">
+                <div style={{ padding: '12px', background: '#e3f2fd', borderRadius: '4px', fontSize: '13px', marginBottom: '16px' }}>
+                  <div style={{ color: '#1565c0', fontWeight: '500', marginBottom: '4px' }}>📋 巡检任务上下文（自动带入）</div>
+                  <div>任务编号：{task.task_no} | 巡检员：{task.inspector} | 区域：{task.area}</div>
+                </div>
+                <div className="form-row">
+                  <div className="form-group">
+                    <label>车辆编号 *</label>
+                    <input
+                      type="text"
+                      value={formData.bike_no}
+                      onChange={e => setFormData({ ...formData, bike_no: e.target.value })}
+                      placeholder="请输入车辆编号，如 BK001001"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>上报人</label>
+                    <input
+                      type="text"
+                      value={formData.reporter}
+                      onChange={e => setFormData({ ...formData, reporter: e.target.value })}
+                    />
+                  </div>
+                </div>
+                <div className="form-row">
+                  <div className="form-group">
+                    <label>故障类型 *</label>
+                    <select
+                      value={formData.fault_type}
+                      onChange={e => setFormData({ ...formData, fault_type: e.target.value })}
+                    >
+                      <option value="">请选择故障类型</option>
+                      {faultTypes.map(type => (
+                        <option key={type.value} value={type.value}>{type.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="form-group">
+                    <label>严重程度 *</label>
+                    <select
+                      value={formData.fault_level}
+                      onChange={e => setFormData({ ...formData, fault_level: e.target.value })}
+                    >
+                      <option value="">请选择严重程度</option>
+                      <option value="minor">轻微</option>
+                      <option value="medium">中等</option>
+                      <option value="serious">严重</option>
+                    </select>
+                  </div>
+                </div>
+                <div className="form-group">
+                  <label>故障描述 * <span style={{ color: '#999', fontWeight: 'normal', fontSize: '12px' }}>（至少5字符，禁止只写"坏了"）</span></label>
+                  <textarea
+                    value={formData.description}
+                    onChange={e => setFormData({ ...formData, description: e.target.value })}
+                    placeholder="请详细描述故障情况，如：后刹车失灵，捏刹车后车辆仍能滑行，刹车线松动"
+                  />
+                </div>
+                <div className="form-group">
+                  <label>位置描述 *</label>
+                  <input
+                    type="text"
+                    value={formData.location}
+                    onChange={e => setFormData({ ...formData, location: e.target.value })}
+                    placeholder="请输入具体位置，如 国贸地铁站A口"
+                  />
+                </div>
+                <div className="form-row">
+                  <div className="form-group">
+                    <label>纬度 *</label>
+                    <input
+                      type="text"
+                      value={formData.lat}
+                      onChange={e => setFormData({ ...formData, lat: e.target.value })}
+                      placeholder="如 39.9087"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>经度 *</label>
+                    <input
+                      type="text"
+                      value={formData.lng}
+                      onChange={e => setFormData({ ...formData, lng: e.target.value })}
+                      placeholder="如 116.4605"
+                    />
+                  </div>
+                </div>
+                <div className="form-group">
+                  <label>现场照片</label>
+                  <div className="photo-placeholder">
+                    <div className="icon">📷</div>
+                    <div>照片占位 (点击上传)</div>
+                  </div>
+                </div>
+              </div>
+              <div className="modal-footer">
+                <button type="button" className="btn btn-default" onClick={() => setShowReportModal(false)}>取消</button>
+                <button type="submit" className="btn btn-primary">提交上报</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

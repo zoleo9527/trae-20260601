@@ -2,6 +2,19 @@ import React, { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { api } from '../utils/api.js'
 
+const invalidDescriptionKeywords = ['坏了', '坏', '不行了', '不能用', '用不了', '坏的', '坏掉', '损坏', '故障']
+
+function validateDescription(desc) {
+  if (!desc || desc.trim().length < 5) return '故障描述至少5个字符，请详细描述故障情况'
+  const trimmed = desc.trim()
+  for (const kw of invalidDescriptionKeywords) {
+    if (trimmed === kw || trimmed === kw + '了' || trimmed === '车' + kw || trimmed === kw + '了！' || trimmed === kw + '!') {
+      return '故障描述过于简单，请详细说明具体故障现象，不能只写"坏了"'
+    }
+  }
+  return null
+}
+
 function FaultList() {
   const [faults, setFaults] = useState([])
   const [loading, setLoading] = useState(true)
@@ -59,6 +72,11 @@ function FaultList() {
     e.preventDefault()
     if (!formData.bike_no || !formData.fault_type || !formData.fault_level || !formData.location || !formData.lat || !formData.lng) {
       alert('请填写完整信息')
+      return
+    }
+    const descError = validateDescription(formData.description)
+    if (descError) {
+      alert(descError)
       return
     }
     const res = await api.createFault(formData)
@@ -261,11 +279,11 @@ function FaultList() {
                   </div>
                 </div>
                 <div className="form-group">
-                  <label>故障描述</label>
+                  <label>故障描述 * <span style={{ color: '#999', fontWeight: 'normal', fontSize: '12px' }}>（至少5字符，禁止只写"坏了"）</span></label>
                   <textarea
                     value={formData.description}
                     onChange={e => setFormData({ ...formData, description: e.target.value })}
-                    placeholder="请详细描述故障情况，不能只写“坏了”"
+                    placeholder="请详细描述故障情况，如：后刹车失灵，捏刹车后车辆仍能滑行，刹车线松动"
                   />
                 </div>
                 <div className="form-group">
