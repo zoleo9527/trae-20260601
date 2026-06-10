@@ -1,0 +1,161 @@
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --color-primary: #2D5A27;
+  --color-gold: #C89B3C;
+  --color-alert: #D64545;
+  --color-success: #4A7C59;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html, body, #app {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", system-ui, -apple-system, sans-serif;
+  background: #FBFAF8;
+  color: #262420;
+  font-size: 14px;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* 自定义滚动条 */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #DEDACF;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #9A9485;
+}
+
+/* Element Plus 覆盖 */
+.el-button {
+  border-radius: 6px !important;
+  font-weight: 500;
+}
+.el-button--primary {
+  --el-button-bg-color: #2D5A27 !important;
+  --el-button-border-color: #2D5A27 !important;
+  --el-button-hover-bg-color: #24481F !important;
+  --el-button-hover-border-color: #24481F !important;
+  --el-button-active-bg-color: #1B3617 !important;
+  --el-button-active-border-color: #1B3617 !important;
+}
+.el-button--warning {
+  --el-button-bg-color: #C89B3C !important;
+  --el-button-border-color: #C89B3C !important;
+  --el-button-hover-bg-color: #A07C30 !important;
+  --el-button-hover-border-color: #A07C30 !important;
+}
+.el-button--danger {
+  --el-button-bg-color: #D64545 !important;
+  --el-button-border-color: #D64545 !important;
+  --el-button-hover-bg-color: #AB3737 !important;
+  --el-button-hover-border-color: #AB3737 !important;
+}
+.el-button--success {
+  --el-button-bg-color: #4A7C59 !important;
+  --el-button-border-color: #4A7C59 !important;
+  --el-button-hover-bg-color: #3B6347 !important;
+  --el-button-hover-border-color: #3B6347 !important;
+}
+.el-tag {
+  border-radius: 4px !important;
+  font-weight: 500;
+  border: 1px solid !important;
+  padding: 0 10px !important;
+}
+.el-drawer__header {
+  background: linear-gradient(135deg, #2D5A27 0%, #24481F 100%);
+  color: #fff !important;
+  margin: 0 !important;
+  padding: 20px 24px !important;
+}
+.el-drawer__header .el-drawer__title {
+  color: #fff !important;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+.el-drawer__body {
+  padding: 20px 24px !important;
+  background: #FBFAF8;
+}
+.el-table {
+  --el-table-border-color: #E6E3DA;
+  --el-table-header-bg-color: #F8F7F4;
+  --el-table-header-text-color: #3D3A34;
+  --el-table-text-color: #262420;
+  border-radius: 8px !important;
+  overflow: hidden;
+  font-size: 13px !important;
+}
+.el-table th {
+  font-weight: 600 !important;
+}
+.el-table .warning-row {
+  background: #FBF5E7;
+}
+.el-table .danger-row {
+  background: #FBEAEA;
+}
+.el-tabs__item.is-active {
+  color: #2D5A27 !important;
+  font-weight: 600;
+}
+.el-tabs__active-bar {
+  background-color: #2D5A27 !important;
+}
+.el-select-dropdown__item.selected {
+  color: #2D5A27 !important;
+  font-weight: 600;
+}
+.el-timeline-item__node--primary {
+  background-color: #2D5A27 !important;
+}
+.el-timeline-item__node--danger {
+  background-color: #D64545 !important;
+}
+.el-badge__content {
+  border-radius: 10px !important;
+}
+
+/* 业务通用类 */
+.workspace-card {
+  @apply bg-white rounded-xl shadow-card border border-neutral-200 transition-all duration-200;
+}
+.workspace-card:hover {
+  @apply shadow-card-hover;
+}
+.stuck-card {
+  @apply animate-pulse-stuck;
+}
+.data-num {
+  font-family: "JetBrains Mono", "SF Mono", ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
+}
+.section-title {
+  @apply text-base font-semibold text-neutral-700 mb-3 flex items-center gap-2;
+}
+.divider-soft {
+  @apply my-4 border-t border-neutral-200;
+}
+.btn-ghost {
+  @apply px-3 py-1.5 rounded-md text-sm text-neutral-600 hover:bg-neutral-200 transition-colors;
+}
