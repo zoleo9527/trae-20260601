@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
+import { useRoute } from 'vue-router'
 import { getLogs } from '@/api/logs'
 import type { OperationLog } from '@/types'
 
+const route = useRoute()
 const logs = ref<OperationLog[]>([])
 const total = ref(0)
 const loading = ref(false)
@@ -21,6 +23,7 @@ const entityTypeOptions = [
   { label: '订货单', value: 'order' },
   { label: '到货通知', value: 'arrival' },
   { label: '附件', value: 'attachment' },
+  { label: '通知', value: 'notification' },
 ]
 
 const actionOptions = [
@@ -31,6 +34,8 @@ const actionOptions = [
   { label: '确认', value: 'confirm' },
   { label: '删除', value: 'delete' },
   { label: '附件', value: 'attach' },
+  { label: '生成通知', value: 'notify' },
+  { label: '标记已读', value: 'read' },
 ]
 
 const actionTagMap: Record<string, { label: string; type: string }> = {
@@ -40,12 +45,15 @@ const actionTagMap: Record<string, { label: string; type: string }> = {
   confirm: { label: '确认', type: 'success' },
   delete: { label: '删除', type: 'danger' },
   attach: { label: '附件', type: 'info' },
+  notify: { label: '生成通知', type: 'primary' },
+  read: { label: '标记已读', type: 'success' },
 }
 
 const entityTypeLabels: Record<string, string> = {
   order: '订货单',
   arrival: '到货通知',
   attachment: '附件',
+  notification: '通知',
 }
 
 async function fetchLogs() {
@@ -76,7 +84,13 @@ function handlePageChange(val: number) {
   fetchLogs()
 }
 
-onMounted(fetchLogs)
+onMounted(() => {
+  const qs = route.query as Record<string, string>
+  if (qs.entity_type) filters.value.entityType = qs.entity_type
+  if (qs.entity_id) filters.value.entityId = qs.entity_id
+  if (qs.action) filters.value.action = qs.action
+  fetchLogs()
+})
 </script>
 
 <template>

@@ -6,9 +6,11 @@ import { getStats } from '@/api/stats'
 import { getOrders } from '@/api/orders'
 import { getArrivals } from '@/api/arrivals'
 import { getNotifications } from '@/api/notifications'
+import { useUnreadCount } from '@/composables/useUnreadCount'
 import type { Stats, Order, Arrival, Notification } from '@/types'
 
 const router = useRouter()
+const { refreshUnread } = useUnreadCount()
 const stats = ref<Stats>({ today_orders: 0, pending_arrivals: 0, exception_count: 0, unread_notifications: 0 })
 const recentOrders = ref<Order[]>([])
 const recentArrivals = ref<Arrival[]>([])
@@ -46,6 +48,7 @@ onMounted(async () => {
     recentOrders.value = ordersRes.data.items || []
     recentArrivals.value = arrivalsRes.data.items || []
     recentNotifications.value = notifRes.data.items || []
+    refreshUnread()
   } catch {}
 })
 </script>

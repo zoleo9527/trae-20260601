@@ -1,11 +1,11 @@
 <script setup lang="ts">
-import { computed, ref, onMounted } from 'vue'
+import { computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { LayoutDashboard, ShoppingCart, Truck, ScrollText, Bell, Leaf } from 'lucide-vue-next'
-import { getUnreadCount } from '@/api/notifications'
+import { useUnreadCount } from '@/composables/useUnreadCount'
 
 const route = useRoute()
-const unreadCount = ref(0)
+const { unreadCount, refreshUnread } = useUnreadCount()
 
 const menuItems = [
   { label: '工作台', icon: LayoutDashboard, path: '/', badge: false },
@@ -22,14 +22,7 @@ const activePath = computed(() => {
   return match ? match.path : path
 })
 
-async function fetchUnread() {
-  try {
-    const res = await getUnreadCount()
-    unreadCount.value = res.data.count
-  } catch {}
-}
-
-onMounted(fetchUnread)
+onMounted(refreshUnread)
 </script>
 
 <template>

@@ -182,6 +182,9 @@ def confirm_arrival(arrival_id: int, data: ArrivalConfirm):
                 arrival_id=arrival_id,
                 arrival_no=row["arrival_no"],
             )
+            notif_row = conn.execute("SELECT id FROM notifications ORDER BY id DESC LIMIT 1").fetchone()
+            if notif_row:
+                insert_log(conn, "notification", notif_row["id"], "notify", f"生成异常提醒：到货单 {row['arrival_no']} 数量不符")
         order_row = conn.execute("SELECT * FROM orders WHERE id=?", (order_id,)).fetchone()
         if order_row and order_row["status"] != "arrived":
             conn.execute(

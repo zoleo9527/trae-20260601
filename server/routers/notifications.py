@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException, Query
-from database import get_db
+from database import get_db, insert_log
 from models import NotificationResponse
 
 router = APIRouter(prefix="/api/notifications", tags=["notifications"])
@@ -67,7 +67,10 @@ def mark_as_read(notification_id: int):
         row = conn.execute("SELECT * FROM notifications WHERE id=?", (notification_id,)).fetchone()
         if not row:
             raise HTTPException(status_code=404, detail="通知不存在")
+        if row["is_read"]:
+            return row_to_notification(row)
         conn.execute("UPDATE notifications SET is_read=1 WHERE id=?", (notification_id,))
+        insert_log(conn, "notification", notification_id, "read", f"标记通知已读：{row['title']}")
         conn.commit()
         row = conn.execute("SELECT * FROM notifications WHERE id=?", (notification_id,)).fetchone()
         return row_to_notification(row)
@@ -79,8 +82,11 @@ def mark_as_read(notification_id: int):
 def mark_all_read():
     conn = get_db()
     try:
+        rows = conn.execute("SELECT id, title FROM notifications WHERE is_read=0").fetchall()
         conn.execute("UPDATE notifications SET is_read=1 WHERE is_read=0")
+        for r in rows:
+            insert_log(conn, "notification", r["id"], "read", f"批量标记已读：{r['title']}")
         conn.commit()
-        return {"message": "全部标记已读"}
+        return {"message": "全部标记已读", "count": len(rows)}
     finally:
         conn.close()

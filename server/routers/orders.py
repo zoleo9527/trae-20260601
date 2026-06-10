@@ -194,6 +194,9 @@ def update_order_status(order_id: int, data: OrderStatusUpdate):
                 order_id=order_id,
                 order_no=row["order_no"],
             )
+            notif_row = conn.execute("SELECT id FROM notifications ORDER BY id DESC LIMIT 1").fetchone()
+            if notif_row:
+                insert_log(conn, "notification", notif_row["id"], "notify", f"生成待到货提醒：订单 {row['order_no']} 已发货")
         conn.commit()
         row = conn.execute("SELECT * FROM orders WHERE id=?", (order_id,)).fetchone()
         attachments = get_order_attachments(conn, order_id)

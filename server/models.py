@@ -30,6 +30,7 @@ class LogEntityType(str, Enum):
     order = "order"
     arrival = "arrival"
     attachment = "attachment"
+    notification = "notification"
 
 
 class LogAction(str, Enum):
@@ -39,6 +40,8 @@ class LogAction(str, Enum):
     confirm = "confirm"
     delete = "delete"
     attach = "attach"
+    notify = "notify"
+    read = "read"
 
 
 class OrderCreate(BaseModel):

@@ -45,9 +45,9 @@ CREATE TABLE IF NOT EXISTS attachments (
 );
 CREATE TABLE IF NOT EXISTS operation_logs (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    entity_type TEXT NOT NULL CHECK(entity_type IN ('order','arrival','attachment')),
+    entity_type TEXT NOT NULL CHECK(entity_type IN ('order','arrival','attachment','notification')),
     entity_id INTEGER NOT NULL,
-    action TEXT NOT NULL CHECK(action IN ('create','update','status_change','confirm','delete','attach')),
+    action TEXT NOT NULL CHECK(action IN ('create','update','status_change','confirm','delete','attach','notify','read')),
     detail TEXT NOT NULL DEFAULT '',
     operator TEXT NOT NULL DEFAULT '店员',
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP

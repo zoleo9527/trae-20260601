@@ -47,9 +47,9 @@ export interface Attachment {
 
 export interface OperationLog {
   id: number
-  entity_type: 'order' | 'arrival' | 'attachment'
+  entity_type: 'order' | 'arrival' | 'attachment' | 'notification'
   entity_id: number
-  action: 'create' | 'update' | 'status_change' | 'confirm' | 'delete' | 'attach'
+  action: 'create' | 'update' | 'status_change' | 'confirm' | 'delete' | 'attach' | 'notify' | 'read'
   detail: string
   operator: string
   created_at: string

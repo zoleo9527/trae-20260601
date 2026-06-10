@@ -3,9 +3,11 @@ import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { getNotifications, markAsRead, markAllRead } from '@/api/notifications'
+import { useUnreadCount } from '@/composables/useUnreadCount'
 import type { Notification } from '@/types'
 
 const router = useRouter()
+const { refreshUnread } = useUnreadCount()
 const notifications = ref<Notification[]>([])
 const total = ref(0)
 const loading = ref(false)
@@ -56,8 +58,8 @@ async function handleMarkRead(row: Notification) {
   if (row.is_read) return
   try {
     await markAsRead(row.id)
-    row.is_read = true
     ElMessage.success('已标记为已读')
+    await Promise.all([fetchNotifications(), refreshUnread()])
   } catch {
   }
 }
@@ -66,7 +68,7 @@ async function handleMarkAllRead() {
   try {
     await markAllRead()
     ElMessage.success('全部标记已读')
-    fetchNotifications()
+    await Promise.all([fetchNotifications(), refreshUnread()])
   } catch {
   }
 }
@@ -77,6 +79,10 @@ function goOrder(orderId: number | null) {
 
 function goArrival(arrivalId: number | null) {
   if (arrivalId) router.push(`/arrivals/${arrivalId}`)
+}
+
+function goLogs(entityType: string, entityId: number) {
+  router.push({ path: '/logs', query: { entity_type: entityType, entity_id: String(entityId) } })
 }
 
 function handlePageChange(val: number) {
@@ -129,6 +135,9 @@ onMounted(fetchNotifications)
             </span>
             <span v-if="item.arrival_no" class="text-xs text-[#2E7D32] cursor-pointer hover:underline" @click.stop="goArrival(item.arrival_id)">
               到货单: {{ item.arrival_no }}
+            </span>
+            <span class="text-xs text-blue-500 cursor-pointer hover:underline" @click.stop="goLogs('notification', item.id)">
+              查看日志
             </span>
             <span class="text-xs text-gray-400 ml-auto">{{ item.created_at }}</span>
           </div>
