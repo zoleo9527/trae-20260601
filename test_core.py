@@ -196,6 +196,78 @@ assert p13.status == FeedingPlanStatus.in_progress.value, f'13b: expected in_pro
 assert p13.assigned_to == s1.id, f'13c: assigned_to should be {s1.id}, got {p13.assigned_to}'
 print('13. auto-unblock-auto-set-assigned_to PASS')
 
+from ranch_handover.widgets.dashboard import (
+    _feeding_role, _req_role, _count_by_role, _filter_by_role, _action_item_role,
+)
+from ranch_handover.models import RoleEnum
+
+p14_draft = FeedingPlan(
+    plan_date='2026-06-10', cattle_group='test14', feed_formula='TMR',
+    quantity=50, unit='kg', status=FeedingPlanStatus.draft.value,
+    created_by=s1.id,
+)
+session.add(p14_draft)
+session.commit()
+role14 = _feeding_role(p14_draft)
+assert role14 == RoleEnum.ranch_supervisor.value, f'14a: expected ranch_supervisor, got {role14}'
+
+p15_approved = FeedingPlan(
+    plan_date='2026-06-10', cattle_group='test15', feed_formula='TMR',
+    quantity=50, unit='kg', status=FeedingPlanStatus.approved.value,
+    created_by=s1.id, approved_by=s1.id, assigned_to=s2.id,
+)
+session.add(p15_approved)
+session.commit()
+role15 = _feeding_role(p15_approved)
+assert role15 == RoleEnum.milker.value, f'15a: expected milker, got {role15}'
+
+r16 = InventoryRequisition(
+    item_name='test16', quantity_requested=10, unit='kg',
+    status=RequisitionStatus.pending_approval.value, requested_by=s1.id,
+)
+session.add(r16)
+session.commit()
+role16 = _req_role(r16)
+assert role16 == RoleEnum.ranch_supervisor.value, f'16a: expected ranch_supervisor, got {role16}'
+
+r17 = InventoryRequisition(
+    item_name='test17', quantity_requested=10, unit='kg',
+    status=RequisitionStatus.approved.value, requested_by=s2.id,
+)
+session.add(r17)
+session.commit()
+role17 = _req_role(r17)
+assert role17 is None, f'17a: expected None (待出库), got {role17}'
+
+plans = [p14_draft, p15_approved]
+counts = _count_by_role(plans, _feeding_role)
+assert counts[RoleEnum.ranch_supervisor.value] == 1, f'18a: expected 1 sup, got {counts}'
+assert counts[RoleEnum.milker.value] == 1, f'18b: expected 1 mlk, got {counts}'
+assert counts[RoleEnum.veterinarian.value] == 0, f'18c: expected 0 vet, got {counts}'
+
+filtered = _filter_by_role(plans, RoleEnum.milker.value, _feeding_role)
+assert len(filtered) == 1, f'19a: expected 1 filtered, got {len(filtered)}'
+assert filtered[0].cattle_group == 'test15', f'19b: expected test15, got {filtered[0].cattle_group}'
+
+all_items = [p14_draft, p15_approved, r16, r17]
+all_counts = _count_by_role(all_items, lambda x: _feeding_role(x) if hasattr(x, 'cattle_group') else _req_role(x))
+assert all_counts[RoleEnum.ranch_supervisor.value] == 2, f'20a: expected 2 sup, got {all_counts}'
+assert all_counts[RoleEnum.milker.value] == 1, f'20b: expected 1 mlk, got {all_counts}'
+print('14-20. role-helper-functions PASS')
+
+all_active_feeding = [p14_draft, p15_approved]
+all_incomplete_req = [r16, r17]
+item = '  □ 饲喂计划 #999 test15: 等待开始执行'
+role21 = _action_item_role(item, all_active_feeding, all_incomplete_req)
+assert role21 is None, f'21a: expected None (id 999 not found), got {role21}'
+item = '  □ 饲喂计划 #{} test15: 等待开始执行'.format(p15_approved.id)
+role21b = _action_item_role(item, all_active_feeding, all_incomplete_req)
+assert role21b == RoleEnum.milker.value, f'21b: expected milker, got {role21b}'
+item = '  □ 领用单 #{} test16: 等待审批'.format(r16.id)
+role21c = _action_item_role(item, all_active_feeding, all_incomplete_req)
+assert role21c == RoleEnum.ranch_supervisor.value, f'21c: expected ranch_supervisor, got {role21c}'
+print('21. action-item-role PASS')
+
 print('ALL TESTS PASSED')
 close_session()
 if os.path.exists(test_db):
