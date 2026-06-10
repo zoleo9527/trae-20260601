@@ -237,7 +237,8 @@ function App() {
       const now = new Date().toISOString();
       const linkedRepair = repairs.find((r) => r.id === repairId);
       if (!linkedRepair) return;
-      const orderIdToUpdate = linkedRepair.orderId;
+      const linkedOrder = orders.find((o) => o.id === linkedRepair.orderId);
+      if (!linkedOrder) return;
       const log: RepairLog = {
         id: `rpl_${repairId}_${Date.now()}`,
         repairId,
@@ -268,7 +269,7 @@ function App() {
       );
       setOrders((prev) =>
         prev.map((o) => {
-          if (o.id !== orderIdToUpdate) return o;
+          if (o.id !== linkedOrder.id) return o;
           const newPaid = Number((o.paidAmount + amount).toFixed(2));
           const newStatus: ParkingOrder['status'] = newPaid >= o.actualFee ? 'exited' : o.status;
           const orderLog: StatusLog = {
@@ -292,7 +293,7 @@ function App() {
         })
       );
     },
-    [currentUser, repairs]
+    [currentUser, repairs, orders]
   );
 
   const assignRepair = useCallback((repairId: string, userId: string) => {
@@ -301,7 +302,8 @@ function App() {
     if (!user) return;
     const linkedRepair = repairs.find((r) => r.id === repairId);
     if (!linkedRepair) return;
-    const orderIdToUpdate = linkedRepair.orderId;
+    const linkedOrder = orders.find((o) => o.id === linkedRepair.orderId);
+    if (!linkedOrder) return;
     const repairLog: RepairLog = {
       id: `rpl_${repairId}_${Date.now()}`,
       repairId,
@@ -328,8 +330,8 @@ function App() {
       )
     );
     const orderLog: StatusLog = {
-      id: `sl_${orderIdToUpdate}_${Date.now()}`,
-      orderId: orderIdToUpdate,
+      id: `sl_${linkedOrder.id}_${Date.now()}`,
+      orderId: linkedOrder.id,
       fromStatus: '__assign__',
       toStatus: '__assign__',
       operatorId: currentUser.id,
@@ -340,7 +342,7 @@ function App() {
     };
     setOrders((prev) =>
       prev.map((o) =>
-        o.id === orderIdToUpdate
+        o.id === linkedOrder.id
           ? {
               ...o,
               currentHandlerId: user.id,
@@ -352,7 +354,7 @@ function App() {
           : o
       )
     );
-  }, [currentUser, repairs]);
+  }, [currentUser, repairs, orders]);
 
   const renderContent = () => {
     switch (activeMenu) {
