@@ -2,7 +2,7 @@
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useApi } from '@/composables/useApi'
-import { ArrowLeft } from 'lucide-vue-next'
+import { ArrowLeft, AlertCircle, X } from 'lucide-vue-next'
 
 const router = useRouter()
 const api = useApi()
@@ -18,6 +18,7 @@ const form = ref({
 })
 
 const errors = ref<Record<string, string>>({})
+const pageError = ref('')
 const submitting = ref(false)
 
 function validate() {
@@ -38,9 +39,14 @@ function validate() {
   return Object.keys(errors.value).length === 0
 }
 
+function dismissPageError() {
+  pageError.value = ''
+}
+
 async function handleSubmit() {
   if (!validate()) return
   submitting.value = true
+  pageError.value = ''
   try {
     const res = await api.createTransfer({
       earTag: form.value.earTag,
@@ -54,7 +60,7 @@ async function handleSubmit() {
     const id = res.data?.id || res.id
     router.push(`/transfer/${id}`)
   } catch (e: any) {
-    errors.value.earTag = e.message || '提交失败'
+    pageError.value = e.error || e.message || '提交失败，请稍后重试'
   } finally {
     submitting.value = false
   }
@@ -68,6 +74,17 @@ async function handleSubmit() {
         <ArrowLeft :size="20" />
       </button>
       <h2 class="text-xl font-semibold text-slate-100">新建转栏</h2>
+    </div>
+
+    <div
+      v-if="pageError"
+      class="bg-red-500/10 border border-red-500/30 rounded-xl px-4 py-3 flex items-start gap-3"
+    >
+      <AlertCircle :size="18" class="text-red-400 shrink-0 mt-0.5" />
+      <p class="text-sm text-red-300 flex-1">{{ pageError }}</p>
+      <button class="text-red-400/60 hover:text-red-300 transition-colors" @click="dismissPageError">
+        <X :size="16" />
+      </button>
     </div>
 
     <div class="card space-y-5">

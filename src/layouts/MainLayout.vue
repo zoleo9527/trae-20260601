@@ -2,19 +2,25 @@
 import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
-import { Home, ArrowRightLeft, ClipboardCheck, FileText, LogOut } from 'lucide-vue-next'
+import { Home, ArrowRightLeft, ClipboardCheck, FileText, Plus, LogOut } from 'lucide-vue-next'
 import RoleBadge from '@/components/RoleBadge.vue'
 
 const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
 
-const navItems = [
-  { path: '/', label: '工作台', icon: Home },
-  { path: '/transfer', label: '转栏管理', icon: ArrowRightLeft },
-  { path: '/assessment', label: '淘汰评估', icon: ClipboardCheck },
-  { path: '/log', label: '操作日志', icon: FileText },
+const allNavItems = [
+  { path: '/', label: '工作台', icon: Home, roles: ['繁育员', '兽医', '场长'] },
+  { path: '/transfer', label: '转栏管理', icon: ArrowRightLeft, roles: ['繁育员', '场长'] },
+  { path: '/transfer/new', label: '新建转栏', icon: Plus, roles: ['繁育员'] },
+  { path: '/assessment', label: '淘汰评估', icon: ClipboardCheck, roles: ['兽医', '场长'] },
+  { path: '/log', label: '操作日志', icon: FileText, roles: ['场长'] },
 ]
+
+const navItems = computed(() => {
+  if (!auth.role) return []
+  return allNavItems.filter(item => item.roles.includes(auth.role!))
+})
 
 const isActive = (path: string) => {
   if (path === '/') return route.path === '/'
