@@ -39,7 +39,11 @@ router.get('/:id', async (req, res) => {
 
 router.post('/', async (req, res) => {
   const cattleRepository = AppDataSource.getRepository(Cattle)
-  const cattle = cattleRepository.create(req.body)
+  const cattleData: Partial<Cattle> = {
+    ...req.body,
+    birthDate: req.body.birthDate ? new Date(req.body.birthDate) : undefined,
+  }
+  const cattle = cattleRepository.create(cattleData)
   await cattleRepository.save(cattle)
   res.status(201).json(cattle)
 })

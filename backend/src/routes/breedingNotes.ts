@@ -42,7 +42,8 @@ router.get('/:id', async (req, res) => {
 
 router.post('/', async (req, res) => {
   const noteRepository = AppDataSource.getRepository(BreedingNote)
-  const note = noteRepository.create(req.body)
+  const noteData: Partial<BreedingNote> = req.body
+  const note = noteRepository.create(noteData)
   await noteRepository.save(note)
   
   const savedNote = await noteRepository.findOne({

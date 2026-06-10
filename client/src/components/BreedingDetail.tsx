@@ -130,7 +130,7 @@ export default function BreedingDetail({ record, onBack }: BreedingDetailProps) 
       dataIndex: 'relatedCattleNote',
       key: 'relatedCattleNote',
       width: 150,
-      render: (note: CattleNote) => (
+      render: (note: CattleNote | undefined) => (
         note ? (
           <span style={{ color: '#1890ff', cursor: 'pointer' }}>
             查看关联
@@ -154,7 +154,7 @@ export default function BreedingDetail({ record, onBack }: BreedingDetailProps) 
       dataIndex: 'assigneeId',
       key: 'assigneeId',
       width: 80,
-      render: (id: number) => users.find((u) => u.id === id)?.name || '-',
+      render: (id: number | undefined) => users.find((u) => u.id === id)?.name || '-',
     },
     {
       title: '创建时间',
@@ -168,13 +168,13 @@ export default function BreedingDetail({ record, onBack }: BreedingDetailProps) 
       dataIndex: 'author',
       key: 'author',
       width: 80,
-      render: (author: { name: string }) => author?.name || '-',
+      render: (author: { name: string } | undefined) => author?.name || '-',
     },
     {
       title: '操作',
       key: 'actions',
       width: 150,
-      render: (_, record: BreedingNote) => (
+      render: (_: unknown, record: BreedingNote) => (
         <Space>
           {record.status === 'pending' && (
             <Button

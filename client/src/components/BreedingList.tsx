@@ -47,15 +47,6 @@ export default function BreedingList({ onSelectRecord }: BreedingListProps) {
     }
   }
 
-  const loadCattle = async () => {
-    try {
-      const response = await cattleApi.getCattle()
-      setCattleList(response.data)
-    } catch (error) {
-      message.error('加载牛只列表失败')
-    }
-  }
-
   const handleDelete = async (id: number) => {
     try {
       await breedingApi.deleteRecord(id)
@@ -79,7 +70,7 @@ export default function BreedingList({ onSelectRecord }: BreedingListProps) {
       title: '母牛',
       key: 'cow',
       width: 100,
-      render: (_, record: BreedingRecord) => (
+      render: (_: unknown, record: BreedingRecord) => (
         <div>
           <strong>{record.cow.tagNumber}</strong>
           <p style={{ fontSize: '12px', color: '#999' }}>{record.cow.breed}</p>
@@ -90,7 +81,7 @@ export default function BreedingList({ onSelectRecord }: BreedingListProps) {
       title: '公牛',
       key: 'bull',
       width: 100,
-      render: (_, record: BreedingRecord) => (
+      render: (_: unknown, record: BreedingRecord) => (
         <div>
           <strong>{record.bull.tagNumber}</strong>
           <p style={{ fontSize: '12px', color: '#999' }}>{record.bull.breed}</p>
@@ -116,14 +107,14 @@ export default function BreedingList({ onSelectRecord }: BreedingListProps) {
       dataIndex: 'expectedCalvingDate',
       key: 'expectedCalvingDate',
       width: 100,
-      render: (date: string) => (date ? formatDate(date) : '-'),
+      render: (date: string | undefined) => (date ? formatDate(date) : '-'),
     },
     {
       title: '实际产犊日',
       dataIndex: 'actualCalvingDate',
       key: 'actualCalvingDate',
       width: 100,
-      render: (date: string) => (date ? formatDate(date) : '-'),
+      render: (date: string | undefined) => (date ? formatDate(date) : '-'),
     },
     {
       title: '犊牛耳标',
@@ -136,7 +127,7 @@ export default function BreedingList({ onSelectRecord }: BreedingListProps) {
       dataIndex: 'operator',
       key: 'operator',
       width: 80,
-      render: (operator: { name: string }) => operator?.name || '-',
+      render: (operator: { name: string } | undefined) => operator?.name || '-',
     },
     {
       title: '状态',
@@ -153,7 +144,7 @@ export default function BreedingList({ onSelectRecord }: BreedingListProps) {
       title: '操作',
       key: 'actions',
       width: 150,
-      render: (_, record: BreedingRecord) => (
+      render: (_: unknown, record: BreedingRecord) => (
         <Space>
           <Button
             size="small"

@@ -71,7 +71,7 @@ export default function CattleList({ onSelectCattle }: CattleListProps) {
       title: '年龄',
       key: 'age',
       width: 80,
-      render: (_, record: Cattle) => getAge(record.birthDate),
+      render: (_: unknown, record: Cattle) => getAge(record.birthDate),
     },
     {
       title: '性别',
@@ -106,7 +106,7 @@ export default function CattleList({ onSelectCattle }: CattleListProps) {
       title: '操作',
       key: 'actions',
       width: 150,
-      render: (_, record: Cattle) => (
+      render: (_: unknown, record: Cattle) => (
         <Space>
           <Button
             size="small"

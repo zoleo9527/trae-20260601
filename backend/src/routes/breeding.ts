@@ -51,15 +51,20 @@ router.get('/:id', async (req, res) => {
 
 router.post('/', async (req, res) => {
   const recordRepository = AppDataSource.getRepository(BreedingRecord)
-  const record = recordRepository.create(req.body)
-  
-  if (req.body.breedingDate) {
-    const breedingDate = new Date(req.body.breedingDate)
-    const expectedCalvingDate = new Date(breedingDate)
-    expectedCalvingDate.setDate(expectedCalvingDate.getDate() + 280)
-    record.expectedCalvingDate = expectedCalvingDate
+  const recordData: Partial<BreedingRecord> = {
+    ...req.body,
+    breedingDate: req.body.breedingDate ? new Date(req.body.breedingDate) : undefined,
+    expectedCalvingDate: req.body.expectedCalvingDate ? new Date(req.body.expectedCalvingDate) : undefined,
+    actualCalvingDate: req.body.actualCalvingDate ? new Date(req.body.actualCalvingDate) : undefined,
   }
   
+  if (recordData.breedingDate && !recordData.expectedCalvingDate) {
+    const expectedCalvingDate = new Date(recordData.breedingDate)
+    expectedCalvingDate.setDate(expectedCalvingDate.getDate() + 280)
+    recordData.expectedCalvingDate = expectedCalvingDate
+  }
+  
+  const record = recordRepository.create(recordData)
   await recordRepository.save(record)
   
   const savedRecord = await recordRepository.findOne({

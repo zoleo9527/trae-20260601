@@ -135,14 +135,14 @@ export default function CattleDetail({ cattle, onBack }: CattleDetailProps) {
  dataIndex: 'assigneeId',
  key: 'assigneeId',
  width: 80,
- render: (id: number) => users.find((u) => u.id === id)?.name || '-',
+ render: (id: number | undefined) => users.find((u) => u.id === id)?.name || '-',
  },
  {
  title: '截止日期',
  dataIndex: 'dueDate',
  key: 'dueDate',
  width: 100,
- render: (date: string) => date ? formatDate(date) : '-',
+ render: (date: string | undefined) => date ? formatDate(date) : '-',
  },
  {
  title: '创建时间',
@@ -156,15 +156,13 @@ export default function CattleDetail({ cattle, onBack }: CattleDetailProps) {
  dataIndex: 'author',
  key: 'author',
  width: 80,
- render: (author: {
- name: string;
- }) => author?.name || '-',
+ render: (author: { name: string } | undefined) => author?.name || '-',
  },
  {
  title: '操作',
  key: 'actions',
  width: 150,
- render: (_, record: CattleNote) => (<Space>
+ render: (_: unknown, record: CattleNote) => (<Space>
  {record.status === 'pending' && (<Button size="small" type="primary" icon={<CheckOutlined />} onClick={() => handleUpdateNoteStatus(record.id, 'processing')}>
  接单
  </Button>)}

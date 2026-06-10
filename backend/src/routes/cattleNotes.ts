@@ -45,7 +45,8 @@ router.get('/:id', async (req, res) => {
 
 router.post('/', async (req, res) => {
   const noteRepository = AppDataSource.getRepository(CattleNote)
-  const note = noteRepository.create(req.body)
+  const noteData: Partial<CattleNote> = req.body
+  const note = noteRepository.create(noteData)
   await noteRepository.save(note)
   
   const savedNote = await noteRepository.findOne({
