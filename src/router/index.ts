@@ -46,6 +46,11 @@ const routes = [
         name: 'logList',
         component: () => import('@/pages/LogList.vue'),
       },
+      {
+        path: 'notifications',
+        name: 'notificationList',
+        component: () => import('@/pages/NotificationList.vue'),
+      },
     ],
   },
 ]

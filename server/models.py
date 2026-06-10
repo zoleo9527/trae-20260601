@@ -145,3 +145,21 @@ class OperationLogResponse(BaseModel):
     detail: str
     operator: str
     created_at: str
+
+
+class NotificationType(str, Enum):
+    arrival_reminder = "arrival_reminder"
+    exception_alert = "exception_alert"
+
+
+class NotificationResponse(BaseModel):
+    id: int
+    type: str
+    title: str
+    content: str
+    order_id: int | None = None
+    order_no: str
+    arrival_id: int | None = None
+    arrival_no: str
+    is_read: bool
+    created_at: str

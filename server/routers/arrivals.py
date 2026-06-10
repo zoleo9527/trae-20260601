@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException, Query
-from database import get_db, generate_no, insert_log
+from database import get_db, generate_no, insert_log, insert_notification
 from models import ArrivalCreate, ArrivalConfirm, ArrivalResponse, AttachmentResponse
 
 router = APIRouter(prefix="/api/arrivals", tags=["arrivals"])
@@ -170,6 +170,18 @@ def confirm_arrival(arrival_id: int, data: ArrivalConfirm):
             f"确认到货，实到数量: {data.actual_quantity}，状态: {new_status}",
         )
         order_id = row["order_id"]
+        if new_status == "exception":
+            order = conn.execute("SELECT * FROM orders WHERE id=?", (order_id,)).fetchone()
+            insert_notification(
+                conn,
+                "exception_alert",
+                f"到货异常：到货单 {row['arrival_no']} 数量不符",
+                f"订单：{order['order_no'] if order else ''}，订货：{row['ordered_quantity']}{row['unit']}，实到：{data.actual_quantity}{row['unit']}，异常说明：{data.exception_note or '未填写'}",
+                order_id=order_id,
+                order_no=order['order_no'] if order else '',
+                arrival_id=arrival_id,
+                arrival_no=row["arrival_no"],
+            )
         order_row = conn.execute("SELECT * FROM orders WHERE id=?", (order_id,)).fetchone()
         if order_row and order_row["status"] != "arrived":
             conn.execute(

@@ -60,6 +60,21 @@ CREATE INDEX IF NOT EXISTS idx_arrivals_created ON arrivals(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_attachments_entity ON attachments(entity_type, entity_id);
 CREATE INDEX IF NOT EXISTS idx_logs_entity ON operation_logs(entity_type, entity_id);
 CREATE INDEX IF NOT EXISTS idx_logs_created ON operation_logs(created_at DESC);
+CREATE TABLE IF NOT EXISTS notifications (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    type TEXT NOT NULL CHECK(type IN ('arrival_reminder','exception_alert')),
+    title TEXT NOT NULL,
+    content TEXT NOT NULL DEFAULT '',
+    order_id INTEGER,
+    order_no TEXT NOT NULL DEFAULT '',
+    arrival_id INTEGER,
+    arrival_no TEXT NOT NULL DEFAULT '',
+    is_read INTEGER NOT NULL DEFAULT 0,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_notifications_type ON notifications(type);
+CREATE INDEX IF NOT EXISTS idx_notifications_is_read ON notifications(is_read);
+CREATE INDEX IF NOT EXISTS idx_notifications_created ON notifications(created_at DESC);
 """
 
 
@@ -99,4 +114,11 @@ def insert_log(conn, entity_type: str, entity_id: int, action: str, detail: str 
     conn.execute(
         "INSERT INTO operation_logs (entity_type, entity_id, action, detail, operator) VALUES (?, ?, ?, ?, ?)",
         (entity_type, entity_id, action, detail, operator),
+    )
+
+
+def insert_notification(conn, ntype: str, title: str, content: str = "", order_id: int | None = None, order_no: str = "", arrival_id: int | None = None, arrival_no: str = ""):
+    conn.execute(
+        "INSERT INTO notifications (type, title, content, order_id, order_no, arrival_id, arrival_no) VALUES (?, ?, ?, ?, ?, ?, ?)",
+        (ntype, title, content, order_id, order_no, arrival_id, arrival_no),
     )

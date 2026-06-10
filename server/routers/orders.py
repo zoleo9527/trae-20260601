@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException, Query
-from database import get_db, generate_no, insert_log
+from database import get_db, generate_no, insert_log, insert_notification
 from models import OrderCreate, OrderUpdate, OrderStatusUpdate, OrderResponse, AttachmentResponse
 
 router = APIRouter(prefix="/api/orders", tags=["orders"])
@@ -185,6 +185,15 @@ def update_order_status(order_id: int, data: OrderStatusUpdate):
             (new_status, order_id),
         )
         insert_log(conn, "order", order_id, "status_change", f"订单状态: {current_status} -> {new_status}")
+        if new_status == "shipped":
+            insert_notification(
+                conn,
+                "arrival_reminder",
+                f"待到货提醒：订单 {row['order_no']} 已发货",
+                f"客户：{row['customer_name']}，产品：{row['product_name']}，数量：{row['quantity']}{row['unit']}，请关注到货情况",
+                order_id=order_id,
+                order_no=row["order_no"],
+            )
         conn.commit()
         row = conn.execute("SELECT * FROM orders WHERE id=?", (order_id,)).fetchone()
         attachments = get_order_attachments(conn, order_id)

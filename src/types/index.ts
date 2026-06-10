@@ -59,4 +59,18 @@ export interface Stats {
   today_orders: number
   pending_arrivals: number
   exception_count: number
+  unread_notifications: number
+}
+
+export interface Notification {
+  id: number
+  type: 'arrival_reminder' | 'exception_alert'
+  title: string
+  content: string
+  order_id: number | null
+  order_no: string
+  arrival_id: number | null
+  arrival_no: string
+  is_read: boolean
+  created_at: string
 }
