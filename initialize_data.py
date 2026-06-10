@@ -5,7 +5,7 @@ os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'feed_analysis.settings')
 django.setup()
 
 from complaint.models import Recipe, FeedingRecord, Complaint, BatchAnalysis, AuditLog, ErrorCode
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 
 def create_error_codes():
     error_codes = [
@@ -45,7 +45,7 @@ def create_sample_recipes():
             'status': 'approved',
             'created_by': '李配方师',
             'approved_by': '王主管',
-            'approved_at': datetime.now() - timedelta(days=5)
+            'approved_at': datetime.now(timezone.utc) - timedelta(days=5)
         },
         {
             'recipe_code': 'RC-002',
@@ -67,7 +67,7 @@ def create_sample_recipes():
             'status': 'approved',
             'created_by': '李配方师',
             'approved_by': '王主管',
-            'approved_at': datetime.now() - timedelta(days=3)
+            'approved_at': datetime.now(timezone.utc) - timedelta(days=3)
         },
         {
             'recipe_code': 'RC-003',
@@ -92,7 +92,27 @@ def create_sample_recipes():
     ]
     
     for r in recipes:
-        Recipe.objects.get_or_create(recipe_code=r['recipe_code'], defaults=r)
+        recipe, created = Recipe.objects.get_or_create(recipe_code=r['recipe_code'], defaults=r)
+        if created:
+            AuditLog.objects.create(
+                module=AuditLog.MODULE_RECIPE,
+                action=AuditLog.ACTION_CREATE,
+                object_id=recipe.id,
+                object_code=recipe.recipe_code,
+                operator=recipe.created_by,
+                timestamp=datetime.now(timezone.utc) - timedelta(days=5),
+                details={'name': recipe.name}
+            )
+            if recipe.status == 'approved':
+                AuditLog.objects.create(
+                    module=AuditLog.MODULE_RECIPE,
+                    action=AuditLog.ACTION_APPROVE,
+                    object_id=recipe.id,
+                    object_code=recipe.recipe_code,
+                    operator=recipe.approved_by,
+                    timestamp=recipe.approved_at,
+                    details={'old_status': 'draft', 'new_status': 'approved'}
+                )
     print(f"Created {len(recipes)} recipes")
 
 def create_sample_feeding_records():
@@ -116,7 +136,7 @@ def create_sample_feeding_records():
             'status': 'verified',
             'created_by': '赵班长',
             'confirmed_by': '孙质检',
-            'confirmed_at': datetime.now() - timedelta(days=5)
+            'confirmed_at': datetime.now(timezone.utc) - timedelta(days=5)
         },
         {
             'batch_number': 'B20240115002',
@@ -134,7 +154,7 @@ def create_sample_feeding_records():
             'status': 'confirmed',
             'created_by': '赵班长',
             'confirmed_by': '孙质检',
-            'confirmed_at': datetime.now() - timedelta(days=5)
+            'confirmed_at': datetime.now(timezone.utc) - timedelta(days=5)
         },
         {
             'batch_number': 'B20240116001',
@@ -171,7 +191,27 @@ def create_sample_feeding_records():
     ]
     
     for r in records:
-        FeedingRecord.objects.get_or_create(batch_number=r['batch_number'], defaults=r)
+        record, created = FeedingRecord.objects.get_or_create(batch_number=r['batch_number'], defaults=r)
+        if created:
+            AuditLog.objects.create(
+                module=AuditLog.MODULE_FEEDING,
+                action=AuditLog.ACTION_CREATE,
+                object_id=record.id,
+                object_code=record.batch_number,
+                operator=record.created_by,
+                timestamp=datetime.now(timezone.utc) - timedelta(days=5),
+                details={'deviation': float(record.deviation), 'is_deviation_exceeded': record.is_deviation_exceeded}
+            )
+            if record.status in ['confirmed', 'verified']:
+                AuditLog.objects.create(
+                    module=AuditLog.MODULE_FEEDING,
+                    action=AuditLog.ACTION_APPROVE,
+                    object_id=record.id,
+                    object_code=record.batch_number,
+                    operator=record.confirmed_by,
+                    timestamp=record.confirmed_at,
+                    details={'old_status': 'pending', 'new_status': record.status}
+                )
     print(f"Created {len(records)} feeding records")
 
 def create_sample_complaints():
@@ -202,7 +242,7 @@ def create_sample_complaints():
             'status': 'processing',
             'created_by': '客服小王',
             'processed_by': '质检员老孙',
-            'processed_at': datetime.now() - timedelta(hours=2)
+            'processed_at': datetime.now(timezone.utc) - timedelta(hours=2)
         },
         {
             'complaint_code': 'COMP-20240117-0003',
@@ -227,12 +267,32 @@ def create_sample_complaints():
             'status': 'analyzed',
             'created_by': '客服小王',
             'processed_by': '质检员老孙',
-            'processed_at': datetime.now() - timedelta(days=1)
+            'processed_at': datetime.now(timezone.utc) - timedelta(hours=5)
         }
     ]
     
     for c in complaints:
-        Complaint.objects.get_or_create(complaint_code=c['complaint_code'], defaults=c)
+        complaint, created = Complaint.objects.get_or_create(complaint_code=c['complaint_code'], defaults=c)
+        if created:
+            AuditLog.objects.create(
+                module=AuditLog.MODULE_COMPLAINT,
+                action=AuditLog.ACTION_CREATE,
+                object_id=complaint.id,
+                object_code=complaint.complaint_code,
+                operator=complaint.created_by,
+                timestamp=datetime.now(timezone.utc) - timedelta(hours=3),
+                details={'customer_name': complaint.customer_name, 'complaint_type': complaint.complaint_type, 'severity': complaint.severity}
+            )
+            if complaint.status in ['processing', 'analyzed', 'resolved']:
+                AuditLog.objects.create(
+                    module=AuditLog.MODULE_COMPLAINT,
+                    action=AuditLog.ACTION_UPDATE,
+                    object_id=complaint.id,
+                    object_code=complaint.complaint_code,
+                    operator=complaint.processed_by,
+                    timestamp=complaint.processed_at,
+                    details={'old_status': 'pending', 'new_status': complaint.status}
+                )
     print(f"Created {len(complaints)} complaints")
 
 def create_sample_analysis():
@@ -260,11 +320,32 @@ def create_sample_analysis():
         'conclusion': '经分析，该批次饲料营养成分符合配方要求，建议检查养殖环境和饲喂管理',
         'result': 'normal',
         'recommendations': '1. 检查鸡舍温度和通风条件\n2. 确认饲喂量和频次\n3. 观察鸡群健康状况',
-        'status': 'completed',
-        'created_by': '分析员小陈'
+        'status': 'reviewed',
+        'created_by': '分析员小陈',
+        'reviewed_by': '王主管',
+        'reviewed_at': datetime.now(timezone.utc) - timedelta(hours=1)
     }
     
-    BatchAnalysis.objects.get_or_create(analysis_code=analysis['analysis_code'], defaults=analysis)
+    batch_analysis, created = BatchAnalysis.objects.get_or_create(analysis_code=analysis['analysis_code'], defaults=analysis)
+    if created:
+        AuditLog.objects.create(
+            module=AuditLog.MODULE_ANALYSIS,
+            action=AuditLog.ACTION_CREATE,
+            object_id=batch_analysis.id,
+            object_code=batch_analysis.analysis_code,
+            operator=batch_analysis.created_by,
+            timestamp=datetime.now(timezone.utc) - timedelta(hours=3),
+            details={'batch_number': batch_analysis.batch_number, 'result': batch_analysis.result}
+        )
+        AuditLog.objects.create(
+            module=AuditLog.MODULE_ANALYSIS,
+            action=AuditLog.ACTION_REVIEW,
+            object_id=batch_analysis.id,
+            object_code=batch_analysis.analysis_code,
+            operator=batch_analysis.reviewed_by,
+            timestamp=batch_analysis.reviewed_at,
+            details={'old_status': 'completed', 'new_status': 'reviewed'}
+        )
     print("Created 1 batch analysis")
 
 if __name__ == '__main__':

@@ -4,7 +4,8 @@ from .models import Complaint, BatchAnalysis, Recipe, FeedingRecord, AuditLog, E
 from django.http import HttpRequest
 from django.shortcuts import get_object_or_404
 from django.db import transaction
-from datetime import datetime, timedelta
+from datetime import timedelta
+from django.utils import timezone
 
 api = NinjaAPI()
 
@@ -97,11 +98,11 @@ class DashboardStatsSchema(Schema):
 
 def generate_complaint_code():
     count = Complaint.objects.count() + 1
-    return f'COMP-{datetime.now().strftime("%Y%m%d")}-{count:04d}'
+    return f'COMP-{timezone.now().strftime("%Y%m%d")}-{count:04d}'
 
 def generate_analysis_code():
     count = BatchAnalysis.objects.count() + 1
-    return f'ANA-{datetime.now().strftime("%Y%m%d")}-{count:04d}'
+    return f'ANA-{timezone.now().strftime("%Y%m%d")}-{count:04d}'
 
 def log_action(module, action, obj, operator, details=None):
     AuditLog.objects.create(
@@ -153,7 +154,7 @@ def approve_recipe(request, recipe_id: int, operator: str):
     recipe = get_object_or_404(Recipe, id=recipe_id)
     recipe.status = Recipe.STATUS_APPROVED
     recipe.approved_by = operator
-    recipe.approved_at = datetime.now()
+    recipe.approved_at = timezone.now()
     recipe.save()
     log_action(AuditLog.MODULE_RECIPE, AuditLog.ACTION_APPROVE, recipe, operator)
     return {'success': True, 'message': '配方单已审核通过'}
@@ -186,7 +187,7 @@ def confirm_feeding_record(request, record_id: int, operator: str):
     record = get_object_or_404(FeedingRecord, id=record_id)
     record.status = FeedingRecord.STATUS_CONFIRMED
     record.confirmed_by = operator
-    record.confirmed_at = datetime.now()
+    record.confirmed_at = timezone.now()
     record.save()
     log_action(AuditLog.MODULE_FEEDING, AuditLog.ACTION_APPROVE, record, operator)
     return {'success': True, 'message': '投料记录已确认'}
@@ -237,10 +238,10 @@ def update_complaint(request, complaint_id: int, data: ComplaintUpdateSchema):
         complaint.description = data.description
     if data.processed_by and complaint.status == Complaint.STATUS_PENDING:
         complaint.processed_by = data.processed_by
-        complaint.processed_at = datetime.now()
+        complaint.processed_at = timezone.now()
     if data.resolved_by and complaint.status == Complaint.STATUS_RESOLVED:
         complaint.resolved_by = data.resolved_by
-        complaint.resolved_at = datetime.now()
+        complaint.resolved_at = timezone.now()
     
     complaint.save()
     log_action(AuditLog.MODULE_COMPLAINT, AuditLog.ACTION_UPDATE, complaint, 
@@ -256,7 +257,7 @@ def process_complaint(request, complaint_id: int, operator: str):
     
     complaint.status = Complaint.STATUS_PROCESSING
     complaint.processed_by = operator
-    complaint.processed_at = datetime.now()
+    complaint.processed_at = timezone.now()
     complaint.save()
     log_action(AuditLog.MODULE_COMPLAINT, AuditLog.ACTION_UPDATE, complaint, operator,
                {'old_status': Complaint.STATUS_PENDING, 'new_status': Complaint.STATUS_PROCESSING})
@@ -270,7 +271,7 @@ def resolve_complaint(request, complaint_id: int, operator: str, conclusion: str
     
     complaint.status = Complaint.STATUS_RESOLVED
     complaint.resolved_by = operator
-    complaint.resolved_at = datetime.now()
+    complaint.resolved_at = timezone.now()
     complaint.description = f'{complaint.description}\n\n处理结果: {conclusion}'
     complaint.save()
     log_action(AuditLog.MODULE_COMPLAINT, AuditLog.ACTION_RESOLVE, complaint, operator,
@@ -335,7 +336,7 @@ def update_batch_analysis(request, analysis_id: int, data: BatchAnalysisUpdateSc
     if data.reviewed_by and analysis.status == BatchAnalysis.STATUS_COMPLETED:
         analysis.status = BatchAnalysis.STATUS_REVIEWED
         analysis.reviewed_by = data.reviewed_by
-        analysis.reviewed_at = datetime.now()
+        analysis.reviewed_at = timezone.now()
     
     analysis.save()
     log_action(AuditLog.MODULE_ANALYSIS, AuditLog.ACTION_UPDATE, analysis, 
@@ -360,7 +361,7 @@ def review_analysis(request, analysis_id: int, operator: str):
     
     analysis.status = BatchAnalysis.STATUS_REVIEWED
     analysis.reviewed_by = operator
-    analysis.reviewed_at = datetime.now()
+    analysis.reviewed_at = timezone.now()
     analysis.save()
     log_action(AuditLog.MODULE_ANALYSIS, AuditLog.ACTION_REVIEW, analysis, operator)
     return {'success': True, 'message': '批次分析已复核'}
@@ -383,7 +384,7 @@ def get_dashboard_stats(request):
     pending = Complaint.objects.filter(status=Complaint.STATUS_PENDING).count()
     processing = Complaint.objects.filter(status=Complaint.STATUS_PROCESSING).count()
     risk_items = Complaint.objects.filter(severity__in=[Complaint.SEVERITY_HIGH, Complaint.SEVERITY_CRITICAL]).count()
-    recent_changes = AuditLog.objects.filter(timestamp__gte=datetime.now()-timedelta(hours=24)).count()
+    recent_changes = AuditLog.objects.filter(timestamp__gte=timezone.now()-timedelta(hours=24)).count()
     
     return {
         'pending_complaints': pending,
@@ -400,6 +401,6 @@ def get_pending_complaints(request):
 def get_risk_complaints(request):
     return Complaint.objects.filter(severity__in=[Complaint.SEVERITY_HIGH, Complaint.SEVERITY_CRITICAL])[:20]
 
-@api.get('/dashboard/recent', response=list[ComplaintSchema])
-def get_recent_complaints(request):
-    return Complaint.objects.order_by('-created_at')[:20]
+@api.get('/dashboard/recent', response=list[AuditLogSchema])
+def get_recent_changes(request):
+    return AuditLog.objects.order_by('-timestamp')[:20]
