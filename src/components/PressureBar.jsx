@@ -14,18 +14,12 @@ function formatElapsed(ms) {
   return `${m}:${String(s).padStart(2, '0')}`;
 }
 
-function getElapsedMs(startedAt) {
-  if (!startedAt) return 0;
-  const start = new Date(startedAt.replace(' ', 'T')).getTime();
-  return Date.now() - start;
-}
-
 export default function PressureBar() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [pressure, setPressure] = useState({ stuckCount: 0, incompleteEggCount: 0, openExceptionCount: 0, criticalCount: 0 });
   const [now, setNow] = useState(Date.now());
-  const [longestStuckMs, setLongestStuckMs] = useState(0);
+  const [longestStuckStartedAt, setLongestStuckStartedAt] = useState(null);
   const timerRef = useRef(null);
 
   const fetchPressure = useCallback(async () => {
@@ -36,14 +30,16 @@ export default function PressureBar() {
       const openExceptionCount = (d.openExceptions || []).length;
       const criticalCount = (d.openExceptions || []).filter(e => e.severity === 'critical').length;
 
-      let maxMs = 0;
+      let earliestStart = null;
       (d.stuckCards || []).forEach(c => {
-        const ms = getElapsedMs(c.started_at);
-        if (ms > maxMs) maxMs = ms;
+        if (c.started_at) {
+          const t = new Date(c.started_at.replace(' ', 'T')).getTime();
+          if (!earliestStart || t < earliestStart) earliestStart = t;
+        }
       });
 
       setPressure({ stuckCount, incompleteEggCount, openExceptionCount, criticalCount });
-      setLongestStuckMs(maxMs);
+      setLongestStuckStartedAt(earliestStart);
     } catch {}
   }, []);
 
@@ -63,7 +59,8 @@ export default function PressureBar() {
   const isHigh = criticalCount > 0 || stuckCount > 2;
   const isWarn = total > 2 && !isHigh;
 
-  const elapsed = longestStuckMs > 0 ? formatElapsed(longestStuckMs + (now - now)) : null;
+  const longestStuckMs = longestStuckStartedAt ? now - longestStuckStartedAt : 0;
+  const elapsed = longestStuckMs > 0 ? formatElapsed(longestStuckMs) : null;
   const elapsedHours = longestStuckMs > 0 ? Math.floor(longestStuckMs / 3600000) : 0;
 
   return (
@@ -92,7 +89,7 @@ export default function PressureBar() {
           <div className="bar-item">
             <ClockCircleOutlined style={{ color: elapsedHours >= 4 ? '#e63946' : elapsedHours >= 2 ? '#f4a261' : '#00b4d8' }} />
             <span className="timer-elapsed" style={{ color: elapsedHours >= 4 ? '#e63946' : elapsedHours >= 2 ? '#f4a261' : '#00b4d8', textShadow: elapsedHours >= 2 ? '0 0 8px rgba(230,57,70,0.4)' : 'none' }}>
-              {formatElapsed(longestStuckMs + (now - now))}
+              {formatElapsed(longestStuckMs)}
             </span>
             <span className="bar-label">最长卡住</span>
           </div>

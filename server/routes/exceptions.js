@@ -5,7 +5,7 @@ const router = Router();
 
 router.get('/', (req, res) => {
   const db = getDb();
-  const { status, severity, house_id, handler_role, source_type } = req.query;
+  const { status, severity, house_id, handler_role, source_type, source_id } = req.query;
 
   let sql = `
     SELECT e.*,
@@ -23,6 +23,7 @@ router.get('/', (req, res) => {
   if (house_id) { sql += ' AND e.house_id = ?'; params.push(house_id); }
   if (handler_role) { sql += ' AND e.handler_role = ?'; params.push(handler_role); }
   if (source_type) { sql += ' AND e.source_type = ?'; params.push(source_type); }
+  if (source_id) { sql += ' AND e.source_id = ?'; params.push(source_id); }
 
   sql += " ORDER BY CASE e.severity WHEN 'critical' THEN 1 WHEN 'urgent' THEN 2 WHEN 'warning' THEN 3 WHEN 'info' THEN 4 END, e.created_at DESC";
 

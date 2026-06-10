@@ -30,6 +30,7 @@ export const api = {
     get: (id) => request(`/egg-records/${id}`),
     history: (params) => request(`/egg-records/history?${new URLSearchParams(params)}`),
     create: (data) => request('/egg-records', { method: 'POST', body: JSON.stringify(data) }),
+    update: (id, data) => request(`/egg-records/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
     confirm: (id) => request(`/egg-records/${id}/confirm`, { method: 'PUT' }),
     markAbnormal: (id, reason) => request(`/egg-records/${id}/mark-abnormal`, { method: 'PUT', body: JSON.stringify({ reason }) }),
   },

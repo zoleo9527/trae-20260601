@@ -52,6 +52,7 @@ export default function EggRecordsPage() {
   const [filters, setFilters] = useState({ date: dayjs().format('YYYY-MM-DD') });
   const [detailModal, setDetailModal] = useState({ open: false, data: null });
   const [createModal, setCreateModal] = useState(false);
+  const [editingRecordId, setEditingRecordId] = useState(null);
   const [abnormalModal, setAbnormalModal] = useState({ open: false, id: null });
   const [exceptionDrawer, setExceptionDrawer] = useState({ open: false, exceptionId: null });
   const [houses, setHouses] = useState([]);
@@ -116,15 +117,37 @@ export default function EggRecordsPage() {
     }
   };
 
+  const handleOpenException = async (recordId) => {
+    try {
+      const d = await api.exceptions.list({ source_type: 'egg_record', source_id: recordId });
+      const excs = d.exceptions || [];
+      if (excs.length > 0) {
+        setExceptionDrawer({ open: true, exceptionId: excs[0].id });
+      } else {
+        message.warning('未找到关联异常');
+      }
+    } catch (e) {
+      message.error(e.message);
+    }
+  };
+
   const handleCreate = async () => {
     try {
       const values = await createForm.validateFields();
-      await api.eggRecords.create({
+      const payload = {
         ...values,
         date: values.date.format('YYYY-MM-DD'),
-      });
-      message.success('产蛋记录已创建');
+        inspection_card_id: values.inspection_card_id || undefined,
+      };
+      if (editingRecordId) {
+        await api.eggRecords.update(editingRecordId, payload);
+        message.success('产蛋记录已更新');
+      } else {
+        await api.eggRecords.create(payload);
+        message.success('产蛋记录已创建');
+      }
       setCreateModal(false);
+      setEditingRecordId(null);
       createForm.resetFields();
       fetchData();
     } catch (e) {
@@ -226,13 +249,27 @@ export default function EggRecordsPage() {
         <Space size={4}>
           <Button size="small" type="link" icon={<EyeOutlined />} onClick={() => handleViewDetail(r.id)} style={{ color: '#4fc3f7' }}>详情</Button>
           {r.status === 'pending' && r.sorter_id === user?.id && (
-            <Tooltip title="录入产蛋数据"><Button size="small" type="primary" onClick={() => { createForm.setFieldsValue({ house_id: r.house_id, date: dayjs(r.date), shift: r.shift, sorter_id: r.sorter_id }); setCreateModal(true); }}>录入</Button></Tooltip>
+            <Tooltip title="录入产蛋数据"><Button size="small" type="primary" onClick={() => {
+              setEditingRecordId(r.id);
+              createForm.setFieldsValue({
+                house_id: r.house_id,
+                date: dayjs(r.date),
+                shift: r.shift,
+                sorter_id: r.sorter_id,
+                inspection_card_id: r.inspection_card_id || undefined,
+              });
+              fetchInspections(r.house_id, r.date);
+              setCreateModal(true);
+            }}>录入</Button></Tooltip>
           )}
           {r.status === 'recorded' && user?.role === 'manager' && (
             <Button size="small" type="primary" style={{ background: '#13c2c2' }} onClick={() => handleConfirm(r.id)}>确认</Button>
           )}
           {r.status === 'pending' && r.sorter_id === user?.id && (
             <Button size="small" danger onClick={() => setAbnormalModal({ open: true, id: r.id })}>标记异常</Button>
+          )}
+          {r.status === 'abnormal' && (
+            <Tooltip title="查看关联异常"><Button size="small" danger icon={<WarningOutlined />} onClick={() => handleOpenException(r.id)}>异常</Button></Tooltip>
           )}
         </Space>
       ),
@@ -248,7 +285,7 @@ export default function EggRecordsPage() {
         <Space>
           <Button icon={<DownloadOutlined />} onClick={handleExport} style={{ background: '#16213e', borderColor: '#2a3a5c', color: '#b0b0b0' }}>导出CSV</Button>
           {(user?.role === 'sorter' || user?.role === 'manager') && (
-            <Button type="primary" icon={<PlusOutlined />} onClick={() => setCreateModal(true)}>新建记录</Button>
+            <Button type="primary" icon={<PlusOutlined />} onClick={() => { setEditingRecordId(null); createForm.resetFields(); setCreateModal(true); }}>新建记录</Button>
           )}
         </Space>
       </div>
@@ -422,11 +459,11 @@ export default function EggRecordsPage() {
       </Modal>
 
       <Modal
-        title={<span style={{ color: '#e0e0e0' }}>新建/录入产蛋记录</span>}
+        title={<span style={{ color: '#e0e0e0' }}>{editingRecordId ? '录入产蛋数据' : '新建产蛋记录'}</span>}
         open={createModal}
         onOk={handleCreate}
-        onCancel={() => { setCreateModal(false); createForm.resetFields(); setInspections([]); }}
-        okText="提交"
+        onCancel={() => { setCreateModal(false); setEditingRecordId(null); createForm.resetFields(); setInspections([]); }}
+        okText={editingRecordId ? '提交录入' : '创建'}
         width={600}
         styles={{ content: { background: '#16213e', border: '1px solid #2a3a5c' }, header: { background: '#16213e', borderBottom: '1px solid #2a3a5c' }, body: { background: '#16213e' } }}
       >

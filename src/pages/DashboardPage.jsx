@@ -186,15 +186,6 @@ export default function DashboardPage() {
     return () => clearInterval(timerRef.current);
   }, []);
 
-  if (loading) {
-    return (
-      <div style={{ textAlign: 'center', padding: 80, background: '#0f0f1e', minHeight: '60vh' }}>
-        <Spin size="large" />
-        <div style={{ marginTop: 16, color: '#8c8c8c' }}>加载压力数据...</div>
-      </div>
-    );
-  }
-
   const {
     pendingInspections = [],
     stuckCards = [],
@@ -219,6 +210,15 @@ export default function DashboardPage() {
       return tb - ta;
     });
   }, [responsibilityMap]);
+
+  if (loading) {
+    return (
+      <div style={{ textAlign: 'center', padding: 80, background: '#0f0f1e', minHeight: '60vh' }}>
+        <Spin size="large" />
+        <div style={{ marginTop: 16, color: '#8c8c8c' }}>加载压力数据...</div>
+      </div>
+    );
+  }
 
   return (
     <div style={{ background: '#0f0f1e', minHeight: '100vh', padding: '0 0 32px 0' }}>

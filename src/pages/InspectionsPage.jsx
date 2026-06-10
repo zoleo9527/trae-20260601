@@ -181,6 +181,20 @@ export default function InspectionsPage() {
     }
   };
 
+  const handleOpenException = async (cardId) => {
+    try {
+      const d = await api.exceptions.list({ source_type: 'inspection', source_id: cardId });
+      const excs = d.exceptions || [];
+      if (excs.length > 0) {
+        setExceptionDrawer({ open: true, exceptionId: excs[0].id });
+      } else {
+        message.warning('未找到关联异常');
+      }
+    } catch (e) {
+      message.error(e.message);
+    }
+  };
+
   const handleExport = () => {
     const params = {};
     if (filters.date) params.date = filters.date;
@@ -258,7 +272,7 @@ export default function InspectionsPage() {
             </Button>
           )}
           {r.status === 'abnormal' && (
-            <Tooltip title="查看关联异常"><Button size="small" danger icon={<WarningOutlined />}>异常</Button></Tooltip>
+            <Tooltip title="查看关联异常"><Button size="small" danger icon={<WarningOutlined />} onClick={() => handleOpenException(r.id)}>异常</Button></Tooltip>
           )}
         </Space>
       ),

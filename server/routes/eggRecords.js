@@ -122,6 +122,41 @@ router.post('/', (req, res) => {
   res.json({ id: r.lastInsertRowid });
 });
 
+router.put('/:id', (req, res) => {
+  const db = getDb();
+  const record = db.prepare('SELECT * FROM egg_records WHERE id = ?').get(req.params.id);
+  if (!record) return res.status(404).json({ error: '产蛋记录不存在' });
+
+  const {
+    inspection_card_id, total_count, grade_a, grade_b, grade_c,
+    cracked, dirty, soft_shell, notes, status
+  } = req.body;
+
+  const nextStatus = status || (record.status === 'pending' ? 'recorded' : record.status);
+
+  db.prepare(`
+    UPDATE egg_records SET
+      inspection_card_id = ?, total_count = ?, grade_a = ?, grade_b = ?, grade_c = ?,
+      cracked = ?, dirty = ?, soft_shell = ?, notes = ?, status = ?,
+      updated_at = datetime('now','localtime')
+    WHERE id = ?
+  `).run(
+    inspection_card_id || record.inspection_card_id,
+    total_count ?? record.total_count,
+    grade_a ?? record.grade_a,
+    grade_b ?? record.grade_b,
+    grade_c ?? record.grade_c,
+    cracked ?? record.cracked,
+    dirty ?? record.dirty,
+    soft_shell ?? record.soft_shell,
+    notes ?? record.notes,
+    nextStatus,
+    req.params.id
+  );
+
+  res.json({ ok: true });
+});
+
 router.put('/:id/confirm', (req, res) => {
   const db = getDb();
   const record = db.prepare('SELECT status, house_id, total_count, grade_a, grade_b, grade_c, cracked, dirty, soft_shell FROM egg_records WHERE id = ?').get(req.params.id);
