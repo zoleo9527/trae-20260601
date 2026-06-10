@@ -428,7 +428,9 @@ def get_stuck_items(
         days = hours // 24
         remaining_hours = hours % 24
         if days > 0:
-            return f'{days}天{hours}小时'
+            if remaining_hours > 0:
+                return f'{days}天{remaining_hours}小时'
+            return f'{days}天'
         return f'{hours}小时' if hours > 0 else '不足1小时'
     
     stuck_items = []
