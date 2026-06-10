@@ -65,7 +65,7 @@ class AfterSaleOrder(models.Model):
     problem_desc = models.TextField()
     photos_ref = models.JSONField(default=list, blank=True)
     status = models.CharField(max_length=20, choices=AfterSaleStatus.choices, default=AfterSaleStatus.PENDING)
-    current_role = models.CharField(max_length=20, choices=Role.choices, default=Role.SALES_STAFF)
+    current_role = models.CharField(max_length=20, choices=Role.choices, default=Role.PLANTER)
     current_handler = models.ForeignKey(
         User, on_delete=models.SET_NULL, null=True, blank=True, related_name='handling_aftersale'
     )

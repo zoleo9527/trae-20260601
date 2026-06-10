@@ -388,7 +388,7 @@ def create_aftersale(request, payload: AfterSaleCreateIn):
             problem_desc=payload.problem_desc,
             photos_ref=payload.photos_ref,
             status=AfterSaleStatus.PENDING,
-            current_role=Role.SALES_STAFF,
+            current_role=Role.PLANTER,
             created_by=user,
             deadline_at=deadline,
         )
@@ -396,11 +396,13 @@ def create_aftersale(request, payload: AfterSaleCreateIn):
             aftersale=order, action='创建售后单', action_role=role,
             operator=user, operator_name=profile.real_name if profile else user.username,
             status_to=AfterSaleStatus.PENDING,
-            remark=f'创建售后单，品种：{payload.flower_name}，数量：{payload.quantity}{payload.unit}',
+            remark=(f'销售内勤创建售后单，派单至种植员环节；'
+                    f'品种：{payload.flower_name}，数量：{payload.quantity}{payload.unit}；'
+                    f'问题：{payload.problem_desc}'),
         )
         send_role_broadcast(
-            'urge', f'新售后单{order_no}待受理：{payload.flower_name} {payload.quantity}{payload.unit}',
-            Role.SALES_STAFF, aftersale=order,
+            'urge', f'新售后单{order_no}待种植员受理：{payload.flower_name} {payload.quantity}{payload.unit}，请核查品质与可补发量',
+            Role.PLANTER, aftersale=order,
         )
     return _make_aftersale_detail(order)
 
@@ -422,7 +424,7 @@ def get_aftersale_detail(request, aid: int):
 
 
 @aftersale_router.post('/{aid}/accept', response=AfterSaleDetailOut)
-@require_roles([Role.SALES_STAFF, Role.ADMIN])
+@require_roles([Role.PLANTER, Role.ADMIN])
 def accept_aftersale(request, aid: int, payload: StatusUpdateIn):
     user = request.user
     profile = get_profile(request)
@@ -432,6 +434,8 @@ def accept_aftersale(request, aid: int, payload: StatusUpdateIn):
             order = AfterSaleOrder.objects.select_for_update().get(id=aid)
         except AfterSaleOrder.DoesNotExist:
             raise HttpError(404, '售后单不存在')
+        if order.current_role != role and role != Role.ADMIN:
+            raise HttpError(403, f'当前环节为【{_display(order.current_role, Role)}】，您无权受理')
         old = order.status
         order.status = AfterSaleStatus.IN_PROGRESS
         order.current_handler = user
@@ -440,7 +444,7 @@ def accept_aftersale(request, aid: int, payload: StatusUpdateIn):
             aftersale=order, action='受理', action_role=role,
             operator=user, operator_name=profile.real_name if profile else user.username,
             status_from=old, status_to=AfterSaleStatus.IN_PROGRESS,
-            remark=payload.remark or '销售内勤已受理',
+            remark=payload.remark or '种植员已受理，正在核查花品情况',
         )
     return _make_aftersale_detail(AfterSaleOrder.objects.get(id=aid))
 
@@ -633,7 +637,7 @@ def complete_aftersale(request, aid: int, payload: StatusUpdateIn):
 
 
 @aftersale_router.post('/{aid}/to-loss', response=AfterSaleDetailOut)
-@require_roles([Role.SALES_STAFF, Role.PACKAGE_LEAD, Role.ADMIN])
+@require_roles([Role.PLANTER, Role.SALES_STAFF, Role.PACKAGE_LEAD, Role.ADMIN])
 def mark_to_loss(request, aid: int, payload: LossTransitionIn):
     user = request.user
     profile = get_profile(request)
@@ -774,7 +778,7 @@ def get_loss_from_aftersale(request, aid: int):
 
 
 @loss_router.post('', response=LossDetailOut)
-@require_roles([Role.SALES_STAFF, Role.ADMIN])
+@require_roles([Role.PLANTER, Role.SALES_STAFF, Role.PACKAGE_LEAD, Role.ADMIN])
 def create_loss_from_aftersale(request, payload: LossCreateFromAfterSaleIn):
     try:
         aftersale = AfterSaleOrder.objects.select_for_update().select_related(
