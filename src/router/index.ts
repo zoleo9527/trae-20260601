@@ -35,6 +35,7 @@ const routes = [
         name: 'TransferDetail',
         component: () => import('@/pages/TransferDetail.vue'),
         props: true,
+        meta: { roles: ['繁育员', '场长'] },
       },
       {
         path: 'assessment',
@@ -47,6 +48,7 @@ const routes = [
         name: 'AssessmentDetail',
         component: () => import('@/pages/AssessmentDetail.vue'),
         props: true,
+        meta: { roles: ['兽医', '场长'] },
       },
       {
         path: 'log',

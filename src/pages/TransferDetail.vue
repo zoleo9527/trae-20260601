@@ -45,6 +45,8 @@ const responsibilityHint = computed(() => {
   return null
 })
 
+const canViewAssessment = computed(() => auth.role === '兽医' || auth.role === '场长')
+
 async function fetchDetail() {
   loading.value = true
   try {
@@ -150,6 +152,7 @@ onMounted(fetchDetail)
         <div class="flex items-center justify-between mb-3">
           <h3 class="text-sm font-medium text-slate-300">关联评估</h3>
           <button
+            v-if="canViewAssessment"
             class="text-xs text-emerald-400 hover:text-emerald-300 transition-colors"
             @click="goAssessment(transfer.assessment.id)"
           >

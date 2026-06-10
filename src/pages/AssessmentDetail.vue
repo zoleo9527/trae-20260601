@@ -43,6 +43,8 @@ const responsibilityHint = computed(() => {
   return null
 })
 
+const canViewTransfer = computed(() => auth.role === '繁育员' || auth.role === '场长')
+
 async function fetchDetail() {
   loading.value = true
   try {
@@ -143,7 +145,7 @@ onMounted(fetchDetail)
         <div class="flex items-center justify-between mb-3">
           <h3 class="text-sm font-medium text-slate-300">转栏信息</h3>
           <button
-            v-if="assessment.transfer"
+            v-if="assessment.transfer && canViewTransfer"
             class="text-xs text-emerald-400 hover:text-emerald-300 transition-colors"
             @click="goTransfer(assessment.transfer_id)"
           >
