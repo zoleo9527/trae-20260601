@@ -48,6 +48,25 @@
       </div>
     </div>
 
+    <div style="padding:16px; background:#fef0f0; border-radius:6px; margin-bottom:16px; border:1px solid #fde2e2;">
+      <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
+        <label style="display:flex; align-items:center; gap:6px; cursor:pointer; font-weight:500; color:#f56c6c;">
+          <input type="checkbox" v-model="form.responsibilityUnclear" style="width:16px; height:16px;" />
+          ⚠️ 责任归属待确认
+        </label>
+      </div>
+      <div style="font-size:12px; color:#909399; margin-bottom:8px;">
+        当投诉登记与补偿发放之间责任界限不清晰时，请勾选并填写说明。此标记将在全流程中持续显示。
+      </div>
+      <textarea 
+        v-model="form.responsibilityNote" 
+        class="form-textarea" 
+        :disabled="!form.responsibilityUnclear"
+        placeholder="请说明责任不清的具体情况，如：果园管理与供应商品控可能均有责任…"
+        style="min-height:60px;"
+      ></textarea>
+    </div>
+
     <div class="form-group">
       <label class="form-label required">指派核实人</label>
       <select v-model="form.assignedTo" class="form-select">
@@ -70,6 +89,13 @@
         <li><b>采摘向导</b>：负责现场核实情况、判断是否需要补偿、提出补偿方案</li>
         <li><b>仓库员</b>：负责补偿物资准备、登记发放、可退回并注明原因</li>
       </ul>
+    </div>
+
+    <div style="margin-top:12px; padding:12px 16px; background:#f4f4f5; border-radius:6px; font-size:12px; color:#909399; line-height:1.8;">
+      <b style="color:#606266;">📋 当前简化实现说明</b><br/>
+      · 第三方通知（短信/微信）：未接入，状态变更时无自动推送<br/>
+      · 附件上传：未实现，旧台账和沟通截图仅作线下参考<br/>
+      · 账号体系：右上角角色切换模拟登录，未接入真实账号权限系统
     </div>
   </div>
 </template>
@@ -94,6 +120,8 @@ const form = ref({
   orchardArea: '',
   description: '',
   registerRemark: '',
+  responsibilityUnclear: false,
+  responsibilityNote: '',
   assignedTo: ''
 })
 

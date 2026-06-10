@@ -96,7 +96,7 @@ router.get('/:id', (req, res) => {
 });
 
 router.post('/', (req, res) => {
-  const { type, title, visitorName, visitorPhone, orchardArea, description, registerRemark, assignedTo } = req.body;
+  const { type, title, visitorName, visitorPhone, orchardArea, description, registerRemark, assignedTo, responsibilityUnclear, responsibilityNote } = req.body;
   const registerBy = req.body.registerBy || 'u1';
   const registerUser = getUserById(registerBy);
   const assignedUser = getUserById(assignedTo || 'u2');
@@ -119,6 +119,8 @@ router.post('/', (req, res) => {
     registerByName: registerUser?.name || '系统',
     registerTime: now,
     registerRemark: registerRemark || '',
+    responsibilityUnclear: !!responsibilityUnclear,
+    responsibilityNote: responsibilityNote || '',
     status: STATUS.PENDING_VERIFY,
     assignedTo: assignedTo || 'u2',
     assignedToName: assignedUser?.name || '',

@@ -52,6 +52,17 @@
       </div>
     </div>
 
+    <div v-if="complaint.responsibilityUnclear" class="card" style="border:2px solid #f56c6c; background:#fef0f0;">
+      <div class="card-title" style="color:#f56c6c;">⚠️ 责任归属待确认</div>
+      <div class="detail-item" style="grid-column: span 2;">
+        <span class="detail-label">责任说明：</span>
+        <span class="detail-value">{{ complaint.responsibilityNote || '未填写' }}</span>
+      </div>
+      <div style="font-size:12px; color:#f56c6c; margin-top:8px;">
+        此标记由登记人标注，将在核实、补偿发放、退回、结案全流程中持续保留。各环节处理人请注意责任划分。
+      </div>
+    </div>
+
     <div v-if="complaint.verifyResult || complaint.status !== 'PENDING_VERIFY'" class="card">
       <div class="card-title">🔍 现场核实</div>
       <div class="detail-grid">
@@ -84,6 +95,10 @@
         </span>
       </div>
       <div class="detail-grid">
+        <div v-if="complaint.responsibilityUnclear" class="detail-item" style="grid-column: span 2; padding:8px 0;">
+          <span class="detail-label" style="color:#f56c6c;">⚠️ 责任归属待确认：</span>
+          <span class="detail-value" style="color:#f56c6c;">{{ complaint.responsibilityNote || '未填写' }}</span>
+        </div>
         <div class="detail-item" style="grid-column: span 2;">
           <span class="detail-label">补偿方案：</span>
           <span class="detail-value">{{ complaint.compensationPlan || '-' }}</span>
@@ -119,6 +134,10 @@
     <div v-if="complaint.returnReason" class="card">
       <div class="card-title">↩️ 退回记录</div>
       <div class="detail-grid">
+        <div v-if="complaint.responsibilityUnclear" class="detail-item" style="grid-column: span 2; padding:8px 0;">
+          <span class="detail-label" style="color:#f56c6c;">⚠️ 责任归属待确认：</span>
+          <span class="detail-value" style="color:#f56c6c;">{{ complaint.responsibilityNote || '未填写' }}</span>
+        </div>
         <div class="detail-item" style="grid-column: span 2;">
           <span class="detail-label">退回原因：</span>
           <span class="detail-value">{{ complaint.returnReason }}</span>
@@ -137,6 +156,10 @@
     <div v-if="complaint.status === 'COMPLETED'" class="card">
       <div class="card-title">✅ 结案记录</div>
       <div class="detail-grid">
+        <div v-if="complaint.responsibilityUnclear" class="detail-item" style="grid-column: span 2; padding:8px 0;">
+          <span class="detail-label" style="color:#f56c6c;">⚠️ 责任归属待确认：</span>
+          <span class="detail-value" style="color:#f56c6c;">{{ complaint.responsibilityNote || '未填写' }}</span>
+        </div>
         <div class="detail-item" style="grid-column: span 2;">
           <span class="detail-label">结案说明：</span>
           <span class="detail-value">{{ complaint.closeRemark || '-' }}</span>

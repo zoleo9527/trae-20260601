@@ -9,6 +9,7 @@
           <th>游客</th>
           <th>区域</th>
           <th>状态</th>
+          <th>责任</th>
           <th>登记时间</th>
           <th>处理人</th>
           <th v-if="showActions">操作</th>
@@ -27,6 +28,12 @@
             <span :class="['status-tag', getStatusClass(item.status)]">
               {{ getStatusLabel(item.status) }}
             </span>
+          </td>
+          <td>
+            <span v-if="item.responsibilityUnclear" class="status-tag status-danger" title="责任归属待确认">
+              ⚠️ 待确认
+            </span>
+            <span v-else style="color:#67c23a; font-size:12px;">已明确</span>
           </td>
           <td>{{ item.registerTime }}</td>
           <td>{{ item.assignedToName || '-' }}</td>
