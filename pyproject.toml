@@ -1,0 +1,18 @@
+[project]
+name = "pig-farm-vaccine-medication"
+version = "0.1.0"
+description = "种猪场疫苗免疫与用药记录管理系统后端服务"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.34",
+    "sqlalchemy>=2.0",
+    "pydantic>=2.0",
+    "python-dateutil>=2.9",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "httpx>=0.28",
+]
