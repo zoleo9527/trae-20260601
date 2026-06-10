@@ -78,6 +78,16 @@ async function loadMeta() {
   } catch (e) {
     console.error('加载元数据失败', e)
     types.value = ['服务态度', '采摘体验', '果品质量', '环境卫生', '收费问题', '安全问题', '其他']
+    statusList.value = {
+      PENDING_VERIFY: '待核实',
+      VERIFYING: '核实中',
+      PENDING_COMPENSATION: '待补偿',
+      COMPENSATING: '发放中',
+      PENDING_CLOSE: '待结案',
+      COMPLETED: '已完成',
+      REJECTED: '已驳回',
+      RETURNED: '已退回'
+    }
   }
 }
 

@@ -189,7 +189,7 @@
     <div v-if="showActions" class="card">
       <div class="card-title">⚙️ 操作</div>
       <div class="action-bar">
-        <button v-if="canClaim" class="btn btn-primary" @click="showVerifyModal = true">
+        <button v-if="canClaim" class="btn btn-primary" @click="handleStartVerify">
           开始核实
         </button>
         <button v-if="canVerify" class="btn btn-primary" @click="showVerifyModal = true">
@@ -327,7 +327,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { 
   getComplaintDetail, verifyComplaint, compensateComplaint,
-  returnComplaint, closeComplaint, addRemark
+  returnComplaint, closeComplaint, addRemark, claimComplaint
 } from '../api/complaint'
 import { STATUS_LABEL } from '../constants'
 
@@ -425,6 +425,19 @@ async function loadDetail() {
     }
   } catch (e) {
     console.error('加载失败', e)
+  }
+}
+
+async function handleStartVerify() {
+  try {
+    const res = await claimComplaint(route.params.id, userId.value)
+    if (res.code === 0) {
+      complaint.value = res.data
+      showVerifyModal.value = true
+    }
+  } catch (e) {
+    console.error('认领失败', e)
+    alert('认领失败，请重试')
   }
 }
 

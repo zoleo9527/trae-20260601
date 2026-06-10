@@ -88,10 +88,29 @@ async function loadUsers() {
   }
 }
 
-onMounted(() => {
+function syncUserIdToStorage() {
+  const uid = currentUserId.value
+  if (uid) {
+    localStorage.setItem('currentUserId', uid)
+  } else {
+    const fallbackMap = {
+      CUSTOMER_SERVICE: 'u1',
+      PICKING_GUIDE: 'u2',
+      WAREHOUSE_STAFF: 'u4'
+    }
+    localStorage.setItem('currentUserId', fallbackMap[currentRole.value] || 'u1')
+  }
+}
+
+async function init() {
   const savedRole = localStorage.getItem('currentRole')
   if (savedRole) currentRole.value = savedRole
-  loadRoles()
-  loadUsers()
+
+  await Promise.all([loadRoles(), loadUsers()])
+  syncUserIdToStorage()
+}
+
+onMounted(() => {
+  init()
 })
 </script>

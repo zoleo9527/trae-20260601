@@ -53,7 +53,13 @@ import ComplaintTable from '../components/ComplaintTable.vue'
 const router = useRouter()
 const complaints = ref([])
 const role = ref(localStorage.getItem('currentRole') || 'CUSTOMER_SERVICE')
-const userId = ref(localStorage.getItem('currentUserId') || 'u1')
+const fallbackUserId = {
+  CUSTOMER_SERVICE: 'u1',
+  PICKING_GUIDE: 'u2',
+  WAREHOUSE_STAFF: 'u4'
+}
+const savedUid = localStorage.getItem('currentUserId')
+const userId = ref(savedUid && savedUid.length ? savedUid : fallbackUserId[role.value] || 'u1')
 
 const pendingVerifyList = computed(() => 
   complaints.value.filter(c => c.status === 'PENDING_VERIFY' || c.status === 'VERIFYING')

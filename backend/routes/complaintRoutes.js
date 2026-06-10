@@ -32,6 +32,14 @@ function addStatusHistory(complaint, status, operatorName, remark) {
   });
 }
 
+router.get('/meta/types', (req, res) => {
+  res.json({ code: 0, data: COMPLAINT_TYPES });
+});
+
+router.get('/meta/statuses', (req, res) => {
+  res.json({ code: 0, data: STATUS_LABEL });
+});
+
 router.get('/', (req, res) => {
   const { status, type, keyword, role, userId } = req.query;
   let result = [...complaints];
@@ -298,14 +306,6 @@ router.post('/:id/remarks', (req, res) => {
   addRemark(complaint, content, operator?.name || '', type || '补充');
 
   res.json({ code: 0, data: complaint.remarkList, message: '备注已添加' });
-});
-
-router.get('/meta/types', (req, res) => {
-  res.json({ code: 0, data: COMPLAINT_TYPES });
-});
-
-router.get('/meta/statuses', (req, res) => {
-  res.json({ code: 0, data: STATUS_LABEL });
 });
 
 module.exports = router;
