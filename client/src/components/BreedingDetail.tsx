@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Card, Tag, Button, Form, Input, Select, DatePicker, Modal, message, Table, Space } from 'antd'
-import { ArrowLeftOutlined, PlusOutlined, CheckOutlined, CloseOutlined, AlertCircleOutlined } from '@ant-design/icons'
-import { BreedingRecord, BreedingNote, NoteStatus, UserRole, CattleNote } from '../types'
+import { ArrowLeftOutlined, PlusOutlined, CheckOutlined, CloseOutlined, InfoCircleOutlined } from '@ant-design/icons'
+import { BreedingRecord, BreedingNote, NoteStatus, UserRole, CattleNote, BreedingStatus } from '../types'
 import { breedingNotesApi, cattleNotesApi, authApi, breedingApi } from '../api'
 import { getStatusText, getBreedingTypeText, formatDate, formatDateTime } from '../utils/format'
 import { useUserStore } from '../store/userStore'
@@ -94,7 +94,7 @@ export default function BreedingDetail({ record, onBack }: BreedingDetailProps) 
     }
   }
 
-  const handleUpdateStatus = async (values: { status: string }) => {
+  const handleUpdateStatus = async (values: { status: BreedingStatus }) => {
     try {
       await breedingApi.updateRecord(record.id, { status: values.status })
       message.success(`状态已更新为${getStatusText(values.status, 'breeding')}`)
@@ -270,7 +270,7 @@ export default function BreedingDetail({ record, onBack }: BreedingDetailProps) 
 
           {notes.length === 0 && (
             <div style={{ textAlign: 'center', padding: 32, color: '#999' }}>
-              <AlertCircleOutlined style={{ fontSize: 48, marginBottom: 16 }} />
+              <InfoCircleOutlined style={{ fontSize: 48, marginBottom: 16 }} />
               <p>暂无备注记录</p>
             </div>
           )}

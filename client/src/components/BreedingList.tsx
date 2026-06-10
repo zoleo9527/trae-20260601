@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react'
 import { Table, Tag, Input, Button, Card, Space, message, DatePicker } from 'antd'
 import { SearchOutlined, PlusOutlined, EyeOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons'
-import { breedingApi, cattleApi } from '../api'
-import { BreedingRecord, Cattle } from '../types'
+import { breedingApi } from '../api'
+import { BreedingRecord } from '../types'
 import { getStatusText, getBreedingTypeText, formatDate } from '../utils/format'
 import dayjs, { Dayjs } from 'dayjs'
 
@@ -12,7 +12,6 @@ interface BreedingListProps {
 
 export default function BreedingList({ onSelectRecord }: BreedingListProps) {
   const [records, setRecords] = useState<BreedingRecord[]>([])
-  const [cattleList, setCattleList] = useState<Cattle[]>([])
   const [loading, setLoading] = useState(false)
   const [searchKeyword, setSearchKeyword] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('')
@@ -20,7 +19,6 @@ export default function BreedingList({ onSelectRecord }: BreedingListProps) {
 
   useEffect(() => {
     loadRecords()
-    loadCattle()
   }, [searchKeyword, statusFilter, dateRange])
 
   const loadRecords = async () => {
@@ -211,10 +209,10 @@ export default function BreedingList({ onSelectRecord }: BreedingListProps) {
         </select>
         <DatePicker.RangePicker
           placeholder={['开始日期', '结束日期']}
-          value={dateRange ? [dateRange[0], dateRange[1]] : undefined}
+          value={dateRange}
           onChange={(dates) => {
-            if (dates) {
-              setDateRange([dates[0]?.format('YYYY-MM-DD') || '', dates[1]?.format('YYYY-MM-DD') || ''])
+            if (dates && dates[0] && dates[1]) {
+              setDateRange([dates[0], dates[1]])
             } else {
               setDateRange(null)
             }

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Card, Tag, Button, Form, Input, Select, DatePicker, Modal, message, Table, Space } from 'antd';
-import { ArrowLeftOutlined, PlusOutlined, CheckOutlined, CloseOutlined, AlertCircleOutlined } from '@ant-design/icons';
-import { Cattle, CattleNote, NoteType, NoteStatus, UserRole } from '../types';
+import { ArrowLeftOutlined, PlusOutlined, CheckOutlined, CloseOutlined, InfoCircleOutlined } from '@ant-design/icons';
+import { Cattle, CattleNote, NoteType, NoteStatus, UserRole, CattleStatus } from '../types';
 import { cattleNotesApi, authApi, cattleApi } from '../api';
 import { getStatusText, getNoteTypeText, formatDate, formatDateTime } from '../utils/format';
 import { useUserStore } from '../store/userStore';
@@ -84,7 +84,7 @@ export default function CattleDetail({ cattle, onBack }: CattleDetailProps) {
  message.error('更新备注状态失败');
  }
  };
- const handleUpdateCattleStatus = async (values: { status: string }) => {
+ const handleUpdateCattleStatus = async (values: { status: CattleStatus }) => {
   try {
     await cattleApi.updateCattle(cattle.id, { status: values.status });
     message.success(`牛只状态已更新为${getStatusText(values.status, 'cattle')}`);
@@ -220,7 +220,7 @@ export default function CattleDetail({ cattle, onBack }: CattleDetailProps) {
  <Table dataSource={notes} columns={noteColumns} loading={loading} rowKey="id" pagination={{ pageSize: 5 }} scroll={{ x: true }}/>
 
  {notes.length === 0 && (<div style={{ textAlign: 'center', padding: 32, color: '#999' }}>
- <AlertCircleOutlined style={{ fontSize: 48, marginBottom: 16 }}/>
+ <InfoCircleOutlined style={{ fontSize: 48, marginBottom: 16 }}/>
  <p>暂无备注记录</p>
  </div>)}
  </Card>
