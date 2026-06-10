@@ -5,7 +5,6 @@ import com.parking.entity.AlertNotification;
 import com.parking.entity.GateFault;
 import com.parking.entity.MonthlyRental;
 import com.parking.entity.RemoteRelease;
-import com.parking.entity.SupplementRecord;
 import com.parking.enums.FaultStatus;
 import com.parking.enums.ReleaseStatus;
 import com.parking.service.*;
@@ -104,7 +103,7 @@ public class OperationsController {
     }
 
     @GetMapping("/supplements")
-    public ApiResponse<PageResult<SupplementRecord>> querySupplementRecords(
+    public ApiResponse<PageResult<SupplementRecordVO>> querySupplementRecords(
             @RequestParam(required = false) String plateNumber,
             @RequestParam(required = false) Long gateId,
             @RequestParam(required = false) String supplementType,
@@ -117,12 +116,12 @@ public class OperationsController {
     }
 
     @GetMapping("/supplements/by-release/{releaseId}")
-    public ApiResponse<List<SupplementRecord>> getSupplementsByRelease(@PathVariable Long releaseId) {
+    public ApiResponse<List<SupplementRecordVO>> getSupplementsByRelease(@PathVariable Long releaseId) {
         return ApiResponse.ok(supplementRecordService.getByReleaseId(releaseId));
     }
 
     @GetMapping("/supplements/by-fault/{faultId}")
-    public ApiResponse<List<SupplementRecord>> getSupplementsByFault(@PathVariable Long faultId) {
+    public ApiResponse<List<SupplementRecordVO>> getSupplementsByFault(@PathVariable Long faultId) {
         return ApiResponse.ok(supplementRecordService.getByFaultId(faultId));
     }
 

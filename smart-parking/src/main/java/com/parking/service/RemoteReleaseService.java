@@ -5,6 +5,7 @@ import com.parking.dto.RemoteReleaseCreateRequest;
 import com.parking.dto.RemoteReleaseQuery;
 import com.parking.dto.RemoteReleaseReviewRequest;
 import com.parking.dto.RemoteReleaseReviewVO;
+import com.parking.dto.SupplementRecordVO;
 import com.parking.entity.*;
 import com.parking.enums.FaultStatus;
 import com.parking.enums.ReleaseStatus;
@@ -110,7 +111,7 @@ public class RemoteReleaseService {
                 supplementLog.setPlateNumber(release.getPlateNumber());
                 supplementLog.setEventType("SUPPLEMENT");
                 supplementLog.setEventTime(LocalDateTime.now());
-                supplementLog.setDetail("远程放行补录，关联故障ID：" + release.getGateFault().getId() + "，补录内容：" + request.getSupplementInfo());
+                supplementLog.setDetail("远程放行补录，处理人：" + request.getReviewerName() + "，关联故障ID：" + release.getGateFault().getId() + "，补录内容：" + request.getSupplementInfo());
                 parkingLogRepository.save(supplementLog);
 
                 AlertNotification alert = AlertNotification.supplementNeeded(release);
@@ -167,17 +168,9 @@ public class RemoteReleaseService {
 
         List<com.parking.entity.SupplementRecord> supplements = supplementRecordRepository
                 .findByRemoteReleaseIdOrderByCreatedAtDesc(release.getId());
-        List<RemoteReleaseReviewVO.SupplementRecord> supplementVOs = supplements.stream().map(s -> {
-            RemoteReleaseReviewVO.SupplementRecord sVO = new RemoteReleaseReviewVO.SupplementRecord();
-            sVO.setId(s.getId());
-            sVO.setPlateNumber(s.getPlateNumber());
-            sVO.setSupplementType(s.getSupplementType());
-            sVO.setContent(s.getContent());
-            sVO.setOperatorName(s.getOperatorName());
-            sVO.setOperatorRole(s.getOperatorRole());
-            sVO.setCreatedAt(s.getCreatedAt() != null ? s.getCreatedAt().format(FMT) : null);
-            return sVO;
-        }).collect(Collectors.toList());
+        List<SupplementRecordVO> supplementVOs = supplements.stream()
+                .map(SupplementRecordVO::fromEntity)
+                .collect(Collectors.toList());
         vo.setSupplementRecords(supplementVOs);
 
         Long lotId = release.getGate().getParkingLot().getId();

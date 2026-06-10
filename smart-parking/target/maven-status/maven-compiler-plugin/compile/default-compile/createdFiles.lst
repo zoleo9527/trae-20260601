@@ -10,11 +10,11 @@ com/parking/repository/AlertNotificationRepository.class
 com/parking/entity/MonthlyRental.class
 com/parking/controller/CustomerServiceController.class
 com/parking/dto/RemoteReleaseReviewRequest.class
-com/parking/dto/RemoteReleaseReviewVO$SupplementRecord.class
 com/parking/entity/RemoteRelease.class
 com/parking/dto/PageResult.class
 com/parking/dto/ApiResponse.class
 com/parking/service/ParkingLogService.class
+com/parking/dto/SupplementRecordVO.class
 com/parking/service/RemoteReleaseService.class
 com/parking/dto/GateFaultQuery.class
 com/parking/controller/MaintenanceController.class

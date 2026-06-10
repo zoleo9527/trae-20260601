@@ -12,6 +12,7 @@
 /Users/zhangliu/Documents/private/model-test/trae-20260601-10/smart-parking/src/main/java/com/parking/repository/ParkingLotRepository.java
 /Users/zhangliu/Documents/private/model-test/trae-20260601-10/smart-parking/src/main/java/com/parking/entity/MonthlyRental.java
 /Users/zhangliu/Documents/private/model-test/trae-20260601-10/smart-parking/src/main/java/com/parking/controller/CustomerServiceController.java
+/Users/zhangliu/Documents/private/model-test/trae-20260601-10/smart-parking/src/main/java/com/parking/dto/SupplementRecordVO.java
 /Users/zhangliu/Documents/private/model-test/trae-20260601-10/smart-parking/src/main/java/com/parking/repository/AlertNotificationRepository.java
 /Users/zhangliu/Documents/private/model-test/trae-20260601-10/smart-parking/src/main/java/com/parking/enums/FaultStatus.java
 /Users/zhangliu/Documents/private/model-test/trae-20260601-10/smart-parking/src/main/java/com/parking/repository/GateRepository.java

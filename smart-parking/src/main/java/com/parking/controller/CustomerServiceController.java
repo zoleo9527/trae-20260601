@@ -2,7 +2,6 @@ package com.parking.controller;
 
 import com.parking.dto.*;
 import com.parking.entity.RemoteRelease;
-import com.parking.entity.SupplementRecord;
 import com.parking.enums.ReleaseStatus;
 import com.parking.service.MonthlyRentalService;
 import com.parking.service.RemoteReleaseService;
@@ -68,7 +67,7 @@ public class CustomerServiceController {
     }
 
     @GetMapping("/supplements")
-    public ApiResponse<PageResult<SupplementRecord>> querySupplementRecords(
+    public ApiResponse<PageResult<SupplementRecordVO>> querySupplementRecords(
             @RequestParam(required = false) String plateNumber,
             @RequestParam(required = false) Long gateId,
             @RequestParam(required = false) String supplementType,
@@ -81,7 +80,7 @@ public class CustomerServiceController {
     }
 
     @GetMapping("/supplements/by-release/{releaseId}")
-    public ApiResponse<java.util.List<SupplementRecord>> getSupplementsByRelease(@PathVariable Long releaseId) {
+    public ApiResponse<java.util.List<SupplementRecordVO>> getSupplementsByRelease(@PathVariable Long releaseId) {
         return ApiResponse.ok(supplementRecordService.getByReleaseId(releaseId));
     }
 }
