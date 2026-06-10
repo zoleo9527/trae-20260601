@@ -153,22 +153,40 @@ export default function BatchDetail({ batchId }: { batchId: string }) {
         </div>
       )}
 
-      {samples.length > 0 && (
-        <div className="space-y-2">
-          <h5 className="text-xs font-semibold text-slate-700 uppercase tracking-wide">关联质检</h5>
-          {samples.map((sample) => (
-            <button
-              key={sample.id}
-              onClick={() => openDetailPanel('sample', sample.id)}
-              className="w-full text-left flex items-center gap-2 p-2.5 rounded-lg border border-slate-100 hover:border-orange-200 hover:bg-orange-50/50 transition-colors"
-            >
-              <FlaskConical size={14} className="text-slate-400 shrink-0" />
-              <span className="text-xs font-medium text-slate-700 flex-1">{sample.sampleNo}</span>
-              <SampleStatusBadge status={sample.status} />
-            </button>
-          ))}
-        </div>
-      )}
+      {samples.length > 0 && (() => {
+        const sorted = [...samples].sort(
+          (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+        )
+        const latestActive = getActiveSampleByBatchId(batchId)
+        return (
+          <div className="space-y-2">
+            <h5 className="text-xs font-semibold text-slate-700 uppercase tracking-wide">关联质检</h5>
+            {sorted.map((sample) => {
+              const isLatest = latestActive?.id === sample.id
+              return (
+                <button
+                  key={sample.id}
+                  onClick={() => openDetailPanel('sample', sample.id)}
+                  className={`w-full text-left flex items-center gap-2 p-2.5 rounded-lg border transition-colors ${
+                    isLatest
+                      ? 'border-orange-300 bg-orange-50/50 hover:bg-orange-50'
+                      : 'border-slate-100 hover:border-orange-200 hover:bg-orange-50/30'
+                  }`}
+                >
+                  <FlaskConical size={14} className={isLatest ? 'text-orange-500 shrink-0' : 'text-slate-400 shrink-0'} />
+                  <span className={`text-xs font-medium flex-1 ${isLatest ? 'text-orange-700' : 'text-slate-700'}`}>
+                    {sample.sampleNo}
+                  </span>
+                  {isLatest && (
+                    <span className="text-[10px] text-orange-500 font-medium">最新</span>
+                  )}
+                  <SampleStatusBadge status={sample.status} />
+                </button>
+              )
+            })}
+          </div>
+        )
+      })()}
 
       <div className="space-y-2">
         <h5 className="text-xs font-semibold text-slate-700 uppercase tracking-wide">操作记录</h5>

@@ -141,7 +141,7 @@ export const mockSamples: QualitySample[] = [
     lastModifiedBy: '李质检',
     retentionExpiry: '2026-09-10',
     history: [
-      { id: 'sh1-1', sampleId: 's1', fromStatus: null, toStatus: 'pending_sample', operator: '李质检', operatorRole: 'qc_inspector', remark: '创建取样任务', timestamp: '2026-06-10T10:30:00' },
+      { id: 'sh1-1', sampleId: 's1', fromStatus: null, toStatus: 'pending_sample', operator: '王建国', operatorRole: 'production_lead', remark: '批次提交质检，自动创建取样任务', timestamp: '2026-06-10T10:30:00' },
       { id: 'sh1-2', sampleId: 's1', fromStatus: 'pending_sample', toStatus: 'testing', operator: '李质检', operatorRole: 'qc_inspector', remark: '开始检测', timestamp: '2026-06-10T10:45:00' },
       { id: 'sh1-3', sampleId: 's1', fromStatus: 'testing', toStatus: 'unqualified', operator: '李质检', operatorRole: 'qc_inspector', remark: '蛋白质含量16.2%，不达标(标准≥17%)', timestamp: '2026-06-10T11:30:00' },
     ],
