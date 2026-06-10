@@ -152,83 +152,54 @@ export function initDb() {
 export function backfillExceptionSourceIds() {
   const db = getDb();
 
-  const nullEggRecordExceptions = db.prepare(`
+  const exceptions = db.prepare(`
     SELECT * FROM exceptions
-    WHERE source_type = 'egg_record' AND source_id IS NULL
+    WHERE source_type = 'egg_record'
   `).all();
 
-  if (nullEggRecordExceptions.length === 0) {
-    return { fixed: 0, total: 0 };
+  if (exceptions.length === 0) {
+    return { fixedNull: 0, corrected: 0, total: 0 };
   }
 
-  let fixed = 0;
+  let fixedNull = 0;
+  let corrected = 0;
 
   const updateStmt = db.prepare('UPDATE exceptions SET source_id = ?, updated_at = datetime(\'now\',\'localtime\') WHERE id = ?');
 
-  for (const exc of nullEggRecordExceptions) {
+  const priority = { abnormal: 0, pending: 1, recorded: 2, confirmed: 3 };
+
+  for (const exc of exceptions) {
     let shift = null;
     if (/下午|afternoon/i.test(exc.description)) shift = 'afternoon';
-    else if (/上午|morning/i.test(exc.description)) shift = 'morning';
-    else if (/晚上|夜间|night/i.test(exc.description)) shift = 'night';
+    else if (/上午|早上|morning/i.test(exc.description)) shift = 'morning';
+    else if (/晚上|夜间|夜班|night/i.test(exc.description)) shift = 'night';
 
-    const hasYesterday = /昨日|昨天/.test(exc.description);
     const createdDate = exc.created_at ? exc.created_at.slice(0, 10) : null;
-
-    const params = [exc.house_id];
-
-    let shiftConstraint = '';
-    if (shift) { shiftConstraint = 'AND shift = ?'; params.push(shift); }
-
-    let dateConstraint = '';
-    if (createdDate) {
-      if (hasYesterday) {
-        dateConstraint = 'AND date = date(?, \'-1 day\')';
-        params.push(createdDate);
-      } else {
-        dateConstraint = 'AND date = ?';
-        params.push(createdDate);
-      }
-    }
+    if (!createdDate || !shift) continue;
 
     const candidates = db.prepare(`
       SELECT * FROM egg_records
-      WHERE house_id = ?
-        ${shiftConstraint}
-        ${dateConstraint}
-        AND (status IN ('abnormal','pending') OR total_count = 0)
-      ORDER BY date DESC,
-        CASE shift WHEN 'morning' THEN 1 WHEN 'afternoon' THEN 2 ELSE 3 END
+      WHERE house_id = ? AND date = date(?, '-1 day') AND shift = ?
+      ORDER BY status
       LIMIT 5
-    `).all(...params);
+    `).all(exc.house_id, createdDate, shift);
 
-    let match = candidates.find(r => r.total_count === 0 || r.status === 'abnormal') || candidates[0];
-
-    if (!match && shift) {
-      const shiftOnlyCandidates = db.prepare(`
-        SELECT * FROM egg_records
-        WHERE house_id = ? AND shift = ?
-          AND (status IN ('abnormal','pending') OR total_count = 0)
-        ORDER BY date DESC
-        LIMIT 5
-      `).all(exc.house_id, shift);
-      match = shiftOnlyCandidates.find(r => r.total_count === 0 || r.status === 'abnormal') || shiftOnlyCandidates[0];
+    let match = null;
+    if (candidates.length > 0) {
+      candidates.sort((a, b) => (priority[a.status] ?? 9) - (priority[b.status] ?? 9));
+      match = candidates[0];
     }
 
-    if (!match) {
-      match = db.prepare(`
-        SELECT * FROM egg_records
-        WHERE house_id = ?
-        ORDER BY date DESC,
-          CASE shift WHEN 'morning' THEN 1 WHEN 'afternoon' THEN 2 ELSE 3 END
-        LIMIT 1
-      `).get(exc.house_id);
-    }
+    if (!match) continue;
 
-    if (match) {
+    if (exc.source_id === null) {
       const info = updateStmt.run(match.id, exc.id);
-      if (info.changes > 0) fixed++;
+      if (info.changes > 0) fixedNull++;
+    } else if (exc.source_id !== match.id) {
+      const info = updateStmt.run(match.id, exc.id);
+      if (info.changes > 0) corrected++;
     }
   }
 
-  return { fixed, total: nullEggRecordExceptions.length };
+  return { fixedNull, corrected, total: exceptions.length };
 }

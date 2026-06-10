@@ -43,8 +43,8 @@ app.use('/api/attachments', upload.single('file'), attachmentRoutes);
 initDb();
 seedData();
 const backfill = backfillExceptionSourceIds();
-if (backfill.fixed > 0) {
-  console.log(`[数据回填] 已补回 ${backfill.fixed}/${backfill.total} 条 egg_record 异常的 source_id`);
+if (backfill.fixedNull > 0 || backfill.corrected > 0) {
+  console.log(`[数据回填] egg_record 异常 source_id：补回 ${backfill.fixedNull} 条，纠正 ${backfill.corrected} 条`);
 }
 
 app.listen(PORT, () => {
