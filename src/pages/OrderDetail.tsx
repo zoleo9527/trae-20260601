@@ -179,14 +179,20 @@ export default function OrderDetail() {
           <div className="mb-1 text-xs font-medium text-blue-700">① 谁在处理？</div>
           <div className="flex items-center gap-2">
             <span className={`h-2.5 w-2.5 rounded-full ${sc.dot}`} />
-            <span className={`text-lg font-bold ${roleColors[order.currentHandler as Role]}`}>
-              {roleLabels[order.currentHandler as Role]}
+            <span className={`text-lg font-bold ${
+              order.status === 'completed' ? 'text-emerald-600' :
+              order.status === 'rejected' ? 'text-rose-600' :
+              roleColors[order.currentHandler as Role]
+            }`}>
+              {order.status === 'completed' ? '流程已闭环' :
+               order.status === 'rejected' ? '退回重跟进' :
+               roleLabels[order.currentHandler as Role]}
             </span>
           </div>
           <div className="mt-1 text-xs text-blue-600">
             执行技师：{order.assignedTechnician}
           </div>
-          {order.currentHandler === currentRole && (
+          {order.currentHandler === currentRole && order.status !== 'completed' && order.status !== 'rejected' && (
             <div className="mt-2 inline-flex items-center gap-1 rounded-full bg-white px-2 py-0.5 text-xs font-medium text-blue-700">
               <CheckCircle2 className="h-3 w-3" />
               当前登录角色负责

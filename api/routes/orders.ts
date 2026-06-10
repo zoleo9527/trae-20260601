@@ -57,17 +57,17 @@ router.post('/batch/checkin', (req: Request, res: Response): void => {
 
   const checkinTime = now()
   const results: string[] = []
-  const errors: string[] = []
+  const errors: { id: string; reason: string }[] = []
 
   const batchCheckin = db.transaction(() => {
     for (const id of ids) {
       const order = db.prepare('SELECT status FROM maintenance_orders WHERE id = ?').get(id) as { status: string } | undefined
       if (!order) {
-        errors.push(`${id}: 工单不存在`)
+        errors.push({ id, reason: '工单不存在' })
         continue
       }
       if (order.status !== 'pending') {
-        errors.push(`${id}: 当前状态不允许签到`)
+        errors.push({ id, reason: '当前状态不允许签到' })
         continue
       }
 
@@ -105,17 +105,17 @@ router.post('/batch/review', (req: Request, res: Response): void => {
 
   const reviewTime = now()
   const results: string[] = []
-  const errors: string[] = []
+  const errors: { id: string; reason: string }[] = []
 
   const batchReview = db.transaction(() => {
     for (const id of ids) {
       const order = db.prepare('SELECT status FROM maintenance_orders WHERE id = ?').get(id) as { status: string } | undefined
       if (!order) {
-        errors.push(`${id}: 工单不存在`)
+        errors.push({ id, reason: '工单不存在' })
         continue
       }
       if (order.status !== 'reviewing') {
-        errors.push(`${id}: 当前状态不允许审核`)
+        errors.push({ id, reason: '当前状态不允许审核' })
         continue
       }
 

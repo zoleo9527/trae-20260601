@@ -74,7 +74,7 @@ export default function Dashboard() {
       const rejected = allOrders.filter((o) => o.status === 'rejected').length
       const anomaly = allOrders.filter((o) => o.checkinAnomaly).length
 
-      const myTodos = allOrders.filter((o) => o.currentHandler === currentRole)
+      const myTodos = allOrders.filter((o) => o.currentHandler === currentRole && o.status !== 'completed' && o.status !== 'rejected')
       const myTodo = myTodos.length
 
       setStats({
@@ -344,7 +344,7 @@ export default function Dashboard() {
                   </div>
                   <div className="ml-4 shrink-0 text-right">
                     <div className="text-xs text-slate-400">
-                      {roleLabels[order.currentHandler as Role]}处理中
+                      {order.status === 'completed' ? '已完成' : order.status === 'rejected' ? '已退回' : roleLabels[order.currentHandler as Role] + '处理中'}
                     </div>
                     <div className="text-xs text-slate-400">
                       计划 {order.plannedDate}

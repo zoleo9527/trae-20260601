@@ -1,3 +1,6 @@
+#!/bin/zsh
+set -o noglob
+cat > src/components/BatchActions.tsx << 'ENDOFFILE'
 import { batchCheckin, batchReview, type BatchError } from '@/api/client'
 import { useStore } from '@/store'
 import { AlertCircle, CheckCircle, Loader2, X, XCircle } from 'lucide-react'
@@ -156,3 +159,6 @@ export default function BatchActions({ onRefresh }: BatchActionsProps) {
     </div>
   )
 }
+ENDOFFILE
+wc -l src/components/BatchActions.tsx
+wc -c src/components/BatchActions.tsx

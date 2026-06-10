@@ -11,7 +11,8 @@ interface AppStore {
   selectedIds: string[]
   toggleSelect: (id: string) => void
   clearSelection: () => void
-  selectAll: (ids: string[]) => void
+  selectAll: (ids: string[]) => void;
+  setSelectedIds: (ids: string[]) => void
 }
 
 export const useStore = create<AppStore>((set) => ({
@@ -34,4 +35,5 @@ export const useStore = create<AppStore>((set) => ({
     })),
   clearSelection: () => set({ selectedIds: [] }),
   selectAll: (ids) => set({ selectedIds: ids }),
+  setSelectedIds: (ids) => set({ selectedIds: ids }),
 }))

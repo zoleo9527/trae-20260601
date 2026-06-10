@@ -47,3 +47,14 @@ export interface RoleInfo {
   label: string
   description: string
 }
+
+export interface BatchError {
+  id: string
+  reason: string
+}
+
+export const CLOSED_STATUSES: OrderStatus[] = ['completed', 'rejected']
+
+export function isClosed(status: OrderStatus): boolean {
+  return CLOSED_STATUSES.includes(status)
+}

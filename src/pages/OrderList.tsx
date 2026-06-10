@@ -172,7 +172,7 @@ export default function OrderList() {
     }
   }
 
-  const myTodoCount = orders.filter((o) => o.currentHandler === currentRole).length
+  const myTodoCount = orders.filter((o) => o.currentHandler === currentRole && o.status !== 'completed' && o.status !== 'rejected').length
 
   return (
     <div className="mx-auto max-w-7xl p-6">
@@ -420,7 +420,7 @@ export default function OrderList() {
                         </span>
                       </div>
                       <div className="text-xs text-slate-400">
-                        {roleLabels[order.currentHandler as Role]}处理中
+                        {order.status === 'completed' ? '已完成' : order.status === 'rejected' ? '已退回' : roleLabels[order.currentHandler as Role] + '处理中'}
                       </div>
                     </td>
                     <td className="px-4 py-3 text-sm text-slate-600">
