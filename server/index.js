@@ -3,7 +3,7 @@ import cors from 'cors';
 import multer from 'multer';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { initDb } from './db.js';
+import { initDb, backfillExceptionSourceIds } from './db.js';
 import { seedData } from './seed.js';
 import authRoutes from './routes/auth.js';
 import inspectionRoutes from './routes/inspections.js';
@@ -42,6 +42,10 @@ app.use('/api/attachments', upload.single('file'), attachmentRoutes);
 
 initDb();
 seedData();
+const backfill = backfillExceptionSourceIds();
+if (backfill.fixed > 0) {
+  console.log(`[数据回填] 已补回 ${backfill.fixed}/${backfill.total} 条 egg_record 异常的 source_id`);
+}
 
 app.listen(PORT, () => {
   console.log(`[蛋鸡养殖场] 后端服务已启动: http://localhost:${PORT}`);
