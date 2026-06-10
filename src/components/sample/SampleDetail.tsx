@@ -100,29 +100,37 @@ export default function SampleDetail({ sampleId }: { sampleId: string }) {
           </button>
         </div>
         <div>
+          <span className="text-slate-400 text-xs">创建人</span>
+          <p className="text-slate-900 font-medium">{sample.createdBy}</p>
+        </div>
+        <div>
           <span className="text-slate-400 text-xs">检测人</span>
-          <p className="text-slate-900 font-medium">{sample.tester}</p>
-        </div>
-        <div>
-          <span className="text-slate-400 text-xs">检测时间</span>
-          <p className="text-slate-700 text-xs">
-            {sample.testedAt ? new Date(sample.testedAt).toLocaleString('zh-CN') : '-'}
-          </p>
-        </div>
-        <div>
-          <span className="text-slate-400 text-xs">最后操作</span>
-          <p className="text-slate-700 text-xs">{sample.lastModifiedBy}</p>
-        </div>
-        <div>
-          <span className="text-slate-400 text-xs">留样到期</span>
-          <p className="text-slate-700 text-xs">{sample.retentionExpiry ?? '-'}</p>
+          <p className="text-slate-900 font-medium">{sample.tester ?? '-'}</p>
         </div>
         <div>
           <span className="text-slate-400 text-xs">最近修改</span>
-          <p className="text-slate-700 text-xs">
-            {sample.updatedAt ? new Date(sample.updatedAt).toLocaleString('zh-CN') : '-'}
-          </p>
+          <p className="text-slate-900 font-medium">{sample.lastModifiedBy}</p>
         </div>
+        <div>
+          <span className="text-slate-400 text-xs">创建时间</span>
+          <p className="text-slate-700 text-xs">{new Date(sample.createdAt).toLocaleString('zh-CN')}</p>
+        </div>
+        <div>
+          <span className="text-slate-400 text-xs">最近修改时间</span>
+          <p className="text-slate-700 text-xs">{new Date(sample.updatedAt).toLocaleString('zh-CN')}</p>
+        </div>
+        {sample.testedAt && (
+          <>
+            <div>
+              <span className="text-slate-400 text-xs">检测时间</span>
+              <p className="text-slate-700 text-xs">{new Date(sample.testedAt).toLocaleString('zh-CN')}</p>
+            </div>
+            <div>
+              <span className="text-slate-400 text-xs">留样到期</span>
+              <p className="text-slate-700 text-xs">{sample.retentionExpiry ?? '-'}</p>
+            </div>
+          </>
+        )}
       </div>
 
       {indicatorEntries.length > 0 && (

@@ -54,7 +54,8 @@ export const useSampleStore = create<SampleState>((set, get) => ({
       batchNo,
       status: 'pending_sample',
       indicators: {},
-      tester: operator,
+      createdBy: operator,
+      tester: null,
       testedAt: null,
       createdAt: now,
       updatedAt: now,
@@ -67,6 +68,7 @@ export const useSampleStore = create<SampleState>((set, get) => ({
   },
   transitionStatus: (sampleId, toStatus, operator, operatorRole, remark) => {
     const now = new Date().toISOString()
+    const isTestingTransition = toStatus === 'testing' || toStatus === 'qualified' || toStatus === 'unqualified'
     set((state) => ({
       samples: state.samples.map((sample) => {
         if (sample.id !== sampleId) return sample
@@ -83,8 +85,8 @@ export const useSampleStore = create<SampleState>((set, get) => ({
         return {
           ...sample,
           status: toStatus,
-          tester: operator,
-          testedAt: now,
+          tester: isTestingTransition ? operator : sample.tester,
+          testedAt: isTestingTransition ? now : sample.testedAt,
           updatedAt: now,
           lastModifiedBy: operator,
           history: [...sample.history, historyEntry],
@@ -101,8 +103,10 @@ export const useSampleStore = create<SampleState>((set, get) => ({
     return get().samples.find((s) => s.id === id)
   },
   getActiveSampleByBatchId: (batchId) => {
-    return get().samples.find(
+    const active = get().samples.filter(
       (s) => s.batchId === batchId && s.status !== 'destroyed'
     )
+    if (active.length === 0) return undefined
+    return active.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())[0]
   },
 }))

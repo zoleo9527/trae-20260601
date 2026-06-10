@@ -241,8 +241,8 @@ export default function Dashboard() {
                   statusLabel={statusInfo.label}
                   statusColor={statusInfo.color}
                   statusBg={statusInfo.bg}
-                  responsible={sample.lastModifiedBy || sample.tester}
-                  happenedAt={formatRelativeTime(sample.updatedAt || sample.testedAt || sample.createdAt)}
+                  responsible={sample.lastModifiedBy}
+                  happenedAt={formatRelativeTime(sample.updatedAt)}
                   actionLabel="处理"
                   onAction={() => openDetailPanel('sample', sample.id)}
                 />
@@ -289,8 +289,8 @@ export default function Dashboard() {
                   statusLabel={statusInfo.label}
                   statusColor={statusInfo.color}
                   statusBg={statusInfo.bg}
-                  responsible={sample.lastModifiedBy || sample.tester}
-                  happenedAt={formatRelativeTime(sample.updatedAt || sample.createdAt)}
+                  responsible={sample.lastModifiedBy}
+                  happenedAt={formatRelativeTime(sample.updatedAt)}
                   actionLabel="取样"
                   onAction={() => openDetailPanel('sample', sample.id)}
                 />

@@ -27,7 +27,8 @@ export interface QualitySample {
   batchNo: string
   status: SampleStatus
   indicators: Record<string, number>
-  tester: string
+  createdBy: string
+  tester: string | null
   testedAt: string | null
   createdAt: string
   updatedAt: string
