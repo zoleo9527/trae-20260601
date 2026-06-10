@@ -4,7 +4,8 @@ import type { User, Fruit, Reception, GuideTask, WarehouseTransfer, Attachment, 
 export const userApi = {
   getCurrent: () => request.get<any, User>('/users/current'),
   getList: (role?: string) => request.get<any, User[]>('/users', { params: { role } }),
-  getGuides: () => request.get<any, User[]>('/users/guides')
+  getGuides: () => request.get<any, User[]>('/users/guides'),
+  switchRole: (role: User['role']) => request.post<any, User>('/users/switch-role', { role })
 }
 
 export const fruitApi = {

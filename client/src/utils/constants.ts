@@ -34,17 +34,20 @@ export const guideTaskStatusColors: Record<string, string> = {
   cancelled: '#8c8c8c'
 }
 
-export const warehouseStatusLabels: Record<string, string> = {
+export const warehouseTransferStatusLabels: Record<string, string> = {
   pending: '待接收',
   received: '待入库',
   stored: '已入库'
 }
 
-export const warehouseStatusColors: Record<string, string> = {
+export const warehouseTransferStatusColors: Record<string, string> = {
   pending: '#faad14',
   received: '#1890ff',
   stored: '#52c41a'
 }
+
+export const warehouseStatusLabels = warehouseTransferStatusLabels
+export const warehouseStatusColors = warehouseTransferStatusColors
 
 export function formatFileSize(bytes: number): string {
   if (bytes < 1024) return bytes + ' B'

@@ -45,54 +45,6 @@ router.get('/', (req, res) => {
   res.json(paginateResult(total, list, p, ps));
 });
 
-router.get('/:id', (req, res) => {
-  const { id } = req.params;
-  const reception = db.prepare(`
-    SELECT r.*, u.name as created_by_name
-    FROM receptions r
-    LEFT JOIN users u ON r.created_by = u.id
-    WHERE r.id = ?
-  `).get(id);
-
-  if (!reception) {
-    return res.status(404).json({ error: '接待单不存在' });
-  }
-
-  const guideTasks = db.prepare(`
-    SELECT gt.*, u.name as guide_name, ua.name as assigned_by_name
-    FROM guide_tasks gt
-    LEFT JOIN users u ON gt.guide_id = u.id
-    LEFT JOIN users ua ON gt.assigned_by = ua.id
-    WHERE gt.reception_id = ?
-    ORDER BY gt.id DESC
-  `).all(id);
-
-  const attachments = db.prepare(`
-    SELECT * FROM attachments WHERE biz_type = 'reception' AND biz_id = ? ORDER BY id DESC
-  `).all(id);
-
-  const auditLogs = db.prepare(`
-    SELECT * FROM audit_logs WHERE biz_type = 'reception' AND biz_id = ? ORDER BY id DESC
-  `).all(id);
-
-  guideTasks.forEach(task => {
-    if (task.fruit_details) {
-      try {
-        task.fruit_details_parsed = JSON.parse(task.fruit_details);
-      } catch (e) {
-        task.fruit_details_parsed = null;
-      }
-    }
-  });
-
-  res.json({
-    ...reception,
-    guideTasks,
-    attachments,
-    auditLogs
-  });
-});
-
 router.get('/export', (req, res) => {
   const { status, date_from, date_to, keyword } = req.query;
 
@@ -157,6 +109,79 @@ router.get('/export', (req, res) => {
   res.setHeader('Content-Type', 'text/csv; charset=utf-8');
   res.setHeader('Content-Disposition', `attachment; filename="receptions_${Date.now()}.csv"`);
   res.send(csv);
+});
+
+router.get('/:id', (req, res) => {
+  const { id } = req.params;
+  const reception = db.prepare(`
+    SELECT r.*, u.name as created_by_name
+    FROM receptions r
+    LEFT JOIN users u ON r.created_by = u.id
+    WHERE r.id = ?
+  `).get(id);
+
+  if (!reception) {
+    return res.status(404).json({ error: '接待单不存在' });
+  }
+
+  const guideTasks = db.prepare(`
+    SELECT gt.*, u.name as guide_name, ua.name as assigned_by_name
+    FROM guide_tasks gt
+    LEFT JOIN users u ON gt.guide_id = u.id
+    LEFT JOIN users ua ON gt.assigned_by = ua.id
+    WHERE gt.reception_id = ?
+    ORDER BY gt.id DESC
+  `).all(id);
+
+  const guideTaskIds = guideTasks.map(t => t.id);
+  let warehouseTransfers = [];
+  if (guideTaskIds.length > 0) {
+    const placeholders = guideTaskIds.map(() => '?').join(',');
+    warehouseTransfers = db.prepare(`
+      SELECT wt.*, u.name as received_by_name
+      FROM warehouse_transfers wt
+      LEFT JOIN users u ON wt.received_by = u.id
+      WHERE wt.guide_task_id IN (${placeholders})
+      ORDER BY wt.id DESC
+    `).all(...guideTaskIds);
+    warehouseTransfers.forEach(wt => {
+      if (wt.fruit_details) {
+        try { wt.fruit_details_parsed = JSON.parse(wt.fruit_details); } catch (e) { wt.fruit_details_parsed = null; }
+      }
+    });
+  }
+
+  const transfersByTask = {};
+  warehouseTransfers.forEach(wt => {
+    if (!transfersByTask[wt.guide_task_id]) transfersByTask[wt.guide_task_id] = [];
+    transfersByTask[wt.guide_task_id].push(wt);
+  });
+
+  const attachments = db.prepare(`
+    SELECT * FROM attachments WHERE biz_type = 'reception' AND biz_id = ? ORDER BY id DESC
+  `).all(id);
+
+  const auditLogs = db.prepare(`
+    SELECT * FROM audit_logs WHERE biz_type = 'reception' AND biz_id = ? ORDER BY id DESC
+  `).all(id);
+
+  guideTasks.forEach(task => {
+    if (task.fruit_details) {
+      try {
+        task.fruit_details_parsed = JSON.parse(task.fruit_details);
+      } catch (e) {
+        task.fruit_details_parsed = null;
+      }
+    }
+    task.warehouseTransfers = transfersByTask[task.id] || [];
+  });
+
+  res.json({
+    ...reception,
+    guideTasks,
+    attachments,
+    auditLogs
+  });
 });
 
 router.post('/', (req, res) => {

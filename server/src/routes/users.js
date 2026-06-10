@@ -27,4 +27,22 @@ router.get('/current', (req, res) => {
   res.json(req.currentUser);
 });
 
+router.post('/switch-role', (req, res) => {
+  const { role } = req.body;
+  if (!['service', 'guide', 'warehouse'].includes(role)) {
+    return res.status(400).json({ error: '无效的角色' });
+  }
+
+  const user = db.prepare(
+    'SELECT id, username, name, role, phone FROM users WHERE role = ? ORDER BY id LIMIT 1'
+  ).get(role);
+
+  if (!user) {
+    return res.status(404).json({ error: '该角色没有可用用户' });
+  }
+
+  res.setHeader('Set-Cookie', `current_user_id=${user.id}; Path=/; Max-Age=${60 * 60 * 24 * 7}; SameSite=Lax`);
+  res.json(user);
+});
+
 module.exports = router;

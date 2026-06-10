@@ -17,15 +17,15 @@ export const useUserStore = defineStore('user', () => {
     }
   }
 
-  function setRole(role: User['role']) {
-    if (currentUser.value) {
-      currentUser.value.role = role
-    }
+  async function switchRole(role: User['role']) {
+    const user = await userApi.switchRole(role)
+    currentUser.value = user
+    return user
   }
 
   return {
     currentUser,
     fetchCurrentUser,
-    setRole
+    switchRole
   }
 })

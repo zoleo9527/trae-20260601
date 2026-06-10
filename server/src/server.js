@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
+const db = require('./db');
 
 const uploadDir = path.join(__dirname, '..', 'uploads');
 if (!fs.existsSync(uploadDir)) {
@@ -11,17 +12,33 @@ if (!fs.existsSync(uploadDir)) {
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-app.use(cors());
+app.use(cors({
+  credentials: true,
+  origin: true
+}));
 app.use(express.json());
 app.use('/uploads', express.static(uploadDir));
 
+function parseCookies(cookieHeader) {
+  const cookies = {};
+  if (!cookieHeader) return cookies;
+  cookieHeader.split(';').forEach(pair => {
+    const [k, v] = pair.trim().split('=');
+    if (k) cookies[decodeURIComponent(k)] = decodeURIComponent(v || '');
+  });
+  return cookies;
+}
+
 app.use((req, res, next) => {
-  req.currentUser = {
-    id: 1,
-    username: 'service01',
-    name: '李客服',
-    role: 'service'
-  };
+  const cookies = parseCookies(req.headers.cookie);
+  let userId = parseInt(cookies.current_user_id) || 1;
+
+  const user = db.prepare('SELECT id, username, name, role, phone FROM users WHERE id = ?').get(userId);
+  if (user) {
+    req.currentUser = user;
+  } else {
+    req.currentUser = db.prepare('SELECT id, username, name, role, phone FROM users WHERE id = 1').get();
+  }
   next();
 });
 

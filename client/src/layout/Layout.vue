@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, onMounted } from 'vue'
+import { computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { roleLabels } from '@/utils/constants'
@@ -9,12 +9,9 @@ const router = useRouter()
 const route = useRoute()
 const userStore = useUserStore()
 
-const currentRole = ref<User['role']>('service')
-
 const menuItems = [
   { key: 'dashboard', icon: '📊', label: '工作台', path: '/dashboard' },
   { key: 'receptions', icon: '👥', label: '团体接待', path: '/receptions' },
-  { key: 'guide-tasks', icon: '🍎', label: '向导任务', path: '/guide-tasks' },
   { key: 'warehouse', icon: '📦', label: '仓库交接', path: '/warehouse' },
   { key: 'audit-logs', icon: '📝', label: '操作日志', path: '/audit-logs' }
 ]
@@ -25,9 +22,15 @@ const roleOptions = [
   { value: 'warehouse', label: '仓库员' }
 ]
 
-function changeRole(role: User['role']) {
-  currentRole.value = role
-  userStore.setRole(role)
+const currentRole = computed<User['role']>(() => userStore.currentUser?.role || 'service')
+
+async function changeRole(role: User['role']) {
+  try {
+    await userStore.switchRole(role)
+    router.push('/dashboard')
+  } catch (e) {
+    console.error('切换角色失败:', e)
+  }
 }
 
 function isActive(path: string) {
@@ -39,6 +42,13 @@ function navigate(path: string) {
 }
 
 const userName = computed(() => userStore.currentUser?.name || '用户')
+const roleDisplay = computed(() => roleLabels[currentRole.value] || currentRole.value)
+
+onMounted(() => {
+  if (!userStore.currentUser) {
+    userStore.fetchCurrentUser()
+  }
+})
 </script>
 
 <template>
