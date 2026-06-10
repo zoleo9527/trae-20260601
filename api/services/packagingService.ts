@@ -61,10 +61,12 @@ export const submitInspection = (
   if (loadingBatch) {
     loadingBatch.qualifiedQty = data.qualifiedQty;
     loadingBatch.damagedQty = data.damagedQty;
+    loadingBatch.damageReasons = data.damageReasons;
     loadingBatch.inspectionStatus = data.damagedQty > 0 ? 'damaged' : 'qualified';
     loadingBatch.inspectionStatusText = data.damagedQty > 0 ? '有破损' : '质检合格';
     loadingBatch.inspectionRemark = data.remark;
     loadingBatch.inspectionChanged = false;
+    loadingBatch.inspectionVersion = 1;
   } else {
     loadingBatches.push({
       id: generateId('load'),
@@ -78,10 +80,12 @@ export const submitInspection = (
       quantity: batch.planQuantity,
       qualifiedQty: data.qualifiedQty,
       damagedQty: data.damagedQty,
+      damageReasons: data.damageReasons,
       inspectionStatus: data.damagedQty > 0 ? 'damaged' : 'qualified',
       inspectionStatusText: data.damagedQty > 0 ? '有破损' : '质检合格',
       inspectionChanged: false,
       inspectionRemark: data.remark,
+      inspectionVersion: 1,
       status: 'pending',
       statusText: '待复核',
       deliveryDate: order?.deliveryDate || '',
@@ -143,13 +147,23 @@ export const updateInspection = (
 
   const loadingBatch = loadingBatches.find(lb => lb.batchId === batchId);
   if (loadingBatch) {
+    loadingBatch.previousInspection = {
+      qualifiedQty: oldResult.qualifiedQty,
+      damagedQty: oldResult.damagedQty,
+      damageReasons: oldResult.damageReasons,
+      remark: oldResult.remark,
+      version: oldResult.version,
+      changedAt: new Date().toISOString(),
+    };
     loadingBatch.qualifiedQty = data.qualifiedQty;
     loadingBatch.damagedQty = data.damagedQty;
+    loadingBatch.damageReasons = data.damageReasons;
     loadingBatch.inspectionStatus = data.damagedQty > 0 ? 'damaged' : 'qualified';
     loadingBatch.inspectionStatusText = data.damagedQty > 0 ? '有破损' : '质检合格';
     loadingBatch.inspectionRemark = data.remark;
     loadingBatch.inspectionChanged = true;
     loadingBatch.lastInspectionChange = new Date().toISOString();
+    loadingBatch.inspectionVersion = result.version;
   }
 
   const changes: { field: string; fieldText: string; oldValue: string; newValue: string }[] = [];

@@ -53,6 +53,15 @@ export interface InspectionResult {
   version: number;
 }
 
+export interface InspectionSnapshot {
+  qualifiedQty: number;
+  damagedQty: number;
+  damageReasons: string[];
+  remark?: string;
+  version: number;
+  changedAt: string;
+}
+
 export interface LoadingBatch {
   id: string;
   batchId: string;
@@ -65,11 +74,14 @@ export interface LoadingBatch {
   quantity: number;
   qualifiedQty: number;
   damagedQty: number;
+  damageReasons: string[];
   inspectionStatus: 'qualified' | 'damaged' | 'rework';
   inspectionStatusText: string;
   inspectionChanged: boolean;
   lastInspectionChange?: string;
   inspectionRemark?: string;
+  inspectionVersion: number;
+  previousInspection?: InspectionSnapshot;
   status: 'pending' | 'confirmed' | 'rejected';
   statusText: string;
   confirmedAt?: string;

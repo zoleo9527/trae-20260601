@@ -16,6 +16,10 @@ import {
   Eye,
   ArrowLeftRight,
   Info,
+  AlertCircle,
+  ChevronDown,
+  ChevronUp,
+  History,
 } from 'lucide-react';
 
 const statusOptions = [
@@ -43,6 +47,7 @@ export default function LoadingPage() {
   const [statusFilter, setStatusFilter] = useState('all');
   const [selectedBatch, setSelectedBatch] = useState<LoadingBatch | null>(null);
   const [showDetail, setShowDetail] = useState(false);
+  const [showChangeHistory, setShowChangeHistory] = useState(false);
   const { showToastMessage, currentRole } = useAppStore();
 
   useEffect(() => {
@@ -64,6 +69,7 @@ export default function LoadingPage() {
   const openDetail = (batch: LoadingBatch) => {
     setSelectedBatch(batch);
     setShowDetail(true);
+    setShowChangeHistory(false);
   };
 
   const handleConfirm = async (confirmed: boolean) => {
@@ -148,8 +154,10 @@ export default function LoadingPage() {
                 {batches.map((batch) => (
                   <tr
                     key={batch.id}
-                    className={`hover:bg-cream-50/50 transition-colors ${
-                      batch.inspectionChanged ? 'bg-amber-50/40' : ''
+                    className={`transition-all ${
+                      batch.inspectionChanged
+                        ? 'bg-amber-50 hover:bg-amber-100/70 border-l-4 border-l-amber-400'
+                        : 'hover:bg-cream-50/50'
                     }`}
                   >
                     <td className="px-4 py-3">
@@ -281,7 +289,10 @@ export default function LoadingPage() {
               </div>
 
               <div className="bg-cream-50 rounded-xl p-4">
-                <h4 className="text-sm font-medium text-forest-500 mb-3">质检信息</h4>
+                <div className="flex items-center justify-between mb-3">
+                  <h4 className="text-sm font-medium text-forest-500">质检信息</h4>
+                  <span className="text-xs text-forest-400">v{selectedBatch.inspectionVersion}</span>
+                </div>
                 <div className="space-y-2">
                   <div className="flex justify-between">
                     <span className="text-sm text-forest-600">批次号</span>
@@ -316,8 +327,27 @@ export default function LoadingPage() {
               </div>
             </div>
 
+            {selectedBatch.damageReasons && selectedBatch.damageReasons.length > 0 && (
+              <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-6">
+                <div className="flex items-start gap-2 mb-3">
+                  <AlertCircle className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" />
+                  <p className="text-sm font-medium text-amber-900">破损原因</p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {selectedBatch.damageReasons.map((reason, idx) => (
+                    <span
+                      key={idx}
+                      className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-800"
+                    >
+                      {reason}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {selectedBatch.inspectionRemark && (
-              <div className="bg-blue-50 rounded-xl p-4 mb-6">
+              <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-6">
                 <div className="flex items-start gap-2">
                   <Info className="w-4 h-4 text-blue-500 flex-shrink-0 mt-0.5" />
                   <div>
@@ -325,6 +355,87 @@ export default function LoadingPage() {
                     <p className="text-sm text-blue-700 mt-1">{selectedBatch.inspectionRemark}</p>
                   </div>
                 </div>
+              </div>
+            )}
+
+            {selectedBatch.previousInspection && (
+              <div className="mb-6">
+                <button
+                  onClick={() => setShowChangeHistory(!showChangeHistory)}
+                  className="w-full flex items-center justify-between p-4 bg-forest-50 border border-forest-200 rounded-xl hover:bg-forest-100 transition-colors"
+                >
+                  <div className="flex items-center gap-2">
+                    <History className="w-4 h-4 text-forest-600" />
+                    <span className="text-sm font-medium text-forest-800">质检变更前后对比</span>
+                    <span className="text-xs text-forest-500">（v{selectedBatch.previousInspection.version} → v{selectedBatch.inspectionVersion}）</span>
+                  </div>
+                  {showChangeHistory ? (
+                    <ChevronUp className="w-4 h-4 text-forest-500" />
+                  ) : (
+                    <ChevronDown className="w-4 h-4 text-forest-500" />
+                  )}
+                </button>
+
+                {showChangeHistory && (
+                  <div className="mt-3 bg-white border border-forest-200 rounded-xl overflow-hidden animate-slide-up">
+                    <table className="w-full text-sm">
+                      <thead className="bg-cream-50">
+                        <tr>
+                          <th className="text-left px-4 py-2.5 text-xs font-medium text-forest-500">项目</th>
+                          <th className="text-left px-4 py-2.5 text-xs font-medium text-red-500">变更前（v{selectedBatch.previousInspection.version}）</th>
+                          <th className="text-left px-4 py-2.5 text-xs font-medium text-green-600">变更后（v{selectedBatch.inspectionVersion}）</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-cream-200">
+                        <tr>
+                          <td className="px-4 py-2.5 text-forest-700">合格数量</td>
+                          <td className="px-4 py-2.5 text-red-600 font-medium">{selectedBatch.previousInspection.qualifiedQty} 枝</td>
+                          <td className="px-4 py-2.5 text-green-600 font-medium">{selectedBatch.qualifiedQty} 枝</td>
+                        </tr>
+                        <tr>
+                          <td className="px-4 py-2.5 text-forest-700">破损数量</td>
+                          <td className="px-4 py-2.5 text-red-600 font-medium">{selectedBatch.previousInspection.damagedQty} 枝</td>
+                          <td className="px-4 py-2.5 text-green-600 font-medium">{selectedBatch.damagedQty} 枝</td>
+                        </tr>
+                        <tr>
+                          <td className="px-4 py-2.5 text-forest-700">破损原因</td>
+                          <td className="px-4 py-2.5">
+                            <div className="flex flex-wrap gap-1">
+                              {selectedBatch.previousInspection.damageReasons && selectedBatch.previousInspection.damageReasons.length > 0
+                                ? selectedBatch.previousInspection.damageReasons.map((r, i) => (
+                                    <span key={i} className="text-xs px-2 py-0.5 rounded-full bg-red-100 text-red-700">{r}</span>
+                                  ))
+                                : <span className="text-xs text-forest-400">无</span>
+                              }
+                            </div>
+                          </td>
+                          <td className="px-4 py-2.5">
+                            <div className="flex flex-wrap gap-1">
+                              {selectedBatch.damageReasons && selectedBatch.damageReasons.length > 0
+                                ? selectedBatch.damageReasons.map((r, i) => (
+                                    <span key={i} className="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700">{r}</span>
+                                  ))
+                                : <span className="text-xs text-forest-400">无</span>
+                              }
+                            </div>
+                          </td>
+                        </tr>
+                        {(selectedBatch.previousInspection.remark || selectedBatch.inspectionRemark) && (
+                          <tr>
+                            <td className="px-4 py-2.5 text-forest-700">备注</td>
+                            <td className="px-4 py-2.5 text-red-600 text-sm">{selectedBatch.previousInspection.remark || '无'}</td>
+                            <td className="px-4 py-2.5 text-green-600 text-sm">{selectedBatch.inspectionRemark || '无'}</td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                    {selectedBatch.lastInspectionChange && (
+                      <div className="px-4 py-2 bg-cream-50 text-xs text-forest-500">
+                        变更时间：{formatTime(selectedBatch.lastInspectionChange)}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             )}
 

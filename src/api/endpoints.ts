@@ -20,6 +20,15 @@ export const ordersApi = {
     api.put<Order>(`/orders/${id}/spec`, { spec, quantity, operator }),
   updateBloom: (id: string, bloomForecast: string, operator?: string) =>
     api.put<Order>(`/orders/${id}/bloom`, { bloomForecast, operator }),
+  reportBloom: (id: string, actualBloom: string, operator?: string) =>
+    api.post<Order>(`/orders/${id}/bloom-report`, { actualBloom, operator }),
+  recordPatrol: (data: {
+    greenhouseId: string;
+    greenhouseName: string;
+    description: string;
+    orderId?: string;
+    operator?: string;
+  }) => api.post<{ success: boolean }>('/orders/patrol', data),
 };
 
 export const packagingApi = {

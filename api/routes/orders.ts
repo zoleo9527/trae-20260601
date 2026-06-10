@@ -1,5 +1,5 @@
 import express, { type Request, type Response } from 'express';
-import { getOrders, getOrderById, updateOrderSpec, updateBloomForecast } from '../services/orderService.js';
+import { getOrders, getOrderById, updateOrderSpec, updateBloomForecast, reportActualBloom, recordPatrol } from '../services/orderService.js';
 
 const router = express.Router();
 
@@ -108,6 +108,67 @@ router.put('/:id/bloom', (req: Request, res: Response): void => {
     res.status(500).json({
       success: false,
       message: '更新花期预测失败',
+    });
+  }
+});
+
+router.post('/:id/bloom-report', (req: Request, res: Response): void => {
+  try {
+    const { id } = req.params;
+    const { actualBloom, operator } = req.body;
+
+    if (!actualBloom) {
+      res.status(400).json({
+        success: false,
+        message: '实际花期不能为空',
+      });
+      return;
+    }
+
+    const order = reportActualBloom(id, actualBloom, operator);
+    if (!order) {
+      res.status(404).json({
+        success: false,
+        message: '订单不存在',
+      });
+      return;
+    }
+
+    res.json({
+      success: true,
+      data: order,
+      message: '花期上报成功',
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: '花期上报失败',
+    });
+  }
+});
+
+router.post('/patrol', (req: Request, res: Response): void => {
+  try {
+    const { greenhouseId, greenhouseName, description, orderId, operator } = req.body;
+
+    if (!greenhouseId || !greenhouseName || !description) {
+      res.status(400).json({
+        success: false,
+        message: '请填写完整的巡检信息',
+      });
+      return;
+    }
+
+    const success = recordPatrol(greenhouseId, greenhouseName, description, orderId, operator);
+
+    res.json({
+      success,
+      message: '巡检记录已提交',
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: '提交巡检记录失败',
     });
   }
 });
