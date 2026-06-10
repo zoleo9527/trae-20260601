@@ -30,24 +30,6 @@ function buildAnomalySummary(plan, complaints) {
   };
 }
 
-function buildAnomalySummaryLite(plan, complaints) {
-  const deviationAlertCount = (plan.records || []).filter(
-    (r) => r.deviationRate !== null && Math.abs(r.deviationRate) >= DEVIATION_THRESHOLD
-  ).length;
-
-  const labelAlertCount = (plan.inspections || []).filter(
-    (i) => i.batchLabelOk === false
-  ).length;
-
-  const relatedComplaintCount = complaints.length;
-
-  return {
-    deviationAlertCount,
-    labelAlertCount,
-    relatedComplaintCount,
-  };
-}
-
 async function listPlans(filters = {}) {
   const where = {};
   if (filters.status) where.status = filters.status;
@@ -175,7 +157,7 @@ async function listPlanRecords(planId) {
   });
 }
 
-async function getPlanHistory(formulaId, formulaCode) {
+async function getPlanHistory(formulaId, formulaCode, complaintCategory) {
   let where = { status: { in: ['completed', 'in_progress'] } };
 
   if (formulaCode) {
@@ -197,9 +179,13 @@ async function getPlanHistory(formulaId, formulaCode) {
   });
 
   const planCodes = plans.map((p) => p.code);
+  const complaintWhere = { batchCode: { in: planCodes } };
+  if (complaintCategory) {
+    complaintWhere.category = complaintCategory;
+  }
   const allComplaints = planCodes.length > 0
     ? await prisma.complaint.findMany({
-        where: { batchCode: { in: planCodes } },
+        where: complaintWhere,
         orderBy: { createdAt: 'desc' },
       })
     : [];
@@ -215,7 +201,7 @@ async function getPlanHistory(formulaId, formulaCode) {
 
   return plans.map((plan) => {
     const complaints = complaintsByCode.get(plan.code) || [];
-    const anomalySummary = buildAnomalySummaryLite(plan, complaints);
+    const anomalySummary = buildAnomalySummary(plan, complaints);
     return { ...plan, anomalySummary };
   });
 }

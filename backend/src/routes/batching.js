@@ -28,10 +28,11 @@ router.get(
   roleGuard('production_leader', 'quality_inspector', 'formulation_engineer'),
   async (req, res, next) => {
     try {
-      const { formulaCode } = req.query;
+      const { formulaCode, complaintCategory } = req.query;
       const history = await batchingService.getPlanHistory(
         parseInt(req.params.formulaId, 10),
-        formulaCode
+        formulaCode,
+        complaintCategory
       );
       res.json({ success: true, data: history });
     } catch (err) {
