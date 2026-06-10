@@ -113,7 +113,11 @@ function getSeverityClass(severity: string) {
             <div class="list-item-content">
               <div class="list-item-header">
                 <span class="list-item-title">{{ report.reportCode }}</span>
-                <StatusBadge :status="report.status" />
+                <StatusBadge 
+                  :status="report.status" 
+                  :clickable="true"
+                  @click.stop="goToReportDetail(report.id)"
+                />
               </div>
               <div class="list-item-meta">
                 <span :class="['severity-tag', getSeverityClass(report.severity)]">

@@ -4,8 +4,9 @@ import type { Role, DiseaseReport, ReportStats } from '@/types'
 import { mockApi } from '@/api/mock'
 
 export const useReportStore = defineStore('report', () => {
-  const currentRole = ref<Role | null>(null)
-  const reports = ref<DiseaseReport[]>([])
+  const storedRole = localStorage.getItem('current_role') as Role | null
+  const currentRole = ref<Role | null>(storedRole)
+  const reports = ref<DiseaseReport[]>(storedRole ? mockApi.getReports() : [])
 
   const pendingReports = computed(() => reports.value.filter(r => r.status === 'pending'))
   const confirmedReports = computed(() => reports.value.filter(r => r.status === 'confirmed'))
@@ -24,6 +25,7 @@ export const useReportStore = defineStore('report', () => {
 
   function setRole(role: Role) {
     currentRole.value = role
+    localStorage.setItem('current_role', role)
     loadReports()
   }
 

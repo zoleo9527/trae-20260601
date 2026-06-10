@@ -17,10 +17,6 @@ function formatDate(dateStr: string) {
   return new Date(dateStr).toLocaleDateString('zh-CN')
 }
 
-function formatDateTime(dateStr: string) {
-  return new Date(dateStr).toLocaleString('zh-CN')
-}
-
 function handleRelease(id: string) {
   if (confirm('确认解除该隔离？')) {
     isolationStore.releaseIsolation(id)

@@ -1,18 +1,15 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useReportStore } from '@/stores/reportStore'
-import { useIsolationStore } from '@/stores/isolationStore'
 import StatusBadge from '@/components/StatusBadge.vue'
 
 const router = useRouter()
 const route = useRoute()
 const reportStore = useReportStore()
-const isolationStore = useIsolationStore()
 
 const reportId = computed(() => route.params.id as string)
 const report = computed(() => reportStore.getReportById(reportId.value))
-const hasIsolation = computed(() => !!report.value?.isolationId)
 
 const showRejectModal = ref(false)
 const rejectReason = ref('')
@@ -51,10 +48,6 @@ function goToIsolation() {
 function goBack() {
   router.push({ name: 'manager' })
 }
-
-onMounted(() => {
-  isolationStore.loadIsolations()
-})
 </script>
 
 <template>

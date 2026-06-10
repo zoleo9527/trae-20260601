@@ -20,6 +20,13 @@ function goToHistory() {
 function formatDate(dateStr: string) {
   return new Date(dateStr).toLocaleDateString('zh-CN')
 }
+
+function handleStatusClick(reportId: string) {
+  const report = reportStore.getReportById(reportId)
+  if (report && (report.status === 'isolating' || report.status === 'resolved')) {
+    router.push({ name: 'report-history' })
+  }
+}
 </script>
 
 <template>
@@ -86,7 +93,11 @@ function formatDate(dateStr: string) {
             <div class="list-item-content">
               <div class="list-item-header">
                 <span class="list-item-title">{{ report.reportCode }}</span>
-                <StatusBadge :status="report.status" />
+                <StatusBadge 
+                  :status="report.status" 
+                  :clickable="report.status === 'isolating' || report.status === 'resolved'"
+                  @click="handleStatusClick(report.id)"
+                />
               </div>
               <div class="list-item-meta">
                 {{ report.barnNumber }} · {{ report.suspectedDisease }} · {{ formatDate(report.createdAt) }}
