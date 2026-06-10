@@ -188,17 +188,27 @@ function isPlanOverdue(plan: BreedingPlan): boolean {
           </template>
         </ElTableColumn>
         <ElTableColumn prop="actualDate" label="实际执行日期" />
-        <ElTableColumn label="取消原因" v-if="statusFilter === 'cancelled'">
+        <ElTableColumn label="变更来源">
+          <template #default="scope">
+            <ElTag v-if="scope.row.cancelledReason" type="info" size="small">
+              {{ scope.row.affectedSowStatus === 'culled' ? '母猪淘汰' : scope.row.affectedSowStatus === 'sick' ? '母猪患病' : '手动取消' }}
+            </ElTag>
+            <span v-else-if="scope.row.status === 'completed'" class="text-green-600 text-sm">配种完成</span>
+            <span v-else class="text-gray-400 text-sm">-</span>
+          </template>
+        </ElTableColumn>
+        <ElTableColumn label="责任人">
+          <template #default="scope">
+            <span v-if="scope.row.cancelledBy" class="text-warning">{{ scope.row.cancelledBy }}</span>
+            <span v-else-if="scope.row.operator" class="text-green-600">{{ scope.row.operator }}</span>
+            <span v-else class="text-gray-400">-</span>
+          </template>
+        </ElTableColumn>
+        <ElTableColumn label="变更原因">
           <template #default="scope">
             <ElTooltip v-if="scope.row.cancelledReason" :content="scope.row.cancelledReason" placement="top">
               <span class="text-warning cursor-help">{{ scope.row.cancelledReason }}</span>
             </ElTooltip>
-            <span v-else class="text-gray-400">-</span>
-          </template>
-        </ElTableColumn>
-        <ElTableColumn label="取消人" v-if="statusFilter === 'cancelled'">
-          <template #default="scope">
-            <span v-if="scope.row.cancelledBy">{{ scope.row.cancelledBy }}</span>
             <span v-else class="text-gray-400">-</span>
           </template>
         </ElTableColumn>

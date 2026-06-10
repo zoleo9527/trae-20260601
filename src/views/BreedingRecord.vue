@@ -34,10 +34,9 @@ const filteredRecords = computed(() => {
 const successCount = computed(() => store.breedingRecords.filter(r => r.result === 'success').length)
 const pendingCount = computed(() => store.breedingRecords.filter(r => r.result === 'pending').length)
 
-function confirmConception(record: { conceptionConfirmed: boolean; confirmedDate?: string }) {
-  record.conceptionConfirmed = true
-  record.confirmedDate = new Date().toISOString().split('T')[0]
-  ElMessage.success('受孕已确认')
+function confirmConception(recordId: string) {
+  store.confirmConception(recordId)
+  ElMessage.success('受孕已确认，档案已更新')
 }
 </script>
 
@@ -100,7 +99,7 @@ function confirmConception(record: { conceptionConfirmed: boolean; confirmedDate
                 size="small"
                 type="primary"
                 icon="Check"
-                @click="confirmConception(scope.row as any)"
+                @click="confirmConception((scope.row as any).id)"
               >确认受孕</ElButton>
             </template>
             <span v-else class="text-gray-400">-</span>

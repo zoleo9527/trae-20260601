@@ -3,6 +3,7 @@ import { computed } from 'vue'
 import { useFarmStore } from '@/stores/farm'
 import { useRouter } from 'vue-router'
 import { ElCard, ElRow, ElCol, ElStatistic, ElTable, ElTableColumn, ElTag, ElButton, ElProgress } from 'element-plus'
+import { ElMessage } from 'element-plus'
 
 const store = useFarmStore()
 const router = useRouter()
@@ -97,10 +98,22 @@ function handleTaskAction(task: { id: string; type: string }) {
       router.push('/sow-archive')
       break
     case 'exception':
+      router.push('/breeding-plan')
+      break
     case 'overdue':
       router.push('/breeding-plan')
       break
   }
+}
+
+function handleVaccineException(task: { id: string }) {
+  store.handleVaccineException(task.id, 'resolve')
+  ElMessage.success('疫苗异常已处理')
+}
+
+function handlePlanException(task: { id: string }, action: 'ignore' | 'reschedule') {
+  store.handlePlanException(task.id, action)
+  ElMessage.success(action === 'ignore' ? '异常已标记为处理' : '计划已重新安排')
 }
 </script>
 
@@ -145,7 +158,18 @@ function handleTaskAction(task: { id: string; type: string }) {
               </div>
               <p class="text-sm text-gray-500 mt-1">{{ task.description }}</p>
             </div>
-            <ElButton size="small" @click="handleTaskAction(task)">处理</ElButton>
+            <div class="flex gap-2">
+              <template v-if="task.type === 'exception'">
+                <ElButton size="small" type="primary" @click="handlePlanException(task, 'reschedule')">重新安排</ElButton>
+                <ElButton size="small" @click="handlePlanException(task, 'ignore')">忽略</ElButton>
+              </template>
+              <template v-else-if="task.type === 'vaccine'">
+                <ElButton size="small" type="success" @click="handleVaccineException(task)">处理异常</ElButton>
+              </template>
+              <template v-else>
+                <ElButton size="small" @click="handleTaskAction(task)">处理</ElButton>
+              </template>
+            </div>
           </div>
         </div>
       </div>

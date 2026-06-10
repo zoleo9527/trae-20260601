@@ -239,6 +239,68 @@ export const useFarmStore = defineStore('farm', () => {
     }
   }
 
+  function confirmConception(recordId: string) {
+    const record = breedingRecords.value.find(r => r.id === recordId)
+    if (record) {
+      record.conceptionConfirmed = true
+      record.confirmedDate = new Date().toISOString().split('T')[0]
+      
+      const sow = getSowById(record.sowId)
+      if (sow) {
+        updateSow(sow.id, {
+          changeReason: `受孕确认 (${record.breedingDate})`,
+          changeSource: 'breeding',
+          updatedBy: currentUser.value.id
+        })
+      }
+      
+      addNotification({
+        type: 'success',
+        title: '受孕确认',
+        message: `${sow?.earTag} 受孕已确认`,
+        targetRole: 'manager',
+        relatedId: recordId
+      })
+    }
+  }
+
+  function handleVaccineException(vaccineId: string, action: 'resolve' | 'monitor') {
+    const record = vaccineRecords.value.find(r => r.id === vaccineId)
+    if (record) {
+      const sow = getSowById(record.animalId)
+      if (sow && action === 'resolve') {
+        updateSow(sow.id, {
+          healthStatus: 'healthy',
+          changeReason: '疫苗异常已处理完成',
+          changeSource: 'vaccine'
+        })
+        addNotification({
+          type: 'success',
+          title: '疫苗异常已处理',
+          message: `${sow.earTag} 疫苗异常已解决`,
+          targetRole: 'veterinarian',
+          relatedId: vaccineId
+        })
+      }
+    }
+  }
+
+  function handlePlanException(planId: string, action: 'ignore' | 'reschedule') {
+    const plan = breedingPlans.value.find(p => p.id === planId)
+    if (plan) {
+      if (action === 'ignore') {
+        plan.cancelledReason = `${plan.cancelledReason} (已处理)`
+        plan.updatedAt = new Date().toISOString().split('T')[0]
+      } else if (action === 'reschedule') {
+        plan.status = 'pending'
+        plan.cancelledReason = undefined
+        plan.cancelledBy = undefined
+        plan.affectedSowStatus = undefined
+        plan.updatedAt = new Date().toISOString().split('T')[0]
+      }
+    }
+  }
+
   function getTasksForRole(role: string) {
     const tasks: { id: string; title: string; description: string; type: string; priority: 'high' | 'medium' | 'low' }[] = []
     
@@ -380,6 +442,9 @@ export const useFarmStore = defineStore('farm', () => {
     addVaccineRecord,
     addNotification,
     markNotificationAsRead,
-    getTasksForRole
+    getTasksForRole,
+    confirmConception,
+    handleVaccineException,
+    handlePlanException
   }
 })
