@@ -66,7 +66,9 @@ export class CreditOrderService {
     const warnings: string[] = []
     const errors: string[] = []
 
+    let creatorUser
     try {
+      creatorUser = await this.userService.getUserById(request.operatorId)
       await this.userService.validateCreatorRole(request.operatorId)
     } catch (error: any) {
       errors.push(error.message)
@@ -150,8 +152,8 @@ export class CreditOrderService {
       items: orderItems,
       totalAmount,
       status: 'pending',
-      creatorId: request.operatorId,
-      creatorName: request.operatorName
+      creatorId: creatorUser.userId,
+      creatorName: creatorUser.name
     }
 
     const createdOrder = await this.orderRepository.create(order)
@@ -178,7 +180,9 @@ export class CreditOrderService {
     const warnings: string[] = []
     const errors: string[] = []
 
+    let approverUser
     try {
+      approverUser = await this.userService.getUserById(request.operatorId)
       await this.userService.validateApproverRole(request.operatorId)
     } catch (error: any) {
       errors.push(error.message)
@@ -208,8 +212,8 @@ export class CreditOrderService {
 
       const updatedOrder = await this.orderRepository.approveOrder(
         order.orderId,
-        request.operatorId,
-        request.operatorName,
+        approverUser.userId,
+        approverUser.name,
         request.comment
       )
 
@@ -227,8 +231,8 @@ export class CreditOrderService {
     } else {
       const updatedOrder = await this.orderRepository.rejectOrder(
         order.orderId,
-        request.operatorId,
-        request.operatorName,
+        approverUser.userId,
+        approverUser.name,
         request.comment
       )
       return { success: true, order: updatedOrder!, warnings, errors }
@@ -239,7 +243,9 @@ export class CreditOrderService {
     const warnings: string[] = []
     const errors: string[] = []
 
+    let shipperUser
     try {
+      shipperUser = await this.userService.getUserById(request.operatorId)
       await this.userService.validateShipperRole(request.operatorId)
     } catch (error: any) {
       errors.push(error.message)
@@ -274,8 +280,8 @@ export class CreditOrderService {
 
     const updatedOrder = await this.orderRepository.shipOrder(
       order.orderId,
-      request.operatorId,
-      request.operatorName
+      shipperUser.userId,
+      shipperUser.name
     )
     return { success: true, order: updatedOrder!, warnings, errors }
   }
@@ -284,7 +290,9 @@ export class CreditOrderService {
     const warnings: string[] = []
     const errors: string[] = []
 
+    let completerUser
     try {
+      completerUser = await this.userService.getUserById(request.operatorId)
       await this.userService.validateCompleterRole(request.operatorId)
     } catch (error: any) {
       errors.push(error.message)
@@ -300,8 +308,8 @@ export class CreditOrderService {
 
     const updatedOrder = await this.orderRepository.completeOrder(
       order.orderId,
-      request.operatorId,
-      request.operatorName
+      completerUser.userId,
+      completerUser.name
     )
     return { success: true, order: updatedOrder!, warnings, errors }
   }
