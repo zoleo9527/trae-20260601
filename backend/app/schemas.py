@@ -101,6 +101,7 @@ class InboundItem(BaseModel):
     fault_id: Optional[int] = None
     initial_status: VehicleStatus
     vehicle: Optional[Vehicle] = None
+    repair_order: Optional["RepairOrder"] = None
 
     class Config:
         from_attributes = True
@@ -197,6 +198,7 @@ class DeploymentRecord(BaseModel):
     reviewer: Optional[str] = None
     reviewed_at: Optional[datetime] = None
     vehicle: Optional[Vehicle] = None
+    repair_order: Optional["RepairOrder"] = None
 
     class Config:
         from_attributes = True
@@ -230,3 +232,7 @@ class RegionFeedback(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+InboundItem.model_rebuild()
+DeploymentRecord.model_rebuild()

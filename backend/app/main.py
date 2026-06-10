@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import List, Optional
 from fastapi import FastAPI, Depends, HTTPException, Query
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func, Integer
 
 from .database import engine, get_db, Base
@@ -111,7 +111,16 @@ def create_inbound_batch(batch: schemas.InboundBatchCreate, db: Session = Depend
             )
 
         fault_id = item.fault_id
-        if not fault_id and item.fault_type:
+        if fault_id:
+            fault = db.query(models.Fault).filter(models.Fault.id == fault_id).first()
+            if not fault:
+                raise HTTPException(status_code=404, detail=f"故障 {fault_id} 不存在")
+            if fault.vehicle_id != item.vehicle_id:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"故障 {fault_id} 不属于车辆 {vehicle.bike_code}"
+                )
+        elif item.fault_type:
             db_fault = models.Fault(
                 vehicle_id=item.vehicle_id,
                 fault_type=item.fault_type,
@@ -121,6 +130,11 @@ def create_inbound_batch(batch: schemas.InboundBatchCreate, db: Session = Depend
             db.add(db_fault)
             db.flush()
             fault_id = db_fault.id
+        else:
+            raise HTTPException(
+                status_code=400,
+                detail=f"车辆 {vehicle.bike_code} 入库必须提供故障信息（fault_id 或 fault_type）"
+            )
 
         db_item = models.InboundItem(
             batch_id=db_batch.id,
@@ -134,18 +148,17 @@ def create_inbound_batch(batch: schemas.InboundBatchCreate, db: Session = Depend
         vehicle.status = VehicleStatus.IN_REPAIR
         vehicle.current_region_id = None
 
-        if fault_id:
-            db_repair = models.RepairOrder(
-                order_code="TMP",
-                vehicle_id=item.vehicle_id,
-                fault_id=fault_id,
-                inbound_item_id=db_item.id,
-                repair_station=batch.repair_station,
-                status=RepairStatus.PENDING
-            )
-            db.add(db_repair)
-            db.flush()
-            db_repair.order_code = generate_code("RO", db_repair.id)
+        db_repair = models.RepairOrder(
+            order_code="TMP",
+            vehicle_id=item.vehicle_id,
+            fault_id=fault_id,
+            inbound_item_id=db_item.id,
+            repair_station=batch.repair_station,
+            status=RepairStatus.PENDING
+        )
+        db.add(db_repair)
+        db.flush()
+        db_repair.order_code = generate_code("RO", db_repair.id)
     db_batch.status = BatchStatus.COMPLETED
     db.commit()
     db.refresh(db_batch)
@@ -158,7 +171,10 @@ def list_inbound_batches(
     source_region_id: Optional[int] = None,
     db: Session = Depends(get_db)
 ):
-    query = db.query(models.InboundBatch)
+    query = db.query(models.InboundBatch).options(
+        joinedload(models.InboundBatch.items).joinedload(models.InboundItem.vehicle),
+        joinedload(models.InboundBatch.items).joinedload(models.InboundItem.repair_order)
+    )
     if repair_station:
         query = query.filter(models.InboundBatch.repair_station == repair_station)
     if source_region_id:
@@ -226,16 +242,30 @@ def list_repair_orders(
     status: Optional[RepairStatus] = None,
     repair_station: Optional[str] = None,
     vehicle_id: Optional[int] = None,
+    latest_only: bool = Query(False, description="按车辆只返回最新一条维修单"),
     db: Session = Depends(get_db)
 ):
-    query = db.query(models.RepairOrder)
+    query = db.query(models.RepairOrder).options(
+        joinedload(models.RepairOrder.vehicle)
+    )
     if status:
         query = query.filter(models.RepairOrder.status == status)
     if repair_station:
         query = query.filter(models.RepairOrder.repair_station == repair_station)
     if vehicle_id:
         query = query.filter(models.RepairOrder.vehicle_id == vehicle_id)
-    return query.order_by(models.RepairOrder.created_at.desc()).all()
+    query = query.order_by(models.RepairOrder.created_at.desc())
+
+    orders = query.all()
+    if latest_only:
+        seen = {}
+        result = []
+        for o in orders:
+            if o.vehicle_id not in seen:
+                seen[o.vehicle_id] = True
+                result.append(o)
+        return result
+    return orders
 
 
 @app.get("/repair/stations/summary", response_model=List[schemas.RepairStationSummary], tags=["维修管理"])
@@ -280,6 +310,11 @@ def create_deployment_batch(data: schemas.DeploymentBatchCreate, db: Session = D
             ).first()
             if not repair_order:
                 raise HTTPException(status_code=404, detail=f"维修单 {item.repair_order_id} 不存在")
+            if repair_order.vehicle_id != item.vehicle_id:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"维修单 {repair_order.order_code} 归属车辆为 {repair_order.vehicle_id}，与投放车辆 {item.vehicle_id} 不一致"
+                )
             if repair_order.status != RepairStatus.COMPLETED:
                 raise HTTPException(
                     status_code=400,
@@ -327,7 +362,10 @@ def list_deployments(
     batch_code: Optional[str] = None,
     db: Session = Depends(get_db)
 ):
-    query = db.query(models.DeploymentRecord)
+    query = db.query(models.DeploymentRecord).options(
+        joinedload(models.DeploymentRecord.vehicle),
+        joinedload(models.DeploymentRecord.repair_order)
+    )
     if status:
         query = query.filter(models.DeploymentRecord.status == status)
     if target_region_id:

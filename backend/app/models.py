@@ -116,6 +116,7 @@ class InboundItem(Base):
     batch = relationship("InboundBatch", back_populates="items")
     vehicle = relationship("Vehicle", back_populates="inbound_items")
     fault = relationship("Fault", back_populates="inbound_items")
+    repair_order = relationship("RepairOrder", back_populates="inbound_item", uselist=False)
 
 
 class RepairOrder(Base):
@@ -140,7 +141,7 @@ class RepairOrder(Base):
 
     vehicle = relationship("Vehicle", back_populates="repair_orders")
     fault = relationship("Fault", back_populates="repair_orders")
-    inbound_item = relationship("InboundItem")
+    inbound_item = relationship("InboundItem", back_populates="repair_order")
 
 
 class DeploymentRecord(Base):
