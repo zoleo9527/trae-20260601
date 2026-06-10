@@ -85,10 +85,14 @@ public class RemoteReleaseService {
                 release.approve(request.getReviewerName(), request.getReviewRemark());
                 ParkingLog exitLog = new ParkingLog();
                 exitLog.setGate(release.getGate());
+                exitLog.setGateFaultId(release.getGateFault().getId());
+                exitLog.setRemoteReleaseId(release.getId());
                 exitLog.setPlateNumber(release.getPlateNumber());
                 exitLog.setEventType("EXIT_REMOTE");
+                exitLog.setOperatorName(request.getReviewerName());
+                exitLog.setOperatorRole("CUSTOMER_SERVICE");
                 exitLog.setEventTime(LocalDateTime.now());
-                exitLog.setDetail("远程放行走场，关联故障ID：" + release.getGateFault().getId() + "，审核意见：" + request.getReviewRemark());
+                exitLog.setDetail("远程放行走场，审核意见：" + request.getReviewRemark());
                 parkingLogRepository.save(exitLog);
             }
             case "REJECT" -> {
@@ -108,10 +112,14 @@ public class RemoteReleaseService {
 
                 ParkingLog supplementLog = new ParkingLog();
                 supplementLog.setGate(release.getGate());
+                supplementLog.setGateFaultId(release.getGateFault().getId());
+                supplementLog.setRemoteReleaseId(release.getId());
                 supplementLog.setPlateNumber(release.getPlateNumber());
                 supplementLog.setEventType("SUPPLEMENT");
+                supplementLog.setOperatorName(request.getReviewerName());
+                supplementLog.setOperatorRole("CUSTOMER_SERVICE");
                 supplementLog.setEventTime(LocalDateTime.now());
-                supplementLog.setDetail("远程放行补录，处理人：" + request.getReviewerName() + "，关联故障ID：" + release.getGateFault().getId() + "，补录内容：" + request.getSupplementInfo());
+                supplementLog.setDetail("远程放行补录，补录内容：" + request.getSupplementInfo());
                 parkingLogRepository.save(supplementLog);
 
                 AlertNotification alert = AlertNotification.supplementNeeded(release);

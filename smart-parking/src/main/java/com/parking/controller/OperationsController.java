@@ -91,7 +91,7 @@ public class OperationsController {
     }
 
     @GetMapping("/logs")
-    public ApiResponse<PageResult<com.parking.entity.ParkingLog>> queryLogs(
+    public ApiResponse<PageResult<ParkingLogVO>> queryLogs(
             @RequestParam(required = false) Long gateId,
             @RequestParam(required = false) String plateNumber,
             @RequestParam(required = false) String eventType,

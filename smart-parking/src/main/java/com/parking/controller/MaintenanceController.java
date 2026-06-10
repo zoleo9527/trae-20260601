@@ -60,7 +60,7 @@ public class MaintenanceController {
     }
 
     @GetMapping("/logs")
-    public ApiResponse<PageResult<com.parking.entity.ParkingLog>> queryLogs(
+    public ApiResponse<PageResult<ParkingLogVO>> queryLogs(
             @RequestParam(required = false) Long gateId,
             @RequestParam(required = false) String plateNumber,
             @RequestParam(required = false) String eventType,
@@ -68,7 +68,7 @@ public class MaintenanceController {
             @RequestParam(required = false) String endTime,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
-        PageResult<com.parking.entity.ParkingLog> result = parkingLogService.queryLogs(
+        PageResult<ParkingLogVO> result = parkingLogService.queryLogs(
                 gateId, plateNumber, eventType, startTime, endTime, page, size);
         return ApiResponse.ok(result);
     }

@@ -16,6 +16,7 @@ com/parking/dto/ApiResponse.class
 com/parking/service/ParkingLogService.class
 com/parking/dto/SupplementRecordVO.class
 com/parking/service/RemoteReleaseService.class
+com/parking/dto/ParkingLogVO.class
 com/parking/dto/GateFaultQuery.class
 com/parking/controller/MaintenanceController.class
 com/parking/enums/Role.class

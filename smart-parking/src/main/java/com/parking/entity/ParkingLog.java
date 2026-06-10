@@ -17,6 +17,18 @@ public class ParkingLog {
     @JoinColumn(name = "gate_id", nullable = false)
     private Gate gate;
 
+    @Column(name = "gate_fault_id")
+    private Long gateFaultId;
+
+    @Column(name = "remote_release_id")
+    private Long remoteReleaseId;
+
+    @Column(name = "operator_name")
+    private String operatorName;
+
+    @Column(name = "operator_role")
+    private String operatorRole;
+
     @Column(nullable = false)
     private String plateNumber;
 
