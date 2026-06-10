@@ -18,6 +18,7 @@ const transfer = ref<any>(null)
 const loading = ref(true)
 const actionRemark = ref('')
 const acting = ref(false)
+const errorMsg = ref('')
 
 const canConfirmTransfer = computed(() => auth.role === '繁育员' && transfer.value?.status === 'pending_transfer')
 const canSubmitAssessment = computed(() => auth.role === '繁育员' && transfer.value?.status === 'transferred')
@@ -36,12 +37,13 @@ async function fetchDetail() {
 
 async function handleAction(action: string) {
   acting.value = true
+  errorMsg.value = ''
   try {
     await api.updateTransferStatus(transferId, action, actionRemark.value || undefined)
     actionRemark.value = ''
     await fetchDetail()
   } catch (e: any) {
-    alert(e.message || '操作失败')
+    errorMsg.value = e.message || '操作失败'
   } finally {
     acting.value = false
   }
@@ -141,7 +143,7 @@ onMounted(fetchDetail)
             <div class="text-slate-500">评估兽医</div>
             <div class="text-slate-200 mt-0.5">{{ transfer.assessment.vet_name }}</div>
           </div>
-          <div v-if="transfer.assessment.cull_recommend != null">
+          <div v-if="transfer.assessment.cull_recommend != null && transfer.assessment.assessed_at">
             <div class="text-slate-500">淘汰建议</div>
             <div class="mt-0.5">
               <span v-if="transfer.assessment.cull_recommend" class="text-red-400 text-sm">建议淘汰</span>
@@ -159,6 +161,9 @@ onMounted(fetchDetail)
 
       <div v-if="canConfirmTransfer || canSubmitAssessment" class="card space-y-4">
         <h3 class="text-sm font-medium text-slate-300">操作</h3>
+        <div v-if="errorMsg" class="text-xs text-red-400 bg-red-500/10 border border-red-500/30 rounded-lg px-3 py-2">
+          {{ errorMsg }}
+        </div>
         <div v-if="canConfirmTransfer" class="text-xs text-amber-400 bg-amber-500/10 rounded-lg px-3 py-2">
           当前待您确认转栏{{ transfer.isOverdue ? '（已超时）' : '' }}
         </div>

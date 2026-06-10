@@ -19,8 +19,8 @@ async function request<T>(url: string, options?: RequestInit): Promise<T> {
     },
   })
   if (!res.ok) {
-    const err = await res.json().catch(() => ({ message: '请求失败' }))
-    throw new Error(err.message || `HTTP ${res.status}`)
+    const err = await res.json().catch(() => ({}))
+    throw new Error(err.error || err.message || `请求失败 (${res.status})`)
   }
   return res.json()
 }

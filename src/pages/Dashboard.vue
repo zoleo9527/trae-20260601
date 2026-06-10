@@ -17,6 +17,19 @@ const loading = ref(false)
 const recentActions = ref<any[]>([])
 const overdueItems = ref<any[]>([])
 
+type OverdueItemType = 'transfer' | 'assessment'
+
+interface OverdueItem {
+  id: number
+  ear_tag: string
+  status: string
+  type: OverdueItemType
+}
+
+function tagOverdueItems(list: any[], type: OverdueItemType): OverdueItem[] {
+  return list.map((item: any) => ({ id: item.id, ear_tag: item.ear_tag, status: item.status, type }))
+}
+
 const roleEntries = computed(() => {
   const r = auth.role
   if (r === '繁育员') {
@@ -61,15 +74,15 @@ async function fetchData() {
     if (auth.role === '繁育员') {
       const tRes = await api.getTransfers({ status: 'pending_transfer', pageSize: 50 })
       const list = tRes.data?.list || tRes.list || []
-      overdueItems.value = list.filter((t: any) => t.isOverdue)
+      overdueItems.value = tagOverdueItems(list.filter((t: any) => t.isOverdue), 'transfer')
     } else if (auth.role === '兽医') {
       const aRes = await api.getAssessments({ status: 'pending_assessment', pageSize: 50 })
       const list = aRes.data?.list || aRes.list || []
-      overdueItems.value = list.filter((a: any) => a.isOverdue)
+      overdueItems.value = tagOverdueItems(list.filter((a: any) => a.isOverdue), 'assessment')
     } else if (auth.role === '场长') {
       const aRes = await api.getAssessments({ status: 'pending_approval', pageSize: 50 })
       const list = aRes.data?.list || aRes.list || []
-      overdueItems.value = list.filter((a: any) => a.isOverdue)
+      overdueItems.value = tagOverdueItems(list.filter((a: any) => a.isOverdue), 'assessment')
     }
   } catch (e) {
     console.error('Failed to fetch dashboard data:', e)
@@ -108,7 +121,7 @@ function goAssessmentDetail(id: number) {
             v-for="item in overdueItems.slice(0, 3)"
             :key="item.id"
             class="flex items-center gap-3 bg-red-500/10 rounded-lg px-3 py-2 cursor-pointer hover:bg-red-500/20 transition-colors"
-            @click="item.ear_tag ? goTransferDetail(item.id) : goAssessmentDetail(item.id)"
+            @click="item.type === 'transfer' ? goTransferDetail(item.id) : goAssessmentDetail(item.id)"
           >
             <span class="text-sm text-red-200">{{ item.ear_tag }}</span>
             <StatusBadge :status="item.status" />

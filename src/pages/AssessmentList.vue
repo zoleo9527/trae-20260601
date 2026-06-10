@@ -123,7 +123,8 @@ watch(() => route.query.status, (val) => {
           </div>
           <div class="flex items-center gap-4 text-xs text-slate-500">
             <span>健康评分: {{ item.health_score ?? '-' }}</span>
-            <span>{{ item.cull_recommend ? '建议淘汰' : '建议留养' }}</span>
+            <span v-if="item.assessed_at">{{ item.cull_recommend ? '建议淘汰' : '建议留养' }}</span>
+            <span v-else class="text-slate-600">待评估</span>
             <span v-if="item.vet_name">兽医: {{ item.vet_name }}</span>
           </div>
           <div v-if="item.nextAction && item.nextResponsible" class="mt-1.5 flex items-center gap-2 text-xs">

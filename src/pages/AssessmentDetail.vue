@@ -23,6 +23,7 @@ const cullRecommend = ref(false)
 const assessmentRemark = ref('')
 const actionRemark = ref('')
 const acting = ref(false)
+const errorMsg = ref('')
 
 const isVet = computed(() => auth.role === '兽医')
 const isManager = computed(() => auth.role === '场长')
@@ -45,6 +46,7 @@ async function fetchDetail() {
 
 async function handleAssess() {
   acting.value = true
+  errorMsg.value = ''
   try {
     await api.createAssessment(assessment.value.transfer_id, {
       healthScore: healthScore.value,
@@ -53,7 +55,7 @@ async function handleAssess() {
     })
     await fetchDetail()
   } catch (e: any) {
-    alert(e.message || '提交失败')
+    errorMsg.value = e.message || '提交失败'
   } finally {
     acting.value = false
   }
@@ -61,11 +63,12 @@ async function handleAssess() {
 
 async function handleApprove(approved: boolean) {
   acting.value = true
+  errorMsg.value = ''
   try {
     await api.approveAssessment(assessmentId, approved, actionRemark.value || undefined)
     await fetchDetail()
   } catch (e: any) {
-    alert(e.message || '操作失败')
+    errorMsg.value = e.message || '操作失败'
   } finally {
     acting.value = false
   }
@@ -152,6 +155,9 @@ onMounted(fetchDetail)
 
       <div v-if="canAssess" class="card space-y-4">
         <h3 class="text-sm font-medium text-slate-300">健康评估</h3>
+        <div v-if="errorMsg" class="text-xs text-red-400 bg-red-500/10 border border-red-500/30 rounded-lg px-3 py-2">
+          {{ errorMsg }}
+        </div>
         <div v-if="assessment.isOverdue" class="text-xs text-red-400 bg-red-500/10 rounded-lg px-3 py-2 flex items-center gap-2">
           <AlertTriangle :size="14" />
           该评估已超时，请尽快完成
@@ -245,6 +251,9 @@ onMounted(fetchDetail)
 
       <div v-if="canApprove" class="card space-y-4">
         <h3 class="text-sm font-medium text-slate-300">审批操作</h3>
+        <div v-if="errorMsg" class="text-xs text-red-400 bg-red-500/10 border border-red-500/30 rounded-lg px-3 py-2">
+          {{ errorMsg }}
+        </div>
         <div v-if="assessment.isOverdue" class="text-xs text-red-400 bg-red-500/10 rounded-lg px-3 py-2 flex items-center gap-2">
           <AlertTriangle :size="14" />
           该审批已超时，请尽快处理
