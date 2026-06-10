@@ -91,7 +91,7 @@ function handleTaskAction(task: { id: string; type: string }) {
     case 'conception':
       router.push('/breeding-record')
       break
-    case 'vaccine':
+    case 'vaccine_due':
       router.push('/vaccine')
       break
     case 'health':
@@ -108,7 +108,12 @@ function handleTaskAction(task: { id: string; type: string }) {
 
 function handleVaccineException(task: { id: string }) {
   store.handleVaccineException(task.id, 'resolve')
-  ElMessage.success('疫苗异常已处理')
+  ElMessage.success('疫苗异常已处理，档案已更新')
+}
+
+function handleHealthMonitoring(task: { id: string }) {
+  store.handleHealthMonitoring(task.id, 'recover')
+  ElMessage.success('健康状态已更新')
 }
 
 function handlePlanException(task: { id: string }, action: 'ignore' | 'reschedule') {
@@ -163,8 +168,11 @@ function handlePlanException(task: { id: string }, action: 'ignore' | 'reschedul
                 <ElButton size="small" type="primary" @click="handlePlanException(task, 'reschedule')">重新安排</ElButton>
                 <ElButton size="small" @click="handlePlanException(task, 'ignore')">忽略</ElButton>
               </template>
-              <template v-else-if="task.type === 'vaccine'">
+              <template v-else-if="task.type === 'vaccine_exception'">
                 <ElButton size="small" type="success" @click="handleVaccineException(task)">处理异常</ElButton>
+              </template>
+              <template v-else-if="task.type === 'health'">
+                <ElButton size="small" type="success" @click="handleHealthMonitoring(task)">恢复健康</ElButton>
               </template>
               <template v-else>
                 <ElButton size="small" @click="handleTaskAction(task)">处理</ElButton>

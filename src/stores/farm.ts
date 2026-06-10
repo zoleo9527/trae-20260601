@@ -269,10 +269,12 @@ export const useFarmStore = defineStore('farm', () => {
     if (record) {
       const sow = getSowById(record.animalId)
       if (sow && action === 'resolve') {
+        record.notes = record.notes?.replace('异常', '已处理')
         updateSow(sow.id, {
           healthStatus: 'healthy',
           changeReason: '疫苗异常已处理完成',
-          changeSource: 'vaccine'
+          changeSource: 'vaccine',
+          updatedBy: currentUser.value.id
         })
         addNotification({
           type: 'success',
@@ -280,6 +282,27 @@ export const useFarmStore = defineStore('farm', () => {
           message: `${sow.earTag} 疫苗异常已解决`,
           targetRole: 'veterinarian',
           relatedId: vaccineId
+        })
+      }
+    }
+  }
+
+  function handleHealthMonitoring(sowId: string, action: 'recover' | 'continue') {
+    const sow = getSowById(sowId)
+    if (sow) {
+      if (action === 'recover') {
+        updateSow(sowId, {
+          healthStatus: 'healthy',
+          changeReason: '健康监测完成，恢复健康',
+          changeSource: 'manual',
+          updatedBy: currentUser.value.id
+        })
+        addNotification({
+          type: 'success',
+          title: '健康恢复',
+          message: `${sow.earTag} 已恢复健康`,
+          targetRole: 'veterinarian',
+          relatedId: sowId
         })
       }
     }
@@ -345,7 +368,19 @@ export const useFarmStore = defineStore('farm', () => {
           id: record.id,
           title: '疫苗即将到期',
           description: `${animal?.earTag || record.animalId} 的${record.vaccineName}即将到期`,
-          type: 'vaccine',
+          type: 'vaccine_due',
+          priority: 'high'
+        })
+      })
+      
+      const vaccineExceptions = vaccineRecords.value.filter(r => r.notes && r.notes.includes('异常'))
+      vaccineExceptions.forEach(record => {
+        const animal = record.animalType === 'sow' ? getSowById(record.animalId) : getBoarById(record.animalId)
+        tasks.push({
+          id: record.id,
+          title: '疫苗异常处理',
+          description: `${animal?.earTag || record.animalId} 的${record.vaccineName}接种异常: ${record.notes}`,
+          type: 'vaccine_exception',
           priority: 'high'
         })
       })
@@ -445,6 +480,7 @@ export const useFarmStore = defineStore('farm', () => {
     getTasksForRole,
     confirmConception,
     handleVaccineException,
+    handleHealthMonitoring,
     handlePlanException
   }
 })
