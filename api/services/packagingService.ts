@@ -124,9 +124,18 @@ export const updateInspection = (
   if (!batch || !batch.inspectionResult) return null;
 
   const oldResult = batch.inspectionResult;
-  const oldQualified = oldResult.qualifiedQty;
-  const oldDamaged = oldResult.damagedQty;
-  const oldReasons = oldResult.damageReasons.join(', ');
+
+  const snapshot = {
+    qualifiedQty: oldResult.qualifiedQty,
+    damagedQty: oldResult.damagedQty,
+    damageReasons: [...oldResult.damageReasons],
+    remark: oldResult.remark,
+    version: oldResult.version,
+  };
+
+  const oldQualified = snapshot.qualifiedQty;
+  const oldDamaged = snapshot.damagedQty;
+  const oldReasons = snapshot.damageReasons.join(', ');
 
   const result = inspectionResults.find(r => r.id === oldResult.id);
   if (!result) return null;
@@ -148,11 +157,11 @@ export const updateInspection = (
   const loadingBatch = loadingBatches.find(lb => lb.batchId === batchId);
   if (loadingBatch) {
     loadingBatch.previousInspection = {
-      qualifiedQty: oldResult.qualifiedQty,
-      damagedQty: oldResult.damagedQty,
-      damageReasons: oldResult.damageReasons,
-      remark: oldResult.remark,
-      version: oldResult.version,
+      qualifiedQty: snapshot.qualifiedQty,
+      damagedQty: snapshot.damagedQty,
+      damageReasons: snapshot.damageReasons,
+      remark: snapshot.remark,
+      version: snapshot.version,
       changedAt: new Date().toISOString(),
     };
     loadingBatch.qualifiedQty = data.qualifiedQty;
@@ -195,6 +204,15 @@ export const updateInspection = (
     });
   }
 
+  if (snapshot.remark !== data.remark) {
+    changes.push({
+      field: 'remark',
+      fieldText: '备注',
+      oldValue: snapshot.remark || '无',
+      newValue: data.remark || '无',
+    });
+  }
+
   addLog({
     operator: data.inspector,
     operatorRole: 'packaging',
@@ -204,7 +222,7 @@ export const updateInspection = (
     targetType: 'batch',
     targetId: batch.id,
     targetName: `${batch.batchNo} / ${batch.flowerType}`,
-    description: `修改质检结果`,
+    description: `修改质检结果，合格${oldQualified}→${data.qualifiedQty}枝，破损${oldDamaged}→${data.damagedQty}枝`,
     changes,
   });
 

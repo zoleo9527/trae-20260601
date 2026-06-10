@@ -189,6 +189,9 @@ export const recordPatrol = (
   orderId?: string,
   operator: string = '李建国',
 ): boolean => {
+  const { orders } = getData();
+  const order = orderId ? orders.find(o => o.id === orderId) : undefined;
+
   addLog({
     operator,
     operatorRole: 'grower',
@@ -198,8 +201,30 @@ export const recordPatrol = (
     targetType: 'greenhouse',
     targetId: greenhouseId,
     targetName: greenhouseName,
-    description,
+    description: order
+      ? `${description}（关联订单：${order.orderNo} / ${order.flowerType}）`
+      : description,
+    changes: orderId ? [{
+      field: 'orderId',
+      fieldText: '关联订单',
+      oldValue: '',
+      newValue: orderId,
+    }] : undefined,
   });
+
+  if (order) {
+    addLog({
+      operator,
+      operatorRole: 'grower',
+      operatorRoleText: '种植员',
+      action: 'patrol_record',
+      actionText: '棚区巡检',
+      targetType: 'order',
+      targetId: order.id,
+      targetName: `${order.orderNo} / ${order.flowerType}`,
+      description: `${greenhouseName}巡检：${description}`,
+    });
+  }
 
   return true;
 };
