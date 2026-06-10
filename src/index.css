@@ -1,0 +1,59 @@
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  padding: 0;
+  min-height: 100vh;
+  font-family:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+    "Hiragino Sans GB", "Microsoft YaHei", "Helvetica Neue", Helvetica, Arial,
+    sans-serif;
+  color: #262626;
+  background: #f0f2f5;
+}
+
+body {
+  display: block;
+}
+
+.ant-layout {
+  min-height: 100vh;
+}
+
+.ant-card {
+  border-radius: 8px;
+}
+
+.ant-table-tbody > tr.row-stuck > td {
+  background: #fff1f0 !important;
+}
+
+.ant-table-tbody > tr.row-abnormal > td {
+  background: #fff7e6 !important;
+}
+
+.ant-table-tbody > tr.repair-pending > td {
+  background: #fff1f0 !important;
+}
+
+.ant-table-tbody > tr.repair-blocker > td {
+  background: #fffbe6 !important;
+}
+
+.ant-drawer-body {
+  padding: 16px 20px;
+  background: #f0f2f5;
+}
+
+.ant-steps-item-title {
+  font-weight: 500;
+}
+
+.ant-statistic-title {
+  font-size: 13px;
+  color: #595959;
+}
