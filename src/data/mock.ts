@@ -55,8 +55,8 @@ const FEED_RECORDS: FeedRecord[] = [
     feedTime: '06:45',
     feeder: '李大明',
     status: 'delivered',
-    riskFlag: true,
-    riskReason: '投喂量超出计划配方的8%，需确认是否有变更指令',
+    riskFlag: false,
+    riskReason: null,
     keyJudgment: '蛋壳质量明显下降，碎蛋率上升，疑似钙磷比失调，加料需场长确认',
     attachments: [
       { id: 'ATT-003', name: '碎蛋样本.jpg', size: '3.2MB', placeholder: true }
