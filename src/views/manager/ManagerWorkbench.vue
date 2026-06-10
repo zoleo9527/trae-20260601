@@ -15,6 +15,10 @@ function goToReportDetail(id: string) {
   router.push({ name: 'report-detail', params: { id } })
 }
 
+function goToIsolationReview() {
+  router.push({ name: 'isolation-review' })
+}
+
 function formatDate(dateStr: string) {
   return new Date(dateStr).toLocaleDateString('zh-CN')
 }

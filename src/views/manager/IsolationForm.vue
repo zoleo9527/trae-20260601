@@ -146,12 +146,8 @@ onMounted(() => {
 
         <div class="form-actions">
           <button class="btn btn-secondary" @click="goBack">取消</button>
-          <button
-            class="btn btn-primary"
-            @click="handleSubmit"
-            :disabled="isSubmitting"
-          >
-            {{ isSubmitting ? '提交中...' : '✓ 确认启动隔离' }}
+          <button class="btn btn-primary" @click="handleSubmit">
+            ✓ 确认启动隔离
           </button>
         </div>
       </div>
