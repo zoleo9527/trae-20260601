@@ -2,6 +2,7 @@ import { OrderRepository } from '../repositories/OrderRepository'
 import { ProductRepository } from '../repositories/ProductRepository'
 import { FarmerRepository } from '../repositories/FarmerRepository'
 import { RepaymentRepository } from '../repositories/RepaymentRepository'
+import { UserService } from './UserService'
 import { ICreditOrder, IOrderItem, OrderStatus } from '../models/CreditOrder'
 import { IFarmer } from '../models/Farmer'
 import { IProduct } from '../models/Product'
@@ -51,17 +52,26 @@ export class CreditOrderService {
   private productRepository: ProductRepository
   private farmerRepository: FarmerRepository
   private repaymentRepository: RepaymentRepository
+  private userService: UserService
 
   constructor() {
     this.orderRepository = new OrderRepository()
     this.productRepository = new ProductRepository()
     this.farmerRepository = new FarmerRepository()
     this.repaymentRepository = new RepaymentRepository()
+    this.userService = new UserService()
   }
 
   async createOrder(request: CreateOrderRequest): Promise<OrderResult> {
     const warnings: string[] = []
     const errors: string[] = []
+
+    try {
+      await this.userService.validateCreatorRole(request.operatorId)
+    } catch (error: any) {
+      errors.push(error.message)
+      return { success: false, warnings, errors }
+    }
 
     const farmer = await this.farmerRepository.findById(request.farmerId)
     if (!farmer) {
@@ -140,8 +150,8 @@ export class CreditOrderService {
       items: orderItems,
       totalAmount,
       status: 'pending',
-      operatorId: request.operatorId,
-      operatorName: request.operatorName
+      creatorId: request.operatorId,
+      creatorName: request.operatorName
     }
 
     const createdOrder = await this.orderRepository.create(order)
@@ -168,6 +178,13 @@ export class CreditOrderService {
     const warnings: string[] = []
     const errors: string[] = []
 
+    try {
+      await this.userService.validateApproverRole(request.operatorId)
+    } catch (error: any) {
+      errors.push(error.message)
+      return { success: false, warnings, errors }
+    }
+
     const order = await this.getOrderById(request.orderId)
     
     if (order.status !== 'pending') {
@@ -189,9 +206,10 @@ export class CreditOrderService {
 
       await this.farmerRepository.updateDebt(order.farmerId, order.totalAmount)
 
-      const updatedOrder = await this.orderRepository.updateStatus(
-        order.orderId, 
-        'approved', 
+      const updatedOrder = await this.orderRepository.approveOrder(
+        order.orderId,
+        request.operatorId,
+        request.operatorName,
         request.comment
       )
 
@@ -207,9 +225,10 @@ export class CreditOrderService {
 
       return { success: true, order: updatedOrder!, warnings, errors }
     } else {
-      const updatedOrder = await this.orderRepository.updateStatus(
-        order.orderId, 
-        'rejected', 
+      const updatedOrder = await this.orderRepository.rejectOrder(
+        order.orderId,
+        request.operatorId,
+        request.operatorName,
         request.comment
       )
       return { success: true, order: updatedOrder!, warnings, errors }
@@ -219,6 +238,13 @@ export class CreditOrderService {
   async shipOrder(request: OrderShipmentRequest): Promise<OrderResult> {
     const warnings: string[] = []
     const errors: string[] = []
+
+    try {
+      await this.userService.validateShipperRole(request.operatorId)
+    } catch (error: any) {
+      errors.push(error.message)
+      return { success: false, warnings, errors }
+    }
 
     const order = await this.getOrderById(request.orderId)
     
@@ -246,13 +272,24 @@ export class CreditOrderService {
       return { success: false, warnings, errors }
     }
 
-    const updatedOrder = await this.orderRepository.updateStatus(order.orderId, 'shipped')
+    const updatedOrder = await this.orderRepository.shipOrder(
+      order.orderId,
+      request.operatorId,
+      request.operatorName
+    )
     return { success: true, order: updatedOrder!, warnings, errors }
   }
 
   async completeOrder(request: OrderCompletionRequest): Promise<OrderResult> {
     const warnings: string[] = []
     const errors: string[] = []
+
+    try {
+      await this.userService.validateCompleterRole(request.operatorId)
+    } catch (error: any) {
+      errors.push(error.message)
+      return { success: false, warnings, errors }
+    }
 
     const order = await this.getOrderById(request.orderId)
     
@@ -261,7 +298,11 @@ export class CreditOrderService {
       return { success: false, warnings, errors }
     }
 
-    const updatedOrder = await this.orderRepository.updateStatus(order.orderId, 'completed')
+    const updatedOrder = await this.orderRepository.completeOrder(
+      order.orderId,
+      request.operatorId,
+      request.operatorName
+    )
     return { success: true, order: updatedOrder!, warnings, errors }
   }
 

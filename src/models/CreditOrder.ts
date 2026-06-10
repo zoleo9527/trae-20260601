@@ -20,9 +20,15 @@ export interface ICreditOrder extends Document {
   items: IOrderItem[]
   totalAmount: number
   status: OrderStatus
-  operatorId: string
-  operatorName: string
+  creatorId: string
+  creatorName: string
+  approverId?: string
+  approverName?: string
   approvalComment?: string
+  shipperId?: string
+  shipperName?: string
+  completerId?: string
+  completerName?: string
   createdAt: Date
   updatedAt: Date
   completedAt?: Date
@@ -46,9 +52,15 @@ const CreditOrderSchema: Schema = new Schema({
   items: [OrderItemSchema],
   totalAmount: { type: Number, required: true, min: 0 },
   status: { type: String, enum: ['pending', 'approved', 'shipped', 'completed', 'rejected'], default: 'pending' },
-  operatorId: { type: String, required: true },
-  operatorName: { type: String, required: true },
+  creatorId: { type: String, required: true },
+  creatorName: { type: String, required: true },
+  approverId: { type: String },
+  approverName: { type: String },
   approvalComment: { type: String },
+  shipperId: { type: String },
+  shipperName: { type: String },
+  completerId: { type: String },
+  completerName: { type: String },
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now },
   completedAt: { type: Date }

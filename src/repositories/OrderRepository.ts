@@ -33,6 +33,57 @@ export class OrderRepository {
     return await CreditOrder.findOneAndUpdate({ orderId }, update, { new: true })
   }
 
+  async approveOrder(orderId: string, approverId: string, approverName: string, comment?: string): Promise<ICreditOrder | null> {
+    return await CreditOrder.findOneAndUpdate(
+      { orderId },
+      { 
+        status: 'approved' as OrderStatus,
+        approverId,
+        approverName,
+        approvalComment: comment
+      },
+      { new: true }
+    )
+  }
+
+  async rejectOrder(orderId: string, approverId: string, approverName: string, comment?: string): Promise<ICreditOrder | null> {
+    return await CreditOrder.findOneAndUpdate(
+      { orderId },
+      { 
+        status: 'rejected' as OrderStatus,
+        approverId,
+        approverName,
+        approvalComment: comment
+      },
+      { new: true }
+    )
+  }
+
+  async shipOrder(orderId: string, shipperId: string, shipperName: string): Promise<ICreditOrder | null> {
+    return await CreditOrder.findOneAndUpdate(
+      { orderId },
+      { 
+        status: 'shipped' as OrderStatus,
+        shipperId,
+        shipperName
+      },
+      { new: true }
+    )
+  }
+
+  async completeOrder(orderId: string, completerId: string, completerName: string): Promise<ICreditOrder | null> {
+    return await CreditOrder.findOneAndUpdate(
+      { orderId },
+      { 
+        status: 'completed' as OrderStatus,
+        completerId,
+        completerName,
+        completedAt: new Date()
+      },
+      { new: true }
+    )
+  }
+
   async update(orderId: string, updateData: Partial<ICreditOrder>): Promise<ICreditOrder | null> {
     return await CreditOrder.findOneAndUpdate({ orderId }, updateData, { new: true })
   }
