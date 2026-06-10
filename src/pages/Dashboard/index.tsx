@@ -11,7 +11,7 @@ import {
   ChevronRight,
   TrendingUp,
 } from 'lucide-react';
-import { useStore } from '../../store/useStore';
+import { useStore, isAuditPending } from '../../store/useStore';
 import { StatusBadge, PriorityBadge, DotStatus } from '../../components/StatusBadge';
 import { Timeline } from '../../components/Timeline';
 import { useRecent } from '../../hooks/useRecent';
@@ -86,10 +86,7 @@ export default function Dashboard() {
   const stats = [
     {
       label: '待处理审核',
-      value: audits.filter(a => {
-        const s = a.status || 'processing';
-        return s === 'pending' || s === 'processing' || s === 'stuck';
-      }).length,
+      value: audits.filter(isAuditPending).length,
       icon: Car,
       color: 'text-orange-600',
       bgColor: 'bg-orange-50',
