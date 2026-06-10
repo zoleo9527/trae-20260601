@@ -51,108 +51,134 @@ interface HomeProps {
 
 type ViewMode = "ALL" | "MY_TODO";
 
-export default function Home({ user, hotspots, inspectors }: HomeProps) {
-  const [statusFilter, setStatusFilter] = useState<string>("ALL");
-  const [viewMode, setViewMode] = useState<ViewMode>(
-    user.role === UserRole.INSPECTOR ? "MY_TODO" : "ALL"
-  );
-  const [assigneeFilter, setAssigneeFilter] = useState<string>("ALL");
+function hasAssignee(h: HotspotItem): boolean {
+  return h.dispatchOrders.length > 0 && h.dispatchOrders[0].assignee !== null;
+}
 
+function isMyTodo(h: HotspotItem, userId: string): boolean {
+  const order = h.dispatchOrders[0];
+  return (
+    !!order?.assignee?.id &&
+    order.assignee.id === userId &&
+    (h.status === HotspotStatus.DISPATCHED || h.status === HotspotStatus.IN_PROGRESS)
+  );
+}
+
+export default function Home({ user, hotspots, inspectors }: HomeProps) {
   const isInspector = user.role === UserRole.INSPECTOR;
 
-  const stats = useMemo(() => {
-    return {
-      total: hotspots.length,
-      pending: hotspots.filter((h) => h.status === HotspotStatus.PENDING).length,
-      dispatched: hotspots.filter((h) => h.status === HotspotStatus.DISPATCHED).length,
-      inProgress: hotspots.filter((h) => h.status === HotspotStatus.IN_PROGRESS).length,
-      completed: hotspots.filter((h) => h.status === HotspotStatus.COMPLETED).length,
-      myTodo: hotspots.filter((h) => {
-        if (!isInspector) return false;
-        const order = h.dispatchOrders[0];
-        return (
-          order?.assignee?.id === user.id &&
-          (h.status === HotspotStatus.DISPATCHED || h.status === HotspotStatus.IN_PROGRESS)
-        );
-      }).length,
-    };
-  }, [hotspots, user.id, isInspector]);
+  const [viewMode, setViewMode] = useState<ViewMode>(
+    isInspector ? "MY_TODO" : "ALL"
+  );
+  const [statusFilter, setStatusFilter] = useState<string>("ALL");
+  const [assigneeFilter, setAssigneeFilter] = useState<string>("ALL");
 
-  const filtered = useMemo(() => {
-    let result = hotspots;
+  const handleViewModeChange = (mode: ViewMode) => {
+    setViewMode(mode);
+    setStatusFilter("ALL");
+  };
 
+  const handleAssigneeFilterChange = (value: string) => {
+    setAssigneeFilter(value);
+    setStatusFilter("ALL");
+  };
+
+  const globalStats = useMemo(() => ({
+    total: hotspots.length,
+    pending: hotspots.filter((h) => h.status === HotspotStatus.PENDING).length,
+    dispatched: hotspots.filter((h) => h.status === HotspotStatus.DISPATCHED).length,
+    inProgress: hotspots.filter((h) => h.status === HotspotStatus.IN_PROGRESS).length,
+    completed: hotspots.filter((h) => h.status === HotspotStatus.COMPLETED).length,
+    myTodo: hotspots.filter((h) => isMyTodo(h, user.id)).length,
+  }), [hotspots, user.id]);
+
+  const baseSet = useMemo(() => {
     if (viewMode === "MY_TODO") {
-      result = result.filter((h) => {
-        const order = h.dispatchOrders[0];
-        return (
-          order?.assignee?.id === user.id &&
-          (h.status === HotspotStatus.DISPATCHED || h.status === HotspotStatus.IN_PROGRESS)
-        );
-      });
+      return hotspots.filter((h) => isMyTodo(h, user.id));
     }
-
+    if (assigneeFilter === "UNASSIGNED") {
+      return hotspots.filter((h) => !hasAssignee(h));
+    }
     if (assigneeFilter !== "ALL") {
-      result = result.filter((h) => h.dispatchOrders[0]?.assignee?.id === assigneeFilter);
+      return hotspots.filter((h) => h.dispatchOrders[0]?.assignee?.id === assigneeFilter);
     }
-
-    if (statusFilter !== "ALL") {
-      result = result.filter((h) => h.status === statusFilter);
-    }
-
-    return result;
-  }, [hotspots, viewMode, assigneeFilter, statusFilter, user.id]);
+    return hotspots;
+  }, [hotspots, viewMode, assigneeFilter, user.id]);
 
   const statusTabs = useMemo(() => {
     const tabs = [
-      { key: "ALL", label: "全部", count: filtered.length },
+      { key: "ALL", label: "全部", count: baseSet.length },
       { key: HotspotStatus.PENDING, label: "待派单", count: 0 },
       { key: HotspotStatus.DISPATCHED, label: "已派单", count: 0 },
       { key: HotspotStatus.IN_PROGRESS, label: "处理中", count: 0 },
       { key: HotspotStatus.COMPLETED, label: "已完成", count: 0 },
     ];
-    const base = viewMode === "MY_TODO"
-      ? hotspots.filter((h) => {
-          const order = h.dispatchOrders[0];
-          return (
-            order?.assignee?.id === user.id &&
-            (h.status === HotspotStatus.DISPATCHED || h.status === HotspotStatus.IN_PROGRESS)
-          );
-        })
-      : assigneeFilter !== "ALL"
-        ? hotspots.filter((h) => h.dispatchOrders[0]?.assignee?.id === assigneeFilter)
-        : hotspots;
+
+    if (viewMode === "MY_TODO") {
+      tabs.splice(1, 1);
+    }
 
     for (const t of tabs) {
-      if (t.key === "ALL") {
-        t.count = base.length;
-      } else {
-        t.count = base.filter((h) => h.status === t.key).length;
-      }
+      if (t.key === "ALL") continue;
+      t.count = baseSet.filter((h) => h.status === t.key).length;
     }
     return tabs;
-  }, [hotspots, viewMode, assigneeFilter, user.id]);
+  }, [baseSet, viewMode]);
+
+  const filtered = useMemo(() => {
+    if (statusFilter === "ALL") return baseSet;
+    return baseSet.filter((h) => h.status === statusFilter);
+  }, [baseSet, statusFilter]);
+
+  const effectiveStatusFilter = useMemo(() => {
+    if (!statusTabs.find((t) => t.key === statusFilter)) {
+      return "ALL";
+    }
+    return statusFilter;
+  }, [statusTabs, statusFilter]);
 
   const getAcceptHint = (h: HotspotItem) => {
     const order = h.dispatchOrders[0];
     if (!order) return null;
     if (h.status === HotspotStatus.DISPATCHED && !order.acceptedAt) {
-      return { text: "待接单", color: "bg-amber-100 text-amber-700 border-amber-200" };
+      return { text: "待接单", color: "bg-amber-100 text-amber-700 border-amber-200", icon: "⏳" };
     }
     if (h.status === HotspotStatus.DISPATCHED && order.acceptedAt) {
-      return { text: "已接单", color: "bg-blue-100 text-blue-700 border-blue-200" };
+      return { text: "已接单", color: "bg-blue-100 text-blue-700 border-blue-200", icon: "📞" };
     }
     if (h.status === HotspotStatus.IN_PROGRESS) {
-      return { text: "处理中", color: "bg-purple-100 text-purple-700 border-purple-200" };
+      return { text: "处理中", color: "bg-purple-100 text-purple-700 border-purple-200", icon: "🔧" };
     }
     if (h.status === HotspotStatus.COMPLETED) {
-      return { text: "已完成", color: "bg-emerald-100 text-emerald-700 border-emerald-200" };
+      return { text: "已完成", color: "bg-emerald-100 text-emerald-700 border-emerald-200", icon: "✅" };
     }
     return null;
   };
 
-  const isAssignedToMe = (h: HotspotItem) => {
-    return h.dispatchOrders[0]?.assignee?.id === user.id;
-  };
+  const emptyMessage = useMemo(() => {
+    if (filtered.length > 0) return "";
+    if (viewMode === "MY_TODO") {
+      return effectiveStatusFilter === "ALL"
+        ? "暂无待办任务，您当前没有待接单或处理中的任务"
+        : `暂无${statusLabel(effectiveStatusFilter as HotspotStatus)}状态的待办任务`;
+    }
+    if (assigneeFilter === "UNASSIGNED") {
+      return effectiveStatusFilter === "ALL"
+        ? "暂无未指派处理人的热点"
+        : `未指派的热点中没有${statusLabel(effectiveStatusFilter as HotspotStatus)}状态的记录`;
+    }
+    if (assigneeFilter !== "ALL") {
+      const inspName = inspectors.find((i) => i.id === assigneeFilter)?.name || "";
+      return effectiveStatusFilter === "ALL"
+        ? `${inspName}暂无负责的热点`
+        : `${inspName}没有${statusLabel(effectiveStatusFilter as HotspotStatus)}状态的记录`;
+    }
+    return effectiveStatusFilter === "ALL"
+      ? "暂无数据"
+      : `暂无${statusLabel(effectiveStatusFilter as HotspotStatus)}状态的热点`;
+  }, [filtered.length, viewMode, assigneeFilter, effectiveStatusFilter, inspectors]);
+
+  const viewModeLabel = viewMode === "MY_TODO" ? "我的待办" : "热点区域列表";
 
   return (
     <>
@@ -163,11 +189,11 @@ export default function Home({ user, hotspots, inspectors }: HomeProps) {
         <div className="space-y-6">
           <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
             {[
-              { label: "热点总数", value: stats.total, color: "from-slate-500 to-slate-700" },
-              { label: "待派单", value: stats.pending, color: "from-amber-500 to-amber-600" },
-              { label: "已派单", value: stats.dispatched, color: "from-blue-500 to-blue-600" },
-              { label: "处理中", value: stats.inProgress, color: "from-purple-500 to-purple-600" },
-              { label: "已完成", value: stats.completed, color: "from-emerald-500 to-emerald-600" },
+              { label: "热点总数", value: globalStats.total, color: "from-slate-500 to-slate-700" },
+              { label: "待派单", value: globalStats.pending, color: "from-amber-500 to-amber-600" },
+              { label: "已派单", value: globalStats.dispatched, color: "from-blue-500 to-blue-600" },
+              { label: "处理中", value: globalStats.inProgress, color: "from-purple-500 to-purple-600" },
+              { label: "已完成", value: globalStats.completed, color: "from-emerald-500 to-emerald-600" },
             ].map((s) => (
               <div
                 key={s.label}
@@ -179,20 +205,26 @@ export default function Home({ user, hotspots, inspectors }: HomeProps) {
             ))}
           </div>
 
-          {isInspector && stats.myTodo > 0 && (
+          {isInspector && (
             <div
-              className={`rounded-xl p-4 border-2 ${
+              className={`rounded-xl p-4 border-2 transition cursor-pointer ${
                 viewMode === "MY_TODO"
                   ? "bg-blue-50 border-blue-300"
-                  : "bg-white border-gray-200 hover:border-blue-200"
-              } transition cursor-pointer`}
-              onClick={() => setViewMode(viewMode === "MY_TODO" ? "ALL" : "MY_TODO")}
+                  : globalStats.myTodo > 0
+                    ? "bg-white border-gray-200 hover:border-blue-200"
+                    : "bg-gray-50 border-gray-200"
+              }`}
+              onClick={() => handleViewModeChange(viewMode === "MY_TODO" ? "ALL" : "MY_TODO")}
             >
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div
                     className={`w-10 h-10 rounded-lg flex items-center justify-center text-lg ${
-                      viewMode === "MY_TODO" ? "bg-blue-500 text-white" : "bg-amber-100 text-amber-600"
+                      viewMode === "MY_TODO"
+                        ? "bg-blue-500 text-white"
+                        : globalStats.myTodo > 0
+                          ? "bg-amber-100 text-amber-600"
+                          : "bg-gray-100 text-gray-400"
                     }`}
                   >
                     📋
@@ -205,20 +237,24 @@ export default function Home({ user, hotspots, inspectors }: HomeProps) {
                       )}
                     </div>
                     <div className="text-sm text-gray-500">
-                      分配给您的待接单和处理中任务
+                      {globalStats.myTodo > 0
+                        ? `待接单和处理中共 ${globalStats.myTodo} 项`
+                        : "暂无待接单或处理中的任务"}
                     </div>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span
-                    className={`inline-flex items-center justify-center w-8 h-8 rounded-full text-sm font-bold ${
-                      viewMode === "MY_TODO" ? "bg-blue-500 text-white" : "bg-amber-500 text-white"
-                    }`}
-                  >
-                    {stats.myTodo}
-                  </span>
+                  {globalStats.myTodo > 0 && (
+                    <span
+                      className={`inline-flex items-center justify-center w-8 h-8 rounded-full text-sm font-bold ${
+                        viewMode === "MY_TODO" ? "bg-blue-500 text-white" : "bg-amber-500 text-white"
+                      }`}
+                    >
+                      {globalStats.myTodo}
+                    </span>
+                  )}
                   <span className="text-gray-400 text-sm">
-                    {viewMode === "MY_TODO" ? "点击查看全部" : "点击筛选"}
+                    {viewMode === "MY_TODO" ? "查看全部" : "筛选待办"}
                   </span>
                 </div>
               </div>
@@ -228,18 +264,16 @@ export default function Home({ user, hotspots, inspectors }: HomeProps) {
           <div className="bg-white rounded-xl shadow-sm border border-gray-200">
             <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
               <div className="flex items-center gap-3">
-                <h2 className="font-semibold text-gray-900">
-                  {viewMode === "MY_TODO" ? "我的待办" : "热点区域列表"}
-                </h2>
+                <h2 className="font-semibold text-gray-900">{viewModeLabel}</h2>
                 {!isInspector && (
                   <div className="relative">
                     <select
                       value={assigneeFilter}
-                      onChange={(e) => setAssigneeFilter(e.target.value)}
+                      onChange={(e) => handleAssigneeFilterChange(e.target.value)}
                       className="appearance-none pl-3 pr-8 py-1.5 text-sm border border-gray-200 rounded-lg bg-white hover:border-blue-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none cursor-pointer"
                     >
                       <option value="ALL">全部处理人</option>
-                      <option value="UNASSIGNED">未指派</option>
+                      <option value="UNASSIGNED">未指派（待派单）</option>
                       {inspectors.map((i) => (
                         <option key={i.id} value={i.id}>
                           {i.name}
@@ -254,17 +288,17 @@ export default function Home({ user, hotspots, inspectors }: HomeProps) {
                   </div>
                 )}
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-3">
                 {viewMode === "MY_TODO" && (
                   <button
-                    onClick={() => setViewMode("ALL")}
-                    className="text-xs text-blue-600 hover:text-blue-800"
+                    onClick={() => handleViewModeChange("ALL")}
+                    className="text-xs text-blue-600 hover:text-blue-800 transition"
                   >
                     查看全部 →
                   </button>
                 )}
                 <span className="text-xs text-gray-500">
-                  共 {filtered.length} 条
+                  {filtered.length} 条结果
                 </span>
               </div>
             </div>
@@ -275,15 +309,15 @@ export default function Home({ user, hotspots, inspectors }: HomeProps) {
                   key={t.key}
                   onClick={() => setStatusFilter(t.key)}
                   className={`px-3.5 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap transition ${
-                    statusFilter === t.key
+                    effectiveStatusFilter === t.key
                       ? "bg-blue-600 text-white shadow-sm"
                       : "text-gray-600 hover:bg-gray-100"
                   }`}
                 >
                   {t.label}
                   <span
-                    className={`ml-1.5 inline-flex items-center justify-center w-5 h-5 rounded-full text-xs ${
-                      statusFilter === t.key ? "bg-white/20 text-white" : "bg-gray-100 text-gray-500"
+                    className={`ml-1.5 inline-flex items-center justify-center min-w-[20px] h-5 rounded-full text-xs px-1 ${
+                      effectiveStatusFilter === t.key ? "bg-white/20 text-white" : "bg-gray-100 text-gray-500"
                     }`}
                   >
                     {t.count}
@@ -294,14 +328,17 @@ export default function Home({ user, hotspots, inspectors }: HomeProps) {
 
             <div className="divide-y divide-gray-100">
               {filtered.length === 0 ? (
-                <div className="py-16 text-center text-gray-400 text-sm">
-                  {viewMode === "MY_TODO" ? "暂无待办任务" : "暂无数据"}
+                <div className="py-16 text-center">
+                  <div className="text-3xl mb-2">
+                    {viewMode === "MY_TODO" ? "📋" : assigneeFilter === "UNASSIGNED" ? "📭" : "🔍"}
+                  </div>
+                  <div className="text-sm text-gray-400">{emptyMessage}</div>
                 </div>
               ) : (
                 filtered.map((h) => {
                   const acceptHint = getAcceptHint(h);
                   const latestOrder = h.dispatchOrders[0];
-                  const assignedToMe = isAssignedToMe(h);
+                  const assignedToMe = latestOrder?.assignee?.id === user.id;
 
                   return (
                     <Link
@@ -361,6 +398,12 @@ export default function Home({ user, hotspots, inspectors }: HomeProps) {
                                 </span>
                               </div>
                             )}
+                            {!hasAssignee(h) && (
+                              <div className="flex items-center gap-1.5">
+                                <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+                                <span className="text-amber-600 font-medium">待派单 · 未指派处理人</span>
+                              </div>
+                            )}
                             <div className="flex items-center gap-1.5">
                               <span>🚲</span>
                               <span>{h.bikeCount} 辆</span>
@@ -369,7 +412,7 @@ export default function Home({ user, hotspots, inspectors }: HomeProps) {
                             <span>📎 {h._count.attachments}</span>
                           </div>
 
-                          {latestOrder && (
+                          {latestOrder ? (
                             <div className="mt-2.5 flex flex-wrap items-center gap-2 text-xs">
                               <span className="inline-flex items-center gap-1 px-2 py-1 rounded bg-gray-50 border border-gray-100 text-gray-500">
                                 📋 派单 {latestOrder.orderNo}
@@ -380,10 +423,7 @@ export default function Home({ user, hotspots, inspectors }: HomeProps) {
                                 <span
                                   className={`inline-flex items-center gap-1 px-2 py-1 rounded border text-xs font-medium ${acceptHint.color}`}
                                 >
-                                  {acceptHint.text === "待接单" && "⏳"}
-                                  {acceptHint.text === "已接单" && "📞"}
-                                  {acceptHint.text === "处理中" && "🔧"}
-                                  {acceptHint.text === "已完成" && "✅"}
+                                  {acceptHint.icon}
                                   {acceptHint.text}
                                 </span>
                               )}
@@ -392,6 +432,12 @@ export default function Home({ user, hotspots, inspectors }: HomeProps) {
                                   接单于 {formatTime(latestOrder.acceptedAt)}
                                 </span>
                               )}
+                            </div>
+                          ) : (
+                            <div className="mt-2.5 text-xs">
+                              <span className="inline-flex items-center gap-1 px-2 py-1 rounded bg-amber-50 border border-amber-100 text-amber-600">
+                                📭 尚未派单，等待调度员指派处理人
+                              </span>
                             </div>
                           )}
                         </div>
