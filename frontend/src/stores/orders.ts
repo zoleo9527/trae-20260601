@@ -2,7 +2,7 @@ import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
 import type { CustomerOrder, OperationLog, RoleType, OrderStatus, StuckRecord, OrderItem, OrderItemSnapshot, SpecChangeRecord } from '@/types';
 import { mockOrders, mockLogs } from '@/mock/data';
-import { orderStatusText } from '@/utils';
+import { orderStatusText, calcOrderAmount } from '@/utils';
 
 export const useOrdersStore = defineStore('orders', () => {
   const orders = ref<CustomerOrder[]>(JSON.parse(JSON.stringify(mockOrders)));
@@ -47,8 +47,8 @@ export const useOrdersStore = defineStore('orders', () => {
     }));
   }
 
-  function calcAmount(items: Array<{ quantity: number }>): number {
-    return items.reduce((s, it) => s + it.quantity * 200, 0);
+  function calcAmount(items: Array<{ flowerType: string; quantity: number }>): number {
+    return calcOrderAmount(items);
   }
 
   function rebuildHarvestPlan(order: CustomerOrder) {
@@ -84,7 +84,7 @@ export const useOrdersStore = defineStore('orders', () => {
       deliveryDate: data.deliveryDate,
       address: data.address,
       status: 'PENDING_CONFIRM',
-      totalAmount: data.items.reduce((s, it) => s + it.quantity * 200, 0),
+      totalAmount: calcAmount(data.items),
       specNote: data.specNote,
       createdAt: ts,
       updatedAt: ts,

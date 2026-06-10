@@ -107,6 +107,23 @@ export function getDurationHours(fromStr: string, toStr?: string): string {
   return `${days}天${h}小时`;
 }
 
+export const flowerUnitPrice: Record<string, number> = {
+  '玫瑰': 220,
+  '洋牡丹': 280,
+  '绣球': 350,
+  '满天星': 180,
+};
+
+export const defaultUnitPrice = 200;
+
+export function getUnitPrice(flowerType: string): number {
+  return flowerUnitPrice[flowerType] ?? defaultUnitPrice;
+}
+
+export function calcOrderAmount(items: Array<{ flowerType: string; quantity: number }>): number {
+  return items.reduce((sum, it) => sum + it.quantity * getUnitPrice(it.flowerType), 0);
+}
+
 export function cn(...classes: (string | boolean | undefined | null)[]): string {
   return classes.filter(Boolean).join(' ');
 }

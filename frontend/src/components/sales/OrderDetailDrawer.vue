@@ -6,7 +6,7 @@ import { useOrdersStore } from '@/stores/orders'
 import { useUiStore } from '@/stores/ui'
 import { useSheltersStore } from '@/stores/shelters'
 import StatusTag from '@/components/common/StatusTag.vue'
-import { formatDateTime, getDurationHours, stuckTypeText, cn } from '@/utils'
+import { formatDateTime, getDurationHours, stuckTypeText, cn, calcOrderAmount, getUnitPrice } from '@/utils'
 import type { CustomerOrder, OrderItem } from '@/types'
 
 const props = defineProps<{ modelValue: boolean; orderId: string | null }>()
@@ -200,12 +200,12 @@ function confirmShip() {
               </div>
               <div>
                 <div class="text-sm font-medium text-neutral-800">{{ item.flowerType }} · {{ item.color }}</div>
-                <div class="text-[11px] text-neutral-500">{{ item.shelterId }} · 每扎{{ item.stemsPerBunch }}枝</div>
+                <div class="text-[11px] text-neutral-500">{{ item.shelterId }} · 每扎{{ item.stemsPerBunch }}枝 · ¥{{ getUnitPrice(item.flowerType) }}/扎</div>
               </div>
             </div>
             <div class="text-right">
-              <div class="text-lg font-bold data-num text-base-700">{{ item.quantity }}</div>
-              <div class="text-[11px] text-neutral-500">扎</div>
+              <div class="text-lg font-bold data-num text-base-700">{{ item.quantity }}扎</div>
+              <div class="text-[11px] text-neutral-500 data-num">小计 ¥{{ (item.quantity * getUnitPrice(item.flowerType)).toLocaleString() }}</div>
             </div>
           </div>
         </div>
@@ -264,7 +264,7 @@ function confirmShip() {
             <span class="text-sm font-semibold text-neutral-700">
               花卉明细
               <span class="text-xs text-neutral-400 ml-2">
-                预估金额: ¥{{ changeSpecItems.reduce((s, i) => s + i.quantity * 200, 0).toLocaleString() }}
+                预估金额: ¥{{ calcOrderAmount(changeSpecItems).toLocaleString() }}
               </span>
             </span>
             <ElButton size="small" type="primary" plain @click="addSpecItem">+ 添加品种</ElButton>
@@ -309,7 +309,7 @@ function confirmShip() {
           <div class="text-xs text-gold-700">
             <div class="font-semibold mb-1">💡 修改说明</div>
             <div>• 品种、色系、数量、棚区任一变更都将更新订单明细和采切计划数量</div>
-            <div>• 金额将自动重算: 单价 ¥200/扎 × 扎数</div>
+            <div>• 金额按品种单价自动重算: 玫瑰¥220/扎、洋牡丹¥280/扎、绣球¥350/扎、满天星¥180/扎</div>
             <div>• 保存后将生成完整的改规格历史记录,包含前后明细对比</div>
             <div>• 若订单处于卡住状态,修改后需确认订单后才会重建采切排期</div>
           </div>
@@ -356,14 +356,14 @@ function confirmShip() {
                   <div class="text-[10px] text-alert-600 font-semibold mb-1">变更前</div>
                   <div v-for="(it, idx) in sch.beforeItems" :key="idx" class="flex items-center justify-between py-0.5 border-b border-alert-100 last:border-b-0">
                     <span class="text-neutral-700">{{ it.flowerType }} · {{ it.color }}</span>
-                    <span class="data-num font-medium text-neutral-800">{{ it.quantity }}扎</span>
+                    <span class="data-num font-medium text-neutral-800">{{ it.quantity }}扎 · ¥{{ (it.quantity * getUnitPrice(it.flowerType)).toLocaleString() }}</span>
                   </div>
                 </div>
                 <div class="p-2 rounded bg-success-50 border border-success-100">
                   <div class="text-[10px] text-success-600 font-semibold mb-1">变更后</div>
                   <div v-for="(it, idx) in sch.afterItems" :key="idx" class="flex items-center justify-between py-0.5 border-b border-success-100 last:border-b-0">
                     <span class="text-neutral-700">{{ it.flowerType }} · {{ it.color }}</span>
-                    <span class="data-num font-medium text-neutral-800">{{ it.quantity }}扎</span>
+                    <span class="data-num font-medium text-neutral-800">{{ it.quantity }}扎 · ¥{{ (it.quantity * getUnitPrice(it.flowerType)).toLocaleString() }}</span>
                   </div>
                 </div>
               </div>

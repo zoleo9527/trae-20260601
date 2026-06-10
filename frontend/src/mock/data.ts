@@ -54,7 +54,7 @@ export const mockOrders: CustomerOrder[] = [
   {
     id: 'DD20260601001', customerName: '花语时光花店', phone: '138****2341',
     deliveryDate: deliveryStr(2), address: '上海市静安区南京西路1234号',
-    status: 'COMPLETED', totalAmount: 8600, specNote: '牛皮纸包装+绿色丝带,每束附保鲜卡片',
+    status: 'COMPLETED', totalAmount: 8400, specNote: '牛皮纸包装+绿色丝带,每束附保鲜卡片',
     createdAt: dateStr(-9, 10, 15), updatedAt: dateStr(-4, 16, 20),
     operator: 'PACKER', logisticsNo: 'SF1234567890001',
     items: [
@@ -66,7 +66,7 @@ export const mockOrders: CustomerOrder[] = [
   {
     id: 'DD20260602005', customerName: '浪漫满屋婚庆', phone: '139****5678',
     deliveryDate: deliveryStr(3), address: '北京市朝阳区建国路88号',
-    status: 'COMPLETED', totalAmount: 15200, specNote: '白色+浅粉婚礼主题包装,防水纸外层',
+    status: 'COMPLETED', totalAmount: 18000, specNote: '白色+浅粉婚礼主题包装,防水纸外层',
     createdAt: dateStr(-8, 14, 30), updatedAt: dateStr(-3, 17, 10),
     operator: 'PACKER', logisticsNo: 'JD9876543210002',
     items: [
@@ -86,8 +86,8 @@ export const mockOrders: CustomerOrder[] = [
           { flowerType: '玫瑰', color: '粉色系', quantity: 50, stemsPerBunch: 20, shelterId: 'SH-A02', remark: '' },
           { flowerType: '绣球', color: '粉色系', quantity: 20, stemsPerBunch: 5, shelterId: 'SH-C02', remark: '花头饱满' },
         ],
-        beforeAmount: 13000,
-        afterAmount: 15200,
+        beforeAmount: 17550,
+        afterAmount: 18000,
         beforeHarvestPlan: { shelterId: 'SH-A03', planQty: 65 },
         afterHarvestPlan: { shelterId: 'SH-A02', planQty: 70 },
       },
@@ -97,7 +97,7 @@ export const mockOrders: CustomerOrder[] = [
   {
     id: 'DD20260603003', customerName: '倾城花艺工作室', phone: '137****9012',
     deliveryDate: deliveryStr(4), address: '杭州市西湖区文三路200号',
-    status: 'COMPLETED', totalAmount: 6800, specNote: '透明玻璃纸+香槟色缎带',
+    status: 'COMPLETED', totalAmount: 7000, specNote: '透明玻璃纸+香槟色缎带',
     createdAt: dateStr(-7, 9, 45), updatedAt: dateStr(-2, 15, 30),
     operator: 'PACKER', logisticsNo: 'YT1122334455001',
     items: [
@@ -108,7 +108,7 @@ export const mockOrders: CustomerOrder[] = [
   {
     id: 'DD20260603007', customerName: '城市花园咖啡', phone: '136****3456',
     deliveryDate: deliveryStr(4), address: '深圳市南山区科技园南区',
-    status: 'COMPLETED', totalAmount: 3200, specNote: '简约牛皮纸,附养护说明卡',
+    status: 'COMPLETED', totalAmount: 3300, specNote: '简约牛皮纸,附养护说明卡',
     createdAt: dateStr(-7, 16, 20), updatedAt: dateStr(-2, 11, 45),
     operator: 'PACKER', logisticsNo: 'SF9988776655003',
     items: [
@@ -119,7 +119,7 @@ export const mockOrders: CustomerOrder[] = [
   {
     id: 'DD20260604002', customerName: '梦田婚礼策划', phone: '135****7890',
     deliveryDate: deliveryStr(5), address: '成都市锦江区春熙路IFS',
-    status: 'COMPLETED', totalAmount: 22800, specNote: '森系主题:麻绳+绿叶点缀,原木标签',
+    status: 'COMPLETED', totalAmount: 27200, specNote: '森系主题:麻绳+绿叶点缀,原木标签',
     createdAt: dateStr(-6, 11, 10), updatedAt: dateStr(-1, 18, 0),
     operator: 'PACKER', logisticsNo: 'JD5566778899004',
     items: [
@@ -131,7 +131,7 @@ export const mockOrders: CustomerOrder[] = [
   {
     id: 'DD20260604009', customerName: '时光慢递生活馆', phone: '134****2345',
     deliveryDate: deliveryStr(5), address: '武汉市江汉区解放大道128号',
-    status: 'COMPLETED', totalAmount: 4500, specNote: '韩式花束包装,米白色进口棉纸',
+    status: 'COMPLETED', totalAmount: 4400, specNote: '韩式花束包装,米白色进口棉纸',
     createdAt: dateStr(-6, 15, 40), updatedAt: dateStr(-1, 14, 20),
     operator: 'PACKER', logisticsNo: 'YT6677889900005',
     items: [
@@ -142,7 +142,7 @@ export const mockOrders: CustomerOrder[] = [
   {
     id: 'DD20260605001', customerName: '森屿花社', phone: '133****6789',
     deliveryDate: deliveryStr(6), address: '南京市鼓楼区中山路100号',
-    status: 'COMPLETED', totalAmount: 9800, specNote: '复古报纸+麻质蝴蝶结',
+    status: 'COMPLETED', totalAmount: 13900, specNote: '复古报纸+麻质蝴蝶结',
     createdAt: dateStr(-5, 9, 0), updatedAt: dateStr(0, 10, 30),
     operator: 'PACKER', logisticsNo: 'SF1212121212006',
     items: [
@@ -154,7 +154,7 @@ export const mockOrders: CustomerOrder[] = [
   {
     id: 'DD20260605004', customerName: '花开半夏酒店', phone: '132****0123',
     deliveryDate: deliveryStr(6), address: '苏州市工业园区金鸡湖大道',
-    status: 'COMPLETED', totalAmount: 12400, specNote: '大堂摆花专用,大型花篮包装',
+    status: 'COMPLETED', totalAmount: 16250, specNote: '大堂摆花专用,大型花篮包装',
     createdAt: dateStr(-5, 14, 25), updatedAt: dateStr(0, 16, 50),
     operator: 'PACKER', logisticsNo: 'JD3434343434007',
     items: [
@@ -166,7 +166,7 @@ export const mockOrders: CustomerOrder[] = [
   {
     id: 'DD20260606002', customerName: '小鹿森林摄影', phone: '131****4567',
     deliveryDate: deliveryStr(7), address: '广州市天河区珠江新城',
-    status: 'COMPLETED', totalAmount: 5600, specNote: '拍摄道具用,简易保鲜袋封装',
+    status: 'COMPLETED', totalAmount: 5500, specNote: '拍摄道具用,简易保鲜袋封装',
     createdAt: dateStr(-4, 10, 50), updatedAt: dateStr(1, 9, 30),
     operator: 'PACKER', logisticsNo: 'YT5656565656008',
     items: [
@@ -177,7 +177,7 @@ export const mockOrders: CustomerOrder[] = [
   {
     id: 'DD20260606008', customerName: '悦己生活美学', phone: '130****8901',
     deliveryDate: deliveryStr(7), address: '重庆市渝中区解放碑步行街',
-    status: 'COMPLETED', totalAmount: 7200, specNote: '法式花束:层层雾面纸+丝绒缎带',
+    status: 'COMPLETED', totalAmount: 12500, specNote: '法式花束:层层雾面纸+丝绒缎带',
     createdAt: dateStr(-4, 16, 15), updatedAt: dateStr(1, 15, 40),
     operator: 'PACKER', logisticsNo: 'SF7878787878009',
     items: [
@@ -191,7 +191,7 @@ export const mockOrders: CustomerOrder[] = [
   {
     id: 'DD20260607005', customerName: '星河婚礼中心', phone: '159****1111',
     deliveryDate: deliveryStr(8), address: '西安市雁塔区高新路25号',
-    status: 'PACKING', totalAmount: 18600, specNote: '星空婚礼主题:深蓝色包装+银丝带',
+    status: 'PACKING', totalAmount: 23700, specNote: '星空婚礼主题:深蓝色包装+银丝带',
     createdAt: dateStr(-3, 11, 30), updatedAt: dateStr(1, 17, 10),
     operator: 'PACKER',
     items: [
@@ -203,7 +203,7 @@ export const mockOrders: CustomerOrder[] = [
   {
     id: 'DD20260608001', customerName: '草木之间茶空间', phone: '158****2222',
     deliveryDate: deliveryStr(9), address: '长沙市岳麓区橘子洲头',
-    status: 'PACKING', totalAmount: 4200, specNote: '禅意风格:素色宣纸+竹编筐外装',
+    status: 'PACKING', totalAmount: 8700, specNote: '禅意风格:素色宣纸+竹编筐外装',
     createdAt: dateStr(-2, 9, 15), updatedAt: dateStr(2, 10, 50),
     operator: 'PACKER',
     items: [
@@ -215,7 +215,7 @@ export const mockOrders: CustomerOrder[] = [
   {
     id: 'DD20260608005', customerName: '遇见花田生活馆', phone: '157****3333',
     deliveryDate: deliveryStr(9), address: '天津市和平区五大道',
-    status: 'PACKING', totalAmount: 7800, specNote: '田园风:方格花布包裹+干花点缀',
+    status: 'PACKING', totalAmount: 9800, specNote: '田园风:方格花布包裹+干花点缀',
     createdAt: dateStr(-2, 13, 40), updatedAt: dateStr(2, 14, 20),
     operator: 'PACKER',
     items: [
@@ -226,7 +226,7 @@ export const mockOrders: CustomerOrder[] = [
   {
     id: 'DD20260609002', customerName: '晨曦瑜伽会所', phone: '156****4444',
     deliveryDate: deliveryStr(10), address: '青岛市市南区五四广场',
-    status: 'PACKING', totalAmount: 5400, specNote: '极简风格:白色包装+绿色尤加利叶',
+    status: 'PACKING', totalAmount: 9650, specNote: '极简风格:白色包装+绿色尤加利叶',
     createdAt: dateStr(-1, 10, 5), updatedAt: dateStr(3, 9, 40),
     operator: 'PACKER',
     items: [
@@ -238,7 +238,7 @@ export const mockOrders: CustomerOrder[] = [
   {
     id: 'DD20260609005', customerName: '蔚蓝海岸度假酒店', phone: '155****5555',
     deliveryDate: deliveryStr(10), address: '厦门市思明区环岛路',
-    status: 'PACKING', totalAmount: 13800, specNote: '海滨主题:蓝白条纹包装+海星装饰卡',
+    status: 'PACKING', totalAmount: 17550, specNote: '海滨主题:蓝白条纹包装+海星装饰卡',
     createdAt: dateStr(-1, 15, 25), updatedAt: dateStr(3, 16, 10),
     operator: 'PACKER',
     items: [
@@ -252,7 +252,7 @@ export const mockOrders: CustomerOrder[] = [
   {
     id: 'DD20260609009', customerName: '半山书院民宿', phone: '188****6666',
     deliveryDate: deliveryStr(11), address: '杭州市临安区天目山景区',
-    status: 'HARVESTING', totalAmount: 3600, specNote: '山野风:藤蔓缠绕+牛皮纸+松果标签',
+    status: 'HARVESTING', totalAmount: 4500, specNote: '山野风:藤蔓缠绕+牛皮纸+松果标签',
     createdAt: dateStr(-1, 17, 50), updatedAt: dateStr(3, 18, 30),
     operator: 'GROWER',
     items: [
@@ -263,7 +263,7 @@ export const mockOrders: CustomerOrder[] = [
   {
     id: 'DD20260610001', customerName: '花间一壶酒餐厅', phone: '187****7777',
     deliveryDate: deliveryStr(12), address: '南京市秦淮区夫子庙',
-    status: 'HARVESTING', totalAmount: 9200, specNote: '中式风格:红色宣纸+金边+手写贺卡',
+    status: 'HARVESTING', totalAmount: 11200, specNote: '中式风格:红色宣纸+金边+手写贺卡',
     createdAt: dateStr(0, 8, 30), updatedAt: dateStr(4, 11, 10),
     operator: 'GROWER',
     items: [
@@ -275,7 +275,7 @@ export const mockOrders: CustomerOrder[] = [
   {
     id: 'DD20260610004', customerName: '云朵亲子烘焙坊', phone: '186****8888',
     deliveryDate: deliveryStr(12), address: '成都市武侯区玉林西路',
-    status: 'HARVESTING', totalAmount: 2800, specNote: '可爱风:粉色棉纸+卡通贴纸',
+    status: 'HARVESTING', totalAmount: 4200, specNote: '可爱风:粉色棉纸+卡通贴纸',
     createdAt: dateStr(0, 12, 15), updatedAt: dateStr(4, 14, 50),
     operator: 'GROWER',
     items: [
@@ -288,7 +288,7 @@ export const mockOrders: CustomerOrder[] = [
   {
     id: 'DD20260610007', customerName: '春风十里花坊', phone: '151****1010',
     deliveryDate: deliveryStr(13), address: '苏州市姑苏区观前街188号',
-    status: 'PENDING_CONFIRM', totalAmount: 11200, specNote: '简约牛皮纸包装,每束附养护卡',
+    status: 'PENDING_CONFIRM', totalAmount: 14050, specNote: '简约牛皮纸包装,每束附养护卡',
     createdAt: dateStr(0, 14, 20), updatedAt: dateStr(0, 14, 20),
     operator: 'SALES',
     items: [
@@ -300,7 +300,7 @@ export const mockOrders: CustomerOrder[] = [
   {
     id: 'DD20260610009', customerName: '四季花景园艺', phone: '152****2020',
     deliveryDate: deliveryStr(14), address: '无锡市滨湖区鼋头渚景区',
-    status: 'PENDING_CONFIRM', totalAmount: 7600, specNote: '景区摆花,大型花篮+防水包装',
+    status: 'PENDING_CONFIRM', totalAmount: 12000, specNote: '景区摆花,大型花篮+防水包装',
     createdAt: dateStr(0, 16, 45), updatedAt: dateStr(0, 16, 45),
     operator: 'SALES',
     items: [
@@ -312,7 +312,7 @@ export const mockOrders: CustomerOrder[] = [
   {
     id: 'DD20260610011', customerName: '花时间咖啡书店', phone: '153****3030',
     deliveryDate: deliveryStr(13), address: '常州市天宁区南大街步行街',
-    status: 'PENDING_CONFIRM', totalAmount: 3800, specNote: '店内周花,简洁包装+玻璃纸外套',
+    status: 'PENDING_CONFIRM', totalAmount: 3300, specNote: '店内周花,简洁包装+玻璃纸外套',
     createdAt: dateStr(0, 18, 30), updatedAt: dateStr(0, 18, 30),
     operator: 'SALES',
     items: [
@@ -323,7 +323,7 @@ export const mockOrders: CustomerOrder[] = [
   {
     id: 'DD20260610013', customerName: '一米阳光婚礼策划', phone: '154****4040',
     deliveryDate: deliveryStr(15), address: '南通市崇川区濠河风景区',
-    status: 'PENDING_CONFIRM', totalAmount: 19800, specNote: '户外草坪婚礼:白绿主题,原木标签+麻绳缠绕',
+    status: 'PENDING_CONFIRM', totalAmount: 21950, specNote: '户外草坪婚礼:白绿主题,原木标签+麻绳缠绕',
     createdAt: dateStr(0, 19, 15), updatedAt: dateStr(0, 19, 15),
     operator: 'SALES',
     items: [
@@ -337,7 +337,7 @@ export const mockOrders: CustomerOrder[] = [
   {
     id: 'DD20260608003', customerName: '幸福里花艺课堂', phone: '189****9999',
     deliveryDate: deliveryStr(9), address: '上海市徐汇区衡山路880号',
-    status: 'STUCK', previousStatus: 'HARVESTING', totalAmount: 6400, specNote: '学员练习用,普通塑料袋装',
+    status: 'STUCK', previousStatus: 'HARVESTING', totalAmount: 8400, specNote: '学员练习用,普通塑料袋装',
     createdAt: dateStr(-2, 10, 20), updatedAt: dateStr(2, 9, 0),
     operator: 'GROWER',
     items: [
@@ -353,7 +353,7 @@ export const mockOrders: CustomerOrder[] = [
   {
     id: 'DD20260607012', customerName: '蜜糖婚礼定制', phone: '178****1212',
     deliveryDate: deliveryStr(8), address: '北京市朝阳区三里屯SOHO',
-    status: 'STUCK', previousStatus: 'PACKING', totalAmount: 21500, specNote: '婚礼主花+桌花,豪华包装',
+    status: 'STUCK', previousStatus: 'PACKING', totalAmount: 28800, specNote: '婚礼主花+桌花,豪华包装',
     createdAt: dateStr(-3, 16, 5), updatedAt: dateStr(3, 8, 30),
     operator: 'PACKER',
     items: [
@@ -371,7 +371,7 @@ export const mockOrders: CustomerOrder[] = [
   {
     id: 'DD20260609007', customerName: '夏日和风日料', phone: '177****3434',
     deliveryDate: deliveryStr(10), address: '苏州市姑苏区平江路',
-    status: 'STUCK', previousStatus: 'PENDING_CONFIRM', totalAmount: 7000, specNote: '日式餐厅摆花,淡雅风格,红色系为主',
+    status: 'STUCK', previousStatus: 'PENDING_CONFIRM', totalAmount: 7700, specNote: '日式餐厅摆花,淡雅风格,红色系为主',
     createdAt: dateStr(-1, 9, 20), updatedAt: dateStr(3, 20, 15),
     operator: 'SALES',
     items: [
@@ -388,8 +388,8 @@ export const mockOrders: CustomerOrder[] = [
         afterItems: [
           { flowerType: '玫瑰', color: '红色系', quantity: 35, stemsPerBunch: 20, shelterId: 'SH-A01', remark: '' },
         ],
-        beforeAmount: 4000,
-        afterAmount: 7000,
+        beforeAmount: 4400,
+        afterAmount: 7700,
         beforeHarvestPlan: { shelterId: 'SH-A03', planQty: 20 },
         afterHarvestPlan: { shelterId: 'SH-A01', planQty: 35 },
       },

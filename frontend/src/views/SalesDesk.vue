@@ -7,7 +7,7 @@ import { useUiStore } from '@/stores/ui'
 import { useSheltersStore } from '@/stores/shelters'
 import StatusTag from '@/components/common/StatusTag.vue'
 import OrderDetailDrawer from '@/components/sales/OrderDetailDrawer.vue'
-import { formatDateTime, cn } from '@/utils'
+import { formatDateTime, cn, calcOrderAmount } from '@/utils'
 import type { OrderStatus, OrderItem } from '@/types'
 
 const ordersStore = useOrdersStore()
@@ -377,7 +377,7 @@ function submitCreateOrder() {
           <span class="text-sm font-semibold text-neutral-700">
             花卉明细
             <span class="text-xs text-neutral-400 ml-2">
-              预估金额: ¥{{ changeSpecItems.reduce((s, i) => s + i.quantity * 200, 0).toLocaleString() }}
+              预估金额: ¥{{ calcOrderAmount(changeSpecItems).toLocaleString() }}
             </span>
           </span>
           <ElButton size="small" type="primary" plain @click="addSpecItem">+ 添加品种</ElButton>
@@ -420,12 +420,12 @@ function submitCreateOrder() {
       </div>
       <div class="p-3 rounded-lg bg-gold-50 border border-gold-100 mb-4">
         <div class="text-xs text-gold-700">
-          <div class="font-semibold mb-1">💡 修改说明</div>
-          <div>• 品种、色系、数量、棚区任一变更都将更新订单明细和采切计划数量</div>
-          <div>• 金额将自动重算: 单价 ¥200/扎 × 扎数</div>
-          <div>• 保存后将生成完整的改规格历史记录,包含前后明细对比</div>
-          <div>• 若订单处于卡住状态,修改后需确认订单后才会重建采切排期</div>
-        </div>
+            <div class="font-semibold mb-1">💡 修改说明</div>
+            <div>• 品种、色系、数量、棚区任一变更都将更新订单明细和采切计划数量</div>
+            <div>• 金额按品种单价自动重算: 玫瑰¥220/扎、洋牡丹¥280/扎、绣球¥350/扎、满天星¥180/扎</div>
+            <div>• 保存后将生成完整的改规格历史记录,包含前后明细对比</div>
+            <div>• 若订单处于卡住状态,修改后需确认订单后才会重建采切排期</div>
+          </div>
       </div>
       <template #footer>
         <ElButton @click="changeSpecDialogVisible = false">取消</ElButton>
@@ -454,7 +454,12 @@ function submitCreateOrder() {
 
         <div class="mb-4">
           <div class="flex items-center justify-between mb-2">
-            <span class="text-sm font-semibold text-neutral-700">花卉明细</span>
+            <span class="text-sm font-semibold text-neutral-700">
+              花卉明细
+              <span class="text-xs text-neutral-400 ml-2">
+                预估金额: ¥{{ calcOrderAmount(newOrderItems).toLocaleString() }}
+              </span>
+            </span>
             <ElButton size="small" type="primary" plain @click="addOrderItem">+ 添加品种</ElButton>
           </div>
           <div class="space-y-3">
