@@ -175,7 +175,7 @@ INSERT INTO collection_records (credit_sale_id, collector_id, visit_date, visit_
   (4, 2, '2025-08-10', 'visit', '上门催收2800元欠款', '不在家，家属说不知道', '联系本人');
 
 INSERT INTO partial_payments (credit_sale_id, payment_plan_id, amount, payment_date, payment_method, received_by, notes) VALUES
-  (3, 6, 500.00, '2025-07-20', 'cash', 1, '钱老赖仅还了500元现金，赊销单仍为overdue');
+  (3, 3, 500.00, '2025-07-20', 'cash', 1, '钱老赖仅还了500元现金，赊销单仍为overdue');
 
 -- ============================================================
 -- 场景3: 孙争议 — 账目争议

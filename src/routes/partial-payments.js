@@ -59,23 +59,17 @@ router.post('/', (req, res) => {
 
   const PROTECTED_STATUSES = new Set(['disputed', 'overdue']);
 
+  const allPlansPaid = (saleId) => {
+    const unpaid = db.prepare(
+      "SELECT id FROM payment_plans WHERE credit_sale_id = ? AND status != 'paid'"
+    ).all(saleId);
+    return unpaid.length === 0;
+  };
+
   const transaction = db.transaction(() => {
     const result = insertPayment.run(
       credit_sale_id, payment_plan_id || null, amount, payment_date, payment_method, received_by, notes || null
     );
-
-    const newPaidAmount = sale.paid_amount + amount;
-    let newSaleStatus;
-    if (newPaidAmount >= sale.total_amount) {
-      newSaleStatus = 'paid';
-    } else if (PROTECTED_STATUSES.has(sale.status)) {
-      newSaleStatus = sale.status;
-    } else if (newPaidAmount > 0) {
-      newSaleStatus = 'partial';
-    } else {
-      newSaleStatus = sale.status;
-    }
-    updateSalePaid.run(amount, newSaleStatus, credit_sale_id);
 
     if (payment_plan_id) {
       const plan = db.prepare('SELECT * FROM payment_plans WHERE id = ?').get(payment_plan_id);
@@ -90,6 +84,19 @@ router.post('/', (req, res) => {
       }
       updatePlanPaid.run(amount, newPlanStatus, payment_plan_id);
     }
+
+    const newPaidAmount = sale.paid_amount + amount;
+    let newSaleStatus;
+    if (newPaidAmount >= sale.total_amount && allPlansPaid(credit_sale_id)) {
+      newSaleStatus = 'paid';
+    } else if (PROTECTED_STATUSES.has(sale.status)) {
+      newSaleStatus = sale.status;
+    } else if (newPaidAmount > 0) {
+      newSaleStatus = 'partial';
+    } else {
+      newSaleStatus = sale.status;
+    }
+    updateSalePaid.run(amount, newSaleStatus, credit_sale_id);
 
     return result.lastInsertRowid;
   });

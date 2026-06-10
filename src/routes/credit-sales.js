@@ -139,6 +139,29 @@ router.put('/:id', (req, res) => {
     });
   }
 
+  if (status === 'paid') {
+    if (sale.paid_amount < sale.total_amount) {
+      return res.status(400).json({
+        code: 1,
+        message: `无法标记为已结清：已还 ${sale.paid_amount} 元，总额 ${sale.total_amount} 元，尚欠 ${sale.total_amount - sale.paid_amount} 元`,
+        paid_amount: sale.paid_amount,
+        total_amount: sale.total_amount
+      });
+    }
+
+    const unpaidPlans = db.prepare(
+      "SELECT id, planned_amount, actual_paid_amount, status FROM payment_plans WHERE credit_sale_id = ? AND status != 'paid'"
+    ).all(sale.id);
+
+    if (unpaidPlans.length > 0) {
+      return res.status(400).json({
+        code: 1,
+        message: `无法标记为已结清：还有 ${unpaidPlans.length} 条回款计划未完成`,
+        incomplete_plans: unpaidPlans
+      });
+    }
+  }
+
   const updates = [];
   const params = [];
   if (status) { updates.push('status = ?'); params.push(status); }
