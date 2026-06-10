@@ -79,7 +79,7 @@ const MapController = () => {
 };
 
 export const MapView = () => {
-  const { complaints, selectedComplaintId, setSelectedComplaint, hotspots, selectedHotspotId, activeTab } = useAppStore();
+  const { complaints, selectedComplaintId, setSelectedComplaint, hotspots, selectedHotspotId, activeTab, setActiveTab } = useAppStore();
 
   const center: [number, number] = [39.95, 116.35];
   const zoom = 12;
@@ -235,7 +235,7 @@ export const MapView = () => {
 
       <div className="absolute top-4 left-4 flex gap-1 bg-white/95 backdrop-blur rounded-lg shadow-lg p-1 border border-slate-200">
         <button
-          onClick={() => {}}
+          onClick={() => setActiveTab('list')}
           className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
             activeTab === 'list'
               ? 'bg-cyan-500 text-white'
@@ -245,7 +245,7 @@ export const MapView = () => {
           工单视图
         </button>
         <button
-          onClick={() => {}}
+          onClick={() => setActiveTab('hotspots')}
           className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
             activeTab === 'hotspots'
               ? 'bg-orange-500 text-white'
