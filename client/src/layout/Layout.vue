@@ -55,6 +55,12 @@ function onNotifCountChanged(n: number) {
   unreadCount.value = n
 }
 
+function onNotifClose() {
+  if (notifPanelRef.value) {
+    notifPanelRef.value.loadUnreadCount()
+  }
+}
+
 const userName = computed(() => userStore.currentUser?.name || '用户')
 const roleDisplay = computed(() => roleLabels[currentRole.value] || currentRole.value)
 
@@ -129,6 +135,7 @@ onMounted(async () => {
         ref="notifPanelRef"
         v-model:visible="showNotifPanel"
         @count-changed="onNotifCountChanged"
+        @close="onNotifClose"
       />
     </div>
   </div>

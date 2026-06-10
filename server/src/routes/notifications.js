@@ -9,20 +9,35 @@ router.get('/', (req, res) => {
   const offset = (page - 1) * pageSize;
   const limit = parseInt(pageSize);
 
-  let whereSql = 'WHERE user_id = ?';
+  let whereSql = 'WHERE n.user_id = ?';
   const params = [userId];
 
   if (read === '0') {
-    whereSql += ' AND is_read = 0';
+    whereSql += ' AND n.is_read = 0';
   }
 
-  const countSql = `SELECT COUNT(*) as total FROM notifications ${whereSql}`;
+  const countSql = `SELECT COUNT(*) as total FROM notifications n ${whereSql}`;
   const total = db.prepare(countSql).get(...params).total;
 
   const listSql = `
-    SELECT * FROM notifications
+    SELECT
+      n.id, n.user_id, n.title, n.content, n.biz_type, n.biz_id,
+      n.type, n.is_read, n.read_time, n.created_at,
+      COALESCE(
+        n.reception_id,
+        CASE
+          WHEN n.biz_type = 'reception' THEN n.biz_id
+          WHEN n.biz_type = 'guide_task' THEN gt.reception_id
+          WHEN n.biz_type = 'warehouse_transfer' THEN gt2.reception_id
+          ELSE NULL
+        END
+      ) as reception_id
+    FROM notifications n
+    LEFT JOIN guide_tasks gt ON n.biz_type = 'guide_task' AND n.biz_id = gt.id
+    LEFT JOIN warehouse_transfers wt ON n.biz_type = 'warehouse_transfer' AND n.biz_id = wt.id
+    LEFT JOIN guide_tasks gt2 ON wt.guide_task_id = gt2.id
     ${whereSql}
-    ORDER BY id DESC
+    ORDER BY n.id DESC
     LIMIT ? OFFSET ?
   `;
   const list = db.prepare(listSql).all(...params, limit, offset);
