@@ -15,6 +15,22 @@ function validateDescription(desc) {
   return null
 }
 
+function parseRouteNodes(route) {
+  if (!route) return []
+  return route.split(/[→>→➡\-]/).map(s => s.trim()).filter(Boolean)
+}
+
+function sortByRouteProximity(bikes, route) {
+  const nodes = parseRouteNodes(route)
+  if (!nodes.length) return bikes
+  return [...bikes].sort((a, b) => {
+    const aMatch = nodes.some(n => a.location && a.location.includes(n)) ? 0 : 1
+    const bMatch = nodes.some(n => b.location && b.location.includes(n)) ? 0 : 1
+    if (aMatch !== bMatch) return aMatch - bMatch
+    return a.bike_no.localeCompare(b.bike_no)
+  })
+}
+
 function TaskDetail() {
   const { id } = useParams()
   const [task, setTask] = useState(null)
@@ -54,9 +70,13 @@ function TaskDetail() {
 
   const openReportModal = async () => {
     const bikesRes = await api.getBikesByArea(task.area)
-    const bikes = bikesRes.success ? bikesRes.data : []
-    setAreaBikes(bikes)
-    const firstBike = bikes[0]
+    const allBikes = bikesRes.success ? bikesRes.data : []
+    const normalBikes = sortByRouteProximity(
+      allBikes.filter(b => b.status === 'normal'),
+      task.route
+    )
+    setAreaBikes(normalBikes)
+    const firstBike = normalBikes[0]
     setFormData({
       bike_no: firstBike ? firstBike.bike_no : '',
       fault_type: '',
@@ -260,20 +280,28 @@ function TaskDetail() {
                 </div>
                 <div className="form-row">
                   <div className="form-group">
-                    <label>选择车辆 * <span style={{ color: '#999', fontWeight: 'normal', fontSize: '12px' }}>（仅限{task.area}车辆）</span></label>
-                    <select
-                      value={formData.bike_no}
-                      onChange={e => handleBikeSelect(e.target.value)}
-                    >
-                      {areaBikes.length === 0 && (
-                        <option value="">当前区域无车辆</option>
-                      )}
-                      {areaBikes.map(bike => (
-                        <option key={bike.bike_no} value={bike.bike_no}>
-                          {bike.bike_no} - {bike.location}（{bike.status_text}）
-                        </option>
-                      ))}
-                    </select>
+                    <label>选择车辆 * <span style={{ color: '#999', fontWeight: 'normal', fontSize: '12px' }}>（仅限{task.area}正常车辆）</span></label>
+                    {areaBikes.length > 0 ? (
+                      <select
+                        value={formData.bike_no}
+                        onChange={e => handleBikeSelect(e.target.value)}
+                      >
+                        {areaBikes.map(bike => {
+                          const nearRoute = parseRouteNodes(task.route).some(n => bike.location && bike.location.includes(n))
+                          return (
+                            <option key={bike.bike_no} value={bike.bike_no}>
+                              {bike.bike_no} - {bike.location}{nearRoute ? ' 📍路线附近' : ''}
+                            </option>
+                          )
+                        })}
+                      </select>
+                    ) : (
+                      <div style={{ padding: '16px', background: '#fff3e0', borderRadius: '4px', textAlign: 'center', color: '#e65100', fontSize: '13px' }}>
+                        <div style={{ fontSize: '24px', marginBottom: '8px' }}>🚫</div>
+                        <div style={{ fontWeight: '600', marginBottom: '4px' }}>当前区域无可用车辆</div>
+                        <div>{task.area} 所有车辆均处于故障或维修状态，无法上报新故障</div>
+                      </div>
+                    )}
                   </div>
                   <div className="form-group">
                     <label>上报人</label>
@@ -357,7 +385,9 @@ function TaskDetail() {
               </div>
               <div className="modal-footer">
                 <button type="button" className="btn btn-default" onClick={() => setShowReportModal(false)}>取消</button>
-                <button type="submit" className="btn btn-primary">提交上报</button>
+                <button type="submit" className="btn btn-primary" disabled={areaBikes.length === 0}>
+                  {areaBikes.length === 0 ? '无可用车辆' : '提交上报'}
+                </button>
               </div>
             </form>
           </div>

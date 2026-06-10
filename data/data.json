@@ -48,7 +48,7 @@
       {
         "id": 5,
         "bike_no": "BK001005",
-        "status": "normal",
+        "status": "fault",
         "area": "朝阳区",
         "location": "团结湖公园",
         "lat": 39.9321,
@@ -201,7 +201,7 @@
         "start_time": "2026-06-10 08:30:00",
         "end_time": null,
         "bike_count": 15,
-        "fault_count": 4,
+        "fault_count": 5,
         "created_at": "2026-06-09 18:00:00"
       },
       {
@@ -507,6 +507,32 @@
         "repair_decision": "on_site_repair",
         "dispatcher": "张调度",
         "dispatch_time": "2026-06-10 12:42:36"
+      },
+      {
+        "id": 12,
+        "report_no": "FAULT1781099290219",
+        "bike_id": 5,
+        "bike_no": "BK001005",
+        "fault_type": "tire_flat",
+        "fault_level": "minor",
+        "description": "后轮缓慢漏气需补胎",
+        "location": "团结湖公园",
+        "lat": 39.9321,
+        "lng": 116.4678,
+        "photo_placeholder": "photo_1781099290219.jpg",
+        "reporter": "赵巡检",
+        "report_time": "2026-06-10 13:48:10",
+        "task_id": 1,
+        "task_no": "TASK20260610001",
+        "task_area": "朝阳区",
+        "task_route": "国贸→三里屯→望京",
+        "task_inspector": "赵巡检",
+        "is_duplicate": 0,
+        "duplicate_of": null,
+        "status": "reported",
+        "repair_decision": null,
+        "dispatcher": null,
+        "dispatch_time": null
       }
     ],
     "repair_records": [
@@ -659,7 +685,7 @@
   "nextIds": {
     "bikes": 18,
     "inspection_tasks": 6,
-    "fault_reports": 12,
+    "fault_reports": 13,
     "repair_records": 7,
     "areas": 6
   }

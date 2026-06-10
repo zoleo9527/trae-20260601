@@ -270,6 +270,11 @@ app.post('/api/faults', (req, res) => {
     return res.json({ success: false, message: '车辆不存在' });
   }
 
+  if (bike.status !== 'normal') {
+    const statusText = bike.status === 'fault' ? '故障' : bike.status === 'repairing' ? '维修中' : bike.status;
+    return res.json({ success: false, message: `车辆 ${bike_no} 当前状态为「${statusText}」，不可重复创建故障单` });
+  }
+
   let taskContext = {};
   if (task_id) {
     const task = getById('inspection_tasks', task_id);
