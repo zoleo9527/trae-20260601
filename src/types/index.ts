@@ -33,7 +33,7 @@ export interface PackingRecord {
   eggsPerBox: number
   totalEggs: number
   destination: string
-  transporter: string
+  transporter: string | null
   managerId: string
   managerName: string
   sortedById: string

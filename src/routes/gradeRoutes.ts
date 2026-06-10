@@ -1,9 +1,11 @@
-import { Router, Request, Response } from 'express'
+import { Router, type Request, type Response } from 'express'
+import { ParamsDictionary, Query } from 'express-serve-static-core'
 import { gradeService } from '../services/gradeService'
+import { EggGrade } from '../types'
 
 const router = Router()
 
-router.post('/', async (req: Request, res: Response) => {
+router.post('/', async (req: Request<ParamsDictionary, any, { batchNumber: string; grade: string; quantity: number; weight: number; breederId: string }>, res: Response) => {
   try {
     const { batchNumber, grade, quantity, weight, breederId } = req.body
     const record = await gradeService.submitGradeRecord(batchNumber, grade, quantity, weight, breederId)
@@ -19,7 +21,7 @@ router.post('/', async (req: Request, res: Response) => {
   }
 })
 
-router.put('/:id/verify', async (req: Request, res: Response) => {
+router.put('/:id/verify', async (req: Request<{ id: string }, any, { sorterId: string }>, res: Response) => {
   try {
     const { id } = req.params
     const { sorterId } = req.body
@@ -36,7 +38,7 @@ router.put('/:id/verify', async (req: Request, res: Response) => {
   }
 })
 
-router.get('/:id', async (req: Request, res: Response) => {
+router.get('/:id', async (req: Request<{ id: string }>, res: Response) => {
   try {
     const { id } = req.params
     const record = await gradeService.getGradeRecordById(id)
@@ -58,21 +60,21 @@ router.get('/:id', async (req: Request, res: Response) => {
   }
 })
 
-router.get('/', async (req: Request, res: Response) => {
+router.get('/', async (req: Request<ParamsDictionary, any, any, Query & { batchNumber?: string; grade?: string; status?: string; breederId?: string; sorterId?: string; startDate?: string; endDate?: string; page?: string; pageSize?: string }>, res: Response) => {
   try {
     const { batchNumber, grade, status, breederId, sorterId, startDate, endDate, page, pageSize } = req.query
     const filter = {
-      batchNumber: batchNumber as string,
-      grade: grade as string,
-      status: status as string,
-      breederId: breederId as string,
-      sorterId: sorterId as string,
-      startDate: startDate as string,
-      endDate: endDate as string
+      batchNumber: batchNumber || undefined,
+      grade: (grade as EggGrade) || undefined,
+      status: status || undefined,
+      breederId: breederId || undefined,
+      sorterId: sorterId || undefined,
+      startDate: startDate || undefined,
+      endDate: endDate || undefined
     }
     const pageRequest = {
-      page: parseInt(page as string) || 1,
-      pageSize: parseInt(pageSize as string) || 10
+      page: parseInt(page || '1'),
+      pageSize: parseInt(pageSize || '10')
     }
     const result = await gradeService.getGradeRecords(filter, pageRequest)
     res.json({
@@ -87,7 +89,7 @@ router.get('/', async (req: Request, res: Response) => {
   }
 })
 
-router.get('/:id/logs', async (req: Request, res: Response) => {
+router.get('/:id/logs', async (req: Request<{ id: string }>, res: Response) => {
   try {
     const { id } = req.params
     const logs = await gradeService.getGradeRecordLogs(id)

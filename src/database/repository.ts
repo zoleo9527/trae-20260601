@@ -1,12 +1,13 @@
 import { EggGradeRecord, PackingRecord, ActionLog, User, EggGradeFilter, PackingFilter, PageRequest, PageResponse } from '../types'
 import { getConnection } from './connection'
+import { snakeToCamel } from '../utils/helpers'
 
 export async function createEggGradeRecord(record: Omit<EggGradeRecord, 'id' | 'sorterId' | 'sorterName' | 'status' | 'createdAt' | 'updatedAt'>): Promise<EggGradeRecord> {
   const conn = await getConnection()
   try {
     const id = crypto.randomUUID()
     const now = new Date()
-    const [result] = await conn.execute(
+    await conn.execute(
       'INSERT INTO egg_grade_records (id, batch_number, grade, quantity, weight, breeder_id, breeder_name, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
       [id, record.batchNumber, record.grade, record.quantity, record.weight, record.breederId, record.breederName, 'pending', now, now]
     )
@@ -27,7 +28,8 @@ export async function verifyEggGradeRecord(id: string, sorterId: string, sorterN
     if (result.affectedRows === 0) return null
     
     const [records] = await conn.execute('SELECT * FROM egg_grade_records WHERE id = ?', [id])
-    return (records as EggGradeRecord[])[0] || null
+    const record = (records as any[])[0]
+    return record ? snakeToCamel(record) as EggGradeRecord : null
   } finally {
     conn.release()
   }
@@ -37,7 +39,8 @@ export async function getEggGradeRecordById(id: string): Promise<EggGradeRecord 
   const conn = await getConnection()
   try {
     const [rows] = await conn.execute('SELECT * FROM egg_grade_records WHERE id = ?', [id])
-    return (rows as EggGradeRecord[])[0] || null
+    const record = (rows as any[])[0]
+    return record ? snakeToCamel(record) as EggGradeRecord : null
   } finally {
     conn.release()
   }
@@ -91,7 +94,7 @@ export async function getEggGradeRecords(filter: EggGradeFilter, pageRequest: Pa
     const [rows] = await conn.execute(query, params)
     
     return {
-      data: rows as EggGradeRecord[],
+      data: snakeToCamel(rows) as EggGradeRecord[],
       total,
       page: pageRequest.page,
       pageSize: pageRequest.pageSize
@@ -140,7 +143,8 @@ export async function shipPackingRecord(id: string): Promise<PackingRecord | nul
     if (affected === 0) return null
     
     const [records] = await conn.execute('SELECT * FROM packing_records WHERE id = ?', [id])
-    return (records as PackingRecord[])[0] || null
+    const record = (records as any[])[0]
+    return record ? snakeToCamel(record) as PackingRecord : null
   } finally {
     conn.release()
   }
@@ -150,7 +154,8 @@ export async function getPackingRecordById(id: string): Promise<PackingRecord | 
   const conn = await getConnection()
   try {
     const [rows] = await conn.execute('SELECT * FROM packing_records WHERE id = ?', [id])
-    return (rows as PackingRecord[])[0] || null
+    const record = (rows as any[])[0]
+    return record ? snakeToCamel(record) as PackingRecord : null
   } finally {
     conn.release()
   }
@@ -200,7 +205,7 @@ export async function getPackingRecords(filter: PackingFilter, pageRequest: Page
     const [rows] = await conn.execute(query, params)
     
     return {
-      data: rows as PackingRecord[],
+      data: snakeToCamel(rows) as PackingRecord[],
       total,
       page: pageRequest.page,
       pageSize: pageRequest.pageSize
@@ -232,7 +237,7 @@ export async function getActionLogs(targetType: 'grade' | 'packing', targetId: s
       'SELECT * FROM action_logs WHERE target_type = ? AND target_id = ? ORDER BY timestamp DESC',
       [targetType, targetId]
     )
-    return rows as ActionLog[]
+    return snakeToCamel(rows) as ActionLog[]
   } finally {
     conn.release()
   }
@@ -242,7 +247,8 @@ export async function getUserById(id: string): Promise<User | null> {
   const conn = await getConnection()
   try {
     const [rows] = await conn.execute('SELECT * FROM users WHERE id = ?', [id])
-    return (rows as User[])[0] || null
+    const record = (rows as any[])[0]
+    return record ? snakeToCamel(record) as User : null
   } finally {
     conn.release()
   }
@@ -260,7 +266,7 @@ export async function getUsersByRole(role?: string): Promise<User[]> {
     }
     
     const [rows] = await conn.execute(query, params)
-    return rows as User[]
+    return snakeToCamel(rows) as User[]
   } finally {
     conn.release()
   }

@@ -1,12 +1,13 @@
-import { Router, Request, Response } from 'express'
+import { Router, type Request, type Response } from 'express'
+import { ParamsDictionary, Query } from 'express-serve-static-core'
 import { userService } from '../services/userService'
 
 const router = Router()
 
-router.get('/', async (req: Request, res: Response) => {
+router.get('/', async (req: Request<ParamsDictionary, any, any, Query & { role?: string }>, res: Response) => {
   try {
     const { role } = req.query
-    const users = await userService.getUsersByRole(role as string)
+    const users = await userService.getUsersByRole(role || undefined)
     res.json({
       success: true,
       data: users
@@ -19,7 +20,7 @@ router.get('/', async (req: Request, res: Response) => {
   }
 })
 
-router.get('/:id', async (req: Request, res: Response) => {
+router.get('/:id', async (req: Request<{ id: string }>, res: Response) => {
   try {
     const { id } = req.params
     const user = await userService.getUserById(id)

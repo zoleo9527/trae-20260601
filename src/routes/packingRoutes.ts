@@ -1,9 +1,10 @@
-import { Router, Request, Response } from 'express'
+import { Router, type Request, type Response } from 'express'
+import { ParamsDictionary, Query } from 'express-serve-static-core'
 import { packingService } from '../services/packingService'
 
 const router = Router()
 
-router.post('/', async (req: Request, res: Response) => {
+router.post('/', async (req: Request<ParamsDictionary, any, { eggGradeRecordId: string; boxCount: number; eggsPerBox: number; destination: string; transporter: string; managerId: string }>, res: Response) => {
   try {
     const { eggGradeRecordId, boxCount, eggsPerBox, destination, transporter, managerId } = req.body
     const record = await packingService.confirmPacking(eggGradeRecordId, boxCount, eggsPerBox, destination, transporter, managerId)
@@ -19,7 +20,7 @@ router.post('/', async (req: Request, res: Response) => {
   }
 })
 
-router.put('/:id/ship', async (req: Request, res: Response) => {
+router.put('/:id/ship', async (req: Request<{ id: string }, any, { operatorId: string }>, res: Response) => {
   try {
     const { id } = req.params
     const { operatorId } = req.body
@@ -36,7 +37,7 @@ router.put('/:id/ship', async (req: Request, res: Response) => {
   }
 })
 
-router.get('/:id', async (req: Request, res: Response) => {
+router.get('/:id', async (req: Request<{ id: string }>, res: Response) => {
   try {
     const { id } = req.params
     const record = await packingService.getPackingRecordById(id)
@@ -58,20 +59,20 @@ router.get('/:id', async (req: Request, res: Response) => {
   }
 })
 
-router.get('/', async (req: Request, res: Response) => {
+router.get('/', async (req: Request<ParamsDictionary, any, any, Query & { batchNumber?: string; destination?: string; status?: string; managerId?: string; startDate?: string; endDate?: string; page?: string; pageSize?: string }>, res: Response) => {
   try {
     const { batchNumber, destination, status, managerId, startDate, endDate, page, pageSize } = req.query
     const filter = {
-      batchNumber: batchNumber as string,
-      destination: destination as string,
-      status: status as string,
-      managerId: managerId as string,
-      startDate: startDate as string,
-      endDate: endDate as string
+      batchNumber: batchNumber || undefined,
+      destination: destination || undefined,
+      status: status || undefined,
+      managerId: managerId || undefined,
+      startDate: startDate || undefined,
+      endDate: endDate || undefined
     }
     const pageRequest = {
-      page: parseInt(page as string) || 1,
-      pageSize: parseInt(pageSize as string) || 10
+      page: parseInt(page || '1'),
+      pageSize: parseInt(pageSize || '10')
     }
     const result = await packingService.getPackingRecords(filter, pageRequest)
     res.json({
@@ -86,7 +87,7 @@ router.get('/', async (req: Request, res: Response) => {
   }
 })
 
-router.get('/:id/logs', async (req: Request, res: Response) => {
+router.get('/:id/logs', async (req: Request<{ id: string }>, res: Response) => {
   try {
     const { id } = req.params
     const logs = await packingService.getPackingRecordLogs(id)
