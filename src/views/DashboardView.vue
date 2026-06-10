@@ -43,8 +43,9 @@ async function loadRecentData() {
     if (role === 'warehouse') {
       tasks.push(gradingApi.getPendingBatches())
       tasks.push(batchApi.list({ status: 'graded' }))
+      tasks.push(batchApi.list({ status: 'warehousing' }))
     }
-    const [batchesRes, reservationsRes, complaintsRes, gradingRes, gradedRes] = await Promise.all(tasks as any)
+    const [batchesRes, reservationsRes, complaintsRes, gradingRes, gradedRes, warehousingRes] = await Promise.all(tasks as any)
 
     recentBatches.value = batchesRes.data.slice(0, 5)
     const allReservations = reservationsRes.data
@@ -56,7 +57,7 @@ async function loadRecentData() {
     pendingComplaints.value = allComplaints.filter((c: Complaint) => c.status === 'pending')
 
     if (gradingRes) pendingGradingBatches.value = gradingRes.data
-    if (gradedRes) gradedBatches.value = gradedRes.data
+    gradedBatches.value = [...(gradedRes?.data || []), ...(warehousingRes?.data || [])]
   } catch {}
 }
 
@@ -252,7 +253,7 @@ function goToInventory() {
                 <span class="badge" :class="{
                   'badge-success': b.status === 'stored',
                   'badge-info': b.status === 'grading',
-                  'badge-warning': b.status === 'graded',
+                  'badge-warning': b.status === 'graded' || b.status === 'warehousing',
                   'badge-gray': b.status === 'picked',
                 }">{{ STATUS_LABELS[b.status] }}</span>
               </td>
@@ -299,16 +300,18 @@ function goToInventory() {
 
       <div v-if="gradedBatches.length > 0" class="task-card task-success">
         <div class="task-header">
-          <div class="task-title">📦 待入库确认（已分级完成）</div>
+          <div class="task-title">📦 待入库确认</div>
           <router-link :to="{ name: 'inventory' }" class="text-sm">去库存管理 →</router-link>
         </div>
         <div v-for="b in gradedBatches.slice(0,3)" :key="b.id" class="task-item" @click="goToBatch(b.id)">
           <div class="task-main">
             <span class="task-name">{{ b.batch_no }}</span>
-            <span class="badge badge-warning">已分级</span>
+            <span class="badge" :class="b.status === 'warehousing' ? 'badge-info' : 'badge-warning'">{{ STATUS_LABELS[b.status] }}</span>
           </div>
           <div class="task-desc">{{ b.fruit_type }} · {{ b.quantity_picked }}{{ b.unit }}</div>
-          <button class="btn btn-success btn-sm mt-2" @click.stop="goToInventory()">确认入库</button>
+          <button class="btn btn-sm mt-2" :class="b.status === 'warehousing' ? 'btn-success' : 'btn-primary'" @click.stop="goToInventory()">
+            {{ b.status === 'warehousing' ? '确认入库完成' : '开始入库' }}
+          </button>
         </div>
       </div>
 
@@ -362,7 +365,7 @@ function goToInventory() {
                 <span class="badge" :class="{
                   'badge-success': b.status === 'stored',
                   'badge-info': b.status === 'grading',
-                  'badge-warning': b.status === 'graded',
+                  'badge-warning': b.status === 'graded' || b.status === 'warehousing',
                   'badge-gray': b.status === 'picked',
                 }">{{ STATUS_LABELS[b.status] }}</span>
               </td>

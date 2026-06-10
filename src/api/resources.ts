@@ -40,6 +40,7 @@ export const reservationApi = {
   confirm: (id: number, handlerName: string, actualQty?: number, notes?: string) => api.put<Reservation>(`/reservations/${id}/confirm`, null, { params: { handler_name: handlerName, actual_qty: actualQty, notes: notes || '' } }),
   complete: (id: number, handlerName: string, actualQty: number, notes?: string) => api.put<Reservation>(`/reservations/${id}/complete`, null, { params: { handler_name: handlerName, actual_qty: actualQty, notes: notes || '' } }),
   getAvailableInventory: (fruitType: string) => api.get(`/reservations/available-inventory/${fruitType}`),
+  completeCheck: (id: number) => api.get(`/reservations/${id}/complete-check`),
 }
 
 export const complaintApi = {

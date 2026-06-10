@@ -24,6 +24,26 @@ def get_reservation(reservation_id: int, db: Session = Depends(get_db)):
     return r
 
 
+@router.get("/{reservation_id}/complete-check")
+def check_complete_feasibility(reservation_id: int, db: Session = Depends(get_db)):
+    r = db.query(Reservation).filter(Reservation.id == reservation_id).first()
+    if not r:
+        raise HTTPException(status_code=404, detail="预约不存在")
+    inv_items = db.query(InventoryItem).filter(InventoryItem.fruit_type == r.fruit_type).all()
+    available_abc = sum(i.quantity for i in inv_items if i.grade in ("A", "B", "C"))
+    grade_breakdown = {i.grade: i.quantity for i in inv_items}
+    max_completable = available_abc
+    return {
+        "reservation_id": r.id,
+        "fruit_type": r.fruit_type,
+        "reserved_qty": r.reserved_qty,
+        "available_abc": available_abc,
+        "grade_breakdown": grade_breakdown,
+        "max_completable_qty": max_completable,
+        "can_complete_full": available_abc >= r.reserved_qty,
+    }
+
+
 @router.get("/available-inventory/{fruit_type}")
 def get_available_inventory(fruit_type: str, db: Session = Depends(get_db)):
     inv_items = db.query(InventoryItem).filter(InventoryItem.fruit_type == fruit_type).all()
@@ -133,7 +153,16 @@ def complete_reservation(reservation_id: int, handler_name: str, actual_qty: flo
         raise HTTPException(status_code=404, detail="预约不存在")
 
     inv_items = db.query(InventoryItem).filter(InventoryItem.fruit_type == r.fruit_type).all()
+    available_abc = sum(i.quantity for i in inv_items if i.grade in ("A", "B", "C"))
+
+    if actual_qty > available_abc:
+        raise HTTPException(
+            status_code=400,
+            detail=f"库存不足，无法完成预约。当前{r.fruit_type}ABC级可用库存{available_abc}斤，实际采摘量{actual_qty}斤超出{actual_qty - available_abc}斤。请调整实际采摘量或先调配库存。",
+        )
+
     remaining = actual_qty
+    deducted_details = []
     for inv in sorted(inv_items, key=lambda x: x.grade):
         if remaining <= 0:
             break
@@ -145,6 +174,7 @@ def complete_reservation(reservation_id: int, handler_name: str, actual_qty: flo
             inv.quantity = before - deduct
             inv.updated_at = datetime.now()
             remaining -= deduct
+            deducted_details.append(f"{inv.grade}级扣减{deduct:.1f}斤")
             db.add(InventoryChangeLog(
                 inventory_item_id=inv.id,
                 change_type="reservation_out",
@@ -161,6 +191,7 @@ def complete_reservation(reservation_id: int, handler_name: str, actual_qty: flo
     if actual_qty != r.reserved_qty:
         diff = actual_qty - r.reserved_qty
         append_note += f"（预约{r.reserved_qty}斤，差异{diff:+.1f}斤）"
+    append_note += f" [库存扣减: {', '.join(deducted_details)}]"
     if notes:
         append_note += f" - {notes}"
     r.status = "completed"
@@ -177,7 +208,7 @@ def complete_reservation(reservation_id: int, handler_name: str, actual_qty: flo
         action="完成预约",
         operator_name=handler_name,
         operator_role="customer_service",
-        notes=f"实际采摘{actual_qty}斤，库存已自动扣减",
+        notes=f"实际采摘{actual_qty}斤，库存已自动扣减({'; '.join(deducted_details)})",
     )
     db.add(log)
     db.commit()

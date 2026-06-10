@@ -13,7 +13,7 @@ router = APIRouter(prefix="/api/system", tags=["system"])
 @router.get("/stats", response_model=DashboardStats)
 def get_dashboard_stats(db: Session = Depends(get_db)):
     pending_grading = db.query(FruitBatch).filter(FruitBatch.status.in_(["picked", "grading"])).count()
-    pending_warehousing = db.query(FruitBatch).filter(FruitBatch.status == "graded").count()
+    pending_warehousing = db.query(FruitBatch).filter(FruitBatch.status.in_(["graded", "warehousing"])).count()
     pending_complaints = db.query(Complaint).filter(Complaint.status.in_(["pending", "processing"])).count()
     overbooked = db.query(Reservation).filter(Reservation.overbook_flag == 1, Reservation.status != "completed").count()
     today = __import__("datetime").datetime.now().strftime("%Y-%m-%d")
@@ -58,7 +58,6 @@ def reset_data():
 
 def _seed_data(db: Session):
     now = __import__("datetime").datetime.now
-    dt = now()
 
     users = [
         User(username="kefu01", display_name="李客服", role="customer_service"),
@@ -72,7 +71,7 @@ def _seed_data(db: Session):
     batches_data = [
         {"no": "PK-20260608-001", "fruit": "水蜜桃", "date": "2026-06-08", "area": "东坡桃园", "qty": 320.0, "guide": "王向导", "status": "stored"},
         {"no": "PK-20260609-001", "fruit": "巨峰葡萄", "date": "2026-06-09", "area": "北坡葡萄园", "qty": 280.0, "guide": "王向导", "status": "stored"},
-        {"no": "PK-20260609-002", "fruit": "水蜜桃", "date": "2026-06-09", "area": "东坡桃园", "qty": 150.0, "guide": "王向导", "status": "graded"},
+        {"no": "PK-20260609-002", "fruit": "水蜜桃", "date": "2026-06-09", "area": "东坡桃园", "qty": 150.0, "guide": "王向导", "status": "warehousing"},
         {"no": "PK-20260610-001", "fruit": "阳光玫瑰", "date": "2026-06-10", "area": "南湖葡萄园", "qty": 200.0, "guide": "王向导", "status": "grading"},
         {"no": "PK-20260610-002", "fruit": "水蜜桃", "date": "2026-06-10", "area": "东坡桃园", "qty": 180.0, "guide": "王向导", "status": "picked"},
     ]
@@ -171,6 +170,7 @@ def _seed_data(db: Session):
         {"name": "郑女士", "phone": "13500007777", "date": "2026-06-10", "fruit": "水蜜桃", "qty": 60, "status": "pending", "actual": 0, "overbook": 1, "handler": "",
          "notes": "[06-10 08:00] 系统: 预约60斤，当前AB级库存170斤\n[06-10 08:00] 系统: ⚠️ 水蜜桃当日预约总量210斤已超AB级库存上限\n[06-10 08:10] 李客服: 需联系两位超量游客协调改期或减量"},
     ]
+    reservations = []
     for rd in reservations_data:
         r = Reservation(
             visitor_name=rd["name"], visitor_phone=rd["phone"],
@@ -181,6 +181,7 @@ def _seed_data(db: Session):
         )
         db.add(r)
         db.flush()
+        reservations.append(r)
         action = "创建预约" if rd["status"] == "pending" else "确认预约" if rd["status"] == "confirmed" else "完成预约"
         db.add(ProcessingLog(
             entity_type="reservation", entity_id=r.id,
@@ -188,6 +189,12 @@ def _seed_data(db: Session):
             operator_name=rd["handler"] or "system", operator_role="customer_service",
             notes=rd["notes"].split("\n")[0].split("] ")[-1] if rd["notes"] else "",
         ))
+
+    sun_reservation_id = None
+    for r in reservations:
+        if r.visitor_name == "孙先生":
+            sun_reservation_id = r.id
+            break
 
     complaints_data = [
         {"name": "赵先生", "phone": "13800001111", "content": "预约了50斤水蜜桃，到园后说只有30斤可摘，浪费了半天时间", "category": "预约问题", "status": "replied",
@@ -198,7 +205,7 @@ def _seed_data(db: Session):
         {"name": "吴女士", "phone": "13400006666", "content": "买的C级桃子回家发现有一半是坏的，分级标准是不是有问题", "category": "品质问题", "status": "pending",
          "handler": "", "reply": "", "res_id": None, "notes": "[06-10 14:00] 系统: 投诉已提交\n[06-10 14:00] 系统: ⚠️ 尚未受理，游客正在等待回复"},
         {"name": "陈先生", "phone": "13300008888", "content": "预约时说有100斤水蜜桃可以摘，结果到了说超量了只能摘40斤，白跑一趟", "category": "预约问题", "status": "pending",
-         "handler": "", "reply": "", "res_id": None, "notes": "[06-10 15:00] 系统: 投诉已提交\n[06-10 15:00] 系统: ⚠️ 尚未受理，关联超量预约问题\n[06-10 15:05] 系统: 该游客对应孙先生预约记录，预约量100斤，超量标记"},
+         "handler": "", "reply": "", "res_id": sun_reservation_id, "notes": "[06-10 15:00] 系统: 投诉已提交\n[06-10 15:00] 系统: ⚠️ 尚未受理，关联超量预约问题\n[06-10 15:05] 系统: 该投诉关联孙先生预约记录#{0}，预约量100斤，超量标记".format(sun_reservation_id) if sun_reservation_id else "[06-10 15:00] 系统: 投诉已提交"},
     ]
     for cd in complaints_data:
         c = Complaint(

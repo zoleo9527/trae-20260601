@@ -20,6 +20,8 @@ const completeNotes = ref('')
 const showConfirmDialog = ref(false)
 const showCompleteDialog = ref(false)
 const availableInventory = ref<{ fruit_type: string; total_available: number; grade_breakdown: Record<string, number> } | null>(null)
+const completeCheck = ref<{ available_abc: number; max_completable_qty: number; can_complete_full: boolean } | null>(null)
+const completeError = ref('')
 
 const reservationSteps = computed(() => {
   if (!reservation.value) return []
@@ -64,6 +66,12 @@ onMounted(async () => {
         availableInventory.value = invRes.data
       } catch {}
     }
+    if (res.data.status === 'confirmed') {
+      try {
+        const checkRes = await reservationApi.completeCheck(id)
+        completeCheck.value = checkRes.data
+      } catch {}
+    }
   } catch {
     router.push({ name: 'reservations' })
   }
@@ -91,6 +99,11 @@ async function handleConfirm() {
 
 async function handleComplete() {
   if (!reservation.value) return
+  completeError.value = ''
+  if (completeCheck.value && actualQty.value > completeCheck.value.max_completable_qty) {
+    completeError.value = `库存不足！当前${reservation.value.fruit_type}ABC级可用库存仅${completeCheck.value.available_abc}斤，无法完成${actualQty.value}斤。请调整实际采摘量或先调配库存。`
+    return
+  }
   completing.value = true
   try {
     const res = await reservationApi.complete(
@@ -104,7 +117,12 @@ async function handleComplete() {
     completeNotes.value = ''
     const logsRes = await logsApi.list({ entity_type: 'reservation', entity_id: reservation.value.id })
     logs.value = logsRes.data
-  } catch {}
+  } catch (e: any) {
+    const detail = e.response?.data?.detail
+    if (detail) {
+      completeError.value = detail
+    }
+  }
   completing.value = false
 }
 
@@ -305,17 +323,27 @@ function formatTime(t: string | null) {
       <div class="dialog">
         <h3>完成预约</h3>
         <p class="text-sm text-gray mb-4">完成后系统将自动从库存中扣减对应数量。</p>
+        <div v-if="completeCheck" class="alert" :class="completeCheck.can_complete_full ? 'alert-info' : 'alert-danger'" >
+          当前{{ reservation?.fruit_type }}ABC级可用库存: {{ completeCheck.available_abc }}斤
+          <span v-if="!completeCheck.can_complete_full"> · ⚠️ 不足以完成原预约量{{ reservation?.reserved_qty }}斤，最多可完成{{ completeCheck.max_completable_qty }}斤</span>
+        </div>
+        <div v-if="completeError" class="alert alert-danger">
+          ⚠️ {{ completeError }}
+        </div>
         <div class="form-group">
           <label class="form-label">实际采摘量(斤)</label>
           <input type="number" v-model.number="actualQty" min="0" step="0.5" class="form-input" />
+          <div v-if="completeCheck && actualQty > completeCheck.max_completable_qty" class="text-sm text-red mt-1">
+            ⚠️ 输入量超出可用库存{{ completeCheck.available_abc }}斤
+          </div>
         </div>
         <div class="form-group">
           <label class="form-label">完成备注</label>
           <textarea v-model="completeNotes" class="form-textarea" placeholder="记录实际采摘情况，如差异原因等"></textarea>
         </div>
         <div class="flex gap-2 justify-between">
-          <button class="btn btn-ghost" @click="showCompleteDialog = false">取消</button>
-          <button class="btn btn-primary" @click="handleComplete" :disabled="completing">
+          <button class="btn btn-ghost" @click="showCompleteDialog = false; completeError = ''">取消</button>
+          <button class="btn btn-primary" @click="handleComplete" :disabled="completing || (completeCheck ? actualQty > completeCheck.max_completable_qty : false)">
             {{ completing ? '处理中...' : '确认完成（扣减库存）' }}
           </button>
         </div>
@@ -383,6 +411,7 @@ function formatTime(t: string | null) {
 
 .text-green { color: var(--success); }
 .text-red { color: var(--danger); }
+.mt-1 { margin-top: 4px; }
 
 .grade-breakdown {
   display: flex;

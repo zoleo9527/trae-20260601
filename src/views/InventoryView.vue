@@ -17,7 +17,7 @@ const adjustForm = ref({ change_amount: 0, reason: '' })
 const adjusting = ref(false)
 
 onMounted(async () => {
-  await Promise.all([loadInventory(), loadGradedBatches()])
+  await Promise.all([loadInventory(), loadPendingBatches()])
   loading.value = false
 })
 
@@ -28,10 +28,13 @@ async function loadInventory() {
   } catch {}
 }
 
-async function loadGradedBatches() {
+async function loadPendingBatches() {
   try {
-    const res = await batchApi.list({ status: 'graded' })
-    gradedBatches.value = res.data
+    const [gradedRes, warehousingRes] = await Promise.all([
+      batchApi.list({ status: 'graded' }),
+      batchApi.list({ status: 'warehousing' }),
+    ])
+    gradedBatches.value = [...gradedRes.data, ...warehousingRes.data]
   } catch {}
 }
 
@@ -60,9 +63,9 @@ async function handleAdjust() {
 async function confirmWarehousing(batchId: number) {
   try {
     await inventoryApi.confirmWarehousing(batchId, auth.currentUser!.display_name)
-    await loadGradedBatches()
+    await loadPendingBatches()
   } catch (e: any) {
-    alert(e.response?.data?.detail || '入库确认失败')
+    alert(e.response?.data?.detail || '入库操作失败')
   }
 }
 
@@ -88,15 +91,15 @@ function viewBatchDetail(batchId: number) {
 
     <template v-else>
       <div v-if="gradedBatches.length > 0" class="card mb-4">
-        <h3 class="card-title">🚚 待入库确认</h3>
-        <p class="text-sm text-gray mb-2">以下批次已完成分级，请确认入库</p>
+        <h3 class="card-title">🚚 入库操作</h3>
+        <p class="text-sm text-gray mb-2">以下批次需完成入库流程</p>
         <table class="data-table">
           <thead>
             <tr>
               <th>批次号</th>
               <th>果品</th>
               <th>数量</th>
-              <th>状态</th>
+              <th>当前状态</th>
               <th>操作</th>
             </tr>
           </thead>
@@ -105,9 +108,15 @@ function viewBatchDetail(batchId: number) {
               <td class="font-bold">{{ b.batch_no }}</td>
               <td>{{ b.fruit_type }}</td>
               <td>{{ b.quantity_picked }}{{ b.unit }}</td>
-              <td><span class="badge badge-warning">{{ STATUS_LABELS[b.status] }}</span></td>
+              <td>
+                <span class="badge" :class="b.status === 'warehousing' ? 'badge-info' : 'badge-warning'">
+                  {{ STATUS_LABELS[b.status] }}
+                </span>
+              </td>
               <td @click.stop>
-                <button class="btn btn-primary btn-sm" @click="confirmWarehousing(b.id)">确认入库</button>
+                <button class="btn btn-sm" :class="b.status === 'warehousing' ? 'btn-success' : 'btn-primary'" @click="confirmWarehousing(b.id)">
+                  {{ b.status === 'warehousing' ? '确认入库完成' : '开始入库' }}
+                </button>
               </td>
             </tr>
           </tbody>

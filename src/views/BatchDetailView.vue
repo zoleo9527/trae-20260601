@@ -39,6 +39,9 @@ const nextAction = computed(() => {
       return { text: '开始果品分级', action: 'startGrading', type: 'primary' }
     }
     if (status === 'graded') {
+      return { text: '开始入库', action: 'confirmWarehousing', type: 'primary' }
+    }
+    if (status === 'warehousing') {
       return { text: '确认入库完成', action: 'confirmWarehousing', type: 'success' }
     }
   }
@@ -51,13 +54,16 @@ const workflowSteps = computed(() => {
     { key: 'picked', label: '采摘提交', done: true },
     { key: 'loss', label: '损耗上报', done: losses.value.length > 0 },
     { key: 'grading', label: '果品分级', done: ['graded', 'warehousing', 'stored'].includes(batch.value.status) },
-    { key: 'warehousing', label: '入库确认', done: ['stored'].includes(batch.value.status) },
+    { key: 'warehousing', label: '入库中', done: batch.value.status === 'stored' },
+    { key: 'stored', label: '已入库', done: batch.value.status === 'stored' },
   ]
-  const order = ['picked', 'loss', 'grading', 'warehousing']
-  const curIdx = order.indexOf(batch.value.status === 'grading' ? 'grading' : (['warehousing', 'stored'].includes(batch.value.status) ? batch.value.status : 'picked'))
+  const statusToStepIdx: Record<string, number> = {
+    picked: 0, grading: 2, graded: 3, warehousing: 4, stored: 4,
+  }
+  const curIdx = statusToStepIdx[batch.value.status] ?? 0
   return steps.map((s, i) => ({
     ...s,
-    active: i === Math.min(curIdx + 1, steps.length - 1) && !s.done,
+    active: i === curIdx && !s.done,
     order: i,
   }))
 })
@@ -144,7 +150,13 @@ async function handleLossReport() {
 
 async function confirmWarehousing() {
   if (!batch.value) return
-  if (!confirm('确认该批次已完成入库？库存已在分级确认时更新。')) return
+  const isGraded = batch.value.status === 'graded'
+  const isWarehousing = batch.value.status === 'warehousing'
+  if (isGraded) {
+    if (!confirm(`确认开始入库？批次${batch.value.batch_no}将由"已分级"变为"入库中"。`)) return
+  } else if (isWarehousing) {
+    if (!confirm(`确认入库完成？批次${batch.value.batch_no}将标记为"已入库"。`)) return
+  }
   try {
     await inventoryApi.confirmWarehousing(batch.value.id, auth.currentUser!.display_name)
     const res = await batchApi.get(batch.value.id)
@@ -183,6 +195,7 @@ function formatTime(t: string | null) {
           'badge-gray': batch.status === 'picked',
           'badge-info': batch.status === 'grading',
           'badge-warning': batch.status === 'graded',
+          'badge-primary': batch.status === 'warehousing',
           'badge-success': batch.status === 'stored',
         }">{{ STATUS_LABELS[batch.status] }}</span>
       </div>

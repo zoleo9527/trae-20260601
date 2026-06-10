@@ -164,6 +164,7 @@ function formatTime(t: string | null) {
                 'badge-gray': batch.status === 'picked',
                 'badge-info': batch.status === 'grading',
                 'badge-warning': batch.status === 'graded',
+                'badge-primary': batch.status === 'warehousing',
                 'badge-success': batch.status === 'stored',
               }">{{ STATUS_LABELS[batch.status] }}</span>
             </span>

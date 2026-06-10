@@ -76,37 +76,39 @@ def confirm_warehousing(batch_id: int, operator_name: str, db: Session = Depends
     if not batch:
         raise HTTPException(status_code=404, detail="批次不存在")
     if batch.status not in ("graded", "warehousing"):
-        raise HTTPException(status_code=400, detail=f"批次当前状态为{batch.status}，无法确认入库")
+        raise HTTPException(status_code=400, detail=f"批次当前状态为{batch.status}，无法操作入库")
 
     old_status = batch.status
-    batch.status = "stored"
-    batch.updated_at = datetime.now()
-    db.commit()
-
     if old_status == "graded":
-        log1 = ProcessingLog(
+        batch.status = "warehousing"
+        batch.updated_at = datetime.now()
+        db.commit()
+
+        db.add(ProcessingLog(
             entity_type="fruit_batch",
             entity_id=batch.id,
-            action="开始入库",
+            action="开始入库: graded → warehousing",
             operator_name=operator_name,
             operator_role="warehouse",
-            notes=f"批次{batch.batch_no}开始入库流程",
+            notes=f"批次{batch.batch_no}开始入库流程，状态由已分级变为入库中",
             batch_id=batch.id,
-        )
-        db.add(log1)
-        db.flush()
+        ))
+        db.commit()
+    elif old_status == "warehousing":
+        batch.status = "stored"
+        batch.updated_at = datetime.now()
+        db.commit()
 
-    log2 = ProcessingLog(
-        entity_type="fruit_batch",
-        entity_id=batch.id,
-        action=f"确认入库: {old_status} → stored",
-        operator_name=operator_name,
-        operator_role="warehouse",
-        notes=f"批次{batch.batch_no}已完成入库，库存已同步更新",
-        batch_id=batch.id,
-    )
-    db.add(log2)
-    db.commit()
+        db.add(ProcessingLog(
+            entity_type="fruit_batch",
+            entity_id=batch.id,
+            action="确认入库: warehousing → stored",
+            operator_name=operator_name,
+            operator_role="warehouse",
+            notes=f"批次{batch.batch_no}已完成入库，库存已同步更新",
+            batch_id=batch.id,
+        ))
+        db.commit()
 
     inv_items = db.query(InventoryItem).filter(InventoryItem.fruit_type == batch.fruit_type).all()
     if inv_items:
