@@ -102,7 +102,7 @@ export default function Dashboard() {
     },
     {
       label: '未处理异常',
-      value: exceptions.filter(e => e.status === 'pending' || e.status === 'processing').length,
+      value: exceptions.filter(e => e.status === 'pending' || e.status === 'processing' || e.status === 'transferred').length,
       icon: AlertTriangle,
       color: 'text-amber-600',
       bgColor: 'bg-amber-50',
@@ -245,7 +245,7 @@ export default function Dashboard() {
                           {todo.subtitle}
                         </p>
                         <div className="flex items-center gap-2 mt-2">
-                          {todo.handlerRole.map((role) => {
+                          {(todo.handlerRole || []).map((role) => {
                             const Icon = getRoleIcon(role);
                             return (
                               <span

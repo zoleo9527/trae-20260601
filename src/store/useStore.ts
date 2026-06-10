@@ -8,7 +8,6 @@ import {
   exceptionOrders as rawInitialExceptions,
   riskItems as initialRisks,
   activityItems as initialActivities,
-  todoItems as initialTodos,
 } from '../data/mockData';
 import type {
   MonthlyRental,
@@ -101,7 +100,7 @@ export const useStore = create<AppState>()(
       exceptions: initialExceptions,
       risks: initialRisks,
       activities: initialActivities,
-      todos: initialTodos,
+      todos: [] as TodoItem[],
       currentUser: initialOperators[0],
 
       actions: {
@@ -557,9 +556,9 @@ export const useStore = create<AppState>()(
           const newTodos: TodoItem[] = [];
 
           state.exceptions.forEach((exc) => {
-            if (exc.status === 'pending' || exc.status === 'processing') {
+            if (exc.status === 'pending' || exc.status === 'processing' || exc.status === 'transferred') {
               const priority = exc.priority === 'high' ? 'high' : exc.priority === 'medium' ? 'medium' : 'low';
-              const titleMap = {
+              const titleMap: Record<string, string> = {
                 permission_expired: '月租权限失效',
                 unlicensed_dispute: '无牌车争议',
                 gate_fault: '道闸故障抢修',
@@ -569,16 +568,16 @@ export const useStore = create<AppState>()(
                 unlicensed_dispute: ['service'],
                 gate_fault: ['maintenance'],
               };
-              const todoId = `auto-exc-${exc.id}`;
-              const existingIdx = state.todos.findIndex((t) => t.id === todoId);
-              const todo: TodoItem = {
-                id: todoId,
+              const handlerOp = exc.handlerId ? state.operators.find((o) => o.id === exc.handlerId) : null;
+              const statusLabel = exc.status === 'transferred' ? '已转派' : exc.status === 'processing' ? '处理中' : '待分配';
+              newTodos.push({
+                id: `auto-exc-${exc.id}`,
                 type: 'exception',
-                title: titleMap[exc.type],
-                subtitle: `${exc.plateNumber || '-'} - ${exc.parkingLot} - ${exc.handlerId ? state.operators.find((o) => o.id === exc.handlerId)?.name : '待分配'}`,
-                description: `${exc.plateNumber || '-'} - ${exc.parkingLot} - ${exc.handlerId ? state.operators.find((o) => o.id === exc.handlerId)?.name : '待分配'}`,
+                title: titleMap[exc.type] || '异常处理',
+                subtitle: `${exc.plateNumber || '-'} - ${exc.parkingLot} - ${handlerOp?.name || statusLabel}`,
+                description: `${exc.plateNumber || '-'} - ${exc.parkingLot} - ${handlerOp?.name || statusLabel}`,
                 priority,
-                status: exc.status === 'processing' ? 'processing' : 'pending',
+                status: exc.status === 'pending' ? 'pending' : 'processing',
                 completed: false,
                 roles: handlerMap[exc.type],
                 handlerRole: handlerMap[exc.type],
@@ -586,24 +585,18 @@ export const useStore = create<AppState>()(
                 relatedType: 'exception',
                 path: `/exception/${exc.id}`,
                 createdAt: exc.createdAt,
-              };
-              if (existingIdx >= 0) {
-                newTodos.push({ ...state.todos[existingIdx], ...todo });
-              } else {
-                newTodos.push(todo);
-              }
+              });
             }
           });
 
           state.audits.forEach((audit) => {
-            if (audit.status === 'pending' || audit.status === 'processing' || audit.status === 'stuck') {
+            const auditStatus = audit.status || inferAuditStatus(audit);
+            if (auditStatus === 'pending' || auditStatus === 'processing' || auditStatus === 'stuck') {
               const rental = state.rentals.find((r) => r.auditId === audit.id);
               const currentNode = audit.nodes[audit.currentNode];
               const stuckNode = audit.nodes.find((n) => n.status === 'stuck');
-              const todoId = `auto-audit-${audit.id}`;
-              const existingIdx = state.todos.findIndex((t) => t.id === todoId);
-              const todo: TodoItem = {
-                id: todoId,
+              newTodos.push({
+                id: `auto-audit-${audit.id}`,
                 type: 'audit',
                 title: stuckNode ? `${stuckNode.name}卡住` : currentNode ? currentNode.name : '新月租审核',
                 subtitle: `${rental?.plateNumber || '无牌车'} - ${currentNode?.handlerName || '待分配'}`,
@@ -617,22 +610,15 @@ export const useStore = create<AppState>()(
                 relatedType: 'audit',
                 path: `/audit/${audit.id}`,
                 createdAt: audit.createdAt,
-              };
-              if (existingIdx >= 0) {
-                newTodos.push({ ...state.todos[existingIdx], ...todo });
-              } else {
-                newTodos.push(todo);
-              }
+              });
             }
           });
 
           state.dispatches.forEach((dispatch) => {
             if (dispatch.status === 'failed') {
               const failedNode = dispatch.nodes.find((n) => n.status === 'failed');
-              const todoId = `auto-dispatch-${dispatch.id}`;
-              const existingIdx = state.todos.findIndex((t) => t.id === todoId);
-              const todo: TodoItem = {
-                id: todoId,
+              newTodos.push({
+                id: `auto-dispatch-${dispatch.id}`,
                 type: 'dispatch_retry',
                 title: '权限下发重试',
                 subtitle: `${dispatch.plateNumber} - ${failedNode?.name || '未知节点'}`,
@@ -646,16 +632,12 @@ export const useStore = create<AppState>()(
                 relatedType: 'dispatch',
                 path: `/dispatch/${dispatch.id}`,
                 createdAt: dispatch.updatedAt,
-              };
-              if (existingIdx >= 0) {
-                newTodos.push({ ...state.todos[existingIdx], ...todo });
-              } else {
-                newTodos.push(todo);
-              }
+              });
             }
           });
 
-          const manualTodos = state.todos.filter((t) => !t.id.startsWith('auto-'));
+          const manualTodos = state.todos.filter((t) => t.id.startsWith('todo-'));
+
           const sorted = [...newTodos, ...manualTodos].sort((a, b) => {
             const pOrder = { high: 0, medium: 1, low: 2 };
             const pDiff = pOrder[a.priority] - pOrder[b.priority];
@@ -675,16 +657,17 @@ export const useStore = create<AppState>()(
             exceptions: initialExceptions,
             risks: initialRisks,
             activities: initialActivities,
-            todos: initialTodos,
+            todos: [],
             currentUser: initialOperators[0],
           });
           localStorage.removeItem('parking_recent_visits');
+          get().actions.refreshTodos();
         },
       },
     }),
     {
       name: 'parking_app_state',
-      version: 1,
+      version: 2,
       partialize: (state) => ({
         rentals: state.rentals,
         audits: state.audits,
@@ -693,13 +676,16 @@ export const useStore = create<AppState>()(
         exceptions: state.exceptions,
         risks: state.risks,
         activities: state.activities,
-        todos: state.todos,
         currentUserId: state.currentUser.id,
       }),
       merge: (persistedState: any, currentState) => {
+        const todos = (persistedState?.todos || []).filter(
+          (t: TodoItem) => t.id.startsWith('todo-')
+        );
         const merged = {
           ...currentState,
           ...persistedState,
+          todos,
           currentUser:
             persistedState?.currentUserId && currentState.operators.find((o) => o.id === persistedState.currentUserId)
               ? currentState.operators.find((o) => o.id === persistedState.currentUserId)!
