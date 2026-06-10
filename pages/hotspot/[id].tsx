@@ -96,23 +96,23 @@ export default function HotspotDetailPage({ user, hotspot, allInspectors }: Prop
     [hotspot.dispatchOrders, user.id]
   );
 
+  const isAssignee = !!myDispatch;
+
   const canDispatch =
     (user.role === UserRole.DISPATCHER || user.role === UserRole.AREA_MANAGER) &&
     hotspot.status === HotspotStatus.PENDING;
   const canAccept =
-    user.role === UserRole.INSPECTOR &&
-    !!myDispatch &&
-    !myDispatch.acceptedAt &&
+    isAssignee &&
+    !myDispatch!.acceptedAt &&
     hotspot.status === HotspotStatus.DISPATCHED;
   const canUpdate =
-    user.role === UserRole.INSPECTOR &&
+    isAssignee &&
+    myDispatch!.acceptedAt &&
     hotspot.status === HotspotStatus.IN_PROGRESS;
   const canComplete =
-    (user.role === UserRole.INSPECTOR ||
-      user.role === UserRole.DISPATCHER ||
-      user.role === UserRole.AREA_MANAGER) &&
-    (hotspot.status === HotspotStatus.IN_PROGRESS ||
-      hotspot.status === HotspotStatus.DISPATCHED);
+    isAssignee &&
+    myDispatch!.acceptedAt &&
+    hotspot.status === HotspotStatus.IN_PROGRESS;
 
   const closeModal = () => {
     setModalType(null);

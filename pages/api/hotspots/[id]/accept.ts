@@ -19,13 +19,20 @@ export default async function handler(
 
   const dispatch = await prisma.dispatchOrder.findUnique({
     where: { id: dispatchId },
+    include: { hotspot: true },
   });
   if (!dispatch) return res.status(404).json({ error: "派单不存在" });
+  if (dispatch.hotspotId !== id) {
+    return res.status(400).json({ error: "派单与热点不匹配" });
+  }
   if (dispatch.assigneeId !== user.id) {
     return res.status(403).json({ error: "该派单不是指派给您的" });
   }
   if (dispatch.acceptedAt) {
     return res.status(400).json({ error: "该派单已接单" });
+  }
+  if (dispatch.hotspot.status !== HotspotStatus.DISPATCHED) {
+    return res.status(400).json({ error: "当前状态不可接单" });
   }
 
   await prisma.$transaction(async (tx) => {
