@@ -236,10 +236,20 @@ export function AuditDetail() {
       relatedId: audit.id,
       relatedType: 'audit',
     });
-    actions.advanceAuditNode(audit.id);
+    actions.passAuditNode(audit.id, currentUser.id);
+    addRecentVisit({
+      type: 'audit',
+      title: rental.plateNumber,
+      subtitle: `${currentNode.name}通过`,
+      path: `/audit/${audit.id}`,
+    });
   };
 
   const handleReject = () => {
+    if (!remark.trim()) {
+      alert('请填写驳回原因');
+      return;
+    }
     actions.addActivity({
       type: 'audit_reject',
       title: '审核驳回',
@@ -249,7 +259,14 @@ export function AuditDetail() {
       relatedId: audit.id,
       relatedType: 'audit',
     });
-    actions.updateAuditNode(audit.id, audit.currentNode, 'failed', remark);
+    actions.rejectAuditNode(audit.id, remark, currentUser.id);
+    addRecentVisit({
+      type: 'audit',
+      title: rental.plateNumber,
+      subtitle: `${currentNode.name}驳回`,
+      path: `/audit/${audit.id}`,
+    });
+    setRemark('');
   };
 
   const handleNodeClick = (node: AuditNode, index: number) => {

@@ -392,9 +392,7 @@ export function ExceptionDetail() {
   };
 
   const handleClaim = () => {
-    actions.assignHandler(record.id, currentUser.id);
-    actions.updateExceptionStatus(record.id, 'processing', currentUser.id);
-    actions.addExceptionLog(record.id, currentUser.id, '接单处理', '已接单，开始处理');
+    actions.claimException(record.id, currentUser.id);
     actions.addActivity({
       type: 'exception_fix',
       title: '接单处理',
@@ -414,15 +412,8 @@ export function ExceptionDetail() {
 
   const handleTransfer = () => {
     if (!selectedHandler) return;
-    const targetOperator = operators.find(o => o.id === selectedHandler);
-    actions.assignHandler(record.id, selectedHandler);
-    actions.updateExceptionStatus(record.id, 'transferred', selectedHandler);
-    actions.addExceptionLog(
-      record.id,
-      currentUser.id,
-      '转派处理',
-      `转派给 ${targetOperator?.name} 处理`
-    );
+    const targetOperator = operators.find((o) => o.id === selectedHandler);
+    actions.transferException(record.id, currentUser.id, selectedHandler, `转派给 ${targetOperator?.name} 处理`);
     actions.addActivity({
       type: 'exception_create',
       title: '工单转派',
@@ -447,8 +438,7 @@ export function ExceptionDetail() {
       alert('请填写处理结果备注');
       return;
     }
-    actions.updateExceptionStatus(record.id, 'closed');
-    actions.addExceptionLog(record.id, currentUser.id, '关闭工单', remark);
+    actions.closeException(record.id, currentUser.id, remark);
     actions.addActivity({
       type: 'exception_fix',
       title: '工单关闭',

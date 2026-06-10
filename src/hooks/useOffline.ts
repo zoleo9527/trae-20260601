@@ -1,39 +1,18 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useOfflineStore } from '../store/useOfflineStore';
 
 export function useOffline() {
-  const [isOnline, setIsOnline] = useState(() => {
-    if (typeof navigator !== 'undefined') {
-      return navigator.onLine;
-    }
-    return true;
-  });
+  const isForcedOffline = useOfflineStore((state) => state.isForcedOffline);
+  const isBrowserOnline = useOfflineStore((state) => state.isBrowserOnline);
+  const toggleOffline = useOfflineStore((state) => state.toggleOffline);
+  const setForcedOffline = useOfflineStore((state) => state.setForcedOffline);
 
-  const [isForcedOffline, setIsForcedOffline] = useState(false);
-
-  useEffect(() => {
-    const handleOnline = () => setIsOnline(true);
-    const handleOffline = () => setIsOnline(false);
-
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
-
-    return () => {
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
-    };
-  }, []);
-
-  const toggleOffline = useCallback(() => {
-    setIsForcedOffline(prev => !prev);
-  }, []);
-
-  const isOffline = isForcedOffline || !isOnline;
+  const isOffline = isForcedOffline || !isBrowserOnline;
 
   return {
     isOnline: !isOffline,
     isOffline,
     isForcedOffline,
     toggleOffline,
-    setIsForcedOffline,
+    setForcedOffline,
   };
 }

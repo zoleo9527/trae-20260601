@@ -1,7 +1,7 @@
 export type PlateType = 'blue' | 'green' | 'yellow' | 'none';
 export type VehicleType = 'sedan' | 'suv' | 'truck';
-export type RentalStatus = 'pending' | 'auditing' | 'approved' | 'rejected' | 'dispatching' | 'completed' | 'failed';
-export type NodeStatus = 'pending' | 'processing' | 'completed' | 'failed' | 'stuck';
+export type RentalStatus = 'pending' | 'auditing' | 'approved' | 'rejected' | 'dispatching' | 'completed' | 'failed' | 'active';
+export type NodeStatus = 'pending' | 'processing' | 'completed' | 'failed' | 'stuck' | 'success';
 export type DispatchStatus = 'pending' | 'queued' | 'dispatching' | 'success' | 'failed';
 export type DispatchNodeStatus = 'pending' | 'processing' | 'success' | 'failed';
 export type OperatorRole = 'operation' | 'service' | 'maintenance';
@@ -24,6 +24,7 @@ export interface MonthlyRental {
   amount: number;
   status: RentalStatus;
   createdAt: string;
+  updatedAt?: string;
   auditId: string;
 }
 
@@ -32,6 +33,7 @@ export interface AuditNode {
   name: string;
   status: NodeStatus;
   handler: string | null;
+  handlerId?: string | null;
   handlerName?: string;
   startTime: string | null;
   endTime: string | null;
@@ -44,6 +46,7 @@ export interface AuditProcess {
   rentalId: string;
   currentNode: number;
   nodes: AuditNode[];
+  status?: 'pending' | 'processing' | 'completed' | 'rejected' | 'stuck';
   createdAt: string;
   updatedAt: string;
   handlerId: string | null;
@@ -104,6 +107,7 @@ export interface ExceptionOrder {
   logs: ProcessLog[];
   createdAt: string;
   updatedAt: string;
+  closedAt?: string;
 }
 
 export interface RecentVisit {
@@ -143,9 +147,14 @@ export interface TodoItem {
   type: 'audit' | 'dispatch_retry' | 'exception';
   title: string;
   subtitle: string;
+  description?: string;
   priority: 'high' | 'medium' | 'low';
   status: 'pending' | 'processing';
-  handlerRole: OperatorRole[];
-  path: string;
+  completed?: boolean;
+  handlerRole?: OperatorRole[];
+  roles?: OperatorRole[];
+  path?: string;
+  relatedId?: string;
+  relatedType?: 'audit' | 'dispatch' | 'exception';
   createdAt: string;
 }

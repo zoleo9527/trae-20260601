@@ -18,7 +18,8 @@ type StatusType =
   | 'transferred'
   | 'online'
   | 'offline'
-  | 'busy';
+  | 'busy'
+  | 'active';
 
 type PriorityType = 'high' | 'medium' | 'low';
 
@@ -45,6 +46,7 @@ export function StatusBadge({ status, className }: StatusBadgeProps) {
     online: 'bg-emerald-100 text-emerald-700 border-emerald-200',
     offline: 'bg-slate-100 text-slate-500 border-slate-200',
     busy: 'bg-amber-100 text-amber-700 border-amber-200',
+    active: 'bg-emerald-100 text-emerald-700 border-emerald-200',
   };
 
   return (

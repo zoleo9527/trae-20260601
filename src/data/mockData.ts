@@ -982,6 +982,7 @@ export const getStatusLabel = (status: string): string => {
     online: '在岗',
     offline: '离线',
     busy: '忙碌',
+    active: '已生效',
   };
   return map[status] || status;
 };

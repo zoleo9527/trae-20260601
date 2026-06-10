@@ -227,7 +227,6 @@ export function DispatchDetail() {
 
   const handleRetry = async (nodeId: string) => {
     setIsRetrying(true);
-    await new Promise(resolve => setTimeout(resolve, 1000));
     actions.retryDispatch(record.id, nodeId);
     actions.addActivity({
       type: 'dispatch_fail',
@@ -243,6 +242,17 @@ export function DispatchDetail() {
       title: record.plateNumber,
       subtitle: '重试下发中',
       path: `/dispatch/${record.id}`,
+    });
+    await new Promise((resolve) => setTimeout(resolve, 1500));
+    actions.completeDispatch(record.id);
+    actions.addActivity({
+      type: 'dispatch_success',
+      title: '下发成功',
+      description: `${record.plateNumber} 重试后下发成功`,
+      operatorName: currentUser.name,
+      operatorRole: currentUser.role,
+      relatedId: record.id,
+      relatedType: 'dispatch',
     });
     setIsRetrying(false);
     setExpandedNodeId(null);
