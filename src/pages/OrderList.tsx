@@ -63,7 +63,7 @@ const roleLabels: Record<Role, string> = {
 }
 
 export default function OrderList() {
-  const { currentRole, orders, setOrders, selectedIds, toggleSelect, clearSelection, selectAll } =
+  const { currentRole, orders, setOrders, selectedIds, toggleSelect, clearSelection, selectAll, setSelectedIds } =
     useStore()
   const navigate = useNavigate()
   const [loading, setLoading] = useState(true)
@@ -120,15 +120,30 @@ export default function OrderList() {
     })
   }, [orders, searchText, statusFilter, typeFilter, onlyMine, onlyAnomaly, currentRole])
 
+  const selectableOrders = useMemo(() => {
+    return filteredOrders.filter((o) => o.status !== 'completed' && o.status !== 'rejected')
+  }, [filteredOrders])
+
+  const selectableIds = useMemo(() => {
+    return new Set(selectableOrders.map((o) => o.id))
+  }, [selectableOrders])
+
+  useEffect(() => {
+    const pruned = selectedIds.filter((id) => selectableIds.has(id))
+    if (pruned.length !== selectedIds.length) {
+      setSelectedIds(pruned)
+    }
+  }, [selectableIds])
+
   const allSelected =
-    filteredOrders.length > 0 &&
-    filteredOrders.every((o) => selectedIds.includes(o.id))
+    selectableOrders.length > 0 &&
+    selectableOrders.every((o) => selectedIds.includes(o.id))
 
   const handleToggleAll = () => {
     if (allSelected) {
       clearSelection()
     } else {
-      selectAll(filteredOrders.map((o) => o.id))
+      selectAll(selectableOrders.map((o) => o.id))
     }
   }
 
@@ -336,6 +351,7 @@ export default function OrderList() {
             <tbody className="divide-y divide-slate-100">
               {filteredOrders.map((order) => {
                 const isSelected = selectedIds.includes(order.id)
+                const isClosed = order.status === 'completed' || order.status === 'rejected'
                 const isMine = order.currentHandler === currentRole
                 const isStuck =
                   order.status === 'pending' ||
@@ -352,13 +368,14 @@ export default function OrderList() {
                   >
                     <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
                       <button
-                        onClick={() => toggleSelect(order.id)}
-                        className="text-slate-400 hover:text-slate-600"
+                        onClick={() => !isClosed && toggleSelect(order.id)}
+                        disabled={isClosed}
+                        className={isClosed ? "cursor-not-allowed text-slate-200" : "text-slate-400 hover:text-slate-600"}
                       >
                         {isSelected ? (
                           <CheckSquare className="h-4 w-4 text-amber-500" />
                         ) : (
-                          <Square className="h-4 w-4" />
+                          <Square className={`h-4 w-4 ${isClosed ? 'text-slate-200' : ''}`} />
                         )}
                       </button>
                     </td>
