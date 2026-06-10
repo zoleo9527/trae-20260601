@@ -23,7 +23,7 @@ model User {
 
 model Formula {
   id            Int      @id @default(autoincrement())
-  code          String   @unique
+  code          String
   name          String
   version       Int      @default(1)
   species       String
@@ -40,6 +40,8 @@ model Formula {
   updatedAt     DateTime @updatedAt
 
   batchingPlans BatchingPlan[]
+
+  @@unique([code, version])
 }
 
 model BatchingPlan {

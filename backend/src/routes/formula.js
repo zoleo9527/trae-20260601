@@ -8,12 +8,14 @@ router.get(
   roleGuard('formulation_engineer', 'quality_inspector', 'production_leader'),
   async (req, res, next) => {
     try {
-      const { status, species, stage, submitterId } = req.query;
+      const { status, species, stage, submitterId, code, latestOnly } = req.query;
       const filters = {};
       if (status) filters.status = status;
       if (species) filters.species = species;
       if (stage) filters.stage = stage;
       if (submitterId) filters.submitterId = parseInt(submitterId, 10);
+      if (code) filters.code = code;
+      if (latestOnly === 'true') filters.latestOnly = true;
 
       const formulas = await formulaService.listFormulas(filters);
       res.json({ success: true, data: formulas });
@@ -58,6 +60,23 @@ router.post(
         ...req.body,
         submitterId: req.currentUser.id,
       });
+      res.status(201).json({ success: true, data: formula });
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
+router.post(
+  '/:id/new-version',
+  roleGuard('formulation_engineer'),
+  async (req, res, next) => {
+    try {
+      const formula = await formulaService.createNewVersion(
+        parseInt(req.params.id, 10),
+        req.body,
+        req.currentUser.id
+      );
       res.status(201).json({ success: true, data: formula });
     } catch (err) {
       next(err);

@@ -2,22 +2,42 @@ const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 const AppError = require('../errors/AppError');
 
+function parseFormula(f) {
+  return { ...f, ingredients: JSON.parse(f.ingredients) };
+}
+
 async function listFormulas(filters = {}) {
   const where = {};
   if (filters.status) where.status = filters.status;
   if (filters.species) where.species = filters.species;
   if (filters.stage) where.stage = filters.stage;
   if (filters.submitterId) where.submitterId = filters.submitterId;
+  if (filters.code) where.code = filters.code;
+
+  if (filters.latestOnly) {
+    const all = await prisma.formula.findMany({
+      where,
+      orderBy: [{ code: 'asc' }, { version: 'desc' }],
+    });
+
+    const latestMap = new Map();
+    for (const f of all) {
+      if (!latestMap.has(f.code)) {
+        latestMap.set(f.code, f);
+      }
+    }
+
+    return Array.from(latestMap.values())
+      .map(parseFormula)
+      .sort((a, b) => b.createdAt - a.createdAt);
+  }
 
   const formulas = await prisma.formula.findMany({
     where,
     orderBy: { createdAt: 'desc' },
   });
 
-  return formulas.map((f) => ({
-    ...f,
-    ingredients: JSON.parse(f.ingredients),
-  }));
+  return formulas.map(parseFormula);
 }
 
 async function getFormulaById(id) {
@@ -33,10 +53,7 @@ async function getFormulaById(id) {
     throw new AppError(404, 'NOT_FOUND', '配方不存在');
   }
 
-  return {
-    ...formula,
-    ingredients: JSON.parse(formula.ingredients),
-  };
+  return parseFormula(formula);
 }
 
 async function createFormula(data) {
@@ -46,7 +63,7 @@ async function createFormula(data) {
 
   const lastFormula = await prisma.formula.findFirst({
     where: { code: { startsWith: prefix } },
-    orderBy: { code: 'desc' },
+    orderBy: [{ code: 'desc' }, { version: 'desc' }],
   });
 
   let nextNum = 1;
@@ -65,19 +82,52 @@ async function createFormula(data) {
     data: {
       code,
       name: data.name,
-      version: data.version ?? 1,
+      version: 1,
       species: data.species,
       stage: data.stage,
       ingredients,
-      status: data.status ?? 'draft',
+      status: 'draft',
       submitterId: data.submitterId,
     },
   });
 
-  return {
-    ...formula,
-    ingredients: JSON.parse(formula.ingredients),
-  };
+  return parseFormula(formula);
+}
+
+async function createNewVersion(fromId, data, submitterId) {
+  const source = await prisma.formula.findUnique({ where: { id: fromId } });
+  if (!source) {
+    throw new AppError(404, 'NOT_FOUND', '源配方不存在');
+  }
+
+  const maxVersion = await prisma.formula.findFirst({
+    where: { code: source.code },
+    orderBy: { version: 'desc' },
+    select: { version: true },
+  });
+
+  const nextVersion = maxVersion ? maxVersion.version + 1 : 1;
+
+  const ingredients = data.ingredients
+    ? (typeof data.ingredients === 'string'
+      ? data.ingredients
+      : JSON.stringify(data.ingredients))
+    : source.ingredients;
+
+  const formula = await prisma.formula.create({
+    data: {
+      code: source.code,
+      name: data.name ?? source.name,
+      version: nextVersion,
+      species: data.species ?? source.species,
+      stage: data.stage ?? source.stage,
+      ingredients,
+      status: 'draft',
+      submitterId,
+    },
+  });
+
+  return parseFormula(formula);
 }
 
 async function submitForReview(id) {
@@ -96,10 +146,7 @@ async function submitForReview(id) {
     data: { status: 'pending_review' },
   });
 
-  return {
-    ...updated,
-    ingredients: JSON.parse(updated.ingredients),
-  };
+  return parseFormula(updated);
 }
 
 async function reviewFormula(id, reviewerId, action, comment) {
@@ -111,6 +158,10 @@ async function reviewFormula(id, reviewerId, action, comment) {
 
   if (formula.status !== 'pending_review') {
     throw new AppError(409, 'FORMULA_PENDING_ONLY', '只有待审核状态的配方才能审核');
+  }
+
+  if (formula.submitterId === reviewerId) {
+    throw new AppError(403, 'SELF_REVIEW_FORBIDDEN', '禁止提交人自审，需由其他配方师交叉审核');
   }
 
   const newStatus = action === 'approve' ? 'approved' : 'rejected';
@@ -125,28 +176,27 @@ async function reviewFormula(id, reviewerId, action, comment) {
     },
   });
 
-  return {
-    ...updated,
-    ingredients: JSON.parse(updated.ingredients),
-  };
+  return parseFormula(updated);
 }
 
 async function getFormulaHistory(code) {
   const formulas = await prisma.formula.findMany({
     where: { code },
     orderBy: { version: 'desc' },
+    include: {
+      submitter: { select: { id: true, name: true, role: true } },
+      reviewer: { select: { id: true, name: true, role: true } },
+    },
   });
 
-  return formulas.map((f) => ({
-    ...f,
-    ingredients: JSON.parse(f.ingredients),
-  }));
+  return formulas.map(parseFormula);
 }
 
 module.exports = {
   listFormulas,
   getFormulaById,
   createFormula,
+  createNewVersion,
   submitForReview,
   reviewFormula,
   getFormulaHistory,

@@ -41,7 +41,7 @@ paths:
     get:
       tags: [配方审批]
       summary: 配方列表
-      description: 所有角色可查看，支持按状态/品种/阶段/提交人筛选
+      description: 所有角色可查看，支持按状态/品种/阶段/提交人/编号筛选；latestOnly=true 仅返回每个编号的最新版本
       parameters:
         - name: status
           in: query
@@ -60,6 +60,17 @@ paths:
           in: query
           schema:
             type: integer
+        - name: code
+          in: query
+          schema:
+            type: string
+          description: 按配方编号精确筛选
+        - name: latestOnly
+          in: query
+          schema:
+            type: boolean
+            default: false
+          description: 为 true 时仅返回每个编号的最新版本
       responses:
         '200':
           description: 成功
@@ -120,6 +131,51 @@ paths:
         '409':
           $ref: '#/components/responses/ConflictDraftOnly'
 
+  /api/formulas/{id}/new-version:
+    post:
+      tags: [配方审批]
+      summary: 基于已有配方创建新版本（同一 code，version 自增）
+      description: |
+        从指定配方派生新版本：code 继承，version 自动递增；name/species/stage/ingredients 可选覆盖，未传则沿用源配方值；新版本状态始终为 draft。
+      parameters:
+        - $ref: '#/components/parameters/FormulaId'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                species:
+                  type: string
+                stage:
+                  type: string
+                ingredients:
+                  type: array
+                  items:
+                    type: object
+                    required: [name, weight]
+                    properties:
+                      name:
+                        type: string
+                      weight:
+                        type: number
+      responses:
+        '201':
+          description: 新版本创建成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessWrapper'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Formula'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
   /api/formulas/{id}/review:
     patch:
       tags: [配方审批]
@@ -142,6 +198,8 @@ paths:
       responses:
         '200':
           description: 审核完成
+        '403':
+          $ref: '#/components/responses/SelfReviewForbidden'
         '409':
           $ref: '#/components/responses/ConflictPendingOnly'
 
@@ -280,13 +338,18 @@ paths:
   /api/batching-plans/history/formula/{formulaId}:
     get:
       tags: [投料计划]
-      summary: 按配方回看投料历史
+      summary: 按配方回看投料历史（支持跨版本）
       parameters:
         - name: formulaId
           in: path
           required: true
           schema:
             type: integer
+        - name: formulaCode
+          in: query
+          schema:
+            type: string
+          description: 传入配方编号时，跨所有版本查询投料计划（覆盖 formulaId）
       responses:
         '200':
           description: 历史计划列表
@@ -669,3 +732,15 @@ components:
             error:
               code: PLAN_STATUS_ERROR
               message: 投料计划状态不允许此操作
+
+    SelfReviewForbidden:
+      description: 禁止提交人自审
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            error:
+              code: SELF_REVIEW_FORBIDDEN
+              message: 禁止提交人自审，需由其他配方师交叉审核

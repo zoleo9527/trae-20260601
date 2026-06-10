@@ -65,6 +65,19 @@ async function main() {
         status: 'rejected', submitterId: 1, reviewerId: 4,
         reviewComment: '鱼粉比例偏高，成本过高，请调整后重新提交', reviewedAt: new Date('2026-05-22'),
       },
+      {
+        id: 5, code: 'FP-2026-001', name: '肉鸡中期料', version: 2,
+        species: '肉鸡', stage: '中期',
+        ingredients: JSON.stringify([
+          { name: '玉米', weight: 600 },
+          { name: '豆粕', weight: 255 },
+          { name: '鱼粉', weight: 45 },
+          { name: '预混料', weight: 50 },
+          { name: '豆油', weight: 50 },
+        ]),
+        status: 'approved', submitterId: 1, reviewerId: 4,
+        reviewComment: '鱼粉微调后配比更优，批准', reviewedAt: new Date('2026-06-01'),
+      },
     ],
   });
 

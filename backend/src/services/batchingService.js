@@ -121,15 +121,23 @@ async function listPlanRecords(planId) {
   });
 }
 
-async function getPlanHistory(formulaId) {
-  const formula = await prisma.formula.findUnique({ where: { id: formulaId } });
-  if (!formula) throw new AppError(404, 'NOT_FOUND', '资源不存在');
+async function getPlanHistory(formulaId, formulaCode) {
+  let where = { status: { in: ['completed', 'in_progress'] } };
+
+  if (formulaCode) {
+    const formulaIds = await prisma.formula.findMany({
+      where: { code: formulaCode },
+      select: { id: true },
+    });
+    where.formulaId = { in: formulaIds.map((f) => f.id) };
+  } else if (formulaId) {
+    const formula = await prisma.formula.findUnique({ where: { id: formulaId } });
+    if (!formula) throw new AppError(404, 'NOT_FOUND', '资源不存在');
+    where.formulaId = formulaId;
+  }
 
   return prisma.batchingPlan.findMany({
-    where: {
-      formulaId,
-      status: { in: ['completed', 'in_progress'] },
-    },
+    where,
     include: { formula: true, records: true },
     orderBy: { plannedAt: 'desc' },
   });
