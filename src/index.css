@@ -1,0 +1,69 @@
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  font-family: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  margin: 0;
+  background: #f8fafc;
+  color: #1e293b;
+}
+
+@layer components {
+  .stat-card {
+    @apply rounded-xl p-5 text-white relative overflow-hidden;
+  }
+  .stat-card::after {
+    content: '';
+    @apply absolute -right-4 -top-4 w-24 h-24 rounded-full opacity-10 bg-white;
+  }
+  .priority-section {
+    @apply rounded-lg border-l-4 p-4 bg-white shadow-sm;
+  }
+  .action-btn {
+    @apply inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-200;
+  }
+  .action-btn-primary {
+    @apply action-btn bg-brand-500 text-white hover:bg-brand-600 active:scale-95;
+  }
+  .action-btn-ghost {
+    @apply action-btn bg-slate-100 text-slate-600 hover:bg-slate-200 active:scale-95;
+  }
+  .action-btn-danger {
+    @apply action-btn bg-red-50 text-red-600 hover:bg-red-100 active:scale-95;
+  }
+  .filter-tab {
+    @apply px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-200 cursor-pointer;
+  }
+  .filter-tab-active {
+    @apply filter-tab bg-brand-500 text-white;
+  }
+  .filter-tab-inactive {
+    @apply filter-tab bg-slate-100 text-slate-500 hover:bg-slate-200;
+  }
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
