@@ -18,7 +18,8 @@ export default function BatchList() {
   const openDetailPanel = useUIStore((s) => s.openDetailPanel)
   const currentRole = useUIStore((s) => s.currentRole)
   const addActivity = useActivityStore((s) => s.addActivity)
-  const samples = useSampleStore((s) => s.samples)
+  const getActiveSampleByBatchId = useSampleStore((s) => s.getActiveSampleByBatchId)
+  const createSample = useSampleStore((s) => s.createSample)
 
   const filteredBatches = filter === 'all' ? batches : getBatchesByStatus(filter)
 
@@ -33,8 +34,10 @@ export default function BatchList() {
     const batch = batches.find((b) => b.id === batchId)
     if (!batch) return
 
+    const operator = ROLE_MAP[currentRole].defaultOperator
+
     if (action === 'view_sample') {
-      const sample = samples.find((s) => s.batchId === batchId)
+      const sample = getActiveSampleByBatchId(batchId)
       if (sample) {
         openDetailPanel('sample', sample.id)
       }
@@ -57,7 +60,6 @@ export default function BatchList() {
     const remark = remarkMap[action]
     if (!toStatus) return
 
-    const operator = ROLE_MAP[currentRole].defaultOperator
     transitionStatus(batchId, toStatus, operator, currentRole, remark)
     addActivity({
       id: `act-${Date.now()}`,
@@ -70,6 +72,24 @@ export default function BatchList() {
       timestamp: new Date().toISOString(),
       priority: batch.status === 'abnormal' ? 'urgent' : 'normal',
     })
+
+    if (toStatus === 'pending_qc') {
+      const existing = getActiveSampleByBatchId(batchId)
+      if (!existing) {
+        const sample = createSample(batchId, batch.batchNo, operator, currentRole)
+        addActivity({
+          id: `act-${Date.now() + 1}`,
+          type: 'sample',
+          action: '创建取样任务',
+          operator,
+          operatorRole: currentRole,
+          targetId: sample.id,
+          targetName: sample.sampleNo,
+          timestamp: new Date().toISOString(),
+          priority: 'normal',
+        })
+      }
+    }
   }
 
   return (

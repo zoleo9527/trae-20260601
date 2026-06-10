@@ -121,6 +121,7 @@ function formatRelativeTime(timestamp: string): string {
 export default function Dashboard() {
   const batches = useBatchStore((s) => s.batches)
   const samples = useSampleStore((s) => s.samples)
+  const getActiveSampleByBatchId = useSampleStore((s) => s.getActiveSampleByBatchId)
   const activities = useActivityStore((s) => s.activities)
   const currentRole = useUIStore((s) => s.currentRole)
   const openDetailPanel = useUIStore((s) => s.openDetailPanel)
@@ -258,6 +259,7 @@ export default function Dashboard() {
             )}
             {pendingQcBatches.map((batch) => {
               const statusInfo = BATCH_STATUS_MAP[batch.status]
+              const linkedSample = getActiveSampleByBatchId(batch.id)
               return (
                 <PriorityCard
                   key={batch.id}
@@ -267,8 +269,14 @@ export default function Dashboard() {
                   statusBg={statusInfo.bg}
                   responsible={batch.lastModifiedBy}
                   happenedAt={formatRelativeTime(batch.updatedAt)}
-                  actionLabel="处理"
-                  onAction={() => openDetailPanel('batch', batch.id)}
+                  actionLabel="查看质检"
+                  onAction={() => {
+                    if (linkedSample) {
+                      openDetailPanel('sample', linkedSample.id)
+                    } else {
+                      openDetailPanel('batch', batch.id)
+                    }
+                  }}
                 />
               )
             })}

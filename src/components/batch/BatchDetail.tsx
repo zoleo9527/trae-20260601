@@ -34,6 +34,8 @@ export default function BatchDetail({ batchId }: { batchId: string }) {
   const currentRole = useUIStore((s) => s.currentRole)
   const openDetailPanel = useUIStore((s) => s.openDetailPanel)
   const addActivity = useActivityStore((s) => s.addActivity)
+  const getActiveSampleByBatchId = useSampleStore((s) => s.getActiveSampleByBatchId)
+  const createSample = useSampleStore((s) => s.createSample)
   const samples = useSampleStore((s) => s.samples.filter((s) => s.batchId === batchId))
 
   if (!batch) {
@@ -121,6 +123,23 @@ export default function BatchDetail({ batchId }: { batchId: string }) {
                   timestamp: new Date().toISOString(),
                   priority: batch.status === 'abnormal' ? 'urgent' : 'normal',
                 })
+                if (opt.toStatus === 'pending_qc') {
+                  const existing = getActiveSampleByBatchId(batch.id)
+                  if (!existing) {
+                    const sample = createSample(batch.id, batch.batchNo, operator, currentRole)
+                    addActivity({
+                      id: `act-${Date.now() + 1}`,
+                      type: 'sample',
+                      action: '创建取样任务',
+                      operator,
+                      operatorRole: currentRole,
+                      targetId: sample.id,
+                      targetName: sample.sampleNo,
+                      timestamp: new Date().toISOString(),
+                      priority: 'normal',
+                    })
+                  }
+                }
               }}
               className={`px-4 py-2 text-xs font-medium rounded-lg transition-colors ${
                 opt.variant === 'danger'
