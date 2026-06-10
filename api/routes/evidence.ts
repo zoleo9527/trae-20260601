@@ -108,6 +108,16 @@ router.get('/complaint/:complaintId', async (req: Request, res: Response): Promi
   const { complaintId } = req.params
 
   try {
+    const complaintResult = await pool.query(
+      'SELECT * FROM complaints WHERE id = $1',
+      [complaintId]
+    )
+    if (complaintResult.rows.length === 0) {
+      res.status(404).json({ success: false, error: '投诉不存在' })
+      return
+    }
+    const complaint = complaintResult.rows[0]
+
     const linksResult = await pool.query(
       'SELECT * FROM evidence_links WHERE complaint_id = $1',
       [complaintId]
@@ -123,13 +133,13 @@ router.get('/complaint/:complaintId', async (req: Request, res: Response): Promi
       else if (link.evidence_type === 'gate_anomaly') anomalyIds.push(link.evidence_id)
     }
 
-    let parkingLogs: unknown[] = []
-    let monthlyRentals: unknown[] = []
-    let gateAnomalies: unknown[] = []
+    let parkingLogs: any[] = []
+    let monthlyRentals: any[] = []
+    let gateAnomalies: any[] = []
 
     if (parkingLogIds.length > 0) {
       const r = await pool.query(`SELECT * FROM parking_logs WHERE id = ANY($1)`, [parkingLogIds])
-      parkingLogs = r.rows
+      parkingLogs = r.rows.map((row) => ({ ...row, match_mode: 'plate' }))
     }
 
     if (rentalIds.length > 0) {
@@ -139,12 +149,95 @@ router.get('/complaint/:complaintId', async (req: Request, res: Response): Promi
 
     if (anomalyIds.length > 0) {
       const r = await pool.query(`SELECT * FROM gate_anomalies WHERE id = ANY($1)`, [anomalyIds])
-      gateAnomalies = r.rows
+      gateAnomalies = r.rows.map((row) => ({ ...row, match_mode: 'plate' }))
+    }
+
+    if (complaint.plate_number) {
+      const plateR = await pool.query(
+        `SELECT * FROM parking_logs WHERE plate_number = $1 ORDER BY timestamp DESC LIMIT 20`,
+        [complaint.plate_number]
+      )
+      const existingIds = new Set(parkingLogs.map((p) => p.id))
+      for (const row of plateR.rows) {
+        if (!existingIds.has(row.id)) {
+          parkingLogs.push({ ...row, match_mode: 'plate' })
+          existingIds.add(row.id)
+        }
+      }
+
+      const rentalR = await pool.query(
+        `SELECT * FROM monthly_rentals WHERE plate_number = $1`,
+        [complaint.plate_number]
+      )
+      const existingRentalIds = new Set(monthlyRentals.map((r) => r.id))
+      for (const row of rentalR.rows) {
+        if (!existingRentalIds.has(row.id)) {
+          monthlyRentals.push(row)
+          existingRentalIds.add(row.id)
+        }
+      }
+    }
+
+    if (complaint.incident_time && complaint.gate_id) {
+      const timeR = await pool.query(
+        `SELECT * FROM parking_logs
+         WHERE gate_id = $1
+           AND timestamp >= $2::timestamp - INTERVAL '2 hours'
+           AND timestamp <= $2::timestamp + INTERVAL '2 hours'
+         ORDER BY timestamp DESC`,
+        [complaint.gate_id, complaint.incident_time]
+      )
+      const existingIds = new Set(parkingLogs.map((p) => p.id))
+      for (const row of timeR.rows) {
+        if (!existingIds.has(row.id)) {
+          parkingLogs.push({ ...row, match_mode: 'time_gate' })
+          existingIds.add(row.id)
+        }
+      }
+
+      const anomalyR = await pool.query(
+        `SELECT * FROM gate_anomalies
+         WHERE gate_id = $1
+           AND detected_at >= $2::timestamp - INTERVAL '4 hours'
+           AND detected_at <= $2::timestamp + INTERVAL '4 hours'
+         ORDER BY detected_at DESC`,
+        [complaint.gate_id, complaint.incident_time]
+      )
+      const existingAnomalyIds = new Set(gateAnomalies.map((g) => g.id))
+      for (const row of anomalyR.rows) {
+        if (!existingAnomalyIds.has(row.id)) {
+          gateAnomalies.push({ ...row, match_mode: 'time_gate' })
+          existingAnomalyIds.add(row.id)
+        }
+      }
+    }
+
+    if (complaint.gate_id && !complaint.incident_time) {
+      const anomalyR = await pool.query(
+        `SELECT * FROM gate_anomalies WHERE gate_id = $1 ORDER BY detected_at DESC LIMIT 20`,
+        [complaint.gate_id]
+      )
+      const existingAnomalyIds = new Set(gateAnomalies.map((g) => g.id))
+      for (const row of anomalyR.rows) {
+        if (!existingAnomalyIds.has(row.id)) {
+          gateAnomalies.push({ ...row, match_mode: 'time_gate' })
+          existingAnomalyIds.add(row.id)
+        }
+      }
     }
 
     res.json({
       success: true,
       data: {
+        complaint: {
+          id: complaint.id,
+          complaint_no: complaint.complaint_no,
+          type: complaint.type,
+          plate_number: complaint.plate_number,
+          gate_id: complaint.gate_id,
+          gate_name: complaint.gate_name,
+          incident_time: complaint.incident_time,
+        },
         links: linksResult.rows,
         parking_logs: parkingLogs,
         monthly_rentals: monthlyRentals,

@@ -1,4 +1,5 @@
 ALTER TABLE complaints ADD COLUMN appeal_reason TEXT;
+ALTER TABLE complaints ADD COLUMN appealed_at TIMESTAMP;
 ALTER TABLE complaints ADD COLUMN incident_time TIMESTAMP;
 ALTER TABLE complaints ADD COLUMN gate_id INT;
 ALTER TABLE complaints ADD COLUMN gate_name VARCHAR(50);

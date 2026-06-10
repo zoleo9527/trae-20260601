@@ -382,12 +382,18 @@ router.patch('/:id', async (req: Request, res: Response): Promise<void> => {
       updates.push(`assignee_id = $${paramIdx++}`)
     }
 
+    const shouldSetAppealedAt = !current.appealed_at && (
+      (appealReason !== undefined && appealReason) ||
+      (status === 'appealing')
+    )
+
     if (appealReason !== undefined) {
       params.push(appealReason)
       updates.push(`appeal_reason = $${paramIdx++}`)
-      if (status === 'appealing' || current.status === 'processing') {
-        updates.push(`appealed_at = NOW()`)
-      }
+    }
+
+    if (shouldSetAppealedAt) {
+      updates.push(`appealed_at = NOW()`)
     }
 
     updates.push(`updated_at = NOW()`)
