@@ -121,12 +121,15 @@ export function seedData() {
     { house: 'C1', date: today, shift: 'morning', inspection: null, sorter: 'sorter_liu', total: 0, a: 0, b: 0, c: 0, cracked: 0, dirty: 0, soft: 0, status: 'pending', notes: null },
   ];
 
+  const eggRecordIds = {};
   for (const egg of eggRecords) {
     const cardId = egg.inspection ? inspectionIds[`${egg.inspection}_${egg.date}_${egg.shift}`] || null : null;
-    insertEgg.run(
+    const r = insertEgg.run(
       houseIds[egg.house], egg.date, egg.shift, cardId, userIds[egg.sorter],
       egg.total, egg.a, egg.b, egg.c, egg.cracked, egg.dirty, egg.soft, egg.status, egg.notes
     );
+    const key = `${egg.house}_${egg.date}_${egg.shift}`;
+    eggRecordIds[key] = r.lastInsertRowid;
   }
 
   const insertException = db.prepare(`
@@ -149,14 +152,14 @@ export function seedData() {
     },
     {
       source_type: 'egg_record',
-      source_id: null,
+      source_id: eggRecordIds[`A1_${yesterday}_afternoon`],
       house_id: houseIds['A1'], severity: 'critical', category: '产蛋中断',
       description: 'A1号鸡舍下午产蛋记录为0，与巡检发现的通风+漏水异常直接相关，产蛋完全中断。需确认鸡群状态。',
       handler_id: null, handler_role: 'manager', status: 'open', resolution: null, resolved_at: null
     },
     {
       source_type: 'egg_record',
-      source_id: null,
+      source_id: eggRecordIds[`B1_${yesterday}_morning`],
       house_id: houseIds['B1'], severity: 'warning', category: '产蛋异常',
       description: 'B1号鸡舍产蛋量比预期低15%，与上午巡检记录的饲料供应不足（feed_system=low）相关。老龄鸡群叠加营养不足风险大。',
       handler_id: userIds['manager_zhang'], handler_role: 'manager', status: 'handling', resolution: null, resolved_at: null
@@ -170,7 +173,7 @@ export function seedData() {
     },
     {
       source_type: 'egg_record',
-      source_id: null,
+      source_id: eggRecordIds[`A3_${yesterday}_afternoon`],
       house_id: houseIds['A3'], severity: 'warning', category: '记录缺失',
       description: 'A3号鸡舍下午产蛋记录尚未录入，巡检也未完成。分拣员孙丽华与饲养员赵铁柱均未操作。',
       handler_id: null, handler_role: 'sorter', status: 'open', resolution: null, resolved_at: null

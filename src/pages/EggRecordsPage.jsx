@@ -117,10 +117,14 @@ export default function EggRecordsPage() {
     }
   };
 
-  const handleOpenException = async (recordId) => {
+  const handleOpenException = async (recordId, houseId) => {
     try {
-      const d = await api.exceptions.list({ source_type: 'egg_record', source_id: recordId });
-      const excs = d.exceptions || [];
+      let d = await api.exceptions.list({ source_type: 'egg_record', source_id: recordId });
+      let excs = d.exceptions || [];
+      if (excs.length === 0 && houseId) {
+        d = await api.exceptions.list({ source_type: 'egg_record', house_id: houseId });
+        excs = (d.exceptions || []).filter(e => e.source_id === null || e.source_id === recordId);
+      }
       if (excs.length > 0) {
         setExceptionDrawer({ open: true, exceptionId: excs[0].id });
       } else {
@@ -269,7 +273,7 @@ export default function EggRecordsPage() {
             <Button size="small" danger onClick={() => setAbnormalModal({ open: true, id: r.id })}>标记异常</Button>
           )}
           {r.status === 'abnormal' && (
-            <Tooltip title="查看关联异常"><Button size="small" danger icon={<WarningOutlined />} onClick={() => handleOpenException(r.id)}>异常</Button></Tooltip>
+            <Tooltip title="查看关联异常"><Button size="small" danger icon={<WarningOutlined />} onClick={() => handleOpenException(r.id, r.house_id)}>异常</Button></Tooltip>
           )}
         </Space>
       ),

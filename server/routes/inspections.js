@@ -55,8 +55,8 @@ router.get('/:id', (req, res) => {
     SELECT e.*, u.name as handler_name
     FROM exceptions e
     LEFT JOIN users u ON e.handler_id = u.id
-    WHERE e.source_type = 'inspection' AND e.source_id = ?
-  `).all(req.params.id);
+    WHERE e.source_type = 'inspection' AND (e.source_id = ? OR (e.source_id IS NULL AND e.house_id = ?))
+  `).all(req.params.id, card.house_id);
 
   const attachments = db.prepare(`
     SELECT a.*, u.name as uploader_name

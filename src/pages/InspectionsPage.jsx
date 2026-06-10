@@ -181,10 +181,14 @@ export default function InspectionsPage() {
     }
   };
 
-  const handleOpenException = async (cardId) => {
+  const handleOpenException = async (cardId, houseId) => {
     try {
-      const d = await api.exceptions.list({ source_type: 'inspection', source_id: cardId });
-      const excs = d.exceptions || [];
+      let d = await api.exceptions.list({ source_type: 'inspection', source_id: cardId });
+      let excs = d.exceptions || [];
+      if (excs.length === 0 && houseId) {
+        d = await api.exceptions.list({ source_type: 'inspection', house_id: houseId });
+        excs = (d.exceptions || []).filter(e => e.source_id === null || e.source_id === cardId);
+      }
       if (excs.length > 0) {
         setExceptionDrawer({ open: true, exceptionId: excs[0].id });
       } else {
@@ -272,7 +276,7 @@ export default function InspectionsPage() {
             </Button>
           )}
           {r.status === 'abnormal' && (
-            <Tooltip title="查看关联异常"><Button size="small" danger icon={<WarningOutlined />} onClick={() => handleOpenException(r.id)}>异常</Button></Tooltip>
+            <Tooltip title="查看关联异常"><Button size="small" danger icon={<WarningOutlined />} onClick={() => handleOpenException(r.id, r.house_id)}>异常</Button></Tooltip>
           )}
         </Space>
       ),
