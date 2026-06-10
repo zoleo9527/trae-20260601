@@ -16,11 +16,13 @@ class BatchEntryWidget(QWidget):
         super().__init__(parent)
         self._current_operator_name = ""
         self._current_operator_role = ""
+        self._current_operator_id = None
         self._setup_ui()
 
-    def set_operator(self, name, role):
+    def set_operator(self, name, role, operator_id=None):
         self._current_operator_name = name
         self._current_operator_role = role
+        self._current_operator_id = operator_id
 
     def _setup_ui(self):
         layout = QVBoxLayout(self)
@@ -72,9 +74,9 @@ class BatchEntryWidget(QWidget):
             self._set_feeding_row_widgets(row)
 
     def _setup_requisition_columns(self):
-        self.entry_table.setColumnCount(7)
+        self.entry_table.setColumnCount(6)
         self.entry_table.setHorizontalHeaderLabels([
-            "关联计划ID", "物料名称", "规格", "申请数量", "单位", "申请人", "备注",
+            "关联计划ID", "物料名称", "规格", "申请数量", "单位", "备注",
         ])
         for row in range(self.entry_table.rowCount()):
             self._set_requisition_row_widgets(row)
@@ -153,18 +155,9 @@ class BatchEntryWidget(QWidget):
         unit.addItems(["kg", "吨", "包", "桶", "瓶"])
         self.entry_table.setCellWidget(row, 4, unit)
 
-        session = get_session()
-        staff_list = session.query(Staff).all()
-        session.close()
-        requester = QComboBox()
-        requester.addItem("未选择", None)
-        for s in staff_list:
-            requester.addItem(f"{s.name}({s.role})", s.id)
-        self.entry_table.setCellWidget(row, 5, requester)
-
         note = QLineEdit()
         note.setPlaceholderText("可选")
-        self.entry_table.setCellWidget(row, 6, note)
+        self.entry_table.setCellWidget(row, 5, note)
 
     def _add_row(self):
         row = self.entry_table.rowCount()
@@ -213,6 +206,7 @@ class BatchEntryWidget(QWidget):
                 quantity=qty_widget.value(),
                 unit=unit_widget.currentText(),
                 status=FeedingPlanStatus.draft.value,
+                created_by=self._current_operator_id,
                 assigned_to=assign_widget.currentData(),
             )
             if not plan.cattle_group.strip():
@@ -226,7 +220,7 @@ class BatchEntryWidget(QWidget):
                 action="批量创建饲喂计划",
                 operator_name=self._current_operator_name or "系统",
                 operator_role=self._current_operator_role or "牧场主管",
-                detail=f"批量创建饲喂计划 #{plan.id}: {plan.cattle_group} {plan.feed_formula}",
+                detail=f"批量创建饲喂计划 #{plan.id}: {plan.cattle_group} {plan.feed_formula} | 创建人自动写入: {self._current_operator_name or '系统'}",
             )
             session.add(log)
             count += 1
@@ -250,7 +244,6 @@ class BatchEntryWidget(QWidget):
             spec_widget = self.entry_table.cellWidget(row, 2)
             qty_widget = self.entry_table.cellWidget(row, 3)
             unit_widget = self.entry_table.cellWidget(row, 4)
-            requester_widget = self.entry_table.cellWidget(row, 5)
 
             if not item_widget:
                 continue
@@ -278,7 +271,7 @@ class BatchEntryWidget(QWidget):
                 quantity_requested=qty_widget.value() if qty_widget else 0,
                 unit=unit_widget.currentText() if unit_widget else "kg",
                 status=RequisitionStatus.requested.value,
-                requested_by=requester_widget.currentData() if requester_widget else None,
+                requested_by=self._current_operator_id,
             )
             session.add(req)
             session.flush()
@@ -289,7 +282,8 @@ class BatchEntryWidget(QWidget):
                 operator_name=self._current_operator_name or "系统",
                 operator_role=self._current_operator_role or "牧场主管",
                 detail=f"批量创建领用申请 #{req.id}: {req.item_name}"
-                       + (f" (关联饲喂计划 #{fp_id})" if fp_id else ""),
+                       + (f" (关联饲喂计划 #{fp_id})" if fp_id else "")
+                       + f" | 申请人自动写入: {self._current_operator_name or '系统'}",
             )
             session.add(log)
             count += 1

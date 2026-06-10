@@ -23,6 +23,7 @@ class RanchHandoverWindow(QMainWindow):
         self.setMinimumSize(1100, 750)
         self._current_operator_name = ""
         self._current_operator_role = ""
+        self._current_operator_id = None
         self._setup_ui()
 
     def _setup_ui(self):
@@ -76,6 +77,7 @@ class RanchHandoverWindow(QMainWindow):
         if staff_id is None:
             self._current_operator_name = ""
             self._current_operator_role = ""
+            self._current_operator_id = None
             self.status_bar.showMessage("请选择当前操作人")
             return
         session = get_session()
@@ -83,12 +85,13 @@ class RanchHandoverWindow(QMainWindow):
         if staff:
             self._current_operator_name = staff.name
             self._current_operator_role = staff.role
+            self._current_operator_id = staff.id
             self.status_bar.showMessage(f"当前操作人: {staff.name} ({staff.role})")
 
-            self.dashboard.set_operator(staff.name, staff.role)
-            self.feeding_plan.set_operator(staff.name, staff.role)
-            self.inventory.set_operator(staff.name, staff.role)
-            self.batch_entry.set_operator(staff.name, staff.role)
+            self.dashboard.set_operator(staff.name, staff.role, staff.id)
+            self.feeding_plan.set_operator(staff.name, staff.role, staff.id)
+            self.inventory.set_operator(staff.name, staff.role, staff.id)
+            self.batch_entry.set_operator(staff.name, staff.role, staff.id)
         session.close()
 
 

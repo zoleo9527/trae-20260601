@@ -81,7 +81,7 @@ def auto_block_feeding_plans(req, operator_name, operator_role, session):
             continue
         old_status = plan.status
         plan.status = FeedingPlanStatus.blocked.value
-        plan.blocked_reason = f"关联领用单 #{req.id} 延迟: {req.delay_reason or '未标注原因'}"
+        plan.blocked_reason = f"关联领用单 #{req.id} 延迟: {req.delay_reason}"
         plan.blocking_requisition_id = req.id
         plan.blocked_at = datetime.now(timezone.utc)
         plan.resolved_at = None
@@ -120,9 +120,13 @@ def auto_unblock_feeding_plan(req, operator_name, operator_role, session):
     return unblocked
 
 
-def transition_feeding(plan, new_status, operator_name, operator_role, reason=None, blocking_req_id=None):
+def transition_feeding(plan, new_status, operator_name, operator_role, reason=None, blocking_req_id=None, operator_id=None):
     if not can_transition(plan.status, new_status, FEEDING_TRANSITIONS):
         return False, f"不允许从 [{plan.status}] 转到 [{new_status}]"
+
+    if new_status == FeedingPlanStatus.blocked.value:
+        if not reason or not reason.strip():
+            return False, "卡点原因为必填，不能为空"
 
     session = get_session()
 
@@ -136,8 +140,11 @@ def transition_feeding(plan, new_status, operator_name, operator_role, reason=No
     plan.status = new_status
     plan.updated_at = datetime.now(timezone.utc)
 
+    if new_status == FeedingPlanStatus.approved.value:
+        plan.approved_by = operator_id
+
     if new_status == FeedingPlanStatus.blocked.value:
-        plan.blocked_reason = reason or "未标注原因"
+        plan.blocked_reason = reason.strip()
         plan.blocking_requisition_id = blocking_req_id
         plan.blocked_at = datetime.now(timezone.utc)
         plan.resolved_at = None
@@ -152,25 +159,37 @@ def transition_feeding(plan, new_status, operator_name, operator_role, reason=No
         detail += f" | 原因: {reason}"
     if blocking_req_id:
         detail += f" | 阻塞领用单: #{blocking_req_id}"
+    if new_status == FeedingPlanStatus.approved.value and operator_id:
+        detail += f" | 审批人自动写入: #{operator_id}"
     _log_action(session, "feeding_plan", plan.id, f"状态变更: {old_status}→{new_status}", operator_name, operator_role, detail)
     session.commit()
     return True, ""
 
 
-def transition_requisition(req, new_status, operator_name, operator_role, reason=None):
+def transition_requisition(req, new_status, operator_name, operator_role, reason=None, operator_id=None):
     if not can_transition(req.status, new_status, REQUISITION_TRANSITIONS):
         return False, f"不允许从 [{req.status}] 转到 [{new_status}]"
+
+    if new_status == RequisitionStatus.delayed.value:
+        if not reason or not reason.strip():
+            return False, "延迟原因为必填，不能为空"
 
     session = get_session()
     old_status = req.status
     req.status = new_status
     req.updated_at = datetime.now(timezone.utc)
 
+    if new_status == RequisitionStatus.approved.value:
+        req.approved_by = operator_id
+
+    if new_status == RequisitionStatus.issuing.value:
+        req.issued_by = operator_id
+
     auto_blocked_plans = []
     auto_unblocked_plans = []
 
     if new_status == RequisitionStatus.delayed.value:
-        req.delay_reason = reason or "未标注原因"
+        req.delay_reason = reason.strip()
         req.delayed_at = datetime.now(timezone.utc)
         auto_blocked_plans = auto_block_feeding_plans(req, operator_name, operator_role, session)
     elif old_status == RequisitionStatus.delayed.value:
@@ -186,6 +205,10 @@ def transition_requisition(req, new_status, operator_name, operator_role, reason
         detail += f" | 自动卡住饲喂计划: {auto_blocked_plans}"
     if auto_unblocked_plans:
         detail += f" | 自动解除饲喂计划卡点: {auto_unblocked_plans}"
+    if new_status == RequisitionStatus.approved.value and operator_id:
+        detail += f" | 审批人自动写入: #{operator_id}"
+    if new_status == RequisitionStatus.issuing.value and operator_id:
+        detail += f" | 出库人自动写入: #{operator_id}"
     _log_action(session, "inventory_requisition", req.id, f"状态变更: {old_status}→{new_status}", operator_name, operator_role, detail)
     session.commit()
     return True, ""

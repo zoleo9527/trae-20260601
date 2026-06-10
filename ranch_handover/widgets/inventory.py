@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QTableWidget, QTableWidgetItem,
     QPushButton, QHeaderView, QComboBox, QLabel, QDateEdit,
@@ -10,16 +11,34 @@ from ..models import InventoryRequisition, FeedingPlan, FeedingPlanStatus, Staff
 from ..state_machine import transition_requisition, REQUISITION_TRANSITIONS
 
 
+def _req_handler(req, session):
+    if req.status in [RequisitionStatus.requested.value, RequisitionStatus.pending_approval.value]:
+        if req.requester:
+            return req.requester.name, req.requester.role
+        return "未知", "-"
+    if req.status == RequisitionStatus.approved.value:
+        return "待出库", "-"
+    if req.status in [RequisitionStatus.issuing.value, RequisitionStatus.delayed.value]:
+        if req.issuer_ref:
+            return req.issuer_ref.name, req.issuer_ref.role
+        if req.requester:
+            return req.requester.name, req.requester.role
+        return "未知", "-"
+    return "-", "-"
+
+
 class InventoryWidget(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self._current_operator_name = ""
         self._current_operator_role = ""
+        self._current_operator_id = None
         self._setup_ui()
 
-    def set_operator(self, name, role):
+    def set_operator(self, name, role, operator_id=None):
         self._current_operator_name = name
         self._current_operator_role = role
+        self._current_operator_id = operator_id
 
     def _setup_ui(self):
         layout = QVBoxLayout(self)
@@ -111,14 +130,13 @@ class InventoryWidget(QWidget):
 
     def _create_requisition(self):
         session = get_session()
-        staff_list = session.query(Staff).all()
         plan_list = session.query(FeedingPlan).filter(
             FeedingPlan.status.in_([
                 FeedingPlanStatus.approved.value,
                 FeedingPlanStatus.in_progress.value,
             ])
         ).all()
-        dialog = _RequisitionDialog(staff_list, plan_list, parent=self)
+        dialog = _RequisitionDialog(plan_list, parent=self)
         if dialog.exec() == QDialog.DialogCode.Accepted:
             data = dialog.get_data()
             req = InventoryRequisition(
@@ -128,7 +146,7 @@ class InventoryWidget(QWidget):
                 quantity_requested=data["quantity_requested"],
                 unit=data["unit"],
                 status=RequisitionStatus.requested.value,
-                requested_by=data.get("requested_by"),
+                requested_by=self._current_operator_id,
             )
             session.add(req)
             session.commit()
@@ -140,7 +158,8 @@ class InventoryWidget(QWidget):
                 operator_name=self._current_operator_name or "系统",
                 operator_role=self._current_operator_role or "牧场主管",
                 detail=f"创建领用申请 #{req.id}: {req.item_name} {req.quantity_requested}{req.unit}"
-                       + (f" (关联饲喂计划 #{req.feeding_plan_id})" if req.feeding_plan_id else ""),
+                       + (f" (关联饲喂计划 #{req.feeding_plan_id})" if req.feeding_plan_id else "")
+                       + f" | 申请人自动写入: {self._current_operator_name or '系统'}",
             )
             session.add(log)
             session.commit()
@@ -164,7 +183,11 @@ class InventoryWidget(QWidget):
         dialog = _ReqTransitionDialog(req, allowed, parent=self)
         if dialog.exec() == QDialog.DialogCode.Accepted:
             new_status, reason = dialog.get_data()
-            ok, msg = transition_requisition(req, new_status, self._current_operator_name or "系统", self._current_operator_role or "牧场主管", reason)
+            ok, msg = transition_requisition(
+                req, new_status,
+                self._current_operator_name or "系统", self._current_operator_role or "牧场主管",
+                reason, operator_id=self._current_operator_id,
+            )
             if not ok:
                 QMessageBox.warning(self, "状态变更失败", msg)
             else:
@@ -196,13 +219,13 @@ class InventoryWidget(QWidget):
         dialog = _IssuanceDialog(req, parent=self)
         if dialog.exec() == QDialog.DialogCode.Accepted:
             issued_qty = dialog.get_issued_qty()
-            was_delayed = req.status == RequisitionStatus.delayed.value
             req.quantity_issued += issued_qty
-            req.updated_at = __import__("datetime").datetime.now(__import__("datetime").timezone.utc)
+            req.updated_at = datetime.now(timezone.utc)
             if req.quantity_issued >= req.quantity_requested:
                 req.status = RequisitionStatus.completed.value
             elif req.status == RequisitionStatus.approved.value:
                 req.status = RequisitionStatus.issuing.value
+                req.issued_by = self._current_operator_id
 
             log = OperationLog(
                 entity_type="inventory_requisition",
@@ -210,7 +233,8 @@ class InventoryWidget(QWidget):
                 action=f"登记出库 {issued_qty}{req.unit}",
                 operator_name=self._current_operator_name or "系统",
                 operator_role=self._current_operator_role or "牧场主管",
-                detail=f"领用 #{req.id} 出库 {issued_qty}{req.unit}, 累计 {req.quantity_issued}/{req.quantity_requested}",
+                detail=f"领用 #{req.id} 出库 {issued_qty}{req.unit}, 累计 {req.quantity_issued}/{req.quantity_requested}"
+                       + (f" | 出库人自动写入: {self._current_operator_name or '系统'}" if self._current_operator_id and req.issued_by == self._current_operator_id else ""),
             )
             session.add(log)
             session.commit()
@@ -221,7 +245,7 @@ class InventoryWidget(QWidget):
 
 
 class _RequisitionDialog(QDialog):
-    def __init__(self, staff_list, plan_list, parent=None):
+    def __init__(self, plan_list, parent=None):
         super().__init__(parent)
         self.setWindowTitle("新建领用申请")
         self.setMinimumWidth(420)
@@ -254,12 +278,6 @@ class _RequisitionDialog(QDialog):
         self.unit.addItems(["kg", "吨", "包", "桶", "瓶"])
         layout.addRow("单位:", self.unit)
 
-        self.requested_by = QComboBox()
-        self.requested_by.addItem("未选择", None)
-        for s in staff_list:
-            self.requested_by.addItem(f"{s.name}({s.role})", s.id)
-        layout.addRow("申请人:", self.requested_by)
-
         btn_layout = QHBoxLayout()
         btn_ok = QPushButton("确定")
         btn_ok.clicked.connect(self.accept)
@@ -276,7 +294,6 @@ class _RequisitionDialog(QDialog):
             "spec": self.spec.currentText(),
             "quantity_requested": self.quantity_requested.value(),
             "unit": self.unit.currentText(),
-            "requested_by": self.requested_by.currentData(),
         }
 
 
@@ -300,7 +317,7 @@ class _ReqTransitionDialog(QDialog):
         layout.addRow("变更为:", self.new_status)
 
         self.reason = QTextEdit()
-        self.reason.setPlaceholderText("输入原因（延迟时必填）")
+        self.reason.setPlaceholderText("输入原因（延迟时必填，不能为空）")
         self.reason.setMaximumHeight(80)
         layout.addRow("原因:", self.reason)
 
@@ -310,7 +327,7 @@ class _ReqTransitionDialog(QDialog):
 
         btn_layout = QHBoxLayout()
         btn_ok = QPushButton("确定")
-        btn_ok.clicked.connect(self.accept)
+        btn_ok.clicked.connect(self._validate_and_accept)
         btn_cancel = QPushButton("取消")
         btn_cancel.clicked.connect(self.reject)
         btn_layout.addWidget(btn_ok)
@@ -330,6 +347,14 @@ class _ReqTransitionDialog(QDialog):
             self.auto_block_label.setStyleSheet("color: red;")
         else:
             self.auto_block_label.setText("")
+
+    def _validate_and_accept(self):
+        target = self.new_status.currentData()
+        if target == RequisitionStatus.delayed.value:
+            if not self.reason.toPlainText().strip():
+                QMessageBox.warning(self, "必填校验", "延迟原因为必填项，不能为空")
+                return
+        self.accept()
 
     def get_data(self):
         return self.new_status.currentData(), self.reason.toPlainText().strip()

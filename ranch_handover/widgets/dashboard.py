@@ -37,16 +37,46 @@ def _urgency_color(hours):
     return Qt.GlobalColor.black
 
 
+def _feeding_handler(plan):
+    if plan.status in [FeedingPlanStatus.draft.value, FeedingPlanStatus.pending_approval.value]:
+        if plan.creator:
+            return plan.creator.name, plan.creator.role
+        return "未知", "-"
+    if plan.status in [FeedingPlanStatus.approved.value, FeedingPlanStatus.in_progress.value, FeedingPlanStatus.blocked.value]:
+        if plan.assignee:
+            return plan.assignee.name, plan.assignee.role
+        return "未指派", "-"
+    return "-", "-"
+
+
+def _req_handler(req):
+    if req.status in [RequisitionStatus.requested.value, RequisitionStatus.pending_approval.value]:
+        if req.requester:
+            return req.requester.name, req.requester.role
+        return "未知", "-"
+    if req.status == RequisitionStatus.approved.value:
+        return "待出库", "-"
+    if req.status in [RequisitionStatus.issuing.value, RequisitionStatus.delayed.value]:
+        if req.issuer_ref:
+            return req.issuer_ref.name, req.issuer_ref.role
+        if req.requester:
+            return req.requester.name, req.requester.role
+        return "未知", "-"
+    return "-", "-"
+
+
 class DashboardWidget(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self._current_operator_name = ""
         self._current_operator_role = ""
+        self._current_operator_id = None
         self._setup_ui()
 
-    def set_operator(self, name, role):
+    def set_operator(self, name, role, operator_id=None):
         self._current_operator_name = name
         self._current_operator_role = role
+        self._current_operator_id = operator_id
 
     def _setup_ui(self):
         layout = QVBoxLayout(self)
@@ -112,6 +142,7 @@ class DashboardWidget(QWidget):
         rows = []
         active_feeding = session.query(FeedingPlan).filter(
             FeedingPlan.status.in_([
+                FeedingPlanStatus.draft.value,
                 FeedingPlanStatus.pending_approval.value,
                 FeedingPlanStatus.approved.value,
                 FeedingPlanStatus.in_progress.value,
@@ -119,13 +150,13 @@ class DashboardWidget(QWidget):
             ])
         ).all()
         for p in active_feeding:
-            handler = p.assignee.name if p.assignee else "未指派"
-            role = p.assignee.role if p.assignee else "-"
+            handler, role = _feeding_handler(p)
             elapsed = _elapsed(p.updated_at)
-            rows.append(("饲喂计划", str(p.id), f"{p.cattle_group} - {p.feed_formula}", handler, role, elapsed))
+            rows.append(("饲喂计划", str(p.id), f"{p.cattle_group} - {p.feed_formula}({p.status})", handler, role, elapsed))
 
         active_req = session.query(InventoryRequisition).filter(
             InventoryRequisition.status.in_([
+                RequisitionStatus.requested.value,
                 RequisitionStatus.pending_approval.value,
                 RequisitionStatus.approved.value,
                 RequisitionStatus.issuing.value,
@@ -133,10 +164,9 @@ class DashboardWidget(QWidget):
             ])
         ).all()
         for r in active_req:
-            handler = r.requester.name if r.requester else "未指派"
-            role = r.requester.role if r.requester else "-"
+            handler, role = _req_handler(r)
             elapsed = _elapsed(r.updated_at)
-            rows.append(("库存领用", str(r.id), f"{r.item_name} {r.quantity_requested}{r.unit}", handler, role, elapsed))
+            rows.append(("库存领用", str(r.id), f"{r.item_name} {r.quantity_requested}{r.unit}({r.status})", handler, role, elapsed))
 
         self.q1_table.setRowCount(len(rows))
         for i, row in enumerate(rows):
@@ -146,6 +176,8 @@ class DashboardWidget(QWidget):
                     item.setForeground(Qt.GlobalColor.darkBlue)
                 elif j == 0 and val == "库存领用":
                     item.setForeground(Qt.GlobalColor.darkMagenta)
+                if j == 3 and val in ["待出库", "待审批"]:
+                    item.setForeground(Qt.GlobalColor.darkYellow)
                 if j == 5:
                     dt = None
                     if rows[i][0] == "饲喂计划":
@@ -232,6 +264,7 @@ class DashboardWidget(QWidget):
 
         active_feeding = session.query(FeedingPlan).filter(
             FeedingPlan.status.in_([
+                FeedingPlanStatus.draft.value,
                 FeedingPlanStatus.pending_approval.value,
                 FeedingPlanStatus.approved.value,
                 FeedingPlanStatus.in_progress.value,
@@ -259,15 +292,13 @@ class DashboardWidget(QWidget):
 
         lines.append("【谁在处理】")
         for p in active_feeding:
-            handler = p.assignee.name if p.assignee else "未指派"
-            role = p.assignee.role if p.assignee else "-"
+            handler, role = _feeding_handler(p)
             elapsed = _elapsed(p.updated_at)
-            lines.append(f"  饲喂计划 #{p.id} {p.cattle_group}: {handler}({role}) [停留{elapsed}]")
+            lines.append(f"  饲喂计划 #{p.id} {p.cattle_group}({p.status}): {handler}({role}) [停留{elapsed}]")
         for r in incomplete_req:
-            handler = r.requester.name if r.requester else "未指派"
-            role = r.requester.role if r.requester else "-"
+            handler, role = _req_handler(r)
             elapsed = _elapsed(r.updated_at)
-            lines.append(f"  领用单 #{r.id} {r.item_name}: {handler}({role}) [停留{elapsed}]")
+            lines.append(f"  领用单 #{r.id} {r.item_name}({r.status}): {handler}({role}) [停留{elapsed}]")
         lines.append("")
 
         lines.append("【饲喂计划卡点】")

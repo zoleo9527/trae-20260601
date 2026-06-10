@@ -10,16 +10,30 @@ from ..models import FeedingPlan, InventoryRequisition, Staff, RoleEnum, Feeding
 from ..state_machine import transition_feeding, FEEDING_TRANSITIONS, check_feeding_completion
 
 
+def _feeding_handler(plan, session):
+    if plan.status in [FeedingPlanStatus.draft.value, FeedingPlanStatus.pending_approval.value]:
+        if plan.creator:
+            return plan.creator.name, plan.creator.role
+        return "未知", "-"
+    if plan.status in [FeedingPlanStatus.approved.value, FeedingPlanStatus.in_progress.value, FeedingPlanStatus.blocked.value]:
+        if plan.assignee:
+            return plan.assignee.name, plan.assignee.role
+        return "未指派", "-"
+    return "-", "-"
+
+
 class FeedingPlanWidget(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self._current_operator_name = ""
         self._current_operator_role = ""
+        self._current_operator_id = None
         self._setup_ui()
 
-    def set_operator(self, name, role):
+    def set_operator(self, name, role, operator_id=None):
         self._current_operator_name = name
         self._current_operator_role = role
+        self._current_operator_id = operator_id
 
     def _setup_ui(self):
         layout = QVBoxLayout(self)
@@ -73,7 +87,7 @@ class FeedingPlanWidget(QWidget):
 
         self.table.setRowCount(len(plans))
         for row, p in enumerate(plans):
-            assignee_name = p.assignee.name if p.assignee else "未指派"
+            handler, handler_role = _feeding_handler(p, session)
             self.table.setItem(row, 0, QTableWidgetItem(str(p.id)))
             self.table.setItem(row, 1, QTableWidgetItem(p.plan_date))
             self.table.setItem(row, 2, QTableWidgetItem(p.cattle_group))
@@ -85,7 +99,7 @@ class FeedingPlanWidget(QWidget):
             elif p.status == FeedingPlanStatus.completed.value:
                 status_item.setForeground(Qt.GlobalColor.darkGreen)
             self.table.setItem(row, 5, status_item)
-            self.table.setItem(row, 6, QTableWidgetItem(assignee_name))
+            self.table.setItem(row, 6, QTableWidgetItem(handler))
 
             delayed = 0
             reqs = session.query(InventoryRequisition).filter(
@@ -139,7 +153,7 @@ class FeedingPlanWidget(QWidget):
                 quantity=data["quantity"],
                 unit=data["unit"],
                 status=FeedingPlanStatus.draft.value,
-                created_by=data.get("created_by"),
+                created_by=self._current_operator_id,
                 assigned_to=data.get("assigned_to"),
             )
             session.add(plan)
@@ -151,7 +165,7 @@ class FeedingPlanWidget(QWidget):
                 action="创建饲喂计划",
                 operator_name=self._current_operator_name or "系统",
                 operator_role=self._current_operator_role or "牧场主管",
-                detail=f"创建饲喂计划 #{plan.id}: {plan.cattle_group} {plan.feed_formula} {plan.quantity}{plan.unit}",
+                detail=f"创建饲喂计划 #{plan.id}: {plan.cattle_group} {plan.feed_formula} {plan.quantity}{plan.unit} | 创建人自动写入: {self._current_operator_name or '系统'}",
             )
             session.add(log)
             session.commit()
@@ -178,7 +192,12 @@ class FeedingPlanWidget(QWidget):
         dialog = _TransitionDialog(plan, allowed, reqs, parent=self)
         if dialog.exec() == QDialog.DialogCode.Accepted:
             new_status, reason, blocking_req_id = dialog.get_data()
-            ok, msg = transition_feeding(plan, new_status, self._current_operator_name or "系统", self._current_operator_role or "牧场主管", reason, blocking_req_id)
+            ok, msg = transition_feeding(
+                plan, new_status,
+                self._current_operator_name or "系统", self._current_operator_role or "牧场主管",
+                reason, blocking_req_id,
+                operator_id=self._current_operator_id,
+            )
             if not ok:
                 QMessageBox.warning(self, "状态变更失败", msg)
             session.commit()
@@ -197,6 +216,7 @@ class FeedingPlanWidget(QWidget):
             plan, FeedingPlanStatus.in_progress.value,
             self._current_operator_name or "系统", self._current_operator_role or "牧场主管",
             reason="解除卡点，恢复执行",
+            operator_id=self._current_operator_id,
         )
         if not ok:
             QMessageBox.warning(self, "解除失败", msg)
@@ -295,7 +315,7 @@ class _TransitionDialog(QDialog):
         layout.addRow("变更为:", self.new_status)
 
         self.reason = QTextEdit()
-        self.reason.setPlaceholderText("输入原因（卡住或延迟时必填）")
+        self.reason.setPlaceholderText("输入原因（卡住时必填，不能为空）")
         self.reason.setMaximumHeight(80)
         layout.addRow("原因:", self.reason)
 
@@ -314,7 +334,7 @@ class _TransitionDialog(QDialog):
 
         btn_layout = QHBoxLayout()
         btn_ok = QPushButton("确定")
-        btn_ok.clicked.connect(self.accept)
+        btn_ok.clicked.connect(self._validate_and_accept)
         btn_cancel = QPushButton("取消")
         btn_cancel.clicked.connect(self.reject)
         btn_layout.addWidget(btn_ok)
@@ -328,6 +348,14 @@ class _TransitionDialog(QDialog):
         is_blocked = target == FeedingPlanStatus.blocked.value
         self.blocking_req_combo.setVisible(is_blocked)
         self.blocking_req_label.setVisible(is_blocked)
+
+    def _validate_and_accept(self):
+        target = self.new_status.currentData()
+        if target == FeedingPlanStatus.blocked.value:
+            if not self.reason.toPlainText().strip():
+                QMessageBox.warning(self, "必填校验", "卡点原因为必填项，不能为空")
+                return
+        self.accept()
 
     def get_data(self):
         return self.new_status.currentData(), self.reason.toPlainText().strip(), self.blocking_req_combo.currentData()
