@@ -235,6 +235,9 @@ function App() {
   const confirmPayment = useCallback(
     (repairId: string, amount: number, remark: string) => {
       const now = new Date().toISOString();
+      const linkedRepair = repairs.find((r) => r.id === repairId);
+      if (!linkedRepair) return;
+      const orderIdToUpdate = linkedRepair.orderId;
       const log: RepairLog = {
         id: `rpl_${repairId}_${Date.now()}`,
         repairId,
@@ -247,11 +250,9 @@ function App() {
         remark: `${remark}，到账金额¥${amount.toFixed(2)}`,
         result: `已补缴¥${amount.toFixed(2)}`,
       };
-      let orderIdToUpdate = '';
       setRepairs((prev) =>
         prev.map((r) => {
           if (r.id !== repairId) return r;
-          orderIdToUpdate = r.orderId;
           const newUnpaid = Math.max(0, Number((r.unpaidAmount - amount).toFixed(2)));
           return {
             ...r,
@@ -265,41 +266,42 @@ function App() {
           };
         })
       );
-      if (orderIdToUpdate) {
-        setOrders((prev) =>
-          prev.map((o) => {
-            if (o.id !== orderIdToUpdate) return o;
-            const newPaid = Number((o.paidAmount + amount).toFixed(2));
-            const newStatus: ParkingOrder['status'] = newPaid >= o.actualFee ? 'exited' : o.status;
-            const orderLog: StatusLog = {
-              id: `sl_${o.id}_${Date.now()}`,
-              orderId: o.id,
-              fromStatus: o.status,
-              toStatus: newStatus,
-              operatorId: currentUser.id,
-              operatorName: currentUser.name,
-              operatorRole: currentUser.role,
-              timestamp: now,
-              remark: `${remark}，补缴到账¥${amount.toFixed(2)}${newStatus === 'exited' ? '，订单已闭环' : ''}`,
-            };
-            return {
-              ...o,
-              paidAmount: newPaid,
-              status: newStatus,
-              statusLogs: [...o.statusLogs, orderLog],
-              updateTime: now,
-            };
-          })
-        );
-      }
+      setOrders((prev) =>
+        prev.map((o) => {
+          if (o.id !== orderIdToUpdate) return o;
+          const newPaid = Number((o.paidAmount + amount).toFixed(2));
+          const newStatus: ParkingOrder['status'] = newPaid >= o.actualFee ? 'exited' : o.status;
+          const orderLog: StatusLog = {
+            id: `sl_${o.id}_${Date.now()}`,
+            orderId: o.id,
+            fromStatus: o.status,
+            toStatus: newStatus,
+            operatorId: currentUser.id,
+            operatorName: currentUser.name,
+            operatorRole: currentUser.role,
+            timestamp: now,
+            remark: `${remark}，补缴到账¥${amount.toFixed(2)}${newStatus === 'exited' ? '，订单已闭环' : ''}`,
+          };
+          return {
+            ...o,
+            paidAmount: newPaid,
+            status: newStatus,
+            statusLogs: [...o.statusLogs, orderLog],
+            updateTime: now,
+          };
+        })
+      );
     },
-    [currentUser]
+    [currentUser, repairs]
   );
 
   const assignRepair = useCallback((repairId: string, userId: string) => {
     const now = new Date().toISOString();
     const user = USERS.find((u) => u.id === userId);
     if (!user) return;
+    const linkedRepair = repairs.find((r) => r.id === repairId);
+    if (!linkedRepair) return;
+    const orderIdToUpdate = linkedRepair.orderId;
     const repairLog: RepairLog = {
       id: `rpl_${repairId}_${Date.now()}`,
       repairId,
@@ -311,49 +313,46 @@ function App() {
       timestamp: now,
       remark: `改派给 ${user.name}（${ROLE_LABEL[user.role]}）`,
     };
-    let orderIdToUpdate = '';
     setRepairs((prev) =>
-      prev.map((r) => {
-        if (r.id !== repairId) return r;
-        orderIdToUpdate = r.orderId;
-        return {
-          ...r,
-          assigneeId: user.id,
-          assigneeName: user.name,
-          assigneeRole: user.role,
-          repairLogs: [...r.repairLogs, repairLog],
-          updateTime: now,
-        };
-      })
+      prev.map((r) =>
+        r.id === repairId
+          ? {
+              ...r,
+              assigneeId: user.id,
+              assigneeName: user.name,
+              assigneeRole: user.role,
+              repairLogs: [...r.repairLogs, repairLog],
+              updateTime: now,
+            }
+          : r
+      )
     );
-    if (orderIdToUpdate) {
-      const orderLog: StatusLog = {
-        id: `sl_${orderIdToUpdate}_${Date.now()}`,
-        orderId: orderIdToUpdate,
-        fromStatus: '__assign__',
-        toStatus: '__assign__',
-        operatorId: currentUser.id,
-        operatorName: currentUser.name,
-        operatorRole: currentUser.role,
-        timestamp: now,
-        remark: `补缴单改派给 ${user.name}（${ROLE_LABEL[user.role]}）`,
-      };
-      setOrders((prev) =>
-        prev.map((o) =>
-          o.id === orderIdToUpdate
-            ? {
-                ...o,
-                currentHandlerId: user.id,
-                currentHandlerName: user.name,
-                currentHandlerRole: user.role,
-                statusLogs: [...o.statusLogs, orderLog],
-                updateTime: now,
-              }
-            : o
-        )
-      );
-    }
-  }, [currentUser]);
+    const orderLog: StatusLog = {
+      id: `sl_${orderIdToUpdate}_${Date.now()}`,
+      orderId: orderIdToUpdate,
+      fromStatus: '__assign__',
+      toStatus: '__assign__',
+      operatorId: currentUser.id,
+      operatorName: currentUser.name,
+      operatorRole: currentUser.role,
+      timestamp: now,
+      remark: `补缴单改派给 ${user.name}（${ROLE_LABEL[user.role]}）`,
+    };
+    setOrders((prev) =>
+      prev.map((o) =>
+        o.id === orderIdToUpdate
+          ? {
+              ...o,
+              currentHandlerId: user.id,
+              currentHandlerName: user.name,
+              currentHandlerRole: user.role,
+              statusLogs: [...o.statusLogs, orderLog],
+              updateTime: now,
+            }
+          : o
+      )
+    );
+  }, [currentUser, repairs]);
 
   const renderContent = () => {
     switch (activeMenu) {
