@@ -197,16 +197,16 @@ router.get('/:id', async (req: Request, res: Response): Promise<void> => {
       else if (link.evidence_type === 'gate_anomaly') anomalyIds.push(link.evidence_id)
     }
 
-    let parkingLogs: unknown[] = []
+    let parkingLogs: any[] = []
     let monthlyRentals: unknown[] = []
-    let gateAnomalies: unknown[] = []
+    let gateAnomalies: any[] = []
 
     if (parkingLogIds.length > 0) {
       const r = await pool.query(
         `SELECT * FROM parking_logs WHERE id = ANY($1)`,
         [parkingLogIds]
       )
-      parkingLogs = r.rows
+      parkingLogs = r.rows.map((row) => ({ ...row, match_mode: 'plate' }))
     }
 
     if (rentalIds.length > 0) {
@@ -222,7 +222,75 @@ router.get('/:id', async (req: Request, res: Response): Promise<void> => {
         `SELECT * FROM gate_anomalies WHERE id = ANY($1)`,
         [anomalyIds]
       )
-      gateAnomalies = r.rows
+      gateAnomalies = r.rows.map((row) => ({ ...row, match_mode: 'plate' }))
+    }
+
+    if (complaint.plate_number) {
+      const plateR = await pool.query(
+        `SELECT * FROM parking_logs WHERE plate_number = $1 ORDER BY timestamp DESC LIMIT 20`,
+        [complaint.plate_number]
+      )
+      const existingIds = new Set(parkingLogs.map((p) => p.id))
+      for (const row of plateR.rows) {
+        if (!existingIds.has(row.id)) {
+          parkingLogs.push({ ...row, match_mode: 'plate' })
+          existingIds.add(row.id)
+        }
+      }
+
+      const rentalR = await pool.query(
+        `SELECT * FROM monthly_rentals WHERE plate_number = $1`,
+        [complaint.plate_number]
+      )
+      monthlyRentals = rentalR.rows
+    }
+
+    if (complaint.incident_time && complaint.gate_id) {
+      const timeR = await pool.query(
+        `SELECT * FROM parking_logs
+         WHERE gate_id = $1
+           AND timestamp >= $2::timestamp - INTERVAL '2 hours'
+           AND timestamp <= $2::timestamp + INTERVAL '2 hours'
+         ORDER BY timestamp DESC`,
+        [complaint.gate_id, complaint.incident_time]
+      )
+      const existingIds = new Set(parkingLogs.map((p) => p.id))
+      for (const row of timeR.rows) {
+        if (!existingIds.has(row.id)) {
+          parkingLogs.push({ ...row, match_mode: 'time_gate' })
+          existingIds.add(row.id)
+        }
+      }
+
+      const anomalyR = await pool.query(
+        `SELECT * FROM gate_anomalies
+         WHERE gate_id = $1
+           AND detected_at >= $2::timestamp - INTERVAL '4 hours'
+           AND detected_at <= $2::timestamp + INTERVAL '4 hours'
+         ORDER BY detected_at DESC`,
+        [complaint.gate_id, complaint.incident_time]
+      )
+      const existingAnomalyIds = new Set(gateAnomalies.map((g) => g.id))
+      for (const row of anomalyR.rows) {
+        if (!existingAnomalyIds.has(row.id)) {
+          gateAnomalies.push({ ...row, match_mode: 'time_gate' })
+          existingAnomalyIds.add(row.id)
+        }
+      }
+    }
+
+    if (complaint.gate_id && !complaint.incident_time) {
+      const anomalyR = await pool.query(
+        `SELECT * FROM gate_anomalies WHERE gate_id = $1 ORDER BY detected_at DESC LIMIT 20`,
+        [complaint.gate_id]
+      )
+      const existingAnomalyIds = new Set(gateAnomalies.map((g) => g.id))
+      for (const row of anomalyR.rows) {
+        if (!existingAnomalyIds.has(row.id)) {
+          gateAnomalies.push({ ...row, match_mode: 'time_gate' })
+          existingAnomalyIds.add(row.id)
+        }
+      }
     }
 
     const stuckPoint = computeStuckPoint(complaint, evidenceReview)
@@ -248,7 +316,7 @@ router.get('/:id', async (req: Request, res: Response): Promise<void> => {
 })
 
 router.post('/', async (req: Request, res: Response): Promise<void> => {
-  const { type, plate_number, description, parking_lot_id, deadline } = req.body
+  const { type, plate_number, description, parking_lot_id, deadline, incident_time, gate_id, gate_name } = req.body
   const operator = req.user!
 
   if (!type || !description || !deadline) {
@@ -260,15 +328,25 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
     const complaintNo = generateComplaintNo()
 
     const result = await pool.query(
-      `INSERT INTO complaints (complaint_no, type, status, plate_number, description, parking_lot_id, deadline, assignee_id)
-       VALUES ($1, $2, 'pending', $3, $4, $5, $6, NULL)
+      `INSERT INTO complaints (complaint_no, type, status, plate_number, description, parking_lot_id, deadline, assignee_id, incident_time, gate_id, gate_name)
+       VALUES ($1, $2, 'pending', $3, $4, $5, $6, NULL, $7, $8, $9)
        RETURNING *`,
-      [complaintNo, type, plate_number || null, description, parking_lot_id || 1, deadline]
+      [
+        complaintNo,
+        type,
+        plate_number || null,
+        description,
+        parking_lot_id || 1,
+        deadline,
+        incident_time || null,
+        gate_id || null,
+        gate_name || null,
+      ]
     )
 
     const complaint = result.rows[0]
 
-    await addTimeline(complaint.id, 'created', operator, '投诉已创建')
+    await addTimeline(complaint.id, 'created', operator, `投诉已创建，类型: ${type}`)
 
     res.status(201).json({ success: true, data: complaint })
   } catch (err) {
@@ -306,7 +384,10 @@ router.patch('/:id', async (req: Request, res: Response): Promise<void> => {
 
     if (appealReason !== undefined) {
       params.push(appealReason)
-      updates.push(`description = $${paramIdx++}`)
+      updates.push(`appeal_reason = $${paramIdx++}`)
+      if (status === 'appealing' || current.status === 'processing') {
+        updates.push(`appealed_at = NOW()`)
+      }
     }
 
     updates.push(`updated_at = NOW()`)

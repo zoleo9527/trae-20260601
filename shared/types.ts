@@ -16,7 +16,12 @@ export interface Complaint {
   status: ComplaintStatus
   plate_number: string | null
   description: string
+  appeal_reason: string | null
+  appealed_at: string | null
   parking_lot_id: number
+  gate_id: number | null
+  gate_name: string | null
+  incident_time: string | null
   assignee_id: number | null
   assignee_name: string | null
   created_at: string
@@ -38,23 +43,13 @@ export interface TimelineEvent {
 
 export interface ParkingLog {
   id: number
-  plate_number: string
+  plate_number: string | null
   direction: 'in' | 'out'
   gate_id: number
   gate_name: string
   timestamp: string
   image_url: string | null
-}
-
-export interface MonthlyRental {
-  id: number
-  plate_number: string
-  owner_name: string
-  start_date: string
-  end_date: string
-  status: 'active' | 'expired' | 'suspended'
-  parking_lot_id: number
-  last_renewed_at: string | null
+  match_mode?: 'plate' | 'time_gate' | null
 }
 
 export interface GateAnomaly {
@@ -67,6 +62,18 @@ export interface GateAnomaly {
   resolved_by: string | null
   impact_hours: number | null
   description: string
+  match_mode?: 'time_gate' | null
+}
+
+export interface MonthlyRental {
+  id: number
+  plate_number: string
+  owner_name: string
+  start_date: string
+  end_date: string
+  status: 'active' | 'expired' | 'suspended'
+  parking_lot_id: number
+  last_renewed_at: string | null
 }
 
 export interface EvidenceLink {

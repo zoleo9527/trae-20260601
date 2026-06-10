@@ -197,26 +197,32 @@ export default function ComplaintDetailPage() {
                   提交申诉
                 </button>
               ) : (
-                <div className="flex items-center gap-2">
-                  <input
-                    type="text"
-                    value={appealReason}
-                    onChange={(e) => setAppealReason(e.target.value)}
-                    placeholder="申诉理由"
-                    className="bg-park-bg border border-park-border rounded px-3 py-1.5 text-sm text-park-text placeholder-park-muted outline-none focus:border-park-amber w-48"
-                  />
-                  <button
-                    onClick={() => handleAction('appeal')}
-                    className="px-3 py-1.5 text-sm rounded bg-purple-600 hover:bg-purple-700 text-white transition-colors"
-                  >
-                    确认申诉
-                  </button>
-                  <button
-                    onClick={() => { setShowAppealInput(false); setAppealReason('') }}
-                    className="px-3 py-1.5 text-sm rounded bg-park-hover text-park-muted hover:text-park-text transition-colors"
-                  >
-                    取消
-                  </button>
+                <div className="flex flex-col gap-2">
+                  <div className="text-park-muted text-xs">
+                    申诉理由将作为独立字段保存，不会覆盖原始投诉描述
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <textarea
+                      value={appealReason}
+                      onChange={(e) => setAppealReason(e.target.value)}
+                      placeholder="请详细描述申诉理由..."
+                      className="bg-park-bg border border-park-border rounded px-3 py-1.5 text-sm text-park-text placeholder-park-muted outline-none focus:border-purple-500 w-80 h-20 resize-none"
+                    />
+                    <div className="flex flex-col gap-2">
+                      <button
+                        onClick={() => handleAction('appeal')}
+                        className="px-3 py-1.5 text-sm rounded bg-purple-600 hover:bg-purple-700 text-white transition-colors"
+                      >
+                        确认申诉
+                      </button>
+                      <button
+                        onClick={() => { setShowAppealInput(false); setAppealReason('') }}
+                        className="px-3 py-1.5 text-sm rounded bg-park-hover text-park-muted hover:text-park-text transition-colors"
+                      >
+                        取消
+                      </button>
+                    </div>
+                  </div>
                 </div>
               )}
               <button
@@ -301,12 +307,30 @@ export default function ComplaintDetailPage() {
         <div className="grid grid-cols-2 gap-x-8 gap-y-3 text-sm">
           <div>
             <span className="text-park-muted">车牌号：</span>
-            <span className="text-park-text">{detail.plate_number || '-'}</span>
+            <span className="text-park-text">
+              {detail.plate_number || (detail.type === 'unlicensed_vehicle' ? <span className="text-purple-400 font-medium">无牌车</span> : '-')}
+            </span>
           </div>
           <div>
             <span className="text-park-muted">负责人：</span>
             <span className="text-park-text">{detail.assignee_name || '-'}</span>
           </div>
+          {(detail.gate_name || detail.incident_time) && (
+            <>
+              {detail.gate_name && (
+                <div>
+                  <span className="text-park-muted">事发道闸：</span>
+                  <span className="text-park-text">{detail.gate_name}</span>
+                </div>
+              )}
+              {detail.incident_time && (
+                <div>
+                  <span className="text-park-muted">事发时间：</span>
+                  <span className="text-park-text">{formatTime(detail.incident_time)}</span>
+                </div>
+              )}
+            </>
+          )}
           <div>
             <span className="text-park-muted">创建时间：</span>
             <span className="text-park-text">{formatTime(detail.created_at)}</span>
@@ -322,10 +346,25 @@ export default function ComplaintDetailPage() {
               {detail.is_overdue && ' (已逾期)'}
             </span>
           </div>
+          {detail.appealed_at && (
+            <div>
+              <span className="text-park-muted">申诉时间：</span>
+              <span className="text-purple-400">{formatTime(detail.appealed_at)}</span>
+            </div>
+          )}
           <div className="col-span-2">
-            <span className="text-park-muted">描述：</span>
+            <span className="text-park-muted">原始投诉描述：</span>
             <span className="text-park-text">{detail.description}</span>
           </div>
+          {detail.appeal_reason && (
+            <div className="col-span-2 bg-purple-500/10 border border-purple-500/30 rounded-lg p-3">
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-purple-400 text-xs font-medium">申诉理由</span>
+                <span className="text-purple-300/60 text-xs">独立于原始投诉描述</span>
+              </div>
+              <div className="text-park-text text-sm">{detail.appeal_reason}</div>
+            </div>
+          )}
         </div>
       </div>
 

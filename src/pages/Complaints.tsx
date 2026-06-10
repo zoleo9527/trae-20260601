@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Search, AlertTriangle } from 'lucide-react'
-import { getComplaints, getUsers, batchOperation } from '@/lib/api'
+import { Search, AlertTriangle, Plus, X } from 'lucide-react'
+import { getComplaints, getUsers, batchOperation, createComplaint } from '@/lib/api'
 import StatusBadge from '@/components/StatusBadge'
 import BatchActions from '@/components/BatchActions'
 import { COMPLAINT_TYPE_LABELS, COMPLAINT_STATUS_LABELS, STUCK_POINT_LABELS, EVIDENCE_REVIEW_STATUS_LABELS } from '../../shared/types'
@@ -43,6 +43,16 @@ export default function Complaints() {
   const [typeFilter, setTypeFilter] = useState('')
   const [assigneeFilter, setAssigneeFilter] = useState('')
   const [plateSearch, setPlateSearch] = useState('')
+
+  const [showCreateModal, setShowCreateModal] = useState(false)
+  const [createType, setCreateType] = useState<ComplaintType>('monthly_rental_expired')
+  const [createPlate, setCreatePlate] = useState('')
+  const [createDescription, setCreateDescription] = useState('')
+  const [createDeadline, setCreateDeadline] = useState('')
+  const [createIncidentTime, setCreateIncidentTime] = useState('')
+  const [createGateId, setCreateGateId] = useState('')
+  const [createGateName, setCreateGateName] = useState('')
+  const [createLoading, setCreateLoading] = useState(false)
 
   const navigate = useNavigate()
 
@@ -99,49 +109,110 @@ export default function Complaints() {
     }
   }
 
+  const gateOptions = [
+    { id: 1, name: 'A区入口' },
+    { id: 2, name: 'A区出口' },
+    { id: 3, name: 'B区入口' },
+    { id: 4, name: 'C区入口' },
+  ]
+
+  const openCreateModal = () => {
+    setCreateType('monthly_rental_expired')
+    setCreatePlate('')
+    setCreateDescription('')
+    const tomorrow = new Date()
+    tomorrow.setDate(tomorrow.getDate() + 1)
+    setCreateDeadline(tomorrow.toISOString().slice(0, 16))
+    setCreateIncidentTime(new Date().toISOString().slice(0, 16))
+    setCreateGateId('')
+    setCreateGateName('')
+    setShowCreateModal(true)
+  }
+
+  const handleCreate = async () => {
+    if (!createDescription || !createDeadline) return
+    setCreateLoading(true)
+    try {
+      const payload: any = {
+        type: createType,
+        description: createDescription,
+        deadline: new Date(createDeadline).toISOString(),
+      }
+      if (createType !== 'unlicensed_vehicle' && createPlate.trim()) {
+        payload.plate_number = createPlate.trim()
+      } else if (createType === 'unlicensed_vehicle') {
+        payload.plate_number = null
+      }
+      if (createIncidentTime) {
+        payload.incident_time = new Date(createIncidentTime).toISOString()
+      }
+      if (createGateId) {
+        payload.gate_id = Number(createGateId)
+        const g = gateOptions.find((o) => o.id === Number(createGateId))
+        payload.gate_name = g?.name || ''
+      }
+      await createComplaint(payload)
+      setShowCreateModal(false)
+      fetchData()
+    } catch {
+      // ignore
+    } finally {
+      setCreateLoading(false)
+    }
+  }
+
   return (
     <div className="pb-16">
-      <div className="bg-park-card rounded-lg border border-park-border p-4 mb-4">
-        <div className="flex items-center gap-3 flex-wrap">
-          <select
-            value={statusFilter}
-            onChange={(e) => { setStatusFilter(e.target.value); setPage(1) }}
-            className="bg-park-bg border border-park-border rounded px-3 py-1.5 text-sm text-park-text outline-none focus:border-park-amber"
-          >
-            {statusOptions.map((o) => (
-              <option key={o.value} value={o.value}>{o.label}</option>
-            ))}
-          </select>
-          <select
-            value={typeFilter}
-            onChange={(e) => { setTypeFilter(e.target.value); setPage(1) }}
-            className="bg-park-bg border border-park-border rounded px-3 py-1.5 text-sm text-park-text outline-none focus:border-park-amber"
-          >
-            {typeOptions.map((o) => (
-              <option key={o.value} value={o.value}>{o.label}</option>
-            ))}
-          </select>
-          <select
-            value={assigneeFilter}
-            onChange={(e) => { setAssigneeFilter(e.target.value); setPage(1) }}
-            className="bg-park-bg border border-park-border rounded px-3 py-1.5 text-sm text-park-text outline-none focus:border-park-amber"
-          >
-            <option value="">全部负责人</option>
-            {users.map((u) => (
-              <option key={u.id} value={u.id}>{u.name}</option>
-            ))}
-          </select>
-          <div className="relative flex-1 min-w-[200px]">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-park-muted" />
-            <input
-              type="text"
-              value={plateSearch}
-              onChange={(e) => setPlateSearch(e.target.value)}
-              placeholder="搜索车牌号"
-              className="w-full bg-park-bg border border-park-border rounded pl-10 pr-4 py-1.5 text-sm text-park-text placeholder-park-muted outline-none focus:border-park-amber"
-            />
+      <div className="flex items-center gap-3 mb-4">
+        <div className="bg-park-card rounded-lg border border-park-border p-4 flex-1">
+          <div className="flex items-center gap-3 flex-wrap">
+            <select
+              value={statusFilter}
+              onChange={(e) => { setStatusFilter(e.target.value); setPage(1) }}
+              className="bg-park-bg border border-park-border rounded px-3 py-1.5 text-sm text-park-text outline-none focus:border-park-amber"
+            >
+              {statusOptions.map((o) => (
+                <option key={o.value} value={o.value}>{o.label}</option>
+              ))}
+            </select>
+            <select
+              value={typeFilter}
+              onChange={(e) => { setTypeFilter(e.target.value); setPage(1) }}
+              className="bg-park-bg border border-park-border rounded px-3 py-1.5 text-sm text-park-text outline-none focus:border-park-amber"
+            >
+              {typeOptions.map((o) => (
+                <option key={o.value} value={o.value}>{o.label}</option>
+              ))}
+            </select>
+            <select
+              value={assigneeFilter}
+              onChange={(e) => { setAssigneeFilter(e.target.value); setPage(1) }}
+              className="bg-park-bg border border-park-border rounded px-3 py-1.5 text-sm text-park-text outline-none focus:border-park-amber"
+            >
+              <option value="">全部负责人</option>
+              {users.map((u) => (
+                <option key={u.id} value={u.id}>{u.name}</option>
+              ))}
+            </select>
+            <div className="relative flex-1 min-w-[200px]">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-park-muted" />
+              <input
+                type="text"
+                value={plateSearch}
+                onChange={(e) => setPlateSearch(e.target.value)}
+                placeholder="搜索车牌号"
+                className="w-full bg-park-bg border border-park-border rounded pl-10 pr-4 py-1.5 text-sm text-park-text placeholder-park-muted outline-none focus:border-park-amber"
+              />
+            </div>
           </div>
         </div>
+        <button
+          onClick={openCreateModal}
+          className="flex items-center gap-1 px-4 py-2.5 text-sm rounded bg-park-amber hover:bg-park-amber/90 text-park-bg font-medium transition-colors whitespace-nowrap"
+        >
+          <Plus className="w-4 h-4" />
+          新建投诉
+        </button>
       </div>
 
       <div className="bg-park-card rounded-lg border border-park-border">
@@ -264,6 +335,111 @@ export default function Complaints() {
         onBatchAction={handleBatchAction}
         onClear={() => setSelectedIds([])}
       />
+
+      {showCreateModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-park-card rounded-lg border border-park-border p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-5">
+              <h3 className="text-lg font-semibold text-park-text">新建投诉申诉</h3>
+              <button
+                onClick={() => setShowCreateModal(false)}
+                className="text-park-muted hover:text-park-text transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <label className="text-sm text-park-muted mb-1.5 block">投诉类型 <span className="text-red-400">*</span></label>
+                <select
+                  value={createType}
+                  onChange={(e) => setCreateType(e.target.value as ComplaintType)}
+                  className="w-full bg-park-bg border border-park-border rounded px-3 py-2 text-sm text-park-text outline-none focus:border-park-amber"
+                >
+                  {Object.entries(COMPLAINT_TYPE_LABELS).map(([value, label]) => (
+                    <option key={value} value={value}>{label}</option>
+                  ))}
+                </select>
+              </div>
+              {createType !== 'unlicensed_vehicle' && (
+                <div>
+                  <label className="text-sm text-park-muted mb-1.5 block">车牌号</label>
+                  <input
+                    type="text"
+                    value={createPlate}
+                    onChange={(e) => setCreatePlate(e.target.value)}
+                    placeholder={createType === 'gate_malfunction' ? '选填，若涉及车辆可填写' : '请输入车牌号'}
+                    className="w-full bg-park-bg border border-park-border rounded px-3 py-2 text-sm text-park-text placeholder-park-muted outline-none focus:border-park-amber"
+                  />
+                </div>
+              )}
+              {createType === 'unlicensed_vehicle' && (
+                <div className="bg-purple-500/10 border border-purple-500/30 rounded px-3 py-2 text-xs text-purple-300">
+                  无牌车争议：无需填写车牌号，系统将通过事发时间和道闸位置匹配车场日志和道闸异常记录
+                </div>
+              )}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-sm text-park-muted mb-1.5 block">事发道闸</label>
+                  <select
+                    value={createGateId}
+                    onChange={(e) => setCreateGateId(e.target.value)}
+                    className="w-full bg-park-bg border border-park-border rounded px-3 py-2 text-sm text-park-text outline-none focus:border-park-amber"
+                  >
+                    <option value="">选择道闸</option>
+                    {gateOptions.map((g) => (
+                      <option key={g.id} value={g.id}>{g.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-sm text-park-muted mb-1.5 block">事发时间</label>
+                  <input
+                    type="datetime-local"
+                    value={createIncidentTime}
+                    onChange={(e) => setCreateIncidentTime(e.target.value)}
+                    className="w-full bg-park-bg border border-park-border rounded px-3 py-2 text-sm text-park-text outline-none focus:border-park-amber"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="text-sm text-park-muted mb-1.5 block">投诉描述 <span className="text-red-400">*</span></label>
+                <textarea
+                  value={createDescription}
+                  onChange={(e) => setCreateDescription(e.target.value)}
+                  rows={4}
+                  placeholder="请详细描述投诉内容..."
+                  className="w-full bg-park-bg border border-park-border rounded px-3 py-2 text-sm text-park-text placeholder-park-muted outline-none focus:border-park-amber resize-none"
+                />
+              </div>
+              <div>
+                <label className="text-sm text-park-muted mb-1.5 block">截止时间 <span className="text-red-400">*</span></label>
+                <input
+                  type="datetime-local"
+                  value={createDeadline}
+                  onChange={(e) => setCreateDeadline(e.target.value)}
+                  className="w-full bg-park-bg border border-park-border rounded px-3 py-2 text-sm text-park-text outline-none focus:border-park-amber"
+                />
+              </div>
+              <div className="flex justify-end gap-2 pt-2">
+                <button
+                  onClick={() => setShowCreateModal(false)}
+                  className="px-4 py-2 text-sm rounded bg-park-hover text-park-muted hover:text-park-text transition-colors"
+                >
+                  取消
+                </button>
+                <button
+                  onClick={handleCreate}
+                  disabled={!createDescription || !createDeadline || createLoading}
+                  className="px-4 py-2 text-sm rounded bg-park-amber hover:bg-park-amber/90 disabled:opacity-50 text-park-bg font-medium transition-colors"
+                >
+                  {createLoading ? '提交中...' : '提交投诉'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

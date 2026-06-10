@@ -69,10 +69,13 @@ export function getComplaintDetail(id: number) {
 
 export function createComplaint(data: {
   type: string
-  plate_number?: string
+  plate_number?: string | null
   description: string
   parking_lot_id?: number
   deadline: string
+  incident_time?: string
+  gate_id?: number
+  gate_name?: string
 }) {
   return request<Complaint>('/api/complaints', {
     method: 'POST',

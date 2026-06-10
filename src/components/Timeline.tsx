@@ -50,7 +50,7 @@ export default function Timeline({ events, stuckPoint }: { events: TimelineEvent
       {events.map((event, index) => (
         <div key={event.id} className="flex gap-4 pb-6 last:pb-0">
           <div className="flex flex-col items-center">
-            <div className={`w-3 h-3 rounded-full flex-shrink-0 ${statusDotColors[event.action] || 'bg-gray-400'}`} />
+            <div className={`w-3 h-3 rounded-full flex-shrink-0 ${statusDotColors[event.action] || 'bg-gray-400'} ${event.action === 'appeal_submitted' ? 'ring-2 ring-purple-400/40' : ''}`} />
             {index < events.length - 1 && (
               <div className="w-px flex-1 bg-park-border mt-1" />
             )}
@@ -59,8 +59,18 @@ export default function Timeline({ events, stuckPoint }: { events: TimelineEvent
             <div className="flex items-center gap-2 text-sm">
               <span className="text-park-text font-medium">{event.operator_name}</span>
               <span className="text-park-muted text-xs">{USER_ROLE_LABELS[event.operator_role as UserRole]}</span>
+              {event.action === 'appeal_submitted' && (
+                <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-purple-500/15 text-purple-400 text-[10px] font-medium">申诉</span>
+              )}
             </div>
-            <div className="text-park-muted text-xs mt-0.5">{event.detail}</div>
+            {event.action === 'appeal_submitted' ? (
+              <div className="mt-1.5 bg-purple-500/10 border border-purple-500/30 rounded p-2">
+                <div className="text-purple-300 text-xs mb-0.5 font-medium">申诉理由</div>
+                <div className="text-park-text text-sm">{event.detail}</div>
+              </div>
+            ) : (
+              <div className="text-park-muted text-xs mt-0.5">{event.detail}</div>
+            )}
             <div className="text-park-muted/60 text-xs mt-1">{formatTime(event.created_at)}</div>
           </div>
         </div>
