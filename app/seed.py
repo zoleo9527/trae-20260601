@@ -409,8 +409,8 @@ def seed_sample_data(db: Session) -> None:
             title="口蹄疫疫苗漏打3头",
             detail="LB-2026-001批次1号妊娠舍中3头妊娠后期母猪因应激风险未在5月28日接种口蹄疫灭活疫苗，已于6月10日补打完成",
             alert_status=AlertStatus.RESOLVED,
-            related_record_id=executions_data[3].id,
-            related_record_type="immunization_execution",
+            related_record_id=plans_data[1].id,
+            related_record_type="immunization_plan",
         ),
         AbnormalAlert(
             batch_id=batches_data[0].id,
@@ -465,8 +465,8 @@ def seed_sample_data(db: Session) -> None:
             title="口蹄疫疫苗逾期执行",
             detail="LB-2026-002批次口蹄疫疫苗计划6月3日执行，实际6月5日执行，延迟2天",
             alert_status=AlertStatus.ACKNOWLEDGED,
-            related_record_id=executions_data[2].id,
-            related_record_type="immunization_execution",
+            related_record_id=plans_data[4].id,
+            related_record_type="immunization_plan",
         ),
     ]
     db.add_all(alerts_data)

@@ -71,6 +71,7 @@ def create_medication(data: MedicationRecordCreate, db: Session = Depends(get_db
         batch_id=data.batch_id,
         drug_name=data.drug_name,
         start_date=data.start_date,
+        end_date=data.end_date,
         db=db,
     )
     if dup_alert:
