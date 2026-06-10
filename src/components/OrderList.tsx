@@ -76,7 +76,7 @@ interface OrderListProps {
     repairId: string,
     amount: number,
     remark: string
-  ) => void;
+  ) => { ok: boolean; reason?: string };
 }
 
 const roleColor: Record<RoleType, string> = {
@@ -212,7 +212,11 @@ const OrderList: React.FC<OrderListProps> = ({
   const handlePayment = async () => {
     const vals = await paymentForm.validateFields();
     if (!selectedRepair) return;
-    onConfirmPayment(selectedRepair.id, vals.amount, vals.remark || '线下补缴确认');
+    const result = onConfirmPayment(selectedRepair.id, vals.amount, vals.remark || '线下补缴确认');
+    if (!result.ok) {
+      message.error(result.reason || '到账确认失败');
+      return;
+    }
     message.success(`已确认补缴 ¥${vals.amount}`);
     paymentForm.resetFields();
     setPaymentModal(false);

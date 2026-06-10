@@ -233,12 +233,12 @@ function App() {
   );
 
   const confirmPayment = useCallback(
-    (repairId: string, amount: number, remark: string) => {
+    (repairId: string, amount: number, remark: string): { ok: boolean; reason?: string } => {
       const now = new Date().toISOString();
       const linkedRepair = repairs.find((r) => r.id === repairId);
-      if (!linkedRepair) return;
+      if (!linkedRepair) return { ok: false, reason: '补缴单不存在，无法确认到账' };
       const linkedOrder = orders.find((o) => o.id === linkedRepair.orderId);
-      if (!linkedOrder) return;
+      if (!linkedOrder) return { ok: false, reason: '关联订单不存在，无法确认到账' };
       const log: RepairLog = {
         id: `rpl_${repairId}_${Date.now()}`,
         repairId,
@@ -292,18 +292,19 @@ function App() {
           };
         })
       );
+      return { ok: true };
     },
     [currentUser, repairs, orders]
   );
 
-  const assignRepair = useCallback((repairId: string, userId: string) => {
+  const assignRepair = useCallback((repairId: string, userId: string): { ok: boolean; reason?: string } => {
     const now = new Date().toISOString();
     const user = USERS.find((u) => u.id === userId);
-    if (!user) return;
+    if (!user) return { ok: false, reason: '目标处理人不存在' };
     const linkedRepair = repairs.find((r) => r.id === repairId);
-    if (!linkedRepair) return;
+    if (!linkedRepair) return { ok: false, reason: '补缴单不存在，无法改派' };
     const linkedOrder = orders.find((o) => o.id === linkedRepair.orderId);
-    if (!linkedOrder) return;
+    if (!linkedOrder) return { ok: false, reason: '关联订单不存在，无法改派' };
     const repairLog: RepairLog = {
       id: `rpl_${repairId}_${Date.now()}`,
       repairId,
@@ -354,6 +355,7 @@ function App() {
           : o
       )
     );
+    return { ok: true };
   }, [currentUser, repairs, orders]);
 
   const renderContent = () => {

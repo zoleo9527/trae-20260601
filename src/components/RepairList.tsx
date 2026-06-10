@@ -79,8 +79,8 @@ interface RepairListProps {
     currentStep?: string,
     blockerReason?: string
   ) => void;
-  onConfirmPayment: (repairId: string, amount: number, remark: string) => void;
-  onAssignRepair: (repairId: string, userId: string) => void;
+  onConfirmPayment: (repairId: string, amount: number, remark: string) => { ok: boolean; reason?: string };
+  onAssignRepair: (repairId: string, userId: string) => { ok: boolean; reason?: string };
 }
 
 const roleColor: Record<RoleType, string> = {
@@ -219,7 +219,11 @@ const RepairList: React.FC<RepairListProps> = ({
   const handlePayment = async () => {
     const vals = await paymentForm.validateFields();
     if (!selected) return;
-    onConfirmPayment(selected.id, vals.amount, vals.remark || '线下补缴确认');
+    const result = onConfirmPayment(selected.id, vals.amount, vals.remark || '线下补缴确认');
+    if (!result.ok) {
+      message.error(result.reason || '到账确认失败');
+      return;
+    }
     message.success(`已确认补缴 ¥${vals.amount}`);
     paymentForm.resetFields();
     setPaymentModal(false);
@@ -228,7 +232,11 @@ const RepairList: React.FC<RepairListProps> = ({
   const handleAssign = async () => {
     const vals = await assignForm.validateFields();
     if (!selectedId) return;
-    onAssignRepair(selectedId, vals.userId);
+    const result = onAssignRepair(selectedId, vals.userId);
+    if (!result.ok) {
+      message.error(result.reason || '改派失败');
+      return;
+    }
     message.success('已重新指派处理人');
     assignForm.resetFields();
     setAssignModal(false);
