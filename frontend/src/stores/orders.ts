@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
-import type { CustomerOrder, OperationLog, RoleType, OrderStatus, StuckRecord, OrderItem } from '@/types';
+import type { CustomerOrder, OperationLog, RoleType, OrderStatus, StuckRecord, OrderItem, OrderItemSnapshot, SpecChangeRecord } from '@/types';
 import { mockOrders, mockLogs } from '@/mock/data';
 import { orderStatusText } from '@/utils';
 
@@ -34,6 +34,29 @@ export const useOrdersStore = defineStore('orders', () => {
   function nowStr() {
     const now = new Date();
     return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+  }
+
+  function snapshotItems(items: OrderItem[]): OrderItemSnapshot[] {
+    return items.map((it) => ({
+      flowerType: it.flowerType,
+      color: it.color,
+      quantity: it.quantity,
+      stemsPerBunch: it.stemsPerBunch,
+      shelterId: it.shelterId,
+      remark: it.remark,
+    }));
+  }
+
+  function calcAmount(items: Array<{ quantity: number }>): number {
+    return items.reduce((s, it) => s + it.quantity * 200, 0);
+  }
+
+  function rebuildHarvestPlan(order: CustomerOrder) {
+    if (!order.harvestPlan) return;
+    const newPlanQty = order.items.reduce((s, it) => s + it.quantity, 0);
+    const newShelterId = order.items[0]?.shelterId || order.harvestPlan.shelterId;
+    order.harvestPlan.planQty = newPlanQty;
+    order.harvestPlan.shelterId = newShelterId;
   }
 
   function addOrder(data: {
@@ -83,30 +106,85 @@ export const useOrdersStore = defineStore('orders', () => {
     return order;
   }
 
-  function changeSpec(id: string, newSpecNote: string, changedBy: string) {
+  function changeSpec(
+    id: string,
+    data: {
+      specNote: string;
+      items: Array<Omit<OrderItem, 'id' | 'orderId'>>;
+    },
+    changedBy: string,
+  ): SpecChangeRecord | null {
     const order = getOrderById(id);
-    if (!order) return;
-    const before = order.specNote;
-    if (before === newSpecNote) return;
+    if (!order) return null;
 
-    const changeRecord = {
+    const beforeItems = snapshotItems(order.items);
+    const beforeAmount = order.totalAmount;
+    const beforeSpecNote = order.specNote;
+    const beforePlan = order.harvestPlan
+      ? { shelterId: order.harvestPlan.shelterId, planQty: order.harvestPlan.planQty }
+      : undefined;
+
+    const itemsChanged =
+      beforeItems.length !== data.items.length ||
+      beforeItems.some((it, idx) => {
+        const ni = data.items[idx];
+        if (!ni) return true;
+        return (
+          it.flowerType !== ni.flowerType ||
+          it.color !== ni.color ||
+          it.quantity !== ni.quantity ||
+          it.stemsPerBunch !== ni.stemsPerBunch ||
+          it.shelterId !== ni.shelterId
+        );
+      });
+
+    const specChanged = beforeSpecNote !== data.specNote;
+    if (!itemsChanged && !specChanged) return null;
+
+    const newItems: OrderItem[] = data.items.map((it, idx) => ({
+      ...it,
+      id: `OI${Date.now()}_${idx}`,
+      orderId: id,
+    }));
+
+    order.items = newItems;
+    order.specNote = data.specNote;
+    order.totalAmount = calcAmount(newItems);
+
+    if (order.harvestPlan) {
+      rebuildHarvestPlan(order);
+    }
+
+    const afterPlan = order.harvestPlan
+      ? { shelterId: order.harvestPlan.shelterId, planQty: order.harvestPlan.planQty }
+      : undefined;
+
+    const record: SpecChangeRecord = {
       id: `SCH${Date.now()}`,
       changedAt: nowStr(),
       changedBy,
-      before,
-      after: newSpecNote,
+      beforeSpecNote,
+      afterSpecNote: data.specNote,
+      beforeItems,
+      afterItems: snapshotItems(newItems),
+      beforeAmount,
+      afterAmount: order.totalAmount,
+      beforeHarvestPlan: beforePlan,
+      afterHarvestPlan: afterPlan,
     };
 
     if (!order.specChangeHistory) {
       order.specChangeHistory = [];
     }
-    order.specChangeHistory.push(changeRecord);
+    order.specChangeHistory.push(record);
 
-    order.specNote = newSpecNote;
+    const itemDesc = newItems.map((i) => `${i.flowerType}${i.color}×${i.quantity}扎`).join('、');
+    const amountDesc = beforeAmount !== order.totalAmount
+      ? `,金额 ¥${beforeAmount.toLocaleString()} → ¥${order.totalAmount.toLocaleString()}`
+      : '';
+    addLog(id, 'SALES', changedBy, '修改规格', `明细:${itemDesc}${amountDesc}${specChanged ? `,包装:${beforeSpecNote.length > 15 ? beforeSpecNote.slice(0, 15) + '...' : beforeSpecNote} → ${data.specNote.length > 15 ? data.specNote.slice(0, 15) + '...' : data.specNote}` : ''}`);
 
-    const beforeShort = before.length > 20 ? before.slice(0, 20) + '...' : before;
-    const afterShort = newSpecNote.length > 20 ? newSpecNote.slice(0, 20) + '...' : newSpecNote;
-    addLog(id, 'SALES', changedBy, '修改规格', `${beforeShort} → ${afterShort}`);
+    return record;
   }
 
   function updateOrderStatus(id: string, status: OrderStatus, operator: RoleType) {
@@ -124,11 +202,30 @@ export const useOrdersStore = defineStore('orders', () => {
     order.previousStatus = order.status;
     order.status = 'HARVESTING';
     order.operator = 'GROWER';
+
     if (order.harvestPlan) {
+      rebuildHarvestPlan(order);
       order.harvestPlan.status = 'PENDING';
+      order.harvestPlan.id = `HP${Date.now()}`;
+    } else {
+      const newPlanQty = order.items.reduce((s, it) => s + it.quantity, 0);
+      const newShelterId = order.items[0]?.shelterId || 'SH-A01';
+      order.harvestPlan = {
+        id: `HP${Date.now()}`,
+        orderId: id,
+        shelterId: newShelterId,
+        planDate: order.deliveryDate,
+        planQty: newPlanQty,
+        status: 'PENDING',
+        operator: ['李师傅', '王师傅', '张师傅'][Math.floor(Math.random() * 3)],
+      };
     }
-    addLog(id, 'SALES', '销售-小林', '确认订单', '已确认,系统自动生成采切排期,推送至种植员工作台');
-    addLog(id, 'SYSTEM', '系统', '生成采切排期', `自动分配至${order.items[0]?.shelterId || '-'},计划日期${order.harvestPlan?.planDate}`);
+
+    const wasFromStuck = order.previousStatus === 'PENDING_CONFIRM' && order.specChangeHistory && order.specChangeHistory.length > 0;
+    const rebuildNote = wasFromStuck ? '（已基于新明细重建采切排期,避免沿用旧排期）' : '';
+
+    addLog(id, 'SALES', '销售-小林', '确认订单', `已确认,系统自动生成采切排期,推送至种植员工作台${rebuildNote}`);
+    addLog(id, 'SYSTEM', '系统', '生成采切排期', `自动分配至${order.items[0]?.shelterId || '-'},计划数量${order.harvestPlan?.planQty}扎,计划日期${order.harvestPlan?.planDate}`);
   }
 
   function completeHarvest(id: string, actualQty: number) {
@@ -145,12 +242,9 @@ export const useOrdersStore = defineStore('orders', () => {
   function reportStuck(id: string, stuckRecord: Omit<StuckRecord, 'id' | 'orderId' | 'stuckAt'>) {
     const order = getOrderById(id);
     if (!order) return;
-    const pad = (n: number) => n.toString().padStart(2, '0');
-    const now = new Date();
-    const nowStr = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
     order.previousStatus = order.status;
     order.status = 'STUCK';
-    order.stuckRecord = { id: `STK${Date.now()}`, orderId: id, stuckAt: nowStr, ...stuckRecord };
+    order.stuckRecord = { id: `STK${Date.now()}`, orderId: id, stuckAt: nowStr(), ...stuckRecord };
     const isPacker = stuckRecord.stuckType === 'PACKAGE_DAMAGE';
     const isGrower = stuckRecord.stuckType === 'FORECAST_DEVIATION';
     const roleType = isPacker ? 'PACKER' : isGrower ? 'GROWER' : 'SALES';
@@ -172,7 +266,11 @@ export const useOrdersStore = defineStore('orders', () => {
     if (stuckType === 'CUSTOMER_CHANGE') {
       order.status = 'PENDING_CONFIRM';
       order.operator = 'SALES';
-      addLog(id, 'SALES', resolver, '恢复卡住·客户改规格', `${resolution} → 订单回到待确认,等待销售确认新规格`);
+      const hasChange = order.specChangeHistory && order.specChangeHistory.length > 0;
+      const note = hasChange
+        ? `已改规格,需销售基于新明细确认 → 确认后将重建采切排期,不再沿用旧排期`
+        : `待销售确认新规格`;
+      addLog(id, 'SALES', resolver, '恢复卡住·客户改规格', `${resolution} → ${note}`);
     } else if (stuckType === 'FORECAST_DEVIATION') {
       order.status = 'HARVESTING';
       order.operator = 'GROWER';

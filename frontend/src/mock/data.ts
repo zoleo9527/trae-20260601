@@ -1,4 +1,4 @@
-import type { CustomerOrder, Shelter, OperationLog, RoleInfo } from '@/types';
+import type { CustomerOrder, Shelter, OperationLog, RoleInfo, SpecChangeRecord, OrderItemSnapshot } from '@/types';
 
 export const roleInfoList: RoleInfo[] = [
   {
@@ -72,6 +72,25 @@ export const mockOrders: CustomerOrder[] = [
     items: [
       { id: 'OI3', orderId: 'DD20260602005', flowerType: '玫瑰', color: '粉色系', quantity: 50, stemsPerBunch: 20, shelterId: 'SH-A02', remark: '' },
       { id: 'OI4', orderId: 'DD20260602005', flowerType: '绣球', color: '粉色系', quantity: 20, stemsPerBunch: 5, shelterId: 'SH-C02', remark: '花头饱满' },
+    ],
+    specChangeHistory: [
+      {
+        id: 'SCH002', changedAt: dateStr(-7, 10, 20), changedBy: '销售-小林',
+        beforeSpecNote: '白蓝配色婚礼包装',
+        afterSpecNote: '白色+浅粉婚礼主题包装,防水纸外层',
+        beforeItems: [
+          { flowerType: '玫瑰', color: '白色系', quantity: 40, stemsPerBunch: 20, shelterId: 'SH-A03', remark: '' },
+          { flowerType: '绣球', color: '蓝色系', quantity: 25, stemsPerBunch: 5, shelterId: 'SH-C01', remark: '' },
+        ],
+        afterItems: [
+          { flowerType: '玫瑰', color: '粉色系', quantity: 50, stemsPerBunch: 20, shelterId: 'SH-A02', remark: '' },
+          { flowerType: '绣球', color: '粉色系', quantity: 20, stemsPerBunch: 5, shelterId: 'SH-C02', remark: '花头饱满' },
+        ],
+        beforeAmount: 13000,
+        afterAmount: 15200,
+        beforeHarvestPlan: { shelterId: 'SH-A03', planQty: 65 },
+        afterHarvestPlan: { shelterId: 'SH-A02', planQty: 70 },
+      },
     ],
     harvestPlan: { id: 'HP2', orderId: 'DD20260602005', shelterId: 'SH-A02', planDate: deliveryStr(2), planQty: 70, actualQty: 70, status: 'DONE', operator: '王师傅' },
   },
@@ -352,19 +371,33 @@ export const mockOrders: CustomerOrder[] = [
   {
     id: 'DD20260609007', customerName: '夏日和风日料', phone: '177****3434',
     deliveryDate: deliveryStr(10), address: '苏州市姑苏区平江路',
-    status: 'STUCK', previousStatus: 'PENDING_CONFIRM', totalAmount: 4800, specNote: '日式餐厅摆花,淡雅风格',
+    status: 'STUCK', previousStatus: 'PENDING_CONFIRM', totalAmount: 7000, specNote: '日式餐厅摆花,淡雅风格,红色系为主',
     createdAt: dateStr(-1, 9, 20), updatedAt: dateStr(3, 20, 15),
     operator: 'SALES',
     items: [
-      { id: 'OI33', orderId: 'DD20260609007', flowerType: '玫瑰', color: '白色系', quantity: 20, stemsPerBunch: 20, shelterId: 'SH-A03', remark: '' },
+      { id: 'OI33_2', orderId: 'DD20260609007', flowerType: '玫瑰', color: '红色系', quantity: 35, stemsPerBunch: 20, shelterId: 'SH-A01', remark: '' },
     ],
     specChangeHistory: [
-      { id: 'SCH001', changedAt: dateStr(3, 20, 15), changedBy: '销售-小林', before: '白色系玫瑰 20扎,每扎20枝', after: '红色系玫瑰 35扎,每扎20枝,新增红色系' },
+      {
+        id: 'SCH001', changedAt: dateStr(3, 20, 15), changedBy: '销售-小林',
+        beforeSpecNote: '日式餐厅摆花,淡雅风格',
+        afterSpecNote: '日式餐厅摆花,淡雅风格,红色系为主',
+        beforeItems: [
+          { flowerType: '玫瑰', color: '白色系', quantity: 20, stemsPerBunch: 20, shelterId: 'SH-A03', remark: '' },
+        ],
+        afterItems: [
+          { flowerType: '玫瑰', color: '红色系', quantity: 35, stemsPerBunch: 20, shelterId: 'SH-A01', remark: '' },
+        ],
+        beforeAmount: 4000,
+        afterAmount: 7000,
+        beforeHarvestPlan: { shelterId: 'SH-A03', planQty: 20 },
+        afterHarvestPlan: { shelterId: 'SH-A01', planQty: 35 },
+      },
     ],
-    harvestPlan: { id: 'HP21', orderId: 'DD20260609007', shelterId: 'SH-A03', planDate: deliveryStr(9), planQty: 20, status: 'PENDING', operator: '张师傅' },
+    harvestPlan: { id: 'HP21', orderId: 'DD20260609007', shelterId: 'SH-A01', planDate: deliveryStr(9), planQty: 35, status: 'PENDING', operator: '张师傅' },
     stuckRecord: {
       id: 'STUCK003', orderId: 'DD20260609007', stuckType: 'CUSTOMER_CHANGE',
-      reason: '客户临时改规格:从20扎改为35扎,新增红色系,待销售确认',
+      reason: '客户临时改规格:白玫瑰20扎→红玫瑰35扎,待销售确认后重建采切排期',
       stuckAt: dateStr(3, 20, 15),
     },
   },
@@ -405,3 +438,29 @@ export const mockLogs: OperationLog[] = mockOrders.flatMap((order): OperationLog
   }
   return base;
 });
+
+// 为有改规格历史的订单手动追加改规格操作日志
+const specChangeLogs: OperationLog[] = [];
+mockOrders.forEach((order) => {
+  if (order.specChangeHistory) {
+    order.specChangeHistory.forEach((sch) => {
+      const itemDesc = sch.afterItems.map((i) => `${i.flowerType}${i.color}×${i.quantity}扎`).join('、');
+      const amountDesc = sch.beforeAmount !== sch.afterAmount
+        ? `,金额 ¥${sch.beforeAmount.toLocaleString()} → ¥${sch.afterAmount.toLocaleString()}`
+        : '';
+      const specDesc = sch.beforeSpecNote !== sch.afterSpecNote
+        ? `,包装:${sch.beforeSpecNote.length > 15 ? sch.beforeSpecNote.slice(0, 15) + '...' : sch.beforeSpecNote} → ${sch.afterSpecNote.length > 15 ? sch.afterSpecNote.slice(0, 15) + '...' : sch.afterSpecNote}`
+        : '';
+      specChangeLogs.push({
+        id: `${order.id}-LSCH${sch.id}`,
+        orderId: order.id,
+        role: 'SALES',
+        operatorName: sch.changedBy,
+        action: '修改规格',
+        detail: `明细:${itemDesc}${amountDesc}${specDesc}`,
+        timestamp: sch.changedAt,
+      });
+    });
+  }
+});
+mockLogs.push(...specChangeLogs);

@@ -29,6 +29,15 @@ export interface OrderItem {
   remark: string;
 }
 
+export interface OrderItemSnapshot {
+  flowerType: string;
+  color: string;
+  quantity: number;
+  stemsPerBunch: number;
+  shelterId: string;
+  remark?: string;
+}
+
 export interface HarvestPlan {
   id: string;
   orderId: string;
@@ -53,6 +62,20 @@ export interface StuckRecord {
   previousStatus?: OrderStatus;
 }
 
+export interface SpecChangeRecord {
+  id: string;
+  changedAt: string;
+  changedBy: string;
+  beforeSpecNote: string;
+  afterSpecNote: string;
+  beforeItems: OrderItemSnapshot[];
+  afterItems: OrderItemSnapshot[];
+  beforeAmount: number;
+  afterAmount: number;
+  beforeHarvestPlan?: { shelterId: string; planQty: number };
+  afterHarvestPlan?: { shelterId: string; planQty: number };
+}
+
 export interface CustomerOrder {
   id: string;
   customerName: string;
@@ -71,13 +94,7 @@ export interface CustomerOrder {
   stuckRecord?: StuckRecord;
   logisticsNo?: string;
   packDamageNote?: string;
-  specChangeHistory?: Array<{
-    id: string;
-    changedAt: string;
-    changedBy: string;
-    before: string;
-    after: string;
-  }>;
+  specChangeHistory?: SpecChangeRecord[];
 }
 
 export interface Shelter {
