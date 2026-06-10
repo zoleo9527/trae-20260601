@@ -102,6 +102,9 @@ class StuckItemSchema(Schema):
     responsible_role: str
     status: str
     risk_reason: str
+    handover_node: str
+    stuck_duration: str
+    severity_level: str
 
 def generate_complaint_code():
     count = Complaint.objects.count() + 1
@@ -413,15 +416,29 @@ def get_recent_changes(request):
     return AuditLog.objects.order_by('-timestamp')[:20]
 
 @api.get('/dashboard/stuck', response=list[StuckItemSchema])
-def get_stuck_items(request):
+def get_stuck_items(
+    request,
+    responsible_role: str = None,
+    status: str = None,
+    severity_level: str = None
+):
+    def calculate_duration(start_time):
+        delta = timezone.now() - start_time
+        hours = int(delta.total_seconds() / 3600)
+        days = hours // 24
+        remaining_hours = hours % 24
+        if days > 0:
+            return f'{days}天{hours}小时'
+        return f'{hours}小时' if hours > 0 else '不足1小时'
+    
     stuck_items = []
     
     for complaint in Complaint.objects.filter(status=Complaint.STATUS_PENDING):
         severity_map = {
-            'low': '低',
-            'medium': '中',
-            'high': '高',
-            'critical': '严重'
+            'low': ('低', 'low'),
+            'medium': ('中', 'medium'),
+            'high': ('高', 'high'),
+            'critical': ('严重', 'critical')
         }
         type_map = {
             'weight_gain': '增重缓慢',
@@ -429,36 +446,64 @@ def get_stuck_items(request):
             'ingredient_deviation': '投料偏差',
             'other': '其他'
         }
-        stuck_items.append({
+        severity_text, severity_key = severity_map.get(complaint.severity, ('中', 'medium'))
+        item = {
             'object_code': complaint.complaint_code,
             'batch_number': complaint.batch_number,
             'responsible_role': '质检员',
             'status': '待处理',
-            'risk_reason': f'{type_map.get(complaint.complaint_type, complaint.complaint_type)} - {severity_map.get(complaint.severity, complaint.severity)}风险'
-        })
+            'risk_reason': f'{type_map.get(complaint.complaint_type, complaint.complaint_type)} - {severity_text}风险',
+            'handover_node': '投诉登记',
+            'stuck_duration': calculate_duration(complaint.created_at),
+            'severity_level': severity_key
+        }
+        if _filter_item(item, responsible_role, status, severity_level):
+            stuck_items.append(item)
     
     for record in FeedingRecord.objects.filter(status=FeedingRecord.STATUS_PENDING):
-        risk_reason = '投料偏差超限，需确认' if record.is_deviation_exceeded else '待确认投料记录'
-        stuck_items.append({
+        severity_key = 'high' if record.is_deviation_exceeded else 'medium'
+        severity_text = '高' if record.is_deviation_exceeded else '中'
+        risk_reason = f'投料偏差{"超限" if record.is_deviation_exceeded else ""}，需确认'
+        item = {
             'object_code': record.batch_number,
             'batch_number': record.batch_number,
             'responsible_role': '生产班长',
             'status': '待确认',
-            'risk_reason': risk_reason
-        })
+            'risk_reason': risk_reason,
+            'handover_node': '投料确认',
+            'stuck_duration': calculate_duration(record.created_at),
+            'severity_level': severity_key
+        }
+        if _filter_item(item, responsible_role, status, severity_level):
+            stuck_items.append(item)
     
     for analysis in BatchAnalysis.objects.filter(status=BatchAnalysis.STATUS_COMPLETED):
         result_map = {
-            'normal': '正常',
-            'warning': '警告',
-            'abnormal': '异常'
+            'normal': ('正常', 'low'),
+            'warning': ('警告', 'high'),
+            'abnormal': ('异常', 'critical')
         }
-        stuck_items.append({
+        result_text, severity_key = result_map.get(analysis.result, ('未知', 'medium'))
+        item = {
             'object_code': analysis.analysis_code,
             'batch_number': analysis.batch_number,
             'responsible_role': '配方师',
             'status': '待复核',
-            'risk_reason': f'批次分析完成，分析结果: {result_map.get(analysis.result, analysis.result)}'
-        })
+            'risk_reason': f'批次分析完成，分析结果: {result_text}',
+            'handover_node': '批次分析',
+            'stuck_duration': calculate_duration(analysis.created_at),
+            'severity_level': severity_key
+        }
+        if _filter_item(item, responsible_role, status, severity_level):
+            stuck_items.append(item)
     
-    return sorted(stuck_items, key=lambda x: x['status'])
+    return sorted(stuck_items, key=lambda x: (x['status'], x['severity_level']))
+
+def _filter_item(item, responsible_role, status, severity_level):
+    if responsible_role and item['responsible_role'] != responsible_role:
+        return False
+    if status and item['status'] != status:
+        return False
+    if severity_level and item['severity_level'] != severity_level:
+        return False
+    return True
