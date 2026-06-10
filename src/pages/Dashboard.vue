@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ShoppingCart, Truck, AlertTriangle, Bell } from 'lucide-vue-next'
 import { getStats } from '@/api/stats'
@@ -10,18 +10,18 @@ import { useUnreadCount } from '@/composables/useUnreadCount'
 import type { Stats, Order, Arrival, Notification } from '@/types'
 
 const router = useRouter()
-const { refreshUnread } = useUnreadCount()
+const { unreadCount, refreshUnread } = useUnreadCount()
 const stats = ref<Stats>({ today_orders: 0, pending_arrivals: 0, exception_count: 0, unread_notifications: 0 })
 const recentOrders = ref<Order[]>([])
 const recentArrivals = ref<Arrival[]>([])
 const recentNotifications = ref<Notification[]>([])
 
-const statCards = [
-  { label: '今日订货', key: 'today_orders' as const, icon: ShoppingCart, color: '#5D4037' },
-  { label: '待到货', key: 'pending_arrivals' as const, icon: Truck, color: '#2E7D32' },
-  { label: '异常数', key: 'exception_count' as const, icon: AlertTriangle, color: '#C62828' },
-  { label: '未读通知', key: 'unread_notifications' as const, icon: Bell, color: '#E65100' },
-]
+const statCards = computed(() => [
+  { label: '今日订货', value: stats.value.today_orders, icon: ShoppingCart, color: '#5D4037', path: '' },
+  { label: '待到货', value: stats.value.pending_arrivals, icon: Truck, color: '#2E7D32', path: '' },
+  { label: '异常数', value: stats.value.exception_count, icon: AlertTriangle, color: '#C62828', path: '' },
+  { label: '未读通知', value: unreadCount.value, icon: Bell, color: '#E65100', path: '/notifications' },
+])
 
 const statusMap: Record<string, { label: string; type: string }> = {
   pending: { label: '待确认', type: 'warning' },
@@ -58,14 +58,14 @@ onMounted(async () => {
     <div class="grid grid-cols-4 gap-5 mb-6">
       <div
         v-for="card in statCards"
-        :key="card.key"
+        :key="card.label"
         class="rounded-md p-5 text-white flex items-center gap-4 cursor-pointer transition-transform hover:scale-105"
         :style="{ backgroundColor: card.color }"
-        @click="card.key === 'unread_notifications' ? router.push('/notifications') : undefined"
+        @click="card.path ? router.push(card.path) : undefined"
       >
         <component :is="card.icon" :size="40" class="opacity-80" />
         <div>
-          <div class="text-3xl font-bold">{{ stats[card.key] }}</div>
+          <div class="text-3xl font-bold">{{ card.value }}</div>
           <div class="text-sm opacity-80 mt-1">{{ card.label }}</div>
         </div>
       </div>
