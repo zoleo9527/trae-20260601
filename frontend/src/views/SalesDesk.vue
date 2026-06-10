@@ -1,16 +1,18 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { FileText, Search, Plus, Filter, Eye, CheckCircle, Edit3, AlertTriangle, TrendingUp } from 'lucide-vue-next'
-import { ElTable, ElTableColumn, ElButton, ElInput, ElTag, ElMessage, ElMessageBox } from 'element-plus'
+import { ElTable, ElTableColumn, ElButton, ElInput, ElTag, ElMessage, ElMessageBox, ElDialog, ElForm, ElFormItem, ElSelect, ElOption, ElDatePicker } from 'element-plus'
 import { useOrdersStore } from '@/stores/orders'
 import { useUiStore } from '@/stores/ui'
+import { useSheltersStore } from '@/stores/shelters'
 import StatusTag from '@/components/common/StatusTag.vue'
 import OrderDetailDrawer from '@/components/sales/OrderDetailDrawer.vue'
 import { formatDateTime, cn } from '@/utils'
-import type { OrderStatus } from '@/types'
+import type { OrderStatus, OrderItem } from '@/types'
 
 const ordersStore = useOrdersStore()
 const uiStore = useUiStore()
+const sheltersStore = useSheltersStore()
 
 const searchText = ref('')
 const activeTab = ref<string>('ALL')
@@ -25,7 +27,6 @@ const statusTabs: { key: string; label: string; status?: OrderStatus[] }[] = [
 
 const displayedOrders = computed(() => {
   let list = ordersStore.orders
-  // 搜索
   if (searchText.value) {
     const q = searchText.value.toLowerCase()
     list = list.filter((o) =>
@@ -34,12 +35,10 @@ const displayedOrders = computed(() => {
       o.phone.includes(q),
     )
   }
-  // tab 过滤
   const tab = statusTabs.find((t) => t.key === activeTab.value)
   if (tab?.status) {
     list = list.filter((o) => tab.status!.includes(o.status))
   }
-  // 按更新时间倒序
   return list.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
 })
 
@@ -62,21 +61,23 @@ function handleConfirm(row: any) {
   ordersStore.confirmOrder(row.id)
   ElMessage.success(`已确认订单 ${row.id},采切排期自动推送至种植员工作台`)
 }
+
 function handleChangeSpec(row: any) {
   ElMessageBox.prompt(`当前订单 ${row.id} 修改规格:`, '客户改规格', {
     confirmButtonText: '确认修改',
     cancelButtonText: '取消',
-    inputValue: '',
+    inputValue: row.specNote || '',
     inputPlaceholder: '请输入修改后的规格描述...',
   })
     .then(({ value }) => {
       if (value && value.trim()) {
-        ordersStore.addLog(row.id, 'SALES', '销售-小林', '修改规格', value.trim())
-        ElMessage.success('规格已更新,操作已记录')
+        ordersStore.changeSpec(row.id, value.trim(), '销售-小林')
+        ElMessage.success('规格已更新,改规格历史已记录')
       }
     })
     .catch(() => {})
 }
+
 function handleMarkStuck(row: any) {
   ElMessageBox.prompt(`标记订单 ${row.id} 为异常卡住,请输入原因:`, '标记卡住', {
     confirmButtonText: '确认',
@@ -95,6 +96,82 @@ function handleMarkStuck(row: any) {
       }
     })
     .catch(() => {})
+}
+
+const createDialogVisible = ref(false)
+const newOrder = ref({
+  customerName: '',
+  phone: '',
+  deliveryDate: '',
+  address: '',
+  specNote: '',
+  flowerType: '玫瑰',
+  color: '红色系',
+  quantity: 20,
+  stemsPerBunch: 20,
+  shelterId: 'SH-A01',
+})
+const newOrderItems = ref<Array<{
+  flowerType: string; color: string; quantity: number; stemsPerBunch: number; shelterId: string; remark: string;
+}>>([
+  { flowerType: '玫瑰', color: '红色系', quantity: 20, stemsPerBunch: 20, shelterId: 'SH-A01', remark: '' },
+])
+
+const flowerOptions = [
+  { type: '玫瑰', colors: ['红色系', '粉色系', '白色系'] },
+  { type: '洋牡丹', colors: ['橙色系', '粉色系'] },
+  { type: '绣球', colors: ['蓝色系', '粉色系'] },
+  { type: '满天星', colors: ['白色系'] },
+]
+
+const colorOptions = computed(() => {
+  const found = flowerOptions.find(f => f.type === newOrderItems.value[0]?.flowerType)
+  return found ? found.colors : ['红色系']
+})
+
+function addOrderItem() {
+  newOrderItems.value.push({ flowerType: '玫瑰', color: '红色系', quantity: 10, stemsPerBunch: 20, shelterId: 'SH-A01', remark: '' })
+}
+
+function removeOrderItem(idx: number) {
+  if (newOrderItems.value.length <= 1) return
+  newOrderItems.value.splice(idx, 1)
+}
+
+function openCreateDialog() {
+  newOrder.value = { customerName: '', phone: '', deliveryDate: '', address: '', specNote: '', flowerType: '玫瑰', color: '红色系', quantity: 20, stemsPerBunch: 20, shelterId: 'SH-A01' }
+  newOrderItems.value = [{ flowerType: '玫瑰', color: '红色系', quantity: 20, stemsPerBunch: 20, shelterId: 'SH-A01', remark: '' }]
+  createDialogVisible.value = true
+}
+
+function submitCreateOrder() {
+  const d = newOrder.value
+  if (!d.customerName.trim()) { ElMessage.warning('请填写客户名称'); return }
+  if (!d.phone.trim()) { ElMessage.warning('请填写联系电话'); return }
+  if (!d.deliveryDate) { ElMessage.warning('请选择配送日期'); return }
+  if (!d.address.trim()) { ElMessage.warning('请填写配送地址'); return }
+
+  const items = newOrderItems.value.map((it, idx) => ({
+    flowerType: it.flowerType,
+    color: it.color,
+    quantity: it.quantity,
+    stemsPerBunch: it.stemsPerBunch,
+    shelterId: it.shelterId,
+    remark: it.remark,
+  }))
+
+  const order = ordersStore.addOrder({
+    customerName: d.customerName.trim(),
+    phone: d.phone.trim(),
+    deliveryDate: d.deliveryDate,
+    address: d.address.trim(),
+    specNote: d.specNote.trim() || '标准包装',
+    items,
+  })
+
+  createDialogVisible.value = false
+  ElMessage.success(`订单 ${order.id} 已创建,等待确认`)
+  uiStore.openOrderDrawer(order.id)
 }
 </script>
 
@@ -153,7 +230,7 @@ function handleMarkStuck(row: any) {
         </div>
         <div class="flex gap-2 ml-auto">
           <ElButton :icon="Filter" size="small">高级筛选</ElButton>
-          <ElButton type="primary" :icon="Plus" size="small">新建订单</ElButton>
+          <ElButton type="primary" :icon="Plus" size="small" @click="openCreateDialog">新建订单</ElButton>
         </div>
       </div>
       <div class="flex flex-wrap gap-1 border-b border-neutral-200 pb-0">
@@ -234,6 +311,73 @@ function handleMarkStuck(row: any) {
         </ElTableColumn>
       </ElTable>
     </div>
+
+    <!-- 新建订单对话框 -->
+    <ElDialog v-model="createDialogVisible" title="新建客户订单" width="680px" destroy-on-close :close-on-click-modal="false">
+      <ElForm label-width="90px" label-position="right">
+        <ElFormItem label="客户名称" required>
+          <ElInput v-model="newOrder.customerName" placeholder="花店/公司/个人" />
+        </ElFormItem>
+        <ElFormItem label="联系电话" required>
+          <ElInput v-model="newOrder.phone" placeholder="138****XXXX" />
+        </ElFormItem>
+        <ElFormItem label="配送日期" required>
+          <ElDatePicker v-model="newOrder.deliveryDate" type="date" placeholder="选择配送日期" value-format="YYYY-MM-DD" style="width: 100%" />
+        </ElFormItem>
+        <ElFormItem label="配送地址" required>
+          <ElInput v-model="newOrder.address" placeholder="详细配送地址" />
+        </ElFormItem>
+        <ElFormItem label="包装要求">
+          <ElInput v-model="newOrder.specNote" type="textarea" :rows="2" placeholder="牛皮纸包装+绿色丝带..." />
+        </ElFormItem>
+
+        <div class="mb-4">
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-sm font-semibold text-neutral-700">花卉明细</span>
+            <ElButton size="small" type="primary" plain @click="addOrderItem">+ 添加品种</ElButton>
+          </div>
+          <div class="space-y-3">
+            <div v-for="(item, idx) in newOrderItems" :key="idx"
+              class="p-3 rounded-lg bg-neutral-50 border border-neutral-200 relative">
+              <ElButton v-if="newOrderItems.length > 1"
+                size="small" type="danger" plain circle
+                class="!absolute !top-2 !right-2"
+                @click="removeOrderItem(idx)">×</ElButton>
+              <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
+                <ElFormItem label="品种" label-width="50px" class="!mb-0">
+                  <ElSelect v-model="item.flowerType" placeholder="品种" style="width:100%">
+                    <ElOption v-for="f in flowerOptions" :key="f.type" :label="f.type" :value="f.type" />
+                  </ElSelect>
+                </ElFormItem>
+                <ElFormItem label="色系" label-width="50px" class="!mb-0">
+                  <ElSelect v-model="item.color" placeholder="色系" style="width:100%">
+                    <ElOption v-for="c in (flowerOptions.find(f => f.type === item.flowerType)?.colors || [])" :key="c" :label="c" :value="c" />
+                  </ElSelect>
+                </ElFormItem>
+                <ElFormItem label="棚区" label-width="50px" class="!mb-0">
+                  <ElSelect v-model="item.shelterId" placeholder="棚区" style="width:100%">
+                    <ElOption v-for="s in sheltersStore.shelters" :key="s.id" :label="`${s.name}(${s.flowerType})`" :value="s.id" />
+                  </ElSelect>
+                </ElFormItem>
+                <ElFormItem label="数量" label-width="50px" class="!mb-0">
+                  <ElInput v-model.number="item.quantity" type="number" min="1" placeholder="扎" />
+                </ElFormItem>
+                <ElFormItem label="枝/扎" label-width="50px" class="!mb-0">
+                  <ElInput v-model.number="item.stemsPerBunch" type="number" min="1" placeholder="每扎枝数" />
+                </ElFormItem>
+                <ElFormItem label="备注" label-width="50px" class="!mb-0">
+                  <ElInput v-model="item.remark" placeholder="可选" />
+                </ElFormItem>
+              </div>
+            </div>
+          </div>
+        </div>
+      </ElForm>
+      <template #footer>
+        <ElButton @click="createDialogVisible = false">取消</ElButton>
+        <ElButton type="primary" @click="submitCreateOrder">创建订单</ElButton>
+      </template>
+    </ElDialog>
 
     <!-- 订单详情抽屉 -->
     <OrderDetailDrawer v-model="uiStore.drawerVisible" :order-id="uiStore.selectedOrderId" />

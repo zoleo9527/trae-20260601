@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import { User, Phone, MapPin, Calendar, Banknote, Scissors, Package, Truck, AlertCircle, CheckCircle2, Clock, Edit3 } from 'lucide-vue-next'
+import { User, Phone, MapPin, Calendar, Banknote, Scissors, Package, Truck, AlertCircle, CheckCircle2, Clock, Edit3, History } from 'lucide-vue-next'
 import { ElDrawer, ElButton, ElTag, ElTimeline, ElTimelineItem, ElDivider, ElInput, ElMessageBox, ElMessage } from 'element-plus'
 import { useOrdersStore } from '@/stores/orders'
 import { useUiStore } from '@/stores/ui'
@@ -15,6 +15,7 @@ const ordersStore = useOrdersStore()
 const uiStore = useUiStore()
 
 const resolveInput = ref('')
+const changeSpecInput = ref('')
 
 const order = computed<CustomerOrder | null>(() => props.orderId ? ordersStore.getOrderById(props.orderId) : null)
 const logs = computed(() => props.orderId ? ordersStore.getLogsByOrderId(props.orderId) : [])
@@ -22,6 +23,10 @@ const logs = computed(() => props.orderId ? ordersStore.getLogsByOrderId(props.o
 watch(() => props.modelValue, (v) => {
   if (!v) emit('update:modelValue', false)
 })
+
+watch(order, (o) => {
+  if (o) changeSpecInput.value = o.specNote || ''
+}, { immediate: true })
 
 function close() {
   uiStore.closeDrawer()
@@ -43,6 +48,15 @@ function resolveStuck() {
   ordersStore.resolveStuck(order.value.id, '销售-小林', resolveInput.value.trim())
   resolveInput.value = ''
   ElMessage.success('已恢复,流程继续推进')
+}
+
+function handleChangeSpec() {
+  if (!order.value) return
+  const newSpec = changeSpecInput.value.trim()
+  if (!newSpec) { ElMessage.warning('规格描述不能为空'); return }
+  if (newSpec === order.value.specNote) { ElMessage.info('规格未变更'); return }
+  ordersStore.changeSpec(order.value.id, newSpec, '销售-小林')
+  ElMessage.success('规格已更新,改规格历史已记录')
 }
 
 function confirmShip() {
@@ -159,11 +173,41 @@ function confirmShip() {
       <!-- 快捷操作 -->
       <div class="workspace-card p-4">
         <div class="section-title text-sm"><Edit3 :size="16" class="text-gold-500" /> 快捷操作</div>
-        <div class="flex flex-wrap gap-2">
+        <div class="flex flex-wrap gap-2 mb-4">
           <ElButton v-if="order.status === 'PENDING_CONFIRM'" type="primary" size="small" @click="confirmOrder">确认订单→推送采切</ElButton>
           <ElButton v-if="order.status === 'PACKING'" type="success" size="small" @click="confirmShip">确认发货→自动完成</ElButton>
-          <ElButton v-if="order.status !== 'COMPLETED' && order.status !== 'STUCK'" type="warning" size="small" @click="() => ElMessageBox.alert('功能演示: 规格修改入口', '改规格')">修改规格</ElButton>
-          <ElButton v-if="order.status !== 'COMPLETED' && order.status !== 'STUCK'" type="danger" size="small" plain @click="() => ElMessageBox.alert('功能演示: 异常上报入口', '标记异常')">标记异常卡住</ElButton>
+          <ElButton v-if="order.status !== 'COMPLETED' && order.status !== 'STUCK'" type="danger" size="small" plain @click="() => ElMessageBox.prompt('标记异常原因:', '标记卡住', { confirmButtonText: '确认', cancelButtonText: '取消' }).then(({ value }) => { if (value?.trim()) { ordersStore.reportStuck(order.id, { stuckType: 'CUSTOMER_CHANGE', reason: value.trim(), previousStatus: order.status }); ElMessage.warning('已标记为卡住') } }).catch(() => {})">标记异常卡住</ElButton>
+        </div>
+        <div v-if="order.status !== 'COMPLETED'" class="border-t border-neutral-200 pt-3">
+          <div class="text-xs font-semibold text-neutral-600 mb-2">修改包装规格</div>
+          <div class="flex gap-2">
+            <ElInput v-model="changeSpecInput" type="textarea" :rows="2" placeholder="输入新的规格描述..." class="flex-1" />
+            <ElButton type="warning" size="small" @click="handleChangeSpec" class="self-end">确认修改</ElButton>
+          </div>
+        </div>
+      </div>
+
+      <!-- 改规格历史 -->
+      <div v-if="order.specChangeHistory && order.specChangeHistory.length > 0" class="workspace-card p-4">
+        <div class="section-title text-sm"><History :size="16" class="text-gold-500" /> 改规格历史</div>
+        <div class="space-y-3">
+          <div v-for="sch in [...order.specChangeHistory].reverse()" :key="sch.id"
+            class="p-3 rounded-lg bg-gold-50 border border-gold-100">
+            <div class="flex items-center justify-between mb-1.5">
+              <span class="text-xs font-semibold text-gold-700">{{ sch.changedBy }}</span>
+              <span class="text-[11px] text-neutral-500 data-num">{{ formatDateTime(sch.changedAt) }}</span>
+            </div>
+            <div class="text-xs space-y-1">
+              <div class="flex items-start gap-1.5">
+                <span class="text-neutral-500 flex-shrink-0">变更前:</span>
+                <span class="text-neutral-700 line-through bg-alert-50 px-1 rounded">{{ sch.before }}</span>
+              </div>
+              <div class="flex items-start gap-1.5">
+                <span class="text-neutral-500 flex-shrink-0">变更后:</span>
+                <span class="text-base-700 bg-success-50 px-1 rounded font-medium">{{ sch.after }}</span>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 

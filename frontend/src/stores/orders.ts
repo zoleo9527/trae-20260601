@@ -1,12 +1,14 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
-import type { CustomerOrder, OperationLog, RoleType, OrderStatus, StuckRecord } from '@/types';
+import type { CustomerOrder, OperationLog, RoleType, OrderStatus, StuckRecord, OrderItem } from '@/types';
 import { mockOrders, mockLogs } from '@/mock/data';
 import { orderStatusText } from '@/utils';
 
 export const useOrdersStore = defineStore('orders', () => {
   const orders = ref<CustomerOrder[]>(JSON.parse(JSON.stringify(mockOrders)));
   const logs = ref<OperationLog[]>(JSON.parse(JSON.stringify(mockLogs)));
+
+  const pad = (n: number) => n.toString().padStart(2, '0');
 
   const stuckOrders = computed(() => orders.value.filter((o) => o.status === 'STUCK'));
   const stuckCount = computed(() => stuckOrders.value.length);
@@ -23,11 +25,88 @@ export const useOrdersStore = defineStore('orders', () => {
   function addLog(orderId: string, role: RoleType | 'SYSTEM', operatorName: string, action: string, detail: string, isStuck = false) {
     const id = `${orderId}-L${Date.now()}`;
     const now = new Date();
-    const pad = (n: number) => n.toString().padStart(2, '0');
     const timestamp = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
     logs.value.unshift({ id, orderId, role, operatorName, action, detail, timestamp, isStuck });
     const order = getOrderById(orderId);
     if (order) order.updatedAt = timestamp;
+  }
+
+  function nowStr() {
+    const now = new Date();
+    return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+  }
+
+  function addOrder(data: {
+    customerName: string;
+    phone: string;
+    deliveryDate: string;
+    address: string;
+    specNote: string;
+    items: Omit<OrderItem, 'id' | 'orderId'>[];
+  }) {
+    const seq = (orders.value.length + 1).toString().padStart(3, '0');
+    const id = `DD${new Date().getFullYear()}${pad(new Date().getMonth() + 1)}${pad(new Date().getDate())}${seq}`;
+    const ts = nowStr();
+
+    const items: OrderItem[] = data.items.map((it, idx) => ({
+      ...it,
+      id: `OI${Date.now()}_${idx}`,
+      orderId: id,
+    }));
+
+    const order: CustomerOrder = {
+      id,
+      customerName: data.customerName,
+      phone: data.phone,
+      deliveryDate: data.deliveryDate,
+      address: data.address,
+      status: 'PENDING_CONFIRM',
+      totalAmount: data.items.reduce((s, it) => s + it.quantity * 200, 0),
+      specNote: data.specNote,
+      createdAt: ts,
+      updatedAt: ts,
+      operator: 'SALES',
+      items,
+      harvestPlan: {
+        id: `HP${Date.now()}`,
+        orderId: id,
+        shelterId: items[0]?.shelterId || 'SH-A01',
+        planDate: data.deliveryDate,
+        planQty: items.reduce((s, it) => s + it.quantity, 0),
+        status: 'PENDING',
+        operator: ['李师傅', '王师傅', '张师傅'][Math.floor(Math.random() * 3)],
+      },
+    };
+
+    orders.value.unshift(order);
+    addLog(id, 'SALES', '销售-小林', '创建订单', `新建订单,客户:${data.customerName},共${items.length}个品种`);
+    return order;
+  }
+
+  function changeSpec(id: string, newSpecNote: string, changedBy: string) {
+    const order = getOrderById(id);
+    if (!order) return;
+    const before = order.specNote;
+    if (before === newSpecNote) return;
+
+    const changeRecord = {
+      id: `SCH${Date.now()}`,
+      changedAt: nowStr(),
+      changedBy,
+      before,
+      after: newSpecNote,
+    };
+
+    if (!order.specChangeHistory) {
+      order.specChangeHistory = [];
+    }
+    order.specChangeHistory.push(changeRecord);
+
+    order.specNote = newSpecNote;
+
+    const beforeShort = before.length > 20 ? before.slice(0, 20) + '...' : before;
+    const afterShort = newSpecNote.length > 20 ? newSpecNote.slice(0, 20) + '...' : newSpecNote;
+    addLog(id, 'SALES', changedBy, '修改规格', `${beforeShort} → ${afterShort}`);
   }
 
   function updateOrderStatus(id: string, status: OrderStatus, operator: RoleType) {
@@ -82,15 +161,33 @@ export const useOrdersStore = defineStore('orders', () => {
   function resolveStuck(id: string, resolver: string, resolution: string) {
     const order = getOrderById(id);
     if (!order || !order.stuckRecord) return;
-    const pad = (n: number) => n.toString().padStart(2, '0');
-    const now = new Date();
-    const nowStr = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
-    order.stuckRecord.resolvedAt = nowStr;
+    const ts = nowStr();
+    order.stuckRecord.resolvedAt = ts;
     order.stuckRecord.resolver = resolver;
     order.stuckRecord.resolution = resolution;
-    const prev = order.previousStatus || order.status;
-    order.status = prev === 'STUCK' ? 'HARVESTING' : prev;
-    addLog(id, order.operator, resolver, '恢复卡住', resolution);
+
+    const stuckType = order.stuckRecord.stuckType;
+    const prev = order.previousStatus || 'PENDING_CONFIRM';
+
+    if (stuckType === 'CUSTOMER_CHANGE') {
+      order.status = 'PENDING_CONFIRM';
+      order.operator = 'SALES';
+      addLog(id, 'SALES', resolver, '恢复卡住·客户改规格', `${resolution} → 订单回到待确认,等待销售确认新规格`);
+    } else if (stuckType === 'FORECAST_DEVIATION') {
+      order.status = 'HARVESTING';
+      order.operator = 'GROWER';
+      if (order.harvestPlan) {
+        order.harvestPlan.status = 'HARVESTING';
+      }
+      addLog(id, 'GROWER', resolver, '恢复卡住·花期异常', `${resolution} → 采切继续`);
+    } else if (stuckType === 'PACKAGE_DAMAGE') {
+      order.status = 'PACKING';
+      order.operator = 'PACKER';
+      addLog(id, 'PACKER', resolver, '恢复卡住·包装破损', `${resolution} → 包装继续`);
+    } else {
+      order.status = prev === 'STUCK' ? 'HARVESTING' : prev;
+      addLog(id, order.operator, resolver, '恢复卡住', resolution);
+    }
   }
 
   function confirmShip(id: string, logisticsNo: string) {
@@ -122,6 +219,8 @@ export const useOrdersStore = defineStore('orders', () => {
     getOrderById,
     getLogsByOrderId,
     addLog,
+    addOrder,
+    changeSpec,
     updateOrderStatus,
     confirmOrder,
     completeHarvest,
