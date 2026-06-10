@@ -79,6 +79,15 @@ router.get('/:farmerId/credit', async (req: Request, res: Response) => {
   }
 })
 
+router.get('/:farmerId/overview', async (req: Request, res: Response) => {
+  try {
+    const overview = await farmerService.getCreditOverview(req.params.farmerId)
+    res.json({ success: true, data: overview })
+  } catch (error: any) {
+    res.status(404).json({ success: false, error: error.message })
+  }
+})
+
 router.delete('/:farmerId', async (req: Request, res: Response) => {
   try {
     await farmerService.deleteFarmer(req.params.farmerId)

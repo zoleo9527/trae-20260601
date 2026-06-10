@@ -1,5 +1,9 @@
 import { FarmerRepository } from '../repositories/FarmerRepository'
+import { OrderRepository } from '../repositories/OrderRepository'
+import { RepaymentRepository } from '../repositories/RepaymentRepository'
 import { IFarmer } from '../models/Farmer'
+import { ICreditOrder } from '../models/CreditOrder'
+import { IRepayment } from '../models/Repayment'
 import { v4 as uuidv4 } from 'uuid'
 
 export interface CreateFarmerRequest {
@@ -28,11 +32,54 @@ export interface FarmerCreditResult {
   creditLevel: string
 }
 
+export interface FarmerOrderSummary {
+  orderId: string
+  totalAmount: number
+  status: string
+  createdAt: Date
+  creatorId?: string
+  creatorName?: string
+  approverId?: string
+  approverName?: string
+  shipperId?: string
+  shipperName?: string
+  completerId?: string
+  completerName?: string
+}
+
+export interface FarmerRepaymentSummary {
+  repaymentId: string
+  orderId: string
+  amount: number
+  paidAmount: number
+  status: string
+  createdAt: Date
+}
+
+export interface FarmerCreditOverview {
+  farmerId: string
+  name: string
+  phone: string
+  address: string
+  landArea: number
+  crops: string[]
+  creditLevel: string
+  creditLimit: number
+  currentDebt: number
+  availableCredit: number
+  pendingRepayments: FarmerRepaymentSummary[]
+  recentOrders: FarmerOrderSummary[]
+}
+
 export class FarmerService {
   private farmerRepository: FarmerRepository
+  private orderRepository: OrderRepository
+  private repaymentRepository: RepaymentRepository
 
   constructor() {
     this.farmerRepository = new FarmerRepository()
+    this.orderRepository = new OrderRepository()
+    this.repaymentRepository = new RepaymentRepository()
   }
 
   async createFarmer(request: CreateFarmerRequest): Promise<IFarmer> {
@@ -164,6 +211,54 @@ export class FarmerService {
       creditLimit: farmer.creditLimit,
       availableCredit: farmer.creditLimit - farmer.currentDebt,
       creditLevel: farmer.creditLevel
+    }
+  }
+
+  async getCreditOverview(farmerId: string): Promise<FarmerCreditOverview> {
+    const farmer = await this.getFarmerById(farmerId)
+    
+    const orders = await this.orderRepository.findByFarmerId(farmerId)
+    const repayments = await this.repaymentRepository.findByFarmerId(farmerId)
+
+    const recentOrders: FarmerOrderSummary[] = orders.map(order => ({
+      orderId: order.orderId,
+      totalAmount: order.totalAmount,
+      status: order.status,
+      createdAt: order.createdAt,
+      creatorId: order.creatorId,
+      creatorName: order.creatorName,
+      approverId: order.approverId,
+      approverName: order.approverName,
+      shipperId: order.shipperId,
+      shipperName: order.shipperName,
+      completerId: order.completerId,
+      completerName: order.completerName
+    })).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+
+    const pendingRepayments: FarmerRepaymentSummary[] = repayments
+      .filter(r => r.status !== 'paid')
+      .map(repayment => ({
+        repaymentId: repayment.repaymentId,
+        orderId: repayment.orderId,
+        amount: repayment.amount,
+        paidAmount: repayment.paidAmount,
+        status: repayment.status,
+        createdAt: repayment.createdAt
+      })).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+
+    return {
+      farmerId: farmer.farmerId,
+      name: farmer.name,
+      phone: farmer.phone,
+      address: farmer.address,
+      landArea: farmer.landArea,
+      crops: farmer.crops,
+      creditLevel: farmer.creditLevel,
+      creditLimit: farmer.creditLimit,
+      currentDebt: farmer.currentDebt,
+      availableCredit: farmer.creditLimit - farmer.currentDebt,
+      pendingRepayments,
+      recentOrders
     }
   }
 
