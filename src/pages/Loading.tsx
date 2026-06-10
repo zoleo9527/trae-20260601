@@ -42,6 +42,7 @@ const inspectionVariants: Record<string, 'default' | 'success' | 'warning' | 'da
   rework: 'danger',
 };
 
+export default function LoadingPage() {
   const [allBatches, setAllBatches] = useState<LoadingBatch[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState('all');
@@ -74,11 +75,17 @@ const inspectionVariants: Record<string, 'default' | 'success' | 'warning' | 'da
     setShowChangeHistory(false);
   };
 
+  const getOperatorName = () => {
+    if (currentRole === 'grower') return '李建国';
+    if (currentRole === 'sales') return '孙销售';
+    return '钱主管';
+  };
+
   const handleConfirm = async (confirmed: boolean) => {
     if (!selectedBatch) return;
 
     try {
-      const confirmer = currentRole === 'packaging' ? '钱主管' : '赵质检';
+      const confirmer = getOperatorName();
       await loadingApi.confirm(selectedBatch.id, confirmer, confirmed);
       showToastMessage(confirmed ? '装车复核确认成功' : '已退回处理', 'success');
       setShowDetail(false);
@@ -118,14 +125,13 @@ const inspectionVariants: Record<string, 'default' | 'success' | 'warning' | 'da
     if (!selectedBatch) return;
     setAcknowledging(true);
     try {
-      const { currentUser } = useAppStore.getState();
-      await loadingApi.acknowledgeChange(selectedBatch.id, currentUser?.name);
+      const operator = getOperatorName();
+      await loadingApi.acknowledgeChange(selectedBatch.id, operator);
+      const updatedBatch: LoadingBatch = { ...selectedBatch, inspectionChanged: false };
+      setSelectedBatch(updatedBatch);
+      setAllBatches(prev => prev.map(b => b.id === selectedBatch.id ? updatedBatch : b));
       showToastMessage("已确认质检变更，高亮已清除", "success");
       setShowChangeHistory(false);
-      if (selectedBatch) {
-        selectedBatch.inspectionChanged = false;
-      }
-      await loadBatches();
     } catch (e) {
       showToastMessage("操作失败", "error");
     } finally {
