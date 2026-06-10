@@ -86,7 +86,10 @@ export default function Dashboard() {
   const stats = [
     {
       label: '待处理审核',
-      value: audits.filter(a => a.nodes.some(n => n.status === 'pending' || n.status === 'stuck')).length,
+      value: audits.filter(a => {
+        const s = a.status || 'processing';
+        return s === 'pending' || s === 'processing' || s === 'stuck';
+      }).length,
       icon: Car,
       color: 'text-orange-600',
       bgColor: 'bg-orange-50',
