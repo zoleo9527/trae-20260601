@@ -38,6 +38,7 @@ async function listComplaints(filters = {}) {
   if (filters.status) where.status = filters.status;
   if (filters.category) where.category = filters.category;
   if (filters.handlerId) where.handlerId = filters.handlerId;
+  if (filters.batchCode) where.batchCode = filters.batchCode;
   return prisma.complaint.findMany({
     where,
     orderBy: { createdAt: 'desc' },

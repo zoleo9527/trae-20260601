@@ -289,12 +289,26 @@ paths:
   /api/batching-plans/{id}:
     get:
       tags: [投料计划]
-      summary: 计划详情（含配方、投料记录、质检）
+      summary: 计划详情（含配方、投料记录、质检、异常线索）
+      description: |
+        anomalySummary 包含：
+        - deviationAlerts: 投料偏差率 |deviationRate|≥5% 的记录
+        - labelAlerts: 质检中 batchLabelOk=false 的记录
+        - relatedComplaints: batchCode 关联的客户投诉摘要
       parameters:
         - $ref: '#/components/parameters/PlanId'
       responses:
         '200':
           description: 成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessWrapper'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/BatchingPlanDetail'
         '404':
           $ref: '#/components/responses/NotFound'
 
@@ -381,7 +395,7 @@ paths:
           description: 传入配方编号时，跨所有版本查询投料计划（覆盖 formulaId）
       responses:
         '200':
-          description: 历史计划列表
+          description: 历史计划列表（每个计划含 anomalySummary 计数：deviationAlertCount / labelAlertCount / relatedComplaintCount）
 
   /api/quality/inspections:
     post:
@@ -439,6 +453,13 @@ paths:
           in: query
           schema:
             type: string
+            enum: [增重慢, 标签错误]
+          description: 按投诉类别筛选
+        - name: batchCode
+          in: query
+          schema:
+            type: string
+          description: 按投料计划批次编号筛选关联投诉
         - name: handlerId
           in: query
           schema:
@@ -684,6 +705,154 @@ components:
           type: boolean
         remarks:
           type: string
+
+    AnomalySummary:
+      type: object
+      description: 计划详情中的异常线索（含明细）
+      properties:
+        deviationAlerts:
+          type: array
+          description: 投料偏差率 |deviationRate|≥5% 的记录
+          items:
+            $ref: '#/components/schemas/BatchingRecord'
+        labelAlerts:
+          type: array
+          description: 质检中 batchLabelOk=false 的记录
+          items:
+            $ref: '#/components/schemas/InspectionRecord'
+        relatedComplaints:
+          type: array
+          description: batchCode 关联的客户投诉摘要
+          items:
+            $ref: '#/components/schemas/ComplaintSummary'
+
+    AnomalySummaryLite:
+      type: object
+      description: 历史列表中的异常线索（仅计数）
+      properties:
+        deviationAlertCount:
+          type: integer
+          description: 投料偏差率超阈值记录数
+        labelAlertCount:
+          type: integer
+          description: 批次标签异常记录数
+        relatedComplaintCount:
+          type: integer
+          description: 关联投诉数
+
+    BatchingPlanDetail:
+      type: object
+      description: 投料计划详情（含异常线索）
+      properties:
+        id:
+          type: integer
+        code:
+          type: string
+        formulaId:
+          type: integer
+        plannedQty:
+          type: number
+        actualQty:
+          type: number
+          nullable: true
+        status:
+          type: string
+        shift:
+          type: string
+        plannedAt:
+          type: string
+          format: date-time
+        startedAt:
+          type: string
+          format: date-time
+          nullable: true
+        completedAt:
+          type: string
+          format: date-time
+          nullable: true
+        creatorId:
+          type: integer
+        formula:
+          type: object
+        records:
+          type: array
+          items:
+            $ref: '#/components/schemas/BatchingRecord'
+        inspections:
+          type: array
+          items:
+            type: object
+        anomalySummary:
+          $ref: '#/components/schemas/AnomalySummary'
+
+    BatchingRecord:
+      type: object
+      properties:
+        id:
+          type: integer
+        planId:
+          type: integer
+        materialName:
+          type: string
+        plannedWeight:
+          type: number
+        actualWeight:
+          type: number
+          nullable: true
+        deviation:
+          type: number
+          nullable: true
+        deviationRate:
+          type: number
+          nullable: true
+        operator:
+          type: string
+          nullable: true
+        recordedAt:
+          type: string
+          format: date-time
+
+    InspectionRecord:
+      type: object
+      properties:
+        id:
+          type: integer
+        planId:
+          type: integer
+        inspectorId:
+          type: integer
+        batchLabelOk:
+          type: boolean
+        deviationOk:
+          type: boolean
+        remarks:
+          type: string
+          nullable: true
+        inspectedAt:
+          type: string
+          format: date-time
+
+    ComplaintSummary:
+      type: object
+      description: 关联投诉摘要
+      properties:
+        id:
+          type: integer
+        code:
+          type: string
+        category:
+          type: string
+          enum: [增重慢, 标签错误]
+        status:
+          type: string
+          enum: [open, handling, resolved]
+        farmerName:
+          type: string
+        description:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
 
     ComplaintCreateInput:
       type: object

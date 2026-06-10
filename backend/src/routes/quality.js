@@ -50,11 +50,12 @@ router.get(
   roleGuard('quality_inspector', 'formulation_engineer'),
   async (req, res, next) => {
     try {
-      const { status, category, handlerId } = req.query;
+      const { status, category, handlerId, batchCode } = req.query;
       const filters = {};
       if (status) filters.status = status;
       if (category) filters.category = category;
       if (handlerId) filters.handlerId = parseInt(handlerId, 10);
+      if (batchCode) filters.batchCode = batchCode;
 
       const complaints = await qualityService.listComplaints(filters);
       res.json({ success: true, data: complaints });

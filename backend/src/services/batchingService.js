@@ -2,6 +2,52 @@ const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 const AppError = require('../errors/AppError');
 
+const DEVIATION_THRESHOLD = 5.0;
+
+function buildAnomalySummary(plan, complaints) {
+  const deviationAlerts = (plan.records || []).filter(
+    (r) => r.deviationRate !== null && Math.abs(r.deviationRate) >= DEVIATION_THRESHOLD
+  );
+
+  const labelAlerts = (plan.inspections || []).filter(
+    (i) => i.batchLabelOk === false
+  );
+
+  const relatedComplaints = complaints.map((c) => ({
+    id: c.id,
+    code: c.code,
+    category: c.category,
+    status: c.status,
+    farmerName: c.farmerName,
+    description: c.description,
+    createdAt: c.createdAt,
+  }));
+
+  return {
+    deviationAlerts,
+    labelAlerts,
+    relatedComplaints,
+  };
+}
+
+function buildAnomalySummaryLite(plan, complaints) {
+  const deviationAlertCount = (plan.records || []).filter(
+    (r) => r.deviationRate !== null && Math.abs(r.deviationRate) >= DEVIATION_THRESHOLD
+  ).length;
+
+  const labelAlertCount = (plan.inspections || []).filter(
+    (i) => i.batchLabelOk === false
+  ).length;
+
+  const relatedComplaintCount = complaints.length;
+
+  return {
+    deviationAlertCount,
+    labelAlertCount,
+    relatedComplaintCount,
+  };
+}
+
 async function listPlans(filters = {}) {
   const where = {};
   if (filters.status) where.status = filters.status;
@@ -26,7 +72,15 @@ async function getPlanById(id) {
     },
   });
   if (!plan) throw new AppError(404, 'NOT_FOUND', '资源不存在');
-  return plan;
+
+  const complaints = await prisma.complaint.findMany({
+    where: { batchCode: plan.code },
+    orderBy: { createdAt: 'desc' },
+  });
+
+  const anomalySummary = buildAnomalySummary(plan, complaints);
+
+  return { ...plan, anomalySummary };
 }
 
 async function createPlan(data) {
@@ -136,10 +190,33 @@ async function getPlanHistory(formulaId, formulaCode) {
     where.formulaId = formulaId;
   }
 
-  return prisma.batchingPlan.findMany({
+  const plans = await prisma.batchingPlan.findMany({
     where,
-    include: { formula: true, records: true },
+    include: { formula: true, records: true, inspections: true },
     orderBy: { plannedAt: 'desc' },
+  });
+
+  const planCodes = plans.map((p) => p.code);
+  const allComplaints = planCodes.length > 0
+    ? await prisma.complaint.findMany({
+        where: { batchCode: { in: planCodes } },
+        orderBy: { createdAt: 'desc' },
+      })
+    : [];
+
+  const complaintsByCode = new Map();
+  for (const c of allComplaints) {
+    if (!c.batchCode) continue;
+    if (!complaintsByCode.has(c.batchCode)) {
+      complaintsByCode.set(c.batchCode, []);
+    }
+    complaintsByCode.get(c.batchCode).push(c);
+  }
+
+  return plans.map((plan) => {
+    const complaints = complaintsByCode.get(plan.code) || [];
+    const anomalySummary = buildAnomalySummaryLite(plan, complaints);
+    return { ...plan, anomalySummary };
   });
 }
 
