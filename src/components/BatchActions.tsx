@@ -19,6 +19,7 @@ export default function BatchActions({ onRefresh }: BatchActionsProps) {
 
   const handleBatchCheckin = async () => {
     setLoading('checkin')
+    setSuccessCount(0)
     setErrors([])
     try {
       const res = await batchCheckin(selectedIds)
@@ -38,6 +39,7 @@ export default function BatchActions({ onRefresh }: BatchActionsProps) {
 
   const handleBatchReview = async () => {
     setLoading('review')
+    setSuccessCount(0)
     setErrors([])
     try {
       const res = await batchReview(selectedIds, true)

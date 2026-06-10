@@ -110,7 +110,7 @@ export default function OrderList() {
       if (typeFilter.length > 0 && !typeFilter.includes(o.maintenanceType)) {
         return false
       }
-      if (onlyMine && o.currentHandler !== currentRole) {
+      if (onlyMine && (o.currentHandler !== currentRole || o.status === 'completed' || o.status === 'rejected')) {
         return false
       }
       if (onlyAnomaly && !o.checkinAnomaly) {
