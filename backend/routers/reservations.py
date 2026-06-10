@@ -114,14 +114,14 @@ def confirm_reservation(reservation_id: int, handler_name: str, actual_qty: floa
     if not r:
         raise HTTPException(status_code=404, detail="预约不存在")
     old_status = r.status
+    original_qty = r.reserved_qty
     r.status = "confirmed"
     r.handler_name = handler_name
-    if actual_qty is not None:
-        r.actual_qty = actual_qty
 
     append_note = f"\n[{datetime.now().strftime('%m-%d %H:%M')}] {handler_name}: 确认预约"
     if actual_qty is not None and actual_qty != r.reserved_qty:
-        append_note += f"，调整预约量为{actual_qty}斤"
+        r.reserved_qty = actual_qty
+        append_note += f"，原预约{original_qty}斤调整为{actual_qty}斤"
     if r.overbook_flag:
         inv_items = db.query(InventoryItem).filter(InventoryItem.fruit_type == r.fruit_type).all()
         available = sum(i.quantity for i in inv_items if i.grade in ("A", "B"))
@@ -139,7 +139,7 @@ def confirm_reservation(reservation_id: int, handler_name: str, actual_qty: floa
         action=f"确认预约: {old_status} → confirmed",
         operator_name=handler_name,
         operator_role="customer_service",
-        notes=f"预约#{r.id}已确认" + (f"，调整量为{actual_qty}斤" if actual_qty else ""),
+        notes=f"预约#{r.id}已确认" + (f"，调整量为{actual_qty}斤（原{original_qty}斤）" if actual_qty and actual_qty != original_qty else ""),
     )
     db.add(log)
     db.commit()

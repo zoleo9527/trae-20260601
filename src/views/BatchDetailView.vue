@@ -50,20 +50,21 @@ const nextAction = computed(() => {
 
 const workflowSteps = computed(() => {
   if (!batch.value) return []
+  const s = batch.value.status
   const steps = [
     { key: 'picked', label: '采摘提交', done: true },
     { key: 'loss', label: '损耗上报', done: losses.value.length > 0 },
-    { key: 'grading', label: '果品分级', done: ['graded', 'warehousing', 'stored'].includes(batch.value.status) },
-    { key: 'warehousing', label: '入库中', done: batch.value.status === 'stored' },
-    { key: 'stored', label: '已入库', done: batch.value.status === 'stored' },
+    { key: 'grading', label: '果品分级', done: ['graded', 'warehousing', 'stored'].includes(s) },
+    { key: 'warehousing', label: '入库中', done: s === 'stored', inProgress: s === 'warehousing' },
+    { key: 'stored', label: '已入库', done: s === 'stored' },
   ]
   const statusToStepIdx: Record<string, number> = {
-    picked: 0, grading: 2, graded: 3, warehousing: 4, stored: 4,
+    picked: 0, grading: 2, graded: 3, warehousing: 3, stored: 4,
   }
-  const curIdx = statusToStepIdx[batch.value.status] ?? 0
-  return steps.map((s, i) => ({
-    ...s,
-    active: i === curIdx && !s.done,
+  const curIdx = statusToStepIdx[s] ?? 0
+  return steps.map((step, i) => ({
+    ...step,
+    active: step.inProgress || (i === curIdx && !step.done),
     order: i,
   }))
 })
@@ -282,6 +283,7 @@ function formatTime(t: string | null) {
                 'badge-gray': batch.status === 'picked',
                 'badge-info': batch.status === 'grading',
                 'badge-warning': batch.status === 'graded',
+                'badge-primary': batch.status === 'warehousing',
                 'badge-success': batch.status === 'stored',
               }">{{ STATUS_LABELS[batch.status] }}</span>
             </span>

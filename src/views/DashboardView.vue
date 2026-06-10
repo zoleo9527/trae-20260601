@@ -253,7 +253,8 @@ function goToInventory() {
                 <span class="badge" :class="{
                   'badge-success': b.status === 'stored',
                   'badge-info': b.status === 'grading',
-                  'badge-warning': b.status === 'graded' || b.status === 'warehousing',
+                  'badge-warning': b.status === 'graded',
+                  'badge-primary': b.status === 'warehousing',
                   'badge-gray': b.status === 'picked',
                 }">{{ STATUS_LABELS[b.status] }}</span>
               </td>
@@ -365,7 +366,8 @@ function goToInventory() {
                 <span class="badge" :class="{
                   'badge-success': b.status === 'stored',
                   'badge-info': b.status === 'grading',
-                  'badge-warning': b.status === 'graded' || b.status === 'warehousing',
+                  'badge-warning': b.status === 'graded',
+                  'badge-primary': b.status === 'warehousing',
                   'badge-gray': b.status === 'picked',
                 }">{{ STATUS_LABELS[b.status] }}</span>
               </td>

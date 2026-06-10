@@ -235,9 +235,13 @@ function formatTime(t: string | null) {
             <span class="detail-label">预约量</span>
             <span class="detail-value">{{ reservation.reserved_qty }} 斤</span>
           </div>
-          <div class="detail-item">
+          <div class="detail-item" v-if="reservation.actual_qty > 0 && reservation.status === 'completed'">
             <span class="detail-label">实际量</span>
-            <span class="detail-value">{{ reservation.actual_qty > 0 ? reservation.actual_qty + ' 斤' : '未确认' }}</span>
+            <span class="detail-value">{{ reservation.actual_qty }} 斤</span>
+          </div>
+          <div class="detail-item" v-else-if="reservation.status === 'confirmed'">
+            <span class="detail-label">待采摘</span>
+            <span class="detail-value text-green">{{ reservation.reserved_qty }} 斤</span>
           </div>
           <div class="detail-item">
             <span class="detail-label">处理人</span>
@@ -325,7 +329,7 @@ function formatTime(t: string | null) {
         <p class="text-sm text-gray mb-4">完成后系统将自动从库存中扣减对应数量。</p>
         <div v-if="completeCheck" class="alert" :class="completeCheck.can_complete_full ? 'alert-info' : 'alert-danger'" >
           当前{{ reservation?.fruit_type }}ABC级可用库存: {{ completeCheck.available_abc }}斤
-          <span v-if="!completeCheck.can_complete_full"> · ⚠️ 不足以完成原预约量{{ reservation?.reserved_qty }}斤，最多可完成{{ completeCheck.max_completable_qty }}斤</span>
+          <span v-if="!completeCheck.can_complete_full"> · ⚠️ 不足以完成确认量{{ reservation?.reserved_qty }}斤，最多可完成{{ completeCheck.max_completable_qty }}斤</span>
         </div>
         <div v-if="completeError" class="alert alert-danger">
           ⚠️ {{ completeError }}
