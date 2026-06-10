@@ -111,6 +111,10 @@ function formatTime(t: string | null) {
   if (!t) return ''
   return new Date(t).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })
 }
+
+function viewInventoryLogs(batchNo: string) {
+  router.push({ name: 'inventory-changelog', query: { batch: batchNo } })
+}
 </script>
 
 <template>
@@ -131,7 +135,16 @@ function formatTime(t: string | null) {
 
     <template v-else>
       <div v-if="batch" class="card">
-        <h3 class="card-title">📦 采摘批次信息</h3>
+        <div class="card-header-row">
+          <h3 class="card-title">📦 采摘批次信息</h3>
+          <button
+            v-if="record && record.status === 'confirmed'"
+            class="btn btn-outline btn-sm"
+            @click="viewInventoryLogs(batch.batch_no)"
+          >
+            📋 查看库存变动
+          </button>
+        </div>
         <div class="batch-detail-grid">
           <div class="detail-item">
             <span class="detail-label">批次号</span>
@@ -439,5 +452,12 @@ function formatTime(t: string | null) {
 @media (max-width: 768px) {
   .batch-detail-grid { grid-template-columns: repeat(2, 1fr); }
   .grade-grid { grid-template-columns: 1fr; }
+}
+
+.card-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
 }
 </style>

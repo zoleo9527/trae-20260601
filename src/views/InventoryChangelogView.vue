@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { inventoryApi, batchApi } from '../api/resources'
 import { GRADE_LABELS, ROLE_LABELS } from '../types'
 import type { InventoryChangeLog, InventoryItem, FruitBatch } from '../types'
 
+const route = useRoute()
 const router = useRouter()
 const changeLogs = ref<InventoryChangeLog[]>([])
 const inventory = ref<InventoryItem[]>([])
@@ -13,6 +14,7 @@ const loading = ref(true)
 const filterBatchNo = ref('')
 const filterFruitType = ref('')
 const filterChangeType = ref('')
+const hasAppliedQuery = ref(false)
 
 const fruitTypes = computed(() => {
   const set = new Set<string>()
@@ -51,6 +53,11 @@ const stats = computed(() => {
 
 onMounted(async () => {
   await Promise.all([loadLogs(), loadInventory(), loadBatches()])
+  const queryBatchNo = route.query.batch as string
+  if (queryBatchNo) {
+    filterBatchNo.value = queryBatchNo
+    hasAppliedQuery.value = true
+  }
   loading.value = false
 })
 
@@ -79,6 +86,8 @@ function clearFilter() {
   filterBatchNo.value = ''
   filterFruitType.value = ''
   filterChangeType.value = ''
+  hasAppliedQuery.value = false
+  router.replace({ query: {} })
 }
 
 function formatTime(t: string | null) {
@@ -150,6 +159,10 @@ function viewBatch(batchNo: string) {
     </div>
 
     <div class="card mb-4">
+      <div v-if="hasAppliedQuery && filterBatchNo" class="filter-active-alert">
+        <span>🔍 已自动筛选批次 <strong>{{ filterBatchNo }}</strong> 相关的库存变动</span>
+        <button class="btn btn-ghost btn-sm ml-auto" @click="clearFilter">清除筛选</button>
+      </div>
       <div class="filter-row">
         <div class="filter-item">
           <label class="filter-label">批次号/预约号</label>
@@ -308,6 +321,23 @@ function viewBatch(batchNo: string) {
 
 .clickable-badge { cursor: pointer; }
 .clickable-badge:hover { opacity: 0.8; }
+
+.filter-active-alert {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  margin-bottom: 14px;
+  background: #e3f2fd;
+  border-left: 4px solid #1976d2;
+  border-radius: 6px;
+  font-size: 13px;
+  color: #1565c0;
+}
+
+.filter-active-alert .ml-auto {
+  margin-left: auto;
+}
 
 @media (max-width: 768px) {
   .stats-row { grid-template-columns: repeat(2, 1fr); }

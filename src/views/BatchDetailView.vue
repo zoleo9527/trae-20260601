@@ -182,6 +182,10 @@ function formatTime(t: string | null) {
   if (!t) return ''
   return new Date(t).toLocaleString('zh-CN')
 }
+
+function viewInventoryLogs(batchNo: string) {
+  router.push({ name: 'inventory-changelog', query: { batch: batchNo } })
+}
 </script>
 
 <template>
@@ -246,7 +250,16 @@ function formatTime(t: string | null) {
       </div>
 
       <div class="card">
-        <h3 class="card-title">📦 批次基本信息</h3>
+        <div class="card-header-row">
+          <h3 class="card-title">📦 批次基本信息</h3>
+          <button
+            v-if="['grading', 'graded', 'warehousing', 'stored'].includes(batch.status)"
+            class="btn btn-outline btn-sm"
+            @click="viewInventoryLogs(batch.batch_no)"
+          >
+            📋 查看库存变动
+          </button>
+        </div>
         <div class="detail-grid">
           <div class="detail-item">
             <span class="detail-label">批次号</span>
