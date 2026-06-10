@@ -1,0 +1,88 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  username  String   @unique
+  password  String
+  name      String
+  role      String
+  phone     String?
+  createdAt DateTime @default(now())
+  hotspotAreas  HotspotArea[]   @relation("Submitter")
+  dispatched    HotspotArea[]   @relation("Dispatcher")
+  accepted      DispatchOrder[] @relation("Acceptor")
+  assigned      DispatchOrder[] @relation("Assignee")
+  comments      CommentHistory[]
+  attachments   Attachment[]
+}
+
+model HotspotArea {
+  id          String   @id @default(cuid())
+  title       String
+  location    String
+  latitude    Float?
+  longitude   Float?
+  description String
+  bikeCount   Int
+  urgency     Int      @default(2)
+  status      String   @default("PENDING")
+  submitterId String
+  dispatcherId String?
+  submittedAt DateTime @default(now())
+  dispatchedAt DateTime?
+  completedAt DateTime?
+  submitter   User     @relation("Submitter", fields: [submitterId], references: [id])
+  dispatcher  User?    @relation("Dispatcher", fields: [dispatcherId], references: [id])
+  dispatchOrders DispatchOrder[]
+  comments     CommentHistory[]
+  attachments  Attachment[]
+}
+
+model DispatchOrder {
+  id          String   @id @default(cuid())
+  hotspotId   String
+  orderNo     String   @unique
+  instructions String
+  assigneeId  String?
+  acceptorId  String?
+  acceptedAt  DateTime?
+  completedAt DateTime?
+  createdAt   DateTime @default(now())
+  hotspot     HotspotArea @relation(fields: [hotspotId], references: [id], onDelete: Cascade)
+  assignee    User?    @relation("Assignee", fields: [assigneeId], references: [id])
+  acceptor    User?    @relation("Acceptor", fields: [acceptorId], references: [id])
+  comments    CommentHistory[]
+}
+
+model CommentHistory {
+  id         String   @id @default(cuid())
+  hotspotId  String?
+  dispatchId String?
+  authorId   String
+  actionType String
+  content    String
+  createdAt  DateTime @default(now())
+  hotspot    HotspotArea? @relation(fields: [hotspotId], references: [id], onDelete: Cascade)
+  dispatch   DispatchOrder? @relation(fields: [dispatchId], references: [id], onDelete: Cascade)
+  author     User     @relation(fields: [authorId], references: [id])
+}
+
+model Attachment {
+  id         String   @id @default(cuid())
+  hotspotId  String?
+  filename   String
+  fileType   String
+  fileSize   Int      @default(0)
+  placeholderUrl String
+  uploadedBy String
+  uploadedAt DateTime @default(now())
+  hotspot    HotspotArea? @relation(fields: [hotspotId], references: [id], onDelete: Cascade)
+  uploader   User     @relation(fields: [uploadedBy], references: [id])
+}
