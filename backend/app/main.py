@@ -304,6 +304,18 @@ def create_deployment_batch(data: schemas.DeploymentBatchCreate, db: Session = D
         if not vehicle:
             raise HTTPException(status_code=404, detail=f"车辆 {item.vehicle_id} 不存在")
 
+        has_issue_feedback = db.query(models.RegionFeedback).join(
+            models.DeploymentRecord, models.RegionFeedback.deployment_id == models.DeploymentRecord.id
+        ).filter(
+            models.DeploymentRecord.vehicle_id == item.vehicle_id,
+            models.RegionFeedback.feedback_type == FeedbackType.ISSUE
+        ).first()
+        if has_issue_feedback:
+            raise HTTPException(
+                status_code=400,
+                detail=f"车辆 {vehicle.bike_code} 存在未解决的异常反馈，需完成返修后才能重新投放"
+            )
+
         if item.repair_order_id:
             repair_order = db.query(models.RepairOrder).filter(
                 models.RepairOrder.id == item.repair_order_id
@@ -395,7 +407,17 @@ def review_deployment(deployment_id: int, data: schemas.DeploymentReview, db: Se
         if data.status == DeploymentStatus.CONFIRMED:
             vehicle.status = VehicleStatus.IN_SERVICE
         elif data.status == DeploymentStatus.ISSUE_FOUND:
-            vehicle.status = VehicleStatus.BROKEN
+            vehicle.status = VehicleStatus.IN_REPAIR
+            if deployment.repair_order_id:
+                order = db.query(models.RepairOrder).filter(
+                    models.RepairOrder.id == deployment.repair_order_id
+                ).first()
+                if order:
+                    order.status = RepairStatus.PENDING
+                    order.parts_available = True
+                    order.reject_reason = None
+                    order.complete_time = None
+                    order.repair_note = None
 
     db.commit()
     db.refresh(deployment)
@@ -412,9 +434,32 @@ def create_feedback(feedback: schemas.RegionFeedbackCreate, db: Session = Depend
     ).first()
     if not deployment:
         raise HTTPException(status_code=404, detail="投放记录不存在")
+    if deployment.target_region_id != feedback.region_id:
+        raise HTTPException(
+            status_code=400,
+            detail=f"投放记录目标区域为 {deployment.target_region_id}，与反馈区域 {feedback.region_id} 不一致"
+        )
 
     db_feedback = models.RegionFeedback(**feedback.model_dump())
     db.add(db_feedback)
+
+    if feedback.feedback_type == FeedbackType.ISSUE:
+        vehicle = db.query(models.Vehicle).filter(
+            models.Vehicle.id == deployment.vehicle_id
+        ).first()
+        if vehicle:
+            vehicle.status = VehicleStatus.IN_REPAIR
+        if deployment.repair_order_id:
+            order = db.query(models.RepairOrder).filter(
+                models.RepairOrder.id == deployment.repair_order_id
+            ).first()
+            if order:
+                order.status = RepairStatus.PENDING
+                order.parts_available = True
+                order.reject_reason = None
+                order.complete_time = None
+                order.repair_note = None
+
     db.commit()
     db.refresh(db_feedback)
     return db_feedback
