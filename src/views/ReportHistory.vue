@@ -22,6 +22,7 @@ function handleStatusClick(reportId: string) {
   const report = reportStore.getReportById(reportId)
   if (report && (report.status === 'isolating' || report.status === 'resolved')) {
     localStorage.setItem('current_role', 'manager')
+    reportStore.setRole('manager')
     router.push({ name: 'isolation-review' })
   }
 }

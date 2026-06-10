@@ -2,12 +2,10 @@
 import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useReportStore } from '@/stores/reportStore'
-import { useIsolationStore } from '@/stores/isolationStore'
 import StatusBadge from '@/components/StatusBadge.vue'
 
 const router = useRouter()
 const reportStore = useReportStore()
-const isolationStore = useIsolationStore()
 
 const stats = computed(() => reportStore.stats)
 const pendingReports = computed(() => reportStore.pendingReports)
@@ -15,10 +13,6 @@ const confirmedReports = computed(() => reportStore.confirmedReports)
 
 function goToReportDetail(id: string) {
   router.push({ name: 'report-detail', params: { id } })
-}
-
-function goToIsolationReview() {
-  router.push({ name: 'isolation-review' })
 }
 
 function formatDate(dateStr: string) {

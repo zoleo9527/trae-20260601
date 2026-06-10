@@ -19,8 +19,6 @@ const form = ref({
   handlingMeasures: ''
 })
 
-const isSubmitting = ref(false)
-
 function handleSubmit() {
   if (!report.value) return
   if (!form.value.isolationReason.trim() || !form.value.handlingMeasures.trim()) {
@@ -28,9 +26,7 @@ function handleSubmit() {
     return
   }
 
-  isSubmitting.value = true
-
-  const isolation = isolationStore.createIsolation({
+  isolationStore.createIsolation({
     reportId: report.value.id,
     reportCode: report.value.reportCode,
     barnNumber: report.value.barnNumber,
@@ -42,8 +38,6 @@ function handleSubmit() {
   })
 
   reportStore.loadReports()
-
-  isSubmitting.value = false
   alert('隔离处理已启动')
   router.push({ name: 'report-detail', params: { id: report.value.id } })
 }

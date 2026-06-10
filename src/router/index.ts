@@ -52,8 +52,7 @@ const router = createRouter({
   ]
 })
 
-router.beforeEach((to, from, next) => {
-  const publicRoutes = ['role-select', 'report-new', 'report-history']
+router.beforeEach((to, _from, next) => {
   const role = localStorage.getItem('current_role') as Role | null
 
   if (!role && to.name !== 'role-select') {

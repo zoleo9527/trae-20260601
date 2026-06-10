@@ -24,7 +24,9 @@ function formatDate(dateStr: string) {
 function handleStatusClick(reportId: string) {
   const report = reportStore.getReportById(reportId)
   if (report && (report.status === 'isolating' || report.status === 'resolved')) {
-    router.push({ name: 'report-history' })
+    localStorage.setItem('current_role', 'manager')
+    reportStore.setRole('manager')
+    router.push({ name: 'isolation-review' })
   }
 }
 </script>
