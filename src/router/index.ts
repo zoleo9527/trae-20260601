@@ -53,9 +53,14 @@ const router = createRouter({
 })
 
 router.beforeEach((to, _from, next) => {
+  if (to.name === 'role-select') {
+    next()
+    return
+  }
+
   const role = localStorage.getItem('current_role') as Role | null
 
-  if (!role && to.name !== 'role-select') {
+  if (!role) {
     next({ name: 'role-select' })
     return
   }
