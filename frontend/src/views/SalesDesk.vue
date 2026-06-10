@@ -16,6 +16,36 @@ const sheltersStore = useSheltersStore()
 
 const searchText = ref('')
 const activeTab = ref<string>('ALL')
+const filterVisible = ref(false)
+const filters = ref({
+  deliveryDateStart: '',
+  deliveryDateEnd: '',
+  status: '' as OrderStatus | '',
+  flowerType: '',
+  shelterId: '',
+})
+
+const hasActiveFilters = computed(() => {
+  return filters.value.deliveryDateStart ||
+    filters.value.deliveryDateEnd ||
+    filters.value.status ||
+    filters.value.flowerType ||
+    filters.value.shelterId
+})
+
+function clearFilters() {
+  filters.value = {
+    deliveryDateStart: '',
+    deliveryDateEnd: '',
+    status: '',
+    flowerType: '',
+    shelterId: '',
+  }
+}
+
+function removeFilter(key: string) {
+  ;(filters.value as any)[key] = ''
+}
 
 const changeSpecDialogVisible = ref(false)
 const changeSpecOrderId = ref<string | null>(null)
@@ -44,7 +74,28 @@ const displayedOrders = computed(() => {
   if (tab?.status) {
     list = list.filter((o) => tab.status!.includes(o.status))
   }
-  return list.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+  if (filters.value.status) {
+    list = list.filter((o) => o.status === filters.value.status)
+  }
+  if (filters.value.flowerType) {
+    list = list.filter((o) => o.items.some((it) => it.flowerType === filters.value.flowerType))
+  }
+  if (filters.value.shelterId) {
+    list = list.filter((o) => o.items.some((it) => it.shelterId === filters.value.shelterId))
+  }
+  if (filters.value.deliveryDateStart) {
+    list = list.filter((o) => o.deliveryDate >= filters.value.deliveryDateStart)
+  }
+  if (filters.value.deliveryDateEnd) {
+    list = list.filter((o) => o.deliveryDate <= filters.value.deliveryDateEnd)
+  }
+  const priority: Record<string, number> = { STUCK: 0, PENDING_CONFIRM: 1 }
+  return list.sort((a, b) => {
+    const pa = priority[a.status] ?? 2
+    const pb = priority[b.status] ?? 2
+    if (pa !== pb) return pa - pb
+    return b.updatedAt.localeCompare(a.updatedAt)
+  })
 })
 
 const tabCount = (status?: OrderStatus[]) => {
@@ -283,10 +334,72 @@ function submitCreateOrder() {
           <ElInput v-model="searchText" placeholder="搜索订单号/客户名/手机号..." clearable class="pl-7" />
         </div>
         <div class="flex gap-2 ml-auto">
-          <ElButton :icon="Filter" size="small">高级筛选</ElButton>
+          <ElButton :icon="Filter" size="small" :type="filterVisible || hasActiveFilters ? 'primary' : 'default'" @click="filterVisible = !filterVisible">
+            高级筛选
+            <span v-if="hasActiveFilters" class="ml-1 text-[10px] bg-alert-500 text-white rounded-full w-4 h-4 inline-flex items-center justify-center">{{ ['deliveryDateStart','deliveryDateEnd','status','flowerType','shelterId'].filter(k => (filters as any)[k]).length }}</span>
+          </ElButton>
           <ElButton type="primary" :icon="Plus" size="small" @click="openCreateDialog">新建订单</ElButton>
         </div>
       </div>
+
+      <!-- 高级筛选面板 -->
+      <div v-if="filterVisible" class="mb-4 p-4 rounded-lg bg-neutral-50 border border-neutral-200">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div>
+            <div class="text-xs text-neutral-500 mb-1.5">配送日期</div>
+            <div class="flex gap-2">
+              <ElDatePicker v-model="filters.deliveryDateStart" type="date" placeholder="开始日期" value-format="YYYY-MM-DD" size="small" style="flex: 1" />
+              <span class="text-xs text-neutral-400 self-center">至</span>
+              <ElDatePicker v-model="filters.deliveryDateEnd" type="date" placeholder="结束日期" value-format="YYYY-MM-DD" size="small" style="flex: 1" />
+            </div>
+          </div>
+          <div>
+            <div class="text-xs text-neutral-500 mb-1.5">订单状态</div>
+            <ElSelect v-model="filters.status" placeholder="全部状态" clearable size="small" style="width: 100%">
+              <ElOption label="待确认" value="PENDING_CONFIRM" />
+              <ElOption label="已确认" value="CONFIRMED" />
+              <ElOption label="采切中" value="HARVESTING" />
+              <ElOption label="包装中" value="PACKING" />
+              <ElOption label="已完成" value="COMPLETED" />
+              <ElOption label="卡住异常" value="STUCK" />
+            </ElSelect>
+          </div>
+          <div>
+            <div class="text-xs text-neutral-500 mb-1.5">花卉品种</div>
+            <ElSelect v-model="filters.flowerType" placeholder="全部品种" clearable size="small" style="width: 100%">
+              <ElOption v-for="f in flowerOptions" :key="f.type" :label="f.type" :value="f.type" />
+            </ElSelect>
+          </div>
+          <div>
+            <div class="text-xs text-neutral-500 mb-1.5">棚区</div>
+            <ElSelect v-model="filters.shelterId" placeholder="全部棚区" clearable size="small" style="width: 100%">
+              <ElOption v-for="s in sheltersStore.shelters" :key="s.id" :label="`${s.name}(${s.flowerType})`" :value="s.id" />
+            </ElSelect>
+          </div>
+        </div>
+        <div class="flex justify-end mt-3 pt-3 border-t border-neutral-200">
+          <ElButton size="small" @click="clearFilters">清空筛选</ElButton>
+        </div>
+      </div>
+
+      <!-- 已生效筛选条件 -->
+      <div v-if="hasActiveFilters" class="mb-4 flex flex-wrap items-center gap-2">
+        <span class="text-xs text-neutral-500">已筛选:</span>
+        <ElTag v-if="filters.deliveryDateStart || filters.deliveryDateEnd" closable size="small" type="warning" @close="removeFilter('deliveryDateStart'); removeFilter('deliveryDateEnd')">
+          配送日期: {{ filters.deliveryDateStart || '不限' }} ~ {{ filters.deliveryDateEnd || '不限' }}
+        </ElTag>
+        <ElTag v-if="filters.status" closable size="small" type="primary" @close="removeFilter('status')">
+          状态: {{ { PENDING_CONFIRM: '待确认', CONFIRMED: '已确认', HARVESTING: '采切中', PACKING: '包装中', COMPLETED: '已完成', STUCK: '卡住异常' }[filters.status] }}
+        </ElTag>
+        <ElTag v-if="filters.flowerType" closable size="small" type="success" @close="removeFilter('flowerType')">
+          品种: {{ filters.flowerType }}
+        </ElTag>
+        <ElTag v-if="filters.shelterId" closable size="small" type="info" @close="removeFilter('shelterId')">
+          棚区: {{ sheltersStore.shelters.find(s => s.id === filters.shelterId)?.name || filters.shelterId }}
+        </ElTag>
+        <button class="text-xs text-base-600 hover:text-base-700 underline ml-2" @click="clearFilters">一键清空</button>
+      </div>
+
       <div class="flex flex-wrap gap-1 border-b border-neutral-200 pb-0">
         <button v-for="tab in statusTabs" :key="tab.key"
           @click="activeTab = tab.key"
