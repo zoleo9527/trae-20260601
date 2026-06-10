@@ -17,7 +17,10 @@ import {
   Checkbox,
   Alert,
   Divider,
-  Steps
+  Steps,
+  Drawer,
+  Select,
+  DatePicker
 } from 'antd';
 import {
   TruckOutlined,
@@ -27,21 +30,28 @@ import {
   EyeOutlined,
   ReloadOutlined,
   FileTextOutlined,
-  AlertCircleOutlined
+  AlertCircleOutlined,
+  PlusOutlined,
+  HistoryOutlined,
+  ChevronRightOutlined
 } from '@ant-design/icons';
 import {
   CustomerOrder,
   LoadingRecord,
   Formula,
   FeedingRecord,
-  FeedBatch
+  FeedBatch,
+  ExceptionRecord,
+  ExceptionType,
+  ExceptionTypeNames
 } from '../types';
-import { orderApi, loadingRecordApi, formulaApi, feedingRecordApi } from '../api';
+import { orderApi, loadingRecordApi, formulaApi, feedingRecordApi, exceptionApi } from '../api';
 import { useAppStore } from '../store';
 import dayjs from 'dayjs';
 
 const { Title, Text } = Typography;
 const { TextArea } = Input;
+const { Option } = Select;
 
 const LoadingReviewPage: React.FC = () => {
   const { currentRole, currentUser } = useAppStore();
@@ -53,6 +63,7 @@ const LoadingReviewPage: React.FC = () => {
   const [loadingRecord, setLoadingRecord] = useState<LoadingRecord | null>(null);
   const [formulas, setFormulas] = useState<Formula[]>([]);
   const [feedingRecords, setFeedingRecords] = useState<FeedingRecord[]>([]);
+  const [exceptions, setExceptions] = useState<ExceptionRecord[]>([]);
   const [reviewItems, setReviewItems] = useState<{
     itemId: string;
     formulaName: string;
@@ -64,21 +75,24 @@ const LoadingReviewPage: React.FC = () => {
     discrepancy?: string;
   }[]>([]);
   const [form] = Form.useForm();
-  const [showExceptionDrawer, setShowExceptionDrawer] = useState(false);
+  const [exceptionDrawerVisible, setExceptionDrawerVisible] = useState(false);
+  const [orderExceptions, setOrderExceptions] = useState<ExceptionRecord[]>([]);
 
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [ordersData, recordsData, formulasData, feedingData] = await Promise.all([
+      const [ordersData, recordsData, formulasData, feedingData, exceptionsData] = await Promise.all([
         orderApi.getAll('READY'),
         loadingRecordApi.getAll(),
         formulaApi.getAll(),
-        feedingRecordApi.getAll()
+        feedingRecordApi.getAll(),
+        exceptionApi.getAll()
       ]);
       setReadyOrders(ordersData);
       setLoadingRecords(recordsData);
       setFormulas(formulasData);
       setFeedingRecords(feedingData);
+      setExceptions(exceptionsData);
     } catch (error) {
       message.error('加载数据失败');
     } finally {
@@ -94,12 +108,18 @@ const LoadingReviewPage: React.FC = () => {
     setSelectedOrder(order);
     
     try {
-      const existingRecord = loadingRecordApi.getAll(order.orderId);
-      const record = (await existingRecord)[0];
+      const existingRecords = await loadingRecordApi.getAll(order.orderId);
+      const record = existingRecords[0];
       
       if (record) {
         setLoadingRecord(record);
         setReviewItems(record.items.map(item => ({ ...item })));
+        form.setFieldsValue({
+          vehicleNo: record.vehicleNo,
+          driverName: record.driverName,
+          driverPhone: record.driverPhone,
+          remarks: record.remarks
+        });
       } else {
         const newRecord = await loadingRecordApi.create({
           orderId: order.orderId,
@@ -111,19 +131,33 @@ const LoadingReviewPage: React.FC = () => {
         setLoadingRecord(newRecord);
         setReviewItems(newRecord.items.map(item => ({ ...item })));
       }
+
+      const orderExceptionList = exceptions.filter(e => e.orderId === order.orderId);
+      setOrderExceptions(orderExceptionList);
       setReviewModalVisible(true);
     } catch (error) {
       message.error('创建复核记录失败');
     }
   };
 
-  const handleViewReview = (record: LoadingRecord) => {
+  const handleViewReview = async (record: LoadingRecord) => {
     setLoadingRecord(record);
     setReviewItems(record.items.map(item => ({ ...item })));
-    
-    orderApi.getById(record.orderId).then(order => {
-      setSelectedOrder(order);
+    form.setFieldsValue({
+      vehicleNo: record.vehicleNo,
+      driverName: record.driverName,
+      driverPhone: record.driverPhone,
+      remarks: record.remarks
     });
+    
+    try {
+      const order = await orderApi.getById(record.orderId);
+      setSelectedOrder(order);
+      const orderExceptionList = exceptions.filter(e => e.orderId === record.orderId);
+      setOrderExceptions(orderExceptionList);
+    } catch (error) {
+      message.error('加载订单信息失败');
+    }
     
     setReviewModalVisible(true);
   };
@@ -156,13 +190,42 @@ const LoadingReviewPage: React.FC = () => {
         driverPhone: values.driverPhone
       });
 
-      message.success(status === 'PASSED' ? '复核通过，订单已装车' : '复核未通过，已记录差异');
+      message.success(status === 'PASSED' ? '复核通过，订单已装车' : '复核未通过，已记录差异并生成异常');
       setReviewModalVisible(false);
       setSelectedOrder(null);
       setLoadingRecord(null);
+      setOrderExceptions([]);
+      form.resetFields();
       fetchData();
     } catch (error) {
       message.error('操作失败');
+    }
+  };
+
+  const handleAddException = async (values: any) => {
+    if (!selectedOrder) return;
+
+    try {
+      await exceptionApi.create({
+        type: values.type,
+        title: values.title,
+        description: values.description,
+        severity: values.severity,
+        reportedBy: currentUser,
+        orderId: selectedOrder.orderId,
+        customerId: selectedOrder.customerId
+      });
+      
+      message.success('异常已上报');
+      setExceptionDrawerVisible(false);
+      fetchData();
+      
+      if (selectedOrder) {
+        const orderExceptionList = exceptions.filter(e => e.orderId === selectedOrder.orderId);
+        setOrderExceptions(orderExceptionList);
+      }
+    } catch (error) {
+      message.error('上报失败');
     }
   };
 
@@ -391,9 +454,11 @@ const LoadingReviewPage: React.FC = () => {
           setReviewModalVisible(false);
           setSelectedOrder(null);
           setLoadingRecord(null);
+          setOrderExceptions([]);
+          form.resetFields();
         }}
         footer={null}
-        width={1000}
+        width={1100}
         destroyOnHidden
       >
         {selectedOrder && (
@@ -409,7 +474,7 @@ const LoadingReviewPage: React.FC = () => {
             />
 
             <Row gutter={16}>
-              <Col span={12}>
+              <Col span={10}>
                 <Card title="订单信息" size="small">
                   <Descriptions column={1} size="small">
                     <Descriptions.Item label="订单编号">{selectedOrder.orderNo}</Descriptions.Item>
@@ -423,19 +488,79 @@ const LoadingReviewPage: React.FC = () => {
                 </Card>
               </Col>
 
-              <Col span={12}>
+              <Col span={7}>
                 <Card title="车辆信息" size="small">
                   <Form form={form} layout="vertical">
-                    <Form.Item label="车牌号" name="vehicleNo">
+                    <Form.Item label="车牌号" name="vehicleNo" rules={[{ required: true, message: '请输入车牌号' }]}>
                       <Input placeholder="请输入车牌号" />
                     </Form.Item>
-                    <Form.Item label="司机姓名" name="driverName">
+                    <Form.Item label="司机姓名" name="driverName" rules={[{ required: true, message: '请输入司机姓名' }]}>
                       <Input placeholder="请输入司机姓名" />
                     </Form.Item>
-                    <Form.Item label="联系电话" name="driverPhone">
+                    <Form.Item label="联系电话" name="driverPhone" rules={[{ required: true, message: '请输入联系电话' }]}>
                       <Input placeholder="请输入联系电话" />
                     </Form.Item>
                   </Form>
+                </Card>
+              </Col>
+
+              <Col span={7}>
+                <Card 
+                  title={
+                    <Space>
+                      <AlertCircleOutlined style={{ color: '#ff4d4f' }} />
+                      <span>异常记录</span>
+                      <Tag color={orderExceptions.length > 0 ? 'red' : 'green'}>
+                        {orderExceptions.length}
+                      </Tag>
+                    </Space>
+                  }
+                  size="small"
+                  extra={
+                    (currentRole === 'QUALITY' || currentRole === 'MANAGER') && (
+                      <Button 
+                        type="link" 
+                        size="small" 
+                        icon={<PlusOutlined />}
+                        onClick={() => setExceptionDrawerVisible(true)}
+                      >
+                        添加异常
+                      </Button>
+                    )
+                  }
+                >
+                  {orderExceptions.length > 0 ? (
+                    <div style={{ maxHeight: 180, overflowY: 'auto' }}>
+                      {orderExceptions.map(exception => (
+                        <div 
+                          key={exception.exceptionId}
+                          style={{ 
+                            padding: 8, 
+                            borderBottom: '1px solid #f0f0f0',
+                            marginBottom: 8,
+                            background: exception.severity === 'HIGH' || exception.severity === 'CRITICAL' 
+                              ? '#fff2f0' 
+                              : '#fff7e6'
+                          }}
+                        >
+                          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                            <Text strong>{exception.title}</Text>
+                            <Tag color={exception.severity === 'HIGH' || exception.severity === 'CRITICAL' ? 'red' : 'orange'}>
+                              {exception.severity === 'HIGH' ? '高' : exception.severity === 'CRITICAL' ? '严重' : '中'}
+                            </Tag>
+                          </div>
+                          <div style={{ fontSize: 12, color: '#666' }}>
+                            {ExceptionTypeNames[exception.type]} | {dayjs(exception.reportedAt).format('MM-DD HH:mm')}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div style={{ textAlign: 'center', padding: 20, color: '#999', fontSize: 12 }}>
+                      <HistoryOutlined style={{ fontSize: 24, marginBottom: 8, display: 'block' }} />
+                      暂无异常记录
+                    </div>
+                  )}
                 </Card>
               </Col>
             </Row>
@@ -564,7 +689,7 @@ const LoadingReviewPage: React.FC = () => {
                       placeholder="差异说明（如有）"
                       value={item.discrepancy}
                       onChange={(e) => updateReviewItem(index, 'discrepancy', e.target.value)}
-                      style={{ width: 250, marginLeft: 16 }}
+                      style={{ width: 300, marginLeft: 16 }}
                     />
                   </div>
                 ))}
@@ -618,7 +743,13 @@ const LoadingReviewPage: React.FC = () => {
 
                 <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
                   <Space>
-                    <Button onClick={() => setReviewModalVisible(false)}>取消</Button>
+                    <Button onClick={() => {
+                      setReviewModalVisible(false);
+                      setSelectedOrder(null);
+                      setLoadingRecord(null);
+                      setOrderExceptions([]);
+                      form.resetFields();
+                    }}>取消</Button>
                     <Button
                       type="primary"
                       onClick={() => form.validateFields().then(handleSubmitReview)}
@@ -632,6 +763,67 @@ const LoadingReviewPage: React.FC = () => {
           </>
         )}
       </Modal>
+
+      <Drawer
+        title="📝 上报异常"
+        width={450}
+        placement="right"
+        onClose={() => setExceptionDrawerVisible(false)}
+        open={exceptionDrawerVisible}
+      >
+        <Form
+          layout="vertical"
+          onFinish={handleAddException}
+        >
+          <Form.Item
+            label="异常类型"
+            name="type"
+            rules={[{ required: true, message: '请选择异常类型' }]}
+          >
+            <Select placeholder="请选择异常类型">
+              {Object.entries(ExceptionTypeNames).map(([key, value]) => (
+                <Option key={key} value={key}>{value}</Option>
+              ))}
+            </Select>
+          </Form.Item>
+
+          <Form.Item
+            label="异常标题"
+            name="title"
+            rules={[{ required: true, message: '请输入异常标题' }]}
+          >
+            <Input placeholder="请输入异常标题" />
+          </Form.Item>
+
+          <Form.Item
+            label="异常描述"
+            name="description"
+            rules={[{ required: true, message: '请输入异常描述' }]}
+          >
+            <TextArea rows={4} placeholder="请详细描述异常情况" />
+          </Form.Item>
+
+          <Form.Item
+            label="严重程度"
+            name="severity"
+            rules={[{ required: true, message: '请选择严重程度' }]}
+          >
+            <Select placeholder="请选择严重程度">
+              <Option value="LOW">低</Option>
+              <Option value="MEDIUM">中</Option>
+              <Option value="HIGH">高</Option>
+              <Option value="CRITICAL">严重</Option>
+            </Select>
+          </Form.Item>
+
+          <Form.Item style={{ marginTop: 24 }}>
+            <Space style={{ width: '100%', justifyContent: 'flex-end' }}>
+              <Button onClick={() => setExceptionDrawerVisible(false)}>取消</Button>
+              <Button type="primary" htmlType="submit">提交上报</Button>
+            </Space>
+          </Form.Item>
+        </Form>
+      </Drawer>
     </div>
   );
 };

@@ -251,7 +251,7 @@ router.post('/loading-records', (req: Request, res: Response) => {
 
 router.put('/loading-records/:id', (req: Request, res: Response) => {
   const { id } = req.params;
-  const body: UpdateLoadingRequest = req.body;
+  const body: any = req.body;
 
   const record = store.getLoadingRecordById(id);
   if (!record) {
@@ -259,31 +259,66 @@ router.put('/loading-records/:id', (req: Request, res: Response) => {
   }
 
   const updatedItems = record.items.map(item => {
-    const update = body.items.find(i => i.itemId === item.itemId);
+    const update = body.items.find((i: any) => i.itemId === item.itemId);
     return update ? { ...item, ...update } : item;
   });
 
   const discrepancies = updatedItems
-    .filter(item => item.discrepancy)
-    .map(item => `${item.formulaName}: ${item.discrepancy}`);
+    .filter((item: any) => item.discrepancy)
+    .map((item: any) => `${item.formulaName}: ${item.discrepancy}`);
 
   const updated = store.updateLoadingRecord(id, {
     items: updatedItems,
     status: body.status,
     remarks: body.remarks,
-    discrepancies
+    discrepancies,
+    vehicleNo: body.vehicleNo || record.vehicleNo,
+    driverName: body.driverName || record.driverName,
+    driverPhone: body.driverPhone || record.driverPhone
   });
 
   const order = store.getOrderById(record.orderId);
-  if (order && body.status === 'PASSED') {
-    store.updateOrder(record.orderId, {
-      status: 'LOADED',
-      loadingAt: new Date().toISOString(),
-      loadedBy: record.checker,
-      vehicleNo: record.vehicleNo,
-      driverName: record.driverName,
-      driverPhone: record.driverPhone
-    });
+  if (order) {
+    if (body.status === 'PASSED') {
+      store.updateOrder(record.orderId, {
+        status: 'LOADED',
+        loadingAt: new Date().toISOString(),
+        loadedBy: record.checker,
+        vehicleNo: body.vehicleNo || record.vehicleNo,
+        driverName: body.driverName || record.driverName,
+        driverPhone: body.driverPhone || record.driverPhone
+      });
+    } else if (body.status === 'REJECTED') {
+      store.updateOrder(record.orderId, {
+        status: 'EXCEPTION',
+        loadingAt: new Date().toISOString(),
+        loadedBy: record.checker
+      });
+
+      const exceptionTitle = `装车复核驳回 - 订单 ${order.orderNo}`;
+      const exceptionDesc = discrepancies.length > 0 
+        ? `复核不通过，差异项：${discrepancies.join('; ')}`
+        : '装车复核未通过';
+
+      const newException = {
+        exceptionId: uuidv4(),
+        orderId: record.orderId,
+        batchId: updatedItems[0]?.batchId,
+        customerId: order.customerId,
+        type: 'FORMULA_DEVIATION' as const,
+        title: exceptionTitle,
+        description: exceptionDesc,
+        severity: discrepancies.length > 0 ? 'HIGH' : 'MEDIUM' as const,
+        status: 'REPORTED' as const,
+        reportedBy: record.checker,
+        reportedAt: new Date().toISOString(),
+        relatedOrders: [record.orderId],
+        relatedBatches: updatedItems.map((item: any) => item.batchId).filter(Boolean)
+      };
+
+      store.addException(newException);
+      addLog(record.checker, 'QUALITY', '创建异常记录', 'Exception', newException.exceptionId, exceptionTitle);
+    }
   }
 
   const action = body.status === 'PASSED' ? '复核通过' : '复核驳回';
