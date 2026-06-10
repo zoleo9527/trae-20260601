@@ -229,9 +229,16 @@ class RegionFeedback(BaseModel):
     description: Optional[str] = None
     reporter: Optional[str] = None
     reported_at: datetime
+    resolved: bool = False
+    resolved_at: Optional[datetime] = None
+    resolved_by: Optional[str] = None
 
     class Config:
         from_attributes = True
+
+
+class FeedbackResolve(BaseModel):
+    resolved_by: str = Field(..., min_length=1)
 
 
 InboundItem.model_rebuild()

@@ -176,6 +176,9 @@ class RegionFeedback(Base):
     description = Column(Text)
     reporter = Column(String(100))
     reported_at = Column(DateTime, default=datetime.utcnow)
+    resolved = Column(Boolean, default=False, nullable=False)
+    resolved_at = Column(DateTime)
+    resolved_by = Column(String(100))
 
     region = relationship("Region", back_populates="feedbacks")
     deployment = relationship("DeploymentRecord", back_populates="feedbacks")

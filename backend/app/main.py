@@ -232,6 +232,18 @@ def complete_repair_order(order_id: int, data: schemas.RepairComplete, db: Sessi
     if vehicle:
         vehicle.status = VehicleStatus.REPAIRED
 
+    unresolved_feedbacks = db.query(models.RegionFeedback).join(
+        models.DeploymentRecord, models.RegionFeedback.deployment_id == models.DeploymentRecord.id
+    ).filter(
+        models.DeploymentRecord.vehicle_id == order.vehicle_id,
+        models.RegionFeedback.feedback_type == FeedbackType.ISSUE,
+        models.RegionFeedback.resolved == False
+    ).all()
+    for fb in unresolved_feedbacks:
+        fb.resolved = True
+        fb.resolved_at = datetime.utcnow()
+        fb.resolved_by = f"system:repair_order_{order.id}"
+
     db.commit()
     db.refresh(order)
     return order
@@ -308,7 +320,8 @@ def create_deployment_batch(data: schemas.DeploymentBatchCreate, db: Session = D
             models.DeploymentRecord, models.RegionFeedback.deployment_id == models.DeploymentRecord.id
         ).filter(
             models.DeploymentRecord.vehicle_id == item.vehicle_id,
-            models.RegionFeedback.feedback_type == FeedbackType.ISSUE
+            models.RegionFeedback.feedback_type == FeedbackType.ISSUE,
+            models.RegionFeedback.resolved == False
         ).first()
         if has_issue_feedback:
             raise HTTPException(
@@ -470,6 +483,7 @@ def list_feedback(
     region_id: Optional[int] = None,
     deployment_id: Optional[int] = None,
     feedback_type: Optional[FeedbackType] = None,
+    resolved: Optional[bool] = None,
     db: Session = Depends(get_db)
 ):
     query = db.query(models.RegionFeedback)
@@ -479,7 +493,28 @@ def list_feedback(
         query = query.filter(models.RegionFeedback.deployment_id == deployment_id)
     if feedback_type:
         query = query.filter(models.RegionFeedback.feedback_type == feedback_type)
+    if resolved is not None:
+        query = query.filter(models.RegionFeedback.resolved == resolved)
     return query.order_by(models.RegionFeedback.reported_at.desc()).all()
+
+
+@app.post("/feedback/{feedback_id}/resolve", response_model=schemas.RegionFeedback, tags=["区域反馈"])
+def resolve_feedback(feedback_id: int, data: schemas.FeedbackResolve, db: Session = Depends(get_db)):
+    feedback = db.query(models.RegionFeedback).filter(models.RegionFeedback.id == feedback_id).first()
+    if not feedback:
+        raise HTTPException(status_code=404, detail="反馈记录不存在")
+    if feedback.resolved:
+        raise HTTPException(status_code=400, detail="该反馈已关闭")
+    if feedback.feedback_type != FeedbackType.ISSUE:
+        raise HTTPException(status_code=400, detail="只有异常反馈需要关闭处理")
+
+    feedback.resolved = True
+    feedback.resolved_at = datetime.utcnow()
+    feedback.resolved_by = data.resolved_by
+
+    db.commit()
+    db.refresh(feedback)
+    return feedback
 
 
 @app.get("/regions/summary", response_model=List[schemas.RegionSummary], tags=["运维调度"])
