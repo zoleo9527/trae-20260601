@@ -8,6 +8,7 @@
 /Users/zhangliu/Documents/private/model-test/trae-20260601-10/smart-parking/src/main/java/com/parking/dto/GateFaultHandleRequest.java
 /Users/zhangliu/Documents/private/model-test/trae-20260601-10/smart-parking/src/main/java/com/parking/repository/MonthlyRentalRepository.java
 /Users/zhangliu/Documents/private/model-test/trae-20260601-10/smart-parking/src/main/java/com/parking/dto/ApiResponse.java
+/Users/zhangliu/Documents/private/model-test/trae-20260601-10/smart-parking/src/main/java/com/parking/service/SupplementRecordService.java
 /Users/zhangliu/Documents/private/model-test/trae-20260601-10/smart-parking/src/main/java/com/parking/repository/ParkingLotRepository.java
 /Users/zhangliu/Documents/private/model-test/trae-20260601-10/smart-parking/src/main/java/com/parking/entity/MonthlyRental.java
 /Users/zhangliu/Documents/private/model-test/trae-20260601-10/smart-parking/src/main/java/com/parking/controller/CustomerServiceController.java
@@ -35,7 +36,9 @@
 /Users/zhangliu/Documents/private/model-test/trae-20260601-10/smart-parking/src/main/java/com/parking/service/ParkingLogService.java
 /Users/zhangliu/Documents/private/model-test/trae-20260601-10/smart-parking/src/main/java/com/parking/dto/RemoteReleaseCreateRequest.java
 /Users/zhangliu/Documents/private/model-test/trae-20260601-10/smart-parking/src/main/java/com/parking/repository/GateFaultRepository.java
+/Users/zhangliu/Documents/private/model-test/trae-20260601-10/smart-parking/src/main/java/com/parking/entity/SupplementRecord.java
 /Users/zhangliu/Documents/private/model-test/trae-20260601-10/smart-parking/src/main/java/com/parking/service/AlertNotificationService.java
 /Users/zhangliu/Documents/private/model-test/trae-20260601-10/smart-parking/src/main/java/com/parking/entity/OperationRemark.java
+/Users/zhangliu/Documents/private/model-test/trae-20260601-10/smart-parking/src/main/java/com/parking/repository/SupplementRecordRepository.java
 /Users/zhangliu/Documents/private/model-test/trae-20260601-10/smart-parking/src/main/java/com/parking/dto/RemoteReleaseQuery.java
 /Users/zhangliu/Documents/private/model-test/trae-20260601-10/smart-parking/src/main/java/com/parking/SmartParkingApplication.java

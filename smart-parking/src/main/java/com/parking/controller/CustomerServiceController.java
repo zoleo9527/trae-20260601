@@ -2,9 +2,11 @@ package com.parking.controller;
 
 import com.parking.dto.*;
 import com.parking.entity.RemoteRelease;
+import com.parking.entity.SupplementRecord;
 import com.parking.enums.ReleaseStatus;
 import com.parking.service.MonthlyRentalService;
 import com.parking.service.RemoteReleaseService;
+import com.parking.service.SupplementRecordService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
@@ -16,6 +18,7 @@ public class CustomerServiceController {
 
     private final RemoteReleaseService remoteReleaseService;
     private final MonthlyRentalService monthlyRentalService;
+    private final SupplementRecordService supplementRecordService;
 
     @GetMapping("/releases/pending")
     public ApiResponse<PageResult<RemoteRelease>> getPendingReleases(
@@ -62,5 +65,23 @@ public class CustomerServiceController {
             @RequestParam String plateNumber,
             @RequestParam Long parkingLotId) {
         return ApiResponse.ok(monthlyRentalService.isMonthlyRental(plateNumber, parkingLotId));
+    }
+
+    @GetMapping("/supplements")
+    public ApiResponse<PageResult<SupplementRecord>> querySupplementRecords(
+            @RequestParam(required = false) String plateNumber,
+            @RequestParam(required = false) Long gateId,
+            @RequestParam(required = false) String supplementType,
+            @RequestParam(required = false) String startTime,
+            @RequestParam(required = false) String endTime,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        return ApiResponse.ok(supplementRecordService.querySupplementRecords(
+                plateNumber, gateId, supplementType, startTime, endTime, page, size));
+    }
+
+    @GetMapping("/supplements/by-release/{releaseId}")
+    public ApiResponse<java.util.List<SupplementRecord>> getSupplementsByRelease(@PathVariable Long releaseId) {
+        return ApiResponse.ok(supplementRecordService.getByReleaseId(releaseId));
     }
 }

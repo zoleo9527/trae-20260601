@@ -5,6 +5,7 @@ import com.parking.entity.AlertNotification;
 import com.parking.entity.GateFault;
 import com.parking.entity.MonthlyRental;
 import com.parking.entity.RemoteRelease;
+import com.parking.entity.SupplementRecord;
 import com.parking.enums.FaultStatus;
 import com.parking.enums.ReleaseStatus;
 import com.parking.service.*;
@@ -23,6 +24,7 @@ public class OperationsController {
     private final RemoteReleaseService remoteReleaseService;
     private final MonthlyRentalService monthlyRentalService;
     private final ParkingLogService parkingLogService;
+    private final SupplementRecordService supplementRecordService;
 
     @GetMapping("/dashboard")
     public ApiResponse<DashboardVO> getDashboard() {
@@ -99,6 +101,29 @@ public class OperationsController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
         return ApiResponse.ok(parkingLogService.queryLogs(gateId, plateNumber, eventType, startTime, endTime, page, size));
+    }
+
+    @GetMapping("/supplements")
+    public ApiResponse<PageResult<SupplementRecord>> querySupplementRecords(
+            @RequestParam(required = false) String plateNumber,
+            @RequestParam(required = false) Long gateId,
+            @RequestParam(required = false) String supplementType,
+            @RequestParam(required = false) String startTime,
+            @RequestParam(required = false) String endTime,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        return ApiResponse.ok(supplementRecordService.querySupplementRecords(
+                plateNumber, gateId, supplementType, startTime, endTime, page, size));
+    }
+
+    @GetMapping("/supplements/by-release/{releaseId}")
+    public ApiResponse<List<SupplementRecord>> getSupplementsByRelease(@PathVariable Long releaseId) {
+        return ApiResponse.ok(supplementRecordService.getByReleaseId(releaseId));
+    }
+
+    @GetMapping("/supplements/by-fault/{faultId}")
+    public ApiResponse<List<SupplementRecord>> getSupplementsByFault(@PathVariable Long faultId) {
+        return ApiResponse.ok(supplementRecordService.getByFaultId(faultId));
     }
 
     @lombok.Data

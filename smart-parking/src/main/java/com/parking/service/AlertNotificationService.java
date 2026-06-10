@@ -2,6 +2,7 @@ package com.parking.service;
 
 import com.parking.dto.PageResult;
 import com.parking.entity.AlertNotification;
+import com.parking.enums.AlertType;
 import com.parking.repository.AlertNotificationRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -19,8 +20,16 @@ public class AlertNotificationService {
     private final AlertNotificationRepository alertNotificationRepository;
     private final GateFaultService gateFaultService;
 
-    public PageResult<AlertNotification> queryAlerts(Boolean acknowledged, String alertType, int page, int size) {
+    public PageResult<AlertNotification> queryAlerts(Boolean acknowledged, String alertTypeStr, int page, int size) {
         PageRequest pageRequest = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
+        AlertType alertType = null;
+        if (alertTypeStr != null && !alertTypeStr.isBlank()) {
+            try {
+                alertType = AlertType.valueOf(alertTypeStr.toUpperCase());
+            } catch (IllegalArgumentException e) {
+                throw new IllegalArgumentException("不支持的告警类型: " + alertTypeStr);
+            }
+        }
         Page<AlertNotification> pageResult = alertNotificationRepository.findByFilters(
                 acknowledged, alertType, pageRequest);
         return PageResult.of(pageResult);

@@ -1,6 +1,7 @@
 package com.parking.repository;
 
 import com.parking.entity.AlertNotification;
+import com.parking.enums.AlertType;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -18,6 +19,6 @@ public interface AlertNotificationRepository extends JpaRepository<AlertNotifica
             "(:alertType IS NULL OR an.alertType = :alertType)")
     Page<AlertNotification> findByFilters(
             @Param("acknowledged") Boolean acknowledged,
-            @Param("alertType") String alertType,
+            @Param("alertType") AlertType alertType,
             Pageable pageable);
 }

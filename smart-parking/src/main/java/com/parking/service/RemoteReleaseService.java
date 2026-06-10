@@ -33,6 +33,8 @@ public class RemoteReleaseService {
     private final MonthlyRentalRepository monthlyRentalRepository;
     private final AlertNotificationRepository alertNotificationRepository;
     private final GateRepository gateRepository;
+    private final SupplementRecordRepository supplementRecordRepository;
+    private final ParkingLogRepository parkingLogRepository;
 
     private static final DateTimeFormatter FMT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
@@ -80,6 +82,13 @@ public class RemoteReleaseService {
         switch (request.getAction().toUpperCase()) {
             case "APPROVE" -> {
                 release.approve(request.getReviewerName(), request.getReviewRemark());
+                ParkingLog exitLog = new ParkingLog();
+                exitLog.setGate(release.getGate());
+                exitLog.setPlateNumber(release.getPlateNumber());
+                exitLog.setEventType("EXIT_REMOTE");
+                exitLog.setEventTime(LocalDateTime.now());
+                exitLog.setDetail("远程放行走场，关联故障ID：" + release.getGateFault().getId() + "，审核意见：" + request.getReviewRemark());
+                parkingLogRepository.save(exitLog);
             }
             case "REJECT" -> {
                 release.reject(request.getReviewerName(), request.getReviewRemark());
@@ -91,6 +100,19 @@ public class RemoteReleaseService {
                     throw new IllegalArgumentException("补录信息不能为空");
                 }
                 release.supplement(request.getSupplementInfo());
+
+                SupplementRecord supplement = SupplementRecord.fromRemoteRelease(
+                        release, request.getReviewerName(), request.getSupplementInfo());
+                supplementRecordRepository.save(supplement);
+
+                ParkingLog supplementLog = new ParkingLog();
+                supplementLog.setGate(release.getGate());
+                supplementLog.setPlateNumber(release.getPlateNumber());
+                supplementLog.setEventType("SUPPLEMENT");
+                supplementLog.setEventTime(LocalDateTime.now());
+                supplementLog.setDetail("远程放行补录，关联故障ID：" + release.getGateFault().getId() + "，补录内容：" + request.getSupplementInfo());
+                parkingLogRepository.save(supplementLog);
+
                 AlertNotification alert = AlertNotification.supplementNeeded(release);
                 alertNotificationRepository.save(alert);
             }
@@ -142,6 +164,21 @@ public class RemoteReleaseService {
             return rVO;
         }).collect(Collectors.toList());
         vo.setRemarks(remarkVOs);
+
+        List<com.parking.entity.SupplementRecord> supplements = supplementRecordRepository
+                .findByRemoteReleaseIdOrderByCreatedAtDesc(release.getId());
+        List<RemoteReleaseReviewVO.SupplementRecord> supplementVOs = supplements.stream().map(s -> {
+            RemoteReleaseReviewVO.SupplementRecord sVO = new RemoteReleaseReviewVO.SupplementRecord();
+            sVO.setId(s.getId());
+            sVO.setPlateNumber(s.getPlateNumber());
+            sVO.setSupplementType(s.getSupplementType());
+            sVO.setContent(s.getContent());
+            sVO.setOperatorName(s.getOperatorName());
+            sVO.setOperatorRole(s.getOperatorRole());
+            sVO.setCreatedAt(s.getCreatedAt() != null ? s.getCreatedAt().format(FMT) : null);
+            return sVO;
+        }).collect(Collectors.toList());
+        vo.setSupplementRecords(supplementVOs);
 
         Long lotId = release.getGate().getParkingLot().getId();
         boolean isMonthly = monthlyRentalRepository

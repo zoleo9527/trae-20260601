@@ -10,7 +10,19 @@ public class RemoteReleaseReviewVO {
     private RemoteReleaseQuery releaseInfo;
     private GateFaultQuery faultInfo;
     private List<OperationRemark> remarks;
+    private List<SupplementRecord> supplementRecords;
     private Boolean isMonthlyRental;
+
+    @Data
+    public static class SupplementRecord {
+        private Long id;
+        private String plateNumber;
+        private String supplementType;
+        private String content;
+        private String operatorName;
+        private String operatorRole;
+        private String createdAt;
+    }
 
     @Data
     public static class RemoteReleaseQuery {
