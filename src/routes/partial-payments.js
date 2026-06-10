@@ -38,6 +38,14 @@ router.post('/', (req, res) => {
   const sale = db.prepare('SELECT * FROM credit_sales WHERE id = ?').get(credit_sale_id);
   if (!sale) return res.status(404).json({ code: 1, message: '赊销单不存在' });
 
+  if (payment_plan_id) {
+    const plan = db.prepare('SELECT * FROM payment_plans WHERE id = ?').get(payment_plan_id);
+    if (!plan) return res.status(400).json({ code: 1, message: '回款计划不存在' });
+    if (plan.credit_sale_id !== credit_sale_id) {
+      return res.status(400).json({ code: 1, message: '回款计划不属于当前赊销单' });
+    }
+  }
+
   const insertPayment = db.prepare(`
     INSERT INTO partial_payments (credit_sale_id, payment_plan_id, amount, payment_date, payment_method, received_by, notes)
     VALUES (?, ?, ?, ?, ?, ?, ?)
@@ -49,32 +57,38 @@ router.post('/', (req, res) => {
     UPDATE payment_plans SET actual_paid_amount = actual_paid_amount + ?, status = ? WHERE id = ?
   `);
 
+  const PROTECTED_STATUSES = new Set(['disputed', 'overdue']);
+
   const transaction = db.transaction(() => {
     const result = insertPayment.run(
       credit_sale_id, payment_plan_id || null, amount, payment_date, payment_method, received_by, notes || null
     );
 
     const newPaidAmount = sale.paid_amount + amount;
-    let newSaleStatus = sale.status;
+    let newSaleStatus;
     if (newPaidAmount >= sale.total_amount) {
       newSaleStatus = 'paid';
+    } else if (PROTECTED_STATUSES.has(sale.status)) {
+      newSaleStatus = sale.status;
     } else if (newPaidAmount > 0) {
       newSaleStatus = 'partial';
+    } else {
+      newSaleStatus = sale.status;
     }
     updateSalePaid.run(amount, newSaleStatus, credit_sale_id);
 
     if (payment_plan_id) {
       const plan = db.prepare('SELECT * FROM payment_plans WHERE id = ?').get(payment_plan_id);
-      if (plan) {
-        const newPlanPaid = plan.actual_paid_amount + amount;
-        let newPlanStatus = plan.status;
-        if (newPlanPaid >= plan.planned_amount) {
-          newPlanStatus = 'paid';
-        } else if (newPlanPaid > 0) {
-          newPlanStatus = 'partial';
-        }
-        updatePlanPaid.run(amount, newPlanStatus, payment_plan_id);
+      const newPlanPaid = plan.actual_paid_amount + amount;
+      let newPlanStatus;
+      if (newPlanPaid >= plan.planned_amount) {
+        newPlanStatus = 'paid';
+      } else if (newPlanPaid > 0) {
+        newPlanStatus = 'partial';
+      } else {
+        newPlanStatus = plan.status;
       }
+      updatePlanPaid.run(amount, newPlanStatus, payment_plan_id);
     }
 
     return result.lastInsertRowid;

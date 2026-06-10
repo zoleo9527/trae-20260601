@@ -122,6 +122,23 @@ router.put('/:id', (req, res) => {
   const sale = db.prepare('SELECT * FROM credit_sales WHERE id = ?').get(req.params.id);
   if (!sale) return res.status(404).json({ code: 1, message: '赊销单不存在' });
 
+  const ALLOWED_TRANSITIONS = {
+    pending:  ['partial', 'overdue', 'disputed', 'pending'],
+    partial: ['paid', 'overdue', 'disputed', 'partial'],
+    overdue: ['paid', 'disputed', 'overdue'],
+    disputed: ['paid', 'pending', 'overdue', 'disputed'],
+    paid:    ['paid']
+  };
+
+  if (status && !ALLOWED_TRANSITIONS[sale.status]?.includes(status)) {
+    return res.status(400).json({
+      code: 1,
+      message: `不允许从 '${sale.status}' 变更为 '${status}'`,
+      current_status: sale.status,
+      allowed: ALLOWED_TRANSITIONS[sale.status] || []
+    });
+  }
+
   const updates = [];
   const params = [];
   if (status) { updates.push('status = ?'); params.push(status); }

@@ -125,12 +125,16 @@ INSERT INTO farmers (name, phone, village, address, notes) VALUES
 
 INSERT INTO crop_seasons (name, start_date, end_date) VALUES
   ('2025年春夏季', '2025-03-01', '2025-08-31'),
-  ('2025年秋冬季', '2025-09-01', '2026-02-28');
+  ('2025年秋冬季', '2025-09-01', '2026-02-28'),
+  ('2026年春夏季', '2026-03-01', '2026-08-31');
 
--- 赵秋收：秋收后还款，两笔赊销，有回款计划
+-- ============================================================
+-- 场景1: 赵秋收 — 秋收后还款，信誉良好
+-- 2026年春夏季赊销，回款计划定在秋收后，尚未到期
+-- ============================================================
 INSERT INTO credit_sales (farmer_id, crop_season_id, sale_date, total_amount, paid_amount, status, operator_id, notes) VALUES
-  (1, 1, '2025-04-15', 3200.00, 0, 'pending', 1, '春耕赊销，约定秋收后还款'),
-  (1, 1, '2025-05-20', 1800.00, 0, 'pending', 1, '追肥赊销，约定秋收后还款');
+  (1, 3, '2026-04-15', 3200.00, 0, 'pending', 1, '春耕赊销，约定秋收后还款'),
+  (1, 3, '2026-05-20', 1800.00, 0, 'pending', 1, '追肥赊销，约定秋收后还款');
 
 INSERT INTO sale_items (credit_sale_id, product_type, product_name, unit, quantity, unit_price, subtotal) VALUES
   (1, 'fertilizer', '复合肥45%', '袋', 20, 120.00, 2400.00),
@@ -139,14 +143,18 @@ INSERT INTO sale_items (credit_sale_id, product_type, product_name, unit, quanti
   (2, 'pesticide', '草甘膦', '瓶', 5, 100.00, 500.00);
 
 INSERT INTO payment_plans (credit_sale_id, planned_amount, planned_date, status, notes) VALUES
-  (1, 3200.00, '2025-10-15', 'pending', '秋收卖粮后还清'),
-  (2, 1800.00, '2025-10-31', 'pending', '秋收卖粮后还清');
+  (1, 3200.00, '2026-10-15', 'pending', '秋收卖粮后还清'),
+  (2, 1800.00, '2026-10-31', 'pending', '秋收卖粮后还清');
 
--- 钱老赖：长期拖欠，三笔赊销，已逾期
+-- ============================================================
+-- 场景2: 钱老赖 — 长期拖欠
+-- 2025年春夏季赊销，回款计划全部逾期，仅还500元
+-- 赊销单状态: overdue（部分还款但不改变逾期性质）
+-- ============================================================
 INSERT INTO credit_sales (farmer_id, crop_season_id, sale_date, total_amount, paid_amount, status, operator_id, notes) VALUES
-  (2, 1, '2025-03-10', 4500.00, 500.00, 'overdue', 1, '春耕赊销，长期拖欠'),
-  (2, 1, '2025-04-25', 2800.00, 0, 'overdue', 1, '追肥赊销，长期拖欠'),
-  (2, 1, '2025-06-01', 1500.00, 0, 'pending', 1, '农药赊销，长期拖欠');
+  (2, 1, '2025-03-10', 4500.00, 500.00, 'overdue', 1, '春耕赊销，长期拖欠，仅还500'),
+  (2, 1, '2025-04-25', 2800.00, 0, 'overdue', 1, '追肥赊销，长期拖欠，分文未还'),
+  (2, 1, '2025-06-01', 1500.00, 0, 'overdue', 1, '农药赊销，长期拖欠，分文未还');
 
 INSERT INTO sale_items (credit_sale_id, product_type, product_name, unit, quantity, unit_price, subtotal) VALUES
   (3, 'fertilizer', '复合肥45%', '袋', 30, 120.00, 3600.00),
@@ -167,9 +175,14 @@ INSERT INTO collection_records (credit_sale_id, collector_id, visit_date, visit_
   (4, 2, '2025-08-10', 'visit', '上门催收2800元欠款', '不在家，家属说不知道', '联系本人');
 
 INSERT INTO partial_payments (credit_sale_id, payment_plan_id, amount, payment_date, payment_method, received_by, notes) VALUES
-  (3, 3, 500.00, '2025-07-20', 'cash', 1, '钱老赖仅还了500元现金');
+  (3, 6, 500.00, '2025-07-20', 'cash', 1, '钱老赖仅还了500元现金，赊销单仍为overdue');
 
--- 孙争议：账目争议
+-- ============================================================
+-- 场景3: 孙争议 — 账目争议
+-- 2025年春夏季赊销，对出库数量有异议
+-- 仓管核对：部分商品已确认出库，部分商品出库记录与农户说法不符
+-- 赊销单状态: disputed（争议未解决，部分还款也不会变成partial）
+-- ============================================================
 INSERT INTO credit_sales (farmer_id, crop_season_id, sale_date, total_amount, paid_amount, status, operator_id, notes) VALUES
   (3, 1, '2025-04-01', 2600.00, 0, 'disputed', 1, '孙争议对出库数量有异议'),
   (3, 1, '2025-05-15', 1200.00, 0, 'disputed', 1, '孙争议称未收到全部商品');

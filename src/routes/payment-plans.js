@@ -98,13 +98,38 @@ router.put('/:id', (req, res) => {
 
 router.post('/refresh-overdue', (req, res) => {
   const db = getDb();
-  const result = db.prepare(`
-    UPDATE payment_plans
-    SET status = 'overdue'
-    WHERE status = 'pending' AND planned_date < date('now', 'localtime')
-  `).run();
 
-  res.json({ code: 0, data: { updated_count: result.changes, message: `已将 ${result.changes} 条计划标记为逾期` } });
+  const refreshAll = db.transaction(() => {
+    const planResult = db.prepare(`
+      UPDATE payment_plans
+      SET status = 'overdue'
+      WHERE status = 'pending' AND planned_date < date('now', 'localtime')
+    `).run();
+
+    const saleResult = db.prepare(`
+      UPDATE credit_sales
+      SET status = 'overdue'
+      WHERE status NOT IN ('disputed', 'paid')
+        AND id IN (
+          SELECT DISTINCT pp.credit_sale_id
+          FROM payment_plans pp
+          WHERE pp.status = 'overdue'
+        )
+    `).run();
+
+    return { plan_changes: planResult.changes, sale_changes: saleResult.changes };
+  });
+
+  const result = refreshAll();
+
+  res.json({
+    code: 0,
+    data: {
+      overdue_plans_marked: result.plan_changes,
+      overdue_sales_marked: result.sale_changes,
+      message: `已将 ${result.plan_changes} 条回款计划标记为逾期，${result.sale_changes} 笔赊销单同步为逾期`
+    }
+  });
 });
 
 module.exports = router;
