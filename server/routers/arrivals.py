@@ -169,6 +169,20 @@ def confirm_arrival(arrival_id: int, data: ArrivalConfirm):
             "confirm",
             f"确认到货，实到数量: {data.actual_quantity}，状态: {new_status}",
         )
+        order_id = row["order_id"]
+        order_row = conn.execute("SELECT * FROM orders WHERE id=?", (order_id,)).fetchone()
+        if order_row and order_row["status"] != "arrived":
+            conn.execute(
+                "UPDATE orders SET status='arrived', updated_at=CURRENT_TIMESTAMP WHERE id=?",
+                (order_id,),
+            )
+            insert_log(
+                conn,
+                "order",
+                order_id,
+                "status_change",
+                f"订单状态: {order_row['status']} -> arrived（到货确认触发）",
+            )
         conn.commit()
         result = conn.execute(
             "SELECT a.*, o.order_no, o.product_name, o.product_spec FROM arrivals a JOIN orders o ON a.order_id=o.id WHERE a.id=?",

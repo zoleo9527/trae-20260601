@@ -91,6 +91,11 @@ async function handleConfirm() {
 function handleExport() {
   const params: Record<string, any> = {}
   if (filters.value.status) params.status = filters.value.status
+  if (filters.value.orderId) params.order_id = filters.value.orderId
+  if (filters.value.dateRange) {
+    params.date_from = filters.value.dateRange[0]
+    params.date_to = filters.value.dateRange[1]
+  }
   exportArrivals(params).then(() => ElMessage.success('导出成功')).catch(() => {})
 }
 
@@ -106,7 +111,7 @@ onMounted(fetchArrivals)
   <div class="p-6">
     <div class="flex items-center justify-between mb-5">
       <h1 class="text-xl font-bold m-0">到货通知管理</h1>
-      <el-button type="primary" @click="router.push('/arrivals/new')">创建到货通知</el-button>
+      <el-button type="primary" @click="router.push('/orders?status=shipped')">从订货单创建</el-button>
     </div>
 
     <el-card class="mb-5">

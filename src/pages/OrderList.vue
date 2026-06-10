@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { getOrders, updateOrderStatus } from '@/api/orders'
 import { exportOrders } from '@/api/export'
 import type { Order } from '@/types'
 
 const router = useRouter()
+const route = useRoute()
 const orders = ref<Order[]>([])
 const total = ref(0)
 const loading = ref(false)
@@ -72,7 +73,11 @@ async function handleStatusChange(id: number, status: string) {
 function handleExport() {
   const params: Record<string, any> = {}
   if (filters.value.status) params.status = filters.value.status
-  if (filters.value.customer) params.customer_name = filters.value.customer
+  if (filters.value.customer) params.customer = filters.value.customer
+  if (filters.value.dateRange) {
+    params.date_from = filters.value.dateRange[0]
+    params.date_to = filters.value.dateRange[1]
+  }
   exportOrders(params).then(() => ElMessage.success('导出成功')).catch(() => {})
 }
 
@@ -81,7 +86,11 @@ function handlePageChange(val: number) {
   fetchOrders()
 }
 
-onMounted(fetchOrders)
+onMounted(() => {
+  const qs = route.query.status as string
+  if (qs) filters.value.status = qs
+  fetchOrders()
+})
 </script>
 
 <template>
