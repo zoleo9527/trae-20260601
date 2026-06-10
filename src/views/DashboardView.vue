@@ -307,7 +307,7 @@ function goToInventory() {
         <div v-for="b in gradedBatches.slice(0,3)" :key="b.id" class="task-item" @click="goToBatch(b.id)">
           <div class="task-main">
             <span class="task-name">{{ b.batch_no }}</span>
-            <span class="badge" :class="b.status === 'warehousing' ? 'badge-info' : 'badge-warning'">{{ STATUS_LABELS[b.status] }}</span>
+            <span class="badge" :class="b.status === 'warehousing' ? 'badge-primary' : 'badge-warning'">{{ STATUS_LABELS[b.status] }}</span>
           </div>
           <div class="task-desc">{{ b.fruit_type }} · {{ b.quantity_picked }}{{ b.unit }}</div>
           <button class="btn btn-sm mt-2" :class="b.status === 'warehousing' ? 'btn-success' : 'btn-primary'" @click.stop="goToInventory()">

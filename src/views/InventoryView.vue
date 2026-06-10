@@ -109,7 +109,7 @@ function viewBatchDetail(batchId: number) {
               <td>{{ b.fruit_type }}</td>
               <td>{{ b.quantity_picked }}{{ b.unit }}</td>
               <td>
-                <span class="badge" :class="b.status === 'warehousing' ? 'badge-info' : 'badge-warning'">
+                <span class="badge" :class="b.status === 'warehousing' ? 'badge-primary' : 'badge-warning'">
                   {{ STATUS_LABELS[b.status] }}
                 </span>
               </td>
