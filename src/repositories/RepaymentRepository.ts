@@ -34,7 +34,7 @@ export class RepaymentRepository {
     const repayment = await Repayment.findOne({ repaymentId })
     if (!repayment) return null
     
-    const newPaidAmount = repayment.paidAmount + amount
+    let newPaidAmount = repayment.paidAmount + amount
     let newStatus: RepaymentStatus = 'partial'
     
     if (newPaidAmount >= repayment.amount) {

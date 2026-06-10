@@ -32,18 +32,18 @@ router.get('/debt', async (req: Request, res: Response) => {
   }
 })
 
-router.get('/:farmerId', async (req: Request, res: Response) => {
+router.get('/phone/:phone', async (req: Request, res: Response) => {
   try {
-    const farmer = await farmerService.getFarmerById(req.params.farmerId)
+    const farmer = await farmerService.getFarmerByPhone(req.params.phone)
     res.json({ success: true, data: farmer })
   } catch (error: any) {
     res.status(404).json({ success: false, error: error.message })
   }
 })
 
-router.get('/phone/:phone', async (req: Request, res: Response) => {
+router.get('/:farmerId', async (req: Request, res: Response) => {
   try {
-    const farmer = await farmerService.getFarmerByPhone(req.params.phone)
+    const farmer = await farmerService.getFarmerById(req.params.farmerId)
     res.json({ success: true, data: farmer })
   } catch (error: any) {
     res.status(404).json({ success: false, error: error.message })

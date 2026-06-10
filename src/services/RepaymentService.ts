@@ -63,11 +63,7 @@ export class RepaymentService {
       throw new Error(`还款失败: ${request.repaymentId}`)
     }
 
-    if (updated.status === 'paid') {
-      await this.farmerRepository.updateDebt(repayment.farmerId, -repayment.amount)
-    } else {
-      await this.farmerRepository.updateDebt(repayment.farmerId, -request.amount)
-    }
+    await this.farmerRepository.updateDebt(repayment.farmerId, -request.amount)
 
     return updated
   }

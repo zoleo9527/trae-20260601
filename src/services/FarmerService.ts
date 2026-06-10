@@ -41,7 +41,7 @@ export class FarmerService {
       throw new Error(`农户手机号已存在: ${request.phone}`)
     }
 
-    const existingByIdCard = await this.farmerRepository.findByPhone(request.idCard)
+    const existingByIdCard = await this.farmerRepository.findByIdCard(request.idCard)
     if (existingByIdCard) {
       throw new Error(`农户身份证号已存在: ${request.idCard}`)
     }

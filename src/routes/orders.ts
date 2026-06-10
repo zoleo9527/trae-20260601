@@ -47,21 +47,21 @@ router.get('/pending', async (req: Request, res: Response) => {
   }
 })
 
-router.get('/:orderId', async (req: Request, res: Response) => {
-  try {
-    const order = await orderService.getOrderById(req.params.orderId)
-    res.json({ success: true, data: order })
-  } catch (error: any) {
-    res.status(404).json({ success: false, error: error.message })
-  }
-})
-
 router.get('/farmer/:farmerId', async (req: Request, res: Response) => {
   try {
     const orders = await orderService.getOrdersByFarmerId(req.params.farmerId)
     res.json({ success: true, data: orders })
   } catch (error: any) {
     res.status(500).json({ success: false, error: error.message })
+  }
+})
+
+router.get('/:orderId', async (req: Request, res: Response) => {
+  try {
+    const order = await orderService.getOrderById(req.params.orderId)
+    res.json({ success: true, data: order })
+  } catch (error: any) {
+    res.status(404).json({ success: false, error: error.message })
   }
 })
 

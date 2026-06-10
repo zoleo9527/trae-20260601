@@ -14,6 +14,10 @@ export class FarmerRepository {
     return await Farmer.findOne({ phone })
   }
 
+  async findByIdCard(idCard: string): Promise<IFarmer | null> {
+    return await Farmer.findOne({ idCard })
+  }
+
   async findAll(): Promise<IFarmer[]> {
     return await Farmer.find().sort({ createdAt: -1 })
   }
