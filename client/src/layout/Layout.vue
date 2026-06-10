@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { computed, onMounted } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { roleLabels } from '@/utils/constants'
 import type { User } from '@/types'
+import NotificationPanel from '@/components/NotificationPanel.vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -23,10 +24,15 @@ const roleOptions = [
 ]
 
 const currentRole = computed<User['role']>(() => userStore.currentUser?.role || 'service')
+const unreadCount = ref(0)
+const showNotifPanel = ref(false)
+const notifPanelRef = ref<InstanceType<typeof NotificationPanel> | null>(null)
 
 async function changeRole(role: User['role']) {
   try {
     await userStore.switchRole(role)
+    showNotifPanel.value = false
+    if (notifPanelRef.value) notifPanelRef.value.loadUnreadCount()
     router.push('/dashboard')
   } catch (e) {
     console.error('切换角色失败:', e)
@@ -41,12 +47,20 @@ function navigate(path: string) {
   router.push(path)
 }
 
+function toggleNotif() {
+  showNotifPanel.value = !showNotifPanel.value
+}
+
+function onNotifCountChanged(n: number) {
+  unreadCount.value = n
+}
+
 const userName = computed(() => userStore.currentUser?.name || '用户')
 const roleDisplay = computed(() => roleLabels[currentRole.value] || currentRole.value)
 
-onMounted(() => {
+onMounted(async () => {
   if (!userStore.currentUser) {
-    userStore.fetchCurrentUser()
+    await userStore.fetchCurrentUser()
   }
 })
 </script>
@@ -78,6 +92,12 @@ onMounted(() => {
           <span class="breadcrumb">{{ route.meta.title || '首页' }}</span>
         </div>
         <div class="header-right">
+          <div class="notif-trigger" @click="toggleNotif">
+            <span class="bell">🔔</span>
+            <span v-if="unreadCount > 0" class="notif-badge">
+              {{ unreadCount > 99 ? '99+' : unreadCount }}
+            </span>
+          </div>
           <div class="role-switch">
             <span class="role-label">当前身份：</span>
             <div class="role-options">
@@ -104,6 +124,12 @@ onMounted(() => {
           <component :is="Component" :key="route.fullPath" />
         </router-view>
       </main>
+
+      <NotificationPanel
+        ref="notifPanelRef"
+        v-model:visible="showNotifPanel"
+        @count-changed="onNotifCountChanged"
+      />
     </div>
   </div>
 </template>
@@ -203,6 +229,40 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 24px;
+}
+
+.notif-trigger {
+  position: relative;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.notif-trigger:hover {
+  background: #f0f0f0;
+}
+.notif-trigger .bell {
+  font-size: 20px;
+  line-height: 1;
+}
+.notif-badge {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  padding: 0 5px;
+  min-width: 18px;
+  height: 16px;
+  background: #ff4d4f;
+  color: #fff;
+  border-radius: 10px;
+  font-size: 11px;
+  line-height: 16px;
+  text-align: center;
+  box-sizing: border-box;
 }
 
 .role-switch {

@@ -1,6 +1,6 @@
 const express = require('express');
 const db = require('../db');
-const { logAudit, getPagination, paginateResult } = require('../utils');
+const { logAudit, getPagination, paginateResult, createNotification } = require('../utils');
 
 const router = express.Router();
 
@@ -106,6 +106,21 @@ router.post('/:id/receive', (req, res) => {
 
   logAudit('warehouse_transfer', id, '接收', req.currentUser, '仓库已接收果品');
 
+  const task = db.prepare('SELECT reception_id FROM guide_tasks WHERE id = ?').get(transfer.guide_task_id);
+  if (task) {
+    const reception = db.prepare('SELECT id, reception_no, group_name, created_by FROM receptions WHERE id = ?').get(task.reception_id);
+    if (reception && reception.created_by) {
+      createNotification({
+        userId: reception.created_by,
+        title: '果品已被仓库接收',
+        content: `${reception.reception_no} ${reception.group_name}：${transfer.transfer_no} 已由仓库接收，等待入库`,
+        bizType: 'reception',
+        bizId: reception.id,
+        type: 'reception'
+      });
+    }
+  }
+
   const updated = db.prepare(`
     SELECT wt.*, u.name as received_by_name
     FROM warehouse_transfers wt
@@ -149,6 +164,18 @@ router.post('/:id/store', (req, res) => {
       "UPDATE receptions SET status = 'completed', updated_at = datetime('now', 'localtime') WHERE id = ?"
     ).run(task.reception_id);
     logAudit('reception', task.reception_id, '完成', req.currentUser, '接待单全部流程完成');
+
+    const reception = db.prepare('SELECT id, reception_no, group_name, created_by FROM receptions WHERE id = ?').get(task.reception_id);
+    if (reception && reception.created_by) {
+      createNotification({
+        userId: reception.created_by,
+        title: '接待单已完成全部流程',
+        content: `${reception.reception_no} ${reception.group_name}：果品已全部入库，接待流程结束`,
+        bizType: 'reception',
+        bizId: reception.id,
+        type: 'reception'
+      });
+    }
   }
 
   logAudit('warehouse_transfer', id, '入库', req.currentUser, `果品已入库，库位：${storage_location || '未指定'}`);

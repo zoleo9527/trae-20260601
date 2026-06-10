@@ -1,6 +1,6 @@
 const express = require('express');
 const db = require('../db');
-const { generateNo, logAudit, getPagination, paginateResult } = require('../utils');
+const { generateNo, logAudit, getPagination, paginateResult, createNotification } = require('../utils');
 
 const router = express.Router();
 
@@ -293,6 +293,15 @@ router.post('/:id/assign-guide', (req, res) => {
 
   logAudit('reception', id, '分配向导', req.currentUser, `分配向导 ${guide.name}，任务号 ${taskNo}`);
   logAudit('guide_task', taskId, '创建', req.currentUser, `创建向导任务 ${taskNo}`);
+
+  createNotification({
+    userId: guide_id,
+    title: '您有新的向导任务',
+    content: `${reception.reception_no} ${reception.group_name} 已分配给您，采摘区域：${picking_area || '未指定'}`,
+    bizType: 'guide_task',
+    bizId: taskId,
+    type: 'task'
+  });
 
   const task = db.prepare('SELECT * FROM guide_tasks WHERE id = ?').get(taskId);
   res.status(201).json(task);

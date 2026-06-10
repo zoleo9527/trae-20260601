@@ -43,13 +43,18 @@ async function api(method, path, { data, params, responseType } = {}) {
   setCookiesFromHeaders(res.headers);
 
   const ct = res.headers.get('content-type') || '';
+  const text = await res.text();
   let resData;
   if (responseType === 'text' || ct.includes('csv')) {
-    resData = await res.text();
+    resData = text;
   } else if (res.status === 204) {
     resData = null;
   } else {
-    resData = await res.json().catch(async () => await res.text());
+    try {
+      resData = JSON.parse(text);
+    } catch (e) {
+      resData = text;
+    }
   }
   return { status: res.status, data: resData, headers: { 'content-type': ct } };
 }

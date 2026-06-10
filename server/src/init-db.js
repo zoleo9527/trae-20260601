@@ -108,6 +108,7 @@ db.exec(`
 
   CREATE TABLE IF NOT EXISTS notifications (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER,
     title TEXT NOT NULL,
     content TEXT,
     biz_type TEXT,
@@ -115,7 +116,8 @@ db.exec(`
     type TEXT DEFAULT 'system',
     is_read INTEGER DEFAULT 0,
     read_time TEXT,
-    created_at TEXT DEFAULT (datetime('now', 'localtime'))
+    created_at TEXT DEFAULT (datetime('now', 'localtime')),
+    FOREIGN KEY (user_id) REFERENCES users(id)
   );
 
   CREATE INDEX IF NOT EXISTS idx_receptions_status ON receptions(status);
@@ -125,6 +127,7 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_warehouse_transfers_status ON warehouse_transfers(status);
   CREATE INDEX IF NOT EXISTS idx_attachments_biz ON attachments(biz_type, biz_id);
   CREATE INDEX IF NOT EXISTS idx_audit_logs_biz ON audit_logs(biz_type, biz_id);
+  CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications(user_id, is_read);
 `);
 
 const userCount = db.prepare('SELECT COUNT(*) as count FROM users').get().count;

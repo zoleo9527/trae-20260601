@@ -1,6 +1,6 @@
 const express = require('express');
 const db = require('../db');
-const { logAudit, getPagination, paginateResult, generateNo } = require('../utils');
+const { logAudit, getPagination, paginateResult, generateNo, createNotificationForRole } = require('../utils');
 
 const router = express.Router();
 
@@ -168,6 +168,15 @@ router.post('/:id/complete', (req, res) => {
 
   logAudit('guide_task', id, '完成采摘', req.currentUser, `采摘完成，总重量 ${total_weight || 0}斤`);
   logAudit('warehouse_transfer', transferResult.lastInsertRowid, '创建', req.currentUser, `创建交接单 ${transferNo}，待仓库接收`);
+
+  createNotificationForRole({
+    role: 'warehouse',
+    title: '有新的果品待入库',
+    content: `${transferNo}：${task.task_no} 向导已完成采摘，总重量 ${total_weight || 0} 斤，请及时接收`,
+    bizType: 'warehouse_transfer',
+    bizId: transferResult.lastInsertRowid,
+    type: 'warehouse'
+  });
 
   const updated = db.prepare('SELECT * FROM guide_tasks WHERE id = ?').get(id);
   res.json(updated);

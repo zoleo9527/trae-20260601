@@ -19,6 +19,43 @@ function logAudit(bizType, bizId, action, operator, detail = '') {
   }
 }
 
+function createNotification({ userId, title, content, bizType, bizId, type = 'system' }) {
+  try {
+    if (!userId) return null;
+    const stmt = db.prepare(`
+      INSERT INTO notifications (user_id, title, content, biz_type, biz_id, type, is_read)
+      VALUES (?, ?, ?, ?, ?, ?, 0)
+    `);
+    const result = stmt.run(
+      userId,
+      title,
+      content || '',
+      bizType || null,
+      bizId || null,
+      type
+    );
+    return result.lastInsertRowid;
+  } catch (e) {
+    console.error('通知写入失败:', e);
+    return null;
+  }
+}
+
+function createNotificationForRole({ role, title, content, bizType, bizId, type = 'system' }) {
+  try {
+    const users = db.prepare("SELECT id FROM users WHERE role = ?").all(role);
+    const ids = [];
+    users.forEach(u => {
+      const id = createNotification({ userId: u.id, title, content, bizType, bizId, type });
+      if (id) ids.push(id);
+    });
+    return ids;
+  } catch (e) {
+    console.error('按角色批量通知失败:', e);
+    return [];
+  }
+}
+
 function getPagination(page = 1, pageSize = 20) {
   const p = Math.max(1, parseInt(page) || 1);
   const ps = Math.min(100, Math.max(1, parseInt(pageSize) || 20));
@@ -43,6 +80,8 @@ function paginateResult(total, list, page, pageSize) {
 module.exports = {
   generateNo,
   logAudit,
+  createNotification,
+  createNotificationForRole,
   getPagination,
   paginateResult
 };
