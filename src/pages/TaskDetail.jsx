@@ -21,6 +21,7 @@ function TaskDetail() {
   const [loading, setLoading] = useState(true)
   const [showReportModal, setShowReportModal] = useState(false)
   const [faultTypes, setFaultTypes] = useState([])
+  const [areaBikes, setAreaBikes] = useState([])
   const [formData, setFormData] = useState({
     bike_no: '',
     fault_type: '',
@@ -51,18 +52,35 @@ function TaskDetail() {
     setLoading(false)
   }
 
-  const openReportModal = () => {
+  const openReportModal = async () => {
+    const bikesRes = await api.getBikesByArea(task.area)
+    const bikes = bikesRes.success ? bikesRes.data : []
+    setAreaBikes(bikes)
+    const firstBike = bikes[0]
     setFormData({
-      bike_no: '',
+      bike_no: firstBike ? firstBike.bike_no : '',
       fault_type: '',
       fault_level: '',
       description: '',
-      location: '',
-      lat: '',
-      lng: '',
+      location: firstBike ? firstBike.location : '',
+      lat: firstBike ? String(firstBike.lat) : '',
+      lng: firstBike ? String(firstBike.lng) : '',
       reporter: task?.inspector || ''
     })
     setShowReportModal(true)
+  }
+
+  const handleBikeSelect = (bikeNo) => {
+    const selected = areaBikes.find(b => b.bike_no === bikeNo)
+    if (selected) {
+      setFormData(prev => ({
+        ...prev,
+        bike_no: selected.bike_no,
+        location: selected.location,
+        lat: String(selected.lat),
+        lng: String(selected.lng)
+      }))
+    }
   }
 
   const handleSubmit = async (e) => {
@@ -238,16 +256,24 @@ function TaskDetail() {
                 <div style={{ padding: '12px', background: '#e3f2fd', borderRadius: '4px', fontSize: '13px', marginBottom: '16px' }}>
                   <div style={{ color: '#1565c0', fontWeight: '500', marginBottom: '4px' }}>📋 巡检任务上下文（自动带入）</div>
                   <div>任务编号：{task.task_no} | 巡检员：{task.inspector} | 区域：{task.area}</div>
+                  <div>巡检路线：{task.route}</div>
                 </div>
                 <div className="form-row">
                   <div className="form-group">
-                    <label>车辆编号 *</label>
-                    <input
-                      type="text"
+                    <label>选择车辆 * <span style={{ color: '#999', fontWeight: 'normal', fontSize: '12px' }}>（仅限{task.area}车辆）</span></label>
+                    <select
                       value={formData.bike_no}
-                      onChange={e => setFormData({ ...formData, bike_no: e.target.value })}
-                      placeholder="请输入车辆编号，如 BK001001"
-                    />
+                      onChange={e => handleBikeSelect(e.target.value)}
+                    >
+                      {areaBikes.length === 0 && (
+                        <option value="">当前区域无车辆</option>
+                      )}
+                      {areaBikes.map(bike => (
+                        <option key={bike.bike_no} value={bike.bike_no}>
+                          {bike.bike_no} - {bike.location}（{bike.status_text}）
+                        </option>
+                      ))}
+                    </select>
                   </div>
                   <div className="form-group">
                     <label>上报人</label>

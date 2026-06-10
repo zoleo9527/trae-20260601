@@ -77,6 +77,18 @@ app.get('/api/bikes', (req, res) => {
   });
 });
 
+app.get('/api/bikes/by-area/:areaName', (req, res) => {
+  const areaName = decodeURIComponent(req.params.areaName);
+  const bikes = data.bikes.filter(b => b.area === areaName);
+  res.json({
+    success: true,
+    data: bikes.map(bike => ({
+      ...bike,
+      status_text: statusMap[bike.status] || bike.status
+    }))
+  });
+});
+
 app.get('/api/bikes/:id', (req, res) => {
   const bike = getById('bikes', req.params.id);
   if (!bike) {
@@ -189,6 +201,22 @@ app.get('/api/faults/:id', (req, res) => {
 
   const duplicates = data.fault_reports.filter(f => f.duplicate_of === fault.id);
 
+  let taskInfo = null;
+  if (fault.task_id) {
+    const task = getById('inspection_tasks', fault.task_id);
+    if (task) {
+      taskInfo = {
+        id: task.id,
+        task_no: task.task_no,
+        area: task.area,
+        route: task.route,
+        inspector: task.inspector,
+        status: task.status,
+        status_text: taskStatusMap[task.status] || task.status
+      };
+    }
+  }
+
   res.json({
     success: true,
     data: {
@@ -198,6 +226,7 @@ app.get('/api/faults/:id', (req, res) => {
       status_text: faultStatusMap[fault.status] || fault.status,
       repair_decision_text: fault.repair_decision ? repairTypeMap[fault.repair_decision] : null,
       bike,
+      taskInfo,
       repair: repair ? {
         ...repair,
         repair_type_text: repairTypeMap[repair.repair_type] || repair.repair_type
@@ -241,6 +270,24 @@ app.post('/api/faults', (req, res) => {
     return res.json({ success: false, message: '车辆不存在' });
   }
 
+  let taskContext = {};
+  if (task_id) {
+    const task = getById('inspection_tasks', task_id);
+    if (!task) {
+      return res.json({ success: false, message: '关联巡检任务不存在' });
+    }
+    if (bike.area !== task.area) {
+      return res.json({ success: false, message: `车辆 ${bike_no} 不属于当前任务区域「${task.area}」，该车辆在「${bike.area}」` });
+    }
+    taskContext = {
+      task_id: task.id,
+      task_no: task.task_no,
+      task_area: task.area,
+      task_route: task.route,
+      task_inspector: task.inspector
+    };
+  }
+
   const report_no = 'FAULT' + Date.now();
   const report_time = new Date().toISOString().replace('T', ' ').substring(0, 19);
   const photo_placeholder = `photo_${Date.now()}.jpg`;
@@ -259,6 +306,10 @@ app.post('/api/faults', (req, res) => {
     reporter,
     report_time,
     task_id: task_id || null,
+    task_no: taskContext.task_no || null,
+    task_area: taskContext.task_area || null,
+    task_route: taskContext.task_route || null,
+    task_inspector: taskContext.task_inspector || null,
     is_duplicate: 0,
     duplicate_of: null,
     status: 'reported',

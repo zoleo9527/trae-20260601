@@ -25,6 +25,8 @@ export const api = {
 
   getBike: (id) => request(`/bikes/${id}`),
 
+  getBikesByArea: (areaName) => request(`/bikes/by-area/${encodeURIComponent(areaName)}`),
+
   getInspectionTasks: (params = {}) => {
     const query = new URLSearchParams(params).toString()
     return request(`/inspection-tasks?${query}`)

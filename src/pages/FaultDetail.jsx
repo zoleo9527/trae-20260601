@@ -164,6 +164,40 @@ function FaultDetail() {
             )}
           </div>
 
+          {fault.taskInfo && (
+            <div className="card" style={{ borderLeft: '4px solid #1565c0' }}>
+              <h3 className="section-title">巡检任务上下文</h3>
+              <div className="detail-row">
+                <div className="detail-label">任务编号</div>
+                <div className="detail-value">
+                  <Link to={`/inspection-tasks/${fault.taskInfo.id}`} className="link">
+                    {fault.taskInfo.task_no}
+                  </Link>
+                </div>
+              </div>
+              <div className="detail-row">
+                <div className="detail-label">巡检区域</div>
+                <div className="detail-value">{fault.taskInfo.area}</div>
+              </div>
+              <div className="detail-row">
+                <div className="detail-label">巡检路线</div>
+                <div className="detail-value">{fault.taskInfo.route}</div>
+              </div>
+              <div className="detail-row">
+                <div className="detail-label">巡检员</div>
+                <div className="detail-value">{fault.taskInfo.inspector}</div>
+              </div>
+              <div className="detail-row">
+                <div className="detail-label">任务状态</div>
+                <div className="detail-value">
+                  <span className={`badge badge-${fault.taskInfo.status}`}>
+                    {fault.taskInfo.status_text}
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
+
           <div className="card">
             <h3 className="section-title">位置信息</h3>
             <div className="detail-row">
@@ -236,6 +270,14 @@ function FaultDetail() {
                 <div className="detail-row">
                   <div className="detail-label">所属区域</div>
                   <div className="detail-value">{fault.bike.area}</div>
+                </div>
+                <div className="detail-row">
+                  <div className="detail-label">停放位置</div>
+                  <div className="detail-value">{fault.bike.location}</div>
+                </div>
+                <div className="detail-row">
+                  <div className="detail-label">最近巡检</div>
+                  <div className="detail-value">{fault.bike.last_inspection_date || '-'}</div>
                 </div>
               </>
             ) : (
