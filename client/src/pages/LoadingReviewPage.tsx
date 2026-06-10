@@ -151,9 +151,13 @@ const LoadingReviewPage: React.FC = () => {
     });
     
     try {
-      const order = await orderApi.getById(record.orderId);
+      const [order, exceptionsData] = await Promise.all([
+        orderApi.getById(record.orderId),
+        exceptionApi.getAll()
+      ]);
       setSelectedOrder(order);
-      const orderExceptionList = exceptions.filter(e => e.orderId === record.orderId);
+      setExceptions(exceptionsData);
+      const orderExceptionList = exceptionsData.filter(e => e.orderId === record.orderId);
       setOrderExceptions(orderExceptionList);
     } catch (error) {
       message.error('加载订单信息失败');
@@ -206,7 +210,7 @@ const LoadingReviewPage: React.FC = () => {
     if (!selectedOrder) return;
 
     try {
-      await exceptionApi.create({
+      const newException = await exceptionApi.create({
         type: values.type,
         title: values.title,
         description: values.description,
@@ -218,10 +222,12 @@ const LoadingReviewPage: React.FC = () => {
       
       message.success('异常已上报');
       setExceptionDrawerVisible(false);
-      fetchData();
+      
+      const exceptionsData = await exceptionApi.getAll();
+      setExceptions(exceptionsData);
       
       if (selectedOrder) {
-        const orderExceptionList = exceptions.filter(e => e.orderId === selectedOrder.orderId);
+        const orderExceptionList = exceptionsData.filter(e => e.orderId === selectedOrder.orderId);
         setOrderExceptions(orderExceptionList);
       }
     } catch (error) {
