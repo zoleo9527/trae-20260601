@@ -71,6 +71,7 @@ export function useStore() {
         title: `${fr.houseName}投喂偏差确认`,
         description: `实际${actualAmount}kg vs 计划${fr.plannedAmount}kg`,
         relatedRecordId: fr.id,
+        reviewType: 'feed_deviation',
         priority: 'high',
         done: false,
         createdAt: fr.updatedAt
@@ -156,6 +157,7 @@ export function useStore() {
         title: `${fr.houseName}耗用异常处理`,
         description: `耗用偏差${varianceRate.toFixed(1)}%${returnReason ? '，' + returnReason : ''}`,
         relatedRecordId: fr.id,
+        reviewType: 'consumption_issue',
         priority: 'high',
         done: false,
         createdAt: analysis.analyzedAt!
@@ -213,14 +215,15 @@ export function useStore() {
 
     fr.updatedAt = now
 
-    const reviewTypeLabel = reviewType === 'feed_deviation' ? '投喂偏差' : '耗用异常'
     const matchedTodos = store.todos.filter(t =>
       t.relatedRecordId === recordId &&
       t.role === 'manager' &&
       !t.done &&
-      t.title.includes(reviewTypeLabel)
+      t.reviewType === reviewType
     )
     matchedTodos.forEach(t => { t.done = true })
+
+    const reviewTypeLabel = reviewType === 'feed_deviation' ? '投喂偏差' : '耗用异常'
 
     store.activities.unshift({
       id: `ACT-${Date.now()}`,

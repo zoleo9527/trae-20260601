@@ -81,6 +81,7 @@ export interface TodoItem {
   title: string
   description: string
   relatedRecordId: string
+  reviewType?: ReviewType
   priority: 'high' | 'medium' | 'low'
   done: boolean
   createdAt: string

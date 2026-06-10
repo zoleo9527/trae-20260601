@@ -417,8 +417,9 @@ const TODOS: TodoItem[] = [
     title: '3号舍投喂量超计划审批',
     description: '投喂520kg，超计划8%，饲养员标注钙磷比失调',
     relatedRecordId: 'FR-20260610-003',
+    reviewType: 'feed_deviation',
     priority: 'high',
-    done: false,
+    done: true,
     createdAt: `${today} 07:10`
   },
   {
@@ -427,6 +428,7 @@ const TODOS: TodoItem[] = [
     title: '5号舍投喂偏差确认',
     description: '加料10kg未走审批流程，需确认是否追认',
     relatedRecordId: 'FR-20260610-005',
+    reviewType: 'feed_deviation',
     priority: 'high',
     done: false,
     createdAt: `${today} 07:15`
@@ -437,6 +439,7 @@ const TODOS: TodoItem[] = [
     title: '6号舍料塔异常核实',
     description: '料塔传感器余料15kg，上批次可能未清零',
     relatedRecordId: 'FR-20260609-012',
+    reviewType: 'feed_deviation',
     priority: 'medium',
     done: false,
     createdAt: `${yesterday} 08:30`
@@ -447,8 +450,9 @@ const TODOS: TodoItem[] = [
     title: '4号舍料仓受潮跟进',
     description: '昨日发现料仓底部受潮结块，需确认清理和防潮进度',
     relatedRecordId: 'FR-20260609-004',
+    reviewType: 'consumption_issue',
     priority: 'medium',
-    done: false,
+    done: true,
     createdAt: `${yesterday} 16:05`
   },
   {
