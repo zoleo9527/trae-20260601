@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/router";
 import { useState, useMemo } from "react";
 import { prisma } from "@/lib/prisma";
-import { getCurrentUser, SessionUser, roleLabel } from "@/lib/auth";
+import { getServerAuth, SessionUser, roleLabel } from "@/lib/auth";
 import {
   formatTime,
   formatRelativeTime,
@@ -696,7 +696,7 @@ export default function HotspotDetailPage({ user, hotspot, allInspectors }: Prop
 }
 
 export const getServerSideProps: GetServerSideProps = async (context) => {
-  const user = await getCurrentUser();
+  const user = await getServerAuth(context);
   if (!user) {
     return { redirect: { destination: "/login", permanent: false } };
   }

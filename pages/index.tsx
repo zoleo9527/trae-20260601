@@ -3,7 +3,7 @@ import Head from "next/head";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { prisma } from "@/lib/prisma";
-import { getCurrentUser, SessionUser, roleLabel } from "@/lib/auth";
+import { getServerAuth, SessionUser, roleLabel } from "@/lib/auth";
 import {
   formatRelativeTime,
   statusLabel,
@@ -207,7 +207,7 @@ export default function Home({ user, hotspots }: HomeProps) {
 }
 
 export const getServerSideProps: GetServerSideProps = async (context) => {
-  const user = await getCurrentUser();
+  const user = await getServerAuth(context);
   if (!user) {
     return { redirect: { destination: "/login", permanent: false } };
   }
@@ -228,8 +228,16 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
   const hotspots: HotspotItem[] = hotspotsRaw.map((h) => ({
     ...h,
     submittedAt: h.submittedAt.toISOString(),
+    dispatchedAt: h.dispatchedAt?.toISOString() || null,
+    completedAt: h.completedAt?.toISOString() || null,
     submitter: h.submitter,
     dispatcher: h.dispatcher,
+    dispatchOrders: h.dispatchOrders.map((d) => ({
+      ...d,
+      createdAt: d.createdAt.toISOString(),
+      acceptedAt: d.acceptedAt?.toISOString() || null,
+      completedAt: d.completedAt?.toISOString() || null,
+    })),
   }));
 
   return { props: { user, hotspots } };

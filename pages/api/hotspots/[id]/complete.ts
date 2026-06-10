@@ -1,6 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { prisma } from "@/lib/prisma";
-import { getCurrentUser } from "@/lib/auth";
+import { requireApiAuth } from "@/lib/auth";
 import { HotspotStatus, ActionType } from "@/lib/types";
 
 export default async function handler(
@@ -11,8 +11,8 @@ export default async function handler(
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  const user = await getCurrentUser();
-  if (!user) return res.status(401).json({ error: "未登录" });
+  const user = await requireApiAuth(req, res);
+  if (!user) return;
 
   const { id } = req.query;
   const { dispatchId, content } = req.body;

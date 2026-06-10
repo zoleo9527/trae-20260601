@@ -1,6 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { prisma } from "@/lib/prisma";
-import { getCurrentUser } from "@/lib/auth";
+import { requireApiAuth } from "@/lib/auth";
 import { UserRole, HotspotStatus, ActionType } from "@/lib/types";
 
 export default async function handler(
@@ -11,8 +11,8 @@ export default async function handler(
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  const user = await getCurrentUser();
-  if (!user) return res.status(401).json({ error: "未登录" });
+  const user = await requireApiAuth(req, res);
+  if (!user) return;
   if (user.role !== UserRole.DISPATCHER && user.role !== UserRole.AREA_MANAGER) {
     return res.status(403).json({ error: "无权限调度派单" });
   }
