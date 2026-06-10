@@ -6,51 +6,51 @@ export type CattleStatus = 'healthy' | 'sick' | 'pregnant' | 'calving' | 'sold' 
 @Entity()
 export class Cattle {
   @PrimaryGeneratedColumn()
-  id: number
+  id!: number
 
   @Column({ unique: true })
-  tagNumber: string
+  tagNumber!: string
 
   @Column()
-  breed: string
+  breed!: string
 
   @Column({ type: 'date' })
-  birthDate: Date
+  birthDate!: Date
 
   @Column()
-  gender: string
+  gender!: string
 
   @Column({
     type: 'varchar',
     length: 20,
     default: 'healthy'
   })
-  status: CattleStatus
+  status!: CattleStatus
 
   @Column({ nullable: true })
-  motherId: number
+  motherId?: number
 
   @Column({ nullable: true })
-  fatherId: number
+  fatherId?: number
 
   @Column({ type: 'decimal', precision: 10, scale: 2, nullable: true })
-  weight: number
+  weight?: number
 
   @Column({ nullable: true })
-  location: string
+  location?: string
 
   @Column({ type: 'text', nullable: true })
-  description: string
+  description?: string
 
   @Column({ nullable: true })
-  photoUrl: string
+  photoUrl?: string
 
   @OneToMany(() => CattleNote, note => note.cattle)
-  notes: CattleNote[]
+  notes!: CattleNote[]
 
   @CreateDateColumn()
-  createdAt: Date
+  createdAt!: Date
 
   @UpdateDateColumn()
-  updatedAt: Date
+  updatedAt!: Date
 }

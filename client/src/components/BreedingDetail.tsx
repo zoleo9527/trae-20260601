@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Card, Tag, Button, Form, Input, Select, DatePicker, Modal, message, Table, Space } from 'antd'
+import { Card, Tag, Button, Form, Input, Select, Modal, message, Table, Space } from 'antd'
 import { ArrowLeftOutlined, PlusOutlined, CheckOutlined, CloseOutlined, InfoCircleOutlined } from '@ant-design/icons'
 import { BreedingRecord, BreedingNote, NoteStatus, UserRole, CattleNote, BreedingStatus } from '../types'
 import { breedingNotesApi, cattleNotesApi, authApi, breedingApi } from '../api'

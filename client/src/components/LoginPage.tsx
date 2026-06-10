@@ -1,10 +1,8 @@
 import { useState } from 'react'
-import { Form, Input, Button, Card, Select, message } from 'antd'
+import { Form, Input, Button, Card, message } from 'antd'
 import { UserOutlined, LockOutlined } from '@ant-design/icons'
 import { authApi } from '../api'
 import { useUserStore } from '../store/userStore'
-
-const { Option } = Select
 
 const mockUsers = [
   { username: 'manager', password: '123456', name: '张主管', role: 'manager' },

@@ -5,27 +5,27 @@ export type UserRole = 'manager' | 'milker' | 'vet'
 @Entity()
 export class User {
   @PrimaryGeneratedColumn()
-  id: number
+  id!: number
 
   @Column({ unique: true })
-  username: string
+  username!: string
 
   @Column()
-  password: string
+  password!: string
 
   @Column({
     type: 'varchar',
     length: 20,
     default: 'milker'
   })
-  role: UserRole
+  role!: UserRole
 
   @Column()
-  name: string
+  name!: string
 
   @CreateDateColumn()
-  createdAt: Date
+  createdAt!: Date
 
   @UpdateDateColumn()
-  updatedAt: Date
+  updatedAt!: Date
 }

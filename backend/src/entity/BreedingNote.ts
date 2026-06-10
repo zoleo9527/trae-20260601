@@ -8,45 +8,45 @@ export type BreedingNoteStatus = 'pending' | 'processing' | 'resolved' | 'reject
 @Entity()
 export class BreedingNote {
   @PrimaryGeneratedColumn()
-  id: number
+  id!: number
 
   @ManyToOne(() => BreedingRecord, record => record.breedingNotes)
-  breedingRecord: BreedingRecord
+  breedingRecord!: BreedingRecord
 
   @Column()
-  breedingRecordId: number
+  breedingRecordId!: number
 
   @ManyToOne(() => User)
-  author: User
+  author!: User
 
   @Column()
-  authorId: number
+  authorId!: number
 
   @Column({ type: 'text' })
-  content: string
+  content!: string
 
   @Column({
     type: 'varchar',
     length: 20,
     default: 'pending'
   })
-  status: BreedingNoteStatus
+  status!: BreedingNoteStatus
 
   @Column({ nullable: true })
-  assigneeId: number
+  assigneeId?: number
 
   @Column({ type: 'text', nullable: true })
-  followUp: string
+  followUp?: string
 
   @Column({ nullable: true })
-  relatedCattleNoteId: number
+  relatedCattleNoteId?: number
 
   @ManyToOne(() => CattleNote)
-  relatedCattleNote: CattleNote
+  relatedCattleNote?: CattleNote
 
   @CreateDateColumn()
-  createdAt: Date
+  createdAt!: Date
 
   @UpdateDateColumn()
-  updatedAt: Date
+  updatedAt!: Date
 }

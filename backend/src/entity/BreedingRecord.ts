@@ -9,60 +9,60 @@ export type BreedingStatus = 'planned' | 'completed' | 'successful' | 'failed' |
 @Entity()
 export class BreedingRecord {
   @PrimaryGeneratedColumn()
-  id: number
+  id!: number
 
   @ManyToOne(() => Cattle)
-  cow: Cattle
+  cow!: Cattle
 
   @Column()
-  cowId: number
+  cowId!: number
 
   @ManyToOne(() => Cattle)
-  bull: Cattle
+  bull!: Cattle
 
   @Column()
-  bullId: number
+  bullId!: number
 
   @Column({
     type: 'varchar',
     length: 20
   })
-  type: BreedingType
+  type!: BreedingType
 
   @Column({ type: 'date' })
-  breedingDate: Date
+  breedingDate!: Date
 
   @Column({
     type: 'varchar',
     length: 20,
     default: 'planned'
   })
-  status: BreedingStatus
+  status!: BreedingStatus
 
   @Column({ type: 'date', nullable: true })
-  expectedCalvingDate: Date
+  expectedCalvingDate?: Date
 
   @Column({ type: 'date', nullable: true })
-  actualCalvingDate: Date
+  actualCalvingDate?: Date
 
   @Column({ nullable: true })
-  calfTagNumber: string
+  calfTagNumber?: string
 
   @Column({ type: 'text', nullable: true })
-  notes: string
+  notes?: string
 
   @ManyToOne(() => User)
-  operator: User
+  operator!: User
 
   @Column()
-  operatorId: number
+  operatorId!: number
 
   @OneToMany(() => BreedingNote, note => note.breedingRecord)
-  breedingNotes: BreedingNote[]
+  breedingNotes!: BreedingNote[]
 
   @CreateDateColumn()
-  createdAt: Date
+  createdAt!: Date
 
   @UpdateDateColumn()
-  updatedAt: Date
+  updatedAt!: Date
 }

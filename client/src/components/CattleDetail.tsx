@@ -178,7 +178,6 @@ export default function CattleDetail({ cattle, onBack }: CattleDetailProps) {
  },
  ];
  const canAddNote = user?.role === 'manager' || user?.role === 'milker' || user?.role === 'vet';
- const canHandleNote = user?.role === 'manager' || user?.role === 'vet';
  return (<div>
  <Button icon={<ArrowLeftOutlined />} onClick={onBack} style={{ marginBottom: 16 }}>
  返回列表
