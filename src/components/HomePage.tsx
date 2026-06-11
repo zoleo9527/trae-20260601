@@ -31,9 +31,12 @@ export default function HomePage() {
 
   const handleNavigate = (tab: string, id?: string) => {
     setActiveTab(tab);
-    if (id) {
-      setSelectedId(id);
-    }
+    setSelectedId(id || undefined);
+  };
+
+  const handleTabChange = (tab: string) => {
+    setActiveTab(tab);
+    setSelectedId(undefined);
   };
 
   const renderContent = () => {
@@ -66,7 +69,7 @@ export default function HomePage() {
 
   return (
     <div className="flex h-screen bg-gray-50">
-      <Sidebar activeTab={activeTab} onTabChange={setActiveTab} />
+      <Sidebar activeTab={activeTab} onTabChange={handleTabChange} />
       <div className="flex-1 flex flex-col overflow-hidden">
         <Header title={pageTitles[activeTab] || '工作台'} />
         <main className="flex-1 overflow-y-auto p-6 scrollbar-thin">

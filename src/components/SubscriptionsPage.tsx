@@ -60,6 +60,15 @@ export default function SubscriptionsPage({
   }, [currentUser, refreshTrigger, filter]);
 
   useEffect(() => {
+    if (selectedId) {
+      const match = subscriptions.find((s) => s.id === selectedId);
+      if (match && match.id !== selectedSub?.id) {
+        setSelectedSub(match);
+      }
+    }
+  }, [selectedId, subscriptions]);
+
+  useEffect(() => {
     if (selectedSub) {
       loadMaterials(selectedSub.id);
     }
@@ -81,8 +90,18 @@ export default function SubscriptionsPage({
 
     setSubscriptions(data);
     setReminders(reminderData);
-    if (data.length > 0 && !selectedSub) {
-      setSelectedSub(data[0]);
+    if (data.length > 0) {
+      const targetId = selectedId || selectedSub?.id;
+      const match = targetId ? data.find((s) => s.id === targetId) : null;
+      if (match) {
+        if (match.id !== selectedSub?.id) {
+          setSelectedSub(match);
+        }
+      } else {
+        setSelectedSub(data[0]);
+      }
+    } else {
+      setSelectedSub(null);
     }
     setLoading(false);
   };
