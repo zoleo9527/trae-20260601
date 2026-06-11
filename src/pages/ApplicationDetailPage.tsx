@@ -5,6 +5,7 @@ import { useMallStore } from '../store'
 import { APPLICATION_STATUS_MAP, COMPLAINT_STATUS_MAP, ACTION_LABEL_MAP } from '../types'
 import Timeline from '../components/Timeline'
 import ActionModal from '../components/ActionModal'
+import ComplaintDrawer from '../components/ComplaintDrawer'
 
 export default function ApplicationDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -21,6 +22,8 @@ export default function ApplicationDetailPage() {
     fields: { key: string; label: string; type?: 'text' | 'textarea'; placeholder?: string; defaultValue?: string }[]
     onConfirm: (values: Record<string, string>) => void
   }>({ open: false, title: '', fields: [], onConfirm: () => {} })
+
+  const [drawerComplaintId, setDrawerComplaintId] = useState<number | null>(null)
 
   useEffect(() => {
     if (id) fetchApplicationDetail(Number(id))
@@ -224,6 +227,12 @@ export default function ApplicationDetailPage() {
                         </div>
                       )}
                       <p className="text-xs text-slate-300 mt-1">{c.createdAt}</p>
+                      <button
+                        onClick={() => setDrawerComplaintId(c.id)}
+                        className="mt-1.5 text-xs text-amber-600 hover:text-amber-700 font-medium transition-colors"
+                      >
+                        查看完整投诉历史 →
+                      </button>
                     </div>
                   )
                 })}
@@ -331,6 +340,12 @@ export default function ApplicationDetailPage() {
         title={modalConfig.title}
         fields={modalConfig.fields}
         onConfirm={modalConfig.onConfirm}
+      />
+
+      <ComplaintDrawer
+        open={drawerComplaintId !== null}
+        complaintId={drawerComplaintId}
+        onClose={() => setDrawerComplaintId(null)}
       />
     </div>
   )
