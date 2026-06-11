@@ -60,6 +60,16 @@ export default function StatusTransitionModal({ open, leadId, onClose }: Props) 
     autoSetFollowupStatus?: FollowupStatus;
   } | null>(null);
 
+  const watchType = Form.useWatch('type', form);
+  const watchContent = Form.useWatch('content', form);
+  const watchLocation = Form.useWatch('location', form);
+  const watchScheduledAt = Form.useWatch('scheduledAt', form);
+  const watchFollowupStatus = Form.useWatch('followupStatus', form);
+  const watchNextAction = Form.useWatch('nextAction', form);
+  const watchNextActionAt = Form.useWatch('nextActionAt', form);
+  const watchNextResponsible = Form.useWatch('nextResponsible', form);
+  const watchNextResponsibleRole = Form.useWatch('nextResponsibleRole', form);
+
   useEffect(() => {
     if (open && leadId) {
       loadLeadDetail(leadId);
@@ -76,9 +86,9 @@ export default function StatusTransitionModal({ open, leadId, onClose }: Props) 
 
   useEffect(() => {
     if (currentLead && selectedStatus && currentUser) {
-      const nextResponsible = form.getFieldValue('nextResponsible');
-      const nextResponsibleRole = form.getFieldValue('nextResponsibleRole');
-      const followupContent = form.getFieldValue('content');
+      const nextResponsible = watchNextResponsible;
+      const nextResponsibleRole = watchNextResponsibleRole;
+      const followupContent = watchContent;
 
       const result = validateTransition(
         currentLead,
@@ -88,20 +98,20 @@ export default function StatusTransitionModal({ open, leadId, onClose }: Props) 
           ? {
               id: '',
               leadId: currentLead.id,
-              type: form.getFieldValue('type') || 'other',
+              type: watchType || 'other',
               content: followupContent,
-              location: form.getFieldValue('location'),
-              scheduledAt: form.getFieldValue('scheduledAt')
-                ? form.getFieldValue('scheduledAt').toISOString()
+              location: watchLocation,
+              scheduledAt: watchScheduledAt
+                ? watchScheduledAt.toISOString()
                 : null,
               startedAt: new Date().toISOString(),
               completedAt: null,
-              status: form.getFieldValue('followupStatus') || 'in_progress',
+              status: watchFollowupStatus || 'in_progress',
               handledBy: currentUser.id,
               handledRole: currentUser.role,
-              nextAction: form.getFieldValue('nextAction') || '',
-              nextActionAt: form.getFieldValue('nextActionAt')
-                ? form.getFieldValue('nextActionAt').toISOString()
+              nextAction: watchNextAction || '',
+              nextActionAt: watchNextActionAt
+                ? watchNextActionAt.toISOString()
                 : null,
               nextResponsible: nextResponsible,
               nextResponsibleRole: nextResponsibleRole,
@@ -115,7 +125,20 @@ export default function StatusTransitionModal({ open, leadId, onClose }: Props) 
       );
       setValidation(result);
     }
-  }, [selectedStatus, currentLead, currentUser, form]);
+  }, [
+    selectedStatus,
+    currentLead,
+    currentUser,
+    watchType,
+    watchContent,
+    watchLocation,
+    watchScheduledAt,
+    watchFollowupStatus,
+    watchNextAction,
+    watchNextActionAt,
+    watchNextResponsible,
+    watchNextResponsibleRole,
+  ]);
 
   const handleStatusChange = (value: LeadStatus) => {
     setSelectedStatus(value);
@@ -439,15 +462,28 @@ export default function StatusTransitionModal({ open, leadId, onClose }: Props) 
                   自动分配给: {ROLE_LABELS[rule.autoAssignTo]}
                 </Tag>
               )}
+              {currentLead.status === 'contacting' && selectedStatus === 'needs_followup' && (
+                <Tag color="orange" style={{ marginLeft: 8 }}>
+                  可留空（将触发空档监控）
+                </Tag>
+              )}
             </div>
             <Row gutter={16}>
               <Col span={12}>
                 <Form.Item
                   name="nextResponsibleRole"
                   label="责任角色"
-                  rules={[{ required: true, message: '请选择责任角色' }]}
+                  rules={[
+                    {
+                      required: !(currentLead.status === 'contacting' && selectedStatus === 'needs_followup'),
+                      message: '请选择责任角色',
+                    },
+                  ]}
                 >
-                  <Select>
+                  <Select
+                    allowClear={currentLead.status === 'contacting' && selectedStatus === 'needs_followup'}
+                    placeholder="请选择责任角色"
+                  >
                     {handoffRoles.map((role) => (
                       <Option key={role} value={role}>
                         {ROLE_LABELS[role]}
@@ -468,15 +504,19 @@ export default function StatusTransitionModal({ open, leadId, onClose }: Props) 
                     const roleUsers = role
                       ? users.filter((u) => u.role === role)
                       : users;
+                    const isOptional = currentLead.status === 'contacting' && selectedStatus === 'needs_followup';
                     return (
                       <Form.Item
                         name="nextResponsible"
                         label="具体人员"
                         rules={[
-                          { required: true, message: '请选择具体人员' },
+                          { required: !isOptional, message: '请选择具体人员' },
                         ]}
                       >
-                        <Select placeholder="请选择责任人">
+                        <Select
+                          placeholder="请选择责任人"
+                          allowClear={isOptional}
+                        >
                           {roleUsers.map((user) => (
                             <Option key={user.id} value={user.id}>
                               {user.name}

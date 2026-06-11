@@ -242,7 +242,11 @@ export function validateTransition(
   const handoffRoles = RESPONSIBILITY_HANDOFF_MAP[toStatus];
   if (handoffRoles && handoffRoles.length > 0) {
     if (!nextResponsible && !rule.autoAssignTo) {
-      errors.push(`流转到 ${toStatus} 必须指定下一责任人`);
+      if (lead.status === 'contacting' && toStatus === 'needs_followup') {
+        warnings.push('暂未指定下一跟进责任人，流转后系统将监控责任空档并在30分钟后触发异常');
+      } else {
+        errors.push(`流转到 ${toStatus} 必须指定下一责任人`);
+      }
     } else if (
       nextResponsibleRole &&
       rule.autoAssignTo &&

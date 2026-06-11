@@ -351,7 +351,8 @@ export async function reassignLead(
     (e) =>
       e.type === 'status_gap_detected' ||
       e.type === 'unassigned_over_24h' ||
-      e.type === 'no_followup_over_48h'
+      e.type === 'no_followup_over_48h' ||
+      e.type === 'followup_overdue'
   );
 
   for (const ex of gapExceptions) {
@@ -359,7 +360,7 @@ export async function reassignLead(
       handled: true,
       handledAt: now,
       handledBy: currentUser.id,
-      handledRemark: `通过重新分配责任人解决`,
+      handledRemark: `通过重新分配责任人解决（新责任人: ${newResponsibleId}）`,
     });
   }
 

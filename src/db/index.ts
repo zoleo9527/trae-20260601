@@ -291,11 +291,15 @@ export async function getFollowupsByLeadId(leadId: string): Promise<DbFollowup[]
     .sort((a, b) => b.created_at.localeCompare(a.created_at));
 }
 
-export async function getAllFollowups(limit = 200): Promise<DbFollowup[]> {
+export async function getAllFollowups(limit?: number): Promise<DbFollowup[]> {
   await getDb();
-  return getAll<DbFollowup>('followups')
-    .sort((a, b) => b.created_at.localeCompare(a.created_at))
-    .slice(0, limit);
+  let items = getAll<DbFollowup>('followups').sort((a, b) =>
+    b.created_at.localeCompare(a.created_at)
+  );
+  if (limit && limit > 0) {
+    items = items.slice(0, limit);
+  }
+  return items;
 }
 
 export async function insertTransition(transition: DbTransition): Promise<string> {

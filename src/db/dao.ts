@@ -376,7 +376,7 @@ export async function getFollowupsByLeadId(leadId: string): Promise<FollowupReco
   return dbFollowups.map(mapDbFollowupToFollowup);
 }
 
-export async function getAllFollowups(limit = 200): Promise<FollowupRecord[]> {
+export async function getAllFollowups(limit?: number): Promise<FollowupRecord[]> {
   const dbFollowups = await dbGetAllFollowups(limit);
   return dbFollowups.map(mapDbFollowupToFollowup);
 }

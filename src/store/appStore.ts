@@ -232,6 +232,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
     await get().loadExceptionStats();
     await get().loadAllExceptions();
+    await get().loadAllFollowups();
   },
 
   flagException: async (leadId, followupId, type, message) => {

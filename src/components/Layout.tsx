@@ -321,9 +321,9 @@ function FollowupReview() {
   };
 
   return (
-    <Card title="跟进记录回看">
+    <Card title={`跟进记录回看 (${allFollowups.length})`}>
       <Timeline
-        items={allFollowups.slice(0, 50).map((f) => ({
+        items={allFollowups.map((f) => ({
           color: f.status === 'completed' ? 'green' : f.status === 'exception' ? 'red' : 'blue',
           children: (
             <div className="followup-card">
