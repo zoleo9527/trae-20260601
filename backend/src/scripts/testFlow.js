@@ -233,6 +233,25 @@ const run = async () => {
   console.log('\n📊 【Step 8】主管：进度汇总 + 责任不清报表导出');
   const summary = await zg.get('/api/dashboard/summary');
   assert('主管仪表盘数据', summary.data.totalLease >= 1 && summary.data.byStatus.ACTIVE >= 1);
+  assert('仪表盘-按品牌聚合', Array.isArray(summary.data.byBrand) && summary.data.byBrand.length >= 1, `${summary.data.byBrand?.length}个品牌`);
+  assert('仪表盘-按责任类型聚合', Array.isArray(summary.data.byLiabilityType), `${summary.data.byLiabilityType?.length}种类型`);
+  assert('仪表盘-卡点清单', Array.isArray(summary.data.blockerList), `${summary.data.blockerList?.length}条卡点`);
+
+  const summaryByBrand = await zg.get('/api/dashboard/summary?brand_id=1');
+  assert('仪表盘按品牌筛选(耐克)', summaryByBrand.code === 200 && summaryByBrand.data.totalLease >= 1, `耐克租约${summaryByBrand.data.totalLease}条`);
+
+  const summaryByLiability = await zg.get('/api/dashboard/summary?liability_type=LEASE_NO_RULE');
+  assert('仪表盘按责任类型筛选', summaryByLiability.code === 200 && typeof summaryByLiability.data.liabilityCount === 'number', `LEASE_NO_RULE=${summaryByLiability.data.liabilityCount}条`);
+
+  const summaryByStatus = await zg.get('/api/dashboard/summary?status=ACTIVE');
+  assert('仪表盘按状态筛选', summaryByStatus.code === 200 && summaryByStatus.data.byStatus.ACTIVE >= 1, `ACTIVE=${summaryByStatus.data.byStatus.ACTIVE}`);
+
+  if (summary.data.blockerList.length > 0) {
+    const b = summary.data.blockerList[0];
+    assert('卡点清单含处理人', !!b.liability_marker_name, `marker=${b.liability_marker_name}`);
+    assert('卡点清单含处理时间', !!b.liability_marked_at, `at=${b.liability_marked_at}`);
+    assert('卡点清单含扣点版本', typeof b.deduction_version === 'number', `v${b.deduction_version}`);
+  }
 
   const zsPending = await zs.get('/api/dashboard/my-pending');
   assert('招商经理待办(仅自己创建的)', zsPending.code === 200 && Array.isArray(zsPending.data), `code=${zsPending.code} 条数=${zsPending.data?.length}`);
@@ -283,6 +302,22 @@ const run = async () => {
 
   const listPending = await zg.get(`/api/leases?liability_flag=0`);
   assert('按责任标记筛选', Array.isArray(listPending.data.list));
+
+  const ledgerByBrand = await zg.get('/api/leases?brand_id=1&liability_flag=1');
+  assert('台账按品牌筛选(耐克)', ledgerByBrand.code === 200 && Array.isArray(ledgerByBrand.data.list), `耐克责任租约${ledgerByBrand.data.list?.length}条`);
+
+  const ledgerByType = await zg.get('/api/leases?liability_type=LEASE_NO_RULE');
+  assert('台账按责任类型筛选', ledgerByType.code === 200 && Array.isArray(ledgerByType.data.list), `LEASE_NO_RULE=${ledgerByType.data.list?.length}条`);
+
+  const ledgerByStatus = await zg.get('/api/leases?status=PENDING&liability_flag=1');
+  assert('台账按状态+责任筛选', ledgerByStatus.code === 200, `PENDING+责任=${ledgerByStatus.data.list?.length}条`);
+
+  if (ledgerByType.data.list.length > 0) {
+    const item = ledgerByType.data.list[0];
+    assert('台账条目含责任处理人', item.liability_marker_name !== undefined, `marker=${item.liability_marker_name}`);
+    assert('台账条目含处理时间', item.liability_marked_at !== undefined, `at=${item.liability_marked_at}`);
+    assert('台账条目含扣点版本', item.deduction_version !== undefined, `v${item.deduction_version}`);
+  }
 
   const history2 = await zg.get(`/api/deduction-rules/${leaseId}/version/1`);
   assert('扣点规则版本回看v1', history2.code === 200 && history2.data.version === 1);

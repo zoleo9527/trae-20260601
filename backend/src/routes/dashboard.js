@@ -8,6 +8,19 @@ router.use(authMiddleware);
 
 router.get('/summary', permissionMiddleware('dashboard:view'), (req, res) => {
   const role = req.user.role;
+  const { brand_id, liability_type, status } = req.query;
+
+  let baseWhere = 'WHERE 1=1';
+  const baseParams = [];
+
+  if (brand_id) {
+    baseWhere += ' AND bl.brand_id = ?';
+    baseParams.push(Number(brand_id));
+  }
+  if (status) {
+    baseWhere += ' AND bl.status = ?';
+    baseParams.push(status);
+  }
 
   let statusData;
   let liabilityCount;
@@ -16,47 +29,38 @@ router.get('/summary', permissionMiddleware('dashboard:view'), (req, res) => {
 
   if (role === 'ROLE_STORE_MANAGER') {
     const brandId = req.user.brand_id;
-    statusData = db.prepare(`
-      SELECT status, COUNT(*) as cnt FROM brand_leases WHERE brand_id = ? GROUP BY status
-    `).all(brandId);
-    liabilityCount = db.prepare(`
-      SELECT COUNT(*) as cnt FROM deduction_rules dr
-      LEFT JOIN brand_leases bl ON dr.lease_id = bl.id
-      WHERE dr.liability_flag IS NOT NULL AND bl.brand_id = ?
-        AND dr.id IN (SELECT MAX(id2) FROM deduction_rules GROUP BY lease_id)
-    `).get(brandId).cnt;
-    myPending = db.prepare(`
-      SELECT COUNT(*) as cnt FROM brand_leases bl WHERE bl.status = 'PENDING' AND bl.brand_id = ?
-    `).get(brandId).cnt;
-    totalLease = db.prepare('SELECT COUNT(*) as cnt FROM brand_leases WHERE brand_id = ?').get(brandId).cnt;
+    baseWhere += ' AND bl.brand_id = ?';
+    baseParams.push(brandId);
   } else if (role === 'ROLE_MERCHANDISE_MANAGER') {
     const uid = req.user.id;
-    statusData = db.prepare(`
-      SELECT status, COUNT(*) as cnt FROM brand_leases WHERE submitter_id = ? GROUP BY status
-    `).all(uid);
-    liabilityCount = db.prepare(`
-      SELECT COUNT(*) as cnt FROM deduction_rules dr
-      LEFT JOIN brand_leases bl ON dr.lease_id = bl.id
-      WHERE dr.liability_flag IS NOT NULL AND bl.submitter_id = ?
-        AND dr.id IN (SELECT MAX(id2) FROM deduction_rules GROUP BY lease_id)
-    `).get(uid).cnt;
-    myPending = db.prepare(`
-      SELECT COUNT(*) as cnt FROM brand_leases bl WHERE bl.status = 'PENDING' AND bl.submitter_id = ?
-    `).get(uid).cnt;
-    totalLease = db.prepare('SELECT COUNT(*) as cnt FROM brand_leases WHERE submitter_id = ?').get(uid).cnt;
-  } else {
-    statusData = db.prepare(`
-      SELECT status, COUNT(*) as cnt FROM brand_leases GROUP BY status
-    `).all();
-    liabilityCount = db.prepare(`
-      SELECT COUNT(*) as cnt FROM deduction_rules WHERE liability_flag IS NOT NULL
-        AND id IN (SELECT MAX(id) FROM deduction_rules GROUP BY lease_id)
-    `).get().cnt;
-    myPending = db.prepare(`
-      SELECT COUNT(*) as cnt FROM brand_leases bl WHERE bl.status = 'PENDING'
-    `).get().cnt;
-    totalLease = db.prepare('SELECT COUNT(*) as cnt FROM brand_leases').get().cnt;
+    baseWhere += ' AND bl.submitter_id = ?';
+    baseParams.push(uid);
   }
+
+  statusData = db.prepare(`
+    SELECT bl.status, COUNT(*) as cnt FROM brand_leases bl ${baseWhere} GROUP BY bl.status
+  `).all(...baseParams);
+
+  let liabilityWhere = baseWhere.slice();
+  const liabilityParams = [...baseParams];
+  if (liability_type) {
+    liabilityWhere += ' AND dr.liability_flag = ?';
+    liabilityParams.push(liability_type);
+  }
+
+  liabilityCount = db.prepare(`
+    SELECT COUNT(DISTINCT bl.id) as cnt FROM brand_leases bl
+    INNER JOIN deduction_rules dr ON dr.lease_id = bl.id AND dr.liability_flag IS NOT NULL
+    ${liabilityWhere}
+      AND dr.id IN (SELECT MAX(dr2.id) FROM deduction_rules dr2 GROUP BY dr2.lease_id)
+  `).get(...liabilityParams).cnt;
+
+  const pendingParams = [...baseParams];
+  myPending = db.prepare(`
+    SELECT COUNT(*) as cnt FROM brand_leases bl ${baseWhere} AND bl.status = 'PENDING'
+  `).get(...pendingParams).cnt;
+
+  totalLease = db.prepare(`SELECT COUNT(*) as cnt FROM brand_leases bl ${baseWhere}`).get(...baseParams).cnt;
 
   const statusMap = {};
   for (const s of statusData) statusMap[s.status] = s.cnt;
@@ -69,6 +73,54 @@ router.get('/summary', permissionMiddleware('dashboard:view'), (req, res) => {
     GROUP BY operator_role, action
     ORDER BY cnt DESC LIMIT 20
   `).all();
+
+  const byBrandParams = [...baseParams];
+  const byBrand = db.prepare(`
+    SELECT bl.brand_id, bl.brand_name, COUNT(*) as cnt,
+      SUM(CASE WHEN bl.status = 'PENDING' THEN 1 ELSE 0 END) as pending_cnt,
+      SUM(CASE WHEN bl.status = 'ACTIVE' THEN 1 ELSE 0 END) as active_cnt
+    FROM brand_leases bl ${baseWhere}
+    GROUP BY bl.brand_id, bl.brand_name
+    ORDER BY cnt DESC
+  `).all(...byBrandParams);
+
+  const liabilityBaseParams = [...baseParams];
+  let liabilityBaseWhere = baseWhere.slice();
+  if (liability_type) {
+    liabilityBaseWhere += ' AND dr.liability_flag = ?';
+    liabilityBaseParams.push(liability_type);
+  }
+
+  const byLiabilityType = db.prepare(`
+    SELECT dr.liability_flag, COUNT(DISTINCT bl.id) as cnt
+    FROM brand_leases bl
+    INNER JOIN deduction_rules dr ON dr.lease_id = bl.id AND dr.liability_flag IS NOT NULL
+    ${liabilityBaseWhere}
+      AND dr.id IN (SELECT MAX(dr2.id) FROM deduction_rules dr2 GROUP BY dr2.lease_id)
+    GROUP BY dr.liability_flag
+    ORDER BY cnt DESC
+  `).all(...liabilityBaseParams).map(r => ({
+    liability_flag: r.liability_flag,
+    liability_desc: LIABILITY_MAP[r.liability_flag] || r.liability_flag,
+    cnt: r.cnt,
+  }));
+
+  const blockerList = db.prepare(`
+    SELECT bl.id as lease_id, bl.lease_no, bl.brand_name, bl.status as lease_status,
+      u.name as submitter_name,
+      dr.liability_flag, dr.liability_reason, dr.liability_marked_at,
+      u2.name as liability_marker_name, dr.version as deduction_version, dr.status as deduction_status
+    FROM brand_leases bl
+    INNER JOIN deduction_rules dr ON dr.lease_id = bl.id AND dr.liability_flag IS NOT NULL
+      AND dr.id IN (SELECT MAX(dr2.id) FROM deduction_rules dr2 GROUP BY dr2.lease_id)
+    LEFT JOIN users u ON bl.submitter_id = u.id
+    LEFT JOIN users u2 ON dr.liability_marked_by = u2.id
+    ${liabilityBaseWhere}
+    ORDER BY dr.liability_marked_at DESC LIMIT 20
+  `).all(...liabilityBaseParams).map(r => ({
+    ...r,
+    liability_desc: LIABILITY_MAP[r.liability_flag] || r.liability_flag,
+  }));
 
   res.json({
     code: 200,
@@ -83,6 +135,9 @@ router.get('/summary', permissionMiddleware('dashboard:view'), (req, res) => {
       liabilityCount,
       pendingConfirm: myPending,
       recentActions: logs,
+      byBrand,
+      byLiabilityType,
+      blockerList,
     },
   });
 });

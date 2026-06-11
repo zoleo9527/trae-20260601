@@ -57,7 +57,7 @@ const checkLiabilityAuto = (lease, rule = null) => {
 };
 
 router.get('/', permissionMiddleware('lease:view:all'), (req, res) => {
-  const { status, keyword, liability_flag, page = 1, pageSize = 20 } = req.query;
+  const { status, keyword, liability_flag, brand_id, liability_type, page = 1, pageSize = 20 } = req.query;
   const offset = (page - 1) * pageSize;
 
   let where = 'WHERE 1=1';
@@ -72,9 +72,20 @@ router.get('/', permissionMiddleware('lease:view:all'), (req, res) => {
     const kw = `%${keyword}%`;
     params.push(kw, kw, kw);
   }
+  if (brand_id) {
+    where += ' AND l.brand_id = ?';
+    params.push(Number(brand_id));
+  }
 
   if (liability_flag === '1') {
     where += ' AND EXISTS (SELECT 1 FROM deduction_rules dr WHERE dr.lease_id = l.id AND dr.liability_flag IS NOT NULL)';
+  } else if (liability_flag === '0') {
+    where += ' AND NOT EXISTS (SELECT 1 FROM deduction_rules dr WHERE dr.lease_id = l.id AND dr.liability_flag IS NOT NULL)';
+  }
+
+  if (liability_type) {
+    where += ' AND EXISTS (SELECT 1 FROM deduction_rules dr WHERE dr.lease_id = l.id AND dr.liability_flag = ?)';
+    params.push(liability_type);
   }
 
   const countSql = `SELECT COUNT(*) as cnt FROM brand_leases l ${where}`;
@@ -84,8 +95,13 @@ router.get('/', permissionMiddleware('lease:view:all'), (req, res) => {
     SELECT l.*, 
       u.name as submitter_name,
       u2.name as confirmer_name,
-      (SELECT dr.liability_flag FROM deduction_rules dr WHERE dr.lease_id = l.id ORDER BY dr.id DESC LIMIT 1) as liability_flag,
-      (SELECT dr.status FROM deduction_rules dr WHERE dr.lease_id = l.id ORDER BY dr.id DESC LIMIT 1) as deduction_status
+      (SELECT dr.liability_flag FROM deduction_rules dr WHERE dr.lease_id = l.id AND dr.liability_flag IS NOT NULL ORDER BY dr.id DESC LIMIT 1) as liability_flag,
+      (SELECT dr.liability_reason FROM deduction_rules dr WHERE dr.lease_id = l.id AND dr.liability_flag IS NOT NULL ORDER BY dr.id DESC LIMIT 1) as liability_reason,
+      (SELECT dr.liability_marked_by FROM deduction_rules dr WHERE dr.lease_id = l.id AND dr.liability_flag IS NOT NULL ORDER BY dr.id DESC LIMIT 1) as liability_marked_by,
+      (SELECT u3.name FROM deduction_rules dr LEFT JOIN users u3 ON dr.liability_marked_by = u3.id WHERE dr.lease_id = l.id AND dr.liability_flag IS NOT NULL ORDER BY dr.id DESC LIMIT 1) as liability_marker_name,
+      (SELECT dr.liability_marked_at FROM deduction_rules dr WHERE dr.lease_id = l.id AND dr.liability_flag IS NOT NULL ORDER BY dr.id DESC LIMIT 1) as liability_marked_at,
+      (SELECT dr.status FROM deduction_rules dr WHERE dr.lease_id = l.id ORDER BY dr.id DESC LIMIT 1) as deduction_status,
+      (SELECT MAX(dr.version) FROM deduction_rules dr WHERE dr.lease_id = l.id) as deduction_version
     FROM brand_leases l
     LEFT JOIN users u ON l.submitter_id = u.id
     LEFT JOIN users u2 ON l.confirmer_id = u2.id
