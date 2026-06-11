@@ -24,6 +24,7 @@ export default function ApplicationDetailPage() {
   }>({ open: false, title: '', fields: [], onConfirm: () => {} })
 
   const [drawerComplaintId, setDrawerComplaintId] = useState<number | null>(null)
+  const [showUnresolvedOnly, setShowUnresolvedOnly] = useState(false)
 
   useEffect(() => {
     if (id) fetchApplicationDetail(Number(id))
@@ -183,62 +184,85 @@ export default function ApplicationDetailPage() {
             )}
           </div>
 
-          {complaints.length > 0 && (
-            <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-6">
-              <div className="flex items-center gap-2 mb-4">
-                <AlertTriangle size={16} className="text-amber-500" />
-                <h2 className="text-sm font-semibold text-slate-700">租户近期投诉</h2>
-                <span className="text-xs text-slate-400">（{app.tenantName}）</span>
-              </div>
-              <div className="space-y-3">
-                {complaints.map((c) => {
-                  const cs = COMPLAINT_STATUS_MAP[c.status]
-                  return (
-                    <div key={c.id} className="px-3 py-2.5 bg-slate-50/80 rounded-lg border border-slate-100">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="text-sm font-medium text-slate-700">{c.title}</span>
-                        <span className={`text-xs px-1.5 py-0.5 rounded-full border ${cs.bg} ${cs.color}`}>
-                          {cs.label}
-                        </span>
-                        {c.category && (
-                          <span className="text-xs px-1.5 py-0.5 rounded bg-slate-100 text-slate-500">{c.category}</span>
-                        )}
-                      </div>
-                      {c.content && (
-                        <p className="text-xs text-slate-500 line-clamp-2">{c.content}</p>
-                      )}
-                      {c.result && (
-                        <p className="text-xs text-emerald-600 mt-1">处理结果：{c.result}</p>
-                      )}
-                      {c.latestLogs && c.latestLogs.length > 0 && (
-                        <div className="mt-1.5 space-y-1">
-                          {c.latestLogs.map((log) => (
-                            <div key={log.id} className="flex items-start gap-1.5 px-2 py-1 bg-amber-50/60 rounded border border-amber-100/60">
-                              <MessageSquare size={10} className="text-amber-500 mt-0.5 shrink-0" />
-                              <span className="text-xs text-amber-800">
-                                <span className="font-medium">{log.operator}</span>
-                                <span className="text-amber-500 mx-0.5">·</span>
-                                {ACTION_LABEL_MAP[log.action] || log.action}
-                                <span className="text-amber-500 mx-0.5">:</span>
-                                {log.remark}
-                              </span>
-                            </div>
-                          ))}
+          {complaints.length > 0 && (() => {
+            const unresolved = complaints.filter((c) => c.status !== 'resolved')
+            const resolved = complaints.filter((c) => c.status === 'resolved')
+            const sorted = [...unresolved, ...resolved]
+            const displayed = showUnresolvedOnly ? unresolved : sorted
+            return (
+              <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2">
+                    <AlertTriangle size={16} className="text-amber-500" />
+                    <h2 className="text-sm font-semibold text-slate-700">租户近期投诉</h2>
+                    <span className="text-xs text-slate-400">（{app.tenantName}）</span>
+                    {unresolved.length > 0 && (
+                      <span className="text-xs px-1.5 py-0.5 rounded-full bg-red-50 border border-red-200 text-red-600 font-medium">
+                        {unresolved.length} 条未解决
+                      </span>
+                    )}
+                  </div>
+                  <button
+                    onClick={() => setShowUnresolvedOnly(!showUnresolvedOnly)}
+                    className={`text-xs px-2.5 py-1 rounded-lg border transition-colors ${
+                      showUnresolvedOnly
+                        ? 'bg-amber-50 border-amber-200 text-amber-700'
+                        : 'border-slate-200 text-slate-500 hover:bg-slate-50'
+                    }`}
+                  >
+                    {showUnresolvedOnly ? '只看未解决 ✓' : '只看未解决'}
+                  </button>
+                </div>
+                <div className="space-y-3">
+                  {displayed.map((c) => {
+                    const cs = COMPLAINT_STATUS_MAP[c.status]
+                    return (
+                      <div key={c.id} className={`px-3 py-2.5 rounded-lg border ${c.status !== 'resolved' ? 'bg-amber-50/40 border-amber-100/60' : 'bg-slate-50/80 border-slate-100'}`}>
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="text-sm font-medium text-slate-700">{c.title}</span>
+                          <span className={`text-xs px-1.5 py-0.5 rounded-full border ${cs.bg} ${cs.color}`}>
+                            {cs.label}
+                          </span>
+                          {c.category && (
+                            <span className="text-xs px-1.5 py-0.5 rounded bg-slate-100 text-slate-500">{c.category}</span>
+                          )}
                         </div>
-                      )}
-                      <p className="text-xs text-slate-300 mt-1">{c.createdAt}</p>
-                      <button
-                        onClick={() => setDrawerComplaintId(c.id)}
-                        className="mt-1.5 text-xs text-amber-600 hover:text-amber-700 font-medium transition-colors"
-                      >
-                        查看完整投诉历史 →
-                      </button>
-                    </div>
-                  )
-                })}
+                        {c.content && (
+                          <p className="text-xs text-slate-500 line-clamp-2">{c.content}</p>
+                        )}
+                        {c.result && (
+                          <p className="text-xs text-emerald-600 mt-1">处理结果：{c.result}</p>
+                        )}
+                        {c.latestLogs && c.latestLogs.length > 0 && (
+                          <div className="mt-1.5 space-y-1">
+                            {c.latestLogs.map((log) => (
+                              <div key={log.id} className="flex items-start gap-1.5 px-2 py-1 bg-amber-50/60 rounded border border-amber-100/60">
+                                <MessageSquare size={10} className="text-amber-500 mt-0.5 shrink-0" />
+                                <span className="text-xs text-amber-800">
+                                  <span className="font-medium">{log.operator}</span>
+                                  <span className="text-amber-500 mx-0.5">·</span>
+                                  {ACTION_LABEL_MAP[log.action] || log.action}
+                                  <span className="text-amber-500 mx-0.5">:</span>
+                                  {log.remark}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        <p className="text-xs text-slate-300 mt-1">{c.createdAt}</p>
+                        <button
+                          onClick={() => setDrawerComplaintId(c.id)}
+                          className="mt-1.5 text-xs text-amber-600 hover:text-amber-700 font-medium transition-colors"
+                        >
+                          查看完整投诉历史 →
+                        </button>
+                      </div>
+                    )
+                  })}
+                </div>
               </div>
-            </div>
-          )}
+            )
+          })()}
 
           <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-6">
             <h2 className="text-sm font-semibold text-slate-700 mb-4">流转记录</h2>
