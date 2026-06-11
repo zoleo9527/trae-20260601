@@ -1,34 +1,34 @@
-/**
- * local server entry file, for local development
- */
-import app from './app.js';
+import app, { setupRemix } from './app.js';
 
-/**
- * start server with port
- */
 const PORT = process.env.PORT || 3001;
 
-const server = app.listen(PORT, () => {
-  console.log(`Server ready on port ${PORT}`);
-});
+async function startServer() {
+  await setupRemix(app);
 
-/**
- * close server
- */
-process.on('SIGTERM', () => {
-  console.log('SIGTERM signal received');
-  server.close(() => {
-    console.log('Server closed');
-    process.exit(0);
+  const server = app.listen(PORT, () => {
+    console.log(`Server ready on port ${PORT}`);
   });
-});
 
-process.on('SIGINT', () => {
-  console.log('SIGINT signal received');
-  server.close(() => {
-    console.log('Server closed');
-    process.exit(0);
+  process.on('SIGTERM', () => {
+    console.log('SIGTERM signal received');
+    server.close(() => {
+      console.log('Server closed');
+      process.exit(0);
+    });
   });
+
+  process.on('SIGINT', () => {
+    console.log('SIGINT signal received');
+    server.close(() => {
+      console.log('Server closed');
+      process.exit(0);
+    });
+  });
+}
+
+startServer().catch((err) => {
+  console.error('Failed to start server:', err);
+  process.exit(1);
 });
 
 export default app;

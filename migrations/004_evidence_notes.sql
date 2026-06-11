@@ -1,0 +1,2 @@
+ALTER TABLE evidence_reviews ADD COLUMN IF NOT EXISTS notes TEXT;
+ALTER TABLE evidence_reviews ADD COLUMN IF NOT EXISTS reviewed_at TIMESTAMP;

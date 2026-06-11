@@ -86,15 +86,18 @@ export interface EvidenceLink {
 }
 
 export type EvidenceReviewStatus = 'pending' | 'in_progress' | 'completed' | 'blocked'
+export type EvidenceVerificationStatus = 'verified' | 'unverified' | 'insufficient'
 
 export interface EvidenceReview {
   id: number
   complaint_id: number
   reviewer_id: number
   reviewer_name: string | null
-  status: EvidenceReviewStatus
+  status: string
   blocked_reason: string | null
   completed_at: string | null
+  notes: string | null
+  reviewed_at: string | null
   created_at: string
   updated_at: string
 }
@@ -136,6 +139,12 @@ export const EVIDENCE_REVIEW_STATUS_LABELS: Record<EvidenceReviewStatus, string>
   in_progress: '回查中',
   completed: '已完成',
   blocked: '受阻',
+}
+
+export const EVIDENCE_VERIFICATION_STATUS_LABELS: Record<EvidenceVerificationStatus, string> = {
+  verified: '已验证',
+  unverified: '待验证',
+  insufficient: '证据不足',
 }
 
 export const STUCK_POINT_LABELS: Record<string, string> = {
