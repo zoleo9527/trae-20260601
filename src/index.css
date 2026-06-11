@@ -1,0 +1,130 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    font-family: 'Inter', system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  
+  body {
+    @apply bg-slate-50 text-slate-800;
+  }
+}
+
+@layer components {
+  .btn {
+    @apply inline-flex items-center justify-center px-4 py-2 text-sm font-medium rounded-md transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  
+  .btn-primary {
+    @apply bg-navy-500 text-white hover:bg-navy-600 focus:ring-navy-500 active:bg-navy-700;
+  }
+  
+  .btn-secondary {
+    @apply bg-white text-navy-500 border border-navy-200 hover:bg-navy-50 focus:ring-navy-500 active:bg-navy-100;
+  }
+  
+  .btn-success {
+    @apply bg-emerald-500 text-white hover:bg-emerald-600 focus:ring-emerald-500 active:bg-emerald-700;
+  }
+  
+  .btn-danger {
+    @apply bg-red-500 text-white hover:bg-red-600 focus:ring-red-500 active:bg-red-700;
+  }
+  
+  .btn-amber {
+    @apply bg-amber-500 text-white hover:bg-amber-600 focus:ring-amber-500 active:bg-amber-700;
+  }
+  
+  .card {
+    @apply bg-white rounded-lg border border-slate-200 shadow-card transition-all duration-200;
+  }
+  
+  .card:hover {
+    @apply shadow-card-hover;
+  }
+  
+  .input {
+    @apply block w-full px-3 py-2 text-sm border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-navy-500 focus:border-transparent transition-all duration-200;
+  }
+  
+  .input:focus {
+    box-shadow: 0 0 0 3px rgba(212, 168, 83, 0.15);
+  }
+  
+  .label {
+    @apply block text-sm font-medium text-slate-700 mb-1;
+  }
+  
+  .badge {
+    @apply inline-flex items-center px-2.5 py-0.5 text-xs font-medium rounded-full border;
+  }
+  
+  .status-badge-draft { @apply bg-gray-100 text-gray-700 border-gray-200; }
+  .status-badge-pendingSupervisor { @apply bg-amber-50 text-amber-700 border-amber-200; }
+  .status-badge-pendingBrand { @apply bg-blue-50 text-blue-700 border-blue-200; }
+  .status-badge-active { @apply bg-emerald-50 text-emerald-700 border-emerald-200; }
+  .status-badge-salesPending { @apply bg-purple-50 text-purple-700 border-purple-200; }
+  .status-badge-completed { @apply bg-navy-50 text-navy-700 border-navy-200; }
+  .status-badge-rejected { @apply bg-red-50 text-red-700 border-red-200; }
+  
+  .role-badge-counterManager { @apply bg-amber-100 text-amber-800; }
+  .role-badge-floorSupervisor { @apply bg-blue-100 text-blue-800; }
+  .role-badge-brandSupervisor { @apply bg-emerald-100 text-emerald-800; }
+  
+  .timeline-line {
+    @apply absolute left-4 top-8 bottom-0 w-0.5 bg-slate-200;
+  }
+  
+  .timeline-dot {
+    @apply absolute left-4 w-3 h-3 rounded-full -translate-x-1/2 ring-4 ring-white;
+  }
+  
+  .animate-stagger > * {
+    opacity: 0;
+    transform: translateY(10px);
+    animation: fadeInUp 0.4s ease-out forwards;
+  }
+  
+  .animate-stagger > *:nth-child(1) { animation-delay: 0ms; }
+  .animate-stagger > *:nth-child(2) { animation-delay: 50ms; }
+  .animate-stagger > *:nth-child(3) { animation-delay: 100ms; }
+  .animate-stagger > *:nth-child(4) { animation-delay: 150ms; }
+  .animate-stagger > *:nth-child(5) { animation-delay: 200ms; }
+  .animate-stagger > *:nth-child(6) { animation-delay: 250ms; }
+  .animate-stagger > *:nth-child(7) { animation-delay: 300ms; }
+  .animate-stagger > *:nth-child(8) { animation-delay: 350ms; }
+  .animate-stagger > *:nth-child(9) { animation-delay: 400ms; }
+  .animate-stagger > *:nth-child(10) { animation-delay: 450ms; }
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.scrollbar-thin::-webkit-scrollbar {
+  width: 6px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 3px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
