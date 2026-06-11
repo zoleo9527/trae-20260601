@@ -91,9 +91,11 @@ async function markInProgress() {
   dispatchUpdateLoading.value = true;
   try {
     const data: UpdateDispatchRequest = {
-      rectificationRemark: '已开始整改工作'
+      isStarted: true,
+      rectificationRemark: expectedTimeForm.remark || '已开始整改工作'
     };
     await store.updateDispatch(store.currentInspection.dispatches[0].id, data);
+    expectedTimeForm.remark = '';
   } catch (error) {
     console.error(error);
     alert('操作失败');

@@ -113,11 +113,13 @@ onMounted(() => {
             {{ menuItems.find(m => isActive(m.path))?.name || '消防维保系统' }}
           </h2>
           <p class="text-sm text-gray-500 mt-1">
-            {{ route.path === '/inspections' && '管理所有消防设施抽检记录' }}
-            {{ route.path === '/dispatches' && '查看隐患派发记录和处理状态' }}
-            {{ route.path === '/rectification' && '实时跟踪整改进度和统计' }}
-            {{ route.path === '/review' && '对已完成整改的隐患进行复查' }}
-            {{ route.path.startsWith('/inspections/') && '隐患详情和处理流程' }}
+            {{
+              route.path === '/inspections' ? '管理所有消防设施抽检记录' :
+              route.path === '/dispatches' ? '查看隐患派发记录和处理状态' :
+              route.path === '/rectification' ? '实时跟踪整改进度和统计' :
+              route.path === '/review' ? '对已完成整改的隐患进行复查' :
+              route.path.startsWith('/inspections/') ? '隐患详情和处理流程' : ''
+            }}
           </p>
         </div>
         <div class="flex items-center gap-4">

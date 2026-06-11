@@ -3,6 +3,10 @@ import { getUserById, getUsersByRole } from './userService.js';
 import { getInspectionById, updateInspectionStatus } from './inspectionService.js';
 import type { Dispatch, CreateDispatchRequest, UpdateDispatchRequest, InspectionStatus, UserRole } from '../../shared/types.js';
 
+function genId(prefix: string): string {
+  return `${prefix}${Date.now()}_${Math.floor(Math.random() * 1000000)}`;
+}
+
 export function getAllDispatches(): Dispatch[] {
   const db = getDb();
   const rows = db.prepare(`
@@ -65,7 +69,7 @@ export function createDispatch(
 ): Dispatch {
   const db = getDb();
   const now = new Date().toISOString().replace('T', ' ').substring(0, 19);
-  const id = `d${Date.now()}`;
+  const id = genId('d');
 
   const dispatcher = getUserById(dispatcherId);
   if (!dispatcher) {
@@ -149,9 +153,8 @@ export function updateDispatch(
       params.push(now);
     }
 
-    params.push(id);
-
     if (updates.length > 0) {
+      params.push(id);
       db.prepare(`
         UPDATE dispatches
         SET ${updates.join(', ')}
@@ -172,12 +175,12 @@ export function updateDispatch(
         operatorId,
         '申请复查'
       );
-    } else if (data.expectedCompletionTime && dispatch.dispatchTime) {
+    } else if (data.isStarted) {
       updateInspectionStatus(
         dispatch.inspectionId,
         'in_progress' as InspectionStatus,
         operatorId,
-        `预计完成时间：${data.expectedCompletionTime}`
+        data.rectificationRemark || '已开始整改工作'
       );
     }
   });

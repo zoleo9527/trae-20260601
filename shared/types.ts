@@ -112,6 +112,7 @@ export interface CreateDispatchRequest {
 export interface UpdateDispatchRequest {
   expectedCompletionTime?: string;
   rectificationRemark?: string;
+  isStarted?: boolean;
   isCompleted?: boolean;
 }
 

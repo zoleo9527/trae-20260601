@@ -10,6 +10,10 @@ import type {
   CreateInspectionRequest
 } from '../../shared/types.js';
 
+function genId(prefix: string): string {
+  return `${prefix}${Date.now()}_${Math.floor(Math.random() * 1000000)}`;
+}
+
 function mapInspectionRow(row: any): Inspection {
   return {
     id: row.id,
@@ -182,7 +186,7 @@ export function createInspection(
 ): Inspection {
   const db = getDb();
   const now = new Date().toISOString().replace('T', ' ').substring(0, 19);
-  const id = `i${Date.now()}`;
+  const id = genId('i');
 
   const discoverer = getUserById(discovererId);
   if (!discoverer) {
@@ -212,7 +216,7 @@ export function createInspection(
     `);
 
     data.photos.forEach((photo, index) => {
-      const photoId = `p${Date.now()}_${index}`;
+      const photoId = genId('p');
       insertPhoto.run(
         photoId,
         id,
@@ -224,7 +228,7 @@ export function createInspection(
       );
     });
 
-    const statusLogId = `s${Date.now()}`;
+    const statusLogId = genId('s');
     db.prepare(`
       INSERT INTO status_logs (id, inspection_id, from_status, to_status, operator_id, remark, timestamp)
       VALUES (?, ?, NULL, 'pending_review', ?, '提交抽检记录', ?)
@@ -261,7 +265,7 @@ export function updateInspectionStatus(
   const tx = db.transaction(() => {
     db.prepare('UPDATE inspections SET status = ? WHERE id = ?').run(newStatus, id);
 
-    const statusLogId = `s${Date.now()}`;
+    const statusLogId = genId('s');
     db.prepare(`
       INSERT INTO status_logs (id, inspection_id, from_status, to_status, operator_id, remark, timestamp)
       VALUES (?, ?, ?, ?, ?, ?, ?)

@@ -3,6 +3,10 @@ import { getInspectionById, updateInspectionStatus } from './inspectionService.j
 import { getUserById } from './userService.js';
 import type { RectificationStats, ReviewRequest, InspectionStatus } from '../../shared/types.js';
 
+function genId(prefix: string): string {
+  return `${prefix}${Date.now()}_${Math.floor(Math.random() * 1000000)}`;
+}
+
 export function getRectificationStats(): RectificationStats {
   const db = getDb();
 
@@ -70,7 +74,7 @@ export function submitReview(
       data.inspectionId
     );
 
-    const statusLogId = `s${Date.now()}`;
+    const statusLogId = genId('s');
     db.prepare(`
       INSERT INTO status_logs (id, inspection_id, from_status, to_status, operator_id, remark, timestamp)
       VALUES (?, ?, ?, ?, ?, ?, ?)
@@ -90,7 +94,7 @@ export function submitReview(
     `);
 
     data.photos.forEach((photo, index) => {
-      const photoId = `p${Date.now()}_${index}`;
+      const photoId = genId('p');
       insertPhoto.run(
         photoId,
         data.inspectionId,
@@ -111,7 +115,7 @@ export function submitReview(
       `).get(data.inspectionId) as any;
 
       if (latestDispatch) {
-        const reDispatchId = `d${Date.now()}`;
+        const reDispatchId = genId('d');
         db.prepare(`
           INSERT INTO dispatches (
             id, inspection_id, dispatcher_id, receiver_id,

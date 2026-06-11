@@ -224,26 +224,29 @@ function seedDatabase(): void {
   insertStatusLog.run('s010', 'i003', 'completed', 'pending_review_after', 'u003', '申请复查', '2026-06-04 16:31:00');
 
   const insertDispatch = database.prepare(`
-    INSERT INTO dispatches (id, inspection_id, dispatcher_id, receiver_id, dispatch_time, expected_completion_time, dispatch_remark)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO dispatches (id, inspection_id, dispatcher_id, receiver_id, dispatch_time, expected_completion_time, dispatch_remark, rectification_remark)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
   `);
 
   insertDispatch.run(
     'd001', 'i001', 'u002', 'u003',
     '2026-06-01 10:00:00',
     '2026-06-05 17:00:00',
-    '高风险隐患，请立即更换过期灭火器'
+    '高风险隐患，请立即更换过期灭火器',
+    null
   );
   insertDispatch.run(
     'd002', 'i002', 'u002', 'u003',
     '2026-06-02 14:30:00',
     '2026-06-03 14:30:00',
-    '紧急隐患，24小时内必须清理完毕，确保通道畅通'
+    '紧急隐患，24小时内必须清理完毕，确保通道畅通',
+    '已安排人员清理通道'
   );
   insertDispatch.run(
     'd003', 'i003', 'u002', 'u003',
     '2026-06-03 11:00:00',
     '2026-06-05 17:00:00',
-    '请检查消防水泵压力，必要时联系维保公司检修'
+    '请检查消防水泵压力，必要时联系维保公司检修',
+    '水泵已检修，水压恢复正常'
   );
 }
