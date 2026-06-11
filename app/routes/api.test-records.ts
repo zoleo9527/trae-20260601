@@ -4,6 +4,7 @@ import { listTestRecords, getTestRecord, createTestRecord, transitionTestRecord,
 import { getAvailableTransitions } from "~/models/state-machine";
 import { TEST_RECORD_MACHINE } from "~/models/state-machine";
 import { checkIdempotency } from "~/services/handover.service";
+import { getHandoverTimeline } from "~/services/handover.service";
 
 export async function loader({ request }: LoaderFunctionArgs) {
   const url = new URL(request.url);
@@ -22,7 +23,38 @@ export async function loader({ request }: LoaderFunctionArgs) {
       ? getAvailableTransitions(TEST_RECORD_MACHINE, record.status, operatorRole)
       : [];
 
-    return json({ record, availableTransitions });
+    const timeline = await getHandoverTimeline(id);
+
+    return json({
+      record,
+      availableTransitions,
+      reworkDetail: record.reworkOrders.map((ro) => ({
+        id: ro.id,
+        code: ro.code,
+        status: ro.status,
+        defectDesc: ro.defectDesc,
+        rectifyMethod: ro.rectifyMethod,
+        deadline: ro.deadline,
+        currentHolderRole: ro.currentHolderRole,
+        currentHolderId: ro.currentHolderId,
+        stateTransitions: ro.stateTransitions,
+        handoverLogs: ro.handoverLogs,
+        attachments: ro.attachments,
+      })),
+      handoverDetail: record.handoverLogs.map((hl) => ({
+        id: hl.id,
+        fromRole: hl.fromRole,
+        fromUserId: hl.fromUserId,
+        fromUserName: hl.fromUserName,
+        toRole: hl.toRole,
+        toUserId: hl.toUserId,
+        toUserName: hl.toUserName,
+        handoverType: hl.handoverType,
+        remark: hl.remark,
+        createdAt: hl.createdAt,
+      })),
+      timeline,
+    });
   }
 
   const status = url.searchParams.get("status") as "DRAFT" | "SUBMITTED" | "UNDER_REVIEW" | "ACCEPTED" | "REJECTED" | "ARCHIVED" | null;
@@ -42,7 +74,7 @@ export async function action({ request }: ActionFunctionArgs) {
 
   switch (op) {
     case "create": {
-      const { projectId, testItem, testMethod, testResult, conclusion, holderId } = body;
+      const { projectId, testItem, testMethod, testResult, conclusion, holderId, holderName } = body;
       if (!projectId || !testItem || !holderId) {
         return json({ error: "projectId, testItem, holderId 必填" }, { status: 400 });
       }
@@ -53,12 +85,13 @@ export async function action({ request }: ActionFunctionArgs) {
         testResult: testResult || "",
         conclusion: conclusion || "",
         holderId,
+        holderName: holderName || "",
       });
       return json({ record }, { status: 201 });
     }
 
     case "transition": {
-      const { testRecordId, fromStatus, toStatus, operatorRole, operatorId, operatorName, remark, idempotencyKey } = body;
+      const { testRecordId, fromStatus, toStatus, operatorRole, operatorId, operatorName, receiverId, receiverName, remark, idempotencyKey } = body;
       if (!testRecordId || !fromStatus || !toStatus || !operatorRole || !operatorId) {
         return json({ error: "testRecordId, fromStatus, toStatus, operatorRole, operatorId 必填" }, { status: 400 });
       }
@@ -67,7 +100,8 @@ export async function action({ request }: ActionFunctionArgs) {
         const isDuplicate = await checkIdempotency(idempotencyKey);
         if (isDuplicate) {
           const existing = await getTestRecord(testRecordId);
-          return json({ record: existing, idempotent: true });
+          const timeline = await getHandoverTimeline(testRecordId);
+          return json({ record: existing, timeline, idempotent: true });
         }
       }
 
@@ -79,10 +113,13 @@ export async function action({ request }: ActionFunctionArgs) {
           operatorRole,
           operatorId,
           operatorName: operatorName || "",
+          receiverId: receiverId || undefined,
+          receiverName: receiverName || undefined,
           remark,
           idempotencyKey,
         });
-        return json({ record });
+        const timeline = await getHandoverTimeline(testRecordId);
+        return json({ record, timeline });
       } catch (e: unknown) {
         const message = e instanceof Error ? e.message : "状态流转失败";
         return json({ error: message }, { status: 422 });
@@ -103,7 +140,8 @@ export async function action({ request }: ActionFunctionArgs) {
         files,
         remark,
       });
-      return json({ record });
+      const timeline = await getHandoverTimeline(testRecordId);
+      return json({ record, timeline });
     }
 
     default:

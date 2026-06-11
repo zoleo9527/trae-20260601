@@ -42,6 +42,8 @@ export async function transitionReworkOrder(input: {
   operatorRole: string;
   operatorId: string;
   operatorName: string;
+  receiverId?: string;
+  receiverName?: string;
   rectifyMethod?: string;
   remark?: string;
   idempotencyKey?: string;
@@ -52,7 +54,7 @@ export async function transitionReworkOrder(input: {
     where: { idempotencyKey },
   });
   if (existing) {
-    return prisma.reworkOrder.findUnique({ where: { id: input.reworkOrderId } });
+    return getReworkOrder(input.reworkOrderId);
   }
 
   const validation = validateTransition(
@@ -78,6 +80,9 @@ export async function transitionReworkOrder(input: {
   if (rule.nextHolderRole) {
     updateData.currentHolderRole = rule.nextHolderRole;
   }
+  if (input.receiverId && rule.nextHolderRole) {
+    updateData.currentHolderId = input.receiverId;
+  }
   if (input.rectifyMethod) {
     updateData.rectifyMethod = input.rectifyMethod;
   }
@@ -100,6 +105,7 @@ export async function transitionReworkOrder(input: {
         action: rule.action,
         remark: input.remark,
         idempotencyKey,
+        reworkOrderId: input.reworkOrderId,
       },
     });
 
@@ -112,8 +118,8 @@ export async function transitionReworkOrder(input: {
           fromUserId: input.operatorId,
           fromUserName: input.operatorName,
           toRole: rule.nextHolderRole,
-          toUserId: "",
-          toUserName: "",
+          toUserId: input.receiverId || "",
+          toUserName: input.receiverName || "",
           handoverType: mapActionToHandoverType(rule.action),
           remark: input.remark,
           reworkOrderId: input.reworkOrderId,
@@ -154,13 +160,14 @@ export async function transitionReworkOrder(input: {
               operatorName: "系统",
               action: "整改完成自动回退到草稿",
               idempotencyKey: `${idempotencyKey}-auto-reset`,
+              testRecordId: order.testRecordId,
             },
           });
         }
       }
     }
 
-    return order;
+    return getReworkOrder(input.reworkOrderId);
   });
 }
 
@@ -207,7 +214,7 @@ export async function supplementReworkAttachment(input: {
       });
     }
 
-    return tx.reworkOrder.findUnique({ where: { id: input.reworkOrderId } });
+    return getReworkOrder(input.reworkOrderId);
   });
 }
 

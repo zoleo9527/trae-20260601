@@ -286,7 +286,14 @@ async function listTestRecords(projectId, filters) {
     where,
     include: {
       project: true,
-      reworkOrders: { orderBy: { createdAt: "desc" } },
+      reworkOrders: {
+        include: {
+          stateTransitions: { orderBy: { createdAt: "desc" } },
+          handoverLogs: { orderBy: { createdAt: "desc" } },
+          attachments: { orderBy: { uploadedAt: "desc" } }
+        },
+        orderBy: { createdAt: "desc" }
+      },
       stateTransitions: { orderBy: { createdAt: "desc" } },
       handoverLogs: { orderBy: { createdAt: "desc" } },
       attachments: { orderBy: { uploadedAt: "desc" } },
@@ -341,7 +348,7 @@ async function transitionTestRecord(input) {
     where: { idempotencyKey }
   });
   if (existing) {
-    return prisma.testRecord.findUnique({ where: { id: input.testRecordId } });
+    return getTestRecord(input.testRecordId);
   }
   const validation = validateTransition(
     {
@@ -358,14 +365,15 @@ async function transitionTestRecord(input) {
     throw new Error(validation.error || "状态流转校验失败");
   }
   const rule = validation.rule;
-  const updateData = {
-    status: input.toStatus
-  };
+  const updateData = { status: input.toStatus };
   if (rule.nextHolderRole) {
     updateData.currentHolderRole = rule.nextHolderRole;
   }
+  if (input.receiverId && rule.nextHolderRole) {
+    updateData.currentHolderId = input.receiverId;
+  }
   return prisma.$transaction(async (tx) => {
-    const record = await tx.testRecord.update({
+    await tx.testRecord.update({
       where: { id: input.testRecordId },
       data: updateData
     });
@@ -380,7 +388,8 @@ async function transitionTestRecord(input) {
         operatorName: input.operatorName,
         action: rule.action,
         remark: input.remark,
-        idempotencyKey
+        idempotencyKey,
+        testRecordId: input.testRecordId
       }
     });
     if (rule.nextHolderRole) {
@@ -392,8 +401,8 @@ async function transitionTestRecord(input) {
           fromUserId: input.operatorId,
           fromUserName: input.operatorName,
           toRole: rule.nextHolderRole,
-          toUserId: "",
-          toUserName: "",
+          toUserId: input.receiverId || "",
+          toUserName: input.receiverName || "",
           handoverType: mapActionToHandoverType$1(rule.action),
           remark: input.remark,
           testRecordId: input.testRecordId
@@ -427,7 +436,7 @@ async function transitionTestRecord(input) {
         expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1e3)
       }
     });
-    return record;
+    return getTestRecord(input.testRecordId);
   });
 }
 async function supplementMaterial(input) {
@@ -463,15 +472,15 @@ async function supplementMaterial(input) {
         }
       });
     }
-    return tx.testRecord.findUnique({ where: { id: input.testRecordId } });
+    return getTestRecord(input.testRecordId);
   });
 }
 function mapActionToHandoverType$1(action2) {
+  if (action2.includes("重新提交")) return "RESUBMIT";
   if (action2.includes("提交")) return "SUBMIT";
   if (action2.includes("通过")) return "APPROVE";
   if (action2.includes("退回")) return "REJECT";
   if (action2.includes("整改")) return "RECTIFY";
-  if (action2.includes("重新提交")) return "RESUBMIT";
   if (action2.includes("验证")) return "VERIFY";
   if (action2.includes("归档")) return "ARCHIVE";
   if (action2.includes("补充")) return "SUPPLEMENT";
@@ -513,7 +522,7 @@ async function transitionReworkOrder(input) {
     where: { idempotencyKey }
   });
   if (existing) {
-    return prisma.reworkOrder.findUnique({ where: { id: input.reworkOrderId } });
+    return getReworkOrder(input.reworkOrderId);
   }
   const validation = validateTransition(
     {
@@ -534,6 +543,9 @@ async function transitionReworkOrder(input) {
   if (rule.nextHolderRole) {
     updateData.currentHolderRole = rule.nextHolderRole;
   }
+  if (input.receiverId && rule.nextHolderRole) {
+    updateData.currentHolderId = input.receiverId;
+  }
   if (input.rectifyMethod) {
     updateData.rectifyMethod = input.rectifyMethod;
   }
@@ -553,7 +565,8 @@ async function transitionReworkOrder(input) {
         operatorName: input.operatorName,
         action: rule.action,
         remark: input.remark,
-        idempotencyKey
+        idempotencyKey,
+        reworkOrderId: input.reworkOrderId
       }
     });
     if (rule.nextHolderRole) {
@@ -565,8 +578,8 @@ async function transitionReworkOrder(input) {
           fromUserId: input.operatorId,
           fromUserName: input.operatorName,
           toRole: rule.nextHolderRole,
-          toUserId: "",
-          toUserName: "",
+          toUserId: input.receiverId || "",
+          toUserName: input.receiverName || "",
           handoverType: mapActionToHandoverType(rule.action),
           remark: input.remark,
           reworkOrderId: input.reworkOrderId
@@ -604,13 +617,14 @@ async function transitionReworkOrder(input) {
               operatorId: "system",
               operatorName: "系统",
               action: "整改完成自动回退到草稿",
-              idempotencyKey: `${idempotencyKey}-auto-reset`
+              idempotencyKey: `${idempotencyKey}-auto-reset`,
+              testRecordId: order.testRecordId
             }
           });
         }
       }
     }
-    return order;
+    return getReworkOrder(input.reworkOrderId);
   });
 }
 async function supplementReworkAttachment(input) {
@@ -646,7 +660,7 @@ async function supplementReworkAttachment(input) {
         }
       });
     }
-    return tx.reworkOrder.findUnique({ where: { id: input.reworkOrderId } });
+    return getReworkOrder(input.reworkOrderId);
   });
 }
 function mapActionToHandoverType(action2) {
@@ -751,7 +765,7 @@ const ATTACHMENT_CATEGORY_LABELS = {
   COMPLETION_DOCUMENT: "竣工资料",
   OTHER: "其他"
 };
-async function loader$6({ params, request }) {
+async function loader$9({ params, request }) {
   const recordId = params.recordId;
   const record = await getTestRecord(recordId);
   if (!record) throw new Response("Not Found", { status: 404 });
@@ -761,7 +775,7 @@ async function loader$6({ params, request }) {
   const timeline = await getHandoverTimeline(recordId);
   return json({ record, availableTransitions, currentRole, timeline });
 }
-async function action$3({ request, params }) {
+async function action$6({ request, params }) {
   const recordId = params.recordId;
   const formData = await request.formData();
   const op = formData.get("_action");
@@ -1174,11 +1188,11 @@ function getAvailableTransitions(machine, status, role) {
 }
 const route1 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
   __proto__: null,
-  action: action$3,
+  action: action$6,
   default: TestRecordDetail,
-  loader: loader$6
+  loader: loader$9
 }, Symbol.toStringTag, { value: "Module" }));
-async function loader$5({ params }) {
+async function loader$8({ params }) {
   const projectId = params.projectId;
   const records = await listTestRecords(projectId);
   return json({ records, projectId });
@@ -1253,9 +1267,143 @@ function TestRecordList() {
 const route2 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
   __proto__: null,
   default: TestRecordList,
-  loader: loader$5
+  loader: loader$8
 }, Symbol.toStringTag, { value: "Module" }));
-async function loader$4({ request }) {
+async function createMaterialRequisition(data) {
+  return prisma.materialRequisition.create({
+    data: {
+      projectId: data.projectId,
+      testRecordId: data.testRecordId,
+      materialName: data.materialName,
+      unit: data.unit,
+      plannedQty: data.plannedQty,
+      status: "PENDING",
+      applicantId: data.applicantId,
+      applicantName: data.applicantName
+    }
+  });
+}
+async function approveMaterialRequisition(id, actualQty, approvedById, approvedByName) {
+  const requisition = await prisma.materialRequisition.findUnique({ where: { id } });
+  if (!requisition) throw new Error("材料领用单不存在");
+  const overQty = Math.max(0, actualQty - requisition.plannedQty);
+  return prisma.materialRequisition.update({
+    where: { id },
+    data: {
+      actualQty,
+      overQty,
+      status: "APPROVED",
+      approvedById,
+      approvedByName
+    }
+  });
+}
+async function rejectMaterialRequisition(id, approvedById, approvedByName) {
+  return prisma.materialRequisition.update({
+    where: { id },
+    data: {
+      status: "REJECTED",
+      approvedById,
+      approvedByName
+    }
+  });
+}
+async function returnMaterialRequisition(id, approvedById, approvedByName) {
+  return prisma.materialRequisition.update({
+    where: { id },
+    data: {
+      status: "RETURNED",
+      approvedById,
+      approvedByName
+    }
+  });
+}
+async function listOverRequisitions(projectId) {
+  return prisma.materialRequisition.findMany({
+    where: { projectId, overQty: { gt: 0 } },
+    orderBy: { overQty: "desc" }
+  });
+}
+async function loader$7({ request }) {
+  const url = new URL(request.url);
+  const projectId = url.searchParams.get("projectId");
+  const testRecordId = url.searchParams.get("testRecordId");
+  const id = url.searchParams.get("id");
+  if (id) {
+    const requisition = await prisma.materialRequisition.findUnique({ where: { id } });
+    if (!requisition) return json({ error: "材料领用单不存在" }, { status: 404 });
+    return json({ requisition });
+  }
+  if (projectId) {
+    const overOnly = url.searchParams.get("overOnly") === "true";
+    if (overOnly) {
+      const requisitions2 = await listOverRequisitions(projectId);
+      return json({ requisitions: requisitions2 });
+    }
+    const where = { projectId };
+    if (testRecordId) where.testRecordId = testRecordId;
+    const requisitions = await prisma.materialRequisition.findMany({
+      where,
+      orderBy: { createdAt: "desc" }
+    });
+    return json({ requisitions });
+  }
+  return json({ error: "projectId 或 id 必填" }, { status: 400 });
+}
+async function action$5({ request }) {
+  const body = await request.json();
+  const { action: op } = body;
+  switch (op) {
+    case "create": {
+      const { projectId, testRecordId, materialName, unit, plannedQty, applicantId, applicantName } = body;
+      if (!projectId || !materialName || !unit || plannedQty === void 0 || !applicantId || !applicantName) {
+        return json({ error: "projectId, materialName, unit, plannedQty, applicantId, applicantName 必填" }, { status: 400 });
+      }
+      const requisition = await createMaterialRequisition({
+        projectId,
+        testRecordId,
+        materialName,
+        unit,
+        plannedQty,
+        applicantId,
+        applicantName
+      });
+      return json({ requisition }, { status: 201 });
+    }
+    case "approve": {
+      const { id, actualQty, approvedById, approvedByName } = body;
+      if (!id || actualQty === void 0 || !approvedById || !approvedByName) {
+        return json({ error: "id, actualQty, approvedById, approvedByName 必填" }, { status: 400 });
+      }
+      const requisition = await approveMaterialRequisition(id, actualQty, approvedById, approvedByName);
+      return json({ requisition });
+    }
+    case "reject": {
+      const { id, approvedById, approvedByName } = body;
+      if (!id || !approvedById || !approvedByName) {
+        return json({ error: "id, approvedById, approvedByName 必填" }, { status: 400 });
+      }
+      const requisition = await rejectMaterialRequisition(id, approvedById, approvedByName);
+      return json({ requisition });
+    }
+    case "return": {
+      const { id, approvedById, approvedByName } = body;
+      if (!id || !approvedById || !approvedByName) {
+        return json({ error: "id, approvedById, approvedByName 必填" }, { status: 400 });
+      }
+      const requisition = await returnMaterialRequisition(id, approvedById, approvedByName);
+      return json({ requisition });
+    }
+    default:
+      return json({ error: `不支持的操作: ${op}` }, { status: 400 });
+  }
+}
+const route3 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+  __proto__: null,
+  action: action$5,
+  loader: loader$7
+}, Symbol.toStringTag, { value: "Module" }));
+async function loader$6({ request }) {
   const url = new URL(request.url);
   const id = url.searchParams.get("id");
   const testRecordId = url.searchParams.get("testRecordId");
@@ -1264,7 +1412,46 @@ async function loader$4({ request }) {
     if (!order) return json({ error: "返工整改单不存在" }, { status: 404 });
     const operatorRole = url.searchParams.get("role");
     const availableTransitions = operatorRole ? getAvailableTransitions$1(REWORK_ORDER_MACHINE, order.status, operatorRole) : [];
-    return json({ order, availableTransitions });
+    const timeline = await getHandoverTimeline(void 0, id);
+    return json({
+      order,
+      availableTransitions,
+      reworkDetail: {
+        id: order.id,
+        code: order.code,
+        status: order.status,
+        defectDesc: order.defectDesc,
+        rectifyMethod: order.rectifyMethod,
+        deadline: order.deadline,
+        currentHolderRole: order.currentHolderRole,
+        currentHolderId: order.currentHolderId,
+        stateTransitions: order.stateTransitions.map((st) => ({
+          id: st.id,
+          fromStatus: st.fromStatus,
+          toStatus: st.toStatus,
+          operatorRole: st.operatorRole,
+          operatorId: st.operatorId,
+          operatorName: st.operatorName,
+          action: st.action,
+          remark: st.remark,
+          createdAt: st.createdAt
+        })),
+        handoverLogs: order.handoverLogs.map((hl) => ({
+          id: hl.id,
+          fromRole: hl.fromRole,
+          fromUserId: hl.fromUserId,
+          fromUserName: hl.fromUserName,
+          toRole: hl.toRole,
+          toUserId: hl.toUserId,
+          toUserName: hl.toUserName,
+          handoverType: hl.handoverType,
+          remark: hl.remark,
+          createdAt: hl.createdAt
+        })),
+        attachments: order.attachments
+      },
+      timeline
+    });
   }
   if (testRecordId) {
     const orders = await listReworkOrders(testRecordId);
@@ -1272,12 +1459,12 @@ async function loader$4({ request }) {
   }
   return json({ error: "id 或 testRecordId 必填" }, { status: 400 });
 }
-async function action$2({ request }) {
+async function action$4({ request }) {
   const body = await request.json();
   const { action: op } = body;
   switch (op) {
     case "transition": {
-      const { reworkOrderId, fromStatus, toStatus, operatorRole, operatorId, operatorName, rectifyMethod, remark, idempotencyKey } = body;
+      const { reworkOrderId, fromStatus, toStatus, operatorRole, operatorId, operatorName, receiverId, receiverName, rectifyMethod, remark, idempotencyKey } = body;
       if (!reworkOrderId || !fromStatus || !toStatus || !operatorRole || !operatorId) {
         return json({ error: "reworkOrderId, fromStatus, toStatus, operatorRole, operatorId 必填" }, { status: 400 });
       }
@@ -1285,7 +1472,8 @@ async function action$2({ request }) {
         const isDuplicate = await checkIdempotency(idempotencyKey);
         if (isDuplicate) {
           const existing = await getReworkOrder(reworkOrderId);
-          return json({ order: existing, idempotent: true });
+          const timeline = await getHandoverTimeline(void 0, reworkOrderId);
+          return json({ order: existing, timeline, idempotent: true });
         }
       }
       try {
@@ -1296,11 +1484,14 @@ async function action$2({ request }) {
           operatorRole,
           operatorId,
           operatorName: operatorName || "",
+          receiverId: receiverId || void 0,
+          receiverName: receiverName || void 0,
           rectifyMethod,
           remark,
           idempotencyKey
         });
-        return json({ order });
+        const timeline = await getHandoverTimeline(void 0, reworkOrderId);
+        return json({ order, timeline });
       } catch (e) {
         const message = e instanceof Error ? e.message : "状态流转失败";
         return json({ error: message }, { status: 422 });
@@ -1320,18 +1511,85 @@ async function action$2({ request }) {
         files,
         remark
       });
-      return json({ order });
+      const timeline = await getHandoverTimeline(void 0, reworkOrderId);
+      return json({ order, timeline });
     }
     default:
       return json({ error: `不支持的操作: ${op}` }, { status: 400 });
   }
 }
-const route3 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+const route4 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
   __proto__: null,
-  action: action$2,
-  loader: loader$4
+  action: action$4,
+  loader: loader$6
 }, Symbol.toStringTag, { value: "Module" }));
-async function loader$3({ request }) {
+async function createCableRoute(data) {
+  return prisma.cableRoute.create({ data });
+}
+async function listCableRoutes(projectId, testRecordId) {
+  const where = { projectId };
+  if (testRecordId) where.testRecordId = testRecordId;
+  return prisma.cableRoute.findMany({ where, orderBy: { createdAt: "desc" } });
+}
+async function updateCableRoute(id, data) {
+  return prisma.cableRoute.update({ where: { id }, data });
+}
+async function loader$5({ request }) {
+  const url = new URL(request.url);
+  const projectId = url.searchParams.get("projectId");
+  if (!projectId) {
+    return json({ error: "projectId 必填" }, { status: 400 });
+  }
+  const testRecordId = url.searchParams.get("testRecordId") || void 0;
+  const routes2 = await listCableRoutes(projectId, testRecordId);
+  return json({ routes: routes2 });
+}
+async function action$3({ request }) {
+  const body = await request.json();
+  const { action: op } = body;
+  switch (op) {
+    case "create": {
+      const { projectId, testRecordId, routeName, startPoint, endPoint, cableType, length, description } = body;
+      if (!projectId || !routeName || !startPoint || !endPoint || !cableType || length === void 0) {
+        return json({ error: "projectId, routeName, startPoint, endPoint, cableType, length 必填" }, { status: 400 });
+      }
+      const route = await createCableRoute({
+        projectId,
+        testRecordId,
+        routeName,
+        startPoint,
+        endPoint,
+        cableType,
+        length,
+        description
+      });
+      return json({ route }, { status: 201 });
+    }
+    case "update": {
+      const { id, routeName, startPoint, endPoint, cableType, length, description } = body;
+      if (!id) {
+        return json({ error: "id 必填" }, { status: 400 });
+      }
+      const route = await updateCableRoute(id, {
+        routeName,
+        startPoint,
+        endPoint,
+        cableType,
+        length,
+        description
+      });
+      return json({ route });
+    }
+    default:
+      return json({ error: `不支持的操作: ${op}` }, { status: 400 });
+  }
+}
+const route5 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+  __proto__: null,
+  action: action$3,
+  loader: loader$5
+}, Symbol.toStringTag, { value: "Module" }));
+async function loader$4({ request }) {
   const url = new URL(request.url);
   const projectId = url.searchParams.get("projectId");
   if (!projectId) {
@@ -1343,7 +1601,37 @@ async function loader$3({ request }) {
     if (!record) return json({ error: "测试记录不存在" }, { status: 404 });
     const operatorRole = url.searchParams.get("role");
     const availableTransitions = operatorRole ? getAvailableTransitions$1(TEST_RECORD_MACHINE, record.status, operatorRole) : [];
-    return json({ record, availableTransitions });
+    const timeline = await getHandoverTimeline(id);
+    return json({
+      record,
+      availableTransitions,
+      reworkDetail: record.reworkOrders.map((ro) => ({
+        id: ro.id,
+        code: ro.code,
+        status: ro.status,
+        defectDesc: ro.defectDesc,
+        rectifyMethod: ro.rectifyMethod,
+        deadline: ro.deadline,
+        currentHolderRole: ro.currentHolderRole,
+        currentHolderId: ro.currentHolderId,
+        stateTransitions: ro.stateTransitions,
+        handoverLogs: ro.handoverLogs,
+        attachments: ro.attachments
+      })),
+      handoverDetail: record.handoverLogs.map((hl) => ({
+        id: hl.id,
+        fromRole: hl.fromRole,
+        fromUserId: hl.fromUserId,
+        fromUserName: hl.fromUserName,
+        toRole: hl.toRole,
+        toUserId: hl.toUserId,
+        toUserName: hl.toUserName,
+        handoverType: hl.handoverType,
+        remark: hl.remark,
+        createdAt: hl.createdAt
+      })),
+      timeline
+    });
   }
   const status = url.searchParams.get("status");
   const holderRole = url.searchParams.get("holderRole");
@@ -1353,12 +1641,12 @@ async function loader$3({ request }) {
   });
   return json({ records });
 }
-async function action$1({ request }) {
+async function action$2({ request }) {
   const body = await request.json();
   const { action: op } = body;
   switch (op) {
     case "create": {
-      const { projectId, testItem, testMethod, testResult, conclusion, holderId } = body;
+      const { projectId, testItem, testMethod, testResult, conclusion, holderId, holderName } = body;
       if (!projectId || !testItem || !holderId) {
         return json({ error: "projectId, testItem, holderId 必填" }, { status: 400 });
       }
@@ -1373,7 +1661,7 @@ async function action$1({ request }) {
       return json({ record }, { status: 201 });
     }
     case "transition": {
-      const { testRecordId, fromStatus, toStatus, operatorRole, operatorId, operatorName, remark, idempotencyKey } = body;
+      const { testRecordId, fromStatus, toStatus, operatorRole, operatorId, operatorName, receiverId, receiverName, remark, idempotencyKey } = body;
       if (!testRecordId || !fromStatus || !toStatus || !operatorRole || !operatorId) {
         return json({ error: "testRecordId, fromStatus, toStatus, operatorRole, operatorId 必填" }, { status: 400 });
       }
@@ -1381,7 +1669,8 @@ async function action$1({ request }) {
         const isDuplicate = await checkIdempotency(idempotencyKey);
         if (isDuplicate) {
           const existing = await getTestRecord(testRecordId);
-          return json({ record: existing, idempotent: true });
+          const timeline = await getHandoverTimeline(testRecordId);
+          return json({ record: existing, timeline, idempotent: true });
         }
       }
       try {
@@ -1392,10 +1681,13 @@ async function action$1({ request }) {
           operatorRole,
           operatorId,
           operatorName: operatorName || "",
+          receiverId: receiverId || void 0,
+          receiverName: receiverName || void 0,
           remark,
           idempotencyKey
         });
-        return json({ record });
+        const timeline = await getHandoverTimeline(testRecordId);
+        return json({ record, timeline });
       } catch (e) {
         const message = e instanceof Error ? e.message : "状态流转失败";
         return json({ error: message }, { status: 422 });
@@ -1415,18 +1707,19 @@ async function action$1({ request }) {
         files,
         remark
       });
-      return json({ record });
+      const timeline = await getHandoverTimeline(testRecordId);
+      return json({ record, timeline });
     }
     default:
       return json({ error: `不支持的操作: ${op}` }, { status: 400 });
   }
 }
-const route4 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+const route6 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
   __proto__: null,
-  action: action$1,
-  loader: loader$3
+  action: action$2,
+  loader: loader$4
 }, Symbol.toStringTag, { value: "Module" }));
-async function loader$2({ request }) {
+async function loader$3({ request }) {
   const url = new URL(request.url);
   const entityType = url.searchParams.get("entityType");
   const entityId = url.searchParams.get("entityId");
@@ -1442,7 +1735,7 @@ async function loader$2({ request }) {
   }
   return json({ error: "entityType+entityId 或 testRecordId/reworkOrderId 必填" }, { status: 400 });
 }
-async function action({ request }) {
+async function action$1({ request }) {
   const body = await request.json();
   const { urgentByRole, urgentById, urgentByName, urgentToRole, urgentToId, urgentToName, reason, entityType, entityId } = body;
   if (!entityType || !entityId || !urgentByRole || !urgentById || !urgentToRole || !urgentToId || !reason) {
@@ -1461,7 +1754,55 @@ async function action({ request }) {
   });
   return json({ urgencyLog: log }, { status: 201 });
 }
-const route5 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+const route7 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+  __proto__: null,
+  action: action$1,
+  loader: loader$3
+}, Symbol.toStringTag, { value: "Module" }));
+async function loader$2({ request }) {
+  const url = new URL(request.url);
+  const id = url.searchParams.get("id");
+  if (id) {
+    const project = await prisma.project.findUnique({
+      where: { id },
+      include: {
+        _count: { select: { testRecords: true, materialRequisitions: true, cableRoutes: true } }
+      }
+    });
+    if (!project) return json({ error: "项目不存在" }, { status: 404 });
+    return json({ project });
+  }
+  const projects = await prisma.project.findMany({
+    include: {
+      _count: { select: { testRecords: true, materialRequisitions: true, cableRoutes: true } }
+    },
+    orderBy: { createdAt: "desc" }
+  });
+  return json({ projects });
+}
+async function action({ request }) {
+  const body = await request.json();
+  const { action: op } = body;
+  switch (op) {
+    case "create": {
+      const { name, code, address } = body;
+      if (!name || !code) {
+        return json({ error: "name, code 必填" }, { status: 400 });
+      }
+      const existing = await prisma.project.findUnique({ where: { code } });
+      if (existing) {
+        return json({ error: `项目编码 ${code} 已存在` }, { status: 409 });
+      }
+      const project = await prisma.project.create({
+        data: { name, code, address: address || null }
+      });
+      return json({ project }, { status: 201 });
+    }
+    default:
+      return json({ error: `不支持的操作: ${op}` }, { status: 400 });
+  }
+}
+const route8 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
   __proto__: null,
   action,
   loader: loader$2
@@ -1469,11 +1810,32 @@ const route5 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProper
 const API_DOCUMENTATION = {
   baseUrl: "/api",
   endpoints: {
+    "GET /api/projects": {
+      description: "查询项目列表或单个项目",
+      params: {
+        id: { type: "string", required: false, description: "项目ID，传则返回单个项目详情" }
+      },
+      response: {
+        projects: "Array<Project>（列表模式）",
+        project: "Project & { _count }（详情模式）"
+      }
+    },
+    "POST /api/projects": {
+      description: "创建项目",
+      body: {
+        create: {
+          action: { value: "create", description: "操作类型" },
+          name: { type: "string", required: true, description: "项目名称" },
+          code: { type: "string", required: true, description: "项目编码（唯一）" },
+          address: { type: "string", required: false, description: "项目地址" }
+        }
+      }
+    },
     "GET /api/test-records": {
-      description: "查询测试记录列表或单条记录",
+      description: "查询测试记录列表或单条记录（含整改明细与交接明细）",
       params: {
         projectId: { type: "string", required: true, description: "项目ID" },
-        id: { type: "string", required: false, description: "传 id 则返回单条详情+可用流转" },
+        id: { type: "string", required: false, description: "传 id 则返回单条详情+可用流转+整改明细+交接明细" },
         status: { type: "enum", required: false, enum: ["DRAFT", "SUBMITTED", "UNDER_REVIEW", "ACCEPTED", "REJECTED", "ARCHIVED"], description: "按状态筛选" },
         holderRole: { type: "enum", required: false, enum: ["PROJECT_MANAGER", "CONSTRUCTION_TEAM", "DOCUMENT_CLERK"], description: "按当前持有人角色筛选" },
         role: { type: "enum", required: false, enum: ["PROJECT_MANAGER", "CONSTRUCTION_TEAM", "DOCUMENT_CLERK"], description: "查详情时传此参数获取可用流转" }
@@ -1481,7 +1843,10 @@ const API_DOCUMENTATION = {
       response: {
         records: "Array<TestRecord>（列表模式）",
         record: "TestRecord & { reworkOrders, stateTransitions, handoverLogs, attachments, materialRequisitions, cableRoutes }（详情模式）",
-        availableTransitions: "TransitionRule[]（详情+role模式）"
+        availableTransitions: "TransitionRule[]（详情+role模式）",
+        reworkDetail: "Array<{id,code,status,defectDesc,rectifyMethod,deadline,currentHolderRole,currentHolderId,stateTransitions,handoverLogs,attachments}>",
+        handoverDetail: "Array<{id,fromRole,fromUserId,fromUserName,toRole,toUserId,toUserName,handoverType,remark,createdAt}>",
+        timeline: "Array<HandoverLog & {source}>（合并测试记录+整改单的交接时间线）"
       }
     },
     "POST /api/test-records": {
@@ -1494,7 +1859,8 @@ const API_DOCUMENTATION = {
           testMethod: { type: "string", description: "测试方法" },
           testResult: { type: "string", description: "测试结果" },
           conclusion: { type: "string", description: "结论" },
-          holderId: { type: "string", required: true, description: "持有人ID（施工班组）" }
+          holderId: { type: "string", required: true, description: "持有人ID（施工班组）" },
+          holderName: { type: "string", required: false, description: "持有人姓名" }
         },
         transition: {
           action: { value: "transition", description: "操作类型" },
@@ -1504,6 +1870,8 @@ const API_DOCUMENTATION = {
           operatorRole: { type: "enum", required: true, enum: ["PROJECT_MANAGER", "CONSTRUCTION_TEAM", "DOCUMENT_CLERK"], description: "操作人角色" },
           operatorId: { type: "string", required: true, description: "操作人ID" },
           operatorName: { type: "string", description: "操作人姓名" },
+          receiverId: { type: "string", required: false, description: "交接接收人ID（有 nextHolderRole 时填写）" },
+          receiverName: { type: "string", required: false, description: "交接接收人姓名" },
           remark: { type: "string", description: "备注" },
           idempotencyKey: { type: "string", description: "幂等键，相同key不重复执行" }
         },
@@ -1518,14 +1886,24 @@ const API_DOCUMENTATION = {
           remark: { type: "string", description: "补充说明" }
         }
       },
+      response: {
+        record: "完整 TestRecord（含 reworkOrders, handoverLogs, stateTransitions, attachments 等）",
+        timeline: "Array<HandoverLog & {source}>"
+      },
       idempotent: "transition 操作支持 idempotencyKey，相同 key 的请求不会重复执行，直接返回上次结果"
     },
     "GET /api/rework-orders": {
-      description: "查询返工整改单（非独立菜单，嵌入测试记录详情）",
+      description: "查询返工整改单（非独立菜单，嵌入测试记录详情），含整改明细与交接明细",
       params: {
-        id: { type: "string", description: "整改单ID，传则返回详情+可用流转" },
+        id: { type: "string", description: "整改单ID，传则返回详情+可用流转+整改明细+交接明细" },
         testRecordId: { type: "string", description: "测试记录ID，传则返回该记录下所有整改单" },
         role: { type: "enum", enum: ["PROJECT_MANAGER", "CONSTRUCTION_TEAM", "DOCUMENT_CLERK"], description: "查详情时获取可用流转" }
+      },
+      response: {
+        order: "ReworkOrder & { testRecord, stateTransitions, handoverLogs, attachments }",
+        availableTransitions: "TransitionRule[]",
+        reworkDetail: "{id,code,status,defectDesc,rectifyMethod,deadline,currentHolderRole,currentHolderId,stateTransitions,handoverLogs,attachments}",
+        timeline: "Array<HandoverLog & {source}>"
       }
     },
     "POST /api/rework-orders": {
@@ -1539,6 +1917,8 @@ const API_DOCUMENTATION = {
           operatorRole: { type: "enum", required: true, enum: ["PROJECT_MANAGER", "CONSTRUCTION_TEAM", "DOCUMENT_CLERK"] },
           operatorId: { type: "string", required: true },
           operatorName: { type: "string" },
+          receiverId: { type: "string", required: false, description: "交接接收人ID" },
+          receiverName: { type: "string", required: false, description: "交接接收人姓名" },
           rectifyMethod: { type: "string", description: "整改方法（RECTIFYING→RESUBMITTED时填写）" },
           remark: { type: "string" },
           idempotencyKey: { type: "string", description: "幂等键" }
@@ -1551,6 +1931,86 @@ const API_DOCUMENTATION = {
           category: { type: "enum", required: true, enum: ["WIRING_DIAGRAM", "MATERIAL_REQUISITION", "SITE_PHOTO", "COMPLETION_DOCUMENT", "OTHER"] },
           files: { type: "Array<{fileName,filePath,fileSize,mimeType}>", required: true },
           remark: { type: "string" }
+        }
+      },
+      response: {
+        order: "完整 ReworkOrder（含 stateTransitions, handoverLogs, attachments）",
+        timeline: "Array<HandoverLog & {source}>"
+      }
+    },
+    "GET /api/material-requisitions": {
+      description: "查询材料领用单",
+      params: {
+        projectId: { type: "string", description: "项目ID（与id二选一）" },
+        testRecordId: { type: "string", description: "测试记录ID（可选，配合projectId筛选）" },
+        id: { type: "string", description: "领用单ID（与projectId二选一）" },
+        overOnly: { type: "boolean", description: "只返回超领记录（需配合projectId）" }
+      }
+    },
+    "POST /api/material-requisitions": {
+      description: "创建/审批/退回材料领用单",
+      body: {
+        create: {
+          action: { value: "create", description: "创建领用单" },
+          projectId: { type: "string", required: true, description: "项目ID" },
+          testRecordId: { type: "string", description: "关联测试记录ID" },
+          materialName: { type: "string", required: true, description: "材料名称" },
+          unit: { type: "string", required: true, description: "单位" },
+          plannedQty: { type: "number", required: true, description: "计划数量" },
+          applicantId: { type: "string", required: true, description: "申请人ID" },
+          applicantName: { type: "string", required: true, description: "申请人姓名" }
+        },
+        approve: {
+          action: { value: "approve", description: "审批通过（自动计算超领）" },
+          id: { type: "string", required: true, description: "领用单ID" },
+          actualQty: { type: "number", required: true, description: "实际领用数量" },
+          approvedById: { type: "string", required: true, description: "审批人ID" },
+          approvedByName: { type: "string", required: true, description: "审批人姓名" }
+        },
+        reject: {
+          action: { value: "reject", description: "驳回领用单" },
+          id: { type: "string", required: true },
+          approvedById: { type: "string", required: true },
+          approvedByName: { type: "string", required: true }
+        },
+        return: {
+          action: { value: "return", description: "退回领用单" },
+          id: { type: "string", required: true },
+          approvedById: { type: "string", required: true },
+          approvedByName: { type: "string", required: true }
+        }
+      }
+    },
+    "GET /api/cable-routes": {
+      description: "查询线缆走向",
+      params: {
+        projectId: { type: "string", required: true, description: "项目ID" },
+        testRecordId: { type: "string", description: "测试记录ID（可选筛选）" }
+      }
+    },
+    "POST /api/cable-routes": {
+      description: "创建/更新线缆走向",
+      body: {
+        create: {
+          action: { value: "create", description: "创建线缆走向" },
+          projectId: { type: "string", required: true, description: "项目ID" },
+          testRecordId: { type: "string", description: "关联测试记录ID" },
+          routeName: { type: "string", required: true, description: "路由名称" },
+          startPoint: { type: "string", required: true, description: "起点" },
+          endPoint: { type: "string", required: true, description: "终点" },
+          cableType: { type: "string", required: true, description: "线缆型号" },
+          length: { type: "number", required: true, description: "长度（米）" },
+          description: { type: "string", description: "备注说明" }
+        },
+        update: {
+          action: { value: "update", description: "更新线缆走向" },
+          id: { type: "string", required: true, description: "线缆走向ID" },
+          routeName: { type: "string" },
+          startPoint: { type: "string" },
+          endPoint: { type: "string" },
+          cableType: { type: "string" },
+          length: { type: "number" },
+          description: { type: "string" }
         }
       }
     },
@@ -1591,7 +2051,7 @@ const API_DOCUMENTATION = {
         "SUBMITTED → DRAFT（项目负责人退回要求补充材料）",
         "ACCEPTED → ARCHIVED（资料员归档）"
       ],
-      constraint: "每次状态变更写入 StateTransition（操作人、角色、时间、幂等键），需交接时同步写 HandoverLog"
+      constraint: "每次状态变更写入 StateTransition（操作人、角色、时间、幂等键、关联 testRecordId），需交接时同步写 HandoverLog（含 receiverId/receiverName）"
     },
     reworkOrder: {
       description: "返工整改单状态机（非独立菜单，挂在测试记录下）",
@@ -1603,13 +2063,19 @@ const API_DOCUMENTATION = {
         "RESUBMITTED → RECTIFYING（验证不通过，退回继续整改）",
         "VERIFIED → CLOSED（资料员关闭整改单）"
       ],
-      constraint: "整改单全部关闭后，关联测试记录自动从 REJECTED 回退到 DRAFT"
+      constraint: "整改单全部关闭后，关联测试记录自动从 REJECTED 回退到 DRAFT；StateTransition 关联 reworkOrderId；HandoverLog 含 receiverId/receiverName"
     }
   },
   idempotency: {
     description: "幂等提交机制",
-    mechanism: "transition 操作可传 idempotencyKey，系统在 StateTransition 表中用 UNIQUE 约束保证同一 key 只执行一次。重复请求直接返回上次结果，不产生副作用",
+    mechanism: "transition 操作可传 idempotencyKey，系统在 StateTransition 表中用 UNIQUE 约束保证同一 key 只执行一次。重复请求直接返回上次结果（含完整 record + timeline），不产生副作用",
     ttl: "IdempotencyRecord 记录 24 小时后过期，过期后 key 可复用"
+  },
+  dataIntegrity: {
+    currentHolderId: "状态流转时，若传了 receiverId 且规则有 nextHolderRole，则更新 TestRecord/ReworkOrder 的 currentHolderId",
+    handoverReceiver: "HandoverLog 的 toUserId/toUserName 由 transition 接口的 receiverId/receiverName 写入，不再留空",
+    stateTransitionRelation: "StateTransition 通过 testRecordId/reworkOrderId 外键直接关联到对应记录，不再只存 entityType+entityId 泛化字段",
+    reworkDetailResponse: "GET 接口返回 reworkDetail（整改明细）和 handoverDetail（交接明细）字段，POST transition/supplement 返回完整 record + timeline"
   },
   roles: {
     PROJECT_MANAGER: { label: "项目负责人", responsibilities: "审核测试记录、分配/验证返工整改、催办" },
@@ -1700,7 +2166,7 @@ function ApiDocs() {
     ] })
   ] });
 }
-const route6 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+const route9 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
   __proto__: null,
   default: ApiDocs,
   loader: loader$1
@@ -1747,7 +2213,7 @@ function ProjectList() {
     )) })
   ] });
 }
-const route7 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+const route10 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
   __proto__: null,
   default: ProjectList,
   loader
@@ -1790,12 +2256,12 @@ function Index() {
     ] })
   ] });
 }
-const route8 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+const route11 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
   __proto__: null,
   default: Index,
   meta
 }, Symbol.toStringTag, { value: "Module" }));
-const serverManifest = { "entry": { "module": "/assets/entry.client-BrrAn8-d.js", "imports": ["/assets/components-COoCAsbi.js"], "css": [] }, "routes": { "root": { "id": "root", "parentId": void 0, "path": "", "index": void 0, "caseSensitive": void 0, "hasAction": false, "hasLoader": false, "hasClientAction": false, "hasClientLoader": false, "hasErrorBoundary": false, "module": "/assets/root-Bpc9RdDu.js", "imports": ["/assets/components-COoCAsbi.js"], "css": [] }, "routes/projects.$projectId.test-records.$recordId": { "id": "routes/projects.$projectId.test-records.$recordId", "parentId": "routes/projects.$projectId.test-records", "path": ":recordId", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasErrorBoundary": false, "module": "/assets/projects._projectId.test-records._recordId-BH-gP8xf.js", "imports": ["/assets/components-COoCAsbi.js", "/assets/types-DQolXieJ.js"], "css": [] }, "routes/projects.$projectId.test-records": { "id": "routes/projects.$projectId.test-records", "parentId": "routes/projects", "path": ":projectId/test-records", "index": void 0, "caseSensitive": void 0, "hasAction": false, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasErrorBoundary": false, "module": "/assets/projects._projectId.test-records-BIdDIoby.js", "imports": ["/assets/components-COoCAsbi.js", "/assets/types-DQolXieJ.js"], "css": [] }, "routes/api.rework-orders": { "id": "routes/api.rework-orders", "parentId": "root", "path": "api/rework-orders", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasErrorBoundary": false, "module": "/assets/api.rework-orders-l0sNRNKZ.js", "imports": [], "css": [] }, "routes/api.test-records": { "id": "routes/api.test-records", "parentId": "root", "path": "api/test-records", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasErrorBoundary": false, "module": "/assets/api.test-records-l0sNRNKZ.js", "imports": [], "css": [] }, "routes/api.handover": { "id": "routes/api.handover", "parentId": "root", "path": "api/handover", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasErrorBoundary": false, "module": "/assets/api.handover-l0sNRNKZ.js", "imports": [], "css": [] }, "routes/api-docs": { "id": "routes/api-docs", "parentId": "root", "path": "api-docs", "index": void 0, "caseSensitive": void 0, "hasAction": false, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasErrorBoundary": false, "module": "/assets/api-docs-CzdEkt_o.js", "imports": ["/assets/components-COoCAsbi.js"], "css": [] }, "routes/projects": { "id": "routes/projects", "parentId": "root", "path": "projects", "index": void 0, "caseSensitive": void 0, "hasAction": false, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasErrorBoundary": false, "module": "/assets/projects-CMyos6XF.js", "imports": ["/assets/components-COoCAsbi.js"], "css": [] }, "routes/_index": { "id": "routes/_index", "parentId": "root", "path": void 0, "index": true, "caseSensitive": void 0, "hasAction": false, "hasLoader": false, "hasClientAction": false, "hasClientLoader": false, "hasErrorBoundary": false, "module": "/assets/_index-BnuunTcy.js", "imports": ["/assets/components-COoCAsbi.js"], "css": [] } }, "url": "/assets/manifest-fb9522b6.js", "version": "fb9522b6" };
+const serverManifest = { "entry": { "module": "/assets/entry.client-BrrAn8-d.js", "imports": ["/assets/components-COoCAsbi.js"], "css": [] }, "routes": { "root": { "id": "root", "parentId": void 0, "path": "", "index": void 0, "caseSensitive": void 0, "hasAction": false, "hasLoader": false, "hasClientAction": false, "hasClientLoader": false, "hasErrorBoundary": false, "module": "/assets/root-Bpc9RdDu.js", "imports": ["/assets/components-COoCAsbi.js"], "css": [] }, "routes/projects.$projectId.test-records.$recordId": { "id": "routes/projects.$projectId.test-records.$recordId", "parentId": "routes/projects.$projectId.test-records", "path": ":recordId", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasErrorBoundary": false, "module": "/assets/projects._projectId.test-records._recordId-BH-gP8xf.js", "imports": ["/assets/components-COoCAsbi.js", "/assets/types-DQolXieJ.js"], "css": [] }, "routes/projects.$projectId.test-records": { "id": "routes/projects.$projectId.test-records", "parentId": "routes/projects", "path": ":projectId/test-records", "index": void 0, "caseSensitive": void 0, "hasAction": false, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasErrorBoundary": false, "module": "/assets/projects._projectId.test-records-BIdDIoby.js", "imports": ["/assets/components-COoCAsbi.js", "/assets/types-DQolXieJ.js"], "css": [] }, "routes/api.material-requisitions": { "id": "routes/api.material-requisitions", "parentId": "root", "path": "api/material-requisitions", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasErrorBoundary": false, "module": "/assets/api.material-requisitions-l0sNRNKZ.js", "imports": [], "css": [] }, "routes/api.rework-orders": { "id": "routes/api.rework-orders", "parentId": "root", "path": "api/rework-orders", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasErrorBoundary": false, "module": "/assets/api.rework-orders-l0sNRNKZ.js", "imports": [], "css": [] }, "routes/api.cable-routes": { "id": "routes/api.cable-routes", "parentId": "root", "path": "api/cable-routes", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasErrorBoundary": false, "module": "/assets/api.cable-routes-l0sNRNKZ.js", "imports": [], "css": [] }, "routes/api.test-records": { "id": "routes/api.test-records", "parentId": "root", "path": "api/test-records", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasErrorBoundary": false, "module": "/assets/api.test-records-l0sNRNKZ.js", "imports": [], "css": [] }, "routes/api.handover": { "id": "routes/api.handover", "parentId": "root", "path": "api/handover", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasErrorBoundary": false, "module": "/assets/api.handover-l0sNRNKZ.js", "imports": [], "css": [] }, "routes/api.projects": { "id": "routes/api.projects", "parentId": "root", "path": "api/projects", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasErrorBoundary": false, "module": "/assets/api.projects-l0sNRNKZ.js", "imports": [], "css": [] }, "routes/api-docs": { "id": "routes/api-docs", "parentId": "root", "path": "api-docs", "index": void 0, "caseSensitive": void 0, "hasAction": false, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasErrorBoundary": false, "module": "/assets/api-docs-CzdEkt_o.js", "imports": ["/assets/components-COoCAsbi.js"], "css": [] }, "routes/projects": { "id": "routes/projects", "parentId": "root", "path": "projects", "index": void 0, "caseSensitive": void 0, "hasAction": false, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasErrorBoundary": false, "module": "/assets/projects-CMyos6XF.js", "imports": ["/assets/components-COoCAsbi.js"], "css": [] }, "routes/_index": { "id": "routes/_index", "parentId": "root", "path": void 0, "index": true, "caseSensitive": void 0, "hasAction": false, "hasLoader": false, "hasClientAction": false, "hasClientLoader": false, "hasErrorBoundary": false, "module": "/assets/_index-BnuunTcy.js", "imports": ["/assets/components-COoCAsbi.js"], "css": [] } }, "url": "/assets/manifest-b96217eb.js", "version": "b96217eb" };
 const mode = "production";
 const assetsBuildDirectory = "build/client";
 const basename = "/";
@@ -1828,13 +2294,29 @@ const routes = {
     caseSensitive: void 0,
     module: route2
   },
+  "routes/api.material-requisitions": {
+    id: "routes/api.material-requisitions",
+    parentId: "root",
+    path: "api/material-requisitions",
+    index: void 0,
+    caseSensitive: void 0,
+    module: route3
+  },
   "routes/api.rework-orders": {
     id: "routes/api.rework-orders",
     parentId: "root",
     path: "api/rework-orders",
     index: void 0,
     caseSensitive: void 0,
-    module: route3
+    module: route4
+  },
+  "routes/api.cable-routes": {
+    id: "routes/api.cable-routes",
+    parentId: "root",
+    path: "api/cable-routes",
+    index: void 0,
+    caseSensitive: void 0,
+    module: route5
   },
   "routes/api.test-records": {
     id: "routes/api.test-records",
@@ -1842,7 +2324,7 @@ const routes = {
     path: "api/test-records",
     index: void 0,
     caseSensitive: void 0,
-    module: route4
+    module: route6
   },
   "routes/api.handover": {
     id: "routes/api.handover",
@@ -1850,7 +2332,15 @@ const routes = {
     path: "api/handover",
     index: void 0,
     caseSensitive: void 0,
-    module: route5
+    module: route7
+  },
+  "routes/api.projects": {
+    id: "routes/api.projects",
+    parentId: "root",
+    path: "api/projects",
+    index: void 0,
+    caseSensitive: void 0,
+    module: route8
   },
   "routes/api-docs": {
     id: "routes/api-docs",
@@ -1858,7 +2348,7 @@ const routes = {
     path: "api-docs",
     index: void 0,
     caseSensitive: void 0,
-    module: route6
+    module: route9
   },
   "routes/projects": {
     id: "routes/projects",
@@ -1866,7 +2356,7 @@ const routes = {
     path: "projects",
     index: void 0,
     caseSensitive: void 0,
-    module: route7
+    module: route10
   },
   "routes/_index": {
     id: "routes/_index",
@@ -1874,7 +2364,7 @@ const routes = {
     path: void 0,
     index: true,
     caseSensitive: void 0,
-    module: route8
+    module: route11
   }
 };
 export {

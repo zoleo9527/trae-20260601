@@ -4,6 +4,7 @@ import { listReworkOrders, getReworkOrder, transitionReworkOrder, supplementRewo
 import { getAvailableTransitions } from "~/models/state-machine";
 import { REWORK_ORDER_MACHINE } from "~/models/state-machine";
 import { checkIdempotency } from "~/services/handover.service";
+import { getHandoverTimeline } from "~/services/handover.service";
 
 export async function loader({ request }: LoaderFunctionArgs) {
   const url = new URL(request.url);
@@ -19,7 +20,47 @@ export async function loader({ request }: LoaderFunctionArgs) {
       ? getAvailableTransitions(REWORK_ORDER_MACHINE, order.status, operatorRole)
       : [];
 
-    return json({ order, availableTransitions });
+    const timeline = await getHandoverTimeline(undefined, id);
+
+    return json({
+      order,
+      availableTransitions,
+      reworkDetail: {
+        id: order.id,
+        code: order.code,
+        status: order.status,
+        defectDesc: order.defectDesc,
+        rectifyMethod: order.rectifyMethod,
+        deadline: order.deadline,
+        currentHolderRole: order.currentHolderRole,
+        currentHolderId: order.currentHolderId,
+        stateTransitions: order.stateTransitions.map((st) => ({
+          id: st.id,
+          fromStatus: st.fromStatus,
+          toStatus: st.toStatus,
+          operatorRole: st.operatorRole,
+          operatorId: st.operatorId,
+          operatorName: st.operatorName,
+          action: st.action,
+          remark: st.remark,
+          createdAt: st.createdAt,
+        })),
+        handoverLogs: order.handoverLogs.map((hl) => ({
+          id: hl.id,
+          fromRole: hl.fromRole,
+          fromUserId: hl.fromUserId,
+          fromUserName: hl.fromUserName,
+          toRole: hl.toRole,
+          toUserId: hl.toUserId,
+          toUserName: hl.toUserName,
+          handoverType: hl.handoverType,
+          remark: hl.remark,
+          createdAt: hl.createdAt,
+        })),
+        attachments: order.attachments,
+      },
+      timeline,
+    });
   }
 
   if (testRecordId) {
@@ -36,7 +77,7 @@ export async function action({ request }: ActionFunctionArgs) {
 
   switch (op) {
     case "transition": {
-      const { reworkOrderId, fromStatus, toStatus, operatorRole, operatorId, operatorName, rectifyMethod, remark, idempotencyKey } = body;
+      const { reworkOrderId, fromStatus, toStatus, operatorRole, operatorId, operatorName, receiverId, receiverName, rectifyMethod, remark, idempotencyKey } = body;
       if (!reworkOrderId || !fromStatus || !toStatus || !operatorRole || !operatorId) {
         return json({ error: "reworkOrderId, fromStatus, toStatus, operatorRole, operatorId 必填" }, { status: 400 });
       }
@@ -45,7 +86,8 @@ export async function action({ request }: ActionFunctionArgs) {
         const isDuplicate = await checkIdempotency(idempotencyKey);
         if (isDuplicate) {
           const existing = await getReworkOrder(reworkOrderId);
-          return json({ order: existing, idempotent: true });
+          const timeline = await getHandoverTimeline(undefined, reworkOrderId);
+          return json({ order: existing, timeline, idempotent: true });
         }
       }
 
@@ -57,11 +99,14 @@ export async function action({ request }: ActionFunctionArgs) {
           operatorRole,
           operatorId,
           operatorName: operatorName || "",
+          receiverId: receiverId || undefined,
+          receiverName: receiverName || undefined,
           rectifyMethod,
           remark,
           idempotencyKey,
         });
-        return json({ order });
+        const timeline = await getHandoverTimeline(undefined, reworkOrderId);
+        return json({ order, timeline });
       } catch (e: unknown) {
         const message = e instanceof Error ? e.message : "状态流转失败";
         return json({ error: message }, { status: 422 });
@@ -82,7 +127,8 @@ export async function action({ request }: ActionFunctionArgs) {
         files,
         remark,
       });
-      return json({ order });
+      const timeline = await getHandoverTimeline(undefined, reworkOrderId);
+      return json({ order, timeline });
     }
 
     default:

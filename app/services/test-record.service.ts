@@ -12,7 +12,14 @@ export async function listTestRecords(projectId: string, filters?: { status?: st
     where,
     include: {
       project: true,
-      reworkOrders: { orderBy: { createdAt: "desc" } },
+      reworkOrders: {
+        include: {
+          stateTransitions: { orderBy: { createdAt: "desc" } },
+          handoverLogs: { orderBy: { createdAt: "desc" } },
+          attachments: { orderBy: { uploadedAt: "desc" } },
+        },
+        orderBy: { createdAt: "desc" },
+      },
       stateTransitions: { orderBy: { createdAt: "desc" } },
       handoverLogs: { orderBy: { createdAt: "desc" } },
       attachments: { orderBy: { uploadedAt: "desc" } },
@@ -52,6 +59,7 @@ export async function createTestRecord(data: {
   testResult: string;
   conclusion: string;
   holderId: string;
+  holderName: string;
 }) {
   const count = await prisma.testRecord.count({ where: { projectId: data.projectId } });
   const project = await prisma.project.findUnique({ where: { id: data.projectId } });
@@ -79,6 +87,8 @@ export async function transitionTestRecord(input: {
   operatorRole: string;
   operatorId: string;
   operatorName: string;
+  receiverId?: string;
+  receiverName?: string;
   remark?: string;
   idempotencyKey?: string;
 }) {
@@ -88,7 +98,7 @@ export async function transitionTestRecord(input: {
     where: { idempotencyKey },
   });
   if (existing) {
-    return prisma.testRecord.findUnique({ where: { id: input.testRecordId } });
+    return getTestRecord(input.testRecordId);
   }
 
   const validation = validateTransition(
@@ -109,12 +119,13 @@ export async function transitionTestRecord(input: {
   }
 
   const rule = validation.rule;
-  const updateData: Record<string, unknown> = {
-    status: input.toStatus,
-  };
+  const updateData: Record<string, unknown> = { status: input.toStatus };
 
   if (rule.nextHolderRole) {
     updateData.currentHolderRole = rule.nextHolderRole;
+  }
+  if (input.receiverId && rule.nextHolderRole) {
+    updateData.currentHolderId = input.receiverId;
   }
 
   return prisma.$transaction(async (tx) => {
@@ -135,6 +146,7 @@ export async function transitionTestRecord(input: {
         action: rule.action,
         remark: input.remark,
         idempotencyKey,
+        testRecordId: input.testRecordId,
       },
     });
 
@@ -147,8 +159,8 @@ export async function transitionTestRecord(input: {
           fromUserId: input.operatorId,
           fromUserName: input.operatorName,
           toRole: rule.nextHolderRole,
-          toUserId: "",
-          toUserName: "",
+          toUserId: input.receiverId || "",
+          toUserName: input.receiverName || "",
           handoverType: mapActionToHandoverType(rule.action),
           remark: input.remark,
           testRecordId: input.testRecordId,
@@ -185,7 +197,7 @@ export async function transitionTestRecord(input: {
       },
     });
 
-    return record;
+    return getTestRecord(input.testRecordId);
   });
 }
 
@@ -232,16 +244,16 @@ export async function supplementMaterial(input: {
       });
     }
 
-    return tx.testRecord.findUnique({ where: { id: input.testRecordId } });
+    return getTestRecord(input.testRecordId);
   });
 }
 
 function mapActionToHandoverType(action: string): "SUBMIT" | "APPROVE" | "REJECT" | "RECTIFY" | "RESUBMIT" | "VERIFY" | "ARCHIVE" | "SUPPLEMENT" {
+  if (action.includes("重新提交")) return "RESUBMIT";
   if (action.includes("提交")) return "SUBMIT";
   if (action.includes("通过")) return "APPROVE";
   if (action.includes("退回")) return "REJECT";
   if (action.includes("整改")) return "RECTIFY";
-  if (action.includes("重新提交")) return "RESUBMIT";
   if (action.includes("验证")) return "VERIFY";
   if (action.includes("归档")) return "ARCHIVE";
   if (action.includes("补充")) return "SUPPLEMENT";
