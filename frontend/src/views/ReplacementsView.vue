@@ -9,7 +9,7 @@ import DetailDrawer from '../components/DetailDrawer.vue'
 import TimeLine from '../components/TimeLine.vue'
 import { formatMoney, formatDateTime, formatFileSize } from '../utils/format'
 import { cn } from '../lib/utils'
-import type { Replacement, ReplacementItem, ReplacementFilters } from '../types'
+import type { Replacement, ReplacementItem, ReplacementFilters, Attachment } from '../types'
 import {
   Plus,
   Download,
@@ -57,6 +57,7 @@ const form = ref({
   replaceReason: '',
   sceneDescription: '',
   items: [] as ReplacementItem[],
+  attachments: [] as Attachment[],
   supplementNoteDraft: '',
 })
 
@@ -69,6 +70,7 @@ function resetForm() {
     replaceReason: '',
     sceneDescription: '',
     items: [],
+    attachments: [],
     supplementNoteDraft: '',
   }
   editingReplacement.value = null
@@ -85,6 +87,29 @@ function addFormItem() {
 
 function removeFormItem(index: number) {
   form.value.items.splice(index, 1)
+}
+
+function handleUploadAttachment() {
+  const mockFiles = [
+    { name: '现场照片_' + Date.now().toString().slice(-6) + '.jpg', size: 1024 * 1024 * (0.5 + Math.random() * 2) },
+    { name: '检测报告_' + Date.now().toString().slice(-6) + '.pdf', size: 1024 * 512 },
+    { name: '旧件回收单_' + Date.now().toString().slice(-6) + '.png', size: 1024 * 256 },
+    { name: '视频录像_' + Date.now().toString().slice(-6) + '.mp4', size: 1024 * 1024 * 5 },
+  ]
+  const mock = mockFiles[Math.floor(Math.random() * mockFiles.length)]
+  const att: Attachment = {
+    id: 'att' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+    name: mock.name,
+    url: '/uploads/' + mock.name,
+    size: Math.round(mock.size),
+    uploadTime: new Date().toISOString(),
+    uploaderId: userStore.currentUser?.id || '',
+  }
+  form.value.attachments.push(att)
+}
+
+function removeFormAttachment(index: number) {
+  form.value.attachments.splice(index, 1)
 }
 
 const formTotalAmount = computed(() => {
@@ -148,6 +173,7 @@ function openEditForm(r: Replacement) {
     replaceReason: r.replaceReason || '',
     sceneDescription: r.sceneDescription || '',
     items: JSON.parse(JSON.stringify(r.items || [])),
+    attachments: JSON.parse(JSON.stringify(r.attachments || [])),
     supplementNoteDraft: '',
   }
   formDrawerVisible.value = true
@@ -162,6 +188,7 @@ function handleSaveDraft() {
     replaceReason: form.value.replaceReason,
     sceneDescription: form.value.sceneDescription,
     items: form.value.items,
+    attachments: form.value.attachments,
     estimatedAmount: formTotalAmount.value,
   }
 
@@ -190,6 +217,7 @@ function handleSubmitForm() {
     replaceReason: form.value.replaceReason,
     sceneDescription: form.value.sceneDescription,
     items: form.value.items,
+    attachments: form.value.attachments,
     estimatedAmount: formTotalAmount.value,
   }
 
@@ -1022,9 +1050,9 @@ watch(
 
         <div>
           <label class="block text-gray-600 mb-1.5 font-medium">附件上传</label>
-          <div v-if="editingReplacement && editingReplacement.attachments && editingReplacement.attachments.length > 0" class="mb-2 space-y-1">
+          <div v-if="form.attachments.length > 0" class="mb-2 space-y-1">
             <div
-              v-for="att in editingReplacement.attachments"
+              v-for="(att, index) in form.attachments"
               :key="att.id"
               class="flex items-center gap-2 p-1.5 bg-gray-50 border border-gray-200 text-[11px]"
             >
@@ -1032,17 +1060,26 @@ watch(
               <span class="text-gray-800 truncate">{{ att.name }}</span>
               <span class="text-gray-400 shrink-0">{{ formatFileSize(att.size) }}</span>
               <span class="text-gray-400 shrink-0 ml-auto">{{ formatDateTime(att.uploadTime) }}</span>
+              <button
+                type="button"
+                class="p-0.5 text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors shrink-0"
+                @click.stop="removeFormAttachment(index)"
+                title="删除附件"
+              >
+                <X :size="11" />
+              </button>
             </div>
           </div>
           <div class="flex items-center gap-3">
             <button
               type="button"
               class="inline-flex items-center gap-1 px-3 py-2 border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 transition-colors"
+              @click="handleUploadAttachment"
             >
               <Upload :size="12" />
               上传附件
             </button>
-            <span class="text-[11px] text-gray-400">支持现场照片、检测报告、旧件回收单等（占位入口）</span>
+            <span class="text-[11px] text-gray-400">支持现场照片、检测报告、旧件回收单等（模拟上传）</span>
           </div>
         </div>
 
