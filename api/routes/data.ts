@@ -38,5 +38,8 @@ router.get('/trace/:requisitionId?', traceCtrl.get)
 router.get('/export/requisitions', exportCtrl.requisitions)
 router.get('/export/points', exportCtrl.points)
 router.get('/export/returns', exportCtrl.returns)
+router.get('/export/checkins', exportCtrl.checkins)
+router.get('/export/shortages', exportCtrl.shortages)
+router.get('/export/pdf', exportCtrl.pdf)
 
 export default router

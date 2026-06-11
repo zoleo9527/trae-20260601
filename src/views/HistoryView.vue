@@ -155,21 +155,28 @@ async function doExport(format: 'csv' | 'excel' | 'pdf') {
     if (pid) params.set('projectId', pid)
     if (expFrom.value) params.set('from', expFrom.value)
     if (expTo.value) params.set('to', expTo.value)
+
+    if (format === 'pdf') {
+      params.set('modules', expMods.value.join(','))
+      const url = `${exportBase}/export/pdf?${params.toString()}`
+      downloadCsv(url)
+      alert('PDF 竣工资料已开始下载！可在浏览器下载栏查看。')
+      return
+    }
+
     const qs = params.toString()
     const q = qs ? `?${qs}` : ''
     const jobs: { key: string; path: string }[] = []
     if (expMods.value.includes('requisition')) jobs.push({ key: 'requisition', path: `/export/requisitions${q}` })
+    if (expMods.value.includes('checkin')) jobs.push({ key: 'checkin', path: `/export/checkins${q}` })
     if (expMods.value.includes('point')) jobs.push({ key: 'point', path: `/export/points${q}` })
+    if (expMods.value.includes('shortage')) jobs.push({ key: 'shortage', path: `/export/shortages${q}` })
     if (expMods.value.includes('return')) jobs.push({ key: 'return', path: `/export/returns${q}` })
-    if (format === 'excel' || format === 'csv') {
-      for (let i = 0; i < jobs.length; i++) {
-        await new Promise(r => setTimeout(r, i * 300))
-        downloadCsv(jobs[i].path)
-      }
-      alert(`导出完成！共 ${jobs.length} 个 CSV 文件已开始下载。\n提示：CSV 可直接用 Excel 打开，或另存为 .xlsx 格式。`)
-    } else {
-      alert('PDF 竣工资料导出需安装 PDF 渲染服务，当前已导出 CSV 格式数据，可用于竣工资料整理。')
+    for (let i = 0; i < jobs.length; i++) {
+      await new Promise(r => setTimeout(r, i * 300))
+      downloadCsv(jobs[i].path)
     }
+    alert(`导出完成！共 ${jobs.length} 个 CSV 文件已开始下载。\n提示：CSV 可直接用 Excel 打开，或另存为 .xlsx 格式。`)
   } finally {
     exporting.value = false
   }
