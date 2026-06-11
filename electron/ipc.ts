@@ -40,22 +40,53 @@ function getStatusLabel(status: string): string {
   return labels[status] || status
 }
 
+function normalizePlannedMaterials(rawItems: any[]): Array<{ material_id: number; quantity: number }> {
+  return (rawItems || [])
+    .map(item => {
+      const material_id = Number(item?.material_id ?? item?.id ?? 0)
+      const quantity = Number(item?.quantity ?? item?.planned_qty ?? item?.qty ?? 0)
+      return material_id > 0 ? { material_id, quantity } : null
+    })
+    .filter(Boolean) as Array<{ material_id: number; quantity: number }>
+}
+
 function syncProjectMaterials(projectId: number, plannedMaterials: any[]) {
   const db = getDb()
-  for (const item of plannedMaterials) {
-    const materialId = item.material_id ?? item.id
-    const plannedQty = item.quantity ?? item.planned_qty ?? 0
-    if (!materialId) continue
-    const pm = db.prepare('SELECT * FROM project_materials WHERE project_id = ? AND material_id = ?').get(projectId, materialId) as any
-    if (pm) {
-      db.prepare('UPDATE project_materials SET planned_qty = ? WHERE id = ?').run(plannedQty, pm.id)
+  const normalized = normalizePlannedMaterials(plannedMaterials)
+  const newMaterialIds = new Set(normalized.map(item => item.material_id))
+  const quantityMap = new Map(normalized.map(item => [item.material_id, item.quantity]))
+
+  const existingList = db.prepare(
+    'SELECT * FROM project_materials WHERE project_id = ?'
+  ).all(projectId) as any[]
+
+  const existingIds = new Set(existingList.map(pm => pm.material_id))
+
+  for (const pm of existingList) {
+    if (newMaterialIds.has(pm.material_id)) {
+      db.prepare('UPDATE project_materials SET planned_qty = ? WHERE id = ?').run(
+        quantityMap.get(pm.material_id), pm.id
+      )
     } else {
-      db.prepare(`
-        INSERT INTO project_materials (project_id, material_id, planned_qty, used_qty, returned_qty, is_overrun)
-        VALUES (?, ?, ?, 0, 0, 0)
-      `).run(projectId, materialId, plannedQty)
+      db.prepare('UPDATE project_materials SET planned_qty = 0 WHERE id = ?').run(pm.id)
     }
   }
+
+  const insertStmt = db.prepare(`
+    INSERT INTO project_materials (project_id, material_id, planned_qty, used_qty, returned_qty, is_overrun)
+    VALUES (?, ?, ?, 0, 0, 0)
+  `)
+  for (const item of normalized) {
+    if (!existingIds.has(item.material_id)) {
+      insertStmt.run(projectId, item.material_id, item.quantity)
+    }
+  }
+
+  db.prepare(`
+    UPDATE project_materials
+    SET is_overrun = CASE WHEN planned_qty > 0 AND used_qty > planned_qty THEN 1 ELSE 0 END
+    WHERE project_id = ?
+  `).run(projectId)
 }
 
 export function registerIpc(ipcMain: IpcMain) {
@@ -200,7 +231,12 @@ export function registerIpc(ipcMain: IpcMain) {
     const db = getDb()
     const plans = db.prepare('SELECT * FROM wiring_plans WHERE project_id = ? ORDER BY id DESC').all(projectId) as any[]
     for (const plan of plans) {
-      plan.planned_materials = safeJsonParse(plan.planned_materials, [])
+      const rawMaterials = safeJsonParse(plan.planned_materials, [])
+      plan.planned_materials = (rawMaterials || []).map((item: any) => ({
+        ...item,
+        material_id: Number(item?.material_id ?? item?.id ?? 0),
+        quantity: Number(item?.quantity ?? item?.planned_qty ?? item?.qty ?? 0)
+      }))
     }
     return plans
   })

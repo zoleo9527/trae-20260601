@@ -51,6 +51,19 @@ function safeJsonParse<T = any>(val: any, fallback: T): T {
   try { return JSON.parse(val) as T } catch (e) { return fallback }
 }
 
+function normalizePlannedMaterialItem(item: any): PlannedMaterial {
+  const material_id = Number(item?.material_id ?? item?.id ?? 0)
+  const quantity = Number(item?.quantity ?? item?.planned_qty ?? item?.qty ?? 0)
+  return {
+    material_id,
+    material_name: item?.material_name || '',
+    spec: item?.spec || '',
+    unit: item?.unit || '',
+    quantity,
+    notes: item?.notes || ''
+  }
+}
+
 const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack }) => {
   const [project, setProject] = useState<Project | null>(null)
   const [activeTab, setActiveTab] = useState('survey')
@@ -184,6 +197,8 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack }) => {
         const parsedPlans = (plans || []).map((p: any) => ({
           ...p,
           planned_materials: safeJsonParse<any[]>(p.planned_materials, [])
+            .map((item: any) => normalizePlannedMaterialItem(item))
+            .filter((pm: PlannedMaterial) => pm.material_id > 0)
         }))
         setWiringPlans(parsedPlans)
         setSurvey(s)
@@ -332,8 +347,9 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack }) => {
       remarks: plan.remarks || '',
       planned_materials: (() => {
         const parsed = safeJsonParse<any[]>(plan.planned_materials, [])
+          .map((item: any) => normalizePlannedMaterialItem(item))
         return Array.isArray(parsed) && parsed.length > 0
-          ? parsed.map(pm => ({ ...pm, notes: (pm as any).notes || '' }))
+          ? parsed
           : [{ material_id: 0, material_name: '', spec: '', unit: '', quantity: 0, notes: '' }]
       })(),
       created_by: plan.created_by || '当前用户',
@@ -1112,7 +1128,7 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack }) => {
                                               <td>{pm.spec || '-'}</td>
                                               <td>{pm.unit || '-'}</td>
                                               <td>{pm.quantity}</td>
-                                              <td>{(pm as any).notes || '-'}</td>
+                                              <td>{pm.notes || '-'}</td>
                                             </tr>
                                           ))}
                                         </tbody>

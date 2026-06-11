@@ -81,6 +81,7 @@ export interface WiringPlan {
     spec?: string
     unit?: string
     quantity: number
+    notes?: string
   }>
   created_by?: string
   confirmed_at?: string
