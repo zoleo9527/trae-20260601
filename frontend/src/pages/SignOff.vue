@@ -86,7 +86,8 @@ const rejectedDocs = computed(() => {
   return docs
 })
 const signedDocs = computed(() => {
-  let docs = documents.value.filter(d => d.status === '已签认' && matchFilter(d))
+  if (activeFilter.value !== 'all') return []
+  let docs = documents.value.filter(d => d.status === '已签认')
   if (searchQuery.value) docs = docs.filter(d => d.project_name.includes(searchQuery.value))
   return docs
 })
@@ -197,6 +198,14 @@ async function onDrawerRefresh() {
   await loadDocuments()
   if (drawerDocId.value) {
     await loadDrawerExceptions(drawerDocId.value)
+    if (detailCache.value.has(drawerDocId.value)) {
+      try {
+        const detail = await get<DocumentDetail>(`/documents/${drawerDocId.value}`)
+        detailCache.value.set(drawerDocId.value, detail)
+      } catch (e) {
+        console.error(e)
+      }
+    }
   }
 }
 

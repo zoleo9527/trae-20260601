@@ -61,7 +61,7 @@ router.get('/', (req, res) => {
         (SELECT COUNT(*) FROM exceptions WHERE document_id = d.id) as exceptions_count,
         (SELECT COUNT(*) FROM exceptions WHERE document_id = d.id AND status IN ('待处理', '处理中', '已升级')) as unresolved_exceptions_count,
         (SELECT content FROM remarks WHERE document_id = d.id ORDER BY created_at DESC LIMIT 1) as latest_remark,
-        (SELECT description FROM exceptions WHERE document_id = d.id ORDER BY created_at DESC LIMIT 1) as latest_exception,
+        (SELECT description FROM exceptions WHERE document_id = d.id AND status IN ('待处理', '处理中', '已升级') ORDER BY created_at DESC LIMIT 1) as latest_exception,
         (SELECT comment FROM sign_offs WHERE document_id = d.id AND result = '已驳回' ORDER BY signed_at DESC LIMIT 1) as latest_reject_reason
       FROM completion_documents d WHERE 1=1
     `;
@@ -214,7 +214,7 @@ router.get('/:id', (req, res) => {
         (SELECT COUNT(*) FROM exceptions WHERE document_id = d.id) as exceptions_count,
         (SELECT COUNT(*) FROM exceptions WHERE document_id = d.id AND status IN ('待处理', '处理中', '已升级')) as unresolved_exceptions_count,
         (SELECT content FROM remarks WHERE document_id = d.id ORDER BY created_at DESC LIMIT 1) as latest_remark,
-        (SELECT description FROM exceptions WHERE document_id = d.id ORDER BY created_at DESC LIMIT 1) as latest_exception,
+        (SELECT description FROM exceptions WHERE document_id = d.id AND status IN ('待处理', '处理中', '已升级') ORDER BY created_at DESC LIMIT 1) as latest_exception,
         (SELECT comment FROM sign_offs WHERE document_id = d.id AND result = '已驳回' ORDER BY signed_at DESC LIMIT 1) as latest_reject_reason
       FROM completion_documents d WHERE d.id = ?
     `).get(req.params.id);
