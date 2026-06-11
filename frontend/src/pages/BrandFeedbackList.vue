@@ -124,7 +124,12 @@
             <div class="hs-item hs-submit">
               <span class="hs-icon">📤</span>
               <div class="hs-content">
-                <div class="hs-label">提交人</div>
+                <div class="hs-label">
+                  提交人
+                  <span v-if="complaintStore.getReturnToManagerList(item).length > 0" class="hs-badge hs-badge-return">
+                    退回补录 {{ complaintStore.getReturnToManagerList(item).length }} 次
+                  </span>
+                </div>
                 <div class="hs-value">
                   <span class="hs-name">{{ item.submitter }}</span>
                   <span class="hs-role" :class="item.submitterRole">{{ complaintStore.roleLabel(item.submitterRole) }}</span>
@@ -136,7 +141,12 @@
             <div class="hs-item hs-brand">
               <span class="hs-icon">🏷️</span>
               <div class="hs-content">
-                <div class="hs-label">品牌反馈</div>
+                <div class="hs-label">
+                  品牌反馈
+                  <span v-if="complaintStore.getReturnToBrandList(item).length > 0" class="hs-badge hs-badge-brand-return">
+                    退回补充 {{ complaintStore.getReturnToBrandList(item).length }} 次
+                  </span>
+                </div>
                 <div class="hs-value" v-if="item.brandFeedbackList.length > 0">
                   <span class="hs-name">{{ item.brandFeedbackList[item.brandFeedbackList.length - 1].operator.split('-')[1] || item.brandFeedbackList[item.brandFeedbackList.length - 1].operator }}</span>
                   <span class="hs-resp" :class="item.brandFeedbackList[item.brandFeedbackList.length - 1].responsibility">
@@ -251,14 +261,60 @@
           </div>
 
           <div v-if="expandedId === item.id && hasKeyRemarks(item)" class="key-remarks-section">
-            <div v-if="complaintStore.getReturnList(item).length > 0" class="remark-block remark-return">
+            <div v-if="complaintStore.getReturnToManagerList(item).length > 0" class="remark-block remark-return">
               <div class="remark-head">
                 <span class="remark-icon">🔴</span>
-                <span class="remark-title">退回补录记录（{{ complaintStore.getReturnList(item).length }} 次）</span>
+                <span class="remark-title">退回补录全链路（柜长侧，{{ complaintStore.getReturnToManagerList(item).length }} 轮）</span>
               </div>
               <div class="remark-items">
                 <div
-                  v-for="(r, idx) in complaintStore.getReturnList(item)"
+                  v-for="(cycle, idx) in getManagerReturnCycles(item)"
+                  :key="idx"
+                  class="remark-cycle"
+                >
+                  <div class="cycle-title">第 {{ idx + 1 }} 轮</div>
+                  <div v-if="cycle.returnOp" class="remark-item cycle-step">
+                    <div class="remark-meta">
+                      <span class="step-badge step-return">退回</span>
+                      <span class="remark-op">{{ cycle.returnOp.operator }}</span>
+                      <span class="remark-role" :class="cycle.returnOp.role">{{ complaintStore.roleLabel(cycle.returnOp.role) }}</span>
+                      <span class="remark-time">{{ formatDateTime(cycle.returnOp.timestamp) }}</span>
+                    </div>
+                    <div class="remark-text"><strong>退回原因：</strong>{{ cycle.returnOp.remark }}</div>
+                  </div>
+                  <div v-if="cycle.resubmitOp" class="remark-item cycle-step">
+                    <div class="remark-meta">
+                      <span class="step-badge step-resubmit">补录</span>
+                      <span class="remark-op">{{ cycle.resubmitOp.operator }}</span>
+                      <span class="remark-role" :class="cycle.resubmitOp.role">{{ complaintStore.roleLabel(cycle.resubmitOp.role) }}</span>
+                      <span class="remark-time">{{ formatDateTime(cycle.resubmitOp.timestamp) }}</span>
+                    </div>
+                    <div class="remark-text"><strong>补录说明：</strong>{{ cycle.resubmitOp.remark }}</div>
+                  </div>
+                  <div v-if="cycle.recheckOp" class="remark-item cycle-step">
+                    <div class="remark-meta">
+                      <span class="step-badge step-recheck">复核</span>
+                      <span class="remark-op">{{ cycle.recheckOp.operator }}</span>
+                      <span class="remark-role" :class="cycle.recheckOp.role">{{ complaintStore.roleLabel(cycle.recheckOp.role) }}</span>
+                      <span class="remark-time">{{ formatDateTime(cycle.recheckOp.timestamp) }}</span>
+                    </div>
+                    <div class="remark-text"><strong>复核结论：</strong>{{ cycle.recheckOp.remark }}</div>
+                  </div>
+                  <div v-if="!cycle.resubmitOp && !cycle.recheckOp" class="cycle-pending">
+                    ⏳ 等待柜长补录
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div v-if="complaintStore.getReturnToBrandList(item).length > 0" class="remark-block remark-brand-return">
+              <div class="remark-head">
+                <span class="remark-icon">🟣</span>
+                <span class="remark-title">退回品牌督导补充（{{ complaintStore.getReturnToBrandList(item).length }} 次）</span>
+              </div>
+              <div class="remark-items">
+                <div
+                  v-for="(r, idx) in complaintStore.getReturnToBrandList(item)"
                   :key="r.id"
                   class="remark-item"
                 >
@@ -267,7 +323,7 @@
                     <span class="remark-role" :class="r.role">{{ complaintStore.roleLabel(r.role) }}</span>
                     <span class="remark-time">{{ formatDateTime(r.timestamp) }}</span>
                   </div>
-                  <div class="remark-text">#{{ idx + 1 }} {{ r.action }}：{{ r.remark }}</div>
+                  <div class="remark-text">#{{ idx + 1 }} 退回原因：{{ r.remark }}</div>
                 </div>
               </div>
             </div>
@@ -365,10 +421,30 @@ function toggleRemarks(id: string) {
 
 function hasKeyRemarks(c: Complaint): boolean {
   return (
-    complaintStore.getReturnList(c).length > 0 ||
+    complaintStore.getReturnToManagerList(c).length > 0 ||
+    complaintStore.getReturnToBrandList(c).length > 0 ||
     c.brandFeedbackList.length > 0 ||
     complaintStore.getRecheckList(c).length > 0
   )
+}
+
+function getManagerReturnCycles(c: Complaint) {
+  const returns = complaintStore.getReturnToManagerList(c)
+  const resubmits = complaintStore.getResubmitList(c)
+  const rechecks = complaintStore.getRecheckList(c)
+
+  return returns.map((ret, idx) => {
+    const resubmit = resubmits[idx]
+    const recheckTime = resubmit ? new Date(resubmit.timestamp) : null
+    const recheck = rechecks.find(
+      r => recheckTime && new Date(r.timestamp) > recheckTime
+    )
+    return {
+      returnOp: ret,
+      resubmitOp: resubmit || null,
+      recheckOp: recheck || null
+    }
+  })
 }
 
 const filters = reactive({
@@ -1035,6 +1111,29 @@ function goDetail(id: string) {
   font-weight: 500;
   text-transform: uppercase;
   letter-spacing: 0.5px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.hs-badge {
+  font-size: 9px;
+  padding: 1px 6px;
+  border-radius: 3px;
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+.hs-badge-return {
+  background: #fed7d7;
+  color: #c53030;
+}
+
+.hs-badge-brand-return {
+  background: #e9d8fd;
+  color: #6b46c1;
 }
 
 .hs-value {
@@ -1182,6 +1281,14 @@ function goDetail(id: string) {
   background: #fff5f5;
 }
 
+.remark-brand-return {
+  border-left: 3px solid #9f7aea;
+}
+
+.remark-brand-return .remark-head {
+  background: #faf5ff;
+}
+
 .remark-feedback .remark-head {
   background: #f0fff4;
 }
@@ -1285,6 +1392,73 @@ function goDetail(id: string) {
   font-size: 13px;
   color: #4a5568;
   line-height: 1.6;
+}
+
+.remark-cycle {
+  padding: 12px;
+  background: #fff5f5;
+  border-radius: 8px;
+  border: 1px solid #fed7d7;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.cycle-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: #c53030;
+  padding-bottom: 6px;
+  border-bottom: 1px dashed #feb2b2;
+}
+
+.cycle-step .remark-item {
+  background: white;
+  border: 1px solid #fed7d7;
+  position: relative;
+  padding-left: 14px;
+}
+
+.cycle-step .remark-item::before {
+  content: '';
+  position: absolute;
+  left: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: #fc8181;
+}
+
+.step-badge {
+  font-size: 10px;
+  padding: 1px 8px;
+  border-radius: 3px;
+  font-weight: 600;
+  color: white;
+}
+
+.step-return {
+  background: #e53e3e;
+}
+
+.step-resubmit {
+  background: #dd6b20;
+}
+
+.step-recheck {
+  background: #d69e2e;
+}
+
+.cycle-pending {
+  font-size: 12px;
+  color: #c05621;
+  padding: 10px;
+  background: #fffaf0;
+  border-radius: 6px;
+  text-align: center;
+  border: 1px dashed #fbd38d;
 }
 
 .fb-ops-summary {

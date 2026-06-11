@@ -158,7 +158,7 @@ const initialComplaints: Complaint[] = [
   {
     id: '4',
     complaintNo: 'TS-20260605-002',
-    status: 'brand_feedback',
+    status: 'pending_brand',
     type: 'repair',
     customerName: '赵先生',
     customerPhone: '186****9988',
@@ -170,13 +170,13 @@ const initialComplaints: Complaint[] = [
     purchaseDate: '2025-12-20',
     complaintDate: '2026-06-05',
     complaintContent: '手表走时不准，每天快约15秒。购表半年，在保修期内。',
-    currentHandlerRole: 'supervisor',
-    currentHandler: roleUser('supervisor'),
+    currentHandlerRole: 'superintendent',
+    currentHandler: roleUser('superintendent'),
     submitter: roleUser('manager'),
     submitterRole: 'manager',
     submitTime: daysAgo(6),
     recheckCount: 0,
-    returnCount: 0,
+    returnCount: 1,
     operations: [
       {
         id: 'op-4-1',
@@ -209,12 +209,20 @@ const initialComplaints: Complaint[] = [
         role: 'superintendent',
         action: '联系品牌方',
         remark: '已发邮件至品牌售后，等待反馈。品牌方表示3个工作日内回复。'
+      },
+      {
+        id: 'op-4-5',
+        timestamp: daysAgo(2),
+        operator: roleUser('supervisor'),
+        role: 'supervisor',
+        action: '退回品牌督导补充',
+        remark: '品牌反馈内容过于简略，请补充：1. 具体检测数据（日误差秒数、摆幅等）；2. 维修所需的具体零件清单和费用明细；3. 同型号手表的故障率统计。客户要求出具官方检测报告。'
       }
     ],
     brandFeedbackList: [
       {
         id: 'bf-4-1',
-        timestamp: daysAgo(1),
+        timestamp: daysAgo(3),
         operator: `浪琴品牌售后-陈经理`,
         feedbackContent: '经品牌技术部门检测，该手表摆轮存在轻微偏移，属于保修期内正常质量问题。',
         responsibility: 'brand',
@@ -249,7 +257,7 @@ const initialComplaints: Complaint[] = [
     operations: [
       {
         id: 'op-5-1',
-        timestamp: daysAgo(9),
+        timestamp: daysAgo(11),
         operator: roleUser('manager'),
         role: 'manager',
         action: '创建客诉单',
@@ -257,23 +265,39 @@ const initialComplaints: Complaint[] = [
       },
       {
         id: 'op-5-2',
-        timestamp: daysAgo(9),
+        timestamp: daysAgo(11),
         operator: roleUser('manager'),
         role: 'manager',
         action: '提交楼层主管',
         remark: '顾客要求全额退款，但衣服已穿着5个月，建议协商部分退款。'
       },
       {
+        id: 'op-5-2-1',
+        timestamp: daysAgo(10),
+        operator: roleUser('supervisor'),
+        role: 'supervisor',
+        action: '退回柜长补录',
+        remark: '请补充：1. 衣服购买时的宣传页或吊牌照片；2. 顾客是否洗涤过、洗涤方式说明；3. 跑毛部位的特写照片（至少3张）。资料不全无法转交品牌方。'
+      },
+      {
+        id: 'op-5-2-2',
+        timestamp: daysAgo(9),
+        operator: roleUser('manager'),
+        role: 'manager',
+        action: '补录后重新提交',
+        remark: '已补充：1. 吊牌照片显示含绒量90%，未提及跑毛风险；2. 顾客确认冷水手洗一次；3. 新增跑毛特写照片5张、视频1段。顾客情绪较激动，希望尽快处理。'
+      },
+      {
         id: 'op-5-3',
-        timestamp: daysAgo(8),
+        timestamp: daysAgo(9),
         operator: roleUser('supervisor'),
         role: 'supervisor',
         action: '审核通过，转交品牌督导',
-        remark: '同意部分退款方案，请品牌方确认责任比例。'
+        remark: '资料已补齐，同意部分退款方案，请品牌方确认责任比例。'
       },
       {
         id: 'op-5-4',
-        timestamp: daysAgo(7),
+        timestamp: daysAgo(8),
         operator: roleUser('superintendent'),
         role: 'superintendent',
         action: '收到品牌反馈',
@@ -506,6 +530,47 @@ export function useComplaintStore() {
       .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
   }
 
+  function getReturnToManagerList(c: Complaint): OperationLog[] {
+    return c.operations
+      .filter(o => o.action === '退回柜长补录')
+      .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
+  }
+
+  function getReturnToBrandList(c: Complaint): OperationLog[] {
+    return c.operations
+      .filter(o => o.action === '退回品牌督导补充')
+      .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
+  }
+
+  function getResubmitList(c: Complaint): OperationLog[] {
+    return c.operations
+      .filter(o => o.action === '补录后重新提交')
+      .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
+  }
+
+  type ReturnCycleItem = OperationLog & {
+    cycleType: 'return_manager' | 'resubmit' | 'return_brand' | 'recheck'
+  }
+
+  function getReturnCycleList(c: Complaint): ReturnCycleItem[] {
+    const items: ReturnCycleItem[] = []
+
+    getReturnToManagerList(c).forEach(o => {
+      items.push({ ...o, cycleType: 'return_manager' })
+    })
+    getResubmitList(c).forEach(o => {
+      items.push({ ...o, cycleType: 'resubmit' })
+    })
+    getReturnToBrandList(c).forEach(o => {
+      items.push({ ...o, cycleType: 'return_brand' })
+    })
+    getRecheckList(c).forEach(o => {
+      items.push({ ...o, cycleType: 'recheck' })
+    })
+
+    return items.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
+  }
+
   return {
     state,
     getList,
@@ -522,6 +587,10 @@ export function useComplaintStore() {
     getLatestReturn,
     getLatestBrandFeedbackOp,
     getRecheckList,
-    getReturnList
+    getReturnList,
+    getReturnToManagerList,
+    getReturnToBrandList,
+    getResubmitList,
+    getReturnCycleList
   }
 }
