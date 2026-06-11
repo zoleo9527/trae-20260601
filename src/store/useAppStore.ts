@@ -27,6 +27,18 @@ interface AppStore {
     operator: string;
   }) => Promotion;
   
+  updatePromotion: (params: {
+    promotionId: string;
+    title?: string;
+    counter?: string;
+    brand?: string;
+    type?: string;
+    startDate?: string;
+    endDate?: string;
+    budget?: number;
+    description?: string;
+  }) => Promotion | null;
+  
   processPromotion: (params: {
     promotionId: string;
     role: Role;
@@ -108,6 +120,14 @@ export const useAppStore = create<AppStore>((set, get) => ({
     return promotion;
   },
 
+  updatePromotion: (params) => {
+    const result = PromotionService.updatePromotion(params);
+    if (result) {
+      get().refreshPromotions();
+    }
+    return result;
+  },
+
   processPromotion: (params) => {
     const result = PromotionService.processPromotion(params);
     if (result) {
@@ -152,6 +172,15 @@ export const useAppStore = create<AppStore>((set, get) => ({
   importData: (promotions: Promotion[]) => {
     promotions.forEach(p => StorageService.savePromotion(p));
     get().refreshPromotions();
+
+    const currentPromotions = get().promotions;
+    const validIds = new Set(currentPromotions.map(p => p.id));
+    const recentItems = StorageService.getRecentItems();
+    const cleaned = recentItems.filter(item => validIds.has(item.promotionId));
+    if (cleaned.length !== recentItems.length) {
+      StorageService.saveRecentItems(cleaned);
+    }
+    set({ recentItems: StorageService.getRecentItems() });
   },
 
   clearAllData: () => {

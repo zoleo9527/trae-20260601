@@ -1,5 +1,6 @@
 import type { Promotion } from '@/types';
 import { generateId } from '@/utils/id';
+import { StorageService } from '@/services/storage';
 
 const now = new Date();
 const daysAgo = (days: number) => {
@@ -375,8 +376,8 @@ export const mockPromotions: Promotion[] = [
 ];
 
 export function initializeMockData(): void {
-  const existing = localStorage.getItem('retail_promotions');
-  if (!existing) {
-    localStorage.setItem('retail_promotions', JSON.stringify(mockPromotions));
+  const existing = StorageService.getPromotions();
+  if (existing.length === 0) {
+    StorageService.savePromotions(mockPromotions);
   }
 }

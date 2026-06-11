@@ -14,6 +14,18 @@ interface CreatePromotionParams {
   operator: string;
 }
 
+interface UpdatePromotionParams {
+  promotionId: string;
+  title?: string;
+  counter?: string;
+  brand?: string;
+  type?: string;
+  startDate?: string;
+  endDate?: string;
+  budget?: number;
+  description?: string;
+}
+
 interface ProcessParams {
   promotionId: string;
   role: Role;
@@ -64,6 +76,24 @@ const STATUS_TRANSITIONS: Record<PromotionStatus, Partial<Record<Role, { nextSta
 };
 
 export class PromotionService {
+  static updatePromotion(params: UpdatePromotionParams): Promotion | null {
+    const promotion = StorageService.getPromotion(params.promotionId);
+    if (!promotion) return null;
+
+    if (params.title !== undefined) promotion.title = params.title;
+    if (params.counter !== undefined) promotion.counter = params.counter;
+    if (params.brand !== undefined) promotion.brand = params.brand;
+    if (params.type !== undefined) promotion.type = params.type;
+    if (params.startDate !== undefined) promotion.startDate = params.startDate;
+    if (params.endDate !== undefined) promotion.endDate = params.endDate;
+    if (params.budget !== undefined) promotion.budget = params.budget;
+    if (params.description !== undefined) promotion.description = params.description;
+    promotion.updatedAt = new Date().toISOString();
+
+    StorageService.savePromotion(promotion);
+    return promotion;
+  }
+
   static createPromotion(params: CreatePromotionParams): Promotion {
     const now = new Date().toISOString();
     const promotion: Promotion = {

@@ -32,6 +32,7 @@ export function PromotionDetail() {
     promotions, 
     addRecentItem,
     createPromotion,
+    updatePromotion,
     processPromotion,
     addRemark,
     addSalesData
@@ -116,6 +117,20 @@ export function PromotionDetail() {
     if (!promotion) return;
     
     if (action === 'submit' && !validateForm()) return;
+
+    if (isEditable && action === 'submit') {
+      updatePromotion({
+        promotionId: promotion.id,
+        title: formData.title,
+        counter: formData.counter,
+        brand: formData.brand,
+        type: formData.type,
+        startDate: formData.startDate,
+        endDate: formData.endDate,
+        budget: Number(formData.budget),
+        description: formData.description,
+      });
+    }
     
     const result = processPromotion({
       promotionId: promotion.id,
