@@ -415,6 +415,19 @@
                     {dayjs(sig.signed_at).format('YYYY-MM-DD HH:mm:ss')}
                   </span>
                 </div>
+                {#if sig.from_responsible_name || sig.from_responsible_role}
+                  <div class="signature-handover">
+                    <span class="handover-label">交接来源:</span>
+                    <span class="handover-role">{sig.from_responsible_role_label || sig.from_responsible_role}</span>
+                    {#if sig.from_responsible_name}
+                      <span class="handover-name">{sig.from_responsible_name}</span>
+                    {/if}
+                    <span class="handover-arrow">→</span>
+                    <span class="handover-to-label">签收人:</span>
+                    <span class="handover-role">物业联系人</span>
+                    <span class="handover-name">{sig.signatory_name}</span>
+                  </div>
+                {/if}
                 {#if sig.remark}
                   <div class="signature-remark">
                     {sig.remark}
@@ -828,6 +841,41 @@
     justify-content: space-between;
     align-items: center;
     margin-bottom: 12px;
+  }
+
+  .signature-handover {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 4px;
+    padding: 10px 14px;
+    background: white;
+    border: 1px solid #bbf7d0;
+    border-radius: 8px;
+    font-size: 13px;
+    margin-bottom: 12px;
+  }
+
+  .signature-handover .handover-label,
+  .signature-handover .handover-to-label {
+    color: #166534;
+    font-weight: 500;
+  }
+
+  .signature-handover .handover-role {
+    color: #15803d;
+    font-weight: 500;
+  }
+
+  .signature-handover .handover-name {
+    color: #166534;
+    font-weight: 600;
+  }
+
+  .signature-handover .handover-arrow {
+    color: #16a34a;
+    font-weight: 600;
+    padding: 0 4px;
   }
 
   .signatory-info {

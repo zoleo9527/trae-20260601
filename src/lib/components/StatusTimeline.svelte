@@ -55,6 +55,34 @@
           {/if}
         </div>
 
+        {#if transition.from_responsible_name || transition.to_responsible_name}
+          <div class="handover-info">
+            {#if transition.from_responsible_name}
+              <span class="handover-from">
+                <span class="handover-label">移交:</span>
+                <span class="handover-role">{transition.from_responsible_role_label || transition.from_responsible_role}</span>
+                <span class="handover-name">{transition.from_responsible_name}</span>
+              </span>
+            {/if}
+            {#if transition.from_responsible_name && transition.to_responsible_name}
+              <span class="handover-arrow">→</span>
+            {/if}
+            {#if transition.to_responsible_name}
+              <span class="handover-to">
+                <span class="handover-label">接手:</span>
+                <span class="handover-role">{transition.to_responsible_role_label || transition.to_responsible_role}</span>
+                <span class="handover-name">{transition.to_responsible_name}</span>
+              </span>
+            {:else if transition.to_responsible_role}
+              <span class="handover-to">
+                <span class="handover-label">接手:</span>
+                <span class="handover-role">{transition.to_responsible_role_label || transition.to_responsible_role}</span>
+                <span class="handover-name">（待定）</span>
+              </span>
+            {/if}
+          </div>
+        {/if}
+
         {#if transition.remark}
           <div class="timeline-remark">
             {transition.remark}
@@ -169,6 +197,47 @@
   .dept {
     color: #9ca3af;
     font-size: 12px;
+  }
+
+  .handover-info {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 4px;
+    padding: 6px 10px;
+    background: #f0f9ff;
+    border-left: 3px solid #0ea5e9;
+    border-radius: 4px;
+    font-size: 12px;
+    margin-top: 4px;
+    margin-bottom: 4px;
+  }
+
+  .handover-from, .handover-to {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .handover-label {
+    color: #64748b;
+    font-weight: 500;
+  }
+
+  .handover-role {
+    color: #0369a1;
+    font-weight: 500;
+  }
+
+  .handover-name {
+    color: #0c4a6e;
+    font-weight: 600;
+  }
+
+  .handover-arrow {
+    color: #0ea5e9;
+    font-weight: 600;
+    padding: 0 2px;
   }
 
   .timeline-remark {

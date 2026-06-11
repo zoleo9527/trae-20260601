@@ -1,5 +1,5 @@
 import { json } from '@sveltejs/kit';
-import { prepare, exec, STATUS, STATUS_META } from '$lib/server/db.js';
+import { prepare, exec, STATUS, STATUS_META, ROLE_LABELS } from '$lib/server/db.js';
 
 export async function POST({ params, request }) {
   const { signatory_id, signature_data, remark } = await request.json();
@@ -52,19 +52,42 @@ export async function POST({ params, request }) {
 
   const now = new Date().toISOString().replace('T', ' ').substring(0, 19);
 
+  const fromResponsibleRole = STATUS_META[report.current_status]?.responsibleRole || null;
+  let fromResponsibleName = null;
+  if (fromResponsibleRole === 'inspector') {
+    const inspStmt = prepare('SELECT name FROM users WHERE id = ?');
+    const insp = await inspStmt.get(report.inspector_id);
+    fromResponsibleName = insp?.name || null;
+  } else if (fromResponsibleRole === 'property') {
+    const pmStmt = prepare('SELECT name FROM users WHERE id = ?');
+    const pm = await pmStmt.get(report.property_manager_id);
+    fromResponsibleName = pm?.name || null;
+  } else if (fromResponsibleRole === 'supervisor') {
+    const supStmt = prepare("SELECT name FROM users WHERE role = 'supervisor' ORDER BY id LIMIT 1");
+    const sup = await supStmt.get();
+    fromResponsibleName = sup?.name || null;
+  }
+
+  const fromRespRoleSql = fromResponsibleRole ? `'${fromResponsibleRole}'` : 'NULL';
+  const fromRespNameSql = fromResponsibleName ? `'${fromResponsibleName.replace(/'/g, "''")}'` : 'NULL';
+
   await exec(`
     INSERT INTO signature_records (
-      report_id, signatory_id, signatory_name, signature_data, remark, signed_at
+      report_id, signatory_id, signatory_name, signature_data, remark, signed_at,
+      from_responsible_role, from_responsible_name
     ) VALUES (
       ${params.id},
       ${signatory.id},
       '${signatory.name}',
       ${signature_data ? `'${signature_data.replace(/'/g, "''")}'` : 'NULL'},
       '${(remark || '').replace(/'/g, "''")}',
-      '${now}'
+      '${now}',
+      ${fromRespRoleSql},
+      ${fromRespNameSql}
     );
     INSERT INTO status_transitions (
-      report_id, from_status, to_status, operator_id, operator_role, remark, transition_time
+      report_id, from_status, to_status, operator_id, operator_role, remark, transition_time,
+      from_responsible_role, from_responsible_name, to_responsible_role, to_responsible_name
     ) VALUES (
       ${params.id},
       '${report.current_status}',
@@ -72,7 +95,11 @@ export async function POST({ params, request }) {
       ${signatory.id},
       '${signatory.role}',
       '${(remark || '客户已签收').replace(/'/g, "''")}',
-      '${now}'
+      '${now}',
+      ${fromRespRoleSql},
+      ${fromRespNameSql},
+      NULL,
+      NULL
     );
     UPDATE maintenance_reports
     SET current_status = '${STATUS.SIGNED}', updated_at = '${now}'
@@ -100,14 +127,25 @@ export async function POST({ params, request }) {
 
   return json({
     success: true,
-    signature,
+    signature: {
+      ...signature,
+      from_responsible_role_label: signature.from_responsible_role
+        ? (ROLE_LABELS[signature.from_responsible_role] || signature.from_responsible_role)
+        : null
+    },
     transition: {
       ...transition,
       from_status_label: STATUS_META[transition.from_status]?.label,
       from_status_color: STATUS_META[transition.from_status]?.color,
       to_status_label: STATUS_META[transition.to_status]?.label,
       to_status_color: STATUS_META[transition.to_status]?.color,
-      operator_role_label: '物业联系人'
+      operator_role_label: ROLE_LABELS[transition.operator_role] || transition.operator_role,
+      from_responsible_role_label: transition.from_responsible_role
+        ? (ROLE_LABELS[transition.from_responsible_role] || transition.from_responsible_role)
+        : null,
+      to_responsible_role_label: transition.to_responsible_role
+        ? (ROLE_LABELS[transition.to_responsible_role] || transition.to_responsible_role)
+        : null
     }
   });
 }

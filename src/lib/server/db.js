@@ -171,6 +171,12 @@ export const ROLES = {
   SUPERVISOR: 'supervisor'
 };
 
+export const ROLE_LABELS = {
+  inspector: '巡检工程师',
+  property: '物业联系人',
+  supervisor: '维保主管'
+};
+
 export const STATUS = {
   INSPECTION_COMPLETED: 'inspection_completed',
   REPORT_SUBMITTED: 'report_submitted',

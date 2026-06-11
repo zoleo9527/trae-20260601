@@ -1,5 +1,5 @@
 import { json } from '@sveltejs/kit';
-import { prepare, STATUS_META } from '$lib/server/db.js';
+import { prepare, STATUS_META, ROLE_LABELS } from '$lib/server/db.js';
 
 export async function GET({ params }) {
   const reportSql = `
@@ -38,16 +38,27 @@ export async function GET({ params }) {
 
   for (const t of transitions) {
     t.from_status_label = t.from_status ? (STATUS_META[t.from_status]?.label || '创建') : null;
+    t.from_status_color = t.from_status ? (STATUS_META[t.from_status]?.color || '#6b7280') : null;
     t.to_status_label = STATUS_META[t.to_status]?.label || t.to_status;
     t.to_status_color = STATUS_META[t.to_status]?.color || '#6b7280';
-    t.operator_role_label = t.operator_role === 'inspector' ? '巡检工程师' :
-                            t.operator_role === 'property' ? '物业联系人' :
-                            t.operator_role === 'supervisor' ? '维保主管' : t.operator_role;
+    t.operator_role_label = ROLE_LABELS[t.operator_role] || t.operator_role;
+    t.from_responsible_role_label = t.from_responsible_role
+      ? (ROLE_LABELS[t.from_responsible_role] || t.from_responsible_role)
+      : null;
+    t.to_responsible_role_label = t.to_responsible_role
+      ? (ROLE_LABELS[t.to_responsible_role] || t.to_responsible_role)
+      : null;
   }
 
   const signatureSql = `SELECT * FROM signature_records WHERE report_id = ? ORDER BY signed_at DESC`;
   const signatureStmt = prepare(signatureSql);
   const signatures = await signatureStmt.all(params.id);
+
+  for (const s of signatures) {
+    s.from_responsible_role_label = s.from_responsible_role
+      ? (ROLE_LABELS[s.from_responsible_role] || s.from_responsible_role)
+      : null;
+  }
 
   return json({
     report: {
