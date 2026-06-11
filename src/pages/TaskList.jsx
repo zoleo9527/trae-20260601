@@ -32,6 +32,7 @@ export default function TaskList() {
   const [selected, setSelected] = useState(new Set())
   const [batchNote, setBatchNote] = useState('')
   const [batchResult, setBatchResult] = useState('')
+  const [batchRejectReason, setBatchRejectReason] = useState('')
   const [showBatch, setShowBatch] = useState(false)
 
   const load = () => {
@@ -87,7 +88,17 @@ export default function TaskList() {
     try {
       await api.batchReinspect({ ids: [...selected], passed: true, result: batchResult || '批量复检通过' })
       alert(`已批量复检通过 ${selected.size} 条记录`)
-      setBatchResult(''); setSelected(new Set()); setShowBatch(false); load()
+      setBatchResult(''); setBatchRejectReason(''); setSelected(new Set()); setShowBatch(false); load()
+    } catch (e) { alert(e.message) }
+  }
+
+  const handleBatchReject = async () => {
+    if (!canBatchReinspect) return
+    if (!batchRejectReason.trim()) { alert('请填写驳回原因'); return }
+    try {
+      await api.batchReinspect({ ids: [...selected], passed: false, rejectReason: batchRejectReason })
+      alert(`已批量驳回 ${selected.size} 条记录，物业联系人将收到待补录通知`)
+      setBatchResult(''); setBatchRejectReason(''); setSelected(new Set()); setShowBatch(false); load()
     } catch (e) { alert(e.message) }
   }
 
@@ -97,7 +108,7 @@ export default function TaskList() {
       <p className="page-desc">
         以 <b>{current.name}</b> 身份操作。
         {role === 'supervisor' && ' 选中"待派发"记录可批量派发；'}
-        {role === 'inspector'  && ' 选中"待复检"记录可批量复检通过；'}
+        {role === 'inspector'  && ' 选中"待复检"记录可批量复检通过或批量驳回；'}
         {role === 'property'   && ' 点击进入详情可提交整改或补录。'}
       </p>
 
@@ -136,7 +147,7 @@ export default function TaskList() {
           <span>
             已选择 <span className="count">{selected.size}</span> 条记录
             {canBatchDispatch && <span className="text-muted"> · 可批量派发</span>}
-            {canBatchReinspect && <span className="text-muted"> · 可批量复检通过</span>}
+            {canBatchReinspect && <span className="text-muted"> · 可批量复检通过 / 批量驳回</span>}
             {!canBatchDispatch && !canBatchReinspect && <span className="text-danger"> · 所选记录状态不一致，无法批量</span>}
           </span>
           <div className="actions">
@@ -154,14 +165,26 @@ export default function TaskList() {
             )}
             {canBatchReinspect && (
               <>
-                <input
-                  type="text"
-                  placeholder="复检说明（可选）"
-                  value={batchResult}
-                  onChange={e => setBatchResult(e.target.value)}
-                  style={{ padding: '6px 10px', border: '1px solid #6ee7b7', borderRadius: 6, width: 200 }}
-                />
-                <button className="btn btn-success btn-sm" onClick={handleBatchReinspect}>✅ 批量复检通过</button>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                  <input
+                    type="text"
+                    placeholder="复检说明（可选，用于通过）"
+                    value={batchResult}
+                    onChange={e => setBatchResult(e.target.value)}
+                    style={{ padding: '6px 10px', border: '1px solid #6ee7b7', borderRadius: 6, width: 200 }}
+                  />
+                  <button className="btn btn-success btn-sm" onClick={handleBatchReinspect}>✅ 批量复检通过</button>
+                </div>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                  <input
+                    type="text"
+                    placeholder="驳回原因 *"
+                    value={batchRejectReason}
+                    onChange={e => setBatchRejectReason(e.target.value)}
+                    style={{ padding: '6px 10px', border: '1px solid #fca5a5', borderRadius: 6, width: 260 }}
+                  />
+                  <button className="btn btn-danger btn-sm" onClick={handleBatchReject}>❌ 批量驳回</button>
+                </div>
               </>
             )}
             <button className="btn btn-ghost btn-sm" onClick={() => setSelected(new Set())}>取消选择</button>

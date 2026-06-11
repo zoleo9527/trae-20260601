@@ -337,20 +337,25 @@ app.post('/api/records/batch-dispatch', (req, res) => {
 })
 
 app.post('/api/records/batch-reinspect', (req, res) => {
-  const { ids, passed, result } = req.body
+  const { ids, passed, result, rejectReason } = req.body
   let count = 0
   ids.forEach(id => {
     const r = records.find(x => x.id === id)
     if (r && r.status === 'rectified') {
-      r.reInspectionResult = result || ''
       r.reInspectionAt = now()
       if (passed) {
+        r.reInspectionResult = result || ''
         r.status = 'passed'
         r.rejectReason = ''
         r.rejectAt = null
         r.supplementaryNote = ''
         r.supplementaryAt = null
         pushTimeline(r, '王工', '批量复检通过', result || '批量通过')
+      } else {
+        r.status = 'rejected'
+        r.rejectReason = rejectReason || '批量驳回，请整改后重新提交'
+        r.rejectAt = now()
+        pushTimeline(r, '王工', '批量复检驳回', rejectReason || '批量驳回')
       }
       count++
     }
