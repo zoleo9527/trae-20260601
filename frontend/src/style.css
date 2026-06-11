@@ -1,0 +1,76 @@
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --color-bg: #0f172a;
+  --color-surface: #1e293b;
+  --color-surface-light: #334155;
+  --color-border: #475569;
+  --color-text: #f1f5f9;
+  --color-text-muted: #94a3b8;
+  --color-accent: #f59e0b;
+  --color-accent-hover: #d97706;
+  --color-success: #10b981;
+  --color-danger: #ef4444;
+  --color-warning: #f59e0b;
+  --color-info: #3b82f6;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Noto Sans SC', system-ui, -apple-system, sans-serif;
+  background-color: var(--color-bg);
+  color: var(--color-text);
+  -webkit-font-smoothing: antialiased;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: var(--color-surface);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-text-muted);
+}
+
+@layer components {
+  .card {
+    @apply bg-[#1e293b] border border-[#334155] rounded-lg p-4 transition-all duration-200;
+  }
+  .card:hover {
+    @apply border-[#475569] shadow-lg shadow-black/20;
+  }
+  .btn-primary {
+    @apply bg-amber-500 hover:bg-amber-600 text-slate-900 font-medium px-4 py-2 rounded-lg transition-colors duration-150 disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  .btn-secondary {
+    @apply border border-slate-500 hover:border-slate-400 text-slate-300 hover:text-white px-4 py-2 rounded-lg transition-colors duration-150;
+  }
+  .btn-danger {
+    @apply bg-red-500/10 border border-red-500/30 text-red-400 hover:bg-red-500/20 hover:border-red-500/50 px-4 py-2 rounded-lg transition-colors duration-150;
+  }
+  .btn-success {
+    @apply bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20 hover:border-emerald-500/50 px-4 py-2 rounded-lg transition-colors duration-150;
+  }
+}
+
+@keyframes pulse-danger {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+.animate-pulse-danger {
+  animation: pulse-danger 2s ease-in-out infinite;
+}
