@@ -16,5 +16,6 @@ public interface EntrapmentRescueRepository extends JpaRepository<EntrapmentResc
     List<EntrapmentRescue> findByFaultReportIdOrderByCreateTimeDesc(Long faultReportId);
     Optional<EntrapmentRescue> findTopByFaultReportIdOrderByCreateTimeDesc(Long faultReportId);
     List<EntrapmentRescue> findByStatusInAndRescuerIdOrderByCreateTimeDesc(List<RescueStatus> statuses, Long rescuerId);
+    List<EntrapmentRescue> findByStatusInAndRescuerIdIsNullOrderByCreateTimeDesc(List<RescueStatus> statuses);
     List<EntrapmentRescue> findByStatusInOrderByCreateTimeDesc(List<RescueStatus> statuses);
 }
