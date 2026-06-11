@@ -8,7 +8,7 @@ import { useUserStore } from '@/store/useUserStore';
 import StatusBadge from '@/components/common/StatusBadge';
 import Button from '@/components/common/Button';
 import { cn } from '@/lib/utils';
-import { STAGE_MAP, ROLE_MAP } from '@/utils/status';
+import { STAGE_MAP, ROLE_MAP, sortRemarksDesc } from '@/utils/status';
 import RemarkSection from './RemarkSection';
 import type { SaleControl, UserRole, ControlStage } from '@/types';
 
@@ -123,7 +123,8 @@ export default function SaleControlCard({
 
   const availableActions = getAvailableActions();
   const progress = getStageProgress();
-  const latestRemark = saleControl.remarks?.[saleControl.remarks.length - 1];
+  const sortedRemarks = sortRemarksDesc(saleControl.remarks);
+  const latestRemark = sortedRemarks[0];
 
   return (
     <div

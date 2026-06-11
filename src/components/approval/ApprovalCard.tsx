@@ -16,7 +16,7 @@ import { cn } from '@/lib/utils';
 import type { SaleControl } from '@/types';
 import { useSaleControlStore } from '@/store/useSaleControlStore';
 import { useUserStore } from '@/store/useUserStore';
-import { STAGE_MAP } from '@/utils/status';
+import { STAGE_MAP, sortRemarksDesc } from '@/utils/status';
 import { formatDateTime, formatDate } from '@/utils/date';
 import ProcessTimeline from './ProcessTimeline';
 import StatusBadge from '../common/StatusBadge';
@@ -47,9 +47,19 @@ export default function ApprovalCard({
   const [lockDuration, setLockDuration] = useState<number>(48);
   const [loading, setLoading] = useState(false);
 
-  const { house, customer, applicant, currentHandler, stage, remarks } = saleControl;
+  const { house, customer, applicant, currentHandler, stage, remarks, stageHistory } = saleControl;
 
-  const previousRemark = remarks.length > 1 ? remarks[remarks.length - 2] : remarks[0];
+  const sortedRemarks = sortRemarksDesc(remarks);
+
+  const STAGE_PREVIOUS_MAP: Record<string, string> = {
+    review: 'application',
+    lock: 'review',
+    completed: 'lock',
+  };
+  const previousStageKey = STAGE_PREVIOUS_MAP[stage];
+  const previousRemark = previousStageKey
+    ? sortedRemarks.find((r) => r.stage === previousStageKey) || sortedRemarks[0]
+    : sortedRemarks[0];
 
   const canReview = stage === 'review' && currentUser.id === currentHandler.id;
   const canLock = stage === 'lock' && currentUser.id === currentHandler.id;
@@ -203,7 +213,7 @@ export default function ApprovalCard({
             历史备注
           </h4>
           <div className="space-y-3 max-h-40 overflow-y-auto">
-            {remarks.map((r) => (
+            {sortedRemarks.map((r) => (
               <div
                 key={r.id}
                 className="p-3 bg-slate-50 rounded-lg border border-slate-100"

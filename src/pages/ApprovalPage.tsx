@@ -339,7 +339,7 @@ export default function ApprovalPage() {
                 </div>
                 <div className="px-6 py-4">
                   <div className="space-y-3">
-                    {selectedLogs.slice().reverse().slice(0, 10).map((log) => (
+                    {selectedLogs.slice(0, 10).map((log) => (
                       <div key={log.id} className="p-3 rounded-lg bg-slate-50 border border-slate-100">
                         <div className="flex items-center justify-between mb-1.5">
                           <div className="flex items-center gap-2">

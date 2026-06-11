@@ -1,7 +1,7 @@
 import { Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { ControlStage, Remark } from '@/types';
-import { STAGE_MAP } from '@/utils/status';
+import { STAGE_MAP, sortRemarksDesc } from '@/utils/status';
 import { formatDateTime } from '@/utils/date';
 
 interface ProcessNode {
@@ -44,7 +44,8 @@ function getNodeInfo(
   const stageRemarks = remarks?.filter((r) => r.stage === stage) || [];
   if (stageRemarks.length === 0) return {};
   
-  const lastRemark = stageRemarks[stageRemarks.length - 1];
+  const sortedStageRemarks = sortRemarksDesc(stageRemarks);
+  const lastRemark = sortedStageRemarks[0];
   return {
     operator: lastRemark.operatorName,
     timestamp: lastRemark.timestamp,

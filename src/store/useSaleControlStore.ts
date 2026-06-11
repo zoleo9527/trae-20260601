@@ -11,7 +11,7 @@ import {
   StageRecord,
 } from '../types';
 import { saleControls, operationLogs, getCustomerById } from '../data';
-import { STAGE_MAP, OPERATION_TYPE_MAP, ROLE_MAP } from '../utils/status';
+import { STAGE_MAP, HOUSE_STATUS_MAP, OPERATION_TYPE_MAP, ROLE_MAP, sortLogsDesc, sortRemarksDesc } from '../utils/status';
 import { generateId } from '../utils/id';
 import { useUserStore } from './useUserStore';
 import { useHouseStore } from './useHouseStore';
@@ -120,7 +120,7 @@ function filterLogs(
   logs: OperationLog[],
   filters: LogFilters
 ): OperationLog[] {
-  return logs.filter((log) => {
+  const filtered = logs.filter((log) => {
     if (filters.operationType && log.operationType !== filters.operationType) return false;
     if (filters.operatorId && log.operatorId !== filters.operatorId) return false;
     if (filters.startDate) {
@@ -143,7 +143,8 @@ function filterLogs(
       if (!match) return false;
     }
     return true;
-  }).sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+  });
+  return sortLogsDesc(filtered);
 }
 
 function createOperationLog(
@@ -839,9 +840,8 @@ export const useSaleControlStore = create<SaleControlStore>()(
       },
 
       getSaleControlLogs: (id) => {
-        return get()
-          .operationLogs.filter((log) => log.saleControlId === id)
-          .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+        const logs = get().operationLogs.filter((log) => log.saleControlId === id);
+        return sortLogsDesc(logs);
       },
 
       getPreviousRemark: (id, currentStage) => {

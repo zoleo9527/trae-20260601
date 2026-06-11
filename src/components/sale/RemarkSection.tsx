@@ -1,6 +1,6 @@
 import { MessageSquare, User, Clock, Tag } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { getStageColor } from '@/utils/status';
+import { getStageColor, sortRemarksDesc } from '@/utils/status';
 import type { Remark, UserRole } from '@/types';
 
 interface RemarkSectionProps {
@@ -28,9 +28,7 @@ const stageSourceLabels: Record<string, string> = {
 };
 
 export default function RemarkSection({ remarks, maxVisible }: RemarkSectionProps) {
-  const sortedRemarks = [...remarks].sort(
-    (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
-  );
+  const sortedRemarks = sortRemarksDesc(remarks);
 
   const displayRemarks = maxVisible ? sortedRemarks.slice(0, maxVisible) : sortedRemarks;
 
