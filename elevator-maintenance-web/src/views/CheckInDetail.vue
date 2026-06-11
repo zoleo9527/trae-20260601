@@ -144,10 +144,10 @@
 
       <div class="action-bar">
         <el-button :icon="ArrowLeft" @click="goBack">
-          返回
+          {{ fromPlanId ? "返回计划详情" : "返回列表" }}
         </el-button>
         <el-button
-          v-if="checkIn?.planId"
+          v-if="checkIn?.planId && !fromPlanId"
           type="primary"
           :icon="Document"
           @click="goToPlan"
@@ -176,6 +176,7 @@ const route = useRoute()
 const router = useRouter()
 
 const checkInId = computed(() => route.params.id)
+const fromPlanId = computed(() => route.query.planId)
 
 const loading = ref(false)
 const checkIn = ref(null)
@@ -196,7 +197,11 @@ const loadData = async () => {
 }
 
 const goBack = () => {
-  router.push('/checkins')
+  if (fromPlanId.value) {
+    router.push(`/plans/${fromPlanId.value}`)
+  } else {
+    router.push("/checkins")
+  }
 }
 
 const goToPlan = () => {

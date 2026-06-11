@@ -79,6 +79,14 @@
         <div class="detail-section-title">签到记录</div>
         <el-table :data="checkInRecords" border size="small">
           <el-table-column prop="id" label="签到ID" width="100" />
+          <el-table-column label="现场照片" width="100">
+            <template #default="{ row }">
+              <div v-if="row.photoData" class="photo-thumbnail">
+                <img :src="row.photoData" alt="签到照片" @click="previewImage(row.photoData)" />
+              </div>
+              <span v-else class="text-muted">-</span>
+            </template>
+          </el-table-column>
           <el-table-column label="状态" width="100">
             <template #default="{ row }">
               <el-tag :type="getCheckinStatusType(row.checkOutTime ? 'CHECKED_OUT' : 'CHECKED_IN')" size="small">
@@ -97,6 +105,14 @@
             </template>
           </el-table-column>
           <el-table-column prop="locationRemark" label="签到位置" min-width="200" />
+          <el-table-column label="工作内容摘要" min-width="200">
+            <template #default="{ row }">
+              <span v-if="row.workContent">
+                {{ row.workContent.length > 30 ? row.workContent.slice(0, 30) + '...' : row.workContent }}
+              </span>
+              <span v-else>-</span>
+            </template>
+          </el-table-column>
           <el-table-column label="工作结果" width="100">
             <template #default="{ row }">
               <el-tag v-if="row.workResult" :type="getWorkResultType(row.workResult)" size="small">
@@ -651,7 +667,7 @@ const goBack = () => {
 }
 
 const viewCheckInDetail = (row) => {
-  router.push(`/checkins/${row.id}`)
+  router.push({ path: `/checkins/${row.id}`, query: { planId: planId.value } })
 }
 
 const previewImage = (url) => {
@@ -919,5 +935,23 @@ onMounted(() => {
   top: 4px;
   right: 4px;
   padding: 0;
+}
+
+.photo-thumbnail {
+  width: 60px;
+  height: 60px;
+  overflow: hidden;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.photo-thumbnail img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.text-muted {
+  color: #909399;
 }
 </style>
