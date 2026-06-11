@@ -18,6 +18,7 @@
         <el-descriptions-item label="工种">{{ WORK_TYPE_MAP[dispatch.work_type] || dispatch.work_type || '-' }}</el-descriptions-item>
         <el-descriptions-item label="预计工时">{{ dispatch.estimated_hours ? `${dispatch.estimated_hours}小时` : '-' }}</el-descriptions-item>
         <el-descriptions-item label="施工人">{{ dispatch.engineer_name || '-' }}</el-descriptions-item>
+        <el-descriptions-item label="派单人">{{ dispatch.dispatcher_name || '-' }}</el-descriptions-item>
         <el-descriptions-item label="紧急程度">
           <el-tag :type="getUrgencyTag(dispatch.urgency || dispatch.repair?.urgency).type" size="small">
             {{ getUrgencyTag(dispatch.urgency || dispatch.repair?.urgency).label }}
@@ -108,10 +109,10 @@ const fetchDetail = async () => {
 
 const handleAccept = async () => {
   try {
-    await ElMessageBox.confirm('确认接单？', '接单确认', { type: 'info' })
+    await ElMessageBox.confirm('确认接单？接单后将进入施工状态。', '接单确认', { type: 'info' })
     accepting.value = true
-    await api.post(`/dispatches/${route.params.id}/accept`)
-    ElMessage.success('接单成功')
+    await api.post(`/dispatches/${route.params.id}/accept`, { remark: '' })
+    ElMessage.success('接单成功，已进入施工状态')
     fetchDetail()
   } catch {
   } finally {

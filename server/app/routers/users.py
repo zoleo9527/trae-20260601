@@ -4,7 +4,7 @@ from typing import Optional
 
 from ..models import User
 from ..schemas import UserCreate, UserResponse
-from ..auth import get_current_user
+from ..auth import get_current_user, require_role, RoleType
 from ..database import get_db
 
 router = APIRouter(prefix="/api/users", tags=["用户管理"])
@@ -14,7 +14,7 @@ router = APIRouter(prefix="/api/users", tags=["用户管理"])
 def create_user(
     data: UserCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_role(RoleType.ADMIN.value)),
 ):
     existing = db.query(User).filter(User.username == data.username).first()
     if existing:
@@ -36,7 +36,7 @@ def create_user(
 def list_users(
     role: Optional[str] = None,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_role(RoleType.ADMIN.value)),
 ):
     query = db.query(User)
     if role:

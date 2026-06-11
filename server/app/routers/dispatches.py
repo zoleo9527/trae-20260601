@@ -11,7 +11,7 @@ from ..models import (
 from ..schemas import (
     DispatchResponse, DispatchListResponse,
     DispatchAcceptRequest, DispatchCompleteRequest, DispatchVerifyRequest,
-    RepairBriefForDispatch, StatusLogResponse,
+    RepairBriefForDispatch, StatusLogResponse, UserResponse,
 )
 from ..auth import get_current_user, require_role, RoleType
 from ..database import get_db
@@ -19,7 +19,18 @@ from ..database import get_db
 router = APIRouter(prefix="/api/dispatches", tags=["工程派单"])
 
 
-def _dispatch_to_response(dispatch: EngineeringDispatch, include_relations: bool = False) -> DispatchResponse:
+def _dispatch_to_response(dispatch: EngineeringDispatch, db: Session = None, include_relations: bool = False) -> DispatchResponse:
+    engineer_name = None
+    dispatcher_name = None
+    if db and dispatch.engineer_id:
+        eng = db.query(User).filter(User.id == dispatch.engineer_id).first()
+        if eng:
+            engineer_name = eng.display_name
+    if db and dispatch.dispatcher_id:
+        disp = db.query(User).filter(User.id == dispatch.dispatcher_id).first()
+        if disp:
+            dispatcher_name = disp.display_name
+
     repair_resp = None
     status_logs_resp = []
     if include_relations:
@@ -29,6 +40,7 @@ def _dispatch_to_response(dispatch: EngineeringDispatch, include_relations: bool
                 id=r.id,
                 repair_no=r.repair_no,
                 title=r.title,
+                description=r.description or "",
                 location=r.location,
                 urgency=r.urgency,
                 source=r.source,
@@ -59,7 +71,9 @@ def _dispatch_to_response(dispatch: EngineeringDispatch, include_relations: bool
         status=dispatch.status,
         sla_deadline=dispatch.sla_deadline,
         dispatcher_id=dispatch.dispatcher_id,
+        dispatcher_name=dispatcher_name,
         engineer_id=dispatch.engineer_id,
+        engineer_name=engineer_name,
         created_at=dispatch.created_at,
         accepted_at=dispatch.accepted_at,
         started_at=dispatch.started_at,
@@ -71,6 +85,14 @@ def _dispatch_to_response(dispatch: EngineeringDispatch, include_relations: bool
         repair=repair_resp,
         status_logs=status_logs_resp,
     )
+
+
+@router.get("/engineers", response_model=list[UserResponse], summary="获取工程师列表")
+def list_engineers(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(RoleType.SERVICE_DESK.value, RoleType.ENGINEERING.value, RoleType.ADMIN.value)),
+):
+    return db.query(User).filter(User.role == RoleType.ENGINEERING.value, User.is_active == True).order_by(User.id).all()
 
 
 @router.get("/history", response_model=DispatchListResponse, summary="派单历史回看")
@@ -109,7 +131,7 @@ def dispatch_history(
         total=total,
         page=page,
         page_size=page_size,
-        items=[_dispatch_to_response(d, include_relations=True) for d in items],
+        items=[_dispatch_to_response(d, db=db, include_relations=True) for d in items],
     )
 
 
@@ -150,7 +172,7 @@ def list_dispatches(
         total=total,
         page=page,
         page_size=page_size,
-        items=[_dispatch_to_response(d, include_relations=True) for d in items],
+        items=[_dispatch_to_response(d, db=db, include_relations=True) for d in items],
     )
 
 
@@ -168,7 +190,7 @@ def get_dispatch(
     )
     if not dispatch:
         raise HTTPException(status_code=404, detail="派单不存在")
-    return _dispatch_to_response(dispatch, include_relations=True)
+    return _dispatch_to_response(dispatch, db=db, include_relations=True)
 
 
 @router.post("/{dispatch_id}/accept", response_model=DispatchResponse, summary="接单")
@@ -189,18 +211,19 @@ def accept_dispatch(
     if dispatch.status != DispatchStatus.PENDING.value:
         raise HTTPException(status_code=400, detail=f"当前状态 {dispatch.status} 不可接单，需为 pending")
 
-    dispatch.status = DispatchStatus.ACCEPTED.value
+    dispatch.status = DispatchStatus.IN_PROGRESS.value
     dispatch.accepted_at = datetime.now()
+    dispatch.started_at = datetime.now()
     dispatch.engineer_id = current_user.id
 
     dispatch_log = StatusLog(
         dispatch_id=dispatch.id,
         from_status=DispatchStatus.PENDING.value,
-        to_status=DispatchStatus.ACCEPTED.value,
+        to_status=DispatchStatus.IN_PROGRESS.value,
         operator_id=current_user.id,
         operator_name=current_user.display_name,
         operator_role=current_user.role,
-        remark=data.remark or "接单",
+        remark=data.remark or "接单并开始施工",
     )
     db.add(dispatch_log)
 
@@ -220,7 +243,7 @@ def accept_dispatch(
 
     db.commit()
     db.refresh(dispatch)
-    return _dispatch_to_response(dispatch, include_relations=True)
+    return _dispatch_to_response(dispatch, db=db, include_relations=True)
 
 
 @router.post("/{dispatch_id}/complete", response_model=DispatchResponse, summary="完工")
@@ -241,6 +264,7 @@ def complete_dispatch(
     if dispatch.status not in (DispatchStatus.ACCEPTED.value, DispatchStatus.IN_PROGRESS.value):
         raise HTTPException(status_code=400, detail=f"当前状态 {dispatch.status} 不可完工，需为 accepted 或 in_progress")
 
+    old_status = dispatch.status
     dispatch.status = DispatchStatus.COMPLETED.value
     dispatch.completed_at = datetime.now()
     dispatch.completion_note = data.completion_note
@@ -249,10 +273,9 @@ def complete_dispatch(
         import json
         dispatch.photos = json.dumps(data.photos, ensure_ascii=False)
 
-    from_status = dispatch.status if dispatch.status else DispatchStatus.IN_PROGRESS.value
     dispatch_log = StatusLog(
         dispatch_id=dispatch.id,
-        from_status=DispatchStatus.IN_PROGRESS.value,
+        from_status=old_status,
         to_status=DispatchStatus.COMPLETED.value,
         operator_id=current_user.id,
         operator_name=current_user.display_name,
@@ -278,7 +301,7 @@ def complete_dispatch(
 
     db.commit()
     db.refresh(dispatch)
-    return _dispatch_to_response(dispatch, include_relations=True)
+    return _dispatch_to_response(dispatch, db=db, include_relations=True)
 
 
 @router.post("/{dispatch_id}/verify", response_model=DispatchResponse, summary="验证完工")
@@ -314,4 +337,4 @@ def verify_dispatch(
     db.add(dispatch_log)
     db.commit()
     db.refresh(dispatch)
-    return _dispatch_to_response(dispatch, include_relations=True)
+    return _dispatch_to_response(dispatch, db=db, include_relations=True)

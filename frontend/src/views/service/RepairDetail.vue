@@ -151,8 +151,8 @@ const acceptRules = {
 
 const fetchEngineers = async () => {
   try {
-    const res = await api.get('/users/', { params: { role: 'engineering' } })
-    engineers.value = Array.isArray(res) ? res.filter(u => u.role === 'engineering') : []
+    const res = await api.get('/dispatches/engineers')
+    engineers.value = Array.isArray(res) ? res : []
   } catch {
     engineers.value = []
   }

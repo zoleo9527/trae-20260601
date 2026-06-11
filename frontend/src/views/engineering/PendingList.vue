@@ -90,9 +90,9 @@ const fetchList = async () => {
 
 const handleAccept = async (row) => {
   try {
-    await ElMessageBox.confirm('确认接单？', '接单确认', { type: 'info' })
-    await api.post(`/dispatches/${row.id}/accept`)
-    ElMessage.success('接单成功')
+    await ElMessageBox.confirm('确认接单？接单后将进入施工状态。', '接单确认', { type: 'info' })
+    await api.post(`/dispatches/${row.id}/accept`, { remark: '' })
+    ElMessage.success('接单成功，已进入施工状态')
     fetchList()
   } catch {
   }

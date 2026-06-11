@@ -144,6 +144,7 @@ class RepairBriefForDispatch(BaseModel):
     id: int
     repair_no: str
     title: str
+    description: str = ""
     location: str
     urgency: str
     source: str
@@ -162,7 +163,9 @@ class DispatchResponse(BaseModel):
     status: str
     sla_deadline: datetime
     dispatcher_id: Optional[int] = None
+    dispatcher_name: Optional[str] = None
     engineer_id: Optional[int] = None
+    engineer_name: Optional[str] = None
     created_at: Optional[datetime] = None
     accepted_at: Optional[datetime] = None
     started_at: Optional[datetime] = None

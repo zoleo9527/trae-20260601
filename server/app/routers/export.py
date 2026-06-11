@@ -7,9 +7,9 @@ from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
-from ..models import PublicRepair, EngineeringDispatch
+from ..models import PublicRepair, EngineeringDispatch, User
 from ..schemas import ExportRequest
-from ..auth import get_current_user
+from ..auth import get_current_user, require_role, RoleType
 from ..database import get_db
 
 router = APIRouter(prefix="/api/export", tags=["数据导出"])
@@ -19,7 +19,7 @@ router = APIRouter(prefix="/api/export", tags=["数据导出"])
 def export_repairs(
     data: ExportRequest,
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_user),
+    current_user: User = Depends(require_role(RoleType.ADMIN.value, RoleType.OPERATION.value, RoleType.SERVICE_DESK.value)),
 ):
     query = db.query(PublicRepair)
     if data.start_date:
@@ -65,7 +65,7 @@ def export_repairs(
 def export_dispatches(
     data: ExportRequest,
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_user),
+    current_user: User = Depends(require_role(RoleType.ADMIN.value, RoleType.OPERATION.value, RoleType.SERVICE_DESK.value)),
 ):
     query = db.query(EngineeringDispatch)
     if data.start_date:
