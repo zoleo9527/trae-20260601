@@ -1,3 +1,4 @@
+from sqlalchemy import inspect, text
 from sqlalchemy.orm import Session
 
 from ..database import Base, engine, SessionLocal
@@ -16,8 +17,28 @@ from ..models import (
 from .helpers import gen_visit_no, gen_subscription_no
 
 
+def _migrate_ownership_columns():
+    if not engine.url.drivername.startswith("sqlite"):
+        return
+    insp = inspect(engine)
+    if "ownership_records" not in insp.get_table_names():
+        return
+    existing = {col["name"] for col in insp.get_columns("ownership_records")}
+    patches = [
+        ("disputed_by", "INTEGER"),
+        ("resolved_by", "INTEGER"),
+    ]
+    with engine.begin() as conn:
+        for col_name, col_type in patches:
+            if col_name not in existing:
+                conn.execute(
+                    text(f"ALTER TABLE ownership_records ADD COLUMN {col_name} {col_type}")
+                )
+
+
 def init_db():
     Base.metadata.create_all(bind=engine)
+    _migrate_ownership_columns()
     db = SessionLocal()
     try:
         _seed_users(db)
