@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Store, User, CATEGORY_OPTIONS, SEVERITY_OPTIONS } from '../types';
@@ -10,6 +10,9 @@ const NewRectification: React.FC = () => {
   const [stores, setStores] = useState<Store[]>([]);
   const [storeManagers, setStoreManagers] = useState<User[]>([]);
   const [loading, setLoading] = useState(false);
+  const [customHandlerMode, setCustomHandlerMode] = useState(false);
+  const [customHandlerName, setCustomHandlerName] = useState('');
+  const [showWarning, setShowWarning] = useState(false);
 
   const [formData, setFormData] = useState({
     store_id: '',
@@ -50,14 +53,50 @@ const NewRectification: React.FC = () => {
     }
   };
 
+  const managerOptions = useMemo(() => {
+    const names = new Set<string>();
+    stores.forEach(s => {
+      if (s.manager) names.add(s.manager);
+    });
+    storeManagers.forEach(u => {
+      if (u.name) names.add(u.name);
+    });
+    return Array.from(names).sort();
+  }, [stores, storeManagers]);
+
+  const storeHasManager = !!selectedStore?.manager;
+  const managerInOptions = selectedStore?.manager
+    ? managerOptions.includes(selectedStore.manager)
+    : false;
+
   const handleStoreChange = (storeId: string) => {
     const store = stores.find(s => s.id === Number(storeId));
     setSelectedStore(store || null);
+    setCustomHandlerMode(false);
+    setCustomHandlerName('');
+
+    const managerName = store?.manager || '';
     setFormData(prev => ({
       ...prev,
       store_id: storeId,
-      handler_name: store?.manager || '',
+      handler_name: managerName,
     }));
+  };
+
+  const handleHandlerChange = (value: string) => {
+    if (value === '__custom__') {
+      setCustomHandlerMode(true);
+      setFormData(prev => ({ ...prev, handler_name: '' }));
+    } else {
+      setCustomHandlerMode(false);
+      setCustomHandlerName('');
+      setFormData(prev => ({ ...prev, handler_name: value }));
+    }
+  };
+
+  const handleCustomHandlerNameChange = (value: string) => {
+    setCustomHandlerName(value);
+    setFormData(prev => ({ ...prev, handler_name: value }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -65,6 +104,11 @@ const NewRectification: React.FC = () => {
     if (!formData.store_id || !formData.title || !formData.description || !formData.requirement || !formData.deadline) {
       alert('请填写必填项');
       return;
+    }
+
+    if (!formData.handler_name.trim()) {
+      const ok = confirm('当前未设置负责人，是否确认继续创建？');
+      if (!ok) return;
     }
 
     setLoading(true);
@@ -96,6 +140,8 @@ const NewRectification: React.FC = () => {
       setLoading(false);
     }
   };
+
+  const effectiveHandler = customHandlerMode ? customHandlerName : formData.handler_name;
 
   return (
     <div>
@@ -131,13 +177,33 @@ const NewRectification: React.FC = () => {
                 <option value="">请选择店铺</option>
                 {stores.map(store => (
                   <option key={store.id} value={store.id}>
-                    {store.name}（{store.brand}）
+                    {store.name}（{store.brand}）{store.manager ? `· ${store.manager}` : ''}
                   </option>
                 ))}
               </select>
               {selectedStore && (
                 <div className="form-hint">
-                  楼层：{selectedStore.floor} · 面积：{selectedStore.area}㎡ · 店长：{selectedStore.manager}
+                  楼层：{selectedStore.floor || '-'} · 面积：{selectedStore.area || '-'}㎡
+                  {selectedStore.manager ? ` · 店长：${selectedStore.manager}` : ''}
+                  {selectedStore.phone ? ` · 联系电话：${selectedStore.phone}` : ''}
+                </div>
+              )}
+              {selectedStore && !storeHasManager && (
+                <div style={{
+                  marginTop: 8, padding: '8px 12px',
+                  background: '#fffbe6', border: '1px solid #ffe58f',
+                  borderRadius: 4, fontSize: 13, color: '#ad6800'
+                }}>
+                  ⚠️ 该店铺暂未登记店长信息，请手动选择或输入负责人
+                </div>
+              )}
+              {selectedStore && storeHasManager && !managerInOptions && (
+                <div style={{
+                  marginTop: 8, padding: '8px 12px',
+                  background: '#e6f4ff', border: '1px solid #91caff',
+                  borderRadius: 4, fontSize: 13, color: '#0958d9'
+                }}>
+                  ℹ️ 已自动带出店长「{selectedStore.manager}」，可在下方调整
                 </div>
               )}
             </div>
@@ -219,18 +285,49 @@ const NewRectification: React.FC = () => {
 
               <div className="form-group">
                 <label className="form-label">负责人</label>
-                <select
-                  className="select"
-                  style={{ width: '100%' }}
-                  value={formData.handler_name}
-                  onChange={e => setFormData(prev => ({ ...prev, handler_name: e.target.value }))}
-                >
-                  <option value="">请选择负责人</option>
-                  {storeManagers.map(user => (
-                    <option key={user.id} value={user.name}>{user.name}</option>
-                  ))}
-                </select>
-                <div className="form-hint">选择店铺后会自动填入店长</div>
+                {!customHandlerMode ? (
+                  <select
+                    className="select"
+                    style={{ width: '100%' }}
+                    value={formData.handler_name}
+                    onChange={e => handleHandlerChange(e.target.value)}
+                  >
+                    <option value="">请选择负责人</option>
+                    {managerOptions.map(name => (
+                      <option key={name} value={name}>{name}</option>
+                    ))}
+                    <option value="__custom__">✏️ 手动输入...</option>
+                  </select>
+                ) : (
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <input
+                      className="input"
+                      style={{ flex: 1 }}
+                      placeholder="请输入负责人姓名"
+                      value={customHandlerName}
+                      onChange={e => handleCustomHandlerNameChange(e.target.value)}
+                    />
+                    <button
+                      type="button"
+                      className="btn btn-sm"
+                      onClick={() => { setCustomHandlerMode(false); setCustomHandlerName(''); }}
+                    >
+                      返回选择
+                    </button>
+                  </div>
+                )}
+                <div className="form-hint">
+                  选择店铺后会自动带出该店店长，也可手动选择其他负责人
+                </div>
+                {!effectiveHandler.trim() && formData.store_id && (
+                  <div style={{
+                    marginTop: 8, padding: '6px 10px',
+                    background: '#fff7e6', border: '1px solid #ffd591',
+                    borderRadius: 4, fontSize: 12, color: '#d46b08'
+                  }}>
+                    💡 未设置负责人将创建为「待指派」状态，后续可在详情页中补充
+                  </div>
+                )}
               </div>
             </div>
 

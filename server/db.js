@@ -130,6 +130,11 @@ if (storeCount === 0) {
     ['张伟', 'store_manager', '👤'],
     ['李娜', 'store_manager', '👤'],
     ['王芳', 'store_manager', '👤'],
+    ['刘洋', 'store_manager', '👤'],
+    ['陈静', 'store_manager', '👤'],
+    ['赵磊', 'store_manager', '👤'],
+    ['孙丽', 'store_manager', '👤'],
+    ['周杰', 'store_manager', '👤'],
   ];
 
   users.forEach((u) => insertUser.run(...u));
@@ -272,5 +277,15 @@ if (storeCount === 0) {
 
   comments.forEach((c) => insertComment.run(...c));
 }
+
+const allStores = db.prepare("SELECT DISTINCT manager FROM stores WHERE manager IS NOT NULL AND manager != ''").all();
+const existingMgrs = db.prepare('SELECT name FROM users WHERE role = ?').all('store_manager').map(u => u.name);
+
+allStores.forEach(s => {
+  if (s.manager && !existingMgrs.includes(s.manager)) {
+    db.prepare('INSERT INTO users (name, role, avatar) VALUES (?, ?, ?)').run(s.manager, 'store_manager', '👤');
+    existingMgrs.push(s.manager);
+  }
+});
 
 export default db;
