@@ -1,0 +1,12 @@
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body, #app { height: 100%; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif; }
+.page { padding: 20px; }
+.page-header { margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center; }
+.page-title { font-size: 20px; font-weight: 600; color: #1f2937; }
+.card-shadow { box-shadow: 0 1px 3px rgba(0,0,0,0.08); border-radius: 8px; }
+.status-tag { margin-right: 6px; }
+.modified-badge { background: #fef3c7; color: #92400e; padding: 2px 8px; border-radius: 4px; font-size: 12px; margin-left: 8px; }
+.timeline-section { margin-bottom: 24px; }
+.history-remark { background: #f9fafb; padding: 12px; border-radius: 6px; white-space: pre-wrap; line-height: 1.8; font-size: 13px; color: #374151; border-left: 3px solid #6366f1; }
+.change-log-item { padding: 8px 0; border-bottom: 1px dashed #e5e7eb; }
+.change-log-item:last-child { border-bottom: none; }
