@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import { useApp } from '@/context/AppContext';
-import { getFollowUpRecords, addFollowUpRecord } from '@/services/dataService';
-import type { FollowUpRecord } from '@/types';
+import { getFollowUpRecords, addFollowUpRecord, getCustomers } from '@/services/dataService';
+import type { FollowUpRecord, Customer } from '@/types';
 import { formatDate } from '@/components/ListItems';
 
 interface FollowUpsPageProps {
@@ -25,14 +25,16 @@ const resultLabels: Record<string, { label: string; color: string; desc: string 
 export default function FollowUpsPage({ selectedId }: FollowUpsPageProps) {
   const { currentUser, refreshTrigger, triggerRefresh } = useApp();
   const [records, setRecords] = useState<FollowUpRecord[]>([]);
+  const [customers, setCustomers] = useState<Customer[]>([]);
   const [filter, setFilter] = useState('all');
   const [showAddModal, setShowAddModal] = useState(false);
   const [loading, setLoading] = useState(true);
   const [linkResult, setLinkResult] = useState<string | null>(null);
 
   const [formData, setFormData] = useState({
-    customerName: '',
     customerId: '',
+    customerName: '',
+    phone: '',
     followType: '电话',
     content: '',
     nextFollowDate: '',
@@ -42,7 +44,16 @@ export default function FollowUpsPage({ selectedId }: FollowUpsPageProps) {
 
   useEffect(() => {
     loadData();
+    loadCustomers();
   }, [currentUser, refreshTrigger, filter]);
+
+  const loadCustomers = async () => {
+    let data = await getCustomers({});
+    if (currentUser.role === 'consultant') {
+      data = data.filter((c) => c.consultantId === currentUser.id);
+    }
+    setCustomers(data);
+  };
 
   const loadData = async () => {
     setLoading(true);
@@ -67,15 +78,20 @@ export default function FollowUpsPage({ selectedId }: FollowUpsPageProps) {
   };
 
   const handleAddFollowUp = async () => {
-    if (!formData.customerName || !formData.content) {
-      alert('请填写客户姓名和跟进内容');
+    if (!formData.customerId || !formData.content) {
+      alert('请选择客户并填写跟进内容');
       return;
     }
 
+    const selectedCustomer = customers.find((c) => c.id === formData.customerId);
+    const customerName = selectedCustomer?.name || formData.customerName;
+    const phone = selectedCustomer?.phone || formData.phone;
+
     const result = await addFollowUpRecord(
       {
-        customerId: formData.customerId || 'c_' + Date.now(),
-        customerName: formData.customerName,
+        customerId: formData.customerId,
+        customerName,
+        phone,
         followDate: new Date().toISOString(),
         followType: formData.followType,
         content: formData.content,
@@ -89,8 +105,9 @@ export default function FollowUpsPage({ selectedId }: FollowUpsPageProps) {
     );
 
     setFormData({
-      customerName: '',
       customerId: '',
+      customerName: '',
+      phone: '',
       followType: '电话',
       content: '',
       nextFollowDate: '',
@@ -222,16 +239,51 @@ export default function FollowUpsPage({ selectedId }: FollowUpsPageProps) {
             <div className="space-y-3">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  客户姓名 *
+                  选择客户 *
                 </label>
-                <input
-                  type="text"
+                <select
                   className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
-                  value={formData.customerName}
-                  onChange={(e) =>
-                    setFormData({ ...formData, customerName: e.target.value })
-                  }
-                />
+                  value={formData.customerId}
+                  onChange={(e) => {
+                    const c = customers.find((x) => x.id === e.target.value);
+                    setFormData({
+                      ...formData,
+                      customerId: e.target.value,
+                      customerName: c?.name || '',
+                      phone: c?.phone || '',
+                    });
+                  }}
+                >
+                  <option value="">请选择客户...</option>
+                  {customers
+                    .filter((c) => c.status !== 'lost')
+                    .map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name} {c.phone ? `(${c.phone})` : ''} —{' '}
+                        {statusLabels[c.status]?.label || c.status}
+                      </option>
+                    ))}
+                </select>
+                {formData.customerId && (
+                  <div className="mt-1.5 text-xs text-gray-500">
+                    客户状态:{' '}
+                    <span
+                      className={`px-1.5 py-0.5 rounded ${
+                        statusLabels[
+                          customers.find((c) => c.id === formData.customerId)
+                            ?.status || ''
+                        ]?.color
+                      }`}
+                    >
+                      {
+                        statusLabels[
+                          customers.find((c) => c.id === formData.customerId)
+                            ?.status || ''
+                        ]?.label
+                      }
+                    </span>
+                  </div>
+                )}
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">

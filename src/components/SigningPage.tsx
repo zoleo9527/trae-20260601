@@ -61,8 +61,18 @@ export default function SigningPage({ selectedId }: SigningPageProps) {
   }, [currentUser, refreshTrigger, filter]);
 
   useEffect(() => {
+    if (selectedId) {
+      const match = reminders.find((r) => r.id === selectedId);
+      if (match && match.id !== selectedReminder?.id) {
+        setSelectedReminder(match);
+        setActiveDetailTab('info');
+      }
+    }
+  }, [selectedId, reminders]);
+
+  useEffect(() => {
     if (selectedReminder) {
-      loadDetailData(selectedReminder.subscriptionId);
+      loadDetailData(selectedReminder.id, selectedReminder.subscriptionId);
     }
   }, [selectedReminder, refreshTrigger]);
 
@@ -90,14 +100,17 @@ export default function SigningPage({ selectedId }: SigningPageProps) {
     setLoading(false);
   };
 
-  const loadDetailData = async (subscriptionId: string) => {
+  const loadDetailData = async (reminderId: string, subscriptionId: string) => {
     const [logData, transitionData, materialData, chainData] = await Promise.all([
       getOperationLogs(subscriptionId),
       getStatusTransitions(subscriptionId),
       getSubscriptionMaterials(subscriptionId),
       getHandoverChain(subscriptionId, 'subscription'),
     ]);
-    setLogs(logData);
+    const reminderLogs = logData.filter(
+      (l) => l.targetId === reminderId || l.targetId === subscriptionId
+    );
+    setLogs(reminderLogs);
     setTransitions(transitionData);
     setMaterials(materialData);
     setHandovers(chainData.handovers);
@@ -106,7 +119,7 @@ export default function SigningPage({ selectedId }: SigningPageProps) {
   const refreshAfterAction = async () => {
     await loadData();
     if (selectedReminder) {
-      await loadDetailData(selectedReminder.subscriptionId);
+      await loadDetailData(selectedReminder.id, selectedReminder.subscriptionId);
     }
   };
 

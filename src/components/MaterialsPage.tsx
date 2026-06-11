@@ -40,6 +40,15 @@ export default function MaterialsPage({ selectedId }: MaterialsPageProps) {
   }, [currentUser, refreshTrigger, keyword, materialFilter]);
 
   useEffect(() => {
+    if (selectedId) {
+      const match = subscriptions.find((s) => s.id === selectedId);
+      if (match && match.id !== selectedSub?.id) {
+        setSelectedSub(match);
+      }
+    }
+  }, [selectedId, subscriptions]);
+
+  useEffect(() => {
     if (selectedSub) {
       loadMaterials(selectedSub.id);
     }

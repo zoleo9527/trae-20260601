@@ -86,28 +86,32 @@ export async function getVisitRecords(customerId?: string): Promise<VisitRecord[
 }
 
 export async function addVisitRecord(
-  record: Omit<VisitRecord, 'id' | 'createdAt'>,
+  record: Omit<VisitRecord, 'id' | 'createdAt'> & { phone?: string; source?: string },
   operator: { id: string; name: string; role: Role }
 ): Promise<{ visit: VisitRecord; customerId: string; handoverId: string; todoId: string }> {
+  const customerId = generateId('c');
+
   const newRecord: VisitRecord = {
     ...record,
     id: generateId('v'),
+    customerId,
     createdAt: new Date().toISOString(),
   };
   visitRecords.unshift(newRecord);
 
-  const customerId = generateId('c');
   const newCustomer: Customer = {
     id: customerId,
     name: record.customerName,
-    phone: '',
-    source: '自然来访',
+    phone: record.phone || '',
+    source: record.source || '自然来访',
     firstVisitDate: newRecord.visitDate,
     status: 'pending',
     consultantId: record.consultantId,
     consultantName: record.consultantName,
   };
   customers.unshift(newCustomer);
+
+  const controllerInfo = { id: 'u004', name: '王主任' };
 
   const handover = createHandover(
     'visit',
@@ -117,8 +121,10 @@ export async function addVisitRecord(
     record.customerName,
     'controller',
     'consultant',
-    '销控',
+    controllerInfo.name,
+    controllerInfo.id,
     record.consultantName,
+    record.consultantId,
     `来访登记 → 首次跟进，意向${record.intentionLevel === 'high' ? '高' : record.intentionLevel === 'medium' ? '中' : '低'}`,
     new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
   );
@@ -173,7 +179,24 @@ export async function addFollowUpRecord(
   let handoverId: string | undefined;
   let todoId: string | undefined;
 
-  const customerIdx = customers.findIndex((c) => c.id === record.customerId);
+  let customerIdx = customers.findIndex((c) => c.id === record.customerId);
+  if (customerIdx === -1 && (record as any).phone) {
+    const newCust: Customer = {
+      id: record.customerId,
+      name: record.customerName,
+      phone: (record as any).phone || '',
+      source: '客户导入',
+      firstVisitDate: newRecord.followDate,
+      status: 'following',
+      consultantId: record.consultantId,
+      consultantName: record.consultantName,
+    };
+    customers.unshift(newCust);
+    customerIdx = 0;
+  }
+
+  const controllerInfo = { id: 'u004', name: '王主任' };
+
   if (record.result === 'subscribed') {
     if (customerIdx !== -1) {
       customers[customerIdx] = { ...customers[customerIdx], status: 'subscribed' };
@@ -184,8 +207,6 @@ export async function addFollowUpRecord(
     );
 
     if (!existingSub) {
-      const controllerId = 'ctrl_1';
-      const controllerName = '赵薇';
       const subId = generateId('sub');
       const subNo = `SUB-${new Date().getFullYear()}${String(new Date().getMonth() + 1).padStart(2, '0')}-${String(subscriptions.length + 1).padStart(3, '0')}`;
       const deadline = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
@@ -202,8 +223,8 @@ export async function addFollowUpRecord(
         deposit: 0,
         consultantId: record.consultantId,
         consultantName: record.consultantName,
-        controllerId,
-        controllerName,
+        controllerId: controllerInfo.id,
+        controllerName: controllerInfo.name,
         status: 'draft',
         materialStatus: 'incomplete',
         urgency: 'normal',
@@ -258,7 +279,9 @@ export async function addFollowUpRecord(
         'consultant',
         'controller',
         record.consultantName,
-        controllerName,
+        record.consultantId,
+        controllerInfo.name,
+        controllerInfo.id,
         `跟进转认购：${record.customerName}`,
         new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString()
       );
@@ -270,8 +293,8 @@ export async function addFollowUpRecord(
         `客户已确认认购，请审核认购资料`,
         'high',
         'controller',
-        controllerId,
-        controllerName,
+        controllerInfo.id,
+        controllerInfo.name,
         subId,
         'subscription',
         new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
@@ -635,7 +658,9 @@ function createHandover(
   fromRole: Role,
   toRole: Role,
   fromPerson: string,
+  fromPersonId: string,
   toPerson: string,
+  toPersonId: string,
   remark: string,
   deadline?: string
 ): HandoverRecord {
@@ -649,7 +674,9 @@ function createHandover(
     fromRole,
     toRole,
     fromPerson,
+    fromPersonId,
     toPerson,
+    toPersonId,
     status: 'in_progress',
     remark,
     deadline,
@@ -666,9 +693,9 @@ export async function getHandoverRecords(
   userId?: string
 ): Promise<HandoverRecord[]> {
   let result = [...handoverRecords];
-  if (role) {
+  if (role && userId) {
     result = result.filter(
-      (h) => h.fromRole === role || h.toRole === role
+      (h) => h.fromPersonId === userId || h.toPersonId === userId
     );
   }
   return result.sort(

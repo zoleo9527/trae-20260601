@@ -143,7 +143,9 @@ export interface HandoverRecord {
   fromRole: Role;
   toRole: Role;
   fromPerson: string;
+  fromPersonId: string;
   toPerson: string;
+  toPersonId: string;
   status: HandoverStatus;
   remark: string;
   deadline?: string;

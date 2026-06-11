@@ -75,7 +75,9 @@ export default function VisitsPage({ selectedId }: VisitsPageProps) {
         consultantId: currentUser.id,
         consultantName: currentUser.name,
         remark: formData.remark,
-      },
+        phone: formData.phone,
+        source: formData.source,
+      } as any,
       { id: currentUser.id, name: currentUser.name, role: currentUser.role }
     );
 
