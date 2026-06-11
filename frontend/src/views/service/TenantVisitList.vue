@@ -180,7 +180,7 @@
             <el-table-column label="回访时间" width="160">
               <template #default="{ row }">
                 <span v-if="row.visitTime" style="font-size:12px;font-family:monospace;color:#606266;">{{ row.visitTime }}</span>
-                <el-tag v-else size="small" type="warning" effect="plain">待执行</el-tag>
+                <el-tag v-else size="small" type="warning" effect="plain">待回访</el-tag>
               </template>
             </el-table-column>
             <el-table-column label="下次跟进" width="120">
@@ -197,12 +197,12 @@
                   查看追溯
                 </el-button>
                 <el-button
-                  v-if="row.result === 'pending'"
+                  v-if="isQuickVisitAvailable(row)"
                   size="small"
                   type="success"
                   link
                   @click.stop="handleQuickVisit(row)"
-                >回访</el-button>
+                >去回访</el-button>
               </template>
             </el-table-column>
           </el-table>
@@ -248,7 +248,7 @@
                 </div>
                 <div class="detail-item">
                   <span class="detail-label">回访时间</span>
-                  <span class="detail-value" style="font-family:monospace;">{{ selectedVisit.visitTime || '待执行' }}</span>
+                  <span class="detail-value" style="font-family:monospace;">{{ selectedVisit.visitTime || '待回访' }}</span>
                 </div>
               </div>
               <div style="margin-top:10px;">
@@ -377,7 +377,8 @@ import {
   COMPLAINT_STATUS_MAP,
   RESPONSIBILITY_PARTY_MAP,
   VISIT_RESULT_MAP,
-  COMPLAINT_SOURCE_MAP
+  COMPLAINT_SOURCE_MAP,
+  canStartVisit
 } from '@/types/complaint'
 import { mockStaff } from '@/mock/complaintData'
 import VisitDialog from '@/components/VisitDialog.vue'
@@ -516,6 +517,12 @@ function goPendingDetail() {
     store.selectComplaint(linkedComplaint.value.id)
     router.push('/service/pending')
   }
+}
+
+function isQuickVisitAvailable(row: TenantVisit) {
+  if (row.result !== 'pending') return false
+  const c = getComplaint(row.complaintId)
+  return canStartVisit(c)
 }
 </script>
 

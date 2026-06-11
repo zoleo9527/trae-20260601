@@ -200,3 +200,18 @@ export const COMPLAINT_SOURCE_MAP = {
   online_platform: '线上平台',
   other: '其他渠道'
 }
+
+export function hasPendingVisit(c: Complaint | undefined | null): boolean {
+  if (!c) return false
+  return Array.isArray(c.tenantVisits) && c.tenantVisits.some(v => v.result === 'pending')
+}
+
+export function canStartVisit(c: Complaint | undefined | null): boolean {
+  if (!c) return false
+  return c.status === 'visiting' && hasPendingVisit(c)
+}
+
+export function findPendingVisit(c: Complaint | undefined | null) {
+  if (!c) return null
+  return c.tenantVisits.find(v => v.result === 'pending') || null
+}

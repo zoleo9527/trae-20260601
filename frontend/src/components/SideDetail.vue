@@ -178,7 +178,7 @@
         <div class="detail-block-title">
           租户/顾客回访
           <el-button
-            v-if="hasPendingVisit"
+            v-if="canVisit"
             size="small"
             text
             type="success"
@@ -187,6 +187,10 @@
           >
             <el-icon><Phone /></el-icon>去回访
           </el-button>
+          <span
+            v-else-if="hasPending && !canVisit"
+            style="margin-left:auto;font-size:12px;color:#e6a23c;"
+          >待回访（需先完成现场处理）</span>
           <span
             v-else
             style="margin-left:auto;font-size:12px;color:#909399;"
@@ -205,7 +209,7 @@
             <span v-if="v.tenantPhone" style="font-size:12px;color:#909399;font-family:monospace;">{{ v.tenantPhone }}</span>
             <span v-if="v.shopCode" style="font-size:12px;color:#909399;">{{ v.shopCode }}</span>
             <span style="margin-left:auto;font-size:11px;color:#909399;">
-              {{ v.visitTime || '待执行' }}
+              {{ v.visitTime || '待回访' }}
             </span>
           </div>
           <div v-if="v.feedback" style="background:#f5f7fa;padding:8px 10px;border-radius:4px;font-size:12px;color:#606266;line-height:1.7;margin-bottom:8px;">
@@ -294,7 +298,7 @@
         </el-button>
       </template>
       <template v-if="complaint.status === 'visiting'">
-        <el-button v-if="hasPendingVisit" type="success" @click="$emit('open-visit')">
+        <el-button v-if="canVisit" type="success" @click="$emit('open-visit')">
           <el-icon><Phone /></el-icon>去回访
         </el-button>
         <span v-else style="font-size:12px;color:#909399;">
@@ -321,7 +325,9 @@ import {
   RESPONSIBILITY_PARTY_MAP,
   VISIT_RESULT_MAP,
   PRIORITY_MAP,
-  COMPLAINT_SOURCE_MAP
+  COMPLAINT_SOURCE_MAP,
+  canStartVisit,
+  hasPendingVisit
 } from '@/types/complaint'
 import { useComplaintStore } from '@/stores/complaint'
 
@@ -330,9 +336,8 @@ defineEmits(['open-judge', 'open-visit', 'open-complete', 'open-close', 'open-as
 
 const store = useComplaintStore()
 
-const hasPendingVisit = computed(() =>
-  props.complaint.tenantVisits.some(v => v.result === 'pending')
-)
+const canVisit = computed(() => canStartVisit(props.complaint))
+const hasPending = computed(() => hasPendingVisit(props.complaint))
 
 const JUDGE_TYPE_LABEL: Record<string, string> = {
   responsibility: '责任判定',

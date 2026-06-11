@@ -221,7 +221,7 @@
                   @click.stop="openJudgeDialog(row)"
                 >判定</el-button>
                 <el-button
-                  v-if="row.status === 'visiting' && row.tenantVisits.some(v => v.result === 'pending')"
+                  v-if="canStartVisit(row)"
                   size="small"
                   type="success"
                   link
@@ -370,7 +370,8 @@ import {
   RESPONSIBILITY_PARTY_MAP,
   SLA_LEVEL_MAP,
   COMPLAINT_SOURCE_MAP,
-  PRIORITY_MAP
+  PRIORITY_MAP,
+  canStartVisit
 } from '@/types/complaint'
 import type { Complaint, ComplaintCategory, ComplaintStatus, ResponsibilityParty, Complaint as ComplaintType } from '@/types/complaint'
 import { mockShops } from '@/mock/complaintData'
