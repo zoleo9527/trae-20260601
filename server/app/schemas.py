@@ -60,9 +60,19 @@ class DispatchBriefResponse(BaseModel):
     dispatch_no: str
     work_content: str
     work_type: Optional[str] = None
+    estimated_hours: float = 4.0
     status: str
+    dispatcher_id: Optional[int] = None
+    dispatcher_name: Optional[str] = None
     engineer_id: Optional[int] = None
+    engineer_name: Optional[str] = None
     created_at: Optional[datetime] = None
+    accepted_at: Optional[datetime] = None
+    started_at: Optional[datetime] = None
+    completed_at: Optional[datetime] = None
+    verified_at: Optional[datetime] = None
+    completion_note: Optional[str] = None
+    material_usage: Optional[str] = None
 
     class Config:
         from_attributes = True

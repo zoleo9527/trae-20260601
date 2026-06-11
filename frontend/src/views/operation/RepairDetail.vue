@@ -44,15 +44,28 @@
     </el-card>
 
     <el-card shadow="never" style="margin-bottom: 20px" v-if="repair.dispatch">
-      <template #header><span class="card-title">派单信息</span></template>
+      <template #header>
+        <div class="card-header-row">
+          <span class="card-title">派单信息</span>
+          <el-tag :type="getStatusTag(repair.dispatch.status).type" size="large" :class="{ 'status-blink': repair.dispatch.status === 'in_progress' }">
+            {{ getStatusTag(repair.dispatch.status).label }}
+          </el-tag>
+        </div>
+      </template>
       <el-descriptions :column="2" border>
         <el-descriptions-item label="派单号">{{ repair.dispatch.dispatch_no || '-' }}</el-descriptions-item>
         <el-descriptions-item label="工种">{{ WORK_TYPE_MAP[repair.dispatch.work_type] || repair.dispatch.work_type || '-' }}</el-descriptions-item>
-        <el-descriptions-item label="施工人ID">{{ repair.dispatch.engineer_id || '-' }}</el-descriptions-item>
-        <el-descriptions-item label="状态">
-          <el-tag :type="getStatusTag(repair.dispatch.status).type" size="small">{{ getStatusTag(repair.dispatch.status).label }}</el-tag>
-        </el-descriptions-item>
+        <el-descriptions-item label="派单人">{{ repair.dispatch.dispatcher_name || '-' }}</el-descriptions-item>
+        <el-descriptions-item label="施工人">{{ repair.dispatch.engineer_name || (repair.dispatch.engineer_id ? `ID:${repair.dispatch.engineer_id}` : '-') }}</el-descriptions-item>
+        <el-descriptions-item label="派单时间">{{ formatDateTime(repair.dispatch.created_at) }}</el-descriptions-item>
+        <el-descriptions-item label="预计工时">{{ repair.dispatch.estimated_hours ? `${repair.dispatch.estimated_hours}小时` : '-' }}</el-descriptions-item>
+        <el-descriptions-item label="接单时间">{{ formatDateTime(repair.dispatch.accepted_at) }}</el-descriptions-item>
+        <el-descriptions-item label="开工时间">{{ formatDateTime(repair.dispatch.started_at) }}</el-descriptions-item>
+        <el-descriptions-item label="完工时间">{{ formatDateTime(repair.dispatch.completed_at) }}</el-descriptions-item>
+        <el-descriptions-item label="验证时间">{{ formatDateTime(repair.dispatch.verified_at) }}</el-descriptions-item>
+        <el-descriptions-item label="工作内容" :span="2">{{ repair.dispatch.work_content || '-' }}</el-descriptions-item>
         <el-descriptions-item label="完工说明" :span="2">{{ repair.dispatch.completion_note || '-' }}</el-descriptions-item>
+        <el-descriptions-item label="材料使用" :span="2">{{ repair.dispatch.material_usage || '-' }}</el-descriptions-item>
       </el-descriptions>
     </el-card>
 
@@ -64,11 +77,18 @@
           :key="idx"
           :timestamp="formatDateTime(log.created_at)"
           placement="top"
-          :type="idx === statusLogs.length - 1 ? 'primary' : 'info'"
+          :type="idx === statusLogs.length - 1 ? 'primary' : getLogType(log)"
         >
           <el-card shadow="never" class="timeline-card">
-            <p><strong>{{ getStatusTag(log.to_status).label }}</strong></p>
-            <p v-if="log.operator_name">操作人：{{ log.operator_name }}</p>
+            <p><strong>{{ getStatusTag(log.to_status).label }}</strong>
+              <span v-if="log.from_status" style="color:#909399;font-size:12px;margin-left:6px">
+                由 {{ getStatusTag(log.from_status).label }} 变更
+              </span>
+            </p>
+            <p v-if="log.operator_name">
+              操作人：{{ log.operator_name }}
+              <span style="color:#909399;margin-left:6px">({{ ROLE_MAP[log.operator_role] || log.operator_role }})</span>
+            </p>
             <p v-if="log.remark">备注：{{ log.remark }}</p>
           </el-card>
         </el-timeline-item>
@@ -88,6 +108,21 @@ import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import api from '../../api'
 import { getStatusTag, getUrgencyTag, computeSlaRemaining, formatDateTime, SOURCE_MAP, WORK_TYPE_MAP } from '../../utils/constants'
+
+const ROLE_MAP = {
+  operation: '营运专员',
+  service_desk: '客服台',
+  engineering: '工程部',
+  admin: '管理员',
+}
+
+const getLogType = (log) => {
+  const terminal = ['completed', 'closed', 'verified']
+  if (terminal.includes(log.to_status)) return 'success'
+  if (log.to_status === 'pending') return 'info'
+  if (['accepted', 'dispatched', 'in_progress'].includes(log.to_status)) return 'warning'
+  return 'info'
+}
 
 const route = useRoute()
 const router = useRouter()

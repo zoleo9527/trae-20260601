@@ -54,7 +54,7 @@ def _generate_dispatch_no(db: Session) -> str:
     return f"{prefix}{seq:03d}"
 
 
-def _repair_to_response(repair: PublicRepair, include_relations: bool = False) -> RepairResponse:
+def _repair_to_response(repair: PublicRepair, db: Session = None, include_relations: bool = False) -> RepairResponse:
     now = datetime.now()
     is_overdue = (
         repair.status not in (RepairStatus.COMPLETED.value, RepairStatus.CLOSED.value)
@@ -66,14 +66,35 @@ def _repair_to_response(repair: PublicRepair, include_relations: bool = False) -
     if include_relations:
         if repair.dispatch:
             d = repair.dispatch
+            engineer_name = None
+            dispatcher_name = None
+            if db:
+                if d.engineer_id:
+                    eng = db.query(User).filter(User.id == d.engineer_id).first()
+                    if eng:
+                        engineer_name = eng.display_name
+                if d.dispatcher_id:
+                    disp = db.query(User).filter(User.id == d.dispatcher_id).first()
+                    if disp:
+                        dispatcher_name = disp.display_name
             dispatch_resp = DispatchBriefResponse(
                 id=d.id,
                 dispatch_no=d.dispatch_no,
                 work_content=d.work_content,
                 work_type=d.work_type,
+                estimated_hours=d.estimated_hours,
                 status=d.status,
+                dispatcher_id=d.dispatcher_id,
+                dispatcher_name=dispatcher_name,
                 engineer_id=d.engineer_id,
+                engineer_name=engineer_name,
                 created_at=d.created_at,
+                accepted_at=d.accepted_at,
+                started_at=d.started_at,
+                completed_at=d.completed_at,
+                verified_at=d.verified_at,
+                completion_note=d.completion_note,
+                material_usage=d.material_usage,
             )
         if repair.status_logs:
             status_logs_resp = [
@@ -178,7 +199,7 @@ def create_repair(
     db.add(log)
     db.commit()
     db.refresh(repair)
-    return _repair_to_response(repair, include_relations=True)
+    return _repair_to_response(repair, db=db, include_relations=True)
 
 
 @router.get("/timeout-warnings", response_model=list[RepairResponse], summary="超时预警列表")
@@ -196,7 +217,7 @@ def timeout_warnings(
         .options(joinedload(PublicRepair.dispatch), joinedload(PublicRepair.status_logs))
         .all()
     )
-    return [_repair_to_response(r, include_relations=True) for r in repairs]
+    return [_repair_to_response(r, db=db, include_relations=True) for r in repairs]
 
 
 @router.get("", response_model=RepairListResponse, summary="报修单列表")
@@ -251,7 +272,7 @@ def list_repairs(
         total=total,
         page=page,
         page_size=page_size,
-        items=[_repair_to_response(r, include_relations=True) for r in items],
+        items=[_repair_to_response(r, db=db, include_relations=True) for r in items],
     )
 
 
@@ -269,7 +290,7 @@ def get_repair(
     )
     if not repair:
         raise HTTPException(status_code=404, detail="报修单不存在")
-    return _repair_to_response(repair, include_relations=True)
+    return _repair_to_response(repair, db=db, include_relations=True)
 
 
 @router.post("/{repair_id}/accept", response_model=RepairResponse, summary="受理报修单(自动创建派单)")
@@ -346,7 +367,7 @@ def accept_repair(
 
     db.commit()
     db.refresh(repair)
-    return _repair_to_response(repair, include_relations=True)
+    return _repair_to_response(repair, db=db, include_relations=True)
 
 
 @router.post("/{repair_id}/close", response_model=RepairResponse, summary="关闭报修单")
@@ -384,7 +405,7 @@ def close_repair(
     db.add(log)
     db.commit()
     db.refresh(repair)
-    return _repair_to_response(repair, include_relations=True)
+    return _repair_to_response(repair, db=db, include_relations=True)
 
 
 @router.put("/{repair_id}/complaint-ref", response_model=RepairResponse, summary="更新投诉关联编号")
@@ -418,4 +439,4 @@ def update_complaint_ref(
     db.add(log)
     db.commit()
     db.refresh(repair)
-    return _repair_to_response(repair, include_relations=True)
+    return _repair_to_response(repair, db=db, include_relations=True)
