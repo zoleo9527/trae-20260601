@@ -240,6 +240,7 @@ export const useComplaintStore = defineStore('complaint', () => {
   ) {
     if (needVisit) {
       if (visitInfo) {
+        updateComplaintStatus(complaintId, 'visiting', remark)
         createTenantVisit(
           complaintId,
           visitInfo.tenantContact,

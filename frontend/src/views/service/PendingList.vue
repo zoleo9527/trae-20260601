@@ -510,6 +510,10 @@ function handleJudgeSubmit(payload: any) {
     store.assignHandler(judgeDialog.complaint!.id, payload.handler, payload.handlerRole, payload.remark || '责任判定完成后同步派单')
     ElMessage.success('责任判定已记录，已派单给处理人')
   } else {
+    const c = judgeDialog.complaint
+    if (c.status === 'registered') {
+      store.updateComplaintStatus(c.id, 'judging', '完成责任判定，暂不派单')
+    }
     ElMessage.success('责任判定已记录，请尽快指派处理人')
   }
   judgeDialog.visible = false
