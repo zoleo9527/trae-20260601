@@ -109,6 +109,33 @@ const run = async () => {
   const noToken = await anonymous.get('/api/leases');
   assert('未登录访问被拦截', noToken.code === 401, `code=${noToken.code}`);
 
+  const brand2Res = await zs.post('/api/leases', {
+    brand_id: 2,
+    brand_name: '阿迪达斯 Adidas',
+    store_code: 'B-201',
+    floor: '2F',
+    area: 120,
+    start_date: '2026-08-01',
+    end_date: '2028-07-31',
+    base_rent: 25000,
+    payment_method: '月付',
+    contract_content: '阿迪达斯标准租约',
+    has_special_clause: 0,
+  });
+  const brand2LeaseId = brand2Res.data?.id;
+  if (brand2LeaseId) {
+    await zs.put(`/api/leases/${brand2LeaseId}/submit`);
+
+    const dzViewOther = await dz.get(`/api/leases/${brand2LeaseId}`);
+    assert('品牌店长越权查看非所属品牌租约(被拦截)', dzViewOther.code === 403, `code=${dzViewOther.code}`);
+
+    const dzHistoryOther = await dz.get(`/api/leases/${brand2LeaseId}/deduction-history`);
+    assert('品牌店长越权查看非所属品牌扣点(被拦截)', dzHistoryOther.code === 403, `code=${dzHistoryOther.code}`);
+
+    const dzVersionOther = await dz.get(`/api/deduction-rules/${brand2LeaseId}/version/1`);
+    assert('品牌店长越权版本回看非所属品牌(被拦截)', dzVersionOther.code === 403, `code=${dzVersionOther.code}`);
+  }
+
   console.log('\n📝 【Step 3】招商经理：创建租约 + 提交');
   const brands = await zs.get('/api/leases/options/brands');
   assert('获取品牌列表', Array.isArray(brands.data) && brands.data.length > 0, `${brands.data?.length || 0}个`);
@@ -136,6 +163,20 @@ const run = async () => {
   const submitRes = await zs.put(`/api/leases/${leaseId}/submit`);
   assert('提交租约(无扣点应产生责任标记)', submitRes.code === 200);
   assert('责任标记自动检测(LEASE_NO_RULE)', submitRes.data.liability_flags?.includes('LEASE_NO_RULE'));
+
+  const persistedHistory = await yy.get(`/api/leases/${leaseId}/deduction-history`);
+  const persistedRule = persistedHistory.data?.find(r => r.liability_flag === 'LEASE_NO_RULE');
+  assert('LEASE_NO_RULE已持久化到deduction_rules表', !!persistedRule, `flag=${persistedRule?.liability_flag || 'none'}`);
+
+  const liabilityList = await zg.get('/api/leases?liability_flag=1');
+  const foundInLedger = liabilityList.data?.list?.some(l => l.id === leaseId);
+  assert('LEASE_NO_RULE在责任台账中可见', foundInLedger, `台账${liabilityList.data?.list?.length || 0}条`);
+
+  const dzViewOwn = await dz.get(`/api/leases/${leaseId}`);
+  assert('品牌店长可查看所属品牌(耐克)租约', dzViewOwn.code === 200, `code=${dzViewOwn.code}`);
+
+  const dzHistoryOwn = await dz.get(`/api/leases/${leaseId}/deduction-history`);
+  assert('品牌店长可查看所属品牌扣点历史', dzHistoryOwn.code === 200, `code=${dzHistoryOwn.code} 条数=${dzHistoryOwn.data?.length || 0}`);
 
   const detail2 = await zs.get(`/api/leases/${leaseId}`);
   assert('状态流转到 PENDING', detail2.data.status === 'PENDING');
@@ -211,6 +252,11 @@ const run = async () => {
 
   const history2 = await zg.get(`/api/deduction-rules/${leaseId}/version/1`);
   assert('扣点规则版本回看v1', history2.code === 200 && history2.data.version === 1);
+
+  if (taskId) {
+    const dzDownload = await dz.get(`/api/export/download/${taskId}`);
+    assert('品牌店长越权下载导出文件(被拦截)', dzDownload.code === 403, `code=${dzDownload.code}`);
+  }
 
   console.log('\n');
   console.log('='.repeat(70));

@@ -310,9 +310,13 @@ router.post('/', permissionMiddleware('export:create'), (req, res) => {
 });
 
 router.get('/', (req, res) => {
-  const tasks = db.prepare(`
-    SELECT * FROM export_tasks WHERE user_id = ? ORDER BY id DESC LIMIT 50
-  `).all(req.user.id);
+  const role = req.user.role;
+  let tasks;
+  if (role === 'ROLE_SUPERVISOR') {
+    tasks = db.prepare('SELECT * FROM export_tasks ORDER BY id DESC LIMIT 50').all();
+  } else {
+    tasks = db.prepare('SELECT * FROM export_tasks WHERE user_id = ? ORDER BY id DESC LIMIT 50').all(req.user.id);
+  }
 
   for (const t of tasks) {
     try { t.params = t.params_json ? JSON.parse(t.params_json) : null; } catch (e) {}
@@ -324,8 +328,8 @@ router.get('/', (req, res) => {
 router.get('/:id', (req, res) => {
   const task = db.prepare('SELECT * FROM export_tasks WHERE id = ?').get(req.params.id);
   if (!task) return res.status(404).json({ code: 404, message: '任务不存在' });
-  if (task.user_id !== req.user.id) {
-    return res.status(403).json({ code: 403, message: '仅创建者可查看' });
+  if (req.user.role !== 'ROLE_SUPERVISOR' && task.user_id !== req.user.id) {
+    return res.status(403).json({ code: 403, message: '仅创建者或主管可查看任务详情' });
   }
 
   try { task.params = task.params_json ? JSON.parse(task.params_json) : null; } catch (e) {}
@@ -335,6 +339,14 @@ router.get('/:id', (req, res) => {
 router.get('/download/:id', (req, res) => {
   const task = db.prepare('SELECT * FROM export_tasks WHERE id = ?').get(req.params.id);
   if (!task) return res.status(404).json({ code: 404, message: '任务不存在' });
+
+  const role = req.user.role;
+  if (role !== 'ROLE_SUPERVISOR' && role !== 'ROLE_OPERATION_SUPERVISOR') {
+    if (task.user_id !== req.user.id) {
+      return res.status(403).json({ code: 403, message: '仅任务创建者或主管可下载导出文件' });
+    }
+  }
+
   if (task.status !== TASK_STATUS.COMPLETED || !task.file_path) {
     return res.status(400).json({ code: 400, message: '任务尚未完成或失败' });
   }

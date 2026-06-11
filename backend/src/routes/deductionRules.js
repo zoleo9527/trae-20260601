@@ -10,6 +10,22 @@ router.use(authMiddleware);
 
 router.get('/lease/:leaseId', (req, res) => {
   const leaseId = req.params.leaseId;
+
+  const lease = db.prepare('SELECT brand_id, submitter_id FROM brand_leases WHERE id = ?').get(leaseId);
+  if (!lease) return res.status(404).json({ code: 404, message: '租约不存在' });
+
+  const role = req.user.role;
+  if (role === 'ROLE_STORE_MANAGER') {
+    if (lease.brand_id !== req.user.brand_id) {
+      return res.status(403).json({ code: 403, message: '品牌店长仅可查看所属品牌的扣点规则' });
+    }
+  } else if (role === 'ROLE_MERCHANDISE_MANAGER') {
+    if (lease.submitter_id !== req.user.id) {
+      return res.status(403).json({ code: 403, message: '招商经理仅可查看自己租约的扣点规则' });
+    }
+  } else if (role !== 'ROLE_OPERATION_SUPERVISOR' && role !== 'ROLE_SUPERVISOR') {
+    return res.status(403).json({ code: 403, message: '无权查看扣点规则' });
+  }
   const rules = db.prepare(`
     SELECT dr.*, u.name as creator_name, u2.name as confirmer_name,
            u3.name as liability_marker_name
@@ -31,6 +47,22 @@ router.get('/lease/:leaseId', (req, res) => {
 
 router.get('/:id/version/:version', (req, res) => {
   const { id, version } = req.params;
+
+  const lease = db.prepare('SELECT brand_id, submitter_id FROM brand_leases WHERE id = ?').get(id);
+  if (!lease) return res.status(404).json({ code: 404, message: '租约不存在' });
+
+  const role = req.user.role;
+  if (role === 'ROLE_STORE_MANAGER') {
+    if (lease.brand_id !== req.user.brand_id) {
+      return res.status(403).json({ code: 403, message: '品牌店长仅可查看所属品牌的扣点规则' });
+    }
+  } else if (role === 'ROLE_MERCHANDISE_MANAGER') {
+    if (lease.submitter_id !== req.user.id) {
+      return res.status(403).json({ code: 403, message: '招商经理仅可查看自己租约的扣点规则' });
+    }
+  } else if (role !== 'ROLE_OPERATION_SUPERVISOR' && role !== 'ROLE_SUPERVISOR') {
+    return res.status(403).json({ code: 403, message: '无权查看扣点规则' });
+  }
   const rule = db.prepare(`
     SELECT dr.*, u.name as creator_name, u2.name as confirmer_name
     FROM deduction_rules dr
