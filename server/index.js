@@ -172,11 +172,11 @@ app.put('/api/rectifications/:id/status', (req, res) => {
       UPDATE inspection_rectifications SET rectify_date = date('now') WHERE id = ?
     `).run(id);
 
-    const existingReview = db.prepare(`
-      SELECT * FROM close_store_reviews WHERE rectification_id = ?
+    const pendingReview = db.prepare(`
+      SELECT * FROM close_store_reviews WHERE rectification_id = ? AND status = 'pending'
     `).get(id);
 
-    if (!existingReview) {
+    if (!pendingReview) {
       const reviewResult = db.prepare(`
         INSERT INTO close_store_reviews (
           rectification_id, store_id, store_name, brand, status

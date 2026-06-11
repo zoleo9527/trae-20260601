@@ -4,6 +4,7 @@ import { useAuth } from './context/AuthContext';
 import { UserRole } from './types';
 import Dashboard from './pages/Dashboard';
 import RectificationList from './pages/RectificationList';
+import NewRectification from './pages/NewRectification';
 import RectificationDetail from './pages/RectificationDetail';
 import ReviewList from './pages/ReviewList';
 import ReviewDetail from './pages/ReviewDetail';
@@ -77,6 +78,7 @@ const App: React.FC = () => {
         <Routes>
           <Route path="/" element={<Dashboard />} />
           <Route path="/rectifications" element={<RectificationList />} />
+          <Route path="/rectifications/new" element={<NewRectification />} />
           <Route path="/rectifications/:id" element={<RectificationDetail />} />
           <Route path="/reviews" element={<ReviewList />} />
           <Route path="/reviews/:id" element={<ReviewDetail />} />
