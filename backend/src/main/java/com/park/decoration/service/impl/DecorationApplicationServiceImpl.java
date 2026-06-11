@@ -10,6 +10,7 @@ import com.park.decoration.service.DecorationApplicationService;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.BeanUtils;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -46,7 +47,14 @@ public class DecorationApplicationServiceImpl implements DecorationApplicationSe
         app.setCreatedBy(request.getCreatedBy() != null ? request.getCreatedBy() : "system");
         app.setUpdatedBy(app.getCreatedBy());
 
-        DecorationApplication saved = applicationRepository.save(app);
+        DecorationApplication saved;
+        try {
+            saved = applicationRepository.save(app);
+        } catch (DataIntegrityViolationException e) {
+            DecorationApplication dup = applicationRepository.findByIdempotentKey(request.getIdempotentKey())
+                    .orElseThrow(() -> e);
+            return ApiResponse.success(convertToDTO(dup), true);
+        }
 
         addLog(saved, "SUBMIT", null, null, null,
                "提交装修申请，单号：" + saved.getApplicationNo(), saved.getCreatedBy());
@@ -217,6 +225,7 @@ public class DecorationApplicationServiceImpl implements DecorationApplicationSe
                         String oldVal, String newVal, String remark, String operator) {
         OperationLog log = OperationLog.builder()
                 .application(app)
+                .applicationNo(app.getApplicationNo())
                 .operationType(type)
                 .fieldName(field)
                 .oldValue(oldVal)
@@ -253,26 +262,24 @@ public class DecorationApplicationServiceImpl implements DecorationApplicationSe
     private EntryPermitDTO convertPermitToDTO(EntryPermit p) {
         EntryPermitDTO dto = new EntryPermitDTO();
         BeanUtils.copyProperties(p, dto);
-        dto.setApplicationId(p.getApplication().getId());
-        dto.setApplicationNo(p.getApplication().getApplicationNo());
+        dto.setApplicationId(p.getApplicationId());
+        dto.setApplicationNo(p.getApplicationNo());
         return dto;
     }
 
     private ExceptionNoteDTO convertExceptionToDTO(ExceptionNote e) {
         ExceptionNoteDTO dto = new ExceptionNoteDTO();
         BeanUtils.copyProperties(e, dto);
-        dto.setApplicationId(e.getApplication().getId());
-        dto.setApplicationNo(e.getApplication().getApplicationNo());
+        dto.setApplicationId(e.getApplicationId());
+        dto.setApplicationNo(e.getApplicationNo());
         return dto;
     }
 
     private OperationLogDTO convertLogToDTO(OperationLog l) {
         OperationLogDTO dto = new OperationLogDTO();
         BeanUtils.copyProperties(l, dto);
-        if (l.getApplication() != null) {
-            dto.setApplicationId(l.getApplication().getId());
-            dto.setApplicationNo(l.getApplication().getApplicationNo());
-        }
+        dto.setApplicationId(l.getApplicationId());
+        dto.setApplicationNo(l.getApplicationNo());
         return dto;
     }
 }

@@ -38,10 +38,13 @@ public class EntryPermitServiceImpl implements EntryPermitService {
         DecorationApplication app = applicationRepository.findById(request.getApplicationId())
                 .orElseThrow(() -> new EntityNotFoundException("申请不存在，ID：" + request.getApplicationId()));
 
+        ApplicationStatus oldStatus = app.getStatus();
+
         EntryPermit permit = new EntryPermit();
         BeanUtils.copyProperties(request, permit);
         permit.setPermitNo(generatePermitNo());
         permit.setApplication(app);
+        permit.setApplicationNo(app.getApplicationNo());
         permit.setStatus(PermitStatus.APPROVED);
         permit.setIssuedAt(LocalDateTime.now());
 
@@ -51,7 +54,7 @@ public class EntryPermitServiceImpl implements EntryPermitService {
         app.setUpdatedBy(request.getIssuedBy());
         applicationRepository.save(app);
 
-        addLog(app, "ISSUE_PERMIT", "status", app.getStatus().name(),
+        addLog(app, "ISSUE_PERMIT", "status", oldStatus.name(),
                ApplicationStatus.PERMIT_ISSUED.name(),
                "签发进场许可，许可证号：" + saved.getPermitNo(), request.getIssuedBy());
 
@@ -90,6 +93,8 @@ public class EntryPermitServiceImpl implements EntryPermitService {
         EntryPermit permit = permitRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("进场许可不存在，ID：" + id));
 
+        PermitStatus oldStatus = permit.getStatus();
+
         permit.setStatus(PermitStatus.REVOKED);
         permit.setRevokeReason(reason);
         permit.setRevokedAt(LocalDateTime.now());
@@ -98,7 +103,7 @@ public class EntryPermitServiceImpl implements EntryPermitService {
         EntryPermit saved = permitRepository.save(permit);
 
         DecorationApplication app = permit.getApplication();
-        addLog(app, "REVOKE_PERMIT", "permitStatus", PermitStatus.APPROVED.name(),
+        addLog(app, "REVOKE_PERMIT", "permitStatus", oldStatus.name(),
                PermitStatus.REVOKED.name(), "撤销进场许可，原因：" + reason, operator);
 
         return convertToDTO(saved);
@@ -114,6 +119,7 @@ public class EntryPermitServiceImpl implements EntryPermitService {
                         String oldVal, String newVal, String remark, String operator) {
         OperationLog log = OperationLog.builder()
                 .application(app)
+                .applicationNo(app.getApplicationNo())
                 .operationType(type)
                 .fieldName(field)
                 .oldValue(oldVal)
@@ -128,8 +134,8 @@ public class EntryPermitServiceImpl implements EntryPermitService {
     private EntryPermitDTO convertToDTO(EntryPermit p) {
         EntryPermitDTO dto = new EntryPermitDTO();
         BeanUtils.copyProperties(p, dto);
-        dto.setApplicationId(p.getApplication().getId());
-        dto.setApplicationNo(p.getApplication().getApplicationNo());
+        dto.setApplicationId(p.getApplicationId());
+        dto.setApplicationNo(p.getApplicationNo());
         return dto;
     }
 }

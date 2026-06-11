@@ -20,6 +20,12 @@ public class ExceptionNote {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(name = "application_id", nullable = false, insertable = false, updatable = false)
+    private Long applicationId;
+
+    @Column(nullable = false, length = 50)
+    private String applicationNo;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "application_id", nullable = false)
     private DecorationApplication application;

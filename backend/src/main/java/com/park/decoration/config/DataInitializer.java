@@ -241,6 +241,7 @@ public class DataInitializer implements CommandLineRunner {
         return EntryPermit.builder()
                 .permitNo(permitNo)
                 .application(app)
+                .applicationNo(app.getApplicationNo())
                 .status(status)
                 .validFrom(validFrom)
                 .validTo(validTo)
@@ -263,6 +264,7 @@ public class DataInitializer implements CommandLineRunner {
             String resolvedBy, LocalDateTime resolvedAt, Boolean resolved) {
         return ExceptionNote.builder()
                 .application(app)
+                .applicationNo(app.getApplicationNo())
                 .title(title)
                 .description(description)
                 .impact(impact)
@@ -281,6 +283,7 @@ public class DataInitializer implements CommandLineRunner {
                         String operator, LocalDateTime operatedAt) {
         OperationLog log = OperationLog.builder()
                 .application(app)
+                .applicationNo(app.getApplicationNo())
                 .operationType(type)
                 .fieldName(field)
                 .oldValue(oldVal)

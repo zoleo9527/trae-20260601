@@ -20,6 +20,12 @@ public class OperationLog {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(name = "application_id", insertable = false, updatable = false)
+    private Long applicationId;
+
+    @Column(length = 50)
+    private String applicationNo;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "application_id")
     private DecorationApplication application;
