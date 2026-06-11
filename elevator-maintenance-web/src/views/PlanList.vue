@@ -325,9 +325,11 @@ const handleConfirmDispatch = async () => {
     await dispatchFormRef.value.validate()
     dispatchLoading.value = true
 
-    await dispatchPlan(currentPlan.value.id, {
+    await dispatchPlan({
+      planId: currentPlan.value.id,
       technicianId: dispatchForm.technicianId,
-      note: dispatchForm.note
+      dispatcherId: userStore.user.id,
+      remark: dispatchForm.note
     })
 
     ElMessage.success('派单成功')

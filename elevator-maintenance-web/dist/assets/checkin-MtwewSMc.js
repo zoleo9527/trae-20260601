@@ -1,0 +1,1 @@
+import{a0 as t}from"./index-Ddh9O3Pl.js";const r=e=>t({url:"/check-in",method:"get",params:e}),n=e=>t({url:`/check-in/${e}`,method:"get"}),o=e=>t({url:`/check-in/current/${e}`,method:"get"}),h=e=>t({url:"/check-in",method:"post",data:e}),s=e=>t({url:"/check-in/check-out",method:"post",data:e});export{r as a,s as b,h as c,n as d,o as g};

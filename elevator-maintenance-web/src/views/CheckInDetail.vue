@@ -88,7 +88,7 @@
               <span class="info-value">{{ checkIn?.longitude || '-' }}</span>
             </div>
           </el-col>
-        </div>
+        </el-row>
       </div>
 
       <div class="detail-section" v-if="checkIn?.checkOutTime">
@@ -126,28 +126,11 @@
         </el-row>
       </div>
 
-      <div class="detail-section" v-if="checkIn?.checkInPhotos && checkIn.checkInPhotos.length > 0">
+      <div class="detail-section" v-if="checkIn?.photoData">
         <div class="detail-section-title">签到照片</div>
         <div class="photo-grid">
-          <div
-            v-for="(photo, index) in checkIn.checkInPhotos"
-            :key="index"
-            class="photo-item"
-          >
-            <img :src="photo" alt="签到照片" @click="previewImage(photo)" />
-          </div>
-        </div>
-      </div>
-
-      <div class="detail-section" v-if="checkIn?.checkOutPhotos && checkIn.checkOutPhotos.length > 0">
-        <div class="detail-section-title">签退照片</div>
-        <div class="photo-grid">
-          <div
-            v-for="(photo, index) in checkIn.checkOutPhotos"
-            :key="index"
-            class="photo-item"
-          >
-            <img :src="photo" alt="签退照片" @click="previewImage(photo)" />
+          <div class="photo-item">
+            <img :src="checkIn.photoData" alt="签到照片" @click="previewImage(checkIn.photoData)" />
           </div>
         </div>
       </div>

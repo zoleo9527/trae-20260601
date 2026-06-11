@@ -478,7 +478,7 @@ import {
   reviewPlan,
   addPlanNote
 } from '@/api/plan'
-import { checkIn, checkOut, getActiveCheckIn } from '@/api/checkin'
+import { getCheckInRecords, checkIn, checkOut, getActiveCheckIn } from '@/api/checkin'
 import { getUsersByRole } from '@/api/user'
 import { useUserStore } from '@/store/user'
 import {
@@ -611,17 +611,23 @@ const formatDateTime = (date) => {
 const loadData = async () => {
   loading.value = true
   try {
-    const [planRes, notesRes, checkInRes] = await Promise.all([
+    const [planRes, notesRes, checkInRes, allCheckInRes] = await Promise.all([
       getPlanById(planId.value),
       getPlanNotes(planId.value),
-      getActiveCheckIn(planId.value).catch(() => null)
+      getActiveCheckIn(planId.value).catch(() => null),
+      getCheckInRecords({ planId: planId.value }).catch(() => [])
     ])
     plan.value = planRes
     notes.value = notesRes || []
     activeCheckIn.value = checkInRes || null
+    checkInRecords.value = allCheckInRes || []
 
     if (notes.value && notes.value.length > 0) {
       notes.value.sort((a, b) => new Date(b.createTime) - new Date(a.createTime))
+    }
+
+    if (checkInRecords.value && checkInRecords.value.length > 0) {
+      checkInRecords.value.sort((a, b) => new Date(b.checkInTime) - new Date(a.checkInTime))
     }
   } catch (e) {
     console.error('Load plan detail error:', e)
