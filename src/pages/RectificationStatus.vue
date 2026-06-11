@@ -53,36 +53,57 @@ const assigneeOptions = computed(() => {
   return Array.from(names);
 });
 
+const NEED_REMIND_STATUS: string[] = ['dispatched', 'in_progress'];
+
+function needRemind(inspection: any): boolean {
+  return NEED_REMIND_STATUS.includes(inspection.status);
+}
+
 function getDaysRemaining(inspection: any) {
   const dispatch = inspection.dispatches?.[0];
-  if (!dispatch?.expectedCompletionTime) return null;
-  
+
+  if (inspection.status === 'passed') {
+    return { text: '已复查通过', level: 'done' as const, isOverdue: false, isUrgent: false, isDone: true };
+  }
+  if (inspection.status === 'completed' || inspection.status === 'pending_review_after') {
+    return { text: '待复查', level: 'review' as const, isOverdue: false, isUrgent: false, isDone: true };
+  }
+  if (inspection.status === 'rejected') {
+    return { text: '复查不通过', level: 'rejected' as const, isOverdue: false, isUrgent: false, isDone: true };
+  }
+
+  if (!needRemind(inspection) || !dispatch?.expectedCompletionTime) return null;
+
   const now = dayjs();
   const expected = dayjs(dispatch.expectedCompletionTime);
   const diff = Math.ceil(expected.diff(now, 'day', true));
-  
+
   if (diff < 0) {
-    return { text: `逾期 ${Math.abs(diff)} 天`, isOverdue: true, days: Math.abs(diff) };
+    const days = Math.abs(diff);
+    let level: 'critical' | 'urgent' = 'urgent';
+    if (days >= 3) level = 'critical';
+    return { text: `逾期 ${days} 天`, level, isOverdue: true, isUrgent: false, isDone: false, days };
   } else if (diff === 0) {
-    return { text: '今日到期', isOverdue: false, days: 0, isUrgent: true };
+    return { text: '今日到期', level: 'urgent' as const, isOverdue: false, isUrgent: true, isDone: false, days: 0 };
   } else if (diff <= 2) {
-    return { text: `剩余 ${diff} 天`, isOverdue: false, days: diff, isUrgent: true };
+    return { text: `剩余 ${diff} 天`, level: 'urgent' as const, isOverdue: false, isUrgent: true, isDone: false, days: diff };
   } else {
-    return { text: `剩余 ${diff} 天`, isOverdue: false, days: diff };
+    return { text: `剩余 ${diff} 天`, level: 'normal' as const, isOverdue: false, isUrgent: false, isDone: false, days: diff };
   }
 }
 
 function isOverdue(inspection: any) {
   const dr = getDaysRemaining(inspection);
-  return dr?.isOverdue || false;
+  return needRemind(inspection) && dr?.isOverdue === true;
 }
 
 function isUrgent(inspection: any) {
   const dr = getDaysRemaining(inspection);
-  return dr?.isUrgent || false;
+  return needRemind(inspection) && dr?.isUrgent === true;
 }
 
 function getRowClass(inspection: any) {
+  if (!needRemind(inspection)) return '';
   const dr = getDaysRemaining(inspection);
   if (!dr?.isOverdue) return '';
   const days = dr.days || 0;
@@ -92,10 +113,10 @@ function getRowClass(inspection: any) {
 }
 
 const filteredInspections = computed(() => {
-  let list = store.sortedInspections.filter(i => 
+  let list = store.sortedInspections.filter(i =>
     ['dispatched', 'in_progress', 'completed', 'pending_review_after', 'passed', 'rejected'].includes(i.status)
   );
-  
+
   if (activeTab.value !== 'all') {
     list = list.filter(i => i.status === activeTab.value);
   }
@@ -103,9 +124,9 @@ const filteredInspections = computed(() => {
   if (overdueFilter.value !== 'all') {
     list = list.filter(i => {
       const dr = getDaysRemaining(i);
-      if (overdueFilter.value === 'overdue') return dr?.isOverdue;
-      if (overdueFilter.value === 'urgent') return dr?.isUrgent && !dr?.isOverdue;
-      if (overdueFilter.value === 'normal') return dr && !dr?.isOverdue && !dr?.isUrgent;
+      if (overdueFilter.value === 'overdue') return needRemind(i) && dr?.isOverdue;
+      if (overdueFilter.value === 'urgent') return needRemind(i) && dr?.isUrgent && !dr?.isOverdue;
+      if (overdueFilter.value === 'normal') return needRemind(i) && dr && !dr?.isOverdue && !dr?.isUrgent;
       return true;
     });
   }
@@ -115,6 +136,9 @@ const filteredInspections = computed(() => {
   }
 
   return list.sort((a, b) => {
+    const aRemind = needRemind(a) ? 0 : 1;
+    const bRemind = needRemind(b) ? 0 : 1;
+    if (aRemind !== bRemind) return aRemind - bRemind;
     const aDr = getDaysRemaining(a);
     const bDr = getDaysRemaining(b);
     const aOverdueDays = aDr?.isOverdue ? aDr.days : -1;
@@ -311,7 +335,7 @@ onMounted(() => {
                 <RiskBadge :level="inspection.riskLevel" />
                 <StatusBadge :status="inspection.status" />
                 <div
-                  v-if="getDaysRemaining(inspection)?.isOverdue"
+                  v-if="isOverdue(inspection)"
                   class="inline-flex items-center gap-1 px-2 py-0.5 bg-red-100 text-red-700 text-xs font-semibold rounded-full"
                 >
                   <XCircle class="w-3 h-3" />
@@ -325,10 +349,31 @@ onMounted(() => {
                   {{ getDaysRemaining(inspection)?.text }}
                 </div>
                 <div
-                  v-else-if="getDaysRemaining(inspection)"
+                  v-else-if="getDaysRemaining(inspection)?.level === 'normal'"
                   class="inline-flex items-center gap-1 px-2 py-0.5 bg-green-100 text-green-700 text-xs font-medium rounded-full"
                 >
                   <Clock class="w-3 h-3" />
+                  {{ getDaysRemaining(inspection)?.text }}
+                </div>
+                <div
+                  v-else-if="getDaysRemaining(inspection)?.level === 'done'"
+                  class="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-100 text-emerald-700 text-xs font-medium rounded-full"
+                >
+                  <CheckCircle class="w-3 h-3" />
+                  {{ getDaysRemaining(inspection)?.text }}
+                </div>
+                <div
+                  v-else-if="getDaysRemaining(inspection)?.level === 'review'"
+                  class="inline-flex items-center gap-1 px-2 py-0.5 bg-sky-100 text-sky-700 text-xs font-medium rounded-full"
+                >
+                  <AlertCircle class="w-3 h-3" />
+                  {{ getDaysRemaining(inspection)?.text }}
+                </div>
+                <div
+                  v-else-if="getDaysRemaining(inspection)?.level === 'rejected'"
+                  class="inline-flex items-center gap-1 px-2 py-0.5 bg-yellow-100 text-yellow-800 text-xs font-medium rounded-full"
+                >
+                  <AlertTriangle class="w-3 h-3" />
                   {{ getDaysRemaining(inspection)?.text }}
                 </div>
               </div>

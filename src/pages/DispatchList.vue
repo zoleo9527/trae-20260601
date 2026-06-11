@@ -41,11 +41,22 @@ const assigneeOptions = computed(() => {
   return Array.from(names);
 });
 
+const ASSIGNEE_NEED_REMIND: InspectionStatus[] = [
+  InspectionStatus.DISPATCHED,
+  InspectionStatus.IN_PROGRESS
+];
+
 const filteredDispatches = computed(() => {
   let list = store.dispatches;
 
   if (overdueFilter.value !== 'all') {
-    list = list.filter(d => isOverdue(d) === (overdueFilter.value === 'overdue'));
+    list = list.filter(d => {
+      const status = getDispatchStatus(d);
+      const needRemind = ASSIGNEE_NEED_REMIND.includes(status);
+      if (overdueFilter.value === 'overdue') return needRemind && isOverdue(d);
+      if (overdueFilter.value === 'normal') return needRemind && !isOverdue(d);
+      return needRemind;
+    });
   }
 
   if (assigneeFilter.value !== 'all') {
@@ -78,10 +89,13 @@ function formatDate(dateStr: string) {
   return dayjs(dateStr).format('YYYY-MM-DD HH:mm');
 }
 
+function needRemind(dispatch: any): boolean {
+  return ASSIGNEE_NEED_REMIND.includes(getDispatchStatus(dispatch));
+}
+
 function isOverdue(dispatch: any) {
+  if (!needRemind(dispatch)) return false;
   if (!dispatch.expectedCompletionTime) return false;
-  const status = getDispatchStatus(dispatch);
-  if (status === 'passed' || status === 'completed') return false;
   return dayjs().isAfter(dayjs(dispatch.expectedCompletionTime));
 }
 
@@ -91,7 +105,7 @@ function getOverdueDays(dispatch: any): number | null {
 }
 
 function getUrgencyClass(dispatch: any) {
-  if (!isOverdue(dispatch)) return '';
+  if (!needRemind(dispatch) || !isOverdue(dispatch)) return '';
   const days = getOverdueDays(dispatch) || 0;
   if (days >= 7) return 'border-red-500 bg-red-50 ring-2 ring-red-100';
   if (days >= 3) return 'border-red-400 bg-red-50';

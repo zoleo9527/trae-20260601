@@ -44,49 +44,131 @@ const dispatchUpdateLoading = ref(false);
 
 const id = computed(() => route.params.id as string);
 
+const NEED_REMIND_STATUS: string[] = ['dispatched', 'in_progress'];
+
 const deadlineInfo = computed(() => {
   const dispatch = store.currentInspection?.dispatches?.[0];
-  if (!dispatch?.expectedCompletionTime) return null;
+  const inspection = store.currentInspection;
+  if (!inspection) return null;
 
-  const inspection = store.currentInspection!;
-  const isDone = ['passed', 'completed'].includes(inspection.status);
+  if (inspection.status === 'passed') {
+    return { text: '已复查通过', level: 'done' as const, isOverdue: false, isDone: true, needRemind: false };
+  }
+  if (inspection.status === 'pending_review_after' || inspection.status === 'completed') {
+    return { text: '待复查', level: 'review' as const, isOverdue: false, isDone: true, needRemind: false };
+  }
+  if (inspection.status === 'rejected') {
+    return { text: '复查不通过', level: 'rejected' as const, isOverdue: false, isDone: true, needRemind: false };
+  }
+  if (inspection.status === 'pending_review') {
+    return { text: '等主管审核派发', level: 'review' as const, isOverdue: false, isDone: false, needRemind: false };
+  }
+
+  // 以下为 dispatched / in_progress（需要催办的状态）
+  if (!dispatch?.expectedCompletionTime) {
+    return { text: '待设置预计时间', level: 'warning' as const, isOverdue: false, isDone: false, needRemind: true };
+  }
 
   const now = dayjs();
   const expected = dayjs(dispatch.expectedCompletionTime);
   const diff = Math.ceil(expected.diff(now, 'day', true));
-
-  if (isDone) {
-    return { text: '已完成', level: 'done' as const, isOverdue: false };
-  }
 
   if (diff < 0) {
     const days = Math.abs(diff);
     let level: 'urgent' | 'critical' | 'warning' = 'warning';
     if (days >= 7) level = 'critical';
     else if (days >= 3) level = 'urgent';
-    return { text: `已逾期 ${days} 天`, level, isOverdue: true, days };
+    return { text: `已逾期 ${days} 天`, level, isOverdue: true, isDone: false, needRemind: true, days };
   } else if (diff === 0) {
-    return { text: '今日到期', level: 'urgent' as const, isOverdue: false, days: 0 };
+    return { text: '今日到期', level: 'urgent' as const, isOverdue: false, isDone: false, needRemind: true, days: 0 };
   } else if (diff <= 2) {
-    return { text: `剩余 ${diff} 天`, level: 'urgent' as const, isOverdue: false, days: diff };
+    return { text: `剩余 ${diff} 天`, level: 'urgent' as const, isOverdue: false, isDone: false, needRemind: true, days: diff };
   } else {
-    return { text: `剩余 ${diff} 天`, level: 'normal' as const, isOverdue: false, days: diff };
+    return { text: `剩余 ${diff} 天`, level: 'normal' as const, isOverdue: false, isDone: false, needRemind: true, days: diff };
   }
 });
 
 function deadlineBannerClass(info: any) {
-  if (!info || info.level === 'done') return 'bg-gray-50 border-gray-200 text-gray-600';
-  if (info.level === 'critical') return 'bg-red-100 border-red-400 text-red-800';
-  if (info.level === 'urgent') return 'bg-orange-100 border-orange-400 text-orange-800';
-  return 'bg-green-100 border-green-400 text-green-800';
+  if (!info) return '';
+  switch (info.level) {
+    case 'critical': return 'bg-red-100 border-red-500 text-red-800 ring-2 ring-red-100';
+    case 'urgent': return 'bg-orange-100 border-orange-400 text-orange-800';
+    case 'warning': return 'bg-yellow-50 border-yellow-400 text-yellow-800';
+    case 'done': return 'bg-emerald-50 border-emerald-400 text-emerald-800';
+    case 'review': return 'bg-sky-50 border-sky-400 text-sky-800';
+    case 'rejected': return 'bg-yellow-100 border-yellow-500 text-yellow-800';
+    case 'normal': return 'bg-green-50 border-green-400 text-green-800';
+    default: return 'bg-gray-50 border-gray-200 text-gray-600';
+  }
 }
 
 function deadlineIcon(info: any) {
-  if (!info || info.level === 'done') return CheckCircle;
+  if (!info) return Clock;
+  if (info.level === 'done') return CheckCircle;
+  if (info.level === 'review') return Clock;
+  if (info.level === 'rejected') return AlertTriangle;
+  if (info.level === 'warning') return AlertTriangle;
   if (info.isOverdue) return XCircle;
   if (info.level === 'urgent') return AlertTriangle;
   return Clock;
 }
+
+const RECT_CARD_COLORS: Record<string, { wrap: string; title: string; label: string; value: string; valueBold: string }> = {
+  critical: {
+    wrap: 'bg-red-50 border-red-200',
+    title: 'text-red-800',
+    label: 'text-red-600',
+    value: 'text-red-800',
+    valueBold: 'text-red-800 font-bold'
+  },
+  urgent: {
+    wrap: 'bg-orange-50 border-orange-200',
+    title: 'text-orange-800',
+    label: 'text-orange-600',
+    value: 'text-orange-800',
+    valueBold: 'text-orange-800 font-semibold'
+  },
+  warning: {
+    wrap: 'bg-yellow-50 border-yellow-200',
+    title: 'text-yellow-800',
+    label: 'text-yellow-600',
+    value: 'text-yellow-800',
+    valueBold: 'text-yellow-800 font-semibold'
+  },
+  normal: {
+    wrap: 'bg-blue-50 border-blue-200',
+    title: 'text-blue-800',
+    label: 'text-blue-600',
+    value: 'text-blue-800',
+    valueBold: 'text-blue-800'
+  },
+  done: {
+    wrap: 'bg-emerald-50 border-emerald-200',
+    title: 'text-emerald-800',
+    label: 'text-emerald-600',
+    value: 'text-emerald-800',
+    valueBold: 'text-emerald-800'
+  },
+  review: {
+    wrap: 'bg-sky-50 border-sky-200',
+    title: 'text-sky-800',
+    label: 'text-sky-600',
+    value: 'text-sky-800',
+    valueBold: 'text-sky-800'
+  },
+  rejected: {
+    wrap: 'bg-yellow-50 border-yellow-300',
+    title: 'text-yellow-800',
+    label: 'text-yellow-700',
+    value: 'text-yellow-900',
+    valueBold: 'text-yellow-900 font-semibold'
+  }
+};
+
+const rectCardColors = computed(() => {
+  const level = deadlineInfo.value?.level || 'normal';
+  return RECT_CARD_COLORS[level] || RECT_CARD_COLORS.normal;
+});
 
 async function loadData() {
   if (id.value) {
@@ -223,15 +305,18 @@ watch(() => route.params.id, () => {
           <p class="font-bold text-lg">
             {{ deadlineInfo.text }}
           </p>
-          <p class="text-sm opacity-80">
-            截止时间：{{ store.currentInspection.dispatches[0].expectedCompletionTime }}
+          <p v-if="store.currentInspection.dispatches?.[0]" class="text-sm opacity-80">
+            截止时间：{{ store.currentInspection.dispatches[0].expectedCompletionTime || '未设置' }}
             <span v-if="store.currentInspection.dispatches[0].receiverName" class="ml-3">
               责任人：{{ store.currentInspection.dispatches[0].receiverName }}
             </span>
           </p>
+          <p v-else class="text-sm opacity-80">
+            尚未派发给物业联系人
+          </p>
         </div>
       </div>
-      <div v-if="deadlineInfo.isOverdue" class="text-right">
+      <div v-if="deadlineInfo.needRemind && deadlineInfo.isOverdue" class="text-right">
         <span class="text-sm font-semibold px-3 py-1 rounded-full bg-white bg-opacity-50">
           请尽快催办
         </span>
@@ -341,104 +426,40 @@ watch(() => route.params.id, () => {
             <div
               v-if="store.currentInspection.dispatches.length > 0"
               class="rounded-lg p-5 border"
-              :class="deadlineInfo?.isOverdue
-                ? 'bg-red-50 border-red-200'
-                : (deadlineInfo?.level === 'urgent' ? 'bg-orange-50 border-orange-200' : 'bg-blue-50 border-blue-200')"
+              :class="rectCardColors.wrap"
             >
               <h3
                 class="font-semibold mb-4 flex items-center gap-2"
-                :class="deadlineInfo?.isOverdue
-                  ? 'text-red-800'
-                  : (deadlineInfo?.level === 'urgent' ? 'text-orange-800' : 'text-blue-800')"
+                :class="rectCardColors.title"
               >
                 <Wrench class="w-5 h-5" />
                 整改信息
               </h3>
               <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                 <div>
-                  <span
-                    class="text-sm"
-                    :class="deadlineInfo?.isOverdue
-                      ? 'text-red-600'
-                      : (deadlineInfo?.level === 'urgent' ? 'text-orange-600' : 'text-blue-600')"
-                  >派发人</span>
-                  <p
-                    class="font-medium"
-                    :class="deadlineInfo?.isOverdue
-                      ? 'text-red-800'
-                      : (deadlineInfo?.level === 'urgent' ? 'text-orange-800' : 'text-blue-800')"
-                  >{{ store.currentInspection.dispatches[0].dispatcherName }}</p>
+                  <span class="text-sm" :class="rectCardColors.label">派发人</span>
+                  <p class="font-medium" :class="rectCardColors.value">{{ store.currentInspection.dispatches[0].dispatcherName }}</p>
                 </div>
                 <div>
-                  <span
-                    class="text-sm"
-                    :class="deadlineInfo?.isOverdue
-                      ? 'text-red-600'
-                      : (deadlineInfo?.level === 'urgent' ? 'text-orange-600' : 'text-blue-600')"
-                  >接收人（责任人）</span>
-                  <p
-                    class="font-medium"
-                    :class="deadlineInfo?.isOverdue
-                      ? 'text-red-800'
-                      : (deadlineInfo?.level === 'urgent' ? 'text-orange-800' : 'text-blue-800')"
-                  >{{ store.currentInspection.dispatches[0].receiverName }}</p>
+                  <span class="text-sm" :class="rectCardColors.label">接收人（责任人）</span>
+                  <p class="font-medium" :class="rectCardColors.value">{{ store.currentInspection.dispatches[0].receiverName }}</p>
                 </div>
                 <div>
-                  <span
-                    class="text-sm"
-                    :class="deadlineInfo?.isOverdue
-                      ? 'text-red-600'
-                      : (deadlineInfo?.level === 'urgent' ? 'text-orange-600' : 'text-blue-600')"
-                  >派发时间</span>
-                  <p
-                    class="font-medium"
-                    :class="deadlineInfo?.isOverdue
-                      ? 'text-red-800'
-                      : (deadlineInfo?.level === 'urgent' ? 'text-orange-800' : 'text-blue-800')"
-                  >{{ store.currentInspection.dispatches[0].dispatchTime }}</p>
+                  <span class="text-sm" :class="rectCardColors.label">派发时间</span>
+                  <p class="font-medium" :class="rectCardColors.value">{{ store.currentInspection.dispatches[0].dispatchTime }}</p>
                 </div>
                 <div>
-                  <span
-                    class="text-sm"
-                    :class="deadlineInfo?.isOverdue
-                      ? 'text-red-600'
-                      : (deadlineInfo?.level === 'urgent' ? 'text-orange-600' : 'text-blue-600')"
-                  >预计完成时间</span>
-                  <p
-                    class="font-medium"
-                    :class="deadlineInfo?.isOverdue
-                      ? 'text-red-800 font-bold'
-                      : (deadlineInfo?.level === 'urgent' ? 'text-orange-800 font-semibold' : 'text-blue-800')"
-                  >{{ store.currentInspection.dispatches[0].expectedCompletionTime || '待设置' }}</p>
+                  <span class="text-sm" :class="rectCardColors.label">预计完成时间</span>
+                  <p class="font-medium" :class="rectCardColors.valueBold">{{ store.currentInspection.dispatches[0].expectedCompletionTime || '待设置' }}</p>
                 </div>
               </div>
               <div class="mb-4">
-                <span
-                  class="text-sm"
-                  :class="deadlineInfo?.isOverdue
-                    ? 'text-red-600'
-                    : (deadlineInfo?.level === 'urgent' ? 'text-orange-600' : 'text-blue-600')"
-                >派发要求</span>
-                <p
-                  class="font-medium"
-                  :class="deadlineInfo?.isOverdue
-                    ? 'text-red-800'
-                    : (deadlineInfo?.level === 'urgent' ? 'text-orange-800' : 'text-blue-800')"
-                >{{ store.currentInspection.dispatches[0].dispatchRemark }}</p>
+                <span class="text-sm" :class="rectCardColors.label">派发要求</span>
+                <p class="font-medium" :class="rectCardColors.value">{{ store.currentInspection.dispatches[0].dispatchRemark }}</p>
               </div>
               <div v-if="store.currentInspection.dispatches[0].rectificationRemark">
-                <span
-                  class="text-sm"
-                  :class="deadlineInfo?.isOverdue
-                    ? 'text-red-600'
-                    : (deadlineInfo?.level === 'urgent' ? 'text-orange-600' : 'text-blue-600')"
-                >整改说明</span>
-                <p
-                  class="font-medium"
-                  :class="deadlineInfo?.isOverdue
-                    ? 'text-red-800'
-                    : (deadlineInfo?.level === 'urgent' ? 'text-orange-800' : 'text-blue-800')"
-                >{{ store.currentInspection.dispatches[0].rectificationRemark }}</p>
+                <span class="text-sm" :class="rectCardColors.label">整改说明</span>
+                <p class="font-medium" :class="rectCardColors.value">{{ store.currentInspection.dispatches[0].rectificationRemark }}</p>
               </div>
             </div>
 
