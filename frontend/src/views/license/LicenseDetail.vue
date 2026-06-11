@@ -34,11 +34,16 @@
             <el-button type="warning" @click="openDialog('need_reupload')">要求补录</el-button>
           </template>
           <template v-if="license.status === 'need_reupload'">
+            <el-button type="primary" @click="openResubmitDialog">
+              <el-icon><Upload /></el-icon> 补录提交
+            </el-button>
             <el-button type="success" @click="handleReview('approved')">审核通过（补录后）</el-button>
             <el-button type="danger" @click="openDialog('rejected')">审核驳回</el-button>
           </template>
           <template v-if="license.status === 'rejected'">
-            <el-button type="primary" @click="openDialog('need_reupload')">重新要求补录</el-button>
+            <el-button type="primary" @click="openResubmitDialog">
+              <el-icon><Upload /></el-icon> 重新提交证照
+            </el-button>
           </template>
         </div>
       </el-card>
@@ -63,6 +68,37 @@
         <el-button :type="dialogForm.status === 'rejected' ? 'danger' : 'warning'" @click="submitReview" :loading="submitting">确认</el-button>
       </template>
     </el-dialog>
+
+    <el-dialog v-model="showResubmitDialog" title="补录提交 — 修改证照信息后重新提交审核" width="520px" destroy-on-close>
+      <el-alert
+        :title="resubmitAlertTitle"
+        type="warning"
+        show-icon
+        :closable="false"
+        style="margin-bottom: 16px"
+      />
+      <el-form ref="resubmitFormRef" :model="resubmitForm" :rules="resubmitRules" label-width="90px">
+        <el-form-item label="证照类型">
+          <span class="form-text">{{ license?.license_type }}</span>
+        </el-form-item>
+        <el-form-item label="所属租户">
+          <span class="form-text">{{ tenantName }}</span>
+        </el-form-item>
+        <el-form-item label="证号" prop="license_number">
+          <el-input v-model="resubmitForm.license_number" placeholder="请输入更正后的证号" />
+        </el-form-item>
+        <el-form-item label="到期日期" prop="expire_date">
+          <el-date-picker v-model="resubmitForm.expire_date" type="date" value-format="YYYY-MM-DD" placeholder="选择到期日期" style="width: 100%" />
+        </el-form-item>
+        <el-form-item label="补录说明" prop="remark">
+          <el-input v-model="resubmitForm.remark" type="textarea" :rows="3" placeholder="请说明本次补录修改的内容（将记录在操作历史中）" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="showResubmitDialog = false">取消</el-button>
+        <el-button type="primary" @click="submitResubmit" :loading="submitting">确认补录提交</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -75,6 +111,7 @@ import { useTenantStore } from '@/stores/tenant'
 import { ElMessage } from 'element-plus'
 import HistoryTimeline from '@/components/HistoryTimeline.vue'
 import dayjs from 'dayjs'
+import type { FormInstance } from 'element-plus'
 
 const route = useRoute()
 const authStore = useAuthStore()
@@ -82,10 +119,23 @@ const licenseStore = useLicenseStore()
 const tenantStore = useTenantStore()
 
 const showDialog = ref(false)
+const showResubmitDialog = ref(false)
 const submitting = ref(false)
 const historyRecords = ref<any[]>([])
+const resubmitFormRef = ref<FormInstance>()
 
 const dialogForm = reactive({ status: '', remark: '' })
+
+const resubmitForm = reactive({
+  license_number: '',
+  expire_date: '',
+  remark: ''
+})
+
+const resubmitRules = {
+  license_number: [{ required: true, message: '请输入证号', trigger: 'blur' }],
+  expire_date: [{ required: true, message: '请选择到期日期', trigger: 'change' }]
+}
 
 const license = computed(() => licenseStore.currentLicense)
 const licenseId = computed(() => Number(route.params.id))
@@ -95,6 +145,13 @@ const canReview = computed(() => ['admin', 'operation'].includes(authStore.userR
 const tenantName = computed(() => {
   if (!license.value) return '-'
   return tenantStore.tenants.find(t => t.id === license.value.tenant_id)?.name || '-'
+})
+
+const resubmitAlertTitle = computed(() => {
+  if (!license.value) return ''
+  if (license.value.status === 'need_reupload') return '该证照已被要求补录，请修改信息后重新提交审核'
+  if (license.value.status === 'rejected') return '该证照已被驳回，请修改信息后重新提交审核'
+  return ''
 })
 
 const dialogTitle = computed(() => {
@@ -139,6 +196,14 @@ function openDialog(status: string) {
   showDialog.value = true
 }
 
+function openResubmitDialog() {
+  if (!license.value) return
+  resubmitForm.license_number = license.value.license_number
+  resubmitForm.expire_date = license.value.expire_date
+  resubmitForm.remark = ''
+  showResubmitDialog.value = true
+}
+
 async function handleReview(status: string) {
   try {
     await licenseStore.reviewLicense(licenseId.value, {
@@ -170,6 +235,27 @@ async function submitReview() {
     submitting.value = false
   }
 }
+
+async function submitResubmit() {
+  if (!resubmitFormRef.value) return
+  await resubmitFormRef.value.validate(async (valid) => {
+    if (!valid) return
+    submitting.value = true
+    try {
+      await licenseStore.resubmitLicense(licenseId.value, {
+        license_number: resubmitForm.license_number,
+        expire_date: resubmitForm.expire_date,
+        remark: resubmitForm.remark || undefined
+      })
+      ElMessage.success('补录提交成功，证照已回到待审核状态')
+      showResubmitDialog.value = false
+      await licenseStore.fetchLicense(licenseId.value)
+      await loadHistory()
+    } catch {} finally {
+      submitting.value = false
+    }
+  })
+}
 </script>
 
 <style scoped>
@@ -194,5 +280,10 @@ async function submitReview() {
   &.status-approved { color: #67c23a; }
   &.status-rejected { color: #f56c6c; }
   &.status-need_reupload { color: #f56c6c; }
+}
+
+.form-text {
+  font-size: 14px;
+  color: #606266;
 }
 </style>

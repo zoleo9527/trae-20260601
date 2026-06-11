@@ -37,6 +37,10 @@ export const useLicenseStore = defineStore('license', () => {
     return await licenseApi.reviewLicense(id, data)
   }
 
+  async function resubmitLicense(id: number, data: any) {
+    return await licenseApi.resubmitLicense(id, data)
+  }
+
   async function deleteLicense(id: number) {
     return await licenseApi.deleteLicense(id)
   }
@@ -47,6 +51,6 @@ export const useLicenseStore = defineStore('license', () => {
 
   return {
     licenses, currentLicense, loading,
-    fetchLicenses, fetchLicense, createLicense, updateLicense, reviewLicense, deleteLicense, fetchLicenseHistory
+    fetchLicenses, fetchLicense, createLicense, updateLicense, reviewLicense, resubmitLicense, deleteLicense, fetchLicenseHistory
   }
 })

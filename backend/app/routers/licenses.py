@@ -112,6 +112,51 @@ def review_license(
     return db_license
 
 
+@router.post("/{license_id}/resubmit", response_model=schemas.License)
+def resubmit_license(
+    license_id: int,
+    resubmit: schemas.LicenseResubmit,
+    current_user: schemas.User = Depends(auth.require_roles("admin", "operation")),
+    db: Session = Depends(get_db)
+):
+    db_license = crud.get_license(db, license_id=license_id)
+    if db_license is None:
+        raise HTTPException(status_code=404, detail="证照不存在")
+
+    if db_license.status not in ["need_reupload", "rejected"]:
+        raise HTTPException(status_code=400, detail="当前状态不允许补录提交，仅限需补录或已驳回的证照")
+
+    old_number = db_license.license_number
+    old_expire = db_license.expire_date
+
+    db_license.license_number = resubmit.license_number
+    db_license.expire_date = resubmit.expire_date
+    db_license.status = "pending"
+    db.commit()
+    db.refresh(db_license)
+
+    changes = []
+    if old_number != resubmit.license_number:
+        changes.append(f"证号由{old_number}更正为{resubmit.license_number}")
+    if old_expire != resubmit.expire_date:
+        changes.append(f"到期日由{old_expire}更正为{resubmit.expire_date}")
+    change_desc = "；".join(changes) if changes else "重新提交证照信息"
+
+    remark_parts = [change_desc]
+    if resubmit.remark:
+        remark_parts.append(f"补录说明：{resubmit.remark}")
+
+    crud.add_history_record(
+        db=db,
+        related_type="license",
+        related_id=license_id,
+        action="补录提交",
+        operator_name=current_user.name,
+        remark="。".join(remark_parts)
+    )
+    return db_license
+
+
 @router.get("/{license_id}/history", response_model=List[schemas.HistoryRecord])
 def get_license_history(
     license_id: int,

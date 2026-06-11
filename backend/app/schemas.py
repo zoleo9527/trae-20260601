@@ -94,6 +94,12 @@ class LicenseReview(BaseModel):
     remark: Optional[str] = None
 
 
+class LicenseResubmit(BaseModel):
+    license_number: str
+    expire_date: str
+    remark: Optional[str] = None
+
+
 class ActivityBase(BaseModel):
     tenant_id: int
     title: str
