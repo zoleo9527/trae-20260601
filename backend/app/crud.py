@@ -152,7 +152,7 @@ def get_complaint(db: Session, complaint_id: int):
     return db.query(models.Complaint).filter(models.Complaint.id == complaint_id).first()
 
 
-def get_complaints(db: Session, skip: int = 0, limit: int = 100, tenant_id: Optional[int] = None, status: Optional[str] = None, handler: Optional[int] = None):
+def get_complaints(db: Session, skip: int = 0, limit: int = 100, tenant_id: Optional[int] = None, status: Optional[str] = None, handler: Optional[int] = None, handler_or_unassigned: Optional[int] = None):
     query = db.query(models.Complaint)
     if tenant_id:
         query = query.filter(models.Complaint.tenant_id == tenant_id)
@@ -160,6 +160,9 @@ def get_complaints(db: Session, skip: int = 0, limit: int = 100, tenant_id: Opti
         query = query.filter(models.Complaint.status == status)
     if handler:
         query = query.filter(models.Complaint.handler == handler)
+    if handler_or_unassigned is not None:
+        from sqlalchemy import or_
+        query = query.filter(or_(models.Complaint.handler == handler_or_unassigned, models.Complaint.handler.is_(None)))
     return query.order_by(models.Complaint.created_at.desc()).offset(skip).limit(limit).all()
 
 

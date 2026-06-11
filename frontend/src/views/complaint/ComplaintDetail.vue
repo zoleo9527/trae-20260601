@@ -28,7 +28,9 @@
 
         <div class="action-bar" v-if="canHandle">
           <template v-if="complaint.status === 'pending'">
-            <el-button type="primary" @click="handleAction('processing')">开始处理</el-button>
+            <el-button type="primary" @click="handleAction('processing')">
+              {{ !complaint.handler && isEngineering ? '接单处理' : '开始处理' }}
+            </el-button>
           </template>
           <template v-if="complaint.status === 'processing'">
             <el-button type="success" @click="showResolveDialog = true">标记解决</el-button>
@@ -80,6 +82,7 @@ const resolveForm = reactive({ remark: '' })
 const complaint = computed(() => complaintStore.currentComplaint)
 const complaintId = computed(() => Number(route.params.id))
 const canHandle = computed(() => ['admin', 'operation', 'engineering'].includes(authStore.userRole))
+const isEngineering = computed(() => authStore.isEngineering)
 
 const tenantName = computed(() => {
   if (!complaint.value) return '-'

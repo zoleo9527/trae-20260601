@@ -41,11 +41,13 @@
             {{ formatTime(row.created_at) }}
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="200" fixed="right">
+        <el-table-column label="操作" width="240" fixed="right">
           <template #default="{ row }">
             <el-button type="primary" link size="small" @click="$router.push('/complaints/' + row.id)">详情</el-button>
             <template v-if="canHandle && row.status === 'pending'">
-              <el-button type="" link size="small" @click="handleAction(row.id, 'processing')">开始处理</el-button>
+              <el-button type="primary" link size="small" @click="handleAction(row.id, 'processing')">
+                {{ !row.handler && isEngineering ? '接单处理' : '开始处理' }}
+              </el-button>
             </template>
             <template v-if="canHandle && row.status === 'processing'">
               <el-button type="success" link size="small" @click="openResolveDialog(row.id)">标记解决</el-button>

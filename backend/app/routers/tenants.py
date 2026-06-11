@@ -37,7 +37,16 @@ def create_tenant(
     current_user: schemas.User = Depends(auth.require_roles("admin", "operation")),
     db: Session = Depends(get_db)
 ):
-    return crud.create_tenant(db=db, tenant=tenant, user_id=current_user.id)
+    db_tenant = crud.create_tenant(db=db, tenant=tenant, user_id=current_user.id)
+    crud.add_history_record(
+        db=db,
+        related_type="tenant",
+        related_id=db_tenant.id,
+        action="提交入驻申请",
+        operator_name=current_user.name,
+        remark=f"提交入驻申请，铺位{tenant.shop_number}"
+    )
+    return db_tenant
 
 
 @router.put("/{tenant_id}", response_model=schemas.Tenant)
@@ -77,7 +86,7 @@ def review_tenant(
     if db_tenant is None:
         raise HTTPException(status_code=404, detail="租户不存在")
     
-    if review.status not in ["approved", "rejected", "settled"]:
+    if review.status not in ["pending", "approved", "rejected", "settled"]:
         raise HTTPException(status_code=400, detail="无效的审核状态")
     
     db_tenant.status = review.status
@@ -85,6 +94,7 @@ def review_tenant(
     db.refresh(db_tenant)
     
     action_map = {
+        "pending": "重新提交入驻申请",
         "approved": "审核通过",
         "rejected": "审核驳回",
         "settled": "已入驻"

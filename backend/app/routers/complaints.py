@@ -19,7 +19,7 @@ def get_complaints(
 ):
     actual_handler = handler
     if current_user.role == "engineering":
-        actual_handler = current_user.id
+        return crud.get_complaints(db, skip=skip, limit=limit, tenant_id=tenant_id, status=status, handler_or_unassigned=current_user.id)
     return crud.get_complaints(db, skip=skip, limit=limit, tenant_id=tenant_id, status=status, handler=actual_handler)
 
 
