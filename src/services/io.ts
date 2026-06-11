@@ -1,5 +1,5 @@
 import * as XLSX from 'xlsx';
-import type { Promotion, PromotionStatus, Role, ProcessStep, Remark, SalesData } from '@/types';
+import type { Promotion, PromotionStatus, Role, ProcessStep, Remark, SalesData, RecentItem } from '@/types';
 import { StorageService } from './storage';
 import { generateId } from '@/utils/id';
 
@@ -8,9 +8,18 @@ interface ImportResult {
   data?: Promotion[];
   count?: number;
   error?: string;
+  fullState?: {
+    promotions: Promotion[];
+    recentItems: RecentItem[];
+    currentRole: Role;
+  };
 }
 
 export class IOService {
+  static exportFullState(): string {
+    return StorageService.exportAll();
+  }
+
   static exportJSON(promotions: Promotion[]): string {
     return JSON.stringify(promotions, null, 2);
   }
@@ -108,19 +117,36 @@ export class IOService {
     try {
       const data = JSON.parse(jsonStr);
       
+      if (data.promotions && Array.isArray(data.promotions)) {
+        const validRoles: Role[] = ['counterManager', 'floorSupervisor', 'brandSupervisor'];
+        const currentRole = validRoles.includes(data.currentRole) ? data.currentRole : null;
+        
+        let recentItems: RecentItem[] = [];
+        if (data.recentItems && Array.isArray(data.recentItems)) {
+          recentItems = data.recentItems.filter((item: any) => 
+            item && typeof item.id === 'string' 
+            && typeof item.promotionId === 'string' 
+            && typeof item.title === 'string'
+          ) as RecentItem[];
+        }
+
+        return {
+          success: true,
+          data: data.promotions as Promotion[],
+          count: data.promotions.length,
+          fullState: {
+            promotions: data.promotions as Promotion[],
+            recentItems,
+            currentRole: (currentRole || 'counterManager') as Role,
+          },
+        };
+      }
+      
       if (Array.isArray(data)) {
         return {
           success: true,
           data: data as Promotion[],
           count: data.length,
-        };
-      }
-      
-      if (data.promotions && Array.isArray(data.promotions)) {
-        return {
-          success: true,
-          data: data.promotions as Promotion[],
-          count: data.promotions.length,
         };
       }
       
@@ -158,8 +184,23 @@ export class IOService {
       reader.onload = (e) => {
         try {
           const content = e.target?.result as string;
-          const success = StorageService.importAll(content);
-          resolve(success);
+          const result = this.importJSON(content);
+          if (!result.success || !result.data) {
+            resolve(false);
+            return;
+          }
+          if (result.fullState) {
+            StorageService.mergeImportedState({
+              promotions: result.fullState.promotions,
+              recentItems: result.fullState.recentItems,
+              currentRole: result.fullState.currentRole,
+            });
+          } else {
+            StorageService.mergeImportedState({
+              promotions: result.data,
+            });
+          }
+          resolve(true);
         } catch {
           resolve(false);
         }
@@ -176,7 +217,7 @@ export class IOService {
         try {
           const data = new Uint8Array(e.target?.result as ArrayBuffer);
           const promotions = this.parseExcelToPromotions(data.buffer);
-          promotions.forEach(p => StorageService.savePromotion(p));
+          StorageService.mergeImportedState({ promotions });
           resolve(true);
         } catch {
           resolve(false);

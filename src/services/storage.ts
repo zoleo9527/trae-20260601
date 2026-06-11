@@ -238,6 +238,64 @@ export class StorageService {
     }
   }
 
+  static mergeImportedState(state: {
+    promotions: Promotion[];
+    recentItems?: RecentItem[];
+    currentRole?: Role;
+  }): { promotionCount: number; recentItemCount: number } {
+    const { promotions: importedPromotions, recentItems: importedRecentItems, currentRole: importedCurrentRole } = state;
+    const existingPromotions = this.getPromotions();
+    const existingIds = new Set(existingPromotions.map(p => p.id));
+    
+    let newCount = 0;
+    let updatedCount = 0;
+    importedPromotions.forEach(p => {
+      if (!validatePromotion(p)) return;
+      if (existingIds.has(p.id)) {
+        updatedCount++;
+      } else {
+        newCount++;
+      }
+      this.savePromotion(p);
+    });
+
+    const currentPromotions = this.getPromotions();
+    const validIds = new Set(currentPromotions.map(p => p.id));
+
+    let recentCount = 0;
+    if (importedRecentItems && importedRecentItems.length > 0) {
+      const existingRecent = this.getRecentItems();
+      const existingRecentIds = new Set(existingRecent.map(r => r.id));
+      
+      const validImported = importedRecentItems
+        .filter(validateRecentItem)
+        .filter(item => validIds.has(item.promotionId))
+        .filter(item => !existingRecentIds.has(item.id));
+      
+      const merged = [...validImported, ...existingRecent].slice(0, 20);
+      this.saveRecentItems(merged);
+      recentCount = validImported.length;
+    } else {
+      const existingRecent = this.getRecentItems();
+      const cleaned = existingRecent.filter(item => validIds.has(item.promotionId));
+      if (cleaned.length !== existingRecent.length) {
+        this.saveRecentItems(cleaned);
+      }
+    }
+
+    if (importedCurrentRole) {
+      const validRoles: Role[] = ['counterManager', 'floorSupervisor', 'brandSupervisor'];
+      if (validRoles.includes(importedCurrentRole)) {
+        this.setCurrentRole(importedCurrentRole);
+      }
+    }
+
+    return {
+      promotionCount: newCount + updatedCount,
+      recentItemCount: recentCount,
+    };
+  }
+
   static clearAll(): void {
     safeRemoveItem(STORAGE_KEYS.PROMOTIONS);
     safeRemoveItem(STORAGE_KEYS.RECENT_ITEMS);

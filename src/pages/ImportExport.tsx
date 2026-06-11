@@ -22,17 +22,18 @@ export function ImportExport() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const excelInputRef = useRef<HTMLInputElement>(null);
 
-  const { promotions, importData, clearAllData } = useAppStore();
+  const { promotions, mergeImportedState, clearAllData } = useAppStore();
   
   const [importResult, setImportResult] = useState<{
     success: boolean;
     message: string;
-    count?: number;
+    promotionCount?: number;
+    recentItemCount?: number;
   } | null>(null);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
 
   const handleExportJSON = () => {
-    const result = IOService.exportJSON(promotions);
+    const result = IOService.exportFullState();
     const blob = new Blob([result], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -70,11 +71,32 @@ export function ImportExport() {
       const result = IOService.importJSON(text);
       
       if (result.success && result.data) {
-        importData(result.data);
+        let mergeResult;
+        if (result.fullState) {
+          mergeResult = mergeImportedState({
+            promotions: result.fullState.promotions,
+            recentItems: result.fullState.recentItems,
+            currentRole: result.fullState.currentRole,
+          });
+        } else {
+          mergeResult = mergeImportedState({
+            promotions: result.data,
+          });
+        }
+        
+        const parts = [`${mergeResult.promotionCount} 条促销活动`];
+        if (mergeResult.recentItemCount > 0) {
+          parts.push(`${mergeResult.recentItemCount} 条最近打开记录`);
+        }
+        if (result.fullState) {
+          parts.push('角色设置已同步');
+        }
+        
         setImportResult({
           success: true,
-          message: `成功导入 ${result.count} 条促销活动数据。`,
-          count: result.count,
+          message: `成功导入${parts.join('、')}。`,
+          promotionCount: mergeResult.promotionCount,
+          recentItemCount: mergeResult.recentItemCount,
         });
       } else {
         setImportResult({
@@ -101,11 +123,15 @@ export function ImportExport() {
       const result = IOService.importExcel(buffer);
       
       if (result.success && result.data) {
-        importData(result.data);
+        const mergeResult = mergeImportedState({
+          promotions: result.data,
+        });
+        
         setImportResult({
           success: true,
-          message: `成功从 Excel 导入 ${result.count} 条促销活动数据。`,
-          count: result.count,
+          message: `成功从 Excel 导入 ${mergeResult.promotionCount} 条促销活动数据。`,
+          promotionCount: mergeResult.promotionCount,
+          recentItemCount: mergeResult.recentItemCount,
         });
       } else {
         setImportResult({
@@ -221,7 +247,7 @@ export function ImportExport() {
           <div className="mt-6 pt-6 border-t border-slate-100">
             <p className="text-xs text-slate-400 mb-3">导出数据包含：</p>
             <div className="flex flex-wrap gap-2">
-              {['活动信息', '审批步骤', '备注记录', '销售数据'].map((item) => (
+              {['活动信息', '审批步骤', '备注记录', '销售数据', '最近打开', '角色设置'].map((item) => (
                 <span key={item} className="text-xs px-2 py-1 bg-slate-100 text-slate-600 rounded">
                   {item}
                 </span>

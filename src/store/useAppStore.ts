@@ -69,6 +69,11 @@ interface AppStore {
   getPendingPromotions: () => Promotion[];
   getSalesReviewPromotions: () => Promotion[];
   importData: (promotions: Promotion[]) => void;
+  mergeImportedState: (state: {
+    promotions: Promotion[];
+    recentItems?: RecentItem[];
+    currentRole?: Role;
+  }) => { promotionCount: number; recentItemCount: number };
   clearAllData: () => void;
 }
 
@@ -170,17 +175,17 @@ export const useAppStore = create<AppStore>((set, get) => ({
   },
 
   importData: (promotions: Promotion[]) => {
-    promotions.forEach(p => StorageService.savePromotion(p));
-    get().refreshPromotions();
+    get().mergeImportedState({ promotions });
+  },
 
-    const currentPromotions = get().promotions;
-    const validIds = new Set(currentPromotions.map(p => p.id));
-    const recentItems = StorageService.getRecentItems();
-    const cleaned = recentItems.filter(item => validIds.has(item.promotionId));
-    if (cleaned.length !== recentItems.length) {
-      StorageService.saveRecentItems(cleaned);
-    }
+  mergeImportedState: (state) => {
+    const result = StorageService.mergeImportedState(state);
+    get().refreshPromotions();
     set({ recentItems: StorageService.getRecentItems() });
+    if (state.currentRole) {
+      set({ currentRole: StorageService.getCurrentRole() });
+    }
+    return result;
   },
 
   clearAllData: () => {
