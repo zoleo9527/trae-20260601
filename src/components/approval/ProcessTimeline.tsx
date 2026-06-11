@@ -1,7 +1,7 @@
 import { Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import type { ControlStage, Remark } from '@/types';
-import { STAGE_MAP, sortRemarksDesc } from '@/utils/status';
+import type { ControlStage, StageRecord } from '@/types';
+import { STAGE_MAP, getStageRecord } from '@/utils/status';
 import { formatDateTime } from '@/utils/date';
 
 interface ProcessNode {
@@ -14,7 +14,7 @@ interface ProcessNode {
 
 interface ProcessTimelineProps {
   currentStage: ControlStage;
-  remarks?: Remark[];
+  stageHistory?: StageRecord[];
   className?: string;
 }
 
@@ -36,25 +36,30 @@ function getNodeStatus(
 
 function getNodeInfo(
   stage: ControlStage,
-  remarks: Remark[] | undefined,
+  stageHistory: StageRecord[] | undefined,
   status: 'completed' | 'current' | 'pending'
 ): { operator?: string; timestamp?: string } {
   if (status === 'pending') return {};
-  
-  const stageRemarks = remarks?.filter((r) => r.stage === stage) || [];
-  if (stageRemarks.length === 0) return {};
-  
-  const sortedStageRemarks = sortRemarksDesc(stageRemarks);
-  const lastRemark = sortedStageRemarks[0];
+
+  const record = getStageRecord(stageHistory, stage);
+  if (!record) return {};
+
+  if (status === 'completed') {
+    return {
+      operator: record.handlerName,
+      timestamp: record.completedAt,
+    };
+  }
+
   return {
-    operator: lastRemark.operatorName,
-    timestamp: lastRemark.timestamp,
+    operator: record.handlerName,
+    timestamp: record.receivedAt,
   };
 }
 
 export default function ProcessTimeline({
   currentStage,
-  remarks,
+  stageHistory,
   className,
 }: ProcessTimelineProps) {
   const currentIndex = STAGE_ORDER.indexOf(currentStage as (typeof STAGE_ORDER)[number]);
@@ -62,7 +67,7 @@ export default function ProcessTimeline({
 
   const nodes: ProcessNode[] = STAGE_ORDER.map((stage, index) => {
     const status = getNodeStatus(stage, currentStage, index, actualCurrentIndex);
-    const info = getNodeInfo(stage, remarks, status);
+    const info = getNodeInfo(stage, stageHistory, status);
     return {
       key: stage,
       label: STAGE_MAP[stage],

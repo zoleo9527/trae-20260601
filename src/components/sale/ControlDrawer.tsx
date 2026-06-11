@@ -8,7 +8,7 @@ import Button from '@/components/common/Button';
 import Select from '@/components/common/Select';
 import StatusBadge from '@/components/common/StatusBadge';
 import { cn } from '@/lib/utils';
-import { STAGE_MAP, ROLE_MAP } from '@/utils/status';
+import { STAGE_MAP, ROLE_MAP, getStageRecord } from '@/utils/status';
 import RemarkSection from './RemarkSection';
 import type { House, Customer, ControlStage } from '@/types';
 
@@ -72,6 +72,9 @@ export default function ControlDrawer({ open, onClose, house, saleControlId, mod
 
   const currentStage: ControlStage = activeSaleControl?.stage || 'application';
   const info = stageInfo[currentStage];
+  const applicationRecord = activeSaleControl
+    ? getStageRecord(activeSaleControl.stageHistory, 'application')
+    : undefined;
 
   const availableCustomers = currentUser.role === 'consultant'
     ? getCustomersByConsultant(currentUser.id)
@@ -371,7 +374,7 @@ export default function ControlDrawer({ open, onClose, house, saleControlId, mod
                   <div className="mt-3 pt-3 border-t border-slate-200 flex items-center justify-between text-sm">
                     <span className="text-slate-400">申请人</span>
                     <span className="text-slate-700 font-medium">
-                      {activeSaleControl.applicant.name} ({activeSaleControl.applicant.roleName})
+                      {applicationRecord?.handlerName}（{applicationRecord?.handlerRoleName}）
                     </span>
                   </div>
                 </div>

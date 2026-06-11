@@ -16,7 +16,7 @@ import { cn } from '@/lib/utils';
 import type { SaleControl } from '@/types';
 import { useSaleControlStore } from '@/store/useSaleControlStore';
 import { useUserStore } from '@/store/useUserStore';
-import { STAGE_MAP, sortRemarksDesc } from '@/utils/status';
+import { STAGE_MAP, sortRemarksDesc, getStageRecord, getStageHandlerName } from '@/utils/status';
 import { formatDateTime, formatDate } from '@/utils/date';
 import ProcessTimeline from './ProcessTimeline';
 import StatusBadge from '../common/StatusBadge';
@@ -47,9 +47,10 @@ export default function ApprovalCard({
   const [lockDuration, setLockDuration] = useState<number>(48);
   const [loading, setLoading] = useState(false);
 
-  const { house, customer, applicant, currentHandler, stage, remarks, stageHistory } = saleControl;
+  const { house, customer, currentHandler, stage, remarks, stageHistory } = saleControl;
 
   const sortedRemarks = sortRemarksDesc(remarks);
+  const applicationRecord = getStageRecord(stageHistory, 'application');
 
   const STAGE_PREVIOUS_MAP: Record<string, string> = {
     review: 'application',
@@ -153,7 +154,7 @@ export default function ApprovalCard({
             <div className="flex items-center gap-2 text-sm">
               <Clock className="w-4 h-4 text-slate-400" />
               <span className="text-slate-500">申请时间：</span>
-              <span className="text-slate-700">{formatDateTime(saleControl.createdAt)}</span>
+              <span className="text-slate-700">{formatDateTime(applicationRecord?.receivedAt)}</span>
             </div>
           </div>
 
@@ -181,7 +182,7 @@ export default function ApprovalCard({
               <User className="w-4 h-4 text-slate-400" />
               <span className="text-slate-500">申请人：</span>
               <span className="text-slate-700 font-medium">
-                {applicant.name} ({applicant.roleName})
+                {applicationRecord?.handlerName}（{applicationRecord?.handlerRoleName}）
               </span>
             </div>
             <div className="flex items-center gap-2 text-sm">
@@ -203,7 +204,7 @@ export default function ApprovalCard({
       </div>
 
       <div className="px-6 py-4 bg-slate-50/50">
-        <ProcessTimeline currentStage={stage} remarks={remarks} />
+        <ProcessTimeline currentStage={stage} stageHistory={saleControl.stageHistory} />
       </div>
 
       {remarks.length > 0 && (

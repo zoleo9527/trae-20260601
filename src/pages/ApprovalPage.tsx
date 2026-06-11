@@ -239,7 +239,7 @@ export default function ApprovalPage() {
               <div className="px-6 py-4">
                 <ProcessTimeline
                   currentStage={selectedControl.stage}
-                  remarks={selectedControl.remarks}
+                  stageHistory={selectedControl.stageHistory}
                 />
               </div>
             </div>

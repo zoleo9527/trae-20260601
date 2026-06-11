@@ -8,7 +8,7 @@ import { useUserStore } from '@/store/useUserStore';
 import StatusBadge from '@/components/common/StatusBadge';
 import Button from '@/components/common/Button';
 import { cn } from '@/lib/utils';
-import { STAGE_MAP, ROLE_MAP, sortRemarksDesc } from '@/utils/status';
+import { STAGE_MAP, ROLE_MAP, sortRemarksDesc, getStageRecord } from '@/utils/status';
 import RemarkSection from './RemarkSection';
 import type { SaleControl, UserRole, ControlStage } from '@/types';
 
@@ -125,6 +125,7 @@ export default function SaleControlCard({
   const progress = getStageProgress();
   const sortedRemarks = sortRemarksDesc(saleControl.remarks);
   const latestRemark = sortedRemarks[0];
+  const applicationRecord = getStageRecord(saleControl.stageHistory, 'application');
 
   return (
     <div
@@ -182,7 +183,7 @@ export default function SaleControlCard({
             <div className="min-w-0">
               <p className="text-xs text-slate-400">申请人</p>
               <p className="text-sm font-medium text-slate-700 truncate">
-                {saleControl.applicant.name}
+                {applicationRecord?.handlerName}
               </p>
             </div>
           </div>
@@ -195,7 +196,7 @@ export default function SaleControlCard({
           </div>
           <div className="flex items-center gap-1">
             <Calendar className="w-3.5 h-3.5" />
-            <span>{formatDate(saleControl.createdAt)}</span>
+            <span>{formatDate(applicationRecord?.receivedAt)}</span>
           </div>
         </div>
 
@@ -276,8 +277,8 @@ export default function SaleControlCard({
                 <StatusBadge type="customer" value={saleControl.customer.level} />
               </div>
               <div>
-                <p className="text-slate-400 text-xs mb-1">创建时间</p>
-                <p className="text-slate-700">{formatDate(saleControl.createdAt)}</p>
+                <p className="text-slate-400 text-xs mb-1">申请时间</p>
+                <p className="text-slate-700">{formatDate(applicationRecord?.receivedAt)}</p>
               </div>
               <div>
                 <p className="text-slate-400 text-xs mb-1">更新时间</p>
