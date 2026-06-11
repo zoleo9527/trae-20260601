@@ -45,6 +45,12 @@ class OwnershipOut(BaseModel):
     claimed_agent_name: str = ""
     confirm_agent_id: Optional[int] = None
     confirm_agent_name: str = ""
+    confirmed_by: Optional[int] = None
+    confirmed_by_name: str = ""
+    disputed_by: Optional[int] = None
+    disputed_by_name: str = ""
+    resolved_by: Optional[int] = None
+    resolved_by_name: str = ""
     status: OwnershipStatus
     status_label: str = ""
     ownership_reason: Optional[str] = None

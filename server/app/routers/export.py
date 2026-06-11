@@ -113,10 +113,13 @@ def export_ownerships(
     headers = [
         "归属ID", "来访编号", "来访时间", "客户姓名", "客户手机号",
         "主张归属顾问", "最终归属顾问", "状态",
+        "确认人", "确认时间",
+        "争议人", "争议时间", "争议理由",
+        "裁决人", "裁决时间", "裁决理由",
+        "归属理由",
         "认购编号", "房号", "总面积", "总价",
-        "归属理由", "争议理由", "裁决理由",
         "佣金比例", "佣金金额",
-        "创建时间", "确认时间", "争议时间", "裁决时间",
+        "创建时间",
     ]
     ws.append(headers)
 
@@ -133,19 +136,22 @@ def export_ownerships(
             _get_user_name(db, o.claimed_agent_id),
             _get_user_name(db, o.confirm_agent_id),
             OWNERSHIP_STATUS_LABELS.get(o.status, ""),
+            _get_user_name(db, o.confirmed_by),
+            o.confirmed_at.strftime("%Y-%m-%d %H:%M") if o.confirmed_at else "",
+            _get_user_name(db, o.disputed_by),
+            o.disputed_at.strftime("%Y-%m-%d %H:%M") if o.disputed_at else "",
+            o.dispute_reason or "",
+            _get_user_name(db, o.resolved_by),
+            o.resolved_at.strftime("%Y-%m-%d %H:%M") if o.resolved_at else "",
+            o.resolve_reason or "",
+            o.ownership_reason or "",
             sub.subscription_no if sub else "",
             f"{sub.building_no}-{sub.unit_no}-{sub.room_no}" if sub else "",
             float(sub.area) if (sub and sub.area) else 0,
             float(sub.total_price) if (sub and sub.total_price) else 0,
-            o.ownership_reason or "",
-            o.dispute_reason or "",
-            o.resolve_reason or "",
             float(o.commission_ratio) if o.commission_ratio else 0,
             float(o.commission_amount) if o.commission_amount else 0,
             o.created_at.strftime("%Y-%m-%d %H:%M") if o.created_at else "",
-            o.confirmed_at.strftime("%Y-%m-%d %H:%M") if o.confirmed_at else "",
-            o.disputed_at.strftime("%Y-%m-%d %H:%M") if o.disputed_at else "",
-            o.resolved_at.strftime("%Y-%m-%d %H:%M") if o.resolved_at else "",
         ])
 
     for col in range(1, len(headers) + 1):

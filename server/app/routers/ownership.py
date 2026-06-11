@@ -41,6 +41,12 @@ def _decorate_ownership(o: OwnershipRecord, db: Session) -> OwnershipDetail:
         out.claimed_agent_name = o.claimed_agent.full_name
     if o.confirm_agent:
         out.confirm_agent_name = o.confirm_agent.full_name
+    if o.confirmer:
+        out.confirmed_by_name = o.confirmer.full_name
+    if o.disputer:
+        out.disputed_by_name = o.disputer.full_name
+    if o.resolver:
+        out.resolved_by_name = o.resolver.full_name
     if o.visit:
         out.visit_no = o.visit.visit_no
         out.visit_time = o.visit.visit_time
@@ -224,6 +230,11 @@ def dispute_ownership(ownership_id: int, data: OwnershipDispute, db: Session = D
     if o.status != OwnershipStatus.CONFIRMED:
         raise HTTPException(400, "仅已确认归属可提出争议")
 
+    disputer = db.query(User).filter(User.id == data.disputed_by).first()
+    if not disputer:
+        raise HTTPException(400, "争议提出人不存在")
+
+    o.disputed_by = data.disputed_by
     o.disputed_at = datetime.utcnow()
     o.status = OwnershipStatus.DISPUTED
     o.dispute_reason = data.dispute_reason
@@ -249,6 +260,7 @@ def resolve_ownership(ownership_id: int, data: OwnershipResolve, db: Session = D
         raise HTTPException(400, "裁决归属的顾问不存在")
 
     o.confirm_agent_id = data.confirm_agent_id
+    o.resolved_by = data.resolved_by
     o.status = OwnershipStatus.RESOLVED
     o.resolve_reason = data.resolve_reason
     o.resolved_at = datetime.utcnow()

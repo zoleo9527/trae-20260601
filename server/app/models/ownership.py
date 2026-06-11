@@ -34,6 +34,8 @@ class OwnershipRecord(Base):
     claimed_agent_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     confirm_agent_id = Column(Integer, ForeignKey("users.id"))
     confirmed_by = Column(Integer, ForeignKey("users.id"))
+    disputed_by = Column(Integer, ForeignKey("users.id"))
+    resolved_by = Column(Integer, ForeignKey("users.id"))
 
     status = Column(Enum(OwnershipStatus), default=OwnershipStatus.PENDING, nullable=False)
 
@@ -54,3 +56,5 @@ class OwnershipRecord(Base):
     claimed_agent = relationship("User", foreign_keys=[claimed_agent_id])
     confirm_agent = relationship("User", foreign_keys=[confirm_agent_id])
     confirmer = relationship("User", foreign_keys=[confirmed_by])
+    disputer = relationship("User", foreign_keys=[disputed_by])
+    resolver = relationship("User", foreign_keys=[resolved_by])
