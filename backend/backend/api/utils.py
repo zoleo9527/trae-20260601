@@ -61,19 +61,21 @@ def validate_discount_transition(old_status, new_status, user_role):
         },
         DiscountStatus.PENDING_REVIEW.value: {
             'allowed_roles': [Role.OPERATION_SUPERVISOR.value, Role.INVESTMENT_MANAGER.value],
-            'to': [DiscountStatus.REVIEWING.value, DiscountStatus.REJECTED.value, DiscountStatus.EXCEPTION.value]
+            'to': [DiscountStatus.REVIEWING.value, DiscountStatus.REJECTED.value,
+                   DiscountStatus.EXCEPTION.value, DiscountStatus.APPROVED.value]
         },
         DiscountStatus.REVIEWING.value: {
-            'allowed_roles': [Role.OPERATION_SUPERVISOR.value],
+            'allowed_roles': [Role.OPERATION_SUPERVISOR.value, Role.INVESTMENT_MANAGER.value],
             'to': [DiscountStatus.PENDING_REVIEW.value, DiscountStatus.APPROVED.value,
                    DiscountStatus.REJECTED.value, DiscountStatus.EXCEPTION.value]
         },
         DiscountStatus.APPROVED.value: {
             'allowed_roles': [Role.INVESTMENT_MANAGER.value],
-            'to': [DiscountStatus.ARCHIVED.value, DiscountStatus.EXCEPTION.value]
+            'to': [DiscountStatus.ARCHIVED.value, DiscountStatus.EXCEPTION.value,
+                   DiscountStatus.REJECTED.value]
         },
         DiscountStatus.REJECTED.value: {
-            'allowed_roles': [Role.STORE_MANAGER.value, Role.OPERATION_SUPERVISOR.value],
+            'allowed_roles': [Role.STORE_MANAGER.value],
             'to': [DiscountStatus.DRAFT.value, DiscountStatus.PENDING_REVIEW.value]
         },
         DiscountStatus.EXCEPTION.value: {
@@ -106,13 +108,14 @@ def validate_price_report_transition(old_status, new_status, user_role):
             'to': [PriceReportStatus.REPORTED.value, PriceReportStatus.PENDING.value]
         },
         PriceReportStatus.REPORTED.value: {
-            'allowed_roles': [Role.OPERATION_SUPERVISOR.value],
+            'allowed_roles': [Role.OPERATION_SUPERVISOR.value, Role.INVESTMENT_MANAGER.value],
             'to': [PriceReportStatus.VERIFIED.value, PriceReportStatus.REJECTED.value,
                    PriceReportStatus.EXCEPTION.value, PriceReportStatus.REPORTED.value]
         },
         PriceReportStatus.VERIFIED.value: {
             'allowed_roles': [Role.OPERATION_SUPERVISOR.value, Role.INVESTMENT_MANAGER.value],
-            'to': [PriceReportStatus.EXCEPTION.value, PriceReportStatus.REPORTED.value]
+            'to': [PriceReportStatus.EXCEPTION.value, PriceReportStatus.REPORTED.value,
+                   PriceReportStatus.REJECTED.value]
         },
         PriceReportStatus.REJECTED.value: {
             'allowed_roles': [Role.STORE_MANAGER.value],

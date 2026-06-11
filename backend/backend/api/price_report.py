@@ -225,7 +225,7 @@ def verify_price_report(report_id):
 
 @price_report_bp.route('/<int:report_id>/reject', methods=['POST'])
 @jwt_required()
-@role_required(Role.OPERATION_SUPERVISOR.value)
+@role_required(Role.OPERATION_SUPERVISOR.value, Role.INVESTMENT_MANAGER.value)
 def reject_price_report(report_id):
     report = PriceReport.query.get_or_404(report_id)
     user = get_current_user()

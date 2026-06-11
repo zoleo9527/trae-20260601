@@ -414,26 +414,26 @@ const canSubmit = computed(() => {
 })
 
 const canStartReview = computed(() => {
-  return userStore.isSupervisor && detail.value.status === 'pending_review'
+  return userStore.isOperationSupervisor && detail.value.status === 'pending_review'
 })
 
 const canApprove = computed(() => {
-  return userStore.isManager &&
+  return userStore.isInvestmentManager &&
     ['pending_review', 'reviewing'].includes(detail.value.status)
 })
 
 const canReject = computed(() => {
-  return !isStoreManager.value &&
-    ['pending_review', 'reviewing'].includes(detail.value.status)
+  return (userStore.isOperationSupervisor || userStore.isInvestmentManager) &&
+    ['pending_review', 'reviewing', 'approved'].includes(detail.value.status)
 })
 
 const canRaiseException = computed(() => {
-  return !isStoreManager.value &&
-    detail.value.status !== 'exception' && detail.value.status !== 'archived'
+  return (userStore.isOperationSupervisor || userStore.isInvestmentManager) &&
+    !['exception', 'archived', 'draft', 'rejected'].includes(detail.value.status)
 })
 
 const canResolveException = computed(() => {
-  return !isStoreManager.value && detail.value.status === 'exception'
+  return (userStore.isOperationSupervisor || userStore.isInvestmentManager) && detail.value.status === 'exception'
 })
 
 const currentStep = computed(() => {

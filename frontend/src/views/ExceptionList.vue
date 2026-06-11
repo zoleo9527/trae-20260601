@@ -486,7 +486,7 @@ async function confirmTestException() {
       brand_name: '测试品牌',
       store_name: '测试门店',
       discount_type: 'direct_discount',
-      description: '这是一个用于测试异常流的样例数据，请在测试完成后删除。'
+      description: '这是一个用于测试异常流的样例数据，请在测试完成后删除。不少于十个字的描述'
     }
 
     if (testForm.type === 'low_discount') {
@@ -510,22 +510,38 @@ async function confirmTestException() {
     const campaignId = campaignRes.id
 
     if (testForm.type === 'price_anomaly') {
-      await priceReportApi.create({
+      const reportRes = await priceReportApi.create({
         campaign_id: campaignId,
         product_name: '测试异常商品',
         product_code: 'TEST-001',
         original_price: 100,
         discount_price: 150
       })
+      await priceReportApi.submit(reportRes.id, { confirm_exception: true })
     }
 
-    await discountApi.submit(campaignId, {})
+    await discountApi.submit(campaignId, { confirm_exception: true })
+
+    if (testForm.type === 'price_anomaly') {
+      const reports = await priceReportApi.getList({ campaign_id: campaignId, status: 'reported' })
+      if (reports.items && reports.items.length > 0) {
+        await priceReportApi.raiseException(reports.items[0].id, {
+          reason: '测试异常：折扣价（150）高于原价（100），数据录入异常'
+        })
+      }
+    } else {
+      await discountApi.raiseException(campaignId, {
+        reason: testForm.type === 'low_discount'
+          ? '测试异常：折扣率2折低于3折下限'
+          : '测试异常：活动周期90天超过60天上限'
+      })
+    }
 
     ElMessage.success('测试异常样例已创建，请查看异常列表')
     testDialogVisible.value = false
     loadData()
   } catch (e) {
-    ElMessage.error('创建失败：' + (e.response?.data?.message || e.message))
+    ElMessage.error('创建失败：' + (e.response?.data?.error || e.response?.data?.message || e.message))
   }
 }
 

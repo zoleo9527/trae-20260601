@@ -84,6 +84,7 @@ def create_campaign():
     )
 
     db.session.add(campaign)
+    db.session.flush()
 
     records_data = data.get('records', [])
     for rec_data in records_data:
@@ -258,7 +259,7 @@ def review_campaign(campaign_id):
 
 @discount_bp.route('/<int:campaign_id>/approve', methods=['POST'])
 @jwt_required()
-@role_required(Role.INVESTMENT_MANAGER.value)
+@role_required(Role.OPERATION_SUPERVISOR.value, Role.INVESTMENT_MANAGER.value)
 def approve_campaign(campaign_id):
     campaign = DiscountCampaign.query.get_or_404(campaign_id)
     user = get_current_user()
@@ -273,12 +274,16 @@ def approve_campaign(campaign_id):
         return jsonify({'error': error}), 400
 
     campaign.status = new_status
-    campaign.approved_by = user.id
-    campaign.approval_comment = comment
+    if user.role == Role.INVESTMENT_MANAGER.value:
+        campaign.approved_by = user.id
+        campaign.approval_comment = comment
+    else:
+        campaign.reviewed_by = user.id
+        campaign.review_comment = comment
 
     log_operation('discount', 'approve', target_id=campaign.id,
                   target_type='campaign', old_status=old_status, new_status=new_status,
-                  detail={'comment': comment})
+                  detail={'comment': comment, 'approver_role': user.role})
 
     db.session.commit()
     return jsonify(campaign.to_dict())

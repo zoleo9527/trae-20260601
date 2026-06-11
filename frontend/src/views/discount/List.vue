@@ -283,16 +283,16 @@ const canBatchApprove = computed(() => {
 })
 
 const canBatchReject = computed(() => {
-  return !isStoreManager.value && list.value.some(
+  return (userStore.isOperationSupervisor || userStore.isInvestmentManager) && list.value.some(
     item => selectedIds.value.includes(item.id) &&
-      (item.status === 'pending_review' || item.status === 'reviewing')
+      (item.status === 'pending_review' || item.status === 'reviewing' || item.status === 'approved')
   )
 })
 
 const canBatchException = computed(() => {
-  return !isStoreManager.value && list.value.some(
+  return (userStore.isOperationSupervisor || userStore.isInvestmentManager) && list.value.some(
     item => selectedIds.value.includes(item.id) &&
-      item.status !== 'exception' && item.status !== 'archived'
+      !['exception', 'archived', 'draft', 'rejected'].includes(item.status)
   )
 })
 
@@ -314,11 +314,12 @@ function canSubmit(row) {
 }
 
 function canStartReview(row) {
-  return userStore.isSupervisor && row.status === 'pending_review'
+  return userStore.isOperationSupervisor && row.status === 'pending_review'
 }
 
 function canRaiseException(row) {
-  return !isStoreManager.value && row.status !== 'exception' && row.status !== 'archived'
+  return (userStore.isOperationSupervisor || userStore.isInvestmentManager) &&
+    !['exception', 'archived', 'draft', 'rejected'].includes(row.status)
 }
 
 function handleSelectionChange(selection) {
@@ -435,7 +436,21 @@ async function handleBatchSubmit() {
     ElMessage.success(`成功提交 ${res.success_count} 条，失败 ${res.failed_count} 条`)
     loadList()
   } catch (e) {
-    console.error('Batch submit error:', e)
+    if (e.response && e.response.data && e.response.data.require_confirm) {
+      const exceptionItems = e.response.data.exception_items || []
+      const allExceptions = exceptionItems.map(item => `${item.title}：${item.exceptions.join('；')}`).join('\n')
+      confirmData.message = `以下活动存在异常项，确认后仍要提交？\n${allExceptions}`
+      confirmData.exceptions = exceptionItems.flatMap(item => item.exceptions)
+      confirmData.requireConfirm = true
+      confirmData.confirmed = false
+      confirmData.action = async () => {
+        const res = await batchApi.submitCampaigns({ ids: selectedIds.value, confirm_exception: true })
+        ElMessage.success(`成功提交 ${res.success_count} 条，失败 ${res.failed_count} 条`)
+      }
+      confirmDialogVisible.value = true
+    } else {
+      console.error('Batch submit error:', e)
+    }
   }
 }
 

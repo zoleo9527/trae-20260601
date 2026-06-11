@@ -292,20 +292,21 @@ const canSubmit = computed(() => {
 })
 
 const canVerify = computed(() => {
-  return userStore.isSupervisor && detail.value.status === 'reported'
+  return userStore.isOperationSupervisor && detail.value.status === 'reported'
 })
 
 const canReject = computed(() => {
-  return userStore.isSupervisor && detail.value.status === 'reported'
+  return (userStore.isOperationSupervisor || userStore.isInvestmentManager) &&
+    ['reported', 'verified'].includes(detail.value.status)
 })
 
 const canRaiseException = computed(() => {
-  return !isStoreManager.value &&
-    detail.value.status !== 'exception'
+  return (userStore.isOperationSupervisor || userStore.isInvestmentManager) &&
+    !['exception', 'pending', 'rejected'].includes(detail.value.status)
 })
 
 const canResolveException = computed(() => {
-  return !isStoreManager.value && detail.value.status === 'exception'
+  return (userStore.isOperationSupervisor || userStore.isInvestmentManager) && detail.value.status === 'exception'
 })
 
 const currentStep = computed(() => {

@@ -4,7 +4,8 @@ from backend.models import DiscountCampaign, DiscountStatus, PriceReport, PriceR
 from backend.extensions import db
 from backend.api.utils import (
     role_required, get_current_user, log_operation,
-    validate_discount_transition, validate_price_report_transition
+    validate_discount_transition, validate_price_report_transition,
+    check_exception_rules
 )
 
 batch_bp = Blueprint('batch', __name__)
@@ -15,6 +16,7 @@ batch_bp = Blueprint('batch', __name__)
 def batch_submit_campaigns():
     data = request.get_json()
     ids = data.get('ids', [])
+    confirm_exception = data.get('confirm_exception', False)
     user = get_current_user()
 
     if not ids:
@@ -22,6 +24,7 @@ def batch_submit_campaigns():
 
     success_count = 0
     failed_count = 0
+    exception_items = []
     results = []
 
     for campaign_id in ids:
@@ -46,10 +49,25 @@ def batch_submit_campaigns():
                 failed_count += 1
                 continue
 
+            exceptions = check_exception_rules(campaign=campaign)
+            if exceptions and not confirm_exception:
+                exception_items.append({
+                    'id': campaign_id,
+                    'title': campaign.title,
+                    'exceptions': exceptions
+                })
+                results.append({'id': campaign_id, 'success': False, 'error': '存在异常项，需确认后提交', 'exceptions': exceptions})
+                failed_count += 1
+                continue
+
             campaign.status = new_status
+            if exceptions:
+                campaign.exception_reason = '; '.join(exceptions)
+
             log_operation('discount', 'batch_submit', target_id=campaign.id,
                           target_type='campaign', old_status=old_status,
-                          new_status=new_status)
+                          new_status=new_status,
+                          detail={'exceptions': exceptions, 'confirmed': confirm_exception})
             results.append({'id': campaign_id, 'success': True})
             success_count += 1
         except Exception as e:
@@ -57,6 +75,16 @@ def batch_submit_campaigns():
             failed_count += 1
 
     db.session.commit()
+
+    if exception_items and not confirm_exception:
+        return jsonify({
+            'success_count': success_count,
+            'failed_count': failed_count,
+            'results': results,
+            'require_confirm': True,
+            'exception_items': exception_items
+        }), 400
+
     return jsonify({
         'success_count': success_count,
         'failed_count': failed_count,
@@ -65,7 +93,7 @@ def batch_submit_campaigns():
 
 @batch_bp.route('/discount/approve', methods=['POST'])
 @jwt_required()
-@role_required(Role.INVESTMENT_MANAGER.value)
+@role_required(Role.OPERATION_SUPERVISOR.value, Role.INVESTMENT_MANAGER.value)
 def batch_approve_campaigns():
     data = request.get_json()
     ids = data.get('ids', [])
@@ -97,12 +125,16 @@ def batch_approve_campaigns():
                 continue
 
             campaign.status = new_status
-            campaign.approved_by = user.id
-            campaign.approval_comment = comment
+            if user.role == Role.INVESTMENT_MANAGER.value:
+                campaign.approved_by = user.id
+                campaign.approval_comment = comment
+            else:
+                campaign.reviewed_by = user.id
+                campaign.review_comment = comment
 
             log_operation('discount', 'batch_approve', target_id=campaign.id,
                           target_type='campaign', old_status=old_status,
-                          new_status=new_status, detail={'comment': comment})
+                          new_status=new_status, detail={'comment': comment, 'approver_role': user.role})
             results.append({'id': campaign_id, 'success': True})
             success_count += 1
         except Exception as e:
@@ -280,7 +312,7 @@ def batch_verify_reports():
 
 @batch_bp.route('/price-report/reject', methods=['POST'])
 @jwt_required()
-@role_required(Role.OPERATION_SUPERVISOR.value)
+@role_required(Role.OPERATION_SUPERVISOR.value, Role.INVESTMENT_MANAGER.value)
 def batch_reject_reports():
     data = request.get_json()
     ids = data.get('ids', [])

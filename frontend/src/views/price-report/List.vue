@@ -215,14 +215,14 @@ const currentRow = ref(null)
 const batchOperation = ref('')
 
 const canBatchVerify = computed(() => {
-  return userStore.isSupervisor && list.value.some(
+  return userStore.isOperationSupervisor && list.value.some(
     item => selectedIds.value.includes(item.id) && item.status === 'reported'
   )
 })
 
 const canBatchReject = computed(() => {
-  return userStore.isSupervisor && list.value.some(
-    item => selectedIds.value.includes(item.id) && item.status === 'reported'
+  return (userStore.isOperationSupervisor || userStore.isInvestmentManager) && list.value.some(
+    item => selectedIds.value.includes(item.id) && ['reported', 'verified'].includes(item.status)
   )
 })
 
@@ -239,7 +239,7 @@ function canSubmit(row) {
 }
 
 function canVerify(row) {
-  return userStore.isSupervisor && row.status === 'reported'
+  return userStore.isOperationSupervisor && row.status === 'reported'
 }
 
 function handleSelectionChange(selection) {

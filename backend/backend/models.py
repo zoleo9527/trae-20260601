@@ -157,6 +157,7 @@ class PriceReport(db.Model):
             'report_date': self.report_date.isoformat() if self.report_date else None,
             'status': self.status,
             'exception_reason': self.exception_reason,
+            'created_by': self.created_by,
             'creator_name': self.creator.name if self.creator else None,
             'verifier_name': self.verifier.name if self.verifier else None,
             'created_at': self.created_at.isoformat(),
