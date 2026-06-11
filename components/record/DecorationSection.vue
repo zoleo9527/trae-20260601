@@ -7,9 +7,9 @@
           装修状态：
           <span
             class="ml-1 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium"
-            :class="decoBadgeClass"
+            :class="decoBadge.cls"
           >
-            {{ decoStatusLabel }}
+            {{ decoBadge.label }}
           </span>
         </div>
         <div class="h-4 w-px bg-gray-200 mx-1"></div>
@@ -93,7 +93,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import type { LeaseRecord } from '~/types/lease'
-import { getStatusMeta } from '~/utils/constants'
+import { getStageBadge } from '~/utils/constants'
 import { useLeaseStore } from '~/stores/lease'
 
 const props = defineProps<{ record: LeaseRecord }>()
@@ -102,21 +102,5 @@ defineEmits<{ (e: 'action', mode: string): void }>()
 const store = useLeaseStore()
 const userRole = computed(() => store.currentUser.role)
 
-const decoBadgeClass = computed(() => {
-  const s = props.record.currentStatus
-  if (s === 'decoration_pending') return 'bg-amber-50 text-amber-700'
-  if (s === 'decoration_approved') return 'bg-emerald-50 text-emerald-700'
-  if (s === 'completed') return 'bg-purple-50 text-purple-700'
-  if (s === 'contract_approved') return 'bg-sky-50 text-sky-700'
-  return 'bg-gray-100 text-gray-500'
-})
-const decoStatusLabel = computed(() => {
-  const s = props.record.currentStatus
-  if (s.startsWith('decoration_')) return getStatusMeta(s as any).label
-  if (s === 'completed') return '已入驻'
-  if (s === 'contract_approved') return '待提交装修申请'
-  if (s.startsWith('plan_') || s === 'contract_pending' || s === 'contract_rejected')
-    return '未启动'
-  return '未启动'
-})
+const decoBadge = computed(() => getStageBadge('decoration', props.record.currentStatus))
 </script>

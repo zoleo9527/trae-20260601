@@ -384,12 +384,14 @@ export const MOCK_RECORDS: LeaseRecord[] = [
   },
   {
     id: 'R007',
-    company: '盛创信息科技有限公司',
-    contact: '周振华',
+    recordNo: 'R007',
+    companyName: '盛创信息科技有限公司',
+    contactName: '周振华',
     contactPhone: '13900009922',
+    contactPosition: '行政总监',
     building: 'A座',
     floor: '12层',
-    roomNumbers: ['1205', '1206'],
+    room: '1205-1206',
     area: 486,
     industry: '企业服务',
     intendedUse: '总部办公室（含会议室+接待区+开放办公区）',
@@ -414,10 +416,10 @@ export const MOCK_RECORDS: LeaseRecord[] = [
     },
     decoration: {
       requirements: [
-        { name: '吊顶重装', detail: '矿棉板换石膏板吊顶，嵌入式射灯72套', required: true },
-        { name: '开放工位', detail: '60组屏风工位 + 20寸显示器支架60个', required: true },
-        { name: '会议室隔断', detail: '玻璃隔断2间（6人/10人），含电动投影幕', required: true },
-        { name: '前台形象墙', detail: '拉丝不锈钢+亚克力LOGO字，接待台1组', required: true }
+        '吊顶重装：矿棉板换石膏板吊顶，嵌入式射灯72套',
+        '开放工位：60组屏风工位 + 20寸显示器支架60个',
+        '会议室隔断：玻璃隔断2间（6人/10人），含电动投影幕',
+        '前台形象墙：拉丝不锈钢+亚克力LOGO字，接待台1组'
       ],
       risks: []
     },

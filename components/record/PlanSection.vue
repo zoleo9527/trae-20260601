@@ -7,9 +7,9 @@
           方案状态：
           <span
             class="ml-1 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium"
-            :class="planBadgeClass"
+            :class="planBadge.cls"
           >
-            {{ planStatusLabel }}
+            {{ planBadge.label }}
           </span>
         </div>
         <div class="h-4 w-px bg-gray-200 mx-1"></div>
@@ -36,6 +36,9 @@
             ✓ 方案已通过
             <span v-if="planApprovedTime" class="text-emerald-500 opacity-80">· {{ planApprovedTime }}</span>
           </span>
+          <button v-if="userRole === 'supervisor' && record.currentStatus === 'plan_approved'" @click="$emit('action', 'goto-contract-submit')" class="ml-2 px-3 py-1.5 text-xs rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 font-medium">
+            起草合同 →
+          </button>
         </template>
       </div>
     </div>
@@ -103,7 +106,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import type { LeaseRecord } from '~/types/lease'
-import { getStatusMeta } from '~/utils/constants'
+import { getStageBadge } from '~/utils/constants'
 import { useLeaseStore } from '~/stores/lease'
 
 const props = defineProps<{ record: LeaseRecord }>()
@@ -122,22 +125,7 @@ const monthlyTotal = computed(() => {
   return Math.round(r * a).toLocaleString()
 })
 
-const planBadgeClass = computed(() => {
-  const s = props.record.currentStatus
-  if (s === 'plan_pending') return 'bg-amber-50 text-amber-700'
-  if (s === 'plan_rejected') return 'bg-red-50 text-red-700'
-  if (s === 'plan_approved') return 'bg-sky-50 text-sky-700'
-  if (['contract_pending', 'contract_approved', 'contract_rejected', 'decoration_pending', 'decoration_approved', 'completed'].includes(s))
-    return 'bg-emerald-50 text-emerald-700'
-  return 'bg-gray-100 text-gray-600'
-})
-const planStatusLabel = computed(() => {
-  const s = props.record.currentStatus
-  if (s.startsWith('plan_')) return s === 'plan_approved' ? '已通过·待起草合同' : getStatusMeta(s as any).label
-  if (s.startsWith('contract_') || s.startsWith('decoration_') || s === 'completed')
-    return '已通过·已流转合同'
-  return '未提交'
-})
+const planBadge = computed(() => getStageBadge('plan', props.record.currentStatus))
 const planApprovedTime = computed(() => {
   const h = props.record.statusHistory.find(x => x.toStatus === 'plan_approved')
   return h ? formatShort(h.timestamp) : ''

@@ -174,7 +174,7 @@
 
           <div class="p-6 space-y-6">
             <template v-if="activeTab === 'plan'">
-              <PlanSection :record="record" @action="showPlanAction = $event" />
+              <PlanSection :record="record" @action="handlePlanAction" />
 
               <div v-if="showPlanAction" class="bg-gray-50 border border-gray-200 rounded-xl p-5 mt-4">
                 <PlanActionForm
@@ -304,6 +304,15 @@ const showDecoAction = ref<string | null>(null)
 const newSupplement = ref('')
 
 const roleLabel = getRoleLabel
+
+function handlePlanAction(mode: string) {
+  if (mode === 'goto-contract-submit') {
+    activeTab.value = 'contract'
+    showContractAction.value = 'submit'
+  } else {
+    showPlanAction.value = mode
+  }
+}
 
 watch(record, r => {
   if (!r) return

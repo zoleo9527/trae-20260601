@@ -24,7 +24,7 @@ export const useLeaseStore = defineStore('lease', () => {
     }
     if (role === 'supervisor') {
       return records.value.filter(r =>
-        ['lead_created', 'lead_following', 'plan_rejected', 'contract_rejected'].includes(r.currentStatus)
+        ['lead_created', 'lead_following', 'plan_rejected', 'plan_approved', 'contract_rejected'].includes(r.currentStatus)
         || r.createUser.id === currentUserId.value
       )
     }

@@ -63,3 +63,56 @@ export function getRoleLabel(role: string) {
   }
   return map[role] || role
 }
+
+export type StageKey = 'plan' | 'contract' | 'decoration'
+export interface StageBadge {
+  label: string
+  cls: string
+}
+
+const STAGE_PLAN: Partial<Record<LeaseStatus, StageBadge>> = {
+  lead_created: { label: '未提交', cls: 'bg-gray-100 text-gray-600' },
+  lead_following: { label: '未提交', cls: 'bg-gray-100 text-gray-600' },
+  plan_pending: { label: '租赁方案待审批', cls: 'bg-amber-50 text-amber-700' },
+  plan_rejected: { label: '租赁方案已退回', cls: 'bg-red-50 text-red-700' },
+  plan_approved: { label: '已通过·待起草合同', cls: 'bg-sky-50 text-sky-700' },
+  contract_pending: { label: '已通过·已流转合同', cls: 'bg-emerald-50 text-emerald-700' },
+  contract_rejected: { label: '已通过·已流转合同', cls: 'bg-emerald-50 text-emerald-700' },
+  contract_approved: { label: '已通过·已流转合同', cls: 'bg-emerald-50 text-emerald-700' },
+  decoration_pending: { label: '已通过·已流转合同', cls: 'bg-emerald-50 text-emerald-700' },
+  decoration_approved: { label: '已通过·已流转合同', cls: 'bg-emerald-50 text-emerald-700' },
+  completed: { label: '已通过·已流转合同', cls: 'bg-emerald-50 text-emerald-700' }
+}
+
+const STAGE_CONTRACT: Partial<Record<LeaseStatus, StageBadge>> = {
+  lead_created: { label: '待启动', cls: 'bg-gray-100 text-gray-500' },
+  lead_following: { label: '待启动', cls: 'bg-gray-100 text-gray-500' },
+  plan_pending: { label: '方案阶段', cls: 'bg-gray-100 text-gray-500' },
+  plan_rejected: { label: '方案阶段', cls: 'bg-gray-100 text-gray-500' },
+  plan_approved: { label: '待提交合同', cls: 'bg-sky-50 text-sky-700' },
+  contract_pending: { label: '合同审批中', cls: 'bg-amber-50 text-amber-700' },
+  contract_rejected: { label: '合同已退回', cls: 'bg-red-50 text-red-700' },
+  contract_approved: { label: '合同已签', cls: 'bg-emerald-50 text-emerald-700' },
+  decoration_pending: { label: '已签订·已流转装修审批', cls: 'bg-sky-50 text-sky-700' },
+  decoration_approved: { label: '已签订', cls: 'bg-emerald-50 text-emerald-700' },
+  completed: { label: '已签订', cls: 'bg-emerald-50 text-emerald-700' }
+}
+
+const STAGE_DECORATION: Partial<Record<LeaseStatus, StageBadge>> = {
+  lead_created: { label: '未启动', cls: 'bg-gray-100 text-gray-500' },
+  lead_following: { label: '未启动', cls: 'bg-gray-100 text-gray-500' },
+  plan_pending: { label: '未启动', cls: 'bg-gray-100 text-gray-500' },
+  plan_rejected: { label: '未启动', cls: 'bg-gray-100 text-gray-500' },
+  plan_approved: { label: '未启动', cls: 'bg-gray-100 text-gray-500' },
+  contract_pending: { label: '未启动', cls: 'bg-gray-100 text-gray-500' },
+  contract_rejected: { label: '未启动', cls: 'bg-gray-100 text-gray-500' },
+  contract_approved: { label: '待提交装修申请', cls: 'bg-sky-50 text-sky-700' },
+  decoration_pending: { label: '装修进场待审批', cls: 'bg-amber-50 text-amber-700' },
+  decoration_approved: { label: '装修进场许可', cls: 'bg-emerald-50 text-emerald-700' },
+  completed: { label: '已入驻', cls: 'bg-purple-50 text-purple-700' }
+}
+
+export function getStageBadge(stage: StageKey, status: LeaseStatus): StageBadge {
+  const map = stage === 'plan' ? STAGE_PLAN : stage === 'contract' ? STAGE_CONTRACT : STAGE_DECORATION
+  return map[status] || { label: '待启动', cls: 'bg-gray-100 text-gray-500' }
+}

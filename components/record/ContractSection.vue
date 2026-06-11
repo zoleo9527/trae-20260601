@@ -7,9 +7,9 @@
           合同状态：
           <span
             class="ml-1 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium"
-            :class="contractBadgeClass"
+            :class="contractBadge.cls"
           >
-            {{ contractStatusLabel }}
+            {{ contractBadge.label }}
           </span>
         </div>
         <div class="h-4 w-px bg-gray-200 mx-1"></div>
@@ -132,7 +132,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import type { LeaseRecord } from '~/types/lease'
-import { getStatusMeta } from '~/utils/constants'
+import { getStageBadge } from '~/utils/constants'
 import { useLeaseStore } from '~/stores/lease'
 
 const props = defineProps<{ record: LeaseRecord }>()
@@ -141,25 +141,7 @@ defineEmits<{ (e: 'action', mode: string): void }>()
 const store = useLeaseStore()
 const userRole = computed(() => store.currentUser.role)
 
-const contractBadgeClass = computed(() => {
-  const s = props.record.currentStatus
-  if (s === 'contract_pending') return 'bg-amber-50 text-amber-700'
-  if (s === 'contract_rejected') return 'bg-red-50 text-red-700'
-  if (s === 'plan_approved') return 'bg-sky-50 text-sky-700'
-  if (s === 'decoration_pending') return 'bg-sky-50 text-sky-700'
-  if (['contract_approved', 'decoration_approved', 'completed'].includes(s))
-    return 'bg-emerald-50 text-emerald-700'
-  return 'bg-gray-100 text-gray-500'
-})
-const contractStatusLabel = computed(() => {
-  const s = props.record.currentStatus
-  if (s === 'plan_approved') return '待提交合同'
-  if (s === 'contract_pending' || s === 'contract_rejected' || s === 'contract_approved') return getStatusMeta(s as any).label
-  if (s === 'decoration_pending') return '已签订·已流转装修审批'
-  if (s === 'decoration_approved' || s === 'completed') return '已签订'
-  if (s.startsWith('plan_')) return '方案阶段'
-  return '待启动'
-})
+const contractBadge = computed(() => getStageBadge('contract', props.record.currentStatus))
 const contractApprovedTime = computed(() => {
   const h = props.record.statusHistory.find(x => x.toStatus === 'contract_approved')
   return h ? formatShort(h.timestamp) : ''

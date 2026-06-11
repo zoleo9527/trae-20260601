@@ -30,7 +30,7 @@ export { requestIdleCallback, cancelIdleCallback } from '#app/compat/idle-callba
 export { setInterval } from '#app/compat/interval';
 export { definePageMeta } from '../node_modules/nuxt/dist/pages/runtime/composables';
 export { defineLazyHydrationComponent } from '#app/composables/lazy-hydration';
-export { USERS, STATUS_OPTIONS, getStatusMeta, getStatusLabel, getRoleLabel } from '../utils/constants';
+export { USERS, STATUS_OPTIONS, getStatusMeta, getStatusLabel, getRoleLabel, getStageBadge, StageKey, StageBadge } from '../utils/constants';
 export { defineShortcuts } from '../node_modules/@nuxt/ui/dist/runtime/composables/defineShortcuts';
 export { useProvideButtonGroup, useInjectButtonGroup } from '../node_modules/@nuxt/ui/dist/runtime/composables/useButtonGroup';
 export { useCarouselScroll } from '../node_modules/@nuxt/ui/dist/runtime/composables/useCarouselScroll';

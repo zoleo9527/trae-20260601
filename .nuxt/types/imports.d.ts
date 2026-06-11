@@ -37,6 +37,7 @@ declare global {
   const getCurrentScope: typeof import('vue').getCurrentScope
   const getRoleLabel: typeof import('../../utils/constants').getRoleLabel
   const getRouteRules: typeof import('../../node_modules/nuxt/dist/app/composables/manifest').getRouteRules
+  const getStageBadge: typeof import('../../utils/constants').getStageBadge
   const getStatusLabel: typeof import('../../utils/constants').getStatusLabel
   const getStatusMeta: typeof import('../../utils/constants').getStatusMeta
   const h: typeof import('vue').h
@@ -222,6 +223,9 @@ declare global {
   // @ts-ignore
   export type { Component, ComponentPublicInstance, ComputedRef, DirectiveBinding, ExtractDefaultPropTypes, ExtractPropTypes, ExtractPublicPropTypes, InjectionKey, PropType, Ref, MaybeRef, MaybeRefOrGetter, VNode, WritableComputedRef } from 'vue'
   import('vue')
+  // @ts-ignore
+  export type { StageKey, StageBadge } from '../../utils/constants'
+  import('../../utils/constants')
 }
 // for vue template auto import
 import { UnwrapRef } from 'vue'
@@ -263,6 +267,7 @@ declare module 'vue' {
     readonly getCurrentScope: UnwrapRef<typeof import('vue')['getCurrentScope']>
     readonly getRoleLabel: UnwrapRef<typeof import('../../utils/constants')['getRoleLabel']>
     readonly getRouteRules: UnwrapRef<typeof import('../../node_modules/nuxt/dist/app/composables/manifest')['getRouteRules']>
+    readonly getStageBadge: UnwrapRef<typeof import('../../utils/constants')['getStageBadge']>
     readonly getStatusLabel: UnwrapRef<typeof import('../../utils/constants')['getStatusLabel']>
     readonly getStatusMeta: UnwrapRef<typeof import('../../utils/constants')['getStatusMeta']>
     readonly h: UnwrapRef<typeof import('vue')['h']>
