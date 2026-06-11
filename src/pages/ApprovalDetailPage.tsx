@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import { ArrowLeft, MapPin, Building2, User, Phone, Calendar } from 'lucide-react'
+import { ArrowLeft, MapPin, Building2, User, Phone, Calendar, AlertTriangle } from 'lucide-react'
 import { useMallStore } from '../store'
-import { APPROVAL_STATUS_MAP } from '../types'
+import { APPROVAL_STATUS_MAP, COMPLAINT_STATUS_MAP } from '../types'
 import Timeline from '../components/Timeline'
 import ActionModal from '../components/ActionModal'
 
@@ -35,6 +35,7 @@ export default function ApprovalDetailPage() {
 
   const approval = currentApproval
   const statusInfo = APPROVAL_STATUS_MAP[approval.status]
+  const complaints = approval.complaints || []
 
   const handleApprove = () => {
     setModalConfig({
@@ -43,9 +44,10 @@ export default function ApprovalDetailPage() {
       fields: [
         { key: 'operator', label: '审批人', defaultValue: '工程部' },
         { key: 'remark', label: '审批意见', type: 'textarea', placeholder: '审批通过' },
+        { key: 'handover', label: '交接备注', type: 'textarea', placeholder: '审批通过后需营运专员跟进的事项' },
       ],
       onConfirm: async (values) => {
-        await approveVenue(approval.id, values.operator || '工程部', values.remark || '审批通过')
+        await approveVenue(approval.id, values.operator || '工程部', values.remark || '审批通过', values.handover)
         await fetchApprovalDetail(approval.id)
       },
     })
@@ -58,9 +60,10 @@ export default function ApprovalDetailPage() {
       fields: [
         { key: 'operator', label: '审批人', defaultValue: '工程部' },
         { key: 'remark', label: '退回原因', type: 'textarea', placeholder: '请说明退回原因' },
+        { key: 'handover', label: '交接备注', type: 'textarea', placeholder: '退回后需营运专员/租户关注的要点' },
       ],
       onConfirm: async (values) => {
-        await rejectVenue(approval.id, values.operator || '工程部', values.remark || '审批退回')
+        await rejectVenue(approval.id, values.operator || '工程部', values.remark || '审批退回', values.handover)
         await fetchApprovalDetail(approval.id)
       },
     })
@@ -73,9 +76,10 @@ export default function ApprovalDetailPage() {
       fields: [
         { key: 'operator', label: '操作人', defaultValue: '营运专员' },
         { key: 'remark', label: '补充说明', type: 'textarea', placeholder: '补充意见后重新提交审批' },
+        { key: 'handover', label: '交接备注', type: 'textarea', placeholder: '重提后需工程部关注的事项' },
       ],
       onConfirm: async (values) => {
-        await supplementApproval(approval.id, values.operator || '营运专员', values.remark || '补充意见后重新提交审批')
+        await supplementApproval(approval.id, values.operator || '营运专员', values.remark || '补充意见后重新提交审批', values.handover)
         await fetchApprovalDetail(approval.id)
       },
     })
@@ -155,6 +159,41 @@ export default function ApprovalDetailPage() {
               </Link>
             </div>
           </div>
+
+          {complaints.length > 0 && (
+            <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-6">
+              <div className="flex items-center gap-2 mb-4">
+                <AlertTriangle size={16} className="text-amber-500" />
+                <h2 className="text-sm font-semibold text-slate-700">租户近期投诉</h2>
+                <span className="text-xs text-slate-400">（{approval.tenantName}）</span>
+              </div>
+              <div className="space-y-3">
+                {complaints.map((c) => {
+                  const cs = COMPLAINT_STATUS_MAP[c.status]
+                  return (
+                    <div key={c.id} className="px-3 py-2.5 bg-slate-50/80 rounded-lg border border-slate-100">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-sm font-medium text-slate-700">{c.title}</span>
+                        <span className={`text-xs px-1.5 py-0.5 rounded-full border ${cs.bg} ${cs.color}`}>
+                          {cs.label}
+                        </span>
+                        {c.category && (
+                          <span className="text-xs px-1.5 py-0.5 rounded bg-slate-100 text-slate-500">{c.category}</span>
+                        )}
+                      </div>
+                      {c.content && (
+                        <p className="text-xs text-slate-500 line-clamp-2">{c.content}</p>
+                      )}
+                      {c.result && (
+                        <p className="text-xs text-emerald-600 mt-1">处理结果：{c.result}</p>
+                      )}
+                      <p className="text-xs text-slate-300 mt-1">{c.createdAt}</p>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
 
           <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-6">
             <h2 className="text-sm font-semibold text-slate-700 mb-4">审批流转记录</h2>

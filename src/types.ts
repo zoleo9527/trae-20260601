@@ -1,5 +1,6 @@
 export type ApplicationStatus = 'pending' | 'processing' | 'returned' | 'supplemented' | 'closed'
 export type ApprovalStatus = 'pending' | 'approved' | 'rejected'
+export type ComplaintStatus = 'open' | 'processing' | 'resolved'
 
 export interface Tenant {
   id: number
@@ -24,6 +25,7 @@ export interface ActivityApplication {
   tenantName?: string
   tenantShopNo?: string
   logs?: ApplicationLog[]
+  complaints?: Complaint[]
 }
 
 export interface VenueApproval {
@@ -42,6 +44,7 @@ export interface VenueApproval {
   phone?: string
   category?: string
   logs?: ApprovalLog[]
+  complaints?: Complaint[]
 }
 
 export interface ApplicationLog {
@@ -50,6 +53,7 @@ export interface ApplicationLog {
   action: 'created' | 'processed' | 'returned' | 'supplemented' | 'closed'
   operator: string
   remark: string
+  handover: string
   createdAt: string
 }
 
@@ -57,6 +61,30 @@ export interface ApprovalLog {
   id: number
   approvalId: number
   action: 'created' | 'approved' | 'rejected' | 'supplemented'
+  operator: string
+  remark: string
+  handover: string
+  createdAt: string
+}
+
+export interface Complaint {
+  id: number
+  tenantId: number
+  title: string
+  content: string
+  category: string
+  status: ComplaintStatus
+  result: string
+  createdAt: string
+  updatedAt: string
+  tenantName?: string
+  tenantShopNo?: string
+}
+
+export interface ComplaintLog {
+  id: number
+  complaintId: number
+  action: 'created' | 'processed' | 'resolved'
   operator: string
   remark: string
   createdAt: string
@@ -74,6 +102,12 @@ export const APPROVAL_STATUS_MAP: Record<ApprovalStatus, { label: string; color:
   pending: { label: '待审批', color: 'text-amber-700', bg: 'bg-amber-50 border-amber-200' },
   approved: { label: '已通过', color: 'text-emerald-700', bg: 'bg-emerald-50 border-emerald-200' },
   rejected: { label: '已退回', color: 'text-red-700', bg: 'bg-red-50 border-red-200' },
+}
+
+export const COMPLAINT_STATUS_MAP: Record<ComplaintStatus, { label: string; color: string; bg: string }> = {
+  open: { label: '待处理', color: 'text-amber-700', bg: 'bg-amber-50 border-amber-200' },
+  processing: { label: '处理中', color: 'text-blue-700', bg: 'bg-blue-50 border-blue-200' },
+  resolved: { label: '已解决', color: 'text-emerald-700', bg: 'bg-emerald-50 border-emerald-200' },
 }
 
 export const ACTION_LABEL_MAP: Record<string, string> = {

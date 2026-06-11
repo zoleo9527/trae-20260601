@@ -11,6 +11,7 @@ import { initDb } from './db.js'
 import tenantRoutes from './routes/tenants.js'
 import applicationRoutes from './routes/applications.js'
 import approvalRoutes from './routes/approvals.js'
+import complaintRoutes from './routes/complaints.js'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -28,6 +29,7 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }))
 app.use('/api/tenants', tenantRoutes)
 app.use('/api/applications', applicationRoutes)
 app.use('/api/approvals', approvalRoutes)
+app.use('/api/complaints', complaintRoutes)
 
 app.use(
   '/api/health',

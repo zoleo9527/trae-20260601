@@ -1,5 +1,6 @@
 export type ApplicationStatus = 'pending' | 'processing' | 'returned' | 'supplemented' | 'closed'
 export type ApprovalStatus = 'pending' | 'approved' | 'rejected'
+export type ComplaintStatus = 'open' | 'processing' | 'resolved'
 
 export interface Tenant {
   id: number
@@ -36,12 +37,27 @@ export interface VenueApproval {
   tenantName?: string
 }
 
+export interface Complaint {
+  id: number
+  tenantId: number
+  title: string
+  content: string
+  category: string
+  status: ComplaintStatus
+  result: string
+  createdAt: string
+  updatedAt: string
+  tenantName?: string
+  tenantShopNo?: string
+}
+
 export interface ApplicationLog {
   id: number
   applicationId: number
   action: 'created' | 'processed' | 'returned' | 'supplemented' | 'closed'
   operator: string
   remark: string
+  handover: string
   createdAt: string
 }
 
@@ -49,6 +65,16 @@ export interface ApprovalLog {
   id: number
   approvalId: number
   action: 'created' | 'approved' | 'rejected' | 'supplemented'
+  operator: string
+  remark: string
+  handover: string
+  createdAt: string
+}
+
+export interface ComplaintLog {
+  id: number
+  complaintId: number
+  action: 'created' | 'processed' | 'resolved'
   operator: string
   remark: string
   createdAt: string

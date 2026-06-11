@@ -1,6 +1,6 @@
 import { Router, type Request, type Response } from 'express'
 import { getDb, clearApplicationData } from '../db.js'
-import type { VenueApproval, ApprovalLog } from '../types.js'
+import type { VenueApproval, ApprovalLog, Complaint } from '../types.js'
 
 const router = Router()
 
@@ -50,13 +50,31 @@ router.get('/:id', (req: Request, res: Response): void => {
     'SELECT * FROM approval_logs WHERE approvalId = ? ORDER BY createdAt ASC'
   ).all(id) as ApprovalLog[]
 
-  res.json({ success: true, data: { ...approval, logs } })
+  const tenantIdRow = db.prepare(`
+    SELECT a.tenantId FROM venue_approvals v
+    LEFT JOIN activity_applications a ON v.applicationId = a.id
+    WHERE v.id = ?
+  `).get(id) as { tenantId: number } | undefined
+
+  let complaints: Complaint[] = []
+  if (tenantIdRow) {
+    complaints = db.prepare(`
+      SELECT c.*, t.name as tenantName, t.shopNo as tenantShopNo
+      FROM complaints c
+      LEFT JOIN tenants t ON c.tenantId = t.id
+      WHERE c.tenantId = ?
+      ORDER BY c.createdAt DESC
+      LIMIT 5
+    `).all(tenantIdRow.tenantId) as Complaint[]
+  }
+
+  res.json({ success: true, data: { ...approval, logs, complaints } })
 })
 
 router.put('/:id/approve', (req: Request, res: Response): void => {
   const db = getDb()
   const id = Number(req.params.id)
-  const { operator, remark } = req.body
+  const { operator, remark, handover } = req.body
 
   const approval = db.prepare('SELECT * FROM venue_approvals WHERE id = ?').get(id) as VenueApproval | undefined
   if (!approval) {
@@ -70,9 +88,9 @@ router.put('/:id/approve', (req: Request, res: Response): void => {
 
   db.prepare("UPDATE venue_approvals SET status = 'approved', updatedAt = datetime('now','localtime') WHERE id = ?").run(id)
   db.prepare(`
-    INSERT INTO approval_logs (approvalId, action, operator, remark)
-    VALUES (?, 'approved', ?, ?)
-  `).run(id, operator || '工程部', remark || '审批通过')
+    INSERT INTO approval_logs (approvalId, action, operator, remark, handover)
+    VALUES (?, 'approved', ?, ?, ?)
+  `).run(id, operator || '工程部', remark || '审批通过', handover || '')
 
   res.json({ success: true, data: { ...approval, status: 'approved' } })
 })
@@ -80,7 +98,7 @@ router.put('/:id/approve', (req: Request, res: Response): void => {
 router.put('/:id/reject', (req: Request, res: Response): void => {
   const db = getDb()
   const id = Number(req.params.id)
-  const { operator, remark } = req.body
+  const { operator, remark, handover } = req.body
 
   const approval = db.prepare('SELECT * FROM venue_approvals WHERE id = ?').get(id) as VenueApproval | undefined
   if (!approval) {
@@ -94,17 +112,17 @@ router.put('/:id/reject', (req: Request, res: Response): void => {
 
   db.prepare("UPDATE venue_approvals SET status = 'rejected', updatedAt = datetime('now','localtime') WHERE id = ?").run(id)
   db.prepare(`
-    INSERT INTO approval_logs (approvalId, action, operator, remark)
-    VALUES (?, 'rejected', ?, ?)
-  `).run(id, operator || '工程部', remark || '审批退回')
+    INSERT INTO approval_logs (approvalId, action, operator, remark, handover)
+    VALUES (?, 'rejected', ?, ?, ?)
+  `).run(id, operator || '工程部', remark || '审批退回', handover || '')
 
   const app = db.prepare('SELECT * FROM activity_applications WHERE approvalId = ?').get(id) as { id: number } | undefined
   if (app) {
     db.prepare("UPDATE activity_applications SET status = 'returned', updatedAt = datetime('now','localtime') WHERE id = ?").run(app.id)
     db.prepare(`
-      INSERT INTO application_logs (applicationId, action, operator, remark)
-      VALUES (?, 'returned', ?, ?)
-    `).run(app.id, operator || '工程部', remark || '场地审批退回')
+      INSERT INTO application_logs (applicationId, action, operator, remark, handover)
+      VALUES (?, 'returned', ?, ?, ?)
+    `).run(app.id, operator || '工程部', remark || '场地审批退回', handover || '')
   }
 
   res.json({ success: true, data: { ...approval, status: 'rejected' } })
@@ -113,7 +131,7 @@ router.put('/:id/reject', (req: Request, res: Response): void => {
 router.put('/:id/supplement', (req: Request, res: Response): void => {
   const db = getDb()
   const id = Number(req.params.id)
-  const { operator, remark } = req.body
+  const { operator, remark, handover } = req.body
 
   const approval = db.prepare('SELECT * FROM venue_approvals WHERE id = ?').get(id) as VenueApproval | undefined
   if (!approval) {
@@ -127,17 +145,17 @@ router.put('/:id/supplement', (req: Request, res: Response): void => {
 
   db.prepare("UPDATE venue_approvals SET status = 'pending', updatedAt = datetime('now','localtime') WHERE id = ?").run(id)
   db.prepare(`
-    INSERT INTO approval_logs (approvalId, action, operator, remark)
-    VALUES (?, 'supplemented', ?, ?)
-  `).run(id, operator || '营运专员', remark || '补充意见后重新提交')
+    INSERT INTO approval_logs (approvalId, action, operator, remark, handover)
+    VALUES (?, 'supplemented', ?, ?, ?)
+  `).run(id, operator || '营运专员', remark || '补充意见后重新提交', handover || '')
 
   const app = db.prepare('SELECT * FROM activity_applications WHERE approvalId = ?').get(id) as { id: number } | undefined
   if (app) {
     db.prepare("UPDATE activity_applications SET status = 'supplemented', updatedAt = datetime('now','localtime') WHERE id = ?").run(app.id)
     db.prepare(`
-      INSERT INTO application_logs (applicationId, action, operator, remark)
-      VALUES (?, 'supplemented', ?, ?)
-    `).run(app.id, operator || '营运专员', remark || '补充资料重新提交审批')
+      INSERT INTO application_logs (applicationId, action, operator, remark, handover)
+      VALUES (?, 'supplemented', ?, ?, ?)
+    `).run(app.id, operator || '营运专员', remark || '补充资料重新提交审批', handover || '')
   }
 
   res.json({ success: true, data: { ...approval, status: 'pending' } })

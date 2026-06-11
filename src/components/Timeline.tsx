@@ -41,6 +41,12 @@ export default function Timeline({ logs }: TimelineProps) {
             {log.remark && (
               <p className="text-sm text-slate-600 mt-1">{log.remark}</p>
             )}
+            {log.handover && (
+              <div className="mt-1.5 px-2.5 py-1.5 bg-amber-50 border border-amber-100 rounded-md">
+                <span className="text-xs text-amber-600 font-medium">交接备注：</span>
+                <span className="text-xs text-amber-800">{log.handover}</span>
+              </div>
+            )}
           </div>
         </div>
       ))}

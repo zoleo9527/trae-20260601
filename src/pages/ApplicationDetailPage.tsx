@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import { ArrowLeft, User, MapPin, Calendar, Building2, Phone } from 'lucide-react'
+import { ArrowLeft, User, MapPin, Calendar, Building2, AlertTriangle } from 'lucide-react'
 import { useMallStore } from '../store'
-import { APPLICATION_STATUS_MAP } from '../types'
+import { APPLICATION_STATUS_MAP, COMPLAINT_STATUS_MAP } from '../types'
 import Timeline from '../components/Timeline'
 import ActionModal from '../components/ActionModal'
 
@@ -36,6 +36,7 @@ export default function ApplicationDetailPage() {
 
   const app = currentApplication
   const statusInfo = APPLICATION_STATUS_MAP[app.status]
+  const complaints = app.complaints || []
 
   const handleProcess = () => {
     setModalConfig({
@@ -44,9 +45,10 @@ export default function ApplicationDetailPage() {
       fields: [
         { key: 'operator', label: '操作人', defaultValue: '客服台' },
         { key: 'remark', label: '受理备注', type: 'textarea', placeholder: '已受理，转交工程部审批' },
+        { key: 'handover', label: '交接备注', type: 'textarea', placeholder: '转交时需说明的注意事项' },
       ],
       onConfirm: async (values) => {
-        await processApplication(app.id, values.operator || '客服台', values.remark || '已受理，转交工程部审批')
+        await processApplication(app.id, values.operator || '客服台', values.remark || '已受理，转交工程部审批', values.handover)
         await fetchApplicationDetail(app.id)
       },
     })
@@ -59,9 +61,10 @@ export default function ApplicationDetailPage() {
       fields: [
         { key: 'operator', label: '操作人', defaultValue: '工程部' },
         { key: 'remark', label: '退回原因', type: 'textarea', placeholder: '请说明退回原因' },
+        { key: 'handover', label: '交接备注', type: 'textarea', placeholder: '退回后需营运专员关注的要点' },
       ],
       onConfirm: async (values) => {
-        await returnApplication(app.id, values.operator || '工程部', values.remark || '审批退回，需补充资料')
+        await returnApplication(app.id, values.operator || '工程部', values.remark || '审批退回，需补充资料', values.handover)
         await fetchApplicationDetail(app.id)
       },
     })
@@ -75,9 +78,10 @@ export default function ApplicationDetailPage() {
         { key: 'operator', label: '操作人', defaultValue: '营运专员' },
         { key: 'description', label: '补充说明', type: 'textarea', placeholder: '请补充活动相关资料', defaultValue: app.description },
         { key: 'remark', label: '备注', type: 'textarea', placeholder: '补充资料后重新提交' },
+        { key: 'handover', label: '交接备注', type: 'textarea', placeholder: '重新提交后需客服台/工程部关注的事项' },
       ],
       onConfirm: async (values) => {
-        await supplementApplication(app.id, values.operator || '营运专员', values.remark || '已补充资料，重新提交', values.description)
+        await supplementApplication(app.id, values.operator || '营运专员', values.remark || '已补充资料，重新提交', values.description, values.handover)
         await fetchApplicationDetail(app.id)
       },
     })
@@ -90,9 +94,10 @@ export default function ApplicationDetailPage() {
       fields: [
         { key: 'operator', label: '操作人', defaultValue: '营运专员' },
         { key: 'remark', label: '关闭原因', type: 'textarea', placeholder: '请说明关闭原因' },
+        { key: 'handover', label: '交接备注', type: 'textarea', placeholder: '关闭后相关方需知晓的事项' },
       ],
       onConfirm: async (values) => {
-        await closeApplication(app.id, values.operator || '营运专员', values.remark || '关闭申请')
+        await closeApplication(app.id, values.operator || '营运专员', values.remark || '关闭申请', values.handover)
         await fetchApplicationDetail(app.id)
       },
     })
@@ -174,6 +179,41 @@ export default function ApplicationDetailPage() {
               </div>
             )}
           </div>
+
+          {complaints.length > 0 && (
+            <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-6">
+              <div className="flex items-center gap-2 mb-4">
+                <AlertTriangle size={16} className="text-amber-500" />
+                <h2 className="text-sm font-semibold text-slate-700">租户近期投诉</h2>
+                <span className="text-xs text-slate-400">（{app.tenantName}）</span>
+              </div>
+              <div className="space-y-3">
+                {complaints.map((c) => {
+                  const cs = COMPLAINT_STATUS_MAP[c.status]
+                  return (
+                    <div key={c.id} className="px-3 py-2.5 bg-slate-50/80 rounded-lg border border-slate-100">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-sm font-medium text-slate-700">{c.title}</span>
+                        <span className={`text-xs px-1.5 py-0.5 rounded-full border ${cs.bg} ${cs.color}`}>
+                          {cs.label}
+                        </span>
+                        {c.category && (
+                          <span className="text-xs px-1.5 py-0.5 rounded bg-slate-100 text-slate-500">{c.category}</span>
+                        )}
+                      </div>
+                      {c.content && (
+                        <p className="text-xs text-slate-500 line-clamp-2">{c.content}</p>
+                      )}
+                      {c.result && (
+                        <p className="text-xs text-emerald-600 mt-1">处理结果：{c.result}</p>
+                      )}
+                      <p className="text-xs text-slate-300 mt-1">{c.createdAt}</p>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
 
           <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-6">
             <h2 className="text-sm font-semibold text-slate-700 mb-4">流转记录</h2>

@@ -1,6 +1,6 @@
 import { Router, type Request, type Response } from 'express'
 import { getDb, clearApplicationData } from '../db.js'
-import type { ActivityApplication, ApplicationLog } from '../types.js'
+import type { ActivityApplication, ApplicationLog, Complaint } from '../types.js'
 
 const router = Router()
 
@@ -51,7 +51,16 @@ router.get('/:id', (req: Request, res: Response): void => {
     'SELECT * FROM application_logs WHERE applicationId = ? ORDER BY createdAt ASC'
   ).all(id) as ApplicationLog[]
 
-  res.json({ success: true, data: { ...app, logs } })
+  const complaints = db.prepare(`
+    SELECT c.*, t.name as tenantName, t.shopNo as tenantShopNo
+    FROM complaints c
+    LEFT JOIN tenants t ON c.tenantId = t.id
+    WHERE c.tenantId = ?
+    ORDER BY c.createdAt DESC
+    LIMIT 5
+  `).all(app.tenantId) as Complaint[]
+
+  res.json({ success: true, data: { ...app, logs, complaints } })
 })
 
 router.post('/', (req: Request, res: Response): void => {
@@ -102,7 +111,7 @@ router.post('/', (req: Request, res: Response): void => {
 router.put('/:id/process', (req: Request, res: Response): void => {
   const db = getDb()
   const id = Number(req.params.id)
-  const { operator, remark } = req.body
+  const { operator, remark, handover } = req.body
 
   const app = db.prepare('SELECT * FROM activity_applications WHERE id = ?').get(id) as ActivityApplication | undefined
   if (!app) {
@@ -116,9 +125,9 @@ router.put('/:id/process', (req: Request, res: Response): void => {
 
   db.prepare("UPDATE activity_applications SET status = 'processing', updatedAt = datetime('now','localtime') WHERE id = ?").run(id)
   db.prepare(`
-    INSERT INTO application_logs (applicationId, action, operator, remark)
-    VALUES (?, 'processed', ?, ?)
-  `).run(id, operator || '客服台', remark || '已受理，转交工程部审批')
+    INSERT INTO application_logs (applicationId, action, operator, remark, handover)
+    VALUES (?, 'processed', ?, ?, ?)
+  `).run(id, operator || '客服台', remark || '已受理，转交工程部审批', handover || '')
 
   const updated = db.prepare(`
     SELECT a.*, t.name as tenantName, t.shopNo as tenantShopNo
@@ -133,7 +142,7 @@ router.put('/:id/process', (req: Request, res: Response): void => {
 router.put('/:id/return', (req: Request, res: Response): void => {
   const db = getDb()
   const id = Number(req.params.id)
-  const { operator, remark } = req.body
+  const { operator, remark, handover } = req.body
 
   const app = db.prepare('SELECT * FROM activity_applications WHERE id = ?').get(id) as ActivityApplication | undefined
   if (!app) {
@@ -147,16 +156,16 @@ router.put('/:id/return', (req: Request, res: Response): void => {
 
   db.prepare("UPDATE activity_applications SET status = 'returned', updatedAt = datetime('now','localtime') WHERE id = ?").run(id)
   db.prepare(`
-    INSERT INTO application_logs (applicationId, action, operator, remark)
-    VALUES (?, 'returned', ?, ?)
-  `).run(id, operator || '工程部', remark || '审批退回，需补充资料')
+    INSERT INTO application_logs (applicationId, action, operator, remark, handover)
+    VALUES (?, 'returned', ?, ?, ?)
+  `).run(id, operator || '工程部', remark || '审批退回，需补充资料', handover || '')
 
   if (app.approvalId) {
     db.prepare("UPDATE venue_approvals SET status = 'rejected', updatedAt = datetime('now','localtime') WHERE id = ?").run(app.approvalId)
     db.prepare(`
-      INSERT INTO approval_logs (approvalId, action, operator, remark)
-      VALUES (?, 'rejected', ?, ?)
-    `).run(app.approvalId, operator || '工程部', remark || '审批退回')
+      INSERT INTO approval_logs (approvalId, action, operator, remark, handover)
+      VALUES (?, 'rejected', ?, ?, ?)
+    `).run(app.approvalId, operator || '工程部', remark || '审批退回', handover || '')
   }
 
   const updated = db.prepare(`
@@ -172,7 +181,7 @@ router.put('/:id/return', (req: Request, res: Response): void => {
 router.put('/:id/supplement', (req: Request, res: Response): void => {
   const db = getDb()
   const id = Number(req.params.id)
-  const { operator, remark, description } = req.body
+  const { operator, remark, description, handover } = req.body
 
   const app = db.prepare('SELECT * FROM activity_applications WHERE id = ?').get(id) as ActivityApplication | undefined
   if (!app) {
@@ -188,16 +197,16 @@ router.put('/:id/supplement', (req: Request, res: Response): void => {
     .run(description || app.description, id)
 
   db.prepare(`
-    INSERT INTO application_logs (applicationId, action, operator, remark)
-    VALUES (?, 'supplemented', ?, ?)
-  `).run(id, operator || '营运专员', remark || '已补充资料，重新提交')
+    INSERT INTO application_logs (applicationId, action, operator, remark, handover)
+    VALUES (?, 'supplemented', ?, ?, ?)
+  `).run(id, operator || '营运专员', remark || '已补充资料，重新提交', handover || '')
 
   if (app.approvalId) {
     db.prepare("UPDATE venue_approvals SET status = 'pending', updatedAt = datetime('now','localtime') WHERE id = ?").run(app.approvalId)
     db.prepare(`
-      INSERT INTO approval_logs (approvalId, action, operator, remark)
-      VALUES (?, 'supplemented', ?, ?)
-    `).run(app.approvalId, operator || '营运专员', remark || '补充资料后重新提交审批')
+      INSERT INTO approval_logs (approvalId, action, operator, remark, handover)
+      VALUES (?, 'supplemented', ?, ?, ?)
+    `).run(app.approvalId, operator || '营运专员', remark || '补充资料后重新提交审批', handover || '')
   }
 
   const updated = db.prepare(`
@@ -213,7 +222,7 @@ router.put('/:id/supplement', (req: Request, res: Response): void => {
 router.put('/:id/close', (req: Request, res: Response): void => {
   const db = getDb()
   const id = Number(req.params.id)
-  const { operator, remark } = req.body
+  const { operator, remark, handover } = req.body
 
   const app = db.prepare('SELECT * FROM activity_applications WHERE id = ?').get(id) as ActivityApplication | undefined
   if (!app) {
@@ -227,9 +236,9 @@ router.put('/:id/close', (req: Request, res: Response): void => {
 
   db.prepare("UPDATE activity_applications SET status = 'closed', updatedAt = datetime('now','localtime') WHERE id = ?").run(id)
   db.prepare(`
-    INSERT INTO application_logs (applicationId, action, operator, remark)
-    VALUES (?, 'closed', ?, ?)
-  `).run(id, operator || '营运专员', remark || '关闭申请')
+    INSERT INTO application_logs (applicationId, action, operator, remark, handover)
+    VALUES (?, 'closed', ?, ?, ?)
+  `).run(id, operator || '营运专员', remark || '关闭申请', handover || '')
 
   const updated = db.prepare(`
     SELECT a.*, t.name as tenantName, t.shopNo as tenantShopNo

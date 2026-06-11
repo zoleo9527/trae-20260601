@@ -1,10 +1,11 @@
 import { create } from 'zustand'
-import type { ActivityApplication, VenueApproval, Tenant, ApplicationStatus, ApprovalStatus } from '@/types'
+import type { ActivityApplication, VenueApproval, Tenant, Complaint, ApplicationStatus, ApprovalStatus } from '@/types'
 
 interface MallStore {
   applications: ActivityApplication[]
   approvals: VenueApproval[]
   tenants: Tenant[]
+  complaints: Complaint[]
   currentApplication: ActivityApplication | null
   currentApproval: VenueApproval | null
   loading: boolean
@@ -19,25 +20,27 @@ interface MallStore {
     description: string
     operator: string
   }) => Promise<void>
-  processApplication: (id: number, operator: string, remark: string) => Promise<void>
-  returnApplication: (id: number, operator: string, remark: string) => Promise<void>
-  supplementApplication: (id: number, operator: string, remark: string, description: string) => Promise<void>
-  closeApplication: (id: number, operator: string, remark: string) => Promise<void>
+  processApplication: (id: number, operator: string, remark: string, handover?: string) => Promise<void>
+  returnApplication: (id: number, operator: string, remark: string, handover?: string) => Promise<void>
+  supplementApplication: (id: number, operator: string, remark: string, description: string, handover?: string) => Promise<void>
+  closeApplication: (id: number, operator: string, remark: string, handover?: string) => Promise<void>
   resetApplications: () => Promise<void>
 
   fetchApprovals: (status?: ApprovalStatus) => Promise<void>
   fetchApprovalDetail: (id: number) => Promise<void>
-  approveVenue: (id: number, operator: string, remark: string) => Promise<void>
-  rejectVenue: (id: number, operator: string, remark: string) => Promise<void>
-  supplementApproval: (id: number, operator: string, remark: string) => Promise<void>
+  approveVenue: (id: number, operator: string, remark: string, handover?: string) => Promise<void>
+  rejectVenue: (id: number, operator: string, remark: string, handover?: string) => Promise<void>
+  supplementApproval: (id: number, operator: string, remark: string, handover?: string) => Promise<void>
 
   fetchTenants: () => Promise<void>
+  fetchComplaints: (tenantId?: number) => Promise<void>
 }
 
 export const useMallStore = create<MallStore>((set, get) => ({
   applications: [],
   approvals: [],
   tenants: [],
+  complaints: [],
   currentApplication: null,
   currentApproval: null,
   loading: false,
@@ -71,11 +74,11 @@ export const useMallStore = create<MallStore>((set, get) => ({
     }
   },
 
-  processApplication: async (id, operator, remark) => {
+  processApplication: async (id, operator, remark, handover) => {
     const res = await fetch(`/api/applications/${id}/process`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ operator, remark }),
+      body: JSON.stringify({ operator, remark, handover }),
     })
     const json = await res.json()
     if (json.success) {
@@ -84,11 +87,11 @@ export const useMallStore = create<MallStore>((set, get) => ({
     }
   },
 
-  returnApplication: async (id, operator, remark) => {
+  returnApplication: async (id, operator, remark, handover) => {
     const res = await fetch(`/api/applications/${id}/return`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ operator, remark }),
+      body: JSON.stringify({ operator, remark, handover }),
     })
     const json = await res.json()
     if (json.success) {
@@ -97,11 +100,11 @@ export const useMallStore = create<MallStore>((set, get) => ({
     }
   },
 
-  supplementApplication: async (id, operator, remark, description) => {
+  supplementApplication: async (id, operator, remark, description, handover) => {
     const res = await fetch(`/api/applications/${id}/supplement`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ operator, remark, description }),
+      body: JSON.stringify({ operator, remark, description, handover }),
     })
     const json = await res.json()
     if (json.success) {
@@ -110,11 +113,11 @@ export const useMallStore = create<MallStore>((set, get) => ({
     }
   },
 
-  closeApplication: async (id, operator, remark) => {
+  closeApplication: async (id, operator, remark, handover) => {
     const res = await fetch(`/api/applications/${id}/close`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ operator, remark }),
+      body: JSON.stringify({ operator, remark, handover }),
     })
     const json = await res.json()
     if (json.success) {
@@ -129,6 +132,7 @@ export const useMallStore = create<MallStore>((set, get) => ({
     set({ currentApplication: null, currentApproval: null })
     await get().fetchApplications()
     await get().fetchApprovals()
+    await get().fetchComplaints()
   },
 
   fetchApprovals: async (status?) => {
@@ -147,11 +151,11 @@ export const useMallStore = create<MallStore>((set, get) => ({
     if (json.success) set({ currentApproval: json.data, loading: false })
   },
 
-  approveVenue: async (id, operator, remark) => {
+  approveVenue: async (id, operator, remark, handover) => {
     const res = await fetch(`/api/approvals/${id}/approve`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ operator, remark }),
+      body: JSON.stringify({ operator, remark, handover }),
     })
     const json = await res.json()
     if (json.success) {
@@ -160,11 +164,11 @@ export const useMallStore = create<MallStore>((set, get) => ({
     }
   },
 
-  rejectVenue: async (id, operator, remark) => {
+  rejectVenue: async (id, operator, remark, handover) => {
     const res = await fetch(`/api/approvals/${id}/reject`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ operator, remark }),
+      body: JSON.stringify({ operator, remark, handover }),
     })
     const json = await res.json()
     if (json.success) {
@@ -173,11 +177,11 @@ export const useMallStore = create<MallStore>((set, get) => ({
     }
   },
 
-  supplementApproval: async (id, operator, remark) => {
+  supplementApproval: async (id, operator, remark, handover) => {
     const res = await fetch(`/api/approvals/${id}/supplement`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ operator, remark }),
+      body: JSON.stringify({ operator, remark, handover }),
     })
     const json = await res.json()
     if (json.success) {
@@ -190,5 +194,12 @@ export const useMallStore = create<MallStore>((set, get) => ({
     const res = await fetch('/api/tenants')
     const json = await res.json()
     if (json.success) set({ tenants: json.data })
+  },
+
+  fetchComplaints: async (tenantId?) => {
+    const url = tenantId ? `/api/complaints/tenant/${tenantId}` : '/api/complaints'
+    const res = await fetch(url)
+    const json = await res.json()
+    if (json.success) set({ complaints: json.data })
   },
 }))
