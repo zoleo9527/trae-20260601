@@ -5,7 +5,7 @@ import { db } from "~/data/store.server";
 import { useRoleStore } from "~/store/roleStore";
 import type { MaintenanceContract, RenewalStatus, Role } from "~/types";
 import {
-  RENEWAL_STATUS, INSPECTION_RATINGS, daysUntil, formatMoney, formatDate, getLatestVisibleNote } from "~/types";
+  RENEWAL_STATUS, INSPECTION_RATINGS, COOPERATION_INTENT, daysUntil, formatMoney, formatDate, getLatestVisibleNote } from "~/types";
 import { getRoleFromRequest, sanitizeContractsForRole } from "~/utils/role.server";
 
 const FILTER_STATUS: (RenewalStatus | "all")[] = [
@@ -88,6 +88,7 @@ function ContractCard({ contract, currentRole }: { contract: MaintenanceContract
   const openRisks = countOpenRisks(contract);
   const latestNote = getLatestVisibleNote(followUps, currentRole);
   const statusCfg = RENEWAL_STATUS[renewal.status];
+  const coopCfg = COOPERATION_INTENT[renewal.cooperationIntent];
   const ratingScore = latestInspection ? INSPECTION_RATINGS[latestInspection.rating].score : 0;
 
   return (
@@ -116,10 +117,16 @@ function ContractCard({ contract, currentRole }: { contract: MaintenanceContract
                 <span>{c.buildingType} · {formatArea(c.buildingArea)}</span>
               </div>
             </div>
-            <span className={`shrink-0 inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium border ${statusCfg.bg} ${statusCfg.color} ${statusCfg.border}`}>
-              <span>{statusCfg.icon}</span>
-              <span>{statusCfg.label}</span>
-            </span>
+            <div className="shrink-0 flex flex-col items-end gap-1.5">
+              <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium border ${statusCfg.bg} ${statusCfg.color} ${statusCfg.border}`}>
+                <span>{statusCfg.icon}</span>
+                <span>{statusCfg.label}</span>
+              </span>
+              <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium border ${coopCfg.bg} ${coopCfg.color} ${coopCfg.border}`}>
+                <span>{coopCfg.icon}</span>
+                <span>{coopCfg.label}</span>
+              </span>
+            </div>
           </div>
 
           <div className="mt-4 grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
@@ -157,6 +164,25 @@ function ContractCard({ contract, currentRole }: { contract: MaintenanceContract
               📞 下一次联系：{formatDate(renewal.nextContactAt)}
             </div>
           </div>
+
+          {renewal.cooperationIntent !== "not_confirmed" && (
+            <div className={`mt-3 p-3 rounded-lg border ${coopCfg.bg} ${coopCfg.border}`}>
+              <div className="flex items-center gap-2 mb-1.5">
+                <span className="text-sm">{coopCfg.icon}</span>
+                <span className={`text-xs font-semibold ${coopCfg.color}`}>
+                  合作意向：{coopCfg.label}
+                </span>
+                {renewal.cooperationConfirmedAt && (
+                  <span className="text-xs text-slate-400 ml-auto">
+                    {formatDate(renewal.cooperationConfirmedAt)} 确认
+                  </span>
+                )}
+              </div>
+              {renewal.cooperationReason && (
+                <p className="text-xs text-slate-600 line-clamp-2">{renewal.cooperationReason}</p>
+              )}
+            </div>
+          )}
 
           {latestNote && (
             <div className="mt-3 pt-3 border-t border-slate-100">

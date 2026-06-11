@@ -95,6 +95,46 @@ export const DANGER_STATUS: Record<DangerStatus, { label: string; color: string;
   closed: { label: "已闭环", color: "text-moss-700", bg: "bg-moss-50" },
 };
 
+export type CooperationIntent =
+  | "will_renew"
+  | "considering"
+  | "will_not_renew"
+  | "not_confirmed";
+
+export const COOPERATION_INTENT: Record<
+  CooperationIntent,
+  { label: string; color: string; bg: string; border: string; icon: string }
+> = {
+  will_renew: {
+    label: "确认续约",
+    color: "text-moss-700",
+    bg: "bg-moss-50",
+    border: "border-moss-200",
+    icon: "✅",
+  },
+  considering: {
+    label: "考虑中",
+    color: "text-amber-700",
+    bg: "bg-amber-50",
+    border: "border-amber-200",
+    icon: "🤔",
+  },
+  will_not_renew: {
+    label: "暂不续约",
+    color: "text-rose-700",
+    bg: "bg-rose-50",
+    border: "border-rose-200",
+    icon: "❌",
+  },
+  not_confirmed: {
+    label: "待确认",
+    color: "text-slate-500",
+    bg: "bg-slate-50",
+    border: "border-slate-200",
+    icon: "⏳",
+  },
+};
+
 export interface Contract {
   id: string;
   contractNo: string;
@@ -171,6 +211,10 @@ export interface RenewalRecord {
   signedContractNo?: string;
   renewedAt?: string;
   notes?: string;
+  cooperationIntent: CooperationIntent;
+  cooperationReason?: string;
+  cooperationConfirmedAt?: string;
+  cooperationConfirmedBy?: string;
 }
 
 export interface MaintenanceContract {

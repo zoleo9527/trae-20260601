@@ -7,6 +7,7 @@ import type {
   FollowUpNote,
   RenewalStatus,
   Role,
+  CooperationIntent,
 } from "~/types";
 
 const uid = () => Math.random().toString(36).slice(2, 10);
@@ -57,6 +58,10 @@ function seed(): MaintenanceContract[] {
       assignedRole: "supervisor",
       renewalOffer: 298000,
       discountApplied: 0,
+      cooperationIntent: "considering",
+      cooperationReason: "目前在对比另一家公司报价，对方价格低约 12%，但我们的工程师更专业",
+      cooperationConfirmedAt: pastDays(2),
+      cooperationConfirmedBy: "孙丽娟",
     };
 
     const inspection: InspectionReport = {
@@ -171,6 +176,10 @@ function seed(): MaintenanceContract[] {
       renewalOffer: 105000,
       discountApplied: 3,
       notes: "客户因业委会预算压缩，对涨价有抵触。",
+      cooperationIntent: "will_not_renew",
+      cooperationReason: "业委会今年预算压缩 15%，要求按原价续约，我们最多只能给 3% 折扣，双方差距较大",
+      cooperationConfirmedAt: pastDays(4),
+      cooperationConfirmedBy: "李志强",
     };
 
     const inspection: InspectionReport = {
@@ -270,6 +279,7 @@ function seed(): MaintenanceContract[] {
       assignedRole: "property",
       renewalOffer: 192000,
       notes: "必须先解决消防主机兼容性问题，否则客户明确不续约。",
+      cooperationIntent: "not_confirmed",
     };
 
     const inspection: InspectionReport = {
@@ -386,6 +396,10 @@ function seed(): MaintenanceContract[] {
       signedContractNo: "XF-WB-2025-007",
       renewedAt: pastDays(5),
       notes: "客户对服务非常满意，连续第三年续约，本次还推荐了隔壁小区。",
+      cooperationIntent: "will_renew",
+      cooperationReason: "服务稳定，工程师专业，随叫随到，连续合作三年无重大问题",
+      cooperationConfirmedAt: pastDays(10),
+      cooperationConfirmedBy: "陈美琳",
     };
 
     const inspection: InspectionReport = {
@@ -496,6 +510,26 @@ class DataStore {
     const dIdx = this._data[idx].hiddenDangers.findIndex((d) => d.id === dangerId);
     if (dIdx === -1) return undefined;
     this._data[idx].hiddenDangers[dIdx] = { ...this._data[idx].hiddenDangers[dIdx], ...patch };
+    return JSON.parse(JSON.stringify(this._data[idx]));
+  }
+
+  updateCooperationIntent(
+    contractId: string,
+    patch: {
+      intent: CooperationIntent;
+      reason?: string;
+      confirmedBy?: string;
+    }
+  ): MaintenanceContract | undefined {
+    const idx = this._data.findIndex((x) => x.contract.id === contractId);
+    if (idx === -1) return undefined;
+    this._data[idx].renewal = {
+      ...this._data[idx].renewal,
+      cooperationIntent: patch.intent,
+      cooperationReason: patch.reason,
+      cooperationConfirmedAt: new Date().toISOString().slice(0, 10),
+      cooperationConfirmedBy: patch.confirmedBy,
+    };
     return JSON.parse(JSON.stringify(this._data[idx]));
   }
 }

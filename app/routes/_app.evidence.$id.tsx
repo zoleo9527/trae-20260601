@@ -9,6 +9,7 @@ import {
   RISK_LEVELS,
   INSPECTION_RATINGS,
   DANGER_STATUS,
+  COOPERATION_INTENT,
   ROLE_COLORS,
   ROLE_ICONS,
   ROLE_LABELS,
@@ -21,6 +22,7 @@ import {
   canEditDanger,
   canMarkInternal,
 } from "~/types";
+import type { CooperationIntent } from "~/types";
 import {
   getRoleFromRequest,
   sanitizeContractForRole,
@@ -107,6 +109,34 @@ export async function action({ request }: ActionFunctionArgs) {
     return json({ ok: true });
   }
 
+  if (intent === "updateCooperationIntent") {
+    if (serverRole !== "property") {
+      return json(
+        { ok: false, error: "仅物业联系人可确认合作意向" },
+        { status: 403 }
+      );
+    }
+    const intentVal = formData.get("cooperationIntent") as CooperationIntent;
+    const reason = formData.get("reason") as string;
+    if (
+      intentVal !== "will_renew" &&
+      intentVal !== "considering" &&
+      intentVal !== "will_not_renew" &&
+      intentVal !== "not_confirmed"
+    ) {
+      return json({ ok: false, error: "无效的合作意向" }, { status: 400 });
+    }
+    const contract = db.getById(contractId);
+    if (!contract) return json({ ok: false, error: "合同不存在" }, { status: 404 });
+    const safeAuthor = resolveServerPersonName(contract, serverRole);
+    db.updateCooperationIntent(contractId, {
+      intent: intentVal,
+      reason: reason?.trim() || undefined,
+      confirmedBy: safeAuthor,
+    });
+    return json({ ok: true });
+  }
+
   return json({ ok: false, error: "未知操作" });
 }
 
@@ -125,8 +155,10 @@ export default function EvidenceDetail() {
   const personName = resolvePersonName(contract, displayRole);
   const renewalFetcher = useFetcher();
   const followUpFetcher = useFetcher();
+  const cooperationFetcher = useFetcher();
 
   const renewStatus = RENEWAL_STATUS[contract.renewal.status];
+  const coopIntent = COOPERATION_INTENT[contract.renewal.cooperationIntent];
   const daysLeft = daysUntil(contract.contract.endDate);
   const openDangerCount = contract.hiddenDangers.filter((d) => d.status !== "closed").length;
   const customerRating = contract.latestInspection?.customerRating
@@ -179,7 +211,7 @@ export default function EvidenceDetail() {
           ←
         </Link>
         <div className="flex-1">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 flex-wrap">
             <h1 className="text-2xl font-bold text-slate-800 font-serif">
               {contract.contract.projectName}
             </h1>
@@ -188,6 +220,12 @@ export default function EvidenceDetail() {
             >
               <span>{renewStatus.icon}</span>
               {renewStatus.label}
+            </span>
+            <span
+              className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium border ${coopIntent.bg} ${coopIntent.color} ${coopIntent.border}`}
+            >
+              <span>{coopIntent.icon}</span>
+              合作意向：{coopIntent.label}
             </span>
           </div>
           <div className="text-sm text-slate-500 mt-1">
@@ -680,6 +718,108 @@ export default function EvidenceDetail() {
                       ? "维保主管负责调整续约策略，请联系赵建国"
                       : "续约策略由维保主管维护，您可记录合作反馈"}
                   </div>
+                </div>
+              </section>
+            )}
+
+            {displayRole === "property" ? (
+              <section className="bg-white rounded-xl border border-slate-200 p-5">
+                <h2 className="text-base font-semibold text-slate-800 flex items-center gap-2 mb-4">
+                  <span className="w-1 h-5 rounded-full bg-sky-500" />
+                  合作意向确认
+                </h2>
+                <cooperationFetcher.Form method="post" className="space-y-4">
+                  <input type="hidden" name="intent" value="updateCooperationIntent" />
+                  <input type="hidden" name="contractId" value={contract.contract.id} />
+
+                  <div>
+                    <label className="block text-xs font-medium text-slate-600 mb-1.5">
+                      您的合作意向
+                    </label>
+                    <div className="grid grid-cols-2 gap-2">
+                      {(Object.keys(COOPERATION_INTENT) as CooperationIntent[]).map((key) => {
+                        const item = COOPERATION_INTENT[key];
+                        const active = contract.renewal.cooperationIntent === key;
+                        return (
+                          <label
+                            key={key}
+                            className={`flex items-center gap-2 px-3 py-2.5 rounded-lg border text-sm cursor-pointer transition-all ${
+                              active
+                                ? `${item.bg} ${item.color} ${item.border} border-2`
+                                : "border-slate-200 hover:border-slate-300 text-slate-600"
+                            }`}
+                          >
+                            <input
+                              type="radio"
+                              name="cooperationIntent"
+                              value={key}
+                              defaultChecked={active}
+                              className="sr-only"
+                            />
+                            <span>{item.icon}</span>
+                            <span className="font-medium">{item.label}</span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium text-slate-600 mb-1.5">
+                      原因说明（选填）
+                    </label>
+                    <textarea
+                      name="reason"
+                      rows={3}
+                      defaultValue={contract.renewal.cooperationReason ?? ""}
+                      placeholder="请说明您的考虑因素、具体诉求或建议…"
+                      className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500/30 focus:border-sky-400 resize-none"
+                    />
+                  </div>
+
+                  <button
+                    type="submit"
+                    className="w-full py-2.5 rounded-lg bg-sky-500 hover:bg-sky-600 text-white text-sm font-medium transition-colors"
+                  >
+                    确认提交
+                  </button>
+                </cooperationFetcher.Form>
+              </section>
+            ) : (
+              <section className="bg-white rounded-xl border border-slate-200 p-5">
+                <h2 className="text-base font-semibold text-slate-800 flex items-center gap-2 mb-4">
+                  <span className="w-1 h-5 rounded-full bg-sky-500" />
+                  客户合作意向
+                </h2>
+                <div className="space-y-3 text-sm">
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-500">意向状态</span>
+                    <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium border ${coopIntent.bg} ${coopIntent.color} ${coopIntent.border}`}>
+                      {coopIntent.icon} {coopIntent.label}
+                    </span>
+                  </div>
+                  {contract.renewal.cooperationConfirmedAt && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-500">确认时间</span>
+                      <span className="font-medium text-slate-700">
+                        {formatDate(contract.renewal.cooperationConfirmedAt)}
+                      </span>
+                    </div>
+                  )}
+                  {contract.renewal.cooperationConfirmedBy && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-500">确认人</span>
+                      <span className="font-medium text-slate-700">
+                        {contract.renewal.cooperationConfirmedBy}
+                      </span>
+                    </div>
+                  )}
+                  {contract.renewal.cooperationReason && (
+                    <div className="mt-2 p-3 rounded-lg bg-sky-50 border border-sky-100 text-xs text-sky-800">
+                      <span className="font-medium">💬 原因：</span>
+                      {contract.renewal.cooperationReason}
+                    </div>
+                  )}
                 </div>
               </section>
             )}
