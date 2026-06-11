@@ -35,6 +35,15 @@ const statusLabels: Record<string, { label: string; color: string }> = {
   completed: { label: '已完成', color: 'bg-success-100 text-success-600' },
 };
 
+const userMap: Record<string, string> = {
+  m001: '张经理',
+  u001: '李娜',
+  u002: '陈刚',
+  u003: '周婷',
+  u004: '王主任',
+  ctrl_1: '赵薇',
+};
+
 const materialStatusLabels: Record<string, { label: string; color: string }> = {
   pending: { label: '未提交', color: 'bg-gray-100 text-gray-500' },
   submitted: { label: '待审核', color: 'bg-primary-100 text-primary-600' },
@@ -102,15 +111,12 @@ export default function SigningPage({ selectedId }: SigningPageProps) {
 
   const loadDetailData = async (reminderId: string, subscriptionId: string) => {
     const [logData, transitionData, materialData, chainData] = await Promise.all([
-      getOperationLogs(subscriptionId),
-      getStatusTransitions(subscriptionId),
+      getOperationLogs(reminderId, '签约提醒'),
+      getStatusTransitions(reminderId, 'reminder'),
       getSubscriptionMaterials(subscriptionId),
       getHandoverChain(subscriptionId, 'subscription'),
     ]);
-    const reminderLogs = logData.filter(
-      (l) => l.targetId === reminderId || l.targetId === subscriptionId
-    );
-    setLogs(reminderLogs);
+    setLogs(logData);
     setTransitions(transitionData);
     setMaterials(materialData);
     setHandovers(chainData.handovers);
@@ -489,8 +495,11 @@ export default function SigningPage({ selectedId }: SigningPageProps) {
                         </div>
                       </div>
                       <div className="p-3 bg-purple-50 rounded-lg">
-                        <div className="text-xs text-purple-500">负责角色</div>
+                        <div className="text-xs text-purple-500">责任人</div>
                         <div className="text-sm font-medium text-purple-700 mt-1">
+                          {userMap[selectedReminder.assignedTo] || '待分配'}
+                        </div>
+                        <div className="text-xs text-purple-500 mt-0.5">
                           {roleLabels[selectedReminder.assignedRole]}
                         </div>
                       </div>

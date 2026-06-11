@@ -6,8 +6,14 @@ import {
   getSubscriptions,
   getSubscriptionMaterials,
   updateSubscription,
+  getSigningReminders,
 } from '@/services/dataService';
-import type { Subscription, SubscriptionMaterial, FilterOptions } from '@/types';
+import type {
+  Subscription,
+  SubscriptionMaterial,
+  FilterOptions,
+  SigningReminder,
+} from '@/types';
 import { formatDate, getDaysLeft } from '@/components/ListItems';
 
 interface SubscriptionsPageProps {
@@ -41,6 +47,7 @@ export default function SubscriptionsPage({
 }: SubscriptionsPageProps) {
   const { currentUser, refreshTrigger, triggerRefresh } = useApp();
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
+  const [reminders, setReminders] = useState<SigningReminder[]>([]);
   const [filter, setFilter] = useState<FilterOptions>({});
   const [selectedSub, setSelectedSub] = useState<Subscription | null>(null);
   const [materials, setMaterials] = useState<SubscriptionMaterial[]>([]);
@@ -60,8 +67,12 @@ export default function SubscriptionsPage({
 
   const loadData = async () => {
     setLoading(true);
-    let data = await getSubscriptions(filter);
+    const [subData, reminderData] = await Promise.all([
+      getSubscriptions(filter),
+      getSigningReminders({}),
+    ]);
 
+    let data = subData;
     if (currentUser.role === 'consultant') {
       data = data.filter((s) => s.consultantId === currentUser.id);
     } else if (currentUser.role === 'controller') {
@@ -69,6 +80,7 @@ export default function SubscriptionsPage({
     }
 
     setSubscriptions(data);
+    setReminders(reminderData);
     if (data.length > 0 && !selectedSub) {
       setSelectedSub(data[0]);
     }
@@ -366,7 +378,12 @@ export default function SubscriptionsPage({
 
             <div className="mt-6 flex gap-3">
               <button
-                onClick={() => onNavigate('signing', '')}
+                onClick={() => {
+                  const rem = reminders.find(
+                    (r) => r.subscriptionId === selectedSub?.id
+                  );
+                  onNavigate('signing', rem?.id || '');
+                }}
                 className="flex-1 px-4 py-3 bg-primary-500 text-white rounded-lg font-medium hover:bg-primary-600 transition-colors"
               >
                 查看签约提醒

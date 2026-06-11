@@ -262,13 +262,22 @@ export async function addFollowUpRecord(
         lastReminderBy: '',
         materialReady: false,
         materialModified: false,
-        assignedTo: record.consultantId,
-        assignedRole: 'consultant',
+        assignedTo: controllerInfo.id,
+        assignedRole: 'controller',
         urgency: 'normal',
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };
       signingReminders.unshift(newReminder);
+
+      addStatusTransition(
+        newReminder.id,
+        'reminder',
+        '',
+        'pending',
+        { id: record.consultantId, name: record.consultantName, role: 'consultant' },
+        '跟进转认购自动创建'
+      );
 
       const handover = createHandover(
         'followup',
@@ -518,9 +527,12 @@ export async function sendSigningReminder(
   const idx = signingReminders.findIndex((r) => r.id === reminderId);
   if (idx === -1) return undefined;
 
+  const oldStatus = signingReminders[idx].status;
+  const newStatus = 'reminded';
+
   signingReminders[idx] = {
     ...signingReminders[idx],
-    status: 'reminded',
+    status: newStatus,
     reminderCount: signingReminders[idx].reminderCount + 1,
     lastReminderAt: new Date().toISOString(),
     lastReminderBy: operator.name,
@@ -538,6 +550,17 @@ export async function sendSigningReminder(
     detail: `向 ${signingReminders[idx].customerName} 发送第 ${signingReminders[idx].reminderCount} 次签约提醒`,
   });
 
+  if (oldStatus !== newStatus) {
+    addStatusTransition(
+      reminderId,
+      'reminder',
+      oldStatus,
+      newStatus,
+      operator,
+      `第 ${signingReminders[idx].reminderCount} 次提醒`
+    );
+  }
+
   return signingReminders[idx];
 }
 
@@ -550,6 +573,7 @@ export async function updateReminderStatus(
   const idx = signingReminders.findIndex((r) => r.id === reminderId);
   if (idx === -1) return undefined;
 
+  const oldStatus = signingReminders[idx].status;
   const delayDays = status === 'delayed' ? Math.floor(Math.random() * 5) + 1 : undefined;
 
   signingReminders[idx] = {
@@ -571,6 +595,17 @@ export async function updateReminderStatus(
       operatorRole: operator.role,
       detail: `签约提醒状态变更为：${status}${reason ? `，原因：${reason}` : ''}`,
     });
+
+    if (oldStatus !== status) {
+      addStatusTransition(
+        reminderId,
+        'reminder',
+        oldStatus,
+        status,
+        operator,
+        reason
+      );
+    }
   }
 
   return signingReminders[idx];
