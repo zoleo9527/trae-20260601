@@ -223,6 +223,12 @@ function seedDatabase(): void {
   insertStatusLog.run('s009', 'i003', 'in_progress', 'completed', 'u003', '水泵已检修，水压恢复正常', '2026-06-04 16:30:00');
   insertStatusLog.run('s010', 'i003', 'completed', 'pending_review_after', 'u003', '申请复查', '2026-06-04 16:31:00');
 
+  database.prepare(`
+    UPDATE inspections
+    SET review_result = 'pass', review_remark = '水压已恢复至0.38MPa，符合规范要求', review_time = '2026-06-05 09:20:00', reviewer_id = 'u001'
+    WHERE id = 'i003'
+  `).run();
+
   const insertDispatch = database.prepare(`
     INSERT INTO dispatches (id, inspection_id, dispatcher_id, receiver_id, dispatch_time, expected_completion_time, dispatch_remark, rectification_remark)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?)

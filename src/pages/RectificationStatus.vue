@@ -162,6 +162,24 @@ function getProgressPercentage(inspection: any) {
   return statusOrder[inspection.status] || 0;
 }
 
+function hasReviewResult(inspection: any): boolean {
+  return !!inspection.reviewResult;
+}
+
+function getReviewResultLabel(inspection: any): string {
+  return inspection.reviewResult === 'pass' ? '复查通过' : '复查不通过';
+}
+
+function getReviewResultClass(inspection: any): string {
+  return inspection.reviewResult === 'pass'
+    ? 'bg-emerald-50 border border-emerald-200 text-emerald-800'
+    : 'bg-red-50 border border-red-200 text-red-800';
+}
+
+function getReviewIcon(inspection: any) {
+  return inspection.reviewResult === 'pass' ? CheckCircle : XCircle;
+}
+
 function formatDate(dateStr: string) {
   return dayjs(dateStr).format('MM-DD HH:mm');
 }
@@ -401,6 +419,24 @@ onMounted(() => {
                 <div v-if="inspection.dispatches?.[0]?.expectedCompletionTime" class="text-gray-500">
                   截止：{{ formatDate(inspection.dispatches[0].expectedCompletionTime) }}
                 </div>
+              </div>
+
+              <div
+                v-if="hasReviewResult(inspection)"
+                class="mt-3 rounded-lg px-4 py-3"
+                :class="getReviewResultClass(inspection)"
+              >
+                <div class="flex items-center gap-2 mb-1">
+                  <component :is="getReviewIcon(inspection)" class="w-4 h-4" />
+                  <span class="font-semibold text-sm">{{ getReviewResultLabel(inspection) }}</span>
+                </div>
+                <div class="flex items-center gap-4 text-xs opacity-80">
+                  <span>复查人：{{ inspection.reviewerName }}</span>
+                  <span v-if="inspection.reviewTime">复查时间：{{ formatDate(inspection.reviewTime) }}</span>
+                </div>
+                <p v-if="inspection.reviewRemark" class="text-xs mt-1 opacity-90">
+                  {{ inspection.reviewRemark }}
+                </p>
               </div>
             </div>
 

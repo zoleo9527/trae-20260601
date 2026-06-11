@@ -463,6 +463,59 @@ watch(() => route.params.id, () => {
               </div>
             </div>
 
+            <div
+              v-if="store.currentInspection.reviewResult"
+              class="rounded-lg p-5 border"
+              :class="store.currentInspection.reviewResult === 'pass'
+                ? 'bg-emerald-50 border-emerald-200'
+                : 'bg-red-50 border-red-200'"
+            >
+              <h3
+                class="font-semibold mb-4 flex items-center gap-2"
+                :class="store.currentInspection.reviewResult === 'pass'
+                  ? 'text-emerald-800'
+                  : 'text-red-800'"
+              >
+                <component
+                  :is="store.currentInspection.reviewResult === 'pass' ? CheckCircle : XCircle"
+                  class="w-5 h-5"
+                />
+                {{ store.currentInspection.reviewResult === 'pass' ? '复查通过' : '复查不通过' }}
+              </h3>
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                <div>
+                  <span
+                    class="text-sm"
+                    :class="store.currentInspection.reviewResult === 'pass' ? 'text-emerald-600' : 'text-red-600'"
+                  >复查人</span>
+                  <p
+                    class="font-medium"
+                    :class="store.currentInspection.reviewResult === 'pass' ? 'text-emerald-800' : 'text-red-800'"
+                  >{{ store.currentInspection.reviewerName }}</p>
+                </div>
+                <div>
+                  <span
+                    class="text-sm"
+                    :class="store.currentInspection.reviewResult === 'pass' ? 'text-emerald-600' : 'text-red-600'"
+                  >复查时间</span>
+                  <p
+                    class="font-medium"
+                    :class="store.currentInspection.reviewResult === 'pass' ? 'text-emerald-800' : 'text-red-800'"
+                  >{{ store.currentInspection.reviewTime }}</p>
+                </div>
+              </div>
+              <div v-if="store.currentInspection.reviewRemark">
+                <span
+                  class="text-sm"
+                  :class="store.currentInspection.reviewResult === 'pass' ? 'text-emerald-600' : 'text-red-600'"
+                >复查意见</span>
+                <p
+                  class="font-medium"
+                  :class="store.currentInspection.reviewResult === 'pass' ? 'text-emerald-800' : 'text-red-800'"
+                >{{ store.currentInspection.reviewRemark }}</p>
+              </div>
+            </div>
+
             <div v-if="canSetExpectedTime || canStartRectification || canComplete" class="bg-yellow-50 border border-yellow-200 rounded-lg p-5">
               <h3 class="font-semibold text-yellow-800 mb-4 flex items-center gap-2">
                 <MessageSquare class="w-5 h-5" />
