@@ -53,6 +53,11 @@ function createStageRecord(
   };
 }
 
+function getHandlerIdFromRemark(remarks: Remark[], targetStage: ControlStage): string | undefined {
+  const remark = remarks.find(r => r.stage === targetStage);
+  return remark?.operatorId;
+}
+
 function buildStageHistory(
   stage: ControlStage,
   applicantId: string,
@@ -62,24 +67,29 @@ function buildStageHistory(
 ): StageRecord[] {
   const history: StageRecord[] = [];
   const { createdAt, submittedAt, reviewedAt, lockedAt, completedAt, rejectedAt } = timestamps;
-  const managerId = [user_liufang, user_chenming].includes(currentHandlerId as any) ? currentHandlerId : user_liufang;
 
   history.push(createStageRecord('application', applicantId, createdAt, submittedAt, remarks.find(r => r.stage === 'application')?.content));
 
   if (stage !== 'application') {
-    history.push(createStageRecord('review', managerId, submittedAt || createdAt, reviewedAt || rejectedAt, remarks.find(r => r.stage === 'review')?.content));
+    const reviewHandlerId = getHandlerIdFromRemark(remarks, 'review') ||
+      getHandlerIdFromRemark(remarks, 'rejected') ||
+      user_liufang;
+    history.push(createStageRecord('review', reviewHandlerId, submittedAt || createdAt, reviewedAt || rejectedAt, remarks.find(r => r.stage === 'review')?.content));
   }
 
   if (stage === 'lock' || stage === 'completed') {
-    history.push(createStageRecord('lock', user_zhaojing, reviewedAt || createdAt, stage === 'completed' ? lockedAt : undefined, remarks.find(r => r.stage === 'lock')?.content));
+    const lockHandlerId = getHandlerIdFromRemark(remarks, 'lock') || user_zhaojing;
+    history.push(createStageRecord('lock', lockHandlerId, reviewedAt || createdAt, stage === 'completed' ? lockedAt : undefined, remarks.find(r => r.stage === 'lock')?.content));
   }
 
   if (stage === 'completed') {
-    history.push(createStageRecord('completed', user_zhaojing, lockedAt || createdAt, completedAt, remarks.find(r => r.stage === 'completed')?.content));
+    const completedHandlerId = getHandlerIdFromRemark(remarks, 'completed') || user_zhaojing;
+    history.push(createStageRecord('completed', completedHandlerId, lockedAt || createdAt, completedAt, remarks.find(r => r.stage === 'completed')?.content));
   }
 
   if (stage === 'rejected') {
-    history.push(createStageRecord('rejected', managerId, submittedAt || createdAt, rejectedAt, remarks.find(r => r.stage === 'rejected')?.content));
+    const rejectHandlerId = getHandlerIdFromRemark(remarks, 'rejected') || user_liufang;
+    history.push(createStageRecord('rejected', rejectHandlerId, submittedAt || createdAt, rejectedAt, remarks.find(r => r.stage === 'rejected')?.content));
   }
 
   return history;

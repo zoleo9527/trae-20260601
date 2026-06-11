@@ -717,11 +717,10 @@ export const useSaleControlStore = create<SaleControlStore>()(
           createRemark(autoRemark, 'complete', '完成销售', currentUser, afterStage)
         );
 
-        const updatedStageHistory = updateStageHistory(
-          sc.stageHistory,
-          'lock',
-          { completedAt: now }
-        );
+        const lockHasCompleted = sc.stageHistory.some(r => r.stage === 'lock' && r.completedAt);
+        const updatedStageHistory = lockHasCompleted
+          ? sc.stageHistory
+          : updateStageHistory(sc.stageHistory, 'lock', { completedAt: now });
         updatedStageHistory.push(createStageRecord('completed', currentUser, now, now, autoRemark));
 
         const log = createOperationLog(
