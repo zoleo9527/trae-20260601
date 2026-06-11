@@ -107,10 +107,22 @@ export async function PATCH(
       updateData.materialsCheckedAt = null;
       updateData.reviewerId = null;
       updateData.reviewedAt = null;
+      updateData.materials = {
+        updateMany: {
+          where: {},
+          data: { received: false, receivedAt: null },
+        },
+      };
     }
     if (body.action === 'receive_materials') {
       updateData.materialsCheckerId = user.id;
       updateData.materialsCheckedAt = now;
+      updateData.materials = {
+        updateMany: {
+          where: { received: false },
+          data: { received: true, receivedAt: now },
+        },
+      };
     }
     if (body.action === 'mark_missing') {
       updateData.materialsCheckerId = user.id;

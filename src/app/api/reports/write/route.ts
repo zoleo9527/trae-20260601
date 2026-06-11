@@ -145,20 +145,25 @@ export async function PUT(request: Request) {
 
     await prisma.material.deleteMany({ where: { salesReportId: report.id } });
 
+    const isSupplement =
+      [ReportStatus.MATERIALS_MISSING, ReportStatus.REVIEW_REJECTED, ReportStatus.OVERDUE].includes(
+        report.status as ReportStatus
+      ) && body.submit;
+
     const materialsData = body.materials?.length > 0
       ? body.materials.map((m) => ({
           name: m.name,
           type: m.type,
-          received: !!m.received,
+          received: isSupplement ? false : !!m.received,
           remark: m.remark || null,
-          receivedAt: m.received ? new Date() : null,
+          receivedAt: isSupplement ? null : m.received ? new Date() : null,
         }))
       : report.materials.map((m) => ({
           name: m.name,
           type: m.type,
-          received: m.received,
+          received: isSupplement ? false : m.received,
           remark: m.remark,
-          receivedAt: m.receivedAt,
+          receivedAt: isSupplement ? null : m.receivedAt,
         }));
 
     const updateData: any = {
@@ -178,12 +183,7 @@ export async function PUT(request: Request) {
       },
     };
 
-    if (
-      [ReportStatus.MATERIALS_MISSING, ReportStatus.REVIEW_REJECTED, ReportStatus.OVERDUE].includes(
-        report.status as ReportStatus
-      ) &&
-      body.submit
-    ) {
+    if (isSupplement) {
       updateData.missingMaterials = null;
       updateData.rejectReason = null;
       updateData.isOverdue = false;
