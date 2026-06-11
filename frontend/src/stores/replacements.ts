@@ -54,6 +54,7 @@ export const useReplacementsStore = defineStore('replacements', () => {
         const parsed = JSON.parse(stored)
         replacements.value = (parsed.replacements || []).map((r: Replacement) => ({
           ...r,
+          elevatorNo: r.elevatorNo || '',
           replaceReason: r.replaceReason || '',
           sceneDescription: r.sceneDescription || '',
           supplementNotes: r.supplementNotes || [],
@@ -92,6 +93,7 @@ export const useReplacementsStore = defineStore('replacements', () => {
       orderNo: generateOrderNo(),
       customerName: data.customerName || '',
       phone: data.phone || '',
+      elevatorNo: data.elevatorNo || '',
       deviceModel: data.deviceModel || '',
       faultDescription: data.faultDescription || '',
       replaceReason: data.replaceReason || '',
@@ -132,6 +134,7 @@ export const useReplacementsStore = defineStore('replacements', () => {
     const allowedFields: (keyof Replacement)[] = [
       'customerName',
       'phone',
+      'elevatorNo',
       'deviceModel',
       'faultDescription',
       'replaceReason',
@@ -307,6 +310,7 @@ export const useReplacementsStore = defineStore('replacements', () => {
       '工单号',
       '客户姓名',
       '电话',
+      '电梯编号',
       '设备型号',
       '故障描述',
       '预估金额',
@@ -331,6 +335,7 @@ export const useReplacementsStore = defineStore('replacements', () => {
       r.orderNo,
       r.customerName,
       r.phone,
+      r.elevatorNo,
       r.deviceModel,
       r.faultDescription,
       r.estimatedAmount,
@@ -373,6 +378,7 @@ export const useReplacementsStore = defineStore('replacements', () => {
         (r) =>
           r.orderNo.toLowerCase().includes(keyword) ||
           r.customerName.toLowerCase().includes(keyword) ||
+          r.elevatorNo.toLowerCase().includes(keyword) ||
           r.deviceModel.toLowerCase().includes(keyword) ||
           r.phone.includes(keyword)
       )

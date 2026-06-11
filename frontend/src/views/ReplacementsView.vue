@@ -52,6 +52,7 @@ const supplementNoteContent = ref('')
 const form = ref({
   customerName: '',
   phone: '',
+  elevatorNo: '',
   deviceModel: '',
   faultDescription: '',
   replaceReason: '',
@@ -65,6 +66,7 @@ function resetForm() {
   form.value = {
     customerName: '',
     phone: '',
+    elevatorNo: '',
     deviceModel: '',
     faultDescription: '',
     replaceReason: '',
@@ -168,6 +170,7 @@ function openEditForm(r: Replacement) {
   form.value = {
     customerName: r.customerName,
     phone: r.phone,
+    elevatorNo: r.elevatorNo || '',
     deviceModel: r.deviceModel,
     faultDescription: r.faultDescription,
     replaceReason: r.replaceReason || '',
@@ -183,6 +186,7 @@ function handleSaveDraft() {
   const payload = {
     customerName: form.value.customerName,
     phone: form.value.phone,
+    elevatorNo: form.value.elevatorNo,
     deviceModel: form.value.deviceModel,
     faultDescription: form.value.faultDescription,
     replaceReason: form.value.replaceReason,
@@ -212,6 +216,7 @@ function handleSubmitForm() {
   const payload = {
     customerName: form.value.customerName,
     phone: form.value.phone,
+    elevatorNo: form.value.elevatorNo,
     deviceModel: form.value.deviceModel,
     faultDescription: form.value.faultDescription,
     replaceReason: form.value.replaceReason,
@@ -374,7 +379,7 @@ watch(
 
       <FilterBar
         :filters="replacementsStore.filters"
-        placeholder="搜索记录编号/客户/设备"
+        placeholder="搜索记录编号/客户/电梯编号/设备"
         @update:filters="handleFiltersUpdate"
         @search="handleSearch"
       />
@@ -386,6 +391,7 @@ watch(
               <tr class="bg-gray-50 border-b border-gray-200">
                 <th class="px-3 py-2 text-left font-medium text-gray-600">记录编号</th>
                 <th class="px-3 py-2 text-left font-medium text-gray-600">客户名称</th>
+                <th class="px-3 py-2 text-left font-medium text-gray-600">电梯编号</th>
                 <th class="px-3 py-2 text-left font-medium text-gray-600">设备型号</th>
                 <th class="px-3 py-2 text-left font-medium text-gray-600">首项备件</th>
                 <th class="px-3 py-2 text-right font-medium text-gray-600">数量</th>
@@ -412,6 +418,7 @@ watch(
               >
                 <td class="px-3 py-1.5 font-mono text-gray-900 whitespace-nowrap">{{ r.orderNo }}</td>
                 <td class="px-3 py-1.5 text-gray-700 truncate max-w-[120px]">{{ r.customerName }}</td>
+                <td class="px-3 py-1.5 text-gray-800 whitespace-nowrap font-mono text-[11px]">{{ r.elevatorNo || '-' }}</td>
                 <td class="px-3 py-1.5 text-gray-700 whitespace-nowrap">{{ r.deviceModel }}</td>
                 <td class="px-3 py-1.5 text-gray-700 truncate max-w-[100px]">{{ getFirstPartName(r) }}</td>
                 <td class="px-3 py-1.5 text-right text-gray-700">
@@ -513,7 +520,7 @@ watch(
                 </td>
               </tr>
               <tr v-if="filteredList.length === 0">
-                <td colspan="14" class="px-4 py-16 text-center text-gray-500 text-sm">
+                <td colspan="15" class="px-4 py-16 text-center text-gray-500 text-sm">
                   暂无备件更换记录
                 </td>
               </tr>
@@ -561,6 +568,10 @@ watch(
             <div>
               <span class="text-gray-500">客户名称：</span>
               <span class="text-gray-900">{{ selectedReplacement.customerName }}</span>
+            </div>
+            <div>
+              <span class="text-gray-500">电梯编号：</span>
+              <span class="text-gray-900 font-mono">{{ selectedReplacement.elevatorNo || '-' }}</span>
             </div>
             <div>
               <span class="text-gray-500">设备型号：</span>
@@ -899,10 +910,10 @@ watch(
           <div>
             <label class="block text-gray-600 mb-1.5 font-medium">电梯编号</label>
             <input
-              v-model="form.deviceModel"
+              v-model="form.elevatorNo"
               type="text"
-              placeholder="请输入电梯编号"
-              class="w-full px-3 py-2 border border-gray-300 bg-white text-gray-900 focus:outline-none focus:border-blue-500"
+              placeholder="如：DT-A-001"
+              class="w-full px-3 py-2 border border-gray-300 bg-white text-gray-900 font-mono focus:outline-none focus:border-blue-500"
             />
           </div>
           <div>
@@ -910,7 +921,7 @@ watch(
             <input
               v-model="form.deviceModel"
               type="text"
-              placeholder="请输入设备型号"
+              placeholder="如：迅达 Schindler 7000"
               class="w-full px-3 py-2 border border-gray-300 bg-white text-gray-900 focus:outline-none focus:border-blue-500"
             />
           </div>

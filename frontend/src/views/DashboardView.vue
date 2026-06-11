@@ -155,6 +155,7 @@ function handleQuickAction(action: string) {
                 <th class="px-4 py-2.5 text-left font-medium text-gray-600 w-1"></th>
                 <th class="px-4 py-2.5 text-left font-medium text-gray-600">记录编号</th>
                 <th class="px-4 py-2.5 text-left font-medium text-gray-600">电梯编号</th>
+                <th class="px-4 py-2.5 text-left font-medium text-gray-600">设备型号</th>
                 <th class="px-4 py-2.5 text-left font-medium text-gray-600">备件名称</th>
                 <th class="px-4 py-2.5 text-right font-medium text-gray-600">申请金额</th>
                 <th class="px-4 py-2.5 text-left font-medium text-gray-600">状态</th>
@@ -176,6 +177,7 @@ function handleQuickAction(action: string) {
                   <div class="w-1 h-full bg-orange-500"></div>
                 </td>
                 <td class="px-4 py-3 font-mono text-gray-900">{{ r.orderNo }}</td>
+                <td class="px-4 py-3 text-gray-800 font-mono text-xs">{{ r.elevatorNo || '-' }}</td>
                 <td class="px-4 py-3 text-gray-700">{{ r.deviceModel }}</td>
                 <td class="px-4 py-3 text-gray-700">{{ getFirstPartName(r) }}</td>
                 <td class="px-4 py-3 text-right font-medium text-gray-900">
@@ -237,7 +239,7 @@ function handleQuickAction(action: string) {
                 </td>
               </tr>
               <tr v-if="riskList.length === 0">
-                <td colspan="11" class="px-4 py-12 text-center text-gray-500">
+                <td colspan="12" class="px-4 py-12 text-center text-gray-500">
                   暂无风险预警记录
                 </td>
               </tr>
@@ -256,7 +258,8 @@ function handleQuickAction(action: string) {
             <thead>
               <tr class="bg-gray-50 border-b border-gray-200">
                 <th class="px-4 py-2.5 text-left font-medium text-gray-600">记录编号</th>
-                <th class="px-4 py-2.5 text-left font-medium text-gray-600">电梯</th>
+                <th class="px-4 py-2.5 text-left font-medium text-gray-600">电梯编号</th>
+                <th class="px-4 py-2.5 text-left font-medium text-gray-600">设备型号</th>
                 <th class="px-4 py-2.5 text-left font-medium text-gray-600">备件</th>
                 <th class="px-4 py-2.5 text-right font-medium text-gray-600">金额</th>
                 <th class="px-4 py-2.5 text-left font-medium text-gray-600">提交时间</th>
@@ -272,6 +275,7 @@ function handleQuickAction(action: string) {
                 @click="handleTodoClick(r.id)"
               >
                 <td class="px-4 py-3 font-mono text-gray-900">{{ r.orderNo }}</td>
+                <td class="px-4 py-3 text-gray-800 font-mono text-xs">{{ r.elevatorNo || '-' }}</td>
                 <td class="px-4 py-3 text-gray-700">{{ r.deviceModel }}</td>
                 <td class="px-4 py-3 text-gray-700">{{ getFirstPartName(r) }}</td>
                 <td class="px-4 py-3 text-right font-medium text-gray-900">
@@ -295,7 +299,7 @@ function handleQuickAction(action: string) {
                 </td>
               </tr>
               <tr v-if="todoList.length === 0">
-                <td colspan="7" class="px-4 py-12 text-center text-gray-500">
+                <td colspan="8" class="px-4 py-12 text-center text-gray-500">
                   暂无待办记录
                 </td>
               </tr>

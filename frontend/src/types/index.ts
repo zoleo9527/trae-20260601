@@ -27,6 +27,7 @@ export interface Replacement {
   orderNo: string
   customerName: string
   phone: string
+  elevatorNo: string
   deviceModel: string
   faultDescription: string
   replaceReason: string
