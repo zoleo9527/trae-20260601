@@ -1,11 +1,12 @@
 import { json, type LoaderFunctionArgs } from "@remix-run/node";
 import { Link, useLoaderData, useSearchParams } from "@remix-run/react";
-import { useMemo } from "react";
+import { useMemo, useEffect } from "react";
 import { db } from "~/data/store.server";
 import { useRoleStore } from "~/store/roleStore";
-import type { MaintenanceContract, RenewalStatus } from "~/types";
+import type { MaintenanceContract, RenewalStatus, Role } from "~/types";
 import {
   RENEWAL_STATUS, INSPECTION_RATINGS, daysUntil, formatMoney, formatDate, getLatestVisibleNote } from "~/types";
+import { getRoleFromRequest, sanitizeContractsForRole } from "~/utils/role.server";
 
 const FILTER_STATUS: (RenewalStatus | "all")[] = [
   "all",
@@ -18,8 +19,10 @@ const FILTER_STATUS: (RenewalStatus | "all")[] = [
 export async function loader({ request }: LoaderFunctionArgs) {
   const url = new URL(request.url);
   const status = url.searchParams.get("status") as RenewalStatus | "all" | null;
-  const contracts = db.all();
-  return json({ contracts, status: status ?? "all" });
+  const currentRole = getRoleFromRequest(request);
+  const rawContracts = db.all();
+  const contracts = sanitizeContractsForRole(rawContracts, currentRole);
+  return json({ contracts, status: status ?? "all", currentRole });
 }
 
 function getLeftBarColor(days: number): string {
@@ -179,9 +182,15 @@ function ContractCard({ contract, currentRole }: { contract: MaintenanceContract
 }
 
 export default function Index() {
-  const { contracts, status } = useLoaderData<typeof loader>();
+  const { contracts, status, currentRole: serverRole } = useLoaderData<typeof loader>();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { currentRole } = useRoleStore();
+  const { currentRole, setCurrentRole } = useRoleStore();
+
+  useEffect(() => {
+    if (serverRole && serverRole !== currentRole) {
+      setCurrentRole(serverRole as Role);
+    }
+  }, [serverRole, currentRole, setCurrentRole]);
 
   const stats = useMemo(() => {
     const total = contracts.length;

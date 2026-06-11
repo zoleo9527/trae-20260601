@@ -1,16 +1,46 @@
-import { Link, NavLink, Outlet, useLocation } from "@remix-run/react";
+import { json, type LoaderFunctionArgs } from "@remix-run/node";
+import { Link, NavLink, Outlet, useLocation, useFetcher } from "@remix-run/react";
+import { useEffect, useState } from "react";
 import type { Role } from "~/types";
 import { ROLE_ICONS, ROLE_LABELS, ROLE_DEFAULT_NAMES, ROLE_COLORS } from "~/types";
 import { useRoleStore } from "~/store/roleStore";
+import { getRoleFromRequest } from "~/utils/role.server";
 
 const NAV_ITEMS = [
   { to: "/", label: "到期提醒看板", icon: "📅" },
   { to: "/analysis", label: "续约分析", icon: "📊" },
 ];
 
+export async function loader({ request }: LoaderFunctionArgs) {
+  const currentRole = getRoleFromRequest(request);
+  return json({ currentRole });
+}
+
 export default function AppLayout() {
+  const { currentRole: serverRole } = useLoaderData<typeof loader>();
   const { currentRole, setCurrentRole } = useRoleStore();
   const location = useLocation();
+  const roleFetcher = useFetcher();
+  const [isSwitching, setIsSwitching] = useState(false);
+
+  useEffect(() => {
+    if (serverRole && serverRole !== currentRole) {
+      setCurrentRole(serverRole as Role);
+    }
+  }, [serverRole, currentRole, setCurrentRole]);
+
+  const handleSwitchRole = (role: Role) => {
+    if (role === currentRole || isSwitching) return;
+    setIsSwitching(true);
+    const formData = new FormData();
+    formData.append("role", role);
+    roleFetcher.submit(formData, {
+      method: "post",
+      action: "/api/set-role",
+    });
+    setCurrentRole(role);
+    setTimeout(() => setIsSwitching(false), 300);
+  };
 
   return (
     <div className="min-h-screen flex bg-slate-50">
@@ -59,12 +89,12 @@ export default function AppLayout() {
               return (
                 <button
                   key={role}
-                  onClick={() => setCurrentRole(role)}
+                  onClick={() => handleSwitchRole(role)}
                   className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-all ${
                     active
                       ? "bg-white/10 border border-white/20 text-white"
                       : "text-slate-400 hover:bg-slate-700/30 hover:text-slate-200"
-                  }`}
+                  } ${isSwitching ? "opacity-70 cursor-wait" : ""}`}
                 >
                   <span className="text-base">{ROLE_ICONS[role]}</span>
                   <div className="flex-1 text-left">

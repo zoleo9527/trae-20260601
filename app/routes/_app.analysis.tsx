@@ -1,7 +1,9 @@
 import type { MetaFunction, LoaderFunction } from "@remix-run/node";
 import { json, Link, useLoaderData } from "@remix-run/react";
+import { useEffect } from "react";
 import { db } from "~/data/store.server";
-import type { MaintenanceContract } from "~/types";
+import { useRoleStore } from "~/store/roleStore";
+import type { MaintenanceContract, Role } from "~/types";
 import {
   RENEWAL_STATUS,
   RISK_LEVELS,
@@ -10,6 +12,7 @@ import {
   formatMoney,
   formatDate,
 } from "~/types";
+import { getRoleFromRequest, sanitizeContractsForRole } from "~/utils/role.server";
 
 export const meta: MetaFunction = () => {
   return [
@@ -17,17 +20,27 @@ export const meta: MetaFunction = () => {
   ];
 };
 
-export const loader: LoaderFunction = async () => {
-  const contracts = db.all();
-  return json({ contracts });
+export const loader: LoaderFunction = async ({ request }) => {
+  const currentRole = getRoleFromRequest(request);
+  const rawContracts = db.all();
+  const contracts = sanitizeContractsForRole(rawContracts, currentRole);
+  return json({ contracts, currentRole });
 };
 
 type S = keyof typeof RENEWAL_STATUS;
 
 export default function AnalysisPage() {
-  const { contracts } = useLoaderData<typeof loader>() as {
+  const { contracts, currentRole: serverRole } = useLoaderData<typeof loader>() as {
     contracts: MaintenanceContract[];
+    currentRole: Role;
   };
+  const { currentRole, setCurrentRole } = useRoleStore();
+
+  useEffect(() => {
+    if (serverRole && serverRole !== currentRole) {
+      setCurrentRole(serverRole as Role);
+    }
+  }, [serverRole, currentRole, setCurrentRole]);
 
   const total = contracts.length;
   const byStatus = contracts.reduce<Record<string, MaintenanceContract[]>>((acc, c) => {

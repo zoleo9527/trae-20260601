@@ -1,5 +1,6 @@
 import { json, type LoaderFunctionArgs, type ActionFunctionArgs } from "@remix-run/node";
 import { useLoaderData, Link, useFetcher } from "@remix-run/react";
+import { useEffect } from "react";
 import { db } from "~/data/store.server";
 import { useRoleStore } from "~/store/roleStore";
 import type { Role, DangerStatus, RenewalStatus } from "~/types";
@@ -20,36 +21,53 @@ import {
   canEditDanger,
   canMarkInternal,
 } from "~/types";
+import {
+  getRoleFromRequest,
+  sanitizeContractForRole,
+  resolveServerPersonName,
+} from "~/utils/role.server";
 
-export async function loader({ params }: LoaderFunctionArgs) {
+export async function loader({ params, request }: LoaderFunctionArgs) {
   const id = params.id as string;
-  const contract = db.getById(id);
-  if (!contract) {
+  const currentRole = getRoleFromRequest(request);
+  const rawContract = db.getById(id);
+  if (!rawContract) {
     throw new Response("Not Found", { status: 404 });
   }
-  return json({ contract });
+  const contract = sanitizeContractForRole(rawContract, currentRole);
+  return json({ contract, currentRole });
 }
 
 export async function action({ request }: ActionFunctionArgs) {
   const formData = await request.formData();
   const intent = formData.get("intent") as string;
   const contractId = formData.get("contractId") as string;
+  const serverRole = getRoleFromRequest(request);
 
   if (intent === "addFollowUp") {
     const content = formData.get("content") as string;
     const isInternal = formData.get("isInternal") === "on";
     const author = formData.get("author") as string;
-    const authorRole = formData.get("authorRole") as Role;
     if (!content.trim()) return json({ ok: false, error: "备注内容不能为空" });
-    const safeIsInternal = authorRole !== "property" ? isInternal : false;
-    db.addFollowUp(contractId, { content, isInternal: safeIsInternal, author, authorRole });
+    const safeIsInternal = canMarkInternal(serverRole) ? isInternal : false;
+    const safeAuthor = author?.trim()
+      ? author
+      : resolveServerPersonName(db.getById(contractId)!, serverRole);
+    db.addFollowUp(contractId, {
+      content,
+      isInternal: safeIsInternal,
+      author: safeAuthor,
+      authorRole: serverRole,
+    });
     return json({ ok: true });
   }
 
   if (intent === "updateRenewal") {
-    const authorRole = formData.get("authorRole") as Role | undefined;
-    if (authorRole && authorRole !== "supervisor") {
-      return json({ ok: false, error: "仅维保主管可修改续约信息" }, { status: 403 });
+    if (!canEditRenewal(serverRole)) {
+      return json(
+        { ok: false, error: "仅维保主管可修改续约信息" },
+        { status: 403 }
+      );
     }
     const status = formData.get("status") as RenewalStatus;
     const nextContactAt = formData.get("nextContactAt") as string;
@@ -65,18 +83,23 @@ export async function action({ request }: ActionFunctionArgs) {
   }
 
   if (intent === "updateDanger") {
-    const authorRole = formData.get("authorRole") as Role | undefined;
-    if (authorRole && authorRole === "property") {
-      return json({ ok: false, error: "物业联系人不可修改隐患状态" }, { status: 403 });
+    if (!canEditDanger(serverRole)) {
+      return json(
+        { ok: false, error: "物业联系人不可修改隐患状态" },
+        { status: 403 }
+      );
     }
     const dangerId = formData.get("dangerId") as string;
     const status = formData.get("status") as DangerStatus;
+    const author = formData.get("author") as string;
     if (status === "closed") {
-      const author = formData.get("author") as string;
+      const safeAuthor = author?.trim()
+        ? author
+        : resolveServerPersonName(db.getById(contractId)!, serverRole);
       db.updateDanger(contractId, dangerId, {
         status,
         closedAt: new Date().toISOString().slice(0, 10),
-        closedBy: author,
+        closedBy: safeAuthor,
       });
     } else {
       db.updateDanger(contractId, dangerId, { status });
@@ -88,8 +111,15 @@ export async function action({ request }: ActionFunctionArgs) {
 }
 
 export default function EvidenceDetail() {
-  const { contract } = useLoaderData<typeof loader>();
-  const { currentRole } = useRoleStore();
+  const { contract, currentRole: serverRole } = useLoaderData<typeof loader>();
+  const { currentRole, setCurrentRole } = useRoleStore();
+
+  useEffect(() => {
+    if (serverRole && serverRole !== currentRole) {
+      setCurrentRole(serverRole as Role);
+    }
+  }, [serverRole, currentRole, setCurrentRole]);
+
   const personName = resolvePersonName(contract, currentRole);
   const renewalFetcher = useFetcher();
   const followUpFetcher = useFetcher();
@@ -474,7 +504,6 @@ export default function EvidenceDetail() {
                   <input type="hidden" name="intent" value="updateRenewal" />
                   <input type="hidden" name="contractId" value={contract.contract.id} />
                   <input type="hidden" name="assignedTo" value={contract.renewal.assignedTo} />
-                  <input type="hidden" name="authorRole" value={currentRole} />
 
                   <div>
                     <label className="block text-xs font-medium text-slate-600 mb-1.5">续约状态</label>
@@ -662,7 +691,6 @@ export default function EvidenceDetail() {
                 <input type="hidden" name="intent" value="addFollowUp" />
                 <input type="hidden" name="contractId" value={contract.contract.id} />
                 <input type="hidden" name="author" value={personName} />
-                <input type="hidden" name="authorRole" value={currentRole} />
                 {!showMarkInternal && <input type="hidden" name="isInternal" />}
 
                 <div>
@@ -779,7 +807,6 @@ function DangerCard({
               <input type="hidden" name="contractId" value={contractId} />
               <input type="hidden" name="dangerId" value={danger.id} />
               <input type="hidden" name="author" value={author} />
-              <input type="hidden" name="authorRole" value={useRoleStore.getState().currentRole} />
               <select
                 name="status"
                 defaultValue={danger.status}
