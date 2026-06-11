@@ -130,6 +130,12 @@ def check_sidebar_to_sign_loop(content):
 def check_completed_list_contains_passed(content):
     return "r.status === 'recheck' || r.status === 'passed'" in content
 
+def check_sidebar_separated_sign_loop(content):
+    return "'待签署闭环'" in content and "'待现场复查'" in content and "filter=passed" in content
+
+def check_completed_status_buttons(content):
+    return "isRecheckStatus(rect.status)" in content and "isPassedStatus(rect.status)" in content and "签署闭环" in content
+
 def check_dispatch_rectification(content):
     checks = {
         'addRectification 调用': 'appStore.addRectification' in content,
@@ -232,6 +238,12 @@ def main():
         ], "components/AppSidebar.vue"),
         ("📄 pages/rectification/completed.vue - 列表含 passed", [
             lambda c: check_completed_list_contains_passed(c)
+        ], "pages/rectification/completed.vue"),
+        ("📄 components/AppSidebar.vue - 拆分待签署闭环入口", [
+            lambda c: check_sidebar_separated_sign_loop(c)
+        ], "components/AppSidebar.vue"),
+        ("📄 pages/rectification/completed.vue - 按状态区分按钮", [
+            lambda c: check_completed_status_buttons(c)
         ], "pages/rectification/completed.vue"),
     ]
     

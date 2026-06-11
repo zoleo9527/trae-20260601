@@ -129,7 +129,8 @@ const menuByRole = computed<Record<UserRole, {
     ],
     rectification: [
       { to: '/rectification', label: '整改派单管理', icon: 'IconWrench', badge: ((stats.value.toRecheck || 0) + (stats.value.toSignLoop || 0) + (stats.value.nonCompliant || 0)) || undefined },
-      { to: '/rectification/completed', label: '待复查任务', icon: 'IconEye', badge: (stats.value.toRecheck || 0) + (stats.value.toSignLoop || 0) || undefined },
+      { to: '/rectification/completed', label: '待现场复查', icon: 'IconEye', badge: stats.value.toRecheck || undefined },
+      { to: '/rectification/completed?filter=passed', label: '待签署闭环', icon: 'IconCheckCircle', badge: stats.value.toSignLoop || undefined },
       { to: '/rectification/closed', label: '闭环归档回看', icon: 'IconFolder' }
     ],
     extra: [

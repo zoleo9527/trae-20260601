@@ -2,14 +2,14 @@
   <div class="space-y-6">
     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
       <div>
-        <h2 class="text-xl font-bold text-neutral-800">整改完成 · 待复查与待签署</h2>
-        <p class="text-sm text-neutral-500 mt-1">含现场复查通过后等待主管签署闭环的记录</p>
+        <h2 class="text-xl font-bold text-neutral-800">{{ isPassedView ? '待签署闭环' : '整改完成 · 待复查与待签署' }}</h2>
+        <p class="text-sm text-neutral-500 mt-1">{{ isPassedView ? '复查通过的整改记录，等待项目主管签署闭环归档' : '含现场复查通过后等待主管签署闭环的记录' }}</p>
       </div>
       <div class="flex items-center gap-2">
-        <div class="text-xs px-3 py-1.5 rounded-lg bg-warning-100 text-warning-700 font-medium">
+        <div v-if="!isPassedView" class="text-xs px-3 py-1.5 rounded-lg bg-warning-100 text-warning-700 font-medium">
           {{ recheckPendingCount }} 份待复查
         </div>
-        <div class="text-xs px-3 py-1.5 rounded-lg bg-primary-100 text-primary-700 font-medium">
+        <div class="text-xs px-3 py-1.5 rounded-lg" :class="isPassedView ? 'bg-primary-100 text-primary-700' : 'bg-primary-100 text-primary-700'">
           {{ signLoopCount }} 份待签署闭环
         </div>
       </div>
@@ -40,7 +40,7 @@
       <div class="xl:col-span-2">
         <div class="card overflow-hidden">
           <div class="px-5 py-3 border-b border-neutral-200 flex items-center justify-between">
-            <h3 class="text-sm font-semibold text-neutral-800">待复查与待签署闭环清单</h3>
+            <h3 class="text-sm font-semibold text-neutral-800">{{ isPassedView ? '待签署闭环清单' : '待复查与待签署闭环清单' }}</h3>
             <div class="flex items-center gap-2 text-xs">
               <button
                 type="button"
@@ -74,7 +74,7 @@
                   <div class="text-xs text-neutral-500 ml-5">{{ rect.location }}</div>
                 </div>
                 <div class="text-right flex-shrink-0">
-                  <div class="text-[11px] text-neutral-500 mb-0.5">整改人自测提交</div>
+                  <div class="text-[11px] text-neutral-500 mb-0.5">{{ submitTimeLabel(rect.status) }}</div>
                   <div class="text-xs font-semibold text-neutral-700">{{ rect.updatedAt?.split('T')[0] }}</div>
                 </div>
               </div>
@@ -115,21 +115,30 @@
                     查看整改证据
                   </button>
                   <button
-                    v-if="appStore.currentRole === 'project_manager'"
+                    v-if="appStore.currentRole === 'project_manager' && isRecheckStatus(rect.status)"
                     type="button"
                     class="btn-success text-xs py-1.5"
                     @click="openDetail(rect)"
                   >
-                    <AppIcon name="IconCheckCircle" class="w-3.5 h-3.5 mr-1" />
+                    <AppIcon name="IconEye" class="w-3.5 h-3.5 mr-1" />
                     去现场复查
+                  </button>
+                  <button
+                    v-if="appStore.currentRole === 'project_manager' && isPassedStatus(rect.status)"
+                    type="button"
+                    class="btn-primary text-xs py-1.5"
+                    @click="handleCloseLoop(rect)"
+                  >
+                    <AppIcon name="IconCheckCircle" class="w-3.5 h-3.5 mr-1" />
+                    签署闭环
                   </button>
                 </div>
               </div>
             </div>
 
             <div v-if="recheckList.length === 0" class="p-10 text-center">
-              <AppIcon name="IconCheckCircle" class="w-12 h-12 mx-auto text-success-300" />
-              <p class="text-sm text-neutral-500 mt-3">暂无需复查的整改记录</p>
+              <AppIcon name="IconCheckCircle" class="w-12 h-12 mx-auto" :class="isPassedView ? 'text-primary-300' : 'text-success-300'" />
+              <p class="text-sm text-neutral-500 mt-3">{{ emptyTip }}</p>
             </div>
           </div>
         </div>
@@ -137,9 +146,9 @@
 
       <div class="space-y-5">
         <div class="card p-5">
-          <h3 class="text-sm font-semibold text-neutral-800 mb-4">复查要点清单</h3>
+          <h3 class="text-sm font-semibold text-neutral-800 mb-4">{{ isPassedView ? '闭环签署要点' : '复查要点清单' }}</h3>
           <div class="space-y-3 text-xs">
-            <div v-for="(tip, i) in recheckTips" :key="i" class="flex items-start gap-2.5 p-2.5 rounded-lg" :class="tip.bgClass">
+            <div v-for="(tip, i) in (isPassedView ? signLoopTips : recheckTips)" :key="i" class="flex items-start gap-2.5 p-2.5 rounded-lg" :class="tip.bgClass">
               <AppIcon :name="tip.icon" :class="['w-4 h-4 flex-shrink-0 mt-0.5', tip.iconClass]" />
               <div>
                 <div class="font-medium" :class="tip.textClass">{{ tip.title }}</div>
@@ -150,9 +159,9 @@
         </div>
 
         <div class="card p-5">
-          <h3 class="text-sm font-semibold text-neutral-800 mb-3">复查流程</h3>
+          <h3 class="text-sm font-semibold text-neutral-800 mb-3">{{ isPassedView ? '闭环签署流程' : '复查流程' }}</h3>
           <div class="space-y-2.5">
-            <div v-for="(step, i) in recheckSteps" :key="i" class="flex items-start gap-3">
+            <div v-for="(step, i) in (isPassedView ? signLoopSteps : recheckSteps)" :key="i" class="flex items-start gap-3">
               <div class="w-6 h-6 rounded-full bg-primary-100 text-primary-700 flex items-center justify-center text-[11px] font-bold flex-shrink-0">
                 {{ i + 1 }}
               </div>
@@ -181,11 +190,16 @@ import { ref, computed } from 'vue'
 import { useAppStore } from '~/stores/app'
 import type { RectificationRecord } from '~/types'
 
+const route = useRoute()
 const appStore = useAppStore()
 const detailVisible = ref(false)
 const selectedRectData = ref<RectificationRecord | null>(null)
 const onlyCritical = ref(false)
 const activeTimeFilter = ref('week')
+
+const urlFilter = computed(() => (route.query.filter as string) || '')
+
+const isPassedView = computed(() => urlFilter.value === 'passed')
 
 const recheckPendingCount = computed(() =>
   appStore.rectifications.filter(r => r.status === 'recheck').length
@@ -196,12 +210,28 @@ const signLoopCount = computed(() =>
 )
 
 const recheckList = computed(() => {
-  let list = appStore.rectifications.filter(r => r.status === 'recheck' || r.status === 'passed')
+  let list = appStore.rectifications.filter(r => {
+    if (isPassedView.value) return r.status === 'passed'
+    return r.status === 'recheck' || r.status === 'passed'
+  })
   if (onlyCritical.value) {
     list = list.filter(r => r.priority === 'high')
   }
   return list
 })
+
+const isRecheckStatus = (status: string) => status === 'recheck'
+const isPassedStatus = (status: string) => status === 'passed'
+
+const emptyTip = computed(() => {
+  if (isPassedView.value) return '暂无待签署闭环的整改记录'
+  return '暂无需复查或待签署的整改记录'
+})
+
+const submitTimeLabel = (status: string) => {
+  if (status === 'passed') return '复查通过时间'
+  return '整改人自测提交'
+}
 
 const statCards = computed(() => [
   { key: 'week', label: '本周待复查', value: recheckPendingCount.value, sub: '占全部整改 33%', icon: 'IconCalendar', colorClass: 'text-warning-600', bgClass: 'bg-warning-100', iconClass: 'text-warning-600' },
@@ -221,6 +251,19 @@ const recheckSteps = [
   { title: '现场逐项测试', desc: '对照整改清单逐项验证，功能项必须试跑' },
   { title: '出具复查结论', desc: '全部通过/部分通过/不通过' },
   { title: '签字归档', desc: '双方签字后进入闭环或退回重改' }
+]
+
+const signLoopTips = [
+  { icon: 'IconFileText', iconClass: 'text-primary-600', bgClass: 'bg-primary-50 border border-primary-100', textClass: 'text-primary-800', title: '责任链核查', desc: '确认年检→整改→复查各环节责任人齐全，时间线连续无断档' },
+  { icon: 'IconPaperclip', iconClass: 'text-success-600', bgClass: 'bg-success-50 border border-success-100', textClass: 'text-success-800', title: '证据链完整', desc: '检查整改照片、复查照片、签字扫描件是否齐全可追溯' },
+  { icon: 'IconAlertTriangle', iconClass: 'text-warning-600', bgClass: 'bg-warning-50 border border-warning-100', textClass: 'text-warning-800', title: '关键项复核', desc: '涉及安全的关键项需再次确认功能正常，闭环后不可撤回' }
+]
+
+const signLoopSteps = [
+  { title: '核对资料', desc: '检查整改措施、照片、复查结论是否完整有效' },
+  { title: '确认责任链', desc: '确认各环节责任人签字齐全，时间线连续' },
+  { title: '签署闭环意见', desc: '填写主管闭环意见，确认永久归档' },
+  { title: '同步通知', desc: '系统自动通知甲方物业和维保团队闭环完成' }
 ]
 
 function openDetail(rect: RectificationRecord) {
