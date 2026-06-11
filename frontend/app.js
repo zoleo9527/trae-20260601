@@ -193,7 +193,7 @@ async function renderDashboard() {
   
   try {
     const [stuckData, surveys, plans] = await Promise.all([
-      api('/plans/stuck'),
+      api('/dashboard/stuck'),
       api('/surveys'),
       api('/plans')
     ]);
@@ -542,6 +542,13 @@ async function showSurveyDetail(id) {
   currentSurveyId = id;
   
   try {
+    const isManager = currentUser.role === 'PROJECT_MANAGER' || currentUser.role === 'CONSTRUCTION_LEADER';
+    
+    if (!window.userList && isManager) {
+      const usersRes = await api('/users').catch(() => ({ data: [] }));
+      window.userList = usersRes.data || [];
+    }
+    
     const [surveyRes, remarksRes, auditRes] = await Promise.all([
       api(`/surveys/${id}`),
       api(`/surveys/${id}/remarks`),
@@ -600,7 +607,19 @@ async function showSurveyDetail(id) {
                 </div>
                 <div>
                   <div class="text-sm text-gray-500">处理人</div>
-                  <div>${survey.assignedTo?.realName || '-'}</div>
+                  ${isManager ? `
+                    <div class="flex gap-2">
+                      <select id="survey-assignee" class="flex-1 px-2 py-1 border rounded text-sm">
+                        <option value="">未分配</option>
+                        ${(window.userList || []).map(u => 
+                          `<option value="${u.id}" ${survey.assignedTo?.id === u.id ? 'selected' : ''}>${u.realName} (${getRoleLabel(u.role)})</option>`
+                        ).join('')}
+                      </select>
+                      <button onclick="assignSurvey(${survey.id})" class="btn btn-sm btn-primary">分配</button>
+                    </div>
+                  ` : `
+                    <div>${survey.assignedTo?.realName || '-'}</div>
+                  `}
                 </div>
               </div>
               
@@ -695,6 +714,13 @@ async function showPlanDetail(id) {
   currentPlanId = id;
   
   try {
+    const isManager = currentUser.role === 'PROJECT_MANAGER' || currentUser.role === 'CONSTRUCTION_LEADER';
+    
+    if (!window.userList && isManager) {
+      const usersRes = await api('/users').catch(() => ({ data: [] }));
+      window.userList = usersRes.data || [];
+    }
+    
     const [planRes, remarksRes, auditRes] = await Promise.all([
       api(`/plans/${id}`),
       api(`/plans/${id}/remarks`),
@@ -762,7 +788,19 @@ async function showPlanDetail(id) {
                 </div>
                 <div>
                   <div class="text-sm text-gray-500">处理人</div>
-                  <div>${plan.assignedTo?.realName || '-'}</div>
+                  ${isManager ? `
+                    <div class="flex gap-2">
+                      <select id="plan-assignee" class="flex-1 px-2 py-1 border rounded text-sm">
+                        <option value="">未分配</option>
+                        ${(window.userList || []).map(u => 
+                          `<option value="${u.id}" ${plan.assignedTo?.id === u.id ? 'selected' : ''}>${u.realName} (${getRoleLabel(u.role)})</option>`
+                        ).join('')}
+                      </select>
+                      <button onclick="assignPlan(${plan.id})" class="btn btn-sm btn-primary">分配</button>
+                    </div>
+                  ` : `
+                    <div>${plan.assignedTo?.realName || '-'}</div>
+                  `}
                 </div>
               </div>
               
@@ -1222,6 +1260,24 @@ async function addSurveyRemark(id) {
   }
 }
 
+async function assignSurvey(id) {
+  const selectEl = document.getElementById('survey-assignee');
+  if (!selectEl) return;
+  
+  const assignedToId = selectEl.value ? parseInt(selectEl.value) : null;
+  
+  try {
+    await api(`/surveys/${id}/assign`, {
+      method: 'PATCH',
+      body: JSON.stringify({ assignedToId })
+    });
+    showToast('分配成功');
+    showSurveyDetail(id);
+  } catch (e) {
+    showToast('分配失败: ' + e.message, 'error');
+  }
+}
+
 async function submitPlan(id) {
   showModal('提交客户确认', 
     '<p>确认提交此方案给客户确认吗？</p>' +
@@ -1328,6 +1384,24 @@ async function addPlanRemark(id) {
     showPlanDetail(id);
   } catch (e) {
     showToast('添加备注失败: ' + e.message, 'error');
+  }
+}
+
+async function assignPlan(id) {
+  const selectEl = document.getElementById('plan-assignee');
+  if (!selectEl) return;
+  
+  const assignedToId = selectEl.value ? parseInt(selectEl.value) : null;
+  
+  try {
+    await api(`/plans/${id}/assign`, {
+      method: 'PATCH',
+      body: JSON.stringify({ assignedToId })
+    });
+    showToast('分配成功');
+    showPlanDetail(id);
+  } catch (e) {
+    showToast('分配失败: ' + e.message, 'error');
   }
 }
 

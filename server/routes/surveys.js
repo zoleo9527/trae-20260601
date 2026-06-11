@@ -2,6 +2,25 @@ const router = require('express').Router();
 const { db, addRemark, addAuditLog, successResponse, errorResponse, now } = require('../data/database');
 const { requireRole } = require('../middleware/auth');
 
+const ROLES_CAN_MANAGE_SURVEY = ['PROJECT_MANAGER', 'CONSTRUCTION_LEADER'];
+const ROLES_CAN_APPROVE_SURVEY = ['PROJECT_MANAGER'];
+
+function canViewSurvey(user, survey) {
+  if (ROLES_CAN_MANAGE_SURVEY.includes(user.role)) return true;
+  if (survey.assignedTo && survey.assignedTo.id === user.id) return true;
+  return false;
+}
+
+function canEditSurvey(user, survey) {
+  if (ROLES_CAN_MANAGE_SURVEY.includes(user.role)) return true;
+  if (survey.assignedTo && survey.assignedTo.id === user.id) return true;
+  return false;
+}
+
+function canApproveSurvey(user) {
+  return ROLES_CAN_APPROVE_SURVEY.includes(user.role);
+}
+
 function getHoursBetween(date1, date2) {
   return Math.floor((new Date(date2) - new Date(date1)) / (1000 * 60 * 60));
 }
@@ -35,42 +54,54 @@ function convertToStuckItemDTO(survey) {
 }
 
 router.get('/', (req, res) => {
-  successResponse(res, db.surveys);
+  let surveys = [...db.surveys];
+  if (!ROLES_CAN_MANAGE_SURVEY.includes(req.user.role)) {
+    surveys = surveys.filter(s => s.assignedTo && s.assignedTo.id === req.user.id);
+  }
+  successResponse(res, surveys);
 });
 
 router.get('/my', (req, res) => {
-  const mySurveys = db.surveys.filter(s => s.assignedTo.id === req.user.id);
+  const mySurveys = db.surveys.filter(s => s.assignedTo && s.assignedTo.id === req.user.id);
   successResponse(res, mySurveys);
 });
 
 router.get('/stuck', (req, res) => {
-  const stuckSurveys = db.surveys.filter(s => s.stuck);
+  let stuckSurveys = db.surveys.filter(s => s.stuck);
+  if (!ROLES_CAN_MANAGE_SURVEY.includes(req.user.role)) {
+    stuckSurveys = stuckSurveys.filter(s => s.assignedTo && s.assignedTo.id === req.user.id);
+  }
+  
   const threshold = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-  const potentialStuck = db.surveys.filter(s => 
+  let potentialStuck = db.surveys.filter(s => 
     ['IN_PROGRESS', 'REVIEWING'].includes(s.status) && 
     new Date(s.updatedAt) < new Date(threshold) && 
     !s.stuck
   );
+  if (!ROLES_CAN_MANAGE_SURVEY.includes(req.user.role)) {
+    potentialStuck = potentialStuck.filter(s => s.assignedTo && s.assignedTo.id === req.user.id);
+  }
 
   successResponse(res, {
     totalStuckSurveys: stuckSurveys.length,
-    totalStuckPlans: 0,
     stuckSurveys: stuckSurveys.map(convertToStuckItemDTO),
-    stuckPlans: [],
-    potentialStuckSurveys: potentialStuck.length,
-    potentialStuckPlans: 0
+    potentialStuckSurveys: potentialStuck.length
   });
 });
 
 router.get('/:id', (req, res) => {
   const survey = db.surveys.find(s => s.id === parseInt(req.params.id));
   if (!survey) return errorResponse(res, '勘察单不存在', 404);
+  
+  if (!canViewSurvey(req.user, survey)) {
+    return errorResponse(res, '权限不足，无法查看此勘察单', 403);
+  }
 
   addAuditLog('VIEW', 'SURVEY', survey.id, null, null, '查看详情', req.user);
   successResponse(res, survey);
 });
 
-router.post('/', requireRole('PROJECT_MANAGER', 'CONSTRUCTION_LEADER'), (req, res) => {
+router.post('/', requireRole(...ROLES_CAN_MANAGE_SURVEY), (req, res) => {
   const { projectCode, projectName, customerName, address, pointDescription, pointCount, assignedToId, surveyDate, deadline, remarkContent } = req.body;
   
   if (!projectCode || !projectName) {
@@ -115,9 +146,13 @@ router.post('/', requireRole('PROJECT_MANAGER', 'CONSTRUCTION_LEADER'), (req, re
   successResponse(res, newSurvey, '勘察单创建成功');
 });
 
-router.put('/:id', requireRole('PROJECT_MANAGER', 'CONSTRUCTION_LEADER'), (req, res) => {
+router.put('/:id', requireRole(...ROLES_CAN_MANAGE_SURVEY), (req, res) => {
   const survey = db.surveys.find(s => s.id === parseInt(req.params.id));
   if (!survey) return errorResponse(res, '勘察单不存在', 404);
+
+  if (!canEditSurvey(req.user, survey)) {
+    return errorResponse(res, '权限不足，无法修改此勘察单', 403);
+  }
 
   const oldValue = JSON.stringify(survey);
   const { projectCode, projectName, customerName, address, pointDescription, pointCount, assignedToId, surveyDate, deadline, remarkContent } = req.body;
@@ -132,12 +167,18 @@ router.put('/:id', requireRole('PROJECT_MANAGER', 'CONSTRUCTION_LEADER'), (req, 
   survey.deadline = deadline || survey.deadline;
   survey.updatedAt = now();
 
-  if (assignedToId) {
-    const newAssignee = db.users.find(u => u.id === assignedToId);
-    if (!newAssignee) return errorResponse(res, '指定的处理人不存在');
-    const oldAssignee = survey.assignedTo;
-    survey.assignedTo = { id: newAssignee.id, username: newAssignee.username, realName: newAssignee.realName, role: newAssignee.role };
-    addAuditLog('ASSIGN', 'SURVEY', survey.id, oldAssignee?.realName, newAssignee.realName, '分配处理人', req.user);
+  if (assignedToId !== undefined) {
+    if (assignedToId === null || assignedToId === '') {
+      const oldAssignee = survey.assignedTo;
+      survey.assignedTo = null;
+      addAuditLog('ASSIGN', 'SURVEY', survey.id, oldAssignee?.realName, null, '取消分配', req.user);
+    } else {
+      const newAssignee = db.users.find(u => u.id === assignedToId);
+      if (!newAssignee) return errorResponse(res, '指定的处理人不存在');
+      const oldAssignee = survey.assignedTo;
+      survey.assignedTo = { id: newAssignee.id, username: newAssignee.username, realName: newAssignee.realName, role: newAssignee.role };
+      addAuditLog('ASSIGN', 'SURVEY', survey.id, oldAssignee?.realName, newAssignee.realName, '分配处理人', req.user);
+    }
   }
 
   if (remarkContent && remarkContent.trim()) {
@@ -150,9 +191,34 @@ router.put('/:id', requireRole('PROJECT_MANAGER', 'CONSTRUCTION_LEADER'), (req, 
   successResponse(res, survey, '勘察单更新成功');
 });
 
+router.patch('/:id/assign', requireRole(...ROLES_CAN_MANAGE_SURVEY), (req, res) => {
+  const survey = db.surveys.find(s => s.id === parseInt(req.params.id));
+  if (!survey) return errorResponse(res, '勘察单不存在', 404);
+
+  const { assignedToId } = req.body;
+  const oldAssignee = survey.assignedTo;
+  
+  if (assignedToId) {
+    const newAssignee = db.users.find(u => u.id === assignedToId);
+    if (!newAssignee) return errorResponse(res, '指定的处理人不存在');
+    survey.assignedTo = { id: newAssignee.id, username: newAssignee.username, realName: newAssignee.realName, role: newAssignee.role };
+    addAuditLog('ASSIGN', 'SURVEY', survey.id, oldAssignee?.realName, newAssignee.realName, '分配处理人', req.user);
+  } else {
+    survey.assignedTo = null;
+    addAuditLog('ASSIGN', 'SURVEY', survey.id, oldAssignee?.realName, null, '取消分配', req.user);
+  }
+  
+  survey.updatedAt = now();
+  successResponse(res, survey, '分配成功');
+});
+
 router.patch('/:id/status', (req, res) => {
   const survey = db.surveys.find(s => s.id === parseInt(req.params.id));
   if (!survey) return errorResponse(res, '勘察单不存在', 404);
+
+  if (!canEditSurvey(req.user, survey)) {
+    return errorResponse(res, '权限不足，无法修改此勘察单状态', 403);
+  }
 
   const { status, remark, reason } = req.body;
   if (!status) return errorResponse(res, '状态不能为空');
@@ -184,9 +250,17 @@ router.patch('/:id/status', (req, res) => {
   successResponse(res, survey, '状态更新成功');
 });
 
-router.post('/:id/submit', requireRole('PROJECT_MANAGER', 'CONSTRUCTION_LEADER'), (req, res) => {
+router.post('/:id/submit', (req, res) => {
   const survey = db.surveys.find(s => s.id === parseInt(req.params.id));
   if (!survey) return errorResponse(res, '勘察单不存在', 404);
+
+  if (!canEditSurvey(req.user, survey)) {
+    return errorResponse(res, '权限不足，无法提交此勘察单', 403);
+  }
+
+  if (!['PENDING', 'IN_PROGRESS', 'REJECTED'].includes(survey.status)) {
+    return errorResponse(res, '当前状态不允许提交');
+  }
 
   const { remark } = req.body || {};
   const oldStatus = survey.status;
@@ -203,9 +277,13 @@ router.post('/:id/submit', requireRole('PROJECT_MANAGER', 'CONSTRUCTION_LEADER')
   successResponse(res, survey, '提交成功');
 });
 
-router.post('/:id/approve', requireRole('PROJECT_MANAGER'), (req, res) => {
+router.post('/:id/approve', requireRole(...ROLES_CAN_APPROVE_SURVEY), (req, res) => {
   const survey = db.surveys.find(s => s.id === parseInt(req.params.id));
   if (!survey) return errorResponse(res, '勘察单不存在', 404);
+
+  if (!['SUBMITTED', 'REVIEWING'].includes(survey.status)) {
+    return errorResponse(res, '当前状态不允许审批通过');
+  }
 
   const { remark } = req.body || {};
   const oldStatus = survey.status;
@@ -222,9 +300,13 @@ router.post('/:id/approve', requireRole('PROJECT_MANAGER'), (req, res) => {
   successResponse(res, survey, '审核通过');
 });
 
-router.post('/:id/reject', requireRole('PROJECT_MANAGER'), (req, res) => {
+router.post('/:id/reject', requireRole(...ROLES_CAN_APPROVE_SURVEY), (req, res) => {
   const survey = db.surveys.find(s => s.id === parseInt(req.params.id));
   if (!survey) return errorResponse(res, '勘察单不存在', 404);
+
+  if (!['SUBMITTED', 'REVIEWING'].includes(survey.status)) {
+    return errorResponse(res, '当前状态不允许拒绝');
+  }
 
   const { reason, remark } = req.body;
   if (!reason) return errorResponse(res, '请说明拒绝原因');
@@ -247,6 +329,12 @@ router.post('/:id/stuck', (req, res) => {
   const survey = db.surveys.find(s => s.id === parseInt(req.params.id));
   if (!survey) return errorResponse(res, '勘察单不存在', 404);
 
+  if (!canEditSurvey(req.user, survey)) {
+    return errorResponse(res, '权限不足', 403);
+  }
+
+  if (survey.stuck) return errorResponse(res, '此勘察单已处于卡住状态');
+
   const { reason } = req.body;
   if (!reason) return errorResponse(res, '请说明卡住原因');
 
@@ -258,6 +346,7 @@ router.post('/:id/stuck', (req, res) => {
   survey.updatedAt = now();
 
   addAuditLog('STATUS_CHANGE', 'SURVEY', survey.id, oldStatus, 'STUCK', `标记为卡住: ${reason}`, req.user);
+  addAuditLog('MARK_STUCK', 'SURVEY', survey.id, null, reason, '标记为卡住', req.user);
 
   successResponse(res, survey, '已标记为卡住');
 });
@@ -265,6 +354,12 @@ router.post('/:id/stuck', (req, res) => {
 router.post('/:id/unstick', (req, res) => {
   const survey = db.surveys.find(s => s.id === parseInt(req.params.id));
   if (!survey) return errorResponse(res, '勘察单不存在', 404);
+
+  if (!canEditSurvey(req.user, survey)) {
+    return errorResponse(res, '权限不足', 403);
+  }
+
+  if (!survey.stuck) return errorResponse(res, '此勘察单未处于卡住状态');
 
   const { remark } = req.body || {};
   const oldStatus = survey.status;
@@ -279,6 +374,7 @@ router.post('/:id/unstick', (req, res) => {
   }
 
   addAuditLog('STATUS_CHANGE', 'SURVEY', survey.id, oldStatus, 'IN_PROGRESS', '解除卡住状态', req.user);
+  addAuditLog('UNSTICK', 'SURVEY', survey.id, null, null, '解除卡住状态', req.user);
 
   successResponse(res, survey, '已解除卡住状态');
 });
@@ -286,6 +382,10 @@ router.post('/:id/unstick', (req, res) => {
 router.post('/:id/remarks', (req, res) => {
   const survey = db.surveys.find(s => s.id === parseInt(req.params.id));
   if (!survey) return errorResponse(res, '勘察单不存在', 404);
+
+  if (!canViewSurvey(req.user, survey)) {
+    return errorResponse(res, '权限不足', 403);
+  }
 
   const { remark } = req.body;
   if (!remark || !remark.trim()) return errorResponse(res, '备注内容不能为空');
@@ -297,9 +397,15 @@ router.post('/:id/remarks', (req, res) => {
 });
 
 router.get('/:id/remarks', (req, res) => {
-  const surveyId = parseInt(req.params.id);
+  const survey = db.surveys.find(s => s.id === parseInt(req.params.id));
+  if (!survey) return errorResponse(res, '勘察单不存在', 404);
+
+  if (!canViewSurvey(req.user, survey)) {
+    return errorResponse(res, '权限不足', 403);
+  }
+
   const remarks = db.remarks
-    .filter(r => r.sourceType === 'SURVEY' && r.sourceId === surveyId)
+    .filter(r => r.sourceType === 'SURVEY' && r.sourceId === survey.id)
     .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
     .map(convertToRemarkDTO);
 

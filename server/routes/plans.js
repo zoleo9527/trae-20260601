@@ -2,6 +2,25 @@ const router = require('express').Router();
 const { db, addRemark, addAuditLog, successResponse, errorResponse, now } = require('../data/database');
 const { requireRole } = require('../middleware/auth');
 
+const ROLES_CAN_MANAGE_PLAN = ['PROJECT_MANAGER', 'CONSTRUCTION_LEADER'];
+const ROLES_CAN_CONFIRM_PLAN = ['PROJECT_MANAGER'];
+
+function canViewPlan(user, plan) {
+  if (ROLES_CAN_MANAGE_PLAN.includes(user.role)) return true;
+  if (plan.assignedTo && plan.assignedTo.id === user.id) return true;
+  return false;
+}
+
+function canEditPlan(user, plan) {
+  if (ROLES_CAN_MANAGE_PLAN.includes(user.role)) return true;
+  if (plan.assignedTo && plan.assignedTo.id === user.id) return true;
+  return false;
+}
+
+function canConfirmPlan(user) {
+  return ROLES_CAN_CONFIRM_PLAN.includes(user.role);
+}
+
 function getHoursBetween(date1, date2) {
   return Math.floor((new Date(date2) - new Date(date1)) / (1000 * 60 * 60));
 }
@@ -34,54 +53,39 @@ function convertToStuckItemDTO(plan) {
   };
 }
 
-function convertToAuditLogDTO(log) {
-  return {
-    id: log.id,
-    action: log.action,
-    targetType: log.targetType,
-    targetId: log.targetId,
-    oldValue: log.oldValue,
-    newValue: log.newValue,
-    detail: log.detail,
-    performedBy: log.performedBy?.username,
-    performedByName: log.performedBy?.realName,
-    performedAt: log.performedAt,
-    ipAddress: log.ipAddress
-  };
-}
-
 router.get('/', (req, res) => {
-  successResponse(res, db.plans);
+  let plans = [...db.plans];
+  if (!ROLES_CAN_MANAGE_PLAN.includes(req.user.role)) {
+    plans = plans.filter(p => p.assignedTo && p.assignedTo.id === req.user.id);
+  }
+  successResponse(res, plans);
 });
 
 router.get('/my', (req, res) => {
-  const myPlans = db.plans.filter(p => p.assignedTo.id === req.user.id);
+  const myPlans = db.plans.filter(p => p.assignedTo && p.assignedTo.id === req.user.id);
   successResponse(res, myPlans);
 });
 
 router.get('/stuck', (req, res) => {
-  const stuckSurveys = db.surveys.filter(s => s.stuck);
-  const stuckPlans = db.plans.filter(p => p.stuck);
+  let stuckPlans = db.plans.filter(p => p.stuck);
+  if (!ROLES_CAN_MANAGE_PLAN.includes(req.user.role)) {
+    stuckPlans = stuckPlans.filter(p => p.assignedTo && p.assignedTo.id === req.user.id);
+  }
   
   const threshold = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-  const potentialStuckSurveys = db.surveys.filter(s => 
-    ['IN_PROGRESS', 'REVIEWING'].includes(s.status) && 
-    new Date(s.updatedAt) < new Date(threshold) && 
-    !s.stuck
-  );
-  const potentialStuckPlans = db.plans.filter(p => 
+  let potentialStuck = db.plans.filter(p => 
     ['IN_PROGRESS', 'CUSTOMER_REVIEWING', 'REVISED'].includes(p.status) && 
     new Date(p.updatedAt) < new Date(threshold) && 
     !p.stuck
   );
+  if (!ROLES_CAN_MANAGE_PLAN.includes(req.user.role)) {
+    potentialStuck = potentialStuck.filter(p => p.assignedTo && p.assignedTo.id === req.user.id);
+  }
 
   successResponse(res, {
-    totalStuckSurveys: stuckSurveys.length,
     totalStuckPlans: stuckPlans.length,
-    stuckSurveys: stuckSurveys.map(convertToStuckItemDTO),
     stuckPlans: stuckPlans.map(convertToStuckItemDTO),
-    potentialStuckSurveys: potentialStuckSurveys.length,
-    potentialStuckPlans: potentialStuckPlans.length
+    potentialStuckPlans: potentialStuck.length
   });
 });
 
@@ -89,17 +93,25 @@ router.get('/:id', (req, res) => {
   const plan = db.plans.find(p => p.id === parseInt(req.params.id));
   if (!plan) return errorResponse(res, '方案确认单不存在', 404);
 
+  if (!canViewPlan(req.user, plan)) {
+    return errorResponse(res, '权限不足，无法查看此方案确认单', 403);
+  }
+
   addAuditLog('VIEW', 'PLAN', plan.id, null, null, '查看详情', req.user);
   successResponse(res, plan);
 });
 
 router.get('/survey/:surveyId', (req, res) => {
-  const plan = db.plans.find(p => p.surveyId === parseInt(req.params.surveyId));
-  if (!plan) return errorResponse(res, '该勘察单对应的方案确认单不存在', 404);
-  successResponse(res, plan);
+  const plans = db.plans.filter(p => p.surveyId === parseInt(req.params.surveyId));
+  if (!ROLES_CAN_MANAGE_PLAN.includes(req.user.role)) {
+    const filtered = plans.filter(p => p.assignedTo && p.assignedTo.id === req.user.id);
+    if (filtered.length === 0) return errorResponse(res, '无权限查看', 403);
+    return successResponse(res, filtered);
+  }
+  successResponse(res, plans);
 });
 
-router.post('/', requireRole('PROJECT_MANAGER', 'CONSTRUCTION_LEADER'), (req, res) => {
+router.post('/', requireRole(...ROLES_CAN_MANAGE_PLAN), (req, res) => {
   const { surveyId, projectCode, projectName, planContent, equipmentList, estimatedCost, constructionDays, assignedToId, planDate, deadline, inheritRemarks, remarkContent } = req.body;
   
   if (!surveyId || !projectCode || !projectName) {
@@ -161,9 +173,13 @@ router.post('/', requireRole('PROJECT_MANAGER', 'CONSTRUCTION_LEADER'), (req, re
   successResponse(res, newPlan, '方案确认单创建成功');
 });
 
-router.put('/:id', requireRole('PROJECT_MANAGER', 'CONSTRUCTION_LEADER'), (req, res) => {
+router.put('/:id', requireRole(...ROLES_CAN_MANAGE_PLAN), (req, res) => {
   const plan = db.plans.find(p => p.id === parseInt(req.params.id));
   if (!plan) return errorResponse(res, '方案确认单不存在', 404);
+
+  if (!canEditPlan(req.user, plan)) {
+    return errorResponse(res, '权限不足，无法修改此方案确认单', 403);
+  }
 
   const oldValue = JSON.stringify(plan);
   const { projectCode, projectName, planContent, equipmentList, estimatedCost, constructionDays, assignedToId, planDate, deadline, remarkContent } = req.body;
@@ -178,12 +194,18 @@ router.put('/:id', requireRole('PROJECT_MANAGER', 'CONSTRUCTION_LEADER'), (req, 
   plan.deadline = deadline || plan.deadline;
   plan.updatedAt = now();
 
-  if (assignedToId) {
-    const newAssignee = db.users.find(u => u.id === assignedToId);
-    if (!newAssignee) return errorResponse(res, '指定的处理人不存在');
-    const oldAssignee = plan.assignedTo;
-    plan.assignedTo = { id: newAssignee.id, username: newAssignee.username, realName: newAssignee.realName, role: newAssignee.role };
-    addAuditLog('ASSIGN', 'PLAN', plan.id, oldAssignee?.realName, newAssignee.realName, '分配处理人', req.user);
+  if (assignedToId !== undefined) {
+    if (assignedToId === null || assignedToId === '') {
+      const oldAssignee = plan.assignedTo;
+      plan.assignedTo = null;
+      addAuditLog('ASSIGN', 'PLAN', plan.id, oldAssignee?.realName, null, '取消分配', req.user);
+    } else {
+      const newAssignee = db.users.find(u => u.id === assignedToId);
+      if (!newAssignee) return errorResponse(res, '指定的处理人不存在');
+      const oldAssignee = plan.assignedTo;
+      plan.assignedTo = { id: newAssignee.id, username: newAssignee.username, realName: newAssignee.realName, role: newAssignee.role };
+      addAuditLog('ASSIGN', 'PLAN', plan.id, oldAssignee?.realName, newAssignee.realName, '分配处理人', req.user);
+    }
   }
 
   if (remarkContent && remarkContent.trim()) {
@@ -196,47 +218,38 @@ router.put('/:id', requireRole('PROJECT_MANAGER', 'CONSTRUCTION_LEADER'), (req, 
   successResponse(res, plan, '方案确认单更新成功');
 });
 
-router.patch('/:id/status', (req, res) => {
+router.patch('/:id/assign', requireRole(...ROLES_CAN_MANAGE_PLAN), (req, res) => {
   const plan = db.plans.find(p => p.id === parseInt(req.params.id));
   if (!plan) return errorResponse(res, '方案确认单不存在', 404);
 
-  const { status, remark, reason } = req.body;
-  if (!status) return errorResponse(res, '状态不能为空');
-
-  const oldStatus = plan.status;
-
-  if (status === 'STUCK') {
-    plan.stuck = true;
-    plan.stuckReason = reason;
-    plan.stuckAt = now();
-  } else if (oldStatus === 'STUCK' && status !== 'STUCK') {
-    plan.stuck = false;
-    plan.stuckReason = null;
-    plan.stuckAt = null;
+  const { assignedToId } = req.body;
+  const oldAssignee = plan.assignedTo;
+  
+  if (assignedToId) {
+    const newAssignee = db.users.find(u => u.id === assignedToId);
+    if (!newAssignee) return errorResponse(res, '指定的处理人不存在');
+    plan.assignedTo = { id: newAssignee.id, username: newAssignee.username, realName: newAssignee.realName, role: newAssignee.role };
+    addAuditLog('ASSIGN', 'PLAN', plan.id, oldAssignee?.realName, newAssignee.realName, '分配处理人', req.user);
+  } else {
+    plan.assignedTo = null;
+    addAuditLog('ASSIGN', 'PLAN', plan.id, oldAssignee?.realName, null, '取消分配', req.user);
   }
-
-  if (status === 'CONFIRMED') {
-    plan.confirmedAt = now();
-  }
-
-  plan.status = status;
+  
   plan.updatedAt = now();
-
-  if (remark && remark.trim()) {
-    addRemark('PLAN', plan.id, remark, req.user, false, now());
-    addAuditLog('ADD_REMARK', 'PLAN', plan.id, null, remark, '添加备注', req.user);
-  }
-
-  let detail = `状态从 ${oldStatus} 变更为 ${status}`;
-  if (reason) detail += `，原因: ${reason}`;
-  addAuditLog('STATUS_CHANGE', 'PLAN', plan.id, oldStatus, status, detail, req.user);
-
-  successResponse(res, plan, '状态更新成功');
+  successResponse(res, plan, '分配成功');
 });
 
-router.post('/:id/submit', requireRole('PROJECT_MANAGER', 'CONSTRUCTION_LEADER'), (req, res) => {
+router.post('/:id/submit', (req, res) => {
   const plan = db.plans.find(p => p.id === parseInt(req.params.id));
   if (!plan) return errorResponse(res, '方案确认单不存在', 404);
+
+  if (!canEditPlan(req.user, plan)) {
+    return errorResponse(res, '权限不足，无法提交此方案确认单', 403);
+  }
+
+  if (!['PENDING', 'IN_PROGRESS', 'REJECTED', 'REVISED'].includes(plan.status)) {
+    return errorResponse(res, '当前状态不允许提交');
+  }
 
   const { remark } = req.body || {};
   const oldStatus = plan.status;
@@ -253,9 +266,13 @@ router.post('/:id/submit', requireRole('PROJECT_MANAGER', 'CONSTRUCTION_LEADER')
   successResponse(res, plan, '已提交客户确认');
 });
 
-router.post('/:id/confirm', requireRole('PROJECT_MANAGER'), (req, res) => {
+router.post('/:id/confirm', requireRole(...ROLES_CAN_CONFIRM_PLAN), (req, res) => {
   const plan = db.plans.find(p => p.id === parseInt(req.params.id));
   if (!plan) return errorResponse(res, '方案确认单不存在', 404);
+
+  if (!['SUBMITTED', 'CUSTOMER_REVIEWING'].includes(plan.status)) {
+    return errorResponse(res, '当前状态不允许确认');
+  }
 
   const { remark } = req.body || {};
   const oldStatus = plan.status;
@@ -273,9 +290,13 @@ router.post('/:id/confirm', requireRole('PROJECT_MANAGER'), (req, res) => {
   successResponse(res, plan, '客户已确认方案');
 });
 
-router.post('/:id/reject', requireRole('PROJECT_MANAGER'), (req, res) => {
+router.post('/:id/reject', requireRole(...ROLES_CAN_CONFIRM_PLAN), (req, res) => {
   const plan = db.plans.find(p => p.id === parseInt(req.params.id));
   if (!plan) return errorResponse(res, '方案确认单不存在', 404);
+
+  if (!['SUBMITTED', 'CUSTOMER_REVIEWING'].includes(plan.status)) {
+    return errorResponse(res, '当前状态不允许拒绝');
+  }
 
   const { reason, remark } = req.body;
   if (!reason) return errorResponse(res, '请说明拒绝原因');
@@ -294,9 +315,17 @@ router.post('/:id/reject', requireRole('PROJECT_MANAGER'), (req, res) => {
   successResponse(res, plan, '客户已拒绝方案');
 });
 
-router.post('/:id/revise', requireRole('PROJECT_MANAGER', 'CONSTRUCTION_LEADER'), (req, res) => {
+router.post('/:id/revise', (req, res) => {
   const plan = db.plans.find(p => p.id === parseInt(req.params.id));
   if (!plan) return errorResponse(res, '方案确认单不存在', 404);
+
+  if (!canEditPlan(req.user, plan)) {
+    return errorResponse(res, '权限不足，无法修改此方案确认单', 403);
+  }
+
+  if (!['REJECTED', 'SUBMITTED'].includes(plan.status)) {
+    return errorResponse(res, '当前状态不允许修改后重新提交');
+  }
 
   const { remark } = req.body || {};
   const oldStatus = plan.status;
@@ -308,6 +337,7 @@ router.post('/:id/revise', requireRole('PROJECT_MANAGER', 'CONSTRUCTION_LEADER')
   }
 
   addAuditLog('STATUS_CHANGE', 'PLAN', plan.id, oldStatus, 'REVISED', '修改后重新提交', req.user);
+  addAuditLog('SUBMIT', 'PLAN', plan.id, oldStatus, 'REVISED', '修改后重新提交', req.user);
 
   successResponse(res, plan, '已修改并重新提交');
 });
@@ -315,6 +345,12 @@ router.post('/:id/revise', requireRole('PROJECT_MANAGER', 'CONSTRUCTION_LEADER')
 router.post('/:id/stuck', (req, res) => {
   const plan = db.plans.find(p => p.id === parseInt(req.params.id));
   if (!plan) return errorResponse(res, '方案确认单不存在', 404);
+
+  if (!canEditPlan(req.user, plan)) {
+    return errorResponse(res, '权限不足', 403);
+  }
+
+  if (plan.stuck) return errorResponse(res, '此方案单已处于卡住状态');
 
   const { reason } = req.body;
   if (!reason) return errorResponse(res, '请说明卡住原因');
@@ -327,6 +363,7 @@ router.post('/:id/stuck', (req, res) => {
   plan.updatedAt = now();
 
   addAuditLog('STATUS_CHANGE', 'PLAN', plan.id, oldStatus, 'STUCK', `标记为卡住: ${reason}`, req.user);
+  addAuditLog('MARK_STUCK', 'PLAN', plan.id, null, reason, '标记为卡住', req.user);
 
   successResponse(res, plan, '已标记为卡住');
 });
@@ -334,6 +371,12 @@ router.post('/:id/stuck', (req, res) => {
 router.post('/:id/unstick', (req, res) => {
   const plan = db.plans.find(p => p.id === parseInt(req.params.id));
   if (!plan) return errorResponse(res, '方案确认单不存在', 404);
+
+  if (!canEditPlan(req.user, plan)) {
+    return errorResponse(res, '权限不足', 403);
+  }
+
+  if (!plan.stuck) return errorResponse(res, '此方案单未处于卡住状态');
 
   const { remark } = req.body || {};
   const oldStatus = plan.status;
@@ -348,6 +391,7 @@ router.post('/:id/unstick', (req, res) => {
   }
 
   addAuditLog('STATUS_CHANGE', 'PLAN', plan.id, oldStatus, 'IN_PROGRESS', '解除卡住状态', req.user);
+  addAuditLog('UNSTICK', 'PLAN', plan.id, null, null, '解除卡住状态', req.user);
 
   successResponse(res, plan, '已解除卡住状态');
 });
@@ -355,6 +399,10 @@ router.post('/:id/unstick', (req, res) => {
 router.post('/:id/remarks', (req, res) => {
   const plan = db.plans.find(p => p.id === parseInt(req.params.id));
   if (!plan) return errorResponse(res, '方案确认单不存在', 404);
+
+  if (!canViewPlan(req.user, plan)) {
+    return errorResponse(res, '权限不足', 403);
+  }
 
   const { remark } = req.body;
   if (!remark || !remark.trim()) return errorResponse(res, '备注内容不能为空');
@@ -366,9 +414,15 @@ router.post('/:id/remarks', (req, res) => {
 });
 
 router.get('/:id/remarks', (req, res) => {
-  const planId = parseInt(req.params.id);
+  const plan = db.plans.find(p => p.id === parseInt(req.params.id));
+  if (!plan) return errorResponse(res, '方案确认单不存在', 404);
+
+  if (!canViewPlan(req.user, plan)) {
+    return errorResponse(res, '权限不足', 403);
+  }
+
   const remarks = db.remarks
-    .filter(r => r.sourceType === 'PLAN' && r.sourceId === planId)
+    .filter(r => r.sourceType === 'PLAN' && r.sourceId === plan.id)
     .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
     .map(convertToRemarkDTO);
 
@@ -376,9 +430,15 @@ router.get('/:id/remarks', (req, res) => {
 });
 
 router.get('/:id/remarks/inherited', (req, res) => {
-  const planId = parseInt(req.params.id);
+  const plan = db.plans.find(p => p.id === parseInt(req.params.id));
+  if (!plan) return errorResponse(res, '方案确认单不存在', 404);
+
+  if (!canViewPlan(req.user, plan)) {
+    return errorResponse(res, '权限不足', 403);
+  }
+
   const remarks = db.remarks
-    .filter(r => r.sourceType === 'PLAN' && r.sourceId === planId && r.inherited)
+    .filter(r => r.sourceType === 'PLAN' && r.sourceId === plan.id && r.inherited)
     .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
     .map(convertToRemarkDTO);
 
