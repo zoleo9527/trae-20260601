@@ -61,6 +61,9 @@ function validateRecentItem(data: any): data is RecentItem {
   if (typeof data.id !== 'string') return false;
   if (typeof data.promotionId !== 'string') return false;
   if (typeof data.title !== 'string') return false;
+  if (typeof data.openedAt !== 'string' || data.openedAt.trim() === '') return false;
+  const ts = Date.parse(data.openedAt);
+  if (isNaN(ts)) return false;
   return true;
 }
 
@@ -159,13 +162,16 @@ export class StorageService {
   private static dedupeRecentItems(items: RecentItem[]): RecentItem[] {
     const latestByPromotion = new Map<string, RecentItem>();
     for (const item of items) {
+      const itemTs = Date.parse(item.openedAt);
+      if (isNaN(itemTs)) continue;
       const existing = latestByPromotion.get(item.promotionId);
-      if (!existing || new Date(item.openedAt) > new Date(existing.openedAt)) {
+      const existingTs = existing ? Date.parse(existing.openedAt) : NaN;
+      if (!existing || isNaN(existingTs) || itemTs > existingTs) {
         latestByPromotion.set(item.promotionId, item);
       }
     }
     return Array.from(latestByPromotion.values())
-      .sort((a, b) => new Date(b.openedAt).getTime() - new Date(a.openedAt).getTime())
+      .sort((a, b) => Date.parse(b.openedAt) - Date.parse(a.openedAt))
       .slice(0, 20);
   }
 

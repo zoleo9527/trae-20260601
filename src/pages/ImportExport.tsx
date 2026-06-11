@@ -33,19 +33,19 @@ export function ImportExport() {
   const [showClearConfirm, setShowClearConfirm] = useState(false);
 
   const handleExportJSON = () => {
-    const result = IOService.exportFullState();
-    const blob = new Blob([result], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `促销活动数据_${new Date().toISOString().split('T')[0]}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
+    try {
+      IOService.exportToJSON();
+    } catch (error) {
+      setImportResult({
+        success: false,
+        message: '导出 JSON 失败，请稍后重试。',
+      });
+    }
   };
 
   const handleExportExcel = () => {
     try {
-      IOService.exportExcel(promotions, `促销活动数据_${new Date().toISOString().split('T')[0]}.xlsx`);
+      IOService.exportToExcel();
     } catch (error) {
       setImportResult({
         success: false,
