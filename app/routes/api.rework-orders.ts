@@ -20,6 +20,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
       : [];
 
     const timeline = await getHandoverTimeline(undefined, id);
+    const urgencyLogs = await listUrgencyLogs("REWORK_ORDER", id);
 
     return json({
       order,
@@ -58,6 +59,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
         })),
         attachments: order.attachments,
       },
+      urgencyLogs,
       timeline,
     });
   }
@@ -86,7 +88,8 @@ export async function action({ request }: ActionFunctionArgs) {
         if (isDuplicate) {
           const existing = await getReworkOrder(reworkOrderId);
           const timeline = await getHandoverTimeline(undefined, reworkOrderId);
-          return json({ order: existing, timeline, idempotent: true });
+          const urgencyLogs = await listUrgencyLogs("REWORK_ORDER", reworkOrderId);
+          return json({ order: existing, timeline, urgencyLogs, idempotent: true });
         }
       }
 
@@ -105,7 +108,8 @@ export async function action({ request }: ActionFunctionArgs) {
           idempotencyKey,
         });
         const timeline = await getHandoverTimeline(undefined, reworkOrderId);
-        return json({ order, timeline });
+        const urgencyLogs = await listUrgencyLogs("REWORK_ORDER", reworkOrderId);
+        return json({ order, timeline, urgencyLogs });
       } catch (e: unknown) {
         const message = e instanceof Error ? e.message : "状态流转失败";
         return json({ error: message }, { status: 422 });
@@ -127,7 +131,8 @@ export async function action({ request }: ActionFunctionArgs) {
         remark,
       });
       const timeline = await getHandoverTimeline(undefined, reworkOrderId);
-      return json({ order, timeline });
+      const urgencyLogs = await listUrgencyLogs("REWORK_ORDER", reworkOrderId);
+      return json({ order, timeline, urgencyLogs });
     }
 
     default:

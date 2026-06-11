@@ -695,6 +695,32 @@ async function listUrgencyLogs(entityType, entityId) {
     orderBy: { createdAt: "desc" }
   });
 }
+async function getUrgencyLogsForTestRecord(testRecordId) {
+  const logs = [];
+  const recordLogs = await prisma.urgencyLog.findMany({
+    where: { entityType: "TEST_RECORD", entityId: testRecordId },
+    orderBy: { createdAt: "desc" }
+  });
+  logs.push(...recordLogs.map((l) => ({ ...l, source: "TEST_RECORD" })));
+  const reworkOrders = await prisma.reworkOrder.findMany({
+    where: { testRecordId },
+    select: { id: true }
+  });
+  if (reworkOrders.length > 0) {
+    const reworkIds = reworkOrders.map((ro) => ro.id);
+    const reworkLogs = await prisma.urgencyLog.findMany({
+      where: { entityType: "REWORK_ORDER", entityId: { in: reworkIds } },
+      orderBy: { createdAt: "desc" }
+    });
+    logs.push(...reworkLogs.map((l) => ({ ...l, source: "REWORK_ORDER" })));
+  }
+  logs.sort((a, b) => {
+    const ta = a.createdAt;
+    const tb = b.createdAt;
+    return tb.getTime() - ta.getTime();
+  });
+  return logs;
+}
 async function getHandoverTimeline(testRecordId, reworkOrderId) {
   const logs = [];
   if (testRecordId) {
@@ -787,7 +813,8 @@ async function loader$9({ params, request }) {
   const currentRole = url.searchParams.get("role") || "CONSTRUCTION_TEAM";
   const availableTransitions = getAvailableTransitions$1(TEST_RECORD_MACHINE, record.status, currentRole);
   const timeline = await getHandoverTimeline(recordId);
-  return json({ record, availableTransitions, currentRole, timeline });
+  const urgencyLogs = await getUrgencyLogsForTestRecord(recordId);
+  return json({ record, availableTransitions, currentRole, timeline, urgencyLogs });
 }
 async function action$6({ request, params }) {
   const recordId = params.recordId;
@@ -900,7 +927,7 @@ const STATUS_COLORS$1 = {
   CLOSED: "#495057"
 };
 function TestRecordDetail() {
-  const { record, availableTransitions, currentRole, timeline } = useLoaderData();
+  const { record, availableTransitions, currentRole, timeline, urgencyLogs } = useLoaderData();
   return /* @__PURE__ */ jsxs("div", { style: { fontFamily: "system-ui, sans-serif", maxWidth: 1100, margin: "0 auto", padding: "2rem" }, children: [
     /* @__PURE__ */ jsxs("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center" }, children: [
       /* @__PURE__ */ jsxs("h1", { children: [
@@ -1187,6 +1214,33 @@ function TestRecordDetail() {
         ] }, mr.id))
       ] })
     ] }),
+    urgencyLogs.length > 0 && /* @__PURE__ */ jsxs("section", { style: { marginTop: "1rem", padding: "1rem", border: "1px solid #fd7e14", borderRadius: 4, background: "#fff8f0" }, children: [
+      /* @__PURE__ */ jsx("h2", { children: "催办记录（数据驱动，同链路追溯）" }),
+      /* @__PURE__ */ jsxs("table", { style: { width: "100%", borderCollapse: "collapse", fontSize: 13 }, children: [
+        /* @__PURE__ */ jsx("thead", { children: /* @__PURE__ */ jsxs("tr", { style: { borderBottom: "2px solid #fd7e14" }, children: [
+          /* @__PURE__ */ jsx("th", { style: { textAlign: "left", padding: "0.3rem" }, children: "时间" }),
+          /* @__PURE__ */ jsx("th", { style: { textAlign: "left", padding: "0.3rem" }, children: "来源" }),
+          /* @__PURE__ */ jsx("th", { style: { textAlign: "left", padding: "0.3rem" }, children: "催办人" }),
+          /* @__PURE__ */ jsx("th", { style: { textAlign: "left", padding: "0.3rem" }, children: "被催办人" }),
+          /* @__PURE__ */ jsx("th", { style: { textAlign: "left", padding: "0.3rem" }, children: "原因" })
+        ] }) }),
+        /* @__PURE__ */ jsx("tbody", { children: urgencyLogs.map((ul) => /* @__PURE__ */ jsxs("tr", { style: { borderBottom: "1px solid #ffe8cc" }, children: [
+          /* @__PURE__ */ jsx("td", { style: { padding: "0.3rem" }, children: new Date(ul.createdAt).toLocaleString("zh-CN") }),
+          /* @__PURE__ */ jsx("td", { style: { padding: "0.3rem" }, children: /* @__PURE__ */ jsx("span", { style: { padding: "0.1rem 0.3rem", borderRadius: 3, background: "#fd7e14", color: "#fff", fontSize: 11 }, children: ul.source === "REWORK_ORDER" ? "整改单" : "测试记录" }) }),
+          /* @__PURE__ */ jsxs("td", { style: { padding: "0.3rem" }, children: [
+            ROLE_LABELS[ul.urgentByRole],
+            ": ",
+            String(ul.urgentByName)
+          ] }),
+          /* @__PURE__ */ jsxs("td", { style: { padding: "0.3rem" }, children: [
+            ROLE_LABELS[ul.urgentToRole],
+            ": ",
+            String(ul.urgentToName)
+          ] }),
+          /* @__PURE__ */ jsx("td", { style: { padding: "0.3rem", color: "#888" }, children: String(ul.reason) })
+        ] }, String(ul.id))) })
+      ] })
+    ] }),
     timeline.length > 0 && /* @__PURE__ */ jsxs("section", { style: { marginTop: "1rem", padding: "1rem", border: "1px solid #ddd", borderRadius: 4 }, children: [
       /* @__PURE__ */ jsx("h2", { children: "交接时间线" }),
       timeline.map((log, idx) => /* @__PURE__ */ jsxs("div", { style: { display: "flex", gap: "0.5rem", alignItems: "baseline", fontSize: 13, margin: "0.3rem 0" }, children: [
@@ -1443,6 +1497,7 @@ async function loader$6({ request }) {
     const operatorRole = url.searchParams.get("role");
     const availableTransitions = operatorRole ? getAvailableTransitions$1(REWORK_ORDER_MACHINE, order.status, operatorRole) : [];
     const timeline = await getHandoverTimeline(void 0, id);
+    const urgencyLogs = await listUrgencyLogs("REWORK_ORDER", id);
     return json({
       order,
       availableTransitions,
@@ -1480,6 +1535,7 @@ async function loader$6({ request }) {
         })),
         attachments: order.attachments
       },
+      urgencyLogs,
       timeline
     });
   }
@@ -1503,7 +1559,8 @@ async function action$4({ request }) {
         if (isDuplicate) {
           const existing = await getReworkOrder(reworkOrderId);
           const timeline = await getHandoverTimeline(void 0, reworkOrderId);
-          return json({ order: existing, timeline, idempotent: true });
+          const urgencyLogs = await listUrgencyLogs("REWORK_ORDER", reworkOrderId);
+          return json({ order: existing, timeline, urgencyLogs, idempotent: true });
         }
       }
       try {
@@ -1521,7 +1578,8 @@ async function action$4({ request }) {
           idempotencyKey
         });
         const timeline = await getHandoverTimeline(void 0, reworkOrderId);
-        return json({ order, timeline });
+        const urgencyLogs = await listUrgencyLogs("REWORK_ORDER", reworkOrderId);
+        return json({ order, timeline, urgencyLogs });
       } catch (e) {
         const message = e instanceof Error ? e.message : "状态流转失败";
         return json({ error: message }, { status: 422 });
@@ -1542,7 +1600,8 @@ async function action$4({ request }) {
         remark
       });
       const timeline = await getHandoverTimeline(void 0, reworkOrderId);
-      return json({ order, timeline });
+      const urgencyLogs = await listUrgencyLogs("REWORK_ORDER", reworkOrderId);
+      return json({ order, timeline, urgencyLogs });
     }
     default:
       return json({ error: `不支持的操作: ${op}` }, { status: 400 });
@@ -1632,6 +1691,7 @@ async function loader$4({ request }) {
     const operatorRole = url.searchParams.get("role");
     const availableTransitions = operatorRole ? getAvailableTransitions$1(TEST_RECORD_MACHINE, record.status, operatorRole) : [];
     const timeline = await getHandoverTimeline(id);
+    const urgencyLogs = await getUrgencyLogsForTestRecord(id);
     return json({
       record,
       availableTransitions,
@@ -1660,6 +1720,7 @@ async function loader$4({ request }) {
         remark: hl.remark,
         createdAt: hl.createdAt
       })),
+      urgencyLogs,
       timeline
     });
   }
@@ -1700,7 +1761,8 @@ async function action$2({ request }) {
         if (isDuplicate) {
           const existing = await getTestRecord(testRecordId);
           const timeline = await getHandoverTimeline(testRecordId);
-          return json({ record: existing, timeline, idempotent: true });
+          const urgencyLogs = await getUrgencyLogsForTestRecord(testRecordId);
+          return json({ record: existing, timeline, urgencyLogs, idempotent: true });
         }
       }
       try {
@@ -1717,7 +1779,8 @@ async function action$2({ request }) {
           idempotencyKey
         });
         const timeline = await getHandoverTimeline(testRecordId);
-        return json({ record, timeline });
+        const urgencyLogs = await getUrgencyLogsForTestRecord(testRecordId);
+        return json({ record, timeline, urgencyLogs });
       } catch (e) {
         const message = e instanceof Error ? e.message : "状态流转失败";
         return json({ error: message }, { status: 422 });
@@ -1738,7 +1801,8 @@ async function action$2({ request }) {
         remark
       });
       const timeline = await getHandoverTimeline(testRecordId);
-      return json({ record, timeline });
+      const urgencyLogs = await getUrgencyLogsForTestRecord(testRecordId);
+      return json({ record, timeline, urgencyLogs });
     }
     default:
       return json({ error: `不支持的操作: ${op}` }, { status: 400 });
@@ -1876,6 +1940,7 @@ const API_DOCUMENTATION = {
         availableTransitions: "TransitionRule[]（详情+role模式）",
         reworkDetail: "Array<{id,code,status,defectDesc,rectifyMethod,deadline,currentHolderRole,currentHolderId,stateTransitions,handoverLogs,attachments}>",
         handoverDetail: "Array<{id,fromRole,fromUserId,fromUserName,toRole,toUserId,toUserName,handoverType,remark,createdAt}>",
+        urgencyLogs: "Array<UrgencyLog & {source: 'TEST_RECORD' | 'REWORK_ORDER'}>（测试记录+关联整改单的催办日志，按时间降序合并，含催办人/被催办人/时间/原因）",
         timeline: "Array<HandoverLog & {source: 'TEST_RECORD' | 'REWORK_ORDER'}>（测试记录+关联整改单的交接时间线，按时间升序合并）"
       }
     },
@@ -1918,9 +1983,10 @@ const API_DOCUMENTATION = {
       },
       response: {
         record: "完整 TestRecord（含 reworkOrders, handoverLogs, stateTransitions, attachments 等）",
+        urgencyLogs: "Array<UrgencyLog & {source}>（测试记录+关联整改单的催办日志，同链路追溯）",
         timeline: "Array<HandoverLog & {source}>"
       },
-      idempotent: "transition 操作支持 idempotencyKey，相同 key 的请求不会重复执行，直接返回上次结果"
+      idempotent: "transition 操作支持 idempotencyKey，相同 key 的请求不会重复执行，直接返回上次结果（含 record + urgencyLogs + timeline）"
     },
     "GET /api/rework-orders": {
       description: "查询返工整改单（非独立菜单，嵌入测试记录详情），含整改明细与交接明细",
@@ -1933,6 +1999,7 @@ const API_DOCUMENTATION = {
         order: "ReworkOrder & { testRecord, stateTransitions, handoverLogs, attachments }",
         availableTransitions: "TransitionRule[]",
         reworkDetail: "{id,code,status,defectDesc,rectifyMethod,deadline,currentHolderRole,currentHolderId,stateTransitions,handoverLogs,attachments}",
+        urgencyLogs: "Array<UrgencyLog>（该整改单自身的催办日志，按时间降序）",
         timeline: "Array<HandoverLog & {source}>"
       }
     },
@@ -1965,6 +2032,7 @@ const API_DOCUMENTATION = {
       },
       response: {
         order: "完整 ReworkOrder（含 stateTransitions, handoverLogs, attachments）",
+        urgencyLogs: "Array<UrgencyLog>（该整改单自身的催办日志）",
         timeline: "Array<HandoverLog & {source}>"
       }
     },
@@ -2105,8 +2173,9 @@ const API_DOCUMENTATION = {
     currentHolderId: "状态流转规则存在 nextHolderRole 时，receiverId/receiverName 必填，同时更新 TestRecord/ReworkOrder 的 currentHolderId 为 receiverId",
     handoverReceiver: "HandoverLog 的 toUserId/toUserName 由 transition 接口的 receiverId/receiverName 强制写入，存在 nextHolderRole 的流转不再留空",
     stateTransitionRelation: "StateTransition 通过 testRecordId/reworkOrderId 外键直接关联到对应记录，不再只存 entityType+entityId 泛化字段",
-    reworkDetailResponse: "GET 详情接口返回 reworkDetail（整改明细）、handoverDetail（交接明细）和 timeline（合并时间线）；POST transition/supplement 返回完整 record/order + timeline",
-    testRecordTimeline: "测试记录接口的 timeline 自动合并其下所有整改单的交接日志，按时间升序排列，source 字段区分来源"
+    reworkDetailResponse: "GET 详情接口返回 reworkDetail（整改明细）、handoverDetail（交接明细）、urgencyLogs（催办日志）和 timeline（合并时间线）；POST transition/supplement 返回完整 record/order + urgencyLogs + timeline",
+    testRecordTimeline: "测试记录接口的 timeline 自动合并其下所有整改单的交接日志，按时间升序排列，source 字段区分来源",
+    urgencyLogsTraceability: "测试记录接口的 urgencyLogs 自动合并其下所有整改单的催办日志，source 字段区分 TEST_RECORD/REWORK_ORDER；催办、退回、补材料都在同一记录链路里可追溯，详情页独立展示催办区块"
   },
   roles: {
     PROJECT_MANAGER: { label: "项目负责人", responsibilities: "审核测试记录、分配/验证返工整改、催办" },
@@ -2292,7 +2361,7 @@ const route11 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.definePrope
   default: Index,
   meta
 }, Symbol.toStringTag, { value: "Module" }));
-const serverManifest = { "entry": { "module": "/assets/entry.client-BrrAn8-d.js", "imports": ["/assets/components-COoCAsbi.js"], "css": [] }, "routes": { "root": { "id": "root", "parentId": void 0, "path": "", "index": void 0, "caseSensitive": void 0, "hasAction": false, "hasLoader": false, "hasClientAction": false, "hasClientLoader": false, "hasErrorBoundary": false, "module": "/assets/root-Bpc9RdDu.js", "imports": ["/assets/components-COoCAsbi.js"], "css": [] }, "routes/projects.$projectId.test-records.$recordId": { "id": "routes/projects.$projectId.test-records.$recordId", "parentId": "routes/projects.$projectId.test-records", "path": ":recordId", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasErrorBoundary": false, "module": "/assets/projects._projectId.test-records._recordId-BIMU2XL0.js", "imports": ["/assets/components-COoCAsbi.js", "/assets/types-DQolXieJ.js"], "css": [] }, "routes/projects.$projectId.test-records": { "id": "routes/projects.$projectId.test-records", "parentId": "routes/projects", "path": ":projectId/test-records", "index": void 0, "caseSensitive": void 0, "hasAction": false, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasErrorBoundary": false, "module": "/assets/projects._projectId.test-records-BIdDIoby.js", "imports": ["/assets/components-COoCAsbi.js", "/assets/types-DQolXieJ.js"], "css": [] }, "routes/api.material-requisitions": { "id": "routes/api.material-requisitions", "parentId": "root", "path": "api/material-requisitions", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasErrorBoundary": false, "module": "/assets/api.material-requisitions-l0sNRNKZ.js", "imports": [], "css": [] }, "routes/api.rework-orders": { "id": "routes/api.rework-orders", "parentId": "root", "path": "api/rework-orders", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasErrorBoundary": false, "module": "/assets/api.rework-orders-l0sNRNKZ.js", "imports": [], "css": [] }, "routes/api.cable-routes": { "id": "routes/api.cable-routes", "parentId": "root", "path": "api/cable-routes", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasErrorBoundary": false, "module": "/assets/api.cable-routes-l0sNRNKZ.js", "imports": [], "css": [] }, "routes/api.test-records": { "id": "routes/api.test-records", "parentId": "root", "path": "api/test-records", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasErrorBoundary": false, "module": "/assets/api.test-records-l0sNRNKZ.js", "imports": [], "css": [] }, "routes/api.handover": { "id": "routes/api.handover", "parentId": "root", "path": "api/handover", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasErrorBoundary": false, "module": "/assets/api.handover-l0sNRNKZ.js", "imports": [], "css": [] }, "routes/api.projects": { "id": "routes/api.projects", "parentId": "root", "path": "api/projects", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasErrorBoundary": false, "module": "/assets/api.projects-l0sNRNKZ.js", "imports": [], "css": [] }, "routes/api-docs": { "id": "routes/api-docs", "parentId": "root", "path": "api-docs", "index": void 0, "caseSensitive": void 0, "hasAction": false, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasErrorBoundary": false, "module": "/assets/api-docs-CzdEkt_o.js", "imports": ["/assets/components-COoCAsbi.js"], "css": [] }, "routes/projects": { "id": "routes/projects", "parentId": "root", "path": "projects", "index": void 0, "caseSensitive": void 0, "hasAction": false, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasErrorBoundary": false, "module": "/assets/projects-CMyos6XF.js", "imports": ["/assets/components-COoCAsbi.js"], "css": [] }, "routes/_index": { "id": "routes/_index", "parentId": "root", "path": void 0, "index": true, "caseSensitive": void 0, "hasAction": false, "hasLoader": false, "hasClientAction": false, "hasClientLoader": false, "hasErrorBoundary": false, "module": "/assets/_index-BnuunTcy.js", "imports": ["/assets/components-COoCAsbi.js"], "css": [] } }, "url": "/assets/manifest-0afac475.js", "version": "0afac475" };
+const serverManifest = { "entry": { "module": "/assets/entry.client-BrrAn8-d.js", "imports": ["/assets/components-COoCAsbi.js"], "css": [] }, "routes": { "root": { "id": "root", "parentId": void 0, "path": "", "index": void 0, "caseSensitive": void 0, "hasAction": false, "hasLoader": false, "hasClientAction": false, "hasClientLoader": false, "hasErrorBoundary": false, "module": "/assets/root-Bpc9RdDu.js", "imports": ["/assets/components-COoCAsbi.js"], "css": [] }, "routes/projects.$projectId.test-records.$recordId": { "id": "routes/projects.$projectId.test-records.$recordId", "parentId": "routes/projects.$projectId.test-records", "path": ":recordId", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasErrorBoundary": false, "module": "/assets/projects._projectId.test-records._recordId-BGARPjY0.js", "imports": ["/assets/components-COoCAsbi.js", "/assets/types-DQolXieJ.js"], "css": [] }, "routes/projects.$projectId.test-records": { "id": "routes/projects.$projectId.test-records", "parentId": "routes/projects", "path": ":projectId/test-records", "index": void 0, "caseSensitive": void 0, "hasAction": false, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasErrorBoundary": false, "module": "/assets/projects._projectId.test-records-BIdDIoby.js", "imports": ["/assets/components-COoCAsbi.js", "/assets/types-DQolXieJ.js"], "css": [] }, "routes/api.material-requisitions": { "id": "routes/api.material-requisitions", "parentId": "root", "path": "api/material-requisitions", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasErrorBoundary": false, "module": "/assets/api.material-requisitions-l0sNRNKZ.js", "imports": [], "css": [] }, "routes/api.rework-orders": { "id": "routes/api.rework-orders", "parentId": "root", "path": "api/rework-orders", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasErrorBoundary": false, "module": "/assets/api.rework-orders-l0sNRNKZ.js", "imports": [], "css": [] }, "routes/api.cable-routes": { "id": "routes/api.cable-routes", "parentId": "root", "path": "api/cable-routes", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasErrorBoundary": false, "module": "/assets/api.cable-routes-l0sNRNKZ.js", "imports": [], "css": [] }, "routes/api.test-records": { "id": "routes/api.test-records", "parentId": "root", "path": "api/test-records", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasErrorBoundary": false, "module": "/assets/api.test-records-l0sNRNKZ.js", "imports": [], "css": [] }, "routes/api.handover": { "id": "routes/api.handover", "parentId": "root", "path": "api/handover", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasErrorBoundary": false, "module": "/assets/api.handover-l0sNRNKZ.js", "imports": [], "css": [] }, "routes/api.projects": { "id": "routes/api.projects", "parentId": "root", "path": "api/projects", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasErrorBoundary": false, "module": "/assets/api.projects-l0sNRNKZ.js", "imports": [], "css": [] }, "routes/api-docs": { "id": "routes/api-docs", "parentId": "root", "path": "api-docs", "index": void 0, "caseSensitive": void 0, "hasAction": false, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasErrorBoundary": false, "module": "/assets/api-docs-CzdEkt_o.js", "imports": ["/assets/components-COoCAsbi.js"], "css": [] }, "routes/projects": { "id": "routes/projects", "parentId": "root", "path": "projects", "index": void 0, "caseSensitive": void 0, "hasAction": false, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasErrorBoundary": false, "module": "/assets/projects-CMyos6XF.js", "imports": ["/assets/components-COoCAsbi.js"], "css": [] }, "routes/_index": { "id": "routes/_index", "parentId": "root", "path": void 0, "index": true, "caseSensitive": void 0, "hasAction": false, "hasLoader": false, "hasClientAction": false, "hasClientLoader": false, "hasErrorBoundary": false, "module": "/assets/_index-BnuunTcy.js", "imports": ["/assets/components-COoCAsbi.js"], "css": [] } }, "url": "/assets/manifest-358c1cec.js", "version": "358c1cec" };
 const mode = "production";
 const assetsBuildDirectory = "build/client";
 const basename = "/";

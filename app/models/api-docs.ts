@@ -40,6 +40,7 @@ export const API_DOCUMENTATION = {
         availableTransitions: "TransitionRule[]（详情+role模式）",
         reworkDetail: "Array<{id,code,status,defectDesc,rectifyMethod,deadline,currentHolderRole,currentHolderId,stateTransitions,handoverLogs,attachments}>",
         handoverDetail: "Array<{id,fromRole,fromUserId,fromUserName,toRole,toUserId,toUserName,handoverType,remark,createdAt}>",
+        urgencyLogs: "Array<UrgencyLog & {source: 'TEST_RECORD' | 'REWORK_ORDER'}>（测试记录+关联整改单的催办日志，按时间降序合并，含催办人/被催办人/时间/原因）",
         timeline: "Array<HandoverLog & {source: 'TEST_RECORD' | 'REWORK_ORDER'}>（测试记录+关联整改单的交接时间线，按时间升序合并）",
       },
     },
@@ -83,9 +84,10 @@ export const API_DOCUMENTATION = {
       },
       response: {
         record: "完整 TestRecord（含 reworkOrders, handoverLogs, stateTransitions, attachments 等）",
+        urgencyLogs: "Array<UrgencyLog & {source}>（测试记录+关联整改单的催办日志，同链路追溯）",
         timeline: "Array<HandoverLog & {source}>",
       },
-      idempotent: "transition 操作支持 idempotencyKey，相同 key 的请求不会重复执行，直接返回上次结果",
+      idempotent: "transition 操作支持 idempotencyKey，相同 key 的请求不会重复执行，直接返回上次结果（含 record + urgencyLogs + timeline）",
     },
 
     "GET /api/rework-orders": {
@@ -99,6 +101,7 @@ export const API_DOCUMENTATION = {
         order: "ReworkOrder & { testRecord, stateTransitions, handoverLogs, attachments }",
         availableTransitions: "TransitionRule[]",
         reworkDetail: "{id,code,status,defectDesc,rectifyMethod,deadline,currentHolderRole,currentHolderId,stateTransitions,handoverLogs,attachments}",
+        urgencyLogs: "Array<UrgencyLog>（该整改单自身的催办日志，按时间降序）",
         timeline: "Array<HandoverLog & {source}>",
       },
     },
@@ -132,6 +135,7 @@ export const API_DOCUMENTATION = {
       },
       response: {
         order: "完整 ReworkOrder（含 stateTransitions, handoverLogs, attachments）",
+        urgencyLogs: "Array<UrgencyLog>（该整改单自身的催办日志）",
         timeline: "Array<HandoverLog & {source}>",
       },
     },
@@ -281,8 +285,9 @@ export const API_DOCUMENTATION = {
     currentHolderId: "状态流转规则存在 nextHolderRole 时，receiverId/receiverName 必填，同时更新 TestRecord/ReworkOrder 的 currentHolderId 为 receiverId",
     handoverReceiver: "HandoverLog 的 toUserId/toUserName 由 transition 接口的 receiverId/receiverName 强制写入，存在 nextHolderRole 的流转不再留空",
     stateTransitionRelation: "StateTransition 通过 testRecordId/reworkOrderId 外键直接关联到对应记录，不再只存 entityType+entityId 泛化字段",
-    reworkDetailResponse: "GET 详情接口返回 reworkDetail（整改明细）、handoverDetail（交接明细）和 timeline（合并时间线）；POST transition/supplement 返回完整 record/order + timeline",
+    reworkDetailResponse: "GET 详情接口返回 reworkDetail（整改明细）、handoverDetail（交接明细）、urgencyLogs（催办日志）和 timeline（合并时间线）；POST transition/supplement 返回完整 record/order + urgencyLogs + timeline",
     testRecordTimeline: "测试记录接口的 timeline 自动合并其下所有整改单的交接日志，按时间升序排列，source 字段区分来源",
+    urgencyLogsTraceability: "测试记录接口的 urgencyLogs 自动合并其下所有整改单的催办日志，source 字段区分 TEST_RECORD/REWORK_ORDER；催办、退回、补材料都在同一记录链路里可追溯，详情页独立展示催办区块",
   },
 
   roles: {

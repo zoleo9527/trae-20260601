@@ -153,7 +153,7 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 export default function TestRecordDetail() {
-  const { record, availableTransitions, currentRole, timeline } = useLoaderData<typeof loader>();
+  const { record, availableTransitions, currentRole, timeline, urgencyLogs } = useLoaderData<typeof loader>();
 
   return (
     <div style={{ fontFamily: "system-ui, sans-serif", maxWidth: 1100, margin: "0 auto", padding: "2rem" }}>
@@ -437,6 +437,42 @@ export default function TestRecordDetail() {
               ))}
             </div>
           )}
+        </section>
+      )}
+
+      {urgencyLogs.length > 0 && (
+        <section style={{ marginTop: "1rem", padding: "1rem", border: "1px solid #fd7e14", borderRadius: 4, background: "#fff8f0" }}>
+          <h2>催办记录（数据驱动，同链路追溯）</h2>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+            <thead>
+              <tr style={{ borderBottom: "2px solid #fd7e14" }}>
+                <th style={{ textAlign: "left", padding: "0.3rem" }}>时间</th>
+                <th style={{ textAlign: "left", padding: "0.3rem" }}>来源</th>
+                <th style={{ textAlign: "left", padding: "0.3rem" }}>催办人</th>
+                <th style={{ textAlign: "left", padding: "0.3rem" }}>被催办人</th>
+                <th style={{ textAlign: "left", padding: "0.3rem" }}>原因</th>
+              </tr>
+            </thead>
+            <tbody>
+              {urgencyLogs.map((ul) => (
+                <tr key={String(ul.id)} style={{ borderBottom: "1px solid #ffe8cc" }}>
+                  <td style={{ padding: "0.3rem" }}>{new Date(ul.createdAt as string).toLocaleString("zh-CN")}</td>
+                  <td style={{ padding: "0.3rem" }}>
+                    <span style={{ padding: "0.1rem 0.3rem", borderRadius: 3, background: "#fd7e14", color: "#fff", fontSize: 11 }}>
+                      {ul.source === "REWORK_ORDER" ? "整改单" : "测试记录"}
+                    </span>
+                  </td>
+                  <td style={{ padding: "0.3rem" }}>
+                    {ROLE_LABELS[ul.urgentByRole as keyof typeof ROLE_LABELS]}: {String(ul.urgentByName)}
+                  </td>
+                  <td style={{ padding: "0.3rem" }}>
+                    {ROLE_LABELS[ul.urgentToRole as keyof typeof ROLE_LABELS]}: {String(ul.urgentToName)}
+                  </td>
+                  <td style={{ padding: "0.3rem", color: "#888" }}>{String(ul.reason)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </section>
       )}
 
