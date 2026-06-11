@@ -44,7 +44,7 @@ function applyRoleScoping(sql: string, params: unknown[], filters: ExceptionFilt
 }
 
 export function getExceptions(filters: ExceptionFilters = {}) {
-  const exceptionStatuses = ['pending_material', 'timeout_escalated', 'review_rejected']
+  const exceptionStatuses = ['pending_material', 'timeout_escalated', 'review_rejected', 'submitted']
 
   let sql = `
     SELECT a.*, s.name AS staffName, c.name AS counterName, c.brand AS counterBrand
@@ -65,6 +65,9 @@ export function getExceptions(filters: ExceptionFilters = {}) {
     } else if (filters.type === 'review_rejected') {
       sql += ' AND a.status = ?'
       params.push('review_rejected')
+    } else if (filters.type === 'submitted') {
+      sql += ' AND a.status = ?'
+      params.push('submitted')
     }
   }
 
@@ -84,7 +87,7 @@ export function getExceptions(filters: ExceptionFilters = {}) {
 }
 
 export function getExceptionStats(role?: string, userId?: number) {
-  const types = ['pending_material', 'timeout_escalated', 'review_rejected'] as const
+  const types = ['pending_material', 'timeout_escalated', 'review_rejected', 'submitted'] as const
   const stats: Record<string, number> = {}
 
   let counterScope: number | null = null

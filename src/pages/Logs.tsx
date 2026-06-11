@@ -20,6 +20,9 @@ const ACTION_LABELS: Record<string, string> = {
   escalate_timeout: '超时升级',
   approve_review: '审核通过',
   reject_review: '审核退回',
+  submit_schedule_gen_attendance: '排班生成考勤',
+  resubmit_attendance: '重提复核',
+  approve_attendance_submitted: '审核下发考勤',
 }
 
 const ACTION_COLORS: Record<string, string> = {
@@ -53,6 +56,18 @@ const ROLE_COLORS: Record<string, string> = {
   guide: 'bg-emerald-600/20 text-emerald-400',
 }
 
+const STATUS_LABELS: Record<string, string> = {
+  submitted: '待柜长下发',
+  pending_confirm: '待确认',
+  pending_material: '待补材料',
+  timeout_escalated: '超时升级',
+  pending_review: '待复核',
+  review_rejected: '复核退回',
+  pending_brand_confirm: '待品牌确认',
+  closed: '已闭环',
+  draft: '草稿',
+}
+
 interface LogRecord {
   id: number
   operatorId: number
@@ -62,6 +77,8 @@ interface LogRecord {
   entityType: string
   entityId: number
   detail: string
+  fromStatus?: string
+  toStatus?: string
   createdAt: string
 }
 
@@ -161,6 +178,7 @@ export default function Logs() {
                 <th className="text-left px-4 py-2.5 font-medium">时间</th>
                 <th className="text-left px-4 py-2.5 font-medium">操作人</th>
                 <th className="text-left px-4 py-2.5 font-medium">操作</th>
+                <th className="text-left px-4 py-2.5 font-medium">状态流转</th>
                 <th className="text-left px-4 py-2.5 font-medium">对象</th>
                 <th className="text-left px-4 py-2.5 font-medium">详情</th>
               </tr>
@@ -194,6 +212,27 @@ export default function Logs() {
                     <span className={cn('font-medium', ACTION_COLORS[l.action] || 'text-gray-300')}>
                       {ACTION_LABELS[l.action] || l.action}
                     </span>
+                  </td>
+                  <td className="px-4 py-2.5 whitespace-nowrap">
+                    {(l.fromStatus || l.toStatus) ? (
+                      <div className="flex items-center gap-1 text-[11px]">
+                        {l.fromStatus ? (
+                          <span className="px-1.5 py-0.5 rounded bg-gray-700/40 text-gray-400 font-mono">
+                            {STATUS_LABELS[l.fromStatus] || l.fromStatus}
+                          </span>
+                        ) : (
+                          <span className="px-1.5 py-0.5 rounded bg-gray-700/20 text-gray-500 font-mono">无</span>
+                        )}
+                        <span className="text-gray-500">→</span>
+                        {l.toStatus ? (
+                          <span className="px-1.5 py-0.5 rounded bg-ops-info/20 text-ops-info font-mono font-bold">
+                            {STATUS_LABELS[l.toStatus] || l.toStatus}
+                          </span>
+                        ) : null}
+                      </div>
+                    ) : (
+                      <span className="text-gray-600 text-xs">—</span>
+                    )}
                   </td>
                   <td className="px-4 py-2.5 whitespace-nowrap text-gray-400">
                     {ENTITY_LABELS[l.entityType] || l.entityType} #{l.entityId}

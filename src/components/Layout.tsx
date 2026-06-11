@@ -1,5 +1,5 @@
 import { Outlet, useNavigate, useLocation } from 'react-router-dom'
-import { Calendar, Clock, CheckSquare, AlertTriangle, FileText, History, LogOut, Siren, PackageOpen, XCircle, ArrowRight } from 'lucide-react'
+import { Calendar, Clock, CheckSquare, AlertTriangle, FileText, History, LogOut, Siren, PackageOpen, XCircle, ArrowRight, ArrowUpCircle } from 'lucide-react'
 import { useAuthStore } from '@/store/authStore'
 import { useDataStore } from '@/store/dataStore'
 import { useEffect, useState } from 'react'
@@ -25,6 +25,7 @@ const EXCEPTION_ITEMS = [
   { key: 'timeout_escalated', label: '超时升级', icon: Clock, accent: 'text-ops-danger', bg: 'bg-ops-danger/10', pulse: true },
   { key: 'review_rejected', label: '复核不通过', icon: XCircle, accent: 'text-ops-danger', bg: 'bg-ops-danger/10', pulse: true },
   { key: 'pending_material', label: '缺材料', icon: PackageOpen, accent: 'text-ops-accent', bg: 'bg-ops-accent/10', pulse: false },
+  { key: 'submitted', label: '待下发', icon: ArrowUpCircle, accent: 'text-ops-info', bg: 'bg-ops-info/10', pulse: false },
 ]
 
 export default function Layout() {

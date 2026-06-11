@@ -122,7 +122,7 @@ export default function Exceptions() {
     const filters: Record<string, unknown> = { role: user?.role, userId: user?.id }
     if (typeFilter) filters.type = typeFilter
     fetchExceptions(filters)
-    fetchExceptionStats()
+    fetchExceptionStats(user?.role, user?.id)
   }, [typeFilter, user, fetchExceptions, fetchExceptionStats])
 
   useEffect(() => { loadData() }, [loadData])
@@ -252,7 +252,7 @@ export default function Exceptions() {
         </div>
       )}
 
-      <div className="grid grid-cols-3 gap-4 mb-6">
+      <div className="grid grid-cols-4 gap-4 mb-6">
         {STAT_CARDS.map((card) => {
           const count = exceptionStats[card.key] || 0
           const Icon = card.icon

@@ -111,10 +111,11 @@ export function submitSchedule(id: number, operatorId: number) {
 
   const counterManager = db.prepare("SELECT id FROM staff WHERE role = 'counter_manager' AND counterId = ? LIMIT 1").get(schedule.counterId) as any
   const managerId = counterManager?.id || operatorId
+  const operator = db.prepare('SELECT name, role FROM staff WHERE id = ?').get(operatorId) as any
 
   for (const item of items) {
     const deadline = item.date
-    insertAtt.run(
+    const result = insertAtt.run(
       item.id,
       item.guideId,
       schedule.counterId,
@@ -125,9 +126,21 @@ export function submitSchedule(id: number, operatorId: number) {
       now,
       now
     )
+    const attendanceId = Number(result.lastInsertRowid)
+    const guide = db.prepare('SELECT name FROM staff WHERE id = ?').get(item.guideId) as any
+    const counterName = db.prepare('SELECT name FROM counters WHERE id = ?').get(schedule.counterId) as any
+    logOperation({
+      operatorId,
+      operatorName: operator?.name || '',
+      operatorRole: operator?.role || '',
+      action: 'submit_schedule_gen_attendance',
+      entityType: 'attendance',
+      entityId: attendanceId,
+      fromStatus: '',
+      toStatus: 'submitted',
+      detail: `排班生成考勤-${counterName?.name || ''}${guide?.name || '导购'}${item.shift === 'morning' ? '早班' : '晚班'}-待柜长下发`
+    })
   }
-
-  const operator = db.prepare('SELECT name, role FROM staff WHERE id = ?').get(operatorId) as any
   logOperation({
     operatorId,
     operatorName: operator?.name || '',

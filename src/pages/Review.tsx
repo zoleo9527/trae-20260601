@@ -24,6 +24,7 @@ interface ReviewRecord {
   staffName: string
   counterName: string
   counterId: number
+  counterBrand?: number
   reviewId: number
   reviewerId: number
   reviewerRole: string
@@ -58,7 +59,7 @@ const ACTION_STYLES: Record<string, { label: string; cls: string }> = {
 }
 
 const RESPONSIBLE_NAMES: Record<number, string> = {
-  2: '张明(楼层)', 3: '李红(品牌)', 10: '郑伟(品牌)',
+  2: '张明(楼层)', 3: '李红(品牌)', 10: '郑伟(品牌)', 11: '黄丽(品牌)',
 }
 
 export default function Review() {
@@ -76,8 +77,8 @@ export default function Review() {
 
   const loadData = useCallback(() => {
     const filters: Record<string, unknown> = { status: pendingStatus }
-    if (user?.role === 'brand_supervisor' && user.counterId) {
-      filters.counterId = user.counterId
+    if (user?.role === 'brand_supervisor' && user.brandId) {
+      filters.brandId = user.brandId
     }
     fetchAttendance(filters)
     const reviewFilters: Record<string, unknown> = {}
@@ -114,8 +115,8 @@ export default function Review() {
 
   const filteredForBrand = (items: ReviewRecord[]) =>
     items.filter((r) => {
-      if (user?.role !== 'brand_supervisor' || !user.counterId) return true
-      return r.counterId === user.counterId
+      if (user?.role !== 'brand_supervisor' || !user.brandId) return true
+      return r.counterBrand === user.brandId
     })
 
   const pendingCount = attendanceList.length
