@@ -2,9 +2,10 @@ import { json, type LoaderFunctionArgs } from "@remix-run/node";
 import { Link, useLoaderData, useSearchParams } from "@remix-run/react";
 import { useMemo } from "react";
 import { db } from "~/data/store.server";
+import { useRoleStore } from "~/store/roleStore";
 import type { MaintenanceContract, RenewalStatus } from "~/types";
 import {
-  RENEWAL_STATUS, INSPECTION_RATINGS, daysUntil, formatMoney, formatDate } from "~/types";
+  RENEWAL_STATUS, INSPECTION_RATINGS, daysUntil, formatMoney, formatDate, getLatestVisibleNote } from "~/types";
 
 const FILTER_STATUS: (RenewalStatus | "all")[] = [
   "all",
@@ -78,11 +79,11 @@ function StatCard({
   );
 }
 
-function ContractCard({ contract }: { contract: MaintenanceContract }) {
+function ContractCard({ contract, currentRole }: { contract: MaintenanceContract; currentRole: import("~/types").Role }) {
   const { contract: c, renewal, latestInspection, followUps } = contract;
   const days = daysUntil(c.endDate);
   const openRisks = countOpenRisks(contract);
-  const latestNote = followUps.length > 0 ? followUps[followUps.length - 1] : null;
+  const latestNote = getLatestVisibleNote(followUps, currentRole);
   const statusCfg = RENEWAL_STATUS[renewal.status];
   const ratingScore = latestInspection ? INSPECTION_RATINGS[latestInspection.rating].score : 0;
 
@@ -180,6 +181,7 @@ function ContractCard({ contract }: { contract: MaintenanceContract }) {
 export default function Index() {
   const { contracts, status } = useLoaderData<typeof loader>();
   const [searchParams, setSearchParams] = useSearchParams();
+  const { currentRole } = useRoleStore();
 
   const stats = useMemo(() => {
     const total = contracts.length;
@@ -278,7 +280,7 @@ export default function Index() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {filtered.length > 0 ? (
-          filtered.map((c) => <ContractCard key={c.contract.id} contract={c} />)
+          filtered.map((c) => <ContractCard key={c.contract.id} contract={c} currentRole={currentRole} />)
         ) : (
           <div className="col-span-full py-20 text-center text-slate-400">
             暂无符合条件的合同

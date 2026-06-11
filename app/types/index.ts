@@ -229,3 +229,32 @@ export function formatMoney(amount: number): string {
 export function formatDate(d: string): string {
   return d.replace(/-/g, "/");
 }
+
+export function filterFollowUpsByRole(
+  followUps: FollowUpNote[],
+  currentRole: Role
+): FollowUpNote[] {
+  if (currentRole !== "property") return followUps;
+  return followUps.filter((fu) => !fu.isInternal);
+}
+
+export function getLatestVisibleNote(
+  followUps: FollowUpNote[],
+  currentRole: Role
+): FollowUpNote | null {
+  const visible = filterFollowUpsByRole(followUps, currentRole);
+  if (visible.length === 0) return null;
+  return visible[visible.length - 1];
+}
+
+export function canEditRenewal(role: Role): boolean {
+  return role === "supervisor";
+}
+
+export function canEditDanger(role: Role): boolean {
+  return role === "supervisor" || role === "engineer";
+}
+
+export function canMarkInternal(role: Role): boolean {
+  return role !== "property";
+}

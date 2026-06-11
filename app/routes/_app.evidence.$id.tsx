@@ -15,6 +15,10 @@ import {
   daysUntil,
   formatMoney,
   formatDate,
+  filterFollowUpsByRole,
+  canEditRenewal,
+  canEditDanger,
+  canMarkInternal,
 } from "~/types";
 
 export async function loader({ params }: LoaderFunctionArgs) {
@@ -37,11 +41,16 @@ export async function action({ request }: ActionFunctionArgs) {
     const author = formData.get("author") as string;
     const authorRole = formData.get("authorRole") as Role;
     if (!content.trim()) return json({ ok: false, error: "备注内容不能为空" });
-    db.addFollowUp(contractId, { content, isInternal, author, authorRole });
+    const safeIsInternal = authorRole !== "property" ? isInternal : false;
+    db.addFollowUp(contractId, { content, isInternal: safeIsInternal, author, authorRole });
     return json({ ok: true });
   }
 
   if (intent === "updateRenewal") {
+    const authorRole = formData.get("authorRole") as Role | undefined;
+    if (authorRole && authorRole !== "supervisor") {
+      return json({ ok: false, error: "仅维保主管可修改续约信息" }, { status: 403 });
+    }
     const status = formData.get("status") as RenewalStatus;
     const nextContactAt = formData.get("nextContactAt") as string;
     const renewalOfferStr = formData.get("renewalOffer") as string;
@@ -56,6 +65,10 @@ export async function action({ request }: ActionFunctionArgs) {
   }
 
   if (intent === "updateDanger") {
+    const authorRole = formData.get("authorRole") as Role | undefined;
+    if (authorRole && authorRole === "property") {
+      return json({ ok: false, error: "物业联系人不可修改隐患状态" }, { status: 403 });
+    }
     const dangerId = formData.get("dangerId") as string;
     const status = formData.get("status") as DangerStatus;
     if (status === "closed") {
@@ -87,6 +100,11 @@ export default function EvidenceDetail() {
   const customerRating = contract.latestInspection?.customerRating
     ? INSPECTION_RATINGS[contract.latestInspection.customerRating]
     : null;
+
+  const visibleFollowUps = filterFollowUpsByRole(contract.followUps, currentRole);
+  const showEditRenewal = canEditRenewal(currentRole);
+  const showEditDanger = canEditDanger(currentRole);
+  const showMarkInternal = canMarkInternal(currentRole);
 
   const kpiCards = [
     {
@@ -385,6 +403,7 @@ export default function EvidenceDetail() {
                     danger={danger}
                     contractId={contract.contract.id}
                     author={personName}
+                    canEdit={showEditDanger}
                   />
                 ))}
               </div>
@@ -397,16 +416,16 @@ export default function EvidenceDetail() {
                 <span className="w-1 h-5 rounded-full bg-sky-500" />
                 协作跟进
               </h2>
-              <span className="text-sm text-slate-500">{contract.followUps.length} 条记录</span>
+              <span className="text-sm text-slate-500">{visibleFollowUps.length} 条记录</span>
             </div>
 
-            {contract.followUps.length === 0 ? (
+            {visibleFollowUps.length === 0 ? (
               <div className="text-center py-8 text-slate-400 text-sm">暂无跟进记录</div>
             ) : (
               <div className="relative pl-6">
                 <div className="absolute left-[11px] top-1 bottom-1 w-px bg-slate-200" />
                 <div className="space-y-5">
-                  {[...contract.followUps].reverse().map((fu) => {
+                  {[...visibleFollowUps].reverse().map((fu) => {
                     const role = fu.authorRole;
                     return (
                       <div key={fu.id} className="relative">
@@ -445,171 +464,230 @@ export default function EvidenceDetail() {
 
         <div className="space-y-6">
           <div className="sticky top-6 space-y-6">
-            <section className="bg-white rounded-xl border border-slate-200 p-5">
-              <h2 className="text-base font-semibold text-slate-800 flex items-center gap-2 mb-4">
-                <span className="w-1 h-5 rounded-full bg-brand-500" />
-                续约跟进
-              </h2>
-              <renewalFetcher.Form method="post" className="space-y-4">
-                <input type="hidden" name="intent" value="updateRenewal" />
-                <input type="hidden" name="contractId" value={contract.contract.id} />
-                <input type="hidden" name="assignedTo" value={contract.renewal.assignedTo} />
+            {showEditRenewal ? (
+              <section className="bg-white rounded-xl border border-slate-200 p-5">
+                <h2 className="text-base font-semibold text-slate-800 flex items-center gap-2 mb-4">
+                  <span className="w-1 h-5 rounded-full bg-brand-500" />
+                  续约跟进
+                </h2>
+                <renewalFetcher.Form method="post" className="space-y-4">
+                  <input type="hidden" name="intent" value="updateRenewal" />
+                  <input type="hidden" name="contractId" value={contract.contract.id} />
+                  <input type="hidden" name="assignedTo" value={contract.renewal.assignedTo} />
+                  <input type="hidden" name="authorRole" value={currentRole} />
 
-                <div>
-                  <label className="block text-xs font-medium text-slate-600 mb-1.5">续约状态</label>
-                  <select
-                    name="status"
-                    defaultValue={contract.renewal.status}
-                    className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-400 bg-white"
-                  >
-                    {(Object.keys(RENEWAL_STATUS) as RenewalStatus[]).map((s) => (
-                      <option key={s} value={s}>
-                        {RENEWAL_STATUS[s].icon} {RENEWAL_STATUS[s].label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-medium text-slate-600 mb-1.5">下次联系日期</label>
-                  <input
-                    type="date"
-                    name="nextContactAt"
-                    defaultValue={contract.renewal.nextContactAt}
-                    className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-400"
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs font-medium text-slate-600 mb-1.5">续约报价（元）</label>
+                    <label className="block text-xs font-medium text-slate-600 mb-1.5">续约状态</label>
+                    <select
+                      name="status"
+                      defaultValue={contract.renewal.status}
+                      className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-400 bg-white"
+                    >
+                      {(Object.keys(RENEWAL_STATUS) as RenewalStatus[]).map((s) => (
+                        <option key={s} value={s}>
+                          {RENEWAL_STATUS[s].icon} {RENEWAL_STATUS[s].label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium text-slate-600 mb-1.5">下次联系日期</label>
                     <input
-                      type="number"
-                      name="renewalOffer"
-                      defaultValue={contract.renewal.renewalOffer ?? ""}
-                      placeholder="0"
+                      type="date"
+                      name="nextContactAt"
+                      defaultValue={contract.renewal.nextContactAt}
                       className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-400"
                     />
                   </div>
-                  <div>
-                    <label className="block text-xs font-medium text-slate-600 mb-1.5">折扣（%）</label>
-                    <input
-                      type="number"
-                      name="discountApplied"
-                      defaultValue={contract.renewal.discountApplied ?? ""}
-                      placeholder="0"
-                      min="0"
-                      max="100"
-                      className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-400"
-                    />
-                  </div>
-                </div>
 
-                {contract.renewal.renewalOffer !== undefined && (
-                  <div className="p-3 rounded-lg bg-slate-50 text-xs space-y-1">
-                    <div className="flex justify-between text-slate-500">
-                      <span>原合同金额</span>
-                      <span>{formatMoney(contract.contract.contractAmount)}</span>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-medium text-slate-600 mb-1.5">续约报价（元）</label>
+                      <input
+                        type="number"
+                        name="renewalOffer"
+                        defaultValue={contract.renewal.renewalOffer ?? ""}
+                        placeholder="0"
+                        className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-400"
+                      />
                     </div>
-                    <div className="flex justify-between text-slate-500">
-                      <span>报价金额</span>
-                      <span>{formatMoney(contract.renewal.renewalOffer)}</span>
+                    <div>
+                      <label className="block text-xs font-medium text-slate-600 mb-1.5">折扣（%）</label>
+                      <input
+                        type="number"
+                        name="discountApplied"
+                        defaultValue={contract.renewal.discountApplied ?? ""}
+                        placeholder="0"
+                        min="0"
+                        max="100"
+                        className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-400"
+                      />
                     </div>
-                    <div className="flex justify-between text-slate-500">
-                      <span>
-                        折扣
-                        {contract.renewal.discountApplied ? ` (${contract.renewal.discountApplied}%)` : ""}
-                      </span>
-                      <span>
-                        {contract.renewal.discountApplied
-                          ? formatMoney(
-                              Math.round(
-                                contract.renewal.renewalOffer *
-                                  (1 - contract.renewal.discountApplied / 100)
+                  </div>
+
+                  {contract.renewal.renewalOffer !== undefined && (
+                    <div className="p-3 rounded-lg bg-slate-50 text-xs space-y-1">
+                      <div className="flex justify-between text-slate-500">
+                        <span>原合同金额</span>
+                        <span>{formatMoney(contract.contract.contractAmount)}</span>
+                      </div>
+                      <div className="flex justify-between text-slate-500">
+                        <span>报价金额</span>
+                        <span>{formatMoney(contract.renewal.renewalOffer)}</span>
+                      </div>
+                      <div className="flex justify-between text-slate-500">
+                        <span>
+                          折扣
+                          {contract.renewal.discountApplied ? ` (${contract.renewal.discountApplied}%)` : ""}
+                        </span>
+                        <span>
+                          {contract.renewal.discountApplied
+                            ? formatMoney(
+                                Math.round(
+                                  contract.renewal.renewalOffer *
+                                    (1 - contract.renewal.discountApplied / 100)
+                                )
                               )
-                            )
-                          : formatMoney(contract.renewal.renewalOffer)}
-                      </span>
+                            : formatMoney(contract.renewal.renewalOffer)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between pt-1 mt-1 border-t border-slate-200 font-medium text-slate-700">
+                        <span>涨幅</span>
+                        <span
+                          className={
+                            contract.renewal.renewalOffer >= contract.contract.contractAmount
+                              ? "text-brand-600"
+                              : "text-moss-600"
+                          }
+                        >
+                          {contract.renewal.renewalOffer >= contract.contract.contractAmount
+                            ? "+"
+                            : ""}
+                          {Math.round(
+                            ((contract.renewal.renewalOffer - contract.contract.contractAmount) /
+                              contract.contract.contractAmount) *
+                              100
+                          )}
+                          %
+                        </span>
+                      </div>
                     </div>
-                    <div className="flex justify-between pt-1 mt-1 border-t border-slate-200 font-medium text-slate-700">
-                      <span>涨幅</span>
-                      <span
-                        className={
-                          contract.renewal.renewalOffer >= contract.contract.contractAmount
-                            ? "text-brand-600"
-                            : "text-moss-600"
-                        }
-                      >
-                        {contract.renewal.renewalOffer >= contract.contract.contractAmount
-                          ? "+"
-                          : ""}
-                        {Math.round(
-                          ((contract.renewal.renewalOffer - contract.contract.contractAmount) /
-                            contract.contract.contractAmount) *
-                            100
-                        )}
-                        %
-                      </span>
+                  )}
+
+                  {contract.renewal.notes && (
+                    <div className="p-3 rounded-lg bg-amber-50 border-l-4 border-amber-400 text-xs text-slate-700">
+                      <span className="font-medium text-amber-700">📝 备注：</span>
+                      {contract.renewal.notes}
                     </div>
-                  </div>
-                )}
+                  )}
 
-                {contract.renewal.notes && (
-                  <div className="p-3 rounded-lg bg-amber-50 border-l-4 border-amber-400 text-xs text-slate-700">
-                    <span className="font-medium text-amber-700">📝 备注：</span>
-                    {contract.renewal.notes}
-                  </div>
-                )}
+                  {contract.renewal.renewedAt && (
+                    <div className="p-3 rounded-lg bg-moss-50 border border-moss-200 text-xs text-moss-700">
+                      ✅ 已于 {formatDate(contract.renewal.renewedAt)} 完成续约
+                      {contract.renewal.signedContractNo && (
+                        <>
+                          <br />
+                          新合同编号：{contract.renewal.signedContractNo}
+                        </>
+                      )}
+                    </div>
+                  )}
 
-                {contract.renewal.renewedAt && (
-                  <div className="p-3 rounded-lg bg-moss-50 border border-moss-200 text-xs text-moss-700">
-                    ✅ 已于 {formatDate(contract.renewal.renewedAt)} 完成续约
-                    {contract.renewal.signedContractNo && (
-                      <>
-                        <br />
-                        新合同编号：{contract.renewal.signedContractNo}
-                      </>
-                    )}
+                  <button
+                    type="submit"
+                    className="w-full py-2.5 rounded-lg bg-brand-500 hover:bg-brand-600 text-white text-sm font-medium transition-colors"
+                  >
+                    保存续约信息
+                  </button>
+                </renewalFetcher.Form>
+              </section>
+            ) : (
+              <section className="bg-white rounded-xl border border-slate-200 p-5">
+                <h2 className="text-base font-semibold text-slate-800 flex items-center gap-2 mb-4">
+                  <span className="w-1 h-5 rounded-full bg-brand-500" />
+                  续约信息
+                </h2>
+                <div className="space-y-3 text-sm">
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-500">续约状态</span>
+                    <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium border ${renewStatus.bg} ${renewStatus.color} ${renewStatus.border}`}>
+                      {renewStatus.icon} {renewStatus.label}
+                    </span>
                   </div>
-                )}
-
-                <button
-                  type="submit"
-                  className="w-full py-2.5 rounded-lg bg-brand-500 hover:bg-brand-600 text-white text-sm font-medium transition-colors"
-                >
-                  保存续约信息
-                </button>
-              </renewalFetcher.Form>
-            </section>
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-500">下次联系</span>
+                    <span className="font-medium text-slate-700">{formatDate(contract.renewal.nextContactAt)}</span>
+                  </div>
+                  {contract.renewal.renewalOffer !== undefined && (
+                    <>
+                      <div className="flex items-center justify-between">
+                        <span className="text-slate-500">续约报价</span>
+                        <span className="font-medium text-slate-700">{formatMoney(contract.renewal.renewalOffer)}</span>
+                      </div>
+                      {contract.renewal.discountApplied ? (
+                        <div className="flex items-center justify-between">
+                          <span className="text-slate-500">折扣</span>
+                          <span className="font-medium text-brand-600">-{contract.renewal.discountApplied}%</span>
+                        </div>
+                      ) : null}
+                    </>
+                  )}
+                  {contract.renewal.notes && (
+                    <div className="mt-2 p-3 rounded-lg bg-amber-50 border-l-4 border-amber-400 text-xs text-slate-700">
+                      <span className="font-medium text-amber-700">📝 备注：</span>
+                      {contract.renewal.notes}
+                    </div>
+                  )}
+                  {contract.renewal.renewedAt && (
+                    <div className="mt-2 p-3 rounded-lg bg-moss-50 border border-moss-200 text-xs text-moss-700">
+                      ✅ 已于 {formatDate(contract.renewal.renewedAt)} 完成续约
+                    </div>
+                  )}
+                  <div className="mt-3 pt-3 border-t border-slate-100 text-xs text-slate-400 text-center">
+                    {currentRole === "engineer"
+                      ? "维保主管负责调整续约策略，请联系赵建国"
+                      : "续约策略由维保主管维护，您可记录合作反馈"}
+                  </div>
+                </div>
+              </section>
+            )}
 
             <section className="bg-white rounded-xl border border-slate-200 p-5">
               <h2 className="text-base font-semibold text-slate-800 flex items-center gap-2 mb-4">
                 <span className="w-1 h-5 rounded-full bg-sky-500" />
-                追加跟进备注
+                {currentRole === "property" ? "合作反馈" : "追加跟进备注"}
               </h2>
               <followUpFetcher.Form method="post" className="space-y-3">
                 <input type="hidden" name="intent" value="addFollowUp" />
                 <input type="hidden" name="contractId" value={contract.contract.id} />
                 <input type="hidden" name="author" value={personName} />
                 <input type="hidden" name="authorRole" value={currentRole} />
+                {!showMarkInternal && <input type="hidden" name="isInternal" />}
 
                 <div>
                   <textarea
                     name="content"
                     rows={4}
-                    placeholder="记录本次跟进内容、客户反馈、下一步计划…"
+                    placeholder={
+                      currentRole === "property"
+                        ? "请记录您的合作意向、服务评价或其他反馈…"
+                        : "记录本次跟进内容、客户反馈、下一步计划…"
+                    }
                     className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-400 resize-none"
                   />
                 </div>
 
-                <label className="flex items-center gap-2 text-sm text-slate-600 cursor-pointer select-none">
-                  <input
-                    type="checkbox"
-                    name="isInternal"
-                    className="w-4 h-4 rounded border-slate-300 text-brand-500 focus:ring-brand-500"
-                  />
-                  <span>🔒 标记为内部备注（客户不可见）</span>
-                </label>
+                {showMarkInternal && (
+                  <label className="flex items-center gap-2 text-sm text-slate-600 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      name="isInternal"
+                      className="w-4 h-4 rounded border-slate-300 text-brand-500 focus:ring-brand-500"
+                    />
+                    <span>🔒 标记为内部备注（客户不可见）</span>
+                  </label>
+                )}
 
                 <div className="flex items-center justify-between pt-1">
                   <div className="text-xs text-slate-400">
@@ -622,7 +700,7 @@ export default function EvidenceDetail() {
                     type="submit"
                     className="px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-900 text-white text-sm font-medium transition-colors"
                   >
-                    提交备注
+                    {currentRole === "property" ? "提交反馈" : "提交备注"}
                   </button>
                 </div>
               </followUpFetcher.Form>
@@ -638,10 +716,12 @@ function DangerCard({
   danger,
   contractId,
   author,
+  canEdit,
 }: {
   danger: ReturnType<typeof useLoaderData<typeof loader>>["contract"]["hiddenDangers"][number];
   contractId: string;
   author: string;
+  canEdit: boolean;
 }) {
   const dangerFetcher = useFetcher();
   const risk = RISK_LEVELS[danger.riskLevel];
@@ -693,24 +773,33 @@ function DangerCard({
           )}
         </div>
         <div className="shrink-0">
-          <dangerFetcher.Form method="post" className="flex flex-col items-end gap-2">
-            <input type="hidden" name="intent" value="updateDanger" />
-            <input type="hidden" name="contractId" value={contractId} />
-            <input type="hidden" name="dangerId" value={danger.id} />
-            <input type="hidden" name="author" value={author} />
-            <select
-              name="status"
-              defaultValue={danger.status}
-              onChange={(e) => e.target.form?.requestSubmit()}
-              className={`px-3 py-1.5 rounded-lg text-sm font-medium border-0 cursor-pointer ${dStatus.bg} ${dStatus.color}`}
+          {canEdit ? (
+            <dangerFetcher.Form method="post" className="flex flex-col items-end gap-2">
+              <input type="hidden" name="intent" value="updateDanger" />
+              <input type="hidden" name="contractId" value={contractId} />
+              <input type="hidden" name="dangerId" value={danger.id} />
+              <input type="hidden" name="author" value={author} />
+              <input type="hidden" name="authorRole" value={useRoleStore.getState().currentRole} />
+              <select
+                name="status"
+                defaultValue={danger.status}
+                onChange={(e) => e.target.form?.requestSubmit()}
+                className={`px-3 py-1.5 rounded-lg text-sm font-medium border-0 cursor-pointer ${dStatus.bg} ${dStatus.color}`}
+              >
+                {(Object.keys(DANGER_STATUS) as DangerStatus[]).map((s) => (
+                  <option key={s} value={s}>
+                    {DANGER_STATUS[s].label}
+                  </option>
+                ))}
+              </select>
+            </dangerFetcher.Form>
+          ) : (
+            <span
+              className={`inline-block px-3 py-1.5 rounded-lg text-sm font-medium ${dStatus.bg} ${dStatus.color}`}
             >
-              {(Object.keys(DANGER_STATUS) as DangerStatus[]).map((s) => (
-                <option key={s} value={s}>
-                  {DANGER_STATUS[s].label}
-                </option>
-              ))}
-            </select>
-          </dangerFetcher.Form>
+              {dStatus.label}
+            </span>
+          )}
         </div>
       </div>
     </div>
