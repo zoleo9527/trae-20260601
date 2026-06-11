@@ -48,6 +48,8 @@ def create_visit(data: VisitCreate, db: Session = Depends(get_db)):
     register_user = db.query(User).filter(User.id == data.registered_by).first()
     if not register_user:
         raise HTTPException(400, "登记人不存在")
+    if register_user.role != UserRole.MANAGER:
+        raise HTTPException(403, "仅案场经理可提交来访登记")
 
     customer = db.query(Customer).filter(Customer.phone == data.customer_phone).first()
     if not customer:
@@ -129,6 +131,8 @@ def assign_agent(visit_id: int, data: VisitAssign, db: Session = Depends(get_db)
     assigner = db.query(User).filter(User.id == data.assigned_by).first()
     if not assigner:
         raise HTTPException(400, "操作人不存在")
+    if assigner.role != UserRole.MANAGER:
+        raise HTTPException(403, "仅案场经理可分配置业顾问")
 
     visit.assigned_agent_id = data.assigned_agent_id
     visit.assigned_at = datetime.utcnow()

@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from ..database import get_db
 from ..models import (
     Customer,
+    FollowUpRecord,
     OwnershipRecord,
     OwnershipStatus,
     OWNERSHIP_STATUS_LABELS,
@@ -68,6 +69,13 @@ def create_subscription(data: SubscriptionCreate, db: Session = Depends(get_db))
     creator = db.query(User).filter(User.id == data.created_by).first()
     if not creator:
         raise HTTPException(400, "创建人不存在")
+    if creator.role != UserRole.CONTROLLER:
+        raise HTTPException(403, "仅销控专员可创建认购单")
+    if not visit.assigned_agent_id:
+        raise HTTPException(400, "该来访尚未分配置业顾问，不能创建认购单")
+    follow_count = db.query(FollowUpRecord).filter(FollowUpRecord.visit_id == visit.id).count()
+    if follow_count == 0:
+        raise HTTPException(400, "该来访无跟进记录，不能创建认购单（请先由分配顾问提交跟进）")
 
     sub = Subscription(
         subscription_no=gen_subscription_no(),
@@ -126,31 +134,12 @@ def list_subscriptions(
 # ========================= 客户归属 =========================
 
 
-@router.post("/ownerships", response_model=OwnershipDetail, summary="手动创建客户归属记录")
+@router.post("/ownerships", status_code=410, summary="[已停用] 客户归属只由认购单自动触发，不再支持手动创建")
 def create_ownership(data: OwnershipCreate, db: Session = Depends(get_db)):
-    visit = db.query(VisitRegistration).filter(VisitRegistration.id == data.visit_id).first()
-    if not visit:
-        raise HTTPException(404, "来访登记不存在")
-    existing = db.query(OwnershipRecord).filter(OwnershipRecord.visit_id == data.visit_id).first()
-    if existing:
-        raise HTTPException(400, "该来访已有归属记录，请在原记录上操作")
-
-    agent = db.query(User).filter(User.id == data.claimed_agent_id, User.role == UserRole.AGENT).first()
-    if not agent:
-        raise HTTPException(400, "主张归属的置业顾问不存在")
-
-    own = OwnershipRecord(
-        visit_id=data.visit_id,
-        customer_id=data.customer_id,
-        subscription_id=data.subscription_id,
-        claimed_agent_id=data.claimed_agent_id,
-        status=OwnershipStatus.PENDING,
-        ownership_reason=data.ownership_reason,
+    raise HTTPException(
+        status_code=410,
+        detail="该接口已停用。客户归属仅在创建认购单（POST /api/subscriptions）时自动生成，不允许手动创建。",
     )
-    db.add(own)
-    db.commit()
-    db.refresh(own)
-    return _decorate_ownership(own, db)
 
 
 @router.get("/ownerships", response_model=List[OwnershipDetail], summary="5. 客户归属回看查询")
@@ -195,8 +184,12 @@ def confirm_ownership(ownership_id: int, data: OwnershipConfirm, db: Session = D
     o = db.query(OwnershipRecord).filter(OwnershipRecord.id == ownership_id).first()
     if not o:
         raise HTTPException(404, "归属记录不存在")
-    if o.status not in (OwnershipStatus.PENDING, OwnershipStatus.DISPUTED):
-        raise HTTPException(400, f"当前状态为{OWNERSHIP_STATUS_LABELS.get(o.status)}，不可确认")
+    if o.status != OwnershipStatus.PENDING:
+        raise HTTPException(
+            400,
+            f"当前状态为{OWNERSHIP_STATUS_LABELS.get(o.status)}，仅待确认(pending)状态可执行确认操作；"
+            f"争议状态请使用裁决接口(/resolve)。",
+        )
 
     confirmer = db.query(User).filter(User.id == data.confirmed_by, User.role == UserRole.CONTROLLER).first()
     if not confirmer:
@@ -261,6 +254,11 @@ def resolve_ownership(ownership_id: int, data: OwnershipResolve, db: Session = D
     o.resolved_at = datetime.utcnow()
     o.commission_amount = data.commission_amount
     o.commission_ratio = data.commission_ratio
+
+    visit = db.query(VisitRegistration).filter(VisitRegistration.id == o.visit_id).first()
+    if visit and visit.assigned_agent_id != data.confirm_agent_id:
+        visit.assigned_agent_id = data.confirm_agent_id
+
     db.commit()
     db.refresh(o)
     return _decorate_ownership(o, db)
