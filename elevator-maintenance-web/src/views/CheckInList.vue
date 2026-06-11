@@ -6,22 +6,6 @@
 
     <div class="filter-bar">
       <el-form :inline="true" :model="filterForm" class="filter-form">
-        <el-form-item label="状态">
-          <el-select
-            v-model="filterForm.status"
-            placeholder="全部状态"
-            clearable
-            style="width: 160px"
-            @change="handleFilter"
-          >
-            <el-option
-              v-for="status in checkinStatusList"
-              :key="status.value"
-              :label="status.label"
-              :value="status.value"
-            />
-          </el-select>
-        </el-form-item>
         <el-form-item label="工作结果">
           <el-select
             v-model="filterForm.workResult"
@@ -85,14 +69,14 @@
         style="width: 100%"
       >
         <el-table-column prop="id" label="签到ID" width="100" />
-        <el-table-column prop="planNo" label="计划编号" width="140" />
+        <el-table-column prop="projectName" label="项目名称" width="140" />
         <el-table-column prop="elevatorNo" label="电梯编号" width="140" />
-        <el-table-column prop="elevatorLocation" label="电梯位置" min-width="180" />
+        <el-table-column prop="projectName" label="电梯位置" min-width="180" />
         <el-table-column prop="technicianName" label="技师" width="100" />
         <el-table-column label="状态" width="100">
           <template #default="{ row }">
-            <el-tag :type="getCheckinStatusType(row.status)">
-              {{ getCheckinStatusLabel(row.status) }}
+            <el-tag :type="getCheckinStatusType(row.checkOutTime ? 'CHECKED_OUT' : 'CHECKED_IN')">
+              {{ getCheckinStatusLabel(row.checkOutTime ? 'CHECKED_OUT' : 'CHECKED_IN') }}
             </el-tag>
           </template>
         </el-table-column>
@@ -169,7 +153,6 @@ const tableData = ref([])
 const technicians = ref([])
 
 const filterForm = reactive({
-  status: '',
   workResult: '',
   technicianId: null,
   dateRange: []
@@ -181,7 +164,6 @@ const pagination = reactive({
   total: 0
 })
 
-const checkinStatusList = computed(() => Object.values(CHECKIN_STATUS))
 const workResultList = computed(() => Object.values(WORK_RESULT))
 
 const formatDateTime = (date) => {
@@ -194,7 +176,6 @@ const loadData = async () => {
     const params = {
       page: pagination.page,
       size: pagination.size,
-      status: filterForm.status || undefined,
       workResult: filterForm.workResult || undefined,
       technicianId: filterForm.technicianId || undefined
     }
@@ -233,7 +214,6 @@ const handleFilter = () => {
 }
 
 const handleReset = () => {
-  filterForm.status = ''
   filterForm.workResult = ''
   filterForm.technicianId = null
   filterForm.dateRange = []

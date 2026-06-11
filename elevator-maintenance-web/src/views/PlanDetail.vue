@@ -27,13 +27,13 @@
           <el-col :span="8">
             <div class="info-row">
               <span class="info-label">计划类型：</span>
-              <span class="info-value">{{ plan?.planType || '-' }}</span>
+              <span class="info-value">{{ plan?.content ? (plan.content.length > 10 ? plan.content.slice(0, 10) + '...' : plan.content) : '-' }}</span>
             </div>
           </el-col>
           <el-col :span="8">
             <div class="info-row">
               <span class="info-label">计划日期：</span>
-              <span class="info-value">{{ formatDate(plan?.scheduledDate) }}</span>
+              <span class="info-value">{{ formatDate(plan?.planTime) }}</span>
             </div>
           </el-col>
           <el-col :span="8">
@@ -45,7 +45,7 @@
           <el-col :span="16">
             <div class="info-row">
               <span class="info-label">电梯位置：</span>
-              <span class="info-value">{{ plan?.elevatorLocation || '-' }}</span>
+              <span class="info-value">{{ plan?.address || '-' }}</span>
             </div>
           </el-col>
           <el-col :span="8">
@@ -57,13 +57,13 @@
           <el-col :span="8">
             <div class="info-row">
               <span class="info-label">创建人：</span>
-              <span class="info-value">{{ plan?.creatorName || '-' }}</span>
+              <span class="info-value">{{ plan?.dispatcherName || '-' }}</span>
             </div>
           </el-col>
           <el-col :span="8">
             <div class="info-row">
               <span class="info-label">创建时间：</span>
-              <span class="info-value">{{ formatDateTime(plan?.createdAt) }}</span>
+              <span class="info-value">{{ formatDateTime(plan?.createTime) }}</span>
             </div>
           </el-col>
           <el-col :span="24">
@@ -81,8 +81,8 @@
           <el-table-column prop="id" label="签到ID" width="100" />
           <el-table-column label="状态" width="100">
             <template #default="{ row }">
-              <el-tag :type="getCheckinStatusType(row.status)" size="small">
-                {{ getCheckinStatusLabel(row.status) }}
+              <el-tag :type="getCheckinStatusType(row.checkOutTime ? 'CHECKED_OUT' : 'CHECKED_IN')" size="small">
+                {{ getCheckinStatusLabel(row.checkOutTime ? 'CHECKED_OUT' : 'CHECKED_IN') }}
               </el-tag>
             </template>
           </el-table-column>
@@ -96,7 +96,7 @@
               {{ row.checkOutTime ? formatDateTime(row.checkOutTime) : '-' }}
             </template>
           </el-table-column>
-          <el-table-column prop="location" label="签到位置" min-width="200" />
+          <el-table-column prop="locationRemark" label="签到位置" min-width="200" />
           <el-table-column label="工作结果" width="100">
             <template #default="{ row }">
               <el-tag v-if="row.workResult" :type="getWorkResultType(row.workResult)" size="small">
@@ -122,11 +122,11 @@
             <div class="timeline-dot"></div>
             <div class="timeline-content">
               <div class="timeline-header">
-                <span class="timeline-action">{{ getActionLabel(note.actionType) }}</span>
-                <span class="timeline-time">{{ formatDateTime(note.createdAt) }}</span>
+                <span class="timeline-action">{{ getActionLabel(note.action) }}</span>
+                <span class="timeline-time">{{ formatDateTime(note.createTime) }}</span>
               </div>
               <div class="timeline-user">
-                {{ note.userName || '系统' }}
+                {{ note.operatorName || '系统' }}
               </div>
               <div v-if="note.content" class="timeline-note">
                 {{ note.content }}
@@ -592,7 +592,7 @@ const canCheckOut = computed(() => {
   return plan.value?.status === PLAN_STATUS.IN_PROGRESS.value &&
     userStore.hasRole(USER_ROLE.TECHNICIAN.value) &&
     plan.value?.technicianId === userStore.user?.id &&
-    activeCheckIn.value?.status === CHECKIN_STATUS.CHECKED_IN.value
+    activeCheckIn.value && !activeCheckIn.value.checkOutTime
 })
 
 const canReview = computed(() => {
@@ -621,7 +621,7 @@ const loadData = async () => {
     activeCheckIn.value = checkInRes || null
 
     if (notes.value && notes.value.length > 0) {
-      notes.value.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+      notes.value.sort((a, b) => new Date(b.createTime) - new Date(a.createTime))
     }
   } catch (e) {
     console.error('Load plan detail error:', e)
@@ -776,9 +776,11 @@ const handleDispatch = async () => {
     await dispatchFormRef.value.validate()
     submitLoading.value = true
 
-    await dispatchPlan(planId.value, {
+    await dispatchPlan({
+      planId: planId.value,
       technicianId: dispatchForm.technicianId,
-      note: dispatchForm.note
+      dispatcherId: userStore.user.id,
+      remark: dispatchForm.note
     })
 
     ElMessage.success('派单成功')
@@ -799,11 +801,11 @@ const handleCheckIn = async () => {
 
     await checkIn({
       planId: planId.value,
-      location: checkInForm.location,
+      technicianId: userStore.user.id,
       latitude: checkInForm.latitude,
       longitude: checkInForm.longitude,
-      photos: checkInForm.photos,
-      note: checkInForm.note
+      locationRemark: checkInForm.location,
+      photoData: checkInForm.photos && checkInForm.photos.length > 0 ? checkInForm.photos[0] : null
     })
 
     ElMessage.success('签到成功')
@@ -851,9 +853,11 @@ const handleReview = async () => {
     await reviewFormRef.value.validate()
     submitLoading.value = true
 
-    await reviewPlan(planId.value, {
-      result: reviewForm.result,
-      comment: reviewForm.comment
+    await reviewPlan({
+      planId: planId.value,
+      supervisorId: userStore.user.id,
+      reviewRemark: reviewForm.comment,
+      status: reviewForm.result === 'APPROVE' ? 'COMPLETED' : 'REJECTED'
     })
 
     ElMessage.success('审核成功')
@@ -875,9 +879,11 @@ const handleAddNote = async () => {
     await noteFormRef.value.validate()
     submitLoading.value = true
 
-    await addPlanNote(planId.value, {
+    await addPlanNote({
+      planId: planId.value,
+      operatorId: userStore.user.id,
       content: noteForm.content,
-      photos: noteForm.photos
+      action: 'NOTE'
     })
 
     ElMessage.success('备注添加成功')

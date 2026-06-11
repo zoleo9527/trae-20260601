@@ -9,8 +9,8 @@
           签到详情
         </h2>
       </div>
-      <el-tag :type="getCheckinStatusType(checkIn?.status)" size="large">
-        {{ getCheckinStatusLabel(checkIn?.status) }}
+      <el-tag :type="getCheckinStatusType(checkIn?.checkOutTime ? 'CHECKED_OUT' : 'CHECKED_IN')" size="large">
+        {{ getCheckinStatusLabel(checkIn?.checkOutTime ? 'CHECKED_OUT' : 'CHECKED_IN') }}
       </el-tag>
     </div>
 
@@ -26,10 +26,10 @@
           </el-col>
           <el-col :span="8">
             <div class="info-row">
-              <span class="info-label">计划编号：</span>
+              <span class="info-label">项目名称：</span>
               <span class="info-value">
                 <el-link type="primary" @click="goToPlan">
-                  {{ checkIn?.planNo || '-' }}
+                  {{ checkIn?.projectName || '-' }}
                 </el-link>
               </span>
             </div>
@@ -49,7 +49,7 @@
           <el-col :span="16">
             <div class="info-row">
               <span class="info-label">电梯位置：</span>
-              <span class="info-value">{{ checkIn?.elevatorLocation || '-' }}</span>
+              <span class="info-value">{{ checkIn?.projectName || '-' }}</span>
             </div>
           </el-col>
         </el-row>
@@ -73,7 +73,7 @@
           <el-col :span="24">
             <div class="info-row">
               <span class="info-label">签到位置：</span>
-              <span class="info-value">{{ checkIn?.location || '-' }}</span>
+              <span class="info-value">{{ checkIn?.locationRemark || '-' }}</span>
             </div>
           </el-col>
           <el-col :span="12">
@@ -111,10 +111,10 @@
               <span class="info-value">{{ checkIn?.workContent || '-' }}</span>
             </div>
           </el-col>
-          <el-col :span="24" v-if="checkIn?.problemDescription">
+          <el-col :span="24" v-if="checkIn?.problemDesc">
             <div class="info-row">
               <span class="info-label">问题描述：</span>
-              <span class="info-value">{{ checkIn.problemDescription }}</span>
+              <span class="info-value">{{ checkIn.problemDesc }}</span>
             </div>
           </el-col>
           <el-col :span="24" v-if="checkIn?.solution">

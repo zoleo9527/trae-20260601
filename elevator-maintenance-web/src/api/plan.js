@@ -30,17 +30,17 @@ export const createPlan = (data) => {
   })
 }
 
-export const dispatchPlan = (id, data) => {
+export const dispatchPlan = (data) => {
   return request({
-    url: `/plans/${id}/dispatch`,
+    url: '/plans/dispatch',
     method: 'post',
     data
   })
 }
 
-export const reviewPlan = (id, data) => {
+export const reviewPlan = (data) => {
   return request({
-    url: `/plans/${id}/review`,
+    url: '/plans/review',
     method: 'post',
     data
   })
@@ -54,9 +54,9 @@ export const batchReviewPlans = (data) => {
   })
 }
 
-export const addPlanNote = (planId, data) => {
+export const addPlanNote = (data) => {
   return request({
-    url: `/plans/${planId}/notes`,
+    url: '/plans/notes',
     method: 'post',
     data
   })

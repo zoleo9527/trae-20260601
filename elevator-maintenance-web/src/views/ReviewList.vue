@@ -71,8 +71,12 @@
         <el-table-column type="selection" width="55" />
         <el-table-column prop="planNo" label="计划编号" width="140" />
         <el-table-column prop="elevatorNo" label="电梯编号" width="140" />
-        <el-table-column prop="elevatorLocation" label="电梯位置" min-width="200" />
-        <el-table-column prop="planType" label="计划类型" width="100" />
+        <el-table-column prop="address" label="电梯位置" min-width="200" />
+        <el-table-column label="计划类型" width="100">
+          <template #default="{ row }">
+            {{ row.content ? (row.content.length > 10 ? row.content.slice(0, 10) + '...' : row.content) : '-' }}
+          </template>
+        </el-table-column>
         <el-table-column label="状态" width="120">
           <template #default="{ row }">
             <el-tag :type="getPlanStatusType(row.status)">
@@ -85,14 +89,14 @@
             {{ row.technicianName || '-' }}
           </template>
         </el-table-column>
-        <el-table-column prop="scheduledDate" label="计划日期" width="120">
+        <el-table-column prop="planTime" label="计划日期" width="120">
           <template #default="{ row }">
-            {{ formatDate(row.scheduledDate) }}
+            {{ formatDate(row.planTime) }}
           </template>
         </el-table-column>
-        <el-table-column prop="createdAt" label="创建时间" width="160">
+        <el-table-column prop="createTime" label="创建时间" width="160">
           <template #default="{ row }">
-            {{ formatDateTime(row.createdAt) }}
+            {{ formatDateTime(row.createTime) }}
           </template>
         </el-table-column>
         <el-table-column label="操作" width="200" fixed="right">
@@ -314,15 +318,18 @@ const handleReview = async () => {
     if (isBatch.value) {
       const ids = selectedPlans.value.map(p => p.id)
       await batchReviewPlans({
-        ids,
-        result: reviewResult.value,
-        comment: reviewForm.comment
+        planIds: ids,
+        supervisorId: userStore.user.id,
+        reviewRemark: reviewForm.comment,
+        status: reviewResult.value === 'APPROVE' ? 'COMPLETED' : 'REJECTED'
       })
       ElMessage.success(`批量${reviewResult.value === 'APPROVE' ? '通过' : '驳回'}成功`)
     } else if (currentPlan.value) {
-      await reviewPlan(currentPlan.value.id, {
-        result: reviewResult.value,
-        comment: reviewForm.comment
+      await reviewPlan({
+        planId: currentPlan.value.id,
+        supervisorId: userStore.user.id,
+        reviewRemark: reviewForm.comment,
+        status: reviewResult.value === 'APPROVE' ? 'COMPLETED' : 'REJECTED'
       })
       ElMessage.success(`审核${reviewResult.value === 'APPROVE' ? '通过' : '驳回'}成功`)
     }

@@ -9,7 +9,7 @@ export const useUserStore = defineStore('user', () => {
   const isLoggedIn = computed(() => !!token.value)
   const role = computed(() => user.value?.role || '')
   const username = computed(() => user.value?.username || '')
-  const name = computed(() => user.value?.name || '')
+  const name = computed(() => user.value?.realName || '')
 
   const setToken = (newToken) => {
     token.value = newToken
@@ -33,8 +33,8 @@ export const useUserStore = defineStore('user', () => {
 
   const handleLogin = async (credentials) => {
     const res = await login(credentials)
-    setToken(res.token)
-    setUser(res.user)
+    setToken(res.id)
+    setUser(res)
     return res
   }
 
