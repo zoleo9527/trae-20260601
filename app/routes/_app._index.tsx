@@ -192,6 +192,8 @@ export default function Index() {
     }
   }, [serverRole, currentRole, setCurrentRole]);
 
+  const displayRole = serverRole ?? currentRole;
+
   const stats = useMemo(() => {
     const total = contracts.length;
     const expiringSoon = contracts.filter((c) => c.renewal.status === "expiring_soon").length;
@@ -289,7 +291,7 @@ export default function Index() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {filtered.length > 0 ? (
-          filtered.map((c) => <ContractCard key={c.contract.id} contract={c} currentRole={currentRole} />)
+          filtered.map((c) => <ContractCard key={c.contract.id} contract={c} currentRole={displayRole} />)
         ) : (
           <div className="col-span-full py-20 text-center text-slate-400">
             暂无符合条件的合同

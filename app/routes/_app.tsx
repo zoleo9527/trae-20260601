@@ -1,5 +1,5 @@
 import { json, type LoaderFunctionArgs } from "@remix-run/node";
-import { Link, NavLink, Outlet, useLocation, useFetcher } from "@remix-run/react";
+import { Link, NavLink, Outlet, useLocation, useFetcher, useLoaderData } from "@remix-run/react";
 import { useEffect, useState } from "react";
 import type { Role } from "~/types";
 import { ROLE_ICONS, ROLE_LABELS, ROLE_DEFAULT_NAMES, ROLE_COLORS } from "~/types";
@@ -28,6 +28,8 @@ export default function AppLayout() {
       setCurrentRole(serverRole as Role);
     }
   }, [serverRole, currentRole, setCurrentRole]);
+
+  const displayRole = serverRole ?? currentRole;
 
   const handleSwitchRole = (role: Role) => {
     if (role === currentRole || isSwitching) return;
@@ -85,7 +87,7 @@ export default function AppLayout() {
           <div className="text-xs text-slate-400 mb-2 px-1">当前角色</div>
           <div className="space-y-1.5">
             {(Object.keys(ROLE_LABELS) as Role[]).map((role) => {
-              const active = currentRole === role;
+              const active = displayRole === role;
               return (
                 <button
                   key={role}
@@ -94,8 +96,7 @@ export default function AppLayout() {
                     active
                       ? "bg-white/10 border border-white/20 text-white"
                       : "text-slate-400 hover:bg-slate-700/30 hover:text-slate-200"
-                  } ${isSwitching ? "opacity-70 cursor-wait" : ""}`}
-                >
+                  } ${isSwitching ? "opacity-70 cursor-wait" : ""}`}>
                   <span className="text-base">{ROLE_ICONS[role]}</span>
                   <div className="flex-1 text-left">
                     <div className="font-medium leading-tight">{ROLE_LABELS[role]}</div>
@@ -124,11 +125,11 @@ export default function AppLayout() {
           </div>
           <div className="flex items-center gap-4">
             <div
-              className={`tag ${ROLE_COLORS[currentRole]} !border-transparent !py-1 !px-3`}
+              className={`tag ${ROLE_COLORS[displayRole]} !border-transparent !py-1 !px-3`}
             >
-              <span>{ROLE_ICONS[currentRole]}</span>
+              <span>{ROLE_ICONS[displayRole]}</span>
               <span className="font-medium">
-                {ROLE_LABELS[currentRole]} · {ROLE_DEFAULT_NAMES[currentRole]}
+                {ROLE_LABELS[displayRole]} · {ROLE_DEFAULT_NAMES[displayRole]}
               </span>
             </div>
             <div className="w-9 h-9 rounded-full bg-slate-100 flex items-center justify-center text-slate-500">
