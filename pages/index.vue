@@ -207,10 +207,21 @@ const roleLabel = getRoleLabel
 const todoStatuses = computed<LeaseStatus[]>(() => {
   const r = store.currentUser.role
   if (r === 'manager') return ['plan_pending', 'contract_pending']
-  if (r === 'supervisor') return ['plan_rejected', 'contract_rejected', 'lead_following', 'lead_created']
+  if (r === 'supervisor') return ['plan_rejected', 'contract_rejected', 'lead_following', 'lead_created', 'plan_approved']
   if (r === 'property_engineer') return ['decoration_pending']
   return []
 })
+
+const TODO_LABEL: Partial<Record<LeaseStatus, { label: string; hint: string; cls: string; textCls: string }>> = {
+  plan_pending: { label: '租赁方案待审批', hint: '招商经理待审批', cls: 'bg-amber-50 text-amber-700', textCls: 'text-amber-600' },
+  contract_pending: { label: '合同审批中', hint: '招商经理待审批', cls: 'bg-amber-50 text-amber-700', textCls: 'text-amber-600' },
+  plan_rejected: { label: '租赁方案已退回', hint: '待修改重提', cls: 'bg-red-50 text-red-700', textCls: 'text-red-600' },
+  contract_rejected: { label: '合同已退回', hint: '待修改重提', cls: 'bg-red-50 text-red-700', textCls: 'text-red-600' },
+  lead_following: { label: '线索跟进中', hint: '待提交方案', cls: 'bg-blue-50 text-blue-700', textCls: 'text-blue-600' },
+  lead_created: { label: '新线索', hint: '待跟进', cls: 'bg-gray-100 text-gray-700', textCls: 'text-gray-700' },
+  plan_approved: { label: '方案已通过·待起草合同', hint: '待提交合同审批', cls: 'bg-sky-50 text-sky-700', textCls: 'text-sky-600' },
+  decoration_pending: { label: '装修进场待审批', hint: '物业工程待审核', cls: 'bg-amber-50 text-amber-700', textCls: 'text-amber-600' }
+}
 
 const filterOptions = computed(() => {
   const counts = (s: LeaseStatus | 'all' | 'todo') => {
@@ -233,18 +244,18 @@ const filterOptions = computed(() => {
 const statusSummary = computed(() => {
   const myTodos = todoStatuses.value
   return myTodos.slice(0, 4).map(s => {
-    const meta = STATUS_OPTIONS.find(o => o.value === s)!
+    const meta = TODO_LABEL[s] || getStatusMeta(s)
     const total = store.records.filter(r => r.currentStatus === s).length
     const mine = store.todoRecords.filter(r => r.currentStatus === s).length
-    const isEmer = s.includes('pending')
+    const label = (meta as any).label || (meta as any).label
     return {
       status: s,
-      label: meta.label,
+      label,
       count: mine,
       total,
-      tagClass: 'bg-amber-50 text-amber-700',
-      textClass: isEmer ? 'text-amber-600' : 'text-gray-800',
-      roleHint: '待处理'
+      tagClass: (meta as any).cls || 'bg-amber-50 text-amber-700',
+      textClass: (meta as any).textCls || 'text-amber-600',
+      roleHint: (meta as any).hint || '待处理'
     }
   })
 })

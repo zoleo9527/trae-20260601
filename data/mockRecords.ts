@@ -381,5 +381,64 @@ export const MOCK_RECORDS: LeaseRecord[] = [
       makeHistory('lead_created', 'lead_following', 'sunli', dt(0, 14, 0), '下午带看现场，初步沟通面积需求，车位需协调')
     ],
     supplements: []
+  },
+  {
+    id: 'R007',
+    company: '盛创信息科技有限公司',
+    contact: '周振华',
+    contactPhone: '13900009922',
+    building: 'A座',
+    floor: '12层',
+    roomNumbers: ['1205', '1206'],
+    area: 486,
+    industry: '企业服务',
+    intendedUse: '总部办公室（含会议室+接待区+开放办公区）',
+    currentStatus: 'plan_approved',
+    plan: {
+      monthlyRent: 75,
+      rentUnit: '元/㎡/月',
+      freeRentMonths: 3,
+      freeRentRemark: '合同期共36个月，头3个月免租（首年免），第2年起正常计租。用于企业搬迁装修+办公家具进场缓冲期',
+      leaseYears: 3,
+      depositMonths: 3,
+      increaseRate: '第3年起月租金递增5%',
+      paymentMethod: '季度支付（押3付3）',
+      decorationDays: 60,
+      earlyTerminationPenalty: '提前解约赔付3个月租金'
+    },
+    contract: {
+      partyA: '产业园区运营管理有限公司',
+      partyB: '盛创信息科技有限公司',
+      legalRepresentative: '周振华',
+      signers: []
+    },
+    decoration: {
+      requirements: [
+        { name: '吊顶重装', detail: '矿棉板换石膏板吊顶，嵌入式射灯72套', required: true },
+        { name: '开放工位', detail: '60组屏风工位 + 20寸显示器支架60个', required: true },
+        { name: '会议室隔断', detail: '玻璃隔断2间（6人/10人），含电动投影幕', required: true },
+        { name: '前台形象墙', detail: '拉丝不锈钢+亚克力LOGO字，接待台1组', required: true }
+      ],
+      risks: []
+    },
+    createUser: USERS.chenjie,
+    createTime: dt(6, 10, 0),
+    currentHandler: USERS.chenjie,
+    currentHandlerRole: 'supervisor',
+    statusHistory: [
+      makeHistory(null, 'lead_created', 'chenjie', dt(6, 10, 0), '园区老客户转介绍，对方人事总监对接，急租400㎡以上办公'),
+      makeHistory('lead_created', 'lead_following', 'chenjie', dt(6, 15, 30), '当日视频带看+发楼层平面，锁定1205+1206两间'),
+      makeHistory('lead_following', 'plan_pending', 'chenjie', dt(5, 11, 0), '提交方案：75元/㎡/月，免租3个月，押3付3，装修期60天，含免租期口径详细说明'),
+      makeHistory('plan_pending', 'plan_approved', 'zhaowei', dt(4, 10, 0), '方案通过，免租期3个月（首年抵扣）符合园区政策，装修期60天在标准范围内。请主管尽快起草合同并同步对方法务')
+    ],
+    supplements: [
+      {
+        id: uid(),
+        content: '周总确认：签约后30天内完成主体装修，优先保障7月初入驻。如需加隔断请提前报备物业工程。',
+        author: USERS.chenjie as unknown as User,
+        authorRole: 'supervisor',
+        timestamp: dt(4, 17, 10)
+      }
+    ]
   }
 ]

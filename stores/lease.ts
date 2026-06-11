@@ -64,6 +64,8 @@ export const useLeaseStore = defineStore('lease', () => {
     if (!rec || rec.currentStatus !== 'plan_pending') return
     pushHistory(rec, 'plan_approved', currentUserId.value, remark)
     rec.currentStatus = 'plan_approved'
+    rec.currentHandler = rec.createUser
+    rec.currentHandlerRole = rec.createUser.role
   }
 
   function rejectPlan(id: string, remark: string, reason: string) {
@@ -101,6 +103,14 @@ export const useLeaseStore = defineStore('lease', () => {
     if (updates) Object.assign(rec.contract, updates)
     pushHistory(rec, 'contract_approved', currentUserId.value, remark)
     rec.currentStatus = 'contract_approved'
+    rec.decoration.applyDate = new Date().toISOString().slice(0, 10)
+    pushHistory(
+      rec,
+      'decoration_pending',
+      'wanggang',
+      '合同签订完成，自动流转至物业工程启动装修进场审批'
+    )
+    rec.currentStatus = 'decoration_pending'
     rec.currentHandler = USERS.wanggang
     rec.currentHandlerRole = 'property_engineer'
   }

@@ -145,16 +145,18 @@ const contractBadgeClass = computed(() => {
   const s = props.record.currentStatus
   if (s === 'contract_pending') return 'bg-amber-50 text-amber-700'
   if (s === 'contract_rejected') return 'bg-red-50 text-red-700'
-  if (['contract_approved', 'decoration_pending', 'decoration_approved', 'completed'].includes(s))
+  if (s === 'plan_approved') return 'bg-sky-50 text-sky-700'
+  if (s === 'decoration_pending') return 'bg-sky-50 text-sky-700'
+  if (['contract_approved', 'decoration_approved', 'completed'].includes(s))
     return 'bg-emerald-50 text-emerald-700'
-  if (s === 'plan_approved') return 'bg-blue-50 text-blue-700'
   return 'bg-gray-100 text-gray-500'
 })
 const contractStatusLabel = computed(() => {
   const s = props.record.currentStatus
-  if (s.startsWith('contract_')) return getStatusMeta(s as any).label
   if (s === 'plan_approved') return '待提交合同'
-  if (s.startsWith('decoration_') || s === 'completed') return '已签订'
+  if (s === 'contract_pending' || s === 'contract_rejected' || s === 'contract_approved') return getStatusMeta(s as any).label
+  if (s === 'decoration_pending') return '已签订·已流转装修审批'
+  if (s === 'decoration_approved' || s === 'completed') return '已签订'
   if (s.startsWith('plan_')) return '方案阶段'
   return '待启动'
 })

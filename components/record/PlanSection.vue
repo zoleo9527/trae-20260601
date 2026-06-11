@@ -126,15 +126,16 @@ const planBadgeClass = computed(() => {
   const s = props.record.currentStatus
   if (s === 'plan_pending') return 'bg-amber-50 text-amber-700'
   if (s === 'plan_rejected') return 'bg-red-50 text-red-700'
-  if (['plan_approved', 'contract_pending', 'contract_approved', 'contract_rejected', 'decoration_pending', 'decoration_approved', 'completed'].includes(s))
+  if (s === 'plan_approved') return 'bg-sky-50 text-sky-700'
+  if (['contract_pending', 'contract_approved', 'contract_rejected', 'decoration_pending', 'decoration_approved', 'completed'].includes(s))
     return 'bg-emerald-50 text-emerald-700'
   return 'bg-gray-100 text-gray-600'
 })
 const planStatusLabel = computed(() => {
   const s = props.record.currentStatus
-  if (s.startsWith('plan_')) return getStatusMeta(s as any).label
+  if (s.startsWith('plan_')) return s === 'plan_approved' ? '已通过·待起草合同' : getStatusMeta(s as any).label
   if (s.startsWith('contract_') || s.startsWith('decoration_') || s === 'completed')
-    return '已通过'
+    return '已通过·已流转合同'
   return '未提交'
 })
 const planApprovedTime = computed(() => {

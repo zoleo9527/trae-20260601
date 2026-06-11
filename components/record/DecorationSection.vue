@@ -107,14 +107,16 @@ const decoBadgeClass = computed(() => {
   if (s === 'decoration_pending') return 'bg-amber-50 text-amber-700'
   if (s === 'decoration_approved') return 'bg-emerald-50 text-emerald-700'
   if (s === 'completed') return 'bg-purple-50 text-purple-700'
+  if (s === 'contract_approved') return 'bg-sky-50 text-sky-700'
   return 'bg-gray-100 text-gray-500'
 })
 const decoStatusLabel = computed(() => {
   const s = props.record.currentStatus
   if (s.startsWith('decoration_')) return getStatusMeta(s as any).label
   if (s === 'completed') return '已入驻'
-  if (['contract_approved', 'contract_pending', 'contract_rejected', 'plan_approved'].includes(s))
-    return '未申请'
+  if (s === 'contract_approved') return '待提交装修申请'
+  if (s.startsWith('plan_') || s === 'contract_pending' || s === 'contract_rejected')
+    return '未启动'
   return '未启动'
 })
 </script>
