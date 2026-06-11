@@ -41,6 +41,17 @@ const ROLE_LABELS: Record<string, string> = {
   guide: '导购',
 }
 
+const STATUS_LABELS: Record<string, string> = {
+  submitted: '已提交',
+  pending_confirm: '待确认',
+  pending_material: '待补材料',
+  timeout_escalated: '超时升级',
+  pending_review: '待复核',
+  review_rejected: '复核不通过',
+  pending_brand_confirm: '待品牌确认',
+  closed: '已闭环',
+}
+
 const ACTION_STYLES: Record<string, { label: string; cls: string }> = {
   approve: { label: '通过', cls: 'badge-success' },
   reject: { label: '退回', cls: 'badge-danger' },
@@ -52,7 +63,7 @@ const RESPONSIBLE_NAMES: Record<number, string> = {
 
 export default function Review() {
   const user = useAuthStore((s) => s.user)
-  const { attendance, reviews, loading, fetchAttendance, fetchReviews, approveReview, rejectReview } = useDataStore()
+  const { attendance, reviews, loading, trails, fetchAttendance, fetchReviews, approveReview, rejectReview, fetchTrail } = useDataStore()
   const [tab, setTab] = useState<'pending' | 'processed'>('pending')
   const [rejectingId, setRejectingId] = useState<number | null>(null)
   const [rejectReason, setRejectReason] = useState('')
@@ -69,7 +80,14 @@ export default function Review() {
       filters.counterId = user.counterId
     }
     fetchAttendance(filters)
-    fetchReviews()
+    const reviewFilters: Record<string, unknown> = {}
+    if (user?.role === 'counter_manager' && user.counterId) {
+      reviewFilters.counterId = user.counterId
+    }
+    if (user?.role === 'brand_supervisor' && user.brandId) {
+      reviewFilters.brandId = user.brandId
+    }
+    fetchReviews(reviewFilters)
   }, [pendingStatus, user, fetchAttendance, fetchReviews])
 
   useEffect(() => { loadData() }, [loadData])
@@ -150,29 +168,103 @@ export default function Review() {
     (reviewsByAttendance[attendanceId] || []).filter((r) => r.action === 'reject').length
 
   const renderHistory = (attendanceId: number) => {
-    const history = reviewsByAttendance[attendanceId]
-    if (!history || history.length === 0) return null
+    const trail = trails[attendanceId]
+    if (!trail || ((!trail.logs || trail.logs.length === 0) && (!trail.reviews || trail.reviews.length === 0))) {
+      return (
+        <button
+          onClick={() => fetchTrail(attendanceId)}
+          className="text-[10px] text-gray-500 hover:text-ops-accent transition-colors flex items-center gap-1"
+        >
+          <HistoryIcon size={10} />
+          查看流转轨迹
+        </button>
+      )
+    }
+
+    const allItems: Array<{
+      id: string
+      fromStatus?: string
+      toStatus?: string
+      operatorRole?: string
+      operatorName?: string
+      action?: string
+      reason?: string
+      createdAt?: string
+      type: 'log' | 'review'
+    }> = []
+
+    trail.logs?.forEach((log: any, idx: number) => {
+      allItems.push({
+        id: `log-${idx}`,
+        fromStatus: log.fromStatus,
+        toStatus: log.toStatus,
+        operatorRole: log.operatorRole,
+        operatorName: log.operatorName,
+        reason: log.reason,
+        createdAt: log.createdAt,
+        type: 'log',
+      })
+    })
+
+    trail.reviews?.forEach((review: any, idx: number) => {
+      allItems.push({
+        id: `review-${idx}`,
+        action: review.action,
+        operatorRole: review.reviewerRole || review.operatorRole,
+        operatorName: review.reviewerName || review.operatorName,
+        reason: review.reason,
+        createdAt: review.reviewCreatedAt || review.createdAt,
+        type: 'review',
+      })
+    })
+
+    allItems.sort((a, b) => {
+      const ta = a.createdAt ? new Date(a.createdAt).getTime() : 0
+      const tb = b.createdAt ? new Date(b.createdAt).getTime() : 0
+      return ta - tb
+    })
+
+    if (allItems.length === 0) return null
+
     return (
       <div className="mb-3 border-t border-ops-border pt-2.5 space-y-2">
         <div className="flex items-center gap-1.5 text-[10px] text-gray-500 font-bold">
           <HistoryIcon size={10} />
-          <span>流转轨迹 ({history.length}步)</span>
+          <span>流转轨迹 ({allItems.length}步)</span>
         </div>
         <div className="space-y-1.5">
-          {history.map((r) => (
-            <div key={r.reviewId} className="flex items-start gap-2 text-xs">
-              <span className={cn(
-                'inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold shrink-0 mt-0.5',
-                ACTION_STYLES[r.action]?.cls || 'badge-warning'
-              )}>
-                {r.action === 'approve' && <Check size={9} />}
-                {r.action === 'reject' && <XCircle size={9} />}
-                {ACTION_STYLES[r.action]?.label || r.action}
-              </span>
+          {allItems.map((item) => (
+            <div key={item.id} className="flex items-start gap-2 text-xs">
+              {item.type === 'review' && item.action ? (
+                <span className={cn(
+                  'inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold shrink-0 mt-0.5',
+                  ACTION_STYLES[item.action]?.cls || 'badge-warning'
+                )}>
+                  {item.action === 'approve' && <Check size={9} />}
+                  {item.action === 'reject' && <XCircle size={9} />}
+                  {ACTION_STYLES[item.action]?.label || item.action}
+                </span>
+              ) : (
+                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold shrink-0 mt-0.5 bg-blue-600/20 text-blue-400">
+                  流转
+                </span>
+              )}
               <div className="flex-1 min-w-0">
-                <span className="text-gray-400">{ROLE_LABELS[r.reviewerRole] || r.reviewerRole}</span>
-                {r.reason && (
-                  <span className="text-gray-500 ml-1 break-all">: {r.reason}</span>
+                {(item.fromStatus || item.toStatus) && (
+                  <span className="text-gray-300 font-mono text-[11px]">
+                    <span className="text-gray-500">{STATUS_LABELS[item.fromStatus!] || item.fromStatus}</span>
+                    <span className="mx-1 text-gray-600">→</span>
+                    <span className="text-ops-accent">{STATUS_LABELS[item.toStatus!] || item.toStatus}</span>
+                  </span>
+                )}
+                {item.operatorRole && (
+                  <span className="text-gray-400 ml-2">
+                    {ROLE_LABELS[item.operatorRole] || item.operatorRole}
+                    {item.operatorName ? `(${item.operatorName})` : ''}
+                  </span>
+                )}
+                {item.reason && (
+                  <div className="text-gray-500 break-all mt-0.5">: {item.reason}</div>
                 )}
               </div>
             </div>

@@ -7,13 +7,16 @@ interface DataState {
   exceptions: any[]
   exceptionStats: Record<string, number>
   logs: any[]
+  trails: Record<number, { logs: any[]; reviews: any[] }>
   loading: boolean
   fetchSchedules: (filters?: Record<string, unknown>) => Promise<void>
   fetchAttendance: (filters?: Record<string, unknown>) => Promise<void>
   fetchReviews: (filters?: Record<string, unknown>) => Promise<void>
   fetchExceptions: (filters?: Record<string, unknown>) => Promise<void>
-  fetchExceptionStats: () => Promise<void>
+  fetchExceptionStats: (role?: string, userId?: number) => Promise<void>
   fetchLogs: (filters?: Record<string, unknown>) => Promise<void>
+  fetchTrail: (attendanceId: number) => Promise<void>
+  approveAttendanceSubmitted: (id: number, operatorId: number) => Promise<void>
   confirmAttendance: (id: number, operatorId: number) => Promise<void>
   markException: (id: number, operatorId: number, exceptionType: string, note: string) => Promise<void>
   submitMaterial: (id: number, operatorId: number) => Promise<void>
@@ -51,6 +54,7 @@ export const useDataStore = create<DataState>((set, get) => ({
   exceptions: [],
   exceptionStats: {},
   logs: [],
+  trails: {},
   loading: false,
 
   fetchSchedules: async (filters?) => {
@@ -77,8 +81,8 @@ export const useDataStore = create<DataState>((set, get) => ({
     set({ exceptions: json.data ?? [], loading: false })
   },
 
-  fetchExceptionStats: async () => {
-    const json = await api('/exceptions/stats')
+  fetchExceptionStats: async (role?, userId?) => {
+    const json = await api(withParams('/exceptions/stats', { role, userId }))
     set({ exceptionStats: json.data ?? {} })
   },
 
@@ -86,6 +90,20 @@ export const useDataStore = create<DataState>((set, get) => ({
     set({ loading: true })
     const json = await api(withParams('/logs', filters))
     set({ logs: json.data ?? [], loading: false })
+  },
+
+  fetchTrail: async (attendanceId) => {
+    const json = await api(`/exceptions/trail/${attendanceId}`)
+    if (json.success) {
+      set((state) => ({ trails: { ...state.trails, [attendanceId]: json.data } }))
+    }
+  },
+
+  approveAttendanceSubmitted: async (id, operatorId) => {
+    await api(`/attendance/${id}/approve-submitted`, {
+      method: 'POST',
+      body: JSON.stringify({ operatorId }),
+    })
   },
 
   confirmAttendance: async (id, operatorId) => {
@@ -146,5 +164,6 @@ export const useDataStore = create<DataState>((set, get) => ({
 
   resetData: async () => {
     await api('/reset', { method: 'POST' })
+    set({ trails: {} })
   },
 }))

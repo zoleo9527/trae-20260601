@@ -3,23 +3,29 @@ import db from '../db.js'
 interface LogParams {
   operatorId: number
   operatorName: string
+  operatorRole?: string
   action: string
   entityType: string
   entityId: number
+  fromStatus?: string
+  toStatus?: string
   detail: string
 }
 
 export function logOperation(params: LogParams): void {
   const stmt = db.prepare(`
-    INSERT INTO operation_logs (operatorId, operatorName, action, entityType, entityId, detail, createdAt)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO operation_logs (operatorId, operatorName, operatorRole, action, entityType, entityId, fromStatus, toStatus, detail, createdAt)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `)
   stmt.run(
     params.operatorId,
     params.operatorName,
+    params.operatorRole || '',
     params.action,
     params.entityType,
     params.entityId,
+    params.fromStatus || '',
+    params.toStatus || '',
     params.detail,
     new Date().toISOString()
   )

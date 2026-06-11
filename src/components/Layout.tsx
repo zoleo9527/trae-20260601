@@ -40,11 +40,12 @@ export default function Layout() {
   }
 
   useEffect(() => {
-    fetchExceptionStats()
-    const t1 = setInterval(() => fetchExceptionStats(), 15000)
+    if (!user) return
+    fetchExceptionStats(user.role, user.id)
+    const t1 = setInterval(() => fetchExceptionStats(user.role, user.id), 15000)
     const t2 = setInterval(() => forceTick((n) => n + 1), 30000)
     return () => { clearInterval(t1); clearInterval(t2) }
-  }, [fetchExceptionStats])
+  }, [fetchExceptionStats, user?.id, user?.role])
 
   const totalExceptions = Object.values(exceptionStats).reduce((a, b) => a + (b as number), 0)
   const hasCritical = (exceptionStats.timeout_escalated || 0) > 0 || (exceptionStats.review_rejected || 0) > 0

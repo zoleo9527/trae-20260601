@@ -36,6 +36,7 @@ function createTables(db: Database.Database) {
       name TEXT NOT NULL,
       role TEXT NOT NULL,
       counterId INTEGER,
+      brandId INTEGER,
       avatar TEXT DEFAULT '',
       phone TEXT DEFAULT ''
     );
@@ -90,9 +91,12 @@ function createTables(db: Database.Database) {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       operatorId INTEGER,
       operatorName TEXT DEFAULT '',
+      operatorRole TEXT DEFAULT '',
       action TEXT NOT NULL,
       entityType TEXT NOT NULL,
       entityId INTEGER,
+      fromStatus TEXT DEFAULT '',
+      toStatus TEXT DEFAULT '',
       detail TEXT DEFAULT '',
       createdAt TEXT NOT NULL
     );
@@ -111,18 +115,19 @@ function seedData(db: Database.Database) {
   insertCounter.run('周大福专柜', '周大福', '1F')
 
   const insertStaff = db.prepare(
-    'INSERT INTO staff (name, role, counterId, avatar, phone) VALUES (?, ?, ?, ?, ?)'
+    'INSERT INTO staff (name, role, counterId, brandId, avatar, phone) VALUES (?, ?, ?, ?, ?, ?)'
   )
-  insertStaff.run('王芳', 'counter_manager', 1, '王', '13800000001')
-  insertStaff.run('张明', 'floor_supervisor', null, '张', '13800000002')
-  insertStaff.run('李红', 'brand_supervisor', 1, '李', '13800000003')
-  insertStaff.run('陈丽', 'guide', 1, '陈', '13800000004')
-  insertStaff.run('赵敏', 'guide', 2, '赵', '13800000005')
-  insertStaff.run('刘洋', 'guide', 3, '刘', '13800000006')
-  insertStaff.run('周强', 'counter_manager', 2, '周', '13800000007')
-  insertStaff.run('孙悦', 'counter_manager', 3, '孙', '13800000008')
-  insertStaff.run('吴雪', 'guide', 1, '吴', '13800000009')
-  insertStaff.run('郑伟', 'brand_supervisor', 2, '郑', '13800000010')
+  insertStaff.run('王芳', 'counter_manager', 1, null, '王', '13800000001')
+  insertStaff.run('张明', 'floor_supervisor', null, null, '张', '13800000002')
+  insertStaff.run('李红', 'brand_supervisor', null, 1, '李', '13800000003')
+  insertStaff.run('陈丽', 'guide', 1, null, '陈', '13800000004')
+  insertStaff.run('赵敏', 'guide', 2, null, '赵', '13800000005')
+  insertStaff.run('刘洋', 'guide', 3, null, '刘', '13800000006')
+  insertStaff.run('周强', 'counter_manager', 2, null, '周', '13800000007')
+  insertStaff.run('孙悦', 'counter_manager', 3, null, '孙', '13800000008')
+  insertStaff.run('吴雪', 'guide', 1, null, '吴', '13800000009')
+  insertStaff.run('郑伟', 'brand_supervisor', null, 2, '郑', '13800000010')
+  insertStaff.run('黄丽', 'brand_supervisor', null, 3, '黄', '13800000011')
 
   const insertSchedule = db.prepare(
     'INSERT INTO schedules (counterId, weekStart, status, createdBy, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?)'
@@ -193,6 +198,14 @@ function seedData(db: Database.Database) {
   insertAtt.run(21, 5, 2, wed, 'morning', 'pending_confirm', 5, offsetDate(-1), null, null, null, null, ts, ts)
   insertAtt.run(13, 4, 1, sun, 'morning', 'pending_confirm', 4, offsetDate(3), null, null, null, null, ts, ts)
 
+  // 待柜长审核下发 (submitted) - 演示"柜长承接首个待办"的入口 (6条: 耐克4条 + 周大福2条)
+  insertAtt.run(23, 5, 2, fri, 'morning', 'submitted', 7, offsetDate(1), null, null, null, null, ts, ts)
+  insertAtt.run(24, 5, 2, fri, 'afternoon', 'submitted', 7, offsetDate(1), null, null, null, null, ts, ts)
+  insertAtt.run(25, 5, 2, sat, 'morning', 'submitted', 7, offsetDate(2), null, null, null, null, ts, ts)
+  insertAtt.run(26, 5, 2, sat, 'afternoon', 'submitted', 7, offsetDate(2), null, null, null, null, ts, ts)
+  insertAtt.run(27, 6, 3, fri, 'morning', 'submitted', 8, offsetDate(1), null, null, null, null, ts, ts)
+  insertAtt.run(28, 6, 3, fri, 'afternoon', 'submitted', 8, offsetDate(1), null, null, null, null, ts, ts)
+
   // 缺材料 (3) - 紧迫！截止今天/昨天
   insertAtt.run(8, 4, 1, thu, 'morning', 'pending_material', 4, offsetDate(0), null, 'material', '缺少上岗证原件(入职培训要求)', null, ts, ts)
   insertAtt.run(9, 9, 1, thu, 'afternoon', 'pending_material', 9, offsetDate(1), null, 'material', '健康证过期，需补交新证', null, ts, ts)
@@ -241,39 +254,52 @@ function seedData(db: Database.Database) {
   insertReview.run(12, 7, 'counter_manager', 'approve', '柜长已核对，声称排班临时调整未及时更新', ts)
 
   const insertLog = db.prepare(
-    'INSERT INTO operation_logs (operatorId, operatorName, action, entityType, entityId, detail, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?)'
+    'INSERT INTO operation_logs (operatorId, operatorName, operatorRole, action, entityType, entityId, fromStatus, toStatus, detail, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
   )
-  insertLog.run(1, '王芳', 'create_schedule', 'schedule', 1, '创建兰蔻专柜本周排班(14班次)', ts)
-  insertLog.run(7, '周强', 'create_schedule', 'schedule', 2, '创建耐克专柜本周排班(14班次)', ts)
-  insertLog.run(8, '孙悦', 'create_schedule', 'schedule', 3, '创建周大福专柜本周排班(14班次)', ts)
-  insertLog.run(1, '王芳', 'submit_schedule', 'schedule', 1, '提交兰蔻排班，等待考勤确认', ts)
-  insertLog.run(7, '周强', 'submit_schedule', 'schedule', 2, '提交耐克排班，等待考勤确认', ts)
-  insertLog.run(8, '孙悦', 'submit_schedule', 'schedule', 3, '提交周大福排班，等待考勤确认', ts)
-  insertLog.run(4, '陈丽', 'confirm_attendance', 'attendance', 1, '陈丽确认周一早班考勤', ts)
-  insertLog.run(9, '吴雪', 'confirm_attendance', 'attendance', 2, '吴雪确认周一晚班考勤', ts)
-  insertLog.run(4, '陈丽', 'confirm_attendance', 'attendance', 3, '陈丽确认周二早班考勤', ts)
-  insertLog.run(9, '吴雪', 'confirm_attendance', 'attendance', 4, '吴雪确认周二晚班考勤', ts)
-  insertLog.run(4, '陈丽', 'confirm_attendance', 'attendance', 5, '陈丽确认周三早班考勤', ts)
-  insertLog.run(9, '吴雪', 'confirm_attendance', 'attendance', 6, '吴雪确认周三晚班考勤', ts)
-  insertLog.run(4, '陈丽', 'mark_exception', 'attendance', 8, '标记异常：缺少上岗证原件', ts)
-  insertLog.run(9, '吴雪', 'mark_exception', 'attendance', 9, '标记异常：健康证过期', ts)
-  insertLog.run(5, '赵敏', 'mark_exception', 'attendance', 20, '标记异常：缺少工牌截图', ts)
-  insertLog.run(2, '张明', 'approve_review', 'attendance', 1, '楼层主管通过-周一兰蔻早班', ts)
-  insertLog.run(2, '张明', 'approve_review', 'attendance', 2, '楼层主管通过-周一兰蔻晚班', ts)
-  insertLog.run(2, '张明', 'approve_review', 'attendance', 3, '楼层主管通过-周二兰蔻早班', ts)
-  insertLog.run(2, '张明', 'approve_review', 'attendance', 4, '楼层主管通过-周二兰蔻晚班', ts)
-  insertLog.run(3, '李红', 'approve_review', 'attendance', 1, '品牌督导通过-兰蔻周一早班', ts)
-  insertLog.run(3, '李红', 'approve_review', 'attendance', 2, '品牌督导通过-兰蔻周一晚班', ts)
-  insertLog.run(3, '李红', 'approve_review', 'attendance', 3, '品牌督导通过-兰蔻周二早班', ts)
-  insertLog.run(2, '张明', 'reject_review', 'attendance', 12, '驳回：耐克周一晚班-排班与打卡不符', ts)
-  insertLog.run(2, '张明', 'reject_review', 'attendance', 14, '驳回：周大福周二早班-凌晨打卡异常', ts)
-  insertLog.run(2, '张明', 'reject_review', 'attendance', 15, '驳回：周大福周二晚班-销售小票人证不符', ts)
-  insertLog.run(2, '张明', 'reject_review', 'attendance', 16, '驳回：耐克周四早班-缺少到岗备注', ts)
-  insertLog.run(2, '张明', 'escalate_timeout', 'attendance', 10, '超时升级：耐克周一早班-T+1未确认', ts)
-  insertLog.run(2, '张明', 'escalate_timeout', 'attendance', 11, '超时升级：周大福周一早班-T+1未确认', ts)
-  insertLog.run(2, '张明', 'escalate_timeout', 'attendance', 22, '超时升级：耐克周三晚班-T+1未确认', ts)
-  insertLog.run(7, '周强', 'resubmit_attendance', 'attendance', 12, '柜长重提：补充了临时调班说明', ts)
-  insertLog.run(2, '张明', 'reject_review', 'attendance', 12, '二次驳回：调班无楼层主管签字记录', ts)
+  insertLog.run(1, '王芳', 'counter_manager', 'create_schedule', 'schedule', 1, '', '', '创建兰蔻专柜本周排班(14班次)', ts)
+  insertLog.run(7, '周强', 'counter_manager', 'create_schedule', 'schedule', 2, '', '', '创建耐克专柜本周排班(14班次)', ts)
+  insertLog.run(8, '孙悦', 'counter_manager', 'create_schedule', 'schedule', 3, '', '', '创建周大福专柜本周排班(14班次)', ts)
+  insertLog.run(1, '王芳', 'counter_manager', 'submit_schedule', 'schedule', 1, 'draft', 'submitted', '提交兰蔻排班，生成考勤待柜长确认', ts)
+  insertLog.run(1, '王芳', 'counter_manager', 'approve_attendance_submitted', 'attendance', 1, 'submitted', 'pending_confirm', '柜长确认排班无误，下发导购确认', ts)
+  insertLog.run(1, '王芳', 'counter_manager', 'approve_attendance_submitted', 'attendance', 2, 'submitted', 'pending_confirm', '柜长确认排班无误，下发导购确认', ts)
+  insertLog.run(1, '王芳', 'counter_manager', 'approve_attendance_submitted', 'attendance', 3, 'submitted', 'pending_confirm', '柜长确认排班无误，下发导购确认', ts)
+  insertLog.run(1, '王芳', 'counter_manager', 'approve_attendance_submitted', 'attendance', 4, 'submitted', 'pending_confirm', '柜长确认排班无误，下发导购确认', ts)
+  insertLog.run(1, '王芳', 'counter_manager', 'approve_attendance_submitted', 'attendance', 5, 'submitted', 'pending_confirm', '柜长确认排班无误，下发导购确认', ts)
+  insertLog.run(1, '王芳', 'counter_manager', 'approve_attendance_submitted', 'attendance', 6, 'submitted', 'pending_confirm', '柜长确认排班无误，下发导购确认', ts)
+  insertLog.run(7, '周强', 'counter_manager', 'submit_schedule', 'schedule', 2, 'draft', 'submitted', '提交耐克排班，生成考勤待柜长确认', ts)
+  insertLog.run(8, '孙悦', 'counter_manager', 'submit_schedule', 'schedule', 3, 'draft', 'submitted', '提交周大福排班，生成考勤待柜长确认', ts)
+  insertLog.run(4, '陈丽', 'guide', 'confirm_attendance', 'attendance', 1, 'pending_confirm', 'pending_review', '陈丽确认周一早班考勤', ts)
+  insertLog.run(9, '吴雪', 'guide', 'confirm_attendance', 'attendance', 2, 'pending_confirm', 'pending_review', '吴雪确认周一晚班考勤', ts)
+  insertLog.run(4, '陈丽', 'guide', 'confirm_attendance', 'attendance', 3, 'pending_confirm', 'pending_review', '陈丽确认周二早班考勤', ts)
+  insertLog.run(9, '吴雪', 'guide', 'confirm_attendance', 'attendance', 4, 'pending_confirm', 'pending_review', '吴雪确认周二晚班考勤', ts)
+  insertLog.run(4, '陈丽', 'guide', 'confirm_attendance', 'attendance', 5, 'pending_confirm', 'pending_review', '陈丽确认周三早班考勤', ts)
+  insertLog.run(9, '吴雪', 'guide', 'confirm_attendance', 'attendance', 6, 'pending_confirm', 'pending_review', '吴雪确认周三晚班考勤', ts)
+  insertLog.run(4, '陈丽', 'guide', 'mark_exception', 'attendance', 11, 'pending_confirm', 'pending_material', '标记异常：缺少上岗证原件', ts)
+  insertLog.run(9, '吴雪', 'guide', 'mark_exception', 'attendance', 12, 'pending_confirm', 'pending_material', '标记异常：健康证过期', ts)
+  insertLog.run(5, '赵敏', 'guide', 'mark_exception', 'attendance', 13, 'pending_confirm', 'pending_material', '标记异常：缺少工牌截图', ts)
+  insertLog.run(2, '张明', 'floor_supervisor', 'approve_review', 'attendance', 1, 'pending_review', 'pending_brand_confirm', '楼层主管通过-周一兰蔻早班', ts)
+  insertLog.run(2, '张明', 'floor_supervisor', 'approve_review', 'attendance', 2, 'pending_review', 'pending_brand_confirm', '楼层主管通过-周一兰蔻晚班', ts)
+  insertLog.run(2, '张明', 'floor_supervisor', 'approve_review', 'attendance', 3, 'pending_review', 'pending_brand_confirm', '楼层主管通过-周二兰蔻早班', ts)
+  insertLog.run(2, '张明', 'floor_supervisor', 'approve_review', 'attendance', 4, 'pending_review', 'pending_brand_confirm', '楼层主管通过-周二兰蔻晚班', ts)
+  insertLog.run(3, '李红', 'brand_supervisor', 'approve_review', 'attendance', 1, 'pending_brand_confirm', 'closed', '品牌督导通过-兰蔻周一早班', ts)
+  insertLog.run(3, '李红', 'brand_supervisor', 'approve_review', 'attendance', 2, 'pending_brand_confirm', 'closed', '品牌督导通过-兰蔻周一晚班', ts)
+  insertLog.run(3, '李红', 'brand_supervisor', 'approve_review', 'attendance', 3, 'pending_brand_confirm', 'closed', '品牌督导通过-兰蔻周二早班', ts)
+  insertLog.run(2, '张明', 'floor_supervisor', 'reject_review', 'attendance', 17, 'pending_review', 'review_rejected', '驳回：耐克周一晚班-排班与打卡不符', ts)
+  insertLog.run(2, '张明', 'floor_supervisor', 'reject_review', 'attendance', 18, 'pending_review', 'review_rejected', '驳回：周大福周二早班-凌晨打卡异常', ts)
+  insertLog.run(2, '张明', 'floor_supervisor', 'reject_review', 'attendance', 19, 'pending_review', 'review_rejected', '驳回：周大福周二晚班-销售小票人证不符', ts)
+  insertLog.run(2, '张明', 'floor_supervisor', 'reject_review', 'attendance', 20, 'pending_review', 'review_rejected', '驳回：耐克周四早班-缺少到岗备注', ts)
+  insertLog.run(2, '张明', 'floor_supervisor', 'escalate_timeout', 'attendance', 10, 'pending_confirm', 'timeout_escalated', '超时升级：耐克周一早班-T+1未确认', ts)
+  insertLog.run(2, '张明', 'floor_supervisor', 'escalate_timeout', 'attendance', 14, 'pending_confirm', 'timeout_escalated', '超时升级：周大福周一早班-T+1未确认', ts)
+  insertLog.run(2, '张明', 'floor_supervisor', 'escalate_timeout', 'attendance', 16, 'pending_confirm', 'timeout_escalated', '超时升级：耐克周三晚班-T+1未确认', ts)
+  insertLog.run(7, '周强', 'counter_manager', 'resubmit_attendance', 'attendance', 17, 'review_rejected', 'pending_review', '柜长重提：补充了临时调班说明', ts)
+  insertLog.run(2, '张明', 'floor_supervisor', 'reject_review', 'attendance', 17, 'pending_review', 'review_rejected', '二次驳回：调班无楼层主管签字记录', ts)
+  // submitted 柜长首待办日志 (对应att id=23-28)
+  insertLog.run(7, '周强', 'counter_manager', 'submit_schedule_gen_attendance', 'attendance', 23, '', 'submitted', '排班生成-耐克周五早班-待柜长下发', ts)
+  insertLog.run(7, '周强', 'counter_manager', 'submit_schedule_gen_attendance', 'attendance', 24, '', 'submitted', '排班生成-耐克周五晚班-待柜长下发', ts)
+  insertLog.run(7, '周强', 'counter_manager', 'submit_schedule_gen_attendance', 'attendance', 25, '', 'submitted', '排班生成-耐克周六早班-待柜长下发', ts)
+  insertLog.run(7, '周强', 'counter_manager', 'submit_schedule_gen_attendance', 'attendance', 26, '', 'submitted', '排班生成-耐克周六晚班-待柜长下发', ts)
+  insertLog.run(8, '孙悦', 'counter_manager', 'submit_schedule_gen_attendance', 'attendance', 27, '', 'submitted', '排班生成-周大福周五早班-待柜长下发', ts)
+  insertLog.run(8, '孙悦', 'counter_manager', 'submit_schedule_gen_attendance', 'attendance', 28, '', 'submitted', '排班生成-周大福周五晚班-待柜长下发', ts)
 }
 
 function initDb(): Database.Database {

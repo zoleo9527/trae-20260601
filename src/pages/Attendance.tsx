@@ -28,6 +28,7 @@ const SHIFT_LABELS: Record<string, string> = {
 }
 
 const STATUS_LABELS: Record<string, string> = {
+  submitted: '待审核下发',
   pending_confirm: '待确认',
   pending_material: '待补材料',
   timeout_escalated: '超时升级',
@@ -38,6 +39,7 @@ const STATUS_LABELS: Record<string, string> = {
 }
 
 const STATUS_COLORS: Record<string, string> = {
+  submitted: 'bg-ops-info/20 text-ops-info',
   pending_confirm: 'badge-warning',
   pending_material: 'bg-amber-600/20 text-amber-500',
   timeout_escalated: 'badge-danger',
@@ -49,6 +51,7 @@ const STATUS_COLORS: Record<string, string> = {
 
 const FILTER_OPTIONS = [
   { value: '', label: '全部状态' },
+  { value: 'submitted', label: '待审核下发' },
   { value: 'pending_confirm', label: '待确认' },
   { value: 'pending_material', label: '待补材料' },
   { value: 'timeout_escalated', label: '超时升级' },
@@ -69,8 +72,12 @@ const RESPONSIBLE_NAMES: Record<number, string> = {
   1: '王芳(柜长)',
   2: '张明(楼层)',
   3: '李红(品牌)',
+  4: '陈丽(导购)',
+  5: '赵敏(导购)',
+  6: '刘洋(导购)',
   7: '周强(柜长)',
   8: '孙悦(柜长)',
+  9: '吴雪(导购)',
   10: '郑伟(品牌)',
 }
 
@@ -95,6 +102,7 @@ const PRIORITY_ORDER: Record<string, number> = {
   timeout_escalated: 0,
   review_rejected: 1,
   pending_material: 2,
+  submitted: 2.5,
   pending_confirm: 3,
   pending_review: 4,
   pending_brand_confirm: 5,
@@ -102,7 +110,7 @@ const PRIORITY_ORDER: Record<string, number> = {
 }
 
 export default function Attendance() {
-  const { attendance, loading, fetchAttendance, confirmAttendance, markException, submitMaterial, escalateTimeout, resubmitAttendance } = useDataStore()
+  const { attendance, loading, fetchAttendance, confirmAttendance, markException, submitMaterial, escalateTimeout, resubmitAttendance, approveAttendanceSubmitted } = useDataStore()
   const user = useAuthStore((s) => s.user)
   const [statusFilter, setStatusFilter] = useState('')
   const [actioningId, setActioningId] = useState<number | null>(null)
@@ -190,6 +198,17 @@ export default function Attendance() {
     }
   }
 
+  const handleApproveSubmitted = async (id: number) => {
+    if (!user) return
+    setActioningId(id)
+    try {
+      await approveAttendanceSubmitted(id, user.id)
+      await loadData()
+    } finally {
+      setActioningId(null)
+    }
+  }
+
   const sortedAttendance = [...list].sort((a, b) => {
     const pa = PRIORITY_ORDER[a.status] ?? 99
     const pb = PRIORITY_ORDER[b.status] ?? 99
@@ -221,6 +240,7 @@ export default function Attendance() {
   const canSubmitMaterial = (a: AttendanceRecord) => a.status === 'pending_material' && user != null && (user.role === 'guide' || user.role === 'counter_manager')
   const canEscalate = (a: AttendanceRecord) => a.status === 'timeout_escalated' && user != null && user.role === 'floor_supervisor'
   const canResubmit = (a: AttendanceRecord) => a.status === 'review_rejected' && user != null && user.role === 'counter_manager' && (user.counterId === a.counterId)
+  const canApproveSubmitted = (a: AttendanceRecord) => a.status === 'submitted' && user != null && user.role === 'counter_manager' && (user.counterId === a.counterId)
 
   return (
     <div>
@@ -320,9 +340,10 @@ export default function Attendance() {
             const isTimeout = a.status === 'timeout_escalated'
             const isPendingMaterial = a.status === 'pending_material'
             const isRejected = a.status === 'review_rejected'
+            const isSubmitted = a.status === 'submitted'
             const countdown = a.deadline ? getCountdown(a.deadline, nowTick) : null
             const responsible = getResponsibleLabel(a)
-            const isMine = user?.role === 'counter_manager' && (a.currentResponsible === user.id || (isRejected && a.counterId === user.counterId))
+            const isMine = user?.role === 'counter_manager' && (a.currentResponsible === user.id || (isRejected && a.counterId === user.counterId) || (isSubmitted && a.counterId === user.counterId))
 
             return (
               <div
@@ -331,6 +352,7 @@ export default function Attendance() {
                   'bg-ops-card border border-ops-border rounded-lg overflow-hidden animate-fade-slide-in transition-all',
                   isTimeout && 'border-ops-danger/60 shadow-[0_0_24px_rgba(239,68,68,0.1)]',
                   isRejected && 'border-l-4 border-l-ops-danger',
+                  isSubmitted && 'border-l-4 border-l-ops-info',
                   isPendingMaterial && countdown?.critical && 'border-l-4 border-l-ops-accent',
                   isMine && (isTimeout || isRejected) && 'ring-1 ring-ops-danger/30',
                 )}
@@ -408,6 +430,17 @@ export default function Attendance() {
                   )}
 
                   <div className="flex items-center gap-2 flex-wrap mt-3 pt-3 border-t border-ops-border/50">
+                    {canApproveSubmitted(a) && (
+                      <button
+                        onClick={() => handleApproveSubmitted(a.id)}
+                        disabled={actioningId === a.id}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium bg-ops-info/20 text-ops-info hover:bg-ops-info/30 transition-colors disabled:opacity-50 border border-ops-info/30"
+                      >
+                        <CheckCircle size={12} />
+                        {actioningId === a.id ? '下发中...' : '审核下发'}
+                      </button>
+                    )}
+
                     {canConfirm(a) && (
                       <button
                         onClick={() => handleConfirm(a.id)}
@@ -473,6 +506,12 @@ export default function Attendance() {
                     )}
                     {isPendingMaterial && !canSubmitMaterial(a) && user?.role === 'counter_manager' && (
                       <span className="text-[10px] text-gray-600 italic">等待导购补交材料</span>
+                    )}
+                    {isSubmitted && user?.role === 'counter_manager' && !canApproveSubmitted(a) && (
+                      <span className="text-[10px] text-gray-600 italic">非本专柜记录</span>
+                    )}
+                    {isSubmitted && user?.role === 'guide' && (
+                      <span className="text-[10px] text-gray-600 italic">等待柜长审核下发</span>
                     )}
                   </div>
 

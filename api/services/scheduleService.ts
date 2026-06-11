@@ -77,13 +77,16 @@ export function createSchedule(data: CreateScheduleData) {
     insertItem.run(scheduleId, item.date, item.shift, item.guideId)
   }
 
-  const operator = db.prepare('SELECT name FROM staff WHERE id = ?').get(data.createdBy) as any
+  const operator = db.prepare('SELECT name, role FROM staff WHERE id = ?').get(data.createdBy) as any
   logOperation({
     operatorId: data.createdBy,
     operatorName: operator?.name || '',
+    operatorRole: operator?.role || '',
     action: 'create_schedule',
     entityType: 'schedule',
     entityId: scheduleId,
+    fromStatus: '',
+    toStatus: 'draft',
     detail: '创建排班表'
   })
 
@@ -103,10 +106,11 @@ export function submitSchedule(id: number, operatorId: number) {
   const items = db.prepare('SELECT * FROM schedule_items WHERE scheduleId = ?').all(id) as any[]
   const insertAtt = db.prepare(`
     INSERT INTO attendance (scheduleItemId, staffId, counterId, date, shift, status, currentResponsible, deadline, createdAt, updatedAt)
-    VALUES (?, ?, ?, ?, ?, 'pending_confirm', ?, ?, ?, ?)
+    VALUES (?, ?, ?, ?, ?, 'submitted', ?, ?, ?, ?)
   `)
 
-  const floorSupervisor = db.prepare("SELECT id FROM staff WHERE role = 'floor_supervisor' LIMIT 1").get() as any
+  const counterManager = db.prepare("SELECT id FROM staff WHERE role = 'counter_manager' AND counterId = ? LIMIT 1").get(schedule.counterId) as any
+  const managerId = counterManager?.id || operatorId
 
   for (const item of items) {
     const deadline = item.date
@@ -116,21 +120,24 @@ export function submitSchedule(id: number, operatorId: number) {
       schedule.counterId,
       item.date,
       item.shift,
-      item.guideId,
+      managerId,
       deadline,
       now,
       now
     )
   }
 
-  const operator = db.prepare('SELECT name FROM staff WHERE id = ?').get(operatorId) as any
+  const operator = db.prepare('SELECT name, role FROM staff WHERE id = ?').get(operatorId) as any
   logOperation({
     operatorId,
     operatorName: operator?.name || '',
+    operatorRole: operator?.role || '',
     action: 'submit_schedule',
     entityType: 'schedule',
     entityId: id,
-    detail: '提交排班表并生成考勤记录'
+    fromStatus: 'draft',
+    toStatus: 'submitted',
+    detail: `提交排班表并生成${items.length}条考勤待柜长确认`
   })
 
   return db.prepare('SELECT * FROM schedules WHERE id = ?').get(id)
@@ -156,9 +163,12 @@ export function updateSchedule(id: number, data: { items: ScheduleItemInput[] })
   logOperation({
     operatorId: schedule.createdBy,
     operatorName: '',
+    operatorRole: 'counter_manager',
     action: 'update_schedule',
     entityType: 'schedule',
     entityId: id,
+    fromStatus: 'draft',
+    toStatus: 'draft',
     detail: '修改排班表(草稿)'
   })
 

@@ -8,6 +8,8 @@ router.get('/', (req: Request, res: Response): void => {
     const filters = {
       status: req.query.status as string | undefined,
       reviewerId: req.query.reviewerId ? Number(req.query.reviewerId) : undefined,
+      counterId: req.query.counterId ? Number(req.query.counterId) : undefined,
+      brandId: req.query.brandId ? Number(req.query.brandId) : undefined,
     }
     const data = getReviews(filters)
     res.json({ success: true, data })

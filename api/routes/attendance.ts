@@ -1,6 +1,7 @@
 import { Router, type Request, type Response } from 'express'
 import {
   getAttendanceList,
+  approveAttendanceSubmitted,
   confirmAttendance,
   markException,
   submitMaterial,
@@ -22,6 +23,17 @@ router.get('/', (req: Request, res: Response): void => {
     res.json({ success: true, data })
   } catch (e: any) {
     res.status(500).json({ success: false, error: e.message })
+  }
+})
+
+router.post('/:id/approve-submitted', (req: Request, res: Response): void => {
+  try {
+    const id = Number(req.params.id)
+    const { operatorId } = req.body
+    const data = approveAttendanceSubmitted(id, operatorId)
+    res.json({ success: true, data })
+  } catch (e: any) {
+    res.status(400).json({ success: false, error: e.message })
   }
 })
 

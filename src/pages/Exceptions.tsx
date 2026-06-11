@@ -57,6 +57,15 @@ const TYPE_CONFIG: Record<string, { label: string; icon: typeof PackageOpen; acc
     badge: 'bg-ops-danger/20 text-ops-danger',
     urgency: 1,
   },
+  submitted: {
+    label: '待柜长下发',
+    icon: ArrowUpCircle,
+    accent: 'text-ops-info',
+    glow: 'shadow-blue-500/15',
+    border: 'border-l-ops-info',
+    badge: 'bg-ops-info/20 text-ops-info',
+    urgency: 3,
+  },
 }
 
 const FILTER_TABS = [
@@ -64,12 +73,14 @@ const FILTER_TABS = [
   { value: 'timeout_escalated', label: '超时升级' },
   { value: 'review_rejected', label: '复核不通过' },
   { value: 'pending_material', label: '缺材料' },
+  { value: 'submitted', label: '待柜长下发' },
 ]
 
 const STAT_CARDS = [
   { key: 'timeout_escalated', label: '超时升级', icon: Flame, accent: 'text-ops-danger', numberColor: 'text-ops-danger', glow: 'shadow-[0_0_40px_rgba(239,68,68,0.25)]', iconBg: 'bg-ops-danger/15 border border-ops-danger/30', critical: true },
   { key: 'review_rejected', label: '复核不通过', icon: XCircle, accent: 'text-ops-danger', numberColor: 'text-ops-danger', glow: 'shadow-[0_0_30px_rgba(239,68,68,0.18)]', iconBg: 'bg-ops-danger/10 border border-ops-danger/25', critical: true },
   { key: 'pending_material', label: '缺材料待补', icon: PackageOpen, accent: 'text-ops-accent', numberColor: 'text-ops-accent', glow: 'shadow-[0_0_25px_rgba(245,158,11,0.12)]', iconBg: 'bg-ops-accent/10 border border-ops-accent/25', critical: false },
+  { key: 'submitted', label: '待下发考勤', icon: ArrowUpCircle, accent: 'text-ops-info', numberColor: 'text-ops-info', glow: 'shadow-[0_0_25px_rgba(59,130,246,0.12)]', iconBg: 'bg-ops-info/10 border border-ops-info/25', critical: false },
 ]
 
 function getCountdown(deadline: string, nowTick: number) {
@@ -108,11 +119,8 @@ export default function Exceptions() {
   const exceptionList = (exceptions as ExceptionRecord[]) || []
 
   const loadData = useCallback(() => {
-    const filters: Record<string, unknown> = {}
+    const filters: Record<string, unknown> = { role: user?.role, userId: user?.id }
     if (typeFilter) filters.type = typeFilter
-    if (user?.role === 'counter_manager' && user.counterId) {
-      filters.counterId = user.counterId
-    }
     fetchExceptions(filters)
     fetchExceptionStats()
   }, [typeFilter, user, fetchExceptions, fetchExceptionStats])
@@ -164,6 +172,7 @@ export default function Exceptions() {
     if (e.status === 'pending_material' && e.exceptionNote) return e.exceptionNote
     if (e.status === 'timeout_escalated') return e.exceptionNote || '柜长未在T+1 10:00前确认，已自动升级至楼层主管'
     if (e.status === 'review_rejected' && e.rejectedReason) return e.rejectedReason
+    if (e.status === 'submitted') return e.exceptionNote || '导购已提交考勤，等待柜长审核下发'
     return ''
   }
 
@@ -314,12 +323,7 @@ export default function Exceptions() {
             const description = getExceptionDescription(e)
             const countdown = e.deadline ? getCountdown(e.deadline, nowTick) : null
             const responsible = getResponsibleLabel(e)
-            const isMyResponsibility = user && (
-              (user.role === 'floor_supervisor' && e.currentResponsible === 2) ||
-              (user.role === 'counter_manager' && e.currentResponsible === user.id) ||
-              (user.role === 'guide' && e.currentResponsible === user.id) ||
-              (e.status === 'review_rejected' && user?.role === 'counter_manager' && user.counterId === e.counterId)
-            )
+            const isMyResponsibility = user && e.currentResponsible === user.id
 
             return (
               <div
@@ -327,7 +331,7 @@ export default function Exceptions() {
                 className={cn(
                   'bg-ops-card border border-ops-border rounded-xl overflow-hidden animate-fade-slide-in transition-all',
                   e.status === 'timeout_escalated' && 'border-ops-danger/50 shadow-[0_0_30px_rgba(239,68,68,0.12)]',
-                  isMyResponsibility && 'ring-1 ring-ops-accent/40',
+                  isMyResponsibility && 'border-2 border-ops-danger ring-1 ring-ops-danger/30',
                 )}
               >
                 <div className={cn('border-l-4 p-4', config?.border || 'border-l-ops-border')}>
@@ -371,7 +375,9 @@ export default function Exceptions() {
                   {description && (
                     <div className={cn(
                       'text-xs rounded-lg px-3 py-2 mb-3 leading-relaxed',
-                      e.status === 'pending_material' ? 'bg-ops-accent/10 text-ops-accent border border-ops-accent/20' : 'bg-ops-danger/10 text-ops-danger border border-ops-danger/20'
+                      e.status === 'pending_material' ? 'bg-ops-accent/10 text-ops-accent border border-ops-accent/20' :
+                      e.status === 'submitted' ? 'bg-ops-info/10 text-ops-info border border-ops-info/20' :
+                      'bg-ops-danger/10 text-ops-danger border border-ops-danger/20'
                     )}>
                       {e.status === 'review_rejected' ? (
                         <>
@@ -381,6 +387,11 @@ export default function Exceptions() {
                       ) : e.status === 'timeout_escalated' ? (
                         <>
                           <span className="font-bold">升级原因: </span>
+                          <span>{description}</span>
+                        </>
+                      ) : e.status === 'submitted' ? (
+                        <>
+                          <span className="font-bold">待审核: </span>
                           <span>{description}</span>
                         </>
                       ) : (
