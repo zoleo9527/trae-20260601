@@ -1,0 +1,110 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        Int      @id @default(autoincrement())
+  name      String
+  role      String
+  brandId   Int?
+  brand     Brand?   @relation(fields: [brandId], references: [id])
+  createdAt DateTime @default(now())
+
+  salesReportsSubmitted   SalesReport[]   @relation("submitter")
+  materialsChecked        SalesReport[]   @relation("materialsChecker")
+  reviews                 SalesReport[]   @relation("reviewer")
+  settlements             SalesReport[]   @relation("settler")
+}
+
+model Brand {
+  id         Int      @id @default(autoincrement())
+  name       String   @unique
+  code       String   @unique
+  storeName  String
+  createdAt  DateTime @default(now())
+
+  salesReports   SalesReport[]
+  brandManagers  User[]
+}
+
+model SalesReport {
+  id              Int      @id @default(autoincrement())
+  reportNo        String   @unique
+  brandId         Int
+  brand           Brand    @relation(fields: [brandId], references: [id])
+  reportMonth     String
+  salesAmount     Float
+  rentDeduction   Float    @default(0)
+  netSettlement   Float    @default(0)
+  status          String   @default("DRAFT")
+  remark          String?
+
+  submitterId       Int?
+  submitter         User?  @relation("submitter", fields: [submitterId], references: [id])
+  submittedAt       DateTime?
+
+  materialsCheckerId Int?
+  materialsChecker   User?  @relation("materialsChecker", fields: [materialsCheckerId], references: [id])
+  materialsCheckedAt DateTime?
+
+  reviewerId      Int?
+  reviewer        User?    @relation("reviewer", fields: [reviewerId], references: [id])
+  reviewedAt      DateTime?
+
+  settlerId       Int?
+  settler         User?    @relation("settler", fields: [settlerId], references: [id])
+  settledAt       DateTime?
+  settlementAmount Float?
+  settlementDate  DateTime?
+  paymentMethod   String?
+
+  rejectReason    String?
+  missingMaterials String?
+
+  isOverdue       Boolean  @default(false)
+  deadline        DateTime?
+
+  materials       Material[]
+  activityLogs    ActivityLog[]
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([status])
+  @@index([brandId])
+  @@index([reportMonth])
+}
+
+model Material {
+  id            Int         @id @default(autoincrement())
+  salesReportId Int
+  salesReport   SalesReport @relation(fields: [salesReportId], references: [id])
+  name          String
+  type          String
+  received      Boolean     @default(false)
+  receivedAt    DateTime?
+  remark        String?
+
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+}
+
+model ActivityLog {
+  id            Int         @id @default(autoincrement())
+  salesReportId Int
+  salesReport   SalesReport @relation(fields: [salesReportId], references: [id])
+  action        String
+  operatorId    Int?
+  operatorName  String
+  remark        String?
+  oldStatus     String?
+  newStatus     String?
+  createdAt     DateTime    @default(now())
+
+  @@index([salesReportId])
+}
