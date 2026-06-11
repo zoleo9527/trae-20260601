@@ -1,5 +1,14 @@
 import { reactive } from 'vue'
 import type { Complaint, OperationLog, BrandFeedback, ComplaintStatus, RoleKey, ResponsibilityParty } from '@/types'
+import { ROLES } from '@/types'
+
+function roleUser(key: RoleKey): string {
+  return ROLES.find(r => r.key === key)?.user || key
+}
+
+function roleLabel(key: RoleKey): string {
+  return ROLES.find(r => r.key === key)?.label || key
+}
 
 const now = new Date()
 const daysAgo = (d: number) => {
@@ -26,8 +35,8 @@ const initialComplaints: Complaint[] = [
     complaintContent: '顾客使用3天后出现皮肤红肿过敏现象，要求全额退款。已提供医院皮肤科诊断证明，显示接触性皮炎。',
     refundAmount: 1080,
     currentHandlerRole: 'supervisor',
-    currentHandler: '李明',
-    submitter: '王芳',
+    currentHandler: roleUser('supervisor'),
+    submitter: roleUser('manager'),
     submitterRole: 'manager',
     submitTime: daysAgo(1),
     recheckCount: 0,
@@ -36,7 +45,7 @@ const initialComplaints: Complaint[] = [
       {
         id: 'op-1-1',
         timestamp: daysAgo(2),
-        operator: '王芳',
+        operator: roleUser('manager'),
         role: 'manager',
         action: '创建客诉单',
         remark: '顾客到店投诉，初步登记信息，顾客情绪较激动。'
@@ -44,7 +53,7 @@ const initialComplaints: Complaint[] = [
       {
         id: 'op-1-2',
         timestamp: daysAgo(1),
-        operator: '王芳',
+        operator: roleUser('manager'),
         role: 'manager',
         action: '提交客诉单',
         remark: '已收集诊断证明照片3张、购物小票，提交楼层主管审核。附件：诊断证明.jpg、购物小票.jpg'
@@ -69,8 +78,8 @@ const initialComplaints: Complaint[] = [
     complaintContent: '穿着一周鞋底开胶，要求换货。顾客为VIP会员，此前有过一次换货记录。',
     exchangeProduct: '同型号同尺码新款',
     currentHandlerRole: 'manager',
-    currentHandler: '王芳',
-    submitter: '王芳',
+    currentHandler: roleUser('manager'),
+    submitter: roleUser('manager'),
     submitterRole: 'manager',
     submitTime: daysAgo(3),
     recheckCount: 0,
@@ -79,7 +88,7 @@ const initialComplaints: Complaint[] = [
       {
         id: 'op-2-1',
         timestamp: daysAgo(3),
-        operator: '王芳',
+        operator: roleUser('manager'),
         role: 'manager',
         action: '创建并提交客诉单',
         remark: '顾客携带原鞋到店，鞋底开胶约2cm，已拍照留证。'
@@ -87,7 +96,7 @@ const initialComplaints: Complaint[] = [
       {
         id: 'op-2-2',
         timestamp: daysAgo(2),
-        operator: '李明',
+        operator: roleUser('supervisor'),
         role: 'supervisor',
         action: '退回柜长补录',
         remark: '缺少商品原包装盒照片和会员消费记录截图，请补充后重新提交。同时建议与顾客确认换货的具体型号和尺码。'
@@ -112,9 +121,9 @@ const initialComplaints: Complaint[] = [
     complaintContent: '包包使用不到两个月，手提带五金件严重褪色，怀疑假货。要求退款并赔偿。已投诉至12315，态度强硬。',
     refundAmount: 4580,
     currentHandlerRole: 'superintendent',
-    currentHandler: '张伟',
-    submitter: '李明',
-    submitterRole: 'supervisor',
+    currentHandler: roleUser('superintendent'),
+    submitter: roleUser('manager'),
+    submitterRole: 'manager',
     submitTime: daysAgo(4),
     recheckCount: 0,
     returnCount: 0,
@@ -122,7 +131,7 @@ const initialComplaints: Complaint[] = [
       {
         id: 'op-3-1',
         timestamp: daysAgo(5),
-        operator: '王芳',
+        operator: roleUser('manager'),
         role: 'manager',
         action: '创建客诉单',
         remark: '顾客情绪非常激动，扬言要找媒体曝光。已安抚并提供饮品。'
@@ -130,7 +139,7 @@ const initialComplaints: Complaint[] = [
       {
         id: 'op-3-2',
         timestamp: daysAgo(5),
-        operator: '王芳',
+        operator: roleUser('manager'),
         role: 'manager',
         action: '提交楼层主管',
         remark: '已拍褪色部位细节图6张，附购买凭证。'
@@ -138,7 +147,7 @@ const initialComplaints: Complaint[] = [
       {
         id: 'op-3-3',
         timestamp: daysAgo(4),
-        operator: '李明',
+        operator: roleUser('supervisor'),
         role: 'supervisor',
         action: '审核通过，转交品牌督导',
         remark: '情况属实，五金件确实存在质量问题。鉴于顾客已投诉至12315，请品牌方尽快给出处理方案。建议提供质检报告。'
@@ -162,9 +171,9 @@ const initialComplaints: Complaint[] = [
     complaintDate: '2026-06-05',
     complaintContent: '手表走时不准，每天快约15秒。购表半年，在保修期内。',
     currentHandlerRole: 'supervisor',
-    currentHandler: '李明',
-    submitter: '张伟',
-    submitterRole: 'superintendent',
+    currentHandler: roleUser('supervisor'),
+    submitter: roleUser('manager'),
+    submitterRole: 'manager',
     submitTime: daysAgo(6),
     recheckCount: 0,
     returnCount: 0,
@@ -172,7 +181,7 @@ const initialComplaints: Complaint[] = [
       {
         id: 'op-4-1',
         timestamp: daysAgo(6),
-        operator: '王芳',
+        operator: roleUser('manager'),
         role: 'manager',
         action: '创建客诉单',
         remark: '顾客为高端VIP，购买多块手表。本次希望免费维修并补偿保养服务。'
@@ -180,7 +189,7 @@ const initialComplaints: Complaint[] = [
       {
         id: 'op-4-2',
         timestamp: daysAgo(6),
-        operator: '王芳',
+        operator: roleUser('manager'),
         role: 'manager',
         action: '提交楼层主管',
         remark: '附保卡、购表凭证，手表当前走时检测记录。'
@@ -188,7 +197,7 @@ const initialComplaints: Complaint[] = [
       {
         id: 'op-4-3',
         timestamp: daysAgo(5),
-        operator: '李明',
+        operator: roleUser('supervisor'),
         role: 'supervisor',
         action: '审核通过，转交品牌督导',
         remark: '高端客户，建议品牌方妥善处理。可考虑赠送一次保养服务维护客情。'
@@ -196,7 +205,7 @@ const initialComplaints: Complaint[] = [
       {
         id: 'op-4-4',
         timestamp: daysAgo(4),
-        operator: '张伟',
+        operator: roleUser('superintendent'),
         role: 'superintendent',
         action: '联系品牌方',
         remark: '已发邮件至品牌售后，等待反馈。品牌方表示3个工作日内回复。'
@@ -206,7 +215,7 @@ const initialComplaints: Complaint[] = [
       {
         id: 'bf-4-1',
         timestamp: daysAgo(1),
-        operator: '浪琴品牌售后-陈经理',
+        operator: `浪琴品牌售后-陈经理`,
         feedbackContent: '经品牌技术部门检测，该手表摆轮存在轻微偏移，属于保修期内正常质量问题。',
         responsibility: 'brand',
         handlingSuggestion: '1. 免费维修并出具官方检测报告；2. 赠送2次免费保养服务（价值约2000元）；3. 维修周期约7-10个工作日。已与客户电话沟通，客户表示接受。',
@@ -231,9 +240,9 @@ const initialComplaints: Complaint[] = [
     complaintContent: '冬季穿着后发现严重跑毛，内衬全是羽绒。购买时专柜未告知此款跑毛问题，涉嫌隐瞒。',
     refundAmount: 500,
     currentHandlerRole: 'supervisor',
-    currentHandler: '李明',
-    submitter: '张伟',
-    submitterRole: 'superintendent',
+    currentHandler: roleUser('supervisor'),
+    submitter: roleUser('manager'),
+    submitterRole: 'manager',
     submitTime: daysAgo(7),
     recheckCount: 1,
     returnCount: 1,
@@ -241,7 +250,7 @@ const initialComplaints: Complaint[] = [
       {
         id: 'op-5-1',
         timestamp: daysAgo(9),
-        operator: '王芳',
+        operator: roleUser('manager'),
         role: 'manager',
         action: '创建客诉单',
         remark: '顾客带来了跑毛的衣服，照片显示内胆确实有大量羽绒钻出。'
@@ -249,7 +258,7 @@ const initialComplaints: Complaint[] = [
       {
         id: 'op-5-2',
         timestamp: daysAgo(9),
-        operator: '王芳',
+        operator: roleUser('manager'),
         role: 'manager',
         action: '提交楼层主管',
         remark: '顾客要求全额退款，但衣服已穿着5个月，建议协商部分退款。'
@@ -257,7 +266,7 @@ const initialComplaints: Complaint[] = [
       {
         id: 'op-5-3',
         timestamp: daysAgo(8),
-        operator: '李明',
+        operator: roleUser('supervisor'),
         role: 'supervisor',
         action: '审核通过，转交品牌督导',
         remark: '同意部分退款方案，请品牌方确认责任比例。'
@@ -265,7 +274,7 @@ const initialComplaints: Complaint[] = [
       {
         id: 'op-5-4',
         timestamp: daysAgo(7),
-        operator: '张伟',
+        operator: roleUser('superintendent'),
         role: 'superintendent',
         action: '收到品牌反馈',
         remark: '品牌方承认该批次羽绒服跑毛率偏高，承担主要责任。建议退款500元。'
@@ -299,8 +308,8 @@ const initialComplaints: Complaint[] = [
     complaintContent: '项链佩戴一周扣头松动，差点丢失。要求更换同款新品。',
     exchangeProduct: '同款式同克重新品',
     currentHandlerRole: 'manager',
-    currentHandler: '王芳',
-    submitter: '王芳',
+    currentHandler: roleUser('manager'),
+    submitter: roleUser('manager'),
     submitterRole: 'manager',
     submitTime: daysAgo(14),
     recheckCount: 1,
@@ -309,7 +318,7 @@ const initialComplaints: Complaint[] = [
       {
         id: 'op-6-1',
         timestamp: daysAgo(14),
-        operator: '王芳',
+        operator: roleUser('manager'),
         role: 'manager',
         action: '创建并提交客诉单',
         remark: '顾客为新婚客户，项链是520购买的，对质量问题非常不满。'
@@ -317,7 +326,7 @@ const initialComplaints: Complaint[] = [
       {
         id: 'op-6-2',
         timestamp: daysAgo(13),
-        operator: '李明',
+        operator: roleUser('supervisor'),
         role: 'supervisor',
         action: '审核通过，转交品牌督导',
         remark: '贵重商品质量问题，请品牌方尽快处理。'
@@ -325,7 +334,7 @@ const initialComplaints: Complaint[] = [
       {
         id: 'op-6-3',
         timestamp: daysAgo(11),
-        operator: '张伟',
+        operator: roleUser('superintendent'),
         role: 'superintendent',
         action: '收到品牌反馈',
         remark: '品牌方同意免费换货，并额外赠送一条银手链作为补偿。'
@@ -333,7 +342,7 @@ const initialComplaints: Complaint[] = [
       {
         id: 'op-6-4',
         timestamp: daysAgo(10),
-        operator: '李明',
+        operator: roleUser('supervisor'),
         role: 'supervisor',
         action: '复核通过',
         remark: '方案合理，同意执行。请柜长联系顾客到店换货。'
@@ -341,7 +350,7 @@ const initialComplaints: Complaint[] = [
       {
         id: 'op-6-5',
         timestamp: daysAgo(9),
-        operator: '王芳',
+        operator: roleUser('manager'),
         role: 'manager',
         action: '处理完成',
         remark: '顾客已到店完成换货，对品牌方赠送的手链表示满意。投诉已圆满解决。'
@@ -395,12 +404,12 @@ export function useComplaintStore() {
     })
   }
 
-  function updateStatus(complaintId: string, status: ComplaintStatus, handlerRole: RoleKey, handler: string) {
+  function updateStatus(complaintId: string, status: ComplaintStatus, handlerRole: RoleKey) {
     const complaint = getById(complaintId)
     if (!complaint) return
     complaint.status = status
     complaint.currentHandlerRole = handlerRole
-    complaint.currentHandler = handler
+    complaint.currentHandler = roleUser(handlerRole)
   }
 
   function incrementReturnCount(complaintId: string) {
@@ -415,38 +424,43 @@ export function useComplaintStore() {
     complaint.recheckCount += 1
   }
 
-  function createComplaint(data: Partial<Complaint> & {
-    complaintNo: string
-    type: Complaint['type']
-    customerName: string
-    customerPhone: string
-    brand: string
-    counter: string
-    floor: string
-    productName: string
-    productPrice: number
-    purchaseDate: string
-    complaintDate: string
-    complaintContent: string
-  }): Complaint {
-    const now = new Date().toISOString()
+  function createComplaint(
+    data: Partial<Complaint> & {
+      complaintNo: string
+      type: Complaint['type']
+      customerName: string
+      customerPhone: string
+      brand: string
+      counter: string
+      floor: string
+      productName: string
+      productPrice: number
+      purchaseDate: string
+      complaintDate: string
+      complaintContent: string
+    },
+    submitterRole: RoleKey
+  ): Complaint {
+    const timestamp = new Date().toISOString()
+    const submitterName = roleUser(submitterRole)
+
     const newComplaint: Complaint = {
       id: String(Date.now()),
       status: 'pending_supervisor',
       currentHandlerRole: 'supervisor',
-      currentHandler: '李明',
-      submitter: '王芳',
-      submitterRole: 'manager',
-      submitTime: now,
+      currentHandler: roleUser('supervisor'),
+      submitter: submitterName,
+      submitterRole,
+      submitTime: timestamp,
       recheckCount: 0,
       returnCount: 0,
       operations: [
         {
           id: `op-new-${Date.now()}`,
-          timestamp: now,
-          operator: '王芳',
-          role: 'manager',
-          action: '创建并提交客诉单',
+          timestamp,
+          operator: submitterName,
+          role: submitterRole,
+          action: submitterRole === 'manager' ? '创建并提交客诉单' : `创建并提交客诉单（${roleLabel(submitterRole)}发起）`,
           remark: data.complaintContent?.slice(0, 100) || ''
         }
       ],
@@ -466,6 +480,8 @@ export function useComplaintStore() {
     updateStatus,
     incrementReturnCount,
     incrementRecheckCount,
-    createComplaint
+    createComplaint,
+    roleUser,
+    roleLabel
   }
 }

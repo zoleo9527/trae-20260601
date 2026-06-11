@@ -18,7 +18,12 @@
             {{ role.label }}
           </button>
         </div>
-        <button class="btn btn-primary" @click="showCreateModal = true">
+        <button
+          class="btn btn-primary"
+          :class="{ disabled: roleStore.currentRole.key !== 'manager' }"
+          :title="roleStore.currentRole.key !== 'manager' ? '柜长岗位才能新建客诉单' : ''"
+          @click="onCreateClick"
+        >
           <span class="btn-icon">+</span>新建客诉单
         </button>
       </div>
@@ -161,7 +166,12 @@
             <button v-if="hasAnyFilter" class="btn btn-outline" @click="resetFilters">
               重置筛选
             </button>
-            <button class="btn btn-primary" @click="showCreateModal = true">
+            <button
+              class="btn btn-primary"
+              :class="{ disabled: roleStore.currentRole.key !== 'manager' }"
+              :title="roleStore.currentRole.key !== 'manager' ? '柜长岗位才能新建客诉单' : ''"
+              @click="onCreateClick"
+            >
               <span class="btn-icon">+</span>新建客诉单
             </button>
           </div>
@@ -378,6 +388,14 @@ function validateForm(): boolean {
   return true
 }
 
+function onCreateClick() {
+  if (roleStore.currentRole.key !== 'manager') {
+    alert(`当前身份为${roleStore.currentRole.value.label}，柜长岗位才能新建客诉单。\n请切换角色后再操作。`)
+    return
+  }
+  showCreateModal.value = true
+}
+
 function handleCreate() {
   if (!validateForm()) return
 
@@ -402,7 +420,10 @@ function handleCreate() {
     exchangeProduct: formData.exchangeProduct || undefined
   }
 
-  const newItem = complaintStore.createComplaint(data as Partial<Complaint> & any)
+  const newItem = complaintStore.createComplaint(
+    data as Partial<Complaint> & any,
+    roleStore.currentRole.key
+  )
   showCreateModal.value = false
   router.push(`/complaint/${newItem.id}`)
 }
@@ -494,6 +515,16 @@ function handleCreate() {
 
 .btn-primary:hover {
   background: #1e3a5f;
+}
+
+.btn.disabled {
+  background: #a0aec0;
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.btn.disabled:hover {
+  background: #a0aec0;
 }
 
 .btn-outline {

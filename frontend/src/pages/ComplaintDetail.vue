@@ -234,7 +234,7 @@
                 <button class="btn btn-primary btn-block" @click="handleResubmit">
                   补录后重新提交 →
                 </button>
-                <div class="tip-text">将提交至楼层主管（李明）复核</div>
+                <div class="tip-text">将提交至{{ complaintStore.roleLabel('supervisor') }}（{{ complaintStore.roleUser('supervisor') }}）复核</div>
               </template>
 
               <template v-if="complaint.status === 'rechecked'">
@@ -571,7 +571,7 @@ function handleResubmit() {
     remark: actionForm.remark
   })
 
-  complaintStore.updateStatus(id, 'resubmitted', 'supervisor', '李明')
+  complaintStore.updateStatus(id, 'resubmitted', 'supervisor')
   showToast('已补录并重新提交')
   resetForm()
 }
@@ -589,7 +589,7 @@ function handlePassToBrand() {
     remark: actionForm.remark || '资料齐全，同意转交品牌方处理。'
   })
 
-  complaintStore.updateStatus(id, 'pending_brand', 'superintendent', '张伟')
+  complaintStore.updateStatus(id, 'pending_brand', 'superintendent')
   showToast('已转交品牌督导')
   resetForm()
 }
@@ -613,7 +613,7 @@ function handleReturnToManager() {
   })
 
   complaintStore.incrementReturnCount(id)
-  complaintStore.updateStatus(id, 'returned_to_manager', 'manager', '王芳')
+  complaintStore.updateStatus(id, 'returned_to_manager', 'manager')
   showReturnToManager.value = false
   showToast('已退回柜长补录')
   resetForm()
@@ -653,7 +653,7 @@ function handleSubmitBrandFeedback() {
     remark: `责任界定：${RESPONSIBILITY_CONFIG[actionForm.responsibility as ResponsibilityParty]}；处理建议：${actionForm.handlingSuggestion.slice(0, 100)}...`
   })
 
-  complaintStore.updateStatus(id, 'brand_feedback', 'supervisor', '李明')
+  complaintStore.updateStatus(id, 'brand_feedback', 'supervisor')
   showToast('品牌反馈已提交')
   resetForm()
 }
@@ -677,7 +677,7 @@ function handleReturnToBrand() {
   })
 
   complaintStore.incrementReturnCount(id)
-  complaintStore.updateStatus(id, 'pending_brand', 'superintendent', '张伟')
+  complaintStore.updateStatus(id, 'pending_brand', 'superintendent')
   showReturnToBrand.value = false
   showToast('已退回品牌督导')
   resetForm()
@@ -702,7 +702,7 @@ function handleRecheckPass() {
   })
 
   complaintStore.incrementRecheckCount(id)
-  complaintStore.updateStatus(id, 'rechecked', 'manager', '王芳')
+  complaintStore.updateStatus(id, 'rechecked', 'manager')
   showToast('复核通过，已转回柜长执行')
   resetForm()
 }
@@ -725,7 +725,7 @@ function handleComplete() {
     remark: actionForm.remark
   })
 
-  complaintStore.updateStatus(id, 'completed', 'manager', '王芳')
+  complaintStore.updateStatus(id, 'completed', 'manager')
   showToast('客诉单已完成处理 🎉')
   resetForm()
 }
