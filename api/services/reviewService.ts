@@ -11,13 +11,14 @@ interface ReviewFilters {
 export function getReviews(filters: ReviewFilters = {}) {
   let sql = `
     SELECT a.id AS attendanceId, a.status, a.date, a.shift, a.rejectedReason, a.counterId,
-           c.id AS counterBrandId, c.brand AS counterBrand,
+           c.brand_id AS brandId, b.name AS brandName,
            s.name AS staffName, c.name AS counterName,
                r.id AS reviewId, r.reviewerId, r.reviewerRole, r.action, r.reason, r.createdAt AS reviewCreatedAt
     FROM reviews r
     JOIN attendance a ON r.attendanceId = a.id
     LEFT JOIN staff s ON a.staffId = s.id
     LEFT JOIN counters c ON a.counterId = c.id
+    LEFT JOIN brands b ON c.brand_id = b.id
     WHERE 1=1
   `
   const params: unknown[] = []
@@ -35,7 +36,7 @@ export function getReviews(filters: ReviewFilters = {}) {
     params.push(filters.counterId)
   }
   if (filters.brandId) {
-    sql += ' AND c.brand = (SELECT brand FROM counters WHERE id = ?)'
+    sql += ' AND c.brand_id = ?'
     params.push(filters.brandId)
   }
 
@@ -60,8 +61,8 @@ export function approveReview(id: number, reviewerId: number, reviewerRole: stri
   if (reviewerRole === 'floor_supervisor') {
     if (att.status !== 'pending_review') throw new Error('楼层主管只能审核待复核记录')
     newStatus = 'pending_brand_confirm'
-    const counter = db.prepare('SELECT brand FROM counters WHERE id = ?').get(att.counterId) as any
-    const brandSup = db.prepare("SELECT id FROM staff WHERE role = 'brand_supervisor' AND (brandId IS NULL OR brandId = ? OR brandId = (SELECT id FROM counters WHERE id = ?)) LIMIT 1").get(counter?.brand, att.counterId) as any
+    const counter = db.prepare('SELECT brand_id FROM counters WHERE id = ?').get(att.counterId) as any
+    const brandSup = db.prepare("SELECT id FROM staff WHERE role = 'brand_supervisor' AND brandId = ? LIMIT 1").get(counter?.brand_id) as any
     if (!brandSup) {
       const fallback = db.prepare("SELECT id FROM staff WHERE role = 'brand_supervisor' LIMIT 1").get() as any
       nextResponsible = fallback?.id || null

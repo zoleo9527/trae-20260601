@@ -9,7 +9,8 @@ interface AttendanceRecord {
   staffName: string
   counterName: string
   counterId: number
-  counterBrandId?: number
+  brandId?: number
+  brandName?: string
   date: string
   shift: string
   status: string
@@ -25,8 +26,8 @@ interface ReviewRecord {
   staffName: string
   counterName: string
   counterId: number
-  counterBrandId?: number
-  counterBrand?: string
+  brandId?: number
+  brandName?: string
   reviewId: number
   reviewerId: number
   reviewerRole: string
@@ -95,10 +96,10 @@ export default function Review() {
 
   useEffect(() => { loadData() }, [loadData])
 
-  const filteredForBrand = <T extends { counterBrandId?: number }>(items: T[]): T[] =>
+  const filteredForBrand = <T extends { brandId?: number }>(items: T[]): T[] =>
     items.filter((item) => {
       if (user?.role !== 'brand_supervisor' || !user.brandId) return true
-      return item.counterBrandId === user.brandId
+      return item.brandId === user.brandId
     })
 
   const attendanceList = filteredForBrand((attendance as AttendanceRecord[]) || [])

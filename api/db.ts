@@ -24,11 +24,19 @@ let db: Database.Database
 
 function createTables(db: Database.Database) {
   db.exec(`
+    CREATE TABLE IF NOT EXISTS brands (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL UNIQUE,
+      code TEXT DEFAULT ''
+    );
+
     CREATE TABLE IF NOT EXISTS counters (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       name TEXT NOT NULL,
+      brand_id INTEGER NOT NULL,
       brand TEXT NOT NULL,
-      floor TEXT NOT NULL
+      floor TEXT NOT NULL,
+      FOREIGN KEY (brand_id) REFERENCES brands(id)
     );
 
     CREATE TABLE IF NOT EXISTS staff (
@@ -38,7 +46,8 @@ function createTables(db: Database.Database) {
       counterId INTEGER,
       brandId INTEGER,
       avatar TEXT DEFAULT '',
-      phone TEXT DEFAULT ''
+      phone TEXT DEFAULT '',
+      FOREIGN KEY (brandId) REFERENCES brands(id)
     );
 
     CREATE TABLE IF NOT EXISTS schedules (
@@ -107,12 +116,20 @@ function seedData(db: Database.Database) {
   const ts = now()
   const weekStart = getWeekStart()
 
-  const insertCounter = db.prepare(
-    'INSERT INTO counters (name, brand, floor) VALUES (?, ?, ?)'
+  const insertBrand = db.prepare(
+    'INSERT INTO brands (name, code) VALUES (?, ?)'
   )
-  insertCounter.run('兰蔻专柜', '兰蔻', '1F')
-  insertCounter.run('耐克专柜', '耐克', '2F')
-  insertCounter.run('周大福专柜', '周大福', '1F')
+  insertBrand.run('兰蔻', 'LANCOME')
+  insertBrand.run('耐克', 'NIKE')
+  insertBrand.run('周大福', 'CHOWTAIFOOK')
+
+  const insertCounter = db.prepare(
+    'INSERT INTO counters (name, brand_id, brand, floor) VALUES (?, ?, ?, ?)'
+  )
+  insertCounter.run('兰蔻专柜', 1, '兰蔻', '1F')
+  insertCounter.run('耐克专柜', 2, '耐克', '2F')
+  insertCounter.run('周大福专柜', 3, '周大福', '1F')
+  insertCounter.run('耐克运动店', 2, '耐克', '2F')
 
   const insertStaff = db.prepare(
     'INSERT INTO staff (name, role, counterId, brandId, avatar, phone) VALUES (?, ?, ?, ?, ?, ?)'
@@ -128,6 +145,8 @@ function seedData(db: Database.Database) {
   insertStaff.run('吴雪', 'guide', 1, null, '吴', '13800000009')
   insertStaff.run('郑伟', 'brand_supervisor', null, 2, '郑', '13800000010')
   insertStaff.run('黄丽', 'brand_supervisor', null, 3, '黄', '13800000011')
+  insertStaff.run('林娜', 'guide', 4, null, '林', '13800000012')
+  insertStaff.run('冯刚', 'counter_manager', 4, null, '冯', '13800000013')
 
   const insertSchedule = db.prepare(
     'INSERT INTO schedules (counterId, weekStart, status, createdBy, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?)'
@@ -205,6 +224,12 @@ function seedData(db: Database.Database) {
   insertAtt.run(26, 5, 2, sat, 'afternoon', 'submitted', 7, offsetDate(2), null, null, null, null, ts, ts)
   insertAtt.run(27, 6, 3, fri, 'morning', 'submitted', 8, offsetDate(1), null, null, null, null, ts, ts)
   insertAtt.run(28, 6, 3, fri, 'afternoon', 'submitted', 8, offsetDate(1), null, null, null, null, ts, ts)
+
+  // 耐克运动店（同品牌多专柜验证）- 4条 submitted
+  insertAtt.run(null, 12, 4, fri, 'morning', 'submitted', 13, offsetDate(1), null, null, null, null, ts, ts)
+  insertAtt.run(null, 12, 4, fri, 'afternoon', 'submitted', 13, offsetDate(1), null, null, null, null, ts, ts)
+  insertAtt.run(null, 12, 4, sat, 'morning', 'submitted', 13, offsetDate(2), null, null, null, null, ts, ts)
+  insertAtt.run(null, 12, 4, sat, 'afternoon', 'submitted', 13, offsetDate(2), null, null, null, null, ts, ts)
 
   // 缺材料 (3) - 紧迫！截止今天/昨天
   insertAtt.run(8, 4, 1, thu, 'morning', 'pending_material', 4, offsetDate(0), null, 'material', '缺少上岗证原件(入职培训要求)', null, ts, ts)

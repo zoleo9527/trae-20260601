@@ -24,12 +24,12 @@ function applyRoleScoping(sql: string, params: unknown[], filters: ExceptionFilt
   if (filters.role === 'brand_supervisor' && filters.userId) {
     const staff = db.prepare('SELECT brandId FROM staff WHERE id = ? AND role = ?').get(filters.userId, filters.role) as any
     if (staff?.brandId) {
-      sql += ' AND a.counterId IN (SELECT id FROM counters WHERE id = ? OR brand = (SELECT brand FROM counters WHERE id = ?))'
-      params.push(staff.brandId, staff.brandId)
+      sql += ' AND a.counterId IN (SELECT id FROM counters WHERE brand_id = ?)'
+      params.push(staff.brandId)
     }
   } else if (filters.brandId) {
-    sql += ' AND a.counterId IN (SELECT id FROM counters WHERE id = ? OR brand = (SELECT brand FROM counters WHERE id = ?))'
-    params.push(filters.brandId, filters.brandId)
+    sql += ' AND a.counterId IN (SELECT id FROM counters WHERE brand_id = ?)'
+    params.push(filters.brandId)
   }
 
   if (filters.role === 'guide' && filters.userId) {
@@ -47,10 +47,11 @@ export function getExceptions(filters: ExceptionFilters = {}) {
   const exceptionStatuses = ['pending_material', 'timeout_escalated', 'review_rejected', 'submitted']
 
   let sql = `
-    SELECT a.*, s.name AS staffName, c.name AS counterName, c.brand AS counterBrand
+    SELECT a.*, s.name AS staffName, c.name AS counterName, c.brand_id AS brandId, b.name AS brandName
     FROM attendance a
     LEFT JOIN staff s ON a.staffId = s.id
     LEFT JOIN counters c ON a.counterId = c.id
+    LEFT JOIN brands b ON c.brand_id = b.id
     WHERE a.status IN (${exceptionStatuses.map(() => '?').join(',')})
   `
   const params: unknown[] = [...exceptionStatuses]
@@ -113,8 +114,8 @@ export function getExceptionStats(role?: string, userId?: number) {
       params.push(counterScope)
     }
     if (brandScope) {
-      sql += ' AND counterId IN (SELECT id FROM counters WHERE id = ? OR brand = (SELECT brand FROM counters WHERE id = ?))'
-      params.push(brandScope, brandScope)
+      sql += ' AND counterId IN (SELECT id FROM counters WHERE brand_id = ?)'
+      params.push(brandScope)
     }
     if (staffScope) {
       sql += ' AND staffId = ?'
