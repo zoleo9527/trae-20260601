@@ -12,8 +12,8 @@
           </router-link>
         </nav>
         <div class="user-info">
-          <span class="role-badge" :class="currentRole.key">{{ currentRole.label }}</span>
-          <span class="user-name">{{ currentUser }}</span>
+          <span class="role-badge" :class="roleStore.currentRole.key">{{ roleStore.currentRole.label }}</span>
+          <span class="user-name">{{ roleStore.currentUser }}</span>
         </div>
       </div>
     </header>
@@ -24,12 +24,9 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
 import { useRoleStore } from '@/stores/role'
 
 const roleStore = useRoleStore()
-const currentRole = computed(() => roleStore.currentRole)
-const currentUser = computed(() => roleStore.currentUser)
 </script>
 
 <style scoped>

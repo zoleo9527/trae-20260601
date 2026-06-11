@@ -440,7 +440,12 @@ export function useComplaintStore() {
       complaintContent: string
     },
     submitterRole: RoleKey
-  ): Complaint {
+  ): Complaint | null {
+    if (submitterRole !== 'manager') {
+      console.warn(`[createComplaint] 仅柜长(manager)可发起客诉单，当前角色:${submitterRole}`)
+      return null
+    }
+
     const timestamp = new Date().toISOString()
     const submitterName = roleUser(submitterRole)
 
@@ -460,7 +465,7 @@ export function useComplaintStore() {
           timestamp,
           operator: submitterName,
           role: submitterRole,
-          action: submitterRole === 'manager' ? '创建并提交客诉单' : `创建并提交客诉单（${roleLabel(submitterRole)}发起）`,
+          action: '创建并提交客诉单',
           remark: data.complaintContent?.slice(0, 100) || ''
         }
       ],

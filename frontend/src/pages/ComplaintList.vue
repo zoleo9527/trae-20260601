@@ -424,6 +424,10 @@ function handleCreate() {
     data as Partial<Complaint> & any,
     roleStore.currentRole.key
   )
+  if (!newItem) {
+    alert('创建失败：仅柜长岗位可发起客诉单。请切换至柜长角色后重试。')
+    return
+  }
   showCreateModal.value = false
   router.push(`/complaint/${newItem.id}`)
 }
