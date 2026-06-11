@@ -122,9 +122,10 @@ export async function transitionTestRecord(input: {
   const updateData: Record<string, unknown> = { status: input.toStatus };
 
   if (rule.nextHolderRole) {
+    if (!input.receiverId || !input.receiverName) {
+      throw new Error(`状态流转到 ${input.toStatus} 需要交接，receiverId 和 receiverName 必填`);
+    }
     updateData.currentHolderRole = rule.nextHolderRole;
-  }
-  if (input.receiverId && rule.nextHolderRole) {
     updateData.currentHolderId = input.receiverId;
   }
 

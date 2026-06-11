@@ -33,6 +33,19 @@ export async function getHandoverTimeline(testRecordId?: string, reworkOrderId?:
       orderBy: { createdAt: "asc" },
     });
     logs.push(...recordLogs.map((l) => ({ ...l, source: "TEST_RECORD" })));
+
+    const reworkOrders = await prisma.reworkOrder.findMany({
+      where: { testRecordId },
+      select: { id: true },
+    });
+    if (reworkOrders.length > 0) {
+      const reworkLogIds = reworkOrders.map((ro) => ro.id);
+      const reworkLogs = await prisma.handoverLog.findMany({
+        where: { reworkOrderId: { in: reworkLogIds } },
+        orderBy: { createdAt: "asc" },
+      });
+      logs.push(...reworkLogs.map((l) => ({ ...l, source: "REWORK_ORDER" })));
+    }
   }
 
   if (reworkOrderId) {

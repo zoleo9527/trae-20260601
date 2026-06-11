@@ -1,4 +1,4 @@
-import { jsx, jsxs } from "react/jsx-runtime";
+import { jsx, jsxs, Fragment } from "react/jsx-runtime";
 import { PassThrough } from "node:stream";
 import { createReadableStreamFromReadable, json } from "@remix-run/node";
 import { RemixServer, Outlet, Meta, Links, ScrollRestoration, Scripts, useLoaderData, Form, Link } from "@remix-run/react";
@@ -367,9 +367,10 @@ async function transitionTestRecord(input) {
   const rule = validation.rule;
   const updateData = { status: input.toStatus };
   if (rule.nextHolderRole) {
+    if (!input.receiverId || !input.receiverName) {
+      throw new Error(`状态流转到 ${input.toStatus} 需要交接，receiverId 和 receiverName 必填`);
+    }
     updateData.currentHolderRole = rule.nextHolderRole;
-  }
-  if (input.receiverId && rule.nextHolderRole) {
     updateData.currentHolderId = input.receiverId;
   }
   return prisma.$transaction(async (tx) => {
@@ -541,9 +542,10 @@ async function transitionReworkOrder(input) {
   const rule = validation.rule;
   const updateData = { status: input.toStatus };
   if (rule.nextHolderRole) {
+    if (!input.receiverId || !input.receiverName) {
+      throw new Error(`状态流转到 ${input.toStatus} 需要交接，receiverId 和 receiverName 必填`);
+    }
     updateData.currentHolderRole = rule.nextHolderRole;
-  }
-  if (input.receiverId && rule.nextHolderRole) {
     updateData.currentHolderId = input.receiverId;
   }
   if (input.rectifyMethod) {
@@ -701,6 +703,18 @@ async function getHandoverTimeline(testRecordId, reworkOrderId) {
       orderBy: { createdAt: "asc" }
     });
     logs.push(...recordLogs.map((l) => ({ ...l, source: "TEST_RECORD" })));
+    const reworkOrders = await prisma.reworkOrder.findMany({
+      where: { testRecordId },
+      select: { id: true }
+    });
+    if (reworkOrders.length > 0) {
+      const reworkLogIds = reworkOrders.map((ro) => ro.id);
+      const reworkLogs = await prisma.handoverLog.findMany({
+        where: { reworkOrderId: { in: reworkLogIds } },
+        orderBy: { createdAt: "asc" }
+      });
+      logs.push(...reworkLogs.map((l) => ({ ...l, source: "REWORK_ORDER" })));
+    }
   }
   if (reworkOrderId) {
     const orderLogs = await prisma.handoverLog.findMany({
@@ -786,6 +800,8 @@ async function action$6({ request, params }) {
       const operatorRole = formData.get("operatorRole");
       const operatorId = formData.get("operatorId");
       const operatorName = formData.get("operatorName");
+      const receiverId = formData.get("receiverId");
+      const receiverName = formData.get("receiverName");
       const remark = formData.get("remark");
       const idempotencyKey = formData.get("idempotencyKey");
       await transitionTestRecord({
@@ -795,6 +811,8 @@ async function action$6({ request, params }) {
         operatorRole,
         operatorId,
         operatorName: operatorName || "",
+        receiverId: receiverId || void 0,
+        receiverName: receiverName || void 0,
         remark: remark || void 0,
         idempotencyKey: idempotencyKey || void 0
       });
@@ -825,6 +843,8 @@ async function action$6({ request, params }) {
       const operatorRole = formData.get("operatorRole");
       const operatorId = formData.get("operatorId");
       const operatorName = formData.get("operatorName");
+      const receiverId = formData.get("receiverId");
+      const receiverName = formData.get("receiverName");
       const rectifyMethod = formData.get("rectifyMethod");
       const remark = formData.get("remark");
       await transitionReworkOrder({
@@ -834,6 +854,8 @@ async function action$6({ request, params }) {
         operatorRole,
         operatorId,
         operatorName: operatorName || "",
+        receiverId: receiverId || void 0,
+        receiverName: receiverName || void 0,
         rectifyMethod: rectifyMethod || void 0,
         remark: remark || void 0
       });
@@ -979,6 +1001,10 @@ function TestRecordDetail() {
           " → ",
           TEST_RECORD_STATUS_LABELS[t.to]
         ] }),
+        t.nextHolderRole && /* @__PURE__ */ jsxs(Fragment, { children: [
+          /* @__PURE__ */ jsx("input", { name: "receiverId", placeholder: `${ROLE_LABELS[t.nextHolderRole]}ID`, required: true, style: { fontSize: 12, padding: "0.2rem 0.4rem", border: "1px solid #ccc", borderRadius: 4, width: 100 } }),
+          /* @__PURE__ */ jsx("input", { name: "receiverName", placeholder: `${ROLE_LABELS[t.nextHolderRole]}姓名`, required: true, style: { fontSize: 12, padding: "0.2rem 0.4rem", border: "1px solid #ccc", borderRadius: 4, width: 100 } })
+        ] }),
         /* @__PURE__ */ jsx("input", { name: "remark", placeholder: "备注（选填）", style: { fontSize: 13, padding: "0.2rem 0.5rem", border: "1px solid #ccc", borderRadius: 4 } })
       ] }, `${t.from}-${t.to}`)),
       currentRole === "CONSTRUCTION_TEAM" && (record.status === "DRAFT" || record.status === "REJECTED") && /* @__PURE__ */ jsxs(Form, { method: "post", style: { margin: "0.5rem 0", display: "flex", gap: "0.5rem", alignItems: "center", flexWrap: "wrap", borderTop: "1px solid #ccc", paddingTop: "0.5rem" }, children: [
@@ -1046,7 +1072,7 @@ function TestRecordDetail() {
               ")"
             ] }, st.id))
           ] }),
-          reworkTransitions.length > 0 && /* @__PURE__ */ jsx("div", { style: { marginTop: "0.5rem" }, children: reworkTransitions.map((rt) => /* @__PURE__ */ jsxs(Form, { method: "post", style: { display: "inline-flex", gap: "0.3rem", alignItems: "center", marginRight: "0.5rem" }, children: [
+          reworkTransitions.length > 0 && /* @__PURE__ */ jsx("div", { style: { marginTop: "0.5rem" }, children: reworkTransitions.map((rt) => /* @__PURE__ */ jsxs(Form, { method: "post", style: { display: "inline-flex", gap: "0.3rem", alignItems: "center", marginRight: "0.5rem", marginBottom: "0.3rem" }, children: [
             /* @__PURE__ */ jsx("input", { type: "hidden", name: "_action", value: "rework-transition" }),
             /* @__PURE__ */ jsx("input", { type: "hidden", name: "reworkOrderId", value: ro.id }),
             /* @__PURE__ */ jsx("input", { type: "hidden", name: "fromStatus", value: rt.from }),
@@ -1055,6 +1081,10 @@ function TestRecordDetail() {
             /* @__PURE__ */ jsx("input", { type: "hidden", name: "operatorId", value: `${currentRole}-001` }),
             /* @__PURE__ */ jsx("input", { type: "hidden", name: "operatorName", value: ROLE_LABELS[currentRole] }),
             rt.to === "RESUBMITTED" && /* @__PURE__ */ jsx("input", { name: "rectifyMethod", placeholder: "整改方法", style: { fontSize: 12, padding: "0.2rem 0.4rem", border: "1px solid #ccc", borderRadius: 4 } }),
+            rt.nextHolderRole && /* @__PURE__ */ jsxs(Fragment, { children: [
+              /* @__PURE__ */ jsx("input", { name: "receiverId", placeholder: `${ROLE_LABELS[rt.nextHolderRole]}ID`, required: true, style: { fontSize: 11, padding: "0.15rem 0.3rem", border: "1px solid #ccc", borderRadius: 4, width: 80 } }),
+              /* @__PURE__ */ jsx("input", { name: "receiverName", placeholder: `${ROLE_LABELS[rt.nextHolderRole]}姓名`, required: true, style: { fontSize: 11, padding: "0.15rem 0.3rem", border: "1px solid #ccc", borderRadius: 4, width: 80 } })
+            ] }),
             /* @__PURE__ */ jsx("input", { name: "remark", placeholder: "备注", style: { fontSize: 12, padding: "0.2rem 0.4rem", border: "1px solid #ccc", borderRadius: 4 } }),
             /* @__PURE__ */ jsx(
               "button",
@@ -1846,7 +1876,7 @@ const API_DOCUMENTATION = {
         availableTransitions: "TransitionRule[]（详情+role模式）",
         reworkDetail: "Array<{id,code,status,defectDesc,rectifyMethod,deadline,currentHolderRole,currentHolderId,stateTransitions,handoverLogs,attachments}>",
         handoverDetail: "Array<{id,fromRole,fromUserId,fromUserName,toRole,toUserId,toUserName,handoverType,remark,createdAt}>",
-        timeline: "Array<HandoverLog & {source}>（合并测试记录+整改单的交接时间线）"
+        timeline: "Array<HandoverLog & {source: 'TEST_RECORD' | 'REWORK_ORDER'}>（测试记录+关联整改单的交接时间线，按时间升序合并）"
       }
     },
     "POST /api/test-records": {
@@ -1870,8 +1900,8 @@ const API_DOCUMENTATION = {
           operatorRole: { type: "enum", required: true, enum: ["PROJECT_MANAGER", "CONSTRUCTION_TEAM", "DOCUMENT_CLERK"], description: "操作人角色" },
           operatorId: { type: "string", required: true, description: "操作人ID" },
           operatorName: { type: "string", description: "操作人姓名" },
-          receiverId: { type: "string", required: false, description: "交接接收人ID（有 nextHolderRole 时填写）" },
-          receiverName: { type: "string", required: false, description: "交接接收人姓名" },
+          receiverId: { type: "string", required: "有 nextHolderRole 时必填", description: "交接接收人ID（状态流转存在 nextHolderRole 时必须填写，用于落库 currentHolderId 和 HandoverLog.toUserId）" },
+          receiverName: { type: "string", required: "有 nextHolderRole 时必填", description: "交接接收人姓名" },
           remark: { type: "string", description: "备注" },
           idempotencyKey: { type: "string", description: "幂等键，相同key不重复执行" }
         },
@@ -1917,8 +1947,8 @@ const API_DOCUMENTATION = {
           operatorRole: { type: "enum", required: true, enum: ["PROJECT_MANAGER", "CONSTRUCTION_TEAM", "DOCUMENT_CLERK"] },
           operatorId: { type: "string", required: true },
           operatorName: { type: "string" },
-          receiverId: { type: "string", required: false, description: "交接接收人ID" },
-          receiverName: { type: "string", required: false, description: "交接接收人姓名" },
+          receiverId: { type: "string", required: "有 nextHolderRole 时必填", description: "交接接收人ID（状态流转存在 nextHolderRole 时必须填写）" },
+          receiverName: { type: "string", required: "有 nextHolderRole 时必填", description: "交接接收人姓名" },
           rectifyMethod: { type: "string", description: "整改方法（RECTIFYING→RESUBMITTED时填写）" },
           remark: { type: "string" },
           idempotencyKey: { type: "string", description: "幂等键" }
@@ -2072,10 +2102,11 @@ const API_DOCUMENTATION = {
     ttl: "IdempotencyRecord 记录 24 小时后过期，过期后 key 可复用"
   },
   dataIntegrity: {
-    currentHolderId: "状态流转时，若传了 receiverId 且规则有 nextHolderRole，则更新 TestRecord/ReworkOrder 的 currentHolderId",
-    handoverReceiver: "HandoverLog 的 toUserId/toUserName 由 transition 接口的 receiverId/receiverName 写入，不再留空",
+    currentHolderId: "状态流转规则存在 nextHolderRole 时，receiverId/receiverName 必填，同时更新 TestRecord/ReworkOrder 的 currentHolderId 为 receiverId",
+    handoverReceiver: "HandoverLog 的 toUserId/toUserName 由 transition 接口的 receiverId/receiverName 强制写入，存在 nextHolderRole 的流转不再留空",
     stateTransitionRelation: "StateTransition 通过 testRecordId/reworkOrderId 外键直接关联到对应记录，不再只存 entityType+entityId 泛化字段",
-    reworkDetailResponse: "GET 接口返回 reworkDetail（整改明细）和 handoverDetail（交接明细）字段，POST transition/supplement 返回完整 record + timeline"
+    reworkDetailResponse: "GET 详情接口返回 reworkDetail（整改明细）、handoverDetail（交接明细）和 timeline（合并时间线）；POST transition/supplement 返回完整 record/order + timeline",
+    testRecordTimeline: "测试记录接口的 timeline 自动合并其下所有整改单的交接日志，按时间升序排列，source 字段区分来源"
   },
   roles: {
     PROJECT_MANAGER: { label: "项目负责人", responsibilities: "审核测试记录、分配/验证返工整改、催办" },
@@ -2261,7 +2292,7 @@ const route11 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.definePrope
   default: Index,
   meta
 }, Symbol.toStringTag, { value: "Module" }));
-const serverManifest = { "entry": { "module": "/assets/entry.client-BrrAn8-d.js", "imports": ["/assets/components-COoCAsbi.js"], "css": [] }, "routes": { "root": { "id": "root", "parentId": void 0, "path": "", "index": void 0, "caseSensitive": void 0, "hasAction": false, "hasLoader": false, "hasClientAction": false, "hasClientLoader": false, "hasErrorBoundary": false, "module": "/assets/root-Bpc9RdDu.js", "imports": ["/assets/components-COoCAsbi.js"], "css": [] }, "routes/projects.$projectId.test-records.$recordId": { "id": "routes/projects.$projectId.test-records.$recordId", "parentId": "routes/projects.$projectId.test-records", "path": ":recordId", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasErrorBoundary": false, "module": "/assets/projects._projectId.test-records._recordId-BH-gP8xf.js", "imports": ["/assets/components-COoCAsbi.js", "/assets/types-DQolXieJ.js"], "css": [] }, "routes/projects.$projectId.test-records": { "id": "routes/projects.$projectId.test-records", "parentId": "routes/projects", "path": ":projectId/test-records", "index": void 0, "caseSensitive": void 0, "hasAction": false, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasErrorBoundary": false, "module": "/assets/projects._projectId.test-records-BIdDIoby.js", "imports": ["/assets/components-COoCAsbi.js", "/assets/types-DQolXieJ.js"], "css": [] }, "routes/api.material-requisitions": { "id": "routes/api.material-requisitions", "parentId": "root", "path": "api/material-requisitions", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasErrorBoundary": false, "module": "/assets/api.material-requisitions-l0sNRNKZ.js", "imports": [], "css": [] }, "routes/api.rework-orders": { "id": "routes/api.rework-orders", "parentId": "root", "path": "api/rework-orders", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasErrorBoundary": false, "module": "/assets/api.rework-orders-l0sNRNKZ.js", "imports": [], "css": [] }, "routes/api.cable-routes": { "id": "routes/api.cable-routes", "parentId": "root", "path": "api/cable-routes", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasErrorBoundary": false, "module": "/assets/api.cable-routes-l0sNRNKZ.js", "imports": [], "css": [] }, "routes/api.test-records": { "id": "routes/api.test-records", "parentId": "root", "path": "api/test-records", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasErrorBoundary": false, "module": "/assets/api.test-records-l0sNRNKZ.js", "imports": [], "css": [] }, "routes/api.handover": { "id": "routes/api.handover", "parentId": "root", "path": "api/handover", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasErrorBoundary": false, "module": "/assets/api.handover-l0sNRNKZ.js", "imports": [], "css": [] }, "routes/api.projects": { "id": "routes/api.projects", "parentId": "root", "path": "api/projects", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasErrorBoundary": false, "module": "/assets/api.projects-l0sNRNKZ.js", "imports": [], "css": [] }, "routes/api-docs": { "id": "routes/api-docs", "parentId": "root", "path": "api-docs", "index": void 0, "caseSensitive": void 0, "hasAction": false, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasErrorBoundary": false, "module": "/assets/api-docs-CzdEkt_o.js", "imports": ["/assets/components-COoCAsbi.js"], "css": [] }, "routes/projects": { "id": "routes/projects", "parentId": "root", "path": "projects", "index": void 0, "caseSensitive": void 0, "hasAction": false, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasErrorBoundary": false, "module": "/assets/projects-CMyos6XF.js", "imports": ["/assets/components-COoCAsbi.js"], "css": [] }, "routes/_index": { "id": "routes/_index", "parentId": "root", "path": void 0, "index": true, "caseSensitive": void 0, "hasAction": false, "hasLoader": false, "hasClientAction": false, "hasClientLoader": false, "hasErrorBoundary": false, "module": "/assets/_index-BnuunTcy.js", "imports": ["/assets/components-COoCAsbi.js"], "css": [] } }, "url": "/assets/manifest-b96217eb.js", "version": "b96217eb" };
+const serverManifest = { "entry": { "module": "/assets/entry.client-BrrAn8-d.js", "imports": ["/assets/components-COoCAsbi.js"], "css": [] }, "routes": { "root": { "id": "root", "parentId": void 0, "path": "", "index": void 0, "caseSensitive": void 0, "hasAction": false, "hasLoader": false, "hasClientAction": false, "hasClientLoader": false, "hasErrorBoundary": false, "module": "/assets/root-Bpc9RdDu.js", "imports": ["/assets/components-COoCAsbi.js"], "css": [] }, "routes/projects.$projectId.test-records.$recordId": { "id": "routes/projects.$projectId.test-records.$recordId", "parentId": "routes/projects.$projectId.test-records", "path": ":recordId", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasErrorBoundary": false, "module": "/assets/projects._projectId.test-records._recordId-BIMU2XL0.js", "imports": ["/assets/components-COoCAsbi.js", "/assets/types-DQolXieJ.js"], "css": [] }, "routes/projects.$projectId.test-records": { "id": "routes/projects.$projectId.test-records", "parentId": "routes/projects", "path": ":projectId/test-records", "index": void 0, "caseSensitive": void 0, "hasAction": false, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasErrorBoundary": false, "module": "/assets/projects._projectId.test-records-BIdDIoby.js", "imports": ["/assets/components-COoCAsbi.js", "/assets/types-DQolXieJ.js"], "css": [] }, "routes/api.material-requisitions": { "id": "routes/api.material-requisitions", "parentId": "root", "path": "api/material-requisitions", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasErrorBoundary": false, "module": "/assets/api.material-requisitions-l0sNRNKZ.js", "imports": [], "css": [] }, "routes/api.rework-orders": { "id": "routes/api.rework-orders", "parentId": "root", "path": "api/rework-orders", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasErrorBoundary": false, "module": "/assets/api.rework-orders-l0sNRNKZ.js", "imports": [], "css": [] }, "routes/api.cable-routes": { "id": "routes/api.cable-routes", "parentId": "root", "path": "api/cable-routes", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasErrorBoundary": false, "module": "/assets/api.cable-routes-l0sNRNKZ.js", "imports": [], "css": [] }, "routes/api.test-records": { "id": "routes/api.test-records", "parentId": "root", "path": "api/test-records", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasErrorBoundary": false, "module": "/assets/api.test-records-l0sNRNKZ.js", "imports": [], "css": [] }, "routes/api.handover": { "id": "routes/api.handover", "parentId": "root", "path": "api/handover", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasErrorBoundary": false, "module": "/assets/api.handover-l0sNRNKZ.js", "imports": [], "css": [] }, "routes/api.projects": { "id": "routes/api.projects", "parentId": "root", "path": "api/projects", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasErrorBoundary": false, "module": "/assets/api.projects-l0sNRNKZ.js", "imports": [], "css": [] }, "routes/api-docs": { "id": "routes/api-docs", "parentId": "root", "path": "api-docs", "index": void 0, "caseSensitive": void 0, "hasAction": false, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasErrorBoundary": false, "module": "/assets/api-docs-CzdEkt_o.js", "imports": ["/assets/components-COoCAsbi.js"], "css": [] }, "routes/projects": { "id": "routes/projects", "parentId": "root", "path": "projects", "index": void 0, "caseSensitive": void 0, "hasAction": false, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasErrorBoundary": false, "module": "/assets/projects-CMyos6XF.js", "imports": ["/assets/components-COoCAsbi.js"], "css": [] }, "routes/_index": { "id": "routes/_index", "parentId": "root", "path": void 0, "index": true, "caseSensitive": void 0, "hasAction": false, "hasLoader": false, "hasClientAction": false, "hasClientLoader": false, "hasErrorBoundary": false, "module": "/assets/_index-BnuunTcy.js", "imports": ["/assets/components-COoCAsbi.js"], "css": [] } }, "url": "/assets/manifest-0afac475.js", "version": "0afac475" };
 const mode = "production";
 const assetsBuildDirectory = "build/client";
 const basename = "/";

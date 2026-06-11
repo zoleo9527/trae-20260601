@@ -40,7 +40,7 @@ export const API_DOCUMENTATION = {
         availableTransitions: "TransitionRule[]（详情+role模式）",
         reworkDetail: "Array<{id,code,status,defectDesc,rectifyMethod,deadline,currentHolderRole,currentHolderId,stateTransitions,handoverLogs,attachments}>",
         handoverDetail: "Array<{id,fromRole,fromUserId,fromUserName,toRole,toUserId,toUserName,handoverType,remark,createdAt}>",
-        timeline: "Array<HandoverLog & {source}>（合并测试记录+整改单的交接时间线）",
+        timeline: "Array<HandoverLog & {source: 'TEST_RECORD' | 'REWORK_ORDER'}>（测试记录+关联整改单的交接时间线，按时间升序合并）",
       },
     },
 
@@ -65,8 +65,8 @@ export const API_DOCUMENTATION = {
           operatorRole: { type: "enum", required: true, enum: ["PROJECT_MANAGER", "CONSTRUCTION_TEAM", "DOCUMENT_CLERK"], description: "操作人角色" },
           operatorId: { type: "string", required: true, description: "操作人ID" },
           operatorName: { type: "string", description: "操作人姓名" },
-          receiverId: { type: "string", required: false, description: "交接接收人ID（有 nextHolderRole 时填写）" },
-          receiverName: { type: "string", required: false, description: "交接接收人姓名" },
+          receiverId: { type: "string", required: "有 nextHolderRole 时必填", description: "交接接收人ID（状态流转存在 nextHolderRole 时必须填写，用于落库 currentHolderId 和 HandoverLog.toUserId）" },
+          receiverName: { type: "string", required: "有 nextHolderRole 时必填", description: "交接接收人姓名" },
           remark: { type: "string", description: "备注" },
           idempotencyKey: { type: "string", description: "幂等键，相同key不重复执行" },
         },
@@ -114,8 +114,8 @@ export const API_DOCUMENTATION = {
           operatorRole: { type: "enum", required: true, enum: ["PROJECT_MANAGER", "CONSTRUCTION_TEAM", "DOCUMENT_CLERK"] },
           operatorId: { type: "string", required: true },
           operatorName: { type: "string" },
-          receiverId: { type: "string", required: false, description: "交接接收人ID" },
-          receiverName: { type: "string", required: false, description: "交接接收人姓名" },
+          receiverId: { type: "string", required: "有 nextHolderRole 时必填", description: "交接接收人ID（状态流转存在 nextHolderRole 时必须填写）" },
+          receiverName: { type: "string", required: "有 nextHolderRole 时必填", description: "交接接收人姓名" },
           rectifyMethod: { type: "string", description: "整改方法（RECTIFYING→RESUBMITTED时填写）" },
           remark: { type: "string" },
           idempotencyKey: { type: "string", description: "幂等键" },
@@ -278,10 +278,11 @@ export const API_DOCUMENTATION = {
   },
 
   dataIntegrity: {
-    currentHolderId: "状态流转时，若传了 receiverId 且规则有 nextHolderRole，则更新 TestRecord/ReworkOrder 的 currentHolderId",
-    handoverReceiver: "HandoverLog 的 toUserId/toUserName 由 transition 接口的 receiverId/receiverName 写入，不再留空",
+    currentHolderId: "状态流转规则存在 nextHolderRole 时，receiverId/receiverName 必填，同时更新 TestRecord/ReworkOrder 的 currentHolderId 为 receiverId",
+    handoverReceiver: "HandoverLog 的 toUserId/toUserName 由 transition 接口的 receiverId/receiverName 强制写入，存在 nextHolderRole 的流转不再留空",
     stateTransitionRelation: "StateTransition 通过 testRecordId/reworkOrderId 外键直接关联到对应记录，不再只存 entityType+entityId 泛化字段",
-    reworkDetailResponse: "GET 接口返回 reworkDetail（整改明细）和 handoverDetail（交接明细）字段，POST transition/supplement 返回完整 record + timeline",
+    reworkDetailResponse: "GET 详情接口返回 reworkDetail（整改明细）、handoverDetail（交接明细）和 timeline（合并时间线）；POST transition/supplement 返回完整 record/order + timeline",
+    testRecordTimeline: "测试记录接口的 timeline 自动合并其下所有整改单的交接日志，按时间升序排列，source 字段区分来源",
   },
 
   roles: {

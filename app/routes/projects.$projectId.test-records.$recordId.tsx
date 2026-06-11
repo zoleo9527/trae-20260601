@@ -42,6 +42,8 @@ export async function action({ request, params }: ActionFunctionArgs) {
       const operatorRole = formData.get("operatorRole") as Role;
       const operatorId = formData.get("operatorId") as string;
       const operatorName = formData.get("operatorName") as string;
+      const receiverId = formData.get("receiverId") as string;
+      const receiverName = formData.get("receiverName") as string;
       const remark = formData.get("remark") as string;
       const idempotencyKey = formData.get("idempotencyKey") as string;
 
@@ -52,6 +54,8 @@ export async function action({ request, params }: ActionFunctionArgs) {
         operatorRole,
         operatorId,
         operatorName: operatorName || "",
+        receiverId: receiverId || undefined,
+        receiverName: receiverName || undefined,
         remark: remark || undefined,
         idempotencyKey: idempotencyKey || undefined,
       });
@@ -85,6 +89,8 @@ export async function action({ request, params }: ActionFunctionArgs) {
       const operatorRole = formData.get("operatorRole") as Role;
       const operatorId = formData.get("operatorId") as string;
       const operatorName = formData.get("operatorName") as string;
+      const receiverId = formData.get("receiverId") as string;
+      const receiverName = formData.get("receiverName") as string;
       const rectifyMethod = formData.get("rectifyMethod") as string;
       const remark = formData.get("remark") as string;
 
@@ -95,6 +101,8 @@ export async function action({ request, params }: ActionFunctionArgs) {
         operatorRole,
         operatorId,
         operatorName: operatorName || "",
+        receiverId: receiverId || undefined,
+        receiverName: receiverName || undefined,
         rectifyMethod: rectifyMethod || undefined,
         remark: remark || undefined,
       });
@@ -229,6 +237,12 @@ export default function TestRecordDetail() {
             <span style={{ fontSize: 12, color: "#888" }}>
               {TEST_RECORD_STATUS_LABELS[t.from as keyof typeof TEST_RECORD_STATUS_LABELS]} → {TEST_RECORD_STATUS_LABELS[t.to as keyof typeof TEST_RECORD_STATUS_LABELS]}
             </span>
+            {t.nextHolderRole && (
+              <>
+                <input name="receiverId" placeholder={`${ROLE_LABELS[t.nextHolderRole as keyof typeof ROLE_LABELS]}ID`} required style={{ fontSize: 12, padding: "0.2rem 0.4rem", border: "1px solid #ccc", borderRadius: 4, width: 100 }} />
+                <input name="receiverName" placeholder={`${ROLE_LABELS[t.nextHolderRole as keyof typeof ROLE_LABELS]}姓名`} required style={{ fontSize: 12, padding: "0.2rem 0.4rem", border: "1px solid #ccc", borderRadius: 4, width: 100 }} />
+              </>
+            )}
             <input name="remark" placeholder="备注（选填）" style={{ fontSize: 13, padding: "0.2rem 0.5rem", border: "1px solid #ccc", borderRadius: 4 }} />
           </Form>
         ))}
@@ -307,7 +321,7 @@ export default function TestRecordDetail() {
                 {reworkTransitions.length > 0 && (
                   <div style={{ marginTop: "0.5rem" }}>
                     {reworkTransitions.map((rt) => (
-                      <Form key={`${rt.from}-${rt.to}`} method="post" style={{ display: "inline-flex", gap: "0.3rem", alignItems: "center", marginRight: "0.5rem" }}>
+                      <Form key={`${rt.from}-${rt.to}`} method="post" style={{ display: "inline-flex", gap: "0.3rem", alignItems: "center", marginRight: "0.5rem", marginBottom: "0.3rem" }}>
                         <input type="hidden" name="_action" value="rework-transition" />
                         <input type="hidden" name="reworkOrderId" value={ro.id} />
                         <input type="hidden" name="fromStatus" value={rt.from} />
@@ -317,6 +331,12 @@ export default function TestRecordDetail() {
                         <input type="hidden" name="operatorName" value={ROLE_LABELS[currentRole as keyof typeof ROLE_LABELS]} />
                         {rt.to === "RESUBMITTED" && (
                           <input name="rectifyMethod" placeholder="整改方法" style={{ fontSize: 12, padding: "0.2rem 0.4rem", border: "1px solid #ccc", borderRadius: 4 }} />
+                        )}
+                        {rt.nextHolderRole && (
+                          <>
+                            <input name="receiverId" placeholder={`${ROLE_LABELS[rt.nextHolderRole as keyof typeof ROLE_LABELS]}ID`} required style={{ fontSize: 11, padding: "0.15rem 0.3rem", border: "1px solid #ccc", borderRadius: 4, width: 80 }} />
+                            <input name="receiverName" placeholder={`${ROLE_LABELS[rt.nextHolderRole as keyof typeof ROLE_LABELS]}姓名`} required style={{ fontSize: 11, padding: "0.15rem 0.3rem", border: "1px solid #ccc", borderRadius: 4, width: 80 }} />
+                          </>
                         )}
                         <input name="remark" placeholder="备注" style={{ fontSize: 12, padding: "0.2rem 0.4rem", border: "1px solid #ccc", borderRadius: 4 }} />
                         <button
