@@ -3,7 +3,7 @@
 ## 概述
 解决柜长、楼层主管、品牌督导之间商品调拨责任不清的核心系统。所有操作留痕、改动可感知、责任可追溯。
 
-**Base URL**: `http://localhost:8001`
+**Base URL**: `http://localhost:8002`
 
 ---
 
@@ -19,9 +19,12 @@
 ## 状态流转
 ```
 pending(待楼层审批) → approved(待品牌发货) → shipped(已发货待复核) → reviewed(完成)
-   ↓                    ↓
-modified(已修改待重审)   disputed(数量差异)
+   ↓                    ↓                        ↓
+modified(已修改待重审)  disputed(数量差异)  ←──┘
 ```
+**两类责任场景**:
+- **场景A 被修改待复核**: shipped + is_modified=true，复核端强制确认
+- **场景B 差异待核实**: disputed + review_status=disputed，走差异核实流程
 
 ---
 
@@ -201,7 +204,10 @@ GET /api/allocations/{allocation_id}
 ```
 GET /api/reviews/pending?counter=雅诗兰黛-2F-B03
 ```
-**说明**: 返回 status=shipped 的调拨单。若 `is_modified=true` 表示该调拨单在发货后被改动过，复核端需提示用户。
+**说明**: 返回 status=shipped 和 status=disputed 两类调拨单。
+- 若 `is_modified=true`：表示该调拨单在发货后被改动过（**场景A：被修改待复核**）
+- 若 `status=disputed`：表示该调拨单已有差异记录（**场景B：差异待核实**）
+- 差异状态的单子不可重复复核，需通过差异核实流程处理
 
 ---
 
@@ -230,10 +236,15 @@ curl -X POST "http://localhost:8001/api/reviews?reviewer_id=2" \
   }'
 ```
 **关键规则**:
-1. 若 `allocation.is_modified=true` 且 `modification_acknowledged=false` → **拒绝复核**，提示"请先确认已知晓变更内容"
-2. `actual_quantity == expected_quantity` → 复核状态 `reviewed`
-3. `actual_quantity != expected_quantity` → 复核状态 `disputed`，`difference_reason` 必填
-4. 同一张调拨单只能复核一次
+1. **状态校验**: 只有 shipped 和 disputed 状态的调拨单可以执行复核
+2. **重复复核阻止**: 
+   - 已有 review_status=reviewed → 拒绝："已完成复核，不可重复操作"
+   - 已有 review_status=disputed → 拒绝："该调拨单已有差异记录，请通过差异核实流程处理"
+3. **变更感知强制确认**: 若 `allocation.is_modified=true` 且 `modification_acknowledged=false` → **拒绝复核**，提示"请先确认已知晓变更内容"
+4. **差异原因强制填写**: 若 `actual_quantity != quantity`，必须填写 `difference_reason`，否则拒绝
+5. **状态同步**: 
+   - 数量一致 → 复核状态 `reviewed`，调拨单状态同步为 `reviewed`
+   - 数量不一致 → 复核状态 `disputed`，调拨单状态同步为 `disputed`
 
 ---
 
@@ -284,12 +295,13 @@ GET /api/reviews/timeline?brand=雅诗兰黛&status=shipped
 
 | 问题场景 | 系统机制 | 数据证据 |
 |---|---|---|
-| "我没收到那么多货" | 到柜复核时录入实收数量，差异自动标记 disputed | `actual_quantity` vs `expected_quantity` + `difference_reason` |
+| "我没收到那么多货" | 到柜复核录入实收数量，差异自动标记 disputed，调拨单同步为 disputed | `actual_quantity` vs `expected_quantity` + `difference_reason` + `allocation.status=disputed` |
 | "调拨单被改了我不知道" | 修改后复核端强制提示，必须勾选确认才能复核 | `has_allocation_modified=true` + `modification_acknowledged=true` + 复核人/时间 |
 | "谁改的？什么时候改的？" | 每次修改自动写变更日志，含字段新旧值 | `change_logs` 表（字段、旧值、新值、原因、操作人、时间） |
 | "重复提交了怎么办" | 创建时使用 idempotent_key 幂等控制 | 同 key 重复提交返回已存在记录 |
 | "并发改了冲突" | 使用 version 乐观锁 | 版本不一致返回 400 |
 | "翻聊天记录找证据" | 所有节点文字汇总到 `history_remark` + 结构化变更日志 | 时间线视图直接展示 |
+| "差异后又想复核" | disputed 状态阻止重复复核，必须走差异核实流程 | `review_status=disputed` + 错误提示 |
 
 ---
 
@@ -298,7 +310,7 @@ GET /api/reviews/timeline?brand=雅诗兰黛&status=shipped
 保存为 `test_flow.sh` 直接运行：
 
 ```bash
-BASE="http://localhost:8001"
+BASE="http://localhost:8002"
 echo "=== 1. 张柜长创建调拨单 ==="
 KEY="demo-$(date +%s)"
 curl -s -X POST "$BASE/api/allocations?creator_id=1" -H "Content-Type: application/json" \

@@ -160,26 +160,27 @@ def create_review(db: Session, review: schemas.CabinetReviewCreate, reviewer_id:
     if not db_allocation:
         return None, "调拨单不存在"
 
-    if db_allocation.status != STATUS_SHIPPED:
-        return None, f"调拨单状态为 {db_allocation.status}，尚未发货，无法到柜复核"
+    if db_allocation.status not in (STATUS_SHIPPED, STATUS_DISPUTED):
+        return None, f"调拨单状态为 {db_allocation.status}，无法到柜复核"
 
     existing_review = db.query(models.CabinetReview).filter(
-        and_(
-            models.CabinetReview.allocation_id == review.allocation_id,
-            models.CabinetReview.review_status.in_([STATUS_PENDING, STATUS_REVIEWED])
-        )
+        models.CabinetReview.allocation_id == review.allocation_id
     ).first()
-    if existing_review:
-        return None, "该调拨单已有复核记录"
+    if existing_review and existing_review.review_status == STATUS_REVIEWED:
+        return None, "该调拨单已完成复核，不可重复操作"
+    if existing_review and existing_review.review_status == STATUS_DISPUTED:
+        return None, "该调拨单已有差异记录，请通过差异核实流程处理"
 
     has_modified = db_allocation.is_modified
     if has_modified and not review.modification_acknowledged:
         return None, "该调拨单在审核后被修改，请先确认已知晓变更内容"
 
-    if review.actual_quantity == db_allocation.quantity:
-        review_status = STATUS_REVIEWED
-    else:
+    if review.actual_quantity != db_allocation.quantity:
+        if not review.difference_reason or not review.difference_reason.strip():
+            return None, "实收数量与调拨数量不一致时，必须填写差异原因"
         review_status = STATUS_DISPUTED
+    else:
+        review_status = STATUS_REVIEWED
 
     db_review = models.CabinetReview(
         **review.model_dump(),
@@ -193,6 +194,8 @@ def create_review(db: Session, review: schemas.CabinetReviewCreate, reviewer_id:
 
     if review_status == STATUS_REVIEWED:
         db_allocation.status = STATUS_REVIEWED
+    else:
+        db_allocation.status = STATUS_DISPUTED
 
     db.commit()
     db.refresh(db_review)
@@ -211,7 +214,7 @@ def get_review_by_allocation(db: Session, allocation_id: int):
 
 def list_pending_reviews(db: Session, counter: str = None, skip: int = 0, limit: int = 50):
     query = db.query(models.GoodsAllocation).filter(
-        models.GoodsAllocation.status == STATUS_SHIPPED
+        models.GoodsAllocation.status.in_([STATUS_SHIPPED, STATUS_DISPUTED])
     )
     if counter:
         query = query.filter(models.GoodsAllocation.to_counter == counter)
