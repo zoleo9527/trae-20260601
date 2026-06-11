@@ -364,8 +364,7 @@
               <div class="action-buttons">
                 {#each availableActions as action}
                   <button
-                    class="action-btn"
-                    class:{action.btnClass}={true}
+                    class="action-btn {action.btnClass}"
                     on:click={() => openAction(action)}
                   >
                     {action.label}
@@ -885,31 +884,6 @@
     align-items: center;
     justify-content: center;
     font-size: 12px;
-  }
-
-  .sign-here {
-    margin-top: 20px;
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-    max-width: 400px;
-    margin-left: auto;
-    margin-right: auto;
-  }
-
-  .sign-here textarea {
-    padding: 12px;
-    border: 1px solid #d1d5db;
-    border-radius: 8px;
-    font-family: inherit;
-    font-size: 14px;
-    resize: vertical;
-  }
-
-  .sign-here .action-btn {
-    align-self: center;
-    padding: 12px 40px;
-    font-size: 16px;
   }
 
   .modal-overlay {

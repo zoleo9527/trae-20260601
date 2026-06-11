@@ -103,6 +103,8 @@ export async function POST({ params, request }) {
     signature,
     transition: {
       ...transition,
+      from_status_label: STATUS_META[transition.from_status]?.label,
+      from_status_color: STATUS_META[transition.from_status]?.color,
       to_status_label: STATUS_META[transition.to_status]?.label,
       to_status_color: STATUS_META[transition.to_status]?.color,
       operator_role_label: '物业联系人'
