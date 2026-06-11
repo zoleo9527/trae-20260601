@@ -238,3 +238,84 @@ export const traceCtrl = {
     res.json(buildTrace(rid, projectId as string | undefined))
   }
 }
+
+function csvEscape(v: string | number): string {
+  const s = String(v ?? '')
+  if (s.includes(',') || s.includes('"') || s.includes('\n')) {
+    return '"' + s.replace(/"/g, '""') + '"'
+  }
+  return s
+}
+
+function sendCsv(res: Response, filename: string, rows: (string | number)[][]) {
+  const bom = '\uFEFF'
+  const csv = bom + rows.map(r => r.map(csvEscape).join(',')).join('\n')
+  res.setHeader('Content-Type', 'text/csv; charset=utf-8')
+  res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(filename)}"`)
+  res.send(csv)
+}
+
+export const exportCtrl = {
+  requisitions: (req: Request, res: Response) => {
+    const { projectId } = req.query
+    const pid = projectId as string | undefined
+    const rows = buildTrace(undefined, pid)
+    const header = ['领料单号', '标签', '线缆型号', '设计量', '申请量', '已使用量', '已退回量', '结余', '关联点位数量', '状态说明']
+    const data = rows.map(r => [
+      r.requisitionCode,
+      r.tags.join('/'),
+      r.cableModel,
+      r.designQty,
+      r.appliedQty,
+      r.usedQty,
+      r.returnedQty,
+      r.balance,
+      r.usedPoints.length,
+      r.balance < 0 ? '超支' : r.balance > 0 ? '有结余' : '刚好用完'
+    ])
+    sendCsv(res, `领料追溯汇总_${pid || '全部'}_${new Date().toISOString().slice(0, 10)}.csv`, [header, ...data])
+  },
+  points: (req: Request, res: Response) => {
+    const { projectId } = req.query
+    let pts = SeedData.points.slice()
+    if (projectId) pts = pts.filter(p => p.projectId === projectId)
+    const header = ['点位编号', '所属项目', '关联领料单', '线缆型号', '使用米数', '起点', '终点', '测试结果', '测试人', '记录时间', '照片数量', '照片URL', '备注']
+    const data = pts.map(p => [
+      p.pointCode,
+      SeedData.projects.find(x => x.id === p.projectId)?.name || p.projectId,
+      (SeedData.requisitions.find(r => r.id === p.requisitionId)?.code) || p.requisitionId,
+      p.cableModel,
+      p.usedMeters,
+      p.startPoint,
+      p.endPoint,
+      p.testResult === 'pass' ? '合格' : p.testResult === 'fail' ? '不合格' : '待检',
+      p.tester || '未测',
+      p.createTime,
+      p.photos.length,
+      p.photos.join('; ') || '无',
+      p.remark || ''
+    ])
+    sendCsv(res, `点位照片清单_${projectId || '全部'}_${new Date().toISOString().slice(0, 10)}.csv`, [header, ...data])
+  },
+  returns: (req: Request, res: Response) => {
+    const { projectId } = req.query
+    let rts = SeedData.returns.slice()
+    if (projectId) rts = rts.filter(r => r.projectId === projectId)
+    const header = ['退回单号', '关联领料单', '所属项目', '班组', '退回人', '退回时间', '状态', '物品明细', '照片数量', '仓库接收人', '接收时间', '备注']
+    const data = rts.map(r => [
+      r.code,
+      SeedData.requisitions.find(x => x.id === r.requisitionId)?.code || r.requisitionId,
+      SeedData.projects.find(x => x.id === r.projectId)?.name || r.projectId,
+      SeedData.teams.find(x => x.id === r.teamId)?.name || r.teamId,
+      r.returner,
+      r.returnTime,
+      r.status === 'received' ? '已接收' : '待接收',
+      r.items.map(it => `${it.cableModel} x${it.returnQty} (${it.condition === 'good' ? '完好' : it.condition === 'damaged' ? '破损' : '部分'})`).join('；'),
+      r.photos.length,
+      r.receiver || '',
+      r.receiveTime || '',
+      r.remark || ''
+    ])
+    sendCsv(res, `退回记录明细_${projectId || '全部'}_${new Date().toISOString().slice(0, 10)}.csv`, [header, ...data])
+  }
+}

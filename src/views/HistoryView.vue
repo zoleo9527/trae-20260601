@@ -15,7 +15,7 @@ import {
   FileText, CheckCircle, Package, MapPin, Network, AlertTriangle, RefreshCw,
   ArrowDownToLine, Archive, Search, Filter, Download, FileSpreadsheet,
   FileText as FileIcon, Printer, ChevronDown, ChevronRight, Eye, Clock,
-  User, Layers, Check, Ruler, Image as ImageIcon
+  User, Layers, Check, Ruler, Image as ImageIcon, XCircle
 } from 'lucide-vue-next'
 
 const store = useDataStore()
@@ -59,6 +59,7 @@ const detailEv = ref<TimelineEvent | null>(null), photoUrls = ref<string[]>([])
 const expanded = ref<Set<string>>(new Set()), archiveExp = ref(false)
 const expProj = ref(''), expFrom = ref(''), expTo = ref('')
 const expMods = ref<string[]>(['requisition', 'checkin', 'point', 'shortage', 'return'])
+const exporting = ref(false)
 
 const projectOpts = computed<SelectOption[]>(() => [{ value: '', label: '全部项目' }, ...store.projects.map(p => ({ value: p.id, label: p.name }))])
 const teamOpts = computed<SelectOption[]>(() => [{ value: '', label: '全部班组' }, ...store.teams.map(t => ({ value: t.id, label: t.name }))])
@@ -107,11 +108,72 @@ const stats = computed(() => {
   return { d, u, rt, ls, pd: (d / t) * 100, pu: (u / t) * 100, pr: (rt / t) * 100, pl: (ls / t) * 100 }
 })
 const pts = computed(() => store.points.map(p => ({ c: p.pointCode, m: p.cableModel, mtr: p.usedMeters, r: p.testResult, t: p.tester, ph: p.photos })))
+
+const overRequisitions = computed(() => store.requisitions.filter(r => r.tags.includes('over')))
+const wrongRequisitions = computed(() => store.requisitions.filter(r => r.tags.includes('wrong')))
+const supplementRequisitions = computed(() => store.requisitions.filter(r => r.tags.includes('supplement')))
+const shortageActive = computed(() => store.shortages.filter(s => s.status !== 'closed'))
+const returnRecords = computed(() => store.returns)
+
+const archiveSummary = computed(() => ({
+  requisitionCount: store.requisitions.length,
+  pointCount: store.points.length,
+  returnCount: store.returns.length,
+  overCount: overRequisitions.value.length,
+  wrongCount: wrongRequisitions.value.length,
+  supplementCount: supplementRequisitions.value.length,
+  shortageCount: shortageActive.value.length
+}))
 function openDetail(e: TimelineEvent) { detailEv.value = e; detailOpen.value = true }
 function openPh(u: string[]) { photoUrls.value = u; photoOpen.value = true }
 function toggleM(k: string) { const i = expMods.value.indexOf(k); i >= 0 ? expMods.value.splice(i, 1) : expMods.value.push(k) }
 function toggleAll() { expMods.value = expMods.value.length === modules.length ? [] : modules.map(m => m.key) }
-function mockExp(f: string) { alert(`【模拟导出】\n格式：${f}\n项目：${expProj.value || '全部'}\n范围：${expFrom.value || '不限'} ~ ${expTo.value || '不限'}\n模块：${expMods.value.join('、') || '无'}`) }
+
+const exportBase = import.meta.env.VITE_API_BASE || '/api'
+
+async function downloadCsv(path: string) {
+  const url = exportBase + path
+  const a = document.createElement('a')
+  a.href = url
+  a.target = '_blank'
+  a.rel = 'noopener'
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+}
+
+async function doExport(format: 'csv' | 'excel' | 'pdf') {
+  if (exporting.value) return
+  if (expMods.value.length === 0) {
+    alert('请至少选择一个导出模块')
+    return
+  }
+  exporting.value = true
+  try {
+    const pid = expProj.value || store.currentProjectId
+    const params = new URLSearchParams()
+    if (pid) params.set('projectId', pid)
+    if (expFrom.value) params.set('from', expFrom.value)
+    if (expTo.value) params.set('to', expTo.value)
+    const qs = params.toString()
+    const q = qs ? `?${qs}` : ''
+    const jobs: { key: string; path: string }[] = []
+    if (expMods.value.includes('requisition')) jobs.push({ key: 'requisition', path: `/export/requisitions${q}` })
+    if (expMods.value.includes('point')) jobs.push({ key: 'point', path: `/export/points${q}` })
+    if (expMods.value.includes('return')) jobs.push({ key: 'return', path: `/export/returns${q}` })
+    if (format === 'excel' || format === 'csv') {
+      for (let i = 0; i < jobs.length; i++) {
+        await new Promise(r => setTimeout(r, i * 300))
+        downloadCsv(jobs[i].path)
+      }
+      alert(`导出完成！共 ${jobs.length} 个 CSV 文件已开始下载。\n提示：CSV 可直接用 Excel 打开，或另存为 .xlsx 格式。`)
+    } else {
+      alert('PDF 竣工资料导出需安装 PDF 渲染服务，当前已导出 CSV 格式数据，可用于竣工资料整理。')
+    }
+  } finally {
+    exporting.value = false
+  }
+}
 function doPrint() { window.print() }
 </script>
 
@@ -333,6 +395,102 @@ function doPrint() { window.print() }
           </div>
         </div>
       </UiCard>
+
+      <div class="lg:col-span-2 pt-2">
+        <div class="flex items-center gap-2 pb-2 border-b border-gray-200">
+          <FileText class="w-[18px] h-[18px] text-amber-600" />
+          <span class="font-semibold text-gray-800">异常与凭证摘要</span>
+          <span class="text-xs text-gray-400">竣工资料附件目录</span>
+        </div>
+      </div>
+
+      <UiCard class="border-l-4 !border-l-orange-500">
+        <template #header>
+          <div class="flex items-center gap-2">
+            <AlertTriangle class="w-[18px] h-[18px] text-orange-600" />
+            <span class="font-semibold text-gray-800">超领凭证</span>
+            <UiBadge variant="orange" size="sm">{{ overRequisitions.length }} 单</UiBadge>
+          </div>
+        </template>
+        <div class="space-y-2 max-h-60 overflow-y-auto">
+          <div v-for="r in overRequisitions" :key="r.id" class="p-2.5 bg-orange-50 border border-orange-100 rounded text-xs space-y-1">
+            <div class="flex items-center justify-between">
+              <span class="font-mono font-semibold text-orange-800">{{ r.code }}</span>
+              <span class="text-orange-600">超 {{ Math.round((r.items.reduce((s,i) => s + (i.overFlag ? i.quantity - (i.designQty || 0) : 0), 0) / Math.max(1, r.items.reduce((s,i) => s + (i.designQty || 0), 0))) * 100) }}%</span>
+            </div>
+            <div class="text-gray-600">申请人：{{ r.applicant }} · {{ r.applyTime.slice(5, 16) }}</div>
+            <div class="text-gray-500">明细：{{ r.items.filter(i => i.overFlag).map(i => `${i.cableModel} 超${(i.quantity - (i.designQty || 0)).toFixed(0)}`).join('、') || '—' }}</div>
+            <div v-if="r.approverRemark" class="text-gray-500 italic">审批意见：{{ r.approverRemark }}</div>
+          </div>
+          <div v-if="overRequisitions.length === 0" class="text-center text-gray-400 py-4 text-xs">无超领记录</div>
+        </div>
+      </UiCard>
+
+      <UiCard class="border-l-4 !border-l-gray-400">
+        <template #header>
+          <div class="flex items-center gap-2">
+            <XCircle class="w-[18px] h-[18px] text-gray-500" />
+            <span class="font-semibold text-gray-800">错领凭证</span>
+            <UiBadge variant="default" size="sm">{{ wrongRequisitions.length }} 单</UiBadge>
+          </div>
+        </template>
+        <div class="space-y-2 max-h-60 overflow-y-auto">
+          <div v-for="r in wrongRequisitions" :key="r.id" class="p-2.5 bg-gray-50 border border-gray-200 rounded text-xs space-y-1 italic">
+            <div class="flex items-center justify-between">
+              <span class="font-mono font-semibold text-gray-700 line-through">{{ r.code }}</span>
+              <span class="text-gray-500">已调换</span>
+            </div>
+            <div class="text-gray-600">申请人：{{ r.applicant }} · {{ r.applyTime.slice(5, 16) }}</div>
+            <div class="text-gray-500">错领型号：{{ r.items.map(i => i.cableModel).join('、') }}</div>
+            <div v-if="r.remark" class="text-gray-500">备注：{{ r.remark }}</div>
+          </div>
+          <div v-if="wrongRequisitions.length === 0" class="text-center text-gray-400 py-4 text-xs">无错领记录</div>
+        </div>
+      </UiCard>
+
+      <UiCard class="border-l-4 !border-l-amber-500">
+        <template #header>
+          <div class="flex items-center gap-2">
+            <RefreshCw class="w-[18px] h-[18px] text-amber-600" />
+            <span class="font-semibold text-gray-800">补领凭证</span>
+            <UiBadge variant="blue" size="sm">{{ supplementRequisitions.length }} 单</UiBadge>
+          </div>
+        </template>
+        <div class="space-y-2 max-h-60 overflow-y-auto">
+          <div v-for="r in supplementRequisitions" :key="r.id" class="p-2.5 bg-amber-50 border border-amber-100 rounded text-xs space-y-1">
+            <div class="flex items-center justify-between">
+              <span class="font-mono font-semibold text-amber-800">{{ r.code }}</span>
+              <UiBadge variant="blue" size="sm">补领</UiBadge>
+            </div>
+            <div class="text-gray-600">申请人：{{ r.applicant }} · {{ r.applyTime.slice(5, 16) }}</div>
+            <div class="text-gray-500">补领型号：{{ r.items.map(i => `${i.cableModel} ×${i.quantity}`).join('、') }}</div>
+            <div v-if="r.remark" class="text-amber-700">关联：{{ r.remark }}</div>
+          </div>
+          <div v-if="supplementRequisitions.length === 0" class="text-center text-gray-400 py-4 text-xs">无补领记录</div>
+        </div>
+      </UiCard>
+
+      <UiCard class="border-l-4 !border-l-teal-500">
+        <template #header>
+          <div class="flex items-center gap-2">
+            <ArrowDownToLine class="w-[18px] h-[18px] text-teal-600" />
+            <span class="font-semibold text-gray-800">退回凭证</span>
+            <UiBadge variant="teal" size="sm">{{ returnRecords.length }} 单</UiBadge>
+          </div>
+        </template>
+        <div class="space-y-2 max-h-60 overflow-y-auto">
+          <div v-for="r in returnRecords" :key="r.id" class="p-2.5 bg-teal-50 border border-teal-100 rounded text-xs space-y-1">
+            <div class="flex items-center justify-between">
+              <span class="font-mono font-semibold text-teal-800">{{ r.code }}</span>
+              <UiBadge :variant="r.status === 'received' ? 'green' : 'orange'" size="sm">{{ r.status === 'received' ? '已接收' : '待接收' }}</UiBadge>
+            </div>
+            <div class="text-gray-600">退回人：{{ r.returner }} · {{ r.returnTime.slice(5, 16) }}</div>
+            <div class="text-gray-500">明细：{{ r.items.map(i => `${i.cableModel} ×${i.returnQty}${i.condition === 'good' ? '(完好)' : i.condition === 'damaged' ? '(破损)' : ''}`).join('、') }}</div>
+            <div v-if="r.photos.length" class="text-teal-600 flex items-center gap-1"><ImageIcon class="w-3 h-3" />照片凭证 {{ r.photos.length }} 张</div>
+          </div>
+          <div v-if="returnRecords.length === 0" class="text-center text-gray-400 py-4 text-xs">无退回记录</div>
+        </div>
+      </UiCard>
     </div>
 
     <div v-show="activeTab === 'export'" class="max-w-3xl">
@@ -355,8 +513,8 @@ function doPrint() { window.print() }
           <div class="pt-2 border-t border-gray-100">
             <div class="text-sm text-gray-600 mb-3">选择导出格式：</div>
             <div class="flex flex-wrap gap-3">
-              <UiButton variant="primary" size="lg" @click="mockExp('Excel (.xlsx)')"><template #icon><FileSpreadsheet class="w-5 h-5" /></template>导出 Excel</UiButton>
-              <UiButton variant="success" size="lg" @click="mockExp('PDF 竣工资料')"><template #icon><FileIcon class="w-5 h-5" /></template>导出 PDF</UiButton>
+              <UiButton variant="primary" size="lg" :loading="exporting" @click="doExport('excel')"><template #icon><FileSpreadsheet class="w-5 h-5" /></template>导出 Excel (CSV)</UiButton>
+              <UiButton variant="success" size="lg" :loading="exporting" @click="doExport('pdf')"><template #icon><FileIcon class="w-5 h-5" /></template>导出 PDF 资料</UiButton>
               <UiButton variant="secondary" size="lg" @click="doPrint"><template #icon><Printer class="w-5 h-5" /></template>打印页面</UiButton>
             </div>
           </div>

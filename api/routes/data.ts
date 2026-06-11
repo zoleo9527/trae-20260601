@@ -2,7 +2,7 @@ import { Router } from 'express'
 import {
   projectCtrl, cableCtrl, teamCtrl, requisitionCtrl,
   checkinCtrl, pointCtrl, shortageCtrl, returnCtrl,
-  timelineCtrl, traceCtrl
+  timelineCtrl, traceCtrl, exportCtrl
 } from '../controllers/dataController'
 
 const router = Router()
@@ -34,5 +34,9 @@ router.put('/returns/:id/receive', returnCtrl.receive)
 
 router.get('/timeline/:projectId?', timelineCtrl.get)
 router.get('/trace/:requisitionId?', traceCtrl.get)
+
+router.get('/export/requisitions', exportCtrl.requisitions)
+router.get('/export/points', exportCtrl.points)
+router.get('/export/returns', exportCtrl.returns)
 
 export default router
