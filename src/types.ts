@@ -56,6 +56,8 @@ export interface Review {
   logs?: OperationLog[];
   rectLogs?: OperationLog[];
   comments?: Comment[];
+  rect_handler_name?: string | null;
+  rect_status?: RectificationStatus;
 }
 
 export type ReviewStatus = 'pending' | 'completed';

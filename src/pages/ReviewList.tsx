@@ -10,28 +10,33 @@ const ReviewList: React.FC = () => {
   const [list, setList] = useState<Review[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState(searchParams.get('status') || 'all');
+  const [handlerFilter, setHandlerFilter] = useState(searchParams.get('handler') || 'all');
 
   useEffect(() => {
     fetchList();
-  }, [statusFilter, role, userName]);
+  }, [statusFilter, handlerFilter, role, userName]);
 
   const fetchList = async () => {
     setLoading(true);
     try {
       const params = new URLSearchParams();
       if (statusFilter !== 'all') params.set('status', statusFilter);
+      if (handlerFilter !== 'all') params.set('handler', handlerFilter);
       params.set('role', role);
       params.set('userName', userName);
 
       const res = await fetch(`/api/reviews?${params.toString()}`);
       const data = await res.json();
-      setList(data);
+      setList(Array.isArray(data) ? data : []);
     } catch (e) {
       console.error(e);
+      setList([]);
     } finally {
       setLoading(false);
     }
   };
+
+  const unassignedCount = Array.isArray(list) ? list.filter(r => !r.rect_handler_name).length : 0;
 
   return (
     <div>
@@ -39,7 +44,12 @@ const ReviewList: React.FC = () => {
         <div>
           <div className="page-title">闭店复查</div>
           <div className="page-subtitle">
-            共 {list.length} 条记录 · 承接巡店整改的上下文
+            共 {list.length} 条记录
+            {unassignedCount > 0 && (
+              <span style={{ marginLeft: 12, color: 'var(--warning)' }}>
+                ⚠️ 其中 {unassignedCount} 条整改单负责人待指派，请先补录再复查
+              </span>
+            )}
           </div>
         </div>
       </div>
@@ -48,7 +58,7 @@ const ReviewList: React.FC = () => {
         <div className="card-body">
           <div className="filter-bar">
             <div className="filter-item">
-              <label>状态：</label>
+              <label>复查状态：</label>
               <select
                 className="select"
                 value={statusFilter}
@@ -57,6 +67,18 @@ const ReviewList: React.FC = () => {
                 <option value="all">全部</option>
                 <option value="pending">待复查</option>
                 <option value="completed">已完成</option>
+              </select>
+            </div>
+            <div className="filter-item">
+              <label>负责人：</label>
+              <select
+                className="select"
+                value={handlerFilter}
+                onChange={e => setHandlerFilter(e.target.value)}
+              >
+                <option value="all">全部</option>
+                <option value="unassigned">待指派</option>
+                <option value="assigned">已指派</option>
               </select>
             </div>
           </div>
@@ -72,6 +94,8 @@ const ReviewList: React.FC = () => {
                   <th>复查编号</th>
                   <th>关联整改单</th>
                   <th>店铺</th>
+                  <th>整改负责人</th>
+                  <th>整改状态</th>
                   <th>复查人</th>
                   <th>复查日期</th>
                   <th>结果</th>
@@ -92,6 +116,22 @@ const ReviewList: React.FC = () => {
                       <div style={{ fontWeight: 500 }}>{item.store_name}</div>
                       <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{item.brand}</div>
                     </td>
+                    <td>
+                      {item.rect_handler_name ? (
+                        <span>{item.rect_handler_name}</span>
+                      ) : (
+                        <span className="tag tag-warning" style={{ fontSize: 12 }}>待指派</span>
+                      )}
+                    </td>
+                    <td>
+                      {item.rect_status ? (
+                        <span className={`tag tag-${STATUS_COLORS[item.rect_status]}`}>
+                          {STATUS_LABELS[item.rect_status]}
+                        </span>
+                      ) : (
+                        <span style={{ color: 'var(--text-secondary)' }}>-</span>
+                      )}
+                    </td>
                     <td>{item.reviewer_name || '-'}</td>
                     <td>{item.review_date || '-'}</td>
                     <td>
@@ -109,9 +149,20 @@ const ReviewList: React.FC = () => {
                       </span>
                     </td>
                     <td>
-                      <button className="link-btn" onClick={() => navigate(`/reviews/${item.id}`)}>
-                        查看
-                      </button>
+                      <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                        <button className="link-btn" onClick={() => navigate(`/reviews/${item.id}`)}>
+                          查看
+                        </button>
+                        {!item.rect_handler_name && (
+                          <button
+                            className="link-btn"
+                            style={{ color: 'var(--warning)' }}
+                            onClick={() => navigate(`/rectifications/${item.rectification_id}`)}
+                          >
+                            补录负责人
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}

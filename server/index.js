@@ -236,16 +236,29 @@ app.post('/api/rectifications/:id/comments', (req, res) => {
 
 // ========== 闭店复查单 ==========
 app.get('/api/reviews', (req, res) => {
-  const { status, role, userName } = req.query;
-  let sql = 'SELECT * FROM close_store_reviews WHERE 1=1';
+  const { status, role, userName, handler } = req.query;
+  let sql = `
+    SELECT csr.*, ir.handler_name AS rect_handler_name, ir.status AS rect_status
+    FROM close_store_reviews csr
+    LEFT JOIN inspection_rectifications ir ON csr.rectification_id = ir.id
+    WHERE 1=1
+  `;
   const params = [];
 
   if (status && status !== 'all') {
-    sql += ' AND status = ?';
+    sql += ' AND csr.status = ?';
     params.push(status);
   }
 
-  sql += ' ORDER BY created_at DESC';
+  if (handler === 'unassigned') {
+    sql += ' AND (ir.handler_name IS NULL OR ir.handler_name = ?)';
+    params.push('');
+  } else if (handler === 'assigned') {
+    sql += ' AND ir.handler_name IS NOT NULL AND ir.handler_name != ?';
+    params.push('');
+  }
+
+  sql += ' ORDER BY csr.created_at DESC';
   const rows = db.prepare(sql).all(...params);
   res.json(rows);
 });
