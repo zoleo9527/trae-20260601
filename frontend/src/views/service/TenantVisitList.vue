@@ -431,9 +431,11 @@ const filteredVisits = computed(() => {
   if (filter.visitor) list = list.filter(v => v.visitor === filter.visitor)
   if (filter.dateRange && filter.dateRange.length === 2) {
     const [s, e] = filter.dateRange
+    const start = dayjs(s).startOf('day')
+    const end = dayjs(e).endOf('day')
     list = list.filter(v => {
-      const t = v.visitTime || v.createdAt
-      return dayjs(t).isBetween(dayjs(s).subtract(1, 'day'), dayjs(e).add(1, 'day'))
+      const t = dayjs(v.visitTime || v.createdAt)
+      return (t.isSame(start) || t.isAfter(start)) && (t.isSame(end) || t.isBefore(end))
     })
   }
   if (filter.keyword) {
@@ -501,7 +503,8 @@ function handleVisitSubmit(payload: any) {
   const pending = c.tenantVisits.find(v => v.result === 'pending')
   if (pending) {
     store.submitTenantVisit(
-      c.id, pending.id, payload.result, payload.feedback, payload.improvementItems || [], payload.nextFollowUp || null
+      c.id, pending.id, payload.result, payload.feedback, payload.improvementItems || [], payload.nextFollowUp || null,
+      { tenantContact: payload.tenantContact, tenantPhone: payload.tenantPhone }
     )
     ElMessage.success('回访已记录')
     visitDialog.visible = false

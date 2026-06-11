@@ -116,7 +116,7 @@ export const useComplaintStore = defineStore('complaint', () => {
     complaint.currentHandlerRole = handlerRole
     complaint.assignedAt = dayjs().format('YYYY-MM-DD HH:mm:ss')
 
-    if (complaint.status === 'judging') {
+    if (!['assigned', 'processing', 'visiting', 'completed', 'closed'].includes(complaint.status)) {
       updateComplaintStatus(complaintId, 'assigned', remark)
     }
   }
@@ -201,7 +201,8 @@ export const useComplaintStore = defineStore('complaint', () => {
     result: VisitResult,
     feedback: string,
     improvementItems: string[],
-    nextFollowUp: string | null
+    nextFollowUp: string | null,
+    contactInfo?: { tenantContact?: string; tenantPhone?: string }
   ) {
     const complaint = complaints.value.find(c => c.id === complaintId)
     if (!complaint) return
@@ -209,6 +210,8 @@ export const useComplaintStore = defineStore('complaint', () => {
     const visit = complaint.tenantVisits.find(v => v.id === visitId)
     if (!visit) return
 
+    if (contactInfo?.tenantContact !== undefined) visit.tenantContact = contactInfo.tenantContact
+    if (contactInfo?.tenantPhone !== undefined) visit.tenantPhone = contactInfo.tenantPhone
     visit.result = result
     visit.feedback = feedback
     visit.improvementItems = improvementItems
@@ -229,8 +232,27 @@ export const useComplaintStore = defineStore('complaint', () => {
     }
   }
 
-  function completeProcessing(complaintId: string, remark: string) {
-    updateComplaintStatus(complaintId, 'visiting', remark)
+  function completeProcessing(
+    complaintId: string,
+    remark: string,
+    needVisit: boolean,
+    visitInfo?: { tenantContact: string; tenantPhone: string; tenantName: string; shopCode: string }
+  ) {
+    if (needVisit) {
+      if (visitInfo) {
+        createTenantVisit(
+          complaintId,
+          visitInfo.tenantContact,
+          visitInfo.tenantPhone,
+          visitInfo.tenantName,
+          visitInfo.shopCode
+        )
+      } else {
+        updateComplaintStatus(complaintId, 'visiting', remark)
+      }
+    } else {
+      updateComplaintStatus(complaintId, 'completed', remark)
+    }
   }
 
   function closeComplaint(complaintId: string, closingRemark: string) {

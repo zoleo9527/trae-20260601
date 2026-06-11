@@ -507,17 +507,21 @@ function handleJudgeSubmit(payload: any) {
     payload.judgement
   )
   if (payload.handler) {
-    store.assignHandler(judgeDialog.complaint!.id, payload.handler, payload.handlerRole, '责任判定完成后同步派单')
+    store.assignHandler(judgeDialog.complaint!.id, payload.handler, payload.handlerRole, payload.remark || '责任判定完成后同步派单')
+    ElMessage.success('责任判定已记录，已派单给处理人')
   } else {
-    store.updateComplaintStatus(judgeDialog.complaint!.id, 'assigned', payload.remark || '责任判定完成')
+    ElMessage.success('责任判定已记录，请尽快指派处理人')
   }
-  ElMessage.success('责任判定已记录')
   judgeDialog.visible = false
 }
 
 function handleVisitSubmit(payload: any) {
   if (!visitDialog.complaint) return
   const c = visitDialog.complaint
+  const contactInfo = {
+    tenantContact: payload.tenantContact,
+    tenantPhone: payload.tenantPhone
+  }
   const pendingVisit = c.tenantVisits.find(v => v.result === 'pending')
   if (pendingVisit) {
     store.submitTenantVisit(
@@ -526,14 +530,15 @@ function handleVisitSubmit(payload: any) {
       payload.result,
       payload.feedback,
       payload.improvementItems || [],
-      payload.nextFollowUp || null
+      payload.nextFollowUp || null,
+      contactInfo
     )
   } else {
     const shop = mockShops.find(s => s.code === c.shopCode)
     const visit = store.createTenantVisit(
       c.id,
-      shop?.contact || c.complainantName,
-      shop?.phone || c.complainantPhone,
+      payload.tenantContact || shop?.contact || c.complainantName,
+      payload.tenantPhone || shop?.phone || c.complainantPhone,
       shop?.tenantName || c.tenantName || c.complainantName,
       c.shopCode || ''
     )
@@ -544,7 +549,8 @@ function handleVisitSubmit(payload: any) {
         payload.result,
         payload.feedback,
         payload.improvementItems || [],
-        payload.nextFollowUp || null
+        payload.nextFollowUp || null,
+        contactInfo
       )
     }
   }
@@ -557,19 +563,18 @@ function handleCompleteSubmit(payload: any) {
   if (payload.addJudgement) {
     store.addKeyJudgement(completeDialog.complaint.id, payload.addJudgement, 'other')
   }
-  store.completeProcessing(completeDialog.complaint.id, payload.remark)
-  if (payload.needVisit) {
-    const c = completeDialog.complaint
-    const shop = mockShops.find(s => s.code === c.shopCode)
-    store.createTenantVisit(
-      c.id,
-      shop?.contact || c.complainantName,
-      shop?.phone || c.complainantPhone,
-      shop?.tenantName || c.tenantName || c.complainantName,
-      c.shopCode || ''
-    )
-  }
-  ElMessage.success('处理完成，已转入回访阶段')
+  const c = completeDialog.complaint
+  const shop = mockShops.find(s => s.code === c.shopCode)
+  const visitInfo = payload.needVisit
+    ? {
+        tenantContact: shop?.contact || c.complainantName,
+        tenantPhone: shop?.phone || c.complainantPhone,
+        tenantName: shop?.tenantName || c.tenantName || c.complainantName,
+        shopCode: c.shopCode || ''
+      }
+    : undefined
+  store.completeProcessing(c.id, payload.remark, payload.needVisit, visitInfo)
+  ElMessage.success(payload.needVisit ? '处理完成，已转入回访阶段' : '处理完成，无需回访')
   completeDialog.visible = false
 }
 
