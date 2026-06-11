@@ -52,18 +52,39 @@ export const useReplacementsStore = defineStore('replacements', () => {
     if (stored) {
       try {
         const parsed = JSON.parse(stored)
-        replacements.value = (parsed.replacements || []).map((r: Replacement) => ({
-          ...r,
-          elevatorNo: r.elevatorNo || '',
-          replaceReason: r.replaceReason || '',
-          sceneDescription: r.sceneDescription || '',
-          supplementNotes: r.supplementNotes || [],
-          costConfirmations: r.costConfirmations || [],
-          rejectRecords: r.rejectRecords || [],
-          attachments: r.attachments || [],
-        }))
+        let migrated = false
+        replacements.value = (parsed.replacements || []).map((r: Replacement) => {
+          let deviceModel = r.deviceModel
+          let elevatorNo = r.elevatorNo || ''
+          // 存量数据迁移：legacy deviceModel 形如 "迅达 Schindler 7000 / DT-A-001"
+          //   如果包含 " / " 且 elevatorNo 为空，则自动拆分并持久化
+          if (
+            typeof deviceModel === 'string' &&
+            deviceModel.includes(' / ') &&
+            !elevatorNo
+          ) {
+            const parts = deviceModel.split(' / ')
+            elevatorNo = parts[parts.length - 1]
+            deviceModel = parts.slice(0, -1).join(' / ')
+            migrated = true
+          }
+          return {
+            ...r,
+            elevatorNo,
+            deviceModel,
+            replaceReason: r.replaceReason || '',
+            sceneDescription: r.sceneDescription || '',
+            supplementNotes: r.supplementNotes || [],
+            costConfirmations: r.costConfirmations || [],
+            rejectRecords: r.rejectRecords || [],
+            attachments: r.attachments || [],
+          }
+        })
         selectedId.value = parsed.selectedId
         filters.value = parsed.filters || {}
+        if (migrated) {
+          saveToStorage()
+        }
         return true
       } catch {
         return false
