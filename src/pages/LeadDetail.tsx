@@ -117,6 +117,14 @@ export default function LeadDetail({ leadId }: Props) {
     return configs[currentUser.role];
   }, [currentUser]);
 
+  const latestUnhandledException = useMemo(() => {
+    const unhandled = exceptions.filter((e) => !e.handled);
+    if (unhandled.length === 0) return null;
+    return unhandled.sort((a, b) => b.detectedAt.localeCompare(a.detectedAt))[0];
+  }, [exceptions]);
+
+  const displayExceptions = latestUnhandledException ? [latestUnhandledException] : [];
+
   if (!currentLead || !roleViewConfig) {
     return <Empty description="加载中..." />;
   }
@@ -214,18 +222,15 @@ export default function LeadDetail({ leadId }: Props) {
                 <WarningOutlined className="exception-badge" />{' '}
                 当前线索存在异常: {currentLead.exceptionMessage}
               </span>
-              {exceptions
-                .filter((e) => !e.handled)
-                .map((e) => (
-                  <Button
-                    key={e.id}
-                    size="small"
-                    type="primary"
-                    onClick={() => handleResolveException(e)}
-                  >
-                    处理异常
-                  </Button>
-                ))}
+              {latestUnhandledException && (
+                <Button
+                  size="small"
+                  type="primary"
+                  onClick={() => handleResolveException(latestUnhandledException)}
+                >
+                  处理异常
+                </Button>
+              )}
             </div>
           }
           type="error"
@@ -362,18 +367,14 @@ export default function LeadDetail({ leadId }: Props) {
         )}
       </div>
 
-      {exceptions.length > 0 && roleViewConfig.showExceptionDetails && (
+      {latestUnhandledException && roleViewConfig.showExceptionDetails && (
         <div className="detail-section">
           <div className="detail-section-title">
             <ExclamationCircleOutlined style={{ color: '#ff4d4f' }} />
-            异常记录
-            <Badge
-              count={exceptions.filter((e) => !e.handled).length}
-              style={{ marginLeft: 8 }}
-            />
+            最新未处理异常
           </div>
           <List
-            dataSource={exceptions}
+            dataSource={displayExceptions}
             renderItem={(item) => (
               <List.Item
                 style={{

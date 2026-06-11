@@ -8,11 +8,11 @@ import {
   ExclamationCircleOutlined,
 } from '@ant-design/icons';
 import { useAppStore } from '../store/appStore';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import LeadList from '../pages/LeadList';
 import RoleSwitcher from './RoleSwitcher';
 import { runAllExceptionTests, EXCEPTION_TEST_CASES } from '../services/exceptionTests';
-import { EXCEPTION_TYPE_LABELS, FOLLOWUP_STATUS_LABELS } from '../types';
+import { EXCEPTION_TYPE_LABELS, FOLLOWUP_STATUS_LABELS, ExceptionLog } from '../types';
 import dayjs from 'dayjs';
 
 const { Sider, Content, Header } = Layout;
@@ -193,7 +193,18 @@ function ExceptionPanel() {
     loadAllExceptions();
   }, []);
 
-  const unhandledExceptions = allExceptions;
+  const latestByLead = useMemo(() => {
+    const map = new Map<string, ExceptionLog>();
+    for (const e of allExceptions) {
+      const existing = map.get(e.leadId);
+      if (!existing || e.detectedAt > existing.detectedAt) {
+        map.set(e.leadId, e);
+      }
+    }
+    return Array.from(map.values()).sort((a, b) => b.detectedAt.localeCompare(a.detectedAt));
+  }, [allExceptions]);
+
+  const unhandledExceptions = latestByLead;
 
   const getLeadName = (leadId: string) => {
     const lead = leads.find((l) => l.id === leadId);

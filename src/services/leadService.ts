@@ -122,6 +122,12 @@ export async function executeStatusTransition(
     followupRecord.id = followupId;
   }
 
+  const terminalStatuses: LeadStatus[] = ['converted', 'lost', 'returned'];
+  const isGapStart =
+    !finalNextResponsible &&
+    !terminalStatuses.includes(req.toStatus) &&
+    RESPONSIBILITY_HANDOFF_MAP[req.toStatus];
+
   const transition: Omit<StatusTransition, 'id'> = {
     leadId: lead.id,
     followupId,
@@ -138,7 +144,7 @@ export async function executeStatusTransition(
     transitionedByRole: currentUser.role,
     remark: req.remark,
     isGapDetected: false,
-    gapDurationMinutes: 0,
+    gapDurationMinutes: isGapStart ? 0 : 0,
   };
 
   const transitionId = await dao.insertTransition(transition);
@@ -400,9 +406,10 @@ export async function scanForGaps(): Promise<ExceptionLog[]> {
 
   const exceptions: ExceptionLog[] = [];
   const now = new Date();
+  const terminalStatuses: LeadStatus[] = ['converted', 'lost', 'returned'];
 
   for (const lead of leads) {
-    if (lead.status === 'converted' || lead.status === 'lost') {
+    if (terminalStatuses.includes(lead.status)) {
       continue;
     }
 
@@ -416,6 +423,20 @@ export async function scanForGaps(): Promise<ExceptionLog[]> {
       );
 
       if (!alreadyHasException) {
+        let triggeredByTransitionId: string | null = null;
+
+        if (
+          lastTransition &&
+          (gapDetection.exceptionType === 'status_gap_detected' ||
+            gapDetection.exceptionType === 'no_followup_over_48h')
+        ) {
+          triggeredByTransitionId = lastTransition.id;
+          await dao.updateTransition(lastTransition.id, {
+            isGapDetected: true,
+            gapDurationMinutes: gapDetection.gapDuration,
+          });
+        }
+
         const exception: Omit<ExceptionLog, 'id'> = {
           leadId: lead.id,
           followupId: null,
@@ -426,7 +447,7 @@ export async function scanForGaps(): Promise<ExceptionLog[]> {
           handledAt: null,
           handledBy: null,
           handledRemark: null,
-          triggeredByTransitionId: null,
+          triggeredByTransitionId,
         };
 
         const exceptionId = await dao.insertException(exception);
