@@ -64,7 +64,7 @@ export default function SigningPage({ selectedId }: SigningPageProps) {
     if (selectedReminder) {
       loadDetailData(selectedReminder.subscriptionId);
     }
-  }, [selectedReminder]);
+  }, [selectedReminder, refreshTrigger]);
 
   const loadData = async () => {
     setLoading(true);
@@ -77,8 +77,15 @@ export default function SigningPage({ selectedId }: SigningPageProps) {
     }
 
     setReminders(data);
-    if (data.length > 0 && !selectedReminder) {
-      setSelectedReminder(data[0]);
+    if (data.length > 0) {
+      if (!selectedReminder || !data.find((r) => r.id === selectedReminder.id)) {
+        setSelectedReminder(data[0]);
+      } else {
+        const updated = data.find((r) => r.id === selectedReminder.id);
+        if (updated) setSelectedReminder(updated);
+      }
+    } else {
+      setSelectedReminder(null);
     }
     setLoading(false);
   };
@@ -96,6 +103,13 @@ export default function SigningPage({ selectedId }: SigningPageProps) {
     setHandovers(chainData.handovers);
   };
 
+  const refreshAfterAction = async () => {
+    await loadData();
+    if (selectedReminder) {
+      await loadDetailData(selectedReminder.subscriptionId);
+    }
+  };
+
   const handleSendReminder = async () => {
     if (!selectedReminder) return;
 
@@ -105,7 +119,7 @@ export default function SigningPage({ selectedId }: SigningPageProps) {
       role: currentUser.role,
     });
 
-    triggerRefresh();
+    await refreshAfterAction();
   };
 
   const handleMarkDelayed = async () => {
@@ -127,7 +141,7 @@ export default function SigningPage({ selectedId }: SigningPageProps) {
 
     setShowDelayModal(false);
     setDelayReason('');
-    triggerRefresh();
+    await refreshAfterAction();
   };
 
   const handleMarkCompleted = async () => {
@@ -144,7 +158,7 @@ export default function SigningPage({ selectedId }: SigningPageProps) {
       }
     );
 
-    triggerRefresh();
+    await refreshAfterAction();
   };
 
   const criticalCount = reminders.filter((r) => r.urgency === 'critical').length;

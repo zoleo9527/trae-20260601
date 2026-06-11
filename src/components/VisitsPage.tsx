@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useApp } from '@/context/AppContext';
-import { getCustomers, addVisitRecord } from '@/services/dataService';
+import { getCustomers, addVisitRecord, getVisitRecords } from '@/services/dataService';
 import type { Customer, VisitRecord, FilterOptions } from '@/types';
 import { formatDate } from '@/components/ListItems';
 
@@ -31,6 +31,7 @@ export default function VisitsPage({ selectedId }: VisitsPageProps) {
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [visitRecords, setVisitRecords] = useState<VisitRecord[]>([]);
   const [loading, setLoading] = useState(true);
+  const [linkResult, setLinkResult] = useState<string | null>(null);
 
   const [formData, setFormData] = useState({
     customerName: '',
@@ -45,6 +46,12 @@ export default function VisitsPage({ selectedId }: VisitsPageProps) {
     loadData();
   }, [currentUser, refreshTrigger, filter]);
 
+  useEffect(() => {
+    if (selectedCustomer) {
+      getVisitRecords(selectedCustomer.id).then(setVisitRecords);
+    }
+  }, [selectedCustomer, refreshTrigger]);
+
   const loadData = async () => {
     setLoading(true);
     const data = await getCustomers(filter);
@@ -58,7 +65,7 @@ export default function VisitsPage({ selectedId }: VisitsPageProps) {
       return;
     }
 
-    await addVisitRecord(
+    const result = await addVisitRecord(
       {
         customerId: 'new_' + Date.now(),
         customerName: formData.customerName,
@@ -81,11 +88,18 @@ export default function VisitsPage({ selectedId }: VisitsPageProps) {
       remark: '',
     });
     setShowAddModal(false);
+    setLinkResult(`已同步创建客户档案、交接记录和首次跟进待办`);
+    setTimeout(() => setLinkResult(null), 5000);
     triggerRefresh();
   };
 
   return (
     <div className="flex gap-4 h-[calc(100vh-64px)]">
+      {linkResult && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 px-6 py-3 bg-success-500 text-white rounded-lg shadow-lg text-sm font-medium animate-slide-down">
+          ✓ {linkResult}
+        </div>
+      )}
       <div className="w-80 bg-white rounded-xl border border-gray-200 flex flex-col">
         <div className="p-4 border-b border-gray-100">
           <div className="flex items-center justify-between mb-3">

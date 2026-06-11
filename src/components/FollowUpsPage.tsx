@@ -16,19 +16,28 @@ const statusLabels: Record<string, { label: string; color: string }> = {
   overdue: { label: '已逾期', color: 'bg-danger-100 text-danger-600' },
 };
 
+const resultLabels: Record<string, { label: string; color: string; desc: string }> = {
+  continue: { label: '继续跟进', color: 'bg-primary-100 text-primary-600', desc: '客户仍在考虑中，需继续跟进' },
+  subscribed: { label: '转认购', color: 'bg-success-100 text-success-600', desc: '客户确认认购，自动创建认购单和签约提醒' },
+  lost: { label: '客户流失', color: 'bg-gray-100 text-gray-500', desc: '客户已放弃，标记为流失' },
+};
+
 export default function FollowUpsPage({ selectedId }: FollowUpsPageProps) {
   const { currentUser, refreshTrigger, triggerRefresh } = useApp();
   const [records, setRecords] = useState<FollowUpRecord[]>([]);
   const [filter, setFilter] = useState('all');
   const [showAddModal, setShowAddModal] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [linkResult, setLinkResult] = useState<string | null>(null);
 
   const [formData, setFormData] = useState({
     customerName: '',
+    customerId: '',
     followType: '电话',
     content: '',
     nextFollowDate: '',
     status: 'pending' as const,
+    result: 'continue' as 'continue' | 'subscribed' | 'lost',
   });
 
   useEffect(() => {
@@ -63,9 +72,9 @@ export default function FollowUpsPage({ selectedId }: FollowUpsPageProps) {
       return;
     }
 
-    await addFollowUpRecord(
+    const result = await addFollowUpRecord(
       {
-        customerId: 'c_' + Date.now(),
+        customerId: formData.customerId || 'c_' + Date.now(),
         customerName: formData.customerName,
         followDate: new Date().toISOString(),
         followType: formData.followType,
@@ -73,19 +82,31 @@ export default function FollowUpsPage({ selectedId }: FollowUpsPageProps) {
         nextFollowDate: formData.nextFollowDate || new Date().toISOString(),
         consultantId: currentUser.id,
         consultantName: currentUser.name,
-        status: formData.status,
-      },
+        status: formData.result === 'subscribed' ? 'completed' : formData.status,
+        result: formData.result,
+      } as any,
       { id: currentUser.id, name: currentUser.name, role: currentUser.role }
     );
 
     setFormData({
       customerName: '',
+      customerId: '',
       followType: '电话',
       content: '',
       nextFollowDate: '',
       status: 'pending',
+      result: 'continue',
     });
     setShowAddModal(false);
+
+    if (formData.result === 'subscribed' && result.handoverId) {
+      setLinkResult('已自动创建认购单、签约提醒、交接记录和审核待办');
+      setTimeout(() => setLinkResult(null), 5000);
+    } else if (formData.result === 'lost') {
+      setLinkResult('客户已标记为流失');
+      setTimeout(() => setLinkResult(null), 3000);
+    }
+
     triggerRefresh();
   };
 
@@ -93,6 +114,11 @@ export default function FollowUpsPage({ selectedId }: FollowUpsPageProps) {
 
   return (
     <div className="bg-white rounded-xl border border-gray-200">
+      {linkResult && (
+        <div className="mx-4 mt-4 px-4 py-3 bg-success-50 border border-success-200 rounded-lg text-sm font-medium text-success-700">
+          ✓ {linkResult}
+        </div>
+      )}
       <div className="p-4 border-b border-gray-100">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
@@ -239,17 +265,53 @@ export default function FollowUpsPage({ selectedId }: FollowUpsPageProps) {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  下次跟进日期
+                  跟进结果
                 </label>
-                <input
-                  type="date"
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
-                  value={formData.nextFollowDate}
-                  onChange={(e) =>
-                    setFormData({ ...formData, nextFollowDate: e.target.value })
-                  }
-                />
+                <div className="grid grid-cols-3 gap-2">
+                  {(['continue', 'subscribed', 'lost'] as const).map((r) => (
+                    <button
+                      key={r}
+                      type="button"
+                      onClick={() => setFormData({ ...formData, result: r })}
+                      className={`px-3 py-2 text-xs rounded-lg border transition-all ${
+                        formData.result === r
+                          ? `${resultLabels[r].color} border-current font-medium`
+                          : 'border-gray-200 text-gray-600 hover:bg-gray-50'
+                      }`}
+                    >
+                      {resultLabels[r].label}
+                    </button>
+                  ))}
+                </div>
+                <p className="text-xs text-gray-500 mt-1.5">
+                  {resultLabels[formData.result].desc}
+                </p>
               </div>
+              {formData.result === 'continue' && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    下次跟进日期
+                  </label>
+                  <input
+                    type="date"
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    value={formData.nextFollowDate}
+                    onChange={(e) =>
+                      setFormData({ ...formData, nextFollowDate: e.target.value })
+                    }
+                  />
+                </div>
+              )}
+              {formData.result === 'subscribed' && (
+                <div className="p-3 bg-success-50 border border-success-200 rounded-lg">
+                  <p className="text-sm text-success-700 font-medium">
+                    ✓ 跟进转认购
+                  </p>
+                  <p className="text-xs text-success-600 mt-1">
+                    系统将自动创建认购单（草稿）、4份认购资料、签约提醒、交接记录和销控审核待办
+                  </p>
+                </div>
+              )}
             </div>
             <div className="flex justify-end gap-3 mt-6">
               <button
@@ -260,9 +322,13 @@ export default function FollowUpsPage({ selectedId }: FollowUpsPageProps) {
               </button>
               <button
                 onClick={handleAddFollowUp}
-                className="px-4 py-2 bg-primary-500 text-white rounded-lg text-sm hover:bg-primary-600 transition-colors"
+                className={`px-4 py-2 text-white rounded-lg text-sm transition-colors ${
+                  formData.result === 'subscribed'
+                    ? 'bg-success-500 hover:bg-success-600'
+                    : 'bg-primary-500 hover:bg-primary-600'
+                }`}
               >
-                保存
+                {formData.result === 'subscribed' ? '确认转认购' : '保存'}
               </button>
             </div>
           </div>

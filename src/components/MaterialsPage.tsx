@@ -10,7 +10,6 @@ import {
 import type {
   Subscription,
   SubscriptionMaterial,
-  FilterOptions,
 } from '@/types';
 import { formatDate, getDaysLeft } from '@/components/ListItems';
 
@@ -28,7 +27,8 @@ const materialStatusLabels: Record<string, { label: string; color: string }> = {
 export default function MaterialsPage({ selectedId }: MaterialsPageProps) {
   const { currentUser, refreshTrigger, triggerRefresh } = useApp();
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
-  const [filter, setFilter] = useState<FilterOptions>({ materialStatus: '' } as any);
+  const [materialFilter, setMaterialFilter] = useState<string>('all');
+  const [keyword, setKeyword] = useState('');
   const [selectedSub, setSelectedSub] = useState<Subscription | null>(null);
   const [materials, setMaterials] = useState<SubscriptionMaterial[]>([]);
   const [showReturnModal, setShowReturnModal] = useState<string | null>(null);
@@ -37,17 +37,17 @@ export default function MaterialsPage({ selectedId }: MaterialsPageProps) {
 
   useEffect(() => {
     loadData();
-  }, [currentUser, refreshTrigger, filter]);
+  }, [currentUser, refreshTrigger, keyword, materialFilter]);
 
   useEffect(() => {
     if (selectedSub) {
       loadMaterials(selectedSub.id);
     }
-  }, [selectedSub]);
+  }, [selectedSub, refreshTrigger]);
 
   const loadData = async () => {
     setLoading(true);
-    let data = await getSubscriptions(filter);
+    let data = await getSubscriptions({ keyword: keyword || undefined });
 
     if (currentUser.role === 'consultant') {
       data = data.filter((s) => s.consultantId === currentUser.id);
@@ -55,9 +55,17 @@ export default function MaterialsPage({ selectedId }: MaterialsPageProps) {
       data = data.filter((s) => s.controllerId === currentUser.id);
     }
 
+    if (materialFilter && materialFilter !== 'all') {
+      data = data.filter((s) => s.materialStatus === materialFilter);
+    }
+
     setSubscriptions(data);
-    if (data.length > 0 && !selectedSub) {
-      setSelectedSub(data[0]);
+    if (data.length > 0) {
+      if (!selectedSub || !data.find((s) => s.id === selectedSub.id)) {
+        setSelectedSub(data[0]);
+      }
+    } else {
+      setSelectedSub(null);
     }
     setLoading(false);
   };
@@ -67,13 +75,20 @@ export default function MaterialsPage({ selectedId }: MaterialsPageProps) {
     setMaterials(data);
   };
 
+  const refreshAfterAction = async () => {
+    await loadData();
+    if (selectedSub) {
+      await loadMaterials(selectedSub.id);
+    }
+  };
+
   const handleSubmitMaterial = async (materialId: string) => {
     await updateSubscriptionMaterial(
       materialId,
       { status: 'submitted', submittedAt: new Date().toISOString() },
       { id: currentUser.id, name: currentUser.name, role: currentUser.role }
     );
-    triggerRefresh();
+    await refreshAfterAction();
   };
 
   const handleVerifyMaterial = async (materialId: string) => {
@@ -82,7 +97,7 @@ export default function MaterialsPage({ selectedId }: MaterialsPageProps) {
       { status: 'verified', verifiedAt: new Date().toISOString() },
       { id: currentUser.id, name: currentUser.name, role: currentUser.role }
     );
-    triggerRefresh();
+    await refreshAfterAction();
   };
 
   const handleReturnMaterial = async (materialId: string) => {
@@ -99,7 +114,7 @@ export default function MaterialsPage({ selectedId }: MaterialsPageProps) {
 
     setShowReturnModal(null);
     setReturnReason('');
-    triggerRefresh();
+    await refreshAfterAction();
   };
 
   const canSubmit = currentUser.role === 'consultant' || currentUser.role === 'manager';
@@ -118,16 +133,14 @@ export default function MaterialsPage({ selectedId }: MaterialsPageProps) {
             type="text"
             placeholder="搜索客户/房号..."
             className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-            value={filter.keyword || ''}
-            onChange={(e) => setFilter({ ...filter, keyword: e.target.value })}
+            value={keyword}
+            onChange={(e) => setKeyword(e.target.value)}
           />
           <div className="flex gap-2 mt-2">
             <select
               className="flex-1 px-2 py-1.5 border border-gray-200 rounded-lg text-sm text-gray-600"
-              value={(filter as any).materialStatus || 'all'}
-              onChange={(e) =>
-                setFilter({ ...filter, materialStatus: e.target.value } as any)
-              }
+              value={materialFilter}
+              onChange={(e) => setMaterialFilter(e.target.value)}
             >
               <option value="all">全部资料状态</option>
               <option value="incomplete">资料不全</option>

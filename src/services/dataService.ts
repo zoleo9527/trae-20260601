@@ -88,13 +88,55 @@ export async function getVisitRecords(customerId?: string): Promise<VisitRecord[
 export async function addVisitRecord(
   record: Omit<VisitRecord, 'id' | 'createdAt'>,
   operator: { id: string; name: string; role: Role }
-): Promise<VisitRecord> {
+): Promise<{ visit: VisitRecord; customerId: string; handoverId: string; todoId: string }> {
   const newRecord: VisitRecord = {
     ...record,
     id: generateId('v'),
     createdAt: new Date().toISOString(),
   };
   visitRecords.unshift(newRecord);
+
+  const customerId = generateId('c');
+  const newCustomer: Customer = {
+    id: customerId,
+    name: record.customerName,
+    phone: '',
+    source: '自然来访',
+    firstVisitDate: newRecord.visitDate,
+    status: 'pending',
+    consultantId: record.consultantId,
+    consultantName: record.consultantName,
+  };
+  customers.unshift(newCustomer);
+
+  const handover = createHandover(
+    'visit',
+    'followup',
+    customerId,
+    '客户',
+    record.customerName,
+    'controller',
+    'consultant',
+    '销控',
+    record.consultantName,
+    `来访登记 → 首次跟进，意向${record.intentionLevel === 'high' ? '高' : record.intentionLevel === 'medium' ? '中' : '低'}`,
+    new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+  );
+
+  const followUpDeadline = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+  const todo = createTodo(
+    'followup',
+    `首次跟进：${record.customerName}`,
+    `客户已来访登记，需在24小时内完成首次跟进，意向${record.intentionLevel === 'high' ? '高' : record.intentionLevel === 'medium' ? '中' : '低'}`,
+    record.intentionLevel === 'high' ? 'high' : 'medium',
+    'consultant',
+    record.consultantId,
+    record.consultantName,
+    customerId,
+    'customer',
+    followUpDeadline
+  );
+
   addLog({
     type: 'visit',
     targetId: newRecord.id,
@@ -103,9 +145,10 @@ export async function addVisitRecord(
     operatorId: operator.id,
     operatorName: operator.name,
     operatorRole: operator.role,
-    detail: `客户 ${record.customerName} 来访登记`,
+    detail: `客户 ${record.customerName} 来访登记，已同步创建客户、交接记录和跟进待办`,
   });
-  return newRecord;
+
+  return { visit: newRecord, customerId, handoverId: handover.id, todoId: todo.id };
 }
 
 export async function getFollowUpRecords(
@@ -118,25 +161,145 @@ export async function getFollowUpRecords(
 }
 
 export async function addFollowUpRecord(
-  record: Omit<FollowUpRecord, 'id'>,
+  record: Omit<FollowUpRecord, 'id'> & { result?: 'continue' | 'subscribed' | 'lost' },
   operator: { id: string; name: string; role: Role }
-): Promise<FollowUpRecord> {
+): Promise<{ followUp: FollowUpRecord; handoverId?: string; todoId?: string }> {
   const newRecord: FollowUpRecord = {
     ...record,
     id: generateId('f'),
   };
   followUpRecords.unshift(newRecord);
+
+  let handoverId: string | undefined;
+  let todoId: string | undefined;
+
+  const customerIdx = customers.findIndex((c) => c.id === record.customerId);
+  if (record.result === 'subscribed') {
+    if (customerIdx !== -1) {
+      customers[customerIdx] = { ...customers[customerIdx], status: 'subscribed' };
+    }
+
+    const existingSub = subscriptions.find(
+      (s) => s.customerId === record.customerId && s.status !== 'cancelled'
+    );
+
+    if (!existingSub) {
+      const controllerId = 'ctrl_1';
+      const controllerName = '赵薇';
+      const subId = generateId('sub');
+      const subNo = `SUB-${new Date().getFullYear()}${String(new Date().getMonth() + 1).padStart(2, '0')}-${String(subscriptions.length + 1).padStart(3, '0')}`;
+      const deadline = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+
+      const newSub: Subscription = {
+        id: subId,
+        subscriptionNo: subNo,
+        customerId: record.customerId,
+        customerName: record.customerName,
+        phone: customerIdx !== -1 ? customers[customerIdx].phone : '',
+        unitNo: '待分配',
+        area: 0,
+        price: 0,
+        deposit: 0,
+        consultantId: record.consultantId,
+        consultantName: record.consultantName,
+        controllerId,
+        controllerName,
+        status: 'draft',
+        materialStatus: 'incomplete',
+        urgency: 'normal',
+        signDeadline: deadline,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        modifiedCount: 0,
+        lastModifiedBy: '',
+        lastModifiedAt: '',
+      };
+      subscriptions.unshift(newSub);
+
+      const defaultMaterials = ['身份证', '户口本', '收入证明', '银行流水'];
+      for (const name of defaultMaterials) {
+        subscriptionMaterials.push({
+          id: generateId('mat'),
+          subscriptionId: subId,
+          name,
+          type: 'identity',
+          status: 'pending',
+          remark: '',
+        });
+      }
+
+      const newReminder: SigningReminder = {
+        id: generateId('sr'),
+        subscriptionId: subId,
+        subscriptionNo: subNo,
+        customerName: record.customerName,
+        phone: customerIdx !== -1 ? customers[customerIdx].phone : '',
+        unitNo: '待分配',
+        signDeadline: deadline,
+        status: 'pending',
+        reminderCount: 0,
+        lastReminderBy: '',
+        materialReady: false,
+        materialModified: false,
+        assignedTo: record.consultantId,
+        assignedRole: 'consultant',
+        urgency: 'normal',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+      signingReminders.unshift(newReminder);
+
+      const handover = createHandover(
+        'followup',
+        'subscription',
+        subId,
+        '认购单',
+        subNo,
+        'consultant',
+        'controller',
+        record.consultantName,
+        controllerName,
+        `跟进转认购：${record.customerName}`,
+        new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString()
+      );
+      handoverId = handover.id;
+
+      const todo = createTodo(
+        'subscription_review',
+        `认购确认：${record.customerName}`,
+        `客户已确认认购，请审核认购资料`,
+        'high',
+        'controller',
+        controllerId,
+        controllerName,
+        subId,
+        'subscription',
+        new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+      );
+      todoId = todo.id;
+    }
+  } else if (record.result === 'lost') {
+    if (customerIdx !== -1) {
+      customers[customerIdx] = { ...customers[customerIdx], status: 'lost' };
+    }
+  } else {
+    if (customerIdx !== -1 && customers[customerIdx].status === 'pending') {
+      customers[customerIdx] = { ...customers[customerIdx], status: 'following' };
+    }
+  }
+
   addLog({
     type: 'followup',
     targetId: newRecord.id,
     targetType: '跟进记录',
-    action: '新增跟进',
+    action: record.result === 'subscribed' ? '跟进转认购' : '新增跟进',
     operatorId: operator.id,
     operatorName: operator.name,
     operatorRole: operator.role,
-    detail: `客户 ${record.customerName} 跟进记录：${record.content}`,
+    detail: `客户 ${record.customerName} 跟进记录：${record.content}${record.result === 'subscribed' ? '，已自动创建认购单和签约提醒' : ''}`,
   });
-  return newRecord;
+
+  return { followUp: newRecord, handoverId, todoId };
 }
 
 export async function getSubscriptions(filter?: FilterOptions): Promise<Subscription[]> {
@@ -503,11 +666,9 @@ export async function getHandoverRecords(
   userId?: string
 ): Promise<HandoverRecord[]> {
   let result = [...handoverRecords];
-  if (role && userId) {
+  if (role) {
     result = result.filter(
-      (h) =>
-        (h.fromRole === role && h.fromPerson === userId) ||
-        (h.toRole === role && h.toPerson === userId)
+      (h) => h.fromRole === role || h.toRole === role
     );
   }
   return result.sort(
