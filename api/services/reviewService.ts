@@ -11,7 +11,7 @@ interface ReviewFilters {
 export function getReviews(filters: ReviewFilters = {}) {
   let sql = `
     SELECT a.id AS attendanceId, a.status, a.date, a.shift, a.rejectedReason, a.counterId,
-           c.brand AS counterBrand,
+           c.id AS counterBrandId, c.brand AS counterBrand,
            s.name AS staffName, c.name AS counterName,
                r.id AS reviewId, r.reviewerId, r.reviewerRole, r.action, r.reason, r.createdAt AS reviewCreatedAt
     FROM reviews r

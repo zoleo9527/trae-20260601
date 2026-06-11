@@ -17,6 +17,7 @@ router.get('/', (req: Request, res: Response): void => {
       status: req.query.status as string | undefined,
       date: req.query.date as string | undefined,
       counterId: req.query.counterId ? Number(req.query.counterId) : undefined,
+      brandId: req.query.brandId ? Number(req.query.brandId) : undefined,
       staffId: req.query.staffId ? Number(req.query.staffId) : undefined,
     }
     const data = getAttendanceList(filters)

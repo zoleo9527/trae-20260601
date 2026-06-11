@@ -6,11 +6,12 @@ interface AttendanceFilters {
   date?: string
   counterId?: number
   staffId?: number
+  brandId?: number
 }
 
 export function getAttendanceList(filters: AttendanceFilters = {}) {
   let sql = `
-    SELECT a.*, s.name AS staffName, c.name AS counterName
+    SELECT a.*, s.name AS staffName, c.name AS counterName, c.brand AS counterBrand, c.id AS counterBrandId
     FROM attendance a
     LEFT JOIN staff s ON a.staffId = s.id
     LEFT JOIN counters c ON a.counterId = c.id
@@ -29,6 +30,10 @@ export function getAttendanceList(filters: AttendanceFilters = {}) {
   if (filters.counterId) {
     sql += ' AND a.counterId = ?'
     params.push(filters.counterId)
+  }
+  if (filters.brandId) {
+    sql += ' AND c.brand = (SELECT brand FROM counters WHERE id = ?)'
+    params.push(filters.brandId)
   }
   if (filters.staffId) {
     sql += ' AND a.staffId = ?'

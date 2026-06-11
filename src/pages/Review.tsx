@@ -9,6 +9,7 @@ interface AttendanceRecord {
   staffName: string
   counterName: string
   counterId: number
+  counterBrandId?: number
   date: string
   shift: string
   status: string
@@ -24,7 +25,8 @@ interface ReviewRecord {
   staffName: string
   counterName: string
   counterId: number
-  counterBrand?: number
+  counterBrandId?: number
+  counterBrand?: string
   reviewId: number
   reviewerId: number
   reviewerRole: string
@@ -93,8 +95,14 @@ export default function Review() {
 
   useEffect(() => { loadData() }, [loadData])
 
-  const attendanceList = (attendance as AttendanceRecord[]) || []
-  const reviewList = (reviews as ReviewRecord[]) || []
+  const filteredForBrand = <T extends { counterBrandId?: number }>(items: T[]): T[] =>
+    items.filter((item) => {
+      if (user?.role !== 'brand_supervisor' || !user.brandId) return true
+      return item.counterBrandId === user.brandId
+    })
+
+  const attendanceList = filteredForBrand((attendance as AttendanceRecord[]) || [])
+  const reviewList = filteredForBrand((reviews as ReviewRecord[]) || [])
 
   const reviewsByAttendance = reviewList.reduce<Record<number, ReviewRecord[]>>((acc, r) => {
     if (!acc[r.attendanceId]) acc[r.attendanceId] = []
@@ -112,12 +120,6 @@ export default function Review() {
       .filter((r) => r.reviewerRole === user?.role && r.action === 'reject')
       .map((r) => r.attendanceId)
   )
-
-  const filteredForBrand = (items: ReviewRecord[]) =>
-    items.filter((r) => {
-      if (user?.role !== 'brand_supervisor' || !user.brandId) return true
-      return r.counterBrand === user.brandId
-    })
 
   const pendingCount = attendanceList.length
   const myApprovedFiltered = filteredForBrand(
