@@ -3,7 +3,7 @@ import { ref, computed, onMounted, nextTick, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import {
   ChevronDown, ChevronRight, Check, X, Eye, Clock, User, MessageSquare,
-  Search, CheckSquare, Square, AlertTriangle, Ban, AlertOctagon
+  Search, CheckSquare, Square, AlertTriangle, Ban, AlertOctagon, Users
 } from 'lucide-vue-next'
 import { useApi } from '@/composables/useApi'
 import StatusBadge from '@/components/StatusBadge.vue'
@@ -15,6 +15,7 @@ const route = useRoute()
 const { get, post, put } = useApi()
 
 type FilterKey = 'all' | 'overdue' | 'hasException' | 'rejected'
+type RoleFilterKey = 'all' | '项目负责人' | '施工班组长' | '资料员'
 
 const documents = ref<CompletionDocument[]>([])
 const loading = ref(true)
@@ -22,6 +23,7 @@ const expandedId = ref<string | null>(null)
 const detailCache = ref<Map<string, DocumentDetail>>(new Map())
 const searchQuery = ref('')
 const activeFilter = ref<FilterKey>('all')
+const activeRoleFilter = ref<RoleFilterKey>('all')
 
 const selectedIds = ref<Set<string>>(new Set())
 
@@ -31,12 +33,33 @@ const drawerExceptions = ref<any[]>([])
 
 const collapsedGroups = ref<Set<string>>(new Set(['rejected', 'signed']))
 
+const roleFilters: Array<{ key: RoleFilterKey; label: string; icon: string }> = [
+  { key: 'all', label: '全部角色', icon: 'users' },
+  { key: '项目负责人', label: '项目负责人', icon: 'user' },
+  { key: '施工班组长', label: '施工班组长', icon: 'user' },
+  { key: '资料员', label: '资料员', icon: 'user' },
+]
+
 const filters: Array<{ key: FilterKey; label: string }> = [
   { key: 'all', label: '全部' },
   { key: 'overdue', label: '超时' },
   { key: 'hasException', label: '未解决异常' },
   { key: 'rejected', label: '客户驳回' },
 ]
+
+function matchRoleFilter(doc: CompletionDocument): boolean {
+  if (activeRoleFilter.value === 'all') return true
+  return doc.assignee_role === activeRoleFilter.value
+}
+
+const roleStats = computed(() => {
+  const relevant = documents.value.filter(d => d.status === '待签认' || d.status === '已驳回')
+  return {
+    '项目负责人': relevant.filter(d => d.assignee_role === '项目负责人').length,
+    '施工班组长': relevant.filter(d => d.assignee_role === '施工班组长').length,
+    '资料员': relevant.filter(d => d.assignee_role === '资料员').length,
+  }
+})
 
 function isOverdue(doc: CompletionDocument) {
   const days = (Date.now() - new Date(doc.updated_at + 'Z').getTime()) / 86400000
@@ -70,7 +93,7 @@ function toggleSelect(id: string) {
 }
 
 const pendingDocs = computed(() => {
-  let docs = documents.value.filter(d => d.status === '待签认' && matchFilter(d))
+  let docs = documents.value.filter(d => d.status === '待签认' && matchFilter(d) && matchRoleFilter(d))
   if (searchQuery.value) docs = docs.filter(d => d.project_name.includes(searchQuery.value))
   docs.sort((a, b) => {
     const aRisk = hasUnresolvedException(a) ? 1 : 0
@@ -81,19 +104,33 @@ const pendingDocs = computed(() => {
   return docs
 })
 const rejectedDocs = computed(() => {
-  let docs = documents.value.filter(d => d.status === '已驳回' && matchFilter(d))
+  let docs = documents.value.filter(d => d.status === '已驳回' && matchFilter(d) && matchRoleFilter(d))
   if (searchQuery.value) docs = docs.filter(d => d.project_name.includes(searchQuery.value))
   return docs
 })
 const signedDocs = computed(() => {
   if (activeFilter.value !== 'all') return []
-  let docs = documents.value.filter(d => d.status === '已签认')
+  let docs = documents.value.filter(d => d.status === '已签认' && matchRoleFilter(d))
   if (searchQuery.value) docs = docs.filter(d => d.project_name.includes(searchQuery.value))
   return docs
 })
 
 const selectedCount = computed(() => selectedIds.value.size)
 const allSelected = computed(() => pendingDocs.value.length > 0 && pendingDocs.value.every(d => selectedIds.value.has(d.id)))
+
+const filterDescription = computed(() => {
+  const parts: string[] = []
+  if (activeRoleFilter.value !== 'all') parts.push(activeRoleFilter.value)
+  if (activeFilter.value === 'overdue') parts.push('超时')
+  else if (activeFilter.value === 'hasException') parts.push('有未解决异常')
+  else if (activeFilter.value === 'rejected') parts.push('被客户驳回')
+  return parts.length > 0 ? parts.join('、') : ''
+})
+
+function setRoleFilter(key: RoleFilterKey) {
+  activeRoleFilter.value = key
+  selectedIds.value.clear()
+}
 
 function toggleSelectAll() {
   if (allSelected.value) {
@@ -289,8 +326,26 @@ onMounted(async () => {
       </div>
       <div class="flex items-center gap-4 text-xs">
         <span class="text-amber-400 flex items-center gap-1"><Clock :size="12" />待签认 {{ pendingDocs.length }}</span>
-        <span class="text-emerald-400 flex items-center gap-1"><Check :size="12" />已签认 {{ signedDocs.length }}</span>
         <span class="text-red-400 flex items-center gap-1"><X :size="12" />已驳回 {{ rejectedDocs.length }}</span>
+        <span class="text-emerald-400 flex items-center gap-1"><Check :size="12" />已签认 {{ signedDocs.length }}</span>
+      </div>
+    </div>
+
+    <div class="flex items-center gap-2 mb-3 flex-wrap">
+      <Users :size="14" class="text-slate-500 flex-shrink-0" />
+      <div class="flex gap-1.5 flex-wrap">
+        <button
+          v-for="rf in roleFilters"
+          :key="rf.key"
+          @click="setRoleFilter(rf.key)"
+          class="px-3 py-1.5 text-xs rounded-lg transition-colors border"
+          :class="activeRoleFilter === rf.key
+            ? 'bg-blue-500/15 text-blue-300 border-blue-500/30'
+            : 'bg-[#1e293b] text-slate-400 border-[#334155] hover:text-white hover:border-slate-500'"
+        >
+          {{ rf.label }}
+          <span v-if="rf.key !== 'all' && roleStats[rf.key as keyof typeof roleStats] > 0" class="ml-1 text-[10px] opacity-70">({{ roleStats[rf.key as keyof typeof roleStats] }})</span>
+        </button>
       </div>
     </div>
 
@@ -307,7 +362,7 @@ onMounted(async () => {
         <button
           v-for="f in filters"
           :key="f.key"
-          @click="activeFilter = f.key"
+          @click="activeFilter = f.key; selectedIds.clear()"
           class="px-3 py-1.5 text-xs rounded-md transition-colors"
           :class="activeFilter === f.key ? 'bg-amber-500/20 text-amber-400' : 'text-slate-400 hover:text-white'"
         >
@@ -476,7 +531,9 @@ onMounted(async () => {
             </div>
           </div>
 
-          <div v-if="group.docs.length === 0" class="text-xs text-slate-500 text-center py-4 pl-4">暂无{{ group.label }}的资料</div>
+          <div v-if="group.docs.length === 0" class="text-xs text-slate-500 text-center py-4 pl-4">
+            {{ filterDescription ? `暂无${filterDescription}的${group.label}资料` : `暂无${group.label}的资料` }}
+          </div>
         </div>
       </div>
     </div>
