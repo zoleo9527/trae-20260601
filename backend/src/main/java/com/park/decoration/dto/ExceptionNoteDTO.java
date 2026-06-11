@@ -21,4 +21,5 @@ public class ExceptionNoteDTO {
     private String resolvedBy;
     private LocalDateTime resolvedAt;
     private Boolean resolved;
+    private Long stuckHours;
 }

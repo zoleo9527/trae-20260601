@@ -46,4 +46,12 @@ public class ExceptionNoteController {
     public ApiResponse<List<ExceptionNoteDTO>> getUnresolved() {
         return ApiResponse.success(exceptionService.getUnresolvedExceptions());
     }
+
+    @GetMapping
+    public ApiResponse<List<ExceptionNoteDTO>> listExceptions(
+            @RequestParam(required = false) Boolean resolved,
+            @RequestParam(required = false) String responsiblePerson,
+            @RequestParam(required = false) String applicationNo) {
+        return ApiResponse.success(exceptionService.listExceptions(resolved, responsiblePerson, applicationNo));
+    }
 }

@@ -212,6 +212,9 @@ public class DecorationApplicationServiceImpl implements DecorationApplicationSe
         dto.setRecentActivities(logRepository.findTop20ByOrderByOperatedAtDesc()
                 .stream().map(this::convertLogToDTO).collect(Collectors.toList()));
 
+        dto.setRecentUnresolvedExceptions(exceptionRepository.findByResolvedFalseOrderByReportedAtDesc()
+                .stream().limit(10).map(this::convertExceptionToDTO).collect(Collectors.toList()));
+
         return dto;
     }
 
@@ -272,6 +275,10 @@ public class DecorationApplicationServiceImpl implements DecorationApplicationSe
         BeanUtils.copyProperties(e, dto);
         dto.setApplicationId(e.getApplicationId());
         dto.setApplicationNo(e.getApplicationNo());
+        if (!Boolean.TRUE.equals(e.getResolved()) && e.getReportedAt() != null) {
+            long hours = Duration.between(e.getReportedAt(), LocalDateTime.now()).toHours();
+            dto.setStuckHours(hours);
+        }
         return dto;
     }
 

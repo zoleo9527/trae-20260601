@@ -17,4 +17,6 @@ public interface ExceptionNoteService {
     List<ExceptionNoteDTO> getExceptionsByApplicationId(Long applicationId);
 
     List<ExceptionNoteDTO> getUnresolvedExceptions();
+
+    List<ExceptionNoteDTO> listExceptions(Boolean resolved, String responsiblePerson, String applicationNo);
 }

@@ -112,6 +112,14 @@ public class ExceptionNoteServiceImpl implements ExceptionNoteService {
                 .stream().map(this::convertToDTO).collect(Collectors.toList());
     }
 
+    @Override
+    public List<ExceptionNoteDTO> listExceptions(Boolean resolved, String responsiblePerson, String applicationNo) {
+        String rp = (responsiblePerson != null && !responsiblePerson.isBlank()) ? responsiblePerson : null;
+        String an = (applicationNo != null && !applicationNo.isBlank()) ? applicationNo : null;
+        return exceptionRepository.findByFilters(resolved, rp, an)
+                .stream().map(this::convertToDTO).collect(Collectors.toList());
+    }
+
     private void addLog(DecorationApplication app, String type, String field,
                         String oldVal, String newVal, String remark, String operator) {
         OperationLog log = OperationLog.builder()
@@ -133,6 +141,10 @@ public class ExceptionNoteServiceImpl implements ExceptionNoteService {
         BeanUtils.copyProperties(e, dto);
         dto.setApplicationId(e.getApplicationId());
         dto.setApplicationNo(e.getApplicationNo());
+        if (!Boolean.TRUE.equals(e.getResolved()) && e.getReportedAt() != null) {
+            long hours = java.time.Duration.between(e.getReportedAt(), java.time.LocalDateTime.now()).toHours();
+            dto.setStuckHours(hours);
+        }
         return dto;
     }
 }

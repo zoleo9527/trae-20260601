@@ -17,4 +17,5 @@ public class DashboardOverviewDTO {
     private List<DecorationApplicationDTO> pendingList;
     private List<DecorationApplicationDTO> stuckList;
     private List<OperationLogDTO> recentActivities;
+    private List<ExceptionNoteDTO> recentUnresolvedExceptions;
 }
