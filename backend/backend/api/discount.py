@@ -178,9 +178,14 @@ def submit_campaign(campaign_id):
             'require_confirm': True
         }), 400
 
-    campaign.status = new_status
-    if exceptions:
+    if data.get('confirm_exception', False) and exceptions:
+        new_status = DiscountStatus.EXCEPTION.value
+        valid, error = validate_discount_transition(old_status, new_status, user.role)
+        if not valid:
+            return jsonify({'error': error}), 400
         campaign.exception_reason = '; '.join(exceptions)
+
+    campaign.status = new_status
 
     log_operation('discount', 'submit', target_id=campaign.id,
                   target_type='campaign', old_status=old_status,

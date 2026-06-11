@@ -26,6 +26,13 @@
           开始审核
         </el-button>
         <el-button
+          v-if="canReviewApprove"
+          type="success"
+          @click="handleReviewApprove"
+        >
+          审核通过
+        </el-button>
+        <el-button
           v-if="canApprove"
           type="success"
           @click="handleApprove"
@@ -417,14 +424,21 @@ const canStartReview = computed(() => {
   return userStore.isOperationSupervisor && detail.value.status === 'pending_review'
 })
 
+const canReviewApprove = computed(() => {
+  return userStore.isOperationSupervisor && detail.value.status === 'reviewing'
+})
+
 const canApprove = computed(() => {
   return userStore.isInvestmentManager &&
     ['pending_review', 'reviewing'].includes(detail.value.status)
 })
 
 const canReject = computed(() => {
+  if (detail.value.status === 'approved') {
+    return userStore.isInvestmentManager
+  }
   return (userStore.isOperationSupervisor || userStore.isInvestmentManager) &&
-    ['pending_review', 'reviewing', 'approved'].includes(detail.value.status)
+    ['pending_review', 'reviewing'].includes(detail.value.status)
 })
 
 const canRaiseException = computed(() => {
@@ -544,6 +558,20 @@ async function handleStartReview() {
   } catch (e) {
     if (e !== 'cancel') {
       console.error('Start review error:', e)
+    }
+  }
+}
+
+async function handleReviewApprove() {
+  try {
+    await ElMessageBox.confirm('确定要审核通过此活动吗？', '提示', { type: 'warning' })
+    await discountApi.approve(id, { comment: '审核通过' })
+    ElMessage.success('审核通过')
+    loadDetail()
+    loadLogs()
+  } catch (e) {
+    if (e !== 'cancel') {
+      console.error('Review approve error:', e)
     }
   }
 }

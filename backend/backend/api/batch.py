@@ -25,6 +25,7 @@ def batch_submit_campaigns():
     success_count = 0
     failed_count = 0
     exception_items = []
+    normal_success_ids = []
     results = []
 
     for campaign_id in ids:
@@ -56,13 +57,19 @@ def batch_submit_campaigns():
                     'title': campaign.title,
                     'exceptions': exceptions
                 })
-                results.append({'id': campaign_id, 'success': False, 'error': '存在异常项，需确认后提交', 'exceptions': exceptions})
-                failed_count += 1
+                results.append({'id': campaign_id, 'success': False, 'error': '存在异常项，需确认后提交', 'exceptions': exceptions, 'needs_confirm': True})
                 continue
 
-            campaign.status = new_status
-            if exceptions:
+            if confirm_exception and exceptions:
+                new_status = DiscountStatus.EXCEPTION.value
+                valid, error = validate_discount_transition(old_status, new_status, user.role)
+                if not valid:
+                    results.append({'id': campaign_id, 'success': False, 'error': error})
+                    failed_count += 1
+                    continue
                 campaign.exception_reason = '; '.join(exceptions)
+
+            campaign.status = new_status
 
             log_operation('discount', 'batch_submit', target_id=campaign.id,
                           target_type='campaign', old_status=old_status,
@@ -70,6 +77,8 @@ def batch_submit_campaigns():
                           detail={'exceptions': exceptions, 'confirmed': confirm_exception})
             results.append({'id': campaign_id, 'success': True})
             success_count += 1
+            if not exceptions:
+                normal_success_ids.append(campaign_id)
         except Exception as e:
             results.append({'id': campaign_id, 'success': False, 'error': str(e)})
             failed_count += 1
@@ -80,6 +89,7 @@ def batch_submit_campaigns():
         return jsonify({
             'success_count': success_count,
             'failed_count': failed_count,
+            'normal_success_ids': normal_success_ids,
             'results': results,
             'require_confirm': True,
             'exception_items': exception_items

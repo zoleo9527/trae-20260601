@@ -57,7 +57,8 @@ def validate_discount_transition(old_status, new_status, user_role):
     valid_transitions = {
         DiscountStatus.DRAFT.value: {
             'allowed_roles': [Role.STORE_MANAGER.value],
-            'to': [DiscountStatus.PENDING_REVIEW.value, DiscountStatus.DRAFT.value]
+            'to': [DiscountStatus.PENDING_REVIEW.value, DiscountStatus.DRAFT.value,
+                   DiscountStatus.EXCEPTION.value]
         },
         DiscountStatus.PENDING_REVIEW.value: {
             'allowed_roles': [Role.OPERATION_SUPERVISOR.value, Role.INVESTMENT_MANAGER.value],
@@ -76,7 +77,8 @@ def validate_discount_transition(old_status, new_status, user_role):
         },
         DiscountStatus.REJECTED.value: {
             'allowed_roles': [Role.STORE_MANAGER.value],
-            'to': [DiscountStatus.DRAFT.value, DiscountStatus.PENDING_REVIEW.value]
+            'to': [DiscountStatus.DRAFT.value, DiscountStatus.PENDING_REVIEW.value,
+                   DiscountStatus.EXCEPTION.value]
         },
         DiscountStatus.EXCEPTION.value: {
             'allowed_roles': [Role.OPERATION_SUPERVISOR.value, Role.INVESTMENT_MANAGER.value],

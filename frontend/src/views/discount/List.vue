@@ -112,7 +112,7 @@
           </template>
         </el-table-column>
         <el-table-column prop="creator_name" label="创建人" width="100" />
-        <el-table-column label="操作" width="280" fixed="right">
+        <el-table-column label="操作" width="360" fixed="right">
           <template #default="{ row }">
             <el-button type="primary" link @click="$router.push(`/discount/${row.id}`)">
               查看
@@ -140,6 +140,30 @@
               @click="handleStartReview(row)"
             >
               开始审核
+            </el-button>
+            <el-button
+              v-if="canReviewApprove(row)"
+              type="success"
+              link
+              @click="handleReviewApprove(row)"
+            >
+              审核通过
+            </el-button>
+            <el-button
+              v-if="canApprove(row)"
+              type="success"
+              link
+              @click="handleApprove(row)"
+            >
+              审批通过
+            </el-button>
+            <el-button
+              v-if="canReject(row)"
+              type="warning"
+              link
+              @click="handleReject(row)"
+            >
+              退回
             </el-button>
             <el-button
               v-if="canRaiseException(row)"
@@ -285,7 +309,10 @@ const canBatchApprove = computed(() => {
 const canBatchReject = computed(() => {
   return (userStore.isOperationSupervisor || userStore.isInvestmentManager) && list.value.some(
     item => selectedIds.value.includes(item.id) &&
-      (item.status === 'pending_review' || item.status === 'reviewing' || item.status === 'approved')
+      (
+        (item.status === 'approved' && userStore.isInvestmentManager) ||
+        ['pending_review', 'reviewing'].includes(item.status)
+      )
   )
 })
 
@@ -315,6 +342,23 @@ function canSubmit(row) {
 
 function canStartReview(row) {
   return userStore.isOperationSupervisor && row.status === 'pending_review'
+}
+
+function canReviewApprove(row) {
+  return userStore.isOperationSupervisor && row.status === 'reviewing'
+}
+
+function canApprove(row) {
+  return userStore.isInvestmentManager &&
+    ['pending_review', 'reviewing'].includes(row.status)
+}
+
+function canReject(row) {
+  if (row.status === 'approved') {
+    return userStore.isInvestmentManager
+  }
+  return (userStore.isOperationSupervisor || userStore.isInvestmentManager) &&
+    ['pending_review', 'reviewing'].includes(row.status)
 }
 
 function canRaiseException(row) {
@@ -398,6 +442,39 @@ async function handleStartReview(row) {
   }
 }
 
+async function handleReviewApprove(row) {
+  try {
+    await ElMessageBox.confirm('确定要审核通过此活动吗？', '提示', { type: 'warning' })
+    await discountApi.approve(row.id, { comment: '审核通过' })
+    ElMessage.success('审核通过')
+    loadList()
+  } catch (e) {
+    if (e !== 'cancel') {
+      console.error('Review approve error:', e)
+    }
+  }
+}
+
+async function handleApprove(row) {
+  try {
+    await ElMessageBox.confirm('确定要审批通过此活动吗？', '提示', { type: 'warning' })
+    await discountApi.approve(row.id, { comment: '审批通过' })
+    ElMessage.success('审批通过')
+    loadList()
+  } catch (e) {
+    if (e !== 'cancel') {
+      console.error('Approve error:', e)
+    }
+  }
+}
+
+function handleReject(row) {
+  currentRow.value = row
+  batchOperation.value = 'single'
+  rejectForm.reason = ''
+  rejectDialogVisible.value = true
+}
+
 function handleRaiseException(row) {
   currentRow.value = row
   exceptionForm.reason = ''
@@ -438,14 +515,22 @@ async function handleBatchSubmit() {
   } catch (e) {
     if (e.response && e.response.data && e.response.data.require_confirm) {
       const exceptionItems = e.response.data.exception_items || []
+      const normalSuccessCount = e.response.data.success_count || 0
+      const exceptionIds = exceptionItems.map(item => item.id)
       const allExceptions = exceptionItems.map(item => `${item.title}：${item.exceptions.join('；')}`).join('\n')
-      confirmData.message = `以下活动存在异常项，确认后仍要提交？\n${allExceptions}`
+
+      if (normalSuccessCount > 0) {
+        ElMessage.info(`正常项已成功提交 ${normalSuccessCount} 条，${exceptionIds.length} 条异常项待确认`)
+      }
+
+      confirmData.message = `以下 ${exceptionIds.length} 条活动存在异常项，确认后将直接进入异常处理列表？\n${allExceptions}`
       confirmData.exceptions = exceptionItems.flatMap(item => item.exceptions)
       confirmData.requireConfirm = true
       confirmData.confirmed = false
       confirmData.action = async () => {
-        const res = await batchApi.submitCampaigns({ ids: selectedIds.value, confirm_exception: true })
-        ElMessage.success(`成功提交 ${res.success_count} 条，失败 ${res.failed_count} 条`)
+        const res = await batchApi.submitCampaigns({ ids: exceptionIds, confirm_exception: true })
+        ElMessage.success(`异常项已提交并进入异常处理列表：成功 ${res.success_count} 条，失败 ${res.failed_count} 条`)
+        loadList()
       }
       confirmDialogVisible.value = true
     } else {
