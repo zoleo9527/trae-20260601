@@ -476,6 +476,36 @@ export function useComplaintStore() {
     return newComplaint
   }
 
+  function getLatestRecheck(c: Complaint): OperationLog | undefined {
+    return c.operations
+      .filter(o => o.action.includes('复核通过'))
+      .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0]
+  }
+
+  function getLatestReturn(c: Complaint): OperationLog | undefined {
+    return c.operations
+      .filter(o => o.action.includes('退回'))
+      .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0]
+  }
+
+  function getLatestBrandFeedbackOp(c: Complaint): OperationLog | undefined {
+    return c.operations
+      .filter(o => o.action.includes('品牌反馈') || o.action.includes('提交品牌反馈'))
+      .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0]
+  }
+
+  function getRecheckList(c: Complaint): OperationLog[] {
+    return c.operations
+      .filter(o => o.action.includes('复核通过'))
+      .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
+  }
+
+  function getReturnList(c: Complaint): OperationLog[] {
+    return c.operations
+      .filter(o => o.action.includes('退回'))
+      .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
+  }
+
   return {
     state,
     getList,
@@ -487,6 +517,11 @@ export function useComplaintStore() {
     incrementRecheckCount,
     createComplaint,
     roleUser,
-    roleLabel
+    roleLabel,
+    getLatestRecheck,
+    getLatestReturn,
+    getLatestBrandFeedbackOp,
+    getRecheckList,
+    getReturnList
   }
 }

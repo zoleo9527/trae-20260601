@@ -202,6 +202,37 @@
         <div class="info-card sticky">
           <div class="card-title">处理中心</div>
 
+          <div class="meta-section">
+            <div class="meta-item">
+              <span class="meta-label">提交人</span>
+              <div class="meta-value">
+                <span class="meta-name">{{ complaint.submitter }}</span>
+                <span class="meta-tag" :class="complaint.submitterRole">{{ complaintStore.roleLabel(complaint.submitterRole) }}</span>
+              </div>
+            </div>
+            <div class="meta-item">
+              <span class="meta-label">提交时间</span>
+              <span class="meta-time">{{ formatDateTime(complaint.submitTime) }}</span>
+            </div>
+            <div v-if="complaintStore.getLatestRecheck(complaint)" class="meta-item">
+              <span class="meta-label">最近复核</span>
+              <div class="meta-value">
+                <span class="meta-name">{{ complaintStore.getLatestRecheck(complaint)!.operator }}</span>
+                <span class="meta-tag" :class="complaintStore.getLatestRecheck(complaint)!.role">
+                  {{ complaintStore.roleLabel(complaintStore.getLatestRecheck(complaint)!.role) }}
+                </span>
+              </div>
+              <div class="meta-conclusion">
+                结论：{{ complaintStore.getLatestRecheck(complaint)!.remark.length > 40
+                  ? complaintStore.getLatestRecheck(complaint)!.remark.slice(0, 40) + '...'
+                  : complaintStore.getLatestRecheck(complaint)!.remark }}
+              </div>
+              <div class="meta-time">{{ formatDateTime(complaintStore.getLatestRecheck(complaint)!.timestamp) }}</div>
+            </div>
+          </div>
+
+          <div class="divider"></div>
+
           <div class="handler-info">
             <div class="handler-label">当前处理人</div>
             <div class="handler-block">
@@ -1655,5 +1686,77 @@ function handleComplete() {
   .info-grid {
     grid-template-columns: 1fr;
   }
+}
+
+.meta-section {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.meta-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.meta-label {
+  font-size: 11px;
+  color: #a0aec0;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.meta-value {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.meta-name {
+  font-weight: 600;
+  color: #1a202c;
+  font-size: 14px;
+}
+
+.meta-tag {
+  font-size: 10px;
+  padding: 1px 7px;
+  border-radius: 3px;
+  font-weight: 500;
+}
+
+.meta-tag.manager {
+  background: #fef5e7;
+  color: #9c4221;
+}
+
+.meta-tag.supervisor {
+  background: #ebf8ff;
+  color: #2b6cb0;
+}
+
+.meta-tag.superintendent {
+  background: #f0fff4;
+  color: #276749;
+}
+
+.meta-time {
+  font-size: 12px;
+  color: #a0aec0;
+  font-family: 'SF Mono', Consolas, monospace;
+}
+
+.meta-conclusion {
+  font-size: 12px;
+  color: #744210;
+  padding: 6px 10px;
+  background: #fffff0;
+  border-radius: 5px;
+  line-height: 1.5;
+  border-left: 2px solid #d69e2e;
+  margin-top: 2px;
 }
 </style>
