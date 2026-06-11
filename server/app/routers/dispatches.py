@@ -102,10 +102,12 @@ def list_engineers(
 
 @router.get("/history", response_model=DispatchListResponse, summary="派单历史回看")
 def dispatch_history(
+    status: Optional[str] = None,
     engineer_id: Optional[int] = None,
     work_type: Optional[str] = None,
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
+    overtime: Optional[bool] = None,
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
     db: Session = Depends(get_db),
@@ -114,6 +116,8 @@ def dispatch_history(
     query = db.query(EngineeringDispatch).options(
         joinedload(EngineeringDispatch.repair), joinedload(EngineeringDispatch.status_logs)
     )
+    if status:
+        query = query.filter(EngineeringDispatch.status == status)
     if engineer_id:
         query = query.filter(EngineeringDispatch.engineer_id == engineer_id)
     if work_type:
@@ -123,11 +127,27 @@ def dispatch_history(
     if end_date:
         query = query.filter(EngineeringDispatch.created_at <= datetime.fromisoformat(end_date))
 
-    total = query.count()
+    all_items = query.all()
+
+    if overtime is not None:
+        filtered = []
+        for d in all_items:
+            if d.started_at and d.completed_at and d.estimated_hours is not None:
+                actual = (d.completed_at - d.started_at).total_seconds() / 3600
+                is_over = actual > d.estimated_hours
+            else:
+                is_over = False
+            if overtime and is_over:
+                filtered.append(d)
+            elif not overtime and not is_over:
+                filtered.append(d)
+        all_items = filtered
+
+    total = len(all_items)
 
     completed_statuses = [DispatchStatus.COMPLETED.value, DispatchStatus.VERIFIED.value]
     completed_dispatches = [
-        d for d in query.all()
+        d for d in all_items
         if d.status in completed_statuses and d.started_at and d.completed_at
     ]
     completed_count = len(completed_dispatches)
@@ -140,17 +160,13 @@ def dispatch_history(
     else:
         avg_actual_hours = None
 
-    items = (
-        query.order_by(EngineeringDispatch.created_at.desc())
-        .offset((page - 1) * page_size)
-        .limit(page_size)
-        .all()
-    )
+    all_items.sort(key=lambda d: d.created_at, reverse=True)
+    page_items = all_items[(page - 1) * page_size : page * page_size]
     return DispatchListResponse(
         total=total,
         page=page,
         page_size=page_size,
-        items=[_dispatch_to_response(d, db=db, include_relations=True) for d in items],
+        items=[_dispatch_to_response(d, db=db, include_relations=True) for d in page_items],
         completed_count=completed_count,
         avg_actual_hours=avg_actual_hours,
     )
