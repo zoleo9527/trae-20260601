@@ -1,4 +1,4 @@
-import { SaleControl, Remark, ControlStage, StageRecord, UserRole } from '../types';
+import { SaleControl, Remark, ControlStage, StageRecord, UserRole, HouseStatus } from '../types';
 import { STAGE_MAP, ROLE_MAP } from '../utils/status';
 import { generateId } from '../utils/id';
 import { houses } from './houses';
@@ -114,6 +114,19 @@ function getTimestampsByStage(stage: ControlStage, createdAt: string, updatedAt:
   return timestamps;
 }
 
+function getStatusByStage(stage: ControlStage, defaultStatus: HouseStatus): HouseStatus {
+  switch (stage) {
+    case 'lock':
+      return 'locked';
+    case 'completed':
+      return 'sold';
+    case 'rejected':
+      return 'available';
+    default:
+      return 'available';
+  }
+}
+
 function createSaleControl(
   houseId: string,
   customerId: string,
@@ -137,17 +150,20 @@ function createSaleControl(
   const timestamps = getTimestampsByStage(stage, createdAt, updatedAt);
   const stageHistory = buildStageHistory(stage, applicantId, currentHandlerId, remarks, timestamps);
 
+  const computedStatus = getStatusByStage(stage, house.status);
+  const updatedHouse = { ...house, status: computedStatus };
+
   return {
     id: `sc_${generateId()}`,
     houseId,
-    house,
+    house: updatedHouse,
     customerId,
     customer,
     applicantId,
     applicant,
     currentHandlerId,
     currentHandler,
-    status: house.status,
+    status: computedStatus,
     stage,
     stageName: STAGE_MAP[stage],
     lockDuration,
@@ -577,7 +593,7 @@ export const saleControls: SaleControl[] = [
     'h_1_1_302',
     'c_001',
     user_zhangwei,
-    user_liufang,
+    user_zhangwei,
     'application',
     0,
     appRemarks1,
@@ -588,7 +604,7 @@ export const saleControls: SaleControl[] = [
     'h_2_1_201',
     'c_002',
     user_lina,
-    user_chenming,
+    user_lina,
     'application',
     0,
     appRemarks2,
@@ -599,7 +615,7 @@ export const saleControls: SaleControl[] = [
     'h_3_1_202',
     'c_003',
     user_wangqiang,
-    user_liufang,
+    user_wangqiang,
     'application',
     0,
     appRemarks3,
@@ -612,7 +628,7 @@ export const saleControls: SaleControl[] = [
     'h_1_1_202',
     'c_004',
     user_zhangwei,
-    user_zhaojing,
+    user_liufang,
     'review',
     24,
     reviewRemarks1,
@@ -623,7 +639,7 @@ export const saleControls: SaleControl[] = [
     'h_2_2_102',
     'c_005',
     user_lina,
-    user_zhaojing,
+    user_chenming,
     'review',
     48,
     reviewRemarks2,
@@ -634,7 +650,7 @@ export const saleControls: SaleControl[] = [
     'h_3_1_102',
     'c_006',
     user_wangqiang,
-    user_zhaojing,
+    user_liufang,
     'review',
     24,
     reviewRemarks3,
@@ -645,7 +661,7 @@ export const saleControls: SaleControl[] = [
     'h_2_1_301',
     'c_007',
     user_zhangwei,
-    user_zhaojing,
+    user_chenming,
     'review',
     48,
     reviewRemarks4,

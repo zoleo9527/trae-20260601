@@ -35,10 +35,17 @@ export default function ApprovalPage() {
       return filteredSaleControls.filter((s) => s.applicantId === currentUser.id);
     }
     if (currentUser.role === 'manager') {
-      return filteredSaleControls.filter((s) => s.stage === 'review' || s.stage === 'rejected');
+      return filteredSaleControls.filter((s) =>
+        (s.stage === 'review' && s.currentHandlerId === currentUser.id) ||
+        (s.stage === 'rejected' && s.currentHandlerId === currentUser.id) ||
+        (s.stage === 'rejected' && s.applicantId === currentUser.id)
+      );
     }
     if (currentUser.role === 'controller') {
-      return filteredSaleControls.filter((s) => s.stage === 'lock' || s.stage === 'completed');
+      return filteredSaleControls.filter((s) =>
+        (s.stage === 'lock' && s.currentHandlerId === currentUser.id) ||
+        s.stage === 'completed'
+      );
     }
     return filteredSaleControls;
   }, [filteredSaleControls, currentUser]);

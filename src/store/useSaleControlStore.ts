@@ -283,8 +283,6 @@ export const useSaleControlStore = create<SaleControlStore>()(
         if (!house) throw new Error('房源不存在');
         if (!customer) throw new Error('客户不存在');
 
-        const managers = getManagers();
-        const currentHandler = managers[Math.floor(Math.random() * managers.length)];
         const now = new Date().toISOString();
 
         const newRemark = createRemark(
@@ -297,7 +295,6 @@ export const useSaleControlStore = create<SaleControlStore>()(
 
         const stageHistory: StageRecord[] = [
           createStageRecord('application', currentUser, now, undefined, remark),
-          createStageRecord('review', currentHandler, now),
         ];
 
         const newSaleControl: SaleControl = {
@@ -308,8 +305,8 @@ export const useSaleControlStore = create<SaleControlStore>()(
           customer,
           applicantId: currentUser.id,
           applicant: currentUser,
-          currentHandlerId: currentHandler.id,
-          currentHandler,
+          currentHandlerId: currentUser.id,
+          currentHandler: currentUser,
           status: house.status,
           stage: 'application',
           stageName: STAGE_MAP['application'],
@@ -332,8 +329,8 @@ export const useSaleControlStore = create<SaleControlStore>()(
           'application',
           undefined,
           undefined,
-          currentHandler.id,
-          currentHandler.name,
+          currentUser.id,
+          currentUser.name,
           remark,
           'application',
           false
@@ -563,8 +560,12 @@ export const useSaleControlStore = create<SaleControlStore>()(
           false
         );
 
+        const updatedHouse = { ...sc.house, status: 'available' as HouseStatus };
+        useHouseStore.getState().updateHouseStatus(sc.houseId, 'available');
+
         const updatedSaleControl: SaleControl = {
           ...sc,
+          house: updatedHouse,
           stage: afterStage,
           stageName: STAGE_MAP[afterStage],
           previousHandlerId: beforeHandler.id,
@@ -577,8 +578,6 @@ export const useSaleControlStore = create<SaleControlStore>()(
           rejectedAt: now,
           updatedAt: now,
         };
-
-        useHouseStore.getState().updateHouseStatus(sc.houseId, 'available');
 
         set((state) => {
           const newOperationLogs = [...state.operationLogs, log];
@@ -662,8 +661,12 @@ export const useSaleControlStore = create<SaleControlStore>()(
           isInherited
         );
 
+        const updatedHouse = { ...sc.house, status: afterStatus };
+        useHouseStore.getState().updateHouseStatus(sc.houseId, afterStatus);
+
         const updatedSaleControl: SaleControl = {
           ...sc,
+          house: updatedHouse,
           status: afterStatus,
           stage: afterStage,
           stageName: STAGE_MAP[afterStage],
@@ -675,8 +678,6 @@ export const useSaleControlStore = create<SaleControlStore>()(
           lockedAt: now,
           updatedAt: now,
         };
-
-        useHouseStore.getState().updateHouseStatus(sc.houseId, afterStatus);
 
         set((state) => {
           const newOperationLogs = [...state.operationLogs, log];
@@ -740,8 +741,12 @@ export const useSaleControlStore = create<SaleControlStore>()(
           false
         );
 
+        const updatedHouse = { ...sc.house, status: afterStatus };
+        useHouseStore.getState().updateHouseStatus(sc.houseId, afterStatus);
+
         const updatedSaleControl: SaleControl = {
           ...sc,
+          house: updatedHouse,
           status: afterStatus,
           stage: afterStage,
           stageName: STAGE_MAP[afterStage],
@@ -751,8 +756,6 @@ export const useSaleControlStore = create<SaleControlStore>()(
           completedAt: now,
           updatedAt: now,
         };
-
-        useHouseStore.getState().updateHouseStatus(sc.houseId, afterStatus);
 
         set((state) => {
           const newOperationLogs = [...state.operationLogs, log];
