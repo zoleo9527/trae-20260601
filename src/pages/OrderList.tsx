@@ -128,6 +128,10 @@ export default function OrderList() {
     return new Set(selectableOrders.map((o) => o.id))
   }, [selectableOrders])
 
+  const effectiveSelectedIds = useMemo(() => {
+    return selectedIds.filter((id) => selectableIds.has(id))
+  }, [selectedIds, selectableIds])
+
   useEffect(() => {
     const pruned = selectedIds.filter((id) => selectableIds.has(id))
     if (pruned.length !== selectedIds.length) {
@@ -137,7 +141,7 @@ export default function OrderList() {
 
   const allSelected =
     selectableOrders.length > 0 &&
-    selectableOrders.every((o) => selectedIds.includes(o.id))
+    selectableOrders.every((o) => effectiveSelectedIds.includes(o.id))
 
   const handleToggleAll = () => {
     if (allSelected) {
@@ -176,7 +180,6 @@ export default function OrderList() {
       } else if (currentRole === 'service' && order.status === 'checked_in') {
         await advanceOrder(order.id)
       } else if (currentRole === 'supervisor' && order.status === 'reviewing') {
-        // 单条审核走批量接口更简单
         await batchReview([order.id], true)
       }
       loadOrders()
@@ -350,7 +353,7 @@ export default function OrderList() {
             </thead>
             <tbody className="divide-y divide-slate-100">
               {filteredOrders.map((order) => {
-                const isSelected = selectedIds.includes(order.id)
+                const isSelected = effectiveSelectedIds.includes(order.id)
                 const isClosed = order.status === 'completed' || order.status === 'rejected'
                 const isMine = order.currentHandler === currentRole
                 const isStuck =
@@ -477,12 +480,12 @@ export default function OrderList() {
         <div className="flex items-center justify-between border-t border-slate-100 px-4 py-3 text-xs text-slate-500">
           <span>共 {filteredOrders.length} 条</span>
           <span>
-            已选 {selectedIds.length} 条
+            已选 {effectiveSelectedIds.length} 条
           </span>
         </div>
       </div>
 
-      <BatchActions onRefresh={loadOrders} />
+      <BatchActions onRefresh={loadOrders} effectiveIds={effectiveSelectedIds} />
     </div>
   )
 }

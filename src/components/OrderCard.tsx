@@ -26,7 +26,8 @@ interface OrderCardProps {
 
 export default function OrderCard({ order, selectable, onQuickAction }: OrderCardProps) {
   const { currentRole, selectedIds, toggleSelect } = useStore()
-  const isSelected = selectedIds.includes(order.id)
+  const isClosed = order.status === 'completed' || order.status === 'rejected'
+  const isSelected = !isClosed && selectedIds.includes(order.id)
   const status = statusConfig[order.status]
   const type = typeConfig[order.maintenanceType]
 
@@ -51,7 +52,7 @@ export default function OrderCard({ order, selectable, onQuickAction }: OrderCar
     >
       <div className="flex items-start justify-between gap-2">
         <div className="flex items-start gap-2 min-w-0">
-          {selectable && (
+          {selectable && !isClosed && (
             <button
               onClick={(e) => {
                 e.stopPropagation()
@@ -65,6 +66,11 @@ export default function OrderCard({ order, selectable, onQuickAction }: OrderCar
                 <Square className="h-4 w-4 text-slate-300" />
               )}
             </button>
+          )}
+          {selectable && isClosed && (
+            <div className="mt-0.5 shrink-0">
+              <Square className="h-4 w-4 text-slate-200" />
+            </div>
           )}
           <div className="min-w-0">
             <div className="flex items-center gap-2">

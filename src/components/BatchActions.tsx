@@ -5,24 +5,25 @@ import { useState } from 'react'
 
 interface BatchActionsProps {
   onRefresh: () => void
+  effectiveIds: string[]
 }
 
-export default function BatchActions({ onRefresh }: BatchActionsProps) {
-  const { currentRole, selectedIds, clearSelection, setSelectedIds } = useStore()
+export default function BatchActions({ onRefresh, effectiveIds }: BatchActionsProps) {
+  const { currentRole, clearSelection, setSelectedIds } = useStore()
   const [loading, setLoading] = useState<string | null>(null)
   const [successCount, setSuccessCount] = useState<number>(0)
   const [errors, setErrors] = useState<BatchError[]>([])
 
   const hasResult = successCount > 0 || errors.length > 0
 
-  if (selectedIds.length === 0 && !hasResult) return null
+  if (effectiveIds.length === 0 && !hasResult) return null
 
   const handleBatchCheckin = async () => {
     setLoading('checkin')
     setSuccessCount(0)
     setErrors([])
     try {
-      const res = await batchCheckin(selectedIds)
+      const res = await batchCheckin(effectiveIds)
       const checkedIn = res.checkedIn || []
       const errs = res.errors || []
       setSuccessCount(checkedIn.length)
@@ -31,7 +32,7 @@ export default function BatchActions({ onRefresh }: BatchActionsProps) {
       setSelectedIds(failedIds)
       onRefresh()
     } catch {
-      setErrors(selectedIds.map((id) => ({ id, reason: '网络错误，请重试' })))
+      setErrors(effectiveIds.map((id) => ({ id, reason: '网络错误，请重试' })))
     } finally {
       setLoading(null)
     }
@@ -42,7 +43,7 @@ export default function BatchActions({ onRefresh }: BatchActionsProps) {
     setSuccessCount(0)
     setErrors([])
     try {
-      const res = await batchReview(selectedIds, true)
+      const res = await batchReview(effectiveIds, true)
       const reviewed = res.reviewed || []
       const errs = res.errors || []
       setSuccessCount(reviewed.length)
@@ -51,7 +52,7 @@ export default function BatchActions({ onRefresh }: BatchActionsProps) {
       setSelectedIds(failedIds)
       onRefresh()
     } catch {
-      setErrors(selectedIds.map((id) => ({ id, reason: '网络错误，请重试' })))
+      setErrors(effectiveIds.map((id) => ({ id, reason: '网络错误，请重试' })))
     } finally {
       setLoading(null)
     }
@@ -69,7 +70,7 @@ export default function BatchActions({ onRefresh }: BatchActionsProps) {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <span className="text-sm text-slate-300">
-              已选择 <span className="font-semibold text-amber-400">{selectedIds.length}</span> 项
+              已选择 <span className="font-semibold text-amber-400">{effectiveIds.length}</span> 项
             </span>
 
             {successCount > 0 && (
