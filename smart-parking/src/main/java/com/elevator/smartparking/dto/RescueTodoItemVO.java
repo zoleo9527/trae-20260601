@@ -12,6 +12,9 @@ public class RescueTodoItemVO {
     private String elevatorNo;
     private Long faultReportId;
     private String faultReportNo;
+    private String faultStatus;
+    private String faultStatusText;
+    private String faultRemark;
     private Integer trappedCount;
     private String trappedFloor;
     private String status;

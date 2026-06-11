@@ -43,11 +43,29 @@ public class WorkspaceController {
 
         List<FaultStatus> faultTodoStatuses = roleActionService.getFaultTodoStatuses(role);
         List<FaultReport> allFaults = faultReportRepository.findAll();
-        List<FaultReport> faultTodos = allFaults.stream()
-                .filter(f -> faultTodoStatuses.contains(f.getStatus()))
-                .filter(f -> filterMyFault(f, role, userId))
-                .sorted((a, b) -> b.getCreateTime().compareTo(a.getCreateTime()))
-                .toList();
+        List<FaultReport> faultTodos;
+        if (role == UserRole.MAINTENANCE_TECHNICIAN && userId != null) {
+            List<FaultReport> pendingFaults = faultReportRepository
+                    .findByStatusInOrderByCreateTimeDesc(List.of(FaultStatus.PENDING));
+            List<FaultReport> myProcessingFaults = faultReportRepository
+                    .findByStatusInAndHandlerIdOrderByCreateTimeDesc(
+                            faultTodoStatuses.stream()
+                                    .filter(s -> s != FaultStatus.PENDING)
+                                    .toList(),
+                            userId
+                    );
+            faultTodos = new ArrayList<>();
+            faultTodos.addAll(pendingFaults);
+            faultTodos.addAll(myProcessingFaults);
+            faultTodos.sort((a, b) -> b.getCreateTime().compareTo(a.getCreateTime()));
+        } else {
+            List<FaultReport> statusFilteredFaults = faultReportRepository
+                    .findByStatusInOrderByCreateTimeDesc(faultTodoStatuses);
+            faultTodos = statusFilteredFaults.stream()
+                    .filter(f -> filterMyFault(f, role, userId))
+                    .sorted((a, b) -> b.getCreateTime().compareTo(a.getCreateTime()))
+                    .toList();
+        }
 
         WorkspaceVO.FaultTodoSummary faultSummary = new WorkspaceVO.FaultTodoSummary();
         faultSummary.setTotal(faultTodos.size());
@@ -87,11 +105,29 @@ public class WorkspaceController {
 
         List<RescueStatus> rescueTodoStatuses = roleActionService.getRescueTodoStatuses(role);
         List<EntrapmentRescue> allRescues = entrapmentRescueRepository.findAll();
-        List<EntrapmentRescue> rescueTodos = allRescues.stream()
-                .filter(r -> rescueTodoStatuses.contains(r.getStatus()))
-                .filter(r -> filterMyRescue(r, role, userId))
-                .sorted((a, b) -> b.getCreateTime().compareTo(a.getCreateTime()))
-                .toList();
+        List<EntrapmentRescue> rescueTodos;
+        if (role == UserRole.MAINTENANCE_TECHNICIAN && userId != null) {
+            List<EntrapmentRescue> pendingRescues = entrapmentRescueRepository
+                    .findByStatusInOrderByCreateTimeDesc(List.of(RescueStatus.PENDING_RESCUE));
+            List<EntrapmentRescue> myAssignedRescues = entrapmentRescueRepository
+                    .findByStatusInAndRescuerIdOrderByCreateTimeDesc(
+                            rescueTodoStatuses.stream()
+                                    .filter(s -> s != RescueStatus.PENDING_RESCUE)
+                                    .toList(),
+                            userId
+                    );
+            rescueTodos = new ArrayList<>();
+            rescueTodos.addAll(pendingRescues);
+            rescueTodos.addAll(myAssignedRescues);
+            rescueTodos.sort((a, b) -> b.getCreateTime().compareTo(a.getCreateTime()));
+        } else {
+            List<EntrapmentRescue> statusFilteredRescues = entrapmentRescueRepository
+                    .findByStatusInOrderByCreateTimeDesc(rescueTodoStatuses);
+            rescueTodos = statusFilteredRescues.stream()
+                    .filter(r -> filterMyRescue(r, role, userId))
+                    .sorted((a, b) -> b.getCreateTime().compareTo(a.getCreateTime()))
+                    .toList();
+        }
 
         WorkspaceVO.RescueTodoSummary rescueSummary = new WorkspaceVO.RescueTodoSummary();
         rescueSummary.setTotal(rescueTodos.size());
@@ -126,7 +162,12 @@ public class WorkspaceController {
             }
             if (r.getFaultReportId() != null) {
                 faultReportRepository.findById(r.getFaultReportId())
-                        .ifPresent(f -> item.setFaultReportNo(f.getReportNo()));
+                        .ifPresent(f -> {
+                            item.setFaultReportNo(f.getReportNo());
+                            item.setFaultStatus(f.getStatus().name());
+                            item.setFaultStatusText(getFaultStatusText(f.getStatus()));
+                            item.setFaultRemark(f.getRemark());
+                        });
             }
             rescueTodoList.add(item);
         }
@@ -176,14 +217,24 @@ public class WorkspaceController {
 
     private boolean filterMyFault(FaultReport f, UserRole role, Long userId) {
         return switch (role) {
-            case MAINTENANCE_TECHNICIAN -> userId != null && userId.equals(f.getHandlerId());
+            case MAINTENANCE_TECHNICIAN -> {
+                if (f.getStatus() == FaultStatus.PENDING) {
+                    yield true;
+                }
+                yield userId != null && userId.equals(f.getHandlerId());
+            }
             case CUSTOMER_SERVICE, PROJECT_MANAGER -> true;
         };
     }
 
     private boolean filterMyRescue(EntrapmentRescue r, UserRole role, Long userId) {
         return switch (role) {
-            case MAINTENANCE_TECHNICIAN -> userId != null && userId.equals(r.getRescuerId());
+            case MAINTENANCE_TECHNICIAN -> {
+                if (r.getStatus() == RescueStatus.PENDING_RESCUE) {
+                    yield true;
+                }
+                yield userId != null && userId.equals(r.getRescuerId());
+            }
             case CUSTOMER_SERVICE, PROJECT_MANAGER -> true;
         };
     }
