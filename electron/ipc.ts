@@ -84,7 +84,7 @@ function syncProjectMaterials(projectId: number, plannedMaterials: any[]) {
 
   db.prepare(`
     UPDATE project_materials
-    SET is_overrun = CASE WHEN planned_qty > 0 AND used_qty > planned_qty THEN 1 ELSE 0 END
+    SET is_overrun = CASE WHEN used_qty > planned_qty THEN 1 ELSE 0 END
     WHERE project_id = ?
   `).run(projectId)
 }
@@ -321,7 +321,7 @@ export function registerIpc(ipcMain: IpcMain) {
       const plannedQty = pm ? pm.planned_qty : 0
       const currentUsed = pm ? pm.used_qty : 0
       const newUsed = currentUsed + data.quantity
-      const isOverrun = newUsed > plannedQty && plannedQty > 0 ? 1 : 0
+      const isOverrun = newUsed > plannedQty ? 1 : 0
       if (pm) {
         db.prepare('UPDATE project_materials SET used_qty = ?, is_overrun = MAX(is_overrun, ?) WHERE id = ?').run(newUsed, isOverrun, pm.id)
       }

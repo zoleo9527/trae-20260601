@@ -441,11 +441,12 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack }) => {
   const checkOverrun = (materialId: number, quantity: number, usageType: string): string | null => {
     if (usageType !== '领出') return null
     const pm = projectMaterials.find(m => m.material_id === materialId)
-    if (!pm || !pm.planned_qty) return null
+    if (!pm) return null
+    const planned = pm.planned_qty || 0
     const used = pm.used_qty || 0
-    if (used + quantity > pm.planned_qty) {
-      const over = used + quantity - pm.planned_qty
-      return `警告：材料【${pm.material_name}】计划用量 ${pm.planned_qty}${pm.unit || ''}，已用 ${used}${pm.unit || ''}，本次领用 ${quantity}${pm.unit || ''}，将超领 ${over}${pm.unit || ''}！`
+    if (used + quantity > planned) {
+      const over = used + quantity - planned
+      return `警告：材料【${pm.material_name}】计划用量 ${planned}${pm.unit || ''}，已用 ${used}${pm.unit || ''}，本次领用 ${quantity}${pm.unit || ''}，将超领 ${over}${pm.unit || ''}！`
     }
     return null
   }
