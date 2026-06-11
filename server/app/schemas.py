@@ -61,6 +61,7 @@ class DispatchBriefResponse(BaseModel):
     work_content: str
     work_type: Optional[str] = None
     estimated_hours: float = 4.0
+    actual_hours: Optional[float] = None
     status: str
     dispatcher_id: Optional[int] = None
     dispatcher_name: Optional[str] = None
@@ -170,6 +171,7 @@ class DispatchResponse(BaseModel):
     work_content: str
     work_type: Optional[str] = None
     estimated_hours: float = 4.0
+    actual_hours: Optional[float] = None
     status: str
     sla_deadline: datetime
     dispatcher_id: Optional[int] = None
@@ -196,6 +198,11 @@ class DispatchListResponse(BaseModel):
     page: int
     page_size: int
     items: list[DispatchResponse]
+    completed_count: int = 0
+    avg_actual_hours: Optional[float] = None
+
+    class Config:
+        from_attributes = True
 
 
 class ExportRequest(BaseModel):

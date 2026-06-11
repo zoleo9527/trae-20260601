@@ -77,12 +77,16 @@ def _repair_to_response(repair: PublicRepair, db: Session = None, include_relati
                     disp = db.query(User).filter(User.id == d.dispatcher_id).first()
                     if disp:
                         dispatcher_name = disp.display_name
+            actual_hours = None
+            if d.started_at and d.completed_at:
+                actual_hours = round((d.completed_at - d.started_at).total_seconds() / 3600, 2)
             dispatch_resp = DispatchBriefResponse(
                 id=d.id,
                 dispatch_no=d.dispatch_no,
                 work_content=d.work_content,
                 work_type=d.work_type,
                 estimated_hours=d.estimated_hours,
+                actual_hours=actual_hours,
                 status=d.status,
                 dispatcher_id=d.dispatcher_id,
                 dispatcher_name=dispatcher_name,

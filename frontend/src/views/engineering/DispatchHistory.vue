@@ -7,13 +7,16 @@
       </el-card>
       <el-card shadow="hover" class="stat-card stat-avg">
         <div class="stat-number">{{ stats.avgHours }}</div>
-        <div class="stat-label">平均工时（小时）</div>
+        <div class="stat-label">平均实际工时（小时）</div>
       </el-card>
     </div>
 
     <el-card shadow="never" style="margin-top: 20px">
       <template #header><span class="card-title">派单回看</span></template>
       <div class="filter-bar">
+        <el-select v-model="filters.engineer_id" placeholder="工程师" clearable style="width: 160px">
+          <el-option v-for="e in engineers" :key="e.id" :label="`${e.display_name}（${e.department}）`" :value="e.id" />
+        </el-select>
         <el-select v-model="filters.work_type" placeholder="工种筛选" clearable style="width: 140px">
           <el-option v-for="w in WORK_TYPE_LIST" :key="w.value" :label="w.label" :value="w.value" />
         </el-select>
@@ -26,8 +29,7 @@
           value-format="YYYY-MM-DD"
           style="width: 260px"
         />
-        <el-input v-model="filters.engineer" placeholder="施工人" clearable style="width: 140px" />
-        <el-button type="primary" @click="fetchList">查询</el-button>
+        <el-button type="primary" @click="handleSearch">查询</el-button>
         <el-button @click="resetFilters">重置</el-button>
       </div>
       <el-table :data="dispatches" stripe border v-loading="loading">
@@ -49,8 +51,22 @@
           </template>
         </el-table-column>
         <el-table-column prop="engineer_name" label="施工人" width="100" />
+        <el-table-column label="预计工时" width="90" align="right">
+          <template #default="{ row }">{{ row.estimated_hours ? `${row.estimated_hours}h` : '-' }}</template>
+        </el-table-column>
+        <el-table-column label="实际工时" width="100" align="right">
+          <template #default="{ row }">
+            <span v-if="row.actual_hours != null" :style="{ color: row.actual_hours > row.estimated_hours ? '#f56c6c' : '#67c23a', fontWeight: 600 }">
+              {{ row.actual_hours }}h
+            </span>
+            <span v-else style="color:#c0c4cc">-</span>
+          </template>
+        </el-table-column>
         <el-table-column label="完工说明" min-width="160" show-overflow-tooltip>
           <template #default="{ row }">{{ row.completion_note || '-' }}</template>
+        </el-table-column>
+        <el-table-column label="开工时间" width="170">
+          <template #default="{ row }">{{ formatDateTime(row.started_at) }}</template>
         </el-table-column>
         <el-table-column label="完工时间" width="170">
           <template #default="{ row }">{{ formatDateTime(row.completed_at) }}</template>
@@ -97,16 +113,17 @@ const loading = ref(false)
 const page = ref(1)
 const pageSize = ref(10)
 const total = ref(0)
-const filters = ref({ work_type: '', dateRange: null, engineer: '' })
+const completedCount = ref(0)
+const avgActualHours = ref(null)
+const engineers = ref([])
+const filters = ref({ work_type: '', dateRange: null, engineer_id: null })
 
 const COLORS = ['#409EFF', '#67C23A', '#E6A23C', '#F56C6C', '#909399', '#9B59B6']
 
-const stats = computed(() => {
-  const completed = dispatches.value.filter(d => ['completed', 'verified', 'closed'].includes(d.status))
-  const totalHours = completed.reduce((sum, d) => sum + (d.actual_hours || 0), 0)
-  const avgHours = completed.length ? (totalHours / completed.length).toFixed(1) : '0'
-  return { total: dispatches.value.length, avgHours }
-})
+const stats = computed(() => ({
+  total: completedCount.value,
+  avgHours: avgActualHours.value != null ? avgActualHours.value.toFixed(1) : '0',
+}))
 
 const workTypeDistribution = computed(() => {
   const counts = {}
@@ -125,12 +142,21 @@ const workTypeDistribution = computed(() => {
   }))
 })
 
+const fetchEngineers = async () => {
+  try {
+    const res = await api.get('/dispatches/engineers')
+    engineers.value = Array.isArray(res) ? res : []
+  } catch {
+    engineers.value = []
+  }
+}
+
 const fetchList = async () => {
   loading.value = true
   try {
     const params = { page: page.value, page_size: pageSize.value }
     if (filters.value.work_type) params.work_type = filters.value.work_type
-    if (filters.value.engineer) params.engineer = filters.value.engineer
+    if (filters.value.engineer_id != null) params.engineer_id = filters.value.engineer_id
     if (filters.value.dateRange?.length === 2) {
       params.start_date = filters.value.dateRange[0]
       params.end_date = filters.value.dateRange[1]
@@ -138,21 +164,35 @@ const fetchList = async () => {
     const res = await api.get('/dispatches/history/', { params })
     dispatches.value = res.items || res
     total.value = res.total || dispatches.value.length
+    completedCount.value = res.completed_count || 0
+    avgActualHours.value = res.avg_actual_hours != null ? res.avg_actual_hours : null
   } catch {
     dispatches.value = []
     total.value = 0
+    completedCount.value = 0
+    avgActualHours.value = null
   } finally {
     loading.value = false
   }
 }
 
-const resetFilters = () => {
-  filters.value = { work_type: '', dateRange: null, engineer: '' }
+const handleSearch = () => {
   page.value = 1
   fetchList()
 }
 
-onMounted(fetchList)
+const resetFilters = () => {
+  filters.value = { work_type: '', dateRange: null, engineer_id: null }
+  page.value = 1
+  completedCount.value = 0
+  avgActualHours.value = null
+  fetchList()
+}
+
+onMounted(async () => {
+  await fetchEngineers()
+  fetchList()
+})
 </script>
 
 <style scoped>

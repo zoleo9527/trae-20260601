@@ -61,6 +61,10 @@ def _dispatch_to_response(dispatch: EngineeringDispatch, db: Session = None, inc
                 )
                 for sl in dispatch.status_logs
             ]
+    actual_hours = None
+    if dispatch.started_at and dispatch.completed_at:
+        actual_hours = round((dispatch.completed_at - dispatch.started_at).total_seconds() / 3600, 2)
+
     return DispatchResponse(
         id=dispatch.id,
         dispatch_no=dispatch.dispatch_no,
@@ -68,6 +72,7 @@ def _dispatch_to_response(dispatch: EngineeringDispatch, db: Session = None, inc
         work_content=dispatch.work_content,
         work_type=dispatch.work_type,
         estimated_hours=dispatch.estimated_hours,
+        actual_hours=actual_hours,
         status=dispatch.status,
         sla_deadline=dispatch.sla_deadline,
         dispatcher_id=dispatch.dispatcher_id,
@@ -104,15 +109,13 @@ def dispatch_history(
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_role(RoleType.ENGINEERING.value)),
+    current_user: User = Depends(require_role(RoleType.ENGINEERING.value, RoleType.OPERATION.value, RoleType.ADMIN.value, RoleType.SERVICE_DESK.value)),
 ):
     query = db.query(EngineeringDispatch).options(
         joinedload(EngineeringDispatch.repair), joinedload(EngineeringDispatch.status_logs)
     )
     if engineer_id:
         query = query.filter(EngineeringDispatch.engineer_id == engineer_id)
-    else:
-        query = query.filter(EngineeringDispatch.engineer_id == current_user.id)
     if work_type:
         query = query.filter(EngineeringDispatch.work_type == work_type)
     if start_date:
@@ -121,6 +124,22 @@ def dispatch_history(
         query = query.filter(EngineeringDispatch.created_at <= datetime.fromisoformat(end_date))
 
     total = query.count()
+
+    completed_statuses = [DispatchStatus.COMPLETED.value, DispatchStatus.VERIFIED.value]
+    completed_dispatches = [
+        d for d in query.all()
+        if d.status in completed_statuses and d.started_at and d.completed_at
+    ]
+    completed_count = len(completed_dispatches)
+    if completed_count:
+        total_hours = sum(
+            (d.completed_at - d.started_at).total_seconds() / 3600
+            for d in completed_dispatches
+        )
+        avg_actual_hours = round(total_hours / completed_count, 2)
+    else:
+        avg_actual_hours = None
+
     items = (
         query.order_by(EngineeringDispatch.created_at.desc())
         .offset((page - 1) * page_size)
@@ -132,6 +151,8 @@ def dispatch_history(
         page=page,
         page_size=page_size,
         items=[_dispatch_to_response(d, db=db, include_relations=True) for d in items],
+        completed_count=completed_count,
+        avg_actual_hours=avg_actual_hours,
     )
 
 
