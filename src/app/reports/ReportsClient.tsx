@@ -100,8 +100,31 @@ export default function ReportsClient({ currentUser }: { currentUser: any }) {
   const [monthFilter, setMonthFilter] = useState(searchParams.get('reportMonth') || '');
   const [statusFilter, setStatusFilter] = useState(searchParams.get('status') || '');
 
-  const activeTab = searchParams.get('tab') || 'all';
   const tabs = roleTabs[currentUser.role as Role] || roleTabs[Role.LEASING_MANAGER];
+  const tabKeys = tabs.map((t) => t.key);
+
+  const deriveActiveTab = () => {
+    const tab = searchParams.get('tab');
+    const status = searchParams.get('status');
+    if (tab === 'abnormal' && tabKeys.includes('abnormal')) return 'abnormal';
+    if (status && tabKeys.includes(status)) return status;
+    return 'all';
+  };
+
+  const activeTab = deriveActiveTab();
+
+  useEffect(() => {
+    setKeyword(searchParams.get('keyword') || '');
+    setBrandFilter(searchParams.get('brandId') || '');
+    setMonthFilter(searchParams.get('reportMonth') || '');
+    const tab = searchParams.get('tab');
+    const status = searchParams.get('status');
+    if (tab === 'abnormal') {
+      setStatusFilter('');
+    } else {
+      setStatusFilter(status || '');
+    }
+  }, [searchParams]);
 
   const fetchData = async () => {
     setLoading(true);
@@ -174,8 +197,12 @@ export default function ReportsClient({ currentUser }: { currentUser: any }) {
       else params.delete('reportMonth');
     }
     if (updates.status !== undefined) {
-      if (updates.status) params.set('status', updates.status);
-      else params.delete('status');
+      if (updates.status) {
+        params.set('status', updates.status);
+        params.delete('tab');
+      } else {
+        params.delete('status');
+      }
     }
 
     router.push(`${pathname}?${params.toString()}`);
@@ -202,7 +229,8 @@ export default function ReportsClient({ currentUser }: { currentUser: any }) {
     !!searchParams.get('keyword') ||
     !!searchParams.get('brandId') ||
     !!searchParams.get('reportMonth') ||
-    (!!searchParams.get('status') && !searchParams.get('tab'));
+    !!searchParams.get('status') ||
+    searchParams.get('tab') === 'abnormal';
 
   const canEditReport = (report: Report) => {
     if (currentUser.role !== Role.BRAND_MANAGER) return false;
@@ -272,8 +300,7 @@ export default function ReportsClient({ currentUser }: { currentUser: any }) {
                   key={tab.key}
                   onClick={() => handleTabChange(tab.key)}
                   className={`px-4 py-2 text-sm font-medium rounded-md whitespace-nowrap ${
-                    activeTab === tab.key ||
-                    (tab.key === 'all' && !searchParams.get('status') && !searchParams.get('tab'))
+                    activeTab === tab.key
                       ? 'bg-brand-50 text-brand-700'
                       : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
                   }`}
