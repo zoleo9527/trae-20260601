@@ -1,0 +1,231 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Project {
+  id        String   @id @default(cuid())
+  name      String
+  code      String   @unique
+  address   String?
+  createdAt DateTime @default(now())
+
+  testRecords          TestRecord[]
+  materialRequisitions MaterialRequisition[]
+  cableRoutes          CableRoute[]
+
+  @@map("projects")
+}
+
+model TestRecord {
+  id        String   @id @default(cuid())
+  projectId String
+  code      String   @unique
+
+  testItem   String
+  testMethod String
+  testResult String
+  conclusion String
+
+  status            String @default("DRAFT")
+  currentHolderRole String @default("CONSTRUCTION_TEAM")
+  currentHolderId   String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  project              Project              @relation(fields: [projectId], references: [id])
+  reworkOrders         ReworkOrder[]
+  stateTransitions     StateTransition[]
+  handoverLogs         HandoverLog[]
+  materialRequisitions MaterialRequisition[]
+  cableRoutes          CableRoute[]
+  attachments          Attachment[]
+
+  @@map("test_records")
+}
+
+model ReworkOrder {
+  id           String   @id @default(cuid())
+  testRecordId String
+  code         String   @unique
+
+  defectDesc    String
+  rectifyMethod String
+  deadline      DateTime
+
+  status            String @default("GENERATED")
+  currentHolderRole String @default("CONSTRUCTION_TEAM")
+  currentHolderId   String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  testRecord       TestRecord        @relation(fields: [testRecordId], references: [id], onDelete: Cascade)
+  stateTransitions StateTransition[]
+  handoverLogs     HandoverLog[]
+  attachments      Attachment[]
+
+  @@map("rework_orders")
+}
+
+model StateTransition {
+  id String @id @default(cuid())
+
+  entityType String
+  entityId   String
+
+  fromStatus String
+  toStatus   String
+
+  operatorRole String
+  operatorId   String
+  operatorName String
+
+  action String
+  remark String?
+
+  idempotencyKey String @unique
+
+  createdAt DateTime @default(now())
+
+  testRecord  TestRecord?  @relation(fields: [testRecordId], references: [id], onDelete: Cascade)
+  testRecordId String?
+
+  reworkOrder  ReworkOrder?  @relation(fields: [reworkOrderId], references: [id], onDelete: Cascade)
+  reworkOrderId String?
+
+  @@map("state_transitions")
+}
+
+model HandoverLog {
+  id String @id @default(cuid())
+
+  entityType String
+  entityId   String
+
+  fromRole     String
+  fromUserId   String
+  fromUserName String
+
+  toRole     String
+  toUserId   String
+  toUserName String
+
+  handoverType String
+
+  remark String?
+
+  createdAt DateTime @default(now())
+
+  testRecord   TestRecord?  @relation(fields: [testRecordId], references: [id], onDelete: Cascade)
+  testRecordId String?
+
+  reworkOrder   ReworkOrder?  @relation(fields: [reworkOrderId], references: [id], onDelete: Cascade)
+  reworkOrderId String?
+
+  @@map("handover_logs")
+}
+
+model MaterialRequisition {
+  id        String   @id @default(cuid())
+  projectId String
+  testRecordId String?
+
+  materialName String
+  unit         String
+  plannedQty   Float
+  actualQty    Float  @default(0)
+  overQty      Float  @default(0)
+
+  status         String @default("PENDING")
+  applicantId    String
+  applicantName  String
+  approvedById   String?
+  approvedByName String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  project    Project     @relation(fields: [projectId], references: [id])
+  testRecord TestRecord? @relation(fields: [testRecordId], references: [id])
+
+  @@map("material_requisitions")
+}
+
+model CableRoute {
+  id        String   @id @default(cuid())
+  projectId String
+  testRecordId String?
+
+  routeName  String
+  startPoint String
+  endPoint   String
+  cableType  String
+  length     Float
+  description String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  project    Project     @relation(fields: [projectId], references: [id])
+  testRecord TestRecord? @relation(fields: [testRecordId], references: [id])
+
+  @@map("cable_routes")
+}
+
+model Attachment {
+  id String @id @default(cuid())
+
+  entityType String
+  entityId   String
+
+  category       String
+  fileName       String
+  filePath       String
+  fileSize       Int
+  mimeType       String
+  uploadedBy     String
+  uploadedByName String
+  uploadedAt     DateTime @default(now())
+
+  testRecord   TestRecord?  @relation(fields: [testRecordId], references: [id], onDelete: Cascade)
+  testRecordId String?
+
+  reworkOrder   ReworkOrder?  @relation(fields: [reworkOrderId], references: [id], onDelete: Cascade)
+  reworkOrderId String?
+
+  @@map("attachments")
+}
+
+model UrgencyLog {
+  id String @id @default(cuid())
+
+  entityType    String
+  entityId      String
+  urgentByRole  String
+  urgentById    String
+  urgentByName  String
+  urgentToRole  String
+  urgentToId    String
+  urgentToName  String
+  reason        String
+
+  createdAt DateTime @default(now())
+
+  @@map("urgency_logs")
+}
+
+model IdempotencyRecord {
+  id             String   @id @default(cuid())
+  idempotencyKey String   @unique
+  responseHash   String
+  createdAt      DateTime @default(now())
+  expiresAt      DateTime
+
+  @@map("idempotency_records")
+}
