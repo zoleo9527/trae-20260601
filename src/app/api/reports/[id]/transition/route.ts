@@ -91,6 +91,14 @@ export async function PATCH(
       return NextResponse.json({ error: '仅品牌店长可补充提交' }, { status: 403 });
     }
 
+    if (
+      user.role === Role.BRAND_MANAGER &&
+      user.brandId &&
+      report.brandId !== user.brandId
+    ) {
+      return NextResponse.json({ error: '无权操作其他品牌的单据' }, { status: 403 });
+    }
+
     const updateData: any = {
       status: targetStatus,
     };

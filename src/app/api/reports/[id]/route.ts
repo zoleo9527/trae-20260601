@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getCurrentUser } from '@/lib/auth';
+import { Role } from '@/lib/types';
 
 export async function GET(
   request: Request,
@@ -31,6 +32,14 @@ export async function GET(
 
   if (!report) {
     return NextResponse.json({ error: '不存在' }, { status: 404 });
+  }
+
+  if (
+    user.role === Role.BRAND_MANAGER &&
+    user.brandId &&
+    report.brandId !== user.brandId
+  ) {
+    return NextResponse.json({ error: '无权查看其他品牌的单据' }, { status: 403 });
   }
 
   return NextResponse.json(report);

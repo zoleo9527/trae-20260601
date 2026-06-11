@@ -157,6 +157,10 @@ export default function ReportDetailClient({
     }
   };
 
+  const isOwnBrand =
+    currentUser.role !== Role.BRAND_MANAGER ||
+    (currentUser.brandId && report?.brand?.id === currentUser.brandId);
+
   const canReceiveMaterials =
     currentUser.role === Role.OPERATION_SUPERVISOR &&
     report?.status === ReportStatus.SUBMITTED;
@@ -178,6 +182,7 @@ export default function ReportDetailClient({
     report?.status === ReportStatus.REVIEW_PASSED;
 
   const canSupplement =
+    isOwnBrand &&
     currentUser.role === Role.BRAND_MANAGER &&
     (report?.status === ReportStatus.MATERIALS_MISSING ||
       report?.status === ReportStatus.REVIEW_REJECTED ||
