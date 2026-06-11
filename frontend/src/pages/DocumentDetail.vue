@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ArrowLeft, MessageSquare, AlertTriangle, Check, X, Clock, User, FileText, ChevronRight, PenLine, ExternalLink } from 'lucide-vue-next'
+import { ArrowLeft, MessageSquare, AlertTriangle, Check, X, Clock, User, FileText, ChevronRight, PenLine, ExternalLink, AlertOctagon } from 'lucide-vue-next'
 import { useApi } from '@/composables/useApi'
 import StatusBadge from '@/components/StatusBadge.vue'
 import ExceptionDrawer from '@/components/ExceptionDrawer.vue'
@@ -37,6 +37,16 @@ const statusActions = computed(() => {
     actions.push({ label: '查看签认', class: 'btn-secondary', navigate: '/sign-off' })
   }
   return actions
+})
+
+const blockReasonStyle = computed(() => {
+  if (!doc.value || doc.value.status === '已签认') return ''
+  const s = doc.value.status
+  const hasExc = (doc.value.unresolved_exceptions_count || 0) > 0
+  const wasRej = !!doc.value.latest_reject_reason
+  if (s === '已驳回' || wasRej) return 'bg-red-500/10 text-red-300 border border-red-500/20'
+  if (hasExc) return 'bg-orange-500/10 text-orange-300 border border-orange-500/20'
+  return 'bg-amber-500/10 text-amber-300 border border-amber-500/20'
 })
 
 const stageColors: Record<string, string> = {
@@ -136,6 +146,14 @@ onMounted(loadDoc)
             <span class="text-slate-500">更新时间</span>
             <div class="text-slate-300 mt-1">{{ formatTime(doc.updated_at) }}</div>
           </div>
+        </div>
+      </div>
+
+      <div v-if="doc.block_reason && doc.status !== '已签认'" class="card flex items-start gap-2.5" :class="blockReasonStyle">
+        <AlertOctagon :size="14" class="flex-shrink-0 mt-0.5" />
+        <div>
+          <div class="text-sm font-medium mb-0.5">为什么没签完</div>
+          <div class="text-sm opacity-90 leading-relaxed">{{ doc.block_reason }}</div>
         </div>
       </div>
 

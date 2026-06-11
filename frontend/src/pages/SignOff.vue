@@ -3,7 +3,7 @@ import { ref, computed, onMounted, nextTick, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import {
   ChevronDown, ChevronRight, Check, X, Eye, Clock, User, MessageSquare,
-  Search, CheckSquare, Square, AlertTriangle
+  Search, CheckSquare, Square, AlertTriangle, Ban, AlertOctagon
 } from 'lucide-vue-next'
 import { useApi } from '@/composables/useApi'
 import StatusBadge from '@/components/StatusBadge.vue'
@@ -14,11 +14,14 @@ const router = useRouter()
 const route = useRoute()
 const { get, post, put } = useApi()
 
+type FilterKey = 'all' | 'overdue' | 'hasException' | 'rejected'
+
 const documents = ref<CompletionDocument[]>([])
 const loading = ref(true)
 const expandedId = ref<string | null>(null)
 const detailCache = ref<Map<string, DocumentDetail>>(new Map())
 const searchQuery = ref('')
+const activeFilter = ref<FilterKey>('all')
 
 const selectedIds = ref<Set<string>>(new Set())
 
@@ -27,6 +30,34 @@ const drawerDocId = ref<string | null>(null)
 const drawerExceptions = ref<any[]>([])
 
 const collapsedGroups = ref<Set<string>>(new Set(['rejected', 'signed']))
+
+const filters: Array<{ key: FilterKey; label: string }> = [
+  { key: 'all', label: '全部' },
+  { key: 'overdue', label: '超时' },
+  { key: 'hasException', label: '未解决异常' },
+  { key: 'rejected', label: '客户驳回' },
+]
+
+function isOverdue(doc: CompletionDocument) {
+  const days = (Date.now() - new Date(doc.updated_at + 'Z').getTime()) / 86400000
+  return days > 5
+}
+
+function hasUnresolvedException(doc: CompletionDocument) {
+  return (doc.unresolved_exceptions_count || 0) > 0
+}
+
+function wasRejected(doc: CompletionDocument) {
+  return !!doc.latest_reject_reason || doc.status === '已驳回'
+}
+
+function matchFilter(doc: CompletionDocument): boolean {
+  if (activeFilter.value === 'all') return true
+  if (activeFilter.value === 'overdue') return isOverdue(doc)
+  if (activeFilter.value === 'hasException') return hasUnresolvedException(doc)
+  if (activeFilter.value === 'rejected') return wasRejected(doc)
+  return true
+}
 
 function toggleGroup(group: string) {
   if (collapsedGroups.value.has(group)) collapsedGroups.value.delete(group)
@@ -37,6 +68,28 @@ function toggleSelect(id: string) {
   if (selectedIds.value.has(id)) selectedIds.value.delete(id)
   else selectedIds.value.add(id)
 }
+
+const pendingDocs = computed(() => {
+  let docs = documents.value.filter(d => d.status === '待签认' && matchFilter(d))
+  if (searchQuery.value) docs = docs.filter(d => d.project_name.includes(searchQuery.value))
+  docs.sort((a, b) => {
+    const aRisk = hasUnresolvedException(a) ? 1 : 0
+    const bRisk = hasUnresolvedException(b) ? 1 : 0
+    if (aRisk !== bRisk) return bRisk - aRisk
+    return new Date(a.updated_at + 'Z').getTime() - new Date(b.updated_at + 'Z').getTime()
+  })
+  return docs
+})
+const rejectedDocs = computed(() => {
+  let docs = documents.value.filter(d => d.status === '已驳回' && matchFilter(d))
+  if (searchQuery.value) docs = docs.filter(d => d.project_name.includes(searchQuery.value))
+  return docs
+})
+const signedDocs = computed(() => {
+  let docs = documents.value.filter(d => d.status === '已签认' && matchFilter(d))
+  if (searchQuery.value) docs = docs.filter(d => d.project_name.includes(searchQuery.value))
+  return docs
+})
 
 const selectedCount = computed(() => selectedIds.value.size)
 const allSelected = computed(() => pendingDocs.value.length > 0 && pendingDocs.value.every(d => selectedIds.value.has(d.id)))
@@ -147,11 +200,6 @@ async function onDrawerRefresh() {
   }
 }
 
-function isOverdue(doc: CompletionDocument) {
-  const days = (Date.now() - new Date(doc.updated_at + 'Z').getTime()) / 86400000
-  return days > 5
-}
-
 const stageColors: Record<string, string> = {
   '整理': 'bg-blue-500',
   '审核': 'bg-amber-500',
@@ -180,30 +228,6 @@ const groups = computed(() => [
   { key: 'signed', label: '已签认', docs: signedDocs.value, color: 'text-emerald-400', selectable: false },
 ])
 
-const pendingDocs = computed(() => {
-  let docs = documents.value.filter(d => d.status === '待签认')
-  if (searchQuery.value) {
-    docs = docs.filter(d => d.project_name.includes(searchQuery.value))
-  }
-  docs.sort((a, b) => {
-    const aRisk = (a.exceptions_count || 0) > 0 ? 1 : 0
-    const bRisk = (b.exceptions_count || 0) > 0 ? 1 : 0
-    if (aRisk !== bRisk) return bRisk - aRisk
-    return new Date(a.updated_at + 'Z').getTime() - new Date(b.updated_at + 'Z').getTime()
-  })
-  return docs
-})
-const signedDocs = computed(() => {
-  let docs = documents.value.filter(d => d.status === '已签认')
-  if (searchQuery.value) docs = docs.filter(d => d.project_name.includes(searchQuery.value))
-  return docs
-})
-const rejectedDocs = computed(() => {
-  let docs = documents.value.filter(d => d.status === '已驳回')
-  if (searchQuery.value) docs = docs.filter(d => d.project_name.includes(searchQuery.value))
-  return docs
-})
-
 const showSignOffModal = ref(false)
 const signOffDoc = ref<CompletionDocument | null>(null)
 const signOffResult = ref<'已签认' | '已驳回'>('已签认')
@@ -223,13 +247,9 @@ async function handleHighlight() {
   const doc = documents.value.find(d => d.id === id)
   if (!doc) return
 
-  if (doc.status === '待签认') {
-    collapsedGroups.value.delete('pending')
-  } else if (doc.status === '已驳回') {
-    collapsedGroups.value.delete('rejected')
-  } else if (doc.status === '已签认') {
-    collapsedGroups.value.delete('signed')
-  }
+  if (doc.status === '待签认') collapsedGroups.value.delete('pending')
+  else if (doc.status === '已驳回') collapsedGroups.value.delete('rejected')
+  else if (doc.status === '已签认') collapsedGroups.value.delete('signed')
 
   await nextTick()
   const el = document.getElementById(`doc-${id}`)
@@ -242,9 +262,7 @@ async function handleHighlight() {
 
 watch(
   () => route.query.highlight,
-  () => {
-    if (!loading.value) handleHighlight()
-  }
+  () => { if (!loading.value) handleHighlight() }
 )
 
 onMounted(async () => {
@@ -276,9 +294,17 @@ onMounted(async () => {
           class="w-full bg-[#1e293b] border border-[#334155] rounded-lg pl-9 pr-3 py-2 text-sm text-white focus:outline-none focus:border-amber-500"
         />
       </div>
-      <span class="text-xs text-slate-500">
-        异常 {{ documents.filter(d => (d.exceptions_count || 0) > 0 && d.status === '待签认').length }} 项需关注
-      </span>
+      <div class="flex gap-1 bg-[#1e293b] border border-[#334155] rounded-lg p-1">
+        <button
+          v-for="f in filters"
+          :key="f.key"
+          @click="activeFilter = f.key"
+          class="px-3 py-1.5 text-xs rounded-md transition-colors"
+          :class="activeFilter === f.key ? 'bg-amber-500/20 text-amber-400' : 'text-slate-400 hover:text-white'"
+        >
+          {{ f.label }}
+        </button>
+      </div>
     </div>
 
     <div v-if="selectedCount > 0" class="flex items-center gap-3 mb-4 p-3 bg-amber-500/5 border border-amber-500/20 rounded-lg">
@@ -347,8 +373,11 @@ onMounted(async () => {
                   </div>
                 </div>
                 <div class="flex items-center gap-2 flex-shrink-0">
-                  <span v-if="doc.exceptions_count && doc.exceptions_count > 0 && doc.status === '待签认'" class="text-xs px-2 py-0.5 rounded bg-red-500/10 text-red-400 flex items-center gap-1 cursor-pointer" @click.stop="openDrawer(doc)">
-                    <AlertTriangle :size="10" />{{ doc.exceptions_count }}异常
+                  <span v-if="hasUnresolvedException(doc) && doc.status === '待签认'" class="text-xs px-2 py-0.5 rounded bg-red-500/10 text-red-400 flex items-center gap-1 cursor-pointer" @click.stop="openDrawer(doc)">
+                    <AlertTriangle :size="10" />{{ doc.unresolved_exceptions_count }}异常
+                  </span>
+                  <span v-if="wasRejected(doc) && doc.status === '待签认'" class="text-xs px-2 py-0.5 rounded bg-red-500/10 text-red-400 flex items-center gap-1">
+                    <Ban :size="10" />曾驳回
                   </span>
                   <span v-if="isOverdue(doc) && doc.status === '待签认'" class="text-xs px-2 py-0.5 rounded bg-orange-500/10 text-orange-400 flex items-center gap-1">
                     <Clock :size="10" />超时
@@ -360,11 +389,30 @@ onMounted(async () => {
                 </div>
               </div>
 
-              <div v-if="doc.latest_remark && expandedId !== doc.id" class="mt-2 text-xs text-slate-400 truncate px-2 py-1.5 bg-slate-800/50 rounded">
+              <div v-if="doc.block_reason && doc.status !== '已签认'" class="mt-2 text-xs flex items-start gap-1.5 px-2 py-1.5 rounded" :class="
+                doc.status === '已驳回' ? 'bg-red-500/5 text-red-300 border border-red-500/10' :
+                wasRejected(doc) ? 'bg-red-500/5 text-red-300 border border-red-500/10' :
+                hasUnresolvedException(doc) ? 'bg-orange-500/5 text-orange-300 border border-orange-500/10' :
+                isOverdue(doc) ? 'bg-orange-500/5 text-orange-300 border border-orange-500/10' :
+                'bg-slate-700/30 text-slate-300 border border-slate-700/50'
+              ">
+                <AlertOctagon :size="11" class="flex-shrink-0 mt-0.5" />
+                <span class="leading-relaxed">卡在这里：{{ doc.block_reason }}</span>
+              </div>
+
+              <div v-else-if="doc.latest_remark && expandedId !== doc.id" class="mt-2 text-xs text-slate-400 truncate px-2 py-1.5 bg-slate-800/50 rounded">
                 最近备注：{{ doc.latest_remark }}
               </div>
 
               <div v-if="expandedId === doc.id && detailCache.has(doc.id)" class="mt-4 pt-4 border-t border-[#334155]">
+                <div v-if="detailCache.get(doc.id)?.block_reason && doc.status !== '已签认'" class="mb-4 text-xs flex items-start gap-1.5 px-3 py-2.5 rounded" :class="
+                  doc.status === '已驳回' ? 'bg-red-500/10 text-red-300 border border-red-500/20' :
+                  'bg-amber-500/10 text-amber-300 border border-amber-500/20'
+                ">
+                  <AlertOctagon :size="12" class="flex-shrink-0 mt-0.5" />
+                  <span class="leading-relaxed font-medium">为什么没签完：{{ detailCache.get(doc.id)?.block_reason }}</span>
+                </div>
+
                 <div class="flex items-center gap-2 mb-3">
                   <MessageSquare :size="14" class="text-slate-400" />
                   <span class="text-xs font-medium text-slate-300">处理备注（全流程穿透 · 含客户签认意见）</span>

@@ -12,6 +12,46 @@ const statusToStage: Record<string, string> = {
   '已驳回': '异常处理',
 };
 
+function calcBlockReason(doc: any): string | null {
+  if (doc.status === '已签认') return null;
+
+  const reasons: string[] = [];
+
+  if (doc.latest_reject_reason) {
+    reasons.push(`客户驳回：${doc.latest_reject_reason}`);
+  }
+  if (doc.unresolved_exceptions_count && doc.unresolved_exceptions_count > 0) {
+    const excText = doc.latest_exception ? `最近异常：${doc.latest_exception}` : `${doc.unresolved_exceptions_count}项未解决`;
+    reasons.push(excText);
+  }
+  if (doc.status === '待签认') {
+    const days = (Date.now() - new Date(doc.updated_at + 'Z').getTime()) / 86400000;
+    if (days > 5) {
+      reasons.push(`签认超时 ${Math.floor(days)} 天未处理`);
+    }
+  } else if (doc.status === '待审核') {
+    const days = (Date.now() - new Date(doc.updated_at + 'Z').getTime()) / 86400000;
+    if (days > 3) {
+      reasons.push(`审核超时 ${Math.floor(days)} 天未处理`);
+    }
+  } else if (doc.status === '待整理') {
+    const days = (Date.now() - new Date(doc.updated_at + 'Z').getTime()) / 86400000;
+    if (days > 3) {
+      reasons.push(`整理超时 ${Math.floor(days)} 天未处理`);
+    }
+  }
+
+  if (reasons.length === 0 && doc.status !== '已签认') {
+    if (doc.status === '待签认') return '等待客户签认';
+    if (doc.status === '已驳回') return '待补充资料后重新提交';
+    if (doc.status === '待审核') return '等待项目负责人审核';
+    if (doc.status === '待整理') return '等待资料员整理';
+    return null;
+  }
+
+  return reasons.join('；');
+}
+
 router.get('/', (req, res) => {
   try {
     const { status, assignee_role } = req.query;
@@ -19,7 +59,10 @@ router.get('/', (req, res) => {
       SELECT d.*,
         (SELECT COUNT(*) FROM remarks WHERE document_id = d.id) as remarks_count,
         (SELECT COUNT(*) FROM exceptions WHERE document_id = d.id) as exceptions_count,
-        (SELECT content FROM remarks WHERE document_id = d.id ORDER BY created_at DESC LIMIT 1) as latest_remark
+        (SELECT COUNT(*) FROM exceptions WHERE document_id = d.id AND status IN ('待处理', '处理中', '已升级')) as unresolved_exceptions_count,
+        (SELECT content FROM remarks WHERE document_id = d.id ORDER BY created_at DESC LIMIT 1) as latest_remark,
+        (SELECT description FROM exceptions WHERE document_id = d.id ORDER BY created_at DESC LIMIT 1) as latest_exception,
+        (SELECT comment FROM sign_offs WHERE document_id = d.id AND result = '已驳回' ORDER BY signed_at DESC LIMIT 1) as latest_reject_reason
       FROM completion_documents d WHERE 1=1
     `;
     const params: string[] = [];
@@ -35,7 +78,8 @@ router.get('/', (req, res) => {
 
     sql += ' ORDER BY d.updated_at DESC';
 
-    const documents = db.prepare(sql).all(...params);
+    const rows = db.prepare(sql).all(...params) as any[];
+    const documents = rows.map(row => ({ ...row, block_reason: calcBlockReason(row) }));
     res.json(documents);
   } catch (err) {
     res.status(500).json({ error: '获取文档列表失败' });
@@ -164,7 +208,16 @@ router.put('/batch-sign-off', (req, res) => {
 
 router.get('/:id', (req, res) => {
   try {
-    const doc = db.prepare('SELECT * FROM completion_documents WHERE id = ?').get(req.params.id);
+    const doc = db.prepare(`
+      SELECT d.*,
+        (SELECT COUNT(*) FROM remarks WHERE document_id = d.id) as remarks_count,
+        (SELECT COUNT(*) FROM exceptions WHERE document_id = d.id) as exceptions_count,
+        (SELECT COUNT(*) FROM exceptions WHERE document_id = d.id AND status IN ('待处理', '处理中', '已升级')) as unresolved_exceptions_count,
+        (SELECT content FROM remarks WHERE document_id = d.id ORDER BY created_at DESC LIMIT 1) as latest_remark,
+        (SELECT description FROM exceptions WHERE document_id = d.id ORDER BY created_at DESC LIMIT 1) as latest_exception,
+        (SELECT comment FROM sign_offs WHERE document_id = d.id AND result = '已驳回' ORDER BY signed_at DESC LIMIT 1) as latest_reject_reason
+      FROM completion_documents d WHERE d.id = ?
+    `).get(req.params.id);
     if (!doc) {
       res.status(404).json({ error: '文档不存在' });
       return;
@@ -180,7 +233,9 @@ router.get('/:id', (req, res) => {
 
     const signOffs = db.prepare('SELECT * FROM sign_offs WHERE document_id = ? ORDER BY signed_at ASC').all(req.params.id);
 
-    res.json({ ...doc, remarks, exceptions: exceptionsWithRecords, signOffs });
+    const block_reason = calcBlockReason(doc);
+
+    res.json({ ...doc, remarks, exceptions: exceptionsWithRecords, signOffs, block_reason });
   } catch (err) {
     res.status(500).json({ error: '获取文档详情失败' });
   }

@@ -17,7 +17,11 @@ export interface CompletionDocument {
   updated_at: string
   remarks_count?: number
   exceptions_count?: number
+  unresolved_exceptions_count?: number
   latest_remark?: string
+  latest_exception?: string | null
+  latest_reject_reason?: string | null
+  block_reason?: string | null
 }
 
 export interface DocumentDetail extends CompletionDocument {
