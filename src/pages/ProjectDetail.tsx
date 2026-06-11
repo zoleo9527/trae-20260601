@@ -44,6 +44,13 @@ type PlannedMaterial = {
   notes?: string
 }
 
+
+function safeJsonParse<T = any>(val: any, fallback: T): T {
+  if (val == null || val === '') return fallback
+  if (typeof val !== 'string') return val as T
+  try { return JSON.parse(val) as T } catch (e) { return fallback }
+}
+
 const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack }) => {
   const [project, setProject] = useState<Project | null>(null)
   const [activeTab, setActiveTab] = useState('survey')
@@ -144,6 +151,9 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack }) => {
         const s = await window.api.getSurveyByProjectId(projectId)
         setSurvey(s)
         if (s) {
+          s.cable_route_structured = safeJsonParse(s.cable_route_structured, [{ from: '', to: '', method: '', length: undefined, notes: '' }])
+          s.existing_lines = safeJsonParse(s.existing_lines, [{ location: '', type: '', condition: '', notes: '' }])
+          s.difficulty_points = safeJsonParse(s.difficulty_points, [{ location: '', description: '', solution: '' }])
           setSurveyForm({
             survey_date: s.survey_date || '',
             surveyor: s.surveyor || '',
@@ -152,13 +162,13 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack }) => {
             equipment_position: s.equipment_position || '',
             ground_condition: s.ground_condition || '',
             remarks: s.remarks || '',
-            cable_route_structured: s.cable_route_structured && s.cable_route_structured.length > 0
+            cable_route_structured: Array.isArray(s.cable_route_structured) && s.cable_route_structured.length > 0
               ? s.cable_route_structured
               : [{ from: '', to: '', method: '', length: undefined, notes: '' }],
-            existing_lines: s.existing_lines && s.existing_lines.length > 0
+            existing_lines: Array.isArray(s.existing_lines) && s.existing_lines.length > 0
               ? s.existing_lines
               : [{ location: '', type: '', condition: '', notes: '' }],
-            difficulty_points: s.difficulty_points && s.difficulty_points.length > 0
+            difficulty_points: Array.isArray(s.difficulty_points) && s.difficulty_points.length > 0
               ? s.difficulty_points
               : [{ location: '', description: '', solution: '' }],
             submitted_by: s.submitted_by || '当前用户',
@@ -171,7 +181,11 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack }) => {
           window.api.getSurveyByProjectId(projectId),
           window.api.getMaterials ? window.api.getMaterials() : []
         ])
-        setWiringPlans(plans || [])
+        const parsedPlans = (plans || []).map((p: any) => ({
+          ...p,
+          planned_materials: safeJsonParse<any[]>(p.planned_materials, [])
+        }))
+        setWiringPlans(parsedPlans)
         setSurvey(s)
         setAllMaterials(mats || [])
       } else if (activeTab === 'materials') {
@@ -316,9 +330,12 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack }) => {
       conduit_spec: plan.conduit_spec || '',
       conduit_length: plan.conduit_length ?? '',
       remarks: plan.remarks || '',
-      planned_materials: plan.planned_materials && plan.planned_materials.length > 0
-        ? plan.planned_materials.map(pm => ({ ...pm, notes: (pm as any).notes || '' }))
-        : [{ material_id: 0, material_name: '', spec: '', unit: '', quantity: 0, notes: '' }],
+      planned_materials: (() => {
+        const parsed = safeJsonParse<any[]>(plan.planned_materials, [])
+        return Array.isArray(parsed) && parsed.length > 0
+          ? parsed.map(pm => ({ ...pm, notes: (pm as any).notes || '' }))
+          : [{ material_id: 0, material_name: '', spec: '', unit: '', quantity: 0, notes: '' }]
+      })(),
       created_by: plan.created_by || '当前用户',
       confirmed_by: plan.confirmed_by || ''
     })
@@ -1077,7 +1094,7 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack }) => {
                                   </div>
                                   <div style={{ gridColumn: 'span 2' }}>
                                     <div className="text-sm text-muted mb-4">计划用料清单</div>
-                                    {plan.planned_materials && plan.planned_materials.length > 0 ? (
+                                    {Array.isArray(plan.planned_materials) && plan.planned_materials.length > 0 ? (
                                       <table style={{ background: '#fff' }}>
                                         <thead>
                                           <tr>

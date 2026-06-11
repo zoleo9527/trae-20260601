@@ -1,6 +1,18 @@
 import { IpcMain } from 'electron'
 import { getDb } from './db'
 
+function safeJsonStringify(val: any): string | null {
+  if (val == null) return null
+  if (typeof val === 'string') return val
+  try { return JSON.stringify(val) } catch (e) { return null }
+}
+
+function safeJsonParse<T = any>(val: any, fallback: T): T {
+  if (val == null || val === '') return fallback
+  if (typeof val !== 'string') return val as T
+  try { return JSON.parse(val) as T } catch (e) { return fallback }
+}
+
 function addActivityLog(projectId: number | null, actionType: string, detail: string, operator: string = '系统') {
   const db = getDb()
   db.prepare(`
@@ -26,6 +38,24 @@ function getStatusLabel(status: string): string {
     completed: '已完成'
   }
   return labels[status] || status
+}
+
+function syncProjectMaterials(projectId: number, plannedMaterials: any[]) {
+  const db = getDb()
+  for (const item of plannedMaterials) {
+    const materialId = item.material_id ?? item.id
+    const plannedQty = item.quantity ?? item.planned_qty ?? 0
+    if (!materialId) continue
+    const pm = db.prepare('SELECT * FROM project_materials WHERE project_id = ? AND material_id = ?').get(projectId, materialId) as any
+    if (pm) {
+      db.prepare('UPDATE project_materials SET planned_qty = ? WHERE id = ?').run(plannedQty, pm.id)
+    } else {
+      db.prepare(`
+        INSERT INTO project_materials (project_id, material_id, planned_qty, used_qty, returned_qty, is_overrun)
+        VALUES (?, ?, ?, 0, 0, 0)
+      `).run(projectId, materialId, plannedQty)
+    }
+  }
 }
 
 export function registerIpc(ipcMain: IpcMain) {
@@ -105,7 +135,13 @@ export function registerIpc(ipcMain: IpcMain) {
 
   ipcMain.handle('getSurveyByProjectId', (_event, projectId: number) => {
     const db = getDb()
-    return db.prepare('SELECT * FROM surveys WHERE project_id = ? ORDER BY id DESC LIMIT 1').get(projectId)
+    const survey = db.prepare('SELECT * FROM surveys WHERE project_id = ? ORDER BY id DESC LIMIT 1').get(projectId) as any
+    if (survey) {
+      survey.cable_route_structured = safeJsonParse(survey.cable_route_structured, [])
+      survey.existing_lines = safeJsonParse(survey.existing_lines, [])
+      survey.difficulty_points = safeJsonParse(survey.difficulty_points, [])
+    }
+    return survey
   })
 
   ipcMain.handle('saveSurvey', (_event, projectId: number, data: any) => {
@@ -120,8 +156,8 @@ export function registerIpc(ipcMain: IpcMain) {
         WHERE id = ?
       `).run(
         data.survey_date, data.surveyor, data.site_condition,
-        data.power_environment, data.cable_route, data.cable_route_structured, data.equipment_position,
-        data.ground_condition, data.existing_lines, data.difficulty_points, data.remarks, data.status || 'draft',
+        data.power_environment, data.cable_route, safeJsonStringify(data.cable_route_structured), data.equipment_position,
+        data.ground_condition, safeJsonStringify(data.existing_lines), safeJsonStringify(data.difficulty_points), data.remarks, data.status || 'draft',
         existing.id
       )
       addActivityLog(projectId, 'update_survey', '更新现场勘查记录')
@@ -133,8 +169,8 @@ export function registerIpc(ipcMain: IpcMain) {
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `).run(
         projectId, data.survey_date, data.surveyor, data.site_condition,
-        data.power_environment, data.cable_route, data.cable_route_structured, data.equipment_position,
-        data.ground_condition, data.existing_lines, data.difficulty_points, data.remarks, data.status || 'draft'
+        data.power_environment, data.cable_route, safeJsonStringify(data.cable_route_structured), data.equipment_position,
+        data.ground_condition, safeJsonStringify(data.existing_lines), safeJsonStringify(data.difficulty_points), data.remarks, data.status || 'draft'
       )
       addActivityLog(projectId, 'create_survey', '创建现场勘查记录')
       return result.lastInsertRowid
@@ -162,48 +198,67 @@ export function registerIpc(ipcMain: IpcMain) {
 
   ipcMain.handle('getWiringPlansByProjectId', (_event, projectId: number) => {
     const db = getDb()
-    return db.prepare('SELECT * FROM wiring_plans WHERE project_id = ? ORDER BY id DESC').all(projectId)
+    const plans = db.prepare('SELECT * FROM wiring_plans WHERE project_id = ? ORDER BY id DESC').all(projectId) as any[]
+    for (const plan of plans) {
+      plan.planned_materials = safeJsonParse(plan.planned_materials, [])
+    }
+    return plans
   })
 
   ipcMain.handle('saveWiringPlan', (_event, projectId: number, data: any) => {
     const db = getDb()
-    if (data.id) {
-      db.prepare(`
-        UPDATE wiring_plans SET plan_version = ?, work_face = ?, previous_conclusion = ?,
-          wiring_method = ?, cable_spec = ?, cable_length = ?, conduit_spec = ?,
-          conduit_length = ?, planned_materials = ?, remarks = ?, status = ?, updated_at = CURRENT_TIMESTAMP
-        WHERE id = ?
-      `).run(
-        data.plan_version, data.work_face, data.previous_conclusion,
-        data.wiring_method, data.cable_spec, data.cable_length,
-        data.conduit_spec, data.conduit_length, typeof data.planned_materials === 'object' ? JSON.stringify(data.planned_materials) : data.planned_materials, data.remarks,
-        data.status || 'draft', data.id
-      )
-      addActivityLog(projectId, 'update_wiring_plan', `更新布线计划：${data.plan_version}`)
-      return data.id
-    } else {
-      const result = db.prepare(`
-        INSERT INTO wiring_plans (project_id, plan_version, work_face, previous_conclusion,
-          wiring_method, cable_spec, cable_length, conduit_spec, conduit_length, planned_materials, remarks, status, created_by)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `).run(
-        projectId, data.plan_version, data.work_face, data.previous_conclusion,
-        data.wiring_method, data.cable_spec, data.cable_length,
-        data.conduit_spec, data.conduit_length, typeof data.planned_materials === 'object' ? JSON.stringify(data.planned_materials) : data.planned_materials, data.remarks, data.status || 'draft', data.created_by || '系统'
-      )
-      addActivityLog(projectId, 'create_wiring_plan', `创建布线计划：${data.plan_version}`)
-      return result.lastInsertRowid
-    }
+    const plannedMaterials = safeJsonParse(data.planned_materials, [])
+    const txn = db.transaction(() => {
+      let planId: number
+      if (data.id) {
+        db.prepare(`
+          UPDATE wiring_plans SET plan_version = ?, work_face = ?, previous_conclusion = ?,
+            wiring_method = ?, cable_spec = ?, cable_length = ?, conduit_spec = ?,
+            conduit_length = ?, planned_materials = ?, remarks = ?, status = ?, updated_at = CURRENT_TIMESTAMP
+          WHERE id = ?
+        `).run(
+          data.plan_version, data.work_face, data.previous_conclusion,
+          data.wiring_method, data.cable_spec, data.cable_length,
+          data.conduit_spec, data.conduit_length, safeJsonStringify(data.planned_materials), data.remarks,
+          data.status || 'draft', data.id
+        )
+        planId = data.id
+        addActivityLog(projectId, 'update_wiring_plan', `更新布线计划：${data.plan_version}`)
+      } else {
+        const result = db.prepare(`
+          INSERT INTO wiring_plans (project_id, plan_version, work_face, previous_conclusion,
+            wiring_method, cable_spec, cable_length, conduit_spec, conduit_length, planned_materials, remarks, status, created_by)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `).run(
+          projectId, data.plan_version, data.work_face, data.previous_conclusion,
+          data.wiring_method, data.cable_spec, data.cable_length,
+          data.conduit_spec, data.conduit_length, safeJsonStringify(data.planned_materials), data.remarks, data.status || 'draft', data.created_by || '系统'
+        )
+        planId = result.lastInsertRowid as number
+        addActivityLog(projectId, 'create_wiring_plan', `创建布线计划：${data.plan_version}`)
+      }
+      syncProjectMaterials(projectId, plannedMaterials)
+      return planId
+    })
+    return txn()
   })
 
   ipcMain.handle('confirmWiringPlan', (_event, projectId: number, planId: number, operator?: string) => {
     const db = getDb()
     const now = new Date().toISOString().replace('T', ' ').substring(0, 19)
-    db.prepare('UPDATE wiring_plans SET status = ?, confirmed_by = ?, confirmed_at = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?').run(
-      'confirmed', operator || '系统', now, planId
-    )
-    updateProjectStatus(projectId, 'wiring_planned')
-    addActivityLog(projectId, 'confirm_wiring_plan', '确认布线计划', operator || '系统')
+    const txn = db.transaction(() => {
+      db.prepare('UPDATE wiring_plans SET status = ?, confirmed_by = ?, confirmed_at = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?').run(
+        'confirmed', operator || '系统', now, planId
+      )
+      const plan = db.prepare('SELECT planned_materials FROM wiring_plans WHERE id = ?').get(planId) as any
+      if (plan) {
+        const plannedMaterials = safeJsonParse(plan.planned_materials, [])
+        syncProjectMaterials(projectId, plannedMaterials)
+      }
+      updateProjectStatus(projectId, 'wiring_planned')
+      addActivityLog(projectId, 'confirm_wiring_plan', '确认布线计划', operator || '系统')
+    })
+    txn()
   })
 
   ipcMain.handle('getMaterials', () => {
