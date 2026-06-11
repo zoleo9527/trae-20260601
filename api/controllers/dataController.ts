@@ -83,7 +83,13 @@ export const requisitionCtrl = {
 }
 
 export const checkinCtrl = {
-  list: (_req: Request, res: Response) => res.json(SeedData.checkins),
+  list: (req: Request, res: Response) => {
+    const { projectId, teamId } = req.query
+    let data = SeedData.checkins.slice()
+    if (projectId) data = data.filter(c => c.projectId === projectId)
+    if (teamId) data = data.filter(c => c.teamId === teamId)
+    res.json(data)
+  },
   create: (req: Request, res: Response) => {
     const body = req.body as Partial<CheckIn>
     const record: CheckIn = {
@@ -141,7 +147,13 @@ export const pointCtrl = {
 }
 
 export const shortageCtrl = {
-  list: (_req: Request, res: Response) => res.json(SeedData.shortages),
+  list: (req: Request, res: Response) => {
+    const { projectId, status } = req.query
+    let data = SeedData.shortages.slice()
+    if (projectId) data = data.filter(s => s.projectId === projectId)
+    if (status) data = data.filter(s => s.status === status)
+    res.json(data)
+  },
   create: (req: Request, res: Response) => {
     const body = req.body as Partial<Shortage>
     const today = new Date().toISOString().slice(0, 10).replace(/-/g, '')
@@ -173,7 +185,14 @@ export const shortageCtrl = {
 }
 
 export const returnCtrl = {
-  list: (_req: Request, res: Response) => res.json(SeedData.returns),
+  list: (req: Request, res: Response) => {
+    const { projectId, status, teamId } = req.query
+    let data = SeedData.returns.slice()
+    if (projectId) data = data.filter(r => r.projectId === projectId)
+    if (status) data = data.filter(r => r.status === status)
+    if (teamId) data = data.filter(r => r.teamId === teamId)
+    res.json(data)
+  },
   create: (req: Request, res: Response) => {
     const body = req.body as Partial<ReturnRecord>
     const today = new Date().toISOString().slice(0, 10).replace(/-/g, '')
@@ -215,6 +234,7 @@ export const timelineCtrl = {
 export const traceCtrl = {
   get: (req: Request, res: Response) => {
     const rid = req.params.requisitionId
-    res.json(buildTrace(rid))
+    const { projectId } = req.query
+    res.json(buildTrace(rid, projectId as string | undefined))
   }
 }

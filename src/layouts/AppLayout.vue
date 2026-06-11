@@ -13,7 +13,6 @@ const route = useRoute()
 const router = useRouter()
 const store = useDataStore()
 
-const currentProjectId = ref<string>('')
 const searchText = ref('')
 
 const navItems = [
@@ -33,15 +32,11 @@ function navigate(path: string) {
 
 function onProjectChange(e: Event) {
   const id = (e.target as HTMLSelectElement).value
-  currentProjectId.value = id
-  store.loadAll(id)
+  if (id) store.setCurrentProject(id)
 }
 
 onMounted(async () => {
   await store.loadAll()
-  if (projectOptions.value.length > 0 && !currentProjectId.value) {
-    currentProjectId.value = projectOptions.value[0].id
-  }
 })
 </script>
 
@@ -121,7 +116,7 @@ onMounted(async () => {
 
           <div class="flex-1 max-w-xs">
             <select
-              :value="currentProjectId"
+              :value="store.currentProjectId"
               @change="onProjectChange"
               class="w-full px-3 py-2 text-sm bg-gray-50 border border-gray-200 rounded-md text-gray-900 focus:outline-none focus:border-[#1E40AF] focus:ring-2 focus:ring-[#1E40AF]/15 appearance-none cursor-pointer"
             >

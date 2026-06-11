@@ -71,10 +71,11 @@ export function buildTimeline(projectId: string): TimelineEvent[] {
   return events
 }
 
-export function buildTrace(requisitionId?: string): TraceRow[] {
-  const reqs = requisitionId
+export function buildTrace(requisitionId?: string, projectId?: string): TraceRow[] {
+  let reqs = requisitionId
     ? SeedData.requisitions.filter(r => r.id === requisitionId)
-    : SeedData.requisitions
+    : SeedData.requisitions.slice()
+  if (projectId) reqs = reqs.filter(r => r.projectId === projectId)
   const rows: TraceRow[] = []
   for (const r of reqs) {
     for (const item of r.items) {

@@ -117,6 +117,13 @@ function doPrint() { window.print() }
 
 <template>
   <div class="space-y-5">
+    <div v-if="store.currentProject" class="flex items-center gap-3 bg-[#1E40AF]/5 border border-[#1E40AF]/20 rounded-[4px] px-4 py-2.5">
+      <Layers class="w-4 h-4 text-[#1E40AF]" />
+      <span class="text-sm text-gray-700">当前数据范围：</span>
+      <span class="text-sm font-semibold text-[#1E40AF]">{{ store.currentProject.name }}</span>
+      <span class="text-xs text-gray-500">(时间轴、追溯表、归档资料均按此项目过滤，切换顶部下拉框可查看其他项目)</span>
+    </div>
+
     <div class="bg-white border border-gray-200 rounded-[4px] p-1.5 inline-flex gap-1 shadow-sm">
       <button v-for="t in tabs" :key="t.key"
         class="flex items-center gap-2 px-4 py-2 rounded-[4px] text-sm font-medium transition-all"
