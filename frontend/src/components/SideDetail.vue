@@ -177,10 +177,20 @@
       <div class="detail-block" v-if="complaint.tenantVisits.length > 0">
         <div class="detail-block-title">
           租户/顾客回访
-          <el-button size="small" text type="success" style="margin-left:auto;" @click="$emit('open-visit')">
-            <el-icon><Phone /></el-icon>
-            {{ complaint.tenantVisits.some(v => v.result === 'pending') ? '去回访' : '再次回访' }}
+          <el-button
+            v-if="hasPendingVisit"
+            size="small"
+            text
+            type="success"
+            style="margin-left:auto;"
+            @click="$emit('open-visit')"
+          >
+            <el-icon><Phone /></el-icon>去回访
           </el-button>
+          <span
+            v-else
+            style="margin-left:auto;font-size:12px;color:#909399;"
+          >所有回访已完成</span>
         </div>
         <div v-for="v in complaint.tenantVisits" :key="v.id" style="margin-bottom:14px;padding:12px;border-radius:6px;border:1px solid #ebeef5;">
           <div style="display:flex;align-items:center;margin-bottom:10px;gap:10px;flex-wrap:wrap;">
@@ -283,10 +293,13 @@
           <el-icon><CircleCheck /></el-icon>完成处理
         </el-button>
       </template>
-      <template v-if="complaint.status !== 'closed'">
-        <el-button type="success" @click="$emit('open-visit')">
-          <el-icon><Phone /></el-icon>租户回访
+      <template v-if="complaint.status === 'visiting'">
+        <el-button v-if="hasPendingVisit" type="success" @click="$emit('open-visit')">
+          <el-icon><Phone /></el-icon>去回访
         </el-button>
+        <span v-else style="font-size:12px;color:#909399;">
+          <el-icon><InfoFilled /></el-icon>暂无待回访任务，请先完成现场处理并创建回访
+        </span>
       </template>
       <template v-if="complaint.status === 'completed'">
         <el-button @click="$emit('open-close')">
@@ -316,6 +329,10 @@ const props = defineProps<{ complaint: Complaint }>()
 defineEmits(['open-judge', 'open-visit', 'open-complete', 'open-close', 'open-assign'])
 
 const store = useComplaintStore()
+
+const hasPendingVisit = computed(() =>
+  props.complaint.tenantVisits.some(v => v.result === 'pending')
+)
 
 const JUDGE_TYPE_LABEL: Record<string, string> = {
   responsibility: '责任判定',

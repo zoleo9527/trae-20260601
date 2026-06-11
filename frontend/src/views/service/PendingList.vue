@@ -221,12 +221,12 @@
                   @click.stop="openJudgeDialog(row)"
                 >判定</el-button>
                 <el-button
-                  v-if="row.status === 'visiting'"
+                  v-if="row.status === 'visiting' && row.tenantVisits.some(v => v.result === 'pending')"
                   size="small"
                   type="success"
                   link
                   @click.stop="openVisitDialog(row)"
-                >回访</el-button>
+                >去回访</el-button>
                 <el-button
                   v-if="row.status === 'processing'"
                   size="small"
