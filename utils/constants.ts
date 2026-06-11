@@ -116,3 +116,27 @@ export function getStageBadge(stage: StageKey, status: LeaseStatus): StageBadge 
   const map = stage === 'plan' ? STAGE_PLAN : stage === 'contract' ? STAGE_CONTRACT : STAGE_DECORATION
   return map[status] || { label: '待启动', cls: 'bg-gray-100 text-gray-500' }
 }
+
+export interface BatchActionMeta {
+  action: 'approve' | 'submit' | 'resubmit'
+  label: string
+  needReason: boolean
+}
+
+export const BATCH_ADVANCE_MAP: Partial<Record<Role, Partial<Record<LeaseStatus, BatchActionMeta>>>> = {
+  manager: {
+    plan_pending: { action: 'approve', label: '通过租赁方案', needReason: false },
+    contract_pending: { action: 'approve', label: '通过合同审批', needReason: false }
+  },
+  supervisor: {
+    plan_approved: { action: 'submit', label: '批量提交合同', needReason: false },
+    contract_rejected: { action: 'resubmit', label: '批量重提合同', needReason: false }
+  },
+  property_engineer: {
+    decoration_pending: { action: 'approve', label: '通过装修审批', needReason: false }
+  }
+}
+
+export function getBatchActionMeta(role: Role, status: LeaseStatus): BatchActionMeta | null {
+  return BATCH_ADVANCE_MAP[role]?.[status] || null
+}

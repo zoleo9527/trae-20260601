@@ -192,7 +192,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { useLeaseStore } from '~/stores/lease'
-import { STATUS_OPTIONS, getStatusMeta, getRoleLabel } from '~/utils/constants'
+import { STATUS_OPTIONS, getStatusMeta, getRoleLabel, getBatchActionMeta } from '~/utils/constants'
 import type { LeaseRecord, LeaseStatus } from '~/types/lease'
 
 const store = useLeaseStore()
@@ -285,10 +285,12 @@ const canBatchAdvance = computed(() => {
   if (!ids.length) return false
   const first = store.getRecord(ids[0])
   if (!first) return false
-  return ids.every(id => {
+  const sameStatus = ids.every(id => {
     const r = store.getRecord(id)
     return r && r.currentStatus === first.currentStatus
   })
+  if (!sameStatus) return false
+  return getBatchActionMeta(store.currentUser.role, first.currentStatus) !== null
 })
 
 function setFilter(v: LeaseStatus | 'all' | 'todo') { activeFilter.value = v }
