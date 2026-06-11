@@ -197,6 +197,29 @@ app.put('/api/rectifications/:id/status', (req, res) => {
   res.json({ success: true });
 });
 
+app.put('/api/rectifications/:id/handler', (req, res) => {
+  const id = req.params.id;
+  const { handlerName, operatorName } = req.body;
+
+  const rect = db.prepare('SELECT * FROM inspection_rectifications WHERE id = ?').get(id);
+  if (!rect) {
+    return res.status(404).json({ error: '整改单不存在' });
+  }
+
+  const oldHandler = rect.handler_name || '（空）';
+  const newHandler = handlerName || '（空）';
+
+  db.prepare(`
+    UPDATE inspection_rectifications
+    SET handler_name = ?, updated_at = datetime('now')
+    WHERE id = ?
+  `).run(handlerName || null, id);
+
+  addLog('rectification', id, operatorName || '系统', 'reassign', `负责人由 ${oldHandler} 变更为 ${newHandler}`);
+
+  res.json({ success: true });
+});
+
 app.post('/api/rectifications/:id/comments', (req, res) => {
   const id = req.params.id;
   const { authorName, content } = req.body;

@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import {
   Rectification, STATUS_LABELS, STATUS_COLORS,
-  SEVERITY_LABELS, SEVERITY_COLORS, Attachment, OperationLog, Comment
+  SEVERITY_LABELS, SEVERITY_COLORS, Attachment, OperationLog, Comment, Store, User
 } from '../types';
 
 const RectificationDetail: React.FC = () => {
@@ -16,12 +16,30 @@ const RectificationDetail: React.FC = () => {
   const [showProcessModal, setShowProcessModal] = useState(false);
   const [processNote, setProcessNote] = useState('');
   const [processAction, setProcessAction] = useState<'start' | 'submit'>('start');
+  const [showReassignModal, setShowReassignModal] = useState(false);
+  const [selectedHandler, setSelectedHandler] = useState('');
+  const [customHandlerMode, setCustomHandlerMode] = useState(false);
+  const [customHandlerName, setCustomHandlerName] = useState('');
+  const [stores, setStores] = useState<Store[]>([]);
+  const [storeManagers, setStoreManagers] = useState<User[]>([]);
 
   useEffect(() => {
     if (id) {
       fetchDetail();
     }
   }, [id]);
+
+  useEffect(() => {
+    fetch('/api/stores').then(r => r.json()).then(setStores).catch(console.error);
+    fetch('/api/users?role=store_manager').then(r => r.json()).then(setStoreManagers).catch(console.error);
+  }, []);
+
+  const managerOptions = useMemo(() => {
+    const names = new Set<string>();
+    stores.forEach(s => { if (s.manager) names.add(s.manager); });
+    storeManagers.forEach(u => { if (u.name) names.add(u.name); });
+    return Array.from(names).sort();
+  }, [stores, storeManagers]);
 
   const fetchDetail = async () => {
     setLoading(true);
@@ -60,6 +78,28 @@ const RectificationDetail: React.FC = () => {
         body: JSON.stringify({ authorName: userName, content: commentText }),
       });
       setCommentText('');
+      fetchDetail();
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const openReassignModal = () => {
+    setSelectedHandler(data?.handler_name || '');
+    setCustomHandlerMode(false);
+    setCustomHandlerName('');
+    setShowReassignModal(true);
+  };
+
+  const handleReassign = async () => {
+    const handlerName = customHandlerMode ? customHandlerName.trim() : selectedHandler;
+    try {
+      await fetch(`/api/rectifications/${id}/handler`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ handlerName, operatorName: userName }),
+      });
+      setShowReassignModal(false);
       fetchDetail();
     } catch (e) {
       console.error(e);
@@ -108,6 +148,7 @@ const RectificationDetail: React.FC = () => {
   const canStartRectify = role === 'store_manager' && data.status === 'pending' && data.handler_name === userName;
   const canSubmitReview = role === 'store_manager' && data.status === 'in_progress' && data.handler_name === userName;
   const canGoReview = role === 'ops_supervisor' && data.status === 'pending_review' && data.review;
+  const canReassign = role === 'ops_supervisor' && data.status !== 'completed';
 
   return (
     <div>
@@ -210,7 +251,18 @@ const RectificationDetail: React.FC = () => {
                 </div>
                 <div className="detail-item">
                   <span className="detail-label">负责人</span>
-                  <span className="detail-value">{data.handler_name || '-'}</span>
+                  <span className="detail-value" style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                    {data.handler_name ? (
+                      <span>{data.handler_name}</span>
+                    ) : (
+                      <span className="tag tag-default" style={{ fontSize: 12 }}>待指派</span>
+                    )}
+                    {canReassign && (
+                      <button className="btn btn-sm" style={{ padding: '2px 8px', fontSize: 12 }} onClick={openReassignModal}>
+                        {data.handler_name ? '改派' : '补录'}
+                      </button>
+                    )}
+                  </span>
                 </div>
                 <div className="detail-item">
                   <span className="detail-label">截止日期</span>
@@ -431,6 +483,77 @@ const RectificationDetail: React.FC = () => {
                 )}
               >
                 {processAction === 'start' ? '确认开始' : '提交复查'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 改派负责人弹窗 */}
+      {showReassignModal && (
+        <div className="modal-overlay" onClick={() => setShowReassignModal(false)}>
+          <div className="modal" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              {data?.handler_name ? '改派负责人' : '补录负责人'}
+            </div>
+            <div className="modal-body">
+              <div className="form-group">
+                <label className="form-label">选择负责人</label>
+                {!customHandlerMode ? (
+                  <select
+                    className="select"
+                    value={selectedHandler}
+                    onChange={e => {
+                      const val = e.target.value;
+                      if (val === '__custom__') {
+                        setCustomHandlerMode(true);
+                        setCustomHandlerName('');
+                      } else {
+                        setSelectedHandler(val);
+                      }
+                    }}
+                  >
+                    <option value="">请选择...</option>
+                    {managerOptions.map(name => (
+                      <option key={name} value={name}>{name}</option>
+                    ))}
+                    <option value="__custom__">✏️ 手动输入...</option>
+                  </select>
+                ) : (
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <input
+                      className="input"
+                      placeholder="输入负责人姓名"
+                      value={customHandlerName}
+                      onChange={e => setCustomHandlerName(e.target.value)}
+                      style={{ flex: 1 }}
+                    />
+                    <button
+                      className="btn"
+                      onClick={() => {
+                        setCustomHandlerMode(false);
+                        setCustomHandlerName('');
+                      }}
+                    >
+                      返回选择
+                    </button>
+                  </div>
+                )}
+              </div>
+              {!data?.handler_name && (
+                <div className="form-hint" style={{ color: 'var(--warning)' }}>
+                  ⚠️ 当前整改单尚未指派负责人，补录后店长将收到整改任务。
+                </div>
+              )}
+            </div>
+            <div className="modal-footer">
+              <button className="btn" onClick={() => setShowReassignModal(false)}>取消</button>
+              <button
+                className="btn btn-primary"
+                onClick={handleReassign}
+                disabled={customHandlerMode ? !customHandlerName.trim() : !selectedHandler}
+              >
+                确认{data?.handler_name ? '改派' : '补录'}
               </button>
             </div>
           </div>

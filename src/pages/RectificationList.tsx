@@ -153,7 +153,13 @@ const RectificationList: React.FC = () => {
                           {SEVERITY_LABELS[item.severity] || item.severity}
                         </span>
                       </td>
-                      <td>{item.handler_name || '-'}</td>
+                      <td>
+                        {item.handler_name ? (
+                          <span>{item.handler_name}</span>
+                        ) : (
+                          <span className="tag tag-default" style={{ fontSize: 12 }}>待指派</span>
+                        )}
+                      </td>
                       <td>
                         {overdue ? (
                           <span style={{ color: 'var(--error)', fontWeight: 500 }}>
