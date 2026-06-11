@@ -53,9 +53,23 @@ export const useDataStore = defineStore('data', () => {
     }
   }
 
+  async function refreshTimelineAndTrace() {
+    try {
+      const [tl, tr] = await Promise.all([
+        api<TimelineEvent[]>('/timeline/'),
+        api<TraceRow[]>('/trace')
+      ])
+      timeline.value = tl
+      trace.value = tr
+    } catch (e) {
+      console.warn('刷新时间轴/追溯数据失败', e)
+    }
+  }
+
   async function createRequisition(payload: Partial<Requisition>) {
     const r = await api<Requisition>('/requisitions', { method: 'POST', body: payload })
     requisitions.value.unshift(r)
+    await refreshTimelineAndTrace()
     return r
   }
 
@@ -65,6 +79,7 @@ export const useDataStore = defineStore('data', () => {
     })
     const i = requisitions.value.findIndex(x => x.id === id)
     if (i >= 0) requisitions.value[i] = r
+    await refreshTimelineAndTrace()
     return r
   }
 
@@ -72,30 +87,35 @@ export const useDataStore = defineStore('data', () => {
     const r = await api<Requisition>(`/requisitions/${id}/issue`, { method: 'PUT', body: {} })
     const i = requisitions.value.findIndex(x => x.id === id)
     if (i >= 0) requisitions.value[i] = r
+    await refreshTimelineAndTrace()
     return r
   }
 
   async function createCheckin(payload: Partial<CheckIn>) {
     const c = await api<CheckIn>('/checkins', { method: 'POST', body: payload })
     checkins.value.unshift(c)
+    await refreshTimelineAndTrace()
     return c
   }
 
   async function createPoint(payload: Partial<CablePoint>) {
     const p = await api<CablePoint>('/points', { method: 'POST', body: payload })
     points.value.unshift(p)
+    await refreshTimelineAndTrace()
     return p
   }
 
   async function createShortage(payload: Partial<Shortage>) {
     const s = await api<Shortage>('/shortages', { method: 'POST', body: payload })
     shortages.value.unshift(s)
+    await refreshTimelineAndTrace()
     return s
   }
 
   async function createReturn(payload: Partial<ReturnRecord>) {
     const r = await api<ReturnRecord>('/returns', { method: 'POST', body: payload })
     returns.value.unshift(r)
+    await refreshTimelineAndTrace()
     return r
   }
 
@@ -103,6 +123,7 @@ export const useDataStore = defineStore('data', () => {
     const r = await api<ReturnRecord>(`/returns/${id}/receive`, { method: 'PUT', body: {} })
     const i = returns.value.findIndex(x => x.id === id)
     if (i >= 0) returns.value[i] = r
+    await refreshTimelineAndTrace()
     return r
   }
 
@@ -120,7 +141,8 @@ export const useDataStore = defineStore('data', () => {
     projects, cables, teams, requisitions, checkins, points, shortages, returns,
     timeline, trace, loading,
     pendingRequisitions, pendingReturns, openShortages,
-    loadAll, createRequisition, approveRequisition, issueRequisition,
+    loadAll, refreshTimelineAndTrace,
+    createRequisition, approveRequisition, issueRequisition,
     createCheckin, createPoint, createShortage, createReturn, receiveReturn,
     projectName, teamName, cableName
   }

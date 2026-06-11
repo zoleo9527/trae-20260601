@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { ref, computed, reactive, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, computed, reactive, onMounted, watch } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import { useDataStore } from '@/stores/data'
 import {
   ArrowLeft, Plus, Trash2, Save, Send, FileText, Building2, Users,
@@ -12,6 +12,7 @@ import UiInput from '@/components/ui/UiInput.vue'
 import type { RequisitionItem, RequisitionTag, CableType, Shortage } from '@shared/types'
 
 const router = useRouter()
+const route = useRoute()
 const store = useDataStore()
 
 interface FormItem {
@@ -252,11 +253,40 @@ function removePhoto(idx: number) {
   form.photos.splice(idx, 1)
 }
 
-onMounted(() => {
+async function initFromRoute() {
   if (store.cables.length === 0) {
-    store.loadAll()
+    await store.loadAll()
   }
+  const shortageId = route.query.shortageId as string
+  const projectId = route.query.projectId as string
+  if (projectId) {
+    form.projectId = projectId
+  }
+  if (shortageId) {
+    const s = store.shortages.find(x => x.id === shortageId)
+    if (s) {
+      form.type = 'supplement'
+      form.relatedShortageId = shortageId
+      if (!form.projectId) form.projectId = s.projectId
+      items.value = [{
+        id: crypto.randomUUID(),
+        cableId: s.cableId,
+        designQty: 0,
+        quantity: s.shortageQty
+      }]
+      if (!form.applicant) form.applicant = s.reporter
+      if (!form.remark) form.remark = `【补领】关联缺料单 ${s.code}，${s.remark || ''}`
+    }
+  }
+}
+
+onMounted(() => {
+  initFromRoute()
 })
+
+watch(() => route.query, () => {
+  initFromRoute()
+}, { deep: true })
 </script>
 
 <template>
