@@ -2,7 +2,17 @@ import { json } from '@sveltejs/kit';
 import { prepare, exec, STATUS, STATUS_META } from '$lib/server/db.js';
 
 export async function POST({ params, request }) {
-  const { signatory_id, signatory_name, signature_data, remark } = await request.json();
+  const { signatory_id, signature_data, remark } = await request.json();
+
+  if (!signatory_id) {
+    return json({ error: '缺少签收人ID' }, { status: 400 });
+  }
+
+  const userStmt = prepare('SELECT * FROM users WHERE id = ?');
+  const signatory = await userStmt.get(signatory_id);
+  if (!signatory) {
+    return json({ error: '签收用户不存在' }, { status: 400 });
+  }
 
   const reportSql = `
     SELECT r.*, b.property_manager_id, u.name as property_manager_name
@@ -24,9 +34,7 @@ export async function POST({ params, request }) {
     }, { status: 400 });
   }
 
-  const userStmt = prepare('SELECT * FROM users WHERE id = ?');
-  const signatory = await userStmt.get(signatory_id);
-  if (!signatory || signatory.role !== 'property') {
+  if (signatory.role !== 'property') {
     return json({ error: '只有物业联系人可以签收' }, { status: 403 });
   }
 
@@ -34,7 +42,7 @@ export async function POST({ params, request }) {
     return json({ error: '此楼宇未指定物业联系人' }, { status: 403 });
   }
 
-  if (report.property_manager_id !== signatory_id) {
+  if (report.property_manager_id !== signatory.id) {
     return json({
       error: `签收人不匹配：此楼宇的物业联系人为「${report.property_manager_name || '未设置'}」，您「${signatory.name}」无权签收`,
       expected_signatory: report.property_manager_name,
@@ -49,8 +57,8 @@ export async function POST({ params, request }) {
       report_id, signatory_id, signatory_name, signature_data, remark, signed_at
     ) VALUES (
       ${params.id},
-      ${signatory_id},
-      '${signatory_name.replace(/'/g, "''")}',
+      ${signatory.id},
+      '${signatory.name}',
       ${signature_data ? `'${signature_data.replace(/'/g, "''")}'` : 'NULL'},
       '${(remark || '').replace(/'/g, "''")}',
       '${now}'
@@ -61,8 +69,8 @@ export async function POST({ params, request }) {
       ${params.id},
       '${report.current_status}',
       '${STATUS.SIGNED}',
-      ${signatory_id},
-      'property',
+      ${signatory.id},
+      '${signatory.role}',
       '${(remark || '客户已签收').replace(/'/g, "''")}',
       '${now}'
     );

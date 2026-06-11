@@ -96,6 +96,11 @@
     && $currentUser.role === 'property'
     && isPropertyManagerOfBuilding;
 
+  $: canDispute = report
+    && report.current_status === 'pending_signature'
+    && $currentUser.role === 'property'
+    && isPropertyManagerOfBuilding;
+
   $: availableActions = report
     ? (allowedStatusActions[report.current_status] || [])
         .map(key => {
@@ -129,7 +134,6 @@
       body: JSON.stringify({
         to_status: currentAction.key,
         operator_id: $currentUser.id,
-        operator_role: $currentUser.role,
         remark: actionRemark
       })
     });
@@ -154,7 +158,6 @@
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         signatory_id: $currentUser.id,
-        signatory_name: $currentUser.name,
         remark: signatureRemark
       })
     });
@@ -170,6 +173,33 @@
       activeTab = 'signature';
     } else {
       errorMsg = data.error || '签收失败';
+      alert(errorMsg);
+    }
+  };
+
+  const executeDispute = async () => {
+    const res = await fetch(`/api/reports/${report.id}/transition`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        to_status: 'disputed',
+        operator_id: $currentUser.id,
+        remark: signatureRemark
+      })
+    });
+
+    const data = await res.json();
+    if (data.success) {
+      transitions = [...transitions, data.transition];
+      report.current_status = data.new_status.value;
+      report.status_label = data.new_status.label;
+      report.status_color = data.new_status.color;
+      report.responsible_role = data.new_status.responsible_role;
+      signatureRemark = '';
+      activeTab = 'timeline';
+    } else {
+      errorMsg = data.error || '操作失败';
+      alert(errorMsg);
     }
   };
 
@@ -407,30 +437,46 @@
                     （{report.property_manager_phone}）
                   {/if}
                 </p>
-                {#if canSign}
+                {#if canSign || canDispute}
                   <div class="sign-here">
                     <textarea
                       bind:value={signatureRemark}
-                      placeholder="签收备注（可选）"
+                      placeholder="签收/异议备注（提出异议必填说明）"
                       rows="3"
                     ></textarea>
-                    <button class="action-btn success" on:click={() => {
-                      if (confirm('确认签收此维保报告？签收后将写入永久记录，不可撤销。')) {
-                        executeSign();
-                      }
-                    }}>
-                      确认签收（签名将写入数据库）
-                    </button>
+                    <div class="sign-actions">
+                      <button class="action-btn danger" on:click={() => {
+                        if (!signatureRemark.trim()) {
+                          alert('提出异议请填写具体说明');
+                          return;
+                        }
+                        if (confirm('确认对此报告提出异议？状态将转为「签收异议」，由维保主管处理。')) {
+                          executeDispute();
+                        }
+                      }}>
+                        提出异议
+                      </button>
+                      <button class="action-btn success" on:click={() => {
+                        if (confirm('确认签收此维保报告？签收后将写入永久记录，不可撤销。')) {
+                          executeSign();
+                        }
+                      }}>
+                        确认签收
+                      </button>
+                    </div>
+                    <p class="sign-hint">
+                      签收记录将永久存入 <code>signature_records</code>，不可篡改与撤销
+                    </p>
                   </div>
                 {:else if $currentUser.role === 'property'}
                   <div class="unauthorized-hint">
                     ⚠️ 您的身份为物业联系人（{$currentUser.name}），
                     但此楼宇的物业联系人为「{report.property_manager_name || '未设置'}」，
-                    您无权签收此报告。
+                    您无权签收或提出异议。
                   </div>
                 {:else}
                   <div class="unauthorized-hint">
-                    只有本楼宇的物业联系人（{report.property_manager_name || '未设置'}）可以进行签收
+                    只有本楼宇的物业联系人（{report.property_manager_name || '未设置'}）可以进行签收或提出异议
                   </div>
                 {/if}
               {:else}
@@ -999,5 +1045,53 @@
     max-width: 480px;
     margin-left: auto;
     margin-right: auto;
+  }
+
+  .sign-here {
+    margin-top: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    max-width: 480px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  .sign-here textarea {
+    padding: 12px;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    font-family: inherit;
+    font-size: 14px;
+    resize: vertical;
+    min-height: 80px;
+  }
+
+  .sign-actions {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+  }
+
+  .sign-actions .action-btn {
+    flex: 1;
+    max-width: 200px;
+    padding: 12px 20px;
+    font-size: 14px;
+  }
+
+  .sign-hint {
+    text-align: center;
+    font-size: 11px;
+    color: #94a3b8;
+    margin: 4px 0 0;
+  }
+
+  .sign-hint code {
+    background: #f1f5f9;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-family: monospace;
   }
 </style>

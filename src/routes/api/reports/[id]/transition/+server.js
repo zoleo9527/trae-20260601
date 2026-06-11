@@ -1,10 +1,26 @@
 import { json } from '@sveltejs/kit';
-import { prepare, exec, STATUS, STATUS_TRANSITIONS, STATUS_META } from '$lib/server/db.js';
+import { prepare, exec, STATUS, STATUS_TRANSITIONS, STATUS_META, TRANSITION_OPERATOR_ROLES } from '$lib/server/db.js';
 
 export async function POST({ params, request }) {
-  const { to_status, operator_id, operator_role, remark } = await request.json();
+  const { to_status, operator_id, remark } = await request.json();
 
-  const reportStmt = prepare('SELECT * FROM maintenance_reports WHERE id = ?');
+  if (!operator_id) {
+    return json({ error: '缺少操作人ID' }, { status: 400 });
+  }
+
+  const userStmt = prepare('SELECT * FROM users WHERE id = ?');
+  const operator = await userStmt.get(operator_id);
+  if (!operator) {
+    return json({ error: '操作用户不存在' }, { status: 400 });
+  }
+
+  const reportSql = `
+    SELECT r.*, b.property_manager_id
+    FROM maintenance_reports r
+    JOIN buildings b ON r.building_id = b.id
+    WHERE r.id = ?
+  `;
+  const reportStmt = prepare(reportSql);
   const report = await reportStmt.get(params.id);
 
   if (!report) {
@@ -18,19 +34,28 @@ export async function POST({ params, request }) {
     }, { status: 400 });
   }
 
-  const expectedRole = STATUS_META[to_status]?.responsibleRole;
-  if (expectedRole && operator_role !== expectedRole &&
-      !(to_status === STATUS.REPORT_SUBMITTED && operator_role === 'inspector') &&
-      !(to_status === STATUS.PENDING_SIGNATURE && operator_role === 'supervisor')) {
+  const expectedOperatorRole = TRANSITION_OPERATOR_ROLES[to_status];
+  if (expectedOperatorRole && operator.role !== expectedOperatorRole) {
+    const roleLabel = operator.role === 'inspector' ? '巡检工程师' :
+                      operator.role === 'property' ? '物业联系人' :
+                      operator.role === 'supervisor' ? '维保主管' : operator.role;
+    const expectedLabel = expectedOperatorRole === 'inspector' ? '巡检工程师' :
+                          expectedOperatorRole === 'property' ? '物业联系人' :
+                          expectedOperatorRole === 'supervisor' ? '维保主管' : expectedOperatorRole;
     return json({
-      error: `「${operator_role}」无权执行此操作，当前状态应由「${expectedRole}」处理`
+      error: `操作角色不匹配：您的身份是「${roleLabel}」，此操作需要「${expectedLabel}」身份`
     }, { status: 403 });
   }
 
-  const userStmt = prepare('SELECT * FROM users WHERE id = ?');
-  const operator = await userStmt.get(operator_id);
-  if (!operator) {
-    return json({ error: '操作用户不存在' }, { status: 400 });
+  if (to_status === STATUS.DISPUTED) {
+    if (!report.property_manager_id) {
+      return json({ error: '此楼宇未指定物业联系人' }, { status: 403 });
+    }
+    if (report.property_manager_id !== operator.id) {
+      return json({
+        error: `只有此楼宇的物业联系人才能提出异议，您不是该楼宇的物业联系人`
+      }, { status: 403 });
+    }
   }
 
   const now = new Date().toISOString().replace('T', ' ').substring(0, 19);
@@ -42,8 +67,8 @@ export async function POST({ params, request }) {
       ${params.id},
       ${report.current_status ? `'${report.current_status}'` : 'NULL'},
       '${to_status}',
-      ${operator_id},
-      '${operator_role}',
+      ${operator.id},
+      '${operator.role}',
       '${(remark || '').replace(/'/g, "''")}',
       '${now}'
     );
