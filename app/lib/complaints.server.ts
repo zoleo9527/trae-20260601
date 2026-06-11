@@ -103,14 +103,16 @@ export async function getComplaintList(
   const params: any[] = []
 
   if (group === 'today') {
-    conditions.push('c.created_at >= CURRENT_DATE')
+    conditions.push(
+      "c.status NOT IN ('closed', 'rejected') AND (c.deadline >= CURRENT_DATE AND c.deadline < CURRENT_DATE + INTERVAL '1 day' OR c.created_at >= CURRENT_DATE AND c.status IN ('pending', 'assigned', 'processing'))"
+    )
   } else if (group === 'overdue') {
-    conditions.push("c.deadline < NOW() AND c.status != 'closed'")
+    conditions.push("c.deadline < NOW() AND c.status NOT IN ('closed', 'rejected')")
   } else if (group === 'rejected') {
-    conditions.push("c.status = 'rejected'")
+    conditions.push("c.status = 'rejected' AND c.updated_at >= NOW() - INTERVAL '24 hours'")
   } else if (group === 'dashboard') {
     conditions.push(
-      "(c.created_at >= CURRENT_DATE OR (c.deadline < NOW() AND c.status != 'closed') OR c.status = 'rejected')"
+      "(c.status NOT IN ('closed', 'rejected') AND (c.deadline >= CURRENT_DATE AND c.deadline < CURRENT_DATE + INTERVAL '1 day' OR c.created_at >= CURRENT_DATE AND c.status IN ('pending', 'assigned', 'processing')) OR (c.deadline < NOW() AND c.status NOT IN ('closed', 'rejected')) OR (c.status = 'rejected' AND c.updated_at >= NOW() - INTERVAL '24 hours'))"
     )
   } else {
     if (status) {
@@ -507,11 +509,11 @@ export async function batchUpdateComplaints(
 
 export async function getDashboardStats(): Promise<any> {
   const todayResult = await pool.query(
-    `SELECT COUNT(*) as count FROM complaints WHERE created_at >= CURRENT_DATE`
+    `SELECT COUNT(*) as count FROM complaints WHERE status NOT IN ('closed', 'rejected') AND (deadline >= CURRENT_DATE AND deadline < CURRENT_DATE + INTERVAL '1 day' OR created_at >= CURRENT_DATE AND status IN ('pending', 'assigned', 'processing'))`
   )
 
   const overdueResult = await pool.query(
-    `SELECT COUNT(*) as count FROM complaints WHERE deadline < NOW() AND status != 'closed'`
+    `SELECT COUNT(*) as count FROM complaints WHERE deadline < NOW() AND status NOT IN ('closed', 'rejected')`
   )
 
   const pendingResult = await pool.query(

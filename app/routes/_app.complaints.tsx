@@ -90,7 +90,7 @@ export async function action({ request }: ActionFunctionArgs) {
     if (!deadline) {
       errors.deadline = '请选择截止时间'
     }
-    if (type !== 'unlicensed_vehicle' && !plate_number?.trim()) {
+    if (type === 'monthly_rental_expired' && !plate_number?.trim()) {
       errors.plate_number = '请输入车牌号'
     }
 
@@ -100,7 +100,7 @@ export async function action({ request }: ActionFunctionArgs) {
 
     await createComplaint({
       type,
-      plate_number: type === 'unlicensed_vehicle' ? null : plate_number.trim() || null,
+      plate_number: type === 'monthly_rental_expired' ? plate_number.trim() : (plate_number?.trim() || null),
       description: description.trim(),
       parking_lot_id: 1,
       deadline: new Date(deadline).toISOString(),
@@ -484,18 +484,30 @@ export default function Complaints() {
                 )}
               </div>
 
-              {formType !== 'unlicensed_vehicle' && (
+              {formType !== 'unlicensed_vehicle' && formType !== 'gate_malfunction' && (
                 <div>
-                  <label className="text-sm text-park-muted mb-1.5 block">车牌号</label>
+                  <label className="text-sm text-park-muted mb-1.5 block">车牌号 <span className="text-red-400">*</span></label>
                   <input
                     type="text"
                     name="plate_number"
-                    placeholder={formType === 'gate_malfunction' ? '选填，若涉及车辆可填写' : '请输入车牌号'}
+                    placeholder="请输入车牌号"
                     className="w-full bg-park-bg border border-park-border rounded px-3 py-2 text-sm text-park-text placeholder-park-muted outline-none focus:border-park-amber"
                   />
                   {actionData?.errors?.plate_number && (
                     <p className="text-red-400 text-xs mt-1">{actionData.errors.plate_number}</p>
                   )}
+                </div>
+              )}
+
+              {formType === 'gate_malfunction' && (
+                <div>
+                  <label className="text-sm text-park-muted mb-1.5 block">车牌号（选填）</label>
+                  <input
+                    type="text"
+                    name="plate_number"
+                    placeholder="若涉及特定车辆可填写，否则留空"
+                    className="w-full bg-park-bg border border-park-border rounded px-3 py-2 text-sm text-park-text placeholder-park-muted outline-none focus:border-park-amber"
+                  />
                 </div>
               )}
 
