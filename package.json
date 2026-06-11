@@ -1,0 +1,22 @@
+{
+  "name": "park-lease-approval",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "nuxt build",
+    "dev": "nuxt dev",
+    "generate": "nuxt generate",
+    "preview": "nuxt preview",
+    "postinstall": "nuxt prepare"
+  },
+  "devDependencies": {
+    "@nuxt/ui": "^2.17.0",
+    "@pinia/nuxt": "^0.5.1",
+    "nuxt": "^3.12.4",
+    "vue": "^3.4.38",
+    "vue-router": "^4.4.3"
+  },
+  "dependencies": {
+    "pinia": "^2.2.2"
+  }
+}
