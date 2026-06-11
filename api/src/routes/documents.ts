@@ -42,6 +42,126 @@ router.get('/', (req, res) => {
   }
 });
 
+router.post('/', (req, res) => {
+  try {
+    const { project_name, doc_type, assignee_name, assignee_role } = req.body;
+    if (!project_name || !doc_type || !assignee_name || !assignee_role) {
+      res.status(400).json({ error: '缺少必填字段' });
+      return;
+    }
+
+    const id = uuidv4();
+    db.prepare(`
+      INSERT INTO completion_documents (id, project_name, doc_type, status, assignee_name, assignee_role)
+      VALUES (?, ?, ?, '待整理', ?, ?)
+    `).run(id, project_name, doc_type, assignee_name, assignee_role);
+
+    const doc = db.prepare('SELECT * FROM completion_documents WHERE id = ?').get(id);
+    res.status(201).json(doc);
+  } catch (err) {
+    res.status(500).json({ error: '创建文档失败' });
+  }
+});
+
+router.put('/batch', (req, res) => {
+  try {
+    const { ids, action, data } = req.body;
+    if (!ids || !Array.isArray(ids) || ids.length === 0 || !action) {
+      res.status(400).json({ error: '缺少必填字段' });
+      return;
+    }
+
+    const results: any[] = [];
+
+    const batchTx = db.transaction(() => {
+      for (const id of ids) {
+        const doc = db.prepare('SELECT * FROM completion_documents WHERE id = ?').get(id) as any;
+        if (!doc) continue;
+
+        if (action === 'submit_review' && doc.status === '待整理') {
+          db.prepare("UPDATE completion_documents SET status = '待审核', updated_at = datetime('now') WHERE id = ?").run(id);
+          results.push({ id, status: '待审核' });
+        } else if (action === 'mark_exception') {
+          const excId = uuidv4();
+          const category = (data as any)?.category || '其他';
+          const description = (data as any)?.description || '批量标记异常';
+          db.prepare(`
+            INSERT INTO exceptions (id, document_id, category, description, status)
+            VALUES (?, ?, ?, ?, '待处理')
+          `).run(excId, id, category, description);
+          results.push({ id, exceptionId: excId });
+        } else if (action === 'reassign') {
+          const { assignee_name, assignee_role } = data as any;
+          if (assignee_name && assignee_role) {
+            db.prepare("UPDATE completion_documents SET assignee_name = ?, assignee_role = ?, updated_at = datetime('now') WHERE id = ?").run(assignee_name, assignee_role, id);
+            results.push({ id, assignee_name, assignee_role });
+          }
+        }
+      }
+    });
+
+    batchTx();
+    res.json({ updated: results });
+  } catch (err) {
+    res.status(500).json({ error: '批量操作失败' });
+  }
+});
+
+router.put('/batch-sign-off', (req, res) => {
+  try {
+    const { ids, clientName, result, comment } = req.body;
+    if (!ids || !Array.isArray(ids) || ids.length === 0 || !clientName || !result) {
+      res.status(400).json({ error: '缺少必填字段' });
+      return;
+    }
+    if (!['已签认', '已驳回'].includes(result)) {
+      res.status(400).json({ error: '无效的签认结果' });
+      return;
+    }
+
+    const results: any[] = [];
+
+    const batchTx = db.transaction(() => {
+      for (const id of ids) {
+        const doc = db.prepare('SELECT * FROM completion_documents WHERE id = ? AND status = ?').get(id, '待签认') as any;
+        if (!doc) continue;
+
+        const signOffId = uuidv4();
+        db.prepare(`
+          INSERT INTO sign_offs (id, document_id, client_name, result, comment)
+          VALUES (?, ?, ?, ?, ?)
+        `).run(signOffId, id, clientName, result, comment || null);
+
+        const remarkId = uuidv4();
+        const remarkContent = result === '已签认'
+          ? `客户${clientName}批量签认确认${comment ? '：' + comment : ''}`
+          : `客户${clientName}批量驳回签认${comment ? '，原因：' + comment : ''}`;
+        db.prepare(`
+          INSERT INTO remarks (id, document_id, content, author, author_role, stage)
+          VALUES (?, ?, ?, ?, '客户', '签认')
+        `).run(remarkId, id, remarkContent, clientName);
+
+        db.prepare("UPDATE completion_documents SET status = ?, updated_at = datetime('now') WHERE id = ?").run(result, id);
+
+        if (result === '已驳回') {
+          const excId = uuidv4();
+          db.prepare(`
+            INSERT INTO exceptions (id, document_id, category, description, status)
+            VALUES (?, ?, '其他', ?, '待处理')
+          `).run(excId, id, `客户${clientName}批量驳回签认${comment ? '：' + comment : ''}`);
+        }
+
+        results.push({ id, result });
+      }
+    });
+
+    batchTx();
+    res.json({ updated: results });
+  } catch (err) {
+    res.status(500).json({ error: '批量签认操作失败' });
+  }
+});
+
 router.get('/:id', (req, res) => {
   try {
     const doc = db.prepare('SELECT * FROM completion_documents WHERE id = ?').get(req.params.id);
@@ -63,27 +183,6 @@ router.get('/:id', (req, res) => {
     res.json({ ...doc, remarks, exceptions: exceptionsWithRecords, signOffs });
   } catch (err) {
     res.status(500).json({ error: '获取文档详情失败' });
-  }
-});
-
-router.post('/', (req, res) => {
-  try {
-    const { project_name, doc_type, assignee_name, assignee_role } = req.body;
-    if (!project_name || !doc_type || !assignee_name || !assignee_role) {
-      res.status(400).json({ error: '缺少必填字段' });
-      return;
-    }
-
-    const id = uuidv4();
-    db.prepare(`
-      INSERT INTO completion_documents (id, project_name, doc_type, status, assignee_name, assignee_role)
-      VALUES (?, ?, ?, '待整理', ?, ?)
-    `).run(id, project_name, doc_type, assignee_name, assignee_role);
-
-    const doc = db.prepare('SELECT * FROM completion_documents WHERE id = ?').get(id);
-    res.status(201).json(doc);
-  } catch (err) {
-    res.status(500).json({ error: '创建文档失败' });
   }
 });
 
@@ -159,50 +258,6 @@ router.post('/:id/remarks', (req, res) => {
   }
 });
 
-router.put('/batch', (req, res) => {
-  try {
-    const { ids, action, data } = req.body;
-    if (!ids || !Array.isArray(ids) || ids.length === 0 || !action) {
-      res.status(400).json({ error: '缺少必填字段' });
-      return;
-    }
-
-    const results: any[] = [];
-
-    const batchTx = db.transaction(() => {
-      for (const id of ids) {
-        const doc = db.prepare('SELECT * FROM completion_documents WHERE id = ?').get(id) as any;
-        if (!doc) continue;
-
-        if (action === 'submit_review' && doc.status === '待整理') {
-          db.prepare("UPDATE completion_documents SET status = '待审核', updated_at = datetime('now') WHERE id = ?").run(id);
-          results.push({ id, status: '待审核' });
-        } else if (action === 'mark_exception') {
-          const excId = uuidv4();
-          const category = (data as any)?.category || '其他';
-          const description = (data as any)?.description || '批量标记异常';
-          db.prepare(`
-            INSERT INTO exceptions (id, document_id, category, description, status)
-            VALUES (?, ?, ?, ?, '待处理')
-          `).run(excId, id, category, description);
-          results.push({ id, exceptionId: excId });
-        } else if (action === 'reassign') {
-          const { assignee_name, assignee_role } = data as any;
-          if (assignee_name && assignee_role) {
-            db.prepare("UPDATE completion_documents SET assignee_name = ?, assignee_role = ?, updated_at = datetime('now') WHERE id = ?").run(assignee_name, assignee_role, id);
-            results.push({ id, assignee_name, assignee_role });
-          }
-        }
-      }
-    });
-
-    batchTx();
-    res.json({ updated: results });
-  } catch (err) {
-    res.status(500).json({ error: '批量操作失败' });
-  }
-});
-
 router.post('/:id/sign-off', (req, res) => {
   try {
     const doc = db.prepare('SELECT * FROM completion_documents WHERE id = ?').get(req.params.id) as any;
@@ -256,61 +311,6 @@ router.post('/:id/sign-off', (req, res) => {
     res.status(201).json(signOff);
   } catch (err) {
     res.status(500).json({ error: '签认操作失败' });
-  }
-});
-
-router.put('/batch-sign-off', (req, res) => {
-  try {
-    const { ids, clientName, result, comment } = req.body;
-    if (!ids || !Array.isArray(ids) || ids.length === 0 || !clientName || !result) {
-      res.status(400).json({ error: '缺少必填字段' });
-      return;
-    }
-    if (!['已签认', '已驳回'].includes(result)) {
-      res.status(400).json({ error: '无效的签认结果' });
-      return;
-    }
-
-    const results: any[] = [];
-
-    const batchTx = db.transaction(() => {
-      for (const id of ids) {
-        const doc = db.prepare('SELECT * FROM completion_documents WHERE id = ? AND status = ?').get(id, '待签认') as any;
-        if (!doc) continue;
-
-        const signOffId = uuidv4();
-        db.prepare(`
-          INSERT INTO sign_offs (id, document_id, client_name, result, comment)
-          VALUES (?, ?, ?, ?, ?)
-        `).run(signOffId, id, clientName, result, comment || null);
-
-        const remarkId = uuidv4();
-        const remarkContent = result === '已签认'
-          ? `客户${clientName}批量签认确认${comment ? '：' + comment : ''}`
-          : `客户${clientName}批量驳回签认${comment ? '，原因：' + comment : ''}`;
-        db.prepare(`
-          INSERT INTO remarks (id, document_id, content, author, author_role, stage)
-          VALUES (?, ?, ?, ?, '客户', '签认')
-        `).run(remarkId, id, remarkContent, clientName);
-
-        db.prepare("UPDATE completion_documents SET status = ?, updated_at = datetime('now') WHERE id = ?").run(result, id);
-
-        if (result === '已驳回') {
-          const excId = uuidv4();
-          db.prepare(`
-            INSERT INTO exceptions (id, document_id, category, description, status)
-            VALUES (?, ?, '其他', ?, '待处理')
-          `).run(excId, id, `客户${clientName}批量驳回签认${comment ? '：' + comment : ''}`);
-        }
-
-        results.push({ id, result });
-      }
-    });
-
-    batchTx();
-    res.json({ updated: results });
-  } catch (err) {
-    res.status(500).json({ error: '批量签认操作失败' });
   }
 });
 

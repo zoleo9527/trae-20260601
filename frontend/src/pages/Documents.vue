@@ -125,8 +125,15 @@ function openDrawer(doc: CompletionDocument) {
   loadExceptions(doc.id)
 }
 
-function goToSignOff() {
-  router.push('/sign-off')
+function goToSignOff(docId: string) {
+  router.push({ path: '/sign-off', query: { highlight: docId } })
+}
+
+async function onDrawerRefresh() {
+  await loadDocuments()
+  if (drawerDocId.value) {
+    await loadExceptions(drawerDocId.value)
+  }
 }
 
 async function loadExceptions(docId: string) {
@@ -261,7 +268,7 @@ onMounted(loadDocuments)
             <div class="flex items-center gap-1">
               <button
                 v-if="doc.status === '待签认'"
-                @click.stop="goToSignOff()"
+                @click.stop="goToSignOff(doc.id)"
                 class="text-xs px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 transition-colors flex items-center gap-0.5"
               >
                 <PenLine :size="10" />签认
@@ -359,7 +366,7 @@ onMounted(loadDocuments)
       :document-id="drawerDocId"
       :exceptions="drawerExceptions"
       @close="drawerOpen = false"
-      @refresh="loadDocuments()"
+      @refresh="onDrawerRefresh"
     />
   </div>
 </template>

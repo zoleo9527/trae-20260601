@@ -88,7 +88,11 @@ async function changeStatus(target: DocStatus) {
 
 function handleAction(action: { label: string; target?: DocStatus; class: string; navigate?: string }) {
   if (action.navigate) {
-    router.push(action.navigate)
+    if (action.navigate === '/sign-off' && doc.value) {
+      router.push({ path: '/sign-off', query: { highlight: doc.value.id } })
+    } else {
+      router.push(action.navigate)
+    }
   } else if (action.target) {
     changeStatus(action.target)
   }

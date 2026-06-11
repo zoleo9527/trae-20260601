@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, computed, onMounted, nextTick, watch } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import {
   ChevronDown, ChevronRight, Check, X, Eye, Clock, User, MessageSquare,
   Search, CheckSquare, Square, AlertTriangle
@@ -11,6 +11,7 @@ import ExceptionDrawer from '@/components/ExceptionDrawer.vue'
 import type { CompletionDocument, DocumentDetail } from '@/types'
 
 const router = useRouter()
+const route = useRoute()
 const { get, post, put } = useApi()
 
 const documents = ref<CompletionDocument[]>([])
@@ -25,42 +26,7 @@ const drawerOpen = ref(false)
 const drawerDocId = ref<string | null>(null)
 const drawerExceptions = ref<any[]>([])
 
-const pendingDocs = computed(() => {
-  let docs = documents.value.filter(d => d.status === '待签认')
-  if (searchQuery.value) {
-    docs = docs.filter(d => d.project_name.includes(searchQuery.value))
-  }
-  docs.sort((a, b) => {
-    const aRisk = (a.exceptions_count || 0) > 0 ? 1 : 0
-    const bRisk = (b.exceptions_count || 0) > 0 ? 1 : 0
-    if (aRisk !== bRisk) return bRisk - aRisk
-    return new Date(a.updated_at + 'Z').getTime() - new Date(b.updated_at + 'Z').getTime()
-  })
-  return docs
-})
-const signedDocs = computed(() => {
-  let docs = documents.value.filter(d => d.status === '已签认')
-  if (searchQuery.value) docs = docs.filter(d => d.project_name.includes(searchQuery.value))
-  return docs
-})
-const rejectedDocs = computed(() => {
-  let docs = documents.value.filter(d => d.status === '已驳回')
-  if (searchQuery.value) docs = docs.filter(d => d.project_name.includes(searchQuery.value))
-  return docs
-})
-
-const showSignOffModal = ref(false)
-const signOffDoc = ref<CompletionDocument | null>(null)
-const signOffResult = ref<'已签认' | '已驳回'>('已签认')
-const signOffClient = ref('')
-const signOffComment = ref('')
-
-const showBatchModal = ref(false)
-const batchResult = ref<'已签认' | '已驳回'>('已签认')
-const batchClient = ref('')
-const batchComment = ref('')
-
-const collapsedGroups = ref<Set<string>>()
+const collapsedGroups = ref<Set<string>>(new Set(['rejected', 'signed']))
 
 function toggleGroup(group: string) {
   if (collapsedGroups.value.has(group)) collapsedGroups.value.delete(group)
@@ -163,10 +129,21 @@ async function submitBatchSignOff() {
 async function openDrawer(doc: CompletionDocument) {
   drawerDocId.value = doc.id
   drawerOpen.value = true
+  await loadDrawerExceptions(doc.id)
+}
+
+async function loadDrawerExceptions(docId: string) {
   try {
-    drawerExceptions.value = await get<any[]>(`/documents/${doc.id}/exceptions`)
+    drawerExceptions.value = await get<any[]>(`/documents/${docId}/exceptions`)
   } catch (e) {
     console.error(e)
+  }
+}
+
+async function onDrawerRefresh() {
+  await loadDocuments()
+  if (drawerDocId.value) {
+    await loadDrawerExceptions(drawerDocId.value)
   }
 }
 
@@ -203,7 +180,77 @@ const groups = computed(() => [
   { key: 'signed', label: '已签认', docs: signedDocs.value, color: 'text-emerald-400', selectable: false },
 ])
 
-onMounted(loadDocuments)
+const pendingDocs = computed(() => {
+  let docs = documents.value.filter(d => d.status === '待签认')
+  if (searchQuery.value) {
+    docs = docs.filter(d => d.project_name.includes(searchQuery.value))
+  }
+  docs.sort((a, b) => {
+    const aRisk = (a.exceptions_count || 0) > 0 ? 1 : 0
+    const bRisk = (b.exceptions_count || 0) > 0 ? 1 : 0
+    if (aRisk !== bRisk) return bRisk - aRisk
+    return new Date(a.updated_at + 'Z').getTime() - new Date(b.updated_at + 'Z').getTime()
+  })
+  return docs
+})
+const signedDocs = computed(() => {
+  let docs = documents.value.filter(d => d.status === '已签认')
+  if (searchQuery.value) docs = docs.filter(d => d.project_name.includes(searchQuery.value))
+  return docs
+})
+const rejectedDocs = computed(() => {
+  let docs = documents.value.filter(d => d.status === '已驳回')
+  if (searchQuery.value) docs = docs.filter(d => d.project_name.includes(searchQuery.value))
+  return docs
+})
+
+const showSignOffModal = ref(false)
+const signOffDoc = ref<CompletionDocument | null>(null)
+const signOffResult = ref<'已签认' | '已驳回'>('已签认')
+const signOffClient = ref('')
+const signOffComment = ref('')
+
+const showBatchModal = ref(false)
+const batchResult = ref<'已签认' | '已驳回'>('已签认')
+const batchClient = ref('')
+const batchComment = ref('')
+
+async function handleHighlight() {
+  const id = route.query.highlight as string
+  if (!id) return
+
+  await nextTick()
+  const doc = documents.value.find(d => d.id === id)
+  if (!doc) return
+
+  if (doc.status === '待签认') {
+    collapsedGroups.value.delete('pending')
+  } else if (doc.status === '已驳回') {
+    collapsedGroups.value.delete('rejected')
+  } else if (doc.status === '已签认') {
+    collapsedGroups.value.delete('signed')
+  }
+
+  await nextTick()
+  const el = document.getElementById(`doc-${id}`)
+  if (el) {
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    el.classList.add('ring-2', 'ring-amber-400')
+    setTimeout(() => el.classList.remove('ring-2', 'ring-amber-400'), 2000)
+  }
+}
+
+watch(
+  () => route.query.highlight,
+  () => {
+    if (!loading.value) handleHighlight()
+  }
+)
+
+onMounted(async () => {
+  await loadDocuments()
+  handleHighlight()
+})
 </script>
 
 <template>
@@ -270,7 +317,8 @@ onMounted(loadDocuments)
           <div
             v-for="doc in group.docs"
             :key="doc.id"
-            class="card relative"
+            :id="`doc-${doc.id}`"
+            class="card relative transition-all duration-300"
           >
             <div v-if="group.selectable" class="absolute top-3 left-3 z-10" @click.stop="toggleSelect(doc.id)">
               <component
@@ -323,13 +371,13 @@ onMounted(loadDocuments)
                 </div>
 
                 <div class="space-y-3 pl-4 border-l-2 border-slate-700 mb-4">
-                  <div v-for="remark in detailCache.get(doc.id)!.remarks" :key="remark.id" class="relative pl-4">
+                  <div v-for="remark in detailCache.get(doc.id)?.remarks || []" :key="remark.id" class="relative pl-4">
                     <div
                       class="absolute left-[-21px] top-1 w-2.5 h-2.5 rounded-full"
                       :class="stageColors[remark.stage] || 'bg-slate-500'"
                     ></div>
                     <div class="flex items-center gap-2 mb-1 flex-wrap">
-                      <span class="text-xs px-1.5 py-0.5 rounded" :class="(stageColors[remark.stage] || 'bg-slate-500') + '/10 text-slate-300'">
+                      <span class="text-xs px-1.5 py-0.5 rounded text-slate-300" :class="(stageColors[remark.stage] || 'bg-slate-500') + '/10'">
                         {{ stageLabels[remark.stage] || remark.stage }}
                       </span>
                       <span class="text-xs text-slate-300">{{ remark.author }}</span>
@@ -340,9 +388,9 @@ onMounted(loadDocuments)
                   </div>
                 </div>
 
-                <div v-if="detailCache.get(doc.id)!.signOffs && detailCache.get(doc.id)!.signOffs.length > 0" class="mb-4">
+                <div v-if="detailCache.get(doc.id)?.signOffs?.length" class="mb-4">
                   <div class="text-xs font-medium text-slate-400 mb-2">签认记录</div>
-                  <div v-for="so in detailCache.get(doc.id)!.signOffs" :key="so.id" class="flex items-center gap-2 text-xs py-1.5 px-2 rounded" :class="so.result === '已签认' ? 'bg-emerald-500/5 text-emerald-400' : 'bg-red-500/5 text-red-400'">
+                  <div v-for="so in detailCache.get(doc.id)?.signOffs" :key="so.id" class="flex items-center gap-2 text-xs py-1.5 px-2 rounded" :class="so.result === '已签认' ? 'bg-emerald-500/5 text-emerald-400' : 'bg-red-500/5 text-red-400'">
                     <component :is="so.result === '已签认' ? Check : X" :size="12" />
                     <span>{{ so.client_name }}</span>
                     <span class="text-slate-600">·</span>
@@ -448,7 +496,7 @@ onMounted(loadDocuments)
       :document-id="drawerDocId"
       :exceptions="drawerExceptions"
       @close="drawerOpen = false"
-      @refresh="loadDocuments()"
+      @refresh="onDrawerRefresh"
     />
   </div>
 </template>
