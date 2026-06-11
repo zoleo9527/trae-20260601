@@ -138,11 +138,10 @@
             >
               📄 租赁方案
               <span
-                v-if="record.currentStatus.includes('plan')"
                 class="ml-2 text-[10px] px-1.5 py-0.5 rounded"
-                :class="record.currentStatus === 'plan_pending' ? 'bg-amber-100 text-amber-700' : record.currentStatus === 'plan_rejected' ? 'bg-red-100 text-red-700' : 'bg-emerald-100 text-emerald-700'"
+                :class="planBadge.cls"
               >
-                {{ statusLabel(record.currentStatus) }}
+                {{ planBadge.label }}
               </span>
             </button>
             <button
@@ -154,11 +153,10 @@
             >
               📑 合同审批
               <span
-                v-if="record.currentStatus.includes('contract') || record.currentStatus >= 'contract_approved'"
                 class="ml-2 text-[10px] px-1.5 py-0.5 rounded"
-                :class="record.currentStatus === 'contract_pending' ? 'bg-amber-100 text-amber-700' : record.currentStatus === 'contract_rejected' ? 'bg-red-100 text-red-700' : 'bg-emerald-100 text-emerald-700'"
+                :class="contractBadge.cls"
               >
-                {{ record.currentStatus.includes('contract') ? statusLabel(record.currentStatus) : '已完成' }}
+                {{ contractBadge.label }}
               </span>
             </button>
             <button
@@ -169,6 +167,12 @@
                 : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'"
             >
               🏗️ 装修进场
+              <span
+                class="ml-2 text-[10px] px-1.5 py-0.5 rounded"
+                :class="decorationBadge.cls"
+              >
+                {{ decorationBadge.label }}
+              </span>
             </button>
           </div>
 
@@ -278,7 +282,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from 'vue'
 import { useLeaseStore } from '~/stores/lease'
-import { getStatusMeta, getRoleLabel, USERS } from '~/utils/constants'
+import { getStatusMeta, getRoleLabel, USERS, getStageBadge } from '~/utils/constants'
 import type { LeaseRecord, LeaseStatus, StatusHistory } from '~/types/lease'
 import PlanSection from '~/components/record/PlanSection.vue'
 import PlanActionForm from '~/components/record/PlanActionForm.vue'
@@ -304,6 +308,10 @@ const showDecoAction = ref<string | null>(null)
 const newSupplement = ref('')
 
 const roleLabel = getRoleLabel
+
+const planBadge = computed(() => getStageBadge('plan', record.value?.currentStatus || 'lead_created'))
+const contractBadge = computed(() => getStageBadge('contract', record.value?.currentStatus || 'lead_created'))
+const decorationBadge = computed(() => getStageBadge('decoration', record.value?.currentStatus || 'lead_created'))
 
 function handlePlanAction(mode: string) {
   if (mode === 'goto-contract-submit') {

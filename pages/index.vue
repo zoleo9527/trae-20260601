@@ -1,6 +1,6 @@
 <template>
   <div class="space-y-6">
-    <div class="grid grid-cols-4 gap-4">
+    <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
       <div
         v-for="s in statusSummary"
         :key="s.status"
@@ -243,7 +243,7 @@ const filterOptions = computed(() => {
 
 const statusSummary = computed(() => {
   const myTodos = todoStatuses.value
-  return myTodos.slice(0, 4).map(s => {
+  return myTodos.map(s => {
     const meta = TODO_LABEL[s] || getStatusMeta(s)
     const total = store.records.filter(r => r.currentStatus === s).length
     const mine = store.todoRecords.filter(r => r.currentStatus === s).length
