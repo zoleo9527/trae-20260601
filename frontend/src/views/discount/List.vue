@@ -73,6 +73,7 @@
 
     <div class="card-section">
       <el-table
+        ref="tableRef"
         :data="list"
         @selection-change="handleSelectionChange"
         v-loading="loading"
@@ -271,6 +272,7 @@ const loading = ref(false)
 const page = ref(1)
 const perPage = ref(20)
 const selectedIds = ref([])
+const tableRef = ref(null)
 
 const searchForm = reactive({
   status: '',
@@ -368,6 +370,15 @@ function canRaiseException(row) {
 
 function handleSelectionChange(selection) {
   selectedIds.value = selection.map(item => item.id)
+}
+
+function syncTableSelection(keepIds = []) {
+  if (!tableRef.value) return
+  const rows = tableRef.value.store?.states?.data || list.value
+  rows.forEach(row => {
+    const shouldKeep = keepIds.includes(row.id)
+    tableRef.value?.toggleRowSelection(row, shouldKeep)
+  })
 }
 
 function handlePageChange(val) {
@@ -519,6 +530,7 @@ async function handleBatchSubmit() {
         return item
       })
       selectedIds.value = selectedIds.value.filter(id => !normalSuccessIds.includes(id))
+      syncTableSelection(selectedIds.value)
     }
     ElMessage.success(`成功提交 ${res.success_count} 条，失败 ${res.failed_count} 条`)
     if (selectedIds.value.length === 0) loadList()
@@ -537,7 +549,8 @@ async function handleBatchSubmit() {
           }
           return item
         })
-        selectedIds.value = selectedIds.value.filter(id => exceptionIds.includes(id))
+        selectedIds.value = exceptionIds
+        syncTableSelection(selectedIds.value)
       }
 
       if (normalSuccessCount > 0) {
@@ -558,6 +571,7 @@ async function handleBatchSubmit() {
             return item
           })
           selectedIds.value = selectedIds.value.filter(id => !exceptionIds.includes(id))
+          syncTableSelection(selectedIds.value)
         }
         ElMessage.success(`异常项已提交并进入异常处理列表：成功 ${res.success_count} 条，失败 ${res.failed_count} 条`)
         loadList()

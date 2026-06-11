@@ -98,6 +98,7 @@ def batch_submit_campaigns():
     return jsonify({
         'success_count': success_count,
         'failed_count': failed_count,
+        'normal_success_ids': normal_success_ids,
         'results': results
     })
 
