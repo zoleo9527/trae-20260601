@@ -145,15 +145,15 @@ def init_data(db: Session):
             "sku": "SKU-LAN-022-400",
             "quantity": 25,
             "unit": "瓶",
-            "status": "disputed",
-            "remark": "C柜日常补货（有差异待核实）",
-            "history_remark": "【2026-06-08 15:00】李柜长发起D05→C02调拨25瓶粉水\n【2026-06-08 15:45】王主管(楼层)审批通过\n【2026-06-08 16:30】刘督导(品牌)确认发货\n【2026-06-09 10:00】★张柜长到柜复核：实收23瓶，差2瓶，标记差异待核实\n⚠️ 【责任场景B：差异待核实】外箱完好疑发货方少装，待品牌督导刘XX核查出库记录",
+            "status": "verified",
+            "remark": "C柜日常补货（差异已核实：发货方少装）",
+            "history_remark": "【2026-06-08 15:00】李柜长发起D05→C02调拨25瓶粉水\n【2026-06-08 15:45】王主管(楼层)审批通过\n【2026-06-08 16:30】刘督导(品牌)确认发货\n【2026-06-09 10:00】★张柜长到柜复核：实收23瓶，差2瓶，标记差异待核实\n【2026-06-09 14:30】★刘督导(品牌)差异核实：结论=发货方少装，调出仓库出库记录确认少装2瓶，责任归属调出方",
             "version": 1,
             "is_modified": False,
             "created_by": li.id,
             "updated_by": liu.id,
             "created_at": base_time + timedelta(days=7, hours=15),
-            "updated_at": base_time + timedelta(days=8, hours=10),
+            "updated_at": base_time + timedelta(days=8, hours=14, minutes=30),
             "reviews": [
                 {
                     "review_no": "FH20260609100002FFFF",
@@ -168,6 +168,17 @@ def init_data(db: Session):
                 }
             ],
             "change_logs": [],
+            "verifications": [
+                {
+                    "verification_no": "HS20260609143001XXXX",
+                    "conclusion": "sender_short",
+                    "responsibility": "经核查调出仓库出库记录和监控，确认D05仓出库时仅装了23瓶，少装2瓶。责任归属调出方(兰蔻D05柜)，需补发2瓶。",
+                    "processing_remark": "已要求D05柜补发2瓶粉水，预计次日送达C02柜。补发后将更新调拨单实收数量。",
+                    "verified_by": liu.id,
+                    "verified_at": base_time + timedelta(days=8, hours=14, minutes=30),
+                    "created_at": base_time + timedelta(days=8, hours=14, minutes=30),
+                }
+            ],
         },
         {
             "allocation_no": "DB20260610110005GGGG",
@@ -203,6 +214,53 @@ def init_data(db: Session):
                 }
             ],
         },
+        {
+            "allocation_no": "DB20260612090006HHHH",
+            "idempotent_key": f"init-{uuid.uuid4().hex}",
+            "from_counter": "雅诗兰黛-2F-A01",
+            "to_counter": "雅诗兰黛-2F-E07",
+            "brand": "雅诗兰黛",
+            "floor": "2F",
+            "goods_code": "EST-020",
+            "goods_name": "沁水粉底液30ml",
+            "sku": "SKU-EST-020-30",
+            "quantity": 15,
+            "unit": "瓶",
+            "status": "verified",
+            "remark": "E柜补货（差异已核实：收货方误报）",
+            "history_remark": "【2026-06-12 09:00】张柜长发起A01→E07调拨15瓶沁水粉底液\n【2026-06-12 09:30】王主管(楼层)审批通过\n【2026-06-12 10:15】陈督导(品牌)确认发货\n【2026-06-12 14:00】★E柜复核：实报13瓶，差2瓶，标记差异待核实\n【2026-06-12 16:00】★陈督导(品牌)差异核实：结论=收货方误报，调出仓出库15瓶无误，E柜拆箱后2瓶放错柜位",
+            "version": 1,
+            "is_modified": False,
+            "created_by": zhang.id,
+            "updated_by": chen.id,
+            "created_at": base_time + timedelta(days=10, hours=9),
+            "updated_at": base_time + timedelta(days=10, hours=16),
+            "reviews": [
+                {
+                    "review_no": "FH20260612140001IIII",
+                    "actual_quantity": 13,
+                    "review_status": "disputed",
+                    "difference_reason": "实收13瓶，调拨单15瓶，差2瓶。外箱完好，但E柜拆箱后可能将2瓶放到了隔壁兰蔻柜位，需品牌督导核实出库。",
+                    "has_allocation_modified": False,
+                    "modification_acknowledged": False,
+                    "reviewed_by": zhang.id,
+                    "reviewed_at": base_time + timedelta(days=10, hours=14),
+                    "created_at": base_time + timedelta(days=10, hours=14),
+                }
+            ],
+            "change_logs": [],
+            "verifications": [
+                {
+                    "verification_no": "HS20260612160001JJJJ",
+                    "conclusion": "receiver_false",
+                    "responsibility": "经核查A01仓出库记录和发货监控，确认15瓶全部装箱发出。E柜拆箱后将2瓶误放兰蔻柜位，属于收货方内部管理问题。责任归属E柜(收货方)。",
+                    "processing_remark": "E柜柜长已确认在兰蔻柜位找到2瓶沁水粉底液，内部调整后数量一致。提醒E柜加强拆箱上架核对流程。",
+                    "verified_by": chen.id,
+                    "verified_at": base_time + timedelta(days=10, hours=16),
+                    "created_at": base_time + timedelta(days=10, hours=16),
+                }
+            ],
+        },
     ]
 
     for alloc_data in allocations_data:
@@ -214,6 +272,7 @@ def init_data(db: Session):
 
         reviews_data = alloc_data.pop("reviews", [])
         logs_data = alloc_data.pop("change_logs", [])
+        verifications_data = alloc_data.pop("verifications", [])
 
         db_alloc = models.GoodsAllocation(**alloc_data)
         db.add(db_alloc)
@@ -226,6 +285,10 @@ def init_data(db: Session):
         for rev in reviews_data:
             db_rev = models.CabinetReview(allocation_id=db_alloc.id, **rev)
             db.add(db_rev)
+
+        for vf in verifications_data:
+            db_vf = models.DisputeVerification(allocation_id=db_alloc.id, **vf)
+            db.add(db_vf)
 
     db.commit()
 

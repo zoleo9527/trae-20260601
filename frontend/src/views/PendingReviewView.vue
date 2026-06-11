@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
-import api, { type Allocation, statusMap, reviewStatusMap } from '@/api'
+import api, { type Allocation, statusMap, reviewStatusMap, conclusionMap } from '@/api'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
 const loading = ref(false)
@@ -172,6 +172,12 @@ onMounted(loadData)
             <div v-if="row.status === 'disputed'" style="font-size: 12px; color: #991b1b; background: #fef2f2; padding: 6px 8px; border-radius: 4px">
               <b>⚠️ 差异待核实</b><br/>
               {{ getReviewOfAllocation(row)?.difference_reason || '数量有差异' }}
+              <div v-if="row.verifications && row.verifications.length" style="margin-top: 6px; padding-top: 6px; border-top: 1px dashed #fca5a5">
+                <el-tag :type="conclusionMap[row.verifications[0].conclusion]?.type || 'info'" size="small" effect="dark">
+                  {{ conclusionMap[row.verifications[0].conclusion]?.label || row.verifications[0].conclusion }}
+                </el-tag>
+                <span style="margin-left: 4px">核实人：{{ row.verifications[0].verifier_name }}</span>
+              </div>
             </div>
             <div v-else-if="row.is_modified && row.status === 'shipped'" style="font-size: 12px; color: #92400e; background: #fffbeb; padding: 6px 8px; border-radius: 4px">
               <b>⚠️ 被修改待确认</b><br/>

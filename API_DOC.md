@@ -21,10 +21,13 @@
 pending(待楼层审批) → approved(待品牌发货) → shipped(已发货待复核) → reviewed(完成)
    ↓                    ↓                        ↓
 modified(已修改待重审)  disputed(数量差异)  ←──┘
+                            ↓
+                       verified(差异已核实)
 ```
 **两类责任场景**:
 - **场景A 被修改待复核**: shipped + is_modified=true，复核端强制确认
 - **场景B 差异待核实**: disputed + review_status=disputed，走差异核实流程
+- **差异核实闭环**: 品牌督导核实后调拨单变为 verified，结论区分发货方少装/收货方误报
 
 ---
 
@@ -302,6 +305,85 @@ GET /api/reviews/timeline?brand=雅诗兰黛&status=shipped
 | "并发改了冲突" | 使用 version 乐观锁 | 版本不一致返回 400 |
 | "翻聊天记录找证据" | 所有节点文字汇总到 `history_remark` + 结构化变更日志 | 时间线视图直接展示 |
 | "差异后又想复核" | disputed 状态阻止重复复核，必须走差异核实流程 | `review_status=disputed` + 错误提示 |
+| "数量差异谁的责任" | 品牌督导执行差异核实，区分发货方少装/收货方误报 | `verification.conclusion` + `verification.responsibility` + 核实人/时间 |
+
+---
+
+## 4.1 差异核实接口
+
+### 4.1.1 执行差异核实（品牌督导）
+```
+POST /api/dispute-verifications?verifier_id={核实人ID}
+Content-Type: application/json
+```
+**请求体**:
+```json
+{
+  "allocation_id": 4,
+  "conclusion": "sender_short",
+  "responsibility": "经核查出库记录确认少装2瓶，责任归属调出方",
+  "processing_remark": "已要求补发2瓶，预计次日送达"
+}
+```
+**curl示例**:
+```bash
+curl -X POST "http://localhost:8002/api/dispute-verifications?verifier_id=4" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "allocation_id": 4,
+    "conclusion": "sender_short",
+    "responsibility": "经核查出库记录确认少装2瓶，责任归属调出方",
+    "processing_remark": "已要求补发"
+  }'
+```
+**关键规则**:
+1. 只有品牌督导（brand_supervisor）可以执行差异核实
+2. 调拨单必须是 disputed 状态
+3. 同一调拨单只能核实一次
+4. `conclusion` 必须为 `sender_short`（发货方少装）或 `receiver_false`（收货方误报）
+5. `responsibility` 责任归属描述必填
+6. 核实后调拨单状态变为 `verified`
+
+**响应示例**:
+```json
+{
+  "code": 0,
+  "message": "差异核实完成",
+  "data": {
+    "id": 1,
+    "allocation_id": 4,
+    "verification_no": "HS20260611143001XXXX",
+    "conclusion": "sender_short",
+    "responsibility": "经核查出库记录确认少装2瓶，责任归属调出方",
+    "processing_remark": "已要求补发",
+    "verified_by": 4,
+    "verifier_name": "陈督导",
+    "verified_at": "2026-06-11T14:30:00",
+    "created_at": "2026-06-11T14:30:00",
+    "updated_at": "2026-06-11T14:30:00"
+  }
+}
+```
+
+### 4.1.2 查询差异核实记录
+```
+GET /api/dispute-verifications/{allocation_id}
+```
+
+---
+
+## 4.2 状态流转（含差异核实闭环）
+```
+pending → approved → shipped → reviewed(一致) / disputed(差异) → verified(已核实)
+   ↓
+modified(已修改待重审)
+```
+
+**核实结论类型**:
+| conclusion 值 | 含义 | 责任方 |
+|---|---|---|
+| sender_short | 发货方少装 | 调出方（需补发） |
+| receiver_false | 收货方误报 | 调入方（内部管理问题） |
 
 ---
 

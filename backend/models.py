@@ -58,6 +58,7 @@ class GoodsAllocation(Base):
     updater = relationship("User", back_populates="updated_allocations", foreign_keys=[updated_by])
     change_logs = relationship("AllocationChangeLog", back_populates="allocation", cascade="all, delete-orphan")
     reviews = relationship("CabinetReview", back_populates="allocation", cascade="all, delete-orphan")
+    verifications = relationship("DisputeVerification", back_populates="allocation", cascade="all, delete-orphan")
 
 
 class AllocationChangeLog(Base):
@@ -100,3 +101,25 @@ class CabinetReview(Base):
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
 
     reviewer = relationship("User", back_populates="created_reviews", foreign_keys=[reviewed_by])
+
+
+class DisputeVerification(Base):
+    __tablename__ = "dispute_verifications"
+
+    id = Column(Integer, primary_key=True, index=True)
+    allocation_id = Column(Integer, ForeignKey("goods_allocations.id"), nullable=False)
+    allocation = relationship("GoodsAllocation", back_populates="verifications")
+
+    verification_no = Column(String(30), unique=True, index=True, nullable=False)
+
+    conclusion = Column(String(30), nullable=False)
+    responsibility = Column(Text, nullable=False)
+    processing_remark = Column(Text)
+
+    verified_by = Column(Integer, ForeignKey("users.id"), nullable=False)
+    verified_at = Column(DateTime, default=func.now(), nullable=False)
+
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+
+    verifier = relationship("User", foreign_keys=[verified_by])

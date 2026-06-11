@@ -17,6 +17,10 @@ STATUS_MODIFIED = "modified"
 STATUS_SHIPPED = "shipped"
 STATUS_REVIEWED = "reviewed"
 STATUS_DISPUTED = "disputed"
+STATUS_VERIFIED = "verified"
+
+
+VALID_CONCLUSIONS = ("sender_short", "receiver_false")
 
 
 def generate_allocation_no() -> str:
@@ -25,6 +29,10 @@ def generate_allocation_no() -> str:
 
 def generate_review_no() -> str:
     return f"FH{datetime.now().strftime('%Y%m%d%H%M%S')}{uuid.uuid4().hex[:4].upper()}"
+
+
+def generate_verification_no() -> str:
+    return f"HS{datetime.now().strftime('%Y%m%d%H%M%S')}{uuid.uuid4().hex[:4].upper()}"
 
 
 def get_user(db: Session, user_id: int):
@@ -248,6 +256,13 @@ def get_review_timeline(
             if updater:
                 modified_by_name = updater.name
 
+        verification = get_verification_by_allocation(db, alloc.id)
+        verifier_name = None
+        if verification and verification.verified_by:
+            v_user = get_user(db, verification.verified_by)
+            if v_user:
+                verifier_name = v_user.name
+
         item = schemas.ReviewTimelineItem(
             allocation_id=alloc.id,
             allocation_no=alloc.allocation_no,
@@ -265,7 +280,54 @@ def get_review_timeline(
             change_count=len(alloc.change_logs),
             created_at=alloc.created_at,
             reviewed_at=review.reviewed_at if review else None,
+            verification_conclusion=verification.conclusion if verification else None,
+            verification_responsibility=verification.responsibility if verification else None,
+            verified_by_name=verifier_name if verification else None,
+            verified_at=verification.verified_at if verification else None,
         )
         timeline.append(item)
 
     return timeline
+
+
+def get_verification_by_allocation(db: Session, allocation_id: int):
+    return db.query(models.DisputeVerification).filter(
+        models.DisputeVerification.allocation_id == allocation_id
+    ).first()
+
+
+def create_dispute_verification(db: Session, verification: schemas.DisputeVerificationCreate, verifier_id: int):
+    db_allocation = db.query(models.GoodsAllocation).filter(
+        models.GoodsAllocation.id == verification.allocation_id
+    ).first()
+    if not db_allocation:
+        return None, "调拨单不存在"
+
+    if db_allocation.status != STATUS_DISPUTED:
+        return None, f"调拨单状态为 {db_allocation.status}，只有 disputed 状态才能执行差异核实"
+
+    existing = get_verification_by_allocation(db, verification.allocation_id)
+    if existing:
+        return None, "该调拨单已完成差异核实，不可重复核实"
+
+    if verification.conclusion not in VALID_CONCLUSIONS:
+        return None, f"核实结论必须为 sender_short(发货方少装) 或 receiver_false(收货方误报)"
+
+    if not verification.responsibility or not verification.responsibility.strip():
+        return None, "责任归属描述不能为空"
+
+    db_verification = models.DisputeVerification(
+        allocation_id=verification.allocation_id,
+        verification_no=generate_verification_no(),
+        conclusion=verification.conclusion,
+        responsibility=verification.responsibility.strip(),
+        processing_remark=verification.processing_remark,
+        verified_by=verifier_id,
+        verified_at=datetime.now(),
+    )
+    db.add(db_verification)
+
+    db_allocation.status = STATUS_VERIFIED
+    db.commit()
+    db.refresh(db_verification)
+    return db_verification, None

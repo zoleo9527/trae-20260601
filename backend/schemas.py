@@ -83,6 +83,7 @@ class GoodsAllocationResponse(GoodsAllocationBase):
     updated_at: datetime
     change_logs: List[AllocationChangeLogResponse] = []
     reviews: List["CabinetReviewResponse"] = []
+    verifications: List["DisputeVerificationResponse"] = []
 
     class Config:
         from_attributes = True
@@ -118,6 +119,30 @@ class CabinetReviewResponse(BaseModel):
         from_attributes = True
 
 
+class DisputeVerificationCreate(BaseModel):
+    allocation_id: int
+    conclusion: str = Field(..., description="核实结论: sender_short(发货方少装) / receiver_false(收货方误报)")
+    responsibility: str = Field(..., description="责任归属描述，必填")
+    processing_remark: Optional[str] = Field(None, description="处理备注")
+
+
+class DisputeVerificationResponse(BaseModel):
+    id: int
+    allocation_id: int
+    verification_no: str
+    conclusion: str
+    responsibility: str
+    processing_remark: Optional[str] = None
+    verified_by: int
+    verifier_name: Optional[str] = None
+    verified_at: datetime
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
 GoodsAllocationResponse.model_rebuild()
 
 
@@ -138,6 +163,10 @@ class ReviewTimelineItem(BaseModel):
     change_count: int = 0
     created_at: datetime
     reviewed_at: Optional[datetime] = None
+    verification_conclusion: Optional[str] = None
+    verification_responsibility: Optional[str] = None
+    verified_by_name: Optional[str] = None
+    verified_at: Optional[datetime] = None
 
 
 class ApiResponse(BaseModel):

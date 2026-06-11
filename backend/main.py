@@ -104,6 +104,9 @@ def get_allocation(allocation_id: int, db: Session = Depends(get_db)):
     for i, rev in enumerate(result.reviews):
         if rev.reviewer:
             data["reviews"][i]["reviewer_name"] = rev.reviewer.name
+    for i, vf in enumerate(result.verifications):
+        if vf.verifier:
+            data["verifications"][i]["verifier_name"] = vf.verifier.name
 
     return schemas.ApiResponse(code=0, data=data)
 
@@ -124,6 +127,9 @@ def list_allocations(
         d = schemas.GoodsAllocationResponse.model_validate(r).model_dump()
         if r.creator:
             d["creator_name"] = r.creator.name
+        for i, vf in enumerate(r.verifications):
+            if vf.verifier:
+                d["verifications"][i]["verifier_name"] = vf.verifier.name
         items.append(d)
     return schemas.ApiResponse(code=0, data={"items": items, "total": len(items)})
 
@@ -160,6 +166,9 @@ def list_pending_reviews(
         d = schemas.GoodsAllocationResponse.model_validate(r).model_dump()
         if r.creator:
             d["creator_name"] = r.creator.name
+        for i, vf in enumerate(r.verifications):
+            if vf.verifier:
+                d["verifications"][i]["verifier_name"] = vf.verifier.name
         items.append(d)
     return schemas.ApiResponse(code=0, data={"items": items, "total": len(items)})
 
@@ -187,6 +196,40 @@ def get_review(review_id: int, db: Session = Depends(get_db)):
     data = schemas.CabinetReviewResponse.model_validate(result).model_dump()
     if result.reviewer:
         data["reviewer_name"] = result.reviewer.name
+    return schemas.ApiResponse(code=0, data=data)
+
+
+@app.post("/api/dispute-verifications", response_model=schemas.ApiResponse, tags=["差异核实"])
+def create_dispute_verification(
+    verification: schemas.DisputeVerificationCreate,
+    verifier_id: int = Query(..., description="核实人用户ID（品牌督导）"),
+    db: Session = Depends(get_db),
+):
+    verifier = services.get_user(db, verifier_id)
+    if not verifier:
+        raise HTTPException(status_code=404, detail="核实人不存在")
+
+    if verifier.role != services.ROLE_BRAND_SUPERVISOR:
+        raise HTTPException(status_code=403, detail="只有品牌督导才能执行差异核实")
+
+    result, err = services.create_dispute_verification(db, verification, verifier_id)
+    if err:
+        raise HTTPException(status_code=400, detail=err)
+
+    data = schemas.DisputeVerificationResponse.model_validate(result).model_dump()
+    data["verifier_name"] = verifier.name
+    return schemas.ApiResponse(code=0, message="差异核实完成", data=data)
+
+
+@app.get("/api/dispute-verifications/{allocation_id}", response_model=schemas.ApiResponse, tags=["差异核实"])
+def get_dispute_verification(allocation_id: int, db: Session = Depends(get_db)):
+    result = services.get_verification_by_allocation(db, allocation_id)
+    if not result:
+        raise HTTPException(status_code=404, detail="未找到核实记录")
+
+    data = schemas.DisputeVerificationResponse.model_validate(result).model_dump()
+    if result.verifier:
+        data["verifier_name"] = result.verifier.name
     return schemas.ApiResponse(code=0, data=data)
 
 

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
 import { useRoute } from 'vue-router'
-import api, { type Allocation, statusMap, reviewStatusMap } from '@/api'
+import api, { type Allocation, type Verification, statusMap, reviewStatusMap, conclusionMap } from '@/api'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
 const route = useRoute()
@@ -71,6 +71,43 @@ const fieldLabelMap: Record<string, string> = {
   goods_name: '商品名称', sku: 'SKU', unit: '单位', remark: '备注', history_remark: '历史备注'
 }
 
+const canVerify = computed(() => detail.value?.status === 'disputed')
+
+const showVerify = ref(false)
+const verifyForm = ref({
+  allocation_id: 0,
+  conclusion: 'sender_short',
+  responsibility: '',
+  processing_remark: '',
+})
+
+const openVerify = () => {
+  verifyForm.value = {
+    allocation_id: detail.value!.id,
+    conclusion: 'sender_short',
+    responsibility: '',
+    processing_remark: '',
+  }
+  showVerify.value = true
+}
+
+const submitVerify = async () => {
+  if (!verifyForm.value.responsibility) {
+    ElMessage.warning('请填写责任归属描述')
+    return
+  }
+  try {
+    const res = await api.createDisputeVerification(verifyForm.value, 4)
+    if (res.code === 0) {
+      ElMessage.success('差异核实完成')
+      showVerify.value = false
+      loadDetail()
+    }
+  } catch (e: any) {
+    ElMessage.error(e?.response?.data?.detail || '核实失败')
+  }
+}
+
 onMounted(loadDetail)
 </script>
 
@@ -86,6 +123,7 @@ onMounted(loadDetail)
         <el-button v-if="canApproveFloor" type="primary" @click="approve('floor')" :icon="Check">楼层主管审批</el-button>
         <el-button v-if="canApproveBrand" type="success" @click="approve('brand')" :icon="Van">品牌督导发货</el-button>
         <el-button v-if="detail?.status === 'shipped'" type="warning" @click="openModify" :icon="Edit">修改调拨内容</el-button>
+        <el-button v-if="canVerify" type="danger" @click="openVerify">差异核实</el-button>
       </div>
     </div>
 
@@ -187,7 +225,86 @@ onMounted(loadDetail)
           </el-card>
         </el-col>
       </el-row>
+
+      <el-card v-if="detail.verifications && detail.verifications.length" class="card-shadow" style="margin-top: 16px">
+        <template #header>
+          <div style="font-weight: 600">
+            🔍 差异核实记录
+            <el-tag
+              v-for="vf in detail.verifications" :key="vf.id"
+              :type="conclusionMap[vf.conclusion]?.type || 'info'"
+              size="small"
+              style="margin-left: 8px"
+            >
+              {{ conclusionMap[vf.conclusion]?.label || vf.conclusion }}
+            </el-tag>
+          </div>
+        </template>
+        <div v-for="vf in detail.verifications" :key="vf.id" style="padding: 12px 0; border-bottom: 1px dashed #e5e7eb">
+          <el-descriptions :column="2" size="small" border>
+            <el-descriptions-item label="核实单号" :span="2">{{ vf.verification_no }}</el-descriptions-item>
+            <el-descriptions-item label="核实结论">
+              <el-tag :type="conclusionMap[vf.conclusion]?.type || 'info'" effect="dark">
+                {{ conclusionMap[vf.conclusion]?.label || vf.conclusion }}
+              </el-tag>
+            </el-descriptions-item>
+            <el-descriptions-item label="核实人">{{ vf.verifier_name }}</el-descriptions-item>
+            <el-descriptions-item label="责任归属" :span="2">
+              <div style="color: #991b1b; font-weight: 500">{{ vf.responsibility }}</div>
+            </el-descriptions-item>
+            <el-descriptions-item label="处理备注" :span="2">{{ vf.processing_remark || '无' }}</el-descriptions-item>
+            <el-descriptions-item label="核实时间" :span="2">{{ formatDate(vf.verified_at) }}</el-descriptions-item>
+          </el-descriptions>
+        </div>
+      </el-card>
+
+      <el-card v-else-if="detail.status === 'disputed'" class="card-shadow" style="margin-top: 16px">
+        <template #header>
+          <div style="font-weight: 600; color: #991b1b">⚠️ 差异待核实</div>
+        </template>
+        <div style="text-align: center; padding: 20px; color: #6b7280">
+          <div style="margin-bottom: 12px">该调拨单存在数量差异，待品牌督导核实</div>
+          <el-button type="danger" @click="openVerify">执行差异核实</el-button>
+        </div>
+      </el-card>
     </template>
+
+    <el-dialog v-model="showVerify" title="差异核实（品牌督导）" width="560px" :close-on-click-modal="false">
+      <el-alert type="error" show-icon :closable="false" style="margin-bottom: 16px" title="该调拨单到柜复核时存在数量差异，请核实后填写结论" />
+      <el-descriptions v-if="detail" :column="2" size="small" border style="margin-bottom: 16px">
+        <el-descriptions-item label="调拨单号">{{ detail.allocation_no }}</el-descriptions-item>
+        <el-descriptions-item label="商品">{{ detail.goods_name }}</el-descriptions-item>
+        <el-descriptions-item label="期望数量">{{ detail.quantity }}{{ detail.unit }}</el-descriptions-item>
+        <el-descriptions-item label="实收数量">
+          <span style="color: #ef4444; font-weight: 600">{{ detail.reviews[0]?.actual_quantity ?? '-' }}{{ detail.unit }}</span>
+        </el-descriptions-item>
+        <el-descriptions-item label="差异说明" :span="2">{{ detail.reviews[0]?.difference_reason || '-' }}</el-descriptions-item>
+      </el-descriptions>
+      <el-form :model="verifyForm" label-width="110px">
+        <el-form-item label="核实结论" required>
+          <el-radio-group v-model="verifyForm.conclusion">
+            <el-radio value="sender_short">
+              <span style="color: #991b1b">发货方少装</span>
+              <span style="font-size: 12px; color: #9ca3af; margin-left: 4px">（责任在调出方）</span>
+            </el-radio>
+            <el-radio value="receiver_false">
+              <span style="color: #92400e">收货方误报</span>
+              <span style="font-size: 12px; color: #9ca3af; margin-left: 4px">（责任在调入方）</span>
+            </el-radio>
+          </el-radio-group>
+        </el-form-item>
+        <el-form-item label="责任归属描述" required>
+          <el-input v-model="verifyForm.responsibility" type="textarea" :rows="3" placeholder="请详细说明核实过程和责任认定依据（如：核查出库记录确认少装/监控确认已装箱等），将作为责任认定终审依据" />
+        </el-form-item>
+        <el-form-item label="处理备注">
+          <el-input v-model="verifyForm.processing_remark" type="textarea" :rows="2" placeholder="补发安排、内部整改措施等（选填）" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="showVerify = false">取消</el-button>
+        <el-button type="danger" @click="submitVerify">确认提交核实</el-button>
+      </template>
+    </el-dialog>
 
     <el-dialog v-model="showModify" title="修改调拨内容（修改后复核端会自动感知）" width="500px">
       <el-form :model="modifyForm" label-width="100px">

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
-import api, { type TimelineItem, statusMap, reviewStatusMap } from '@/api'
+import api, { type TimelineItem, statusMap, reviewStatusMap, conclusionMap } from '@/api'
 import { ElMessage } from 'element-plus'
 
 const loading = ref(false)
@@ -30,6 +30,7 @@ const stats = computed(() => {
     total: list.length,
     modified: list.filter(x => x.is_modified).length,
     disputed: list.filter(x => x.allocation_status === 'disputed' || x.review_status === 'disputed').length,
+    verified: list.filter(x => x.verification_conclusion).length,
     pendingReview: list.filter(x => x.review_status === 'pending' && x.allocation_status === 'shipped').length,
   }
 })
@@ -45,25 +46,31 @@ onMounted(loadData)
     </div>
 
     <el-row :gutter="16" style="margin-bottom: 20px">
-      <el-col :span="6">
+      <el-col :span="5">
         <el-card shadow="hover" class="card-shadow">
           <div style="font-size: 13px; color: #6b7280">调拨单总数</div>
           <div style="font-size: 28px; font-weight: 600; margin-top: 6px">{{ stats.total }}</div>
         </el-card>
       </el-col>
-      <el-col :span="6">
+      <el-col :span="5">
         <el-card shadow="hover" class="card-shadow">
           <div style="font-size: 13px; color: #6b7280">被修改过 ⚠️</div>
           <div style="font-size: 28px; font-weight: 600; margin-top: 6px; color: #f59e0b">{{ stats.modified }}</div>
         </el-card>
       </el-col>
-      <el-col :span="6">
+      <el-col :span="5">
         <el-card shadow="hover" class="card-shadow">
           <div style="font-size: 13px; color: #6b7280">有差异待核实</div>
           <div style="font-size: 28px; font-weight: 600; margin-top: 6px; color: #ef4444">{{ stats.disputed }}</div>
         </el-card>
       </el-col>
-      <el-col :span="6">
+      <el-col :span="5">
+        <el-card shadow="hover" class="card-shadow">
+          <div style="font-size: 13px; color: #6b7280">已核实闭环</div>
+          <div style="font-size: 28px; font-weight: 600; margin-top: 6px; color: #059669">{{ stats.verified }}</div>
+        </el-card>
+      </el-col>
+      <el-col :span="4">
         <el-card shadow="hover" class="card-shadow">
           <div style="font-size: 13px; color: #6b7280">待到柜复核</div>
           <div style="font-size: 28px; font-weight: 600; margin-top: 6px; color: #3b82f6">{{ stats.pendingReview }}</div>
@@ -149,6 +156,22 @@ onMounted(loadData)
         <el-table-column label="复核时间" width="170">
           <template #default="{ row }">{{ formatDate(row.reviewed_at) }}</template>
         </el-table-column>
+        <el-table-column label="差异核实" width="200">
+          <template #default="{ row }">
+            <div v-if="row.verification_conclusion">
+              <el-tag :type="conclusionMap[row.verification_conclusion]?.type || 'info'" size="small" effect="dark">
+                {{ conclusionMap[row.verification_conclusion]?.label || row.verification_conclusion }}
+              </el-tag>
+              <div style="font-size: 11px; color: #6b7280; margin-top: 4px">
+                核实人：{{ row.verified_by_name || '-' }}
+              </div>
+              <div style="font-size: 11px; color: #6b7280">
+                {{ formatDate(row.verified_at) }}
+              </div>
+            </div>
+            <span v-else style="color: #9ca3af; font-size: 12px">-</span>
+          </template>
+        </el-table-column>
         <el-table-column label="操作" width="100" fixed="right">
           <template #default="{ row }">
             <el-button size="small" type="primary" link @click="goDetail(row.allocation_id)">详情</el-button>
@@ -163,7 +186,8 @@ onMounted(loadData)
         1. 商品调拨单从创建起，每一次修改都会记录在「变更日志」中，包含修改人、修改时间、字段新旧值、修改原因<br/>
         2. 调拨单在「楼层主管审批/品牌督导发货」后被改动的，复核端会自动弹出 <b>「该调拨单已被修改，请确认知晓后再复核」</b><br/>
         3. 复核人必须勾选「确认已知晓变更内容」才能完成到柜复核，系统永久记录确认人和确认时间<br/>
-        4. 所有历史操作均在「历史备注」和「变更日志」中留痕，不再需要翻旧台账/聊天记录
+        4. 数量差异时品牌督导执行差异核实，结论分<b>「发货方少装」</b>和<b>「收货方误报」</b>两类，责任归属永久留痕<br/>
+        5. 所有历史操作均在「历史备注」和「变更日志」中留痕，不再需要翻旧台账/聊天记录
       </div>
     </div>
   </div>
