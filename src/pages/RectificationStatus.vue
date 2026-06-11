@@ -9,7 +9,9 @@ import {
   TrendingUp,
   MapPin,
   ChevronRight,
-  AlertCircle
+  AlertCircle,
+  Users,
+  Filter
 } from 'lucide-vue-next';
 import { useInspectionStore } from '@/stores/inspection.js';
 import { RiskLevelLabel, InspectionStatusLabel } from '../types/index.js';
@@ -22,6 +24,8 @@ const router = useRouter();
 const store = useInspectionStore();
 
 const activeTab = ref<InspectionStatus | 'all'>('all');
+const overdueFilter = ref<'all' | 'overdue' | 'urgent' | 'normal'>('all');
+const assigneeFilter = ref<string>('all');
 
 async function loadData() {
   await store.fetchStats();
@@ -40,6 +44,53 @@ const tabOptions = [
   { value: 'passed', label: '已完成', icon: CheckCircle }
 ];
 
+const assigneeOptions = computed(() => {
+  const names = new Set<string>();
+  store.sortedInspections.forEach(i => {
+    const receiver = i.dispatches?.[0]?.receiverName;
+    if (receiver) names.add(receiver);
+  });
+  return Array.from(names);
+});
+
+function getDaysRemaining(inspection: any) {
+  const dispatch = inspection.dispatches?.[0];
+  if (!dispatch?.expectedCompletionTime) return null;
+  
+  const now = dayjs();
+  const expected = dayjs(dispatch.expectedCompletionTime);
+  const diff = Math.ceil(expected.diff(now, 'day', true));
+  
+  if (diff < 0) {
+    return { text: `逾期 ${Math.abs(diff)} 天`, isOverdue: true, days: Math.abs(diff) };
+  } else if (diff === 0) {
+    return { text: '今日到期', isOverdue: false, days: 0, isUrgent: true };
+  } else if (diff <= 2) {
+    return { text: `剩余 ${diff} 天`, isOverdue: false, days: diff, isUrgent: true };
+  } else {
+    return { text: `剩余 ${diff} 天`, isOverdue: false, days: diff };
+  }
+}
+
+function isOverdue(inspection: any) {
+  const dr = getDaysRemaining(inspection);
+  return dr?.isOverdue || false;
+}
+
+function isUrgent(inspection: any) {
+  const dr = getDaysRemaining(inspection);
+  return dr?.isUrgent || false;
+}
+
+function getRowClass(inspection: any) {
+  const dr = getDaysRemaining(inspection);
+  if (!dr?.isOverdue) return '';
+  const days = dr.days || 0;
+  if (days >= 7) return 'bg-red-50 border-l-4 border-red-500 hover:bg-red-100';
+  if (days >= 3) return 'bg-red-50 border-l-4 border-red-400 hover:bg-red-100';
+  return 'bg-orange-50 border-l-4 border-orange-400 hover:bg-orange-100';
+}
+
 const filteredInspections = computed(() => {
   let list = store.sortedInspections.filter(i => 
     ['dispatched', 'in_progress', 'completed', 'pending_review_after', 'passed', 'rejected'].includes(i.status)
@@ -48,8 +99,31 @@ const filteredInspections = computed(() => {
   if (activeTab.value !== 'all') {
     list = list.filter(i => i.status === activeTab.value);
   }
-  
-  return list;
+
+  if (overdueFilter.value !== 'all') {
+    list = list.filter(i => {
+      const dr = getDaysRemaining(i);
+      if (overdueFilter.value === 'overdue') return dr?.isOverdue;
+      if (overdueFilter.value === 'urgent') return dr?.isUrgent && !dr?.isOverdue;
+      if (overdueFilter.value === 'normal') return dr && !dr?.isOverdue && !dr?.isUrgent;
+      return true;
+    });
+  }
+
+  if (assigneeFilter.value !== 'all') {
+    list = list.filter(i => i.dispatches?.[0]?.receiverName === assigneeFilter.value);
+  }
+
+  return list.sort((a, b) => {
+    const aDr = getDaysRemaining(a);
+    const bDr = getDaysRemaining(b);
+    const aOverdueDays = aDr?.isOverdue ? aDr.days : -1;
+    const bOverdueDays = bDr?.isOverdue ? bDr.days : -1;
+    if (aOverdueDays !== bOverdueDays) return bOverdueDays - aOverdueDays;
+    const aDays = aDr?.days ?? 999;
+    const bDays = bDr?.days ?? 999;
+    return aDays - bDays;
+  });
 });
 
 function getProgressPercentage(inspection: any) {
@@ -64,23 +138,6 @@ function getProgressPercentage(inspection: any) {
   return statusOrder[inspection.status] || 0;
 }
 
-function getDaysRemaining(inspection: any) {
-  const dispatch = inspection.dispatches?.[0];
-  if (!dispatch?.expectedCompletionTime) return null;
-  
-  const now = dayjs();
-  const expected = dayjs(dispatch.expectedCompletionTime);
-  const diff = expected.diff(now, 'day');
-  
-  if (diff < 0) {
-    return { text: `逾期 ${Math.abs(diff)} 天`, isOverdue: true };
-  } else if (diff === 0) {
-    return { text: '今日到期', isOverdue: false };
-  } else {
-    return { text: `剩余 ${diff} 天`, isOverdue: false };
-  }
-}
-
 function formatDate(dateStr: string) {
   return dayjs(dateStr).format('MM-DD HH:mm');
 }
@@ -93,7 +150,15 @@ onMounted(() => {
 <template>
   <div class="space-y-6">
     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-      <h2 class="text-2xl font-bold text-gray-800">整改状态</h2>
+      <div class="flex items-center gap-3">
+        <h2 class="text-2xl font-bold text-gray-800">整改状态</h2>
+        <div
+          v-if="(overdueFilter !== 'all' || assigneeFilter !== 'all' || activeTab !== 'all')"
+          class="inline-flex items-center gap-1 px-2 py-0.5 bg-red-100 text-red-700 text-xs font-medium rounded-full"
+        >
+          已筛选: {{ filteredInspections.length }} 条
+        </div>
+      </div>
     </div>
 
     <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
@@ -157,7 +222,7 @@ onMounted(() => {
         </div>
       </div>
 
-      <div class="bg-white rounded-xl p-4 shadow-sm border border-gray-200">
+      <div class="bg-white rounded-xl p-4 shadow-sm border-2 border-red-200 bg-red-50/30">
         <div class="flex items-center gap-3">
           <div class="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center">
             <XCircle class="w-5 h-5 text-red-600" />
@@ -167,6 +232,33 @@ onMounted(() => {
             <p class="text-xl font-bold text-red-600">{{ store.stats?.overdue || 0 }}</p>
           </div>
         </div>
+      </div>
+    </div>
+
+    <div class="flex flex-col sm:flex-row gap-3">
+      <div class="flex items-center gap-2 bg-white rounded-lg border border-gray-200 px-3 py-2">
+        <Filter class="w-4 h-4 text-gray-400" />
+        <span class="text-sm text-gray-600 font-medium">时间状态：</span>
+        <select
+          v-model="overdueFilter"
+          class="text-sm border-none focus:ring-0 bg-transparent text-gray-700 cursor-pointer"
+        >
+          <option value="all">全部</option>
+          <option value="overdue">已逾期</option>
+          <option value="urgent">临近到期（≤2天）</option>
+          <option value="normal">正常（>2天）</option>
+        </select>
+      </div>
+      <div class="flex items-center gap-2 bg-white rounded-lg border border-gray-200 px-3 py-2">
+        <Users class="w-4 h-4 text-gray-400" />
+        <span class="text-sm text-gray-600 font-medium">责任人：</span>
+        <select
+          v-model="assigneeFilter"
+          class="text-sm border-none focus:ring-0 bg-transparent text-gray-700 cursor-pointer"
+        >
+          <option value="all">全部</option>
+          <option v-for="name in assigneeOptions" :key="name" :value="name">{{ name }}</option>
+        </select>
       </div>
     </div>
 
@@ -198,30 +290,38 @@ onMounted(() => {
         <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
           <CheckCircle class="w-8 h-8 text-gray-400" />
         </div>
-        <h3 class="text-lg font-medium text-gray-800 mb-2">暂无整改记录</h3>
-        <p class="text-gray-500">隐患派发后将在此处显示整改进度</p>
+        <h3 class="text-lg font-medium text-gray-800 mb-2">暂无匹配的整改记录</h3>
+        <p class="text-gray-500">请尝试调整筛选条件</p>
       </div>
 
       <div v-else class="divide-y divide-gray-100">
         <div
           v-for="inspection in filteredInspections"
           :key="inspection.id"
-          class="p-5 hover:bg-gray-50 transition-colors cursor-pointer"
+          class="p-5 transition-colors cursor-pointer"
+          :class="getRowClass(inspection) || 'hover:bg-gray-50'"
           @click="viewDetail(inspection.id)"
         >
           <div class="flex flex-col lg:flex-row lg:items-center gap-4">
             <div class="flex-1 min-w-0">
-              <div class="flex items-center gap-3 mb-2">
-                <h3 class="font-semibold text-gray-800 truncate">
+              <div class="flex items-center gap-3 mb-2 flex-wrap">
+                <h3 class="font-semibold" :class="isOverdue(inspection) ? 'text-red-800' : 'text-gray-800'">
                   {{ inspection.facilityName }}
                 </h3>
                 <RiskBadge :level="inspection.riskLevel" />
                 <StatusBadge :status="inspection.status" />
                 <div
                   v-if="getDaysRemaining(inspection)?.isOverdue"
-                  class="inline-flex items-center gap-1 px-2 py-0.5 bg-red-100 text-red-700 text-xs font-medium rounded-full"
+                  class="inline-flex items-center gap-1 px-2 py-0.5 bg-red-100 text-red-700 text-xs font-semibold rounded-full"
                 >
                   <XCircle class="w-3 h-3" />
+                  {{ getDaysRemaining(inspection)?.text }}
+                </div>
+                <div
+                  v-else-if="isUrgent(inspection)"
+                  class="inline-flex items-center gap-1 px-2 py-0.5 bg-orange-100 text-orange-700 text-xs font-semibold rounded-full"
+                >
+                  <AlertTriangle class="w-3 h-3" />
                   {{ getDaysRemaining(inspection)?.text }}
                 </div>
                 <div
@@ -237,16 +337,24 @@ onMounted(() => {
                 {{ inspection.description }}
               </p>
 
-              <div class="flex items-center gap-4 text-xs text-gray-500">
-                <div class="flex items-center gap-1">
+              <div class="flex items-center gap-4 text-xs flex-wrap">
+                <div class="flex items-center gap-1 text-gray-500">
                   <MapPin class="w-3.5 h-3.5" />
                   {{ inspection.location }}
                 </div>
-                <div v-if="inspection.dispatches?.[0]">
-                  接收人：{{ inspection.dispatches[0].receiverName }}
+                <div
+                  v-if="inspection.dispatches?.[0]"
+                  class="flex items-center gap-1"
+                  :class="isOverdue(inspection) ? 'font-semibold text-red-700' : 'text-gray-500'"
+                >
+                  <Users class="w-3.5 h-3.5" />
+                  责任人：{{ inspection.dispatches[0].receiverName }}
                 </div>
-                <div>
+                <div class="text-gray-500">
                   发现时间：{{ formatDate(inspection.discoveryTime) }}
+                </div>
+                <div v-if="inspection.dispatches?.[0]?.expectedCompletionTime" class="text-gray-500">
+                  截止：{{ formatDate(inspection.dispatches[0].expectedCompletionTime) }}
                 </div>
               </div>
             </div>
@@ -255,7 +363,7 @@ onMounted(() => {
               <div class="w-48">
                 <div class="flex items-center justify-between text-xs text-gray-500 mb-1">
                   <span>整改进度</span>
-                  <span class="font-medium text-gray-700">{{ getProgressPercentage(inspection) }}%</span>
+                  <span class="font-medium" :class="getProgressPercentage(inspection) === 100 ? 'text-green-700' : 'text-gray-700'">{{ getProgressPercentage(inspection) }}%</span>
                 </div>
                 <div class="w-full bg-gray-200 rounded-full h-2">
                   <div
@@ -270,7 +378,7 @@ onMounted(() => {
                 </div>
               </div>
 
-              <ChevronRight class="w-5 h-5 text-gray-400" />
+              <ChevronRight class="w-5 h-5" :class="isOverdue(inspection) ? 'text-red-500' : 'text-gray-400'" />
             </div>
           </div>
         </div>

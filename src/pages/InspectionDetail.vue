@@ -10,10 +10,12 @@ import {
   Send,
   Clock,
   CheckCircle,
+  XCircle,
   Wrench,
   FileText,
   Camera,
-  MessageSquare
+  MessageSquare,
+  Users
 } from 'lucide-vue-next';
 import { useInspectionStore } from '@/stores/inspection.js';
 import type { UpdateDispatchRequest } from '../types/index.js';
@@ -23,6 +25,7 @@ import PhotoGallery from '@/components/PhotoGallery.vue';
 import StatusTimeline from '@/components/StatusTimeline.vue';
 import DispatchModal from '@/components/DispatchModal.vue';
 import ReviewModal from '@/components/ReviewModal.vue';
+import dayjs from 'dayjs';
 
 const route = useRoute();
 const router = useRouter();
@@ -40,6 +43,50 @@ const expectedTimeForm = reactive({
 const dispatchUpdateLoading = ref(false);
 
 const id = computed(() => route.params.id as string);
+
+const deadlineInfo = computed(() => {
+  const dispatch = store.currentInspection?.dispatches?.[0];
+  if (!dispatch?.expectedCompletionTime) return null;
+
+  const inspection = store.currentInspection!;
+  const isDone = ['passed', 'completed'].includes(inspection.status);
+
+  const now = dayjs();
+  const expected = dayjs(dispatch.expectedCompletionTime);
+  const diff = Math.ceil(expected.diff(now, 'day', true));
+
+  if (isDone) {
+    return { text: '已完成', level: 'done' as const, isOverdue: false };
+  }
+
+  if (diff < 0) {
+    const days = Math.abs(diff);
+    let level: 'urgent' | 'critical' | 'warning' = 'warning';
+    if (days >= 7) level = 'critical';
+    else if (days >= 3) level = 'urgent';
+    return { text: `已逾期 ${days} 天`, level, isOverdue: true, days };
+  } else if (diff === 0) {
+    return { text: '今日到期', level: 'urgent' as const, isOverdue: false, days: 0 };
+  } else if (diff <= 2) {
+    return { text: `剩余 ${diff} 天`, level: 'urgent' as const, isOverdue: false, days: diff };
+  } else {
+    return { text: `剩余 ${diff} 天`, level: 'normal' as const, isOverdue: false, days: diff };
+  }
+});
+
+function deadlineBannerClass(info: any) {
+  if (!info || info.level === 'done') return 'bg-gray-50 border-gray-200 text-gray-600';
+  if (info.level === 'critical') return 'bg-red-100 border-red-400 text-red-800';
+  if (info.level === 'urgent') return 'bg-orange-100 border-orange-400 text-orange-800';
+  return 'bg-green-100 border-green-400 text-green-800';
+}
+
+function deadlineIcon(info: any) {
+  if (!info || info.level === 'done') return CheckCircle;
+  if (info.isOverdue) return XCircle;
+  if (info.level === 'urgent') return AlertTriangle;
+  return Clock;
+}
 
 async function loadData() {
   if (id.value) {
@@ -165,6 +212,32 @@ watch(() => route.params.id, () => {
       返回列表
     </button>
 
+    <div
+      v-if="store.currentInspection && deadlineInfo"
+      class="rounded-xl border-2 px-5 py-4 flex items-center justify-between"
+      :class="deadlineBannerClass(deadlineInfo)"
+    >
+      <div class="flex items-center gap-3">
+        <component :is="deadlineIcon(deadlineInfo)" class="w-6 h-6" />
+        <div>
+          <p class="font-bold text-lg">
+            {{ deadlineInfo.text }}
+          </p>
+          <p class="text-sm opacity-80">
+            截止时间：{{ store.currentInspection.dispatches[0].expectedCompletionTime }}
+            <span v-if="store.currentInspection.dispatches[0].receiverName" class="ml-3">
+              责任人：{{ store.currentInspection.dispatches[0].receiverName }}
+            </span>
+          </p>
+        </div>
+      </div>
+      <div v-if="deadlineInfo.isOverdue" class="text-right">
+        <span class="text-sm font-semibold px-3 py-1 rounded-full bg-white bg-opacity-50">
+          请尽快催办
+        </span>
+      </div>
+    </div>
+
     <div v-if="store.loading" class="flex items-center justify-center py-16">
       <div class="animate-spin rounded-full h-10 w-10 border-4 border-red-200 border-t-red-600"></div>
     </div>
@@ -265,36 +338,107 @@ watch(() => route.params.id, () => {
               </div>
             </div>
 
-            <div v-if="store.currentInspection.dispatches.length > 0" class="bg-blue-50 border border-blue-200 rounded-lg p-5">
-              <h3 class="font-semibold text-blue-800 mb-4 flex items-center gap-2">
+            <div
+              v-if="store.currentInspection.dispatches.length > 0"
+              class="rounded-lg p-5 border"
+              :class="deadlineInfo?.isOverdue
+                ? 'bg-red-50 border-red-200'
+                : (deadlineInfo?.level === 'urgent' ? 'bg-orange-50 border-orange-200' : 'bg-blue-50 border-blue-200')"
+            >
+              <h3
+                class="font-semibold mb-4 flex items-center gap-2"
+                :class="deadlineInfo?.isOverdue
+                  ? 'text-red-800'
+                  : (deadlineInfo?.level === 'urgent' ? 'text-orange-800' : 'text-blue-800')"
+              >
                 <Wrench class="w-5 h-5" />
                 整改信息
               </h3>
               <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                 <div>
-                  <span class="text-sm text-blue-600">派发人</span>
-                  <p class="font-medium text-blue-800">{{ store.currentInspection.dispatches[0].dispatcherName }}</p>
+                  <span
+                    class="text-sm"
+                    :class="deadlineInfo?.isOverdue
+                      ? 'text-red-600'
+                      : (deadlineInfo?.level === 'urgent' ? 'text-orange-600' : 'text-blue-600')"
+                  >派发人</span>
+                  <p
+                    class="font-medium"
+                    :class="deadlineInfo?.isOverdue
+                      ? 'text-red-800'
+                      : (deadlineInfo?.level === 'urgent' ? 'text-orange-800' : 'text-blue-800')"
+                  >{{ store.currentInspection.dispatches[0].dispatcherName }}</p>
                 </div>
                 <div>
-                  <span class="text-sm text-blue-600">接收人</span>
-                  <p class="font-medium text-blue-800">{{ store.currentInspection.dispatches[0].receiverName }}</p>
+                  <span
+                    class="text-sm"
+                    :class="deadlineInfo?.isOverdue
+                      ? 'text-red-600'
+                      : (deadlineInfo?.level === 'urgent' ? 'text-orange-600' : 'text-blue-600')"
+                  >接收人（责任人）</span>
+                  <p
+                    class="font-medium"
+                    :class="deadlineInfo?.isOverdue
+                      ? 'text-red-800'
+                      : (deadlineInfo?.level === 'urgent' ? 'text-orange-800' : 'text-blue-800')"
+                  >{{ store.currentInspection.dispatches[0].receiverName }}</p>
                 </div>
                 <div>
-                  <span class="text-sm text-blue-600">派发时间</span>
-                  <p class="font-medium text-blue-800">{{ store.currentInspection.dispatches[0].dispatchTime }}</p>
+                  <span
+                    class="text-sm"
+                    :class="deadlineInfo?.isOverdue
+                      ? 'text-red-600'
+                      : (deadlineInfo?.level === 'urgent' ? 'text-orange-600' : 'text-blue-600')"
+                  >派发时间</span>
+                  <p
+                    class="font-medium"
+                    :class="deadlineInfo?.isOverdue
+                      ? 'text-red-800'
+                      : (deadlineInfo?.level === 'urgent' ? 'text-orange-800' : 'text-blue-800')"
+                  >{{ store.currentInspection.dispatches[0].dispatchTime }}</p>
                 </div>
                 <div>
-                  <span class="text-sm text-blue-600">预计完成时间</span>
-                  <p class="font-medium text-blue-800">{{ store.currentInspection.dispatches[0].expectedCompletionTime || '待设置' }}</p>
+                  <span
+                    class="text-sm"
+                    :class="deadlineInfo?.isOverdue
+                      ? 'text-red-600'
+                      : (deadlineInfo?.level === 'urgent' ? 'text-orange-600' : 'text-blue-600')"
+                  >预计完成时间</span>
+                  <p
+                    class="font-medium"
+                    :class="deadlineInfo?.isOverdue
+                      ? 'text-red-800 font-bold'
+                      : (deadlineInfo?.level === 'urgent' ? 'text-orange-800 font-semibold' : 'text-blue-800')"
+                  >{{ store.currentInspection.dispatches[0].expectedCompletionTime || '待设置' }}</p>
                 </div>
               </div>
               <div class="mb-4">
-                <span class="text-sm text-blue-600">派发要求</span>
-                <p class="font-medium text-blue-800">{{ store.currentInspection.dispatches[0].dispatchRemark }}</p>
+                <span
+                  class="text-sm"
+                  :class="deadlineInfo?.isOverdue
+                    ? 'text-red-600'
+                    : (deadlineInfo?.level === 'urgent' ? 'text-orange-600' : 'text-blue-600')"
+                >派发要求</span>
+                <p
+                  class="font-medium"
+                  :class="deadlineInfo?.isOverdue
+                    ? 'text-red-800'
+                    : (deadlineInfo?.level === 'urgent' ? 'text-orange-800' : 'text-blue-800')"
+                >{{ store.currentInspection.dispatches[0].dispatchRemark }}</p>
               </div>
               <div v-if="store.currentInspection.dispatches[0].rectificationRemark">
-                <span class="text-sm text-blue-600">整改说明</span>
-                <p class="font-medium text-blue-800">{{ store.currentInspection.dispatches[0].rectificationRemark }}</p>
+                <span
+                  class="text-sm"
+                  :class="deadlineInfo?.isOverdue
+                    ? 'text-red-600'
+                    : (deadlineInfo?.level === 'urgent' ? 'text-orange-600' : 'text-blue-600')"
+                >整改说明</span>
+                <p
+                  class="font-medium"
+                  :class="deadlineInfo?.isOverdue
+                    ? 'text-red-800'
+                    : (deadlineInfo?.level === 'urgent' ? 'text-orange-800' : 'text-blue-800')"
+                >{{ store.currentInspection.dispatches[0].rectificationRemark }}</p>
               </div>
             </div>
 
