@@ -25,6 +25,12 @@ public class GlobalExceptionHandler {
                 .body(ApiResponse.error(400, e.getMessage()));
     }
 
+    @ExceptionHandler(IllegalStateException.class)
+    public ResponseEntity<ApiResponse<Void>> handleIllegalState(IllegalStateException e) {
+        return ResponseEntity.badRequest()
+                .body(ApiResponse.error(400, e.getMessage()));
+    }
+
     @ExceptionHandler({MethodArgumentNotValidException.class, BindException.class,
                        ConstraintViolationException.class})
     public ResponseEntity<ApiResponse<Void>> handleValidation(Exception e) {

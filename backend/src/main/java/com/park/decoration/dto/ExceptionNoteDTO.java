@@ -13,6 +13,7 @@ public class ExceptionNoteDTO {
     private String title;
     private String description;
     private String impact;
+    private String responsiblePerson;
     private String resolution;
     private String attachmentUrls;
     private String reportedBy;

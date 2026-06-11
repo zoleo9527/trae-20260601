@@ -158,6 +158,7 @@ public class DataInitializer implements CommandLineRunner {
                 app5, "施工临时用电超出申请容量",
                 "施工方私自接入大功率设备，导致配电室跳闸，影响周边企业正常用电。经核查，申请用电容量为50KW，但实际使用约80KW。",
                 "已造成C栋部分区域停电约30分钟",
+                "洁净工程科技公司-韩总 13900139005",
                 "要求施工方立即拆除违规设备，重新提交用电方案并经审核后才能继续施工",
                 null,
                 "物业部-保安队长", now.minusHours(30),
@@ -259,7 +260,7 @@ public class DataInitializer implements CommandLineRunner {
 
     private ExceptionNote createException(
             DecorationApplication app, String title, String description,
-            String impact, String resolution, String attachmentUrls,
+            String impact, String responsiblePerson, String resolution, String attachmentUrls,
             String reportedBy, LocalDateTime reportedAt,
             String resolvedBy, LocalDateTime resolvedAt, Boolean resolved) {
         return ExceptionNote.builder()
@@ -268,6 +269,7 @@ public class DataInitializer implements CommandLineRunner {
                 .title(title)
                 .description(description)
                 .impact(impact)
+                .responsiblePerson(responsiblePerson)
                 .resolution(resolution)
                 .attachmentUrls(attachmentUrls)
                 .reportedBy(reportedBy)

@@ -39,6 +39,9 @@ public class ExceptionNote {
     @Column(length = 500)
     private String impact;
 
+    @Column(length = 100)
+    private String responsiblePerson;
+
     @Column(length = 500)
     private String resolution;
 
