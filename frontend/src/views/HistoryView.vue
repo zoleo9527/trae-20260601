@@ -29,8 +29,8 @@ const stats = computed(() => {
   return {
     total: list.length,
     modified: list.filter(x => x.is_modified).length,
-    disputed: list.filter(x => x.allocation_status === 'disputed' || x.review_status === 'disputed').length,
-    verified: list.filter(x => x.verification_conclusion).length,
+    disputed: list.filter(x => x.allocation_status === 'disputed').length,
+    verified: list.filter(x => x.allocation_status === 'verified').length,
     pendingReview: list.filter(x => x.review_status === 'pending' && x.allocation_status === 'shipped').length,
   }
 })

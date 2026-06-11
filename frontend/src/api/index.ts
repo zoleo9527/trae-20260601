@@ -63,7 +63,7 @@ export const statusMap: Record<string, { label: string; type: string }> = {
   shipped: { label: '已发货待复核', type: 'success' },
   reviewed: { label: '已复核完成', type: 'success' },
   disputed: { label: '有差异待核实', type: 'danger' },
-  verified: { label: '差异已核实', type: '' },
+  verified: { label: '差异已核实', type: 'success' },
   rejected: { label: '已驳回', type: 'danger' },
 }
 
