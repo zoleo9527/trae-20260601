@@ -24,6 +24,37 @@ export async function listUrgencyLogs(entityType: string, entityId: string) {
   });
 }
 
+export async function getUrgencyLogsForTestRecord(testRecordId: string) {
+  const logs: Array<Record<string, unknown>> = [];
+
+  const recordLogs = await prisma.urgencyLog.findMany({
+    where: { entityType: "TEST_RECORD", entityId: testRecordId },
+    orderBy: { createdAt: "desc" },
+  });
+  logs.push(...recordLogs.map((l) => ({ ...l, source: "TEST_RECORD" })));
+
+  const reworkOrders = await prisma.reworkOrder.findMany({
+    where: { testRecordId },
+    select: { id: true },
+  });
+  if (reworkOrders.length > 0) {
+    const reworkIds = reworkOrders.map((ro) => ro.id);
+    const reworkLogs = await prisma.urgencyLog.findMany({
+      where: { entityType: "REWORK_ORDER", entityId: { in: reworkIds } },
+      orderBy: { createdAt: "desc" },
+    });
+    logs.push(...reworkLogs.map((l) => ({ ...l, source: "REWORK_ORDER" })));
+  }
+
+  logs.sort((a, b) => {
+    const ta = a.createdAt as Date;
+    const tb = b.createdAt as Date;
+    return tb.getTime() - ta.getTime();
+  });
+
+  return logs;
+}
+
 export async function getHandoverTimeline(testRecordId?: string, reworkOrderId?: string) {
   const logs: Array<Record<string, unknown>> = [];
 

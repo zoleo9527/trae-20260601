@@ -3,8 +3,7 @@ import type { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
 import { listTestRecords, getTestRecord, createTestRecord, transitionTestRecord, supplementMaterial } from "~/services/test-record.service";
 import { getAvailableTransitions } from "~/models/state-machine";
 import { TEST_RECORD_MACHINE } from "~/models/state-machine";
-import { checkIdempotency } from "~/services/handover.service";
-import { getHandoverTimeline } from "~/services/handover.service";
+import { checkIdempotency, getHandoverTimeline, getUrgencyLogsForTestRecord } from "~/services/handover.service";
 
 export async function loader({ request }: LoaderFunctionArgs) {
   const url = new URL(request.url);
@@ -24,6 +23,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
       : [];
 
     const timeline = await getHandoverTimeline(id);
+    const urgencyLogs = await getUrgencyLogsForTestRecord(id);
 
     return json({
       record,
@@ -53,6 +53,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
         remark: hl.remark,
         createdAt: hl.createdAt,
       })),
+      urgencyLogs,
       timeline,
     });
   }
@@ -101,7 +102,8 @@ export async function action({ request }: ActionFunctionArgs) {
         if (isDuplicate) {
           const existing = await getTestRecord(testRecordId);
           const timeline = await getHandoverTimeline(testRecordId);
-          return json({ record: existing, timeline, idempotent: true });
+          const urgencyLogs = await getUrgencyLogsForTestRecord(testRecordId);
+          return json({ record: existing, timeline, urgencyLogs, idempotent: true });
         }
       }
 
@@ -119,7 +121,8 @@ export async function action({ request }: ActionFunctionArgs) {
           idempotencyKey,
         });
         const timeline = await getHandoverTimeline(testRecordId);
-        return json({ record, timeline });
+        const urgencyLogs = await getUrgencyLogsForTestRecord(testRecordId);
+        return json({ record, timeline, urgencyLogs });
       } catch (e: unknown) {
         const message = e instanceof Error ? e.message : "状态流转失败";
         return json({ error: message }, { status: 422 });
@@ -141,7 +144,8 @@ export async function action({ request }: ActionFunctionArgs) {
         remark,
       });
       const timeline = await getHandoverTimeline(testRecordId);
-      return json({ record, timeline });
+      const urgencyLogs = await getUrgencyLogsForTestRecord(testRecordId);
+      return json({ record, timeline, urgencyLogs });
     }
 
     default:

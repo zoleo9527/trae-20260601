@@ -5,7 +5,7 @@ import { getTestRecord, transitionTestRecord, supplementMaterial } from "~/servi
 import { getAvailableTransitions as getStateTransitions } from "~/models/state-machine";
 import { TEST_RECORD_MACHINE, REWORK_ORDER_MACHINE } from "~/models/state-machine";
 import { listReworkOrders, getReworkOrder, transitionReworkOrder } from "~/services/rework.service";
-import { createUrgency, getHandoverTimeline } from "~/services/handover.service";
+import { createUrgency, getHandoverTimeline, getUrgencyLogsForTestRecord } from "~/services/handover.service";
 import {
   TEST_RECORD_STATUS_LABELS,
   REWORK_ORDER_STATUS_LABELS,
@@ -26,8 +26,9 @@ export async function loader({ params, request }: LoaderFunctionArgs) {
   const availableTransitions = getStateTransitions(TEST_RECORD_MACHINE, record.status, currentRole);
 
   const timeline = await getHandoverTimeline(recordId);
+  const urgencyLogs = await getUrgencyLogsForTestRecord(recordId);
 
-  return json({ record, availableTransitions, currentRole, timeline });
+  return json({ record, availableTransitions, currentRole, timeline, urgencyLogs });
 }
 
 export async function action({ request, params }: ActionFunctionArgs) {
