@@ -115,8 +115,6 @@ export async function executeStatusTransition(
   }
 
   const now = new Date();
-  const lastTransition = await dao.getLastTransitionByLeadId(lead.id);
-  const gapDetection = detectGap(lead, lastTransition, now);
 
   let followupId: string | null = null;
   if (followupRecord) {
@@ -139,8 +137,8 @@ export async function executeStatusTransition(
     transitionedBy: currentUser.id,
     transitionedByRole: currentUser.role,
     remark: req.remark,
-    isGapDetected: gapDetection.hasGap,
-    gapDurationMinutes: gapDetection.gapDuration,
+    isGapDetected: false,
+    gapDurationMinutes: 0,
   };
 
   const transitionId = await dao.insertTransition(transition);
@@ -158,6 +156,17 @@ export async function executeStatusTransition(
   }
 
   await dao.updateLead(lead.id, leadUpdates);
+
+  const updatedLeadForGap = (await dao.getLeadById(lead.id)) as Lead;
+  const thisTransition = (await dao.getLastTransitionByLeadId(lead.id)) as StatusTransition;
+  const gapDetection = detectGap(updatedLeadForGap, thisTransition, now);
+
+  if (gapDetection.hasGap) {
+    await dao.updateTransition(transitionId, {
+      isGapDetected: true,
+      gapDurationMinutes: gapDetection.gapDuration,
+    });
+  }
 
   let exception: ExceptionLog | undefined;
   if (gapDetection.hasGap && gapDetection.exceptionType) {
@@ -192,7 +201,12 @@ export async function executeStatusTransition(
     errors: [],
     warnings: validation.warnings,
     lead: updatedLead || undefined,
-    transition: { ...transition, id: transitionId },
+    transition: {
+      ...transition,
+      id: transitionId,
+      isGapDetected: gapDetection.hasGap,
+      gapDurationMinutes: gapDetection.gapDuration,
+    },
     followup: followupRecord || undefined,
     exception,
   };
@@ -254,6 +268,26 @@ export async function flagException(
   return { ...exception, id: exceptionId };
 }
 
+async function syncLeadExceptionFields(leadId: string): Promise<void> {
+  const remaining = await dao.getUnhandledExceptions(leadId);
+  if (remaining.length === 0) {
+    await dao.updateLead(leadId, {
+      hasException: false,
+      exceptionType: null,
+      exceptionMessage: null,
+      exceptionAt: null,
+    });
+  } else {
+    const latest = remaining.sort((a, b) => b.detectedAt.localeCompare(a.detectedAt))[0];
+    await dao.updateLead(leadId, {
+      hasException: true,
+      exceptionType: latest.type,
+      exceptionMessage: latest.message,
+      exceptionAt: latest.detectedAt,
+    });
+  }
+}
+
 export async function handleException(
   exceptionId: string,
   remark: string,
@@ -273,15 +307,7 @@ export async function handleException(
   });
 
   if (leadId) {
-    const remaining = await dao.getUnhandledExceptions(leadId);
-    if (remaining.length === 0) {
-      await dao.updateLead(leadId, {
-        hasException: false,
-        exceptionType: null,
-        exceptionMessage: null,
-        exceptionAt: null,
-      });
-    }
+    await syncLeadExceptionFields(leadId);
   }
 }
 
@@ -364,15 +390,7 @@ export async function reassignLead(
     });
   }
 
-  const remainingExceptions = await dao.getUnhandledExceptions(leadId);
-  if (remainingExceptions.length === 0) {
-    await dao.updateLead(leadId, {
-      hasException: false,
-      exceptionType: null,
-      exceptionMessage: null,
-      exceptionAt: null,
-    });
-  }
+  await syncLeadExceptionFields(leadId);
 }
 
 export async function scanForGaps(): Promise<ExceptionLog[]> {
