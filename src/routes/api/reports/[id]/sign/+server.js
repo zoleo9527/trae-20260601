@@ -4,7 +4,14 @@ import { prepare, exec, STATUS, STATUS_META } from '$lib/server/db.js';
 export async function POST({ params, request }) {
   const { signatory_id, signatory_name, signature_data, remark } = await request.json();
 
-  const reportStmt = prepare('SELECT * FROM maintenance_reports WHERE id = ?');
+  const reportSql = `
+    SELECT r.*, b.property_manager_id, u.name as property_manager_name
+    FROM maintenance_reports r
+    JOIN buildings b ON r.building_id = b.id
+    LEFT JOIN users u ON b.property_manager_id = u.id
+    WHERE r.id = ?
+  `;
+  const reportStmt = prepare(reportSql);
   const report = await reportStmt.get(params.id);
 
   if (!report) {
@@ -21,6 +28,18 @@ export async function POST({ params, request }) {
   const signatory = await userStmt.get(signatory_id);
   if (!signatory || signatory.role !== 'property') {
     return json({ error: '只有物业联系人可以签收' }, { status: 403 });
+  }
+
+  if (!report.property_manager_id) {
+    return json({ error: '此楼宇未指定物业联系人' }, { status: 403 });
+  }
+
+  if (report.property_manager_id !== signatory_id) {
+    return json({
+      error: `签收人不匹配：此楼宇的物业联系人为「${report.property_manager_name || '未设置'}」，您「${signatory.name}」无权签收`,
+      expected_signatory: report.property_manager_name,
+      actual_signatory: signatory.name
+    }, { status: 403 });
   }
 
   const now = new Date().toISOString().replace('T', ' ').substring(0, 19);

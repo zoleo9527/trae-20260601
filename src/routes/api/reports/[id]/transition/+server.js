@@ -71,7 +71,7 @@ export async function POST({ params, request }) {
     success: true,
     transition: {
       ...newTransition,
-      from_status_label: newTransition.from_status ? STATUS_META[newTransition.from_status]?.label : '创建' : null,
+      from_status_label: newTransition.from_status ? (STATUS_META[newTransition.from_status]?.label || '创建') : null,
       to_status_label: STATUS_META[newTransition.to_status]?.label || newTransition.to_status,
       to_status_color: STATUS_META[newTransition.to_status]?.color || '#6b7280',
       operator_role_label: newTransition.operator_role === 'inspector' ? '巡检工程师' :

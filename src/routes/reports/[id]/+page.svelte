@@ -38,12 +38,6 @@
       roles: ['supervisor'],
       nextStep: '推送至物业联系人进行签收'
     },
-    signed: {
-      label: '确认签收',
-      btnClass: 'success',
-      roles: ['property'],
-      nextStep: '确认后报告将完成归档'
-    },
     disputed: {
       label: '提出异议',
       btnClass: 'danger',
@@ -63,7 +57,7 @@
     report_submitted: ['report_approved', 'report_rejected'],
     report_rejected: ['report_submitted'],
     report_approved: ['pending_signature'],
-    pending_signature: ['signed', 'disputed'],
+    pending_signature: ['disputed'],
     disputed: ['pending_signature', 'report_rejected']
   };
 
@@ -78,22 +72,42 @@
     loading = false;
   };
 
+  let lastUserId = null;
+  let lastReportId = null;
+
   onMount(() => {
+    lastUserId = $currentUser.id;
+    lastReportId = $page.params.id;
     loadData();
   });
 
-  $: if ($currentUser && report) {
-    loadData();
+  $: if ($currentUser.id !== lastUserId || $page.params.id !== lastReportId) {
+    lastUserId = $currentUser.id;
+    lastReportId = $page.params.id;
+    if (report !== null || $page.params.id !== lastReportId) {
+      loadData();
+    }
   }
+
+  $: isPropertyManagerOfBuilding = report && report.property_manager_id === $currentUser.id;
+
+  $: canSign = report
+    && report.current_status === 'pending_signature'
+    && $currentUser.role === 'property'
+    && isPropertyManagerOfBuilding;
 
   $: availableActions = report
     ? (allowedStatusActions[report.current_status] || [])
-        .map(key => ({
-          key,
-          ...ACTION_CONFIG[key],
-          allowed: ACTION_CONFIG[key]?.roles?.includes($currentUser.role)
-        }))
-        .filter(a => a.allowed)
+        .map(key => {
+          const config = ACTION_CONFIG[key];
+          if (!config) return null;
+          let allowed = config.roles?.includes($currentUser.role);
+          if (key === 'disputed' && allowed) {
+            allowed = isPropertyManagerOfBuilding;
+          }
+          return { key, ...config, allowed };
+        })
+        .filter(a => a && a.allowed)
     : [];
 
   const openAction = (action) => {
@@ -314,7 +328,7 @@
             </div>
           </div>
 
-          {#if availableActions.length > 0}
+          {#if availableActions.length > 0 || canSign}
             <div class="action-section">
               <h3>操作</h3>
               <div class="action-buttons">
@@ -327,12 +341,13 @@
                     {action.label}
                   </button>
                 {/each}
-                {#if report.current_status === 'pending_signature' && $currentUser.role === 'property'}
-                  <button class="action-btn success" on:click={() => {
-                    if (confirm('确认签收此维保报告吗？')) executeSign();
-                  }}>
-                    确认签收
+                {#if canSign}
+                  <button class="action-btn success" on:click={() => activeTab = 'signature'}>
+                    前往签收 →
                   </button>
+                {/if}
+                {#if report.current_status === 'pending_signature' && !canSign && $currentUser.role === 'property'}
+                  <span class="not-assigned-hint">您不是此楼宇的物业联系人，无法签收</span>
                 {/if}
               </div>
             </div>
@@ -386,16 +401,36 @@
             <div class="empty">
               {#if report.current_status === 'pending_signature'}
                 <p>当前状态：待物业签收</p>
-                {#if $currentUser.role === 'property'}
+                <p class="property-info">
+                  指定签收人：<strong>{report.property_manager_name || '未设置'}</strong>
+                  {#if report.property_manager_phone}
+                    （{report.property_manager_phone}）
+                  {/if}
+                </p>
+                {#if canSign}
                   <div class="sign-here">
                     <textarea
                       bind:value={signatureRemark}
                       placeholder="签收备注（可选）"
                       rows="3"
                     ></textarea>
-                    <button class="action-btn success" on:click={executeSign}>
-                      在此处签收
+                    <button class="action-btn success" on:click={() => {
+                      if (confirm('确认签收此维保报告？签收后将写入永久记录，不可撤销。')) {
+                        executeSign();
+                      }
+                    }}>
+                      确认签收（签名将写入数据库）
                     </button>
+                  </div>
+                {:else if $currentUser.role === 'property'}
+                  <div class="unauthorized-hint">
+                    ⚠️ 您的身份为物业联系人（{$currentUser.name}），
+                    但此楼宇的物业联系人为「{report.property_manager_name || '未设置'}」，
+                    您无权签收此报告。
+                  </div>
+                {:else}
+                  <div class="unauthorized-hint">
+                    只有本楼宇的物业联系人（{report.property_manager_name || '未设置'}）可以进行签收
                   </div>
                 {/if}
               {:else}
@@ -933,5 +968,36 @@
 
   .btn-primary:hover {
     background: #2563eb;
+  }
+
+  .not-assigned-hint {
+    padding: 8px 14px;
+    background: #fef3c7;
+    color: #92400e;
+    border-radius: 6px;
+    font-size: 13px;
+  }
+
+  .property-info {
+    margin: 8px 0 16px;
+    font-size: 14px;
+    color: #475569;
+  }
+
+  .property-info strong {
+    color: #1e293b;
+  }
+
+  .unauthorized-hint {
+    margin-top: 16px;
+    padding: 12px 16px;
+    background: #fef2f2;
+    color: #991b1b;
+    border-radius: 8px;
+    font-size: 13px;
+    line-height: 1.6;
+    max-width: 480px;
+    margin-left: auto;
+    margin-right: auto;
   }
 </style>

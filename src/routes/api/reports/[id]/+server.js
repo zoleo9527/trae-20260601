@@ -37,7 +37,7 @@ export async function GET({ params }) {
   const transitions = await transitionsStmt.all(params.id);
 
   for (const t of transitions) {
-    t.from_status_label = t.from_status ? STATUS_META[t.from_status]?.label : '创建' : null;
+    t.from_status_label = t.from_status ? (STATUS_META[t.from_status]?.label || '创建') : null;
     t.to_status_label = STATUS_META[t.to_status]?.label || t.to_status;
     t.to_status_color = STATUS_META[t.to_status]?.color || '#6b7280';
     t.operator_role_label = t.operator_role === 'inspector' ? '巡检工程师' :
