@@ -11,6 +11,7 @@ router.get('/summary', permissionMiddleware('dashboard:view'), (req, res) => {
   const { brand_id, liability_type, status } = req.query;
 
   let baseWhere = 'WHERE 1=1';
+  let baseJoin = '';
   const baseParams = [];
 
   if (brand_id) {
@@ -22,11 +23,6 @@ router.get('/summary', permissionMiddleware('dashboard:view'), (req, res) => {
     baseParams.push(status);
   }
 
-  let statusData;
-  let liabilityCount;
-  let myPending;
-  let totalLease;
-
   if (role === 'ROLE_STORE_MANAGER') {
     const brandId = req.user.brand_id;
     baseWhere += ' AND bl.brand_id = ?';
@@ -37,30 +33,33 @@ router.get('/summary', permissionMiddleware('dashboard:view'), (req, res) => {
     baseParams.push(uid);
   }
 
-  statusData = db.prepare(`
-    SELECT bl.status, COUNT(*) as cnt FROM brand_leases bl ${baseWhere} GROUP BY bl.status
+  if (liability_type) {
+    baseJoin = `
+      INNER JOIN deduction_rules dr_cur ON dr_cur.lease_id = bl.id
+        AND dr_cur.id = (SELECT MAX(dr2.id) FROM deduction_rules dr2 WHERE dr2.lease_id = bl.id)
+        AND dr_cur.liability_flag = ?
+    `;
+    baseParams.push(liability_type);
+  }
+
+  const statusData = db.prepare(`
+    SELECT bl.status, COUNT(*) as cnt FROM brand_leases bl ${baseJoin} ${baseWhere} GROUP BY bl.status
   `).all(...baseParams);
 
-  let liabilityWhere = baseWhere.slice();
+  const liabilityWhere = `${baseJoin} ${baseWhere}`;
   const liabilityParams = [...baseParams];
-  if (liability_type) {
-    liabilityWhere += ' AND dr.liability_flag = ?';
-    liabilityParams.push(liability_type);
-  }
 
   liabilityCount = db.prepare(`
     SELECT COUNT(DISTINCT bl.id) as cnt FROM brand_leases bl
-    INNER JOIN deduction_rules dr ON dr.lease_id = bl.id AND dr.liability_flag IS NOT NULL
     ${liabilityWhere}
-      AND dr.id IN (SELECT MAX(dr2.id) FROM deduction_rules dr2 GROUP BY dr2.lease_id)
   `).get(...liabilityParams).cnt;
 
   const pendingParams = [...baseParams];
-  myPending = db.prepare(`
-    SELECT COUNT(*) as cnt FROM brand_leases bl ${baseWhere} AND bl.status = 'PENDING'
+  const myPending = db.prepare(`
+    SELECT COUNT(*) as cnt FROM brand_leases bl ${baseJoin} ${baseWhere} AND bl.status = 'PENDING'
   `).get(...pendingParams).cnt;
 
-  totalLease = db.prepare(`SELECT COUNT(*) as cnt FROM brand_leases bl ${baseWhere}`).get(...baseParams).cnt;
+  totalLease = db.prepare(`SELECT COUNT(*) as cnt FROM brand_leases bl ${baseJoin} ${baseWhere}`).get(...baseParams).cnt;
 
   const statusMap = {};
   for (const s of statusData) statusMap[s.status] = s.cnt;
@@ -79,27 +78,46 @@ router.get('/summary', permissionMiddleware('dashboard:view'), (req, res) => {
     SELECT bl.brand_id, bl.brand_name, COUNT(*) as cnt,
       SUM(CASE WHEN bl.status = 'PENDING' THEN 1 ELSE 0 END) as pending_cnt,
       SUM(CASE WHEN bl.status = 'ACTIVE' THEN 1 ELSE 0 END) as active_cnt
-    FROM brand_leases bl ${baseWhere}
+    FROM brand_leases bl ${baseJoin} ${baseWhere}
     GROUP BY bl.brand_id, bl.brand_name
     ORDER BY cnt DESC
   `).all(...byBrandParams);
 
-  const liabilityBaseParams = [...baseParams];
-  let liabilityBaseWhere = baseWhere.slice();
+  const blockerJoin = `
+    INNER JOIN deduction_rules dr ON dr.lease_id = bl.id
+      AND dr.id = (SELECT MAX(dr2.id) FROM deduction_rules dr2 WHERE dr2.lease_id = bl.id)
+      AND dr.liability_flag IS NOT NULL
+  `;
+  let blockerWhere = 'WHERE 1=1';
+  const blockerParams = [];
+
+  if (brand_id) {
+    blockerWhere += ' AND bl.brand_id = ?';
+    blockerParams.push(Number(brand_id));
+  }
+  if (status) {
+    blockerWhere += ' AND bl.status = ?';
+    blockerParams.push(status);
+  }
+  if (role === 'ROLE_STORE_MANAGER') {
+    blockerWhere += ' AND bl.brand_id = ?';
+    blockerParams.push(req.user.brand_id);
+  } else if (role === 'ROLE_MERCHANDISE_MANAGER') {
+    blockerWhere += ' AND bl.submitter_id = ?';
+    blockerParams.push(req.user.id);
+  }
   if (liability_type) {
-    liabilityBaseWhere += ' AND dr.liability_flag = ?';
-    liabilityBaseParams.push(liability_type);
+    blockerWhere += ' AND dr.liability_flag = ?';
+    blockerParams.push(liability_type);
   }
 
   const byLiabilityType = db.prepare(`
     SELECT dr.liability_flag, COUNT(DISTINCT bl.id) as cnt
-    FROM brand_leases bl
-    INNER JOIN deduction_rules dr ON dr.lease_id = bl.id AND dr.liability_flag IS NOT NULL
-    ${liabilityBaseWhere}
-      AND dr.id IN (SELECT MAX(dr2.id) FROM deduction_rules dr2 GROUP BY dr2.lease_id)
+    FROM brand_leases bl ${blockerJoin}
+    ${blockerWhere}
     GROUP BY dr.liability_flag
     ORDER BY cnt DESC
-  `).all(...liabilityBaseParams).map(r => ({
+  `).all(...blockerParams).map(r => ({
     liability_flag: r.liability_flag,
     liability_desc: LIABILITY_MAP[r.liability_flag] || r.liability_flag,
     cnt: r.cnt,
@@ -111,13 +129,12 @@ router.get('/summary', permissionMiddleware('dashboard:view'), (req, res) => {
       dr.liability_flag, dr.liability_reason, dr.liability_marked_at,
       u2.name as liability_marker_name, dr.version as deduction_version, dr.status as deduction_status
     FROM brand_leases bl
-    INNER JOIN deduction_rules dr ON dr.lease_id = bl.id AND dr.liability_flag IS NOT NULL
-      AND dr.id IN (SELECT MAX(dr2.id) FROM deduction_rules dr2 GROUP BY dr2.lease_id)
+    ${blockerJoin}
     LEFT JOIN users u ON bl.submitter_id = u.id
     LEFT JOIN users u2 ON dr.liability_marked_by = u2.id
-    ${liabilityBaseWhere}
+    ${blockerWhere}
     ORDER BY dr.liability_marked_at DESC LIMIT 20
-  `).all(...liabilityBaseParams).map(r => ({
+  `).all(...blockerParams).map(r => ({
     ...r,
     liability_desc: LIABILITY_MAP[r.liability_flag] || r.liability_flag,
   }));

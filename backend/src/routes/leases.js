@@ -78,13 +78,25 @@ router.get('/', permissionMiddleware('lease:view:all'), (req, res) => {
   }
 
   if (liability_flag === '1') {
-    where += ' AND EXISTS (SELECT 1 FROM deduction_rules dr WHERE dr.lease_id = l.id AND dr.liability_flag IS NOT NULL)';
+    where += ` AND EXISTS (
+      SELECT 1 FROM deduction_rules dr
+      WHERE dr.lease_id = l.id AND dr.liability_flag IS NOT NULL
+        AND dr.id = (SELECT MAX(id) FROM deduction_rules dr2 WHERE dr2.lease_id = l.id)
+    )`;
   } else if (liability_flag === '0') {
-    where += ' AND NOT EXISTS (SELECT 1 FROM deduction_rules dr WHERE dr.lease_id = l.id AND dr.liability_flag IS NOT NULL)';
+    where += ` AND NOT EXISTS (
+      SELECT 1 FROM deduction_rules dr
+      WHERE dr.lease_id = l.id AND dr.liability_flag IS NOT NULL
+        AND dr.id = (SELECT MAX(id) FROM deduction_rules dr2 WHERE dr2.lease_id = l.id)
+    )`;
   }
 
   if (liability_type) {
-    where += ' AND EXISTS (SELECT 1 FROM deduction_rules dr WHERE dr.lease_id = l.id AND dr.liability_flag = ?)';
+    where += ` AND EXISTS (
+      SELECT 1 FROM deduction_rules dr
+      WHERE dr.lease_id = l.id AND dr.liability_flag = ?
+        AND dr.id = (SELECT MAX(id) FROM deduction_rules dr2 WHERE dr2.lease_id = l.id)
+    )`;
     params.push(liability_type);
   }
 
@@ -95,16 +107,21 @@ router.get('/', permissionMiddleware('lease:view:all'), (req, res) => {
     SELECT l.*, 
       u.name as submitter_name,
       u2.name as confirmer_name,
-      (SELECT dr.liability_flag FROM deduction_rules dr WHERE dr.lease_id = l.id AND dr.liability_flag IS NOT NULL ORDER BY dr.id DESC LIMIT 1) as liability_flag,
-      (SELECT dr.liability_reason FROM deduction_rules dr WHERE dr.lease_id = l.id AND dr.liability_flag IS NOT NULL ORDER BY dr.id DESC LIMIT 1) as liability_reason,
-      (SELECT dr.liability_marked_by FROM deduction_rules dr WHERE dr.lease_id = l.id AND dr.liability_flag IS NOT NULL ORDER BY dr.id DESC LIMIT 1) as liability_marked_by,
-      (SELECT u3.name FROM deduction_rules dr LEFT JOIN users u3 ON dr.liability_marked_by = u3.id WHERE dr.lease_id = l.id AND dr.liability_flag IS NOT NULL ORDER BY dr.id DESC LIMIT 1) as liability_marker_name,
-      (SELECT dr.liability_marked_at FROM deduction_rules dr WHERE dr.lease_id = l.id AND dr.liability_flag IS NOT NULL ORDER BY dr.id DESC LIMIT 1) as liability_marked_at,
-      (SELECT dr.status FROM deduction_rules dr WHERE dr.lease_id = l.id ORDER BY dr.id DESC LIMIT 1) as deduction_status,
-      (SELECT MAX(dr.version) FROM deduction_rules dr WHERE dr.lease_id = l.id) as deduction_version
+      dr_cur.liability_flag,
+      dr_cur.liability_reason,
+      dr_cur.liability_marked_by,
+      u3.name as liability_marker_name,
+      dr_cur.liability_marked_at,
+      dr_cur.status as deduction_status,
+      dr_cur.version as deduction_version
     FROM brand_leases l
     LEFT JOIN users u ON l.submitter_id = u.id
     LEFT JOIN users u2 ON l.confirmer_id = u2.id
+    LEFT JOIN (
+      SELECT dr.* FROM deduction_rules dr
+      WHERE dr.id = (SELECT MAX(id) FROM deduction_rules dr2 WHERE dr2.lease_id = dr.lease_id)
+    ) dr_cur ON dr_cur.lease_id = l.id
+    LEFT JOIN users u3 ON dr_cur.liability_marked_by = u3.id
     ${where}
     ORDER BY l.id DESC LIMIT ? OFFSET ?
   `;

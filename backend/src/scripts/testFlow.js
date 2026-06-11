@@ -243,6 +243,30 @@ const run = async () => {
   const summaryByLiability = await zg.get('/api/dashboard/summary?liability_type=LEASE_NO_RULE');
   assert('仪表盘按责任类型筛选', summaryByLiability.code === 200 && typeof summaryByLiability.data.liabilityCount === 'number', `LEASE_NO_RULE=${summaryByLiability.data.liabilityCount}条`);
 
+  const ledgerByType = await zg.get('/api/leases?liability_type=LEASE_NO_RULE&pageSize=100');
+  assert('台账按责任类型筛选与汇总口径一致', summaryByLiability.data.totalLease === ledgerByType.data.total,
+    `summary.totalLease=${summaryByLiability.data.totalLease} ledger.total=${ledgerByType.data.total}`);
+  assert('台账按类型筛选与byBrand汇总一致',
+    summaryByLiability.data.byBrand.reduce((s, b) => s + b.cnt, 0) === ledgerByType.data.total,
+    `byBrand合计=${summaryByLiability.data.byBrand.reduce((s,b)=>s+b.cnt,0)} ledger.total=${ledgerByType.data.total}`);
+  const clearedLease = ledgerByType.data.list.find(l => l.id === leaseId);
+  assert('责任已清除的租约不出现在LEASE_NO_RULE台账中(SPECIAL_CLAUSE也已清除)', !clearedLease,
+    `租约#${leaseId}(${detail3.data.status})不应出现在LEASE_NO_RULE台账中 当前flag=${clearedLease?.liability_flag}`);
+
+  const ledgerWithLiability = await zg.get('/api/leases?liability_flag=1&pageSize=100');
+  const allInLedgerAreActiveLiability = ledgerWithLiability.data.list.every(l => l.liability_flag !== null && l.liability_marked_at !== null);
+  assert('责任台账条目均含最新处理时间(无历史残留)', allInLedgerAreActiveLiability,
+    `残留数=${ledgerWithLiability.data.list.filter(l => !l.liability_marked_at).length} 总数=${ledgerWithLiability.data.total}`);
+
+  const summaryByLiabilityAll = await zg.get('/api/dashboard/summary?liability_type=SPECIAL_CLAUSE_MISSING');
+  const ledgerAllType = await zg.get('/api/leases?liability_type=SPECIAL_CLAUSE_MISSING&pageSize=100');
+  assert('SPECIAL_CLAUSE口径汇总=台账', summaryByLiabilityAll.data.totalLease === ledgerAllType.data.total,
+    `summary=${summaryByLiabilityAll.data.totalLease} ledger=${ledgerAllType.data.total}`);
+
+  const clearedLeaseInAllFlag1 = ledgerWithLiability.data.list.find(l => l.id === leaseId);
+  assert('责任已清除的租约不出现在所有责任汇总(flag=1)中', !clearedLeaseInAllFlag1,
+    `租约#${leaseId}已清除不应出现在flag=1台账 记录=${JSON.stringify(clearedLeaseInAllFlag1)}`);
+
   const summaryByStatus = await zg.get('/api/dashboard/summary?status=ACTIVE');
   assert('仪表盘按状态筛选', summaryByStatus.code === 200 && summaryByStatus.data.byStatus.ACTIVE >= 1, `ACTIVE=${summaryByStatus.data.byStatus.ACTIVE}`);
 
@@ -306,14 +330,14 @@ const run = async () => {
   const ledgerByBrand = await zg.get('/api/leases?brand_id=1&liability_flag=1');
   assert('台账按品牌筛选(耐克)', ledgerByBrand.code === 200 && Array.isArray(ledgerByBrand.data.list), `耐克责任租约${ledgerByBrand.data.list?.length}条`);
 
-  const ledgerByType = await zg.get('/api/leases?liability_type=LEASE_NO_RULE');
-  assert('台账按责任类型筛选', ledgerByType.code === 200 && Array.isArray(ledgerByType.data.list), `LEASE_NO_RULE=${ledgerByType.data.list?.length}条`);
+  const ledgerByTypeStep9 = await zg.get('/api/leases?liability_type=LEASE_NO_RULE');
+  assert('台账按责任类型筛选', ledgerByTypeStep9.code === 200 && Array.isArray(ledgerByTypeStep9.data.list), `LEASE_NO_RULE=${ledgerByTypeStep9.data.list?.length}条`);
 
   const ledgerByStatus = await zg.get('/api/leases?status=PENDING&liability_flag=1');
   assert('台账按状态+责任筛选', ledgerByStatus.code === 200, `PENDING+责任=${ledgerByStatus.data.list?.length}条`);
 
-  if (ledgerByType.data.list.length > 0) {
-    const item = ledgerByType.data.list[0];
+  if (ledgerByTypeStep9.data.list.length > 0) {
+    const item = ledgerByTypeStep9.data.list[0];
     assert('台账条目含责任处理人', item.liability_marker_name !== undefined, `marker=${item.liability_marker_name}`);
     assert('台账条目含处理时间', item.liability_marked_at !== undefined, `at=${item.liability_marked_at}`);
     assert('台账条目含扣点版本', item.deduction_version !== undefined, `v${item.deduction_version}`);
