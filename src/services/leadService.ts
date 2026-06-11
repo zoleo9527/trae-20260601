@@ -4,6 +4,7 @@ import {
   StatusTransition,
   ExceptionLog,
   User,
+  Role,
   LeadStatus,
   ExceptionType,
   EXCEPTION_TYPE_LABELS,
@@ -67,7 +68,7 @@ export async function executeStatusTransition(
       nextAction: req.followup.nextAction || '',
       nextActionAt: req.followup.nextActionAt || null,
       nextResponsible: req.nextResponsible,
-      nextResponsibleRole: req.nextResponsibleRole,
+      nextResponsibleRole: req.nextResponsibleRole as Role | null,
       createdAt: now,
       updatedAt: now,
       attachments: req.followup.attachments || [],
@@ -260,6 +261,10 @@ export async function handleException(
 ): Promise<void> {
   const now = new Date().toISOString();
 
+  const exceptionRows = await dao.getUnhandledExceptions();
+  const targetException = exceptionRows.find((e) => e.id === exceptionId);
+  const leadId = targetException?.leadId;
+
   await dao.updateException(exceptionId, {
     handled: true,
     handledAt: now,
@@ -267,16 +272,16 @@ export async function handleException(
     handledRemark: remark,
   });
 
-  const exceptions = await dao.getUnhandledExceptions();
-  const allHandled = !exceptions.some((e) => e.id !== exceptionId);
-
-  if (allHandled && exceptions[0]) {
-    await dao.updateLead(exceptions[0].leadId, {
-      hasException: false,
-      exceptionType: null,
-      exceptionMessage: null,
-      exceptionAt: null,
-    });
+  if (leadId) {
+    const remaining = await dao.getUnhandledExceptions(leadId);
+    if (remaining.length === 0) {
+      await dao.updateLead(leadId, {
+        hasException: false,
+        exceptionType: null,
+        exceptionMessage: null,
+        exceptionAt: null,
+      });
+    }
   }
 }
 
@@ -295,10 +300,10 @@ export async function reassignLead(
   const now = new Date().toISOString();
 
   await dao.insertFollowup({
-    id: '',
     leadId,
     type: 'other',
     content: `重新分配责任人，原因: ${reason}`,
+    location: undefined,
     scheduledAt: null,
     startedAt: now,
     completedAt: now,

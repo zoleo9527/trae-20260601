@@ -90,9 +90,21 @@ export default function StatusTransitionModal({ open, leadId, onClose }: Props) 
               leadId: currentLead.id,
               type: form.getFieldValue('type') || 'other',
               content: followupContent,
-              status: 'in_progress',
+              location: form.getFieldValue('location'),
+              scheduledAt: form.getFieldValue('scheduledAt')
+                ? form.getFieldValue('scheduledAt').toISOString()
+                : null,
+              startedAt: new Date().toISOString(),
+              completedAt: null,
+              status: form.getFieldValue('followupStatus') || 'in_progress',
               handledBy: currentUser.id,
               handledRole: currentUser.role,
+              nextAction: form.getFieldValue('nextAction') || '',
+              nextActionAt: form.getFieldValue('nextActionAt')
+                ? form.getFieldValue('nextActionAt').toISOString()
+                : null,
+              nextResponsible: nextResponsible,
+              nextResponsibleRole: nextResponsibleRole,
               createdAt: new Date().toISOString(),
               updatedAt: new Date().toISOString(),
               attachments: [],

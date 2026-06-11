@@ -12,7 +12,7 @@ import * as dao from '../db/dao';
 import * as leadService from '../services/leadService';
 import { getDb } from '../db';
 
-interface AppState {
+export interface AppState {
   currentUser: User | null;
   users: User[];
   leads: Lead[];
@@ -21,6 +21,8 @@ interface AppState {
   followups: FollowupRecord[];
   transitions: StatusTransition[];
   exceptions: ExceptionLog[];
+  allExceptions: ExceptionLog[];
+  allFollowups: FollowupRecord[];
   exceptionStats: { total: number; byType: Record<string, number> };
   loading: boolean;
   error: string | null;
@@ -37,10 +39,10 @@ interface AppState {
   loadCurrentUser: () => Promise<void>;
   switchUser: (userId: string) => Promise<void>;
   loadUsers: () => Promise<void>;
-  loadLeads: (filters?: typeof AppState.prototype.filters) => Promise<void>;
+  loadLeads: (filters?: Partial<AppState['filters']>) => Promise<void>;
   loadLeadDetail: (leadId: string) => Promise<void>;
   setPage: (page: number) => void;
-  setFilters: (filters: Partial<typeof AppState.prototype.filters>) => void;
+  setFilters: (filters: Partial<AppState['filters']>) => void;
 
   createLead: (
     data: Parameters<typeof leadService.createLead>[0]
@@ -67,6 +69,8 @@ interface AppState {
   handleException: (exceptionId: string, remark: string) => Promise<void>;
   scanForGaps: () => Promise<ExceptionLog[]>;
   loadExceptionStats: () => Promise<void>;
+  loadAllExceptions: () => Promise<void>;
+  loadAllFollowups: () => Promise<void>;
 
   createFollowup: (
     data: Partial<FollowupRecord> & { leadId: string }
@@ -82,6 +86,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   followups: [],
   transitions: [],
   exceptions: [],
+  allExceptions: [],
+  allFollowups: [],
   exceptionStats: { total: 0, byType: {} },
   loading: false,
   error: null,
@@ -97,6 +103,8 @@ export const useAppStore = create<AppState>((set, get) => ({
       await get().loadUsers();
       await get().loadLeads();
       await get().loadExceptionStats();
+      await get().loadAllExceptions();
+      await get().loadAllFollowups();
       await get().scanForGaps();
     } catch (error: any) {
       set({ error: error.message });
@@ -188,6 +196,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         await get().loadLeadDetail(req.leadId);
       }
       await get().loadExceptionStats();
+      await get().loadAllExceptions();
     }
     return result;
   },
@@ -202,6 +211,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         await get().loadLeadDetail(leadId);
       }
       await get().loadExceptionStats();
+      await get().loadAllExceptions();
     }
     return result;
   },
@@ -221,6 +231,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       await get().loadLeadDetail(leadId);
     }
     await get().loadExceptionStats();
+    await get().loadAllExceptions();
   },
 
   flagException: async (leadId, followupId, type, message) => {
@@ -238,6 +249,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       await get().loadLeadDetail(leadId);
     }
     await get().loadExceptionStats();
+    await get().loadAllExceptions();
     return result;
   },
 
@@ -246,15 +258,17 @@ export const useAppStore = create<AppState>((set, get) => ({
     if (!currentUser) throw new Error('未登录');
     await leadService.handleException(exceptionId, remark, currentUser);
     if (get().currentLead) {
-      await get().loadLeadDetail(get().currentLead.id);
+      await get().loadLeadDetail(get().currentLead!.id);
     }
     await get().loadLeads();
     await get().loadExceptionStats();
+    await get().loadAllExceptions();
   },
 
   scanForGaps: async () => {
     const result = await leadService.scanForGaps();
     await get().loadExceptionStats();
+    await get().loadAllExceptions();
     if (result.length > 0) {
       await get().loadLeads();
     }
@@ -264,6 +278,16 @@ export const useAppStore = create<AppState>((set, get) => ({
   loadExceptionStats: async () => {
     const stats = await dao.getExceptionStats();
     set({ exceptionStats: stats });
+  },
+
+  loadAllExceptions: async () => {
+    const exceptions = await dao.getUnhandledExceptions();
+    set({ allExceptions: exceptions });
+  },
+
+  loadAllFollowups: async () => {
+    const followups = await dao.getAllFollowups();
+    set({ allFollowups: followups });
   },
 
   createFollowup: async (data) => {
@@ -293,6 +317,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     if (data.leadId === get().currentLead?.id) {
       await get().loadLeadDetail(data.leadId);
     }
+    await get().loadAllFollowups();
     return id;
   },
 }));

@@ -173,11 +173,7 @@ export function detectGap(
     }
   }
 
-  if (
-    lead.status === 'needs_followup' &&
-    !lead.currentResponsible &&
-    lastTransition
-  ) {
+  if (lead.status === 'needs_followup' && lastTransition) {
     const transitionedAt = new Date(lastTransition.transitionedAt);
     const hoursSinceTransition =
       (now.getTime() - transitionedAt.getTime()) / (1000 * 60 * 60);
@@ -191,7 +187,8 @@ export function detectGap(
   }
 
   if (lastTransition) {
-    if (!lastTransition.toResponsible && lastTransition.toStatus !== 'converted' && lastTransition.toStatus !== 'lost' && lastTransition.toStatus !== 'returned') {
+    const terminalStatuses: LeadStatus[] = ['converted', 'lost', 'returned'];
+    if (!lastTransition.toResponsible && !terminalStatuses.includes(lastTransition.toStatus)) {
       const transitionedAt = new Date(lastTransition.transitionedAt);
       const minutesSinceTransition =
         (now.getTime() - transitionedAt.getTime()) / (1000 * 60);

@@ -1,186 +1,362 @@
-import { Database } from '@tauri-apps/plugin-sql';
+const DB_PREFIX = 'ipcrm_';
 
-let db: Database | null = null;
-
-export async function getDb(): Promise<Database> {
-  if (!db) {
-    db = await Database.load('sqlite:industrial_park_crm.db');
-    await initSchema(db);
-  }
-  return db;
+function makeKey(table: string, id: string) {
+  return `${DB_PREFIX}${table}:${id}`;
 }
 
-async function initSchema(db: Database) {
-  await db.execute(`
-    CREATE TABLE IF NOT EXISTS users (
-      id TEXT PRIMARY KEY,
-      name TEXT NOT NULL,
-      role TEXT NOT NULL,
-      avatar TEXT,
-      created_at TEXT DEFAULT CURRENT_TIMESTAMP
-    );
-
-    CREATE TABLE IF NOT EXISTS leads (
-      id TEXT PRIMARY KEY,
-      company_name TEXT NOT NULL,
-      contact_person TEXT NOT NULL,
-      contact_phone TEXT NOT NULL,
-      industry TEXT,
-      required_area REAL,
-      budget REAL,
-      status TEXT NOT NULL,
-      source_type TEXT NOT NULL,
-      source_reference TEXT,
-      source_uploaded_at TEXT,
-      source_uploaded_by TEXT,
-      assigned_to TEXT,
-      assigned_role TEXT,
-      assigned_at TEXT,
-      current_responsible TEXT,
-      current_responsible_role TEXT,
-      created_at TEXT NOT NULL,
-      updated_at TEXT NOT NULL,
-      created_by TEXT NOT NULL,
-      priority TEXT DEFAULT 'medium',
-      tags TEXT,
-      remark TEXT,
-      has_exception INTEGER DEFAULT 0,
-      exception_type TEXT,
-      exception_message TEXT,
-      exception_at TEXT,
-      FOREIGN KEY (assigned_to) REFERENCES users(id),
-      FOREIGN KEY (current_responsible) REFERENCES users(id)
-    );
-
-    CREATE INDEX IF NOT EXISTS idx_leads_status ON leads(status);
-    CREATE INDEX IF NOT EXISTS idx_leads_assigned_to ON leads(assigned_to);
-    CREATE INDEX IF NOT EXISTS idx_leads_current_responsible ON leads(current_responsible);
-    CREATE INDEX IF NOT EXISTS idx_leads_has_exception ON leads(has_exception);
-    CREATE INDEX IF NOT EXISTS idx_leads_created_at ON leads(created_at);
-    CREATE INDEX IF NOT EXISTS idx_leads_priority ON leads(priority);
-
-    CREATE TABLE IF NOT EXISTS followup_records (
-      id TEXT PRIMARY KEY,
-      lead_id TEXT NOT NULL,
-      type TEXT NOT NULL,
-      content TEXT NOT NULL,
-      location TEXT,
-      scheduled_at TEXT,
-      started_at TEXT,
-      completed_at TEXT,
-      status TEXT NOT NULL,
-      handled_by TEXT NOT NULL,
-      handled_role TEXT NOT NULL,
-      next_action TEXT,
-      next_action_at TEXT,
-      next_responsible TEXT,
-      next_responsible_role TEXT,
-      created_at TEXT NOT NULL,
-      updated_at TEXT NOT NULL,
-      attachments TEXT,
-      FOREIGN KEY (lead_id) REFERENCES leads(id),
-      FOREIGN KEY (handled_by) REFERENCES users(id)
-    );
-
-    CREATE INDEX IF NOT EXISTS idx_followup_lead_id ON followup_records(lead_id);
-    CREATE INDEX IF NOT EXISTS idx_followup_status ON followup_records(status);
-    CREATE INDEX IF NOT EXISTS idx_followup_scheduled_at ON followup_records(scheduled_at);
-    CREATE INDEX IF NOT EXISTS idx_followup_handled_by ON followup_records(handled_by);
-
-    CREATE TABLE IF NOT EXISTS status_transitions (
-      id TEXT PRIMARY KEY,
-      lead_id TEXT NOT NULL,
-      followup_id TEXT,
-      from_status TEXT,
-      to_status TEXT NOT NULL,
-      from_followup_status TEXT,
-      to_followup_status TEXT,
-      from_responsible TEXT,
-      to_responsible TEXT,
-      from_responsible_role TEXT,
-      to_responsible_role TEXT,
-      transitioned_at TEXT NOT NULL,
-      transitioned_by TEXT NOT NULL,
-      transitioned_by_role TEXT NOT NULL,
-      remark TEXT,
-      is_gap_detected INTEGER DEFAULT 0,
-      gap_duration_minutes REAL DEFAULT 0,
-      FOREIGN KEY (lead_id) REFERENCES leads(id),
-      FOREIGN KEY (followup_id) REFERENCES followup_records(id)
-    );
-
-    CREATE INDEX IF NOT EXISTS idx_transitions_lead_id ON status_transitions(lead_id);
-    CREATE INDEX IF NOT EXISTS idx_transitions_transitioned_at ON status_transitions(transitioned_at);
-    CREATE INDEX IF NOT EXISTS idx_transitions_is_gap ON status_transitions(is_gap_detected);
-
-    CREATE TABLE IF NOT EXISTS exception_logs (
-      id TEXT PRIMARY KEY,
-      lead_id TEXT NOT NULL,
-      followup_id TEXT,
-      type TEXT NOT NULL,
-      message TEXT NOT NULL,
-      detected_at TEXT NOT NULL,
-      handled INTEGER DEFAULT 0,
-      handled_at TEXT,
-      handled_by TEXT,
-      handled_remark TEXT,
-      triggered_by_transition_id TEXT,
-      FOREIGN KEY (lead_id) REFERENCES leads(id),
-      FOREIGN KEY (followup_id) REFERENCES followup_records(id),
-      FOREIGN KEY (triggered_by_transition_id) REFERENCES status_transitions(id)
-    );
-
-    CREATE INDEX IF NOT EXISTS idx_exception_lead_id ON exception_logs(lead_id);
-    CREATE INDEX IF NOT EXISTS idx_exception_handled ON exception_logs(handled);
-    CREATE INDEX IF NOT EXISTS idx_exception_detected_at ON exception_logs(detected_at);
-
-    CREATE TABLE IF NOT EXISTS sync_status (
-      id TEXT PRIMARY KEY,
-      last_sync_at TEXT,
-      pending_changes TEXT,
-      offline_mode INTEGER DEFAULT 1
-    );
-
-    CREATE TABLE IF NOT EXISTS app_settings (
-      key TEXT PRIMARY KEY,
-      value TEXT,
-      updated_at TEXT DEFAULT CURRENT_TIMESTAMP
-    );
-  `);
-
-  await initSeedData(db);
+function makeListKey(table: string) {
+  return `${DB_PREFIX}${table}_list`;
 }
 
-async function initSeedData(db: Database) {
-  const userCount = await db.select<{ count: number }[]>(
-    'SELECT COUNT(*) as count FROM users'
-  );
-  if (userCount[0].count === 0) {
-    await db.execute(
-      `INSERT INTO users (id, name, role) VALUES
-       ('user_1', '张经理', 'manager'),
-       ('user_2', '李主管', 'supervisor'),
-       ('user_3', '王物业', 'property'),
-       ('user_4', '赵工程', 'engineering')`
-    );
-  }
-
-  const settingsCount = await db.select<{ count: number }[]>(
-    'SELECT COUNT(*) as count FROM app_settings'
-  );
-  if (settingsCount[0].count === 0) {
-    await db.execute(
-      `INSERT INTO app_settings (key, value) VALUES
-       ('current_user_id', 'user_1'),
-       ('gap_detection_threshold_minutes', '30'),
-       ('auto_assignment_enabled', 'true')`
-    );
+function readJson<T>(key: string, fallback: T): T {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : fallback;
+  } catch {
+    return fallback;
   }
 }
 
-export async function closeDb() {
-  if (db) {
-    await db.close();
-    db = null;
+function writeJson(key: string, value: any) {
+  localStorage.setItem(key, JSON.stringify(value));
+}
+
+export interface DbUser {
+  id: string;
+  name: string;
+  role: string;
+  avatar?: string;
+}
+
+export interface DbLead {
+  id: string;
+  company_name: string;
+  contact_person: string;
+  contact_phone: string;
+  industry: string;
+  required_area: number;
+  budget: number;
+  status: string;
+  source_type: string;
+  source_reference: string;
+  source_uploaded_at: string;
+  source_uploaded_by: string;
+  assigned_to: string | null;
+  assigned_role: string | null;
+  assigned_at: string | null;
+  current_responsible: string | null;
+  current_responsible_role: string | null;
+  created_at: string;
+  updated_at: string;
+  created_by: string;
+  priority: string;
+  tags: string;
+  remark: string;
+  has_exception: number;
+  exception_type: string | null;
+  exception_message: string | null;
+  exception_at: string | null;
+}
+
+export interface DbFollowup {
+  id: string;
+  lead_id: string;
+  type: string;
+  content: string;
+  location: string | null;
+  scheduled_at: string | null;
+  started_at: string | null;
+  completed_at: string | null;
+  status: string;
+  handled_by: string;
+  handled_role: string;
+  next_action: string;
+  next_action_at: string | null;
+  next_responsible: string | null;
+  next_responsible_role: string | null;
+  created_at: string;
+  updated_at: string;
+  attachments: string;
+}
+
+export interface DbTransition {
+  id: string;
+  lead_id: string;
+  followup_id: string | null;
+  from_status: string | null;
+  to_status: string;
+  from_followup_status: string | null;
+  to_followup_status: string | null;
+  from_responsible: string | null;
+  to_responsible: string | null;
+  from_responsible_role: string | null;
+  to_responsible_role: string | null;
+  transitioned_at: string;
+  transitioned_by: string;
+  transitioned_by_role: string;
+  remark: string;
+  is_gap_detected: number;
+  gap_duration_minutes: number;
+}
+
+export interface DbException {
+  id: string;
+  lead_id: string;
+  followup_id: string | null;
+  type: string;
+  message: string;
+  detected_at: string;
+  handled: number;
+  handled_at: string | null;
+  handled_by: string | null;
+  handled_remark: string | null;
+  triggered_by_transition_id: string | null;
+}
+
+function getAll<T>(table: string): T[] {
+  return readJson<T[]>(makeListKey(table), []);
+}
+
+function setAll<T>(table: string, items: T[]) {
+  writeJson(makeListKey(table), items);
+}
+
+function getById<T extends { id: string }>(table: string, id: string): T | undefined {
+  return getAll<T>(table).find((item) => item.id === id);
+}
+
+function upsert<T extends { id: string }>(table: string, item: T) {
+  const items = getAll<T>(table);
+  const idx = items.findIndex((i) => i.id === item.id);
+  if (idx >= 0) {
+    items[idx] = item;
+  } else {
+    items.push(item);
   }
+  setAll(table, items);
+}
+
+function updateById<T extends { id: string }>(table: string, id: string, updates: Partial<T>) {
+  const items = getAll<T>(table);
+  const idx = items.findIndex((i) => i.id === id);
+  if (idx >= 0) {
+    items[idx] = { ...items[idx], ...updates };
+    setAll(table, items);
+  }
+}
+
+function getWhere<T>(table: string, predicate: (item: T) => boolean): T[] {
+  return getAll<T>(table).filter(predicate);
+}
+
+let initialized = false;
+
+export async function getDb() {
+  if (!initialized) {
+    await initSeedData();
+    initialized = true;
+  }
+}
+
+async function initSeedData() {
+  const users = getAll<DbUser>('users');
+  if (users.length === 0) {
+    setAll<DbUser>('users', [
+      { id: 'user_1', name: '张经理', role: 'manager' },
+      { id: 'user_2', name: '李主管', role: 'supervisor' },
+      { id: 'user_3', name: '王物业', role: 'property' },
+      { id: 'user_4', name: '赵工程', role: 'engineering' },
+    ]);
+  }
+
+  const settings = readJson<Record<string, string>>(`${DB_PREFIX}settings`, {});
+  if (!settings['current_user_id']) {
+    settings['current_user_id'] = 'user_1';
+    writeJson(`${DB_PREFIX}settings`, settings);
+  }
+}
+
+export async function closeDb() {}
+
+export async function executeRawSql(_sql: string, _params: any[] = []): Promise<void> {}
+
+export async function getCurrentUser(): Promise<DbUser> {
+  await getDb();
+  const settings = readJson<Record<string, string>>(`${DB_PREFIX}settings`, {});
+  const userId = settings['current_user_id'] || 'user_1';
+  const user = getById<DbUser>('users', userId);
+  return user || { id: 'user_1', name: '张经理', role: 'manager' };
+}
+
+export async function setCurrentUser(userId: string): Promise<void> {
+  const settings = readJson<Record<string, string>>(`${DB_PREFIX}settings`, {});
+  settings['current_user_id'] = userId;
+  writeJson(`${DB_PREFIX}settings`, settings);
+}
+
+export async function getAllUsers(): Promise<DbUser[]> {
+  await getDb();
+  return getAll<DbUser>('users');
+}
+
+export async function getUsersByRole(role: string): Promise<DbUser[]> {
+  await getDb();
+  return getWhere<DbUser>('users', (u) => u.role === role);
+}
+
+export async function insertLead(lead: DbLead): Promise<string> {
+  await getDb();
+  upsert('leads', lead);
+  return lead.id;
+}
+
+export async function updateLead(id: string, updates: Partial<DbLead>): Promise<void> {
+  await getDb();
+  updateById<DbLead>('leads', id, { ...updates, updated_at: new Date().toISOString() });
+}
+
+export async function getLeadById(id: string): Promise<DbLead | null> {
+  await getDb();
+  return getById<DbLead>('leads', id) || null;
+}
+
+export async function getLeads(filter: {
+  status?: string[];
+  assignedTo?: string;
+  currentResponsible?: string;
+  hasException?: boolean;
+  priority?: string[];
+  keyword?: string;
+  page?: number;
+  pageSize?: number;
+} = {}): Promise<{ data: DbLead[]; total: number }> {
+  await getDb();
+  let items = getAll<DbLead>('leads');
+
+  if (filter.status?.length) {
+    items = items.filter((i) => filter.status!.includes(i.status));
+  }
+  if (filter.assignedTo) {
+    items = items.filter((i) => i.assigned_to === filter.assignedTo);
+  }
+  if (filter.currentResponsible) {
+    items = items.filter((i) => i.current_responsible === filter.currentResponsible);
+  }
+  if (filter.hasException !== undefined) {
+    items = items.filter((i) => i.has_exception === (filter.hasException ? 1 : 0));
+  }
+  if (filter.priority?.length) {
+    items = items.filter((i) => filter.priority!.includes(i.priority));
+  }
+  if (filter.keyword) {
+    const kw = filter.keyword.toLowerCase();
+    items = items.filter(
+      (i) =>
+        i.company_name.toLowerCase().includes(kw) ||
+        i.contact_person.toLowerCase().includes(kw) ||
+        i.contact_phone.includes(kw) ||
+        (i.industry && i.industry.toLowerCase().includes(kw))
+    );
+  }
+
+  items.sort((a, b) => {
+    if (a.has_exception !== b.has_exception) return b.has_exception - a.has_exception;
+    const pOrder: Record<string, number> = { high: 1, medium: 2, low: 3 };
+    if (pOrder[a.priority] !== pOrder[b.priority]) return pOrder[a.priority] - pOrder[b.priority];
+    return b.created_at.localeCompare(a.created_at);
+  });
+
+  const total = items.length;
+  const page = filter.page || 1;
+  const pageSize = filter.pageSize || 50;
+  const data = items.slice((page - 1) * pageSize, page * pageSize);
+
+  return { data, total };
+}
+
+export async function insertFollowup(followup: DbFollowup): Promise<string> {
+  await getDb();
+  upsert('followups', followup);
+  return followup.id;
+}
+
+export async function updateFollowup(id: string, updates: Partial<DbFollowup>): Promise<void> {
+  await getDb();
+  updateById<DbFollowup>('followups', id, { ...updates, updated_at: new Date().toISOString() });
+}
+
+export async function getFollowupsByLeadId(leadId: string): Promise<DbFollowup[]> {
+  await getDb();
+  return getWhere<DbFollowup>('followups', (f) => f.lead_id === leadId)
+    .sort((a, b) => b.created_at.localeCompare(a.created_at));
+}
+
+export async function getAllFollowups(limit = 200): Promise<DbFollowup[]> {
+  await getDb();
+  return getAll<DbFollowup>('followups')
+    .sort((a, b) => b.created_at.localeCompare(a.created_at))
+    .slice(0, limit);
+}
+
+export async function insertTransition(transition: DbTransition): Promise<string> {
+  await getDb();
+  upsert('transitions', transition);
+  return transition.id;
+}
+
+export async function updateTransition(id: string, updates: Partial<DbTransition>): Promise<void> {
+  await getDb();
+  updateById<DbTransition>('transitions', id, updates);
+}
+
+export async function getLastTransitionByLeadId(leadId: string): Promise<DbTransition | null> {
+  await getDb();
+  const items = getWhere<DbTransition>('transitions', (t) => t.lead_id === leadId)
+    .sort((a, b) => b.transitioned_at.localeCompare(a.transitioned_at));
+  return items[0] || null;
+}
+
+export async function getTransitionsByLeadId(leadId: string): Promise<DbTransition[]> {
+  await getDb();
+  return getWhere<DbTransition>('transitions', (t) => t.lead_id === leadId)
+    .sort((a, b) => a.transitioned_at.localeCompare(b.transitioned_at));
+}
+
+export async function insertException(exception: DbException): Promise<string> {
+  await getDb();
+  upsert('exceptions', exception);
+  return exception.id;
+}
+
+export async function updateException(id: string, updates: Partial<DbException>): Promise<void> {
+  await getDb();
+  updateById<DbException>('exceptions', id, updates);
+}
+
+export async function getUnhandledExceptions(leadId?: string): Promise<DbException[]> {
+  await getDb();
+  let items = getWhere<DbException>('exceptions', (e) => e.handled === 0);
+  if (leadId) {
+    items = items.filter((e) => e.lead_id === leadId);
+  }
+  return items.sort((a, b) => b.detected_at.localeCompare(a.detected_at));
+}
+
+export async function getExceptionsByLeadId(leadId: string): Promise<DbException[]> {
+  await getDb();
+  return getWhere<DbException>('exceptions', (e) => e.lead_id === leadId)
+    .sort((a, b) => b.detected_at.localeCompare(a.detected_at));
+}
+
+export async function getExceptionStats(): Promise<{
+  total: number;
+  byType: Record<string, number>;
+}> {
+  await getDb();
+  const items = getWhere<DbException>('exceptions', (e) => e.handled === 0);
+  const byType: Record<string, number> = {};
+  for (const e of items) {
+    byType[e.type] = (byType[e.type] || 0) + 1;
+  }
+  return { total: items.length, byType };
 }

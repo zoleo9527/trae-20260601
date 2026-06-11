@@ -145,10 +145,9 @@ export const EXCEPTION_TEST_CASES: TestCase[] = [
         const oldTime = new Date(
           now.getTime() - 35 * 60 * 1000
         ).toISOString();
-        await dao.executeRawSql(
-          'UPDATE status_transitions SET transitioned_at = ? WHERE id = ?',
-          [oldTime, lastTransition.id]
-        );
+        await dao.updateTransition(lastTransition.id, {
+          transitionedAt: oldTime,
+        });
       }
 
       const exceptions = await scanForGaps();
@@ -238,10 +237,9 @@ export const EXCEPTION_TEST_CASES: TestCase[] = [
       if (transitionResult.transition) {
         const now = new Date();
         const oldTime = new Date(now.getTime() - 49 * 60 * 60 * 1000);
-        await dao.executeRawSql(
-          'UPDATE status_transitions SET transitioned_at = ? WHERE id = ?',
-          [oldTime.toISOString(), transitionResult.transition.id]
-        );
+        await dao.updateTransition(transitionResult.transition.id, {
+          transitionedAt: oldTime.toISOString(),
+        });
         await dao.updateLead(lead.id, {
           updatedAt: oldTime.toISOString(),
         });
@@ -307,7 +305,7 @@ export const EXCEPTION_TEST_CASES: TestCase[] = [
       const updatedLead = await dao.getLeadById(lead.id);
 
       return {
-        success: result.success && updatedLead?.status === 'returned',
+        success: !!(result.success && updatedLead?.status === 'returned'),
         message: result.success
           ? `退回成功，当前状态: ${updatedLead?.status}`
           : `退回失败: ${result.errors.join(', ')}`,
@@ -484,7 +482,7 @@ export const EXCEPTION_TEST_CASES: TestCase[] = [
       const hasExceptionAfter = updatedLead?.hasException;
 
       return {
-        success: hasExceptionBefore && !hasExceptionAfter,
+        success: !!(hasExceptionBefore && !hasExceptionAfter),
         message: `异常处理${hasExceptionAfter ? '未' : '已'}清除异常标记`,
         lead: updatedLead || undefined,
       };

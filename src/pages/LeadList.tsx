@@ -27,7 +27,7 @@ import {
   ExclamationCircleOutlined,
   ReloadOutlined,
 } from '@ant-design/icons';
-import { useAppStore } from '../store/appStore';
+import { useAppStore, AppState } from '../store/appStore';
 import {
   LEAD_STATUS_LABELS,
   LEAD_STATUS_COLORS,
@@ -82,37 +82,37 @@ export default function LeadList() {
 
   const quickFilters = useMemo(
     () => [
-      { key: 'all', label: '全部', filter: {} },
+      { key: 'all', label: '全部', filter: {} as Partial<AppState['filters']> },
       {
         key: 'exception',
         label: '异常',
-        filter: { hasException: true },
+        filter: { hasException: true } as Partial<AppState['filters']>,
         icon: <WarningOutlined style={{ color: '#ff4d4f' }} />,
       },
       {
         key: 'new',
         label: '新建',
-        filter: { status: ['new'] },
+        filter: { status: ['new'] as LeadStatus[] } as Partial<AppState['filters']>,
       },
       {
         key: 'assigned',
         label: '已分配',
-        filter: { status: ['assigned'] },
+        filter: { status: ['assigned'] as LeadStatus[] } as Partial<AppState['filters']>,
       },
       {
         key: 'contacting',
         label: '接洽中',
-        filter: { status: ['contacting'] },
+        filter: { status: ['contacting'] as LeadStatus[] } as Partial<AppState['filters']>,
       },
       {
         key: 'followup',
         label: '待跟进',
-        filter: { status: ['needs_followup'] },
+        filter: { status: ['needs_followup'] as LeadStatus[] } as Partial<AppState['filters']>,
       },
       {
         key: 'high',
         label: '高优先级',
-        filter: { priority: ['high'] },
+        filter: { priority: ['high'] as ('high' | 'medium' | 'low')[] } as Partial<AppState['filters']>,
       },
     ],
     []

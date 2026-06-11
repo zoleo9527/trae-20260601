@@ -1,4 +1,4 @@
-import { Layout, Menu, Badge, Button, Space, Form, Input, Empty, Card, List, Timeline, Divider, Typography, Alert, App as AntdApp, message } from 'antd';
+import { Layout, Menu, Badge, Button, Space, Form, Input, Empty, Card, List, Timeline, Divider, Typography, Alert, App as AntdApp, Tag, message } from 'antd';
 import {
   UserOutlined,
   UnorderedListOutlined,
@@ -8,7 +8,7 @@ import {
   ExclamationCircleOutlined,
 } from '@ant-design/icons';
 import { useAppStore } from '../store/appStore';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import LeadList from '../pages/LeadList';
 import RoleSwitcher from './RoleSwitcher';
 import { runAllExceptionTests, EXCEPTION_TEST_CASES } from '../services/exceptionTests';
@@ -185,11 +185,15 @@ export default function AppLayout() {
 }
 
 function ExceptionPanel() {
-  const { exceptions, leads, handleException, users } = useAppStore();
+  const { allExceptions, leads, handleException, users, loadAllExceptions } = useAppStore();
   const { modal } = AntdApp.useApp();
   const [form] = Form.useForm();
 
-  const unhandledExceptions = exceptions.filter((e) => !e.handled);
+  useEffect(() => {
+    loadAllExceptions();
+  }, []);
+
+  const unhandledExceptions = allExceptions;
 
   const getLeadName = (leadId: string) => {
     const lead = leads.find((l) => l.id === leadId);
@@ -281,11 +285,11 @@ function ExceptionPanel() {
 }
 
 function FollowupReview() {
-  const { leads, followups, users, currentUser } = useAppStore();
+  const { leads, allFollowups, users, currentUser, loadAllFollowups } = useAppStore();
 
-  const allFollowups = followups.length > 0
-    ? followups
-    : leads.flatMap((l) => (l as any).followups || []);
+  useEffect(() => {
+    loadAllFollowups();
+  }, []);
 
   if (allFollowups.length === 0) {
     return (
