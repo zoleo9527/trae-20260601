@@ -82,7 +82,7 @@
               <div class="h-2 rounded-full bg-neutral-200 overflow-hidden">
                 <div
                   class="h-full rounded-full transition-all"
-                  :class="progressColorClass(getProgress(rect))"
+                  :class="progressColorClass(rect)"
                   :style="{ width: getProgress(rect) + '%' }"
                 ></div>
               </div>
@@ -296,7 +296,8 @@ function getProgress(rect: RectificationRecord) {
   const total = rect.failItems.length
   if (total === 0) return 0
   const done = getCompletedCount(rect)
-  if (rect.status === 'closed' || rect.status === 'passed') return 100
+  if (rect.status === 'closed') return 100
+  if (rect.status === 'passed') return 95
   return Math.round((done / total) * 100)
 }
 
@@ -307,15 +308,21 @@ function measureStatus(rect: RectificationRecord, idx: number) {
   return 'doing'
 }
 
-function progressColorClass(p: number) {
+function progressColorClass(rect: RectificationRecord) {
+  const p = getProgress(rect)
+  if (rect.status === 'passed') return 'bg-gradient-to-r from-primary-500 to-primary-600'
+  if (rect.status === 'closed') return 'bg-gradient-to-r from-success-500 to-success-600'
   if (p >= 100) return 'bg-gradient-to-r from-success-500 to-success-600'
   if (p >= 50) return 'bg-gradient-to-r from-warning-500 to-primary-500'
   return 'bg-gradient-to-r from-warning-400 to-warning-500'
 }
 
 function deadlineStyle(deadline: string, status: string) {
-  if (status === 'closed' || status === 'passed') {
+  if (status === 'closed') {
     return { class: 'bg-success-100 text-success-700', textClass: 'text-success-600' }
+  }
+  if (status === 'passed') {
+    return { class: 'bg-primary-100 text-primary-700', textClass: 'text-primary-600' }
   }
   const now = new Date()
   const d = new Date(deadline)
@@ -326,7 +333,8 @@ function deadlineStyle(deadline: string, status: string) {
 }
 
 function deadlineLabel(deadline: string, status: string) {
-  if (status === 'closed' || status === 'passed') return '已按期闭环'
+  if (status === 'closed') return '已按期闭环'
+  if (status === 'passed') return '待签署闭环'
   const now = new Date()
   const d = new Date(deadline)
   const diff = Math.ceil((d.getTime() - now.getTime()) / 86400000)

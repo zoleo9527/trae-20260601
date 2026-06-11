@@ -2,12 +2,15 @@
   <div class="space-y-6">
     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
       <div>
-        <h2 class="text-xl font-bold text-neutral-800">整改完成 · 待复查</h2>
-        <p class="text-sm text-neutral-500 mt-1">技师已完成整改并提交自测，等待项目主管现场复查确认</p>
+        <h2 class="text-xl font-bold text-neutral-800">整改完成 · 待复查与待签署</h2>
+        <p class="text-sm text-neutral-500 mt-1">含现场复查通过后等待主管签署闭环的记录</p>
       </div>
       <div class="flex items-center gap-2">
         <div class="text-xs px-3 py-1.5 rounded-lg bg-warning-100 text-warning-700 font-medium">
           {{ recheckPendingCount }} 份待复查
+        </div>
+        <div class="text-xs px-3 py-1.5 rounded-lg bg-primary-100 text-primary-700 font-medium">
+          {{ signLoopCount }} 份待签署闭环
         </div>
       </div>
     </div>
@@ -37,7 +40,7 @@
       <div class="xl:col-span-2">
         <div class="card overflow-hidden">
           <div class="px-5 py-3 border-b border-neutral-200 flex items-center justify-between">
-            <h3 class="text-sm font-semibold text-neutral-800">待复查整改清单</h3>
+            <h3 class="text-sm font-semibold text-neutral-800">待复查与待签署闭环清单</h3>
             <div class="flex items-center gap-2 text-xs">
               <button
                 type="button"
@@ -188,8 +191,12 @@ const recheckPendingCount = computed(() =>
   appStore.rectifications.filter(r => r.status === 'recheck').length
 )
 
+const signLoopCount = computed(() =>
+  appStore.rectifications.filter(r => r.status === 'passed').length
+)
+
 const recheckList = computed(() => {
-  let list = appStore.rectifications.filter(r => r.status === 'recheck')
+  let list = appStore.rectifications.filter(r => r.status === 'recheck' || r.status === 'passed')
   if (onlyCritical.value) {
     list = list.filter(r => r.priority === 'high')
   }

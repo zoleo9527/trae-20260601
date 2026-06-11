@@ -49,11 +49,16 @@ export const useAppStore = defineStore('app', {
           followUpsThisWeek: 8
         }
       } else {
+        const nonClosedRects = state.rectifications.filter(r =>
+          ['pending', 'in_progress', 'recheck', 'passed'].includes(r.status)
+        )
         return {
           toReview: state.inspections.filter(i => i.status === 'under_review').length,
           toRecheck: state.rectifications.filter(r => r.status === 'recheck').length,
+          toSignLoop: state.rectifications.filter(r => r.status === 'passed').length,
           nonCompliant: state.inspections.filter(i => i.status === 'non_compliant').length,
-          closedThisMonth: 18,
+          nonClosedRectifications: nonClosedRects.length,
+          closedThisMonth: state.rectifications.filter(r => r.status === 'closed').length,
           onTimeRate: 94.5
         }
       }

@@ -194,8 +194,8 @@ const statConfig: Record<UserRole, any[]> = {
   project_manager: [
     { label: '待审核报告', value: 's:stats:toReview', icon: 'IconFileText', iconBg: 'bg-primary-100', iconColor: 'text-primary-600', subtext: '含1份合格待签', subtextClass: 'text-primary-600' },
     { label: '待现场复查', value: 's:stats:toRecheck', icon: 'IconEye', iconBg: 'bg-warning-100', iconColor: 'text-warning-600', subtext: '其中1项今日到期', subtextClass: 'text-danger-600' },
-    { label: '未闭环整改', value: 's:stats:nonCompliant', icon: 'IconAlertTriangle', iconBg: 'bg-danger-100', iconColor: 'text-danger-600', subtext: '含1项关键项', subtextClass: 'text-danger-600' },
-    { label: '按时完成率', value: 's:stats:onTimeRate', icon: 'IconCheckCircle', iconBg: 'bg-success-100', iconColor: 'text-success-600', subtext: '本月闭环 18 项', subtextClass: 'text-success-600', isPercent: true }
+    { label: '待签署闭环', value: 's:stats:toSignLoop', icon: 'IconCheckCircle', iconBg: 'bg-primary-100', iconColor: 'text-primary-600', subtext: '复查通过待主管签署', subtextClass: 'text-primary-600' },
+    { label: '未闭环整改', value: 's:stats:nonClosedRectifications', icon: 'IconAlertTriangle', iconBg: 'bg-danger-100', iconColor: 'text-danger-600', subtext: '含1项关键项', subtextClass: 'text-danger-600' }
   ]
 }
 

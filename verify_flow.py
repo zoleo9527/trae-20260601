@@ -109,6 +109,27 @@ def check_photos_field(content):
 def check_getcycledays_logic(content):
     return 'inspectionDate' in content and 'appStore.inspections.find' in content
 
+def check_progress_passed_not_closed(content):
+    return ("if (rect.status === 'closed') return 100" in content or "status === 'closed' || status === 'passed'" not in content) and "if (rect.status === 'passed') return 95" in content
+
+def check_deadline_label_passed(content):
+    return "if (status === 'passed') return '待签署闭环'" in content
+
+def check_progress_color_passed(content):
+    return "if (rect.status === 'passed') return 'bg-gradient-to-r from-primary-500 to-primary-600'" in content
+
+def check_stats_to_sign_loop(content):
+    return "toSignLoop" in content
+
+def check_dashboard_to_sign_loop(content):
+    return "'待签署闭环'" in content and "toSignLoop" in content
+
+def check_sidebar_to_sign_loop(content):
+    return "toSignLoop" in content
+
+def check_completed_list_contains_passed(content):
+    return "r.status === 'recheck' || r.status === 'passed'" in content
+
 def check_dispatch_rectification(content):
     checks = {
         'addRectification 调用': 'appStore.addRectification' in content,
@@ -191,6 +212,27 @@ def main():
         ("📄 data/mockData.ts - mockTodos 类型值", [
             lambda c: check_mock_todos_types(c)
         ], "data/mockData.ts"),
+        ("📄 pages/rectification/index.vue - passed 进度不=100%", [
+            lambda c: check_progress_passed_not_closed(c)
+        ], "pages/rectification/index.vue"),
+        ("📄 pages/rectification/index.vue - passed 到期文案", [
+            lambda c: check_deadline_label_passed(c)
+        ], "pages/rectification/index.vue"),
+        ("📄 pages/rectification/index.vue - passed 进度颜色", [
+            lambda c: check_progress_color_passed(c)
+        ], "pages/rectification/index.vue"),
+        ("📄 stores/app.ts - toSignLoop 统计", [
+            lambda c: check_stats_to_sign_loop(c)
+        ], "stores/app.ts"),
+        ("📄 pages/index.vue - 工作台待签署闭环", [
+            lambda c: check_dashboard_to_sign_loop(c)
+        ], "pages/index.vue"),
+        ("📄 components/AppSidebar.vue - 侧边栏统计", [
+            lambda c: check_sidebar_to_sign_loop(c)
+        ], "components/AppSidebar.vue"),
+        ("📄 pages/rectification/completed.vue - 列表含 passed", [
+            lambda c: check_completed_list_contains_passed(c)
+        ], "pages/rectification/completed.vue"),
     ]
     
     for test_name, check_funcs, filepath in test_cases:
