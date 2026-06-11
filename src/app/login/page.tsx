@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Role } from '@/lib/types';
 
@@ -8,17 +8,16 @@ interface UserOption {
   id: number;
   name: string;
   role: Role;
-  brandId?: number;
+  brandId?: number | null;
+  brandName?: string | null;
   description: string;
 }
 
-const users: UserOption[] = [
-  { id: 1, name: '张伟', role: Role.LEASING_MANAGER, description: '招商经理 - 负责复核和费用结算' },
-  { id: 2, name: '李芳', role: Role.OPERATION_SUPERVISOR, description: '营运督导 - 负责材料收取和初审' },
-  { id: 3, name: '王店长', role: Role.BRAND_MANAGER, brandId: 1, description: '耐克品牌店长 - 提交销售上报' },
-  { id: 4, name: '赵店长', role: Role.BRAND_MANAGER, brandId: 2, description: '阿迪达斯品牌店长 - 提交销售上报' },
-  { id: 5, name: '陈店长', role: Role.BRAND_MANAGER, brandId: 3, description: '李宁品牌店长 - 提交销售上报' },
-];
+const roleDescriptions: Record<Role, string> = {
+  [Role.LEASING_MANAGER]: '招商经理 - 负责复核和费用结算',
+  [Role.OPERATION_SUPERVISOR]: '营运督导 - 负责材料收取和初审',
+  [Role.BRAND_MANAGER]: '品牌店长 - 提交销售上报',
+};
 
 const roleGroups = [
   { role: Role.LEASING_MANAGER, label: '招商经理', color: 'bg-purple-50 border-purple-200' },
@@ -28,7 +27,30 @@ const roleGroups = [
 
 export default function LoginPage() {
   const router = useRouter();
+  const [users, setUsers] = useState<UserOption[]>([]);
   const [selectedId, setSelectedId] = useState<number | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch('/api/users')
+      .then((r) => r.json())
+      .then((data) => {
+        setUsers(
+          data.map((u: any) => ({
+            id: u.id,
+            name: u.name,
+            role: u.role,
+            brandId: u.brandId,
+            brandName: u.brandName,
+            description: u.brandName
+              ? `${u.brandName}品牌店长 - 提交销售上报`
+              : roleDescriptions[u.role as Role],
+          }))
+        );
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
+  }, []);
 
   const handleLogin = (user: UserOption) => {
     setSelectedId(user.id);
@@ -53,42 +75,46 @@ export default function LoginPage() {
           </p>
         </div>
 
-        <div className="mt-8 space-y-8">
-          {roleGroups.map((group) => {
-            const groupUsers = users.filter((u) => u.role === group.role);
-            if (groupUsers.length === 0) return null;
-            return (
-              <div key={group.role} className={`rounded-xl border p-6 ${group.color}`}>
-                <h2 className="text-lg font-semibold text-slate-800 mb-4">
-                  {group.label}
-                </h2>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {groupUsers.map((user) => (
-                    <button
-                      key={user.id}
-                      onClick={() => handleLogin(user)}
-                      className={`p-4 rounded-lg border-2 text-left transition-all ${
-                        selectedId === user.id
-                          ? 'border-brand-500 bg-white shadow-sm'
-                          : 'border-slate-200 bg-white hover:border-brand-300'
-                      }`}
-                    >
-                      <div className="flex items-center space-x-3">
-                        <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center font-medium text-slate-600">
-                          {user.name.charAt(0)}
+        {loading ? (
+          <div className="text-center py-12 text-slate-400">加载中...</div>
+        ) : (
+          <div className="mt-8 space-y-8">
+            {roleGroups.map((group) => {
+              const groupUsers = users.filter((u) => u.role === group.role);
+              if (groupUsers.length === 0) return null;
+              return (
+                <div key={group.role} className={`rounded-xl border p-6 ${group.color}`}>
+                  <h2 className="text-lg font-semibold text-slate-800 mb-4">
+                    {group.label}
+                  </h2>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {groupUsers.map((user) => (
+                      <button
+                        key={user.id}
+                        onClick={() => handleLogin(user)}
+                        className={`p-4 rounded-lg border-2 text-left transition-all ${
+                          selectedId === user.id
+                            ? 'border-brand-500 bg-white shadow-sm'
+                            : 'border-slate-200 bg-white hover:border-brand-300'
+                        }`}
+                      >
+                        <div className="flex items-center space-x-3">
+                          <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center font-medium text-slate-600">
+                            {user.name.charAt(0)}
+                          </div>
+                          <div>
+                            <p className="font-medium text-slate-900">{user.name}</p>
+                            <p className="text-sm text-slate-500">{user.description}</p>
+                          </div>
                         </div>
-                        <div>
-                          <p className="font-medium text-slate-900">{user.name}</p>
-                          <p className="text-sm text-slate-500">{user.description}</p>
-                        </div>
-                      </div>
-                    </button>
-                  ))}
+                      </button>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+        )}
 
         <div className="mt-6 text-center text-sm text-slate-400">
           演示环境 - 点击任一角色即可登录体验

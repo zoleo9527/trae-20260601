@@ -97,6 +97,17 @@ export async function PATCH(
 
     const now = new Date();
 
+    if (body.action === 'supplement_submit') {
+      updateData.submittedAt = now;
+      updateData.missingMaterials = null;
+      updateData.rejectReason = null;
+      updateData.isOverdue = false;
+      updateData.deadline = null;
+      updateData.materialsCheckerId = null;
+      updateData.materialsCheckedAt = null;
+      updateData.reviewerId = null;
+      updateData.reviewedAt = null;
+    }
     if (body.action === 'receive_materials') {
       updateData.materialsCheckerId = user.id;
       updateData.materialsCheckedAt = now;
