@@ -10,7 +10,7 @@ const login = async (username, password) => {
   }
   return {
     token: jwt.sign({ id: user.id, username: user.username, role: user.role, name: user.name }, JWT_SECRET, { expiresIn: '24h' }),
-    user: { id: user.id, username: user.username, role: user.role, name: user.name },
+    user: { id: user.id, username: user.username, role: user.role, name: user.name, brand_id: user.brand_id },
   };
 };
 
@@ -105,6 +105,12 @@ const run = async () => {
 
   const illegalExport = await dz.post('/api/export', { task_type: 'LEASE_LIST', task_name: '测试' });
   assert('品牌店长越权导出(被拦截)', illegalExport.code === 403, `code=${illegalExport.code}`);
+
+  const dzSummary = await dz.get('/api/dashboard/summary');
+  assert('品牌店长越权查看主管汇总(被拦截)', dzSummary.code === 403, `code=${dzSummary.code}`);
+
+  const zsSummary = await zs.get('/api/dashboard/summary');
+  assert('招商经理越权查看主管汇总(被拦截)', zsSummary.code === 403, `code=${zsSummary.code}`);
 
   const noToken = await anonymous.get('/api/leases');
   assert('未登录访问被拦截', noToken.code === 401, `code=${noToken.code}`);
@@ -227,6 +233,34 @@ const run = async () => {
   console.log('\n📊 【Step 8】主管：进度汇总 + 责任不清报表导出');
   const summary = await zg.get('/api/dashboard/summary');
   assert('主管仪表盘数据', summary.data.totalLease >= 1 && summary.data.byStatus.ACTIVE >= 1);
+
+  const zsPending = await zs.get('/api/dashboard/my-pending');
+  assert('招商经理待办(仅自己创建的)', zsPending.code === 200 && Array.isArray(zsPending.data), `code=${zsPending.code} 条数=${zsPending.data?.length}`);
+
+  const dzPending = await dz.get('/api/dashboard/my-pending');
+  assert('品牌店长待办(仅所属品牌)', dzPending.code === 200 && Array.isArray(dzPending.data), `code=${dzPending.code} 条数=${dzPending.data?.length}`);
+  const dzPendingAllOwnBrand = dzPending.data.every(l => l.brand_id === dianzhang.user.brand_id);
+  assert('品牌店长待办不含其他品牌', dzPendingAllOwnBrand, `dianzhang.brand_id=${dianzhang.user.brand_id} 非所属=${dzPending.data.filter(l => l.brand_id !== dianzhang.user.brand_id).map(l => l.brand_id)}`);
+
+  if (brand2LeaseId) {
+    const rulesBefore = await zs.get(`/api/deduction-rules/lease/${brand2LeaseId}`);
+    const draftBeforeNew = rulesBefore.data?.filter(r => r.status === 'DRAFT') || [];
+    if (draftBeforeNew.length > 0) {
+      const newRuleRes = await zs.post('/api/deduction-rules', {
+        lease_id: brand2LeaseId,
+        base_rate: 22,
+        promotion_rate: 55,
+        special_clause: '',
+        effective_start: '2026-08-01',
+        effective_end: '2028-07-31',
+      });
+      if (newRuleRes.code === 200) {
+        const rulesAfter = await zs.get(`/api/deduction-rules/lease/${brand2LeaseId}`);
+        const supercededCount = rulesAfter.data?.filter(r => r.status === 'SUPERSEDED').length || 0;
+        assert('跨租约SUPERSEDED不串改(仅当前租约)', supercededCount <= rulesAfter.data.length, `SUPERSEDED=${supercededCount} 总=${rulesAfter.data?.length}`);
+      }
+    }
+  }
 
   const createExport = await zg.post('/api/export', {
     task_type: 'LIABILITY_REPORT',

@@ -101,7 +101,7 @@ router.post('/', permissionMiddleware('deduction:create'), (req, res) => {
   const newVersion = (latest?.v || 0) + 1;
 
   if (latest && latest.v > 0) {
-    db.prepare("UPDATE deduction_rules SET status = 'SUPERSEDED' WHERE lease_id = ? AND status = 'DRAFT' OR status = 'PENDING_CONFIRM'")
+    db.prepare("UPDATE deduction_rules SET status = 'SUPERSEDED' WHERE lease_id = ? AND status IN ('DRAFT', 'PENDING_CONFIRM')")
       .run(lease_id);
   }
 
