@@ -3,6 +3,7 @@ package com.park.decoration.service;
 import com.park.decoration.dto.ExceptionNoteDTO;
 import com.park.decoration.dto.ExceptionReportRequest;
 import com.park.decoration.dto.ExceptionResolveRequest;
+import com.park.decoration.enums.ApplicationStatus;
 
 import java.util.List;
 
@@ -18,5 +19,6 @@ public interface ExceptionNoteService {
 
     List<ExceptionNoteDTO> getUnresolvedExceptions();
 
-    List<ExceptionNoteDTO> listExceptions(Boolean resolved, String responsiblePerson, String applicationNo);
+    List<ExceptionNoteDTO> listExceptions(Boolean resolved, String responsiblePerson,
+                                          String applicationNo, ApplicationStatus applicationStatus);
 }

@@ -7,6 +7,7 @@ import com.park.decoration.enums.PermitStatus;
 import com.park.decoration.enums.PriorityLevel;
 import com.park.decoration.repository.*;
 import com.park.decoration.service.DecorationApplicationService;
+import com.park.decoration.service.ExceptionNoteService;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.BeanUtils;
@@ -28,6 +29,7 @@ public class DecorationApplicationServiceImpl implements DecorationApplicationSe
     private final EntryPermitRepository permitRepository;
     private final ExceptionNoteRepository exceptionRepository;
     private final OperationLogRepository logRepository;
+    private final ExceptionNoteService exceptionService;
 
     @Override
     @Transactional
@@ -85,8 +87,7 @@ public class DecorationApplicationServiceImpl implements DecorationApplicationSe
         detail.setApplication(convertToDTO(app));
         detail.setPermits(permitRepository.findByApplicationIdOrderByCreatedAtDesc(id)
                 .stream().map(this::convertPermitToDTO).collect(Collectors.toList()));
-        detail.setExceptions(exceptionRepository.findByApplicationIdOrderByReportedAtDesc(id)
-                .stream().map(this::convertExceptionToDTO).collect(Collectors.toList()));
+        detail.setExceptions(exceptionService.getExceptionsByApplicationId(id));
         detail.setOperationLogs(logRepository.findByApplicationIdOrderByOperatedAtDesc(id)
                 .stream().map(this::convertLogToDTO).collect(Collectors.toList()));
 
@@ -212,8 +213,9 @@ public class DecorationApplicationServiceImpl implements DecorationApplicationSe
         dto.setRecentActivities(logRepository.findTop20ByOrderByOperatedAtDesc()
                 .stream().map(this::convertLogToDTO).collect(Collectors.toList()));
 
-        dto.setRecentUnresolvedExceptions(exceptionRepository.findByResolvedFalseOrderByReportedAtDesc()
-                .stream().limit(10).map(this::convertExceptionToDTO).collect(Collectors.toList()));
+        List<ExceptionNoteDTO> unresolved = exceptionService.getUnresolvedExceptions();
+        dto.setRecentUnresolvedExceptions(
+                unresolved.stream().limit(10).collect(Collectors.toList()));
 
         return dto;
     }

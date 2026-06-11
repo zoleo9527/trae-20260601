@@ -1,5 +1,6 @@
 package com.park.decoration.dto;
 
+import com.park.decoration.enums.ApplicationStatus;
 import lombok.Data;
 
 import java.time.LocalDateTime;
@@ -22,4 +23,9 @@ public class ExceptionNoteDTO {
     private LocalDateTime resolvedAt;
     private Boolean resolved;
     private Long stuckHours;
+
+    private ApplicationStatus applicationStatus;
+    private String assignedHandler;
+    private String lastOperator;
+    private LocalDateTime lastOperatedAt;
 }

@@ -4,6 +4,7 @@ import com.park.decoration.dto.ApiResponse;
 import com.park.decoration.dto.ExceptionNoteDTO;
 import com.park.decoration.dto.ExceptionReportRequest;
 import com.park.decoration.dto.ExceptionResolveRequest;
+import com.park.decoration.enums.ApplicationStatus;
 import com.park.decoration.service.ExceptionNoteService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -51,7 +52,9 @@ public class ExceptionNoteController {
     public ApiResponse<List<ExceptionNoteDTO>> listExceptions(
             @RequestParam(required = false) Boolean resolved,
             @RequestParam(required = false) String responsiblePerson,
-            @RequestParam(required = false) String applicationNo) {
-        return ApiResponse.success(exceptionService.listExceptions(resolved, responsiblePerson, applicationNo));
+            @RequestParam(required = false) String applicationNo,
+            @RequestParam(required = false) ApplicationStatus applicationStatus) {
+        return ApiResponse.success(exceptionService.listExceptions(
+                resolved, responsiblePerson, applicationNo, applicationStatus));
     }
 }

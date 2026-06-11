@@ -1,6 +1,7 @@
 package com.park.decoration.repository;
 
 import com.park.decoration.entity.ExceptionNote;
+import com.park.decoration.enums.ApplicationStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -22,13 +23,15 @@ public interface ExceptionNoteRepository extends JpaRepository<ExceptionNote, Lo
     @Query("SELECT e FROM ExceptionNote e WHERE e.applicationNo = :applicationNo ORDER BY e.reportedAt DESC")
     List<ExceptionNote> findByApplicationNoOrderByReportedAtDesc(@Param("applicationNo") String applicationNo);
 
-    @Query("SELECT e FROM ExceptionNote e WHERE " +
+    @Query("SELECT e FROM ExceptionNote e JOIN FETCH e.application a WHERE " +
            "(:resolved IS NULL OR e.resolved = :resolved) AND " +
            "(:responsiblePerson IS NULL OR LOWER(e.responsiblePerson) LIKE LOWER(CONCAT('%', :responsiblePerson, '%'))) AND " +
-           "(:applicationNo IS NULL OR e.applicationNo = :applicationNo) " +
+           "(:applicationNo IS NULL OR e.applicationNo = :applicationNo) AND " +
+           "(:applicationStatus IS NULL OR a.status = :applicationStatus) " +
            "ORDER BY e.reportedAt DESC")
     List<ExceptionNote> findByFilters(
             @Param("resolved") Boolean resolved,
             @Param("responsiblePerson") String responsiblePerson,
-            @Param("applicationNo") String applicationNo);
+            @Param("applicationNo") String applicationNo,
+            @Param("applicationStatus") ApplicationStatus applicationStatus);
 }

@@ -6,6 +6,7 @@ import com.park.decoration.dto.ExceptionResolveRequest;
 import com.park.decoration.entity.DecorationApplication;
 import com.park.decoration.entity.ExceptionNote;
 import com.park.decoration.entity.OperationLog;
+import com.park.decoration.enums.ApplicationStatus;
 import com.park.decoration.repository.DecorationApplicationRepository;
 import com.park.decoration.repository.ExceptionNoteRepository;
 import com.park.decoration.repository.OperationLogRepository;
@@ -16,8 +17,9 @@ import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Duration;
 import java.time.LocalDateTime;
-import java.util.List;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -97,27 +99,29 @@ public class ExceptionNoteServiceImpl implements ExceptionNoteService {
     public ExceptionNoteDTO getExceptionById(Long id) {
         ExceptionNote ex = exceptionRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("异常记录不存在，ID：" + id));
-        return convertToDTO(ex);
+        List<ExceptionNoteDTO> list = enrichAndConvert(Collections.singletonList(ex));
+        return list.isEmpty() ? null : list.get(0);
     }
 
     @Override
     public List<ExceptionNoteDTO> getExceptionsByApplicationId(Long applicationId) {
-        return exceptionRepository.findByApplicationIdOrderByReportedAtDesc(applicationId)
-                .stream().map(this::convertToDTO).collect(Collectors.toList());
+        return enrichAndConvert(
+                exceptionRepository.findByApplicationIdOrderByReportedAtDesc(applicationId));
     }
 
     @Override
     public List<ExceptionNoteDTO> getUnresolvedExceptions() {
-        return exceptionRepository.findByResolvedFalseOrderByReportedAtDesc()
-                .stream().map(this::convertToDTO).collect(Collectors.toList());
+        return enrichAndConvert(
+                exceptionRepository.findByResolvedFalseOrderByReportedAtDesc());
     }
 
     @Override
-    public List<ExceptionNoteDTO> listExceptions(Boolean resolved, String responsiblePerson, String applicationNo) {
+    public List<ExceptionNoteDTO> listExceptions(Boolean resolved, String responsiblePerson,
+                                                 String applicationNo, ApplicationStatus applicationStatus) {
         String rp = (responsiblePerson != null && !responsiblePerson.isBlank()) ? responsiblePerson : null;
         String an = (applicationNo != null && !applicationNo.isBlank()) ? applicationNo : null;
-        return exceptionRepository.findByFilters(resolved, rp, an)
-                .stream().map(this::convertToDTO).collect(Collectors.toList());
+        return enrichAndConvert(
+                exceptionRepository.findByFilters(resolved, rp, an, applicationStatus));
     }
 
     private void addLog(DecorationApplication app, String type, String field,
@@ -142,9 +146,67 @@ public class ExceptionNoteServiceImpl implements ExceptionNoteService {
         dto.setApplicationId(e.getApplicationId());
         dto.setApplicationNo(e.getApplicationNo());
         if (!Boolean.TRUE.equals(e.getResolved()) && e.getReportedAt() != null) {
-            long hours = java.time.Duration.between(e.getReportedAt(), java.time.LocalDateTime.now()).toHours();
+            long hours = Duration.between(e.getReportedAt(), LocalDateTime.now()).toHours();
             dto.setStuckHours(hours);
         }
         return dto;
+    }
+
+    private List<ExceptionNoteDTO> enrichAndConvert(List<ExceptionNote> exceptions) {
+        if (exceptions == null || exceptions.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        Set<Long> appIds = exceptions.stream()
+                .map(ExceptionNote::getApplicationId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+
+        Map<Long, DecorationApplication> appMap = Collections.emptyMap();
+        Map<Long, OperationLog> latestLogMap = Collections.emptyMap();
+        if (!appIds.isEmpty()) {
+            List<Long> appIdList = new ArrayList<>(appIds);
+            List<DecorationApplication> apps = applicationRepository.findAllById(appIdList);
+            appMap = apps.stream()
+                    .collect(Collectors.toMap(DecorationApplication::getId, a -> a, (a, b) -> a));
+
+            List<OperationLog> logs = logRepository.findLatestByApplicationIds(appIdList);
+            latestLogMap = logs.stream()
+                    .filter(l -> l.getApplicationId() != null)
+                    .collect(Collectors.toMap(
+                            OperationLog::getApplicationId, l -> l, (a, b) -> a));
+        }
+
+        List<ExceptionNoteDTO> result = new ArrayList<>(exceptions.size());
+        for (ExceptionNote e : exceptions) {
+            ExceptionNoteDTO dto = convertToDTO(e);
+            if (e.getApplicationId() != null) {
+                DecorationApplication app = appMap.get(e.getApplicationId());
+                if (app != null) {
+                    dto.setApplicationStatus(app.getStatus());
+                    dto.setAssignedHandler(app.getAssignedHandler());
+                }
+                OperationLog latest = latestLogMap.get(e.getApplicationId());
+                if (latest != null) {
+                    dto.setLastOperator(latest.getOperator());
+                    dto.setLastOperatedAt(latest.getOperatedAt());
+                } else if (app != null) {
+                    dto.setLastOperator(app.getUpdatedBy());
+                    dto.setLastOperatedAt(app.getUpdatedAt());
+                }
+            }
+            result.add(dto);
+        }
+
+        result.sort((a, b) -> {
+            Long ah = a.getStuckHours();
+            Long bh = b.getStuckHours();
+            if (ah == null && bh == null) return 0;
+            if (ah == null) return 1;
+            if (bh == null) return -1;
+            return Long.compare(bh, ah);
+        });
+
+        return result;
     }
 }
