@@ -25,7 +25,7 @@ export const useAppStore = defineStore('app', {
     todos: (state): TodoItem[] => mockTodos[state.currentRole],
     unreadAlerts: (state): Alert[] => state.alerts.filter(a => !a.isRead),
     unreadCount: (state): number => state.alerts.filter(a => !a.isRead).length,
-    pendingTodoCount: (): number => mockTodos[state.currentRole].length,
+    pendingTodoCount: (state): number => mockTodos[state.currentRole].length,
     statsByRole: (state) => {
       const role = state.currentRole
       if (role === 'technician') {

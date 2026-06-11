@@ -199,7 +199,7 @@ const recheckList = computed(() => {
 const statCards = computed(() => [
   { key: 'week', label: '本周待复查', value: recheckPendingCount.value, sub: '占全部整改 33%', icon: 'IconCalendar', colorClass: 'text-warning-600', bgClass: 'bg-warning-100', iconClass: 'text-warning-600' },
   { key: 'critical', label: '含关键项', value: appStore.rectifications.filter(r => r.status === 'recheck' && r.priority === 'high').length, sub: '需当日安排', icon: 'IconAlertTriangle', colorClass: 'text-danger-600', bgClass: 'bg-danger-100', iconClass: 'text-danger-600' },
-  { key: 'passed', label: '复查通过', value: appStore.rectifications.filter(r => r.status === 'passed' || r.status === 'closed').length, sub: '近30天', icon: 'IconCheckCircle', colorClass: 'text-success-600', bgClass: 'bg-success-100', iconClass: 'text-success-600' },
+  { key: 'passed', label: '复查通过', value: appStore.rectifications.filter(r => r.status === 'passed').length, sub: '待签署闭环', icon: 'IconCheckCircle', colorClass: 'text-success-600', bgClass: 'bg-success-100', iconClass: 'text-success-600' },
   { key: 'returned', label: '退回重改', value: 1, sub: '本月累计', icon: 'IconRefreshCw', colorClass: 'text-primary-600', bgClass: 'bg-primary-100', iconClass: 'text-primary-600' }
 ])
 

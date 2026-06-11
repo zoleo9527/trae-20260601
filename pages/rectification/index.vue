@@ -251,7 +251,8 @@ const filterOptions = computed(() => {
     { key: 'pending', label: '待整改', count: rects.filter(r => r.status === 'pending').length },
     { key: 'in_progress', label: '整改中', count: rects.filter(r => r.status === 'in_progress').length },
     { key: 'recheck', label: '待复查', count: rects.filter(r => r.status === 'recheck').length },
-    { key: 'closed', label: '已闭环', count: rects.filter(r => r.status === 'closed' || r.status === 'passed').length }
+    { key: 'closed', label: '已闭环', count: rects.filter(r => r.status === 'closed').length },
+    { key: 'passed', label: '复查通过', count: rects.filter(r => r.status === 'passed').length }
   ]
 })
 
@@ -262,7 +263,10 @@ const filteredRectifications = computed<RectificationRecord[]>(() => {
   }
   if (activeFilter.value === 'all') return list
   if (activeFilter.value === 'closed') {
-    return list.filter(r => r.status === 'closed' || r.status === 'passed')
+    return list.filter(r => r.status === 'closed')
+  }
+  if (activeFilter.value === 'passed') {
+    return list.filter(r => r.status === 'passed')
   }
   return list.filter(r => r.status === activeFilter.value)
 })

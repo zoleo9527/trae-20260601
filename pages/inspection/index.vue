@@ -224,6 +224,12 @@ function goRectification(id: string) {
   navigateTo('/rectification')
 }
 
+function generateRectificationId() {
+  const count = appStore.rectifications.length + 1
+  const num = String(count).padStart(4, '0')
+  return `RECT-2026-${num}`
+}
+
 function handleReview(insp: InspectionRecord, action: 'approve' | 'reject' | 'to_rect') {
   if (!insp) return
   if (action === 'approve') {
@@ -231,6 +237,62 @@ function handleReview(insp: InspectionRecord, action: 'approve' | 'reject' | 'to
   }
   if (action === 'to_rect' && insp.failItems.length > 0) {
     appStore.updateInspectionStatus(insp.id, 'rectifying')
+
+    const rectId = generateRectificationId()
+    const measures = insp.failItems.map((item, idx) => ({
+      id: `m${Date.now()}-${idx}`,
+      itemId: `item-${idx}`,
+      itemName: item,
+      originalProblem: insp.failReasons[idx] || `${item}检测不合格`,
+      measure: '',
+      operator: '',
+      completedAt: '',
+      photos: [] as string[],
+      remark: ''
+    }))
+
+    const newRect = {
+      id: rectId,
+      inspectionId: insp.id,
+      elevatorId: insp.elevatorId,
+      elevatorName: insp.elevatorName,
+      location: insp.location,
+      status: 'pending' as const,
+      priority: (insp.failItems.some(f => f.includes('关键') || f.includes('紧急')) ? 'high' : 'medium') as 'high' | 'medium',
+      failItems: [...insp.failItems],
+      originalReasons: [...insp.failReasons],
+      assignedTo: appStore.users.technician.name,
+      assigneeRole: 'technician' as const,
+      deadline: insp.rectificationDeadline || '2026-06-20',
+      rectificationMeasures: measures,
+      recheckResults: [] as any[],
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    }
+
+    appStore.addRectification(newRect)
+
+    const newAlert = {
+      id: `al${Date.now()}`,
+      type: 'rectification' as const,
+      title: `新增整改派单：${insp.failItems.length}项问题`,
+      message: `年检${insp.id}发现${insp.failItems.length}项不合格，已派发整改单${rectId}，请立即处理。`,
+      description: `项目主管已审核年检${insp.id}，确认${insp.failItems.length}项不合格，派发整改单${rectId}给${appStore.users.technician.name}，整改期限${newRect.deadline}。`,
+      relatedId: rectId,
+      relatedType: 'rectification',
+      linkId: rectId,
+      linkType: 'rectification' as const,
+      priority: newRect.priority,
+      isRead: false,
+      createdAt: new Date().toISOString(),
+      meta: {
+        elevator: insp.elevatorName,
+        deadline: newRect.deadline,
+        relatedId: rectId
+      }
+    }
+
+    appStore.addAlert(newAlert)
   }
   closeDetail()
 }

@@ -109,6 +109,25 @@ def check_photos_field(content):
 def check_getcycledays_logic(content):
     return 'inspectionDate' in content and 'appStore.inspections.find' in content
 
+def check_dispatch_rectification(content):
+    checks = {
+        'addRectification 调用': 'appStore.addRectification' in content,
+        '生成 rectificationId': 'generateRectificationId' in content,
+        '更新年检状态为 rectifying': "updateInspectionStatus(insp.id, 'rectifying')" in content,
+        '生成提醒': 'appStore.addAlert' in content,
+        'rectificationMeasures 构造': 'rectificationMeasures' in content
+    }
+    return checks
+
+def check_closed_passed_separated(content):
+    return "r.status === 'closed' || r.status === 'passed'" not in content
+
+def check_pending_todo_count(content):
+    return 'pendingTodoCount: (state)' in content or 'pendingTodoCount:(state)' in content
+
+def check_mock_todos_types(content):
+    return "'system'" not in content
+
 def main():
     print("=" * 70)
     print("🔍 年检资料主链路修复验证脚本")
@@ -157,6 +176,21 @@ def main():
         ("📄 components/InspectionDetailModal.vue - 透明度类名", [
             lambda c: check_syntax_errors(c, "InspectionDetailModal.vue")
         ], "components/InspectionDetailModal.vue"),
+        ("📄 pages/inspection/index.vue - 派发整改单逻辑", [
+            lambda c: check_dispatch_rectification(c)
+        ], "pages/inspection/index.vue"),
+        ("📄 pages/rectification/closed.vue - passed/closed 状态区分", [
+            lambda c: check_closed_passed_separated(c)
+        ], "pages/rectification/closed.vue"),
+        ("📄 pages/rectification/index.vue - passed/closed 状态区分", [
+            lambda c: check_closed_passed_separated(c)
+        ], "pages/rectification/index.vue"),
+        ("📄 stores/app.ts - pendingTodoCount getter", [
+            lambda c: check_pending_todo_count(c)
+        ], "stores/app.ts"),
+        ("📄 data/mockData.ts - mockTodos 类型值", [
+            lambda c: check_mock_todos_types(c)
+        ], "data/mockData.ts"),
     ]
     
     for test_name, check_funcs, filepath in test_cases:

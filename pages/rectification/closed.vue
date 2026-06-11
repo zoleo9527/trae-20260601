@@ -168,7 +168,7 @@ const yearFilter = ref('all')
 const categoryFilter = ref('all')
 
 const archiveStats = computed(() => {
-  const closed = appStore.rectifications.filter(r => r.status === 'closed' || r.status === 'passed')
+  const closed = appStore.rectifications.filter(r => r.status === 'closed')
   return [
     { key: 'total', label: '累计闭环', value: closed.length, icon: 'IconArchive', colorClass: 'text-success-600', bgClass: 'bg-success-100', iconClass: 'text-success-600' },
     { key: 'thisMonth', label: '本月闭环', value: closed.length, icon: 'IconCalendar', colorClass: 'text-primary-600', bgClass: 'bg-primary-100', iconClass: 'text-primary-600' },
@@ -179,7 +179,7 @@ const archiveStats = computed(() => {
 })
 
 const closedList = computed(() =>
-  appStore.rectifications.filter(r => r.status === 'closed' || r.status === 'passed')
+  appStore.rectifications.filter(r => r.status === 'closed')
 )
 
 const filteredClosed = computed(() => {

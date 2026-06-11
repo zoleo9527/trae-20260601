@@ -364,10 +364,10 @@ export const mockTodos: Record<UserRole, TodoItem[]> = {
     },
     {
       id: 'td103',
-      type: 'system',
-      title: '发送整改期限临近提醒',
-      description: '系统将在6月13日自动推送临近截止的整改通知',
-      relatedId: '',
+      type: 'review',
+      title: '核对整改到期前提醒清单',
+      description: '系统将在6月13日自动推送临近截止的整改通知，需提前核对清单',
+      relatedId: 'BATCH-2026-0613',
       priority: 'low',
       deadline: '2026-06-13',
       createdAt: '2026-06-07T08:00:00'
