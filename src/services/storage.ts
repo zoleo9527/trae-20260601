@@ -137,33 +137,47 @@ export class StorageService {
     ensureStorageVersion();
     const raw = safeGetItem(STORAGE_KEYS.RECENT_ITEMS);
     if (!raw) {
-      return memoryBackup?.recentItems || [];
+      return this.dedupeRecentItems(memoryBackup?.recentItems || []);
     }
     try {
       const data = JSON.parse(raw);
       if (Array.isArray(data)) {
         const valid = data.filter(validateRecentItem);
+        const deduped = this.dedupeRecentItems(valid);
         if (memoryBackup) {
-          memoryBackup.recentItems = valid;
+          memoryBackup.recentItems = deduped;
         }
-        return valid;
+        return deduped;
       }
-      return memoryBackup?.recentItems || [];
+      return this.dedupeRecentItems(memoryBackup?.recentItems || []);
     } catch (e) {
       console.warn('[StorageService] 解析 recentItems 数据失败，使用内存备份', e);
-      return memoryBackup?.recentItems || [];
+      return this.dedupeRecentItems(memoryBackup?.recentItems || []);
     }
+  }
+
+  private static dedupeRecentItems(items: RecentItem[]): RecentItem[] {
+    const latestByPromotion = new Map<string, RecentItem>();
+    for (const item of items) {
+      const existing = latestByPromotion.get(item.promotionId);
+      if (!existing || new Date(item.openedAt) > new Date(existing.openedAt)) {
+        latestByPromotion.set(item.promotionId, item);
+      }
+    }
+    return Array.from(latestByPromotion.values())
+      .sort((a, b) => new Date(b.openedAt).getTime() - new Date(a.openedAt).getTime())
+      .slice(0, 20);
   }
 
   static saveRecentItems(items: RecentItem[]): void {
     ensureStorageVersion();
-    const limited = items.slice(0, 20);
-    const data = JSON.stringify(limited);
+    const deduped = this.dedupeRecentItems(items);
+    const data = JSON.stringify(deduped);
     const success = safeSetItem(STORAGE_KEYS.RECENT_ITEMS, data);
     if (!memoryBackup) {
       memoryBackup = { promotions: [], recentItems: [], currentRole: 'counterManager' };
     }
-    memoryBackup.recentItems = limited;
+    memoryBackup.recentItems = deduped;
     if (!success) {
       console.warn('[StorageService] recentItems 已保存到内存备份，localStorage 不可用');
     }
@@ -172,9 +186,9 @@ export class StorageService {
   static addRecentItem(item: RecentItem): void {
     if (!validateRecentItem(item)) return;
     const items = this.getRecentItems();
-    const filtered = items.filter(i => i.promotionId !== item.promotionId);
-    filtered.unshift(item);
-    this.saveRecentItems(filtered);
+    const combined = [item, ...items];
+    const deduped = this.dedupeRecentItems(combined);
+    this.saveRecentItems(deduped);
   }
 
   static getCurrentRole(): Role {
@@ -265,16 +279,17 @@ export class StorageService {
     let recentCount = 0;
     if (importedRecentItems && importedRecentItems.length > 0) {
       const existingRecent = this.getRecentItems();
-      const existingRecentIds = new Set(existingRecent.map(r => r.id));
+      const importedIdsBefore = new Set(existingRecent.map(r => r.promotionId));
       
       const validImported = importedRecentItems
         .filter(validateRecentItem)
-        .filter(item => validIds.has(item.promotionId))
-        .filter(item => !existingRecentIds.has(item.id));
+        .filter(item => validIds.has(item.promotionId));
       
-      const merged = [...validImported, ...existingRecent].slice(0, 20);
+      const combined = [...validImported, ...existingRecent];
+      const merged = this.dedupeRecentItems(combined);
+      
       this.saveRecentItems(merged);
-      recentCount = validImported.length;
+      recentCount = merged.filter(m => !importedIdsBefore.has(m.promotionId)).length;
     } else {
       const existingRecent = this.getRecentItems();
       const cleaned = existingRecent.filter(item => validIds.has(item.promotionId));

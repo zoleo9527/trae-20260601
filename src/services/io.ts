@@ -20,10 +20,6 @@ export class IOService {
     return StorageService.exportAll();
   }
 
-  static exportJSON(promotions: Promotion[]): string {
-    return JSON.stringify(promotions, null, 2);
-  }
-
   static exportToJSON(): void {
     const data = StorageService.exportAll();
     const blob = new Blob([data], { type: 'application/json' });
