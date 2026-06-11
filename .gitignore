@@ -1,0 +1,7 @@
+node_modules
+dist
+outlet.db
+outlet.db-wal
+outlet.db-shm
+.DS_Store
+*.local
