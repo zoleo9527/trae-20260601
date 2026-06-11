@@ -510,14 +510,35 @@ async function confirmException() {
 async function handleBatchSubmit() {
   try {
     const res = await batchApi.submitCampaigns({ ids: selectedIds.value })
+    const normalSuccessIds = res.normal_success_ids || []
+    if (normalSuccessIds.length > 0) {
+      list.value = list.value.map(item => {
+        if (normalSuccessIds.includes(item.id)) {
+          return { ...item, status: 'pending_review' }
+        }
+        return item
+      })
+      selectedIds.value = selectedIds.value.filter(id => !normalSuccessIds.includes(id))
+    }
     ElMessage.success(`成功提交 ${res.success_count} 条，失败 ${res.failed_count} 条`)
-    loadList()
+    if (selectedIds.value.length === 0) loadList()
   } catch (e) {
     if (e.response && e.response.data && e.response.data.require_confirm) {
       const exceptionItems = e.response.data.exception_items || []
       const normalSuccessCount = e.response.data.success_count || 0
+      const normalSuccessIds = e.response.data.normal_success_ids || []
       const exceptionIds = exceptionItems.map(item => item.id)
       const allExceptions = exceptionItems.map(item => `${item.title}：${item.exceptions.join('；')}`).join('\n')
+
+      if (normalSuccessIds.length > 0) {
+        list.value = list.value.map(item => {
+          if (normalSuccessIds.includes(item.id)) {
+            return { ...item, status: 'pending_review' }
+          }
+          return item
+        })
+        selectedIds.value = selectedIds.value.filter(id => exceptionIds.includes(id))
+      }
 
       if (normalSuccessCount > 0) {
         ElMessage.info(`正常项已成功提交 ${normalSuccessCount} 条，${exceptionIds.length} 条异常项待确认`)
@@ -529,6 +550,15 @@ async function handleBatchSubmit() {
       confirmData.confirmed = false
       confirmData.action = async () => {
         const res = await batchApi.submitCampaigns({ ids: exceptionIds, confirm_exception: true })
+        if (res.success_count > 0) {
+          list.value = list.value.map(item => {
+            if (exceptionIds.includes(item.id)) {
+              return { ...item, status: 'exception' }
+            }
+            return item
+          })
+          selectedIds.value = selectedIds.value.filter(id => !exceptionIds.includes(id))
+        }
         ElMessage.success(`异常项已提交并进入异常处理列表：成功 ${res.success_count} 条，失败 ${res.failed_count} 条`)
         loadList()
       }
@@ -553,6 +583,20 @@ async function handleBatchApprove() {
 }
 
 function handleBatchReject() {
+  const hasApproved = list.value.some(
+    item => selectedIds.value.includes(item.id) && item.status === 'approved'
+  )
+  if (hasApproved && !userStore.isInvestmentManager) {
+    const approvedItems = list.value.filter(
+      item => selectedIds.value.includes(item.id) && item.status === 'approved'
+    )
+    const names = approvedItems.map(i => i.title).join('、')
+    ElMessage.warning(`已过滤无权限项：${names}（营运督导无权退回已通过活动，仅可退回待审核/审核中状态）`)
+    selectedIds.value = selectedIds.value.filter(
+      id => !approvedItems.some(i => i.id === id)
+    )
+    if (selectedIds.value.length === 0) return
+  }
   batchOperation.value = 'batch'
   rejectForm.reason = ''
   rejectDialogVisible.value = true
@@ -575,7 +619,15 @@ async function confirmReject() {
         ids: selectedIds.value,
         reason: rejectForm.reason
       })
-      ElMessage.success(`成功退回 ${res.success_count} 条，失败 ${res.failed_count} 条`)
+      let msg = `成功退回 ${res.success_count} 条`
+      if (res.failed_count > 0) msg += `，失败 ${res.failed_count} 条`
+      if (res.unauthorized_count > 0) {
+        const names = (res.unauthorized_items || []).map(i => i.title).join('、')
+        msg += `，${res.unauthorized_count} 条无权限（${names}）`
+        ElMessage.warning(msg)
+      } else {
+        ElMessage.success(msg)
+      }
     } else {
       await discountApi.reject(currentRow.value.id, { reason: rejectForm.reason })
       ElMessage.success('已退回')

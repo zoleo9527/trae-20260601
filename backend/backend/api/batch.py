@@ -174,6 +174,7 @@ def batch_reject_campaigns():
 
     success_count = 0
     failed_count = 0
+    unauthorized_items = []
     results = []
 
     for campaign_id in ids:
@@ -182,6 +183,18 @@ def batch_reject_campaigns():
             if not campaign:
                 results.append({'id': campaign_id, 'success': False, 'error': '活动不存在'})
                 failed_count += 1
+                continue
+
+            if (campaign.status == DiscountStatus.APPROVED.value
+                    and user.role != Role.INVESTMENT_MANAGER.value):
+                unauthorized_items.append({
+                    'id': campaign_id,
+                    'title': campaign.title,
+                    'reason': '营运督导无权退回已审批通过的活动，需招商经理操作'
+                })
+                results.append({'id': campaign_id, 'success': False,
+                                'error': '营运督导无权退回已审批通过的活动',
+                                'unauthorized': True})
                 continue
 
             old_status = campaign.status
@@ -206,11 +219,16 @@ def batch_reject_campaigns():
             failed_count += 1
 
     db.session.commit()
-    return jsonify({
+
+    resp = {
         'success_count': success_count,
         'failed_count': failed_count,
         'results': results
-    })
+    }
+    if unauthorized_items:
+        resp['unauthorized_count'] = len(unauthorized_items)
+        resp['unauthorized_items'] = unauthorized_items
+    return jsonify(resp)
 
 @batch_bp.route('/discount/raise-exception', methods=['POST'])
 @jwt_required()
