@@ -156,7 +156,7 @@ watch(() => authStore.isLoggedIn, (loggedIn) => {
 async function loadData() {
   if (!authStore.isLoggedIn) return
   try {
-    stuckReport.value = await apiRequest('/plans/stuck')
+    stuckReport.value = await apiRequest('/dashboard/stuck')
   } catch (e: any) {
     console.error('加载卡住看板失败:', e)
   }

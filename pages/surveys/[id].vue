@@ -45,7 +45,16 @@
             </div>
             <div>
               <span class="text-gray-500">处理人</span>
-              <div class="font-medium text-gray-900 mt-1">{{ survey.assignedTo?.realName || '未分配' }}</div>
+              <div v-if="canAssign" class="flex items-center gap-2 mt-1">
+                <select v-model="selectedAssigneeId" class="input-field py-1 text-sm">
+                  <option :value="null">未分配</option>
+                  <option v-for="u in users" :key="u.id" :value="u.id">
+                    {{ u.realName }} ({{ getRoleText(u.role) }})
+                  </option>
+                </select>
+                <button @click="handleAssign" class="btn-primary text-xs px-3 py-1">分配</button>
+              </div>
+              <div v-else class="font-medium text-gray-900 mt-1">{{ survey.assignedTo?.realName || '未分配' }}</div>
             </div>
           </div>
         </div>
@@ -228,8 +237,11 @@ const showRejectDialog = ref(false)
 const newRemark = ref('')
 const stuckReason = ref('')
 const rejectReason = ref('')
+const users = ref<any[]>([])
+const selectedAssigneeId = ref<number | null>(null)
 
 const canApprove = computed(() => authStore.isProjectManager)
+const canAssign = computed(() => authStore.isProjectManager || authStore.isConstructionLeader)
 const id = computed(() => route.params.id as string)
 
 watch(() => authStore.isLoggedIn, (loggedIn) => {
@@ -245,13 +257,24 @@ async function loadData() {
   survey.value = await apiRequest(`/surveys/${id.value}`)
   remarks.value = await apiRequest(`/surveys/${id.value}/remarks`)
   
+  if (canAssign.value && users.value.length === 0) {
+    try {
+      users.value = await apiRequest('/users')
+    } catch (e) {
+      users.value = []
+    }
+  }
+  
+  selectedAssigneeId.value = survey.value.assignedTo?.id || null
+  
   if (authStore.isProjectManager) {
     auditLogs.value = await apiRequest(`/audit/SURVEY/${id.value}`)
   }
   
   if (survey.value.status === 'APPROVED') {
     try {
-      relatedPlan.value = await apiRequest(`/plans/survey/${id.value}`)
+      const plans = await apiRequest<any[]>(`/plans/survey/${id.value}`)
+      relatedPlan.value = Array.isArray(plans) ? plans[0] || null : plans
     } catch (e) {
       relatedPlan.value = null
     }
@@ -329,8 +352,27 @@ function getActionText(action: string): string {
     'APPROVE': '审核通过',
     'REJECT': '审核拒绝',
     'SUBMIT': '提交',
-    'VIEW': '查看'
+    'VIEW': '查看',
+    'MARK_STUCK': '标记卡住',
+    'UNSTICK': '解除卡住'
   }
   return map[action] || action
+}
+
+async function handleAssign() {
+  await apiRequest(`/surveys/${id.value}/assign`, {
+    method: 'PATCH',
+    body: { assignedToId: selectedAssigneeId.value }
+  })
+  loadData()
+}
+
+function getRoleText(role: string): string {
+  const map: Record<string, string> = {
+    'PROJECT_MANAGER': '项目经理',
+    'CONSTRUCTION_LEADER': '施工队长',
+    'AFTER_SALES_ENGINEER': '售后工程师'
+  }
+  return map[role] || role
 }
 </script>
