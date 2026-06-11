@@ -1,6 +1,6 @@
 import { Router, type Request, type Response } from 'express'
 import { getDb, clearApplicationData } from '../db.js'
-import type { ActivityApplication, ApplicationLog, Complaint } from '../types.js'
+import type { ActivityApplication, ApplicationLog, Complaint, ComplaintLog } from '../types.js'
 
 const router = Router()
 
@@ -58,7 +58,13 @@ router.get('/:id', (req: Request, res: Response): void => {
     WHERE c.tenantId = ?
     ORDER BY c.createdAt DESC
     LIMIT 5
-  `).all(app.tenantId) as Complaint[]
+  `).all(app.tenantId) as (Complaint & { latestLogs?: ComplaintLog[] })[]
+
+  for (const c of complaints) {
+    c.latestLogs = db.prepare(
+      'SELECT * FROM complaint_logs WHERE complaintId = ? ORDER BY createdAt DESC LIMIT 3'
+    ).all(c.id) as ComplaintLog[]
+  }
 
   res.json({ success: true, data: { ...app, logs, complaints } })
 })

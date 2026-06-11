@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import { ArrowLeft, MapPin, Building2, User, Phone, Calendar, AlertTriangle } from 'lucide-react'
+import { ArrowLeft, MapPin, Building2, User, Phone, Calendar, AlertTriangle, MessageSquare } from 'lucide-react'
 import { useMallStore } from '../store'
-import { APPROVAL_STATUS_MAP, COMPLAINT_STATUS_MAP } from '../types'
+import { APPROVAL_STATUS_MAP, COMPLAINT_STATUS_MAP, ACTION_LABEL_MAP } from '../types'
 import Timeline from '../components/Timeline'
 import ActionModal from '../components/ActionModal'
 
@@ -186,6 +186,22 @@ export default function ApprovalDetailPage() {
                       )}
                       {c.result && (
                         <p className="text-xs text-emerald-600 mt-1">处理结果：{c.result}</p>
+                      )}
+                      {c.latestLogs && c.latestLogs.length > 0 && (
+                        <div className="mt-1.5 space-y-1">
+                          {c.latestLogs.map((log) => (
+                            <div key={log.id} className="flex items-start gap-1.5 px-2 py-1 bg-amber-50/60 rounded border border-amber-100/60">
+                              <MessageSquare size={10} className="text-amber-500 mt-0.5 shrink-0" />
+                              <span className="text-xs text-amber-800">
+                                <span className="font-medium">{log.operator}</span>
+                                <span className="text-amber-500 mx-0.5">·</span>
+                                {ACTION_LABEL_MAP[log.action] || log.action}
+                                <span className="text-amber-500 mx-0.5">:</span>
+                                {log.remark}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
                       )}
                       <p className="text-xs text-slate-300 mt-1">{c.createdAt}</p>
                     </div>

@@ -79,6 +79,7 @@ export interface Complaint {
   updatedAt: string
   tenantName?: string
   tenantShopNo?: string
+  latestLogs?: ComplaintLog[]
 }
 
 export interface ComplaintLog {
