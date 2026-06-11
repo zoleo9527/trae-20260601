@@ -36,7 +36,7 @@ export default function TaskList() {
 
   const load = () => {
     setLoading(true)
-    const params = {}
+    const params = { role }
     if (status) params.status = status
     if (riskLevel) params.riskLevel = riskLevel
     api.getRecords(params).then(d => { setRecords(d.records); setLoading(false); setSelected(new Set()) }).catch(() => setLoading(false))

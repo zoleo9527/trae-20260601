@@ -217,9 +217,9 @@ app.get('/api/records', (req, res) => {
   if (status) list = list.filter(r => r.status === status)
   if (riskLevel) list = list.filter(r => r.riskLevel === riskLevel)
   if (role === 'inspector') {
-    list = list.filter(r => r.inspector === 'u_inspector_01')
+    list = list.filter(r => r.inspector === 'u_inspector_01' || r.status === 'rectified')
   } else if (role === 'property') {
-    list = list.filter(r => r.property === 'u_property_01' || r.status === 'dispatched' || r.status === 'rejected')
+    list = list.filter(r => r.property === 'u_property_01' && (r.status === 'dispatched' || r.status === 'rejected'))
   }
   res.json({ records: list })
 })
@@ -228,7 +228,13 @@ app.get('/api/records/stats', (req, res) => {
   const role = req.query.role || 'supervisor'
   let todos = [], risks = { high: 0, medium: 0, low: 0 }, recent = []
 
-  records.forEach(r => {
+  const scoped = records.filter(r => {
+    if (role === 'inspector') return r.inspector === 'u_inspector_01' || r.status === 'rectified'
+    if (role === 'property')  return r.property === 'u_property_01' && (r.status === 'dispatched' || r.status === 'rejected')
+    return true
+  })
+
+  scoped.forEach(r => {
     if (r.riskLevel === 'high') risks.high++
     if (r.riskLevel === 'medium') risks.medium++
     if (r.riskLevel === 'low') risks.low++
@@ -246,7 +252,7 @@ app.get('/api/records/stats', (req, res) => {
     if (isTodo) todos.push({ ...r, todoLabel })
   })
 
-  recent = [...records].sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt)).slice(0, 8)
+  recent = [...scoped].sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt)).slice(0, 8)
 
   res.json({ todos, risks, recent })
 })
@@ -281,6 +287,9 @@ app.post('/api/records/:id/rectify', (req, res) => {
   if (r.rejectReason) {
     r.supplementaryNote = note || ''
     r.supplementaryAt = now()
+    r.reInspectionResult = ''
+    r.reInspectionAt = null
+    r.reInspectionAttachments = []
     pushTimeline(r, '李经理', '补录并重新提交', note || '补充整改说明')
   } else {
     pushTimeline(r, '李经理', '提交整改完成', note || '整改完成')
@@ -297,6 +306,10 @@ app.post('/api/records/:id/reinspect', (req, res) => {
   r.reInspectionAt = now()
   if (passed) {
     r.status = 'passed'
+    r.rejectReason = ''
+    r.rejectAt = null
+    r.supplementaryNote = ''
+    r.supplementaryAt = null
     pushTimeline(r, '王工', '复检通过', result || '整改合格')
   } else {
     r.status = 'rejected'
@@ -333,6 +346,10 @@ app.post('/api/records/batch-reinspect', (req, res) => {
       r.reInspectionAt = now()
       if (passed) {
         r.status = 'passed'
+        r.rejectReason = ''
+        r.rejectAt = null
+        r.supplementaryNote = ''
+        r.supplementaryAt = null
         pushTimeline(r, '王工', '批量复检通过', result || '批量通过')
       }
       count++
