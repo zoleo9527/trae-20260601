@@ -1,0 +1,127 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model User {
+  id        String   @id @default(uuid())
+  username  String   @unique
+  name      String
+  role      String
+  passwordHash String @map("password_hash")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  
+  bidRegistrationsAsHandler BidRegistration[] @relation("HandlerRelation")
+  clarificationsAsCreator Clarification[] @relation("CreatorRelation")
+  clarificationsAsReviewer Clarification[] @relation("ReviewerRelation")
+  clarificationVersions ClarificationVersion[] @relation("ChangedByRelation")
+  operationLogs OperationLog[] @relation("OperatorRelation")
+  rejectionReasons RejectionReason[] @relation("RejectedByRelation")
+
+  @@map("users")
+}
+
+model BidRegistration {
+  id                String   @id @default(uuid())
+  projectId         String   @map("project_id")
+  projectName       String   @map("project_name")
+  bidderId          String   @map("bidder_id")
+  bidderName        String   @map("bidder_name")
+  status            String   @default("pending")
+  currentHandlerId  String?  @map("current_handler_id")
+  currentHandlerRole String? @map("current_handler_role")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+  
+  currentHandler    User?    @relation("HandlerRelation", fields: [currentHandlerId], references: [id])
+  clarifications    Clarification[]
+  operationLogs     OperationLog[] @relation("RegistrationLogs")
+  rejectionReasons  RejectionReason[]
+
+  @@index([status])
+  @@index([currentHandlerId, currentHandlerRole])
+  @@index([createdAt])
+  @@map("bid_registrations")
+}
+
+model Clarification {
+  id            String   @id @default(uuid())
+  registrationId String @map("registration_id")
+  question      String
+  answer        String?
+  status        String   @default("draft")
+  createdById   String   @map("created_by_id")
+  reviewedById  String?  @map("reviewed_by_id")
+  version       Int      @default(1)
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+  
+  registration  BidRegistration @relation(fields: [registrationId], references: [id])
+  createdBy     User            @relation("CreatorRelation", fields: [createdById], references: [id])
+  reviewedBy    User?           @relation("ReviewerRelation", fields: [reviewedById], references: [id])
+  versions      ClarificationVersion[]
+  operationLogs OperationLog[] @relation("ClarificationLogs")
+
+  @@index([status])
+  @@index([registrationId])
+  @@map("clarifications")
+}
+
+model ClarificationVersion {
+  id              String   @id @default(uuid())
+  clarificationId String   @map("clarification_id")
+  version         Int
+  question        String
+  answer          String?
+  changedById     String   @map("changed_by_id")
+  changeNote      String?  @map("change_note")
+  changedAt       DateTime @default(now()) @map("changed_at")
+  
+  clarification   Clarification @relation(fields: [clarificationId], references: [id])
+  changedBy       User          @relation("ChangedByRelation", fields: [changedById], references: [id])
+
+  @@map("clarification_versions")
+}
+
+model OperationLog {
+  id            String   @id @default(uuid())
+  entityType    String   @map("entity_type")
+  entityId      String   @map("entity_id")
+  operationType String   @map("operation_type")
+  operatorId    String   @map("operator_id")
+  operatorName  String   @map("operator_name")
+  operatorRole  String   @map("operator_role")
+  previousStatus String? @map("previous_status")
+  newStatus     String?  @map("new_status")
+  note          String?
+  metadata      String?
+  createdAt     DateTime @default(now()) @map("created_at")
+  
+  operator      User     @relation("OperatorRelation", fields: [operatorId], references: [id])
+  registration  BidRegistration? @relation("RegistrationLogs", fields: [entityId], references: [id])
+  clarification Clarification? @relation("ClarificationLogs", fields: [entityId], references: [id])
+
+  @@index([entityType, entityId])
+  @@index([operatorId])
+  @@index([createdAt])
+  @@map("operation_logs")
+}
+
+model RejectionReason {
+  id               String   @id @default(uuid())
+  registrationId   String   @map("registration_id")
+  reason           String
+  supplementaryNote String? @map("supplementary_note")
+  rejectedById     String   @map("rejected_by_id")
+  rejectedAt       DateTime @default(now()) @map("rejected_at")
+  
+  registration     BidRegistration @relation(fields: [registrationId], references: [id])
+  rejectedBy       User            @relation("RejectedByRelation", fields: [rejectedById], references: [id])
+
+  @@map("rejection_reasons")
+}
