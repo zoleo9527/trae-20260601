@@ -1,0 +1,369 @@
+import { useState } from 'react';
+import { Table, Button, Modal, Form, Input, Select, Tag, Card, Row, Col, Progress, Space, Tooltip, Popconfirm, Checkbox } from 'antd';
+import { EditOutlined, CheckOutlined, EyeOutlined, PlusOutlined } from '@ant-design/icons';
+import type { Confirmation, UserRole, DepositRecord } from '@/types';
+import { mockConfirmations, mockDepositRecords } from '@/data/mockData';
+import { formatCurrency } from '@/utils/format';
+import { hasPermission } from '@/utils/auth';
+
+interface ConfirmationPageProps {
+  currentUserRole: UserRole;
+}
+
+const statusColors: Record<string, string> = {
+  pending: 'orange',
+  confirmed: 'blue',
+  deposit_paid: 'cyan',
+  deposit_refunded: 'gray',
+  dispute: 'red',
+  completed: 'green',
+  cancelled: 'gray',
+};
+
+const statusLabels: Record<string, string> = {
+  pending: '待处理',
+  confirmed: '已确认',
+  deposit_paid: '保证金已付',
+  deposit_refunded: '保证金已退',
+  dispute: '存在争议',
+  completed: '已完成',
+  cancelled: '已取消',
+};
+
+export default function ConfirmationPage({ currentUserRole }: ConfirmationPageProps) {
+  const [confirmations, setConfirmations] = useState<Confirmation[]>(mockConfirmations);
+  const [depositRecords] = useState<DepositRecord[]>(mockDepositRecords);
+  const [modalVisible, setModalVisible] = useState(false);
+  const [editingItem, setEditingItem] = useState<Confirmation | null>(null);
+  const [selectedRows, setSelectedRows] = useState<React.Key[]>([]);
+  const [form] = Form.useForm();
+
+  const columns = [
+    {
+      title: '标的编号',
+      dataIndex: 'subjectCode',
+      key: 'subjectCode',
+      width: 140,
+      fixed: 'left' as const,
+    },
+    {
+      title: '标的名称',
+      dataIndex: 'subjectName',
+      key: 'subjectName',
+      ellipsis: true,
+      width: 250,
+    },
+    {
+      title: '竞买人',
+      dataIndex: 'bidderName',
+      key: 'bidderName',
+      width: 100,
+    },
+    {
+      title: '成交金额',
+      dataIndex: 'bidAmount',
+      key: 'bidAmount',
+      width: 120,
+      render: (amount: number) => formatCurrency(amount),
+    },
+    {
+      title: '保证金',
+      dataIndex: 'depositAmount',
+      key: 'depositAmount',
+      width: 100,
+      render: (amount: number, record: Confirmation) => {
+        const deposit = depositRecords.find(d => d.bidId === record.id);
+        const status = deposit?.status ?? 'pending';
+        return (
+          <div>
+            <div>{formatCurrency(amount)}</div>
+            <Tag color={status === 'paid' ? 'green' : status === 'refunding' ? 'orange' : status === 'refunded' ? 'gray' : 'red'}>
+              {status === 'paid' ? '已到账' : status === 'refunding' ? '退款中' : status === 'refunded' ? '已退还' : '待支付'}
+            </Tag>
+          </div>
+        );
+      },
+    },
+    {
+      title: '尾款金额',
+      dataIndex: 'balanceAmount',
+      key: 'balanceAmount',
+      width: 120,
+      render: (amount: number) => formatCurrency(amount),
+    },
+    {
+      title: '资料完整性',
+      dataIndex: 'dataCompleteness',
+      key: 'dataCompleteness',
+      width: 150,
+      render: (completeness: Confirmation['dataCompleteness']) => {
+        const total = 4;
+        const completed = Object.values(completeness).filter(Boolean).length;
+        const percent = Math.round((completed / total) * 100);
+        return (
+          <div>
+            <Progress percent={percent} size="small" strokeColor={percent === 100 ? '#52c41a' : '#1890ff'} />
+            <span style={{ fontSize: 12, color: '#666' }}>{completed}/{total}</span>
+          </div>
+        );
+      },
+    },
+    {
+      title: '状态',
+      dataIndex: 'status',
+      key: 'status',
+      width: 100,
+      render: (status: string) => (
+        <Tag color={statusColors[status]}>
+          {statusLabels[status]}
+        </Tag>
+      ),
+    },
+    {
+      title: '备注',
+      dataIndex: 'notes',
+      key: 'notes',
+      width: 200,
+      render: (notes: string) => (
+        <Tooltip title={notes}>
+          <span className="ellipsis">{notes || '-'}</span>
+        </Tooltip>
+      ),
+    },
+    {
+      title: '操作',
+      key: 'actions',
+      width: 180,
+      fixed: 'right' as const,
+      render: (_: unknown, record: Confirmation) => (
+        <Space>
+          <Button 
+            icon={<EyeOutlined />} 
+            size="small" 
+            onClick={() => viewDetail(record)}
+          >
+            查看
+          </Button>
+          {(hasPermission(currentUserRole, 'confirmation_edit') || hasPermission(currentUserRole, 'confirmation_audit')) && (
+            <Button 
+              icon={<EditOutlined />} 
+              size="small" 
+              onClick={() => editRecord(record)}
+            >
+              编辑
+            </Button>
+          )}
+          {record.status === 'confirmed' && hasPermission(currentUserRole, 'confirmation_edit') && (
+            <Button 
+              icon={<CheckOutlined />} 
+              size="small" 
+              type="primary"
+              onClick={() => confirmCompletion(record)}
+            >
+              确认完成
+            </Button>
+          )}
+          {record.status === 'dispute' && hasPermission(currentUserRole, 'confirmation_audit') && (
+            <Popconfirm
+              title="确认解决争议？"
+              onConfirm={() => resolveDispute(record)}
+            >
+              <Button icon={<CheckOutlined />} size="small" danger={false} style={{ backgroundColor: '#52c41a', borderColor: '#52c41a', color: '#fff' }}>
+                解决争议
+              </Button>
+            </Popconfirm>
+          )}
+        </Space>
+      ),
+    },
+  ];
+
+  const viewDetail = (record: Confirmation) => {
+    setEditingItem(record);
+    form.setFieldsValue({
+      notes: record.notes,
+      status: record.status,
+      ...record.dataCompleteness,
+    });
+    setModalVisible(true);
+  };
+
+  const editRecord = (record: Confirmation) => {
+    setEditingItem(record);
+    form.setFieldsValue({
+      notes: record.notes,
+      status: record.status,
+      ...record.dataCompleteness,
+    });
+    setModalVisible(true);
+  };
+
+  const confirmCompletion = (record: Confirmation) => {
+    setConfirmations(prev => prev.map(c => 
+      c.id === record.id ? { ...c, status: 'completed' as const, updatedAt: new Date().toISOString().split('T')[0] } : c
+    ));
+  };
+
+  const resolveDispute = (record: Confirmation) => {
+    setConfirmations(prev => prev.map(c => 
+      c.id === record.id ? { ...c, status: 'confirmed' as const, updatedAt: new Date().toISOString().split('T')[0] } : c
+    ));
+  };
+
+  const handleSave = () => {
+    form.validateFields().then(values => {
+      if (editingItem) {
+        setConfirmations(prev => prev.map(c => 
+          c.id === editingItem.id ? { 
+            ...c, 
+            notes: values.notes,
+            status: values.status as Confirmation['status'],
+            dataCompleteness: {
+              subjectData: values.subjectData,
+              bidderQualification: values.bidderQualification,
+              contractSigned: values.contractSigned,
+              otherDocuments: values.otherDocuments,
+            },
+            updatedAt: new Date().toISOString().split('T')[0],
+          } : c
+        ));
+      }
+      setModalVisible(false);
+      form.resetFields();
+    });
+  };
+
+  const handleBatchAction = () => {
+    Modal.info({
+      title: '批量操作',
+      content: `已选择 ${selectedRows.length} 条记录，执行批量确认`,
+    });
+    setSelectedRows([]);
+  };
+
+  const incompleteCount = confirmations.filter(c => 
+    !c.dataCompleteness.subjectData || 
+    !c.dataCompleteness.bidderQualification || 
+    !c.dataCompleteness.contractSigned || 
+    !c.dataCompleteness.otherDocuments
+  ).length;
+
+  const disputeCount = confirmations.filter(c => c.status === 'dispute').length;
+
+  return (
+    <div>
+      <Row gutter={16} style={{ marginBottom: 24 }}>
+        <Col span={6}>
+          <Card>
+            <div style={{ fontSize: 24, fontWeight: 'bold', color: '#1890ff' }}>{confirmations.length}</div>
+            <div style={{ fontSize: 12, color: '#666' }}>成交确认总数</div>
+          </Card>
+        </Col>
+        <Col span={6}>
+          <Card>
+            <div style={{ fontSize: 24, fontWeight: 'bold', color: '#faad14' }}>{incompleteCount}</div>
+            <div style={{ fontSize: 12, color: '#666' }}>资料待补正</div>
+          </Card>
+        </Col>
+        <Col span={6}>
+          <Card>
+            <div style={{ fontSize: 24, fontWeight: 'bold', color: '#f5222d' }}>{disputeCount}</div>
+            <div style={{ fontSize: 12, color: '#666' }}>资格争议</div>
+          </Card>
+        </Col>
+        <Col span={6}>
+          <Card>
+            <div style={{ fontSize: 24, fontWeight: 'bold', color: '#52c41a' }}>
+              {confirmations.filter(c => c.status === 'completed').length}
+            </div>
+            <div style={{ fontSize: 12, color: '#666' }}>已完成</div>
+          </Card>
+        </Col>
+      </Row>
+
+      <Card 
+        title="成交确认管理" 
+        extra={
+          <div style={{ display: 'flex', gap: 12 }}>
+            {hasPermission(currentUserRole, 'confirmation_edit') && (
+              <Button icon={<PlusOutlined />} type="primary">
+                新增成交确认
+              </Button>
+            )}
+            {selectedRows.length > 0 && (
+              <Button icon={<CheckOutlined />} onClick={handleBatchAction}>
+                批量确认 ({selectedRows.length})
+              </Button>
+            )}
+          </div>
+        }
+      >
+        <Table
+          rowKey="id"
+          columns={columns}
+          dataSource={confirmations}
+          pagination={{ pageSize: 10 }}
+          scroll={{ x: 1200 }}
+          rowSelection={{
+            type: 'checkbox',
+            selectedRowKeys: selectedRows,
+            onChange: setSelectedRows,
+          }}
+        />
+      </Card>
+
+      <Modal
+        title={editingItem ? '编辑成交确认' : '新增成交确认'}
+        visible={modalVisible}
+        onCancel={() => {
+          setModalVisible(false);
+          form.resetFields();
+        }}
+        onOk={handleSave}
+        width={600}
+      >
+        <Form form={form} layout="vertical">
+          <Form.Item label="状态" name="status">
+            <Select>
+              <Select.Option value="pending">待处理</Select.Option>
+              <Select.Option value="confirmed">已确认</Select.Option>
+              <Select.Option value="deposit_paid">保证金已付</Select.Option>
+              <Select.Option value="deposit_refunded">保证金已退</Select.Option>
+              <Select.Option value="dispute">存在争议</Select.Option>
+              <Select.Option value="completed">已完成</Select.Option>
+            </Select>
+          </Form.Item>
+          
+          <Form.Item label="资料完整性">
+            <Row gutter={12}>
+              <Col span={6}>
+                <Form.Item name="subjectData" valuePropName="checked" noStyle>
+                  <Checkbox>标的资料</Checkbox>
+                </Form.Item>
+              </Col>
+              <Col span={6}>
+                <Form.Item name="bidderQualification" valuePropName="checked" noStyle>
+                  <Checkbox>竞买资格</Checkbox>
+                </Form.Item>
+              </Col>
+              <Col span={6}>
+                <Form.Item name="contractSigned" valuePropName="checked" noStyle>
+                  <Checkbox>合同签署</Checkbox>
+                </Form.Item>
+              </Col>
+              <Col span={6}>
+                <Form.Item name="otherDocuments" valuePropName="checked" noStyle>
+                  <Checkbox>其他材料</Checkbox>
+                </Form.Item>
+              </Col>
+            </Row>
+          </Form.Item>
+
+          <Form.Item label="备注" name="notes">
+            <Input.TextArea rows={4} placeholder="输入备注信息，该备注将被尾款催收继承" />
+          </Form.Item>
+        </Form>
+      </Modal>
+    </div>
+  );
+}
