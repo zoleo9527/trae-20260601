@@ -180,12 +180,40 @@ class RiskSummaryResponse(RiskSummaryBase):
         from_attributes = True
 
 
+class DocumentItemStatus(BaseModel):
+    document_type_id: int
+    document_type_name: str
+    category: str
+    is_required: bool
+    due_day: Optional[int]
+    due_date: Optional[datetime]
+    submitted: bool
+    submitted_date: Optional[datetime]
+    submitted_quantity: int = 0
+    submitted_by: Optional[str]
+    gap_status: Optional[str]
+    gap_risk_level: Optional[str]
+    gap_notes: Optional[str]
+    has_risk: bool = False
+    risk_level: Optional[str]
+
+
+class CategoryDocumentStatus(BaseModel):
+    category: str
+    category_label: str
+    total_required: int
+    submitted_count: int
+    pending_count: int
+    overdue_count: int
+    items: List[DocumentItemStatus]
+
+
 class CustomerDocumentStatus(BaseModel):
     customer: CustomerResponse
     period: str
-    required_documents: List[dict]
-    submitted_documents: List[dict]
-    gaps: List[DocumentGapResponse]
+    categories: List[CategoryDocumentStatus]
+    overall_summary: dict
+    risk_summary: Optional[dict]
 
 
 class RiskSummaryReport(BaseModel):

@@ -4,7 +4,8 @@ from sqlalchemy.orm import Session
 from app.database import SessionLocal, engine, Base
 from app.models import (
     Customer, DocumentType, DocumentGap, DocumentSubmission,
-    CollectionRecord, RiskSummary, DocumentCategory, RiskLevel, GapStatus
+    CollectionRecord, RiskSummary, DocumentCategory, RiskLevel, GapStatus,
+    DocumentRequirement
 )
 
 
@@ -94,6 +95,134 @@ def create_seed_data():
         
         current_period = datetime.now().strftime("%Y-%m")
         last_period = (datetime.now() - timedelta(days=30)).strftime("%Y-%m")
+        
+        print("创建客户资料清单...")
+        
+        requirements_customer1_current = [
+            DocumentRequirement(
+                customer_id=customer1.id,
+                document_type_id=doc_types[0].id,
+                period=current_period,
+                is_required=True,
+                notes="每月必须提交"
+            ),
+            DocumentRequirement(
+                customer_id=customer1.id,
+                document_type_id=doc_types[1].id,
+                period=current_period,
+                is_required=True,
+                notes="每月必须提交"
+            ),
+            DocumentRequirement(
+                customer_id=customer1.id,
+                document_type_id=doc_types[2].id,
+                period=current_period,
+                is_required=True,
+                notes="每月必须提交"
+            ),
+            DocumentRequirement(
+                customer_id=customer1.id,
+                document_type_id=doc_types[3].id,
+                period=current_period,
+                is_required=False,
+                notes="有销售业务时提交"
+            ),
+            DocumentRequirement(
+                customer_id=customer1.id,
+                document_type_id=doc_types[4].id,
+                period=current_period,
+                is_required=False,
+                notes="月末提交"
+            ),
+        ]
+        
+        requirements_customer1_last = [
+            DocumentRequirement(
+                customer_id=customer1.id,
+                document_type_id=doc_types[0].id,
+                period=last_period,
+                is_required=True
+            ),
+            DocumentRequirement(
+                customer_id=customer1.id,
+                document_type_id=doc_types[1].id,
+                period=last_period,
+                is_required=True
+            ),
+            DocumentRequirement(
+                customer_id=customer1.id,
+                document_type_id=doc_types[2].id,
+                period=last_period,
+                is_required=True
+            ),
+        ]
+        
+        requirements_customer2_current = [
+            DocumentRequirement(
+                customer_id=customer2.id,
+                document_type_id=doc_types[0].id,
+                period=current_period,
+                is_required=True,
+                notes="每月必须提交"
+            ),
+            DocumentRequirement(
+                customer_id=customer2.id,
+                document_type_id=doc_types[1].id,
+                period=current_period,
+                is_required=True,
+                notes="每月必须提交"
+            ),
+            DocumentRequirement(
+                customer_id=customer2.id,
+                document_type_id=doc_types[2].id,
+                period=current_period,
+                is_required=True,
+                notes="每月必须提交"
+            ),
+            DocumentRequirement(
+                customer_id=customer2.id,
+                document_type_id=doc_types[3].id,
+                period=current_period,
+                is_required=False,
+                notes="有销售业务时提交"
+            ),
+        ]
+        
+        requirements_customer3_current = [
+            DocumentRequirement(
+                customer_id=customer3.id,
+                document_type_id=doc_types[0].id,
+                period=current_period,
+                is_required=True,
+                notes="每月必须提交"
+            ),
+            DocumentRequirement(
+                customer_id=customer3.id,
+                document_type_id=doc_types[1].id,
+                period=current_period,
+                is_required=True,
+                notes="每月必须提交"
+            ),
+            DocumentRequirement(
+                customer_id=customer3.id,
+                document_type_id=doc_types[2].id,
+                period=current_period,
+                is_required=True,
+                notes="每月必须提交"
+            ),
+        ]
+        
+        for req in requirements_customer1_current:
+            db.add(req)
+        for req in requirements_customer1_last:
+            db.add(req)
+        for req in requirements_customer2_current:
+            db.add(req)
+        for req in requirements_customer3_current:
+            db.add(req)
+        db.commit()
+        
+        print("客户资料清单创建完成")
         
         gaps_customer1 = [
             DocumentGap(
@@ -310,6 +439,7 @@ def create_seed_data():
         print("\n种子数据概览：")
         print(f"- 客户数量：{db.query(Customer).count()}")
         print(f"- 资料项配置：{db.query(DocumentType).count()}")
+        print(f"- 资料清单：{db.query(DocumentRequirement).count()}")
         print(f"- 资料缺口：{db.query(DocumentGap).count()}")
         print(f"- 提交记录：{db.query(DocumentSubmission).count()}")
         print(f"- 催交记录：{db.query(CollectionRecord).count()}")

@@ -6,10 +6,13 @@ from sqlalchemy import and_
 
 from app.database import get_db
 from app.models import (
-    RiskSummary, DocumentGap, Customer, DocumentType, 
-    RiskLevel, GapStatus, DocumentCategory
+    RiskSummary, DocumentGap, Customer, DocumentType, DocumentRequirement,
+    DocumentSubmission, RiskLevel, GapStatus, DocumentCategory
 )
-from app.schemas import RiskSummaryCreate, RiskSummaryResponse, RiskSummaryReport, CustomerDocumentStatus
+from app.schemas import (
+    RiskSummaryCreate, RiskSummaryResponse, RiskSummaryReport, 
+    CustomerDocumentStatus, CategoryDocumentStatus, DocumentItemStatus
+)
 
 router = APIRouter(prefix="/risks", tags=["风险汇总管理"])
 
@@ -136,16 +139,19 @@ def delete_risk_summary(
 @router.get("/customer-status/{customer_id}", response_model=CustomerDocumentStatus)
 def get_customer_document_status(
     customer_id: int,
-    period: str,
+    period: Optional[str] = None,
     db: Session = Depends(get_db)
 ):
     customer = db.query(Customer).filter(Customer.id == customer_id).first()
     if not customer:
         raise HTTPException(status_code=404, detail="客户不存在")
     
-    gaps = db.query(DocumentGap).filter(
-        DocumentGap.customer_id == customer_id,
-        DocumentGap.period == period
+    if not period:
+        period = datetime.now().strftime("%Y-%m")
+    
+    requirements = db.query(DocumentRequirement).filter(
+        DocumentRequirement.customer_id == customer_id,
+        DocumentRequirement.period == period
     ).all()
     
     submissions = db.query(DocumentSubmission).filter(
@@ -153,33 +159,126 @@ def get_customer_document_status(
         DocumentSubmission.period == period
     ).all()
     
-    required_docs = []
-    for gap in gaps:
-        doc_type = db.query(DocumentType).filter(DocumentType.id == gap.document_type_id).first()
-        required_docs.append({
-            "document_type": doc_type.name if doc_type else "未知",
-            "category": doc_type.category.value if doc_type else "未知",
-            "status": gap.status.value,
-            "risk_level": gap.risk_level.value if gap.risk_level else None
-        })
+    gaps = db.query(DocumentGap).filter(
+        DocumentGap.customer_id == customer_id,
+        DocumentGap.period == period
+    ).all()
     
-    submitted_docs = []
-    for submission in submissions:
-        doc_type = db.query(DocumentType).filter(DocumentType.id == submission.document_type_id).first()
-        submitted_docs.append({
-            "document_type": doc_type.name if doc_type else "未知",
-            "category": doc_type.category.value if doc_type else "未知",
-            "submission_date": submission.submission_date.strftime("%Y-%m-%d"),
-            "quantity": submission.quantity
-        })
+    risk_summary = db.query(RiskSummary).filter(
+        RiskSummary.customer_id == customer_id,
+        RiskSummary.period == period
+    ).first()
+    
+    doc_types = {dt.id: dt for dt in db.query(DocumentType).all()}
+    
+    submission_map = {}
+    for s in submissions:
+        key = (s.document_type_id, s.period)
+        submission_map[key] = s
+    
+    gap_map = {}
+    for g in gaps:
+        key = (g.document_type_id, g.period)
+        gap_map[key] = g
+    
+    category_items = {}
+    for cat in DocumentCategory:
+        category_items[cat.value] = []
+    
+    for req in requirements:
+        doc_type = doc_types.get(req.document_type_id)
+        if not doc_type:
+            continue
+        
+        key = (req.document_type_id, period)
+        submission = submission_map.get(key)
+        gap = gap_map.get(key)
+        
+        gap_status = gap.status.value if gap else None
+        gap_risk_level = gap.risk_level.value if gap and gap.risk_level else None
+        gap_notes = gap.notes if gap else None
+        
+        item = DocumentItemStatus(
+            document_type_id=req.document_type_id,
+            document_type_name=doc_type.name,
+            category=doc_type.category.value,
+            is_required=req.is_required,
+            due_day=doc_type.due_day,
+            due_date=gap.due_date if gap else None,
+            submitted=submission is not None,
+            submitted_date=submission.submission_date if submission else None,
+            submitted_quantity=submission.quantity if submission else 0,
+            submitted_by=submission.submitted_by if submission else None,
+            gap_status=gap_status,
+            gap_risk_level=gap_risk_level,
+            gap_notes=gap_notes,
+            has_risk=(gap_risk_level is not None),
+            risk_level=gap_risk_level
+        )
+        
+        category_items[doc_type.category.value].append(item)
+    
+    categories = []
+    total_required = 0
+    total_submitted = 0
+    total_pending = 0
+    total_overdue = 0
+    
+    category_labels = {
+        "发票": "发票",
+        "银行回单": "银行回单",
+        "工资表": "工资表",
+        "合同": "合同",
+        "库存表": "库存表"
+    }
+    
+    for cat_value, items in category_items.items():
+        if not items:
+            continue
+        
+        submitted_count = sum(1 for item in items if item.submitted)
+        pending_count = sum(1 for item in items if item.gap_status == "待提交")
+        overdue_count = sum(1 for item in items if item.gap_status == "逾期未交")
+        req_count = sum(1 for item in items if item.is_required)
+        
+        total_required += req_count
+        total_submitted += submitted_count
+        total_pending += pending_count
+        total_overdue += overdue_count
+        
+        category = CategoryDocumentStatus(
+            category=cat_value,
+            category_label=category_labels.get(cat_value, cat_value),
+            total_required=req_count,
+            submitted_count=submitted_count,
+            pending_count=pending_count,
+            overdue_count=overdue_count,
+            items=items
+        )
+        categories.append(category)
+    
+    overall_summary = {
+        "total_required": total_required,
+        "total_submitted": total_submitted,
+        "total_pending": total_pending,
+        "total_overdue": total_overdue,
+        "completion_rate": round((total_submitted / total_required) * 100, 2) if total_required > 0 else 0
+    }
+    
+    risk_summary_data = None
+    if risk_summary:
+        risk_summary_data = {
+            "risk_level": risk_summary.risk_level.value,
+            "risk_description": risk_summary.risk_description,
+            "affected_declaration": risk_summary.affected_declaration,
+            "is_resolved": risk_summary.is_resolved,
+            "resolution_suggestion": risk_summary.resolution_suggestion
+        }
     
     return CustomerDocumentStatus(
         customer=customer,
         period=period,
-        required_documents=required_docs,
-        submitted_documents=submitted_docs,
-        gaps=gaps
+        categories=categories,
+        overall_summary=overall_summary,
+        risk_summary=risk_summary_data
     )
-
-
-from app.models import DocumentSubmission

@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.database import Base, engine
-from app.api import document_types, customers, document_gaps, collection_records, submissions, risks
+from app.api import document_types, customers, document_gaps, collection_records, submissions, risks, document_requirements
 
 Base.metadata.create_all(bind=engine)
 
@@ -43,6 +43,7 @@ app.add_middleware(
 
 app.include_router(document_types.router)
 app.include_router(customers.router)
+app.include_router(document_requirements.router)
 app.include_router(document_gaps.router)
 app.include_router(collection_records.router)
 app.include_router(submissions.router)
