@@ -34,7 +34,12 @@ export class ConfirmationService {
       throw new Error('记录不存在');
     }
 
+    if (record.currentStage !== WorkflowStage.AWAITING_CONFIRMATION) {
+      throw new Error(`无法创建客户确认任务：底稿当前阶段为 ${record.currentStage}，必须先提交底稿`);
+    }
+
     const now = new Date();
+    const previousStage = record.currentStage;
 
     record.confirmationInfo.clientFinanceId = data.clientFinanceId;
     record.confirmationInfo.requiredMaterials = data.requiredMaterials;
@@ -46,6 +51,7 @@ export class ConfirmationService {
     record.confirmationInfo.confirmationStatus = 'pending';
 
     record.currentStage = WorkflowStage.CONFIRMATION_IN_PROGRESS;
+    record.status = RecordStatus.PENDING_CONFIRMATION;
     record.updatedAt = now;
 
     const confirmEvent: WorkflowEvent = {
@@ -57,11 +63,25 @@ export class ConfirmationService {
         materialsRequired: data.requiredMaterials.length,
         deadline: record.confirmationInfo.deadline
       },
+      previousStage,
       newStage: WorkflowStage.CONFIRMATION_IN_PROGRESS
     };
 
+    const responsibilityEntry: ResponsibilityEntry = {
+      stage: WorkflowStage.CONFIRMATION_IN_PROGRESS,
+      responsibleRole: UserRole.CLIENT_FINANCE,
+      responsibleUserId: data.clientFinanceId,
+      action: '客户确认任务已分派',
+      timestamp: now,
+      isComplete: false,
+      notes: `需要准备 ${data.requiredMaterials.length} 项材料，截止日期：${record.confirmationInfo.deadline}`
+    };
+
     record.workflowHistory.push(confirmEvent);
+    record.responsibilityTrace.push(responsibilityEntry);
     saveRecord(record);
+
+    todoService.handleStageChange(record, WorkflowStage.CONFIRMATION_IN_PROGRESS, previousStage);
 
     return record;
   }
@@ -111,8 +131,22 @@ export class ConfirmationService {
       details: { materialsProvided: materials.length }
     };
 
+    const providedCount = materials.filter(m => m.status === 'provided').length;
+    const responsibilityEntry: ResponsibilityEntry = {
+      stage: WorkflowStage.CONFIRMATION_IN_PROGRESS,
+      responsibleRole: UserRole.CLIENT_FINANCE,
+      responsibleUserId: userId,
+      action: '客户提供材料',
+      timestamp: now,
+      isComplete: false,
+      notes: `已提供 ${providedCount} 项材料`
+    };
+
     record.workflowHistory.push(materialEvent);
+    record.responsibilityTrace.push(responsibilityEntry);
     saveRecord(record);
+
+    todoService.handleStageChange(record, record.currentStage, record.currentStage);
 
     return record;
   }
