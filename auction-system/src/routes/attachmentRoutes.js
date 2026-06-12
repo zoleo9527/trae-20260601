@@ -1,12 +1,12 @@
 const express = require('express');
 const router = express.Router();
-const attachmentController = require('../controllers/attachmentController');
+const { upload, uploadAttachment, getAttachments, getAttachmentById, deleteAttachment, downloadAttachment } = require('../controllers/attachmentController');
 const { authenticate, requireAdmin } = require('../middleware/auth');
 
-router.post('/', authenticate, attachmentController.upload.single('file'), attachmentController.uploadAttachment);
-router.get('/', authenticate, attachmentController.getAttachments);
-router.get('/:id', authenticate, attachmentController.getAttachmentById);
-router.delete('/:id', authenticate, requireAdmin, attachmentController.deleteAttachment);
-router.get('/:id/download', authenticate, attachmentController.downloadAttachment);
+router.post('/', authenticate, upload.single('file'), uploadAttachment);
+router.get('/', authenticate, getAttachments);
+router.get('/:id', authenticate, getAttachmentById);
+router.delete('/:id', authenticate, requireAdmin, deleteAttachment);
+router.get('/:id/download', authenticate, downloadAttachment);
 
 module.exports = router;

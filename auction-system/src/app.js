@@ -1,8 +1,7 @@
-require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const swaggerUi = require('swagger-ui-express');
-const swaggerSpec = require('./docs/swagger');
+const swaggerDocument = require('./docs/swagger');
 
 const authRoutes = require('./routes/authRoutes');
 const announcementRoutes = require('./routes/announcementRoutes');
@@ -16,7 +15,7 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 
 app.use('/api/auth', authRoutes);
 app.use('/api/announcements', announcementRoutes);
@@ -24,17 +23,12 @@ app.use('/api/registrations', registrationRoutes);
 app.use('/api/items', itemRoutes);
 app.use('/api/attachments', attachmentRoutes);
 
-app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
-});
-
-app.use((err, req, res, next) => {
-  console.error(err.stack);
-  res.status(500).json({ error: err.message });
+app.get('/', (req, res) => {
+  res.json({ message: 'Auction System API' });
 });
 
 const PORT = process.env.PORT || 3000;
+
 app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-  console.log(`API docs available at http://localhost:${PORT}/api/docs`);
+  console.log(`Server is running on port ${PORT}`);
 });

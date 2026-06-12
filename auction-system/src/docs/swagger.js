@@ -93,7 +93,23 @@ const options = {
             refundedBy: { type: 'string' },
             refundReason: { type: 'string' },
             paymentMethod: { type: 'string' },
-            transactionNumber: { type: 'string' }
+            transactionNumber: { type: 'string' },
+            paymentProcessor: {
+              type: 'object',
+              properties: {
+                id: { type: 'string' },
+                name: { type: 'string' },
+                role: { type: 'string' }
+              }
+            },
+            refundProcessor: {
+              type: 'object',
+              properties: {
+                id: { type: 'string' },
+                name: { type: 'string' },
+                role: { type: 'string' }
+              }
+            }
           }
         },
         StatusHistory: {
@@ -110,7 +126,16 @@ const options = {
               }
             },
             status: { type: 'string' },
-            comment: { type: 'string' }
+            comment: { type: 'string' },
+            processor: {
+              type: 'object',
+              properties: {
+                id: { type: 'string' },
+                name: { type: 'string' },
+                role: { type: 'string' }
+              }
+            },
+            reason: { type: 'string' }
           }
         }
       }
@@ -119,7 +144,36 @@ const options = {
       '/auth/register': {
         post: {
           summary: '用户注册',
-          description: '公开接口，只能注册BIDDER角色。管理员需登录后才能创建其他角色账号。',
+          description: '公开接口，仅能注册BIDDER（竞买人）角色。PROJECT_MANAGER、REVIEWER、FINANCE角色需由已登录管理员通过POST /auth/users接口创建。',
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    username: { type: 'string' },
+                    password: { type: 'string' },
+                    name: { type: 'string' },
+                    email: { type: 'string' },
+                    phone: { type: 'string' }
+                  },
+                  required: ['username', 'password', 'name', 'email']
+                }
+              }
+            }
+          },
+          responses: {
+            '201': { description: '注册成功' },
+            '400': { description: '用户名或邮箱已存在' }
+          }
+        }
+      },
+      '/auth/users': {
+        post: {
+          summary: '创建用户',
+          description: '管理员创建新用户。仅允许已登录的管理员角色(PROJECT_MANAGER/REVIEWER/FINANCE)创建PROJECT_MANAGER、REVIEWER、FINANCE账号，普通用户(BIDDER)无法创建管理员账号。',
+          security: [{ bearerAuth: [] }],
           requestBody: {
             required: true,
             content: {
@@ -134,15 +188,24 @@ const options = {
                     phone: { type: 'string' },
                     role: { type: 'string', enum: ['BIDDER', 'PROJECT_MANAGER', 'REVIEWER', 'FINANCE'] }
                   },
-                  required: ['username', 'password', 'name', 'email']
+                  required: ['username', 'password', 'name', 'email', 'role']
                 }
               }
             }
           },
           responses: {
-            '201': { description: '注册成功' },
-            '400': { description: '用户名或邮箱已存在' },
+            '201': { description: '创建成功' },
+            '400': { description: '用户名或邮箱已存在或角色无效' },
             '403': { description: '无权限创建管理员账号' }
+          }
+        },
+        get: {
+          summary: '获取所有用户列表',
+          description: '需要管理员权限',
+          security: [{ bearerAuth: [] }],
+          responses: {
+            '200': { description: '获取成功' },
+            '403': { description: '无权限' }
           }
         }
       },
@@ -179,17 +242,6 @@ const options = {
           responses: {
             '200': { description: '获取成功' },
             '401': { description: '未授权' }
-          }
-        }
-      },
-      '/auth/users': {
-        get: {
-          summary: '获取所有用户列表',
-          description: '需要管理员权限',
-          security: [{ bearerAuth: [] }],
-          responses: {
-            '200': { description: '获取成功' },
-            '403': { description: '无权限' }
           }
         }
       },
@@ -484,7 +536,7 @@ const options = {
       '/registrations/{id}': {
         get: {
           summary: '获取报名详情',
-          description: '获取单个报名记录详情',
+          description: '获取单个报名记录详情，包含保证金退款处理人信息',
           security: [{ bearerAuth: [] }],
           parameters: [{ name: 'id', in: 'path', required: true, type: 'string' }],
           responses: {
@@ -496,11 +548,11 @@ const options = {
       '/registrations/{id}/history': {
         get: {
           summary: '获取报名状态历史',
-          description: '获取报名的完整处理历史，包括处理人、时间、原因',
+          description: '获取报名的完整处理历史，包含处理人、时间、原因及退款处理人信息',
           security: [{ bearerAuth: [] }],
           parameters: [{ name: 'id', in: 'path', required: true, type: 'string' }],
           responses: {
-            '200': { description: '获取成功' },
+            '200': { description: '获取成功，包含处理人和退款处理人信息' },
             '404': { description: '报名不存在' }
           }
         }
@@ -544,7 +596,7 @@ const options = {
                   type: 'object',
                   properties: {
                     name: { type: 'string' },
-                    description: { type: 'string' },
+                    description: 'string',
                     basePrice: { type: 'number' },
                     reservePrice: { type: 'number' },
                     itemType: { type: 'string' },
@@ -600,7 +652,7 @@ const options = {
                   type: 'object',
                   properties: {
                     name: { type: 'string' },
-                    description: { type: 'string' },
+                    description: 'string',
                     basePrice: { type: 'number' },
                     reservePrice: { type: 'number' },
                     itemType: { type: 'string' },

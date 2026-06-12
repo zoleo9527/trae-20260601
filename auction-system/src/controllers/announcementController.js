@@ -4,23 +4,17 @@ const createAnnouncement = async (req, res) => {
   try {
     const { title, content, itemId, startTime, endTime } = req.body;
     
-    const item = await prisma.auctionItem.findUnique({ where: { id: itemId } });
-    if (!item) {
-      return res.status(404).json({ error: 'Auction item not found' });
-    }
-
     const announcement = await prisma.announcement.create({
       data: {
         title,
         content,
         itemId,
-        startTime: new Date(startTime),
-        endTime: new Date(endTime),
-        creatorId: req.user.id,
-        status: 'DRAFT'
+        startTime,
+        endTime,
+        creatorId: req.user.id
       },
       include: {
-        item: { select: { id: true, name: true, basePrice: true } },
+        item: true,
         creator: { select: { id: true, name: true } }
       }
     });
@@ -35,11 +29,8 @@ const submitForReview = async (req, res) => {
   try {
     const { id } = req.params;
     
-    const announcement = await prisma.announcement.findUnique({
-      where: { id },
-      include: { approvals: true }
-    });
-
+    const announcement = await prisma.announcement.findUnique({ where: { id } });
+    
     if (!announcement) {
       return res.status(404).json({ error: 'Announcement not found' });
     }
@@ -48,20 +39,16 @@ const submitForReview = async (req, res) => {
       return res.status(400).json({ error: 'Only draft announcements can be submitted for review' });
     }
 
-    const updated = await prisma.announcement.update({
+    const updatedAnnouncement = await prisma.announcement.update({
       where: { id },
       data: { status: 'PENDING_REVIEW' },
       include: {
-        item: { select: { id: true, name: true } },
-        creator: { select: { id: true, name: true } },
-        approvals: {
-          include: { reviewer: { select: { id: true, name: true } } },
-          orderBy: { createdAt: 'desc' }
-        }
+        item: true,
+        creator: { select: { id: true, name: true } }
       }
     });
 
-    res.json({ message: 'Announcement submitted for review', announcement: updated });
+    res.json({ message: 'Announcement submitted for review', announcement: updatedAnnouncement });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -71,43 +58,40 @@ const reviewAnnouncement = async (req, res) => {
   try {
     const { id } = req.params;
     const { status, comment } = req.body;
-
-    if (!['REVIEWED', 'APPROVED', 'REJECTED'].includes(status)) {
-      return res.status(400).json({ error: 'Invalid status' });
-    }
-
+    
     const announcement = await prisma.announcement.findUnique({ where: { id } });
+    
     if (!announcement) {
       return res.status(404).json({ error: 'Announcement not found' });
     }
 
-    if (announcement.status === 'REJECTED') {
-      return res.status(400).json({ error: 'Rejected announcements cannot be reviewed again' });
+    if (announcement.status !== 'PENDING_REVIEW') {
+      return res.status(400).json({ error: 'Only pending review announcements can be reviewed' });
     }
+
+    if (!['APPROVED', 'REJECTED'].includes(status)) {
+      return res.status(400).json({ error: 'Invalid review status' });
+    }
+
+    const updatedAnnouncement = await prisma.announcement.update({
+      where: { id },
+      data: { status },
+      include: {
+        item: true,
+        creator: { select: { id: true, name: true } }
+      }
+    });
 
     await prisma.announcementApproval.create({
       data: {
         announcementId: id,
         reviewerId: req.user.id,
-        status: status,
+        status,
         comment
       }
     });
 
-    const updated = await prisma.announcement.update({
-      where: { id },
-      data: { status },
-      include: {
-        item: { select: { id: true, name: true } },
-        creator: { select: { id: true, name: true } },
-        approvals: {
-          include: { reviewer: { select: { id: true, name: true } } },
-          orderBy: { createdAt: 'desc' }
-        }
-      }
-    });
-
-    res.json({ message: 'Review completed', announcement: updated });
+    res.json({ message: 'Announcement reviewed', announcement: updatedAnnouncement });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -117,11 +101,8 @@ const publishAnnouncement = async (req, res) => {
   try {
     const { id } = req.params;
     
-    const announcement = await prisma.announcement.findUnique({
-      where: { id },
-      include: { approvals: true }
-    });
-
+    const announcement = await prisma.announcement.findUnique({ where: { id } });
+    
     if (!announcement) {
       return res.status(404).json({ error: 'Announcement not found' });
     }
@@ -130,23 +111,19 @@ const publishAnnouncement = async (req, res) => {
       return res.status(400).json({ error: 'Only approved announcements can be published' });
     }
 
-    const updated = await prisma.announcement.update({
+    const updatedAnnouncement = await prisma.announcement.update({
       where: { id },
       data: { 
         status: 'PUBLISHED',
         publishedAt: new Date()
       },
       include: {
-        item: { select: { id: true, name: true } },
-        creator: { select: { id: true, name: true } },
-        approvals: {
-          include: { reviewer: { select: { id: true, name: true } } },
-          orderBy: { createdAt: 'desc' }
-        }
+        item: true,
+        creator: { select: { id: true, name: true } }
       }
     });
 
-    res.json({ message: 'Announcement published successfully', announcement: updated });
+    res.json({ message: 'Announcement published', announcement: updatedAnnouncement });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -159,19 +136,13 @@ const getAnnouncementById = async (req, res) => {
     const announcement = await prisma.announcement.findUnique({
       where: { id },
       include: {
-        item: { select: { id: true, name: true, basePrice: true, description: true } },
+        item: true,
         creator: { select: { id: true, name: true } },
-        approvals: {
+        approvals: { 
           include: { reviewer: { select: { id: true, name: true } } },
           orderBy: { createdAt: 'desc' }
         },
-        attachments: { select: { id: true, fileName: true, fileType: true, uploadedAt: true } },
-        registrations: {
-          include: {
-            bidder: { select: { id: true, name: true } },
-            deposit: { select: { status: true, amount: true } }
-          }
-        }
+        registrations: { select: { id: true, bidderId: true, status: true } }
       }
     });
 
@@ -187,21 +158,21 @@ const getAnnouncementById = async (req, res) => {
 
 const getAllAnnouncements = async (req, res) => {
   try {
-    const { status, page = 1, limit = 10 } = req.query;
+    const { status, itemType, page = 1, limit = 10 } = req.query;
     
-    const where = status ? { status } : {};
-    
+    const where = {};
+    if (status) where.status = status;
+    if (itemType) {
+      where.item = { itemType };
+    }
+
     const announcements = await prisma.announcement.findMany({
       where,
       skip: (page - 1) * limit,
       take: parseInt(limit),
       include: {
-        item: { select: { id: true, name: true, basePrice: true } },
-        creator: { select: { id: true, name: true } },
-        approvals: {
-          include: { reviewer: { select: { id: true, name: true } } },
-          orderBy: { createdAt: 'desc' }
-        }
+        item: true,
+        creator: { select: { id: true, name: true } }
       },
       orderBy: { createdAt: 'desc' }
     });
@@ -225,7 +196,7 @@ const getAllAnnouncements = async (req, res) => {
 const updateAnnouncement = async (req, res) => {
   try {
     const { id } = req.params;
-    const { title, content, startTime, endTime } = req.body;
+    const { title, content, itemId, startTime, endTime } = req.body;
     
     const announcement = await prisma.announcement.findUnique({ where: { id } });
     
@@ -233,26 +204,26 @@ const updateAnnouncement = async (req, res) => {
       return res.status(404).json({ error: 'Announcement not found' });
     }
 
-    if (announcement.status === 'PUBLISHED') {
-      return res.status(400).json({ error: 'Published announcements cannot be modified' });
+    if (announcement.status !== 'DRAFT') {
+      return res.status(400).json({ error: 'Only draft announcements can be updated' });
     }
 
-    const updated = await prisma.announcement.update({
+    const updatedAnnouncement = await prisma.announcement.update({
       where: { id },
       data: {
         title,
         content,
-        startTime: startTime ? new Date(startTime) : undefined,
-        endTime: endTime ? new Date(endTime) : undefined,
-        status: announcement.status !== 'DRAFT' ? 'PENDING_REVIEW' : 'DRAFT'
+        itemId,
+        startTime,
+        endTime
       },
       include: {
-        item: { select: { id: true, name: true } },
+        item: true,
         creator: { select: { id: true, name: true } }
       }
     });
 
-    res.json({ message: 'Announcement updated successfully', announcement: updated });
+    res.json({ message: 'Announcement updated', announcement: updatedAnnouncement });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -269,12 +240,12 @@ const deleteAnnouncement = async (req, res) => {
     }
 
     if (announcement.status === 'PUBLISHED') {
-      return res.status(400).json({ error: 'Published announcements cannot be deleted' });
+      return res.status(400).json({ error: 'Cannot delete a published announcement' });
     }
 
     await prisma.announcement.delete({ where: { id } });
     
-    res.json({ message: 'Announcement deleted successfully' });
+    res.json({ message: 'Announcement deleted' });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -287,13 +258,11 @@ const getAnnouncementStatusHistory = async (req, res) => {
     const announcement = await prisma.announcement.findUnique({
       where: { id },
       include: {
+        creator: { select: { id: true, name: true } },
         approvals: {
-          include: {
-            reviewer: { select: { id: true, name: true, role: true } }
-          },
+          include: { reviewer: { select: { id: true, name: true } } },
           orderBy: { createdAt: 'asc' }
-        },
-        creator: { select: { id: true, name: true, role: true } }
+        }
       }
     });
 
@@ -302,69 +271,41 @@ const getAnnouncementStatusHistory = async (req, res) => {
     }
 
     const history = [];
-    
+
     history.push({
-      timestamp: announcement.createdAt,
-      action: 'CREATED',
-      user: {
-        id: announcement.creator.id,
-        name: announcement.creator.name,
-        role: announcement.creator.role
-      },
       status: 'DRAFT',
-      comment: '公告创建'
+      timestamp: announcement.createdAt,
+      description: `Created by ${announcement.creator.name}`,
+      user: announcement.creator
     });
 
-    announcement.approvals.forEach(approval => {
-      let action = '';
-      let comment = '';
-      
-      switch (approval.status) {
-        case 'REVIEWED':
-          action = 'REVIEWED';
-          comment = approval.comment || '已审核';
-          break;
-        case 'APPROVED':
-          action = 'APPROVED';
-          comment = approval.comment || '已批准';
-          break;
-        case 'REJECTED':
-          action = 'REJECTED';
-          comment = approval.comment || '已拒绝';
-          break;
-      }
-
+    if (announcement.status === 'PENDING_REVIEW') {
       history.push({
-        timestamp: approval.createdAt,
-        action,
-        user: {
-          id: approval.reviewer.id,
-          name: approval.reviewer.name,
-          role: approval.reviewer.role
-        },
-        status: approval.status,
-        comment
-      });
-    });
-
-    if (announcement.status === 'PUBLISHED' && announcement.publishedAt) {
-      history.push({
-        timestamp: announcement.publishedAt,
-        action: 'PUBLISHED',
-        user: { id: announcement.creator.id, name: announcement.creator.name, role: announcement.creator.role },
-        status: 'PUBLISHED',
-        comment: '公告已发布'
+        status: 'PENDING_REVIEW',
+        timestamp: announcement.updatedAt,
+        description: 'Submitted for review'
       });
     }
 
-    res.json({
-      announcement: {
-        id: announcement.id,
-        title: announcement.title,
-        currentStatus: announcement.status
-      },
-      history
-    });
+    for (const approval of announcement.approvals) {
+      history.push({
+        status: approval.status,
+        timestamp: approval.createdAt,
+        description: `${approval.status === 'APPROVED' ? 'Approved' : 'Rejected'} by ${approval.reviewer.name}`,
+        comment: approval.comment,
+        reviewer: approval.reviewer
+      });
+    }
+
+    if (announcement.status === 'PUBLISHED') {
+      history.push({
+        status: 'PUBLISHED',
+        timestamp: announcement.publishedAt,
+        description: 'Published'
+      });
+    }
+
+    res.json({ announcementId: id, history });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -375,7 +316,8 @@ const getPendingReviewCount = async (req, res) => {
     const count = await prisma.announcement.count({
       where: { status: 'PENDING_REVIEW' }
     });
-    res.json({ count });
+
+    res.json({ pendingReviewCount: count });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

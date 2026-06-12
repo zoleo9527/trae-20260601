@@ -5,7 +5,7 @@ const prisma = require('../prisma/client');
 const register = async (req, res) => {
   try {
     const { username, password, name, email, phone } = req.body;
-    
+
     const existingUser = await prisma.user.findFirst({
       where: { OR: [{ username }, { email }] }
     });
@@ -14,8 +14,8 @@ const register = async (req, res) => {
       return res.status(400).json({ error: 'Username or email already exists' });
     }
 
-    const passwordHash = await bcrypt.hash(password, 12);
-    
+    const passwordHash = await bcrypt.hash(password, 10);
+
     const user = await prisma.user.create({
       data: {
         username,
@@ -37,7 +37,11 @@ const register = async (req, res) => {
 const createUser = async (req, res) => {
   try {
     const { username, password, name, email, phone, role } = req.body;
-    
+
+    if (!['PROJECT_MANAGER', 'REVIEWER', 'FINANCE'].includes(role)) {
+      return res.status(400).json({ error: 'Only PROJECT_MANAGER, REVIEWER, or FINANCE roles can be created' });
+    }
+
     const existingUser = await prisma.user.findFirst({
       where: { OR: [{ username }, { email }] }
     });
@@ -46,13 +50,8 @@ const createUser = async (req, res) => {
       return res.status(400).json({ error: 'Username or email already exists' });
     }
 
-    const allowedRoles = ['PROJECT_MANAGER', 'REVIEWER', 'FINANCE', 'BIDDER'];
-    if (!allowedRoles.includes(role)) {
-      return res.status(400).json({ error: 'Invalid role' });
-    }
+    const passwordHash = await bcrypt.hash(password, 10);
 
-    const passwordHash = await bcrypt.hash(password, 12);
-    
     const user = await prisma.user.create({
       data: {
         username,
@@ -74,37 +73,22 @@ const createUser = async (req, res) => {
 const login = async (req, res) => {
   try {
     const { username, password } = req.body;
-    
-    const user = await prisma.user.findUnique({
-      where: { username }
-    });
+
+    const user = await prisma.user.findUnique({ where: { username } });
 
     if (!user) {
       return res.status(401).json({ error: 'Invalid username or password' });
     }
 
     const isPasswordValid = await bcrypt.compare(password, user.passwordHash);
-    
+
     if (!isPasswordValid) {
       return res.status(401).json({ error: 'Invalid username or password' });
     }
 
-    const token = jwt.sign(
-      { userId: user.id, role: user.role },
-      process.env.JWT_SECRET,
-      { expiresIn: '24h' }
-    );
+    const token = jwt.sign({ id: user.id, username: user.username, role: user.role }, process.env.JWT_SECRET, { expiresIn: '24h' });
 
-    res.json({
-      token,
-      user: {
-        id: user.id,
-        username: user.username,
-        name: user.name,
-        email: user.email,
-        role: user.role
-      }
-    });
+    res.json({ message: 'Login successful', token, user: { id: user.id, username: user.username, name: user.name, email: user.email, role: user.role } });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -126,8 +110,10 @@ const getProfile = async (req, res) => {
 const getAllUsers = async (req, res) => {
   try {
     const users = await prisma.user.findMany({
-      select: { id: true, username: true, name: true, email: true, role: true, createdAt: true }
+      select: { id: true, username: true, name: true, email: true, phone: true, role: true, createdAt: true },
+      orderBy: { createdAt: 'desc' }
     });
+
     res.json(users);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -136,8 +122,10 @@ const getAllUsers = async (req, res) => {
 
 const getUserById = async (req, res) => {
   try {
+    const { id } = req.params;
+
     const user = await prisma.user.findUnique({
-      where: { id: req.params.id },
+      where: { id },
       select: { id: true, username: true, name: true, email: true, phone: true, role: true, createdAt: true }
     });
 
@@ -153,12 +141,27 @@ const getUserById = async (req, res) => {
 
 const updateUser = async (req, res) => {
   try {
-    const { name, email, phone } = req.body;
-    
+    const { id } = req.params;
+    const { name, email, phone, role } = req.body;
+
+    const existingUser = await prisma.user.findUnique({ where: { id } });
+
+    if (!existingUser) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const updateData = {};
+    if (name) updateData.name = name;
+    if (email) updateData.email = email;
+    if (phone) updateData.phone = phone;
+    if (role && ['PROJECT_MANAGER', 'REVIEWER', 'FINANCE', 'BIDDER'].includes(role)) {
+      updateData.role = role;
+    }
+
     const user = await prisma.user.update({
-      where: { id: req.params.id },
-      data: { name, email, phone },
-      select: { id: true, username: true, name: true, email: true, phone: true, role: true }
+      where: { id },
+      data: updateData,
+      select: { id: true, username: true, name: true, email: true, phone: true, role: true, createdAt: true }
     });
 
     res.json({ message: 'User updated successfully', user });
@@ -169,9 +172,15 @@ const updateUser = async (req, res) => {
 
 const deleteUser = async (req, res) => {
   try {
-    await prisma.user.delete({
-      where: { id: req.params.id }
-    });
+    const { id } = req.params;
+
+    const existingUser = await prisma.user.findUnique({ where: { id } });
+
+    if (!existingUser) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    await prisma.user.delete({ where: { id } });
 
     res.json({ message: 'User deleted successfully' });
   } catch (error) {
@@ -181,6 +190,7 @@ const deleteUser = async (req, res) => {
 
 module.exports = {
   register,
+  createUser,
   login,
   getProfile,
   getAllUsers,

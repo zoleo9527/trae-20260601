@@ -3,28 +3,46 @@ const prisma = require('../prisma/client');
 const createRegistration = async (req, res) => {
   try {
     const { announcementId, bidAmount } = req.body;
-    const announcement = await prisma.announcement.findUnique({
-      where: { id: announcementId },
-      include: { item: true }
+
+    const existingRegistration = await prisma.bidRegistration.findFirst({
+      where: { announcementId, bidderId: req.user.id }
     });
 
-    if (!announcement) return res.status(404).json({ error: 'Announcement not found' });
-    if (announcement.status !== 'PUBLISHED') return res.status(400).json({ error: 'Only published announcements accept registrations' });
-    if (new Date() > new Date(announcement.endTime)) return res.status(400).json({ error: 'Auction has ended' });
-
-    const existing = await prisma.bidRegistration.findFirst({ where: { announcementId, bidderId: req.user.id } });
-    if (existing) return res.status(400).json({ error: 'You have already registered for this auction' });
+    if (existingRegistration) {
+      return res.status(400).json({ error: 'You have already registered for this auction' });
+    }
 
     const registration = await prisma.bidRegistration.create({
-      data: { announcementId, bidderId: req.user.id, bidAmount, status: 'PENDING' },
-      include: { announcement: { include: { item: true } }, bidder: { select: { id: true, name: true, email: true } } }
+      data: {
+        announcementId,
+        bidderId: req.user.id,
+        bidAmount
+      },
+      include: {
+        announcement: { include: { item: true } },
+        bidder: { select: { id: true, name: true } }
+      }
     });
 
-    await prisma.depositRecord.create({
-      data: { registrationId: registration.id, amount: (bidAmount * 0.1).toFixed(2), status: 'UNPAID' }
+    res.status(201).json({ message: 'Registration created successfully', registration });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+const getUserRegistrations = async (req, res) => {
+  try {
+    const registrations = await prisma.bidRegistration.findMany({
+      where: { bidderId: req.user.id },
+      include: {
+        announcement: { include: { item: true } },
+        deposit: { include: { paymentProcessor: { select: { id: true, name: true, role: true } }, refundProcessor: { select: { id: true, name: true, role: true } } } },
+        transaction: { include: { confirmer: { select: { id: true, name: true, role: true } } } }
+      },
+      orderBy: { registrationTime: 'desc' }
     });
 
-    res.status(201).json({ message: 'Registration successful', registration });
+    res.json(registrations);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -33,23 +51,44 @@ const createRegistration = async (req, res) => {
 const payDeposit = async (req, res) => {
   try {
     const { registrationId } = req.params;
-    const { paymentMethod, transactionNumber } = req.body;
+    const { amount, paymentMethod, transactionNumber } = req.body;
+
     const registration = await prisma.bidRegistration.findUnique({
       where: { id: registrationId },
-      include: { deposit: true, bidder: true }
+      include: { deposit: true }
     });
 
-    if (!registration) return res.status(404).json({ error: 'Registration not found' });
-    if (req.user.role === 'BIDDER' && registration.bidderId !== req.user.id) {
-      return res.status(403).json({ error: 'You can only pay for your own registration' });
+    if (!registration) {
+      return res.status(404).json({ error: 'Registration not found' });
     }
-    if (!registration.deposit) return res.status(400).json({ error: 'Deposit record not found' });
-    if (registration.deposit.status !== 'UNPAID') return res.status(400).json({ error: 'Deposit has already been processed' });
 
-    const updatedDeposit = await prisma.depositRecord.update({
-      where: { id: registration.deposit.id },
-      data: { status: 'PAID', paymentTime: new Date(), paidBy: req.user.id, paymentMethod, transactionNumber },
-      include: { paymentProcessor: { select: { id: true, name: true, role: true } } }
+    if (registration.deposit && registration.deposit.status === 'PAID') {
+      return res.status(400).json({ error: 'Deposit already paid' });
+    }
+
+    const updatedDeposit = await prisma.depositRecord.upsert({
+      where: { registrationId },
+      update: {
+        amount,
+        status: 'PAID',
+        paymentTime: new Date(),
+        paidBy: req.user.id,
+        paymentMethod,
+        transactionNumber
+      },
+      create: {
+        registrationId,
+        amount,
+        status: 'PAID',
+        paymentTime: new Date(),
+        paidBy: req.user.id,
+        paymentMethod,
+        transactionNumber
+      },
+      include: {
+        paymentProcessor: { select: { id: true, name: true, role: true } },
+        refundProcessor: { select: { id: true, name: true, role: true } }
+      }
     });
 
     const updatedRegistration = await prisma.bidRegistration.update({
@@ -58,7 +97,7 @@ const payDeposit = async (req, res) => {
       include: {
         announcement: { include: { item: true } },
         bidder: { select: { id: true, name: true } },
-        deposit: { include: { paymentProcessor: { select: { id: true, name: true, role: true } } } }
+        deposit: { include: { paymentProcessor: { select: { id: true, name: true, role: true } }, refundProcessor: { select: { id: true, name: true, role: true } } } }
       }
     });
 
@@ -71,30 +110,35 @@ const payDeposit = async (req, res) => {
 const confirmRegistration = async (req, res) => {
   try {
     const { registrationId } = req.params;
+
     const registration = await prisma.bidRegistration.findUnique({
-      where: { id: registrationId },
-      include: { deposit: true, announcement: true }
+      where: { id: registrationId }
     });
 
-    if (!registration) return res.status(404).json({ error: 'Registration not found' });
-    if (registration.status !== 'DEPOSIT_PAID') return res.status(400).json({ error: 'Registration must have deposit paid before confirmation' });
+    if (!registration) {
+      return res.status(404).json({ error: 'Registration not found' });
+    }
 
-    const updated = await prisma.bidRegistration.update({
+    if (registration.status !== 'DEPOSIT_PAID') {
+      return res.status(400).json({ error: 'Registration must have deposit paid to be confirmed' });
+    }
+
+    const updatedRegistration = await prisma.bidRegistration.update({
       where: { id: registrationId },
-      data: { status: 'CONFIRMED', confirmedAt: new Date(), confirmedBy: req.user.id },
+      data: {
+        status: 'CONFIRMED',
+        confirmedAt: new Date(),
+        confirmedBy: req.user.id
+      },
       include: {
         announcement: { include: { item: true } },
-        bidder: { select: { id: true, name: true, email: true } },
-        deposit: true,
+        bidder: { select: { id: true, name: true } },
+        deposit: { include: { paymentProcessor: { select: { id: true, name: true, role: true } }, refundProcessor: { select: { id: true, name: true, role: true } } } },
         confirmer: { select: { id: true, name: true, role: true } }
       }
     });
 
-    await prisma.transactionConfirmation.create({
-      data: { registrationId: registrationId, finalPrice: registration.bidAmount, status: 'PENDING' }
-    });
-
-    res.json({ message: 'Registration confirmed successfully', registration: updated });
+    res.json({ message: 'Registration confirmed successfully', registration: updatedRegistration });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -103,34 +147,36 @@ const confirmRegistration = async (req, res) => {
 const rejectRegistration = async (req, res) => {
   try {
     const { registrationId } = req.params;
-    const { reason } = req.body;
+    const { rejectionReason } = req.body;
+
     const registration = await prisma.bidRegistration.findUnique({
-      where: { id: registrationId },
-      include: { deposit: true }
+      where: { id: registrationId }
     });
 
-    if (!registration) return res.status(404).json({ error: 'Registration not found' });
-    if (registration.status === 'CONFIRMED') return res.status(400).json({ error: 'Cannot reject a confirmed registration' });
+    if (!registration) {
+      return res.status(404).json({ error: 'Registration not found' });
+    }
 
-    const updated = await prisma.bidRegistration.update({
+    if (registration.status === 'CONFIRMED') {
+      return res.status(400).json({ error: 'Cannot reject a confirmed registration' });
+    }
+
+    const updatedRegistration = await prisma.bidRegistration.update({
       where: { id: registrationId },
-      data: { status: 'REJECTED', rejectedAt: new Date(), rejectedBy: req.user.id, rejectionReason: reason },
+      data: {
+        status: 'REJECTED',
+        rejectedAt: new Date(),
+        rejectedBy: req.user.id,
+        rejectionReason
+      },
       include: {
         announcement: { include: { item: true } },
         bidder: { select: { id: true, name: true } },
-        deposit: true,
         rejecter: { select: { id: true, name: true, role: true } }
       }
     });
 
-    if (registration.deposit && registration.deposit.status === 'PAID') {
-      await prisma.depositRecord.update({
-        where: { id: registration.deposit.id },
-        data: { status: 'REFUNDED', refundTime: new Date(), refundedBy: req.user.id, refundReason: 'Registration rejected' }
-      });
-    }
-
-    res.json({ message: 'Registration rejected', registration: updated });
+    res.json({ message: 'Registration rejected successfully', registration: updatedRegistration });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -139,35 +185,46 @@ const rejectRegistration = async (req, res) => {
 const withdrawRegistration = async (req, res) => {
   try {
     const { registrationId } = req.params;
+
     const registration = await prisma.bidRegistration.findUnique({
       where: { id: registrationId },
       include: { deposit: true }
     });
 
-    if (!registration) return res.status(404).json({ error: 'Registration not found' });
-    if (req.user.role === 'BIDDER' && registration.bidderId !== req.user.id) {
-      return res.status(403).json({ error: 'You can only withdraw your own registration' });
+    if (!registration) {
+      return res.status(404).json({ error: 'Registration not found' });
     }
-    if (registration.status === 'CONFIRMED') return res.status(400).json({ error: 'Cannot withdraw a confirmed registration' });
 
-    const updated = await prisma.bidRegistration.update({
-      where: { id: registrationId },
-      data: { status: 'WITHDRAWN', withdrawnAt: new Date() },
-      include: {
-        announcement: { include: { item: true } },
-        bidder: { select: { id: true, name: true } },
-        deposit: true
-      }
-    });
+    if (registration.status === 'CONFIRMED') {
+      return res.status(400).json({ error: 'Cannot withdraw a confirmed registration' });
+    }
 
     if (registration.deposit && registration.deposit.status === 'PAID') {
       await prisma.depositRecord.update({
-        where: { id: registration.deposit.id },
-        data: { status: 'REFUNDED', refundTime: new Date(), refundedBy: req.user.id, refundReason: 'Registration withdrawn' }
+        where: { registrationId },
+        data: {
+          status: 'REFUNDED',
+          refundTime: new Date(),
+          refundedBy: req.user.id,
+          refundReason: 'Registration withdrawn by bidder'
+        }
       });
     }
 
-    res.json({ message: 'Registration withdrawn', registration: updated });
+    const updatedRegistration = await prisma.bidRegistration.update({
+      where: { id: registrationId },
+      data: {
+        status: 'WITHDRAWN',
+        withdrawnAt: new Date()
+      },
+      include: {
+        announcement: { include: { item: true } },
+        bidder: { select: { id: true, name: true } },
+        deposit: { include: { paymentProcessor: { select: { id: true, name: true, role: true } }, refundProcessor: { select: { id: true, name: true, role: true } } } }
+      }
+    });
+
+    res.json({ message: 'Registration withdrawn successfully', registration: updatedRegistration });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -176,12 +233,13 @@ const withdrawRegistration = async (req, res) => {
 const getRegistrationById = async (req, res) => {
   try {
     const { id } = req.params;
+
     const registration = await prisma.bidRegistration.findUnique({
       where: { id },
       include: {
         announcement: { include: { item: true, creator: { select: { id: true, name: true } } } },
         bidder: { select: { id: true, name: true, email: true, phone: true } },
-        deposit: { include: { paymentProcessor: { select: { id: true, name: true, role: true } } } },
+        deposit: { include: { paymentProcessor: { select: { id: true, name: true, role: true } }, refundProcessor: { select: { id: true, name: true, role: true } } } },
         transaction: { include: { confirmer: { select: { id: true, name: true, role: true } } } },
         confirmer: { select: { id: true, name: true, role: true } },
         rejecter: { select: { id: true, name: true, role: true } }
@@ -197,11 +255,11 @@ const getRegistrationById = async (req, res) => {
 
 const getAllRegistrations = async (req, res) => {
   try {
-    const { announcementId, status, bidderId, page = 1, limit = 10 } = req.query;
+    const { announcementId, status, page = 1, limit = 10 } = req.query;
+
     const where = {};
     if (announcementId) where.announcementId = announcementId;
     if (status) where.status = status;
-    if (bidderId) where.bidderId = bidderId;
 
     const registrations = await prisma.bidRegistration.findMany({
       where,
@@ -210,42 +268,23 @@ const getAllRegistrations = async (req, res) => {
       include: {
         announcement: { include: { item: true } },
         bidder: { select: { id: true, name: true } },
-        deposit: true,
-        confirmer: { select: { id: true, name: true, role: true } },
-        rejecter: { select: { id: true, name: true, role: true } }
+        deposit: { include: { paymentProcessor: { select: { id: true, name: true, role: true } }, refundProcessor: { select: { id: true, name: true, role: true } } } },
+        transaction: { include: { confirmer: { select: { id: true, name: true, role: true } } } }
       },
       orderBy: { registrationTime: 'desc' }
     });
 
     const total = await prisma.bidRegistration.count({ where });
-    res.json({ registrations, pagination: { page: parseInt(page), limit: parseInt(limit), total, pages: Math.ceil(total / limit) } });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-};
 
-const getUserRegistrations = async (req, res) => {
-  try {
-    const { status, page = 1, limit = 10 } = req.query;
-    const where = { bidderId: req.user.id };
-    if (status) where.status = status;
-
-    const registrations = await prisma.bidRegistration.findMany({
-      where,
-      skip: (page - 1) * limit,
-      take: parseInt(limit),
-      include: {
-        announcement: { include: { item: true } },
-        deposit: { include: { paymentProcessor: { select: { id: true, name: true, role: true } } } },
-        transaction: true,
-        confirmer: { select: { id: true, name: true, role: true } },
-        rejecter: { select: { id: true, name: true, role: true } }
-      },
-      orderBy: { registrationTime: 'desc' }
+    res.json({
+      registrations,
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total,
+        pages: Math.ceil(total / limit)
+      }
     });
-
-    const total = await prisma.bidRegistration.count({ where });
-    res.json({ registrations, pagination: { page: parseInt(page), limit: parseInt(limit), total, pages: Math.ceil(total / limit) } });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -254,98 +293,78 @@ const getUserRegistrations = async (req, res) => {
 const getRegistrationStatusHistory = async (req, res) => {
   try {
     const { id } = req.params;
+
     const registration = await prisma.bidRegistration.findUnique({
       where: { id },
       include: {
-        bidder: { select: { id: true, name: true, role: true } },
-        deposit: { include: { paymentProcessor: { select: { id: true, name: true, role: true } } } },
-        announcement: { include: { creator: { select: { id: true, name: true, role: true } } } },
+        deposit: { include: { paymentProcessor: { select: { id: true, name: true, role: true } }, refundProcessor: { select: { id: true, name: true, role: true } } } },
+        transaction: { include: { confirmer: { select: { id: true, name: true, role: true } } } },
         confirmer: { select: { id: true, name: true, role: true } },
-        rejecter: { select: { id: true, name: true, role: true } },
-        transaction: { include: { confirmer: { select: { id: true, name: true, role: true } } } }
+        rejecter: { select: { id: true, name: true, role: true } }
       }
     });
 
-    if (!registration) return res.status(404).json({ error: 'Registration not found' });
+    if (!registration) {
+      return res.status(404).json({ error: 'Registration not found' });
+    }
 
     const history = [];
+
     history.push({
-      timestamp: registration.registrationTime,
-      action: 'REGISTERED',
-      user: { id: registration.bidder.id, name: registration.bidder.name, role: registration.bidder.role },
       status: 'PENDING',
-      comment: '报名成功'
+      timestamp: registration.registrationTime,
+      description: 'Registration created'
     });
 
-    if (registration.deposit) {
-      if (registration.deposit.status === 'PAID') {
-        const paymentUser = registration.deposit.paymentProcessor || registration.bidder;
+    if (registration.deposit?.paymentTime) {
+      history.push({
+        status: 'DEPOSIT_PAID',
+        timestamp: registration.deposit.paymentTime,
+        description: `Deposit paid by ${registration.deposit.paymentProcessor?.name || 'Unknown'}`,
+        processor: registration.deposit.paymentProcessor
+      });
+    }
+
+    if (registration.confirmedAt) {
+      history.push({
+        status: 'CONFIRMED',
+        timestamp: registration.confirmedAt,
+        description: `Confirmed by ${registration.confirmer?.name || 'Unknown'}`,
+        confirmer: registration.confirmer
+      });
+    }
+
+    if (registration.rejectedAt) {
+      history.push({
+        status: 'REJECTED',
+        timestamp: registration.rejectedAt,
+        description: `Rejected by ${registration.rejecter?.name || 'Unknown'}: ${registration.rejectionReason}`,
+        rejecter: registration.rejecter,
+        reason: registration.rejectionReason
+      });
+    }
+
+    if (registration.withdrawnAt) {
+      history.push({
+        status: 'WITHDRAWN',
+        timestamp: registration.withdrawnAt,
+        description: 'Registration withdrawn by bidder'
+      });
+
+      if (registration.deposit?.refundTime) {
         history.push({
-          timestamp: registration.deposit.paymentTime,
-          action: 'DEPOSIT_PAID',
-          user: { id: paymentUser.id, name: paymentUser.name, role: paymentUser.role },
-          status: 'DEPOSIT_PAID',
-          comment: '保证金已支付 ¥' + registration.deposit.amount
-        });
-      } else if (registration.deposit.status === 'REFUNDED') {
-        const refundUser = registration.deposit.refundProcessor || registration.bidder;
-        history.push({
-          timestamp: registration.deposit.refundTime,
-          action: 'DEPOSIT_REFUNDED',
-          user: { id: refundUser.id, name: refundUser.name, role: refundUser.role },
           status: 'DEPOSIT_REFUNDED',
-          comment: registration.deposit.refundReason || '保证金已退还'
+          timestamp: registration.deposit.refundTime,
+          description: `Deposit refunded by ${registration.deposit.refundProcessor?.name || 'Unknown'}: ${registration.deposit.refundReason}`,
+          processor: registration.deposit.refundProcessor,
+          reason: registration.deposit.refundReason
         });
       }
     }
 
-    if (registration.status === 'CONFIRMED' && registration.confirmedAt) {
-      const confirmUser = registration.confirmer || registration.announcement.creator;
-      history.push({
-        timestamp: registration.confirmedAt,
-        action: 'CONFIRMED',
-        user: { id: confirmUser.id, name: confirmUser.name, role: confirmUser.role },
-        status: 'CONFIRMED',
-        comment: '报名已确认'
-      });
-    }
+    history.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
 
-    if (registration.status === 'REJECTED' && registration.rejectedAt) {
-      const rejectUser = registration.rejecter || registration.announcement.creator;
-      history.push({
-        timestamp: registration.rejectedAt,
-        action: 'REJECTED',
-        user: { id: rejectUser.id, name: rejectUser.name, role: rejectUser.role },
-        status: 'REJECTED',
-        comment: registration.rejectionReason || '报名被拒绝'
-      });
-    }
-
-    if (registration.status === 'WITHDRAWN') {
-      history.push({
-        timestamp: registration.withdrawnAt || new Date(),
-        action: 'WITHDRAWN',
-        user: { id: registration.bidder.id, name: registration.bidder.name, role: registration.bidder.role },
-        status: 'WITHDRAWN',
-        comment: '报名已撤回'
-      });
-    }
-
-    if (registration.transaction && registration.transaction.status === 'CONFIRMED') {
-      const transUser = registration.transaction.confirmer || registration.announcement.creator;
-      history.push({
-        timestamp: registration.transaction.confirmedAt,
-        action: 'TRANSACTION_CONFIRMED',
-        user: { id: transUser.id, name: transUser.name, role: transUser.role },
-        status: 'TRANSACTION_CONFIRMED',
-        comment: '成交确认，合同号: ' + (registration.transaction.contractNumber || '未分配')
-      });
-    }
-
-    res.json({
-      registration: { id: registration.id, bidAmount: registration.bidAmount, currentStatus: registration.status },
-      history
-    });
+    res.json({ registrationId: id, history });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -354,23 +373,43 @@ const getRegistrationStatusHistory = async (req, res) => {
 const confirmTransaction = async (req, res) => {
   try {
     const { registrationId } = req.params;
-    const { contractNumber } = req.body;
+    const { finalPrice, contractNumber } = req.body;
+
     const registration = await prisma.bidRegistration.findUnique({
-      where: { id: registrationId },
-      include: { transaction: true }
+      where: { id: registrationId }
     });
 
-    if (!registration) return res.status(404).json({ error: 'Registration not found' });
-    if (registration.status !== 'CONFIRMED') return res.status(400).json({ error: 'Only confirmed registrations can have transactions' });
-    if (!registration.transaction) return res.status(400).json({ error: 'Transaction record not found' });
+    if (!registration) {
+      return res.status(404).json({ error: 'Registration not found' });
+    }
 
-    const updatedTransaction = await prisma.transactionConfirmation.update({
-      where: { id: registration.transaction.id },
-      data: { status: 'CONFIRMED', confirmedAt: new Date(), confirmedBy: req.user.id, contractNumber },
-      include: { confirmer: { select: { id: true, name: true, role: true } } }
+    if (registration.status !== 'CONFIRMED') {
+      return res.status(400).json({ error: 'Registration must be confirmed first' });
+    }
+
+    const transaction = await prisma.transactionConfirmation.upsert({
+      where: { registrationId },
+      update: {
+        status: 'CONFIRMED',
+        finalPrice,
+        confirmedAt: new Date(),
+        confirmedBy: req.user.id,
+        contractNumber
+      },
+      create: {
+        registrationId,
+        status: 'CONFIRMED',
+        finalPrice,
+        confirmedAt: new Date(),
+        confirmedBy: req.user.id,
+        contractNumber
+      },
+      include: {
+        confirmer: { select: { id: true, name: true, role: true } }
+      }
     });
 
-    res.json({ message: 'Transaction confirmed', transaction: updatedTransaction });
+    res.json({ message: 'Transaction confirmed successfully', transaction });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -378,13 +417,13 @@ const confirmTransaction = async (req, res) => {
 
 module.exports = {
   createRegistration,
+  getUserRegistrations,
   payDeposit,
   confirmRegistration,
   rejectRegistration,
   withdrawRegistration,
   getRegistrationById,
   getAllRegistrations,
-  getUserRegistrations,
   getRegistrationStatusHistory,
   confirmTransaction
 };

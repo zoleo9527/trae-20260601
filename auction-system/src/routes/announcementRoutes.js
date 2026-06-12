@@ -1,17 +1,17 @@
 const express = require('express');
 const router = express.Router();
-const announcementController = require('../controllers/announcementController');
+const { createAnnouncement, submitForReview, reviewAnnouncement, publishAnnouncement, getAnnouncementById, getAllAnnouncements, updateAnnouncement, deleteAnnouncement, getAnnouncementStatusHistory, getPendingReviewCount } = require('../controllers/announcementController');
 const { authenticate, requireProjectManager, requireReviewer, requireAdmin } = require('../middleware/auth');
 
-router.post('/', authenticate, requireProjectManager, announcementController.createAnnouncement);
-router.put('/:id/submit', authenticate, requireProjectManager, announcementController.submitForReview);
-router.put('/:id/review', authenticate, requireReviewer, announcementController.reviewAnnouncement);
-router.put('/:id/publish', authenticate, requireProjectManager, announcementController.publishAnnouncement);
-router.get('/:id', authenticate, announcementController.getAnnouncementById);
-router.get('/', authenticate, announcementController.getAllAnnouncements);
-router.put('/:id', authenticate, requireProjectManager, announcementController.updateAnnouncement);
-router.delete('/:id', authenticate, requireProjectManager, announcementController.deleteAnnouncement);
-router.get('/:id/history', authenticate, announcementController.getAnnouncementStatusHistory);
-router.get('/stats/pending-review', authenticate, requireReviewer, announcementController.getPendingReviewCount);
+router.post('/', authenticate, requireProjectManager, createAnnouncement);
+router.put('/:id/submit', authenticate, requireProjectManager, submitForReview);
+router.put('/:id/review', authenticate, requireReviewer, reviewAnnouncement);
+router.put('/:id/publish', authenticate, requireProjectManager, publishAnnouncement);
+router.get('/:id', authenticate, getAnnouncementById);
+router.get('/', authenticate, getAllAnnouncements);
+router.put('/:id', authenticate, requireProjectManager, updateAnnouncement);
+router.delete('/:id', authenticate, requireProjectManager, deleteAnnouncement);
+router.get('/:id/history', authenticate, getAnnouncementStatusHistory);
+router.get('/stats/pending-review', authenticate, requireReviewer, getPendingReviewCount);
 
 module.exports = router;

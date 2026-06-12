@@ -3,54 +3,66 @@ const prisma = require('../prisma/client');
 
 const authenticate = async (req, res, next) => {
   try {
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return res.status(401).json({ error: 'Unauthorized: No token provided' });
+    const token = req.header('Authorization')?.replace('Bearer ', '');
+    
+    if (!token) {
+      return res.status(401).json({ error: 'Access denied. No token provided.' });
     }
 
-    const token = authHeader.split(' ')[1];
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    
-    const user = await prisma.user.findUnique({
-      where: { id: decoded.userId },
-      select: { id: true, username: true, name: true, role: true }
-    });
+    const user = await prisma.user.findUnique({ where: { id: decoded.id } });
 
     if (!user) {
-      return res.status(401).json({ error: 'Unauthorized: Invalid token' });
+      return res.status(401).json({ error: 'Invalid token.' });
     }
 
     req.user = user;
     next();
   } catch (error) {
-    if (error.name === 'TokenExpiredError') {
-      return res.status(401).json({ error: 'Unauthorized: Token expired' });
-    }
-    return res.status(401).json({ error: 'Unauthorized: Invalid token' });
+    res.status(401).json({ error: 'Invalid token.' });
   }
 };
 
-const requireRole = (...roles) => {
-  return (req, res, next) => {
-    if (!req.user || !roles.includes(req.user.role)) {
-      return res.status(403).json({ error: 'Forbidden: Insufficient permissions' });
-    }
-    next();
-  };
+const requireAdmin = (req, res, next) => {
+  if (!['PROJECT_MANAGER', 'REVIEWER', 'FINANCE'].includes(req.user.role)) {
+    return res.status(403).json({ error: 'Access denied. Admin role required.' });
+  }
+  next();
 };
 
-const requireProjectManager = requireRole('PROJECT_MANAGER');
-const requireReviewer = requireRole('REVIEWER');
-const requireFinance = requireRole('FINANCE');
-const requireBidder = requireRole('BIDDER');
-const requireAdmin = requireRole('PROJECT_MANAGER', 'REVIEWER', 'FINANCE');
+const requireProjectManager = (req, res, next) => {
+  if (req.user.role !== 'PROJECT_MANAGER') {
+    return res.status(403).json({ error: 'Access denied. Project Manager role required.' });
+  }
+  next();
+};
+
+const requireReviewer = (req, res, next) => {
+  if (req.user.role !== 'REVIEWER') {
+    return res.status(403).json({ error: 'Access denied. Reviewer role required.' });
+  }
+  next();
+};
+
+const requireFinance = (req, res, next) => {
+  if (req.user.role !== 'FINANCE') {
+    return res.status(403).json({ error: 'Access denied. Finance role required.' });
+  }
+  next();
+};
+
+const requireBidder = (req, res, next) => {
+  if (req.user.role !== 'BIDDER') {
+    return res.status(403).json({ error: 'Access denied. Bidder role required.' });
+  }
+  next();
+};
 
 module.exports = {
   authenticate,
-  requireRole,
+  requireAdmin,
   requireProjectManager,
   requireReviewer,
   requireFinance,
-  requireBidder,
-  requireAdmin
+  requireBidder
 };
