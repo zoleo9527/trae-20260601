@@ -1,6 +1,6 @@
 import db from '../database.ts';
 import { v4 as uuidv4 } from 'uuid';
-import type { DocumentStatus } from './types.js';
+import type { DocumentStatus } from '../types.ts';
 
 export interface Document {
   id: string;
@@ -186,6 +186,11 @@ export class DocumentService {
   }
 
   addQARecord(documentId: string, dto: AddQARecordDTO) {
+    const doc = this.findById(documentId);
+    if (!doc) {
+      throw new Error('DOCUMENT_001:文档不存在');
+    }
+
     const now = new Date().toISOString();
     const qaId = uuidv4();
 
