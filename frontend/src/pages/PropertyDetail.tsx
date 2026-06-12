@@ -22,6 +22,16 @@ import {
   ContractOutlined,
   CarOutlined,
   DollarOutlined,
+  HomeOutlined,
+  UserOutlined,
+  CalculatorOutlined,
+  FileSearchOutlined,
+  SafetyCertificateOutlined,
+  KeyOutlined,
+  CheckCircleOutlined,
+  LogoutOutlined,
+  RollbackOutlined,
+  InfoCircleOutlined,
 } from '@ant-design/icons';
 import { propertyAPI, logsAPI } from '../services/api';
 import { useAuthStore } from '../store/useAuthStore';
@@ -462,6 +472,98 @@ const PropertyDetail = () => {
 
   const availableTransitions = transitions.filter(canPerformTransition);
 
+  const flowSteps = [
+    { key: 'vacant', title: '空置房源', icon: <HomeOutlined />, role: '系统' },
+    { key: 'viewing_scheduled', title: '预约看房', icon: <EyeOutlined />, role: '租赁顾问' },
+    { key: 'viewing_completed', title: '看房完成', icon: <UserOutlined />, role: '租赁顾问' },
+    { key: 'quotation_pending', title: '待报价', icon: <CalculatorOutlined />, role: '租赁顾问' },
+    { key: 'quotation_submitted', title: '已报价待确认', icon: <FileTextOutlined />, role: '租赁顾问' },
+    { key: 'quotation_approved', title: '报价已确认', icon: <CheckCircleOutlined />, role: '运营经理' },
+    { key: 'contract_drafting', title: '合同起草中', icon: <FileTextOutlined />, role: '租赁顾问' },
+    { key: 'contract_reviewing', title: '合同审核中', icon: <FileSearchOutlined />, role: '运营经理' },
+    { key: 'contract_signed', title: '合同已签署', icon: <SafetyCertificateOutlined />, role: '运营经理' },
+    { key: 'handover_pending', title: '待交接', icon: <KeyOutlined />, role: '租赁顾问' },
+    { key: 'handover_completed', title: '交接完成', icon: <CheckCircleOutlined />, role: '运营经理' },
+    { key: 'occupied', title: '已入住', icon: <HomeOutlined />, role: '系统' },
+  ];
+
+  const getCurrentStepIndex = () => {
+    const statusOrder = [
+      'vacant',
+      'viewing_scheduled',
+      'viewing_completed',
+      'quotation_pending',
+      'quotation_submitted',
+      'quotation_approved',
+      'contract_drafting',
+      'contract_reviewing',
+      'contract_signed',
+      'handover_pending',
+      'handover_completed',
+      'occupied',
+    ];
+    const index = statusOrder.indexOf(property.status);
+    return index >= 0 ? index : 0;
+  };
+
+  const currentStepIndex = getCurrentStepIndex();
+
+  const getFlowStatusDescription = () => {
+    const descriptions: Record<string, { basis: string[]; next: string[] }> = {
+      vacant: {
+        basis: ['房源当前处于空置状态，可随时预约看房'],
+        next: ['租赁顾问可预约客户看房，启动租赁流程'],
+      },
+      viewing_scheduled: {
+        basis: ['已预约客户看房，等待看房进行'],
+        next: ['看房完成后，记录客户反馈和兴趣程度'],
+      },
+      viewing_completed: {
+        basis: ['看房已完成，已记录客户反馈'],
+        next: ['根据客户意向，准备租赁报价方案'],
+      },
+      quotation_pending: {
+        basis: ['处于待报价状态，可创建报价单'],
+        next: ['租赁顾问创建报价单，提交后由运营经理确认'],
+      },
+      quotation_submitted: {
+        basis: ['报价单已提交，等待运营经理确认'],
+        next: ['运营经理确认报价后，进入合同起草阶段'],
+      },
+      quotation_approved: {
+        basis: ['报价已由运营经理确认生效'],
+        next: ['租赁顾问基于报价内容起草租赁合同'],
+      },
+      contract_drafting: {
+        basis: ['合同正在起草中，租赁顾问负责编写条款'],
+        next: ['合同起草完成后，提交运营经理审核'],
+      },
+      contract_reviewing: {
+        basis: ['合同已提交审核，等待运营经理审批'],
+        next: ['审核通过后签署合同，或退回修改'],
+      },
+      contract_signed: {
+        basis: ['合同已签署，正式生效'],
+        next: ['准备物业交接，安排入住'],
+      },
+      handover_pending: {
+        basis: ['待物业交接，已安排交接时间'],
+        next: ['完成物业交接，确认物品清单和状态'],
+      },
+      handover_completed: {
+        basis: ['物业交接已完成，双方确认签字'],
+        next: ['确认入住，进入租约期'],
+      },
+      occupied: {
+        basis: ['客户已入住，租约正常履行中'],
+        next: ['租期结束后安排退租交接'],
+      },
+    };
+    return descriptions[property.status] || { basis: [], next: [] };
+  };
+
+  const flowDesc = getFlowStatusDescription();
+
   return (
     <div>
       <div className="page-header">
@@ -486,11 +588,51 @@ const PropertyDetail = () => {
                 type="primary"
                 onClick={() => handleTransitionClick(transition)}
               >
-                {transition.action}
+                {transition.description}
               </Button>
             ))}
           </div>
         )}
+      </div>
+
+      <div className="flow-overview">
+        <h2 className="detail-section-title">全流程流转概览</h2>
+        <div className="flow-steps">
+          {flowSteps.map((step, index) => (
+            <div
+              key={step.key}
+              className={`flow-step ${index < currentStepIndex ? 'completed' : ''} ${index === currentStepIndex ? 'active' : ''}`}
+            >
+              <div className="flow-step-icon">{step.icon}</div>
+              <div className="flow-step-title">{step.title}</div>
+              <div className="flow-step-role">{step.role}</div>
+            </div>
+          ))}
+        </div>
+        <div style={{ marginTop: 16, display: 'flex', gap: 16 }}>
+          <div style={{ flex: 1, padding: '12px 16px', background: '#e6f7ff', borderRadius: 8, border: '1px solid #91d5ff' }}>
+            <div style={{ fontWeight: 500, color: '#1890ff', marginBottom: 8 }}>
+              <InfoCircleOutlined style={{ marginRight: 8 }} />
+              当前状态判断依据
+            </div>
+            <ul style={{ margin: 0, paddingLeft: 20, fontSize: 13, color: '#333' }}>
+              {flowDesc.basis.map((item, i) => (
+                <li key={i} style={{ marginBottom: 4 }}>{item}</li>
+              ))}
+            </ul>
+          </div>
+          <div style={{ flex: 1, padding: '12px 16px', background: '#f6ffed', borderRadius: 8, border: '1px solid #b7eb8f' }}>
+            <div style={{ fontWeight: 500, color: '#389e0d', marginBottom: 8 }}>
+              <CheckCircleOutlined style={{ marginRight: 8 }} />
+              下一步操作指引
+            </div>
+            <ul style={{ margin: 0, paddingLeft: 20, fontSize: 13, color: '#333' }}>
+              {flowDesc.next.map((item, i) => (
+                <li key={i} style={{ marginBottom: 4 }}>{item}</li>
+              ))}
+            </ul>
+          </div>
+        </div>
       </div>
 
       <div className="detail-section">

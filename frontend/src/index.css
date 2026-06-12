@@ -473,3 +473,142 @@ html, body, #root {
   padding: 60px 20px;
   color: #999;
 }
+
+.judgment-card {
+  height: 100%;
+  border: 1px solid #f0f0f0;
+}
+
+.judgment-card .ant-card-body {
+  padding: 16px;
+}
+
+.judgment-card-title {
+  display: flex;
+  align-items: center;
+  font-weight: 600;
+  font-size: 14px;
+  margin-bottom: 12px;
+  color: #333;
+}
+
+.judgment-status {
+  font-size: 18px;
+  font-weight: 600;
+  color: #1890ff;
+  margin-bottom: 12px;
+}
+
+.judgment-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.judgment-list li {
+  position: relative;
+  padding-left: 16px;
+  margin-bottom: 8px;
+  font-size: 13px;
+  color: #555;
+  line-height: 1.6;
+}
+
+.judgment-list li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 8px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #1890ff;
+}
+
+.flow-overview {
+  background: #fff;
+  border-radius: 8px;
+  padding: 20px;
+  margin-bottom: 16px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+}
+
+.flow-steps {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+}
+
+.flow-step {
+  flex: 1;
+  position: relative;
+  padding: 16px 12px;
+  text-align: center;
+  background: #fafafa;
+  border: 1px solid #f0f0f0;
+}
+
+.flow-step:first-child {
+  border-radius: 8px 0 0 8px;
+}
+
+.flow-step:last-child {
+  border-radius: 0 8px 8px 0;
+}
+
+.flow-step.active {
+  background: #e6f7ff;
+  border-color: #91d5ff;
+  z-index: 1;
+}
+
+.flow-step.completed {
+  background: #f6ffed;
+  border-color: #b7eb8f;
+}
+
+.flow-step-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 8px;
+  background: #d9d9d9;
+  color: #fff;
+  font-size: 18px;
+}
+
+.flow-step.active .flow-step-icon {
+  background: #1890ff;
+}
+
+.flow-step.completed .flow-step-icon {
+  background: #52c41a;
+}
+
+.flow-step-title {
+  font-weight: 500;
+  font-size: 13px;
+  margin-bottom: 4px;
+}
+
+.flow-step-role {
+  font-size: 11px;
+  color: #999;
+}
+
+.flow-step.active .flow-step-role {
+  color: #1890ff;
+}
+
+.flow-step.completed .flow-step-role {
+  color: #52c41a;
+}
+
+.create-btn-group {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}

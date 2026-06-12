@@ -139,4 +139,21 @@ const MainLayout = () => {
         <Header className="app-header">
           <div className="app-logo">
             <BuildingOutlined />
-            <span>写字楼租赁-
+            <span>写字楼租赁-租赁报价与合同流转</span>
+          </div>
+          <Dropdown menu={{ items: userMenuItems }} placement="bottomRight">
+            <div className="app-user">
+              <Avatar icon={<UserOutlined />} />
+              <span>{user?.name}</span>
+            </div>
+          </Dropdown>
+        </Header>
+        <Content className="app-content">
+          <Outlet />
+        </Content>
+      </Layout>
+    </Layout>
+  );
+};
+
+export default MainLayout;
