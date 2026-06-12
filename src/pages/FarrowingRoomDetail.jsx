@@ -2,12 +2,12 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { Card, Tag, Button, Timeline, Descriptions, Table, message } from 'antd'
 import { ArrowLeftOutlined, CheckOutlined, CloseOutlined } from '@ant-design/icons'
 import { useApp } from '../context/AppContext'
-import { useFarrowingRoomStore } from '../store/useStore'
+import { useGlobalStore } from '../store/GlobalStore'
 
 function FarrowingRoomDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const { rooms, updateAssignmentStatus } = useFarrowingRoomStore()
+  const { rooms, updateAssignmentStatus } = useGlobalStore()
   const { currentUser, hasPermission } = useApp()
   
   const room = rooms.find(r => r.id === id)

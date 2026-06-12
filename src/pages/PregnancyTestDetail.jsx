@@ -3,13 +3,13 @@ import { Card, Tag, Button, Timeline, Descriptions, Modal, Form, Input, message 
 import { ArrowLeftOutlined, CheckOutlined, CloseOutlined, EditOutlined } from '@ant-design/icons'
 import { useState } from 'react'
 import { useApp } from '../context/AppContext'
-import { usePregnancyTestStore } from '../store/useStore'
+import { useGlobalStore } from '../store/GlobalStore'
 import { statusMap, resultMap } from '../data/mockData'
 
 function PregnancyTestDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const { tests, updateTestStatus, updateTest } = usePregnancyTestStore()
+  const { tests, updateTestStatus, updateTest } = useGlobalStore()
   const { currentUser, hasPermission } = useApp()
   const [isEditModalVisible, setIsEditModalVisible] = useState(false)
   const [editForm] = Form.useForm()

@@ -3,8 +3,7 @@ import { Table, Tag, Button, Input, Select, Space, Modal, Form, message, Card, I
 import { EyeOutlined, PlusOutlined, UserOutlined } from '@ant-design/icons'
 import { useNavigate } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
-import { usePregnancyTestStore } from '../store/useStore'
-import { useFarrowingRoomStore } from '../store/useStore'
+import { useGlobalStore } from '../store/GlobalStore'
 
 function FarrowingRoomList() {
   const [searchText, setSearchText] = useState('')
@@ -15,8 +14,7 @@ function FarrowingRoomList() {
   const [assignForm] = Form.useForm()
   const navigate = useNavigate()
   const { currentUser, hasPermission } = useApp()
-  const { tests, assignToRoom } = usePregnancyTestStore()
-  const { rooms, addRoom, addAssignment } = useFarrowingRoomStore()
+  const { tests, rooms, assignTestToRoom, addRoom, addAssignment } = useGlobalStore()
 
   const availableTests = tests.filter(t => t.status === 'approved' && !t.farrowingRoomId)
 
@@ -71,7 +69,7 @@ function FarrowingRoomList() {
         remarks: `妊检备注：${test.remarks}`,
       })
 
-      assignToRoom(test.id, selectedRoomId)
+      assignTestToRoom(test.id, selectedRoomId)
       
       setIsAssignModalVisible(false)
       message.success('安排成功')

@@ -3,7 +3,7 @@ import { Table, Tag, Button, Input, Select, Space, Modal, Form, message } from '
 import { EyeOutlined, CheckOutlined, CloseOutlined, EditOutlined, PlusOutlined } from '@ant-design/icons'
 import { useNavigate } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
-import { usePregnancyTestStore } from '../store/useStore'
+import { useGlobalStore } from '../store/GlobalStore'
 import { statusMap, resultMap } from '../data/mockData'
 
 function PregnancyTestList() {
@@ -13,7 +13,7 @@ function PregnancyTestList() {
   const [form] = Form.useForm()
   const navigate = useNavigate()
   const { currentUser, hasPermission } = useApp()
-  const { tests, addTest, updateTestStatus } = usePregnancyTestStore()
+  const { tests, addTest, updateTestStatus } = useGlobalStore()
 
   const filteredTests = tests.filter(test => {
     const matchSearch = test.sowNumber.toLowerCase().includes(searchText.toLowerCase()) ||
