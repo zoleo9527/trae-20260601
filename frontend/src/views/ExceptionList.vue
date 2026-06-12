@@ -93,14 +93,46 @@
     </el-card>
 
     <el-card class="table-card" shadow="never">
+      <div v-if="activeFilters.length > 0" class="filter-tags-bar">
+        <span class="filter-tags-label">当前筛选：</span>
+        <el-tag
+          v-for="f in activeFilters"
+          :key="f.key"
+          :type="f.type"
+          closable
+          size="small"
+          class="filter-tag"
+          @close="clearFilter(f.key)"
+        >
+          <el-icon class="filter-tag-icon"><Filter /></el-icon>
+          {{ f.label }}: {{ f.value }}
+        </el-tag>
+        <el-button size="small" text type="primary" @click="resetFilters">
+          清除全部
+        </el-button>
+      </div>
+
       <div class="table-header">
         <div class="header-left">
           <span class="count-info">
             共 <strong>{{ total }}</strong> 条异常记录
-            <el-tag v-if="pendingCount > 0" type="danger" style="margin-left: 12px">
+          </span>
+          <div class="stats-chips">
+            <el-tag v-if="pendingCount > 0" type="danger" effect="dark" class="stat-chip">
+              <el-icon><Clock /></el-icon>
               待处理 {{ pendingCount }}
             </el-tag>
-          </span>
+            <el-tag v-if="highPriorityCount > 0" type="warning" effect="dark" class="stat-chip">
+              <el-icon><Warning /></el-icon>
+              高优先级 {{ highPriorityCount }}
+            </el-tag>
+            <el-tag v-if="processingCount > 0" type="primary" effect="plain" class="stat-chip">
+              处理中 {{ processingCount }}
+            </el-tag>
+            <el-tag v-if="resolvedTodayCount > 0" type="success" effect="plain" class="stat-chip">
+              今日已解决 {{ resolvedTodayCount }}
+            </el-tag>
+          </div>
         </div>
       </div>
 
@@ -250,6 +282,8 @@
       v-model="exceptionDrawerVisible"
       :exception="selectedException"
       @success="handleExceptionSuccess"
+      @jump-to-property="handleJumpToProperty"
+      @jump-to-viewing="handleJumpToViewing"
     />
 
     <el-dialog
@@ -269,12 +303,15 @@
 
 <script setup>
 import { ref, reactive, onMounted, computed } from 'vue'
-import { Search, Refresh, OfficeBuilding, User, Warning, ArrowRight } from '@element-plus/icons-vue'
+import { useRouter } from 'vue-router'
+import { Search, Refresh, OfficeBuilding, User, Warning, ArrowRight, Filter, Clock } from '@element-plus/icons-vue'
 import dayjs from 'dayjs'
 import StatusTag from '@/components/StatusTag.vue'
 import ExceptionDrawer from '@/components/ExceptionDrawer.vue'
 import TimelinePanel from '@/components/TimelinePanel.vue'
 import { exceptionApi, propertyApi, viewingApi } from '@/utils/api'
+
+const router = useRouter()
 
 const loading = ref(false)
 const list = ref([])
@@ -302,6 +339,75 @@ const selectedException = ref(null)
 const pendingCount = computed(() => {
   return list.value.filter(item => item.status === 'pending').length
 })
+
+const highPriorityCount = computed(() => {
+  return list.value.filter(item =>
+    (item.severity === 'high' || item.severity === 'critical') &&
+    (item.status === 'pending' || item.status === 'processing')
+  ).length
+})
+
+const processingCount = computed(() => {
+  return list.value.filter(item => item.status === 'processing').length
+})
+
+const resolvedTodayCount = computed(() => {
+  const today = dayjs().format('YYYY-MM-DD')
+  return list.value.filter(item =>
+    item.status === 'resolved' &&
+    item.resolved_at &&
+    dayjs(item.resolved_at).format('YYYY-MM-DD') === today
+  ).length
+})
+
+const activeFilters = computed(() => {
+  const result = []
+  if (filters.property_id) {
+    const p = propertyOptions.value.find(x => x.id === filters.property_id)
+    if (p) {
+      result.push({
+        key: 'property_id',
+        label: '房源',
+        value: `${p.property_no} - ${p.building} ${p.floor}${p.room_no}`,
+        type: 'info'
+      })
+    }
+  }
+  if (filters.viewing_id) {
+    const v = viewingOptions.value.find(x => x.id === filters.viewing_id)
+    if (v) {
+      result.push({
+        key: 'viewing_id',
+        label: '带看',
+        value: `${v.customer_name} - ${formatDate(v.viewing_date)}`,
+        type: 'warning'
+      })
+    }
+  }
+  if (filters.status) {
+    const statusMap = { pending: '待处理', processing: '处理中', resolved: '已解决', closed: '已关闭' }
+    result.push({ key: 'status', label: '状态', value: statusMap[filters.status] || filters.status, type: '' })
+  }
+  if (filters.severity) {
+    const sevMap = { low: '低', normal: '中', high: '高', critical: '紧急' }
+    const sevTypeMap = { low: 'info', normal: '', high: 'warning', critical: 'danger' }
+    result.push({ key: 'severity', label: '严重程度', value: sevMap[filters.severity] || filters.severity, type: sevTypeMap[filters.severity] || '' })
+  }
+  if (filters.exception_type) {
+    result.push({ key: 'exception_type', label: '异常类型', value: filters.exception_type, type: '' })
+  }
+  return result
+})
+
+function clearFilter(key) {
+  if (key === 'property_id') filters.property_id = null
+  else if (key === 'viewing_id') filters.viewing_id = null
+  else if (key === 'status') filters.status = ''
+  else if (key === 'severity') filters.severity = ''
+  else if (key === 'exception_type') filters.exception_type = ''
+  pagination.page = 1
+  loadList()
+}
 
 function formatDateTime(date) {
   return dayjs(date).format('YYYY-MM-DD HH:mm')
@@ -396,6 +502,22 @@ function handleExceptionSuccess() {
   loadList()
 }
 
+function handleJumpToProperty(propertyId) {
+  exceptionDrawerVisible.value = false
+  router.push({
+    path: '/properties',
+    query: { highlight_id: propertyId }
+  })
+}
+
+function handleJumpToViewing(viewingId) {
+  exceptionDrawerVisible.value = false
+  router.push({
+    path: '/viewings',
+    query: { highlight_id: viewingId }
+  })
+}
+
 function filterByProperty(propertyId) {
   filters.property_id = propertyId
   pagination.page = 1
@@ -445,6 +567,32 @@ onMounted(() => {
   margin-bottom: 16px;
 }
 
+.filter-tags-bar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 10px 14px;
+  background: #f5f7fa;
+  border-radius: 6px;
+  margin-bottom: 16px;
+}
+
+.filter-tags-label {
+  font-size: 12px;
+  color: #909399;
+}
+
+.filter-tag {
+  display: inline-flex;
+  align-items: center;
+}
+
+.filter-tag-icon {
+  margin-right: 2px;
+  font-size: 12px;
+}
+
 .count-info {
   color: #606266;
   display: flex;
@@ -455,6 +603,20 @@ onMounted(() => {
   color: #409eff;
   font-size: 16px;
   margin: 0 4px;
+}
+
+.stats-chips {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: 16px;
+}
+
+.stat-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
 }
 
 .exception-info {

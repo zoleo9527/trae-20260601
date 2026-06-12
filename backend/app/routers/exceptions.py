@@ -52,14 +52,21 @@ async def get_exceptions(
                 "property_no": item.property.property_no,
                 "building": item.property.building,
                 "floor": item.property.floor,
-                "room_no": item.property.room_no
+                "room_no": item.property.room_no,
+                "status": item.property.status,
+                "remarks": item.property.remarks,
+                "updated_at": item.property.updated_at,
+                "handler_name": item.property.handler.real_name if item.property.handler else None
             }
         if item.viewing:
             item_dict["viewing_info"] = {
                 "id": item.viewing.id,
                 "customer_name": item.viewing.customer_name,
                 "viewing_date": item.viewing.viewing_date,
-                "status": item.viewing.status
+                "status": item.viewing.status,
+                "remarks": item.viewing.remarks,
+                "updated_at": item.viewing.updated_at,
+                "handler_name": item.viewing.handler.real_name if item.viewing.handler else None
             }
         result.append(item_dict)
 
@@ -92,14 +99,21 @@ async def get_exception(
             "property_no": exception.property.property_no,
             "building": exception.property.building,
             "floor": exception.property.floor,
-            "room_no": exception.property.room_no
+            "room_no": exception.property.room_no,
+            "status": exception.property.status,
+            "remarks": exception.property.remarks,
+            "updated_at": exception.property.updated_at,
+            "handler_name": exception.property.handler.real_name if exception.property.handler else None
         }
     if exception.viewing:
         result["viewing_info"] = {
             "id": exception.viewing.id,
             "customer_name": exception.viewing.customer_name,
             "viewing_date": exception.viewing.viewing_date,
-            "status": exception.viewing.status
+            "status": exception.viewing.status,
+            "remarks": exception.viewing.remarks,
+            "updated_at": exception.viewing.updated_at,
+            "handler_name": exception.viewing.handler.real_name if exception.viewing.handler else None
         }
     return result
 
@@ -262,14 +276,21 @@ async def update_exception(
             "property_no": db_exception.property.property_no,
             "building": db_exception.property.building,
             "floor": db_exception.property.floor,
-            "room_no": db_exception.property.room_no
+            "room_no": db_exception.property.room_no,
+            "status": db_exception.property.status,
+            "remarks": db_exception.property.remarks,
+            "updated_at": db_exception.property.updated_at,
+            "handler_name": db_exception.property.handler.real_name if db_exception.property.handler else None
         }
     if db_exception.viewing:
         result["viewing_info"] = {
             "id": db_exception.viewing.id,
             "customer_name": db_exception.viewing.customer_name,
             "viewing_date": db_exception.viewing.viewing_date,
-            "status": db_exception.viewing.status
+            "status": db_exception.viewing.status,
+            "remarks": db_exception.viewing.remarks,
+            "updated_at": db_exception.viewing.updated_at,
+            "handler_name": db_exception.viewing.handler.real_name if db_exception.viewing.handler else None
         }
     return result
 

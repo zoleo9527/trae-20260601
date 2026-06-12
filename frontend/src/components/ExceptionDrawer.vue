@@ -14,19 +14,43 @@
       </div>
       <div class="summary-cards">
         <div v-if="relatedProperty" class="summary-card summary-card-property">
-          <div class="card-icon">
-            <el-icon :size="20"><OfficeBuilding /></el-icon>
-          </div>
-          <div class="card-content">
-            <div class="card-label">房源</div>
-            <div class="card-title">
-              {{ relatedProperty.property_no }}
-              <span class="card-subtitle">
-                {{ relatedProperty.building }} {{ relatedProperty.floor }}{{ relatedProperty.room_no }}
-              </span>
+          <div class="card-header">
+            <div class="card-icon">
+              <el-icon :size="20"><OfficeBuilding /></el-icon>
             </div>
-            <div class="card-meta" v-if="relatedProperty.status">
-              <status-tag type="property" :status="relatedProperty.status" size="small" />
+            <div class="card-title-wrap">
+              <div class="card-label">房源</div>
+              <div class="card-title">
+                {{ relatedProperty.property_no }}
+                <span class="card-subtitle">
+                  {{ relatedProperty.building }} {{ relatedProperty.floor }}{{ relatedProperty.room_no }}
+                </span>
+              </div>
+            </div>
+            <el-button
+              size="small"
+              text
+              type="primary"
+              class="card-jump"
+              @click="jumpToProperty"
+            >
+              <el-icon><Aim /></el-icon>
+              查看详情
+            </el-button>
+          </div>
+          <div class="card-body">
+            <div class="card-meta-row">
+              <div class="card-meta" v-if="relatedProperty.status">
+                <status-tag type="property" :status="relatedProperty.status" size="small" />
+              </div>
+              <div class="card-meta" v-if="relatedProperty.handler_name">
+                <el-icon><UserFilled /></el-icon>
+                <span>责任人：{{ relatedProperty.handler_name }}</span>
+              </div>
+              <div class="card-meta" v-if="relatedProperty.updated_at">
+                <el-icon><Clock /></el-icon>
+                <span>更新：{{ formatDateTime(relatedProperty.updated_at) }}</span>
+              </div>
             </div>
             <div class="card-remark" v-if="relatedProperty.remarks">
               <el-icon><InfoFilled /></el-icon>
@@ -35,19 +59,43 @@
           </div>
         </div>
         <div v-if="relatedViewing" class="summary-card summary-card-viewing">
-          <div class="card-icon">
-            <el-icon :size="20"><User /></el-icon>
-          </div>
-          <div class="card-content">
-            <div class="card-label">带看</div>
-            <div class="card-title">
-              {{ relatedViewing.customer_name }}
-              <span class="card-subtitle">
-                {{ formatDate(relatedViewing.viewing_date) }}
-              </span>
+          <div class="card-header">
+            <div class="card-icon">
+              <el-icon :size="20"><User /></el-icon>
             </div>
-            <div class="card-meta" v-if="relatedViewing.status">
-              <status-tag type="viewing" :status="relatedViewing.status" size="small" />
+            <div class="card-title-wrap">
+              <div class="card-label">带看</div>
+              <div class="card-title">
+                {{ relatedViewing.customer_name }}
+                <span class="card-subtitle">
+                  {{ formatDateTime(relatedViewing.viewing_date) }}
+                </span>
+              </div>
+            </div>
+            <el-button
+              size="small"
+              text
+              type="primary"
+              class="card-jump"
+              @click="jumpToViewing"
+            >
+              <el-icon><Aim /></el-icon>
+              查看详情
+            </el-button>
+          </div>
+          <div class="card-body">
+            <div class="card-meta-row">
+              <div class="card-meta" v-if="relatedViewing.status">
+                <status-tag type="viewing" :status="relatedViewing.status" size="small" />
+              </div>
+              <div class="card-meta" v-if="relatedViewing.handler_name">
+                <el-icon><UserFilled /></el-icon>
+                <span>责任人：{{ relatedViewing.handler_name }}</span>
+              </div>
+              <div class="card-meta" v-if="relatedViewing.updated_at">
+                <el-icon><Clock /></el-icon>
+                <span>更新：{{ formatDateTime(relatedViewing.updated_at) }}</span>
+              </div>
             </div>
             <div class="card-remark" v-if="relatedViewing.remarks">
               <el-icon><ChatDotRound /></el-icon>
@@ -191,7 +239,7 @@ import { ElMessage } from 'element-plus'
 import dayjs from 'dayjs'
 import StatusTag from './StatusTag.vue'
 import TimelinePanel from './TimelinePanel.vue'
-import { Link, OfficeBuilding, User, InfoFilled, ChatDotRound } from '@element-plus/icons-vue'
+import { Link, OfficeBuilding, User, InfoFilled, ChatDotRound, Aim, UserFilled, Clock } from '@element-plus/icons-vue'
 import { propertyApi, viewingApi, exceptionApi } from '@/utils/api'
 
 const props = defineProps({
@@ -213,7 +261,7 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['update:modelValue', 'success'])
+const emit = defineEmits(['update:modelValue', 'success', 'jump-to-property', 'jump-to-viewing'])
 
 const formRef = ref(null)
 const submitting = ref(false)
@@ -270,6 +318,22 @@ const rules = {
 
 function formatDate(date) {
   return dayjs(date).format('YYYY-MM-DD HH:mm')
+}
+
+function formatDateTime(date) {
+  return dayjs(date).format('YYYY-MM-DD HH:mm')
+}
+
+function jumpToProperty() {
+  if (relatedProperty.value?.id) {
+    emit('jump-to-property', relatedProperty.value.id)
+  }
+}
+
+function jumpToViewing() {
+  if (relatedViewing.value?.id) {
+    emit('jump-to-viewing', relatedViewing.value.id)
+  }
 }
 
 async function loadOptions() {
@@ -373,8 +437,6 @@ watch(() => props.modelValue, (val) => {
 }
 
 .summary-card {
-  display: flex;
-  gap: 12px;
   background: #fff;
   border-radius: 6px;
   padding: 12px;
@@ -387,6 +449,12 @@ watch(() => props.modelValue, (val) => {
 
 .summary-card-viewing {
   border-left-color: #e6a23c;
+}
+
+.card-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
 }
 
 .card-icon {
@@ -411,9 +479,17 @@ watch(() => props.modelValue, (val) => {
   background: #fdf6ec;
 }
 
-.card-content {
+.card-title-wrap {
   flex: 1;
   min-width: 0;
+}
+
+.card-jump {
+  flex-shrink: 0;
+}
+
+.card-body {
+  margin-top: 10px;
 }
 
 .card-label {
@@ -426,7 +502,7 @@ watch(() => props.modelValue, (val) => {
   font-size: 14px;
   font-weight: 500;
   color: #303133;
-  margin-bottom: 4px;
+  margin-bottom: 2px;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -438,8 +514,19 @@ watch(() => props.modelValue, (val) => {
   font-weight: normal;
 }
 
+.card-meta-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+  align-items: center;
+}
+
 .card-meta {
-  margin-bottom: 4px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: #606266;
 }
 
 .card-remark {
@@ -451,7 +538,7 @@ watch(() => props.modelValue, (val) => {
   background: #f5f7fa;
   border-radius: 4px;
   padding: 6px 8px;
-  margin-top: 6px;
+  margin-top: 8px;
   line-height: 1.5;
 }
 
