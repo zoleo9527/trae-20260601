@@ -98,7 +98,10 @@
                   </button>
                 </div>
                 <div v-if="record.rejectReason" class="text-sm text-error" style="margin-top: 0.5rem;">
-                  退回原因：{{ record.rejectReason }}
+                  物业退回原因：{{ record.rejectReason }}
+                </div>
+                <div v-if="record.directorRejectReason" class="text-sm text-error" style="margin-top: 0.5rem;">
+                  主管退回原因：{{ record.directorRejectReason }}
                 </div>
               </td>
             </tr>
@@ -136,6 +139,11 @@
         <div v-if="processingRecord.supplementRemark" class="card" style="padding: 1rem; margin-bottom: 1rem;">
           <div class="section-title">补充备注（招商经理填写）</div>
           <p>{{ processingRecord.supplementRemark }}</p>
+        </div>
+        
+        <div v-if="processingRecord.directorRejectReason" class="card" style="padding: 1rem; margin-bottom: 1rem; background: #fef2f2; border: 1px solid #fecaca;">
+          <div class="section-title" style="color: #dc2626;">历史主管退回原因</div>
+          <p style="color: #991b1b;">{{ processingRecord.directorRejectReason }}</p>
         </div>
         
         <div class="divider"></div>

@@ -113,7 +113,10 @@
                   </button>
                 </div>
                 <div v-if="record.rejectReason" class="text-sm text-error" style="margin-top: 0.5rem;">
-                  退回原因：{{ record.rejectReason }}
+                  物业退回原因：{{ record.rejectReason }}
+                </div>
+                <div v-if="record.directorRejectReason" class="text-sm text-error" style="margin-top: 0.5rem;">
+                  主管退回原因：{{ record.directorRejectReason }}
                 </div>
               </td>
             </tr>
@@ -188,6 +191,16 @@
           </div>
         </div>
         
+        <div v-if="processingRecord.rejectReason" class="card" style="padding: 1rem; margin-bottom: 1rem; background: #fef2f2; border: 1px solid #fecaca;">
+          <div class="section-title" style="color: #dc2626;">物业退回原因</div>
+          <p style="color: #991b1b;">{{ processingRecord.rejectReason }}</p>
+        </div>
+        
+        <div v-if="processingRecord.directorRejectReason" class="card" style="padding: 1rem; margin-bottom: 1rem; background: #fef2f2; border: 1px solid #fecaca;">
+          <div class="section-title" style="color: #dc2626;">历史主管退回原因</div>
+          <p style="color: #991b1b;">{{ processingRecord.directorRejectReason }}</p>
+        </div>
+        
         <div v-if="processingRecord.engineerRemark" class="card" style="padding: 1rem; margin-bottom: 1rem;">
           <div class="section-title">物业验收备注</div>
           <p>{{ processingRecord.engineerRemark }}</p>
@@ -220,6 +233,19 @@
             />
             <p class="text-sm text-muted" style="margin-top: 0.5rem;">
               提示：费用起算日期应不早于计划入驻日期
+            </p>
+          </div>
+          
+          <div v-if="processForm.result === 'reject'" class="form-group">
+            <label>退回原因 *</label>
+            <textarea 
+              v-model="processForm.directorRejectReason" 
+              rows="3" 
+              placeholder="请详细描述退回原因"
+              required
+            ></textarea>
+            <p class="text-sm text-muted" style="margin-top: 0.5rem;">
+              提示：退回原因将反馈给招商经理，直接影响责任认定，请务必填写清楚
             </p>
           </div>
           
@@ -265,7 +291,8 @@ const processForm = ref<DirectorProcessPayload & { recordId: string }>({
   recordId: '',
   result: 'pass',
   feeStartDate: '',
-  directorRemark: ''
+  directorRemark: '',
+  directorRejectReason: ''
 })
 
 const tabs: { value: 'all' | 'pending' | 'completed' | 'rejected'; label: string }[] = [
@@ -329,7 +356,8 @@ const showProcess = (record: AcceptanceRecord) => {
     recordId: record.id,
     result: 'pass',
     feeStartDate: record.plannedMoveInDate,
-    directorRemark: ''
+    directorRemark: '',
+    directorRejectReason: ''
   }
   showProcessModal.value = true
 }
@@ -347,7 +375,8 @@ const handleProcess = async () => {
         recordId: processForm.value.recordId,
         result: processForm.value.result,
         feeStartDate: processForm.value.feeStartDate,
-        directorRemark: processForm.value.directorRemark
+        directorRemark: processForm.value.directorRemark,
+        directorRejectReason: processForm.value.directorRejectReason
       })
       showProcessModal.value = false
     } catch (error: any) {

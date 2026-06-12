@@ -106,7 +106,10 @@
                   </button>
                 </div>
                 <div v-if="record.rejectReason" class="text-sm text-error" style="margin-top: 0.5rem;">
-                  退回原因：{{ record.rejectReason }}
+                  物业退回原因：{{ record.rejectReason }}
+                </div>
+                <div v-if="record.directorRejectReason" class="text-sm text-error" style="margin-top: 0.5rem;">
+                  主管退回原因：{{ record.directorRejectReason }}
                 </div>
               </td>
             </tr>

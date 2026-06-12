@@ -33,9 +33,11 @@ export default defineEventHandler(async (event) => {
     
     return updated
   } catch (error: any) {
+    const code = error.status || error.statusCode || 500
+    const msg = error.statusMessage || error.message || '提交失败'
     throw createError({
-      statusCode: error.statusCode || 500,
-      statusMessage: error.statusMessage || '提交失败'
+      statusCode: code,
+      statusMessage: msg
     })
   }
 })

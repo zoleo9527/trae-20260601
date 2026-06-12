@@ -41,6 +41,7 @@ export interface AcceptanceRecord {
   directorConfirmTime: string | null
   directorResult: 'pass' | 'reject' | null
   directorRemark: string | null
+  directorRejectReason: string | null
   feeStartDate: string | null
   
   supplementRemark: string | null
@@ -73,4 +74,5 @@ export interface DirectorProcessPayload {
   result: 'pass' | 'reject'
   feeStartDate?: string
   directorRemark?: string
+  directorRejectReason?: string
 }

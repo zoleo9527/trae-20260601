@@ -42,5 +42,14 @@ const roles: { value: UserRole; label: string; desc: string }[] = [
 
 const handleLogin = (userId: string) => {
   authStore.login(userId)
+  const user = authStore.users.find(u => u.id === userId)
+  if (user) {
+    const roleMap: Record<string, string> = {
+      manager: '/manager',
+      director: '/director',
+      engineer: '/engineer'
+    }
+    navigateTo(roleMap[user.role], { replace: true })
+  }
 }
 </script>

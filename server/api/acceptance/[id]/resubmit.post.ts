@@ -40,14 +40,17 @@ export default defineEventHandler(async (event) => {
       directorConfirmTime: null,
       directorResult: null,
       directorRemark: null,
-      feeStartDate: null
+      feeStartDate: null,
+      directorRejectReason: record.directorRejectReason
     })
     
     return updated
   } catch (error: any) {
+    const code = error.status || error.statusCode || 500
+    const msg = error.statusMessage || error.message || '重新提交失败'
     throw createError({
-      statusCode: error.statusCode || 500,
-      statusMessage: error.statusMessage || '重新提交失败'
+      statusCode: code,
+      statusMessage: msg
     })
   }
 })

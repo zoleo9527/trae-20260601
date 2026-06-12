@@ -1,16 +1,19 @@
 export default defineNuxtRouteMiddleware((to) => {
   const authStore = useAuthStore()
   
-  if (process.client) {
-    authStore.restoreSession()
-  }
+  authStore.restoreSession()
   
   if (!authStore.isLoggedIn && to.path !== '/login') {
-    return navigateTo('/login')
+    return navigateTo('/login', { replace: true })
   }
   
   if (authStore.isLoggedIn && to.path === '/login') {
-    return navigateTo('/')
+    const roleMap: Record<string, string> = {
+      manager: '/manager',
+      director: '/director',
+      engineer: '/engineer'
+    }
+    return navigateTo(roleMap[authStore.userRole!] || '/login', { replace: true })
   }
   
   if (authStore.isLoggedIn && to.path === '/') {
@@ -19,6 +22,6 @@ export default defineNuxtRouteMiddleware((to) => {
       director: '/director',
       engineer: '/engineer'
     }
-    return navigateTo(roleMap[authStore.userRole!] || '/login')
+    return navigateTo(roleMap[authStore.userRole!] || '/login', { replace: true })
   }
 })

@@ -73,9 +73,11 @@ export default defineEventHandler(async (event) => {
     const updated = await updateRecord(id, updates)
     return updated
   } catch (error: any) {
+    const code = error.status || error.statusCode || 500
+    const msg = error.statusMessage || error.message || '物业验收处理失败'
     throw createError({
-      statusCode: error.statusCode || 500,
-      statusMessage: error.statusMessage || '物业验收处理失败'
+      statusCode: code,
+      statusMessage: msg
     })
   }
 })

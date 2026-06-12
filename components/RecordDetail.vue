@@ -56,8 +56,13 @@
         </div>
         
         <div v-if="record.rejectReason" class="reject-box">
-          <div class="reject-label">退回原因</div>
+          <div class="reject-label">物业退回原因</div>
           <div class="reject-content">{{ record.rejectReason }}</div>
+        </div>
+        
+        <div v-if="record.directorRejectReason" class="reject-box">
+          <div class="reject-label">主管退回原因</div>
+          <div class="reject-content">{{ record.directorRejectReason }}</div>
         </div>
         
         <div v-if="record.supplementRemark" class="card" style="padding: 1rem; margin-bottom: 1rem;">
@@ -84,6 +89,8 @@
             <div class="timeline-time">{{ formatTime(record.engineerAcceptTime) }}</div>
             <div class="timeline-desc">
               处理人：{{ record.engineerName }}
+              <br v-if="record.engineerResult === 'reject' && record.rejectReason" />
+              <span v-if="record.engineerResult === 'reject' && record.rejectReason">退回原因：{{ record.rejectReason }}</span>
               <br v-if="record.engineerRemark" />
               <span v-if="record.engineerRemark">备注：{{ record.engineerRemark }}</span>
             </div>
@@ -96,6 +103,8 @@
             <div class="timeline-time">{{ formatTime(record.directorConfirmTime) }}</div>
             <div class="timeline-desc">
               处理人：{{ record.directorName }}
+              <br v-if="record.directorResult === 'reject' && record.directorRejectReason" />
+              <span v-if="record.directorResult === 'reject' && record.directorRejectReason">退回原因：{{ record.directorRejectReason }}</span>
               <br v-if="record.directorRemark" />
               <span v-if="record.directorRemark">备注：{{ record.directorRemark }}</span>
               <br v-if="record.feeStartDate" />

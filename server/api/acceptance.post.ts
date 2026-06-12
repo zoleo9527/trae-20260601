@@ -53,6 +53,7 @@ export default defineEventHandler(async (event) => {
       directorConfirmTime: null,
       directorResult: null,
       directorRemark: null,
+      directorRejectReason: null,
       feeStartDate: null,
       supplementRemark: body.supplementRemark || null,
       status: 'draft',
@@ -62,9 +63,11 @@ export default defineEventHandler(async (event) => {
     
     return await addRecord(record)
   } catch (error: any) {
+    const code = error.status || error.statusCode || 500
+    const msg = error.statusMessage || error.message || '创建记录失败'
     throw createError({
-      statusCode: error.statusCode || 500,
-      statusMessage: error.statusMessage || '创建记录失败'
+      statusCode: code,
+      statusMessage: msg
     })
   }
 })

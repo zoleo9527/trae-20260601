@@ -59,6 +59,13 @@ export default defineEventHandler(async (event) => {
       })
     }
     
+    if (body.result === 'reject' && !body.directorRejectReason) {
+      throw createError({
+        statusCode: 400,
+        statusMessage: '退回时必须填写退回原因'
+      })
+    }
+    
     const now = new Date().toISOString()
     const updates: Partial<typeof record> = {
       directorId: userId,
@@ -66,6 +73,7 @@ export default defineEventHandler(async (event) => {
       directorConfirmTime: now,
       directorResult: body.result,
       directorRemark: body.directorRemark || null,
+      directorRejectReason: body.result === 'reject' ? body.directorRejectReason || null : null,
       feeStartDate: body.result === 'pass' ? body.feeStartDate || null : null,
       status: body.result === 'pass' ? 'completed' : 'director_rejected'
     }
@@ -73,9 +81,11 @@ export default defineEventHandler(async (event) => {
     const updated = await updateRecord(id, updates)
     return updated
   } catch (error: any) {
+    const code = error.status || error.statusCode || 500
+    const msg = error.statusMessage || error.message || '主管审核失败'
     throw createError({
-      statusCode: error.statusCode || 500,
-      statusMessage: error.statusMessage || '主管审核失败'
+      statusCode: code,
+      statusMessage: msg
     })
   }
 })

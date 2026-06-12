@@ -7,6 +7,7 @@ import { parentPort, threadId } from 'node:worker_threads';
 import { escapeHtml } from 'file:///Users/liu/Documents/private/model-test/trae-20260601-4/node_modules/@vue/shared/dist/shared.cjs.js';
 import viteNodeEntry_mjs from 'file:///Users/liu/Documents/private/model-test/trae-20260601-4/node_modules/@nuxt/vite-builder/dist/vite-node-entry.mjs';
 import { viteNodeFetch } from 'file:///Users/liu/Documents/private/model-test/trae-20260601-4/node_modules/@nuxt/vite-builder/dist/vite-node.mjs';
+import { AsyncLocalStorage } from 'node:async_hooks';
 import { createRenderer, getRequestDependencies, getPreloadLinks, getPrefetchLinks } from 'file:///Users/liu/Documents/private/model-test/trae-20260601-4/node_modules/vue-bundle-renderer/dist/runtime.mjs';
 import { parseURL, withoutBase, joinURL, getQuery, withQuery, withTrailingSlash, decodePath, withLeadingSlash, withoutTrailingSlash, encodePath, joinRelativeURL } from 'file:///Users/liu/Documents/private/model-test/trae-20260601-4/node_modules/ufo/dist/index.mjs';
 import { renderToString } from 'file:///Users/liu/Documents/private/model-test/trae-20260601-4/node_modules/vue/server-renderer/index.mjs';
@@ -29,7 +30,6 @@ import consola, { consola as consola$1 } from 'file:///Users/liu/Documents/priva
 import { ErrorParser } from 'file:///Users/liu/Documents/private/model-test/trae-20260601-4/node_modules/youch-core/build/index.js';
 import { Youch } from 'file:///Users/liu/Documents/private/model-test/trae-20260601-4/node_modules/youch/build/index.js';
 import { SourceMapConsumer } from 'file:///Users/liu/Documents/private/model-test/trae-20260601-4/node_modules/source-map/source-map.js';
-import { AsyncLocalStorage } from 'node:async_hooks';
 import { stringify, uneval } from 'file:///Users/liu/Documents/private/model-test/trae-20260601-4/node_modules/devalue/index.js';
 import { captureRawStackTrace, parseRawStackTrace } from 'file:///Users/liu/Documents/private/model-test/trae-20260601-4/node_modules/errx/dist/index.js';
 import { isVNode, isRef, toValue } from 'file:///Users/liu/Documents/private/model-test/trae-20260601-4/node_modules/vue/index.mjs';
@@ -741,14 +741,14 @@ new Proxy(/* @__PURE__ */ Object.create(null), {
 });
 
 const nitroAsyncContext = getContext("nitro-app", {
-  asyncContext: false,
-  AsyncLocalStorage: void 0
+  asyncContext: true,
+  AsyncLocalStorage: AsyncLocalStorage 
 });
 function useEvent() {
   try {
     return nitroAsyncContext.use().event;
   } catch {
-    const hint = "Enable the experimental flag using `experimental.asyncContext: true`.";
+    const hint = "Note: This is an experimental feature and might be broken on non-Node.js environments." ;
     throw createError({
       message: `Nitro request context is not available. ${hint}`
     });
@@ -2239,6 +2239,7 @@ const initialMockRecords = [
     directorConfirmTime: null,
     directorResult: null,
     directorRemark: null,
+    directorRejectReason: null,
     feeStartDate: null,
     supplementRemark: "\u91CD\u70B9\u5BA2\u6237\uFF0C\u5165\u9A7B\u524D\u9700\u5B8C\u6210\u7F51\u7EDC\u5E03\u7EBF",
     status: "pending_engineer",
@@ -2267,6 +2268,8 @@ const initialMockRecords = [
     directorName: null,
     directorConfirmTime: null,
     directorResult: null,
+    directorRemark: null,
+    directorRejectReason: null,
     feeStartDate: null,
     supplementRemark: null,
     status: "pending_director",
@@ -2296,6 +2299,7 @@ const initialMockRecords = [
     directorConfirmTime: "2026-05-27T09:00:00.000Z",
     directorResult: "pass",
     directorRemark: "\u540C\u610F\u6309\u5B9E\u9645\u5165\u9A7B\u65E5\u671F\u8D77\u7B97\u8D39\u7528",
+    directorRejectReason: null,
     feeStartDate: "2026-06-01",
     supplementRemark: null,
     status: "completed",
@@ -2324,6 +2328,8 @@ const initialMockRecords = [
     directorName: null,
     directorConfirmTime: null,
     directorResult: null,
+    directorRemark: null,
+    directorRejectReason: null,
     feeStartDate: null,
     supplementRemark: "\u5BA2\u6237\u8981\u6C42\u7CBE\u88C5\u4FEE\u4EA4\u4ED8",
     status: "engineer_rejected",
@@ -2352,11 +2358,43 @@ const initialMockRecords = [
     directorName: null,
     directorConfirmTime: null,
     directorResult: null,
+    directorRemark: null,
+    directorRejectReason: null,
     feeStartDate: null,
     supplementRemark: "\u5927\u578B\u5BA2\u6237\uFF0C\u9700\u534F\u8C03\u7269\u4E1A\u91CD\u70B9\u914D\u5408",
     status: "draft",
     createdAt: "2026-06-11T09:00:00.000Z",
     updatedAt: "2026-06-11T09:00:00.000Z"
+  },
+  {
+    id: "acc_006",
+    enterpriseName: "\u9F0E\u76DB\u91D1\u878D\u670D\u52A1\u6709\u9650\u516C\u53F8",
+    contractNo: "HT202605015",
+    floor: "A\u680B15\u5C42",
+    roomNumber: "1501-1506",
+    area: 650,
+    contractDate: "2026-05-18",
+    plannedMoveInDate: "2026-06-25",
+    managerId: "m2",
+    managerName: "\u674E\u534E",
+    submitTime: "2026-06-05T10:00:00.000Z",
+    engineerId: "e2",
+    engineerName: "\u5218\u4F1F",
+    engineerAcceptTime: "2026-06-06T14:30:00.000Z",
+    engineerResult: "pass",
+    engineerRemark: "\u73B0\u573A\u8BBE\u65BD\u9F50\u5168\uFF0C\u9A8C\u6536\u901A\u8FC7",
+    rejectReason: null,
+    directorId: "d1",
+    directorName: "\u738B\u82B3",
+    directorConfirmTime: "2026-06-07T11:00:00.000Z",
+    directorResult: "reject",
+    directorRemark: "\u9700\u8FDB\u4E00\u6B65\u6838\u5B9E",
+    directorRejectReason: "\u8D39\u7528\u8D77\u7B97\u65E5\u671F\u9700\u4E0E\u5BA2\u6237\u6C9F\u901A\u786E\u8BA4\uFF0C\u5BA2\u6237\u4E3B\u5F20\u6309\u5408\u540C\u7EA6\u5B9A\u7684\u88C5\u4FEE\u514D\u79DF\u671F\u7ED3\u675F\u540E\u8D77\u7B97\uFF0C\u800C\u975E\u6309\u9A8C\u6536\u901A\u8FC7\u65E5\u8D77\u7B97\u3002\u8BF7\u62DB\u5546\u7ECF\u7406\u4E0E\u5BA2\u6237\u786E\u8BA4\u540E\u91CD\u65B0\u63D0\u4EA4\u3002",
+    feeStartDate: null,
+    supplementRemark: "\u5BA2\u6237\u4E3A\u91D1\u878D\u884C\u4E1A\u5934\u90E8\u4F01\u4E1A\uFF0C\u5BF9\u8D39\u7528\u8D77\u7B97\u6709\u7279\u6B8A\u7EA6\u5B9A",
+    status: "director_rejected",
+    createdAt: "2026-06-05T09:00:00.000Z",
+    updatedAt: "2026-06-07T11:00:00.000Z"
   }
 ];
 
@@ -3046,6 +3084,13 @@ function createNitroApp() {
     }
   }
   h3App.use(config.app.baseURL, router.handler);
+  {
+    const _handler = h3App.handler;
+    h3App.handler = (event) => {
+      const ctx = { event };
+      return nitroAsyncContext.callAsync(ctx, () => _handler(event));
+    };
+  }
   const app = {
     hooks,
     h3App,
@@ -3385,6 +3430,7 @@ const acceptance_post = defineEventHandler(async (event) => {
       directorConfirmTime: null,
       directorResult: null,
       directorRemark: null,
+      directorRejectReason: null,
       feeStartDate: null,
       supplementRemark: body.supplementRemark || null,
       status: "draft",
@@ -3393,9 +3439,11 @@ const acceptance_post = defineEventHandler(async (event) => {
     };
     return await addRecord(record);
   } catch (error) {
+    const code = error.status || error.statusCode || 500;
+    const msg = error.statusMessage || error.message || "\u521B\u5EFA\u8BB0\u5F55\u5931\u8D25";
     throw createError({
-      statusCode: error.statusCode || 500,
-      statusMessage: error.statusMessage || "\u521B\u5EFA\u8BB0\u5F55\u5931\u8D25"
+      statusCode: code,
+      statusMessage: msg
     });
   }
 });
@@ -3455,6 +3503,12 @@ const director_post = defineEventHandler(async (event) => {
         statusMessage: "\u901A\u8FC7\u65F6\u5FC5\u987B\u586B\u5199\u8D39\u7528\u8D77\u7B97\u65E5\u671F"
       });
     }
+    if (body.result === "reject" && !body.directorRejectReason) {
+      throw createError({
+        statusCode: 400,
+        statusMessage: "\u9000\u56DE\u65F6\u5FC5\u987B\u586B\u5199\u9000\u56DE\u539F\u56E0"
+      });
+    }
     const now = (/* @__PURE__ */ new Date()).toISOString();
     const updates = {
       directorId: userId,
@@ -3462,15 +3516,18 @@ const director_post = defineEventHandler(async (event) => {
       directorConfirmTime: now,
       directorResult: body.result,
       directorRemark: body.directorRemark || null,
+      directorRejectReason: body.result === "reject" ? body.directorRejectReason || null : null,
       feeStartDate: body.result === "pass" ? body.feeStartDate || null : null,
       status: body.result === "pass" ? "completed" : "director_rejected"
     };
     const updated = await updateRecord(id, updates);
     return updated;
   } catch (error) {
+    const code = error.status || error.statusCode || 500;
+    const msg = error.statusMessage || error.message || "\u4E3B\u7BA1\u5BA1\u6838\u5931\u8D25";
     throw createError({
-      statusCode: error.statusCode || 500,
-      statusMessage: error.statusMessage || "\u4E3B\u7BA1\u5BA1\u6838\u5931\u8D25"
+      statusCode: code,
+      statusMessage: msg
     });
   }
 });
@@ -3543,9 +3600,11 @@ const engineer_post = defineEventHandler(async (event) => {
     const updated = await updateRecord(id, updates);
     return updated;
   } catch (error) {
+    const code = error.status || error.statusCode || 500;
+    const msg = error.statusMessage || error.message || "\u7269\u4E1A\u9A8C\u6536\u5904\u7406\u5931\u8D25";
     throw createError({
-      statusCode: error.statusCode || 500,
-      statusMessage: error.statusMessage || "\u7269\u4E1A\u9A8C\u6536\u5904\u7406\u5931\u8D25"
+      statusCode: code,
+      statusMessage: msg
     });
   }
 });
@@ -3592,13 +3651,16 @@ const resubmit_post = defineEventHandler(async (event) => {
       directorConfirmTime: null,
       directorResult: null,
       directorRemark: null,
-      feeStartDate: null
+      feeStartDate: null,
+      directorRejectReason: record.directorRejectReason
     });
     return updated;
   } catch (error) {
+    const code = error.status || error.statusCode || 500;
+    const msg = error.statusMessage || error.message || "\u91CD\u65B0\u63D0\u4EA4\u5931\u8D25";
     throw createError({
-      statusCode: error.statusCode || 500,
-      statusMessage: error.statusMessage || "\u91CD\u65B0\u63D0\u4EA4\u5931\u8D25"
+      statusCode: code,
+      statusMessage: msg
     });
   }
 });
@@ -3637,9 +3699,11 @@ const submit_post = defineEventHandler(async (event) => {
     });
     return updated;
   } catch (error) {
+    const code = error.status || error.statusCode || 500;
+    const msg = error.statusMessage || error.message || "\u63D0\u4EA4\u5931\u8D25";
     throw createError({
-      statusCode: error.statusCode || 500,
-      statusMessage: error.statusMessage || "\u63D0\u4EA4\u5931\u8D25"
+      statusCode: code,
+      statusMessage: msg
     });
   }
 });
@@ -3723,6 +3787,10 @@ const renderSSRHeadOptions = {"omitLineBreaks":false};
 globalThis.__buildAssetsURL = buildAssetsURL;
 // @ts-expect-error private property consumed by vite-generated url helpers
 globalThis.__publicAssetsURL = publicAssetsURL;
+
+if (!("AsyncLocalStorage" in globalThis)) {
+	globalThis.AsyncLocalStorage = AsyncLocalStorage;
+}
 const HAS_APP_TELEPORTS = !!(appTeleportAttrs.id);
 const APP_TELEPORT_OPEN_TAG = HAS_APP_TELEPORTS ? `<${appTeleportTag}${propsToString(appTeleportAttrs)}>` : "";
 const APP_TELEPORT_CLOSE_TAG = HAS_APP_TELEPORTS ? `</${appTeleportTag}>` : "";
