@@ -1,0 +1,12 @@
+import { ProjectStatus, UserRole, StatusTransition, ArrangementStatus, ArrangementTransition, Project, ProjectArrangement, ExpertSigninRecord, BlockAnalysis, SigninAnalysis, ResponsibilityMatrix, ExceptionType } from '../types';
+export declare const projectStatusTransitions: StatusTransition[];
+export declare const arrangementTransitions: ArrangementTransition[];
+export declare const getAvailableTransitions: (currentStatus: ProjectStatus, userRole: UserRole) => StatusTransition[];
+export declare const canTransition: (from: ProjectStatus, to: ProjectStatus, userRole: UserRole) => boolean;
+export declare const getTransitionAction: (from: ProjectStatus, to: ProjectStatus) => StatusTransition | undefined;
+export declare const getRequiredHandlerRole: (currentStatus: ProjectStatus) => UserRole | null;
+export declare const getArrangementAvailableTransitions: (currentStatus: ArrangementStatus, userRole: UserRole) => ArrangementTransition[];
+export declare const analyzeBlock: (project: Project, arrangement: ProjectArrangement | null) => BlockAnalysis;
+export declare const analyzeSignin: (signinRecords: ExpertSigninRecord[]) => SigninAnalysis;
+export declare const getResponsibilityMatrix: (project: Project, arrangement: ProjectArrangement | null, signinRecords: ExpertSigninRecord[]) => ResponsibilityMatrix;
+export declare const checkAutoTriggerException: (project: Project, arrangement: ProjectArrangement | null, signinRecords: ExpertSigninRecord[]) => ExceptionType | null;

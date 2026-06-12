@@ -1,0 +1,117 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial,
+    'Noto Sans', sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol',
+    'Noto Color Emoji';
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background-color: #f0f2f5;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+.ant-layout {
+  min-height: 100vh;
+}
+
+.ant-layout-header {
+  background: #fff;
+  box-shadow: 0 1px 4px rgba(0, 21, 41, 0.08);
+  padding: 0 24px;
+}
+
+.ant-layout-content {
+  padding: 24px;
+}
+
+.ant-card {
+  border-radius: 8px;
+}
+
+.stat-card {
+  text-align: center;
+}
+
+.stat-card .ant-statistic-title {
+  color: #666;
+  font-size: 14px;
+}
+
+.stat-card .ant-statistic-content {
+  font-size: 28px;
+  font-weight: 600;
+}
+
+.timeline-item {
+  padding-bottom: 24px;
+}
+
+.timeline-item:last-child {
+  padding-bottom: 0;
+}
+
+.analysis-card {
+  margin-bottom: 16px;
+}
+
+.analysis-card .ant-card-head {
+  background: #fafafa;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.blocked-warning {
+  background: #fff2f0;
+  border: 1px solid #ffccc7;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+.responsibility-item {
+  padding: 12px;
+  border-radius: 8px;
+  margin-bottom: 8px;
+}
+
+.responsibility-item.project_specialist {
+  background: #e6f7ff;
+  border-left: 4px solid #1890ff;
+}
+
+.responsibility-item.review_secretary {
+  background: #f6ffed;
+  border-left: 4px solid #52c41a;
+}
+
+.responsibility-item.finance {
+  background: #fff7e6;
+  border-left: 4px solid #fa8c16;
+}
+
+.signin-progress {
+  margin-bottom: 16px;
+}
+
+.signin-progress .ant-progress-text {
+  font-weight: 600;
+}
+
+.exception-tag {
+  margin-right: 8px;
+}
+
+.operation-detail {
+  background: #fafafa;
+  padding: 12px;
+  border-radius: 4px;
+  margin-top: 8px;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
