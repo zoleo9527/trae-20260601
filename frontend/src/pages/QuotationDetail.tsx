@@ -35,6 +35,8 @@ import {
   ExclamationCircleOutlined,
   PlusOutlined,
   SafetyCertificateOutlined,
+  ClockCircleOutlined,
+  EyeOutlined,
 } from '@ant-design/icons';
 import { quotationAPI, contractAPI, logsAPI } from '../services/api';
 import { useAuthStore } from '../store/useAuthStore';
@@ -75,6 +77,9 @@ const QuotationDetail = () => {
   const [contractModalVisible, setContractModalVisible] = useState(false);
   const [contractForm] = Form.useForm();
   const [contractCreating, setContractCreating] = useState(false);
+  const [relatedContract, setRelatedContract] = useState<any>(null);
+  const [contractSuccessVisible, setContractSuccessVisible] = useState(false);
+  const [newlyCreatedContract, setNewlyCreatedContract] = useState<any>(null);
 
   useEffect(() => {
     if (!id) return;
@@ -85,14 +90,20 @@ const QuotationDetail = () => {
     setLoading(true);
     setError(null);
     try {
-      const [quotationRes, timelineRes] = await Promise.all([
+      const [quotationRes, timelineRes, contractsRes] = await Promise.all([
         quotationAPI.get(quotationId),
         logsAPI.getTimeline('quotation', quotationId),
+        contractAPI.list(),
       ]);
       setQuotation(quotationRes.data);
       setProperty(quotationRes.data.property || null);
       setViewing(quotationRes.data.viewing || null);
       setTimeline(timelineRes.data);
+
+      const existing = (contractsRes.data || []).find(
+        (c: any) => c.quotationId === quotationId && c.status !== 'terminated'
+      );
+      setRelatedContract(existing || null);
     } catch (err: any) {
       setError(err.response?.data?.error || '加载报价单失败');
     } finally {
@@ -265,7 +276,7 @@ const QuotationDetail = () => {
     try {
       const values = await contractForm.validateFields();
       setContractCreating(true);
-      await contractAPI.create({
+      const res = await contractAPI.create({
         propertyId: quotation.propertyId,
         quotationId: quotation.id,
         customerName: values.customerName,
@@ -285,12 +296,32 @@ const QuotationDetail = () => {
           { category: 'basic', title: '免租期', content: `免租期${values.rentFreePeriod}个月`, order: 4 },
         ],
       });
-      message.success('合同创建成功，房源状态已同步更新');
       setContractModalVisible(false);
+      setNewlyCreatedContract(res.data);
+      setRelatedContract(res.data);
+      setContractSuccessVisible(true);
       fetchData(id);
     } catch (err: any) {
-      if (err.response?.data?.error) {
-        message.error(err.response.data.error);
+      const errData = err.response?.data;
+      if (errData) {
+        if (errData.errorCode === 'QUOTATION_DUPLICATE_CONTRACT' && errData.existingContractId) {
+          Modal.confirm({
+            title: '该报价单已创建合同',
+            content: (
+              <div>
+                <p>{errData.error}</p>
+                <p style={{ marginTop: 8 }}>是否直接跳转到已有合同？</p>
+              </div>
+            ),
+            okText: '查看合同',
+            cancelText: '取消',
+            onOk: () => {
+              navigate(`/contracts/${errData.existingContractId}`);
+            },
+          });
+        } else {
+          message.error(errData.error);
+        }
       }
     } finally {
       setContractCreating(false);
@@ -461,7 +492,17 @@ const QuotationDetail = () => {
               退回修改
             </Button>
           )}
-          {canDraftContract && (
+          {relatedContract && (
+            <>
+              <Button icon={<EyeOutlined />} onClick={() => navigate(`/contracts/${relatedContract.id}`)}>
+                查看关联合同
+              </Button>
+              <Button icon={<ClockCircleOutlined />} onClick={() => navigate(`/contracts/${relatedContract.id}`)}>
+                流转回看
+              </Button>
+            </>
+          )}
+          {canDraftContract && !relatedContract && (
             <Button type="primary" icon={<SafetyCertificateOutlined />} onClick={openContractModal}>
               起草合同
             </Button>
@@ -576,6 +617,33 @@ const QuotationDetail = () => {
           </Col>
         </Row>
       </div>
+
+      {relatedContract && (
+        <Alert
+          type="success"
+          showIcon
+          style={{ marginBottom: 24 }}
+          message={
+            <Space size="large">
+              <span>
+                <SafetyCertificateOutlined style={{ color: '#52c41a', marginRight: 8 }} />
+                已关联合同：<strong>{relatedContract.contractNo}</strong>，当前状态：
+                <Tag color={relatedContract.statusDisplay?.color} style={{ marginLeft: 8 }}>
+                  {relatedContract.statusDisplay?.label}
+                </Tag>
+              </span>
+              <Space>
+                <Button type="primary" size="small" icon={<EyeOutlined />} onClick={() => navigate(`/contracts/${relatedContract.id}`)}>
+                  查看合同详情
+                </Button>
+                <Button size="small" icon={<ClockCircleOutlined />} onClick={() => navigate(`/contracts/${relatedContract.id}`)}>
+                  流转回看
+                </Button>
+              </Space>
+            </Space>
+          }
+        />
+      )}
 
       <div className="detail-section">
         <h2 className="detail-section-title">报价概览</h2>
@@ -934,6 +1002,54 @@ const QuotationDetail = () => {
             </Col>
           </Row>
         </Form>
+      </Modal>
+
+      <Modal
+        open={contractSuccessVisible}
+        onCancel={() => setContractSuccessVisible(false)}
+        footer={null}
+        width={520}
+        centered
+      >
+        <div style={{ textAlign: 'center', padding: '16px 0 8px' }}>
+          <div style={{ width: 64, height: 64, borderRadius: '50%', background: '#f6ffed', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+            <SafetyCertificateOutlined style={{ fontSize: 36, color: '#52c41a' }} />
+          </div>
+          <h3 style={{ marginBottom: 8, fontSize: 18 }}>合同创建成功</h3>
+          <p style={{ color: '#595959', marginBottom: 24 }}>
+            合同编号：<strong>{newlyCreatedContract?.contractNo}</strong><br />
+            房源状态已同步更新为「合同起草中」
+          </p>
+          <div className="create-btn-group" style={{ justifyContent: 'center' }}>
+            <Button
+              type="primary"
+              icon={<EyeOutlined />}
+              size="large"
+              onClick={() => {
+                setContractSuccessVisible(false);
+                navigate(`/contracts/${newlyCreatedContract?.id}`);
+              }}
+            >
+              查看合同详情
+            </Button>
+            <Button
+              icon={<ClockCircleOutlined />}
+              size="large"
+              onClick={() => {
+                setContractSuccessVisible(false);
+                navigate(`/contracts/${newlyCreatedContract?.id}`);
+              }}
+            >
+              流转回看
+            </Button>
+            <Button
+              size="large"
+              onClick={() => setContractSuccessVisible(false)}
+            >
+              留在报价页
+            </Button>
+          </div>
+        </div>
       </Modal>
     </div>
   );

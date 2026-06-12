@@ -81,6 +81,50 @@ router.post('/', authenticate, requireRoles('rental_consultant'), (req: AuthRequ
     return;
   }
 
+  let quotation;
+  if (quotationId) {
+    quotation = db.quotations.get(quotationId);
+    if (!quotation) {
+      res.status(404).json({ error: '关联报价单不存在' });
+      return;
+    }
+
+    if (quotation.status !== 'approved') {
+      const statusText: Record<string, string> = {
+        draft: '草稿',
+        submitted: '已提交待确认',
+        rejected: '已退回',
+        expired: '已过期',
+      };
+      res.status(400).json({
+        error: `仅允许从已确认报价起草合同，当前报价状态为「${statusText[quotation.status] || quotation.status}」`,
+        errorCode: 'QUOTATION_NOT_APPROVED',
+      });
+      return;
+    }
+
+    if (quotation.propertyId !== propertyId) {
+      res.status(400).json({
+        error: '报价单与房源不匹配，请检查选择的房源是否与报价单一致',
+        errorCode: 'QUOTATION_PROPERTY_MISMATCH',
+      });
+      return;
+    }
+
+    const existingContract = Array.from(db.contracts.values()).find(
+      (c) => c.quotationId === quotationId && c.status !== 'terminated'
+    );
+    if (existingContract) {
+      res.status(400).json({
+        error: `该报价单已创建合同（${existingContract.contractNo}），不允许重复起草`,
+        errorCode: 'QUOTATION_DUPLICATE_CONTRACT',
+        existingContractId: existingContract.id,
+        existingContractNo: existingContract.contractNo,
+      });
+      return;
+    }
+  }
+
   const now = new Date().toISOString();
   const contract: Contract = {
     id: uuidv4(),
