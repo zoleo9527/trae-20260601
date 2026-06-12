@@ -37,6 +37,8 @@ import {
   SafetyCertificateOutlined,
   ClockCircleOutlined,
   EyeOutlined,
+  UserOutlined,
+  CommentOutlined,
 } from '@ant-design/icons';
 import { quotationAPI, contractAPI, logsAPI } from '../services/api';
 import { useAuthStore } from '../store/useAuthStore';
@@ -417,6 +419,47 @@ const QuotationDetail = () => {
 
   const judgment = getStatusJudgment();
 
+  const getPendingRole = () => {
+    const roleMap: Record<string, { role: string; roleName: string; action: string }> = {
+      draft: { role: 'rental_consultant', roleName: '租赁顾问', action: '提交报价' },
+      submitted: { role: 'operation_manager', roleName: '运营经理', action: '审核报价' },
+      approved: { role: 'rental_consultant', roleName: '租赁顾问', action: '起草合同' },
+      rejected: { role: 'rental_consultant', roleName: '租赁顾问', action: '修改后重新提交' },
+      expired: { role: 'rental_consultant', roleName: '租赁顾问', action: '重新创建报价' },
+    };
+    return roleMap[quotation.status] || { role: '-', roleName: '-', action: '-' };
+  };
+
+  const getLatestReview = () => {
+    if (!timeline || timeline.length === 0) return null;
+    const reviewEvents = timeline.filter(
+      (e) => e.title === 'approve' || e.title === 'reject'
+    );
+    if (reviewEvents.length === 0) return null;
+    return reviewEvents[0];
+  };
+
+  const getLatestOperation = () => {
+    if (!timeline || timeline.length === 0) return null;
+    return timeline[0];
+  };
+
+  const getTimeFromNow = (dateStr: string) => {
+    const diff = Date.now() - new Date(dateStr).getTime();
+    const minutes = Math.floor(diff / 60000);
+    const hours = Math.floor(diff / 3600000);
+    const days = Math.floor(diff / 86400000);
+    if (minutes < 1) return '刚刚';
+    if (minutes < 60) return `${minutes}分钟前`;
+    if (hours < 24) return `${hours}小时前`;
+    if (days < 30) return `${days}天前`;
+    return new Date(dateStr).toLocaleDateString('zh-CN');
+  };
+
+  const pendingRole = getPendingRole();
+  const latestReview = getLatestReview();
+  const latestOperation = getLatestOperation();
+
   const itemColumns = [
     {
       title: '项目名称',
@@ -494,10 +537,10 @@ const QuotationDetail = () => {
           )}
           {relatedContract && (
             <>
-              <Button icon={<EyeOutlined />} onClick={() => navigate(`/contracts/${relatedContract.id}`)}>
+              <Button icon={<EyeOutlined />} onClick={() => navigate(`/contracts/${relatedContract.id}#contract-timeline`)}>
                 查看关联合同
               </Button>
-              <Button icon={<ClockCircleOutlined />} onClick={() => navigate(`/contracts/${relatedContract.id}`)}>
+              <Button icon={<ClockCircleOutlined />} onClick={() => navigate(`/contracts/${relatedContract.id}#contract-timeline`)}>
                 流转回看
               </Button>
             </>
@@ -508,6 +551,67 @@ const QuotationDetail = () => {
             </Button>
           )}
         </div>
+      </div>
+
+      <div style={{ background: '#fafafa', border: '1px solid #f0f0f0', borderRadius: 8, padding: '16px 20px', marginBottom: 24 }}>
+        <Row gutter={24}>
+          <Col span={8}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <UserOutlined style={{ color: '#1890ff', fontSize: 16 }} />
+              <span style={{ color: '#666', fontSize: 13 }}>待处理角色：</span>
+              <Tag color={pendingRole.role === 'operation_manager' ? 'purple' : 'blue'} style={{ margin: 0 }}>
+                {pendingRole.roleName}
+              </Tag>
+              <span style={{ color: '#333', fontWeight: 500 }}>{pendingRole.action}</span>
+            </div>
+          </Col>
+          <Col span={8}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              {latestReview ? (
+                <>
+                  <CommentOutlined style={{ color: latestReview.title === 'reject' ? '#ff4d4f' : '#52c41a', fontSize: 16 }} />
+                  <span style={{ color: '#666', fontSize: 13 }}>最近审核：</span>
+                  <span style={{ 
+                    color: latestReview.title === 'reject' ? '#ff4d4f' : '#52c41a', 
+                    fontWeight: 500,
+                    maxWidth: 200,
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap'
+                  }} title={quotation.approvalComment || latestReview.description}>
+                    {quotation.approvalComment || latestReview.description}
+                  </span>
+                </>
+              ) : (
+                <>
+                  <CommentOutlined style={{ color: '#bfbfbf', fontSize: 16 }} />
+                  <span style={{ color: '#999', fontSize: 13 }}>最近审核：暂无审核记录</span>
+                </>
+              )}
+            </div>
+          </Col>
+          <Col span={8}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              {latestOperation ? (
+                <>
+                  <ClockCircleOutlined style={{ color: '#722ed1', fontSize: 16 }} />
+                  <span style={{ color: '#666', fontSize: 13 }}>最近操作：</span>
+                  <span style={{ color: '#333', fontWeight: 500, maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={latestOperation.description}>
+                    {latestOperation.description}
+                  </span>
+                  <span style={{ color: '#999', fontSize: 12, marginLeft: 4 }}>
+                    · {getTimeFromNow(latestOperation.timestamp)}
+                  </span>
+                </>
+              ) : (
+                <>
+                  <ClockCircleOutlined style={{ color: '#bfbfbf', fontSize: 16 }} />
+                  <span style={{ color: '#999', fontSize: 13 }}>最近操作：暂无</span>
+                </>
+              )}
+            </div>
+          </Col>
+        </Row>
       </div>
 
       {property && (
@@ -723,23 +827,51 @@ const QuotationDetail = () => {
         />
       </div>
 
-      <div className="detail-section">
+      <div className="detail-section" id="quotation-timeline">
         <h2 className="detail-section-title">流转时间线</h2>
         <div className="timeline-container">
           {timeline.length > 0 ? (
             <Timeline
-              items={timeline.map((event) => ({
-                color: event.newStatus ? 'blue' : 'gray',
-                children: (
-                  <div>
-                    <div style={{ fontWeight: 500 }}>{event.title}</div>
-                    <div style={{ color: '#666', margin: '4px 0' }}>{event.description}</div>
-                    <div style={{ fontSize: 12, color: '#999' }}>
-                      {event.operator} ({event.operatorRole === 'rental_consultant' ? '租赁顾问' : event.operatorRole === 'operation_manager' ? '运营经理' : '财务'}) · {formatDate(event.timestamp)}
+              items={timeline.map((event) => {
+                const isReview = event.title === 'approve' || event.title === 'reject';
+                const isReject = event.title === 'reject';
+                return {
+                  color: isReject ? 'red' : isReview ? 'green' : event.newStatus ? 'blue' : 'gray',
+                  dot: isReview ? (isReject ? <CloseOutlined /> : <CheckOutlined />) : undefined,
+                  children: (
+                    <div style={isReview ? {
+                      background: isReject ? '#fff2f0' : '#f6ffed',
+                      border: `1px solid ${isReject ? '#ffccc7' : '#b7eb8f'}`,
+                      borderRadius: 8,
+                      padding: '12px 16px',
+                      marginBottom: 8,
+                    } : {}}>
+                      <div style={{ fontWeight: 500 }}>
+                        {event.title === 'approve' ? '审核通过' :
+                         event.title === 'reject' ? '退回修改' :
+                         event.title === 'submit' ? '提交报价' :
+                         event.title === 'create' ? '创建报价' :
+                         event.title === 'edit' ? '编辑报价' :
+                         event.title === 'expire' ? '报价过期' :
+                         event.title}
+                      </div>
+                      <div style={{ color: '#666', margin: '4px 0' }}>{event.description}</div>
+                      {isReview && (event.details?.approvalComment || event.details?.reviewComment || quotation.approvalComment) && (
+                        <Alert
+                          type={isReject ? 'error' : 'success'}
+                          showIcon
+                          message={isReject ? '退回原因' : '审核意见'}
+                          description={event.details?.approvalComment || event.details?.reviewComment || quotation.approvalComment}
+                          style={{ marginTop: 8, fontSize: 13 }}
+                        />
+                      )}
+                      <div style={{ fontSize: 12, color: '#999', marginTop: 4 }}>
+                        {event.operator} ({event.operatorRole === 'rental_consultant' ? '租赁顾问' : event.operatorRole === 'operation_manager' ? '运营经理' : '财务'}) · {formatDate(event.timestamp)}
+                      </div>
                     </div>
-                  </div>
-                ),
-              }))}
+                  ),
+                };
+              })}
             />
           ) : (
             <Empty description="暂无流转记录" />
@@ -1027,7 +1159,7 @@ const QuotationDetail = () => {
               size="large"
               onClick={() => {
                 setContractSuccessVisible(false);
-                navigate(`/contracts/${newlyCreatedContract?.id}`);
+                navigate(`/contracts/${newlyCreatedContract?.id}#contract-timeline`);
               }}
             >
               查看合同详情
@@ -1037,7 +1169,7 @@ const QuotationDetail = () => {
               size="large"
               onClick={() => {
                 setContractSuccessVisible(false);
-                navigate(`/contracts/${newlyCreatedContract?.id}`);
+                navigate(`/contracts/${newlyCreatedContract?.id}#contract-timeline`);
               }}
             >
               流转回看
