@@ -13,7 +13,8 @@ const props = defineProps<{
 const emit = defineEmits<{
   'update:selectedIds': [ids: string[]]
   open: [task: AccountingTask]
-  quickAction: [task: AccountingTask, action: string]
+  action: [task: AccountingTask, action: string]
+  batchAction: [action: string, taskIds: string[]]
 }>()
 
 const filteredTasks = computed(() => {
@@ -60,31 +61,44 @@ const toggleAll = () => {
 }
 
 const primaryAction = computed(() => {
-  const map: Record<Role, Record<string, string>> = {
+  const map: Record<Role, Record<string, { label: string; action: string }>> = {
     accountant: {
-      pending_accounting: '开始记账',
-      accounting: '继续记账',
-      review_reject: '修正凭证',
-      pending_bill: '等待票据'
+      pending_bill: { label: '等待票据', action: '' },
+      pending_accounting: { label: '开始记账', action: 'start_accounting' },
+      accounting: { label: '继续记账', action: 'open' },
+      review_reject: { label: '修正凭证', action: 'fix_done' },
+      pending_review: { label: '待复核', action: 'open' },
+      reviewing: { label: '复核中', action: 'open' },
+      review_pass: { label: '查看报告', action: 'open' },
+      completed: { label: '查看详情', action: 'open' }
     },
     manager: {
-      pending_bill: '催交票据',
-      pending_accounting: '上传票据',
-      review_reject: '同步问题'
+      pending_bill: { label: '催交票据', action: 'remind_bill' },
+      pending_accounting: { label: '查看进度', action: 'open' },
+      accounting: { label: '查看进度', action: 'open' },
+      review_reject: { label: '同步问题', action: 'communicate' },
+      pending_review: { label: '查看进度', action: 'open' },
+      reviewing: { label: '查看进度', action: 'open' },
+      review_pass: { label: '跟进完成', action: 'open' },
+      completed: { label: '查看详情', action: 'open' }
     },
     supervisor: {
-      pending_review: '开始复核',
-      reviewing: '继续复核',
-      review_pass: '查看报告',
-      completed: '查看详情'
+      pending_bill: { label: '查看详情', action: 'open' },
+      pending_accounting: { label: '查看详情', action: 'open' },
+      accounting: { label: '查看详情', action: 'open' },
+      review_reject: { label: '查看详情', action: 'open' },
+      pending_review: { label: '开始复核', action: 'start_review' },
+      reviewing: { label: '继续复核', action: 'open' },
+      review_pass: { label: '完成归档', action: 'complete' },
+      completed: { label: '查看详情', action: 'open' }
     }
   }
   return map
 })
 
-const getAction = (task: AccountingTask) => {
+const getActionItem = (task: AccountingTask) => {
   const r = primaryAction.value[props.role]
-  return r && r[task.status] ? r[task.status] : '查看详情'
+  return (r && r[task.status]) || { label: '查看详情', action: 'open' }
 }
 </script>
 
@@ -104,10 +118,10 @@ const getAction = (task: AccountingTask) => {
         </label>
       </div>
       <div v-if="selectedIds.length > 0" class="toolbar-actions">
-        <button class="batch-btn secondary">批量导出</button>
-        <button v-if="role === 'supervisor'" class="batch-btn primary">批量通过</button>
-        <button v-if="role === 'manager'" class="batch-btn primary">批量催票</button>
-        <button v-if="role === 'accountant'" class="batch-btn primary">批量标记待复核</button>
+        <button class="batch-btn secondary" @click="emit('batchAction', 'export', selectedIds)">批量导出</button>
+        <button v-if="role === 'supervisor'" class="batch-btn primary" @click="emit('batchAction', 'batch_pass', selectedIds)">批量通过</button>
+        <button v-if="role === 'manager'" class="batch-btn primary" @click="emit('batchAction', 'batch_remind', selectedIds)">批量催票</button>
+        <button v-if="role === 'accountant'" class="batch-btn primary" @click="emit('batchAction', 'batch_submit_review', selectedIds)">批量标记待复核</button>
         <button class="batch-btn ghost" @click="$emit('update:selectedIds', [])">取消选择</button>
       </div>
       <div v-else class="toolbar-right">
@@ -236,10 +250,13 @@ const getAction = (task: AccountingTask) => {
         </div>
 
         <div class="col-action">
-          <button class="primary-btn" @click.stop="emit('open', task)">
-            {{ getAction(task) }}
+          <button
+            class="primary-btn"
+            @click.stop="getActionItem(task).action === 'open' ? emit('open', task) : emit('action', task, getActionItem(task).action)"
+          >
+            {{ getActionItem(task).label }}
           </button>
-          <button class="ghost-btn" @click.stop="emit('quickAction', task, 'communicate')">沟通</button>
+          <button class="ghost-btn" @click.stop="emit('action', task, 'communicate')">沟通</button>
         </div>
       </div>
 

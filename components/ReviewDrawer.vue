@@ -23,7 +23,11 @@ const actionMeta = computed(() => {
     pass: { label: '复核通过', color: 'var(--color-success)', icon: '✓' },
     reject: { label: '驳回', color: 'var(--color-danger)', icon: '✕' },
     rework: { label: '开始修正', color: 'var(--color-warning)', icon: '↻' },
-    complete: { label: '完成归档', color: 'var(--color-success)', icon: '★' }
+    complete: { label: '完成归档', color: 'var(--color-success)', icon: '★' },
+    remind: { label: '催交票据', color: 'var(--color-warning)', icon: '📨' },
+    communicate: { label: '沟通', color: 'var(--color-info)', icon: '💬' },
+    submit_bill: { label: '票据就绪', color: 'var(--color-info)', icon: '📋' },
+    start_review: { label: '开始复核', color: 'var(--color-warning)', icon: '🔍' }
   }
   return map
 })
@@ -50,11 +54,17 @@ const actionButtons = computed(() => {
     }
   }
   if (r === 'manager') {
-    if (s === 'pending_bill') btns.push({ key: 'remind_bill', label: '再次催交票据', tone: 'warning' })
+    if (s === 'pending_bill') {
+      btns.push({ key: 'submit_bill', label: '标记票据已齐全', tone: 'primary' })
+      btns.push({ key: 'remind_bill', label: '再次催交票据', tone: 'warning' })
+    }
     btns.push({ key: 'contact_client', label: '联系客户', tone: 'ghost' })
   }
   if (r === 'supervisor') {
-    if (s === 'pending_review' || s === 'reviewing') {
+    if (s === 'pending_review') {
+      btns.push({ key: 'start_review', label: '开始复核', tone: 'primary' })
+    }
+    if (s === 'reviewing' || s === 'pending_review') {
       btns.push({ key: 'pass', label: '复核通过', tone: 'success' })
       btns.push({ key: 'reject', label: '驳回修正', tone: 'danger' })
     }
