@@ -21,7 +21,7 @@ export class AuthService {
 
   constructor(private jwtService: JwtService) {}
 
-  async login(username: string, password: string): Promise<{ access_token: string; user: Omit<MockUser, 'password'> }> {
+  async login(username: string, password: string): Promise<{ access_token: string; user: Omit<MockUser, 'password'> } | null> {
     const user = this.users.find(u => u.username === username && u.password === password);
     if (!user) {
       return null;

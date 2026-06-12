@@ -33,7 +33,7 @@ let OverviewController = class OverviewController {
 exports.OverviewController = OverviewController;
 __decorate([
     (0, common_1.Get)('disputes'),
-    (0, roles_decorator_1.Roles)('operations', 'finance'),
+    (0, roles_decorator_1.Roles)('consultant', 'operations', 'finance'),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", []),
     __metadata("design:returntype", void 0)

@@ -13,7 +13,7 @@ export declare class AuthService {
     login(username: string, password: string): Promise<{
         access_token: string;
         user: Omit<MockUser, 'password'>;
-    }>;
+    } | null>;
     validateUser(payload: {
         sub: string;
         role: string;

@@ -5,6 +5,7 @@ export declare class ViewingController {
     create(body: any, user: any): import("./viewing.service").Viewing;
     findAll(filters: ViewingFilters): import("./viewing.service").Viewing[];
     getPropertyViewingSummary(propertyId: string): import("./viewing.service").PropertyViewingSummary;
+    getPropertyViewingSummaryLegacy(propertyId: string): import("./viewing.service").PropertyViewingSummary;
     findOne(id: string): import("./viewing.service").Viewing;
     addFeedback(id: string, body: any, user: any): import("./viewing.service").Viewing;
 }

@@ -234,7 +234,7 @@ async function bootstrap() {
       area: 250,
       rentPrice: 42000,
       deposit: 84000,
-      currentTenant: null,
+      currentTenant: undefined,
       description: '整层东南北三面采光，豪华装修',
     },
     CONSULTANT.id,
@@ -260,10 +260,6 @@ async function bootstrap() {
   );
   propertyService.updateStatus(prop4.id, 'viewing', CONSULTANT.id, CONSULTANT.name, CONSULTANT.role);
   propertyService.updateStatus(prop4.id, 'leased', CONSULTANT.id, CONSULTANT.name, CONSULTANT.role);
-  propertyService.updateStatus(prop4.id, 'handover_pending', CONSULTANT.id, CONSULTANT.name, CONSULTANT.role);
-  propertyService.updateStatus(prop4.id, 'handover_accepted', OPERATIONS.id, OPERATIONS.name, OPERATIONS.role);
-  propertyService.updateStatus(prop4.id, 'occupied', OPERATIONS.id, OPERATIONS.name, OPERATIONS.role);
-  console.log(`  🏢 房源4: ${prop4.building} ${prop4.floor}层${prop4.unit} (状态: occupied，已入驻)`);
 
   const handover4 = handoverService.submit(
     { propertyId: prop4.id },
@@ -285,6 +281,7 @@ async function bootstrap() {
     CONSULTANT.role,
   );
   keyTransferService.confirmReception(keyTransfer4.id, OPERATIONS.id, OPERATIONS.name, OPERATIONS.role);
+  console.log(`  🏢 房源4: ${prop4.building} ${prop4.floor}层${prop4.unit} (状态: ${propertyService.findOne(prop4.id).status}，已入驻)`);
   console.log(`  🔑 钥匙移交4已完成移交`);
 
   console.log('');

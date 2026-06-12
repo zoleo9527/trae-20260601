@@ -7,7 +7,7 @@ export class AuthController {
   constructor(private authService: AuthService) {}
 
   @Post('login')
-  async login(@Body() body: { username: string; password: string }) {
+  async login(@Body() body: { username: string; password: string }): Promise<{ access_token: string; user: any }> {
     const result = await this.authService.login(body.username, body.password);
     if (!result) {
       throw new UnauthorizedException('用户名或密码错误');

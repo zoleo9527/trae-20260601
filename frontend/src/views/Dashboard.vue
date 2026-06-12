@@ -116,20 +116,20 @@
           <div class="section-title">📋 交付流转状态</div>
           <div class="flow-section">
             <div class="flow-title">交房验收流转</div>
-            <el-steps finish-status="success" align-center :space="100%" size="small">
-              <el-step title="提交" :description="overview?.handoverFlow?.pendingCount || 0 + ' 待确认'" />
-              <el-step title="确认" :description="overview?.handoverFlow?.confirmedCount || 0 + ' 通过'" />
-              <el-step title="争议" :status="(overview?.handoverFlow?.disputedCount || 0) > 0 ? 'error' : 'success'" :description="overview?.handoverFlow?.disputedCount || 0 + ' 异议'" />
-              <el-step title="解决" :description="overview?.handoverFlow?.resolvedCount || 0 + ' 完成'" />
+            <el-steps finish-status="success" align-center :space="'100%'" size="small">
+              <el-step title="提交" :description="(overview?.handoverFlow?.pendingCount || 0) + ' 待确认'" />
+              <el-step title="确认" :description="(overview?.handoverFlow?.confirmedCount || 0) + ' 通过'" />
+              <el-step title="争议" :status="(overview?.handoverFlow?.disputedCount || 0) > 0 ? 'error' : 'success'" :description="(overview?.handoverFlow?.disputedCount || 0) + ' 异议'" />
+              <el-step title="解决" :description="(overview?.handoverFlow?.resolvedCount || 0) + ' 完成'" />
             </el-steps>
           </div>
           <div class="flow-section" style="margin-top: 24px">
             <div class="flow-title">押金结算流转</div>
-            <el-steps finish-status="success" align-center :space="100%" size="small">
-              <el-step title="发起" :description="overview?.depositFlow?.pendingCount || 0 + ' 待确认'" />
-              <el-step title="确认" :description="overview?.depositFlow?.confirmedCount || 0 + ' 通过'" />
-              <el-step title="争议" :status="(overview?.depositFlow?.disputedCount || 0) > 0 ? 'error' : 'success'" :description="overview?.depositFlow?.disputedCount || 0 + ' 异议'" />
-              <el-step title="结算" :description="overview?.depositFlow?.settledCount || 0 + ' 完成'" />
+            <el-steps finish-status="success" align-center :space="'100%'" size="small">
+              <el-step title="发起" :description="(overview?.depositFlow?.pendingCount || 0) + ' 待确认'" />
+              <el-step title="确认" :description="(overview?.depositFlow?.confirmedCount || 0) + ' 通过'" />
+              <el-step title="争议" :status="(overview?.depositFlow?.disputedCount || 0) > 0 ? 'error' : 'success'" :description="(overview?.depositFlow?.disputedCount || 0) + ' 异议'" />
+              <el-step title="结算" :description="(overview?.depositFlow?.settledCount || 0) + ' 完成'" />
             </el-steps>
           </div>
         </div>

@@ -46,8 +46,13 @@ export class ViewingController {
     return this.viewingService.findAll(filters);
   }
 
-  @Get('property/:propertyId/summary')
+  @Get('summary/:propertyId')
   getPropertyViewingSummary(@Param('propertyId') propertyId: string) {
+    return this.viewingService.getPropertyViewingSummary(propertyId);
+  }
+
+  @Get('property/:propertyId/summary')
+  getPropertyViewingSummaryLegacy(@Param('propertyId') propertyId: string) {
     return this.viewingService.getPropertyViewingSummary(propertyId);
   }
 

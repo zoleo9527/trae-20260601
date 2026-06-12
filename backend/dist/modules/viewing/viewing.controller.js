@@ -40,6 +40,9 @@ let ViewingController = class ViewingController {
     getPropertyViewingSummary(propertyId) {
         return this.viewingService.getPropertyViewingSummary(propertyId);
     }
+    getPropertyViewingSummaryLegacy(propertyId) {
+        return this.viewingService.getPropertyViewingSummary(propertyId);
+    }
     findOne(id) {
         return this.viewingService.findOne(id);
     }
@@ -69,12 +72,19 @@ __decorate([
     __metadata("design:returntype", void 0)
 ], ViewingController.prototype, "findAll", null);
 __decorate([
-    (0, common_1.Get)('property/:propertyId/summary'),
+    (0, common_1.Get)('summary/:propertyId'),
     __param(0, (0, common_1.Param)('propertyId')),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", void 0)
 ], ViewingController.prototype, "getPropertyViewingSummary", null);
+__decorate([
+    (0, common_1.Get)('property/:propertyId/summary'),
+    __param(0, (0, common_1.Param)('propertyId')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", void 0)
+], ViewingController.prototype, "getPropertyViewingSummaryLegacy", null);
 __decorate([
     (0, common_1.Get)(':id'),
     __param(0, (0, common_1.Param)('id')),

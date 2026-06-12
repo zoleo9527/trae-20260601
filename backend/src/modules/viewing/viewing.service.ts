@@ -73,7 +73,7 @@ export class ViewingService {
       result = result.filter((v) => v.consultantId === filters.consultantId);
     }
     if (filters?.feedback !== undefined) {
-      const hasFeedback = filters.feedback === 'true' || filters.feedback === true;
+      const hasFeedback = String(filters.feedback) === 'true';
       result = result.filter((v) =>
         hasFeedback ? v.feedback !== undefined : v.feedback === undefined,
       );

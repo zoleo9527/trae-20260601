@@ -11,7 +11,7 @@ export class OverviewController {
   constructor(private readonly overviewService: OverviewService) {}
 
   @Get('disputes')
-  @Roles('operations', 'finance')
+  @Roles('consultant', 'operations', 'finance')
   getDisputeOverview() {
     return this.overviewService.getDisputeOverview();
   }
