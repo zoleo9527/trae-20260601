@@ -1,4 +1,4 @@
-import { db } from './db.js';
+const db = window.db;
 
 document.addEventListener('DOMContentLoaded', async () => {
     await init();

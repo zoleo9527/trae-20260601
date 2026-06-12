@@ -161,4 +161,5 @@ window.addEventListener('load', async () => {
     }
 });
 
-export { db };
+window.AuctionDB = AuctionDB;
+window.db = db;
