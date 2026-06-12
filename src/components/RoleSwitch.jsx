@@ -1,8 +1,8 @@
 import { Select } from 'antd'
-import { useAuth } from '../hooks/useAuth'
+import { useApp } from '../context/AppContext'
 
 function RoleSwitch() {
-  const { currentUser, login, users } = useAuth()
+  const { currentUser, login, users } = useApp()
 
   const handleChange = (userId) => {
     const user = users.find(u => u.id === userId)

@@ -2,7 +2,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { Card, Tag, Button, Timeline, Descriptions, Modal, Form, Input, message } from 'antd'
 import { ArrowLeftOutlined, CheckOutlined, CloseOutlined, EditOutlined } from '@ant-design/icons'
 import { useState } from 'react'
-import { useAuth } from '../hooks/useAuth'
+import { useApp } from '../context/AppContext'
 import { usePregnancyTestStore } from '../store/useStore'
 import { statusMap, resultMap } from '../data/mockData'
 
@@ -10,7 +10,7 @@ function PregnancyTestDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
   const { tests, updateTestStatus, updateTest } = usePregnancyTestStore()
-  const { currentUser, hasPermission } = useAuth()
+  const { currentUser, hasPermission } = useApp()
   const [isEditModalVisible, setIsEditModalVisible] = useState(false)
   const [editForm] = Form.useForm()
   

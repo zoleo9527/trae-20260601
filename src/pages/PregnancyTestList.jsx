@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Table, Tag, Button, Input, Select, Space, Modal, Form, message } from 'antd'
 import { EyeOutlined, CheckOutlined, CloseOutlined, EditOutlined, PlusOutlined } from '@ant-design/icons'
 import { useNavigate } from 'react-router-dom'
-import { useAuth } from '../hooks/useAuth'
+import { useApp } from '../context/AppContext'
 import { usePregnancyTestStore } from '../store/useStore'
 import { statusMap, resultMap } from '../data/mockData'
 
@@ -12,7 +12,7 @@ function PregnancyTestList() {
   const [isModalVisible, setIsModalVisible] = useState(false)
   const [form] = Form.useForm()
   const navigate = useNavigate()
-  const { currentUser, hasPermission } = useAuth()
+  const { currentUser, hasPermission } = useApp()
   const { tests, addTest, updateTestStatus } = usePregnancyTestStore()
 
   const filteredTests = tests.filter(test => {
@@ -59,7 +59,7 @@ function PregnancyTestList() {
       addTest({
         pigId: values.pigId,
         sowNumber: values.sowNumber,
-        parity: values.parity,
+        parity: parseInt(values.parity, 10),
         testDate: values.testDate,
         testMethod: values.testMethod,
         result: values.result,
@@ -215,7 +215,7 @@ function PregnancyTestList() {
           <Form.Item name="sowNumber" label="耳号" rules={[{ required: true }]}>
             <Input />
           </Form.Item>
-          <Form.Item name="parity" label="胎次" rules={[{ required: true, type: 'number' }]}>
+          <Form.Item name="parity" label="胎次" rules={[{ required: true, type: 'number', min: 1 }]}>
             <Input type="number" />
           </Form.Item>
           <Form.Item name="testDate" label="检测日期" rules={[{ required: true }]}>

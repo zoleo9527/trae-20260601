@@ -1,8 +1,8 @@
 import { useState } from 'react'
-import { Table, Tag, Button, Input, Select, Space, Modal, Form, message, Card } from 'antd'
+import { Table, Tag, Button, Input, Select, Space, Modal, Form, message, Card, InputNumber } from 'antd'
 import { EyeOutlined, PlusOutlined, UserOutlined } from '@ant-design/icons'
 import { useNavigate } from 'react-router-dom'
-import { useAuth } from '../hooks/useAuth'
+import { useApp } from '../context/AppContext'
 import { usePregnancyTestStore } from '../store/useStore'
 import { useFarrowingRoomStore } from '../store/useStore'
 
@@ -11,9 +11,10 @@ function FarrowingRoomList() {
   const [isModalVisible, setIsModalVisible] = useState(false)
   const [isAssignModalVisible, setIsAssignModalVisible] = useState(false)
   const [selectedRoomId, setSelectedRoomId] = useState(null)
-  const [form] = Form.useForm()
+  const [createForm] = Form.useForm()
+  const [assignForm] = Form.useForm()
   const navigate = useNavigate()
-  const { currentUser, hasPermission } = useAuth()
+  const { currentUser, hasPermission } = useApp()
   const { tests, assignToRoom } = usePregnancyTestStore()
   const { rooms, addRoom, addAssignment } = useFarrowingRoomStore()
 
@@ -28,12 +29,12 @@ function FarrowingRoomList() {
   }
 
   const showCreateModal = () => {
-    form.resetFields()
+    createForm.resetFields()
     setIsModalVisible(true)
   }
 
   const handleCreate = () => {
-    form.validateFields().then(values => {
+    createForm.validateFields().then(values => {
       addRoom({
         roomNumber: values.roomNumber,
         bedCount: values.bedCount,
@@ -46,12 +47,12 @@ function FarrowingRoomList() {
 
   const showAssignModal = (roomId) => {
     setSelectedRoomId(roomId)
-    form.resetFields()
+    assignForm.resetFields()
     setIsAssignModalVisible(true)
   }
 
   const handleAssign = () => {
-    form.validateFields().then(values => {
+    assignForm.validateFields().then(values => {
       const room = rooms.find(r => r.id === selectedRoomId)
       const test = tests.find(t => t.id === values.pregnancyTestId)
       
@@ -190,12 +191,12 @@ function FarrowingRoomList() {
         onCancel={() => setIsModalVisible(false)}
         onOk={handleCreate}
       >
-        <Form form={form} layout="vertical">
+        <Form form={createForm} layout="vertical">
           <Form.Item name="roomNumber" label="产房名称" rules={[{ required: true }]}>
             <Input />
           </Form.Item>
-          <Form.Item name="bedCount" label="床位数量" rules={[{ required: true, type: 'number' }]}>
-            <Input type="number" />
+          <Form.Item name="bedCount" label="床位数量" rules={[{ required: true, type: 'number', min: 1 }]}>
+            <InputNumber min={1} style={{ width: '100%' }} />
           </Form.Item>
         </Form>
       </Modal>
@@ -206,7 +207,7 @@ function FarrowingRoomList() {
         onCancel={() => setIsAssignModalVisible(false)}
         onOk={handleAssign}
       >
-        <Form form={form} layout="vertical">
+        <Form form={assignForm} layout="vertical">
           <Form.Item name="pregnancyTestId" label="选择妊检记录" rules={[{ required: true }]}>
             <Select
               options={availableTests.map(test => ({
@@ -215,8 +216,8 @@ function FarrowingRoomList() {
               }))}
             />
           </Form.Item>
-          <Form.Item name="bedNumber" label="床位号" rules={[{ required: true, type: 'number' }]}>
-            <Input type="number" />
+          <Form.Item name="bedNumber" label="床位号" rules={[{ required: true, type: 'number', min: 1 }]}>
+            <InputNumber min={1} style={{ width: '100%' }} />
           </Form.Item>
         </Form>
       </Modal>
