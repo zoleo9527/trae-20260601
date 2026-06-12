@@ -311,6 +311,9 @@ router.post('/:id/approve', authMiddleware, roleMiddleware('review_secretary'), 
 
     const now = new Date().toISOString();
 
+    const project = await db.get('SELECT * FROM projects WHERE id = ?', [arrangementObj.projectId]);
+    const projectObj = project ? convertFields.project(project) : null;
+
     await db.run(
       `UPDATE project_arrangements SET 
         status = 'approved',
@@ -323,12 +326,19 @@ router.post('/:id/approve', authMiddleware, roleMiddleware('review_secretary'), 
       [user.id, user.name, reviewComment, now, now, req.params.id]
     );
 
+    const nextHandlerId = projectObj?.financeId || '';
+    const nextHandlerName = projectObj?.financeName || '';
+    const nextHandlerRole = 'finance';
+
     await db.run(
       `UPDATE projects SET 
         status = 'arrangement_approved',
+        current_handler_id = ?,
+        current_handler_name = ?,
+        current_handler_role = ?,
         updated_at = ?
        WHERE id = ?`,
-      [now, arrangementObj.projectId]
+      [nextHandlerId, nextHandlerName, nextHandlerRole, now, arrangementObj.projectId]
     );
 
     await logOperation(
@@ -347,84 +357,13 @@ router.post('/:id/approve', authMiddleware, roleMiddleware('review_secretary'), 
       'project',
       arrangementObj.projectId,
       '更新项目状态',
-      '项目状态变更为：安排已通过',
+      '项目状态变更为：安排已通过，等待财务确认',
       user.id,
       user.name,
       user.role,
       'arrangement_reviewing',
       'arrangement_approved'
     );
-
-    const expertIds = arrangementObj.expertIds || [];
-    if (expertIds.length > 0) {
-      const now = new Date().toISOString();
-      const scheduledArrivalTime = `${arrangementObj.biddingDate}T${arrangementObj.biddingStartTime || '09:00:00'}`;
-
-      for (const expertId of expertIds) {
-        const expert = await db.get('SELECT * FROM experts WHERE id = ?', [expertId]);
-        const expertObj = expert ? convertFields.expert(expert) : null;
-
-        const supervisionExpertId = arrangementObj.supervisionExpertId;
-        const isSupervision = supervisionExpertId && expertId === supervisionExpertId ? 1 : 0;
-
-        const signinId = uuidv4();
-        await db.run(
-          `INSERT INTO expert_signin_records (
-            id, project_id, project_no, project_name, arrangement_id,
-            expert_id, expert_name, expertise, status, scheduled_arrival_time,
-            is_supervision, attachments, created_at, updated_at
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-          [
-            signinId,
-            arrangementObj.projectId,
-            arrangementObj.projectNo,
-            arrangementObj.projectName,
-            arrangementObj.id,
-            expertId,
-            expertObj?.name || `专家-${expertId.slice(0, 6)}`,
-            expertObj?.expertise?.[0] || '未分类',
-            'pending',
-            scheduledArrivalTime,
-            isSupervision,
-            '[]',
-            now,
-            now,
-          ]
-        );
-
-        await logOperation(
-          'signin',
-          signinId,
-          '初始化签到记录',
-          `安排审批通过，自动创建专家「${expertObj?.name || expertId}」签到记录`,
-          user.id,
-          user.name,
-          user.role,
-          undefined,
-          'pending'
-        );
-      }
-
-      await db.run(
-        `UPDATE projects SET 
-          status = 'expert_signin_pending',
-          updated_at = ?
-         WHERE id = ?`,
-        [now, arrangementObj.projectId]
-      );
-
-      await logOperation(
-        'project',
-        arrangementObj.projectId,
-        '更新项目状态',
-        '已初始化专家签到，项目状态变更为：待专家签到',
-        user.id,
-        user.name,
-        user.role,
-        'arrangement_approved',
-        'expert_signin_pending'
-      );
-    }
 
     const updated = await db.get('SELECT * FROM project_arrangements WHERE id = ?', [req.params.id]);
     const updatedObj = convertFields.arrangement(updated);

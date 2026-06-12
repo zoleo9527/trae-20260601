@@ -8,6 +8,7 @@ import projectsRouter from './routes/projects';
 import arrangementsRouter from './routes/arrangements';
 import signinRouter from './routes/signin';
 import exceptionsRouter from './routes/exceptions';
+import expertsRouter from './routes/experts';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -21,6 +22,7 @@ app.use('/api/projects', projectsRouter);
 app.use('/api/arrangements', arrangementsRouter);
 app.use('/api/signin', signinRouter);
 app.use('/api/exceptions', exceptionsRouter);
+app.use('/api/experts', expertsRouter);
 
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', message: '招标代理公司-开评标安排与专家签到系统运行正常' });

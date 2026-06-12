@@ -12,6 +12,7 @@ import {
   SigninAnalysis,
   ResponsibilityMatrix,
   TimelineEvent,
+  OperationLog,
   statusDisplay,
   arrangementStatusDisplay,
   signinStatusDisplay,
@@ -205,15 +206,40 @@ router.get('/:id/analysis', authMiddleware, async (req: AuthRequest, res) => {
 
 router.get('/:id/timeline', authMiddleware, async (req: AuthRequest, res) => {
   try {
-    const logs = await getOperationLogs('project', req.params.id);
-    const exceptions = await getProjectExceptions(req.params.id);
-
     const db = await getDb();
-    const project = await db.get('SELECT * FROM projects WHERE id = ?', [req.params.id]);
+    const projectId = req.params.id;
+
+    const projectLogs = await getOperationLogs('project', projectId);
+
+    const arrangements = await db.all(
+      'SELECT id FROM project_arrangements WHERE project_id = ?',
+      [projectId]
+    );
+    const arrangementLogs: OperationLog[] = [];
+    for (const arr of arrangements) {
+      const logs = await getOperationLogs('arrangement', arr.id);
+      arrangementLogs.push(...logs);
+    }
+
+    const signinRecords = await db.all(
+      'SELECT id FROM expert_signin_records WHERE project_id = ?',
+      [projectId]
+    );
+    const signinLogs: OperationLog[] = [];
+    for (const rec of signinRecords) {
+      const logs = await getOperationLogs('signin', rec.id);
+      signinLogs.push(...logs);
+    }
+
+    const allLogs = [...projectLogs, ...arrangementLogs, ...signinLogs];
+
+    const exceptions = await getProjectExceptions(projectId);
+
+    const project = await db.get('SELECT * FROM projects WHERE id = ?', [projectId]);
     const projectObj = project ? convertFields.project(project) : null;
     const attachments = projectObj ? projectObj.attachments : [];
 
-    const timeline: TimelineEvent[] = generateTimeline(logs, exceptions, attachments);
+    const timeline: TimelineEvent[] = generateTimeline(allLogs, exceptions, attachments);
 
     res.json({ events: timeline });
   } catch (error) {
@@ -406,6 +432,88 @@ router.post('/:id/transition', authMiddleware, async (req: AuthRequest, res) => 
         nextHandler: nextHandlerName ? `${roleNames[nextHandlerRole!]} - ${nextHandlerName}` : null,
       }
     );
+
+    if (toStatus === 'expert_signin_pending') {
+      const arrangement = await db.get(
+        'SELECT * FROM project_arrangements WHERE project_id = ? ORDER BY created_at DESC LIMIT 1',
+        [req.params.id]
+      );
+      const arrangementObj = arrangement ? convertFields.arrangement(arrangement) : null;
+
+      if (arrangementObj) {
+        const expertIds = arrangementObj.expertIds || [];
+        const scheduledArrivalTime = `${arrangementObj.biddingDate}T${arrangementObj.biddingStartTime || '09:00:00'}`;
+
+        for (const expertId of expertIds) {
+          const existing = await db.get(
+            'SELECT id FROM expert_signin_records WHERE arrangement_id = ? AND expert_id = ?',
+            [arrangementObj.id, expertId]
+          );
+          if (existing) continue;
+
+          const expert = await db.get('SELECT * FROM experts WHERE id = ?', [expertId]);
+          const expertObj = expert ? convertFields.expert(expert) : null;
+
+          const isSupervision = arrangementObj.supervisionExpertId && expertId === arrangementObj.supervisionExpertId ? 1 : 0;
+
+          const signinId = uuidv4();
+          await db.run(
+            `INSERT INTO expert_signin_records (
+              id, project_id, project_no, project_name, arrangement_id,
+              expert_id, expert_name, expertise, status, scheduled_arrival_time,
+              is_supervision, attachments, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [
+              signinId,
+              projectObj.id,
+              projectObj.projectNo,
+              projectObj.name,
+              arrangementObj.id,
+              expertId,
+              expertObj?.name || `专家-${expertId.slice(0, 6)}`,
+              expertObj?.expertise?.[0] || '未分类',
+              'pending',
+              scheduledArrivalTime,
+              isSupervision,
+              '[]',
+              now,
+              now,
+            ]
+          );
+
+          await logOperation(
+            'signin',
+            signinId,
+            '初始化签到记录',
+            `准备专家签到，创建专家「${expertObj?.name || expertId}」签到记录`,
+            user.id,
+            user.name,
+            user.role,
+            undefined,
+            'pending'
+          );
+        }
+
+        await logOperation(
+          'project',
+          req.params.id,
+          '初始化签到记录',
+          `已为 ${expertIds.length} 位专家创建签到记录`,
+          user.id,
+          user.name,
+          user.role,
+          undefined,
+          undefined
+        );
+      }
+    }
+
+    if (toStatus === 'bidding_in_progress') {
+      await db.run(
+        `UPDATE projects SET actual_bidding_date = ? WHERE id = ?`,
+        [now, req.params.id]
+      );
+    }
 
     if (transition.autoTriggerException) {
       const arrangement = await db.get(

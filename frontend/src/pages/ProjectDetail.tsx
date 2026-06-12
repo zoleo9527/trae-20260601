@@ -16,6 +16,7 @@ import {
   Modal,
   Form,
   Input,
+  Select,
   Space,
   Divider,
   Alert,
@@ -31,7 +32,7 @@ import {
 } from '@ant-design/icons';
 import { useNavigate, useParams } from 'react-router-dom';
 import dayjs from 'dayjs';
-import { projectsApi, arrangementsApi, signinApi, exceptionsApi } from '@/services/api';
+import { projectsApi, arrangementsApi, signinApi, exceptionsApi, expertsApi } from '@/services/api';
 import {
   Project,
   ProjectArrangement,
@@ -67,6 +68,7 @@ const ProjectDetail = () => {
   const [rejectModalVisible, setRejectModalVisible] = useState(false);
   const [rejectForm] = Form.useForm();
   const [exceptionModalVisible, setExceptionModalVisible] = useState(false);
+  const [expertsList, setExpertsList] = useState<any[]>([]);
 
   const fetchData = async () => {
     if (!id) return;
@@ -99,11 +101,9 @@ const ProjectDetail = () => {
   const handleCreateArrangement = async () => {
     try {
       const values = await arrangementForm.validateFields();
-      const expertCount = Number(values.expertCount) || 3;
-      const expertIds: string[] = [];
-      for (let i = 0; i < expertCount; i++) {
-        expertIds.push(`expert-placeholder-${Date.now()}-${i}`);
-      }
+      const selectedExpertIds = values.expertIds || [];
+      const supervisionExpertId = values.supervisionExpertId || null;
+      const supervisionExpert = expertsList.find((e) => e.id === supervisionExpertId);
       await arrangementsApi.create({
         projectId: id,
         biddingDate: values.biddingDate,
@@ -111,9 +111,9 @@ const ProjectDetail = () => {
         biddingEndTime: values.biddingEndTime || '18:00:00',
         biddingLocation: values.biddingLocation,
         roomNumber: values.roomNumber || '默认会议室',
-        expertIds,
-        supervisionExpertId: null,
-        supervisionExpertName: null,
+        expertIds: selectedExpertIds,
+        supervisionExpertId,
+        supervisionExpertName: supervisionExpert?.name || null,
         documentPreparation: true,
         venueReservation: true,
         equipmentCheck: false,
@@ -202,6 +202,26 @@ const ProjectDetail = () => {
       fetchData();
     } catch (error) {
       message.error('触发失败');
+    }
+  };
+
+  const handleTransition = async (toStatus: string) => {
+    if (!id) return;
+    try {
+      await projectsApi.transition(id, { toStatus });
+      message.success('状态变更成功');
+      fetchData();
+    } catch (error) {
+      message.error('状态变更失败');
+    }
+  };
+
+  const loadExperts = async () => {
+    try {
+      const data = await expertsApi.list({ status: 'available' });
+      setExpertsList(data);
+    } catch (error) {
+      console.error('获取专家列表失败', error);
     }
   };
 
@@ -751,7 +771,7 @@ const ProjectDetail = () => {
             ]}
           />
         ) : (
-          <Empty description="暂无签到记录。开评标安排审核通过后，系统会自动生成签到记录。" />
+          <Empty description="暂无签到记录。开标完成后，推进到「准备专家签到」阶段时系统会自动生成签到记录。" />
         )}
       </Card>
     </div>
@@ -870,6 +890,83 @@ const ProjectDetail = () => {
         </Descriptions>
       </Card>
 
+      {project.status === 'arrangement_approved' && (
+        <Card size="small" style={{ marginTop: 8 }}>
+          <Space>
+            <span>安排已通过，下一步：</span>
+            <Button type="primary" onClick={() => handleTransition('bidding_pending')}>
+              财务确认
+            </Button>
+          </Space>
+        </Card>
+      )}
+
+      {project.status === 'bidding_pending' && (
+        <Card size="small" style={{ marginTop: 8 }}>
+          <Space>
+            <span>财务已确认，下一步：</span>
+            <Button type="primary" onClick={() => handleTransition('bidding_in_progress')}>
+              开始开标
+            </Button>
+          </Space>
+        </Card>
+      )}
+
+      {project.status === 'bidding_in_progress' && (
+        <Card size="small" style={{ marginTop: 8 }}>
+          <Space>
+            <span>开标进行中，下一步：</span>
+            <Button type="primary" onClick={() => handleTransition('bidding_completed')}>
+              完成开标
+            </Button>
+          </Space>
+        </Card>
+      )}
+
+      {project.status === 'bidding_completed' && (
+        <Card size="small" style={{ marginTop: 8 }}>
+          <Space>
+            <span>开标已完成，下一步：</span>
+            <Button type="primary" onClick={() => handleTransition('expert_signin_pending')}>
+              准备专家签到
+            </Button>
+          </Space>
+        </Card>
+      )}
+
+      {project.status === 'expert_signin_pending' && (
+        <Card size="small" style={{ marginTop: 8 }}>
+          <Space>
+            <span>专家签到准备就绪，下一步：</span>
+            <Button type="primary" onClick={() => handleTransition('expert_signin_in_progress')}>
+              开始签到
+            </Button>
+          </Space>
+        </Card>
+      )}
+
+      {project.status === 'expert_signin_completed' && (
+        <Card size="small" style={{ marginTop: 8 }}>
+          <Space>
+            <span>签到已完成，下一步：</span>
+            <Button type="primary" onClick={() => handleTransition('evaluation_in_progress')}>
+              开始评标
+            </Button>
+          </Space>
+        </Card>
+      )}
+
+      {project.status === 'evaluation_completed' && (
+        <Card size="small" style={{ marginTop: 8 }}>
+          <Space>
+            <span>评标已完成，下一步：</span>
+            <Button type="primary" onClick={() => handleTransition('archived')}>
+              归档
+            </Button>
+          </Space>
+        </Card>
+      )}
+
       <Tabs defaultActiveKey="analysis" items={tabItems} />
 
       <Modal
@@ -894,7 +991,8 @@ const ProjectDetail = () => {
                   biddingDate: arrangement.biddingDate,
                   biddingStartTime: arrangement.biddingStartTime,
                   biddingEndTime: arrangement.biddingEndTime,
-                  expertCount: arrangement.expertCount,
+                  expertIds: arrangement.expertIds || [],
+                  supervisionExpertId: arrangement.supervisionExpertId || undefined,
                 }
               : undefined
           }
@@ -947,10 +1045,35 @@ const ProjectDetail = () => {
             </Col>
           </Row>
           <Form.Item
-            name="expertCount"
-            label="专家人数"
+            name="expertIds"
+            label="评审专家"
+            rules={[{ required: true, message: '请选择评审专家' }]}
           >
-            <Input type="number" min={1} placeholder="请输入专家人数" />
+            <Select
+              mode="multiple"
+              placeholder="请选择评审专家"
+              optionFilterProp="label"
+              options={expertsList.map((e) => ({
+                value: e.id,
+                label: `${e.name}（${e.title} - ${e.organization}）`,
+              }))}
+              onDropdownVisibleChange={(open: boolean) => { if (open) loadExperts(); }}
+            />
+          </Form.Item>
+          <Form.Item
+            name="supervisionExpertId"
+            label="监督专家"
+          >
+            <Select
+              placeholder="请选择监督专家（可选）"
+              allowClear
+              optionFilterProp="label"
+              options={expertsList.map((e) => ({
+                value: e.id,
+                label: `${e.name}（${e.title} - ${e.organization}）`,
+              }))}
+              onDropdownVisibleChange={(open: boolean) => { if (open) loadExperts(); }}
+            />
           </Form.Item>
         </Form>
       </Modal>

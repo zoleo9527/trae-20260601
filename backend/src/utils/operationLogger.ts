@@ -78,17 +78,18 @@ export const generateTimeline = (
 
   logs.forEach((log) => {
     const type: TimelineEvent['type'] = log.oldStatus && log.newStatus ? 'status_change' : 'action';
+    const entityLabel = log.entityType === 'arrangement' ? '【安排】' : log.entityType === 'signin' ? '【签到】' : '';
     events.push({
       id: log.id,
       time: log.timestamp,
       type,
-      title: log.action,
+      title: `${entityLabel}${log.action}`,
       content: log.description,
       operatorId: log.operatorId,
       operatorName: log.operatorName,
       operatorRole: log.operatorRole,
       attachments: [],
-      metadata: log.details,
+      metadata: { ...log.details, entityType: log.entityType },
     });
   });
 
@@ -97,7 +98,7 @@ export const generateTimeline = (
       id: ex.id,
       time: ex.triggeredAt || ex.triggered_at || ex.createdAt,
       type: 'exception',
-      title: `[${ex.severity === 'critical' ? '严重' : ex.severity === 'high' ? '高' : ex.severity === 'medium' ? '中' : '低'}] ${ex.title}`,
+      title: `【异常】[${ex.severity === 'critical' ? '严重' : ex.severity === 'high' ? '高' : ex.severity === 'medium' ? '中' : '低'}] ${ex.title}`,
       content: ex.description,
       operatorId: null,
       operatorName: null,
@@ -107,6 +108,7 @@ export const generateTimeline = (
         exceptionType: ex.type,
         severity: ex.severity,
         status: ex.status,
+        entityType: 'exception',
       },
     });
   });

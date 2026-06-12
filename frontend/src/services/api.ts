@@ -179,4 +179,18 @@ export const exceptionsApi = {
     }),
 };
 
+export const expertsApi = {
+  list: (params?: any) =>
+    request<any[]>({
+      method: 'GET',
+      url: '/experts',
+      params,
+    }),
+  detail: (id: string) =>
+    request<any>({
+      method: 'GET',
+      url: `/experts/${id}`,
+    }),
+};
+
 export default api;
