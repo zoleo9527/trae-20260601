@@ -7,6 +7,57 @@
     :close-on-click-modal="false"
     @closed="handleClosed"
   >
+    <div class="related-summary" v-if="relatedProperty || relatedViewing">
+      <div class="summary-title">
+        <el-icon><Link /></el-icon>
+        <span>关联业务对象</span>
+      </div>
+      <div class="summary-cards">
+        <div v-if="relatedProperty" class="summary-card summary-card-property">
+          <div class="card-icon">
+            <el-icon :size="20"><OfficeBuilding /></el-icon>
+          </div>
+          <div class="card-content">
+            <div class="card-label">房源</div>
+            <div class="card-title">
+              {{ relatedProperty.property_no }}
+              <span class="card-subtitle">
+                {{ relatedProperty.building }} {{ relatedProperty.floor }}{{ relatedProperty.room_no }}
+              </span>
+            </div>
+            <div class="card-meta" v-if="relatedProperty.status">
+              <status-tag type="property" :status="relatedProperty.status" size="small" />
+            </div>
+            <div class="card-remark" v-if="relatedProperty.remarks">
+              <el-icon><InfoFilled /></el-icon>
+              <span>{{ relatedProperty.remarks }}</span>
+            </div>
+          </div>
+        </div>
+        <div v-if="relatedViewing" class="summary-card summary-card-viewing">
+          <div class="card-icon">
+            <el-icon :size="20"><User /></el-icon>
+          </div>
+          <div class="card-content">
+            <div class="card-label">带看</div>
+            <div class="card-title">
+              {{ relatedViewing.customer_name }}
+              <span class="card-subtitle">
+                {{ formatDate(relatedViewing.viewing_date) }}
+              </span>
+            </div>
+            <div class="card-meta" v-if="relatedViewing.status">
+              <status-tag type="viewing" :status="relatedViewing.status" size="small" />
+            </div>
+            <div class="card-remark" v-if="relatedViewing.remarks">
+              <el-icon><ChatDotRound /></el-icon>
+              <span>{{ relatedViewing.remarks }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <el-form
       ref="formRef"
       :model="formData"
@@ -140,6 +191,7 @@ import { ElMessage } from 'element-plus'
 import dayjs from 'dayjs'
 import StatusTag from './StatusTag.vue'
 import TimelinePanel from './TimelinePanel.vue'
+import { Link, OfficeBuilding, User, InfoFilled, ChatDotRound } from '@element-plus/icons-vue'
 import { propertyApi, viewingApi, exceptionApi } from '@/utils/api'
 
 const props = defineProps({
@@ -175,6 +227,28 @@ const visible = computed({
 
 const isEdit = computed(() => !!props.exception)
 const exceptionData = computed(() => props.exception)
+
+const relatedProperty = computed(() => {
+  if (props.exception?.property_info) {
+    return props.exception.property_info
+  }
+  const pid = formData.property_id
+  if (pid) {
+    return propertyOptions.value.find(p => p.id === pid) || null
+  }
+  return null
+})
+
+const relatedViewing = computed(() => {
+  if (props.exception?.viewing_info) {
+    return props.exception.viewing_info
+  }
+  const vid = formData.viewing_id
+  if (vid) {
+    return viewingOptions.value.find(v => v.id === vid) || null
+  }
+  return null
+})
 
 const formData = reactive({
   property_id: null,
@@ -272,3 +346,118 @@ watch(() => props.modelValue, (val) => {
   }
 })
 </script>
+
+<style scoped>
+.related-summary {
+  background: linear-gradient(135deg, #f0f7ff 0%, #e6f4ff 100%);
+  border: 1px solid #d9ecff;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 20px;
+}
+
+.summary-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #409eff;
+  margin-bottom: 12px;
+}
+
+.summary-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.summary-card {
+  display: flex;
+  gap: 12px;
+  background: #fff;
+  border-radius: 6px;
+  padding: 12px;
+  border-left: 3px solid;
+}
+
+.summary-card-property {
+  border-left-color: #409eff;
+}
+
+.summary-card-viewing {
+  border-left-color: #e6a23c;
+}
+
+.card-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 6px;
+  background: #f5f7fa;
+  color: #909399;
+  flex-shrink: 0;
+}
+
+.summary-card-property .card-icon {
+  color: #409eff;
+  background: #ecf5ff;
+}
+
+.summary-card-viewing .card-icon {
+  color: #e6a23c;
+  background: #fdf6ec;
+}
+
+.card-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.card-label {
+  font-size: 11px;
+  color: #909399;
+  margin-bottom: 2px;
+}
+
+.card-title {
+  font-size: 14px;
+  font-weight: 500;
+  color: #303133;
+  margin-bottom: 4px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.card-subtitle {
+  font-size: 12px;
+  color: #909399;
+  font-weight: normal;
+}
+
+.card-meta {
+  margin-bottom: 4px;
+}
+
+.card-remark {
+  display: flex;
+  align-items: flex-start;
+  gap: 4px;
+  font-size: 12px;
+  color: #606266;
+  background: #f5f7fa;
+  border-radius: 4px;
+  padding: 6px 8px;
+  margin-top: 6px;
+  line-height: 1.5;
+}
+
+.card-remark .el-icon {
+  color: #909399;
+  margin-top: 2px;
+  flex-shrink: 0;
+}
+</style>

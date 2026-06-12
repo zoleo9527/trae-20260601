@@ -2,6 +2,40 @@
   <div class="page-container">
     <el-card class="filter-card" shadow="never">
       <el-form :inline="true" :model="filters" class="filter-form">
+        <el-form-item label="关联房源">
+          <el-select
+            v-model="filters.property_id"
+            filterable
+            clearable
+            placeholder="全部房源"
+            style="width: 220px"
+            @change="loadList"
+          >
+            <el-option
+              v-for="p in propertyOptions"
+              :key="p.id"
+              :value="p.id"
+              :label="`${p.property_no} - ${p.building} ${p.floor} ${p.room_no}`"
+            />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="关联带看">
+          <el-select
+            v-model="filters.viewing_id"
+            filterable
+            clearable
+            placeholder="全部带看"
+            style="width: 220px"
+            @change="loadList"
+          >
+            <el-option
+              v-for="v in viewingOptions"
+              :key="v.id"
+              :value="v.id"
+              :label="`${v.customer_name} - ${formatDate(v.viewing_date)}`"
+            />
+          </el-select>
+        </el-form-item>
         <el-form-item label="异常状态">
           <el-select
             v-model="filters.status"
@@ -94,22 +128,52 @@
             </div>
           </template>
         </el-table-column>
-        <el-table-column label="关联信息" width="200">
+        <el-table-column label="业务链路" width="280">
           <template #default="{ row }">
-            <div v-if="row.property_info" class="related-info">
-              <div class="related-title">房源</div>
-              <div class="related-content">
-                {{ row.property_info.property_no }} - {{ row.property_info.building }}
-                {{ row.property_info.floor }} {{ row.property_info.room_no }}
-              </div>
+            <div class="chain-tags">
+              <el-tag
+                v-if="row.property_info"
+                size="small"
+                type="info"
+                effect="light"
+                class="chain-tag"
+                @click.stop="filterByProperty(row.property_info.id)"
+              >
+                <el-icon style="vertical-align: -2px; margin-right: 2px"><OfficeBuilding /></el-icon>
+                {{ row.property_info.property_no }}
+              </el-tag>
+              <el-icon v-if="row.property_info && row.viewing_info" class="chain-arrow"><ArrowRight /></el-icon>
+              <el-tag
+                v-if="row.viewing_info"
+                size="small"
+                type="warning"
+                effect="light"
+                class="chain-tag"
+                @click.stop="filterByViewing(row.viewing_info.id)"
+              >
+                <el-icon style="vertical-align: -2px; margin-right: 2px"><User /></el-icon>
+                {{ row.viewing_info.customer_name }}
+              </el-tag>
+              <el-icon v-if="row.viewing_info" class="chain-arrow"><ArrowRight /></el-icon>
+              <el-icon v-else-if="row.property_info" class="chain-arrow"><ArrowRight /></el-icon>
+              <el-tag
+                size="small"
+                :type="row.severity === 'critical' || row.severity === 'high' ? 'danger' : 'warning'"
+                effect="dark"
+                class="chain-tag"
+              >
+                <el-icon style="vertical-align: -2px; margin-right: 2px"><Warning /></el-icon>
+                {{ row.title.length > 10 ? row.title.slice(0, 10) + '...' : row.title }}
+              </el-tag>
             </div>
-            <div v-if="row.viewing_info" class="related-info">
-              <div class="related-title">带看</div>
-              <div class="related-content">
-                {{ row.viewing_info.customer_name }} - {{ formatDateTime(row.viewing_info.viewing_date) }}
-              </div>
+            <div class="chain-detail">
+              <span v-if="row.property_info" class="chain-detail-item">
+                {{ row.property_info.building }} {{ row.property_info.floor }}{{ row.property_info.room_no }}
+              </span>
+              <span v-if="row.viewing_info" class="chain-detail-item">
+                {{ formatDateTime(row.viewing_info.viewing_date) }}
+              </span>
             </div>
-            <span v-if="!row.property_info && !row.viewing_info">-</span>
           </template>
         </el-table-column>
         <el-table-column label="状态" width="100">
@@ -205,21 +269,25 @@
 
 <script setup>
 import { ref, reactive, onMounted, computed } from 'vue'
-import { Search, Refresh } from '@element-plus/icons-vue'
+import { Search, Refresh, OfficeBuilding, User, Warning, ArrowRight } from '@element-plus/icons-vue'
 import dayjs from 'dayjs'
 import StatusTag from '@/components/StatusTag.vue'
 import ExceptionDrawer from '@/components/ExceptionDrawer.vue'
 import TimelinePanel from '@/components/TimelinePanel.vue'
-import { exceptionApi } from '@/utils/api'
+import { exceptionApi, propertyApi, viewingApi } from '@/utils/api'
 
 const loading = ref(false)
 const list = ref([])
 const total = ref(0)
+const propertyOptions = ref([])
+const viewingOptions = ref([])
 
 const filters = reactive({
   status: '',
   severity: '',
-  exception_type: ''
+  exception_type: '',
+  property_id: null,
+  viewing_id: null
 })
 
 const pagination = reactive({
@@ -237,6 +305,28 @@ const pendingCount = computed(() => {
 
 function formatDateTime(date) {
   return dayjs(date).format('YYYY-MM-DD HH:mm')
+}
+
+function formatDate(date) {
+  return dayjs(date).format('MM-DD HH:mm')
+}
+
+async function loadPropertyOptions() {
+  try {
+    const data = await propertyApi.getList({ page_size: 100 })
+    propertyOptions.value = data.items || []
+  } catch (e) {
+    console.error(e)
+  }
+}
+
+async function loadViewingOptions() {
+  try {
+    const data = await viewingApi.getList({ page_size: 100 })
+    viewingOptions.value = data.items || []
+  } catch (e) {
+    console.error(e)
+  }
 }
 
 function tableRowClassName({ row }) {
@@ -270,6 +360,8 @@ function resetFilters() {
   filters.status = ''
   filters.severity = ''
   filters.exception_type = ''
+  filters.property_id = null
+  filters.viewing_id = null
   pagination.page = 1
   loadList()
 }
@@ -304,7 +396,21 @@ function handleExceptionSuccess() {
   loadList()
 }
 
+function filterByProperty(propertyId) {
+  filters.property_id = propertyId
+  pagination.page = 1
+  loadList()
+}
+
+function filterByViewing(viewingId) {
+  filters.viewing_id = viewingId
+  pagination.page = 1
+  loadList()
+}
+
 onMounted(() => {
+  loadPropertyOptions()
+  loadViewingOptions()
   loadList()
 })
 </script>
@@ -381,23 +487,39 @@ onMounted(() => {
   overflow: hidden;
 }
 
-.related-info {
-  line-height: 1.5;
-  margin-bottom: 4px;
+.chain-tags {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 6px;
 }
 
-.related-info:last-child {
-  margin-bottom: 0;
+.chain-tag {
+  cursor: pointer;
+  transition: all 0.2s;
 }
 
-.related-title {
+.chain-tag:hover {
+  opacity: 0.8;
+  transform: translateY(-1px);
+}
+
+.chain-arrow {
+  font-size: 12px;
+  color: #c0c4cc;
+}
+
+.chain-detail {
   font-size: 11px;
   color: #909399;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
 
-.related-content {
-  font-size: 12px;
-  color: #606266;
+.chain-detail-item {
+  line-height: 1.4;
 }
 
 .solution {
