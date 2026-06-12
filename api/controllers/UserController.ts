@@ -126,3 +126,20 @@ export async function getActiveUsers(req: Request, res: Response): Promise<void>
 
   res.json(response)
 }
+
+export async function getHandoverableUsers(req: Request, res: Response): Promise<void> {
+  const { role } = req.query
+
+  if (!role || !['accountant', 'manager'].includes(role as string)) {
+    throw new AppError('Invalid role parameter. Must be "accountant" or "manager"', 400)
+  }
+
+  const users = await UserService.getHandoverableUsers(role as 'accountant' | 'manager')
+
+  const response: ApiResponse<typeof users> = {
+    success: true,
+    data: users
+  }
+
+  res.json(response)
+}

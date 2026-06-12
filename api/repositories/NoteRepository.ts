@@ -78,7 +78,38 @@ export async function create(data: Omit<Note, 'id' | 'createdAt' | 'updatedAt'>)
 }
 
 export async function findById(id: string): Promise<Note | null> {
-  const row = await get<Record<string, unknown>>('SELECT * FROM notes WHERE id = ?', [id])
+  const row = await get<Record<string, unknown>>(`
+    SELECT 
+      n.*,
+      c.name as customer_name,
+      c.contact_person as customer_contact_person,
+      c.phone as customer_phone,
+      c.email as customer_email,
+      c.address as customer_address,
+      c.tax_number as customer_tax_number,
+      c.contract_start_date as customer_contract_start_date,
+      c.contract_end_date as customer_contract_end_date,
+      c.status as customer_status,
+      c.risk_level as customer_risk_level,
+      c.risk_reasons as customer_risk_reasons,
+      c.accountant_id as customer_accountant_id,
+      c.manager_id as customer_manager_id,
+      c.notes as customer_notes,
+      c.created_at as customer_created_at,
+      c.updated_at as customer_updated_at,
+      u.username as user_username,
+      u.name as user_name,
+      u.role as user_role,
+      u.email as user_email,
+      u.phone as user_phone,
+      u.status as user_status,
+      u.created_at as user_created_at,
+      u.updated_at as user_updated_at
+    FROM notes n
+    LEFT JOIN customers c ON n.customer_id = c.id
+    LEFT JOIN users u ON n.user_id = u.id
+    WHERE n.id = ?
+  `, [id])
   return row ? rowToNote(row) : null
 }
 

@@ -45,11 +45,14 @@ export default function HandoverForm() {
     register,
     handleSubmit,
     setValue,
+    watch,
     formState: { errors },
   } = useForm<HandoverForm>()
 
+  const selectedRole = watch('fromUserRole')
+
   useEffect(() => {
-    const fetchData = async () => {
+    const fetchCustomers = async () => {
       setLoading(true)
       try {
         const customersResponse = await customerService.getCustomers({ page: 1, pageSize: 100 })
@@ -59,20 +62,35 @@ export default function HandoverForm() {
             setValue('customerId', customerId)
           }
         }
-
-        const usersResponse = await userService.getAllUsers()
-        if (usersResponse.success && usersResponse.data) {
-          setUsers(usersResponse.data)
-        }
       } catch (error) {
-        console.error('Failed to fetch data:', error)
+        console.error('Failed to fetch customers:', error)
       } finally {
         setLoading(false)
       }
     }
 
-    fetchData()
+    fetchCustomers()
   }, [customerId, setValue])
+
+  useEffect(() => {
+    const fetchUsers = async () => {
+      if (!selectedRole) {
+        setUsers([])
+        return
+      }
+
+      try {
+        const usersResponse = await userService.getHandoverableUsers(selectedRole)
+        if (usersResponse.success && usersResponse.data) {
+          setUsers(usersResponse.data)
+        }
+      } catch (error) {
+        console.error('Failed to fetch users:', error)
+      }
+    }
+
+    fetchUsers()
+  }, [selectedRole])
 
   const onSubmit = async (data: HandoverForm) => {
     setSubmitting(true)
@@ -184,6 +202,12 @@ export default function HandoverForm() {
               </select>
               {errors.toUserId && (
                 <p className="text-sm text-red-500 mt-1">{errors.toUserId.message}</p>
+              )}
+              {!selectedRole && (
+                <p className="text-xs text-gray-500 mt-1">请先选择交接角色以加载可接收人</p>
+              )}
+              {selectedRole && users.length === 0 && (
+                <p className="text-xs text-gray-500 mt-1">暂无在职{selectedRole === 'accountant' ? '会计' : '客户经理'}</p>
               )}
             </div>
 

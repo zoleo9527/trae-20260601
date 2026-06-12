@@ -1,5 +1,5 @@
-import { run, get, all } from '../database/database.js'
-import { User, UserRole, SafeUser } from '../types/types.js'
+import { all, get, run } from '../database/database.js'
+import { SafeUser, User, UserRole } from '../types/types.js'
 
 function generateId(): string {
   return Date.now().toString(36) + Math.random().toString(36).substr(2)
@@ -62,6 +62,18 @@ export async function findByRole(role: UserRole): Promise<User[]> {
 
 export async function findActive(): Promise<User[]> {
   const rows = await all<Record<string, unknown>>("SELECT * FROM users WHERE status = 'active' ORDER BY created_at DESC")
+  return rows.map(rowToUser)
+}
+
+export async function findByRoles(roles: UserRole[]): Promise<User[]> {
+  if (roles.length === 0) {
+    return []
+  }
+  const placeholders = roles.map(() => '?').join(',')
+  const rows = await all<Record<string, unknown>>(
+    `SELECT * FROM users WHERE role IN (${placeholders}) AND status = 'active' ORDER BY created_at DESC`,
+    roles
+  )
   return rows.map(rowToUser)
 }
 

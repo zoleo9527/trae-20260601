@@ -32,6 +32,10 @@ export const userService = {
   getAllUsers: async (): Promise<ApiResponse<SafeUser[]>> => {
     return api.get('/users', { params: { page: 1, pageSize: 1000 } })
   },
+
+  getHandoverableUsers: async (role: 'accountant' | 'manager'): Promise<ApiResponse<SafeUser[]>> => {
+    return api.get('/users/handoverable', { params: { role } })
+  },
 }
 
 export default userService

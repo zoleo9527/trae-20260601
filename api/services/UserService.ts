@@ -1,6 +1,6 @@
-import * as UserRepository from '../repositories/UserRepository.js'
 import bcrypt from 'bcryptjs'
-import { User, SafeUser, UserRole, CreateUserRequest, UpdateUserRequest } from '../types/types.js'
+import * as UserRepository from '../repositories/UserRepository.js'
+import { CreateUserRequest, SafeUser, UpdateUserRequest, User, UserRole } from '../types/types.js'
 
 export async function getAllUsers(): Promise<SafeUser[]> {
   const users = await UserRepository.findAll()
@@ -77,6 +77,12 @@ export async function getUsersByRole(role: UserRole): Promise<SafeUser[]> {
 
 export async function getActiveUsers(): Promise<SafeUser[]> {
   const users = await UserRepository.findActive()
+  return users.map(UserRepository.userToSafeUser)
+}
+
+export async function getHandoverableUsers(role: 'accountant' | 'manager'): Promise<SafeUser[]> {
+  const roles: UserRole[] = role === 'accountant' ? [UserRole.ACCOUNTANT] : [UserRole.MANAGER]
+  const users = await UserRepository.findByRoles(roles)
   return users.map(UserRepository.userToSafeUser)
 }
 
