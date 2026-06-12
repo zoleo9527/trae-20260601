@@ -5,29 +5,57 @@ const router = Router();
 
 router.get('/', async (req: Request, res: Response): Promise<void> => {
   try {
-    const { role } = req.query;
+    const { role, userId } = req.query;
     
-    let registrationWhere: any = {};
-    let clarificationWhere: any = {};
+    let pendingRegistrations = 0;
+    let reviewingRegistrations = 0;
+    let approvedRegistrations = 0;
+    let draftClarifications = 0;
+    let pendingReviewClarifications = 0;
+    let approvedClarifications = 0;
     
     if (role === 'project_specialist') {
-      registrationWhere = { status: 'pending', currentHandlerRole: 'project_specialist' };
-      clarificationWhere = { status: 'draft' };
+      const where = userId 
+        ? { status: 'pending', currentHandlerId: userId }
+        : { status: 'pending', currentHandlerRole: 'project_specialist' };
+      pendingRegistrations = await prisma.bidRegistration.count({ where });
+      draftClarifications = userId 
+        ? await prisma.clarification.count({ where: { status: 'draft', createdById: userId } })
+        : await prisma.clarification.count({ where: { status: 'draft' } });
+      reviewingRegistrations = await prisma.bidRegistration.count({ where: { status: 'reviewing' } });
+      approvedRegistrations = await prisma.bidRegistration.count({ where: { status: 'approved' } });
+      pendingReviewClarifications = await prisma.clarification.count({ where: { status: 'pending_review' } });
+      approvedClarifications = await prisma.clarification.count({ where: { status: 'approved' } });
     } else if (role === 'review_secretary') {
-      registrationWhere = { status: 'reviewing', currentHandlerRole: 'review_secretary' };
-      clarificationWhere = { status: 'pending_review' };
+      const where = userId
+        ? { status: 'reviewing', currentHandlerId: userId }
+        : { status: 'reviewing', currentHandlerRole: 'review_secretary' };
+      reviewingRegistrations = await prisma.bidRegistration.count({ where });
+      pendingReviewClarifications = userId
+        ? await prisma.clarification.count({ where: { status: 'pending_review' } })
+        : await prisma.clarification.count({ where: { status: 'pending_review' } });
+      pendingRegistrations = await prisma.bidRegistration.count({ where: { status: 'pending' } });
+      approvedRegistrations = await prisma.bidRegistration.count({ where: { status: 'approved' } });
+      draftClarifications = await prisma.clarification.count({ where: { status: 'draft' } });
+      approvedClarifications = await prisma.clarification.count({ where: { status: 'approved' } });
     } else if (role === 'finance') {
-      registrationWhere = { status: 'approved', currentHandlerRole: 'finance' };
-      clarificationWhere = { status: 'approved' };
+      const where = userId
+        ? { status: 'approved', currentHandlerId: userId }
+        : { status: 'approved', currentHandlerRole: 'finance' };
+      approvedRegistrations = await prisma.bidRegistration.count({ where });
+      pendingRegistrations = await prisma.bidRegistration.count({ where: { status: 'pending' } });
+      reviewingRegistrations = await prisma.bidRegistration.count({ where: { status: 'reviewing' } });
+      draftClarifications = await prisma.clarification.count({ where: { status: 'draft' } });
+      pendingReviewClarifications = await prisma.clarification.count({ where: { status: 'pending_review' } });
+      approvedClarifications = await prisma.clarification.count({ where: { status: 'approved' } });
+    } else {
+      pendingRegistrations = await prisma.bidRegistration.count({ where: { status: 'pending' } });
+      reviewingRegistrations = await prisma.bidRegistration.count({ where: { status: 'reviewing' } });
+      approvedRegistrations = await prisma.bidRegistration.count({ where: { status: 'approved' } });
+      draftClarifications = await prisma.clarification.count({ where: { status: 'draft' } });
+      pendingReviewClarifications = await prisma.clarification.count({ where: { status: 'pending_review' } });
+      approvedClarifications = await prisma.clarification.count({ where: { status: 'approved' } });
     }
-    
-    const pendingRegistrations = await prisma.bidRegistration.count({ where: { status: 'pending' } });
-    const reviewingRegistrations = await prisma.bidRegistration.count({ where: { status: 'reviewing' } });
-    const approvedRegistrations = await prisma.bidRegistration.count({ where: { status: 'approved' } });
-    
-    const draftClarifications = await prisma.clarification.count({ where: { status: 'draft' } });
-    const pendingReviewClarifications = await prisma.clarification.count({ where: { status: 'pending_review' } });
-    const approvedClarifications = await prisma.clarification.count({ where: { status: 'approved' } });
     
     res.json({
       success: true,

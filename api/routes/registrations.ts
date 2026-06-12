@@ -144,12 +144,28 @@ router.patch('/:id/status', async (req: Request, res: Response): Promise<void> =
       return;
     }
     
+    let newStatus = status;
+    let newHandlerId = handlerId;
+    let newHandlerRole = handlerRole;
+    
+    if (oldRegistration.status === 'pending' && handlerRole === 'project_specialist' && status === 'approved') {
+      newStatus = 'reviewing';
+      newHandlerId = 'user-002';
+      newHandlerRole = 'review_secretary';
+    } else if (oldRegistration.status === 'reviewing' && handlerRole === 'review_secretary' && status === 'approved') {
+      newStatus = 'approved';
+      newHandlerId = 'user-003';
+      newHandlerRole = 'finance';
+    } else if (oldRegistration.status === 'approved' && handlerRole === 'finance' && status === 'approved') {
+      newStatus = 'completed';
+    }
+    
     const registration = await prisma.bidRegistration.update({
       where: { id },
       data: {
-        status,
-        currentHandlerId: handlerId,
-        currentHandlerRole: handlerRole,
+        status: newStatus,
+        currentHandlerId: newHandlerId,
+        currentHandlerRole: newHandlerRole,
         updatedAt: new Date()
       }
     });
@@ -158,17 +174,17 @@ router.patch('/:id/status', async (req: Request, res: Response): Promise<void> =
       data: {
         entityType: 'registration',
         entityId: id,
-        operationType: status === 'rejected' ? 'reject' : 'update_status',
+        operationType: newStatus === 'rejected' ? 'reject' : 'update_status',
         operatorId: handlerId,
         operatorName: handlerName,
         operatorRole: handlerRole,
         previousStatus: oldRegistration.status,
-        newStatus: status,
+        newStatus: newStatus,
         note: note || ''
       }
     });
     
-    if (status === 'rejected' && rejectionReason) {
+    if (newStatus === 'rejected' && rejectionReason) {
       await prisma.rejectionReason.create({
         data: {
           registrationId: id,
@@ -187,7 +203,7 @@ router.patch('/:id/status', async (req: Request, res: Response): Promise<void> =
 
 router.post('/batch', async (req: Request, res: Response): Promise<void> => {
   try {
-    const { registrationIds, operation, handlerId, handlerName, handlerRole, note, rejectionReason } = req.body;
+    const { registrationIds, operation, handlerId, handlerName, handlerRole, note, rejectionReason, supplementaryNote } = req.body;
     
     const results = [];
     const errors = [];
@@ -201,15 +217,34 @@ router.post('/batch', async (req: Request, res: Response): Promise<void> => {
         }
         
         let newStatus = oldRegistration.status;
-        if (operation === 'approve') newStatus = 'approved';
-        if (operation === 'reject') newStatus = 'rejected';
+        let newHandlerId = handlerId;
+        let newHandlerRole = handlerRole;
+        
+        if (operation === 'approve') {
+          if (oldRegistration.status === 'pending' && handlerRole === 'project_specialist') {
+            newStatus = 'reviewing';
+            newHandlerId = 'user-002';
+            newHandlerRole = 'review_secretary';
+          } else if (oldRegistration.status === 'reviewing' && handlerRole === 'review_secretary') {
+            newStatus = 'approved';
+            newHandlerId = 'user-003';
+            newHandlerRole = 'finance';
+          } else if (oldRegistration.status === 'approved' && handlerRole === 'finance') {
+            newStatus = 'completed';
+          } else {
+            newStatus = 'approved';
+          }
+        }
+        if (operation === 'reject') {
+          newStatus = 'rejected';
+        }
         
         const registration = await prisma.bidRegistration.update({
           where: { id },
           data: {
             status: newStatus,
-            currentHandlerId: handlerId,
-            currentHandlerRole: handlerRole,
+            currentHandlerId: newHandlerId,
+            currentHandlerRole: newHandlerRole,
             updatedAt: new Date()
           }
         });
@@ -233,7 +268,7 @@ router.post('/batch', async (req: Request, res: Response): Promise<void> => {
             data: {
               registrationId: id,
               reason: rejectionReason,
-              supplementaryNote: '',
+              supplementaryNote: supplementaryNote || '',
               rejectedById: handlerId
             }
           });

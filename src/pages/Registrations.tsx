@@ -144,6 +144,8 @@ export default function Registrations() {
     const reason = prompt('请输入退回原因:');
     if (!reason) return;
     
+    const supplementaryNote = prompt('请输入补充备注（可选）:');
+    
     try {
       const response = await fetch('/api/registrations/batch', {
         method: 'POST',
@@ -155,7 +157,8 @@ export default function Registrations() {
           handlerName: currentUser?.name,
           handlerRole: currentRole,
           note: '批量退回',
-          rejectionReason: reason
+          rejectionReason: reason,
+          supplementaryNote: supplementaryNote || ''
         })
       });
       

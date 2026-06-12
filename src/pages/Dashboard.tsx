@@ -52,11 +52,16 @@ export default function Dashboard() {
   useEffect(() => {
     fetchTodos();
     fetchStats();
-  }, [currentRole]);
+  }, [currentRole, currentUser]);
 
   const fetchTodos = async () => {
     try {
-      const response = await fetch('/api/todos');
+      const params = new URLSearchParams();
+      params.set('role', currentRole);
+      if (currentUser?.id) {
+        params.set('userId', currentUser.id);
+      }
+      const response = await fetch(`/api/todos?${params}`);
       const data = await response.json();
       if (data.success) {
         setTodos(data.data);

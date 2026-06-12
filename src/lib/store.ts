@@ -6,12 +6,39 @@ export type RegistrationStatus = 'pending' | 'reviewing' | 'approved' | 'rejecte
 
 export type ClarificationStatus = 'draft' | 'pending_review' | 'approved' | 'rejected' | 'published';
 
-interface User {
+export interface User {
   id: string;
   username: string;
   name: string;
   role: UserRole;
 }
+
+const users: Record<UserRole, User> = {
+  project_specialist: {
+    id: 'user-001',
+    username: 'specialist1',
+    name: '张专员',
+    role: 'project_specialist'
+  },
+  review_secretary: {
+    id: 'user-002',
+    username: 'secretary1',
+    name: '李秘书',
+    role: 'review_secretary'
+  },
+  finance: {
+    id: 'user-003',
+    username: 'finance1',
+    name: '王财务',
+    role: 'finance'
+  },
+  admin: {
+    id: 'user-004',
+    username: 'admin1',
+    name: '系统管理员',
+    role: 'admin'
+  }
+};
 
 interface AppState {
   currentUser: User | null;
@@ -23,17 +50,12 @@ interface AppState {
 }
 
 export const useAppStore = create<AppState>((set) => ({
-  currentUser: {
-    id: 'user-001',
-    username: 'specialist1',
-    name: '张专员',
-    role: 'project_specialist'
-  },
+  currentUser: users.project_specialist,
   currentRole: 'project_specialist',
   selectedRegistrations: [],
   setSelectedRegistrations: (ids) => set({ selectedRegistrations: ids }),
   setCurrentUser: (user) => set({ currentUser: user, currentRole: user.role }),
-  setCurrentRole: (role) => set({ currentRole: role })
+  setCurrentRole: (role) => set({ currentRole: role, currentUser: users[role] })
 }));
 
 export const roleLabels: Record<UserRole, string> = {
