@@ -20,6 +20,11 @@ function PregnancyTestDetail() {
     return <div>妊检记录不存在</div>
   }
 
+  const handleReview = () => {
+    updateTestStatus(test.id, 'reviewed', currentUser.name, '确认检测结果，等待场长批准')
+    message.success('审核成功')
+  }
+
   const handleApprove = () => {
     updateTestStatus(test.id, 'approved', currentUser.name, '同意进入产房安排')
     message.success('批准成功')
@@ -58,12 +63,12 @@ function PregnancyTestDetail() {
 
   const handleReset = () => {
     Modal.confirm({
-      title: '重新提交确认',
+      title: '驳回重提确认',
       content: '确认将此记录重新提交审核？',
       okText: '确认',
       cancelText: '取消',
       onOk: () => {
-        updateTestStatus(test.id, 'pending', currentUser.name, '重新提交审核')
+        updateTestStatus(test.id, 'pending', currentUser.name, '驳回重提，重新提交审核')
         message.success('已重新提交')
       },
     })
@@ -99,14 +104,17 @@ function PregnancyTestDetail() {
           {hasPermission('pregnancyTest', 'edit') && (
             <Button icon={<EditOutlined />} onClick={handleEdit}>编辑备注</Button>
           )}
-          {hasPermission('pregnancyTest', 'approve') && test.status === 'pending' && (
+          {hasPermission('pregnancyTest', 'review') && test.status === 'pending' && (
+            <Button type="primary" icon={<CheckOutlined />} onClick={handleReview}>审核</Button>
+          )}
+          {hasPermission('pregnancyTest', 'approve') && test.status === 'reviewed' && (
             <Button type="primary" icon={<CheckOutlined />} onClick={handleApprove}>批准</Button>
           )}
-          {hasPermission('pregnancyTest', 'reject') && test.status !== 'rejected' && (
+          {hasPermission('pregnancyTest', 'reject') && test.status !== 'rejected' && test.status !== 'pending' && (
             <Button danger icon={<CloseOutlined />} onClick={handleReject}>驳回</Button>
           )}
           {hasPermission('pregnancyTest', 'create') && test.status === 'rejected' && (
-            <Button type="primary" onClick={handleReset}>补录重提</Button>
+            <Button type="primary" onClick={handleReset}>驳回重提</Button>
           )}
         </div>
       </Card>

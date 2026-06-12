@@ -19,7 +19,7 @@ export const pregnancyTests = [
     handlerId: '2',
     remarks: '胎儿发育良好，预计产仔数10-12头',
     status: 'approved',
-    statusDesc: '已确认',
+    statusDesc: '场长已批准',
     createdAt: '2024-01-15 09:30:00',
     updatedAt: '2024-01-16 10:00:00',
     history: [
@@ -87,12 +87,13 @@ export const pregnancyTests = [
     handler: '李兽医',
     handlerId: '2',
     remarks: '初产母猪，胎儿发育正常',
-    status: 'pending',
-    statusDesc: '待审核',
+    status: 'reviewed',
+    statusDesc: '繁育员已审核',
     createdAt: '2024-01-17 10:30:00',
-    updatedAt: '2024-01-17 10:30:00',
+    updatedAt: '2024-01-17 15:00:00',
     history: [
       { time: '2024-01-17 10:30:00', action: '提交妊检结果', operator: '李兽医', remark: 'B超检测确认怀孕' },
+      { time: '2024-01-17 15:00:00', action: '繁育员审核', operator: '王繁育', remark: '确认检测结果，等待场长批准' },
     ],
     farrowingRoomId: null,
   },
@@ -110,7 +111,7 @@ export const pregnancyTests = [
     handlerId: '2',
     remarks: '经产母猪，预计产仔数12-14头，建议提前进入产房',
     status: 'approved',
-    statusDesc: '已确认',
+    statusDesc: '场长已批准',
     createdAt: '2024-01-13 14:00:00',
     updatedAt: '2024-01-14 09:00:00',
     history: [
@@ -212,7 +213,8 @@ export const farrowingRooms = [
 
 export const statusMap = {
   pending: { label: '待审核', color: 'orange' },
-  approved: { label: '已确认', color: 'green' },
+  reviewed: { label: '繁育员已审核', color: 'blue' },
+  approved: { label: '场长已批准', color: 'green' },
   rejected: { label: '已驳回', color: 'red' },
 }
 
@@ -224,14 +226,14 @@ export const resultMap = {
 export const rolePermissions = {
   breeder: {
     pregnancyTest: ['view', 'review', 'create'],
-    farrowingRoom: ['view', 'create', 'edit'],
+    farrowingRoom: ['view', 'create', 'edit', 'assign'],
   },
   veterinarian: {
     pregnancyTest: ['view', 'create', 'edit'],
     farrowingRoom: ['view'],
   },
   manager: {
-    pregnancyTest: ['view', 'approve', 'reject'],
-    farrowingRoom: ['view', 'approve', 'reject'],
+    pregnancyTest: ['view', 'approve', 'reject', 'review'],
+    farrowingRoom: ['view', 'approve', 'reject', 'create', 'edit'],
   },
 }

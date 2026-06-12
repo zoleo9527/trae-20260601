@@ -129,7 +129,7 @@ function FarrowingRoomList() {
       render: (_, record) => (
         <Space>
           <Button icon={<EyeOutlined />} onClick={() => handleView(record.id)}>查看</Button>
-          {hasPermission('farrowingRoom', 'assign') && record.occupiedBeds < record.bedCount && (
+          {hasPermission('farrowingRoom', 'assign') && record.occupiedBeds < record.bedCount && availableTests.length > 0 && (
             <Button type="primary" onClick={() => showAssignModal(record.id)}>安排母猪</Button>
           )}
         </Space>
@@ -153,7 +153,7 @@ function FarrowingRoomList() {
         )}
       </div>
 
-      <Card title="待安排的已确认妊检记录" style={{ marginBottom: '16px' }}>
+      <Card title="待安排的已批准妊检记录" style={{ marginBottom: '16px' }}>
         {availableTests.length > 0 ? (
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px' }}>
             {availableTests.map(test => (
@@ -171,7 +171,7 @@ function FarrowingRoomList() {
           </div>
         ) : (
           <div style={{ textAlign: 'center', color: '#999', padding: '20px' }}>
-            暂无待安排的妊检记录
+            暂无待安排的妊检记录（需场长批准后才能安排）
           </div>
         )}
       </Card>

@@ -27,7 +27,7 @@ function PregnancyTestList() {
   }
 
   const handleReview = (record) => {
-    updateTestStatus(record.id, 'approved', currentUser.name, '确认检测结果')
+    updateTestStatus(record.id, 'reviewed', currentUser.name, '确认检测结果，等待场长批准')
     message.success('审核成功')
   }
 
@@ -153,10 +153,10 @@ function PregnancyTestList() {
           {hasPermission('pregnancyTest', 'review') && record.status === 'pending' && (
             <Button icon={<CheckOutlined />} onClick={() => handleReview(record)}>审核</Button>
           )}
-          {hasPermission('pregnancyTest', 'approve') && record.status === 'pending' && (
+          {hasPermission('pregnancyTest', 'approve') && record.status === 'reviewed' && (
             <Button type="primary" icon={<CheckOutlined />} onClick={() => handleApprove(record)}>批准</Button>
           )}
-          {hasPermission('pregnancyTest', 'reject') && record.status !== 'rejected' && (
+          {hasPermission('pregnancyTest', 'reject') && record.status !== 'rejected' && record.status !== 'pending' && (
             <Button danger icon={<CloseOutlined />} onClick={() => handleReject(record)}>驳回</Button>
           )}
           {hasPermission('pregnancyTest', 'edit') && (
@@ -184,7 +184,8 @@ function PregnancyTestList() {
           options={[
             { value: '', label: '全部' },
             { value: 'pending', label: '待审核' },
-            { value: 'approved', label: '已确认' },
+            { value: 'reviewed', label: '繁育员已审核' },
+            { value: 'approved', label: '场长已批准' },
             { value: 'rejected', label: '已驳回' },
           ]}
         />

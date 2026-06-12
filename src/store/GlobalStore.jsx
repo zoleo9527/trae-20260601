@@ -53,7 +53,29 @@ export function GlobalStoreProvider({ children }) {
   const updateTestStatus = useCallback((testId, status, operator, remark) => {
     setTests(tests.map(test => {
       if (test.id === testId) {
-        const statusDesc = status === 'approved' ? '已确认' : status === 'rejected' ? '已驳回' : '待审核'
+        let statusDesc = ''
+        let actionText = ''
+        switch (status) {
+          case 'reviewed':
+            statusDesc = '繁育员已审核'
+            actionText = '繁育员审核'
+            break
+          case 'approved':
+            statusDesc = '场长已批准'
+            actionText = '场长批准'
+            break
+          case 'rejected':
+            statusDesc = '已驳回'
+            actionText = '场长驳回'
+            break
+          case 'pending':
+            statusDesc = '待审核'
+            actionText = '驳回重提'
+            break
+          default:
+            statusDesc = '待审核'
+            actionText = '状态变更'
+        }
         return {
           ...test,
           status,
@@ -63,7 +85,7 @@ export function GlobalStoreProvider({ children }) {
             ...test.history,
             {
               time: new Date().toLocaleString('zh-CN'),
-              action: status === 'approved' ? '场长批准' : status === 'rejected' ? '场长驳回' : '繁育员审核',
+              action: actionText,
               operator,
               remark,
             },
