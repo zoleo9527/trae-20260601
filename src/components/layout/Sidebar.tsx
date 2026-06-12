@@ -26,14 +26,16 @@ export default function Sidebar({ currentPath, onQuickAction, currentTab = 'all'
     setCurrentUser(user);
     setShowRoleSwitcher(false);
     
+    if (location.pathname !== '/projects') {
+      navigate('/projects');
+    }
+
     if (user.role === 'project_manager') {
-      navigate('/projects?tab=notice');
+      navigate('/projects?tab=notice_rejected');
     } else if (user.role === 'review_secretary') {
-      navigate('/projects?tab=notice');
+      navigate('/projects?tab=notice_pending');
     } else if (user.role === 'finance') {
-      navigate('/projects?tab=refund');
-    } else {
-      navigate('/');
+      navigate('/projects?tab=refund_pending');
     }
   };
 
@@ -41,7 +43,7 @@ export default function Sidebar({ currentPath, onQuickAction, currentTab = 'all'
     if (onQuickAction) {
       onQuickAction(tab);
     }
-    if (tab !== 'all' && location.pathname !== '/projects') {
+    if (location.pathname !== '/projects') {
       navigate(`/projects?tab=${tab}`);
     }
   };
@@ -144,9 +146,9 @@ export default function Sidebar({ currentPath, onQuickAction, currentTab = 'all'
           <ul className="space-y-2">
             <li>
               <button
-                onClick={() => handleQuickAction('notice')}
+                onClick={() => handleQuickAction('notice_pending')}
                 className={`flex items-center gap-3 px-4 py-2 rounded-lg transition-colors w-full text-left ${
-                  currentTab === 'notice'
+                  currentTab?.startsWith('notice')
                     ? 'bg-blue-600 text-white'
                     : 'text-slate-300 hover:bg-slate-700'
                 }`}
@@ -157,9 +159,9 @@ export default function Sidebar({ currentPath, onQuickAction, currentTab = 'all'
             </li>
             <li>
               <button
-                onClick={() => handleQuickAction('refund')}
+                onClick={() => handleQuickAction('refund_pending')}
                 className={`flex items-center gap-3 px-4 py-2 rounded-lg transition-colors w-full text-left ${
-                  currentTab === 'refund'
+                  currentTab?.startsWith('refund')
                     ? 'bg-blue-600 text-white'
                     : 'text-slate-300 hover:bg-slate-700'
                 }`}

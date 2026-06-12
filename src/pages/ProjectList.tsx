@@ -6,8 +6,30 @@ import Layout from '../components/layout/Layout';
 import { statusNames, mockUsers } from '../data/mockData';
 import { ProjectCreateData } from '../types';
 
-type TabType = 'all' | 'notice' | 'refund';
+type TabType = 'all' | 'notice_pending' | 'notice_rejected' | 'notice_approved' | 'refund_pending' | 'refund_approved' | 'refund_rejected' | 'paid';
 type BatchActionType = 'approve' | 'reject' | 'pay';
+
+const tabConfig: Record<TabType, { label: string; icon: React.ReactNode; statuses: string[] }> = {
+  all: { label: '全部项目', icon: <span className="w-4 h-4" />, statuses: [] },
+  notice_pending: { label: '待审核', icon: <FileText className="w-4 h-4" />, statuses: ['notice_pending'] },
+  notice_rejected: { label: '待补录', icon: <FileText className="w-4 h-4" />, statuses: ['notice_rejected'] },
+  notice_approved: { label: '已通过', icon: <FileText className="w-4 h-4" />, statuses: ['notice_approved'] },
+  refund_pending: { label: '待审核', icon: <Wallet className="w-4 h-4" />, statuses: ['refund_pending', 'refund_approved'] },
+  refund_rejected: { label: '待补充', icon: <Wallet className="w-4 h-4" />, statuses: ['refund_rejected'] },
+  refund_approved: { label: '待打款', icon: <Wallet className="w-4 h-4" />, statuses: ['refund_approved'] },
+  paid: { label: '已打款', icon: <Wallet className="w-4 h-4" />, statuses: ['paid'] },
+};
+
+const emptyStateMessages: Record<string, { title: string; description: string }> = {
+  notice_pending: { title: '暂无待审核的中标通知', description: '所有中标通知都已处理完毕' },
+  notice_rejected: { title: '暂无待补录的中标通知', description: '所有驳回的中标通知都已补录' },
+  notice_approved: { title: '暂无已通过的中标通知', description: '' },
+  refund_pending: { title: '暂无待处理的退款申请', description: '所有退款申请都已处理完毕' },
+  refund_approved: { title: '暂无待打款的项目', description: '所有审核通过的退款申请都已打款' },
+  refund_rejected: { title: '暂无待补充材料的退款申请', description: '所有驳回的退款申请都已补充材料' },
+  paid: { title: '暂无已打款的项目', description: '' },
+  all: { title: '暂无项目', description: '点击新建项目按钮创建第一个项目' },
+};
 
 export default function ProjectList() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -33,10 +55,10 @@ export default function ProjectList() {
 
   useEffect(() => {
     const tab = searchParams.get('tab') as TabType;
-    if (tab) {
+    if (tab && tabConfig[tab]) {
       setSelectedTab(tab);
       setSelectedProjects([]);
-    } else {
+    } else if (!tab) {
       setSelectedTab('all');
     }
   }, [searchParams]);
@@ -54,16 +76,13 @@ export default function ProjectList() {
   };
 
   const canProcessProject = (project: typeof projects[0], action?: BatchActionType): boolean => {
-    if (selectedTab === 'notice') {
-      if (currentUser?.role === 'review_secretary' && project.status === 'notice_pending') {
-        return true;
-      }
-      if (currentUser?.role === 'project_manager' && project.status === 'notice_rejected') {
-        return true;
-      }
-      return false;
+    if (selectedTab === 'notice_pending') {
+      return currentUser?.role === 'review_secretary' && project.status === 'notice_pending';
     }
-    if (selectedTab === 'refund') {
+    if (selectedTab === 'notice_rejected') {
+      return currentUser?.role === 'project_manager' && project.status === 'notice_rejected';
+    }
+    if (selectedTab === 'refund_pending') {
       if (currentUser?.role === 'finance') {
         if (project.status === 'refund_pending') {
           return action === 'approve' || action === 'reject';
@@ -72,10 +91,10 @@ export default function ProjectList() {
           return action === 'pay';
         }
       }
-      if (currentUser?.role === 'project_manager' && project.status === 'refund_rejected') {
-        return true;
-      }
       return false;
+    }
+    if (selectedTab === 'refund_rejected') {
+      return currentUser?.role === 'project_manager' && project.status === 'refund_rejected';
     }
     return false;
   };
@@ -89,30 +108,31 @@ export default function ProjectList() {
   };
 
   const getUnprocessableReason = (project: typeof projects[0]): string => {
-    if (selectedTab === 'notice') {
-      if (project.status === 'notice_rejected') return currentUser?.role === 'project_manager' ? '待补录' : '已驳回';
-      if (project.status === 'notice_approved') return '已通过';
-      if (currentUser?.role !== 'review_secretary') return '无审核权限';
+    if (selectedTab === 'notice_pending') {
+      if (project.status === 'notice_pending') return currentUser?.role === 'review_secretary' ? '待审核' : '无权限';
       return '不可处理';
     }
-    if (selectedTab === 'refund') {
-      if (project.status === 'refund_rejected') return currentUser?.role === 'project_manager' ? '待补充材料' : '已驳回';
-      if (project.status === 'refund_approved') return currentUser?.role === 'finance' ? '待打款' : '待打款';
-      if (project.status === 'paid') return '已打款';
-      if (currentUser?.role !== 'finance') return '无审核权限';
+    if (selectedTab === 'notice_rejected') {
+      if (project.status === 'notice_rejected') return currentUser?.role === 'project_manager' ? '待补录' : '无权限';
+      return '不可处理';
+    }
+    if (selectedTab === 'refund_pending') {
+      if (project.status === 'refund_pending') return currentUser?.role === 'finance' ? '待审核' : '无权限';
+      if (project.status === 'refund_approved') return currentUser?.role === 'finance' ? '待打款' : '无权限';
+      return '不可处理';
+    }
+    if (selectedTab === 'refund_rejected') {
+      if (project.status === 'refund_rejected') return currentUser?.role === 'project_manager' ? '待补充' : '无权限';
       return '不可处理';
     }
     return '不可处理';
   };
 
   const filteredProjects = projects.filter(project => {
-    if (selectedTab === 'notice') {
-      return ['notice_pending', 'notice_rejected', 'notice_approved'].includes(project.status);
+    if (selectedTab === 'all') {
+      return true;
     }
-    if (selectedTab === 'refund') {
-      return ['refund_pending', 'refund_rejected', 'refund_approved', 'paid'].includes(project.status);
-    }
-    return true;
+    return tabConfig[selectedTab]?.statuses.includes(project.status);
   });
 
   const approveableProjects = filteredProjects.filter(canApproveProject);
@@ -160,11 +180,11 @@ export default function ProjectList() {
   };
 
   const canBatchApprove = selectedApprovable.length > 0 && (
-    (selectedTab === 'notice' && currentUser?.role === 'review_secretary') ||
-    (selectedTab === 'refund' && currentUser?.role === 'finance')
+    (selectedTab === 'notice_pending' && currentUser?.role === 'review_secretary') ||
+    (selectedTab === 'refund_pending' && currentUser?.role === 'finance')
   );
 
-  const canBatchPay = selectedPayable.length > 0 && currentUser?.role === 'finance';
+  const canBatchPay = selectedPayable.length > 0 && selectedTab === 'refund_pending' && currentUser?.role === 'finance';
 
   const handleBatchApprove = async () => {
     if (selectedApprovable.length === 0) {
@@ -173,10 +193,10 @@ export default function ProjectList() {
     }
 
     let processedCount = 0;
-    if (selectedTab === 'notice') {
+    if (selectedTab === 'notice_pending') {
       await batchApproveNotice(selectedApprovable);
       processedCount = selectedApprovable.length;
-    } else if (selectedTab === 'refund') {
+    } else if (selectedTab === 'refund_pending') {
       await batchApproveRefund(selectedApprovable);
       processedCount = selectedApprovable.length;
     }
@@ -213,9 +233,9 @@ export default function ProjectList() {
       return;
     }
 
-    if (selectedTab === 'notice') {
+    if (selectedTab === 'notice_pending') {
       await batchRejectNotice(selectedApprovable, batchRejectReason);
-    } else if (selectedTab === 'refund') {
+    } else if (selectedTab === 'refund_pending') {
       await batchRejectRefund(selectedApprovable, batchRejectReason);
     }
     
@@ -237,32 +257,103 @@ export default function ProjectList() {
     return 'bg-slate-100 text-slate-600';
   };
 
-  const tabs: { id: TabType; label: string; icon: React.ReactNode }[] = [
-    { id: 'all', label: '全部项目', icon: <span className="w-4 h-4" /> },
-    { id: 'notice', label: '中标通知处理', icon: <FileText className="w-4 h-4" /> },
-    { id: 'refund', label: '保证金退还', icon: <Wallet className="w-4 h-4" /> },
+  const getEmptyStateMessage = () => {
+    return emptyStateMessages[selectedTab] || emptyStateMessages.all;
+  };
+
+  const getTabGroup = (tab: TabType): string => {
+    if (tab.startsWith('notice')) return 'notice';
+    if (tab.startsWith('refund') || tab === 'paid') return 'refund';
+    return 'all';
+  };
+
+  const currentTabGroup = getTabGroup(selectedTab);
+
+  const tabGroups = [
+    {
+      key: 'notice',
+      label: '中标通知',
+      icon: <FileText className="w-4 h-4" />,
+      tabs: [
+        { key: 'notice_pending' as TabType, label: '待审核', roles: ['review_secretary'] },
+        { key: 'notice_rejected' as TabType, label: '待补录', roles: ['project_manager'] },
+        { key: 'notice_approved' as TabType, label: '已通过', roles: [] },
+      ],
+    },
+    {
+      key: 'refund',
+      label: '保证金退还',
+      icon: <Wallet className="w-4 h-4" />,
+      tabs: [
+        { key: 'refund_pending' as TabType, label: '待处理', roles: ['finance'] },
+        { key: 'refund_rejected' as TabType, label: '待补充', roles: ['project_manager'] },
+        { key: 'paid' as TabType, label: '已打款', roles: [] },
+      ],
+    },
   ];
+
+  const getVisibleTabs = () => {
+    if (currentUser?.role === 'review_secretary') {
+      return tabGroups.map(group => ({
+        ...group,
+        tabs: group.key === 'notice' 
+          ? group.tabs.filter(t => t.key === 'notice_pending' || t.key === 'notice_rejected' || t.key === 'notice_approved')
+          : [],
+      }));
+    }
+    if (currentUser?.role === 'project_manager') {
+      return tabGroups.map(group => ({
+        ...group,
+        tabs: group.tabs.filter(t => t.roles.includes('project_manager') || t.roles.length === 0),
+      })).filter(group => group.tabs.length > 0);
+    }
+    if (currentUser?.role === 'finance') {
+      return tabGroups.map(group => ({
+        ...group,
+        tabs: group.key === 'refund' 
+          ? group.tabs.filter(t => t.key === 'refund_pending' || t.key === 'refund_rejected' || t.key === 'paid')
+          : [],
+      }));
+    }
+    return tabGroups;
+  };
 
   return (
     <Layout title="项目管理" subtitle="查看和管理所有项目">
       <div className="bg-white rounded-xl shadow-sm border border-slate-200">
         <div className="p-4 border-b border-slate-200 flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="flex items-center gap-2">
-            {tabs.map(tab => (
-              <button
-                key={tab.id}
-                onClick={() => handleTabChange(tab.id)}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
-                  selectedTab === tab.id
-                    ? 'bg-blue-600 text-white'
-                    : 'text-slate-600 hover:bg-slate-100'
-                }`}
-              >
-                {tab.icon}
-                {tab.label}
-              </button>
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              onClick={() => handleTabChange('all')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
+                selectedTab === 'all'
+                  ? 'bg-blue-600 text-white'
+                  : 'text-slate-600 hover:bg-slate-100'
+              }`}
+            >
+              <span className="w-4 h-4" />
+              全部
+            </button>
+            
+            {getVisibleTabs().map(group => (
+              <div key={group.key} className="flex items-center gap-1 border-l border-slate-200 pl-2">
+                {group.tabs.map(tab => (
+                  <button
+                    key={tab.key}
+                    onClick={() => handleTabChange(tab.key)}
+                    className={`flex items-center gap-1 px-3 py-1.5 rounded-lg transition-colors text-sm ${
+                      selectedTab === tab.key
+                        ? 'bg-blue-600 text-white'
+                        : 'text-slate-600 hover:bg-slate-100'
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
             ))}
           </div>
+          
           <div className="flex items-center gap-3">
             {selectedProjects.length > 0 && (
               <>
@@ -321,7 +412,7 @@ export default function ProjectList() {
           </div>
         )}
 
-        {selectedTab !== 'all' && selectedUnprocessable.length > 0 && (
+        {selectedUnprocessable.length > 0 && (
           <div className="p-4 bg-amber-50 border-b border-amber-200">
             <div className="flex items-start gap-2">
               <Info className="w-5 h-5 text-amber-600 mt-0.5" />
@@ -420,8 +511,20 @@ export default function ProjectList() {
                 </tr>
               ) : filteredProjects.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="px-4 py-12 text-center text-slate-500">
-                    暂无项目
+                  <td colSpan={8} className="px-4 py-12 text-center">
+                    <div className="flex flex-col items-center">
+                      <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mb-4">
+                        {currentTabGroup === 'notice' ? (
+                          <FileText className="w-8 h-8 text-slate-400" />
+                        ) : (
+                          <Wallet className="w-8 h-8 text-slate-400" />
+                        )}
+                      </div>
+                      <p className="text-slate-600 font-medium">{getEmptyStateMessage().title}</p>
+                      {getEmptyStateMessage().description && (
+                        <p className="text-sm text-slate-400 mt-1">{getEmptyStateMessage().description}</p>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ) : (
