@@ -1,0 +1,16 @@
+node_modules
+.nuxt
+.nitro
+.cache
+.output
+.env
+.DS_Store
+*.log
+.vscode/*
+!.vscode/extensions.json
+.idea
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
