@@ -194,6 +194,12 @@ async function loadProperties() {
   try {
     const data = await propertyApi.getList({ page_size: 100 })
     propertyOptions.value = data.items || []
+    if (formData.property_id) {
+      const found = propertyOptions.value.find(p => p.id === formData.property_id)
+      if (found) {
+        selectedProperty.value = found
+      }
+    }
   } catch (e) {
     console.error(e)
   }

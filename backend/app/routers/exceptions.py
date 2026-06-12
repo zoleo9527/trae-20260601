@@ -189,10 +189,31 @@ async def update_exception(
     if not db_exception:
         raise HTTPException(status_code=404, detail="异常记录不存在")
 
+    update_dict = update_data.model_dump(exclude_unset=True)
+
+    if update_data.property_id is not None and "property_id" in update_dict:
+        db_property = db.query(models.Property).filter(
+            models.Property.id == update_data.property_id
+        ).first()
+        if not db_property:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="关联房源不存在"
+            )
+
+    if update_data.viewing_id is not None and "viewing_id" in update_dict:
+        db_viewing = db.query(models.Viewing).filter(
+            models.Viewing.id == update_data.viewing_id
+        ).first()
+        if not db_viewing:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="关联带看记录不存在"
+            )
+
     old_status = db_exception.status
     old_values = []
     new_values = []
-    update_dict = update_data.model_dump(exclude_unset=True)
 
     for key, value in update_dict.items():
         old_val = getattr(db_exception, key)
@@ -204,15 +225,19 @@ async def update_exception(
     db_exception.handler_id = current_user.id
 
     op_type = "update"
-    remarks = None
+    remarks_parts = []
+
     if "status" in update_dict and old_status != update_dict["status"]:
         op_type = "status_update"
-        remarks = f"状态变更: {old_status} -> {update_dict['status']}"
+        remarks_parts.append(f"状态变更: {old_status} -> {update_dict['status']}")
         if update_dict["status"] == "resolved":
             db_exception.resolved_at = datetime.utcnow()
-            remarks += f"; 解决方案: {update_data.solution}"
-        if update_data.remarks:
-            remarks += f"; 备注: {update_data.remarks}"
+            solution = update_dict.get("solution")
+            if solution:
+                remarks_parts.append(f"解决方案: {solution}")
+
+    if "remarks" in update_dict and update_dict["remarks"]:
+        remarks_parts.append(f"备注: {update_dict['remarks']}")
 
     log_operation(
         db,
@@ -221,7 +246,7 @@ async def update_exception(
         operation_type=op_type,
         old_value="; ".join(old_values) if old_values else None,
         new_value="; ".join(new_values) if new_values else None,
-        remarks=remarks,
+        remarks="; ".join(remarks_parts) if remarks_parts else None,
         operator=current_user
     )
 

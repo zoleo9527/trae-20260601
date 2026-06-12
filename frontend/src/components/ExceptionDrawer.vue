@@ -82,21 +82,11 @@
           placeholder="请详细描述异常情况，包括发生时间、地点、涉及人员等"
         />
       </el-form-item>
-      <el-form-item label="处理备注" prop="remarks">
-        <el-input
-          v-model="formData.remarks"
-          type="textarea"
-          :rows="3"
-          placeholder="处理建议或需要注意的事项"
-        />
-      </el-form-item>
-
       <template v-if="isEdit">
-        <el-divider>处理结果</el-divider>
         <el-form-item label="当前状态">
           <status-tag type="exception" :status="exceptionData?.status" />
         </el-form-item>
-        <el-form-item label="更新状态">
+        <el-form-item label="状态变更">
           <el-select v-model="formData.status" placeholder="选择新状态" style="width: 100%">
             <el-option label="待处理" value="pending" />
             <el-option label="处理中" value="processing" />
@@ -104,23 +94,25 @@
             <el-option label="已关闭" value="closed" />
           </el-select>
         </el-form-item>
-        <el-form-item label="解决方案">
-          <el-input
-            v-model="formData.solution"
-            type="textarea"
-            :rows="4"
-            placeholder="请描述解决方案和处理结果"
-          />
-        </el-form-item>
-        <el-form-item label="追加备注">
-          <el-input
-            v-model="formData.remarks"
-            type="textarea"
-            :rows="2"
-            placeholder="追加处理备注"
-          />
-        </el-form-item>
       </template>
+
+      <el-form-item label="解决方案" v-if="isEdit">
+        <el-input
+          v-model="formData.solution"
+          type="textarea"
+          :rows="3"
+          placeholder="请描述解决方案和处理结果"
+        />
+      </el-form-item>
+
+      <el-form-item label="处理备注" prop="remarks">
+        <el-input
+          v-model="formData.remarks"
+          type="textarea"
+          :rows="3"
+          :placeholder="isEdit ? '更新处理备注信息' : '处理建议或需要注意的事项'"
+        />
+      </el-form-item>
     </el-form>
 
     <el-divider v-if="isEdit" />
@@ -227,7 +219,7 @@ function resetForm() {
     formData.severity = props.exception.severity
     formData.title = props.exception.title
     formData.description = props.exception.description
-    formData.remarks = ''
+    formData.remarks = props.exception.remarks || ''
     formData.status = props.exception.status
     formData.solution = props.exception.solution || ''
   } else {

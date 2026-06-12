@@ -153,6 +153,11 @@ class ExceptionCreate(ExceptionBase):
 
 
 class ExceptionUpdate(BaseModel):
+    property_id: Optional[int] = None
+    viewing_id: Optional[int] = None
+    exception_type: Optional[str] = None
+    title: Optional[str] = None
+    description: Optional[str] = None
     status: Optional[str] = None
     solution: Optional[str] = None
     remarks: Optional[str] = None
