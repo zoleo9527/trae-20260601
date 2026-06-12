@@ -19,6 +19,9 @@ import {
   Statistic,
   Row,
   Col,
+  message,
+  DatePicker,
+  InputNumber,
 } from 'antd';
 import {
   ArrowLeftOutlined,
@@ -30,8 +33,10 @@ import {
   InfoCircleOutlined,
   ArrowRightOutlined,
   ExclamationCircleOutlined,
+  PlusOutlined,
+  SafetyCertificateOutlined,
 } from '@ant-design/icons';
-import { quotationAPI, logsAPI } from '../services/api';
+import { quotationAPI, contractAPI, logsAPI } from '../services/api';
 import { useAuthStore } from '../store/useAuthStore';
 import {
   Quotation,
@@ -66,6 +71,10 @@ const QuotationDetail = () => {
   const [rejectModalVisible, setRejectModalVisible] = useState(false);
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
+
+  const [contractModalVisible, setContractModalVisible] = useState(false);
+  const [contractForm] = Form.useForm();
+  const [contractCreating, setContractCreating] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -231,6 +240,62 @@ const QuotationDetail = () => {
   const canSubmit = isOwner && (quotation.status === 'draft' || quotation.status === 'rejected');
   const canApprove = isManager && quotation.status === 'submitted';
   const canReject = isManager && quotation.status === 'submitted';
+  const canDraftContract = user?.role === 'rental_consultant' && quotation.status === 'approved';
+
+  const openContractModal = () => {
+    if (!quotation) return;
+    contractForm.resetFields();
+    contractForm.setFieldsValue({
+      customerName: quotation.customerName,
+      customerPhone: quotation.customerPhone,
+      companyName: quotation.companyName,
+      monthlyRent: quotation.items.find(i => i.name === '房屋租金')?.unitPrice || 0,
+      leaseTerm: quotation.leaseTerm,
+      rentFreePeriod: quotation.rentFreePeriod,
+      depositAmount: quotation.items.find(i => i.name === '房屋租金')?.unitPrice * quotation.depositMonths || 0,
+      paymentMethod: quotation.paymentMethod,
+      leaseStartDate: null,
+      leaseEndDate: null,
+    });
+    setContractModalVisible(true);
+  };
+
+  const handleCreateContract = async () => {
+    if (!id || !quotation || !property) return;
+    try {
+      const values = await contractForm.validateFields();
+      setContractCreating(true);
+      await contractAPI.create({
+        propertyId: quotation.propertyId,
+        quotationId: quotation.id,
+        customerName: values.customerName,
+        customerPhone: values.customerPhone,
+        companyName: values.companyName,
+        monthlyRent: values.monthlyRent,
+        leaseTerm: values.leaseTerm,
+        rentFreePeriod: values.rentFreePeriod,
+        depositAmount: values.depositAmount,
+        paymentMethod: values.paymentMethod,
+        leaseStartDate: values.leaseStartDate?.format('YYYY-MM-DD'),
+        leaseEndDate: values.leaseEndDate?.format('YYYY-MM-DD'),
+        clauses: [
+          { category: 'basic', title: '租赁期限', content: `租期${values.leaseTerm}个月，自${values.leaseStartDate?.format('YYYY-MM-DD')}至${values.leaseEndDate?.format('YYYY-MM-DD')}`, order: 1 },
+          { category: 'payment', title: '租金及付款方式', content: `月租金${values.monthlyRent}元，付款方式为${values.paymentMethod === 'monthly' ? '月付' : values.paymentMethod === 'quarterly' ? '季付' : values.paymentMethod === 'semi_annual' ? '半年付' : '年付'}`, order: 2 },
+          { category: 'payment', title: '押金', content: `押金${values.depositAmount}元`, order: 3 },
+          { category: 'basic', title: '免租期', content: `免租期${values.rentFreePeriod}个月`, order: 4 },
+        ],
+      });
+      message.success('合同创建成功，房源状态已同步更新');
+      setContractModalVisible(false);
+      fetchData(id);
+    } catch (err: any) {
+      if (err.response?.data?.error) {
+        message.error(err.response.data.error);
+      }
+    } finally {
+      setContractCreating(false);
+    }
+  };
 
   const getStatusJudgment = () => {
     const judgments: Record<string, { title: string; basis: string[]; nextSteps: string[]; restrictions: string[] }> = {
@@ -394,6 +459,11 @@ const QuotationDetail = () => {
           {canReject && (
             <Button danger icon={<CloseOutlined />} onClick={() => { form.resetFields(); setRejectModalVisible(true); }}>
               退回修改
+            </Button>
+          )}
+          {canDraftContract && (
+            <Button type="primary" icon={<SafetyCertificateOutlined />} onClick={openContractModal}>
+              起草合同
             </Button>
           )}
         </div>
@@ -780,6 +850,89 @@ const QuotationDetail = () => {
           <Form.Item name="remarks" label="备注" style={{ marginTop: 16 }}>
             <TextArea rows={3} />
           </Form.Item>
+        </Form>
+      </Modal>
+
+      <Modal
+        title="起草合同"
+        open={contractModalVisible}
+        onOk={handleCreateContract}
+        onCancel={() => setContractModalVisible(false)}
+        confirmLoading={contractCreating}
+        okText="创建合同"
+        cancelText="取消"
+        width={700}
+      >
+        <div style={{ marginBottom: 16, padding: '10px 14px', background: '#f6ffed', borderRadius: 8, border: '1px solid #b7eb8f', fontSize: 13 }}>
+          <InfoCircleOutlined style={{ color: '#52c41a', marginRight: 6 }} />
+          基于已确认报价单自动带入客户与金额字段，创建后房源状态将同步更新为「合同起草中」
+        </div>
+        <Form form={contractForm} layout="vertical">
+          <Divider orientation="left">客户信息（自动带入）</Divider>
+          <Row gutter={16}>
+            <Col span={8}>
+              <Form.Item name="customerName" label="客户姓名" rules={[{ required: true }]}>
+                <Input />
+              </Form.Item>
+            </Col>
+            <Col span={8}>
+              <Form.Item name="customerPhone" label="联系电话" rules={[{ required: true }]}>
+                <Input />
+              </Form.Item>
+            </Col>
+            <Col span={8}>
+              <Form.Item name="companyName" label="公司名称">
+                <Input />
+              </Form.Item>
+            </Col>
+          </Row>
+          <Divider orientation="left">合同条款</Divider>
+          <Row gutter={16}>
+            <Col span={8}>
+              <Form.Item name="monthlyRent" label="月租金（元）" rules={[{ required: true }]}>
+                <InputNumber min={0} style={{ width: '100%' }} />
+              </Form.Item>
+            </Col>
+            <Col span={8}>
+              <Form.Item name="leaseTerm" label="租期（月）" rules={[{ required: true }]}>
+                <InputNumber min={1} style={{ width: '100%' }} />
+              </Form.Item>
+            </Col>
+            <Col span={8}>
+              <Form.Item name="depositAmount" label="押金金额（元）" rules={[{ required: true }]}>
+                <InputNumber min={0} style={{ width: '100%' }} />
+              </Form.Item>
+            </Col>
+          </Row>
+          <Row gutter={16}>
+            <Col span={8}>
+              <Form.Item name="rentFreePeriod" label="免租期（月）" rules={[{ required: true }]}>
+                <InputNumber min={0} style={{ width: '100%' }} />
+              </Form.Item>
+            </Col>
+            <Col span={8}>
+              <Form.Item name="paymentMethod" label="付款方式" rules={[{ required: true }]}>
+                <Select>
+                  <Select.Option value="monthly">月付</Select.Option>
+                  <Select.Option value="quarterly">季付</Select.Option>
+                  <Select.Option value="semi_annual">半年付</Select.Option>
+                  <Select.Option value="annual">年付</Select.Option>
+                </Select>
+              </Form.Item>
+            </Col>
+          </Row>
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item name="leaseStartDate" label="租期开始日期" rules={[{ required: true, message: '请选择开始日期' }]}>
+                <DatePicker style={{ width: '100%' }} />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item name="leaseEndDate" label="租期结束日期" rules={[{ required: true, message: '请选择结束日期' }]}>
+                <DatePicker style={{ width: '100%' }} />
+              </Form.Item>
+            </Col>
+          </Row>
         </Form>
       </Modal>
     </div>

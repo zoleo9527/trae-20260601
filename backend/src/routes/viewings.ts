@@ -91,6 +91,23 @@ router.post('/', authenticate, requireRoles('rental_consultant'), (req: AuthRequ
     details: { customerName, scheduledAt },
   });
 
+  if (property && (property.status === 'vacant' || property.status === 'viewing_completed' || property.status === 'quotation_rejected')) {
+    const oldStatus = property.status;
+    property.status = 'viewing_scheduled';
+    property.updatedAt = new Date().toISOString();
+    db.properties.set(property.id, property);
+
+    logOperation({
+      entityType: 'property',
+      entityId: property.id,
+      action: 'schedule_viewing',
+      description: `预约看房 - ${customerName}`,
+      operator: req.user,
+      oldStatus,
+      newStatus: 'viewing_scheduled',
+    });
+  }
+
   res.status(201).json(viewing);
 });
 

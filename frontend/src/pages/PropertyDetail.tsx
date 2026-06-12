@@ -14,6 +14,10 @@ import {
   Alert,
   Table,
   Empty,
+  message,
+  DatePicker,
+  Row,
+  Col,
 } from 'antd';
 import {
   ArrowLeftOutlined,
@@ -32,8 +36,10 @@ import {
   LogoutOutlined,
   RollbackOutlined,
   InfoCircleOutlined,
+  PlusOutlined,
+  CalendarOutlined,
 } from '@ant-design/icons';
-import { propertyAPI, logsAPI } from '../services/api';
+import { propertyAPI, viewingAPI, logsAPI } from '../services/api';
 import { useAuthStore } from '../store/useAuthStore';
 import {
   Property,
@@ -72,6 +78,10 @@ const PropertyDetail = () => {
   const [transitionModalVisible, setTransitionModalVisible] = useState(false);
   const [selectedTransition, setSelectedTransition] = useState<StatusTransition | null>(null);
   const [transitionLoading, setTransitionLoading] = useState(false);
+
+  const [viewingModalVisible, setViewingModalVisible] = useState(false);
+  const [viewingForm] = Form.useForm();
+  const [viewingCreating, setViewingCreating] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -129,6 +139,45 @@ const PropertyDetail = () => {
   const canPerformTransition = (transition: StatusTransition) => {
     if (!user) return false;
     return transition.allowedRoles.includes(user.role);
+  };
+
+  const canScheduleViewing = () => {
+    if (!user || user.role !== 'rental_consultant') return false;
+    if (!property) return false;
+    return ['vacant', 'viewing_completed', 'quotation_rejected'].includes(property.status);
+  };
+
+  const openViewingModal = () => {
+    viewingForm.resetFields();
+    viewingForm.setFieldsValue({
+      scheduledAt: null,
+    });
+    setViewingModalVisible(true);
+  };
+
+  const handleCreateViewing = async () => {
+    if (!id) return;
+    try {
+      const values = await viewingForm.validateFields();
+      setViewingCreating(true);
+      await viewingAPI.create({
+        propertyId: id,
+        customerName: values.customerName,
+        customerPhone: values.customerPhone,
+        companyName: values.companyName,
+        scheduledAt: values.scheduledAt.toISOString(),
+        needs: values.needs,
+      });
+      message.success('预约看房创建成功，房源状态已同步更新');
+      setViewingModalVisible(false);
+      fetchData(id);
+    } catch (err: any) {
+      if (err.response?.data?.error) {
+        message.error(err.response.data.error);
+      }
+    } finally {
+      setViewingCreating(false);
+    }
   };
 
   const formatDate = (dateStr: string) => {
@@ -582,6 +631,15 @@ const PropertyDetail = () => {
         </Space>
         {availableTransitions.length > 0 && (
           <div className="action-bar">
+            {canScheduleViewing() && (
+              <Button
+                type="primary"
+                icon={<CalendarOutlined />}
+                onClick={openViewingModal}
+              >
+                预约看房
+              </Button>
+            )}
             {availableTransitions.map((transition) => (
               <Button
                 key={transition.to}
@@ -591,6 +649,17 @@ const PropertyDetail = () => {
                 {transition.description}
               </Button>
             ))}
+          </div>
+        )}
+        {!availableTransitions.length && canScheduleViewing() && (
+          <div className="action-bar">
+            <Button
+              type="primary"
+              icon={<CalendarOutlined />}
+              onClick={openViewingModal}
+            >
+              预约看房
+            </Button>
           </div>
         )}
       </div>
@@ -722,6 +791,67 @@ const PropertyDetail = () => {
             rules={[{ required: true, message: '请输入备注信息' }]}
           >
             <TextArea rows={4} placeholder="请输入状态变更的备注信息..." />
+          </Form.Item>
+        </Form>
+      </Modal>
+
+      <Modal
+        title="预约看房"
+        open={viewingModalVisible}
+        onOk={handleCreateViewing}
+        onCancel={() => setViewingModalVisible(false)}
+        confirmLoading={viewingCreating}
+        okText="确认预约"
+        cancelText="取消"
+        width={600}
+      >
+        <div style={{ marginBottom: 16, padding: '10px 14px', background: '#e6f7ff', borderRadius: 8, border: '1px solid #91d5ff', fontSize: 13 }}>
+          <InfoCircleOutlined style={{ color: '#1890ff', marginRight: 6 }} />
+          预约看房后，房源状态将自动从「{property?.statusDisplay?.label}」变更为「预约看房」
+        </div>
+        <Form form={viewingForm} layout="vertical">
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item
+                name="customerName"
+                label="客户姓名"
+                rules={[{ required: true, message: '请输入客户姓名' }]}
+              >
+                <Input placeholder="请输入客户姓名" />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item
+                name="customerPhone"
+                label="联系电话"
+                rules={[{ required: true, message: '请输入联系电话' }]}
+              >
+                <Input placeholder="请输入联系电话" />
+              </Form.Item>
+            </Col>
+          </Row>
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item name="companyName" label="公司名称">
+                <Input placeholder="请输入公司名称（选填）" />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item
+                name="scheduledAt"
+                label="预约时间"
+                rules={[{ required: true, message: '请选择预约时间' }]}
+              >
+                <DatePicker
+                  showTime
+                  style={{ width: '100%' }}
+                  placeholder="选择预约看房时间"
+                />
+              </Form.Item>
+            </Col>
+          </Row>
+          <Form.Item name="needs" label="客户需求">
+            <TextArea rows={3} placeholder="请描述客户的主要需求（面积、预算、特殊要求等）" />
           </Form.Item>
         </Form>
       </Modal>
