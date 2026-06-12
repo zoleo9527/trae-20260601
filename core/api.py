@@ -1,10 +1,11 @@
 from django.http import HttpResponse, FileResponse
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
-from ninja import NinjaAPI, Schema, ModelSchema
+from ninja import NinjaAPI, Schema, ModelSchema, File
 from ninja.security import HttpBearer
 from .models import User, MilkingBatch, QualityTest, Attachment, Notification, ErrorLog
 import csv
+import os
 from io import StringIO
 from typing import List, Optional, Dict, Any
 
@@ -36,14 +37,12 @@ def get_role_actions(user: User, batch: MilkingBatch = None) -> List[Dict[str, s
             {'action': 'export_data', 'label': '导出数据'},
         ]
     elif role == 'milker':
-        actions = [
+        base_actions = [
             {'action': 'view_my_batches', 'label': '查看我的批次'},
             {'action': 'view_detail', 'label': '查看详情'},
-            {'action': 'start_milking', 'label': '开始挤奶'},
-            {'action': 'end_milking', 'label': '结束挤奶'},
-            {'action': 'record_milk', 'label': '记录奶量'},
             {'action': 'add_attachment', 'label': '上传附件'},
         ]
+        actions.extend(base_actions)
         if batch and batch.milker_id == user.id:
             if batch.status == 'pending':
                 actions.append({'action': 'start_milking', 'label': '开始挤奶'})
@@ -85,6 +84,9 @@ class QualityTestDetailSchema(ModelSchema):
     batch_no: str = ''
     batch_status: str = ''
     error_code: Optional[str] = None
+    processed_by_username: Optional[str] = None
+    processed_at: Optional[str] = None
+    process_notes: Optional[str] = None
     
     class Meta:
         model = QualityTest
@@ -146,6 +148,8 @@ class UpdateTestSchema(Schema):
 
 class UploadAttachmentSchema(Schema):
     attachment_type: str
+    batch_id: Optional[int] = None
+    test_id: Optional[int] = None
 
 def trigger_notifications(batch: MilkingBatch, notification_type: str, content: str):
     if notification_type == 'quality_fail':
@@ -193,17 +197,22 @@ def update_batch_status_from_tests(batch: MilkingBatch):
     has_pending = tests.filter(result='pending').exists()
     has_testing = tests.filter(result='testing').exists()
     has_fail = tests.filter(result='fail').exists()
+    has_pass = tests.filter(result='pass').exists()
     
-    if has_fail:
+    antibiotic_fail = tests.filter(test_type='antibiotic', result='fail').exists()
+    
+    if antibiotic_fail:
+        batch.status = 'isolated'
+        batch.antibiotic_isolated = True
+        batch.isolation_reason = '抗生素检测不合格'
+        trigger_notifications(batch, 'antibiotic_alert', f'批次 {batch.batch_no} 抗生素检测不合格，已自动隔离')
+    elif has_fail:
         batch.status = 'abnormal'
-        if any(t.test_type == 'antibiotic' and t.result == 'fail' for t in tests):
-            batch.antibiotic_isolated = True
-            batch.isolation_reason = '抗生素检测不合格'
-            trigger_notifications(batch, 'antibiotic_alert', f'批次 {batch.batch_no} 抗生素检测不合格，已自动隔离')
+        batch.antibiotic_isolated = False
         trigger_notifications(batch, 'quality_fail', f'批次 {batch.batch_no} 质量检测不合格')
     elif has_pending or has_testing:
-        batch.status = 'completed'
-    else:
+        batch.status = 'testing'
+    elif has_pass and not has_pending and not has_testing and not has_fail:
         batch.status = 'completed'
     
     batch.save()
@@ -245,8 +254,8 @@ def list_batches(request, status: Optional[str] = None, antibiotic_isolated: Opt
     
     return result
 
-@api.get("/batches/{batch_id}", response=MilkingBatchDetailSchema)
-def get_batch_detail(request, batch_id: int, user_role: Optional[str] = 'manager'):
+@api.get("/batches/{batch_id}", response=MilkingBatchDetailSchema, auth=auth)
+def get_batch_detail(request, batch_id: int):
     batch = get_object_or_404(MilkingBatch, id=batch_id)
     schema = MilkingBatchDetailSchema.from_orm(batch)
     schema.milker_username = batch.milker.username if batch.milker else None
@@ -268,8 +277,7 @@ def get_batch_detail(request, batch_id: int, user_role: Optional[str] = 'manager
         }
     schema.quality_summary = test_summary
     
-    if hasattr(request, 'auth') and request.auth:
-        schema.available_actions = get_role_actions(request.auth, batch)
+    schema.available_actions = get_role_actions(request.auth, batch)
     
     return schema
 
@@ -306,6 +314,7 @@ def update_batch(request, batch_id: int, data: UpdateBatchSchema):
     if data.antibiotic_isolated is not None:
         batch.antibiotic_isolated = data.antibiotic_isolated
         if data.antibiotic_isolated:
+            batch.status = 'isolated'
             trigger_notifications(batch, 'antibiotic_alert', f'批次 {batch.batch_no} 已标记抗生素隔离')
     if data.isolation_reason is not None:
         batch.isolation_reason = data.isolation_reason
@@ -351,6 +360,12 @@ def list_quality_tests(request, batch_id: Optional[int] = None, result: Optional
         schema.batch_no = test.batch.batch_no
         schema.batch_status = test.batch.status
         
+        error_log = ErrorLog.objects.filter(batch=test.batch, resolved=False).first()
+        if error_log:
+            schema.processed_by_username = error_log.resolved_by.username if error_log.resolved_by else None
+            schema.processed_at = error_log.resolved_at.isoformat() if error_log.resolved_at else None
+            schema.process_notes = error_log.description
+        
         if test.result == 'fail':
             if test.test_type == 'antibiotic':
                 schema.error_code = 'E002'
@@ -368,6 +383,12 @@ def get_quality_test(request, test_id: int):
     schema.tester_username = test.tester.username if test.tester else None
     schema.batch_no = test.batch.batch_no
     schema.batch_status = test.batch.status
+    
+    error_log = ErrorLog.objects.filter(batch=test.batch, resolved=False).first()
+    if error_log:
+        schema.processed_by_username = error_log.resolved_by.username if error_log.resolved_by else None
+        schema.processed_at = error_log.resolved_at.isoformat() if error_log.resolved_at else None
+        schema.process_notes = error_log.description
     
     if test.result == 'fail':
         if test.test_type == 'antibiotic':
@@ -388,6 +409,9 @@ def create_quality_test(request, data: CreateTestSchema):
         threshold_max=data.threshold_max,
         tester=request.auth
     )
+    
+    batch.status = 'testing'
+    batch.save()
     
     schema = QualityTestDetailSchema.from_orm(test)
     schema.tester_username = request.auth.username
@@ -423,6 +447,12 @@ def update_quality_test(request, test_id: int, data: UpdateTestSchema):
     schema.tester_username = test.tester.username if test.tester else None
     schema.batch_no = test.batch.batch_no
     schema.batch_status = test.batch.status
+    
+    error_log = ErrorLog.objects.filter(batch=test.batch, resolved=False).first()
+    if error_log:
+        schema.processed_by_username = error_log.resolved_by.username if error_log.resolved_by else None
+        schema.processed_at = error_log.resolved_at.isoformat() if error_log.resolved_at else None
+        schema.process_notes = error_log.description
     
     if test.result == 'fail':
         if test.test_type == 'antibiotic':
@@ -503,6 +533,7 @@ def resolve_error_log(request, log_id: int):
     if error_log.batch and error_log.error_code == 'E002':
         error_log.batch.antibiotic_isolated = False
         error_log.batch.isolation_reason = None
+        error_log.batch.status = 'completed'
         error_log.batch.save()
     
     return {'success': True}
@@ -522,6 +553,48 @@ def list_attachments(request, batch_id: Optional[int] = None):
         result.append(schema)
     
     return result
+
+@api.post("/attachments", response=AttachmentDetailSchema, auth=auth)
+def upload_attachment(request, attachment_type: str, batch_id: Optional[int] = None, test_id: Optional[int] = None):
+    batch = MilkingBatch.objects.filter(id=batch_id).first() if batch_id else None
+    test = QualityTest.objects.filter(id=test_id).first() if test_id else None
+    
+    if not batch and not test:
+        return api.create_response(request, {'error': '必须指定批次或检测记录'}, status=400)
+    
+    uploaded_file = request.FILES.get('file')
+    if not uploaded_file:
+        return api.create_response(request, {'error': '请上传文件'}, status=400)
+    
+    filename = uploaded_file.name
+    filesize = uploaded_file.size
+    
+    attachment = Attachment.objects.create(
+        batch=batch,
+        test=test,
+        file=uploaded_file,
+        file_name=filename,
+        file_size=filesize,
+        attachment_type=attachment_type,
+        uploaded_by=request.auth
+    )
+    
+    schema = AttachmentDetailSchema.from_orm(attachment)
+    schema.uploaded_by_username = request.auth.username
+    schema.download_url = f'/api/attachments/{attachment.id}/download'
+    return schema
+
+@api.delete("/attachments/{attachment_id}", auth=auth)
+def delete_attachment(request, attachment_id: int):
+    attachment = get_object_or_404(Attachment, id=attachment_id)
+    
+    if attachment.file:
+        file_path = attachment.file.path
+        if os.path.exists(file_path):
+            os.remove(file_path)
+    
+    attachment.delete()
+    return {'success': True}
 
 @api.get("/attachments/{attachment_id}/download", auth=auth)
 def download_attachment(request, attachment_id: int):
