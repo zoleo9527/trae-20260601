@@ -64,7 +64,11 @@ const DocumentStatusTransitions: Record<DocumentStatus, DocumentStatus[]> = {
 };
 
 export class DocumentService {
-  findAll(params?: { projectId?: string; status?: string }) {
+  findAll(params?: { projectId?: string; status?: string; handler?: string; page?: number; pageSize?: number }) {
+    const page = params?.page || 1;
+    const pageSize = params?.pageSize || 10;
+    const offset = (page - 1) * pageSize;
+
     let whereClause = '1=1';
     const values: any[] = [];
 
@@ -76,6 +80,13 @@ export class DocumentService {
       whereClause += ' AND d.status = ?';
       values.push(params.status);
     }
+    if (params?.handler) {
+      whereClause += ' AND d.handler = ?';
+      values.push(params.handler);
+    }
+
+    const countResult = db.prepare(`SELECT COUNT(*) as count FROM documents d WHERE ${whereClause}`).get(...values) as { count: number };
+    const total = countResult.count;
 
     const rows = db.prepare(`
       SELECT d.*, p.name as project_name 
@@ -83,9 +94,20 @@ export class DocumentService {
       LEFT JOIN projects p ON d.project_id = p.id
       WHERE ${whereClause}
       ORDER BY d.created_at DESC
-    `).all(...values);
+      LIMIT ? OFFSET ?
+    `).all(...values, pageSize, offset);
 
-    return rows.map((row: any) => this.mapRowToDocument(row));
+    const documents = rows.map((row: any) => this.mapRowToDocument(row));
+
+    return {
+      data: documents,
+      pagination: {
+        page,
+        pageSize,
+        total,
+        totalPages: Math.ceil(total / pageSize),
+      },
+    };
   }
 
   findById(id: string) {

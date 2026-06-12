@@ -81,9 +81,15 @@ curl "http://localhost:3001/api/projects?status=approved&page=1&pageSize=10"
     {
       "id": "550e8400-e29b-41d4-a716-446655440000",
       "name": "XX单位办公楼装修招标",
+      "client": "XX单位",
+      "budget": 5000000,
+      "biddingType": "公开招标",
       "status": "initial_review",
       "handler": "张三",
-      "documentHandler": "李四"
+      "documentHandler": "李四",
+      "reason": "委托单位已完成内部审批流程...",
+      "createdAt": "2024-01-15T10:00:00.000Z",
+      "updatedAt": "2024-01-15T10:30:00.000Z"
     }
   ],
   "pagination": {
@@ -176,12 +182,12 @@ curl -X PATCH http://localhost:3001/api/projects/550e8400-e29b-41d4-a716-4466554
 
 ## 三、文件编制 API
 
-### 3.1 查询文件列表
+### 3.1 查询文件列表（分页筛选）
 
-获取所有文件编制任务，可以按项目或状态筛选，支持跨项目查看所有文件。
+获取所有文件编制任务，支持按项目、状态、负责人联合筛选，并提供分页功能。
 
 ```bash
-# 查询所有文件
+# 查询所有文件（默认分页）
 curl "http://localhost:3001/api/documents"
 
 # 查询指定项目的文件
@@ -189,6 +195,41 @@ curl "http://localhost:3001/api/documents?projectId=550e8400-e29b-41d4-a716-4466
 
 # 查询待审核的文件（评审秘书视角）
 curl "http://localhost:3001/api/documents?status=review"
+
+# 查询李四负责的文件
+curl "http://localhost:3001/api/documents?handler=李四"
+
+# 联合筛选：查询李四负责的待审核文件，分页显示
+curl "http://localhost:3001/api/documents?status=review&handler=李四&page=1&pageSize=10"
+```
+
+响应示例包含分页信息：
+
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "doc-id-001",
+      "projectId": "550e8400-e29b-41d4-a716-446655440000",
+      "projectName": "XX单位办公楼装修招标",
+      "status": "drafting",
+      "content": "# 招标文件...",
+      "handler": "李四",
+      "qaRecords": [],
+      "evaluation": null,
+      "createdAt": "2024-01-15T11:00:00.000Z",
+      "updatedAt": "2024-01-16T15:00:00.000Z",
+      "publishedAt": null
+    }
+  ],
+  "pagination": {
+    "page": 1,
+    "pageSize": 10,
+    "total": 15,
+    "totalPages": 2
+  }
+}
 ```
 
 ### 3.2 查询文件详情（含答疑记录和评标安排）

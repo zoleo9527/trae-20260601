@@ -6,12 +6,15 @@ const router = Router();
 
 router.get('/', (req: Request, res: Response) => {
   try {
-    const { projectId, status } = req.query;
-    const documents = documentService.findAll({
+    const { projectId, status, handler, page, pageSize } = req.query;
+    const result = documentService.findAll({
       projectId: projectId as string | undefined,
       status: status as string | undefined,
+      handler: handler as string | undefined,
+      page: page ? parseInt(page as string) : undefined,
+      pageSize: pageSize ? parseInt(pageSize as string) : undefined,
     });
-    res.json({ success: true, data: documents });
+    res.json({ success: true, data: result.data, pagination: result.pagination });
   } catch (error: any) {
     res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: error.message } });
   }
