@@ -62,12 +62,14 @@ router.get('/:recordId', (req: Request, res: Response) => {
           conclusions: record.draftInfo.draftContent.conclusions,
           riskNotes: record.draftInfo.draftContent.riskNotes
         },
-        returnInfo: record.returnInfo,
+        currentReturnInfo: record.returnInfo,
+        hasReturnHistory: record.returnHistory && record.returnHistory.length > 0,
+        returnHistory: record.returnHistory || [],
         supplementaryNotes: record.supplementaryNotes.filter(n => n.isVisibleToClient),
         responsibilityTrace: record.responsibilityTrace,
         workflowHistory: record.workflowHistory
       },
-      message: '在同一工作面展示：上一环节结论 + 底稿摘要 + 确认状态 + 退回原因（如有） + 补充备注 + 责任追溯'
+      message: '在同一工作面展示：上一环节结论 + 底稿摘要 + 确认状态 + 当前退回（如有） + 历史退回记录 + 补充备注 + 责任追溯'
     });
   } catch (error: any) {
     res.status(500).json({

@@ -276,8 +276,10 @@ function initializeSeedData(): void {
         returnedAt: new Date(now.getTime() - 1 * 24 * 60 * 60 * 1000),
         expectedFixDeadline: new Date(now.getTime() + 1 * 24 * 60 * 60 * 1000),
         isResponsibilityClear: true,
-        responsibilityNotes: '研发费用归集属于税务顾问责任，需补充完整材料'
+        responsibilityNotes: '研发费用归集属于税务顾问责任，需补充完整材料',
+        isResolved: false
       },
+      returnHistory: [],
       supplementaryNotes: [
         {
           id: 'note-001',
@@ -468,6 +470,7 @@ function initializeSeedData(): void {
         confirmationStatus: 'in_progress',
         deadline: new Date(now.getTime() + 5 * 24 * 60 * 60 * 1000)
       },
+      returnHistory: [],
       supplementaryNotes: [],
       workflowHistory: [
         {
@@ -543,6 +546,7 @@ function initializeSeedData(): void {
         confirmedAt: new Date(now.getTime() - 15 * 24 * 60 * 60 * 1000),
         deadline: new Date(now.getTime() - 20 * 24 * 60 * 60 * 1000)
       },
+      returnHistory: [],
       supplementaryNotes: [],
       workflowHistory: [],
       responsibilityTrace: []

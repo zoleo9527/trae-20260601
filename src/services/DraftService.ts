@@ -1,7 +1,8 @@
 import { v4 as uuidv4 } from 'uuid';
 import {
   WorkflowRecord, DraftInfo, DraftContent, UserRole, WorkflowStage,
-  RecordStatus, WorkflowEvent, ResponsibilityEntry, Note, Document, TodoType
+  RecordStatus, WorkflowEvent, ResponsibilityEntry, Note, Document, TodoType,
+  ReturnHistoryEntry
 } from '../types';
 import { saveRecord, getRecordById, dataStore } from '../dataStore';
 import { TodoService } from './TodoService';
@@ -73,6 +74,7 @@ export class DraftService {
         confirmationStatus: 'pending',
         deadline: new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000)
       },
+      returnHistory: [],
       supplementaryNotes: [],
       workflowHistory: [initialEvent],
       responsibilityTrace: [responsibilityEntry]
@@ -123,17 +125,49 @@ export class DraftService {
 
     const now = new Date();
     const previousStage = record.currentStage;
+    const isResubmission = previousStage === WorkflowStage.RETURNED ||
+                           previousStage === WorkflowStage.REVISION_IN_PROGRESS;
+
+    if (isResubmission && record.returnInfo) {
+      record.returnInfo.isResolved = true;
+      record.returnInfo.resolvedAt = now;
+      record.returnInfo.resolvedBy = userId;
+
+      const historyEntry: ReturnHistoryEntry = {
+        returnInfo: { ...record.returnInfo },
+        resubmittedAt: now,
+        resubmittedBy: userId,
+        notes: '重新提交申报底稿'
+      };
+      record.returnHistory.push(historyEntry);
+      record.returnInfo = undefined;
+    }
+
+    if (record.confirmationInfo.confirmationStatus === 'returned') {
+      record.confirmationInfo.confirmationStatus = 'pending';
+    }
 
     record.currentStage = WorkflowStage.AWAITING_CONFIRMATION;
     record.status = RecordStatus.PENDING_CONFIRMATION;
     record.updatedAt = now;
 
+    const incompleteRevisionEntry = record.responsibilityTrace.find(
+      e => e.stage === WorkflowStage.REVISION_IN_PROGRESS && !e.isComplete
+    );
+    if (incompleteRevisionEntry) {
+      incompleteRevisionEntry.isComplete = true;
+    }
+
     const submitEvent: WorkflowEvent = {
-      eventType: 'DRAFT_SUBMITTED',
+      eventType: isResubmission ? 'DRAFT_RESUBMITTED' : 'DRAFT_SUBMITTED',
       actorId: userId,
       actorRole: UserRole.TAX_CONSULTANT,
       timestamp: now,
-      details: { submittedAt: now },
+      details: {
+        submittedAt: now,
+        isResubmission,
+        previousReturnInfo: isResubmission ? record.returnHistory[record.returnHistory.length - 1] : undefined
+      },
       previousStage,
       newStage: WorkflowStage.AWAITING_CONFIRMATION
     };
@@ -142,10 +176,12 @@ export class DraftService {
       stage: WorkflowStage.AWAITING_CONFIRMATION,
       responsibleRole: UserRole.TAX_CONSULTANT,
       responsibleUserId: userId,
-      action: '提交申报底稿',
+      action: isResubmission ? '重新提交申报底稿' : '提交申报底稿',
       timestamp: now,
       isComplete: true,
-      notes: `税务期间 ${record.taxPeriod} 的申报底稿已提交，等待客户 ${record.confirmationInfo.clientFinanceId || '财务'} 确认`
+      notes: isResubmission
+        ? `税务期间 ${record.taxPeriod} 的申报底稿已重新提交，之前的退回已解决`
+        : `税务期间 ${record.taxPeriod} 的申报底稿已提交，等待客户 ${record.confirmationInfo.clientFinanceId || '财务'} 确认`
     };
 
     record.workflowHistory.push(submitEvent);

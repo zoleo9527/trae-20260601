@@ -237,6 +237,16 @@ export interface ReturnInfo {
   expectedFixDeadline: Date;
   isResponsibilityClear: boolean;
   responsibilityNotes?: string;
+  isResolved: boolean;
+  resolvedAt?: Date;
+  resolvedBy?: string;
+}
+
+export interface ReturnHistoryEntry {
+  returnInfo: ReturnInfo;
+  resubmittedAt: Date;
+  resubmittedBy: string;
+  notes?: string;
 }
 
 export interface WorkflowRecord {
@@ -251,6 +261,7 @@ export interface WorkflowRecord {
   draftInfo: DraftInfo;
   confirmationInfo: ConfirmationInfo;
   returnInfo?: ReturnInfo;
+  returnHistory: ReturnHistoryEntry[];
   supplementaryNotes: Note[];
   workflowHistory: WorkflowEvent[];
   responsibilityTrace: ResponsibilityEntry[];

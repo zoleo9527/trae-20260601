@@ -178,7 +178,8 @@ export class ConfirmationService {
       suggestedFixes: returnData.suggestedFixes,
       returnedAt: now,
       expectedFixDeadline: returnData.expectedFixDeadline,
-      isResponsibilityClear: returnData.returnReason.category !== 'other'
+      isResponsibilityClear: returnData.returnReason.category !== 'other',
+      isResolved: false
     };
 
     if (!record.returnInfo.isResponsibilityClear) {
