@@ -6,7 +6,7 @@ interface AppState {
   setCurrentRole: (role: UserRole) => void;
 }
 
-export const useAppStore = create<AppState>(() => ({
+export const useAppStore = create<AppState>((set) => ({
   currentRole: 'consultant',
-  setCurrentRole: (role) => ({ currentRole: role }),
+  setCurrentRole: (role) => set({ currentRole: role }),
 }));

@@ -18,7 +18,7 @@ export default function App() {
           <Route path="application/:id" element={<ApplicationDetail />} />
           <Route path="application/:id/inspection" element={<InspectionPage />} />
           <Route path="application/:id/cost" element={<CostBreakdownPage />} />
-          <Route path="application/:id/confirm" element={<ConfirmationPage />} />
+          <Route path="application/:id/confirmation" element={<ConfirmationPage />} />
           <Route path="*" element={<Empty />} />
         </Route>
       </Routes>

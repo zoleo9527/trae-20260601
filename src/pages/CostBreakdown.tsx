@@ -239,79 +239,85 @@ export default function CostBreakdownPage() {
     });
   };
 
+  const buildDeductionsFromCost = (prev: CostBreakdownType): CostBreakdownType => {
+    const deductions: DeductionItem[] = [];
+
+    if (prev.rentSettlement.amount > 0) {
+      deductions.push({
+        id: generateId('ded'),
+        category: 'rent',
+        itemName: '实际占用租金',
+        amount: prev.rentSettlement.amount,
+        basis: `${prev.rentSettlement.occupationDays}天 × ${formatCurrency(prev.rentSettlement.dailyRent)}/天 = ${formatCurrency(prev.rentSettlement.amount)}`,
+        relatedEvidence: '《租赁合同》第4.2条',
+      });
+    }
+
+    prev.utilityFees.forEach((u) => {
+      if (u.amount > 0) {
+        deductions.push({
+          id: generateId('ded'),
+          category: 'utility',
+          itemName: u.type === 'electricity' ? '电费' : '水费',
+          amount: u.amount,
+          basis: `(${u.currentReading} - ${u.previousReading})${u.type === 'electricity' ? '度' : '吨'} × ${u.unitPrice}元/${u.type === 'electricity' ? '度' : '吨'} = ${formatCurrency(u.amount)}`,
+          relatedEvidence: `物业水电抄表单 ${u.period}`,
+        });
+      }
+    });
+
+    prev.repairFees.forEach((r) => {
+      if (r.quotedAmount > 0) {
+        deductions.push({
+          id: generateId('ded'),
+          category: 'repair',
+          itemName: r.itemName,
+          amount: r.quotedAmount,
+          basis: r.damageDescription,
+          relatedEvidence: r.basis,
+        });
+      }
+    });
+
+    if (prev.penaltyFee && prev.penaltyFee.amount > 0) {
+      deductions.push({
+        id: generateId('ded'),
+        category: 'penalty',
+        itemName: '提前退租违约金',
+        amount: prev.penaltyFee.amount,
+        basis: prev.penaltyFee.formula || '按合同约定计算',
+        relatedEvidence: prev.penaltyFee.clause,
+      });
+    }
+
+    const totalDeduction = deductions.reduce((sum, d) => sum + d.amount, 0);
+    const refundAmount = prev.totalDeposit - totalDeduction;
+
+    return {
+      ...prev,
+      deductions,
+      totalDeduction,
+      refundAmount,
+    };
+  };
+
   const regenerateDeductions = () => {
     setCost((prev) => {
       if (!prev) return prev;
-      const deductions: DeductionItem[] = [];
-
-      if (prev.rentSettlement.amount > 0) {
-        deductions.push({
-          id: generateId('ded'),
-          category: 'rent',
-          itemName: '实际占用租金',
-          amount: prev.rentSettlement.amount,
-          basis: `${prev.rentSettlement.occupationDays}天 × ${formatCurrency(prev.rentSettlement.dailyRent)}/天 = ${formatCurrency(prev.rentSettlement.amount)}`,
-          relatedEvidence: '《租赁合同》第4.2条',
-        });
-      }
-
-      prev.utilityFees.forEach((u) => {
-        if (u.amount > 0) {
-          deductions.push({
-            id: generateId('ded'),
-            category: 'utility',
-            itemName: u.type === 'electricity' ? '电费' : '水费',
-            amount: u.amount,
-            basis: `(${u.currentReading} - ${u.previousReading})${u.type === 'electricity' ? '度' : '吨'} × ${u.unitPrice}元/${u.type === 'electricity' ? '度' : '吨'} = ${formatCurrency(u.amount)}`,
-            relatedEvidence: `物业水电抄表单 ${u.period}`,
-          });
-        }
-      });
-
-      prev.repairFees.forEach((r) => {
-        if (r.quotedAmount > 0) {
-          deductions.push({
-            id: generateId('ded'),
-            category: 'repair',
-            itemName: r.itemName,
-            amount: r.quotedAmount,
-            basis: r.damageDescription,
-            relatedEvidence: r.basis,
-          });
-        }
-      });
-
-      if (prev.penaltyFee && prev.penaltyFee.amount > 0) {
-        deductions.push({
-          id: generateId('ded'),
-          category: 'penalty',
-          itemName: '提前退租违约金',
-          amount: prev.penaltyFee.amount,
-          basis: prev.penaltyFee.formula || '按合同约定计算',
-          relatedEvidence: prev.penaltyFee.clause,
-        });
-      }
-
-      const totalDeduction = deductions.reduce((sum, d) => sum + d.amount, 0);
-      const refundAmount = prev.totalDeposit - totalDeduction;
-
-      return {
-        ...prev,
-        deductions,
-        totalDeduction,
-        refundAmount,
-      };
+      return buildDeductionsFromCost(prev);
     });
   };
 
   const handleSave = async () => {
     if (!id || !cost) return;
-    regenerateDeductions();
+    const updatedCost = buildDeductionsFromCost({
+      ...cost,
+      preparedAt: new Date().toISOString(),
+    });
     setSubmitting(true);
     try {
-      await new Promise((resolve) => setTimeout(resolve, 100));
-      const currentCost = { ...cost, preparedAt: new Date().toISOString() };
-      await surrenderApi.submitCostBreakdown(id, currentCost);
+      setCost(updatedCost);
+      await surrenderApi.submitCostBreakdown(id, updatedCost);
       navigate(`/application/${id}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : '提交失败');

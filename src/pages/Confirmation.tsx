@@ -38,8 +38,8 @@ import { surrenderApi } from '@/api/surrender';
 export default function ConfirmationPage() {
   const navigate = useNavigate();
   const { id } = useParams();
-  const storeCurrentRole = useAppStore((s) => s.currentRole);
-  const setStoreCurrentRole = useAppStore((s) => s.setCurrentRole);
+  const currentRole = useAppStore((s) => s.currentRole);
+  const setCurrentRole = useAppStore((s) => s.setCurrentRole);
 
   const [application, setApplication] = useState<SurrenderApplication | null>(null);
   const [loading, setLoading] = useState(true);
@@ -58,7 +58,6 @@ export default function ConfirmationPage() {
   const [responderName, setResponderName] = useState('陈会计');
   const [confirmerName, setConfirmerName] = useState('');
   const [isSigning, setIsSigning] = useState(false);
-  const [currentRole, setCurrentRole] = useState<UserRole>(storeCurrentRole);
 
   const fetchApplication = useCallback(async () => {
     if (!id) return;
@@ -77,10 +76,6 @@ export default function ConfirmationPage() {
   useEffect(() => {
     fetchApplication();
   }, [fetchApplication]);
-
-  useEffect(() => {
-    setCurrentRole(storeCurrentRole);
-  }, [storeCurrentRole]);
 
   if (loading) {
     return (
@@ -118,11 +113,6 @@ export default function ConfirmationPage() {
   const app = application;
   const hasCostBreakdown = !!app.costBreakdown;
 
-  const handleRoleChange = (role: UserRole) => {
-    setCurrentRole(role);
-    setStoreCurrentRole(role);
-  };
-
   if (!hasCostBreakdown) {
     return (
       <div className="animate-fade-in opacity-0">
@@ -146,7 +136,7 @@ export default function ConfirmationPage() {
             <select
               className="input-field py-1.5 px-3 max-w-[140px]"
               value={currentRole}
-              onChange={(e) => handleRoleChange(e.target.value as UserRole)}
+              onChange={(e) => setCurrentRole(e.target.value as UserRole)}
             >
               <option value="consultant">租赁顾问</option>
               <option value="manager">运营经理</option>
@@ -353,7 +343,7 @@ export default function ConfirmationPage() {
           <select
             className="input-field py-1.5 px-3 max-w-[140px]"
             value={currentRole}
-            onChange={(e) => handleRoleChange(e.target.value as UserRole)}
+            onChange={(e) => setCurrentRole(e.target.value as UserRole)}
           >
             <option value="consultant">租赁顾问</option>
             <option value="manager">运营经理</option>
