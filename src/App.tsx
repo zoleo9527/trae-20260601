@@ -9,7 +9,7 @@ import { AssetEntry } from '@/components/AssetEntry'
 import { NotificationPanel } from '@/components/NotificationPanel'
 import { useCurrentUser } from '@/hooks/useCurrentUser'
 import { assetService } from '@/services/assetService'
-import { Asset, UserRole, Notification } from '@/types'
+import { Asset, UserRole, Notification, FilterParams } from '@/types'
 import './App.scss'
 
 const { Sider, Content } = Layout
@@ -26,6 +26,8 @@ function App() {
   const [showNotifications, setShowNotifications] = useState(false)
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [currentRole, setCurrentRole] = useState<UserRole>(user.role)
+  const [filterParams, setFilterParams] = useState<FilterParams>({})
+  const [detailAssetId, setDetailAssetId] = useState<string | null>(null)
 
   useEffect(() => {
     loadAssets()
@@ -36,8 +38,8 @@ function App() {
     setCurrentRole(user.role)
   }, [user])
 
-  const loadAssets = () => {
-    setAssets(assetService.getAssets())
+  const loadAssets = (params?: FilterParams) => {
+    setAssets(assetService.getAssets(params || filterParams))
   }
 
   const loadNotifications = () => {
@@ -140,6 +142,7 @@ function App() {
               userRole={currentRole}
               todayTasks={assetService.getTasks()}
               stats={assetService.getAssetStatusStatistics()}
+              onViewAsset={handleViewAsset}
             />
           ) : (
             <AssetList
@@ -147,6 +150,8 @@ function App() {
               onViewAsset={handleViewAsset}
               onEditAsset={handleEditAsset}
               onUploadAttachment={handleUploadAttachment}
+              onFilterChange={setFilterParams}
+              onFilterApply={() => loadAssets()}
             />
           )}
         </Content>

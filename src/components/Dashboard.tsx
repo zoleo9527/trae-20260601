@@ -1,4 +1,4 @@
-import { FileTextOutlined, AlertOutlined, ClockCircleOutlined, CheckCircleOutlined } from '@ant-design/icons'
+import { FileTextOutlined, AlertOutlined, ClockCircleOutlined, CheckCircleOutlined, AlertCircleOutlined } from '@ant-design/icons'
 import { Card, Row, Col, Statistic } from 'antd'
 import { Task, UserRole } from '@/types'
 import { taskTypeLabels, statusLabels } from '@/data/mockData'
@@ -7,6 +7,7 @@ interface DashboardProps {
   userRole: UserRole
   todayTasks: Task[]
   stats: Record<string, number>
+  onViewAsset: (assetId: string) => void
 }
 
 const roleTaskTypes: Record<UserRole, string[]> = {
@@ -15,7 +16,7 @@ const roleTaskTypes: Record<UserRole, string[]> = {
   finance: ['deposit_refund'],
 }
 
-export function Dashboard({ userRole, todayTasks, stats }: DashboardProps) {
+export function Dashboard({ userRole, todayTasks, stats, onViewAsset }: DashboardProps) {
   const relevantTasks = todayTasks.filter(t => roleTaskTypes[userRole].includes(t.type))
   
   const highPriorityCount = relevantTasks.filter(t => t.priority === 'high').length
@@ -72,7 +73,11 @@ export function Dashboard({ userRole, todayTasks, stats }: DashboardProps) {
         <div className="task-list">
           {relevantTasks.length > 0 ? (
             relevantTasks.map(task => (
-              <div key={task.id} className={`task-item ${task.priority}`}>
+              <div 
+                key={task.id} 
+                className={`task-item ${task.priority}`}
+                onClick={() => onViewAsset(task.assetId)}
+              >
                 <div className="task-header">
                   <span className="task-type">{taskTypeLabels[task.type]}</span>
                   <span className={`priority-badge ${task.priority}`}>
@@ -85,7 +90,7 @@ export function Dashboard({ userRole, todayTasks, stats }: DashboardProps) {
                 </div>
                 {task.relatedIssue && (
                   <div className="task-issue">
-                    <AlertCircle />
+                    <AlertCircleOutlined />
                     <span>{task.relatedIssue}</span>
                   </div>
                 )}
@@ -99,7 +104,7 @@ export function Dashboard({ userRole, todayTasks, stats }: DashboardProps) {
             ))
           ) : (
             <div className="empty-state">
-              <CheckCircle />
+              <CheckCircleOutlined />
               <p>今日暂无待办任务</p>
             </div>
           )}

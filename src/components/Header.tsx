@@ -34,7 +34,7 @@ export function Header({ user, notificationCount, onSwitchRole, onOpenNotificati
             </Button>
           </Dropdown>
           <Badge count={notificationCount} onClick={onOpenNotifications}>
-            <Button type="text" icon={<Bell />} />
+            <Button type="text" icon={<BellOutlined />} />
           </Badge>
           <Dropdown
             overlay={
