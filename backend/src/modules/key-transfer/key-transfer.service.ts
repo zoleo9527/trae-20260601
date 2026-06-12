@@ -199,11 +199,116 @@ export class KeyTransferService {
     return this.auditService.getByEntity('key_transfer', transfer.id);
   }
 
+  getTransferTimeline(id: string) {
+    const transfer = this.findOne(id);
+    const auditLogs = this.auditService.getByEntity('key_transfer', transfer.id);
+
+    const timeline: any[] = [];
+
+    timeline.push({
+      event: '发起移交',
+      eventType: 'initiate',
+      timestamp: transfer.transferredAt,
+      operator: transfer.transferredByName,
+      operatorRole: 'consultant',
+      details: {
+        keyCount: transfer.keyCount,
+        keyTypes: transfer.keyTypes,
+      },
+      status: 'completed',
+    });
+
+    if (transfer.status === 'transferred' || transfer.status === 'returned') {
+      timeline.push({
+        event: '确认接收',
+        eventType: 'receive',
+        timestamp: transfer.receivedAt,
+        operator: transfer.receivedByName,
+        operatorRole: 'operations',
+        details: {
+          propertyStatusUpdated: 'occupied',
+        },
+        status: 'completed',
+      });
+    } else if (transfer.status === 'pending_transfer') {
+      timeline.push({
+        event: '待接收',
+        eventType: 'pending',
+        timestamp: null,
+        operator: null,
+        operatorRole: 'operations',
+        details: {
+          expectedAction: '运营经理确认接收',
+        },
+        status: 'pending',
+      });
+    }
+
+    if (transfer.status === 'returned') {
+      timeline.push({
+        event: '钥匙归还',
+        eventType: 'return',
+        timestamp: transfer.returnedAt,
+        operator: transfer.returnedByName,
+        operatorRole: 'operations',
+        details: {
+          returnNotes: transfer.returnNotes,
+          propertyStatusUpdated: 'returning',
+        },
+        status: 'completed',
+      });
+    }
+
+    const auditEvents = auditLogs.map((log) => ({
+      event: this._mapActionToEvent(log.action),
+      eventType: log.action,
+      timestamp: log.timestamp,
+      operator: log.userName,
+      operatorRole: log.userRole,
+      details: log.after,
+      status: 'completed',
+      fromAudit: true,
+    }));
+
+    const combined = [...timeline, ...auditEvents].sort(
+      (a, b) => {
+        if (!a.timestamp) return 1;
+        if (!b.timestamp) return -1;
+        return b.timestamp.getTime() - a.timestamp.getTime();
+      },
+    );
+
+    return {
+      transferId: transfer.id,
+      propertyId: transfer.propertyId,
+      handoverId: transfer.handoverId,
+      currentStatus: transfer.status,
+      keyCount: transfer.keyCount,
+      keyTypes: transfer.keyTypes,
+      timeline: combined,
+      transferredBy: transfer.transferredByName,
+      transferredAt: transfer.transferredAt,
+      receivedBy: transfer.receivedByName,
+      receivedAt: transfer.receivedAt,
+      returnedBy: transfer.returnedByName,
+      returnedAt: transfer.returnedAt,
+    };
+  }
+
   getByHandover(handoverId: string): KeyTransfer {
     const transfer = this.transfers.find((t) => t.handoverId === handoverId);
     if (!transfer) {
       throw new NotFoundException('该交房验收暂无钥匙移交记录');
     }
     return transfer;
+  }
+
+  private _mapActionToEvent(action: string): string {
+    const actionMap: Record<string, string> = {
+      initiate_transfer: '发起移交',
+      confirm_reception: '确认接收',
+      return_keys: '钥匙归还',
+    };
+    return actionMap[action] || action;
   }
 }

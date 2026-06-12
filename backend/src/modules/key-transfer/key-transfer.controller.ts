@@ -34,11 +34,13 @@ export class KeyTransferController {
   }
 
   @Get('handover/:handoverId')
+  @Roles('consultant', 'operations', 'finance')
   getByHandover(@Param('handoverId') handoverId: string) {
     return this.keyTransferService.getByHandover(handoverId);
   }
 
   @Get()
+  @Roles('consultant', 'operations', 'finance')
   findAll(
     @Query() query: { propertyId?: string; handoverId?: string; status?: string },
   ) {
@@ -50,6 +52,7 @@ export class KeyTransferController {
   }
 
   @Get(':id')
+  @Roles('consultant', 'operations', 'finance')
   findOne(@Param('id') id: string) {
     return this.keyTransferService.findOne(id);
   }
@@ -71,7 +74,14 @@ export class KeyTransferController {
   }
 
   @Get(':id/history')
+  @Roles('consultant', 'operations', 'finance')
   getTransferHistory(@Param('id') id: string) {
     return this.keyTransferService.getTransferHistory(id);
+  }
+
+  @Get(':id/timeline')
+  @Roles('consultant', 'operations', 'finance')
+  getTransferTimeline(@Param('id') id: string) {
+    return this.keyTransferService.getTransferTimeline(id);
   }
 }

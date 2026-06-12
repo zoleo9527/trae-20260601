@@ -35,12 +35,13 @@ export class HandoverController {
   }
 
   @Get('disputes')
-  @Roles('operations')
+  @Roles('operations', 'finance')
   getDisputes() {
     return this.handoverService.getDisputes();
   }
 
   @Get()
+  @Roles('consultant', 'operations', 'finance')
   findAll(
     @Query() query: { propertyId?: string; status?: string; submittedBy?: string },
   ) {
@@ -52,11 +53,13 @@ export class HandoverController {
   }
 
   @Get(':id')
+  @Roles('consultant', 'operations', 'finance')
   findOne(@Param('id') id: string) {
     return this.handoverService.findOne(id);
   }
 
   @Get(':id/audit-trail')
+  @Roles('consultant', 'operations', 'finance')
   getAuditTrail(@Param('id') id: string) {
     return this.handoverService.getAuditTrail(id);
   }
