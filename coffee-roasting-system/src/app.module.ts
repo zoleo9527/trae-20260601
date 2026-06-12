@@ -9,6 +9,8 @@ import { TaskModule } from './modules/task/task.module';
 import { NoteModule } from './modules/note/note.module';
 import { ExportModule } from './modules/export/export.module';
 import { SeedModule } from './modules/seed/seed.module';
+import { TodoModule } from './modules/todo/todo.module';
+import { LabelingModule } from './modules/labeling/labeling.module';
 
 @Module({
   imports: [
@@ -24,6 +26,8 @@ import { SeedModule } from './modules/seed/seed.module';
     NoteModule,
     ExportModule,
     SeedModule,
+    TodoModule,
+    LabelingModule,
   ],
 })
 export class AppModule {}

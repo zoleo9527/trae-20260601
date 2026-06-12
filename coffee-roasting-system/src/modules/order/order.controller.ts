@@ -1,5 +1,6 @@
 import { Controller, Get, Post, Body, Param, Put, Delete, UseGuards } from '@nestjs/common';
 import { OrderService } from './order.service';
+import { OrderDetailService } from './order-detail.service';
 import { CreateOrderDto } from '../../dto/create-order.dto';
 import { UpdateOrderDto } from '../../dto/update-order.dto';
 import { OrderStatus } from '../../entities/order.entity';
@@ -8,7 +9,10 @@ import { AuthGuard } from '@nestjs/passport';
 @Controller('orders')
 @UseGuards(AuthGuard('jwt'))
 export class OrderController {
-  constructor(private orderService: OrderService) {}
+  constructor(
+    private orderService: OrderService,
+    private orderDetailService: OrderDetailService,
+  ) {}
 
   @Post()
   async create(@Body() createOrderDto: CreateOrderDto) {
@@ -25,6 +29,11 @@ export class OrderController {
     return this.orderService.findOne(id);
   }
 
+  @Get(':id/detail')
+  async getDetail(@Param('id') id: string) {
+    return this.orderDetailService.getOrderDetail(id);
+  }
+
   @Get('status/:status')
   async findByStatus(@Param('status') status: OrderStatus) {
     return this.orderService.findByStatus(status);
@@ -33,6 +42,16 @@ export class OrderController {
   @Put(':id')
   async update(@Param('id') id: string, @Body() updateOrderDto: UpdateOrderDto) {
     return this.orderService.update(id, updateOrderDto);
+  }
+
+  @Put(':id/detail')
+  async updateDetail(@Param('id') id: string, @Body() body: Partial<{
+    returnReason?: string;
+    packingBatchNo?: string;
+    labelingBatchNo?: string;
+    labelingContent?: string;
+  }>) {
+    return this.orderDetailService.updateOrderDetail(id, body);
   }
 
   @Put(':id/status')
