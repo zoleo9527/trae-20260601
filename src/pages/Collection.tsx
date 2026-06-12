@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { Table, Button, Modal, Form, Input, Select, Tag, Card, Row, Col, Space, Tooltip, Tabs } from 'antd';
-import { PhoneOutlined, MailOutlined, MessageOutlined, FileTextOutlined, EyeOutlined, CheckOutlined, ClockCircleOutlined } from '@ant-design/icons';
+import { Table, Button, Modal, Form, Input, Select, Tag, Card, Row, Col, Space, Tooltip, Tabs, Empty } from 'antd';
+import { PhoneOutlined, MailOutlined, MessageOutlined, FileTextOutlined, EyeOutlined, CheckOutlined, ClockCircleOutlined, FilterOutlined, XOutlined } from '@ant-design/icons';
 import type { CollectionRecord, UserRole } from '@/types';
 import { StoreActions, CollectionFilter, filterCollections, countSelectableCollections } from '@/store/useStore';
 import { formatCurrency, formatDate } from '@/utils/format';
@@ -44,6 +44,14 @@ const reminderTypeIcons: Record<string, React.ReactNode> = {
   letter: <FileTextOutlined />,
 };
 
+const filterLabels: Record<CollectionFilter, string> = {
+  all: '全部',
+  pending: '待催收任务',
+  overdue: '已逾期',
+  paid: '已结清',
+  unpaid: '待确认收款',
+};
+
 export default function CollectionPage({ currentUserRole, collections, actions }: CollectionPageProps) {
   const [modalVisible, setModalVisible] = useState(false);
   const [reminderModalVisible, setReminderModalVisible] = useState(false);
@@ -67,6 +75,8 @@ export default function CollectionPage({ currentUserRole, collections, actions }
   const filteredCollections = filterCollections(collections, filter);
   const selectableCollections = collections.filter(c => c.status !== 'paid');
   const batchReminderCount = countSelectableCollections(selectedRows.map(id => String(id)), collections);
+  const isFiltered = filter !== 'all';
+  const filteredCount = filteredCollections.length;
 
   const columns = [
     {
@@ -222,6 +232,12 @@ export default function CollectionPage({ currentUserRole, collections, actions }
 
   const handleCardClick = (cardFilter: CollectionFilter) => {
     setFilter(cardFilter);
+    setSelectedRows([]);
+  };
+
+  const handleClearFilter = () => {
+    setFilter('all');
+    setSelectedRows([]);
   };
 
   const handleRowSelectChange = (selectedRowKeys: React.Key[]) => {
@@ -418,9 +434,6 @@ export default function CollectionPage({ currentUserRole, collections, actions }
         title="尾款催收管理" 
         extra={
           <div style={{ display: 'flex', gap: 12 }}>
-            {filter !== 'all' && (
-              <Button onClick={() => setFilter('all')}>清除筛选</Button>
-            )}
             {batchReminderCount > 0 && hasPermission(currentUserRole, 'collection_edit') && (
               <Button icon={<MessageOutlined />} type="primary" onClick={handleBatchReminder}>
                 批量催收 ({batchReminderCount})
@@ -429,21 +442,53 @@ export default function CollectionPage({ currentUserRole, collections, actions }
           </div>
         }
       >
-        <Table
-          rowKey="id"
-          columns={columns}
-          dataSource={filteredCollections}
-          pagination={{ pageSize: 10 }}
-          scroll={{ x: 1300 }}
-          rowSelection={{
-            type: 'checkbox',
-            selectedRowKeys: selectedRows,
-            onChange: handleRowSelectChange,
-            getCheckboxProps: (record: CollectionRecord) => ({
-              disabled: record.status === 'paid',
-            }),
-          }}
-        />
+        {isFiltered && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16, padding: 12, background: '#f5f5f5', borderRadius: 4 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <FilterOutlined style={{ color: '#1890ff' }} />
+              <span style={{ fontWeight: 'bold', color: '#1890ff' }}>{filterLabels[filter]}</span>
+              <span>共 {filteredCount} 条记录</span>
+            </div>
+            <Button 
+              icon={<XOutlined />} 
+              onClick={handleClearFilter}
+              style={{ marginLeft: 'auto' }}
+            >
+              清除筛选
+            </Button>
+          </div>
+        )}
+
+        {filteredCount === 0 ? (
+          <Empty 
+            description={
+              <div>
+                <p>当前筛选条件「{isFiltered ? filterLabels[filter] : '全部'}」下暂无数据</p>
+                {isFiltered && (
+                  <Button type="primary" onClick={handleClearFilter}>
+                    查看全部数据
+                  </Button>
+                )}
+              </div>
+            }
+          />
+        ) : (
+          <Table
+            rowKey="id"
+            columns={columns}
+            dataSource={filteredCollections}
+            pagination={{ pageSize: 10 }}
+            scroll={{ x: 1300 }}
+            rowSelection={{
+              type: 'checkbox',
+              selectedRowKeys: selectedRows,
+              onChange: handleRowSelectChange,
+              getCheckboxProps: (record: CollectionRecord) => ({
+                disabled: record.status === 'paid',
+              }),
+            }}
+          />
+        )}
       </Card>
 
       <Modal

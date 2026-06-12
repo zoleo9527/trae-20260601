@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { Table, Button, Modal, Form, Input, Select, Tag, Card, Row, Col, Progress, Space, Tooltip, Popconfirm, Checkbox } from 'antd';
-import { EditOutlined, CheckOutlined, EyeOutlined, PlusOutlined } from '@ant-design/icons';
+import { Table, Button, Modal, Form, Input, Select, Tag, Card, Row, Col, Progress, Space, Tooltip, Popconfirm, Checkbox, Empty } from 'antd';
+import { EditOutlined, CheckOutlined, EyeOutlined, PlusOutlined, FilterOutlined, XOutlined } from '@ant-design/icons';
 import type { Confirmation, UserRole, DepositRecord } from '@/types';
 import { StoreActions, ConfirmationFilter, filterConfirmations } from '@/store/useStore';
 import { mockDepositRecords } from '@/data/mockData';
@@ -33,6 +33,16 @@ const statusLabels: Record<string, string> = {
   cancelled: '已取消',
 };
 
+const filterLabels: Record<ConfirmationFilter, string> = {
+  all: '全部',
+  pending: '待处理成交',
+  dispute: '待处理争议',
+  incomplete: '资料待补正',
+  confirmed: '待确认完成',
+  deposit_pending: '保证金待到账',
+  deposit_refunding: '保证金退款中',
+};
+
 export default function ConfirmationPage({ currentUserRole, confirmations, actions }: ConfirmationPageProps) {
   const [depositRecords] = useState<DepositRecord[]>(mockDepositRecords);
   const [modalVisible, setModalVisible] = useState(false);
@@ -60,6 +70,8 @@ export default function ConfirmationPage({ currentUserRole, confirmations, actio
   }).length;
 
   const filteredConfirmations = filterConfirmations(confirmations, filter, depositRecords);
+  const isFiltered = filter !== 'all';
+  const filteredCount = filteredConfirmations.length;
 
   const columns = [
     {
@@ -235,6 +247,11 @@ export default function ConfirmationPage({ currentUserRole, confirmations, actio
 
   const handleCardClick = (cardFilter: ConfirmationFilter) => {
     setFilter(cardFilter);
+  };
+
+  const handleClearFilter = () => {
+    setFilter('all');
+    setSelectedRows([]);
   };
 
   const renderRoleSpecificCards = () => {
@@ -427,9 +444,6 @@ export default function ConfirmationPage({ currentUserRole, confirmations, actio
         title="成交确认管理" 
         extra={
           <div style={{ display: 'flex', gap: 12 }}>
-            {filter !== 'all' && (
-              <Button onClick={() => setFilter('all')}>清除筛选</Button>
-            )}
             {hasPermission(currentUserRole, 'confirmation_edit') && (
               <Button icon={<PlusOutlined />} type="primary">
                 新增成交确认
@@ -443,18 +457,50 @@ export default function ConfirmationPage({ currentUserRole, confirmations, actio
           </div>
         }
       >
-        <Table
-          rowKey="id"
-          columns={columns}
-          dataSource={filteredConfirmations}
-          pagination={{ pageSize: 10 }}
-          scroll={{ x: 1200 }}
-          rowSelection={{
-            type: 'checkbox',
-            selectedRowKeys: selectedRows,
-            onChange: setSelectedRows,
-          }}
-        />
+        {isFiltered && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16, padding: 12, background: '#f5f5f5', borderRadius: 4 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <FilterOutlined style={{ color: '#1890ff' }} />
+              <span style={{ fontWeight: 'bold', color: '#1890ff' }}>{filterLabels[filter]}</span>
+              <span>共 {filteredCount} 条记录</span>
+            </div>
+            <Button 
+              icon={<XOutlined />} 
+              onClick={handleClearFilter}
+              style={{ marginLeft: 'auto' }}
+            >
+              清除筛选
+            </Button>
+          </div>
+        )}
+
+        {filteredCount === 0 ? (
+          <Empty 
+            description={
+              <div>
+                <p>当前筛选条件「{isFiltered ? filterLabels[filter] : '全部'}」下暂无数据</p>
+                {isFiltered && (
+                  <Button type="primary" onClick={handleClearFilter}>
+                    查看全部数据
+                  </Button>
+                )}
+              </div>
+            }
+          />
+        ) : (
+          <Table
+            rowKey="id"
+            columns={columns}
+            dataSource={filteredConfirmations}
+            pagination={{ pageSize: 10 }}
+            scroll={{ x: 1200 }}
+            rowSelection={{
+              type: 'checkbox',
+              selectedRowKeys: selectedRows,
+              onChange: setSelectedRows,
+            }}
+          />
+        )}
       </Card>
 
       <Modal
