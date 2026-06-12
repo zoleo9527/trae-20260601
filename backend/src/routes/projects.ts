@@ -92,6 +92,28 @@ router.get('/:id', authMiddleware, async (req: AuthRequest, res) => {
       return;
     }
 
+    const projectObjForCheck = convertFields.project(project);
+
+    const arrangementForCheck = await db.get(
+      'SELECT * FROM project_arrangements WHERE project_id = ? ORDER BY created_at DESC LIMIT 1',
+      [req.params.id]
+    );
+    const arrangementObjForCheck = arrangementForCheck ? convertFields.arrangement(arrangementForCheck) : null;
+
+    const signinRecordsForCheck = await db.all(
+      'SELECT * FROM expert_signin_records WHERE project_id = ? ORDER BY created_at',
+      [req.params.id]
+    );
+    const signinRecordsObjForCheck = signinRecordsForCheck.map((r) => convertFields.signinRecord(r));
+
+    const autoException = checkAutoTriggerException(projectObjForCheck, arrangementObjForCheck, signinRecordsObjForCheck);
+    if (autoException) {
+      await checkAndTriggerExceptions(
+        projectObjForCheck, arrangementObjForCheck, signinRecordsObjForCheck, autoException,
+        '读取项目详情时系统自动检测'
+      );
+    }
+
     const projectObj: any = {
       ...convertFields.project(project),
       statusDisplay: statusDisplay[project.status as ProjectStatus],
@@ -247,6 +269,29 @@ router.get('/:id/timeline', authMiddleware, async (req: AuthRequest, res) => {
   try {
     const db = await getDb();
     const projectId = req.params.id;
+
+    const projectForCheck = await db.get('SELECT * FROM projects WHERE id = ?', [projectId]);
+    if (projectForCheck) {
+      const projectObjForCheck = convertFields.project(projectForCheck);
+      const arrangementForCheck = await db.get(
+        'SELECT * FROM project_arrangements WHERE project_id = ? ORDER BY created_at DESC LIMIT 1',
+        [projectId]
+      );
+      const arrangementObjForCheck = arrangementForCheck ? convertFields.arrangement(arrangementForCheck) : null;
+      const signinRecordsForCheck = await db.all(
+        'SELECT * FROM expert_signin_records WHERE project_id = ? ORDER BY created_at',
+        [projectId]
+      );
+      const signinRecordsObjForCheck = signinRecordsForCheck.map((r) => convertFields.signinRecord(r));
+
+      const autoException = checkAutoTriggerException(projectObjForCheck, arrangementObjForCheck, signinRecordsObjForCheck);
+      if (autoException) {
+        await checkAndTriggerExceptions(
+          projectObjForCheck, arrangementObjForCheck, signinRecordsObjForCheck, autoException,
+          '读取项目时间线时系统自动检测'
+        );
+      }
+    }
 
     const projectLogs = await getOperationLogs('project', projectId);
 

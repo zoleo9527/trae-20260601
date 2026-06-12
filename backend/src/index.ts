@@ -9,6 +9,7 @@ import arrangementsRouter from './routes/arrangements';
 import signinRouter from './routes/signin';
 import exceptionsRouter from './routes/exceptions';
 import expertsRouter from './routes/experts';
+import { startExceptionScanner } from './utils/exceptionScanner';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -54,6 +55,8 @@ const startServer = async () => {
       console.log('  GET  /api/projects/:id/analysis - 项目分析（核心接口）');
       console.log('  GET  /api/projects/:id/timeline - 项目时间线');
       console.log('  POST /api/exceptions/trigger-sample - 触发异常样例');
+      
+      startExceptionScanner();
     });
   } catch (error) {
     console.error('服务器启动失败:', error);

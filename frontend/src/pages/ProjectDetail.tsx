@@ -74,8 +74,6 @@ const ProjectDetail = () => {
     if (!id) return;
     setLoading(true);
     try {
-      await projectsApi.checkExceptions(id);
-
       const [detailRes, analysisRes, timelineRes] = await Promise.all([
         projectsApi.detail(id),
         projectsApi.analysis(id),
