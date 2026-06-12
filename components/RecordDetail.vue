@@ -3,7 +3,29 @@
     <div class="modal">
       <div class="modal-header">
         <h3>入驻验收详情</h3>
-        <button class="close-btn" @click="$emit('close')">×</button>
+        <div style="display: flex; align-items: center; gap: 1rem;">
+          <span v-if="totalCount > 1" class="nav-info">
+            第 {{ currentIndex + 1 }} 条 / 共 {{ totalCount }} 条
+          </span>
+          <button class="close-btn" @click="$emit('close')">×</button>
+        </div>
+      </div>
+      
+      <div v-if="totalCount > 1" class="modal-nav">
+        <button 
+          class="btn btn-secondary nav-btn" 
+          :disabled="currentIndex === 0"
+          @click="$emit('prev')"
+        >
+          ← 上一条
+        </button>
+        <button 
+          class="btn btn-secondary nav-btn" 
+          :disabled="currentIndex === totalCount - 1"
+          @click="$emit('next')"
+        >
+          下一条 →
+        </button>
       </div>
       
       <div v-if="record">
@@ -125,10 +147,14 @@ const store = useAcceptanceStore()
 defineProps<{
   visible: boolean
   record: AcceptanceRecord | null
+  currentIndex?: number
+  totalCount?: number
 }>()
 
 defineEmits<{
   close: []
+  prev: []
+  next: []
 }>()
 
 const formatTime = (time: string | null) => {
@@ -136,3 +162,27 @@ const formatTime = (time: string | null) => {
   return new Date(time).toLocaleString('zh-CN')
 }
 </script>
+
+<style scoped>
+.modal-nav {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.5rem 1.5rem 1rem;
+  border-bottom: 1px solid #e5e7eb;
+}
+.nav-btn {
+  min-width: 120px;
+}
+.nav-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.nav-info {
+  font-size: 0.85rem;
+  color: #6b7280;
+  background: #f3f4f6;
+  padding: 0.25rem 0.75rem;
+  border-radius: 4px;
+}
+</style>

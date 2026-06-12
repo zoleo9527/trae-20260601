@@ -35,6 +35,22 @@
       </div>
       
       <div class="card">
+        <div class="filter-bar">
+          <div class="filter-group">
+            <input 
+              v-model="searchKeyword" 
+              type="text" 
+              placeholder="🔍 搜索企业名称或合同编号..." 
+              class="filter-input"
+            />
+          </div>
+          <label class="filter-switch">
+            <input type="checkbox" v-model="onlyTodo" />
+            <span>仅看待办</span>
+            <span v-if="pendingList.length > 0" class="todo-count">({{ pendingList.length }})</span>
+          </label>
+        </div>
+        
         <div class="tabs">
           <button 
             v-for="tab in tabs" 
@@ -124,10 +140,13 @@
         </table>
       </div>
       
-      <div class="card" v-if="feeStartedList.length > 0">
+      <div class="card" v-if="filteredFeeStartedList.length > 0">
         <div class="card-title">💰 费用起算回看</div>
         <p class="text-sm text-muted" style="margin-bottom: 1rem;">
           以下企业已完成入驻验收流程，费用已正式起算
+          <span v-if="searchKeyword.trim()" class="text-sm" style="margin-left: 0.5rem;">
+            当前筛选后共 {{ filteredFeeStartedList.length }} 条
+          </span>
         </p>
         <table class="table">
           <thead>
@@ -136,14 +155,15 @@
               <th>楼层/房间</th>
               <th>面积(㎡)</th>
               <th>物业验收人</th>
-              <th>主管确认人</th>
               <th>计划入驻日期</th>
               <th>费用起算日期</th>
-              <th>间隔天数</th>
+              <th>延期天数</th>
+              <th>退回记录</th>
+              <th>操作</th>
             </tr>
           </thead>
           <tbody>
-            <tr v-for="record in feeStartedList" :key="record.id">
+            <tr v-for="record in filteredFeeStartedList" :key="record.id">
               <td>
                 <div style="font-weight: 500;">{{ record.enterpriseName }}</div>
                 <div class="text-sm text-muted">{{ record.contractNo }}</div>
@@ -151,17 +171,54 @@
               <td>{{ record.floor }} {{ record.roomNumber }}</td>
               <td>{{ record.area }}</td>
               <td>{{ record.engineerName }}</td>
-              <td>{{ record.directorName }}</td>
               <td>{{ record.plannedMoveInDate }}</td>
               <td style="color: #10b981; font-weight: 600;">{{ record.feeStartDate }}</td>
               <td>
-                <span :class="getDayDiffClass(record)">
+                <span class="fee-start-highlight" :class="getDayDiffClass(record)">
                   {{ calculateDayDiff(record) }}天
                 </span>
+              </td>
+              <td>
+                <span 
+                  v-if="record.rejectReason || record.directorRejectReason" 
+                  class="reject-badge"
+                  @click="showRejectReasons(record)"
+                >
+                  {{ (record.rejectReason ? 1 : 0) + (record.directorRejectReason ? 1 : 0) }} 条退回
+                </span>
+                <span v-else class="text-muted">-</span>
+              </td>
+              <td>
+                <button class="btn btn-secondary" style="padding: 0.25rem 0.5rem; font-size: 0.8rem;" @click="showDetail(record)">
+                  详情
+                </button>
               </td>
             </tr>
           </tbody>
         </table>
+      </div>
+      
+      <div v-if="showRejectModal && rejectModalRecord" class="modal-overlay" @click.self="showRejectModal = false">
+        <div class="modal">
+          <div class="modal-header">
+            <h3>退回记录 - {{ rejectModalRecord.enterpriseName }}</h3>
+            <button class="close-btn" @click="showRejectModal = false">×</button>
+          </div>
+          
+          <div v-if="rejectModalRecord.rejectReason" class="reject-box">
+            <div class="reject-label">物业退回原因</div>
+            <div class="reject-content">{{ rejectModalRecord.rejectReason }}</div>
+          </div>
+          
+          <div v-if="rejectModalRecord.directorRejectReason" class="reject-box">
+            <div class="reject-label">主管退回原因</div>
+            <div class="reject-content">{{ rejectModalRecord.directorRejectReason }}</div>
+          </div>
+          
+          <div v-if="!rejectModalRecord.rejectReason && !rejectModalRecord.directorRejectReason" class="empty-state">
+            <p>暂无退回记录</p>
+          </div>
+        </div>
       </div>
     </div>
     
@@ -169,7 +226,29 @@
       <div class="modal">
         <div class="modal-header">
           <h3>审核入驻验收 - {{ processingRecord.enterpriseName }}</h3>
-          <button class="close-btn" @click="showProcessModal = false">×</button>
+          <div style="display: flex; align-items: center; gap: 1rem;">
+            <span v-if="pendingList.length > 1" class="nav-info">
+              第 {{ processNavIndex + 1 }} 条 / 共 {{ pendingList.length }} 条
+            </span>
+            <button class="close-btn" @click="showProcessModal = false">×</button>
+          </div>
+        </div>
+        
+        <div v-if="pendingList.length > 1" class="modal-nav">
+          <button 
+            class="btn btn-secondary nav-btn" 
+            :disabled="processNavIndex === 0"
+            @click="navProcess(-1)"
+          >
+            ← 上一条
+          </button>
+          <button 
+            class="btn btn-secondary nav-btn" 
+            :disabled="processNavIndex === pendingList.length - 1"
+            @click="navProcess(1)"
+          >
+            下一条 →
+          </button>
         </div>
         
         <div class="detail-grid">
@@ -270,8 +349,12 @@
     
     <RecordDetail 
       :visible="showDetailModal" 
-      :record="selectedRecord" 
-      @close="showDetailModal = false" 
+      :record="selectedRecord"
+      :currentIndex="detailNavIndex"
+      :totalCount="filteredRecords.length"
+      @close="showDetailModal = false"
+      @prev="navDetail(-1)"
+      @next="navDetail(1)"
     />
   </div>
 </template>
@@ -284,8 +367,14 @@ const store = useAcceptanceStore()
 const activeTab = ref<'all' | 'pending' | 'completed' | 'rejected'>('all')
 const showDetailModal = ref(false)
 const showProcessModal = ref(false)
+const showRejectModal = ref(false)
 const selectedRecord = ref<AcceptanceRecord | null>(null)
 const processingRecord = ref<AcceptanceRecord | null>(null)
+const rejectModalRecord = ref<AcceptanceRecord | null>(null)
+const searchKeyword = ref('')
+const onlyTodo = ref(false)
+const detailNavIndex = ref(0)
+const processNavIndex = ref(0)
 
 const processForm = ref<DirectorProcessPayload & { recordId: string }>({
   recordId: '',
@@ -311,21 +400,55 @@ const rejectedList = computed(() =>
   store.records.filter(r => r.status === 'director_rejected')
 )
 
+const directorVisibleRecords = computed(() =>
+  store.records.filter(r => 
+    r.status !== 'draft' && 
+    r.status !== 'pending_engineer' && 
+    r.status !== 'engineer_rejected'
+  )
+)
+
 const filteredRecords = computed(() => {
+  let result: AcceptanceRecord[] = []
   switch (activeTab.value) {
     case 'pending':
-      return pendingList.value
+      result = [...pendingList.value]
+      break
     case 'completed':
-      return feeStartedList.value
+      result = [...feeStartedList.value]
+      break
     case 'rejected':
-      return rejectedList.value
+      result = [...rejectedList.value]
+      break
     default:
-      return store.records.filter(r => 
-        r.status !== 'draft' && 
-        r.status !== 'pending_engineer' && 
-        r.status !== 'engineer_rejected'
-      )
+      result = [...directorVisibleRecords.value]
   }
+  
+  if (onlyTodo.value) {
+    result = result.filter(r => r.status === 'pending_director')
+  }
+  
+  if (searchKeyword.value.trim()) {
+    const keyword = searchKeyword.value.trim().toLowerCase()
+    result = result.filter(r => 
+      r.enterpriseName.toLowerCase().includes(keyword) || 
+      r.contractNo.toLowerCase().includes(keyword)
+    )
+  }
+  
+  return result
+})
+
+const filteredFeeStartedList = computed(() => {
+  let result = [...feeStartedList.value]
+  if (searchKeyword.value.trim()) {
+    const keyword = searchKeyword.value.trim().toLowerCase()
+    result = result.filter(r => 
+      r.enterpriseName.toLowerCase().includes(keyword) || 
+      r.contractNo.toLowerCase().includes(keyword)
+    )
+  }
+  return result
 })
 
 const getTabCount = (tab: 'all' | 'pending' | 'completed' | 'rejected') => {
@@ -337,20 +460,28 @@ const getTabCount = (tab: 'all' | 'pending' | 'completed' | 'rejected') => {
     case 'rejected':
       return rejectedList.value.length
     default:
-      return store.records.filter(r => 
-        r.status !== 'draft' && 
-        r.status !== 'pending_engineer' && 
-        r.status !== 'engineer_rejected'
-      ).length
+      return directorVisibleRecords.value.length
   }
 }
 
 const showDetail = (record: AcceptanceRecord) => {
+  const idx = filteredRecords.value.findIndex(r => r.id === record.id)
+  detailNavIndex.value = idx >= 0 ? idx : 0
   selectedRecord.value = record
   showDetailModal.value = true
 }
 
+const navDetail = (direction: number) => {
+  const newIndex = detailNavIndex.value + direction
+  if (newIndex >= 0 && newIndex < filteredRecords.value.length) {
+    detailNavIndex.value = newIndex
+    selectedRecord.value = filteredRecords.value[newIndex]
+  }
+}
+
 const showProcess = (record: AcceptanceRecord) => {
+  const idx = pendingList.value.findIndex(r => r.id === record.id)
+  processNavIndex.value = idx >= 0 ? idx : 0
   processingRecord.value = record
   processForm.value = {
     recordId: record.id,
@@ -360,6 +491,27 @@ const showProcess = (record: AcceptanceRecord) => {
     directorRejectReason: ''
   }
   showProcessModal.value = true
+}
+
+const navProcess = (direction: number) => {
+  const newIndex = processNavIndex.value + direction
+  if (newIndex >= 0 && newIndex < pendingList.value.length) {
+    processNavIndex.value = newIndex
+    const record = pendingList.value[newIndex]
+    processingRecord.value = record
+    processForm.value = {
+      recordId: record.id,
+      result: 'pass',
+      feeStartDate: record.plannedMoveInDate,
+      directorRemark: '',
+      directorRejectReason: ''
+    }
+  }
+}
+
+const showRejectReasons = (record: AcceptanceRecord) => {
+  rejectModalRecord.value = record
+  showRejectModal.value = true
 }
 
 const handleProcess = async () => {
@@ -395,9 +547,9 @@ const calculateDayDiff = (record: AcceptanceRecord) => {
 
 const getDayDiffClass = (record: AcceptanceRecord) => {
   const diff = calculateDayDiff(record)
-  if (diff === 0) return 'text-green-600 font-medium'
-  if (diff <= 7) return 'text-yellow-600'
-  return 'text-red-600 font-medium'
+  if (diff === 0) return 'delay-zero'
+  if (diff <= 7) return 'delay-small'
+  return 'delay-large'
 }
 
 const handleReset = async () => {

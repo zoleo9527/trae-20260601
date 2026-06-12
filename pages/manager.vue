@@ -38,6 +38,22 @@
       </div>
       
       <div class="card">
+        <div class="filter-bar">
+          <div class="filter-group">
+            <input 
+              v-model="searchKeyword" 
+              type="text" 
+              placeholder="🔍 搜索企业名称或合同编号..." 
+              class="filter-input"
+            />
+          </div>
+          <label class="filter-switch">
+            <input type="checkbox" v-model="onlyTodo" />
+            <span>仅看待办</span>
+            <span v-if="todoCount > 0" class="todo-count">({{ todoCount }})</span>
+          </label>
+        </div>
+        
         <div class="tabs">
           <button 
             v-for="tab in tabs" 
@@ -178,8 +194,12 @@
     
     <RecordDetail 
       :visible="showDetailModal" 
-      :record="selectedRecord" 
-      @close="showDetailModal = false" 
+      :record="selectedRecord"
+      :currentIndex="detailNavIndex"
+      :totalCount="filteredRecords.length"
+      @close="showDetailModal = false"
+      @prev="navDetail(-1)"
+      @next="navDetail(1)"
     />
   </div>
 </template>
@@ -194,6 +214,9 @@ const activeTab = ref<AcceptanceStatus | 'all'>('all')
 const showCreate = ref(false)
 const showDetailModal = ref(false)
 const selectedRecord = ref<AcceptanceRecord | null>(null)
+const detailNavIndex = ref(0)
+const searchKeyword = ref('')
+const onlyTodo = ref(false)
 
 const form = ref<CreateAcceptancePayload>({
   enterpriseName: '',
@@ -221,6 +244,12 @@ const myRecords = computed(() => {
   return store.getMyRecords(authStore.currentUser.id)
 })
 
+const todoStatuses: AcceptanceStatus[] = ['draft', 'engineer_rejected', 'director_rejected']
+
+const todoCount = computed(() => 
+  myRecords.value.filter(r => todoStatuses.includes(r.status)).length
+)
+
 const pendingCount = computed(() => 
   myRecords.value.filter(r => r.status === 'pending_engineer' || r.status === 'pending_director').length
 )
@@ -234,8 +263,25 @@ const rejectedCount = computed(() =>
 )
 
 const filteredRecords = computed(() => {
-  if (activeTab.value === 'all') return myRecords.value
-  return myRecords.value.filter(r => r.status === activeTab.value)
+  let result = [...myRecords.value]
+  
+  if (activeTab.value !== 'all') {
+    result = result.filter(r => r.status === activeTab.value)
+  }
+  
+  if (onlyTodo.value) {
+    result = result.filter(r => todoStatuses.includes(r.status))
+  }
+  
+  if (searchKeyword.value.trim()) {
+    const keyword = searchKeyword.value.trim().toLowerCase()
+    result = result.filter(r => 
+      r.enterpriseName.toLowerCase().includes(keyword) || 
+      r.contractNo.toLowerCase().includes(keyword)
+    )
+  }
+  
+  return result
 })
 
 const getTabCount = (tab: AcceptanceStatus | 'all') => {
@@ -249,8 +295,18 @@ const formatTime = (time: string | null) => {
 }
 
 const showDetail = (record: AcceptanceRecord) => {
+  const idx = filteredRecords.value.findIndex(r => r.id === record.id)
+  detailNavIndex.value = idx >= 0 ? idx : 0
   selectedRecord.value = record
   showDetailModal.value = true
+}
+
+const navDetail = (direction: number) => {
+  const newIndex = detailNavIndex.value + direction
+  if (newIndex >= 0 && newIndex < filteredRecords.value.length) {
+    detailNavIndex.value = newIndex
+    selectedRecord.value = filteredRecords.value[newIndex]
+  }
 }
 
 const handleCreate = async () => {
