@@ -17,6 +17,7 @@ interface WorkOrderState {
   submitPolicyJudgment: (id: string, judgment: PolicyJudgment) => void;
   saveDraft: (id: string, draft: Partial<PolicyJudgment>) => void;
   getDraft: (id: string) => Partial<PolicyJudgment> | null;
+  clearDraft: (id: string) => void;
   submitApproval: (id: string, approval: Approval) => void;
   submitSignReceipt: (id: string, receipt: SignReceipt) => void;
   completeProcess: (id: string) => void;
@@ -114,6 +115,14 @@ export const useWorkOrderStore = create<WorkOrderState>()(
       
       getDraft: (id: string) => {
         return get().draftPolicyJudgments[id] || null;
+      },
+      
+      clearDraft: (id: string) => {
+        set(state => {
+          const newDrafts = { ...state.draftPolicyJudgments };
+          delete newDrafts[id];
+          return { draftPolicyJudgments: newDrafts };
+        });
       },
       
       submitApproval: (id: string, approval: Approval) => {

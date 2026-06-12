@@ -21,9 +21,18 @@ export const PolicyJudge: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const user = useAuthStore(state => state.user);
-  const { getWorkOrderById, submitPolicyJudgment, saveDraft, getDraft, startPolicyJudge, getNextWorkOrder, getPrevWorkOrder, workOrders } = useWorkOrderStore();
+  const { getWorkOrderById, submitPolicyJudgment, saveDraft, getDraft, startPolicyJudge, getNextWorkOrder, getPrevWorkOrder, workOrders, clearDraft } = useWorkOrderStore();
   
   const workOrder = id ? getWorkOrderById(id) : null;
+  
+  const [formData, setFormData] = useState<PolicyJudgment>({
+    judgmentBasis: '',
+    policyReference: '',
+    riskWarning: '',
+    handlingSuggestion: '',
+    judgedBy: '',
+    judgedAt: ''
+  });
   
   useEffect(() => {
     if (!id && user) {
@@ -39,35 +48,40 @@ export const PolicyJudge: React.FC = () => {
     }
   }, [id, user, navigate, workOrders]);
   
-  const [formData, setFormData] = useState<PolicyJudgment>({
-    judgmentBasis: '',
-    policyReference: '',
-    riskWarning: '',
-    handlingSuggestion: '',
-    judgedBy: user?.name || '',
-    judgedAt: ''
-  });
-  
   useEffect(() => {
-    if (workOrder?.policyJudgment) {
-      setFormData(workOrder.policyJudgment);
+    if (workOrder && user) {
+      if (workOrder.policyJudgment) {
+        setFormData(workOrder.policyJudgment);
+      } else {
+        const draft = getDraft(workOrder.id);
+        if (draft) {
+          setFormData({
+            judgmentBasis: draft.judgmentBasis || '',
+            policyReference: draft.policyReference || '',
+            riskWarning: draft.riskWarning || '',
+            handlingSuggestion: draft.handlingSuggestion || '',
+            judgedBy: user.name,
+            judgedAt: ''
+          });
+        } else {
+          setFormData({
+            judgmentBasis: '',
+            policyReference: '',
+            riskWarning: '',
+            handlingSuggestion: '',
+            judgedBy: user.name,
+            judgedAt: ''
+          });
+        }
+      }
     }
-  }, [workOrder]);
+  }, [workOrder, user, getDraft]);
   
   useEffect(() => {
     if (workOrder && workOrder.status === '待判断' && user) {
       startPolicyJudge(workOrder.id, user.name);
     }
   }, [workOrder, user, startPolicyJudge]);
-  
-  useEffect(() => {
-    if (workOrder && !workOrder.policyJudgment) {
-      const draft = getDraft(workOrder.id);
-      if (draft) {
-        setFormData(prev => ({ ...prev, ...draft }));
-      }
-    }
-  }, [workOrder, getDraft]);
   
   if (!workOrder) {
     return (
@@ -96,6 +110,8 @@ export const PolicyJudge: React.FC = () => {
         judgedBy: user?.name || '',
         judgedAt: new Date().toISOString()
       });
+      
+      clearDraft(workOrder.id);
       
       alert('政策判断提交成功！');
       if (nextWorkOrder) {

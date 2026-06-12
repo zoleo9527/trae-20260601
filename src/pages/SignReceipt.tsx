@@ -27,7 +27,7 @@ export const SignReceiptPage: React.FC = () => {
   useEffect(() => {
     if (!id && user) {
       const pendingWorkOrder = workOrders.find(wo => 
-        wo.status === '审批通过'
+        wo.status === '审批通过' || wo.status === '已签收' || wo.status === '处理完成'
       );
       
       if (pendingWorkOrder) {
