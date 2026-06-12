@@ -14,14 +14,14 @@ import { formatDate } from '../lib/utils';
 
 interface TodoCounts {
   registrations: {
-    pending: number;
-    reviewing: number;
-    approved: number;
+    count: number;
+    status: string;
+    label: string;
   };
   clarifications: {
-    draft: number;
-    pending_review: number;
-    approved: number;
+    count: number;
+    status: string;
+    label: string;
   };
 }
 
@@ -42,6 +42,45 @@ interface Stats {
     status: string;
   }>;
 }
+
+const roleTodoConfig = {
+  project_specialist: {
+    registrations: [
+      { status: 'pending', label: '待处理报名', icon: Clock, color: 'yellow' }
+    ],
+    clarifications: [
+      { status: 'draft', label: '草稿澄清', icon: MessageCircle, color: 'gray' }
+    ]
+  },
+  review_secretary: {
+    registrations: [
+      { status: 'reviewing', label: '审核中报名', icon: FileText, color: 'blue' }
+    ],
+    clarifications: [
+      { status: 'pending_review', label: '待审核澄清', icon: Clock, color: 'yellow' }
+    ]
+  },
+  finance: {
+    registrations: [
+      { status: 'approved', label: '已通过报名', icon: CheckCircle, color: 'green' }
+    ],
+    clarifications: [
+      { status: 'approved', label: '已通过澄清', icon: CheckCircle, color: 'green' }
+    ]
+  },
+  admin: {
+    registrations: [
+      { status: 'pending', label: '待处理报名', icon: Clock, color: 'yellow' },
+      { status: 'reviewing', label: '审核中报名', icon: FileText, color: 'blue' },
+      { status: 'approved', label: '已通过报名', icon: CheckCircle, color: 'green' }
+    ],
+    clarifications: [
+      { status: 'draft', label: '草稿澄清', icon: MessageCircle, color: 'gray' },
+      { status: 'pending_review', label: '待审核澄清', icon: Clock, color: 'yellow' },
+      { status: 'approved', label: '已通过澄清', icon: CheckCircle, color: 'green' }
+    ]
+  }
+};
 
 export default function Dashboard() {
   const { currentRole, currentUser } = useAppStore();
@@ -85,6 +124,79 @@ export default function Dashboard() {
     }
   };
 
+  const getTodoCards = () => {
+    const config = roleTodoConfig[currentRole] || roleTodoConfig.admin;
+    const cards = [];
+    
+    if (currentRole === 'project_specialist' || currentRole === 'admin') {
+      const regCount = todos?.registrations?.status === 'pending' ? todos.registrations.count : 0;
+      cards.push({
+        type: 'registration',
+        status: 'pending',
+        count: regCount,
+        label: '待处理报名',
+        icon: Clock,
+        color: 'yellow'
+      });
+      
+      const clarCount = todos?.clarifications?.status === 'draft' ? todos.clarifications.count : 0;
+      cards.push({
+        type: 'clarification',
+        status: 'draft',
+        count: clarCount,
+        label: '草稿澄清',
+        icon: MessageCircle,
+        color: 'gray'
+      });
+    }
+    
+    if (currentRole === 'review_secretary' || currentRole === 'admin') {
+      const regCount = todos?.registrations?.status === 'reviewing' ? todos.registrations.count : 0;
+      cards.push({
+        type: 'registration',
+        status: 'reviewing',
+        count: regCount,
+        label: '审核中报名',
+        icon: FileText,
+        color: 'blue'
+      });
+      
+      const clarCount = todos?.clarifications?.status === 'pending_review' ? todos.clarifications.count : 0;
+      cards.push({
+        type: 'clarification',
+        status: 'pending_review',
+        count: clarCount,
+        label: '待审核澄清',
+        icon: Clock,
+        color: 'yellow'
+      });
+    }
+    
+    if (currentRole === 'finance' || currentRole === 'admin') {
+      const regCount = todos?.registrations?.status === 'approved' ? todos.registrations.count : 0;
+      cards.push({
+        type: 'registration',
+        status: 'approved',
+        count: regCount,
+        label: '已通过报名',
+        icon: CheckCircle,
+        color: 'green'
+      });
+      
+      const clarCount = todos?.clarifications?.status === 'approved' ? todos.clarifications.count : 0;
+      cards.push({
+        type: 'clarification',
+        status: 'approved',
+        count: clarCount,
+        label: '已通过澄清',
+        icon: CheckCircle,
+        color: 'green'
+      });
+    }
+    
+    return cards;
+  };
+
   if (loading) {
     return (
       <Layout>
@@ -104,107 +216,48 @@ export default function Dashboard() {
           </h3>
           
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            <Link
-              to="/registrations?status=pending"
-              className="bg-white rounded-xl border border-gray-200 p-6 hover:shadow-lg transition-shadow"
-            >
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 bg-yellow-100 rounded-lg flex items-center justify-center">
-                  <Clock className="w-6 h-6 text-yellow-600" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold text-gray-900">
-                    {todos?.registrations.pending || 0}
-                  </p>
-                  <p className="text-sm text-gray-500">待处理报名</p>
-                </div>
-              </div>
-            </Link>
-
-            <Link
-              to="/registrations?status=reviewing"
-              className="bg-white rounded-xl border border-gray-200 p-6 hover:shadow-lg transition-shadow"
-            >
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-                  <FileText className="w-6 h-6 text-blue-600" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold text-gray-900">
-                    {todos?.registrations.reviewing || 0}
-                  </p>
-                  <p className="text-sm text-gray-500">审核中报名</p>
-                </div>
-              </div>
-            </Link>
-
-            <Link
-              to="/registrations?status=approved"
-              className="bg-white rounded-xl border border-gray-200 p-6 hover:shadow-lg transition-shadow"
-            >
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
-                  <CheckCircle className="w-6 h-6 text-green-600" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold text-gray-900">
-                    {todos?.registrations.approved || 0}
-                  </p>
-                  <p className="text-sm text-gray-500">已通过报名</p>
-                </div>
-              </div>
-            </Link>
-
-            <Link
-              to="/clarifications?status=draft"
-              className="bg-white rounded-xl border border-gray-200 p-6 hover:shadow-lg transition-shadow"
-            >
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center">
-                  <MessageCircle className="w-6 h-6 text-gray-600" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold text-gray-900">
-                    {todos?.clarifications.draft || 0}
-                  </p>
-                  <p className="text-sm text-gray-500">草稿澄清</p>
-                </div>
-              </div>
-            </Link>
-
-            <Link
-              to="/clarifications?status=pending_review"
-              className="bg-white rounded-xl border border-gray-200 p-6 hover:shadow-lg transition-shadow"
-            >
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 bg-yellow-100 rounded-lg flex items-center justify-center">
-                  <Clock className="w-6 h-6 text-yellow-600" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold text-gray-900">
-                    {todos?.clarifications.pending_review || 0}
-                  </p>
-                  <p className="text-sm text-gray-500">待审核澄清</p>
-                </div>
-              </div>
-            </Link>
-
-            <Link
-              to="/clarifications?status=approved"
-              className="bg-white rounded-xl border border-gray-200 p-6 hover:shadow-lg transition-shadow"
-            >
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
-                  <CheckCircle className="w-6 h-6 text-green-600" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold text-gray-900">
-                    {todos?.clarifications.approved || 0}
-                  </p>
-                  <p className="text-sm text-gray-500">已通过澄清</p>
-                </div>
-              </div>
-            </Link>
+            {getTodoCards().map((card, index) => {
+              const Icon = card.icon;
+              const colorClasses = {
+                yellow: 'bg-yellow-100 text-yellow-600',
+                blue: 'bg-blue-100 text-blue-600',
+                green: 'bg-green-100 text-green-600',
+                gray: 'bg-gray-100 text-gray-600'
+              };
+              
+              const params = new URLSearchParams();
+              params.set('status', card.status);
+              
+              if (card.type === 'registration') {
+                if (currentUser?.id) {
+                  params.set('handlerId', currentUser.id);
+                }
+              } else {
+                if (currentRole === 'project_specialist' && currentUser?.id) {
+                  params.set('createdById', currentUser.id);
+                }
+              }
+              
+              return (
+                <Link
+                  key={index}
+                  to={`${card.type === 'registration' ? '/registrations' : '/clarifications'}?${params}`}
+                  className="bg-white rounded-xl border border-gray-200 p-6 hover:shadow-lg transition-shadow"
+                >
+                  <div className="flex items-center gap-4">
+                    <div className={`w-12 h-12 rounded-lg flex items-center justify-center ${colorClasses[card.color as keyof typeof colorClasses]}`}>
+                      <Icon className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <p className="text-2xl font-bold text-gray-900">
+                        {card.count || 0}
+                      </p>
+                      <p className="text-sm text-gray-500">{card.label}</p>
+                    </div>
+                  </div>
+                </Link>
+              );
+            })}
           </div>
         </div>
 

@@ -53,7 +53,8 @@ export default function Registrations() {
   const [filters, setFilters] = useState({
     status: searchParams.get('status') || '',
     projectName: searchParams.get('projectName') || '',
-    bidderName: searchParams.get('bidderName') || ''
+    bidderName: searchParams.get('bidderName') || '',
+    handlerId: searchParams.get('handlerId') || ''
   });
 
   useEffect(() => {
@@ -69,6 +70,7 @@ export default function Registrations() {
       if (filters.status) params.set('status', filters.status);
       if (filters.projectName) params.set('projectName', filters.projectName);
       if (filters.bidderName) params.set('bidderName', filters.bidderName);
+      if (filters.handlerId) params.set('handlerId', filters.handlerId);
 
       const response = await fetch(`/api/registrations?${params}`);
       const data = await response.json();

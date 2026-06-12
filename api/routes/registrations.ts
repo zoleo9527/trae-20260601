@@ -5,12 +5,13 @@ const router = Router();
 
 router.get('/', async (req: Request, res: Response): Promise<void> => {
   try {
-    const { page = 1, pageSize = 10, status, projectName, bidderName } = req.query;
+    const { page = 1, pageSize = 10, status, projectName, bidderName, handlerId } = req.query;
     
     const where: any = {};
     if (status) where.status = status;
     if (projectName) where.projectName = { contains: projectName as string };
     if (bidderName) where.bidderName = { contains: bidderName as string };
+    if (handlerId) where.currentHandlerId = handlerId as string;
     
     const total = await prisma.bidRegistration.count({ where });
     const data = await prisma.bidRegistration.findMany({

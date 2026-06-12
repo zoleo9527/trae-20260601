@@ -5,11 +5,12 @@ const router = Router();
 
 router.get('/', async (req: Request, res: Response): Promise<void> => {
   try {
-    const { page = 1, pageSize = 10, status, registrationId } = req.query;
+    const { page = 1, pageSize = 10, status, registrationId, createdById } = req.query;
     
     const where: any = {};
     if (status) where.status = status;
     if (registrationId) where.registrationId = registrationId;
+    if (createdById) where.createdById = createdById as string;
     
     const total = await prisma.clarification.count({ where });
     const data = await prisma.clarification.findMany({

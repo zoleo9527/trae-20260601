@@ -38,7 +38,8 @@ export default function Clarifications() {
   
   const [filters, setFilters] = useState({
     status: searchParams.get('status') || '',
-    registrationId: searchParams.get('registrationId') || ''
+    registrationId: searchParams.get('registrationId') || '',
+    createdById: searchParams.get('createdById') || ''
   });
 
   useEffect(() => {
@@ -53,6 +54,7 @@ export default function Clarifications() {
       params.set('pageSize', '10');
       if (filters.status) params.set('status', filters.status);
       if (filters.registrationId) params.set('registrationId', filters.registrationId);
+      if (filters.createdById) params.set('createdById', filters.createdById);
 
       const response = await fetch(`/api/clarifications?${params}`);
       const data = await response.json();

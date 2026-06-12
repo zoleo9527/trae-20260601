@@ -8,115 +8,98 @@ router.get('/', async (req: Request, res: Response): Promise<void> => {
     const role = req.query.role as string | undefined;
     const userId = req.query.userId as string | undefined;
     
-    let pendingRegistrations = 0;
-    let reviewingRegistrations = 0;
-    let approvedRegistrations = 0;
-    let draftClarifications = 0;
-    let pendingReviewClarifications = 0;
-    let approvedClarifications = 0;
+    let registrationCount = 0;
+    let registrationStatus = '';
+    let registrationLabel = '';
+    
+    let clarificationCount = 0;
+    let clarificationStatus = '';
+    let clarificationLabel = '';
     
     if (role === 'project_specialist') {
-      pendingRegistrations = await prisma.bidRegistration.count({
+      registrationCount = await prisma.bidRegistration.count({
         where: {
           status: 'pending',
           currentHandlerId: userId || undefined
         }
       });
-      draftClarifications = await prisma.clarification.count({
+      registrationStatus = 'pending';
+      registrationLabel = '待处理报名';
+      
+      clarificationCount = await prisma.clarification.count({
         where: {
           status: 'draft',
           createdById: userId || undefined
         }
       });
-      reviewingRegistrations = await prisma.bidRegistration.count({
-        where: { status: 'reviewing' }
-      });
-      approvedRegistrations = await prisma.bidRegistration.count({
-        where: { status: 'approved' }
-      });
-      pendingReviewClarifications = await prisma.clarification.count({
-        where: { status: 'pending_review' }
-      });
-      approvedClarifications = await prisma.clarification.count({
-        where: { status: 'approved' }
-      });
+      clarificationStatus = 'draft';
+      clarificationLabel = '草稿澄清';
     } else if (role === 'review_secretary') {
-      reviewingRegistrations = await prisma.bidRegistration.count({
+      registrationCount = await prisma.bidRegistration.count({
         where: {
           status: 'reviewing',
           currentHandlerId: userId || undefined
         }
       });
-      pendingReviewClarifications = await prisma.clarification.count({
-        where: { status: 'pending_review' }
+      registrationStatus = 'reviewing';
+      registrationLabel = '审核中报名';
+      
+      clarificationCount = await prisma.clarification.count({
+        where: {
+          status: 'pending_review'
+        }
       });
-      pendingRegistrations = await prisma.bidRegistration.count({
-        where: { status: 'pending' }
-      });
-      approvedRegistrations = await prisma.bidRegistration.count({
-        where: { status: 'approved' }
-      });
-      draftClarifications = await prisma.clarification.count({
-        where: { status: 'draft' }
-      });
-      approvedClarifications = await prisma.clarification.count({
-        where: { status: 'approved' }
-      });
+      clarificationStatus = 'pending_review';
+      clarificationLabel = '待审核澄清';
     } else if (role === 'finance') {
-      approvedRegistrations = await prisma.bidRegistration.count({
+      registrationCount = await prisma.bidRegistration.count({
         where: {
           status: 'approved',
           currentHandlerId: userId || undefined
         }
       });
-      pendingRegistrations = await prisma.bidRegistration.count({
-        where: { status: 'pending' }
+      registrationStatus = 'approved';
+      registrationLabel = '已通过报名';
+      
+      clarificationCount = await prisma.clarification.count({
+        where: {
+          status: 'approved'
+        }
       });
-      reviewingRegistrations = await prisma.bidRegistration.count({
-        where: { status: 'reviewing' }
-      });
-      draftClarifications = await prisma.clarification.count({
-        where: { status: 'draft' }
-      });
-      pendingReviewClarifications = await prisma.clarification.count({
-        where: { status: 'pending_review' }
-      });
-      approvedClarifications = await prisma.clarification.count({
-        where: { status: 'approved' }
-      });
+      clarificationStatus = 'approved';
+      clarificationLabel = '已通过澄清';
     } else {
-      pendingRegistrations = await prisma.bidRegistration.count({
-        where: { status: 'pending' }
+      registrationCount = await prisma.bidRegistration.count({
+        where: {
+          status: 'pending',
+          currentHandlerId: userId || undefined
+        }
       });
-      reviewingRegistrations = await prisma.bidRegistration.count({
-        where: { status: 'reviewing' }
+      registrationStatus = 'pending';
+      registrationLabel = '待处理报名';
+      
+      clarificationCount = await prisma.clarification.count({
+        where: {
+          status: 'draft',
+          createdById: userId || undefined
+        }
       });
-      approvedRegistrations = await prisma.bidRegistration.count({
-        where: { status: 'approved' }
-      });
-      draftClarifications = await prisma.clarification.count({
-        where: { status: 'draft' }
-      });
-      pendingReviewClarifications = await prisma.clarification.count({
-        where: { status: 'pending_review' }
-      });
-      approvedClarifications = await prisma.clarification.count({
-        where: { status: 'approved' }
-      });
+      clarificationStatus = 'draft';
+      clarificationLabel = '草稿澄清';
     }
     
     res.json({
       success: true,
       data: {
         registrations: {
-          pending: pendingRegistrations,
-          reviewing: reviewingRegistrations,
-          approved: approvedRegistrations
+          count: registrationCount,
+          status: registrationStatus,
+          label: registrationLabel
         },
         clarifications: {
-          draft: draftClarifications,
-          pending_review: pendingReviewClarifications,
-          approved: approvedClarifications
+          count: clarificationCount,
+          status: clarificationStatus,
+          label: clarificationLabel
         }
       }
     });
