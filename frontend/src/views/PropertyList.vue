@@ -55,6 +55,10 @@
     </el-card>
 
     <el-card class="table-card" shadow="never">
+      <div v-if="jumpContext" class="jump-context-bar">
+        <el-icon><Right /></el-icon>
+        <span>从异常「{{ jumpContext.exceptionTitle }}」跳转，正在定位房源...</span>
+      </div>
       <div class="table-header">
         <div class="header-left">
           <span class="count-info">
@@ -73,6 +77,7 @@
         v-loading="loading"
         :data="list"
         style="width: 100%"
+        :row-class-name="propertyRowClassName"
         @row-click="handleRowClick"
       >
         <el-table-column prop="property_no" label="房源编号" width="120">
@@ -195,8 +200,9 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
-import { Search, Refresh, Download } from '@element-plus/icons-vue'
+import { ref, reactive, onMounted, nextTick } from 'vue'
+import { useRoute, onBeforeRouteUpdate } from 'vue-router'
+import { Search, Refresh, Download, Right } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import dayjs from 'dayjs'
 import StatusTag from '@/components/StatusTag.vue'
@@ -204,6 +210,8 @@ import VacancyDialog from '@/components/VacancyDialog.vue'
 import ViewingDialog from '@/components/ViewingDialog.vue'
 import PropertyDetailDrawer from '@/components/PropertyDetailDrawer.vue'
 import { propertyApi } from '@/utils/api'
+
+const route = useRoute()
 
 const loading = ref(false)
 const list = ref([])
@@ -226,9 +234,18 @@ const viewingDialogVisible = ref(false)
 const detailDrawerVisible = ref(false)
 const selectedProperty = ref(null)
 const selectedPropertyId = ref(null)
+const highlightId = ref(null)
+const jumpContext = ref(null)
 
 function formatDate(date) {
   return dayjs(date).format('YYYY-MM-DD')
+}
+
+function propertyRowClassName({ row }) {
+  if (row.id === highlightId.value) {
+    return 'highlight-row'
+  }
+  return ''
 }
 
 async function loadBuildings() {
@@ -339,10 +356,51 @@ function handleExport() {
   ElMessage.success('导出成功')
 }
 
-onMounted(() => {
-  loadBuildings()
-  loadList()
+onMounted(async () => {
+  await loadBuildings()
+  await loadList()
+  handleRouteQuery()
 })
+
+onBeforeRouteUpdate((to) => {
+  if (to.query.highlight_id) {
+    nextTick(() => handleRouteQuery(to.query))
+  }
+})
+
+async function handleRouteQuery(query) {
+  const q = query || route.query
+  const targetId = Number(q.highlight_id)
+  if (!targetId) return
+
+  jumpContext.value = q.from_exception ? {
+    exceptionTitle: q.from_exception || ''
+  } : null
+
+  const found = list.value.find(p => p.id === targetId)
+  if (found) {
+    highlightId.value = targetId
+    selectedProperty.value = found
+    selectedPropertyId.value = targetId
+    detailDrawerVisible.value = true
+    ElMessage.success(`已定位到房源：${found.property_no}`)
+  } else {
+    try {
+      const detail = await propertyApi.getDetail(targetId)
+      highlightId.value = targetId
+      selectedProperty.value = detail
+      selectedPropertyId.value = targetId
+      detailDrawerVisible.value = true
+      ElMessage.success(`已定位到房源：${detail.property_no}`)
+    } catch (e) {
+      ElMessage.error('未找到对应的房源记录，可能已被删除')
+    }
+  }
+
+  setTimeout(() => {
+    jumpContext.value = null
+  }, 3000)
+}
 </script>
 
 <style scoped>
@@ -431,5 +489,26 @@ onMounted(() => {
   display: flex;
   justify-content: flex-end;
   margin-top: 20px;
+}
+
+:deep(.highlight-row) {
+  background: #ecf5ff !important;
+}
+
+:deep(.highlight-row:hover > td) {
+  background: #d9ecff !important;
+}
+
+.jump-context-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  background: #fdf6ec;
+  border: 1px solid #faecd8;
+  border-radius: 6px;
+  margin-bottom: 12px;
+  font-size: 13px;
+  color: #e6a23c;
 }
 </style>

@@ -503,18 +503,20 @@ function handleExceptionSuccess() {
 }
 
 function handleJumpToProperty(propertyId) {
+  const excTitle = selectedException.value?.title || ''
   exceptionDrawerVisible.value = false
   router.push({
     path: '/properties',
-    query: { highlight_id: propertyId }
+    query: { highlight_id: propertyId, from_exception: excTitle }
   })
 }
 
 function handleJumpToViewing(viewingId) {
+  const excTitle = selectedException.value?.title || ''
   exceptionDrawerVisible.value = false
   router.push({
     path: '/viewings',
-    query: { highlight_id: viewingId }
+    query: { highlight_id: viewingId, from_exception: excTitle }
   })
 }
 
