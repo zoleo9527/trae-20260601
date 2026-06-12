@@ -112,7 +112,10 @@ async function initMockData() {
                 status: 'paid',
                 slowRefund: false,
                 createdAt: new Date(Date.now() - 86400000).toISOString(),
-                operator: '财务人员A'
+                operator: '财务人员A',
+                lastOperator: '财务人员A',
+                lastOperationTime: new Date(Date.now() - 86400000).toISOString(),
+                lastOperationRemark: '确认保证金到账'
             },
             {
                 id: 'DEP002',
@@ -124,7 +127,10 @@ async function initMockData() {
                 status: 'paid',
                 slowRefund: false,
                 createdAt: new Date(Date.now() - 172800000).toISOString(),
-                operator: '财务人员B'
+                operator: '财务人员B',
+                lastOperator: '财务人员B',
+                lastOperationTime: new Date(Date.now() - 172800000).toISOString(),
+                lastOperationRemark: '确认保证金到账'
             },
             {
                 id: 'DEP003',
@@ -137,7 +143,10 @@ async function initMockData() {
                 refundTime: new Date(Date.now() - 604800000).toISOString(),
                 slowRefund: true,
                 createdAt: new Date(Date.now() - 259200000).toISOString(),
-                operator: '财务人员A'
+                operator: '财务人员A',
+                lastOperator: '财务人员A',
+                lastOperationTime: new Date(Date.now() - 604800000).toISOString(),
+                lastOperationRemark: '退还保证金，标记退还慢'
             },
             {
                 id: 'DEP004',
@@ -149,7 +158,10 @@ async function initMockData() {
                 status: 'pending',
                 slowRefund: false,
                 createdAt: new Date().toISOString(),
-                operator: '财务人员C'
+                operator: '财务人员C',
+                lastOperator: '财务人员C',
+                lastOperationTime: new Date().toISOString(),
+                lastOperationRemark: '创建保证金记录'
             }
         ];
         for (const deposit of mockDeposits) {
@@ -166,7 +178,10 @@ async function initMockData() {
                 verifyTime: new Date(Date.now() - 43200000).toISOString(),
                 verifyRemark: '资料齐全，资格审核通过',
                 createdAt: new Date(Date.now() - 86400000).toISOString(),
-                operator: '审核员A'
+                operator: '审核员A',
+                lastOperator: '审核员A',
+                lastOperationTime: new Date(Date.now() - 43200000).toISOString(),
+                lastOperationRemark: '资料齐全，资格审核通过'
             },
             {
                 id: 'QUAL002',
@@ -175,7 +190,10 @@ async function initMockData() {
                 status: 'supplement',
                 supplementItems: ['缺少营业执照副本', '缺少授权委托书'],
                 createdAt: new Date(Date.now() - 172800000).toISOString(),
-                operator: '审核员B'
+                operator: '审核员B',
+                lastOperator: '审核员B',
+                lastOperationTime: new Date(Date.now() - 172800000).toISOString(),
+                lastOperationRemark: '要求补正：缺少营业执照副本、缺少授权委托书'
             },
             {
                 id: 'QUAL003',
@@ -184,7 +202,10 @@ async function initMockData() {
                 status: 'dispute',
                 disputeReason: '竞买人资格存在争议，需进一步核实',
                 createdAt: new Date(Date.now() - 259200000).toISOString(),
-                operator: '审核员A'
+                operator: '审核员A',
+                lastOperator: '审核员A',
+                lastOperationTime: new Date(Date.now() - 259200000).toISOString(),
+                lastOperationRemark: '竞买人资格存在争议，需进一步核实'
             },
             {
                 id: 'QUAL004',
@@ -192,7 +213,10 @@ async function initMockData() {
                 bidderId: 'BDR004',
                 status: 'pending',
                 createdAt: new Date().toISOString(),
-                operator: '审核员C'
+                operator: '审核员C',
+                lastOperator: '审核员C',
+                lastOperationTime: new Date().toISOString(),
+                lastOperationRemark: '创建资格审核任务'
             }
         ];
         for (const qual of mockQuals) {
@@ -230,6 +254,10 @@ function getStatusText(status, type) {
 function closeModal() {
     document.getElementById('modal').classList.add('hidden');
     document.getElementById('modal-body').innerHTML = '';
+}
+
+function getCurrentOperator() {
+    return '当前用户';
 }
 
 async function showAddBidModal() {
@@ -271,6 +299,8 @@ async function showAddBidModal() {
 }
 
 async function saveBid() {
+    const operator = getCurrentOperator();
+    const now = new Date().toISOString();
     const bid = {
         id: 'BD' + Date.now().toString().slice(-3),
         bidNo: document.getElementById('bid-no').value,
@@ -280,8 +310,11 @@ async function saveBid() {
         depositAmount: parseInt(document.getElementById('bid-deposit-amount').value),
         auctionDate: document.getElementById('bid-auction-date').value,
         status: 'active',
-        createdAt: new Date().toISOString(),
-        operator: '当前用户'
+        createdAt: now,
+        operator,
+        lastOperator: operator,
+        lastOperationTime: now,
+        lastOperationRemark: '创建标的'
     };
     
     try {
@@ -455,17 +488,22 @@ async function showAddDepositModal() {
 }
 
 async function saveDeposit() {
+    const operator = getCurrentOperator();
+    const now = new Date().toISOString();
     const deposit = {
         id: 'DEP' + Date.now().toString().slice(-3),
         bidId: document.getElementById('deposit-bid').value,
         bidderId: document.getElementById('deposit-bidder').value,
         amount: parseInt(document.getElementById('deposit-amount').value),
         payMethod: document.getElementById('deposit-method').value,
-        payTime: document.getElementById('deposit-time').value ? new Date(document.getElementById('deposit-time').value).toISOString() : new Date().toISOString(),
+        payTime: document.getElementById('deposit-time').value ? new Date(document.getElementById('deposit-time').value).toISOString() : now,
         status: 'pending',
         slowRefund: false,
-        createdAt: new Date().toISOString(),
-        operator: '当前用户'
+        createdAt: now,
+        operator,
+        lastOperator: operator,
+        lastOperationTime: now,
+        lastOperationRemark: '创建保证金记录'
     };
     
     try {
@@ -480,13 +518,18 @@ async function saveDeposit() {
 
 async function handleDepositAction(depositId, action) {
     const deposit = await db.get('deposits', depositId);
-    const bid = await db.get('bids', deposit.bidId);
-    const bidder = await db.get('bidders', deposit.bidderId);
+    const operator = getCurrentOperator();
+    const now = new Date().toISOString();
     
     if (action === 'confirm') {
         deposit.status = 'paid';
+        deposit.confirmTime = now;
+        deposit.confirmOperator = operator;
+        deposit.lastOperator = operator;
+        deposit.lastOperationTime = now;
+        deposit.lastOperationRemark = '确认保证金到账';
         await db.put('deposits', deposit);
-        await db.addLog(depositId, 'deposit', '确认到账', `确认保证金到账 ${formatMoney(deposit.amount)}`);
+        await db.addLog(depositId, 'deposit', '确认到账', `确认保证金到账 ${formatMoney(deposit.amount)}，操作人：${operator}`);
         
         const existingQual = await db.getAllByIndex('qualifications', 'bidderId', deposit.bidderId);
         const qualForBid = existingQual.find(q => q.bidId === deposit.bidId);
@@ -496,24 +539,81 @@ async function handleDepositAction(depositId, action) {
                 bidId: deposit.bidId,
                 bidderId: deposit.bidderId,
                 status: 'pending',
-                createdAt: new Date().toISOString(),
-                operator: '系统自动'
+                createdAt: now,
+                operator: '系统自动',
+                lastOperator: '系统自动',
+                lastOperationTime: now,
+                lastOperationRemark: '保证金到账自动创建审核任务'
             };
             await db.add('qualifications', qual);
             await db.addLog(qual.id, 'qualification', '创建资格审核', '保证金到账自动创建审核任务');
         }
     } else if (action === 'refund') {
         deposit.status = 'refunded';
-        deposit.refundTime = new Date().toISOString();
+        deposit.refundTime = now;
+        deposit.refundOperator = operator;
+        deposit.lastOperator = operator;
+        deposit.lastOperationTime = now;
+        deposit.lastOperationRemark = '退还保证金';
         await db.put('deposits', deposit);
-        await db.addLog(depositId, 'deposit', '退还保证金', `退还保证金 ${formatMoney(deposit.amount)}`);
+        await db.addLog(depositId, 'deposit', '退还保证金', `退还保证金 ${formatMoney(deposit.amount)}，操作人：${operator}`);
     } else if (action === 'mark-slow') {
         deposit.slowRefund = true;
+        deposit.slowRefundTime = now;
+        deposit.slowRefundOperator = operator;
+        deposit.lastOperator = operator;
+        deposit.lastOperationTime = now;
+        deposit.lastOperationRemark = '标记退还慢';
         await db.put('deposits', deposit);
-        await db.addLog(depositId, 'deposit', '标记退还慢', '标记为退还慢提醒');
+        await db.addLog(depositId, 'deposit', '标记退还慢', `标记为退还慢提醒，操作人：${operator}`);
     }
     
     await renderDepositList();
+}
+
+async function showDepositDetail(depositId) {
+    const deposit = await db.get('deposits', depositId);
+    const bid = await db.get('bids', deposit.bidId);
+    const bidder = await db.get('bidders', deposit.bidderId);
+    const logs = await db.getLogs(depositId, 'deposit');
+    
+    let logsHtml = '<h4>操作历史</h4><div class="timeline">';
+    for (const log of logs) {
+        logsHtml += `
+            <div class="timeline-item">
+                <div class="timeline-time">${formatDate(log.createdAt)}</div>
+                <div class="timeline-user">${log.operator}</div>
+                <div class="timeline-action">${log.action}</div>
+                ${log.remark ? `<div class="timeline-remark">${log.remark}</div>` : ''}
+            </div>
+        `;
+    }
+    logsHtml += '</div>';
+    
+    const html = `
+        <h3>保证金详情</h3>
+        <div class="card-body">
+            <p><strong>标的：</strong>${bid?.bidNo} - ${bid?.name}</p>
+            <p><strong>竞买人：</strong>${bidder?.name} - ${bidder?.idCard}</p>
+            <p><strong>金额：</strong>${formatMoney(deposit.amount)}</p>
+            <p><strong>缴纳方式：</strong>${deposit.payMethod}</p>
+            <p><strong>缴纳时间：</strong>${formatDate(deposit.payTime)}</p>
+            <p><strong>状态：</strong><span class="status-badge status-${deposit.status}">${getStatusText(deposit.status, 'deposit')}</span></p>
+            ${deposit.slowRefund ? '<p><span class="alert-badge alert-slow">退还慢提醒</span></p>' : ''}
+            <p><strong>创建人：</strong>${deposit.operator}</p>
+            <p><strong>创建时间：</strong>${formatDate(deposit.createdAt)}</p>
+            ${deposit.confirmTime ? `<p><strong>确认到账时间：</strong>${formatDate(deposit.confirmTime)}</p><p><strong>确认人：</strong>${deposit.confirmOperator}</p>` : ''}
+            ${deposit.refundTime ? `<p><strong>退还时间：</strong>${formatDate(deposit.refundTime)}</p><p><strong>退还人：</strong>${deposit.refundOperator}</p>` : ''}
+            ${deposit.slowRefundTime ? `<p><strong>标记退还慢时间：</strong>${formatDate(deposit.slowRefundTime)}</p><p><strong>标记人：</strong>${deposit.slowRefundOperator}</p>` : ''}
+            <p><strong>最后操作人：</strong>${deposit.lastOperator}</p>
+            <p><strong>最后操作时间：</strong>${formatDate(deposit.lastOperationTime)}</p>
+            <p><strong>最后操作备注：</strong>${deposit.lastOperationRemark}</p>
+        </div>
+        ${logsHtml}
+        <button class="btn-secondary" onclick="closeModal()">关闭</button>
+    `;
+    document.getElementById('modal-body').innerHTML = html;
+    document.getElementById('modal').classList.remove('hidden');
 }
 
 async function renderDepositList() {
@@ -550,6 +650,7 @@ async function renderDepositList() {
         if (deposit.status === 'refunded' && !deposit.slowRefund) {
             actions += `<button class="btn-secondary" onclick="handleDepositAction('${deposit.id}', 'mark-slow')">标记退还慢</button>`;
         }
+        actions += `<button class="btn-secondary" onclick="showDepositDetail('${deposit.id}')">详情</button>`;
         
         html += `
             <div class="card">
@@ -565,7 +666,8 @@ async function renderDepositList() {
                     <p><strong>金额：</strong>${formatMoney(deposit.amount)} | <strong>方式：</strong>${deposit.payMethod}</p>
                     <p><strong>缴纳时间：</strong>${formatDate(deposit.payTime)}</p>
                     ${deposit.refundTime ? `<p><strong>退还时间：</strong>${formatDate(deposit.refundTime)}</p>` : ''}
-                    <p><strong>操作人：</strong>${deposit.operator} | <strong>创建时间：</strong>${formatDate(deposit.createdAt)}</p>
+                    <p><strong>最后操作：</strong>${deposit.lastOperationRemark} | <strong>操作人：</strong>${deposit.lastOperator}</p>
+                    <p><strong>操作时间：</strong>${formatDate(deposit.lastOperationTime)}</p>
                 </div>
             </div>
         `;
@@ -628,21 +730,28 @@ async function showAddQualModal() {
 }
 
 async function saveQual() {
+    const operator = getCurrentOperator();
+    const now = new Date().toISOString();
     const status = document.getElementById('qual-status').value;
     const qual = {
         id: 'QUAL' + Date.now().toString().slice(-3),
         bidId: document.getElementById('qual-bid').value,
         bidderId: document.getElementById('qual-bidder').value,
         status,
-        createdAt: new Date().toISOString(),
-        operator: '当前用户'
+        createdAt: now,
+        operator,
+        lastOperator: operator,
+        lastOperationTime: now,
+        lastOperationRemark: '创建资格审核任务'
     };
     
     if (status === 'supplement') {
         qual.supplementItems = document.getElementById('qual-supplement').value.split('\n').filter(item => item.trim());
+        qual.lastOperationRemark = '要求补正：' + qual.supplementItems.join('、');
     } else if (status === 'approved' || status === 'rejected' || status === 'dispute') {
         qual.verifyRemark = document.getElementById('qual-remark').value;
-        qual.verifyTime = new Date().toISOString();
+        qual.verifyTime = now;
+        qual.lastOperationRemark = getStatusText(status, 'qualification') + (qual.verifyRemark ? '：' + qual.verifyRemark : '');
     }
     
     try {
@@ -657,36 +766,115 @@ async function saveQual() {
 
 async function handleQualAction(qualId, action) {
     const qual = await db.get('qualifications', qualId);
+    const operator = getCurrentOperator();
+    const now = new Date().toISOString();
     
     if (action === 'approve') {
         qual.status = 'approved';
-        qual.verifyTime = new Date().toISOString();
+        qual.verifyTime = now;
+        qual.verifyOperator = operator;
         qual.verifyRemark = qual.verifyRemark || '资格审核通过';
+        qual.lastOperator = operator;
+        qual.lastOperationTime = now;
+        qual.lastOperationRemark = '审核通过：' + qual.verifyRemark;
         await db.put('qualifications', qual);
-        await db.addLog(qualId, 'qualification', '审核通过', '资格审核通过');
+        await db.addLog(qualId, 'qualification', '审核通过', `资格审核通过，操作人：${operator}`);
     } else if (action === 'reject') {
         qual.status = 'rejected';
-        qual.verifyTime = new Date().toISOString();
+        qual.verifyTime = now;
+        qual.verifyOperator = operator;
         qual.verifyRemark = qual.verifyRemark || '资格审核未通过';
+        qual.lastOperator = operator;
+        qual.lastOperationTime = now;
+        qual.lastOperationRemark = '审核拒绝：' + qual.verifyRemark;
         await db.put('qualifications', qual);
-        await db.addLog(qualId, 'qualification', '审核未通过', '资格审核未通过');
+        await db.addLog(qualId, 'qualification', '审核未通过', `资格审核未通过，操作人：${operator}`);
     } else if (action === 'supplement') {
         qual.status = 'supplement';
+        qual.supplementTime = now;
+        qual.supplementOperator = operator;
+        qual.lastOperator = operator;
+        qual.lastOperationTime = now;
+        qual.lastOperationRemark = '要求补正：需补充相关资料';
         await db.put('qualifications', qual);
-        await db.addLog(qualId, 'qualification', '要求补正', '要求竞买人补充资料');
+        await db.addLog(qualId, 'qualification', '要求补正', `要求竞买人补充资料，操作人：${operator}`);
     } else if (action === 'dispute') {
         qual.status = 'dispute';
+        qual.disputeTime = now;
+        qual.disputeOperator = operator;
+        qual.lastOperator = operator;
+        qual.lastOperationTime = now;
+        qual.lastOperationRemark = '标记争议：竞买人资格存在争议';
         await db.put('qualifications', qual);
-        await db.addLog(qualId, 'qualification', '标记争议', '标记为资格争议');
+        await db.addLog(qualId, 'qualification', '标记争议', `标记为资格争议，操作人：${operator}`);
     } else if (action === 'resolve') {
         qual.status = 'approved';
-        qual.verifyTime = new Date().toISOString();
+        qual.resolveTime = now;
+        qual.resolveOperator = operator;
         qual.verifyRemark = '争议已解决，资格审核通过';
+        qual.lastOperator = operator;
+        qual.lastOperationTime = now;
+        qual.lastOperationRemark = '解决争议：资格审核通过';
         await db.put('qualifications', qual);
-        await db.addLog(qualId, 'qualification', '解决争议', '资格争议已解决');
+        await db.addLog(qualId, 'qualification', '解决争议', `资格争议已解决，审核通过，操作人：${operator}`);
     }
     
     await renderQualificationList();
+}
+
+async function showQualDetail(qualId) {
+    const qual = await db.get('qualifications', qualId);
+    const bid = await db.get('bids', qual.bidId);
+    const bidder = await db.get('bidders', qual.bidderId);
+    const logs = await db.getLogs(qualId, 'qualification');
+    
+    let supplementHtml = '';
+    if (qual.supplementItems && qual.supplementItems.length > 0) {
+        supplementHtml = `<p><strong>补正项目：</strong></p><ul>`;
+        for (const item of qual.supplementItems) {
+            supplementHtml += `<li>${item}</li>`;
+        }
+        supplementHtml += '</ul>';
+    }
+    
+    let logsHtml = '<h4>操作历史</h4><div class="timeline">';
+    for (const log of logs) {
+        logsHtml += `
+            <div class="timeline-item">
+                <div class="timeline-time">${formatDate(log.createdAt)}</div>
+                <div class="timeline-user">${log.operator}</div>
+                <div class="timeline-action">${log.action}</div>
+                ${log.remark ? `<div class="timeline-remark">${log.remark}</div>` : ''}
+            </div>
+        `;
+    }
+    logsHtml += '</div>';
+    
+    const html = `
+        <h3>资格审核详情</h3>
+        <div class="card-body">
+            <p><strong>标的：</strong>${bid?.bidNo} - ${bid?.name}</p>
+            <p><strong>竞买人：</strong>${bidder?.name} - ${bidder?.idCard}</p>
+            <p><strong>状态：</strong><span class="status-badge status-${qual.status}">${getStatusText(qual.status, 'qualification')}</span></p>
+            ${qual.status === 'supplement' ? '<p><span class="alert-badge alert-slow">需补正</span></p>' : ''}
+            ${qual.status === 'dispute' ? '<p><span class="alert-badge alert-dispute">资格争议</span></p>' : ''}
+            ${supplementHtml}
+            ${qual.verifyRemark ? `<p><strong>审核备注：</strong>${qual.verifyRemark}</p>` : ''}
+            <p><strong>创建人：</strong>${qual.operator}</p>
+            <p><strong>创建时间：</strong>${formatDate(qual.createdAt)}</p>
+            ${qual.verifyTime ? `<p><strong>审核时间：</strong>${formatDate(qual.verifyTime)}</p><p><strong>审核人：</strong>${qual.verifyOperator || qual.lastOperator}</p>` : ''}
+            ${qual.supplementTime ? `<p><strong>补正要求时间：</strong>${formatDate(qual.supplementTime)}</p><p><strong>要求人：</strong>${qual.supplementOperator}</p>` : ''}
+            ${qual.disputeTime ? `<p><strong>争议标记时间：</strong>${formatDate(qual.disputeTime)}</p><p><strong>标记人：</strong>${qual.disputeOperator}</p>` : ''}
+            ${qual.resolveTime ? `<p><strong>争议解决时间：</strong>${formatDate(qual.resolveTime)}</p><p><strong>解决人：</strong>${qual.resolveOperator}</p>` : ''}
+            <p><strong>最后操作人：</strong>${qual.lastOperator}</p>
+            <p><strong>最后操作时间：</strong>${formatDate(qual.lastOperationTime)}</p>
+            <p><strong>最后操作备注：</strong>${qual.lastOperationRemark}</p>
+        </div>
+        ${logsHtml}
+        <button class="btn-secondary" onclick="closeModal()">关闭</button>
+    `;
+    document.getElementById('modal-body').innerHTML = html;
+    document.getElementById('modal').classList.remove('hidden');
 }
 
 async function renderQualificationList() {
@@ -721,6 +909,7 @@ async function renderQualificationList() {
         } else if (qual.status === 'dispute') {
             actions += `<button class="btn-secondary" onclick="handleQualAction('${qual.id}', 'resolve')">解决争议</button>`;
         }
+        actions += `<button class="btn-secondary" onclick="showQualDetail('${qual.id}')">详情</button>`;
         
         let supplementHtml = '';
         if (qual.supplementItems && qual.supplementItems.length > 0) {
@@ -745,8 +934,8 @@ async function renderQualificationList() {
                 <div class="card-body">
                     ${supplementHtml}
                     ${qual.verifyRemark ? `<p><strong>审核备注：</strong>${qual.verifyRemark}</p>` : ''}
-                    ${qual.verifyTime ? `<p><strong>审核时间：</strong>${formatDate(qual.verifyTime)}</p>` : ''}
-                    <p><strong>操作人：</strong>${qual.operator} | <strong>创建时间：</strong>${formatDate(qual.createdAt)}</p>
+                    <p><strong>最后操作：</strong>${qual.lastOperationRemark}</p>
+                    <p><strong>操作人：</strong>${qual.lastOperator} | <strong>时间：</strong>${formatDate(qual.lastOperationTime)}</p>
                 </div>
             </div>
         `;
@@ -783,7 +972,8 @@ async function searchTrace() {
         const bid = await db.get('bids', deposit.bidId);
         const bidder = await db.get('bidders', deposit.bidderId);
         if (bid?.bidNo.includes(keyword) || bidder?.name.includes(keyword) || bidder?.idCard.includes(keyword)) {
-            results.push({ type: 'deposit', item: deposit, bid, bidder });
+            const logs = await db.getLogs(deposit.id, 'deposit');
+            results.push({ type: 'deposit', item: deposit, bid, bidder, logs });
         }
     }
     
@@ -791,7 +981,8 @@ async function searchTrace() {
         const bid = await db.get('bids', qual.bidId);
         const bidder = await db.get('bidders', qual.bidderId);
         if (bid?.bidNo.includes(keyword) || bidder?.name.includes(keyword) || bidder?.idCard.includes(keyword)) {
-            results.push({ type: 'qualification', item: qual, bid, bidder });
+            const logs = await db.getLogs(qual.id, 'qualification');
+            results.push({ type: 'qualification', item: qual, bid, bidder, logs });
         }
     }
     
@@ -807,16 +998,18 @@ async function renderTraceList() {
     for (const deposit of deposits) {
         const bid = await db.get('bids', deposit.bidId);
         const bidder = await db.get('bidders', deposit.bidderId);
-        traces.push({ type: 'deposit', item: deposit, bid, bidder });
+        const logs = await db.getLogs(deposit.id, 'deposit');
+        traces.push({ type: 'deposit', item: deposit, bid, bidder, logs });
     }
     
     for (const qual of qualifications) {
         const bid = await db.get('bids', qual.bidId);
         const bidder = await db.get('bidders', qual.bidderId);
-        traces.push({ type: 'qualification', item: qual, bid, bidder });
+        const logs = await db.getLogs(qual.id, 'qualification');
+        traces.push({ type: 'qualification', item: qual, bid, bidder, logs });
     }
     
-    traces.sort((a, b) => new Date(b.item.createdAt) - new Date(a.item.createdAt));
+    traces.sort((a, b) => new Date(b.item.lastOperationTime) - new Date(a.item.lastOperationTime));
     renderTraceResults(traces);
 }
 
@@ -830,42 +1023,72 @@ function renderTraceResults(results) {
     
     let html = '';
     for (const result of results) {
-        const { type, item, bid, bidder } = result;
+        const { type, item, bid, bidder, logs } = result;
+        
+        let logsHtml = '';
+        if (logs && logs.length > 0) {
+            logsHtml = '<div class="timeline" style="margin-top:10px;">';
+            for (const log of logs) {
+                logsHtml += `
+                    <div class="timeline-item">
+                        <div class="timeline-time">${formatDate(log.createdAt)}</div>
+                        <div class="timeline-user">${log.operator}</div>
+                        <div class="timeline-action">${log.action}</div>
+                        ${log.remark ? `<div class="timeline-remark">${log.remark}</div>` : ''}
+                    </div>
+                `;
+            }
+            logsHtml += '</div>';
+        }
         
         if (type === 'deposit') {
             html += `
                 <div class="card">
                     <div class="card-header">
                         <div>
-                            <div class="card-title">保证金记录</div>
+                            <div class="card-title">保证金记录 - ${bid?.bidNo} - ${bidder?.name}</div>
                             <span class="status-badge status-${item.status}">${getStatusText(item.status, 'deposit')}</span>
                             ${item.slowRefund ? '<span class="alert-badge alert-slow">退还慢提醒</span>' : ''}
                         </div>
                     </div>
                     <div class="card-body">
-                        <p><strong>标的：</strong>${bid?.bidNo} - ${bid?.name}</p>
-                        <p><strong>竞买人：</strong>${bidder?.name} - ${bidder?.idCard}</p>
                         <p><strong>金额：</strong>${formatMoney(item.amount)} | <strong>方式：</strong>${item.payMethod}</p>
-                        <p><strong>时间：</strong>${formatDate(item.createdAt)} | <strong>操作人：</strong>${item.operator}</p>
+                        <p><strong>缴纳时间：</strong>${formatDate(item.payTime)}</p>
+                        ${item.confirmTime ? `<p><strong>确认到账：</strong>${formatDate(item.confirmTime)} by ${item.confirmOperator}</p>` : ''}
+                        ${item.refundTime ? `<p><strong>退还时间：</strong>${formatDate(item.refundTime)} by ${item.refundOperator}</p>` : ''}
+                        ${item.slowRefundTime ? `<p><strong>标记退还慢：</strong>${formatDate(item.slowRefundTime)} by ${item.slowRefundOperator}</p>` : ''}
+                        <p><strong>最后操作：</strong>${item.lastOperationRemark}</p>
+                        <p><strong>操作人：</strong>${item.lastOperator} | <strong>时间：</strong>${formatDate(item.lastOperationTime)}</p>
+                        ${logsHtml}
                     </div>
                 </div>
             `;
         } else if (type === 'qualification') {
+            let supplementHtml = '';
+            if (item.supplementItems && item.supplementItems.length > 0) {
+                supplementHtml = `<p><strong>补正项目：</strong>${item.supplementItems.join('、')}</p>`;
+            }
+            
             html += `
                 <div class="card">
                     <div class="card-header">
                         <div>
-                            <div class="card-title">资格审核</div>
+                            <div class="card-title">资格审核 - ${bid?.bidNo} - ${bidder?.name}</div>
                             <span class="status-badge status-${item.status}">${getStatusText(item.status, 'qualification')}</span>
                             ${item.status === 'supplement' ? '<span class="alert-badge alert-slow">需补正</span>' : ''}
                             ${item.status === 'dispute' ? '<span class="alert-badge alert-dispute">资格争议</span>' : ''}
                         </div>
                     </div>
                     <div class="card-body">
-                        <p><strong>标的：</strong>${bid?.bidNo} - ${bid?.name}</p>
-                        <p><strong>竞买人：</strong>${bidder?.name} - ${bidder?.idCard}</p>
-                        ${item.verifyRemark ? `<p><strong>备注：</strong>${item.verifyRemark}</p>` : ''}
-                        <p><strong>时间：</strong>${formatDate(item.createdAt)} | <strong>操作人：</strong>${item.operator}</p>
+                        ${supplementHtml}
+                        ${item.verifyRemark ? `<p><strong>审核备注：</strong>${item.verifyRemark}</p>` : ''}
+                        ${item.verifyTime ? `<p><strong>审核时间：</strong>${formatDate(item.verifyTime)} by ${item.verifyOperator || item.lastOperator}</p>` : ''}
+                        ${item.supplementTime ? `<p><strong>补正要求：</strong>${formatDate(item.supplementTime)} by ${item.supplementOperator}</p>` : ''}
+                        ${item.disputeTime ? `<p><strong>争议标记：</strong>${formatDate(item.disputeTime)} by ${item.disputeOperator}</p>` : ''}
+                        ${item.resolveTime ? `<p><strong>争议解决：</strong>${formatDate(item.resolveTime)} by ${item.resolveOperator}</p>` : ''}
+                        <p><strong>最后操作：</strong>${item.lastOperationRemark}</p>
+                        <p><strong>操作人：</strong>${item.lastOperator} | <strong>时间：</strong>${formatDate(item.lastOperationTime)}</p>
+                        ${logsHtml}
                     </div>
                 </div>
             `;
@@ -948,17 +1171,23 @@ async function batchImport() {
                 await db.add('bidders', bidder);
             }
             
+            const operator = getCurrentOperator();
+            const now = new Date().toISOString();
+            
             const deposit = {
                 id: 'DEP' + Date.now().toString().slice(-3),
                 bidId: bid.id,
                 bidderId: bidder.id,
                 amount,
                 payMethod: '批量导入',
-                payTime: new Date().toISOString(),
+                payTime: now,
                 status: 'pending',
                 slowRefund: false,
-                createdAt: new Date().toISOString(),
-                operator: '批量导入'
+                createdAt: now,
+                operator: '批量导入',
+                lastOperator: operator,
+                lastOperationTime: now,
+                lastOperationRemark: '批量导入保证金记录'
             };
             await db.add('deposits', deposit);
             await db.addLog(deposit.id, 'deposit', '批量导入保证金', `竞买人 ${bidder.name} 缴纳保证金 ${formatMoney(amount)}`);
@@ -968,8 +1197,11 @@ async function batchImport() {
                 bidId: bid.id,
                 bidderId: bidder.id,
                 status: 'pending',
-                createdAt: new Date().toISOString(),
-                operator: '批量导入'
+                createdAt: now,
+                operator: '批量导入',
+                lastOperator: operator,
+                lastOperationTime: now,
+                lastOperationRemark: '批量导入审核任务'
             };
             await db.add('qualifications', qual);
             await db.addLog(qual.id, 'qualification', '批量导入审核', '批量导入自动创建审核任务');
@@ -988,3 +1220,5 @@ window.showBidDetail = showBidDetail;
 window.handleDepositAction = handleDepositAction;
 window.handleQualAction = handleQualAction;
 window.closeModal = closeModal;
+window.showDepositDetail = showDepositDetail;
+window.showQualDetail = showQualDetail;
