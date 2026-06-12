@@ -57,8 +57,8 @@ export interface ScheduleEvaluationDTO {
 
 const DocumentStatusTransitions: Record<DocumentStatus, DocumentStatus[]> = {
   pending: ['drafting'],
-  drafting: ['review', 'pending'],
-  review: ['published', 'drafting'],
+  drafting: ['review', 'pending', 'rejected'],
+  review: ['published', 'drafting', 'rejected'],
   published: [],
   rejected: ['drafting'],
 };

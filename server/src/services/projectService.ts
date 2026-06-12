@@ -38,8 +38,8 @@ export interface UpdateProjectDTO {
 
 const ProjectStatusTransitions: Record<ProjectStatus, ProjectStatus[]> = {
   draft: ['initial_review'],
-  initial_review: ['re_review', 'draft'],
-  re_review: ['approved', 'initial_review'],
+  initial_review: ['re_review', 'draft', 'rejected'],
+  re_review: ['approved', 'initial_review', 'rejected'],
   approved: [],
   rejected: ['draft'],
 };
