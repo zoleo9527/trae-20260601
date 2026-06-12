@@ -182,17 +182,6 @@ router.get('/:id/analysis', authMiddleware, async (req: AuthRequest, res) => {
       signinRecordsObj
     );
 
-    const autoException = checkAutoTriggerException(projectObj, arrangementObj, signinRecordsObj);
-    if (autoException) {
-      await checkAndTriggerExceptions(
-        projectObj,
-        arrangementObj,
-        signinRecordsObj,
-        autoException,
-        '系统自动检测'
-      );
-    }
-
     res.json({
       blockAnalysis,
       signinAnalysis,
@@ -201,6 +190,56 @@ router.get('/:id/analysis', authMiddleware, async (req: AuthRequest, res) => {
   } catch (error) {
     console.error('Get analysis error:', error);
     res.status(500).json({ error: '获取分析数据失败' });
+  }
+});
+
+router.post('/:id/check-exceptions', authMiddleware, async (req: AuthRequest, res) => {
+  try {
+    const db = await getDb();
+    const project = await db.get('SELECT * FROM projects WHERE id = ?', [req.params.id]);
+
+    if (!project) {
+      res.status(404).json({ error: '项目不存在' });
+      return;
+    }
+
+    const projectObj: Project = convertFields.project(project);
+
+    const arrangement = await db.get(
+      'SELECT * FROM project_arrangements WHERE project_id = ? ORDER BY created_at DESC LIMIT 1',
+      [req.params.id]
+    );
+    const arrangementObj = arrangement ? convertFields.arrangement(arrangement) : null;
+
+    const signinRecords = await db.all(
+      'SELECT * FROM expert_signin_records WHERE project_id = ? ORDER BY created_at',
+      [req.params.id]
+    );
+    const signinRecordsObj = signinRecords.map((r) => convertFields.signinRecord(r));
+
+    const autoException = checkAutoTriggerException(projectObj, arrangementObj, signinRecordsObj);
+    let triggeredException: any = null;
+
+    if (autoException) {
+      triggeredException = await checkAndTriggerExceptions(
+        projectObj,
+        arrangementObj,
+        signinRecordsObj,
+        autoException,
+        '系统自动检测'
+      );
+    }
+
+    const exceptions = await getProjectExceptions(req.params.id);
+
+    res.json({
+      triggered: triggeredException ? true : false,
+      triggeredException,
+      exceptions,
+    });
+  } catch (error) {
+    console.error('Check exceptions error:', error);
+    res.status(500).json({ error: '检测异常失败' });
   }
 });
 

@@ -3,7 +3,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { getDb } from '../database';
 import { authMiddleware, roleMiddleware, AuthRequest } from '../middleware/auth';
 import { SigninStatus, signinStatusDisplay } from '../types';
-import { analyzeSignin } from '../utils/statusMachine';
+import { analyzeSignin, checkAutoTriggerException } from '../utils/statusMachine';
 import { logOperation, parseAttachmentJson } from '../utils/operationLogger';
 import { createException, checkAndTriggerExceptions } from '../utils/exceptionHandler';
 import { convertToCamelCase, convertFields } from '../utils/fieldConverter';
@@ -126,6 +126,11 @@ router.post('/:id/confirm', authMiddleware, roleMiddleware('review_secretary'), 
     const project = await db.get('SELECT * FROM projects WHERE id = ?', [recordObj.projectId]);
     if (project) {
       const projectObj = convertFields.project(project);
+      const arrangement = await db.get(
+        'SELECT * FROM project_arrangements WHERE project_id = ? ORDER BY created_at DESC LIMIT 1',
+        [recordObj.projectId]
+      );
+      const arrangementObj = arrangement ? convertFields.arrangement(arrangement) : null;
       const allRecords = await db.all(
         'SELECT * FROM expert_signin_records WHERE project_id = ?',
         [recordObj.projectId]
@@ -147,6 +152,17 @@ router.post('/:id/confirm', authMiddleware, roleMiddleware('review_secretary'), 
           user.role,
           projectObj.status,
           'expert_signin_completed'
+        );
+      }
+
+      const autoException = checkAutoTriggerException(projectObj, arrangementObj, allRecordsObj);
+      if (autoException) {
+        await checkAndTriggerExceptions(
+          projectObj,
+          arrangementObj,
+          allRecordsObj,
+          autoException,
+          '签到确认时系统自动检测'
         );
       }
     }
@@ -223,28 +239,16 @@ router.post('/:id/absent', authMiddleware, roleMiddleware('review_secretary'), a
       );
       const allRecordsObj = allRecords.map((r) => convertFields.signinRecord(r));
 
-      await createException(
-        projectObj.id,
-        projectObj.projectNo,
-        projectObj.name,
-        'expert_absent',
-        '专家缺席',
-        `专家「${recordObj.expertName}」缺席，${reason || '未按时到场'}`,
-        user.id,
-        'manual',
-        '专家签到时标记缺席',
-        user.id,
-        user.name,
-        user.role
-      );
-
-      await checkAndTriggerExceptions(
-        projectObj,
-        arrangementObj,
-        allRecordsObj,
-        'signin_incomplete',
-        '专家签到未完成'
-      );
+      const autoException = checkAutoTriggerException(projectObj, arrangementObj, allRecordsObj);
+      if (autoException) {
+        await checkAndTriggerExceptions(
+          projectObj,
+          arrangementObj,
+          allRecordsObj,
+          autoException,
+          '标记专家缺席时系统自动检测'
+        );
+      }
     }
 
     const updated = await db.get('SELECT * FROM expert_signin_records WHERE id = ?', [req.params.id]);
@@ -365,6 +369,32 @@ router.post('/:id/leave', authMiddleware, roleMiddleware('review_secretary'), as
         undefined,
         'pending'
       );
+    }
+
+    const project = await db.get('SELECT * FROM projects WHERE id = ?', [recordObj.projectId]);
+    if (project) {
+      const projectObj = convertFields.project(project);
+      const arrangement = await db.get(
+        'SELECT * FROM project_arrangements WHERE project_id = ? ORDER BY created_at DESC LIMIT 1',
+        [recordObj.projectId]
+      );
+      const arrangementObj = arrangement ? convertFields.arrangement(arrangement) : null;
+      const allRecords = await db.all(
+        'SELECT * FROM expert_signin_records WHERE project_id = ?',
+        [recordObj.projectId]
+      );
+      const allRecordsObj = allRecords.map((r) => convertFields.signinRecord(r));
+
+      const autoException = checkAutoTriggerException(projectObj, arrangementObj, allRecordsObj);
+      if (autoException) {
+        await checkAndTriggerExceptions(
+          projectObj,
+          arrangementObj,
+          allRecordsObj,
+          autoException,
+          '标记专家请假时系统自动检测'
+        );
+      }
     }
 
     const updated = await db.get('SELECT * FROM expert_signin_records WHERE id = ?', [req.params.id]);

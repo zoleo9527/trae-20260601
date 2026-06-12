@@ -87,6 +87,11 @@ export const projectsApi = {
       url: `/projects/${id}/transition`,
       data,
     }),
+  checkExceptions: (id: string) =>
+    request<{ triggered: boolean; triggeredException: any; exceptions: any[] }>({
+      method: 'POST',
+      url: `/projects/${id}/check-exceptions`,
+    }),
 };
 
 export const arrangementsApi = {
