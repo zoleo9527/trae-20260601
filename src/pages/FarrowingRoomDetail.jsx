@@ -1,20 +1,29 @@
 import { useParams, useNavigate } from 'react-router-dom'
-import { Card, Tag, Button, Timeline, Descriptions, Table } from 'antd'
+import { Card, Tag, Button, Timeline, Descriptions, Table, message } from 'antd'
 import { ArrowLeftOutlined, CheckOutlined, CloseOutlined } from '@ant-design/icons'
-import { useState } from 'react'
 import { useAuth } from '../hooks/useAuth'
-import { farrowingRooms as initialRooms } from '../data/mockData'
+import { useFarrowingRoomStore } from '../store/useStore'
 
 function FarrowingRoomDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const [rooms] = useState(initialRooms)
+  const { rooms, updateAssignmentStatus } = useFarrowingRoomStore()
   const { currentUser, hasPermission } = useAuth()
   
   const room = rooms.find(r => r.id === id)
 
   if (!room) {
     return <div>产房不存在</div>
+  }
+
+  const handleConfirmAssignment = (assignmentId) => {
+    updateAssignmentStatus(room.id, assignmentId, 'confirmed', currentUser.name, '确认该安排')
+    message.success('确认成功')
+  }
+
+  const handleCancelAssignment = (assignmentId) => {
+    updateAssignmentStatus(room.id, assignmentId, 'pending', currentUser.name, '取消确认')
+    message.success('已取消')
   }
 
   const statusColors = {
@@ -69,6 +78,20 @@ function FarrowingRoomDetail() {
       dataIndex: 'remarks',
       key: 'remarks',
       ellipsis: true,
+    },
+    {
+      title: '操作',
+      key: 'action',
+      render: (_, record) => (
+        <div style={{ display: 'flex', gap: '8px' }}>
+          {hasPermission('farrowingRoom', 'approve') && record.status === 'pending' && (
+            <Button icon={<CheckOutlined />} onClick={() => handleConfirmAssignment(record.id)}>确认</Button>
+          )}
+          {hasPermission('farrowingRoom', 'reject') && record.status === 'confirmed' && (
+            <Button danger icon={<CloseOutlined />} onClick={() => handleCancelAssignment(record.id)}>取消</Button>
+          )}
+        </div>
+      ),
     },
   ]
 

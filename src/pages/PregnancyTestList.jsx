@@ -3,16 +3,17 @@ import { Table, Tag, Button, Input, Select, Space, Modal, Form, message } from '
 import { EyeOutlined, CheckOutlined, CloseOutlined, EditOutlined, PlusOutlined } from '@ant-design/icons'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
-import { pregnancyTests as initialTests, statusMap, resultMap } from '../data/mockData'
+import { usePregnancyTestStore } from '../store/useStore'
+import { statusMap, resultMap } from '../data/mockData'
 
 function PregnancyTestList() {
-  const [tests, setTests] = useState(initialTests)
   const [searchText, setSearchText] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
   const [isModalVisible, setIsModalVisible] = useState(false)
   const [form] = Form.useForm()
   const navigate = useNavigate()
   const { currentUser, hasPermission } = useAuth()
+  const { tests, addTest, updateTestStatus } = usePregnancyTestStore()
 
   const filteredTests = tests.filter(test => {
     const matchSearch = test.sowNumber.toLowerCase().includes(searchText.toLowerCase()) ||
@@ -26,50 +27,12 @@ function PregnancyTestList() {
   }
 
   const handleReview = (record) => {
-    setTests(tests.map(test => {
-      if (test.id === record.id) {
-        return {
-          ...test,
-          status: 'approved',
-          statusDesc: '已确认',
-          updatedAt: new Date().toLocaleString('zh-CN'),
-          history: [
-            ...test.history,
-            {
-              time: new Date().toLocaleString('zh-CN'),
-              action: '繁育员审核',
-              operator: currentUser.name,
-              remark: '确认检测结果',
-            },
-          ],
-        }
-      }
-      return test
-    }))
+    updateTestStatus(record.id, 'approved', currentUser.name, '确认检测结果')
     message.success('审核成功')
   }
 
   const handleApprove = (record) => {
-    setTests(tests.map(test => {
-      if (test.id === record.id) {
-        return {
-          ...test,
-          status: 'approved',
-          statusDesc: '已确认',
-          updatedAt: new Date().toLocaleString('zh-CN'),
-          history: [
-            ...test.history,
-            {
-              time: new Date().toLocaleString('zh-CN'),
-              action: '场长批准',
-              operator: currentUser.name,
-              remark: '同意进入产房安排',
-            },
-          ],
-        }
-      }
-      return test
-    }))
+    updateTestStatus(record.id, 'approved', currentUser.name, '同意进入产房安排')
     message.success('批准成功')
   }
 
@@ -80,26 +43,7 @@ function PregnancyTestList() {
       okText: '确认驳回',
       cancelText: '取消',
       onOk: () => {
-        setTests(tests.map(test => {
-          if (test.id === record.id) {
-            return {
-              ...test,
-              status: 'rejected',
-              statusDesc: '已驳回',
-              updatedAt: new Date().toLocaleString('zh-CN'),
-              history: [
-                ...test.history,
-                {
-                  time: new Date().toLocaleString('zh-CN'),
-                  action: '场长驳回',
-                  operator: currentUser.name,
-                  remark: '检测报告不完整，需要补充资料',
-                },
-              ],
-            }
-          }
-          return test
-        }))
+        updateTestStatus(record.id, 'rejected', currentUser.name, '检测报告不完整，需要补充资料')
         message.success('驳回成功')
       },
     })
@@ -112,8 +56,7 @@ function PregnancyTestList() {
 
   const handleCreate = () => {
     form.validateFields().then(values => {
-      const newTest = {
-        id: `PT${String(tests.length + 1).padStart(3, '0')}`,
+      addTest({
         pigId: values.pigId,
         sowNumber: values.sowNumber,
         parity: values.parity,
@@ -127,19 +70,8 @@ function PregnancyTestList() {
         remarks: values.remarks,
         status: 'pending',
         statusDesc: '待审核',
-        createdAt: new Date().toLocaleString('zh-CN'),
-        updatedAt: new Date().toLocaleString('zh-CN'),
-        history: [
-          {
-            time: new Date().toLocaleString('zh-CN'),
-            action: '提交妊检结果',
-            operator: currentUser.name,
-            remark: values.remarks || '提交检测结果',
-          },
-        ],
         farrowingRoomId: null,
-      }
-      setTests([newTest, ...tests])
+      })
       setIsModalVisible(false)
       message.success('创建成功')
     })

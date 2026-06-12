@@ -1,15 +1,18 @@
 import { useParams, useNavigate } from 'react-router-dom'
-import { Card, Tag, Button, Timeline, Descriptions } from 'antd'
-import { ArrowLeftOutlined, CheckOutlined, CloseOutlined } from '@ant-design/icons'
+import { Card, Tag, Button, Timeline, Descriptions, Modal, Form, Input, message } from 'antd'
+import { ArrowLeftOutlined, CheckOutlined, CloseOutlined, EditOutlined } from '@ant-design/icons'
 import { useState } from 'react'
 import { useAuth } from '../hooks/useAuth'
-import { pregnancyTests as initialTests, statusMap, resultMap } from '../data/mockData'
+import { usePregnancyTestStore } from '../store/useStore'
+import { statusMap, resultMap } from '../data/mockData'
 
 function PregnancyTestDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const [tests] = useState(initialTests)
+  const { tests, updateTestStatus, updateTest } = usePregnancyTestStore()
   const { currentUser, hasPermission } = useAuth()
+  const [isEditModalVisible, setIsEditModalVisible] = useState(false)
+  const [editForm] = Form.useForm()
   
   const test = tests.find(t => t.id === id)
 
@@ -18,11 +21,52 @@ function PregnancyTestDetail() {
   }
 
   const handleApprove = () => {
-    console.log('批准妊检结果:', test.id)
+    updateTestStatus(test.id, 'approved', currentUser.name, '同意进入产房安排')
+    message.success('批准成功')
   }
 
   const handleReject = () => {
-    console.log('驳回妊检结果:', test.id)
+    Modal.confirm({
+      title: '驳回确认',
+      content: '请输入驳回原因',
+      okText: '确认驳回',
+      cancelText: '取消',
+      onOk: () => {
+        updateTestStatus(test.id, 'rejected', currentUser.name, '检测报告不完整，需要补充资料')
+        message.success('驳回成功')
+      },
+    })
+  }
+
+  const handleEdit = () => {
+    editForm.setFieldsValue({
+      remarks: test.remarks,
+    })
+    setIsEditModalVisible(true)
+  }
+
+  const handleSaveEdit = () => {
+    editForm.validateFields().then(values => {
+      updateTest(test.id, {
+        remarks: values.remarks,
+        handler: currentUser.name,
+      })
+      setIsEditModalVisible(false)
+      message.success('编辑成功')
+    })
+  }
+
+  const handleReset = () => {
+    Modal.confirm({
+      title: '重新提交确认',
+      content: '确认将此记录重新提交审核？',
+      okText: '确认',
+      cancelText: '取消',
+      onOk: () => {
+        updateTestStatus(test.id, 'pending', currentUser.name, '重新提交审核')
+        message.success('已重新提交')
+      },
+    })
   }
 
   return (
@@ -52,11 +96,17 @@ function PregnancyTestDetail() {
         </Descriptions>
 
         <div style={{ marginTop: '16px', display: 'flex', gap: '16px' }}>
+          {hasPermission('pregnancyTest', 'edit') && (
+            <Button icon={<EditOutlined />} onClick={handleEdit}>编辑备注</Button>
+          )}
           {hasPermission('pregnancyTest', 'approve') && test.status === 'pending' && (
             <Button type="primary" icon={<CheckOutlined />} onClick={handleApprove}>批准</Button>
           )}
           {hasPermission('pregnancyTest', 'reject') && test.status !== 'rejected' && (
             <Button danger icon={<CloseOutlined />} onClick={handleReject}>驳回</Button>
+          )}
+          {hasPermission('pregnancyTest', 'create') && test.status === 'rejected' && (
+            <Button type="primary" onClick={handleReset}>补录重提</Button>
           )}
         </div>
       </Card>
@@ -79,6 +129,19 @@ function PregnancyTestDetail() {
           ))}
         </Timeline>
       </Card>
+
+      <Modal
+        title="编辑备注"
+        visible={isEditModalVisible}
+        onCancel={() => setIsEditModalVisible(false)}
+        onOk={handleSaveEdit}
+      >
+        <Form form={editForm} layout="vertical">
+          <Form.Item name="remarks" label="备注">
+            <Input.TextArea rows={4} />
+          </Form.Item>
+        </Form>
+      </Modal>
     </div>
   )
 }

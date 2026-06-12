@@ -1,12 +1,12 @@
 import { useState } from 'react'
-import { Table, Tag, Button, Input, Space, Modal, Form, message, Card } from 'antd'
+import { Table, Tag, Button, Input, Select, Space, Modal, Form, message, Card } from 'antd'
 import { EyeOutlined, PlusOutlined, UserOutlined } from '@ant-design/icons'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
-import { farrowingRooms as initialRooms, pregnancyTests } from '../data/mockData'
+import { usePregnancyTestStore } from '../store/useStore'
+import { useFarrowingRoomStore } from '../store/useStore'
 
 function FarrowingRoomList() {
-  const [rooms, setRooms] = useState(initialRooms)
   const [searchText, setSearchText] = useState('')
   const [isModalVisible, setIsModalVisible] = useState(false)
   const [isAssignModalVisible, setIsAssignModalVisible] = useState(false)
@@ -14,8 +14,10 @@ function FarrowingRoomList() {
   const [form] = Form.useForm()
   const navigate = useNavigate()
   const { currentUser, hasPermission } = useAuth()
+  const { tests, assignToRoom } = usePregnancyTestStore()
+  const { rooms, addRoom, addAssignment } = useFarrowingRoomStore()
 
-  const availableTests = pregnancyTests.filter(t => t.status === 'approved' && !t.farrowingRoomId)
+  const availableTests = tests.filter(t => t.status === 'approved' && !t.farrowingRoomId)
 
   const filteredRooms = rooms.filter(room =>
     room.roomNumber.toLowerCase().includes(searchText.toLowerCase())
@@ -32,26 +34,11 @@ function FarrowingRoomList() {
 
   const handleCreate = () => {
     form.validateFields().then(values => {
-      const newRoom = {
-        id: `FR${String(rooms.length + 1).padStart(3, '0')}`,
+      addRoom({
         roomNumber: values.roomNumber,
         bedCount: values.bedCount,
-        occupiedBeds: 0,
-        status: 'empty',
-        statusDesc: '空闲',
-        createdAt: new Date().toLocaleString('zh-CN'),
-        updatedAt: new Date().toLocaleString('zh-CN'),
-        history: [
-          {
-            time: new Date().toLocaleString('zh-CN'),
-            action: '创建产房',
-            operator: currentUser.name,
-            remark: `新建${values.roomNumber}`,
-          },
-        ],
-        assignments: [],
-      }
-      setRooms([newRoom, ...rooms])
+        handler: currentUser.name,
+      })
       setIsModalVisible(false)
       message.success('创建成功')
     })
@@ -66,12 +53,11 @@ function FarrowingRoomList() {
   const handleAssign = () => {
     form.validateFields().then(values => {
       const room = rooms.find(r => r.id === selectedRoomId)
-      const test = pregnancyTests.find(t => t.id === values.pregnancyTestId)
+      const test = tests.find(t => t.id === values.pregnancyTestId)
       
       if (!room || !test) return
 
-      const newAssignment = {
-        id: `FA${String(Date.now()).slice(-3)}`,
+      addAssignment(selectedRoomId, {
         pregnancyTestId: test.id,
         pigId: test.pigId,
         sowNumber: test.sowNumber,
@@ -82,40 +68,9 @@ function FarrowingRoomList() {
         handler: currentUser.name,
         handlerId: currentUser.id,
         remarks: `妊检备注：${test.remarks}`,
-        createdAt: new Date().toLocaleString('zh-CN'),
-        updatedAt: new Date().toLocaleString('zh-CN'),
-        history: [
-          {
-            time: new Date().toLocaleString('zh-CN'),
-            action: '创建安排',
-            operator: currentUser.name,
-            remark: `安排${test.sowNumber}到${room.roomNumber}${values.bedNumber}号床位`,
-          },
-        ],
-      }
+      })
 
-      setRooms(rooms.map(r => {
-        if (r.id === selectedRoomId) {
-          return {
-            ...r,
-            occupiedBeds: r.occupiedBeds + 1,
-            status: r.occupiedBeds + 1 >= r.bedCount ? 'full' : 'normal',
-            statusDesc: r.occupiedBeds + 1 >= r.bedCount ? '已满' : '正常使用',
-            updatedAt: new Date().toLocaleString('zh-CN'),
-            history: [
-              ...r.history,
-              {
-                time: new Date().toLocaleString('zh-CN'),
-                action: '安排母猪',
-                operator: currentUser.name,
-                remark: `安排${test.sowNumber}进入产房`,
-              },
-            ],
-            assignments: [...r.assignments, newAssignment],
-          }
-        }
-        return r
-      }))
+      assignToRoom(test.id, selectedRoomId)
       
       setIsAssignModalVisible(false)
       message.success('安排成功')
