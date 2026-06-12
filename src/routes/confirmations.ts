@@ -44,18 +44,30 @@ router.get('/:recordId', (req: Request, res: Response) => {
         taxPeriod: record.taxPeriod,
         currentStage: record.currentStage,
         confirmationInfo: record.confirmationInfo,
+        previousConclusion: {
+          taxType: record.draftInfo.draftContent.taxType,
+          taxableAmount: record.draftInfo.draftContent.taxableAmount,
+          taxAmount: record.draftInfo.draftContent.taxAmount,
+          conclusions: record.draftInfo.draftContent.conclusions,
+          applicablePolicies: record.draftInfo.draftContent.applicablePolicies,
+          specialAdjustments: record.draftInfo.draftContent.specialAdjustments,
+          calculations: record.draftInfo.draftContent.calculations,
+          riskNotes: record.draftInfo.draftContent.riskNotes,
+          sourceDocuments: record.draftInfo.sourceDocuments
+        },
         draftSummary: {
           taxType: record.draftInfo.draftContent.taxType,
           taxableAmount: record.draftInfo.draftContent.taxableAmount,
           taxAmount: record.draftInfo.draftContent.taxAmount,
-          conclusions: record.draftInfo.conclusions,
+          conclusions: record.draftInfo.draftContent.conclusions,
           riskNotes: record.draftInfo.draftContent.riskNotes
         },
         returnInfo: record.returnInfo,
         supplementaryNotes: record.supplementaryNotes.filter(n => n.isVisibleToClient),
-        responsibilityTrace: record.responsibilityTrace
+        responsibilityTrace: record.responsibilityTrace,
+        workflowHistory: record.workflowHistory
       },
-      message: '在同一工作面展示：底稿摘要 + 确认状态 + 退回原因（如有） + 补充备注'
+      message: '在同一工作面展示：上一环节结论 + 底稿摘要 + 确认状态 + 退回原因（如有） + 补充备注 + 责任追溯'
     });
   } catch (error: any) {
     res.status(500).json({

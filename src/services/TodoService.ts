@@ -2,10 +2,10 @@ import { v4 as uuidv4 } from 'uuid';
 import {
   Todo, TodoStatus, TodoType, UserRole, WorkflowRecord,
   WorkflowStage, RecordStatus
-} from './types';
+} from '../types';
 import {
   getTodosByAssignee, getTodosByRole, saveTodo, deleteTodo,
-  getAllRecords, getRecordById
+  getAllRecords, getRecordById, dataStore
 } from '../dataStore';
 
 export class TodoService {
@@ -15,6 +15,19 @@ export class TodoService {
 
     records.forEach(record => {
       this.generateTodosForRecord(record, now);
+    });
+  }
+
+  handleStageChange(record: WorkflowRecord, newStage: WorkflowStage, previousStage: WorkflowStage): void {
+    this.removeTodosForRecord(record.id);
+    const now = new Date();
+    this.generateTodosForRecord(record, now);
+  }
+
+  private removeTodosForRecord(recordId: string): void {
+    const recordTodos = Array.from(dataStore.todos.values()).filter(t => t.recordId === recordId);
+    recordTodos.forEach(todo => {
+      dataStore.todos.delete(todo.id);
     });
   }
 
@@ -126,7 +139,7 @@ export class TodoService {
   getProjectManagerTodos(managerId: string): Todo[] {
     const records = getAllRecords();
     const projectRecords = records.filter(r => {
-      const project = require('../dataStore').getProjectById(r.projectId);
+      const project = dataStore.projects.get(r.projectId);
       return project?.projectManagerId === managerId;
     });
 
@@ -165,7 +178,9 @@ export class TodoService {
           assigneeId: managerId,
           assigneeRole: UserRole.PROJECT_MANAGER,
           status: TodoStatus.PENDING,
-          priority: 'medium'
+          priority: 'medium',
+          createdAt: new Date(),
+          updatedAt: new Date()
         });
       }
     });
@@ -192,8 +207,7 @@ export class TodoService {
   }
 
   completeTodo(todoId: string): Todo | undefined {
-    const allTodos = require('../dataStore').getAllTodos();
-    const todo = allTodos.find(t => t.id === todoId);
+    const todo = dataStore.todos.get(todoId);
 
     if (todo) {
       todo.status = TodoStatus.COMPLETED;
@@ -206,7 +220,6 @@ export class TodoService {
   }
 
   getTodosByRecord(recordId: string): Todo[] {
-    const allTodos = require('../dataStore').getAllTodos();
-    return allTodos.filter(t => t.recordId === recordId);
+    return Array.from(dataStore.todos.values()).filter(t => t.recordId === recordId);
   }
 }

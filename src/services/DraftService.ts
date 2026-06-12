@@ -1,9 +1,12 @@
 import { v4 as uuidv4 } from 'uuid';
 import {
   WorkflowRecord, DraftInfo, DraftContent, UserRole, WorkflowStage,
-  RecordStatus, WorkflowEvent, ResponsibilityEntry, Note, Document
-} from './types';
-import { saveRecord, getRecordById } from './dataStore';
+  RecordStatus, WorkflowEvent, ResponsibilityEntry, Note, Document, TodoType
+} from '../types';
+import { saveRecord, getRecordById, dataStore } from '../dataStore';
+import { TodoService } from './TodoService';
+
+const todoService = new TodoService();
 
 export interface CreateDraftDTO {
   projectId: string;
@@ -135,8 +138,21 @@ export class DraftService {
       newStage: WorkflowStage.AWAITING_CONFIRMATION
     };
 
+    const responsibilityEntry: ResponsibilityEntry = {
+      stage: WorkflowStage.AWAITING_CONFIRMATION,
+      responsibleRole: UserRole.TAX_CONSULTANT,
+      responsibleUserId: userId,
+      action: '提交申报底稿',
+      timestamp: now,
+      isComplete: true,
+      notes: `税务期间 ${record.taxPeriod} 的申报底稿已提交，等待客户 ${record.confirmationInfo.clientFinanceId || '财务'} 确认`
+    };
+
     record.workflowHistory.push(submitEvent);
+    record.responsibilityTrace.push(responsibilityEntry);
     saveRecord(record);
+
+    todoService.handleStageChange(record, WorkflowStage.AWAITING_CONFIRMATION, previousStage);
 
     return record;
   }
@@ -146,7 +162,7 @@ export class DraftService {
   }
 
   getDraftsByConsultant(consultantId: string): WorkflowRecord[] {
-    const allRecords = Array.from(require('./dataStore').dataStore.records.values());
+    const allRecords = Array.from(dataStore.records.values());
     return allRecords.filter(r => r.draftInfo.taxConsultantId === consultantId);
   }
 }

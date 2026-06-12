@@ -3,8 +3,11 @@ import {
   WorkflowRecord, Material, ReturnReason, Note, UserRole,
   WorkflowStage, RecordStatus, ConfirmResult, WorkflowEvent,
   ResponsibilityEntry, Issue, Document
-} from './types';
-import { saveRecord, getRecordById } from './dataStore';
+} from '../types';
+import { saveRecord, getRecordById } from '../dataStore';
+import { TodoService } from './TodoService';
+
+const todoService = new TodoService();
 
 export interface CreateConfirmationDTO {
   clientFinanceId: string;
@@ -155,6 +158,8 @@ export class ConfirmationService {
     record.responsibilityTrace.push(responsibilityEntry);
     saveRecord(record);
 
+    todoService.handleStageChange(record, WorkflowStage.CONFIRMED, record.currentStage);
+
     return record;
   }
 
@@ -198,8 +203,31 @@ export class ConfirmationService {
       newStage: WorkflowStage.RETURNED
     };
 
+    const responsibilityEntry: ResponsibilityEntry = {
+      stage: WorkflowStage.RETURNED,
+      responsibleRole: UserRole.CLIENT_FINANCE,
+      responsibleUserId: returnData.returnedBy,
+      action: '退回申报底稿',
+      timestamp: now,
+      isComplete: true,
+      notes: `退回原因: ${returnData.returnReason.description}`
+    };
+
+    const revisionEntry: ResponsibilityEntry = {
+      stage: WorkflowStage.REVISION_IN_PROGRESS,
+      responsibleRole: UserRole.TAX_CONSULTANT,
+      responsibleUserId: record.draftInfo.taxConsultantId,
+      action: '修订申报底稿',
+      timestamp: now,
+      isComplete: false,
+      notes: `退回原因: ${returnData.returnReason.description}，期望完成时间: ${returnData.expectedFixDeadline}`
+    };
+
     record.workflowHistory.push(returnEvent);
+    record.responsibilityTrace.push(responsibilityEntry, revisionEntry);
     saveRecord(record);
+
+    todoService.handleStageChange(record, WorkflowStage.RETURNED, WorkflowStage.CONFIRMATION_IN_PROGRESS);
 
     return record;
   }
