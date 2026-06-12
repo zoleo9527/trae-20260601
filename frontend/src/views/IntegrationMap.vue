@@ -23,9 +23,7 @@
               <el-icon color="#e6a23c"><Document /></el-icon>
               <div class="file-info">
                 <div class="file-path">
-                  <a href="file:///Users/liu/Documents/private/model-test/trae-20260601-3/backend/src/seed/run.ts" class="path-link">
-                    backend/src/seed/run.ts
-                  </a>
+                  <code class="repo-path">backend/src/seed/run.ts</code>
                 </div>
                 <div class="file-desc">
                   系统启动时运行，预置 4 套房源、5 个扯皮场景、3 个角色账号
@@ -70,9 +68,7 @@
               <el-icon color="#e6a23c"><Document /></el-icon>
               <div class="file-info">
                 <div class="file-path">
-                  <a href="file:///Users/liu/Documents/private/model-test/trae-20260601-3/backend/src/modules/auth/auth.service.ts#L12-L16" class="path-link">
-                    backend/src/modules/auth/auth.service.ts
-                  </a>
+                  <code class="repo-path">backend/src/modules/auth/auth.service.ts#L12-L16</code>
                 </div>
                 <div class="file-desc">硬编码 3 个用户，未对接真实用户体系</div>
               </div>
@@ -175,27 +171,15 @@
           <div class="data-locations">
             <div class="data-location-item">
               <span class="data-label">后端角色 Guard</span>
-              <code class="data-path">
-                <a href="file:///Users/liu/Documents/private/model-test/trae-20260601-3/backend/src/common/guards/roles.guard.ts" class="path-link">
-                  common/guards/roles.guard.ts
-                </a>
-              </code>
+              <code class="data-path">common/guards/roles.guard.ts</code>
             </div>
             <div class="data-location-item">
               <span class="data-label">角色装饰器</span>
-              <code class="data-path">
-                <a href="file:///Users/liu/Documents/private/model-test/trae-20260601-3/backend/src/common/decorators/roles.decorator.ts" class="path-link">
-                  common/decorators/roles.decorator.ts
-                </a>
-              </code>
+              <code class="data-path">common/decorators/roles.decorator.ts</code>
             </div>
             <div class="data-location-item">
               <span class="data-label">前端路由鉴权</span>
-              <code class="data-path">
-                <a href="file:///Users/liu/Documents/private/model-test/trae-20260601-3/frontend/src/router/index.js#L77-L88" class="path-link">
-                  frontend/src/router/index.js
-                </a>
-              </code>
+              <code class="data-path">frontend/src/router/index.js#L77-L88</code>
             </div>
           </div>
         </div>
@@ -232,11 +216,7 @@
               </div>
               <div class="integ-files">
                 <span class="integ-file-label">涉及文件：</span>
-                <code class="integ-file">
-                  <a href="file:///Users/liu/Documents/private/model-test/trae-20260601-3/backend/src/modules/auth/auth.service.ts#L12-L16" class="path-link">
-                    auth.service.ts SEED_USERS
-                  </a>
-                </code>
+                <code class="integ-file">auth.service.ts SEED_USERS (backend/src/modules/auth/auth.service.ts#L12-L16)</code>
               </div>
             </div>
 
@@ -310,11 +290,7 @@
               </div>
               <div class="integ-files">
                 <span class="integ-file-label">涉及文件：</span>
-                <code class="integ-file">
-                  <a href="file:///Users/liu/Documents/private/model-test/trae-20260601-3/backend/src/common/interceptors/audit.interceptor.ts" class="path-link">
-                    audit.interceptor.ts（可自动取 IP）
-                  </a>
-                </code>
+                <code class="integ-file">audit.interceptor.ts (backend/src/common/interceptors/audit.interceptor.ts)</code>
               </div>
             </div>
           </div>
@@ -331,9 +307,7 @@
               <div>
                 <strong>审计日志</strong>
                 <p>每一步操作都写审计，含 before/after 快照，可按实体回看 —
-                  <a href="file:///Users/liu/Documents/private/model-test/trae-20260601-3/backend/src/modules/audit/audit.service.ts" class="path-link">
-                    audit.service.ts
-                  </a>
+                  <code class="repo-path">backend/src/modules/audit/audit.service.ts</code>
                 </p>
               </div>
             </div>
@@ -342,9 +316,7 @@
               <div>
                 <strong>钥匙移交回看</strong>
                 <p>合并业务事件 + 审计日志生成完整时间线，支持按移交 ID 查询 —
-                  <a href="file:///Users/liu/Documents/private/model-test/trae-20260601-3/backend/src/modules/key-transfer/key-transfer.service.ts#L202-L296" class="path-link">
-                    getTransferTimeline()
-                  </a>
+                  <code class="repo-path">backend/src/modules/key-transfer/key-transfer.service.ts#L202-L296</code>
                 </p>
               </div>
             </div>
@@ -353,9 +325,7 @@
               <div>
                 <strong>权限校验</strong>
                 <p>双 Guard 机制（JWT + 角色）+ 前端路由级拦截，每个接口都有 @Roles 装饰器 —
-                  <a href="file:///Users/liu/Documents/private/model-test/trae-20260601-3/backend/src/common/guards/roles.guard.ts" class="path-link">
-                    roles.guard.ts
-                  </a>
+                  <code class="repo-path">backend/src/common/guards/roles.guard.ts</code>
                 </p>
               </div>
             </div>
@@ -364,9 +334,7 @@
               <div>
                 <strong>交房验收处理</strong>
                 <p>完整四态流转 + 检查清单 + 争议闭环，房源状态机联动 —
-                  <a href="file:///Users/liu/Documents/private/model-test/trae-20260601-3/backend/src/modules/handover/handover.service.ts" class="path-link">
-                    handover.service.ts
-                  </a>
+                  <code class="repo-path">backend/src/modules/handover/handover.service.ts</code>
                 </p>
               </div>
             </div>
@@ -375,9 +343,7 @@
               <div>
                 <strong>三大扯皮点总览</strong>
                 <p>Dashboard 主动暴露房源状态滞后、看房反馈缺失、押金/验收争议 —
-                  <a href="file:///Users/liu/Documents/private/model-test/trae-20260601-3/backend/src/modules/overview/overview.service.ts" class="path-link">
-                    overview.service.ts
-                  </a>
+                  <code class="repo-path">backend/src/modules/overview/overview.service.ts</code>
                 </p>
               </div>
             </div>
@@ -497,14 +463,13 @@ async function quickLogin(username) {
   margin-bottom: 6px;
 }
 
-.path-link {
+.repo-path {
   color: #409eff;
-  text-decoration: none;
   font-family: 'Courier New', monospace;
-}
-
-.path-link:hover {
-  text-decoration: underline;
+  font-size: 12px;
+  background: #ecf5ff;
+  padding: 2px 6px;
+  border-radius: 3px;
 }
 
 .file-desc {

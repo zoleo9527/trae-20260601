@@ -126,7 +126,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { Search, Refresh, OfficeBuilding, Warning } from '@element-plus/icons-vue'
-import { propertyApi, viewingApi } from '@/api'
+import { propertyApi, viewingApi, overviewApi } from '@/api'
 import { useAuthStore } from '@/stores/auth'
 
 const route = useRoute()
@@ -221,15 +221,14 @@ async function loadData() {
   try {
     const data = await propertyApi.findAll()
     properties.value = data
-    const stale = data.filter(p => {
-      if (p.status === 'leased') return true
-      if (p.status === 'viewing') {
-        const days = (Date.now() - new Date(p.updatedAt).getTime()) / (1000 * 60 * 60 * 24)
-        return days > 7
-      }
-      return false
-    })
-    staleProperties.value = stale
+
+    try {
+      const overview = await overviewApi.getDisputeOverview()
+      const staleIds = (overview.staleProperties || []).map(p => p.id)
+      staleProperties.value = data.filter(p => staleIds.includes(p.id))
+    } catch {
+      staleProperties.value = []
+    }
 
     for (const p of data) {
       try {

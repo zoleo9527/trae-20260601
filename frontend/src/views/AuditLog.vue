@@ -207,7 +207,7 @@ async function loadData() {
     const params = {}
     if (filterEntity.value) params.entity = filterEntity.value
     if (filterAction.value) params.action = filterAction.value
-    if (filterRole.value) params.userId = filterRole.value
+    if (filterRole.value) params.userRole = filterRole.value
     if (dateRange.value && dateRange.value.length === 2) {
       params.from = dateRange.value[0]
       params.to = dateRange.value[1]

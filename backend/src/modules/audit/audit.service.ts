@@ -17,6 +17,7 @@ export interface AuditLogEntry {
 
 export interface AuditQueryFilters {
   userId?: string;
+  userRole?: string;
   entity?: string;
   entityId?: string;
   action?: string;
@@ -63,6 +64,9 @@ export class AuditService {
 
     if (filters?.userId) {
       result = result.filter((e) => e.userId === filters.userId);
+    }
+    if (filters?.userRole) {
+      result = result.filter((e) => e.userRole === filters.userRole);
     }
     if (filters?.entity) {
       result = result.filter((e) => e.entity === filters.entity);
