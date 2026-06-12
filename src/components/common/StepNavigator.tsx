@@ -7,28 +7,26 @@ import {
   FileText,
   ChevronRight,
 } from 'lucide-react';
-import { useAppStore } from '@/store/appStore';
+import type { SurrenderApplication } from '@/types';
 import { classNames } from '@/utils/formatters';
 import { StatusBadge } from './StatusBadge';
 
 interface StepNavProps {
   currentStep: number;
+  application: SurrenderApplication;
 }
 
 const STEPS = [
   { key: 'application', label: '退租申请', icon: FileText, path: '' },
   { key: 'inspection', label: '退场验收', icon: ClipboardList, path: 'inspection' },
   { key: 'cost', label: '费用明细', icon: Receipt, path: 'cost' },
-  { key: 'confirm', label: '客户确认', icon: Users, path: 'confirm' },
+  { key: 'confirm', label: '客户确认', icon: Users, path: 'confirmation' },
   { key: 'completed', label: '流程完成', icon: CheckCircle2, path: '' },
 ];
 
-export default function StepNavigator({ currentStep }: StepNavProps) {
+export default function StepNavigator({ currentStep, application }: StepNavProps) {
   const navigate = useNavigate();
   const { id } = useParams();
-  const app = useAppStore((s) => s.getApplicationById(id || ''));
-
-  if (!app) return null;
 
   const getStepStatus = (index: number) => {
     if (index < currentStep) return 'done';
@@ -53,14 +51,14 @@ export default function StepNavigator({ currentStep }: StepNavProps) {
         <div className="flex items-center gap-3">
           <div>
             <h2 className="font-serif text-lg font-semibold text-navy-800">
-              {app.tenant.companyName}
+              {application.tenant.companyName}
             </h2>
             <p className="text-sm text-navy-500">
-              {app.contract.floorRoom} · 合同号 {app.contract.contractNo}
+              {application.contract.floorRoom} · 合同号 {application.contract.contractNo}
             </p>
           </div>
         </div>
-        <StatusBadge status={app.status} />
+        <StatusBadge status={application.status} />
       </div>
 
       <div className="flex items-center">

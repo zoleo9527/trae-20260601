@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -21,6 +21,7 @@ import {
   Building2,
   Phone,
   Calendar,
+  Loader2,
 } from 'lucide-react';
 import { useAppStore } from '@/store/appStore';
 import StepNavigator from '@/components/common/StepNavigator';
@@ -28,22 +29,21 @@ import { StatusBadge } from '@/components/common/StatusBadge';
 import PhotoUploader from '@/components/common/PhotoUploader';
 import {
   formatCurrency,
-  formatDate,
   formatDateTime,
-  generateId,
 } from '@/utils/formatters';
-import type { Dispute, DisputeResponse, DeductionItem } from '@/types';
+import type { DisputeResponse, DeductionItem, SurrenderApplication, UserRole } from '@/types';
 import { DEDUCTION_CATEGORY_LABELS } from '@/types';
+import { surrenderApi } from '@/api/surrender';
 
 export default function ConfirmationPage() {
   const navigate = useNavigate();
   const { id } = useParams();
-  const app = useAppStore((s) => s.getApplicationById(id || ''));
-  const addDispute = useAppStore((s) => s.addDispute);
-  const respondDispute = useAppStore((s) => s.respondDispute);
-  const finalConfirm = useAppStore((s) => s.finalConfirm);
-  const updateApplicationStatus = useAppStore((s) => s.updateApplicationStatus);
-  const currentRole = useAppStore((s) => s.currentRole);
+  const storeCurrentRole = useAppStore((s) => s.currentRole);
+  const setStoreCurrentRole = useAppStore((s) => s.setCurrentRole);
+
+  const [application, setApplication] = useState<SurrenderApplication | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const [expandedSections, setExpandedSections] = useState<Set<string>>(
     new Set(['summary', 'deductions', 'disputes'])
@@ -58,10 +58,135 @@ export default function ConfirmationPage() {
   const [responderName, setResponderName] = useState('陈会计');
   const [confirmerName, setConfirmerName] = useState('');
   const [isSigning, setIsSigning] = useState(false);
+  const [currentRole, setCurrentRole] = useState<UserRole>(storeCurrentRole);
 
-  if (!app || !app.costBreakdown) return null;
+  const fetchApplication = useCallback(async () => {
+    if (!id) return;
+    try {
+      setLoading(true);
+      setError(null);
+      const data = await surrenderApi.getApplication(id);
+      setApplication(data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '加载数据失败');
+    } finally {
+      setLoading(false);
+    }
+  }, [id]);
 
-  const cost = app.costBreakdown;
+  useEffect(() => {
+    fetchApplication();
+  }, [fetchApplication]);
+
+  useEffect(() => {
+    setCurrentRole(storeCurrentRole);
+  }, [storeCurrentRole]);
+
+  if (loading) {
+    return (
+      <div className="min-h-[400px] flex items-center justify-center">
+        <div className="flex flex-col items-center gap-3 text-navy-500">
+          <Loader2 className="w-8 h-8 animate-spin" />
+          <p className="text-sm">加载中...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-[400px] flex items-center justify-center">
+        <div className="flex flex-col items-center gap-3 text-center max-w-md">
+          <div className="w-12 h-12 rounded-full bg-coral-100 flex items-center justify-center text-coral-600">
+            <AlertCircle className="w-6 h-6" />
+          </div>
+          <h3 className="font-medium text-navy-800">加载失败</h3>
+          <p className="text-sm text-navy-500">{error}</p>
+          <button
+            onClick={fetchApplication}
+            className="btn-primary mt-2"
+          >
+            重新加载
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!application) return null;
+
+  const app = application;
+  const hasCostBreakdown = !!app.costBreakdown;
+
+  const handleRoleChange = (role: UserRole) => {
+    setCurrentRole(role);
+    setStoreCurrentRole(role);
+  };
+
+  if (!hasCostBreakdown) {
+    return (
+      <div className="animate-fade-in opacity-0">
+        <div className="flex items-center gap-4 mb-6">
+          <button
+            onClick={() => navigate(`/application/${app.id}`)}
+            className="w-10 h-10 rounded-lg bg-white border border-navy-100 flex items-center justify-center text-navy-600 hover:bg-navy-50 transition-colors"
+          >
+            <ArrowLeft className="w-4.5 h-4.5" strokeWidth={2} />
+          </button>
+          <div className="flex-1">
+            <h1 className="font-serif text-2xl font-semibold text-navy-900">
+              客户确认
+            </h1>
+            <p className="text-sm text-navy-500 mt-1">
+              客户查看费用明细、提交异议、最终确认签署
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-navy-500">当前身份：</span>
+            <select
+              className="input-field py-1.5 px-3 max-w-[140px]"
+              value={currentRole}
+              onChange={(e) => handleRoleChange(e.target.value as UserRole)}
+            >
+              <option value="consultant">租赁顾问</option>
+              <option value="manager">运营经理</option>
+              <option value="finance">财务人员</option>
+              <option value="customer">企业客户</option>
+            </select>
+          </div>
+        </div>
+
+        <StepNavigator currentStep={3} application={app} />
+
+        <div className="card p-8">
+          <div className="rounded-lg bg-gradient-to-r from-coral-50 to-orange-50 border border-coral-200 p-6">
+            <div className="flex items-start gap-4">
+              <div className="w-12 h-12 rounded-full bg-coral-100 flex items-center justify-center text-coral-600 shrink-0">
+                <AlertTriangle className="w-6 h-6" />
+              </div>
+              <div className="flex-1">
+                <h3 className="font-semibold text-navy-900 text-lg mb-2">
+                  费用核算尚未完成
+                </h3>
+                <p className="text-sm text-navy-600 mb-4">
+                  当前退租申请还未完成费用核算，请先前往费用核算页面完成费用明细的编制，然后再进行客户确认。
+                </p>
+                <button
+                  onClick={() => navigate(`/application/${app.id}/cost`)}
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-coral-500 text-white font-medium hover:bg-coral-600 transition-colors"
+                >
+                  <Calculator className="w-4 h-4" />
+                  返回费用核算
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const cost = app.costBreakdown!;
   const confirmation = app.confirmation;
 
   const toggleSection = (section: string) => {
@@ -73,23 +198,29 @@ export default function ConfirmationPage() {
     });
   };
 
-  const handleSubmitDispute = () => {
-    if (!selectedDeduction || !disputeReason.trim()) return;
+  const handleSubmitDispute = async () => {
+    if (!selectedDeduction || !disputeReason.trim() || !id) return;
 
-    addDispute(app.id, {
-      deductionItemId: selectedDeduction,
-      customerReason: disputeReason,
-      customerAttachments: disputeAttachments.length > 0 ? disputeAttachments : undefined,
-    });
+    try {
+      await surrenderApi.submitDispute(id, {
+        deductionItemId: selectedDeduction,
+        customerReason: disputeReason,
+        customerAttachments: disputeAttachments.length > 0 ? disputeAttachments : undefined,
+      });
 
-    setShowDisputeForm(null);
-    setSelectedDeduction('');
-    setDisputeReason('');
-    setDisputeAttachments([]);
+      setShowDisputeForm(null);
+      setSelectedDeduction('');
+      setDisputeReason('');
+      setDisputeAttachments([]);
+
+      await fetchApplication();
+    } catch (err) {
+      console.error('提交异议失败:', err);
+    }
   };
 
-  const handleRespondDispute = (disputeId: string) => {
-    if (!responseContent.trim()) return;
+  const handleRespondDispute = async (disputeId: string) => {
+    if (!responseContent.trim() || !id) return;
 
     const response: DisputeResponse = {
       content: responseContent,
@@ -98,41 +229,61 @@ export default function ConfirmationPage() {
       respondedAt: new Date().toISOString(),
     };
 
-    respondDispute(app.id, disputeId, response);
+    try {
+      await surrenderApi.respondDispute(id, disputeId, response);
 
-    setShowResponseForm(null);
-    setResponseContent('');
-    setAdjustedAmount('');
+      setShowResponseForm(null);
+      setResponseContent('');
+      setAdjustedAmount('');
+
+      await fetchApplication();
+    } catch (err) {
+      console.error('回复异议失败:', err);
+    }
   };
 
-  const handleFinalConfirm = () => {
-    if (!confirmerName.trim()) return;
+  const handleFinalConfirm = async () => {
+    if (!confirmerName.trim() || !id) return;
     setIsSigning(true);
-    setTimeout(() => {
-      finalConfirm(app.id, confirmerName);
+    try {
+      await surrenderApi.finalConfirm(id, confirmerName);
+      await fetchApplication();
+    } catch (err) {
+      console.error('签署确认失败:', err);
+    } finally {
       setIsSigning(false);
-    }, 800);
+    }
   };
 
-  const getDeductionById = (id: string): DeductionItem | undefined => {
-    return cost.deductions.find((d) => d.id === id);
+  const handleUpdateStatus = async (status: 'confirming') => {
+    if (!id) return;
+    try {
+      await surrenderApi.updateStatus(id, status);
+      await fetchApplication();
+    } catch (err) {
+      console.error('更新状态失败:', err);
+    }
+  };
+
+  const getDeductionById = (deductionId: string): DeductionItem | undefined => {
+    return cost.deductions.find((d) => d.id === deductionId);
   };
 
   const SectionHeader = ({
-    id,
+    sectionId,
     icon: Icon,
     title,
     badge,
   }: {
-    id: string;
-    icon: any;
+    sectionId: string;
+    icon: React.ComponentType<{ className?: string; strokeWidth?: number | string }>;
     title: string;
     badge?: React.ReactNode;
   }) => {
-    const expanded = expandedSections.has(id);
+    const expanded = expandedSections.has(sectionId);
     return (
       <button
-        onClick={() => toggleSection(id)}
+        onClick={() => toggleSection(sectionId)}
         className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-navy-50 transition-colors rounded-lg"
       >
         <div className="w-8 h-8 rounded bg-navy-100 flex items-center justify-center text-navy-600 shrink-0">
@@ -202,9 +353,7 @@ export default function ConfirmationPage() {
           <select
             className="input-field py-1.5 px-3 max-w-[140px]"
             value={currentRole}
-            onChange={(e) =>
-              useAppStore.getState().setCurrentRole(e.target.value as any)
-            }
+            onChange={(e) => handleRoleChange(e.target.value as UserRole)}
           >
             <option value="consultant">租赁顾问</option>
             <option value="manager">运营经理</option>
@@ -214,7 +363,7 @@ export default function ConfirmationPage() {
         </div>
       </div>
 
-      <StepNavigator currentStep={3} />
+      <StepNavigator currentStep={3} application={app} />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
@@ -241,7 +390,7 @@ export default function ConfirmationPage() {
 
           <div className="card p-6 animate-fade-in-up opacity-0 stagger-2">
             <SectionHeader
-              id="timeline"
+              sectionId="timeline"
               icon={Clock}
               title="流程时间线"
             />
@@ -295,7 +444,7 @@ export default function ConfirmationPage() {
 
           <div className="card p-6 animate-fade-in-up opacity-0 stagger-3">
             <SectionHeader
-              id="summary"
+              sectionId="summary"
               icon={FileText}
               title="费用明细概览"
             />
@@ -414,7 +563,7 @@ export default function ConfirmationPage() {
           <div className="card p-6 animate-fade-in-up opacity-0 stagger-4">
             <div className="flex items-center justify-between">
               <SectionHeader
-                id="deductions"
+                sectionId="deductions"
                 icon={FileText}
                 title="押金扣减明细"
                 badge={
@@ -584,7 +733,7 @@ export default function ConfirmationPage() {
 
           <div className="card p-6 animate-fade-in-up opacity-0 stagger-5">
             <SectionHeader
-              id="disputes"
+              sectionId="disputes"
               icon={MessageCircle}
               title="异议处理记录"
               badge={
@@ -926,9 +1075,7 @@ export default function ConfirmationPage() {
                     confirmation.disputes.every((d) => d.response) &&
                     app.status === 'disputing' && (
                     <button
-                      onClick={() => {
-                        updateApplicationStatus(app.id, 'confirming');
-                      }}
+                      onClick={() => handleUpdateStatus('confirming')}
                       className="btn-secondary w-full"
                     >
                       <CheckCircle2 className="w-4 h-4" />

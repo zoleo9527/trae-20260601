@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -10,12 +10,12 @@ import {
   FileEdit,
   Save,
 } from 'lucide-react';
-import { useAppStore } from '@/store/appStore';
+import { surrenderApi } from '@/api/surrender';
 import StepNavigator from '@/components/common/StepNavigator';
 import PhotoUploader from '@/components/common/PhotoUploader';
 import { InspectionStatusBadge } from '@/components/common/StatusBadge';
 import { generateId, formatCurrency } from '@/utils/formatters';
-import type { Inspection, InspectionItem, InspectionStatus, KeyHandover } from '@/types';
+import type { Inspection, InspectionItem, InspectionStatus, KeyHandover, SurrenderApplication } from '@/types';
 
 const DEFAULT_CATEGORIES = ['墙面', '地面', '天花', '门窗', '空调', '消防', '家具'];
 
@@ -28,10 +28,11 @@ const INSPECTION_OPTIONS: { value: InspectionStatus; label: string; className: s
 export default function InspectionPage() {
   const navigate = useNavigate();
   const { id } = useParams();
-  const app = useAppStore((s) => s.getApplicationById(id || ''));
-  const updateInspection = useAppStore((s) => s.updateInspection);
-  const updateApplicationStatus = useAppStore((s) => s.updateApplicationStatus);
 
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [app, setApp] = useState<SurrenderApplication | null>(null);
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
 
   const defaultItems: InspectionItem[] = DEFAULT_CATEGORIES.map((cat, idx) => ({
@@ -50,16 +51,41 @@ export default function InspectionPage() {
     { type: '门禁卡', quantity: 15, handedOver: false },
   ];
 
-  const [inspection, setInspection] = useState<Inspection>(
-    app?.inspection || {
-      id: generateId('ins'),
-      inspector: '王经理',
-      inspectionDate: new Date().toISOString().slice(0, 10),
-      items: defaultItems,
-      keys: defaultKeys,
-      remark: '',
-    }
-  );
+  const defaultInspection: Inspection = {
+    id: generateId('ins'),
+    inspector: '王经理',
+    inspectionDate: new Date().toISOString().slice(0, 10),
+    items: defaultItems,
+    keys: defaultKeys,
+    remark: '',
+  };
+
+  const [inspection, setInspection] = useState<Inspection>(defaultInspection);
+
+  useEffect(() => {
+    if (!id) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const data = await surrenderApi.getApplication(id);
+        if (cancelled) return;
+        setApp(data);
+        if (data.inspection) {
+          setInspection(data.inspection);
+        }
+      } catch (e) {
+        if (cancelled) return;
+        setError(e instanceof Error ? e.message : '加载失败');
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [id]);
 
   const toggleExpand = (itemId: string) => {
     setExpandedItems((prev) => {
@@ -84,10 +110,47 @@ export default function InspectionPage() {
     }));
   };
 
-  const handleSave = () => {
-    updateInspection(app.id, inspection);
-    navigate(`/application/${app.id}/cost`);
+  const handleSave = async () => {
+    if (!app || !id) return;
+    try {
+      setSubmitting(true);
+      await surrenderApi.submitInspection(id, inspection);
+      navigate(`/application/${id}`);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '提交失败');
+    } finally {
+      setSubmitting(false);
+    }
   };
+
+  const handleSkip = async () => {
+    if (!app || !id) return;
+    try {
+      setSubmitting(true);
+      await surrenderApi.updateStatus(id, 'costing');
+      navigate(`/application/${id}`);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '操作失败');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="text-center py-20 text-navy-500">
+        加载中...
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="text-center py-20 text-coral-600">
+        {error}
+      </div>
+    );
+  }
 
   if (!app) {
     return (
@@ -115,7 +178,7 @@ export default function InspectionPage() {
         </div>
       </div>
 
-      <StepNavigator currentStep={1} />
+      <StepNavigator currentStep={1} application={app} />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
@@ -346,16 +409,14 @@ export default function InspectionPage() {
             </div>
 
             <div className="mt-6 pt-5 border-t border-navy-100 space-y-3">
-              <button onClick={handleSave} className="btn-primary w-full">
+              <button onClick={handleSave} disabled={submitting} className="btn-primary w-full">
                 <Save className="w-4 h-4" />
-                保存验收结果
+                {submitting ? '提交中...' : '保存验收结果'}
                 <ChevronRight className="w-4 h-4" />
               </button>
               <button
-                onClick={() => {
-                  updateApplicationStatus(app.id, 'costing');
-                  navigate(`/application/${app.id}/cost`);
-                }}
+                onClick={handleSkip}
+                disabled={submitting}
                 className="btn-secondary w-full"
               >
                 跳过，直接核算费用

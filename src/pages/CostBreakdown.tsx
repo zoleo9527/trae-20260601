@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -15,8 +15,9 @@ import {
   Plus,
   Trash2,
   FileText,
+  Loader2,
 } from 'lucide-react';
-import { useAppStore } from '@/store/appStore';
+import { surrenderApi } from '@/api/surrender';
 import StepNavigator from '@/components/common/StepNavigator';
 import { formatCurrency, generateId, daysBetween } from '@/utils/formatters';
 import type {
@@ -26,102 +27,123 @@ import type {
   RepairFee,
   PenaltyFee,
   DeductionItem,
+  SurrenderApplication,
 } from '@/types';
 import { DEDUCTION_CATEGORY_LABELS } from '@/types';
 
 export default function CostBreakdownPage() {
   const navigate = useNavigate();
   const { id } = useParams();
-  const app = useAppStore((s) => s.getApplicationById(id || ''));
-  const updateCostBreakdown = useAppStore((s) => s.updateCostBreakdown);
-  const updateApplicationStatus = useAppStore((s) => s.updateApplicationStatus);
+  const [app, setApp] = useState<SurrenderApplication | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
 
   const [expandedSections, setExpandedSections] = useState<Set<string>>(
     new Set(['rent', 'utility', 'repair', 'penalty', 'deductions'])
   );
 
-  const defaultRentSettlement: RentSettlement = {
-    occupationDays: app
-      ? daysBetween(
+  const [cost, setCost] = useState<CostBreakdownType | null>(null);
+
+  useEffect(() => {
+    if (!id) return;
+    setLoading(true);
+    setError(null);
+    surrenderApi
+      .getApplication(id)
+      .then((data) => {
+        setApp(data);
+        initializeCost(data);
+      })
+      .catch((err) => {
+        setError(err instanceof Error ? err.message : '加载失败');
+      })
+      .finally(() => {
+        setLoading(false);
+      });
+  }, [id]);
+
+  const initializeCost = (app: SurrenderApplication) => {
+    if (app.costBreakdown) {
+      setCost(app.costBreakdown);
+      return;
+    }
+
+    const defaultRentSettlement: RentSettlement = {
+      occupationDays: daysBetween(
+        app.surrenderInfo.expectedMoveOutDate.slice(0, 8) + '01',
+        app.surrenderInfo.expectedMoveOutDate
+      ),
+      dailyRent: app.contract.dailyRent || 0,
+      amount:
+        daysBetween(
           app.surrenderInfo.expectedMoveOutDate.slice(0, 8) + '01',
           app.surrenderInfo.expectedMoveOutDate
-        )
-      : 0,
-    dailyRent: app?.contract.dailyRent || 0,
-    amount: app
-      ? daysBetween(
-          app.surrenderInfo.expectedMoveOutDate.slice(0, 8) + '01',
-          app.surrenderInfo.expectedMoveOutDate
-        ) * app.contract.dailyRent
-      : 0,
-    period: app
-      ? `${app.surrenderInfo.expectedMoveOutDate.slice(0, 8)}01 至 ${app.surrenderInfo.expectedMoveOutDate}`
-      : '',
-    basis: '根据《租赁合同》第4.2条：退租当月不足整月的，按实际占用天数乘以日租金标准计算。',
-  };
+        ) * app.contract.dailyRent,
+      period: `${app.surrenderInfo.expectedMoveOutDate.slice(0, 8)}01 至 ${app.surrenderInfo.expectedMoveOutDate}`,
+      basis: '根据《租赁合同》第4.2条：退租当月不足整月的，按实际占用天数乘以日租金标准计算。',
+    };
 
-  const defaultUtilities: UtilityFee[] = [
-    {
-      type: 'electricity',
-      previousReading: 0,
-      currentReading: 0,
-      unitPrice: 1.2,
-      amount: 0,
-      period: '2026-05-01 至 2026-06-05',
-    },
-    {
-      type: 'water',
-      previousReading: 0,
-      currentReading: 0,
-      unitPrice: 5.5,
-      amount: 0,
-      period: '2026-05-01 至 2026-06-05',
-    },
-  ];
+    const defaultUtilities: UtilityFee[] = [
+      {
+        type: 'electricity',
+        previousReading: 0,
+        currentReading: 0,
+        unitPrice: 1.2,
+        amount: 0,
+        period: '2026-05-01 至 2026-06-05',
+      },
+      {
+        type: 'water',
+        previousReading: 0,
+        currentReading: 0,
+        unitPrice: 5.5,
+        amount: 0,
+        period: '2026-05-01 至 2026-06-05',
+      },
+    ];
 
-  const defaultRepairs: RepairFee[] =
-    app?.inspection?.items
-      .filter((i) => i.status !== 'normal' && i.estimatedCost)
-      .map((item) => ({
-        id: generateId('rep'),
-        itemName: item.name + '维修',
-        damageDescription: item.description,
-        quotedAmount: item.estimatedCost || 0,
-        basis: `参考《房屋交接标准》及验收记录（${item.category}）`,
-      })) || [];
+    const defaultRepairs: RepairFee[] =
+      app.inspection?.items
+        .filter((i) => i.status !== 'normal' && i.estimatedCost)
+        .map((item) => ({
+          id: generateId('rep'),
+          itemName: item.name + '维修',
+          damageDescription: item.description,
+          quotedAmount: item.estimatedCost || 0,
+          basis: `参考《房屋交接标准》及验收记录（${item.category}）`,
+        })) || [];
 
-  const defaultPenalty: PenaltyFee | undefined =
-    app &&
-    (app.surrenderInfo.reason.includes('提前') ||
+    const defaultPenalty: PenaltyFee | undefined =
+      app.surrenderInfo.reason.includes('提前') ||
       app.surrenderInfo.reason.includes('调整') ||
       app.surrenderInfo.reason.includes('缩减') ||
-      app.surrenderInfo.reason.includes('解散'))
-      ? {
-          amount: 0,
-          clause: '《租赁合同》第8.3条',
-          defaultDays: Math.max(
-            0,
-            daysBetween(app.surrenderInfo.expectedMoveOutDate, app.contract.endDate)
-          ),
-          formula: '',
-        }
-      : undefined;
+      app.surrenderInfo.reason.includes('解散')
+        ? {
+            amount: 0,
+            clause: '《租赁合同》第8.3条',
+            defaultDays: Math.max(
+              0,
+              daysBetween(app.surrenderInfo.expectedMoveOutDate, app.contract.endDate)
+            ),
+            formula: '',
+          }
+        : undefined;
 
-  const [cost, setCost] = useState<CostBreakdownType>(
-    app?.costBreakdown || {
+    setCost({
       id: generateId('cost'),
       preparedBy: '陈会计',
       preparedAt: new Date().toISOString().slice(0, 10),
-      totalDeposit: app?.contract.depositAmount || 0,
+      totalDeposit: app.contract.depositAmount || 0,
       totalDeduction: 0,
-      refundAmount: app?.contract.depositAmount || 0,
+      refundAmount: app.contract.depositAmount || 0,
       rentSettlement: defaultRentSettlement,
       utilityFees: defaultUtilities,
       repairFees: defaultRepairs,
       penaltyFee: defaultPenalty,
       deductions: [],
-    }
-  );
+    });
+  };
 
   const toggleSection = (section: string) => {
     setExpandedSections((prev) => {
@@ -134,6 +156,7 @@ export default function CostBreakdownPage() {
 
   const updateRent = (patch: Partial<RentSettlement>) => {
     setCost((prev) => {
+      if (!prev) return prev;
       const newRent = { ...prev.rentSettlement, ...patch };
       if ('occupationDays' in patch || 'dailyRent' in patch) {
         newRent.amount = newRent.occupationDays * newRent.dailyRent;
@@ -143,137 +166,190 @@ export default function CostBreakdownPage() {
   };
 
   const updateUtility = (idx: number, patch: Partial<UtilityFee>) => {
-    setCost((prev) => ({
-      ...prev,
-      utilityFees: prev.utilityFees.map((u, i) => {
-        if (i !== idx) return u;
-        const updated = { ...u, ...patch };
-        if (
-          'previousReading' in patch ||
-          'currentReading' in patch ||
-          'unitPrice' in patch
-        ) {
-          updated.amount =
-            (updated.currentReading - updated.previousReading) *
-            updated.unitPrice;
-        }
-        return updated;
-      }),
-    }));
+    setCost((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        utilityFees: prev.utilityFees.map((u, i) => {
+          if (i !== idx) return u;
+          const updated = { ...u, ...patch };
+          if (
+            'previousReading' in patch ||
+            'currentReading' in patch ||
+            'unitPrice' in patch
+          ) {
+            updated.amount =
+              (updated.currentReading - updated.previousReading) *
+              updated.unitPrice;
+          }
+          return updated;
+        }),
+      };
+    });
   };
 
   const updateRepair = (idx: number, patch: Partial<RepairFee>) => {
-    setCost((prev) => ({
-      ...prev,
-      repairFees: prev.repairFees.map((r, i) =>
-        i === idx ? { ...r, ...patch } : r
-      ),
-    }));
+    setCost((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        repairFees: prev.repairFees.map((r, i) =>
+          i === idx ? { ...r, ...patch } : r
+        ),
+      };
+    });
   };
 
   const addRepair = () => {
-    setCost((prev) => ({
-      ...prev,
-      repairFees: [
-        ...prev.repairFees,
-        {
-          id: generateId('rep'),
-          itemName: '',
-          damageDescription: '',
-          quotedAmount: 0,
-          basis: '',
-        },
-      ],
-    }));
+    setCost((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        repairFees: [
+          ...prev.repairFees,
+          {
+            id: generateId('rep'),
+            itemName: '',
+            damageDescription: '',
+            quotedAmount: 0,
+            basis: '',
+          },
+        ],
+      };
+    });
   };
 
   const removeRepair = (idx: number) => {
-    setCost((prev) => ({
-      ...prev,
-      repairFees: prev.repairFees.filter((_, i) => i !== idx),
-    }));
+    setCost((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        repairFees: prev.repairFees.filter((_, i) => i !== idx),
+      };
+    });
   };
 
   const updatePenalty = (patch: Partial<PenaltyFee>) => {
-    if (!cost.penaltyFee) return;
-    setCost((prev) => ({
-      ...prev,
-      penaltyFee: { ...prev.penaltyFee!, ...patch },
-    }));
+    setCost((prev) => {
+      if (!prev || !prev.penaltyFee) return prev;
+      return {
+        ...prev,
+        penaltyFee: { ...prev.penaltyFee, ...patch },
+      };
+    });
   };
 
   const regenerateDeductions = () => {
-    const deductions: DeductionItem[] = [];
+    setCost((prev) => {
+      if (!prev) return prev;
+      const deductions: DeductionItem[] = [];
 
-    if (cost.rentSettlement.amount > 0) {
-      deductions.push({
-        id: generateId('ded'),
-        category: 'rent',
-        itemName: '实际占用租金',
-        amount: cost.rentSettlement.amount,
-        basis: `${cost.rentSettlement.occupationDays}天 × ${formatCurrency(cost.rentSettlement.dailyRent)}/天 = ${formatCurrency(cost.rentSettlement.amount)}`,
-        relatedEvidence: '《租赁合同》第4.2条',
-      });
-    }
-
-    cost.utilityFees.forEach((u) => {
-      if (u.amount > 0) {
+      if (prev.rentSettlement.amount > 0) {
         deductions.push({
           id: generateId('ded'),
-          category: 'utility',
-          itemName: u.type === 'electricity' ? '电费' : '水费',
-          amount: u.amount,
-          basis: `(${u.currentReading} - ${u.previousReading})${u.type === 'electricity' ? '度' : '吨'} × ${u.unitPrice}元/${u.type === 'electricity' ? '度' : '吨'} = ${formatCurrency(u.amount)}`,
-          relatedEvidence: `物业水电抄表单 ${u.period}`,
+          category: 'rent',
+          itemName: '实际占用租金',
+          amount: prev.rentSettlement.amount,
+          basis: `${prev.rentSettlement.occupationDays}天 × ${formatCurrency(prev.rentSettlement.dailyRent)}/天 = ${formatCurrency(prev.rentSettlement.amount)}`,
+          relatedEvidence: '《租赁合同》第4.2条',
         });
       }
-    });
 
-    cost.repairFees.forEach((r) => {
-      if (r.quotedAmount > 0) {
+      prev.utilityFees.forEach((u) => {
+        if (u.amount > 0) {
+          deductions.push({
+            id: generateId('ded'),
+            category: 'utility',
+            itemName: u.type === 'electricity' ? '电费' : '水费',
+            amount: u.amount,
+            basis: `(${u.currentReading} - ${u.previousReading})${u.type === 'electricity' ? '度' : '吨'} × ${u.unitPrice}元/${u.type === 'electricity' ? '度' : '吨'} = ${formatCurrency(u.amount)}`,
+            relatedEvidence: `物业水电抄表单 ${u.period}`,
+          });
+        }
+      });
+
+      prev.repairFees.forEach((r) => {
+        if (r.quotedAmount > 0) {
+          deductions.push({
+            id: generateId('ded'),
+            category: 'repair',
+            itemName: r.itemName,
+            amount: r.quotedAmount,
+            basis: r.damageDescription,
+            relatedEvidence: r.basis,
+          });
+        }
+      });
+
+      if (prev.penaltyFee && prev.penaltyFee.amount > 0) {
         deductions.push({
           id: generateId('ded'),
-          category: 'repair',
-          itemName: r.itemName,
-          amount: r.quotedAmount,
-          basis: r.damageDescription,
-          relatedEvidence: r.basis,
+          category: 'penalty',
+          itemName: '提前退租违约金',
+          amount: prev.penaltyFee.amount,
+          basis: prev.penaltyFee.formula || '按合同约定计算',
+          relatedEvidence: prev.penaltyFee.clause,
         });
       }
+
+      const totalDeduction = deductions.reduce((sum, d) => sum + d.amount, 0);
+      const refundAmount = prev.totalDeposit - totalDeduction;
+
+      return {
+        ...prev,
+        deductions,
+        totalDeduction,
+        refundAmount,
+      };
     });
-
-    if (cost.penaltyFee && cost.penaltyFee.amount > 0) {
-      deductions.push({
-        id: generateId('ded'),
-        category: 'penalty',
-        itemName: '提前退租违约金',
-        amount: cost.penaltyFee.amount,
-        basis: cost.penaltyFee.formula || '按合同约定计算',
-        relatedEvidence: cost.penaltyFee.clause,
-      });
-    }
-
-    const totalDeduction = deductions.reduce((sum, d) => sum + d.amount, 0);
-    const refundAmount = cost.totalDeposit - totalDeduction;
-
-    setCost((prev) => ({
-      ...prev,
-      deductions,
-      totalDeduction,
-      refundAmount,
-    }));
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
+    if (!id || !cost) return;
     regenerateDeductions();
-    setTimeout(() => {
-      updateCostBreakdown(app.id, {
-        ...cost,
-        preparedAt: new Date().toISOString(),
-      });
-      navigate(`/application/${app.id}/confirm`);
-    }, 100);
+    setSubmitting(true);
+    try {
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      const currentCost = { ...cost, preparedAt: new Date().toISOString() };
+      await surrenderApi.submitCostBreakdown(id, currentCost);
+      navigate(`/application/${id}`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '提交失败');
+    } finally {
+      setSubmitting(false);
+    }
   };
+
+  if (loading) {
+    return (
+      <div className="text-center py-20">
+        <Loader2 className="w-8 h-8 animate-spin mx-auto text-navy-500 mb-3" />
+        <p className="text-navy-500">加载中...</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="text-center py-20">
+        <p className="text-coral-500 mb-4">{error}</p>
+        <button
+          onClick={() => window.location.reload()}
+          className="btn-primary inline-flex items-center gap-2"
+        >
+          重试
+        </button>
+      </div>
+    );
+  }
+
+  if (!app || !cost) {
+    return (
+      <div className="text-center py-20 text-navy-500">
+        申请记录不存在
+      </div>
+    );
+  }
 
   const currentTotalDeduction =
     cost.rentSettlement.amount +
@@ -282,14 +358,6 @@ export default function CostBreakdownPage() {
     (cost.penaltyFee?.amount || 0);
 
   const currentRefund = cost.totalDeposit - currentTotalDeduction;
-
-  if (!app) {
-    return (
-      <div className="text-center py-20 text-navy-500">
-        申请记录不存在
-      </div>
-    );
-  }
 
   type LucideIcon = React.ComponentType<{ className?: string; strokeWidth?: number | string }>;
 
@@ -347,7 +415,7 @@ export default function CostBreakdownPage() {
         </div>
       </div>
 
-      <StepNavigator currentStep={2} />
+      <StepNavigator currentStep={2} application={app} />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
@@ -796,7 +864,7 @@ export default function CostBreakdownPage() {
                     className="input-field"
                     value={cost.preparedBy}
                     onChange={(e) =>
-                      setCost((prev) => ({ ...prev, preparedBy: e.target.value }))
+                      setCost((prev) => prev ? { ...prev, preparedBy: e.target.value } : prev)
                     }
                   />
                 </div>
@@ -810,7 +878,7 @@ export default function CostBreakdownPage() {
                     className="input-field"
                     value={cost.preparedAt}
                     onChange={(e) =>
-                      setCost((prev) => ({ ...prev, preparedAt: e.target.value }))
+                      setCost((prev) => prev ? { ...prev, preparedAt: e.target.value } : prev)
                     }
                   />
                 </div>
@@ -863,15 +931,22 @@ export default function CostBreakdownPage() {
             </div>
 
             <div className="mt-6 pt-5 border-t border-navy-100 space-y-3">
-              <button onClick={handleSave} className="btn-primary w-full">
-                <Save className="w-4 h-4" />
-                保存费用明细
+              <button
+                onClick={handleSave}
+                disabled={submitting}
+                className="btn-primary w-full disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {submitting ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Save className="w-4 h-4" />
+                )}
+                {submitting ? '提交中...' : '保存费用明细'}
                 <ChevronRight className="w-4 h-4" />
               </button>
               <button
                 onClick={() => {
-                  updateApplicationStatus(app.id, 'confirming');
-                  navigate(`/application/${app.id}/confirm`);
+                  navigate(`/application/${app.id}`);
                 }}
                 className="btn-secondary w-full"
               >

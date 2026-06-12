@@ -1,14 +1,101 @@
+import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, Building2, User, FileText, Calendar, ChevronRight } from 'lucide-react';
-import { useAppStore } from '@/store/appStore';
+import { surrenderApi } from '@/api/surrender';
+import type { SurrenderApplication, ApplicationStatus } from '@/types';
 import StepNavigator from '@/components/common/StepNavigator';
 import { StatusBadge } from '@/components/common/StatusBadge';
 import { formatCurrency, formatDate } from '@/utils/formatters';
 
+function getNextStepInfo(status: ApplicationStatus): {
+  label: string;
+  path: string;
+} | null {
+  if (status === 'pending' || status === 'inspecting') {
+    return { label: '进入验收', path: 'inspection' };
+  }
+  if (status === 'costing') {
+    return { label: '进入费用核算', path: 'cost' };
+  }
+  if (status === 'confirming' || status === 'disputing' || status === 'completed') {
+    return { label: '进入客户确认', path: 'confirmation' };
+  }
+  return null;
+}
+
+function getCurrentStep(status: ApplicationStatus): number {
+  switch (status) {
+    case 'pending':
+    case 'inspecting':
+      return 0;
+    case 'costing':
+      return 1;
+    case 'confirming':
+    case 'disputing':
+      return 2;
+    case 'completed':
+      return 3;
+    default:
+      return 0;
+  }
+}
+
 export default function ApplicationDetail() {
   const navigate = useNavigate();
   const { id } = useParams();
-  const app = useAppStore((s) => s.getApplicationById(id || ''));
+  const [app, setApp] = useState<SurrenderApplication | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!id) return;
+
+    let cancelled = false;
+
+    async function loadApplication() {
+      setLoading(true);
+      setError(null);
+      try {
+        const data = await surrenderApi.getApplication(id);
+        if (!cancelled) {
+          setApp(data);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : '加载失败');
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    }
+
+    loadApplication();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [id]);
+
+  if (loading) {
+    return (
+      <div className="text-center py-20 text-navy-500">
+        <div className="animate-pulse">加载中...</div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="text-center py-20 text-navy-500">
+        <p className="text-coral-600 mb-4">{error}</p>
+        <button onClick={() => navigate('/')} className="btn-primary mt-4 mx-auto block">
+          返回工作台
+        </button>
+      </div>
+    );
+  }
 
   if (!app) {
     return (
@@ -21,13 +108,12 @@ export default function ApplicationDetail() {
     );
   }
 
+  const nextStepInfo = getNextStepInfo(app.status);
+  const currentStep = getCurrentStep(app.status);
+
   const nextStep = () => {
-    if (app.status === 'pending' || app.status === 'inspecting') {
-      navigate(`/application/${app.id}/inspection`);
-    } else if (app.inspection) {
-      navigate(`/application/${app.id}/cost`);
-    } else {
-      navigate(`/application/${app.id}/confirm`);
+    if (nextStepInfo) {
+      navigate(`/application/${app.id}/${nextStepInfo.path}`);
     }
   };
 
@@ -47,7 +133,7 @@ export default function ApplicationDetail() {
         <StatusBadge status={app.status} />
       </div>
 
-      <StepNavigator currentStep={0} />
+      <StepNavigator currentStep={currentStep} application={app} />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
@@ -167,7 +253,7 @@ export default function ApplicationDetail() {
                   label: '客户确认',
                   done: app.confirmation?.finalConfirmed,
                   time: app.confirmation?.confirmedAt,
-                  path: 'confirm',
+                  path: 'confirmation',
                 },
               ].map((step, idx, arr) => (
                 <div key={idx} className="flex gap-3 group">
@@ -211,12 +297,14 @@ export default function ApplicationDetail() {
               ))}
             </div>
 
-            <div className="mt-6 pt-5 border-t border-navy-100">
-              <button onClick={nextStep} className="btn-primary w-full">
-                进入下一步
-                <ChevronRight className="w-4 h-4" />
-              </button>
-            </div>
+            {nextStepInfo && (
+              <div className="mt-6 pt-5 border-t border-navy-100">
+                <button onClick={nextStep} className="btn-primary w-full">
+                  {nextStepInfo.label}
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </div>

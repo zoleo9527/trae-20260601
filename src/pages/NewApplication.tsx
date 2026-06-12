@@ -1,13 +1,15 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Save, Building2, User, FileText, Send } from 'lucide-react';
-import { useAppStore } from '@/store/appStore';
-import { formatCurrency, generateId } from '@/utils/formatters';
+import { ArrowLeft, Save, Building2, User, FileText, Send, Loader2, AlertCircle } from 'lucide-react';
+import { surrenderApi } from '@/api/surrender';
+import { formatCurrency } from '@/utils/formatters';
 import type { SurrenderApplication } from '@/types';
 
 export default function NewApplication() {
   const navigate = useNavigate();
-  const addApplication = useAppStore((s) => s.addApplication);
+
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const [form, setForm] = useState({
     companyName: '',
@@ -31,7 +33,10 @@ export default function NewApplication() {
   const estimatedDeposit = (Number(form.area) || 0) * 600;
   const estimatedDailyRent = (Number(form.area) || 0) * 3.8;
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
+    setLoading(true);
+    setError(null);
+
     const app = {
       tenant: {
         companyName: form.companyName,
@@ -55,8 +60,14 @@ export default function NewApplication() {
       },
     } as Omit<SurrenderApplication, 'id' | 'createdAt' | 'updatedAt' | 'status' | 'confirmation'>;
 
-    addApplication(app);
-    navigate('/');
+    try {
+      await surrenderApi.createApplication(app);
+      navigate('/');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '创建申请失败，请重试');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -266,12 +277,31 @@ export default function NewApplication() {
               </div>
             </div>
 
+            {error && (
+              <div className="mb-4 p-3 rounded-lg bg-red-50 border border-red-200 flex items-center gap-2 text-red-700 text-sm">
+                <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                <span>{error}</span>
+              </div>
+            )}
+
             <div className="mt-6 pt-5 border-t border-navy-100 space-y-3">
-              <button onClick={handleSubmit} className="btn-primary w-full">
-                <Save className="w-4 h-4" />
-                保存并发起流程
+              <button
+                onClick={handleSubmit}
+                disabled={loading}
+                className="btn-primary w-full disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                {loading ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Save className="w-4 h-4" />
+                )}
+                {loading ? '提交中...' : '保存并发起流程'}
               </button>
-              <button onClick={() => navigate('/')} className="btn-secondary w-full">
+              <button
+                onClick={() => navigate('/')}
+                disabled={loading}
+                className="btn-secondary w-full disabled:opacity-60 disabled:cursor-not-allowed"
+              >
                 取消
               </button>
             </div>

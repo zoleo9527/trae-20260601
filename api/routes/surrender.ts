@@ -4,14 +4,13 @@ import type {
   SurrenderApplication,
   Inspection,
   CostBreakdown,
-  Confirmation,
   Dispute,
   DisputeResponse,
 } from '../../src/types';
 
 const router = express.Router();
 
-let applications = [...mockApplications];
+const applications = [...mockApplications];
 
 const generateId = (prefix = 'id') =>
   `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
@@ -108,7 +107,7 @@ router.put('/:id/inspection', (req: Request, res: Response) => {
   applications[idx] = {
     ...applications[idx],
     inspection,
-    status: 'inspecting',
+    status: 'costing',
     updatedAt: new Date().toISOString(),
   };
 
