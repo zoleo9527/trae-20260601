@@ -200,13 +200,45 @@ router.put('/:id/dispute/:disputeId/respond', (req: Request, res: Response) => {
     });
   }
 
+  const updatedDisputes = applications[idx].confirmation!.disputes.map((d) =>
+    d.id === disputeId ? { ...d, response } : d
+  );
+
+  let updatedCostBreakdown = applications[idx].costBreakdown;
+
+  if (updatedCostBreakdown && response.adjustedAmount !== undefined && response.adjustedAmount !== 0) {
+    const dispute = applications[idx].confirmation!.disputes.find((d) => d.id === disputeId);
+    if (dispute) {
+      const updatedDeductions = updatedCostBreakdown.deductions.map((d) => {
+        if (d.id === dispute.deductionItemId) {
+          const newAmount = Math.max(0, d.amount + response.adjustedAmount!);
+          return {
+            ...d,
+            amount: newAmount,
+            basis: d.basis + `（异议调整 ${response.adjustedAmount! >= 0 ? '+' : ''}${response.adjustedAmount}元）`,
+          };
+        }
+        return d;
+      });
+
+      const totalDeduction = updatedDeductions.reduce((sum, d) => sum + d.amount, 0);
+      const refundAmount = updatedCostBreakdown.totalDeposit - totalDeduction;
+
+      updatedCostBreakdown = {
+        ...updatedCostBreakdown,
+        deductions: updatedDeductions,
+        totalDeduction,
+        refundAmount,
+      };
+    }
+  }
+
   applications[idx] = {
     ...applications[idx],
+    costBreakdown: updatedCostBreakdown,
     confirmation: {
       ...applications[idx].confirmation!,
-      disputes: applications[idx].confirmation!.disputes.map((d) =>
-        d.id === disputeId ? { ...d, response } : d
-      ),
+      disputes: updatedDisputes,
     },
     updatedAt: new Date().toISOString(),
   };

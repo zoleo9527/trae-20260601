@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Building2, User, FileText, Calendar, ChevronRight } from 'lucide-react';
+import { ArrowLeft, Building2, User, FileText, Calendar, ChevronRight, CheckCircle2, AlertCircle } from 'lucide-react';
 import { surrenderApi } from '@/api/surrender';
 import type { SurrenderApplication, ApplicationStatus } from '@/types';
 import StepNavigator from '@/components/common/StepNavigator';
@@ -296,6 +296,65 @@ export default function ApplicationDetail() {
                 </div>
               ))}
             </div>
+
+            {app.costBreakdown && (
+              <div className="mt-6 pt-4 border-t border-navy-100">
+                <h4 className="text-sm font-medium text-navy-700 mb-3">押金明细</h4>
+                {(() => {
+                  const cost = app.costBreakdown!;
+                  const disputes = app.confirmation?.disputes || [];
+                  const hasPendingAdjustment = disputes.some(
+                    (d) => d.response?.adjustedAmount !== undefined && d.response.adjustedAmount !== 0
+                  );
+                  const effectiveDeductions = cost.deductions.map((d) => {
+                    const relatedDispute = disputes.find(
+                      (dis) => dis.deductionItemId === d.id && dis.response?.adjustedAmount !== undefined
+                    );
+                    if (relatedDispute?.response?.adjustedAmount) {
+                      return { ...d, adjustedAmount: Math.max(0, d.amount + relatedDispute.response.adjustedAmount) };
+                    }
+                    return { ...d, adjustedAmount: d.amount };
+                  });
+                  const effectiveTotalDeduction = effectiveDeductions.reduce((sum, d) => sum + d.adjustedAmount, 0);
+                  const effectiveRefundAmount = cost.totalDeposit - effectiveTotalDeduction;
+                  return (
+                    <div className="space-y-2 text-sm">
+                      <div className="flex justify-between py-1">
+                        <span className="text-navy-500">押金总额</span>
+                        <span className="money-text text-amber-600 font-semibold">{formatCurrency(cost.totalDeposit)}</span>
+                      </div>
+                      <div className="flex justify-between py-1">
+                        <span className="text-navy-500">扣减合计{hasPendingAdjustment ? '（协商后）' : ''}</span>
+                        <span className="money-text text-coral-600 font-semibold">{formatCurrency(effectiveTotalDeduction)}</span>
+                      </div>
+                      <div className="flex justify-between py-1.5 border-t border-navy-100 pt-2">
+                        <span className="text-navy-700 font-medium">应退还{hasPendingAdjustment ? '（协商后）' : ''}</span>
+                        <span className="font-serif text-lg font-semibold text-sage-600 money-text">{formatCurrency(effectiveRefundAmount)}</span>
+                      </div>
+                      {disputes.length > 0 && (
+                        <div className="mt-2 pt-2 border-t border-navy-100">
+                          <p className="text-xs text-navy-400 mb-1">异议状态</p>
+                          <div className="flex items-center gap-2">
+                            {disputes.some((d) => !d.response) && (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs rounded bg-coral-100 text-coral-700">
+                                <AlertCircle className="w-3 h-3" />
+                                待回复
+                              </span>
+                            )}
+                            {disputes.some((d) => d.response) && (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs rounded bg-sage-100 text-sage-700">
+                                <CheckCircle2 className="w-3 h-3" />
+                                已回复
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
+              </div>
+            )}
 
             {nextStepInfo && (
               <div className="mt-6 pt-5 border-t border-navy-100">
