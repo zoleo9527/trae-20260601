@@ -34,8 +34,6 @@ export default function InspectionPage() {
 
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
 
-  if (!app) return null;
-
   const defaultItems: InspectionItem[] = DEFAULT_CATEGORIES.map((cat, idx) => ({
     id: `itm_default_${idx}`,
     category: cat,
@@ -53,7 +51,7 @@ export default function InspectionPage() {
   ];
 
   const [inspection, setInspection] = useState<Inspection>(
-    app.inspection || {
+    app?.inspection || {
       id: generateId('ins'),
       inspector: '王经理',
       inspectionDate: new Date().toISOString().slice(0, 10),
@@ -90,6 +88,14 @@ export default function InspectionPage() {
     updateInspection(app.id, inspection);
     navigate(`/application/${app.id}/cost`);
   };
+
+  if (!app) {
+    return (
+      <div className="text-center py-20 text-navy-500">
+        申请记录不存在
+      </div>
+    );
+  }
 
   const damagedCount = inspection.items.filter((i) => i.status !== 'normal').length;
   const estimatedTotal = inspection.items.reduce((sum, i) => sum + (i.estimatedCost || 0), 0);

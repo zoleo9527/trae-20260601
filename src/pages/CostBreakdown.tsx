@@ -4,7 +4,6 @@ import {
   ArrowLeft,
   ChevronRight,
   ChevronDown,
-  Receipt,
   Zap,
   Droplets,
   Wrench,
@@ -41,20 +40,23 @@ export default function CostBreakdownPage() {
     new Set(['rent', 'utility', 'repair', 'penalty', 'deductions'])
   );
 
-  if (!app) return null;
-
   const defaultRentSettlement: RentSettlement = {
-    occupationDays: daysBetween(
-      app.surrenderInfo.expectedMoveOutDate.slice(0, 8) + '01',
-      app.surrenderInfo.expectedMoveOutDate
-    ),
-    dailyRent: app.contract.dailyRent,
-    amount:
-      daysBetween(
-        app.surrenderInfo.expectedMoveOutDate.slice(0, 8) + '01',
-        app.surrenderInfo.expectedMoveOutDate
-      ) * app.contract.dailyRent,
-    period: `${app.surrenderInfo.expectedMoveOutDate.slice(0, 8)}01 至 ${app.surrenderInfo.expectedMoveOutDate}`,
+    occupationDays: app
+      ? daysBetween(
+          app.surrenderInfo.expectedMoveOutDate.slice(0, 8) + '01',
+          app.surrenderInfo.expectedMoveOutDate
+        )
+      : 0,
+    dailyRent: app?.contract.dailyRent || 0,
+    amount: app
+      ? daysBetween(
+          app.surrenderInfo.expectedMoveOutDate.slice(0, 8) + '01',
+          app.surrenderInfo.expectedMoveOutDate
+        ) * app.contract.dailyRent
+      : 0,
+    period: app
+      ? `${app.surrenderInfo.expectedMoveOutDate.slice(0, 8)}01 至 ${app.surrenderInfo.expectedMoveOutDate}`
+      : '',
     basis: '根据《租赁合同》第4.2条：退租当月不足整月的，按实际占用天数乘以日租金标准计算。',
   };
 
@@ -78,7 +80,7 @@ export default function CostBreakdownPage() {
   ];
 
   const defaultRepairs: RepairFee[] =
-    app.inspection?.items
+    app?.inspection?.items
       .filter((i) => i.status !== 'normal' && i.estimatedCost)
       .map((item) => ({
         id: generateId('rep'),
@@ -88,29 +90,31 @@ export default function CostBreakdownPage() {
         basis: `参考《房屋交接标准》及验收记录（${item.category}）`,
       })) || [];
 
-  const defaultPenalty: PenaltyFee | undefined = app.surrenderInfo.reason.includes('提前') ||
-    app.surrenderInfo.reason.includes('调整') ||
-    app.surrenderInfo.reason.includes('缩减') ||
-    app.surrenderInfo.reason.includes('解散')
-    ? {
-        amount: 0,
-        clause: '《租赁合同》第8.3条',
-        defaultDays: Math.max(
-          0,
-          daysBetween(app.surrenderInfo.expectedMoveOutDate, app.contract.endDate)
-        ),
-        formula: '',
-      }
-    : undefined;
+  const defaultPenalty: PenaltyFee | undefined =
+    app &&
+    (app.surrenderInfo.reason.includes('提前') ||
+      app.surrenderInfo.reason.includes('调整') ||
+      app.surrenderInfo.reason.includes('缩减') ||
+      app.surrenderInfo.reason.includes('解散'))
+      ? {
+          amount: 0,
+          clause: '《租赁合同》第8.3条',
+          defaultDays: Math.max(
+            0,
+            daysBetween(app.surrenderInfo.expectedMoveOutDate, app.contract.endDate)
+          ),
+          formula: '',
+        }
+      : undefined;
 
   const [cost, setCost] = useState<CostBreakdownType>(
-    app.costBreakdown || {
+    app?.costBreakdown || {
       id: generateId('cost'),
       preparedBy: '陈会计',
       preparedAt: new Date().toISOString().slice(0, 10),
-      totalDeposit: app.contract.depositAmount,
+      totalDeposit: app?.contract.depositAmount || 0,
       totalDeduction: 0,
-      refundAmount: app.contract.depositAmount,
+      refundAmount: app?.contract.depositAmount || 0,
       rentSettlement: defaultRentSettlement,
       utilityFees: defaultUtilities,
       repairFees: defaultRepairs,
@@ -279,6 +283,16 @@ export default function CostBreakdownPage() {
 
   const currentRefund = cost.totalDeposit - currentTotalDeduction;
 
+  if (!app) {
+    return (
+      <div className="text-center py-20 text-navy-500">
+        申请记录不存在
+      </div>
+    );
+  }
+
+  type LucideIcon = React.ComponentType<{ className?: string; strokeWidth?: number | string }>;
+
   const SectionHeader = ({
     id,
     icon: Icon,
@@ -286,7 +300,7 @@ export default function CostBreakdownPage() {
     amount,
   }: {
     id: string;
-    icon: any;
+    icon: LucideIcon;
     title: string;
     amount?: number;
   }) => {
