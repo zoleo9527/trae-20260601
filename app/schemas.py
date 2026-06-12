@@ -200,6 +200,7 @@ class DocumentItemStatus(BaseModel):
     last_contact_method: Optional[str] = None
     last_contact_result: Optional[str] = None
     next_follow_up_date: Optional[datetime] = None
+    pending_collection_count: int = 0
 
 
 class CategoryDocumentStatus(BaseModel):
@@ -218,6 +219,7 @@ class CustomerDocumentStatus(BaseModel):
     categories: List[CategoryDocumentStatus]
     overall_summary: dict
     risk_summary: Optional[dict]
+    pending_collection_summary: dict
 
 
 class RiskSummaryReport(BaseModel):
@@ -252,9 +254,23 @@ class PendingCollectionItem(BaseModel):
     customer_response: Optional[str] = None
 
 
+class CustomerPendingSummary(BaseModel):
+    customer_id: int
+    customer_name: str
+    contact_person: Optional[str] = None
+    contact_phone: Optional[str] = None
+    total_pending: int
+    high_risk_count: int
+    medium_risk_count: int
+    overdue_count: int
+    today_follow_up_count: int
+
+
 class PendingCollectionResponse(BaseModel):
     items: List[PendingCollectionItem]
+    customer_summary: List[CustomerPendingSummary]
     total_count: int
     overdue_count: int
     pending_count: int
     need_follow_up_count: int
+    high_risk_count: int

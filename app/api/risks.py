@@ -1,5 +1,5 @@
 from typing import List, Optional
-from datetime import datetime
+from datetime import datetime, timedelta
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import and_, func
@@ -12,7 +12,7 @@ from app.models import (
 from app.schemas import (
     RiskSummaryCreate, RiskSummaryResponse, RiskSummaryReport, 
     CustomerDocumentStatus, CategoryDocumentStatus, DocumentItemStatus,
-    PendingCollectionItem, PendingCollectionResponse
+    PendingCollectionItem, PendingCollectionResponse, CustomerPendingSummary
 )
 
 router = APIRouter(prefix="/risks", tags=["风险汇总管理"])
@@ -165,6 +165,11 @@ def get_customer_document_status(
         DocumentGap.period == period
     ).all()
     
+    all_gaps = db.query(DocumentGap).filter(
+        DocumentGap.customer_id == customer_id,
+        DocumentGap.status != GapStatus.SUBMITTED
+    ).all()
+    
     risk_summary = db.query(RiskSummary).filter(
         RiskSummary.customer_id == customer_id,
         RiskSummary.period == period
@@ -196,6 +201,9 @@ def get_customer_document_status(
     category_items = {}
     for cat in DocumentCategory:
         category_items[cat.value] = []
+    
+    pending_collection_count = 0
+    high_risk_pending_count = 0
     
     for req in requirements:
         doc_type = doc_types.get(req.document_type_id)
@@ -243,10 +251,30 @@ def get_customer_document_status(
             last_collection_date=last_collection_date,
             last_contact_method=last_contact_method,
             last_contact_result=last_contact_result,
-            next_follow_up_date=next_follow_up_date
+            next_follow_up_date=next_follow_up_date,
+            pending_collection_count=0
         )
         
         category_items[doc_type.category.value].append(item)
+    
+    pending_collections = db.query(DocumentGap).filter(
+        DocumentGap.customer_id == customer_id,
+        DocumentGap.status != GapStatus.SUBMITTED
+    ).all()
+    
+    now = datetime.now()
+    today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    today_end = today_start + timedelta(days=1)
+    
+    for gap in pending_collections:
+        pending_collection_count += 1
+        if gap.risk_level == RiskLevel.HIGH:
+            high_risk_pending_count += 1
+    
+    customer_pending_collections = [
+        g for g in pending_collections
+        if g.due_date and g.due_date < today_end
+    ]
     
     categories = []
     total_required = 0
@@ -305,12 +333,21 @@ def get_customer_document_status(
             "resolution_suggestion": risk_summary.resolution_suggestion
         }
     
+    pending_collection_summary = {
+        "total_pending": pending_collection_count,
+        "high_risk_count": high_risk_pending_count,
+        "overdue_count": sum(1 for g in pending_collections if g.status == GapStatus.OVERDUE),
+        "pending_count": sum(1 for g in pending_collections if g.status == GapStatus.PENDING),
+        "today_due_count": len(customer_pending_collections)
+    }
+    
     return CustomerDocumentStatus(
         customer=customer,
         period=period,
         categories=categories,
         overall_summary=overall_summary,
-        risk_summary=risk_summary_data
+        risk_summary=risk_summary_data,
+        pending_collection_summary=pending_collection_summary
     )
 
 
@@ -319,6 +356,10 @@ def get_pending_collection_list(
     customer_id: Optional[int] = None,
     period: Optional[str] = None,
     risk_level: Optional[RiskLevel] = None,
+    category: Optional[str] = None,
+    contact_method: Optional[str] = None,
+    follow_up_start: Optional[str] = None,
+    follow_up_end: Optional[str] = None,
     only_overdue: bool = False,
     need_follow_up: bool = False,
     skip: int = 0,
@@ -356,14 +397,27 @@ def get_pending_collection_list(
     overdue_count = 0
     pending_count = 0
     need_follow_up_count = 0
+    high_risk_count = 0
     
     now = datetime.now()
+    today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    today_end = today_start + timedelta(days=1)
+    
+    follow_up_start_dt = None
+    follow_up_end_dt = None
+    if follow_up_start:
+        follow_up_start_dt = datetime.strptime(follow_up_start, "%Y-%m-%d")
+    if follow_up_end:
+        follow_up_end_dt = datetime.strptime(follow_up_end, "%Y-%m-%d") + timedelta(days=1)
     
     for gap in gaps:
         customer = customers.get(gap.customer_id)
         doc_type = doc_types.get(gap.document_type_id)
         
         if not customer or not doc_type:
+            continue
+        
+        if category and doc_type.category.value != category:
             continue
         
         records = gap_collection_map.get(gap.id, [])
@@ -381,12 +435,23 @@ def get_pending_collection_list(
             last_contact_result = latest_record.customer_response
             next_follow_up_date = latest_record.next_follow_up_date
         
+        if contact_method and last_contact_method != contact_method:
+            continue
+        
+        if follow_up_start_dt and next_follow_up_date and next_follow_up_date < follow_up_start_dt:
+            continue
+        if follow_up_end_dt and next_follow_up_date and next_follow_up_date >= follow_up_end_dt:
+            continue
+        
         is_overdue = gap.status == GapStatus.OVERDUE
         
         if is_overdue:
             overdue_count += 1
         else:
             pending_count += 1
+        
+        if gap.risk_level == RiskLevel.HIGH:
+            high_risk_count += 1
         
         should_include = False
         if need_follow_up:
@@ -433,12 +498,53 @@ def get_pending_collection_list(
         x.next_follow_up_date or datetime.max
     ), reverse=True)
     
+    customer_summary_map = {}
+    for item in items:
+        if item.customer_id not in customer_summary_map:
+            customer_summary_map[item.customer_id] = {
+                "customer_id": item.customer_id,
+                "customer_name": item.customer_name,
+                "contact_person": item.contact_person,
+                "contact_phone": item.contact_phone,
+                "total_pending": 0,
+                "high_risk_count": 0,
+                "medium_risk_count": 0,
+                "overdue_count": 0,
+                "today_follow_up_count": 0
+            }
+        
+        customer_summary_map[item.customer_id]["total_pending"] += 1
+        
+        if item.risk_level == "高":
+            customer_summary_map[item.customer_id]["high_risk_count"] += 1
+        elif item.risk_level == "中":
+            customer_summary_map[item.customer_id]["medium_risk_count"] += 1
+        
+        if item.is_overdue:
+            customer_summary_map[item.customer_id]["overdue_count"] += 1
+        
+        if item.next_follow_up_date and today_start <= item.next_follow_up_date < today_end:
+            customer_summary_map[item.customer_id]["today_follow_up_count"] += 1
+    
+    customer_summary = [
+        CustomerPendingSummary(**summary)
+        for summary in customer_summary_map.values()
+    ]
+    
+    customer_summary = sorted(customer_summary, key=lambda x: (
+        x.high_risk_count,
+        x.overdue_count,
+        x.today_follow_up_count
+    ), reverse=True)
+    
     total_count = len(items)
     
     return PendingCollectionResponse(
         items=items,
+        customer_summary=customer_summary,
         total_count=total_count,
         overdue_count=overdue_count,
         pending_count=pending_count,
-        need_follow_up_count=need_follow_up_count
+        need_follow_up_count=need_follow_up_count,
+        high_risk_count=high_risk_count
     )
