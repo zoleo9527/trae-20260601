@@ -1,0 +1,128 @@
+import { type Request, type Response } from 'express'
+import * as UserService from '../services/UserService.js'
+import { ApiResponse, UserRole, CreateUserRequest, UpdateUserRequest } from '../types/types.js'
+import { AppError } from '../middleware/errorHandler.js'
+
+export async function getAllUsers(req: Request, res: Response): Promise<void> {
+  const users = await UserService.getAllUsers()
+
+  const response: ApiResponse<typeof users> = {
+    success: true,
+    data: users
+  }
+
+  res.json(response)
+}
+
+export async function getUserById(req: Request, res: Response): Promise<void> {
+  const { id } = req.params
+
+  const user = await UserService.getUserById(id)
+
+  if (!user) {
+    throw new AppError('User not found', 404)
+  }
+
+  const response: ApiResponse<typeof user> = {
+    success: true,
+    data: user
+  }
+
+  res.json(response)
+}
+
+export async function createUser(req: Request, res: Response): Promise<void> {
+  const data: CreateUserRequest = req.body
+
+  if (!data.username || !data.password || !data.name || !data.role) {
+    throw new AppError('Missing required fields', 400)
+  }
+
+  try {
+    const user = await UserService.createUser(data)
+
+    const response: ApiResponse<typeof user> = {
+      success: true,
+      data: user,
+      message: 'User created successfully'
+    }
+
+    res.status(201).json(response)
+  } catch (error) {
+    if (error instanceof Error && error.message === 'Username already exists') {
+      throw new AppError(error.message, 400)
+    }
+    throw error
+  }
+}
+
+export async function updateUser(req: Request, res: Response): Promise<void> {
+  const { id } = req.params
+  const data: UpdateUserRequest = req.body
+
+  try {
+    const user = await UserService.updateUser(id, data)
+
+    if (!user) {
+      throw new AppError('User not found', 404)
+    }
+
+    const response: ApiResponse<typeof user> = {
+      success: true,
+      data: user,
+      message: 'User updated successfully'
+    }
+
+    res.json(response)
+  } catch (error) {
+    if (error instanceof Error && error.message === 'Username already exists') {
+      throw new AppError(error.message, 400)
+    }
+    throw error
+  }
+}
+
+export async function deleteUser(req: Request, res: Response): Promise<void> {
+  const { id } = req.params
+
+  const success = await UserService.deleteUser(id)
+
+  if (!success) {
+    throw new AppError('User not found', 404)
+  }
+
+  const response: ApiResponse<null> = {
+    success: true,
+    message: 'User deleted successfully'
+  }
+
+  res.json(response)
+}
+
+export async function getUsersByRole(req: Request, res: Response): Promise<void> {
+  const { role } = req.params
+
+  if (!Object.values(UserRole).includes(role as UserRole)) {
+    throw new AppError('Invalid role', 400)
+  }
+
+  const users = await UserService.getUsersByRole(role as UserRole)
+
+  const response: ApiResponse<typeof users> = {
+    success: true,
+    data: users
+  }
+
+  res.json(response)
+}
+
+export async function getActiveUsers(req: Request, res: Response): Promise<void> {
+  const users = await UserService.getActiveUsers()
+
+  const response: ApiResponse<typeof users> = {
+    success: true,
+    data: users
+  }
+
+  res.json(response)
+}
