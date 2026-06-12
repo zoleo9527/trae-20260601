@@ -29,7 +29,7 @@ export const userService = {
     return api.delete(`/users/${id}`)
   },
 
-  getAllUsers: async (): Promise<ApiResponse<SafeUser[]>> => {
+  getAllUsers: async (): Promise<ApiResponse<PaginatedResponse<SafeUser>>> => {
     return api.get('/users', { params: { page: 1, pageSize: 1000 } })
   },
 

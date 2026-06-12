@@ -50,9 +50,21 @@ export async function findByUsername(username: string): Promise<User | null> {
   return row ? rowToUser(row) : null
 }
 
-export async function findAll(): Promise<User[]> {
-  const rows = await all<Record<string, unknown>>('SELECT * FROM users ORDER BY created_at DESC')
-  return rows.map(rowToUser)
+export async function findAll(page: number = 1, pageSize: number = 10): Promise<{ users: User[]; total: number }> {
+  const offset = (page - 1) * pageSize
+  
+  const countRow = await get<{ count: number }>('SELECT COUNT(*) as count FROM users')
+  const total = countRow?.count || 0
+  
+  const rows = await all<Record<string, unknown>>(
+    'SELECT * FROM users ORDER BY created_at DESC LIMIT ? OFFSET ?',
+    [pageSize, offset]
+  )
+  
+  return {
+    users: rows.map(rowToUser),
+    total
+  }
 }
 
 export async function findByRole(role: UserRole): Promise<User[]> {

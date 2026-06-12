@@ -1,14 +1,17 @@
 import { type Request, type Response } from 'express'
 import * as UserService from '../services/UserService.js'
-import { ApiResponse, UserRole, CreateUserRequest, UpdateUserRequest } from '../types/types.js'
+import { ApiResponse, UserRole, CreateUserRequest, UpdateUserRequest, PaginatedResponse, SafeUser } from '../types/types.js'
 import { AppError } from '../middleware/errorHandler.js'
 
 export async function getAllUsers(req: Request, res: Response): Promise<void> {
-  const users = await UserService.getAllUsers()
+  const page = parseInt(req.query.page as string) || 1
+  const pageSize = parseInt(req.query.pageSize as string) || 10
 
-  const response: ApiResponse<typeof users> = {
+  const result = await UserService.getAllUsers(page, pageSize)
+
+  const response: ApiResponse<PaginatedResponse<SafeUser>> = {
     success: true,
-    data: users
+    data: result
   }
 
   res.json(response)

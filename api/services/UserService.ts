@@ -2,9 +2,23 @@ import bcrypt from 'bcryptjs'
 import * as UserRepository from '../repositories/UserRepository.js'
 import { CreateUserRequest, SafeUser, UpdateUserRequest, User, UserRole } from '../types/types.js'
 
-export async function getAllUsers(): Promise<SafeUser[]> {
-  const users = await UserRepository.findAll()
-  return users.map(UserRepository.userToSafeUser)
+export async function getAllUsers(page: number = 1, pageSize: number = 10): Promise<{
+  items: SafeUser[]
+  total: number
+  page: number
+  pageSize: number
+  totalPages: number
+}> {
+  const result = await UserRepository.findAll(page, pageSize)
+  const totalPages = Math.ceil(result.total / pageSize)
+  
+  return {
+    items: result.users.map(UserRepository.userToSafeUser),
+    total: result.total,
+    page,
+    pageSize,
+    totalPages
+  }
 }
 
 export async function getUserById(id: string): Promise<SafeUser | null> {
