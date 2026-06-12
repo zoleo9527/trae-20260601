@@ -88,7 +88,7 @@ async function initMockData() {
         ];
         for (const bid of mockBids) {
             await db.add('bids', bid);
-            await db.addLog(bid.id, 'bid', '创建标的', `创建标的 ${bid.bidNo} - ${bid.name}`);
+            await db.addLog(bid.id, 'bid', '创建标的', `创建标的 ${bid.bidNo} - ${bid.name}`, bid.createdAt, bid.operator);
         }
 
         const mockBidders = [
@@ -175,15 +175,15 @@ async function initMockData() {
         ];
         for (const deposit of mockDeposits) {
             await db.add('deposits', deposit);
-            await db.addLog(deposit.id, 'deposit', '创建保证金记录', `竞买人 ${deposit.bidderId} 缴纳保证金 ${deposit.amount}，操作人：${deposit.operator}`, deposit.createdAt);
+            await db.addLog(deposit.id, 'deposit', '创建保证金记录', `竞买人 ${deposit.bidderId} 缴纳保证金 ${deposit.amount}`, deposit.createdAt, deposit.operator);
             if (deposit.confirmTime) {
-                await db.addLog(deposit.id, 'deposit', '确认到账', `确认保证金到账 ${formatMoney(deposit.amount)}，操作人：${deposit.confirmOperator}`, deposit.confirmTime);
+                await db.addLog(deposit.id, 'deposit', '确认到账', `确认保证金到账 ${formatMoney(deposit.amount)}`, deposit.confirmTime, deposit.confirmOperator);
             }
             if (deposit.refundTime) {
-                await db.addLog(deposit.id, 'deposit', '退还保证金', `退还保证金 ${formatMoney(deposit.amount)}，操作人：${deposit.refundOperator}`, deposit.refundTime);
+                await db.addLog(deposit.id, 'deposit', '退还保证金', `退还保证金 ${formatMoney(deposit.amount)}`, deposit.refundTime, deposit.refundOperator);
             }
             if (deposit.slowRefundTime) {
-                await db.addLog(deposit.id, 'deposit', '标记退还慢', `标记为退还慢提醒，操作人：${deposit.slowRefundOperator}`, deposit.slowRefundTime);
+                await db.addLog(deposit.id, 'deposit', '标记退还慢', '标记为退还慢提醒', deposit.slowRefundTime, deposit.slowRefundOperator);
             }
         }
 
@@ -258,15 +258,15 @@ async function initMockData() {
         ];
         for (const qual of mockQuals) {
             await db.add('qualifications', qual);
-            await db.addLog(qual.id, 'qualification', '创建资格审核', `竞买人 ${qual.bidderId} 创建审核任务，操作人：${qual.operator}`, qual.createdAt);
+            await db.addLog(qual.id, 'qualification', '创建资格审核', `竞买人 ${qual.bidderId} 创建审核任务`, qual.createdAt, qual.operator);
             if (qual.supplementTime) {
-                await db.addLog(qual.id, 'qualification', '要求补正', `要求补正：${qual.supplementItems.join('、')}，操作人：${qual.supplementOperator}`, qual.supplementTime);
+                await db.addLog(qual.id, 'qualification', '要求补正', `要求补正：${qual.supplementItems.join('、')}`, qual.supplementTime, qual.supplementOperator);
             }
             if (qual.disputeTime) {
-                await db.addLog(qual.id, 'qualification', '标记争议', `标记为资格争议，原因：${qual.disputeReason}，操作人：${qual.disputeOperator}`, qual.disputeTime);
+                await db.addLog(qual.id, 'qualification', '标记争议', `标记为资格争议，原因：${qual.disputeReason}`, qual.disputeTime, qual.disputeOperator);
             }
             if (qual.verifyTime) {
-                await db.addLog(qual.id, 'qualification', '审核通过', `资格审核通过，备注：${qual.verifyRemark}，操作人：${qual.verifyOperator}`, qual.verifyTime);
+                await db.addLog(qual.id, 'qualification', '审核通过', `资格审核通过，备注：${qual.verifyRemark}`, qual.verifyTime, qual.verifyOperator);
             }
         }
     }
@@ -365,7 +365,7 @@ async function saveBid() {
     
     try {
         await db.add('bids', bid);
-        await db.addLog(bid.id, 'bid', '创建标的', `创建标的 ${bid.bidNo} - ${bid.name}`);
+        await db.addLog(bid.id, 'bid', '创建标的', `创建标的 ${bid.bidNo} - ${bid.name}`, bid.createdAt, bid.operator);
         closeModal();
         await renderBidList();
     } catch (error) {
@@ -617,7 +617,7 @@ async function saveDeposit() {
     
     try {
         await db.add('deposits', deposit);
-        await db.addLog(deposit.id, 'deposit', '创建保证金记录', `竞买人缴纳保证金 ${formatMoney(deposit.amount)}`);
+        await db.addLog(deposit.id, 'deposit', '创建保证金记录', `竞买人缴纳保证金 ${formatMoney(deposit.amount)}`, deposit.createdAt, deposit.operator);
         closeModal();
         await renderDepositList();
     } catch (error) {
@@ -638,7 +638,7 @@ async function handleDepositAction(depositId, action) {
         deposit.lastOperationTime = now;
         deposit.lastOperationRemark = '确认保证金到账';
         await db.put('deposits', deposit);
-        await db.addLog(depositId, 'deposit', '确认到账', `确认保证金到账 ${formatMoney(deposit.amount)}，操作人：${operator}`);
+        await db.addLog(depositId, 'deposit', '确认到账', `确认保证金到账 ${formatMoney(deposit.amount)}`, now, operator);
         
         const existingQual = await db.getAllByIndex('qualifications', 'bidderId', deposit.bidderId);
         const qualForBid = existingQual.find(q => q.bidId === deposit.bidId);
@@ -655,7 +655,7 @@ async function handleDepositAction(depositId, action) {
                 lastOperationRemark: '保证金到账自动创建审核任务'
             };
             await db.add('qualifications', qual);
-            await db.addLog(qual.id, 'qualification', '创建资格审核', '保证金到账自动创建审核任务');
+            await db.addLog(qual.id, 'qualification', '创建资格审核', '保证金到账自动创建审核任务', now, '系统自动');
         }
     } else if (action === 'refund') {
         deposit.status = 'refunded';
@@ -665,7 +665,7 @@ async function handleDepositAction(depositId, action) {
         deposit.lastOperationTime = now;
         deposit.lastOperationRemark = '退还保证金';
         await db.put('deposits', deposit);
-        await db.addLog(depositId, 'deposit', '退还保证金', `退还保证金 ${formatMoney(deposit.amount)}，操作人：${operator}`);
+        await db.addLog(depositId, 'deposit', '退还保证金', `退还保证金 ${formatMoney(deposit.amount)}`, now, operator);
     } else if (action === 'mark-slow') {
         deposit.slowRefund = true;
         deposit.slowRefundTime = now;
@@ -674,7 +674,7 @@ async function handleDepositAction(depositId, action) {
         deposit.lastOperationTime = now;
         deposit.lastOperationRemark = '标记退还慢';
         await db.put('deposits', deposit);
-        await db.addLog(depositId, 'deposit', '标记退还慢', `标记为退还慢提醒，操作人：${operator}`);
+        await db.addLog(depositId, 'deposit', '标记退还慢', '标记为退还慢提醒', now, operator);
     }
     
     await renderDepositList();
@@ -865,7 +865,7 @@ async function saveQual() {
     
     try {
         await db.add('qualifications', qual);
-        await db.addLog(qual.id, 'qualification', '创建资格审核', `审核状态: ${getStatusText(status, 'qualification')}`);
+        await db.addLog(qual.id, 'qualification', '创建资格审核', `审核状态: ${getStatusText(status, 'qualification')}`, qual.createdAt, qual.operator);
         closeModal();
         await renderQualificationList();
     } catch (error) {
@@ -887,7 +887,7 @@ async function handleQualAction(qualId, action) {
         qual.lastOperationTime = now;
         qual.lastOperationRemark = '审核通过：' + qual.verifyRemark;
         await db.put('qualifications', qual);
-        await db.addLog(qualId, 'qualification', '审核通过', `资格审核通过，操作人：${operator}`);
+        await db.addLog(qualId, 'qualification', '审核通过', `资格审核通过`, now, operator);
     } else if (action === 'reject') {
         qual.status = 'rejected';
         qual.verifyTime = now;
@@ -897,7 +897,7 @@ async function handleQualAction(qualId, action) {
         qual.lastOperationTime = now;
         qual.lastOperationRemark = '审核拒绝：' + qual.verifyRemark;
         await db.put('qualifications', qual);
-        await db.addLog(qualId, 'qualification', '审核未通过', `资格审核未通过，操作人：${operator}`);
+        await db.addLog(qualId, 'qualification', '审核未通过', `资格审核未通过`, now, operator);
     } else if (action === 'supplement') {
         qual.status = 'supplement';
         qual.supplementTime = now;
@@ -906,7 +906,7 @@ async function handleQualAction(qualId, action) {
         qual.lastOperationTime = now;
         qual.lastOperationRemark = '要求补正：需补充相关资料';
         await db.put('qualifications', qual);
-        await db.addLog(qualId, 'qualification', '要求补正', `要求竞买人补充资料，操作人：${operator}`);
+        await db.addLog(qualId, 'qualification', '要求补正', '要求竞买人补充资料', now, operator);
     } else if (action === 'dispute') {
         qual.status = 'dispute';
         qual.disputeTime = now;
@@ -915,7 +915,7 @@ async function handleQualAction(qualId, action) {
         qual.lastOperationTime = now;
         qual.lastOperationRemark = '标记争议：竞买人资格存在争议';
         await db.put('qualifications', qual);
-        await db.addLog(qualId, 'qualification', '标记争议', `标记为资格争议，操作人：${operator}`);
+        await db.addLog(qualId, 'qualification', '标记争议', '标记为资格争议', now, operator);
     } else if (action === 'resolve') {
         qual.status = 'approved';
         qual.resolveTime = now;
@@ -925,7 +925,7 @@ async function handleQualAction(qualId, action) {
         qual.lastOperationTime = now;
         qual.lastOperationRemark = '解决争议：资格审核通过';
         await db.put('qualifications', qual);
-        await db.addLog(qualId, 'qualification', '解决争议', `资格争议已解决，审核通过，操作人：${operator}`);
+        await db.addLog(qualId, 'qualification', '解决争议', '资格争议已解决，审核通过', now, operator);
     }
     
     await renderQualificationList();
@@ -1299,7 +1299,7 @@ async function batchImport() {
                 lastOperationRemark: '批量导入保证金记录'
             };
             await db.add('deposits', deposit);
-            await db.addLog(deposit.id, 'deposit', '批量导入保证金', `竞买人 ${bidder.name} 缴纳保证金 ${formatMoney(amount)}`);
+            await db.addLog(deposit.id, 'deposit', '批量导入保证金', `竞买人 ${bidder.name} 缴纳保证金 ${formatMoney(amount)}`, now, '批量导入');
             
             const qual = {
                 id: 'QUAL' + Date.now().toString().slice(-3),
@@ -1313,7 +1313,7 @@ async function batchImport() {
                 lastOperationRemark: '批量导入审核任务'
             };
             await db.add('qualifications', qual);
-            await db.addLog(qual.id, 'qualification', '批量导入审核', '批量导入自动创建审核任务');
+            await db.addLog(qual.id, 'qualification', '批量导入审核', '批量导入自动创建审核任务', now, '批量导入');
             
             successCount++;
         } catch (error) {
