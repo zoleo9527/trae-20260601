@@ -46,6 +46,15 @@ enum TransactionStatus {
   CANCELLED
 }
 
+enum CollectionStatus {
+  NOT_STARTED
+  PENDING
+  OVERDUE
+  PARTIAL_PAID
+  PAID
+  CANCELLED
+}
+
 model User {
   id            String          @id @default(cuid())
   username      String          @unique
@@ -63,6 +72,12 @@ model User {
   deposits      DepositRecord[] @relation("Payer")
   attachments   Attachment[]    @relation("Uploader")
   notifications Notification[]
+  confirmedRegistrations BidRegistration[] @relation("Confirmer")
+  rejectedRegistrations BidRegistration[] @relation("Rejecter")
+  processedDeposits DepositRecord[] @relation("PaymentProcessor")
+  refundedDeposits DepositRecord[] @relation("RefundProcessor")
+  confirmedTransactions TransactionConfirmation[] @relation("TransactionConfirmer")
+  cancelledTransactions TransactionConfirmation[] @relation("TransactionCanceller")
 }
 
 model AuctionItem {
@@ -121,13 +136,18 @@ model BidRegistration {
   bidAmount           Decimal
   registrationTime    DateTime                @default(now())
   confirmedAt         DateTime?
+  confirmedBy         String?
   rejectedAt          DateTime?
+  rejectedBy          String?
   rejectionReason     String?
+  withdrawnAt         DateTime?
   
   announcement        Announcement            @relation(fields: [announcementId], references: [id])
   bidder              User                    @relation(fields: [bidderId], references: [id])
   deposit             DepositRecord?          @relation("RegistrationDeposit")
   transaction         TransactionConfirmation? @relation("RegistrationTransaction")
+  confirmer           User?                   @relation("Confirmer", fields: [confirmedBy], references: [id])
+  rejecter            User?                   @relation("Rejecter", fields: [rejectedBy], references: [id])
 }
 
 model DepositRecord {
@@ -136,13 +156,18 @@ model DepositRecord {
   amount              Decimal
   status              DepositStatus           @default(UNPAID)
   paymentTime         DateTime?
+  paidBy              String?
   refundTime          DateTime?
+  refundedBy          String?
+  refundReason        String?
   paymentMethod       String?
   transactionNumber   String?
   
   registration        BidRegistration         @relation("RegistrationDeposit", fields: [registrationId], references: [id])
   payer               User?                   @relation("Payer", fields: [payerId], references: [id])
   payerId             String?
+  paymentProcessor    User?                   @relation("PaymentProcessor", fields: [paidBy], references: [id])
+  refundProcessor     User?                   @relation("RefundProcessor", fields: [refundedBy], references: [id])
 }
 
 model TransactionConfirmation {
@@ -151,10 +176,15 @@ model TransactionConfirmation {
   status              TransactionStatus       @default(PENDING)
   finalPrice          Decimal
   confirmedAt         DateTime?
+  confirmedBy         String?
   cancelledAt         DateTime?
+  cancelledBy         String?
+  cancelReason        String?
   contractNumber      String?
   
   registration        BidRegistration         @relation("RegistrationTransaction", fields: [registrationId], references: [id])
+  confirmer           User?                   @relation("TransactionConfirmer", fields: [confirmedBy], references: [id])
+  canceller           User?                   @relation("TransactionCanceller", fields: [cancelledBy], references: [id])
 }
 
 model Attachment {

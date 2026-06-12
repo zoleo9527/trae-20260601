@@ -14,7 +14,20 @@ const register = async (req, res) => {
       return res.status(400).json({ error: 'Username or email already exists' });
     }
 
+    const allowedRoles = ['BIDDER'];
+    const isAdminRole = ['PROJECT_MANAGER', 'REVIEWER', 'FINANCE'].includes(role);
+    
+    if (isAdminRole && !req.user) {
+      return res.status(403).json({ error: 'Only admin users can create admin accounts' });
+    }
+
+    if (!req.user && role && !allowedRoles.includes(role)) {
+      return res.status(403).json({ error: 'You can only register as a BIDDER' });
+    }
+
     const passwordHash = await bcrypt.hash(password, 12);
+    
+    const userRole = req.user ? (role || 'BIDDER') : 'BIDDER';
     
     const user = await prisma.user.create({
       data: {
@@ -23,7 +36,7 @@ const register = async (req, res) => {
         name,
         email,
         phone,
-        role: role || 'BIDDER'
+        role: userRole
       },
       select: { id: true, username: true, name: true, email: true, phone: true, role: true, createdAt: true }
     });
