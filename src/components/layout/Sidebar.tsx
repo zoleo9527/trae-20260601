@@ -25,6 +25,16 @@ export default function Sidebar({ currentPath, onQuickAction, currentTab = 'all'
   const handleRoleSwitch = (user: typeof mockUsers[0]) => {
     setCurrentUser(user);
     setShowRoleSwitcher(false);
+    
+    if (user.role === 'project_manager') {
+      navigate('/projects?tab=notice');
+    } else if (user.role === 'review_secretary') {
+      navigate('/projects?tab=notice');
+    } else if (user.role === 'finance') {
+      navigate('/projects?tab=refund');
+    } else {
+      navigate('/');
+    }
   };
 
   const handleQuickAction = (tab: string) => {

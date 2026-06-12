@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Plus, Filter, FileText, Wallet, Eye, Edit2, Trash2, CheckSquare, Square, CheckCircle, XCircle, AlertTriangle, Info } from 'lucide-react';
+import { Plus, Filter, FileText, Wallet, Eye, Edit2, Trash2, CheckSquare, Square, CheckCircle, XCircle, AlertTriangle, Info, DollarSign } from 'lucide-react';
 import { useProjectStore } from '../stores/projectStore';
 import Layout from '../components/layout/Layout';
 import { statusNames, mockUsers } from '../data/mockData';
 import { ProjectCreateData } from '../types';
 
 type TabType = 'all' | 'notice' | 'refund';
+type BatchActionType = 'approve' | 'reject' | 'pay';
 
 export default function ProjectList() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -52,28 +53,52 @@ export default function ProjectList() {
     }
   };
 
-  const canProcessProject = (project: typeof projects[0]): boolean => {
+  const canProcessProject = (project: typeof projects[0], action?: BatchActionType): boolean => {
     if (selectedTab === 'notice') {
-      return currentUser?.role === 'review_secretary' && project.status === 'notice_pending';
+      if (currentUser?.role === 'review_secretary' && project.status === 'notice_pending') {
+        return true;
+      }
+      if (currentUser?.role === 'project_manager' && project.status === 'notice_rejected') {
+        return true;
+      }
+      return false;
     }
     if (selectedTab === 'refund') {
-      return currentUser?.role === 'finance' && 
-        (project.status === 'refund_pending' || project.status === 'refund_approved');
+      if (currentUser?.role === 'finance') {
+        if (project.status === 'refund_pending') {
+          return action === 'approve' || action === 'reject';
+        }
+        if (project.status === 'refund_approved') {
+          return action === 'pay';
+        }
+      }
+      if (currentUser?.role === 'project_manager' && project.status === 'refund_rejected') {
+        return true;
+      }
+      return false;
     }
     return false;
   };
 
+  const canApproveProject = (project: typeof projects[0]): boolean => {
+    return canProcessProject(project, 'approve');
+  };
+
+  const canPayProject = (project: typeof projects[0]): boolean => {
+    return canProcessProject(project, 'pay');
+  };
+
   const getUnprocessableReason = (project: typeof projects[0]): string => {
     if (selectedTab === 'notice') {
-      if (project.status === 'notice_rejected') return '已驳回';
+      if (project.status === 'notice_rejected') return currentUser?.role === 'project_manager' ? '待补录' : '已驳回';
       if (project.status === 'notice_approved') return '已通过';
       if (currentUser?.role !== 'review_secretary') return '无审核权限';
       return '不可处理';
     }
     if (selectedTab === 'refund') {
-      if (project.status === 'refund_rejected') return '已驳回';
-      if (project.status === 'refund_approved' && currentUser?.role !== 'finance') return '无打款权限';
-      if (project.status === 'refund_approved') return '待打款';
+      if (project.status === 'refund_rejected') return currentUser?.role === 'project_manager' ? '待补充材料' : '已驳回';
+      if (project.status === 'refund_approved') return currentUser?.role === 'finance' ? '待打款' : '待打款';
+      if (project.status === 'paid') return '已打款';
       if (currentUser?.role !== 'finance') return '无审核权限';
       return '不可处理';
     }
@@ -82,17 +107,22 @@ export default function ProjectList() {
 
   const filteredProjects = projects.filter(project => {
     if (selectedTab === 'notice') {
-      return project.status === 'notice_pending' || project.status === 'notice_rejected' || project.status === 'notice_approved';
+      return ['notice_pending', 'notice_rejected', 'notice_approved'].includes(project.status);
     }
     if (selectedTab === 'refund') {
-      return ['refund_pending', 'refund_rejected', 'refund_approved'].includes(project.status);
+      return ['refund_pending', 'refund_rejected', 'refund_approved', 'paid'].includes(project.status);
     }
     return true;
   });
 
-  const processableProjects = filteredProjects.filter(canProcessProject);
-  const selectedProcessable = selectedProjects.filter(id => canProcessProject(projects.find(p => p.id === id)!));
-  const selectedUnprocessable = selectedProjects.filter(id => !canProcessProject(projects.find(p => p.id === id)!));
+  const approveableProjects = filteredProjects.filter(canApproveProject);
+  const payableProjects = filteredProjects.filter(canPayProject);
+  const processableProjects = [...approveableProjects, ...payableProjects];
+  
+  const selectedApprovable = selectedProjects.filter(id => canApproveProject(projects.find(p => p.id === id)!));
+  const selectedPayable = selectedProjects.filter(id => canPayProject(projects.find(p => p.id === id)!));
+  const selectedProcessable = [...selectedApprovable, ...selectedPayable];
+  const selectedUnprocessable = selectedProjects.filter(id => !processableProjects.map(p => p.id).includes(id));
 
   const handleCreate = async () => {
     if (!formData.name || !formData.code || !formData.deposit_amount) {
@@ -111,15 +141,10 @@ export default function ProjectList() {
   };
 
   const toggleSelectAll = () => {
-    const processableIds = processableProjects.map(p => p.id);
-    const unprocessableIds = filteredProjects
-      .filter(p => !canProcessProject(p))
-      .map(p => p.id);
-    
-    if (selectedProjects.length === filteredProjects.length) {
+    if (selectedProjects.length === processableProjects.length) {
       setSelectedProjects([]);
     } else {
-      setSelectedProjects([...processableIds, ...unprocessableIds]);
+      setSelectedProjects(processableProjects.map(p => p.id));
     }
   };
 
@@ -127,32 +152,54 @@ export default function ProjectList() {
     const project = projects.find(p => p.id === id);
     if (!project) return;
 
-    if (canProcessProject(project)) {
+    if (canApproveProject(project) || canPayProject(project)) {
       setSelectedProjects(prev =>
         prev.includes(id) ? prev.filter(p => p !== id) : [...prev, id]
       );
     }
   };
 
-  const canBatchApprove = selectedProcessable.length > 0 && (
+  const canBatchApprove = selectedApprovable.length > 0 && (
     (selectedTab === 'notice' && currentUser?.role === 'review_secretary') ||
     (selectedTab === 'refund' && currentUser?.role === 'finance')
   );
 
+  const canBatchPay = selectedPayable.length > 0 && currentUser?.role === 'finance';
+
   const handleBatchApprove = async () => {
-    if (selectedProcessable.length === 0) {
+    if (selectedApprovable.length === 0) {
       setBatchResult({ success: false, message: '没有可批量审核的项目' });
       return;
     }
 
+    let processedCount = 0;
     if (selectedTab === 'notice') {
-      await batchApproveNotice(selectedProcessable);
+      await batchApproveNotice(selectedApprovable);
+      processedCount = selectedApprovable.length;
     } else if (selectedTab === 'refund') {
-      await batchApproveRefund(selectedProcessable);
+      await batchApproveRefund(selectedApprovable);
+      processedCount = selectedApprovable.length;
     }
     
-    const count = selectedProcessable.length;
-    setBatchResult({ success: true, message: `成功批量审核 ${count} 个项目` });
+    setBatchResult({ success: true, message: `成功批量审核 ${processedCount} 个项目` });
+    setSelectedProjects([]);
+    setShowBatchActions(false);
+    
+    setTimeout(() => setBatchResult(null), 3000);
+  };
+
+  const handleBatchPay = async () => {
+    if (selectedPayable.length === 0) {
+      setBatchResult({ success: false, message: '没有可批量打款的项目' });
+      return;
+    }
+
+    const { processPayment } = useProjectStore.getState();
+    for (const projectId of selectedPayable) {
+      await processPayment(projectId);
+    }
+    
+    setBatchResult({ success: true, message: `成功批量打款 ${selectedPayable.length} 个项目` });
     setSelectedProjects([]);
     setShowBatchActions(false);
     
@@ -160,20 +207,19 @@ export default function ProjectList() {
   };
 
   const handleBatchReject = async () => {
-    if (selectedProcessable.length === 0) {
+    if (selectedApprovable.length === 0) {
       setBatchResult({ success: false, message: '没有可批量驳回的项目' });
       setShowBatchRejectModal(false);
       return;
     }
 
     if (selectedTab === 'notice') {
-      await batchRejectNotice(selectedProcessable, batchRejectReason);
+      await batchRejectNotice(selectedApprovable, batchRejectReason);
     } else if (selectedTab === 'refund') {
-      await batchRejectRefund(selectedProcessable, batchRejectReason);
+      await batchRejectRefund(selectedApprovable, batchRejectReason);
     }
     
-    const count = selectedProcessable.length;
-    setBatchResult({ success: true, message: `成功批量驳回 ${count} 个项目` });
+    setBatchResult({ success: true, message: `成功批量驳回 ${selectedApprovable.length} 个项目` });
     setSelectedProjects([]);
     setShowBatchActions(false);
     setShowBatchRejectModal(false);
@@ -221,15 +267,17 @@ export default function ProjectList() {
             {selectedProjects.length > 0 && (
               <>
                 <span className="text-sm text-slate-600">
-                  已选择 {selectedProjects.length} 项（{selectedProcessable.length} 项可处理）
+                  已选择 {selectedProjects.length} 项
+                  {selectedApprovable.length > 0 && <span className="text-green-600 ml-1">（{selectedApprovable.length} 项可审核）</span>}
+                  {selectedPayable.length > 0 && <span className="text-blue-600 ml-1">（{selectedPayable.length} 项可打款）</span>}
                 </span>
-                {canBatchApprove && (
+                {(canBatchApprove || canBatchPay) && (
                   <button
                     onClick={() => setShowBatchActions(true)}
                     className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
                   >
                     <CheckCircle className="w-4 h-4" />
-                    批量审核
+                    批量处理
                   </button>
                 )}
                 <button
@@ -292,29 +340,42 @@ export default function ProjectList() {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
                 <span className="text-sm text-blue-800 font-medium">
-                  批量操作：{selectedProcessable.length} 个可处理项目
-                  {selectedUnprocessable.length > 0 && (
-                    <span className="text-amber-600 ml-2">（{selectedUnprocessable.length} 个不可处理）</span>
-                  )}
+                  批量操作：
+                  {selectedApprovable.length > 0 && <span className="text-green-700">{selectedApprovable.length} 项可审核</span>}
+                  {selectedPayable.length > 0 && <span className="text-blue-700 ml-2">{selectedPayable.length} 项可打款</span>}
                 </span>
               </div>
               <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setShowBatchRejectModal(true)}
-                  disabled={selectedProcessable.length === 0}
-                  className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <XCircle className="w-4 h-4" />
-                  批量驳回
-                </button>
-                <button
-                  onClick={handleBatchApprove}
-                  disabled={selectedProcessable.length === 0}
-                  className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <CheckCircle className="w-4 h-4" />
-                  批量通过
-                </button>
+                {canBatchApprove && (
+                  <>
+                    <button
+                      onClick={() => setShowBatchRejectModal(true)}
+                      disabled={selectedApprovable.length === 0}
+                      className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <XCircle className="w-4 h-4" />
+                      批量驳回
+                    </button>
+                    <button
+                      onClick={handleBatchApprove}
+                      disabled={selectedApprovable.length === 0}
+                      className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <CheckCircle className="w-4 h-4" />
+                      批量通过
+                    </button>
+                  </>
+                )}
+                {canBatchPay && (
+                  <button
+                    onClick={handleBatchPay}
+                    disabled={selectedPayable.length === 0}
+                    className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <DollarSign className="w-4 h-4" />
+                    批量打款
+                  </button>
+                )}
                 <button
                   onClick={() => setShowBatchActions(false)}
                   className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
@@ -331,9 +392,9 @@ export default function ProjectList() {
             <thead>
               <tr className="bg-slate-50">
                 <th className="px-4 py-3 text-left text-sm font-medium text-slate-500">
-                  {selectedTab !== 'all' && currentUser?.role === 'review_secretary' || selectedTab === 'refund' && currentUser?.role === 'finance' ? (
+                  {selectedTab !== 'all' && processableProjects.length > 0 ? (
                     <button onClick={toggleSelectAll} className="flex items-center gap-2">
-                      {selectedProjects.length === filteredProjects.length && filteredProjects.length > 0 ? (
+                      {selectedProjects.length === processableProjects.length && processableProjects.length > 0 ? (
                         <CheckSquare className="w-4 h-4 text-blue-600" />
                       ) : (
                         <Square className="w-4 h-4 text-slate-400" />
@@ -365,7 +426,9 @@ export default function ProjectList() {
                 </tr>
               ) : (
                 filteredProjects.map(project => {
-                  const isProcessable = canProcessProject(project);
+                  const isApprovable = canApproveProject(project);
+                  const isPayable = canPayProject(project);
+                  const isProcessable = isApprovable || isPayable;
                   const isSelected = selectedProjects.includes(project.id);
                   return (
                     <tr 
@@ -381,10 +444,10 @@ export default function ProjectList() {
                               <Square className="w-4 h-4 text-slate-400" />
                             )}
                           </button>
-                        ) : isSelected ? (
+                        ) : selectedTab !== 'all' && !isProcessable ? (
                           <div className="flex items-center gap-2">
-                            <Square className="w-4 h-4 text-amber-400" />
-                            <span className="text-xs text-amber-600 bg-amber-100 px-2 py-0.5 rounded">
+                            <Square className="w-4 h-4 text-slate-300" />
+                            <span className="text-xs text-slate-500 bg-slate-100 px-2 py-0.5 rounded">
                               {getUnprocessableReason(project)}
                             </span>
                           </div>
@@ -494,9 +557,9 @@ export default function ProjectList() {
           <div className="bg-white rounded-xl p-6 w-full max-w-md mx-4">
             <h3 className="text-lg font-semibold text-slate-800 mb-2">批量驳回</h3>
             <p className="text-sm text-slate-500 mb-4">
-              将驳回 {selectedProcessable.length} 个可处理项目
-              {selectedUnprocessable.length > 0 && (
-                <span className="text-amber-600">（{selectedUnprocessable.length} 个不可处理的项目不会被操作）</span>
+              将驳回 {selectedApprovable.length} 个可审核项目
+              {selectedPayable.length > 0 && (
+                <span className="text-blue-600">（{selectedPayable.length} 个待打款项目不会被驳回）</span>
               )}
             </p>
             <textarea
@@ -515,7 +578,7 @@ export default function ProjectList() {
               </button>
               <button
                 onClick={handleBatchReject}
-                disabled={!batchRejectReason.trim() || selectedProcessable.length === 0}
+                disabled={!batchRejectReason.trim() || selectedApprovable.length === 0}
                 className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 确认驳回
