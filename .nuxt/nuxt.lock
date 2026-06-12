@@ -1,0 +1,9 @@
+{
+  "pid": 86391,
+  "startedAt": 1781229037350,
+  "command": "dev",
+  "cwd": "/Users/liu/Documents/private/model-test/trae-20260601-4",
+  "port": 3000,
+  "hostname": "::1",
+  "url": "http://[::1]:3000"
+}

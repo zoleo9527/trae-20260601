@@ -1,0 +1,22 @@
+{
+  "name": "industrial-park-acceptance",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "nuxt build",
+    "dev": "nuxt dev",
+    "generate": "nuxt generate",
+    "preview": "nuxt preview",
+    "postinstall": "nuxt prepare"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "nuxt": "^3.10.0",
+    "vue": "^3.4.0",
+    "vue-router": "^4.2.0"
+  },
+  "dependencies": {
+    "@pinia/nuxt": "^0.5.0",
+    "pinia": "^2.1.0"
+  }
+}
