@@ -76,7 +76,7 @@ export interface ReviewRecord {
   id: string
   reviewer: string
   role: Role
-  action: 'submit' | 'pass' | 'reject' | 'rework' | 'complete' | 'remind' | 'communicate' | 'submit_bill' | 'start_review'
+  action: 'submit' | 'pass' | 'reject' | 'rework' | 'complete' | 'remind' | 'communicate' | 'submit_bill' | 'start_review' | 'start_accounting'
   at: string
   comment: string
   issues?: { field: string; description: string; severity: 'error' | 'warning' | 'suggestion' }[]

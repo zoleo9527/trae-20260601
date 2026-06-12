@@ -44,8 +44,8 @@ const statusTransitionMap: Record<string, { nextStatus: TaskStatus; nextHandler:
   start_accounting: {
     nextStatus: 'accounting',
     nextHandler: (t) => t.customer.accountant,
-    recordAction: 'rework',
-    comment: '开始账务处理',
+    recordAction: 'start_accounting',
+    comment: '开始账务处理，进入凭证录入阶段',
     activityAction: '开始记账',
     activityTarget: '开始账务处理'
   },
@@ -185,13 +185,13 @@ const executeAction = (action: string, task: AccountingTask) => {
     t.overdue = false
     t.hasRisk = false
     t.riskNote = undefined
+    risks.value = risks.value.filter(r => r.relatedTaskId !== t.id)
   }
 
-  if (t.status === 'review_pass' || t.status === 'completed') {
-    const riskIdx = risks.value.findIndex(r => r.relatedTaskId === t.id)
-    if (riskIdx !== -1) {
-      risks.value.splice(riskIdx, 1)
-    }
+  if (t.status === 'review_pass') {
+    t.hasRisk = false
+    t.riskNote = undefined
+    risks.value = risks.value.filter(r => r.relatedTaskId !== t.id)
   }
 
   if (action === 'remind_bill' || action === 'submit_bill') {
@@ -199,8 +199,21 @@ const executeAction = (action: string, task: AccountingTask) => {
     if (riskIdx !== -1) {
       if (action === 'submit_bill') {
         risks.value.splice(riskIdx, 1)
+        const remainingRisks = risks.value.filter(r => r.relatedTaskId === t.id)
+        if (remainingRisks.length === 0) {
+          t.hasRisk = false
+          t.riskNote = undefined
+        } else if (t.riskNote?.includes('缺票') || t.riskNote?.includes('票据不足')) {
+          t.riskNote = remainingRisks.map(r => r.description).join('；')
+        }
       } else {
         risks.value[riskIdx].updatedAt = timestamp
+      }
+    } else if (action === 'submit_bill') {
+      const remainingRisks = risks.value.filter(r => r.relatedTaskId === t.id)
+      if (remainingRisks.length === 0) {
+        t.hasRisk = false
+        t.riskNote = undefined
       }
     }
   }

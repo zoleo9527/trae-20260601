@@ -27,7 +27,8 @@ const actionMeta = computed(() => {
     remind: { label: '催交票据', color: 'var(--color-warning)', icon: '📨' },
     communicate: { label: '沟通', color: 'var(--color-info)', icon: '💬' },
     submit_bill: { label: '票据就绪', color: 'var(--color-info)', icon: '📋' },
-    start_review: { label: '开始复核', color: 'var(--color-warning)', icon: '🔍' }
+    start_review: { label: '开始复核', color: 'var(--color-warning)', icon: '🔍' },
+    start_accounting: { label: '开始记账', color: 'var(--color-primary)', icon: '📝' }
   }
   return map
 })
