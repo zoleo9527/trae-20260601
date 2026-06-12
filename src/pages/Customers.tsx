@@ -31,7 +31,7 @@ export default function Customers() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const { canManageCustomers } = usePermissions()
-  const { page, pageSize, setTotal, setPage, setPageSize, paginationParams } = usePagination()
+  const { page, pageSize, total, totalPages, setTotal, setPage, setPageSize, paginationParams } = usePagination()
   
   const [customers, setCustomers] = useState<Customer[]>([])
   const [loading, setLoading] = useState(true)
@@ -183,8 +183,8 @@ export default function Customers() {
         data={customers}
         page={page}
         pageSize={pageSize}
-        total={0}
-        totalPages={0}
+        total={total}
+        totalPages={totalPages}
         onPageChange={setPage}
         onPageSizeChange={setPageSize}
         loading={loading}

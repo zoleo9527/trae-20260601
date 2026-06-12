@@ -22,7 +22,7 @@ const typeOptions = [
 export default function Notes() {
   const navigate = useNavigate()
   const { canAddNote } = usePermissions()
-  const { page, pageSize, setTotal, setPage, setPageSize, paginationParams } = usePagination()
+  const { page, pageSize, total, totalPages, setTotal, setPage, setPageSize, paginationParams } = usePagination()
   
   const [notes, setNotes] = useState<Note[]>([])
   const [loading, setLoading] = useState(true)
@@ -166,8 +166,8 @@ export default function Notes() {
         data={notes}
         page={page}
         pageSize={pageSize}
-        total={0}
-        totalPages={0}
+        total={total}
+        totalPages={totalPages}
         onPageChange={setPage}
         onPageSizeChange={setPageSize}
         loading={loading}

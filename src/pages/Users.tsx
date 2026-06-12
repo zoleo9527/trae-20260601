@@ -31,7 +31,7 @@ const roleOptions = [
 
 export default function Users() {
   const { canManageUsers } = usePermissions()
-  const { page, pageSize, setTotal, setPage, setPageSize, paginationParams } = usePagination()
+  const { page, pageSize, total, totalPages, setTotal, setPage, setPageSize, paginationParams } = usePagination()
   
   const [users, setUsers] = useState<SafeUser[]>([])
   const [loading, setLoading] = useState(true)
@@ -258,8 +258,8 @@ export default function Users() {
         data={users}
         page={page}
         pageSize={pageSize}
-        total={0}
-        totalPages={0}
+        total={total}
+        totalPages={totalPages}
         onPageChange={setPage}
         onPageSizeChange={setPageSize}
         loading={loading}

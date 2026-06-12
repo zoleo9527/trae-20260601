@@ -23,7 +23,7 @@ export default function Handovers() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const { canCreateHandover } = usePermissions()
-  const { page, pageSize, setTotal, setPage, setPageSize, paginationParams } = usePagination()
+  const { page, pageSize, total, totalPages, setTotal, setPage, setPageSize, paginationParams } = usePagination()
   
   const [handovers, setHandovers] = useState<Handover[]>([])
   const [loading, setLoading] = useState(true)
@@ -157,8 +157,8 @@ export default function Handovers() {
         data={handovers}
         page={page}
         pageSize={pageSize}
-        total={0}
-        totalPages={0}
+        total={total}
+        totalPages={totalPages}
         onPageChange={setPage}
         onPageSizeChange={setPageSize}
         loading={loading}
