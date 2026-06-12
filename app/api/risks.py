@@ -165,11 +165,6 @@ def get_customer_document_status(
         DocumentGap.period == period
     ).all()
     
-    all_gaps = db.query(DocumentGap).filter(
-        DocumentGap.customer_id == customer_id,
-        DocumentGap.status != GapStatus.SUBMITTED
-    ).all()
-    
     risk_summary = db.query(RiskSummary).filter(
         RiskSummary.customer_id == customer_id,
         RiskSummary.period == period
@@ -257,15 +252,11 @@ def get_customer_document_status(
         
         category_items[doc_type.category.value].append(item)
     
-    pending_collections = db.query(DocumentGap).filter(
-        DocumentGap.customer_id == customer_id,
-        DocumentGap.status != GapStatus.SUBMITTED
-    ).all()
-    
     now = datetime.now()
     today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
     today_end = today_start + timedelta(days=1)
     
+    pending_collections = gaps
     for gap in pending_collections:
         pending_collection_count += 1
         if gap.risk_level == RiskLevel.HIGH:
@@ -438,10 +429,13 @@ def get_pending_collection_list(
         if contact_method and last_contact_method != contact_method:
             continue
         
-        if follow_up_start_dt and next_follow_up_date and next_follow_up_date < follow_up_start_dt:
-            continue
-        if follow_up_end_dt and next_follow_up_date and next_follow_up_date >= follow_up_end_dt:
-            continue
+        if follow_up_start_dt or follow_up_end_dt:
+            if next_follow_up_date is None:
+                continue
+            if follow_up_start_dt and next_follow_up_date < follow_up_start_dt:
+                continue
+            if follow_up_end_dt and next_follow_up_date >= follow_up_end_dt:
+                continue
         
         is_overdue = gap.status == GapStatus.OVERDUE
         
