@@ -1,17 +1,24 @@
 import { useEffect, useState } from 'react';
-import { Plus, Filter, FileText, Wallet, Eye, Edit2, Trash2, CheckSquare, Square } from 'lucide-react';
+import { useSearchParams } from 'react-router-dom';
+import { Plus, Filter, FileText, Wallet, Eye, Edit2, Trash2, CheckSquare, Square, CheckCircle, XCircle } from 'lucide-react';
 import { useProjectStore } from '../stores/projectStore';
 import Layout from '../components/layout/Layout';
-import { statusNames, roleNames, mockUsers } from '../data/mockData';
-import { Project, ProjectCreateData } from '../types';
+import { statusNames, mockUsers } from '../data/mockData';
+import { ProjectCreateData } from '../types';
 
 type TabType = 'all' | 'notice' | 'refund';
 
 export default function ProjectList() {
-  const { projects, fetchProjects, createProject, deleteProject, loading } = useProjectStore();
-  const [selectedTab, setSelectedTab] = useState<TabType>('all');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tabParam = searchParams.get('tab') as TabType;
+  
+  const { projects, fetchProjects, createProject, deleteProject, loading, currentUser, batchApproveNotice, batchApproveRefund, batchRejectNotice, batchRejectRefund } = useProjectStore();
+  const [selectedTab, setSelectedTab] = useState<TabType>(tabParam || 'all');
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [selectedProjects, setSelectedProjects] = useState<string[]>([]);
+  const [showBatchActions, setShowBatchActions] = useState(false);
+  const [showBatchRejectModal, setShowBatchRejectModal] = useState(false);
+  const [batchRejectReason, setBatchRejectReason] = useState('');
   const [formData, setFormData] = useState<ProjectCreateData>({
     name: '',
     code: '',
@@ -22,12 +29,25 @@ export default function ProjectList() {
     fetchProjects();
   }, [fetchProjects]);
 
+  useEffect(() => {
+    const tab = searchParams.get('tab') as TabType;
+    if (tab) {
+      setSelectedTab(tab);
+    }
+  }, [searchParams]);
+
+  const handleTabChange = (tab: TabType) => {
+    setSelectedTab(tab);
+    setSearchParams({ tab });
+    setSelectedProjects([]);
+  };
+
   const filteredProjects = projects.filter(project => {
     if (selectedTab === 'notice') {
       return project.status === 'notice_pending' || project.status === 'notice_rejected';
     }
     if (selectedTab === 'refund') {
-      return project.status === 'refund_pending' || project.status === 'refund_rejected';
+      return project.status === 'refund_pending' || project.status === 'refund_rejected' || project.status === 'refund_approved';
     }
     return true;
   });
@@ -49,10 +69,11 @@ export default function ProjectList() {
   };
 
   const toggleSelectAll = () => {
-    if (selectedProjects.length === filteredProjects.length) {
+    const filterableIds = filteredProjects.map(p => p.id);
+    if (selectedProjects.length === filterableIds.length) {
       setSelectedProjects([]);
     } else {
-      setSelectedProjects(filteredProjects.map(p => p.id));
+      setSelectedProjects(filterableIds);
     }
   };
 
@@ -60,6 +81,33 @@ export default function ProjectList() {
     setSelectedProjects(prev =>
       prev.includes(id) ? prev.filter(p => p !== id) : [...prev, id]
     );
+  };
+
+  const canBatchApprove = selectedProjects.length > 0 && (
+    (selectedTab === 'notice' && currentUser?.role === 'review_secretary') ||
+    (selectedTab === 'refund' && currentUser?.role === 'finance')
+  );
+
+  const handleBatchApprove = async () => {
+    if (selectedTab === 'notice') {
+      await batchApproveNotice(selectedProjects);
+    } else if (selectedTab === 'refund') {
+      await batchApproveRefund(selectedProjects);
+    }
+    setSelectedProjects([]);
+    setShowBatchActions(false);
+  };
+
+  const handleBatchReject = async () => {
+    if (selectedTab === 'notice') {
+      await batchRejectNotice(selectedProjects, batchRejectReason);
+    } else if (selectedTab === 'refund') {
+      await batchRejectRefund(selectedProjects, batchRejectReason);
+    }
+    setSelectedProjects([]);
+    setShowBatchActions(false);
+    setShowBatchRejectModal(false);
+    setBatchRejectReason('');
   };
 
   const getStatusColor = (status: string) => {
@@ -85,7 +133,7 @@ export default function ProjectList() {
             {tabs.map(tab => (
               <button
                 key={tab.id}
-                onClick={() => setSelectedTab(tab.id)}
+                onClick={() => handleTabChange(tab.id)}
                 className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
                   selectedTab === tab.id
                     ? 'bg-blue-600 text-white'
@@ -99,9 +147,26 @@ export default function ProjectList() {
           </div>
           <div className="flex items-center gap-3">
             {selectedProjects.length > 0 && (
-              <span className="text-sm text-slate-600">
-                已选择 {selectedProjects.length} 项
-              </span>
+              <>
+                <span className="text-sm text-slate-600">
+                  已选择 {selectedProjects.length} 项
+                </span>
+                {canBatchApprove && (
+                  <button
+                    onClick={() => setShowBatchActions(true)}
+                    className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                  >
+                    <CheckCircle className="w-4 h-4" />
+                    批量审核
+                  </button>
+                )}
+                <button
+                  onClick={() => setSelectedProjects([])}
+                  className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
+                >
+                  取消选择
+                </button>
+              </>
             )}
             <button className="flex items-center gap-2 px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors">
               <Filter className="w-4 h-4" />
@@ -116,6 +181,40 @@ export default function ProjectList() {
             </button>
           </div>
         </div>
+
+        {showBatchActions && (
+          <div className="p-4 bg-blue-50 border-b border-blue-200">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <span className="text-sm text-blue-800 font-medium">
+                  批量操作：已选择 {selectedProjects.length} 个项目
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setShowBatchRejectModal(true)}
+                  className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                >
+                  <XCircle className="w-4 h-4" />
+                  批量驳回
+                </button>
+                <button
+                  onClick={handleBatchApprove}
+                  className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                >
+                  <CheckCircle className="w-4 h-4" />
+                  批量通过
+                </button>
+                <button
+                  onClick={() => setShowBatchActions(false)}
+                  className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
+                >
+                  取消
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         <div className="overflow-x-auto">
           <table className="w-full">
@@ -154,7 +253,7 @@ export default function ProjectList() {
                 </tr>
               ) : (
                 filteredProjects.map(project => (
-                  <tr key={project.id} className="hover:bg-slate-50 transition-colors">
+                  <tr key={project.id} className={`hover:bg-slate-50 transition-colors ${selectedProjects.includes(project.id) ? 'bg-blue-50' : ''}`}>
                     <td className="px-4 py-4">
                       <button onClick={() => toggleSelect(project.id)} className="flex items-center gap-2">
                         {selectedProjects.includes(project.id) ? (
@@ -256,6 +355,37 @@ export default function ProjectList() {
                 className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
               >
                 创建
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showBatchRejectModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl p-6 w-full max-w-md mx-4">
+            <h3 className="text-lg font-semibold text-slate-800 mb-2">批量驳回</h3>
+            <p className="text-sm text-slate-500 mb-4">将为选中的 {selectedProjects.length} 个项目填写驳回理由</p>
+            <textarea
+              value={batchRejectReason}
+              onChange={e => setBatchRejectReason(e.target.value)}
+              className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+              rows={4}
+              placeholder="请输入驳回理由..."
+            />
+            <div className="flex justify-end gap-3 mt-6">
+              <button
+                onClick={() => setShowBatchRejectModal(false)}
+                className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
+              >
+                取消
+              </button>
+              <button
+                onClick={handleBatchReject}
+                disabled={!batchRejectReason.trim()}
+                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                确认驳回
               </button>
             </div>
           </div>

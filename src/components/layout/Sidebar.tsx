@@ -1,9 +1,12 @@
-import { LayoutDashboard, FolderOpen, FileText, Wallet, Settings, LogOut } from 'lucide-react';
+import { LayoutDashboard, FolderOpen, FileText, Wallet, Settings, LogOut, ChevronDown, UserCircle } from 'lucide-react';
 import { useProjectStore } from '../../stores/projectStore';
-import { roleNames } from '../../data/mockData';
+import { roleNames, mockUsers } from '../../data/mockData';
+import { useState } from 'react';
 
 interface SidebarProps {
   currentPath: string;
+  onQuickAction?: (tab: string) => void;
+  currentTab?: string;
 }
 
 const menuItems = [
@@ -12,8 +15,23 @@ const menuItems = [
   { id: 'settings', label: '系统设置', icon: Settings, path: '/settings' },
 ];
 
-export default function Sidebar({ currentPath }: SidebarProps) {
-  const { currentUser, logout } = useProjectStore();
+export default function Sidebar({ currentPath, onQuickAction, currentTab = 'all' }: SidebarProps) {
+  const { currentUser, setCurrentUser, logout } = useProjectStore();
+  const [showRoleSwitcher, setShowRoleSwitcher] = useState(false);
+
+  const handleRoleSwitch = (user: typeof mockUsers[0]) => {
+    setCurrentUser(user);
+    setShowRoleSwitcher(false);
+  };
+
+  const handleQuickAction = (tab: string) => {
+    if (onQuickAction) {
+      onQuickAction(tab);
+    }
+    if (tab !== 'all') {
+      window.location.href = '/projects';
+    }
+  };
 
   return (
     <aside className="w-64 bg-slate-800 text-white min-h-screen flex flex-col">
@@ -24,15 +42,51 @@ export default function Sidebar({ currentPath }: SidebarProps) {
 
       {currentUser && (
         <div className="p-4 border-b border-slate-700 bg-slate-750">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-blue-500 flex items-center justify-center">
-              {currentUser.name.charAt(0)}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-blue-500 flex items-center justify-center">
+                {currentUser.name.charAt(0)}
+              </div>
+              <div>
+                <p className="font-medium">{currentUser.name}</p>
+                <p className="text-xs text-slate-400">{roleNames[currentUser.role]}</p>
+              </div>
             </div>
-            <div>
-              <p className="font-medium">{currentUser.name}</p>
-              <p className="text-xs text-slate-400">{roleNames[currentUser.role]}</p>
-            </div>
+            <button
+              onClick={() => setShowRoleSwitcher(!showRoleSwitcher)}
+              className="p-1 hover:bg-slate-600 rounded transition-colors"
+              title="切换角色"
+            >
+              <ChevronDown className="w-4 h-4" />
+            </button>
           </div>
+
+          {showRoleSwitcher && (
+            <div className="mt-3 pt-3 border-t border-slate-600">
+              <p className="text-xs text-slate-400 mb-2">切换角色（演示用）</p>
+              <div className="space-y-1">
+                {mockUsers.map(user => (
+                  <button
+                    key={user.id}
+                    onClick={() => handleRoleSwitch(user)}
+                    className={`w-full text-left px-3 py-2 rounded text-sm transition-colors ${
+                      currentUser.id === user.id 
+                        ? 'bg-blue-600 text-white' 
+                        : 'hover:bg-slate-600 text-slate-300'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <UserCircle className="w-4 h-4" />
+                      <div>
+                        <p className="font-medium">{user.name}</p>
+                        <p className="text-xs opacity-75">{roleNames[user.role]}</p>
+                      </div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -40,7 +94,7 @@ export default function Sidebar({ currentPath }: SidebarProps) {
         <ul className="space-y-2">
           {menuItems.map((item) => {
             const Icon = item.icon;
-            const isActive = currentPath === item.path || currentPath.startsWith(item.path + '/');
+            const isActive = currentPath === item.path;
             return (
               <li key={item.id}>
                 <a
@@ -63,26 +117,30 @@ export default function Sidebar({ currentPath }: SidebarProps) {
           <p className="text-xs text-slate-500 px-4 mb-2">快捷入口</p>
           <ul className="space-y-2">
             <li>
-              <a
-                href="/projects?tab=notice"
-                className={`flex items-center gap-3 px-4 py-2 rounded-lg transition-colors text-slate-300 hover:bg-slate-700 ${
-                  currentPath.includes('notice') ? 'bg-blue-600 text-white' : ''
+              <button
+                onClick={() => handleQuickAction('notice')}
+                className={`flex items-center gap-3 px-4 py-2 rounded-lg transition-colors w-full text-left ${
+                  currentTab === 'notice'
+                    ? 'bg-blue-600 text-white'
+                    : 'text-slate-300 hover:bg-slate-700'
                 }`}
               >
                 <FileText className="w-4 h-4" />
                 中标通知处理
-              </a>
+              </button>
             </li>
             <li>
-              <a
-                href="/projects?tab=refund"
-                className={`flex items-center gap-3 px-4 py-2 rounded-lg transition-colors text-slate-300 hover:bg-slate-700 ${
-                  currentPath.includes('refund') ? 'bg-blue-600 text-white' : ''
+              <button
+                onClick={() => handleQuickAction('refund')}
+                className={`flex items-center gap-3 px-4 py-2 rounded-lg transition-colors w-full text-left ${
+                  currentTab === 'refund'
+                    ? 'bg-blue-600 text-white'
+                    : 'text-slate-300 hover:bg-slate-700'
                 }`}
               >
                 <Wallet className="w-4 h-4" />
                 保证金退还
-              </a>
+              </button>
             </li>
           </ul>
         </div>
