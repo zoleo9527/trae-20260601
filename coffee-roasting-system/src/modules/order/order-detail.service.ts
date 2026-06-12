@@ -61,6 +61,13 @@ export interface OrderDetail {
   updatedAt: Date;
 }
 
+interface UpdateNoteInput {
+  taskType: TaskType;
+  content: string;
+  authorId: string;
+  type?: string;
+}
+
 @Injectable()
 export class OrderDetailService {
   constructor(
@@ -288,6 +295,7 @@ export class OrderDetailService {
     packingBatchNo?: string;
     labelingBatchNo?: string;
     labelingContent?: string;
+    notes?: UpdateNoteInput[];
   }>): Promise<OrderDetail | null> {
     const order = await this.orderRepository.findOne({ where: { id: orderId } });
     if (!order) return null;
@@ -315,6 +323,24 @@ export class OrderDetailService {
           labelingTask.labelContent = updates.labelingContent;
         }
         await this.taskRepository.save(labelingTask);
+      }
+    }
+
+    if (updates.notes && updates.notes.length > 0) {
+      for (const noteInput of updates.notes) {
+        const task = await this.taskRepository.findOne({ where: { orderId, type: noteInput.taskType } });
+        const author = await this.userRepository.findOne({ where: { id: noteInput.authorId } });
+        if (task && author) {
+          const note = this.noteRepository.create({
+            content: noteInput.content,
+            task,
+            taskId: task.id,
+            author,
+            authorId: author.id,
+            type: noteInput.type || 'general',
+          });
+          await this.noteRepository.save(note);
+        }
       }
     }
 

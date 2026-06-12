@@ -1,4 +1,4 @@
-import { Controller, Get, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Query, Param, UseGuards } from '@nestjs/common';
 import { LabelingHistoryService } from './labeling-history.service';
 import { AuthGuard } from '@nestjs/passport';
 
@@ -19,7 +19,7 @@ export class LabelingHistoryController {
   }
 
   @Get('batch/:batchNo')
-  async getByBatchNo(@Query('batchNo') batchNo: string) {
+  async getByBatchNo(@Param('batchNo') batchNo: string) {
     return this.historyService.getLabelingByBatchNo(batchNo);
   }
 

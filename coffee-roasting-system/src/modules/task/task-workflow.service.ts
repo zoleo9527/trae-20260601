@@ -22,6 +22,8 @@ export class TaskWorkflowService {
     task.status = status;
     if (status === TaskStatus.COMPLETED) {
       task.completedAt = new Date();
+    } else if (status === TaskStatus.PENDING) {
+      task.completedAt = null;
     }
     if (batchNo) {
       task.batchNo = batchNo;
@@ -41,6 +43,10 @@ export class TaskWorkflowService {
     const order = await this.orderRepository.findOne({ where: { id: orderId } });
     if (!order) return;
 
+    if (order.status === OrderStatus.RETURNED) {
+      return;
+    }
+
     const packingCompleted = tasks.some(t => t.type === TaskType.PACKING && t.status === TaskStatus.COMPLETED);
     const labelingCompleted = tasks.some(t => t.type === TaskType.LABELING && t.status === TaskStatus.COMPLETED);
     const inspectionCompleted = tasks.some(t => t.type === TaskType.INSPECTION && t.status === TaskStatus.COMPLETED);
@@ -55,30 +61,22 @@ export class TaskWorkflowService {
 
     if (warehouseCompleted) {
       newStatus = OrderStatus.COMPLETED;
+    } else if (warehouseInProgress) {
+      newStatus = OrderStatus.COMPLETED;
     } else if (inspectionCompleted) {
-      if (warehouseInProgress) {
-        newStatus = OrderStatus.COMPLETED;
-      } else {
-        newStatus = OrderStatus.INSPECTING;
-      }
-    } else if (labelingCompleted) {
-      if (inspectionInProgress) {
-        newStatus = OrderStatus.INSPECTING;
-      } else {
-        newStatus = OrderStatus.LABELING;
-      }
-    } else if (packingCompleted) {
-      if (labelingInProgress) {
-        newStatus = OrderStatus.LABELING;
-      } else {
-        newStatus = OrderStatus.PACKING;
-      }
-    } else if (packingInProgress) {
-      newStatus = OrderStatus.PACKING;
-    } else if (labelingInProgress) {
-      newStatus = OrderStatus.LABELING;
+      newStatus = OrderStatus.INSPECTING;
     } else if (inspectionInProgress) {
       newStatus = OrderStatus.INSPECTING;
+    } else if (labelingCompleted) {
+      newStatus = OrderStatus.LABELING;
+    } else if (labelingInProgress) {
+      newStatus = OrderStatus.LABELING;
+    } else if (packingCompleted) {
+      newStatus = OrderStatus.PACKING;
+    } else if (packingInProgress) {
+      newStatus = OrderStatus.PACKING;
+    } else {
+      newStatus = OrderStatus.PENDING;
     }
 
     if (newStatus !== order.status) {
@@ -105,5 +103,34 @@ export class TaskWorkflowService {
 
   async startTask(taskId: string): Promise<Task> {
     return this.updateTaskStatus(taskId, TaskStatus.IN_PROGRESS);
+  }
+
+  async updateTask(taskId: string, updates: Partial<Pick<Task, 'batchNo' | 'labelContent' | 'status'>>): Promise<Task> {
+    const task = await this.taskRepository.findOne({ where: { id: taskId }, relations: { order: true } });
+    if (!task) {
+      throw new Error('任务不存在');
+    }
+
+    if (updates.batchNo !== undefined) {
+      task.batchNo = updates.batchNo;
+    }
+    if (updates.labelContent !== undefined) {
+      task.labelContent = updates.labelContent;
+    }
+    if (updates.status !== undefined) {
+      task.status = updates.status;
+      if (updates.status === TaskStatus.COMPLETED) {
+        task.completedAt = new Date();
+      } else if (updates.status === TaskStatus.PENDING) {
+        task.completedAt = null;
+      }
+    }
+
+    const updatedTask = await this.taskRepository.save(task);
+    if (updates.status !== undefined) {
+      await this.syncOrderStatus(task.orderId);
+    }
+
+    return updatedTask;
   }
 }
