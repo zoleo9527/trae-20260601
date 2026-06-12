@@ -1,12 +1,14 @@
-import { AlertTriangle, CheckCircle, Clock, FileText, MapPin, RotateCcw, Send, User, X } from 'lucide-react';
+import { AlertTriangle, CheckCircle, Clock, FileText, MapPin, RotateCcw, Send, User, UserPlus, X } from 'lucide-react';
 import { useState } from 'react';
 import { useWorkOrderStore } from '../store/workOrderStore';
 import { formatFullDate, getPriorityName, getRoleName, getStatusName } from '../utils/format';
 import { SatisfactionModal } from './SatisfactionModal';
 
 export const Sidebar = () => {
-  const { selectedOrder, selectOrder, updateOrderStatus, addOperation } = useWorkOrderStore();
+  const { selectedOrder, selectOrder, updateOrderStatus, addOperation, reassignOrder } = useWorkOrderStore();
   const [showSatisfaction, setShowSatisfaction] = useState(false);
+  const [showReassign, setShowReassign] = useState(false);
+  const [newAssignee, setNewAssignee] = useState('');
 
   if (!selectedOrder) {
     return (
@@ -50,6 +52,25 @@ export const Sidebar = () => {
       action: '开始处理',
       timestamp: new Date().toISOString(),
     });
+  };
+
+  const handleContinueProcess = () => {
+    updateOrderStatus(selectedOrder.id, 'processing');
+    addOperation(selectedOrder.id, {
+      id: `H${Date.now()}`,
+      operator: selectedOrder.assignee || '维修师傅',
+      operatorRole: 'repairman',
+      action: '继续处理',
+      timestamp: new Date().toISOString(),
+    });
+  };
+
+  const handleReassignSubmit = () => {
+    if (newAssignee.trim()) {
+      reassignOrder(selectedOrder.id, newAssignee.trim(), '张主管');
+      setShowReassign(false);
+      setNewAssignee('');
+    }
   };
 
   const statusColors: Record<string, string> = {
@@ -221,17 +242,17 @@ export const Sidebar = () => {
           {selectedOrder.status === 'overdue' && (
             <>
               <button
-                onClick={handleProcess}
+                onClick={handleContinueProcess}
                 className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors"
               >
                 <CheckCircle size={16} />
                 继续处理
               </button>
               <button
-                onClick={handleProcess}
+                onClick={() => setShowReassign(true)}
                 className="flex items-center justify-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
               >
-                <Send size={16} />
+                <UserPlus size={16} />
                 重新派单
               </button>
             </>
@@ -244,6 +265,69 @@ export const Sidebar = () => {
           orderId={selectedOrder.id}
           onClose={() => setShowSatisfaction(false)}
         />
+      )}
+
+      {showReassign && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl p-6 w-full max-w-md mx-4">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-lg font-semibold text-gray-900">重新派单</h3>
+              <button
+                onClick={() => {
+                  setShowReassign(false);
+                  setNewAssignee('');
+                }}
+                className="p-1 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5 text-gray-500" />
+              </button>
+            </div>
+
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">派单人</label>
+              <input
+                type="text"
+                value="张主管"
+                disabled
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-500 focus:outline-none"
+              />
+            </div>
+
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">处理人</label>
+              <input
+                type="text"
+                value={newAssignee}
+                onChange={(e) => setNewAssignee(e.target.value)}
+                placeholder="请输入处理人姓名"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary"
+              />
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setShowReassign(false);
+                  setNewAssignee('');
+                }}
+                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                取消
+              </button>
+              <button
+                onClick={handleReassignSubmit}
+                disabled={!newAssignee.trim()}
+                className={`flex-1 px-4 py-2 text-white rounded-lg transition-colors ${
+                  newAssignee.trim()
+                    ? 'bg-blue-500 hover:bg-blue-600'
+                    : 'bg-gray-300 cursor-not-allowed'
+                }`}
+              >
+                确认派单
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

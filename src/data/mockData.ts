@@ -59,13 +59,14 @@ export const mockWorkOrders: WorkOrder[] = [
         action: '提交工单',
         timestamp: '2026-06-11T14:20:00',
       },
+      {
+        id: 'H004',
+        operator: '李主管',
+        operatorRole: 'admin',
+        action: '派单给刘师傅',
+        timestamp: '2026-06-11T14:30:00',
+      },
     ],
-    satisfaction: {
-      score: 3,
-      comment: '维修及时，但态度一般',
-      createdAt: '2026-06-11T16:30:00',
-      operator: '张宿管',
-    },
   },
   {
     id: 'WO-20260612-003',
@@ -84,14 +85,21 @@ export const mockWorkOrders: WorkOrder[] = [
     responsibilityUnclear: false,
     history: [
       {
-        id: 'H004',
+        id: 'H005',
         operator: '王宿管',
         operatorRole: 'dorm_manager',
         action: '提交工单',
         timestamp: `${today}T10:15:00`,
       },
       {
-        id: 'H005',
+        id: 'H006',
+        operator: '张主管',
+        operatorRole: 'admin',
+        action: '派单给陈师傅',
+        timestamp: `${today}T10:30:00`,
+      },
+      {
+        id: 'H007',
         operator: '陈师傅',
         operatorRole: 'repairman',
         action: '开始处理',
@@ -114,14 +122,14 @@ export const mockWorkOrders: WorkOrder[] = [
     responsibilityUnclear: true,
     history: [
       {
-        id: 'H006',
+        id: 'H008',
         operator: '赵宿管',
         operatorRole: 'dorm_manager',
         action: '提交工单',
         timestamp: '2026-06-10T09:00:00',
       },
       {
-        id: 'H007',
+        id: 'H009',
         operator: '李主管',
         operatorRole: 'admin',
         action: '退回工单：需要提供更详细信息',
@@ -144,7 +152,7 @@ export const mockWorkOrders: WorkOrder[] = [
     responsibilityUnclear: false,
     history: [
       {
-        id: 'H008',
+        id: 'H010',
         operator: '孙宿管',
         operatorRole: 'dorm_manager',
         action: '提交工单',
@@ -164,23 +172,37 @@ export const mockWorkOrders: WorkOrder[] = [
     assignee: '吴师傅',
     assigneeRole: 'repairman',
     createdAt: '2026-06-09T11:30:00',
-    updatedAt: '2026-06-09T15:00:00',
+    updatedAt: '2026-06-09T15:30:00',
     dueTime: '2026-06-09T18:00:00',
     responsibilityUnclear: false,
     history: [
       {
-        id: 'H009',
+        id: 'H011',
         operator: '周宿管',
         operatorRole: 'dorm_manager',
         action: '提交工单',
         timestamp: '2026-06-09T11:30:00',
       },
       {
-        id: 'H010',
+        id: 'H012',
+        operator: '张主管',
+        operatorRole: 'admin',
+        action: '派单给吴师傅',
+        timestamp: '2026-06-09T12:00:00',
+      },
+      {
+        id: 'H013',
         operator: '吴师傅',
         operatorRole: 'repairman',
         action: '完成维修',
         timestamp: '2026-06-09T15:00:00',
+      },
+      {
+        id: 'H014',
+        operator: '周宿管',
+        operatorRole: 'dorm_manager',
+        action: '满意度回访：满意(5分) - 维修师傅态度很好，技术精湛',
+        timestamp: '2026-06-09T15:30:00',
       },
     ],
     satisfaction: {
@@ -205,7 +227,7 @@ export const mockWorkOrders: WorkOrder[] = [
     responsibilityUnclear: true,
     history: [
       {
-        id: 'H011',
+        id: 'H015',
         operator: '郑宿管',
         operatorRole: 'dorm_manager',
         action: '提交工单',
@@ -230,14 +252,21 @@ export const mockWorkOrders: WorkOrder[] = [
     responsibilityUnclear: false,
     history: [
       {
-        id: 'H012',
+        id: 'H016',
         operator: '冯宿管',
         operatorRole: 'dorm_manager',
         action: '提交工单',
         timestamp: `${today}T09:20:00`,
       },
       {
-        id: 'H013',
+        id: 'H017',
+        operator: '张主管',
+        operatorRole: 'admin',
+        action: '派单给何师傅',
+        timestamp: `${today}T09:30:00`,
+      },
+      {
+        id: 'H018',
         operator: '何师傅',
         operatorRole: 'repairman',
         action: '开始处理',

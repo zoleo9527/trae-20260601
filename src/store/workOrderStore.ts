@@ -13,6 +13,7 @@ interface WorkOrderStore {
   updateOrderStatus: (id: string, status: Status) => void;
   addOperation: (id: string, operation: Operation) => void;
   addSatisfaction: (id: string, score: number, comment: string, operator: string) => void;
+  reassignOrder: (id: string, assignee: string, assigner: string) => void;
   filteredOrders: () => WorkOrder[];
 }
 
@@ -118,6 +119,43 @@ export const useWorkOrderStore = create<WorkOrderStore>((set, get) => ({
             : state.selectedOrder,
       };
     });
+  },
+
+  reassignOrder: (id, assignee, assigner) => {
+    const now = new Date().toISOString();
+    const newOperation: Operation = {
+      id: `H${Date.now()}`,
+      operator: assigner,
+      operatorRole: 'admin',
+      action: `重新派单给${assignee}`,
+      timestamp: now,
+    };
+    
+    set((state) => ({
+      orders: state.orders.map((order) =>
+        order.id === id
+          ? {
+              ...order,
+              assignee,
+              assigneeRole: 'repairman',
+              status: 'processing',
+              history: [...order.history, newOperation],
+              updatedAt: now,
+            }
+          : order
+      ),
+      selectedOrder:
+        state.selectedOrder?.id === id
+          ? {
+              ...state.selectedOrder,
+              assignee,
+              assigneeRole: 'repairman',
+              status: 'processing',
+              history: [...state.selectedOrder.history, newOperation],
+              updatedAt: now,
+            }
+          : state.selectedOrder,
+    }));
   },
 
   filteredOrders: () => {
