@@ -2,16 +2,17 @@ from typing import List, Optional
 from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from sqlalchemy import and_
+from sqlalchemy import and_, func
 
 from app.database import get_db
 from app.models import (
     RiskSummary, DocumentGap, Customer, DocumentType, DocumentRequirement,
-    DocumentSubmission, RiskLevel, GapStatus, DocumentCategory
+    DocumentSubmission, RiskLevel, GapStatus, DocumentCategory, CollectionRecord
 )
 from app.schemas import (
     RiskSummaryCreate, RiskSummaryResponse, RiskSummaryReport, 
-    CustomerDocumentStatus, CategoryDocumentStatus, DocumentItemStatus
+    CustomerDocumentStatus, CategoryDocumentStatus, DocumentItemStatus,
+    PendingCollectionItem, PendingCollectionResponse
 )
 
 router = APIRouter(prefix="/risks", tags=["风险汇总管理"])
@@ -169,6 +170,17 @@ def get_customer_document_status(
         RiskSummary.period == period
     ).first()
     
+    collection_records = db.query(CollectionRecord).filter(
+        CollectionRecord.customer_id == customer_id
+    ).all()
+    
+    gap_collection_map = {}
+    for record in collection_records:
+        if record.document_gap_id:
+            if record.document_gap_id not in gap_collection_map:
+                gap_collection_map[record.document_gap_id] = []
+            gap_collection_map[record.document_gap_id].append(record)
+    
     doc_types = {dt.id: dt for dt in db.query(DocumentType).all()}
     
     submission_map = {}
@@ -198,6 +210,20 @@ def get_customer_document_status(
         gap_risk_level = gap.risk_level.value if gap and gap.risk_level else None
         gap_notes = gap.notes if gap else None
         
+        last_collection_date = None
+        last_contact_method = None
+        last_contact_result = None
+        next_follow_up_date = None
+        
+        if gap:
+            records = gap_collection_map.get(gap.id, [])
+            if records:
+                latest_record = max(records, key=lambda r: r.contact_date)
+                last_collection_date = latest_record.contact_date
+                last_contact_method = latest_record.contact_method
+                last_contact_result = latest_record.customer_response
+                next_follow_up_date = latest_record.next_follow_up_date
+        
         item = DocumentItemStatus(
             document_type_id=req.document_type_id,
             document_type_name=doc_type.name,
@@ -213,7 +239,11 @@ def get_customer_document_status(
             gap_risk_level=gap_risk_level,
             gap_notes=gap_notes,
             has_risk=(gap_risk_level is not None),
-            risk_level=gap_risk_level
+            risk_level=gap_risk_level,
+            last_collection_date=last_collection_date,
+            last_contact_method=last_contact_method,
+            last_contact_result=last_contact_result,
+            next_follow_up_date=next_follow_up_date
         )
         
         category_items[doc_type.category.value].append(item)
@@ -281,4 +311,134 @@ def get_customer_document_status(
         categories=categories,
         overall_summary=overall_summary,
         risk_summary=risk_summary_data
+    )
+
+
+@router.get("/pending-collection/list", response_model=PendingCollectionResponse)
+def get_pending_collection_list(
+    customer_id: Optional[int] = None,
+    period: Optional[str] = None,
+    risk_level: Optional[RiskLevel] = None,
+    only_overdue: bool = False,
+    need_follow_up: bool = False,
+    skip: int = 0,
+    limit: int = 100,
+    db: Session = Depends(get_db)
+):
+    query = db.query(DocumentGap).filter(DocumentGap.status != GapStatus.SUBMITTED)
+    
+    if customer_id:
+        query = query.filter(DocumentGap.customer_id == customer_id)
+    if period:
+        query = query.filter(DocumentGap.period == period)
+    if risk_level:
+        query = query.filter(DocumentGap.risk_level == risk_level)
+    if only_overdue:
+        query = query.filter(DocumentGap.status == GapStatus.OVERDUE)
+    
+    gaps = query.all()
+    
+    doc_types = {dt.id: dt for dt in db.query(DocumentType).all()}
+    customers = {c.id: c for c in db.query(Customer).all()}
+    
+    collection_records = db.query(CollectionRecord).filter(
+        CollectionRecord.document_gap_id.in_([g.id for g in gaps])
+    ).all()
+    
+    gap_collection_map = {}
+    for record in collection_records:
+        if record.document_gap_id:
+            if record.document_gap_id not in gap_collection_map:
+                gap_collection_map[record.document_gap_id] = []
+            gap_collection_map[record.document_gap_id].append(record)
+    
+    items = []
+    overdue_count = 0
+    pending_count = 0
+    need_follow_up_count = 0
+    
+    now = datetime.now()
+    
+    for gap in gaps:
+        customer = customers.get(gap.customer_id)
+        doc_type = doc_types.get(gap.document_type_id)
+        
+        if not customer or not doc_type:
+            continue
+        
+        records = gap_collection_map.get(gap.id, [])
+        
+        last_collection_date = None
+        last_contact_method = None
+        last_contact_result = None
+        next_follow_up_date = None
+        collection_count = len(records)
+        
+        if records:
+            latest_record = max(records, key=lambda r: r.contact_date)
+            last_collection_date = latest_record.contact_date
+            last_contact_method = latest_record.contact_method
+            last_contact_result = latest_record.customer_response
+            next_follow_up_date = latest_record.next_follow_up_date
+        
+        is_overdue = gap.status == GapStatus.OVERDUE
+        
+        if is_overdue:
+            overdue_count += 1
+        else:
+            pending_count += 1
+        
+        should_include = False
+        if need_follow_up:
+            if is_overdue:
+                should_include = True
+            elif next_follow_up_date and next_follow_up_date <= now:
+                should_include = True
+            elif next_follow_up_date is None and gap.due_date and gap.due_date <= now:
+                should_include = True
+            
+            if not should_include:
+                continue
+        
+        if should_include or not need_follow_up:
+            if need_follow_up:
+                need_follow_up_count += 1
+            
+            item = PendingCollectionItem(
+                gap_id=gap.id,
+                customer_id=customer.id,
+                customer_name=customer.name,
+                contact_person=customer.contact_person,
+                contact_phone=customer.contact_phone,
+                document_type_id=gap.document_type_id,
+                document_type_name=doc_type.name,
+                category=doc_type.category.value,
+                period=gap.period,
+                gap_status=gap.status.value,
+                risk_level=gap.risk_level.value if gap.risk_level else None,
+                due_date=gap.due_date,
+                is_overdue=is_overdue,
+                last_collection_date=last_collection_date,
+                last_contact_method=last_contact_method,
+                last_contact_result=last_contact_result,
+                next_follow_up_date=next_follow_up_date,
+                collection_count=collection_count,
+                customer_response=last_contact_result
+            )
+            items.append(item)
+    
+    items = sorted(items, key=lambda x: (
+        x.is_overdue, 
+        x.risk_level == "高" if x.risk_level else False,
+        x.next_follow_up_date or datetime.max
+    ), reverse=True)
+    
+    total_count = len(items)
+    
+    return PendingCollectionResponse(
+        items=items,
+        total_count=total_count,
+        overdue_count=overdue_count,
+        pending_count=pending_count,
+        need_follow_up_count=need_follow_up_count
     )

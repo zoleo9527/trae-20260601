@@ -196,6 +196,10 @@ class DocumentItemStatus(BaseModel):
     gap_notes: Optional[str]
     has_risk: bool = False
     risk_level: Optional[str]
+    last_collection_date: Optional[datetime] = None
+    last_contact_method: Optional[str] = None
+    last_contact_result: Optional[str] = None
+    next_follow_up_date: Optional[datetime] = None
 
 
 class CategoryDocumentStatus(BaseModel):
@@ -224,3 +228,33 @@ class RiskSummaryReport(BaseModel):
     risk_description: str
     affected_declaration: bool
     gaps: List[DocumentGapResponse]
+
+
+class PendingCollectionItem(BaseModel):
+    gap_id: int
+    customer_id: int
+    customer_name: str
+    contact_person: Optional[str] = None
+    contact_phone: Optional[str] = None
+    document_type_id: int
+    document_type_name: str
+    category: str
+    period: str
+    gap_status: str
+    risk_level: Optional[str]
+    due_date: Optional[datetime]
+    is_overdue: bool
+    last_collection_date: Optional[datetime] = None
+    last_contact_method: Optional[str] = None
+    last_contact_result: Optional[str] = None
+    next_follow_up_date: Optional[datetime] = None
+    collection_count: int = 0
+    customer_response: Optional[str] = None
+
+
+class PendingCollectionResponse(BaseModel):
+    items: List[PendingCollectionItem]
+    total_count: int
+    overdue_count: int
+    pending_count: int
+    need_follow_up_count: int

@@ -290,6 +290,8 @@ def create_seed_data():
         for gap in gaps_customer2:
             db.add(gap)
         
+        db.commit()
+        
         submissions_customer2 = [
             DocumentSubmission(
                 customer_id=customer2.id,
@@ -356,32 +358,112 @@ def create_seed_data():
             CollectionRecord(
                 customer_id=customer1.id,
                 document_gap_id=gaps_customer1[0].id,
-                contact_date=datetime.now() - timedelta(days=3),
+                contact_date=datetime.now() - timedelta(days=5),
                 contact_method="电话",
                 contact_person_manager="陈经理",
                 content="催促提交本月增值税发票",
                 customer_response="正在整理，明天提交",
+                next_follow_up_date=datetime.now() - timedelta(days=4)
+            ),
+            CollectionRecord(
+                customer_id=customer1.id,
+                document_gap_id=gaps_customer1[0].id,
+                contact_date=datetime.now() - timedelta(days=3),
+                contact_method="微信",
+                contact_person_manager="陈经理",
+                content="再次催促提交发票，告知申报截止日期",
+                customer_response="财务出差，回来后立即处理",
                 next_follow_up_date=datetime.now() - timedelta(days=2)
             ),
             CollectionRecord(
                 customer_id=customer1.id,
                 document_gap_id=gaps_customer1[0].id,
                 contact_date=datetime.now() - timedelta(days=1),
-                contact_method="微信",
+                contact_method="电话",
                 contact_person_manager="陈经理",
-                content="再次催促提交发票，告知申报截止日期",
-                customer_response="财务出差，回来后立即处理",
+                content="紧急催促发票",
+                customer_response="正在处理",
                 next_follow_up_date=datetime.now()
             ),
             CollectionRecord(
                 customer_id=customer1.id,
+                document_gap_id=gaps_customer1[1].id,
+                contact_date=datetime.now() - timedelta(days=4),
+                contact_method="电话",
+                contact_person_manager="陈经理",
+                content="催促提交本月银行回单",
+                customer_response="正在去银行",
+                next_follow_up_date=datetime.now() - timedelta(days=3)
+            ),
+            CollectionRecord(
+                customer_id=customer1.id,
+                document_gap_id=gaps_customer1[1].id,
+                contact_date=datetime.now() - timedelta(days=2),
+                contact_method="微信",
+                contact_person_manager="陈经理",
+                content="再次催促银行回单",
+                customer_response="银行排队中",
+                next_follow_up_date=datetime.now() + timedelta(days=1)
+            ),
+            CollectionRecord(
+                customer_id=customer1.id,
+                document_gap_id=gaps_customer1[2].id,
+                contact_date=datetime.now() - timedelta(days=1),
+                contact_method="电话",
+                contact_person_manager="陈经理",
+                content="提醒提交工资表",
+                customer_response="工资还没发",
+                next_follow_up_date=datetime.now() + timedelta(days=2)
+            ),
+            CollectionRecord(
+                customer_id=customer1.id,
                 document_gap_id=gaps_customer1[3].id,
-                contact_date=datetime.now() - timedelta(days=10),
+                contact_date=datetime.now() - timedelta(days=15),
                 contact_method="电话",
                 contact_person_manager="陈经理",
                 content="催促提交上月发票",
                 customer_response="已安排人员整理",
+                next_follow_up_date=datetime.now() - timedelta(days=10)
+            ),
+            CollectionRecord(
+                customer_id=customer1.id,
+                document_gap_id=gaps_customer1[3].id,
+                contact_date=datetime.now() - timedelta(days=8),
+                contact_method="微信",
+                contact_person_manager="陈经理",
+                content="再次催促上月发票",
+                customer_response="还在整理",
                 next_follow_up_date=datetime.now() - timedelta(days=7)
+            ),
+            CollectionRecord(
+                customer_id=customer1.id,
+                document_gap_id=gaps_customer1[4].id,
+                contact_date=datetime.now() - timedelta(days=12),
+                contact_method="电话",
+                contact_person_manager="陈经理",
+                content="催促提交上月银行回单",
+                customer_response="财务休年假",
+                next_follow_up_date=datetime.now() - timedelta(days=5)
+            ),
+            CollectionRecord(
+                customer_id=customer1.id,
+                document_gap_id=gaps_customer1[4].id,
+                contact_date=datetime.now() - timedelta(days=4),
+                contact_method="电话",
+                contact_person_manager="陈经理",
+                content="再次催促上月银行回单",
+                customer_response="下周回来处理",
+                next_follow_up_date=datetime.now() + timedelta(days=3)
+            ),
+            CollectionRecord(
+                customer_id=customer2.id,
+                document_gap_id=gaps_customer2[0].id,
+                contact_date=datetime.now() - timedelta(days=2),
+                contact_method="微信",
+                contact_person_manager="刘经理",
+                content="提醒提交银行回单",
+                customer_response="已去银行打印，今天下午提交",
+                next_follow_up_date=datetime.now() - timedelta(days=1)
             ),
             CollectionRecord(
                 customer_id=customer2.id,
@@ -389,9 +471,9 @@ def create_seed_data():
                 contact_date=datetime.now() - timedelta(days=1),
                 contact_method="微信",
                 contact_person_manager="刘经理",
-                content="提醒提交银行回单",
-                customer_response="已去银行打印，今天下午提交",
-                next_follow_up_date=datetime.now()
+                content="跟进银行回单提交情况",
+                customer_response="已提交，在走审批流程",
+                next_follow_up_date=datetime.now() + timedelta(days=1)
             ),
         ]
         
