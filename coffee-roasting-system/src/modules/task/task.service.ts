@@ -4,12 +4,14 @@ import { Repository } from 'typeorm';
 import { Task, TaskType, TaskStatus } from '../../entities/task.entity';
 import { Order } from '../../entities/order.entity';
 import { User } from '../../entities/user.entity';
+import { TaskWorkflowService } from './task-workflow.service';
 
 @Injectable()
 export class TaskService {
   constructor(
     @InjectRepository(Task)
     private taskRepository: Repository<Task>,
+    private workflowService: TaskWorkflowService,
   ) {}
 
   async create(order: Order, type: TaskType, assignee?: User): Promise<Task> {
@@ -58,18 +60,41 @@ export class TaskService {
   }
 
   async updateStatus(id: string, status: TaskStatus, batchNo?: string, labelContent?: string): Promise<Task | null> {
-    const updateData: Partial<Task> = { status };
-    if (status === TaskStatus.COMPLETED) {
-      updateData.completedAt = new Date();
+    try {
+      const task = await this.workflowService.updateTaskStatus(id, status, batchNo, labelContent);
+      return this.findOne(task.id);
+    } catch {
+      return null;
     }
-    if (batchNo) updateData.batchNo = batchNo;
-    if (labelContent) updateData.labelContent = labelContent;
-    
-    await this.taskRepository.update(id, updateData);
-    return this.findOne(id);
   }
 
   async update(id: string, updateData: Partial<Task>): Promise<Task | null> {
+    const hasStatusOrBatchOrLabel = 
+      updateData.status !== undefined || 
+      updateData.batchNo !== undefined || 
+      updateData.labelContent !== undefined;
+
+    if (hasStatusOrBatchOrLabel) {
+      try {
+        const task = await this.workflowService.updateTask(id, {
+          status: updateData.status,
+          batchNo: updateData.batchNo,
+          labelContent: updateData.labelContent,
+        });
+        
+        if (updateData.assigneeId !== undefined || updateData.assignee !== undefined) {
+          await this.taskRepository.update(id, {
+            assigneeId: updateData.assigneeId,
+            assignee: updateData.assignee,
+          });
+        }
+        
+        return this.findOne(task.id);
+      } catch {
+        return null;
+      }
+    }
+
     await this.taskRepository.update(id, updateData);
     return this.findOne(id);
   }

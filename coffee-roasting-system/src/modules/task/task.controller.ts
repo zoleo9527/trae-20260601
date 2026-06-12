@@ -40,7 +40,13 @@ export class TaskController {
 
   @Put(':id')
   async update(@Param('id') id: string, @Body() body: Record<string, unknown>) {
-    return this.taskService.update(id, body);
+    const updateData: Partial<Task> = {};
+    if (body.status !== undefined) updateData.status = body.status as TaskStatus;
+    if (body.batchNo !== undefined) updateData.batchNo = body.batchNo as string;
+    if (body.labelContent !== undefined) updateData.labelContent = body.labelContent as string;
+    if (body.assigneeId !== undefined) updateData.assigneeId = body.assigneeId as string;
+    
+    return this.taskService.update(id, updateData);
   }
 
   @Delete(':id')

@@ -25,10 +25,10 @@ export class TaskWorkflowService {
     } else if (status === TaskStatus.PENDING) {
       task.completedAt = null;
     }
-    if (batchNo) {
+    if (batchNo !== undefined) {
       task.batchNo = batchNo;
     }
-    if (labelContent) {
+    if (labelContent !== undefined) {
       task.labelContent = labelContent;
     }
 
@@ -61,18 +61,28 @@ export class TaskWorkflowService {
 
     if (warehouseCompleted) {
       newStatus = OrderStatus.COMPLETED;
-    } else if (warehouseInProgress) {
-      newStatus = OrderStatus.COMPLETED;
     } else if (inspectionCompleted) {
-      newStatus = OrderStatus.INSPECTING;
+      if (warehouseInProgress) {
+        newStatus = OrderStatus.INSPECTING;
+      } else {
+        newStatus = OrderStatus.INSPECTING;
+      }
     } else if (inspectionInProgress) {
       newStatus = OrderStatus.INSPECTING;
     } else if (labelingCompleted) {
-      newStatus = OrderStatus.LABELING;
+      if (inspectionInProgress) {
+        newStatus = OrderStatus.INSPECTING;
+      } else {
+        newStatus = OrderStatus.LABELING;
+      }
     } else if (labelingInProgress) {
       newStatus = OrderStatus.LABELING;
     } else if (packingCompleted) {
-      newStatus = OrderStatus.PACKING;
+      if (labelingInProgress) {
+        newStatus = OrderStatus.LABELING;
+      } else {
+        newStatus = OrderStatus.PACKING;
+      }
     } else if (packingInProgress) {
       newStatus = OrderStatus.PACKING;
     } else {
