@@ -1,0 +1,186 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../node_modules/.prisma/client"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  PROJECT_MANAGER
+  REVIEWER
+  FINANCE
+  BIDDER
+}
+
+enum AnnouncementStatus {
+  DRAFT
+  PENDING_REVIEW
+  REVIEWED
+  APPROVED
+  PUBLISHED
+  REJECTED
+  EXPIRED
+}
+
+enum RegistrationStatus {
+  PENDING
+  DEPOSIT_PAID
+  CONFIRMED
+  REJECTED
+  WITHDRAWN
+}
+
+enum DepositStatus {
+  UNPAID
+  PAID
+  REFUNDED
+  FORFEITED
+}
+
+enum TransactionStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+}
+
+model User {
+  id            String          @id @default(cuid())
+  username      String          @unique
+  passwordHash  String
+  name          String
+  email         String          @unique
+  phone         String?
+  role          UserRole
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  
+  announcements Announcement[]  @relation("Creator")
+  reviews       AnnouncementApproval[] @relation("Reviewer")
+  registrations BidRegistration[]
+  deposits      DepositRecord[] @relation("Payer")
+  attachments   Attachment[]    @relation("Uploader")
+  notifications Notification[]
+}
+
+model AuctionItem {
+  id              String              @id @default(cuid())
+  name            String
+  description     String
+  basePrice       Decimal
+  reservePrice    Decimal?
+  itemType        String
+  location        String
+  status          String              @default("ACTIVE")
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+  
+  announcements   Announcement[]
+  attachments     Attachment[]        @relation("AuctionItemAttachment")
+}
+
+model Announcement {
+  id              String                  @id @default(cuid())
+  title           String
+  content         String
+  itemId          String
+  startTime       DateTime
+  endTime         DateTime
+  status          AnnouncementStatus      @default(DRAFT)
+  creatorId       String
+  publishedAt     DateTime?
+  createdAt       DateTime                @default(now())
+  updatedAt       DateTime                @updatedAt
+  
+  item            AuctionItem             @relation(fields: [itemId], references: [id])
+  creator         User                    @relation("Creator", fields: [creatorId], references: [id])
+  approvals       AnnouncementApproval[]
+  registrations   BidRegistration[]
+  attachments     Attachment[]            @relation("AnnouncementAttachment")
+}
+
+model AnnouncementApproval {
+  id              String                  @id @default(cuid())
+  announcementId  String
+  reviewerId      String
+  status          AnnouncementStatus
+  comment         String?
+  createdAt       DateTime                @default(now())
+  
+  announcement    Announcement            @relation(fields: [announcementId], references: [id])
+  reviewer        User                    @relation("Reviewer", fields: [reviewerId], references: [id])
+}
+
+model BidRegistration {
+  id                  String                  @id @default(cuid())
+  announcementId      String
+  bidderId            String
+  status              RegistrationStatus       @default(PENDING)
+  bidAmount           Decimal
+  registrationTime    DateTime                @default(now())
+  confirmedAt         DateTime?
+  rejectedAt          DateTime?
+  rejectionReason     String?
+  
+  announcement        Announcement            @relation(fields: [announcementId], references: [id])
+  bidder              User                    @relation(fields: [bidderId], references: [id])
+  deposit             DepositRecord?          @relation("RegistrationDeposit")
+  transaction         TransactionConfirmation? @relation("RegistrationTransaction")
+}
+
+model DepositRecord {
+  id                  String                  @id @default(cuid())
+  registrationId      String                  @unique
+  amount              Decimal
+  status              DepositStatus           @default(UNPAID)
+  paymentTime         DateTime?
+  refundTime          DateTime?
+  paymentMethod       String?
+  transactionNumber   String?
+  
+  registration        BidRegistration         @relation("RegistrationDeposit", fields: [registrationId], references: [id])
+  payer               User?                   @relation("Payer", fields: [payerId], references: [id])
+  payerId             String?
+}
+
+model TransactionConfirmation {
+  id                  String                  @id @default(cuid())
+  registrationId      String                  @unique
+  status              TransactionStatus       @default(PENDING)
+  finalPrice          Decimal
+  confirmedAt         DateTime?
+  cancelledAt         DateTime?
+  contractNumber      String?
+  
+  registration        BidRegistration         @relation("RegistrationTransaction", fields: [registrationId], references: [id])
+}
+
+model Attachment {
+  id                  String                  @id @default(cuid())
+  fileName            String
+  filePath            String
+  fileType            String
+  fileSize            Int
+  announcementId      String?
+  itemId              String?
+  uploadedBy          String
+  uploadedAt          DateTime                @default(now())
+  
+  announcement        Announcement?           @relation("AnnouncementAttachment", fields: [announcementId], references: [id])
+  item                AuctionItem?            @relation("AuctionItemAttachment", fields: [itemId], references: [id])
+  uploader            User                    @relation("Uploader", fields: [uploadedBy], references: [id])
+}
+
+model Notification {
+  id                  String                  @id @default(cuid())
+  userId              String
+  title               String
+  content             String
+  type                String
+  isRead              Boolean                 @default(false)
+  createdAt           DateTime                @default(now())
+  
+  user                User                    @relation(fields: [userId], references: [id])
+}

@@ -1,0 +1,188 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  PROJECT_MANAGER
+  REVIEWER
+  FINANCIAL
+  ADMIN
+}
+
+enum AnnouncementStatus {
+  DRAFT
+  PENDING_REVIEW
+  APPROVED
+  PUBLISHED
+  WITHDRAWN
+  EXPIRED
+}
+
+enum BidStatus {
+  PENDING_VERIFICATION
+  VERIFIED
+  DEPOSIT_PAID
+  BIDDING
+  WON
+  LOST
+  CANCELLED
+}
+
+enum DepositStatus {
+  UNPAID
+  PENDING_CONFIRMATION
+  CONFIRMED
+  REFUNDED
+  FORFEITED
+}
+
+enum ContractStatus {
+  PENDING
+  SIGNED
+  COMPLETED
+  CANCELLED
+}
+
+model User {
+  id            String     @id @default(cuid())
+  username      String     @unique
+  password      String
+  realName      String
+  role          UserRole
+  phone         String?
+  email         String?
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  announcements Announcement[] @relation("CreatedBy")
+  reviewedAnnouncements Announcement[] @relation("ReviewedBy")
+  bids          Bid[]
+  deposits      Deposit[]
+  contracts     Contract[]
+
+  @@map("users")
+}
+
+model Announcement {
+  id              String               @id @default(cuid())
+  title           String
+  content         String
+  assetName       String
+  assetLocation   String
+  basePrice       Decimal
+  auctionDate     DateTime
+  endDate         DateTime
+  depositAmount   Decimal
+  status          AnnouncementStatus   @default(DRAFT)
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+  publishedAt     DateTime?
+  withdrawnAt     DateTime?
+
+  createdById     String
+  reviewedById    String?
+  createdBy       User                 @relation("CreatedBy", fields: [createdById], references: [id], onDelete: Cascade)
+  reviewedBy      User?                @relation("ReviewedBy", fields: [reviewedById], references: [id])
+
+  bids            Bid[]
+  attachments     Attachment[]
+
+  @@map("announcements")
+}
+
+model Attachment {
+  id              String     @id @default(cuid())
+  fileName        String
+  filePath        String
+  fileType        String
+  fileSize        Int
+  announcementId  String
+  announcement    Announcement @relation(fields: [announcementId], references: [id], onDelete: Cascade)
+  uploadedAt      DateTime   @default(now())
+
+  @@map("attachments")
+}
+
+model Bid {
+  id                 String           @id @default(cuid())
+  announcementId     String
+  userId             String
+  bidderName         String
+  bidderIdCard       String
+  bidderPhone        String
+  bidderAddress      String
+  status             BidStatus        @default(PENDING_VERIFICATION)
+  verifiedAt         DateTime?
+  qualifiedAt        DateTime?
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+
+  announcement       Announcement     @relation(fields: [announcementId], references: [id], onDelete: Cascade)
+  user               User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  deposit            Deposit?
+  contract           Contract?
+
+  @@map("bids")
+}
+
+model Deposit {
+  id                 String           @id @default(cuid())
+  bidId              String
+  userId             String
+  amount             Decimal
+  status             DepositStatus    @default(UNPAID)
+  paymentMethod      String?
+  transactionNo      String?
+  paidAt             DateTime?
+  confirmedAt        DateTime?
+  refundedAt         DateTime?
+  refundAmount       Decimal?
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+
+  bid                Bid              @relation(fields: [bidId], references: [id], onDelete: Cascade)
+  user               User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("deposits")
+}
+
+model Contract {
+  id                 String           @id @default(cuid())
+  bidId              String
+  userId             String
+  announcementId     String
+  contractNo         String           @unique
+  status             ContractStatus   @default(PENDING)
+  signedAt           DateTime?
+  completedAt        DateTime?
+  amount             Decimal
+  notes              String?
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+
+  bid                Bid              @relation(fields: [bidId], references: [id], onDelete: Cascade)
+  user               User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  announcement       Announcement     @relation(fields: [announcementId], references: [id], onDelete: Cascade)
+
+  @@map("contracts")
+}
+
+model OperationLog {
+  id                 String           @id @default(cuid())
+  operatorId         String
+  operatorName       String
+  operationType      String
+  targetType         String
+  targetId           String
+  description        String
+  beforeData         Json?
+  afterData          Json?
+  createdAt          DateTime         @default(now())
+
+  @@map("operation_logs")
+}
