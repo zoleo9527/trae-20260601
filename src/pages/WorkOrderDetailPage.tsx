@@ -122,14 +122,27 @@ export const WorkOrderDetailPage: React.FC = () => {
       );
     }
     
-    if (role === '客户财务' && status === '审批通过') {
+    if (role === '客户财务' && (status === '审批通过' || status === '已签收' || status === '处理完成')) {
       return (
         <button
           onClick={handleProcess}
-          className="flex items-center gap-2 px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+          className={`flex items-center gap-2 px-6 py-3 rounded-lg transition-colors ${
+            status === '审批通过' 
+              ? 'bg-green-600 text-white hover:bg-green-700' 
+              : 'bg-purple-600 text-white hover:bg-purple-700'
+          }`}
         >
-          <FileSignature className="w-5 h-5" />
-          确认签收
+          {status === '审批通过' ? (
+            <>
+              <FileSignature className="w-5 h-5" />
+              确认签收
+            </>
+          ) : (
+            <>
+              <FileText className="w-5 h-5" />
+              查看方案
+            </>
+          )}
         </button>
       );
     }

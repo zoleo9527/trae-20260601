@@ -63,24 +63,33 @@ export const SignReceiptPage: React.FC = () => {
     );
   }
 
-  if (workOrder.status === '已签收') {
+  if (workOrder.status === '已签收' || workOrder.status === '处理完成') {
     return (
       <div className="space-y-6">
-        <div className="bg-gradient-to-r from-green-500 to-emerald-600 rounded-xl p-8 text-white">
+        <div className={`rounded-xl p-8 text-white ${
+          workOrder.status === '处理完成' 
+            ? 'bg-gradient-to-r from-purple-500 to-indigo-600' 
+            : 'bg-gradient-to-r from-green-500 to-emerald-600'
+        }`}>
           <div className="flex items-center gap-3 mb-4">
             <CheckCircle className="w-8 h-8" />
-            <h2 className="text-2xl font-bold">已签收</h2>
+            <h2 className="text-2xl font-bold">
+              {workOrder.status === '处理完成' ? '处理完成' : '已签收'}
+            </h2>
           </div>
           <p className="text-green-100">
-            该方案已于 {formatDate(workOrder.signReceipt?.receivedAt || '')} 完成签收确认
+            {workOrder.status === '处理完成' 
+              ? '该工单已处理完成，所有流程已闭环'
+              : `该方案已于 ${formatDate(workOrder.signReceipt?.receivedAt || '')} 完成签收确认`
+            }
           </p>
         </div>
 
-        <WorkOrderView workOrder={workOrder} navigate={navigate} />
+        <WorkOrderView workOrder={workOrder} />
       </div>
     );
   }
-
+  
   const nextWorkOrder = getNextWorkOrder(workOrder.id);
   const prevWorkOrder = getPrevWorkOrder(workOrder.id);
 
@@ -174,8 +183,8 @@ export const SignReceiptPage: React.FC = () => {
         </div>
       </div>
 
-      <WorkOrderView workOrder={workOrder} navigate={navigate} />
-
+      <WorkOrderView workOrder={workOrder} />
+      
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
         <h2 className="text-lg font-semibold text-gray-900 mb-4">签收确认</h2>
 
@@ -231,7 +240,7 @@ export const SignReceiptPage: React.FC = () => {
   );
 };
 
-const WorkOrderView: React.FC<{ workOrder: WorkOrder; navigate: (path: string) => void }> = ({ workOrder }) => {
+const WorkOrderView: React.FC<{ workOrder: WorkOrder }> = ({ workOrder }) => {
   return (
     <>
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">

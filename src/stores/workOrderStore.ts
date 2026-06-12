@@ -8,12 +8,15 @@ interface WorkOrderState {
   currentWorkOrder: WorkOrder | null;
   filters: FilterParams;
   loading: boolean;
+  draftPolicyJudgments: Record<string, Partial<PolicyJudgment>>;
   
   fetchWorkOrders: () => void;
   getWorkOrderById: (id: string) => WorkOrder | null;
   setCurrentWorkOrder: (workOrder: WorkOrder | null) => void;
   startPolicyJudge: (id: string, userName: string) => void;
   submitPolicyJudgment: (id: string, judgment: PolicyJudgment) => void;
+  saveDraft: (id: string, draft: Partial<PolicyJudgment>) => void;
+  getDraft: (id: string) => Partial<PolicyJudgment> | null;
   submitApproval: (id: string, approval: Approval) => void;
   submitSignReceipt: (id: string, receipt: SignReceipt) => void;
   completeProcess: (id: string) => void;
@@ -30,6 +33,7 @@ export const useWorkOrderStore = create<WorkOrderState>()(
       currentWorkOrder: null,
       filters: {},
       loading: false,
+      draftPolicyJudgments: {},
       
       fetchWorkOrders: () => {
         set({ loading: true });
@@ -97,6 +101,19 @@ export const useWorkOrderStore = create<WorkOrderState>()(
             return wo;
           })
         }));
+      },
+      
+      saveDraft: (id: string, draft: Partial<PolicyJudgment>) => {
+        set(state => ({
+          draftPolicyJudgments: {
+            ...state.draftPolicyJudgments,
+            [id]: draft
+          }
+        }));
+      },
+      
+      getDraft: (id: string) => {
+        return get().draftPolicyJudgments[id] || null;
       },
       
       submitApproval: (id: string, approval: Approval) => {

@@ -21,7 +21,7 @@ export const PolicyJudge: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const user = useAuthStore(state => state.user);
-  const { getWorkOrderById, submitPolicyJudgment, startPolicyJudge, getNextWorkOrder, getPrevWorkOrder, workOrders } = useWorkOrderStore();
+  const { getWorkOrderById, submitPolicyJudgment, saveDraft, getDraft, startPolicyJudge, getNextWorkOrder, getPrevWorkOrder, workOrders } = useWorkOrderStore();
   
   const workOrder = id ? getWorkOrderById(id) : null;
   
@@ -60,6 +60,15 @@ export const PolicyJudge: React.FC = () => {
     }
   }, [workOrder, user, startPolicyJudge]);
   
+  useEffect(() => {
+    if (workOrder && !workOrder.policyJudgment) {
+      const draft = getDraft(workOrder.id);
+      if (draft) {
+        setFormData(prev => ({ ...prev, ...draft }));
+      }
+    }
+  }, [workOrder, getDraft]);
+  
   if (!workOrder) {
     return (
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-12 text-center">
@@ -78,21 +87,22 @@ export const PolicyJudge: React.FC = () => {
       return;
     }
     
-    submitPolicyJudgment(workOrder.id, {
-      ...formData,
-      judgedBy: user?.name || '',
-      judgedAt: new Date().toISOString()
-    });
-    
-    if (!isDraft) {
+    if (isDraft) {
+      saveDraft(workOrder.id, formData);
+      alert('草稿保存成功！');
+    } else {
+      submitPolicyJudgment(workOrder.id, {
+        ...formData,
+        judgedBy: user?.name || '',
+        judgedAt: new Date().toISOString()
+      });
+      
       alert('政策判断提交成功！');
       if (nextWorkOrder) {
         navigate(`/policy-judge/${nextWorkOrder.id}`);
       } else {
         navigate('/dashboard');
       }
-    } else {
-      alert('草稿保存成功！');
     }
   };
   
