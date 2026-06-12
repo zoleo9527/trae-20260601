@@ -171,15 +171,15 @@
           <div class="data-locations">
             <div class="data-location-item">
               <span class="data-label">后端角色 Guard</span>
-              <code class="data-path">common/guards/roles.guard.ts</code>
+              <code class="repo-path">backend/src/common/guards/roles.guard.ts</code>
             </div>
             <div class="data-location-item">
               <span class="data-label">角色装饰器</span>
-              <code class="data-path">common/decorators/roles.decorator.ts</code>
+              <code class="repo-path">backend/src/common/decorators/roles.decorator.ts</code>
             </div>
             <div class="data-location-item">
               <span class="data-label">前端路由鉴权</span>
-              <code class="data-path">frontend/src/router/index.js#L77-L88</code>
+              <code class="repo-path">frontend/src/router/index.js#L77-L88</code>
             </div>
           </div>
         </div>
