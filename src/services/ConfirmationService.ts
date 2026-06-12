@@ -48,7 +48,7 @@ export class ConfirmationService {
       status: m.status
     }));
     record.confirmationInfo.deadline = data.deadline || new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
-    record.confirmationInfo.confirmationStatus = 'pending';
+    record.confirmationInfo.confirmationStatus = 'in_progress';
 
     record.currentStage = WorkflowStage.CONFIRMATION_IN_PROGRESS;
     record.status = RecordStatus.PENDING_CONFIRMATION;
