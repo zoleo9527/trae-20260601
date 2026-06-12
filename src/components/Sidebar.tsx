@@ -218,6 +218,24 @@ export const Sidebar = () => {
               重新提交
             </button>
           )}
+          {selectedOrder.status === 'overdue' && (
+            <>
+              <button
+                onClick={handleProcess}
+                className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors"
+              >
+                <CheckCircle size={16} />
+                继续处理
+              </button>
+              <button
+                onClick={handleProcess}
+                className="flex items-center justify-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+              >
+                <Send size={16} />
+                重新派单
+              </button>
+            </>
+          )}
         </div>
       </div>
 

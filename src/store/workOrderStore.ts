@@ -74,35 +74,50 @@ export const useWorkOrderStore = create<WorkOrderStore>((set, get) => ({
 
   addSatisfaction: (id, score, comment, operator) => {
     const now = new Date().toISOString();
-    set((state) => ({
-      orders: state.orders.map((order) =>
-        order.id === id
-          ? {
-              ...order,
-              satisfaction: {
-                score,
-                comment,
-                createdAt: now,
-                operator,
-              },
-              updatedAt: now,
-            }
-          : order
-      ),
-      selectedOrder:
-        state.selectedOrder?.id === id
-          ? {
-              ...state.selectedOrder,
-              satisfaction: {
-                score,
-                comment,
-                createdAt: now,
-                operator,
-              },
-              updatedAt: now,
-            }
-          : state.selectedOrder,
-    }));
+    const conclusion = score >= 4 ? '满意' : score >= 2 ? '一般' : '不满意';
+    const action = `满意度回访：${conclusion}(${score}分)${comment ? ` - ${comment}` : ''}`;
+    
+    set((state) => {
+      const newOperation: Operation = {
+        id: `H${Date.now()}`,
+        operator,
+        operatorRole: 'dorm_manager',
+        action,
+        timestamp: now,
+      };
+      
+      return {
+        orders: state.orders.map((order) =>
+          order.id === id
+            ? {
+                ...order,
+                satisfaction: {
+                  score,
+                  comment,
+                  createdAt: now,
+                  operator,
+                },
+                history: [...order.history, newOperation],
+                updatedAt: now,
+              }
+            : order
+        ),
+        selectedOrder:
+          state.selectedOrder?.id === id
+            ? {
+                ...state.selectedOrder,
+                satisfaction: {
+                  score,
+                  comment,
+                  createdAt: now,
+                  operator,
+                },
+                history: [...state.selectedOrder.history, newOperation],
+                updatedAt: now,
+              }
+            : state.selectedOrder,
+      };
+    });
   },
 
   filteredOrders: () => {
@@ -133,6 +148,9 @@ export const useWorkOrderStore = create<WorkOrderStore>((set, get) => ({
     }
 
     return result.sort((a, b) => {
+      const isTodayA = a.createdAt.startsWith(today);
+      const isTodayB = b.createdAt.startsWith(today);
+      
       const statusOrder: Record<Status, number> = {
         overdue: 0,
         rejected: 1,
@@ -140,9 +158,18 @@ export const useWorkOrderStore = create<WorkOrderStore>((set, get) => ({
         processing: 3,
         completed: 4,
       };
-      if (statusOrder[a.status] !== statusOrder[b.status]) {
-        return statusOrder[a.status] - statusOrder[b.status];
+
+      const aPriority = statusOrder[a.status];
+      const bPriority = statusOrder[b.status];
+
+      if (aPriority !== bPriority) {
+        return aPriority - bPriority;
       }
+
+      if (isTodayA !== isTodayB) {
+        return isTodayA ? -1 : 1;
+      }
+
       return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
     });
   },
