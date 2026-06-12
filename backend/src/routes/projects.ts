@@ -231,7 +231,17 @@ router.get('/:id/timeline', authMiddleware, async (req: AuthRequest, res) => {
       signinLogs.push(...logs);
     }
 
-    const allLogs = [...projectLogs, ...arrangementLogs, ...signinLogs];
+    const exceptionRecords = await db.all(
+      'SELECT id FROM exception_records WHERE project_id = ?',
+      [projectId]
+    );
+    const exceptionLogs: OperationLog[] = [];
+    for (const ex of exceptionRecords) {
+      const logs = await getOperationLogs('exception', ex.id);
+      exceptionLogs.push(...logs);
+    }
+
+    const allLogs = [...projectLogs, ...arrangementLogs, ...signinLogs, ...exceptionLogs];
 
     const exceptions = await getProjectExceptions(projectId);
 
@@ -432,6 +442,50 @@ router.post('/:id/transition', authMiddleware, async (req: AuthRequest, res) => 
         nextHandler: nextHandlerName ? `${roleNames[nextHandlerRole!]} - ${nextHandlerName}` : null,
       }
     );
+
+    if (toStatus === 'bidding_pending') {
+      const arrangement = await db.get(
+        'SELECT * FROM project_arrangements WHERE project_id = ? ORDER BY created_at DESC LIMIT 1',
+        [req.params.id]
+      );
+      if (arrangement) {
+        const arrObj = convertFields.arrangement(arrangement);
+        const financeUpdates: string[] = [];
+        const financeParams: any[] = [];
+
+        if (!arrObj.financeConfirmed) {
+          financeUpdates.push('finance_confirmed = 1');
+        }
+        if (!arrObj.depositReceived) {
+          financeUpdates.push('deposit_received = 1');
+        }
+        if (!arrObj.feeCalculated) {
+          financeUpdates.push('fee_calculated = 1');
+        }
+        financeUpdates.push('updated_at = ?');
+        financeParams.push(now);
+        financeParams.push(arrangement.id);
+
+        if (financeUpdates.length > 1) {
+          await db.run(
+            `UPDATE project_arrangements SET ${financeUpdates.join(', ')} WHERE id = ?`,
+            financeParams
+          );
+
+          await logOperation(
+            'arrangement',
+            arrangement.id,
+            '财务确认完成',
+            '财务确认费用、押金到账、费用计算已完成',
+            user.id,
+            user.name,
+            user.role,
+            arrangement.status,
+            arrangement.status
+          );
+        }
+      }
+    }
 
     if (toStatus === 'expert_signin_pending') {
       const arrangement = await db.get(

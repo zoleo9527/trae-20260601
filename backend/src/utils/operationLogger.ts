@@ -78,7 +78,7 @@ export const generateTimeline = (
 
   logs.forEach((log) => {
     const type: TimelineEvent['type'] = log.oldStatus && log.newStatus ? 'status_change' : 'action';
-    const entityLabel = log.entityType === 'arrangement' ? '【安排】' : log.entityType === 'signin' ? '【签到】' : '';
+    const entityLabel = log.entityType === 'arrangement' ? '【安排】' : log.entityType === 'signin' ? '【签到】' : log.entityType === 'exception' ? '【异常】' : '';
     events.push({
       id: log.id,
       time: log.timestamp,
@@ -94,6 +94,11 @@ export const generateTimeline = (
   });
 
   exceptions.forEach((ex) => {
+    const alreadyHasTrigger = logs.some(
+      (log) => log.entityType === 'exception' && log.entityId === ex.id
+    );
+    if (alreadyHasTrigger) return;
+
     events.push({
       id: ex.id,
       time: ex.triggeredAt || ex.triggered_at || ex.createdAt,

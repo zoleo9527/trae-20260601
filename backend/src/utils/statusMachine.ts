@@ -264,6 +264,9 @@ export const analyzeBlock = (
         blockHandlerId = project.projectSpecialistId;
         blockHandlerName = project.projectSpecialistName;
         pendingActions.push('提交开评标安排审核');
+        if (!arrangement.documentPreparation) pendingActions.push('完成招标文件准备');
+        if (!arrangement.venueReservation) pendingActions.push('完成场地预约');
+        if (!arrangement.materialPrinting) pendingActions.push('完成资料打印');
       }
       break;
 
@@ -285,13 +288,26 @@ export const analyzeBlock = (
       break;
 
     case 'arrangement_approved':
-      if (arrangement && !arrangement.financeConfirmed) {
-        blockReason = '等待财务确认费用和押金';
-        blockHandlerRole = 'finance';
-        blockHandlerId = project.financeId;
-        blockHandlerName = project.financeName;
-        pendingActions.push('财务确认费用');
-        pendingActions.push('确认押金到账');
+      blockHandlerRole = 'finance';
+      blockHandlerId = project.financeId;
+      blockHandlerName = project.financeName;
+      if (arrangement) {
+        if (!arrangement.feeCalculated) {
+          blockReason = '等待财务计算费用';
+          pendingActions.push('计算招标代理费用');
+        }
+        if (!arrangement.depositReceived) {
+          if (!blockReason) blockReason = '等待确认押金到账';
+          pendingActions.push('确认押金到账');
+        }
+        if (!arrangement.financeConfirmed) {
+          if (!blockReason) blockReason = '等待财务确认';
+          pendingActions.push('财务确认费用');
+        }
+        if (pendingActions.length === 0) {
+          blockReason = '等待财务确认后推进到待开标';
+          pendingActions.push('完成全部财务确认并推进');
+        }
       }
       break;
 
@@ -301,6 +317,36 @@ export const analyzeBlock = (
       blockHandlerId = project.projectSpecialistId;
       blockHandlerName = project.projectSpecialistName;
       pendingActions.push('确认开标准备工作完成');
+      if (arrangement) {
+        if (!arrangement.documentPreparation) pendingActions.push('完成招标文件准备');
+        if (!arrangement.venueReservation) pendingActions.push('完成场地预约');
+        if (!arrangement.equipmentCheck) pendingActions.push('完成设备检查');
+        if (!arrangement.materialPrinting) pendingActions.push('完成资料打印');
+      }
+      break;
+
+    case 'bidding_in_progress':
+      blockReason = '开标进行中';
+      blockHandlerRole = 'review_secretary';
+      blockHandlerId = project.reviewSecretaryId;
+      blockHandlerName = project.reviewSecretaryName;
+      pendingActions.push('完成开标流程');
+      break;
+
+    case 'bidding_completed':
+      blockReason = '开标已完成，等待准备专家签到';
+      blockHandlerRole = 'review_secretary';
+      blockHandlerId = project.reviewSecretaryId;
+      blockHandlerName = project.reviewSecretaryName;
+      pendingActions.push('推进到专家签到阶段');
+      break;
+
+    case 'expert_signin_pending':
+      blockReason = '专家签到准备就绪，等待开始签到';
+      blockHandlerRole = 'review_secretary';
+      blockHandlerId = project.reviewSecretaryId;
+      blockHandlerName = project.reviewSecretaryName;
+      pendingActions.push('开始专家签到');
       break;
 
     case 'expert_signin_in_progress':
@@ -311,32 +357,32 @@ export const analyzeBlock = (
       pendingActions.push('完成专家签到');
       break;
 
+    case 'expert_signin_completed':
+      blockReason = '签到已完成，等待开始评标';
+      blockHandlerRole = 'review_secretary';
+      blockHandlerId = project.reviewSecretaryId;
+      blockHandlerName = project.reviewSecretaryName;
+      pendingActions.push('开始评标');
+      break;
+
+    case 'evaluation_in_progress':
+      blockReason = '评标进行中';
+      blockHandlerRole = 'review_secretary';
+      blockHandlerId = project.reviewSecretaryId;
+      blockHandlerName = project.reviewSecretaryName;
+      pendingActions.push('完成评标');
+      break;
+
+    case 'evaluation_completed':
+      blockReason = '评标已完成，等待归档';
+      blockHandlerRole = 'project_specialist';
+      blockHandlerId = project.projectSpecialistId;
+      blockHandlerName = project.projectSpecialistName;
+      pendingActions.push('归档项目');
+      break;
+
     default:
       break;
-  }
-
-  if (arrangement) {
-    if (!arrangement.documentPreparation) {
-      pendingActions.push('完成招标文件准备');
-    }
-    if (!arrangement.venueReservation) {
-      pendingActions.push('完成场地预约');
-    }
-    if (!arrangement.equipmentCheck) {
-      pendingActions.push('完成设备检查');
-    }
-    if (!arrangement.materialPrinting) {
-      pendingActions.push('完成资料打印');
-    }
-    if (!arrangement.financeConfirmed) {
-      pendingActions.push('完成财务确认');
-    }
-    if (!arrangement.depositReceived) {
-      pendingActions.push('确认押金到账');
-    }
-    if (!arrangement.feeCalculated) {
-      pendingActions.push('完成费用计算');
-    }
   }
 
   const nextHandlerRole = getRequiredHandlerRole(project.status);
@@ -456,23 +502,28 @@ export const getResponsibilityMatrix = (
   let financePending = 0;
 
   if (arrangement) {
-    if (!arrangement.documentPreparation) specialistPending++;
-    if (!arrangement.venueReservation) specialistPending++;
-    if (!arrangement.materialPrinting) specialistPending++;
+    if (project.status === 'arrangement_pending' || project.status === 'arrangement_reviewing') {
+      if (!arrangement.documentPreparation) specialistPending++;
+      if (!arrangement.venueReservation) specialistPending++;
+      if (!arrangement.materialPrinting) specialistPending++;
+    }
     if (arrangement.status === 'pending') specialistPending++;
     if (arrangement.status === 'rejected') specialistPending++;
 
     if (arrangement.status === 'reviewing') secretaryPending++;
-    if (!arrangement.equipmentCheck) secretaryPending++;
+    if (project.status === 'bidding_pending' || project.status === 'bidding_in_progress') {
+      if (!arrangement.equipmentCheck) secretaryPending++;
+    }
 
-    if (!arrangement.financeConfirmed) financePending++;
-    if (!arrangement.depositReceived) financePending++;
-    if (!arrangement.feeCalculated) financePending++;
+    if (project.status === 'arrangement_approved') {
+      if (!arrangement.financeConfirmed) financePending++;
+      if (!arrangement.depositReceived) financePending++;
+      if (!arrangement.feeCalculated) financePending++;
+    }
   }
 
   if (project.status === 'arrangement_reviewing') secretaryPending++;
   if (project.status === 'arrangement_rejected') specialistPending++;
-  if (project.status === 'arrangement_approved') financePending++;
   if (project.status === 'expert_signin_in_progress') secretaryPending++;
 
   const signinAnalysis = analyzeSignin(signinRecords);
